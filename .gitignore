@@ -1,0 +1,9 @@
+.DS_Store
+*.log
+
+# Compiled CLI binaries produced by `deno task build` / `deno compile`.
+/dist/
+
+# Coverage and scratch output.
+/coverage/
+/.scratch/

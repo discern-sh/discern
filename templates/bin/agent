@@ -1,0 +1,98 @@
+#!/usr/bin/env sh
+#
+# agent — the task-runner surface for an icculus-equipped project.
+#
+# This is the command a coding agent (or a person) drives day to day. It finds
+# the project root (the nearest ancestor with an icculus.toml), resolves the
+# named recipe under .icculus/engine/, and runs it with the harness paths
+# exported. It is intentionally tiny and dependency-free: the recipes hold the
+# logic, this just routes to them.
+#
+#   agent finish            run the full quality gate
+#   agent tidy              apply fixers, then run the read-only checks
+#   agent test              run the test slot
+#   agent guidelines        compile .ai/guidelines/* into the agent files
+#   agent worktree          set up the current worktree (run by the create hook)
+#   agent worktree:exit     graduate this worktree's branch into the main repo
+#   agent doctor            check the install is healthy
+#   agent --help            list every available recipe
+#
+# Recipe names map to files by replacing ':' with '-', so `worktree:exit`
+# dispatches to .icculus/engine/worktree-exit.
+
+set -eu
+
+# --- locate the project root ---------------------------------------------
+
+find_root() {
+    _dir=$(pwd)
+    while [ "$_dir" != "/" ]; do
+        if [ -f "$_dir/icculus.toml" ]; then
+            printf '%s' "$_dir"
+            return 0
+        fi
+        _dir=$(dirname "$_dir")
+    done
+    return 1
+}
+
+if ! ICCULUS_ROOT=$(find_root); then
+    printf 'agent: not inside an icculus project (no icculus.toml in this directory or any parent).\n' >&2
+    printf '       Run `icculus init` to scaffold one.\n' >&2
+    exit 1
+fi
+
+ICCULUS_TOML="$ICCULUS_ROOT/icculus.toml"
+ICCULUS_ENGINE="$ICCULUS_ROOT/.icculus/engine"
+ICCULUS_LIB="$ICCULUS_ENGINE/lib"
+export ICCULUS_ROOT ICCULUS_TOML ICCULUS_ENGINE ICCULUS_LIB
+
+# --- help -----------------------------------------------------------------
+
+print_help() {
+    printf 'agent — task runner for this project (icculus harness)\n\n'
+    printf 'Usage: agent <recipe> [args...]\n\n'
+    printf 'Available recipes:\n'
+    for _f in "$ICCULUS_ENGINE"/*; do
+        [ -f "$_f" ] || continue
+        [ -x "$_f" ] || continue
+        _name=$(basename "$_f")
+        # Recipe files advertise a one-line summary via `# desc: ...`.
+        _desc=$(sed -n 's/^# desc: //p' "$_f" | head -n 1)
+        # Present the name with ':' restored for multi-word recipes.
+        _display=$(printf '%s' "$_name" | sed 's/^worktree-/worktree:/; s/^finish-/finish:/')
+        printf '  %s%-20s%s %s\n' "${C_BOLD:-}" "$_display" "${C_RESET:-}" "$_desc"
+    done
+    printf '\nConfig: %s\n' "$ICCULUS_TOML"
+}
+
+cmd=${1:-help}
+case "$cmd" in
+    help|-h|--help|"")
+        # Load colours for a prettier listing; harmless if it fails.
+        [ -f "$ICCULUS_LIB/output.sh" ] && . "$ICCULUS_LIB/output.sh"
+        print_help
+        exit 0
+        ;;
+esac
+
+# --- dispatch -------------------------------------------------------------
+
+recipe=$(printf '%s' "$cmd" | tr ':' '-')
+target="$ICCULUS_ENGINE/$recipe"
+
+if [ -x "$target" ]; then
+    shift
+    exec "$target" "$@"
+fi
+
+if [ -e "$target" ]; then
+    printf 'agent: recipe "%s" exists but is not executable: %s\n' "$cmd" "$target" >&2
+    printf '       Run: chmod +x "%s"\n' "$target" >&2
+    exit 1
+fi
+
+printf 'agent: unknown recipe "%s".\n\n' "$cmd" >&2
+[ -f "$ICCULUS_LIB/output.sh" ] && . "$ICCULUS_LIB/output.sh"
+print_help >&2
+exit 1
