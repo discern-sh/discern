@@ -1,0 +1,17 @@
+{
+  "$schema": "../../../../schema/icculus-config.schema.json",
+  "version": "1",
+  "description": "A FAKE example adapter (a toy 'stack') — exists only to exercise the adapter contract end-to-end in tests. Not a real ecosystem; not shipped.",
+  "slots": {
+    "exampletest": { "phase": "test", "run": "echo running example tests" }
+  },
+  "scopes": {
+    "example": ["example/**"]
+  },
+  "side_gates": {
+    "example": "echo example side gate"
+  },
+  "ratchets": {
+    "examplesize": { "direction": "down", "limit": 1000, "slot": "exampletest" }
+  }
+}

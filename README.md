@@ -84,6 +84,7 @@ icculus.toml               # the one file you edit: slots, scopes, worktree adap
 bin/agent                  # the task runner your agent drives (finish, worktree, guidelines, …)
 .icculus/
   engine/                  # the generic shell engine (managed — refreshed by `icculus upgrade`)
+  recipes/                 # YOUR own agent commands (unmanaged — never upgraded)
   brief.md                 # what you told init you're building
   manifest.json            # kit version + managed-file hashes
 .ai/
@@ -108,16 +109,20 @@ grow into**.
 Each slot is one shell command (chain tools with `&&`). Its `phase` decides when
 and how `agent finish` runs it:
 
-| phase      | when                                                      | examples             |
-| ---------- | --------------------------------------------------------- | -------------------- |
-| `fix`      | first, parallel with `build`; **mutating**                | formatter, codemod   |
-| `build`    | parallel with `fix`; produces artifacts later phases read | compile, bundle      |
-| `check`    | after fix+build, parallel with `test`; **read-only**      | linter, type-checker |
-| `test`     | parallel with `check`                                     | the test suite       |
-| `coverage` | on demand via `agent finish:coverage` (slow)              | coverage measurement |
+| phase   | when                                                      | examples             |
+| ------- | --------------------------------------------------------- | -------------------- |
+| `fix`   | first, parallel with `build`; **mutating**                | formatter, codemod   |
+| `build` | parallel with `fix`; produces artifacts later phases read | compile, bundle      |
+| `check` | after fix+build, parallel with `test`; **read-only**      | linter, type-checker |
+| `test`  | parallel with `check`                                     | the test suite       |
 
-`agent finish` runs `fix∥build → check∥test → side-gates → merge-check`.
-`agent tidy` is the fast inner loop: `fix` then `check`, no build or tests.
+A slot with **no `phase`** is a _measurement slot_: the gate never runs it; a
+ratchet references it to read a metric on demand (see _Ratchets_ below).
+
+`agent finish` runs `fix → build → check∥test → side-gates → merge-check`, with
+**each slot as its own tracked step** (the mutating `fix` slots serially, the
+rest concurrently within their stage). `agent tidy` is the fast inner loop:
+`fix` then `check`, no build or tests.
 
 **Worked example — how `icculus` wires _itself_ (a Deno project):**
 
@@ -160,6 +165,13 @@ previewable = ["public/**"]                   # a person could see it
 # native = "make -C native check"   # run this when a `native` scope changes
 ```
 
+A **side gate** is how a sub-component with its own self-contained gate plugs
+into `agent finish` (the monorepo / sub-project story). The fired gates — those
+whose scope the branch changed — run with the **same model as the slot stages**:
+concurrently, output grouped and labelled `side:<scope>`, and a single failure
+fails the gate. They honour `[gate].fail_fast` (on by default) like the slot
+stages; set it `false` to run every fired gate and see all failures at once.
+
 ### Worktree adapters — the two seams
 
 Worktree git mechanics are generic; the **database** and **dev-server** steps
@@ -172,31 +184,126 @@ inherit_env = ["APP_KEY"]   # secrets copied from main's .env into a new worktre
 port        = true          # deterministic per-worktree dev port
 
 [worktree.db]
-clone = "createdb -T {{project_slug}}_template {{db}}"
-drop  = "dropdb --if-exists {{db}}"
+clone = "createdb -T @project_slug@_template @db@"
+drop  = "dropdb --if-exists @db@"
 
 [worktree.dev_server]
-link   = "your-tool link {{site}} {{dir}}"
-unlink = "your-tool unlink {{site}}"
+link   = "your-tool link @site@ @dir@"
+unlink = "your-tool unlink @site@"
 
 [worktree.setup]
 steps = ["npm ci", "npm run build"]   # run once after a worktree is created
 ```
 
-Adapter command tokens, substituted before the command runs: `{{db}}` (worktree
-DB name), `{{site}}` (derived site name), `{{port}}` (derived dev port),
-`{{project_slug}}`, `{{dir}}` (worktree root). An empty adapter command is a
-clean no-op.
+Adapter command **runtime tokens**, expanded per-worktree just before the
+command runs: `@db@` (worktree DB name), `@site@` (derived site name), `@port@`
+(derived dev port), `@project_slug@`, `@dir@` (worktree root). They use the
+`@…@` delimiter — distinct from the installer's `{{…}}` content tokens (already
+substituted at `init`), so the two layers never collide. An empty adapter
+command is a clean no-op.
 
 ### Ratchets & evidence
 
+A **ratchet** is a number you only ever want to improve — line coverage, a
+bundle-size budget, a lint/type-error count, a perf budget. Every ratchet is a
+`[ratchets.<name>]` table; there is no built-in or special instance (coverage is
+just a conventional name). A ratchet fails if the measured value crosses its
+`limit`, _or_ if the `limit` is looser than on `main` (so a floor only rises and
+a ceiling only falls). `agent ratchets` holds them all — slow, so it runs **on
+demand**, not as part of `agent finish`.
+
+A ratchet's `slot` is a **measurement slot**: an ordinary `[slots.<name>]` with
+**no `phase`**, so the gate never runs it; the ratchet runs it on demand. The
+slot reports its number by printing one line, `ICCULUS_METRIC <name> <number>`
+(last wins) — the only way a metric is read, so incidental output never counts.
+
 ```toml
-[ratchets]
-coverage_min = 0.0          # never-lower floor, enforced by `agent finish:coverage`
+# Coverage — keep line coverage at or above a rising floor:
+[slots.coverage]
+run = "your-coverage-tool"   # must emit: ICCULUS_METRIC coverage <percent>
+
+[ratchets.coverage]
+direction = "up"             # "up" = value should rise; limit is a floor
+limit     = 80
+slot      = "coverage"
+
+# Bundle size — keep an artifact under a falling ceiling:
+[slots.bundlesize]
+run = "printf 'ICCULUS_METRIC bundle_bytes %s\\n' \"$(wc -c < dist/app.js)\""
+
+[ratchets.bundle]
+metric    = "bundle_bytes"
+direction = "down"           # "down" = value should fall; limit is a ceiling
+limit     = 500000           # compared vs main: a ceiling may only fall, a floor only rise
+slot      = "bundlesize"     # the measurement slot whose output emits the metric
 
 [evidence]
-enabled = false             # optionally require per-branch work evidence before finish
+enabled = false              # optionally require per-branch work evidence before finish
 ```
+
+Each `[ratchets.<name>]` table accepts:
+
+| key         | meaning                                                                                            | default          |
+| ----------- | -------------------------------------------------------------------------------------------------- | ---------------- |
+| `metric`    | the metric name the slot emits                                                                     | the ratchet name |
+| `direction` | `up` (value should rise; `limit` is a **floor**) or `down` (should fall; `limit` is a **ceiling**) | `up`             |
+| `limit`     | the floor/ceiling — compared vs `main`, so a floor only rises and a ceiling only falls             | _required_       |
+| `slot`      | the measurement `[slots.<name>]` whose output emits the metric                                     | _required_       |
+
+A slot can emit several `ICCULUS_METRIC` lines, so one measurement slot can feed
+several ratchets.
+
+### Long-running slots — streaming & fail-fast
+
+```toml
+[gate]
+stream    = false   # stream slot output live, line-prefixed `── <label> │ …`
+fail_fast = true    # cancel in-flight siblings the moment one job fails (default)
+```
+
+`fail_fast` is **on by default** — an agent-driven gate wants to abort the
+moment a job fails (e.g. cancel a slow `test` the instant a parallel `check`
+fails) rather than burn wall-clock finishing it. It applies to every parallel
+stage, **side gates included**. Set `fail_fast = false` to run every job to
+completion and see all failures in one pass. Cancellation is best-effort: a
+command's own grandchildren may briefly linger (portable POSIX sh has no atomic
+process-tree kill), but the gate aborts promptly.
+
+`stream` is **off by default** (output is buffered and printed grouped once a
+stage finishes). Turn it on for live, line-prefixed feedback on slow slots;
+concurrent jobs interleave but stay labelled.
+
+### Project recipes — your own `agent` commands
+
+Drop an executable script (with a `# desc:` line) into `.icculus/recipes/` and
+it becomes a first-class `agent <name>` command, listed by `agent --help` under
+**Project recipes**. This directory is **yours** — never managed, never
+refreshed by `icculus upgrade` — so you extend the command surface without
+forking the engine.
+
+```toml
+[recipes]
+dir = ".icculus/recipes"    # where your recipes live (default; point it anywhere)
+```
+
+```sh
+cat > .icculus/recipes/reset-fixtures <<'SH'
+#!/usr/bin/env sh
+# desc: reset local fixtures to a known state
+. "$ICCULUS_LIB/bootstrap.sh"   # optional: config_get, info/ok/die, run_parallel
+heading "Resetting fixtures…"
+# ...your commands...
+SH
+chmod +x .icculus/recipes/reset-fixtures
+agent reset-fixtures
+```
+
+The **engine always wins** on a name collision: a project recipe named like a
+built-in (`finish`, `worktree:exit`, …) is ignored with a warning, so the core
+gate can never be redefined by a project file. A recipe run via `agent <name>`
+inherits the harness paths, so it can source `"$ICCULUS_LIB/bootstrap.sh"` for
+the same `config_get` / `info`·`ok`·`die` / `run_parallel` surface the engine
+uses.
 
 ---
 
@@ -204,31 +311,162 @@ enabled = false             # optionally require per-branch work evidence before
 
 ### `icculus` (the installer)
 
-| command              | does                                                                                                                                                                                               |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `init`               | scaffold the harness into the cwd (fresh or existing repo). Wizard or `--yes` + flags; `--dry-run`, `--json`, `--force`. Never overwrites a file it can't prove it wrote — see _Managed vs. seed_. |
-| `upgrade`            | refresh only **managed** engine files. A managed file you edited is preserved; the new version lands as `<file>.new`.                                                                              |
-| `doctor`             | verify the install (manifest, dispatcher, then delegates to `agent doctor`).                                                                                                                       |
-| `add-adapter <name>` | overlay a bundled stack adapter (mechanism present; see _Roadmap_).                                                                                                                                |
+| command              | does                                                                                                                                                                                                                                       |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `init`               | scaffold the harness into the cwd (fresh or existing repo). Wizard, `--yes` + flags, or `--config <file>` (JSON answers file). `--dry-run`, `--json`, `--force`. Never overwrites a file it can't prove it wrote — see _Managed vs. seed_. |
+| `upgrade`            | refresh only **managed** engine files. A managed file you edited is preserved; the new version lands as `<file>.new`.                                                                                                                      |
+| `doctor`             | verify the install (manifest, dispatcher, then delegates to `agent doctor`).                                                                                                                                                               |
+| `migrate`            | rewrite a pre-1.0 `icculus.toml` to the 1.0 shape (comment-preserving, idempotent, `--dry-run`/`--json`). See _Upgrading from 0.x to 1.0_.                                                                                                 |
+| `config <sub>`       | programmatically edit `icculus.toml`, comments intact — `set-slot`, `set-scope`, `set-side-gate`, `set-ratchet`, `set`. See _Driving icculus programmatically_.                                                                            |
+| `add-adapter <name>` | overlay an adapter from `adapters/<name>/`: its files **and** its `adapter.json` config fills. Ships no adapters; see _Writing an adapter_.                                                                                                |
 
 Global flags: `--json`, `--no-color` (also honours `NO_COLOR` and non-TTY),
 `--help`, `--version`.
+
+### Upgrading from 0.x to 1.0
+
+1.0 is a clean break (the config shape was simplified — see
+[ADR 0009](docs/_adr/0009-one-point-zero-drop-backward-compat.md)). Two commands
+take you across:
+
+```sh
+icculus migrate     # rewrite icculus.toml to the 1.0 shape (try --dry-run first)
+icculus upgrade     # refresh the engine to 1.0
+```
+
+`migrate` is comment-preserving and idempotent. It converts
+`[ratchets].coverage_min` into a `[ratchets.coverage]` table, turns any
+`coverage`-phase slot into a phase-less measurement slot, and rewrites the
+worktree runtime tokens (`{{db}}` → `@db@`, …). Everything else in your
+`icculus.toml` is left exactly as you wrote it.
+
+You don't have to remember the order: `icculus upgrade` and `icculus doctor`
+both detect a pre-1.0 config and point you at `migrate`, so the one silent
+breakage — a `coverage_min` the 1.0 engine no longer reads — can't slip past.
+
+### Driving icculus programmatically
+
+A scaffolder or CI can drive icculus declaratively, without hand-editing TOML.
+`icculus config` makes **comment-preserving** edits to an existing
+`icculus.toml` (every subcommand honours `--json` and `--dry-run`):
+
+```sh
+icculus config set-slot test --phase test --run "vitest run"
+icculus config set-slot bundlesize --run "wc -c < dist/app.js"   # no --phase: a measurement slot
+icculus config set-scope native 'native/**' 'native/lib/**'
+icculus config set-side-gate native --run "make -C native check"
+icculus config set-ratchet bundle --limit 500000 --direction down --slot bundlesize
+icculus config set project.main_branch trunk          # type inferred; --string/--number/--bool to force
+```
+
+Each finds `icculus.toml` in the cwd, applies the edit (preserving comments and
+layout), and writes it back. Light validation matches `doctor` (slot `--phase` ∈
+the known phases, or omit it for a measurement slot; ratchet `--direction` ∈
+`up`/`down`, and `--slot` is required). `coverage` is an ordinary ratchet name.
+
+To drive a **fresh** install in one shot, `init --config <file>` reads an
+**icculus config document** — a JSON file (or `--config -` for stdin) — and
+scaffolds non-interactively. Base fields mirror the flags; `slots` / `scopes` /
+`side_gates` / `ratchets` are written into the generated `icculus.toml`.
+Explicit flags override file values.
+
+```json
+{
+  "$schema": "https://raw.githubusercontent.com/jackwh/icculus/main/schema/icculus-config.schema.json",
+  "version": "1",
+  "name": "My App",
+  "slug": "my-app",
+  "source_globs": ["src/**"],
+  "slots": { "test": { "phase": "test", "run": "vitest run" } },
+  "scopes": { "native": ["native/**"] },
+  "side_gates": { "native": "make -C native check" },
+  "ratchets": {
+    "coverage": { "direction": "up", "limit": 80, "slot": "coverage" },
+    "bundle": { "direction": "down", "limit": 500000, "slot": "bundlesize" }
+  }
+}
+```
+
+```sh
+icculus init --config answers.json        # or:  cat answers.json | icculus init --config -
+```
+
+The document shape is a **published contract**: a JSON Schema ships at
+[`schema/icculus-config.schema.json`](schema/icculus-config.schema.json) — point
+your file's `$schema` at it for editor validation. An optional `version` lets
+the shape evolve safely (this is version `1`); a document declaring a major this
+build doesn't understand is refused rather than misread. The same document is
+what an adapter's `adapter.json` carries (below).
+
+### Writing an adapter
+
+An **adapter** packages a reusable overlay so the same stack layer can be
+applied to many projects with one command. `icculus add-adapter <name>` reads
+`adapters/<name>/` and overlays:
+
+- **Files** — everything in the adapter dir is scaffolded onto the project with
+  the same rules as `init`: seed files (project recipes, guideline fragments,
+  docs) are write-once; managed files (`.ai/skills/**`) follow the hash-aware
+  overwrite/`.new` rule; `.claude/settings.json` deep-merges.
+- **Config fills** — an optional `adapter.json` at the adapter root (metadata,
+  never scaffolded) is an **icculus config document** (the same shape
+  `init --config` reads, validated against the same schema) whose `slots` /
+  `scopes` / `side_gates` / `ratchets` are written into the project's
+  `icculus.toml` via the comment-preserving editor.
+
+```
+adapters/my-stack/
+  adapter.json                          # an icculus config document (+ "description")
+  .icculus/recipes/deploy               # a project recipe (seed)
+  .ai/guidelines/my-stack.md            # a guideline fragment (seed)
+  .ai/skills/my-skill/SKILL.md          # a skill (managed)
+```
+
+`add-adapter` honours `--json` and `--dry-run`. The kit **bundles no adapters**
+(stack-neutral); a single project layering its own stack usually just uses
+`init --config` / `config` (above). A worked fake example lives at
+`tests/fixtures/adapters/example/`.
 
 ### `agent` (the installed task runner)
 
 | command                              | does                                                                                                |
 | ------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| `agent finish`                       | the full quality gate. Run before calling any task done.                                            |
+| `agent finish`                       | the full quality gate. Run before calling any task done. `--json` for a machine-readable report.    |
 | `agent tidy`                         | fixers + checks, no build/test — the fast inner loop.                                               |
 | `agent test`                         | run the test-phase slots.                                                                           |
-| `agent finish:coverage`              | the coverage ratchet (slow; not part of `finish`).                                                  |
+| `agent ratchets`                     | hold every metric ratchet — each `[ratchets.<name>]` (slow; not part of `finish`).                  |
 | `agent worktree:exit`                | graduate this worktree's branch into the main checkout.                                             |
 | `agent worktree:teardown` / `:prune` | discard a worktree / sweep stale ones.                                                              |
 | `agent guidelines`                   | compile `.ai/guidelines/*` → each agent's file (`AGENTS.md`, `CLAUDE.md`, …) + refresh skill links. |
 | `agent doctor`                       | health-check the harness (slots resolve, git worktrees work, …).                                    |
 
-Run `agent --help` for the live list. Recipes are auto-discovered, so an adapter
-or your own recipe under `.icculus/engine/` shows up automatically.
+Run `agent --help` for the live list. Recipes are auto-discovered: an adapter's
+recipe under `.icculus/engine/` shows up automatically, and so does **your own**
+recipe under `.icculus/recipes/` (see _Project recipes_ above) — kept clearly
+separate and never touched by `upgrade`.
+
+**Structured gate output.** `agent finish --json` emits a single JSON object on
+stdout (human progress goes to stderr) so an agent-driven workflow can consume
+the result without scraping:
+
+```json
+{
+  "ok": true,
+  "slots": [
+    { "name": "lint", "phase": "check", "status": "ok", "duration_s": 4 }
+  ],
+  "side_gates": [{ "scope": "native", "status": "skipped", "duration_s": 0 }],
+  "scopes_changed": ["web"],
+  "failed_stage": null
+}
+```
+
+Each `[slots.<name>]` runs as its own tracked job, so results are reported **per
+slot** (`{name, phase, status, duration_s}`): `status` is `ok` / `failed` /
+`noop` (a no-op slot) / `skipped` (a real slot whose stage aborted before it
+ran). Side-gates report `ok` / `failed` for those that fired and `skipped` for
+those whose scope didn't change. `failed_stage` names the stage that failed (or
+is `null`).
 
 ---
 
@@ -236,19 +474,22 @@ or your own recipe under `.icculus/engine/` shows up automatically.
 
 - **Auto-discovery, no registries.** `bin/agent` finds the project root (nearest
   `icculus.toml`), then runs `.icculus/engine/<recipe>` (mapping `worktree:exit`
-  → `worktree-exit`). Drop a new recipe in and it's available. The installer
+  → `worktree-exit`), falling back to a project recipe under
+  `.icculus/recipes/`. Drop a new recipe in and it's available. The installer
   walks `templates/` the same way — nothing hardcodes the file list.
 - **Config without a runtime.** The engine reads `icculus.toml` through a tiny
   POSIX `awk` reader (`.icculus/engine/lib/`). No Node, no Deno, no
   jq-the-config at runtime.
 - **Managed vs. seed.** `bin/agent`, `.icculus/engine/**`, and `.ai/skills/**`
-  are **managed** (kit-owned, refreshed by `upgrade`). They are hash-tracked in
-  the manifest, so both `init` and `upgrade` refresh a managed file in place
-  **only** when its on-disk bytes still match what the kit last wrote; if you
-  edited it — or a same-named file was already there before Icculus — your copy
-  is left untouched and the kit's version is written alongside as `<file>.new`
-  for you to merge. Everything else — `icculus.toml`, your docs, guidelines,
-  `TODO.md` — is **seed**: written once, then yours.
+  are **managed** (kit-owned, refreshed by `upgrade`) — the set is **declared in
+  `templates/managed.json`**, not hardcoded, so it's visible from the template
+  tree and an adapter can mark overlay files it owns. Managed files are
+  hash-tracked in the manifest, so both `init` and `upgrade` refresh one in
+  place **only** when its on-disk bytes still match what the kit last wrote; if
+  you edited it — or a same-named file was already there before Icculus — your
+  copy is left untouched and the kit's version is written alongside as
+  `<file>.new` for you to merge. Everything else — `icculus.toml`, your docs,
+  guidelines, `TODO.md` — is **seed**: written once, then yours.
 - **Author once, compile everywhere — agent-agnostic.** Write your guidance and
   skills once under `.ai/`; `agent guidelines` compiles them to every agent's
   own instruction file, so one repo can drive Claude Code, Codex, Gemini, and
@@ -290,19 +531,29 @@ pick it up.
 
 Working, verified, and committed:
 
-- ✅ Installer (`init`/`upgrade`/`doctor`/`add-adapter`), 57 tests,
-  single-binary build + release pipeline.
-- ✅ Stack-neutral gate engine (slots, scopes, side-gates, ratchets, evidence).
+- ✅ Installer (`init`/`upgrade`/`doctor`/`add-adapter`), single-binary build +
+  release pipeline.
+- ✅ Stack-neutral gate engine: slots, scopes, **first-class side-gates**
+  (parallel / grouped / aggregated), **named metric ratchets**, evidence, and
+  **structured `agent finish --json`**.
+- ✅ **Project-owned recipes** (`.icculus/recipes/`) — your own `agent`
+  commands, unmanaged and never touched by `upgrade`.
 - ✅ Worktree harness with database / dev-server / env / port adapter seams.
 - ✅ Author-once guidelines compiler + portable skills.
 - ✅ Docs / principles / ADR / TODO scaffolding + the `/bootstrap` seeding
   skill.
+- ✅ Declarative config — `icculus config` + `init --config` (comment-preserving
+  programmatic edits), and a documented `add-adapter` contract (file overlay +
+  config fills).
+- ✅ 128 tests covering both the installer (`src/`) and the POSIX engine recipes
+  (a scaffold-and-shell-out harness in `tests/engine_*`).
 
 Follow-ups:
 
-- **Bundled stack adapters** (`add-adapter node`, `python`, …): the overlay
-  mechanism ships; no adapters are bundled yet. For now, `/bootstrap` detects
-  your stack and proposes slot fills directly — usually all you need.
+- **Bundled stack adapters** (`add-adapter node`, `python`, …): the adapter
+  contract is complete and documented (see _Writing an adapter_), but no adapter
+  is bundled yet — that stays stack-neutral. For now, `/bootstrap` detects your
+  stack and proposes slot fills directly, or drive it with `init --config`.
 - **Publishing**: the GitHub slug is wired to `jackwh/icculus` (override with
   `ICCULUS_REPO`); wire up the release before distributing.
 - **`inherit_env` ordering**: a worktree that relies on `[worktree.inherit_env]`

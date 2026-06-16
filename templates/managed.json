@@ -1,0 +1,4 @@
+{
+  "exact": ["bin/agent"],
+  "prefixes": [".icculus/engine/", ".ai/skills/"]
+}

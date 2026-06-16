@@ -16,8 +16,16 @@ import {
   type InitFlags,
   resolveInitConfig,
 } from "../lib/prompts.ts";
+import {
+  applyConfigDoc,
+  type IcculusConfigDoc,
+  loadConfigDoc,
+  mergeDocIntoFlags,
+} from "../lib/config_doc.ts";
+import { TomlEditor } from "../lib/toml_edit.ts";
 import { KIT_VERSION } from "../lib/version.ts";
 import {
+  loadManagedSpec,
   loadManifest,
   recordedHash as lookupRecordedHash,
 } from "../lib/manifest.ts";
@@ -43,7 +51,12 @@ export interface InitOptions extends InitFlags {
   noColor: boolean;
   dryRun: boolean;
   force: boolean;
+  /** Path to a JSON answers file (or `-` for stdin); implies non-interactive. */
+  config?: string;
 }
+
+const TEXT_DECODER = new TextDecoder();
+const TEXT_ENCODER = new TextEncoder();
 
 /** True when `path` exists (file or dir). */
 async function pathExists(path: string): Promise<boolean> {
@@ -77,6 +90,8 @@ export async function assembleInitPlan(params: {
   templatesDir: string;
   destDir: string;
   config: InitConfig;
+  /** Declarative slots/scopes/side_gates/ratchets fills from `init --config`. */
+  fills?: IcculusConfigDoc;
 }): Promise<Plan> {
   const { templatesDir, destDir, config } = params;
   const tokens = tokensFromConfig(config);
@@ -93,6 +108,7 @@ export async function assembleInitPlan(params: {
     mode: "init",
     recordedHash: (targetRel) =>
       manifest ? lookupRecordedHash(manifest, targetRel) : undefined,
+    managedSpec: await loadManagedSpec(templatesDir),
   });
 
   const briefOp = await planBrief(destDir, config.brief);
@@ -107,7 +123,28 @@ export async function assembleInitPlan(params: {
 
   plan.ops.push(briefOp, manifestOp);
   plan.ops.sort((a, b) => a.targetRel.localeCompare(b.targetRel));
+
+  // Apply declarative fills (from init --config) to the generated icculus.toml,
+  // so the plan's bytes are final — dry-run/json show them and apply writes them.
+  if (params.fills) {
+    applyFillsToPlan(plan, params.fills);
+  }
   return plan;
+}
+
+/**
+ * Apply the answers file's slots/scopes/side_gates/ratchets to the generated
+ * `icculus.toml` op via the comment-preserving editor. A no-op when icculus.toml
+ * is a `skip` (an existing seed left as the user's — fills never clobber it).
+ */
+function applyFillsToPlan(plan: Plan, fills: IcculusConfigDoc): void {
+  const op = plan.ops.find((o) => o.targetRel === "icculus.toml");
+  if (!op || op.disposition === "skip") {
+    return;
+  }
+  const editor = new TomlEditor(TEXT_DECODER.decode(op.bytes));
+  applyConfigDoc(editor, fills);
+  op.bytes = TEXT_ENCODER.encode(editor.toString());
 }
 
 /** Run `icculus init`. Returns a process exit code. */
@@ -141,8 +178,49 @@ export async function runInit(options: InitOptions): Promise<number> {
     return 1;
   }
 
-  const config = await resolveInitConfig(options, log);
-  const plan = await assembleInitPlan({ templatesDir, destDir, config });
+  // Load the --config document (declarative, non-interactive) if given.
+  let fileAnswers: IcculusConfigDoc | undefined;
+  if (options.config !== undefined) {
+    try {
+      fileAnswers = await loadConfigDoc(options.config);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (options.json) {
+        log.jsonResult({ ok: false, error: "invalid_config_file", message });
+      } else {
+        log.error(message);
+      }
+      return 1;
+    }
+  }
+
+  // --config implies non-interactive; the file's base fields are a fallback layer
+  // beneath any explicit flags.
+  const effectiveFlags = mergeDocIntoFlags(options, fileAnswers);
+  if (fileAnswers) {
+    effectiveFlags.yes = true;
+  }
+  const config = await resolveInitConfig(effectiveFlags, log);
+
+  let plan: Plan;
+  try {
+    plan = await assembleInitPlan({
+      templatesDir,
+      destDir,
+      config,
+      fills: fileAnswers,
+    });
+  } catch (error) {
+    const message = `invalid --config fills: ${
+      error instanceof Error ? error.message : String(error)
+    }`;
+    if (options.json) {
+      log.jsonResult({ ok: false, error: "invalid_config_file", message });
+    } else {
+      log.error(message);
+    }
+    return 1;
+  }
 
   // Dry-run: print the plan, touch nothing.
   if (options.dryRun) {

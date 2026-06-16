@@ -1,0 +1,152 @@
+/**
+ * Engine-test harness — scaffold the REAL templates into a temp dir, then shell
+ * out to the installed `bin/agent` and assert on its output + exit code.
+ *
+ * The Deno suite otherwise covers the INSTALLER (`src/`); the POSIX engine under
+ * `templates/.icculus/engine/` had no automated coverage. This module closes
+ * that gap without a second test framework: it reuses the installer's own
+ * `assembleInitPlan`/`applyPlan` to lay down a faithful install (so the engine
+ * runs exactly the bytes a real `icculus init` would write), then drives the
+ * recipes through the dispatcher.
+ *
+ * Tests that exercise scope/side-gate/ratchet behaviour need a git repo so
+ * `changed-scopes` can answer; `gitInit` makes a hermetic one (its own config,
+ * no signing, a `main` branch) so a developer's global git settings can't leak
+ * in. `writeConfig` overwrites the scaffolded `icculus.toml` (a seed file) with
+ * test-specific slots/scopes/ratchets.
+ */
+
+import { dirname, join } from "@std/path";
+import { ensureDir } from "@std/fs";
+import { assembleInitPlan } from "../src/commands/init.ts";
+import { applyPlan } from "../src/lib/fs_plan.ts";
+import { REAL_TEMPLATES } from "./helpers.ts";
+
+/** The captured result of one `bin/agent` invocation. */
+export interface RunResult {
+  code: number;
+  stdout: string;
+  stderr: string;
+  /** stdout + stderr concatenated — convenient for "appears somewhere" asserts. */
+  output: string;
+}
+
+const DECODER = new TextDecoder();
+
+/** Git env that isolates a temp repo from the developer's global/system config. */
+const GIT_ISOLATION: Record<string, string> = {
+  GIT_CONFIG_GLOBAL: "/dev/null",
+  GIT_CONFIG_SYSTEM: "/dev/null",
+  GIT_TERMINAL_PROMPT: "0",
+};
+
+/**
+ * Scaffold the real harness (engine, dispatcher, default `icculus.toml`) into
+ * `dir` via the installer's own plan/apply path, so the bytes under test are the
+ * bytes a real install ships. Tests usually follow with `writeConfig` to set
+ * the slots/scopes/ratchets they need.
+ */
+export async function scaffoldEngine(dir: string): Promise<void> {
+  const plan = await assembleInitPlan({
+    templatesDir: REAL_TEMPLATES,
+    destDir: dir,
+    config: {
+      projectName: "Engine Test",
+      slug: "engine-test",
+      branchPrefix: "agent/",
+      sourceGlobs: ["src/**"],
+      brief: "",
+      agents: ["claude_code"],
+    },
+  });
+  await applyPlan(plan);
+}
+
+/**
+ * Run `bin/agent <args>` inside `dir`. Colour is forced off so assertions match
+ * plain text, and git is isolated so recipes that shell out to git are hermetic.
+ * `opts.cwd` runs from a subdirectory (to exercise root-finding); `opts.env`
+ * adds/overrides environment variables.
+ */
+export async function runAgent(
+  dir: string,
+  args: string[],
+  opts: { cwd?: string; env?: Record<string, string> } = {},
+): Promise<RunResult> {
+  const command = new Deno.Command(join(dir, "bin", "agent"), {
+    args,
+    cwd: opts.cwd ?? dir,
+    env: { NO_COLOR: "1", ...GIT_ISOLATION, ...opts.env },
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const { code, stdout, stderr } = await command.output();
+  const out = DECODER.decode(stdout);
+  const err = DECODER.decode(stderr);
+  return { code, stdout: out, stderr: err, output: out + err };
+}
+
+/** Overwrite the scaffolded `icculus.toml` (a seed file) with test content. */
+export async function writeConfig(dir: string, toml: string): Promise<void> {
+  await Deno.writeTextFile(join(dir, "icculus.toml"), toml);
+}
+
+/** Write an executable file (e.g. a project recipe or a slot script). */
+export async function writeExecutable(
+  path: string,
+  contents: string,
+): Promise<void> {
+  await ensureDir(dirname(path));
+  await Deno.writeTextFile(path, contents);
+  await Deno.chmod(path, 0o755);
+}
+
+/**
+ * Initialise a hermetic git repo in `dir` with one commit on a `main` branch.
+ * Uses repo-local identity and disables signing so it works regardless of the
+ * developer's global git configuration.
+ */
+export async function gitInit(dir: string): Promise<void> {
+  const git = async (...args: string[]) => {
+    const c = new Deno.Command("git", {
+      args,
+      cwd: dir,
+      env: GIT_ISOLATION,
+      stdout: "null",
+      stderr: "piped",
+    });
+    const { success, stderr } = await c.output();
+    if (!success) {
+      throw new Error(
+        `git ${args.join(" ")} failed: ${DECODER.decode(stderr)}`,
+      );
+    }
+  };
+  await git("init", "-q");
+  await git("config", "user.email", "engine-test@example.com");
+  await git("config", "user.name", "Engine Test");
+  await git("config", "commit.gpgsign", "false");
+  await git("add", "-A");
+  await git("commit", "-q", "-m", "scaffold", "--no-gpg-sign");
+  // Normalise the branch name to `main` (the engine's default integration
+  // branch) regardless of the local git's init.defaultBranch.
+  await git("branch", "-M", "main");
+}
+
+/**
+ * Run a git command in `dir` (hermetic env). Returns nothing; throws on failure.
+ * For tests that need to commit a baseline, branch, or stage extra files.
+ */
+export async function git(dir: string, ...args: string[]): Promise<void> {
+  const c = new Deno.Command("git", {
+    args,
+    cwd: dir,
+    env: GIT_ISOLATION,
+    stdout: "null",
+    stderr: "piped",
+  });
+  const { success, stderr } = await c.output();
+  if (!success) {
+    throw new Error(`git ${args.join(" ")} failed: ${DECODER.decode(stderr)}`);
+  }
+}

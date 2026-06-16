@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/jackwh/icculus/main/schema/icculus-config.schema.json",
+  "title": "icculus config document",
+  "description": "The declarative config shape consumed by `icculus init --config <file>` and by an adapter's `adapter.json`. Its slots/scopes/side_gates/ratchets are written into a project's icculus.toml via the comment-preserving editor. Every field is optional.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Editor-only pointer to this schema; ignored by icculus."
+    },
+    "version": {
+      "description": "Document major version. Omit (assumed current) or use a matching major; this build understands version 1.",
+      "oneOf": [
+        { "type": "string", "pattern": "^1(\\.[0-9]+)*$" },
+        { "type": "integer", "const": 1 }
+      ]
+    },
+    "name": {
+      "type": "string",
+      "description": "Project name (free text)."
+    },
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$",
+      "description": "Project slug: lowercase letters, digits and dashes, starting with a letter or digit."
+    },
+    "branch_prefix": {
+      "type": "string",
+      "description": "Branch prefix for worktrees, e.g. \"agent/\"."
+    },
+    "source_globs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Primary source globs (the gated `web` scope), e.g. [\"src/**\"]."
+    },
+    "brief": {
+      "type": "string",
+      "description": "Free-text description of what the project is."
+    },
+    "agents": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["claude_code", "codex"] },
+      "description": "Which agent instruction files to compile from .ai/guidelines/."
+    },
+    "description": {
+      "type": "string",
+      "description": "Adapter metadata, shown when listing adapters; ignored by `init --config`."
+    },
+    "slots": {
+      "type": "object",
+      "description": "[slots.<name>] fills. Omit `phase` for a measurement slot (the gate never runs it; a ratchet does).",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "phase": {
+            "type": "string",
+            "enum": ["fix", "build", "check", "test"],
+            "description": "Gate phase. Omit for a measurement slot."
+          },
+          "run": {
+            "type": "string",
+            "description": "The shell command to run."
+          }
+        }
+      },
+      "propertyNames": { "pattern": "^[A-Za-z0-9_-]+$" }
+    },
+    "scopes": {
+      "type": "object",
+      "description": "[scopes].<name> arrays of path globs.",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string" }
+      },
+      "propertyNames": { "pattern": "^[A-Za-z0-9_-]+$" }
+    },
+    "side_gates": {
+      "type": "object",
+      "description": "[scopes.side_gates].<scope> commands, run when that scope changed.",
+      "additionalProperties": { "type": "string" },
+      "propertyNames": { "pattern": "^[A-Za-z0-9_-]+$" }
+    },
+    "ratchets": {
+      "type": "object",
+      "description": "[ratchets.<name>] tables. Coverage is just a conventional name.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["limit"],
+        "properties": {
+          "metric": {
+            "type": "string",
+            "description": "Metric name the slot emits (default: the ratchet name)."
+          },
+          "direction": {
+            "type": "string",
+            "enum": ["up", "down"],
+            "description": "\"up\": limit is a floor; \"down\": limit is a ceiling. Default \"up\"."
+          },
+          "limit": {
+            "type": "number",
+            "description": "The floor (up) or ceiling (down)."
+          },
+          "slot": {
+            "type": "string",
+            "description": "The [slots.<name>] (a measurement slot) whose output emits the metric."
+          }
+        }
+      },
+      "propertyNames": { "pattern": "^[A-Za-z0-9_-]+$" }
+    }
+  }
+}

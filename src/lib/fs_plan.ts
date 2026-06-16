@@ -27,8 +27,11 @@ import {
 } from "./template.ts";
 import {
   buildManifest,
-  isManaged,
+  DEFAULT_MANAGED_SPEC,
+  isManagedBy,
+  MANAGED_SPEC_FILE,
   type ManagedEntry,
+  type ManagedSpec,
   serializeManifest,
   sha256Hex,
 } from "./manifest.ts";
@@ -161,6 +164,8 @@ const GITIGNORE_MARKER = "# --- icculus harness ---";
  *                     hash-aware; seeds untouched)
  * @param recordedHash for "upgrade": a lookup of the manifest's recorded hash
  *                     for a managed target, to decide overwrite vs `.new`
+ * @param managedSpec  which target paths are managed (refreshed by `upgrade`);
+ *                     defaults to the built-in spec when omitted
  */
 export async function buildPlan(params: {
   templatesDir: string;
@@ -168,8 +173,10 @@ export async function buildPlan(params: {
   tokens: TokenMap;
   mode: "init" | "upgrade";
   recordedHash?: (targetRel: string) => string | undefined;
+  managedSpec?: ManagedSpec;
 }): Promise<Plan> {
   const { templatesDir, destDir, tokens, mode, recordedHash } = params;
+  const managedSpec = params.managedSpec ?? DEFAULT_MANAGED_SPEC;
   const ops: PlanOp[] = [];
   const unknownTokens = new Map<string, string[]>();
 
@@ -178,6 +185,11 @@ export async function buildPlan(params: {
       SEPARATOR,
       "/",
     );
+
+    // The managed-set declaration is installer metadata, never scaffolded.
+    if (templateRel === MANAGED_SPEC_FILE) {
+      continue;
+    }
 
     if (isGitignoreFragment(templateRel)) {
       if (mode === "upgrade") {
@@ -203,7 +215,7 @@ export async function buildPlan(params: {
     }
 
     const targetRel = resolveTargetPath(templateRel, tokens.project_slug);
-    const managed = isManaged(targetRel);
+    const managed = isManagedBy(targetRel, managedSpec);
 
     // On upgrade we only ever touch managed files.
     if (mode === "upgrade" && !managed) {

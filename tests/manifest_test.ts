@@ -8,7 +8,11 @@
 import { assertEquals, assertNotEquals } from "@std/assert";
 import {
   buildManifest,
+  DEFAULT_MANAGED_SPEC,
   isManaged,
+  isManagedBy,
+  mergeManagedSpecs,
+  parseManagedSpec,
   parseManifest,
   recordedHash,
   serializeManifest,
@@ -30,6 +34,32 @@ Deno.test("isManaged classifies seeds (config, brief, docs, guidelines) as not m
   assertEquals(isManaged(".ai/guidelines/demo.md"), false);
   assertEquals(isManaged(".claude/settings.json"), false);
   assertEquals(isManaged(".gitignore"), false);
+});
+
+Deno.test("isManagedBy honours a declared spec, not the hardcoded default", () => {
+  const spec = { exact: ["x/y"], prefixes: ["custom/"] };
+  assertEquals(isManagedBy("custom/a/b", spec), true);
+  assertEquals(isManagedBy("x/y", spec), true);
+  // Default-managed paths are NOT managed under a spec that omits them.
+  assertEquals(isManagedBy("bin/agent", spec), false);
+  assertEquals(isManagedBy(".icculus/engine/finish", spec), false);
+});
+
+Deno.test("parseManagedSpec reads exact + prefixes, tolerating missing arrays", () => {
+  assertEquals(
+    parseManagedSpec('{"exact":["bin/agent"],"prefixes":[".x/"]}'),
+    { exact: ["bin/agent"], prefixes: [".x/"] },
+  );
+  assertEquals(parseManagedSpec("{}"), { exact: [], prefixes: [] });
+});
+
+Deno.test("mergeManagedSpecs unions and dedups (base + adapter)", () => {
+  const merged = mergeManagedSpecs(DEFAULT_MANAGED_SPEC, {
+    exact: ["native/build"],
+    prefixes: [".ai/skills/"], // already in the default — deduped
+  });
+  assertEquals(merged.exact, ["bin/agent", "native/build"]);
+  assertEquals(merged.prefixes, [".icculus/engine/", ".ai/skills/"]);
 });
 
 Deno.test("sha256Hex is stable and content-sensitive", async () => {

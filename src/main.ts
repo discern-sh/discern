@@ -12,7 +12,15 @@ import { KIT_VERSION } from "./lib/version.ts";
 import { runInit } from "./commands/init.ts";
 import { runUpgrade } from "./commands/upgrade.ts";
 import { runDoctor } from "./commands/doctor.ts";
+import { runMigrate } from "./commands/migrate.ts";
 import { runAddAdapter } from "./commands/add_adapter.ts";
+import {
+  runConfigSet,
+  runConfigSetRatchet,
+  runConfigSetScope,
+  runConfigSetSideGate,
+  runConfigSetSlot,
+} from "./commands/config.ts";
 
 /**
  * Resolve the effective "no colour" decision. Cliffy maps `--no-color` to a
@@ -25,6 +33,17 @@ function noColorFrom(color: boolean | undefined): boolean {
   }
   const env = Deno.env.get("NO_COLOR");
   return env !== undefined && env !== "";
+}
+
+/**
+ * Extract the global `--json` / `--no-color` flags. They reach every command at
+ * runtime via root's `globalOption`, but a standalone subcommand instance (the
+ * `config` group) doesn't carry them in its inferred option type, so we read them
+ * through a narrow cast.
+ */
+function globalFlags(options: unknown): { json: boolean; noColor: boolean } {
+  const o = options as { json?: boolean; color?: boolean };
+  return { json: o.json ?? false, noColor: noColorFrom(o.color) };
 }
 
 /** Build the root command with its global flags and subcommands. */
@@ -68,6 +87,10 @@ function buildCli() {
       "--agents <agents:string>",
       "Comma-separated agent files to emit: claude_code, codex.",
     )
+    .option(
+      "--config <file:string>",
+      "JSON answers file (or - for stdin). Drives a fresh install declaratively; implies non-interactive.",
+    )
     .option("-y, --yes", "Non-interactive: use flags/defaults, no prompts.")
     .option("--dry-run", "Print the plan and write nothing.")
     .option("--force", "Proceed even if icculus.toml already exists.")
@@ -84,6 +107,7 @@ function buildCli() {
         sourceGlobs: options.sourceGlobs,
         brief: options.brief,
         agents: options.agents,
+        config: options.config,
       });
       Deno.exit(code);
     });
@@ -115,6 +139,21 @@ function buildCli() {
     });
 
   root
+    .command("migrate")
+    .description(
+      "Rewrite a pre-1.0 icculus.toml to the 1.0 shape (coverage_min, phases, tokens).",
+    )
+    .option("--dry-run", "Print the changes and write nothing.")
+    .action(async (options) => {
+      const code = await runMigrate({
+        json: options.json ?? false,
+        noColor: noColorFrom(options.color),
+        dryRun: options.dryRun ?? false,
+      });
+      Deno.exit(code);
+    });
+
+  root
     .command("add-adapter <name:string>")
     .description(
       "Overlay a reference adapter from adapters/<name>/ (ships none by default).",
@@ -130,6 +169,119 @@ function buildCli() {
       });
       Deno.exit(code);
     });
+
+  // `config` — programmatic, comment-preserving edits to an existing
+  // icculus.toml. Each subcommand is a standalone Command instance attached via
+  // `.command(name, instance)` (the reliable Cliffy form for a command group).
+  const setSlot = new Command()
+    .description("Set or create a [slots.<name>] table (phase + run).")
+    .arguments("<name:string>")
+    .option(
+      "--phase <phase:string>",
+      "Slot phase: fix|build|check|test. Omit for a measurement slot.",
+    )
+    .option("--run <cmd:string>", "The slot command.", { required: true })
+    .option("--dry-run", "Print the edit and write nothing.")
+    .action(async (options, name: string) => {
+      Deno.exit(
+        await runConfigSetSlot(name, {
+          ...globalFlags(options),
+          dryRun: options.dryRun ?? false,
+          phase: options.phase,
+          run: options.run,
+        }),
+      );
+    });
+
+  const setScope = new Command()
+    .description("Set a [scopes].<name> array of path globs.")
+    .arguments("<name:string> <globs...:string>")
+    .option("--dry-run", "Print the edit and write nothing.")
+    .action(async (options, name: string, ...globs: string[]) => {
+      Deno.exit(
+        await runConfigSetScope(name, globs, {
+          ...globalFlags(options),
+          dryRun: options.dryRun ?? false,
+        }),
+      );
+    });
+
+  const setSideGate = new Command()
+    .description("Set a [scopes.side_gates].<scope> command.")
+    .arguments("<scope:string>")
+    .option("--run <cmd:string>", "The side-gate command.", { required: true })
+    .option("--dry-run", "Print the edit and write nothing.")
+    .action(async (options, scope: string) => {
+      Deno.exit(
+        await runConfigSetSideGate(scope, {
+          ...globalFlags(options),
+          dryRun: options.dryRun ?? false,
+          run: options.run,
+        }),
+      );
+    });
+
+  const setRatchet = new Command()
+    .description("Set or create a [ratchets.<name>] table.")
+    .arguments("<name:string>")
+    .option("--limit <n:string>", "The floor (up) or ceiling (down).", {
+      required: true,
+    })
+    .option(
+      "--metric <name:string>",
+      "Metric name the slot emits (default: <name>).",
+    )
+    .option("--direction <dir:string>", 'Either "up" or "down" (default: up).')
+    .option(
+      "--slot <slot:string>",
+      "The [slots.<name>] that emits the metric.",
+      { required: true },
+    )
+    .option("--dry-run", "Print the edit and write nothing.")
+    .action(async (options, name: string) => {
+      Deno.exit(
+        await runConfigSetRatchet(name, {
+          ...globalFlags(options),
+          dryRun: options.dryRun ?? false,
+          limit: options.limit,
+          metric: options.metric,
+          direction: options.direction,
+          slot: options.slot,
+        }),
+      );
+    });
+
+  const setScalar = new Command()
+    .description("Set an arbitrary scalar key (section.key). Type is inferred.")
+    .arguments("<key:string> <value:string>")
+    .option("--number", "Treat the value as a number.")
+    .option("--bool", "Treat the value as a boolean.")
+    .option("--string", "Treat the value as a string (no inference).")
+    .option("--dry-run", "Print the edit and write nothing.")
+    .action(async (options, key: string, value: string) => {
+      Deno.exit(
+        await runConfigSet(key, value, {
+          ...globalFlags(options),
+          dryRun: options.dryRun ?? false,
+          number: options.number ?? false,
+          bool: options.bool ?? false,
+          string: options.string ?? false,
+        }),
+      );
+    });
+
+  const config = new Command()
+    .description("Programmatically edit icculus.toml (comment-preserving).")
+    .action(function () {
+      this.showHelp();
+    })
+    .command("set-slot", setSlot)
+    .command("set-scope", setScope)
+    .command("set-side-gate", setSideGate)
+    .command("set-ratchet", setRatchet)
+    .command("set", setScalar);
+
+  root.command("config", config);
 
   return root;
 }

@@ -12,6 +12,20 @@ import { KIT_VERSION } from "./version.ts";
 export const KNOWN_AGENTS = ["claude_code", "codex"] as const;
 export type AgentName = (typeof KNOWN_AGENTS)[number];
 
+/**
+ * The phases a slot may declare. Mirrors `ICCULUS_PHASES` in the engine's
+ * `lib/validate.sh`, so the installer's `config set-slot` validation and the
+ * engine's own checks cannot drift. A slot may also declare NO phase: it is then
+ * a measurement slot a `[ratchets.<name>]` runs on demand (never in the gate).
+ */
+export const KNOWN_PHASES = [
+  "fix",
+  "build",
+  "check",
+  "test",
+] as const;
+export type Phase = (typeof KNOWN_PHASES)[number];
+
 /** Default values for every wizard answer. */
 export const DEFAULTS = {
   branchPrefix: "agent/",

@@ -6,12 +6,8 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { dirname, fromFileUrl, join } from "@std/path";
-import { withTempDir } from "./helpers.ts";
-
-const ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
-const MAIN = join(ROOT, "src", "main.ts");
-const REAL_TEMPLATES = join(ROOT, "templates");
+import { join } from "@std/path";
+import { runCli, withTempDir } from "./helpers.ts";
 
 /** True when a path exists on disk. */
 async function pathExists(path: string): Promise<boolean> {
@@ -23,39 +19,11 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
-/** Run the CLI as a subprocess in `cwd`, returning code + decoded streams. */
-async function runCli(
-  args: string[],
-  cwd: string,
-): Promise<{ code: number; stdout: string; stderr: string }> {
-  const command = new Deno.Command(Deno.execPath(), {
-    args: [
-      "run",
-      "--allow-read",
-      "--allow-write",
-      "--allow-env",
-      "--allow-run",
-      MAIN,
-      ...args,
-    ],
-    cwd,
-    env: { ICCULUS_TEMPLATES_DIR: REAL_TEMPLATES, NO_COLOR: "1" },
-    stdout: "piped",
-    stderr: "piped",
-  });
-  const { code, stdout, stderr } = await command.output();
-  return {
-    code,
-    stdout: new TextDecoder().decode(stdout),
-    stderr: new TextDecoder().decode(stderr),
-  };
-}
-
 Deno.test("--version prints the kit version", async () => {
   await withTempDir(async (dir) => {
     const { code, stdout } = await runCli(["--version"], dir);
     assertEquals(code, 0);
-    assertStringIncludes(stdout, "0.1.0");
+    assertStringIncludes(stdout, "1.0.0");
   });
 });
 
@@ -193,6 +161,44 @@ Deno.test("doctor --json reports invalid result when not initialized", async () 
     );
     assertEquals(toml.ok, false);
     assert(typeof toml.fix === "string" && toml.fix.length > 0);
+  });
+});
+
+Deno.test("doctor flags a pre-1.0 config shape and points at migrate", async () => {
+  await withTempDir(async (dir) => {
+    assertEquals(
+      (await runCli(["init", "--yes", "--slug", "demo"], dir)).code,
+      0,
+    );
+    // Re-introduce a pre-1.0 marker the 1.0 engine would silently ignore.
+    const tomlPath = join(dir, "icculus.toml");
+    await Deno.writeTextFile(
+      tomlPath,
+      `${await Deno.readTextFile(tomlPath)}\n[ratchets]\ncoverage_min = 80\n`,
+    );
+    const { stdout } = await runCli(["doctor", "--json"], dir);
+    const result = JSON.parse(stdout);
+    const shape = result.checks.find((c: { name: string }) =>
+      c.name === "config shape"
+    );
+    assert(shape !== undefined, "expected a 'config shape' check");
+    assertEquals(shape.ok, false);
+    assertStringIncludes(shape.fix, "migrate");
+  });
+});
+
+Deno.test("doctor does not raise the config-shape check on a clean 1.0 install", async () => {
+  await withTempDir(async (dir) => {
+    assertEquals(
+      (await runCli(["init", "--yes", "--slug", "demo"], dir)).code,
+      0,
+    );
+    const { stdout } = await runCli(["doctor", "--json"], dir);
+    const result = JSON.parse(stdout);
+    const shape = result.checks.find((c: { name: string }) =>
+      c.name === "config shape"
+    );
+    assertEquals(shape, undefined); // no pre-1.0 shape → no such finding
   });
 });
 

@@ -40,8 +40,9 @@ gotchas_doc = "{{gotchas_doc}}"
 #   check     read-only analysis (linter, type-checker). Runs after fix+build,
 #             in parallel with `test`.
 #   test      the test suite. Runs in parallel with `check`.
-#   coverage  slow coverage measurement. NOT part of `agent finish`; run on
-#             demand via `agent finish:coverage` (enforces [ratchets]).
+#
+# A slot with NO `phase` is a MEASUREMENT slot: the gate never runs it; a ratchet
+# references it by name to read a metric on demand (see [ratchets] below).
 #
 # `agent tidy` is the fast inner loop: it runs the `fix` slots then the `check`
 # slots, and never builds or tests. Add or remove slots freely — the engine
@@ -67,10 +68,6 @@ run   = ":"   # e.g. "tsc --noEmit" or "mypy ."
 [slots.test]
 phase = "test"
 run   = ":"   # e.g. "npm test" or "pytest" or "go test ./..."
-
-[slots.coverage]
-phase = "coverage"
-run   = ":"   # e.g. "npm run coverage" — measured by `agent finish:coverage`
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -118,11 +115,12 @@ inherit_env = []   # e.g. ["APP_KEY", "OPENAI_API_KEY"]
 port = true
 
 # Database adapter. Each worktree gets its own database so tests never clash.
-# {{db}} expands to the worktree's derived database name. Leave empty for a
-# project with no database. (The example below uses a Postgres template DB.)
+# Runtime tokens use @…@ (the engine expands them per-worktree, at run time):
+# @db@ is the derived database name, @project_slug@ your project slug. Leave empty
+# for a project with no database. (The example below uses a Postgres template DB.)
 [worktree.db]
-clone = ""   # e.g. "createdb -T {{project_slug}}_template {{db}}"
-drop  = ""   # e.g. "dropdb --if-exists {{db}}"
+clone = ""   # e.g. "createdb -T @project_slug@_template @db@"
+drop  = ""   # e.g. "dropdb --if-exists @db@"
 
 # Dev-server adapter — link/unlink a per-worktree site (a Docker vhost, an ngrok
 # tunnel, a reverse-proxy entry, …). Leave empty for none.
@@ -137,14 +135,45 @@ steps = []   # e.g. ["npm ci", "npm run build"]
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# [ratchets] — never-loosen quality floors enforced by the gate.
+# [ratchets] — never-loosen quality floors, enforced on demand by `agent ratchets`
+# (slow, so NOT part of `agent finish`).
+#
+# A ratchet is a number you only ever want to improve: line coverage, a bundle-
+# size budget, a lint/type-error count, a perf budget. Each [ratchets.<name>]
+# table declares one:
+#   metric     the metric name a slot emits        (default: the ratchet name)
+#   direction  "up"   value should rise; limit is a FLOOR   (e.g. coverage)
+#              "down" value should fall; limit is a CEILING (e.g. a size budget)
+#   limit      the floor/ceiling — compared vs main, so a floor may only rise and
+#              a ceiling may only fall (you can't loosen the gate on a branch)
+#   slot       the [slots.<name>] that measures it — a MEASUREMENT slot (no
+#              `phase`, so `finish` never runs it; the ratchet runs it on demand)
+#
+# A measurement slot reports its number by printing a line:
+#   ICCULUS_METRIC <name> <number>
+# (the LAST such line wins). There is no built-in or special ratchet — coverage
+# is just the conventional name for one. None are configured by default;
+# uncomment an example to enable it.
+#
+# Coverage — keep line coverage at or above a rising floor:
+# [slots.coverage]
+# run = "your-coverage-tool"   # must emit: ICCULUS_METRIC coverage <percent>
+#
+# [ratchets.coverage]
+# direction = "up"
+# limit     = 80
+# slot      = "coverage"
+#
+# Bundle size — keep an artifact under a falling ceiling:
+# [slots.bundlesize]
+# run = "printf 'ICCULUS_METRIC bundle_bytes %s\\n' \"$(wc -c < dist/app.js)\""
+#
+# [ratchets.bundle]
+# metric    = "bundle_bytes"
+# direction = "down"
+# limit     = 500000
+# slot      = "bundlesize"
 # ─────────────────────────────────────────────────────────────────────────────
-
-[ratchets]
-# Minimum line coverage, enforced by `agent finish:coverage`. The check fails if
-# coverage drops below this OR if this value is lower than on the main branch —
-# so the floor only ever rises. 0.0 disables it until you set a real floor.
-coverage_min = 0.0
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -155,3 +184,39 @@ coverage_min = 0.0
 [evidence]
 enabled = false
 capture = ""   # command that records evidence for the current branch
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# [gate] — ergonomics for the parallel gate stages (and side gates). These affect
+# how `agent finish` runs its concurrent jobs.
+# ─────────────────────────────────────────────────────────────────────────────
+
+[gate]
+# Stream each slot's output live (line-prefixed `── <label> │ …`) instead of
+# buffering it until the stage finishes. Helps when watching a slow build/test.
+# Concurrent jobs interleave (but stay labelled). Off by default (grouped).
+stream = false
+
+# Cancel the in-flight sibling commands the moment one fails, instead of running
+# every command to completion. ON by default — an agent-driven gate wants a fast
+# abort. Set false to run every job and see all failures in one pass. Best
+# effort: a command's own grandchildren may briefly linger (portable sh has no
+# atomic process-tree kill).
+fail_fast = true
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# [recipes] — your OWN agent commands. Drop an executable script carrying a
+# `# desc: ...` line into the directory below and it becomes a first-class
+# `agent <name>` command, listed by `agent --help` under "Project recipes". This
+# directory is yours: never managed, never refreshed by `icculus upgrade`. A name
+# that collides with a built-in engine recipe (finish, worktree:*, …) is ignored
+# with a warning — the engine always wins, so a project file can never redefine
+# the core gate. A recipe run via `agent <name>` can source the engine library
+# (`. "$ICCULUS_LIB/bootstrap.sh"`) for config_get / info / ok / die / run_parallel.
+# ─────────────────────────────────────────────────────────────────────────────
+
+[recipes]
+# Where your recipes live, relative to the project root. The default works with
+# no config at all; point it elsewhere (e.g. "tools/") if you prefer.
+dir = ".icculus/recipes"
