@@ -1,6 +1,23 @@
 # ADR 0005: Declarative config — a comment-preserving editor, `icculus config`, and `init --config`
 
-**Status**: accepted
+**Status**: accepted; **amended by the 1.0 redesign** — see _Update (1.0)_
+below.
+
+## Update (1.0)
+
+The original decision below shipped the `init --config` shape as a type called
+`InitAnswersFile` — an internal answers struct that `add-adapter` then quietly
+reused for `adapter.json`. Once two surfaces consumed it, it was a published API
+in all but name.
+
+1.0 makes that explicit: it is now the **icculus config document**
+(`IcculusConfigDoc`, in `src/lib/config_doc.ts`), with a deliberately neutral
+name, an optional **`version`** (a document declaring a major this build doesn't
+understand is refused, not misread), an accepted **`$schema`** pointer, and a
+**published JSON Schema** at `schema/icculus-config.schema.json` for editor
+validation. `init --config` and `adapter.json` (ADR 0007) are its two consumers.
+The `ratchets` field also drops the pre-1.0 `coverage_min` number shorthand (ADR
+0003): every ratchet is a table.
 
 ## Context
 

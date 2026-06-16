@@ -1,6 +1,16 @@
 # ADR 0007: The adapter contract — a file overlay plus config fills
 
-**Status**: accepted
+**Status**: accepted; **amended by the 1.0 redesign** — see _Update (1.0)_
+below.
+
+## Update (1.0)
+
+`adapter.json` is now described as what it is: an **icculus config document**
+(ADR 0005's _Update_) — the same versioned, schema-backed shape `init --config`
+reads, rather than an "`init --config`-shaped" struct. `add-adapter` validates
+its `version` the same way, and an adapter author can point its `$schema` at
+`schema/icculus-config.schema.json` for editor validation. The contract is
+otherwise unchanged.
 
 ## Context
 

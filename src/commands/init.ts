@@ -17,11 +17,11 @@ import {
   resolveInitConfig,
 } from "../lib/prompts.ts";
 import {
-  applyAnswerFills,
-  type InitAnswersFile,
-  loadInitAnswers,
-  mergeFileIntoFlags,
-} from "../lib/init_config_file.ts";
+  applyConfigDoc,
+  type IcculusConfigDoc,
+  loadConfigDoc,
+  mergeDocIntoFlags,
+} from "../lib/config_doc.ts";
 import { TomlEditor } from "../lib/toml_edit.ts";
 import { KIT_VERSION } from "../lib/version.ts";
 import {
@@ -90,7 +90,7 @@ export async function assembleInitPlan(params: {
   destDir: string;
   config: InitConfig;
   /** Declarative slots/scopes/side_gates/ratchets fills from `init --config`. */
-  fills?: InitAnswersFile;
+  fills?: IcculusConfigDoc;
 }): Promise<Plan> {
   const { templatesDir, destDir, config } = params;
   const tokens = tokensFromConfig(config);
@@ -135,13 +135,13 @@ export async function assembleInitPlan(params: {
  * `icculus.toml` op via the comment-preserving editor. A no-op when icculus.toml
  * is a `skip` (an existing seed left as the user's — fills never clobber it).
  */
-function applyFillsToPlan(plan: Plan, fills: InitAnswersFile): void {
+function applyFillsToPlan(plan: Plan, fills: IcculusConfigDoc): void {
   const op = plan.ops.find((o) => o.targetRel === "icculus.toml");
   if (!op || op.disposition === "skip") {
     return;
   }
   const editor = new TomlEditor(TEXT_DECODER.decode(op.bytes));
-  applyAnswerFills(editor, fills);
+  applyConfigDoc(editor, fills);
   op.bytes = TEXT_ENCODER.encode(editor.toString());
 }
 
@@ -176,11 +176,11 @@ export async function runInit(options: InitOptions): Promise<number> {
     return 1;
   }
 
-  // Load the --config answers file (declarative, non-interactive) if given.
-  let fileAnswers: InitAnswersFile | undefined;
+  // Load the --config document (declarative, non-interactive) if given.
+  let fileAnswers: IcculusConfigDoc | undefined;
   if (options.config !== undefined) {
     try {
-      fileAnswers = await loadInitAnswers(options.config);
+      fileAnswers = await loadConfigDoc(options.config);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       if (options.json) {
@@ -194,7 +194,7 @@ export async function runInit(options: InitOptions): Promise<number> {
 
   // --config implies non-interactive; the file's base fields are a fallback layer
   // beneath any explicit flags.
-  const effectiveFlags = mergeFileIntoFlags(options, fileAnswers);
+  const effectiveFlags = mergeDocIntoFlags(options, fileAnswers);
   if (fileAnswers) {
     effectiveFlags.yes = true;
   }

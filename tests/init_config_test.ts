@@ -9,6 +9,8 @@ import { join } from "@std/path";
 import { runCli, withTempDir } from "./helpers.ts";
 
 const ANSWERS = JSON.stringify({
+  "$schema": "../schema/icculus-config.schema.json",
+  version: "1",
   name: "My App",
   slug: "my-app",
   source_globs: ["src/**", "lib/**"],
@@ -108,6 +110,20 @@ Deno.test("init --config rejects invalid JSON", async () => {
     const result = JSON.parse(r.stdout);
     assertEquals(result.ok, false);
     assertEquals(result.error, "invalid_config_file");
+  });
+});
+
+Deno.test("init --config rejects an unsupported document version", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(
+      join(dir, "answers.json"),
+      JSON.stringify({ version: "2", slug: "x" }),
+    );
+    const r = await runCli(["init", "--config", "answers.json", "--json"], dir);
+    assertEquals(r.code, 1);
+    const result = JSON.parse(r.stdout);
+    assertEquals(result.error, "invalid_config_file");
+    assertStringIncludes(result.message, "version");
   });
 });
 

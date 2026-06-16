@@ -5,10 +5,11 @@
  * An adapter is a **file overlay plus config fills**: every file in the adapter
  * dir is scaffolded with the same token/merge/exec-bit machinery as `init`
  * (seed/managed rules apply), and an optional `adapter.json` at its root —
- * metadata, never scaffolded — carries `init --config`-shaped slots / scopes /
- * side_gates / ratchets that are written into the project's `icculus.toml` via
- * the comment-preserving editor. So an adapter overlays both files (recipes,
- * skills, guideline fragments, docs) and config (slots, scopes, side-gates).
+ * metadata, never scaffolded — is an icculus config document (the same shape
+ * `init --config` reads) whose slots / scopes / side_gates / ratchets are
+ * written into the project's `icculus.toml` via the comment-preserving editor.
+ * So an adapter overlays both files (recipes, skills, guideline fragments, docs)
+ * and config (slots, scopes, side-gates).
  *
  * This ships the *mechanism* only: no adapter is bundled (the example used to
  * exercise the contract lives under tests/fixtures/adapters/).
@@ -23,21 +24,23 @@ import { planToJson, renderPlan, renderReview } from "../lib/plan_view.ts";
 import { confirmProceed } from "../lib/prompts.ts";
 import { TomlEditor } from "../lib/toml_edit.ts";
 import {
-  applyAnswerFills,
-  type InitAnswersFile,
-} from "../lib/init_config_file.ts";
+  applyConfigDoc,
+  assertSupportedVersion,
+  type IcculusConfigDoc,
+} from "../lib/config_doc.ts";
 
 /** The reserved metadata filename at an adapter root (never scaffolded). */
 const ADAPTER_MANIFEST = "adapter.json";
 
 /**
- * Load an adapter's `adapter.json` config fills, or undefined if absent. The
- * file is `init --config`-shaped (its slots/scopes/side_gates/ratchets are the
- * fills); a `description` field, if present, is metadata only.
+ * Load an adapter's `adapter.json`, or undefined if absent. It is an icculus
+ * config document (its slots/scopes/side_gates/ratchets are the fills); a
+ * `description` field, if present, is metadata only. Its `version`, if present,
+ * is validated the same way `init --config` validates one.
  */
 async function loadAdapterFills(
   adapterDir: string,
-): Promise<InitAnswersFile | undefined> {
+): Promise<IcculusConfigDoc | undefined> {
   let text: string;
   try {
     text = await Deno.readTextFile(join(adapterDir, ADAPTER_MANIFEST));
@@ -51,11 +54,12 @@ async function loadAdapterFills(
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
     throw new Error(`${ADAPTER_MANIFEST} must be a JSON object`);
   }
-  return parsed as InitAnswersFile;
+  assertSupportedVersion(parsed as IcculusConfigDoc);
+  return parsed as IcculusConfigDoc;
 }
 
-/** True when an adapter's fills carry any config to apply. */
-function hasFills(fills: InitAnswersFile | undefined): boolean {
+/** True when an adapter's document carries any config to apply. */
+function hasFills(fills: IcculusConfigDoc | undefined): boolean {
   return !!fills &&
     !!(fills.slots || fills.scopes || fills.side_gates || fills.ratchets);
 }
@@ -184,7 +188,7 @@ export async function runAddAdapter(
 
   // Load the adapter's config fills and pre-compute the edited icculus.toml, so
   // a bad adapter.json fails before anything is written and dry-run reports it.
-  let fills: InitAnswersFile | undefined;
+  let fills: IcculusConfigDoc | undefined;
   let filledToml: string | undefined;
   try {
     fills = await loadAdapterFills(adapterDir);
@@ -192,7 +196,7 @@ export async function runAddAdapter(
       const editor = new TomlEditor(
         await Deno.readTextFile(join(destDir, "icculus.toml")),
       );
-      applyAnswerFills(editor, fills!);
+      applyConfigDoc(editor, fills!);
       filledToml = editor.toString();
     }
   } catch (error) {

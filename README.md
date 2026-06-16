@@ -340,13 +340,16 @@ layout), and writes it back. Light validation matches `doctor` (slot `--phase` �
 the known phases, or omit it for a measurement slot; ratchet `--direction` ∈
 `up`/`down`, and `--slot` is required). `coverage` is an ordinary ratchet name.
 
-To drive a **fresh** install in one shot, `init --config <file>` reads a JSON
-answers file (or `--config -` for stdin) and scaffolds non-interactively. Base
-fields mirror the flags; `slots` / `scopes` / `side_gates` / `ratchets` are
-written into the generated `icculus.toml`. Explicit flags override file values.
+To drive a **fresh** install in one shot, `init --config <file>` reads an
+**icculus config document** — a JSON file (or `--config -` for stdin) — and
+scaffolds non-interactively. Base fields mirror the flags; `slots` / `scopes` /
+`side_gates` / `ratchets` are written into the generated `icculus.toml`.
+Explicit flags override file values.
 
 ```json
 {
+  "$schema": "https://raw.githubusercontent.com/jackwh/icculus/main/schema/icculus-config.schema.json",
+  "version": "1",
   "name": "My App",
   "slug": "my-app",
   "source_globs": ["src/**"],
@@ -364,6 +367,13 @@ written into the generated `icculus.toml`. Explicit flags override file values.
 icculus init --config answers.json        # or:  cat answers.json | icculus init --config -
 ```
 
+The document shape is a **published contract**: a JSON Schema ships at
+[`schema/icculus-config.schema.json`](schema/icculus-config.schema.json) — point
+your file's `$schema` at it for editor validation. An optional `version` lets
+the shape evolve safely (this is version `1`); a document declaring a major this
+build doesn't understand is refused rather than misread. The same document is
+what an adapter's `adapter.json` carries (below).
+
 ### Writing an adapter
 
 An **adapter** packages a reusable overlay so the same stack layer can be
@@ -375,13 +385,14 @@ applied to many projects with one command. `icculus add-adapter <name>` reads
   docs) are write-once; managed files (`.ai/skills/**`) follow the hash-aware
   overwrite/`.new` rule; `.claude/settings.json` deep-merges.
 - **Config fills** — an optional `adapter.json` at the adapter root (metadata,
-  never scaffolded) is an `init --config`-shaped document whose `slots` /
+  never scaffolded) is an **icculus config document** (the same shape
+  `init --config` reads, validated against the same schema) whose `slots` /
   `scopes` / `side_gates` / `ratchets` are written into the project's
   `icculus.toml` via the comment-preserving editor.
 
 ```
 adapters/my-stack/
-  adapter.json                          # { "description", "slots", "scopes", "side_gates", "ratchets" }
+  adapter.json                          # an icculus config document (+ "description")
   .icculus/recipes/deploy               # a project recipe (seed)
   .ai/guidelines/my-stack.md            # a guideline fragment (seed)
   .ai/skills/my-skill/SKILL.md          # a skill (managed)
