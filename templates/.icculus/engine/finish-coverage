@@ -6,82 +6,15 @@
 # coverage ratchet. It is intentionally NOT part of `agent finish`: coverage
 # measurement is slow, so it runs on demand before pushing.
 #
-# It enforces both halves of the ratchet:
-#   NEVER LOWERED vs main  fail when [ratchets].coverage_min on this branch is
-#                          below its value on main (the floor only ever rises).
-#   NEVER BELOW THE FLOOR   run the coverage slot, parse the measured percentage
-#                          from its output, and fail when it is under the floor.
-#
-# Coverage-number parsing is necessarily heuristic: the slot command belongs to
-# the project, so its output format is unknown here. We take the LAST percentage
-# the slot prints (coverage tools conventionally print the total last) and
-# compare it to the floor. If your tool's output does not end with its total
-# percentage, wrap it so its final line is the figure (e.g. append a line that
-# echoes the measured total). This limitation is the trade for staying
-# stack-neutral; the never-lowered half does not depend on parsing.
+# Coverage is now ONE instance of the general named-metric ratchet engine (see
+# lib/ratchets.sh and ADR 0003): direction "up", limit [ratchets].coverage_min,
+# metric "coverage", measured by the coverage-phase slots. Its behaviour is
+# unchanged — including the legacy fallback that reads the last "NN%" the slot
+# prints when no `ICCULUS_METRIC coverage <n>` line is emitted, and the
+# disabled-at-0 floor. Run `agent finish:ratchets` to hold every ratchet at once.
 
-git_bin=${GIT_BIN:-git}
-main_branch=${MAIN_BRANCH:-main}
+# shellcheck source=lib/ratchets.sh
+. "$ICCULUS_LIB/ratchets.sh"
 
-floor=$(config_get ratchets.coverage_min "0")
-
-# A floor of 0 disables the ratchet entirely (matches the schema default).
-if awk "BEGIN { exit !($floor <= 0) }" 2>/dev/null; then
-    info "Coverage ratchet disabled ([ratchets].coverage_min is 0). Set a real floor to enable it."
-    exit 0
-fi
-
-# --- NEVER LOWERED vs main ------------------------------------------------
-#
-# Compare this branch's floor against main's. Skipped quietly when git or main's
-# icculus.toml is unavailable (e.g. a fresh repo with no main yet).
-if command -v "$git_bin" >/dev/null 2>&1; then
-    main_toml=$("$git_bin" show "$main_branch:icculus.toml" 2>/dev/null || printf '')
-    if [ -n "$main_toml" ]; then
-        # Reuse the same parser the harness uses, against main's file on a temp.
-        main_tmp=$(mktemp "${TMPDIR:-/tmp}/icculus-main-toml.XXXXXX") || die "finish:coverage: mktemp failed."
-        # shellcheck disable=SC2064
-        trap "rm -f '$main_tmp'" EXIT INT TERM
-        printf '%s\n' "$main_toml" > "$main_tmp"
-        main_floor=$(awk -v op=scalar -v q="ratchets.coverage_min" -f "$ICCULUS_LIB/toml.awk" "$main_tmp")
-        rm -f "$main_tmp"
-        trap - EXIT INT TERM
-        if [ -n "$main_floor" ] && awk "BEGIN { exit !($floor < $main_floor) }" 2>/dev/null; then
-            die "coverage_min ${main_floor} -> ${floor} — the floor only rises. Raise coverage instead of loosening the gate."
-        fi
-    fi
-fi
-
-# --- NEVER BELOW THE FLOOR ------------------------------------------------
-
-coverage_cmd=$(slots_for_phase coverage)
-if [ "$coverage_cmd" = ":" ]; then
-    die "No coverage slot configured (set a slot with phase = \"coverage\" in icculus.toml)."
-fi
-
-heading "Measuring coverage (floor ${floor})..."
-
-out_file=$(mktemp "${TMPDIR:-/tmp}/icculus-coverage.XXXXXX") || die "finish:coverage: mktemp failed."
-# shellcheck disable=SC2064
-trap "rm -f '$out_file'" EXIT INT TERM
-
-# Run the slot, teeing its output so the operator sees it live AND we can parse.
-if ! eval "$coverage_cmd" 2>&1 | tee "$out_file"; then
-    die "The coverage command failed."
-fi
-
-# Take the LAST percentage-looking number the slot printed as the measured total.
-measured=$(grep -oE '[0-9]+(\.[0-9]+)?[[:space:]]*%' "$out_file" \
-    | tr -d ' %' \
-    | tail -n 1)
-
-if [ -z "$measured" ]; then
-    die "Could not read a coverage percentage from the slot's output. Make its final line the measured total (e.g. \"87.4%\")."
-fi
-
-# Compare measured vs floor with a tiny tolerance.
-if awk "BEGIN { exit !($measured + 1e-9 < $floor) }" 2>/dev/null; then
-    die "Coverage ${measured}% is below the floor ${floor}% — cover the new code; never lower the floor."
-fi
-
-ok "Coverage ${measured}% meets the floor ${floor}%. Step the floor up to just below the measurement when your change raised it."
+ratchet_check coverage
+exit $?

@@ -146,6 +146,32 @@ steps = []   # e.g. ["npm ci", "npm run build"]
 # so the floor only ever rises. 0.0 disables it until you set a real floor.
 coverage_min = 0.0
 
+# Named metric ratchets generalise the coverage idea to ANY number you want to
+# only-ever-improve: lint/type-error counts, bundle size, a perf budget. Run them
+# all with `agent finish:ratchets` (slow; on demand, like finish:coverage).
+#
+# A slot reports a metric by printing a line:   ICCULUS_METRIC <name> <number>
+# (the LAST such line wins). The coverage ratchet also accepts a trailing "NN%".
+#
+# Each [ratchets.<name>] declares:
+#   metric     the metric name a slot emits        (default: the ratchet name)
+#   direction  "up"   value should rise; limit is a FLOOR   (like coverage)
+#              "down" value should fall; limit is a CEILING (like a size budget)
+#   limit      the floor/ceiling — compared vs main, so a floor may only rise and
+#              a ceiling may only fall (you can't loosen the gate on a branch)
+#   slot       the [slots.<name>] whose output emits the metric
+#
+# Example — keep a bundle under 500 kB, measured by a "bundlesize" slot:
+# [slots.bundlesize]
+# phase = "coverage"   # the on-demand phase, so a normal `finish` won't run it
+# run   = "printf 'ICCULUS_METRIC bundle_bytes %s\\n' \"$(wc -c < dist/app.js)\""
+#
+# [ratchets.bundle]
+# metric    = "bundle_bytes"
+# direction = "down"
+# limit     = 500000
+# slot      = "bundlesize"
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [evidence] — optional gate requiring each branch to record work evidence

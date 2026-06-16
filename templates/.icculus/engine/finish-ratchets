@@ -1,0 +1,44 @@
+#!/usr/bin/env sh
+# desc: hold every metric ratchet — coverage plus each [ratchets.<name>]
+. "$(dirname "$0")/lib/bootstrap.sh"
+
+# finish-ratchets (dispatched as `agent finish:ratchets`) — run every configured
+# metric ratchet: the built-in coverage ratchet ([ratchets].coverage_min, when a
+# floor is set) plus every named [ratchets.<name>] table. Like finish:coverage it
+# is on-demand (measurement is slow) and NOT part of `agent finish`.
+#
+# Every ratchet runs even if one fails, so you see every shortfall in one pass;
+# the recipe exits non-zero if any failed. See lib/ratchets.sh and ADR 0003.
+
+# shellcheck source=lib/ratchets.sh
+. "$ICCULUS_LIB/ratchets.sh"
+
+failed=0
+ran=0
+
+# Coverage is the built-in instance — run it only when a real floor is set, so a
+# project that uses only named ratchets isn't nagged about a disabled coverage
+# floor. (`agent finish:coverage` always reports coverage, disabled or not.)
+coverage_min=$(config_get ratchets.coverage_min "0")
+if awk "BEGIN { exit !($coverage_min > 0) }" 2>/dev/null; then
+    ran=$((ran + 1))
+    ratchet_check coverage || failed=1
+fi
+
+# Named ratchets: every [ratchets.<name>] subsection. The name "coverage" is
+# reserved for the built-in instance handled above, so skip it here.
+for ratchet in $(config_subsections ratchets); do
+    [ "$ratchet" = "coverage" ] && continue
+    ran=$((ran + 1))
+    ratchet_check "$ratchet" || failed=1
+done
+
+if [ "$ran" -eq 0 ]; then
+    info "No ratchets configured. Set [ratchets].coverage_min, or add a [ratchets.<name>] table."
+    exit 0
+fi
+
+if [ "$failed" -ne 0 ]; then
+    die "One or more ratchets failed."
+fi
+ok "All ${ran} ratchet(s) held."

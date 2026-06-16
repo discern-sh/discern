@@ -198,12 +198,36 @@ clean no-op.
 
 ### Ratchets & evidence
 
+A **ratchet** is a number you only ever want to improve. `coverage_min` is the
+built-in: a floor enforced by `agent finish:coverage`, which fails if coverage
+drops below it _or_ if the floor is lower than on `main` (so it only ever
+rises).
+
 ```toml
 [ratchets]
 coverage_min = 0.0          # never-lower floor, enforced by `agent finish:coverage`
 
 [evidence]
 enabled = false             # optionally require per-branch work evidence before finish
+```
+
+**Named metric ratchets** generalise that to any number — lint/type-error
+counts, bundle size, a perf budget, type-coverage. A slot reports a metric by
+printing a line `ICCULUS_METRIC <name> <number>` (last wins); a
+`[ratchets.<name>]` table sets the floor/ceiling. `agent finish:ratchets` holds
+them all (slow; on demand, like `finish:coverage`).
+
+```toml
+[slots.bundlesize]
+phase = "coverage"          # the on-demand phase, so a normal finish won't run it
+run   = "printf 'ICCULUS_METRIC bundle_bytes %s\\n' \"$(wc -c < dist/app.js)\""
+
+[ratchets.bundle]
+metric    = "bundle_bytes"
+direction = "down"          # "down" = value should fall; limit is a ceiling
+                            # "up"   = value should rise; limit is a floor (like coverage)
+limit     = 500000          # compared vs main: a ceiling may only fall, a floor only rise
+slot      = "bundlesize"    # the slot whose output emits the metric
 ```
 
 ### Project recipes — your own `agent` commands
@@ -262,6 +286,7 @@ Global flags: `--json`, `--no-color` (also honours `NO_COLOR` and non-TTY),
 | `agent tidy`                         | fixers + checks, no build/test — the fast inner loop.                                               |
 | `agent test`                         | run the test-phase slots.                                                                           |
 | `agent finish:coverage`              | the coverage ratchet (slow; not part of `finish`).                                                  |
+| `agent finish:ratchets`              | hold every metric ratchet — coverage + each `[ratchets.<name>]` (slow; not part of `finish`).       |
 | `agent worktree:exit`                | graduate this worktree's branch into the main checkout.                                             |
 | `agent worktree:teardown` / `:prune` | discard a worktree / sweep stale ones.                                                              |
 | `agent guidelines`                   | compile `.ai/guidelines/*` → each agent's file (`AGENTS.md`, `CLAUDE.md`, …) + refresh skill links. |

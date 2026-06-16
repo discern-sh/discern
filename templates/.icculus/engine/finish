@@ -147,9 +147,19 @@ else
     info "If you changed something meaningful, update the docs to match before you finish."
 fi
 
-# Coverage reminder: only when a coverage slot is set, or a floor is configured.
+# Ratchet reminder: coverage and any named [ratchets.<name>] are slow, so they run
+# on demand, not as part of finish. Point at finish:ratchets when named ratchets
+# exist, else the coverage-only reminder when a coverage slot/floor is set.
 coverage_min=$(config_get ratchets.coverage_min "0")
-if ! config_slot_is_noop slots.coverage.run || awk "BEGIN { exit !($coverage_min > 0) }" 2>/dev/null; then
+has_named_ratchets=0
+for _r in $(config_subsections ratchets); do
+    [ "$_r" = "coverage" ] && continue
+    has_named_ratchets=1
+    break
+done
+if [ "$has_named_ratchets" -eq 1 ]; then
+    info "Before pushing, hold the ratchets: ${C_BOLD}agent finish:ratchets${C_RESET} (slow, so not part of finish)."
+elif ! config_slot_is_noop slots.coverage.run || awk "BEGIN { exit !($coverage_min > 0) }" 2>/dev/null; then
     info "Before pushing, hold the coverage ratchet: ${C_BOLD}agent finish:coverage${C_RESET} (slow, so it is not part of finish)."
 fi
 
