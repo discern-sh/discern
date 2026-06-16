@@ -38,12 +38,14 @@ export interface CliResult {
 /**
  * Run `src/main.ts` as a subprocess in `cwd`, so Cliffy parsing, the global
  * flags, JSON output, and exit codes are all exercised for real. `NO_COLOR` and
- * the real templates dir are set; `env` adds/overrides further variables.
+ * the real templates dir are set; `env` adds/overrides further variables. When
+ * `stdin` is given, it is piped to the process (for `--config -`).
  */
 export async function runCli(
   args: string[],
   cwd: string,
   env: Record<string, string> = {},
+  stdin?: string,
 ): Promise<CliResult> {
   const command = new Deno.Command(Deno.execPath(), {
     args: [
@@ -57,9 +59,24 @@ export async function runCli(
     ],
     cwd,
     env: { ICCULUS_TEMPLATES_DIR: REAL_TEMPLATES, NO_COLOR: "1", ...env },
+    stdin: stdin !== undefined ? "piped" : "null",
     stdout: "piped",
     stderr: "piped",
   });
+
+  if (stdin !== undefined) {
+    const child = command.spawn();
+    const writer = child.stdin.getWriter();
+    await writer.write(new TextEncoder().encode(stdin));
+    await writer.close();
+    const { code, stdout, stderr } = await child.output();
+    return {
+      code,
+      stdout: new TextDecoder().decode(stdout),
+      stderr: new TextDecoder().decode(stderr),
+    };
+  }
+
   const { code, stdout, stderr } = await command.output();
   return {
     code,

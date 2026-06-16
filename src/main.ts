@@ -86,6 +86,10 @@ function buildCli() {
       "--agents <agents:string>",
       "Comma-separated agent files to emit: claude_code, codex.",
     )
+    .option(
+      "--config <file:string>",
+      "JSON answers file (or - for stdin). Drives a fresh install declaratively; implies non-interactive.",
+    )
     .option("-y, --yes", "Non-interactive: use flags/defaults, no prompts.")
     .option("--dry-run", "Print the plan and write nothing.")
     .option("--force", "Proceed even if icculus.toml already exists.")
@@ -102,6 +106,7 @@ function buildCli() {
         sourceGlobs: options.sourceGlobs,
         brief: options.brief,
         agents: options.agents,
+        config: options.config,
       });
       Deno.exit(code);
     });

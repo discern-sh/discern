@@ -283,13 +283,13 @@ uses.
 
 ### `icculus` (the installer)
 
-| command              | does                                                                                                                                                                                               |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `init`               | scaffold the harness into the cwd (fresh or existing repo). Wizard or `--yes` + flags; `--dry-run`, `--json`, `--force`. Never overwrites a file it can't prove it wrote — see _Managed vs. seed_. |
-| `upgrade`            | refresh only **managed** engine files. A managed file you edited is preserved; the new version lands as `<file>.new`.                                                                              |
-| `doctor`             | verify the install (manifest, dispatcher, then delegates to `agent doctor`).                                                                                                                       |
-| `config <sub>`       | programmatically edit `icculus.toml`, comments intact — `set-slot`, `set-scope`, `set-side-gate`, `set-ratchet`, `set`. See _Driving icculus programmatically_.                                    |
-| `add-adapter <name>` | overlay a bundled stack adapter (mechanism present; see _Roadmap_).                                                                                                                                |
+| command              | does                                                                                                                                                                                                                                       |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `init`               | scaffold the harness into the cwd (fresh or existing repo). Wizard, `--yes` + flags, or `--config <file>` (JSON answers file). `--dry-run`, `--json`, `--force`. Never overwrites a file it can't prove it wrote — see _Managed vs. seed_. |
+| `upgrade`            | refresh only **managed** engine files. A managed file you edited is preserved; the new version lands as `<file>.new`.                                                                                                                      |
+| `doctor`             | verify the install (manifest, dispatcher, then delegates to `agent doctor`).                                                                                                                                                               |
+| `config <sub>`       | programmatically edit `icculus.toml`, comments intact — `set-slot`, `set-scope`, `set-side-gate`, `set-ratchet`, `set`. See _Driving icculus programmatically_.                                                                            |
+| `add-adapter <name>` | overlay a bundled stack adapter (mechanism present; see _Roadmap_).                                                                                                                                                                        |
 
 Global flags: `--json`, `--no-color` (also honours `NO_COLOR` and non-TTY),
 `--help`, `--version`.
@@ -312,6 +312,30 @@ Each finds `icculus.toml` in the cwd, applies the edit (preserving comments and
 layout), and writes it back. Light validation matches `doctor` (slot `--phase` ∈
 the known phases; ratchet `--direction` ∈ `up`/`down`). The name `coverage` is
 reserved for the built-in ratchet.
+
+To drive a **fresh** install in one shot, `init --config <file>` reads a JSON
+answers file (or `--config -` for stdin) and scaffolds non-interactively. Base
+fields mirror the flags; `slots` / `scopes` / `side_gates` / `ratchets` are
+written into the generated `icculus.toml`. Explicit flags override file values.
+
+```json
+{
+  "name": "My App",
+  "slug": "my-app",
+  "source_globs": ["src/**"],
+  "slots": { "test": { "phase": "test", "run": "vitest run" } },
+  "scopes": { "native": ["native/**"] },
+  "side_gates": { "native": "make -C native check" },
+  "ratchets": {
+    "coverage_min": 80,
+    "bundle": { "direction": "down", "limit": 500000, "slot": "bundlesize" }
+  }
+}
+```
+
+```sh
+icculus init --config answers.json        # or:  cat answers.json | icculus init --config -
+```
 
 ### `agent` (the installed task runner)
 
