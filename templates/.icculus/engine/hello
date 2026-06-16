@@ -1,9 +1,0 @@
-#!/usr/bin/env sh
-# desc: print a friendly diagnostic — proves the dispatcher + config reader work
-. "$(dirname "$0")/lib/bootstrap.sh"
-
-ok "agent dispatch works."
-info "project slug:   $(config_get project.slug '(unset)')"
-info "branch prefix:  $(config_get project.branch_prefix '(unset)')"
-info "agents:         $(config_array project.agents | paste -sd, - 2>/dev/null || config_array project.agents | tr '\n' ',')"
-info "slots:          $(config_subsections slots | paste -sd, - 2>/dev/null || config_subsections slots | tr '\n' ',')"

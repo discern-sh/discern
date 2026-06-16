@@ -29,6 +29,12 @@ fi
 # shellcheck source=jobs.sh
 . "$ICCULUS_LIB/jobs.sh"
 
+# Resolve the integration branch once and export it, so the standalone git
+# utilities (assert-main-merged, changed-scopes, prune-git-worktrees, …) all see
+# the same value. Precedence: an explicit MAIN_BRANCH env override wins; else the
+# config value [project].main_branch; else "main".
+export MAIN_BRANCH="${MAIN_BRANCH:-$(config_get project.main_branch main)}"
+
 # Coding agents set ICCULUS_AGENT=1 (analogous to the donor's AI_AGENT=agent) to
 # request compact, machine-friendly tool output. Slot commands may read it.
 export ICCULUS_AGENT=${ICCULUS_AGENT:-${AI_AGENT:+1}}

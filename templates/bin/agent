@@ -47,6 +47,14 @@ ICCULUS_ENGINE="$ICCULUS_ROOT/.icculus/engine"
 ICCULUS_LIB="$ICCULUS_ENGINE/lib"
 export ICCULUS_ROOT ICCULUS_TOML ICCULUS_ENGINE ICCULUS_LIB
 
+# Resolve the integration branch from config (env override wins) and export it,
+# so even a directly-dispatched standalone git utility (assert-main-merged, …)
+# sees the configured value rather than the "main" default. Costs one awk read.
+if [ -f "$ICCULUS_LIB/config.sh" ]; then
+    . "$ICCULUS_LIB/config.sh"
+    export MAIN_BRANCH="${MAIN_BRANCH:-$(config_get project.main_branch main)}"
+fi
+
 # --- help -----------------------------------------------------------------
 
 print_help() {

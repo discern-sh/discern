@@ -12,6 +12,10 @@ slug = "{{project_slug}}"
 # Branch prefix for worktrees created by the harness, e.g. "agent/my-feature".
 branch_prefix = "{{branch_prefix}}"
 
+# The integration branch the gate merges into and worktrees graduate onto.
+# Override per-invocation with the MAIN_BRANCH env var.
+main_branch = "main"
+
 # Which agent instruction files `agent guidelines` compiles from .ai/guidelines/.
 # Known targets: "claude_code" -> CLAUDE.md, "codex" -> AGENTS.md.
 agents = [{{agents_array}}]
