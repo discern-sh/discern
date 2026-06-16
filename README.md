@@ -377,13 +377,19 @@ pick it up.
 
 Working, verified, and committed:
 
-- ✅ Installer (`init`/`upgrade`/`doctor`/`add-adapter`), 57 tests,
-  single-binary build + release pipeline.
-- ✅ Stack-neutral gate engine (slots, scopes, side-gates, ratchets, evidence).
+- ✅ Installer (`init`/`upgrade`/`doctor`/`add-adapter`), single-binary build +
+  release pipeline.
+- ✅ Stack-neutral gate engine: slots, scopes, **first-class side-gates**
+  (parallel / grouped / aggregated), **named metric ratchets**, evidence, and
+  **structured `agent finish --json`**.
+- ✅ **Project-owned recipes** (`.icculus/recipes/`) — your own `agent`
+  commands, unmanaged and never touched by `upgrade`.
 - ✅ Worktree harness with database / dev-server / env / port adapter seams.
 - ✅ Author-once guidelines compiler + portable skills.
 - ✅ Docs / principles / ADR / TODO scaffolding + the `/bootstrap` seeding
   skill.
+- ✅ 95 tests covering both the installer (`src/`) and the POSIX engine recipes
+  (a scaffold-and-shell-out harness in `tests/engine_*`).
 
 Follow-ups:
 
