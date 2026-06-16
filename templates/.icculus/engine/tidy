@@ -1,0 +1,21 @@
+#!/usr/bin/env sh
+# desc: fast inner loop — apply fixers, then run the read-only checks (no build/test)
+. "$(dirname "$0")/lib/bootstrap.sh"
+
+# tidy — the donor's `tidy` (tidy:fix then tidy:analyse), generalised: run the
+# mutating fixers first (serially, since order matters — one fixer's output is
+# the next's input), then the read-only checks. It never builds or runs tests,
+# so it stays fast enough for the inner loop. Fails non-zero if anything fails.
+
+# slots_for_phase joins a phase's slots with ` && ` (already in declaration
+# order), so the fix phase runs serially as required.
+fix_cmd=$(slots_for_phase fix)
+check_cmd=$(slots_for_phase check)
+
+heading "Fixing code..."
+eval "$fix_cmd" || die "A fixer failed."
+
+heading "Checking..."
+eval "$check_cmd" || die "A check failed."
+
+ok "Tidy complete — fixers applied and checks passed."

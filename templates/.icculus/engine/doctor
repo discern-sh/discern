@@ -1,0 +1,133 @@
+#!/usr/bin/env sh
+# desc: health-check the engine side of the install (config, git, slots, paths)
+. "$(dirname "$0")/lib/bootstrap.sh"
+
+# doctor — verify the harness is wired up correctly and report ACTIONABLE
+# findings (what is wrong + how to fix it), not just pass/fail. Checks:
+#   - icculus.toml parses (project.slug resolves)
+#   - git is present and supports worktrees (`git worktree list`)
+#   - every non-no-op slot's first token resolves on PATH
+#   - the gotchas doc exists when [project].gotchas_doc is set
+#   - every [scopes.side_gates] command's first token resolves on PATH
+#
+# Exit non-zero if any HARD check fails. --json emits a machine-readable report.
+
+as_json=0
+case "${1:-}" in
+    --json) as_json=1 ;;
+    -h|--help) printf 'Usage: doctor [--json]\n'; exit 0 ;;
+    "") ;;
+    *) die "doctor: unknown argument '$1'." ;;
+esac
+
+# Findings accumulate as "level\tmessage\tfix" lines in a temp file, so we can
+# render text or JSON from one pass. level is ok|warn|fail.
+report=$(mktemp "${TMPDIR:-/tmp}/icculus-doctor.XXXXXX") || die "doctor: mktemp failed."
+# shellcheck disable=SC2064
+trap "rm -f '$report'" EXIT INT TERM
+had_failure=0
+
+# Record a finding. add <level> <message> [fix]
+add() {
+    printf '%s\t%s\t%s\n' "$1" "$2" "${3:-}" >> "$report"
+    [ "$1" = "fail" ] && had_failure=1
+    return 0
+}
+
+# First whitespace-delimited token of a command string (its executable).
+first_token() {
+    printf '%s' "$1" | awk '{ print $1; exit }'
+}
+
+# --- config parses --------------------------------------------------------
+
+slug=$(config_get project.slug "")
+if [ -n "$slug" ]; then
+    add ok "icculus.toml parses (project.slug = $slug)."
+else
+    add fail "icculus.toml has no project.slug." "Set [project].slug in $ICCULUS_TOML."
+fi
+
+# --- git + worktree support ----------------------------------------------
+
+if command -v git >/dev/null 2>&1; then
+    if git worktree list >/dev/null 2>&1; then
+        add ok "git is present and supports worktrees."
+    else
+        add warn "git is present but \`git worktree list\` failed here." "Run doctor from inside the git repository."
+    fi
+else
+    add fail "git is not on PATH." "Install git — the harness uses it for scope detection and the worktree workflow."
+fi
+
+# --- slot commands resolve ------------------------------------------------
+
+for slot in $(config_subsections slots); do
+    run=$(config_get "slots.$slot.run")
+    config_slot_is_noop "slots.$slot.run" && continue   # no-op slots need nothing
+    tok=$(first_token "$run")
+    # Skip the trivial shell builtins a slot might legitimately start with.
+    case "$tok" in
+        :|true|false|echo|cd|test|[) add ok "slot '$slot' runs a shell builtin ($tok)."; continue ;;
+    esac
+    if command -v "$tok" >/dev/null 2>&1; then
+        add ok "slot '$slot' command resolves ($tok)."
+    else
+        add fail "slot '$slot' command not found: $tok" "Install $tok, or fix slots.$slot.run in icculus.toml."
+    fi
+done
+
+# --- gotchas doc exists ---------------------------------------------------
+
+gotchas_doc=$(config_get project.gotchas_doc "")
+if [ -n "$gotchas_doc" ]; then
+    if [ -f "$ICCULUS_ROOT/$gotchas_doc" ]; then
+        add ok "gotchas doc exists ($gotchas_doc)."
+    else
+        add fail "gotchas doc not found: $gotchas_doc" "Create $ICCULUS_ROOT/$gotchas_doc, or clear [project].gotchas_doc."
+    fi
+fi
+
+# --- side-gate commands resolve -------------------------------------------
+
+if config_has scopes.side_gates; then
+    for scope in $(config_keys scopes.side_gates); do
+        cmd=$(config_get "scopes.side_gates.$scope" "")
+        [ -n "$cmd" ] || continue
+        tok=$(first_token "$cmd")
+        if command -v "$tok" >/dev/null 2>&1; then
+            add ok "side gate '$scope' command resolves ($tok)."
+        else
+            add fail "side gate '$scope' command not found: $tok" "Install $tok, or fix scopes.side_gates.$scope in icculus.toml."
+        fi
+    done
+fi
+
+# --- render ---------------------------------------------------------------
+
+if [ "$as_json" -eq 1 ]; then
+    printf '{"ok":%s,"findings":[' "$([ "$had_failure" -eq 0 ] && printf 'true' || printf 'false')"
+    _first=1
+    while IFS="$(printf '\t')" read -r level message fix; do
+        [ "$_first" -eq 1 ] && _first=0 || printf ','
+        # Escape backslashes and double quotes for JSON string safety.
+        _m=$(printf '%s' "$message" | sed 's/\\/\\\\/g; s/"/\\"/g')
+        _f=$(printf '%s' "$fix" | sed 's/\\/\\\\/g; s/"/\\"/g')
+        printf '{"level":"%s","message":"%s","fix":"%s"}' "$level" "$_m" "$_f"
+    done < "$report"
+    printf ']}\n'
+else
+    heading "Engine health check"
+    while IFS="$(printf '\t')" read -r level message fix; do
+        case "$level" in
+            ok)   ok "$message" ;;
+            warn) warn "$message"; [ -n "$fix" ] && printf '    %s%s%s\n' "$C_DIM" "$fix" "$C_RESET" >&2 ;;
+            fail) printf '%s✗%s %s\n' "$C_RED" "$C_RESET" "$message" >&2; [ -n "$fix" ] && printf '    %s%s%s\n' "$C_DIM" "$fix" "$C_RESET" >&2 ;;
+        esac
+    done < "$report"
+    if [ "$had_failure" -eq 0 ]; then
+        ok "Engine looks healthy."
+    fi
+fi
+
+[ "$had_failure" -eq 0 ]

@@ -1,0 +1,144 @@
+#!/usr/bin/env sh
+# desc: the full quality gate — fix+build, then check+test, side gates, merge
+. "$(dirname "$0")/lib/bootstrap.sh"
+
+# finish — run everything before handing work back: apply fixers and build
+# artifacts, then run read-only checks alongside the test suite, fire any side
+# gates whose scope changed, and finally confirm the branch carries main.
+#
+# This mirrors the donor's compound gate exactly, with stack-specific commands
+# read from [slots] instead of hardcoded:
+#
+#   donor                                   icculus
+#   ─────────────────────────────────────   ────────────────────────────────────
+#   assert-work-evidence-captured           evidence check (when enabled)
+#   fix ∥ build (tidy:fix ∥ frontend build) run_parallel fix∥build phase slots
+#   analyse ∥ test (tidy:analyse ∥ tests)   run_parallel check∥test phase slots
+#   chain-vision-finish (Swift side gate)   [scopes.side_gates] for changed scopes
+#   assert-main-merged                       assert-main-merged (if present)
+#   print-coverage-reminder                  coverage reminder (if coverage set)
+#   print-preview-url                        preview line (if previewable + link)
+#
+# On any failure in the GATED phases, an EXIT trap prints the gotchas pointer
+# (single-sourced from lib/gotchas.sh, shared with `with-gotchas`) and the exact
+# exit code is preserved.
+
+# shellcheck source=lib/gotchas.sh
+. "$ICCULUS_LIB/gotchas.sh"
+
+# --- gotchas pointer on failure -------------------------------------------
+
+# Set to 1 only while a gated phase is running; the EXIT trap prints the pointer
+# only when we die during one of those phases (not on a clean exit, and not
+# during the informational tail).
+in_gated_phase=0
+
+on_exit() {
+    _oe_code=$?
+    if [ "$_oe_code" -ne 0 ] && [ "$in_gated_phase" -eq 1 ]; then
+        gotchas_hint
+    fi
+    exit "$_oe_code"
+}
+trap on_exit EXIT
+
+# --- pre-checks (fail fast) -----------------------------------------------
+
+# Optional work-evidence gate, before any slow work. evidence check is a no-op
+# unless [evidence].enabled is true.
+if config_bool evidence.enabled; then
+    in_gated_phase=1
+    "$ICCULUS_ENGINE/evidence" check || die "Work evidence is missing or stale — capture it, then re-run."
+    in_gated_phase=0
+fi
+
+# --- fix + build (parallel) -----------------------------------------------
+
+heading "Fixing code and building artifacts..."
+in_gated_phase=1
+run_parallel \
+    "fix" "$(slots_for_phase fix)" \
+    "build" "$(slots_for_phase build)" \
+    || die "The fix/build phase failed."
+in_gated_phase=0
+
+# --- check + test (parallel) ----------------------------------------------
+
+heading "Checking and testing..."
+in_gated_phase=1
+run_parallel \
+    "check" "$(slots_for_phase check)" \
+    "test" "$(slots_for_phase test)" \
+    || die "The check/test phase failed."
+in_gated_phase=0
+
+# --- side gates (run a gate when its scope changed) -----------------------
+
+# [scopes.side_gates] maps a scope name to a command. Run each whose scope the
+# branch actually changed — e.g. a native sub-app gating its own build. Skips
+# cleanly when none are configured or none of their scopes changed.
+if config_has scopes.side_gates; then
+    changed=$("$ICCULUS_ENGINE/changed-scopes" 2>/dev/null || printf '')
+    for scope in $(config_keys scopes.side_gates); do
+        # Did this scope change? (substring test against the newline list)
+        case "
+$changed
+" in
+            *"
+$scope
+"*) ;;
+            *) continue ;;
+        esac
+        gate_cmd=$(config_get "scopes.side_gates.$scope" "")
+        [ -n "$gate_cmd" ] || continue
+        heading "Side gate: $scope changed — running its gate..."
+        in_gated_phase=1
+        eval "$gate_cmd" || die "The '$scope' side gate failed."
+        in_gated_phase=0
+    done
+fi
+
+# --- merge check (worktree support, optional) -----------------------------
+
+# assert-main-merged is provided by the worktree recipe set. It is a no-op in
+# the main checkout and fails only when the branch is behind main. Guarded so
+# finish works even when worktree support is not installed.
+if [ -x "$ICCULUS_ENGINE/assert-main-merged" ]; then
+    in_gated_phase=1
+    "$ICCULUS_ENGINE/assert-main-merged" || die "Integrate main, then re-run finish."
+    in_gated_phase=0
+fi
+
+# --- success + informational tail -----------------------------------------
+#
+# Past this point nothing is gated: failures below must not abort the gate (the
+# work already passed), so the tail only prints guidance.
+
+ok "Everything built and all checks passed."
+info "If you changed something meaningful, update the docs to match before you finish."
+
+# Coverage reminder: only when a coverage slot is set, or a floor is configured.
+coverage_min=$(config_get ratchets.coverage_min "0")
+if ! config_slot_is_noop slots.coverage.run || awk "BEGIN { exit !($coverage_min > 0) }" 2>/dev/null; then
+    info "Before pushing, hold the coverage ratchet: ${C_BOLD}agent finish:coverage${C_RESET} (slow, so it is not part of finish)."
+fi
+
+# Preview line: only when a previewable scope changed AND a dev-server link is
+# configured. Informational only — we surface whatever the worktree recipes can
+# tell us about this worktree's served site/port, guarded by existence checks.
+if [ -n "$(config_get worktree.dev_server.link '')" ] \
+    && "$ICCULUS_ENGINE/changed-scopes" --has previewable 2>/dev/null; then
+    site=""
+    port=""
+    if [ -x "$ICCULUS_ENGINE/worktree-name" ]; then
+        site=$("$ICCULUS_ENGINE/worktree-name" --site 2>/dev/null || printf '')
+        port=$("$ICCULUS_ENGINE/worktree-name" --port 2>/dev/null || printf '')
+    fi
+    if [ -n "$site" ]; then
+        info "Preview this worktree at its dev-server site: ${C_BOLD}${site}${C_RESET}"
+    elif [ -n "$port" ]; then
+        info "Preview this worktree at its dev-server port: ${C_BOLD}${port}${C_RESET}"
+    else
+        info "A previewable change landed — start this worktree's dev server to view it."
+    fi
+fi
