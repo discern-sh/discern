@@ -1,0 +1,43 @@
+# {{project_name}}
+
+<!--
+  This is the author-once source for the project's agent guidelines. It is
+  compiled by `agent guidelines` into the per-agent files at the repo root
+  (CLAUDE.md, AGENTS.md, …). NEVER hand-edit those generated copies — they carry
+  a do-not-edit banner and are overwritten on every compile. Edit THIS file (and
+  the skills under .ai/skills/), then run `agent guidelines`.
+
+  `/bootstrap` fleshes this stub out from .icculus/brief.md. The standing
+  disciplines below (docs, TODO, worktree, finish gate) are the same on every
+  project — keep them. Fill in the pitch and the Conventions section.
+-->
+
+<!-- /bootstrap fills this: one or two sentences on what {{project_name}} is and who it's for. -->
+
+_A one-line description of {{project_name}} goes here._
+
+**Start with the documentation tree.** For project context, conventions, architecture, and per-subsystem deep-dives, read [`docs/README.md`](/docs/README.md) first. It is the canonical source of truth for how the system fits together. The guidelines below are *how* to work on the project; the docs tree explains *what* exists.
+
+## Conventions
+
+<!-- /bootstrap fills this from the brief and the repo's stack. -->
+
+_The coding conventions for this project — language idioms, style, structure, naming, error handling, and anything the tooling enforces. Keep these aligned with the `code-conventions.md` doc and with what the `[slots]` in `icculus.toml` actually check, so the written rule and the enforced rule never disagree._
+
+## Keeping documentation updated
+
+The [`docs/`](/docs/README.md) tree is the canonical source of truth and describes only what currently exists in code, so it must not drift. When a change meaningfully alters something the docs describe — the architecture, the data model, a subsystem's documented behaviour, a public convention, or whether a feature exists — make the necessary documentation updates before you finish the task. Use the [`document-subsystem`](/.ai/skills/document-subsystem/SKILL.md) skill to write or refresh a subtree, and [`write-adr`](/.ai/skills/write-adr/SKILL.md) to record a significant decision.
+
+## Tracking open work
+
+When you defer a fix, descope, or find a real issue you will not address this round, record it in the root [`TODO.md`](/TODO.md) — the shared backlog every agent and the maintainer can see. Do not leave deferred work only in a code comment or a session note. `TODO.md` documents its own format; `docs/` stays present-tense (what exists), while `TODO.md` holds what is outstanding.
+
+## Working in a worktree
+
+Sessions usually run inside a linked git worktree with its own checkout and config. Stay inside the worktree root: every path you construct and every directory change must stay within it — never read, edit, or write files in the main checkout from a worktree session. When the work is ready to hand back, graduate the branch into the main checkout with `agent worktree:exit` (the [`handoff-worktree`](/.ai/skills/handoff-worktree/SKILL.md) skill drives this).
+
+## Finishing a task
+
+After any coding task, run **`agent finish`** before presenting your work as done. It is the complete end-to-end gate — it applies your fixers, builds, runs static checks and tests in parallel, fires any side gates whose scope changed, and (in a worktree) verifies your branch contains the latest `main`. If it reports anything, fix it and run it again; do not declare a task done on a red gate. `agent tidy` is the faster inner loop (fixers + checks, no build or tests) for use while iterating.
+
+When `agent finish` stops at the merge check, it means `main` advanced during your session: commit your work, run `git merge main` (resolve conflicts, commit), then run `agent finish` again. If a phase fails in a way the message does not explain, the gate points you at [`docs/80-development/finish-gate-gotchas.md`](/docs/80-development/finish-gate-gotchas.md) — read the matching entry, and add a new one if you hit a trap that is not yet recorded.
