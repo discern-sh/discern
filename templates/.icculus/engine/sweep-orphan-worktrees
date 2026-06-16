@@ -1,0 +1,191 @@
+#!/usr/bin/env bash
+# desc: reclaim orphaned worktree directories git no longer tracks (leak backstop)
+
+# Reclaim orphaned worktree directories — dirs that git no longer tracks but
+# that still carry a .git gitlink into this repo's worktrees admin area. These
+# are left behind when `git worktree remove` fails midway (see
+# remove-worktree-safely). remove-worktree-safely now prevents new ones; this is
+# the backstop for any that already exist or are produced by other tools.
+#
+# Agent-agnostic by location: it scans the parent directory of every currently
+# registered worktree (so an external folder is covered automatically while a
+# worktree there is live), plus the common <main>/.claude/worktrees convention,
+# plus any extra directories passed as arguments.
+#
+# Usage: sweep-orphan-worktrees [--yes] [extra-scan-dir ...]
+#   --yes   Delete without prompting (used by `agent worktree:prune`).
+#
+# Safe by construction: a candidate is removed only if it carries a gitlink into
+# THIS repo's worktrees area; deletion goes through remove-worktree-safely,
+# which re-checks the same boundary.
+#
+# Honors GIT_BIN (default "git").
+
+set -euo pipefail
+
+# Sibling utilities (remove-worktree-safely) live alongside this script.
+script_dir="$(cd "$(dirname "$0")" && pwd -P)"
+
+git_bin="${GIT_BIN:-git}"
+assume_yes=false
+declare -a extra_dirs=()
+
+while (($# > 0)); do
+    case "$1" in
+        -y | --yes)
+            assume_yes=true
+            ;;
+        -h | --help)
+            echo "Usage: sweep-orphan-worktrees [--yes] [extra-scan-dir ...]"
+            exit 0
+            ;;
+        -*)
+            echo "Unknown option: $1" >&2
+            exit 2
+            ;;
+        *)
+            extra_dirs+=("$1")
+            ;;
+    esac
+
+    shift
+done
+
+if ! command -v "$git_bin" >/dev/null 2>&1; then
+    echo "sweep-orphan-worktrees: git is not on PATH (set GIT_BIN to override)." >&2
+    exit 1
+fi
+
+main_repo="$("$git_bin" worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p' | head -1)"
+
+if [[ -z "$main_repo" ]]; then
+    echo "sweep-orphan-worktrees: not inside a git repository." >&2
+    exit 1
+fi
+
+main_repo="$(cd "$main_repo" && pwd -P)"
+
+common_git_dir=""
+if common_raw="$(cd "$main_repo" && "$git_bin" rev-parse --git-common-dir 2>/dev/null)"; then
+    [[ "$common_raw" != /* ]] && common_raw="$main_repo/$common_raw"
+    common_git_dir="$(cd "$common_raw" 2>/dev/null && pwd -P || true)"
+fi
+
+# Registered worktree paths (canonical), newline-wrapped for membership tests.
+registered=$'\n'
+while IFS= read -r path; do
+    [[ -z "$path" ]] && continue
+    [[ -d "$path" ]] && path="$(cd "$path" && pwd -P)"
+    registered+="${path}"$'\n'
+done < <("$git_bin" worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p')
+
+# Scan dirs: the .claude/worktrees default, every registered worktree's parent,
+# and any extra dirs passed in. Deduped via a newline-wrapped set.
+scan_set=$'\n'
+add_scan() {
+    local dir="$1"
+    [[ -d "$dir" ]] || return 0
+    dir="$(cd "$dir" && pwd -P)"
+    [[ "$scan_set" == *$'\n'"$dir"$'\n'* ]] && return 0
+    scan_set+="${dir}"$'\n'
+}
+
+add_scan "$main_repo/.claude/worktrees"
+while IFS= read -r path; do
+    [[ -z "$path" ]] && continue
+    [[ -d "$path" ]] || continue
+    cpath="$(cd "$path" && pwd -P)"
+    [[ "$cpath" == "$main_repo" ]] && continue
+    add_scan "$(dirname "$cpath")"
+done < <("$git_bin" worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p')
+# Guard the expansion: under `set -u`, "${arr[@]}" on an empty array errors on
+# older bash (e.g. macOS's system bash 3.2).
+if ((${#extra_dirs[@]} > 0)); then
+    for dir in "${extra_dirs[@]}"; do
+        add_scan "$dir"
+    done
+fi
+
+# A directory is an orphaned worktree of this repo if it isn't registered but
+# carries a gitlink into <common>/worktrees/.
+is_orphan_worktree() {
+    local dir="$1"
+    [[ -f "$dir/.git" && -n "$common_git_dir" ]] || return 1
+
+    local line link
+    line="$(head -n1 "$dir/.git" 2>/dev/null || true)"
+    [[ "$line" == "gitdir: "* ]] || return 1
+
+    link="${line#gitdir: }"
+    [[ "$link" != /* ]] && link="$dir/$link"
+
+    [[ "$link" == "$common_git_dir/worktrees/"* ]]
+}
+
+declare -a orphans=()
+seen=$'\n'
+
+while IFS= read -r scan; do
+    [[ -z "$scan" ]] && continue
+
+    for sub in "$scan"/*; do
+        [[ -d "$sub" ]] || continue
+        canonical="$(cd "$sub" && pwd -P)"
+        [[ "$registered" == *$'\n'"$canonical"$'\n'* ]] && continue
+        [[ "$seen" == *$'\n'"$canonical"$'\n'* ]] && continue
+
+        if is_orphan_worktree "$canonical"; then
+            orphans+=("$canonical")
+            seen+="${canonical}"$'\n'
+        fi
+    done
+done <<< "$scan_set"
+
+if ((${#orphans[@]} == 0)); then
+    echo "No orphaned worktree directories found."
+    exit 0
+fi
+
+echo "Orphaned worktree directories (gitlinked to this repo, not tracked by git):"
+for dir in "${orphans[@]}"; do
+    printf '  %s  (%s)\n' "$dir" "$(du -sh "$dir" 2>/dev/null | cut -f1)"
+done
+
+if [[ "$assume_yes" != true ]]; then
+    if [[ ! -t 0 ]]; then
+        echo "Refusing to delete without confirmation. Re-run with --yes." >&2
+        exit 1
+    fi
+
+    read -r -p "Delete ${#orphans[@]} orphaned director$( ((${#orphans[@]} == 1)) && echo 'y' || echo 'ies')? [y/N] " confirmation
+
+    case "$confirmation" in
+        y | Y | yes | YES)
+            ;;
+        *)
+            echo "Aborted."
+            exit 1
+            ;;
+    esac
+fi
+
+remover="$script_dir/remove-worktree-safely"
+failed=false
+
+for dir in "${orphans[@]}"; do
+    printf 'Removing orphan %s... ' "$dir"
+
+    if "$remover" "$dir"; then
+        echo "done"
+    else
+        echo "failed"
+        failed=true
+    fi
+done
+
+if [[ "$failed" == true ]]; then
+    echo "One or more orphans could not be removed." >&2
+    exit 1
+fi
+
+echo "Sweep complete."
