@@ -184,6 +184,25 @@ capture = ""   # command that records evidence for the current branch
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# [gate] — optional ergonomics for slow gates. Both default off, so the gate's
+# output and timing are unchanged until you opt in. They affect how `agent finish`
+# runs its parallel phases (and side gates).
+# ─────────────────────────────────────────────────────────────────────────────
+
+[gate]
+# Stream each slot's output live (line-prefixed `── <label> │ …`) instead of
+# buffering it until the phase finishes. Helps when watching a slow build/test.
+# Concurrent jobs interleave (but stay labelled) — the default groups them.
+stream = false
+
+# Cancel the in-flight sibling commands when one fails, instead of running every
+# command to completion. Saves wall-clock on a failing gate. Best effort: a
+# command's own grandchildren may briefly linger (portable sh has no atomic
+# process-tree kill).
+fail_fast = false
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # [recipes] — your OWN agent commands. Drop an executable script carrying a
 # `# desc: ...` line into the directory below and it becomes a first-class
 # `agent <name>` command, listed by `agent --help` under "Project recipes". This

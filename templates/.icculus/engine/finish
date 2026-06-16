@@ -139,6 +139,14 @@ fail_phase() {
     die "$1"
 }
 
+# --- opt-in long-slot ergonomics (ADR 0006) -------------------------------
+#
+# Both default off, so the gate's output and timing are unchanged unless asked.
+# run_parallel reads these env flags: stream output live, and/or cancel in-flight
+# siblings on the first failure.
+config_bool gate.stream && export ICCULUS_GATE_STREAM=1
+config_bool gate.fail_fast && export ICCULUS_GATE_FAIL_FAST=1
+
 # --- pre-checks (fail fast) -----------------------------------------------
 
 # Optional work-evidence gate, before any slow work. evidence check is a no-op

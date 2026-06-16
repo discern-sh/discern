@@ -245,6 +245,25 @@ The metric-emission convention is one line per metric —
 metrics at once. The coverage ratchet additionally accepts a trailing `NN%` (the
 legacy shape). The name `coverage` is reserved for the built-in instance.
 
+### Long-running slots — streaming & fail-fast
+
+By default the gate buffers each phase's output and prints it grouped once the
+phase finishes, running every job to completion. For slow build/test slots, two
+opt-in ergonomics help (both **default off**, so the default is unchanged):
+
+```toml
+[gate]
+stream    = false   # stream slot output live, line-prefixed `── <label> │ …`
+fail_fast = false   # cancel in-flight siblings when one job fails
+```
+
+`stream` gives live feedback (concurrent jobs interleave but stay labelled).
+`fail_fast` aborts the phase as soon as one job fails — e.g. it cancels a slow
+`build` the moment the `fix` job fails — saving wall-clock on a red gate.
+Cancellation is best-effort: a command's own grandchildren may briefly linger
+(portable POSIX sh has no atomic process-tree kill), but the gate aborts
+promptly.
+
 ### Project recipes — your own `agent` commands
 
 Drop an executable script (with a `# desc:` line) into `.icculus/recipes/` and
