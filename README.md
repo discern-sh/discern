@@ -161,6 +161,13 @@ previewable = ["public/**"]                   # a person could see it
 # native = "make -C native check"   # run this when a `native` scope changes
 ```
 
+A **side gate** is how a sub-component with its own self-contained gate plugs
+into `agent finish` (the monorepo / sub-project story). The fired gates — those
+whose scope the branch changed — run with the **same model as the slot phases**:
+every fired gate runs concurrently, output is grouped and labelled
+`side:<scope>`, and a single failure fails the gate (all gates still run, so you
+see every failure at once).
+
 ### Worktree adapters — the two seams
 
 Worktree git mechanics are generic; the **database** and **dev-server** steps

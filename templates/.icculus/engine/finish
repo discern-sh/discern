@@ -72,11 +72,21 @@ in_gated_phase=0
 
 # --- side gates (run a gate when its scope changed) -----------------------
 
-# [scopes.side_gates] maps a scope name to a command. Run each whose scope the
-# branch actually changed — e.g. a native sub-app gating its own build. Skips
-# cleanly when none are configured or none of their scopes changed.
+# [scopes.side_gates] maps a scope name to a command — the way a sub-component
+# with its OWN self-contained gate plugs into `agent finish` (e.g. a native
+# sub-app gating its own build). Each fires only when the branch actually changed
+# its scope. They run with the SAME model as the slot phases above: every fired
+# gate runs concurrently via run_parallel, output is grouped and labelled
+# `side:<scope>`, and a single failure fails the gate (all gates still run, so you
+# see every failure at once). They run AFTER the main phases, so a side gate may
+# rely on fix/build having completed. See ADR 0002.
 if config_has scopes.side_gates; then
     changed=$("$ICCULUS_ENGINE/changed-scopes" 2>/dev/null || printf '')
+    # Collect the fired gates into a label/command argument list. `set --` makes
+    # each (label, command) a discrete positional pair, so a command containing
+    # spaces survives intact into run_parallel. `finish` takes no arguments of its
+    # own, so reusing the positional params here is safe.
+    set --
     for scope in $(config_keys scopes.side_gates); do
         # Did this scope change? (substring test against the newline list)
         case "
@@ -89,11 +99,14 @@ $scope
         esac
         gate_cmd=$(config_get "scopes.side_gates.$scope" "")
         [ -n "$gate_cmd" ] || continue
-        heading "Side gate: $scope changed — running its gate..."
-        in_gated_phase=1
-        eval "$gate_cmd" || die "The '$scope' side gate failed."
-        in_gated_phase=0
+        set -- "$@" "side:$scope" "$gate_cmd"
     done
+    if [ "$#" -gt 0 ]; then
+        heading "Running side gates for changed scopes..."
+        in_gated_phase=1
+        run_parallel "$@" || die "One or more side gates failed."
+        in_gated_phase=0
+    fi
 fi
 
 # --- merge check (worktree support, optional) -----------------------------
