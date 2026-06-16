@@ -144,6 +144,19 @@ Deno.test("recipes: [recipes].dir relocates the project recipes directory", asyn
   });
 });
 
+Deno.test("recipes: ICCULUS_RECIPES is exported into a recipe's environment", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeExecutable(
+      join(dir, ".icculus/recipes/show-recipes-dir"),
+      "#!/usr/bin/env sh\n# desc: print the recipes dir\nprintf 'RECIPES=%s\\n' \"$ICCULUS_RECIPES\"\n",
+    );
+    const r = await runAgent(dir, ["show-recipes-dir"]);
+    assertEquals(r.code, 0, r.output);
+    assertStringIncludes(r.stdout, ".icculus/recipes");
+  });
+});
+
 Deno.test("recipes: an unknown verb suggests a near-match project recipe", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

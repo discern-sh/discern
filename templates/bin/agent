@@ -64,11 +64,13 @@ if [ -f "$ICCULUS_LIB/config.sh" ]; then
 fi
 
 # Absolute path to the project recipes dir. A config value may be relative to the
-# project root (the usual case) or absolute.
+# project root (the usual case) or absolute. Exported alongside the other
+# ICCULUS_* paths so an exec'd recipe can locate its sibling recipes.
 case "$ICCULUS_RECIPES_DIR" in
     /*) ICCULUS_RECIPES=$ICCULUS_RECIPES_DIR ;;
     *) ICCULUS_RECIPES="$ICCULUS_ROOT/$ICCULUS_RECIPES_DIR" ;;
 esac
+export ICCULUS_RECIPES ICCULUS_RECIPES_DIR
 
 # --- help -----------------------------------------------------------------
 

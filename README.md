@@ -230,6 +230,21 @@ limit     = 500000          # compared vs main: a ceiling may only fall, a floor
 slot      = "bundlesize"    # the slot whose output emits the metric
 ```
 
+Each `[ratchets.<name>]` table accepts:
+
+| key         | meaning                                                                                            | default          |
+| ----------- | -------------------------------------------------------------------------------------------------- | ---------------- |
+| `metric`    | the metric name the slot emits                                                                     | the ratchet name |
+| `direction` | `up` (value should rise; `limit` is a **floor**) or `down` (should fall; `limit` is a **ceiling**) | `up`             |
+| `limit`     | the floor/ceiling — compared vs `main`, so a floor only rises and a ceiling only falls             | _required_       |
+| `slot`      | the `[slots.<name>]` whose output emits the metric                                                 | _required_       |
+
+The metric-emission convention is one line per metric —
+`ICCULUS_METRIC <name>
+<number>` (the last wins) — so a slot can report several
+metrics at once. The coverage ratchet additionally accepts a trailing `NN%` (the
+legacy shape). The name `coverage` is reserved for the built-in instance.
+
 ### Project recipes — your own `agent` commands
 
 Drop an executable script (with a `# desc:` line) into `.icculus/recipes/` and
