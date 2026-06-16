@@ -16,7 +16,8 @@
  * test-specific slots/scopes/ratchets.
  */
 
-import { join } from "@std/path";
+import { dirname, join } from "@std/path";
+import { ensureDir } from "@std/fs";
 import { assembleInitPlan } from "../src/commands/init.ts";
 import { applyPlan } from "../src/lib/fs_plan.ts";
 import { REAL_TEMPLATES } from "./helpers.ts";
@@ -95,6 +96,7 @@ export async function writeExecutable(
   path: string,
   contents: string,
 ): Promise<void> {
+  await ensureDir(dirname(path));
   await Deno.writeTextFile(path, contents);
   await Deno.chmod(path, 0o755);
 }

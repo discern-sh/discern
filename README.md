@@ -84,6 +84,7 @@ icculus.toml               # the one file you edit: slots, scopes, worktree adap
 bin/agent                  # the task runner your agent drives (finish, worktree, guidelines, …)
 .icculus/
   engine/                  # the generic shell engine (managed — refreshed by `icculus upgrade`)
+  recipes/                 # YOUR own agent commands (unmanaged — never upgraded)
   brief.md                 # what you told init you're building
   manifest.json            # kit version + managed-file hashes
 .ai/
@@ -198,6 +199,38 @@ coverage_min = 0.0          # never-lower floor, enforced by `agent finish:cover
 enabled = false             # optionally require per-branch work evidence before finish
 ```
 
+### Project recipes — your own `agent` commands
+
+Drop an executable script (with a `# desc:` line) into `.icculus/recipes/` and
+it becomes a first-class `agent <name>` command, listed by `agent --help` under
+**Project recipes**. This directory is **yours** — never managed, never
+refreshed by `icculus upgrade` — so you extend the command surface without
+forking the engine.
+
+```toml
+[recipes]
+dir = ".icculus/recipes"    # where your recipes live (default; point it anywhere)
+```
+
+```sh
+cat > .icculus/recipes/reset-fixtures <<'SH'
+#!/usr/bin/env sh
+# desc: reset local fixtures to a known state
+. "$ICCULUS_LIB/bootstrap.sh"   # optional: config_get, info/ok/die, run_parallel
+heading "Resetting fixtures…"
+# ...your commands...
+SH
+chmod +x .icculus/recipes/reset-fixtures
+agent reset-fixtures
+```
+
+The **engine always wins** on a name collision: a project recipe named like a
+built-in (`finish`, `worktree:exit`, …) is ignored with a warning, so the core
+gate can never be redefined by a project file. A recipe run via `agent <name>`
+inherits the harness paths, so it can source `"$ICCULUS_LIB/bootstrap.sh"` for
+the same `config_get` / `info`·`ok`·`die` / `run_parallel` surface the engine
+uses.
+
 ---
 
 ## Command reference
@@ -227,8 +260,10 @@ Global flags: `--json`, `--no-color` (also honours `NO_COLOR` and non-TTY),
 | `agent guidelines`                   | compile `.ai/guidelines/*` → each agent's file (`AGENTS.md`, `CLAUDE.md`, …) + refresh skill links. |
 | `agent doctor`                       | health-check the harness (slots resolve, git worktrees work, …).                                    |
 
-Run `agent --help` for the live list. Recipes are auto-discovered, so an adapter
-or your own recipe under `.icculus/engine/` shows up automatically.
+Run `agent --help` for the live list. Recipes are auto-discovered: an adapter's
+recipe under `.icculus/engine/` shows up automatically, and so does **your own**
+recipe under `.icculus/recipes/` (see _Project recipes_ above) — kept clearly
+separate and never touched by `upgrade`.
 
 ---
 
@@ -236,7 +271,8 @@ or your own recipe under `.icculus/engine/` shows up automatically.
 
 - **Auto-discovery, no registries.** `bin/agent` finds the project root (nearest
   `icculus.toml`), then runs `.icculus/engine/<recipe>` (mapping `worktree:exit`
-  → `worktree-exit`). Drop a new recipe in and it's available. The installer
+  → `worktree-exit`), falling back to a project recipe under
+  `.icculus/recipes/`. Drop a new recipe in and it's available. The installer
   walks `templates/` the same way — nothing hardcodes the file list.
 - **Config without a runtime.** The engine reads `icculus.toml` through a tiny
   POSIX `awk` reader (`.icculus/engine/lib/`). No Node, no Deno, no

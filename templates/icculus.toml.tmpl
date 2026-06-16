@@ -155,3 +155,20 @@ coverage_min = 0.0
 [evidence]
 enabled = false
 capture = ""   # command that records evidence for the current branch
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# [recipes] — your OWN agent commands. Drop an executable script carrying a
+# `# desc: ...` line into the directory below and it becomes a first-class
+# `agent <name>` command, listed by `agent --help` under "Project recipes". This
+# directory is yours: never managed, never refreshed by `icculus upgrade`. A name
+# that collides with a built-in engine recipe (finish, worktree:*, …) is ignored
+# with a warning — the engine always wins, so a project file can never redefine
+# the core gate. A recipe run via `agent <name>` can source the engine library
+# (`. "$ICCULUS_LIB/bootstrap.sh"`) for config_get / info / ok / die / run_parallel.
+# ─────────────────────────────────────────────────────────────────────────────
+
+[recipes]
+# Where your recipes live, relative to the project root. The default works with
+# no config at all; point it elsewhere (e.g. "tools/") if you prefer.
+dir = ".icculus/recipes"
