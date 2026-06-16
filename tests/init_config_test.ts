@@ -21,7 +21,7 @@ const ANSWERS = JSON.stringify({
   scopes: { native: ["native/**"] },
   side_gates: { native: "make -C native check" },
   ratchets: {
-    coverage_min: 80,
+    coverage: { direction: "up", limit: 80, slot: "cov" },
     bundle: { direction: "down", limit: 500000, slot: "bundlesize" },
   },
 });
@@ -39,7 +39,7 @@ Deno.test("init --config scaffolds from a JSON answers file", async () => {
     assertStringIncludes(toml, 'run   = "vitest run"'); // slot fill
     assertStringIncludes(toml, 'native = ["native/**"]'); // scope fill
     assertStringIncludes(toml, 'native = "make -C native check"'); // side-gate fill
-    assertStringIncludes(toml, "coverage_min = 80"); // ratchet scalar
+    assertStringIncludes(toml, "[ratchets.coverage]"); // coverage ratchet table
     assertStringIncludes(toml, "[ratchets.bundle]"); // named ratchet
     assertStringIncludes(toml, "limit = 500000");
     // Template comments survive the fills.

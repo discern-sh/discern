@@ -162,8 +162,7 @@ function buildCli() {
     .arguments("<name:string>")
     .option(
       "--phase <phase:string>",
-      "Slot phase: fix|build|check|test|coverage.",
-      { required: true },
+      "Slot phase: fix|build|check|test. Omit for a measurement slot.",
     )
     .option("--run <cmd:string>", "The slot command.", { required: true })
     .option("--dry-run", "Print the edit and write nothing.")
@@ -217,7 +216,11 @@ function buildCli() {
       "Metric name the slot emits (default: <name>).",
     )
     .option("--direction <dir:string>", 'Either "up" or "down" (default: up).')
-    .option("--slot <slot:string>", "The [slots.<name>] that emits the metric.")
+    .option(
+      "--slot <slot:string>",
+      "The [slots.<name>] that emits the metric.",
+      { required: true },
+    )
     .option("--dry-run", "Print the edit and write nothing.")
     .action(async (options, name: string) => {
       Deno.exit(

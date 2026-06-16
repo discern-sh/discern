@@ -1,6 +1,33 @@
 # ADR 0003: Named metric ratchets, with an explicit metric-emission convention
 
-**Status**: accepted
+**Status**: accepted; **amended by the 1.0 redesign** — see _Update (1.0)_
+below.
+
+## Update (1.0)
+
+The original decision (below) made coverage a privileged _built-in_ ratchet: the
+`[ratchets].coverage_min` scalar, a reserved name `coverage`, a `0`-disables
+rule, and a legacy `NN%` output-scraping fallback — all special cases the engine
+carried for backward compatibility with the kit's first, coverage-only ratchet.
+
+The 1.0 redesign **removes that privilege**. There is now exactly one model:
+
+- **Every ratchet is a `[ratchets.<name>]` table** with `metric` / `direction` /
+  `limit` / `slot`. Coverage is just the conventional name for one
+  (`[ratchets.coverage]`); nothing about it is special.
+- **`coverage_min`, the reserved name, the `0`-disables rule, and the `NN%`
+  fallback are gone.** The `ICCULUS_METRIC <name> <number>` marker is the _only_
+  way a slot reports a number. A ratchet's `limit` and `slot` are both required.
+- **One command, `agent ratchets`**, runs every `[ratchets.<name>]`.
+  `agent finish:coverage` / `agent finish:ratchets` are removed.
+- A measurement slot is an ordinary `[slots.<name>]` with **no `phase`** (the
+  gate never runs it; the ratchet runs it on demand) — see _Update (1.0)_ in the
+  slot/phase model. The phantom `coverage` phase is gone.
+
+`icculus migrate` rewrites a pre-1.0 `coverage_min` into a `[ratchets.coverage]`
+table. Everything in the original decision about the _mechanism_ (two halves:
+never-loosened-vs-`main`, measured-vs-limit; `up`/`down`; the emission
+convention) stands unchanged — only coverage's special-casing was dropped.
 
 ## Context
 

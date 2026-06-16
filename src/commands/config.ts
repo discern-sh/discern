@@ -114,10 +114,15 @@ async function applyEdits(
   return 0;
 }
 
-/** `config set-slot <name> --phase <phase> --run <cmd>` */
+/**
+ * `config set-slot <name> [--phase <phase>] --run <cmd>`
+ *
+ * Omit `--phase` to define a MEASUREMENT slot: one the gate never runs, that a
+ * `[ratchets.<name>]` references to read a metric on demand.
+ */
 export async function runConfigSetSlot(
   name: string,
-  opts: ConfigOptions & { phase: string; run: string },
+  opts: ConfigOptions & { phase?: string; run: string },
 ): Promise<number> {
   if (!NAME_RE.test(name)) {
     return fail(
@@ -125,16 +130,19 @@ export async function runConfigSetSlot(
       `slot name must be letters, digits, '_' or '-' (got "${name}").`,
     );
   }
-  if (!(KNOWN_PHASES as readonly string[]).includes(opts.phase)) {
-    return fail(
-      opts,
-      `unknown phase "${opts.phase}". Use one of: ${KNOWN_PHASES.join(", ")}.`,
-    );
+  const edits: Edit[] = [];
+  if (opts.phase !== undefined) {
+    if (!(KNOWN_PHASES as readonly string[]).includes(opts.phase)) {
+      return fail(
+        opts,
+        `unknown phase "${opts.phase}". Use one of: ${
+          KNOWN_PHASES.join(", ")
+        } (or omit --phase for a measurement slot).`,
+      );
+    }
+    edits.push({ key: `slots.${name}.phase`, literal: tomlString(opts.phase) });
   }
-  const edits: Edit[] = [
-    { key: `slots.${name}.phase`, literal: tomlString(opts.phase) },
-    { key: `slots.${name}.run`, literal: tomlString(opts.run) },
-  ];
+  edits.push({ key: `slots.${name}.run`, literal: tomlString(opts.run) });
   return await applyEdits(edits, opts, `Set slot "${name}".`);
 }
 
@@ -178,26 +186,25 @@ export async function runConfigSetSideGate(
   );
 }
 
-/** `config set-ratchet <name> --limit <n> [--metric] [--direction] [--slot]` */
+/**
+ * `config set-ratchet <name> --limit <n> --slot <slot> [--metric] [--direction]`
+ *
+ * Every ratchet is a `[ratchets.<name>]` table — `coverage` is just a
+ * conventional name, with no special handling.
+ */
 export async function runConfigSetRatchet(
   name: string,
   opts: ConfigOptions & {
     limit: string;
+    slot: string;
     metric?: string;
     direction?: string;
-    slot?: string;
   },
 ): Promise<number> {
   if (!NAME_RE.test(name)) {
     return fail(
       opts,
       `ratchet name must be letters, digits, '_' or '-' (got "${name}").`,
-    );
-  }
-  if (name === "coverage") {
-    return fail(
-      opts,
-      `the name "coverage" is reserved for the built-in ratchet; set [ratchets].coverage_min via \`config set ratchets.coverage_min <n>\`.`,
     );
   }
   const direction = opts.direction ?? "up";
@@ -221,13 +228,8 @@ export async function runConfigSetRatchet(
     },
     { key: `ratchets.${name}.direction`, literal: tomlString(direction) },
     { key: `ratchets.${name}.limit`, literal: limitLiteral },
+    { key: `ratchets.${name}.slot`, literal: tomlString(opts.slot) },
   ];
-  if (opts.slot !== undefined) {
-    edits.push({
-      key: `ratchets.${name}.slot`,
-      literal: tomlString(opts.slot),
-    });
-  }
   return await applyEdits(edits, opts, `Set ratchet "${name}".`);
 }
 

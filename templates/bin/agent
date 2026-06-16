@@ -75,11 +75,12 @@ export ICCULUS_RECIPES ICCULUS_RECIPES_DIR
 # --- help -----------------------------------------------------------------
 
 # Render a recipe's file name as the user types it. Genuine sub-commands read
-# best with the ':' separator they document with (`finish:coverage`,
-# `worktree:exit`); `worktree-name` stays hyphenated because it is a flag-driven
-# helper users invoke directly, not a `worktree` sub-action. Both forms always
-# dispatch — this only chooses how the name *reads* in help. No command
-# registry: the set is still discovered from the files on disk.
+# best with the ':' separator they document with (e.g. `worktree:exit`);
+# `worktree-name` stays hyphenated because it is a flag-driven helper users
+# invoke directly, not a `worktree` sub-action. A project recipe named
+# `finish-<x>` likewise reads as `finish:<x>`. Both forms always dispatch — this
+# only chooses how the name *reads* in help. No command registry: the set is
+# still discovered from the files on disk.
 display_name() {
     case "$1" in
         worktree-name) printf 'worktree-name' ;;

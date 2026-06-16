@@ -53,6 +53,39 @@ Deno.test("config set-slot fills a slot and preserves comments", async () => {
   });
 });
 
+Deno.test("config set-slot without --phase writes a measurement slot", async () => {
+  await withTempDir(async (dir) => {
+    await init(dir);
+    const r = await runCli(
+      [
+        "config",
+        "set-slot",
+        "bundlesize",
+        "--run",
+        "wc -c < dist/app.js",
+        "--json",
+      ],
+      dir,
+    );
+    assertEquals(r.code, 0, r.stderr);
+    const result = JSON.parse(r.stdout);
+    assertEquals(result.ok, true);
+    // Only the run key is written — no phase, so the gate never runs it.
+    assert(
+      result.edits.some((e: { key: string }) =>
+        e.key === "slots.bundlesize.run"
+      ),
+    );
+    assert(
+      !result.edits.some((e: { key: string }) =>
+        e.key === "slots.bundlesize.phase"
+      ),
+    );
+    const toml = await readToml(dir);
+    assertStringIncludes(toml, 'run = "wc -c < dist/app.js"');
+  });
+});
+
 Deno.test("config set-slot rejects an unknown phase", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
@@ -132,26 +165,49 @@ Deno.test("config set-ratchet writes a named ratchet table", async () => {
   });
 });
 
-Deno.test("config set-ratchet rejects the reserved name 'coverage'", async () => {
+Deno.test("config set-ratchet treats 'coverage' as an ordinary ratchet name", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
     const r = await runCli(
-      ["config", "set-ratchet", "coverage", "--limit", "80", "--json"],
+      [
+        "config",
+        "set-ratchet",
+        "coverage",
+        "--limit",
+        "80",
+        "--slot",
+        "cov",
+        "--json",
+      ],
       dir,
     );
-    assertEquals(r.code, 1);
-    assertStringIncludes(JSON.parse(r.stdout).message, "reserved");
+    assertEquals(r.code, 0, r.stderr);
+    const toml = await readToml(dir);
+    assertStringIncludes(toml, "[ratchets.coverage]");
+    assertStringIncludes(toml, "limit = 80");
+    assertStringIncludes(toml, 'slot = "cov"');
+  });
+});
+
+Deno.test("config set-ratchet requires a --slot", async () => {
+  await withTempDir(async (dir) => {
+    await init(dir);
+    const r = await runCli(
+      ["config", "set-ratchet", "bundle", "--limit", "100"],
+      dir,
+    );
+    assert(r.code !== 0); // Cliffy rejects the missing required option
   });
 });
 
 Deno.test("config set infers types (number / bool / string)", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
-    await runCli(["config", "set", "ratchets.coverage_min", "80"], dir);
+    await runCli(["config", "set", "ratchets.coverage.limit", "80"], dir);
     await runCli(["config", "set", "worktree.port", "false"], dir);
     await runCli(["config", "set", "project.main_branch", "trunk"], dir);
     const toml = await readToml(dir);
-    assertStringIncludes(toml, "coverage_min = 80"); // number (inferred)
+    assertStringIncludes(toml, "limit = 80"); // number (inferred)
     assertStringIncludes(toml, "port = false"); // bool (inferred)
     assertStringIncludes(toml, 'main_branch = "trunk"'); // string (inferred)
   });

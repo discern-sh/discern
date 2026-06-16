@@ -109,13 +109,15 @@ grow into**.
 Each slot is one shell command (chain tools with `&&`). Its `phase` decides when
 and how `agent finish` runs it:
 
-| phase      | when                                                      | examples             |
-| ---------- | --------------------------------------------------------- | -------------------- |
-| `fix`      | first, parallel with `build`; **mutating**                | formatter, codemod   |
-| `build`    | parallel with `fix`; produces artifacts later phases read | compile, bundle      |
-| `check`    | after fix+build, parallel with `test`; **read-only**      | linter, type-checker |
-| `test`     | parallel with `check`                                     | the test suite       |
-| `coverage` | on demand via `agent finish:coverage` (slow)              | coverage measurement |
+| phase   | when                                                      | examples             |
+| ------- | --------------------------------------------------------- | -------------------- |
+| `fix`   | first, parallel with `build`; **mutating**                | formatter, codemod   |
+| `build` | parallel with `fix`; produces artifacts later phases read | compile, bundle      |
+| `check` | after fix+build, parallel with `test`; **read-only**      | linter, type-checker |
+| `test`  | parallel with `check`                                     | the test suite       |
+
+A slot with **no `phase`** is a _measurement slot_: the gate never runs it; a
+ratchet references it to read a metric on demand (see _Ratchets_ below).
 
 `agent finish` runs `fix∥build → check∥test → side-gates → merge-check`.
 `agent tidy` is the fast inner loop: `fix` then `check`, no build or tests.
@@ -198,36 +200,41 @@ clean no-op.
 
 ### Ratchets & evidence
 
-A **ratchet** is a number you only ever want to improve. `coverage_min` is the
-built-in: a floor enforced by `agent finish:coverage`, which fails if coverage
-drops below it _or_ if the floor is lower than on `main` (so it only ever
-rises).
+A **ratchet** is a number you only ever want to improve — line coverage, a
+bundle-size budget, a lint/type-error count, a perf budget. Every ratchet is a
+`[ratchets.<name>]` table; there is no built-in or special instance (coverage is
+just a conventional name). A ratchet fails if the measured value crosses its
+`limit`, _or_ if the `limit` is looser than on `main` (so a floor only rises and
+a ceiling only falls). `agent ratchets` holds them all — slow, so it runs **on
+demand**, not as part of `agent finish`.
+
+A ratchet's `slot` is a **measurement slot**: an ordinary `[slots.<name>]` with
+**no `phase`**, so the gate never runs it; the ratchet runs it on demand. The
+slot reports its number by printing one line, `ICCULUS_METRIC <name> <number>`
+(last wins) — the only way a metric is read, so incidental output never counts.
 
 ```toml
-[ratchets]
-coverage_min = 0.0          # never-lower floor, enforced by `agent finish:coverage`
+# Coverage — keep line coverage at or above a rising floor:
+[slots.coverage]
+run = "your-coverage-tool"   # must emit: ICCULUS_METRIC coverage <percent>
 
-[evidence]
-enabled = false             # optionally require per-branch work evidence before finish
-```
+[ratchets.coverage]
+direction = "up"             # "up" = value should rise; limit is a floor
+limit     = 80
+slot      = "coverage"
 
-**Named metric ratchets** generalise that to any number — lint/type-error
-counts, bundle size, a perf budget, type-coverage. A slot reports a metric by
-printing a line `ICCULUS_METRIC <name> <number>` (last wins); a
-`[ratchets.<name>]` table sets the floor/ceiling. `agent finish:ratchets` holds
-them all (slow; on demand, like `finish:coverage`).
-
-```toml
+# Bundle size — keep an artifact under a falling ceiling:
 [slots.bundlesize]
-phase = "coverage"          # the on-demand phase, so a normal finish won't run it
-run   = "printf 'ICCULUS_METRIC bundle_bytes %s\\n' \"$(wc -c < dist/app.js)\""
+run = "printf 'ICCULUS_METRIC bundle_bytes %s\\n' \"$(wc -c < dist/app.js)\""
 
 [ratchets.bundle]
 metric    = "bundle_bytes"
-direction = "down"          # "down" = value should fall; limit is a ceiling
-                            # "up"   = value should rise; limit is a floor (like coverage)
-limit     = 500000          # compared vs main: a ceiling may only fall, a floor only rise
-slot      = "bundlesize"    # the slot whose output emits the metric
+direction = "down"           # "down" = value should fall; limit is a ceiling
+limit     = 500000           # compared vs main: a ceiling may only fall, a floor only rise
+slot      = "bundlesize"     # the measurement slot whose output emits the metric
+
+[evidence]
+enabled = false              # optionally require per-branch work evidence before finish
 ```
 
 Each `[ratchets.<name>]` table accepts:
@@ -237,13 +244,10 @@ Each `[ratchets.<name>]` table accepts:
 | `metric`    | the metric name the slot emits                                                                     | the ratchet name |
 | `direction` | `up` (value should rise; `limit` is a **floor**) or `down` (should fall; `limit` is a **ceiling**) | `up`             |
 | `limit`     | the floor/ceiling — compared vs `main`, so a floor only rises and a ceiling only falls             | _required_       |
-| `slot`      | the `[slots.<name>]` whose output emits the metric                                                 | _required_       |
+| `slot`      | the measurement `[slots.<name>]` whose output emits the metric                                     | _required_       |
 
-The metric-emission convention is one line per metric —
-`ICCULUS_METRIC <name>
-<number>` (the last wins) — so a slot can report several
-metrics at once. The coverage ratchet additionally accepts a trailing `NN%` (the
-legacy shape). The name `coverage` is reserved for the built-in instance.
+A slot can emit several `ICCULUS_METRIC` lines, so one measurement slot can feed
+several ratchets.
 
 ### Long-running slots — streaming & fail-fast
 
@@ -321,16 +325,17 @@ A scaffolder or CI can drive icculus declaratively, without hand-editing TOML.
 
 ```sh
 icculus config set-slot test --phase test --run "vitest run"
+icculus config set-slot bundlesize --run "wc -c < dist/app.js"   # no --phase: a measurement slot
 icculus config set-scope native 'native/**' 'native/lib/**'
 icculus config set-side-gate native --run "make -C native check"
 icculus config set-ratchet bundle --limit 500000 --direction down --slot bundlesize
-icculus config set ratchets.coverage_min 80          # type inferred; --string/--number/--bool to force
+icculus config set project.main_branch trunk          # type inferred; --string/--number/--bool to force
 ```
 
 Each finds `icculus.toml` in the cwd, applies the edit (preserving comments and
 layout), and writes it back. Light validation matches `doctor` (slot `--phase` ∈
-the known phases; ratchet `--direction` ∈ `up`/`down`). The name `coverage` is
-reserved for the built-in ratchet.
+the known phases, or omit it for a measurement slot; ratchet `--direction` ∈
+`up`/`down`, and `--slot` is required). `coverage` is an ordinary ratchet name.
 
 To drive a **fresh** install in one shot, `init --config <file>` reads a JSON
 answers file (or `--config -` for stdin) and scaffolds non-interactively. Base
@@ -346,7 +351,7 @@ written into the generated `icculus.toml`. Explicit flags override file values.
   "scopes": { "native": ["native/**"] },
   "side_gates": { "native": "make -C native check" },
   "ratchets": {
-    "coverage_min": 80,
+    "coverage": { "direction": "up", "limit": 80, "slot": "coverage" },
     "bundle": { "direction": "down", "limit": 500000, "slot": "bundlesize" }
   }
 }
@@ -391,8 +396,7 @@ adapters/my-stack/
 | `agent finish`                       | the full quality gate. Run before calling any task done. `--json` for a machine-readable report.    |
 | `agent tidy`                         | fixers + checks, no build/test — the fast inner loop.                                               |
 | `agent test`                         | run the test-phase slots.                                                                           |
-| `agent finish:coverage`              | the coverage ratchet (slow; not part of `finish`).                                                  |
-| `agent finish:ratchets`              | hold every metric ratchet — coverage + each `[ratchets.<name>]` (slow; not part of `finish`).       |
+| `agent ratchets`                     | hold every metric ratchet — each `[ratchets.<name>]` (slow; not part of `finish`).                  |
 | `agent worktree:exit`                | graduate this worktree's branch into the main checkout.                                             |
 | `agent worktree:teardown` / `:prune` | discard a worktree / sweep stale ones.                                                              |
 | `agent guidelines`                   | compile `.ai/guidelines/*` → each agent's file (`AGENTS.md`, `CLAUDE.md`, …) + refresh skill links. |

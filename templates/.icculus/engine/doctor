@@ -74,14 +74,30 @@ fi
 #
 # Each [slots.X] is the unit the gate runs. A typo in `phase` silently drops the
 # slot from its track (slots_for_phase only collects matching phases), so an
-# invalid/missing phase is a HARD error — the slot would never run, giving false
-# confidence. A missing `run` key (vs an explicit ":" no-op) is a softer signal:
-# the slot is inert, but that is sometimes a half-finished fill, so we warn.
+# INVALID phase is a HARD error — the slot would never run, giving false
+# confidence. A slot with NO phase is legitimate: it is a measurement slot a
+# ratchet runs on demand. We confirm it when a [ratchets.<name>].slot references
+# it, and warn when nothing does (it would never run). A missing `run` key (vs an
+# explicit ":" no-op) is a softer signal: the slot is inert, but that is
+# sometimes a half-finished fill, so we warn.
+
+# Collect the slots referenced by a ratchet, space-delimited with surrounding
+# spaces, so a phaseless slot can be recognised as an intentional measurement one.
+ratchet_slots=" "
+for _r in $(config_subsections ratchets); do
+    _rs=$(config_get "ratchets.$_r.slot" "")
+    [ -n "$_rs" ] && ratchet_slots="$ratchet_slots$_rs "
+done
 
 for slot in $(config_subsections slots); do
     phase=$(config_get "slots.$slot.phase" "")
     if [ -z "$phase" ]; then
-        add fail "slot '$slot' has no phase." "Set slots.$slot.phase to one of: $(validate_phase_list)."
+        case "$ratchet_slots" in
+            *" $slot "*)
+                add ok "slot '$slot' is a measurement slot (no phase; a ratchet runs it)." ;;
+            *)
+                add warn "slot '$slot' has no phase and no ratchet references it — it would never run." "Give it a phase (one of: $(validate_phase_list)) to run it in the gate, or reference it from a [ratchets.<name>].slot." ;;
+        esac
     elif ! validate_is_phase "$phase"; then
         add fail "slot '$slot' has an unknown phase '$phase'." "Set slots.$slot.phase to one of: $(validate_phase_list)."
     fi
@@ -99,7 +115,7 @@ done
 # A fresh install ships every slot as ":" so the gate is green from day one. That
 # is by design — but a gate where EVERY gate-relevant phase is a no-op passes
 # without checking anything, which is dangerous false confidence. The four gated
-# phases are fix/build/check/test (coverage is a separate on-demand gate). We ask
+# phases are fix/build/check/test (ratchets are separate on-demand gates). We ask
 # slots_for_phase for each: it returns ":" exactly when a phase has no real
 # command. If all four are ":", warn loudly; if only some are, that is normal
 # early-setup progress, so just note the count.

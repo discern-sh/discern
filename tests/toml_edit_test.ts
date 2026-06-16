@@ -73,11 +73,11 @@ Deno.test("editor adds a real key alongside a commented-out hint", () => {
 Deno.test("editor sets array, number and bool values", () => {
   const out = new TomlEditor(SAMPLE)
     .setStringArray("scopes.native", ["native/**", "native/lib/**"])
-    .setNumber("ratchets.coverage_min", "80")
+    .setNumber("ratchets.coverage.limit", "80")
     .setBool("worktree.port", false)
     .toString();
   assertStringIncludes(out, 'native = ["native/**", "native/lib/**"]');
-  assertStringIncludes(out, "coverage_min = 80");
+  assertStringIncludes(out, "limit = 80");
   assertStringIncludes(out, "port = false");
 });
 

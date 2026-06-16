@@ -260,20 +260,11 @@ else
     info "If you changed something meaningful, update the docs to match before you finish."
 fi
 
-# Ratchet reminder: coverage and any named [ratchets.<name>] are slow, so they run
-# on demand, not as part of finish. Point at finish:ratchets when named ratchets
-# exist, else the coverage-only reminder when a coverage slot/floor is set.
-coverage_min=$(config_get ratchets.coverage_min "0")
-has_named_ratchets=0
-for _r in $(config_subsections ratchets); do
-    [ "$_r" = "coverage" ] && continue
-    has_named_ratchets=1
-    break
-done
-if [ "$has_named_ratchets" -eq 1 ]; then
-    info "Before pushing, hold the ratchets: ${C_BOLD}agent finish:ratchets${C_RESET} (slow, so not part of finish)."
-elif ! config_slot_is_noop slots.coverage.run || awk "BEGIN { exit !($coverage_min > 0) }" 2>/dev/null; then
-    info "Before pushing, hold the coverage ratchet: ${C_BOLD}agent finish:coverage${C_RESET} (slow, so it is not part of finish)."
+# Ratchet reminder: ratchets (coverage, bundle size, lint counts, …) are slow, so
+# they run on demand via `agent ratchets`, not as part of finish. Nudge once when
+# any [ratchets.<name>] is configured.
+if config_subsections ratchets | grep -q .; then
+    info "Before pushing, hold the ratchets: ${C_BOLD}agent ratchets${C_RESET} (slow, so not part of finish)."
 fi
 
 # Preview line: only when a previewable scope changed AND a dev-server link is

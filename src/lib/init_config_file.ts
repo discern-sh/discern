@@ -31,11 +31,8 @@ export interface InitAnswersFile {
   scopes?: Record<string, string[]>;
   /** `[scopes.side_gates].<scope>` commands. */
   side_gates?: Record<string, string>;
-  /**
-   * `[ratchets]` — a number value is a top-level scalar (e.g. `coverage_min`); an
-   * object value is a named `[ratchets.<name>]` table.
-   */
-  ratchets?: Record<string, number | RatchetSpec>;
+  /** `[ratchets.<name>]` tables (coverage is just a conventional name). */
+  ratchets?: Record<string, RatchetSpec>;
 }
 
 /** TOML bare-key shape, enforced for slot/scope/side-gate/ratchet names. */
@@ -138,10 +135,6 @@ export function applyAnswerFills(
 
   for (const [name, spec] of Object.entries(file.ratchets ?? {})) {
     assertName("ratchet", name);
-    if (typeof spec === "number") {
-      editor.setNumber(`ratchets.${name}`, spec); // a top-level scalar, e.g. coverage_min
-      continue;
-    }
     const direction = spec.direction ?? "up";
     if (direction !== "up" && direction !== "down") {
       throw new Error(`ratchet "${name}": direction must be "up" or "down"`);

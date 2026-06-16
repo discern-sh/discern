@@ -8,8 +8,10 @@
 
 # The phases a slot may declare. This is the ONE place the engine names them, so
 # the gate's phase order (finish/tidy) and doctor's validation cannot drift. A
-# space-delimited list with surrounding spaces, for a clean substring test.
-ICCULUS_PHASES=" fix build check test coverage "
+# space-delimited list with surrounding spaces, for a clean substring test. A
+# slot may also declare NO phase: it is then a measurement slot the gate never
+# runs, referenced by a [ratchets.<name>] (see lib/ratchets.sh).
+ICCULUS_PHASES=" fix build check test "
 
 # True (exit 0) when $1 is one of the known slot phases.
 #   validate_is_phase "$(config_get slots.format.phase)" || warn ...

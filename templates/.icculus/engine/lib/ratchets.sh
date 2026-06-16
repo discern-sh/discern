@@ -9,11 +9,10 @@
 #                            up fail when measured < limit; for down fail when
 #                            measured > limit.
 #
-# Coverage is the BUILT-IN instance: name "coverage", direction up, metric
-# "coverage", limit [ratchets].coverage_min, measured by the coverage-phase
-# slots, with a legacy trailing-"NN%" fallback. Its behaviour is unchanged.
+# Every ratchet is a [ratchets.<name>] table — there is no built-in or special
+# instance. Coverage is just the conventional name for a ratchet that measures
+# line coverage; the engine treats it like any other.
 #
-# A named ratchet is a [ratchets.<name>] table:
 #   metric     the metric name a slot emits           (default: the ratchet name)
 #   direction  up | down                               (default: up)
 #   limit      the floor (up) or ceiling (down)        (required)
@@ -21,10 +20,14 @@
 #
 # METRIC EMISSION CONVENTION. A slot reports a metric by printing a line:
 #   ICCULUS_METRIC <name> <number>
-# The LAST such line for a metric wins. This replaces fragile output-scraping.
+# The LAST such line for a metric wins. This is the only way a slot reports a
+# number — there is no output-scraping fallback.
 #
-# Sourced (never executed) by finish-coverage and finish-ratchets, after
-# bootstrap.sh, so the config/output helpers and ICCULUS_* paths are available.
+# A measurement slot is an ordinary [slots.<name>] with NO `phase`, so the gate
+# (`agent finish`) never runs it; the ratchet runs it on demand instead.
+#
+# Sourced (never executed) by the `ratchets` recipe, after bootstrap.sh, so the
+# config/output helpers and ICCULUS_* paths are available.
 
 # True (exit 0) when $1 is a non-negative decimal number (digits, one optional
 # dot). Ratchet metrics (percentages, counts, sizes) are non-negative; this gives
@@ -37,7 +40,7 @@ _ratchet_is_number() {
 }
 
 # Print a ratchet failure to stderr (red cross), like die() but WITHOUT exiting,
-# so finish-ratchets can run every ratchet and aggregate the result.
+# so the `ratchets` recipe can run every ratchet and aggregate the result.
 _ratchet_err() {
     printf '%s✗%s %s\n' "${C_RED}" "${C_RESET}" "$1" >&2
 }
@@ -76,32 +79,23 @@ ratchet_main_value() {
     printf '%s' "$_rmv_val"
 }
 
-# Run one ratchet by name ("coverage" or a [ratchets.<name>] key). Prints its own
-# pass/fail lines and RETURNS 0 (held) or 1 (failed/misconfigured) — never exits,
-# so callers aggregate. The "coverage" name is reserved for the built-in instance.
+# Run one ratchet by name (a [ratchets.<name>] key). Prints its own pass/fail
+# lines and RETURNS 0 (held) or 1 (failed/misconfigured) — never exits, so
+# callers aggregate.
 ratchet_check() {
     _rc_name=$1
 
     # --- resolve parameters ------------------------------------------------
-    if [ "$_rc_name" = "coverage" ]; then
-        _rc_limit_key="ratchets.coverage_min"
-        _rc_direction="up"
-        _rc_metric="coverage"
-        _rc_cmd=$(slots_for_phase coverage)
-        _rc_legacy_pct=1
-    else
-        _rc_limit_key="ratchets.$_rc_name.limit"
-        _rc_direction=$(config_get "ratchets.$_rc_name.direction" "up")
-        _rc_metric=$(config_get "ratchets.$_rc_name.metric" "$_rc_name")
-        _rc_legacy_pct=0
-        if ! config_has "ratchets.$_rc_name.slot"; then
-            _ratchet_err "ratchet '$_rc_name': no measurement slot (set slot = \"<name>\" under [ratchets.$_rc_name])."
-            return 1
-        fi
-        _rc_slot=$(config_get "ratchets.$_rc_name.slot" "")
-        _rc_cmd=$(config_get "slots.$_rc_slot.run" "")
-        [ -n "$_rc_cmd" ] || _rc_cmd=":"
+    _rc_limit_key="ratchets.$_rc_name.limit"
+    _rc_direction=$(config_get "ratchets.$_rc_name.direction" "up")
+    _rc_metric=$(config_get "ratchets.$_rc_name.metric" "$_rc_name")
+    if ! config_has "ratchets.$_rc_name.slot"; then
+        _ratchet_err "ratchet '$_rc_name': no measurement slot (set slot = \"<name>\" under [ratchets.$_rc_name])."
+        return 1
     fi
+    _rc_slot=$(config_get "ratchets.$_rc_name.slot" "")
+    _rc_cmd=$(config_get "slots.$_rc_slot.run" "")
+    [ -n "$_rc_cmd" ] || _rc_cmd=":"
 
     case "$_rc_direction" in
         up | down) ;;
@@ -111,17 +105,14 @@ ratchet_check() {
             ;;
     esac
 
-    _rc_limit=$(config_get "$_rc_limit_key" "0")
+    if ! config_has "$_rc_limit_key"; then
+        _ratchet_err "ratchet '$_rc_name': no limit (set limit = <number> under [ratchets.$_rc_name])."
+        return 1
+    fi
+    _rc_limit=$(config_get "$_rc_limit_key" "")
     if ! _ratchet_is_number "$_rc_limit"; then
         _ratchet_err "ratchet '$_rc_name': limit ($_rc_limit_key) is not a number: '$_rc_limit'."
         return 1
-    fi
-
-    # Coverage keeps its legacy "0 disables" semantics; named ratchets are enabled
-    # by virtue of existing.
-    if [ "$_rc_name" = "coverage" ] && awk "BEGIN { exit !($_rc_limit <= 0) }" 2>/dev/null; then
-        info "Coverage ratchet disabled ([ratchets].coverage_min is 0). Set a real floor to enable it."
-        return 0
     fi
 
     # --- never loosened vs main -------------------------------------------
@@ -142,11 +133,7 @@ ratchet_check() {
 
     # --- measure -----------------------------------------------------------
     if [ "$_rc_cmd" = ":" ]; then
-        if [ "$_rc_name" = "coverage" ]; then
-            _ratchet_err "ratchet 'coverage': no coverage slot (set a slot with phase = \"coverage\" in icculus.toml)."
-        else
-            _ratchet_err "ratchet '$_rc_name': measurement slot '$_rc_slot' has no run command."
-        fi
+        _ratchet_err "ratchet '$_rc_name': measurement slot '$_rc_slot' has no run command."
         return 1
     fi
 
@@ -163,10 +150,6 @@ ratchet_check() {
     fi
 
     _rc_measured=$(ratchet_extract_metric "$_rc_metric" "$_rc_out")
-    if [ -z "$_rc_measured" ] && [ "$_rc_legacy_pct" -eq 1 ]; then
-        # Legacy fallback for coverage: the last NN% the slot printed.
-        _rc_measured=$(grep -oE '[0-9]+(\.[0-9]+)?[[:space:]]*%' "$_rc_out" | tr -d ' %' | tail -n 1)
-    fi
     rm -f "$_rc_out"
 
     if [ -z "$_rc_measured" ]; then
