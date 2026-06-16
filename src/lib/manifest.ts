@@ -7,9 +7,11 @@
  * write the new version as `.new`). It also pins the kit version and the
  * project identity.
  *
- * Managed vs seed is a classification on the *target* path:
- *   MANAGED  refreshed by `upgrade`  — `bin/agent`, `.icculus/engine/**`,
- *            `.ai/skills/**`.
+ * Managed vs seed is a classification on the *target* path, DECLARED by the kit
+ * in `templates/managed.json` (an adapter may ship its own) rather than hardcoded
+ * here:
+ *   MANAGED  refreshed by `upgrade`  — by default `bin/agent`,
+ *            `.icculus/engine/**`, `.ai/skills/**`.
  *   SEED     write-once, never overwritten on upgrade — everything else.
  */
 
@@ -36,24 +38,91 @@ export interface Manifest {
   managed: ManagedEntry[];
 }
 
+/** The filename a templates/adapter tree uses to DECLARE its managed-set. */
+export const MANAGED_SPEC_FILE = "managed.json";
+
 /**
- * Glob-ish prefixes/exacts that classify a target path as MANAGED. Kept as
- * simple structural checks rather than a glob engine: the managed set is a
- * small, fixed contract (`bin/agent`, the engine tree, the skills tree).
+ * Declares which target paths are MANAGED (refreshed by `upgrade`, hash-tracked,
+ * preserved-as-`.new` when edited) vs SEED (write-once). A path is managed when
+ * it equals an `exact` entry or starts with a `prefixes` entry — simple
+ * structural checks, not a glob engine. The kit ships this as
+ * `templates/managed.json`; the installer reads it instead of hardcoding the set,
+ * and an adapter may ship its own to mark overlay files it owns.
  */
-const MANAGED_EXACT = new Set<string>(["bin/agent"]);
-const MANAGED_PREFIXES = [".icculus/engine/", ".ai/skills/"];
+export interface ManagedSpec {
+  exact: string[];
+  prefixes: string[];
+}
+
+/**
+ * The built-in default, used when no `managed.json` is present. It mirrors the
+ * shipped `templates/managed.json`, so behaviour is identical whether the
+ * declaration is read or this fallback applies.
+ */
+export const DEFAULT_MANAGED_SPEC: ManagedSpec = {
+  exact: ["bin/agent"],
+  prefixes: [".icculus/engine/", ".ai/skills/"],
+};
 
 /**
  * Classify a target-relative path as managed (refreshed by `upgrade`) or seed
- * (write-once). Paths are compared with forward slashes regardless of OS.
+ * (write-once) against a given spec. Paths are compared with forward slashes.
  */
-export function isManaged(targetRelPath: string): boolean {
+export function isManagedBy(targetRelPath: string, spec: ManagedSpec): boolean {
   const path = targetRelPath.replaceAll("\\", "/");
-  if (MANAGED_EXACT.has(path)) {
+  if (spec.exact.includes(path)) {
     return true;
   }
-  return MANAGED_PREFIXES.some((prefix) => path.startsWith(prefix));
+  return spec.prefixes.some((prefix) => path.startsWith(prefix));
+}
+
+/** Classify against the built-in default spec (for callers without one). */
+export function isManaged(targetRelPath: string): boolean {
+  return isManagedBy(targetRelPath, DEFAULT_MANAGED_SPEC);
+}
+
+/** Union two specs (deduped) — e.g. the base kit spec plus an adapter's. */
+export function mergeManagedSpecs(a: ManagedSpec, b: ManagedSpec): ManagedSpec {
+  return {
+    exact: [...new Set([...a.exact, ...b.exact])],
+    prefixes: [...new Set([...a.prefixes, ...b.prefixes])],
+  };
+}
+
+/**
+ * Parse a managed-set declaration, tolerating missing arrays. Throws on a
+ * non-object (the caller reports it).
+ */
+export function parseManagedSpec(text: string): ManagedSpec {
+  const value: unknown = JSON.parse(text);
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`${MANAGED_SPEC_FILE} must be a JSON object`);
+  }
+  const obj = value as Record<string, unknown>;
+  const asStrings = (v: unknown): string[] =>
+    Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+  return { exact: asStrings(obj.exact), prefixes: asStrings(obj.prefixes) };
+}
+
+/**
+ * Load a managed-set declaration from `<dir>/managed.json`, or undefined when
+ * absent. A malformed file throws. The installer reads this from the templates
+ * tree (and an adapter dir) to classify scaffolded files; `managed.json` is
+ * installer metadata and is never itself scaffolded.
+ */
+export async function loadManagedSpec(
+  dir: string,
+): Promise<ManagedSpec | undefined> {
+  let text: string;
+  try {
+    text = await Deno.readTextFile(join(dir, MANAGED_SPEC_FILE));
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      return undefined;
+    }
+    throw error;
+  }
+  return parseManagedSpec(text);
 }
 
 /** Compute the lowercase-hex sha256 of the given bytes. */

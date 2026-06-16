@@ -17,6 +17,7 @@ import { DEFAULTS, type InitConfig, tokensFromConfig } from "../lib/config.ts";
 import { KIT_VERSION } from "../lib/version.ts";
 import {
   buildManifest,
+  loadManagedSpec,
   type ManagedEntry,
   type Manifest,
   parseManifest,
@@ -149,6 +150,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     mode: "upgrade",
     recordedHash: (targetRel) =>
       manifest ? lookupRecordedHash(manifest, targetRel) : undefined,
+    managedSpec: await loadManagedSpec(templatesDir),
   });
 
   if (options.dryRun) {

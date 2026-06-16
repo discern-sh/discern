@@ -20,6 +20,11 @@ import { Logger } from "../lib/log.ts";
 import { parseIcculusToml } from "../lib/toml_render.ts";
 import { DEFAULTS, type InitConfig, tokensFromConfig } from "../lib/config.ts";
 import { applyPlan, buildPlan } from "../lib/fs_plan.ts";
+import {
+  DEFAULT_MANAGED_SPEC,
+  loadManagedSpec,
+  mergeManagedSpecs,
+} from "../lib/manifest.ts";
 import { planToJson, renderPlan, renderReview } from "../lib/plan_view.ts";
 import { confirmProceed } from "../lib/prompts.ts";
 import { TomlEditor } from "../lib/toml_edit.ts";
@@ -177,11 +182,18 @@ export async function runAddAdapter(
         : [...DEFAULTS.agents]) as InitConfig["agents"],
   };
   const tokens = tokensFromConfig(config);
+  // An adapter's files are classified by the base managed-set plus any the
+  // adapter declares in its own managed.json (so it can own managed overlay
+  // files); the declaration itself is never scaffolded.
+  const adapterSpec = await loadManagedSpec(adapterDir);
   const plan = await buildPlan({
     templatesDir: adapterDir,
     destDir,
     tokens,
     mode: "init",
+    managedSpec: adapterSpec
+      ? mergeManagedSpecs(DEFAULT_MANAGED_SPEC, adapterSpec)
+      : DEFAULT_MANAGED_SPEC,
   });
   // adapter.json is metadata (config fills), not a scaffolded file.
   plan.ops = plan.ops.filter((op) => op.targetRel !== ADAPTER_MANIFEST);

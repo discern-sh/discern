@@ -18,7 +18,7 @@ import {
   planBrief,
   planManifest,
 } from "../src/lib/fs_plan.ts";
-import { sha256Hex } from "../src/lib/manifest.ts";
+import { loadManagedSpec, sha256Hex } from "../src/lib/manifest.ts";
 import {
   FIXTURE_TEMPLATES,
   modeOf,
@@ -27,6 +27,37 @@ import {
   testTokens,
   withTempDir,
 } from "./helpers.ts";
+
+Deno.test("a managed.json declaration drives classification (and is never scaffolded)", async () => {
+  await withTempDir(async (dir) => {
+    const templates = join(dir, "templates");
+    const dest = join(dir, "dest");
+    await Deno.mkdir(join(templates, "custom"), { recursive: true });
+    await Deno.mkdir(dest, { recursive: true });
+    // Declare an extra managed prefix, beyond the built-in default.
+    await Deno.writeTextFile(
+      join(templates, "managed.json"),
+      JSON.stringify({ exact: [], prefixes: ["custom/"] }),
+    );
+    await Deno.writeTextFile(join(templates, "custom", "thing.txt"), "x");
+    await Deno.writeTextFile(join(templates, "seed.txt"), "y");
+
+    const plan = await buildPlan({
+      templatesDir: templates,
+      destDir: dest,
+      tokens: testTokens(),
+      mode: "init",
+      managedSpec: await loadManagedSpec(templates),
+    });
+
+    const byPath = new Map(plan.ops.map((o) => [o.targetRel, o]));
+    // The declared prefix makes custom/thing.txt managed; seed.txt stays seed.
+    assertEquals(byPath.get("custom/thing.txt")?.managed, true);
+    assertEquals(byPath.get("seed.txt")?.managed, false);
+    // managed.json itself is installer metadata — never scaffolded.
+    assertEquals(byPath.has("managed.json"), false);
+  });
+});
 
 /** Build and apply an init plan over the fixture tree into `dir`. */
 async function scaffold(dir: string) {

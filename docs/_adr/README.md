@@ -26,3 +26,4 @@ decision is hard to reverse, surprising without context, and a real trade-off.
 - [0005 — Declarative config](0005-declarative-config.md)
 - [0006 — Long-slot ergonomics](0006-long-slot-ergonomics.md)
 - [0007 — Adapter contract](0007-adapter-contract.md)
+- [0008 — Declarative managed-set](0008-declarative-managed-set.md)

@@ -25,6 +25,7 @@ import {
 import { TomlEditor } from "../lib/toml_edit.ts";
 import { KIT_VERSION } from "../lib/version.ts";
 import {
+  loadManagedSpec,
   loadManifest,
   recordedHash as lookupRecordedHash,
 } from "../lib/manifest.ts";
@@ -107,6 +108,7 @@ export async function assembleInitPlan(params: {
     mode: "init",
     recordedHash: (targetRel) =>
       manifest ? lookupRecordedHash(manifest, targetRel) : undefined,
+    managedSpec: await loadManagedSpec(templatesDir),
   });
 
   const briefOp = await planBrief(destDir, config.brief);

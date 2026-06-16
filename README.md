@@ -459,13 +459,15 @@ is `null`).
   POSIX `awk` reader (`.icculus/engine/lib/`). No Node, no Deno, no
   jq-the-config at runtime.
 - **Managed vs. seed.** `bin/agent`, `.icculus/engine/**`, and `.ai/skills/**`
-  are **managed** (kit-owned, refreshed by `upgrade`). They are hash-tracked in
-  the manifest, so both `init` and `upgrade` refresh a managed file in place
-  **only** when its on-disk bytes still match what the kit last wrote; if you
-  edited it — or a same-named file was already there before Icculus — your copy
-  is left untouched and the kit's version is written alongside as `<file>.new`
-  for you to merge. Everything else — `icculus.toml`, your docs, guidelines,
-  `TODO.md` — is **seed**: written once, then yours.
+  are **managed** (kit-owned, refreshed by `upgrade`) — the set is **declared in
+  `templates/managed.json`**, not hardcoded, so it's visible from the template
+  tree and an adapter can mark overlay files it owns. Managed files are
+  hash-tracked in the manifest, so both `init` and `upgrade` refresh one in
+  place **only** when its on-disk bytes still match what the kit last wrote; if
+  you edited it — or a same-named file was already there before Icculus — your
+  copy is left untouched and the kit's version is written alongside as
+  `<file>.new` for you to merge. Everything else — `icculus.toml`, your docs,
+  guidelines, `TODO.md` — is **seed**: written once, then yours.
 - **Author once, compile everywhere — agent-agnostic.** Write your guidance and
   skills once under `.ai/`; `agent guidelines` compiles them to every agent's
   own instruction file, so one repo can drive Claude Code, Codex, Gemini, and
