@@ -1,0 +1,311 @@
+# icculus
+
+**A portable agentic-development harness you can drop into any project, in one
+command.**
+
+`icculus` scaffolds a small, opinionated set of safety rails for working with
+coding agents — a compound quality gate, an isolated git-worktree workflow, an
+author-once → compile-everywhere agent-instruction pipeline, and a documentation
+/ principles / ADR / TODO discipline — into any repository, in any language. The
+orchestration is stack-neutral; the few stack-specific commands live behind
+named **slots** in a single config file you fill in (or let your own coding
+agent propose).
+
+> Working name. `icculus`, `bin/agent`, and `.icculus/` are placeholders pending
+> a final name.
+
+---
+
+## Why
+
+A good agentic workflow needs the same rails on every project: one command that
+fixes-builds-checks-tests before work is called done; throwaway worktrees so an
+agent can't trample your main checkout; agent guidance written once and compiled
+to every agent's file; and a docs/decision discipline that keeps context from
+rotting. Re-deriving those rails per project is wasteful and they drift.
+`icculus` extracts the proven version of them (lifted from a production
+codebase) and makes them installable and upgradable — without assuming your
+language, test runner, or build tool.
+
+The engine doesn't know what a test _is_. It runs "the test slot." You tell it
+the command once.
+
+---
+
+## Install
+
+**Single binary (recommended)** — no runtime needed:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/<owner>/icculus/main/install.sh | sh
+```
+
+This downloads the right prebuilt binary for your OS/arch from the latest GitHub
+release and installs it to `~/.local/bin` (or `/usr/local/bin`).
+
+**From source** (requires [Deno](https://deno.com)):
+
+```sh
+git clone https://github.com/<owner>/icculus && cd icculus
+deno task dev -- --help          # run without compiling
+deno task build                  # compile per-platform binaries → dist/
+```
+
+The **installed harness is pure POSIX shell + a TOML config** — the target
+project never needs Deno. macOS and Linux are supported; Windows needs WSL.
+
+---
+
+## Quickstart
+
+```sh
+cd your-project              # fresh or existing repo (git required)
+icculus init                 # walk the wizard — name, slug, what you're building
+# → in your coding agent:
+/bootstrap                   # fills principles/docs/guidelines + proposes slot fills
+# day to day:
+agent finish                 # the full quality gate — run before calling work done
+agent worktree:exit          # graduate a worktree's branch back to main for review
+```
+
+`init` writes the harness and records a manifest; it **merges** into an existing
+`.claude/settings.json` rather than clobbering it. `/bootstrap` is a shipped
+skill that has _your own_ coding agent author the project-specific content and
+sniff the repo to propose the slot fills — no API key, no provider lock-in.
+
+---
+
+## What gets installed
+
+```
+icculus.toml               # the one file you edit: slots, scopes, worktree adapters, ratchets
+bin/agent                  # the task runner your agent drives (finish, worktree, guidelines, …)
+.icculus/
+  engine/                  # the generic shell engine (managed — refreshed by `icculus upgrade`)
+  brief.md                 # what you told init you're building
+  manifest.json            # kit version + managed-file hashes
+.claude/settings.json      # merged: the worktree hooks + a Read(.env) deny
+.ai/
+  guidelines/<slug>.md     # author-once agent guidance (you/​/bootstrap fill this)
+  skills/…                 # portable agent skills (coding-principles, grill-me, write-adr, …)
+CLAUDE.md  AGENTS.md        # COMPILED from .ai/guidelines by `agent guidelines` — never hand-edit
+docs/…                     # numbered docs tree + design-principles + _adr + gotchas
+TODO.md                    # the shared backlog discipline
+```
+
+---
+
+## The config — `icculus.toml`
+
+One file teaches the stack-neutral engine about your project. Every slot
+defaults to `:` (a no-op that passes), so a fresh install has a **green gate you
+grow into**.
+
+### Slots — the stack-specific commands
+
+Each slot is one shell command (chain tools with `&&`). Its `phase` decides when
+and how `agent finish` runs it:
+
+| phase      | when                                                      | examples             |
+| ---------- | --------------------------------------------------------- | -------------------- |
+| `fix`      | first, parallel with `build`; **mutating**                | formatter, codemod   |
+| `build`    | parallel with `fix`; produces artifacts later phases read | compile, bundle      |
+| `check`    | after fix+build, parallel with `test`; **read-only**      | linter, type-checker |
+| `test`     | parallel with `check`                                     | the test suite       |
+| `coverage` | on demand via `agent finish:coverage` (slow)              | coverage measurement |
+
+`agent finish` runs `fix∥build → check∥test → side-gates → merge-check`.
+`agent tidy` is the fast inner loop: `fix` then `check`, no build or tests.
+
+**Worked example — how `icculus` wires _itself_ (a Deno project):**
+
+```toml
+[slots.format]
+run   = "deno fmt"
+phase = "fix"
+
+[slots.lint]
+run   = "deno lint"
+phase = "check"
+
+[slots.typecheck]
+run   = "deno check src/main.ts"
+phase = "check"
+
+[slots.test]
+run   = "deno task test"
+phase = "test"
+```
+
+With those four slots filled, `agent finish` formats, lints, type-checks, and
+runs the suite in the donor's exact parallel phase shape. (This repo is gated
+exactly this way — see _Dogfooding_ below.)
+
+### Scopes — what a change touches
+
+The gate uses scopes to skip irrelevant work (a docs-only change runs no side
+gate and gets no preview) and to fire **side gates** only when their area
+changed. Classification **fails open**: a path matching nothing counts as real
+code, so unknowns run _more_ gates, never fewer.
+
+```toml
+[scopes]
+neutral     = ["docs/", ".ai/", ".claude/"]   # no gate needed
+web         = ["src/**", "app/**"]            # real, gated code
+previewable = ["public/**"]                   # a person could see it
+
+[scopes.side_gates]
+# native = "agent vision:finish"   # run this when a `native` scope changes
+```
+
+### Worktree adapters — the two seams
+
+Worktree git mechanics are generic; the **database** and **dev-server** steps
+are empty by default. Fill them to give each worktree its own isolated database
+and a live dev URL:
+
+```toml
+[worktree]
+inherit_env = ["APP_KEY"]   # secrets copied from main's .env into a new worktree's .env
+port        = true          # deterministic per-worktree dev port
+
+[worktree.db]
+clone = "createdb -T {{project_slug}}_template {{db}}"
+drop  = "dropdb --if-exists {{db}}"
+
+[worktree.dev_server]
+link   = "your-tool link {{site}} {{dir}}"
+unlink = "your-tool unlink {{site}}"
+
+[worktree.setup]
+steps = ["npm ci", "npm run build"]   # run once after a worktree is created
+```
+
+Adapter command tokens, substituted before the command runs: `{{db}}` (worktree
+DB name), `{{site}}` (derived site name), `{{port}}` (derived dev port),
+`{{project_slug}}`, `{{dir}}` (worktree root). An empty adapter command is a
+clean no-op.
+
+### Ratchets & evidence
+
+```toml
+[ratchets]
+coverage_min = 0.0          # never-lower floor, enforced by `agent finish:coverage`
+
+[evidence]
+enabled = false             # optionally require per-branch work evidence before finish
+```
+
+---
+
+## Command reference
+
+### `icculus` (the installer)
+
+| command              | does                                                                                                                  |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `init`               | scaffold the harness into the cwd. Wizard or `--yes` + flags; `--dry-run`, `--json`, `--force`.                       |
+| `upgrade`            | refresh only **managed** engine files. A managed file you edited is preserved; the new version lands as `<file>.new`. |
+| `doctor`             | verify the install (manifest, dispatcher, then delegates to `agent doctor`).                                          |
+| `add-adapter <name>` | overlay a bundled stack adapter (mechanism present; see _Roadmap_).                                                   |
+
+Global flags: `--json`, `--no-color` (also honours `NO_COLOR` and non-TTY),
+`--help`, `--version`.
+
+### `agent` (the installed task runner)
+
+| command                              | does                                                                          |
+| ------------------------------------ | ----------------------------------------------------------------------------- |
+| `agent finish`                       | the full quality gate. Run before calling any task done.                      |
+| `agent tidy`                         | fixers + checks, no build/test — the fast inner loop.                         |
+| `agent test`                         | run the test-phase slots.                                                     |
+| `agent finish:coverage`              | the coverage ratchet (slow; not part of `finish`).                            |
+| `agent worktree:exit`                | graduate this worktree's branch into the main checkout.                       |
+| `agent worktree:teardown` / `:prune` | discard a worktree / sweep stale ones.                                        |
+| `agent guidelines`                   | compile `.ai/guidelines/*` → `CLAUDE.md`/`AGENTS.md` and refresh skill links. |
+| `agent doctor`                       | health-check the harness (slots resolve, git worktrees work, …).              |
+
+Run `agent --help` for the live list. Recipes are auto-discovered, so an adapter
+or your own recipe under `.icculus/engine/` shows up automatically.
+
+---
+
+## How it works
+
+- **Auto-discovery, no registries.** `bin/agent` finds the project root (nearest
+  `icculus.toml`), then runs `.icculus/engine/<recipe>` (mapping `worktree:exit`
+  → `worktree-exit`). Drop a new recipe in and it's available. The installer
+  walks `templates/` the same way — nothing hardcodes the file list.
+- **Config without a runtime.** The engine reads `icculus.toml` through a tiny
+  POSIX `awk` reader (`.icculus/engine/lib/`). No Node, no Deno, no
+  jq-the-config at runtime.
+- **Managed vs. seed.** `bin/agent`, `.icculus/engine/**`, and `.ai/skills/**`
+  are **managed** (kit-owned, refreshed by `upgrade`, hash-tracked so your edits
+  are never silently lost). Everything else — `icculus.toml`, your docs,
+  guidelines, `TODO.md` — is **seed**: written once, then yours.
+- **Author once, compile everywhere.** You edit `.ai/guidelines/*` and
+  `.ai/skills/*`; `agent guidelines` compiles them to each agent's instruction
+  file. The generated `CLAUDE.md` is gitignored; `AGENTS.md` is tracked so
+  compiled-guidance changes still surface in review.
+
+---
+
+## Dogfooding
+
+This repository is itself gated by the harness it ships. Running `icculus init`
+here and wiring the four Deno slots above yields a green `agent finish` that
+runs `deno fmt` ∥ build, then `deno lint` + `deno check` ∥ the test suite — the
+same parallel phase shape every installed project gets. The end-to-end install →
+gate → worktree round-trip → upgrade flow is exercised by the test suite
+(`deno task test`).
+
+---
+
+## Developing the kit
+
+```sh
+deno task dev -- init --yes --name Demo   # run the CLI from source
+deno task test                            # the CLI test suite
+deno fmt && deno lint && deno check src/main.ts
+deno task build                           # per-platform binaries → dist/
+```
+
+`templates/` **is the source of truth** for everything an installed project
+receives — edit there, never in an installed copy. `src/` is the installer.
+Adding a new engine recipe? Drop it in `templates/.icculus/engine/` with a
+`#!/usr/bin/env sh` shebang and a `# desc:` line; the dispatcher and `--help`
+pick it up.
+
+---
+
+## Status & roadmap
+
+Working, verified, and committed:
+
+- ✅ Installer (`init`/`upgrade`/`doctor`/`add-adapter`), 57 tests,
+  single-binary build + release pipeline.
+- ✅ Stack-neutral gate engine (slots, scopes, side-gates, ratchets, evidence).
+- ✅ Worktree harness with database / dev-server / env / port adapter seams.
+- ✅ Author-once guidelines compiler + portable skills.
+- ✅ Docs / principles / ADR / TODO scaffolding + the `/bootstrap` seeding
+  skill.
+
+Follow-ups:
+
+- **Bundled stack adapters** (`add-adapter node`, `python`, …): the overlay
+  mechanism ships; no adapters are bundled yet. For now, `/bootstrap` detects
+  your stack and proposes slot fills directly — usually all you need.
+- **Publishing**: set the real `<owner>/icculus` GitHub slug in `install.sh`
+  (override with `ICCULUS_REPO`) and the release workflow before distributing.
+- **`inherit_env` ordering**: a worktree that relies on `[worktree.inherit_env]`
+  needs its `.env` to exist before the inherit step (a db/dev-server adapter or
+  a `setup` step typically creates it). Documented in the worktree recipe.
+
+---
+
+## Provenance
+
+The practices here were extracted from **Macrograph**, a production Laravel
+application with a mature agentic-development harness, and deliberately
+decoupled from that stack. The orchestration is lifted; the Laravel/PHP/visionOS
+specifics are dropped or pushed behind slots and adapters.
