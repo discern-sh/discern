@@ -1,6 +1,28 @@
 # ADR 0004: `agent finish --json` — structured gate output
 
-**Status**: accepted
+**Status**: accepted; **amended by the 1.0 redesign** — see _Update (1.0)_
+below.
+
+## Update (1.0)
+
+The original decision (below) reports gate results **per phase**, on the
+reasoning that slots within a phase ran joined (`&&`), so the engine could not
+see an individual slot's pass/fail.
+
+The 1.0 redesign makes each slot its **own tracked job** (the `fix` slots
+serial, the rest concurrent within their stage — see ADR 0002's _Update_). The
+honest unit is now the **slot**, and the JSON reports it:
+
+- `"phases"` becomes `"slots"`; each entry is
+  `{name, phase, status, duration_s}`.
+- `status` gains **`skipped`** — a real slot whose stage aborted before it ran
+  (a failed serial fixer, or a fail-fast cancellation) — alongside `ok` /
+  `failed` / `noop`.
+- `failed_stage` now distinguishes `fix` from `build` (they are separate
+  stages): `evidence` | `fix` | `build` | `check/test` | `side_gates` | `merge`.
+
+Everything else — stdout-carries-only-JSON, human mode unchanged, the
+`side_gates[]` entries, second-granular durations — stands.
 
 ## Context
 

@@ -1,6 +1,21 @@
 # ADR 0002: Side-gates run with the slot phase model; path-scoped suppression deferred
 
-**Status**: accepted
+**Status**: accepted; **amended by the 1.0 redesign** — see _Update (1.0)_
+below.
+
+## Update (1.0)
+
+This ADR deferred path-scoped slot **suppression** because slots ran _globally_
+(one `test` slot for the whole repo), so making them path-aware meant a whole
+new execution model. The 1.0 redesign lays that model's foundation: each slot
+now runs as its **own tracked job** (the `fix` slots serially, then `build`,
+then `check∥test` — see ADR 0004's _Update_). Per-slot — and therefore per-scope
+— control is now tractable.
+
+Suppression itself is still **not implemented**, but the blocker the original
+decision named is gone: it is now a config feature, not an execution-model
+rewrite. Side-gate execution is otherwise unchanged (parallel, grouped, run-all,
+after `check∥test`).
 
 ## Context
 

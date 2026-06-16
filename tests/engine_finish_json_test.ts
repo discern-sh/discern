@@ -2,10 +2,11 @@
  * Engine tests for structured `agent finish --json` output (ADR 0004).
  *
  * In --json mode finish emits a single JSON object on stdout (human output goes
- * to stderr): per-phase results (the execution unit — slots run joined within a
- * phase), per-side-gate results (fired = ok/failed, configured-but-unchanged =
- * skipped), the scopes that changed, and the failed stage. These tests parse the
- * stdout and assert the shape.
+ * to stderr): per-SLOT results (the execution unit — each [slots.<name>] runs as
+ * its own job, reported as {name, phase, status, duration_s}), per-side-gate
+ * results (fired = ok/failed, configured-but-unchanged = skipped), the scopes
+ * that changed, and the failed stage. These tests parse the stdout and assert
+ * the shape.
  */
 
 import { assert, assertEquals } from "@std/assert";
@@ -24,7 +25,7 @@ function parseJson(stdout: string): any {
   return JSON.parse(stdout.trim());
 }
 
-Deno.test("finish --json: no-op gate emits ok:true with all phases noop", async () => {
+Deno.test("finish --json: no-op gate emits ok:true with every slot noop", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -34,9 +35,14 @@ Deno.test("finish --json: no-op gate emits ok:true with all phases noop", async 
     const obj = parseJson(r.stdout); // stdout must be ONLY the JSON object
     assertEquals(obj.ok, true);
     assertEquals(obj.failed_stage, null);
-    assertEquals(obj.phases.length, 4);
-    for (const p of obj.phases) {
-      assertEquals(p.status, "noop", `phase ${p.name} should be noop`);
+    // The default install ships several slots, all no-ops.
+    assert(
+      obj.slots.length >= 4,
+      `expected the default slots, got ${obj.slots.length}`,
+    );
+    for (const s of obj.slots) {
+      assertEquals(s.status, "noop", `slot ${s.name} should be noop`);
+      assert(typeof s.phase === "string" && s.phase.length > 0);
     }
     assert(Array.isArray(obj.side_gates));
     assert(Array.isArray(obj.scopes_changed));
@@ -70,8 +76,10 @@ Deno.test("finish --json: a failing check reports ok:false and the failed stage"
     const obj = parseJson(r.stdout);
     assertEquals(obj.ok, false);
     assertEquals(obj.failed_stage, "check/test");
-    const check = obj.phases.find((p: { name: string }) => p.name === "check");
-    assertEquals(check.status, "failed");
+    // The failure is attributed to the precise slot, not a whole phase.
+    const lint = obj.slots.find((s: { name: string }) => s.name === "lint");
+    assertEquals(lint.status, "failed");
+    assertEquals(lint.phase, "check");
   });
 });
 

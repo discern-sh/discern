@@ -1,8 +1,10 @@
 /**
- * Engine tests for the opt-in long-slot ergonomics (ADR 0006): `[gate].stream`
- * (live line-prefixed output) and `[gate].fail_fast` (cancel in-flight siblings
- * on first failure). Both default off; these tests drive `agent finish` with a
- * fix slot that fails fast and a build slot that would otherwise run for seconds.
+ * Engine tests for the long-slot ergonomics (ADR 0006): `[gate].stream` (live
+ * line-prefixed output) and `[gate].fail_fast` (cancel in-flight siblings on
+ * first failure). These drive `agent finish` with two slots in the SAME parallel
+ * stage — a `check` slot that fails fast and a `test` slot that would otherwise
+ * run for seconds — since fail-fast cancels concurrent siblings, and check+test
+ * is the gate's parallel stage (fix and build run in their own ordered stages).
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
@@ -14,7 +16,10 @@ import {
   writeConfig,
 } from "./engine_helpers.ts";
 
-/** A config whose fix slot fails immediately and whose build slot is slow. */
+/**
+ * A config with two slots in the SAME parallel stage: a `check` slot that fails
+ * immediately and a `test` slot that is slow. (check and test run together.)
+ */
 function failFastConfig(opts: { failFast: boolean; stream?: boolean }): string {
   return [
     "[project]",
@@ -25,13 +30,13 @@ function failFastConfig(opts: { failFast: boolean; stream?: boolean }): string {
     'neutral = ["docs/"]',
     'web = ["src/**"]',
     "",
-    "[slots.format]",
-    'phase = "fix"',
+    "[slots.lint]",
+    'phase = "check"',
     'run = "exit 1"', // fails fast
     "",
-    "[slots.build]",
-    'phase = "build"',
-    'run = "sleep 5; echo BUILT-AFTER-SLEEP"', // slow sibling
+    "[slots.slowtest]",
+    'phase = "test"',
+    'run = "sleep 5; echo RAN-TO-END"', // slow sibling in the same stage
     "",
     "[gate]",
     `stream = ${opts.stream ? "true" : "false"}`,
@@ -53,7 +58,7 @@ Deno.test("gate fail_fast: a failing job cancels its slow sibling", async () => 
     assertEquals(r.code, 1, r.output);
     // The slow sibling was cancelled before it could print its marker...
     assert(
-      !r.output.includes("BUILT-AFTER-SLEEP"),
+      !r.output.includes("RAN-TO-END"),
       "fail_fast should cancel the slow sibling before it completes",
     );
     // ...and the gate returned well before the 5s sleep would have elapsed.
@@ -70,7 +75,7 @@ Deno.test("gate default (no fail_fast): the slow sibling runs to completion", as
     const r = await runAgent(dir, ["finish"]);
     assertEquals(r.code, 1, r.output);
     // Without fail_fast every job runs to completion (buffered, grouped).
-    assertStringIncludes(r.output, "BUILT-AFTER-SLEEP");
+    assertStringIncludes(r.output, "RAN-TO-END");
   });
 });
 

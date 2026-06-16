@@ -119,8 +119,10 @@ and how `agent finish` runs it:
 A slot with **no `phase`** is a _measurement slot_: the gate never runs it; a
 ratchet references it to read a metric on demand (see _Ratchets_ below).
 
-`agent finish` runs `fix∥build → check∥test → side-gates → merge-check`.
-`agent tidy` is the fast inner loop: `fix` then `check`, no build or tests.
+`agent finish` runs `fix → build → check∥test → side-gates → merge-check`, with
+**each slot as its own tracked step** (the mutating `fix` slots serially, the
+rest concurrently within their stage). `agent tidy` is the fast inner loop:
+`fix` then `check`, no build or tests.
 
 **Worked example — how `icculus` wires _itself_ (a Deno project):**
 
@@ -414,17 +416,21 @@ the result without scraping:
 ```json
 {
   "ok": true,
-  "phases": [{ "name": "check", "status": "ok", "duration_s": 4 }],
+  "slots": [
+    { "name": "lint", "phase": "check", "status": "ok", "duration_s": 4 }
+  ],
   "side_gates": [{ "scope": "native", "status": "skipped", "duration_s": 0 }],
   "scopes_changed": ["web"],
   "failed_stage": null
 }
 ```
 
-`status` is `ok` / `failed` / `noop` per phase; side-gates report `ok` /
-`failed` for those that fired and `skipped` for those whose scope didn't change.
-`failed_stage` names the stage that failed (or is `null`). Results are per
-**phase** (slots within a phase run joined) plus per side-gate.
+Each `[slots.<name>]` runs as its own tracked job, so results are reported **per
+slot** (`{name, phase, status, duration_s}`): `status` is `ok` / `failed` /
+`noop` (a no-op slot) / `skipped` (a real slot whose stage aborted before it
+ran). Side-gates report `ok` / `failed` for those that fired and `skipped` for
+those whose scope didn't change. `failed_stage` names the stage that failed (or
+is `null`).
 
 ---
 

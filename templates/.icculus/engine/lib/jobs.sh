@@ -1,7 +1,9 @@
-# jobs.sh — a tiny, dependency-free POSIX parallel runner (no external
-# 'concurrently'-style tool needed). It runs labelled commands concurrently,
-# captures each one's combined output, then prints them in stable order under a
-# banner and returns non-zero if any failed.
+# jobs.sh — a tiny, dependency-free POSIX job runner (no external
+# 'concurrently'-style tool needed). It runs labelled commands — concurrently
+# (run_parallel) or one at a time (run_serial) — captures each one's combined
+# output, prints them in stable order under a banner, and returns non-zero if any
+# failed. The gate runs each SLOT as its own labelled job, so a result is
+# reported per-slot (the fix phase uses run_serial; the rest run_parallel).
 #
 # Output is buffered-then-grouped rather than live-interleaved: a quality gate
 # wants legible, non-tangled output more than it wants live progress, and this
@@ -135,9 +137,49 @@ run_parallel() {
     return "$_rp_fail"
 }
 
+# Run labelled commands ONE AT A TIME, in order, stopping at the first failure.
+# The mutating fix phase uses this: its slots are ordered (a later fixer may
+# depend on an earlier one's edits) and must not run concurrently. Each job is
+# recorded to the side channel and its output grouped (or streamed) exactly as
+# run_parallel does. Returns 0 only if every command run exited 0.
+#   run_serial "fix:format" "$fmt_cmd" "fix:codemod" "$codemod_cmd"
+run_serial() {
+    _rp_tmp=$(mktemp -d "${TMPDIR:-/tmp}/icculus-jobs.XXXXXX") || return 1
+    _rs_fail=0
+    _rs_n=0
+    while [ "$#" -ge 2 ]; do
+        _rs_label=$1
+        _rs_cmd=$2
+        shift 2
+        _rs_n=$((_rs_n + 1))
+        [ -n "$_rs_cmd" ] || _rs_cmd=":"
+        # Foreground (no `&`): _rp_run_job completes and writes its files here.
+        _rp_run_job "$_rs_n" "$_rs_label" "$_rs_cmd"
+        _rs_code=$(cat "$_rp_tmp/$_rs_n.code" 2>/dev/null || printf '1')
+        [ -n "$_rs_code" ] || _rs_code=1
+        _rs_dur=$(cat "$_rp_tmp/$_rs_n.dur" 2>/dev/null || printf '0')
+        if [ -n "${ICCULUS_JOBS_RESULTS:-}" ]; then
+            printf '%s\t%s\t%s\n' "$_rs_label" "$_rs_code" "$_rs_dur" >> "$ICCULUS_JOBS_RESULTS"
+        fi
+        if [ "$_rs_code" -eq 0 ] 2>/dev/null; then
+            printf '%s── %s ─%s %sok%s\n' "$C_DIM" "$_rs_label" "$C_RESET" "$C_GREEN" "$C_RESET"
+        else
+            printf '%s── %s ─%s %sFAILED (exit %s)%s\n' "$C_DIM" "$_rs_label" "$C_RESET" "$C_RED" "$_rs_code" "$C_RESET"
+            _rs_fail=1
+        fi
+        # Buffered mode dumps the captured output here; stream mode already showed it.
+        [ -n "${ICCULUS_GATE_STREAM:-}" ] || cat "$_rp_tmp/$_rs_n.out" 2>/dev/null
+        # Ordered, mutating: a failed fixer means a later one would act on a bad
+        # tree, so stop here rather than compounding the damage.
+        [ "$_rs_fail" -eq 1 ] && break
+    done
+    rm -rf "$_rp_tmp"
+    return "$_rs_fail"
+}
+
 # Join the `run` commands of every slot in a given phase with ` && `, skipping
 # no-ops. Prints `:` when the phase has no real commands, so a track is never
-# empty. Used by the finish/tidy recipes.
+# empty. Used by the tidy/test convenience recipes and by no-op detection.
 #   cmd=$(slots_for_phase fix)
 slots_for_phase() {
     _sp_phase=$1
@@ -154,4 +196,19 @@ slots_for_phase() {
     done
     [ -n "$_sp_joined" ] || _sp_joined=":"
     printf '%s' "$_sp_joined"
+}
+
+# Print the NON-NO-OP slot names in a phase, one per line, in declaration order.
+# Slot names are bare identifiers (no spaces), so a caller can iterate them with
+# `for` and read each `run` command with config_get — the safe way to build a
+# per-slot job list whose commands may contain spaces. A measurement slot (no
+# phase) matches no gate phase, so it never appears here.
+#   for slot in $(slots_in_phase check); do ...; done
+slots_in_phase() {
+    _sip_phase=$1
+    for _sip_slot in $(config_subsections slots); do
+        [ "$(config_get "slots.$_sip_slot.phase")" = "$_sip_phase" ] || continue
+        config_slot_is_noop "slots.$_sip_slot.run" && continue
+        printf '%s\n' "$_sip_slot"
+    done
 }
