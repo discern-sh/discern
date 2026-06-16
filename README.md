@@ -288,10 +288,30 @@ uses.
 | `init`               | scaffold the harness into the cwd (fresh or existing repo). Wizard or `--yes` + flags; `--dry-run`, `--json`, `--force`. Never overwrites a file it can't prove it wrote — see _Managed vs. seed_. |
 | `upgrade`            | refresh only **managed** engine files. A managed file you edited is preserved; the new version lands as `<file>.new`.                                                                              |
 | `doctor`             | verify the install (manifest, dispatcher, then delegates to `agent doctor`).                                                                                                                       |
+| `config <sub>`       | programmatically edit `icculus.toml`, comments intact — `set-slot`, `set-scope`, `set-side-gate`, `set-ratchet`, `set`. See _Driving icculus programmatically_.                                    |
 | `add-adapter <name>` | overlay a bundled stack adapter (mechanism present; see _Roadmap_).                                                                                                                                |
 
 Global flags: `--json`, `--no-color` (also honours `NO_COLOR` and non-TTY),
 `--help`, `--version`.
+
+### Driving icculus programmatically
+
+A scaffolder or CI can drive icculus declaratively, without hand-editing TOML.
+`icculus config` makes **comment-preserving** edits to an existing
+`icculus.toml` (every subcommand honours `--json` and `--dry-run`):
+
+```sh
+icculus config set-slot test --phase test --run "vitest run"
+icculus config set-scope native 'native/**' 'native/lib/**'
+icculus config set-side-gate native --run "make -C native check"
+icculus config set-ratchet bundle --limit 500000 --direction down --slot bundlesize
+icculus config set ratchets.coverage_min 80          # type inferred; --string/--number/--bool to force
+```
+
+Each finds `icculus.toml` in the cwd, applies the edit (preserving comments and
+layout), and writes it back. Light validation matches `doctor` (slot `--phase` ∈
+the known phases; ratchet `--direction` ∈ `up`/`down`). The name `coverage` is
+reserved for the built-in ratchet.
 
 ### `agent` (the installed task runner)
 

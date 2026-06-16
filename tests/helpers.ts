@@ -20,6 +20,54 @@ export const REAL_TEMPLATES = join(
   "templates",
 );
 
+/** Absolute path to the CLI entrypoint. */
+const MAIN = join(
+  dirname(fromFileUrl(import.meta.url)),
+  "..",
+  "src",
+  "main.ts",
+);
+
+/** The captured result of one CLI subprocess invocation. */
+export interface CliResult {
+  code: number;
+  stdout: string;
+  stderr: string;
+}
+
+/**
+ * Run `src/main.ts` as a subprocess in `cwd`, so Cliffy parsing, the global
+ * flags, JSON output, and exit codes are all exercised for real. `NO_COLOR` and
+ * the real templates dir are set; `env` adds/overrides further variables.
+ */
+export async function runCli(
+  args: string[],
+  cwd: string,
+  env: Record<string, string> = {},
+): Promise<CliResult> {
+  const command = new Deno.Command(Deno.execPath(), {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-write",
+      "--allow-env",
+      "--allow-run",
+      MAIN,
+      ...args,
+    ],
+    cwd,
+    env: { ICCULUS_TEMPLATES_DIR: REAL_TEMPLATES, NO_COLOR: "1", ...env },
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const { code, stdout, stderr } = await command.output();
+  return {
+    code,
+    stdout: new TextDecoder().decode(stdout),
+    stderr: new TextDecoder().decode(stderr),
+  };
+}
+
 /** A complete token map with recognisable test values. */
 export function testTokens(overrides: Partial<TokenMap> = {}): TokenMap {
   return {

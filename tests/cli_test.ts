@@ -6,12 +6,8 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { dirname, fromFileUrl, join } from "@std/path";
-import { withTempDir } from "./helpers.ts";
-
-const ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
-const MAIN = join(ROOT, "src", "main.ts");
-const REAL_TEMPLATES = join(ROOT, "templates");
+import { join } from "@std/path";
+import { runCli, withTempDir } from "./helpers.ts";
 
 /** True when a path exists on disk. */
 async function pathExists(path: string): Promise<boolean> {
@@ -21,34 +17,6 @@ async function pathExists(path: string): Promise<boolean> {
   } catch {
     return false;
   }
-}
-
-/** Run the CLI as a subprocess in `cwd`, returning code + decoded streams. */
-async function runCli(
-  args: string[],
-  cwd: string,
-): Promise<{ code: number; stdout: string; stderr: string }> {
-  const command = new Deno.Command(Deno.execPath(), {
-    args: [
-      "run",
-      "--allow-read",
-      "--allow-write",
-      "--allow-env",
-      "--allow-run",
-      MAIN,
-      ...args,
-    ],
-    cwd,
-    env: { ICCULUS_TEMPLATES_DIR: REAL_TEMPLATES, NO_COLOR: "1" },
-    stdout: "piped",
-    stderr: "piped",
-  });
-  const { code, stdout, stderr } = await command.output();
-  return {
-    code,
-    stdout: new TextDecoder().decode(stdout),
-    stderr: new TextDecoder().decode(stderr),
-  };
 }
 
 Deno.test("--version prints the kit version", async () => {
