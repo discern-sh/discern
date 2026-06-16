@@ -1,6 +1,24 @@
 # ADR 0006: Opt-in streamed output and fail-fast cancellation for the parallel runner
 
-**Status**: accepted
+**Status**: accepted; **amended by the 1.0 redesign** — see _Update (1.0)_
+below.
+
+## Update (1.0)
+
+`fail_fast` now **defaults ON**. For an agent-driven gate, aborting the moment a
+job fails is the behaviour you almost always want; running a slow test suite to
+completion after the linter has already failed is pure latency. Set
+`[gate].fail_fast = false` to restore run-to-completion. `stream` still defaults
+off (interleaved live output trades legibility for immediacy — opt in per
+project), so the original decision below now reads "stream opt-in; fail_fast
+opt-out".
+
+Because `finish` reads the flag once and exports it, it applies uniformly to
+every parallel stage **including side gates** — which therefore now abort on the
+first failing gate by default, superseding the run-all default ADR 0002 chose
+under the old opt-in regime. A monorepo that wants every side-gate failure in
+one pass sets `fail_fast = false`. (`run_serial`, used by the `fix` stage, is
+inherently fail-fast: a failed fixer stops the chain regardless of this flag.)
 
 ## Context
 

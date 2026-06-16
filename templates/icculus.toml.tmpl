@@ -186,22 +186,22 @@ capture = ""   # command that records evidence for the current branch
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# [gate] — optional ergonomics for slow gates. Both default off, so the gate's
-# output and timing are unchanged until you opt in. They affect how `agent finish`
-# runs its parallel phases (and side gates).
+# [gate] — ergonomics for the parallel gate stages (and side gates). These affect
+# how `agent finish` runs its concurrent jobs.
 # ─────────────────────────────────────────────────────────────────────────────
 
 [gate]
 # Stream each slot's output live (line-prefixed `── <label> │ …`) instead of
-# buffering it until the phase finishes. Helps when watching a slow build/test.
-# Concurrent jobs interleave (but stay labelled) — the default groups them.
+# buffering it until the stage finishes. Helps when watching a slow build/test.
+# Concurrent jobs interleave (but stay labelled). Off by default (grouped).
 stream = false
 
-# Cancel the in-flight sibling commands when one fails, instead of running every
-# command to completion. Saves wall-clock on a failing gate. Best effort: a
-# command's own grandchildren may briefly linger (portable sh has no atomic
-# process-tree kill).
-fail_fast = false
+# Cancel the in-flight sibling commands the moment one fails, instead of running
+# every command to completion. ON by default — an agent-driven gate wants a fast
+# abort. Set false to run every job and see all failures in one pass. Best
+# effort: a command's own grandchildren may briefly linger (portable sh has no
+# atomic process-tree kill).
+fail_fast = true
 
 
 # ─────────────────────────────────────────────────────────────────────────────

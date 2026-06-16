@@ -66,7 +66,47 @@ Deno.test("gate fail_fast: a failing job cancels its slow sibling", async () => 
   });
 });
 
-Deno.test("gate default (no fail_fast): the slow sibling runs to completion", async () => {
+Deno.test("gate fail_fast is ON by default (no [gate] section)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    // No [gate] section at all — fail_fast defaults on in 1.0.
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        'main_branch = "main"',
+        "",
+        "[scopes]",
+        'neutral = ["docs/"]',
+        'web = ["src/**"]',
+        "",
+        "[slots.lint]",
+        'phase = "check"',
+        'run = "exit 1"',
+        "",
+        "[slots.slowtest]",
+        'phase = "test"',
+        'run = "sleep 5; echo RAN-TO-END"',
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+
+    const start = Date.now();
+    const r = await runAgent(dir, ["finish"]);
+    const elapsed = Date.now() - start;
+
+    assertEquals(r.code, 1, r.output);
+    assert(
+      !r.output.includes("RAN-TO-END"),
+      "fail_fast should be the default and cancel the slow sibling",
+    );
+    assert(elapsed < 4500, `expected a fast abort, took ${elapsed}ms`);
+  });
+});
+
+Deno.test("gate fail_fast=false: the slow sibling runs to completion", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, failFastConfig({ failFast: false }));

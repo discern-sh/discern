@@ -167,10 +167,10 @@ previewable = ["public/**"]                   # a person could see it
 
 A **side gate** is how a sub-component with its own self-contained gate plugs
 into `agent finish` (the monorepo / sub-project story). The fired gates — those
-whose scope the branch changed — run with the **same model as the slot phases**:
-every fired gate runs concurrently, output is grouped and labelled
-`side:<scope>`, and a single failure fails the gate (all gates still run, so you
-see every failure at once).
+whose scope the branch changed — run with the **same model as the slot stages**:
+concurrently, output grouped and labelled `side:<scope>`, and a single failure
+fails the gate. They honour `[gate].fail_fast` (on by default) like the slot
+stages; set it `false` to run every fired gate and see all failures at once.
 
 ### Worktree adapters — the two seams
 
@@ -253,22 +253,23 @@ several ratchets.
 
 ### Long-running slots — streaming & fail-fast
 
-By default the gate buffers each phase's output and prints it grouped once the
-phase finishes, running every job to completion. For slow build/test slots, two
-opt-in ergonomics help (both **default off**, so the default is unchanged):
-
 ```toml
 [gate]
 stream    = false   # stream slot output live, line-prefixed `── <label> │ …`
-fail_fast = false   # cancel in-flight siblings when one job fails
+fail_fast = true    # cancel in-flight siblings the moment one job fails (default)
 ```
 
-`stream` gives live feedback (concurrent jobs interleave but stay labelled).
-`fail_fast` aborts the phase as soon as one job fails — e.g. it cancels a slow
-`build` the moment the `fix` job fails — saving wall-clock on a red gate.
-Cancellation is best-effort: a command's own grandchildren may briefly linger
-(portable POSIX sh has no atomic process-tree kill), but the gate aborts
-promptly.
+`fail_fast` is **on by default** — an agent-driven gate wants to abort the
+moment a job fails (e.g. cancel a slow `test` the instant a parallel `check`
+fails) rather than burn wall-clock finishing it. It applies to every parallel
+stage, **side gates included**. Set `fail_fast = false` to run every job to
+completion and see all failures in one pass. Cancellation is best-effort: a
+command's own grandchildren may briefly linger (portable POSIX sh has no atomic
+process-tree kill), but the gate aborts promptly.
+
+`stream` is **off by default** (output is buffered and printed grouped once a
+stage finishes). Turn it on for live, line-prefixed feedback on slow slots;
+concurrent jobs interleave but stay labelled.
 
 ### Project recipes — your own `agent` commands
 

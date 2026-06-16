@@ -102,12 +102,14 @@ Deno.test("side-gates: a failing gate fails finish and points at the gotchas", a
   });
 });
 
-Deno.test("side-gates: all fired gates run even when one fails (run-all, not fail-fast)", async () => {
+Deno.test("side-gates: with fail_fast=false, all fired gates run even when one fails", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
+    // fail_fast defaults ON in 1.0, so run-all is the explicit opt-out.
     await writeConfig(
       dir,
-      sideGateConfig("echo WIDGET-OK", "echo GADGET-FAIL; exit 1"),
+      sideGateConfig("echo WIDGET-OK", "echo GADGET-FAIL; exit 1") +
+        "\n[gate]\nfail_fast = false\n",
     );
     await gitInit(dir);
     await touch(dir, "widget/x.txt");

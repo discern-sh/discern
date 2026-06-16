@@ -152,13 +152,15 @@ fail_phase() {
     die "$1"
 }
 
-# --- opt-in long-slot ergonomics (ADR 0006) -------------------------------
+# --- gate ergonomics (ADR 0006) -------------------------------------------
 #
-# Both default off, so the gate's output and timing are unchanged unless asked.
-# run_parallel reads these env flags: stream output live, and/or cancel in-flight
-# siblings on the first failure.
+# fail_fast defaults ON: an agent-driven gate wants to abort the moment a job
+# fails, not burn wall-clock finishing a slow sibling. Set [gate].fail_fast =
+# false to run every job to completion (and see all failures at once). stream
+# stays opt-in (live interleaved output trades legibility for immediacy). Read
+# once and exported, so they apply to every parallel stage, side gates included.
 config_bool gate.stream && export ICCULUS_GATE_STREAM=1
-config_bool gate.fail_fast && export ICCULUS_GATE_FAIL_FAST=1
+[ "$(config_get gate.fail_fast true)" != "false" ] && export ICCULUS_GATE_FAIL_FAST=1
 
 # --- pre-checks (fail fast) -----------------------------------------------
 
