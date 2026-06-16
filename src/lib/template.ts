@@ -11,10 +11,12 @@
 import { basename } from "@std/path";
 
 /**
- * The complete, closed set of content tokens the kit substitutes. This is the
- * contract: no token outside this set is invented. `{{db}}` is deliberately
- * absent — it is a *runtime* token the worktree engine expands per-worktree, so
- * the installer must pass it through untouched.
+ * The complete, closed set of content tokens the kit substitutes, written
+ * `{{name}}`. This is the contract: no token outside this set is invented; an
+ * unknown `{{token}}` is left verbatim and reported as drift. The worktree
+ * engine's *runtime* tokens use a DIFFERENT delimiter — `@db@`, `@site@`, … (see
+ * `lib/worktree.sh`) — so they never collide with these and need no special
+ * pass-through here.
  */
 export type ContentTokenName =
   | "project_name"
@@ -46,9 +48,9 @@ export interface SubstitutionResult {
 
 /**
  * Substitute known content tokens, leaving unknown `{{tokens}}` verbatim and
- * collecting their names so the caller can warn about drift. The `{{db}}`
- * token is treated as known-and-preserved (a runtime token), so it neither
- * substitutes nor counts as drift.
+ * collecting their names so the caller can warn about drift. The worktree
+ * engine's runtime tokens use the `@…@` delimiter, so they are simply not
+ * `{{…}}` matches here — no special-case is needed to preserve them.
  */
 export function substituteTokens(
   input: string,
@@ -56,10 +58,6 @@ export function substituteTokens(
 ): SubstitutionResult {
   const unknown = new Set<string>();
   const text = input.replace(TOKEN_PATTERN, (match, name: string) => {
-    if (name === "db") {
-      // Runtime token owned by the worktree engine: pass through untouched.
-      return match;
-    }
     if (Object.hasOwn(tokens, name)) {
       return tokens[name as ContentTokenName];
     }

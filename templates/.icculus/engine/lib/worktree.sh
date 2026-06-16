@@ -12,14 +12,16 @@
 #
 # The adapter-token convention. Adapter command strings in [worktree.db] and
 # [worktree.dev_server] are operator-supplied and run with `eval` (matching the
-# slot-command convention in jobs.sh). Before eval-ing, these tokens are
-# replaced with values derived from THIS worktree's identity:
+# slot-command convention in jobs.sh). Before eval-ing, these RUNTIME tokens are
+# replaced with values derived from THIS worktree's identity. They use the `@…@`
+# delimiter — distinct from the installer's `{{…}}` content tokens (which are
+# already substituted at init), so the two layers never collide:
 #
-#   {{db}}            worktree-name --db        database-name-safe identity
-#   {{site}}          worktree-name --site      dev-server site/host name
-#   {{port}}          worktree-name --port      deterministic per-worktree port
-#   {{project_slug}}  config_get project.slug   the project slug
-#   {{dir}}           the worktree root          absolute path of the checkout
+#   @db@            worktree-name --db        database-name-safe identity
+#   @site@          worktree-name --site      dev-server site/host name
+#   @port@          worktree-name --port      deterministic per-worktree port
+#   @project_slug@  config_get project.slug   the project slug
+#   @dir@           the worktree root          absolute path of the checkout
 #
 # An empty adapter command is a clean no-op: nothing is expanded and nothing is
 # run. The recipes guard on emptiness, so an unset seam never executes anything.
@@ -84,9 +86,9 @@ wt_expand_tokens() {
     [ -n "$_wt_cmd" ] || { printf ''; return 0; }
     for _wt_tok in db site port project_slug dir; do
         case "$_wt_cmd" in
-            *"{{$_wt_tok}}"*)
+            *"@$_wt_tok@"*)
                 _wt_val=$(wt_token_value "$_wt_tok")
-                _wt_cmd=$(wt_replace_all "$_wt_cmd" "{{$_wt_tok}}" "$_wt_val")
+                _wt_cmd=$(wt_replace_all "$_wt_cmd" "@$_wt_tok@" "$_wt_val")
                 ;;
         esac
     done

@@ -11,8 +11,9 @@ web = [{{scopes_web}}]
 previewable = [{{scopes_previewable}}]
 
 [worktree.db]
-# {{db}} is a runtime token: the installer must leave it untouched.
-clone = "createdb {{db}}"
+# @db@ is a runtime token (different delimiter): the installer must leave it
+# untouched — the worktree engine expands it per-worktree.
+clone = "createdb @db@"
 
 # Drift probe: this token is not in the known set and must be left verbatim.
 custom = "{{unknown_token}}"

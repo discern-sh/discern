@@ -2,9 +2,10 @@
  * Token substitution and path resolution — the substitution contract.
  *
  * These pin the rules the scaffolder depends on: known tokens substitute,
- * unknown tokens are left verbatim and reported, the `{{db}}` runtime token is
- * preserved, the single path token resolves in a file name, and `.tmpl` is
- * stripped. A regression in any of these silently corrupts every scaffold.
+ * unknown tokens are left verbatim and reported, the worktree engine's `@…@`
+ * runtime tokens use a different delimiter (so the installer never touches them),
+ * the single path token resolves in a file name, and `.tmpl` is stripped. A
+ * regression in any of these silently corrupts every scaffold.
  */
 
 import { assertEquals } from "@std/assert";
@@ -50,11 +51,23 @@ Deno.test("substituteTokens leaves an unknown token verbatim and reports it", ()
   assertEquals(unknown, ["nope"]);
 });
 
-Deno.test("substituteTokens preserves the {{db}} runtime token without reporting drift", () => {
-  const { text, unknown } = substituteTokens("clone=createdb {{db}}", tokens());
-  // {{db}} is owned by the worktree engine: pass through, and it is NOT drift.
-  assertEquals(text, "clone=createdb {{db}}");
+Deno.test("substituteTokens ignores the engine's @runtime@ tokens (different delimiter)", () => {
+  const { text, unknown } = substituteTokens(
+    "clone=createdb -T @project_slug@_template @db@",
+    tokens(),
+  );
+  // Runtime tokens use @…@, not {{…}}, so the installer never sees them — they
+  // pass through untouched and are NOT drift.
+  assertEquals(text, "clone=createdb -T @project_slug@_template @db@");
   assertEquals(unknown, []);
+});
+
+Deno.test("substituteTokens no longer special-cases {{db}} — it is ordinary drift now", () => {
+  const { text, unknown } = substituteTokens("x={{db}}", tokens());
+  // With runtime tokens moved to @…@, a stray {{db}} is just an unknown token:
+  // left verbatim and reported, like any other drift.
+  assertEquals(text, "x={{db}}");
+  assertEquals(unknown, ["db"]);
 });
 
 Deno.test("substituteTokens dedups repeated unknown tokens", () => {

@@ -115,11 +115,12 @@ inherit_env = []   # e.g. ["APP_KEY", "OPENAI_API_KEY"]
 port = true
 
 # Database adapter. Each worktree gets its own database so tests never clash.
-# {{db}} expands to the worktree's derived database name. Leave empty for a
-# project with no database. (The example below uses a Postgres template DB.)
+# Runtime tokens use @…@ (the engine expands them per-worktree, at run time):
+# @db@ is the derived database name, @project_slug@ your project slug. Leave empty
+# for a project with no database. (The example below uses a Postgres template DB.)
 [worktree.db]
-clone = ""   # e.g. "createdb -T {{project_slug}}_template {{db}}"
-drop  = ""   # e.g. "dropdb --if-exists {{db}}"
+clone = ""   # e.g. "createdb -T @project_slug@_template @db@"
+drop  = ""   # e.g. "dropdb --if-exists @db@"
 
 # Dev-server adapter — link/unlink a per-worktree site (a Docker vhost, an ngrok
 # tunnel, a reverse-proxy entry, …). Leave empty for none.

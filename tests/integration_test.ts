@@ -43,12 +43,10 @@ Deno.test("init scaffolds the real templates into a working harness", async () =
     assertEquals(toml.project.slug, "integration-demo");
     assertEquals(toml.project.branch_prefix, "agent/");
     assertEquals(toml.project.agents, ["claude_code", "codex"]);
-    // Every content token resolved. The only token that may legitimately remain
-    // is {{db}} — the runtime token the worktree engine expands per-worktree,
-    // which appears in the [worktree.db] example comments.
+    // Every content token resolved. Runtime tokens use the @…@ delimiter now, so
+    // NO {{…}} token should remain in the installed icculus.toml at all.
     const leaked = [...tomlText.matchAll(/\{\{\s*([a-z0-9_]+)\s*\}\}/g)]
-      .map((m) => m[1])
-      .filter((name) => name !== "db");
+      .map((m) => m[1]);
     assertEquals(
       leaked,
       [],

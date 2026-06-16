@@ -184,21 +184,23 @@ inherit_env = ["APP_KEY"]   # secrets copied from main's .env into a new worktre
 port        = true          # deterministic per-worktree dev port
 
 [worktree.db]
-clone = "createdb -T {{project_slug}}_template {{db}}"
-drop  = "dropdb --if-exists {{db}}"
+clone = "createdb -T @project_slug@_template @db@"
+drop  = "dropdb --if-exists @db@"
 
 [worktree.dev_server]
-link   = "your-tool link {{site}} {{dir}}"
-unlink = "your-tool unlink {{site}}"
+link   = "your-tool link @site@ @dir@"
+unlink = "your-tool unlink @site@"
 
 [worktree.setup]
 steps = ["npm ci", "npm run build"]   # run once after a worktree is created
 ```
 
-Adapter command tokens, substituted before the command runs: `{{db}}` (worktree
-DB name), `{{site}}` (derived site name), `{{port}}` (derived dev port),
-`{{project_slug}}`, `{{dir}}` (worktree root). An empty adapter command is a
-clean no-op.
+Adapter command **runtime tokens**, expanded per-worktree just before the
+command runs: `@db@` (worktree DB name), `@site@` (derived site name), `@port@`
+(derived dev port), `@project_slug@`, `@dir@` (worktree root). They use the
+`@…@` delimiter — distinct from the installer's `{{…}}` content tokens (already
+substituted at `init`), so the two layers never collide. An empty adapter
+command is a clean no-op.
 
 ### Ratchets & evidence
 
