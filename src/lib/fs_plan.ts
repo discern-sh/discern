@@ -72,8 +72,67 @@ export interface Plan {
   unknownTokens: Map<string, string[]>;
 }
 
+/** Where a managed file's resolved bytes should be written, and how to label it. */
+interface ManagedWriteTarget {
+  disposition: OpDisposition;
+  /** The path actually written (the target, or `<target>.new`). */
+  outRel: string;
+  /** Note rendered in review / dry-run. */
+  note?: string;
+}
+
 const TEXT_DECODER = new TextDecoder();
 const TEXT_ENCODER = new TextEncoder();
+
+/**
+ * Decide the disposition of a MANAGED file that is already present on disk.
+ *
+ * This is the single safety rule shared by `init` and `upgrade` — both must
+ * agree on when it is safe to overwrite a managed file the kit owns versus when
+ * the on-disk copy is the user's and must be preserved. The decision depends
+ * only on three hashes, never on which command is running:
+ *
+ *   - on-disk == the kit's new bytes        → `skip`      (already current)
+ *   - on-disk == the manifest's recorded hash → `overwrite` (Icculus wrote it,
+ *                                               the user did not touch it)
+ *   - otherwise (no manifest, not tracked, or hash differs — user-edited or a
+ *     foreign same-named file)              → `new`       (preserve it; write
+ *                                               the kit's version as `<path>.new`)
+ *
+ * `recorded` is the manifest's recorded sha256 for this path, or undefined when
+ * there is no manifest or the path is untracked.
+ */
+function resolveManagedDisposition(params: {
+  targetRel: string;
+  /** sha256 of the bytes the kit would write this run. */
+  newHash: string;
+  /** sha256 of the bytes currently on disk. */
+  existingHash: string;
+  /** The manifest's recorded hash for this path, if any. */
+  recorded: string | undefined;
+}): ManagedWriteTarget {
+  const { targetRel, newHash, existingHash, recorded } = params;
+
+  if (existingHash === newHash) {
+    return {
+      disposition: "skip",
+      outRel: targetRel,
+      note: "already up to date",
+    };
+  }
+  if (recorded !== undefined && existingHash === recorded) {
+    // Pristine: matches exactly what the kit last wrote. Safe to refresh in place.
+    return { disposition: "overwrite", outRel: targetRel };
+  }
+  // Not provably ours: no manifest, untracked, or locally changed. Never clobber.
+  return {
+    disposition: "new",
+    outRel: `${targetRel}.new`,
+    note: recorded === undefined
+      ? "kept your version — new version written alongside"
+      : "your edits kept — new version written alongside",
+  };
+}
 
 /** Read a file's bytes, or undefined if it does not exist. */
 async function readBytesIfExists(
@@ -158,7 +217,6 @@ export async function buildPlan(params: {
       destDir,
       tokens,
       managed,
-      mode,
       recordedHash,
       unknownTokens,
     });
@@ -169,7 +227,15 @@ export async function buildPlan(params: {
   return { ops, unknownTokens };
 }
 
-/** Plan a single content/verbatim file write, resolving its disposition. */
+/**
+ * Plan a single content/verbatim file write, resolving its disposition.
+ *
+ * The disposition no longer depends on the command (`init` vs `upgrade`): a
+ * managed file already present is resolved identically by both via
+ * `resolveManagedDisposition`. The mode only governs *which* files reach this
+ * function — `buildPlan` filters seed files out on upgrade — so it is not needed
+ * here.
+ */
 async function planFileWrite(params: {
   sourceAbs: string;
   templateRel: string;
@@ -177,11 +243,10 @@ async function planFileWrite(params: {
   destDir: string;
   tokens: TokenMap;
   managed: boolean;
-  mode: "init" | "upgrade";
   recordedHash?: (targetRel: string) => string | undefined;
   unknownTokens: Map<string, string[]>;
 }): Promise<PlanOp> {
-  const { sourceAbs, templateRel, targetRel, destDir, tokens, managed, mode } =
+  const { sourceAbs, templateRel, targetRel, destDir, tokens, managed } =
     params;
   const sourceStat = await Deno.stat(sourceAbs);
   let sourceMode = (sourceStat.mode ?? 0o644) & 0o777;
@@ -216,37 +281,29 @@ async function planFileWrite(params: {
   let note: string | undefined;
 
   if (existing === undefined) {
+    // Nothing there yet — create it. (Same for seed and managed, init and upgrade.)
     disposition = "create";
-  } else if (mode === "init") {
-    if (managed) {
-      // Re-running init over a managed file: refresh it (init is the source of truth).
-      const existingHash = await sha256Hex(existing);
-      disposition = existingHash === hash ? "skip" : "overwrite";
-      if (disposition === "skip") {
-        note = "unchanged";
-      }
-    } else {
-      // SEED file already present: write-once, leave it.
-      disposition = "skip";
-      note = "seed present — left as-is";
-    }
+  } else if (managed) {
+    // A managed file is already present. Both `init` and `upgrade` resolve this
+    // identically: overwrite only when the on-disk copy is provably the kit's
+    // (matches the manifest's recorded hash); otherwise preserve and write
+    // `<path>.new`. This is the safety rule that stops `init` clobbering a
+    // user's hand-edited or same-named foreign managed file.
+    const decision = resolveManagedDisposition({
+      targetRel,
+      newHash: hash,
+      existingHash: await sha256Hex(existing),
+      recorded: params.recordedHash?.(targetRel),
+    });
+    disposition = decision.disposition;
+    outRel = decision.outRel;
+    outAbs = join(destDir, decision.outRel);
+    note = decision.note;
   } else {
-    // upgrade mode, managed file present: hash-aware refresh.
-    const existingHash = await sha256Hex(existing);
-    const recorded = params.recordedHash?.(targetRel);
-    if (existingHash === hash) {
-      disposition = "skip";
-      note = "already up to date";
-    } else if (recorded !== undefined && existingHash === recorded) {
-      // Pristine (matches what the kit last wrote): safe to overwrite.
-      disposition = "overwrite";
-    } else {
-      // User-edited (or untracked): preserve, write the new version alongside.
-      disposition = "new";
-      outAbs = `${targetAbs}.new`;
-      outRel = `${targetRel}.new`;
-      note = "user-edited — new version written alongside";
-    }
+    // A SEED file is already present. Seeds are write-once on both init and
+    // upgrade (upgrade never even reaches a seed; init leaves it as the user's).
+    disposition = "skip";
+    note = "seed present — left as-is";
   }
 
   return {
@@ -418,9 +475,19 @@ export async function planManifest(params: {
 }
 
 /**
- * Collect the managed-file entries for a plan's write ops (those classified
- * managed and carrying a hash), keyed by their *target* path with any `.new`
- * suffix removed — the manifest tracks the canonical path the kit owns.
+ * Collect the managed-file entries for a plan's write ops that the kit actually
+ * wrote *to the canonical path* — i.e. `create`, `overwrite`, and `skip` ops
+ * (for `skip` the on-disk bytes already equal `sha256`). The recorded hash is
+ * the kit's bytes (`sha256`), which is exactly what lands at the canonical path.
+ *
+ * `new` ops are deliberately omitted: there the kit's bytes went to the `.new`
+ * sibling and the *user's* file remains at the canonical path. Recording the
+ * kit's hash there would be a lie that flips the file to "pristine" on the next
+ * run and overwrite it; recording the user's hash would do the same. Omitting it
+ * leaves the canonical path untracked, so every later run keeps treating it as
+ * "not provably ours" and re-preserves it — the safe outcome. (`upgrade`'s
+ * `rebuildManifest` layers any *prior* recorded hash back on top for the same
+ * reason.)
  */
 export function managedEntriesFromPlan(plan: Plan): ManagedEntry[] {
   const entries: ManagedEntry[] = [];
@@ -428,12 +495,21 @@ export function managedEntriesFromPlan(plan: Plan): ManagedEntry[] {
     if (op.kind !== "write" || !op.managed || op.sha256 === undefined) {
       continue;
     }
-    const path = op.targetRel.endsWith(".new")
-      ? op.targetRel.slice(0, -".new".length)
-      : op.targetRel;
-    entries.push({ path, sha256: op.sha256 });
+    if (op.disposition === "new") {
+      continue; // canonical path holds the user's file; do not record a hash for it.
+    }
+    entries.push({ path: op.targetRel, sha256: op.sha256 });
   }
   return entries;
+}
+
+/**
+ * The plan's `.new` write ops: managed files preserved because the on-disk copy
+ * was not provably the kit's, with the kit's version written alongside. Shared
+ * by the review screen and the post-run summary so both report the same set.
+ */
+export function newFilesFromPlan(plan: Plan): PlanOp[] {
+  return plan.ops.filter((op) => op.disposition === "new");
 }
 
 /**

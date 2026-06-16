@@ -204,12 +204,12 @@ enabled = false             # optionally require per-branch work evidence before
 
 ### `icculus` (the installer)
 
-| command              | does                                                                                                                  |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `init`               | scaffold the harness into the cwd. Wizard or `--yes` + flags; `--dry-run`, `--json`, `--force`.                       |
-| `upgrade`            | refresh only **managed** engine files. A managed file you edited is preserved; the new version lands as `<file>.new`. |
-| `doctor`             | verify the install (manifest, dispatcher, then delegates to `agent doctor`).                                          |
-| `add-adapter <name>` | overlay a bundled stack adapter (mechanism present; see _Roadmap_).                                                   |
+| command              | does                                                                                                                                                                                               |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `init`               | scaffold the harness into the cwd (fresh or existing repo). Wizard or `--yes` + flags; `--dry-run`, `--json`, `--force`. Never overwrites a file it can't prove it wrote — see _Managed vs. seed_. |
+| `upgrade`            | refresh only **managed** engine files. A managed file you edited is preserved; the new version lands as `<file>.new`.                                                                              |
+| `doctor`             | verify the install (manifest, dispatcher, then delegates to `agent doctor`).                                                                                                                       |
+| `add-adapter <name>` | overlay a bundled stack adapter (mechanism present; see _Roadmap_).                                                                                                                                |
 
 Global flags: `--json`, `--no-color` (also honours `NO_COLOR` and non-TTY),
 `--help`, `--version`.
@@ -242,9 +242,13 @@ or your own recipe under `.icculus/engine/` shows up automatically.
   POSIX `awk` reader (`.icculus/engine/lib/`). No Node, no Deno, no
   jq-the-config at runtime.
 - **Managed vs. seed.** `bin/agent`, `.icculus/engine/**`, and `.ai/skills/**`
-  are **managed** (kit-owned, refreshed by `upgrade`, hash-tracked so your edits
-  are never silently lost). Everything else — `icculus.toml`, your docs,
-  guidelines, `TODO.md` — is **seed**: written once, then yours.
+  are **managed** (kit-owned, refreshed by `upgrade`). They are hash-tracked in
+  the manifest, so both `init` and `upgrade` refresh a managed file in place
+  **only** when its on-disk bytes still match what the kit last wrote; if you
+  edited it — or a same-named file was already there before Icculus — your copy
+  is left untouched and the kit's version is written alongside as `<file>.new`
+  for you to merge. Everything else — `icculus.toml`, your docs, guidelines,
+  `TODO.md` — is **seed**: written once, then yours.
 - **Author once, compile everywhere — agent-agnostic.** Write your guidance and
   skills once under `.ai/`; `agent guidelines` compiles them to every agent's
   own instruction file, so one repo can drive Claude Code, Codex, Gemini, and

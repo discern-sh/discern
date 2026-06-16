@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# desc: ensure the current linked worktree is on a named branch (not detached)
+# helper: ensure the current linked worktree is on a named branch (not detached)
 
 # Ensure the current linked worktree is on a named branch.
 #

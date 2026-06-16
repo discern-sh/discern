@@ -27,6 +27,7 @@ import {
   applyPlan,
   buildPlan,
   managedEntriesFromPlan,
+  newFilesFromPlan,
   type Plan,
 } from "../lib/fs_plan.ts";
 import {
@@ -168,7 +169,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
   const refreshed = changed.filter((op) =>
     op.disposition === "overwrite" || op.disposition === "create"
   );
-  const newFiles = changed.filter((op) => op.disposition === "new");
+  const newFiles = newFilesFromPlan(plan);
   const preserved = plan.ops.filter((op) =>
     op.disposition === "skip" && op.managed
   );
@@ -192,10 +193,13 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
 }
 
 /**
- * Produce the post-upgrade manifest: every managed file the kit now owns gets
- * its fresh hash (from the plan's write ops, which carry the new bytes' hash);
- * files written as `.new` keep their prior recorded hash because the canonical
- * path on disk is still the user's edited version.
+ * Produce the post-upgrade manifest. Start from the previous manifest, then
+ * overlay a fresh hash for every managed file the kit wrote *to the canonical
+ * path* this round (`managedEntriesFromPlan` yields exactly those — it omits the
+ * `.new` siblings). So a file written as `<path>.new` keeps its *prior* recorded
+ * hash: the canonical path still holds the user's edited version, and keeping the
+ * old kit hash there means the next upgrade still sees it as edited and preserves
+ * it again, rather than mistaking it for pristine and clobbering it.
  */
 function rebuildManifest(params: {
   config: InitConfig;
@@ -207,18 +211,11 @@ function rebuildManifest(params: {
   for (const entry of previous?.managed ?? []) {
     byPath.set(entry.path, entry.sha256);
   }
-  for (const op of managedEntriesFromPlan(plan)) {
-    // managedEntriesFromPlan strips the `.new` suffix; only adopt the new hash
-    // for files actually refreshed in place (not the `.new` siblings).
-    const wasNew = plan.ops.some(
-      (p) => p.targetRel === `${op.path}.new` && p.disposition === "new",
-    );
-    if (!wasNew) {
-      byPath.set(op.path, op.sha256);
-    } else if (!byPath.has(op.path)) {
-      // No prior record (untracked edit): keep the user's file unrecorded-safe by
-      // recording nothing new — fall through leaves any prior value intact.
-    }
+  // managedEntriesFromPlan returns only create/overwrite/skip ops (never `.new`),
+  // so this overlays fresh hashes for files actually refreshed in place and
+  // leaves any `.new` path's prior recorded hash untouched.
+  for (const entry of managedEntriesFromPlan(plan)) {
+    byPath.set(entry.path, entry.sha256);
   }
   const managed: ManagedEntry[] = [...byPath.entries()].map((
     [path, sha256],

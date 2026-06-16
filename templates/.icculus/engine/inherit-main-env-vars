@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# desc: copy whitelisted env vars from the main checkout's .env into this worktree's
+# helper: copy whitelisted env vars from the main checkout's .env into this worktree's
 . "$(dirname "$0")/lib/bootstrap.sh"
 
 # Copy selected env vars from the main repo's .env into the current worktree's

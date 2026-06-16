@@ -15,7 +15,7 @@
 #   agent worktree          set up the current worktree (run by the create hook)
 #   agent worktree:exit     graduate this worktree's branch into the main repo
 #   agent doctor            check the install is healthy
-#   agent --help            list every available recipe
+#   agent --help            list the commands (internal helpers collapsed)
 #
 # Recipe names map to files by replacing ':' with '-', so `worktree:exit`
 # dispatches to .icculus/engine/worktree-exit.
@@ -57,20 +57,51 @@ fi
 
 # --- help -----------------------------------------------------------------
 
+# Render a recipe's file name as the user types it. Genuine sub-commands read
+# best with the ':' separator they document with (`finish:coverage`,
+# `worktree:exit`); `worktree-name` stays hyphenated because it is a flag-driven
+# helper users invoke directly, not a `worktree` sub-action. Both forms always
+# dispatch — this only chooses how the name *reads* in help. No command
+# registry: the set is still discovered from the files on disk.
+display_name() {
+    case "$1" in
+        worktree-name) printf 'worktree-name' ;;
+        worktree-*) printf 'worktree:%s' "${1#worktree-}" ;;
+        finish-*) printf 'finish:%s' "${1#finish-}" ;;
+        *) printf '%s' "$1" ;;
+    esac
+}
+
 print_help() {
     printf 'agent — task runner for this project (icculus harness)\n\n'
     printf 'Usage: agent <recipe> [args...]\n\n'
-    printf 'Available recipes:\n'
+    printf 'Commands:\n'
+
+    # Top-level commands advertise a one-line summary via `# desc: ...`. Internal
+    # plumbing other recipes call (asserts, worktree/branch helpers) marks itself
+    # `# helper: ...` instead, so it is collapsed into one line below rather than
+    # listed command-by-command. Both are discovered by scanning the files.
+    _helpers=
     for _f in "$ICCULUS_ENGINE"/*; do
         [ -f "$_f" ] || continue
         [ -x "$_f" ] || continue
         _name=$(basename "$_f")
-        # Recipe files advertise a one-line summary via `# desc: ...`.
         _desc=$(sed -n 's/^# desc: //p' "$_f" | head -n 1)
-        # Present the name with ':' restored for multi-word recipes.
-        _display=$(printf '%s' "$_name" | sed 's/^worktree-/worktree:/; s/^finish-/finish:/')
+        if [ -z "$_desc" ]; then
+            # Not a top-level command. Collect it if it is a marked helper.
+            if sed -n '2p' "$_f" | grep -q '^# helper:'; then
+                _helpers="${_helpers:+$_helpers, }$_name"
+            fi
+            continue
+        fi
+        _display=$(display_name "$_name")
         printf '  %s%-20s%s %s\n' "${C_BOLD:-}" "$_display" "${C_RESET:-}" "$_desc"
     done
+
+    if [ -n "$_helpers" ]; then
+        printf '\nInternal helpers (used by the above): %s (run any with --help)\n' "$_helpers"
+    fi
+
     printf '\nConfig: %s\n' "$ICCULUS_TOML"
 }
 
@@ -100,7 +131,76 @@ if [ -e "$target" ]; then
     exit 1
 fi
 
-printf 'agent: unknown recipe "%s".\n\n' "$cmd" >&2
+# --- unknown recipe: suggest a near match, then fall back to help ----------
+
+# Length of the common leading run of two strings (in characters).
+common_prefix_len() {
+    _a=$1; _b=$2; _n=0
+    while [ -n "$_a" ] && [ -n "$_b" ]; do
+        [ "${_a%"${_a#?}"}" = "${_b%"${_b#?}"}" ] || break
+        _a=${_a#?}; _b=${_b#?}; _n=$((_n + 1))
+    done
+    printf '%d' "$_n"
+}
+
+# Length of the common trailing run of two strings (in characters).
+common_suffix_len() {
+    _a=$1; _b=$2; _n=0
+    while [ -n "$_a" ] && [ -n "$_b" ]; do
+        [ "${_a#"${_a%?}"}" = "${_b#"${_b%?}"}" ] || break
+        _a=${_a%?}; _b=${_b%?}; _n=$((_n + 1))
+    done
+    printf '%d' "$_n"
+}
+
+# Look for an obvious near-match among the top-level commands (those carrying a
+# `# desc:` line) and echo its documented (colon) form. The typo is folded ':' →
+# '-' to match file names, then each command scores as a near-match when it
+# either contains / is contained by the typo, OR shares a leading run of >= 3
+# with a length gap of <= 2 (catches single-char slips like `finsh`/`doctr`), OR
+# shares a trailing run of >= 4 (catches truncations/abbreviations like
+# `wktree:exit`). Helpers are deliberately excluded, so we only ever steer users
+# toward real commands; no command registry — the candidates come from the files.
+suggest_recipe() {
+    _typo=$(printf '%s' "$1" | tr ':' '-')
+    _typo_len=${#_typo}
+    for _f in "$ICCULUS_ENGINE"/*; do
+        [ -f "$_f" ] || continue
+        [ -x "$_f" ] || continue
+        sed -n '2p' "$_f" | grep -q '^# desc:' || continue
+        _name=$(basename "$_f")
+
+        # Substring containment in either direction.
+        case "$_name" in
+            *"$_typo"*) display_name "$_name"; return 0 ;;
+        esac
+        case "$_typo" in
+            *"$_name"*) display_name "$_name"; return 0 ;;
+        esac
+
+        # Fuzzy: long shared prefix with a small length gap (off-by-one typos).
+        _name_len=${#_name}
+        _gap=$((_typo_len - _name_len))
+        [ "$_gap" -lt 0 ] && _gap=$((-_gap))
+        if [ "$_gap" -le 2 ]; then
+            [ "$(common_prefix_len "$_typo" "$_name")" -ge 3 ] && {
+                display_name "$_name"; return 0
+            }
+        fi
+
+        # Fuzzy: long shared suffix (truncated/abbreviated heads).
+        [ "$(common_suffix_len "$_typo" "$_name")" -ge 4 ] && {
+            display_name "$_name"; return 0
+        }
+    done
+    return 1
+}
+
+printf 'agent: unknown recipe "%s".\n' "$cmd" >&2
 [ -f "$ICCULUS_LIB/output.sh" ] && . "$ICCULUS_LIB/output.sh"
+if _guess=$(suggest_recipe "$cmd"); then
+    printf '       Did you mean `%s`?\n' "$_guess" >&2
+fi
+printf '\n' >&2
 print_help >&2
 exit 1

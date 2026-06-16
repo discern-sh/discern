@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# desc: remove stale git worktrees and fully-merged branches (keeps live work)
+# helper: remove stale git worktrees and fully-merged branches (keeps live work)
 
 # Remove stale Git worktrees and branches while keeping work worth reviewing.
 #

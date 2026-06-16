@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# desc: run a command; on failure, point at the project's gotchas doc
+# helper: run a command; on failure, point at the project's gotchas doc
 . "$(dirname "$0")/lib/bootstrap.sh"
 
 # with-gotchas <command> [args...]

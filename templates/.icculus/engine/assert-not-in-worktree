@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# desc: refuse when run from inside a linked git worktree (main checkout only)
+# helper: refuse when run from inside a linked git worktree (main checkout only)
 
 # Refuses to proceed when the current working directory is inside a *linked*
 # git worktree. This guards steps that are meant to mutate the main checkout's

@@ -3,14 +3,34 @@
 . "$(dirname "$0")/lib/bootstrap.sh"
 
 # doctor — verify the harness is wired up correctly and report ACTIONABLE
-# findings (what is wrong + how to fix it), not just pass/fail. Checks:
-#   - icculus.toml parses (project.slug resolves)
+# findings (what is wrong + how to fix it), not just pass/fail. Two severities:
+#
+#   ERROR (fail)   a broken install: the gate cannot run correctly as-is.
+#                  Exits non-zero. Examples: config has no slug, git missing, a
+#                  configured command's executable is absent, an invalid phase.
+#   WARNING (warn) an advisory: the install runs, but something is probably not
+#                  what you want. Exits 0 (it is not a broken install). Examples:
+#                  every gate slot is a no-op (the gate passes without checking
+#                  anything), empty scopes, or the harness layered onto another
+#                  tool that ALSO automates worktrees / owns CLAUDE.md.
+#
+# Checks, in order:
+#   - icculus.toml parses (project.slug resolves) and slug looks like a slug
+#   - every [slots.X] has a valid phase, and a real run command (or an intended
+#     no-op); count how many gate slots are still unfilled no-ops
+#   - [scopes].web / .neutral exist and are non-empty
 #   - git is present and supports worktrees (`git worktree list`)
 #   - every non-no-op slot's first token resolves on PATH
 #   - the gotchas doc exists when [project].gotchas_doc is set
 #   - every [scopes.side_gates] command's first token resolves on PATH
+#   - foreign tooling: another worktree automation in .claude/settings.json, or
+#     a CLAUDE.md owned by a different guideline compiler
 #
-# Exit non-zero if any HARD check fails. --json emits a machine-readable report.
+# --json emits a machine-readable report with SEPARATE errors and warnings
+# arrays (plus the full findings list and an `ok` boolean).
+
+# shellcheck source=lib/validate.sh
+. "$ICCULUS_LIB/validate.sh"
 
 as_json=0
 case "${1:-}" in
@@ -42,10 +62,79 @@ first_token() {
 # --- config parses --------------------------------------------------------
 
 slug=$(config_get project.slug "")
-if [ -n "$slug" ]; then
+if [ -z "$slug" ]; then
+    add fail "icculus.toml has no project.slug." "Set [project].slug in $ICCULUS_TOML."
+elif validate_is_slug "$slug"; then
     add ok "icculus.toml parses (project.slug = $slug)."
 else
-    add fail "icculus.toml has no project.slug." "Set [project].slug in $ICCULUS_TOML."
+    add fail "project.slug '$slug' is not a valid slug." "Use lowercase letters, digits and dashes, starting with a letter or digit (e.g. my-app) in $ICCULUS_TOML."
+fi
+
+# --- slot structure -------------------------------------------------------
+#
+# Each [slots.X] is the unit the gate runs. A typo in `phase` silently drops the
+# slot from its track (slots_for_phase only collects matching phases), so an
+# invalid/missing phase is a HARD error — the slot would never run, giving false
+# confidence. A missing `run` key (vs an explicit ":" no-op) is a softer signal:
+# the slot is inert, but that is sometimes a half-finished fill, so we warn.
+
+for slot in $(config_subsections slots); do
+    phase=$(config_get "slots.$slot.phase" "")
+    if [ -z "$phase" ]; then
+        add fail "slot '$slot' has no phase." "Set slots.$slot.phase to one of: $(validate_phase_list)."
+    elif ! validate_is_phase "$phase"; then
+        add fail "slot '$slot' has an unknown phase '$phase'." "Set slots.$slot.phase to one of: $(validate_phase_list)."
+    fi
+
+    # A slot with a phase but no `run` key at all is probably a half-finished
+    # fill. An explicit run = ":" is an intentional no-op and is fine (covered by
+    # the no-op-awareness section below), so only the MISSING key warns here.
+    if [ -n "$phase" ] && ! config_has "slots.$slot.run"; then
+        add warn "slot '$slot' has a phase but no run key." "Add slots.$slot.run = \"<command>\" (or \":\" to mark it an intentional no-op)."
+    fi
+done
+
+# --- no-op gate awareness -------------------------------------------------
+#
+# A fresh install ships every slot as ":" so the gate is green from day one. That
+# is by design — but a gate where EVERY gate-relevant phase is a no-op passes
+# without checking anything, which is dangerous false confidence. The four gated
+# phases are fix/build/check/test (coverage is a separate on-demand gate). We ask
+# slots_for_phase for each: it returns ":" exactly when a phase has no real
+# command. If all four are ":", warn loudly; if only some are, that is normal
+# early-setup progress, so just note the count.
+
+gated_phases="fix build check test"
+filled_phases=0
+total_phases=0
+for _ph in $gated_phases; do
+    total_phases=$((total_phases + 1))
+    [ "$(slots_for_phase "$_ph")" != ":" ] && filled_phases=$((filled_phases + 1))
+done
+
+if [ "$filled_phases" -eq 0 ]; then
+    add warn "Every gate slot is a no-op — \`agent finish\` will pass without checking anything." "Fill [slots] in $ICCULUS_TOML (or run /bootstrap to have your agent propose fills)."
+elif [ "$filled_phases" -lt "$total_phases" ]; then
+    add ok "$filled_phases of $total_phases gate phases have a real command ($((total_phases - filled_phases)) still a no-op)."
+else
+    add ok "All $total_phases gate phases have a real command."
+fi
+
+# --- scopes present -------------------------------------------------------
+#
+# Scope classification drives which side gates and preview run. An empty `web`
+# scope means every changed path falls through to neutral, so the gate never
+# fires side gates or a preview — almost always a mis-fill, not intent. Warn (the
+# gate still runs its slots, so this is advisory, not broken).
+
+web_count=$(config_array scopes.web | grep -c .)
+if [ "$web_count" -eq 0 ]; then
+    add warn "[scopes].web is empty or missing — no path counts as a gated code change." "List your source globs in scopes.web (e.g. [\"src/**\"]) in $ICCULUS_TOML."
+fi
+
+neutral_count=$(config_array scopes.neutral | grep -c .)
+if [ "$neutral_count" -eq 0 ]; then
+    add warn "[scopes].neutral is empty or missing — docs/guidance changes will be gated like code." "List doc/guidance globs in scopes.neutral (e.g. [\"docs/\", \".ai/\"]) in $ICCULUS_TOML."
 fi
 
 # --- git + worktree support ----------------------------------------------
@@ -103,18 +192,80 @@ if config_has scopes.side_gates; then
     done
 fi
 
+# --- foreign tooling / layering -------------------------------------------
+#
+# The harness can be dropped onto a repo that already automates worktrees or
+# already owns its agent-instruction files. Running alongside that other tool
+# causes double setup/teardown or a clobbered CLAUDE.md. These are advisories
+# (warn, exit 0): the install is fine, but the operator must reconcile by hand.
+# Detection is textual (no jq / no parser) so it degrades gracefully everywhere.
+
+# 1) Another worktree automation in .claude/settings.json. The harness's own
+#    worktree hooks always invoke `bin/agent` (worktree / worktree:teardown /
+#    worktree:ensure). If a worktree hook is present whose command does NOT
+#    mention bin/agent, a different tool owns that lifecycle here.
+settings_json="$ICCULUS_ROOT/.claude/settings.json"
+if [ -f "$settings_json" ]; then
+    # Inspect each WorktreeCreate/WorktreeRemove hook COMMAND, not just whether
+    # bin/agent appears somewhere: after `init` merges, the harness's own hooks
+    # (which all call bin/agent) coexist with any the repo already had, so a
+    # foreign hook is only visible per-command. Any worktree-lifecycle command
+    # that does NOT call bin/agent is a different tool's automation and would run
+    # ALONGSIDE ours, doubling setup/teardown. jq parses it precisely (the
+    # harness's own worktree hooks already require jq, so it is expected present);
+    # without jq, fall back to the coarse "a worktree hook but no bin/agent" test.
+    foreign_hook=""
+    if command -v jq >/dev/null 2>&1; then
+        foreign_hook=$(jq -r '((.hooks.WorktreeCreate // []) + (.hooks.WorktreeRemove // []))[].hooks[]?.command // empty' "$settings_json" 2>/dev/null \
+            | grep -v 'bin/agent' | head -n 1)
+    elif grep -Eiq '"?Worktree(Create|Remove)"?[[:space:]]*:' "$settings_json" 2>/dev/null \
+        && ! grep -q 'bin/agent' "$settings_json" 2>/dev/null; then
+        foreign_hook="a worktree hook that does not call bin/agent"
+    fi
+    if [ -n "$foreign_hook" ]; then
+        add warn "Another tool also automates worktrees in .claude/settings.json (a hook command does not call bin/agent)." "Both fire on worktree create/remove — reconcile the hooks by hand so setup/teardown isn't doubled."
+    fi
+fi
+
+# 2) A CLAUDE.md owned by a different guideline compiler. `agent guidelines`
+#    writes plain concatenated guideline text with NO banner, so a marker like
+#    Laravel Boost's <laravel-boost-guidelines> wrapper or a `=== ... rules ===`
+#    section banner means another compiler generated this file — and the next
+#    `agent guidelines` run will overwrite it.
+claude_md="$ICCULUS_ROOT/CLAUDE.md"
+if [ -f "$claude_md" ]; then
+    if grep -Eq '<laravel-boost-guidelines>|^===[[:space:]].*[[:space:]]rules[[:space:]]===' "$claude_md" 2>/dev/null; then
+        add warn "CLAUDE.md looks generated by another tool (it carries a foreign compiler's banner)." "\`agent guidelines\` overwrites CLAUDE.md from .ai/guidelines/* — move that tool's content into .ai/guidelines/, or drop claude_code from [project].agents."
+    fi
+fi
+
 # --- render ---------------------------------------------------------------
 
-if [ "$as_json" -eq 1 ]; then
-    printf '{"ok":%s,"findings":[' "$([ "$had_failure" -eq 0 ] && printf 'true' || printf 'false')"
-    _first=1
+# Emit one JSON object array element per finding matching $1 (the level), from
+# the report file. Used to build the errors/warnings/findings arrays.
+emit_json_findings() {
+    _ej_level=$1
+    _ej_first=1
     while IFS="$(printf '\t')" read -r level message fix; do
-        [ "$_first" -eq 1 ] && _first=0 || printf ','
-        # Escape backslashes and double quotes for JSON string safety.
-        _m=$(printf '%s' "$message" | sed 's/\\/\\\\/g; s/"/\\"/g')
-        _f=$(printf '%s' "$fix" | sed 's/\\/\\\\/g; s/"/\\"/g')
-        printf '{"level":"%s","message":"%s","fix":"%s"}' "$level" "$_m" "$_f"
+        [ "$_ej_level" = "any" ] || [ "$_ej_level" = "$level" ] || continue
+        [ "$_ej_first" -eq 1 ] && _ej_first=0 || printf ','
+        _m=$(validate_json_escape "$message")
+        _f=$(validate_json_escape "$fix")
+        if [ "$_ej_level" = "any" ]; then
+            printf '{"level":"%s","message":"%s","fix":"%s"}' "$level" "$_m" "$_f"
+        else
+            printf '{"message":"%s","fix":"%s"}' "$_m" "$_f"
+        fi
     done < "$report"
+}
+
+if [ "$as_json" -eq 1 ]; then
+    printf '{"ok":%s,"errors":[' "$([ "$had_failure" -eq 0 ] && printf 'true' || printf 'false')"
+    emit_json_findings fail
+    printf '],"warnings":['
+    emit_json_findings warn
+    printf '],"findings":['
+    emit_json_findings any
     printf ']}\n'
 else
     heading "Engine health check"
@@ -125,9 +276,17 @@ else
             fail) printf '%s✗%s %s\n' "$C_RED" "$C_RESET" "$message" >&2; [ -n "$fix" ] && printf '    %s%s%s\n' "$C_DIM" "$fix" "$C_RESET" >&2 ;;
         esac
     done < "$report"
-    if [ "$had_failure" -eq 0 ]; then
+
+    # Summary line: distinguish a clean bill from advisories-only from broken.
+    warn_count=$(awk -F"$(printf '\t')" '$1 == "warn"' "$report" | grep -c .)
+    if [ "$had_failure" -ne 0 ]; then
+        : # the failing lines above already carry their fixes; no extra summary
+    elif [ "$warn_count" -gt 0 ]; then
+        ok "Engine works, but $warn_count advisory warning(s) above are worth a look."
+    else
         ok "Engine looks healthy."
     fi
 fi
 
+# Warnings are advisories (exit 0); only hard failures fail the command.
 [ "$had_failure" -eq 0 ]

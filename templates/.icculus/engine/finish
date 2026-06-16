@@ -112,8 +112,27 @@ fi
 # Past this point nothing is gated: failures below must not abort the gate (the
 # work already passed), so the tail only prints guidance.
 
-ok "Everything built and all checks passed."
-info "If you changed something meaningful, update the docs to match before you finish."
+# How much of the gate was real? `slots_for_phase` returns exactly ":" for a
+# phase with no real slot, so a phase is a no-op precisely when it equals ":".
+# An empty gate (all four gated phases no-op) ran nothing — saying "everything
+# passed" would be false confidence, so we say so plainly and keep exit 0 (an
+# unfilled gate is not a failure). When only some phases are no-ops, the gate
+# did real work; we still nudge once about the unfilled ones.
+unfilled_phases=0
+for _phase in fix build check test; do
+    [ "$(slots_for_phase "$_phase")" = ":" ] && unfilled_phases=$((unfilled_phases + 1))
+done
+
+if [ "$unfilled_phases" -eq 4 ]; then
+    ok "Gate passed — but every tool slot is a no-op, so nothing was actually checked."
+    warn "Fill [slots] in icculus.toml (or run /bootstrap) to wire your format/lint/test commands."
+else
+    ok "Everything built and all checks passed."
+    if [ "$unfilled_phases" -gt 0 ]; then
+        info "${C_DIM}note: $unfilled_phases of 4 gate phases are still no-ops.${C_RESET}"
+    fi
+    info "If you changed something meaningful, update the docs to match before you finish."
+fi
 
 # Coverage reminder: only when a coverage slot is set, or a floor is configured.
 coverage_min=$(config_get ratchets.coverage_min "0")

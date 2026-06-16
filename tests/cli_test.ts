@@ -13,6 +13,16 @@ const ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
 const MAIN = join(ROOT, "src", "main.ts");
 const REAL_TEMPLATES = join(ROOT, "templates");
 
+/** True when a path exists on disk. */
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await Deno.stat(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Run the CLI as a subprocess in `cwd`, returning code + decoded streams. */
 async function runCli(
   args: string[],
@@ -109,7 +119,55 @@ Deno.test("init --force proceeds over an existing install", async () => {
       dir,
     );
     assertEquals(code, 0);
-    assertEquals(JSON.parse(stdout).ok, true);
+    const result = JSON.parse(stdout);
+    assertEquals(result.ok, true);
+    // A pristine re-install refreshes nothing into `.new`.
+    assertEquals(result.new_files, []);
+  });
+});
+
+Deno.test("init preserves a pre-existing managed file: .new in plan and result JSON", async () => {
+  await withTempDir(async (dir) => {
+    // A repo already carrying a same-named managed file, no icculus manifest.
+    await Deno.mkdir(join(dir, ".icculus/engine"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, ".icculus/engine/finish"),
+      "#!/bin/sh\n# the user's own finish recipe\n",
+    );
+
+    // 1. Dry-run --json must show the `.new` disposition without writing.
+    const dry = await runCli(
+      ["init", "--yes", "--dry-run", "--json", "--slug", "demo"],
+      dir,
+    );
+    assertEquals(dry.code, 0);
+    const dryResult = JSON.parse(dry.stdout);
+    const newOp = dryResult.plan.find((op: { path: string }) =>
+      op.path === ".icculus/engine/finish.new"
+    );
+    assert(newOp, "dry-run plan should contain a .new op for the managed file");
+    assertEquals(newOp.action, "new");
+    // Dry-run wrote nothing: no manifest, no .new on disk.
+    assert(!(await pathExists(join(dir, ".icculus/engine/finish.new"))));
+    assert(!(await pathExists(join(dir, "icculus.toml"))));
+
+    // 2. The real run preserves the original and reports the `.new` in JSON.
+    const { code, stdout } = await runCli(
+      ["init", "--yes", "--json", "--slug", "demo"],
+      dir,
+    );
+    assertEquals(code, 0);
+    const result = JSON.parse(stdout);
+    assert(
+      result.new_files.includes(".icculus/engine/finish.new"),
+      "result JSON should list the preserved file's .new sibling",
+    );
+    // Original survived byte-for-byte; the kit's version is alongside.
+    assertStringIncludes(
+      await Deno.readTextFile(join(dir, ".icculus/engine/finish")),
+      "the user's own finish recipe",
+    );
+    await Deno.stat(join(dir, ".icculus/engine/finish.new"));
   });
 });
 

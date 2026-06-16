@@ -43,31 +43,52 @@ export function renderReview(log: Logger, plan: Plan, destDir: string): void {
   const ops = plan.ops;
   const pick = (pred: (o: PlanOp) => boolean) => ops.filter(pred);
 
+  // Managed files we are NOT replacing because the on-disk copy is yours (a hand
+  // edit or a same-named foreign file): the kit's version is written alongside
+  // as `<path>.new`. Surfaced as its own honest group so the user sees, before
+  // confirming, exactly what will not be overwritten.
+  const preservedNew = pick((o) => o.disposition === "new");
+  const preservedSet = new Set(preservedNew);
+
   const hasConfig = ops.some((o) => o.targetRel === "icculus.toml");
-  const hasRunner = ops.some((o) => o.targetRel === "bin/agent");
-  const guidance = pick((o) => o.targetRel.startsWith(".ai/guidelines/"));
-  const skills = pick((o) => o.targetRel.startsWith(".ai/skills/"));
-  const docs = pick((o) =>
-    o.targetRel.startsWith("docs/") || o.targetRel === "TODO.md"
+  const hasRunner = ops.some((o) =>
+    o.targetRel === "bin/agent" && !preservedSet.has(o)
   );
-  const engine = pick((o) => o.targetRel.startsWith(".icculus/"));
+  const guidance = pick((o) =>
+    o.targetRel.startsWith(".ai/guidelines/") && !preservedSet.has(o)
+  );
+  const skills = pick((o) =>
+    o.targetRel.startsWith(".ai/skills/") && !preservedSet.has(o)
+  );
+  const docs = pick((o) =>
+    (o.targetRel.startsWith("docs/") || o.targetRel === "TODO.md") &&
+    !preservedSet.has(o)
+  );
+  const engine = pick((o) =>
+    o.targetRel.startsWith(".icculus/") && !preservedSet.has(o)
+  );
   // The integration files land at the project root / .claude and may merge or
   // append into ones you already have — grouped together regardless of how.
   const integration = pick((o) =>
     o.targetRel === ".gitignore" || o.targetRel.startsWith(".claude/")
   );
 
+  const integrationSet = new Set(integration);
   const accountedFor = new Set<PlanOp>([
     ...ops.filter((o) =>
-      o.targetRel === "icculus.toml" || o.targetRel === "bin/agent"
+      (o.targetRel === "icculus.toml" || o.targetRel === "bin/agent") &&
+      !preservedSet.has(o)
     ),
     ...guidance,
     ...skills,
     ...docs,
     ...engine,
     ...integration,
+    ...preservedNew,
   ]);
-  const other = ops.filter((o) => !accountedFor.has(o));
+  const other = ops.filter((o) =>
+    !accountedFor.has(o) && !integrationSet.has(o)
+  );
 
   // Distinct skill directories, not the file count (one skill can ship helpers).
   const skillCount = new Set(skills.map((o) => o.targetRel.split("/")[2])).size;
@@ -148,6 +169,26 @@ export function renderReview(log: Logger, plan: Plan, destDir: string): void {
     );
   }
 
+  if (preservedNew.length > 0) {
+    const n = preservedNew.length;
+    const subject = n === 1
+      ? "1 managed file already here is kept"
+      : `${n} managed files already here are kept`;
+    log.line(
+      `\n  ${log.bold("Kept your versions")} ${
+        log.dim(
+          `— ${subject}; the kit's copy is written alongside as <file>.new`,
+        )
+      }`,
+    );
+    for (const op of preservedNew) {
+      const canonical = op.targetRel.replace(/\.new$/, "");
+      log.line(
+        row(log, canonical, `kept; kit version → ${op.targetRel}`),
+      );
+    }
+  }
+
   if (other.length > 0) {
     log.line(`\n  ${log.bold("Other")}`);
     for (const op of other) {
@@ -184,6 +225,30 @@ export function renderReview(log: Logger, plan: Plan, destDir: string): void {
   }
 }
 
+/**
+ * Report the managed files preserved with a `.new` sibling, with the count and
+ * where they landed. Shared by `init` and `upgrade` so both phrase the outcome
+ * identically: the user is told exactly which files were kept and the path of
+ * the kit copy they can diff against. No-op when nothing was preserved.
+ */
+export function renderNewFilesSummary(log: Logger, newFiles: PlanOp[]): void {
+  if (newFiles.length === 0) {
+    return;
+  }
+  log.warn(
+    `kept your version of ${newFiles.length} managed file${
+      newFiles.length === 1 ? "" : "s"
+    }; the kit's copy was written alongside:`,
+  );
+  for (const op of newFiles) {
+    log.detail(
+      `${op.targetRel}  (review, then merge into ${
+        op.targetRel.replace(/\.new$/, "")
+      } or delete)`,
+    );
+  }
+}
+
 /** Render the post-apply change summary used by `upgrade`. */
 export function renderUpgradeSummary(
   log: Logger,
@@ -202,18 +267,7 @@ export function renderUpgradeSummary(
       log.detail(op.targetRel);
     }
   }
-  if (newFiles.length > 0) {
-    log.warn(
-      `preserved your edits; new versions written alongside: ${newFiles.length}`,
-    );
-    for (const op of newFiles) {
-      log.detail(
-        `${op.targetRel}  (review and merge into ${
-          op.targetRel.replace(/\.new$/, "")
-        })`,
-      );
-    }
-  }
+  renderNewFilesSummary(log, newFiles);
 }
 
 /** A JSON-friendly shape for one op (used by `--json`). */

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# desc: remove a git worktree robustly, leaving no orphaned directory
+# helper: remove a git worktree robustly, leaving no orphaned directory
 
 # Remove a git worktree deterministically, leaving no orphaned directory —
 # wherever the worktree lives. Different agents keep worktrees in different

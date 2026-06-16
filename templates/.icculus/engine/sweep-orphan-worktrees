@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# desc: reclaim orphaned worktree directories git no longer tracks (leak backstop)
+# helper: reclaim orphaned worktree directories git no longer tracks (leak backstop)
 
 # Reclaim orphaned worktree directories — dirs that git no longer tracks but
 # that still carry a .git gitlink into this repo's worktrees admin area. These

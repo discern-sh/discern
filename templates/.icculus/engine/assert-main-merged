@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# desc: assert this worktree's branch already contains the latest main
+# helper: assert this worktree's branch already contains the latest main
 
 # Assert that the current worktree's branch already contains the latest main.
 #
