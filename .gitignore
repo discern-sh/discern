@@ -7,3 +7,6 @@
 # Coverage and scratch output.
 /coverage/
 /.scratch/
+
+# Internal strategy notes (not shipped, may reference private codebases).
+/notes/
