@@ -27,3 +27,4 @@ decision is hard to reverse, surprising without context, and a real trade-off.
 - [0006 — Long-slot ergonomics](0006-long-slot-ergonomics.md)
 - [0007 — Adapter contract](0007-adapter-contract.md)
 - [0008 — Declarative managed-set](0008-declarative-managed-set.md)
+- [0009 — 1.0: drop backward compatibility](0009-one-point-zero-drop-backward-compat.md)

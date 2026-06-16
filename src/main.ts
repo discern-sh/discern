@@ -12,6 +12,7 @@ import { KIT_VERSION } from "./lib/version.ts";
 import { runInit } from "./commands/init.ts";
 import { runUpgrade } from "./commands/upgrade.ts";
 import { runDoctor } from "./commands/doctor.ts";
+import { runMigrate } from "./commands/migrate.ts";
 import { runAddAdapter } from "./commands/add_adapter.ts";
 import {
   runConfigSet,
@@ -133,6 +134,21 @@ function buildCli() {
       const code = await runDoctor({
         json: options.json ?? false,
         noColor: noColorFrom(options.color),
+      });
+      Deno.exit(code);
+    });
+
+  root
+    .command("migrate")
+    .description(
+      "Rewrite a pre-1.0 icculus.toml to the 1.0 shape (coverage_min, phases, tokens).",
+    )
+    .option("--dry-run", "Print the changes and write nothing.")
+    .action(async (options) => {
+      const code = await runMigrate({
+        json: options.json ?? false,
+        noColor: noColorFrom(options.color),
+        dryRun: options.dryRun ?? false,
       });
       Deno.exit(code);
     });

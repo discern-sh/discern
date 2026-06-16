@@ -9,5 +9,5 @@
 
 import denoJson from "../../deno.json" with { type: "json" };
 
-/** The current kit version, e.g. "0.1.0". */
+/** The current kit version, e.g. "1.0.0". */
 export const KIT_VERSION: string = denoJson.version;

@@ -316,11 +316,29 @@ uses.
 | `init`               | scaffold the harness into the cwd (fresh or existing repo). Wizard, `--yes` + flags, or `--config <file>` (JSON answers file). `--dry-run`, `--json`, `--force`. Never overwrites a file it can't prove it wrote — see _Managed vs. seed_. |
 | `upgrade`            | refresh only **managed** engine files. A managed file you edited is preserved; the new version lands as `<file>.new`.                                                                                                                      |
 | `doctor`             | verify the install (manifest, dispatcher, then delegates to `agent doctor`).                                                                                                                                                               |
+| `migrate`            | rewrite a pre-1.0 `icculus.toml` to the 1.0 shape (comment-preserving, idempotent, `--dry-run`/`--json`). See _Upgrading from 0.x to 1.0_.                                                                                                 |
 | `config <sub>`       | programmatically edit `icculus.toml`, comments intact — `set-slot`, `set-scope`, `set-side-gate`, `set-ratchet`, `set`. See _Driving icculus programmatically_.                                                                            |
 | `add-adapter <name>` | overlay an adapter from `adapters/<name>/`: its files **and** its `adapter.json` config fills. Ships no adapters; see _Writing an adapter_.                                                                                                |
 
 Global flags: `--json`, `--no-color` (also honours `NO_COLOR` and non-TTY),
 `--help`, `--version`.
+
+### Upgrading from 0.x to 1.0
+
+1.0 is a clean break (the config shape was simplified — see
+[ADR 0009](docs/_adr/0009-one-point-zero-drop-backward-compat.md)). Two commands
+take you across:
+
+```sh
+icculus migrate     # rewrite icculus.toml to the 1.0 shape (try --dry-run first)
+icculus upgrade     # refresh the engine to 1.0
+```
+
+`migrate` is comment-preserving and idempotent. It converts
+`[ratchets].coverage_min` into a `[ratchets.coverage]` table, turns any
+`coverage`-phase slot into a phase-less measurement slot, and rewrites the
+worktree runtime tokens (`{{db}}` → `@db@`, …). Everything else in your
+`icculus.toml` is left exactly as you wrote it.
 
 ### Driving icculus programmatically
 

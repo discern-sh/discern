@@ -23,7 +23,7 @@ Deno.test("--version prints the kit version", async () => {
   await withTempDir(async (dir) => {
     const { code, stdout } = await runCli(["--version"], dir);
     assertEquals(code, 0);
-    assertStringIncludes(stdout, "0.1.0");
+    assertStringIncludes(stdout, "1.0.0");
   });
 });
 

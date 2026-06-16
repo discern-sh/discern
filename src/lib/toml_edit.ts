@@ -116,6 +116,31 @@ export class TomlEditor {
     return this;
   }
 
+  /**
+   * Remove a dotted key's line if present. Returns true when a line was removed.
+   * Only the `key = …` line goes; the section header and comments stay.
+   */
+  deleteKey(dottedKey: string): boolean {
+    const segments = dottedKey.split(".");
+    if (segments.length < 2) {
+      return false;
+    }
+    const key = segments[segments.length - 1];
+    const section = segments.slice(0, -1).join(".");
+    const span = this.findSection(section);
+    if (span === null) {
+      return false;
+    }
+    const keyRe = new RegExp(`^(\\s*)${escapeRegExp(key)}(\\s*=\\s*).*$`);
+    for (let i = span.headerIdx + 1; i < span.bodyEnd; i++) {
+      if (keyRe.test(this.lines[i])) {
+        this.lines.splice(i, 1);
+        return true;
+      }
+    }
+    return false;
+  }
+
   /** Set a string-valued key. */
   setString(dottedKey: string, value: string): this {
     return this.setLiteral(dottedKey, tomlString(value));
