@@ -1,0 +1,3 @@
+#!/usr/bin/env sh
+# Fixture dispatcher: verbatim, token-free, must stay executable (0755).
+echo "fixture agent"

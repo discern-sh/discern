@@ -1,0 +1,78 @@
+/**
+ * The manifest: managed/seed classification, content hashing, and round-trip
+ * serialization. The classification is the contract `upgrade` relies on to know
+ * which files it may refresh; a wrong answer would either clobber a seed or
+ * refuse to update an engine file.
+ */
+
+import { assertEquals, assertNotEquals } from "@std/assert";
+import {
+  buildManifest,
+  isManaged,
+  parseManifest,
+  recordedHash,
+  serializeManifest,
+  sha256Hex,
+} from "../src/lib/manifest.ts";
+
+Deno.test("isManaged classifies the engine, skills tree, and bin/agent as managed", () => {
+  assertEquals(isManaged("bin/agent"), true);
+  assertEquals(isManaged(".icculus/engine/finish"), true);
+  assertEquals(isManaged(".icculus/engine/lib/jobs.sh"), true);
+  assertEquals(isManaged(".ai/skills/coding-principles/SKILL.md"), true);
+});
+
+Deno.test("isManaged classifies seeds (config, brief, docs, guidelines) as not managed", () => {
+  assertEquals(isManaged("icculus.toml"), false);
+  assertEquals(isManaged(".icculus/brief.md"), false);
+  assertEquals(isManaged(".icculus/manifest.json"), false);
+  assertEquals(isManaged("docs/README.md"), false);
+  assertEquals(isManaged(".ai/guidelines/demo.md"), false);
+  assertEquals(isManaged(".claude/settings.json"), false);
+  assertEquals(isManaged(".gitignore"), false);
+});
+
+Deno.test("sha256Hex is stable and content-sensitive", async () => {
+  const a = await sha256Hex(new TextEncoder().encode("hello"));
+  const aAgain = await sha256Hex(new TextEncoder().encode("hello"));
+  const b = await sha256Hex(new TextEncoder().encode("hello!"));
+  assertEquals(a, aAgain);
+  assertNotEquals(a, b);
+  // Known SHA-256 of "hello".
+  assertEquals(
+    a,
+    "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+  );
+});
+
+Deno.test("buildManifest sorts managed entries by path", () => {
+  const manifest = buildManifest({
+    kitVersion: "0.1.0",
+    generatedAt: "2026-01-01T00:00:00.000Z",
+    slug: "demo",
+    agents: ["claude_code"],
+    managed: [
+      { path: "bin/agent", sha256: "bbb" },
+      { path: ".icculus/engine/finish", sha256: "aaa" },
+    ],
+  });
+  assertEquals(manifest.managed.map((e) => e.path), [
+    ".icculus/engine/finish",
+    "bin/agent",
+  ]);
+});
+
+Deno.test("manifest serialize/parse round-trips and recordedHash looks entries up", () => {
+  const manifest = buildManifest({
+    kitVersion: "0.1.0",
+    generatedAt: "2026-01-01T00:00:00.000Z",
+    slug: "demo",
+    agents: ["claude_code", "codex"],
+    managed: [{ path: ".icculus/engine/finish", sha256: "deadbeef" }],
+  });
+  const parsed = parseManifest(serializeManifest(manifest));
+  assertEquals(parsed.kit_version, "0.1.0");
+  assertEquals(parsed.project.agents, ["claude_code", "codex"]);
+  assertEquals(recordedHash(parsed, ".icculus/engine/finish"), "deadbeef");
+  assertEquals(recordedHash(parsed, "bin/agent"), undefined);
+});
