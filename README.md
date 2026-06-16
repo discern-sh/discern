@@ -308,7 +308,7 @@ uses.
 | `upgrade`            | refresh only **managed** engine files. A managed file you edited is preserved; the new version lands as `<file>.new`.                                                                                                                      |
 | `doctor`             | verify the install (manifest, dispatcher, then delegates to `agent doctor`).                                                                                                                                                               |
 | `config <sub>`       | programmatically edit `icculus.toml`, comments intact — `set-slot`, `set-scope`, `set-side-gate`, `set-ratchet`, `set`. See _Driving icculus programmatically_.                                                                            |
-| `add-adapter <name>` | overlay a bundled stack adapter (mechanism present; see _Roadmap_).                                                                                                                                                                        |
+| `add-adapter <name>` | overlay an adapter from `adapters/<name>/`: its files **and** its `adapter.json` config fills. Ships no adapters; see _Writing an adapter_.                                                                                                |
 
 Global flags: `--json`, `--no-color` (also honours `NO_COLOR` and non-TTY),
 `--help`, `--version`.
@@ -355,6 +355,34 @@ written into the generated `icculus.toml`. Explicit flags override file values.
 ```sh
 icculus init --config answers.json        # or:  cat answers.json | icculus init --config -
 ```
+
+### Writing an adapter
+
+An **adapter** packages a reusable overlay so the same stack layer can be
+applied to many projects with one command. `icculus add-adapter <name>` reads
+`adapters/<name>/` and overlays:
+
+- **Files** — everything in the adapter dir is scaffolded onto the project with
+  the same rules as `init`: seed files (project recipes, guideline fragments,
+  docs) are write-once; managed files (`.ai/skills/**`) follow the hash-aware
+  overwrite/`.new` rule; `.claude/settings.json` deep-merges.
+- **Config fills** — an optional `adapter.json` at the adapter root (metadata,
+  never scaffolded) is an `init --config`-shaped document whose `slots` /
+  `scopes` / `side_gates` / `ratchets` are written into the project's
+  `icculus.toml` via the comment-preserving editor.
+
+```
+adapters/my-stack/
+  adapter.json                          # { "description", "slots", "scopes", "side_gates", "ratchets" }
+  .icculus/recipes/deploy               # a project recipe (seed)
+  .ai/guidelines/my-stack.md            # a guideline fragment (seed)
+  .ai/skills/my-skill/SKILL.md          # a skill (managed)
+```
+
+`add-adapter` honours `--json` and `--dry-run`. The kit **bundles no adapters**
+(stack-neutral); a single project layering its own stack usually just uses
+`init --config` / `config` (above). A worked fake example lives at
+`tests/fixtures/adapters/example/`.
 
 ### `agent` (the installed task runner)
 
@@ -466,14 +494,18 @@ Working, verified, and committed:
 - ✅ Author-once guidelines compiler + portable skills.
 - ✅ Docs / principles / ADR / TODO scaffolding + the `/bootstrap` seeding
   skill.
-- ✅ 95 tests covering both the installer (`src/`) and the POSIX engine recipes
+- ✅ Declarative config — `icculus config` + `init --config` (comment-preserving
+  programmatic edits), and a documented `add-adapter` contract (file overlay +
+  config fills).
+- ✅ 128 tests covering both the installer (`src/`) and the POSIX engine recipes
   (a scaffold-and-shell-out harness in `tests/engine_*`).
 
 Follow-ups:
 
-- **Bundled stack adapters** (`add-adapter node`, `python`, …): the overlay
-  mechanism ships; no adapters are bundled yet. For now, `/bootstrap` detects
-  your stack and proposes slot fills directly — usually all you need.
+- **Bundled stack adapters** (`add-adapter node`, `python`, …): the adapter
+  contract is complete and documented (see _Writing an adapter_), but no adapter
+  is bundled yet — that stays stack-neutral. For now, `/bootstrap` detects your
+  stack and proposes slot fills directly, or drive it with `init --config`.
 - **Publishing**: the GitHub slug is wired to `jackwh/icculus` (override with
   `ICCULUS_REPO`); wire up the release before distributing.
 - **`inherit_env` ordering**: a worktree that relies on `[worktree.inherit_env]`

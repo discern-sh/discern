@@ -1,11 +1,17 @@
 /**
- * `icculus add-adapter <name>` — overlay a reference adapter from
- * `adapters/<name>/` onto the current project.
+ * `icculus add-adapter <name>` — overlay an adapter from `adapters/<name>/` onto
+ * the current project (ADR 0007).
  *
- * This ships the *mechanism* only: v1 bundles no adapters, so the common case is
- * a friendly error that lists whatever adapter directories do exist. When an
- * adapter dir is present it is scaffolded with the same token/merge/exec-bit
- * machinery as `init` (an adapter is just another template tree).
+ * An adapter is a **file overlay plus config fills**: every file in the adapter
+ * dir is scaffolded with the same token/merge/exec-bit machinery as `init`
+ * (seed/managed rules apply), and an optional `adapter.json` at its root —
+ * metadata, never scaffolded — carries `init --config`-shaped slots / scopes /
+ * side_gates / ratchets that are written into the project's `icculus.toml` via
+ * the comment-preserving editor. So an adapter overlays both files (recipes,
+ * skills, guideline fragments, docs) and config (slots, scopes, side-gates).
+ *
+ * This ships the *mechanism* only: no adapter is bundled (the example used to
+ * exercise the contract lives under tests/fixtures/adapters/).
  */
 
 import { dirname, fromFileUrl, join } from "@std/path";
@@ -15,6 +21,44 @@ import { DEFAULTS, type InitConfig, tokensFromConfig } from "../lib/config.ts";
 import { applyPlan, buildPlan } from "../lib/fs_plan.ts";
 import { planToJson, renderPlan, renderReview } from "../lib/plan_view.ts";
 import { confirmProceed } from "../lib/prompts.ts";
+import { TomlEditor } from "../lib/toml_edit.ts";
+import {
+  applyAnswerFills,
+  type InitAnswersFile,
+} from "../lib/init_config_file.ts";
+
+/** The reserved metadata filename at an adapter root (never scaffolded). */
+const ADAPTER_MANIFEST = "adapter.json";
+
+/**
+ * Load an adapter's `adapter.json` config fills, or undefined if absent. The
+ * file is `init --config`-shaped (its slots/scopes/side_gates/ratchets are the
+ * fills); a `description` field, if present, is metadata only.
+ */
+async function loadAdapterFills(
+  adapterDir: string,
+): Promise<InitAnswersFile | undefined> {
+  let text: string;
+  try {
+    text = await Deno.readTextFile(join(adapterDir, ADAPTER_MANIFEST));
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      return undefined;
+    }
+    throw error;
+  }
+  const parsed: unknown = JSON.parse(text);
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new Error(`${ADAPTER_MANIFEST} must be a JSON object`);
+  }
+  return parsed as InitAnswersFile;
+}
+
+/** True when an adapter's fills carry any config to apply. */
+function hasFills(fills: InitAnswersFile | undefined): boolean {
+  return !!fills &&
+    !!(fills.slots || fills.scopes || fills.side_gates || fills.ratchets);
+}
 
 /** Options accepted by `add-adapter`. */
 export interface AddAdapterOptions {
@@ -135,6 +179,33 @@ export async function runAddAdapter(
     tokens,
     mode: "init",
   });
+  // adapter.json is metadata (config fills), not a scaffolded file.
+  plan.ops = plan.ops.filter((op) => op.targetRel !== ADAPTER_MANIFEST);
+
+  // Load the adapter's config fills and pre-compute the edited icculus.toml, so
+  // a bad adapter.json fails before anything is written and dry-run reports it.
+  let fills: InitAnswersFile | undefined;
+  let filledToml: string | undefined;
+  try {
+    fills = await loadAdapterFills(adapterDir);
+    if (hasFills(fills)) {
+      const editor = new TomlEditor(
+        await Deno.readTextFile(join(destDir, "icculus.toml")),
+      );
+      applyAnswerFills(editor, fills!);
+      filledToml = editor.toString();
+    }
+  } catch (error) {
+    const message = `adapter "${name}" has invalid config fills: ${
+      error instanceof Error ? error.message : String(error)
+    }`;
+    if (options.json) {
+      log.jsonResult({ ok: false, error: "invalid_adapter", message });
+    } else {
+      log.error(message);
+    }
+    return 1;
+  }
 
   if (options.dryRun) {
     if (options.json) {
@@ -143,15 +214,22 @@ export async function runAddAdapter(
         dry_run: true,
         adapter: name,
         plan: planToJson(plan),
+        config_fills: filledToml !== undefined,
       });
     } else {
       renderPlan(log, plan, `Dry run — adapter "${name}" would overlay:`);
+      if (filledToml !== undefined) {
+        log.info("Would also apply config fills to icculus.toml.");
+      }
     }
     return 0;
   }
 
   if (!options.json) {
     renderReview(log, plan, destDir);
+    if (filledToml !== undefined) {
+      log.line("  icculus.toml          apply adapter config fills");
+    }
     log.line();
   }
   if (!(await confirmProceed(`Overlay adapter "${name}" now?`, options.yes))) {
@@ -160,16 +238,23 @@ export async function runAddAdapter(
   }
 
   const changed = await applyPlan(plan);
+  if (filledToml !== undefined) {
+    await Deno.writeTextFile(join(destDir, "icculus.toml"), filledToml);
+  }
   if (options.json) {
     log.jsonResult({
       ok: true,
       adapter: name,
       written: changed.map((op) => op.targetRel),
+      config_fills: filledToml !== undefined,
     });
     return 0;
   }
   for (const op of changed) {
     log.ok(op.targetRel);
+  }
+  if (filledToml !== undefined) {
+    log.ok("icculus.toml (config fills applied)");
   }
   log.ok(`Adapter "${name}" applied.`);
   return 0;

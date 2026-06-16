@@ -23,3 +23,6 @@ decision is hard to reverse, surprising without context, and a real trade-off.
 - [0002 — First-class side-gates](0002-first-class-side-gates.md)
 - [0003 — Named metric ratchets](0003-named-metric-ratchets.md)
 - [0004 — Structured `finish --json`](0004-structured-finish-json.md)
+- [0005 — Declarative config](0005-declarative-config.md)
+- [0006 — Long-slot ergonomics](0006-long-slot-ergonomics.md)
+- [0007 — Adapter contract](0007-adapter-contract.md)
