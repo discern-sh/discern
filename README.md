@@ -340,6 +340,10 @@ icculus upgrade     # refresh the engine to 1.0
 worktree runtime tokens (`{{db}}` → `@db@`, …). Everything else in your
 `icculus.toml` is left exactly as you wrote it.
 
+You don't have to remember the order: `icculus upgrade` and `icculus doctor`
+both detect a pre-1.0 config and point you at `migrate`, so the one silent
+breakage — a `coverage_min` the 1.0 engine no longer reads — can't slip past.
+
 ### Driving icculus programmatically
 
 A scaffolder or CI can drive icculus declaratively, without hand-editing TOML.

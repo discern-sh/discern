@@ -164,6 +164,44 @@ Deno.test("doctor --json reports invalid result when not initialized", async () 
   });
 });
 
+Deno.test("doctor flags a pre-1.0 config shape and points at migrate", async () => {
+  await withTempDir(async (dir) => {
+    assertEquals(
+      (await runCli(["init", "--yes", "--slug", "demo"], dir)).code,
+      0,
+    );
+    // Re-introduce a pre-1.0 marker the 1.0 engine would silently ignore.
+    const tomlPath = join(dir, "icculus.toml");
+    await Deno.writeTextFile(
+      tomlPath,
+      `${await Deno.readTextFile(tomlPath)}\n[ratchets]\ncoverage_min = 80\n`,
+    );
+    const { stdout } = await runCli(["doctor", "--json"], dir);
+    const result = JSON.parse(stdout);
+    const shape = result.checks.find((c: { name: string }) =>
+      c.name === "config shape"
+    );
+    assert(shape !== undefined, "expected a 'config shape' check");
+    assertEquals(shape.ok, false);
+    assertStringIncludes(shape.fix, "migrate");
+  });
+});
+
+Deno.test("doctor does not raise the config-shape check on a clean 1.0 install", async () => {
+  await withTempDir(async (dir) => {
+    assertEquals(
+      (await runCli(["init", "--yes", "--slug", "demo"], dir)).code,
+      0,
+    );
+    const { stdout } = await runCli(["doctor", "--json"], dir);
+    const result = JSON.parse(stdout);
+    const shape = result.checks.find((c: { name: string }) =>
+      c.name === "config shape"
+    );
+    assertEquals(shape, undefined); // no pre-1.0 shape → no such finding
+  });
+});
+
 Deno.test("add-adapter reports unknown adapter with a friendly error", async () => {
   await withTempDir(async (dir) => {
     await runCli(["init", "--yes", "--json", "--slug", "demo"], dir);

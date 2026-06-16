@@ -36,6 +36,7 @@ import {
   renderPlan,
   renderUpgradeSummary,
 } from "../lib/plan_view.ts";
+import { needsMigration } from "./migrate.ts";
 
 /** Options accepted by the `upgrade` command. */
 export interface UpgradeOptions {
@@ -109,6 +110,11 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     return 1;
   }
 
+  // A pre-1.0 icculus.toml (e.g. a `coverage_min` that the 1.0 engine no longer
+  // reads) is the silent half of the upgrade: the engine refreshes to 1.0 but
+  // the config stays 0.x. Detect it now so we can nudge toward `icculus migrate`.
+  const migrateSuggested = needsMigration(tomlText);
+
   // Load the existing manifest (for the recorded hashes that decide overwrite vs .new).
   const manifestPath = join(destDir, ".icculus/manifest.json");
   const manifestText = await readTextIfExists(manifestPath);
@@ -155,11 +161,21 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
 
   if (options.dryRun) {
     if (options.json) {
-      log.jsonResult({ ok: true, dry_run: true, plan: planToJson(plan) });
+      log.jsonResult({
+        ok: true,
+        dry_run: true,
+        plan: planToJson(plan),
+        migrate_suggested: migrateSuggested,
+      });
     } else {
       renderPlan(log, plan, "Dry run — `upgrade` would perform:");
       log.line();
       log.info("No files were written (--dry-run).");
+      if (migrateSuggested) {
+        log.info(
+          "Your icculus.toml looks pre-1.0 — also run `icculus migrate`.",
+        );
+      }
     }
     return 0;
   }
@@ -186,11 +202,24 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
       refreshed: refreshed.map((op) => op.targetRel),
       preserved: preserved.map((op) => op.targetRel),
       new_files: newFiles.map((op) => op.targetRel),
+      migrate_suggested: migrateSuggested,
     });
     return 0;
   }
 
   renderUpgradeSummary(log, refreshed, preserved, newFiles);
+  // The engine is now 1.0, but the config may not be. Nudge once, loudly enough
+  // to catch the silent breakage (a vanished coverage ratchet) but not as a
+  // failure — the upgrade itself succeeded.
+  if (migrateSuggested) {
+    log.line();
+    log.warn(
+      "Your icculus.toml looks like a pre-1.0 config (e.g. [ratchets].coverage_min).",
+    );
+    log.info(
+      "Run `icculus migrate` to update it to the 1.0 shape (try --dry-run first).",
+    );
+  }
   return 0;
 }
 

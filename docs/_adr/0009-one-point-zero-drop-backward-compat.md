@@ -63,6 +63,13 @@ Ship a one-shot `icculus migrate` that rewrites a pre-1.0 `icculus.toml` to the
 and honours `--dry-run`/`--json`. It touches only `icculus.toml`; the engine
 itself is refreshed by `icculus upgrade`, as always.
 
+To close the loop, **`upgrade` and `doctor` detect a pre-1.0 config** (reusing
+the migrator's own change-detection) and point the user at `migrate`. That
+matters most for the _silent_ breakage — a `coverage_min` the 1.0 engine no
+longer reads — which would otherwise pass unnoticed at upgrade time; `upgrade`
+still succeeds (the nudge is advisory), while `doctor` reports it as a fixable
+finding.
+
 The kit version moves to **1.0.0**.
 
 ## Consequences

@@ -9,6 +9,7 @@ import { Logger } from "../lib/log.ts";
 import { parseIcculusToml } from "../lib/toml_render.ts";
 import { parseManifest } from "../lib/manifest.ts";
 import { KIT_VERSION } from "../lib/version.ts";
+import { needsMigration } from "./migrate.ts";
 
 /** Options accepted by the `doctor` command. */
 export interface DoctorOptions {
@@ -56,6 +57,18 @@ export async function runChecks(destDir: string): Promise<Check[]> {
       ok: true,
       detail: "present and valid TOML",
     });
+    // Config shape: a pre-1.0 icculus.toml still parses, but the 1.0 engine
+    // silently ignores its old shapes (notably a `coverage_min` ratchet). Flag
+    // it with the exact remedy, consistent with the manifest-version check below.
+    if (needsMigration(text)) {
+      checks.push({
+        name: "config shape",
+        ok: false,
+        detail:
+          'icculus.toml uses a pre-1.0 shape ([ratchets].coverage_min, a "coverage" slot phase, or {{…}} worktree tokens)',
+        fix: "run `icculus migrate` to update it to the 1.0 shape",
+      });
+    }
   } catch (error) {
     const isMissing = error instanceof Deno.errors.NotFound;
     checks.push({

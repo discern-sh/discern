@@ -102,6 +102,20 @@ export function planMigration(
   return { result, changes };
 }
 
+/**
+ * True when `text` is a pre-1.0 `icculus.toml` that `migrate` would change —
+ * i.e. it still carries `coverage_min`, a `coverage` slot phase, or `{{…}}`
+ * worktree tokens. Unparseable text returns false (not this detector's call).
+ * Used by `upgrade` and `doctor` to nudge a 0.x user toward `icculus migrate`.
+ */
+export function needsMigration(text: string): boolean {
+  try {
+    return planMigration(text).changes.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 /** Run `icculus migrate`. Returns a process exit code. */
 export async function runMigrate(options: MigrateOptions): Promise<number> {
   const log = new Logger(options);
