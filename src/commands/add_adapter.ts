@@ -151,7 +151,7 @@ export async function runAddAdapter(
   }
 
   if (!options.json) {
-    renderReview(log, plan);
+    renderReview(log, plan, destDir);
     log.line();
   }
   if (!(await confirmProceed(`Overlay adapter "${name}" now?`, options.yes))) {

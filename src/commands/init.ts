@@ -127,7 +127,7 @@ export async function runInit(options: InitOptions): Promise<number> {
 
   // Review-and-confirm before touching disk.
   if (!options.json) {
-    renderReview(log, plan);
+    renderReview(log, plan, destDir);
     log.line();
   }
   const proceed = await confirmProceed(
@@ -140,11 +140,7 @@ export async function runInit(options: InitOptions): Promise<number> {
   }
 
   // Scaffold.
-  log.heading("Scaffolding…");
   const changed = await applyPlan(plan);
-  for (const op of changed) {
-    log.ok(op.targetRel);
-  }
 
   if (options.json) {
     log.jsonResult({
@@ -156,6 +152,8 @@ export async function runInit(options: InitOptions): Promise<number> {
     return 0;
   }
 
+  log.line();
+  log.ok(`Scaffolded ${changed.length} files into ${destDir}.`);
   printOutro(log, config);
   return 0;
 }
@@ -170,7 +168,7 @@ function printOutro(log: Logger, config: InitConfig): void {
     "  icculus.toml          edit by hand — teaches the harness about your stack",
   );
   log.line(
-    "  bin/agent             the task runner: `bin/agent finish`, `bin/agent doctor`",
+    "  ./bin/agent           the task runner — ./bin/agent finish, ./bin/agent doctor",
   );
   log.line(
     "  .icculus/             the generic engine, your brief, and the manifest",

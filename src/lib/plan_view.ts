@@ -17,18 +17,7 @@ const DISPOSITION_LABEL: Record<OpDisposition, string> = {
   append: "append",
 };
 
-/** Group ops by disposition for a compact summary. */
-function groupByDisposition(ops: PlanOp[]): Map<OpDisposition, PlanOp[]> {
-  const groups = new Map<OpDisposition, PlanOp[]>();
-  for (const op of ops) {
-    const list = groups.get(op.disposition) ?? [];
-    list.push(op);
-    groups.set(op.disposition, list);
-  }
-  return groups;
-}
-
-/** Render the full plan as a per-file listing under a heading. */
+/** Render the full plan as a per-file listing under a heading (used by --dry-run). */
 export function renderPlan(log: Logger, plan: Plan, heading: string): void {
   log.heading(heading);
   for (const op of plan.ops) {
@@ -39,31 +28,151 @@ export function renderPlan(log: Logger, plan: Plan, heading: string): void {
   }
 }
 
-/** Render a compact "what will change" review (counts + the non-skip paths). */
-export function renderReview(log: Logger, plan: Plan): void {
-  log.heading("This will write the following into the current directory:");
-  const groups = groupByDisposition(plan.ops);
-  const order: OpDisposition[] = [
-    "create",
-    "merge",
-    "append",
-    "overwrite",
-    "new",
-    "skip",
-  ];
-  for (const disposition of order) {
-    const ops = groups.get(disposition);
-    if (!ops || ops.length === 0) {
-      continue;
+/** One labelled row in the summary: a path and a dim description. */
+function row(log: Logger, path: string, desc: string): string {
+  return `    ${path.padEnd(22)} ${log.dim(desc)}`;
+}
+
+/**
+ * Render a calm, grouped "what will change" review. Rather than a flat wall of
+ * every file, it names the handful the user actually tunes, collapses the engine
+ * / skills / docs bulk to counts, and calls out the integration files merged
+ * into the project. The full list is one `--dry-run` away.
+ */
+export function renderReview(log: Logger, plan: Plan, destDir: string): void {
+  const ops = plan.ops;
+  const pick = (pred: (o: PlanOp) => boolean) => ops.filter(pred);
+
+  const hasConfig = ops.some((o) => o.targetRel === "icculus.toml");
+  const hasRunner = ops.some((o) => o.targetRel === "bin/agent");
+  const guidance = pick((o) => o.targetRel.startsWith(".ai/guidelines/"));
+  const skills = pick((o) => o.targetRel.startsWith(".ai/skills/"));
+  const docs = pick((o) =>
+    o.targetRel.startsWith("docs/") || o.targetRel === "TODO.md"
+  );
+  const engine = pick((o) => o.targetRel.startsWith(".icculus/"));
+  // The integration files land at the project root / .claude and may merge or
+  // append into ones you already have — grouped together regardless of how.
+  const integration = pick((o) =>
+    o.targetRel === ".gitignore" || o.targetRel.startsWith(".claude/")
+  );
+
+  const accountedFor = new Set<PlanOp>([
+    ...ops.filter((o) =>
+      o.targetRel === "icculus.toml" || o.targetRel === "bin/agent"
+    ),
+    ...guidance,
+    ...skills,
+    ...docs,
+    ...engine,
+    ...integration,
+  ]);
+  const other = ops.filter((o) => !accountedFor.has(o));
+
+  // Distinct skill directories, not the file count (one skill can ship helpers).
+  const skillCount = new Set(skills.map((o) => o.targetRel.split("/")[2])).size;
+  const docFileCount =
+    docs.filter((o) => o.targetRel.startsWith("docs/")).length;
+
+  log.heading(`icculus will set up its harness in ${destDir}`);
+  log.line(
+    log.dim(
+      `  ${ops.length} files. It never overwrites anything you already have.`,
+    ),
+  );
+
+  if (hasConfig || hasRunner) {
+    log.line(`\n  ${log.bold("Config & runner")}`);
+    if (hasConfig) {
+      log.line(
+        row(
+          log,
+          "icculus.toml",
+          "the one file you tune — slots, scopes, worktree",
+        ),
+      );
     }
-    log.line(
-      `\n  ${log.bold(DISPOSITION_LABEL[disposition])} (${ops.length}):`,
-    );
-    for (const op of ops) {
-      const note = op.note ? log.dim(` — ${op.note}`) : "";
-      log.line(`    ${op.targetRel}${note}`);
+    if (hasRunner) {
+      log.line(
+        row(
+          log,
+          "bin/agent",
+          "the per-project task runner (./bin/agent finish, …)",
+        ),
+      );
     }
   }
+
+  if (guidance.length > 0 || skillCount > 0) {
+    log.line(
+      `\n  ${log.bold("Agent guidance")} ${
+        log.dim("— yours to fill in (via /bootstrap)")
+      }`,
+    );
+    for (const op of guidance) {
+      log.line(`    ${op.targetRel}`);
+    }
+    if (skillCount > 0) {
+      log.line(row(log, ".ai/skills/", `${skillCount} portable skills`));
+    }
+  }
+
+  if (docs.length > 0) {
+    log.line(`\n  ${log.bold("Docs scaffold")}`);
+    if (docFileCount > 0) {
+      log.line(
+        row(
+          log,
+          "docs/",
+          `${docFileCount} files — orientation, ADRs, gate gotchas`,
+        ),
+      );
+    }
+    if (docs.some((o) => o.targetRel === "TODO.md")) {
+      log.line(`    TODO.md`);
+    }
+  }
+
+  if (engine.length > 0) {
+    log.line(
+      `\n  ${log.bold("Engine")} ${
+        log.dim("— managed; `icculus upgrade` refreshes it, never your edits")
+      }`,
+    );
+    log.line(
+      row(
+        log,
+        ".icculus/",
+        `${engine.length} files — the generic shell engine + manifest`,
+      ),
+    );
+  }
+
+  if (other.length > 0) {
+    log.line(`\n  ${log.bold("Other")}`);
+    for (const op of other) {
+      log.line(`    ${op.targetRel}${op.note ? log.dim(` — ${op.note}`) : ""}`);
+    }
+  }
+
+  if (integration.length > 0) {
+    log.line(
+      `\n  ${log.bold("Git & agent settings")} ${
+        log.dim("— merged into your project, never overwritten")
+      }`,
+    );
+    for (const op of integration) {
+      const what = op.disposition === "merge"
+        ? "merged into your existing settings"
+        : op.disposition === "append"
+        ? "the harness section appended to your .gitignore"
+        : "created";
+      log.line(row(log, op.targetRel, what));
+    }
+  }
+
+  log.line();
+  log.line(log.dim("  See every file with:  icculus init --dry-run"));
 
   if (plan.unknownTokens.size > 0) {
     log.line();
