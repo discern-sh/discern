@@ -282,7 +282,7 @@ Global flags: `--json`, `--no-color` (also honours `NO_COLOR` and non-TTY),
 
 | command                              | does                                                                                                |
 | ------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| `agent finish`                       | the full quality gate. Run before calling any task done.                                            |
+| `agent finish`                       | the full quality gate. Run before calling any task done. `--json` for a machine-readable report.    |
 | `agent tidy`                         | fixers + checks, no build/test — the fast inner loop.                                               |
 | `agent test`                         | run the test-phase slots.                                                                           |
 | `agent finish:coverage`              | the coverage ratchet (slow; not part of `finish`).                                                  |
@@ -296,6 +296,25 @@ Run `agent --help` for the live list. Recipes are auto-discovered: an adapter's
 recipe under `.icculus/engine/` shows up automatically, and so does **your own**
 recipe under `.icculus/recipes/` (see _Project recipes_ above) — kept clearly
 separate and never touched by `upgrade`.
+
+**Structured gate output.** `agent finish --json` emits a single JSON object on
+stdout (human progress goes to stderr) so an agent-driven workflow can consume
+the result without scraping:
+
+```json
+{
+  "ok": true,
+  "phases": [{ "name": "check", "status": "ok", "duration_s": 4 }],
+  "side_gates": [{ "scope": "native", "status": "skipped", "duration_s": 0 }],
+  "scopes_changed": ["web"],
+  "failed_stage": null
+}
+```
+
+`status` is `ok` / `failed` / `noop` per phase; side-gates report `ok` /
+`failed` for those that fired and `skipped` for those whose scope didn't change.
+`failed_stage` names the stage that failed (or is `null`). Results are per
+**phase** (slots within a phase run joined) plus per side-gate.
 
 ---
 

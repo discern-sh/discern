@@ -10,6 +10,11 @@
 # Commands are run with `eval` on purpose — they are operator-supplied slot
 # strings from icculus.toml, and running them verbatim is the whole point.
 #
+# STRUCTURED SIDE CHANNEL. When ICCULUS_JOBS_RESULTS names a file, each job's
+# result is appended as a tab-separated line: "<label>\t<code>\t<seconds>". This
+# is how `finish --json` (ADR 0004) collects per-phase / per-side-gate results.
+# With the variable unset (every other caller), behaviour is unchanged.
+#
 # Usage:
 #   run_parallel "label1" "cmd1" "label2" "cmd2" ...
 # Returns 0 only if every command exited 0.
@@ -26,8 +31,12 @@ run_parallel() {
         [ -n "$_rp_cmd" ] || _rp_cmd=":"
         printf '%s' "$_rp_label" > "$_rp_tmp/$_rp_n.label"
         (
+            _rp_start=$(date +%s 2>/dev/null || printf '0')
             eval "$_rp_cmd" > "$_rp_tmp/$_rp_n.out" 2>&1
-            printf '%s' "$?" > "$_rp_tmp/$_rp_n.code"
+            _rp_jc=$?   # capture eval's status BEFORE running anything else
+            _rp_end=$(date +%s 2>/dev/null || printf '0')
+            printf '%s' "$_rp_jc" > "$_rp_tmp/$_rp_n.code"
+            printf '%s' "$((_rp_end - _rp_start))" > "$_rp_tmp/$_rp_n.dur"
         ) &
     done
 
@@ -39,6 +48,11 @@ run_parallel() {
         _rp_i=$((_rp_i + 1))
         _rp_label=$(cat "$_rp_tmp/$_rp_i.label" 2>/dev/null)
         _rp_code=$(cat "$_rp_tmp/$_rp_i.code" 2>/dev/null || printf '1')
+        _rp_dur=$(cat "$_rp_tmp/$_rp_i.dur" 2>/dev/null || printf '0')
+        # Optional structured side channel for machine-readable consumers.
+        if [ -n "${ICCULUS_JOBS_RESULTS:-}" ]; then
+            printf '%s\t%s\t%s\n' "$_rp_label" "$_rp_code" "$_rp_dur" >> "$ICCULUS_JOBS_RESULTS"
+        fi
         if [ "$_rp_code" -eq 0 ] 2>/dev/null; then
             printf '%s── %s ─%s %sok%s\n' "$C_DIM" "$_rp_label" "$C_RESET" "$C_GREEN" "$C_RESET"
         else

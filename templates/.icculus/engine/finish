@@ -24,21 +24,120 @@
 # shellcheck source=lib/gotchas.sh
 . "$ICCULUS_LIB/gotchas.sh"
 
-# --- gotchas pointer on failure -------------------------------------------
+# --- arguments ------------------------------------------------------------
+
+# --json emits a single machine-readable object on stdout (per-phase and
+# per-side-gate result, durations, scopes changed, the failed stage) with all
+# human output routed to stderr. See ADR 0004.
+as_json=0
+case "${1:-}" in
+    --json) as_json=1 ;;
+    -h | --help) printf 'Usage: finish [--json]\n'; exit 0 ;;
+    "") ;;
+    *) die "finish: unknown argument '$1'." ;;
+esac
+
+# In --json mode, collect each phase/side-gate result through run_parallel's
+# structured side channel, and redirect stdout -> stderr so only the final JSON
+# lands on real stdout (saved on fd 3). Human mode leaves stdout untouched.
+JOBS_RESULTS=""
+if [ "$as_json" -eq 1 ]; then
+    JOBS_RESULTS=$(mktemp "${TMPDIR:-/tmp}/icculus-finish.XXXXXX") || die "finish: mktemp failed."
+    export ICCULUS_JOBS_RESULTS="$JOBS_RESULTS"
+    # shellcheck source=lib/validate.sh
+    . "$ICCULUS_LIB/validate.sh"   # validate_json_escape for scope names
+    exec 3>&1 1>&2
+fi
+
+# --- gotchas pointer + JSON report on exit --------------------------------
 
 # Set to 1 only while a gated phase is running; the EXIT trap prints the pointer
 # only when we die during one of those phases (not on a clean exit, and not
-# during the informational tail).
+# during the informational tail). In --json mode the pointer is suppressed — the
+# JSON object is the machine-readable guidance.
 in_gated_phase=0
 
 on_exit() {
     _oe_code=$?
-    if [ "$_oe_code" -ne 0 ] && [ "$in_gated_phase" -eq 1 ]; then
+    [ -n "$JOBS_RESULTS" ] && rm -f "$JOBS_RESULTS"
+    if [ "$_oe_code" -ne 0 ] && [ "$in_gated_phase" -eq 1 ] && [ "$as_json" -ne 1 ]; then
         gotchas_hint
     fi
     exit "$_oe_code"
 }
 trap on_exit EXIT
+
+# Emit the JSON gate report to the saved stdout (fd 3). $1 is the exit code (0 =
+# ok), $2 the failed-stage name (empty on success). Reports per-phase results
+# (the execution unit — slots within a phase run joined) and per-side-gate
+# results, plus the scopes that changed.
+emit_json_report() {
+    _ej_ok=$([ "$1" -eq 0 ] && printf 'true' || printf 'false')
+    _ej_stage=${2:-}
+
+    # Phases that ran (entries in the results file), in canonical order.
+    _ej_phases=""
+    for _ej_ph in fix build check test; do
+        _ej_line=$(awk -F'\t' -v l="$_ej_ph" '$1 == l { print $2 " " $3; exit }' "$JOBS_RESULTS" 2>/dev/null)
+        [ -n "$_ej_line" ] || continue
+        _ej_code=${_ej_line% *}
+        _ej_dur=${_ej_line#* }
+        if [ "$(slots_for_phase "$_ej_ph")" = ":" ]; then
+            _ej_status="noop"
+        elif [ "$_ej_code" = "0" ]; then
+            _ej_status="ok"
+        else
+            _ej_status="failed"
+        fi
+        _ej_phases="${_ej_phases:+$_ej_phases,}$(printf '{"name":"%s","status":"%s","duration_s":%s}' "$_ej_ph" "$_ej_status" "${_ej_dur:-0}")"
+    done
+
+    # Side gates: fired ones from the results file, plus configured-but-unchanged
+    # ones as "skipped" — the what-ran-vs-skipped-by-scope view.
+    _ej_gates=""
+    if config_has scopes.side_gates; then
+        for _ej_scope in $(config_keys scopes.side_gates); do
+            _ej_cmd=$(config_get "scopes.side_gates.$_ej_scope" "")
+            [ -n "$_ej_cmd" ] || continue
+            _ej_line=$(awk -F'\t' -v l="side:$_ej_scope" '$1 == l { print $2 " " $3; exit }' "$JOBS_RESULTS" 2>/dev/null)
+            if [ -n "$_ej_line" ]; then
+                _ej_code=${_ej_line% *}
+                _ej_dur=${_ej_line#* }
+                _ej_status=$([ "$_ej_code" = "0" ] && printf 'ok' || printf 'failed')
+            else
+                _ej_status="skipped"
+                _ej_dur=0
+            fi
+            _ej_sc=$(validate_json_escape "$_ej_scope")
+            _ej_gates="${_ej_gates:+$_ej_gates,}$(printf '{"scope":"%s","status":"%s","duration_s":%s}' "$_ej_sc" "$_ej_status" "${_ej_dur:-0}")"
+        done
+    fi
+
+    _ej_changed=$("$ICCULUS_ENGINE/changed-scopes" --json 2>/dev/null || printf '[]')
+    if [ -n "$_ej_stage" ]; then
+        _ej_stage_json="\"$_ej_stage\""
+    else
+        _ej_stage_json="null"
+    fi
+
+    printf '{"ok":%s,"phases":[%s],"side_gates":[%s],"scopes_changed":%s,"failed_stage":%s}\n' \
+        "$_ej_ok" "$_ej_phases" "$_ej_gates" "$_ej_changed" "$_ej_stage_json" >&3
+}
+
+# End the run: in --json mode emit the report; always exit with $1. $2 = failed
+# stage (empty on success).
+finish_done() {
+    [ "$as_json" -eq 1 ] && emit_json_report "$1" "${2:-}"
+    exit "$1"
+}
+
+# A gated phase failed. In --json mode emit the report and exit; otherwise die
+# with the human message. in_gated_phase stays 1 so the EXIT trap adds the gotchas
+# pointer (the trap suppresses it in --json mode, where the JSON is the guidance).
+fail_phase() {
+    [ "$as_json" -eq 1 ] && finish_done 1 "$2"
+    die "$1"
+}
 
 # --- pre-checks (fail fast) -----------------------------------------------
 
@@ -46,7 +145,7 @@ trap on_exit EXIT
 # unless [evidence].enabled is true.
 if config_bool evidence.enabled; then
     in_gated_phase=1
-    "$ICCULUS_ENGINE/evidence" check || die "Work evidence is missing or stale — capture it, then re-run."
+    "$ICCULUS_ENGINE/evidence" check || fail_phase "Work evidence is missing or stale — capture it, then re-run." "evidence"
     in_gated_phase=0
 fi
 
@@ -57,7 +156,7 @@ in_gated_phase=1
 run_parallel \
     "fix" "$(slots_for_phase fix)" \
     "build" "$(slots_for_phase build)" \
-    || die "The fix/build phase failed."
+    || fail_phase "The fix/build phase failed." "fix/build"
 in_gated_phase=0
 
 # --- check + test (parallel) ----------------------------------------------
@@ -67,7 +166,7 @@ in_gated_phase=1
 run_parallel \
     "check" "$(slots_for_phase check)" \
     "test" "$(slots_for_phase test)" \
-    || die "The check/test phase failed."
+    || fail_phase "The check/test phase failed." "check/test"
 in_gated_phase=0
 
 # --- side gates (run a gate when its scope changed) -----------------------
@@ -104,7 +203,7 @@ $scope
     if [ "$#" -gt 0 ]; then
         heading "Running side gates for changed scopes..."
         in_gated_phase=1
-        run_parallel "$@" || die "One or more side gates failed."
+        run_parallel "$@" || fail_phase "One or more side gates failed." "side_gates"
         in_gated_phase=0
     fi
 fi
@@ -116,11 +215,17 @@ fi
 # finish works even when worktree support is not installed.
 if [ -x "$ICCULUS_ENGINE/assert-main-merged" ]; then
     in_gated_phase=1
-    "$ICCULUS_ENGINE/assert-main-merged" || die "Integrate main, then re-run finish."
+    "$ICCULUS_ENGINE/assert-main-merged" || fail_phase "Integrate main, then re-run finish." "merge"
     in_gated_phase=0
 fi
 
-# --- success + informational tail -----------------------------------------
+# --- success --------------------------------------------------------------
+
+# In --json mode the machine report IS the whole output: emit it and stop before
+# the human informational tail below.
+[ "$as_json" -eq 1 ] && finish_done 0
+
+# --- informational tail ---------------------------------------------------
 #
 # Past this point nothing is gated: failures below must not abort the gate (the
 # work already passed), so the tail only prints guidance.
