@@ -6,7 +6,7 @@
 #
 # Runs the command verbatim and, if it exits non-zero, prints the gotchas
 # pointer (see lib/gotchas.sh) before re-exiting with the command's own code.
-# The donor wrapped each finish phase in this so a failed phase still leaves the
+# 'agent finish' wraps each phase in this so a failed phase still leaves the
 # agent a pointer at the doc that explains the stack's non-obvious failures.
 #
 # `set -e` is deliberately NOT used: this wrapper must observe the wrapped

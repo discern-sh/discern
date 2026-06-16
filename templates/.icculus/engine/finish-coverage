@@ -3,11 +3,10 @@
 . "$(dirname "$0")/lib/bootstrap.sh"
 
 # finish-coverage (dispatched as `agent finish:coverage`) — the rising-floor
-# ratchet, ported from the donor's finish:coverage + assert-coverage. It is
-# intentionally NOT part of `agent finish`: coverage measurement is slow, so it
-# runs on demand before pushing.
+# coverage ratchet. It is intentionally NOT part of `agent finish`: coverage
+# measurement is slow, so it runs on demand before pushing.
 #
-# It enforces both halves of the donor's deal:
+# It enforces both halves of the ratchet:
 #   NEVER LOWERED vs main  fail when [ratchets].coverage_min on this branch is
 #                          below its value on main (the floor only ever rises).
 #   NEVER BELOW THE FLOOR   run the coverage slot, parse the measured percentage
@@ -80,7 +79,7 @@ if [ -z "$measured" ]; then
     die "Could not read a coverage percentage from the slot's output. Make its final line the measured total (e.g. \"87.4%\")."
 fi
 
-# Compare measured vs floor with a tiny tolerance, like the donor.
+# Compare measured vs floor with a tiny tolerance.
 if awk "BEGIN { exit !($measured + 1e-9 < $floor) }" 2>/dev/null; then
     die "Coverage ${measured}% is below the floor ${floor}% — cover the new code; never lower the floor."
 fi

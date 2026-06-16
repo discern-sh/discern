@@ -2,26 +2,25 @@
 # desc: sweep stale worktrees + fully-merged branches, then reclaim orphan dirs
 . "$(dirname "$0")/lib/bootstrap.sh"
 
-# worktree-prune — housekeeping for the worktree pool, the generic form of the
-# donor's `composer worktree:prune`. It runs the two pure git/filesystem
-# utilities:
+# worktree-prune — housekeeping for the worktree pool. It runs the two pure
+# git/filesystem utilities:
 #   - prune-git-worktrees --include-detached : remove clean, fully-merged
 #       worktrees and their merged branches (keeps anything with live work).
 #   - sweep-orphan-worktrees                 : reclaim directories git no longer
 #       tracks but that still gitlink into this repo (the leak backstop).
 #
-# Safety default (preserved from the donor): removing merged worktrees AND
-# DELETING their merged branches is destructive, so it asks for confirmation at
-# an interactive prompt. Pass --yes (or -y) to run non-interactively — required
-# when an agent invokes this without a TTY:
+# Safety default: removing merged worktrees AND DELETING their merged branches is
+# destructive, so it asks for confirmation at an interactive prompt. Pass --yes
+# (or -y) to run non-interactively — required when an agent invokes this without
+# a TTY:
 #   agent worktree:prune          # prompts before deleting
 #   agent worktree:prune --yes    # no prompt (for scripts / agents)
 #
-# Database cleanup is deliberately NOT swept here. The donor pruned old
-# per-worktree databases on a time window, which needs a stack-specific "list
-# databases older than N" query the generic harness cannot express. Drop a
-# discarded worktree's database explicitly with `agent worktree:teardown` (it
-# runs [worktree.db].drop) while still inside that worktree.
+# Database cleanup is deliberately NOT swept here. Pruning old per-worktree
+# databases on a time window would need a stack-specific "list databases older
+# than N" query the generic harness cannot express. Drop a discarded worktree's
+# database explicitly with `agent worktree:teardown` (it runs [worktree.db].drop)
+# while still inside that worktree.
 
 set -eu
 
@@ -44,7 +43,7 @@ fi
 
 heading "Reclaiming orphaned worktree directories…"
 # The orphan sweep only ever touches already-deregistered, gitlinked leaks, so
-# it auto-confirms (matching the donor) — nothing here is a branch deletion.
+# it auto-confirms — nothing here is a branch deletion.
 "$ICCULUS_ENGINE/sweep-orphan-worktrees" --yes
 
 # Point at the per-worktree DB seam, since this prune intentionally leaves

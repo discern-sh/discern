@@ -11,7 +11,7 @@
 # The list of vars to inherit is the [worktree].inherit_env array in
 # icculus.toml — author it there, not here. An empty list is a clean no-op.
 #
-# Per-var policy (preserved from the donor's safe-copy behaviour):
+# Per-var safe-copy policy:
 #   - main missing or blank for the var  -> warn and skip (an optional credential
 #     not being set must not block worktree setup).
 #   - worktree value empty, OR equal to .env.example's default for that var

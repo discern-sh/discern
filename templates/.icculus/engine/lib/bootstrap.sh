@@ -35,6 +35,7 @@ fi
 # config value [project].main_branch; else "main".
 export MAIN_BRANCH="${MAIN_BRANCH:-$(config_get project.main_branch main)}"
 
-# Coding agents set ICCULUS_AGENT=1 (analogous to the donor's AI_AGENT=agent) to
-# request compact, machine-friendly tool output. Slot commands may read it.
+# Coding agents set ICCULUS_AGENT=1 (analogous to a conventional agent env flag)
+# to request compact, machine-friendly tool output. Slot commands may read it.
+# The fallback below also honours a conventional agent flag if one is already set.
 export ICCULUS_AGENT=${ICCULUS_AGENT:-${AI_AGENT:+1}}

@@ -3,8 +3,8 @@
 . "$(dirname "$0")/lib/bootstrap.sh"
 
 # worktree-exit (graduate) — migrate the current worktree's branch into the main
-# repository so the user can review and continue work there. This is the generic
-# form of the donor's graduate-worktree, invoked via `agent worktree:exit`.
+# repository so the user can review and continue work there. Invoked via
+# `agent worktree:exit`.
 #
 # It hardens worktree graduation in three ways:
 #   - It first requires the latest main is integrated (assert-main-merged), so a

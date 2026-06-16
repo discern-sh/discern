@@ -4,7 +4,7 @@
 
 # changed-scopes [--has <scope>] [--json]
 #
-# Ports the donor's ChangedScope classifier into config-driven shell. It answers
+# Classifies changed paths against the [scopes] config. It answers
 # "what sides of the repo did this branch change?" so `finish` can skip side
 # gates and the preview line for areas that did not change. Classification fails
 # OPEN: when git cannot answer, every scope is reported, so consumers run MORE
@@ -24,7 +24,7 @@
 #   --has <scope>    exit 0 if that scope is present, 1 if absent (prints nothing)
 #   --json           a JSON array of the present scopes
 #
-# Glob kinds (matching the donor's pattern shapes), per [scopes] entry:
+# Glob kinds, per [scopes] entry:
 #   prefix            "src/**" or "src/"        -> path starts with "src/"
 #   exact             "routes/web.php"          -> path equals it
 #   suffix            "*.view"                  -> path ends with ".view"
@@ -73,7 +73,7 @@ done
 
 # --- gather changed paths (fail open) -------------------------------------
 
-# Base branch: env override first (matches the donor's MAIN_BRANCH), else "main".
+# Base branch: env override first (the MAIN_BRANCH variable), else "main".
 main_branch=${MAIN_BRANCH:-main}
 git_bin=${GIT_BIN:-git}
 
@@ -116,7 +116,7 @@ collect_paths() {
 
 # --- glob matching --------------------------------------------------------
 
-# Does $path match the single $pattern? Implements the four donor pattern kinds.
+# Does $path match the single $pattern? Implements the four pattern kinds.
 # Branch ORDER matters: a segment pattern ("/ui/") both starts and ends with a
 # slash, so it must be tested BEFORE the trailing-slash prefix kind ("src/"),
 # which would otherwise swallow it and treat "/ui/" as a prefix that no nested
@@ -167,7 +167,7 @@ path_matches_scope() {
 
 # A path is neutral if it matches a [scopes].neutral pattern, OR it is a
 # root-level markdown file (README.md, AGENTS.md, …). Markdown nested in a code
-# directory still counts for that directory's scope, exactly like the donor.
+# directory still counts for that directory's scope.
 path_is_neutral() {
     _pn_path=$1
     if path_matches_scope "$_pn_path" neutral; then

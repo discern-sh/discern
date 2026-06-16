@@ -2,10 +2,11 @@
 # desc: fast inner loop — apply fixers, then run the read-only checks (no build/test)
 . "$(dirname "$0")/lib/bootstrap.sh"
 
-# tidy — the donor's `tidy` (tidy:fix then tidy:analyse), generalised: run the
-# mutating fixers first (serially, since order matters — one fixer's output is
-# the next's input), then the read-only checks. It never builds or runs tests,
-# so it stays fast enough for the inner loop. Fails non-zero if anything fails.
+# tidy — run the fix-phase slots, then the read-only check-phase slots. The
+# mutating fixers run first (serially, since order matters — one fixer's output
+# is the next's input), then the read-only checks. It never builds or runs
+# tests, so it stays fast enough for the inner loop. Fails non-zero if anything
+# fails.
 
 # slots_for_phase joins a phase's slots with ` && ` (already in declaration
 # order), so the fix phase runs serially as required.

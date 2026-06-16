@@ -2,13 +2,13 @@
 # desc: set up a freshly-created worktree (run by the WorktreeCreate hook)
 . "$(dirname "$0")/lib/bootstrap.sh"
 
-# worktree — prepare a freshly-created linked worktree for work. This is the
-# generic form of the donor's `composer worktree` script: the git mechanics are
-# universal, and the database / dev-server / dependency steps are read from the
-# [worktree] config so they are clean no-ops until wired to a stack.
+# worktree — prepare a freshly-created linked worktree for work. The git
+# mechanics are universal, and the database / dev-server / dependency steps are
+# read from the [worktree] config so they are clean no-ops until wired to a
+# stack.
 #
-# Step order (matching the donor, with adapter seams in place of its hardcoded
-# Postgres + Herd + composer/npm steps):
+# Step order (adapter seams stand in for any stack-specific database, dev-server,
+# and dependency steps):
 #   1. assert we are in a linked worktree (never the main checkout)
 #   2. ensure a named branch exists (agents may start detached)
 #   3. clone the database         [worktree.db].clone        (token-substituted)
@@ -112,8 +112,8 @@ fi
 # (worktree-ensure) knows setup already ran. The path resolves under this
 # worktree's own admin dir (.git/worktrees/<name>/), so it is unique per
 # worktree, never tracked by git, and removed automatically when the worktree
-# is. A generic, stack-neutral replacement for the donor's "DB_DATABASE looks
-# like a worktree" heuristic.
+# is. A generic, stack-neutral way to record that setup has run, with no
+# dependence on any stack-specific environment value.
 _wt_marker=$("${GIT_BIN:-git}" rev-parse --git-path icculus-worktree-ready 2>/dev/null || printf '')
 if [ -n "$_wt_marker" ]; then
     : > "$_wt_marker" 2>/dev/null || true

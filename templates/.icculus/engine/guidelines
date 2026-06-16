@@ -2,11 +2,10 @@
 # desc: compile .ai/guidelines/* into the agent instruction files and refresh skill symlinks
 . "$(dirname "$0")/lib/bootstrap.sh"
 
-# guidelines — the dependency-free replacement for Laravel Boost's guideline
-# compilation. One single-source-of-truth, agent-agnostic guideline tree
-# (.ai/guidelines/*.md), many generated agent-specific outputs (CLAUDE.md,
-# AGENTS.md, …). The donor proved a framework is unnecessary: it is plain
-# concatenation, so the same source can never diverge per agent.
+# guidelines — a dependency-free guideline compiler. One single-source-of-truth,
+# agent-agnostic guideline tree (.ai/guidelines/*.md), many generated
+# agent-specific outputs (CLAUDE.md, AGENTS.md, …). No framework is needed: it is
+# plain concatenation, so the same source can never diverge per agent.
 #
 # Two jobs, each idempotent and safe to run from anywhere:
 #   1. Concatenate .ai/guidelines/*.md (sorted) into every configured agent
@@ -54,8 +53,8 @@ trap "rm -f '$compiled' '$sources_list'" EXIT INT TERM
 # Collect the sources, one path per line, then sort once. A glob that matches
 # nothing expands to the literal pattern in POSIX sh, so `[ -f ]` filters it
 # out. Sorting explicitly keeps the concatenation order stable and independent
-# of the shell's glob-collation locale (the donor sorted its `ls` for the same
-# reason). Guideline filenames are plain `NN-name.md`, never newline-bearing.
+# of the shell's glob-collation locale. Guideline filenames are plain
+# `NN-name.md`, never newline-bearing.
 for _src in "$sources_dir"/*.md; do
     [ -f "$_src" ] || continue
     printf '%s\n' "$_src"
@@ -67,8 +66,8 @@ if [ "$source_count" -eq 0 ]; then
 fi
 
 # No generated-file banner: it would ride along in every agent's context for
-# zero benefit. Like the donor, the guideline source's own opening text carries
-# the edit-the-source-not-the-copies rule.
+# zero benefit. The guideline source's own opening text carries the
+# edit-the-source-not-the-copies rule.
 while IFS= read -r _src; do
     [ -n "$_src" ] || continue
     cat "$_src" >> "$compiled"

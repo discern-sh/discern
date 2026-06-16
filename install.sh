@@ -2,20 +2,20 @@
 #
 # icculus installer — download the right prebuilt binary and put it on PATH.
 #
-#   curl -fsSL https://raw.githubusercontent.com/<owner>/icculus/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/jackwh/icculus/main/install.sh | sh
 #
 # Detects your OS/arch, fetches the matching binary from the latest GitHub
 # release (or $ICCULUS_VERSION), installs it to a writable bin dir, and chmods
 # it. POSIX sh; needs curl (or wget) and either tar-free single-binary download.
 #
 # Environment overrides:
-#   ICCULUS_REPO     owner/repo to download from (default: jackwebbheller/icculus)
+#   ICCULUS_REPO     owner/repo to download from (default: jackwh/icculus)
 #   ICCULUS_VERSION  release tag to install (default: latest)
 #   ICCULUS_BIN_DIR  install directory (default: ~/.local/bin, else /usr/local/bin)
 
 set -eu
 
-REPO="${ICCULUS_REPO:-jackwebbheller/icculus}"
+REPO="${ICCULUS_REPO:-jackwh/icculus}"
 VERSION="${ICCULUS_VERSION:-latest}"
 
 # --- pretty output (only on a TTY) ---------------------------------------

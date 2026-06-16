@@ -1,5 +1,5 @@
-# jobs.sh — a tiny POSIX parallel-runner, the no-dependency replacement for
-# `npx concurrently` in the donor gate. It runs labelled commands concurrently,
+# jobs.sh — a tiny, dependency-free POSIX parallel runner (no external
+# 'concurrently'-style tool needed). It runs labelled commands concurrently,
 # captures each one's combined output, then prints them in stable order under a
 # banner and returns non-zero if any failed.
 #

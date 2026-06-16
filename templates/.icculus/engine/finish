@@ -6,18 +6,16 @@
 # artifacts, then run read-only checks alongside the test suite, fire any side
 # gates whose scope changed, and finally confirm the branch carries main.
 #
-# This mirrors the donor's compound gate exactly, with stack-specific commands
-# read from [slots] instead of hardcoded:
+# Stack-specific commands are read from [slots], not hardcoded. The phase order
+# is:
 #
-#   donor                                   icculus
-#   ─────────────────────────────────────   ────────────────────────────────────
-#   assert-work-evidence-captured           evidence check (when enabled)
-#   fix ∥ build (tidy:fix ∥ frontend build) run_parallel fix∥build phase slots
-#   analyse ∥ test (tidy:analyse ∥ tests)   run_parallel check∥test phase slots
-#   chain-vision-finish (Swift side gate)   [scopes.side_gates] for changed scopes
-#   assert-main-merged                       assert-main-merged (if present)
-#   print-coverage-reminder                  coverage reminder (if coverage set)
-#   print-preview-url                        preview line (if previewable + link)
+#   evidence check (when enabled)
+#   fix ∥ build           run_parallel over the fix and build phase slots
+#   check ∥ test          run_parallel over the check and test phase slots
+#   side gates            run each [scopes.side_gates] for a changed scope
+#   assert-main-merged    confirm the branch carries main (when present)
+#   coverage reminder     print when a coverage floor/slot is configured
+#   preview line          print when a previewable scope changed and a link is set
 #
 # On any failure in the GATED phases, an EXIT trap prints the gotchas pointer
 # (single-sourced from lib/gotchas.sh, shared with `with-gotchas`) and the exact

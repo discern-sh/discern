@@ -1,10 +1,10 @@
 # gotchas.sh — the single source for the "a gate phase failed" failure pointer.
 #
-# The donor's task runner stopped at the first failing step and had no
-# on-failure hook, so a trailing "print advice" step could never run after a
-# failure. Two recipes need to close that gap with the SAME wording — `finish`
-# (via an EXIT trap on its gated phases) and `with-gotchas` (a thin wrapper for
-# any one command) — so the text lives here once and both source it.
+# A task runner that stops at the first failing step, with no on-failure hook,
+# cannot run a trailing "print advice" step after a failure. Two recipes close
+# that gap with the SAME wording — `finish` (via an EXIT trap on its gated
+# phases) and `with-gotchas` (a thin wrapper for any one command) — so the text
+# lives here once and both source it.
 #
 # The pointer aims an agent at the project's gotchas doc: the place the
 # maintainer writes down the non-obvious ways this particular stack's gate fails

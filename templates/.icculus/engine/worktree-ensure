@@ -2,10 +2,9 @@
 # desc: session-start check — set up this worktree once if it has not been
 . "$(dirname "$0")/lib/bootstrap.sh"
 
-# worktree-ensure — the idempotent SessionStart hook target, the generic form of
-# the donor's ensure-worktree-configured. It makes sure a linked worktree has
-# been set up by `agent worktree`, running that setup exactly once. Safe to run
-# on every session start.
+# worktree-ensure — the idempotent SessionStart hook target. It makes sure a
+# linked worktree has been set up by `agent worktree`, running that setup exactly
+# once. Safe to run on every session start.
 #
 # Behaviour:
 #   - Not inside a linked worktree (main checkout, non-git dir, or worktree

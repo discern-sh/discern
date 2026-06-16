@@ -3,9 +3,8 @@
 . "$(dirname "$0")/lib/bootstrap.sh"
 
 # worktree-teardown — release the external resources a worktree holds, without
-# graduating its branch. This is the generic form of the donor's
-# `composer worktree:teardown`, used when DISCARDING a worktree (the branch is
-# not wanted) rather than handing it back. To graduate instead, use
+# graduating its branch. Used when DISCARDING a worktree (the branch is not
+# wanted) rather than handing it back. To graduate instead, use
 # `agent worktree:exit`, which tears down AND moves the branch into main.
 #
 #   assert in a linked worktree

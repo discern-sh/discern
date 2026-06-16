@@ -6,10 +6,12 @@ command.**
 `icculus` scaffolds a small, opinionated set of safety rails for working with
 coding agents — a compound quality gate, an isolated git-worktree workflow, an
 author-once → compile-everywhere agent-instruction pipeline, and a documentation
-/ principles / ADR / TODO discipline — into any repository, in any language. The
-orchestration is stack-neutral; the few stack-specific commands live behind
-named **slots** in a single config file you fill in (or let your own coding
-agent propose).
+/ principles / ADR / TODO discipline — into any repository, in any language, for
+any coding agent. The orchestration is stack-neutral; the few stack-specific
+commands live behind named **slots** in a single config file you fill in (or let
+your own coding agent propose). Guidance is authored once and compiled to each
+agent's own file, so Claude Code, Codex, Gemini, and others can work in the same
+repo — even several at once.
 
 > Working name. `icculus`, `bin/agent`, and `.icculus/` are placeholders pending
 > a final name.
@@ -37,7 +39,7 @@ the command once.
 **Single binary (recommended)** — no runtime needed:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/<owner>/icculus/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/jackwh/icculus/main/install.sh | sh
 ```
 
 This downloads the right prebuilt binary for your OS/arch from the latest GitHub
@@ -46,7 +48,7 @@ release and installs it to `~/.local/bin` (or `/usr/local/bin`).
 **From source** (requires [Deno](https://deno.com)):
 
 ```sh
-git clone https://github.com/<owner>/icculus && cd icculus
+git clone https://github.com/jackwh/icculus && cd icculus
 deno task dev -- --help          # run without compiling
 deno task build                  # compile per-platform binaries → dist/
 ```
@@ -84,11 +86,11 @@ bin/agent                  # the task runner your agent drives (finish, worktree
   engine/                  # the generic shell engine (managed — refreshed by `icculus upgrade`)
   brief.md                 # what you told init you're building
   manifest.json            # kit version + managed-file hashes
-.claude/settings.json      # merged: the worktree hooks + a Read(.env) deny
 .ai/
-  guidelines/<slug>.md     # author-once agent guidance (you/​/bootstrap fill this)
+  guidelines/<slug>.md     # author-once agent guidance (you and /bootstrap fill it)
   skills/…                 # portable agent skills (coding-principles, grill-me, write-adr, …)
-CLAUDE.md  AGENTS.md        # COMPILED from .ai/guidelines by `agent guidelines` — never hand-edit
+AGENTS.md  CLAUDE.md  …     # per-agent files, COMPILED from .ai/ — never hand-edit
+.claude/settings.json      # Claude Code integration (worktree hooks); merged, never clobbered
 docs/…                     # numbered docs tree + design-principles + _adr + gotchas
 TODO.md                    # the shared backlog discipline
 ```
@@ -121,25 +123,25 @@ and how `agent finish` runs it:
 
 ```toml
 [slots.format]
-run   = "deno fmt"
 phase = "fix"
+run   = "deno fmt"
 
 [slots.lint]
-run   = "deno lint"
 phase = "check"
+run   = "deno lint"
 
 [slots.typecheck]
-run   = "deno check src/main.ts"
 phase = "check"
+run   = "deno check src/main.ts"
 
 [slots.test]
-run   = "deno task test"
 phase = "test"
+run   = "deno task test"
 ```
 
 With those four slots filled, `agent finish` formats, lints, type-checks, and
-runs the suite in the donor's exact parallel phase shape. (This repo is gated
-exactly this way — see _Dogfooding_ below.)
+runs the suite in this exact parallel phase shape. (This repo is gated exactly
+this way — see _Dogfooding_ below.)
 
 ### Scopes — what a change touches
 
@@ -155,7 +157,7 @@ web         = ["src/**", "app/**"]            # real, gated code
 previewable = ["public/**"]                   # a person could see it
 
 [scopes.side_gates]
-# native = "agent vision:finish"   # run this when a `native` scope changes
+# native = "make -C native check"   # run this when a `native` scope changes
 ```
 
 ### Worktree adapters — the two seams
@@ -214,16 +216,16 @@ Global flags: `--json`, `--no-color` (also honours `NO_COLOR` and non-TTY),
 
 ### `agent` (the installed task runner)
 
-| command                              | does                                                                          |
-| ------------------------------------ | ----------------------------------------------------------------------------- |
-| `agent finish`                       | the full quality gate. Run before calling any task done.                      |
-| `agent tidy`                         | fixers + checks, no build/test — the fast inner loop.                         |
-| `agent test`                         | run the test-phase slots.                                                     |
-| `agent finish:coverage`              | the coverage ratchet (slow; not part of `finish`).                            |
-| `agent worktree:exit`                | graduate this worktree's branch into the main checkout.                       |
-| `agent worktree:teardown` / `:prune` | discard a worktree / sweep stale ones.                                        |
-| `agent guidelines`                   | compile `.ai/guidelines/*` → `CLAUDE.md`/`AGENTS.md` and refresh skill links. |
-| `agent doctor`                       | health-check the harness (slots resolve, git worktrees work, …).              |
+| command                              | does                                                                                                |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| `agent finish`                       | the full quality gate. Run before calling any task done.                                            |
+| `agent tidy`                         | fixers + checks, no build/test — the fast inner loop.                                               |
+| `agent test`                         | run the test-phase slots.                                                                           |
+| `agent finish:coverage`              | the coverage ratchet (slow; not part of `finish`).                                                  |
+| `agent worktree:exit`                | graduate this worktree's branch into the main checkout.                                             |
+| `agent worktree:teardown` / `:prune` | discard a worktree / sweep stale ones.                                                              |
+| `agent guidelines`                   | compile `.ai/guidelines/*` → each agent's file (`AGENTS.md`, `CLAUDE.md`, …) + refresh skill links. |
+| `agent doctor`                       | health-check the harness (slots resolve, git worktrees work, …).                                    |
 
 Run `agent --help` for the live list. Recipes are auto-discovered, so an adapter
 or your own recipe under `.icculus/engine/` shows up automatically.
@@ -243,10 +245,12 @@ or your own recipe under `.icculus/engine/` shows up automatically.
   are **managed** (kit-owned, refreshed by `upgrade`, hash-tracked so your edits
   are never silently lost). Everything else — `icculus.toml`, your docs,
   guidelines, `TODO.md` — is **seed**: written once, then yours.
-- **Author once, compile everywhere.** You edit `.ai/guidelines/*` and
-  `.ai/skills/*`; `agent guidelines` compiles them to each agent's instruction
-  file. The generated `CLAUDE.md` is gitignored; `AGENTS.md` is tracked so
-  compiled-guidance changes still surface in review.
+- **Author once, compile everywhere — agent-agnostic.** Write your guidance and
+  skills once under `.ai/`; `agent guidelines` compiles them to every agent's
+  own instruction file, so one repo can drive Claude Code, Codex, Gemini, and
+  others — even several at once — with no divergence. The per-agent copies
+  (`CLAUDE.md`, …) are generated and gitignored; `AGENTS.md`, the cross-agent
+  standard, is tracked so compiled-guidance changes still surface in review.
 
 ---
 
@@ -295,8 +299,8 @@ Follow-ups:
 - **Bundled stack adapters** (`add-adapter node`, `python`, …): the overlay
   mechanism ships; no adapters are bundled yet. For now, `/bootstrap` detects
   your stack and proposes slot fills directly — usually all you need.
-- **Publishing**: set the real `<owner>/icculus` GitHub slug in `install.sh`
-  (override with `ICCULUS_REPO`) and the release workflow before distributing.
+- **Publishing**: the GitHub slug is wired to `jackwh/icculus` (override with
+  `ICCULUS_REPO`); wire up the release before distributing.
 - **`inherit_env` ordering**: a worktree that relies on `[worktree.inherit_env]`
   needs its `.env` to exist before the inherit step (a db/dev-server adapter or
   a `setup` step typically creates it). Documented in the worktree recipe.
@@ -305,7 +309,7 @@ Follow-ups:
 
 ## Provenance
 
-The practices here were extracted from **Macrograph**, a production Laravel
-application with a mature agentic-development harness, and deliberately
-decoupled from that stack. The orchestration is lifted; the Laravel/PHP/visionOS
-specifics are dropped or pushed behind slots and adapters.
+The practices here were extracted from a production application's mature
+agentic-development harness and generalised: the orchestration is lifted intact,
+while the stack-specific pieces — build tools, framework, native targets — are
+dropped or pushed behind the slots and adapters above.

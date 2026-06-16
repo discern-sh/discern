@@ -4,8 +4,8 @@
 
 # evidence <capture|check> [args...]
 #
-# A dependency-free generalisation of the donor's agent work-evidence gate.
-# Evidence is a small record proving the branch's work was actually exercised
+# A dependency-free work-evidence gate. Evidence is a small record proving the
+# branch's work was actually exercised
 # (a note, a screenshot path, whatever [evidence].capture produces). The gate is
 # OFF by default; turn it on with [evidence].enabled = true.
 #
@@ -20,8 +20,8 @@
 #                       file containing the note (or a default line).
 #   check               Used by `agent finish` as a pre-flight. When the gate is
 #                       enabled, fail unless fresh evidence exists for the
-#                       branch (newer than the latest code change, mirroring the
-#                       donor's freshness rule). No-op (exit 0) when disabled.
+#                       branch (newer than the latest code change, the freshness
+#                       rule). No-op (exit 0) when disabled.
 
 git_bin=${GIT_BIN:-git}
 evidence_root="$ICCULUS_ROOT/.icculus/evidence"

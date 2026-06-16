@@ -110,8 +110,8 @@ wt_run_adapter() {
 # first unlink the dev server, then drop the database. Both are no-ops when their
 # command is unset. Failures are reported but NOT fatal — a teardown hiccup must
 # never strand a worktree (graduation continues; a discard sweep is the backstop)
-# — so the caller decides the exit status. Mirrors the donor, where the DB
-# teardown during graduation is explicitly non-fatal.
+# — so the caller decides the exit status. The database teardown during
+# graduation is intentionally non-fatal for the same reason.
 wt_teardown() {
     if ! wt_run_adapter "Unlinking the worktree dev server…" "$(config_get worktree.dev_server.unlink '')"; then
         warn "Dev-server unlink reported an error — continuing."
