@@ -143,3 +143,22 @@ Deno.test("worktree:prune --yes reclaims a fully-merged worktree", async () => {
     );
   });
 });
+
+Deno.test("worktree:prune keeps a sibling worktree that still has unmerged work", async () => {
+  await withTempDir(async (dir) => {
+    const live = await mainWithWorktree(dir, "live");
+    // The sibling carries an unmerged commit — pruning must preserve it and
+    // never clobber live work in a child worktree.
+    await Deno.writeTextFile(join(live, "wip.txt"), "wip\n");
+    await git(live, "add", "-A");
+    await git(live, "commit", "-q", "-m", "wip", "--no-gpg-sign");
+
+    const r = await runAgent(dir, ["worktree:prune", "--yes"]);
+    assertEquals(r.code, 0, r.output);
+    assertEquals(
+      await exists(live),
+      true,
+      `a live, unmerged worktree must NOT be pruned\n${r.output}`,
+    );
+  });
+});
