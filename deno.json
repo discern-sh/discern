@@ -32,12 +32,23 @@
       "PLAN.md",
       ".icculus/",
       ".ai/",
+      ".claude/",
       "AGENTS.md",
       "CLAUDE.md",
       ".idea/"
     ]
   },
   "lint": {
-    "exclude": ["templates/", "dist/", "tests/fixtures/", ".icculus/", ".ai/"]
+    "exclude": [
+      "templates/",
+      "dist/",
+      "tests/fixtures/",
+      ".icculus/",
+      ".ai/",
+      ".claude/"
+    ]
+  },
+  "test": {
+    "exclude": [".claude/", "dist/", "templates/", "tests/fixtures/"]
   }
 }
