@@ -99,3 +99,48 @@ Deno.test("upgrade --check (human mode) exits non-zero and names the drifted pat
     assertStringIncludes(r.stderr, "bin/agent");
   });
 });
+
+Deno.test("upgrade --check heals with the product command, never engine-internal vocabulary", async () => {
+  await withTempDir(async (dir) => {
+    await init(dir);
+    const agent = join(dir, "bin/agent");
+    await Deno.writeTextFile(
+      agent,
+      `${await Deno.readTextFile(agent)}\n# local edit\n`,
+    );
+    const r = await runCli(["upgrade", "--check"], dir);
+    assertEquals(r.code, 1, r.stderr);
+    // A fresh install has only the `icculus` binary — the self-host Deno-task
+    // aliases (`deno task selfsync`/`selfcheck`) must never leak into its output.
+    assertStringIncludes(r.stderr, "icculus upgrade");
+    assertEquals(r.stderr.includes("deno task"), false, r.stderr);
+    assertEquals(r.stderr.includes("selfsync"), false, r.stderr);
+  });
+});
+
+Deno.test("upgrade --check heals with `deno task selfsync` when the project drives upgrade via a Deno task", async () => {
+  await withTempDir(async (dir) => {
+    await init(dir);
+    // Model the self-host repo: a deno.json that declares the selfsync alias.
+    // The CLI subprocess anchors its own config to the entrypoint, so this
+    // deno.json only feeds selfCmd's marker check — it does not shadow imports.
+    await Deno.writeTextFile(
+      join(dir, "deno.json"),
+      `${
+        JSON.stringify(
+          { tasks: { selfsync: "deno run -A src/main.ts upgrade" } },
+          null,
+          2,
+        )
+      }\n`,
+    );
+    const agent = join(dir, "bin/agent");
+    await Deno.writeTextFile(
+      agent,
+      `${await Deno.readTextFile(agent)}\n# local edit\n`,
+    );
+    const r = await runCli(["upgrade", "--check"], dir);
+    assertEquals(r.code, 1, r.stderr);
+    assertStringIncludes(r.stderr, "deno task selfsync");
+  });
+});
