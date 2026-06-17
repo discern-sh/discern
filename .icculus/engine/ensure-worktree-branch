@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# helper: ensure the current linked worktree is on a named branch (not detached)
+
+# Ensure the current linked worktree is on a named branch.
+#
+# Some agents initially create linked worktrees in detached HEAD state. That is
+# fine while editing, but graduation needs a branch name so the work can be
+# checked out in the main repo. This helper creates a deterministic branch from
+# worktree-name before any destructive teardown happens.
+#
+# Honors GIT_BIN (default "git").
+
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "$0")" && pwd -P)"
+git_bin="${GIT_BIN:-git}"
+
+"$script_dir/assert-in-worktree" 'ensure-worktree-branch'
+
+if ! command -v "$git_bin" >/dev/null 2>&1; then
+    echo "ensure-worktree-branch: git is not on PATH (set GIT_BIN to override)." >&2
+    exit 1
+fi
+
+current_branch="$("$git_bin" branch --show-current 2>/dev/null || true)"
+if [[ -n "$current_branch" ]]; then
+    exit 0
+fi
+
+base_branch="$("$script_dir/worktree-name" --branch)"
+candidate="$base_branch"
+head_sha="$("$git_bin" rev-parse --short=8 HEAD)"
+
+if "$git_bin" show-ref --verify --quiet "refs/heads/$candidate"; then
+    candidate="${base_branch}-${head_sha}"
+fi
+
+counter=2
+while "$git_bin" show-ref --verify --quiet "refs/heads/$candidate"; do
+    candidate="${base_branch}-${head_sha}-${counter}"
+    counter=$((counter + 1))
+done
+
+if ! "$git_bin" check-ref-format --branch "$candidate" >/dev/null 2>&1; then
+    echo "ensure-worktree-branch: generated invalid branch name: ${candidate}" >&2
+    exit 1
+fi
+
+"$git_bin" switch -c "$candidate" >/dev/null
+echo "Created worktree branch: ${candidate}"

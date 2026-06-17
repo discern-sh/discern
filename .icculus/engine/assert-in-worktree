@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# helper: refuse unless run from inside a linked git worktree (not the main checkout)
+
+# Refuses to proceed unless the current working directory is inside a *linked*
+# git worktree. This guards destructive lifecycle steps (which wipe a worktree's
+# env and drop its database) from being run against the main checkout.
+#
+# Honors GIT_BIN (default "git").
+
+set -euo pipefail
+
+label="${1:-this script}"
+
+git_bin="${GIT_BIN:-git}"
+
+if ! command -v "$git_bin" >/dev/null 2>&1; then
+    echo "${label}: refused — git is not on PATH (set GIT_BIN to override)." >&2
+    exit 1
+fi
+
+if ! current_git_dir="$("$git_bin" rev-parse --absolute-git-dir 2>/dev/null)"; then
+    echo "${label}: refused — current directory is not inside a git repository." >&2
+    exit 1
+fi
+
+common_git_dir_raw="$("$git_bin" rev-parse --git-common-dir 2>/dev/null)"
+
+if [[ -z "$common_git_dir_raw" ]]; then
+    echo "${label}: refused — could not resolve the shared git directory." >&2
+    exit 1
+fi
+
+if [[ "$common_git_dir_raw" != /* ]]; then
+    common_git_dir_raw="$(pwd -P)/$common_git_dir_raw"
+fi
+
+common_git_dir="$(cd "$common_git_dir_raw" && pwd -P)"
+
+if [[ "$current_git_dir" == "$common_git_dir" ]]; then
+    echo "${label}: refused — must be run from inside a linked git worktree, not the main checkout." >&2
+    echo "  Current dir: $(pwd -P)" >&2
+    echo "  Main repo:   $(cd "$common_git_dir/.." && pwd -P)" >&2
+    exit 1
+fi
+
+exit 0

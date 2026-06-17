@@ -1,0 +1,29 @@
+#!/usr/bin/env sh
+# helper: run a command; on failure, point at the project's gotchas doc
+. "$(dirname "$0")/lib/bootstrap.sh"
+
+# with-gotchas <command> [args...]
+#
+# Runs the command verbatim and, if it exits non-zero, prints the gotchas
+# pointer (see lib/gotchas.sh) before re-exiting with the command's own code.
+# 'agent finish' wraps each phase in this so a failed phase still leaves the
+# agent a pointer at the doc that explains the stack's non-obvious failures.
+#
+# `set -e` is deliberately NOT used: this wrapper must observe the wrapped
+# command's failure and print before exiting, not die on it.
+
+# shellcheck source=lib/gotchas.sh
+. "$ICCULUS_LIB/gotchas.sh"
+
+if [ "$#" -eq 0 ]; then
+    die "with-gotchas: no command given. Usage: with-gotchas <command> [args...]"
+fi
+
+"$@"
+_wg_code=$?
+
+if [ "$_wg_code" -ne 0 ]; then
+    gotchas_hint
+fi
+
+exit "$_wg_code"

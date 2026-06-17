@@ -1,0 +1,33 @@
+#!/usr/bin/env sh
+# desc: hold every metric ratchet — each [ratchets.<name>] (slow; on demand)
+. "$(dirname "$0")/lib/bootstrap.sh"
+
+# ratchets (dispatched as `agent ratchets`) — run every configured metric
+# ratchet: each [ratchets.<name>] table (coverage, a bundle-size budget, lint or
+# type-error counts, a perf budget, …). Measurement is slow, so this is on demand
+# and intentionally NOT part of `agent finish`.
+#
+# Every ratchet runs even if one fails, so you see every shortfall in one pass;
+# the recipe exits non-zero if any failed. See lib/ratchets.sh and ADR 0003.
+
+# shellcheck source=lib/ratchets.sh
+. "$ICCULUS_LIB/ratchets.sh"
+
+failed=0
+ran=0
+
+# Every [ratchets.<name>] subsection is a ratchet — there is no special instance.
+for ratchet in $(config_subsections ratchets); do
+    ran=$((ran + 1))
+    ratchet_check "$ratchet" || failed=1
+done
+
+if [ "$ran" -eq 0 ]; then
+    info "No ratchets configured. Add a [ratchets.<name>] table (e.g. [ratchets.coverage])."
+    exit 0
+fi
+
+if [ "$failed" -ne 0 ]; then
+    die "One or more ratchets failed."
+fi
+ok "All ${ran} ratchet(s) held."

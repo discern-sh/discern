@@ -43,6 +43,8 @@ export interface UpgradeOptions {
   json: boolean;
   noColor: boolean;
   dryRun: boolean;
+  /** Report drift (managed files out of sync with templates/) and exit; write nothing. */
+  check: boolean;
 }
 
 /** Read a text file, or undefined if absent. */
@@ -158,6 +160,38 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
       manifest ? lookupRecordedHash(manifest, targetRel) : undefined,
     managedSpec: await loadManagedSpec(templatesDir),
   });
+
+  if (options.check) {
+    // A managed file is in sync iff its disposition is "skip". An edited managed
+    // file's op targets "<path>.new"; strip that so we report the canonical path.
+    const drifted = plan.ops.filter(
+      (op) => op.managed && op.disposition !== "skip",
+    );
+    const canonical = (rel: string) => rel.replace(/\.new$/, "");
+    if (options.json) {
+      log.jsonResult({
+        ok: drifted.length === 0,
+        check: true,
+        drifted: drifted.map((op) => ({
+          path: canonical(op.targetRel),
+          action: op.disposition,
+        })),
+        migrate_suggested: migrateSuggested,
+      });
+    } else if (drifted.length === 0) {
+      log.ok("Managed files are in sync with templates/.");
+    } else {
+      log.error(
+        `Managed files have drifted from templates/ (${drifted.length}):`,
+      );
+      for (const op of drifted) {
+        log.detail(`${canonical(op.targetRel)} (${op.disposition})`);
+      }
+      log.line();
+      log.info("Heal it: run `deno task selfsync` (≡ `icculus upgrade`).");
+    }
+    return drifted.length === 0 ? 0 : 1;
+  }
 
   if (options.dryRun) {
     if (options.json) {

@@ -1,0 +1,122 @@
+#!/usr/bin/env sh
+# desc: set up a freshly-created worktree (run by the WorktreeCreate hook)
+. "$(dirname "$0")/lib/bootstrap.sh"
+
+# worktree — prepare a freshly-created linked worktree for work. The git
+# mechanics are universal, and the database / dev-server / dependency steps are
+# read from the [worktree] config so they are clean no-ops until wired to a
+# stack.
+#
+# Step order (adapter seams stand in for any stack-specific database, dev-server,
+# and dependency steps):
+#   1. assert we are in a linked worktree (never the main checkout)
+#   2. ensure a named branch exists (agents may start detached)
+#   3. clone the database         [worktree.db].clone        (token-substituted)
+#   4. link the dev server        [worktree.dev_server].link (token-substituted)
+#   5. inherit whitelisted env vars from main
+#   6. record the deterministic port (when [worktree].port is true)
+#   7. run [worktree.setup].steps in order (deps, migrations, warm caches)
+#   8. compile the agent guidelines (when the guidelines recipe is installed)
+#
+# Each step that depends on an unset adapter is a clean no-op.
+
+set -eu
+
+# wt_expand_tokens / wt_run_adapter live in the shared worktree helpers.
+# shellcheck source=lib/worktree.sh
+. "$ICCULUS_LIB/worktree.sh"
+
+# --- 1. must be inside a linked worktree ----------------------------------
+
+"$ICCULUS_ENGINE/assert-in-worktree" 'agent worktree' >/dev/null \
+    || die "agent worktree must be run from inside a linked git worktree, not the main checkout."
+
+heading "Setting up this worktree…"
+
+# --- 2. ensure a named branch ---------------------------------------------
+
+"$ICCULUS_ENGINE/ensure-worktree-branch"
+
+# --- 3. database clone (adapter seam) -------------------------------------
+
+if ! wt_run_adapter "Cloning the worktree database…" "$(config_get worktree.db.clone '')"; then
+    die "The database clone step failed."
+fi
+
+# --- 4. dev-server link (adapter seam) ------------------------------------
+
+if ! wt_run_adapter "Linking the worktree dev server…" "$(config_get worktree.dev_server.link '')"; then
+    die "The dev-server link step failed."
+fi
+
+# --- 5. inherit env vars from main ----------------------------------------
+
+"$ICCULUS_ENGINE/inherit-main-env-vars"
+
+# --- 6. record the deterministic port -------------------------------------
+
+# When ports are enabled, make the derived port discoverable. If this worktree
+# has an .env, persist it there (so a dev server / config can read it); either
+# way it is always available on demand via `agent worktree-name --port`.
+if config_bool worktree.port; then
+    port=$("$ICCULUS_ENGINE/worktree-name" --port 2>/dev/null || printf '')
+    if [ -n "$port" ]; then
+        if [ -f "$ICCULUS_ROOT/.env" ]; then
+            if grep -q '^ICCULUS_WORKTREE_PORT=' "$ICCULUS_ROOT/.env" 2>/dev/null; then
+                _wt_tmp=$(mktemp "${TMPDIR:-/tmp}/icculus-port.XXXXXX")
+                awk -v p="ICCULUS_WORKTREE_PORT=$port" '
+                    BEGIN { done = 0 }
+                    {
+                        if (!done && index($0, "ICCULUS_WORKTREE_PORT=") == 1) { print p; done = 1 }
+                        else { print }
+                    }
+                ' "$ICCULUS_ROOT/.env" > "$_wt_tmp"
+                mv "$_wt_tmp" "$ICCULUS_ROOT/.env"
+            else
+                printf 'ICCULUS_WORKTREE_PORT=%s\n' "$port" >> "$ICCULUS_ROOT/.env"
+            fi
+            ok "Worktree dev-server port: $port (recorded in .env)."
+        else
+            ok "Worktree dev-server port: $port (read it via: agent worktree-name --port)."
+        fi
+    fi
+fi
+
+# --- 7. post-create setup steps -------------------------------------------
+
+# Each step is a shell command; stop on the first failure so a broken setup is
+# loud, not silently half-applied. Steps are buffered to a temp file first so the
+# loop runs in THIS shell (not a pipeline subshell) and a failing step's `die`
+# actually aborts the recipe.
+_wt_steps=$(mktemp "${TMPDIR:-/tmp}/icculus-setup.XXXXXX")
+config_array worktree.setup.steps > "$_wt_steps"
+while IFS= read -r step; do
+    [ -n "$step" ] || continue
+    info "Setup step: $step"
+    eval "$step" || { rm -f "$_wt_steps"; die "Setup step failed: $step"; }
+done < "$_wt_steps"
+rm -f "$_wt_steps"
+
+# --- 8. compile agent guidelines ------------------------------------------
+
+# The guidelines recipe (author-once .ai/ -> CLAUDE.md/AGENTS.md) is provided by
+# another part of the harness; guard so worktree setup works with or without it.
+if [ -x "$ICCULUS_ENGINE/guidelines" ]; then
+    info "Compiling agent guidelines…"
+    "$ICCULUS_ENGINE/guidelines" || warn "Guideline compilation reported an error — continuing."
+fi
+
+# --- mark this worktree configured ----------------------------------------
+
+# Drop a per-worktree sentinel so the idempotent session-start check
+# (worktree-ensure) knows setup already ran. The path resolves under this
+# worktree's own admin dir (.git/worktrees/<name>/), so it is unique per
+# worktree, never tracked by git, and removed automatically when the worktree
+# is. A generic, stack-neutral way to record that setup has run, with no
+# dependence on any stack-specific environment value.
+_wt_marker=$("${GIT_BIN:-git}" rev-parse --git-path icculus-worktree-ready 2>/dev/null || printf '')
+if [ -n "$_wt_marker" ]; then
+    : > "$_wt_marker" 2>/dev/null || true
+fi
+
+ok "Worktree setup complete."

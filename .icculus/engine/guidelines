@@ -1,0 +1,138 @@
+#!/usr/bin/env sh
+# desc: compile .ai/guidelines/* into the agent instruction files and refresh skill symlinks
+. "$(dirname "$0")/lib/bootstrap.sh"
+
+# guidelines — a dependency-free guideline compiler. One single-source-of-truth,
+# agent-agnostic guideline tree (.ai/guidelines/*.md), many generated
+# agent-specific outputs (CLAUDE.md, AGENTS.md, …). No framework is needed: it is
+# plain concatenation, so the same source can never diverge per agent.
+#
+# Two jobs, each idempotent and safe to run from anywhere:
+#   1. Concatenate .ai/guidelines/*.md (sorted) into every configured agent
+#      file, per [project].agents in icculus.toml.
+#   2. Refresh the .claude/skills/<skill> symlinks so the author-once skills in
+#      .ai/skills/ are discoverable by the agent.
+#
+# Run automatically by the worktree-create hook (so a fresh worktree's agent
+# files exist) and as the first step of the gate (so the outputs can never
+# drift from the sources). Run by hand any time you edit a guideline or add a
+# skill: `agent guidelines`.
+
+sources_dir="$ICCULUS_ROOT/.ai/guidelines"
+skills_dir="$ICCULUS_ROOT/.ai/skills"
+claude_skills_dir="$ICCULUS_ROOT/.claude/skills"
+
+# --- agent-file mapping ---------------------------------------------------
+#
+# Maps a [project].agents entry to the file `agent guidelines` writes for it.
+# This is the one table to edit when teaching the harness a new agent product.
+# Add a case below — for example a future Junie:
+#       junie) printf '.junie/guidelines.md' ;;
+# The output path is relative to $ICCULUS_ROOT; nested paths (".junie/…") have
+# their parent directory created on demand. An unknown agent name is warned
+# about and skipped, never guessed.
+agent_output_path() {
+    case "$1" in
+        claude_code) printf 'CLAUDE.md' ;;
+        codex)       printf 'AGENTS.md' ;;
+        *)           return 1 ;;
+    esac
+}
+
+# --- compile the guideline blob -------------------------------------------
+
+if [ ! -d "$sources_dir" ]; then
+    die "guidelines: $sources_dir is missing — nothing to compile."
+fi
+
+compiled=$(mktemp "${TMPDIR:-/tmp}/icculus-guidelines.XXXXXX") || die "guidelines: mktemp failed."
+sources_list=$(mktemp "${TMPDIR:-/tmp}/icculus-guidelines-list.XXXXXX") || die "guidelines: mktemp failed."
+# shellcheck disable=SC2064
+trap "rm -f '$compiled' '$sources_list'" EXIT INT TERM
+
+# Collect the sources, one path per line, then sort once. A glob that matches
+# nothing expands to the literal pattern in POSIX sh, so `[ -f ]` filters it
+# out. Sorting explicitly keeps the concatenation order stable and independent
+# of the shell's glob-collation locale. Guideline filenames are plain
+# `NN-name.md`, never newline-bearing.
+for _src in "$sources_dir"/*.md; do
+    [ -f "$_src" ] || continue
+    printf '%s\n' "$_src"
+done | sort > "$sources_list"
+
+source_count=$(grep -c . "$sources_list")
+if [ "$source_count" -eq 0 ]; then
+    die "guidelines: no sources in $sources_dir/*.md — nothing to compile."
+fi
+
+# No generated-file banner: it would ride along in every agent's context for
+# zero benefit. The guideline source's own opening text carries the
+# edit-the-source-not-the-copies rule.
+while IFS= read -r _src; do
+    [ -n "$_src" ] || continue
+    cat "$_src" >> "$compiled"
+    printf '\n' >> "$compiled"
+done < "$sources_list"
+
+# --- write one file per configured agent ----------------------------------
+
+written=""
+written_count=0
+for _agent in $(config_array project.agents); do
+    [ -n "$_agent" ] || continue
+    if ! _rel=$(agent_output_path "$_agent"); then
+        warn "guidelines: unknown agent '$_agent' in [project].agents — skipping (no output mapping)."
+        continue
+    fi
+    _out="$ICCULUS_ROOT/$_rel"
+    # Create the parent directory for nested targets (e.g. .junie/guidelines.md).
+    _dir=$(dirname "$_out")
+    [ -d "$_dir" ] || mkdir -p "$_dir" || die "guidelines: could not create $_dir."
+    cp "$compiled" "$_out" || die "guidelines: failed to write $_rel."
+    written="$written $_rel"
+    written_count=$((written_count + 1))
+done
+
+if [ "$written_count" -eq 0 ]; then
+    warn "guidelines: no known agents in [project].agents — compiled nothing. Set agents = [\"claude_code\", …]."
+fi
+
+# --- refresh skill symlinks -----------------------------------------------
+#
+# For each directory under .ai/skills/<skill>, (re)create the symlink
+# .claude/skills/<skill> -> ../../.ai/skills/<skill>, so author-once skills are
+# discoverable by the agent. Idempotent: an existing link is removed first, so a
+# renamed or retargeted skill is corrected. A non-symlink at the target (a real
+# file or directory a user dropped there) is left untouched and warned about, so
+# we never clobber hand-authored content.
+
+linked_count=0
+if [ -d "$skills_dir" ]; then
+    [ -d "$claude_skills_dir" ] || mkdir -p "$claude_skills_dir" || die "guidelines: could not create $claude_skills_dir."
+    for _skill_path in "$skills_dir"/*; do
+        [ -d "$_skill_path" ] || continue
+        _skill=$(basename "$_skill_path")
+        _link="$claude_skills_dir/$_skill"
+
+        if [ -e "$_link" ] && [ ! -L "$_link" ]; then
+            warn "guidelines: $_link exists and is not a symlink — leaving it alone."
+            continue
+        fi
+
+        # Remove any existing symlink first so the target is always refreshed.
+        [ -L "$_link" ] && rm -f "$_link"
+
+        # Relative target keeps the link valid if the project tree is moved.
+        ln -s "../../.ai/skills/$_skill" "$_link" || die "guidelines: failed to link $_skill."
+        linked_count=$((linked_count + 1))
+    done
+fi
+
+# --- summary --------------------------------------------------------------
+
+# Trim the leading space from the accumulated list and present it comma-joined.
+written_list=$(printf '%s' "${written# }" | tr ' ' ',')
+[ -n "$written_list" ] || written_list="(none)"
+
+ok "guidelines: compiled $source_count source(s) into $written_count agent file(s): $written_list"
+info "skills linked into .claude/skills/: $linked_count"
