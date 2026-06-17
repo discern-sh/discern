@@ -8,8 +8,16 @@ on:
     tags:
       - "v*"
 
+# Default every job to read-only; the publish job opts into write below
+# (least privilege — only the step that creates the release can write).
 permissions:
-  contents: write
+  contents: read
+
+# Never run two publishes for the same tag at once, and don't interrupt one
+# mid-upload — queue a re-run instead.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -28,11 +36,13 @@ jobs:
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
+          # Cache the Deno install and module cache (keyed off deno.lock).
+          cache: true
 
       - name: Compile ${{ matrix.target }}
         run: deno task build ${{ matrix.target }}
@@ -42,7 +52,7 @@ jobs:
         run: shasum -a 256 "icculus-${{ matrix.target }}" > "icculus-${{ matrix.target }}.sha256"
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: icculus-${{ matrix.target }}
           path: |
@@ -54,21 +64,20 @@ jobs:
     name: publish release
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
+      # merge-multiple flattens every artifact straight into dist/ (each
+      # filename is already unique per target, so nothing collides) — no
+      # separate flatten step needed.
       - name: Download all build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
-          path: artifacts
-
-      - name: Flatten artifacts
-        run: |
-          mkdir -p dist
-          find artifacts -type f -exec cp {} dist/ \;
-          ls -la dist
+          path: dist
+          merge-multiple: true
 
       - name: Attach binaries to the release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
-          files: |
-            dist/icculus-*
+          files: dist/icculus-*
           fail_on_unmatched_files: true
