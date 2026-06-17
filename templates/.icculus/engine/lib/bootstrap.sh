@@ -1,3 +1,4 @@
+# shellcheck shell=sh
 # bootstrap.sh — recipe preamble. Every engine recipe sources this first:
 #
 #   #!/usr/bin/env sh
@@ -11,11 +12,19 @@
 
 # Engine dir = the directory holding the recipe that sourced us ($0). lib/ sits
 # inside it; the project root is two levels up from the engine dir.
-ICCULUS_ENGINE=${ICCULUS_ENGINE:-$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)}
+ICCULUS_ENGINE=${ICCULUS_ENGINE:-$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)}
 ICCULUS_LIB="$ICCULUS_ENGINE/lib"
-ICCULUS_ROOT=${ICCULUS_ROOT:-$(CDPATH= cd -- "$ICCULUS_ENGINE/../.." && pwd)}
+ICCULUS_ROOT=${ICCULUS_ROOT:-$(CDPATH='' cd -- "$ICCULUS_ENGINE/../.." && pwd)}
 ICCULUS_TOML=${ICCULUS_TOML:-$ICCULUS_ROOT/icculus.toml}
 export ICCULUS_ENGINE ICCULUS_LIB ICCULUS_ROOT ICCULUS_TOML
+
+# Disable pathname expansion (globbing) for the entire engine. Recipes word-split
+# config values out of `config_array` in unquoted `for` loops; with globbing on,
+# a scope pattern like "app/**" expands against the working tree and silently
+# drops nested paths from their scope (see ADR 0012). No engine recipe needs
+# globbing; one that genuinely does opts back in locally with `set +f`. This
+# affects only filename generation — case-matching and ${var} expansion are not.
+set -f
 
 if [ ! -f "$ICCULUS_TOML" ]; then
     printf 'icculus: no icculus.toml found at %s\n' "$ICCULUS_TOML" >&2
@@ -38,4 +47,4 @@ export MAIN_BRANCH="${MAIN_BRANCH:-$(config_get project.main_branch main)}"
 # Coding agents set ICCULUS_AGENT=1 (analogous to a conventional agent env flag)
 # to request compact, machine-friendly tool output. Slot commands may read it.
 # The fallback below also honours a conventional agent flag if one is already set.
-export ICCULUS_AGENT=${ICCULUS_AGENT:-${AI_AGENT:+1}}
+export ICCULUS_AGENT="${ICCULUS_AGENT:-${AI_AGENT:+1}}"

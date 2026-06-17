@@ -1,6 +1,6 @@
 {
   "kit_version": "1.0.0",
-  "generated_at": "2026-06-17T15:03:34.697Z",
+  "generated_at": "2026-06-17T18:32:37.094Z",
   "project": {
     "slug": "icculus",
     "agents": [
@@ -63,7 +63,7 @@
     },
     {
       "path": ".icculus/engine/changed-scopes",
-      "sha256": "39196cf58a8e88e0122606cca45dfe12bd171aeb467c69de6d64f8d1953eb2a5"
+      "sha256": "dd7f76a794ba41e1a061315ea8a47cf539954cb280b5bcd6df0e7e02cca0e815"
     },
     {
       "path": ".icculus/engine/doctor",
@@ -75,7 +75,7 @@
     },
     {
       "path": ".icculus/engine/evidence",
-      "sha256": "582bbee6f12edc7929203e265797395c2be9506b0fda02108646d6834958c2b5"
+      "sha256": "66d56ee216fd9a1abdf72bd0b7d1502751e4fe4322db66a8e0a7e0aaa84203e4"
     },
     {
       "path": ".icculus/engine/finish",
@@ -87,31 +87,31 @@
     },
     {
       "path": ".icculus/engine/inherit-main-env-vars",
-      "sha256": "56f456c111a4e9cc653ac1ddcb0e05c136412049083d0b69783562e5e267661d"
+      "sha256": "253d64420c23079152423a03b61a3226e9cc5f18a86d040512c63ce97afa097c"
     },
     {
       "path": ".icculus/engine/lib/bootstrap.sh",
-      "sha256": "cf2b12022ec01ccdcd3e171f870a7742c26a54e3a1ca3a2deb88050baa13adb6"
+      "sha256": "b9f231e1c3f0c5f0c635a8e0416a29f24d5c4cb6692e83f9455df4f987398b72"
     },
     {
       "path": ".icculus/engine/lib/config.sh",
-      "sha256": "7f3bfc26647f829b49f68f30a99d16ee381c0488d1a8959b62134dbd859ba844"
+      "sha256": "1e6b95d015f2009676f21f2d428fb0891cef588c5eded0447fe8a684d6943435"
     },
     {
       "path": ".icculus/engine/lib/gotchas.sh",
-      "sha256": "ff653673fdcfa745e9e93013d81120b0e034573adb9def15295387c2b768cdd8"
+      "sha256": "6c72ba8c41bf84f71c7d34d533c2ab8c3c9a6dff470655e8c96b45476a1b1a88"
     },
     {
       "path": ".icculus/engine/lib/jobs.sh",
-      "sha256": "036fc2ac511457b2f1030949a9e633fb704da418283cbf49880cede677837738"
+      "sha256": "9735377da41562a3307f6541a8e989cb780971c85f2108f44b3098bee6dd5f6c"
     },
     {
       "path": ".icculus/engine/lib/output.sh",
-      "sha256": "326f5a253fcfa7a8497fb1ddd73a36aec305c310386cfc67ed43bb801f9dca92"
+      "sha256": "d83feaf64a46413bbbe9f49e9475184fca8776ccdb6e1bcf0a1cdfb0c71da1d5"
     },
     {
       "path": ".icculus/engine/lib/ratchets.sh",
-      "sha256": "0546c95366b8b33ed4f8d470bc8148bdbd008c9134202205e54586b8c09c4288"
+      "sha256": "e6e40631979319f82c94b09abbea619a229cb98f982997e80698849c9cae6103"
     },
     {
       "path": ".icculus/engine/lib/toml.awk",
@@ -119,11 +119,11 @@
     },
     {
       "path": ".icculus/engine/lib/validate.sh",
-      "sha256": "9e9982ec2ededd07277b448fd1c08a142f22bf6644e01490c85fe55f4630d23c"
+      "sha256": "9181a5f7b8647d78a9fcf1694dbcc05cead8aaa80a0e4f0737bb780a19117e52"
     },
     {
       "path": ".icculus/engine/lib/worktree.sh",
-      "sha256": "982571d3bacef969939151fce26a8f9706f43fff4de8b9029d57f1321e75a0ee"
+      "sha256": "8e359e23c86e6c04619582424ace301609c43a53f034c19c71efbf51da064ec5"
     },
     {
       "path": ".icculus/engine/prune-git-worktrees",
@@ -155,7 +155,7 @@
     },
     {
       "path": ".icculus/engine/worktree",
-      "sha256": "1c43f95c93bfb7b368284b7ccaa34f6e3de7ae45edc524412d3ca6ab72f66b9b"
+      "sha256": "7e2bd9e5fcc2637b8cbefc25127886dea1922f8d8a59768ea172b97cdc6f709b"
     },
     {
       "path": ".icculus/engine/worktree-ensure",

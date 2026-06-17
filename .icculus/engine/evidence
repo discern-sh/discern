@@ -65,7 +65,8 @@ latest_change_mtime() {
         | cut -c4- \
         | sed 's/.* -> //; s/^"//; s/"$//' \
         | while IFS= read -r _cf; do
-            [ -n "$_cf" ] && [ -f "$ICCULUS_ROOT/$_cf" ] || continue
+            [ -n "$_cf" ] || continue
+            [ -f "$ICCULUS_ROOT/$_cf" ] || continue
             epoch_mtime "$ICCULUS_ROOT/$_cf"
         done | sort -nr | head -n 1
 }

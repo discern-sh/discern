@@ -30,3 +30,4 @@ decision is hard to reverse, surprising without context, and a real trade-off.
 - [0009 — 1.0: drop backward compatibility](0009-one-point-zero-drop-backward-compat.md)
 - [0010 — Self-host the harness](0010-self-host-the-harness.md)
 - [0011 — Adopt the worktree workflow](0011-adopt-worktree-workflow.md)
+- [0012 — Engine noglob (`set -f`) by default](0012-engine-noglob-default.md)

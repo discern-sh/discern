@@ -2,6 +2,16 @@
 # desc: classify which scopes the branch + working tree touch (config-driven)
 . "$(dirname "$0")/lib/bootstrap.sh"
 
+# Scope patterns from [scopes] carry glob metacharacters ("app/**", "*.view") and
+# are deliberately word-split unquoted in path_matches_scope below. Disable
+# pathname expansion for the whole recipe so the shell never expands a pattern
+# against the working tree: with globbing on, "app/**" collapses to the immediate
+# children of app/, so nested paths (app/StarterVision/Scene/Foo.swift) match
+# NOTHING and their scope silently never fires. set -f touches only filename
+# generation — the case-pattern matching and ${var%...} trimming this recipe
+# relies on are unaffected. Do not remove without re-quoting every split below.
+set -f
+
 # changed-scopes [--has <scope>] [--json]
 #
 # Classifies changed paths against the [scopes] config. It answers

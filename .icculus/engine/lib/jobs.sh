@@ -1,3 +1,4 @@
+# shellcheck shell=sh
 # jobs.sh — a tiny, dependency-free POSIX job runner (no external
 # 'concurrently'-style tool needed). It runs labelled commands — concurrently
 # (run_parallel) or one at a time (run_serial) — captures each one's combined

@@ -1,3 +1,4 @@
+# shellcheck shell=sh
 # worktree.sh — shared helpers for the worktree lifecycle recipes.
 #
 # Sourced (never executed) by the worktree-* recipes after bootstrap.sh, so the
@@ -35,7 +36,7 @@ main_repo_path() {
     _wt_main=$("$_wt_git" worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p' | head -1)
     [ -n "$_wt_main" ] || return 1
     [ -d "$_wt_main" ] || return 1
-    (CDPATH= cd -- "$_wt_main" && pwd -P)
+    (CDPATH='' cd -- "$_wt_main" && pwd -P)
 }
 
 # Resolve a single adapter token to its value for the current worktree. Lazily

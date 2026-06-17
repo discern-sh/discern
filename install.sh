@@ -29,10 +29,8 @@ die() { printf '%s✗%s %s\n' "$RED" "$RESET" "$1" >&2; exit 1; }
 
 # --- detect a downloader --------------------------------------------------
 if command -v curl >/dev/null 2>&1; then
-    DL="curl -fsSL"
     DL_OUT="curl -fsSL -o"
 elif command -v wget >/dev/null 2>&1; then
-    DL="wget -qO-"
     DL_OUT="wget -qO"
 else
     die "need curl or wget to download icculus."

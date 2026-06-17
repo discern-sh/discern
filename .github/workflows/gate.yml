@@ -10,18 +10,81 @@ on:
     branches: [main]
   pull_request:
 
+# The gate only ever reads the repo; grant nothing more (least privilege).
+permissions:
+  contents: read
+
+# A newer commit supersedes an in-flight run on the same ref. Cancel the stale
+# run on pull requests; let main runs finish so every landed commit is gated.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   gate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
+          # Cache the Deno install and module cache (keyed off deno.lock) so the
+          # gate stops re-downloading every dependency on each run.
+          cache: true
+
+      # Pin shellcheck so the `shellcheck` gate slot is reproducible. The runner
+      # image's preinstalled shellcheck drifts and lags a fresh local install, so
+      # "clean locally" would not reliably mean "clean in CI" — it bit us once on
+      # an info-level SC2015 idiom the newer local shellcheck had stopped flagging.
+      # Bump deliberately; match it locally (same release) if you hit a skew.
+      - name: Pin shellcheck
+        run: |
+          sc=v0.11.0
+          curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/${sc}/shellcheck-${sc}.linux.x86_64.tar.xz" | tar -xJ
+          mkdir -p "$HOME/.local/bin"
+          mv "shellcheck-${sc}/shellcheck" "$HOME/.local/bin/shellcheck"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/shellcheck" --version
 
       - name: Run the gate
         run: ./bin/agent finish
 
       - name: Assert a clean tree (the fix phase must change nothing in CI)
         run: git diff --exit-code
+
+  engine-shells:
+    # The engine recipes run under `#!/usr/bin/env sh`, which resolves to
+    # whatever `sh` is first on PATH — dash on Debian/Ubuntu, bash-as-sh on
+    # macOS, busybox ash elsewhere. Those shells disagree at the edges (e.g. an
+    # unquoted expansion is pathname-expanded under dash/bash but not zsh), and
+    # that divergence is exactly where silent portability bugs hide. Run the
+    # engine tests under both a strict POSIX shell (dash) and bash-in-POSIX-mode
+    # so a shell-specific regression fails CI here, not on a user's machine.
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        sh: [dash, bash]
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+          cache: true
+
+      # Point `sh` at the matrix shell by putting a symlink first on PATH, so
+      # the recipes' `#!/usr/bin/env sh` shebang resolves to it. bash invoked as
+      # `sh` enters POSIX mode, faithfully reproducing macOS's /bin/sh.
+      - name: Make `sh` resolve to ${{ matrix.sh }}
+        run: |
+          mkdir -p "$HOME/shim"
+          ln -sf "$(command -v ${{ matrix.sh }})" "$HOME/shim/sh"
+          echo "$HOME/shim" >> "$GITHUB_PATH"
+
+      - name: Confirm the interpreter
+        run: sh -c 'echo "sh -> $(command -v sh) -> $(readlink -f "$(command -v sh)")"'
+
+      - name: Engine tests under ${{ matrix.sh }}
+        run: deno test --allow-read --allow-write --allow-env --allow-run tests/engine_*_test.ts

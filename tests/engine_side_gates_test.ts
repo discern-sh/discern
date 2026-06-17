@@ -66,6 +66,34 @@ Deno.test("side-gates: a gate fires (grouped + labelled) when its scope changed"
   });
 });
 
+Deno.test("side-gates: a gate fires for a NESTED path, not just a direct child of its scope dir", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      sideGateConfig("echo WIDGET-GATE-RAN", "echo GADGET-GATE-RAN"),
+    );
+    await gitInit(dir);
+    // A change nested several levels under widget/, with widget/ present at the
+    // repo root. The scope glob is "widget/**": if changed-scopes lets the shell
+    // pathname-expand it against the working tree, it collapses to the direct
+    // child "widget/sub" and this deeper file matches nothing — silently skipping
+    // the gate. The gate firing here is the guard that pattern matching stays
+    // literal (i.e. set -f in changed-scopes). Real source lives nested, so this
+    // is the case that bit a Swift sub-app's side-gate in the field.
+    await touch(dir, "widget/sub/deep/x.txt");
+
+    const r = await runAgent(dir, ["finish"]);
+    assertEquals(r.code, 0, r.output);
+    assertStringIncludes(r.stdout, "side:widget");
+    assertStringIncludes(r.stdout, "WIDGET-GATE-RAN");
+    assert(
+      !r.output.includes("GADGET-GATE-RAN"),
+      "an unchanged scope's side-gate must not run",
+    );
+  });
+});
+
 Deno.test("side-gates: no gate fires when only an unrelated scope changed", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
