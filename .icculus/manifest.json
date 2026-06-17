@@ -1,6 +1,6 @@
 {
   "kit_version": "1.0.0",
-  "generated_at": "2026-06-17T15:03:34.697Z",
+  "generated_at": "2026-06-17T17:20:50.704Z",
   "project": {
     "slug": "icculus",
     "agents": [
@@ -63,7 +63,7 @@
     },
     {
       "path": ".icculus/engine/changed-scopes",
-      "sha256": "39196cf58a8e88e0122606cca45dfe12bd171aeb467c69de6d64f8d1953eb2a5"
+      "sha256": "dd7f76a794ba41e1a061315ea8a47cf539954cb280b5bcd6df0e7e02cca0e815"
     },
     {
       "path": ".icculus/engine/doctor",
