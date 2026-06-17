@@ -70,6 +70,14 @@ longer reads — which would otherwise pass unnoticed at upgrade time; `upgrade`
 still succeeds (the nudge is advisory), while `doctor` reports it as a fixable
 finding.
 
+> **Update ([ADR 0014](0014-versioned-migration-system.md)).** This one-shot,
+> content-sniffing `migrate` was retired in favour of a versioned migration
+> chain anchored on a `schema_version`. `upgrade` now runs pending migrations
+> automatically (no nudge), and `migrate` became a read-only status command. The
+> 0.x→1.0 rules above were not ported: the current shape is declared schema 1
+> and the chain starts clean. The rest of this ADR (the 1.0 shape itself)
+> stands.
+
 The kit version moves to **1.0.0**.
 
 ## Consequences
