@@ -1,6 +1,6 @@
 # Working in the icculus repo
 
-icculus is a portable, stack-neutral **agentic-development harness**: one command scaffolds a quality gate, an isolated git-worktree workflow, an author-once→compile-everywhere agent-instruction pipeline, and a docs/ADR discipline into any project. **This repo is both the tool and a user of it — it dogfoods its own harness.**
+icculus is a portable, stack-neutral **agentic-development harness**: one command scaffolds a quality gate, an isolated git-worktree workflow, an author-once→compile-everywhere agent-instruction pipeline, and a docs/ADR discipline into any project. **This repo is both the tool and a user of it — it installs and runs on its own harness.**
 
 ## The two halves
 - **`src/`** — the Deno/TypeScript installer (`init`, `upgrade`, `doctor`, `migrate`, `config`, `add-adapter`). Compiled to `dist/` via `deno task build`.

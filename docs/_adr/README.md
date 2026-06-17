@@ -6,8 +6,8 @@ that forced it, and the reasoning behind it.
 
 icculus _ships_ the ADR discipline to the projects it scaffolds
 ([`templates/docs/_adr/`](../../templates/docs/_adr/)). This directory is
-icculus eating its own cooking — recording the decisions behind the engine and
-installer here, in the same format.
+icculus applying that discipline to itself — recording the decisions behind the
+engine and installer here, in the same format.
 
 **The canonical ADR format is the one icculus ships:**
 [`templates/docs/_adr/README.md`](../../templates/docs/_adr/README.md), with the
@@ -28,3 +28,5 @@ decision is hard to reverse, surprising without context, and a real trade-off.
 - [0007 — Adapter contract](0007-adapter-contract.md)
 - [0008 — Declarative managed-set](0008-declarative-managed-set.md)
 - [0009 — 1.0: drop backward compatibility](0009-one-point-zero-drop-backward-compat.md)
+- [0010 — Self-host the harness](0010-self-host-the-harness.md)
+- [0011 — Adopt the worktree workflow](0011-adopt-worktree-workflow.md)

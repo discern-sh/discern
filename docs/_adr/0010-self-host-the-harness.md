@@ -1,4 +1,4 @@
-# ADR 0010: Dogfood the harness — install icculus into its own repo
+# ADR 0010: Self-host the harness — install icculus into its own repo
 
 **Status**: accepted
 
@@ -7,7 +7,7 @@
 icculus is an agentic-development harness in two halves: a Deno/TypeScript
 installer (`src/`) and the POSIX-shell harness it installs (`templates/`, the
 source of truth). Until now the repo was **not** self-installed — there was no
-root `icculus.toml`, `bin/agent`, or `.icculus/`. The README's "Dogfooding"
+root `icculus.toml`, `bin/agent`, or `.icculus/`. The README's self-hosting
 section was therefore aspirational: the repo's real gate was the local
 convention `deno fmt && deno lint && deno check src/main.ts && deno task test`,
 and CI only built release binaries.
@@ -45,7 +45,7 @@ Install the harness into the repo and make `./bin/agent finish` the repo's gate.
 - **Guidance via the pipeline.** Agent guidance is authored in
   `.ai/guidelines/icculus.md` (a seed) and compiled by `agent guidelines` into
   `AGENTS.md` (tracked) and `CLAUDE.md` (generated, gitignored).
-- **CI runs the dogfooded gate** (`agent finish`) on push and PR, with a
+- **CI runs the repo's own gate** (`agent finish`) on push and PR, with a
   trailing `git diff --exit-code` so the auto-fixing `fix` phase becomes a hard
   check.
 - **fmt/lint exclude the managed artifacts** (`.icculus/`, `.ai/`, `AGENTS.md`,
@@ -58,7 +58,7 @@ Install the harness into the repo and make `./bin/agent finish` the repo's gate.
   (the source the test suite runs) and `.icculus/engine/**` (the installed copy
   that gates this repo). The `selfcheck` gate plus the golden rule keep them
   identical; the cost is the discipline of editing `templates/` and syncing.
-- The gate dogfoods itself: `agent finish` runs `deno task test`, whose
+- The gate runs on itself: `agent finish` runs `deno task test`, whose
   `engine_*` tests shell out to `agent finish`. This nesting immediately
   surfaced a real bug — `finish` exported the `fail_fast`/`stream` env vars only
   when on and never cleared them, so a nested gate inherited the parent's value
@@ -79,8 +79,8 @@ Install the harness into the repo and make `./bin/agent finish` the repo's gate.
 ## Alternatives considered
 
 - **Symlink the install to `templates/`.** Simplest to keep in sync, but it
-  bypasses the real copy/`upgrade` machinery — the thing most worth dogfooding —
-  and no installed project works that way. Rejected.
+  bypasses the real copy/`upgrade` machinery — the part most worth validating in
+  real use — and no installed project works that way. Rejected.
 - **Generate the install on demand, don't commit it.** Avoids the second engine
   copy, but adds a cold-start build step before the gate can run and makes the
   install invisible in the tree and in review. Rejected in favour of a committed

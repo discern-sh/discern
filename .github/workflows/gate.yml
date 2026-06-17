@@ -1,6 +1,6 @@
 name: gate
 
-# Run the repo's own dogfooded quality gate — the same `./bin/agent finish`
+# Run the repo's own quality gate — the same `./bin/agent finish`
 # developers run — on every push to main and every pull request. The trailing
 # `git diff --exit-code` turns the auto-fixing `fix` phase (deno fmt) into a hard
 # check: CI fixes nothing, it only verifies the committed tree is already clean.
@@ -20,7 +20,7 @@ jobs:
         with:
           deno-version: v2.x
 
-      - name: Run the dogfooded gate
+      - name: Run the gate
         run: ./bin/agent finish
 
       - name: Assert a clean tree (the fix phase must change nothing in CI)

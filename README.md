@@ -146,7 +146,7 @@ run   = "deno task test"
 
 With those four slots filled, `agent finish` formats, lints, type-checks, and
 runs the suite in this exact parallel phase shape. (This repo is gated exactly
-this way — see _Dogfooding_ below.)
+this way — see _Self-hosting_ below.)
 
 ### Scopes — what a change touches
 
@@ -499,12 +499,14 @@ is `null`).
 
 ---
 
-## Dogfooding
+## Self-hosting
 
-This repository **is installed with its own harness**: `icculus init` was run at
-the root, so `bin/agent`, the `.icculus/` engine, and the `.ai/` skills live
-here as a committed copy of `templates/`. The repo's day-to-day quality gate is
-the dogfooded one (see [ADR 0010](docs/_adr/0010-dogfood-the-harness.md)):
+This repository **is installed with its own harness** — icculus develops on the
+same kit it ships (the practice usually called _dogfooding_). `icculus init` was
+run at the root, so `bin/agent`, the `.icculus/` engine, and the `.ai/` skills
+live here as a committed copy of `templates/`. The repo's day-to-day quality
+gate is `agent finish` itself (see
+[ADR 0010](docs/_adr/0010-self-host-the-harness.md)):
 
 ```sh
 ./bin/agent finish   # deno fmt (fix) → deno lint + deno check + deno task selfcheck (check) ∥ deno task test (test)
@@ -525,8 +527,8 @@ The installer↔install lifecycle — `init` → `finish` → `upgrade` (drift d
 and healing included) — is also exercised hermetically by the test suite
 (`deno task test` scaffolds the real `templates/` into temp dirs and shells out
 to `bin/agent`), so a `templates/` change is validated whether or not the root
-install is synced yet. CI runs the dogfooded gate (`agent finish`) on every push
-and PR.
+install is synced yet. CI runs the same gate (`agent finish`) on every push and
+PR.
 
 ---
 
