@@ -118,11 +118,16 @@ function buildCli() {
       "Refresh managed engine files (hash-aware; never clobbers edits).",
     )
     .option("--dry-run", "Print the plan and write nothing.")
+    .option(
+      "--check",
+      "Report drift (managed files out of sync) and exit non-zero; write nothing.",
+    )
     .action(async (options) => {
       const code = await runUpgrade({
         json: options.json ?? false,
         noColor: noColorFrom(options.color),
         dryRun: options.dryRun ?? false,
+        check: options.check ?? false,
       });
       Deno.exit(code);
     });
