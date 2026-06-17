@@ -40,11 +40,7 @@ import {
   type Migration,
   pendingMigrations,
 } from "../lib/migrations.ts";
-import {
-  planToJson,
-  renderPlan,
-  renderUpgradeSummary,
-} from "../lib/plan_view.ts";
+import { planToJson, renderUpgradeSummary } from "../lib/plan_view.ts";
 
 /** Options accepted by the `upgrade` command. */
 export interface UpgradeOptions {
@@ -283,7 +279,24 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
         }
         log.line();
       }
-      renderPlan(log, plan, "Dry run — `upgrade` would perform:");
+      // Group the plan exactly as the post-apply summary does, so a dry run
+      // reads the same way (not a flat, intermingled list).
+      const wouldRefresh = plan.ops.filter((op) =>
+        op.managed &&
+        (op.disposition === "overwrite" || op.disposition === "create")
+      );
+      const upToDate = plan.ops.filter((op) =>
+        op.managed && op.disposition === "skip"
+      );
+      const toRemove = plan.ops.filter((op) => op.disposition === "remove");
+      renderUpgradeSummary(
+        log,
+        wouldRefresh,
+        upToDate,
+        newFilesFromPlan(plan),
+        toRemove,
+        { dryRun: true },
+      );
       log.line();
       log.info("No files were written (--dry-run).");
     }

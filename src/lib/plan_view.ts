@@ -232,14 +232,21 @@ export function renderReview(log: Logger, plan: Plan, destDir: string): void {
  * identically: the user is told exactly which files were kept and the path of
  * the kit copy they can diff against. No-op when nothing was preserved.
  */
-export function renderNewFilesSummary(log: Logger, newFiles: PlanOp[]): void {
+export function renderNewFilesSummary(
+  log: Logger,
+  newFiles: PlanOp[],
+  opts: { dryRun?: boolean } = {},
+): void {
   if (newFiles.length === 0) {
     return;
   }
+  const dry = opts.dryRun ?? false;
   log.warn(
-    `kept your version of ${newFiles.length} managed file${
-      newFiles.length === 1 ? "" : "s"
-    }; the kit's copy was written alongside:`,
+    `${
+      dry ? "would keep" : "kept"
+    } your version of ${newFiles.length} managed ${
+      newFiles.length === 1 ? "file" : "files"
+    }; the kit's copy ${dry ? "would be" : "was"} written alongside:`,
   );
   for (const op of newFiles) {
     log.detail(
@@ -250,32 +257,46 @@ export function renderNewFilesSummary(log: Logger, newFiles: PlanOp[]): void {
   }
 }
 
-/** Render the post-apply change summary used by `upgrade`. */
+/**
+ * Render the grouped change summary for `upgrade`. The same renderer drives the
+ * post-apply summary and the `--dry-run` preview (`opts.dryRun` only switches the
+ * heading and verb tense), so a dry run reads exactly like the real thing.
+ *
+ * Order is deliberate: the unchanged ("already up to date") bulk comes first, so
+ * the files that actually changed — refreshed, removed, kept-as-`.new` — land at
+ * the bottom of the output, where the developer's eye already is.
+ */
 export function renderUpgradeSummary(
   log: Logger,
   refreshed: PlanOp[],
   preserved: PlanOp[],
   newFiles: PlanOp[],
   removed: PlanOp[] = [],
+  opts: { dryRun?: boolean } = {},
 ): void {
-  log.heading("Upgrade summary");
-  log.ok(`refreshed: ${refreshed.length}`);
-  for (const op of refreshed) {
-    log.detail(op.targetRel);
-  }
+  const dry = opts.dryRun ?? false;
+  log.heading(dry ? "Dry run — `upgrade` would perform:" : "Upgrade summary");
   if (preserved.length > 0) {
     log.info(`already up to date: ${preserved.length}`);
     for (const op of preserved) {
       log.detail(op.targetRel);
     }
   }
+  log.ok(`${dry ? "would refresh" : "refreshed"}: ${refreshed.length}`);
+  for (const op of refreshed) {
+    log.detail(op.targetRel);
+  }
   if (removed.length > 0) {
-    log.info(`removed (no longer shipped): ${removed.length}`);
+    log.info(
+      `${
+        dry ? "would remove" : "removed"
+      } (no longer shipped): ${removed.length}`,
+    );
     for (const op of removed) {
       log.detail(op.targetRel);
     }
   }
-  renderNewFilesSummary(log, newFiles);
+  renderNewFilesSummary(log, newFiles, { dryRun: dry });
 }
 
 /** A JSON-friendly shape for one op (used by `--json`). */
