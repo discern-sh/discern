@@ -18,6 +18,14 @@ ICCULUS_ROOT=${ICCULUS_ROOT:-$(CDPATH='' cd -- "$ICCULUS_ENGINE/../.." && pwd)}
 ICCULUS_TOML=${ICCULUS_TOML:-$ICCULUS_ROOT/icculus.toml}
 export ICCULUS_ENGINE ICCULUS_LIB ICCULUS_ROOT ICCULUS_TOML
 
+# Disable pathname expansion (globbing) for the entire engine. Recipes word-split
+# config values out of `config_array` in unquoted `for` loops; with globbing on,
+# a scope pattern like "app/**" expands against the working tree and silently
+# drops nested paths from their scope (see ADR 0012). No engine recipe needs
+# globbing; one that genuinely does opts back in locally with `set +f`. This
+# affects only filename generation — case-matching and ${var} expansion are not.
+set -f
+
 if [ ! -f "$ICCULUS_TOML" ]; then
     printf 'icculus: no icculus.toml found at %s\n' "$ICCULUS_TOML" >&2
     exit 1

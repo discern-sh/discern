@@ -1,6 +1,6 @@
 {
   "kit_version": "1.0.0",
-  "generated_at": "2026-06-17T18:08:56.784Z",
+  "generated_at": "2026-06-17T18:18:08.585Z",
   "project": {
     "slug": "icculus",
     "agents": [
@@ -91,7 +91,7 @@
     },
     {
       "path": ".icculus/engine/lib/bootstrap.sh",
-      "sha256": "b829c45f69977f756a878b13c36417964a9852bf71ccec2946985000e6fa2887"
+      "sha256": "b9f231e1c3f0c5f0c635a8e0416a29f24d5c4cb6692e83f9455df4f987398b72"
     },
     {
       "path": ".icculus/engine/lib/config.sh",
