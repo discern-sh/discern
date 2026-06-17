@@ -11,6 +11,7 @@
 
 import { join } from "@std/path";
 import { Logger } from "../lib/log.ts";
+import { selfCmd } from "../lib/invocation.ts";
 import { resolveTemplatesDir } from "../lib/paths.ts";
 import { parseIcculusToml } from "../lib/toml_render.ts";
 import { DEFAULTS, type InitConfig, tokensFromConfig } from "../lib/config.ts";
@@ -188,7 +189,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
         log.detail(`${canonical(op.targetRel)} (${op.disposition})`);
       }
       log.line();
-      log.info("Heal it: run `deno task selfsync` (≡ `icculus upgrade`).");
+      log.info(`Heal it: run \`${await selfCmd("sync")}\`.`);
     }
     return drifted.length === 0 ? 0 : 1;
   }
