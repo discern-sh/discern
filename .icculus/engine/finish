@@ -1,0 +1,332 @@
+#!/usr/bin/env sh
+# desc: the full quality gate — fix+build, then check+test, side gates, merge
+. "$(dirname "$0")/lib/bootstrap.sh"
+
+# finish — run everything before handing work back: apply fixers and build
+# artifacts, then run read-only checks alongside the test suite, fire any side
+# gates whose scope changed, and finally confirm the branch carries main.
+#
+# Stack-specific commands are read from [slots], not hardcoded. The phase order
+# is:
+#
+#   evidence check (when enabled)
+#   fix                   run_serial over the fix slots (ordered, mutating)
+#   build                 run_parallel over the build slots
+#   check ∥ test          run_parallel over the check + test slots
+#   side gates            run each [scopes.side_gates] for a changed scope
+#   assert-main-merged    confirm the branch carries main (when present)
+#   ratchet reminder      print when any [ratchets.<name>] is configured
+#   preview line          print when a previewable scope changed and a link is set
+#
+# Each SLOT runs as its OWN labelled job (`<phase>:<slot>`), so a failure — and
+# the --json report — is attributed to the precise slot, not a whole phase. The
+# mutating fix slots run serially in declaration order; build runs after fix;
+# check and test run together. On any failure in the GATED phases, an EXIT trap
+# prints the gotchas pointer (single-sourced from lib/gotchas.sh, shared with
+# `with-gotchas`) and the exact exit code is preserved.
+
+# shellcheck source=lib/gotchas.sh
+. "$ICCULUS_LIB/gotchas.sh"
+
+# --- arguments ------------------------------------------------------------
+
+# --json emits a single machine-readable object on stdout (per-phase and
+# per-side-gate result, durations, scopes changed, the failed stage) with all
+# human output routed to stderr. See ADR 0004.
+as_json=0
+case "${1:-}" in
+    --json) as_json=1 ;;
+    -h | --help) printf 'Usage: finish [--json]\n'; exit 0 ;;
+    "") ;;
+    *) die "finish: unknown argument '$1'." ;;
+esac
+
+# In --json mode, collect each phase/side-gate result through run_parallel's
+# structured side channel, and redirect stdout -> stderr so only the final JSON
+# lands on real stdout (saved on fd 3). Human mode leaves stdout untouched.
+JOBS_RESULTS=""
+if [ "$as_json" -eq 1 ]; then
+    JOBS_RESULTS=$(mktemp "${TMPDIR:-/tmp}/icculus-finish.XXXXXX") || die "finish: mktemp failed."
+    export ICCULUS_JOBS_RESULTS="$JOBS_RESULTS"
+    # shellcheck source=lib/validate.sh
+    . "$ICCULUS_LIB/validate.sh"   # validate_json_escape for scope names
+    exec 3>&1 1>&2
+fi
+
+# --- gotchas pointer + JSON report on exit --------------------------------
+
+# Set to 1 only while a gated phase is running; the EXIT trap prints the pointer
+# only when we die during one of those phases (not on a clean exit, and not
+# during the informational tail). In --json mode the pointer is suppressed — the
+# JSON object is the machine-readable guidance.
+in_gated_phase=0
+
+on_exit() {
+    _oe_code=$?
+    [ -n "$JOBS_RESULTS" ] && rm -f "$JOBS_RESULTS"
+    if [ "$_oe_code" -ne 0 ] && [ "$in_gated_phase" -eq 1 ] && [ "$as_json" -ne 1 ]; then
+        gotchas_hint
+    fi
+    exit "$_oe_code"
+}
+trap on_exit EXIT
+
+# Emit the JSON gate report to the saved stdout (fd 3). $1 is the exit code (0 =
+# ok), $2 the failed-stage name (empty on success). Reports per-SLOT results
+# (the execution unit — each [slots.<name>] runs as its own job) and
+# per-side-gate results, plus the scopes that changed.
+emit_json_report() {
+    _ej_ok=$([ "$1" -eq 0 ] && printf 'true' || printf 'false')
+    _ej_stage=${2:-}
+
+    # Per-slot results, in canonical phase order then declaration order. A no-op
+    # slot is "noop"; a real slot with no result line was "skipped" (its stage
+    # aborted before it ran — a failed serial fixer, or a fail-fast cancellation).
+    _ej_slots=""
+    for _ej_ph in fix build check test; do
+        for _ej_slot in $(config_subsections slots); do
+            [ "$(config_get "slots.$_ej_slot.phase")" = "$_ej_ph" ] || continue
+            if config_slot_is_noop "slots.$_ej_slot.run"; then
+                _ej_status="noop"
+                _ej_dur=0
+            else
+                _ej_line=$(awk -F'\t' -v l="$_ej_ph:$_ej_slot" '$1 == l { print $2 " " $3; exit }' "$JOBS_RESULTS" 2>/dev/null)
+                if [ -n "$_ej_line" ]; then
+                    _ej_code=${_ej_line% *}
+                    _ej_dur=${_ej_line#* }
+                    [ "$_ej_code" = "0" ] && _ej_status="ok" || _ej_status="failed"
+                else
+                    _ej_status="skipped"
+                    _ej_dur=0
+                fi
+            fi
+            _ej_nm=$(validate_json_escape "$_ej_slot")
+            _ej_slots="${_ej_slots:+$_ej_slots,}$(printf '{"name":"%s","phase":"%s","status":"%s","duration_s":%s}' "$_ej_nm" "$_ej_ph" "$_ej_status" "${_ej_dur:-0}")"
+        done
+    done
+
+    # Side gates: fired ones from the results file, plus configured-but-unchanged
+    # ones as "skipped" — the what-ran-vs-skipped-by-scope view.
+    _ej_gates=""
+    if config_has scopes.side_gates; then
+        for _ej_scope in $(config_keys scopes.side_gates); do
+            _ej_cmd=$(config_get "scopes.side_gates.$_ej_scope" "")
+            [ -n "$_ej_cmd" ] || continue
+            _ej_line=$(awk -F'\t' -v l="side:$_ej_scope" '$1 == l { print $2 " " $3; exit }' "$JOBS_RESULTS" 2>/dev/null)
+            if [ -n "$_ej_line" ]; then
+                _ej_code=${_ej_line% *}
+                _ej_dur=${_ej_line#* }
+                _ej_status=$([ "$_ej_code" = "0" ] && printf 'ok' || printf 'failed')
+            else
+                _ej_status="skipped"
+                _ej_dur=0
+            fi
+            _ej_sc=$(validate_json_escape "$_ej_scope")
+            _ej_gates="${_ej_gates:+$_ej_gates,}$(printf '{"scope":"%s","status":"%s","duration_s":%s}' "$_ej_sc" "$_ej_status" "${_ej_dur:-0}")"
+        done
+    fi
+
+    _ej_changed=$("$ICCULUS_ENGINE/changed-scopes" --json 2>/dev/null || printf '[]')
+    if [ -n "$_ej_stage" ]; then
+        _ej_stage_json="\"$_ej_stage\""
+    else
+        _ej_stage_json="null"
+    fi
+
+    printf '{"ok":%s,"slots":[%s],"side_gates":[%s],"scopes_changed":%s,"failed_stage":%s}\n' \
+        "$_ej_ok" "$_ej_slots" "$_ej_gates" "$_ej_changed" "$_ej_stage_json" >&3
+}
+
+# End the run: in --json mode emit the report; always exit with $1. $2 = failed
+# stage (empty on success).
+finish_done() {
+    [ "$as_json" -eq 1 ] && emit_json_report "$1" "${2:-}"
+    exit "$1"
+}
+
+# A gated phase failed. In --json mode emit the report and exit; otherwise die
+# with the human message. in_gated_phase stays 1 so the EXIT trap adds the gotchas
+# pointer (the trap suppresses it in --json mode, where the JSON is the guidance).
+fail_phase() {
+    [ "$as_json" -eq 1 ] && finish_done 1 "$2"
+    die "$1"
+}
+
+# --- gate ergonomics (ADR 0006) -------------------------------------------
+#
+# fail_fast defaults ON: an agent-driven gate wants to abort the moment a job
+# fails, not burn wall-clock finishing a slow sibling. Set [gate].fail_fast =
+# false to run every job to completion (and see all failures at once). stream
+# stays opt-in (live interleaved output trades legibility for immediacy). Read
+# once and exported, so they apply to every parallel stage, side gates included.
+config_bool gate.stream && export ICCULUS_GATE_STREAM=1
+[ "$(config_get gate.fail_fast true)" != "false" ] && export ICCULUS_GATE_FAIL_FAST=1
+
+# --- pre-checks (fail fast) -----------------------------------------------
+
+# Optional work-evidence gate, before any slow work. evidence check is a no-op
+# unless [evidence].enabled is true.
+if config_bool evidence.enabled; then
+    in_gated_phase=1
+    "$ICCULUS_ENGINE/evidence" check || fail_phase "Work evidence is missing or stale — capture it, then re-run." "evidence"
+    in_gated_phase=0
+fi
+
+# --- fix (serial, mutating) -----------------------------------------------
+#
+# Each slot is its own labelled job (`<phase>:<slot>`). The fix slots run one at
+# a time, in declaration order, because they mutate the tree and a later fixer
+# may depend on an earlier one's edits. A stage with no real slots is skipped.
+
+set --
+for _slot in $(slots_in_phase fix); do
+    set -- "$@" "fix:$_slot" "$(config_get "slots.$_slot.run")"
+done
+if [ "$#" -gt 0 ]; then
+    heading "Applying fixers..."
+    in_gated_phase=1
+    run_serial "$@" || fail_phase "The fix phase failed." "fix"
+    in_gated_phase=0
+fi
+
+# --- build (parallel) -----------------------------------------------------
+
+set --
+for _slot in $(slots_in_phase build); do
+    set -- "$@" "build:$_slot" "$(config_get "slots.$_slot.run")"
+done
+if [ "$#" -gt 0 ]; then
+    heading "Building artifacts..."
+    in_gated_phase=1
+    run_parallel "$@" || fail_phase "The build phase failed." "build"
+    in_gated_phase=0
+fi
+
+# --- check + test (parallel together) -------------------------------------
+#
+# Read-only checks and the test suite are independent, so they run concurrently
+# — after build, so both see its artifacts.
+
+set --
+for _slot in $(slots_in_phase check); do
+    set -- "$@" "check:$_slot" "$(config_get "slots.$_slot.run")"
+done
+for _slot in $(slots_in_phase test); do
+    set -- "$@" "test:$_slot" "$(config_get "slots.$_slot.run")"
+done
+if [ "$#" -gt 0 ]; then
+    heading "Checking and testing..."
+    in_gated_phase=1
+    run_parallel "$@" || fail_phase "The check/test phase failed." "check/test"
+    in_gated_phase=0
+fi
+
+# --- side gates (run a gate when its scope changed) -----------------------
+
+# [scopes.side_gates] maps a scope name to a command — the way a sub-component
+# with its OWN self-contained gate plugs into `agent finish` (e.g. a native
+# sub-app gating its own build). Each fires only when the branch actually changed
+# its scope. They run with the SAME model as the slot phases above: every fired
+# gate runs concurrently via run_parallel, output is grouped and labelled
+# `side:<scope>`, and a single failure fails the gate (all gates still run, so you
+# see every failure at once). They run AFTER the main phases, so a side gate may
+# rely on fix/build having completed. See ADR 0002.
+if config_has scopes.side_gates; then
+    changed=$("$ICCULUS_ENGINE/changed-scopes" 2>/dev/null || printf '')
+    # Collect the fired gates into a label/command argument list. `set --` makes
+    # each (label, command) a discrete positional pair, so a command containing
+    # spaces survives intact into run_parallel. `finish` takes no arguments of its
+    # own, so reusing the positional params here is safe.
+    set --
+    for scope in $(config_keys scopes.side_gates); do
+        # Did this scope change? (substring test against the newline list)
+        case "
+$changed
+" in
+            *"
+$scope
+"*) ;;
+            *) continue ;;
+        esac
+        gate_cmd=$(config_get "scopes.side_gates.$scope" "")
+        [ -n "$gate_cmd" ] || continue
+        set -- "$@" "side:$scope" "$gate_cmd"
+    done
+    if [ "$#" -gt 0 ]; then
+        heading "Running side gates for changed scopes..."
+        in_gated_phase=1
+        run_parallel "$@" || fail_phase "One or more side gates failed." "side_gates"
+        in_gated_phase=0
+    fi
+fi
+
+# --- merge check (worktree support, optional) -----------------------------
+
+# assert-main-merged is provided by the worktree recipe set. It is a no-op in
+# the main checkout and fails only when the branch is behind main. Guarded so
+# finish works even when worktree support is not installed.
+if [ -x "$ICCULUS_ENGINE/assert-main-merged" ]; then
+    in_gated_phase=1
+    "$ICCULUS_ENGINE/assert-main-merged" || fail_phase "Integrate main, then re-run finish." "merge"
+    in_gated_phase=0
+fi
+
+# --- success --------------------------------------------------------------
+
+# In --json mode the machine report IS the whole output: emit it and stop before
+# the human informational tail below.
+[ "$as_json" -eq 1 ] && finish_done 0
+
+# --- informational tail ---------------------------------------------------
+#
+# Past this point nothing is gated: failures below must not abort the gate (the
+# work already passed), so the tail only prints guidance.
+
+# How much of the gate was real? `slots_for_phase` returns exactly ":" for a
+# phase with no real slot, so a phase is a no-op precisely when it equals ":".
+# An empty gate (all four gated phases no-op) ran nothing — saying "everything
+# passed" would be false confidence, so we say so plainly and keep exit 0 (an
+# unfilled gate is not a failure). When only some phases are no-ops, the gate
+# did real work; we still nudge once about the unfilled ones.
+unfilled_phases=0
+for _phase in fix build check test; do
+    [ "$(slots_for_phase "$_phase")" = ":" ] && unfilled_phases=$((unfilled_phases + 1))
+done
+
+if [ "$unfilled_phases" -eq 4 ]; then
+    ok "Gate passed — but every tool slot is a no-op, so nothing was actually checked."
+    warn "Fill [slots] in icculus.toml (or run /bootstrap) to wire your format/lint/test commands."
+else
+    ok "Everything built and all checks passed."
+    if [ "$unfilled_phases" -gt 0 ]; then
+        info "${C_DIM}note: $unfilled_phases of 4 gate phases are still no-ops.${C_RESET}"
+    fi
+    info "If you changed something meaningful, update the docs to match before you finish."
+fi
+
+# Ratchet reminder: ratchets (coverage, bundle size, lint counts, …) are slow, so
+# they run on demand via `agent ratchets`, not as part of finish. Nudge once when
+# any [ratchets.<name>] is configured.
+if config_subsections ratchets | grep -q .; then
+    info "Before pushing, hold the ratchets: ${C_BOLD}agent ratchets${C_RESET} (slow, so not part of finish)."
+fi
+
+# Preview line: only when a previewable scope changed AND a dev-server link is
+# configured. Informational only — we surface whatever the worktree recipes can
+# tell us about this worktree's served site/port, guarded by existence checks.
+if [ -n "$(config_get worktree.dev_server.link '')" ] \
+    && "$ICCULUS_ENGINE/changed-scopes" --has previewable 2>/dev/null; then
+    site=""
+    port=""
+    if [ -x "$ICCULUS_ENGINE/worktree-name" ]; then
+        site=$("$ICCULUS_ENGINE/worktree-name" --site 2>/dev/null || printf '')
+        port=$("$ICCULUS_ENGINE/worktree-name" --port 2>/dev/null || printf '')
+    fi
+    if [ -n "$site" ]; then
+        info "Preview this worktree at its dev-server site: ${C_BOLD}${site}${C_RESET}"
+    elif [ -n "$port" ]; then
+        info "Preview this worktree at its dev-server port: ${C_BOLD}${port}${C_RESET}"
+    else
+        info "A previewable change landed — start this worktree's dev server to view it."
+    fi
+fi

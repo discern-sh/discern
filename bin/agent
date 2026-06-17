@@ -1,0 +1,279 @@
+#!/usr/bin/env sh
+#
+# agent — the task-runner surface for an icculus-equipped project.
+#
+# This is the command a coding agent (or a person) drives day to day. It finds
+# the project root (the nearest ancestor with an icculus.toml), resolves the
+# named recipe under .icculus/engine/, and runs it with the harness paths
+# exported. It is intentionally tiny and dependency-free: the recipes hold the
+# logic, this just routes to them.
+#
+#   agent finish            run the full quality gate
+#   agent tidy              apply fixers, then run the read-only checks
+#   agent test              run the test slot
+#   agent guidelines        compile .ai/guidelines/* into the agent files
+#   agent worktree          set up the current worktree (run by the create hook)
+#   agent worktree:exit     graduate this worktree's branch into the main repo
+#   agent doctor            check the install is healthy
+#   agent --help            list the commands (internal helpers collapsed)
+#
+# Recipe names map to files by replacing ':' with '-', so `worktree:exit`
+# dispatches to .icculus/engine/worktree-exit.
+
+set -eu
+
+# --- locate the project root ---------------------------------------------
+
+find_root() {
+    _dir=$(pwd)
+    while [ "$_dir" != "/" ]; do
+        if [ -f "$_dir/icculus.toml" ]; then
+            printf '%s' "$_dir"
+            return 0
+        fi
+        _dir=$(dirname "$_dir")
+    done
+    return 1
+}
+
+if ! ICCULUS_ROOT=$(find_root); then
+    printf 'agent: not inside an icculus project (no icculus.toml in this directory or any parent).\n' >&2
+    printf '       Run `icculus init` to scaffold one.\n' >&2
+    exit 1
+fi
+
+ICCULUS_TOML="$ICCULUS_ROOT/icculus.toml"
+ICCULUS_ENGINE="$ICCULUS_ROOT/.icculus/engine"
+ICCULUS_LIB="$ICCULUS_ENGINE/lib"
+export ICCULUS_ROOT ICCULUS_TOML ICCULUS_ENGINE ICCULUS_LIB
+
+# Project-owned, UNMANAGED recipes live here (default .icculus/recipes). They
+# extend the `agent <verb>` surface without touching the kit-managed engine and
+# are never refreshed by `icculus upgrade`. The default applies even when the
+# config key is absent, so existing installs gain the feature for free. Resolved
+# from config below; defaulted here so it is always set even without config.sh.
+ICCULUS_RECIPES_DIR=".icculus/recipes"
+
+# Resolve the integration branch from config (env override wins) and export it,
+# so even a directly-dispatched standalone git utility (assert-main-merged, …)
+# sees the configured value rather than the "main" default. Costs one awk read.
+if [ -f "$ICCULUS_LIB/config.sh" ]; then
+    . "$ICCULUS_LIB/config.sh"
+    export MAIN_BRANCH="${MAIN_BRANCH:-$(config_get project.main_branch main)}"
+    ICCULUS_RECIPES_DIR=$(config_get recipes.dir "$ICCULUS_RECIPES_DIR")
+fi
+
+# Absolute path to the project recipes dir. A config value may be relative to the
+# project root (the usual case) or absolute. Exported alongside the other
+# ICCULUS_* paths so an exec'd recipe can locate its sibling recipes.
+case "$ICCULUS_RECIPES_DIR" in
+    /*) ICCULUS_RECIPES=$ICCULUS_RECIPES_DIR ;;
+    *) ICCULUS_RECIPES="$ICCULUS_ROOT/$ICCULUS_RECIPES_DIR" ;;
+esac
+export ICCULUS_RECIPES ICCULUS_RECIPES_DIR
+
+# --- help -----------------------------------------------------------------
+
+# Render a recipe's file name as the user types it. Genuine sub-commands read
+# best with the ':' separator they document with (e.g. `worktree:exit`);
+# `worktree-name` stays hyphenated because it is a flag-driven helper users
+# invoke directly, not a `worktree` sub-action. A project recipe named
+# `finish-<x>` likewise reads as `finish:<x>`. Both forms always dispatch — this
+# only chooses how the name *reads* in help. No command registry: the set is
+# still discovered from the files on disk.
+display_name() {
+    case "$1" in
+        worktree-name) printf 'worktree-name' ;;
+        worktree-*) printf 'worktree:%s' "${1#worktree-}" ;;
+        finish-*) printf 'finish:%s' "${1#finish-}" ;;
+        *) printf '%s' "$1" ;;
+    esac
+}
+
+# List the project-owned recipes (those carrying a `# desc:` line) under their
+# own group, so the kit-managed commands stay clearly distinct. A project recipe
+# whose name collides with an engine recipe never runs (the engine wins), so it
+# is omitted here. Prints nothing when the dir is absent or has no recipes.
+print_project_recipes() {
+    [ -d "$ICCULUS_RECIPES" ] || return 0
+    _pr_header=0
+    for _pr_f in "$ICCULUS_RECIPES"/*; do
+        [ -f "$_pr_f" ] || continue
+        [ -x "$_pr_f" ] || continue
+        _pr_name=$(basename "$_pr_f")
+        [ -e "$ICCULUS_ENGINE/$_pr_name" ] && continue   # shadowed: would not run
+        _pr_desc=$(sed -n 's/^# desc: //p' "$_pr_f" | head -n 1)
+        [ -n "$_pr_desc" ] || continue
+        if [ "$_pr_header" -eq 0 ]; then
+            printf '\nProject recipes (from %s):\n' "$ICCULUS_RECIPES_DIR"
+            _pr_header=1
+        fi
+        printf '  %s%-20s%s %s\n' "${C_BOLD:-}" "$(display_name "$_pr_name")" "${C_RESET:-}" "$_pr_desc"
+    done
+}
+
+print_help() {
+    printf 'agent — task runner for this project (icculus harness)\n\n'
+    printf 'Usage: agent <recipe> [args...]\n\n'
+    printf 'Commands:\n'
+
+    # Top-level commands advertise a one-line summary via `# desc: ...`. Internal
+    # plumbing other recipes call (asserts, worktree/branch helpers) marks itself
+    # `# helper: ...` instead, so it is collapsed into one line below rather than
+    # listed command-by-command. Both are discovered by scanning the files.
+    _helpers=
+    for _f in "$ICCULUS_ENGINE"/*; do
+        [ -f "$_f" ] || continue
+        [ -x "$_f" ] || continue
+        _name=$(basename "$_f")
+        _desc=$(sed -n 's/^# desc: //p' "$_f" | head -n 1)
+        if [ -z "$_desc" ]; then
+            # Not a top-level command. Collect it if it is a marked helper.
+            if sed -n '2p' "$_f" | grep -q '^# helper:'; then
+                _helpers="${_helpers:+$_helpers, }$_name"
+            fi
+            continue
+        fi
+        _display=$(display_name "$_name")
+        printf '  %s%-20s%s %s\n' "${C_BOLD:-}" "$_display" "${C_RESET:-}" "$_desc"
+    done
+
+    if [ -n "$_helpers" ]; then
+        printf '\nInternal helpers (used by the above): %s (run any with --help)\n' "$_helpers"
+    fi
+
+    print_project_recipes
+
+    printf '\nConfig: %s\n' "$ICCULUS_TOML"
+}
+
+cmd=${1:-help}
+case "$cmd" in
+    help|-h|--help|"")
+        # Load colours for a prettier listing; harmless if it fails.
+        [ -f "$ICCULUS_LIB/output.sh" ] && . "$ICCULUS_LIB/output.sh"
+        print_help
+        exit 0
+        ;;
+esac
+
+# --- dispatch -------------------------------------------------------------
+
+recipe=$(printf '%s' "$cmd" | tr ':' '-')
+engine_target="$ICCULUS_ENGINE/$recipe"
+project_target="$ICCULUS_RECIPES/$recipe"
+
+# Engine recipes win. A project recipe of the same name never runs — the core
+# commands (finish, worktree:*, …) cannot be redefined by a project file — but we
+# warn so the collision is not silent.
+if [ -x "$engine_target" ]; then
+    if [ -e "$project_target" ]; then
+        printf 'agent: project recipe "%s" is shadowed by a built-in engine recipe and was NOT run.\n' "$recipe" >&2
+        printf '       Rename %s to expose it under a non-colliding name.\n' "$project_target" >&2
+    fi
+    shift
+    exec "$engine_target" "$@"
+fi
+
+if [ -e "$engine_target" ]; then
+    printf 'agent: recipe "%s" exists but is not executable: %s\n' "$cmd" "$engine_target" >&2
+    printf '       Run: chmod +x "%s"\n' "$engine_target" >&2
+    exit 1
+fi
+
+# No engine recipe by that name — try a project-owned recipe.
+if [ -x "$project_target" ]; then
+    shift
+    exec "$project_target" "$@"
+fi
+
+if [ -e "$project_target" ]; then
+    printf 'agent: project recipe "%s" exists but is not executable: %s\n' "$cmd" "$project_target" >&2
+    printf '       Run: chmod +x "%s"\n' "$project_target" >&2
+    exit 1
+fi
+
+# --- unknown recipe: suggest a near match, then fall back to help ----------
+
+# Length of the common leading run of two strings (in characters).
+common_prefix_len() {
+    _a=$1; _b=$2; _n=0
+    while [ -n "$_a" ] && [ -n "$_b" ]; do
+        [ "${_a%"${_a#?}"}" = "${_b%"${_b#?}"}" ] || break
+        _a=${_a#?}; _b=${_b#?}; _n=$((_n + 1))
+    done
+    printf '%d' "$_n"
+}
+
+# Length of the common trailing run of two strings (in characters).
+common_suffix_len() {
+    _a=$1; _b=$2; _n=0
+    while [ -n "$_a" ] && [ -n "$_b" ]; do
+        [ "${_a#"${_a%?}"}" = "${_b#"${_b%?}"}" ] || break
+        _a=${_a%?}; _b=${_b%?}; _n=$((_n + 1))
+    done
+    printf '%d' "$_n"
+}
+
+# Score one candidate recipe name against the folded typo. On a near-match, echo
+# its documented (display) form and return 0. A name matches when it either
+# contains / is contained by the typo, OR shares a leading run of >= 3 with a
+# length gap of <= 2 (catches single-char slips like `finsh`/`doctr`), OR shares
+# a trailing run of >= 4 (catches truncations/abbreviations like `wktree:exit`).
+match_candidate() {
+    _mc_typo=$1
+    _mc_typo_len=$2
+    _mc_name=$3
+
+    case "$_mc_name" in *"$_mc_typo"*) display_name "$_mc_name"; return 0 ;; esac
+    case "$_mc_typo" in *"$_mc_name"*) display_name "$_mc_name"; return 0 ;; esac
+
+    _mc_name_len=${#_mc_name}
+    _mc_gap=$((_mc_typo_len - _mc_name_len))
+    [ "$_mc_gap" -lt 0 ] && _mc_gap=$((-_mc_gap))
+    if [ "$_mc_gap" -le 2 ]; then
+        [ "$(common_prefix_len "$_mc_typo" "$_mc_name")" -ge 3 ] && {
+            display_name "$_mc_name"; return 0
+        }
+    fi
+    [ "$(common_suffix_len "$_mc_typo" "$_mc_name")" -ge 4 ] && {
+        display_name "$_mc_name"; return 0
+    }
+    return 1
+}
+
+# Look for an obvious near-match among the real commands — engine top-level
+# recipes (those carrying a `# desc:` line) first, then project recipes — and
+# echo its documented (colon) form. The typo is folded ':' → '-' to match file
+# names. Helpers are deliberately excluded, so we only ever steer users toward
+# real commands; no command registry — the candidates come from the files.
+suggest_recipe() {
+    _typo=$(printf '%s' "$1" | tr ':' '-')
+    _typo_len=${#_typo}
+    for _f in "$ICCULUS_ENGINE"/*; do
+        [ -f "$_f" ] || continue
+        [ -x "$_f" ] || continue
+        sed -n '2p' "$_f" | grep -q '^# desc:' || continue
+        match_candidate "$_typo" "$_typo_len" "$(basename "$_f")" && return 0
+    done
+    if [ -d "$ICCULUS_RECIPES" ]; then
+        for _f in "$ICCULUS_RECIPES"/*; do
+            [ -f "$_f" ] || continue
+            [ -x "$_f" ] || continue
+            _name=$(basename "$_f")
+            [ -e "$ICCULUS_ENGINE/$_name" ] && continue   # shadowed: would not run
+            sed -n 's/^# desc: //p' "$_f" | head -n 1 | grep -q . || continue
+            match_candidate "$_typo" "$_typo_len" "$_name" && return 0
+        done
+    fi
+    return 1
+}
+
+printf 'agent: unknown recipe "%s".\n' "$cmd" >&2
+[ -f "$ICCULUS_LIB/output.sh" ] && . "$ICCULUS_LIB/output.sh"
+if _guess=$(suggest_recipe "$cmd"); then
+    printf '       Did you mean `%s`?\n' "$_guess" >&2
+fi
+printf '\n' >&2
+print_help >&2
+exit 1

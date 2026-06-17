@@ -1,0 +1,157 @@
+#!/usr/bin/env sh
+# helper: copy whitelisted env vars from the main checkout's .env into this worktree's
+. "$(dirname "$0")/lib/bootstrap.sh"
+
+# Copy selected env vars from the main repo's .env into the current worktree's
+# .env, so the worktree's app — and the agents running inside it — can boot with
+# the same secrets. A freshly-created worktree's .env carries only what is in
+# version control; values a developer keeps out of git (an app key, an API
+# token) must be propagated for the worktree to work.
+#
+# The list of vars to inherit is the [worktree].inherit_env array in
+# icculus.toml — author it there, not here. An empty list is a clean no-op.
+#
+# Per-var safe-copy policy:
+#   - main missing or blank for the var  -> warn and skip (an optional credential
+#     not being set must not block worktree setup).
+#   - worktree value empty, OR equal to .env.example's default for that var
+#     -> replace with main's value. Handles both a blank default and a
+#     placeholder like "sk-...".
+#   - otherwise the worktree has a customised value -> leave it alone.
+# Re-running is idempotent: after a successful run the worktree's value matches
+# neither the example default nor blank, so subsequent runs no-op.
+
+set -eu
+
+# main_repo_path() lives in the shared worktree helpers.
+# shellcheck source=lib/worktree.sh
+. "$ICCULUS_LIB/worktree.sh"
+
+# Defence in depth: refuse to run outside a linked worktree. A stray invocation
+# from main would be pointless (main is the canonical source) and risks
+# corrupting main's .env if the patching logic ever regressed.
+"$ICCULUS_ENGINE/assert-in-worktree" 'inherit-main-env-vars' >/dev/null
+
+# Nothing configured to inherit -> clean no-op.
+inherit_vars=$(config_array worktree.inherit_env)
+if [ -z "$inherit_vars" ]; then
+    exit 0
+fi
+
+# No worktree .env yet -> nothing to write into. The worktree's setup step that
+# creates an .env (if any) runs via [worktree.setup].steps; this is a no-op when
+# there is no .env to patch.
+if [ ! -f "$ICCULUS_ROOT/.env" ]; then
+    info "inherit-main-env-vars: no .env in this worktree — skipping."
+    exit 0
+fi
+
+# Resolve the main checkout from the shared git dir (no $HOME hardcoding).
+main_repo=$(main_repo_path 2>/dev/null || true)
+if [ -z "$main_repo" ]; then
+    die "inherit-main-env-vars: could not resolve the main checkout."
+fi
+
+main_env="$main_repo/.env"
+example_env="$main_repo/.env.example"
+
+if [ ! -f "$main_env" ]; then
+    warn "inherit-main-env-vars: main checkout has no .env at $main_env — skipping."
+    exit 0
+fi
+
+wt_env="$ICCULUS_ROOT/.env"
+
+# Read the raw value (everything after the first '=') for a key in a file.
+# grep-prefix rather than sourcing the file so shell metacharacters in values
+# are never executed. Empty string when the key is absent or the file missing.
+read_env_value() {
+    _rev_key=$1
+    _rev_file=$2
+    [ -f "$_rev_file" ] || { printf ''; return 0; }
+    _rev_line=$(grep -E "^${_rev_key}=" "$_rev_file" 2>/dev/null | head -1 || true)
+    [ -n "$_rev_line" ] || { printf ''; return 0; }
+    printf '%s' "${_rev_line#"${_rev_key}"=}"
+}
+
+# Strip one layer of matching surrounding quotes.
+strip_quotes() {
+    _sq=$1
+    case "$_sq" in
+        \"*\") _sq=${_sq#\"}; _sq=${_sq%\"} ;;
+        \'*\') _sq=${_sq#\'}; _sq=${_sq%\'} ;;
+    esac
+    printf '%s' "$_sq"
+}
+
+# Quote a value for .env only when it contains whitespace, '#', or a quote.
+format_env_value() {
+    _fev=$1
+    case "$_fev" in
+        *[!\ ]*\ * | *\#* | *\"* | *\'* | *" "*)
+            printf '"%s"' "$(printf '%s' "$_fev" | sed 's/"/\\"/g')"
+            ;;
+        *)
+            printf '%s' "$_fev"
+            ;;
+    esac
+}
+
+inherited=""
+skipped=""
+
+# Iterate the configured vars (newline-separated, one per line).
+printf '%s\n' "$inherit_vars" | while IFS= read -r var; do
+    [ -n "$var" ] || continue
+
+    main_value=$(strip_quotes "$(read_env_value "$var" "$main_env")")
+
+    if [ -z "$main_value" ]; then
+        warn "inherit-main-env-vars: $var is missing or blank in main's .env — skipping."
+        continue
+    fi
+
+    worktree_value=$(strip_quotes "$(read_env_value "$var" "$wt_env")")
+    example_value=$(strip_quotes "$(read_env_value "$var" "$example_env")")
+
+    # Already inherited from a previous run — no-op.
+    if [ "$worktree_value" = "$main_value" ]; then
+        continue
+    fi
+
+    # Worktree has a customised value (not blank, not the example default) —
+    # respect it.
+    if [ -n "$worktree_value" ] && [ "$worktree_value" != "$example_value" ]; then
+        info "inherit-main-env-vars: $var has a worktree-specific value — leaving it alone."
+        continue
+    fi
+
+    target_line="${var}=$(format_env_value "$main_value")"
+
+    if grep -q "^${var}=" "$wt_env"; then
+        # Replace via awk — safer than sed for arbitrary secret values that may
+        # contain delimiter characters like '|'.
+        tmp=$(mktemp "${TMPDIR:-/tmp}/icculus-env.XXXXXX")
+        awk -v key="$var" -v new="$target_line" '
+            BEGIN { replaced = 0 }
+            {
+                if (!replaced && index($0, key "=") == 1) {
+                    print new
+                    replaced = 1
+                } else {
+                    print
+                }
+            }
+        ' "$wt_env" > "$tmp"
+        mv "$tmp" "$wt_env"
+    else
+        # Var missing from worktree .env entirely — append it under a header the
+        # first time we add one.
+        if ! grep -q '^# Inherited from main$' "$wt_env"; then
+            printf '\n# Inherited from main\n' >> "$wt_env"
+        fi
+        printf '%s\n' "$target_line" >> "$wt_env"
+    fi
+
+    ok "Inherited $var from main."
+done

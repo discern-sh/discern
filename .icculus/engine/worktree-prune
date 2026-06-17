@@ -1,0 +1,55 @@
+#!/usr/bin/env sh
+# desc: sweep stale worktrees + fully-merged branches, then reclaim orphan dirs
+. "$(dirname "$0")/lib/bootstrap.sh"
+
+# worktree-prune — housekeeping for the worktree pool. It runs the two pure
+# git/filesystem utilities:
+#   - prune-git-worktrees --include-detached : remove clean, fully-merged
+#       worktrees and their merged branches (keeps anything with live work).
+#   - sweep-orphan-worktrees                 : reclaim directories git no longer
+#       tracks but that still gitlink into this repo (the leak backstop).
+#
+# Safety default: removing merged worktrees AND DELETING their merged branches is
+# destructive, so it asks for confirmation at an interactive prompt. Pass --yes
+# (or -y) to run non-interactively — required when an agent invokes this without
+# a TTY:
+#   agent worktree:prune          # prompts before deleting
+#   agent worktree:prune --yes    # no prompt (for scripts / agents)
+#
+# Database cleanup is deliberately NOT swept here. Pruning old per-worktree
+# databases on a time window would need a stack-specific "list databases older
+# than N" query the generic harness cannot express. Drop a discarded worktree's
+# database explicitly with `agent worktree:teardown` (it runs [worktree.db].drop)
+# while still inside that worktree.
+
+set -eu
+
+assume_yes=0
+case "${1:-}" in
+    -y|--yes) assume_yes=1 ;;
+    -h|--help) printf 'Usage: worktree-prune [--yes]\n'; exit 0 ;;
+    "") ;;
+    *) die "worktree-prune: unknown argument '$1' (use --yes)." ;;
+esac
+
+heading "Pruning worktrees and fully-merged branches…"
+if [ "$assume_yes" -eq 1 ]; then
+    "$ICCULUS_ENGINE/prune-git-worktrees" --include-detached --yes
+else
+    # Interactive: prune-git-worktrees prompts, and refuses (exit 1) when there
+    # is no TTY — re-run with --yes in that case, as its own message advises.
+    "$ICCULUS_ENGINE/prune-git-worktrees" --include-detached
+fi
+
+heading "Reclaiming orphaned worktree directories…"
+# The orphan sweep only ever touches already-deregistered, gitlinked leaks, so
+# it auto-confirms — nothing here is a branch deletion.
+"$ICCULUS_ENGINE/sweep-orphan-worktrees" --yes
+
+# Point at the per-worktree DB seam, since this prune intentionally leaves
+# databases alone (see header).
+if [ -n "$(config_get worktree.db.drop '')" ]; then
+    info "Databases are not pruned here — drop a discarded worktree's DB from inside it with: agent worktree:teardown"
+fi
+
+ok "Prune complete."

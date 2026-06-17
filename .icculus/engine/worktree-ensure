@@ -1,0 +1,44 @@
+#!/usr/bin/env sh
+# desc: session-start check — set up this worktree once if it has not been
+. "$(dirname "$0")/lib/bootstrap.sh"
+
+# worktree-ensure — the idempotent SessionStart hook target. It makes sure a
+# linked worktree has been set up by `agent worktree`, running that setup exactly
+# once. Safe to run on every session start.
+#
+# Behaviour:
+#   - Not inside a linked worktree (main checkout, non-git dir, or worktree
+#     support disabled) -> silent no-op, exit 0.
+#   - Inside a worktree already configured (the setup sentinel is present)
+#     -> silent no-op, exit 0.
+#   - Inside a worktree NOT yet configured -> run `agent worktree` setup, with
+#     all output on stderr so a hook never pollutes a captured stdout.
+#
+# The desktop variants of some agents do not fire a worktree-create hook, so a
+# worktree can exist without setup having run; this check is the safety net for
+# both that case and a manually-created worktree.
+
+set -eu
+
+git_bin="${GIT_BIN:-git}"
+
+# Worktree workflow turned off entirely -> nothing to ensure.
+config_bool worktree.enabled || exit 0
+
+# Skip when not inside a linked worktree (including the main checkout). The
+# assert-in-worktree script is the source of truth; suppress its error output
+# here because "not a worktree" is not an error condition for this check.
+if ! "$ICCULUS_ENGINE/assert-in-worktree" 'session-start' >/dev/null 2>&1; then
+    exit 0
+fi
+
+# Already configured? The per-worktree sentinel dropped by the worktree recipe
+# is the marker (resolved under this worktree's own admin dir).
+marker=$("$git_bin" rev-parse --git-path icculus-worktree-ready 2>/dev/null || printf '')
+if [ -n "$marker" ] && [ -f "$marker" ]; then
+    exit 0
+fi
+
+# Not configured yet -> run setup, all output to stderr.
+echo "[icculus] Worktree not configured yet; running 'agent worktree'…" >&2
+"$ICCULUS_ENGINE/worktree" 1>&2

@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+# helper: assert this worktree's branch already contains the latest main
+
+# Assert that the current worktree's branch already contains the latest main.
+#
+# This is the FINAL gate of `agent finish`: it runs after formatting, analysis,
+# tests, and the build have all passed, so you fix any issues first and integrate
+# main last — once — rather than merging early and re-fixing.
+#
+# It is a check, not a merge. When the branch is behind, it stops with
+# instructions and lets YOU perform the merge, so the merged result is then
+# verified by re-running `agent finish`.
+#
+# Behavior (this is a contract other recipes depend on):
+#   - Outside a worktree (the main checkout, or no repo) -> no-op, exit 0. This
+#     is what lets it sit at the end of `agent finish`, which also runs in the
+#     main checkout.
+#   - main is already an ancestor of HEAD (integrated) -> exit 0.
+#   - Otherwise (main advanced during the session) -> exit non-zero with
+#     instructions to commit, `git merge main`, and re-run finish.
+#
+# No `git fetch`: worktrees share the object store and local main is the source
+# of truth (branches are merged into local main on approval).
+#
+# Honors MAIN_BRANCH (default "main") and GIT_BIN (default "git").
+
+set -euo pipefail
+
+git_bin="${GIT_BIN:-git}"
+main_branch="${MAIN_BRANCH:-main}"
+
+if ! command -v "$git_bin" >/dev/null 2>&1; then
+    echo "assert-main-merged: git is not on PATH (set GIT_BIN to override)." >&2
+    exit 1
+fi
+
+# No-op outside a linked worktree. Mirror assert-in-worktree's detection, but
+# exit 0 (not 1) in the main checkout so finish stays a clean no-op there.
+current_git_dir="$("$git_bin" rev-parse --absolute-git-dir 2>/dev/null || true)"
+common_git_dir_raw="$("$git_bin" rev-parse --git-common-dir 2>/dev/null || true)"
+
+if [[ -z "$current_git_dir" || -z "$common_git_dir_raw" ]]; then
+    exit 0
+fi
+
+if [[ "$common_git_dir_raw" != /* ]]; then
+    common_git_dir_raw="$(pwd -P)/$common_git_dir_raw"
+fi
+common_git_dir="$(cd "$common_git_dir_raw" && pwd -P)"
+
+if [[ "$current_git_dir" == "$common_git_dir" ]]; then
+    exit 0
+fi
+
+if ! "$git_bin" show-ref --verify --quiet "refs/heads/$main_branch"; then
+    echo "assert-main-merged: no local '$main_branch' branch; skipping." >&2
+    exit 0
+fi
+
+# Already contains main -> nothing to do.
+if "$git_bin" merge-base --is-ancestor "$main_branch" HEAD; then
+    exit 0
+fi
+
+behind="$("$git_bin" rev-list --count "HEAD..$main_branch" 2>/dev/null || echo '?')"
+branch="$("$git_bin" branch --show-current 2>/dev/null || true)"
+[[ -n "$branch" ]] || branch="HEAD"
+
+{
+    echo "assert-main-merged: '$main_branch' has advanced ${behind} commit(s) since '${branch}' diverged."
+    echo "  Your changes are green — now integrate main before finishing:"
+    echo "    1. Commit your work (so the merge starts from a clean tree)."
+    echo "    2. ${git_bin} merge ${main_branch}    # resolve any conflicts, then commit the merge"
+    echo "    3. agent finish                        # re-run to verify the merged result"
+} >&2
+
+exit 1

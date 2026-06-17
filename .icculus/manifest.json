@@ -1,0 +1,185 @@
+{
+  "kit_version": "1.0.0",
+  "generated_at": "2026-06-17T14:47:50.819Z",
+  "project": {
+    "slug": "icculus",
+    "agents": [
+      "claude_code",
+      "codex"
+    ]
+  },
+  "managed": [
+    {
+      "path": ".ai/skills/bootstrap/SKILL.md",
+      "sha256": "e8906f9758cb60ea61d964fab1ed9b83990a6ea2c2e3db314255da79ed652327"
+    },
+    {
+      "path": ".ai/skills/coding-principles/SKILL.md",
+      "sha256": "f532ffe4cd64fabfd5e3dc2be9bb3b2a6d6ce84e87161b305759473e4f646023"
+    },
+    {
+      "path": ".ai/skills/document-subsystem/SKILL.md",
+      "sha256": "c427c6381afa9c06c6a48f501ca481388c5c9af402bbeff31316ecdcd6cf66bc"
+    },
+    {
+      "path": ".ai/skills/engineering-overkill/SKILL.md",
+      "sha256": "3e2f3a1cb3abe8c7563f7eb8cf027552357b1eed51dd32fe432c44d07b317d40"
+    },
+    {
+      "path": ".ai/skills/grill-me/SKILL.md",
+      "sha256": "3022f6688e8a1553c423ac335f78778df5a36b5f01f866922624dcd69c51b412"
+    },
+    {
+      "path": ".ai/skills/grill-with-docs/CONTEXT-FORMAT.md",
+      "sha256": "0eee1aa07fca45f72ec1a6181e7c0db9aa09965ca90f2ac59815657378caa192"
+    },
+    {
+      "path": ".ai/skills/grill-with-docs/SKILL.md",
+      "sha256": "0e4488353931f55ac84798007f9789a82b0934487a45b3f0d475bd914ce8f407"
+    },
+    {
+      "path": ".ai/skills/handoff-worktree/SKILL.md",
+      "sha256": "bd86117717d5fd83e3554de2d81213195679650764163927350e84e6ebfc5183"
+    },
+    {
+      "path": ".ai/skills/prompt-engineering/SKILL.md",
+      "sha256": "ac23776f44fba7e6d3e0cfc0815d2cb91f4349568f2e9dbcc707463563120472"
+    },
+    {
+      "path": ".ai/skills/write-adr/SKILL.md",
+      "sha256": "adabd4ff1ed3d00e28333296b15e0fc534cc00d333bf621747379c8dfc0274f3"
+    },
+    {
+      "path": ".icculus/engine/assert-in-worktree",
+      "sha256": "169368b6e96be042fde9ded3caab1750ff002fb8408c7aa8e5b474f667f661c7"
+    },
+    {
+      "path": ".icculus/engine/assert-main-merged",
+      "sha256": "63cc3ce58a24142c93acda074a07504b2ca13cfc520411379bed7d79b3fdbbcd"
+    },
+    {
+      "path": ".icculus/engine/assert-not-in-worktree",
+      "sha256": "89efadfc1bf8d436f53799fa6fc65854ff7eee6cfffc2052876fe8dbb6ed18e1"
+    },
+    {
+      "path": ".icculus/engine/changed-scopes",
+      "sha256": "39196cf58a8e88e0122606cca45dfe12bd171aeb467c69de6d64f8d1953eb2a5"
+    },
+    {
+      "path": ".icculus/engine/doctor",
+      "sha256": "31c1b533faf10f340146a30f08cc68b0453966db5b9ed1c720acc2b2e093a352"
+    },
+    {
+      "path": ".icculus/engine/ensure-worktree-branch",
+      "sha256": "de39e00b3efb2c0f51eb21622ca20cd122fee93d0f2431925385788a4d1316b2"
+    },
+    {
+      "path": ".icculus/engine/evidence",
+      "sha256": "582bbee6f12edc7929203e265797395c2be9506b0fda02108646d6834958c2b5"
+    },
+    {
+      "path": ".icculus/engine/finish",
+      "sha256": "1c01fd28a698ed99b7f32ebd7cf27a763464a951e21b5d63e3aae84744810c2c"
+    },
+    {
+      "path": ".icculus/engine/guidelines",
+      "sha256": "b5a4adc73760d084676653df39eb32e1096d6c692268a128a78568952d014537"
+    },
+    {
+      "path": ".icculus/engine/inherit-main-env-vars",
+      "sha256": "56f456c111a4e9cc653ac1ddcb0e05c136412049083d0b69783562e5e267661d"
+    },
+    {
+      "path": ".icculus/engine/lib/bootstrap.sh",
+      "sha256": "cf2b12022ec01ccdcd3e171f870a7742c26a54e3a1ca3a2deb88050baa13adb6"
+    },
+    {
+      "path": ".icculus/engine/lib/config.sh",
+      "sha256": "7f3bfc26647f829b49f68f30a99d16ee381c0488d1a8959b62134dbd859ba844"
+    },
+    {
+      "path": ".icculus/engine/lib/gotchas.sh",
+      "sha256": "ff653673fdcfa745e9e93013d81120b0e034573adb9def15295387c2b768cdd8"
+    },
+    {
+      "path": ".icculus/engine/lib/jobs.sh",
+      "sha256": "036fc2ac511457b2f1030949a9e633fb704da418283cbf49880cede677837738"
+    },
+    {
+      "path": ".icculus/engine/lib/output.sh",
+      "sha256": "326f5a253fcfa7a8497fb1ddd73a36aec305c310386cfc67ed43bb801f9dca92"
+    },
+    {
+      "path": ".icculus/engine/lib/ratchets.sh",
+      "sha256": "0546c95366b8b33ed4f8d470bc8148bdbd008c9134202205e54586b8c09c4288"
+    },
+    {
+      "path": ".icculus/engine/lib/toml.awk",
+      "sha256": "5b2db0dae825b610836f0a872536f6e1f10bc242840ea1a663ea0d9a02d2bb47"
+    },
+    {
+      "path": ".icculus/engine/lib/validate.sh",
+      "sha256": "9e9982ec2ededd07277b448fd1c08a142f22bf6644e01490c85fe55f4630d23c"
+    },
+    {
+      "path": ".icculus/engine/lib/worktree.sh",
+      "sha256": "982571d3bacef969939151fce26a8f9706f43fff4de8b9029d57f1321e75a0ee"
+    },
+    {
+      "path": ".icculus/engine/prune-git-worktrees",
+      "sha256": "abefe3b9ef21a6fd3aa36c23ca132eb5ec00d32ee47263e54b8764898606c84f"
+    },
+    {
+      "path": ".icculus/engine/ratchets",
+      "sha256": "65695a85569a4ccb52f946138a662f9e818a6aebc32d49616da37c34c5ba4f6b"
+    },
+    {
+      "path": ".icculus/engine/remove-worktree-safely",
+      "sha256": "40a58b2cbf1e47e9a0df6ae62f1c61274b41455975b11a182d262a8df50054fd"
+    },
+    {
+      "path": ".icculus/engine/sweep-orphan-worktrees",
+      "sha256": "504f29926c716182e1c487e3fceada9de39d03a9fc94bcdfd7941f28df250248"
+    },
+    {
+      "path": ".icculus/engine/test",
+      "sha256": "54ec9cfbedcf2c1a87329541f8518066bedad709321a582fcc61da1b454f75c2"
+    },
+    {
+      "path": ".icculus/engine/tidy",
+      "sha256": "786c8cc96fed608902a1f1d137216d7ca0787806cd7f6bd7ea472391378982fd"
+    },
+    {
+      "path": ".icculus/engine/with-gotchas",
+      "sha256": "5cc4b50c5d1181723378b32565eef2ff2f63f111066ad7cfbce95af27ec225e0"
+    },
+    {
+      "path": ".icculus/engine/worktree",
+      "sha256": "1c43f95c93bfb7b368284b7ccaa34f6e3de7ae45edc524412d3ca6ab72f66b9b"
+    },
+    {
+      "path": ".icculus/engine/worktree-ensure",
+      "sha256": "bd4ca11c36f22315288ca6100099d7ea099410301de093ebe836bd8b662140df"
+    },
+    {
+      "path": ".icculus/engine/worktree-exit",
+      "sha256": "baa3c55a68b11aee25f67212282833e32dd58e2c10557c2ef593df8d7b48fa11"
+    },
+    {
+      "path": ".icculus/engine/worktree-name",
+      "sha256": "425112442285efd39879e4b3a47421ac37d947217ae66cabea50cedbc5930020"
+    },
+    {
+      "path": ".icculus/engine/worktree-prune",
+      "sha256": "abee619b795c1b431646d5551486d53419b9b9d185eef868ce6e064407c6af25"
+    },
+    {
+      "path": ".icculus/engine/worktree-teardown",
+      "sha256": "e15780da0c9719344abf16a3ea853e8c44731e065cce92cd20a8c52207154a8e"
+    },
+    {
+      "path": "bin/agent",
+      "sha256": "7da06b5a0d3c01fd7964a95aa38c506424debf69319d4d8e3dbef7e81cff6577"
+    }
+  ]
+}

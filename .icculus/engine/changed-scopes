@@ -1,0 +1,261 @@
+#!/usr/bin/env sh
+# desc: classify which scopes the branch + working tree touch (config-driven)
+. "$(dirname "$0")/lib/bootstrap.sh"
+
+# changed-scopes [--has <scope>] [--json]
+#
+# Classifies changed paths against the [scopes] config. It answers
+# "what sides of the repo did this branch change?" so `finish` can skip side
+# gates and the preview line for areas that did not change. Classification fails
+# OPEN: when git cannot answer, every scope is reported, so consumers run MORE
+# gates, never fewer.
+#
+# Scopes are defined in [scopes] in icculus.toml:
+#   neutral      paths no gate covers (docs, agent guidance). Root-level *.md is
+#                always neutral.
+#   web          real, gated code changes (anything not neutral).
+#   previewable  the subset of code a person could see — worth a preview link.
+#   <custom>     any other [scopes] array (e.g. a native sub-app) becomes a
+#                scope of that name, emitted when one of its globs matches.
+# A path that matches nothing falls through to `web` (fail toward caution).
+#
+# Output:
+#   (default)        one scope name per line, in a stable order
+#   --has <scope>    exit 0 if that scope is present, 1 if absent (prints nothing)
+#   --json           a JSON array of the present scopes
+#
+# Glob kinds, per [scopes] entry:
+#   prefix            "src/**" or "src/"        -> path starts with "src/"
+#   exact             "routes/web.php"          -> path equals it
+#   suffix            "*.view"                  -> path ends with ".view"
+#   segment-contains  "/ui/"                    -> path contains "/ui/"
+
+# --- argument parsing -----------------------------------------------------
+
+want=""
+as_json=0
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --has)
+            shift
+            [ "$#" -ge 1 ] || die "changed-scopes: --has needs a scope name."
+            want=$1
+            ;;
+        --has=*)
+            want=${1#--has=}
+            ;;
+        --json)
+            as_json=1
+            ;;
+        -h|--help)
+            printf 'Usage: changed-scopes [--has <scope>] [--json]\n'
+            exit 0
+            ;;
+        *)
+            die "changed-scopes: unknown argument '$1'."
+            ;;
+    esac
+    shift
+done
+
+# --- which custom scopes exist --------------------------------------------
+
+# Every [scopes] array other than the three built-ins is a custom scope. We emit
+# the built-ins in a fixed order, then custom scopes in declaration order, so
+# output is stable across runs.
+custom_scopes=""
+for _key in $(config_keys scopes); do
+    case "$_key" in
+        neutral|web|previewable) continue ;;
+    esac
+    custom_scopes="$custom_scopes $_key"
+done
+
+# --- gather changed paths (fail open) -------------------------------------
+
+# Base branch: env override first (the MAIN_BRANCH variable), else "main".
+main_branch=${MAIN_BRANCH:-main}
+git_bin=${GIT_BIN:-git}
+
+# Emit every possible scope — used when we cannot tell what changed, so callers
+# err toward running more gates. Built-ins first, then any custom scopes.
+emit_all_scopes() {
+    printf 'web\n'
+    printf 'previewable\n'
+    for _s in $custom_scopes; do
+        printf '%s\n' "$_s"
+    done
+}
+
+# Collect the branch's changed paths to a temp file, one per line. Returns
+# non-zero (fail open) when git is unavailable or cannot produce a diff base.
+collect_paths() {
+    command -v "$git_bin" >/dev/null 2>&1 || return 1
+
+    # Committed since the merge-base with main, plus the working tree (staged,
+    # unstaged, untracked). Either git failure means "cannot tell" -> fail open.
+    _committed=$("$git_bin" diff --name-only "$main_branch...HEAD" 2>/dev/null) || return 1
+    _pending=$("$git_bin" status --porcelain=v1 --untracked-files=all 2>/dev/null) || return 1
+
+    {
+        printf '%s\n' "$_committed"
+        # Porcelain v1 lines are "XY <path>" and renames "XY <old> -> <new>";
+        # strip the 3-char status prefix, then keep the post-arrow path.
+        printf '%s\n' "$_pending" | while IFS= read -r _line; do
+            [ -n "$_line" ] || continue
+            _p=$(printf '%s' "$_line" | cut -c4-)
+            case "$_p" in
+                *' -> '*) _p=${_p##* -> } ;;
+            esac
+            # Drop any wrapping quotes git adds for unusual paths.
+            _p=$(printf '%s' "$_p" | sed 's/^"//; s/"$//')
+            [ -n "$_p" ] && printf '%s\n' "$_p"
+        done
+    }
+}
+
+# --- glob matching --------------------------------------------------------
+
+# Does $path match the single $pattern? Implements the four pattern kinds.
+# Branch ORDER matters: a segment pattern ("/ui/") both starts and ends with a
+# slash, so it must be tested BEFORE the trailing-slash prefix kind ("src/"),
+# which would otherwise swallow it and treat "/ui/" as a prefix that no nested
+# path ("app/ui/x") begins with.
+path_matches_pattern() {
+    _pm_path=$1
+    _pm_pat=$2
+    [ -n "$_pm_pat" ] || return 1
+
+    case "$_pm_pat" in
+        */\*\*)
+            # "src/**" -> prefix on "src/"
+            _pm_pre=${_pm_pat%\*\*}
+            case "$_pm_path" in "$_pm_pre"*) return 0 ;; esac
+            ;;
+        /*/)
+            # "/ui/" -> segment-contains (starts AND ends with a slash)
+            case "$_pm_path" in *"$_pm_pat"*) return 0 ;; esac
+            ;;
+        */)
+            # "src/" -> prefix (ends with a slash but does not start with one)
+            case "$_pm_path" in "$_pm_pat"*) return 0 ;; esac
+            ;;
+        \*.*)
+            # "*.view" -> suffix on ".view"
+            _pm_suf=${_pm_pat#\*}
+            case "$_pm_path" in *"$_pm_suf") return 0 ;; esac
+            ;;
+        *)
+            # No glob marker: exact path match.
+            [ "$_pm_path" = "$_pm_pat" ] && return 0
+            ;;
+    esac
+    return 1
+}
+
+# Does $path match ANY pattern in the given [scopes] array key?
+path_matches_scope() {
+    _ms_path=$1
+    _ms_key=$2
+    for _ms_pat in $(config_array "scopes.$_ms_key"); do
+        if path_matches_pattern "$_ms_path" "$_ms_pat"; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+# A path is neutral if it matches a [scopes].neutral pattern, OR it is a
+# root-level markdown file (README.md, AGENTS.md, …). Markdown nested in a code
+# directory still counts for that directory's scope.
+path_is_neutral() {
+    _pn_path=$1
+    if path_matches_scope "$_pn_path" neutral; then
+        return 0
+    fi
+    case "$_pn_path" in
+        */*) return 1 ;;                 # nested -> not a root-level doc
+        *.md) return 0 ;;
+    esac
+    return 1
+}
+
+# --- classify -------------------------------------------------------------
+
+scopes_file=$(mktemp "${TMPDIR:-/tmp}/icculus-scopes.XXXXXX") || die "changed-scopes: mktemp failed."
+paths_file=$(mktemp "${TMPDIR:-/tmp}/icculus-paths.XXXXXX") || die "changed-scopes: mktemp failed."
+# shellcheck disable=SC2064
+trap "rm -f '$scopes_file' '$paths_file'" EXIT INT TERM
+
+if ! collect_paths > "$paths_file" 2>/dev/null; then
+    # Fail open: git can't tell us what changed -> report every scope.
+    emit_all_scopes > "$scopes_file"
+else
+    have_web=0
+    have_previewable=0
+    # Track which custom scopes fired, space-delimited with surrounding spaces.
+    custom_present=" "
+
+    while IFS= read -r path; do
+        # Normalise: trim surrounding whitespace and a single leading slash.
+        path=$(printf '%s' "$path" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//; s#^/##')
+        [ -n "$path" ] || continue
+        path_is_neutral "$path" && continue
+
+        # Any non-neutral path is a real, gated change.
+        have_web=1
+
+        path_matches_scope "$path" previewable && have_previewable=1
+
+        for _cs in $custom_scopes; do
+            case "$custom_present" in
+                *" $_cs "*) continue ;;   # already recorded
+            esac
+            if path_matches_scope "$path" "$_cs"; then
+                custom_present="$custom_present$_cs "
+            fi
+        done
+    done < "$paths_file"
+
+    # Emit in stable order: web, previewable, then custom scopes in declaration
+    # order (only those that actually fired).
+    {
+        [ "$have_web" -eq 1 ] && printf 'web\n'
+        [ "$have_previewable" -eq 1 ] && printf 'previewable\n'
+        for _cs in $custom_scopes; do
+            case "$custom_present" in
+                *" $_cs "*) printf '%s\n' "$_cs" ;;
+            esac
+        done
+    } > "$scopes_file"
+fi
+
+# --- output ---------------------------------------------------------------
+
+# --has <scope>: exit status only, no output.
+if [ -n "$want" ]; then
+    if grep -qx "$want" "$scopes_file"; then
+        exit 0
+    fi
+    exit 1
+fi
+
+if [ "$as_json" -eq 1 ]; then
+    # Build a compact JSON array without assuming jq is present.
+    _json="["
+    _first=1
+    while IFS= read -r _s; do
+        [ -n "$_s" ] || continue
+        if [ "$_first" -eq 1 ]; then
+            _first=0
+        else
+            _json="$_json,"
+        fi
+        _json="$_json\"$_s\""
+    done < "$scopes_file"
+    _json="$_json]"
+    printf '%s\n' "$_json"
+    exit 0
+fi
+
+cat "$scopes_file"

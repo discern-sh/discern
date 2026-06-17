@@ -1,0 +1,309 @@
+#!/usr/bin/env bash
+# desc: resolve a linked worktree's stable identity (id/site/branch/port/db)
+. "$(dirname "$0")/lib/bootstrap.sh"
+
+# Resolve a stable, agent-agnostic identity for a linked git worktree.
+#
+# The identity intentionally comes from structured state, not filesystem shape:
+#   1. ICCULUS_WORKTREE_ID from the environment, when valid.
+#   2. ICCULUS_WORKTREE_ID from the target worktree's .env, when valid.
+#   3. Git's linked-worktree admin directory name.
+#
+# The third source is the key one: Git already has to assign every linked
+# worktree a unique admin directory under .git/worktrees/<name>. That remains
+# true whether an agent keeps the checkout under .claude/worktrees, an external
+# folder, or some future location we have never seen.
+#
+# Reads two project settings via the config reader, each with an env override so
+# the script still works standalone and in teardown contexts:
+#   project.slug         (env ICCULUS_PROJECT_SLUG)            — site/db/id prefix
+#   project.branch_prefix (env ICCULUS_WORKTREE_BRANCH_PREFIX) — --branch prefix
+
+set -euo pipefail
+
+git_bin="${GIT_BIN:-git}"
+
+# Slug: explicit env override wins; otherwise the configured project slug. The
+# config read is tolerant — if bootstrap could resolve a toml it returns the
+# value, otherwise the empty default leaves us to fail with a clear message.
+project_slug="${ICCULUS_PROJECT_SLUG:-$(config_get project.slug "")}"
+branch_prefix="${ICCULUS_WORKTREE_BRANCH_PREFIX:-$(config_get project.branch_prefix "agent/")}"
+
+mode="id"
+target="."
+
+usage() {
+    cat <<'USAGE'
+Usage: worktree-name [--id|--site|--branch|--port|--db] [path]
+
+Resolve the current or target linked worktree's stable identity.
+
+Options:
+  --id        Print the safe worktree id (default).
+  --site      Print the dev-server site/host name, e.g. my-app-wt-feature.
+  --branch    Print the default branch name, e.g. agent/wt-feature.
+  --port      Print the deterministic dev-server port, e.g. 13742.
+  --db        Print the database-name-safe identity, e.g. my_app_wt_feature.
+  -h, --help  Show this help text.
+USAGE
+}
+
+while (($# > 0)); do
+    case "$1" in
+        --id)
+            mode="id"
+            ;;
+        --site)
+            mode="site"
+            ;;
+        --branch)
+            mode="branch"
+            ;;
+        --port)
+            mode="port"
+            ;;
+        --db)
+            mode="db"
+            ;;
+        -h | --help)
+            usage
+            exit 0
+            ;;
+        -*)
+            echo "worktree-name: unknown option: $1" >&2
+            usage >&2
+            exit 2
+            ;;
+        *)
+            if [[ "$target" != "." ]]; then
+                echo "worktree-name: expected at most one path argument." >&2
+                exit 2
+            fi
+
+            target="$1"
+            ;;
+    esac
+
+    shift
+done
+
+# Lowercase, collapse every run of non-[a-z0-9] to a single dash, trim dashes.
+sanitize_slug() {
+    local raw="$1"
+    local lower slug
+
+    lower="$(printf '%s' "$raw" | tr '[:upper:]' '[:lower:]')"
+    slug="$(printf '%s' "$lower" | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//; s/-+/-/g')"
+
+    printf '%s' "$slug"
+}
+
+# Strip a single layer of surrounding whitespace and matching quotes.
+strip_outer_quotes() {
+    local value="$1"
+
+    value="${value#"${value%%[![:space:]]*}"}"
+    value="${value%"${value##*[![:space:]]}"}"
+
+    if [[ "$value" == \"*\" && "$value" == *\" ]]; then
+        value="${value:1:${#value}-2}"
+    elif [[ "$value" == \'*\' && "$value" == *\' ]]; then
+        value="${value:1:${#value}-2}"
+    fi
+
+    printf '%s' "$value"
+}
+
+# Canonicalize a target path; tolerate a path that no longer exists by
+# canonicalizing its parent and re-appending the basename.
+canonicalize_target() {
+    local path="$1"
+    local parent
+
+    if [[ -d "$path" ]]; then
+        cd "$path" && pwd -P
+        return 0
+    fi
+
+    parent="$(dirname "$path")"
+    if [[ -d "$parent" ]]; then
+        printf '%s/%s\n' "$(cd "$parent" && pwd -P)" "$(basename "$path")"
+        return 0
+    fi
+
+    printf '%s\n' "$path"
+}
+
+# Read a worktree-id override from the target's .env, if present.
+read_dotenv_id() {
+    local env_path="$1/.env"
+    local line
+
+    [[ -f "$env_path" ]] || return 1
+
+    line="$(grep -m 1 '^ICCULUS_WORKTREE_ID=' "$env_path" 2>/dev/null || true)"
+    [[ -n "$line" ]] || return 1
+
+    strip_outer_quotes "${line#ICCULUS_WORKTREE_ID=}"
+}
+
+# Validate an explicit id override and normalise it to a slug.
+validate_override_id() {
+    local raw="$1"
+
+    if [[ ! "$raw" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]{0,80}$ ]]; then
+        echo "worktree-name: invalid ICCULUS_WORKTREE_ID '${raw}'. Use letters, numbers, dots, dashes, or underscores." >&2
+        exit 1
+    fi
+
+    sanitize_slug "$raw"
+}
+
+normalize_common_git_dir() {
+    local base="$1"
+    local raw="$2"
+
+    if [[ "$raw" != /* ]]; then
+        raw="$base/$raw"
+    fi
+
+    cd "$raw" && pwd -P
+}
+
+# Derive the id from git's linked-worktree admin directory name. Refuses the
+# main checkout (where the absolute and common git dirs are the same path).
+metadata_id_from_git() {
+    local path="$1"
+    local git_dir common_raw common_git_dir
+
+    if [[ -d "$path" ]] && git_dir="$("$git_bin" -C "$path" rev-parse --absolute-git-dir 2>/dev/null)"; then
+        common_raw="$("$git_bin" -C "$path" rev-parse --git-common-dir 2>/dev/null)"
+        common_git_dir="$(normalize_common_git_dir "$path" "$common_raw")"
+
+        if [[ "$git_dir" == "$common_git_dir" ]]; then
+            echo "worktree-name: refused - target is the main checkout, not a linked worktree." >&2
+            exit 1
+        fi
+
+        basename "$git_dir"
+        return 0
+    fi
+
+    if [[ -f "$path/.git" ]]; then
+        local link_line link_dir
+
+        link_line="$(head -n 1 "$path/.git" 2>/dev/null || true)"
+        if [[ "$link_line" == "gitdir: "* ]]; then
+            link_dir="${link_line#gitdir: }"
+            [[ "$link_dir" != /* ]] && link_dir="$path/$link_dir"
+            basename "$link_dir"
+            return 0
+        fi
+    fi
+
+    echo "worktree-name: could not resolve linked-worktree metadata for ${path}." >&2
+    exit 1
+}
+
+short_checksum() {
+    cksum | awk '{ print $1 }'
+}
+
+# Derive a stable dev-server port from the worktree id. Each linked worktree may
+# serve its own dev server, and most dev servers default every one of them to
+# the same port — so two concurrent worktrees collide. Hashing the id into a
+# fixed band gives every worktree its own port with no shared registry or
+# coordination, exactly like --site/--branch derive their values purely from
+# identity. The band 13000-14999 sits clear of the common local-service ports
+# (databases, caches, app servers) and below the OS ephemeral range, so a
+# derived port rarely lands on something already bound.
+port_for_id() {
+    local id="$1"
+    local base=13000
+    local span=2000
+    local checksum
+
+    checksum="$(printf '%s' "$id" | short_checksum)"
+
+    printf '%s' $((base + checksum % span))
+}
+
+# Fit the id into a site/host name within the 63-char DNS label limit, hashing
+# the tail when the slug+id would exceed it.
+fit_site_id() {
+    local id="$1"
+    local max_id_len hash keep
+
+    max_id_len=$((63 - ${#project_slug} - 1))
+    if ((${#id} <= max_id_len)); then
+        printf '%s' "$id"
+        return 0
+    fi
+
+    hash="$(printf '%s' "$id" | short_checksum)"
+    keep=$((max_id_len - ${#hash} - 1))
+    if ((keep < 1)); then
+        keep=1
+    fi
+
+    printf '%s-%s' "${id:0:$keep}" "$hash"
+}
+
+# Build the database-name-safe identity: "<slug>_<id>" with every run of
+# non-alphanumerics collapsed to a single underscore. Many engines disallow
+# dashes/dots in unquoted database names, so the db mode uses underscores where
+# the site mode uses dashes.
+db_name_for_id() {
+    local id="$1"
+    local combined
+
+    combined="${project_slug}_${id}"
+    printf '%s' "$combined" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/_/g; s/^_+//; s/_+$//; s/_+/_/g'
+}
+
+project_slug="$(sanitize_slug "$project_slug")"
+if [[ -z "$project_slug" ]]; then
+    echo "worktree-name: project slug resolved to an empty value (set [project].slug or ICCULUS_PROJECT_SLUG)." >&2
+    exit 1
+fi
+
+target="$(canonicalize_target "$target")"
+
+id=""
+if [[ -n "${ICCULUS_WORKTREE_ID:-}" ]]; then
+    id="$(validate_override_id "$ICCULUS_WORKTREE_ID")"
+elif dotenv_id="$(read_dotenv_id "$target")"; then
+    id="$(validate_override_id "$dotenv_id")"
+else
+    raw_id="$(metadata_id_from_git "$target")"
+    id="$(sanitize_slug "$raw_id")"
+
+    if [[ -z "$id" ]]; then
+        echo "worktree-name: git metadata id '${raw_id}' did not contain any safe characters." >&2
+        exit 1
+    fi
+
+    # If the metadata id collides with the project slug (e.g. the worktree admin
+    # dir was named after the project), prefix it so the identity is distinct.
+    if [[ "$id" == "$project_slug" || "$id" =~ ^${project_slug}[0-9]+$ ]]; then
+        id="wt-${id}"
+    fi
+fi
+
+case "$mode" in
+    id)
+        printf '%s\n' "$id"
+        ;;
+    site)
+        printf '%s-%s\n' "$project_slug" "$(fit_site_id "$id")"
+        ;;
+    branch)
+        printf '%s%s\n' "$branch_prefix" "$id"
+        ;;
+    port)
+        printf '%s\n' "$(port_for_id "$id")"
+        ;;
+    db)
+        printf '%s\n' "$(db_name_for_id "$id")"
+        ;;
+esac
