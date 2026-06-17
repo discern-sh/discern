@@ -122,12 +122,17 @@ function buildCli() {
       "--check",
       "Report drift (managed files out of sync) and exit non-zero; write nothing.",
     )
+    .option(
+      "--allow-dirty",
+      "Upgrade even with uncommitted changes (skips the clean-tree check).",
+    )
     .action(async (options) => {
       const code = await runUpgrade({
         json: options.json ?? false,
         noColor: noColorFrom(options.color),
         dryRun: options.dryRun ?? false,
         check: options.check ?? false,
+        allowDirty: options.allowDirty ?? false,
       });
       Deno.exit(code);
     });

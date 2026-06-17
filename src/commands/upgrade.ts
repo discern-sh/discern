@@ -12,6 +12,7 @@
 import { join } from "@std/path";
 import { Logger } from "../lib/log.ts";
 import { selfCmd } from "../lib/invocation.ts";
+import { worktreeState } from "../lib/git.ts";
 import { resolveTemplatesDir } from "../lib/paths.ts";
 import { parseIcculusToml } from "../lib/toml_render.ts";
 import { DEFAULTS, type InitConfig, tokensFromConfig } from "../lib/config.ts";
@@ -48,6 +49,8 @@ export interface UpgradeOptions {
   dryRun: boolean;
   /** Report drift (managed files out of sync with templates/) and exit; write nothing. */
   check: boolean;
+  /** Upgrade even with uncommitted tracked changes (skip the clean-tree guard). */
+  allowDirty: boolean;
 }
 
 /** Read a text file, or undefined if absent. */
@@ -234,6 +237,41 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
       }
     }
     return 0;
+  }
+
+  // Clean-tree guard (ADR 0014): an upgrade must stay revertible with
+  // `git checkout`, so refuse a tree carrying uncommitted *tracked* changes
+  // unless --allow-dirty. Only the mutating path reaches here — `--check` and
+  // `--dry-run` returned above, so neither is ever blocked. A non-repo cannot
+  // offer the net, so it proceeds with a note rather than failing.
+  if (!options.allowDirty) {
+    const state = await worktreeState(destDir);
+    if (state.kind === "dirty") {
+      const message =
+        "working tree has uncommitted changes; commit or stash them so the upgrade stays revertible, or re-run with --allow-dirty.";
+      if (options.json) {
+        log.jsonResult({
+          ok: false,
+          error: "dirty_worktree",
+          message,
+          changes: state.changes,
+        });
+      } else {
+        log.error(message);
+        for (const c of state.changes.slice(0, 10)) {
+          log.detail(c);
+        }
+        if (state.changes.length > 10) {
+          log.detail(`… and ${state.changes.length - 10} more`);
+        }
+      }
+      return 1;
+    }
+    if (state.kind === "not-a-repo" && !options.json) {
+      log.warn(
+        "not a git repository — upgrading without a clean-tree safety net.",
+      );
+    }
   }
 
   const changed = await applyPlan(plan);
