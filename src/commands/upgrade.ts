@@ -31,9 +31,15 @@ import {
   newFilesFromPlan,
   type OrphanKept,
   type Plan,
+  type PlanOp,
   planOrphanRemovals,
   reconcileManagedEntries,
 } from "../lib/fs_plan.ts";
+import {
+  applyMigrations,
+  type Migration,
+  pendingMigrations,
+} from "../lib/migrations.ts";
 import {
   planToJson,
   renderPlan,
@@ -50,6 +56,12 @@ export interface UpgradeOptions {
   check: boolean;
   /** Upgrade even with uncommitted tracked changes (skip the clean-tree guard). */
   allowDirty: boolean;
+  /**
+   * The migration chain to run. Defaults to the production chain (`MIGRATIONS`);
+   * overridable so tests can drive the fold with synthetic steps without a real
+   * `SCHEMA_VERSION` bump.
+   */
+  registry?: Migration[];
 }
 
 /** Read a text file, or undefined if absent. */
@@ -156,30 +168,55 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
 
   const config = tokensForUpgrade(toml);
   const tokens = tokensFromConfig(config);
-  const plan = await buildPlan({
-    templatesDir,
-    destDir,
-    tokens,
-    mode: "upgrade",
-    recordedHash: (targetRel) =>
-      manifest ? lookupRecordedHash(manifest, targetRel) : undefined,
-    managedSpec: await loadManagedSpec(templatesDir),
-  });
+  const managedSpec = await loadManagedSpec(templatesDir);
 
-  // Reconcile orphans: managed files the manifest recorded that the new
-  // templates no longer ship (ADR 0014). Pristine orphans become `remove` ops
-  // in the plan — so they surface as drift in `--check`, in the dry-run listing,
-  // and get deleted on apply; edited orphans are kept and reported, never
-  // deleted. Needs the prior manifest to diff against; absent one, nothing.
-  const orphans = manifest
-    ? await planOrphanRemovals({
+  // The migration chain to run before the file sync (ADR 0014): every step from
+  // the install's recorded schema up to this build's SCHEMA_VERSION. Absent a
+  // manifest we cannot know the version, so we run none — the file sync still
+  // heals managed files. The chain is empty at schema 1, so `pending` is [] for
+  // every current install today; Phase 2's rename is the first real step.
+  const migrateFrom = manifest?.schema_version ?? SCHEMA_VERSION;
+  const pending = pendingMigrations(
+    migrateFrom,
+    SCHEMA_VERSION,
+    options.registry,
+  );
+  const pendingJson = pending.map((m) => ({
+    from: m.from,
+    to: m.from + 1,
+    describe: m.describe,
+  }));
+
+  // Build the file-sync plan and its orphan reconciliation against the *current*
+  // disk. Called once up front (for --check / --dry-run and the initial apply),
+  // then again after migrations run, since a step may have moved or rewritten
+  // files the plan must re-examine.
+  const buildUpgradePlan = async (): Promise<{
+    plan: Plan;
+    orphans: { removals: PlanOp[]; kept: OrphanKept[] };
+  }> => {
+    const p = await buildPlan({
+      templatesDir,
       destDir,
-      recorded: manifest.managed,
-      plan,
-    })
-    : { removals: [], kept: [] as OrphanKept[] };
-  plan.ops.push(...orphans.removals);
-  plan.ops.sort((a, b) => a.targetRel.localeCompare(b.targetRel));
+      tokens,
+      mode: "upgrade",
+      recordedHash: (targetRel) =>
+        manifest ? lookupRecordedHash(manifest, targetRel) : undefined,
+      managedSpec,
+    });
+    const o = manifest
+      ? await planOrphanRemovals({
+        destDir,
+        recorded: manifest.managed,
+        plan: p,
+      })
+      : { removals: [] as PlanOp[], kept: [] as OrphanKept[] };
+    p.ops.push(...o.removals);
+    p.ops.sort((a, b) => a.targetRel.localeCompare(b.targetRel));
+    return { plan: p, orphans: o };
+  };
+
+  let { plan, orphans } = await buildUpgradePlan();
 
   if (options.check) {
     // A managed file is in sync iff its disposition is "skip". An edited managed
@@ -205,6 +242,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
           action: op.disposition,
         })),
         schema: { recorded: recordedSchema ?? null, current: SCHEMA_VERSION },
+        pending_migrations: pendingJson,
         orphans_kept: orphans.kept.map((o) => o.path),
         migrate_suggested: migrateSuggested,
       });
@@ -224,6 +262,9 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
           log.error(
             `Install schema is v${recordedSchema}, but this build expects v${SCHEMA_VERSION}.`,
           );
+          for (const m of pending) {
+            log.detail(`migration ${m.from}→${m.from + 1}: ${m.describe}`);
+          }
         }
         log.line();
         log.info(`Heal it: run \`${await selfCmd("sync")}\`.`);
@@ -238,10 +279,18 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
       log.jsonResult({
         ok: true,
         dry_run: true,
+        pending_migrations: pendingJson,
         plan: planToJson(plan),
         migrate_suggested: migrateSuggested,
       });
     } else {
+      if (pending.length > 0) {
+        log.info(`Would run ${pending.length} migration(s) first:`);
+        for (const m of pending) {
+          log.detail(`${m.from}→${m.from + 1}: ${m.describe}`);
+        }
+        log.line();
+      }
       renderPlan(log, plan, "Dry run — `upgrade` would perform:");
       log.line();
       log.info("No files were written (--dry-run).");
@@ -289,6 +338,21 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     }
   }
 
+  // Run the migration chain before the file sync (ADR 0014). A step may move or
+  // rewrite files, so if any ran, rebuild the plan against the post-migration
+  // disk before applying. The chain is empty at schema 1, so this is a no-op for
+  // every current install today.
+  const applied = await applyMigrations({
+    destDir,
+    from: migrateFrom,
+    to: SCHEMA_VERSION,
+    registry: options.registry,
+    onNote: (m) => log.detail(m),
+  });
+  if (applied.length > 0) {
+    ({ plan, orphans } = await buildUpgradePlan());
+  }
+
   const changed = await applyPlan(plan);
 
   // Rebuild the manifest: keep prior entries for managed files we didn't touch
@@ -314,6 +378,11 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     log.jsonResult({
       ok: true,
       kit_version: KIT_VERSION,
+      migrations_applied: applied.map((m) => ({
+        from: m.from,
+        to: m.from + 1,
+        describe: m.describe,
+      })),
       refreshed: refreshed.map((op) => op.targetRel),
       preserved: preserved.map((op) => op.targetRel),
       new_files: newFiles.map((op) => op.targetRel),
@@ -324,6 +393,12 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     return 0;
   }
 
+  if (applied.length > 0) {
+    log.ok(`migrations applied: ${applied.length}`);
+    for (const m of applied) {
+      log.detail(`${m.from}→${m.from + 1}: ${m.describe}`);
+    }
+  }
   renderUpgradeSummary(log, refreshed, preserved, newFiles, removed);
   warnKeptOrphans(log, orphans.kept);
   // The engine is now 1.0, but the config may not be. Nudge once, loudly enough
