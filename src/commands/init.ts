@@ -23,7 +23,7 @@ import {
   mergeDocIntoFlags,
 } from "../lib/config_doc.ts";
 import { TomlEditor } from "../lib/toml_edit.ts";
-import { KIT_VERSION } from "../lib/version.ts";
+import { KIT_VERSION, SCHEMA_VERSION } from "../lib/version.ts";
 import {
   loadManagedSpec,
   loadManifest,
@@ -116,6 +116,7 @@ export async function assembleInitPlan(params: {
   const manifestOp = await planManifest({
     destDir,
     kitVersion: KIT_VERSION,
+    schemaVersion: SCHEMA_VERSION,
     slug: config.slug,
     agents: config.agents,
     managed,

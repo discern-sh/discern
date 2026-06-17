@@ -458,15 +458,17 @@ export async function planBrief(
 export async function planManifest(params: {
   destDir: string;
   kitVersion: string;
+  schemaVersion: number;
   slug: string;
   agents: string[];
   managed: ManagedEntry[];
 }): Promise<PlanOp> {
-  const { destDir, kitVersion, slug, agents, managed } = params;
+  const { destDir, kitVersion, schemaVersion, slug, agents, managed } = params;
   const targetRel = ".icculus/manifest.json";
   const targetAbs = join(destDir, targetRel);
   const manifest = buildManifest({
     kitVersion,
+    schemaVersion,
     generatedAt: new Date().toISOString(),
     slug,
     agents,

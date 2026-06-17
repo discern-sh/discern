@@ -15,7 +15,7 @@ import { selfCmd } from "../lib/invocation.ts";
 import { resolveTemplatesDir } from "../lib/paths.ts";
 import { parseIcculusToml } from "../lib/toml_render.ts";
 import { DEFAULTS, type InitConfig, tokensFromConfig } from "../lib/config.ts";
-import { KIT_VERSION } from "../lib/version.ts";
+import { KIT_VERSION, SCHEMA_VERSION } from "../lib/version.ts";
 import {
   buildManifest,
   loadManagedSpec,
@@ -291,6 +291,7 @@ function rebuildManifest(params: {
   }));
   return buildManifest({
     kitVersion: KIT_VERSION,
+    schemaVersion: SCHEMA_VERSION,
     generatedAt: new Date().toISOString(),
     slug: config.slug,
     agents: config.agents,

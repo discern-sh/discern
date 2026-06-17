@@ -30,6 +30,12 @@ export interface ManagedEntry {
 /** The full manifest document written to `.icculus/manifest.json`. */
 export interface Manifest {
   kit_version: string;
+  /**
+   * The install schema version (ADR 0014) — the anchor the migration system
+   * steps from. A monotonic integer, distinct from `kit_version`. A manifest
+   * predating this field is read as schema 1 (see `parseManifest`).
+   */
+  schema_version: number;
   generated_at: string;
   project: {
     slug: string;
@@ -137,6 +143,7 @@ export async function sha256Hex(bytes: Uint8Array): Promise<string> {
 /** Build a manifest document from its parts. `managed` is sorted by path. */
 export function buildManifest(params: {
   kitVersion: string;
+  schemaVersion: number;
   generatedAt: string;
   slug: string;
   agents: string[];
@@ -147,6 +154,7 @@ export function buildManifest(params: {
   );
   return {
     kit_version: params.kitVersion,
+    schema_version: params.schemaVersion,
     generated_at: params.generatedAt,
     project: { slug: params.slug, agents: params.agents },
     managed,
@@ -163,6 +171,13 @@ export function parseManifest(text: string): Manifest {
   if (typeof obj.kit_version !== "string") {
     throw new Error("manifest.json is missing a string kit_version");
   }
+  // A manifest predating the schema-version field (ADR 0014) is, by definition,
+  // a schema-1 install: that field was introduced as the v1 anchor, so its
+  // absence means 1. A non-integer value is likewise normalised to 1.
+  const schemaVersion = typeof obj.schema_version === "number" &&
+      Number.isInteger(obj.schema_version)
+    ? obj.schema_version
+    : 1;
   const managedRaw = Array.isArray(obj.managed) ? obj.managed : [];
   const managed: ManagedEntry[] = managedRaw
     .filter((e): e is Record<string, unknown> =>
@@ -175,6 +190,7 @@ export function parseManifest(text: string): Manifest {
     : {};
   return {
     kit_version: obj.kit_version,
+    schema_version: schemaVersion,
     generated_at: typeof obj.generated_at === "string" ? obj.generated_at : "",
     project: {
       slug: typeof project.slug === "string" ? project.slug : "",

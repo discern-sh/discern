@@ -240,6 +240,7 @@ Deno.test("manifest records sha256 for managed files and matches on-disk bytes",
     const manifestOp = await planManifest({
       destDir: dir,
       kitVersion: "0.1.0",
+      schemaVersion: 1,
       slug: "demo-app",
       agents: ["claude_code"],
       managed,
