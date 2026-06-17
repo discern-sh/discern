@@ -311,14 +311,14 @@ uses.
 
 ### `icculus` (the installer)
 
-| command              | does                                                                                                                                                                                                                                       |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `init`               | scaffold the harness into the cwd (fresh or existing repo). Wizard, `--yes` + flags, or `--config <file>` (JSON answers file). `--dry-run`, `--json`, `--force`. Never overwrites a file it can't prove it wrote — see _Managed vs. seed_. |
-| `upgrade`            | refresh only **managed** engine files. A managed file you edited is preserved; the new version lands as `<file>.new`.                                                                                                                      |
-| `doctor`             | verify the install (manifest, dispatcher, then delegates to `agent doctor`).                                                                                                                                                               |
-| `migrate`            | rewrite a pre-1.0 `icculus.toml` to the 1.0 shape (comment-preserving, idempotent, `--dry-run`/`--json`). See _Upgrading from 0.x to 1.0_.                                                                                                 |
-| `config <sub>`       | programmatically edit `icculus.toml`, comments intact — `set-slot`, `set-scope`, `set-side-gate`, `set-ratchet`, `set`. See _Driving icculus programmatically_.                                                                            |
-| `add-adapter <name>` | overlay an adapter from `adapters/<name>/`: its files **and** its `adapter.json` config fills. Ships no adapters; see _Writing an adapter_.                                                                                                |
+| command              | does                                                                                                                                                                                                                                                                                   |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `init`               | scaffold the harness into the cwd (fresh or existing repo). Wizard, `--yes` + flags, or `--config <file>` (JSON answers file). `--dry-run`, `--json`, `--force`. Never overwrites a file it can't prove it wrote — see _Managed vs. seed_.                                             |
+| `upgrade`            | refresh **managed** files: an edited one is preserved as `<file>.new`; one the kit no longer ships is removed if pristine, kept (with a warning) if you edited it. Refuses a dirty tree unless `--allow-dirty`, so an upgrade stays `git checkout`-revertible. See _Managed vs. seed_. |
+| `doctor`             | verify the install (manifest, dispatcher, then delegates to `agent doctor`).                                                                                                                                                                                                           |
+| `migrate`            | rewrite a pre-1.0 `icculus.toml` to the 1.0 shape (comment-preserving, idempotent, `--dry-run`/`--json`). See _Upgrading from 0.x to 1.0_.                                                                                                                                             |
+| `config <sub>`       | programmatically edit `icculus.toml`, comments intact — `set-slot`, `set-scope`, `set-side-gate`, `set-ratchet`, `set`. See _Driving icculus programmatically_.                                                                                                                        |
+| `add-adapter <name>` | overlay an adapter from `adapters/<name>/`: its files **and** its `adapter.json` config fills. Ships no adapters; see _Writing an adapter_.                                                                                                                                            |
 
 Global flags: `--json`, `--no-color` (also honours `NO_COLOR` and non-TTY),
 `--help`, `--version`.
@@ -488,8 +488,11 @@ is `null`).
   place **only** when its on-disk bytes still match what the kit last wrote; if
   you edited it — or a same-named file was already there before Icculus — your
   copy is left untouched and the kit's version is written alongside as
-  `<file>.new` for you to merge. Everything else — `icculus.toml`, your docs,
-  guidelines, `TODO.md` — is **seed**: written once, then yours.
+  `<file>.new` for you to merge. A managed file the kit _stops_ shipping is
+  removed on upgrade when it's still pristine (kept, with a warning, if you
+  edited it), so renames and removals reach installs cleanly rather than leaving
+  orphans behind. Everything else — `icculus.toml`, your docs, guidelines,
+  `TODO.md` — is **seed**: written once, then yours.
 - **Author once, compile everywhere — agent-agnostic.** Write your guidance and
   skills once under `.ai/`; `agent guidelines` compiles them to every agent's
   own instruction file, so one repo can drive Claude Code, Codex, Gemini, and
