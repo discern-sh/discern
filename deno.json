@@ -8,7 +8,10 @@
     "test": "deno test --allow-read --allow-write --allow-env --allow-run",
     "fmt": "deno fmt",
     "lint": "deno lint",
-    "check": "deno check src/main.ts"
+    "check": "deno check src/main.ts",
+    "selfsync": "deno run --allow-read --allow-write --allow-env --allow-run src/main.ts upgrade",
+    "selfcheck": "deno run --allow-read --allow-write --allow-env --allow-run src/main.ts upgrade --check",
+    "gate": "./bin/agent finish"
   },
   "imports": {
     "@cliffy/command": "jsr:@cliffy/command@^1.0.0-rc.8",
@@ -21,9 +24,19 @@
     "@std/assert": "jsr:@std/assert@^1.0.10"
   },
   "fmt": {
-    "exclude": ["templates/", "dist/", "tests/fixtures/", "PLAN.md"]
+    "exclude": [
+      "templates/",
+      "dist/",
+      "tests/fixtures/",
+      "PLAN.md",
+      ".icculus/",
+      ".ai/",
+      "AGENTS.md",
+      "CLAUDE.md",
+      ".idea/"
+    ]
   },
   "lint": {
-    "exclude": ["templates/", "dist/", "tests/fixtures/"]
+    "exclude": ["templates/", "dist/", "tests/fixtures/", ".icculus/", ".ai/"]
   }
 }

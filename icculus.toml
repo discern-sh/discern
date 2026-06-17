@@ -51,23 +51,27 @@ gotchas_doc = "docs/80-development/finish-gate-gotchas.md"
 
 [slots.format]
 phase = "fix"
-run   = ":"   # e.g. "prettier --write ." or "ruff format ." or "gofmt -w ."
+run   = "deno fmt"
 
 [slots.build]
 phase = "build"
-run   = ":"   # e.g. "npm run build" or "cargo build"
+run   = ":"   # no gate build step (deno task build is release-only)
 
 [slots.lint]
 phase = "check"
-run   = ":"   # e.g. "eslint ." or "ruff check ." or "golangci-lint run"
+run   = "deno lint"
 
 [slots.typecheck]
 phase = "check"
-run   = ":"   # e.g. "tsc --noEmit" or "mypy ."
+run   = "deno check src/main.ts"
 
 [slots.test]
 phase = "test"
-run   = ":"   # e.g. "npm test" or "pytest" or "go test ./..."
+run   = "deno task test"
+
+[slots.selfcheck]   # the Option C invariant — the install must match templates/
+phase = "check"
+run   = "deno task selfcheck"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -82,7 +86,7 @@ run   = ":"   # e.g. "npm test" or "pytest" or "go test ./..."
 # Paths that need no gate at all: docs and agent-guidance sources. (Generated
 # guidance outputs are refreshed by the gate itself; editing the source changes
 # no behaviour.) Root-level *.md is always treated as neutral.
-neutral = ["docs/", ".ai/", ".claude/"]
+neutral = ["docs/", ".ai/", ".claude/", ".icculus/"]
 
 # Paths that represent real, gated code changes.
 web = ["src/**", "scripts/**", "tests/**", "templates/**"]
