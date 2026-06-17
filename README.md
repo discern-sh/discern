@@ -49,7 +49,7 @@ release and installs it to `~/.local/bin` (or `/usr/local/bin`).
 
 ```sh
 git clone https://github.com/jackwh/icculus && cd icculus
-deno task dev -- --help          # run without compiling
+deno task dev --help             # run without compiling
 deno task build                  # compile per-platform binaries → dist/
 ```
 
@@ -501,19 +501,39 @@ is `null`).
 
 ## Dogfooding
 
-This repository is itself gated by the harness it ships. Running `icculus init`
-here and wiring the four Deno slots above yields a green `agent finish` that
-runs `deno fmt` ∥ build, then `deno lint` + `deno check` ∥ the test suite — the
-same parallel phase shape every installed project gets. The end-to-end install →
-gate → worktree round-trip → upgrade flow is exercised by the test suite
-(`deno task test`).
+This repository **is installed with its own harness**: `icculus init` was run at
+the root, so `bin/agent`, the `.icculus/` engine, and the `.ai/` skills live
+here as a committed copy of `templates/`. The repo's day-to-day quality gate is
+the dogfooded one (see [ADR 0010](docs/_adr/0010-dogfood-the-harness.md)):
+
+```sh
+./bin/agent finish   # deno fmt (fix) → deno lint + deno check + deno task selfcheck (check) ∥ deno task test (test)
+./bin/agent tidy     # the fast inner loop: fix + check, no tests
+```
+
+**`templates/` is the source of truth; the root install is a managed mirror of
+it.** A `selfcheck` gate slot (≡ `icculus upgrade --check`, exposed as
+`deno task selfcheck`) fails the gate if any _managed_ file — `bin/agent`,
+`.icculus/engine/**`, `.ai/skills/**` — drifts from `templates/`. Heal it with
+`deno task selfsync` (≡ `icculus upgrade`), which propagates `templates/` → the
+install. So the golden rule is: to change the engine, a recipe, or a shipped
+skill, **edit `templates/` and run `deno task selfsync`** — never the root copy.
+Everything else `init` wrote (`icculus.toml`, `docs/`, `.ai/guidelines/`,
+`TODO.md`) is _seed_: yours to edit directly, never distributed.
+
+The installer↔install lifecycle — `init` → `finish` → `upgrade` (drift detection
+and healing included) — is also exercised hermetically by the test suite
+(`deno task test` scaffolds the real `templates/` into temp dirs and shells out
+to `bin/agent`), so a `templates/` change is validated whether or not the root
+install is synced yet. CI runs the dogfooded gate (`agent finish`) on every push
+and PR.
 
 ---
 
 ## Developing the kit
 
 ```sh
-deno task dev -- init --yes --name Demo   # run the CLI from source
+deno task dev init --yes --name Demo      # run the CLI from source
 deno task test                            # the CLI test suite
 deno fmt && deno lint && deno check src/main.ts
 deno task build                           # per-platform binaries → dist/
@@ -545,7 +565,7 @@ Working, verified, and committed:
 - ✅ Declarative config — `icculus config` + `init --config` (comment-preserving
   programmatic edits), and a documented `add-adapter` contract (file overlay +
   config fills).
-- ✅ 128 tests covering both the installer (`src/`) and the POSIX engine recipes
+- ✅ 154 tests covering both the installer (`src/`) and the POSIX engine recipes
   (a scaffold-and-shell-out harness in `tests/engine_*`).
 
 Follow-ups:

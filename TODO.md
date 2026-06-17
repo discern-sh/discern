@@ -48,7 +48,11 @@ _Lower-severity fixes, rough edges, and UX papercuts. Nothing outstanding._
 
 ## 🟢 Test & tooling hygiene
 
-_Gaps in test coverage, gate, and developer tooling. Nothing outstanding._
+- [ ] **Rebuild `dist/` after `templates/` changes.** The released binaries
+      embed a `templates/` snapshot (`deno task build`), so they lag
+      `templates/` until rebuilt — e.g. the ADR 0010 `finish` fail_fast fix is
+      not in `dist/` yet. Evidence: `scripts/build.ts`,
+      `.github/workflows/release.yml`.
 
 ## 🔵 Unmerged / at-risk work — decide: land or drop
 
@@ -57,4 +61,7 @@ outstanding._
 
 ## ⚪ Explorations / ideas (unscheduled)
 
-_Ideas worth keeping but not yet scheduled. Nothing outstanding._
+- [ ] **Adopt the worktree workflow for icculus's own development.** The install
+      ships the worktree hooks scaffolded but dormant (ADR 0010); decide whether
+      to develop icculus inside its own isolated worktrees. Evidence:
+      `icculus.toml` `[worktree]`, `.claude/settings.json`.
