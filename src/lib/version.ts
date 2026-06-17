@@ -21,7 +21,8 @@ export const KIT_VERSION: string = denoJson.version;
  * recorded value, brings the install forward, and re-stamps. Most releases need
  * no migration and leave this untouched.
  *
- * The current shape is schema **1**: every existing 1.0 install is schema 1 by
- * definition, so a manifest with no `schema_version` field is read as 1.
+ * The current shape is schema **2** (the schema-1→2 step backfills
+ * `[project].main_branch`; see `MIGRATIONS`). A manifest with no `schema_version`
+ * field predates the field and is read as schema 1, then migrated forward.
  */
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;

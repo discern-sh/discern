@@ -143,13 +143,13 @@ Deno.test("upgrade --check flags a stale schema as drift even when files are in 
   await withTempDir(async (dir) => {
     await init(dir);
     // Model an install left a schema behind (a migration shipped since).
-    await setSchemaVersion(dir, 0);
+    await setSchemaVersion(dir, 1);
     const r = await runCli(["upgrade", "--check", "--json"], dir);
     assertEquals(r.code, 1, r.stderr);
     const res = JSON.parse(r.stdout);
     assertEquals(res.ok, false);
-    assertEquals(res.schema.recorded, 0);
-    assertEquals(res.schema.current, 1);
+    assertEquals(res.schema.recorded, 1);
+    assertEquals(res.schema.current, 2);
     assertEquals(res.drifted, []); // managed files themselves are fine
   });
 });

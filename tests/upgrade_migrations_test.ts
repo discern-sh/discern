@@ -52,9 +52,9 @@ async function upgradeIn(dir: string, registry?: Migration[]): Promise<number> {
   }
 }
 
-Deno.test("the empty production chain makes upgrade a migration no-op on a current install", async () => {
+Deno.test("a current install has nothing pending and applies no migrations", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await init(dir); // a fresh install is stamped at the current schema
     const r = await runCli(["upgrade", "--json"], dir);
     assertEquals(r.code, 0, r.stderr);
     assertEquals(JSON.parse(r.stdout).migrations_applied, []);
@@ -66,11 +66,12 @@ Deno.test("the empty production chain makes upgrade a migration no-op on a curre
 Deno.test("upgrade runs a pending migration before the sync, then stamps the schema", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
-    await setSchema(dir, 0); // model an install one schema behind
+    await setSchema(dir, 1); // model an install one schema behind (build is at 2)
 
     const ran: string[] = [];
+    // A synthetic 1→2 step (overrides the production chain via the registry seam).
     const chain: Migration[] = [{
-      from: 0,
+      from: 1,
       describe: "write a marker and set a config key",
       apply: async (ctx) => {
         ran.push("applied");
@@ -88,23 +89,23 @@ Deno.test("upgrade runs a pending migration before the sync, then stamps the sch
     );
     // And the manifest was stamped to the current schema.
     const m = JSON.parse(await readTarget(dir, ".icculus/manifest.json"));
-    assertEquals(m.schema_version, 1);
+    assertEquals(m.schema_version, 2);
   });
 });
 
 Deno.test("upgrade re-running an applied migration is a no-op (idempotent fold)", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
-    await setSchema(dir, 0);
+    await setSchema(dir, 1);
     const chain: Migration[] = [{
-      from: 0,
+      from: 1,
       describe: "create a marker",
       apply: (ctx) => ctx.writeText("MIGRATED", "yes\n"),
     }];
-    assertEquals(await upgradeIn(dir, chain), 0); // schema 0 → 1, runs
-    // Now at schema 1: re-running finds nothing pending and still succeeds.
+    assertEquals(await upgradeIn(dir, chain), 0); // schema 1 → 2, runs
+    // Now at schema 2: re-running finds nothing pending and still succeeds.
     assertEquals(await upgradeIn(dir, chain), 0);
     const m = JSON.parse(await readTarget(dir, ".icculus/manifest.json"));
-    assertEquals(m.schema_version, 1);
+    assertEquals(m.schema_version, 2);
   });
 });

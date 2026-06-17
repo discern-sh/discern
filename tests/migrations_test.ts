@@ -6,7 +6,12 @@
  * and every context operation a real migration (Phase 2's rename) will lean on.
  */
 
-import { assert, assertEquals, assertRejects } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertRejects,
+  assertStringIncludes,
+} from "@std/assert";
 import { join } from "@std/path";
 import { SCHEMA_VERSION } from "../src/lib/version.ts";
 import {
@@ -33,10 +38,39 @@ function recordingStep(from: number, log: number[]): Migration {
 
 // ---- the production chain --------------------------------------------------
 
-Deno.test("the production chain is empty and contiguous for the current schema", () => {
-  assertEquals(MIGRATIONS, []);
-  // Empty chain is well-formed for schema 1 (nothing to migrate yet).
+Deno.test("the production chain is contiguous up to the current schema", () => {
+  // One step per bump, from 1 up to SCHEMA_VERSION (the 1→2 main_branch backfill).
+  assertEquals(MIGRATIONS.map((m) => m.from), [1]);
   assert(isChainContiguous(MIGRATIONS, SCHEMA_VERSION));
+});
+
+Deno.test("migration 1→2 backfills [project].main_branch when the config predates it", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(
+      join(dir, "icculus.toml"),
+      '[project]\nslug = "demo"\n',
+    );
+    // Drive the real production chain (default registry) from schema 1 to 2.
+    const applied = await applyMigrations({ destDir: dir, from: 1, to: 2 });
+    assertEquals(applied.map((m) => m.from), [1]);
+    assertStringIncludes(
+      await Deno.readTextFile(join(dir, "icculus.toml")),
+      'main_branch = "main"',
+    );
+  });
+});
+
+Deno.test("migration 1→2 never clobbers a custom main_branch", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(
+      join(dir, "icculus.toml"),
+      '[project]\nslug = "demo"\nmain_branch = "trunk"\n',
+    );
+    await applyMigrations({ destDir: dir, from: 1, to: 2 });
+    const toml = await Deno.readTextFile(join(dir, "icculus.toml"));
+    assertStringIncludes(toml, 'main_branch = "trunk"'); // preserved
+    assert(!toml.includes('main_branch = "main"')); // not overwritten or duplicated
+  });
 });
 
 Deno.test("isChainContiguous accepts a full chain and rejects gaps / dups / wrong length", () => {

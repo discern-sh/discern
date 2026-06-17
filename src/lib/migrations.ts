@@ -7,10 +7,10 @@
  * `SCHEMA_VERSION`, then stamps the new version. The chain is contiguous: there
  * is exactly one step producing each version from 2 up to `SCHEMA_VERSION`.
  *
- * The chain starts **empty**: the current shape is schema 1, since ADR 0014
- * retired the bespoke 0.x→1.0 `migrate` rather than porting it. The first real
- * step is the kit rename (Phase 2), which will add `{ from: 1, … }` and bump
- * `SCHEMA_VERSION` to 2.
+ * The chain's first step is the schema-1→2 `main_branch` backfill (the bespoke
+ * 0.x→1.0 `migrate` ADR 0014 retired was not ported — the current shape was
+ * declared schema 1 and the chain grows from there). Further steps, such as the
+ * kit rename, append as later bumps.
  *
  * A step transforms an install through a {@link MigrationContext}: it can edit
  * `icculus.toml` comment-preserving, move/remove/rewrite managed *and* seed
@@ -23,6 +23,12 @@ import { ensureDir } from "@std/fs";
 import { dirname, join } from "@std/path";
 import { TomlEditor } from "./toml_edit.ts";
 import { mergeSettings } from "./settings_merge.ts";
+import { parseIcculusToml } from "./toml_render.ts";
+
+/** True for a non-null, non-array object. */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 /** The operations a migration step performs against an install. */
 export interface MigrationContext {
@@ -63,11 +69,43 @@ export interface Migration {
 }
 
 /**
- * The ordered migration chain. **Empty at schema 1** (ADR 0014): the current
- * shape is the baseline, so no step exists yet. Phase 2's kit rename will be the
- * first entry (`{ from: 1, … }`).
+ * The ordered migration chain (ADR 0014). One step per schema bump, contiguous
+ * from 1 up to `SCHEMA_VERSION`.
+ *
+ * `1 → 2` backfills `[project].main_branch`. It is the first real step — a
+ * deliberately small, safe seed evolution that exercises the whole pipeline
+ * end-to-end (the kit rename will come later, as a further step). `main_branch`
+ * is a long-standing engine-read field; an install whose `icculus.toml` predates
+ * it relied on the engine's implicit `"main"` default, so making it explicit is
+ * a genuine improvement. Only-if-absent, so a custom integration branch is never
+ * clobbered, and a no-op on any install that already has it.
  */
-export const MIGRATIONS: Migration[] = [];
+export const MIGRATIONS: Migration[] = [
+  {
+    from: 1,
+    describe: 'backfill [project].main_branch = "main" when absent',
+    apply: async (ctx) => {
+      const text = await ctx.readText("icculus.toml");
+      if (text === undefined) {
+        return; // no config to evolve.
+      }
+      let raw: Record<string, unknown>;
+      try {
+        raw = parseIcculusToml(text).raw;
+      } catch {
+        return; // unparseable — upgrade validates the config first; belt-and-braces.
+      }
+      const project = isRecord(raw.project) ? raw.project : {};
+      if (
+        typeof project.main_branch === "string" && project.main_branch !== ""
+      ) {
+        return; // already set (perhaps a custom branch) — never clobber.
+      }
+      await ctx.editToml((e) => e.setString("project.main_branch", "main"));
+      ctx.note('backfilled [project].main_branch = "main"');
+    },
+  },
+];
 
 /** Build the context a migration uses to transform the install at `destDir`. */
 export function createMigrationContext(

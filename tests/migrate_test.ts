@@ -41,7 +41,7 @@ async function migrateIn(
   }
 }
 
-Deno.test("migrate reports up to date on a current install (empty chain)", async () => {
+Deno.test("migrate reports up to date on a current install", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
     const r = await runCli(["migrate", "--json"], dir);
@@ -71,9 +71,9 @@ Deno.test("migrate errors cleanly when not initialized", async () => {
 Deno.test("migrate --check signals pending steps; bare migrate does not", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
-    await setSchema(dir, 0); // one schema behind
+    await setSchema(dir, 1); // one schema behind (build is at 2)
     const chain: Migration[] = [{
-      from: 0,
+      from: 1,
       describe: "a pending step",
       apply: () => Promise.resolve(),
     }];

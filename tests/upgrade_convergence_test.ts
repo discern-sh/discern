@@ -16,11 +16,12 @@
  * regardless of where the system temp dir lives.
  */
 
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { sha256Hex } from "../src/lib/manifest.ts";
 import {
   assertConverges,
+  readTarget,
   runCli,
   snapshotTree,
   withTempDir,
@@ -127,5 +128,58 @@ Deno.test("a second upgrade is a no-op (idempotent)", async () => {
     assertEquals(res.refreshed, []);
     assertEquals(res.removed, []);
     assertConverges(await snapshotTree(dir), before);
+  });
+});
+
+// ---- the corpus: a real migration carries an old install forward ----------
+
+/** Strip the `main_branch` line(s) from an install's icculus.toml. */
+async function removeMainBranch(dir: string): Promise<void> {
+  const p = join(dir, "icculus.toml");
+  const kept = (await Deno.readTextFile(p))
+    .split("\n")
+    .filter((l) => !/^\s*main_branch\s*=/.test(l));
+  await Deno.writeTextFile(p, kept.join("\n"));
+}
+
+/** Overwrite the recorded schema_version (to model an older install). */
+async function setManifestSchema(dir: string, version: number): Promise<void> {
+  const mp = join(dir, ".icculus/manifest.json");
+  const m = JSON.parse(await Deno.readTextFile(mp));
+  m.schema_version = version;
+  await Deno.writeTextFile(mp, `${JSON.stringify(m, null, 2)}\n`);
+}
+
+Deno.test("a schema-1 install missing main_branch upgrades to converge with a fresh install", async () => {
+  await withTempDir(async (older) => {
+    await withTempDir(async (fresh) => {
+      // Regress a current install to look like one made before main_branch
+      // existed: strip the field and reset the recorded schema to 1.
+      await init(older);
+      await removeMainBranch(older);
+      await setManifestSchema(older, 1);
+
+      const res = await upgrade(older); // runs the 1→2 migration, then syncs + stamps
+      assertEquals(
+        res.migrations_applied.map((m: { from: number }) => m.from),
+        [1],
+      );
+
+      await init(fresh); // a fresh schema-2 install
+
+      // Managed files + schema converge: identical managed hashes in the manifest
+      // prove the managed files are byte-identical, and schema_version matches.
+      assertEquals(
+        await manifestSansTimestamp(older),
+        await manifestSansTimestamp(fresh),
+      );
+      // The migration restored the field. A migrated *seed* converges in shape,
+      // not byte-for-byte with the template — the backfill carries no surrounding
+      // comment, which is fine (the seed is the user's, not the kit's).
+      assertStringIncludes(
+        await readTarget(older, "icculus.toml"),
+        'main_branch = "main"',
+      );
+    });
   });
 });
