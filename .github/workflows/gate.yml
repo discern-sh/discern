@@ -10,15 +10,28 @@ on:
     branches: [main]
   pull_request:
 
+# The gate only ever reads the repo; grant nothing more (least privilege).
+permissions:
+  contents: read
+
+# A newer commit supersedes an in-flight run on the same ref. Cancel the stale
+# run on pull requests; let main runs finish so every landed commit is gated.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   gate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
+          # Cache the Deno install and module cache (keyed off deno.lock) so the
+          # gate stops re-downloading every dependency on each run.
+          cache: true
 
       - name: Run the gate
         run: ./bin/agent finish
