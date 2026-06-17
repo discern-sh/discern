@@ -14,6 +14,7 @@ import { runUpgrade } from "./commands/upgrade.ts";
 import { runDoctor } from "./commands/doctor.ts";
 import { runMigrate } from "./commands/migrate.ts";
 import { runAddAdapter } from "./commands/add_adapter.ts";
+import { runDocs } from "./commands/docs.ts";
 import {
   runConfigSet,
   runConfigSetRatchet,
@@ -179,6 +180,38 @@ function buildCli() {
         noColor: noColorFrom(options.color),
         dryRun: options.dryRun ?? false,
         yes: options.yes ?? false,
+      });
+      Deno.exit(code);
+    });
+
+  root
+    .command("docs [target:string]")
+    .description("Browse and read the project's documentation tree.")
+    .option(
+      "--raw",
+      "Print a doc's pristine Markdown source instead of rendering it.",
+    )
+    .option(
+      "--list",
+      "Print a plain table of contents and exit (never interactive).",
+    )
+    .option("--no-pager", "Don't page rendered output through $PAGER.")
+    .option(
+      "--dir <path:string>",
+      "Docs directory to browse (default: <project root>/docs).",
+    )
+    .option("--width <cols:number>", "Wrap width for rendered output.")
+    .action(async (options, target?: string) => {
+      const code = await runDocs({
+        json: options.json ?? false,
+        noColor: noColorFrom(options.color),
+        raw: options.raw ?? false,
+        list: options.list ?? false,
+        // Cliffy maps `--no-pager` to a negatable `pager` boolean (like --no-color).
+        noPager: options.pager === false,
+        dir: options.dir,
+        width: options.width,
+        target,
       });
       Deno.exit(code);
     });

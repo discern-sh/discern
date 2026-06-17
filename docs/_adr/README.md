@@ -33,3 +33,4 @@ decision is hard to reverse, surprising without context, and a real trade-off.
 - [0012 — Engine noglob (`set -f`) by default](0012-engine-noglob-default.md)
 - [0013 — Product vocabulary in user-facing output](0013-product-vocabulary-in-user-output.md)
 - [0014 — A versioned, reversible migration system](0014-versioned-migration-system.md)
+- [0015 — `icculus docs` browser + terminal Markdown renderer](0015-docs-browser.md)
