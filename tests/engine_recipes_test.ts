@@ -63,6 +63,40 @@ Deno.test("recipes: a project recipe can source the engine library", async () =>
   });
 });
 
+Deno.test("recipes: a project recipe keeps shell globbing (engine noglob is not imposed on it)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    // Files for the recipe to glob over.
+    await writeExecutable(join(dir, "glob-fixture/a.txt"), "a");
+    await writeExecutable(join(dir, "glob-fixture/b.txt"), "b");
+    await writeExecutable(join(dir, "glob-fixture/c.txt"), "c");
+    // A project recipe that sources the engine library (for its helpers) AND
+    // relies on a shell glob — the exact shape of a native sub-app recipe like
+    // `ls "$dir"/*.xcodeproj`. The engine runs under `set -f` (ADR 0012), but
+    // that is an ENGINE policy: a project recipe must keep normal globbing, or a
+    // routine `icculus upgrade` would silently break it (glob matches nothing).
+    await writeExecutable(
+      join(dir, ".icculus/recipes/globby"),
+      [
+        "#!/usr/bin/env sh",
+        "# desc: count files via a shell glob",
+        '. "$ICCULUS_LIB/bootstrap.sh"',
+        "_n=0",
+        'for _f in "$ICCULUS_ROOT"/glob-fixture/*.txt; do',
+        '    [ -e "$_f" ] || continue',
+        "    _n=$((_n + 1))",
+        "done",
+        "printf 'GLOB_COUNT=%s\\n' \"$_n\"",
+        "",
+      ].join("\n"),
+    );
+    const r = await runAgent(dir, ["globby"]);
+    assertEquals(r.code, 0, r.output);
+    // 3 if the glob expanded; 0 if engine noglob leaked onto the project recipe.
+    assertStringIncludes(r.stdout, "GLOB_COUNT=3");
+  });
+});
+
 Deno.test("recipes: a name colliding with an engine recipe is shadowed (engine wins)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

@@ -35,8 +35,11 @@ the engine.
 
 ## Decision
 
-Disable pathname expansion engine-wide: `lib/bootstrap.sh` — sourced first by
-every recipe — runs `set -f`. Globbing is off for the whole engine by default.
+Disable pathname expansion for engine recipes: `lib/bootstrap.sh` — sourced
+first by every recipe — runs `set -f`, gated on the `ICCULUS_ENGINE_RECIPE`
+marker that `bin/agent` sets per dispatch (`1` for an engine recipe, `0` for a
+project recipe). Globbing is off for every engine recipe by default; project
+recipes that merely source the library keep normal globbing (see Refinement).
 
 - A recipe that genuinely needs a glob opts back in locally with `set +f` around
   the specific expansion (none do today).
@@ -54,14 +57,17 @@ actually reproduces this bug class).
 ## Consequences
 
 - The whole class of "an unquoted config split silently globs" is structurally
-  impossible in any recipe, present or future — not merely discouraged.
+  impossible in any engine recipe, present or future — not merely discouraged.
 - The cost is mild action-at-a-distance: globbing is off via a sourced lib, not
   visible in the recipe itself. The failure mode for an author who expects a
   glob is **loud** (the loop iterates the literal pattern once, so the feature
   visibly does nothing), unlike the silent bug this prevents. The bootstrap
   comment and this ADR document the rule; `set +f` is the escape hatch.
-- User recipes under `.icculus/recipes/` that source bootstrap inherit noglob
-  too. This is intended — they run in the engine's environment — and documented.
+- Project recipes under `.icculus/recipes/` are NOT subject to noglob: they
+  source bootstrap for its helpers, not to inherit engine shell policy, so they
+  keep normal globbing. `bootstrap.sh` stays a stable contract for recipe
+  authors (it provides the library; it does not impose shell modes). See
+  Refinement.
 
 ## Alternatives considered
 
@@ -74,3 +80,20 @@ actually reproduces this bug class).
 - **Rewrite every split to avoid word-splitting** (e.g. `while read` over a temp
   file). More invasive, and still unenforced against the next author. `set -f`
   is one line and total.
+
+## Refinement (2026-06-17)
+
+The first implementation put `set -f` unconditionally in `bootstrap.sh`. Because
+project recipes also source bootstrap (for `config_get`, `info`, `die`, …), they
+inherited noglob too — and on the next `icculus upgrade`, a downstream project's
+custom recipe that used `ls "$dir"/*.xcodeproj` silently matched nothing. That
+was a breaking change to the recipe-authoring contract, leaked through a shared
+file.
+
+Fix: scope the policy to engine recipes. `bin/agent` exports
+`ICCULUS_ENGINE_RECIPE=1` before dispatching an engine recipe and `=0` before a
+project recipe; `bootstrap.sh` runs `set -f` only when the marker is `1`. Engine
+recipes keep the structural guarantee above; project recipes keep normal
+globbing. The lesson generalises: `bootstrap.sh` is a contract surface shared
+with user recipes, so engine-internal shell policy belongs **scoped to the
+engine**, not imposed on everyone who sources the library.

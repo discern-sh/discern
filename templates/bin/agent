@@ -172,6 +172,11 @@ if [ -x "$engine_target" ]; then
         printf '       Rename %s to expose it under a non-colliding name.\n' "$project_target" >&2
     fi
     shift
+    # Engine recipes run under noglob (ADR 0012); mark this dispatch so the
+    # bootstrap preamble enables `set -f`. Project recipes (below) are marked 0
+    # so they keep normal shell globbing — noglob is an engine policy, not a
+    # contract imposed on recipes that merely source the engine library.
+    export ICCULUS_ENGINE_RECIPE=1
     exec "$engine_target" "$@"
 fi
 
@@ -184,6 +189,7 @@ fi
 # No engine recipe by that name — try a project-owned recipe.
 if [ -x "$project_target" ]; then
     shift
+    export ICCULUS_ENGINE_RECIPE=0   # project recipe: keep shell globbing on
     exec "$project_target" "$@"
 fi
 

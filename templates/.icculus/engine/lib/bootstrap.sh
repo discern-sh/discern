@@ -18,13 +18,20 @@ ICCULUS_ROOT=${ICCULUS_ROOT:-$(CDPATH='' cd -- "$ICCULUS_ENGINE/../.." && pwd)}
 ICCULUS_TOML=${ICCULUS_TOML:-$ICCULUS_ROOT/icculus.toml}
 export ICCULUS_ENGINE ICCULUS_LIB ICCULUS_ROOT ICCULUS_TOML
 
-# Disable pathname expansion (globbing) for the entire engine. Recipes word-split
-# config values out of `config_array` in unquoted `for` loops; with globbing on,
-# a scope pattern like "app/**" expands against the working tree and silently
-# drops nested paths from their scope (see ADR 0012). No engine recipe needs
-# globbing; one that genuinely does opts back in locally with `set +f`. This
-# affects only filename generation — case-matching and ${var} expansion are not.
-set -f
+# Disable pathname expansion (globbing) for ENGINE recipes. They word-split config
+# values out of `config_array` in unquoted `for` loops; with globbing on, a scope
+# pattern like "app/**" expands against the working tree and silently drops nested
+# paths from their scope (see ADR 0012). This affects only filename generation —
+# case-matching and ${var} expansion are not.
+#
+# Scoped via the ICCULUS_ENGINE_RECIPE marker that bin/agent sets per dispatch
+# (1 = engine recipe, 0 = project recipe). A PROJECT recipe sources this file for
+# the library/helpers and must keep normal shell globbing, so noglob is never
+# imposed on it. (changed-scopes also runs `set -f` locally, covering the rare
+# case of an engine recipe run directly by path, where no marker is set.)
+if [ "${ICCULUS_ENGINE_RECIPE:-0}" = 1 ]; then
+    set -f
+fi
 
 if [ ! -f "$ICCULUS_TOML" ]; then
     printf 'icculus: no icculus.toml found at %s\n' "$ICCULUS_TOML" >&2
