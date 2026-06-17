@@ -22,7 +22,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "zsh -c 'set -e; input=$(cat); name=$(printf %s \"$input\" | jq -r .name); cwd=$(printf %s \"$input\" | jq -r .cwd); dir=\"$cwd/.claude/worktrees/$name\"; if [ ! -e \"$dir/.git\" ]; then git -C \"$cwd\" worktree add \"$dir\" -b \"agent/$name\" 1>&2; fi; (cd \"$dir\" && ./bin/agent worktree 1>&2); printf %s \"$dir\"'"
+            "command": "sh -c 'set -e; input=$(cat); name=$(printf %s \"$input\" | jq -r .name); cwd=$(printf %s \"$input\" | jq -r .cwd); dir=\"$cwd/.claude/worktrees/$name\"; if [ ! -e \"$dir/.git\" ]; then git -C \"$cwd\" worktree add \"$dir\" -b \"agent/$name\" 1>&2; fi; (cd \"$dir\" && ./bin/agent worktree 1>&2); printf %s \"$dir\"'"
           }
         ]
       }
@@ -32,7 +32,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "zsh -c 'input=$(cat); dir=$(printf %s \"$input\" | jq -r .worktree_path); (cd \"$dir\" && ./bin/agent worktree:teardown 1>&2) || true'"
+            "command": "sh -c 'input=$(cat); dir=$(printf %s \"$input\" | jq -r .worktree_path); (cd \"$dir\" && ./bin/agent worktree:teardown 1>&2) || true'"
           }
         ]
       }
