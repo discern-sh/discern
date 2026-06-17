@@ -311,38 +311,40 @@ uses.
 
 ### `icculus` (the installer)
 
-| command              | does                                                                                                                                                                                                                                       |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `init`               | scaffold the harness into the cwd (fresh or existing repo). Wizard, `--yes` + flags, or `--config <file>` (JSON answers file). `--dry-run`, `--json`, `--force`. Never overwrites a file it can't prove it wrote — see _Managed vs. seed_. |
-| `upgrade`            | refresh only **managed** engine files. A managed file you edited is preserved; the new version lands as `<file>.new`.                                                                                                                      |
-| `doctor`             | verify the install (manifest, dispatcher, then delegates to `agent doctor`).                                                                                                                                                               |
-| `migrate`            | rewrite a pre-1.0 `icculus.toml` to the 1.0 shape (comment-preserving, idempotent, `--dry-run`/`--json`). See _Upgrading from 0.x to 1.0_.                                                                                                 |
-| `config <sub>`       | programmatically edit `icculus.toml`, comments intact — `set-slot`, `set-scope`, `set-side-gate`, `set-ratchet`, `set`. See _Driving icculus programmatically_.                                                                            |
-| `add-adapter <name>` | overlay an adapter from `adapters/<name>/`: its files **and** its `adapter.json` config fills. Ships no adapters; see _Writing an adapter_.                                                                                                |
+| command              | does                                                                                                                                                                                                                                                                                                                                                   |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `init`               | scaffold the harness into the cwd (fresh or existing repo). Wizard, `--yes` + flags, or `--config <file>` (JSON answers file). `--dry-run`, `--json`, `--force`. Never overwrites a file it can't prove it wrote — see _Managed vs. seed_.                                                                                                             |
+| `upgrade`            | run any pending schema migrations, then refresh **managed** files: an edited one is preserved as `<file>.new`; one the kit no longer ships is removed if pristine, kept (with a warning) if you edited it. Refuses a dirty tree unless `--allow-dirty`, so an upgrade stays `git checkout`-revertible. See _Schema migrations_ and _Managed vs. seed_. |
+| `doctor`             | verify the install (manifest, schema version, dispatcher, then delegates to `agent doctor`).                                                                                                                                                                                                                                                           |
+| `migrate`            | report the install's recorded schema and any pending migration steps (read-only); `--check` exits non-zero when steps are pending. `upgrade` applies them. See _Schema migrations_.                                                                                                                                                                    |
+| `config <sub>`       | programmatically edit `icculus.toml`, comments intact — `set-slot`, `set-scope`, `set-side-gate`, `set-ratchet`, `set`. See _Driving icculus programmatically_.                                                                                                                                                                                        |
+| `add-adapter <name>` | overlay an adapter from `adapters/<name>/`: its files **and** its `adapter.json` config fills. Ships no adapters; see _Writing an adapter_.                                                                                                                                                                                                            |
 
 Global flags: `--json`, `--no-color` (also honours `NO_COLOR` and non-TTY),
 `--help`, `--version`.
 
-### Upgrading from 0.x to 1.0
+### Schema migrations
 
-1.0 is a clean break (the config shape was simplified — see
-[ADR 0009](docs/_adr/0009-one-point-zero-drop-backward-compat.md)). Two commands
-take you across:
+Every install records a `schema_version` in its manifest
+([ADR 0014](docs/_adr/0014-versioned-migration-system.md)). When a kit release
+needs to transform an existing install — rename a file, restructure the config,
+evolve a convention — it ships an ordered **migration** step. `icculus upgrade`
+runs every step between the install's recorded version and the kit's, **before**
+the file sync (a step may move files the sync then reconciles), then stamps the
+new version. One command brings an install fully current; steps are idempotent.
 
 ```sh
-icculus migrate     # rewrite icculus.toml to the 1.0 shape (try --dry-run first)
-icculus upgrade     # refresh the engine to 1.0
+icculus upgrade          # run pending migrations, then refresh managed files
+icculus migrate          # read-only: show the recorded schema and any pending steps
+icculus migrate --check  # exit non-zero if migrations are pending (a CI signal)
 ```
 
-`migrate` is comment-preserving and idempotent. It converts
-`[ratchets].coverage_min` into a `[ratchets.coverage]` table, turns any
-`coverage`-phase slot into a phase-less measurement slot, and rewrites the
-worktree runtime tokens (`{{db}}` → `@db@`, …). Everything else in your
-`icculus.toml` is left exactly as you wrote it.
-
-You don't have to remember the order: `icculus upgrade` and `icculus doctor`
-both detect a pre-1.0 config and point you at `migrate`, so the one silent
-breakage — a `coverage_min` the 1.0 engine no longer reads — can't slip past.
+The current schema is **2**. Its one step (`1 → 2`) backfills
+`[project].main_branch` for installs whose `icculus.toml` predates that field —
+a small, safe seed evolution, so a current install reports nothing pending. (1.0
+was a clean break with no automated 0.x path; the bespoke 0.x→1.0 `migrate` that
+[ADR 0009](docs/_adr/0009-one-point-zero-drop-backward-compat.md) shipped was
+retired in favour of this versioned chain — see ADR 0014.)
 
 ### Driving icculus programmatically
 
@@ -488,8 +490,11 @@ is `null`).
   place **only** when its on-disk bytes still match what the kit last wrote; if
   you edited it — or a same-named file was already there before Icculus — your
   copy is left untouched and the kit's version is written alongside as
-  `<file>.new` for you to merge. Everything else — `icculus.toml`, your docs,
-  guidelines, `TODO.md` — is **seed**: written once, then yours.
+  `<file>.new` for you to merge. A managed file the kit _stops_ shipping is
+  removed on upgrade when it's still pristine (kept, with a warning, if you
+  edited it), so renames and removals reach installs cleanly rather than leaving
+  orphans behind. Everything else — `icculus.toml`, your docs, guidelines,
+  `TODO.md` — is **seed**: written once, then yours.
 - **Author once, compile everywhere — agent-agnostic.** Write your guidance and
   skills once under `.ai/`; `agent guidelines` compiles them to every agent's
   own instruction file, so one repo can drive Claude Code, Codex, Gemini, and

@@ -15,6 +15,7 @@ const DISPOSITION_LABEL: Record<OpDisposition, string> = {
   new: "new file",
   merge: "merge",
   append: "append",
+  remove: "remove",
 };
 
 /** Render the full plan as a per-file listing under a heading (used by --dry-run). */
@@ -255,6 +256,7 @@ export function renderUpgradeSummary(
   refreshed: PlanOp[],
   preserved: PlanOp[],
   newFiles: PlanOp[],
+  removed: PlanOp[] = [],
 ): void {
   log.heading("Upgrade summary");
   log.ok(`refreshed: ${refreshed.length}`);
@@ -264,6 +266,12 @@ export function renderUpgradeSummary(
   if (preserved.length > 0) {
     log.info(`already up to date: ${preserved.length}`);
     for (const op of preserved) {
+      log.detail(op.targetRel);
+    }
+  }
+  if (removed.length > 0) {
+    log.info(`removed (no longer shipped): ${removed.length}`);
+    for (const op of removed) {
       log.detail(op.targetRel);
     }
   }

@@ -23,12 +23,12 @@ self-describing sources that never go stale — consult those for the leaves:
 Every path in an install is one of four kinds. The disposition decides how the
 kit treats it on `upgrade` and where you change it.
 
-| Disposition   | What it is                                                                                    | On `icculus upgrade`                                                       | Where you change it                                            |
-| ------------- | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| **managed**   | Copied verbatim from `templates/`; `selfcheck` holds it byte-identical to the kit.            | Refreshed. A local edit is flagged as drift and preserved as `<file>.new`. | Edit the source under `templates/`, then `deno task selfsync`. |
-| **seed**      | Rendered once from a `templates/….tmpl` at `init`, then owned by the project.                 | Untouched.                                                                 | Edit the file in place.                                        |
-| **merged**    | Folded into an existing file (structured merge or idempotent append), preserving its content. | Untouched (written at `init` only).                                        | Edit the file in place.                                        |
-| **generated** | Produced by a harness command after install — not shipped as a static file.                   | n/a (re-run the producing command).                                        | Edit the inputs, then re-run the command.                      |
+| Disposition   | What it is                                                                                    | On `icculus upgrade`                                                                                                      | Where you change it                                            |
+| ------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| **managed**   | Copied verbatim from `templates/`; `selfcheck` holds it byte-identical to the kit.            | Refreshed. A local edit is preserved as `<file>.new`; one the kit no longer ships is removed if pristine, kept if edited. | Edit the source under `templates/`, then `deno task selfsync`. |
+| **seed**      | Rendered once from a `templates/….tmpl` at `init`, then owned by the project.                 | Untouched.                                                                                                                | Edit the file in place.                                        |
+| **merged**    | Folded into an existing file (structured merge or idempotent append), preserving its content. | Untouched (written at `init` only).                                                                                       | Edit the file in place.                                        |
+| **generated** | Produced by a harness command after install — not shipped as a static file.                   | n/a (re-run the producing command).                                                                                       | Edit the inputs, then re-run the command.                      |
 
 The managed set is declared in [`managed.json`](../../templates/managed.json);
 everything else under `templates/` is a seed. Two files are special-cased at
@@ -40,12 +40,12 @@ shown is where the file lands in an installed project.
 
 ## Control surface & configuration
 
-| Path                                                | Disposition | What it is                                                                                                                                                  |
-| --------------------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`bin/agent`](../../templates/bin/agent)            | managed     | The `agent` task runner: finds the project root and dispatches `agent <verb>` to an engine recipe.                                                          |
-| [`icculus.toml`](../../templates/icculus.toml.tmpl) | seed        | The one hand-edited file that teaches the generic engine about your stack — slots, scopes, worktree adapters, ratchets, evidence, gate ergonomics, recipes. |
-| `.icculus/brief.md`                                 | seed        | The project brief captured at `init`; the source [`bootstrap`](../../templates/.ai/skills/bootstrap/SKILL.md) reads to fill the docs and guidelines.        |
-| `.icculus/manifest.json`                            | generated   | Records the kit version and a hash of every managed file, so `upgrade` / `selfcheck` can tell pristine from edited.                                         |
+| Path                                                | Disposition | What it is                                                                                                                                                                                                                                                 |
+| --------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`bin/agent`](../../templates/bin/agent)            | managed     | The `agent` task runner: finds the project root and dispatches `agent <verb>` to an engine recipe.                                                                                                                                                         |
+| [`icculus.toml`](../../templates/icculus.toml.tmpl) | seed        | The one hand-edited file that teaches the generic engine about your stack — slots, scopes, worktree adapters, ratchets, evidence, gate ergonomics, recipes.                                                                                                |
+| `.icculus/brief.md`                                 | seed        | The project brief captured at `init`; the source [`bootstrap`](../../templates/.ai/skills/bootstrap/SKILL.md) reads to fill the docs and guidelines.                                                                                                       |
+| `.icculus/manifest.json`                            | generated   | Records the kit version, the install **schema version** (the migration anchor, [ADR 0014](../_adr/0014-versioned-migration-system.md)), and a hash of every managed file, so `upgrade` / `selfcheck` can tell pristine from edited and current from stale. |
 
 ## The quality gate
 

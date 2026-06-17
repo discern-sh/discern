@@ -122,12 +122,17 @@ function buildCli() {
       "--check",
       "Report drift (managed files out of sync) and exit non-zero; write nothing.",
     )
+    .option(
+      "--allow-dirty",
+      "Upgrade even with uncommitted changes (skips the clean-tree check).",
+    )
     .action(async (options) => {
       const code = await runUpgrade({
         json: options.json ?? false,
         noColor: noColorFrom(options.color),
         dryRun: options.dryRun ?? false,
         check: options.check ?? false,
+        allowDirty: options.allowDirty ?? false,
       });
       Deno.exit(code);
     });
@@ -146,14 +151,17 @@ function buildCli() {
   root
     .command("migrate")
     .description(
-      "Rewrite a pre-1.0 icculus.toml to the 1.0 shape (coverage_min, phases, tokens).",
+      "Report pending schema migrations (read-only); `upgrade` applies them.",
     )
-    .option("--dry-run", "Print the changes and write nothing.")
+    .option(
+      "--check",
+      "Exit non-zero when migrations are pending (a scripting signal).",
+    )
     .action(async (options) => {
       const code = await runMigrate({
         json: options.json ?? false,
         noColor: noColorFrom(options.color),
-        dryRun: options.dryRun ?? false,
+        check: options.check ?? false,
       });
       Deno.exit(code);
     });

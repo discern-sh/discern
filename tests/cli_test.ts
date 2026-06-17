@@ -164,30 +164,30 @@ Deno.test("doctor --json reports invalid result when not initialized", async () 
   });
 });
 
-Deno.test("doctor flags a pre-1.0 config shape and points at migrate", async () => {
+Deno.test("doctor flags a stale schema version and points at upgrade", async () => {
   await withTempDir(async (dir) => {
     assertEquals(
       (await runCli(["init", "--yes", "--slug", "demo"], dir)).code,
       0,
     );
-    // Re-introduce a pre-1.0 marker the 1.0 engine would silently ignore.
-    const tomlPath = join(dir, "icculus.toml");
-    await Deno.writeTextFile(
-      tomlPath,
-      `${await Deno.readTextFile(tomlPath)}\n[ratchets]\ncoverage_min = 80\n`,
-    );
+    // Model an install left a schema behind (a migration shipped since).
+    const mp = join(dir, ".icculus/manifest.json");
+    const m = JSON.parse(await Deno.readTextFile(mp));
+    m.schema_version = 0;
+    await Deno.writeTextFile(mp, `${JSON.stringify(m, null, 2)}\n`);
+
     const { stdout } = await runCli(["doctor", "--json"], dir);
     const result = JSON.parse(stdout);
-    const shape = result.checks.find((c: { name: string }) =>
-      c.name === "config shape"
+    const schema = result.checks.find((c: { name: string }) =>
+      c.name === "schema version"
     );
-    assert(shape !== undefined, "expected a 'config shape' check");
-    assertEquals(shape.ok, false);
-    assertStringIncludes(shape.fix, "migrate");
+    assert(schema !== undefined, "expected a 'schema version' check");
+    assertEquals(schema.ok, false);
+    assertStringIncludes(schema.fix, "upgrade");
   });
 });
 
-Deno.test("doctor does not raise the config-shape check on a clean 1.0 install", async () => {
+Deno.test("doctor reports the schema version is current on a fresh install", async () => {
   await withTempDir(async (dir) => {
     assertEquals(
       (await runCli(["init", "--yes", "--slug", "demo"], dir)).code,
@@ -195,10 +195,13 @@ Deno.test("doctor does not raise the config-shape check on a clean 1.0 install",
     );
     const { stdout } = await runCli(["doctor", "--json"], dir);
     const result = JSON.parse(stdout);
-    const shape = result.checks.find((c: { name: string }) =>
-      c.name === "config shape"
+    const schema = result.checks.find((c: { name: string }) =>
+      c.name === "schema version"
     );
-    assertEquals(shape, undefined); // no pre-1.0 shape → no such finding
+    assert(
+      schema !== undefined && schema.ok === true,
+      "schema should be current",
+    );
   });
 });
 

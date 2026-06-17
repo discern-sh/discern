@@ -6,10 +6,10 @@
 
 import { join } from "@std/path";
 import { Logger } from "../lib/log.ts";
+import { selfCmd } from "../lib/invocation.ts";
 import { parseIcculusToml } from "../lib/toml_render.ts";
 import { parseManifest } from "../lib/manifest.ts";
-import { KIT_VERSION } from "../lib/version.ts";
-import { needsMigration } from "./migrate.ts";
+import { KIT_VERSION, SCHEMA_VERSION } from "../lib/version.ts";
 
 /** Options accepted by the `doctor` command. */
 export interface DoctorOptions {
@@ -57,18 +57,6 @@ export async function runChecks(destDir: string): Promise<Check[]> {
       ok: true,
       detail: "present and valid TOML",
     });
-    // Config shape: a pre-1.0 icculus.toml still parses, but the 1.0 engine
-    // silently ignores its old shapes (notably a `coverage_min` ratchet). Flag
-    // it with the exact remedy, consistent with the manifest-version check below.
-    if (needsMigration(text)) {
-      checks.push({
-        name: "config shape",
-        ok: false,
-        detail:
-          'icculus.toml uses a pre-1.0 shape ([ratchets].coverage_min, a "coverage" slot phase, or {{…}} worktree tokens)',
-        fix: "run `icculus migrate` to update it to the 1.0 shape",
-      });
-    }
   } catch (error) {
     const isMissing = error instanceof Deno.errors.NotFound;
     checks.push({
@@ -108,8 +96,9 @@ export async function runChecks(destDir: string): Promise<Check[]> {
     });
   }
 
-  // 3. manifest present and matches this kit version.
+  // 3. manifest present, matching this kit version, at the current schema.
   const manifestPath = join(destDir, ".icculus/manifest.json");
+  const syncCmd = await selfCmd("sync");
   try {
     const manifest = parseManifest(await Deno.readTextFile(manifestPath));
     if (manifest.kit_version === KIT_VERSION) {
@@ -124,7 +113,24 @@ export async function runChecks(destDir: string): Promise<Check[]> {
         ok: false,
         detail:
           `kit version ${manifest.kit_version} ≠ installer ${KIT_VERSION}`,
-        fix: "run `icculus upgrade` to refresh managed files to this version",
+        fix: `run \`${syncCmd}\` to refresh managed files to this version`,
+      });
+    }
+    // Schema currency: an install behind this build's schema needs the
+    // migration chain run (ADR 0014), which `upgrade` does automatically.
+    if (manifest.schema_version === SCHEMA_VERSION) {
+      checks.push({
+        name: "schema version",
+        ok: true,
+        detail: `schema ${SCHEMA_VERSION} (current)`,
+      });
+    } else {
+      checks.push({
+        name: "schema version",
+        ok: false,
+        detail:
+          `install schema v${manifest.schema_version}, this build expects v${SCHEMA_VERSION}`,
+        fix: `run \`${syncCmd}\` to migrate the install`,
       });
     }
   } catch (error) {

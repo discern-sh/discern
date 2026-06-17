@@ -31,3 +31,5 @@ decision is hard to reverse, surprising without context, and a real trade-off.
 - [0010 — Self-host the harness](0010-self-host-the-harness.md)
 - [0011 — Adopt the worktree workflow](0011-adopt-worktree-workflow.md)
 - [0012 — Engine noglob (`set -f`) by default](0012-engine-noglob-default.md)
+- [0013 — Product vocabulary in user-facing output](0013-product-vocabulary-in-user-output.md)
+- [0014 — A versioned, reversible migration system](0014-versioned-migration-system.md)

@@ -118,6 +118,52 @@ Deno.test("upgrade --check heals with the product command, never engine-internal
   });
 });
 
+// ---- schema-version currency, the self-host canary (ADR 0014) -------------
+
+/** Overwrite the install manifest's recorded schema_version. */
+async function setSchemaVersion(dir: string, version: number): Promise<void> {
+  const mp = join(dir, ".icculus/manifest.json");
+  const m = JSON.parse(await Deno.readTextFile(mp));
+  m.schema_version = version;
+  await Deno.writeTextFile(mp, `${JSON.stringify(m, null, 2)}\n`);
+}
+
+Deno.test("upgrade --check reports the install schema and passes when it is current", async () => {
+  await withTempDir(async (dir) => {
+    await init(dir);
+    const r = await runCli(["upgrade", "--check", "--json"], dir);
+    assertEquals(r.code, 0, r.stderr);
+    const res = JSON.parse(r.stdout);
+    assertEquals(res.ok, true);
+    assertEquals(res.schema.recorded, res.schema.current);
+  });
+});
+
+Deno.test("upgrade --check flags a stale schema as drift even when files are in sync", async () => {
+  await withTempDir(async (dir) => {
+    await init(dir);
+    // Model an install left a schema behind (a migration shipped since).
+    await setSchemaVersion(dir, 1);
+    const r = await runCli(["upgrade", "--check", "--json"], dir);
+    assertEquals(r.code, 1, r.stderr);
+    const res = JSON.parse(r.stdout);
+    assertEquals(res.ok, false);
+    assertEquals(res.schema.recorded, 1);
+    assertEquals(res.schema.current, 2);
+    assertEquals(res.drifted, []); // managed files themselves are fine
+  });
+});
+
+Deno.test("upgrade --check (human mode) names a stale schema", async () => {
+  await withTempDir(async (dir) => {
+    await init(dir);
+    await setSchemaVersion(dir, 0);
+    const r = await runCli(["upgrade", "--check"], dir);
+    assertEquals(r.code, 1, r.stderr);
+    assertStringIncludes(r.stderr, "schema");
+  });
+});
+
 Deno.test("upgrade --check heals with `deno task selfsync` when the project drives upgrade via a Deno task", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
