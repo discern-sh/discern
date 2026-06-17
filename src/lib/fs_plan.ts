@@ -44,12 +44,13 @@ export type OpDisposition =
   | "skip" // seed already present, or fully-idempotent no-op
   | "new" // managed + user-edited → new content written to <path>.new
   | "merge" // settings.json deep-merge
-  | "append"; // .gitignore fragment append
+  | "append" // .gitignore fragment append
+  | "remove"; // managed orphan (recorded, gone from new templates) → deleted
 
 /** A single planned filesystem operation against one target path. */
 export interface PlanOp {
   /** What the op does to the target. */
-  kind: "write" | "merge-settings" | "append-gitignore";
+  kind: "write" | "merge-settings" | "append-gitignore" | "remove";
   /** Target path relative to the destination root (forward-slashed). */
   targetRel: string;
   /** Absolute target path. */
@@ -526,15 +527,98 @@ export function newFilesFromPlan(plan: Plan): PlanOp[] {
   return plan.ops.filter((op) => op.disposition === "new");
 }
 
+/** A managed orphan left in place because its on-disk copy is not the kit's. */
+export interface OrphanKept {
+  /** The orphaned managed path (target-relative). */
+  path: string;
+  /** Why it was kept (the user edited it, or it is a foreign same-named file). */
+  reason: string;
+}
+
 /**
- * Apply a plan to disk. Skips no-op (`skip`) ops. Creates parent directories,
- * writes bytes, and sets the recorded mode. Returns the ops that actually
- * changed disk (everything but skips), for the change summary.
+ * Reconcile orphans (ADR 0014): managed files the manifest recorded that the
+ * *new* templates no longer ship. Each recorded managed path absent from the
+ * freshly built plan's managed targets is an orphan. A *pristine* orphan — its
+ * on-disk bytes still match the recorded hash — is planned for removal; an
+ * orphan whose bytes differ (the user edited it, or it was a foreign same-named
+ * file) is kept and reported, never silently deleted. A path already gone from
+ * disk needs no action.
+ *
+ * Removal handles *deletions* only. A *rename* that must carry user edits
+ * forward is an explicit migration step (ADR 0014, Phase 1), not
+ * delete-then-recreate here.
+ *
+ * Only `upgrade` reconciles orphans: it is the command with a prior manifest to
+ * diff against. `init` (even `--force`) scaffolds, it does not prune.
+ */
+export async function planOrphanRemovals(params: {
+  destDir: string;
+  /** The prior manifest's managed entries (recorded path + hash). */
+  recorded: ManagedEntry[];
+  /** The freshly built upgrade plan, for the set of paths still shipped. */
+  plan: Plan;
+}): Promise<{ removals: PlanOp[]; kept: OrphanKept[] }> {
+  // Every managed canonical path the new templates still ship. A `.new` op means
+  // the canonical path is still shipped (the kit copy was written alongside the
+  // user's), so strip `.new` to compare against the recorded canonical path.
+  const stripNew = (rel: string) => rel.replace(/\.new$/, "");
+  const stillShipped = new Set(
+    params.plan.ops.filter((o) => o.managed).map((o) => stripNew(o.targetRel)),
+  );
+
+  const removals: PlanOp[] = [];
+  const kept: OrphanKept[] = [];
+  for (const entry of params.recorded) {
+    if (stillShipped.has(entry.path)) {
+      continue; // still shipped — not an orphan.
+    }
+    const targetAbs = join(params.destDir, entry.path);
+    const existing = await readBytesIfExists(targetAbs);
+    if (existing === undefined) {
+      continue; // already gone — nothing to remove.
+    }
+    if (await sha256Hex(existing) === entry.sha256) {
+      removals.push({
+        kind: "remove",
+        targetRel: entry.path,
+        targetAbs,
+        disposition: "remove",
+        bytes: new Uint8Array(),
+        mode: 0,
+        managed: true,
+        note: "no longer shipped — removed",
+      });
+    } else {
+      kept.push({
+        path: entry.path,
+        reason: "edited or foreign — kept, though no longer shipped",
+      });
+    }
+  }
+  return { removals, kept };
+}
+
+/**
+ * Apply a plan to disk. Skips no-op (`skip`) ops. A `remove` op deletes its
+ * target (tolerating one already gone); every other op creates parent
+ * directories, writes bytes, and sets the recorded mode. Returns the ops that
+ * actually changed disk (everything but skips), for the change summary.
  */
 export async function applyPlan(plan: Plan): Promise<PlanOp[]> {
   const changed: PlanOp[] = [];
   for (const op of plan.ops) {
     if (op.disposition === "skip") {
+      continue;
+    }
+    if (op.kind === "remove") {
+      try {
+        await Deno.remove(op.targetAbs);
+      } catch (error) {
+        if (!(error instanceof Deno.errors.NotFound)) {
+          throw error;
+        }
+      }
+      changed.push(op);
       continue;
     }
     await ensureDir(dirname(op.targetAbs));

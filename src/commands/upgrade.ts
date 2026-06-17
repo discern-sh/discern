@@ -30,7 +30,9 @@ import {
   buildPlan,
   managedEntriesFromPlan,
   newFilesFromPlan,
+  type OrphanKept,
   type Plan,
+  planOrphanRemovals,
 } from "../lib/fs_plan.ts";
 import {
   planToJson,
@@ -162,6 +164,21 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     managedSpec: await loadManagedSpec(templatesDir),
   });
 
+  // Reconcile orphans: managed files the manifest recorded that the new
+  // templates no longer ship (ADR 0014). Pristine orphans become `remove` ops
+  // in the plan — so they surface as drift in `--check`, in the dry-run listing,
+  // and get deleted on apply; edited orphans are kept and reported, never
+  // deleted. Needs the prior manifest to diff against; absent one, nothing.
+  const orphans = manifest
+    ? await planOrphanRemovals({
+      destDir,
+      recorded: manifest.managed,
+      plan,
+    })
+    : { removals: [], kept: [] as OrphanKept[] };
+  plan.ops.push(...orphans.removals);
+  plan.ops.sort((a, b) => a.targetRel.localeCompare(b.targetRel));
+
   if (options.check) {
     // A managed file is in sync iff its disposition is "skip". An edited managed
     // file's op targets "<path>.new"; strip that so we report the canonical path.
@@ -177,19 +194,23 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
           path: canonical(op.targetRel),
           action: op.disposition,
         })),
+        orphans_kept: orphans.kept.map((o) => o.path),
         migrate_suggested: migrateSuggested,
       });
-    } else if (drifted.length === 0) {
-      log.ok("Managed files are in sync with templates/.");
     } else {
-      log.error(
-        `Managed files have drifted from templates/ (${drifted.length}):`,
-      );
-      for (const op of drifted) {
-        log.detail(`${canonical(op.targetRel)} (${op.disposition})`);
+      if (drifted.length === 0) {
+        log.ok("Managed files are in sync with templates/.");
+      } else {
+        log.error(
+          `Managed files have drifted from templates/ (${drifted.length}):`,
+        );
+        for (const op of drifted) {
+          log.detail(`${canonical(op.targetRel)} (${op.disposition})`);
+        }
+        log.line();
+        log.info(`Heal it: run \`${await selfCmd("sync")}\`.`);
       }
-      log.line();
-      log.info(`Heal it: run \`${await selfCmd("sync")}\`.`);
+      warnKeptOrphans(log, orphans.kept);
     }
     return drifted.length === 0 ? 0 : 1;
   }
@@ -226,6 +247,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
   const preserved = plan.ops.filter((op) =>
     op.disposition === "skip" && op.managed
   );
+  const removed = changed.filter((op) => op.disposition === "remove");
 
   const updatedManifest = rebuildManifest({ config, plan, previous: manifest });
   await Deno.writeTextFile(manifestPath, serializeManifest(updatedManifest));
@@ -237,12 +259,15 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
       refreshed: refreshed.map((op) => op.targetRel),
       preserved: preserved.map((op) => op.targetRel),
       new_files: newFiles.map((op) => op.targetRel),
+      removed: removed.map((op) => op.targetRel),
+      orphans_kept: orphans.kept.map((o) => o.path),
       migrate_suggested: migrateSuggested,
     });
     return 0;
   }
 
-  renderUpgradeSummary(log, refreshed, preserved, newFiles);
+  renderUpgradeSummary(log, refreshed, preserved, newFiles, removed);
+  warnKeptOrphans(log, orphans.kept);
   // The engine is now 1.0, but the config may not be. Nudge once, loudly enough
   // to catch the silent breakage (a vanished coverage ratchet) but not as a
   // failure — the upgrade itself succeeded.
@@ -259,6 +284,28 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
 }
 
 /**
+ * Warn about managed orphans left in place: files the new templates no longer
+ * ship but whose on-disk copy is not the kit's (edited, or a foreign same-named
+ * file). They are reported, never deleted — a safe rename that must carry edits
+ * forward is an explicit migration step, not an automatic prune. No-op when the
+ * list is empty.
+ */
+function warnKeptOrphans(log: Logger, kept: OrphanKept[]): void {
+  if (kept.length === 0) {
+    return;
+  }
+  log.line();
+  log.warn(
+    `${kept.length} managed file${
+      kept.length === 1 ? "" : "s"
+    } no longer shipped but kept (your copy differs from the kit's):`,
+  );
+  for (const o of kept) {
+    log.detail(`${o.path} — ${o.reason}`);
+  }
+}
+
+/**
  * Produce the post-upgrade manifest. Start from the previous manifest, then
  * overlay a fresh hash for every managed file the kit wrote *to the canonical
  * path* this round (`managedEntriesFromPlan` yields exactly those — it omits the
@@ -266,6 +313,10 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
  * hash: the canonical path still holds the user's edited version, and keeping the
  * old kit hash there means the next upgrade still sees it as edited and preserves
  * it again, rather than mistaking it for pristine and clobbering it.
+ *
+ * An orphan removed this round (a `remove` op in the plan) is dropped from the
+ * manifest entirely: its prior recorded hash must not survive, or a re-created
+ * same-named file would later look pristine.
  */
 function rebuildManifest(params: {
   config: InitConfig;
@@ -282,6 +333,13 @@ function rebuildManifest(params: {
   // leaves any `.new` path's prior recorded hash untouched.
   for (const entry of managedEntriesFromPlan(plan)) {
     byPath.set(entry.path, entry.sha256);
+  }
+  // Drop orphans removed this round: their `remove` op carries the canonical
+  // path, and their prior recorded hash came from `previous` above.
+  for (const op of plan.ops) {
+    if (op.disposition === "remove") {
+      byPath.delete(op.targetRel);
+    }
   }
   const managed: ManagedEntry[] = [...byPath.entries()].map((
     [path, sha256],

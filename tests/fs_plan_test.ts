@@ -15,8 +15,11 @@ import {
   applyPlan,
   buildPlan,
   managedEntriesFromPlan,
+  type Plan,
   planBrief,
   planManifest,
+  type PlanOp,
+  planOrphanRemovals,
 } from "../src/lib/fs_plan.ts";
 import { loadManagedSpec, sha256Hex } from "../src/lib/manifest.ts";
 import {
@@ -407,5 +410,75 @@ Deno.test("upgrade never touches seed files", async () => {
       await readTarget(dir, "icculus.toml"),
       "# user-owned config\n",
     );
+  });
+});
+
+// ---- orphan reconciliation (ADR 0014) -------------------------------------
+
+/** A minimal managed write op standing in for a path the new templates ship. */
+function shippedManagedOp(targetRel: string): PlanOp {
+  return {
+    kind: "write",
+    targetRel,
+    targetAbs: targetRel,
+    disposition: "skip",
+    bytes: new Uint8Array(),
+    mode: 0o644,
+    managed: true,
+  };
+}
+
+Deno.test("planOrphanRemovals removes a pristine orphan, keeps an edited one, ignores shipped & gone", async () => {
+  await withTempDir(async (dir) => {
+    // The plan still ships `finish`; everything else recorded is a candidate.
+    const plan: Plan = {
+      ops: [shippedManagedOp(".icculus/engine/finish")],
+      unknownTokens: new Map(),
+    };
+    await Deno.mkdir(join(dir, ".icculus/engine"), { recursive: true });
+    await Deno.writeTextFile(join(dir, ".icculus/engine/obsolete"), "old\n");
+    await Deno.writeTextFile(join(dir, ".icculus/engine/edited"), "changed\n");
+    const pristineHash = await sha256Hex(new TextEncoder().encode("old\n"));
+
+    const { removals, kept } = await planOrphanRemovals({
+      destDir: dir,
+      recorded: [
+        { path: ".icculus/engine/finish", sha256: "x" }, // still shipped → ignored
+        { path: ".icculus/engine/obsolete", sha256: pristineHash }, // pristine → removed
+        { path: ".icculus/engine/edited", sha256: "deadbeef" }, // on-disk differs → kept
+        { path: ".icculus/engine/gone", sha256: "y" }, // not on disk → ignored
+      ],
+      plan,
+    });
+
+    assertEquals(removals.map((o) => o.targetRel), [
+      ".icculus/engine/obsolete",
+    ]);
+    assertEquals(removals[0].disposition, "remove");
+    assertEquals(removals[0].managed, true);
+    assertEquals(kept.map((o) => o.path), [".icculus/engine/edited"]);
+  });
+});
+
+Deno.test("applyPlan deletes a remove op's target (and tolerates one already gone)", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "doomed"), "bye\n");
+    const removeOp = (targetRel: string): PlanOp => ({
+      kind: "remove",
+      targetRel,
+      targetAbs: join(dir, targetRel),
+      disposition: "remove",
+      bytes: new Uint8Array(),
+      mode: 0,
+      managed: true,
+    });
+    const plan: Plan = {
+      ops: [removeOp("doomed"), removeOp("never-existed")],
+      unknownTokens: new Map(),
+    };
+    const changed = await applyPlan(plan);
+    assertEquals(await targetExists(dir, "doomed"), false);
+    // Both ops are reported as changed; the missing one does not throw.
+    assertEquals(changed.length, 2);
   });
 });
