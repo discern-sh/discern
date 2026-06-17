@@ -1,0 +1,222 @@
+/**
+ * The migration framework (ADR 0014): the chain runner, step selection, and the
+ * MigrationContext operations. The production chain is empty at schema 1, so
+ * these exercise the machinery with synthetic migrations against temp dirs —
+ * proving selection/ordering, the contiguity guard, idempotency, composition,
+ * and every context operation a real migration (Phase 2's rename) will lean on.
+ */
+
+import { assert, assertEquals, assertRejects } from "@std/assert";
+import { join } from "@std/path";
+import { SCHEMA_VERSION } from "../src/lib/version.ts";
+import {
+  applyMigrations,
+  createMigrationContext,
+  isChainContiguous,
+  type Migration,
+  MIGRATIONS,
+  pendingMigrations,
+} from "../src/lib/migrations.ts";
+import { targetExists, withTempDir } from "./helpers.ts";
+
+/** A synthetic step that records its `from` when applied. */
+function recordingStep(from: number, log: number[]): Migration {
+  return {
+    from,
+    describe: `step ${from}→${from + 1}`,
+    apply: () => {
+      log.push(from);
+      return Promise.resolve();
+    },
+  };
+}
+
+// ---- the production chain --------------------------------------------------
+
+Deno.test("the production chain is empty and contiguous for the current schema", () => {
+  assertEquals(MIGRATIONS, []);
+  // Empty chain is well-formed for schema 1 (nothing to migrate yet).
+  assert(isChainContiguous(MIGRATIONS, SCHEMA_VERSION));
+});
+
+Deno.test("isChainContiguous accepts a full chain and rejects gaps / dups / wrong length", () => {
+  const step = (from: number): Migration => ({
+    from,
+    describe: "",
+    apply: () => Promise.resolve(),
+  });
+  assert(isChainContiguous([step(1), step(2)], 3)); // 1→2→3
+  assert(isChainContiguous([], 1)); // empty is valid at v1
+  assert(!isChainContiguous([step(1)], 3)); // missing 2→3
+  assert(!isChainContiguous([step(1), step(3)], 4)); // gap at 2
+  assert(!isChainContiguous([step(1), step(1)], 3)); // duplicate
+});
+
+// ---- step selection --------------------------------------------------------
+
+Deno.test("pendingMigrations selects [recorded, current) and orders ascending", () => {
+  const reg = [
+    recordingStep(3, []),
+    recordingStep(1, []),
+    recordingStep(2, []),
+  ];
+  assertEquals(pendingMigrations(1, 4, reg).map((m) => m.from), [1, 2, 3]);
+  assertEquals(pendingMigrations(2, 4, reg).map((m) => m.from), [2, 3]);
+  assertEquals(pendingMigrations(4, 4, reg).map((m) => m.from), []); // current
+  assertEquals(pendingMigrations(1, 1, reg).map((m) => m.from), []); // nothing
+});
+
+// ---- the runner ------------------------------------------------------------
+
+Deno.test("applyMigrations runs pending steps in order and returns them", async () => {
+  await withTempDir(async (dir) => {
+    const log: number[] = [];
+    const reg = [recordingStep(1, log), recordingStep(2, log)];
+    const applied = await applyMigrations({
+      destDir: dir,
+      from: 1,
+      to: 3,
+      registry: reg,
+    });
+    assertEquals(log, [1, 2]);
+    assertEquals(applied.map((m) => m.from), [1, 2]);
+  });
+});
+
+Deno.test("applyMigrations composes: 1→3 equals 1→2 then 2→3", async () => {
+  await withTempDir(async (dir) => {
+    const direct: number[] = [];
+    const reg = [recordingStep(1, direct), recordingStep(2, direct)];
+    await applyMigrations({ destDir: dir, from: 1, to: 3, registry: reg });
+
+    const stepwise: number[] = [];
+    const reg2 = [recordingStep(1, stepwise), recordingStep(2, stepwise)];
+    await applyMigrations({ destDir: dir, from: 1, to: 2, registry: reg2 });
+    await applyMigrations({ destDir: dir, from: 2, to: 3, registry: reg2 });
+
+    assertEquals(direct, stepwise);
+  });
+});
+
+Deno.test("applyMigrations throws on a broken chain (a missing step)", async () => {
+  await withTempDir(async (dir) => {
+    const reg = [recordingStep(1, [])]; // no step for 2→3
+    await assertRejects(
+      () => applyMigrations({ destDir: dir, from: 1, to: 3, registry: reg }),
+      Error,
+      "broken migration chain",
+    );
+  });
+});
+
+// ---- the MigrationContext --------------------------------------------------
+
+Deno.test("context: write / read / exists / remove (idempotent)", async () => {
+  await withTempDir(async (dir) => {
+    const ctx = createMigrationContext(dir);
+    assertEquals(await ctx.exists("a/b.txt"), false);
+    await ctx.writeText("a/b.txt", "hello"); // creates parent dir
+    assertEquals(await ctx.exists("a/b.txt"), true);
+    assertEquals(await ctx.readText("a/b.txt"), "hello");
+    assertEquals(await ctx.readText("missing"), undefined);
+    await ctx.remove("a/b.txt");
+    assertEquals(await ctx.exists("a/b.txt"), false);
+    await ctx.remove("a/b.txt"); // already gone — no throw
+  });
+});
+
+Deno.test("context: rename moves content and is idempotent on re-run", async () => {
+  await withTempDir(async (dir) => {
+    const ctx = createMigrationContext(dir);
+    await ctx.writeText("old/name", "carry me");
+    await ctx.rename("old/name", "new/name"); // creates new/, moves content
+    assertEquals(await ctx.exists("old/name"), false);
+    assertEquals(await ctx.readText("new/name"), "carry me");
+    // Re-run: source gone, destination present → no-op, no throw.
+    await ctx.rename("old/name", "new/name");
+    assertEquals(await ctx.readText("new/name"), "carry me");
+  });
+});
+
+Deno.test("context: rewrite transforms text, no-ops on absent or unchanged", async () => {
+  await withTempDir(async (dir) => {
+    const ctx = createMigrationContext(dir);
+    await ctx.writeText("f", "ICCULUS_HOME and ICCULUS_LIB");
+    await ctx.rewrite("f", (t) => t.replaceAll("ICCULUS_", "KIT_"));
+    assertEquals(await ctx.readText("f"), "KIT_HOME and KIT_LIB");
+    // Absent file → no-op (no throw, no creation).
+    await ctx.rewrite("ghost", (t) => t.toUpperCase());
+    assertEquals(await ctx.exists("ghost"), false);
+  });
+});
+
+Deno.test("context: editToml edits comment-preserving, no-ops without a config", async () => {
+  await withTempDir(async (dir) => {
+    const ctx = createMigrationContext(dir);
+    // No icculus.toml yet → no-op.
+    await ctx.editToml((e) => e.setString("project.slug", "x"));
+    assertEquals(await ctx.exists("icculus.toml"), false);
+
+    await ctx.writeText(
+      "icculus.toml",
+      '# my config\n[project]\nslug = "demo"\n',
+    );
+    await ctx.editToml((e) => e.setString("project.branch_prefix", "agent/"));
+    const toml = await ctx.readText("icculus.toml");
+    assert(toml!.includes('branch_prefix = "agent/"'));
+    assert(toml!.includes("# my config"), "comments are preserved");
+  });
+});
+
+Deno.test("context: mergeSettings deep-merges into .claude/settings.json", async () => {
+  await withTempDir(async (dir) => {
+    const ctx = createMigrationContext(dir);
+    // Absent → created.
+    await ctx.mergeSettings({ model: "opus" });
+    let settings = JSON.parse((await ctx.readText(".claude/settings.json"))!);
+    assertEquals(settings.model, "opus");
+    // Existing → merged, prior keys kept.
+    await ctx.mergeSettings({ permissions: { deny: ["Read(./.env)"] } });
+    settings = JSON.parse((await ctx.readText(".claude/settings.json"))!);
+    assertEquals(settings.model, "opus");
+    assertEquals(settings.permissions.deny, ["Read(./.env)"]);
+  });
+});
+
+Deno.test("context: note forwards to the provided sink", () => {
+  // note() touches no disk, so no temp dir is needed.
+  const notes: string[] = [];
+  const ctx = createMigrationContext("/unused", (m) => notes.push(m));
+  ctx.note("renamed the engine dir");
+  assertEquals(notes, ["renamed the engine dir"]);
+});
+
+Deno.test("a rename migration is idempotent end-to-end through applyMigrations", async () => {
+  await withTempDir(async (dir) => {
+    const renameStep: Migration = {
+      from: 1,
+      describe: "rename a → b",
+      apply: async (ctx) => {
+        await ctx.rename("a", "b");
+        ctx.note("moved a to b");
+      },
+    };
+    await Deno.writeTextFile(join(dir, "a"), "data");
+    await applyMigrations({
+      destDir: dir,
+      from: 1,
+      to: 2,
+      registry: [renameStep],
+    });
+    assertEquals(await targetExists(dir, "a"), false);
+    assertEquals(await targetExists(dir, "b"), true);
+    // Running the same step again must not fail or change the result.
+    await applyMigrations({
+      destDir: dir,
+      from: 1,
+      to: 2,
+      registry: [renameStep],
+    });
+    assertEquals(await targetExists(dir, "b"), true);
+  });
+});
