@@ -20,7 +20,6 @@ import { KIT_VERSION, SCHEMA_VERSION } from "../lib/version.ts";
 import {
   buildManifest,
   loadManagedSpec,
-  type ManagedEntry,
   type Manifest,
   parseManifest,
   recordedHash as lookupRecordedHash,
@@ -29,11 +28,11 @@ import {
 import {
   applyPlan,
   buildPlan,
-  managedEntriesFromPlan,
   newFilesFromPlan,
   type OrphanKept,
   type Plan,
   planOrphanRemovals,
+  reconcileManagedEntries,
 } from "../lib/fs_plan.ts";
 import {
   planToJson,
@@ -303,7 +302,12 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
   );
   const removed = changed.filter((op) => op.disposition === "remove");
 
-  const updatedManifest = rebuildManifest({ config, plan, previous: manifest });
+  const updatedManifest = await rebuildManifest({
+    config,
+    plan,
+    previous: manifest,
+    destDir,
+  });
   await Deno.writeTextFile(manifestPath, serializeManifest(updatedManifest));
 
   if (options.json) {
@@ -360,47 +364,25 @@ function warnKeptOrphans(log: Logger, kept: OrphanKept[]): void {
 }
 
 /**
- * Produce the post-upgrade manifest. Start from the previous manifest, then
- * overlay a fresh hash for every managed file the kit wrote *to the canonical
- * path* this round (`managedEntriesFromPlan` yields exactly those — it omits the
- * `.new` siblings). So a file written as `<path>.new` keeps its *prior* recorded
- * hash: the canonical path still holds the user's edited version, and keeping the
- * old kit hash there means the next upgrade still sees it as edited and preserves
- * it again, rather than mistaking it for pristine and clobbering it.
- *
- * An orphan removed this round (a `remove` op in the plan) is dropped from the
- * manifest entirely: its prior recorded hash must not survive, or a re-created
- * same-named file would later look pristine.
+ * Produce the post-upgrade manifest. Its managed entries are reconciled against
+ * what is on disk *now* — after migrations and `applyPlan` (see
+ * `reconcileManagedEntries`): every managed file the kit wrote this round, plus
+ * any prior entry whose file still exists (an edited orphan, or the canonical
+ * path of a `.new`). Removed orphans and migration-renamed-away paths are gone
+ * from disk, so they drop out — no `remove`-op bookkeeping needed.
  */
-function rebuildManifest(params: {
+async function rebuildManifest(params: {
   config: InitConfig;
   plan: Plan;
   previous?: Manifest;
-}): Manifest {
-  const { config, plan, previous } = params;
-  const byPath = new Map<string, string>();
-  for (const entry of previous?.managed ?? []) {
-    byPath.set(entry.path, entry.sha256);
-  }
-  // managedEntriesFromPlan returns only create/overwrite/skip ops (never `.new`),
-  // so this overlays fresh hashes for files actually refreshed in place and
-  // leaves any `.new` path's prior recorded hash untouched.
-  for (const entry of managedEntriesFromPlan(plan)) {
-    byPath.set(entry.path, entry.sha256);
-  }
-  // Drop orphans removed this round: their `remove` op carries the canonical
-  // path, and their prior recorded hash came from `previous` above.
-  for (const op of plan.ops) {
-    if (op.disposition === "remove") {
-      byPath.delete(op.targetRel);
-    }
-  }
-  const managed: ManagedEntry[] = [...byPath.entries()].map((
-    [path, sha256],
-  ) => ({
-    path,
-    sha256,
-  }));
+  destDir: string;
+}): Promise<Manifest> {
+  const { config, plan, previous, destDir } = params;
+  const managed = await reconcileManagedEntries({
+    destDir,
+    previous: previous?.managed ?? [],
+    plan,
+  });
   return buildManifest({
     kitVersion: KIT_VERSION,
     schemaVersion: SCHEMA_VERSION,

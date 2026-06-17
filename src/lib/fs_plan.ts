@@ -518,6 +518,52 @@ export function managedEntriesFromPlan(plan: Plan): ManagedEntry[] {
   return entries;
 }
 
+/** True if a path exists on disk (file, dir, or symlink). */
+async function pathExists(abs: string): Promise<boolean> {
+  try {
+    await Deno.lstat(abs);
+    return true;
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      return false;
+    }
+    throw error;
+  }
+}
+
+/**
+ * Compute the managed entries for the post-upgrade manifest, reconciling the
+ * prior manifest against what is actually on disk now (ADR 0014). Run *after*
+ * migrations and `applyPlan`, when the tree reflects the final state.
+ *
+ * The rule: carry a prior entry forward only if its file still exists, then
+ * overlay the kit's fresh hash for every managed file the plan wrote to its
+ * canonical path. This handles every case with one on-disk test:
+ *   - removed orphan / migration-renamed-away path → gone from disk → dropped.
+ *   - edited orphan (no longer shipped, kept) → still on disk → kept at its
+ *     prior hash, so a later upgrade still detects it.
+ *   - `.new` canonical path (the user's file) → on disk → kept at its prior
+ *     hash (the plan omits `.new`), so it stays correctly "not provably ours".
+ *   - refreshed / created managed file → overlaid with the kit's fresh hash.
+ */
+export async function reconcileManagedEntries(params: {
+  destDir: string;
+  previous: ManagedEntry[];
+  plan: Plan;
+}): Promise<ManagedEntry[]> {
+  const { destDir, previous, plan } = params;
+  const byPath = new Map<string, string>();
+  for (const entry of previous) {
+    if (await pathExists(join(destDir, entry.path))) {
+      byPath.set(entry.path, entry.sha256);
+    }
+  }
+  for (const entry of managedEntriesFromPlan(plan)) {
+    byPath.set(entry.path, entry.sha256);
+  }
+  return [...byPath.entries()].map(([path, sha256]) => ({ path, sha256 }));
+}
+
 /**
  * The plan's `.new` write ops: managed files preserved because the on-disk copy
  * was not provably the kit's, with the kit's version written alongside. Shared

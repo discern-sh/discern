@@ -15,11 +15,13 @@ import {
   applyPlan,
   buildPlan,
   managedEntriesFromPlan,
+  type OpDisposition,
   type Plan,
   planBrief,
   planManifest,
   type PlanOp,
   planOrphanRemovals,
+  reconcileManagedEntries,
 } from "../src/lib/fs_plan.ts";
 import { loadManagedSpec, sha256Hex } from "../src/lib/manifest.ts";
 import {
@@ -457,6 +459,53 @@ Deno.test("planOrphanRemovals removes a pristine orphan, keeps an edited one, ig
     assertEquals(removals[0].disposition, "remove");
     assertEquals(removals[0].managed, true);
     assertEquals(kept.map((o) => o.path), [".icculus/engine/edited"]);
+  });
+});
+
+Deno.test("reconcileManagedEntries keeps on-disk entries, drops vanished ones, overlays plan hashes", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.mkdir(join(dir, ".icculus/engine"), { recursive: true });
+    await Deno.writeTextFile(join(dir, ".icculus/engine/finish"), "shipped");
+    await Deno.writeTextFile(join(dir, ".icculus/engine/edited"), "user edit");
+    // `.icculus/engine/renamed-away` is deliberately NOT on disk — a migration
+    // moved it, so its prior manifest entry must not survive.
+
+    const managedWriteOp = (
+      targetRel: string,
+      sha256: string,
+      disposition: OpDisposition,
+    ): PlanOp => ({
+      kind: "write",
+      targetRel,
+      targetAbs: join(dir, targetRel),
+      disposition,
+      bytes: new Uint8Array(),
+      mode: 0o644,
+      managed: true,
+      sha256,
+    });
+
+    const entries = await reconcileManagedEntries({
+      destDir: dir,
+      previous: [
+        { path: ".icculus/engine/finish", sha256: "OLD" },
+        { path: ".icculus/engine/edited", sha256: "ORPHANHASH" },
+        { path: ".icculus/engine/renamed-away", sha256: "GONE" },
+      ],
+      plan: {
+        ops: [
+          managedWriteOp(".icculus/engine/finish", "FRESH", "skip"),
+          managedWriteOp(".icculus/engine/new-recipe", "NEWHASH", "create"),
+        ],
+        unknownTokens: new Map(),
+      },
+    });
+    const byPath = new Map(entries.map((e) => [e.path, e.sha256]));
+
+    assertEquals(byPath.get(".icculus/engine/finish"), "FRESH"); // plan hash overlaid
+    assertEquals(byPath.get(".icculus/engine/edited"), "ORPHANHASH"); // kept: on disk, not shipped
+    assertEquals(byPath.get(".icculus/engine/new-recipe"), "NEWHASH"); // added by the plan
+    assertEquals(byPath.has(".icculus/engine/renamed-away"), false); // dropped: gone from disk
   });
 });
 
