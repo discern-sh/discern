@@ -13,10 +13,6 @@ authoritative and the docs must not drift from it.
 If you're new, start with [00-orientation/](00-orientation/) and follow the
 trail.
 
-> This tree starts as a skeleton. Run the `/bootstrap` skill to have your coding
-> agent seed it from the project brief at `.icculus/brief.md`. The markers below
-> (`<!-- /bootstrap fills this -->`) show what is still a placeholder.
-
 ---
 
 ## Reading order
@@ -29,20 +25,20 @@ trail.
 
 ### Subsystems
 
-<!-- /bootstrap fills this -->
+The subsystems are numbered subtrees, in the order a newcomer should read them.
+Each currently holds a `README.md` tour; deeper leaves are filled
+subtree-by-subtree with the
+[`document-subsystem`](../.ai/skills/document-subsystem/SKILL.md) skill. The
+numbers are a reading order, not a contract — rename and renumber freely.
 
-The subsystems are numbered subtrees, in the order a newcomer should read them —
-`10-…` through `80-…`. Each has a `README.md` tour plus deeper leaves.
-`/bootstrap` proposes the subtree names from the project brief and the repo's
-shape; until then, only the placeholders below exist. Rename and renumber freely
-— the numbers are a reading order, not a contract.
-
-| Path                               | What's in it                                                                                                                                                                                                                                                                                                                                                                                                        |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `10-<subsystem>/`                  | _Proposed during `/bootstrap`._                                                                                                                                                                                                                                                                                                                                                                                     |
-| `20-<subsystem>/`                  | _Proposed during `/bootstrap`._                                                                                                                                                                                                                                                                                                                                                                                     |
-| `…`                                | _Add as many numbered subtrees as the system needs._                                                                                                                                                                                                                                                                                                                                                                |
-| [80-development/](80-development/) | Working on icculus: getting set up, the [notes for humans](80-development/for-humans.md) (IDE setup and local prerequisites), the testing approach, code conventions, the [install surface](80-development/install-surface.md) (what an install contains, managed vs seed), and the [finish-gate gotchas](80-development/finish-gate-gotchas.md) the quality gate points at when a step fails in a non-obvious way. |
+| Path                                         | What's in it                                                                                                                                                                                                                                                                                                                                                                                                        |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [10-installer/](10-installer/)               | The Deno/TypeScript **Installer**: `init`, `upgrade`, `doctor`, `migrate`, `config`, `add-adapter`, the `templates/` → install copy by disposition, the Manifest, and the Schema-version Migration chain.                                                                                                                                                                                                           |
+| [20-quality-gate/](20-quality-gate/)         | `agent finish` and the Slot/Phase execution model — fix · build · check · test — plus Scope classification, Side gates, Ratchets, and Evidence.                                                                                                                                                                                                                                                                     |
+| [30-worktrees/](30-worktrees/)               | The isolated-Worktree workflow: lifecycle (create · ensure · exit · teardown · prune), per-Worktree identity (name · port · site · db), and the database & dev-server Adapter seams.                                                                                                                                                                                                                                |
+| [40-agent-guidance/](40-agent-guidance/)     | Author-once → compile-everywhere: the Guidance source, the `guidelines` recipe, the Compiled agent files, and the bundled Skills.                                                                                                                                                                                                                                                                                   |
+| [50-engine-internals/](50-engine-internals/) | The `agent` dispatcher and the dependency-free POSIX-shell library every Recipe sources — config access, the job runner, output, validators, and the failure-pointer wording.                                                                                                                                                                                                                                       |
+| [80-development/](80-development/)           | Working on icculus: getting set up, the [notes for humans](80-development/for-humans.md) (IDE setup and local prerequisites), the testing approach, code conventions, the [install surface](80-development/install-surface.md) (what an install contains, managed vs seed), and the [finish-gate gotchas](80-development/finish-gate-gotchas.md) the quality gate points at when a step fails in a non-obvious way. |
 
 ### Reference material
 
