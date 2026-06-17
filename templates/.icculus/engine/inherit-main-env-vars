@@ -97,9 +97,6 @@ format_env_value() {
     esac
 }
 
-inherited=""
-skipped=""
-
 # Iterate the configured vars (newline-separated, one per line).
 printf '%s\n' "$inherit_vars" | while IFS= read -r var; do
     [ -n "$var" ] || continue

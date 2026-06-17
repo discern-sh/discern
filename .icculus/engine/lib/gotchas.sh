@@ -1,3 +1,4 @@
+# shellcheck shell=sh
 # gotchas.sh — the single source for the "a gate phase failed" failure pointer.
 #
 # A task runner that stops at the first failing step, with no on-failure hook,

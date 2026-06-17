@@ -73,6 +73,10 @@ run   = "deno task test"
 phase = "check"
 run   = "deno task selfcheck"
 
+[slots.shellcheck]  # static-lint the POSIX shell harness (engine + installer)
+phase = "check"
+run   = "deno task lint:sh"
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [scopes] — which parts of the repo a change touches. The gate uses this to

@@ -1,3 +1,4 @@
+# shellcheck shell=sh
 # ratchets.sh — the named-metric ratchet engine (see ADR 0003).
 #
 # A ratchet is a number you only ever want to improve. Each enforces two halves:

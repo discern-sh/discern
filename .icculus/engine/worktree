@@ -90,6 +90,10 @@ fi
 # actually aborts the recipe.
 _wt_steps=$(mktemp "${TMPDIR:-/tmp}/icculus-setup.XXXXXX")
 config_array worktree.setup.steps > "$_wt_steps"
+# The failure branch rm's $_wt_steps before `die`, but the loop reads it through
+# an already-open FD that outlives the unlink, and `die` exits before the next
+# read — so SC2094 (read+write same file) is a false positive here.
+# shellcheck disable=SC2094
 while IFS= read -r step; do
     [ -n "$step" ] || continue
     info "Setup step: $step"

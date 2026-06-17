@@ -1,3 +1,8 @@
+# shellcheck shell=sh
+# The colour vars below are a cross-file palette: assigned here, consumed by the
+# recipes that source this file (gotchas, jobs, finish, doctor, …). shellcheck
+# analyses this file alone and cannot see those uses, so SC2034 is spurious here.
+# shellcheck disable=SC2034
 # output.sh — shared, colour-aware terminal output helpers.
 #
 # Sourced by every engine recipe (via bootstrap.sh). Colour is enabled only on
