@@ -1,0 +1,18 @@
+{
+  "files.exclude": {
+    ".claude/worktrees": true,
+    ".claude/skills": true,
+    "dist": true,
+    ".icculus/evidence": true,
+    "coverage": true,
+    ".scratch": true
+  },
+  "search.exclude": {
+    "bin": true,
+    ".icculus/engine": true,
+    ".ai/skills": true,
+    "AGENTS.md": true,
+    "CLAUDE.md": true,
+    ".icculus/manifest.json": true
+  }
+}
