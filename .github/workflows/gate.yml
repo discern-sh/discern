@@ -38,3 +38,39 @@ jobs:
 
       - name: Assert a clean tree (the fix phase must change nothing in CI)
         run: git diff --exit-code
+
+  engine-shells:
+    # The engine recipes run under `#!/usr/bin/env sh`, which resolves to
+    # whatever `sh` is first on PATH — dash on Debian/Ubuntu, bash-as-sh on
+    # macOS, busybox ash elsewhere. Those shells disagree at the edges (e.g. an
+    # unquoted expansion is pathname-expanded under dash/bash but not zsh), and
+    # that divergence is exactly where silent portability bugs hide. Run the
+    # engine tests under both a strict POSIX shell (dash) and bash-in-POSIX-mode
+    # so a shell-specific regression fails CI here, not on a user's machine.
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        sh: [dash, bash]
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+          cache: true
+
+      # Point `sh` at the matrix shell by putting a symlink first on PATH, so
+      # the recipes' `#!/usr/bin/env sh` shebang resolves to it. bash invoked as
+      # `sh` enters POSIX mode, faithfully reproducing macOS's /bin/sh.
+      - name: Make `sh` resolve to ${{ matrix.sh }}
+        run: |
+          mkdir -p "$HOME/shim"
+          ln -sf "$(command -v ${{ matrix.sh }})" "$HOME/shim/sh"
+          echo "$HOME/shim" >> "$GITHUB_PATH"
+
+      - name: Confirm the interpreter
+        run: sh -c 'echo "sh -> $(command -v sh) -> $(readlink -f "$(command -v sh)")"'
+
+      - name: Engine tests under ${{ matrix.sh }}
+        run: deno test --allow-read --allow-write --allow-env --allow-run tests/engine_*_test.ts
