@@ -96,9 +96,12 @@ safety.
 
 6. **The lifecycle is tested, not just the transform.** The authority is a
    fixture-based test over the existing scaffold-and-shell-out harness,
-   asserting the keystone invariant: **an old install brought forward by
-   `upgrade` is byte-identical (managed files, and any seed a migration step
-   transforms) to a fresh `init` at the same version** — "upgrade ≡ fresh init".
+   asserting the keystone invariant — **"upgrade ≡ fresh init"**: an old install
+   brought forward by `upgrade` matches a fresh `init` at the same version.
+   Managed files and the schema are byte-identical (proven via the manifest's
+   recorded hashes); a _seed_ a migration transforms converges in **shape**, not
+   byte-for-byte — a comment-preserving config edit need not reproduce the
+   template's exact formatting, and the seed is the user's, not the kit's.
    Alongside it: idempotency (a second `upgrade` is a no-op), edit-preservation
    (a hand-edited file still becomes `.new`), orphan removal (pristine removed,
    edited kept), and per-step composition (`v1→v3 == v1→v2→v3`), all run against
@@ -111,9 +114,10 @@ safety.
 the `schema_version` anchor (1), orphan reconciliation (3), the git guard (4),
 and the convergence harness (6) — at which point `upgrade` is a verified no-op
 on a current install. The migration runner (2) and its fold into `upgrade` (5)
-follow. The kit rename is then performed _as_ the first real migration step
-end-to-end — the hardest input, validated by the convergence test, retired
-before adoption.
+follow. The chain's first real step is a deliberately small smoke test —
+backfilling `[project].main_branch` (schema 1→2) — which proves the pipeline
+end-to-end and unlocks the convergence corpus on a real transform. The kit
+rename lands later as a further step, validated by the same convergence test.
 
 ## Consequences
 

@@ -339,9 +339,10 @@ icculus migrate          # read-only: show the recorded schema and any pending s
 icculus migrate --check  # exit non-zero if migrations are pending (a CI signal)
 ```
 
-The chain is **empty today** — the current shape is schema 1 — so a current
-install reports nothing pending. (1.0 was a clean break with no automated 0.x
-path; the bespoke 0.x→1.0 `migrate` that
+The current schema is **2**. Its one step (`1 → 2`) backfills
+`[project].main_branch` for installs whose `icculus.toml` predates that field —
+a small, safe seed evolution, so a current install reports nothing pending. (1.0
+was a clean break with no automated 0.x path; the bespoke 0.x→1.0 `migrate` that
 [ADR 0009](docs/_adr/0009-one-point-zero-drop-backward-compat.md) shipped was
 retired in favour of this versioned chain — see ADR 0014.)
 
