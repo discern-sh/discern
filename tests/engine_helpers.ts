@@ -150,3 +150,18 @@ export async function git(dir: string, ...args: string[]): Promise<void> {
     throw new Error(`git ${args.join(" ")} failed: ${DECODER.decode(stderr)}`);
   }
 }
+
+/**
+ * Create a linked git worktree at `<mainDir>/.claude/worktrees/<name>` on a new
+ * branch `agent/<name>` — the layout the worktree-* recipes expect. `mainDir`
+ * must already be a git repo (call `gitInit` first). Returns the worktree's
+ * absolute path, ready to drive with `runAgent(worktreePath, …)`.
+ */
+export async function addWorktree(
+  mainDir: string,
+  name: string,
+): Promise<string> {
+  const worktree = join(mainDir, ".claude", "worktrees", name);
+  await git(mainDir, "worktree", "add", worktree, "-b", `agent/${name}`);
+  return worktree;
+}
