@@ -112,19 +112,16 @@ function humanise(slug: string): string {
 
 /**
  * A sort key that yields reading order: within any directory `README.md` comes
- * first, and `_`-prefixed directories (`_adr`, `_internal`) sort after the
- * numbered subtrees. Compared lexicographically against other keys.
+ * first, then entries fall in path order. Compared lexicographically.
  */
 function sortKey(relPath: string): string {
   const segs = relPath.split("/");
   return segs
-    .map((seg, idx) => {
-      if (idx === segs.length - 1) {
-        return seg.toLowerCase() === "readme.md" ? "\x00" : seg.toLowerCase();
-      }
-      // High prefix pushes reference dirs (_adr, _internal) to the end.
-      return (seg.startsWith("_") ? "￿" : "") + seg.toLowerCase();
-    })
+    .map((seg, idx) =>
+      idx === segs.length - 1 && seg.toLowerCase() === "readme.md"
+        ? "\x00"
+        : seg.toLowerCase()
+    )
     .join("/");
 }
 
@@ -146,6 +143,11 @@ async function resolveDocsDir(
  * Index the project's docs tree. Returns undefined when no docs directory
  * exists (the caller turns that into a friendly "nothing to browse" message).
  * `dir` overrides the default `<project root>/docs` location.
+ *
+ * Internal/reference subtrees in `_`-prefixed directories (`_adr`, `_internal`)
+ * are excluded — the browser shows only the user-facing tree. Point `--dir` at
+ * one (`--dir docs/_adr`) to browse it directly, where it is no longer nested
+ * under an underscore.
  */
 export async function discoverDocs(opts: {
   cwd: string;
@@ -164,6 +166,10 @@ export async function discoverDocs(opts: {
     const path = relative(root, absPath).replaceAll(SEPARATOR, "/");
     const relToDocs = relative(docsDir, absPath).replaceAll(SEPARATOR, "/");
     const parts = relToDocs.split("/");
+    // Skip internal/reference subtrees: any doc whose path has a leading-
+    // underscore directory segment (_adr, _internal, …). The browser exposes
+    // only the user-facing tree. Tested in tests/docs_test.ts.
+    if (parts.slice(0, -1).some((seg) => seg.startsWith("_"))) continue;
     const section = parts.length > 1 ? parts[0] : "";
     const slug = basename(absPath).replace(/\.md$/i, "");
 

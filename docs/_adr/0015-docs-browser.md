@@ -55,6 +55,10 @@ command to two audiences** decided by the TTY.
   source, `--json` emits a machine index (or a single doc's record with
   content), `--list` prints a plain table of contents. It **never prompts** when
   stdin or stdout is not a terminal.
+- **Scoped to the user-facing tree.** Internal/reference subtrees in
+  `_`-prefixed directories (`_adr`, `_internal`) are excluded from every view,
+  so the browse stays focused on what an end user should read. `--dir docs/_adr`
+  targets one explicitly when needed.
 
 Explicit *no*s:
 

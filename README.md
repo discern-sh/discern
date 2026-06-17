@@ -343,6 +343,10 @@ and agents alike, decided by whether it runs at a terminal.
   prints a plain table of contents. `--dir <path>` points at a docs tree
   elsewhere; `--no-pager` and `--width <cols>` tune rendering.
 
+It shows the **user-facing** tree only — `_`-prefixed reference directories
+(`_adr`, `_internal`) are excluded to keep the command focused. Point `--dir`
+straight at one to read it explicitly (`icculus docs --dir docs/_adr`).
+
 ```sh
 icculus docs                              # browse interactively (searchable)
 icculus docs concepts                     # render one doc (paged)
