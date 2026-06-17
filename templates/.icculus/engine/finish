@@ -159,8 +159,17 @@ fail_phase() {
 # false to run every job to completion (and see all failures at once). stream
 # stays opt-in (live interleaved output trades legibility for immediacy). Read
 # once and exported, so they apply to every parallel stage, side gates included.
-config_bool gate.stream && export ICCULUS_GATE_STREAM=1
-[ "$(config_get gate.fail_fast true)" != "false" ] && export ICCULUS_GATE_FAIL_FAST=1
+#
+# Set BOTH ways (export when on, unset when off) so THIS project's config always
+# wins — never an inherited value. A `finish` run nested inside another gate (the
+# test suite shells out to `agent finish`) would otherwise inherit the parent's
+# exported setting and ignore its own [gate] config.
+if config_bool gate.stream; then export ICCULUS_GATE_STREAM=1; else unset ICCULUS_GATE_STREAM; fi
+if [ "$(config_get gate.fail_fast true)" != "false" ]; then
+    export ICCULUS_GATE_FAIL_FAST=1
+else
+    unset ICCULUS_GATE_FAIL_FAST
+fi
 
 # --- pre-checks (fail fast) -----------------------------------------------
 
