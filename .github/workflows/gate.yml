@@ -33,6 +33,20 @@ jobs:
           # gate stops re-downloading every dependency on each run.
           cache: true
 
+      # Pin shellcheck so the `shellcheck` gate slot is reproducible. The runner
+      # image's preinstalled shellcheck drifts and lags a fresh local install, so
+      # "clean locally" would not reliably mean "clean in CI" — it bit us once on
+      # an info-level SC2015 idiom the newer local shellcheck had stopped flagging.
+      # Bump deliberately; match it locally (same release) if you hit a skew.
+      - name: Pin shellcheck
+        run: |
+          sc=v0.11.0
+          curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/${sc}/shellcheck-${sc}.linux.x86_64.tar.xz" | tar -xJ
+          mkdir -p "$HOME/.local/bin"
+          mv "shellcheck-${sc}/shellcheck" "$HOME/.local/bin/shellcheck"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/shellcheck" --version
+
       - name: Run the gate
         run: ./bin/agent finish
 
