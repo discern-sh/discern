@@ -37,3 +37,4 @@ Always `deno task dev <cmd>` (or `deno run -A src/main.ts <cmd>`). Note: do **no
 
 ## Decisions
 Architecture decisions live in `docs/_adr/` (0001+). Add one for any notable change.
+
