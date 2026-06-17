@@ -189,33 +189,49 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
       (op) => op.managed && op.disposition !== "skip",
     );
     const canonical = (rel: string) => rel.replace(/\.new$/, "");
+    // Schema currency is drift too (ADR 0014, the self-host canary): an install
+    // recorded at an older schema than this build needs an upgrade to migrate.
+    // An absent manifest is already reported above as all-files-drift, so it is
+    // not double-counted here.
+    const recordedSchema = manifest?.schema_version;
+    const schemaOk = recordedSchema === undefined ||
+      recordedSchema === SCHEMA_VERSION;
+    const ok = drifted.length === 0 && schemaOk;
     if (options.json) {
       log.jsonResult({
-        ok: drifted.length === 0,
+        ok,
         check: true,
         drifted: drifted.map((op) => ({
           path: canonical(op.targetRel),
           action: op.disposition,
         })),
+        schema: { recorded: recordedSchema ?? null, current: SCHEMA_VERSION },
         orphans_kept: orphans.kept.map((o) => o.path),
         migrate_suggested: migrateSuggested,
       });
     } else {
-      if (drifted.length === 0) {
+      if (ok) {
         log.ok("Managed files are in sync with templates/.");
       } else {
-        log.error(
-          `Managed files have drifted from templates/ (${drifted.length}):`,
-        );
-        for (const op of drifted) {
-          log.detail(`${canonical(op.targetRel)} (${op.disposition})`);
+        if (drifted.length > 0) {
+          log.error(
+            `Managed files have drifted from templates/ (${drifted.length}):`,
+          );
+          for (const op of drifted) {
+            log.detail(`${canonical(op.targetRel)} (${op.disposition})`);
+          }
+        }
+        if (!schemaOk) {
+          log.error(
+            `Install schema is v${recordedSchema}, but this build expects v${SCHEMA_VERSION}.`,
+          );
         }
         log.line();
         log.info(`Heal it: run \`${await selfCmd("sync")}\`.`);
       }
       warnKeptOrphans(log, orphans.kept);
     }
-    return drifted.length === 0 ? 0 : 1;
+    return ok ? 0 : 1;
   }
 
   if (options.dryRun) {
