@@ -1,7 +1,7 @@
 {
   "kit_version": "1.0.0",
   "schema_version": 2,
-  "generated_at": "2026-06-18T12:21:34.771Z",
+  "generated_at": "2026-06-18T12:39:18.679Z",
   "project": {
     "slug": "icculus",
     "agents": [
@@ -12,7 +12,7 @@
   "managed": [
     {
       "path": ".ai/skills/bootstrap/SKILL.md",
-      "sha256": "ced393400f83daa821baea9029859305020da94b78a014d6ec4ec9dca66f294d"
+      "sha256": "65469c18529e20355fb0e46324a09799b20cbaa682747b3c7a6a5ed7614abd2c"
     },
     {
       "path": ".ai/skills/coding-principles/SKILL.md",
