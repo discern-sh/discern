@@ -39,8 +39,15 @@ _Verified defects and correctness risks. Nothing outstanding._
 
 ## 🟠 Cleanup — known dead or slow code
 
-_Dead code, N+1s, and known-slow paths worth removing or fixing. Nothing
-outstanding._
+- **Dead engine helper `assert-not-in-worktree`** — nothing invokes it: not the
+  `bin/agent` dispatcher, no sibling recipe or engine lib, no `.claude`
+  SessionStart/WorktreeCreate hook, no `src/` caller (only the generated
+  `manifest.json` file-list mentions it). Its inverse `assert-in-worktree` is
+  the one actually used (by `worktree-teardown` and `inherit-main-env-vars`).
+  Decide: wire it into the main-checkout-only recipes that currently open-code
+  their own guard, or remove it. Removal is a `templates/` edit (→
+  `deno task selfsync`); on a consumer it is reconciled as an orphan on
+  `upgrade`. Evidence: `templates/.icculus/engine/assert-not-in-worktree:1`.
 
 ## 🟡 Smaller fixes & polish
 
