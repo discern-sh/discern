@@ -130,3 +130,80 @@ Deno.test("editor rejects a non-section key", () => {
   }
   assert(threw, "a key with no section should be rejected");
 });
+
+Deno.test("tomlNumber rejects a non-finite number", () => {
+  let threw = false;
+  try {
+    tomlNumber(NaN);
+  } catch {
+    threw = true;
+  }
+  assert(threw, "tomlNumber should reject NaN");
+
+  threw = false;
+  try {
+    tomlNumber(Infinity);
+  } catch {
+    threw = true;
+  }
+  assert(threw, "tomlNumber should reject Infinity");
+});
+
+Deno.test("deleteKey removes a key line, leaving the header and comments intact", () => {
+  const editor = new TomlEditor(SAMPLE);
+  const removed = editor.deleteKey("slots.test.run");
+  assert(removed, "deleteKey should report a removal");
+  // The exact remaining text: only the `run` line is gone — header, the other
+  // key, its comment, and every unrelated line survive untouched.
+  assertEquals(
+    editor.toString(),
+    `# top comment
+[project]
+slug = "demo"   # the slug
+
+[slots.test]
+phase = "test"
+
+[scopes.side_gates]
+# native = "make -C native check"
+`,
+  );
+});
+
+Deno.test("deleteKey returns false for a non-section key (no dot)", () => {
+  const editor = new TomlEditor(SAMPLE);
+  assert(
+    !editor.deleteKey("toplevel"),
+    "a key with no section is not removable",
+  );
+  // The text is untouched.
+  assertEquals(editor.toString(), SAMPLE);
+});
+
+Deno.test("deleteKey returns false when the section is absent", () => {
+  const editor = new TomlEditor(SAMPLE);
+  assert(
+    !editor.deleteKey("nope.missing"),
+    "a key in a missing section is not removable",
+  );
+  assertEquals(editor.toString(), SAMPLE);
+});
+
+Deno.test("deleteKey returns false when the key is absent from an existing section", () => {
+  const editor = new TomlEditor(SAMPLE);
+  assert(
+    !editor.deleteKey("project.missing"),
+    "an absent key in a present section is not removable",
+  );
+  assertEquals(editor.toString(), SAMPLE);
+});
+
+Deno.test("deleteKey does not remove a commented-out key", () => {
+  // `# native = …` is a comment, not a key, so deleting `native` finds nothing.
+  const editor = new TomlEditor(SAMPLE);
+  assert(
+    !editor.deleteKey("scopes.side_gates.native"),
+    "a commented-out hint is not a real key",
+  );
+  assertStringIncludes(editor.toString(), '# native = "make -C native check"');
+});
