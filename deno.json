@@ -9,6 +9,7 @@
     "fmt": "deno fmt",
     "lint": "deno lint",
     "lint:sh": "deno run --allow-read --allow-run=shellcheck scripts/lint-sh.ts",
+    "coverage": "deno run --allow-read --allow-write --allow-env --allow-run scripts/coverage.ts",
     "check": "deno check src/main.ts",
     "selfsync": "deno run --allow-read --allow-write --allow-env --allow-run src/main.ts upgrade --allow-dirty",
     "selfcheck": "deno run --allow-read --allow-write --allow-env --allow-run src/main.ts upgrade --check",
