@@ -6,12 +6,6 @@ This subtree documents the developer experience: getting set up locally, the
 testing approach, the conventions the tooling enforces, and where to look when
 the quality gate fails in a way the message did not explain.
 
-> The leaves marked below are skeletons. `/bootstrap` and the
-> [`document-subsystem`](../../.ai/skills/document-subsystem/SKILL.md) skill
-> fill them once the project's stack is known. The
-> [finish-gate gotchas](finish-gate-gotchas.md) leaf already carries the
-> stack-independent traps and is ready to grow.
-
 The end-to-end loop is short and the same on every stack the harness runs on:
 
 - `agent worktree` provisions an isolated checkout for a change (see the
@@ -30,6 +24,6 @@ The end-to-end loop is short and the same on every stack the harness runs on:
 | [finish-gate-gotchas.md](finish-gate-gotchas.md) | Non-obvious ways `agent finish` fails — the stack-independent traps (merge check, parallel-run state, stale artifacts, masked exit codes), plus a section for your stack's own. The gate points here when a phase fails. |
 | [install-surface.md](install-surface.md)         | What `icculus init` lays down in a project, mapped by function, with the managed / seed / merged / generated disposition of each part and where to change it.                                                            |
 | [for-humans.md](for-humans.md)                   | What a human with the repo checked out does: IDE colour/exclude setup (JetBrains + VS Code), local prerequisites, and how to work alongside the agents.                                                                  |
-| `getting-started.md`                             | _Skeleton — fill during `/bootstrap`._ Cloning, the worktree step, environment setup, running the app, the first `agent finish`.                                                                                         |
-| `testing.md`                                     | _Skeleton — fill during `/bootstrap`._ The testing approach in this repo, how to run tests, and the parallel-safe patterns the gate assumes.                                                                             |
-| `code-conventions.md`                            | _Skeleton — fill during `/bootstrap`._ The rules the tooling enforces, mirroring the Conventions section of the project guidelines.                                                                                      |
+| [getting-started.md](getting-started.md)         | From a fresh clone to a first green gate: prerequisites (Deno, git, shellcheck), running the Installer from source, and the harness loop.                                                                                |
+| [testing.md](testing.md)                         | The two test layers (installer subprocess + engine shell-out), the temp-dir / hermetic-git harness, and the parallel-safe patterns the gate assumes.                                                                     |
+| [code-conventions.md](code-conventions.md)       | What the `fix`/`check` slots enforce, and the conventions they can't — the managed-vs-seed golden rule, shell portability, and the docs discipline.                                                                      |

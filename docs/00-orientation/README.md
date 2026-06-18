@@ -7,10 +7,6 @@ Orientation is deliberately small and stable. The subsystem subtrees go deep on
 mechanism; this tier exists so you understand _what the pieces are_ and _why the
 system is shaped the way it is_ before you read how any one piece works.
 
-> These four docs start as skeletons. The `/bootstrap` skill fills them from the
-> project brief at `.icculus/brief.md`. Look for the
-> `<!-- /bootstrap fills this -->` markers.
-
 ---
 
 ## What's in here

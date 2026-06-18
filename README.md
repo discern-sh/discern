@@ -319,9 +319,45 @@ uses.
 | `migrate`            | report the install's recorded schema and any pending migration steps (read-only); `--check` exits non-zero when steps are pending. `upgrade` applies them. See _Schema migrations_.                                                                                                                                                                    |
 | `config <sub>`       | programmatically edit `icculus.toml`, comments intact — `set-slot`, `set-scope`, `set-side-gate`, `set-ratchet`, `set`. See _Driving icculus programmatically_.                                                                                                                                                                                        |
 | `add-adapter <name>` | overlay an adapter from `adapters/<name>/`: its files **and** its `adapter.json` config fills. Ships no adapters; see _Writing an adapter_.                                                                                                                                                                                                            |
+| `docs [target]`      | browse and read the project's `docs/` tree. No target on a terminal opens an interactive, searchable picker; a target renders that doc (paged). Agent/script surfaces never block on a prompt: `--json` (the index, or a single doc's record), `--raw` (pristine Markdown), `--list` (plain table of contents). See _Browsing the docs_.               |
 
 Global flags: `--json`, `--no-color` (also honours `NO_COLOR` and non-TTY),
 `--help`, `--version`.
+
+### Browsing the docs
+
+`icculus docs` is a viewer for the `docs/` tree this kit scaffolds — for people
+and agents alike, decided by whether it runs at a terminal.
+
+- **Interactive (a terminal, no target).** A searchable picker (type to filter
+  the growing tree) opens each doc in a rendered, paged view — headings, lists,
+  GFM tables, fenced code, and clickable (OSC-8) links, wrapped to your
+  terminal.
+- **Direct (a target).** `icculus docs concepts` (a slug),
+  `icculus docs 00-orientation/concepts`, or a full path renders that one doc. A
+  bare name that is ambiguous (every subtree has a `README`) lists the
+  candidates instead of guessing.
+- **For agents & scripts.** Output never blocks on a prompt off a TTY. `--json`
+  emits a machine-readable index (or, with a target, that doc's record including
+  its raw `content`); `--raw` prints the pristine Markdown source; `--list`
+  prints a plain table of contents. `--dir <path>` points at a docs tree
+  elsewhere; `--no-pager` and `--width <cols>` tune rendering.
+
+It shows the **user-facing** tree only — `_`-prefixed reference directories
+(`_adr`, `_internal`) are excluded to keep the command focused. Point `--dir`
+straight at one to read it explicitly (`icculus docs --dir docs/_adr`).
+
+```sh
+icculus docs                              # browse interactively (searchable)
+icculus docs concepts                     # render one doc (paged)
+icculus docs concepts --raw               # the pristine Markdown source
+icculus docs --json | jq -r '.docs[].path'   # the index, for tooling
+```
+
+The renderer is a small, dependency-light Markdown→terminal pass (it owns its
+own rendering rather than shelling out), and the browser lives in the `icculus`
+binary, so every install gets it for free with nothing added to the shell
+harness — see [ADR 0015](docs/_adr/0015-docs-browser.md).
 
 ### Schema migrations
 
@@ -572,7 +608,10 @@ Working, verified, and committed:
 - ✅ Declarative config — `icculus config` + `init --config` (comment-preserving
   programmatic edits), and a documented `add-adapter` contract (file overlay +
   config fills).
-- ✅ 154 tests covering both the installer (`src/`) and the POSIX engine recipes
+- ✅ **Docs browser** (`icculus docs`) — an interactive, searchable viewer with
+  a dependency-light terminal Markdown renderer, plus agent-facing
+  `--json`/`--raw`/`--list` surfaces (ADR 0015).
+- ✅ 245 tests covering both the installer (`src/`) and the POSIX engine recipes
   (a scaffold-and-shell-out harness in `tests/engine_*`).
 
 Follow-ups:
