@@ -1,6 +1,6 @@
 name: gate
 
-# Run the repo's own quality gate — the same `./bin/agent finish`
+# Run the repo's own quality gate — the same `./agent finish`
 # developers run — on every push to main and every pull request. The trailing
 # `git diff --exit-code` turns the auto-fixing `fix` phase (deno fmt) into a hard
 # check: CI fixes nothing, it only verifies the committed tree is already clean.
@@ -48,7 +48,7 @@ jobs:
           "$HOME/.local/bin/shellcheck" --version
 
       - name: Run the gate
-        run: ./bin/agent finish
+        run: ./agent finish
 
       - name: Assert a clean tree (the fix phase must change nothing in CI)
         run: git diff --exit-code
@@ -112,4 +112,4 @@ jobs:
         run: git fetch --no-tags --depth=1 origin +refs/heads/main:refs/heads/main || true
 
       - name: Hold the ratchets
-        run: ./bin/agent ratchets
+        run: ./agent ratchets
