@@ -255,3 +255,283 @@ Deno.test("config errors cleanly when not initialized", async () => {
     assertEquals(JSON.parse(r.stdout).error, "not_initialized");
   });
 });
+
+Deno.test("config errors to stderr (not JSON) when not initialized", async () => {
+  await withTempDir(async (dir) => {
+    // No --json: the message lands on stderr and stdout stays empty.
+    const r = await runCli(["config", "set", "project.slug", "x"], dir);
+    assertEquals(r.code, 1);
+    assertEquals(r.stdout, "");
+    assertStringIncludes(r.stderr, "no icculus.toml here");
+  });
+});
+
+Deno.test("config set-slot rejects a malformed slot name", async () => {
+  await withTempDir(async (dir) => {
+    await init(dir);
+    const r = await runCli(
+      ["config", "set-slot", "bad name", "--run", "x", "--json"],
+      dir,
+    );
+    assertEquals(r.code, 1);
+    const result = JSON.parse(r.stdout);
+    assertEquals(result.ok, false);
+    assertEquals(result.error, "invalid_argument");
+    assertStringIncludes(result.message, "slot name must be");
+  });
+});
+
+Deno.test("config set-scope rejects a malformed scope name", async () => {
+  await withTempDir(async (dir) => {
+    await init(dir);
+    const r = await runCli(
+      ["config", "set-scope", "bad/name", "src/**", "--json"],
+      dir,
+    );
+    assertEquals(r.code, 1);
+    const result = JSON.parse(r.stdout);
+    assertEquals(result.ok, false);
+    assertStringIncludes(result.message, "scope name must be");
+  });
+});
+
+Deno.test("config set-scope: Cliffy rejects zero globs before the handler", async () => {
+  await withTempDir(async (dir) => {
+    await init(dir);
+    // `<globs...>` is a required variadic, so Cliffy fails (exit 2) before the
+    // handler's own globs.length===0 guard can run — see findings.
+    const r = await runCli(["config", "set-scope", "native"], dir);
+    assertEquals(r.code, 2);
+    assertStringIncludes(r.stderr, "Missing argument");
+  });
+});
+
+Deno.test("config set-side-gate rejects a malformed scope name", async () => {
+  await withTempDir(async (dir) => {
+    await init(dir);
+    const r = await runCli(
+      ["config", "set-side-gate", "bad.scope", "--run", "make", "--json"],
+      dir,
+    );
+    assertEquals(r.code, 1);
+    const result = JSON.parse(r.stdout);
+    assertEquals(result.ok, false);
+    assertStringIncludes(result.message, "side-gate scope must be");
+  });
+});
+
+Deno.test("config set-ratchet rejects a malformed ratchet name", async () => {
+  await withTempDir(async (dir) => {
+    await init(dir);
+    const r = await runCli(
+      [
+        "config",
+        "set-ratchet",
+        "bad name",
+        "--limit",
+        "80",
+        "--slot",
+        "cov",
+        "--json",
+      ],
+      dir,
+    );
+    assertEquals(r.code, 1);
+    const result = JSON.parse(r.stdout);
+    assertEquals(result.ok, false);
+    assertStringIncludes(result.message, "ratchet name must be");
+  });
+});
+
+Deno.test("config set-ratchet rejects an invalid --direction", async () => {
+  await withTempDir(async (dir) => {
+    await init(dir);
+    const r = await runCli(
+      [
+        "config",
+        "set-ratchet",
+        "bundle",
+        "--limit",
+        "80",
+        "--slot",
+        "cov",
+        "--direction",
+        "sideways",
+        "--json",
+      ],
+      dir,
+    );
+    assertEquals(r.code, 1);
+    const result = JSON.parse(r.stdout);
+    assertEquals(result.ok, false);
+    assertStringIncludes(result.message, '--direction must be "up" or "down"');
+  });
+});
+
+Deno.test("config set-ratchet rejects a non-numeric --limit", async () => {
+  await withTempDir(async (dir) => {
+    await init(dir);
+    const r = await runCli(
+      [
+        "config",
+        "set-ratchet",
+        "bundle",
+        "--limit",
+        "lots",
+        "--slot",
+        "cov",
+        "--json",
+      ],
+      dir,
+    );
+    assertEquals(r.code, 1);
+    const result = JSON.parse(r.stdout);
+    assertEquals(result.ok, false);
+    assertStringIncludes(result.message, "--limit must be a number");
+  });
+});
+
+Deno.test("config set-ratchet defaults metric to the name and direction to up", async () => {
+  await withTempDir(async (dir) => {
+    await init(dir);
+    const r = await runCli(
+      ["config", "set-ratchet", "cov", "--limit", "80", "--slot", "cov"],
+      dir,
+    );
+    assertEquals(r.code, 0, r.stderr);
+    const toml = await readToml(dir);
+    // No --metric / --direction given: metric falls back to the ratchet name,
+    // direction to "up".
+    assertStringIncludes(toml, 'metric = "cov"');
+    assertStringIncludes(toml, 'direction = "up"');
+  });
+});
+
+Deno.test("config set rejects a key without a section", async () => {
+  await withTempDir(async (dir) => {
+    await init(dir);
+    const r = await runCli(["config", "set", "slug", "x", "--json"], dir);
+    assertEquals(r.code, 1);
+    const result = JSON.parse(r.stdout);
+    assertEquals(result.ok, false);
+    assertStringIncludes(result.message, "key must be section.key");
+  });
+});
+
+Deno.test("config set rejects more than one type flag", async () => {
+  await withTempDir(async (dir) => {
+    await init(dir);
+    const r = await runCli(
+      ["config", "set", "project.slug", "1", "--number", "--bool", "--json"],
+      dir,
+    );
+    assertEquals(r.code, 1);
+    const result = JSON.parse(r.stdout);
+    assertEquals(result.ok, false);
+    assertStringIncludes(result.message, "at most one of");
+  });
+});
+
+Deno.test("config set --bool forces a boolean and rejects a non-boolean", async () => {
+  await withTempDir(async (dir) => {
+    await init(dir);
+    // Valid: "true"/"false" pass through tomlBool.
+    const ok = await runCli(
+      ["config", "set", "worktree.enabled", "true", "--bool"],
+      dir,
+    );
+    assertEquals(ok.code, 0, ok.stderr);
+    assertStringIncludes(await readToml(dir), "enabled = true");
+
+    // Invalid: --bool with a non-boolean throws, surfaced as a failure.
+    const bad = await runCli(
+      ["config", "set", "worktree.enabled", "yes", "--bool", "--json"],
+      dir,
+    );
+    assertEquals(bad.code, 1);
+    const result = JSON.parse(bad.stdout);
+    assertEquals(result.ok, false);
+    assertStringIncludes(result.message, "--bool value must be");
+  });
+});
+
+Deno.test("config set --number forces a numeric literal and rejects non-numbers", async () => {
+  await withTempDir(async (dir) => {
+    await init(dir);
+    // Valid: preserves the written form.
+    const ok = await runCli(
+      ["config", "set", "ratchets.coverage.limit", "0.0", "--number"],
+      dir,
+    );
+    assertEquals(ok.code, 0, ok.stderr);
+    assertStringIncludes(await readToml(dir), "limit = 0.0");
+
+    // Invalid: --number with a non-number is rejected (tomlNumber throws).
+    const bad = await runCli(
+      [
+        "config",
+        "set",
+        "ratchets.coverage.limit",
+        "lots",
+        "--number",
+        "--json",
+      ],
+      dir,
+    );
+    assertEquals(bad.code, 1);
+    assertEquals(JSON.parse(bad.stdout).ok, false);
+  });
+});
+
+Deno.test("config set prints a human success line without --json", async () => {
+  await withTempDir(async (dir) => {
+    await init(dir);
+    const r = await runCli(
+      ["config", "set", "project.main_branch", "trunk"],
+      dir,
+    );
+    assertEquals(r.code, 0, r.stderr);
+    // Non-JSON path: the green summary goes to stderr; the edit line to stdout.
+    assertStringIncludes(r.stderr, "Set project.main_branch.");
+    assertStringIncludes(r.stdout, 'project.main_branch = "trunk"');
+    assertStringIncludes(await readToml(dir), 'main_branch = "trunk"');
+  });
+});
+
+Deno.test("config --dry-run prints the edit without --json and writes nothing", async () => {
+  await withTempDir(async (dir) => {
+    await init(dir);
+    const before = await readToml(dir);
+    const r = await runCli(
+      ["config", "set", "project.main_branch", "trunk", "--dry-run"],
+      dir,
+    );
+    assertEquals(r.code, 0, r.stderr);
+    // Human dry-run path: the "Dry run" notice goes to stderr (log.info), the
+    // would-be edit line to stdout (log.line).
+    assertStringIncludes(r.stderr, "Dry run");
+    assertStringIncludes(r.stdout, 'project.main_branch = "trunk"');
+    assertEquals(await readToml(dir), before); // unchanged
+  });
+});
+
+Deno.test("config set --dry-run --json reports the edit and writes nothing", async () => {
+  await withTempDir(async (dir) => {
+    await init(dir);
+    const before = await readToml(dir);
+    const r = await runCli(
+      ["config", "set", "project.slug", "renamed", "--dry-run", "--json"],
+      dir,
+    );
+    assertEquals(r.code, 0, r.stderr);
+    const result = JSON.parse(r.stdout);
+    assertEquals(result.dry_run, true);
+    assertEquals(result.file, "icculus.toml");
+    assert(
+      result.edits.some((e: { key: string; literal: string }) =>
+        e.key === "project.slug" && e.literal === '"renamed"'
+      ),
+    );
+    assertEquals(await readToml(dir), before); // unchanged
+  });
+});

@@ -611,8 +611,10 @@ Working, verified, and committed:
 - ✅ **Docs browser** (`icculus docs`) — an interactive, searchable viewer with
   a dependency-light terminal Markdown renderer, plus agent-facing
   `--json`/`--raw`/`--list` surfaces (ADR 0015).
-- ✅ 245 tests covering both the installer (`src/`) and the POSIX engine recipes
-  (a scaffold-and-shell-out harness in `tests/engine_*`).
+- ✅ 465 tests covering both the installer (`src/`) and the POSIX engine recipes
+  (a scaffold-and-shell-out harness in `tests/engine_*`), with `src/` line
+  coverage held at a rising floor by `[ratchets.coverage]` (enforced on every
+  PR).
 
 Follow-ups:
 

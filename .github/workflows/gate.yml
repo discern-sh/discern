@@ -88,3 +88,28 @@ jobs:
 
       - name: Engine tests under ${{ matrix.sh }}
         run: deno test --allow-read --allow-write --allow-env --allow-run tests/engine_*_test.ts
+
+  ratchets:
+    # Hold the metric ratchets (coverage, …). They run the whole suite under
+    # coverage instrumentation, so they are deliberately NOT part of the `gate`
+    # job / `agent finish`. Enforce them on PULL REQUESTS only: every PR must hold
+    # the floor, while direct pushes to main stay fast (whatever landed already
+    # passed this check on its own PR).
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+          cache: true
+
+      # The "never loosen vs main" half of each ratchet reads `main:icculus.toml`.
+      # A PR checkout does not carry the base branch, so fetch its tip; the check
+      # self-skips if it is still unavailable (e.g. before the ratchet is on main).
+      - name: Fetch main for the never-loosen comparison
+        run: git fetch --no-tags --depth=1 origin +refs/heads/main:refs/heads/main || true
+
+      - name: Hold the ratchets
+        run: ./bin/agent ratchets

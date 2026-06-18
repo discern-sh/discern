@@ -8,7 +8,7 @@
  * running the merger.
  */
 
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertNotStrictEquals } from "@std/assert";
 import { mergeSettings } from "../src/lib/settings_merge.ts";
 
 /** The kit's incoming settings, shaped like the real template. */
@@ -99,4 +99,82 @@ Deno.test("nested objects merge set-if-absent on their leaves", () => {
     env: Record<string, string>;
   };
   assertEquals(result.env, { A: "keep", B: "add" });
+});
+
+Deno.test("a non-object incoming yields a clone of the existing object", () => {
+  // An invalid kit payload must never corrupt the user's settings: a non-object
+  // incoming returns the existing object unchanged (cloned, not the same ref).
+  const existing = { model: "opus", permissions: { deny: ["Read(./.env)"] } };
+  const result = mergeSettings(existing, "not-an-object");
+  assertEquals(result, existing);
+  assertNotStrictEquals(result, existing);
+});
+
+Deno.test("a non-object incoming with a non-object existing yields an empty object", () => {
+  // Both sides invalid → start from {} rather than throwing.
+  assertEquals(mergeSettings(null, 42), {});
+  assertEquals(mergeSettings("x", undefined), {});
+});
+
+Deno.test("a malformed hook group is appended rather than deduped", () => {
+  // commandsInGroup returns [] for a non-object group or one whose `hooks` is not
+  // an array, so such a group has no commands to match on and is always kept.
+  const existing = {
+    hooks: { SessionStart: ["not-an-object", { hooks: "not-an-array" }] },
+  };
+  const result = mergeSettings(existing, {
+    hooks: { SessionStart: [{ notHooks: true }] },
+  }) as { hooks: { SessionStart: unknown[] } };
+  // Two malformed existing groups + one command-less incoming group, all kept.
+  assertEquals(result.hooks.SessionStart.length, 3);
+  assertEquals(result.hooks.SessionStart[2], { notHooks: true });
+});
+
+Deno.test("a non-array hook event is set-if-absent (absent → taken)", () => {
+  // mergeHooks treats a non-array event value defensively like a scalar: when the
+  // event key is absent from existing, the kit's value is taken.
+  const result = mergeSettings({ hooks: {} }, {
+    hooks: { someScalarEvent: "value" },
+  }) as { hooks: Record<string, unknown> };
+  assertEquals(result.hooks.someScalarEvent, "value");
+});
+
+Deno.test("a non-array hook event is set-if-absent (present → kept)", () => {
+  // When the event key already exists, the kit's non-array value is ignored.
+  const result = mergeSettings(
+    { hooks: { someScalarEvent: "mine" } },
+    { hooks: { someScalarEvent: "theirs" } },
+  ) as { hooks: Record<string, unknown> };
+  assertEquals(result.hooks.someScalarEvent, "mine");
+});
+
+Deno.test("a non-array permissions value falls through to set-if-absent merge", () => {
+  // The union branch only fires when the INCOMING value is an array; otherwise
+  // (a non-permission key, or a permission key whose incoming value is a scalar)
+  // the value goes through mergeValue (set-if-absent).
+  const existing = { permissions: { defaultMode: "ask", allow: "mine" } };
+  const result = mergeSettings(existing, {
+    permissions: {
+      defaultMode: "acceptEdits", // existing scalar wins (set-if-absent)
+      allow: "theirs", // incoming is non-array → mergeValue keeps existing
+      additionalDirectories: ["/tmp"], // absent non-permission key → taken
+    },
+  }) as { permissions: Record<string, unknown> };
+  assertEquals(result.permissions.defaultMode, "ask");
+  assertEquals(result.permissions.allow, "mine");
+  assertEquals(result.permissions.additionalDirectories, ["/tmp"]);
+});
+
+Deno.test("permissions.allow unions and a non-permission key recurses as an object", () => {
+  // The known array key unions; a sibling object-valued key recurses set-if-absent.
+  const existing = {
+    permissions: { allow: ["Bash(ls)"], extra: { keep: 1 } },
+  };
+  const result = mergeSettings(existing, {
+    permissions: { allow: ["Bash(pwd)"], extra: { keep: 2, add: 3 } },
+  }) as {
+    permissions: { allow: string[]; extra: Record<string, number> };
+  };
+  assertEquals(result.permissions.allow, ["Bash(ls)", "Bash(pwd)"]);
+  assertEquals(result.permissions.extra, { keep: 1, add: 3 });
 });

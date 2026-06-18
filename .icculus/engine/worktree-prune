@@ -32,6 +32,12 @@ case "${1:-}" in
     *) die "worktree-prune: unknown argument '$1' (use --yes)." ;;
 esac
 
+# Pool housekeeping mutates the shared worktree set, so it belongs to the main
+# checkout: refuse from inside a linked worktree (you would be pruning siblings
+# from within one). assert-not-in-worktree is the main-checkout-only guard.
+"$ICCULUS_ENGINE/assert-not-in-worktree" 'agent worktree:prune' >/dev/null \
+    || die "agent worktree:prune must be run from the main checkout, not a linked worktree."
+
 heading "Pruning worktrees and fully-merged branches…"
 if [ "$assume_yes" -eq 1 ]; then
     "$ICCULUS_ENGINE/prune-git-worktrees" --include-detached --yes

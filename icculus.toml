@@ -77,6 +77,14 @@ run   = "deno task selfcheck"
 phase = "check"
 run   = "deno task lint:sh"
 
+# Measurement slot for [ratchets.coverage] below. NO `phase`, so `agent finish`
+# never runs it; `agent ratchets` runs it on demand. Runs the suite under Deno
+# coverage and emits `ICCULUS_METRIC coverage <pct>` for src/ (the TypeScript
+# installer). Deno can't instrument the POSIX-shell engine, so it's out of this
+# number — the engine_* shell-out tests cover it behaviourally instead.
+[slots.coverage]
+run = "deno task coverage"
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [scopes] — which parts of the repo a change touches. The gate uses this to
@@ -182,6 +190,16 @@ steps = []   # e.g. ["npm ci", "npm run build"]
 # limit     = 500000
 # slot      = "bundlesize"
 # ─────────────────────────────────────────────────────────────────────────────
+
+
+# Coverage ratchet — hold src/ line coverage at or above a rising floor, measured
+# by the [slots.coverage] measurement slot above. At ~94.9% (2026-06-18); floor
+# set just below and ratcheted upward over time. Held by `agent ratchets` (slow;
+# not part of finish) and enforced on every PR in CI; never loosened vs main.
+[ratchets.coverage]
+direction = "up"
+limit     = 94
+slot      = "coverage"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
