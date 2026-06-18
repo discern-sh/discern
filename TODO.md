@@ -44,7 +44,15 @@ outstanding._
 
 ## 🟡 Smaller fixes & polish
 
-_Lower-severity fixes, rough edges, and UX papercuts. Nothing outstanding._
+- [ ] **`init` undersells `/bootstrap` — make the handoff feel required, not
+      optional.** A fresh install is non-functional until `/bootstrap` fills the
+      slots and docs, but the `init` outro lists `/bootstrap` as merely "step 1
+      of next steps" — easy to skip, and no developer will fill the many blanks
+      by hand. Make it close to mandatory: a single loud "do this next"
+      call-to-action in the outro, and/or a nudge from `doctor`/the first
+      `finish` while every slot is still a no-op. Evidence:
+      `src/commands/init.ts:282` (`printOutro`); the all-no-op gate nudge
+      already exists at `templates/.icculus/engine/finish:305`.
 
 ## 🟢 Test & tooling hygiene
 
@@ -57,4 +65,23 @@ outstanding._
 
 ## ⚪ Explorations / ideas (unscheduled)
 
-_Unscheduled explorations and ideas. Nothing outstanding._
+- [ ] **`init` is all-or-nothing; design a "feature opt-in" install (and handle
+      pre-existing docs).** Today `init` scaffolds the whole harness — full docs
+      tree, all slots, all adapters — regardless of what the target repo already
+      has. The first real install (`passapp`, an established Laravel app)
+      surfaced a concrete gap: the repo already had its own `docs/` (loose files
+      `Stripe.md`, `Annuities.md`, `Mathematics.md`, `Deployment.md`,
+      `Filament.md`, and `docs/AI/*`), and `/bootstrap` built a _parallel_
+      numbered tree beside them — declaring `docs/README.md` the "canonical
+      source of truth" while never acknowledging or folding in the existing
+      docs. Several overlap directly with the new subtrees it created
+      (`Stripe.md` ↔ `60-billing`, `docs/AI/` ↔ `40-ai`,
+      `Mathematics.md`/`Annuities.md` ↔ `30-questions`, `Deployment.md` ↔
+      `80-development`, `Filament.md` ↔ `70-admin`), leaving the developer with
+      two doc systems and no guidance on reconciling them. Tackle as part of a
+      broader opt-in model where a developer chooses which harness pieces to
+      install rather than getting everything — and where `init`/`/bootstrap`
+      detect pre-existing docs and either fold them into the tree or record them
+      for folding. (Observed in the `passapp` control case; that staging area
+      will be discarded and re-run, so re-confirm against a fresh run. Worth an
+      ADR when designed.)

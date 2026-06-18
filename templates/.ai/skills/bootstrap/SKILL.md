@@ -15,10 +15,12 @@ You — the coding agent already in this session — do the authoring. There is 
 
 ## Step 0 — Read the brief and look around
 
-1. Read **`.icculus/brief.md`** — the free-text description the user gave at install. This is your primary source for what the project is, who it's for, and what shape it has.
-2. Skim the repo: the top-level layout, the README if one exists, and the manifest/lockfiles (you'll inventory these properly in Step 5). Form a quick mental model before you write anything.
+1. Read **`.icculus/brief.md`** — the free-text description the user gave at install. Treat it as a statement of *intent and direction* (what the project is for, who it serves, what matters), **not** as the ceiling on how much you write. The depth of what you produce comes from the repository, not the length of the brief.
+2. Read the repo itself — this is your primary source. The top-level layout, the README, the manifest/lockfiles, and the actual code (models, config, tests) are where the principles, concepts, and conventions you'll write are *evidenced*. You inventory the stack properly in Step 5, but start forming the real mental model here.
 
-If the brief is thin or empty, ask the user two or three sharp questions before drafting — what the project does, its core building blocks, and any non-negotiable rules it lives by. Do not invent a domain.
+**A short brief is not a licence for a shallow result.** Whether the brief is one declarative line ("a tool to help actuaries pass exams") or a deliberate "figure it out", the job is identical: mine the repository for what the system actually is and document *that* — don't paraphrase the brief and stop. A declarative one-liner is the trap, because it tempts you to treat it as a sufficient summary; go deeper than it regardless.
+
+Ask the user a couple of sharp questions **only when the repo itself is uninformative** (a near-empty or greenfield project) *and* the brief is also thin — what it will do, its core building blocks, its non-negotiable rules. When the code is there to read, read it rather than asking. Either way, never invent a domain — derive it from what you find.
 
 ---
 
@@ -58,15 +60,19 @@ Fill the three orientation skeletons from the brief, removing the `<!-- /bootstr
 
 Use the same capitalised canonical nouns across all three (and everywhere else). Don't introduce synonyms.
 
+Then clear the stale "starts as a skeleton" notes so the filled tree doesn't still announce itself as empty: the blockquote at the top of **`docs/00-orientation/README.md`** (it points readers at `/bootstrap` and the `<!-- /bootstrap fills this -->` markers) and the one-line skeleton blockquote atop each doc you just filled. Once a doc is real, a note telling the reader it is empty is worse than no note.
+
 ---
 
 ## Step 4 — Propose the subsystem subtrees
 
 Decide the numbered subsystem subtrees this project needs (`10-…`, `20-…`, … `80-development/` already exists). Then:
 
-- Update the **Subsystems** table in **`docs/README.md`** with the proposed names and a one-liner each, removing the placeholder rows.
+- Update the **Subsystems** table in **`docs/README.md`** with the proposed names and a one-liner each, removing the placeholder rows. Also clear the "this tree starts as a skeleton — run `/bootstrap`" blockquote above the table: once the subtrees are real, that note is stale.
 - Reflect the same names in the "what to read next" / "how the map relates" tables in the orientation docs.
 - **Create the directories with a stub `README.md` each** (a title and a one-line "what this subtree covers"), so the tree is navigable — but don't write the leaves now. Filling a subtree's leaves is the [`document-subsystem`](/.ai/skills/document-subsystem/SKILL.md) skill's job, run per subsystem when you're ready.
+
+**Exception — fill the `80-development/` leaves now.** Those leaves (`getting-started.md`, `testing.md`, `code-conventions.md`) ship with `<!-- /bootstrap fills this -->` markers and are *stack-level*, not subsystem-deep: everything they need — the setup steps, the test runner, the formatter and build — you already have from the brief and the Step 5 stack sniff. Fill them now, clearing their markers, and keep them aligned with the guidelines (Step 2) and the slots you propose (Step 5). Only the *numbered* subtree leaves are deferred to `document-subsystem`.
 
 Propose the subtree set to the user before committing to it — the numbering is a reading order, easy to change, but worth a sanity check.
 
@@ -101,11 +107,12 @@ Notes that keep the proposal honest:
 
 ---
 
-## Step 6 — Compile and verify
+## Step 6 — Compile, capture, and verify
 
 1. Run **`agent guidelines`** to compile `.ai/guidelines/` + `.ai/skills/` into the per-agent files (`CLAUDE.md`, `AGENTS.md`, …) and link the skills.
 2. Run **`agent doctor`** to verify the install — dispatcher executable, hooks present, every configured slot command resolvable, git worktree support, required tools on PATH.
-3. Fix anything `doctor` flags (it returns the exact remedy), then summarise for the user: the principles you drafted, the subtrees you proposed, and the slot fills awaiting their confirmation. Point them at the [`document-subsystem`](/.ai/skills/document-subsystem/SKILL.md) skill as the next step for filling in each subtree's leaves.
+3. **Record the deferred wiring in `TODO.md`.** Everything you *proposed but did not activate* is outstanding work — and a comment in `icculus.toml` or a line in your chat reply is not where the next agent (or the maintainer) will look. `TODO.md` is the shared backlog. Add a terse item (a bold title + one line, in the bucket that fits) for each open decision: the slots still awaiting confirmation, the `[worktree]` db / dev-server / `inherit_env` / setup adapters left empty, any tool worth adding (a static analyser, a JS linter), and any test database or service the suite needs to run. This is what stops the bootstrap proposals from being silently lost when the session ends.
+4. Fix anything `doctor` flags (it returns the exact remedy), then summarise for the user: the principles you drafted, the subtrees you proposed, the slot fills awaiting their confirmation, and the `TODO.md` items you recorded. Point them at the [`document-subsystem`](/.ai/skills/document-subsystem/SKILL.md) skill as the next step for filling in each subtree's leaves.
 
 ---
 
@@ -113,6 +120,8 @@ Notes that keep the proposal honest:
 
 - `design-principles.md` holds real, project-specific principles (no EXAMPLE block, no `<!-- /bootstrap fills this -->` markers left).
 - `.ai/guidelines/<slug>.md` has a real pitch and Conventions section.
-- The orientation docs (concepts, glossary, system-map) are seeded and the subsystem subtrees are named with stub READMEs.
+- The orientation docs (concepts, glossary, system-map) are seeded, the `80-development/` leaves are filled, and the numbered subsystem subtrees are named with stub READMEs.
+- No stale "starts as a skeleton / run `/bootstrap`" notes remain — the `docs/README.md` and `docs/00-orientation/README.md` intros describe the filled tree, not an empty one.
 - `icculus.toml` slot fills are **proposed** for every detected stack (committed only if the user confirms).
+- `TODO.md` records the deferred wiring (unactivated slots, empty adapters, tools or test databases to add) so no open decision lives only in a comment or the chat.
 - `agent guidelines` and `agent doctor` have been run and `doctor` is green.

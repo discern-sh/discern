@@ -63,3 +63,25 @@ Deno.test("engine guidelines: links skills even with no guideline sources (jobs 
     );
   });
 });
+
+Deno.test("engine guidelines: compiled agent files are world-readable (0644, not the 0600 mktemp leak)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+
+    const r = await runAgent(dir, ["guidelines"]);
+    assertEquals(r.code, 0, r.output);
+
+    // The compiled body is built in a mktemp file (mode 0600); without an
+    // explicit normalise, `cp` carries that onto CLAUDE.md and the generated
+    // file is owner-only — surprising for a readable source artifact. Assert the
+    // group/other read bits survive, which is exactly the regression we fix.
+    const mode = (await Deno.stat(join(dir, "CLAUDE.md"))).mode ?? 0;
+    assertEquals(
+      mode & 0o044,
+      0o044,
+      `CLAUDE.md must be group/other-readable; got mode ${
+        (mode & 0o777).toString(8)
+      }`,
+    );
+  });
+});

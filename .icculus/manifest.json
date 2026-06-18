@@ -1,7 +1,7 @@
 {
   "kit_version": "1.0.0",
   "schema_version": 2,
-  "generated_at": "2026-06-18T00:30:14.190Z",
+  "generated_at": "2026-06-18T12:21:34.771Z",
   "project": {
     "slug": "icculus",
     "agents": [
@@ -12,7 +12,7 @@
   "managed": [
     {
       "path": ".ai/skills/bootstrap/SKILL.md",
-      "sha256": "e8906f9758cb60ea61d964fab1ed9b83990a6ea2c2e3db314255da79ed652327"
+      "sha256": "ced393400f83daa821baea9029859305020da94b78a014d6ec4ec9dca66f294d"
     },
     {
       "path": ".ai/skills/coding-principles/SKILL.md",
@@ -84,7 +84,7 @@
     },
     {
       "path": ".icculus/engine/guidelines",
-      "sha256": "a65e741888e9380d4c4d5237a1c9e1733a1ea6c02d45a6821a8bf17e49fbc99f"
+      "sha256": "43544e462d6f86b1dc2312117aa06b141128a43283202f45ed9dbe37ffcd00b9"
     },
     {
       "path": ".icculus/engine/inherit-main-env-vars",

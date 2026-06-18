@@ -101,6 +101,11 @@ if [ "$source_count" -gt 0 ]; then
         _dir=$(dirname "$_out")
         [ -d "$_dir" ] || mkdir -p "$_dir" || die "guidelines: could not create $_dir."
         cp "$compiled" "$_out" || die "guidelines: failed to write $_rel."
+        # The compiled body is assembled in a mktemp file (mode 0600); cp carries
+        # that mode onto the agent file, leaving an owner-only CLAUDE.md/AGENTS.md.
+        # Normalise to 0644 so a generated file is readable like any other source.
+        # Best-effort: git records only the exec bit, so this is a local-tree fix.
+        chmod 0644 "$_out" 2>/dev/null || warn "guidelines: could not set mode 0644 on $_rel."
         written="$written $_rel"
         written_count=$((written_count + 1))
     done
