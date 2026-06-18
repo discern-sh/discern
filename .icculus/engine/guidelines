@@ -1,17 +1,17 @@
 #!/usr/bin/env sh
-# desc: compile .ai/guidelines/* into the agent instruction files and refresh skill symlinks
+# desc: compile .icculus/guidelines/* into the agent instruction files and refresh skill symlinks
 . "$(dirname "$0")/lib/bootstrap.sh"
 
 # guidelines — a dependency-free guideline compiler. One single-source-of-truth,
-# agent-agnostic guideline tree (.ai/guidelines/*.md), many generated
+# agent-agnostic guideline tree (.icculus/guidelines/*.md), many generated
 # agent-specific outputs (CLAUDE.md, AGENTS.md, …). No framework is needed: it is
 # plain concatenation, so the same source can never diverge per agent.
 #
 # Two jobs, each idempotent and safe to run from anywhere:
-#   1. Concatenate .ai/guidelines/*.md (sorted) into every configured agent
-#      file, per [project].agents in icculus.toml.
+#   1. Concatenate .icculus/guidelines/*.md (sorted) into every configured agent
+#      file, per [project].agents in .icculus/config.toml.
 #   2. Refresh the .claude/skills/<skill> symlinks so the author-once skills in
-#      .ai/skills/ are discoverable by the agent.
+#      .icculus/skills/ are discoverable by the agent.
 #
 # The two jobs are INDEPENDENT: job 2 runs even when job 1 has no sources to
 # compile, so a freshly-scaffolded project still gets discoverable skills.
@@ -24,8 +24,8 @@
 # agent files and skill links) and by hand whenever you edit a guideline or add
 # a skill: `agent guidelines`. It is NOT part of `agent finish`.
 
-sources_dir="$ICCULUS_ROOT/.ai/guidelines"
-skills_dir="$ICCULUS_ROOT/.ai/skills"
+sources_dir="$ICCULUS_ROOT/.icculus/guidelines"
+skills_dir="$ICCULUS_ROOT/.icculus/skills"
 claude_skills_dir="$ICCULUS_ROOT/.claude/skills"
 
 # --- agent-file mapping ---------------------------------------------------
@@ -119,8 +119,8 @@ fi
 
 # --- job 2: refresh skill symlinks (always) -------------------------------
 #
-# For each directory under .ai/skills/<skill>, (re)create the symlink
-# .claude/skills/<skill> -> ../../.ai/skills/<skill>, so author-once skills are
+# For each directory under .icculus/skills/<skill>, (re)create the symlink
+# .claude/skills/<skill> -> ../../.icculus/skills/<skill>, so author-once skills are
 # discoverable by the agent. Runs unconditionally — independent of job 1 — so a
 # project with no guideline sources still gets discoverable skills. Idempotent:
 # an existing link is removed first, so a renamed or retargeted skill is
@@ -147,7 +147,7 @@ if [ -d "$skills_dir" ]; then
         [ -L "$_link" ] && rm -f "$_link"
 
         # Relative target keeps the link valid if the project tree is moved.
-        ln -s "../../.ai/skills/$_skill" "$_link" || die "guidelines: failed to link $_skill."
+        ln -s "../../.icculus/skills/$_skill" "$_link" || die "guidelines: failed to link $_skill."
         linked_count=$((linked_count + 1))
     done
     set -f

@@ -68,6 +68,6 @@ Deno.test("tokensFromConfig produces the full token contract", () => {
   assertEquals(map.agents_array, '"claude_code", "codex"');
   assertEquals(map.scopes_web, '"src/**", "lib/**"');
   // The neutral/previewable/gotchas defaults are fixed.
-  assertEquals(map.scopes_neutral, '"docs/", ".ai/", ".claude/"');
+  assertEquals(map.scopes_neutral, '"docs/", ".icculus/", ".claude/"');
   assertEquals(map.scopes_previewable, '"public/**"');
 });

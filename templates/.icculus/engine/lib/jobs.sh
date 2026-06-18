@@ -11,7 +11,7 @@
 # keeps the implementation portable. Live streaming is a possible enhancement.
 #
 # Commands are run with `eval` on purpose — they are operator-supplied slot
-# strings from icculus.toml, and running them verbatim is the whole point.
+# strings from .icculus/config.toml, and running them verbatim is the whole point.
 #
 # STRUCTURED SIDE CHANNEL. When ICCULUS_JOBS_RESULTS names a file, each job's
 # result is appended as a tab-separated line: "<label>\t<code>\t<seconds>". This

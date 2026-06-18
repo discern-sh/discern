@@ -25,6 +25,7 @@ import {
   SEPARATOR,
 } from "@std/path";
 import { inlineToPlain } from "./markdown.ts";
+import { resolveConfigPath } from "./paths.ts";
 
 /** One indexed documentation file. */
 export interface DocEntry {
@@ -68,21 +69,17 @@ async function isDir(path: string): Promise<boolean> {
 }
 
 /**
- * Walk up from `start` to the nearest ancestor containing `icculus.toml` — the
- * project root, the same anchor `bin/agent` uses. Returns undefined if none is
- * found before the filesystem root.
+ * Walk up from `start` to the nearest ancestor that is an icculus install — the
+ * project root, the same anchor the `agent` dispatcher uses. Returns undefined
+ * if none is found before the filesystem root.
  */
 export async function findProjectRoot(
   start: string,
 ): Promise<string | undefined> {
   let dir = resolve(start);
   while (true) {
-    try {
-      if ((await Deno.stat(join(dir, "icculus.toml"))).isFile) {
-        return dir;
-      }
-    } catch {
-      // not here; keep walking up.
+    if ((await resolveConfigPath(dir)) !== undefined) {
+      return dir;
     }
     const parent = dirname(dir);
     if (parent === dir) {

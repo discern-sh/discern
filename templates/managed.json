@@ -1,4 +1,4 @@
 {
-  "exact": ["bin/agent"],
-  "prefixes": [".icculus/engine/", ".ai/skills/"]
+  "exact": ["agent"],
+  "prefixes": [".icculus/engine/", ".icculus/skills/"]
 }

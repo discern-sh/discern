@@ -1,10 +1,11 @@
 /**
  * `icculus doctor` — verify the install and, if the harness is present, fold in
- * its own `bin/agent doctor`. Every check returns an actionable diagnostic: not
+ * its own `agent doctor`. Every check returns an actionable diagnostic: not
  * just pass/fail, but the exact fix when something is wrong.
  */
 
 import { join } from "@std/path";
+import { resolveConfigPath } from "../lib/paths.ts";
 import { Logger } from "../lib/log.ts";
 import { selfCmd } from "../lib/invocation.ts";
 import { parseIcculusToml } from "../lib/toml_render.ts";
@@ -47,50 +48,51 @@ function isExecutable(info: Deno.FileInfo): boolean {
 export async function runChecks(destDir: string): Promise<Check[]> {
   const checks: Check[] = [];
 
-  // 1. icculus.toml exists and parses.
-  const tomlPath = join(destDir, "icculus.toml");
+  // 1. the config (.icculus/config.toml, or a legacy icculus.toml) exists and parses.
+  const tomlPath = (await resolveConfigPath(destDir)) ??
+    join(destDir, ".icculus/config.toml");
   try {
     const text = await Deno.readTextFile(tomlPath);
     parseIcculusToml(text);
     checks.push({
-      name: "icculus.toml",
+      name: ".icculus/config.toml",
       ok: true,
       detail: "present and valid TOML",
     });
   } catch (error) {
     const isMissing = error instanceof Deno.errors.NotFound;
     checks.push({
-      name: "icculus.toml",
+      name: ".icculus/config.toml",
       ok: false,
       detail: isMissing
         ? "not found in this directory"
         : `invalid: ${error instanceof Error ? error.message : String(error)}`,
       fix: isMissing
         ? "run `icculus init` to scaffold the harness here"
-        : "fix the TOML syntax in icculus.toml",
+        : "fix the TOML syntax in .icculus/config.toml",
     });
   }
 
-  // 2. bin/agent exists and is executable.
-  const agentPath = join(destDir, "bin/agent");
+  // 2. the agent dispatcher exists at the repo root and is executable.
+  const agentPath = join(destDir, "agent");
   const agentInfo = await statOrUndefined(agentPath);
   if (agentInfo === undefined) {
     checks.push({
-      name: "bin/agent",
+      name: "agent",
       ok: false,
       detail: "not found",
-      fix: "run `icculus init` (or `icculus upgrade`) to restore bin/agent",
+      fix: "run `icculus init` (or `icculus upgrade`) to restore agent",
     });
   } else if (!isExecutable(agentInfo)) {
     checks.push({
-      name: "bin/agent",
+      name: "agent",
       ok: false,
       detail: "present but not executable",
       fix: `run: chmod +x ${agentPath}`,
     });
   } else {
     checks.push({
-      name: "bin/agent",
+      name: "agent",
       ok: true,
       detail: "present and executable",
     });
@@ -152,12 +154,12 @@ export async function runChecks(destDir: string): Promise<Check[]> {
 }
 
 /**
- * Delegate to the harness's own `bin/agent doctor` when present and executable.
+ * Delegate to the harness's own `agent doctor` when present and executable.
  * Returns undefined when there is nothing to delegate to. Failure to spawn is
  * itself reported as a (failing) check rather than crashing.
  */
 async function delegateToAgent(destDir: string): Promise<Check | undefined> {
-  const agentPath = join(destDir, "bin/agent");
+  const agentPath = join(destDir, "agent");
   const info = await statOrUndefined(agentPath);
   if (info === undefined || !isExecutable(info)) {
     return undefined;
@@ -177,7 +179,7 @@ async function delegateToAgent(destDir: string): Promise<Check | undefined> {
     const err = new TextDecoder().decode(stderr).trim();
     if (code === 0) {
       return {
-        name: "bin/agent doctor",
+        name: "agent doctor",
         ok: true,
         detail: out || "harness self-check passed",
       };
@@ -185,25 +187,25 @@ async function delegateToAgent(destDir: string): Promise<Check | undefined> {
     // Distinguish "no doctor recipe yet" from a real harness failure.
     if (/unknown recipe/.test(err)) {
       return {
-        name: "bin/agent doctor",
+        name: "agent doctor",
         ok: true,
         detail: "harness has no doctor recipe yet (skipped)",
       };
     }
     return {
-      name: "bin/agent doctor",
+      name: "agent doctor",
       ok: false,
       detail: err || out || `exited ${code}`,
       fix: "address the harness self-check failure above",
     };
   } catch (error) {
     return {
-      name: "bin/agent doctor",
+      name: "agent doctor",
       ok: false,
-      detail: `could not run bin/agent: ${
+      detail: `could not run agent: ${
         error instanceof Error ? error.message : String(error)
       }`,
-      fix: "ensure bin/agent is a runnable POSIX script",
+      fix: "ensure agent is a runnable POSIX script",
     };
   }
 }

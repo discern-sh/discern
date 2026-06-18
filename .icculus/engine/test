@@ -8,7 +8,7 @@
 test_cmd=$(slots_for_phase test)
 
 if [ "$test_cmd" = ":" ]; then
-    info "No test slot is configured (set a slot with phase = \"test\" in icculus.toml)."
+    info "No test slot is configured (set a slot with phase = \"test\" in .icculus/config.toml)."
     exit 0
 fi
 

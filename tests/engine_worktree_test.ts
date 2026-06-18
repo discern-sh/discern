@@ -88,7 +88,7 @@ Deno.test("worktree:exit refuses (non-destructively) when the main checkout is d
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "delta");
     // Dirty a tracked file in main: exit must refuse rather than clobber it.
-    const toml = join(dir, "icculus.toml");
+    const toml = join(dir, ".icculus/config.toml");
     await Deno.writeTextFile(
       toml,
       `${await Deno.readTextFile(toml)}\n# dirty\n`,

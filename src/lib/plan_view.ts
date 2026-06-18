@@ -51,22 +51,28 @@ export function renderReview(log: Logger, plan: Plan, destDir: string): void {
   const preservedNew = pick((o) => o.disposition === "new");
   const preservedSet = new Set(preservedNew);
 
-  const hasConfig = ops.some((o) => o.targetRel === "icculus.toml");
+  const hasConfig = ops.some((o) => o.targetRel === ".icculus/config.toml");
   const hasRunner = ops.some((o) =>
-    o.targetRel === "bin/agent" && !preservedSet.has(o)
+    o.targetRel === "agent" && !preservedSet.has(o)
   );
   const guidance = pick((o) =>
-    o.targetRel.startsWith(".ai/guidelines/") && !preservedSet.has(o)
+    o.targetRel.startsWith(".icculus/guidelines/") && !preservedSet.has(o)
   );
   const skills = pick((o) =>
-    o.targetRel.startsWith(".ai/skills/") && !preservedSet.has(o)
+    o.targetRel.startsWith(".icculus/skills/") && !preservedSet.has(o)
   );
   const docs = pick((o) =>
     (o.targetRel.startsWith("docs/") || o.targetRel === "TODO.md") &&
     !preservedSet.has(o)
   );
+  // Engine machinery: everything else under .icculus/ (the shell engine, brief,
+  // manifest) — but not the config, guidance, or skills grouped above.
   const engine = pick((o) =>
-    o.targetRel.startsWith(".icculus/") && !preservedSet.has(o)
+    o.targetRel.startsWith(".icculus/") &&
+    o.targetRel !== ".icculus/config.toml" &&
+    !o.targetRel.startsWith(".icculus/guidelines/") &&
+    !o.targetRel.startsWith(".icculus/skills/") &&
+    !preservedSet.has(o)
   );
   // The integration files land at the project root / .claude and may merge or
   // append into ones you already have — grouped together regardless of how.
@@ -77,7 +83,7 @@ export function renderReview(log: Logger, plan: Plan, destDir: string): void {
   const integrationSet = new Set(integration);
   const accountedFor = new Set<PlanOp>([
     ...ops.filter((o) =>
-      (o.targetRel === "icculus.toml" || o.targetRel === "bin/agent") &&
+      (o.targetRel === ".icculus/config.toml" || o.targetRel === "agent") &&
       !preservedSet.has(o)
     ),
     ...guidance,
@@ -109,7 +115,7 @@ export function renderReview(log: Logger, plan: Plan, destDir: string): void {
       log.line(
         row(
           log,
-          "icculus.toml",
+          ".icculus/config.toml",
           "the one file you tune — slots, scopes, worktree",
         ),
       );
@@ -118,8 +124,8 @@ export function renderReview(log: Logger, plan: Plan, destDir: string): void {
       log.line(
         row(
           log,
-          "bin/agent",
-          "the per-project task runner (./bin/agent finish, …)",
+          "agent",
+          "the per-project task runner (./agent finish, …)",
         ),
       );
     }
@@ -135,7 +141,7 @@ export function renderReview(log: Logger, plan: Plan, destDir: string): void {
       log.line(`    ${op.targetRel}`);
     }
     if (skillCount > 0) {
-      log.line(row(log, ".ai/skills/", `${skillCount} portable skills`));
+      log.line(row(log, ".icculus/skills/", `${skillCount} portable skills`));
     }
   }
 

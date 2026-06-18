@@ -86,7 +86,7 @@ function plan(
 
 Deno.test("renderPlan writes the heading to stderr and one padded row per op to stdout", async () => {
   const p = plan([
-    op("bin/agent", "create"),
+    op("agent", "create"),
     op(".icculus/engine/lib.sh", "overwrite", { managed: true }),
   ]);
   const { err, out } = await capture(() =>
@@ -97,7 +97,7 @@ Deno.test("renderPlan writes the heading to stderr and one padded row per op to 
   // One row per op on stdout, each starting with the padded label.
   assertEquals(out.length, 2);
   assertStringIncludes(out[0], "create");
-  assertStringIncludes(out[0], "bin/agent");
+  assertStringIncludes(out[0], "agent");
   // The managed op carries the dim [managed] marker (identity without colour).
   assertStringIncludes(out[1], "update");
   assertStringIncludes(out[1], ".icculus/engine/lib.sh");
@@ -142,12 +142,12 @@ Deno.test("renderPlan on an empty plan prints only the heading, no rows", async 
 
 Deno.test("renderReview groups config, runner, guidance, skills, docs and engine", async () => {
   const p = plan([
-    op("icculus.toml", "create"),
-    op("bin/agent", "create"),
-    op(".ai/guidelines/icculus.md", "create"),
-    op(".ai/skills/foo/SKILL.md", "create"),
-    op(".ai/skills/foo/helper.sh", "create"),
-    op(".ai/skills/bar/SKILL.md", "create"),
+    op(".icculus/config.toml", "create"),
+    op("agent", "create"),
+    op(".icculus/guidelines/icculus.md", "create"),
+    op(".icculus/skills/foo/SKILL.md", "create"),
+    op(".icculus/skills/foo/helper.sh", "create"),
+    op(".icculus/skills/bar/SKILL.md", "create"),
     op("docs/00-orientation.md", "create"),
     op("TODO.md", "create"),
     op(".icculus/engine/lib.sh", "create", { managed: true }),
@@ -163,11 +163,11 @@ Deno.test("renderReview groups config, runner, guidance, skills, docs and engine
   assertStringIncludes(text, "10 files.");
   // Config & runner group.
   assertStringIncludes(text, "Config & runner");
-  assertStringIncludes(text, "icculus.toml");
-  assertStringIncludes(text, "bin/agent");
+  assertStringIncludes(text, ".icculus/config.toml");
+  assertStringIncludes(text, "agent");
   // Agent guidance: the guideline path is listed, skills collapsed to a count.
   assertStringIncludes(text, "Agent guidance");
-  assertStringIncludes(text, ".ai/guidelines/icculus.md");
+  assertStringIncludes(text, ".icculus/guidelines/icculus.md");
   // Two distinct skill directories (foo, bar), not three files.
   assertStringIncludes(text, "2 portable skills");
   // Docs scaffold: only the docs/ file is counted, plus TODO.md listed.
@@ -183,7 +183,7 @@ Deno.test("renderReview groups config, runner, guidance, skills, docs and engine
 
 Deno.test("renderReview surfaces the kept-your-versions group (singular phrasing)", async () => {
   const p = plan([
-    op("bin/agent.new", "new", { managed: true }),
+    op("agent.new", "new", { managed: true }),
   ]);
   const { out } = await capture(() => renderReview(plainLogger(), p, "/dest"));
   const text = out.join("\n");
@@ -192,12 +192,12 @@ Deno.test("renderReview surfaces the kept-your-versions group (singular phrasing
   assertStringIncludes(text, "1 managed file already here is kept");
   assertStringIncludes(text, "<file>.new");
   // The canonical path is shown, pointing at the .new sibling.
-  assertStringIncludes(text, "kept; kit version → bin/agent.new");
+  assertStringIncludes(text, "kept; kit version → agent.new");
 });
 
 Deno.test("renderReview uses plural phrasing for multiple kept files", async () => {
   const p = plan([
-    op("bin/agent.new", "new", { managed: true }),
+    op("agent.new", "new", { managed: true }),
     op(".icculus/engine/lib.sh.new", "new", { managed: true }),
   ]);
   const { out } = await capture(() => renderReview(plainLogger(), p, "/dest"));
@@ -207,10 +207,10 @@ Deno.test("renderReview uses plural phrasing for multiple kept files", async () 
   );
 });
 
-Deno.test("renderReview puts a managed bin/agent preserved as .new in 'Kept', not 'Config & runner'", async () => {
-  // A `.new` op for bin/agent must not count as the runner row.
+Deno.test("renderReview puts a managed agent preserved as .new in 'Kept', not 'Config & runner'", async () => {
+  // A `.new` op for agent must not count as the runner row.
   const p = plan([
-    op("bin/agent.new", "new", { managed: true }),
+    op("agent.new", "new", { managed: true }),
   ]);
   const { out } = await capture(() => renderReview(plainLogger(), p, "/dest"));
   const text = out.join("\n");
@@ -293,7 +293,7 @@ Deno.test("renderNewFilesSummary is a no-op when there are no preserved files", 
 });
 
 Deno.test("renderNewFilesSummary (default = applied) reports past tense and the merge hint", async () => {
-  const files = [op("bin/agent.new", "new", { managed: true })];
+  const files = [op("agent.new", "new", { managed: true })];
   const { err } = await capture(() =>
     renderNewFilesSummary(plainLogger(), files)
   );
@@ -302,8 +302,8 @@ Deno.test("renderNewFilesSummary (default = applied) reports past tense and the 
   assertStringIncludes(text, "kept your version of 1 managed file");
   assertStringIncludes(text, "was written alongside");
   // The detail line points to the canonical path to merge into.
-  assertStringIncludes(text, "bin/agent.new");
-  assertStringIncludes(text, "merge into bin/agent or delete");
+  assertStringIncludes(text, "agent.new");
+  assertStringIncludes(text, "merge into agent or delete");
 });
 
 Deno.test("renderNewFilesSummary in dry-run uses conditional phrasing and plural count", async () => {
@@ -328,7 +328,7 @@ Deno.test("renderUpgradeSummary (applied) lists up-to-date, refreshed, removed a
     op(".icculus/engine/lib.sh", "overwrite", { managed: true }),
   ];
   const preserved = [op(".icculus/engine/gate.sh", "skip", { managed: true })];
-  const newFiles = [op("bin/agent.new", "new", { managed: true })];
+  const newFiles = [op("agent.new", "new", { managed: true })];
   const removed = [op(".icculus/engine/old.sh", "remove", { managed: true })];
   const { err } = await capture(() =>
     renderUpgradeSummary(
@@ -435,6 +435,6 @@ Deno.test("init --dry-run prints the full per-file plan via renderPlan", async (
     // the create label, and nothing was written (dry run).
     assertStringIncludes(stdout, "[managed]");
     assertStringIncludes(stdout, "create");
-    assertStringIncludes(stdout, "bin/agent");
+    assertStringIncludes(stdout, "agent");
   });
 });

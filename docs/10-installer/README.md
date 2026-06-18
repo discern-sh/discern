@@ -12,7 +12,7 @@ installed project never needs Deno.
 
 The command surface is six verbs: `init` (scaffold), `upgrade` (refresh managed
 files, hash-aware), `doctor` (verify an install), `migrate` (report pending
-Schema steps), `config` (comment-preserving `icculus.toml` edits), and
+Schema steps), `config` (comment-preserving `.icculus/config.toml` edits), and
 `add-adapter` (overlay a reference adapter). Routing lives in
 [`main.ts`](../../src/main.ts); each verb's logic is in `src/commands/`.
 
@@ -25,7 +25,8 @@ that evolves an install's shape before the file sync.
 
 > **Status: stub.** This README orients the subtree; the leaves below are not
 > written yet. Fill them with the
-> [`document-subsystem`](../../.ai/skills/document-subsystem/SKILL.md) skill.
+> [`document-subsystem`](../../.icculus/skills/document-subsystem/SKILL.md)
+> skill.
 
 ## Planned leaves
 

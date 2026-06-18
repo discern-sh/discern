@@ -31,19 +31,19 @@ import {
 } from "../src/lib/manifest.ts";
 import { withTempDir } from "./helpers.ts";
 
-Deno.test("isManaged classifies the engine, skills tree, and bin/agent as managed", () => {
-  assertEquals(isManaged("bin/agent"), true);
+Deno.test("isManaged classifies the engine, skills tree, and agent as managed", () => {
+  assertEquals(isManaged("agent"), true);
   assertEquals(isManaged(".icculus/engine/finish"), true);
   assertEquals(isManaged(".icculus/engine/lib/jobs.sh"), true);
-  assertEquals(isManaged(".ai/skills/coding-principles/SKILL.md"), true);
+  assertEquals(isManaged(".icculus/skills/coding-principles/SKILL.md"), true);
 });
 
 Deno.test("isManaged classifies seeds (config, brief, docs, guidelines) as not managed", () => {
-  assertEquals(isManaged("icculus.toml"), false);
+  assertEquals(isManaged(".icculus/config.toml"), false);
   assertEquals(isManaged(".icculus/brief.md"), false);
   assertEquals(isManaged(".icculus/manifest.json"), false);
   assertEquals(isManaged("docs/README.md"), false);
-  assertEquals(isManaged(".ai/guidelines/demo.md"), false);
+  assertEquals(isManaged(".icculus/guidelines/demo.md"), false);
   assertEquals(isManaged(".claude/settings.json"), false);
   assertEquals(isManaged(".gitignore"), false);
 });
@@ -53,14 +53,14 @@ Deno.test("isManagedBy honours a declared spec, not the hardcoded default", () =
   assertEquals(isManagedBy("custom/a/b", spec), true);
   assertEquals(isManagedBy("x/y", spec), true);
   // Default-managed paths are NOT managed under a spec that omits them.
-  assertEquals(isManagedBy("bin/agent", spec), false);
+  assertEquals(isManagedBy("agent", spec), false);
   assertEquals(isManagedBy(".icculus/engine/finish", spec), false);
 });
 
 Deno.test("parseManagedSpec reads exact + prefixes, tolerating missing arrays", () => {
   assertEquals(
-    parseManagedSpec('{"exact":["bin/agent"],"prefixes":[".x/"]}'),
-    { exact: ["bin/agent"], prefixes: [".x/"] },
+    parseManagedSpec('{"exact":["agent"],"prefixes":[".x/"]}'),
+    { exact: ["agent"], prefixes: [".x/"] },
   );
   assertEquals(parseManagedSpec("{}"), { exact: [], prefixes: [] });
 });
@@ -68,10 +68,10 @@ Deno.test("parseManagedSpec reads exact + prefixes, tolerating missing arrays", 
 Deno.test("mergeManagedSpecs unions and dedups (base + adapter)", () => {
   const merged = mergeManagedSpecs(DEFAULT_MANAGED_SPEC, {
     exact: ["native/build"],
-    prefixes: [".ai/skills/"], // already in the default — deduped
+    prefixes: [".icculus/skills/"], // already in the default — deduped
   });
-  assertEquals(merged.exact, ["bin/agent", "native/build"]);
-  assertEquals(merged.prefixes, [".icculus/engine/", ".ai/skills/"]);
+  assertEquals(merged.exact, ["agent", "native/build"]);
+  assertEquals(merged.prefixes, [".icculus/engine/", ".icculus/skills/"]);
 });
 
 Deno.test("sha256Hex is stable and content-sensitive", async () => {
@@ -95,13 +95,13 @@ Deno.test("buildManifest sorts managed entries by path", () => {
     slug: "demo",
     agents: ["claude_code"],
     managed: [
-      { path: "bin/agent", sha256: "bbb" },
+      { path: "agent", sha256: "bbb" },
       { path: ".icculus/engine/finish", sha256: "aaa" },
     ],
   });
   assertEquals(manifest.managed.map((e) => e.path), [
     ".icculus/engine/finish",
-    "bin/agent",
+    "agent",
   ]);
 });
 
@@ -119,7 +119,7 @@ Deno.test("manifest serialize/parse round-trips and recordedHash looks entries u
   assertEquals(parsed.schema_version, 3);
   assertEquals(parsed.project.agents, ["claude_code", "codex"]);
   assertEquals(recordedHash(parsed, ".icculus/engine/finish"), "deadbeef");
-  assertEquals(recordedHash(parsed, "bin/agent"), undefined);
+  assertEquals(recordedHash(parsed, "agent"), undefined);
 });
 
 Deno.test("parseManifest reads a pre-schema-version manifest as schema 1", () => {
@@ -130,7 +130,7 @@ Deno.test("parseManifest reads a pre-schema-version manifest as schema 1", () =>
     kit_version: "1.0.0",
     generated_at: "2026-01-01T00:00:00.000Z",
     project: { slug: "demo", agents: ["claude_code"] },
-    managed: [{ path: "bin/agent", sha256: "abc" }],
+    managed: [{ path: "agent", sha256: "abc" }],
   });
   assertEquals(parseManifest(legacy).schema_version, 1);
   // A malformed (non-integer) value is likewise normalised to 1.
@@ -141,7 +141,7 @@ Deno.test("parseManifest reads a pre-schema-version manifest as schema 1", () =>
 Deno.test("parseManagedSpec rejects a non-object (null, array, scalar)", () => {
   // A JSON null/array/scalar is structurally not a managed-set; each must throw
   // the same "must be a JSON object" error rather than silently degrade.
-  for (const text of ["null", "[]", '["bin/agent"]', "42", '"x"', "true"]) {
+  for (const text of ["null", "[]", '["agent"]', "42", '"x"', "true"]) {
     assertThrows(
       () => parseManagedSpec(text),
       Error,
@@ -163,11 +163,11 @@ Deno.test("loadManagedSpec parses managed.json when present", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(
       join(dir, MANAGED_SPEC_FILE),
-      '{"exact":["bin/agent"],"prefixes":[".ai/skills/"]}',
+      '{"exact":["agent"],"prefixes":[".icculus/skills/"]}',
     );
     assertEquals(await loadManagedSpec(dir), {
-      exact: ["bin/agent"],
-      prefixes: [".ai/skills/"],
+      exact: ["agent"],
+      prefixes: [".icculus/skills/"],
     });
   });
 });
@@ -235,7 +235,7 @@ Deno.test("parseManifest tolerates a malformed project and managed entries", () 
     kit_version: "1.0.0",
     project: "not-an-object",
     managed: [
-      { path: "bin/agent", sha256: "abc" },
+      { path: "agent", sha256: "abc" },
       { path: "no-hash" },
       { sha256: "no-path" },
       "not-an-object",
@@ -244,7 +244,7 @@ Deno.test("parseManifest tolerates a malformed project and managed entries", () 
   }));
   assertEquals(parsed.project, { slug: "", agents: [] });
   assertEquals(parsed.generated_at, "");
-  assertEquals(parsed.managed, [{ path: "bin/agent", sha256: "abc" }]);
+  assertEquals(parsed.managed, [{ path: "agent", sha256: "abc" }]);
 });
 
 Deno.test("loadManifest reads a manifest from a destination root", async () => {
@@ -255,7 +255,7 @@ Deno.test("loadManifest reads a manifest from a destination root", async () => {
       generatedAt: "2026-01-01T00:00:00.000Z",
       slug: "demo",
       agents: ["claude_code"],
-      managed: [{ path: "bin/agent", sha256: "abc" }],
+      managed: [{ path: "agent", sha256: "abc" }],
     });
     await Deno.mkdir(join(dir, ".icculus"), { recursive: true });
     await Deno.writeTextFile(

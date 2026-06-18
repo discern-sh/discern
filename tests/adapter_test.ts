@@ -2,7 +2,7 @@
  * Tests for the adapter contract (ADR 0007), exercised end-to-end against a FAKE
  * example adapter fixture (a toy "stack" under tests/fixtures/adapters/example/ —
  * not a real ecosystem, not shipped). `add-adapter` overlays the adapter's files
- * AND applies its adapter.json config fills to icculus.toml.
+ * AND applies its adapter.json config fills to .icculus/config.toml.
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
@@ -48,8 +48,8 @@ Deno.test("add-adapter overlays the example adapter's files and config fills", a
 
     // Files overlaid: a seed recipe, a seed guideline fragment, a managed skill.
     assert(await exists(join(dir, ".icculus/recipes/example-deploy")));
-    assert(await exists(join(dir, ".ai/guidelines/example.md")));
-    assert(await exists(join(dir, ".ai/skills/example-skill/SKILL.md")));
+    assert(await exists(join(dir, ".icculus/guidelines/example.md")));
+    assert(await exists(join(dir, ".icculus/skills/example-skill/SKILL.md")));
     // The overlaid recipe kept its exec bit.
     const recipeInfo = await Deno.stat(
       join(dir, ".icculus/recipes/example-deploy"),
@@ -61,13 +61,13 @@ Deno.test("add-adapter overlays the example adapter's files and config fills", a
     // adapter.json is metadata — never scaffolded into the project.
     assert(!(await exists(join(dir, "adapter.json"))));
 
-    // Config fills landed in icculus.toml, comments intact.
-    const toml = await Deno.readTextFile(join(dir, "icculus.toml"));
+    // Config fills landed in .icculus/config.toml, comments intact.
+    const toml = await Deno.readTextFile(join(dir, ".icculus/config.toml"));
     assertStringIncludes(toml, 'run = "echo running example tests"'); // slot
     assertStringIncludes(toml, 'example = ["example/**"]'); // scope
     assertStringIncludes(toml, 'example = "echo example side gate"'); // side-gate
     assertStringIncludes(toml, "[ratchets.examplesize]"); // ratchet
-    assertStringIncludes(toml, "# icculus.toml"); // template comment survived
+    assertStringIncludes(toml, "# .icculus/config.toml"); // template comment survived
   });
 });
 
@@ -84,7 +84,7 @@ Deno.test("add-adapter: the overlaid project recipe is runnable via agent", asyn
 Deno.test("add-adapter --dry-run writes nothing (files or fills)", async () => {
   await withTempDir(async (dir) => {
     await runCli(["init", "--yes", "--slug", "demo"], dir);
-    const before = await Deno.readTextFile(join(dir, "icculus.toml"));
+    const before = await Deno.readTextFile(join(dir, ".icculus/config.toml"));
     const r = await runCli(
       ["add-adapter", "example", "--yes", "--dry-run", "--json"],
       dir,
@@ -93,7 +93,10 @@ Deno.test("add-adapter --dry-run writes nothing (files or fills)", async () => {
     assertEquals(r.code, 0, r.stderr);
     assertEquals(JSON.parse(r.stdout).dry_run, true);
     assert(!(await exists(join(dir, ".icculus/recipes/example-deploy"))));
-    assertEquals(await Deno.readTextFile(join(dir, "icculus.toml")), before);
+    assertEquals(
+      await Deno.readTextFile(join(dir, ".icculus/config.toml")),
+      before,
+    );
   });
 });
 
@@ -132,9 +135,9 @@ async function stageAdapter(
   return { env: { ICCULUS_ADAPTERS_DIR: adaptersRoot }, adaptersRoot };
 }
 
-Deno.test("add-adapter reports not_initialized when there is no icculus.toml (--json)", async () => {
+Deno.test("add-adapter reports not_initialized when there is no .icculus/config.toml (--json)", async () => {
   await withTempDir(async (dir) => {
-    // No `init` here — the dir has no icculus.toml.
+    // No `init` here — the dir has no .icculus/config.toml.
     const r = await runCli(
       ["add-adapter", "example", "--yes", "--json"],
       dir,
@@ -156,7 +159,7 @@ Deno.test("add-adapter reports not_initialized as plain text without --json", as
       ADAPTER_ENV,
     );
     assertEquals(r.code, 1);
-    assertStringIncludes(r.stderr, "no icculus.toml here");
+    assertStringIncludes(r.stderr, "no icculus install here");
   });
 });
 
@@ -189,7 +192,7 @@ Deno.test("add-adapter with no adapters dir reports 'ships no adapters yet'", as
 Deno.test("add-adapter --dry-run prints the plan as plain text and writes nothing", async () => {
   await withTempDir(async (dir) => {
     await runCli(["init", "--yes", "--slug", "demo"], dir);
-    const before = await Deno.readTextFile(join(dir, "icculus.toml"));
+    const before = await Deno.readTextFile(join(dir, ".icculus/config.toml"));
     const r = await runCli(
       ["add-adapter", "example", "--yes", "--dry-run"],
       dir,
@@ -202,20 +205,23 @@ Deno.test("add-adapter --dry-run prints the plan as plain text and writes nothin
     assertStringIncludes(r.stderr, 'Dry run — adapter "example" would overlay');
     assertStringIncludes(
       r.stderr,
-      "Would also apply config fills to icculus.toml",
+      "Would also apply config fills to .icculus/config.toml",
     );
     // Nothing was written.
     assert(!(await exists(join(dir, ".icculus/recipes/example-deploy"))));
-    assertEquals(await Deno.readTextFile(join(dir, "icculus.toml")), before);
+    assertEquals(
+      await Deno.readTextFile(join(dir, ".icculus/config.toml")),
+      before,
+    );
   });
 });
 
 Deno.test("add-adapter overlays an adapter that has no adapter.json (files only, no fills)", async () => {
   await withTempDir(async (dir) => {
     await runCli(["init", "--yes", "--slug", "demo"], dir);
-    const before = await Deno.readTextFile(join(dir, "icculus.toml"));
+    const before = await Deno.readTextFile(join(dir, ".icculus/config.toml"));
     const { env } = await stageAdapter(dir, "filesonly", {
-      ".ai/guidelines/filesonly.md": "# files only adapter\n",
+      ".icculus/guidelines/filesonly.md": "# files only adapter\n",
     });
 
     const r = await runCli(
@@ -226,20 +232,24 @@ Deno.test("add-adapter overlays an adapter that has no adapter.json (files only,
     assertEquals(r.code, 0, r.stderr);
     const result = JSON.parse(r.stdout);
     assertEquals(result.ok, true);
-    // No adapter.json → no config fills, and icculus.toml is untouched.
+    // No adapter.json → no config fills, and .icculus/config.toml is untouched.
     assertEquals(result.config_fills, false);
-    assert(result.written.includes(".ai/guidelines/filesonly.md"));
-    assert(await exists(join(dir, ".ai/guidelines/filesonly.md")));
-    assertEquals(await Deno.readTextFile(join(dir, "icculus.toml")), before);
+    assert(result.written.includes(".icculus/guidelines/filesonly.md"));
+    assert(await exists(join(dir, ".icculus/guidelines/filesonly.md")));
+    assertEquals(
+      await Deno.readTextFile(join(dir, ".icculus/config.toml")),
+      before,
+    );
   });
 });
 
 Deno.test("add-adapter rejects an adapter.json that is not a JSON object", async () => {
   await withTempDir(async (dir) => {
     await runCli(["init", "--yes", "--slug", "demo"], dir);
-    const before = await Deno.readTextFile(join(dir, "icculus.toml"));
+    const before = await Deno.readTextFile(join(dir, ".icculus/config.toml"));
     const { env } = await stageAdapter(dir, "badjson", {
-      ".ai/guidelines/badjson.md": "# adapter with a non-object manifest\n",
+      ".icculus/guidelines/badjson.md":
+        "# adapter with a non-object manifest\n",
       "adapter.json": '["not", "an", "object"]',
     });
 
@@ -254,8 +264,11 @@ Deno.test("add-adapter rejects an adapter.json that is not a JSON object", async
     assertEquals(result.error, "invalid_adapter");
     assertStringIncludes(result.message, "must be a JSON object");
     // Failed before writing anything (neither the file nor the toml changed).
-    assert(!(await exists(join(dir, ".ai/guidelines/badjson.md"))));
-    assertEquals(await Deno.readTextFile(join(dir, "icculus.toml")), before);
+    assert(!(await exists(join(dir, ".icculus/guidelines/badjson.md"))));
+    assertEquals(
+      await Deno.readTextFile(join(dir, ".icculus/config.toml")),
+      before,
+    );
   });
 });
 
@@ -303,17 +316,17 @@ Deno.test("add-adapter rejects an adapter.json with an unsupported version", asy
   });
 });
 
-Deno.test("add-adapter falls back to default agents when icculus.toml omits them", async () => {
+Deno.test("add-adapter falls back to default agents when .icculus/config.toml omits them", async () => {
   await withTempDir(async (dir) => {
     await runCli(["init", "--yes", "--slug", "demo"], dir);
     // Strip the `agents = [...]` line so the command takes the DEFAULTS branch
     // when building its scaffold config.
-    const original = await Deno.readTextFile(join(dir, "icculus.toml"));
+    const original = await Deno.readTextFile(join(dir, ".icculus/config.toml"));
     const stripped = original
       .split("\n")
       .filter((line) => !line.trimStart().startsWith("agents ="))
       .join("\n");
-    await Deno.writeTextFile(join(dir, "icculus.toml"), stripped);
+    await Deno.writeTextFile(join(dir, ".icculus/config.toml"), stripped);
 
     const r = await runCli(
       ["add-adapter", "example", "--yes", "--json"],

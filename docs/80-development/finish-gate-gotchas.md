@@ -7,9 +7,9 @@ a way the message didn't explain" reference._
 
 The gate **points an agent here when a phase fails** in a non-obvious way: each
 fix/build/check/test phase runs through `with-gotchas`, which prints a pointer
-to this doc (the path is `[project].gotchas_doc` in `icculus.toml`) when its
-phase exits non-zero. So the explanation is one step away even for an agent that
-has never hit the failure.
+to this doc (the path is `[project].gotchas_doc` in `.icculus/config.toml`) when
+its phase exits non-zero. So the explanation is one step away even for an agent
+that has never hit the failure.
 
 These are real failure modes, each with its fix. **If you hit a new one, add it
 here** — that is what keeps this page worth pointing at.
@@ -105,8 +105,8 @@ option).
 you expected — for example a docs-only change runs almost nothing.
 
 **Cause.** This is by design. The gate classifies which scopes a change touched
-(`[scopes]` in `icculus.toml`) and skips work that cannot be affected: a change
-confined to `neutral` paths runs no side gates and gets no preview.
+(`[scopes]` in `.icculus/config.toml`) and skips work that cannot be affected: a
+change confined to `neutral` paths runs no side gates and gets no preview.
 Classification **fails open** — a path matching no rule counts as a real code
 change, so an unknown path runs _more_ gates, never fewer.
 

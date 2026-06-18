@@ -13,7 +13,7 @@
     "check": "deno check src/main.ts",
     "selfsync": "deno run --allow-read --allow-write --allow-env --allow-run src/main.ts upgrade --allow-dirty",
     "selfcheck": "deno run --allow-read --allow-write --allow-env --allow-run src/main.ts upgrade --check",
-    "gate": "./bin/agent finish"
+    "gate": "./agent finish"
   },
   "imports": {
     "@cliffy/command": "jsr:@cliffy/command@^1.0.0-rc.8",
@@ -33,7 +33,6 @@
       "tests/fixtures/",
       "PLAN.md",
       ".icculus/",
-      ".ai/",
       ".claude/",
       "AGENTS.md",
       "CLAUDE.md",
@@ -46,7 +45,6 @@
       "dist/",
       "tests/fixtures/",
       ".icculus/",
-      ".ai/",
       ".claude/"
     ]
   },

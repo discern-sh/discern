@@ -22,9 +22,9 @@ record is a decision.
 The engine never hardcodes a language, test runner, build tool, or framework. It
 runs "the test slot," "the fix slots," "the side gate for this scope" — names it
 discovers, not commands it knows. Everything specific to a project's stack lives
-in `icculus.toml` (`[slots]`, `[scopes]`, `[worktree]`), and a fresh install's
-slots default to the `:` no-op so the gate is green before any of them is
-filled.
+in `.icculus/config.toml` (`[slots]`, `[scopes]`, `[worktree]`), and a fresh
+install's slots default to the `:` no-op so the gate is green before any of them
+is filled.
 
 **Why it matters.** The moment the engine knows what "a test" _is_, it stops
 being portable — it can only serve the stack it learned. Stack-neutrality is the
@@ -37,8 +37,8 @@ over whatever `[slots]` declares
 through `config_get`, never by name. The worktree database and dev-server seams
 are empty config until a project wires them. The one place concrete ecosystems
 are named on purpose is the stack-detection table in the
-[`bootstrap`](../../templates/.ai/skills/bootstrap/SKILL.md) skill — whose job
-is to _propose_ slot fills, never to bake them into the engine.
+[`bootstrap`](../../templates/.icculus/skills/bootstrap/SKILL.md) skill — whose
+job is to _propose_ slot fills, never to bake them into the engine.
 
 ---
 
@@ -46,9 +46,10 @@ is to _propose_ slot fills, never to bake them into the engine.
 
 Every fact lives in exactly one authoritative place. `templates/` is the source
 of truth for everything an install receives; agent guidance is authored once in
-`.ai/guidelines/` and compiled to each agent's file; a metric, a managed-file
-list, a version are each declared once and read everywhere. Where a second copy
-must exist it is _generated_, marked as generated, and never hand-edited.
+`.icculus/guidelines/` and compiled to each agent's file; a metric, a
+managed-file list, a version are each declared once and read everywhere. Where a
+second copy must exist it is _generated_, marked as generated, and never
+hand-edited.
 
 **Why it matters.** Duplicated facts drift, and drift is silent until something
 breaks — a reader follows a stale doc, two copies of one behaviour diverge with
@@ -135,8 +136,8 @@ defaults on and the structured report attributes failure to a single slot
 
 ## 6. Self-host the harness — the repo runs on the gate it ships
 
-icculus installs into itself. The `bin/agent`, engine, and skills at the repo
-root are a real install of `templates/`, and `selfcheck` proves they stay
+icculus installs into itself. The `agent` dispatcher, engine, and skills at the
+repo root are a real install of `templates/`, and `selfcheck` proves they stay
 byte-identical to it. The gate that ships is the gate the maintainer runs; there
 is no separate "dev" path that could diverge from what users get.
 
@@ -148,8 +149,8 @@ breaks our own build the same day, not a user's repo months later.
 **How it shows up.** `deno task selfcheck` (≡ `upgrade --check`) is a `check`
 slot, so drift between the root install and `templates/` fails `agent finish`
 ([ADR 0010](../_adr/0010-self-host-the-harness.md)); the `tests/engine_*` suites
-scaffold the real `templates/` into temp dirs and run `bin/agent` against them;
-CI runs `agent finish`.
+scaffold the real `templates/` into temp dirs and run `agent` against them; CI
+runs `agent finish`.
 
 ---
 

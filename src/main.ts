@@ -94,7 +94,7 @@ function buildCli() {
     )
     .option("-y, --yes", "Non-interactive: use flags/defaults, no prompts.")
     .option("--dry-run", "Print the plan and write nothing.")
-    .option("--force", "Proceed even if icculus.toml already exists.")
+    .option("--force", "Proceed even if .icculus/config.toml already exists.")
     .action(async (options) => {
       const code = await runInit({
         json: options.json ?? false,
@@ -217,7 +217,7 @@ function buildCli() {
     });
 
   // `config` — programmatic, comment-preserving edits to an existing
-  // icculus.toml. Each subcommand is a standalone Command instance attached via
+  // .icculus/config.toml. Each subcommand is a standalone Command instance attached via
   // `.command(name, instance)` (the reliable Cliffy form for a command group).
   const setSlot = new Command()
     .description("Set or create a [slots.<name>] table (phase + run).")
@@ -317,7 +317,9 @@ function buildCli() {
     });
 
   const config = new Command()
-    .description("Programmatically edit icculus.toml (comment-preserving).")
+    .description(
+      "Programmatically edit .icculus/config.toml (comment-preserving).",
+    )
     .action(function () {
       this.showHelp();
     })

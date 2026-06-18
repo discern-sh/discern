@@ -39,8 +39,9 @@ function recordingStep(from: number, log: number[]): Migration {
 // ---- the production chain --------------------------------------------------
 
 Deno.test("the production chain is contiguous up to the current schema", () => {
-  // One step per bump, from 1 up to SCHEMA_VERSION (the 1→2 main_branch backfill).
-  assertEquals(MIGRATIONS.map((m) => m.from), [1]);
+  // One step per bump, from 1 up to SCHEMA_VERSION: 1→2 (main_branch backfill)
+  // and 2→3 (the .icculus/ surface consolidation).
+  assertEquals(MIGRATIONS.map((m) => m.from), [1, 2]);
   assert(isChainContiguous(MIGRATIONS, SCHEMA_VERSION));
 });
 
@@ -70,6 +71,60 @@ Deno.test("migration 1→2 never clobbers a custom main_branch", async () => {
     const toml = await Deno.readTextFile(join(dir, "icculus.toml"));
     assertStringIncludes(toml, 'main_branch = "trunk"'); // preserved
     assert(!toml.includes('main_branch = "main"')); // not overwritten or duplicated
+  });
+});
+
+Deno.test("migration 2→3 moves the config + guidance seeds (managed files left to the sync)", async () => {
+  await withTempDir(async (dir) => {
+    // An old-layout install: config at the root, guidance under .ai/, and
+    // worktree hooks that call ./bin/agent. bin/agent and .ai/skills are MANAGED
+    // — the step leaves them for upgrade's orphan-prune + sync, not a rename.
+    await Deno.writeTextFile(
+      join(dir, "icculus.toml"),
+      '[project]\nslug = "demo"\n\n[scopes]\nneutral = ["docs/", ".ai/", ".claude/"]\n',
+    );
+    await Deno.mkdir(join(dir, ".ai/guidelines"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, ".ai/guidelines/demo.md"),
+      "# guidance\n",
+    );
+    await Deno.mkdir(join(dir, "bin"));
+    await Deno.writeTextFile(join(dir, "bin/agent"), "#!/usr/bin/env sh\n");
+    await Deno.mkdir(join(dir, ".claude"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, ".claude/settings.json"),
+      '{ "hooks": { "SessionStart": [{ "command": "./bin/agent worktree:ensure" }] } }\n',
+    );
+
+    // Run the real 2→3 step via the production chain.
+    const applied = await applyMigrations({ destDir: dir, from: 2, to: 3 });
+    assertEquals(applied.map((m) => m.from), [2]);
+
+    // The seeds moved into the namespace; their old paths are gone.
+    assert(await targetExists(dir, ".icculus/config.toml"), "config moved");
+    assert(
+      await targetExists(dir, ".icculus/guidelines/demo.md"),
+      "guidance moved",
+    );
+    assertEquals(await targetExists(dir, "icculus.toml"), false);
+    assertEquals(await targetExists(dir, ".ai/guidelines/demo.md"), false);
+    // The managed dispatcher is untouched here — the file sync reconciles it.
+    assertEquals(await targetExists(dir, "bin/agent"), true);
+
+    // Hooks repointed at the root dispatcher; neutral globs repointed at .icculus/.
+    const settings = await Deno.readTextFile(
+      join(dir, ".claude/settings.json"),
+    );
+    assertStringIncludes(settings, "./agent worktree:ensure");
+    assert(!settings.includes("./bin/agent"), "no stale ./bin/agent hook");
+    assertStringIncludes(
+      await Deno.readTextFile(join(dir, ".icculus/config.toml")),
+      '".icculus/"',
+    );
+
+    // Idempotent: a second run over the now-moved seeds is a clean no-op.
+    await applyMigrations({ destDir: dir, from: 2, to: 3 });
+    assert(await targetExists(dir, ".icculus/config.toml"));
   });
 });
 
@@ -187,16 +242,16 @@ Deno.test("context: rewrite transforms text, no-ops on absent or unchanged", asy
 Deno.test("context: editToml edits comment-preserving, no-ops without a config", async () => {
   await withTempDir(async (dir) => {
     const ctx = createMigrationContext(dir);
-    // No icculus.toml yet → no-op.
+    // No .icculus/config.toml yet → no-op.
     await ctx.editToml((e) => e.setString("project.slug", "x"));
-    assertEquals(await ctx.exists("icculus.toml"), false);
+    assertEquals(await ctx.exists(".icculus/config.toml"), false);
 
     await ctx.writeText(
-      "icculus.toml",
+      ".icculus/config.toml",
       '# my config\n[project]\nslug = "demo"\n',
     );
     await ctx.editToml((e) => e.setString("project.branch_prefix", "agent/"));
-    const toml = await ctx.readText("icculus.toml");
+    const toml = await ctx.readText(".icculus/config.toml");
     assert(toml!.includes('branch_prefix = "agent/"'));
     assert(toml!.includes("# my config"), "comments are preserved");
   });

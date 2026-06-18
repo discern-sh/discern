@@ -15,8 +15,8 @@ self-describing sources that never go stale — consult those for the leaves:
 > - `agent --help` lists every engine recipe from its own `# desc:` line.
 > - [`managed.json`](../../templates/managed.json) declares exactly which paths
 >   are managed (see [ADR 0008](../_adr/0008-declarative-managed-set.md)).
-> - [`icculus.toml`](../../templates/icculus.toml.tmpl) documents every config
->   block in its own comments.
+> - [`.icculus/config.toml`](../../templates/.icculus/config.toml.tmpl)
+>   documents every config block in its own comments.
 
 ## The four dispositions
 
@@ -40,12 +40,12 @@ shown is where the file lands in an installed project.
 
 ## Control surface & configuration
 
-| Path                                                | Disposition | What it is                                                                                                                                                                                                                                                 |
-| --------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`bin/agent`](../../templates/bin/agent)            | managed     | The `agent` task runner: finds the project root and dispatches `agent <verb>` to an engine recipe.                                                                                                                                                         |
-| [`icculus.toml`](../../templates/icculus.toml.tmpl) | seed        | The one hand-edited file that teaches the generic engine about your stack — slots, scopes, worktree adapters, ratchets, evidence, gate ergonomics, recipes.                                                                                                |
-| `.icculus/brief.md`                                 | seed        | The project brief captured at `init`; the source [`bootstrap`](../../templates/.ai/skills/bootstrap/SKILL.md) reads to fill the docs and guidelines.                                                                                                       |
-| `.icculus/manifest.json`                            | generated   | Records the kit version, the install **schema version** (the migration anchor, [ADR 0014](../_adr/0014-versioned-migration-system.md)), and a hash of every managed file, so `upgrade` / `selfcheck` can tell pristine from edited and current from stale. |
+| Path                                                                | Disposition | What it is                                                                                                                                                                                                                                                 |
+| ------------------------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`agent`](../../templates/agent)                                    | managed     | The `agent` task runner: finds the project root and dispatches `agent <verb>` to an engine recipe.                                                                                                                                                         |
+| [`.icculus/config.toml`](../../templates/.icculus/config.toml.tmpl) | seed        | The one hand-edited file that teaches the generic engine about your stack — slots, scopes, worktree adapters, ratchets, evidence, gate ergonomics, recipes.                                                                                                |
+| `.icculus/brief.md`                                                 | seed        | The project brief captured at `init`; the source [`bootstrap`](../../templates/.icculus/skills/bootstrap/SKILL.md) reads to fill the docs and guidelines.                                                                                                  |
+| `.icculus/manifest.json`                                            | generated   | Records the kit version, the install **schema version** (the migration anchor, [ADR 0014](../_adr/0014-versioned-migration-system.md)), and a hash of every managed file, so `upgrade` / `selfcheck` can tell pristine from edited and current from stale. |
 
 ## The quality gate
 
@@ -67,8 +67,8 @@ Internal helpers (`with-gotchas`, the `assert-*` guards) back these.
 
 Generic git mechanics in `.icculus/engine/` (all **managed**), driven by the
 hooks in [Bookkeeping & integration](#bookkeeping--integration). The two
-stack-specific seams (database, dev-server) are empty config in `icculus.toml`
-until you wire them.
+stack-specific seams (database, dev-server) are empty config in
+`.icculus/config.toml` until you wire them.
 
 | Command                                                                        | What it does                                                                    |
 | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
@@ -94,56 +94,58 @@ source it; you rarely read it directly.
 
 ## Agent instructions (author-once → compile-everywhere)
 
-| Path                       | Disposition | What it is                                                                                |
-| -------------------------- | ----------- | ----------------------------------------------------------------------------------------- |
-| `.ai/guidelines/<slug>.md` | seed        | The single hand-edited guidance source.                                                   |
-| `CLAUDE.md`, `AGENTS.md`   | generated   | The per-agent instruction files compiled from the guidelines; carry a do-not-edit banner. |
-| `.claude/skills/*`         | generated   | Symlinks that make the bundled skills discoverable by the agent.                          |
+| Path                            | Disposition | What it is                                                                                |
+| ------------------------------- | ----------- | ----------------------------------------------------------------------------------------- |
+| `.icculus/guidelines/<slug>.md` | seed        | The single hand-edited guidance source.                                                   |
+| `CLAUDE.md`, `AGENTS.md`        | generated   | The per-agent instruction files compiled from the guidelines; carry a do-not-edit banner. |
+| `.claude/skills/*`              | generated   | Symlinks that make the bundled skills discoverable by the agent.                          |
 
 [`agent guidelines`](../../templates/.icculus/engine/guidelines) (managed) is
 the recipe that compiles the guidance source into the agent files and refreshes
 the skill symlinks. Which agent files it writes is set by `[project].agents` in
-`icculus.toml` (`claude_code` → `CLAUDE.md`, `codex` → `AGENTS.md`).
+`.icculus/config.toml` (`claude_code` → `CLAUDE.md`, `codex` → `AGENTS.md`).
 
 ## Bundled skills
 
-[`.ai/skills/`](../../templates/.ai/skills/) ships nine **managed** skills the
-coding agent can invoke, each a `SKILL.md` under its own directory:
+[`.icculus/skills/`](../../templates/.icculus/skills/) ships nine **managed**
+skills the coding agent can invoke, each a `SKILL.md` under its own directory:
 
-| Skill                                                                              | What it does                                                       |
-| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| [`bootstrap`](../../templates/.ai/skills/bootstrap/SKILL.md)                       | Seed a freshly-installed harness from the project brief.           |
-| [`document-subsystem`](../../templates/.ai/skills/document-subsystem/SKILL.md)     | Write or refresh a `docs/` subtree per the documenter brief.       |
-| [`write-adr`](../../templates/.ai/skills/write-adr/SKILL.md)                       | Record a significant decision as an Architecture Decision Record.  |
-| [`handoff-worktree`](../../templates/.ai/skills/handoff-worktree/SKILL.md)         | Graduate the current worktree's branch into the main repo.         |
-| [`grill-me`](../../templates/.ai/skills/grill-me/SKILL.md)                         | Stress-test a plan by relentless interview.                        |
-| [`grill-with-docs`](../../templates/.ai/skills/grill-with-docs/SKILL.md)           | Stress-test a plan against the domain model, updating docs inline. |
-| [`coding-principles`](../../templates/.ai/skills/coding-principles/SKILL.md)       | Principles to apply while planning and writing code.               |
-| [`prompt-engineering`](../../templates/.ai/skills/prompt-engineering/SKILL.md)     | Guidance for writing prompts, hooks, commands, and skills.         |
-| [`engineering-overkill`](../../templates/.ai/skills/engineering-overkill/SKILL.md) | Propose maximalist, beyond-pragmatic technical alternatives.       |
+| Skill                                                                                   | What it does                                                       |
+| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| [`bootstrap`](../../templates/.icculus/skills/bootstrap/SKILL.md)                       | Seed a freshly-installed harness from the project brief.           |
+| [`document-subsystem`](../../templates/.icculus/skills/document-subsystem/SKILL.md)     | Write or refresh a `docs/` subtree per the documenter brief.       |
+| [`write-adr`](../../templates/.icculus/skills/write-adr/SKILL.md)                       | Record a significant decision as an Architecture Decision Record.  |
+| [`handoff-worktree`](../../templates/.icculus/skills/handoff-worktree/SKILL.md)         | Graduate the current worktree's branch into the main repo.         |
+| [`grill-me`](../../templates/.icculus/skills/grill-me/SKILL.md)                         | Stress-test a plan by relentless interview.                        |
+| [`grill-with-docs`](../../templates/.icculus/skills/grill-with-docs/SKILL.md)           | Stress-test a plan against the domain model, updating docs inline. |
+| [`coding-principles`](../../templates/.icculus/skills/coding-principles/SKILL.md)       | Principles to apply while planning and writing code.               |
+| [`prompt-engineering`](../../templates/.icculus/skills/prompt-engineering/SKILL.md)     | Guidance for writing prompts, hooks, commands, and skills.         |
+| [`engineering-overkill`](../../templates/.icculus/skills/engineering-overkill/SKILL.md) | Propose maximalist, beyond-pragmatic technical alternatives.       |
 
-## Documentation & ADR scaffold
+## Documentation & ADR scaffold (lazy — not part of the install surface)
 
-[`docs/`](../../templates/docs/) is a **seed** tree — written once, then yours.
-It arrives mostly as `/bootstrap` skeletons:
+`init` writes **no** `docs/` tree and **no** `TODO.md`. The doc, ADR, and TODO
+skeletons ship **inside the skills that create them**, under
+`.icculus/skills/<skill>/skel/`, and are materialised on demand:
 
-| Path                                                           | What's in it                                                                                                      |
-| -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| [`docs/00-orientation/`](../../templates/docs/00-orientation/) | README plus four skeletons: concepts, glossary, system map, design principles.                                    |
-| [`docs/80-development/`](../../templates/docs/80-development/) | README plus getting-started / testing / code-conventions skeletons, and `finish-gate-gotchas` (pre-filled traps). |
-| [`docs/_adr/`](../../templates/docs/_adr/)                     | The ADR-format README and `0000-template.md`.                                                                     |
-| [`docs/_internal/`](../../templates/docs/_internal/)           | The documenter brief and the per-subtree scope-manifest template.                                                 |
+| Materialised by                                                                     | Skeleton it carries                                                          | What lands in the project                                                                                            |
+| ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| [`bootstrap`](../../templates/.icculus/skills/bootstrap/SKILL.md) (`/bootstrap`)    | `skel/docs/{README.md, 00-orientation/*, 80-development/*}` + `skel/TODO.md` | The orientation tree, the `80-development/` tree (incl. `finish-gate-gotchas`), and `TODO.md` — copied, then filled. |
+| [`write-adr`](../../templates/.icculus/skills/write-adr/SKILL.md)                   | `skel/docs/_adr/{0000-template.md, README.md}`                               | `docs/_adr/`, created on first use.                                                                                  |
+| [`document-subsystem`](../../templates/.icculus/skills/document-subsystem/SKILL.md) | `skel/docs/_internal/{documenter-agent-brief.md, scopes/_template.md}`       | `docs/_internal/`, the documenter brief and per-subtree scope-manifest template.                                     |
 
-This page lives in that tree, under `80-development/`.
+So `docs/`, `TODO.md`, `CLAUDE.md`, and `AGENTS.md` appear **after** install,
+with real content — they are no longer a static part of the install surface.
+This page lives in the `80-development/` tree that `/bootstrap` materialises.
 
 ## Bookkeeping & integration
 
-| Path                                                                  | Disposition | What it is                                                                                                                                                                                 |
-| --------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [`TODO.md`](../../templates/TODO.md.tmpl)                             | seed        | The shared backlog for deferred or at-risk work; documents its own format.                                                                                                                 |
-| [`.icculus/recipes/`](../../templates/.icculus/recipes/README.md)     | seed        | Your own `agent <verb>` recipes — unmanaged; the engine wins on a name collision ([ADR 0001](../_adr/0001-project-owned-recipes.md)).                                                      |
-| [`.claude/settings.json`](../../templates/.claude/settings.json.tmpl) | merged      | Adds a `Read(./.env)` deny and three hooks — `SessionStart` → `worktree:ensure`, `WorktreeCreate` → branch + setup, `WorktreeRemove` → `worktree:teardown` — preserving existing settings. |
-| [`.gitignore`](../../templates/.gitignore.fragment)                   | merged      | Idempotently ignores `/CLAUDE.md`, `/.claude/*` (except the tracked settings files), and the `.icculus/evidence/` runtime store.                                                           |
+| Path                                                                  | Disposition | What it is                                                                                                                                                                                                           |
+| --------------------------------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TODO.md`                                                             | generated   | The shared backlog for deferred or at-risk work; documents its own format. Lazy — not shipped at `init`; created by `/bootstrap` (or on the first deferral) from the `bootstrap` skill skeleton.                     |
+| [`.icculus/recipes/`](../../templates/.icculus/recipes/README.md)     | seed        | Your own `agent <verb>` recipes — unmanaged; the engine wins on a name collision ([ADR 0001](../_adr/0001-project-owned-recipes.md)).                                                                                |
+| [`.claude/settings.json`](../../templates/.claude/settings.json.tmpl) | merged      | Adds a `Read(./.env)` deny and three hooks — `SessionStart` → `./agent worktree:ensure`, `WorktreeCreate` → `./agent` branch + setup, `WorktreeRemove` → `./agent worktree:teardown` — preserving existing settings. |
+| [`.gitignore`](../../templates/.gitignore.fragment)                   | merged      | Idempotently ignores `/CLAUDE.md`, `/.claude/*` (except the tracked settings files), and the `.icculus/evidence/` runtime store.                                                                                     |
 
 Two paths appear only at run time, never from `init`, and are gitignored:
 `.icculus/evidence/` (the gate's per-branch evidence store) and

@@ -15,7 +15,7 @@
 #                  tool that ALSO automates worktrees / owns CLAUDE.md.
 #
 # Checks, in order:
-#   - icculus.toml parses (project.slug resolves) and slug looks like a slug
+#   - .icculus/config.toml parses (project.slug resolves) and slug looks like a slug
 #   - every [slots.X] has a valid phase, and a real run command (or an intended
 #     no-op); count how many gate slots are still unfilled no-ops
 #   - [scopes].web / .neutral exist and are non-empty
@@ -63,9 +63,9 @@ first_token() {
 
 slug=$(config_get project.slug "")
 if [ -z "$slug" ]; then
-    add fail "icculus.toml has no project.slug." "Set [project].slug in $ICCULUS_TOML."
+    add fail ".icculus/config.toml has no project.slug." "Set [project].slug in $ICCULUS_TOML."
 elif validate_is_slug "$slug"; then
-    add ok "icculus.toml parses (project.slug = $slug)."
+    add ok ".icculus/config.toml parses (project.slug = $slug)."
 else
     add fail "project.slug '$slug' is not a valid slug." "Use lowercase letters, digits and dashes, starting with a letter or digit (e.g. my-app) in $ICCULUS_TOML."
 fi
@@ -150,7 +150,7 @@ fi
 
 neutral_count=$(config_array scopes.neutral | grep -c .)
 if [ "$neutral_count" -eq 0 ]; then
-    add warn "[scopes].neutral is empty or missing — docs/guidance changes will be gated like code." "List doc/guidance globs in scopes.neutral (e.g. [\"docs/\", \".ai/\"]) in $ICCULUS_TOML."
+    add warn "[scopes].neutral is empty or missing — docs/guidance changes will be gated like code." "List doc/guidance globs in scopes.neutral (e.g. [\"docs/\", \".icculus/\"]) in $ICCULUS_TOML."
 fi
 
 # --- git + worktree support ----------------------------------------------
@@ -178,7 +178,7 @@ for slot in $(config_subsections slots); do
     if command -v "$tok" >/dev/null 2>&1; then
         add ok "slot '$slot' command resolves ($tok)."
     else
-        add fail "slot '$slot' command not found: $tok" "Install $tok, or fix slots.$slot.run in icculus.toml."
+        add fail "slot '$slot' command not found: $tok" "Install $tok, or fix slots.$slot.run in .icculus/config.toml."
     fi
 done
 
@@ -203,7 +203,7 @@ if config_has scopes.side_gates; then
         if command -v "$tok" >/dev/null 2>&1; then
             add ok "side gate '$scope' command resolves ($tok)."
         else
-            add fail "side gate '$scope' command not found: $tok" "Install $tok, or fix scopes.side_gates.$scope in icculus.toml."
+            add fail "side gate '$scope' command not found: $tok" "Install $tok, or fix scopes.side_gates.$scope in .icculus/config.toml."
         fi
     done
 fi
@@ -217,29 +217,29 @@ fi
 # Detection is textual (no jq / no parser) so it degrades gracefully everywhere.
 
 # 1) Another worktree automation in .claude/settings.json. The harness's own
-#    worktree hooks always invoke `bin/agent` (worktree / worktree:teardown /
+#    worktree hooks always invoke `./agent` (worktree / worktree:teardown /
 #    worktree:ensure). If a worktree hook is present whose command does NOT
-#    mention bin/agent, a different tool owns that lifecycle here.
+#    mention ./agent, a different tool owns that lifecycle here.
 settings_json="$ICCULUS_ROOT/.claude/settings.json"
 if [ -f "$settings_json" ]; then
     # Inspect each WorktreeCreate/WorktreeRemove hook COMMAND, not just whether
-    # bin/agent appears somewhere: after `init` merges, the harness's own hooks
-    # (which all call bin/agent) coexist with any the repo already had, so a
+    # ./agent appears somewhere: after `init` merges, the harness's own hooks
+    # (which all call ./agent) coexist with any the repo already had, so a
     # foreign hook is only visible per-command. Any worktree-lifecycle command
-    # that does NOT call bin/agent is a different tool's automation and would run
+    # that does NOT call ./agent is a different tool's automation and would run
     # ALONGSIDE ours, doubling setup/teardown. jq parses it precisely (the
     # harness's own worktree hooks already require jq, so it is expected present);
-    # without jq, fall back to the coarse "a worktree hook but no bin/agent" test.
+    # without jq, fall back to the coarse "a worktree hook but no ./agent" test.
     foreign_hook=""
     if command -v jq >/dev/null 2>&1; then
         foreign_hook=$(jq -r '((.hooks.WorktreeCreate // []) + (.hooks.WorktreeRemove // []))[].hooks[]?.command // empty' "$settings_json" 2>/dev/null \
-            | grep -v 'bin/agent' | head -n 1)
+            | grep -v './agent' | head -n 1)
     elif grep -Eiq '"?Worktree(Create|Remove)"?[[:space:]]*:' "$settings_json" 2>/dev/null \
-        && ! grep -q 'bin/agent' "$settings_json" 2>/dev/null; then
-        foreign_hook="a worktree hook that does not call bin/agent"
+        && ! grep -q './agent' "$settings_json" 2>/dev/null; then
+        foreign_hook="a worktree hook that does not call ./agent"
     fi
     if [ -n "$foreign_hook" ]; then
-        add warn "Another tool also automates worktrees in .claude/settings.json (a hook command does not call bin/agent)." "Both fire on worktree create/remove — reconcile the hooks by hand so setup/teardown isn't doubled."
+        add warn "Another tool also automates worktrees in .claude/settings.json (a hook command does not call ./agent)." "Both fire on worktree create/remove — reconcile the hooks by hand so setup/teardown isn't doubled."
     fi
 fi
 
@@ -251,7 +251,7 @@ fi
 claude_md="$ICCULUS_ROOT/CLAUDE.md"
 if [ -f "$claude_md" ]; then
     if grep -Eq '<laravel-boost-guidelines>|^===[[:space:]].*[[:space:]]rules[[:space:]]===' "$claude_md" 2>/dev/null; then
-        add warn "CLAUDE.md looks generated by another tool (it carries a foreign compiler's banner)." "\`agent guidelines\` overwrites CLAUDE.md from .ai/guidelines/* — move that tool's content into .ai/guidelines/, or drop claude_code from [project].agents."
+        add warn "CLAUDE.md looks generated by another tool (it carries a foreign compiler's banner)." "\`agent guidelines\` overwrites CLAUDE.md from .icculus/guidelines/* — move that tool's content into .icculus/guidelines/, or drop claude_code from [project].agents."
     fi
 fi
 

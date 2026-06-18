@@ -2,7 +2,7 @@
  * CLI tests for `icculus config <subcommand>` (ADR 0005), run as subprocesses so
  * Cliffy parsing, the global flags, JSON output, and exit codes are exercised for
  * real. Each scaffolds a fresh install, edits it, and asserts the resulting
- * icculus.toml (including that comments survive).
+ * .icculus/config.toml (including that comments survive).
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
@@ -18,9 +18,9 @@ async function init(dir: string): Promise<void> {
   assertEquals(r.code, 0, r.stderr);
 }
 
-/** Read the project's icculus.toml. */
+/** Read the project's .icculus/config.toml. */
 function readToml(dir: string): Promise<string> {
-  return Deno.readTextFile(join(dir, "icculus.toml"));
+  return Deno.readTextFile(join(dir, ".icculus/config.toml"));
 }
 
 Deno.test("config set-slot fills a slot and preserves comments", async () => {
@@ -49,7 +49,7 @@ Deno.test("config set-slot fills a slot and preserves comments", async () => {
     const toml = await readToml(dir);
     assertStringIncludes(toml, 'run   = "vitest run"');
     // A section comment from the template survives the edit.
-    assertStringIncludes(toml, "# icculus.toml");
+    assertStringIncludes(toml, "# .icculus/config.toml");
   });
 });
 
@@ -262,7 +262,7 @@ Deno.test("config errors to stderr (not JSON) when not initialized", async () =>
     const r = await runCli(["config", "set", "project.slug", "x"], dir);
     assertEquals(r.code, 1);
     assertEquals(r.stdout, "");
-    assertStringIncludes(r.stderr, "no icculus.toml here");
+    assertStringIncludes(r.stderr, "no icculus install here");
   });
 });
 
@@ -526,7 +526,7 @@ Deno.test("config set --dry-run --json reports the edit and writes nothing", asy
     assertEquals(r.code, 0, r.stderr);
     const result = JSON.parse(r.stdout);
     assertEquals(result.dry_run, true);
-    assertEquals(result.file, "icculus.toml");
+    assertEquals(result.file, ".icculus/config.toml");
     assert(
       result.edits.some((e: { key: string; literal: string }) =>
         e.key === "project.slug" && e.literal === '"renamed"'

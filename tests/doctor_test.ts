@@ -1,7 +1,7 @@
 /**
  * Installer `doctor` surface tests: drive `src/main.ts doctor` as a subprocess
  * (so Cliffy parsing, JSON vs human rendering, the per-check diagnostics, the
- * delegation to the harness's own `bin/agent doctor`, and the exit code are all
+ * delegation to the harness's own `agent doctor`, and the exit code are all
  * exercised for real). These complement the few `doctor` cases in `cli_test.ts`
  * — here we drive each *failure* branch of `src/commands/doctor.ts` and both
  * output paths.
@@ -61,13 +61,18 @@ Deno.test("doctor --json: a fresh install is fully healthy and exits 0", async (
     assertEquals(payload.kit_version, "1.0.0");
     // Every installer check passes…
     for (
-      const name of ["icculus.toml", "bin/agent", "manifest", "schema version"]
+      const name of [
+        ".icculus/config.toml",
+        "agent",
+        "manifest",
+        "schema version",
+      ]
     ) {
       assertEquals(check(payload, name).ok, true, `${name} should pass`);
     }
     // …and the delegation to the real engine `doctor` recipe ran and passed,
     // folding its summary into the detail (exercises the code===0 branch).
-    const delegated = check(payload, "bin/agent doctor");
+    const delegated = check(payload, "agent doctor");
     assertEquals(delegated.ok, true);
     assert(delegated.detail.length > 0, "delegated detail should not be empty");
   });
@@ -80,70 +85,73 @@ Deno.test("doctor: human (non-json) output reports a clean bill on stderr, exit 
     const { code, stderr } = await runCli(["doctor"], dir);
     assertEquals(code, 0);
     assertStringIncludes(stderr, "icculus doctor");
-    assertStringIncludes(stderr, "icculus.toml: present and valid TOML");
-    assertStringIncludes(stderr, "bin/agent: present and executable");
-    assertStringIncludes(stderr, "schema 2 (current)");
+    assertStringIncludes(
+      stderr,
+      ".icculus/config.toml: present and valid TOML",
+    );
+    assertStringIncludes(stderr, "agent: present and executable");
+    assertStringIncludes(stderr, "schema 3 (current)");
     assertStringIncludes(stderr, "All checks passed.");
   });
 });
 
-Deno.test("doctor: invalid (malformed) icculus.toml is flagged with a syntax fix", async () => {
+Deno.test("doctor: invalid (malformed) .icculus/config.toml is flagged with a syntax fix", async () => {
   await withTempDir(async (dir) => {
     await initInstall(dir);
     // Present but not valid TOML — the not-NotFound branch of the toml check.
     await Deno.writeTextFile(
-      join(dir, "icculus.toml"),
+      join(dir, ".icculus/config.toml"),
       'this is = not valid toml [[[\n"unterminated\n',
     );
 
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 1);
     assertEquals(payload.ok, false);
-    const toml = check(payload, "icculus.toml");
+    const toml = check(payload, ".icculus/config.toml");
     assertEquals(toml.ok, false);
     assertStringIncludes(toml.detail, "invalid");
-    assertEquals(toml.fix, "fix the TOML syntax in icculus.toml");
+    assertEquals(toml.fix, "fix the TOML syntax in .icculus/config.toml");
   });
 });
 
-Deno.test("doctor: bin/agent present but not executable is flagged with a chmod fix", async () => {
+Deno.test("doctor: agent present but not executable is flagged with a chmod fix", async () => {
   await withTempDir(async (dir) => {
     await initInstall(dir);
-    const agentPath = join(dir, "bin/agent");
+    const agentPath = join(dir, "agent");
     await Deno.chmod(agentPath, 0o644);
 
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 1);
-    const agent = check(payload, "bin/agent");
+    const agent = check(payload, "agent");
     assertEquals(agent.ok, false);
     assertEquals(agent.detail, "present but not executable");
     assertStringIncludes(agent.fix ?? "", "chmod +x");
     assertStringIncludes(agent.fix ?? "", agentPath);
     // A non-executable dispatcher means delegation is skipped entirely (it
-    // returns undefined), so there is no "bin/agent doctor" check.
+    // returns undefined), so there is no "agent doctor" check.
     assertEquals(
-      payload.checks.find((c) => c.name === "bin/agent doctor"),
+      payload.checks.find((c) => c.name === "agent doctor"),
       undefined,
     );
   });
 });
 
-Deno.test("doctor: a missing bin/agent is flagged with a restore fix", async () => {
+Deno.test("doctor: a missing agent is flagged with a restore fix", async () => {
   await withTempDir(async (dir) => {
     await initInstall(dir);
     // Entirely absent (the stat-returns-undefined branch), distinct from the
     // present-but-not-executable case above.
-    await Deno.remove(join(dir, "bin/agent"));
+    await Deno.remove(join(dir, "agent"));
 
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 1);
-    const agent = check(payload, "bin/agent");
+    const agent = check(payload, "agent");
     assertEquals(agent.ok, false);
     assertEquals(agent.detail, "not found");
-    assertStringIncludes(agent.fix ?? "", "restore bin/agent");
+    assertStringIncludes(agent.fix ?? "", "restore agent");
     // With no dispatcher present, delegation is skipped (no doctor check).
     assertEquals(
-      payload.checks.find((c) => c.name === "bin/agent doctor"),
+      payload.checks.find((c) => c.name === "agent doctor"),
       undefined,
     );
   });
@@ -152,11 +160,11 @@ Deno.test("doctor: a missing bin/agent is flagged with a restore fix", async () 
 Deno.test("doctor: human output for a broken install prints the fix and a failure summary", async () => {
   await withTempDir(async (dir) => {
     await initInstall(dir);
-    await Deno.chmod(join(dir, "bin/agent"), 0o644);
+    await Deno.chmod(join(dir, "agent"), 0o644);
 
     const { code, stderr } = await runCli(["doctor"], dir);
     assertEquals(code, 1);
-    assertStringIncludes(stderr, "bin/agent: present but not executable");
+    assertStringIncludes(stderr, "agent: present but not executable");
     assertStringIncludes(stderr, "fix: ");
     assertStringIncludes(stderr, "chmod +x");
     assertStringIncludes(stderr, "Some checks failed");
@@ -209,14 +217,14 @@ Deno.test("doctor: a missing manifest is flagged and reported as not initialized
 Deno.test("doctor: delegation soft-skips when the harness has no doctor recipe", async () => {
   await withTempDir(async (dir) => {
     await initInstall(dir);
-    // Remove the engine `doctor` recipe but leave bin/agent executable: the
+    // Remove the engine `doctor` recipe but leave agent executable: the
     // dispatcher prints "unknown recipe", which folds in as a benign skip.
     await Deno.remove(join(dir, ".icculus/engine/doctor"));
 
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 0);
     assertEquals(payload.ok, true);
-    const delegated = check(payload, "bin/agent doctor");
+    const delegated = check(payload, "agent doctor");
     assertEquals(delegated.ok, true);
     assertStringIncludes(delegated.detail, "no doctor recipe yet");
   });
@@ -228,7 +236,7 @@ Deno.test("doctor: a failing engine doctor folds in as a failed check (not unkno
     // An invalid project.slug is valid TOML (so the installer's own toml check
     // still passes) but makes the engine `doctor` recipe exit non-zero with a
     // real failure on stderr — the harness-failure branch of the delegation.
-    const tomlPath = join(dir, "icculus.toml");
+    const tomlPath = join(dir, ".icculus/config.toml");
     const toml = await Deno.readTextFile(tomlPath);
     await Deno.writeTextFile(
       tomlPath,
@@ -238,21 +246,21 @@ Deno.test("doctor: a failing engine doctor folds in as a failed check (not unkno
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 1);
     // The installer's own toml check still passes (syntactically valid).
-    assertEquals(check(payload, "icculus.toml").ok, true);
+    assertEquals(check(payload, ".icculus/config.toml").ok, true);
     // The delegated harness check fails and carries an actionable fix.
-    const delegated = check(payload, "bin/agent doctor");
+    const delegated = check(payload, "agent doctor");
     assertEquals(delegated.ok, false);
     assertStringIncludes(delegated.fix ?? "", "harness self-check");
   });
 });
 
-Deno.test("doctor: a bin/agent that cannot be spawned is reported as un-runnable", async () => {
+Deno.test("doctor: a agent that cannot be spawned is reported as un-runnable", async () => {
   await withTempDir(async (dir) => {
     await initInstall(dir);
-    // Replace bin/agent with an EXECUTABLE directory: the installer's stat-based
+    // Replace agent with an EXECUTABLE directory: the installer's stat-based
     // check sees mode bits and reports it present+executable, but spawning it
     // throws — exercising the catch branch of the delegation.
-    const agentPath = join(dir, "bin/agent");
+    const agentPath = join(dir, "agent");
     await Deno.remove(agentPath);
     await Deno.mkdir(agentPath);
     await Deno.chmod(agentPath, 0o755);
@@ -260,11 +268,11 @@ Deno.test("doctor: a bin/agent that cannot be spawned is reported as un-runnable
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 1);
     // The cheap stat check still calls it executable…
-    assertEquals(check(payload, "bin/agent").ok, true);
+    assertEquals(check(payload, "agent").ok, true);
     // …but the actual spawn fails and is reported, with a runnable-script fix.
-    const delegated = check(payload, "bin/agent doctor");
+    const delegated = check(payload, "agent doctor");
     assertEquals(delegated.ok, false);
-    assertStringIncludes(delegated.detail, "could not run bin/agent");
-    assertEquals(delegated.fix, "ensure bin/agent is a runnable POSIX script");
+    assertStringIncludes(delegated.detail, "could not run agent");
+    assertEquals(delegated.fix, "ensure agent is a runnable POSIX script");
   });
 });

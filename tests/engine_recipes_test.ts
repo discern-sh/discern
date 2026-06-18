@@ -1,7 +1,7 @@
 /**
  * Engine tests for project-owned recipes (ADR 0001).
  *
- * `bin/agent` resolves the kit-managed engine first, then an unmanaged
+ * `agent` resolves the kit-managed engine first, then an unmanaged
  * project-recipes dir (`[recipes].dir`, default `.icculus/recipes`). These tests
  * drive the real dispatcher: a project recipe runs and lists in --help; a
  * name-collision is shadowed (engine wins) with a warning; a relocated dir is

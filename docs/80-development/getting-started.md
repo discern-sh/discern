@@ -48,13 +48,12 @@ deno task build                   # compile per-platform binaries → dist/ (rel
 
 icculus has no long-running app to start — it is a CLI plus a shell harness. To
 _see it work_, either scaffold it into a temp directory with
-`deno task dev init` and drive `bin/agent` there, or just run the gate in this
-repo.
+`deno task dev init` and drive `agent` there, or just run the gate in this repo.
 
 **Your first green gate.** From the repo root:
 
 ```sh
-./bin/agent finish     # or: deno task gate
+./agent finish     # or: deno task gate
 ```
 
 That runs `deno fmt` (fix), then `deno lint` + `deno check src/main.ts` +

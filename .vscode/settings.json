@@ -8,9 +8,9 @@
     ".scratch": true
   },
   "search.exclude": {
-    "bin": true,
+    "agent": true,
     ".icculus/engine": true,
-    ".ai/skills": true,
+    ".icculus/skills": true,
     "AGENTS.md": true,
     "CLAUDE.md": true,
     ".icculus/manifest.json": true

@@ -7,7 +7,7 @@
  * (seed/managed rules apply), and an optional `adapter.json` at its root —
  * metadata, never scaffolded — is an icculus config document (the same shape
  * `init --config` reads) whose slots / scopes / side_gates / ratchets are
- * written into the project's `icculus.toml` via the comment-preserving editor.
+ * written into the project's `.icculus/config.toml` via the comment-preserving editor.
  * So an adapter overlays both files (recipes, skills, guideline fragments, docs)
  * and config (slots, scopes, side-gates).
  *
@@ -18,6 +18,7 @@
 import { dirname, fromFileUrl, join } from "@std/path";
 import { Logger } from "../lib/log.ts";
 import { parseIcculusToml } from "../lib/toml_render.ts";
+import { resolveConfigPath } from "../lib/paths.ts";
 import { DEFAULTS, type InitConfig, tokensFromConfig } from "../lib/config.ts";
 import { applyPlan, buildPlan } from "../lib/fs_plan.ts";
 import {
@@ -131,15 +132,17 @@ export async function runAddAdapter(
   const log = new Logger(options);
   const destDir = Deno.cwd();
 
-  // Must be inside an initialized project.
+  // Must be inside an initialized project (either layout — see resolveConfigPath).
+  const configPath = await resolveConfigPath(destDir);
   let toml: ReturnType<typeof parseIcculusToml>;
   try {
-    toml = parseIcculusToml(
-      await Deno.readTextFile(join(destDir, "icculus.toml")),
-    );
+    if (configPath === undefined) {
+      throw new Deno.errors.NotFound("no icculus config");
+    }
+    toml = parseIcculusToml(await Deno.readTextFile(configPath));
   } catch {
     const message =
-      "no icculus.toml here — run `icculus init` before adding an adapter.";
+      "no icculus install here — run `icculus init` before adding an adapter.";
     if (options.json) {
       log.jsonResult({ ok: false, error: "not_initialized", message });
     } else {
@@ -198,7 +201,7 @@ export async function runAddAdapter(
   // adapter.json is metadata (config fills), not a scaffolded file.
   plan.ops = plan.ops.filter((op) => op.targetRel !== ADAPTER_MANIFEST);
 
-  // Load the adapter's config fills and pre-compute the edited icculus.toml, so
+  // Load the adapter's config fills and pre-compute the edited config, so
   // a bad adapter.json fails before anything is written and dry-run reports it.
   let fills: IcculusConfigDoc | undefined;
   let filledToml: string | undefined;
@@ -206,7 +209,7 @@ export async function runAddAdapter(
     fills = await loadAdapterFills(adapterDir);
     if (hasFills(fills)) {
       const editor = new TomlEditor(
-        await Deno.readTextFile(join(destDir, "icculus.toml")),
+        await Deno.readTextFile(configPath!),
       );
       applyConfigDoc(editor, fills!);
       filledToml = editor.toString();
@@ -235,7 +238,7 @@ export async function runAddAdapter(
     } else {
       renderPlan(log, plan, `Dry run — adapter "${name}" would overlay:`);
       if (filledToml !== undefined) {
-        log.info("Would also apply config fills to icculus.toml.");
+        log.info("Would also apply config fills to .icculus/config.toml.");
       }
     }
     return 0;
@@ -244,7 +247,7 @@ export async function runAddAdapter(
   if (!options.json) {
     renderReview(log, plan, destDir);
     if (filledToml !== undefined) {
-      log.line("  icculus.toml          apply adapter config fills");
+      log.line("  .icculus/config.toml  apply adapter config fills");
     }
     log.line();
   }
@@ -255,7 +258,7 @@ export async function runAddAdapter(
 
   const changed = await applyPlan(plan);
   if (filledToml !== undefined) {
-    await Deno.writeTextFile(join(destDir, "icculus.toml"), filledToml);
+    await Deno.writeTextFile(configPath!, filledToml);
   }
   if (options.json) {
     log.jsonResult({
@@ -270,7 +273,7 @@ export async function runAddAdapter(
     log.ok(op.targetRel);
   }
   if (filledToml !== undefined) {
-    log.ok("icculus.toml (config fills applied)");
+    log.ok(".icculus/config.toml (config fills applied)");
   }
   log.ok(`Adapter "${name}" applied.`);
   return 0;

@@ -2,8 +2,8 @@
  * End-to-end integration against the REAL committed templates tree.
  *
  * Unlike fs_plan_test (which uses a stable synthetic fixture), this asserts the
- * installer scaffolds the actual harness: a parseable `icculus.toml` and a
- * working (executable) `bin/agent`. The real tree grows as other agents add
+ * installer scaffolds the actual harness: a parseable `.icculus/config.toml` and a
+ * working (executable) `agent`. The real tree grows as other agents add
  * files; auto-discovery means new files don't break this — we assert the stable
  * foundation only.
  */
@@ -37,24 +37,26 @@ Deno.test("init scaffolds the real templates into a working harness", async () =
     });
     await applyPlan(plan);
 
-    // 1. icculus.toml exists and parses, with our identity substituted.
-    const tomlText = await Deno.readTextFile(join(dir, "icculus.toml"));
+    // 1. .icculus/config.toml exists and parses, with our identity substituted.
+    const tomlText = await Deno.readTextFile(join(dir, ".icculus/config.toml"));
     const toml = parseIcculusToml(tomlText);
     assertEquals(toml.project.slug, "integration-demo");
     assertEquals(toml.project.branch_prefix, "agent/");
     assertEquals(toml.project.agents, ["claude_code", "codex"]);
     // Every content token resolved. Runtime tokens use the @…@ delimiter now, so
-    // NO {{…}} token should remain in the installed icculus.toml at all.
+    // NO {{…}} token should remain in the installed .icculus/config.toml at all.
     const leaked = [...tomlText.matchAll(/\{\{\s*([a-z0-9_]+)\s*\}\}/g)]
       .map((m) => m[1]);
     assertEquals(
       leaked,
       [],
-      `unresolved content token(s) in icculus.toml: ${leaked.join(", ")}`,
+      `unresolved content token(s) in .icculus/config.toml: ${
+        leaked.join(", ")
+      }`,
     );
 
-    // 2. bin/agent exists and is executable.
-    const agentInfo = await Deno.stat(join(dir, "bin/agent"));
+    // 2. agent exists and is executable.
+    const agentInfo = await Deno.stat(join(dir, "agent"));
     assert(agentInfo.isFile);
     assertEquals((agentInfo.mode ?? 0) & 0o111 ? "exec" : "noexec", "exec");
 
@@ -64,8 +66,8 @@ Deno.test("init scaffolds the real templates into a working harness", async () =
     );
     assertEquals(manifest.project.slug, "integration-demo");
     assert(
-      manifest.managed.some((e) => e.path === "bin/agent"),
-      "manifest should track bin/agent as managed",
+      manifest.managed.some((e) => e.path === "agent"),
+      "manifest should track agent as managed",
     );
     assert(
       manifest.managed.every((e) => /^[0-9a-f]{64}$/.test(e.sha256)),
@@ -115,7 +117,7 @@ Deno.test("init then upgrade over the real tree leaves managed files up to date"
         branch_prefix: "agent/",
         agents_array: '"claude_code", "codex"',
         gotchas_doc: "docs/80-development/finish-gate-gotchas.md",
-        scopes_neutral: '"docs/", ".ai/", ".claude/"',
+        scopes_neutral: '"docs/", ".icculus/", ".claude/"',
         scopes_web: '"src/**", "app/**"',
         scopes_previewable: '"public/**"',
         kit_version: manifest.kit_version,

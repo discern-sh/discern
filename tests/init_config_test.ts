@@ -1,7 +1,7 @@
 /**
  * CLI tests for `init --config <file>` (ADR 0005): a JSON answers file drives a
  * fresh, non-interactive install, with slots/scopes/side_gates/ratchets applied
- * to the generated icculus.toml (comments preserved). Run as subprocesses.
+ * to the generated .icculus/config.toml (comments preserved). Run as subprocesses.
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
@@ -37,7 +37,7 @@ Deno.test("init --config scaffolds from a JSON answers file", async () => {
     assertEquals(result.ok, true);
     assertEquals(result.project.slug, "my-app");
 
-    const toml = await Deno.readTextFile(join(dir, "icculus.toml"));
+    const toml = await Deno.readTextFile(join(dir, ".icculus/config.toml"));
     assertStringIncludes(toml, 'run   = "vitest run"'); // slot fill
     assertStringIncludes(toml, 'native = ["native/**"]'); // scope fill
     assertStringIncludes(toml, 'native = "make -C native check"'); // side-gate fill
@@ -66,7 +66,7 @@ Deno.test("init --config - reads the answers file from stdin", async () => {
     assertEquals(r.code, 0, r.stderr);
     assertEquals(JSON.parse(r.stdout).project.slug, "my-app");
     assertStringIncludes(
-      await Deno.readTextFile(join(dir, "icculus.toml")),
+      await Deno.readTextFile(join(dir, ".icculus/config.toml")),
       'run   = "vitest run"',
     );
   });

@@ -13,7 +13,7 @@ import { join } from "@std/path";
 import { Logger } from "../lib/log.ts";
 import { selfCmd } from "../lib/invocation.ts";
 import { worktreeState } from "../lib/git.ts";
-import { resolveTemplatesDir } from "../lib/paths.ts";
+import { resolveConfigPath, resolveTemplatesDir } from "../lib/paths.ts";
 import { parseIcculusToml } from "../lib/toml_render.ts";
 import { DEFAULTS, type InitConfig, tokensFromConfig } from "../lib/config.ts";
 import { KIT_VERSION, SCHEMA_VERSION } from "../lib/version.ts";
@@ -73,7 +73,7 @@ async function readTextIfExists(path: string): Promise<string | undefined> {
 
 /**
  * Reconstruct the content tokens an upgrade needs from the project's existing
- * `icculus.toml` and manifest. Managed engine files are token-free, so the only
+ * `.icculus/config.toml` and manifest. Managed engine files are token-free, so the only
  * path token that matters is the slug; content tokens are filled from config
  * with documented defaults so any stray token still resolves consistently.
  */
@@ -98,11 +98,16 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
   const log = new Logger(options);
   const destDir = Deno.cwd();
 
-  // Must be inside an initialized project.
-  const tomlText = await readTextIfExists(join(destDir, "icculus.toml"));
+  // Must be inside an initialized project. Detect either layout so a
+  // pre-migration install (legacy root `icculus.toml`) is recognised and
+  // carried forward by the migration chain below.
+  const configPath = await resolveConfigPath(destDir);
+  const tomlText = configPath === undefined
+    ? undefined
+    : await readTextIfExists(configPath);
   if (tomlText === undefined) {
     const message =
-      "no icculus.toml here — run `icculus init` first. `upgrade` refreshes an existing install.";
+      "no icculus install here — run `icculus init` first. `upgrade` refreshes an existing install.";
     if (options.json) {
       log.jsonResult({ ok: false, error: "not_initialized", message });
     } else {

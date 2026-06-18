@@ -14,6 +14,14 @@
 
 import { dirname, fromFileUrl, join } from "@std/path";
 
+/**
+ * The install's config file lives in the `.icculus/` namespace. The legacy
+ * pre-consolidation location (a root `icculus.toml`) is still recognised by
+ * `resolveConfigPath` so `upgrade` can detect and migrate an old-layout install.
+ */
+export const CONFIG_REL = ".icculus/config.toml";
+export const LEGACY_CONFIG_REL = "icculus.toml";
+
 /** True when `path` is an existing directory. */
 async function isDir(path: string): Promise<boolean> {
   try {
@@ -22,6 +30,36 @@ async function isDir(path: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/** True when `path` is an existing file. */
+async function isFile(path: string): Promise<boolean> {
+  try {
+    return (await Deno.stat(path)).isFile;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Resolve the config file inside an install directory: the consolidated
+ * `.icculus/config.toml` if present, else a legacy root `icculus.toml`, else
+ * `undefined` when `destDir` is not an icculus install. The new path is preferred
+ * so a migrated install is unambiguous; the legacy fallback is what lets
+ * `upgrade`/`migrate` recognise a pre-migration install and carry it forward.
+ */
+export async function resolveConfigPath(
+  destDir: string,
+): Promise<string | undefined> {
+  const primary = join(destDir, CONFIG_REL);
+  if (await isFile(primary)) {
+    return primary;
+  }
+  const legacy = join(destDir, LEGACY_CONFIG_REL);
+  if (await isFile(legacy)) {
+    return legacy;
+  }
+  return undefined;
 }
 
 /**

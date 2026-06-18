@@ -38,11 +38,11 @@ Deno.test("init --yes --json scaffolds and reports JSON", async () => {
     assertEquals(result.ok, true);
     assertEquals(result.project.slug, "cli-demo");
     assert(Array.isArray(result.written));
-    assert(result.written.includes("icculus.toml"));
-    assert(result.written.includes("bin/agent"));
+    assert(result.written.includes(".icculus/config.toml"));
+    assert(result.written.includes("agent"));
     // The files really landed.
-    await Deno.stat(join(dir, "icculus.toml"));
-    await Deno.stat(join(dir, "bin/agent"));
+    await Deno.stat(join(dir, ".icculus/config.toml"));
+    await Deno.stat(join(dir, "agent"));
   });
 });
 
@@ -65,7 +65,7 @@ Deno.test("init --dry-run --json writes nothing", async () => {
   });
 });
 
-Deno.test("init refuses over an existing icculus.toml without --force", async () => {
+Deno.test("init refuses over an existing .icculus/config.toml without --force", async () => {
   await withTempDir(async (dir) => {
     await runCli(["init", "--yes", "--json", "--slug", "first"], dir);
     const { code, stdout } = await runCli(
@@ -117,7 +117,7 @@ Deno.test("init preserves a pre-existing managed file: .new in plan and result J
     assertEquals(newOp.action, "new");
     // Dry-run wrote nothing: no manifest, no .new on disk.
     assert(!(await pathExists(join(dir, ".icculus/engine/finish.new"))));
-    assert(!(await pathExists(join(dir, "icculus.toml"))));
+    assert(!(await pathExists(join(dir, ".icculus/config.toml"))));
 
     // 2. The real run preserves the original and reports the `.new` in JSON.
     const { code, stdout } = await runCli(
@@ -157,7 +157,7 @@ Deno.test("doctor --json reports invalid result when not initialized", async () 
     const result = JSON.parse(stdout);
     assertEquals(result.ok, false);
     const toml = result.checks.find((c: { name: string }) =>
-      c.name === "icculus.toml"
+      c.name === ".icculus/config.toml"
     );
     assertEquals(toml.ok, false);
     assert(typeof toml.fix === "string" && toml.fix.length > 0);

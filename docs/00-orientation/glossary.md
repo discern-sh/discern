@@ -19,7 +19,7 @@ six and the rest of the tree reads as variations on them.
 
 The whole tool: the **Installer** plus the **Harness** it ships. icculus
 scaffolds a stack-neutral agentic-development harness into any repository, in
-one command, and keeps it upgradable thereafter. The name (and `bin/agent`,
+one command, and keeps it upgradable thereafter. The name (and `agent`,
 `.icculus/`) is a working placeholder pending a final one.
 
 ### Installer
@@ -33,25 +33,26 @@ is never a runtime dependency of it.
 ### Harness
 
 What an install _contains and runs_: the [`agent`](#agent-the-dispatcher)
-dispatcher, the [Engine](#engine), the `icculus.toml` config, the bundled
-[Skills](#skill), and the docs scaffold. It is pure POSIX shell plus a TOML
-config. Every file in it originates in [`templates/`](../../templates/) — the
-source of truth — which the Installer copies, renders, merges, or appends into
-place.
+dispatcher, the [Engine](#engine), the `.icculus/config.toml` config, and the
+bundled [Skills](#skill). It is pure POSIX shell plus a TOML config. Every file
+in it originates in [`templates/`](../../templates/) — the source of truth —
+which the Installer copies, renders, merges, or appends into place. (The docs
+tree and `TODO.md` are not part of the install; they are written on demand after
+install by the bundled Skills.)
 
 ### Engine
 
 The stack-neutral logic of the Harness: the [Recipes](#recipe) and the shared
 shell library under [`.icculus/engine/`](../../templates/.icculus/engine/). The
 Engine knows nothing stack-specific — it runs the [Slots](#slot), Scopes, and
-adapters a project declares in `icculus.toml`. All Engine files are
+adapters a project declares in `.icculus/config.toml`. All Engine files are
 [managed](#managed-file).
 
 ### `agent` (the dispatcher)
 
-[`bin/agent`](../../templates/bin/agent), the task-runner surface a coding agent
-or person drives day to day. It finds the project root (the nearest ancestor
-with an `icculus.toml`) and routes `agent <verb>` to the matching
+[`agent`](../../templates/agent), the task-runner surface a coding agent or
+person drives day to day. It finds the project root (the nearest ancestor with a
+`.icculus/config.toml`) and routes `agent <verb>` to the matching
 [Recipe](#recipe), with the harness paths exported. Tiny and dependency-free:
 the Recipes hold the logic.
 
@@ -95,7 +96,7 @@ one.
 
 One **idempotent** step that brings an install from Schema version `N` to `N+1`.
 `upgrade` reads the recorded Schema version, runs every pending step in order up
-to the build's, then re-stamps. A step can edit `icculus.toml`
+to the build's, then re-stamps. A step can edit `.icculus/config.toml`
 comment-preserving, move/rewrite files, and deep-merge settings
 ([ADR 0014](../_adr/0014-versioned-migration-system.md)).
 
@@ -118,10 +119,11 @@ the managed set is declared in [`managed.json`](../../templates/managed.json)
 
 ### Seed file
 
-A file written once, at `icculus init`, from a `templates/….tmpl`, then owned by
-the project. `upgrade` never refreshes or flags it; it is edited in place.
-`icculus.toml`, the project guidelines, the `docs/` tree, and `TODO.md` are
-seeds.
+A file written once — then owned by the project, never refreshed or flagged by
+`upgrade`, and edited in place. Some seeds are laid at `icculus init` from a
+`templates/….tmpl` (`.icculus/config.toml`, the project guidelines); others are
+created on demand after install by the bundled Skills (the `docs/` tree and
+`TODO.md`, written by `/bootstrap`).
 
 ### Merged file
 
@@ -146,10 +148,11 @@ Terms for `agent finish` and what it runs. Covered in depth under
 
 ### Slot
 
-One stack-specific command, declared as `[slots.<name>]` in `icculus.toml`. Its
-`run` is the shell command; its `phase` decides when it runs. A fresh install's
-slots default to the `:` no-op, so the gate is green before any is filled. The
-Engine discovers slots by name — only `phase` and `run` matter.
+One stack-specific command, declared as `[slots.<name>]` in
+`.icculus/config.toml`. Its `run` is the shell command; its `phase` decides when
+it runs. A fresh install's slots default to the `:` no-op, so the gate is green
+before any is filled. The Engine discovers slots by name — only `phase` and
+`run` matter.
 
 ### Phase
 
@@ -213,8 +216,8 @@ dev-server port and its own database, so concurrent worktrees never collide.
 A stack-specific seam the worktree workflow calls but does not implement: the
 **database** adapter (clone/drop a per-worktree database) and the **dev-server**
 adapter (link/unlink a per-worktree site). Both are empty config in
-`icculus.toml` until a project wires them, so a worktree round is a clean no-op
-until then ([ADR 0007](../_adr/0007-adapter-contract.md)).
+`.icculus/config.toml` until a project wires them, so a worktree round is a
+clean no-op until then ([ADR 0007](../_adr/0007-adapter-contract.md)).
 
 ### Graduate
 
@@ -231,8 +234,9 @@ depth under [`../40-agent-guidance/`](../40-agent-guidance/).
 
 ### Guidance source
 
-`.ai/guidelines/<slug>.md` — the single, hand-edited [seed](#seed-file) file
-holding the project's agent instructions. The one place guidance is authored.
+`.icculus/guidelines/<slug>.md` — the single, hand-edited [seed](#seed-file)
+file holding the project's agent instructions. The one place guidance is
+authored.
 
 ### Compiled agent file
 
@@ -243,7 +247,7 @@ each carrying a do-not-edit banner. Which files are emitted is set by
 
 ### Skill
 
-A bundled agent capability shipped under `.ai/skills/<name>/SKILL.md` (e.g.
+A bundled agent capability shipped under `.icculus/skills/<name>/SKILL.md` (e.g.
 `bootstrap`, `document-subsystem`, `write-adr`) and made discoverable through
 `.claude/skills/` symlinks. All shipped Skills are [managed](#managed-file).
 

@@ -100,10 +100,10 @@ Deno.test("migrate human output reports up to date on a current install", async 
 
 Deno.test("migrate human output errors cleanly when not initialized", async () => {
   await withTempDir(async (dir) => {
-    // No `init` → no icculus.toml; the non-JSON branch logs the error to stderr.
+    // No `init` → no .icculus/config.toml; the non-JSON branch logs the error to stderr.
     const r = await runCli(["migrate"], dir);
     assertEquals(r.code, 1);
-    assertStringIncludes(r.stderr, "no icculus.toml here");
+    assertStringIncludes(r.stderr, "no icculus install here");
     assertStringIncludes(r.stderr, "icculus init");
   });
 });
@@ -147,8 +147,8 @@ Deno.test("migrate --json lists the pending step from a rewound schema", async (
     const res = JSON.parse(r.stdout);
     assertEquals(res.ok, false);
     assertEquals(res.schema.recorded, 1);
-    assertEquals(res.schema.current, 2);
-    assertEquals(res.pending_migrations.length, 1);
+    assertEquals(res.schema.current, 3);
+    assertEquals(res.pending_migrations.length, 2);
     assertEquals(res.pending_migrations[0].from, 1);
     assertEquals(res.pending_migrations[0].to, 2);
     assertStringIncludes(res.pending_migrations[0].describe, "main_branch");

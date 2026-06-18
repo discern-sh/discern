@@ -28,7 +28,7 @@ gotchas_hint() {
             printf '  %s%s%s\n' "${C_CYAN}" "$ICCULUS_ROOT/$_gh_doc" "${C_RESET}"
         else
             printf 'If the error above is not self-explanatory, record the fix in a\n'
-            printf 'gotchas doc and point [project].gotchas_doc in icculus.toml at it,\n'
+            printf 'gotchas doc and point [project].gotchas_doc in .icculus/config.toml at it,\n'
             printf 'so the next failure carries its own guidance.\n'
         fi
         printf '%s─────────────────────────────────────────────────────────────%s\n' "${C_DIM}" "${C_RESET}"
