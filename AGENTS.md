@@ -20,6 +20,9 @@ Root files are one of two kinds:
 | this guidance (seed) | `.ai/guidelines/icculus.md` | `./bin/agent guidelines` |
 | project config (seed) | `icculus.toml`, `deno.json` | — |
 
+## Keep the shipped surface generic
+`templates/` is the **distribution surface**: every project receives it verbatim, in every language and domain. Its content must therefore stay domain-neutral — examples, placeholders, and prose use generic stand-ins ("the project", "a tool that does X"), never the vocabulary of one domain. The trap is subtle: you're usually reasoning about a *specific* repo at the same time (the one icculus is installed into, or one you're testing against), and its domain bleeds into a generic skill or doc. Before editing under `templates/`, check that every example reads correctly for any project in any field — if a word only fits one domain, it doesn't belong there. And don't "fix" a leak by banning domain words in the gate: a denylist just relocates the same vocabulary into tracked test history — this rule, applied while editing, is the safeguard.
+
 ## The gate
 - `./bin/agent finish` — full gate (run from the repo root): `deno fmt` (fix) → `deno lint` + `deno check src/main.ts` + `deno task selfcheck` (check) ∥ `deno task test` (test).
 - `./bin/agent tidy` — fast inner loop: fix + check, no tests.
