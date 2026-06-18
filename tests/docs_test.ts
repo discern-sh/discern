@@ -201,3 +201,153 @@ Deno.test("docs --dir can target an internal subtree directly", async () => {
     assert(res.docs.some((d: { slug: string }) => d.slug === "0001-first"));
   });
 });
+
+Deno.test("docs <unknown> --json reports not_found, exit 1", async () => {
+  await withTempDir(async (dir) => {
+    await makeDocsProject(dir);
+    const { code, stdout } = await runCli(["docs", "nonesuch", "--json"], dir);
+    assertEquals(code, 1);
+    const res = JSON.parse(stdout);
+    assertEquals(res.ok, false);
+    assertEquals(res.error, "not_found");
+    assertStringIncludes(res.message, "nonesuch");
+  });
+});
+
+Deno.test("docs <ambiguous> without --json lists the candidates on stderr", async () => {
+  await withTempDir(async (dir) => {
+    await makeDocsProject(dir);
+    // Every subtree has a README → a bare "README" matches more than one.
+    const { code, stdout, stderr } = await runCli(["docs", "README"], dir);
+    assertEquals(code, 1);
+    // The candidate list and guidance go to stderr, not stdout.
+    assertStringIncludes(stderr, "matches");
+    assertStringIncludes(stderr, "Qualify it");
+    assertStringIncludes(stderr, "docs/README.md");
+    assertStringIncludes(stderr, "docs/00-intro/README.md");
+    assertEquals(stdout, "");
+  });
+});
+
+Deno.test("docs --json reports an empty tree as count 0 (only internal docs present)", async () => {
+  await withTempDir(async (dir) => {
+    // A docs dir holding nothing but an internal _-prefixed subtree: the tree
+    // exists, but every entry is filtered out → an empty user-facing index.
+    await Deno.writeTextFile(join(dir, "icculus.toml"), 'slug = "demo"\n');
+    await Deno.mkdir(join(dir, "docs/_adr"), { recursive: true });
+    await Deno.writeTextFile(join(dir, "docs/_adr/0001-first.md"), "# ADR\n");
+
+    const { code, stdout } = await runCli(["docs", "--json"], dir);
+    assertEquals(code, 0);
+    const res = JSON.parse(stdout);
+    assertEquals(res.ok, true);
+    assertEquals(res.count, 0);
+    assertEquals(res.docs, []);
+  });
+});
+
+Deno.test("bare docs warns when the tree has no Markdown (no hang, exit 0)", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "icculus.toml"), 'slug = "demo"\n');
+    // A docs dir with a non-Markdown file only → discovery finds the dir but
+    // indexes nothing.
+    await Deno.mkdir(join(dir, "docs"), { recursive: true });
+    await Deno.writeTextFile(join(dir, "docs/notes.txt"), "plain text\n");
+
+    const { code, stderr } = await runCli(["docs"], dir);
+    assertEquals(code, 0);
+    assertStringIncludes(stderr, "no Markdown files");
+  });
+});
+
+Deno.test("docs --width overrides the wrap width (rendered to stdout)", async () => {
+  await withTempDir(async (dir) => {
+    await makeDocsProject(dir);
+    // --width is the explicit-width arm of resolveWidth; rendering must still
+    // succeed and emit the doc's body.
+    const { code, stdout } = await runCli(
+      ["docs", "alpha", "--width", "60"],
+      dir,
+    );
+    assertEquals(code, 0);
+    assertStringIncludes(stdout, "Alpha");
+    assertStringIncludes(stdout, "The alpha body.");
+  });
+});
+
+Deno.test("docs honours $COLUMNS for the wrap width", async () => {
+  await withTempDir(async (dir) => {
+    await makeDocsProject(dir);
+    // With no --width, resolveWidth reads $COLUMNS as the terminal-width source.
+    const { code, stdout } = await runCli(
+      ["docs", "alpha"],
+      dir,
+      { COLUMNS: "120" },
+    );
+    assertEquals(code, 0);
+    assertStringIncludes(stdout, "The alpha body.");
+  });
+});
+
+Deno.test("discoverDocs humanises the slug when a doc has no heading", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "icculus.toml"), 'slug = "demo"\n');
+    await Deno.mkdir(join(dir, "docs"), { recursive: true });
+    // No Markdown heading at all → the title falls back to a humanised slug.
+    await Deno.writeTextFile(
+      join(dir, "docs/no-heading.md"),
+      "Just a body, no heading.\n",
+    );
+    const tree = (await discoverDocs({ cwd: dir }))!;
+    const entry = tree.entries.find((e) => e.slug === "no-heading")!;
+    assertEquals(entry.title, "No heading");
+  });
+});
+
+Deno.test("discoverDocs falls back to a humanised title when a doc cannot be read", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "icculus.toml"), 'slug = "demo"\n');
+    await Deno.mkdir(join(dir, "docs"), { recursive: true });
+    // A dangling symlink with a .md name: walk yields it, but reading it throws,
+    // so discovery swallows the error and humanises the slug instead.
+    await Deno.symlink(
+      join(dir, "docs/missing-target.md"),
+      join(dir, "docs/dangling.md"),
+    );
+    const tree = (await discoverDocs({ cwd: dir }))!;
+    const entry = tree.entries.find((e) => e.slug === "dangling");
+    assert(entry, "expected the dangling entry to be indexed");
+    assertEquals(entry!.title, "Dangling");
+  });
+});
+
+Deno.test("docs without --json errors to stderr when there is no docs tree", async () => {
+  await withTempDir(async (dir) => {
+    // No docs dir at all: the plain (non-JSON) arm reports it on stderr.
+    const { code, stdout, stderr } = await runCli(["docs"], dir);
+    assertEquals(code, 1);
+    assertStringIncludes(stderr, "no docs/ directory here");
+    assertEquals(stdout, "");
+  });
+});
+
+Deno.test("docs --dir to a missing directory errors with that path", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "icculus.toml"), 'slug = "demo"\n');
+    // An explicit --dir that does not exist takes the dir-specific message.
+    const { code, stderr } = await runCli(["docs", "--dir", "nope"], dir);
+    assertEquals(code, 1);
+    assertStringIncludes(stderr, "no documentation directory");
+    assertStringIncludes(stderr, "nope");
+  });
+});
+
+Deno.test("resolveDoc treats a whitespace-only target as a miss", async () => {
+  await withTempDir(async (dir) => {
+    await makeDocsProject(dir);
+    const tree = (await discoverDocs({ cwd: dir }))!;
+    // Trimmed to empty → an early "none", never touching the matcher.
+    assertEquals(resolveDoc(tree, "   ", dir).kind, "none");
+    assertEquals(resolveDoc(tree, "./", dir).kind, "none");
+  });
+});

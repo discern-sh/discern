@@ -193,12 +193,12 @@ steps = []   # e.g. ["npm ci", "npm run build"]
 
 
 # Coverage ratchet — hold src/ line coverage at or above a rising floor, measured
-# by the [slots.coverage] measurement slot above. Baseline 93.2% (2927/3139 src/
-# lines, 2026-06-18); floor set just below and ratcheted upward over time. Held on
-# demand by `agent ratchets` (slow; not part of finish), never loosened vs main.
+# by the [slots.coverage] measurement slot above. At 94.3% (2026-06-18) after the
+# test push; floor set just below and ratcheted upward over time. Held on demand
+# by `agent ratchets` (slow; not part of finish), never loosened vs main.
 [ratchets.coverage]
 direction = "up"
-limit     = 92
+limit     = 93
 slot      = "coverage"
 
 
