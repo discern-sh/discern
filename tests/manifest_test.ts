@@ -35,7 +35,7 @@ Deno.test("isManaged classifies the engine, skills tree, and agent as managed", 
   assertEquals(isManaged("agent"), true);
   assertEquals(isManaged(".icculus/engine/finish"), true);
   assertEquals(isManaged(".icculus/engine/lib/jobs.sh"), true);
-  assertEquals(isManaged(".icculus/skills/coding-principles/SKILL.md"), true);
+  assertEquals(isManaged(".icculus/skills/write-adr/SKILL.md"), true);
 });
 
 Deno.test("isManaged classifies seeds (config, brief, docs, guidelines) as not managed", () => {

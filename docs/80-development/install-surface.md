@@ -107,20 +107,15 @@ the skill symlinks. Which agent files it writes is set by `[project].agents` in
 
 ## Bundled skills
 
-[`.icculus/skills/`](../../templates/.icculus/skills/) ships nine **managed**
+[`.icculus/skills/`](../../templates/.icculus/skills/) ships four **managed**
 skills the coding agent can invoke, each a `SKILL.md` under its own directory:
 
-| Skill                                                                                   | What it does                                                       |
-| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| [`bootstrap`](../../templates/.icculus/skills/bootstrap/SKILL.md)                       | Seed a freshly-installed harness from the project brief.           |
-| [`document-subsystem`](../../templates/.icculus/skills/document-subsystem/SKILL.md)     | Write or refresh a `docs/` subtree per the documenter brief.       |
-| [`write-adr`](../../templates/.icculus/skills/write-adr/SKILL.md)                       | Record a significant decision as an Architecture Decision Record.  |
-| [`handoff-worktree`](../../templates/.icculus/skills/handoff-worktree/SKILL.md)         | Graduate the current worktree's branch into the main repo.         |
-| [`grill-me`](../../templates/.icculus/skills/grill-me/SKILL.md)                         | Stress-test a plan by relentless interview.                        |
-| [`grill-with-docs`](../../templates/.icculus/skills/grill-with-docs/SKILL.md)           | Stress-test a plan against the domain model, updating docs inline. |
-| [`coding-principles`](../../templates/.icculus/skills/coding-principles/SKILL.md)       | Principles to apply while planning and writing code.               |
-| [`prompt-engineering`](../../templates/.icculus/skills/prompt-engineering/SKILL.md)     | Guidance for writing prompts, hooks, commands, and skills.         |
-| [`engineering-overkill`](../../templates/.icculus/skills/engineering-overkill/SKILL.md) | Propose maximalist, beyond-pragmatic technical alternatives.       |
+| Skill                                                                               | What it does                                                      |
+| ----------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| [`bootstrap`](../../templates/.icculus/skills/bootstrap/SKILL.md)                   | Seed a freshly-installed harness from the project brief.          |
+| [`document-subsystem`](../../templates/.icculus/skills/document-subsystem/SKILL.md) | Write or refresh a `docs/` subtree per the documenter brief.      |
+| [`write-adr`](../../templates/.icculus/skills/write-adr/SKILL.md)                   | Record a significant decision as an Architecture Decision Record. |
+| [`handoff-worktree`](../../templates/.icculus/skills/handoff-worktree/SKILL.md)     | Graduate the current worktree's branch into the main repo.        |
 
 ## Documentation & ADR scaffold (lazy — not part of the install surface)
 

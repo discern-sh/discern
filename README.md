@@ -86,7 +86,7 @@ agent                      # the task runner your agent drives (finish, worktree
   engine/                  # the generic shell engine (managed — refreshed by `icculus upgrade`)
   recipes/                 # YOUR own agent commands (unmanaged — never upgraded)
   guidelines/<slug>.md     # author-once agent guidance (you and /bootstrap fill it)
-  skills/…                 # portable agent skills (coding-principles, grill-me, write-adr, …)
+  skills/…                 # portable agent skills (bootstrap, write-adr, handoff-worktree, …)
   brief.md                 # what you told init you're building
   manifest.json            # kit version + managed-file hashes
 .claude/settings.json      # Claude Code integration (worktree hooks); merged, never clobbered
