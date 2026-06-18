@@ -4,7 +4,7 @@
  */
 
 import { assertEquals } from "@std/assert";
-import { walk } from "@std/fs";
+import { ensureDir, walk } from "@std/fs";
 import { dirname, fromFileUrl, join, relative, SEPARATOR } from "@std/path";
 import { sha256Hex } from "../src/lib/manifest.ts";
 import type { TokenMap } from "../src/lib/template.ts";
@@ -95,8 +95,8 @@ export function testTokens(overrides: Partial<TokenMap> = {}): TokenMap {
     project_slug: "demo-app",
     branch_prefix: "agent/",
     agents_array: '"claude_code", "codex"',
-    gotchas_doc: "docs/80-development/finish-gate-gotchas.md",
-    scopes_neutral: '"docs/", ".ai/", ".claude/"',
+    gotchas_doc: "",
+    scopes_neutral: '"docs/", ".icculus/", ".claude/"',
     scopes_web: '"src/**", "app/**"',
     scopes_previewable: '"public/**"',
     kit_version: "0.1.0",
@@ -114,6 +114,16 @@ export async function withTempDir(
   } finally {
     await Deno.remove(dir, { recursive: true });
   }
+}
+
+/**
+ * Seed a minimal config at the consolidated `.icculus/config.toml` path, creating
+ * the `.icculus/` namespace dir. For tests that fake an install without running
+ * the installer (which would create the dir itself).
+ */
+export async function seedConfig(dir: string, content: string): Promise<void> {
+  await ensureDir(join(dir, ".icculus"));
+  await Deno.writeTextFile(join(dir, ".icculus/config.toml"), content);
 }
 
 /** Read a target file relative to a destination dir as text. */

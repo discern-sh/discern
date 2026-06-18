@@ -18,7 +18,7 @@ function incoming(): unknown {
     hooks: {
       SessionStart: [
         {
-          hooks: [{ type: "command", command: "./bin/agent worktree:ensure" }],
+          hooks: [{ type: "command", command: "./agent worktree:ensure" }],
         },
       ],
     },
@@ -57,7 +57,7 @@ Deno.test("merge appends a genuinely new hook group for the same event", () => {
   assertEquals(result.hooks.SessionStart[0].hooks[0].command, "user-own-hook");
   assertEquals(
     result.hooks.SessionStart[1].hooks[0].command,
-    "./bin/agent worktree:ensure",
+    "./agent worktree:ensure",
   );
 });
 

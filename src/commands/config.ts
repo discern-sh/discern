@@ -1,12 +1,13 @@
 /**
  * `icculus config <subcommand>` — programmatic, comment-preserving edits to an
- * existing `icculus.toml` (ADR 0005). Lets a scaffolder or CI set slots, scopes,
+ * existing `.icculus/config.toml` (ADR 0005). Lets a scaffolder or CI set slots, scopes,
  * side-gates, ratchets, and arbitrary scalars without re-implementing TOML
  * editing. Every subcommand honours `--json` and `--dry-run`.
  */
 
 import { join } from "@std/path";
 import { Logger } from "../lib/log.ts";
+import { resolveConfigPath } from "../lib/paths.ts";
 import { KNOWN_PHASES } from "../lib/config.ts";
 import {
   tomlBool,
@@ -48,7 +49,7 @@ function fail(
 }
 
 /**
- * Load `icculus.toml` from the cwd, apply the edits through `TomlEditor`
+ * Load `.icculus/config.toml` from the cwd, apply the edits through `TomlEditor`
  * (preserving comments), and write it back — or, with `--dry-run`, report what
  * would change and write nothing. `summary` is the human success line.
  */
@@ -58,7 +59,8 @@ async function applyEdits(
   summary: string,
 ): Promise<number> {
   const log = new Logger(opts);
-  const path = join(Deno.cwd(), "icculus.toml");
+  const path = (await resolveConfigPath(Deno.cwd())) ??
+    join(Deno.cwd(), ".icculus/config.toml");
 
   let text: string;
   try {
@@ -66,8 +68,8 @@ async function applyEdits(
   } catch (error) {
     const isMissing = error instanceof Deno.errors.NotFound;
     const message = isMissing
-      ? "no icculus.toml here — run `icculus init` first, or cd into the project root."
-      : `could not read icculus.toml: ${
+      ? "no icculus install here — run `icculus init` first, or cd into the project root."
+      : `could not read the config: ${
         error instanceof Error ? error.message : String(error)
       }`;
     return fail(opts, message, isMissing ? "not_initialized" : "read_error");
@@ -83,7 +85,7 @@ async function applyEdits(
   } catch (error) {
     return fail(
       opts,
-      `could not edit icculus.toml: ${
+      `could not edit the config: ${
         error instanceof Error ? error.message : String(error)
       }`,
       "edit_error",
@@ -92,7 +94,12 @@ async function applyEdits(
 
   if (opts.dryRun) {
     if (opts.json) {
-      log.jsonResult({ ok: true, dry_run: true, file: "icculus.toml", edits });
+      log.jsonResult({
+        ok: true,
+        dry_run: true,
+        file: ".icculus/config.toml",
+        edits,
+      });
     } else {
       log.info("Dry run — would set:");
       for (const edit of edits) {
@@ -104,7 +111,7 @@ async function applyEdits(
 
   await Deno.writeTextFile(path, result);
   if (opts.json) {
-    log.jsonResult({ ok: true, file: "icculus.toml", edits });
+    log.jsonResult({ ok: true, file: ".icculus/config.toml", edits });
   } else {
     log.ok(summary);
     for (const edit of edits) {

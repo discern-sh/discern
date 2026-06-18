@@ -62,7 +62,7 @@ ratchet_extract_metric() {
     ' "$2"
 }
 
-# Read a scalar config key from main's icculus.toml (the never-loosen baseline),
+# Read a scalar config key from main's .icculus/config.toml (the never-loosen baseline),
 # using the SAME parser the harness uses. Prints the value, or returns non-zero
 # when git or main's file is unavailable (e.g. a fresh repo with no main yet).
 ratchet_main_value() {
@@ -70,7 +70,7 @@ ratchet_main_value() {
     _rmv_git=${GIT_BIN:-git}
     _rmv_main_branch=${MAIN_BRANCH:-main}
     command -v "$_rmv_git" >/dev/null 2>&1 || return 1
-    _rmv_toml=$("$_rmv_git" show "$_rmv_main_branch:icculus.toml" 2>/dev/null) || return 1
+    _rmv_toml=$("$_rmv_git" show "$_rmv_main_branch:.icculus/config.toml" 2>/dev/null) || return 1
     [ -n "$_rmv_toml" ] || return 1
     _rmv_tmp=$(mktemp "${TMPDIR:-/tmp}/icculus-main-toml.XXXXXX") || return 1
     printf '%s\n' "$_rmv_toml" > "$_rmv_tmp"

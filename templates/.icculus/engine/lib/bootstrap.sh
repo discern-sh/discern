@@ -6,7 +6,7 @@
 #   . "$(dirname "$0")/lib/bootstrap.sh"
 #
 # It resolves the harness paths and loads the shared libraries. When a recipe is
-# invoked through `bin/agent`, the ICCULUS_* variables are already exported and
+# invoked through `agent`, the ICCULUS_* variables are already exported and
 # reused; when a recipe is run directly by path, they are derived from this
 # file's location so the recipe still works standalone.
 
@@ -15,7 +15,7 @@
 ICCULUS_ENGINE=${ICCULUS_ENGINE:-$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)}
 ICCULUS_LIB="$ICCULUS_ENGINE/lib"
 ICCULUS_ROOT=${ICCULUS_ROOT:-$(CDPATH='' cd -- "$ICCULUS_ENGINE/../.." && pwd)}
-ICCULUS_TOML=${ICCULUS_TOML:-$ICCULUS_ROOT/icculus.toml}
+ICCULUS_TOML=${ICCULUS_TOML:-$ICCULUS_ROOT/.icculus/config.toml}
 export ICCULUS_ENGINE ICCULUS_LIB ICCULUS_ROOT ICCULUS_TOML
 
 # Disable pathname expansion (globbing) for ENGINE recipes. They word-split config
@@ -24,7 +24,7 @@ export ICCULUS_ENGINE ICCULUS_LIB ICCULUS_ROOT ICCULUS_TOML
 # paths from their scope (see ADR 0012). This affects only filename generation —
 # case-matching and ${var} expansion are not.
 #
-# Scoped via the ICCULUS_ENGINE_RECIPE marker that bin/agent sets per dispatch
+# Scoped via the ICCULUS_ENGINE_RECIPE marker that the agent dispatcher sets per dispatch
 # (1 = engine recipe, 0 = project recipe). A PROJECT recipe sources this file for
 # the library/helpers and must keep normal shell globbing, so noglob is never
 # imposed on it. (changed-scopes also runs `set -f` locally, covering the rare
@@ -34,7 +34,7 @@ if [ "${ICCULUS_ENGINE_RECIPE:-0}" = 1 ]; then
 fi
 
 if [ ! -f "$ICCULUS_TOML" ]; then
-    printf 'icculus: no icculus.toml found at %s\n' "$ICCULUS_TOML" >&2
+    printf 'icculus: no .icculus/config.toml found at %s\n' "$ICCULUS_TOML" >&2
     exit 1
 fi
 

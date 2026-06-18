@@ -31,8 +31,8 @@ export const DEFAULTS = {
   branchPrefix: "agent/",
   sourceGlobs: ["src/**", "app/**"],
   agents: [...KNOWN_AGENTS] as AgentName[],
-  gotchasDoc: "docs/80-development/finish-gate-gotchas.md",
-  scopesNeutral: ['"docs/"', '".ai/"', '".claude/"'],
+  gotchasDoc: "",
+  scopesNeutral: ['"docs/"', '".icculus/"', '".claude/"'],
   scopesPreviewable: ['"public/**"'],
 } as const;
 

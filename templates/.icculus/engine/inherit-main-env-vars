@@ -9,7 +9,7 @@
 # token) must be propagated for the worktree to work.
 #
 # The list of vars to inherit is the [worktree].inherit_env array in
-# icculus.toml — author it there, not here. An empty list is a clean no-op.
+# .icculus/config.toml — author it there, not here. An empty list is a clean no-op.
 #
 # Per-var safe-copy policy:
 #   - main missing or blank for the var  -> warn and skip (an optional credential

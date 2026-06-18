@@ -1,6 +1,6 @@
 /**
  * Engine-test harness — scaffold the REAL templates into a temp dir, then shell
- * out to the installed `bin/agent` and assert on its output + exit code.
+ * out to the installed `agent` and assert on its output + exit code.
  *
  * The Deno suite otherwise covers the INSTALLER (`src/`); the POSIX engine under
  * `templates/.icculus/engine/` had no automated coverage. This module closes
@@ -12,7 +12,7 @@
  * Tests that exercise scope/side-gate/ratchet behaviour need a git repo so
  * `changed-scopes` can answer; `gitInit` makes a hermetic one (its own config,
  * no signing, a `main` branch) so a developer's global git settings can't leak
- * in. `writeConfig` overwrites the scaffolded `icculus.toml` (a seed file) with
+ * in. `writeConfig` overwrites the scaffolded `.icculus/config.toml` (a seed file) with
  * test-specific slots/scopes/ratchets.
  */
 
@@ -22,7 +22,7 @@ import { assembleInitPlan } from "../src/commands/init.ts";
 import { applyPlan } from "../src/lib/fs_plan.ts";
 import { REAL_TEMPLATES } from "./helpers.ts";
 
-/** The captured result of one `bin/agent` invocation. */
+/** The captured result of one `agent` invocation. */
 export interface RunResult {
   code: number;
   stdout: string;
@@ -41,7 +41,7 @@ const GIT_ISOLATION: Record<string, string> = {
 };
 
 /**
- * Scaffold the real harness (engine, dispatcher, default `icculus.toml`) into
+ * Scaffold the real harness (engine, dispatcher, default `.icculus/config.toml`) into
  * `dir` via the installer's own plan/apply path, so the bytes under test are the
  * bytes a real install ships. Tests usually follow with `writeConfig` to set
  * the slots/scopes/ratchets they need.
@@ -63,7 +63,7 @@ export async function scaffoldEngine(dir: string): Promise<void> {
 }
 
 /**
- * Run `bin/agent <args>` inside `dir`. Colour is forced off so assertions match
+ * Run `agent <args>` inside `dir`. Colour is forced off so assertions match
  * plain text, and git is isolated so recipes that shell out to git are hermetic.
  * `opts.cwd` runs from a subdirectory (to exercise root-finding); `opts.env`
  * adds/overrides environment variables.
@@ -73,7 +73,7 @@ export async function runAgent(
   args: string[],
   opts: { cwd?: string; env?: Record<string, string> } = {},
 ): Promise<RunResult> {
-  const command = new Deno.Command(join(dir, "bin", "agent"), {
+  const command = new Deno.Command(join(dir, "agent"), {
     args,
     cwd: opts.cwd ?? dir,
     env: { NO_COLOR: "1", ...GIT_ISOLATION, ...opts.env },
@@ -86,9 +86,9 @@ export async function runAgent(
   return { code, stdout: out, stderr: err, output: out + err };
 }
 
-/** Overwrite the scaffolded `icculus.toml` (a seed file) with test content. */
+/** Overwrite the scaffolded `.icculus/config.toml` (a seed file) with test content. */
 export async function writeConfig(dir: string, toml: string): Promise<void> {
-  await Deno.writeTextFile(join(dir, "icculus.toml"), toml);
+  await Deno.writeTextFile(join(dir, ".icculus/config.toml"), toml);
 }
 
 /** Write an executable file (e.g. a project recipe or a slot script). */

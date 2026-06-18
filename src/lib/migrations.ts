@@ -13,7 +13,7 @@
  * kit rename, append as later bumps.
  *
  * A step transforms an install through a {@link MigrationContext}: it can edit
- * `icculus.toml` comment-preserving, move/remove/rewrite managed *and* seed
+ * the install config comment-preserving, move/remove/rewrite managed *and* seed
  * files, and deep-merge `.claude/settings.json`. The file moves are what make a
  * rename safe — content is carried to the new path, and the subsequent file
  * sync reconciles it against the new templates.
@@ -50,7 +50,9 @@ export interface MigrationContext {
   rename(from: string, to: string): Promise<void>;
   /** Read-transform-write a target file's text; a no-op if absent or unchanged. */
   rewrite(rel: string, fn: (text: string) => string): Promise<void>;
-  /** Edit `icculus.toml` comment-preserving; a no-op if there is no config. */
+  /** Read the install config (`.icculus/config.toml`, or a legacy `icculus.toml`), or undefined. */
+  readConfig(): Promise<string | undefined>;
+  /** Edit the install config comment-preserving; a no-op if there is no config. */
   editToml(fn: (editor: TomlEditor) => void): Promise<void>;
   /** Deep-merge `incoming` into `.claude/settings.json` (created if absent). */
   mergeSettings(incoming: Record<string, unknown>): Promise<void>;
@@ -85,7 +87,7 @@ export const MIGRATIONS: Migration[] = [
     from: 1,
     describe: 'backfill [project].main_branch = "main" when absent',
     apply: async (ctx) => {
-      const text = await ctx.readText("icculus.toml");
+      const text = await ctx.readConfig();
       if (text === undefined) {
         return; // no config to evolve.
       }
@@ -103,6 +105,46 @@ export const MIGRATIONS: Migration[] = [
       }
       await ctx.editToml((e) => e.setString("project.main_branch", "main"));
       ctx.note('backfilled [project].main_branch = "main"');
+    },
+  },
+  {
+    from: 2,
+    describe:
+      "consolidate the install surface under .icculus/ (move the config + guidance seeds; the sync handles agent + skills)",
+    apply: async (ctx) => {
+      // Carry the SEEDS into the `.icculus/` namespace. A seed is the user's: the
+      // file sync never recreates one and orphan-prune never removes one, so a
+      // rename here is the only thing that moves its content forward. `rename`
+      // wraps Deno.rename (whole-directory moves) and is idempotent — a no-op once
+      // the source is gone, so a re-run, or an install already in the new layout,
+      // passes through cleanly.
+      await ctx.rename("icculus.toml", ".icculus/config.toml");
+      await ctx.rename(".ai/guidelines", ".icculus/guidelines");
+      // The MANAGED files are deliberately NOT renamed here. The dispatcher
+      // (bin/agent → agent) and the skills (.ai/skills → .icculus/skills) are
+      // kit-owned, so the file sync that runs after migrations writes them at the
+      // new paths and orphan-prune removes the old pristine copies. Renaming them
+      // here would only defeat the sync's hash check — the manifest still records
+      // the old path, so the moved copy reads as "edited" and is preserved as
+      // `.new`. Leave them; the empty bin/ and .ai/ dirs git ignores.
+      // Repoint the worktree hooks at the root dispatcher (settings.json is a
+      // merged seed the sync leaves alone).
+      await ctx.rewrite(
+        ".claude/settings.json",
+        (t) => t.replaceAll("./bin/agent", "./agent"),
+      );
+      // Best-effort: the default neutral-scope globs named `.ai/`; guidance now
+      // lives under `.icculus/`. A customised list simply won't match — harmless.
+      await ctx.rewrite(
+        ".icculus/config.toml",
+        (t) => t.replaceAll('".ai/"', '".icculus/"'),
+      );
+      ctx.note(
+        "moved icculus.toml→.icculus/config.toml and .ai/guidelines→.icculus/guidelines",
+      );
+      ctx.note(
+        "the root `agent` and .icculus/skills are written by the file sync; run `agent guidelines` after",
+      );
     },
   },
 ];
@@ -171,14 +213,28 @@ export function createMigrationContext(
     }
   }
 
+  // Resolve the config's target-relative path for THIS install: the consolidated
+  // `.icculus/config.toml` if present, else a legacy root `icculus.toml`. Resolved
+  // per call so a step that renames the config is seen by any later step.
+  async function configRel(): Promise<string> {
+    return (await exists(".icculus/config.toml"))
+      ? ".icculus/config.toml"
+      : "icculus.toml";
+  }
+
+  async function readConfig(): Promise<string | undefined> {
+    return await readText(await configRel());
+  }
+
   async function editToml(fn: (editor: TomlEditor) => void): Promise<void> {
-    const text = await readText("icculus.toml");
+    const rel = await configRel();
+    const text = await readText(rel);
     if (text === undefined) {
       return;
     }
     const editor = new TomlEditor(text);
     fn(editor);
-    await Deno.writeTextFile(abs("icculus.toml"), editor.toString());
+    await Deno.writeTextFile(abs(rel), editor.toString());
   }
 
   async function mergeSettingsInto(
@@ -200,6 +256,7 @@ export function createMigrationContext(
     remove,
     rename,
     rewrite,
+    readConfig,
     editToml,
     mergeSettings: mergeSettingsInto,
     note: onNote,

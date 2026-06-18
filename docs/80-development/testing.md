@@ -3,8 +3,8 @@
 _The testing approach in this repo — how tests are written, how they run, and
 the patterns the gate assumes._
 
-The `test` slot in `icculus.toml` is what `agent finish` runs; this doc explains
-how to write tests that pass it and how to run them while iterating.
+The `test` slot in `.icculus/config.toml` is what `agent finish` runs; this doc
+explains how to write tests that pass it and how to run them while iterating.
 
 ## How tests run
 
@@ -17,8 +17,8 @@ deno test --filter "convergence"        # a filtered subset by test name
 ```
 
 `deno task test` grants `--allow-read --allow-write --allow-env --allow-run`
-(the suite shells out to `bin/agent` and `git`) and excludes `.claude/`,
-`dist/`, `templates/`, and `tests/fixtures/`.
+(the suite shells out to `agent` and `git`) and excludes `.claude/`, `dist/`,
+`templates/`, and `tests/fixtures/`.
 
 There are **two layers**, sharing two helper modules:
 
@@ -27,7 +27,7 @@ There are **two layers**, sharing two helper modules:
   flags, `--json` output, and exit codes are all exercised end to end.
 - **Engine tests** (`tests/engine_*`) scaffold the **real** `templates/` into a
   temp dir using the installer's own plan/apply path, then shell out to the
-  installed `bin/agent` via `runAgent`
+  installed `agent` via `runAgent`
   ([tests/engine_helpers.ts](../../tests/engine_helpers.ts)). So a `templates/`
   engine change is validated whether or not the root install is synced — no
   second test framework for the POSIX shell.
@@ -74,11 +74,11 @@ instead. So the number is the TypeScript half by construction; the engine's
 safety net is those tests, not a percentage.
 
 That metric feeds a ratchet — `[ratchets.coverage]` in
-[icculus.toml](../../icculus.toml) — a floor that only ever rises.
-`agent
-ratchets` holds it; it is slow, so it is **not** part of `agent finish`,
-and CI enforces it on every pull request. To raise the floor: add tests, then
-bump `limit` to just below the newly measured value.
+[.icculus/config.toml](../../.icculus/config.toml) — a floor that only ever
+rises. `agent
+ratchets` holds it; it is slow, so it is **not** part of
+`agent finish`, and CI enforces it on every pull request. To raise the floor:
+add tests, then bump `limit` to just below the newly measured value.
 
 Some code is **intentionally** uncovered: the interactive TTY paths — the `init`
 wizard prompts ([src/lib/prompts.ts](../../src/lib/prompts.ts)) and the `docs`

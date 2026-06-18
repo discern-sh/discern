@@ -1,4 +1,4 @@
-# toml.awk — a focused reader for the icculus.toml configuration subset.
+# toml.awk — a focused reader for the .icculus/config.toml configuration subset.
 #
 # This is NOT a general TOML parser. It understands exactly the shapes the
 # harness uses, chosen so the whole thing stays a few dozen lines of portable
@@ -11,7 +11,7 @@
 #   # comments                (full-line, and inline — respecting quotes)
 #
 # It deliberately does not handle multi-line arrays, inline tables, dotted
-# keys, or commas inside array values. The shipped icculus.toml stays within
+# keys, or commas inside array values. The shipped .icculus/config.toml stays within
 # this subset; config.sh documents the contract for anyone editing by hand.
 #
 # Invocation (always via config.sh, never directly):

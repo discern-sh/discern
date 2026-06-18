@@ -1,5 +1,5 @@
 # shellcheck shell=sh
-# config.sh — shell accessors for icculus.toml, backed by toml.awk.
+# config.sh — shell accessors for .icculus/config.toml, backed by toml.awk.
 #
 # Sourced by every recipe (via bootstrap.sh). Requires ICCULUS_TOML and
 # ICCULUS_LIB to be set (bootstrap.sh guarantees this). Every read re-parses the

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/jackwh/icculus/main/schema/icculus-config.schema.json",
   "title": "icculus config document",
-  "description": "The declarative config shape consumed by `icculus init --config <file>` and by an adapter's `adapter.json`. Its slots/scopes/side_gates/ratchets are written into a project's icculus.toml via the comment-preserving editor. Every field is optional.",
+  "description": "The declarative config shape consumed by `icculus init --config <file>` and by an adapter's `adapter.json`. Its slots/scopes/side_gates/ratchets are written into a project's .icculus/config.toml via the comment-preserving editor. Every field is optional.",
   "type": "object",
   "additionalProperties": false,
   "properties": {
@@ -42,7 +42,7 @@
     "agents": {
       "type": "array",
       "items": { "type": "string", "enum": ["claude_code", "codex"] },
-      "description": "Which agent instruction files to compile from .ai/guidelines/."
+      "description": "Which agent instruction files to compile from .icculus/guidelines/."
     },
     "description": {
       "type": "string",

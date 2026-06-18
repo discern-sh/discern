@@ -103,7 +103,7 @@ rm -f "$_wt_steps"
 
 # --- 8. compile agent guidelines ------------------------------------------
 
-# The guidelines recipe (author-once .ai/ -> CLAUDE.md/AGENTS.md) is provided by
+# The guidelines recipe (author-once .icculus/guidelines/ -> CLAUDE.md/AGENTS.md) is provided by
 # another part of the harness; guard so worktree setup works with or without it.
 if [ -x "$ICCULUS_ENGINE/guidelines" ]; then
     info "Compiling agent guidelines…"

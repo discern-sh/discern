@@ -42,5 +42,5 @@ file named `some-verb` (`:` → `-`).
 - **Library access.** A recipe invoked via `agent <name>` inherits the harness
   paths, so `. "$ICCULUS_LIB/bootstrap.sh"` gives you `config_get`, the
   `info`/`ok`/`warn`/`die` helpers, `run_parallel`, and the `[slots]` accessors.
-- **Relocate if you like.** Set `[recipes].dir` in `icculus.toml` to point
+- **Relocate if you like.** Set `[recipes].dir` in `.icculus/config.toml` to point
   somewhere other than `.icculus/recipes`.

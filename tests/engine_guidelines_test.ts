@@ -4,7 +4,7 @@
  * (job 2) so the coding agent can discover them.
  *
  * The recipe runs under the engine's noglob default (`set -f`, ADR 0012) and
- * generates filenames by globbing (`.ai/guidelines/*.md`, `.ai/skills/*`). It
+ * generates filenames by globbing (`.icculus/guidelines/*.md`, `.icculus/skills/*`). It
  * had no automated coverage, so when noglob landed those globs silently stopped
  * expanding: guidelines died "no sources" before linking any skill, and bundled
  * skills became invisible in every freshly-created worktree. These tests pin
@@ -23,7 +23,7 @@ Deno.test("engine guidelines: compiles agent files and links skills under noglob
     await scaffoldEngine(dir);
     // Precondition: the scaffold ships the bundled skills and a guideline source.
     assert(
-      await exists(join(dir, ".ai/skills/handoff-worktree/SKILL.md")),
+      await exists(join(dir, ".icculus/skills/handoff-worktree/SKILL.md")),
       "scaffold should include the bundled skills",
     );
 
@@ -53,7 +53,7 @@ Deno.test("engine guidelines: links skills even with no guideline sources (jobs 
     // Remove every guideline source: job 1 has nothing to compile, but job 2
     // (skill links) must still run — a freshly-scaffolded project must not lose
     // skill discovery just because it has not authored guidelines yet.
-    await Deno.remove(join(dir, ".ai/guidelines"), { recursive: true });
+    await Deno.remove(join(dir, ".icculus/guidelines"), { recursive: true });
 
     const r = await runAgent(dir, ["guidelines"]);
     assertEquals(r.code, 0, r.output);

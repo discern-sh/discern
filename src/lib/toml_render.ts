@@ -1,7 +1,7 @@
 /**
- * TOML rendering and reading for `icculus.toml`.
+ * TOML rendering and reading for `.icculus/config.toml`.
  *
- * `icculus.toml` itself is produced by token-substituting `icculus.toml.tmpl`,
+ * `.icculus/config.toml` itself is produced by token-substituting `.icculus/config.toml.tmpl`,
  * so there is no full TOML *writer* here — only the small fragment renderers
  * that turn answers into the TOML-array literals the template expects (e.g.
  * `agents = [{{agents_array}}]`), plus a parse-and-validate used by `doctor`.
@@ -14,7 +14,7 @@ export function renderTomlStringList(items: string[]): string {
   return items.map((item) => `"${item.replaceAll('"', '\\"')}"`).join(", ");
 }
 
-/** A minimally-validated view of a parsed `icculus.toml`. */
+/** A minimally-validated view of a parsed `.icculus/config.toml`. */
 export interface IcculusToml {
   project: {
     slug?: string;
@@ -31,7 +31,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * Parse `icculus.toml` text and surface the `[project]` block. Throws a clear
+ * Parse `.icculus/config.toml` text and surface the `[project]` block. Throws a clear
  * error if the text is not valid TOML; tolerates missing fields (the caller
  * decides which are required) so `doctor` can report them precisely.
  */
@@ -41,7 +41,7 @@ export function parseIcculusToml(text: string): IcculusToml {
     parsed = parseToml(text);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`icculus.toml is not valid TOML: ${message}`);
+    throw new Error(`.icculus/config.toml is not valid TOML: ${message}`);
   }
   const raw = isRecord(parsed) ? parsed : {};
   const project = isRecord(raw.project) ? raw.project : {};

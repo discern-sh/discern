@@ -6,7 +6,7 @@
  *   - an adapter's `adapter.json` — the config half of an `add-adapter` overlay.
  *
  * Both apply the document's `slots` / `scopes` / `side_gates` / `ratchets` to a
- * project's `icculus.toml` through the comment-preserving `TomlEditor`. Because
+ * project's `.icculus/config.toml` through the comment-preserving `TomlEditor`. Because
  * this shape is a published contract (a JSON Schema ships at
  * `schema/icculus-config.schema.json`), it carries an optional `version` so it
  * can evolve without silently misreading an older or newer document, and accepts
@@ -140,7 +140,7 @@ export function mergeDocIntoFlags(
 
 /**
  * Apply a document's `slots`/`scopes`/`side_gates`/`ratchets` fills to a
- * `TomlEditor` over a project's `icculus.toml`. Validates names and enum-ish
+ * `TomlEditor` over a project's `.icculus/config.toml`. Validates names and enum-ish
  * values (phase, direction) the same way the `config` subcommand does; throws on
  * bad input so the caller can report it.
  */

@@ -79,7 +79,7 @@ async function scaffold(dir: string) {
 Deno.test("init substitutes content tokens in *.tmpl files", async () => {
   await withTempDir(async (dir) => {
     await scaffold(dir);
-    const toml = await readTarget(dir, "icculus.toml");
+    const toml = await readTarget(dir, ".icculus/config.toml");
     assertStringIncludes(toml, 'slug = "demo-app"');
     assertStringIncludes(toml, 'branch_prefix = "agent/"');
     assertStringIncludes(toml, 'agents = ["claude_code", "codex"]');
@@ -92,9 +92,11 @@ Deno.test("init resolves the {{project_slug}} path token and strips .tmpl", asyn
   await withTempDir(async (dir) => {
     await scaffold(dir);
     // Name carried the slug token; both the name token and .tmpl resolve.
-    assert(await targetExists(dir, ".ai/guidelines/demo-app.md"));
-    assert(!(await targetExists(dir, ".ai/guidelines/{{project_slug}}.md")));
-    const body = await readTarget(dir, ".ai/guidelines/demo-app.md");
+    assert(await targetExists(dir, ".icculus/guidelines/demo-app.md"));
+    assert(
+      !(await targetExists(dir, ".icculus/guidelines/{{project_slug}}.md")),
+    );
+    const body = await readTarget(dir, ".icculus/guidelines/demo-app.md");
     assertStringIncludes(body, "# Demo App guidelines");
   });
 });
@@ -102,21 +104,21 @@ Deno.test("init resolves the {{project_slug}} path token and strips .tmpl", asyn
 Deno.test("init strips .tmpl from the config file name", async () => {
   await withTempDir(async (dir) => {
     await scaffold(dir);
-    assert(await targetExists(dir, "icculus.toml"));
-    assert(!(await targetExists(dir, "icculus.toml.tmpl")));
+    assert(await targetExists(dir, ".icculus/config.toml"));
+    assert(!(await targetExists(dir, ".icculus/config.toml.tmpl")));
   });
 });
 
 Deno.test("init preserves the source exec bit (0755 recipe, 0644 lib)", async () => {
   await withTempDir(async (dir) => {
     await scaffold(dir);
-    assertEquals(await modeOf(dir, "bin/agent"), 0o755);
+    assertEquals(await modeOf(dir, "agent"), 0o755);
     assertEquals(await modeOf(dir, ".icculus/engine/recipe"), 0o755);
     assertEquals(await modeOf(dir, ".icculus/engine/lib/helper.sh"), 0o644);
   });
 });
 
-Deno.test("init forces bin/agent and recipes executable even from a non-exec source", async () => {
+Deno.test("init forces agent and recipes executable even from a non-exec source", async () => {
   // Regression: the `deno compile` embedded filesystem reports every bundled
   // file as read-only (0444), which would strip the exec bit the dispatcher and
   // recipes need. The contract must restore it. We emulate that environment by
@@ -124,7 +126,7 @@ Deno.test("init forces bin/agent and recipes executable even from a non-exec sou
   await withTempDir(async (src) => {
     await Deno.mkdir(join(src, "bin"), { recursive: true });
     await Deno.mkdir(join(src, ".icculus/engine/lib"), { recursive: true });
-    await Deno.writeTextFile(join(src, "bin/agent"), "#!/bin/sh\necho hi\n");
+    await Deno.writeTextFile(join(src, "agent"), "#!/bin/sh\necho hi\n");
     await Deno.writeTextFile(
       join(src, ".icculus/engine/recipe"),
       "#!/bin/sh\n",
@@ -133,7 +135,7 @@ Deno.test("init forces bin/agent and recipes executable even from a non-exec sou
       join(src, ".icculus/engine/lib/helper.sh"),
       "x() { :; }\n",
     );
-    await Deno.chmod(join(src, "bin/agent"), 0o644);
+    await Deno.chmod(join(src, "agent"), 0o644);
     await Deno.chmod(join(src, ".icculus/engine/recipe"), 0o644);
     await Deno.chmod(join(src, ".icculus/engine/lib/helper.sh"), 0o644);
 
@@ -146,7 +148,7 @@ Deno.test("init forces bin/agent and recipes executable even from a non-exec sou
       });
       await applyPlan(plan);
       // Contract files restored to executable; the lib helper stays non-exec.
-      assertEquals(await modeOf(dir, "bin/agent"), 0o755);
+      assertEquals(await modeOf(dir, "agent"), 0o755);
       assertEquals(await modeOf(dir, ".icculus/engine/recipe"), 0o755);
       assertEquals(await modeOf(dir, ".icculus/engine/lib/helper.sh"), 0o644);
     });
@@ -258,7 +260,10 @@ Deno.test("manifest records sha256 for managed files and matches on-disk bytes",
     assertEquals(recorded, onDisk);
 
     // Seeds are NOT recorded as managed.
-    assertEquals(managed.find((e) => e.path === "icculus.toml"), undefined);
+    assertEquals(
+      managed.find((e) => e.path === ".icculus/config.toml"),
+      undefined,
+    );
     assertEquals(
       managed.find((e) => e.path === "docs/00-orientation/concepts.md"),
       undefined,
@@ -393,7 +398,7 @@ Deno.test("upgrade never touches seed files", async () => {
   await withTempDir(async (dir) => {
     await scaffold(dir);
     // Edit a seed (the config) and a seed doc.
-    const tomlAbs = join(dir, "icculus.toml");
+    const tomlAbs = join(dir, ".icculus/config.toml");
     await Deno.writeTextFile(tomlAbs, "# user-owned config\n");
     const up = await buildPlan({
       templatesDir: FIXTURE_TEMPLATES,
@@ -402,14 +407,14 @@ Deno.test("upgrade never touches seed files", async () => {
       mode: "upgrade",
     });
     // No op targets a seed path.
-    assert(!up.ops.some((o) => o.targetRel === "icculus.toml"));
+    assert(!up.ops.some((o) => o.targetRel === ".icculus/config.toml"));
     assert(
       !up.ops.some((o) => o.targetRel === "docs/00-orientation/concepts.md"),
     );
     await applyPlan(up);
     // The user's config is intact.
     assertEquals(
-      await readTarget(dir, "icculus.toml"),
+      await readTarget(dir, ".icculus/config.toml"),
       "# user-owned config\n",
     );
   });

@@ -27,7 +27,7 @@ function tokens(): TokenMap {
     branch_prefix: "agent/",
     agents_array: '"claude_code", "codex"',
     gotchas_doc: "docs/80-development/finish-gate-gotchas.md",
-    scopes_neutral: '"docs/", ".ai/", ".claude/"',
+    scopes_neutral: '"docs/", ".icculus/", ".claude/"',
     scopes_web: '"src/**", "app/**"',
     scopes_previewable: '"public/**"',
     kit_version: "0.1.0",
@@ -77,25 +77,28 @@ Deno.test("substituteTokens dedups repeated unknown tokens", () => {
 
 Deno.test("resolveTargetPath substitutes the slug path token and strips .tmpl", () => {
   assertEquals(
-    resolveTargetPath(".ai/guidelines/{{project_slug}}.md.tmpl", "demo-app"),
-    ".ai/guidelines/demo-app.md",
+    resolveTargetPath(
+      ".icculus/guidelines/{{project_slug}}.md.tmpl",
+      "demo-app",
+    ),
+    ".icculus/guidelines/demo-app.md",
   );
 });
 
 Deno.test("resolveTargetPath strips .tmpl from a token-free path", () => {
   assertEquals(
-    resolveTargetPath("icculus.toml.tmpl", "demo-app"),
-    "icculus.toml",
+    resolveTargetPath(".icculus/config.toml.tmpl", "demo-app"),
+    ".icculus/config.toml",
   );
 });
 
 Deno.test("resolveTargetPath leaves a non-template path unchanged", () => {
-  assertEquals(resolveTargetPath("bin/agent", "demo-app"), "bin/agent");
+  assertEquals(resolveTargetPath("agent", "demo-app"), "agent");
 });
 
 Deno.test("file-kind predicates classify the special paths", () => {
-  assertEquals(isTemplateFile("icculus.toml.tmpl"), true);
-  assertEquals(isTemplateFile("bin/agent"), false);
+  assertEquals(isTemplateFile(".icculus/config.toml.tmpl"), true);
+  assertEquals(isTemplateFile("agent"), false);
   assertEquals(isGitignoreFragment(".gitignore.fragment"), true);
   assertEquals(isGitignoreFragment(".gitignore"), false);
   assertEquals(isSettingsTemplate(".claude/settings.json.tmpl"), true);
@@ -103,13 +106,13 @@ Deno.test("file-kind predicates classify the special paths", () => {
 });
 
 Deno.test("isContractExecutable marks the dispatcher and top-level recipes only", () => {
-  assertEquals(isContractExecutable("bin/agent"), true);
+  assertEquals(isContractExecutable("agent"), true);
   assertEquals(isContractExecutable(".icculus/engine/finish"), true);
   assertEquals(isContractExecutable(".icculus/engine/worktree-exit"), true);
   // lib sources and awk data are NOT executable.
   assertEquals(isContractExecutable(".icculus/engine/lib/jobs.sh"), false);
   assertEquals(isContractExecutable(".icculus/engine/lib/toml.awk"), false);
   // Unrelated files are not executable.
-  assertEquals(isContractExecutable("icculus.toml"), false);
+  assertEquals(isContractExecutable(".icculus/config.toml"), false);
   assertEquals(isContractExecutable("docs/README.md"), false);
 });

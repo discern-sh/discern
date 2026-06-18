@@ -1,6 +1,6 @@
 /**
- * `init` must be non-destructive for MANAGED files (`bin/agent`,
- * `.icculus/engine/**`, `.ai/skills/**`). The bug these tests pin down: `init`
+ * `init` must be non-destructive for MANAGED files (`agent`,
+ * `.icculus/engine/**`, `.icculus/skills/**`). The bug these tests pin down: `init`
  * used to overwrite a same-named managed file unconditionally, silently
  * destroying a user's hand-edited recipe or a foreign file that happened to
  * share the path. The required behaviour mirrors `upgrade`'s hash-aware rule via
@@ -191,6 +191,6 @@ Deno.test("init dry-run reports the .new disposition but writes nothing", async 
     // ...and nothing was written: the original is untouched and no `.new` exists.
     assertEquals(await readTarget(dir, MANAGED_RECIPE), userBody);
     assert(!(await targetExists(dir, `${MANAGED_RECIPE}.new`)));
-    assert(!(await targetExists(dir, "icculus.toml")));
+    assert(!(await targetExists(dir, ".icculus/config.toml")));
   });
 });

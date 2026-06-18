@@ -11,6 +11,7 @@ import { assert, assertEquals } from "@std/assert";
 import { join } from "@std/path";
 import { runUpgrade } from "../src/commands/upgrade.ts";
 import type { Migration } from "../src/lib/migrations.ts";
+import { SCHEMA_VERSION } from "../src/lib/version.ts";
 import { readTarget, runCli, targetExists, withTempDir } from "./helpers.ts";
 
 async function init(dir: string): Promise<void> {
@@ -66,12 +67,12 @@ Deno.test("a current install has nothing pending and applies no migrations", asy
 Deno.test("upgrade runs a pending migration before the sync, then stamps the schema", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
-    await setSchema(dir, 1); // model an install one schema behind (build is at 2)
+    await setSchema(dir, SCHEMA_VERSION - 1); // model an install one schema behind (build is at 2)
 
     const ran: string[] = [];
     // A synthetic 1→2 step (overrides the production chain via the registry seam).
     const chain: Migration[] = [{
-      from: 1,
+      from: SCHEMA_VERSION - 1,
       describe: "write a marker and set a config key",
       apply: async (ctx) => {
         ran.push("applied");
@@ -85,20 +86,22 @@ Deno.test("upgrade runs a pending migration before the sync, then stamps the sch
     // Its effects landed: the marker file and the config edit.
     assertEquals(await targetExists(dir, "MIGRATED"), true);
     assert(
-      (await readTarget(dir, "icculus.toml")).includes('branch_prefix = "wt/"'),
+      (await readTarget(dir, ".icculus/config.toml")).includes(
+        'branch_prefix = "wt/"',
+      ),
     );
     // And the manifest was stamped to the current schema.
     const m = JSON.parse(await readTarget(dir, ".icculus/manifest.json"));
-    assertEquals(m.schema_version, 2);
+    assertEquals(m.schema_version, SCHEMA_VERSION);
   });
 });
 
 Deno.test("upgrade re-running an applied migration is a no-op (idempotent fold)", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
-    await setSchema(dir, 1);
+    await setSchema(dir, SCHEMA_VERSION - 1);
     const chain: Migration[] = [{
-      from: 1,
+      from: SCHEMA_VERSION - 1,
       describe: "create a marker",
       apply: (ctx) => ctx.writeText("MIGRATED", "yes\n"),
     }];
@@ -106,6 +109,6 @@ Deno.test("upgrade re-running an applied migration is a no-op (idempotent fold)"
     // Now at schema 2: re-running finds nothing pending and still succeeds.
     assertEquals(await upgradeIn(dir, chain), 0);
     const m = JSON.parse(await readTarget(dir, ".icculus/manifest.json"));
-    assertEquals(m.schema_version, 2);
+    assertEquals(m.schema_version, SCHEMA_VERSION);
   });
 });

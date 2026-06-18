@@ -2,7 +2,7 @@
  * Measure `src/` line coverage and emit it as an icculus ratchet metric.
  *
  * This is the measurement slot behind `[ratchets.coverage]` (see ADR 0003 and
- * `icculus.toml`). The harness runs it on demand via `agent ratchets`, scans the
+ * `.icculus/config.toml`). The harness runs it on demand via `agent ratchets`, scans the
  * output for the LAST `ICCULUS_METRIC coverage <number>` line, and holds it at or
  * above the configured floor.
  *

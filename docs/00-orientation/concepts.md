@@ -24,8 +24,8 @@ It has **two halves**:
   (`doctor`). It is a build-time tool that compiles to standalone binaries; an
   installed project never needs it again at runtime.
 - The **Harness** — what an install contains and runs: the `agent` dispatcher,
-  the **Engine**, an `icculus.toml` config, bundled Skills, and a docs scaffold.
-  It is pure POSIX shell plus TOML, with no runtime dependency.
+  the **Engine**, a `.icculus/config.toml` config, and bundled Skills. It is
+  pure POSIX shell plus TOML, with no runtime dependency.
 
 The pivot between them is [`templates/`](../../templates/), the **source of
 truth**: every file a Harness contains originates there, and the Installer
@@ -35,26 +35,31 @@ consistent and upgradable.
 
 The Engine is deliberately **ignorant of your stack**. It runs "the test Slot,"
 "the fix Slots," "the Side gate for this Scope" — names it discovers from
-`icculus.toml`, never commands it knows. A **Slot** is one stack-specific
-command tagged with a **Phase** (fix / build / check / test) that says when it
-runs. Fill the Slots once and the generic Engine becomes your project's gate.
+`.icculus/config.toml`, never commands it knows. A **Slot** is one
+stack-specific command tagged with a **Phase** (fix / build / check / test) that
+says when it runs. Fill the Slots once and the generic Engine becomes your
+project's gate.
 
 ---
 
 ## How it works, end to end
 
 **1. Install.** `icculus init` reads a few answers and the project brief, then
-lays the Harness down from `templates/`: the `agent` dispatcher, the Engine, an
-`icculus.toml` whose Slots are all `:` no-ops (a green gate you grow into), a
-docs skeleton, and a `.icculus/manifest.json` recording a hash of every
-**Managed file**. Files split by **disposition** — Managed (refreshed from the
-kit), Seed (yours to keep), Merged, Generated.
+lays the Harness down from `templates/`: the `agent` dispatcher, the Engine, a
+`.icculus/config.toml` whose Slots are all `:` no-ops (a green gate you grow
+into), and a `.icculus/manifest.json` recording a hash of every **Managed
+file**. Files split by **disposition** — Managed (refreshed from the kit), Seed
+(yours to keep), Merged, Generated. The docs tree and `TODO.md` are not
+scaffolded at install; the
+[`bootstrap`](../../templates/.icculus/skills/bootstrap/SKILL.md) Skill writes
+them on demand afterward.
 
 **2. Fill in the stack.** The
-[`bootstrap`](../../templates/.ai/skills/bootstrap/SKILL.md) Skill — run by the
-coding agent already in the loop — sniffs the repo and _proposes_ Slot fills
-(formatter, linter, type-checker, tests) and seeds the docs from the brief. The
-Engine stays generic; only `icculus.toml` learns the stack.
+[`bootstrap`](../../templates/.icculus/skills/bootstrap/SKILL.md) Skill — run by
+the coding agent already in the loop — sniffs the repo and _proposes_ Slot fills
+(formatter, linter, type-checker, tests) and writes the docs tree and `TODO.md`
+from the brief. The Engine stays generic; only `.icculus/config.toml` learns the
+stack.
 
 **3. Work behind the gate.** Day to day, everything is driven through the
 `agent` dispatcher:
@@ -79,9 +84,9 @@ this very loop on itself: `selfcheck` (a check Slot) fails the Gate if the root
 install ever drifts from `templates/`.
 
 Alongside the runtime path, guidance flows author-once → compile-everywhere: you
-edit one **Guidance source** (`.ai/guidelines/<slug>.md`) and `agent guidelines`
-compiles it to each **Compiled agent file** (`CLAUDE.md`, `AGENTS.md`), so
-several agents share one set of instructions.
+edit one **Guidance source** (`.icculus/guidelines/<slug>.md`) and
+`agent guidelines` compiles it to each **Compiled agent file** (`CLAUDE.md`,
+`AGENTS.md`), so several agents share one set of instructions.
 
 ---
 

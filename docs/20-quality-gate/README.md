@@ -24,7 +24,8 @@ default.
 
 > **Status: stub.** This README orients the subtree; the leaves below are not
 > written yet. Fill them with the
-> [`document-subsystem`](../../.ai/skills/document-subsystem/SKILL.md) skill.
+> [`document-subsystem`](../../.icculus/skills/document-subsystem/SKILL.md)
+> skill.
 
 ## Planned leaves
 

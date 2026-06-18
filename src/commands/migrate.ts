@@ -13,8 +13,8 @@
  * starts clean, so a pre-1.0 config is no longer auto-rewritten.
  */
 
-import { join } from "@std/path";
 import { Logger } from "../lib/log.ts";
+import { resolveConfigPath } from "../lib/paths.ts";
 import { selfCmd } from "../lib/invocation.ts";
 import { loadManifest } from "../lib/manifest.ts";
 import { SCHEMA_VERSION } from "../lib/version.ts";
@@ -33,24 +33,14 @@ export interface MigrateOptions {
   registry?: Migration[];
 }
 
-/** True if a file exists. */
-async function exists(path: string): Promise<boolean> {
-  try {
-    await Deno.stat(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 /** Run `icculus migrate`. Returns a process exit code. */
 export async function runMigrate(options: MigrateOptions): Promise<number> {
   const log = new Logger(options);
   const destDir = Deno.cwd();
 
-  if (!(await exists(join(destDir, "icculus.toml")))) {
+  if ((await resolveConfigPath(destDir)) === undefined) {
     const message =
-      "no icculus.toml here — run `icculus init` first, or cd into the project root.";
+      "no icculus install here — run `icculus init` first, or cd into the project root.";
     if (options.json) {
       log.jsonResult({ ok: false, error: "not_initialized", message });
     } else {

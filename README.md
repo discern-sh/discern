@@ -13,8 +13,8 @@ your own coding agent propose). Guidance is authored once and compiled to each
 agent's own file, so Claude Code, Codex, Gemini, and others can work in the same
 repo — even several at once.
 
-> Working name. `icculus`, `bin/agent`, and `.icculus/` are placeholders pending
-> a final name.
+> Working name. `icculus`, the `agent` runner, and `.icculus/` are placeholders
+> pending a final name.
 
 ---
 
@@ -80,25 +80,25 @@ sniff the repo to propose the slot fills — no API key, no provider lock-in.
 ## What gets installed
 
 ```
-icculus.toml               # the one file you edit: slots, scopes, worktree adapters, ratchets
-bin/agent                  # the task runner your agent drives (finish, worktree, guidelines, …)
+agent                      # the task runner your agent drives (finish, worktree, guidelines, …)
 .icculus/
+  config.toml              # the one file you edit: slots, scopes, worktree adapters, ratchets
   engine/                  # the generic shell engine (managed — refreshed by `icculus upgrade`)
   recipes/                 # YOUR own agent commands (unmanaged — never upgraded)
-  brief.md                 # what you told init you're building
-  manifest.json            # kit version + managed-file hashes
-.ai/
   guidelines/<slug>.md     # author-once agent guidance (you and /bootstrap fill it)
   skills/…                 # portable agent skills (coding-principles, grill-me, write-adr, …)
-AGENTS.md  CLAUDE.md  …     # per-agent files, COMPILED from .ai/ — never hand-edit
+  brief.md                 # what you told init you're building
+  manifest.json            # kit version + managed-file hashes
 .claude/settings.json      # Claude Code integration (worktree hooks); merged, never clobbered
+# created later by /bootstrap, not at init:
+AGENTS.md  CLAUDE.md  …     # per-agent files, COMPILED from .icculus/guidelines/ — never hand-edit
 docs/…                     # numbered docs tree + design-principles + _adr + gotchas
 TODO.md                    # the shared backlog discipline
 ```
 
 ---
 
-## The config — `icculus.toml`
+## The config — `.icculus/config.toml`
 
 One file teaches the stack-neutral engine about your project. Every slot
 defaults to `:` (a no-op that passes), so a fresh install has a **green gate you
@@ -157,9 +157,9 @@ code, so unknowns run _more_ gates, never fewer.
 
 ```toml
 [scopes]
-neutral     = ["docs/", ".ai/", ".claude/"]   # no gate needed
-web         = ["src/**", "app/**"]            # real, gated code
-previewable = ["public/**"]                   # a person could see it
+neutral     = ["docs/", ".icculus/", ".claude/"]   # no gate needed
+web         = ["src/**", "app/**"]                 # real, gated code
+previewable = ["public/**"]                        # a person could see it
 
 [scopes.side_gates]
 # native = "make -C native check"   # run this when a `native` scope changes
@@ -317,7 +317,7 @@ uses.
 | `upgrade`            | run any pending schema migrations, then refresh **managed** files: an edited one is preserved as `<file>.new`; one the kit no longer ships is removed if pristine, kept (with a warning) if you edited it. Refuses a dirty tree unless `--allow-dirty`, so an upgrade stays `git checkout`-revertible. See _Schema migrations_ and _Managed vs. seed_. |
 | `doctor`             | verify the install (manifest, schema version, dispatcher, then delegates to `agent doctor`).                                                                                                                                                                                                                                                           |
 | `migrate`            | report the install's recorded schema and any pending migration steps (read-only); `--check` exits non-zero when steps are pending. `upgrade` applies them. See _Schema migrations_.                                                                                                                                                                    |
-| `config <sub>`       | programmatically edit `icculus.toml`, comments intact — `set-slot`, `set-scope`, `set-side-gate`, `set-ratchet`, `set`. See _Driving icculus programmatically_.                                                                                                                                                                                        |
+| `config <sub>`       | programmatically edit `.icculus/config.toml`, comments intact — `set-slot`, `set-scope`, `set-side-gate`, `set-ratchet`, `set`. See _Driving icculus programmatically_.                                                                                                                                                                                |
 | `add-adapter <name>` | overlay an adapter from `adapters/<name>/`: its files **and** its `adapter.json` config fills. Ships no adapters; see _Writing an adapter_.                                                                                                                                                                                                            |
 | `docs [target]`      | browse and read the project's `docs/` tree. No target on a terminal opens an interactive, searchable picker; a target renders that doc (paged). Agent/script surfaces never block on a prompt: `--json` (the index, or a single doc's record), `--raw` (pristine Markdown), `--list` (plain table of contents). See _Browsing the docs_.               |
 
@@ -375,10 +375,13 @@ icculus migrate          # read-only: show the recorded schema and any pending s
 icculus migrate --check  # exit non-zero if migrations are pending (a CI signal)
 ```
 
-The current schema is **2**. Its one step (`1 → 2`) backfills
-`[project].main_branch` for installs whose `icculus.toml` predates that field —
-a small, safe seed evolution, so a current install reports nothing pending. (1.0
-was a clean break with no automated 0.x path; the bespoke 0.x→1.0 `migrate` that
+The current schema is **3**. The chain has two steps: `1 → 2` backfills
+`[project].main_branch` for installs whose config predates that field, and
+`2 → 3` consolidates the install surface under `.icculus/` (the root `agent`,
+`.icculus/config.toml`, `.icculus/guidelines`, `.icculus/skills`) — the very
+move this layout shipped, carried to existing installs by the chain rather than
+a manual cleanup. A current install reports nothing pending. (1.0 was a clean
+break with no automated 0.x path; the bespoke 0.x→1.0 `migrate` that
 [ADR 0009](docs/_adr/0009-one-point-zero-drop-backward-compat.md) shipped was
 retired in favour of this versioned chain — see ADR 0014.)
 
@@ -386,7 +389,7 @@ retired in favour of this versioned chain — see ADR 0014.)
 
 A scaffolder or CI can drive icculus declaratively, without hand-editing TOML.
 `icculus config` makes **comment-preserving** edits to an existing
-`icculus.toml` (every subcommand honours `--json` and `--dry-run`):
+`.icculus/config.toml` (every subcommand honours `--json` and `--dry-run`):
 
 ```sh
 icculus config set-slot test --phase test --run "vitest run"
@@ -397,15 +400,16 @@ icculus config set-ratchet bundle --limit 500000 --direction down --slot bundles
 icculus config set project.main_branch trunk          # type inferred; --string/--number/--bool to force
 ```
 
-Each finds `icculus.toml` in the cwd, applies the edit (preserving comments and
-layout), and writes it back. Light validation matches `doctor` (slot `--phase` ∈
-the known phases, or omit it for a measurement slot; ratchet `--direction` ∈
-`up`/`down`, and `--slot` is required). `coverage` is an ordinary ratchet name.
+Each finds `.icculus/config.toml` in the cwd, applies the edit (preserving
+comments and layout), and writes it back. Light validation matches `doctor`
+(slot `--phase` ∈ the known phases, or omit it for a measurement slot; ratchet
+`--direction` ∈ `up`/`down`, and `--slot` is required). `coverage` is an
+ordinary ratchet name.
 
 To drive a **fresh** install in one shot, `init --config <file>` reads an
 **icculus config document** — a JSON file (or `--config -` for stdin) — and
 scaffolds non-interactively. Base fields mirror the flags; `slots` / `scopes` /
-`side_gates` / `ratchets` are written into the generated `icculus.toml`.
+`side_gates` / `ratchets` are written into the generated `.icculus/config.toml`.
 Explicit flags override file values.
 
 ```json
@@ -444,20 +448,20 @@ applied to many projects with one command. `icculus add-adapter <name>` reads
 
 - **Files** — everything in the adapter dir is scaffolded onto the project with
   the same rules as `init`: seed files (project recipes, guideline fragments,
-  docs) are write-once; managed files (`.ai/skills/**`) follow the hash-aware
-  overwrite/`.new` rule; `.claude/settings.json` deep-merges.
+  docs) are write-once; managed files (`.icculus/skills/**`) follow the
+  hash-aware overwrite/`.new` rule; `.claude/settings.json` deep-merges.
 - **Config fills** — an optional `adapter.json` at the adapter root (metadata,
   never scaffolded) is an **icculus config document** (the same shape
   `init --config` reads, validated against the same schema) whose `slots` /
   `scopes` / `side_gates` / `ratchets` are written into the project's
-  `icculus.toml` via the comment-preserving editor.
+  `.icculus/config.toml` via the comment-preserving editor.
 
 ```
 adapters/my-stack/
   adapter.json                          # an icculus config document (+ "description")
   .icculus/recipes/deploy               # a project recipe (seed)
-  .ai/guidelines/my-stack.md            # a guideline fragment (seed)
-  .ai/skills/my-skill/SKILL.md          # a skill (managed)
+  .icculus/guidelines/my-stack.md       # a guideline fragment (seed)
+  .icculus/skills/my-skill/SKILL.md     # a skill (managed)
 ```
 
 `add-adapter` honours `--json` and `--dry-run`. The kit **bundles no adapters**
@@ -467,16 +471,16 @@ adapters/my-stack/
 
 ### `agent` (the installed task runner)
 
-| command                              | does                                                                                                |
-| ------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| `agent finish`                       | the full quality gate. Run before calling any task done. `--json` for a machine-readable report.    |
-| `agent tidy`                         | fixers + checks, no build/test — the fast inner loop.                                               |
-| `agent test`                         | run the test-phase slots.                                                                           |
-| `agent ratchets`                     | hold every metric ratchet — each `[ratchets.<name>]` (slow; not part of `finish`).                  |
-| `agent worktree:exit`                | graduate this worktree's branch into the main checkout.                                             |
-| `agent worktree:teardown` / `:prune` | discard a worktree / sweep stale ones.                                                              |
-| `agent guidelines`                   | compile `.ai/guidelines/*` → each agent's file (`AGENTS.md`, `CLAUDE.md`, …) + refresh skill links. |
-| `agent doctor`                       | health-check the harness (slots resolve, git worktrees work, …).                                    |
+| command                              | does                                                                                                     |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| `agent finish`                       | the full quality gate. Run before calling any task done. `--json` for a machine-readable report.         |
+| `agent tidy`                         | fixers + checks, no build/test — the fast inner loop.                                                    |
+| `agent test`                         | run the test-phase slots.                                                                                |
+| `agent ratchets`                     | hold every metric ratchet — each `[ratchets.<name>]` (slow; not part of `finish`).                       |
+| `agent worktree:exit`                | graduate this worktree's branch into the main checkout.                                                  |
+| `agent worktree:teardown` / `:prune` | discard a worktree / sweep stale ones.                                                                   |
+| `agent guidelines`                   | compile `.icculus/guidelines/*` → each agent's file (`AGENTS.md`, `CLAUDE.md`, …) + refresh skill links. |
+| `agent doctor`                       | health-check the harness (slots resolve, git worktrees work, …).                                         |
 
 Run `agent --help` for the live list. Recipes are auto-discovered: an adapter's
 recipe under `.icculus/engine/` shows up automatically, and so does **your own**
@@ -510,15 +514,15 @@ is `null`).
 
 ## How it works
 
-- **Auto-discovery, no registries.** `bin/agent` finds the project root (nearest
-  `icculus.toml`), then runs `.icculus/engine/<recipe>` (mapping `worktree:exit`
-  → `worktree-exit`), falling back to a project recipe under
+- **Auto-discovery, no registries.** `agent` finds the project root (nearest
+  `.icculus/config.toml`), then runs `.icculus/engine/<recipe>` (mapping
+  `worktree:exit` → `worktree-exit`), falling back to a project recipe under
   `.icculus/recipes/`. Drop a new recipe in and it's available. The installer
   walks `templates/` the same way — nothing hardcodes the file list.
-- **Config without a runtime.** The engine reads `icculus.toml` through a tiny
-  POSIX `awk` reader (`.icculus/engine/lib/`). No Node, no Deno, no
+- **Config without a runtime.** The engine reads `.icculus/config.toml` through
+  a tiny POSIX `awk` reader (`.icculus/engine/lib/`). No Node, no Deno, no
   jq-the-config at runtime.
-- **Managed vs. seed.** `bin/agent`, `.icculus/engine/**`, and `.ai/skills/**`
+- **Managed vs. seed.** `agent`, `.icculus/engine/**`, and `.icculus/skills/**`
   are **managed** (kit-owned, refreshed by `upgrade`) — the set is **declared in
   `templates/managed.json`**, not hardcoded, so it's visible from the template
   tree and an adapter can mark overlay files it owns. Managed files are
@@ -529,47 +533,49 @@ is `null`).
   `<file>.new` for you to merge. A managed file the kit _stops_ shipping is
   removed on upgrade when it's still pristine (kept, with a warning, if you
   edited it), so renames and removals reach installs cleanly rather than leaving
-  orphans behind. Everything else — `icculus.toml`, your docs, guidelines,
-  `TODO.md` — is **seed**: written once, then yours.
+  orphans behind. Everything else — `.icculus/config.toml`, your docs,
+  guidelines, `TODO.md` — is **seed**: written once, then yours.
 - **Author once, compile everywhere — agent-agnostic.** Write your guidance and
-  skills once under `.ai/`; `agent guidelines` compiles them to every agent's
-  own instruction file, so one repo can drive Claude Code, Codex, Gemini, and
-  others — even several at once — with no divergence. The per-agent copies
-  (`CLAUDE.md`, …) are generated and gitignored; `AGENTS.md`, the cross-agent
-  standard, is tracked so compiled-guidance changes still surface in review.
+  skills once under `.icculus/`; `agent guidelines` compiles them to every
+  agent's own instruction file, so one repo can drive Claude Code, Codex,
+  Gemini, and others — even several at once — with no divergence. The per-agent
+  copies (`CLAUDE.md`, …) are generated and gitignored; `AGENTS.md`, the
+  cross-agent standard, is tracked so compiled-guidance changes still surface in
+  review.
 
 ---
 
 ## Self-hosting
 
 This repository **is installed with its own harness** — icculus develops on the
-same kit it ships (the practice usually called _dogfooding_). `icculus init` was
-run at the root, so `bin/agent`, the `.icculus/` engine, and the `.ai/` skills
+same kit it ships, running on its own harness. `icculus init` was run at the
+root, so the root `agent`, the `.icculus/` engine, and the `.icculus/skills`
 live here as a committed copy of `templates/`. The repo's day-to-day quality
 gate is `agent finish` itself (see
 [ADR 0010](docs/_adr/0010-self-host-the-harness.md)):
 
 ```sh
-./bin/agent finish   # deno fmt (fix) → deno lint + deno check + deno task selfcheck (check) ∥ deno task test (test)
-./bin/agent tidy     # the fast inner loop: fix + check, no tests
+./agent finish   # deno fmt (fix) → deno lint + deno check + deno task selfcheck (check) ∥ deno task test (test)
+./agent tidy     # the fast inner loop: fix + check, no tests
 ```
 
 **`templates/` is the source of truth; the root install is a managed mirror of
 it.** A `selfcheck` gate slot (≡ `icculus upgrade --check`, exposed as
-`deno task selfcheck`) fails the gate if any _managed_ file — `bin/agent`,
-`.icculus/engine/**`, `.ai/skills/**` — drifts from `templates/`. Heal it with
-`deno task selfsync` (≡ `icculus upgrade`), which propagates `templates/` → the
-install. So the golden rule is: to change the engine, a recipe, or a shipped
+`deno task selfcheck`) fails the gate if any _managed_ file — the root `agent`,
+`.icculus/engine/**`, `.icculus/skills/**` — drifts from `templates/`. Heal it
+with `deno task selfsync` (≡ `icculus upgrade`), which propagates `templates/` →
+the install. So the golden rule is: to change the engine, a recipe, or a shipped
 skill, **edit `templates/` and run `deno task selfsync`** — never the root copy.
-Everything else `init` wrote (`icculus.toml`, `docs/`, `.ai/guidelines/`,
-`TODO.md`) is _seed_: yours to edit directly, never distributed.
+Everything else `init` wrote (`.icculus/config.toml`, `docs/`,
+`.icculus/guidelines/`, `TODO.md`) is _seed_: yours to edit directly, never
+distributed.
 
 The installer↔install lifecycle — `init` → `finish` → `upgrade` (drift detection
 and healing included) — is also exercised hermetically by the test suite
 (`deno task test` scaffolds the real `templates/` into temp dirs and shells out
-to `bin/agent`), so a `templates/` change is validated whether or not the root
-install is synced yet. CI runs the same gate (`agent finish`) on every push and
-PR.
+to the root `agent`), so a `templates/` change is validated whether or not the
+root install is synced yet. CI runs the same gate (`agent finish`) on every push
+and PR.
 
 ---
 

@@ -304,7 +304,7 @@ done
 
 if [ "$unfilled_phases" -eq 4 ]; then
     ok "Gate passed — but every tool slot is a no-op, so nothing was actually checked."
-    warn "Fill [slots] in icculus.toml (or run /bootstrap) to wire your format/lint/test commands."
+    warn "Fill [slots] in .icculus/config.toml (or run /bootstrap) to wire your format/lint/test commands."
 else
     ok "Everything built and all checks passed."
     if [ "$unfilled_phases" -gt 0 ]; then

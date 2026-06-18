@@ -1,5 +1,5 @@
 # shellcheck shell=sh
-# validate.sh — small, pure predicates for sanity-checking icculus.toml values.
+# validate.sh — small, pure predicates for sanity-checking .icculus/config.toml values.
 #
 # Sourced by `doctor` (and available to any recipe via bootstrap.sh if needed).
 # These are deliberately content-only: they take a string and answer a question,

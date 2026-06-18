@@ -10,8 +10,8 @@
  * Managed vs seed is a classification on the *target* path, DECLARED by the kit
  * in `templates/managed.json` (an adapter may ship its own) rather than hardcoded
  * here:
- *   MANAGED  refreshed by `upgrade`  — by default `bin/agent`,
- *            `.icculus/engine/**`, `.ai/skills/**`.
+ *   MANAGED  refreshed by `upgrade`  — by default `agent`,
+ *            `.icculus/engine/**`, `.icculus/skills/**`.
  *   SEED     write-once, never overwritten on upgrade — everything else.
  */
 
@@ -66,8 +66,8 @@ export interface ManagedSpec {
  * declaration is read or this fallback applies.
  */
 export const DEFAULT_MANAGED_SPEC: ManagedSpec = {
-  exact: ["bin/agent"],
-  prefixes: [".icculus/engine/", ".ai/skills/"],
+  exact: ["agent"],
+  prefixes: [".icculus/engine/", ".icculus/skills/"],
 };
 
 /**

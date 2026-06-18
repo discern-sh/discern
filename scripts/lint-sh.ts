@@ -2,7 +2,7 @@
 /**
  * lint-sh.ts — run shellcheck over every shell source in the repo.
  *
- * The harness is POSIX shell: the engine recipes and bin/agent ship under
+ * The harness is POSIX shell: the engine recipes and agent ship under
  * `#!/usr/bin/env sh`, and install.sh is the bootstrap installer. zsh — the
  * default macOS interactive shell — is far more lenient than the dash/bash that
  * actually run these scripts, so eyeballing in a terminal hides portability

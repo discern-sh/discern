@@ -4,15 +4,16 @@ _The rules the tooling enforces, and the conventions to follow when writing code
 here._
 
 This doc is the detailed companion to the **Conventions** section of the project
-guidelines (`.ai/guidelines/icculus.md`). The guidelines hold the short,
+guidelines (`.icculus/guidelines/icculus.md`). The guidelines hold the short,
 agent-facing form; this doc holds the full reasoning. Keep the two in step, and
-keep both aligned with what the `[slots]` in `icculus.toml` actually enforce —
-the written rule and the enforced rule must never disagree.
+keep both aligned with what the `[slots]` in `.icculus/config.toml` actually
+enforce — the written rule and the enforced rule must never disagree.
 
 ## What the gate enforces
 
-The `fix` and `check` slots in [`icculus.toml`](../../icculus.toml) are the
-mechanical rules. To satisfy all of them at once, run `agent tidy`.
+The `fix` and `check` slots in
+[`.icculus/config.toml`](../../.icculus/config.toml) are the mechanical rules.
+To satisfy all of them at once, run `agent tidy`.
 
 | Slot         | Phase | Command                  | What it checks / how to satisfy                                                                                                                                                                                      |
 | ------------ | ----- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -29,16 +30,16 @@ slot (`deno task test`) is covered in [testing.md](testing.md).
 
 The conventions the tooling cannot fully enforce, but the project still holds:
 
-- **The golden rule — managed vs seed.** Managed files (`bin/agent`,
-  `.icculus/engine/**`, `.ai/skills/**`) are copied from `templates/`; never
-  hand-edit them. Edit the source under `templates/`, then `deno task selfsync`.
-  A direct edit won't ship and `selfcheck` flags it as drift. Seed files
-  (`icculus.toml`, `docs/**`, `.ai/guidelines/icculus.md`, `TODO.md`) are yours
-  — edit them in place. See [install-surface.md](install-surface.md) for the
-  full disposition map.
+- **The golden rule — managed vs seed.** Managed files (`agent`,
+  `.icculus/engine/**`, `.icculus/skills/**`) are copied from `templates/`;
+  never hand-edit them. Edit the source under `templates/`, then
+  `deno task selfsync`. A direct edit won't ship and `selfcheck` flags it as
+  drift. Seed files (`.icculus/config.toml`, `docs/**`,
+  `.icculus/guidelines/icculus.md`, `TODO.md`) are yours — edit them in place.
+  See [install-surface.md](install-surface.md) for the full disposition map.
 - **Never hand-edit generated files.** `CLAUDE.md` and `AGENTS.md` are compiled
-  from `.ai/guidelines/*.md` by `agent guidelines`; edit the guidance source and
-  recompile. They carry a do-not-edit banner.
+  from `.icculus/guidelines/*.md` by `agent guidelines`; edit the guidance
+  source and recompile. They carry a do-not-edit banner.
 - **Run from source, never `dist/`.** Use `deno task dev <cmd>`; the `dist/`
   binaries bundle a frozen `templates/` snapshot. Don't put `--` before a
   subcommand.

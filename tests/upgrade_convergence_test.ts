@@ -16,7 +16,7 @@
  * regardless of where the system temp dir lives.
  */
 
-import { assertEquals, assertStringIncludes } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { sha256Hex } from "../src/lib/manifest.ts";
 import {
@@ -133,9 +133,9 @@ Deno.test("a second upgrade is a no-op (idempotent)", async () => {
 
 // ---- the corpus: a real migration carries an old install forward ----------
 
-/** Strip the `main_branch` line(s) from an install's icculus.toml. */
+/** Strip the `main_branch` line(s) from an install's .icculus/config.toml. */
 async function removeMainBranch(dir: string): Promise<void> {
-  const p = join(dir, "icculus.toml");
+  const p = join(dir, ".icculus/config.toml");
   const kept = (await Deno.readTextFile(p))
     .split("\n")
     .filter((l) => !/^\s*main_branch\s*=/.test(l));
@@ -162,7 +162,7 @@ Deno.test("a schema-1 install missing main_branch upgrades to converge with a fr
       const res = await upgrade(older); // runs the 1→2 migration, then syncs + stamps
       assertEquals(
         res.migrations_applied.map((m: { from: number }) => m.from),
-        [1],
+        [1, 2],
       );
 
       await init(fresh); // a fresh schema-2 install
@@ -177,8 +177,84 @@ Deno.test("a schema-1 install missing main_branch upgrades to converge with a fr
       // not byte-for-byte with the template — the backfill carries no surrounding
       // comment, which is fine (the seed is the user's, not the kit's).
       assertStringIncludes(
-        await readTarget(older, "icculus.toml"),
+        await readTarget(older, ".icculus/config.toml"),
         'main_branch = "main"',
+      );
+    });
+  });
+});
+
+/**
+ * Reverse the schema-3 consolidation on a fresh install: move the files back to
+ * the pre-3 layout (dispatcher under `bin/`, config at the root, guidance and
+ * skills under `.ai/`) and rewrite the manifest's managed paths + schema, so it
+ * reads as a genuine v2 install. Hashes are unchanged — only the bytes' location
+ * moves — so the old copies still read as pristine and orphan-prune will remove
+ * them once the new ones are synced in.
+ */
+async function regressToV2(dir: string): Promise<void> {
+  await Deno.mkdir(join(dir, "bin"), { recursive: true });
+  await Deno.mkdir(join(dir, ".ai"), { recursive: true });
+  await Deno.rename(join(dir, "agent"), join(dir, "bin/agent"));
+  await Deno.rename(
+    join(dir, ".icculus/config.toml"),
+    join(dir, "icculus.toml"),
+  );
+  await Deno.rename(
+    join(dir, ".icculus/guidelines"),
+    join(dir, ".ai/guidelines"),
+  );
+  await Deno.rename(join(dir, ".icculus/skills"), join(dir, ".ai/skills"));
+  const sp = join(dir, ".claude/settings.json");
+  await Deno.writeTextFile(
+    sp,
+    (await Deno.readTextFile(sp)).replaceAll("./agent", "./bin/agent"),
+  );
+  const mp = join(dir, ".icculus/manifest.json");
+  const m = JSON.parse(await Deno.readTextFile(mp));
+  m.schema_version = 2;
+  m.managed = m.managed.map((e: { path: string; sha256: string }) => ({
+    ...e,
+    path: e.path === "agent"
+      ? "bin/agent"
+      : e.path.replace(/^\.icculus\/skills\//, ".ai/skills/"),
+  }));
+  await Deno.writeTextFile(mp, `${JSON.stringify(m, null, 2)}\n`);
+}
+
+Deno.test("a schema-2 old-layout install upgrades to the consolidated layout", async () => {
+  await withTempDir(async (older) => {
+    await withTempDir(async (fresh) => {
+      await init(older); // a fresh schema-3 install (the new layout)
+      await regressToV2(older); // reverse it to the pre-consolidation v2 layout
+
+      const res = await upgrade(older); // runs 2→3, then syncs + prunes + stamps
+      assertEquals(
+        res.migrations_applied.map((m: { from: number }) => m.from),
+        [2],
+      );
+
+      await init(fresh);
+      // The managed set + schema converge with a fresh install: the dispatcher
+      // and skills were recreated at their new paths and the old pristine copies
+      // pruned — proving the migration + file sync carry an old install fully
+      // forward, not just the seeds the step renames.
+      assertEquals(
+        await manifestSansTimestamp(older),
+        await manifestSansTimestamp(fresh),
+      );
+      const snap = await snapshotTree(older);
+      assert(snap.has("agent"), "dispatcher recreated at the root");
+      assert(snap.has(".icculus/config.toml"), "config in the namespace");
+      assert(
+        snap.has(".icculus/skills/bootstrap/SKILL.md"),
+        "skills recreated in the namespace",
+      );
+      assert(!snap.has("bin/agent"), "old dispatcher pruned");
+      assert(!snap.has("icculus.toml"), "old root config gone");
+      assert(
+        ![...snap.keys()].some((k) => k.startsWith(".ai/")),
+        "no .ai/ files left",
       );
     });
   });

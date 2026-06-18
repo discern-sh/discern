@@ -85,8 +85,8 @@ export function isSettingsTemplate(path: string): boolean {
 
 /**
  * True when a *target* path must end up executable as part of the harness
- * contract: the dispatcher `bin/agent` and the top-level engine recipes (the
- * files `bin/agent` invokes). The engine's `lib/` sources and `*.awk` data are
+ * contract: the root dispatcher `agent` and the top-level engine recipes (the
+ * files `agent` invokes). The engine's `lib/` sources and `*.awk` data are
  * deliberately not executable.
  *
  * This is OR'd with the source file's own exec bit so the bit survives even when
@@ -96,7 +96,7 @@ export function isSettingsTemplate(path: string): boolean {
  */
 export function isContractExecutable(targetRelPath: string): boolean {
   const path = targetRelPath.replaceAll("\\", "/");
-  if (path === "bin/agent") {
+  if (path === "agent") {
     return true;
   }
   // A top-level engine recipe: directly under .icculus/engine/, not in lib/.

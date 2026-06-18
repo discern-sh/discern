@@ -10,9 +10,9 @@ a reliable experience. (Agents keep this page current too.)_
 icculus self-hosts, so the harness is present in two places:
 
 - [`templates/`](../../templates/) — the **source of truth** you edit, and
-- the **root install** that actually runs (`bin/agent`, `.icculus/engine/`,
-  `.ai/skills/`) — managed copies kept byte-identical to `templates/` by the
-  `selfcheck` gate.
+- the **root install** that actually runs (`agent`, `.icculus/engine/`,
+  `.icculus/skills/`) — managed copies kept byte-identical to `templates/` by
+  the `selfcheck` gate.
 
 Change a managed file at its `templates/` source and run `deno task selfsync`;
 never edit the root copy, because the gate overwrites it. The full file-by-file
@@ -23,7 +23,7 @@ the glossary.
 ## Prerequisites
 
 - **[Deno](https://deno.com)** — the only toolchain the harness itself needs
-  (`deno task`, the gate, `bin/agent`).
+  (`deno task`, the gate, `agent`).
 - **git** with worktree support (any recent version).
 - **jq** — used by the worktree hooks in `.claude/settings.json`, so an agent
   session that creates or removes a worktree needs it on `PATH`.
@@ -45,9 +45,9 @@ Stack-specific setup (installing project dependencies, running the app) lives in
   → blue, `Templates` → green, `Managed and generated` → rose or orange (your
   "don't touch" colour).
 - **Optional** — to drop the managed mirror out of search entirely, right-click
-  `bin/`, `.icculus/engine/`, and `.ai/skills/` → _Mark Directory as →
-  Excluded_. This is an alternative to the rose colour, not an addition:
-  excluded folders ignore file colours.
+  `.icculus/engine/` and `.icculus/skills/` → _Mark Directory as → Excluded_.
+  This is an alternative to the rose colour, not an addition: excluded folders
+  ignore file colours.
 
 ### VS Code
 
@@ -58,20 +58,19 @@ of search. There is no simple built-in equivalent for the colour-coding.
 ### Any editor
 
 Don't hand-edit generated files: `CLAUDE.md` and `AGENTS.md` are compiled from
-[`.ai/guidelines/`](../../.ai/guidelines/) by the `guidelines` recipe. Edit the
-guidelines source and recompile with `./bin/agent guidelines`.
+[`.icculus/guidelines/`](../../.icculus/guidelines/) by the `guidelines` recipe.
+Edit the guidelines source and recompile with `./agent guidelines`.
 
 ## Working alongside the agents
 
 - Agent sessions run in linked git worktrees under `.claude/worktrees/<name>/`,
   each with its own checkout.
 - To take over an agent's branch and continue in the main checkout, run the
-  [`handoff-worktree`](../../.ai/skills/handoff-worktree/SKILL.md) skill. It
-  runs `agent worktree:exit`, which commits the work, tears the worktree down,
-  and checks the branch out in the main repo.
-- Drive the gate yourself any time: `./bin/agent finish` (the full gate),
-  `./bin/agent tidy` (fast: fixers + checks), and `./bin/agent doctor` (health
-  check).
+  [`handoff-worktree`](../../.icculus/skills/handoff-worktree/SKILL.md) skill.
+  It runs `agent worktree:exit`, which commits the work, tears the worktree
+  down, and checks the branch out in the main repo.
+- Drive the gate yourself any time: `./agent finish` (the full gate),
+  `./agent tidy` (fast: fixers + checks), and `./agent doctor` (health check).
 
 ## Keeping this page current
 

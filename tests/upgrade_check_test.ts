@@ -35,13 +35,13 @@ Deno.test("upgrade --check writes nothing", async () => {
     await init(dir);
     // A read-only check must not create the `.new` siblings an edit would.
     await Deno.writeTextFile(
-      join(dir, "bin/agent"),
-      `${await Deno.readTextFile(join(dir, "bin/agent"))}\n# probe\n`,
+      join(dir, "agent"),
+      `${await Deno.readTextFile(join(dir, "agent"))}\n# probe\n`,
     );
     const r = await runCli(["upgrade", "--check", "--json"], dir);
     assertEquals(r.code, 1, r.stderr);
     assertEquals(
-      await targetExists(dir, "bin/agent.new"),
+      await targetExists(dir, "agent.new"),
       false,
       "--check must not write a .new sibling",
     );
@@ -51,7 +51,7 @@ Deno.test("upgrade --check writes nothing", async () => {
 Deno.test("upgrade --check reports an edited managed file by its canonical path", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
-    const agent = join(dir, "bin/agent");
+    const agent = join(dir, "agent");
     await Deno.writeTextFile(
       agent,
       `${await Deno.readTextFile(agent)}\n# local edit\n`,
@@ -61,12 +61,10 @@ Deno.test("upgrade --check reports an edited managed file by its canonical path"
     const res = JSON.parse(r.stdout);
     assertEquals(res.ok, false);
     const paths = res.drifted.map((d: { path: string }) => d.path);
-    // The canonical path, never `bin/agent.new`.
-    assertEquals(paths.includes("bin/agent"), true);
-    assertEquals(paths.includes("bin/agent.new"), false);
-    const op = res.drifted.find((d: { path: string }) =>
-      d.path === "bin/agent"
-    );
+    // The canonical path, never `agent.new`.
+    assertEquals(paths.includes("agent"), true);
+    assertEquals(paths.includes("agent.new"), false);
+    const op = res.drifted.find((d: { path: string }) => d.path === "agent");
     assertEquals(op.action, "new"); // edited managed file → preserved as .new
   });
 });
@@ -89,21 +87,21 @@ Deno.test("upgrade --check reports a missing managed file as create-drift", asyn
 Deno.test("upgrade --check (human mode) exits non-zero and names the drifted path on stderr", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
-    const agent = join(dir, "bin/agent");
+    const agent = join(dir, "agent");
     await Deno.writeTextFile(
       agent,
       `${await Deno.readTextFile(agent)}\n# local edit\n`,
     );
     const r = await runCli(["upgrade", "--check"], dir);
     assertEquals(r.code, 1, r.stderr);
-    assertStringIncludes(r.stderr, "bin/agent");
+    assertStringIncludes(r.stderr, "agent");
   });
 });
 
 Deno.test("upgrade --check heals with the product command, never engine-internal vocabulary", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
-    const agent = join(dir, "bin/agent");
+    const agent = join(dir, "agent");
     await Deno.writeTextFile(
       agent,
       `${await Deno.readTextFile(agent)}\n# local edit\n`,
@@ -149,7 +147,7 @@ Deno.test("upgrade --check flags a stale schema as drift even when files are in 
     const res = JSON.parse(r.stdout);
     assertEquals(res.ok, false);
     assertEquals(res.schema.recorded, 1);
-    assertEquals(res.schema.current, 2);
+    assertEquals(res.schema.current, 3);
     assertEquals(res.drifted, []); // managed files themselves are fine
   });
 });
@@ -180,7 +178,7 @@ Deno.test("upgrade --check heals with `deno task selfsync` when the project driv
         )
       }\n`,
     );
-    const agent = join(dir, "bin/agent");
+    const agent = join(dir, "agent");
     await Deno.writeTextFile(
       agent,
       `${await Deno.readTextFile(agent)}\n# local edit\n`,

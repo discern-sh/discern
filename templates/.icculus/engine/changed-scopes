@@ -20,7 +20,7 @@ set -f
 # OPEN: when git cannot answer, every scope is reported, so consumers run MORE
 # gates, never fewer.
 #
-# Scopes are defined in [scopes] in icculus.toml:
+# Scopes are defined in [scopes] in .icculus/config.toml:
 #   neutral      paths no gate covers (docs, agent guidance). Root-level *.md is
 #                always neutral.
 #   web          real, gated code changes (anything not neutral).

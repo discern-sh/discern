@@ -4,13 +4,12 @@
  * Flow: resolve config (flags + wizard) → build the plan from the templates
  * tree → append the brief + manifest ops → review (or dry-run) → confirm →
  * apply → outro pointing at `/bootstrap`. Refuses to run over an existing
- * `icculus.toml` unless `--force`.
+ * install unless `--force`.
  */
 
-import { join } from "@std/path";
 import { type InitConfig, tokensFromConfig } from "../lib/config.ts";
 import { Logger } from "../lib/log.ts";
-import { resolveTemplatesDir } from "../lib/paths.ts";
+import { resolveConfigPath, resolveTemplatesDir } from "../lib/paths.ts";
 import {
   confirmProceed,
   type InitFlags,
@@ -57,16 +56,6 @@ export interface InitOptions extends InitFlags {
 
 const TEXT_DECODER = new TextDecoder();
 const TEXT_ENCODER = new TextEncoder();
-
-/** True when `path` exists (file or dir). */
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await Deno.stat(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 /**
  * Assemble the complete plan for a run: the template walk plus the brief and
@@ -125,7 +114,7 @@ export async function assembleInitPlan(params: {
   plan.ops.push(briefOp, manifestOp);
   plan.ops.sort((a, b) => a.targetRel.localeCompare(b.targetRel));
 
-  // Apply declarative fills (from init --config) to the generated icculus.toml,
+  // Apply declarative fills (from init --config) to the generated .icculus/config.toml,
   // so the plan's bytes are final — dry-run/json show them and apply writes them.
   if (params.fills) {
     applyFillsToPlan(plan, params.fills);
@@ -135,11 +124,11 @@ export async function assembleInitPlan(params: {
 
 /**
  * Apply the answers file's slots/scopes/side_gates/ratchets to the generated
- * `icculus.toml` op via the comment-preserving editor. A no-op when icculus.toml
- * is a `skip` (an existing seed left as the user's — fills never clobber it).
+ * `.icculus/config.toml` op via the comment-preserving editor. A no-op when the
+ * config is a `skip` (an existing seed left as the user's — fills never clobber it).
  */
 function applyFillsToPlan(plan: Plan, fills: IcculusConfigDoc): void {
-  const op = plan.ops.find((o) => o.targetRel === "icculus.toml");
+  const op = plan.ops.find((o) => o.targetRel === ".icculus/config.toml");
   if (!op || op.disposition === "skip") {
     return;
   }
@@ -153,11 +142,12 @@ export async function runInit(options: InitOptions): Promise<number> {
   const log = new Logger(options);
   const destDir = Deno.cwd();
 
-  // Guard: refuse to scaffold over an existing install unless forced.
-  const tomlPath = join(destDir, "icculus.toml");
-  if (await pathExists(tomlPath) && !options.force) {
+  // Guard: refuse to scaffold over an existing install unless forced. Detect
+  // either layout — the consolidated `.icculus/config.toml` or a legacy root
+  // `icculus.toml` left by a pre-migration install.
+  if ((await resolveConfigPath(destDir)) !== undefined && !options.force) {
     const message =
-      "icculus.toml already exists here. Re-run with --force to refresh, or use `icculus upgrade` to refresh managed files only.";
+      "an icculus install already exists here. Re-run with --force to refresh, or use `icculus upgrade` to refresh managed files only.";
     if (options.json) {
       log.jsonResult({ ok: false, error: "already_initialized", message });
     } else {
@@ -285,13 +275,13 @@ function printOutro(log: Logger, config: InitConfig): void {
   );
   log.line();
   log.line(
-    "  icculus.toml          edit by hand — teaches the harness about your stack",
+    "  agent                 the task runner — ./agent finish, ./agent doctor",
   );
   log.line(
-    "  ./bin/agent           the task runner — ./bin/agent finish, ./bin/agent doctor",
+    "  .icculus/config.toml  edit by hand — teaches the harness about your stack",
   );
   log.line(
-    "  .icculus/             the generic engine, your brief, and the manifest",
+    "  .icculus/             the engine, guidance, skills, your brief, and the manifest",
   );
   log.line(
     "  .claude/settings.json merged (your existing settings were preserved)",
@@ -311,18 +301,18 @@ function printOutro(log: Logger, config: InitConfig): void {
   );
   log.line(
     `     you fill them ${
-      log.bold("./bin/agent finish")
+      log.bold("./agent finish")
     } passes without checking anything.`,
   );
   log.line(
     `     Run ${log.bold("/bootstrap")} (or edit ${
-      log.bold("icculus.toml")
+      log.bold(".icculus/config.toml")
     }) to wire your`,
   );
   log.line("     format / lint / test commands.");
   log.line(
     `  3. Run ${
-      log.bold("./bin/agent doctor")
+      log.bold("./agent doctor")
     } to verify the install (dispatcher, hooks,`,
   );
   log.line("     slot commands, git worktree support).");
