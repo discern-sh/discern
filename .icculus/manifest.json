@@ -1,7 +1,7 @@
 {
   "kit_version": "1.0.0",
   "schema_version": 2,
-  "generated_at": "2026-06-17T22:17:13.048Z",
+  "generated_at": "2026-06-18T00:30:14.190Z",
   "project": {
     "slug": "icculus",
     "agents": [
@@ -172,7 +172,7 @@
     },
     {
       "path": ".icculus/engine/worktree-prune",
-      "sha256": "abee619b795c1b431646d5551486d53419b9b9d185eef868ce6e064407c6af25"
+      "sha256": "f2cfa3b40f6f820492bc33c640a73254e2bd084b27fe8b438d073a827a312210"
     },
     {
       "path": ".icculus/engine/worktree-teardown",

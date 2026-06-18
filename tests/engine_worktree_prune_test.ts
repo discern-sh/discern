@@ -181,6 +181,19 @@ Deno.test("worktree:prune deletes a dangling fully-merged branch but keeps an un
   });
 });
 
+Deno.test("worktree:prune refuses to run from inside a linked worktree", async () => {
+  await withTempDir(async (dir) => {
+    // Pool housekeeping is a main-checkout operation (guarded by
+    // assert-not-in-worktree). Driving it from inside a linked worktree must
+    // refuse — you would be pruning siblings from within one — and touch nothing.
+    const wt = await mainWithWorktree(dir, "from-inside");
+    const r = await runAgent(wt, ["worktree:prune", "--yes"]);
+    assertEquals(r.code, 1, r.output);
+    assertStringIncludes(r.output, "main checkout");
+    assert(await exists(wt), `the worktree must be left intact\n${r.output}`);
+  });
+});
+
 /** The repo's local branch names, newline-joined, via a hermetic git call. */
 async function branchList(dir: string): Promise<string> {
   const c = new Deno.Command("git", {
