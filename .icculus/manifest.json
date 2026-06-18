@@ -1,7 +1,7 @@
 {
   "kit_version": "1.0.0",
   "schema_version": 3,
-  "generated_at": "2026-06-18T18:46:27.213Z",
+  "generated_at": "2026-06-18T22:05:32.363Z",
   "project": {
     "slug": "icculus",
     "agents": [
@@ -191,10 +191,6 @@
       "sha256": "721285efb1780ef32e23e115f13b38ca6259dd4b3067b132988140435eeea536"
     },
     {
-      "path": ".icculus/skills/coding-principles/SKILL.md",
-      "sha256": "f532ffe4cd64fabfd5e3dc2be9bb3b2a6d6ce84e87161b305759473e4f646023"
-    },
-    {
       "path": ".icculus/skills/document-subsystem/skel/docs/_internal/documenter-agent-brief.md",
       "sha256": "ccf1d97321ba6d0be3c12bb5af8781bfd9eed4ad8f25fd6a2ad862e1dd63d2be"
     },
@@ -207,28 +203,8 @@
       "sha256": "43bd4e5e9cfc3977394a2db3c07cfa8a037de666d163e0b03a55e1d8028da996"
     },
     {
-      "path": ".icculus/skills/engineering-overkill/SKILL.md",
-      "sha256": "3e2f3a1cb3abe8c7563f7eb8cf027552357b1eed51dd32fe432c44d07b317d40"
-    },
-    {
-      "path": ".icculus/skills/grill-me/SKILL.md",
-      "sha256": "3022f6688e8a1553c423ac335f78778df5a36b5f01f866922624dcd69c51b412"
-    },
-    {
-      "path": ".icculus/skills/grill-with-docs/CONTEXT-FORMAT.md",
-      "sha256": "0eee1aa07fca45f72ec1a6181e7c0db9aa09965ca90f2ac59815657378caa192"
-    },
-    {
-      "path": ".icculus/skills/grill-with-docs/SKILL.md",
-      "sha256": "0e4488353931f55ac84798007f9789a82b0934487a45b3f0d475bd914ce8f407"
-    },
-    {
       "path": ".icculus/skills/handoff-worktree/SKILL.md",
       "sha256": "f3f13b8f0ae6c1db0d31822bd317bbc5a96191b49d294273f2fec24838b09666"
-    },
-    {
-      "path": ".icculus/skills/prompt-engineering/SKILL.md",
-      "sha256": "ac23776f44fba7e6d3e0cfc0815d2cb91f4349568f2e9dbcc707463563120472"
     },
     {
       "path": ".icculus/skills/write-adr/skel/docs/_adr/0000-template.md",

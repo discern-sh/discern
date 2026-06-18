@@ -16,8 +16,8 @@ always reproduced by re-running the recipe. Driving several agents from one
 source is what keeps guidance provider-agnostic — write the rule once, every
 agent gets it.
 
-The bundled Skills (`bootstrap`, `document-subsystem`, `write-adr`,
-`handoff-worktree`, the grilling and principles skills, and more) ship under
+The bundled Skills (`bootstrap`, `document-subsystem`, `write-adr`, and
+`handoff-worktree`) ship under
 [`.icculus/skills/`](../../templates/.icculus/skills/) as Managed files.
 
 > **Status: stub.** This README orients the subtree; the leaves below are not
