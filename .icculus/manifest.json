@@ -1,7 +1,7 @@
 {
   "kit_version": "1.0.0",
   "schema_version": 4,
-  "generated_at": "2026-06-19T01:44:40.780Z",
+  "generated_at": "2026-06-19T11:01:39.604Z",
   "project": {
     "slug": "icculus",
     "agents": [
@@ -40,7 +40,7 @@
     },
     {
       "path": ".icculus/engine/guidelines",
-      "sha256": "32326a63bb0e1db679ac18412bbe6a0b512103162d474afb665a8ebaa28f3ba6"
+      "sha256": "c1a737de0904c67bb8609ce195773498be60e1eca3e2644202068dc1ab371f7d"
     },
     {
       "path": ".icculus/engine/inherit-main-env-vars",
