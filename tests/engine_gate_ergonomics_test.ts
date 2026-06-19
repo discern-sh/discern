@@ -1,10 +1,11 @@
 /**
- * Engine tests for the long-slot ergonomics (ADR 0006): `[gate].stream` (live
+ * Engine tests for the long-job ergonomics (ADR 0006): `[gate].stream` (live
  * line-prefixed output) and `[gate].fail_fast` (cancel in-flight siblings on
- * first failure). These drive `agent finish` with two slots in the SAME parallel
- * stage — a `check` slot that fails fast and a `test` slot that would otherwise
- * run for seconds — since fail-fast cancels concurrent siblings, and check+test
- * is the gate's parallel stage (fix and build run in their own ordered stages).
+ * first failure). These drive `agent finish` with two jobs in the SAME parallel
+ * stage — a `lint` (check-stage) capability that fails fast and a `test`
+ * capability that would otherwise run for seconds — since fail-fast cancels
+ * concurrent siblings, and check+test is the gate's parallel stage (fix and
+ * build run in their own ordered stages).
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
@@ -17,8 +18,9 @@ import {
 } from "./engine_helpers.ts";
 
 /**
- * A config with two slots in the SAME parallel stage: a `check` slot that fails
- * immediately and a `test` slot that is slow. (check and test run together.)
+ * A config with two jobs in the SAME parallel stage: a `lint` (check-stage)
+ * capability that fails immediately and a `test` capability that is slow. (check
+ * and test run together.)
  */
 function failFastConfig(opts: { failFast: boolean; stream?: boolean }): string {
   return [
@@ -26,17 +28,9 @@ function failFastConfig(opts: { failFast: boolean; stream?: boolean }): string {
     'slug = "engine-test"',
     'main_branch = "main"',
     "",
-    "[scopes]",
-    'neutral = ["docs/"]',
-    'web = ["src/**"]',
-    "",
-    "[slots.lint]",
-    'phase = "check"',
-    'run = "exit 1"', // fails fast
-    "",
-    "[slots.slowtest]",
-    'phase = "test"',
-    'run = "sleep 5; echo RAN-TO-END"', // slow sibling in the same stage
+    "[capabilities]",
+    'lint = "exit 1"', // fails fast (check stage)
+    'test = "sleep 5; echo RAN-TO-END"', // slow sibling in the same parallel stage
     "",
     "[gate]",
     `stream = ${opts.stream ? "true" : "false"}`,
@@ -77,17 +71,9 @@ Deno.test("gate fail_fast is ON by default (no [gate] section)", async () => {
         'slug = "engine-test"',
         'main_branch = "main"',
         "",
-        "[scopes]",
-        'neutral = ["docs/"]',
-        'web = ["src/**"]',
-        "",
-        "[slots.lint]",
-        'phase = "check"',
-        'run = "exit 1"',
-        "",
-        "[slots.slowtest]",
-        'phase = "test"',
-        'run = "sleep 5; echo RAN-TO-END"',
+        "[capabilities]",
+        'lint = "exit 1"',
+        'test = "sleep 5; echo RAN-TO-END"',
         "",
       ].join("\n"),
     );
@@ -147,13 +133,8 @@ Deno.test("gate stream: output is line-prefixed with the job label", async () =>
         'slug = "engine-test"',
         'main_branch = "main"',
         "",
-        "[scopes]",
-        'neutral = ["docs/"]',
-        'web = ["src/**"]',
-        "",
-        "[slots.format]",
-        'phase = "fix"',
-        'run = "echo HELLO-FROM-FIX"',
+        "[capabilities]",
+        'format = "echo HELLO-FROM-FIX"', // format is a fix-stage capability
         "",
         "[gate]",
         "stream = true",

@@ -13,7 +13,7 @@
 #
 # The adapter-token convention. Adapter command strings in [worktree.db] and
 # [worktree.dev_server] are operator-supplied and run with `eval` (matching the
-# slot-command convention in jobs.sh). Before eval-ing, these RUNTIME tokens are
+# command convention in jobs.sh). Before eval-ing, these RUNTIME tokens are
 # replaced with values derived from THIS worktree's identity. They use the `@…@`
 # delimiter — distinct from the installer's `{{…}}` content tokens (which are
 # already substituted at init), so the two layers never collide:

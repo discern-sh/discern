@@ -39,9 +39,9 @@ function recordingStep(from: number, log: number[]): Migration {
 // ---- the production chain --------------------------------------------------
 
 Deno.test("the production chain is contiguous up to the current schema", () => {
-  // One step per bump, from 1 up to SCHEMA_VERSION: 1→2 (main_branch backfill)
-  // and 2→3 (the .icculus/ surface consolidation).
-  assertEquals(MIGRATIONS.map((m) => m.from), [1, 2]);
+  // One step per bump, from 1 up to SCHEMA_VERSION: 1→2 (main_branch backfill),
+  // 2→3 (the .icculus/ surface consolidation), and 3→4 (capabilities/checks).
+  assertEquals(MIGRATIONS.map((m) => m.from), [1, 2, 3]);
   assert(isChainContiguous(MIGRATIONS, SCHEMA_VERSION));
 });
 
@@ -125,6 +125,85 @@ Deno.test("migration 2→3 moves the config + guidance seeds (managed files left
     // Idempotent: a second run over the now-moved seeds is a clean no-op.
     await applyMigrations({ destDir: dir, from: 2, to: 3 });
     assert(await targetExists(dir, ".icculus/config.toml"));
+  });
+});
+
+Deno.test("migration 3→4 converts slots→capabilities/checks, inlines ratchet runs, folds side-gates, drops evidence", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.mkdir(join(dir, ".icculus"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, ".icculus/config.toml"),
+      [
+        "[project]",
+        'slug = "demo"',
+        "",
+        "[slots.format]", // a known capability at its canonical stage
+        'phase = "fix"',
+        'run = "deno fmt"',
+        "",
+        "[slots.selfcheck]", // not vocabulary → a check
+        'phase = "check"',
+        'run = "make selfcheck"',
+        "",
+        "[slots.build]", // a no-op → dropped (absence is the new "unfilled")
+        'phase = "build"',
+        'run = ":"',
+        "",
+        "[slots.cov]", // a measurement slot → inlined into the ratchet
+        'run = "measure-cov"',
+        "",
+        "[scopes]",
+        'neutral = ["docs/"]',
+        'web = ["src/**"]', // the implicit code default → dropped
+        'previewable = ["public/**"]',
+        'native = ["native/**"]',
+        "",
+        "[scopes.side_gates]",
+        'native = "make -C native check"',
+        "",
+        "[ratchets.coverage]",
+        'direction = "up"',
+        "limit = 80",
+        'slot = "cov"',
+        "",
+        "[evidence]",
+        "enabled = false",
+        "",
+      ].join("\n"),
+    );
+
+    const applied = await applyMigrations({ destDir: dir, from: 3, to: 4 });
+    assertEquals(applied.map((m) => m.from), [3]);
+
+    const toml = await Deno.readTextFile(join(dir, ".icculus/config.toml"));
+    // A known slot at its canonical stage → a capability (the stage is dropped).
+    assertStringIncludes(toml, "[capabilities]");
+    assertStringIncludes(toml, 'format = "deno fmt"');
+    // A non-vocabulary slot → a check carrying its stage.
+    assertStringIncludes(toml, "[checks.selfcheck]");
+    assertStringIncludes(toml, 'stage = "check"');
+    assertStringIncludes(toml, 'run = "make selfcheck"');
+    // A no-op slot (build = ":") is dropped, not carried forward.
+    assert(!/^\s*build\s*=/m.test(toml));
+    // The measurement slot's run is inlined into the ratchet; `slot` is gone.
+    assertStringIncludes(toml, 'run = "measure-cov"');
+    assert(!toml.includes('slot = "cov"'));
+    // Reserved scopes become flagged tables; the side gate folds into the scope.
+    assertStringIncludes(toml, "[scopes.docs]");
+    assertStringIncludes(toml, "neutral = true");
+    assertStringIncludes(toml, "[scopes.native]");
+    assertStringIncludes(toml, 'gate = "make -C native check"');
+    // The legacy structure is gone.
+    assert(!toml.includes("[slots."));
+    assert(!toml.includes("[scopes.side_gates]"));
+    assert(!toml.includes("[evidence]"));
+
+    // Idempotent: a second run is a clean no-op.
+    await applyMigrations({ destDir: dir, from: 3, to: 4 });
+    assertEquals(
+      await Deno.readTextFile(join(dir, ".icculus/config.toml")),
+      toml,
+    );
   });
 });
 

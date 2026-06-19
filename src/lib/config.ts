@@ -13,18 +13,35 @@ export const KNOWN_AGENTS = ["claude_code", "codex"] as const;
 export type AgentName = (typeof KNOWN_AGENTS)[number];
 
 /**
- * The phases a slot may declare. Mirrors `ICCULUS_PHASES` in the engine's
- * `lib/validate.sh`, so the installer's `config set-slot` validation and the
- * engine's own checks cannot drift. A slot may also declare NO phase: it is then
- * a measurement slot a `[ratchets.<name>]` runs on demand (never in the gate).
+ * The gate STAGES, in the order the gate reasons about them. A `[checks.<name>]`
+ * declares one explicitly; a capability's stage is derived (see
+ * `KNOWN_CAPABILITIES`). Mirrors `ICCULUS_STAGES` in the engine's
+ * `lib/capabilities.sh`, so the installer's validation and the engine cannot drift.
  */
-export const KNOWN_PHASES = [
+export const STAGES = [
   "fix",
   "build",
   "check",
   "test",
 ] as const;
-export type Phase = (typeof KNOWN_PHASES)[number];
+export type Stage = (typeof STAGES)[number];
+
+/**
+ * The known capability vocabulary: each capability name mapped to the gate stage
+ * the engine derives for it. This is a CLOSED set — a key outside it is custom
+ * work and belongs in `[checks.<name>]` with an explicit stage. A known
+ * capability omitted from a config is "knowably absent" (the readiness signal
+ * `doctor` reports). Mirrors `cap_stage` / `ICCULUS_CAPABILITIES` in the engine's
+ * `lib/capabilities.sh`.
+ */
+export const KNOWN_CAPABILITIES = {
+  format: "fix",
+  build: "build",
+  lint: "check",
+  typecheck: "check",
+  test: "test",
+} as const satisfies Record<string, Stage>;
+export type Capability = keyof typeof KNOWN_CAPABILITIES;
 
 /** Default values for every wizard answer. */
 export const DEFAULTS = {

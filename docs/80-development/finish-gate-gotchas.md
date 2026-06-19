@@ -5,10 +5,10 @@ procedure lives in [getting-started.md](getting-started.md) and
 [code-conventions.md](code-conventions.md); this page is the "why did it fail in
 a way the message didn't explain" reference._
 
-The gate **points an agent here when a phase fails** in a non-obvious way: each
-fix/build/check/test phase runs through `with-gotchas`, which prints a pointer
+The gate **points an agent here when a stage fails** in a non-obvious way: each
+fix/build/check/test stage runs through `with-gotchas`, which prints a pointer
 to this doc (the path is `[project].gotchas_doc` in `.icculus/config.toml`) when
-its phase exits non-zero. So the explanation is one step away even for an agent
+its stage exits non-zero. So the explanation is one step away even for an agent
 that has never hit the failure.
 
 These are real failure modes, each with its fix. **If you hit a new one, add it
@@ -18,13 +18,13 @@ here** — that is what keeps this page worth pointing at.
 
 ## Stack-independent traps
 
-These arise from how the harness works (git worktrees, parallel phases, build
+These arise from how the harness works (git worktrees, parallel stages, build
 artifacts, the merge check) and apply on any stack. They are seeded here so the
 gate has something useful to point at on day one.
 
 ### `main` advanced during your session
 
-**Symptom.** Every phase passes, then `agent finish` stops at the very end with
+**Symptom.** Every stage passes, then `agent finish` stops at the very end with
 a message that your branch does not contain the latest `main`. It does **not**
 merge for you.
 
@@ -58,20 +58,20 @@ filter. The bug is in the test's isolation, not in the gate.
 match your source — an old compiled output, a cached bundle, a
 missing-from-manifest error — even though the source is correct.
 
-**Cause.** A `build`-phase slot produces artifacts that a later `check`/`test`
-phase reads, and the artifacts on disk are from a previous run (or were
+**Cause.** A `build` capability produces artifacts that a later `check`/`test`
+stage reads, and the artifacts on disk are from a previous run (or were
 half-written while something read them).
 
 **Fix.** Rebuild from clean and re-run. The gate already orders `build` (and
 `fix`) **before** `check`/`test` so artifacts are complete before anything reads
 them — so if you are hitting this, you likely ran a step by hand out of order,
-or a partial build was left behind. Let `agent finish` run the phases in order
+or a partial build was left behind. Let `agent finish` run the stages in order
 rather than invoking a check directly against stale output.
 
 ### A merge pulled in a new dependency
 
 **Symptom.** Right after `git merge main`, the next gate run dies in a check or
-test phase on a missing module/class/package — something that exists on `main`
+test stage on a missing module/class/package — something that exists on `main`
 but is unknown locally.
 
 **Cause.** In an isolated worktree (and often elsewhere), dependencies are not
@@ -88,7 +88,7 @@ non-zero exit) rather than a clear "not found".
 ### A failure shows up as exit 0
 
 **Symptom.** You pipe `agent finish` into `tee`, `tail`, or another command to
-capture its output, and it appears to succeed even though a phase clearly
+capture its output, and it appears to succeed even though a stage clearly
 failed.
 
 **Cause.** A pipeline reports the **last** command's exit code, not the gate's.
@@ -101,13 +101,13 @@ option).
 
 ### The gate skips a step you expected it to run (scope detection)
 
-**Symptom.** A change you made does not trigger the side gate, preview, or build
-you expected — for example a docs-only change runs almost nothing.
+**Symptom.** A change you made does not trigger the scope `gate`, preview, or
+build you expected — for example a docs-only change runs almost nothing.
 
 **Cause.** This is by design. The gate classifies which scopes a change touched
 (`[scopes]` in `.icculus/config.toml`) and skips work that cannot be affected: a
-change confined to `neutral` paths runs no side gates and gets no preview.
-Classification **fails open** — a path matching no rule counts as a real code
+change confined to a `neutral` scope runs no scope `gate`s and gets no preview.
+Classification **fails open** — a path matching no scope counts as a real code
 change, so an unknown path runs _more_ gates, never fewer.
 
 **Fix.** If something was skipped that should not have been, your `[scopes]`
@@ -125,9 +125,9 @@ This section is yours to grow. As you build and hit failures the error message
 alone did not explain, record them here as **symptom + cause + fix** — the same
 shape as the entries above. Good candidates:
 
-- A tool in one of your `[slots]` that fails for a reason its own output does
-  not make clear.
-- An ordering constraint specific to your build (an artifact one phase must
+- A tool in one of your `[capabilities]` (or a `[checks.<name>]`) that fails for
+  a reason its own output does not make clear.
+- An ordering constraint specific to your build (an artifact one stage must
   produce before another reads it).
 - A test-isolation footgun unique to your framework or test runner.
 - A toolchain step a merge can invalidate (a generated file, a native build, a

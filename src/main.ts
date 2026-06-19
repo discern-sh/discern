@@ -13,14 +13,14 @@ import { runInit } from "./commands/init.ts";
 import { runUpgrade } from "./commands/upgrade.ts";
 import { runDoctor } from "./commands/doctor.ts";
 import { runMigrate } from "./commands/migrate.ts";
-import { runAddAdapter } from "./commands/add_adapter.ts";
+import { runAddPreset } from "./commands/add_preset.ts";
 import { runDocs } from "./commands/docs.ts";
 import {
   runConfigSet,
+  runConfigSetCapability,
+  runConfigSetCheck,
   runConfigSetRatchet,
   runConfigSetScope,
-  runConfigSetSideGate,
-  runConfigSetSlot,
 } from "./commands/config.ts";
 
 /**
@@ -168,14 +168,14 @@ function buildCli() {
     });
 
   root
-    .command("add-adapter <name:string>")
+    .command("add-preset <name:string>")
     .description(
-      "Overlay a reference adapter from adapters/<name>/ (ships none by default).",
+      "Overlay a reference preset from presets/<name>/ (ships none by default).",
     )
     .option("-y, --yes", "Non-interactive: skip the confirm prompt.")
     .option("--dry-run", "Print the plan and write nothing.")
     .action(async (options, name: string) => {
-      const code = await runAddAdapter(name, {
+      const code = await runAddPreset(name, {
         json: options.json ?? false,
         noColor: noColorFrom(options.color),
         dryRun: options.dryRun ?? false,
@@ -219,50 +219,59 @@ function buildCli() {
   // `config` — programmatic, comment-preserving edits to an existing
   // .icculus/config.toml. Each subcommand is a standalone Command instance attached via
   // `.command(name, instance)` (the reliable Cliffy form for a command group).
-  const setSlot = new Command()
-    .description("Set or create a [slots.<name>] table (phase + run).")
+  const setCapability = new Command()
+    .description(
+      "Set a [capabilities] entry (format|build|lint|typecheck|test).",
+    )
+    .arguments("<name:string> <command:string>")
+    .option("--dry-run", "Print the edit and write nothing.")
+    .action(async (options, name: string, command: string) => {
+      Deno.exit(
+        await runConfigSetCapability(name, command, {
+          ...globalFlags(options),
+          dryRun: options.dryRun ?? false,
+        }),
+      );
+    });
+
+  const setCheck = new Command()
+    .description("Set or create a [checks.<name>] table (custom gate work).")
     .arguments("<name:string>")
     .option(
-      "--phase <phase:string>",
-      "Slot phase: fix|build|check|test. Omit for a measurement slot.",
+      "--stage <stage:string>",
+      "When it runs: fix|build|check|test.",
+      { required: true },
     )
-    .option("--run <cmd:string>", "The slot command.", { required: true })
+    .option("--run <cmd:string>", "The check command.", { required: true })
+    .option("--provides <label:string>", "Optional free-text label.")
     .option("--dry-run", "Print the edit and write nothing.")
     .action(async (options, name: string) => {
       Deno.exit(
-        await runConfigSetSlot(name, {
+        await runConfigSetCheck(name, {
           ...globalFlags(options),
           dryRun: options.dryRun ?? false,
-          phase: options.phase,
+          stage: options.stage,
           run: options.run,
+          provides: options.provides,
         }),
       );
     });
 
   const setScope = new Command()
-    .description("Set a [scopes].<name> array of path globs.")
+    .description("Set a [scopes.<name>] table (paths + optional attributes).")
     .arguments("<name:string> <globs...:string>")
+    .option("--neutral", "Changes here need no gate.")
+    .option("--previewable", "A person could see changes here.")
+    .option("--gate <cmd:string>", "A command to run when this scope changed.")
     .option("--dry-run", "Print the edit and write nothing.")
     .action(async (options, name: string, ...globs: string[]) => {
       Deno.exit(
         await runConfigSetScope(name, globs, {
           ...globalFlags(options),
           dryRun: options.dryRun ?? false,
-        }),
-      );
-    });
-
-  const setSideGate = new Command()
-    .description("Set a [scopes.side_gates].<scope> command.")
-    .arguments("<scope:string>")
-    .option("--run <cmd:string>", "The side-gate command.", { required: true })
-    .option("--dry-run", "Print the edit and write nothing.")
-    .action(async (options, scope: string) => {
-      Deno.exit(
-        await runConfigSetSideGate(scope, {
-          ...globalFlags(options),
-          dryRun: options.dryRun ?? false,
-          run: options.run,
+          neutral: options.neutral ?? false,
+          previewable: options.previewable ?? false,
+          gate: options.gate,
         }),
       );
     });
@@ -275,12 +284,12 @@ function buildCli() {
     })
     .option(
       "--metric <name:string>",
-      "Metric name the slot emits (default: <name>).",
+      "Metric name the run emits (default: <name>).",
     )
     .option("--direction <dir:string>", 'Either "up" or "down" (default: up).')
     .option(
-      "--slot <slot:string>",
-      "The [slots.<name>] that emits the metric.",
+      "--run <cmd:string>",
+      "The command that emits the metric line.",
       { required: true },
     )
     .option("--dry-run", "Print the edit and write nothing.")
@@ -292,7 +301,7 @@ function buildCli() {
           limit: options.limit,
           metric: options.metric,
           direction: options.direction,
-          slot: options.slot,
+          run: options.run,
         }),
       );
     });
@@ -323,9 +332,9 @@ function buildCli() {
     .action(function () {
       this.showHelp();
     })
-    .command("set-slot", setSlot)
+    .command("set-capability", setCapability)
+    .command("set-check", setCheck)
     .command("set-scope", setScope)
-    .command("set-side-gate", setSideGate)
     .command("set-ratchet", setRatchet)
     .command("set", setScalar);
 

@@ -1,19 +1,20 @@
 /**
  * The **icculus config document** — the one JSON shape that declaratively
- * describes a project's gate config (ADR 0005). It is consumed in two places:
+ * describes a project's gate config (ADR 0005, ADR 0017/0018). It is consumed in
+ * two places:
  *
  *   - `icculus init --config <file>` — drives a fresh, non-interactive install.
- *   - an adapter's `adapter.json` — the config half of an `add-adapter` overlay.
+ *   - a preset's `preset.json` — the config half of an `add-preset` overlay.
  *
- * Both apply the document's `slots` / `scopes` / `side_gates` / `ratchets` to a
- * project's `.icculus/config.toml` through the comment-preserving `TomlEditor`. Because
- * this shape is a published contract (a JSON Schema ships at
+ * Both apply the document's `capabilities` / `checks` / `scopes` / `ratchets` to
+ * a project's `.icculus/config.toml` through the comment-preserving `TomlEditor`.
+ * Because this shape is a published contract (a JSON Schema ships at
  * `schema/icculus-config.schema.json`), it carries an optional `version` so it
  * can evolve without silently misreading an older or newer document, and accepts
  * a `$schema` pointer for editor validation.
  */
 
-import { KNOWN_PHASES } from "./config.ts";
+import { KNOWN_CAPABILITIES, STAGES } from "./config.ts";
 import type { InitFlags } from "./prompts.ts";
 import type { TomlEditor } from "./toml_edit.ts";
 
@@ -22,14 +23,32 @@ import type { TomlEditor } from "./toml_edit.ts";
  * `version` (assumed current) or carry a matching major; a different major is a
  * breaking shape this build refuses rather than misreads.
  */
-export const CONFIG_DOC_VERSION = "1";
+export const CONFIG_DOC_VERSION = "2";
 
-/** A named ratchet table as expressed in the config document. */
+/** A capability/check/gate value: one command, or a list run in order. */
+type CommandOrList = string | string[];
+
+/** A `[checks.<name>]` table — custom gate work with an explicit stage. */
+interface CheckSpec {
+  stage: string;
+  run: CommandOrList;
+  provides?: string;
+}
+
+/** A `[scopes.<name>]` table — a named region with optional attributes. */
+interface ScopeSpec {
+  paths: string[];
+  neutral?: boolean;
+  previewable?: boolean;
+  gate?: CommandOrList;
+}
+
+/** A `[ratchets.<name>]` table as expressed in the config document. */
 interface RatchetSpec {
   metric?: string;
   direction?: string;
   limit: number | string;
-  slot?: string;
+  run: CommandOrList;
 }
 
 /** The full shape of an icculus config document (every field optional). */
@@ -44,14 +63,14 @@ export interface IcculusConfigDoc {
   source_globs?: string[];
   brief?: string;
   agents?: string[];
-  /** Adapter metadata; ignored by `init --config`. */
+  /** Preset metadata; ignored by `init --config`. */
   description?: string;
-  /** `[slots.<name>]` fills. Omit `phase` for a measurement slot. */
-  slots?: Record<string, { phase?: string; run?: string }>;
-  /** `[scopes].<name>` glob arrays. */
-  scopes?: Record<string, string[]>;
-  /** `[scopes.side_gates].<scope>` commands. */
-  side_gates?: Record<string, string>;
+  /** `[capabilities]` fills — a known capability name mapped to a command (or list). */
+  capabilities?: Record<string, CommandOrList>;
+  /** `[checks.<name>]` fills — custom gate work with an explicit stage. */
+  checks?: Record<string, CheckSpec>;
+  /** `[scopes.<name>]` fills — a named region with paths and optional attributes. */
+  scopes?: Record<string, ScopeSpec>;
   /** `[ratchets.<name>]` tables (coverage is just a conventional name). */
   ratchets?: Record<string, RatchetSpec>;
 }
@@ -139,57 +158,97 @@ export function mergeDocIntoFlags(
 }
 
 /**
- * Apply a document's `slots`/`scopes`/`side_gates`/`ratchets` fills to a
- * `TomlEditor` over a project's `.icculus/config.toml`. Validates names and enum-ish
- * values (phase, direction) the same way the `config` subcommand does; throws on
- * bad input so the caller can report it.
+ * Apply a document's `capabilities`/`checks`/`scopes`/`ratchets` fills to a
+ * `TomlEditor` over a project's `.icculus/config.toml`. Validates names and
+ * enum-ish values (capability name, stage, direction) the same way the `config`
+ * subcommand does; throws on bad input so the caller can report it.
  */
 export function applyConfigDoc(
   editor: TomlEditor,
   doc: IcculusConfigDoc,
 ): void {
-  for (const [name, slot] of Object.entries(doc.slots ?? {})) {
-    assertName("slot", name);
-    if (slot.phase !== undefined) {
-      if (!(KNOWN_PHASES as readonly string[]).includes(slot.phase)) {
-        throw new Error(
-          `slot "${name}": unknown phase "${slot.phase}" (use ${
-            KNOWN_PHASES.join(", ")
-          }, or omit it for a measurement slot)`,
-        );
-      }
-      editor.setString(`slots.${name}.phase`, slot.phase);
+  // Capabilities: a known name mapped to a command (or list). The stage is
+  // derived by the engine, so none is written. An unknown name has no derivable
+  // stage — reject it, pointing the author at [checks].
+  for (const [name, run] of Object.entries(doc.capabilities ?? {})) {
+    if (!Object.hasOwn(KNOWN_CAPABILITIES, name)) {
+      throw new Error(
+        `unknown capability "${name}" (known: ${
+          Object.keys(KNOWN_CAPABILITIES).join(", ")
+        }; use a [checks.<name>] table with a stage for custom work)`,
+      );
     }
-    if (slot.run !== undefined) {
-      editor.setString(`slots.${name}.run`, slot.run);
+    setCommand(editor, `capabilities.${name}`, run);
+  }
+
+  // Checks: an explicit stage (∈ STAGES) + a run command + an optional label.
+  for (const [name, spec] of Object.entries(doc.checks ?? {})) {
+    assertName("check", name);
+    if (spec.stage === undefined) {
+      throw new Error(`check "${name}": a stage is required`);
+    }
+    if (!(STAGES as readonly string[]).includes(spec.stage)) {
+      throw new Error(
+        `check "${name}": unknown stage "${spec.stage}" (use ${
+          STAGES.join(", ")
+        })`,
+      );
+    }
+    if (spec.run === undefined) {
+      throw new Error(`check "${name}": a run command is required`);
+    }
+    editor.setString(`checks.${name}.stage`, spec.stage);
+    setCommand(editor, `checks.${name}.run`, spec.run);
+    if (spec.provides !== undefined) {
+      editor.setString(`checks.${name}.provides`, spec.provides);
     }
   }
 
-  for (const [name, globs] of Object.entries(doc.scopes ?? {})) {
+  // Scopes: a named region (paths) with optional neutral/previewable/gate.
+  for (const [name, spec] of Object.entries(doc.scopes ?? {})) {
     assertName("scope", name);
-    if (!Array.isArray(globs)) {
-      throw new Error(`scope "${name}": value must be an array of globs`);
+    if (!Array.isArray(spec.paths)) {
+      throw new Error(`scope "${name}": paths must be an array of globs`);
     }
-    editor.setStringArray(`scopes.${name}`, globs);
+    editor.setStringArray(`scopes.${name}.paths`, spec.paths);
+    if (spec.neutral !== undefined) {
+      editor.setBool(`scopes.${name}.neutral`, spec.neutral);
+    }
+    if (spec.previewable !== undefined) {
+      editor.setBool(`scopes.${name}.previewable`, spec.previewable);
+    }
+    if (spec.gate !== undefined) {
+      setCommand(editor, `scopes.${name}.gate`, spec.gate);
+    }
   }
 
-  for (const [scope, cmd] of Object.entries(doc.side_gates ?? {})) {
-    assertName("side gate", scope);
-    editor.setString(`scopes.side_gates.${scope}`, cmd);
-  }
-
+  // Ratchets: a required run (emits the metric) + limit; direction/metric default.
   for (const [name, spec] of Object.entries(doc.ratchets ?? {})) {
     assertName("ratchet", name);
     const direction = spec.direction ?? "up";
     if (direction !== "up" && direction !== "down") {
       throw new Error(`ratchet "${name}": direction must be "up" or "down"`);
     }
+    if (spec.run === undefined) {
+      throw new Error(`ratchet "${name}": a run command is required`);
+    }
     editor.setString(`ratchets.${name}.metric`, spec.metric ?? name);
     editor.setString(`ratchets.${name}.direction`, direction);
     editor.setNumber(`ratchets.${name}.limit`, spec.limit);
-    if (spec.slot !== undefined) {
-      editor.setString(`ratchets.${name}.slot`, spec.slot);
-    }
+    setCommand(editor, `ratchets.${name}.run`, spec.run);
+  }
+}
+
+/** Write a command-or-list value: a TOML array when a list, else a string. */
+function setCommand(
+  editor: TomlEditor,
+  key: string,
+  value: CommandOrList,
+): void {
+  if (Array.isArray(value)) {
+    editor.setStringArray(key, value);
+  } else {
+    editor.setString(key, value);
   }
 }
 

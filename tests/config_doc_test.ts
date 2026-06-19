@@ -1,13 +1,14 @@
 /**
  * Unit tests for the **icculus config document** loader/validator
- * (`src/lib/config_doc.ts`) — the JSON shape behind `init --config` and an
- * adapter's `adapter.json`.
+ * (`src/lib/config_doc.ts`) — the JSON shape behind `init --config` and a
+ * preset's `preset.json`.
  *
  * These pin the guard rails: refusing an unsupported major `version`, rejecting
  * non-object JSON, surfacing read/parse failures, and the per-section name and
- * shape validation in `applyConfigDoc` (bad slot phase, non-array scope value,
- * bad ratchet direction, and the TOML-bare-key name rule for every section).
- * Expected error fragments are read from the source's messages by hand.
+ * shape validation in `applyConfigDoc` (unknown capability, bad check stage,
+ * non-array scope paths, missing ratchet run, bad direction, and the
+ * TOML-bare-key name rule). Expected error fragments are read from the source's
+ * messages by hand.
  */
 
 import { assert, assertEquals, assertThrows } from "@std/assert";
@@ -48,12 +49,12 @@ Deno.test("assertSupportedVersion accepts an absent, matching, or minor-bumped v
 
 Deno.test("assertSupportedVersion refuses an unknown major version", () => {
   const err = assertThrows(
-    () => assertSupportedVersion({ version: "2" }),
+    () => assertSupportedVersion({ version: "3" }),
     Error,
     "unsupported config-document version",
   );
   // The message names both the offending and the understood version.
-  assert(err.message.includes('"2"'));
+  assert(err.message.includes('"3"'));
   assert(err.message.includes(`version ${CONFIG_DOC_VERSION}`));
 });
 
@@ -74,19 +75,19 @@ Deno.test("loadConfigDoc reads and returns a valid document", async () => {
       name: "Demo",
       slug: "demo",
       agents: ["claude_code"],
-      slots: { lint: { phase: "check", run: "deno lint" } },
+      capabilities: { lint: "deno lint" },
     };
     const path = await writeDoc(dir, doc);
     const loaded = await loadConfigDoc(path);
     assertEquals(loaded.name, "Demo");
     assertEquals(loaded.slug, "demo");
-    assertEquals(loaded.slots?.lint.run, "deno lint");
+    assertEquals(loaded.capabilities?.lint, "deno lint");
   });
 });
 
 Deno.test("loadConfigDoc refuses a document with an unsupported version", async () => {
   await withTempDir(async (dir) => {
-    const path = await writeDoc(dir, { version: "2", name: "Future" });
+    const path = await writeDoc(dir, { version: "3", name: "Future" });
     await assertRejectsErr(
       () => loadConfigDoc(path),
       "unsupported config-document version",
@@ -143,36 +144,58 @@ Deno.test("loadConfigDoc rejects a non-object top-level JSON value", async () =>
 
 // ---- applyConfigDoc: happy path --------------------------------------------
 
-Deno.test("applyConfigDoc writes slots, scopes, side gates and ratchets", () => {
+Deno.test("applyConfigDoc writes capabilities, checks, scopes and ratchets", () => {
   const ed = editor();
   applyConfigDoc(ed, {
-    slots: {
-      lint: { phase: "check", run: "deno lint" },
-      cov: { run: "deno coverage" }, // measurement slot — no phase
+    capabilities: {
+      lint: "deno lint",
+      test: ["deno test", "deno bench"], // array form: two commands
     },
-    scopes: { web: ["src/**", "app/**"] },
-    side_gates: { web: "deno test" },
+    checks: {
+      selfcheck: { stage: "check", run: "make selfcheck", provides: "drift" },
+    },
+    scopes: {
+      native: { paths: ["native/**"], gate: "make -C native check" },
+      docs: { paths: ["docs/"], neutral: true },
+    },
     ratchets: {
-      coverage: { metric: "lines", direction: "down", limit: 80, slot: "cov" },
+      coverage: {
+        metric: "lines",
+        direction: "down",
+        limit: 80,
+        run: "deno coverage",
+      },
     },
   });
   const out = ed.toString();
-  assert(out.includes('phase = "check"'));
-  assert(out.includes('run = "deno lint"'));
-  assert(out.includes('["src/**", "app/**"]'));
+  // A scalar capability and an array capability.
+  assert(out.includes('lint = "deno lint"'));
+  assert(out.includes('["deno test", "deno bench"]'));
+  // A check carries its stage, run and label — but no capability does.
+  assert(out.includes('stage = "check"'));
+  assert(out.includes('run = "make selfcheck"'));
+  assert(out.includes('provides = "drift"'));
+  // A scope is a table with paths + folded-in gate, and a neutral flag.
+  assert(out.includes('["native/**"]'));
+  assert(out.includes('gate = "make -C native check"'));
+  assert(out.includes("neutral = true"));
+  // A ratchet inlines its run.
   assert(out.includes('direction = "down"'));
   assert(out.includes("limit = 80"));
-  assert(out.includes('slot = "cov"'));
+  assert(out.includes('run = "deno coverage"'));
 });
 
 Deno.test("applyConfigDoc defaults a ratchet's direction and metric", () => {
   const ed = editor();
   // No direction → "up"; no metric → the ratchet name.
-  applyConfigDoc(ed, { ratchets: { size: { limit: "500000" } } });
+  applyConfigDoc(ed, {
+    ratchets: { size: { limit: "500000", run: "measure-size" } },
+  });
   const out = ed.toString();
   assert(out.includes('direction = "up"'));
   assert(out.includes('metric = "size"'));
   assert(out.includes("limit = 500000"));
+  assert(out.includes('run = "measure-size"'));
 });
 
 Deno.test("applyConfigDoc on an empty document leaves the config untouched", () => {
@@ -184,32 +207,69 @@ Deno.test("applyConfigDoc on an empty document leaves the config untouched", () 
 
 // ---- applyConfigDoc: validation branches -----------------------------------
 
-Deno.test("applyConfigDoc rejects an unknown slot phase", () => {
+Deno.test("applyConfigDoc rejects an unknown capability name", () => {
   assertThrows(
-    () => applyConfigDoc(editor(), { slots: { lint: { phase: "deploy" } } }),
+    () =>
+      applyConfigDoc(editor(), {
+        capabilities: { deploy: "deploy.sh" },
+      }),
     Error,
-    'slot "lint": unknown phase "deploy"',
+    'unknown capability "deploy"',
   );
 });
 
-Deno.test("applyConfigDoc rejects a non-array scope value", () => {
+Deno.test("applyConfigDoc rejects a check with no stage or an unknown stage", () => {
+  assertThrows(
+    () =>
+      applyConfigDoc(editor(), {
+        checks: {
+          x: { run: "y" } as unknown as { stage: string; run: string },
+        },
+      }),
+    Error,
+    'check "x": a stage is required',
+  );
+  assertThrows(
+    () =>
+      applyConfigDoc(editor(), {
+        checks: { x: { stage: "deploy", run: "y" } },
+      }),
+    Error,
+    'check "x": unknown stage "deploy"',
+  );
+});
+
+Deno.test("applyConfigDoc rejects a non-array scope paths value", () => {
   assertThrows(
     () =>
       applyConfigDoc(
         editor(),
         // A string where an array of globs is required.
-        { scopes: { web: "src/**" as unknown as string[] } },
+        { scopes: { web: { paths: "src/**" as unknown as string[] } } },
       ),
     Error,
-    'scope "web": value must be an array of globs',
+    'scope "web": paths must be an array of globs',
   );
 });
 
-Deno.test("applyConfigDoc rejects a bad ratchet direction", () => {
+Deno.test("applyConfigDoc rejects a ratchet with no run, and a bad direction", () => {
   assertThrows(
     () =>
       applyConfigDoc(editor(), {
-        ratchets: { coverage: { direction: "sideways", limit: 1 } },
+        ratchets: {
+          coverage: { limit: 1 } as unknown as {
+            limit: number;
+            run: string;
+          },
+        },
+      }),
+    Error,
+    'ratchet "coverage": a run command is required',
+  );
+  assertThrows(
+    () =>
+      applyConfigDoc(editor(), {
+        ratchets: { coverage: { direction: "sideways", limit: 1, run: "m" } },
       }),
     Error,
     'ratchet "coverage": direction must be "up" or "down"',
@@ -217,24 +277,26 @@ Deno.test("applyConfigDoc rejects a bad ratchet direction", () => {
 });
 
 Deno.test("applyConfigDoc rejects names that are not TOML bare keys", () => {
-  // Each section funnels its name through the same NAME_RE guard.
+  // Each named section funnels its name through the same NAME_RE guard.
   assertThrows(
-    () => applyConfigDoc(editor(), { slots: { "bad name": { run: "x" } } }),
+    () =>
+      applyConfigDoc(editor(), {
+        checks: { "bad name": { stage: "check", run: "x" } },
+      }),
     Error,
-    "slot name must be letters, digits",
+    "check name must be letters, digits",
   );
   assertThrows(
-    () => applyConfigDoc(editor(), { scopes: { "bad.scope": ["x"] } }),
+    () =>
+      applyConfigDoc(editor(), { scopes: { "bad.scope": { paths: ["x"] } } }),
     Error,
     "scope name must be letters, digits",
   );
   assertThrows(
-    () => applyConfigDoc(editor(), { side_gates: { "bad/scope": "cmd" } }),
-    Error,
-    "side gate name must be letters, digits",
-  );
-  assertThrows(
-    () => applyConfigDoc(editor(), { ratchets: { "bad name": { limit: 1 } } }),
+    () =>
+      applyConfigDoc(editor(), {
+        ratchets: { "bad name": { limit: 1, run: "m" } },
+      }),
     Error,
     "ratchet name must be letters, digits",
   );

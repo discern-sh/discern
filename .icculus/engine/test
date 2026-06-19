@@ -1,14 +1,14 @@
 #!/usr/bin/env sh
-# desc: run the test-phase slots
+# desc: run the test capability
 . "$(dirname "$0")/lib/bootstrap.sh"
 
-# test — a convenience over the `test` phase slots. `agent finish` runs these in
+# test — a convenience over the `test` capability. `agent finish` runs it in
 # parallel with the read-only checks; this runs just the tests, on demand.
 
-test_cmd=$(slots_for_phase test)
+test_cmd=$(cmds_in_stage test)
 
 if [ "$test_cmd" = ":" ]; then
-    info "No test slot is configured (set a slot with phase = \"test\" in .icculus/config.toml)."
+    info "No test capability is configured (set test = \"<command>\" under [capabilities] in .icculus/config.toml)."
     exit 0
 fi
 

@@ -74,5 +74,5 @@ Edit the guidelines source and recompile with `./agent guidelines`.
 
 ## Keeping this page current
 
-This is a seed doc — edit it in place. When the IDE config, the prerequisites,
-or the human workflow change, update it here (an agent can too).
+This is one of your files — edit it in place. When the IDE config, the
+prerequisites, or the human workflow change, update it here (an agent can too).

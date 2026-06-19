@@ -25,13 +25,13 @@ config_array() {
 }
 
 # Immediate child names of every header nested under a prefix.
-#   config_subsections slots   # -> format, build, lint, test, ...
+#   config_subsections scopes   # -> docs, native, ...
 config_subsections() {
     awk -v op=subsections -v q="$1" -f "$ICCULUS_LIB/toml.awk" "$ICCULUS_TOML"
 }
 
 # Key names of `key = value` lines declared directly in a section.
-#   config_keys scopes.side_gates   # -> native, ...
+#   config_keys capabilities   # -> format, lint, test, ...
 config_keys() {
     awk -v op=keys -v q="$1" -f "$ICCULUS_LIB/toml.awk" "$ICCULUS_TOML"
 }
@@ -45,11 +45,4 @@ config_has() {
 #   if config_bool worktree.enabled; then ...
 config_bool() {
     [ "$(config_get "$1")" = "true" ]
-}
-
-# True (exit 0) when a slot command is unset or the no-op `:`.
-#   config_slot_is_noop slots.format.run
-config_slot_is_noop() {
-    _ic_run=$(config_get "$1")
-    [ -z "$_ic_run" ] || [ "$_ic_run" = ":" ]
 }

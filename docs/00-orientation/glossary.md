@@ -13,7 +13,7 @@ For the architectural shape, see [system-map.md](system-map.md).
 ## Core nouns
 
 The handful of building blocks the rest of the system rests on. Understand these
-six and the rest of the tree reads as variations on them.
+and the rest of the tree reads as variations on them.
 
 ### icculus
 
@@ -25,7 +25,7 @@ one command, and keeps it upgradable thereafter. The name (and `agent`,
 ### Installer
 
 The Deno/TypeScript CLI — `icculus init`, `upgrade`, `doctor`, `migrate`,
-`config`, `add-adapter` — that lives under [`src/`](../../src/) and compiles to
+`config`, `add-preset` — that lives under [`src/`](../../src/) and compiles to
 single-file binaries in `dist/`. It scaffolds and refreshes an install. It is a
 build-time tool only: an installed project never needs Deno, and the Installer
 is never a runtime dependency of it.
@@ -44,8 +44,9 @@ install by the bundled Skills.)
 
 The stack-neutral logic of the Harness: the [Recipes](#recipe) and the shared
 shell library under [`.icculus/engine/`](../../templates/.icculus/engine/). The
-Engine knows nothing stack-specific — it runs the [Slots](#slot), Scopes, and
-adapters a project declares in `.icculus/config.toml`. All Engine files are
+Engine knows nothing stack-specific — it runs the [Capabilities](#capability),
+[Checks](#check), [Scopes](#scope), and [worktree settings](#worktree-settings)
+a project declares in `.icculus/config.toml`. All Engine files are
 [managed](#managed-file).
 
 ### `agent` (the dispatcher)
@@ -82,7 +83,7 @@ in the [Manifest](#manifest) and shown by `--version`.
 A plain monotonic integer — the anchor the [Migration](#migration) chain steps
 from. Distinct from the Kit version on purpose: it bumps **only** when an
 installed project needs a migration to stay correct, so most releases leave it
-untouched. The current shape is schema **2**.
+untouched. The current shape is schema **4**.
 
 ### Manifest
 
@@ -99,6 +100,15 @@ One **idempotent** step that brings an install from Schema version `N` to `N+1`.
 to the build's, then re-stamps. A step can edit `.icculus/config.toml`
 comment-preserving, move/rewrite files, and deep-merge settings
 ([ADR 0014](../_adr/0014-versioned-migration-system.md)).
+
+### Preset
+
+A reusable overlay applied with `icculus add-preset <name>`: a `presets/<name>/`
+directory whose files are scaffolded onto a project (with the same managed/yours
+rules as `init`) plus an optional `preset.json` at its root — an icculus config
+document whose `capabilities` / `checks` / `scopes` / `ratchets` are written
+into `.icculus/config.toml`. Supersedes the former "adapter" overlay; the kit
+bundles none ([ADR 0018](../_adr/0018-vocabulary-consolidation.md)).
 
 ---
 
@@ -117,10 +127,11 @@ managed file is edited at its `templates/` source, never at its installed path �
 the managed set is declared in [`managed.json`](../../templates/managed.json)
 (see [ADR 0008](../_adr/0008-declarative-managed-set.md)).
 
-### Seed file
+### Your files / Yours
 
 A file written once — then owned by the project, never refreshed or flagged by
-`upgrade`, and edited in place. Some seeds are laid at `icculus init` from a
+`upgrade`, and edited in place (the opposite of a
+[managed file](#managed-file)). Some are laid at `icculus init` from a
 `templates/….tmpl` (`.icculus/config.toml`, the project guidelines); others are
 created on demand after install by the bundled Skills (the `docs/` tree and
 `TODO.md`, written by `/bootstrap`).
@@ -146,57 +157,73 @@ The `guidelines` recipe compiles `CLAUDE.md`, `AGENTS.md`, and the
 Terms for `agent finish` and what it runs. Covered in depth under
 [`../20-quality-gate/`](../20-quality-gate/).
 
-### Slot
+### Capability
 
-One stack-specific command, declared as `[slots.<name>]` in
-`.icculus/config.toml`. Its `run` is the shell command; its `phase` decides when
-it runs. A fresh install's slots default to the `:` no-op, so the gate is green
-before any is filled. The Engine discovers slots by name — only `phase` and
-`run` matter.
+One of a small, **closed** vocabulary of things a project can do, declared flat
+under `[capabilities]` in `.icculus/config.toml`: `format`, `build`, `lint`,
+`typecheck`, `test`. Each is a name mapped to a command (or a list run in
+order); the Engine **derives the gate [Stage](#stage)** from the name, so an
+author never writes a scheduling keyword. The set is closed — an unknown key is
+an error that points at a [Check](#check). A known capability that is simply
+**omitted** is [knowably absent](#readiness): the gate skips it, never errors
+([ADR 0017](../_adr/0017-capabilities-model.md)).
 
-### Phase
+### Check
 
-When and how a Slot runs inside `finish`: **fix** (mutating fixers, run serially
-first), **build** (artifact producers, parallel with fix), **check** (read-only
-analysis), **test** (the suite) — check and test run in parallel after
-fix+build. A Slot with **no** phase is a **measurement slot**: `finish` never
-runs it; a [Ratchet](#ratchet) reads it on demand.
+Custom gate work **outside** the known capability vocabulary, declared as
+`[checks.<name>]` with an explicit `stage` (the Engine can't derive one from an
+unknown name), a `run`, and an optional free-text `provides` label. A Check runs
+as its own labelled job in its declared Stage, exactly like a Capability
+([ADR 0017](../_adr/0017-capabilities-model.md)).
+
+### Readiness
+
+Whether a project's gate is meaningfully wired, reported by `agent doctor`.
+Because the [Capability](#capability) vocabulary is **closed**, the Engine can
+enumerate which of the five are filled and which are knowably absent, and judge
+whether the install clears a minimal bar (a test plus at least one static
+check). An omitted capability is a definite "absent" signal, not an unknown —
+the property a closed set makes possible
+([ADR 0017](../_adr/0017-capabilities-model.md)).
+
+### Stage
+
+The internal scheduling bucket a [Capability](#capability) or [Check](#check)
+runs in — `fix`, `build`, `check`, `test`. For a known capability the Engine
+derives it (`format`→fix, `build`→build, `lint`/`typecheck`→check, `test`→test);
+for a Check the author states it. The four Stages survive _inside_ the Engine
+(the parallel shape `fix → build → check ∥ test` is unchanged), but "phase" is
+no longer a user-facing word.
 
 ### Gate
 
-`agent finish` — the compound quality gate: the four Phases in order, then any
-[Side gates](#side-gate) whose Scope changed, then (in a worktree) the
-main-merged check. Each Slot runs as its own labelled job, so a failure is
-attributed to the precise Slot. `agent tidy` is the fast inner loop — the fix
-Slots then the check Slots, no build or test.
+`agent finish` — the compound quality gate: the Capability and Check
+[Stages](#stage) in order (`fix ∥ build`, then `check ∥ test`), then any
+[Scope](#scope) `gate`s that fired, then (in a worktree) the main-merged check.
+Each Capability and Check runs as its own labelled job, so a failure is
+attributed to the precise one. `agent tidy` is the fast inner loop — the
+fix-stage then check-stage work, no build or test.
 
 ### Scope
 
-A classification of which part of the repo a change touches, declared under
-`[scopes]` (e.g. `neutral`, `web`, `previewable`, or a custom name). Used to
-skip irrelevant work and to fire Side gates. Classification **fails open**: a
-path matching nothing counts as a real code change, so it runs more gates, never
-fewer.
-
-### Side gate
-
-A command mapped to a Scope under `[scopes.side_gates]`, run by `finish` only
-when that Scope actually changed — the way a sub-component with its own
-self-contained gate plugs in
-([ADR 0002](../_adr/0002-first-class-side-gates.md)).
+A named region of the repo a change can touch, declared as a `[scopes.<name>]`
+table: `paths` (the defining globs) plus optional `neutral` / `previewable`
+booleans and a `gate` command (the former "side gate") run only when that Scope
+changed. Used to skip irrelevant work and to fire a sub-component's own gate.
+Classification **fails open**: a path matching no Scope counts as a real code
+change, so it runs more gates, never fewer
+([ADR 0018](../_adr/0018-vocabulary-consolidation.md)).
 
 ### Ratchet
 
 A never-loosen quality floor or ceiling (line coverage, a size budget, a
-lint-error count), declared under `[ratchets]` and held against `main`. It reads
-a number from a measurement Slot that prints `ICCULUS_METRIC <name> <number>`.
-Ratchets are slow, so they run on demand via `agent ratchets`, not as part of
-`finish` ([ADR 0003](../_adr/0003-named-metric-ratchets.md)).
-
-### Evidence
-
-An optional gate requiring each branch to record work evidence (a screenshot, a
-note) before `finish` passes. Off by default; enabled with `[evidence]`.
+lint-error count), declared under `[ratchets]` and held against `main`. It
+**inlines its own `run`**, the command that prints
+`ICCULUS_METRIC <metric>
+<number>`. Ratchets are slow, so they run on demand via
+`agent ratchets`, not as part of `finish`
+([ADR 0003](../_adr/0003-named-metric-ratchets.md),
+[ADR 0018](../_adr/0018-vocabulary-consolidation.md)).
 
 ---
 
@@ -211,13 +238,15 @@ A throwaway, isolated `git worktree` (and its branch) for a single change, so an
 agent never works directly in the main checkout. Each gets a deterministic
 dev-server port and its own database, so concurrent worktrees never collide.
 
-### Adapter
+### Worktree settings
 
-A stack-specific seam the worktree workflow calls but does not implement: the
-**database** adapter (clone/drop a per-worktree database) and the **dev-server**
-adapter (link/unlink a per-worktree site). Both are empty config in
-`.icculus/config.toml` until a project wires them, so a worktree round is a
-clean no-op until then ([ADR 0007](../_adr/0007-adapter-contract.md)).
+The stack-specific seams the worktree workflow calls but does not implement: the
+**database** seam (clone/drop a per-worktree database), the **dev-server** seam
+(link/unlink a per-worktree site), plus the per-worktree `inherit_env`, `port`,
+and `setup` keys. All are empty/default config in `.icculus/config.toml` until a
+project wires them, so a worktree round is a clean no-op until then
+([ADR 0007](../_adr/0007-adapter-contract.md),
+[ADR 0018](../_adr/0018-vocabulary-consolidation.md)).
 
 ### Graduate
 
@@ -234,9 +263,9 @@ depth under [`../40-agent-guidance/`](../40-agent-guidance/).
 
 ### Guidance source
 
-`.icculus/guidelines/<slug>.md` — the single, hand-edited [seed](#seed-file)
-file holding the project's agent instructions. The one place guidance is
-authored.
+`.icculus/guidelines/<slug>.md` — the single, hand-edited file
+([yours](#your-files--yours)) holding the project's agent instructions. The one
+place guidance is authored.
 
 ### Compiled agent file
 

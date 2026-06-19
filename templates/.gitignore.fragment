@@ -11,5 +11,3 @@
 /.claude/*
 !/.claude/settings.json
 !/.claude/settings.local.json
-# Per-branch work evidence captured by the gate (runtime store, not source).
-.icculus/evidence/

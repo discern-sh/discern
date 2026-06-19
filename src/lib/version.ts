@@ -21,10 +21,13 @@ export const KIT_VERSION: string = denoJson.version;
  * recorded value, brings the install forward, and re-stamps. Most releases need
  * no migration and leave this untouched.
  *
- * The current shape is schema **3**. The chain: schema-1→2 backfills
+ * The current shape is schema **4**. The chain: schema-1→2 backfills
  * `[project].main_branch`; schema-2→3 consolidates the install surface under
  * `.icculus/` (root `agent`, `.icculus/config.toml`, `.icculus/guidelines`,
- * `.icculus/skills`). See `MIGRATIONS`. A manifest with no `schema_version`
- * field predates the field and is read as schema 1, then migrated forward.
+ * `.icculus/skills`); schema-3→4 converts `[slots]`→`[capabilities]`/`[checks]`,
+ * inlines ratchet runs, folds side-gates into `[scopes.<name>].gate`, and drops
+ * `[evidence]` (ADR 0017/0018). See `MIGRATIONS`. A manifest with no
+ * `schema_version` field predates the field and is read as schema 1, then
+ * migrated forward.
  */
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;

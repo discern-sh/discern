@@ -1,7 +1,7 @@
 # Install surface
 
 _What `icculus init` lays down in a project, and which files are **managed**
-(refreshed by the kit) versus **seed** (yours to keep)._
+(refreshed by the kit) versus **yours** (written once, then kept)._
 
 One `icculus init` scaffolds the harness into a project. Every file originates
 in [`templates/`](../../templates/) — the source of truth — which the installer
@@ -26,12 +26,12 @@ kit treats it on `upgrade` and where you change it.
 | Disposition   | What it is                                                                                    | On `icculus upgrade`                                                                                                      | Where you change it                                            |
 | ------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
 | **managed**   | Copied verbatim from `templates/`; `selfcheck` holds it byte-identical to the kit.            | Refreshed. A local edit is preserved as `<file>.new`; one the kit no longer ships is removed if pristine, kept if edited. | Edit the source under `templates/`, then `deno task selfsync`. |
-| **seed**      | Rendered once from a `templates/….tmpl` at `init`, then owned by the project.                 | Untouched.                                                                                                                | Edit the file in place.                                        |
+| **yours**     | Rendered once from a `templates/….tmpl` at `init`, then owned by the project.                 | Untouched.                                                                                                                | Edit the file in place.                                        |
 | **merged**    | Folded into an existing file (structured merge or idempotent append), preserving its content. | Untouched (written at `init` only).                                                                                       | Edit the file in place.                                        |
 | **generated** | Produced by a harness command after install — not shipped as a static file.                   | n/a (re-run the producing command).                                                                                       | Edit the inputs, then re-run the command.                      |
 
 The managed set is declared in [`managed.json`](../../templates/managed.json);
-everything else under `templates/` is a seed. Two files are special-cased at
+everything else under `templates/` is yours. Two files are special-cased at
 `init` so an existing project keeps what it already had: `.claude/settings.json`
 by structured merge, and `.gitignore` by idempotent append.
 
@@ -43,23 +43,22 @@ shown is where the file lands in an installed project.
 | Path                                                                | Disposition | What it is                                                                                                                                                                                                                                                 |
 | ------------------------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [`agent`](../../templates/agent)                                    | managed     | The `agent` task runner: finds the project root and dispatches `agent <verb>` to an engine recipe.                                                                                                                                                         |
-| [`.icculus/config.toml`](../../templates/.icculus/config.toml.tmpl) | seed        | The one hand-edited file that teaches the generic engine about your stack — slots, scopes, worktree adapters, ratchets, evidence, gate ergonomics, recipes.                                                                                                |
-| `.icculus/brief.md`                                                 | seed        | The project brief captured at `init`; the source [`bootstrap`](../../templates/.icculus/skills/bootstrap/SKILL.md) reads to fill the docs and guidelines.                                                                                                  |
+| [`.icculus/config.toml`](../../templates/.icculus/config.toml.tmpl) | yours       | The one hand-edited file that teaches the generic engine about your stack — capabilities, checks, scopes (with gates), worktree settings, ratchets, gate ergonomics, recipes.                                                                              |
+| `.icculus/brief.md`                                                 | yours       | The project brief captured at `init`; the source [`bootstrap`](../../templates/.icculus/skills/bootstrap/SKILL.md) reads to fill the docs and guidelines.                                                                                                  |
 | `.icculus/manifest.json`                                            | generated   | Records the kit version, the install **schema version** (the migration anchor, [ADR 0014](../_adr/0014-versioned-migration-system.md)), and a hash of every managed file, so `upgrade` / `selfcheck` can tell pristine from edited and current from stale. |
 
 ## The quality gate
 
 The gate lives in `.icculus/engine/` (all **managed**). Its public verbs:
 
-| Command                                                                  | What it does                                                                                                                         |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
-| [`agent finish`](../../templates/.icculus/engine/finish)                 | The full gate — `fix`+`build`, then `check`+`test` in parallel, scope-matched side gates, and (in a worktree) the main-merged check. |
-| [`agent tidy`](../../templates/.icculus/engine/tidy)                     | The fast inner loop — fixers then read-only checks; no build or test.                                                                |
-| [`agent test`](../../templates/.icculus/engine/test)                     | The test-phase slots on their own.                                                                                                   |
-| [`agent doctor`](../../templates/.icculus/engine/doctor)                 | Health-checks the install — config, git, slot commands, paths.                                                                       |
-| [`agent ratchets`](../../templates/.icculus/engine/ratchets)             | Holds never-loosen metric floors/ceilings against `main` (on demand; not part of `finish`).                                          |
-| [`agent evidence`](../../templates/.icculus/engine/evidence)             | Optional per-branch work-evidence capture/check (off unless enabled).                                                                |
-| [`agent changed-scopes`](../../templates/.icculus/engine/changed-scopes) | Classifies which scopes the branch touches; fails **open** (an unknown path runs more gates, never fewer).                           |
+| Command                                                                  | What it does                                                                                                                          |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| [`agent finish`](../../templates/.icculus/engine/finish)                 | The full gate — `fix`+`build`, then `check`+`test` in parallel, scope-matched scope gates, and (in a worktree) the main-merged check. |
+| [`agent tidy`](../../templates/.icculus/engine/tidy)                     | The fast inner loop — fixers then read-only checks; no build or test.                                                                 |
+| [`agent test`](../../templates/.icculus/engine/test)                     | The `test` capability on its own.                                                                                                     |
+| [`agent doctor`](../../templates/.icculus/engine/doctor)                 | Health-checks the install — config, git, capability/check commands, paths, and a readiness report.                                    |
+| [`agent ratchets`](../../templates/.icculus/engine/ratchets)             | Holds never-loosen metric floors/ceilings against `main` (on demand; not part of `finish`).                                           |
+| [`agent changed-scopes`](../../templates/.icculus/engine/changed-scopes) | Classifies which scopes the branch touches; fails **open** (an unknown path runs more gates, never fewer).                            |
 
 Internal helpers (`with-gotchas`, the `assert-*` guards) back these.
 
@@ -96,7 +95,7 @@ source it; you rarely read it directly.
 
 | Path                            | Disposition | What it is                                                                                |
 | ------------------------------- | ----------- | ----------------------------------------------------------------------------------------- |
-| `.icculus/guidelines/<slug>.md` | seed        | The single hand-edited guidance source.                                                   |
+| `.icculus/guidelines/<slug>.md` | yours       | The single hand-edited guidance source.                                                   |
 | `CLAUDE.md`, `AGENTS.md`        | generated   | The per-agent instruction files compiled from the guidelines; carry a do-not-edit banner. |
 | `.claude/skills/*`              | generated   | Symlinks that make the bundled skills discoverable by the agent.                          |
 
@@ -138,10 +137,9 @@ This page lives in the `80-development/` tree that `/bootstrap` materialises.
 | Path                                                                  | Disposition | What it is                                                                                                                                                                                                           |
 | --------------------------------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `TODO.md`                                                             | generated   | The shared backlog for deferred or at-risk work; documents its own format. Lazy — not shipped at `init`; created by `/bootstrap` (or on the first deferral) from the `bootstrap` skill skeleton.                     |
-| [`.icculus/recipes/`](../../templates/.icculus/recipes/README.md)     | seed        | Your own `agent <verb>` recipes — unmanaged; the engine wins on a name collision ([ADR 0001](../_adr/0001-project-owned-recipes.md)).                                                                                |
+| [`.icculus/recipes/`](../../templates/.icculus/recipes/README.md)     | yours       | Your own `agent <verb>` recipes — unmanaged; the engine wins on a name collision ([ADR 0001](../_adr/0001-project-owned-recipes.md)).                                                                                |
 | [`.claude/settings.json`](../../templates/.claude/settings.json.tmpl) | merged      | Adds a `Read(./.env)` deny and three hooks — `SessionStart` → `./agent worktree:ensure`, `WorktreeCreate` → `./agent` branch + setup, `WorktreeRemove` → `./agent worktree:teardown` — preserving existing settings. |
-| [`.gitignore`](../../templates/.gitignore.fragment)                   | merged      | Idempotently ignores `/CLAUDE.md`, `/.claude/*` (except the tracked settings files), and the `.icculus/evidence/` runtime store.                                                                                     |
+| [`.gitignore`](../../templates/.gitignore.fragment)                   | merged      | Idempotently ignores `/CLAUDE.md` and `/.claude/*` (except the tracked settings files).                                                                                                                              |
 
-Two paths appear only at run time, never from `init`, and are gitignored:
-`.icculus/evidence/` (the gate's per-branch evidence store) and
+One path appears only at run time, never from `init`, and is gitignored:
 `.claude/worktrees/` (the linked worktree checkouts).

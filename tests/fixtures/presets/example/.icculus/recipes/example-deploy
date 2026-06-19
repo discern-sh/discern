@@ -1,4 +1,4 @@
 #!/usr/bin/env sh
-# desc: (example adapter) deploy the toy example app
+# desc: (example preset) deploy the toy example app
 . "$ICCULUS_LIB/bootstrap.sh"
 ok "example deploy ran"

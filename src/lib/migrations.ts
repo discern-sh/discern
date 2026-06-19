@@ -24,6 +24,7 @@ import { dirname, join } from "@std/path";
 import { TomlEditor } from "./toml_edit.ts";
 import { mergeSettings } from "./settings_merge.ts";
 import { parseIcculusToml } from "./toml_render.ts";
+import { KNOWN_CAPABILITIES } from "./config.ts";
 
 /** True for a non-null, non-array object. */
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -144,6 +145,147 @@ export const MIGRATIONS: Migration[] = [
       );
       ctx.note(
         "the root `agent` and .icculus/skills are written by the file sync; run `agent guidelines` after",
+      );
+    },
+  },
+  {
+    from: 3,
+    describe:
+      "convert [slots]→[capabilities]/[checks], inline ratchet runs, fold side-gates into [scopes.<name>].gate, drop [evidence] (ADR 0017/0018)",
+    apply: async (ctx) => {
+      const text = await ctx.readConfig();
+      if (text === undefined) {
+        return; // no config to evolve.
+      }
+      let raw: Record<string, unknown>;
+      try {
+        raw = parseIcculusToml(text).raw;
+      } catch {
+        return; // unparseable — upgrade validates the config first; belt-and-braces.
+      }
+
+      const slots = isRecord(raw.slots) ? raw.slots : {};
+      const scopesRaw = isRecord(raw.scopes) ? raw.scopes : {};
+      const sideGates = isRecord(scopesRaw.side_gates)
+        ? scopesRaw.side_gates
+        : {};
+      const ratchets = isRecord(raw.ratchets) ? raw.ratchets : {};
+      const hasArrayScope = Object.entries(scopesRaw).some(
+        ([k, v]) => k !== "side_gates" && Array.isArray(v),
+      );
+
+      // Idempotency: the old shape is detectable by [slots.*], array-valued
+      // [scopes] keys, [scopes.side_gates], or [evidence]. Once migrated, none of
+      // those remain, so a re-run (or an already-new config) returns early.
+      const hasOldShape = Object.keys(slots).length > 0 ||
+        Object.keys(sideGates).length > 0 || hasArrayScope ||
+        raw.evidence !== undefined;
+      if (!hasOldShape) {
+        return;
+      }
+
+      // Index the measurement slots (no `phase`) so a ratchet can inline its run.
+      const measurementRun: Record<string, string> = {};
+      for (const [name, slot] of Object.entries(slots)) {
+        if (
+          isRecord(slot) && slot.phase === undefined &&
+          typeof slot.run === "string"
+        ) {
+          measurementRun[name] = slot.run;
+        }
+      }
+
+      await ctx.editToml((e) => {
+        // slots → capabilities / checks.
+        for (const [name, slot] of Object.entries(slots)) {
+          if (!isRecord(slot)) continue;
+          const phase = typeof slot.phase === "string" ? slot.phase : undefined;
+          const run = typeof slot.run === "string" ? slot.run : undefined;
+          if (phase === undefined) continue; // a measurement slot — see ratchets below.
+          const isNoop = run === undefined || run === ":";
+          const known = Object.hasOwn(KNOWN_CAPABILITIES, name);
+          if (
+            known &&
+            KNOWN_CAPABILITIES[name as keyof typeof KNOWN_CAPABILITIES] ===
+              phase
+          ) {
+            // A known capability at its canonical stage. A `:` no-op is dropped —
+            // an absent capability is the new "unfilled".
+            if (!isNoop) e.setString(`capabilities.${name}`, run as string);
+            else {
+              ctx.note(
+                `dropped no-op slot "${name}" — add [capabilities.${name}] when you wire it`,
+              );
+            }
+          } else {
+            // Any other slot with a phase → a check carrying its stage.
+            e.setString(`checks.${name}.stage`, phase);
+            if (!isNoop) e.setString(`checks.${name}.run`, run as string);
+            if (!known) {
+              ctx.note(
+                `slot "${name}" (stage ${phase}) became [checks.${name}]; rename to a capability if it is one`,
+              );
+            }
+          }
+        }
+
+        // ratchets: inline the referenced measurement slot's run; drop `slot`.
+        for (const [rname, r] of Object.entries(ratchets)) {
+          if (!isRecord(r)) continue;
+          const slotRef = typeof r.slot === "string" ? r.slot : undefined;
+          e.deleteKey(`ratchets.${rname}.slot`);
+          if (slotRef !== undefined && measurementRun[slotRef] !== undefined) {
+            e.setString(`ratchets.${rname}.run`, measurementRun[slotRef]);
+          } else if (slotRef !== undefined) {
+            ctx.note(
+              `ratchet "${rname}" referenced slot "${slotRef}" which has no run; set its run by hand`,
+            );
+          }
+        }
+
+        // scopes: arrays + reserved flags + side_gates → [scopes.<name>] tables.
+        // The reserved `neutral`/`previewable` become flagged scopes (renamed to
+        // docs/assets, matching the template); `web` is the implicit `code`
+        // default and is dropped.
+        for (const [sname, val] of Object.entries(scopesRaw)) {
+          if (sname === "side_gates" || !Array.isArray(val)) continue;
+          if (sname === "web") continue;
+          const globs = val.filter((g): g is string => typeof g === "string");
+          const target = sname === "neutral"
+            ? "docs"
+            : sname === "previewable"
+            ? "assets"
+            : sname;
+          e.setStringArray(`scopes.${target}.paths`, globs);
+          if (sname === "neutral") e.setBool(`scopes.${target}.neutral`, true);
+          if (sname === "previewable") {
+            e.setBool(`scopes.${target}.previewable`, true);
+          }
+          const gate = sideGates[sname];
+          if (typeof gate === "string") {
+            e.setString(`scopes.${target}.gate`, gate);
+          }
+        }
+        // A side gate whose scope had no glob array still needs a home.
+        for (const [scope, cmd] of Object.entries(sideGates)) {
+          if (typeof cmd !== "string" || Array.isArray(scopesRaw[scope])) {
+            continue;
+          }
+          e.setString(`scopes.${scope}.gate`, cmd);
+          ctx.note(
+            `side gate "${scope}" had no scope paths; created [scopes.${scope}] with only a gate`,
+          );
+        }
+
+        // Delete the legacy structure (read fully above before any deletion).
+        for (const name of Object.keys(slots)) e.deleteSection(`slots.${name}`);
+        e.deleteSection("scopes"); // the old array-keyed bare table
+        e.deleteSection("scopes.side_gates");
+        e.deleteSection("evidence");
+      });
+
+      ctx.note(
+        "migrated slots→capabilities/checks, scopes→tables, inlined ratchet runs, removed [evidence]",
       );
     },
   },

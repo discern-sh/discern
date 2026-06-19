@@ -41,6 +41,6 @@ file named `some-verb` (`:` → `-`).
   never be redefined by a project file.
 - **Library access.** A recipe invoked via `agent <name>` inherits the harness
   paths, so `. "$ICCULUS_LIB/bootstrap.sh"` gives you `config_get`, the
-  `info`/`ok`/`warn`/`die` helpers, `run_parallel`, and the `[slots]` accessors.
+  `info`/`ok`/`warn`/`die` helpers, `run_parallel`, and the config accessors.
 - **Relocate if you like.** Set `[recipes].dir` in `.icculus/config.toml` to point
   somewhere other than `.icculus/recipes`.

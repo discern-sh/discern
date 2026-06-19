@@ -15,11 +15,11 @@
 # this subset; config.sh documents the contract for anyone editing by hand.
 #
 # Invocation (always via config.sh, never directly):
-#   awk -v op=scalar      -v q="slots.format.run" -f toml.awk FILE
-#   awk -v op=array       -v q="project.agents"   -f toml.awk FILE
-#   awk -v op=subsections -v q="slots"            -f toml.awk FILE
-#   awk -v op=keys        -v q="scopes.side_gates" -f toml.awk FILE
-#   awk -v op=has         -v q="worktree.db"      -f toml.awk FILE
+#   awk -v op=scalar      -v q="capabilities.format" -f toml.awk FILE
+#   awk -v op=array       -v q="project.agents"      -f toml.awk FILE
+#   awk -v op=subsections -v q="scopes"              -f toml.awk FILE
+#   awk -v op=keys        -v q="capabilities"        -f toml.awk FILE
+#   awk -v op=has         -v q="worktree.db"         -f toml.awk FILE
 
 function trim(s) {
     sub(/^[ \t\r]+/, "", s)
@@ -28,7 +28,7 @@ function trim(s) {
 }
 
 # Strip an inline `# comment`, but never a `#` that sits inside a quoted string
-# (slot commands and adapter hooks can legitimately contain one).
+# (commands and worktree hooks can legitimately contain one).
 function decomment(s,    out, i, c, inq, q) {
     out = ""; inq = 0; q = ""
     for (i = 1; i <= length(s); i++) {

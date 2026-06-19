@@ -34,3 +34,6 @@ decision is hard to reverse, surprising without context, and a real trade-off.
 - [0013 — Product vocabulary in user-facing output](0013-product-vocabulary-in-user-output.md)
 - [0014 — A versioned, reversible migration system](0014-versioned-migration-system.md)
 - [0015 — `icculus docs` browser + terminal Markdown renderer](0015-docs-browser.md)
+- [0016 — Consolidate the install surface under `.icculus/`](0016-consolidate-install-surface.md)
+- [0017 — Declare capabilities, derive the gate](0017-capabilities-model.md)
+- [0018 — Consolidate the harness vocabulary into four layers](0018-vocabulary-consolidation.md)

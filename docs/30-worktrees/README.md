@@ -6,9 +6,9 @@ This subtree covers the Worktree lifecycle. The `agent worktree*` Recipes
 provision and tear down an isolated `git worktree` (and its branch) per change,
 each with its **own database** and a **deterministic dev-server port** so
 concurrent Worktrees never collide. The git mechanics are generic; the two
-stack-specific seams — the database and dev-server **Adapters** — are empty
-config in `.icculus/config.toml` until a project wires them, so a Worktree round
-is a clean no-op until then (ADR 0007).
+stack-specific seams — the database and dev-server **worktree settings** — are
+empty config in `.icculus/config.toml` until a project wires them, so a Worktree
+round is a clean no-op until then (ADR 0007, ADR 0018).
 
 The lifecycle is driven by hooks in `.claude/settings.json`: `SessionStart` →
 [`worktree:ensure`](../../templates/.icculus/engine/worktree-ensure) (idempotent
@@ -28,12 +28,12 @@ Worktree's stable identity (id / site / branch / port / db).
 
 ## Planned leaves
 
-| File _(to be written)_    | What it will cover                                                                        |
-| ------------------------- | ----------------------------------------------------------------------------------------- |
-| `the-lifecycle.md`        | create → ensure → exit → teardown → prune, and the hooks that fire each.                  |
-| `worktree-identity.md`    | How a Worktree's id, site, branch, port, and db name are derived and read.                |
-| `the-adapter-contract.md` | The database and dev-server seams, their runtime tokens, and how to wire them (ADR 0007). |
-| `integration.md`          | Graduating a branch into `main`, and the prune/sweep of stale Worktrees.                  |
+| File _(to be written)_     | What it will cover                                                                        |
+| -------------------------- | ----------------------------------------------------------------------------------------- |
+| `the-lifecycle.md`         | create → ensure → exit → teardown → prune, and the hooks that fire each.                  |
+| `worktree-identity.md`     | How a Worktree's id, site, branch, port, and db name are derived and read.                |
+| `the-worktree-settings.md` | The database and dev-server seams, their runtime tokens, and how to wire them (ADR 0007). |
+| `integration.md`           | Graduating a branch into `main`, and the prune/sweep of stale Worktrees.                  |
 
 ## See also
 

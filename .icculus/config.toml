@@ -20,103 +20,62 @@ main_branch = "main"
 # Known targets: "claude_code" -> CLAUDE.md, "codex" -> AGENTS.md.
 agents = ["claude_code", "codex"]
 
-# Where the gate points an agent when a phase fails in a non-obvious way. Keep
+# Where the gate points an agent when a stage fails in a non-obvious way. Keep
 # this doc current with the traps specific to your stack (see the comment block
 # the gate prints on failure). Empty disables the pointer.
 gotchas_doc = "docs/80-development/finish-gate-gotchas.md"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# [slots] — the stack-specific commands the gate runs. Each slot is one shell
-# command (chain with && for multiple tools). The default ":" is a no-op that
-# always passes, so a fresh install has a green gate you fill in over time. Run
-# `/bootstrap` to have your coding agent propose fills by sniffing the repo.
-#
-# `phase` decides WHEN and HOW the command runs inside `agent finish`:
-#   fix       mutating fixers (formatter, codemod). Run first, in parallel with
-#             `build`. Must leave the tree in the state checks/tests will see.
-#   build     produce artifacts later phases read (compile, bundle assets).
-#             Runs in parallel with `fix`.
-#   check     read-only analysis (linter, type-checker). Runs after fix+build,
-#             in parallel with `test`.
-#   test      the test suite. Runs in parallel with `check`.
-#
-# A slot with NO `phase` is a MEASUREMENT slot: the gate never runs it; a ratchet
-# references it by name to read a metric on demand (see [ratchets] below).
-#
-# `agent tidy` is the fast inner loop: it runs the `fix` slots then the `check`
-# slots, and never builds or tests. Add or remove slots freely — the engine
-# discovers them by name; only `phase` and `run` matter.
+# [capabilities] — the core commands the gate runs, one per known capability.
+# Each maps to a gate stage automatically: format->fix, build->build,
+# lint/typecheck->check, test->test. A value is one command, or a list run in
+# order. An omitted capability is knowably absent (build is release-only here, so
+# it is not wired into the gate). `agent doctor` shows which are wired.
 # ─────────────────────────────────────────────────────────────────────────────
 
-[slots.format]
-phase = "fix"
-run   = "deno fmt"
-
-[slots.build]
-phase = "build"
-run   = ":"   # no gate build step (deno task build is release-only)
-
-[slots.lint]
-phase = "check"
-run   = "deno lint"
-
-[slots.typecheck]
-phase = "check"
-run   = "deno check src/main.ts"
-
-[slots.test]
-phase = "test"
-run   = "deno task test"
-
-[slots.selfcheck]   # the Option C invariant — the install must match templates/
-phase = "check"
-run   = "deno task selfcheck"
-
-[slots.shellcheck]  # static-lint the POSIX shell harness (engine + installer)
-phase = "check"
-run   = "deno task lint:sh"
-
-# Measurement slot for [ratchets.coverage] below. NO `phase`, so `agent finish`
-# never runs it; `agent ratchets` runs it on demand. Runs the suite under Deno
-# coverage and emits `ICCULUS_METRIC coverage <pct>` for src/ (the TypeScript
-# installer). Deno can't instrument the POSIX-shell engine, so it's out of this
-# number — the engine_* shell-out tests cover it behaviourally instead.
-[slots.coverage]
-run = "deno task coverage"
+[capabilities]
+format    = "deno fmt"
+lint      = "deno lint"
+typecheck = "deno check src/main.ts"
+test      = "deno task test"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# [scopes] — which parts of the repo a change touches. The gate uses this to
-# skip irrelevant work (a docs-only change runs no side gate, gets no preview)
-# and to fire side gates only when their area changed. Classification fails
-# OPEN: a path matching nothing counts as a real code change, so an unknown
-# path runs MORE gates, never fewer. Globs use ** for "any depth".
+# [checks.<name>] — custom gate work outside the known capability vocabulary.
+# `stage` (required) is one of fix|build|check|test.
 # ─────────────────────────────────────────────────────────────────────────────
 
-[scopes]
-# Paths that need no gate at all: docs and agent-guidance sources. (Generated
-# guidance outputs are refreshed by the gate itself; editing the source changes
-# no behaviour.) Root-level *.md is always treated as neutral.
-neutral = ["docs/", ".icculus/", ".claude/"]
+# The self-host invariant — the root install must stay byte-identical to templates/.
+[checks.selfcheck]
+stage    = "check"
+run      = "deno task selfcheck"
+provides = "drift-detection"
 
-# Paths that represent real, gated code changes.
-web = ["src/**", "scripts/**", "tests/**", "templates/**"]
+# Static-lint the POSIX shell harness (engine + installer scripts).
+[checks.shellcheck]
+stage    = "check"
+run      = "deno task lint:sh"
+provides = "shell-lint"
 
-# The subset of code changes a person could see — worth a preview link.
-previewable = ["public/**"]
 
-# Side gates: scope-name -> command run by `agent finish` when that scope
-# changed. Define a custom scope by adding `<name> = [globs]` under [scopes]
-# above, then map it here. Example: a native sub-app with its own gate.
-[scopes.side_gates]
-# native = "make -C native check"
+# ─────────────────────────────────────────────────────────────────────────────
+# [scopes.<name>] — named regions of the repo. `paths` globs define a scope; the
+# optional flags (neutral / previewable / gate) tune the gate for changes there.
+# Classification fails OPEN: a path matching no scope counts as gated code.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Docs and agent-guidance sources need no gate (generated guidance is refreshed by
+# the gate itself; editing the source changes no behaviour). Root-level *.md too.
+[scopes.docs]
+paths   = ["docs/", ".icculus/", ".claude/"]
+neutral = true
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [worktree] — the isolated-worktree workflow. The git mechanics are generic;
-# the two adapter seams (database, dev-server) are empty by default, so a
-# worktree round is a clean no-op until you wire them to your stack.
+# the two seams (database, dev-server) are empty by default, so a worktree round
+# is a clean no-op until you wire them to your stack.
 # ─────────────────────────────────────────────────────────────────────────────
 
 [worktree]
@@ -130,7 +89,7 @@ inherit_env = []   # e.g. ["APP_KEY", "OPENAI_API_KEY"]
 # concurrent worktrees never collide. Read it with `agent worktree-name --port`.
 port = true
 
-# Database adapter. Each worktree gets its own database so tests never clash.
+# Database seam. Each worktree gets its own database so tests never clash.
 # Runtime tokens use @…@ (the engine expands them per-worktree, at run time):
 # @db@ is the derived database name, @project_slug@ your project slug. Leave empty
 # for a project with no database. (The example below uses a Postgres template DB.)
@@ -138,7 +97,7 @@ port = true
 clone = ""   # e.g. "createdb -T @project_slug@_template @db@"
 drop  = ""   # e.g. "dropdb --if-exists @db@"
 
-# Dev-server adapter — link/unlink a per-worktree site (a Docker vhost, an ngrok
+# Dev-server seam — link/unlink a per-worktree site (a Docker vhost, an ngrok
 # tunnel, a reverse-proxy entry, …). Leave empty for none.
 [worktree.dev_server]
 link   = ""
@@ -152,73 +111,29 @@ steps = []   # e.g. ["npm ci", "npm run build"]
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [ratchets] — never-loosen quality floors, enforced on demand by `agent ratchets`
-# (slow, so NOT part of `agent finish`).
-#
-# A ratchet is a number you only ever want to improve: line coverage, a bundle-
-# size budget, a lint/type-error count, a perf budget. Each [ratchets.<name>]
-# table declares one:
-#   metric     the metric name a slot emits        (default: the ratchet name)
-#   direction  "up"   value should rise; limit is a FLOOR   (e.g. coverage)
-#              "down" value should fall; limit is a CEILING (e.g. a size budget)
-#   limit      the floor/ceiling — compared vs main, so a floor may only rise and
-#              a ceiling may only fall (you can't loosen the gate on a branch)
-#   slot       the [slots.<name>] that measures it — a MEASUREMENT slot (no
-#              `phase`, so `finish` never runs it; the ratchet runs it on demand)
-#
-# A measurement slot reports its number by printing a line:
-#   ICCULUS_METRIC <name> <number>
-# (the LAST such line wins). There is no built-in or special ratchet — coverage
-# is just the conventional name for one. None are configured by default;
-# uncomment an example to enable it.
-#
-# Coverage — keep line coverage at or above a rising floor:
-# [slots.coverage]
-# run = "your-coverage-tool"   # must emit: ICCULUS_METRIC coverage <percent>
-#
-# [ratchets.coverage]
-# direction = "up"
-# limit     = 80
-# slot      = "coverage"
-#
-# Bundle size — keep an artifact under a falling ceiling:
-# [slots.bundlesize]
-# run = "printf 'ICCULUS_METRIC bundle_bytes %s\\n' \"$(wc -c < dist/app.js)\""
-#
-# [ratchets.bundle]
-# metric    = "bundle_bytes"
-# direction = "down"
-# limit     = 500000
-# slot      = "bundlesize"
+# (slow, so NOT part of `agent finish`). Each [ratchets.<name>]'s `run` emits a
+# line `ICCULUS_METRIC <metric> <number>` (last wins); the floor/ceiling is
+# compared vs main, so it can only tighten on a branch.
 # ─────────────────────────────────────────────────────────────────────────────
 
-
-# Coverage ratchet — hold src/ line coverage at or above a rising floor, measured
-# by the [slots.coverage] measurement slot above. At ~94.9% (2026-06-18); floor
-# set just below and ratcheted upward over time. Held by `agent ratchets` (slow;
-# not part of finish) and enforced on every PR in CI; never loosened vs main.
+# Coverage ratchet — hold src/ line coverage at or above a rising floor. The run
+# executes the suite under Deno coverage and emits ICCULUS_METRIC coverage <pct>
+# for src/ (the TypeScript installer). Deno can't instrument the POSIX-shell
+# engine, so it's out of this number — the engine_* shell-out tests cover it
+# behaviourally instead. Held by `agent ratchets` and enforced on every PR in CI.
 [ratchets.coverage]
 direction = "up"
 limit     = 94
-slot      = "coverage"
+run       = "deno task coverage"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# [evidence] — optional gate requiring each branch to record work evidence
-# (e.g. a screenshot or a note) before `agent finish` passes. Off by default.
-# ─────────────────────────────────────────────────────────────────────────────
-
-[evidence]
-enabled = false
-capture = ""   # command that records evidence for the current branch
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# [gate] — ergonomics for the parallel gate stages (and side gates). These affect
-# how `agent finish` runs its concurrent jobs.
+# [gate] — ergonomics for the parallel gate stages (and scope gates). These
+# affect how `agent finish` runs its concurrent jobs.
 # ─────────────────────────────────────────────────────────────────────────────
 
 [gate]
-# Stream each slot's output live (line-prefixed `── <label> │ …`) instead of
+# Stream each job's output live (line-prefixed `── <label> │ …`) instead of
 # buffering it until the stage finishes. Helps when watching a slow build/test.
 # Concurrent jobs interleave (but stay labelled). Off by default (grouped).
 stream = false

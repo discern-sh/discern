@@ -3,19 +3,19 @@
 # 'concurrently'-style tool needed). It runs labelled commands — concurrently
 # (run_parallel) or one at a time (run_serial) — captures each one's combined
 # output, prints them in stable order under a banner, and returns non-zero if any
-# failed. The gate runs each SLOT as its own labelled job, so a result is
-# reported per-slot (the fix phase uses run_serial; the rest run_parallel).
+# failed. The gate runs each capability/check as its own labelled job, reported
+# per-job (the fix stage uses run_serial; the rest run_parallel).
 #
 # Output is buffered-then-grouped rather than live-interleaved: a quality gate
 # wants legible, non-tangled output more than it wants live progress, and this
 # keeps the implementation portable. Live streaming is a possible enhancement.
 #
-# Commands are run with `eval` on purpose — they are operator-supplied slot
+# Commands are run with `eval` on purpose — they are operator-supplied command
 # strings from .icculus/config.toml, and running them verbatim is the whole point.
 #
 # STRUCTURED SIDE CHANNEL. When ICCULUS_JOBS_RESULTS names a file, each job's
 # result is appended as a tab-separated line: "<label>\t<code>\t<seconds>". This
-# is how `finish --json` (ADR 0004) collects per-phase / per-side-gate results.
+# is how `finish --json` (ADR 0004) collects per-job / per-scope-gate results.
 # With the variable unset (every other caller), behaviour is unchanged.
 #
 # OPT-IN ERGONOMICS (ADR 0006), both default-off so the default is unchanged:
@@ -38,7 +38,7 @@ _rp_prefix() {
 # Run one job: capture its true exit code (in stream mode, before the prefix pipe)
 # and its wall-clock duration. Streams or buffers per ICCULUS_GATE_STREAM.
 #
-# The command runs inside a nested `( … )` so a slot that calls `exit` exits only
+# The command runs inside a nested `( … )` so a command that calls `exit` exits only
 # that inner subshell — the code file is still written (the exit code is the
 # inner subshell's). Without this, `eval "exit N"` would skip the code write,
 # which the fail-fast poll reads as "still running" (an infinite loop) and the
@@ -139,7 +139,7 @@ run_parallel() {
 }
 
 # Run labelled commands ONE AT A TIME, in order, stopping at the first failure.
-# The mutating fix phase uses this: its slots are ordered (a later fixer may
+# The mutating fix stage uses this: its jobs are ordered (a later fixer may
 # depend on an earlier one's edits) and must not run concurrently. Each job is
 # recorded to the side channel and its output grouped (or streamed) exactly as
 # run_parallel does. Returns 0 only if every command run exited 0.
@@ -178,38 +178,71 @@ run_serial() {
     return "$_rs_fail"
 }
 
-# Join the `run` commands of every slot in a given phase with ` && `, skipping
-# no-ops. Prints `:` when the phase has no real commands, so a track is never
-# empty. Used by the tidy/test convenience recipes and by no-op detection.
-#   cmd=$(slots_for_phase fix)
-slots_for_phase() {
-    _sp_phase=$1
-    _sp_joined=""
-    for _sp_slot in $(config_subsections slots); do
-        [ "$(config_get "slots.$_sp_slot.phase")" = "$_sp_phase" ] || continue
-        config_slot_is_noop "slots.$_sp_slot.run" && continue
-        _sp_run=$(config_get "slots.$_sp_slot.run")
-        if [ -z "$_sp_joined" ]; then
-            _sp_joined="$_sp_run"
-        else
-            _sp_joined="$_sp_joined && $_sp_run"
-        fi
+# Emit one job per line for a given stage, TAB-separated as
+# "<label>\t<command>\t<kind>", from BOTH sources, skipping no-ops:
+#
+#   capabilities  every [capabilities] flat key whose derived stage matches. The
+#                 value is read with config_array, which yields one line for a
+#                 scalar and N for an array — so an array-valued capability
+#                 expands to one job per element. The first element is labelled
+#                 with the bare capability name; later ones get a `#N` suffix
+#                 (lint, lint#2) so labels stay unique. kind = "capability".
+#   checks        every [checks.<name>] whose `stage` equals the stage. The `run`
+#                 is a scalar (commas allowed). kind = "check".
+#
+# Labels carry no spaces (capability/check names are bare identifiers); commands
+# may, which is why this is TAB-separated and never space-split. Used by `finish`
+# (job list + the --json report) and, via cmds_in_stage, by tidy/test.
+#   jobs_in_stage check
+jobs_in_stage() {
+    _jis_stage=$1
+
+    # (a) capabilities — flat keys of [capabilities], placed by cap_stage.
+    for _jis_cap in $(config_keys capabilities); do
+        cap_is_known "$_jis_cap" || continue          # unknown key: skip (doctor errors on it)
+        [ "$(cap_stage "$_jis_cap")" = "$_jis_stage" ] || continue
+        _jis_i=0
+        # config_array yields ONE line for a scalar, N for an array — uniform.
+        config_array "capabilities.$_jis_cap" | while IFS= read -r _jis_cmd; do
+            [ -n "$_jis_cmd" ] || continue
+            [ "$_jis_cmd" = ":" ] && continue
+            _jis_i=$((_jis_i + 1))
+            if [ "$_jis_i" -eq 1 ]; then
+                _jis_lbl=$_jis_cap
+            else
+                _jis_lbl="$_jis_cap#$_jis_i"
+            fi
+            printf '%s\t%s\tcapability\n' "$_jis_lbl" "$_jis_cmd"
+        done
     done
-    [ -n "$_sp_joined" ] || _sp_joined=":"
-    printf '%s' "$_sp_joined"
+
+    # (b) checks — explicit stage; run is a scalar.
+    for _jis_chk in $(config_subsections checks); do
+        [ "$(config_get "checks.$_jis_chk.stage")" = "$_jis_stage" ] || continue
+        _jis_run=$(config_get "checks.$_jis_chk.run" "")
+        [ -n "$_jis_run" ] || continue
+        [ "$_jis_run" = ":" ] && continue
+        printf '%s\t%s\tcheck\n' "$_jis_chk" "$_jis_run"
+    done
 }
 
-# Print the NON-NO-OP slot names in a phase, one per line, in declaration order.
-# Slot names are bare identifiers (no spaces), so a caller can iterate them with
-# `for` and read each `run` command with config_get — the safe way to build a
-# per-slot job list whose commands may contain spaces. A measurement slot (no
-# phase) matches no gate phase, so it never appears here.
-#   for slot in $(slots_in_phase check); do ...; done
-slots_in_phase() {
-    _sip_phase=$1
-    for _sip_slot in $(config_subsections slots); do
-        [ "$(config_get "slots.$_sip_slot.phase")" = "$_sip_phase" ] || continue
-        config_slot_is_noop "slots.$_sip_slot.run" && continue
-        printf '%s\n' "$_sip_slot"
-    done
+# Join the commands of every job in a stage with ` && `, in jobs_in_stage order.
+# Prints `:` when the stage has no real command, so a track is never empty. Used
+# by the tidy/test convenience recipes and by no-op detection. Reads via a here-
+# doc (not a pipe) so the accumulator survives the loop in dash and bash.
+#   cmd=$(cmds_in_stage fix)
+cmds_in_stage() {
+    _cis_joined=""
+    while IFS="$(printf '\t')" read -r _cis_lbl _cis_cmd _cis_kind; do
+        [ -n "$_cis_cmd" ] || continue
+        if [ -z "$_cis_joined" ]; then
+            _cis_joined="$_cis_cmd"
+        else
+            _cis_joined="$_cis_joined && $_cis_cmd"
+        fi
+    done <<EOF
+$(jobs_in_stage "$1")
+EOF
+    [ -n "$_cis_joined" ] || _cis_joined=":"
+    printf '%s' "$_cis_joined"
 }

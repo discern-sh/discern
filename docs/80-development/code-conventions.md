@@ -6,35 +6,40 @@ here._
 This doc is the detailed companion to the **Conventions** section of the project
 guidelines (`.icculus/guidelines/icculus.md`). The guidelines hold the short,
 agent-facing form; this doc holds the full reasoning. Keep the two in step, and
-keep both aligned with what the `[slots]` in `.icculus/config.toml` actually
-enforce — the written rule and the enforced rule must never disagree.
+keep both aligned with what the `[capabilities]` and `[checks]` in
+`.icculus/config.toml` actually enforce — the written rule and the enforced rule
+must never disagree.
 
 ## What the gate enforces
 
-The `fix` and `check` slots in
-[`.icculus/config.toml`](../../.icculus/config.toml) are the mechanical rules.
-To satisfy all of them at once, run `agent tidy`.
+The fix- and check-stage work in
+[`.icculus/config.toml`](../../.icculus/config.toml) is the mechanical rules:
+`format`, `lint`, and `typecheck` are known **Capabilities** (the engine derives
+their Stage from the name); `selfcheck` and `shellcheck` are custom **Checks**
+(they declare an explicit `stage`). To satisfy all of them at once, run
+`agent tidy`.
 
-| Slot         | Phase | Command                  | What it checks / how to satisfy                                                                                                                                                                                      |
-| ------------ | ----- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `format`     | fix   | `deno fmt`               | Formats TypeScript **and** Markdown (so `docs/` is reformatted on every gate). `templates/`, `dist/`, the generated agent files, and the seed trees are excluded in `deno.json`. Just run it — it rewrites in place. |
-| `lint`       | check | `deno lint`              | The Deno linter over `src/`, `scripts/`, `tests/`. Fix the finding, or justify it with an inline `deno-lint-ignore` and a reason.                                                                                    |
-| `typecheck`  | check | `deno check src/main.ts` | Type-checks the whole graph reachable from the entrypoint. Keep types sound; no `any` slipped through a cast.                                                                                                        |
-| `selfcheck`  | check | `deno task selfcheck`    | The self-host invariant: the root install must stay byte-identical to `templates/`. Fails if you edited an installed managed copy, or changed `templates/` without syncing. Heal with `deno task selfsync`.          |
-| `shellcheck` | check | `deno task lint:sh`      | Static-lints the POSIX shell (engine + `install.sh`). Fix the warning, or scope a `# shellcheck disable=...` with justification.                                                                                     |
+| Name         | Kind       | Stage | Command                  | What it checks / how to satisfy                                                                                                                                                                                  |
+| ------------ | ---------- | ----- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `format`     | capability | fix   | `deno fmt`               | Formats TypeScript **and** Markdown (so `docs/` is reformatted on every gate). `templates/`, `dist/`, the generated agent files, and your trees are excluded in `deno.json`. Just run it — it rewrites in place. |
+| `lint`       | capability | check | `deno lint`              | The Deno linter over `src/`, `scripts/`, `tests/`. Fix the finding, or justify it with an inline `deno-lint-ignore` and a reason.                                                                                |
+| `typecheck`  | capability | check | `deno check src/main.ts` | Type-checks the whole graph reachable from the entrypoint. Keep types sound; no `any` slipped through a cast.                                                                                                    |
+| `selfcheck`  | check      | check | `deno task selfcheck`    | The self-host invariant: the root install must stay byte-identical to `templates/`. Fails if you edited an installed managed copy, or changed `templates/` without syncing. Heal with `deno task selfsync`.      |
+| `shellcheck` | check      | check | `deno task lint:sh`      | Static-lints the POSIX shell (engine + `install.sh`). Fix the warning, or scope a `# shellcheck disable=...` with justification.                                                                                 |
 
-The `build` slot is a no-op (`deno task build` is release-only), and the `test`
-slot (`deno task test`) is covered in [testing.md](testing.md).
+There is no `build` capability (`deno task build` is release-only, so it is
+simply omitted), and the `test` capability (`deno task test`) is covered in
+[testing.md](testing.md).
 
 ## Conventions to follow
 
 The conventions the tooling cannot fully enforce, but the project still holds:
 
-- **The golden rule — managed vs seed.** Managed files (`agent`,
+- **The golden rule — managed vs yours.** Managed files (`agent`,
   `.icculus/engine/**`, `.icculus/skills/**`) are copied from `templates/`;
   never hand-edit them. Edit the source under `templates/`, then
   `deno task selfsync`. A direct edit won't ship and `selfcheck` flags it as
-  drift. Seed files (`.icculus/config.toml`, `docs/**`,
+  drift. Your files (`.icculus/config.toml`, `docs/**`,
   `.icculus/guidelines/icculus.md`, `TODO.md`) are yours — edit them in place.
   See [install-surface.md](install-surface.md) for the full disposition map.
 - **Never hand-edit generated files.** `CLAUDE.md` and `AGENTS.md` are compiled

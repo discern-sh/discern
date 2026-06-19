@@ -1,7 +1,8 @@
 /**
  * CLI tests for `init --config <file>` (ADR 0005): a JSON answers file drives a
- * fresh, non-interactive install, with slots/scopes/side_gates/ratchets applied
- * to the generated .icculus/config.toml (comments preserved). Run as subprocesses.
+ * fresh, non-interactive install, with capabilities/checks/scopes/ratchets
+ * applied to the generated .icculus/config.toml (comments preserved). Run as
+ * subprocesses.
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
@@ -10,21 +11,23 @@ import { runCli, withTempDir } from "./helpers.ts";
 
 const ANSWERS = JSON.stringify({
   "$schema": "../schema/icculus-config.schema.json",
-  version: "1",
+  version: "2",
   name: "My App",
   slug: "my-app",
   source_globs: ["src/**", "lib/**"],
   brief: "A declaratively-configured app.",
   agents: ["claude_code"],
-  slots: {
-    test: { phase: "test", run: "vitest run" },
-    format: { phase: "fix", run: "prettier --write ." },
+  capabilities: {
+    test: "vitest run",
+    format: "prettier --write .",
   },
-  scopes: { native: ["native/**"] },
-  side_gates: { native: "make -C native check" },
+  checks: {
+    licenses: { stage: "check", run: "license-scan" },
+  },
+  scopes: { native: { paths: ["native/**"], gate: "make -C native check" } },
   ratchets: {
-    coverage: { direction: "up", limit: 80, slot: "cov" },
-    bundle: { direction: "down", limit: 500000, slot: "bundlesize" },
+    coverage: { direction: "up", limit: 80, run: "measure-cov" },
+    bundle: { direction: "down", limit: 500000, run: "measure-bundle" },
   },
 });
 
@@ -38,9 +41,10 @@ Deno.test("init --config scaffolds from a JSON answers file", async () => {
     assertEquals(result.project.slug, "my-app");
 
     const toml = await Deno.readTextFile(join(dir, ".icculus/config.toml"));
-    assertStringIncludes(toml, 'run   = "vitest run"'); // slot fill
-    assertStringIncludes(toml, 'native = ["native/**"]'); // scope fill
-    assertStringIncludes(toml, 'native = "make -C native check"'); // side-gate fill
+    assertStringIncludes(toml, 'test = "vitest run"'); // capability fill
+    assertStringIncludes(toml, "[checks.licenses]"); // check table
+    assertStringIncludes(toml, 'paths = ["native/**"]'); // scope fill
+    assertStringIncludes(toml, 'gate = "make -C native check"'); // folded-in gate
     assertStringIncludes(toml, "[ratchets.coverage]"); // coverage ratchet table
     assertStringIncludes(toml, "[ratchets.bundle]"); // named ratchet
     assertStringIncludes(toml, "limit = 500000");
@@ -67,7 +71,7 @@ Deno.test("init --config - reads the answers file from stdin", async () => {
     assertEquals(JSON.parse(r.stdout).project.slug, "my-app");
     assertStringIncludes(
       await Deno.readTextFile(join(dir, ".icculus/config.toml")),
-      'run   = "vitest run"',
+      'test = "vitest run"',
     );
   });
 });
@@ -117,7 +121,7 @@ Deno.test("init --config rejects an unsupported document version", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(
       join(dir, "answers.json"),
-      JSON.stringify({ version: "2", slug: "x" }),
+      JSON.stringify({ version: "3", slug: "x" }),
     );
     const r = await runCli(["init", "--config", "answers.json", "--json"], dir);
     assertEquals(r.code, 1);
@@ -127,17 +131,20 @@ Deno.test("init --config rejects an unsupported document version", async () => {
   });
 });
 
-Deno.test("init --config rejects an invalid fill (bad phase)", async () => {
+Deno.test("init --config rejects an invalid fill (bad check stage)", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(
       join(dir, "answers.json"),
-      JSON.stringify({ slug: "x", slots: { t: { phase: "bogus", run: "x" } } }),
+      JSON.stringify({
+        slug: "x",
+        checks: { t: { stage: "bogus", run: "x" } },
+      }),
     );
     const r = await runCli(["init", "--config", "answers.json", "--json"], dir);
     assertEquals(r.code, 1);
     const result = JSON.parse(r.stdout);
     assertEquals(result.error, "invalid_config_file");
-    assertStringIncludes(result.message, "phase");
+    assertStringIncludes(result.message, "stage");
     // Nothing was written (the error happened during planning).
     let entries = 0;
     for await (const _ of Deno.readDir(dir)) {

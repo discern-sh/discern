@@ -6,26 +6,26 @@
 #   NEVER LOOSENED vs main   the configured limit on this branch is compared to
 #                            its value on main. A floor (direction=up) may only
 #                            rise; a ceiling (direction=down) may only fall.
-#   MEASURED vs limit        run the slot that emits the metric, read it, and for
-#                            up fail when measured < limit; for down fail when
+#   MEASURED vs limit        run the command that emits the metric, read it, and
+#                            for up fail when measured < limit; for down fail when
 #                            measured > limit.
 #
 # Every ratchet is a [ratchets.<name>] table — there is no built-in or special
 # instance. Coverage is just the conventional name for a ratchet that measures
 # line coverage; the engine treats it like any other.
 #
-#   metric     the metric name a slot emits           (default: the ratchet name)
+#   metric     the metric name the run emits           (default: the ratchet name)
 #   direction  up | down                               (default: up)
 #   limit      the floor (up) or ceiling (down)        (required)
-#   slot       the [slots.<name>] whose output emits the metric (required)
+#   run        the command whose output emits the metric (required)
 #
-# METRIC EMISSION CONVENTION. A slot reports a metric by printing a line:
+# METRIC EMISSION CONVENTION. The run reports a metric by printing a line:
 #   ICCULUS_METRIC <name> <number>
-# The LAST such line for a metric wins. This is the only way a slot reports a
+# The LAST such line for a metric wins. This is the only way the run reports a
 # number — there is no output-scraping fallback.
 #
-# A measurement slot is an ordinary [slots.<name>] with NO `phase`, so the gate
-# (`agent finish`) never runs it; the ratchet runs it on demand instead.
+# The ratchet's `run` is run on demand by `agent ratchets`, never by the gate
+# (`agent finish`) — measurement is slow, so it is kept out of the gate.
 #
 # Sourced (never executed) by the `ratchets` recipe, after bootstrap.sh, so the
 # config/output helpers and ICCULUS_* paths are available.
@@ -90,12 +90,7 @@ ratchet_check() {
     _rc_limit_key="ratchets.$_rc_name.limit"
     _rc_direction=$(config_get "ratchets.$_rc_name.direction" "up")
     _rc_metric=$(config_get "ratchets.$_rc_name.metric" "$_rc_name")
-    if ! config_has "ratchets.$_rc_name.slot"; then
-        _ratchet_err "ratchet '$_rc_name': no measurement slot (set slot = \"<name>\" under [ratchets.$_rc_name])."
-        return 1
-    fi
-    _rc_slot=$(config_get "ratchets.$_rc_name.slot" "")
-    _rc_cmd=$(config_get "slots.$_rc_slot.run" "")
+    _rc_cmd=$(config_get "ratchets.$_rc_name.run" "")
     [ -n "$_rc_cmd" ] || _rc_cmd=":"
 
     case "$_rc_direction" in
@@ -134,7 +129,7 @@ ratchet_check() {
 
     # --- measure -----------------------------------------------------------
     if [ "$_rc_cmd" = ":" ]; then
-        _ratchet_err "ratchet '$_rc_name': measurement slot '$_rc_slot' has no run command."
+        _ratchet_err "ratchet '$_rc_name' has no run command (set run = \"<command>\" under [ratchets.$_rc_name])."
         return 1
     fi
 
@@ -143,7 +138,7 @@ ratchet_check() {
         _ratchet_err "ratchet '$_rc_name': mktemp failed."
         return 1
     }
-    # Run the slot, teeing so the operator sees output live AND we can read it.
+    # Run the command, teeing so the operator sees output live AND we can read it.
     if ! eval "$_rc_cmd" 2>&1 | tee "$_rc_out"; then
         rm -f "$_rc_out"
         _ratchet_err "ratchet '$_rc_name': the measurement command failed."

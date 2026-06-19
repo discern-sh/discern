@@ -9,11 +9,11 @@
  * runs exactly the bytes a real `icculus init` would write), then drives the
  * recipes through the dispatcher.
  *
- * Tests that exercise scope/side-gate/ratchet behaviour need a git repo so
+ * Tests that exercise scope/scope-gate/ratchet behaviour need a git repo so
  * `changed-scopes` can answer; `gitInit` makes a hermetic one (its own config,
  * no signing, a `main` branch) so a developer's global git settings can't leak
  * in. `writeConfig` overwrites the scaffolded `.icculus/config.toml` (a seed file) with
- * test-specific slots/scopes/ratchets.
+ * test-specific capabilities/checks/scopes/ratchets.
  */
 
 import { dirname, join } from "@std/path";
@@ -44,7 +44,7 @@ const GIT_ISOLATION: Record<string, string> = {
  * Scaffold the real harness (engine, dispatcher, default `.icculus/config.toml`) into
  * `dir` via the installer's own plan/apply path, so the bytes under test are the
  * bytes a real install ships. Tests usually follow with `writeConfig` to set
- * the slots/scopes/ratchets they need.
+ * the capabilities/checks/scopes/ratchets they need.
  */
 export async function scaffoldEngine(dir: string): Promise<void> {
   const plan = await assembleInitPlan({
@@ -91,7 +91,7 @@ export async function writeConfig(dir: string, toml: string): Promise<void> {
   await Deno.writeTextFile(join(dir, ".icculus/config.toml"), toml);
 }
 
-/** Write an executable file (e.g. a project recipe or a slot script). */
+/** Write an executable file (e.g. a project recipe or a capability command). */
 export async function writeExecutable(
   path: string,
   contents: string,

@@ -1,10 +1,10 @@
 # shellcheck shell=sh
-# gotchas.sh — the single source for the "a gate phase failed" failure pointer.
+# gotchas.sh — the single source for the "a gate stage failed" failure pointer.
 #
 # A task runner that stops at the first failing step, with no on-failure hook,
 # cannot run a trailing "print advice" step after a failure. Two recipes close
 # that gap with the SAME wording — `finish` (via an EXIT trap on its gated
-# phases) and `with-gotchas` (a thin wrapper for any one command) — so the text
+# stages) and `with-gotchas` (a thin wrapper for any one command) — so the text
 # lives here once and both source it.
 #
 # The pointer aims an agent at the project's gotchas doc: the place the

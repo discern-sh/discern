@@ -1,0 +1,25 @@
+{
+  "$schema": "../../../../schema/icculus-config.schema.json",
+  "version": "2",
+  "description": "A FAKE example preset (a toy 'stack') — exists only to exercise the preset contract end-to-end in tests. Not a real ecosystem; not shipped.",
+  "capabilities": {
+    "test": "echo running example tests"
+  },
+  "checks": {
+    "examplecheck": {
+      "stage": "check",
+      "run": "echo example check",
+      "provides": "example-check"
+    }
+  },
+  "scopes": {
+    "example": { "paths": ["example/**"], "gate": "echo example side gate" }
+  },
+  "ratchets": {
+    "examplesize": {
+      "direction": "down",
+      "limit": 1000,
+      "run": "echo 'ICCULUS_METRIC examplesize 500'"
+    }
+  }
+}
