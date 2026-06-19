@@ -12,9 +12,14 @@
  * CI's dash/bash matrix because the file matches `engine_*_test.ts`.
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertRejects,
+  assertStringIncludes,
+} from "@std/assert";
 import { join } from "@std/path";
-import { exists } from "@std/fs";
+import { ensureDir, exists } from "@std/fs";
 import { withTempDir } from "./helpers.ts";
 import { runAgent, scaffoldEngine } from "./engine_helpers.ts";
 
@@ -82,6 +87,79 @@ Deno.test("engine guidelines: compiled agent files are world-readable (0644, not
       `CLAUDE.md must be group/other-readable; got mode ${
         (mode & 0o777).toString(8)
       }`,
+    );
+  });
+});
+
+Deno.test("engine guidelines: prunes the link of a skill removed from the source tree", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+
+    // First run links every bundled skill.
+    let r = await runAgent(dir, ["guidelines"]);
+    assertEquals(r.code, 0, r.output);
+    assert(
+      await exists(join(dir, ".claude/skills/handoff-worktree/SKILL.md")),
+      `precondition: handoff-worktree must be linked\n${r.output}`,
+    );
+
+    // Simulate an `upgrade` (or rename) that drops a skill from .icculus/skills/.
+    await Deno.remove(join(dir, ".icculus/skills/handoff-worktree"), {
+      recursive: true,
+    });
+
+    // Re-running must reconcile: the orphaned link is pruned, not left dangling.
+    r = await runAgent(dir, ["guidelines"]);
+    assertEquals(r.code, 0, r.output);
+
+    // lstat (not exists) so we test the link *path*, not its target: a dangling
+    // symlink still exists as a path, so only a real prune makes lstat throw.
+    await assertRejects(
+      () => Deno.lstat(join(dir, ".claude/skills/handoff-worktree")),
+      Deno.errors.NotFound,
+      undefined,
+      `stale link must be pruned, not left dangling\n${r.output}`,
+    );
+    // A still-present skill keeps its working link.
+    assert(
+      await exists(join(dir, ".claude/skills/write-adr/SKILL.md")),
+      `live skills must stay linked\n${r.output}`,
+    );
+    assertStringIncludes(r.stdout, "pruned 1 stale");
+  });
+});
+
+Deno.test("engine guidelines: prune leaves links it did not create alone", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await ensureDir(join(dir, ".claude/skills"));
+
+    // A user's own skill: a real directory dropped straight into .claude/skills/.
+    await ensureDir(join(dir, ".claude/skills/my-own-skill"));
+    await Deno.writeTextFile(
+      join(dir, ".claude/skills/my-own-skill/SKILL.md"),
+      "user skill",
+    );
+    // A user's own symlink pointing OUTSIDE .icculus/skills/ (e.g. a shared repo).
+    await ensureDir(join(dir, "external/shared"));
+    await Deno.symlink(
+      "../../external/shared",
+      join(dir, ".claude/skills/shared"),
+    );
+
+    const r = await runAgent(dir, ["guidelines"]);
+    assertEquals(r.code, 0, r.output);
+
+    // Neither matches the exact link we write, so reconcile must leave both —
+    // this is the safety property that makes blind-prune-by-name unacceptable.
+    assert(
+      await exists(join(dir, ".claude/skills/my-own-skill/SKILL.md")),
+      `a user's real skill dir must survive reconcile\n${r.output}`,
+    );
+    const st = await Deno.lstat(join(dir, ".claude/skills/shared"));
+    assert(
+      st.isSymlink,
+      `a user's symlink pointing elsewhere must survive reconcile\n${r.output}`,
     );
   });
 });

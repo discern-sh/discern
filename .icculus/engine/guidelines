@@ -10,8 +10,9 @@
 # Two jobs, each idempotent and safe to run from anywhere:
 #   1. Concatenate .icculus/guidelines/*.md (sorted) into every configured agent
 #      file, per [project].agents in .icculus/config.toml.
-#   2. Refresh the .claude/skills/<skill> symlinks so the author-once skills in
-#      .icculus/skills/ are discoverable by the agent.
+#   2. Reconcile the .claude/skills/<skill> symlinks with .icculus/skills/ —
+#      linking author-once skills so the agent can discover them, and pruning
+#      links whose skill has been removed — so the two stay in lock-step.
 #
 # The two jobs are INDEPENDENT: job 2 runs even when job 1 has no sources to
 # compile, so a freshly-scaffolded project still gets discoverable skills.
@@ -117,18 +118,21 @@ else
     warn "guidelines: no sources in $sources_dir/*.md — skipping agent-file compilation."
 fi
 
-# --- job 2: refresh skill symlinks (always) -------------------------------
+# --- job 2: reconcile skill symlinks (always) -----------------------------
 #
-# For each directory under .icculus/skills/<skill>, (re)create the symlink
-# .claude/skills/<skill> -> ../../.icculus/skills/<skill>, so author-once skills are
-# discoverable by the agent. Runs unconditionally — independent of job 1 — so a
-# project with no guideline sources still gets discoverable skills. Idempotent:
-# an existing link is removed first, so a renamed or retargeted skill is
-# corrected. A non-symlink at the target (a real file or directory a user
-# dropped there) is left untouched and warned about, so we never clobber it.
+# Mirror .icculus/skills/<skill> into .claude/skills/<skill> so author-once
+# skills are discoverable by the agent. A reconcile, not just an add: pass 1
+# links every live skill, pass 2 prunes links whose skill is gone. Runs
+# unconditionally — independent of job 1 — so a project with no guideline
+# sources still gets discoverable skills.
 #
-# Globbing is re-enabled for the loop only (`set +f`/`set -f`); see job 1.
+# Globbing is re-enabled for each loop only (`set +f`/`set -f`); see job 1.
 
+# Pass 1 — link every live skill. For each directory under .icculus/skills/,
+# (re)create the symlink .claude/skills/<skill> -> ../../.icculus/skills/<skill>.
+# Idempotent: an existing link is removed first, so a renamed or retargeted
+# skill is corrected. A non-symlink at the target (a real file or directory a
+# user dropped there) is left untouched and warned about, so we never clobber it.
 linked_count=0
 if [ -d "$skills_dir" ]; then
     [ -d "$claude_skills_dir" ] || mkdir -p "$claude_skills_dir" || die "guidelines: could not create $claude_skills_dir."
@@ -153,6 +157,29 @@ if [ -d "$skills_dir" ]; then
     set -f
 fi
 
+# Pass 2 — prune stale links. A skill removed from .icculus/skills/ (e.g. by
+# `upgrade`) leaves its .claude/skills/<skill> symlink behind, now dangling.
+# Without this, pass 1 only ever adds, so the link set grows monotonically and
+# the agent keeps discovering skills that no longer exist. Remove every symlink
+# we created (target = the exact relative path we write) whose source skill is
+# gone. Matching that exact target is what makes pruning safe: a real file/dir,
+# or a user's own symlink pointing elsewhere, never matches and is left alone —
+# silently, since a link that is not ours is not a conflict to report. Guarded
+# on the link dir, not the source dir, so "every skill removed" still prunes.
+pruned_count=0
+if [ -d "$claude_skills_dir" ]; then
+    set +f
+    for _link in "$claude_skills_dir"/*; do
+        [ -L "$_link" ] || continue
+        _skill=$(basename "$_link")
+        [ -d "$skills_dir/$_skill" ] && continue
+        if [ "$(readlink "$_link")" = "../../.icculus/skills/$_skill" ]; then
+            rm -f "$_link" && pruned_count=$((pruned_count + 1))
+        fi
+    done
+    set -f
+fi
+
 # --- summary --------------------------------------------------------------
 
 # Trim the leading space from the accumulated list and present it comma-joined.
@@ -160,4 +187,8 @@ written_list=$(printf '%s' "${written# }" | tr ' ' ',')
 [ -n "$written_list" ] || written_list="(none)"
 
 ok "guidelines: compiled $source_count source(s) into $written_count agent file(s): $written_list"
-info "skills linked into .claude/skills/: $linked_count"
+if [ "$pruned_count" -gt 0 ]; then
+    info "skills linked into .claude/skills/: $linked_count (pruned $pruned_count stale)"
+else
+    info "skills linked into .claude/skills/: $linked_count"
+fi
