@@ -43,18 +43,19 @@ person / coding agent
                                 └──────────────┬──────────────┘
                                                │  reads commands from
                                                ▼
-                                ┌─────────────────────────────┐
-                                │     .icculus/config.toml     │
-                                │  Slots (by Phase) · Scopes · │
-                                │  Side gates · Ratchets ·     │
-                                │  Worktree Adapters           │
-                                └─────────────────────────────┘
+                                ┌──────────────────────────────┐
+                                │     .icculus/config.toml      │
+                                │  Capabilities · Checks ·      │
+                                │  Scopes (+ gates) · Ratchets ·│
+                                │  Worktree settings            │
+                                └──────────────────────────────┘
 ```
 
-`agent finish` walks the Phases in order, attributing each job to one Slot:
+`agent finish` walks the Stages in order, attributing each job to one Capability
+or Check:
 
 ```
-  fix  ───►  build  ───►  check ∥ test  ───►  side gates  ───►  main-merged
+  fix  ───►  build  ───►  check ∥ test  ───►  scope gates  ───►  main-merged
 (serial,   (parallel    (parallel,        (only Scopes      (only in a
  mutating)  w/ fix)      read-only+suite)   that changed)     Worktree)
 ```
@@ -80,16 +81,17 @@ main checkout ──agent worktree──► Worktree  (branch + own db + own por
   and gone when the command returns. There is **no daemon and no server** — work
   happens synchronously when you run `agent <verb>`.
 - **Concurrency is in-process fan-out, not a queue.** Inside `finish`, the
-  parallel Phases run their Slots as concurrent background `sh` jobs via the
-  Engine's job runner (`lib/jobs.sh`), collected before the Phase returns.
+  parallel Stages run their Capabilities and Checks as concurrent background
+  `sh` jobs via the Engine's job runner (`lib/jobs.sh`), collected before the
+  Stage returns.
 - **Persistent state lives in the repo.** `.icculus/config.toml` (hand-edited
   config), `.icculus/manifest.json` (generated hashes + Kit/Schema versions),
-  the git repo itself (branches and linked Worktrees under
-  `.claude/worktrees/`), and the optional `.icculus/evidence/` store. No
-  database, no external state.
+  and the git repo itself (branches and linked Worktrees under
+  `.claude/worktrees/`). No database, no external state.
 - **The only hard external dependency is `git`.** A project's own stack tools
-  (the formatter, linter, test runner named in Slots) are invoked by the Slots,
-  not bundled — the Engine shells out to whatever the project already has.
+  (the formatter, linter, test runner named as Capabilities) are invoked by
+  those Capabilities, not bundled — the Engine shells out to whatever the
+  project already has.
 
 ---
 
@@ -98,8 +100,8 @@ main checkout ──agent worktree──► Worktree  (branch + own db + own por
 | Region of the map                                           | Documented in                                              |
 | ----------------------------------------------------------- | ---------------------------------------------------------- |
 | `src/` Installer, the disposition copy, the Manifest        | [`../10-installer/`](../10-installer/)                     |
-| `agent finish`, the Phase walk, Scopes, Side gates          | [`../20-quality-gate/`](../20-quality-gate/)               |
-| The Worktree bracket and its database / dev-server Adapters | [`../30-worktrees/`](../30-worktrees/)                     |
+| `agent finish`, the Stage walk, Scopes, Scope gates         | [`../20-quality-gate/`](../20-quality-gate/)               |
+| The Worktree bracket and its database / dev-server settings | [`../30-worktrees/`](../30-worktrees/)                     |
 | Guidance source → Compiled agent files, bundled Skills      | [`../40-agent-guidance/`](../40-agent-guidance/)           |
 | `agent` dispatch and the `lib/` shell library               | [`../50-engine-internals/`](../50-engine-internals/)       |
-| `templates/` ↔ install surface (Managed vs Seed)            | [install-surface.md](../80-development/install-surface.md) |
+| `templates/` ↔ install surface (Managed vs yours)           | [install-surface.md](../80-development/install-surface.md) |

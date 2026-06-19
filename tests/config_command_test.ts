@@ -23,46 +23,55 @@ function readToml(dir: string): Promise<string> {
   return Deno.readTextFile(join(dir, ".icculus/config.toml"));
 }
 
-Deno.test("config set-slot fills a slot and preserves comments", async () => {
+Deno.test("config set-capability fills a capability and preserves comments", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
     const r = await runCli(
-      [
-        "config",
-        "set-slot",
-        "test",
-        "--phase",
-        "test",
-        "--run",
-        "vitest run",
-        "--json",
-      ],
+      ["config", "set-capability", "test", "vitest run", "--json"],
       dir,
     );
     assertEquals(r.code, 0, r.stderr);
     const result = JSON.parse(r.stdout);
     assertEquals(result.ok, true);
     assert(
-      result.edits.some((e: { key: string }) => e.key === "slots.test.run"),
+      result.edits.some((e: { key: string }) => e.key === "capabilities.test"),
     );
 
     const toml = await readToml(dir);
-    assertStringIncludes(toml, 'run   = "vitest run"');
+    assertStringIncludes(toml, 'test = "vitest run"');
     // A section comment from the template survives the edit.
     assertStringIncludes(toml, "# .icculus/config.toml");
   });
 });
 
-Deno.test("config set-slot without --phase writes a measurement slot", async () => {
+Deno.test("config set-capability rejects an unknown capability name", async () => {
+  await withTempDir(async (dir) => {
+    await init(dir);
+    const r = await runCli(
+      ["config", "set-capability", "deploy", "deploy.sh", "--json"],
+      dir,
+    );
+    assertEquals(r.code, 1);
+    const result = JSON.parse(r.stdout);
+    assertEquals(result.ok, false);
+    assertStringIncludes(result.message, "unknown capability");
+  });
+});
+
+Deno.test("config set-check writes a check table", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
     const r = await runCli(
       [
         "config",
-        "set-slot",
-        "bundlesize",
+        "set-check",
+        "licenses",
+        "--stage",
+        "check",
         "--run",
-        "wc -c < dist/app.js",
+        "license-scan",
+        "--provides",
+        "license-audit",
         "--json",
       ],
       dir,
@@ -70,34 +79,31 @@ Deno.test("config set-slot without --phase writes a measurement slot", async () 
     assertEquals(r.code, 0, r.stderr);
     const result = JSON.parse(r.stdout);
     assertEquals(result.ok, true);
-    // Only the run key is written — no phase, so the gate never runs it.
     assert(
       result.edits.some((e: { key: string }) =>
-        e.key === "slots.bundlesize.run"
-      ),
-    );
-    assert(
-      !result.edits.some((e: { key: string }) =>
-        e.key === "slots.bundlesize.phase"
+        e.key === "checks.licenses.run"
       ),
     );
     const toml = await readToml(dir);
-    assertStringIncludes(toml, 'run = "wc -c < dist/app.js"');
+    assertStringIncludes(toml, "[checks.licenses]");
+    assertStringIncludes(toml, 'stage = "check"');
+    assertStringIncludes(toml, 'run = "license-scan"');
+    assertStringIncludes(toml, 'provides = "license-audit"');
   });
 });
 
-Deno.test("config set-slot rejects an unknown phase", async () => {
+Deno.test("config set-check rejects an unknown stage", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
     const r = await runCli(
       [
         "config",
-        "set-slot",
-        "test",
-        "--phase",
-        "bogus",
-        "--run",
+        "set-check",
         "x",
+        "--stage",
+        "deploy",
+        "--run",
+        "y",
         "--json",
       ],
       dir,
@@ -105,11 +111,11 @@ Deno.test("config set-slot rejects an unknown phase", async () => {
     assertEquals(r.code, 1);
     const result = JSON.parse(r.stdout);
     assertEquals(result.ok, false);
-    assertStringIncludes(result.message, "unknown phase");
+    assertStringIncludes(result.message, "unknown stage");
   });
 });
 
-Deno.test("config set-scope sets a glob array", async () => {
+Deno.test("config set-scope sets a paths array", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
     const r = await runCli(
@@ -117,24 +123,30 @@ Deno.test("config set-scope sets a glob array", async () => {
       dir,
     );
     assertEquals(r.code, 0, r.stderr);
-    assertStringIncludes(
-      await readToml(dir),
-      'native = ["native/**", "native/lib/**"]',
-    );
+    const toml = await readToml(dir);
+    assertStringIncludes(toml, "[scopes.native]");
+    assertStringIncludes(toml, 'paths = ["native/**", "native/lib/**"]');
   });
 });
 
-Deno.test("config set-side-gate sets a side-gate command", async () => {
+Deno.test("config set-scope folds in --neutral and --gate", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
     const r = await runCli(
-      ["config", "set-side-gate", "native", "--run", "make -C native check"],
+      [
+        "config",
+        "set-scope",
+        "native",
+        "native/**",
+        "--gate",
+        "make -C native check",
+      ],
       dir,
     );
     assertEquals(r.code, 0, r.stderr);
     assertStringIncludes(
       await readToml(dir),
-      'native = "make -C native check"',
+      'gate = "make -C native check"',
     );
   });
 });
@@ -151,8 +163,8 @@ Deno.test("config set-ratchet writes a named ratchet table", async () => {
         "500000",
         "--direction",
         "down",
-        "--slot",
-        "bundlesize",
+        "--run",
+        "measure-bundle",
       ],
       dir,
     );
@@ -161,7 +173,7 @@ Deno.test("config set-ratchet writes a named ratchet table", async () => {
     assertStringIncludes(toml, "[ratchets.bundle]");
     assertStringIncludes(toml, "limit = 500000");
     assertStringIncludes(toml, 'direction = "down"');
-    assertStringIncludes(toml, 'slot = "bundlesize"');
+    assertStringIncludes(toml, 'run = "measure-bundle"');
   });
 });
 
@@ -175,8 +187,8 @@ Deno.test("config set-ratchet treats 'coverage' as an ordinary ratchet name", as
         "coverage",
         "--limit",
         "80",
-        "--slot",
-        "cov",
+        "--run",
+        "measure-cov",
         "--json",
       ],
       dir,
@@ -185,11 +197,11 @@ Deno.test("config set-ratchet treats 'coverage' as an ordinary ratchet name", as
     const toml = await readToml(dir);
     assertStringIncludes(toml, "[ratchets.coverage]");
     assertStringIncludes(toml, "limit = 80");
-    assertStringIncludes(toml, 'slot = "cov"');
+    assertStringIncludes(toml, 'run = "measure-cov"');
   });
 });
 
-Deno.test("config set-ratchet requires a --slot", async () => {
+Deno.test("config set-ratchet requires a --run", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
     const r = await runCli(
@@ -228,12 +240,9 @@ Deno.test("config --dry-run writes nothing", async () => {
     const r = await runCli(
       [
         "config",
-        "set-slot",
+        "set-capability",
         "test",
-        "--phase",
-        "test",
-        "--run",
-        "x",
+        "vitest run",
         "--dry-run",
         "--json",
       ],
@@ -266,18 +275,27 @@ Deno.test("config errors to stderr (not JSON) when not initialized", async () =>
   });
 });
 
-Deno.test("config set-slot rejects a malformed slot name", async () => {
+Deno.test("config set-check rejects a malformed check name", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
     const r = await runCli(
-      ["config", "set-slot", "bad name", "--run", "x", "--json"],
+      [
+        "config",
+        "set-check",
+        "bad name",
+        "--stage",
+        "check",
+        "--run",
+        "x",
+        "--json",
+      ],
       dir,
     );
     assertEquals(r.code, 1);
     const result = JSON.parse(r.stdout);
     assertEquals(result.ok, false);
     assertEquals(result.error, "invalid_argument");
-    assertStringIncludes(result.message, "slot name must be");
+    assertStringIncludes(result.message, "check name must be");
   });
 });
 
@@ -306,20 +324,6 @@ Deno.test("config set-scope: Cliffy rejects zero globs before the handler", asyn
   });
 });
 
-Deno.test("config set-side-gate rejects a malformed scope name", async () => {
-  await withTempDir(async (dir) => {
-    await init(dir);
-    const r = await runCli(
-      ["config", "set-side-gate", "bad.scope", "--run", "make", "--json"],
-      dir,
-    );
-    assertEquals(r.code, 1);
-    const result = JSON.parse(r.stdout);
-    assertEquals(result.ok, false);
-    assertStringIncludes(result.message, "side-gate scope must be");
-  });
-});
-
 Deno.test("config set-ratchet rejects a malformed ratchet name", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
@@ -330,8 +334,8 @@ Deno.test("config set-ratchet rejects a malformed ratchet name", async () => {
         "bad name",
         "--limit",
         "80",
-        "--slot",
-        "cov",
+        "--run",
+        "m",
         "--json",
       ],
       dir,
@@ -353,8 +357,8 @@ Deno.test("config set-ratchet rejects an invalid --direction", async () => {
         "bundle",
         "--limit",
         "80",
-        "--slot",
-        "cov",
+        "--run",
+        "m",
         "--direction",
         "sideways",
         "--json",
@@ -378,8 +382,8 @@ Deno.test("config set-ratchet rejects a non-numeric --limit", async () => {
         "bundle",
         "--limit",
         "lots",
-        "--slot",
-        "cov",
+        "--run",
+        "m",
         "--json",
       ],
       dir,
@@ -395,7 +399,7 @@ Deno.test("config set-ratchet defaults metric to the name and direction to up", 
   await withTempDir(async (dir) => {
     await init(dir);
     const r = await runCli(
-      ["config", "set-ratchet", "cov", "--limit", "80", "--slot", "cov"],
+      ["config", "set-ratchet", "cov", "--limit", "80", "--run", "measure-cov"],
       dir,
     );
     assertEquals(r.code, 0, r.stderr);

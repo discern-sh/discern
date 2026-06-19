@@ -141,6 +141,22 @@ export class TomlEditor {
     return false;
   }
 
+  /**
+   * Remove an entire section — its `[header]` line and its body, up to the next
+   * header (or EOF). Returns true when a section was removed. Used by migrations
+   * that restructure the config (e.g. dropping `[slots.*]` or `[evidence]`). A
+   * comment block that *precedes* the header is not part of the section, so it is
+   * left in place (a migrated seed may carry a stale comment — harmless).
+   */
+  deleteSection(section: string): boolean {
+    const span = this.findSection(section);
+    if (span === null) {
+      return false;
+    }
+    this.lines.splice(span.headerIdx, span.bodyEnd - span.headerIdx);
+    return true;
+  }
+
   /** Set a string-valued key. */
   setString(dottedKey: string, value: string): this {
     return this.setLiteral(dottedKey, tomlString(value));

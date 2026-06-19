@@ -12,10 +12,10 @@ import { join } from "@std/path";
 import { runCli, withTempDir } from "./helpers.ts";
 
 const ANSWERS = JSON.stringify({
-  version: "1",
+  version: "2",
   name: "Edge App",
   slug: "edge-app",
-  slots: { test: { phase: "test", run: "vitest run" } },
+  capabilities: { test: "vitest run" },
 });
 
 // --- templates_not_found: resolveTemplatesDir throws (init.ts 172-180) ---
@@ -107,11 +107,14 @@ Deno.test("init reports a missing --config file to stderr without --json", async
 Deno.test("init reports invalid --config fills to stderr without --json", async () => {
   await withTempDir(async (dir) => {
     // A document that parses and is the right version, but carries an invalid
-    // fill (bad phase) — so loadConfigDoc succeeds and the error surfaces later,
-    // inside assembleInitPlan via applyConfigDoc.
+    // fill (bad check stage) — so loadConfigDoc succeeds and the error surfaces
+    // later, inside assembleInitPlan via applyConfigDoc.
     await Deno.writeTextFile(
       join(dir, "answers.json"),
-      JSON.stringify({ slug: "x", slots: { t: { phase: "bogus", run: "x" } } }),
+      JSON.stringify({
+        slug: "x",
+        checks: { t: { stage: "bogus", run: "x" } },
+      }),
     );
     const { code, stdout, stderr } = await runCli(
       ["init", "--config", "answers.json"],
@@ -119,7 +122,7 @@ Deno.test("init reports invalid --config fills to stderr without --json", async 
     );
     assertEquals(code, 1);
     assertStringIncludes(stderr, "invalid --config fills");
-    assertStringIncludes(stderr, "phase");
+    assertStringIncludes(stderr, "stage");
     assertEquals(stdout.trim(), "");
     // The failure happened during planning: nothing was written.
     let entries = 0;
@@ -140,10 +143,10 @@ Deno.test("init --force --config leaves an existing .icculus/config.toml untouch
       0,
     );
     const before = await Deno.readTextFile(join(dir, ".icculus/config.toml"));
-    // The fresh seed carries no slot fills.
-    assert(!before.includes('run   = "vitest run"'));
+    // The fresh seed carries no capability fills.
+    assert(!before.includes('test = "vitest run"'));
 
-    // Re-init with --force AND a --config that *would* fill slots. Because
+    // Re-init with --force AND a --config that *would* fill capabilities. Because
     // .icculus/config.toml is a seed already present, its plan op is `skip`, so
     // applyFillsToPlan returns early and never applies the fills — the seed is
     // left exactly as the user's.
@@ -158,7 +161,7 @@ Deno.test("init --force --config leaves an existing .icculus/config.toml untouch
     // The seed is byte-for-byte unchanged: the fills did not land.
     const after = await Deno.readTextFile(join(dir, ".icculus/config.toml"));
     assertEquals(after, before);
-    assert(!after.includes('run   = "vitest run"'));
+    assert(!after.includes('test = "vitest run"'));
   });
 });
 

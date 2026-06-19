@@ -90,7 +90,7 @@ Deno.test("doctor: human (non-json) output reports a clean bill on stderr, exit 
       ".icculus/config.toml: present and valid TOML",
     );
     assertStringIncludes(stderr, "agent: present and executable");
-    assertStringIncludes(stderr, "schema 3 (current)");
+    assertStringIncludes(stderr, "schema 4 (current)");
     assertStringIncludes(stderr, "All checks passed.");
   });
 });

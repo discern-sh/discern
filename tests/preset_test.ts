@@ -1,23 +1,24 @@
 /**
- * Tests for the adapter contract (ADR 0007), exercised end-to-end against a FAKE
- * example adapter fixture (a toy "stack" under tests/fixtures/adapters/example/ —
- * not a real ecosystem, not shipped). `add-adapter` overlays the adapter's files
- * AND applies its adapter.json config fills to .icculus/config.toml.
+ * Tests for the preset contract (ADR 0007, ADR 0018), exercised end-to-end
+ * against a FAKE example preset fixture (a toy "stack" under
+ * tests/fixtures/presets/example/ — not a real ecosystem, not shipped).
+ * `add-preset` overlays the preset's files AND applies its preset.json config
+ * fills to .icculus/config.toml.
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, fromFileUrl, join } from "@std/path";
-// `dirname` is used both for the fixtures path and by `stageAdapter`'s mkdir.
+// `dirname` is used both for the fixtures path and by `stagePreset`'s mkdir.
 import { runCli, withTempDir } from "./helpers.ts";
 import { runAgent } from "./engine_helpers.ts";
 
-/** Absolute path to the fixture adapters dir (passed via ICCULUS_ADAPTERS_DIR). */
-const FIXTURE_ADAPTERS = join(
+/** Absolute path to the fixture presets dir (passed via ICCULUS_PRESETS_DIR). */
+const FIXTURE_PRESETS = join(
   dirname(fromFileUrl(import.meta.url)),
   "fixtures",
-  "adapters",
+  "presets",
 );
-const ADAPTER_ENV = { ICCULUS_ADAPTERS_DIR: FIXTURE_ADAPTERS };
+const PRESET_ENV = { ICCULUS_PRESETS_DIR: FIXTURE_PRESETS };
 
 /** True when a path exists. */
 async function exists(path: string): Promise<boolean> {
@@ -29,7 +30,7 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
-Deno.test("add-adapter overlays the example adapter's files and config fills", async () => {
+Deno.test("add-preset overlays the example preset's files and config fills", async () => {
   await withTempDir(async (dir) => {
     assertEquals(
       (await runCli(["init", "--yes", "--slug", "demo"], dir)).code,
@@ -37,9 +38,9 @@ Deno.test("add-adapter overlays the example adapter's files and config fills", a
     );
 
     const r = await runCli(
-      ["add-adapter", "example", "--yes", "--json"],
+      ["add-preset", "example", "--yes", "--json"],
       dir,
-      ADAPTER_ENV,
+      PRESET_ENV,
     );
     assertEquals(r.code, 0, r.stderr);
     const result = JSON.parse(r.stdout);
@@ -58,37 +59,37 @@ Deno.test("add-adapter overlays the example adapter's files and config fills", a
       ((recipeInfo.mode ?? 0) & 0o111) !== 0,
       "recipe should be executable",
     );
-    // adapter.json is metadata — never scaffolded into the project.
-    assert(!(await exists(join(dir, "adapter.json"))));
+    // preset.json is metadata — never scaffolded into the project.
+    assert(!(await exists(join(dir, "preset.json"))));
 
     // Config fills landed in .icculus/config.toml, comments intact.
     const toml = await Deno.readTextFile(join(dir, ".icculus/config.toml"));
-    assertStringIncludes(toml, 'run = "echo running example tests"'); // slot
-    assertStringIncludes(toml, 'example = ["example/**"]'); // scope
-    assertStringIncludes(toml, 'example = "echo example side gate"'); // side-gate
+    assertStringIncludes(toml, 'test = "echo running example tests"'); // capability
+    assertStringIncludes(toml, 'paths = ["example/**"]'); // scope paths
+    assertStringIncludes(toml, 'gate = "echo example side gate"'); // scope gate
     assertStringIncludes(toml, "[ratchets.examplesize]"); // ratchet
     assertStringIncludes(toml, "# .icculus/config.toml"); // template comment survived
   });
 });
 
-Deno.test("add-adapter: the overlaid project recipe is runnable via agent", async () => {
+Deno.test("add-preset: the overlaid project recipe is runnable via agent", async () => {
   await withTempDir(async (dir) => {
     await runCli(["init", "--yes", "--slug", "demo"], dir);
-    await runCli(["add-adapter", "example", "--yes"], dir, ADAPTER_ENV);
+    await runCli(["add-preset", "example", "--yes"], dir, PRESET_ENV);
     const r = await runAgent(dir, ["example-deploy"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "example deploy ran");
   });
 });
 
-Deno.test("add-adapter --dry-run writes nothing (files or fills)", async () => {
+Deno.test("add-preset --dry-run writes nothing (files or fills)", async () => {
   await withTempDir(async (dir) => {
     await runCli(["init", "--yes", "--slug", "demo"], dir);
     const before = await Deno.readTextFile(join(dir, ".icculus/config.toml"));
     const r = await runCli(
-      ["add-adapter", "example", "--yes", "--dry-run", "--json"],
+      ["add-preset", "example", "--yes", "--dry-run", "--json"],
       dir,
-      ADAPTER_ENV,
+      PRESET_ENV,
     );
     assertEquals(r.code, 0, r.stderr);
     assertEquals(JSON.parse(r.stdout).dry_run, true);
@@ -100,48 +101,48 @@ Deno.test("add-adapter --dry-run writes nothing (files or fills)", async () => {
   });
 });
 
-Deno.test("add-adapter still reports unknown adapters with the fixtures dir set", async () => {
+Deno.test("add-preset still reports unknown presets with the fixtures dir set", async () => {
   await withTempDir(async (dir) => {
     await runCli(["init", "--yes", "--slug", "demo"], dir);
     const r = await runCli(
-      ["add-adapter", "nope", "--json"],
+      ["add-preset", "nope", "--json"],
       dir,
-      ADAPTER_ENV,
+      PRESET_ENV,
     );
     assertEquals(r.code, 1);
     const result = JSON.parse(r.stdout);
-    assertEquals(result.error, "unknown_adapter");
+    assertEquals(result.error, "unknown_preset");
     // The available list now includes the example fixture.
     assert(result.available.includes("example"));
   });
 });
 
 /**
- * Build a throwaway adapters dir under `<dir>/<name>/` and return the env that
- * points the CLI at it. Lets a test stage a deliberately-broken adapter (bad
- * adapter.json, no fills, …) without touching the committed fixtures.
+ * Build a throwaway presets dir under `<dir>/<name>/` and return the env that
+ * points the CLI at it. Lets a test stage a deliberately-broken preset (bad
+ * preset.json, no fills, …) without touching the committed fixtures.
  */
-async function stageAdapter(
+async function stagePreset(
   dir: string,
   name: string,
   files: Record<string, string>,
-): Promise<{ env: Record<string, string>; adaptersRoot: string }> {
-  const adaptersRoot = join(dir, "_adapters");
+): Promise<{ env: Record<string, string>; presetsRoot: string }> {
+  const presetsRoot = join(dir, "_presets");
   for (const [rel, contents] of Object.entries(files)) {
-    const path = join(adaptersRoot, name, rel);
+    const path = join(presetsRoot, name, rel);
     await Deno.mkdir(dirname(path), { recursive: true });
     await Deno.writeTextFile(path, contents);
   }
-  return { env: { ICCULUS_ADAPTERS_DIR: adaptersRoot }, adaptersRoot };
+  return { env: { ICCULUS_PRESETS_DIR: presetsRoot }, presetsRoot };
 }
 
-Deno.test("add-adapter reports not_initialized when there is no .icculus/config.toml (--json)", async () => {
+Deno.test("add-preset reports not_initialized when there is no .icculus/config.toml (--json)", async () => {
   await withTempDir(async (dir) => {
     // No `init` here — the dir has no .icculus/config.toml.
     const r = await runCli(
-      ["add-adapter", "example", "--yes", "--json"],
+      ["add-preset", "example", "--yes", "--json"],
       dir,
-      ADAPTER_ENV,
+      PRESET_ENV,
     );
     assertEquals(r.code, 1);
     const result = JSON.parse(r.stdout);
@@ -151,58 +152,58 @@ Deno.test("add-adapter reports not_initialized when there is no .icculus/config.
   });
 });
 
-Deno.test("add-adapter reports not_initialized as plain text without --json", async () => {
+Deno.test("add-preset reports not_initialized as plain text without --json", async () => {
   await withTempDir(async (dir) => {
     const r = await runCli(
-      ["add-adapter", "example", "--yes"],
+      ["add-preset", "example", "--yes"],
       dir,
-      ADAPTER_ENV,
+      PRESET_ENV,
     );
     assertEquals(r.code, 1);
     assertStringIncludes(r.stderr, "no icculus install here");
   });
 });
 
-Deno.test("add-adapter reports an unknown adapter as plain text (no --json)", async () => {
+Deno.test("add-preset reports an unknown preset as plain text (no --json)", async () => {
   await withTempDir(async (dir) => {
     await runCli(["init", "--yes", "--slug", "demo"], dir);
-    const r = await runCli(["add-adapter", "nope"], dir, ADAPTER_ENV);
+    const r = await runCli(["add-preset", "nope"], dir, PRESET_ENV);
     assertEquals(r.code, 1);
     // The non-JSON branch logs the message to stderr; the example fixture is
     // listed as available.
-    assertStringIncludes(r.stderr, 'unknown adapter "nope"');
+    assertStringIncludes(r.stderr, 'unknown preset "nope"');
     assertStringIncludes(r.stderr, "example");
   });
 });
 
-Deno.test("add-adapter with no adapters dir reports 'ships no adapters yet'", async () => {
+Deno.test("add-preset with no presets dir reports 'ships no presets yet'", async () => {
   await withTempDir(async (dir) => {
     await runCli(["init", "--yes", "--slug", "demo"], dir);
-    // No ICCULUS_ADAPTERS_DIR and the repo bundles none, so the resolver walks
+    // No ICCULUS_PRESETS_DIR and the repo bundles none, so the resolver walks
     // up, finds nothing, and the available list is empty.
-    const r = await runCli(["add-adapter", "example", "--json"], dir);
+    const r = await runCli(["add-preset", "example", "--json"], dir);
     assertEquals(r.code, 1);
     const result = JSON.parse(r.stdout);
-    assertEquals(result.error, "unknown_adapter");
+    assertEquals(result.error, "unknown_preset");
     assertEquals(result.available, []);
-    assertStringIncludes(result.message, "ships no adapters yet");
+    assertStringIncludes(result.message, "ships no presets yet");
   });
 });
 
-Deno.test("add-adapter --dry-run prints the plan as plain text and writes nothing", async () => {
+Deno.test("add-preset --dry-run prints the plan as plain text and writes nothing", async () => {
   await withTempDir(async (dir) => {
     await runCli(["init", "--yes", "--slug", "demo"], dir);
     const before = await Deno.readTextFile(join(dir, ".icculus/config.toml"));
     const r = await runCli(
-      ["add-adapter", "example", "--yes", "--dry-run"],
+      ["add-preset", "example", "--yes", "--dry-run"],
       dir,
-      ADAPTER_ENV,
+      PRESET_ENV,
     );
     assertEquals(r.code, 0, r.stderr);
     // The plan rows print to stdout (the user-facing channel); the heading and
     // the config-fills note are status lines on stderr.
     assertStringIncludes(r.stdout, ".icculus/recipes/example-deploy");
-    assertStringIncludes(r.stderr, 'Dry run — adapter "example" would overlay');
+    assertStringIncludes(r.stderr, 'Dry run — preset "example" would overlay');
     assertStringIncludes(
       r.stderr,
       "Would also apply config fills to .icculus/config.toml",
@@ -216,23 +217,23 @@ Deno.test("add-adapter --dry-run prints the plan as plain text and writes nothin
   });
 });
 
-Deno.test("add-adapter overlays an adapter that has no adapter.json (files only, no fills)", async () => {
+Deno.test("add-preset overlays a preset that has no preset.json (files only, no fills)", async () => {
   await withTempDir(async (dir) => {
     await runCli(["init", "--yes", "--slug", "demo"], dir);
     const before = await Deno.readTextFile(join(dir, ".icculus/config.toml"));
-    const { env } = await stageAdapter(dir, "filesonly", {
-      ".icculus/guidelines/filesonly.md": "# files only adapter\n",
+    const { env } = await stagePreset(dir, "filesonly", {
+      ".icculus/guidelines/filesonly.md": "# files only preset\n",
     });
 
     const r = await runCli(
-      ["add-adapter", "filesonly", "--yes", "--json"],
+      ["add-preset", "filesonly", "--yes", "--json"],
       dir,
       env,
     );
     assertEquals(r.code, 0, r.stderr);
     const result = JSON.parse(r.stdout);
     assertEquals(result.ok, true);
-    // No adapter.json → no config fills, and .icculus/config.toml is untouched.
+    // No preset.json → no config fills, and .icculus/config.toml is untouched.
     assertEquals(result.config_fills, false);
     assert(result.written.includes(".icculus/guidelines/filesonly.md"));
     assert(await exists(join(dir, ".icculus/guidelines/filesonly.md")));
@@ -243,25 +244,24 @@ Deno.test("add-adapter overlays an adapter that has no adapter.json (files only,
   });
 });
 
-Deno.test("add-adapter rejects an adapter.json that is not a JSON object", async () => {
+Deno.test("add-preset rejects a preset.json that is not a JSON object", async () => {
   await withTempDir(async (dir) => {
     await runCli(["init", "--yes", "--slug", "demo"], dir);
     const before = await Deno.readTextFile(join(dir, ".icculus/config.toml"));
-    const { env } = await stageAdapter(dir, "badjson", {
-      ".icculus/guidelines/badjson.md":
-        "# adapter with a non-object manifest\n",
-      "adapter.json": '["not", "an", "object"]',
+    const { env } = await stagePreset(dir, "badjson", {
+      ".icculus/guidelines/badjson.md": "# preset with a non-object manifest\n",
+      "preset.json": '["not", "an", "object"]',
     });
 
     const r = await runCli(
-      ["add-adapter", "badjson", "--yes", "--json"],
+      ["add-preset", "badjson", "--yes", "--json"],
       dir,
       env,
     );
     assertEquals(r.code, 1);
     const result = JSON.parse(r.stdout);
     assertEquals(result.ok, false);
-    assertEquals(result.error, "invalid_adapter");
+    assertEquals(result.error, "invalid_preset");
     assertStringIncludes(result.message, "must be a JSON object");
     // Failed before writing anything (neither the file nor the toml changed).
     assert(!(await exists(join(dir, ".icculus/guidelines/badjson.md"))));
@@ -272,51 +272,51 @@ Deno.test("add-adapter rejects an adapter.json that is not a JSON object", async
   });
 });
 
-Deno.test("add-adapter rejects invalid config fills as plain text", async () => {
+Deno.test("add-preset rejects invalid config fills as plain text", async () => {
   await withTempDir(async (dir) => {
     await runCli(["init", "--yes", "--slug", "demo"], dir);
-    const { env } = await stageAdapter(dir, "badfills", {
-      // A slot with an unknown phase — applyConfigDoc throws on it.
-      "adapter.json": JSON.stringify({
-        version: "1",
-        slots: { broken: { phase: "nonsense", run: "true" } },
+    const { env } = await stagePreset(dir, "badfills", {
+      // A check with an unknown stage — applyConfigDoc throws on it.
+      "preset.json": JSON.stringify({
+        version: "2",
+        checks: { broken: { stage: "nonsense", run: "true" } },
       }),
     });
 
-    const r = await runCli(["add-adapter", "badfills", "--yes"], dir, env);
+    const r = await runCli(["add-preset", "badfills", "--yes"], dir, env);
     assertEquals(r.code, 1);
-    // The non-JSON branch logs to stderr and names the offending adapter.
+    // The non-JSON branch logs to stderr and names the offending preset.
     assertStringIncludes(
       r.stderr,
-      'adapter "badfills" has invalid config fills',
+      'preset "badfills" has invalid config fills',
     );
-    assertStringIncludes(r.stderr, "unknown phase");
+    assertStringIncludes(r.stderr, "unknown stage");
   });
 });
 
-Deno.test("add-adapter rejects an adapter.json with an unsupported version", async () => {
+Deno.test("add-preset rejects a preset.json with an unsupported version", async () => {
   await withTempDir(async (dir) => {
     await runCli(["init", "--yes", "--slug", "demo"], dir);
-    const { env } = await stageAdapter(dir, "futurever", {
-      "adapter.json": JSON.stringify({
-        version: "2",
-        slots: { ok: { phase: "test", run: "true" } },
+    const { env } = await stagePreset(dir, "futurever", {
+      "preset.json": JSON.stringify({
+        version: "3",
+        capabilities: { test: "true" },
       }),
     });
 
     const r = await runCli(
-      ["add-adapter", "futurever", "--yes", "--json"],
+      ["add-preset", "futurever", "--yes", "--json"],
       dir,
       env,
     );
     assertEquals(r.code, 1);
     const result = JSON.parse(r.stdout);
-    assertEquals(result.error, "invalid_adapter");
+    assertEquals(result.error, "invalid_preset");
     assertStringIncludes(result.message, "unsupported config-document version");
   });
 });
 
-Deno.test("add-adapter falls back to default agents when .icculus/config.toml omits them", async () => {
+Deno.test("add-preset falls back to default agents when .icculus/config.toml omits them", async () => {
   await withTempDir(async (dir) => {
     await runCli(["init", "--yes", "--slug", "demo"], dir);
     // Strip the `agents = [...]` line so the command takes the DEFAULTS branch
@@ -329,9 +329,9 @@ Deno.test("add-adapter falls back to default agents when .icculus/config.toml om
     await Deno.writeTextFile(join(dir, ".icculus/config.toml"), stripped);
 
     const r = await runCli(
-      ["add-adapter", "example", "--yes", "--json"],
+      ["add-preset", "example", "--yes", "--json"],
       dir,
-      ADAPTER_ENV,
+      PRESET_ENV,
     );
     assertEquals(r.code, 0, r.stderr);
     assertEquals(JSON.parse(r.stdout).ok, true);

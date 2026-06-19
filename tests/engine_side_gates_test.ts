@@ -1,11 +1,12 @@
 /**
- * Engine tests for first-class side-gates (ADR 0002).
+ * Engine tests for scope gates (ADR 0018, folding in the former side-gates of
+ * ADR 0002).
  *
- * Side-gates now run with the slot phase model: every fired gate runs
- * concurrently via run_parallel, output is grouped and labelled `side:<scope>`,
- * and a single failure fails the gate while all gates still run. These tests
- * drive `agent finish` with custom scopes + side-gates in a real git repo,
- * triggering scopes with untracked files.
+ * A scope gate is a `gate` command on a `[scopes.<name>]` table: every fired
+ * gate runs concurrently via run_parallel, output is grouped and labelled
+ * `scope:<name>`, and a single failure fails the gate while all gates still run.
+ * These tests drive `agent finish` with custom scopes + gates in a real git
+ * repo, triggering scopes with untracked files.
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
@@ -19,22 +20,24 @@ import {
   writeExecutable,
 } from "./engine_helpers.ts";
 
-/** A config with two custom scopes, each wired to a side-gate command. */
+/** A config with two custom scopes, each wired to a scope-gate command. */
 function sideGateConfig(widgetCmd: string, gadgetCmd: string): string {
   return [
     "[project]",
     'slug = "engine-test"',
     'main_branch = "main"',
     "",
-    "[scopes]",
-    'neutral = ["docs/"]',
-    'web = ["src/**"]',
-    'widget = ["widget/**"]',
-    'gadget = ["gadget/**"]',
+    "[scopes.docs]",
+    'paths = ["docs/"]',
+    "neutral = true",
     "",
-    "[scopes.side_gates]",
-    `widget = "${widgetCmd}"`,
-    `gadget = "${gadgetCmd}"`,
+    "[scopes.widget]",
+    'paths = ["widget/**"]',
+    `gate = "${widgetCmd}"`,
+    "",
+    "[scopes.gadget]",
+    'paths = ["gadget/**"]',
+    `gate = "${gadgetCmd}"`,
     "",
   ].join("\n");
 }
@@ -44,7 +47,7 @@ async function touch(dir: string, rel: string): Promise<void> {
   await writeExecutable(join(dir, rel), "x"); // writeExecutable ensures parent dirs
 }
 
-Deno.test("side-gates: a gate fires (grouped + labelled) when its scope changed", async () => {
+Deno.test("scope-gates: a gate fires (grouped + labelled) when its scope changed", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -56,17 +59,17 @@ Deno.test("side-gates: a gate fires (grouped + labelled) when its scope changed"
 
     const r = await runAgent(dir, ["finish"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, "side:widget"); // labelled like a slot phase
+    assertStringIncludes(r.stdout, "scope:widget"); // labelled like a gate job
     assertStringIncludes(r.stdout, "WIDGET-GATE-RAN");
     // The gadget gate did NOT fire (its scope didn't change).
     assert(
       !r.output.includes("GADGET-GATE-RAN"),
-      "an unchanged scope's side-gate must not run",
+      "an unchanged scope's gate must not run",
     );
   });
 });
 
-Deno.test("side-gates: a gate fires for a NESTED path, not just a direct child of its scope dir", async () => {
+Deno.test("scope-gates: a gate fires for a NESTED path, not just a direct child of its scope dir", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -80,21 +83,21 @@ Deno.test("side-gates: a gate fires for a NESTED path, not just a direct child o
     // child "widget/sub" and this deeper file matches nothing — silently skipping
     // the gate. The gate firing here is the guard that pattern matching stays
     // literal (i.e. set -f in changed-scopes). Real source lives nested, so this
-    // is the case that bit a Swift sub-app's side-gate in the field.
+    // is the case that bit a Swift sub-app's gate in the field.
     await touch(dir, "widget/sub/deep/x.txt");
 
     const r = await runAgent(dir, ["finish"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, "side:widget");
+    assertStringIncludes(r.stdout, "scope:widget");
     assertStringIncludes(r.stdout, "WIDGET-GATE-RAN");
     assert(
       !r.output.includes("GADGET-GATE-RAN"),
-      "an unchanged scope's side-gate must not run",
+      "an unchanged scope's gate must not run",
     );
   });
 });
 
-Deno.test("side-gates: no gate fires when only an unrelated scope changed", async () => {
+Deno.test("scope-gates: no gate fires when only an unrelated path changed", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -102,7 +105,7 @@ Deno.test("side-gates: no gate fires when only an unrelated scope changed", asyn
       sideGateConfig("echo WIDGET-GATE-RAN", "echo GADGET-GATE-RAN"),
     );
     await gitInit(dir);
-    await touch(dir, "src/app.txt"); // web scope only; no side-gate wired to it
+    await touch(dir, "src/app.txt"); // matches no gated scope (just "code")
 
     const r = await runAgent(dir, ["finish"]);
     assertEquals(r.code, 0, r.output);
@@ -111,7 +114,7 @@ Deno.test("side-gates: no gate fires when only an unrelated scope changed", asyn
   });
 });
 
-Deno.test("side-gates: a failing gate fails finish and points at the gotchas", async () => {
+Deno.test("scope-gates: a failing gate fails finish and points at the gotchas", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -124,13 +127,13 @@ Deno.test("side-gates: a failing gate fails finish and points at the gotchas", a
     const r = await runAgent(dir, ["finish"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.stdout, "FAILED");
-    assertStringIncludes(r.stderr, "side gates failed");
+    assertStringIncludes(r.stderr, "scope gates failed");
     // The shared gotchas pointer fires on a gated-phase failure.
     assertStringIncludes(r.stderr, "gate step failed");
   });
 });
 
-Deno.test("side-gates: with fail_fast=false, all fired gates run even when one fails", async () => {
+Deno.test("scope-gates: with fail_fast=false, all fired gates run even when one fails", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     // fail_fast defaults ON in 1.0, so run-all is the explicit opt-out.
@@ -148,7 +151,7 @@ Deno.test("side-gates: with fail_fast=false, all fired gates run even when one f
     // Both ran and both are reported — not aborted at the first failure.
     assertStringIncludes(r.stdout, "WIDGET-OK");
     assertStringIncludes(r.stdout, "GADGET-FAIL");
-    assertStringIncludes(r.stdout, "side:widget");
-    assertStringIncludes(r.stdout, "side:gadget");
+    assertStringIncludes(r.stdout, "scope:widget");
+    assertStringIncludes(r.stdout, "scope:gadget");
   });
 });

@@ -2,11 +2,11 @@
  * Engine tests for structured `agent finish --json` output (ADR 0004).
  *
  * In --json mode finish emits a single JSON object on stdout (human output goes
- * to stderr): per-SLOT results (the execution unit — each [slots.<name>] runs as
- * its own job, reported as {name, phase, status, duration_s}), per-side-gate
- * results (fired = ok/failed, configured-but-unchanged = skipped), the scopes
- * that changed, and the failed stage. These tests parse the stdout and assert
- * the shape.
+ * to stderr): per-JOB results (the execution unit — each capability/check runs
+ * as its own job, reported as {name, kind, stage, status, duration_s}), per-
+ * scope-gate results (fired = ok/failed, configured-but-unchanged = skipped),
+ * the scopes that changed, and the failed stage. These tests parse the stdout
+ * and assert the shape.
  */
 
 import { assert, assertEquals } from "@std/assert";
@@ -25,7 +25,7 @@ function parseJson(stdout: string): any {
   return JSON.parse(stdout.trim());
 }
 
-Deno.test("finish --json: no-op gate emits ok:true with every slot noop", async () => {
+Deno.test("finish --json: no-op gate emits ok:true with an empty jobs array", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -35,16 +35,13 @@ Deno.test("finish --json: no-op gate emits ok:true with every slot noop", async 
     const obj = parseJson(r.stdout); // stdout must be ONLY the JSON object
     assertEquals(obj.ok, true);
     assertEquals(obj.failed_stage, null);
-    // The default install ships several slots, all no-ops.
+    // The default install wires no capability/check, so no job runs at all —
+    // there are no "noop" rows any more, just an empty jobs list.
     assert(
-      obj.slots.length >= 4,
-      `expected the default slots, got ${obj.slots.length}`,
+      Array.isArray(obj.jobs) && obj.jobs.length === 0,
+      `expected zero jobs on a no-op gate, got ${JSON.stringify(obj.jobs)}`,
     );
-    for (const s of obj.slots) {
-      assertEquals(s.status, "noop", `slot ${s.name} should be noop`);
-      assert(typeof s.phase === "string" && s.phase.length > 0);
-    }
-    assert(Array.isArray(obj.side_gates));
+    assert(Array.isArray(obj.scope_gates));
     assert(Array.isArray(obj.scopes_changed));
   });
 });
@@ -59,13 +56,12 @@ Deno.test("finish --json: a failing check reports ok:false and the failed stage"
         'slug = "engine-test"',
         'main_branch = "main"',
         "",
-        "[scopes]",
-        'neutral = ["docs/"]',
-        'web = ["src/**"]',
+        "[scopes.docs]",
+        'paths = ["docs/"]',
+        "neutral = true",
         "",
-        "[slots.lint]",
-        'phase = "check"',
-        'run = "exit 1"',
+        "[capabilities]",
+        'lint = "exit 1"', // lint is a check-stage capability
         "",
       ].join("\n"),
     );
@@ -76,14 +72,15 @@ Deno.test("finish --json: a failing check reports ok:false and the failed stage"
     const obj = parseJson(r.stdout);
     assertEquals(obj.ok, false);
     assertEquals(obj.failed_stage, "check/test");
-    // The failure is attributed to the precise slot, not a whole phase.
-    const lint = obj.slots.find((s: { name: string }) => s.name === "lint");
+    // The failure is attributed to the precise job, not a whole stage.
+    const lint = obj.jobs.find((s: { name: string }) => s.name === "lint");
     assertEquals(lint.status, "failed");
-    assertEquals(lint.phase, "check");
+    assertEquals(lint.stage, "check");
+    assertEquals(lint.kind, "capability");
   });
 });
 
-Deno.test("finish --json: side-gates report fired (ok) and unchanged (skipped)", async () => {
+Deno.test("finish --json: scope-gates report fired (ok) and unchanged (skipped)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -93,15 +90,17 @@ Deno.test("finish --json: side-gates report fired (ok) and unchanged (skipped)",
         'slug = "engine-test"',
         'main_branch = "main"',
         "",
-        "[scopes]",
-        'neutral = ["docs/"]',
-        'web = ["src/**"]',
-        'widget = ["widget/**"]',
-        'gadget = ["gadget/**"]',
+        "[scopes.docs]",
+        'paths = ["docs/"]',
+        "neutral = true",
         "",
-        "[scopes.side_gates]",
-        'widget = "echo widget-ok"',
-        'gadget = "echo gadget-ok"',
+        "[scopes.widget]",
+        'paths = ["widget/**"]',
+        'gate = "echo widget-ok"',
+        "",
+        "[scopes.gadget]",
+        'paths = ["gadget/**"]',
+        'gate = "echo gadget-ok"',
         "",
       ].join("\n"),
     );
@@ -113,10 +112,10 @@ Deno.test("finish --json: side-gates report fired (ok) and unchanged (skipped)",
 
     const obj = parseJson(r.stdout);
     assertEquals(obj.ok, true);
-    const widget = obj.side_gates.find((g: { scope: string }) =>
+    const widget = obj.scope_gates.find((g: { scope: string }) =>
       g.scope === "widget"
     );
-    const gadget = obj.side_gates.find((g: { scope: string }) =>
+    const gadget = obj.scope_gates.find((g: { scope: string }) =>
       g.scope === "gadget"
     );
     assertEquals(widget.status, "ok"); // fired and passed
@@ -125,7 +124,7 @@ Deno.test("finish --json: side-gates report fired (ok) and unchanged (skipped)",
   });
 });
 
-Deno.test("finish --json: a failing side-gate reports ok:false at the side_gates stage", async () => {
+Deno.test("finish --json: a failing scope-gate reports ok:false at the scope_gates stage", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -135,13 +134,13 @@ Deno.test("finish --json: a failing side-gate reports ok:false at the side_gates
         'slug = "engine-test"',
         'main_branch = "main"',
         "",
-        "[scopes]",
-        'neutral = ["docs/"]',
-        'web = ["src/**"]',
-        'widget = ["widget/**"]',
+        "[scopes.docs]",
+        'paths = ["docs/"]',
+        "neutral = true",
         "",
-        "[scopes.side_gates]",
-        'widget = "exit 1"',
+        "[scopes.widget]",
+        'paths = ["widget/**"]',
+        'gate = "exit 1"',
         "",
       ].join("\n"),
     );
@@ -153,8 +152,8 @@ Deno.test("finish --json: a failing side-gate reports ok:false at the side_gates
 
     const obj = parseJson(r.stdout);
     assertEquals(obj.ok, false);
-    assertEquals(obj.failed_stage, "side_gates");
-    const widget = obj.side_gates.find((g: { scope: string }) =>
+    assertEquals(obj.failed_stage, "scope_gates");
+    const widget = obj.scope_gates.find((g: { scope: string }) =>
       g.scope === "widget"
     );
     assertEquals(widget.status, "failed");

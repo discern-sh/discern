@@ -13,14 +13,14 @@ These work the same regardless of language or framework:
 
 - **`agent worktree`** sets up an isolated checkout for a change (see the
   worktree note in the project guidelines).
-- **`agent tidy`** is the fast inner loop — applies the `fix` slots, then the
-  `check` slots; no build, no tests.
+- **`agent tidy`** is the fast inner loop — applies the fix-stage work, then the
+  check-stage work; no build, no tests.
 - **`agent finish`** is the full gate — fixers and build, then checks and tests
-  in parallel, then any side gates whose scope changed, then (in a worktree) the
-  merge check. Run it before declaring a change done.
+  in parallel, then any scope `gate`s whose scope changed, then (in a worktree)
+  the merge check. Run it before declaring a change done.
 - **`agent doctor`** verifies the install is sound (dispatcher executable, hooks
-  present, every configured slot resolvable, git worktree support, required
-  tools on PATH).
+  present, every configured capability and check resolvable, git worktree
+  support, required tools on PATH).
 
 ## Setting up
 
@@ -31,7 +31,7 @@ These work the same regardless of language or framework:
   step: Deno fetches and caches everything from `deno.lock` on first run.
 - **`git`** — the Harness's one hard runtime dependency (worktrees, the merge
   check, scope classification all shell out to it).
-- **`shellcheck`** _(recommended)_ — the `shellcheck` slot static-lints the
+- **`shellcheck`** _(recommended)_ — the `shellcheck` check static-lints the
   POSIX shell. Install it (`brew install shellcheck`, or your package manager)
   so `agent finish` runs that check rather than skipping it.
 
@@ -57,9 +57,9 @@ _see it work_, either scaffold it into a temp directory with
 ```
 
 That runs `deno fmt` (fix), then `deno lint` + `deno check src/main.ts` +
-`deno task selfcheck` + the `shellcheck` slot (check) in parallel with
-`deno task test` (test). The `build` slot is a deliberate no-op (the release
-build is not part of the gate). A clean checkout should pass; if it does not,
+`deno task selfcheck` + the `shellcheck` check (check stage) in parallel with
+`deno task test` (test). There is no `build` capability (the release build is
+not part of the gate). A clean checkout should pass; if it does not,
 `agent doctor` and the [finish-gate gotchas](finish-gate-gotchas.md) explain
 what to fix.
 
@@ -67,6 +67,6 @@ what to fix.
 ([ADR 0011](../_adr/0011-adopt-worktree-workflow.md)): the
 `.claude/settings.json` hooks provision an isolated worktree per session and
 tear it down afterward, and `agent worktree:exit` graduates a finished branch
-back into the main checkout. Editing rules (managed vs seed) live in
+back into the main checkout. Editing rules (managed vs yours) live in
 [code-conventions.md](code-conventions.md); IDE colour/exclude setup is in
 [for-humans.md](for-humans.md).

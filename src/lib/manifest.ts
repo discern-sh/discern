@@ -8,7 +8,7 @@
  * project identity.
  *
  * Managed vs seed is a classification on the *target* path, DECLARED by the kit
- * in `templates/managed.json` (an adapter may ship its own) rather than hardcoded
+ * in `templates/managed.json` (a preset may ship its own) rather than hardcoded
  * here:
  *   MANAGED  refreshed by `upgrade`  — by default `agent`,
  *            `.icculus/engine/**`, `.icculus/skills/**`.
@@ -44,7 +44,7 @@ export interface Manifest {
   managed: ManagedEntry[];
 }
 
-/** The filename a templates/adapter tree uses to DECLARE its managed-set. */
+/** The filename a templates/ or preset tree uses to DECLARE its managed-set. */
 export const MANAGED_SPEC_FILE = "managed.json";
 
 /**
@@ -53,7 +53,7 @@ export const MANAGED_SPEC_FILE = "managed.json";
  * it equals an `exact` entry or starts with a `prefixes` entry — simple
  * structural checks, not a glob engine. The kit ships this as
  * `templates/managed.json`; the installer reads it instead of hardcoding the set,
- * and an adapter may ship its own to mark overlay files it owns.
+ * and a preset may ship its own to mark overlay files it owns.
  */
 export interface ManagedSpec {
   exact: string[];
@@ -87,7 +87,7 @@ export function isManaged(targetRelPath: string): boolean {
   return isManagedBy(targetRelPath, DEFAULT_MANAGED_SPEC);
 }
 
-/** Union two specs (deduped) — e.g. the base kit spec plus an adapter's. */
+/** Union two specs (deduped) — e.g. the base kit spec plus a preset's. */
 export function mergeManagedSpecs(a: ManagedSpec, b: ManagedSpec): ManagedSpec {
   return {
     exact: [...new Set([...a.exact, ...b.exact])],
@@ -113,7 +113,7 @@ export function parseManagedSpec(text: string): ManagedSpec {
 /**
  * Load a managed-set declaration from `<dir>/managed.json`, or undefined when
  * absent. A malformed file throws. The installer reads this from the templates
- * tree (and an adapter dir) to classify scaffolded files; `managed.json` is
+ * tree (and a preset dir) to classify scaffolded files; `managed.json` is
  * installer metadata and is never itself scaffolded.
  */
 export async function loadManagedSpec(

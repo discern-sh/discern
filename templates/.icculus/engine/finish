@@ -1,37 +1,38 @@
 #!/usr/bin/env sh
-# desc: the full quality gate — fix+build, then check+test, side gates, merge
+# desc: the full quality gate — fix+build, then check+test, scope gates, merge
 . "$(dirname "$0")/lib/bootstrap.sh"
 
 # finish — run everything before handing work back: apply fixers and build
-# artifacts, then run read-only checks alongside the test suite, fire any side
+# artifacts, then run read-only checks alongside the test suite, fire any scope
 # gates whose scope changed, and finally confirm the branch carries main.
 #
-# Stack-specific commands are read from [slots], not hardcoded. The phase order
-# is:
+# Stack-specific commands are read from [capabilities] and [checks], not
+# hardcoded. A known capability's STAGE is derived from its name (format->fix,
+# build->build, lint/typecheck->check, test->test); a [checks.<name>] names its
+# stage explicitly. The stage order is:
 #
-#   evidence check (when enabled)
-#   fix                   run_serial over the fix slots (ordered, mutating)
-#   build                 run_parallel over the build slots
-#   check ∥ test          run_parallel over the check + test slots
-#   side gates            run each [scopes.side_gates] for a changed scope
+#   fix                   run_serial over the fix-stage jobs (ordered, mutating)
+#   build                 run_parallel over the build-stage jobs
+#   check ∥ test          run_parallel over the check + test-stage jobs
+#   scope gates           run each [scopes.<name>].gate for a changed scope
 #   assert-main-merged    confirm the branch carries main (when present)
 #   ratchet reminder      print when any [ratchets.<name>] is configured
 #   preview line          print when a previewable scope changed and a link is set
 #
-# Each SLOT runs as its OWN labelled job (`<phase>:<slot>`), so a failure — and
-# the --json report — is attributed to the precise slot, not a whole phase. The
-# mutating fix slots run serially in declaration order; build runs after fix;
-# check and test run together. On any failure in the GATED phases, an EXIT trap
-# prints the gotchas pointer (single-sourced from lib/gotchas.sh, shared with
-# `with-gotchas`) and the exact exit code is preserved.
+# Each job (a capability or a check) runs as its OWN labelled job, so a failure —
+# and the --json report — is attributed to the precise capability/check, not a
+# whole stage. The mutating fix jobs run serially in declaration order; build
+# runs after fix; check and test run together. On any failure in the GATED
+# stages, an EXIT trap prints the gotchas pointer (single-sourced from
+# lib/gotchas.sh, shared with `with-gotchas`) and the exact exit code preserved.
 
 # shellcheck source=lib/gotchas.sh
 . "$ICCULUS_LIB/gotchas.sh"
 
 # --- arguments ------------------------------------------------------------
 
-# --json emits a single machine-readable object on stdout (per-phase and
-# per-side-gate result, durations, scopes changed, the failed stage) with all
+# --json emits a single machine-readable object on stdout (per-job and
+# per-scope-gate result, durations, scopes changed, the failed stage) with all
 # human output routed to stderr. See ADR 0004.
 as_json=0
 case "${1:-}" in
@@ -41,7 +42,7 @@ case "${1:-}" in
     *) die "finish: unknown argument '$1'." ;;
 esac
 
-# In --json mode, collect each phase/side-gate result through run_parallel's
+# In --json mode, collect each job/scope-gate result through run_parallel's
 # structured side channel, and redirect stdout -> stderr so only the final JSON
 # lands on real stdout (saved on fd 3). Human mode leaves stdout untouched.
 JOBS_RESULTS=""
@@ -55,8 +56,8 @@ fi
 
 # --- gotchas pointer + JSON report on exit --------------------------------
 
-# Set to 1 only while a gated phase is running; the EXIT trap prints the pointer
-# only when we die during one of those phases (not on a clean exit, and not
+# Set to 1 only while a gated stage is running; the EXIT trap prints the pointer
+# only when we die during one of those stages (not on a clean exit, and not
 # during the informational tail). In --json mode the pointer is suppressed — the
 # JSON object is the machine-readable guidance.
 in_gated_phase=0
@@ -72,59 +73,55 @@ on_exit() {
 trap on_exit EXIT
 
 # Emit the JSON gate report to the saved stdout (fd 3). $1 is the exit code (0 =
-# ok), $2 the failed-stage name (empty on success). Reports per-SLOT results
-# (the execution unit — each [slots.<name>] runs as its own job) and
-# per-side-gate results, plus the scopes that changed.
+# ok), $2 the failed-stage name (empty on success). Reports per-JOB results (the
+# execution unit — each capability/check runs as its own job) and per-scope-gate
+# results, plus the scopes that changed.
 emit_json_report() {
     _ej_ok=$([ "$1" -eq 0 ] && printf 'true' || printf 'false')
     _ej_stage=${2:-}
 
-    # Per-slot results, in canonical phase order then declaration order. A no-op
-    # slot is "noop"; a real slot with no result line was "skipped" (its stage
-    # aborted before it ran — a failed serial fixer, or a fail-fast cancellation).
-    _ej_slots=""
-    for _ej_ph in fix build check test; do
-        for _ej_slot in $(config_subsections slots); do
-            [ "$(config_get "slots.$_ej_slot.phase")" = "$_ej_ph" ] || continue
-            if config_slot_is_noop "slots.$_ej_slot.run"; then
-                _ej_status="noop"
-                _ej_dur=0
-            else
-                _ej_line=$(awk -F'\t' -v l="$_ej_ph:$_ej_slot" '$1 == l { print $2 " " $3; exit }' "$JOBS_RESULTS" 2>/dev/null)
-                if [ -n "$_ej_line" ]; then
-                    _ej_code=${_ej_line% *}
-                    _ej_dur=${_ej_line#* }
-                    [ "$_ej_code" = "0" ] && _ej_status="ok" || _ej_status="failed"
-                else
-                    _ej_status="skipped"
-                    _ej_dur=0
-                fi
-            fi
-            _ej_nm=$(validate_json_escape "$_ej_slot")
-            _ej_slots="${_ej_slots:+$_ej_slots,}$(printf '{"name":"%s","phase":"%s","status":"%s","duration_s":%s}' "$_ej_nm" "$_ej_ph" "$_ej_status" "${_ej_dur:-0}")"
-        done
-    done
-
-    # Side gates: fired ones from the results file, plus configured-but-unchanged
-    # ones as "skipped" — the what-ran-vs-skipped-by-scope view.
-    _ej_gates=""
-    if config_has scopes.side_gates; then
-        for _ej_scope in $(config_keys scopes.side_gates); do
-            _ej_cmd=$(config_get "scopes.side_gates.$_ej_scope" "")
-            [ -n "$_ej_cmd" ] || continue
-            _ej_line=$(awk -F'\t' -v l="side:$_ej_scope" '$1 == l { print $2 " " $3; exit }' "$JOBS_RESULTS" 2>/dev/null)
+    # Per-job results, in stage order then declaration order. Each job is keyed in
+    # the results file by its label (the same label jobs_in_stage produced); a job
+    # with no result line was "skipped" (its stage aborted before it ran — a failed
+    # serial fixer, or a fail-fast cancellation). A no-op gate lists no jobs at all.
+    _ej_jobs=""
+    for _ej_st in $ICCULUS_STAGE_ORDER; do
+        while IFS="$(printf '\t')" read -r _ej_lbl _ej_cmd _ej_kind; do
+            [ -n "$_ej_lbl" ] || continue
+            _ej_line=$(awk -F'\t' -v l="$_ej_lbl" '$1 == l { print $2 " " $3; exit }' "$JOBS_RESULTS" 2>/dev/null)
             if [ -n "$_ej_line" ]; then
                 _ej_code=${_ej_line% *}
                 _ej_dur=${_ej_line#* }
-                _ej_status=$([ "$_ej_code" = "0" ] && printf 'ok' || printf 'failed')
+                [ "$_ej_code" = "0" ] && _ej_status="ok" || _ej_status="failed"
             else
                 _ej_status="skipped"
                 _ej_dur=0
             fi
-            _ej_sc=$(validate_json_escape "$_ej_scope")
-            _ej_gates="${_ej_gates:+$_ej_gates,}$(printf '{"scope":"%s","status":"%s","duration_s":%s}' "$_ej_sc" "$_ej_status" "${_ej_dur:-0}")"
-        done
-    fi
+            _ej_nm=$(validate_json_escape "$_ej_lbl")
+            _ej_jobs="${_ej_jobs:+$_ej_jobs,}$(printf '{"name":"%s","kind":"%s","stage":"%s","status":"%s","duration_s":%s}' "$_ej_nm" "$_ej_kind" "$_ej_st" "$_ej_status" "${_ej_dur:-0}")"
+        done <<EOF
+$(jobs_in_stage "$_ej_st")
+EOF
+    done
+
+    # Scope gates: fired ones from the results file, plus configured-but-unchanged
+    # ones as "skipped" — the what-ran-vs-skipped-by-scope view.
+    _ej_gates=""
+    for _ej_scope in $(config_subsections scopes); do
+        _ej_cmd=$(config_get "scopes.$_ej_scope.gate" "")
+        [ -n "$_ej_cmd" ] || continue
+        _ej_line=$(awk -F'\t' -v l="scope:$_ej_scope" '$1 == l { print $2 " " $3; exit }' "$JOBS_RESULTS" 2>/dev/null)
+        if [ -n "$_ej_line" ]; then
+            _ej_code=${_ej_line% *}
+            _ej_dur=${_ej_line#* }
+            _ej_status=$([ "$_ej_code" = "0" ] && printf 'ok' || printf 'failed')
+        else
+            _ej_status="skipped"
+            _ej_dur=0
+        fi
+        _ej_sc=$(validate_json_escape "$_ej_scope")
+        _ej_gates="${_ej_gates:+$_ej_gates,}$(printf '{"scope":"%s","status":"%s","duration_s":%s}' "$_ej_sc" "$_ej_status" "${_ej_dur:-0}")"
+    done
 
     _ej_changed=$("$ICCULUS_ENGINE/changed-scopes" --json 2>/dev/null || printf '[]')
     if [ -n "$_ej_stage" ]; then
@@ -133,8 +130,8 @@ emit_json_report() {
         _ej_stage_json="null"
     fi
 
-    printf '{"ok":%s,"slots":[%s],"side_gates":[%s],"scopes_changed":%s,"failed_stage":%s}\n' \
-        "$_ej_ok" "$_ej_slots" "$_ej_gates" "$_ej_changed" "$_ej_stage_json" >&3
+    printf '{"ok":%s,"jobs":[%s],"scope_gates":[%s],"scopes_changed":%s,"failed_stage":%s}\n' \
+        "$_ej_ok" "$_ej_jobs" "$_ej_gates" "$_ej_changed" "$_ej_stage_json" >&3
 }
 
 # End the run: in --json mode emit the report; always exit with $1. $2 = failed
@@ -144,7 +141,7 @@ finish_done() {
     exit "$1"
 }
 
-# A gated phase failed. In --json mode emit the report and exit; otherwise die
+# A gated stage failed. In --json mode emit the report and exit; otherwise die
 # with the human message. in_gated_phase stays 1 so the EXIT trap adds the gotchas
 # pointer (the trap suppresses it in --json mode, where the JSON is the guidance).
 fail_phase() {
@@ -158,7 +155,7 @@ fail_phase() {
 # fails, not burn wall-clock finishing a slow sibling. Set [gate].fail_fast =
 # false to run every job to completion (and see all failures at once). stream
 # stays opt-in (live interleaved output trades legibility for immediacy). Read
-# once and exported, so they apply to every parallel stage, side gates included.
+# once and exported, so they apply to every parallel stage, scope gates included.
 #
 # Set BOTH ways (export when on, unset when off) so THIS project's config always
 # wins — never an inherited value. A `finish` run nested inside another gate (the
@@ -171,102 +168,99 @@ else
     unset ICCULUS_GATE_FAIL_FAST
 fi
 
-# --- pre-checks (fail fast) -----------------------------------------------
-
-# Optional work-evidence gate, before any slow work. evidence check is a no-op
-# unless [evidence].enabled is true.
-if config_bool evidence.enabled; then
-    in_gated_phase=1
-    "$ICCULUS_ENGINE/evidence" check || fail_phase "Work evidence is missing or stale — capture it, then re-run." "evidence"
-    in_gated_phase=0
-fi
-
 # --- fix (serial, mutating) -----------------------------------------------
 #
-# Each slot is its own labelled job (`<phase>:<slot>`). The fix slots run one at
-# a time, in declaration order, because they mutate the tree and a later fixer
-# may depend on an earlier one's edits. A stage with no real slots is skipped.
+# Each job is its own labelled job (the bare capability/check name). The fix-stage
+# jobs run one at a time, in jobs_in_stage order, because they mutate the tree and
+# a later fixer may depend on an earlier one's edits. An empty stage is skipped.
+# The here-doc (not a pipe) keeps the positional-arg builder in this shell.
 
 set --
-for _slot in $(slots_in_phase fix); do
-    set -- "$@" "fix:$_slot" "$(config_get "slots.$_slot.run")"
-done
+while IFS="$(printf '\t')" read -r _lbl _cmd _kind; do
+    [ -n "$_lbl" ] || continue
+    set -- "$@" "$_lbl" "$_cmd"
+done <<EOF
+$(jobs_in_stage fix)
+EOF
 if [ "$#" -gt 0 ]; then
     heading "Applying fixers..."
     in_gated_phase=1
-    run_serial "$@" || fail_phase "The fix phase failed." "fix"
+    run_serial "$@" || fail_phase "The fix stage failed." "fix"
     in_gated_phase=0
 fi
 
 # --- build (parallel) -----------------------------------------------------
 
 set --
-for _slot in $(slots_in_phase build); do
-    set -- "$@" "build:$_slot" "$(config_get "slots.$_slot.run")"
-done
+while IFS="$(printf '\t')" read -r _lbl _cmd _kind; do
+    [ -n "$_lbl" ] || continue
+    set -- "$@" "$_lbl" "$_cmd"
+done <<EOF
+$(jobs_in_stage build)
+EOF
 if [ "$#" -gt 0 ]; then
     heading "Building artifacts..."
     in_gated_phase=1
-    run_parallel "$@" || fail_phase "The build phase failed." "build"
+    run_parallel "$@" || fail_phase "The build stage failed." "build"
     in_gated_phase=0
 fi
 
 # --- check + test (parallel together) -------------------------------------
 #
 # Read-only checks and the test suite are independent, so they run concurrently
-# — after build, so both see its artifacts.
+# — after build, so both see its artifacts. Both stages feed one run_parallel.
 
 set --
-for _slot in $(slots_in_phase check); do
-    set -- "$@" "check:$_slot" "$(config_get "slots.$_slot.run")"
-done
-for _slot in $(slots_in_phase test); do
-    set -- "$@" "test:$_slot" "$(config_get "slots.$_slot.run")"
+for _stage in check test; do
+    while IFS="$(printf '\t')" read -r _lbl _cmd _kind; do
+        [ -n "$_lbl" ] || continue
+        set -- "$@" "$_lbl" "$_cmd"
+    done <<EOF
+$(jobs_in_stage "$_stage")
+EOF
 done
 if [ "$#" -gt 0 ]; then
     heading "Checking and testing..."
     in_gated_phase=1
-    run_parallel "$@" || fail_phase "The check/test phase failed." "check/test"
+    run_parallel "$@" || fail_phase "The check/test stage failed." "check/test"
     in_gated_phase=0
 fi
 
-# --- side gates (run a gate when its scope changed) -----------------------
+# --- scope gates (run a scope's gate when that scope changed) -------------
 
-# [scopes.side_gates] maps a scope name to a command — the way a sub-component
-# with its OWN self-contained gate plugs into `agent finish` (e.g. a native
-# sub-app gating its own build). Each fires only when the branch actually changed
-# its scope. They run with the SAME model as the slot phases above: every fired
-# gate runs concurrently via run_parallel, output is grouped and labelled
-# `side:<scope>`, and a single failure fails the gate (all gates still run, so you
-# see every failure at once). They run AFTER the main phases, so a side gate may
-# rely on fix/build having completed. See ADR 0002.
-if config_has scopes.side_gates; then
-    changed=$("$ICCULUS_ENGINE/changed-scopes" 2>/dev/null || printf '')
-    # Collect the fired gates into a label/command argument list. `set --` makes
-    # each (label, command) a discrete positional pair, so a command containing
-    # spaces survives intact into run_parallel. `finish` takes no arguments of its
-    # own, so reusing the positional params here is safe.
-    set --
-    for scope in $(config_keys scopes.side_gates); do
-        # Did this scope change? (substring test against the newline list)
-        case "
+# A [scopes.<name>] may carry a `gate` command — the way a sub-component with its
+# OWN self-contained gate plugs into `agent finish` (e.g. a native sub-app gating
+# its own build). Each fires only when the branch actually changed that scope.
+# They run with the SAME model as the stages above: every fired gate runs
+# concurrently via run_parallel, output grouped and labelled `scope:<name>`, and a
+# single failure fails the gate (all gates still run, so you see every failure at
+# once). They run AFTER the main stages, so a gate may rely on fix/build having
+# completed. See ADR 0018 (folds in the former side gates of ADR 0002).
+changed=$("$ICCULUS_ENGINE/changed-scopes" 2>/dev/null || printf '')
+# Collect the fired gates into a label/command argument list. `set --` makes each
+# (label, command) a discrete positional pair, so a command containing spaces
+# survives intact into run_parallel. `finish` takes no arguments of its own, so
+# reusing the positional params here is safe.
+set --
+for scope in $(config_subsections scopes); do
+    gate_cmd=$(config_get "scopes.$scope.gate" "")
+    [ -n "$gate_cmd" ] || continue   # a scope without a gate: nothing to fire
+    # Did this scope change? (substring test against the newline list)
+    case "
 $changed
 " in
-            *"
+        *"
 $scope
 "*) ;;
-            *) continue ;;
-        esac
-        gate_cmd=$(config_get "scopes.side_gates.$scope" "")
-        [ -n "$gate_cmd" ] || continue
-        set -- "$@" "side:$scope" "$gate_cmd"
-    done
-    if [ "$#" -gt 0 ]; then
-        heading "Running side gates for changed scopes..."
-        in_gated_phase=1
-        run_parallel "$@" || fail_phase "One or more side gates failed." "side_gates"
-        in_gated_phase=0
-    fi
+        *) continue ;;
+    esac
+    set -- "$@" "scope:$scope" "$gate_cmd"
+done
+if [ "$#" -gt 0 ]; then
+    heading "Running gates for changed scopes..."
+    in_gated_phase=1
+    run_parallel "$@" || fail_phase "One or more scope gates failed." "scope_gates"
+    in_gated_phase=0
 fi
 
 # --- merge check (worktree support, optional) -----------------------------
@@ -291,24 +285,24 @@ fi
 # Past this point nothing is gated: failures below must not abort the gate (the
 # work already passed), so the tail only prints guidance.
 
-# How much of the gate was real? `slots_for_phase` returns exactly ":" for a
-# phase with no real slot, so a phase is a no-op precisely when it equals ":".
-# An empty gate (all four gated phases no-op) ran nothing — saying "everything
-# passed" would be false confidence, so we say so plainly and keep exit 0 (an
-# unfilled gate is not a failure). When only some phases are no-ops, the gate
-# did real work; we still nudge once about the unfilled ones.
-unfilled_phases=0
-for _phase in fix build check test; do
-    [ "$(slots_for_phase "$_phase")" = ":" ] && unfilled_phases=$((unfilled_phases + 1))
+# How much of the gate was real? `cmds_in_stage` returns exactly ":" for a stage
+# with no real job, so a stage is a no-op precisely when it equals ":". An empty
+# gate (all four stages no-op) ran nothing — saying "everything passed" would be
+# false confidence, so we say so plainly and keep exit 0 (an unfilled gate is not
+# a failure). When only some stages are no-ops, the gate did real work; we still
+# nudge once about the unfilled ones.
+unfilled_stages=0
+for _stage in $ICCULUS_STAGE_ORDER; do
+    [ "$(cmds_in_stage "$_stage")" = ":" ] && unfilled_stages=$((unfilled_stages + 1))
 done
 
-if [ "$unfilled_phases" -eq 4 ]; then
-    ok "Gate passed — but every tool slot is a no-op, so nothing was actually checked."
-    warn "Fill [slots] in .icculus/config.toml (or run /bootstrap) to wire your format/lint/test commands."
+if [ "$unfilled_stages" -eq 4 ]; then
+    ok "Gate passed — but no capability or check is wired, so nothing was actually checked (a no-op gate)."
+    warn "Add [capabilities] (format/lint/typecheck/test/build) to .icculus/config.toml — or run /bootstrap."
 else
     ok "Everything built and all checks passed."
-    if [ "$unfilled_phases" -gt 0 ]; then
-        info "${C_DIM}note: $unfilled_phases of 4 gate phases are still no-ops.${C_RESET}"
+    if [ "$unfilled_stages" -gt 0 ]; then
+        info "${C_DIM}note: $unfilled_stages of 4 gate stages have no command yet.${C_RESET}"
     fi
     info "If you changed something meaningful, update the docs to match before you finish."
 fi

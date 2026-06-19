@@ -1,14 +1,14 @@
 /**
  * `icculus config <subcommand>` — programmatic, comment-preserving edits to an
- * existing `.icculus/config.toml` (ADR 0005). Lets a scaffolder or CI set slots, scopes,
- * side-gates, ratchets, and arbitrary scalars without re-implementing TOML
- * editing. Every subcommand honours `--json` and `--dry-run`.
+ * existing `.icculus/config.toml` (ADR 0005). Lets a scaffolder or CI set
+ * capabilities, checks, scopes, ratchets, and arbitrary scalars without
+ * re-implementing TOML editing. Every subcommand honours `--json` and `--dry-run`.
  */
 
 import { join } from "@std/path";
 import { Logger } from "../lib/log.ts";
 import { resolveConfigPath } from "../lib/paths.ts";
-import { KNOWN_PHASES } from "../lib/config.ts";
+import { KNOWN_CAPABILITIES, STAGES } from "../lib/config.ts";
 import {
   tomlBool,
   TomlEditor,
@@ -30,7 +30,7 @@ interface Edit {
   literal: string;
 }
 
-/** TOML bare-key shape, enforced for slot/scope/side-gate/ratchet names. */
+/** TOML bare-key shape, enforced for check/scope/ratchet names. */
 const NAME_RE = /^[A-Za-z0-9_-]+$/;
 
 /** Emit a failure on the right surface and return exit code 1. */
@@ -122,42 +122,76 @@ async function applyEdits(
 }
 
 /**
- * `config set-slot <name> [--phase <phase>] --run <cmd>`
+ * `config set-capability <name> <command>`
  *
- * Omit `--phase` to define a MEASUREMENT slot: one the gate never runs, that a
- * `[ratchets.<name>]` references to read a metric on demand.
+ * `<name>` must be a known capability (format/build/lint/typecheck/test); the
+ * gate stage is derived by the engine. The CLI sets one command; the array
+ * (multi-command) form is reachable via a config document.
  */
-export async function runConfigSetSlot(
+export async function runConfigSetCapability(
   name: string,
-  opts: ConfigOptions & { phase?: string; run: string },
+  command: string,
+  opts: ConfigOptions,
+): Promise<number> {
+  if (!Object.hasOwn(KNOWN_CAPABILITIES, name)) {
+    return fail(
+      opts,
+      `unknown capability "${name}". Known capabilities are: ${
+        Object.keys(KNOWN_CAPABILITIES).join(", ")
+      }. For custom work use \`config set-check\` with a stage.`,
+    );
+  }
+  return await applyEdits(
+    [{ key: `capabilities.${name}`, literal: tomlString(command) }],
+    opts,
+    `Set capability "${name}".`,
+  );
+}
+
+/**
+ * `config set-check <name> --stage <stage> --run <cmd> [--provides <label>]`
+ *
+ * Custom gate work outside the known capability vocabulary: an explicit stage
+ * (fix/build/check/test), a command, and an optional free-text label.
+ */
+export async function runConfigSetCheck(
+  name: string,
+  opts: ConfigOptions & { stage: string; run: string; provides?: string },
 ): Promise<number> {
   if (!NAME_RE.test(name)) {
     return fail(
       opts,
-      `slot name must be letters, digits, '_' or '-' (got "${name}").`,
+      `check name must be letters, digits, '_' or '-' (got "${name}").`,
     );
   }
-  const edits: Edit[] = [];
-  if (opts.phase !== undefined) {
-    if (!(KNOWN_PHASES as readonly string[]).includes(opts.phase)) {
-      return fail(
-        opts,
-        `unknown phase "${opts.phase}". Use one of: ${
-          KNOWN_PHASES.join(", ")
-        } (or omit --phase for a measurement slot).`,
-      );
-    }
-    edits.push({ key: `slots.${name}.phase`, literal: tomlString(opts.phase) });
+  if (!(STAGES as readonly string[]).includes(opts.stage)) {
+    return fail(
+      opts,
+      `unknown stage "${opts.stage}". Use one of: ${STAGES.join(", ")}.`,
+    );
   }
-  edits.push({ key: `slots.${name}.run`, literal: tomlString(opts.run) });
-  return await applyEdits(edits, opts, `Set slot "${name}".`);
+  const edits: Edit[] = [
+    { key: `checks.${name}.stage`, literal: tomlString(opts.stage) },
+    { key: `checks.${name}.run`, literal: tomlString(opts.run) },
+  ];
+  if (opts.provides !== undefined) {
+    edits.push({
+      key: `checks.${name}.provides`,
+      literal: tomlString(opts.provides),
+    });
+  }
+  return await applyEdits(edits, opts, `Set check "${name}".`);
 }
 
-/** `config set-scope <name> <glob>...` */
+/** `config set-scope <name> <glob>... [--neutral] [--previewable] [--gate <cmd>]` */
 export async function runConfigSetScope(
   name: string,
   globs: string[],
-  opts: ConfigOptions,
+  opts: ConfigOptions & {
+    neutral?: boolean;
+    previewable?: boolean;
+    gate?: string;
+  },
 ): Promise<number> {
   if (!NAME_RE.test(name)) {
     return fail(
@@ -168,42 +202,33 @@ export async function runConfigSetScope(
   if (globs.length === 0) {
     return fail(opts, `set-scope needs at least one glob (e.g. "src/**").`);
   }
-  return await applyEdits(
-    [{ key: `scopes.${name}`, literal: tomlStringArray(globs) }],
-    opts,
-    `Set scope "${name}".`,
-  );
-}
-
-/** `config set-side-gate <scope> --run <cmd>` */
-export async function runConfigSetSideGate(
-  scope: string,
-  opts: ConfigOptions & { run: string },
-): Promise<number> {
-  if (!NAME_RE.test(scope)) {
-    return fail(
-      opts,
-      `side-gate scope must be letters, digits, '_' or '-' (got "${scope}").`,
-    );
+  const edits: Edit[] = [
+    { key: `scopes.${name}.paths`, literal: tomlStringArray(globs) },
+  ];
+  if (opts.neutral) {
+    edits.push({ key: `scopes.${name}.neutral`, literal: tomlBool(true) });
   }
-  return await applyEdits(
-    [{ key: `scopes.side_gates.${scope}`, literal: tomlString(opts.run) }],
-    opts,
-    `Set side gate "${scope}".`,
-  );
+  if (opts.previewable) {
+    edits.push({ key: `scopes.${name}.previewable`, literal: tomlBool(true) });
+  }
+  if (opts.gate !== undefined) {
+    edits.push({ key: `scopes.${name}.gate`, literal: tomlString(opts.gate) });
+  }
+  return await applyEdits(edits, opts, `Set scope "${name}".`);
 }
 
 /**
- * `config set-ratchet <name> --limit <n> --slot <slot> [--metric] [--direction]`
+ * `config set-ratchet <name> --limit <n> --run <cmd> [--metric] [--direction]`
  *
  * Every ratchet is a `[ratchets.<name>]` table — `coverage` is just a
- * conventional name, with no special handling.
+ * conventional name, with no special handling. The `run` command emits the
+ * metric line: `ICCULUS_METRIC <metric> <number>`.
  */
 export async function runConfigSetRatchet(
   name: string,
   opts: ConfigOptions & {
     limit: string;
-    slot: string;
+    run: string;
     metric?: string;
     direction?: string;
   },
@@ -235,7 +260,7 @@ export async function runConfigSetRatchet(
     },
     { key: `ratchets.${name}.direction`, literal: tomlString(direction) },
     { key: `ratchets.${name}.limit`, literal: limitLiteral },
-    { key: `ratchets.${name}.slot`, literal: tomlString(opts.slot) },
+    { key: `ratchets.${name}.run`, literal: tomlString(opts.run) },
   ];
   return await applyEdits(edits, opts, `Set ratchet "${name}".`);
 }

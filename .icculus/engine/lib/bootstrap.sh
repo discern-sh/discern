@@ -44,6 +44,8 @@ fi
 . "$ICCULUS_LIB/config.sh"
 # shellcheck source=jobs.sh
 . "$ICCULUS_LIB/jobs.sh"
+# shellcheck source=capabilities.sh
+. "$ICCULUS_LIB/capabilities.sh"
 
 # Resolve the integration branch once and export it, so the standalone git
 # utilities (assert-main-merged, changed-scopes, prune-git-worktrees, …) all see

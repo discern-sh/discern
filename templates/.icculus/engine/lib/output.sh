@@ -7,7 +7,7 @@
 #
 # Sourced by every engine recipe (via bootstrap.sh). Colour is enabled only on
 # a TTY and when NO_COLOR is unset, so piped/CI output stays clean. The helpers
-# are info/ok/warn/die plus a heading for phase banners.
+# are info/ok/warn/die plus a heading for stage banners.
 
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
     C_RESET=$(printf '\033[0m')

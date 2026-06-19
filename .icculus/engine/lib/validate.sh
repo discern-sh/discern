@@ -7,32 +7,9 @@
 # and to unit-test. File- and config-shaped checks live in the recipe that needs
 # them; this file holds just the reusable value-level rules.
 
-# The phases a slot may declare. This is the ONE place the engine names them, so
-# the gate's phase order (finish/tidy) and doctor's validation cannot drift. A
-# space-delimited list with surrounding spaces, for a clean substring test. A
-# slot may also declare NO phase: it is then a measurement slot the gate never
-# runs, referenced by a [ratchets.<name>] (see lib/ratchets.sh).
-ICCULUS_PHASES=" fix build check test "
-
-# True (exit 0) when $1 is one of the known slot phases.
-#   validate_is_phase "$(config_get slots.format.phase)" || warn ...
-validate_is_phase() {
-    case "$ICCULUS_PHASES" in
-        *" $1 "*) [ -n "$1" ] ;;   # reject the empty string (it would substring-match the gaps)
-        *) return 1 ;;
-    esac
-}
-
-# A human-readable list of the valid phases, for fix-up hints.
-#   "fix, build, check, test, coverage"
-validate_phase_list() {
-    # Trim the surrounding spaces and comma-join the words.
-    printf '%s' "$ICCULUS_PHASES" | awk '{
-        out = ""
-        for (i = 1; i <= NF; i++) { out = (i == 1 ? $i : out ", " $i) }
-        printf "%s", out
-    }'
-}
+# The capability vocabulary and the gate's stages live in capabilities.sh (the
+# one place the name->stage map is named), not here. This file holds only the
+# content-level value predicates below.
 
 # True (exit 0) when $1 matches the project-slug shape the kit enforces:
 # lowercase letters/digits/dashes, starting with a letter or digit. Kept in sync

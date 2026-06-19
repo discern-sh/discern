@@ -147,7 +147,7 @@ Deno.test("upgrade --check flags a stale schema as drift even when files are in 
     const res = JSON.parse(r.stdout);
     assertEquals(res.ok, false);
     assertEquals(res.schema.recorded, 1);
-    assertEquals(res.schema.current, 3);
+    assertEquals(res.schema.current, 4);
     assertEquals(res.drifted, []); // managed files themselves are fine
   });
 });

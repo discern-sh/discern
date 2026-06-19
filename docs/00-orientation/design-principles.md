@@ -17,28 +17,30 @@ record is a decision.
 
 ---
 
-## 1. Stay stack-neutral; push every stack fact behind a named slot
+## 1. Stay stack-neutral; push every stack fact behind a named capability
 
 The engine never hardcodes a language, test runner, build tool, or framework. It
-runs "the test slot," "the fix slots," "the side gate for this scope" — names it
-discovers, not commands it knows. Everything specific to a project's stack lives
-in `.icculus/config.toml` (`[slots]`, `[scopes]`, `[worktree]`), and a fresh
-install's slots default to the `:` no-op so the gate is green before any of them
-is filled.
+runs "the test capability," "the fix-stage capabilities," "the `gate` for this
+scope" — names it discovers, not commands it knows. Everything specific to a
+project's stack lives in `.icculus/config.toml` (`[capabilities]`, `[scopes]`,
+`[worktree]`), and a fresh install wires no capabilities at all — an omitted
+capability is knowably absent, so the gate is green before any of them is filled
+([ADR 0017](../_adr/0017-capabilities-model.md)).
 
 **Why it matters.** The moment the engine knows what "a test" _is_, it stops
 being portable — it can only serve the stack it learned. Stack-neutrality is the
 whole product: one harness that drops into any repository, in any language, for
 any agent.
 
-**How it shows up.** `finish` builds its phases by iterating `slots_in_phase`
-over whatever `[slots]` declares
-([finish](../../templates/.icculus/engine/finish)); the engine reads commands
-through `config_get`, never by name. The worktree database and dev-server seams
-are empty config until a project wires them. The one place concrete ecosystems
-are named on purpose is the stack-detection table in the
+**How it shows up.** `finish` builds its stages by iterating over whatever
+`[capabilities]` and `[checks]` declare
+([finish](../../templates/.icculus/engine/finish)), deriving each known
+capability's stage from its name; the engine reads commands through
+`config_get`, never by name. The worktree database and dev-server seams are
+empty config until a project wires them. The one place concrete ecosystems are
+named on purpose is the stack-detection table in the
 [`bootstrap`](../../templates/.icculus/skills/bootstrap/SKILL.md) skill — whose
-job is to _propose_ slot fills, never to bake them into the engine.
+job is to _propose_ capability fills, never to bake them into the engine.
 
 ---
 
@@ -71,7 +73,7 @@ never edited.
 `icculus` scaffolds into a repository you care about, so every command must be
 safe to run again. `upgrade` overwrites a managed file only when it is pristine;
 a local edit is preserved untouched and the new version written alongside as
-`<file>.new`. Seed files are never refreshed. A managed file the kit no longer
+`<file>.new`. Your files are never refreshed. A managed file the kit no longer
 ships is _reported_, not deleted, when your copy differs. Migrations are
 idempotent and the tree must be clean (or `--allow-dirty`) so an upgrade stays
 revertible with `git checkout`.
@@ -118,7 +120,8 @@ The two halves of "what should run" lean opposite ways on purpose. _Classifying_
 a change errs toward doing more: a path that matches no scope counts as a real
 code change, so an unknown path runs **more** gates, never fewer. _Executing_
 the gate errs toward stopping early: by default the first failing job cancels
-its siblings, and the `--json` report names the exact slot that failed.
+its siblings, and the `--json` report names the exact capability or check that
+failed.
 
 **Why it matters.** A misclassified path that silently _skipped_ a gate would
 let broken work through — the expensive failure. But once something has already
@@ -127,10 +130,10 @@ when unsure, fast when certain.
 
 **How it shows up.**
 [`changed-scopes`](../../templates/.icculus/engine/changed-scopes) classifies
-unknown paths as gated code; side gates fire only for a scope that actually
-changed ([ADR 0002](../_adr/0002-first-class-side-gates.md)); `[gate].fail_fast`
-defaults on and the structured report attributes failure to a single slot
-([ADR 0004](../_adr/0004-structured-finish-json.md)).
+unknown paths as gated code; a scope's `gate` fires only when that scope
+actually changed ([ADR 0018](../_adr/0018-vocabulary-consolidation.md));
+`[gate].fail_fast` defaults on and the structured report attributes failure to a
+single capability or check ([ADR 0004](../_adr/0004-structured-finish-json.md)).
 
 ---
 
@@ -146,8 +149,9 @@ its own author to the same discipline. Self-hosting collapses the gap between
 "what we ship" and "what we use" to zero — a regression in the shipped harness
 breaks our own build the same day, not a user's repo months later.
 
-**How it shows up.** `deno task selfcheck` (≡ `upgrade --check`) is a `check`
-slot, so drift between the root install and `templates/` fails `agent finish`
+**How it shows up.** `deno task selfcheck` (≡ `upgrade --check`) is wired as a
+`check`-stage Check (`[checks.selfcheck]`), so drift between the root install
+and `templates/` fails `agent finish`
 ([ADR 0010](../_adr/0010-self-host-the-harness.md)); the `tests/engine_*` suites
 scaffold the real `templates/` into temp dirs and run `agent` against them; CI
 runs `agent finish`.

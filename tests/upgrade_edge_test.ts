@@ -250,7 +250,7 @@ Deno.test("upgrade --dry-run --json previews pending migrations without running 
     assertEquals(res.dry_run, true);
     assertEquals(
       res.pending_migrations.map((m: { from: number }) => m.from),
-      [1, 2],
+      [1, 2, 3],
     );
     // Still a dry run: the schema is untouched on disk.
     const m = JSON.parse(await readTarget(dir, ".icculus/manifest.json"));

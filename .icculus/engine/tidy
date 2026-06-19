@@ -2,16 +2,16 @@
 # desc: fast inner loop — apply fixers, then run the read-only checks (no build/test)
 . "$(dirname "$0")/lib/bootstrap.sh"
 
-# tidy — run the fix-phase slots, then the read-only check-phase slots. The
+# tidy — run the fix-stage jobs, then the read-only check-stage jobs. The
 # mutating fixers run first (serially, since order matters — one fixer's output
 # is the next's input), then the read-only checks. It never builds or runs
 # tests, so it stays fast enough for the inner loop. Fails non-zero if anything
 # fails.
 
-# slots_for_phase joins a phase's slots with ` && ` (already in declaration
-# order), so the fix phase runs serially as required.
-fix_cmd=$(slots_for_phase fix)
-check_cmd=$(slots_for_phase check)
+# cmds_in_stage joins a stage's jobs with ` && ` (in declaration order), so the
+# fix stage runs serially as required.
+fix_cmd=$(cmds_in_stage fix)
+check_cmd=$(cmds_in_stage check)
 
 heading "Fixing code..."
 eval "$fix_cmd" || die "A fixer failed."

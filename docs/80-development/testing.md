@@ -3,12 +3,13 @@
 _The testing approach in this repo — how tests are written, how they run, and
 the patterns the gate assumes._
 
-The `test` slot in `.icculus/config.toml` is what `agent finish` runs; this doc
-explains how to write tests that pass it and how to run them while iterating.
+The `test` capability in `.icculus/config.toml` is what `agent finish` runs;
+this doc explains how to write tests that pass it and how to run them while
+iterating.
 
 ## How tests run
 
-The suite is plain `deno test`, wired as the `test` slot:
+The suite is plain `deno test`, wired as the `test` capability:
 
 ```sh
 deno task test                          # the whole suite (what the gate runs)
@@ -49,8 +50,8 @@ full run" trap is exactly this failure).
 - **Scaffold from the real templates.** Engine tests use `scaffoldEngine` (which
   lays down `REAL_TEMPLATES` through `assembleInitPlan`/`applyPlan`), so the
   bytes under test are the bytes a real `icculus init` ships. Use `writeConfig`
-  to set the `[slots]`/`[scopes]`/`[ratchets]` a case needs, and `addWorktree`
-  for the worktree-recipe layout.
+  to set the `[capabilities]`/`[checks]`/`[scopes]`/`[ratchets]` a case needs,
+  and `addWorktree` for the worktree-recipe layout.
 - **Use fixtures for unit-level installer tests.** `FIXTURE_TEMPLATES` plus
   `testTokens` give a small synthetic tree for testing rendering/plan logic in
   isolation, separate from the full real templates.

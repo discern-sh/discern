@@ -10,7 +10,7 @@
 #
 #   agent finish            run the full quality gate
 #   agent tidy              apply fixers, then run the read-only checks
-#   agent test              run the test slot
+#   agent test              run the test capability
 #   agent guidelines        compile .icculus/guidelines/* into the agent files
 #   agent worktree          set up the current worktree (run by the create hook)
 #   agent worktree:exit     graduate this worktree's branch into the main repo

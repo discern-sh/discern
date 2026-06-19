@@ -205,16 +205,16 @@ Deno.test("doctor reports the schema version is current on a fresh install", asy
   });
 });
 
-Deno.test("add-adapter reports unknown adapter with a friendly error", async () => {
+Deno.test("add-preset reports unknown preset with a friendly error", async () => {
   await withTempDir(async (dir) => {
     await runCli(["init", "--yes", "--json", "--slug", "demo"], dir);
     const { code, stdout } = await runCli(
-      ["add-adapter", "node", "--json"],
+      ["add-preset", "node", "--json"],
       dir,
     );
     assertEquals(code, 1);
     const result = JSON.parse(stdout);
     assertEquals(result.ok, false);
-    assertEquals(result.error, "unknown_adapter");
+    assertEquals(result.error, "unknown_preset");
   });
 });

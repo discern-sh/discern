@@ -2,19 +2,28 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/jackwh/icculus/main/schema/icculus-config.schema.json",
   "title": "icculus config document",
-  "description": "The declarative config shape consumed by `icculus init --config <file>` and by an adapter's `adapter.json`. Its slots/scopes/side_gates/ratchets are written into a project's .icculus/config.toml via the comment-preserving editor. Every field is optional.",
+  "description": "The declarative config shape consumed by `icculus init --config <file>` and by a preset's `preset.json`. Its capabilities/checks/scopes/ratchets are written into a project's .icculus/config.toml via the comment-preserving editor. Every field is optional.",
   "type": "object",
   "additionalProperties": false,
+  "$defs": {
+    "commandOrList": {
+      "description": "A single command, or a list of commands run in order.",
+      "oneOf": [
+        { "type": "string" },
+        { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+      ]
+    }
+  },
   "properties": {
     "$schema": {
       "type": "string",
       "description": "Editor-only pointer to this schema; ignored by icculus."
     },
     "version": {
-      "description": "Document major version. Omit (assumed current) or use a matching major; this build understands version 1.",
+      "description": "Document major version. Omit (assumed current) or use a matching major; this build understands version 2.",
       "oneOf": [
-        { "type": "string", "pattern": "^1(\\.[0-9]+)*$" },
-        { "type": "integer", "const": 1 }
+        { "type": "string", "pattern": "^2(\\.[0-9]+)*$" },
+        { "type": "integer", "const": 2 }
       ]
     },
     "name": {
@@ -33,7 +42,7 @@
     "source_globs": {
       "type": "array",
       "items": { "type": "string" },
-      "description": "Primary source globs (the gated `web` scope), e.g. [\"src/**\"]."
+      "description": "Primary source globs, e.g. [\"src/**\"]."
     },
     "brief": {
       "type": "string",
@@ -46,23 +55,36 @@
     },
     "description": {
       "type": "string",
-      "description": "Adapter metadata, shown when listing adapters; ignored by `init --config`."
+      "description": "Preset metadata, shown when listing presets; ignored by `init --config`."
     },
-    "slots": {
+    "capabilities": {
       "type": "object",
-      "description": "[slots.<name>] fills. Omit `phase` for a measurement slot (the gate never runs it; a ratchet does).",
+      "description": "[capabilities] fills — a known capability name mapped to a command (or a list). The gate stage is derived from the name. The set is closed; for custom work use `checks`.",
+      "additionalProperties": { "$ref": "#/$defs/commandOrList" },
+      "propertyNames": {
+        "enum": ["format", "build", "lint", "typecheck", "test"]
+      }
+    },
+    "checks": {
+      "type": "object",
+      "description": "[checks.<name>] fills — custom gate work outside the known capability vocabulary.",
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,
+        "required": ["stage", "run"],
         "properties": {
-          "phase": {
+          "stage": {
             "type": "string",
             "enum": ["fix", "build", "check", "test"],
-            "description": "Gate phase. Omit for a measurement slot."
+            "description": "When the check runs in the gate."
           },
           "run": {
+            "$ref": "#/$defs/commandOrList",
+            "description": "The command(s) to run."
+          },
+          "provides": {
             "type": "string",
-            "description": "The shell command to run."
+            "description": "Optional free-text label (for humans / audit)."
           }
         }
       },
@@ -70,17 +92,31 @@
     },
     "scopes": {
       "type": "object",
-      "description": "[scopes].<name> arrays of path globs.",
+      "description": "[scopes.<name>] tables — a named region defined by `paths`, with optional attributes.",
       "additionalProperties": {
-        "type": "array",
-        "items": { "type": "string" }
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["paths"],
+        "properties": {
+          "paths": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "The globs that define the scope."
+          },
+          "neutral": {
+            "type": "boolean",
+            "description": "true: changes here need no gate."
+          },
+          "previewable": {
+            "type": "boolean",
+            "description": "true: a person could see changes here."
+          },
+          "gate": {
+            "$ref": "#/$defs/commandOrList",
+            "description": "A command to run when this scope changed (the former side gate)."
+          }
+        }
       },
-      "propertyNames": { "pattern": "^[A-Za-z0-9_-]+$" }
-    },
-    "side_gates": {
-      "type": "object",
-      "description": "[scopes.side_gates].<scope> commands, run when that scope changed.",
-      "additionalProperties": { "type": "string" },
       "propertyNames": { "pattern": "^[A-Za-z0-9_-]+$" }
     },
     "ratchets": {
@@ -89,11 +125,11 @@
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["limit"],
+        "required": ["limit", "run"],
         "properties": {
           "metric": {
             "type": "string",
-            "description": "Metric name the slot emits (default: the ratchet name)."
+            "description": "Metric name the run emits (default: the ratchet name)."
           },
           "direction": {
             "type": "string",
@@ -104,9 +140,9 @@
             "type": "number",
             "description": "The floor (up) or ceiling (down)."
           },
-          "slot": {
-            "type": "string",
-            "description": "The [slots.<name>] (a measurement slot) whose output emits the metric."
+          "run": {
+            "$ref": "#/$defs/commandOrList",
+            "description": "The command whose output emits the metric line: ICCULUS_METRIC <metric> <number>."
           }
         }
       },

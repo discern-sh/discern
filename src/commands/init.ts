@@ -294,15 +294,13 @@ function printOutro(log: Logger, config: InitConfig): void {
     } in your coding agent to fill in principles,`,
   );
   log.line(
-    "     guidelines, and docs from your brief — and to propose slot fills.",
+    "     guidelines, and docs from your brief — and to propose capability fills.",
   );
   log.line(
-    `  2. Wire your tools. The harness ships with empty tool slots, so until`,
+    `  2. Wire your capabilities. The harness ships with none, so until you fill`,
   );
   log.line(
-    `     you fill them ${
-      log.bold("./agent finish")
-    } passes without checking anything.`,
+    `     them ${log.bold("./agent finish")} passes without checking anything.`,
   );
   log.line(
     `     Run ${log.bold("/bootstrap")} (or edit ${
@@ -315,5 +313,5 @@ function printOutro(log: Logger, config: InitConfig): void {
       log.bold("./agent doctor")
     } to verify the install (dispatcher, hooks,`,
   );
-  log.line("     slot commands, git worktree support).");
+  log.line("     capabilities, git worktree support).");
 }

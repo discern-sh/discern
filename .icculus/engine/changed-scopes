@@ -15,26 +15,29 @@ set -f
 # changed-scopes [--has <scope>] [--json]
 #
 # Classifies changed paths against the [scopes] config. It answers
-# "what sides of the repo did this branch change?" so `finish` can skip side
+# "what parts of the repo did this branch change?" so `finish` can skip scope
 # gates and the preview line for areas that did not change. Classification fails
 # OPEN: when git cannot answer, every scope is reported, so consumers run MORE
 # gates, never fewer.
 #
-# Scopes are defined in [scopes] in .icculus/config.toml:
-#   neutral      paths no gate covers (docs, agent guidance). Root-level *.md is
-#                always neutral.
-#   web          real, gated code changes (anything not neutral).
-#   previewable  the subset of code a person could see — worth a preview link.
-#   <custom>     any other [scopes] array (e.g. a native sub-app) becomes a
-#                scope of that name, emitted when one of its globs matches.
-# A path that matches nothing falls through to `web` (fail toward caution).
+# Each scope is a [scopes.<name>] table in .icculus/config.toml:
+#   paths        the globs that define the scope (required)
+#   neutral      true: changes here need no gate (docs, agent guidance). A scope
+#                flagged neutral never fires; root-level *.md is always neutral.
+#   previewable  true: a person could see changes here — worth a preview link.
+#   gate         a command `finish` runs when this scope changed (optional).
+#
+# Two derived markers are emitted alongside scope names:
+#   code         any non-neutral path (a real, gated change; the fail-open
+#                default — a path matching no scope still counts as code).
+#   previewable  emitted when a previewable-flagged scope changed.
 #
 # Output:
-#   (default)        one scope name per line, in a stable order
-#   --has <scope>    exit 0 if that scope is present, 1 if absent (prints nothing)
-#   --json           a JSON array of the present scopes
+#   (default)        one scope/marker per line, in a stable order
+#   --has <name>     exit 0 if that scope/marker is present, 1 if absent (silent)
+#   --json           a JSON array of the present scopes/markers
 #
-# Glob kinds, per [scopes] entry:
+# Glob kinds, per `paths` entry:
 #   prefix            "src/**" or "src/"        -> path starts with "src/"
 #   exact             "routes/web.php"          -> path equals it
 #   suffix            "*.view"                  -> path ends with ".view"
@@ -68,17 +71,20 @@ while [ "$#" -gt 0 ]; do
     shift
 done
 
-# --- which custom scopes exist --------------------------------------------
+# --- which scopes exist, and their roles ----------------------------------
 
-# Every [scopes] array other than the three built-ins is a custom scope. We emit
-# the built-ins in a fixed order, then custom scopes in declaration order, so
-# output is stable across runs.
-custom_scopes=""
-for _key in $(config_keys scopes); do
-    case "$_key" in
-        neutral|web|previewable) continue ;;
-    esac
-    custom_scopes="$custom_scopes $_key"
+# Read the scope subtables once. A scope flagged `neutral` marks paths that need
+# no gate (it never fires); every other scope is a code region that fires by name
+# when one of its globs matches (so its optional gate runs). Declaration order is
+# preserved for stable output.
+neutral_scopes=""
+fire_scopes=""
+for _key in $(config_subsections scopes); do
+    if config_bool "scopes.$_key.neutral"; then
+        neutral_scopes="$neutral_scopes $_key"
+    else
+        fire_scopes="$fire_scopes $_key"
+    fi
 done
 
 # --- gather changed paths (fail open) -------------------------------------
@@ -87,12 +93,12 @@ done
 main_branch=${MAIN_BRANCH:-main}
 git_bin=${GIT_BIN:-git}
 
-# Emit every possible scope — used when we cannot tell what changed, so callers
-# err toward running more gates. Built-ins first, then any custom scopes.
+# Emit every possible scope/marker — used when we cannot tell what changed, so
+# callers err toward running more gates. Markers first, then every firing scope.
 emit_all_scopes() {
-    printf 'web\n'
+    printf 'code\n'
     printf 'previewable\n'
-    for _s in $custom_scopes; do
+    for _s in $fire_scopes; do
         printf '%s\n' "$_s"
     done
 }
@@ -163,11 +169,11 @@ path_matches_pattern() {
     return 1
 }
 
-# Does $path match ANY pattern in the given [scopes] array key?
+# Does $path match ANY glob in the given scope's `paths` array?
 path_matches_scope() {
     _ms_path=$1
     _ms_key=$2
-    for _ms_pat in $(config_array "scopes.$_ms_key"); do
+    for _ms_pat in $(config_array "scopes.$_ms_key.paths"); do
         if path_matches_pattern "$_ms_path" "$_ms_pat"; then
             return 0
         fi
@@ -175,14 +181,14 @@ path_matches_scope() {
     return 1
 }
 
-# A path is neutral if it matches a [scopes].neutral pattern, OR it is a
+# A path is neutral if it matches any neutral-flagged scope's paths, OR it is a
 # root-level markdown file (README.md, AGENTS.md, …). Markdown nested in a code
 # directory still counts for that directory's scope.
 path_is_neutral() {
     _pn_path=$1
-    if path_matches_scope "$_pn_path" neutral; then
-        return 0
-    fi
+    for _pn_s in $neutral_scopes; do
+        path_matches_scope "$_pn_path" "$_pn_s" && return 0
+    done
     case "$_pn_path" in
         */*) return 1 ;;                 # nested -> not a root-level doc
         *.md) return 0 ;;
@@ -201,10 +207,10 @@ if ! collect_paths > "$paths_file" 2>/dev/null; then
     # Fail open: git can't tell us what changed -> report every scope.
     emit_all_scopes > "$scopes_file"
 else
-    have_web=0
+    have_code=0
     have_previewable=0
-    # Track which custom scopes fired, space-delimited with surrounding spaces.
-    custom_present=" "
+    # Track which firing scopes matched, space-delimited with surrounding spaces.
+    fired=" "
 
     while IFS= read -r path; do
         # Normalise: trim surrounding whitespace and a single leading slash.
@@ -213,28 +219,27 @@ else
         path_is_neutral "$path" && continue
 
         # Any non-neutral path is a real, gated change.
-        have_web=1
+        have_code=1
 
-        path_matches_scope "$path" previewable && have_previewable=1
-
-        for _cs in $custom_scopes; do
-            case "$custom_present" in
-                *" $_cs "*) continue ;;   # already recorded
+        for _fs in $fire_scopes; do
+            case "$fired" in
+                *" $_fs "*) continue ;;   # already recorded
             esac
-            if path_matches_scope "$path" "$_cs"; then
-                custom_present="$custom_present$_cs "
+            if path_matches_scope "$path" "$_fs"; then
+                fired="$fired$_fs "
+                config_bool "scopes.$_fs.previewable" && have_previewable=1
             fi
         done
     done < "$paths_file"
 
-    # Emit in stable order: web, previewable, then custom scopes in declaration
-    # order (only those that actually fired).
+    # Emit in stable order: the code marker, the previewable marker, then firing
+    # scopes in declaration order (only those that actually matched).
     {
-        [ "$have_web" -eq 1 ] && printf 'web\n'
+        [ "$have_code" -eq 1 ] && printf 'code\n'
         [ "$have_previewable" -eq 1 ] && printf 'previewable\n'
-        for _cs in $custom_scopes; do
-            case "$custom_present" in
-                *" $_cs "*) printf '%s\n' "$_cs" ;;
+        for _fs in $fire_scopes; do
+            case "$fired" in
+                *" $_fs "*) printf '%s\n' "$_fs" ;;
             esac
         done
     } > "$scopes_file"

@@ -1,18 +1,18 @@
 /**
- * `icculus add-adapter <name>` — overlay an adapter from `adapters/<name>/` onto
- * the current project (ADR 0007).
+ * `icculus add-preset <name>` — overlay a preset from `presets/<name>/` onto
+ * the current project (ADR 0007, ADR 0018).
  *
- * An adapter is a **file overlay plus config fills**: every file in the adapter
- * dir is scaffolded with the same token/merge/exec-bit machinery as `init`
- * (seed/managed rules apply), and an optional `adapter.json` at its root —
+ * A preset is a **file overlay plus config fills**: every file in the preset dir
+ * is scaffolded with the same token/merge/exec-bit machinery as `init`
+ * (seed/managed rules apply), and an optional `preset.json` at its root —
  * metadata, never scaffolded — is an icculus config document (the same shape
- * `init --config` reads) whose slots / scopes / side_gates / ratchets are
- * written into the project's `.icculus/config.toml` via the comment-preserving editor.
- * So an adapter overlays both files (recipes, skills, guideline fragments, docs)
- * and config (slots, scopes, side-gates).
+ * `init --config` reads) whose capabilities / checks / scopes / ratchets are
+ * written into the project's `.icculus/config.toml` via the comment-preserving
+ * editor. So a preset overlays both files (recipes, skills, guideline fragments,
+ * docs) and config (capabilities, checks, scopes).
  *
- * This ships the *mechanism* only: no adapter is bundled (the example used to
- * exercise the contract lives under tests/fixtures/adapters/).
+ * This ships the *mechanism* only: no preset is bundled (the example used to
+ * exercise the contract lives under tests/fixtures/presets/).
  */
 
 import { dirname, fromFileUrl, join } from "@std/path";
@@ -35,21 +35,21 @@ import {
   type IcculusConfigDoc,
 } from "../lib/config_doc.ts";
 
-/** The reserved metadata filename at an adapter root (never scaffolded). */
-const ADAPTER_MANIFEST = "adapter.json";
+/** The reserved metadata filename at a preset root (never scaffolded). */
+const PRESET_MANIFEST = "preset.json";
 
 /**
- * Load an adapter's `adapter.json`, or undefined if absent. It is an icculus
- * config document (its slots/scopes/side_gates/ratchets are the fills); a
+ * Load a preset's `preset.json`, or undefined if absent. It is an icculus config
+ * document (its capabilities/checks/scopes/ratchets are the fills); a
  * `description` field, if present, is metadata only. Its `version`, if present,
  * is validated the same way `init --config` validates one.
  */
-async function loadAdapterFills(
-  adapterDir: string,
+async function loadPresetFills(
+  presetDir: string,
 ): Promise<IcculusConfigDoc | undefined> {
   let text: string;
   try {
-    text = await Deno.readTextFile(join(adapterDir, ADAPTER_MANIFEST));
+    text = await Deno.readTextFile(join(presetDir, PRESET_MANIFEST));
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
       return undefined;
@@ -58,35 +58,35 @@ async function loadAdapterFills(
   }
   const parsed: unknown = JSON.parse(text);
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    throw new Error(`${ADAPTER_MANIFEST} must be a JSON object`);
+    throw new Error(`${PRESET_MANIFEST} must be a JSON object`);
   }
   assertSupportedVersion(parsed as IcculusConfigDoc);
   return parsed as IcculusConfigDoc;
 }
 
-/** True when an adapter's document carries any config to apply. */
+/** True when a preset's document carries any config to apply. */
 function hasFills(fills: IcculusConfigDoc | undefined): boolean {
   return !!fills &&
-    !!(fills.slots || fills.scopes || fills.side_gates || fills.ratchets);
+    !!(fills.capabilities || fills.checks || fills.scopes || fills.ratchets);
 }
 
-/** Options accepted by `add-adapter`. */
-export interface AddAdapterOptions {
+/** Options accepted by `add-preset`. */
+export interface AddPresetOptions {
   json: boolean;
   noColor: boolean;
   dryRun: boolean;
   yes: boolean;
 }
 
-/** Locate the `adapters/` directory (sibling of `templates/`), if it exists. */
-async function resolveAdaptersDir(): Promise<string | undefined> {
-  const override = Deno.env.get("ICCULUS_ADAPTERS_DIR");
+/** Locate the `presets/` directory (sibling of `templates/`), if it exists. */
+async function resolvePresetsDir(): Promise<string | undefined> {
+  const override = Deno.env.get("ICCULUS_PRESETS_DIR");
   if (override) {
     return (await isDir(override)) ? override : undefined;
   }
   let dir = dirname(fromFileUrl(import.meta.url));
   for (let depth = 0; depth < 8; depth++) {
-    const candidate = join(dir, "adapters");
+    const candidate = join(dir, "presets");
     if (await isDir(candidate)) {
       return candidate;
     }
@@ -108,15 +108,15 @@ async function isDir(path: string): Promise<boolean> {
   }
 }
 
-/** List the available adapter names (subdirectories of `adapters/`). */
-async function listAdapters(
-  adaptersDir: string | undefined,
+/** List the available preset names (subdirectories of `presets/`). */
+async function listPresets(
+  presetsDir: string | undefined,
 ): Promise<string[]> {
-  if (adaptersDir === undefined) {
+  if (presetsDir === undefined) {
     return [];
   }
   const names: string[] = [];
-  for await (const entry of Deno.readDir(adaptersDir)) {
+  for await (const entry of Deno.readDir(presetsDir)) {
     if (entry.isDirectory) {
       names.push(entry.name);
     }
@@ -124,10 +124,10 @@ async function listAdapters(
   return names.sort();
 }
 
-/** Run `icculus add-adapter <name>`. Returns a process exit code. */
-export async function runAddAdapter(
+/** Run `icculus add-preset <name>`. Returns a process exit code. */
+export async function runAddPreset(
   name: string,
-  options: AddAdapterOptions,
+  options: AddPresetOptions,
 ): Promise<number> {
   const log = new Logger(options);
   const destDir = Deno.cwd();
@@ -142,7 +142,7 @@ export async function runAddAdapter(
     toml = parseIcculusToml(await Deno.readTextFile(configPath));
   } catch {
     const message =
-      "no icculus install here — run `icculus init` before adding an adapter.";
+      "no icculus install here — run `icculus init` before adding a preset.";
     if (options.json) {
       log.jsonResult({ ok: false, error: "not_initialized", message });
     } else {
@@ -151,18 +151,18 @@ export async function runAddAdapter(
     return 1;
   }
 
-  const adaptersDir = await resolveAdaptersDir();
-  const available = await listAdapters(adaptersDir);
-  const adapterDir = adaptersDir ? join(adaptersDir, name) : undefined;
+  const presetsDir = await resolvePresetsDir();
+  const available = await listPresets(presetsDir);
+  const presetDir = presetsDir ? join(presetsDir, name) : undefined;
 
-  if (adapterDir === undefined || !(await isDir(adapterDir))) {
+  if (presetDir === undefined || !(await isDir(presetDir))) {
     const message = available.length > 0
-      ? `unknown adapter "${name}". Available: ${available.join(", ")}.`
-      : `unknown adapter "${name}". This build ships no adapters yet.`;
+      ? `unknown preset "${name}". Available: ${available.join(", ")}.`
+      : `unknown preset "${name}". This build ships no presets yet.`;
     if (options.json) {
       log.jsonResult({
         ok: false,
-        error: "unknown_adapter",
+        error: "unknown_preset",
         message,
         available,
       });
@@ -172,7 +172,7 @@ export async function runAddAdapter(
     return 1;
   }
 
-  // An adapter is scaffolded exactly like the base templates tree.
+  // A preset is scaffolded exactly like the base templates tree.
   const config: InitConfig = {
     projectName: toml.project.slug ?? "app",
     slug: toml.project.slug ?? "app",
@@ -185,28 +185,28 @@ export async function runAddAdapter(
         : [...DEFAULTS.agents]) as InitConfig["agents"],
   };
   const tokens = tokensFromConfig(config);
-  // An adapter's files are classified by the base managed-set plus any the
-  // adapter declares in its own managed.json (so it can own managed overlay
-  // files); the declaration itself is never scaffolded.
-  const adapterSpec = await loadManagedSpec(adapterDir);
+  // A preset's files are classified by the base managed-set plus any the preset
+  // declares in its own managed.json (so it can own managed overlay files); the
+  // declaration itself is never scaffolded.
+  const presetSpec = await loadManagedSpec(presetDir);
   const plan = await buildPlan({
-    templatesDir: adapterDir,
+    templatesDir: presetDir,
     destDir,
     tokens,
     mode: "init",
-    managedSpec: adapterSpec
-      ? mergeManagedSpecs(DEFAULT_MANAGED_SPEC, adapterSpec)
+    managedSpec: presetSpec
+      ? mergeManagedSpecs(DEFAULT_MANAGED_SPEC, presetSpec)
       : DEFAULT_MANAGED_SPEC,
   });
-  // adapter.json is metadata (config fills), not a scaffolded file.
-  plan.ops = plan.ops.filter((op) => op.targetRel !== ADAPTER_MANIFEST);
+  // preset.json is metadata (config fills), not a scaffolded file.
+  plan.ops = plan.ops.filter((op) => op.targetRel !== PRESET_MANIFEST);
 
-  // Load the adapter's config fills and pre-compute the edited config, so
-  // a bad adapter.json fails before anything is written and dry-run reports it.
+  // Load the preset's config fills and pre-compute the edited config, so a bad
+  // preset.json fails before anything is written and dry-run reports it.
   let fills: IcculusConfigDoc | undefined;
   let filledToml: string | undefined;
   try {
-    fills = await loadAdapterFills(adapterDir);
+    fills = await loadPresetFills(presetDir);
     if (hasFills(fills)) {
       const editor = new TomlEditor(
         await Deno.readTextFile(configPath!),
@@ -215,11 +215,11 @@ export async function runAddAdapter(
       filledToml = editor.toString();
     }
   } catch (error) {
-    const message = `adapter "${name}" has invalid config fills: ${
+    const message = `preset "${name}" has invalid config fills: ${
       error instanceof Error ? error.message : String(error)
     }`;
     if (options.json) {
-      log.jsonResult({ ok: false, error: "invalid_adapter", message });
+      log.jsonResult({ ok: false, error: "invalid_preset", message });
     } else {
       log.error(message);
     }
@@ -231,12 +231,12 @@ export async function runAddAdapter(
       log.jsonResult({
         ok: true,
         dry_run: true,
-        adapter: name,
+        preset: name,
         plan: planToJson(plan),
         config_fills: filledToml !== undefined,
       });
     } else {
-      renderPlan(log, plan, `Dry run — adapter "${name}" would overlay:`);
+      renderPlan(log, plan, `Dry run — preset "${name}" would overlay:`);
       if (filledToml !== undefined) {
         log.info("Would also apply config fills to .icculus/config.toml.");
       }
@@ -247,11 +247,11 @@ export async function runAddAdapter(
   if (!options.json) {
     renderReview(log, plan, destDir);
     if (filledToml !== undefined) {
-      log.line("  .icculus/config.toml  apply adapter config fills");
+      log.line("  .icculus/config.toml  apply preset config fills");
     }
     log.line();
   }
-  if (!(await confirmProceed(`Overlay adapter "${name}" now?`, options.yes))) {
+  if (!(await confirmProceed(`Overlay preset "${name}" now?`, options.yes))) {
     log.info("Aborted; nothing was written.");
     return 0;
   }
@@ -263,7 +263,7 @@ export async function runAddAdapter(
   if (options.json) {
     log.jsonResult({
       ok: true,
-      adapter: name,
+      preset: name,
       written: changed.map((op) => op.targetRel),
       config_fills: filledToml !== undefined,
     });
@@ -275,6 +275,6 @@ export async function runAddAdapter(
   if (filledToml !== undefined) {
     log.ok(".icculus/config.toml (config fills applied)");
   }
-  log.ok(`Adapter "${name}" applied.`);
+  log.ok(`Preset "${name}" applied.`);
   return 0;
 }

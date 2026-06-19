@@ -13,11 +13,11 @@ installed project never needs Deno.
 The command surface is six verbs: `init` (scaffold), `upgrade` (refresh managed
 files, hash-aware), `doctor` (verify an install), `migrate` (report pending
 Schema steps), `config` (comment-preserving `.icculus/config.toml` edits), and
-`add-adapter` (overlay a reference adapter). Routing lives in
+`add-preset` (overlay a reusable preset). Routing lives in
 [`main.ts`](../../src/main.ts); each verb's logic is in `src/commands/`.
 
 The ideas worth understanding here: the **disposition**-driven copy (Managed /
-Seed / Merged / Generated — see the [glossary](../00-orientation/glossary.md)),
+Yours / Merged / Generated — see the [glossary](../00-orientation/glossary.md)),
 the **hash-aware** upgrade plan that overwrites pristine files but preserves
 edits as `<file>.new`, the **Manifest** that records what is pristine, and the
 **Schema-version** [Migration](../00-orientation/glossary.md#migration) chain

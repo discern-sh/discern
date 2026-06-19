@@ -20,87 +20,83 @@ main_branch = "main"
 # Known targets: "claude_code" -> CLAUDE.md, "codex" -> AGENTS.md.
 agents = [{{agents_array}}]
 
-# Where the gate points an agent when a phase fails in a non-obvious way. Keep
+# Where the gate points an agent when a stage fails in a non-obvious way. Keep
 # this doc current with the traps specific to your stack (see the comment block
 # the gate prints on failure). Empty disables the pointer.
 gotchas_doc = "{{gotchas_doc}}"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# [slots] — the stack-specific commands the gate runs. Each slot is one shell
-# command (chain with && for multiple tools). The default ":" is a no-op that
-# always passes, so a fresh install has a green gate you fill in over time. Run
-# `/bootstrap` to have your coding agent propose fills by sniffing the repo.
+# [capabilities] — the core commands the gate runs, one per known capability.
+# Each maps to a gate stage automatically:
+#   format     fix    a formatter/codemod (mutating; runs first, serially)
+#   build      build  produce artifacts later stages read (compile, bundle)
+#   lint       check  read-only static analysis
+#   typecheck  check  read-only type checking
+#   test       test   the test suite
+# A value is one command, or a list run in order: lint = ["eslint .", "stylelint ."].
+# OMIT a capability you don't have — an absent capability is "knowably absent", so
+# a fresh install is a green gate you grow into. Run `/bootstrap` to have your
+# coding agent fill these by sniffing the repo; `agent doctor` shows which are wired.
 #
-# `phase` decides WHEN and HOW the command runs inside `agent finish`:
-#   fix       mutating fixers (formatter, codemod). Run first, in parallel with
-#             `build`. Must leave the tree in the state checks/tests will see.
-#   build     produce artifacts later phases read (compile, bundle assets).
-#             Runs in parallel with `fix`.
-#   check     read-only analysis (linter, type-checker). Runs after fix+build,
-#             in parallel with `test`.
-#   test      the test suite. Runs in parallel with `check`.
-#
-# A slot with NO `phase` is a MEASUREMENT slot: the gate never runs it; a ratchet
-# references it by name to read a metric on demand (see [ratchets] below).
-#
-# `agent tidy` is the fast inner loop: it runs the `fix` slots then the `check`
-# slots, and never builds or tests. Add or remove slots freely — the engine
-# discovers them by name; only `phase` and `run` matter.
+# `agent tidy` is the fast inner loop: it runs the fix-stage then the check-stage
+# capabilities, and never builds or tests.
 # ─────────────────────────────────────────────────────────────────────────────
 
-[slots.format]
-phase = "fix"
-run   = ":"   # e.g. "prettier --write ." or "ruff format ." or "gofmt -w ."
-
-[slots.build]
-phase = "build"
-run   = ":"   # e.g. "npm run build" or "cargo build"
-
-[slots.lint]
-phase = "check"
-run   = ":"   # e.g. "eslint ." or "ruff check ." or "golangci-lint run"
-
-[slots.typecheck]
-phase = "check"
-run   = ":"   # e.g. "tsc --noEmit" or "mypy ."
-
-[slots.test]
-phase = "test"
-run   = ":"   # e.g. "npm test" or "pytest" or "go test ./..."
+[capabilities]
+# format    = "prettier --write ."   # or "ruff format ." or "gofmt -w ."
+# build     = "npm run build"        # or "cargo build"
+# lint      = "eslint ."             # or "ruff check ." or "golangci-lint run"
+# typecheck = "tsc --noEmit"         # or "mypy ."
+# test      = "npm test"             # or "pytest" or "go test ./..."
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# [scopes] — which parts of the repo a change touches. The gate uses this to
-# skip irrelevant work (a docs-only change runs no side gate, gets no preview)
-# and to fire side gates only when their area changed. Classification fails
-# OPEN: a path matching nothing counts as a real code change, so an unknown
-# path runs MORE gates, never fewer. Globs use ** for "any depth".
+# [checks.<name>] — custom, non-standard gate work that isn't a known capability.
+# `stage` (REQUIRED) is one of fix|build|check|test; `run` the command (or a
+# list); `provides` an optional free-text label. Use this for anything outside
+# the five capabilities above.
 # ─────────────────────────────────────────────────────────────────────────────
 
-[scopes]
+# [checks.licenses]
+# stage    = "check"
+# run      = "./scripts/check-licenses.sh"
+# provides = "license-audit"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# [scopes.<name>] — named regions of the repo. `paths` globs define a scope; the
+# optional flags tune the gate for changes there. Classification fails OPEN: a
+# path matching no scope counts as a real code change, so an unknown path runs
+# MORE gates, never fewer. Globs use ** for "any depth".
+#   neutral     = true   changes here need no gate (docs, agent guidance)
+#   previewable = true   a person could see changes here — worth a preview link
+#   gate        = "..."  a command `agent finish` runs when this scope changed
+#                        (a sub-component with its own self-contained gate)
+# ─────────────────────────────────────────────────────────────────────────────
+
 # Paths that need no gate at all: docs and agent-guidance sources. (Generated
 # guidance outputs are refreshed by the gate itself; editing the source changes
 # no behaviour.) Root-level *.md is always treated as neutral.
-neutral = [{{scopes_neutral}}]
+[scopes.docs]
+paths   = [{{scopes_neutral}}]
+neutral = true
 
-# Paths that represent real, gated code changes.
-web = [{{scopes_web}}]
+# The subset of changes a person could see — worth a preview link.
+# [scopes.assets]
+# paths       = [{{scopes_previewable}}]
+# previewable = true
 
-# The subset of code changes a person could see — worth a preview link.
-previewable = [{{scopes_previewable}}]
-
-# Side gates: scope-name -> command run by `agent finish` when that scope
-# changed. Define a custom scope by adding `<name> = [globs]` under [scopes]
-# above, then map it here. Example: a native sub-app with its own gate.
-[scopes.side_gates]
-# native = "make -C native check"
+# A sub-component with its own self-contained gate:
+# [scopes.native]
+# paths = ["native/**"]
+# gate  = "make -C native check"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [worktree] — the isolated-worktree workflow. The git mechanics are generic;
-# the two adapter seams (database, dev-server) are empty by default, so a
-# worktree round is a clean no-op until you wire them to your stack.
+# the two seams (database, dev-server) are empty by default, so a worktree round
+# is a clean no-op until you wire them to your stack.
 # ─────────────────────────────────────────────────────────────────────────────
 
 [worktree]
@@ -114,7 +110,7 @@ inherit_env = []   # e.g. ["APP_KEY", "OPENAI_API_KEY"]
 # concurrent worktrees never collide. Read it with `agent worktree-name --port`.
 port = true
 
-# Database adapter. Each worktree gets its own database so tests never clash.
+# Database seam. Each worktree gets its own database so tests never clash.
 # Runtime tokens use @…@ (the engine expands them per-worktree, at run time):
 # @db@ is the derived database name, @project_slug@ your project slug. Leave empty
 # for a project with no database. (The example below uses a Postgres template DB.)
@@ -122,7 +118,7 @@ port = true
 clone = ""   # e.g. "createdb -T @project_slug@_template @db@"
 drop  = ""   # e.g. "dropdb --if-exists @db@"
 
-# Dev-server adapter — link/unlink a per-worktree site (a Docker vhost, an ngrok
+# Dev-server seam — link/unlink a per-worktree site (a Docker vhost, an ngrok
 # tunnel, a reverse-proxy entry, …). Leave empty for none.
 [worktree.dev_server]
 link   = ""
@@ -141,58 +137,42 @@ steps = []   # e.g. ["npm ci", "npm run build"]
 # A ratchet is a number you only ever want to improve: line coverage, a bundle-
 # size budget, a lint/type-error count, a perf budget. Each [ratchets.<name>]
 # table declares one:
-#   metric     the metric name a slot emits        (default: the ratchet name)
+#   metric     the metric name the run emits        (default: the ratchet name)
 #   direction  "up"   value should rise; limit is a FLOOR   (e.g. coverage)
 #              "down" value should fall; limit is a CEILING (e.g. a size budget)
 #   limit      the floor/ceiling — compared vs main, so a floor may only rise and
 #              a ceiling may only fall (you can't loosen the gate on a branch)
-#   slot       the [slots.<name>] that measures it — a MEASUREMENT slot (no
-#              `phase`, so `finish` never runs it; the ratchet runs it on demand)
+#   run        the command that measures it — its output emits the metric line
+#              (run on demand by `agent ratchets`, never by the gate)
 #
-# A measurement slot reports its number by printing a line:
+# A ratchet's `run` reports its number by printing a line:
 #   ICCULUS_METRIC <name> <number>
 # (the LAST such line wins). There is no built-in or special ratchet — coverage
 # is just the conventional name for one. None are configured by default;
 # uncomment an example to enable it.
 #
 # Coverage — keep line coverage at or above a rising floor:
-# [slots.coverage]
-# run = "your-coverage-tool"   # must emit: ICCULUS_METRIC coverage <percent>
-#
 # [ratchets.coverage]
 # direction = "up"
 # limit     = 80
-# slot      = "coverage"
+# run       = "your-coverage-tool"   # must emit: ICCULUS_METRIC coverage <percent>
 #
 # Bundle size — keep an artifact under a falling ceiling:
-# [slots.bundlesize]
-# run = "printf 'ICCULUS_METRIC bundle_bytes %s\\n' \"$(wc -c < dist/app.js)\""
-#
 # [ratchets.bundle]
 # metric    = "bundle_bytes"
 # direction = "down"
 # limit     = 500000
-# slot      = "bundlesize"
+# run       = "printf 'ICCULUS_METRIC bundle_bytes %s\\n' \"$(wc -c < dist/app.js)\""
 # ─────────────────────────────────────────────────────────────────────────────
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# [evidence] — optional gate requiring each branch to record work evidence
-# (e.g. a screenshot or a note) before `agent finish` passes. Off by default.
-# ─────────────────────────────────────────────────────────────────────────────
-
-[evidence]
-enabled = false
-capture = ""   # command that records evidence for the current branch
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# [gate] — ergonomics for the parallel gate stages (and side gates). These affect
-# how `agent finish` runs its concurrent jobs.
+# [gate] — ergonomics for the parallel gate stages (and scope gates). These
+# affect how `agent finish` runs its concurrent jobs.
 # ─────────────────────────────────────────────────────────────────────────────
 
 [gate]
-# Stream each slot's output live (line-prefixed `── <label> │ …`) instead of
+# Stream each job's output live (line-prefixed `── <label> │ …`) instead of
 # buffering it until the stage finishes. Helps when watching a slow build/test.
 # Concurrent jobs interleave (but stay labelled). Off by default (grouped).
 stream = false

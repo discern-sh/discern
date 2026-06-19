@@ -159,10 +159,10 @@ Deno.test("a schema-1 install missing main_branch upgrades to converge with a fr
       await removeMainBranch(older);
       await setManifestSchema(older, 1);
 
-      const res = await upgrade(older); // runs the 1→2 migration, then syncs + stamps
+      const res = await upgrade(older); // runs 1→2 … 3→4, then syncs + stamps
       assertEquals(
         res.migrations_applied.map((m: { from: number }) => m.from),
-        [1, 2],
+        [1, 2, 3],
       );
 
       await init(fresh); // a fresh schema-2 install
@@ -228,10 +228,10 @@ Deno.test("a schema-2 old-layout install upgrades to the consolidated layout", a
       await init(older); // a fresh schema-3 install (the new layout)
       await regressToV2(older); // reverse it to the pre-consolidation v2 layout
 
-      const res = await upgrade(older); // runs 2→3, then syncs + prunes + stamps
+      const res = await upgrade(older); // runs 2→3 then 3→4, syncs + prunes + stamps
       assertEquals(
         res.migrations_applied.map((m: { from: number }) => m.from),
-        [2],
+        [2, 3],
       );
 
       await init(fresh);
@@ -256,6 +256,71 @@ Deno.test("a schema-2 old-layout install upgrades to the consolidated layout", a
         ![...snap.keys()].some((k) => k.startsWith(".ai/")),
         "no .ai/ files left",
       );
+    });
+  });
+});
+
+/**
+ * Reverse the schema-4 capabilities shape on a fresh install: overwrite the seed
+ * `.icculus/config.toml` with an equivalent pre-4 `[slots]`/`[scopes]`/`[evidence]`
+ * config and reset the recorded schema to 3. Managed files are untouched (the 3→4
+ * step transforms only the seed config), so the managed set still matches a fresh
+ * install — only the seed shape and the recorded schema differ.
+ */
+async function regressToV3(dir: string): Promise<void> {
+  await Deno.writeTextFile(
+    join(dir, ".icculus/config.toml"),
+    [
+      "[project]",
+      'slug = "demo"',
+      'main_branch = "main"',
+      'agents = ["claude_code", "codex"]',
+      "",
+      "[slots.format]",
+      'phase = "fix"',
+      'run = "deno fmt"',
+      "",
+      "[slots.lint]",
+      'phase = "check"',
+      'run = "deno lint"',
+      "",
+      "[scopes]",
+      'neutral = ["docs/", ".icculus/", ".claude/"]',
+      'web = ["src/**"]',
+      "",
+      "[evidence]",
+      "enabled = false",
+      "",
+    ].join("\n"),
+  );
+  await setManifestSchema(dir, 3);
+}
+
+Deno.test("a schema-3 [slots] install upgrades to the capabilities shape and converges", async () => {
+  await withTempDir(async (older) => {
+    await withTempDir(async (fresh) => {
+      await init(older); // a fresh schema-4 install
+      await regressToV3(older); // reverse the seed config to the pre-4 shape
+
+      const res = await upgrade(older); // runs the 3→4 migration, then syncs + stamps
+      assertEquals(
+        res.migrations_applied.map((m: { from: number }) => m.from),
+        [3],
+      );
+
+      await init(fresh); // a fresh schema-4 install
+      // Managed files + schema converge: the 3→4 step touches only the seed
+      // config, so managed bytes are unchanged and the schema matches.
+      assertEquals(
+        await manifestSansTimestamp(older),
+        await manifestSansTimestamp(fresh),
+      );
+      // The seed converges in shape: capabilities present, the legacy structure gone.
+      const toml = await readTarget(older, ".icculus/config.toml");
+      assertStringIncludes(toml, "[capabilities]");
+      assertStringIncludes(toml, 'format = "deno fmt"');
+      assert(!toml.includes("[slots."));
+      assert(!toml.includes("[evidence]"));
     });
   });
 });

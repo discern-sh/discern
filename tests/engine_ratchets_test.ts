@@ -2,7 +2,7 @@
  * Engine tests for metric ratchets (ADR 0003).
  *
  * Every ratchet is a `[ratchets.<name>]` table with a direction (up=floor,
- * down=ceiling), a `limit`, and a measurement `slot` that emits
+ * down=ceiling), a `limit`, and an inline `run` command that emits
  * `ICCULUS_METRIC <name> <number>`. There is no built-in or special ratchet —
  * "coverage" is just a conventional name. `agent ratchets` runs them all.
  */
@@ -18,34 +18,27 @@ import {
 } from "./engine_helpers.ts";
 
 /**
- * A config with one `[ratchets.<name>]` table and its measurement slot. The
- * measurement slot declares NO phase, so the gate never runs it — only the
- * ratchet does.
+ * A config with one `[ratchets.<name>]` table whose `run` emits the metric. The
+ * run is inline on the ratchet (not a separate gate job), so only `agent
+ * ratchets` ever executes it — the gate never does.
  */
 function ratchetConfig(opts: {
   name: string;
   metric?: string;
   direction: string;
   limit: string;
-  slotRun: string;
+  run: string;
 }): string {
   return [
     "[project]",
     'slug = "engine-test"',
     'main_branch = "main"',
     "",
-    "[scopes]",
-    'neutral = ["docs/"]',
-    'web = ["src/**"]',
-    "",
-    "[slots.measure]", // measurement slot — no phase
-    `run = "${opts.slotRun}"`,
-    "",
     `[ratchets.${opts.name}]`,
     ...(opts.metric ? [`metric = "${opts.metric}"`] : []),
     `direction = "${opts.direction}"`,
     `limit = ${opts.limit}`,
-    'slot = "measure"',
+    `run = "${opts.run}"`,
     "",
   ].join("\n");
 }
@@ -59,7 +52,7 @@ Deno.test("ratchets: coverage passes when the emitted metric meets the floor", a
         name: "coverage",
         direction: "up",
         limit: "80",
-        slotRun: "echo 'ICCULUS_METRIC coverage 85'",
+        run: "echo 'ICCULUS_METRIC coverage 85'",
       }),
     );
     await gitInit(dir);
@@ -78,7 +71,7 @@ Deno.test("ratchets: coverage fails when the emitted metric is below the floor",
         name: "coverage",
         direction: "up",
         limit: "80",
-        slotRun: "echo 'ICCULUS_METRIC coverage 70'",
+        run: "echo 'ICCULUS_METRIC coverage 70'",
       }),
     );
     await gitInit(dir);
@@ -99,7 +92,7 @@ Deno.test("ratchets: a trailing NN% is NOT read — only the ICCULUS_METRIC mark
         name: "coverage",
         direction: "up",
         limit: "80",
-        slotRun: "echo 'Total coverage: 90%'",
+        run: "echo 'Total coverage: 90%'",
       }),
     );
     await gitInit(dir);
@@ -118,7 +111,7 @@ Deno.test("ratchets: a limit may not be lowered vs main", async () => {
         name: "coverage",
         direction: "up",
         limit: "80",
-        slotRun: "echo 'ICCULUS_METRIC coverage 99'",
+        run: "echo 'ICCULUS_METRIC coverage 99'",
       }),
     );
     await gitInit(dir); // main now has ratchets.coverage.limit = 80
@@ -129,7 +122,7 @@ Deno.test("ratchets: a limit may not be lowered vs main", async () => {
         name: "coverage",
         direction: "up",
         limit: "70",
-        slotRun: "echo 'ICCULUS_METRIC coverage 99'",
+        run: "echo 'ICCULUS_METRIC coverage 99'",
       }),
     );
     await git(dir, "add", "-A");
@@ -151,7 +144,7 @@ Deno.test("ratchets: a down-ratchet passes within its ceiling", async () => {
         metric: "bundle_bytes",
         direction: "down",
         limit: "100",
-        slotRun: "echo 'ICCULUS_METRIC bundle_bytes 50'",
+        run: "echo 'ICCULUS_METRIC bundle_bytes 50'",
       }),
     );
     await gitInit(dir);
@@ -172,7 +165,7 @@ Deno.test("ratchets: a down-ratchet fails above its ceiling", async () => {
         metric: "bundle_bytes",
         direction: "down",
         limit: "100",
-        slotRun: "echo 'ICCULUS_METRIC bundle_bytes 150'",
+        run: "echo 'ICCULUS_METRIC bundle_bytes 150'",
       }),
     );
     await gitInit(dir);
@@ -191,7 +184,7 @@ Deno.test("ratchets: an up-ratchet passes above its floor", async () => {
         name: "typecov",
         direction: "up",
         limit: "90",
-        slotRun: "echo 'ICCULUS_METRIC typecov 95'",
+        run: "echo 'ICCULUS_METRIC typecov 95'",
       }),
     );
     await gitInit(dir);
@@ -201,7 +194,7 @@ Deno.test("ratchets: an up-ratchet passes above its floor", async () => {
   });
 });
 
-Deno.test("ratchets: a misconfigured ratchet (no run command on its slot) errors clearly", async () => {
+Deno.test("ratchets: a misconfigured ratchet (no run command) errors clearly", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -211,14 +204,10 @@ Deno.test("ratchets: a misconfigured ratchet (no run command on its slot) errors
         'slug = "engine-test"',
         'main_branch = "main"',
         "",
-        "[scopes]",
-        'neutral = ["docs/"]',
-        'web = ["src/**"]',
-        "",
         "[ratchets.coverage]",
         'direction = "up"',
         "limit = 80",
-        'slot = "missing"', // no [slots.missing] exists
+        // no `run` key at all — nothing to measure
         "",
       ].join("\n"),
     );
@@ -240,26 +229,16 @@ Deno.test("ratchets: runs every configured ratchet, aggregating failures", async
         'slug = "engine-test"',
         'main_branch = "main"',
         "",
-        "[scopes]",
-        'neutral = ["docs/"]',
-        'web = ["src/**"]',
-        "",
-        "[slots.cov]",
-        "run = \"echo 'ICCULUS_METRIC coverage 95'\"",
-        "",
-        "[slots.measure]",
-        "run = \"echo 'ICCULUS_METRIC bundle_bytes 150'\"",
-        "",
         "[ratchets.coverage]",
         'direction = "up"',
         "limit = 80",
-        'slot = "cov"',
+        "run = \"echo 'ICCULUS_METRIC coverage 95'\"",
         "",
         "[ratchets.bundle]",
         'metric = "bundle_bytes"',
         'direction = "down"',
         "limit = 100",
-        'slot = "measure"',
+        "run = \"echo 'ICCULUS_METRIC bundle_bytes 150'\"",
         "",
       ].join("\n"),
     );
