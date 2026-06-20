@@ -1,0 +1,390 @@
+/**
+ * Resolve a linked git worktree's stable, agent-agnostic identity — the TS port
+ * of the shell `engine/worktree-name`. Every derived value (id / site / branch /
+ * port / db) comes from structured state, not filesystem shape, so it survives
+ * wherever an agent keeps the checkout.
+ *
+ * Identity sources, in order:
+ *   1. `ICCULUS_WORKTREE_ID` from the environment, when valid.
+ *   2. `ICCULUS_WORKTREE_ID` from the target worktree's `.env`, when valid.
+ *   3. Git's linked-worktree admin-directory basename (refusing the main
+ *      checkout, where `--absolute-git-dir` == `--git-common-dir`).
+ *
+ * LOAD-BEARING (Risk R1): a worktree's port, site tail hash, and db name derive
+ * from the POSIX `cksum` of the id (see `shared/crc.ts`). These values MUST match
+ * the shell engine exactly — pinned against
+ * `tests/fixtures/parity/worktree-identity.json`.
+ */
+
+import { basename, dirname, isAbsolute, join, resolve } from "@std/path";
+import { cksumString } from "../../shared/crc.ts";
+import { Config } from "../../shared/config_read.ts";
+
+/** The dev-server port band: 13000–14999, clear of common local services. */
+const PORT_BASE = 13000;
+/** The width of the port band hashed into. */
+const PORT_SPAN = 2000;
+/** The DNS label length limit a site/host name must fit within. */
+const DNS_LABEL_LIMIT = 63;
+/** Validation pattern for an explicit `ICCULUS_WORKTREE_ID` override. */
+const OVERRIDE_ID_RE = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,80}$/;
+
+/** A resolved worktree identity: every derived token in one object. */
+export interface WorktreeIdentity {
+  /** The safe worktree id (the basis for every other value). */
+  id: string;
+  /** The dev-server site/host name, e.g. `my-app-wt-feature`. */
+  site: string;
+  /** The default branch name, e.g. `agent/wt-feature`. */
+  branch: string;
+  /** The deterministic dev-server port, e.g. `13742`. */
+  port: number;
+  /** The database-name-safe identity, e.g. `my_app_wt_feature`. */
+  db: string;
+}
+
+/** The project-level inputs identity derivation needs (slug + branch prefix). */
+export interface IdentitySettings {
+  /** The sanitized project slug (site/db/id prefix). Never empty. */
+  slug: string;
+  /** The branch prefix prepended to the id (default `agent/`). */
+  branchPrefix: string;
+}
+
+/** An error in identity resolution, carrying a process-style exit code. */
+export class IdentityError extends Error {
+  /** The exit code the shell `worktree-name` would have used (1 or 2). */
+  readonly code: number;
+  constructor(message: string, code = 1) {
+    super(message);
+    this.name = "IdentityError";
+    this.code = code;
+  }
+}
+
+/**
+ * Lowercase, collapse every run of non-`[a-z0-9]` to a single dash, and trim
+ * leading/trailing dashes. Mirrors the shell `sanitize_slug`
+ * (`sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//; s/-+/-/g'`).
+ */
+export function sanitizeSlug(raw: string): string {
+  return raw
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+/, "")
+    .replace(/-+$/, "");
+}
+
+/**
+ * Build the database-name-safe identity: `<slug>_<id>` lowercased with every run
+ * of non-alphanumerics collapsed to a single underscore (and trimmed). Mirrors
+ * the shell `db_name_for_id` — db mode uses underscores where site uses dashes,
+ * because many engines disallow dashes/dots in unquoted database names.
+ */
+export function dbNameForId(slug: string, id: string): string {
+  return `${slug}_${id}`
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+/, "")
+    .replace(/_+$/, "");
+}
+
+/**
+ * Derive the deterministic dev-server port from the id: `13000 + cksum(id) %
+ * 2000`. Hashing the id into a fixed band gives every worktree its own port with
+ * no shared registry. Mirrors the shell `port_for_id`.
+ */
+export function portForId(id: string): number {
+  return PORT_BASE + (cksumString(id) % PORT_SPAN);
+}
+
+/**
+ * Fit the id into a site/host tail within the 63-char DNS label limit, hashing
+ * the tail when `slug-id` would exceed it. Mirrors the shell `fit_site_id`:
+ * `maxIdLen = 63 - slug.length - 1`; under the limit the id is used whole, else
+ * `keep = max(1, maxIdLen - hash.length - 1)` and the result is
+ * `id[0:keep] + "-" + cksum(id)` (so a `keep` landing on a dash boundary yields
+ * the documented double dash).
+ */
+export function fitSiteId(slug: string, id: string): string {
+  const maxIdLen = DNS_LABEL_LIMIT - slug.length - 1;
+  if (id.length <= maxIdLen) {
+    return id;
+  }
+  const hash = String(cksumString(id));
+  const keep = Math.max(1, maxIdLen - hash.length - 1);
+  return `${id.slice(0, keep)}-${hash}`;
+}
+
+/** The full site/host name: `<slug>-<fitSiteId(id)>`. */
+export function siteForId(slug: string, id: string): string {
+  return `${slug}-${fitSiteId(slug, id)}`;
+}
+
+/**
+ * Validate an explicit id override against the override pattern, then normalise
+ * it to a slug. Mirrors the shell `validate_override_id`. Throws an
+ * `IdentityError` (exit 1) on an invalid value.
+ */
+export function validateOverrideId(raw: string): string {
+  if (!OVERRIDE_ID_RE.test(raw)) {
+    throw new IdentityError(
+      `worktree-name: invalid ICCULUS_WORKTREE_ID '${raw}'. Use letters, numbers, dots, dashes, or underscores.`,
+    );
+  }
+  return sanitizeSlug(raw);
+}
+
+/**
+ * Build the five derived identity values from a resolved id and project
+ * settings. Pure — no I/O — so the parity tests can drive it directly with a
+ * known id, slug, and branch prefix.
+ */
+export function deriveIdentity(
+  id: string,
+  settings: IdentitySettings,
+): WorktreeIdentity {
+  return {
+    id,
+    site: siteForId(settings.slug, id),
+    branch: `${settings.branchPrefix}${id}`,
+    port: portForId(id),
+    db: dbNameForId(settings.slug, id),
+  };
+}
+
+/**
+ * Resolve the project slug and branch prefix from config, with env overrides
+ * (`ICCULUS_PROJECT_SLUG` / `ICCULUS_WORKTREE_BRANCH_PREFIX`) winning. The slug
+ * is sanitized and must be non-empty. Mirrors the shell `worktree-name`
+ * settings block.
+ */
+export async function loadIdentitySettings(
+  root: string,
+): Promise<IdentitySettings> {
+  let rawSlug = Deno.env.get("ICCULUS_PROJECT_SLUG") ?? "";
+  let branchPrefix = Deno.env.get("ICCULUS_WORKTREE_BRANCH_PREFIX");
+  if (rawSlug === "" || branchPrefix === undefined) {
+    // Tolerant config read: a missing toml just leaves the defaults in place.
+    let config: Config | undefined;
+    try {
+      config = await Config.load(root);
+    } catch {
+      config = undefined;
+    }
+    if (rawSlug === "") {
+      rawSlug = config?.get("project.slug", "") ?? "";
+    }
+    if (branchPrefix === undefined) {
+      branchPrefix = config?.get("project.branch_prefix", "agent/") ?? "agent/";
+    }
+  }
+  const slug = sanitizeSlug(rawSlug);
+  if (slug === "") {
+    throw new IdentityError(
+      "worktree-name: project slug resolved to an empty value (set [project].slug or ICCULUS_PROJECT_SLUG).",
+    );
+  }
+  return { slug, branchPrefix };
+}
+
+/** Run a git subcommand for a target path, returning trimmed stdout or undefined. */
+async function gitOut(
+  target: string,
+  args: string[],
+): Promise<string | undefined> {
+  const gitBin = Deno.env.get("GIT_BIN") ?? "git";
+  let output: Deno.CommandOutput;
+  try {
+    output = await new Deno.Command(gitBin, {
+      args: ["-C", target, ...args],
+      stdout: "piped",
+      stderr: "null",
+    }).output();
+  } catch {
+    return undefined; // git missing / not runnable
+  }
+  if (!output.success) {
+    return undefined;
+  }
+  const text = new TextDecoder().decode(output.stdout).trim();
+  return text === "" ? undefined : text;
+}
+
+/**
+ * Canonicalize a target path, tolerating one that no longer exists by
+ * canonicalizing its parent and re-appending the basename. Mirrors the shell
+ * `canonicalize_target`.
+ */
+async function canonicalizeTarget(path: string): Promise<string> {
+  try {
+    if ((await Deno.stat(path)).isDirectory) {
+      return await Deno.realPath(path);
+    }
+  } catch {
+    // not a directory we can stat — fall through to the parent strategy
+  }
+  const parent = dirname(path);
+  try {
+    if ((await Deno.stat(parent)).isDirectory) {
+      return join(await Deno.realPath(parent), basename(path));
+    }
+  } catch {
+    // parent missing too — return the path unchanged
+  }
+  return path;
+}
+
+/** Strip one layer of surrounding whitespace and matching quotes from a value. */
+function stripOuterQuotes(value: string): string {
+  const trimmed = value.trim();
+  if (
+    trimmed.length >= 2 &&
+    ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+      (trimmed.startsWith("'") && trimmed.endsWith("'")))
+  ) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+}
+
+/** Read an `ICCULUS_WORKTREE_ID` override from the target's `.env`, if present. */
+async function readDotenvId(target: string): Promise<string | undefined> {
+  let text: string;
+  try {
+    text = await Deno.readTextFile(join(target, ".env"));
+  } catch {
+    return undefined; // no .env
+  }
+  for (const line of text.split("\n")) {
+    if (line.startsWith("ICCULUS_WORKTREE_ID=")) {
+      return stripOuterQuotes(line.slice("ICCULUS_WORKTREE_ID=".length));
+    }
+  }
+  return undefined;
+}
+
+/** Resolve a possibly-relative git-common-dir against a base, then canonicalize. */
+async function normalizeCommonGitDir(
+  base: string,
+  raw: string,
+): Promise<string> {
+  const abs = isAbsolute(raw) ? raw : resolve(base, raw);
+  try {
+    return await Deno.realPath(abs);
+  } catch {
+    return abs;
+  }
+}
+
+/**
+ * Derive the id from git's linked-worktree admin directory name. Refuses the
+ * main checkout (where the absolute and common git dirs are the same path).
+ * Falls back to reading a `.git` gitlink file directly. Mirrors the shell
+ * `metadata_id_from_git`. Throws an `IdentityError` when no linked-worktree
+ * metadata can be resolved.
+ */
+async function metadataIdFromGit(path: string): Promise<string> {
+  let isDir = false;
+  try {
+    isDir = (await Deno.stat(path)).isDirectory;
+  } catch {
+    isDir = false;
+  }
+
+  if (isDir) {
+    const gitDir = await gitOut(path, ["rev-parse", "--absolute-git-dir"]);
+    if (gitDir !== undefined) {
+      const commonRaw = await gitOut(path, ["rev-parse", "--git-common-dir"]);
+      const commonGitDir = await normalizeCommonGitDir(path, commonRaw ?? "");
+      if (gitDir === commonGitDir) {
+        throw new IdentityError(
+          "worktree-name: refused - target is the main checkout, not a linked worktree.",
+        );
+      }
+      return basename(gitDir);
+    }
+  }
+
+  // Fall back to a `.git` gitlink file (a worktree whose checkout git cannot run
+  // rev-parse against, but whose link still points at its admin dir).
+  let linkText: string | undefined;
+  try {
+    linkText = await Deno.readTextFile(join(path, ".git"));
+  } catch {
+    linkText = undefined;
+  }
+  if (linkText !== undefined) {
+    const firstLine = linkText.split("\n")[0] ?? "";
+    if (firstLine.startsWith("gitdir: ")) {
+      let linkDir = firstLine.slice("gitdir: ".length);
+      if (!isAbsolute(linkDir)) {
+        linkDir = join(path, linkDir);
+      }
+      return basename(linkDir);
+    }
+  }
+
+  throw new IdentityError(
+    `worktree-name: could not resolve linked-worktree metadata for ${path}.`,
+  );
+}
+
+/**
+ * Resolve only the worktree id (the basis for every derived value), applying the
+ * three-source precedence and the slug-collision `wt-` prefix. Mirrors the id
+ * resolution block of the shell `worktree-name`. `target` defaults to the cwd.
+ */
+export async function resolveWorktreeId(
+  settings: IdentitySettings,
+  target: string = Deno.cwd(),
+): Promise<string> {
+  const canonical = await canonicalizeTarget(target);
+
+  const envOverride = Deno.env.get("ICCULUS_WORKTREE_ID");
+  if (envOverride !== undefined && envOverride !== "") {
+    return validateOverrideId(envOverride);
+  }
+
+  const dotenvId = await readDotenvId(canonical);
+  if (dotenvId !== undefined && dotenvId !== "") {
+    return validateOverrideId(dotenvId);
+  }
+
+  const rawId = await metadataIdFromGit(canonical);
+  const id = sanitizeSlug(rawId);
+  if (id === "") {
+    throw new IdentityError(
+      `worktree-name: git metadata id '${rawId}' did not contain any safe characters.`,
+    );
+  }
+
+  // If the metadata id collides with the project slug (e.g. the admin dir was
+  // named after the project), prefix it so the identity stays distinct.
+  if (
+    id === settings.slug ||
+    new RegExp(`^${escapeRe(settings.slug)}[0-9]+$`).test(id)
+  ) {
+    return `wt-${id}`;
+  }
+  return id;
+}
+
+/** Escape a string for safe embedding into a RegExp (the slug, which is `[a-z0-9-]`). */
+function escapeRe(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Resolve the full identity for a target worktree (default: the cwd), loading
+ * project settings from `root` and applying all three id sources. This is the
+ * high-level entry the lifecycle/token layers use.
+ */
+export async function resolveIdentity(
+  root: string,
+  target: string = Deno.cwd(),
+): Promise<WorktreeIdentity> {
+  const settings = await loadIdentitySettings(root);
+  const id = await resolveWorktreeId(settings, target);
+  return deriveIdentity(id, settings);
+}

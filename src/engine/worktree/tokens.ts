@@ -1,0 +1,90 @@
+/**
+ * The adapter-token convention — the TS port of `wt_expand_tokens` /
+ * `wt_replace_all` from the shell `lib/worktree.sh`.
+ *
+ * Operator-supplied adapter commands in `[worktree.db]` and `[worktree.dev_server]`
+ * carry RUNTIME tokens that are substituted with values derived from THIS
+ * worktree's identity before the command runs. They use the `@…@` delimiter —
+ * distinct from the installer's `{{…}}` content tokens (already substituted at
+ * init) — so the two layers never collide:
+ *
+ *   @db@            the database-name-safe identity      (worktree-name --db)
+ *   @site@          the dev-server site/host name        (worktree-name --site)
+ *   @port@          the deterministic per-worktree port  (worktree-name --port)
+ *   @project_slug@  the project slug                     (config project.slug)
+ *   @dir@           the worktree root                    (the checkout's abs path)
+ *
+ * A token's value is resolved only when that token actually appears, so a command
+ * naming no tokens triggers no resolution work. Replacement is a plain
+ * string-by-string substitution (no regex), so a value containing any
+ * metacharacter is inserted verbatim, and a value that itself contains the token
+ * never loops.
+ */
+
+/** The five adapter tokens, in the shell's resolution order. */
+export const WORKTREE_TOKENS = [
+  "db",
+  "site",
+  "port",
+  "project_slug",
+  "dir",
+] as const;
+
+/** One of the recognised adapter token names. */
+export type WorktreeToken = (typeof WORKTREE_TOKENS)[number];
+
+/**
+ * Lazily resolves a token to its string value. Called at most once per token per
+ * expansion, and only for tokens actually present in the command — mirroring the
+ * shell's lazy `wt_token_value`. A resolver may return a Promise (db/site/port
+ * shell out to identity resolution).
+ */
+export type TokenResolver = (
+  token: WorktreeToken,
+) => string | Promise<string>;
+
+/**
+ * Replace every literal occurrence of `find` in `input` with `repl`. Pure
+ * string scanning (no regex) so `repl` is inserted verbatim, and a `repl` that
+ * contains `find` is not re-scanned (no infinite loop). Mirrors the shell
+ * `wt_replace_all`.
+ */
+export function replaceAll(input: string, find: string, repl: string): string {
+  if (find === "") {
+    return input;
+  }
+  let out = "";
+  let rest = input;
+  while (true) {
+    const idx = rest.indexOf(find);
+    if (idx < 0) {
+      return out + rest;
+    }
+    out += rest.slice(0, idx) + repl;
+    rest = rest.slice(idx + find.length);
+  }
+}
+
+/**
+ * Substitute every adapter token present in `command` and return the result. An
+ * empty command is a clean no-op (returns `""`). For each token, its value is
+ * resolved (via `resolve`) only if the `@token@` placeholder appears, then all
+ * occurrences are replaced. Mirrors the shell `wt_expand_tokens`.
+ */
+export async function expandTokens(
+  command: string,
+  resolve: TokenResolver,
+): Promise<string> {
+  if (command === "") {
+    return "";
+  }
+  let out = command;
+  for (const token of WORKTREE_TOKENS) {
+    const placeholder = `@${token}@`;
+    if (out.includes(placeholder)) {
+      const value = await resolve(token);
+      out = replaceAll(out, placeholder, value);
+    }
+  }
+  return out;
+}
