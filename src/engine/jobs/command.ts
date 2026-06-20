@@ -45,6 +45,18 @@ export function killTree(pid: number, sig: Deno.Signal): void {
   }
 }
 
+/**
+ * The exit code a finished job reports. A job terminated by a signal — i.e. the
+ * one fail-fast tree-killed mid-run — defaults to 1, matching the shell runner
+ * whose killed siblings recorded exit 1. A job that exited on its own keeps its
+ * real code, even when a *sibling's* failure aborted the stage only after this
+ * job had already finished cleanly: the abort fires on every sibling, so keying
+ * the code off the abort flag would mis-report an already-passed job as failed.
+ */
+export function finalCode(code: number, signal: Deno.Signal | null): number {
+  return signal !== null ? 1 : code;
+}
+
 /** Concatenate captured output chunks into one buffer. */
 function concat(chunks: Uint8Array[]): Uint8Array {
   let total = 0;
@@ -104,10 +116,8 @@ export async function spawnJob(
   }).spawn();
   const pid = child.pid;
 
-  let cancelled = false;
   let killTimer: ReturnType<typeof setTimeout> | undefined;
   const onAbort = (): void => {
-    cancelled = true;
     killTree(pid, "SIGTERM");
     // Escalate if it ignores SIGTERM; cleared once the process is reaped.
     killTimer = setTimeout(() => killTree(pid, "SIGKILL"), 2000);
@@ -141,9 +151,10 @@ export async function spawnJob(
     signal.removeEventListener("abort", onAbort);
   }
 
-  // A cancelled job, or a signal-terminated one (code null), is a failure (1) —
-  // matching the shell, whose killed siblings default to exit code 1.
-  const code = cancelled ? 1 : (status.code ?? 1);
+  // A job killed mid-run (terminated by a signal) reports 1 like the shell; one
+  // that exited on its own keeps its real code — even if a sibling's failure
+  // aborted the stage after this job had already finished.
+  const code = finalCode(status.code, status.signal);
   const durationS = Math.round((performance.now() - start) / 1000);
   return {
     result: {

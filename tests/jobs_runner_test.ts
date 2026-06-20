@@ -1,5 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { runParallel, runSerial } from "../src/engine/jobs/runner.ts";
+import { finalCode } from "../src/engine/jobs/command.ts";
 import type { Job } from "../src/engine/jobs/types.ts";
 
 /** A capturing output sink for assertions on banners + job output. */
@@ -91,6 +92,20 @@ Deno.test("buffered mode captures combined stdout+stderr after the banner", asyn
   assert(s.text().includes("── noisy ─ FAILED (exit 1)"), s.text());
   assert(s.text().includes("hello-stdout"), s.text());
   assert(s.text().includes("oops-stderr"), s.text());
+});
+
+Deno.test("finalCode: a self-exited job keeps its real code; a signal-killed job reports 1", () => {
+  // The regression this guards: a job that exited 0 must STAY 0 even when a
+  // sibling's failure cancelled the stage just after it finished. The old code
+  // keyed the result off the abort flag (which fires on EVERY sibling under
+  // fail-fast), so an already-passed job got mis-reported as `failed (exit 1)`.
+  // Keying off the signal instead distinguishes "killed mid-run" from "finished".
+  assertEquals(finalCode(0, null), 0); // clean success stays success
+  assertEquals(finalCode(3, null), 3); // a real failure keeps its own code
+  // A job the fail-fast tree-kill terminated exits via signal — Deno reports
+  // code 143 for SIGTERM / 137 for SIGKILL — and defaults to 1 (shell parity).
+  assertEquals(finalCode(143, "SIGTERM"), 1);
+  assertEquals(finalCode(137, "SIGKILL"), 1);
 });
 
 Deno.test("stream mode prefixes each output line", async () => {
