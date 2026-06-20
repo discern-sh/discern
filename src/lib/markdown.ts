@@ -36,11 +36,11 @@ export interface RenderOptions {
 
 /** The style flags an inline span can carry. `href` makes the span a link. */
 interface Style {
-  bold?: boolean;
-  italic?: boolean;
-  strike?: boolean;
-  code?: boolean;
-  href?: string;
+  bold?: boolean | undefined;
+  italic?: boolean | undefined;
+  strike?: boolean | undefined;
+  code?: boolean | undefined;
+  href?: string | undefined;
 }
 
 /** A run of text with one uniform style. */
@@ -66,8 +66,8 @@ function isAlnum(ch: string | undefined): boolean {
 }
 
 /** ASCII punctuation that a backslash may escape (CommonMark's set, abridged). */
-function isEscapable(ch: string): boolean {
-  return /[\\`*_{}\[\]()#+\-.!~>|]/.test(ch);
+function isEscapable(ch: string | undefined): boolean {
+  return ch !== undefined && /[\\`*_{}\[\]()#+\-.!~>|]/.test(ch);
 }
 
 // ── inline parsing ─────────────────────────────────────────────────────────
@@ -292,14 +292,14 @@ function styleRun(text: string, style: Style, color: boolean): string {
 function annotateLinksForPlain(segs: Seg[]): Seg[] {
   const out: Seg[] = [];
   for (let i = 0; i < segs.length; i++) {
-    const seg = segs[i];
+    const seg = segs[i]!;
     if (!seg.href) {
       out.push(seg);
       continue;
     }
     const href = seg.href;
     out.push({ ...seg, href: undefined });
-    const last = i + 1 >= segs.length || segs[i + 1].href !== href;
+    const last = i + 1 >= segs.length || segs[i + 1]!.href !== href;
     // A bare autolink already shows its URL; don't echo it twice.
     if (last && seg.text !== href) out.push({ text: ` (${href})` });
   }
@@ -336,15 +336,15 @@ function wrapChars(chars: SChar[], width: number): SChar[][] {
   let i = 0;
 
   while (i < chars.length) {
-    if (/\s/.test(chars[i].ch)) {
+    if (/\s/.test(chars[i]!.ch)) {
       let j = i;
-      while (j < chars.length && /\s/.test(chars[j].ch)) j++;
+      while (j < chars.length && /\s/.test(chars[j]!.ch)) j++;
       pendingSpace = line.length > 0;
       i = j;
       continue;
     }
     let j = i;
-    while (j < chars.length && !/\s/.test(chars[j].ch)) j++;
+    while (j < chars.length && !/\s/.test(chars[j]!.ch)) j++;
     const word = chars.slice(i, j);
     const sep = pendingSpace ? 1 : 0;
     if (line.length > 0 && line.length + sep + word.length > width) {
@@ -367,9 +367,9 @@ function emitChars(chars: SChar[], color: boolean): string {
   let k = 0;
   while (k < chars.length) {
     let m = k;
-    while (m < chars.length && sameStyle(chars[m].style, chars[k].style)) m++;
+    while (m < chars.length && sameStyle(chars[m]!.style, chars[k]!.style)) m++;
     const text = chars.slice(k, m).map((c) => c.ch).join("");
-    out += styleRun(text, chars[k].style, color);
+    out += styleRun(text, chars[k]!.style, color);
     k = m;
   }
   return out;
@@ -508,9 +508,9 @@ function renderList(
     // GFM task list: a leading [ ] / [x] becomes a checkbox glyph.
     const task = text.match(/^\[([ xX])\]\s+(.*)$/);
     if (task) {
-      const checked = task[1].toLowerCase() === "x";
+      const checked = task[1]!.toLowerCase() === "x";
       bullet = checked ? "☑" : "☐";
-      text = task[2];
+      text = task[2]!;
     }
 
     const paintedBullet = color
@@ -536,9 +536,9 @@ function matchListItem(
   const m = line.match(/^(\s*)([-*+]|\d+[.)])\s+(.*)$/);
   if (!m) return undefined;
   return {
-    indent: m[1].length,
-    ordered: /\d/.test(m[2]),
-    content: m[3],
+    indent: m[1]!.length,
+    ordered: /\d/.test(m[2]!),
+    content: m[3]!,
   };
 }
 
@@ -578,7 +578,7 @@ export function renderMarkdown(
 
   let i = 0;
   while (i < lines.length) {
-    const line = lines[i];
+    const line = lines[i]!;
 
     if (line.trim() === "") {
       i++;
@@ -588,12 +588,12 @@ export function renderMarkdown(
     // Fenced code block.
     const fence = line.match(/^(\s*)(```|~~~)\s*([^\s`~]*)/);
     if (fence) {
-      const marker = fence[2];
+      const marker = fence[2]!;
       const lang = fence[3] ?? "";
       const code: string[] = [];
       i++;
-      while (i < lines.length && !lines[i].trim().startsWith(marker)) {
-        code.push(lines[i]);
+      while (i < lines.length && !lines[i]!.trim().startsWith(marker)) {
+        code.push(lines[i]!);
         i++;
       }
       i++; // consume the closing fence
@@ -604,7 +604,7 @@ export function renderMarkdown(
     // ATX heading.
     const heading = line.match(/^(#{1,6})\s+(.*?)\s*#*\s*$/);
     if (heading) {
-      pushBlock(renderHeading(heading[1].length, heading[2], width, color));
+      pushBlock(renderHeading(heading[1]!.length, heading[2]!, width, color));
       i++;
       continue;
     }
@@ -621,8 +621,8 @@ export function renderMarkdown(
     // Blockquote: collect the run, strip markers, render recursively, prefix.
     if (/^\s*>/.test(line)) {
       const inner: string[] = [];
-      while (i < lines.length && /^\s*>/.test(lines[i])) {
-        inner.push(lines[i].replace(/^\s*>\s?/, ""));
+      while (i < lines.length && /^\s*>/.test(lines[i]!)) {
+        inner.push(lines[i]!.replace(/^\s*>\s?/, ""));
         i++;
       }
       const rendered = renderMarkdown(inner.join("\n"), {
@@ -636,14 +636,14 @@ export function renderMarkdown(
 
     // GFM table: a header row followed by a delimiter row.
     if (
-      /\|/.test(line) && i + 1 < lines.length && isTableDelimiter(lines[i + 1])
+      /\|/.test(line) && i + 1 < lines.length && isTableDelimiter(lines[i + 1]!)
     ) {
       const rows: string[][] = [splitRow(line)];
       i += 2; // skip header + delimiter
       while (
-        i < lines.length && /\|/.test(lines[i]) && lines[i].trim() !== ""
+        i < lines.length && /\|/.test(lines[i]!) && lines[i]!.trim() !== ""
       ) {
-        rows.push(splitRow(lines[i]));
+        rows.push(splitRow(lines[i]!));
         i++;
       }
       pushBlock(renderTable(rows, width));
@@ -655,7 +655,7 @@ export function renderMarkdown(
       const items: ListItem[] = [];
       let baseIndent = -1;
       while (i < lines.length) {
-        const item = matchListItem(lines[i]);
+        const item = matchListItem(lines[i]!);
         if (item) {
           if (baseIndent === -1) baseIndent = item.indent;
           const depth = Math.max(
@@ -664,15 +664,15 @@ export function renderMarkdown(
           );
           items.push({
             depth,
-            marker: item.ordered ? lines[i].trim().match(/^\d+[.)]/)![0] : "•",
+            marker: item.ordered ? lines[i]!.trim().match(/^\d+[.)]/)![0] : "•",
             text: item.content,
           });
           i++;
         } else if (
-          lines[i].trim() !== "" && /^\s+/.test(lines[i]) && items.length
+          lines[i]!.trim() !== "" && /^\s+/.test(lines[i]!) && items.length
         ) {
           // A continuation line: fold it into the current item.
-          items[items.length - 1].text += " " + lines[i].trim();
+          items[items.length - 1]!.text += " " + lines[i]!.trim();
           i++;
         } else {
           break;
@@ -685,8 +685,8 @@ export function renderMarkdown(
     // Paragraph: gather until the next block construct, then wrap.
     const para: string[] = [line];
     i++;
-    while (i < lines.length && !isBlockStart(lines[i])) {
-      para.push(lines[i]);
+    while (i < lines.length && !isBlockStart(lines[i]!)) {
+      para.push(lines[i]!);
       i++;
     }
     pushBlock(renderInlineBlock(para.join(" "), width, color));

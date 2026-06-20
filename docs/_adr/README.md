@@ -37,3 +37,4 @@ decision is hard to reverse, surprising without context, and a real trade-off.
 - [0016 — Consolidate the install surface under `.icculus/`](0016-consolidate-install-surface.md)
 - [0017 — Declare capabilities, derive the gate](0017-capabilities-model.md)
 - [0018 — Consolidate the harness vocabulary into four layers](0018-vocabulary-consolidation.md)
+- [0019 — Collapse into one binary with a TypeScript-native engine](0019-single-binary-ts-engine.md)

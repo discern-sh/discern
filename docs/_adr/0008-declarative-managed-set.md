@@ -1,6 +1,16 @@
 # ADR 0008: The managed-set is declared in `managed.json`, not hardcoded
 
-**Status**: accepted
+**Status**: accepted; **made moot by
+[ADR 0019](0019-single-binary-ts-engine.md)** — see _Update (single-binary
+cutover)_ below.
+
+## Update (single-binary cutover)
+
+The single-binary cutover ([ADR 0019](0019-single-binary-ts-engine.md)) removes
+managed files entirely: with no committed engine to sync, `managed.json`, the
+managed-set classifier, and `src/lib/manifest.ts` are deleted. The "managed vs
+seed" contract this ADR refined no longer exists — ownership is now _yours_
+(committed seeds) vs _the binary's_ (gitignored, re-published artifacts).
 
 ## Context
 

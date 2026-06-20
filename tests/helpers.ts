@@ -3,10 +3,8 @@
  * temp-dir harness that cleans up after itself.
  */
 
-import { assertEquals } from "@std/assert";
-import { ensureDir, walk } from "@std/fs";
-import { dirname, fromFileUrl, join, relative, SEPARATOR } from "@std/path";
-import { sha256Hex } from "../src/lib/manifest.ts";
+import { ensureDir } from "@std/fs";
+import { dirname, fromFileUrl, join } from "@std/path";
 import type { TokenMap } from "../src/lib/template.ts";
 
 /** Absolute path to the synthetic fixture templates tree. */
@@ -145,47 +143,4 @@ export async function targetExists(dir: string, rel: string): Promise<boolean> {
   } catch {
     return false;
   }
-}
-
-/**
- * A content snapshot of a scaffolded tree: target-relative path → sha256 of its
- * bytes. The manifest is excluded — its `generated_at` timestamp differs run to
- * run, so compare it separately — as is any `.git` directory. This is the basis
- * of the "upgrade ≡ fresh init" convergence check (ADR 0014): two installs that
- * should be equivalent must produce equal snapshots.
- */
-export async function snapshotTree(dir: string): Promise<Map<string, string>> {
-  const snap = new Map<string, string>();
-  for await (const entry of walk(dir, { includeDirs: false })) {
-    const rel = relative(dir, entry.path).replaceAll(SEPARATOR, "/");
-    if (rel === ".icculus/manifest.json" || rel.startsWith(".git/")) {
-      continue;
-    }
-    snap.set(rel, await sha256Hex(await Deno.readFile(entry.path)));
-  }
-  return snap;
-}
-
-/**
- * Assert two tree snapshots are identical, reporting the first divergences
- * (files only in one side, or present in both with differing contents).
- */
-export function assertConverges(
-  upgraded: Map<string, string>,
-  fresh: Map<string, string>,
-): void {
-  const onlyUpgraded = [...upgraded.keys()].filter((k) => !fresh.has(k)).sort();
-  const onlyFresh = [...fresh.keys()].filter((k) => !upgraded.has(k)).sort();
-  const differing = [...upgraded.keys()]
-    .filter((k) => fresh.has(k) && upgraded.get(k) !== fresh.get(k))
-    .sort();
-  const problems: string[] = [];
-  if (onlyUpgraded.length) {
-    problems.push(`only in upgraded: ${onlyUpgraded.join(", ")}`);
-  }
-  if (onlyFresh.length) problems.push(`only in fresh: ${onlyFresh.join(", ")}`);
-  if (differing.length) {
-    problems.push(`differing contents: ${differing.join(", ")}`);
-  }
-  assertEquals(problems, [], `trees diverge:\n  ${problems.join("\n  ")}`);
 }

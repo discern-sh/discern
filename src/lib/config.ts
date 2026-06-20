@@ -12,36 +12,21 @@ import { KIT_VERSION } from "./version.ts";
 export const KNOWN_AGENTS = ["claude_code", "codex"] as const;
 export type AgentName = (typeof KNOWN_AGENTS)[number];
 
-/**
- * The gate STAGES, in the order the gate reasons about them. A `[checks.<name>]`
- * declares one explicitly; a capability's stage is derived (see
- * `KNOWN_CAPABILITIES`). Mirrors `ICCULUS_STAGES` in the engine's
- * `lib/capabilities.sh`, so the installer's validation and the engine cannot drift.
- */
-export const STAGES = [
-  "fix",
-  "build",
-  "check",
-  "test",
-] as const;
-export type Stage = (typeof STAGES)[number];
-
-/**
- * The known capability vocabulary: each capability name mapped to the gate stage
- * the engine derives for it. This is a CLOSED set — a key outside it is custom
- * work and belongs in `[checks.<name>]` with an explicit stage. A known
- * capability omitted from a config is "knowably absent" (the readiness signal
- * `doctor` reports). Mirrors `cap_stage` / `ICCULUS_CAPABILITIES` in the engine's
- * `lib/capabilities.sh`.
- */
-export const KNOWN_CAPABILITIES = {
-  format: "fix",
-  build: "build",
-  lint: "check",
-  typecheck: "check",
-  test: "test",
-} as const satisfies Record<string, Stage>;
-export type Capability = keyof typeof KNOWN_CAPABILITIES;
+// The capability vocabulary, gate stages, and slug validation are defined once
+// in the shared engine/installer module and re-exported here so existing
+// installer imports (`from "../lib/config.ts"`) keep resolving.
+export {
+  capabilityList,
+  capStage,
+  isKnownCapability,
+  isValidSlug,
+  KNOWN_CAPABILITIES,
+  SLUG_RULE,
+  stageIsValid,
+  stageList,
+  STAGES,
+} from "../shared/capabilities.ts";
+export type { Capability, Stage } from "../shared/capabilities.ts";
 
 /** Default values for every wizard answer. */
 export const DEFAULTS = {
@@ -64,18 +49,6 @@ export interface InitConfig {
   brief: string;
   agents: AgentName[];
 }
-
-/** The slug shape the wizard validates and the README documents. */
-const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
-
-/** True when `slug` matches the required shape. */
-export function isValidSlug(slug: string): boolean {
-  return SLUG_PATTERN.test(slug);
-}
-
-/** A short explanation of the slug rule, shown on invalid input. */
-export const SLUG_RULE =
-  "lowercase letters, digits and dashes; must start with a letter or digit (e.g. my-app)";
 
 /**
  * Kebab-case a free-text project name into a default slug: lowercase, spaces and

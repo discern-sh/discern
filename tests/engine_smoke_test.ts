@@ -9,13 +9,16 @@ import { assertEquals, assertStringIncludes } from "@std/assert";
 import { withTempDir } from "./helpers.ts";
 import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
 
-Deno.test("engine smoke: agent --help lists commands and exits 0", async () => {
+Deno.test("engine smoke: icculus --help lists commands and exits 0", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     const r = await runAgent(dir, ["--help"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "Commands:");
     assertStringIncludes(r.stdout, "finish");
+    // Cliffy renders the worktree group as `worktree` and routing normalises
+    // `worktree:exit` → `worktree exit`, but the group's description surfaces the
+    // colon-spelled sub-verbs in the top-level help so users learn the spelling.
     assertStringIncludes(r.stdout, "worktree:exit");
   });
 });

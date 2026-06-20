@@ -1,13 +1,15 @@
 /**
- * Engine-test harness — scaffold the REAL templates into a temp dir, then shell
- * out to the installed `agent` and assert on its output + exit code.
+ * Engine-test harness — scaffold the seed surface into a temp dir, then drive the
+ * TypeScript engine through `src/main.ts` and assert on its output + exit code.
  *
- * The Deno suite otherwise covers the INSTALLER (`src/`); the POSIX engine under
- * `templates/.icculus/engine/` had no automated coverage. This module closes
- * that gap without a second test framework: it reuses the installer's own
- * `assembleInitPlan`/`applyPlan` to lay down a faithful install (so the engine
- * runs exactly the bytes a real `icculus init` would write), then drives the
- * recipes through the dispatcher.
+ * The engine lives under `src/engine/**`, compiled into the binary. These tests
+ * run it the way a real install does: `runAgent` invokes the engine via the repo's
+ * `src/main.ts`, with an `icculus` shim on PATH so a project recipe or hook that
+ * calls `icculus <verb>` resolves the same command a real install would. It reuses
+ * the installer's own `assembleInitPlan`/`applyPlan` to lay down a faithful install
+ * (so the engine runs exactly the bytes a real `icculus init` would write), then
+ * drives the verbs through the dispatcher. The suite is the engine's black-box
+ * behavioral parity oracle.
  *
  * Tests that exercise scope/scope-gate/ratchet behaviour need a git repo so
  * `changed-scopes` can answer; `gitInit` makes a hermetic one (its own config,
@@ -16,7 +18,7 @@
  * test-specific capabilities/checks/scopes/ratchets.
  */
 
-import { dirname, join } from "@std/path";
+import { dirname, fromFileUrl, join } from "@std/path";
 import { ensureDir } from "@std/fs";
 import { assembleInitPlan } from "../src/commands/init.ts";
 import { applyPlan } from "../src/lib/fs_plan.ts";
@@ -39,6 +41,57 @@ const GIT_ISOLATION: Record<string, string> = {
   GIT_CONFIG_SYSTEM: "/dev/null",
   GIT_TERMINAL_PROMPT: "0",
 };
+
+/** Repo paths for driving the TS engine (its import map must be pointed at the
+ * repo's deno.json since the temp project has none up its tree). */
+const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
+const MAIN_TS = join(REPO_ROOT, "src", "main.ts");
+const DENO_JSON = join(REPO_ROOT, "deno.json");
+
+/** Shell-quote a path for the shim script. */
+function shq(s: string): string {
+  return `'${s.replaceAll("'", "'\\''")}'`;
+}
+
+/**
+ * A lazily-created directory holding an `icculus` shim that execs the TS engine
+ * exactly as runAgent does. Prepended to PATH so a project recipe (`icculus
+ * config get …`) or a settings.json hook (`icculus worktree …`) resolves the
+ * command the same way a real install (binary on PATH) would.
+ */
+let shimDirCache: string | undefined;
+async function icculusShimDir(): Promise<string> {
+  if (shimDirCache !== undefined) {
+    return shimDirCache;
+  }
+  const dir = await Deno.makeTempDir({ prefix: "icculus-shim-" });
+  const shim = join(dir, "icculus");
+  await Deno.writeTextFile(
+    shim,
+    `#!/usr/bin/env sh\nexec deno run --no-check --config ${
+      shq(DENO_JSON)
+    } -A ${shq(MAIN_TS)} "$@"\n`,
+  );
+  await Deno.chmod(shim, 0o755);
+  shimDirCache = dir;
+  return dir;
+}
+
+/**
+ * Build the environment for an engine subprocess: colour off, git isolated, the
+ * `icculus` shim on PATH, plus any caller overrides.
+ */
+export async function engineEnv(
+  extra: Record<string, string> = {},
+): Promise<Record<string, string>> {
+  const shim = await icculusShimDir();
+  return {
+    NO_COLOR: "1",
+    PATH: `${shim}:${Deno.env.get("PATH") ?? ""}`,
+    ...GIT_ISOLATION,
+    ...extra,
+  };
+}
 
 /**
  * Scaffold the real harness (engine, dispatcher, default `.icculus/config.toml`) into
@@ -73,10 +126,10 @@ export async function runAgent(
   args: string[],
   opts: { cwd?: string; env?: Record<string, string> } = {},
 ): Promise<RunResult> {
-  const command = new Deno.Command(join(dir, "agent"), {
-    args,
+  const command = new Deno.Command("deno", {
+    args: ["run", "--no-check", "--config", DENO_JSON, "-A", MAIN_TS, ...args],
     cwd: opts.cwd ?? dir,
-    env: { NO_COLOR: "1", ...GIT_ISOLATION, ...opts.env },
+    env: await engineEnv(opts.env),
     stdout: "piped",
     stderr: "piped",
   });

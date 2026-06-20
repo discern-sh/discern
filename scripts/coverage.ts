@@ -1,20 +1,19 @@
 /**
  * Measure `src/` line coverage and emit it as an icculus ratchet metric.
  *
- * This is the measurement slot behind `[ratchets.coverage]` (see ADR 0003 and
- * `.icculus/config.toml`). The harness runs it on demand via `agent ratchets`, scans the
- * output for the LAST `ICCULUS_METRIC coverage <number>` line, and holds it at or
- * above the configured floor.
+ * This is the measurement command behind `[ratchets.coverage]` (see ADR 0003 and
+ * `.icculus/config.toml`). The harness runs it on demand via `icculus ratchets`,
+ * scans the output for the LAST `ICCULUS_METRIC coverage <number>` line, and holds
+ * it at or above the configured floor.
  *
  * It runs the full suite under Deno coverage, then computes line coverage over
- * the installer source (`src/`) ONLY. The POSIX-shell engine under `templates/`
- * is exercised behaviourally by the `engine_*` shell-out tests but is invisible
- * to Deno's coverage instrument, so it is deliberately out of this number — the
- * ratchet guards the TypeScript half. (`runCli` subprocesses do count: Deno
+ * `src/` — both the installer AND the TypeScript engine (`src/engine/**`), which
+ * the single-binary cutover (ADR 0019) moved into `src/`, so both are now
+ * instrumented by the same number. (`runCli` subprocesses count too: Deno
  * propagates the coverage dir to child `deno` processes via the environment.)
  *
- * Usage: `deno task coverage` (wired as `[slots.coverage]`). Prints the human
- * `deno coverage` table to stderr for context, then the metric line to stdout.
+ * Usage: `deno task coverage` (the `[ratchets.coverage]` run command). Prints the
+ * human `deno coverage` table to stderr for context, then the metric line to stdout.
  */
 
 const TEST_ARGS = [

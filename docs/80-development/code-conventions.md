@@ -15,51 +15,58 @@ must never disagree.
 The fix- and check-stage work in
 [`.icculus/config.toml`](../../.icculus/config.toml) is the mechanical rules:
 `format`, `lint`, and `typecheck` are known **Capabilities** (the engine derives
-their Stage from the name); `selfcheck` and `shellcheck` are custom **Checks**
-(they declare an explicit `stage`). To satisfy all of them at once, run
-`agent tidy`.
+their Stage from the name). To satisfy all of them at once, run `icculus tidy`
+(in this repo, `deno task dev tidy`).
 
-| Name         | Kind       | Stage | Command                  | What it checks / how to satisfy                                                                                                                                                                                  |
-| ------------ | ---------- | ----- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `format`     | capability | fix   | `deno fmt`               | Formats TypeScript **and** Markdown (so `docs/` is reformatted on every gate). `templates/`, `dist/`, the generated agent files, and your trees are excluded in `deno.json`. Just run it — it rewrites in place. |
-| `lint`       | capability | check | `deno lint`              | The Deno linter over `src/`, `scripts/`, `tests/`. Fix the finding, or justify it with an inline `deno-lint-ignore` and a reason.                                                                                |
-| `typecheck`  | capability | check | `deno check src/main.ts` | Type-checks the whole graph reachable from the entrypoint. Keep types sound; no `any` slipped through a cast.                                                                                                    |
-| `selfcheck`  | check      | check | `deno task selfcheck`    | The self-host invariant: the root install must stay byte-identical to `templates/`. Fails if you edited an installed managed copy, or changed `templates/` without syncing. Heal with `deno task selfsync`.      |
-| `shellcheck` | check      | check | `deno task lint:sh`      | Static-lints the POSIX shell (engine + `install.sh`). Fix the warning, or scope a `# shellcheck disable=...` with justification.                                                                                 |
+| Name        | Kind       | Stage | Command                  | What it checks / how to satisfy                                                                                                                                                                                 |
+| ----------- | ---------- | ----- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `format`    | capability | fix   | `deno fmt`               | Formats TypeScript **and** Markdown (so `docs/` is reformatted on every gate). `templates/`, `dist/`, the compiled agent files, and your trees are excluded in `deno.json`. Just run it — it rewrites in place. |
+| `lint`      | capability | check | `deno lint`              | The Deno linter over `src/`, `scripts/`, `tests/`, with the repo's strict rule set. Fix the finding, or justify it with an inline `deno-lint-ignore` and a reason.                                              |
+| `typecheck` | capability | check | `deno check src/main.ts` | Type-checks the whole graph reachable from the entrypoint under strict TS (`deno.json` `compilerOptions`). Keep types sound; no `any` slipped through a cast.                                                   |
 
-There is no `build` capability (`deno task build` is release-only, so it is
-simply omitted), and the `test` capability (`deno task test`) is covered in
-[testing.md](testing.md).
+The committed shell engine retired with the single-binary cutover
+([ADR 0019](../_adr/0019-single-binary-ts-engine.md)), so the `selfcheck` and
+`shellcheck` checks are gone — there is no second copy to drift and no portable
+shell to lint. There is no `build` capability (`deno task build` is
+release-only, so it is simply omitted), and the `test` capability
+(`deno task test`) is covered in [testing.md](testing.md).
 
 ## Conventions to follow
 
 The conventions the tooling cannot fully enforce, but the project still holds:
 
-- **The golden rule — managed vs yours.** Managed files (`agent`,
-  `.icculus/engine/**`, `.icculus/skills/**`) are copied from `templates/`;
-  never hand-edit them. Edit the source under `templates/`, then
-  `deno task selfsync`. A direct edit won't ship and `selfcheck` flags it as
-  drift. Your files (`.icculus/config.toml`, `docs/**`,
-  `.icculus/guidelines/icculus.md`, `TODO.md`) are yours — edit them in place.
-  See [install-surface.md](install-surface.md) for the full disposition map.
-- **Never hand-edit generated files.** `CLAUDE.md` and `AGENTS.md` are compiled
-  from `.icculus/guidelines/*.md` by `agent guidelines`; edit the guidance
-  source and recompile. They carry a do-not-edit banner.
+- **The golden rule — yours vs the binary's.** Ownership is two buckets
+  ([ADR 0019](../_adr/0019-single-binary-ts-engine.md)). _Yours_ are the
+  committed seed files (`.icculus/config.toml`, `docs/**`,
+  `.icculus/guidelines/icculus.md`, `TODO.md`) — edit them in place. _The
+  binary's_ are gitignored, re-published artifacts (`.icculus/skills/**`,
+  `.claude/skills/**`, compiled `CLAUDE.md`/`AGENTS.md`); the engine
+  (`src/engine/**`) is the limit case — code in this repo, never on disk in an
+  install. Change the engine or a skill by editing the source here and
+  re-running the producing command; don't expect to find a committed copy to
+  sync. See [install-surface.md](install-surface.md) for the full bucket map.
+- **Never hand-edit the binary's artifacts.** `CLAUDE.md` and `AGENTS.md` are
+  compiled from `.icculus/guidelines/*.md` by `icculus guidelines` (in this
+  repo, `deno task dev guidelines`); edit the guidance source and recompile.
+  They carry a do-not-edit banner.
 - **Run from source, never `dist/`.** Use `deno task dev <cmd>`; the `dist/`
   binaries bundle a frozen `templates/` snapshot. Don't put `--` before a
   subcommand.
 - **TypeScript module shape.** Every module opens with a JSDoc block stating its
   role (see any file under `src/`). [`main.ts`](../../src/main.ts) is routing
-  only; command logic lives in `src/commands/`, shared helpers in `src/lib/`.
-  Keep modules small and single-purpose.
-- **POSIX shell, portably.** Engine scripts are `#!/usr/bin/env sh` — no
-  bashisms. Portability is held by a dash/bash CI matrix and `shellcheck`.
-  Engine recipes run under `noglob` (`set -f`) by policy
-  ([ADR 0012](../_adr/0012-engine-noglob-default.md)).
-- **User-facing output uses the product vocabulary.** Strings a user sees speak
-  in product terms, not internal jargon
-  ([ADR 0013](../_adr/0013-product-vocabulary-in-user-output.md)); a guard test
-  enforces it.
+  only; command logic lives in `src/commands/`, the engine in `src/engine/`,
+  shared installer/engine helpers in `src/shared/`, and installer-only helpers
+  in `src/lib/`. Keep modules small and single-purpose.
+- **Strict TypeScript, repo-wide.** The whole repo is held to strict TS via
+  `deno.json` `compilerOptions` plus a strict lint rule set; the engine is
+  type-checked like the rest, not an exception. Keep types sound.
+- **Keep the repo's own task vocabulary out of what ships.** `icculus` is both a
+  product and a self-hosting repo, so two command vocabularies coexist: the
+  user's (`icculus …`) and the repo's `deno task <task>` aliases. The latter
+  must never reach a user — not in shipped `templates/` (received verbatim by
+  every project) nor in user-facing output the binary prints. A guard test
+  ([tests/dev_vocab_guard_test.ts](../../tests/dev_vocab_guard_test.ts)) fails
+  the gate if it leaks.
 - **Docs say what _is_.** Present tense, no modal verbs about the system, the
   canonical nouns from the [glossary](../00-orientation/glossary.md),
   ASCII-first diagrams. Outstanding work goes in [`TODO.md`](../../TODO.md), not

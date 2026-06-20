@@ -1,10 +1,9 @@
 /**
  * Installer `doctor` surface tests: drive `src/main.ts doctor` as a subprocess
- * (so Cliffy parsing, JSON vs human rendering, the per-check diagnostics, the
- * delegation to the harness's own `agent doctor`, and the exit code are all
- * exercised for real). These complement the few `doctor` cases in `cli_test.ts`
- * — here we drive each *failure* branch of `src/commands/doctor.ts` and both
- * output paths.
+ * (so Cliffy parsing, JSON vs human rendering, the per-check diagnostics, and the
+ * exit code are all exercised for real). With the committed engine gone, the
+ * checks are in-process and few: the config parses, the recorded schema is
+ * current (`[meta].schema_version`), and the capabilities resolve.
  *
  * Two output channels matter. `--json` prints the payload to STDOUT. The human
  * render (no `--json`) goes to STDERR: the `Logger` writes headings, ok/error
@@ -22,6 +21,7 @@ interface DoctorCheck {
   ok: boolean;
   detail: string;
   fix?: string;
+  warn?: boolean;
 }
 
 /** The `doctor --json` payload shape we assert against. */
@@ -52,6 +52,30 @@ function check(payload: DoctorPayload, name: string): DoctorCheck {
   return found;
 }
 
+/** Rewrite an install's recorded `[meta].schema_version`. */
+async function setSchema(dir: string, version: number): Promise<void> {
+  const p = join(dir, ".icculus/config.toml");
+  const text = await Deno.readTextFile(p);
+  await Deno.writeTextFile(
+    p,
+    text.replace(/schema_version\s*=\s*\d+/, `schema_version = ${version}`),
+  );
+}
+
+/** Add a key under the scaffold's existing `[capabilities]` table. */
+async function addCapability(
+  dir: string,
+  key: string,
+  value: string,
+): Promise<void> {
+  const p = join(dir, ".icculus/config.toml");
+  const text = await Deno.readTextFile(p);
+  await Deno.writeTextFile(
+    p,
+    text.replace(/\[capabilities\]\n/, `[capabilities]\n${key} = "${value}"\n`),
+  );
+}
+
 Deno.test("doctor --json: a fresh install is fully healthy and exits 0", async () => {
   await withTempDir(async (dir) => {
     await initInstall(dir);
@@ -59,29 +83,19 @@ Deno.test("doctor --json: a fresh install is fully healthy and exits 0", async (
     assertEquals(code, 0);
     assertEquals(payload.ok, true);
     assertEquals(payload.kit_version, "1.0.0");
-    // Every installer check passes…
     for (
-      const name of [
-        ".icculus/config.toml",
-        "agent",
-        "manifest",
-        "schema version",
-      ]
+      const name of [".icculus/config.toml", "schema version", "capabilities"]
     ) {
       assertEquals(check(payload, name).ok, true, `${name} should pass`);
     }
-    // …and the delegation to the real engine `doctor` recipe ran and passed,
-    // folding its summary into the detail (exercises the code===0 branch).
-    const delegated = check(payload, "agent doctor");
-    assertEquals(delegated.ok, true);
-    assert(delegated.detail.length > 0, "delegated detail should not be empty");
+    // The schema check names the current version.
+    assertStringIncludes(check(payload, "schema version").detail, "current");
   });
 });
 
 Deno.test("doctor: human (non-json) output reports a clean bill on stderr, exit 0", async () => {
   await withTempDir(async (dir) => {
     await initInstall(dir);
-    // The human render goes to stderr; stdout only carries the trailing blank.
     const { code, stderr } = await runCli(["doctor"], dir);
     assertEquals(code, 0);
     assertStringIncludes(stderr, "icculus doctor");
@@ -89,8 +103,7 @@ Deno.test("doctor: human (non-json) output reports a clean bill on stderr, exit 
       stderr,
       ".icculus/config.toml: present and valid TOML",
     );
-    assertStringIncludes(stderr, "agent: present and executable");
-    assertStringIncludes(stderr, "schema 4 (current)");
+    assertStringIncludes(stderr, "schema 5 (current)");
     assertStringIncludes(stderr, "All checks passed.");
   });
 });
@@ -98,7 +111,6 @@ Deno.test("doctor: human (non-json) output reports a clean bill on stderr, exit 
 Deno.test("doctor: invalid (malformed) .icculus/config.toml is flagged with a syntax fix", async () => {
   await withTempDir(async (dir) => {
     await initInstall(dir);
-    // Present but not valid TOML — the not-NotFound branch of the toml check.
     await Deno.writeTextFile(
       join(dir, ".icculus/config.toml"),
       'this is = not valid toml [[[\n"unterminated\n',
@@ -111,102 +123,8 @@ Deno.test("doctor: invalid (malformed) .icculus/config.toml is flagged with a sy
     assertEquals(toml.ok, false);
     assertStringIncludes(toml.detail, "invalid");
     assertEquals(toml.fix, "fix the TOML syntax in .icculus/config.toml");
-  });
-});
-
-Deno.test("doctor: agent present but not executable is flagged with a chmod fix", async () => {
-  await withTempDir(async (dir) => {
-    await initInstall(dir);
-    const agentPath = join(dir, "agent");
-    await Deno.chmod(agentPath, 0o644);
-
-    const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 1);
-    const agent = check(payload, "agent");
-    assertEquals(agent.ok, false);
-    assertEquals(agent.detail, "present but not executable");
-    assertStringIncludes(agent.fix ?? "", "chmod +x");
-    assertStringIncludes(agent.fix ?? "", agentPath);
-    // A non-executable dispatcher means delegation is skipped entirely (it
-    // returns undefined), so there is no "agent doctor" check.
-    assertEquals(
-      payload.checks.find((c) => c.name === "agent doctor"),
-      undefined,
-    );
-  });
-});
-
-Deno.test("doctor: a missing agent is flagged with a restore fix", async () => {
-  await withTempDir(async (dir) => {
-    await initInstall(dir);
-    // Entirely absent (the stat-returns-undefined branch), distinct from the
-    // present-but-not-executable case above.
-    await Deno.remove(join(dir, "agent"));
-
-    const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 1);
-    const agent = check(payload, "agent");
-    assertEquals(agent.ok, false);
-    assertEquals(agent.detail, "not found");
-    assertStringIncludes(agent.fix ?? "", "restore agent");
-    // With no dispatcher present, delegation is skipped (no doctor check).
-    assertEquals(
-      payload.checks.find((c) => c.name === "agent doctor"),
-      undefined,
-    );
-  });
-});
-
-Deno.test("doctor: human output for a broken install prints the fix and a failure summary", async () => {
-  await withTempDir(async (dir) => {
-    await initInstall(dir);
-    await Deno.chmod(join(dir, "agent"), 0o644);
-
-    const { code, stderr } = await runCli(["doctor"], dir);
-    assertEquals(code, 1);
-    assertStringIncludes(stderr, "agent: present but not executable");
-    assertStringIncludes(stderr, "fix: ");
-    assertStringIncludes(stderr, "chmod +x");
-    assertStringIncludes(stderr, "Some checks failed");
-  });
-});
-
-Deno.test("doctor: a manifest from a different kit version is flagged with a refresh fix", async () => {
-  await withTempDir(async (dir) => {
-    await initInstall(dir);
-    const manifestPath = join(dir, ".icculus/manifest.json");
-    const manifest = JSON.parse(await Deno.readTextFile(manifestPath));
-    manifest.kit_version = "0.0.1-old";
-    await Deno.writeTextFile(
-      manifestPath,
-      `${JSON.stringify(manifest, null, 2)}\n`,
-    );
-
-    const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 1);
-    const m = check(payload, "manifest");
-    assertEquals(m.ok, false);
-    assertStringIncludes(m.detail, "0.0.1-old");
-    assertStringIncludes(m.detail, "1.0.0");
-    // Outside this repo there is no `selfsync` task, so the hint is the product
-    // vocabulary (`icculus upgrade`).
-    assertStringIncludes(m.fix ?? "", "upgrade");
-  });
-});
-
-Deno.test("doctor: a missing manifest is flagged and reported as not initialized", async () => {
-  await withTempDir(async (dir) => {
-    await initInstall(dir);
-    await Deno.remove(join(dir, ".icculus/manifest.json"));
-
-    const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 1);
-    const m = check(payload, "manifest");
-    assertEquals(m.ok, false);
-    assertStringIncludes(m.detail, "not found");
-    assertStringIncludes(m.fix ?? "", "manifest.json");
-    // The schema-version check is only emitted when the manifest parsed; a
-    // missing manifest means no separate schema check.
+    // With an unparseable config the later checks have nothing to read, so they
+    // are not emitted.
     assertEquals(
       payload.checks.find((c) => c.name === "schema version"),
       undefined,
@@ -214,65 +132,134 @@ Deno.test("doctor: a missing manifest is flagged and reported as not initialized
   });
 });
 
-Deno.test("doctor: delegation soft-skips when the harness has no doctor recipe", async () => {
+Deno.test("doctor: a missing config is flagged as not initialized", async () => {
+  await withTempDir(async (dir) => {
+    // No `init` here — the dir has no .icculus/config.toml.
+    const { code, payload } = await runDoctorJson(dir);
+    assertEquals(code, 1);
+    assertEquals(payload.ok, false);
+    const toml = check(payload, ".icculus/config.toml");
+    assertEquals(toml.ok, false);
+    assertStringIncludes(toml.detail, "not found");
+    assertStringIncludes(toml.fix ?? "", "icculus init");
+  });
+});
+
+Deno.test("doctor: a stale schema is flagged with an upgrade fix", async () => {
   await withTempDir(async (dir) => {
     await initInstall(dir);
-    // Remove the engine `doctor` recipe but leave agent executable: the
-    // dispatcher prints "unknown recipe", which folds in as a benign skip.
-    await Deno.remove(join(dir, ".icculus/engine/doctor"));
+    await setSchema(dir, 1);
 
+    const { code, payload } = await runDoctorJson(dir);
+    assertEquals(code, 1);
+    const schema = check(payload, "schema version");
+    assertEquals(schema.ok, false);
+    assertStringIncludes(schema.detail, "v1");
+    assertStringIncludes(schema.detail, "v5");
+    assertStringIncludes(schema.fix ?? "", "icculus upgrade");
+  });
+});
+
+Deno.test("doctor: human output for a stale schema prints the fix and a failure summary", async () => {
+  await withTempDir(async (dir) => {
+    await initInstall(dir);
+    await setSchema(dir, 1);
+
+    const { code, stderr } = await runCli(["doctor"], dir);
+    assertEquals(code, 1);
+    assertStringIncludes(stderr, "schema version:");
+    assertStringIncludes(stderr, "fix: ");
+    assertStringIncludes(stderr, "icculus upgrade");
+    assertStringIncludes(stderr, "Some checks failed");
+  });
+});
+
+Deno.test("doctor: an unknown capability key is flagged with a rename fix", async () => {
+  await withTempDir(async (dir) => {
+    await initInstall(dir);
+    // Inject a capability key outside the known vocabulary. Still valid TOML, so
+    // the config check passes — but the capabilities check flags it.
+    await addCapability(dir, "bogus", "echo hi");
+
+    const { code, payload } = await runDoctorJson(dir);
+    assertEquals(code, 1);
+    assertEquals(check(payload, ".icculus/config.toml").ok, true);
+    const caps = check(payload, "capabilities");
+    assertEquals(caps.ok, false);
+    assertStringIncludes(caps.detail, "bogus");
+    assertStringIncludes(caps.fix ?? "", "known capability");
+  });
+});
+
+Deno.test("doctor: a fresh install reports its wired capabilities", async () => {
+  await withTempDir(async (dir) => {
+    await initInstall(dir);
+    // The default scaffold ships none wired; add a known one.
+    await addCapability(dir, "test", "echo ok");
+    const { payload } = await runDoctorJson(dir);
+    const caps = check(payload, "capabilities");
+    assertEquals(caps.ok, true);
+    assertStringIncludes(caps.detail, "test");
+  });
+});
+
+Deno.test("doctor: a fresh install passes the recipe-contract check (README is not a recipe)", async () => {
+  await withTempDir(async (dir) => {
+    await initInstall(dir);
+    // The scaffold ships only .icculus/recipes/README.md, which is docs, not a
+    // recipe — so there is nothing sourcing the retired shell library.
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 0);
-    assertEquals(payload.ok, true);
-    const delegated = check(payload, "agent doctor");
-    assertEquals(delegated.ok, true);
-    assertStringIncludes(delegated.detail, "no doctor recipe yet");
+    assertEquals(check(payload, "recipe contract").ok, true);
   });
 });
 
-Deno.test("doctor: a failing engine doctor folds in as a failed check (not unknown recipe)", async () => {
+Deno.test("doctor: a recipe sourcing the retired shell library is flagged with the new-contract fix", async () => {
   await withTempDir(async (dir) => {
     await initInstall(dir);
-    // An invalid project.slug is valid TOML (so the installer's own toml check
-    // still passes) but makes the engine `doctor` recipe exit non-zero with a
-    // real failure on stderr — the harness-failure branch of the delegation.
-    const tomlPath = join(dir, ".icculus/config.toml");
-    const toml = await Deno.readTextFile(tomlPath);
+    // A recipe carried forward from a pre-binary install: it sources the engine
+    // library that no longer exists, so it would break at runtime.
     await Deno.writeTextFile(
-      tomlPath,
-      toml.replace(/slug\s*=\s*"[^"]*"/, 'slug = "Not A Slug!"'),
+      join(dir, ".icculus/recipes/reset"),
+      '#!/usr/bin/env sh\n# desc: reset fixtures\n. "$ICCULUS_LIB/bootstrap.sh"\nok done\n',
     );
-
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 1);
-    // The installer's own toml check still passes (syntactically valid).
-    assertEquals(check(payload, ".icculus/config.toml").ok, true);
-    // The delegated harness check fails and carries an actionable fix.
-    const delegated = check(payload, "agent doctor");
-    assertEquals(delegated.ok, false);
-    assertStringIncludes(delegated.fix ?? "", "harness self-check");
+    const recipe = check(payload, "recipe contract");
+    assertEquals(recipe.ok, false);
+    assertStringIncludes(recipe.detail, "reset");
+    assertStringIncludes(recipe.fix ?? "", "icculus config get");
   });
 });
 
-Deno.test("doctor: a agent that cannot be spawned is reported as un-runnable", async () => {
+Deno.test("doctor: a fresh install confirms `sh` resolves on PATH", async () => {
   await withTempDir(async (dir) => {
     await initInstall(dir);
-    // Replace agent with an EXECUTABLE directory: the installer's stat-based
-    // check sees mode bits and reports it present+executable, but spawning it
-    // throws — exercising the catch branch of the delegation.
-    const agentPath = join(dir, "agent");
-    await Deno.remove(agentPath);
-    await Deno.mkdir(agentPath);
-    await Deno.chmod(agentPath, 0o755);
+    const { code, payload } = await runDoctorJson(dir);
+    assertEquals(code, 0);
+    assertEquals(check(payload, "sh").ok, true);
+  });
+});
+
+Deno.test("doctor: a foreign worktree hook is an advisory warning, not a failure", async () => {
+  await withTempDir(async (dir) => {
+    await initInstall(dir);
+    // Inject another tool's worktree automation alongside the harness's own hooks
+    // (which call `icculus`); the harness's stay, this one is foreign.
+    const p = join(dir, ".claude/settings.json");
+    // deno-lint-ignore no-explicit-any
+    const settings = JSON.parse(await Deno.readTextFile(p)) as any;
+    settings.hooks ??= {};
+    (settings.hooks.WorktreeCreate ??= []).push({
+      hooks: [{ type: "command", command: "other-tool worktree-setup" }],
+    });
+    await Deno.writeTextFile(p, `${JSON.stringify(settings, null, 2)}\n`);
 
     const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 1);
-    // The cheap stat check still calls it executable…
-    assertEquals(check(payload, "agent").ok, true);
-    // …but the actual spawn fails and is reported, with a runnable-script fix.
-    const delegated = check(payload, "agent doctor");
-    assertEquals(delegated.ok, false);
-    assertStringIncludes(delegated.detail, "could not run agent");
-    assertEquals(delegated.fix, "ensure agent is a runnable POSIX script");
+    assertEquals(code, 0); // an advisory does NOT make doctor unhealthy
+    assertEquals(payload.ok, true);
+    const wt = check(payload, "worktree automation");
+    assertEquals(wt.ok, true);
+    assertEquals(wt.warn, true);
   });
 });

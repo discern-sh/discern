@@ -1,18 +1,18 @@
 # The quality gate
 
-_`agent finish` — the compound gate that fixes, builds, checks, and tests before
-work is called done._
+_`icculus finish` — the compound gate that fixes, builds, checks, and tests
+before work is called done._
 
-This subtree covers the gate and everything it runs. The
-[`finish`](../../templates/.icculus/engine/finish) Recipe walks the **Stages**
-in order — **fix** (serial, mutating fixers), **build** (parallel artifact
-producers), then **check** and **test** in parallel — and each **Capability**
-and **Check** runs as its own labelled job, so a failure points at the exact one
-rather than a whole Stage. A known Capability's Stage is derived from its name;
-a Check states its own. After the Stages come the **Scope** `gate`s for any
-Scope that changed, then (in a Worktree) the main-merged check.
+This subtree covers the gate and everything it runs. The built-in
+[`finish`](../../src/engine/gate/finish.ts) verb walks the **Stages** in order —
+**fix** (serial, mutating fixers), **build** (parallel artifact producers), then
+**check** and **test** in parallel — and each **Capability** and **Check** runs
+as its own labelled job, so a failure points at the exact one rather than a
+whole Stage. A known Capability's Stage is derived from its name; a Check states
+its own. After the Stages come the **Scope** `gate`s for any Scope that changed,
+then (in a Worktree) the main-merged check.
 
-`agent tidy` is the fast inner loop: the fix-stage then check-stage work, with
+`icculus tidy` is the fast inner loop: the fix-stage then check-stage work, with
 no build or test. `--json` emits a machine-readable report of every Capability,
 Check, and Scope gate (ADR 0004, ADR 0017) for an agent to consume.
 

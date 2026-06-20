@@ -9,14 +9,14 @@
  *
  * The chain's first step is the schema-1→2 `main_branch` backfill (the bespoke
  * 0.x→1.0 `migrate` ADR 0014 retired was not ported — the current shape was
- * declared schema 1 and the chain grows from there). Further steps, such as the
- * kit rename, append as later bumps.
+ * declared schema 1 and the chain grows from there). Later steps append as
+ * further bumps; the final one prunes a pre-existing on-disk shell engine left
+ * by an install made before the TS-native engine.
  *
  * A step transforms an install through a {@link MigrationContext}: it can edit
- * the install config comment-preserving, move/remove/rewrite managed *and* seed
- * files, and deep-merge `.claude/settings.json`. The file moves are what make a
- * rename safe — content is carried to the new path, and the subsequent file
- * sync reconciles it against the new templates.
+ * the install config comment-preserving, move/remove/rewrite seed files, and
+ * deep-merge `.claude/settings.json`. The file moves are what make a rename
+ * safe — content is carried to the new path.
  */
 
 import { ensureDir } from "@std/fs";
@@ -43,6 +43,11 @@ export interface MigrationContext {
   writeText(rel: string, content: string): Promise<void>;
   /** Delete a target file; a no-op if already gone (idempotent). */
   remove(rel: string): Promise<void>;
+  /**
+   * Recursively delete a target file or directory and its contents; a no-op if
+   * already gone (idempotent). For pruning a whole subtree, e.g. a stale engine.
+   */
+  removeAll(rel: string): Promise<void>;
   /**
    * Move `from` → `to`, content intact, creating `to`'s parent. Idempotent: if
    * `from` is already gone the move is treated as done and it is a no-op, so a
@@ -111,25 +116,22 @@ export const MIGRATIONS: Migration[] = [
   {
     from: 2,
     describe:
-      "consolidate the install surface under .icculus/ (move the config + guidance seeds; the sync handles agent + skills)",
+      "consolidate the install surface under .icculus/ (move the config + guidance seeds)",
     apply: async (ctx) => {
-      // Carry the SEEDS into the `.icculus/` namespace. A seed is the user's: the
-      // file sync never recreates one and orphan-prune never removes one, so a
+      // Carry the SEEDS into the `.icculus/` namespace. A seed is the user's, so a
       // rename here is the only thing that moves its content forward. `rename`
       // wraps Deno.rename (whole-directory moves) and is idempotent — a no-op once
       // the source is gone, so a re-run, or an install already in the new layout,
       // passes through cleanly.
       await ctx.rename("icculus.toml", ".icculus/config.toml");
       await ctx.rename(".ai/guidelines", ".icculus/guidelines");
-      // The MANAGED files are deliberately NOT renamed here. The dispatcher
-      // (bin/agent → agent) and the skills (.ai/skills → .icculus/skills) are
-      // kit-owned, so the file sync that runs after migrations writes them at the
-      // new paths and orphan-prune removes the old pristine copies. Renaming them
-      // here would only defeat the sync's hash check — the manifest still records
-      // the old path, so the moved copy reads as "edited" and is preserved as
-      // `.new`. Leave them; the empty bin/ and .ai/ dirs git ignores.
-      // Repoint the worktree hooks at the root dispatcher (settings.json is a
-      // merged seed the sync leaves alone).
+      // The old shell dispatcher (bin/agent) and skills (.ai/skills) are not
+      // moved: skills are re-materialized at the new path by the upgrade, and the
+      // pre-existing shell engine — dispatcher included — is pruned by the final
+      // chain step. Repoint the worktree hooks at the root dispatcher path the
+      // historical layout used; the dispatcher still exists at this schema, so
+      // `./agent` is correct here. The final prune step then removes the
+      // dispatcher and repoints the hook at the on-PATH `icculus` binary.
       await ctx.rewrite(
         ".claude/settings.json",
         (t) => t.replaceAll("./bin/agent", "./agent"),
@@ -144,7 +146,7 @@ export const MIGRATIONS: Migration[] = [
         "moved icculus.toml→.icculus/config.toml and .ai/guidelines→.icculus/guidelines",
       );
       ctx.note(
-        "the root `agent` and .icculus/skills are written by the file sync; run `agent guidelines` after",
+        ".icculus/skills are re-materialized by the upgrade; run `icculus guidelines` after",
       );
     },
   },
@@ -289,6 +291,68 @@ export const MIGRATIONS: Migration[] = [
       );
     },
   },
+  {
+    from: 4,
+    describe:
+      "prune the pre-existing on-disk shell engine (.icculus/engine/, the root agent, .icculus/manifest.json)",
+    apply: async (ctx) => {
+      // An install made before the TS-native engine carried a committed shell
+      // engine: the generic engine tree, a root `agent` dispatcher, and a
+      // hash-tracking manifest. None of those exist on a fresh install anymore —
+      // the engine is in the binary — so an upgrading install must shed them.
+      // All three removals are idempotent (a no-op when already gone), so this is
+      // safe on a fresh install too. The skill symlinks under `.claude/skills/`
+      // that the old dispatcher's `guidelines` step created still point at the
+      // re-materialized `.icculus/skills/`, so they need no surgery here; the
+      // next `icculus guidelines` reconciles them.
+      const had = await ctx.exists(".icculus/engine") ||
+        await ctx.exists("agent") ||
+        await ctx.exists(".icculus/manifest.json");
+      await ctx.removeAll(".icculus/engine");
+      await ctx.remove("agent");
+      await ctx.remove(".icculus/manifest.json");
+      // The worktree hooks called the now-deleted `./agent` dispatcher; repoint
+      // them at the on-PATH `icculus` binary so they survive the prune. In
+      // settings `./agent` only ever names the dispatcher (the `agent/<name>`
+      // branch prefix has no `./`), so this literal swap is safe and idempotent
+      // — a no-op once already repointed, or when there is no settings file.
+      // `upgrade` never re-merges the settings seed, so this step is what
+      // carries the hooks across the cutover.
+      await ctx.rewrite(
+        ".claude/settings.json",
+        (t) => t.replaceAll("./agent", "icculus"),
+      );
+      // A pre-cutover install committed its skills (they were managed) and may not
+      // ignore the now-materialized/compiled artifacts. Ensure `.gitignore` ignores
+      // them — append only what is missing (idempotent), never clobbering the
+      // user's file. Untracking already-committed copies (`git rm --cached`) is a
+      // git-index operation left to the operator; a migration only edits files.
+      const ignore = (await ctx.readText(".gitignore")) ?? "";
+      const wantIgnore: Array<[RegExp, string]> = [
+        [/^\s*\/?\.icculus\/skills\b/m, "/.icculus/skills/"],
+        [/^\s*\/?CLAUDE\.md\b/m, "/CLAUDE.md"],
+      ];
+      const missingIgnore = wantIgnore
+        .filter(([re]) => !re.test(ignore))
+        .map(([, line]) => line);
+      if (missingIgnore.length > 0) {
+        const block = [
+          "# icculus: materialized/compiled artifacts (re-published on upgrade)",
+          ...missingIgnore,
+        ].join("\n");
+        const base = ignore === "" ? "" : `${ignore.replace(/\n+$/, "")}\n\n`;
+        await ctx.writeText(".gitignore", `${base}${block}\n`);
+        ctx.note(
+          `gitignored materialized artifacts: ${missingIgnore.join(", ")}`,
+        );
+      }
+      if (had) {
+        ctx.note(
+          "removed the legacy shell engine, root agent, and manifest.json; repointed the worktree hooks at `icculus`",
+        );
+      }
+    },
+  },
 ];
 
 /** Build the context a migration uses to transform the install at `destDir`. */
@@ -326,6 +390,16 @@ export function createMigrationContext(
   async function remove(rel: string): Promise<void> {
     try {
       await Deno.remove(abs(rel));
+    } catch (error) {
+      if (!(error instanceof Deno.errors.NotFound)) {
+        throw error;
+      }
+    }
+  }
+
+  async function removeAll(rel: string): Promise<void> {
+    try {
+      await Deno.remove(abs(rel), { recursive: true });
     } catch (error) {
       if (!(error instanceof Deno.errors.NotFound)) {
         throw error;
@@ -396,6 +470,7 @@ export function createMigrationContext(
     readText,
     writeText,
     remove,
+    removeAll,
     rename,
     rewrite,
     readConfig,
@@ -429,8 +504,8 @@ export async function applyMigrations(params: {
   destDir: string;
   from: number;
   to: number;
-  registry?: Migration[];
-  onNote?: (message: string) => void;
+  registry?: Migration[] | undefined;
+  onNote?: ((message: string) => void) | undefined;
 }): Promise<Migration[]> {
   const { destDir, from, to } = params;
   const registry = params.registry ?? MIGRATIONS;

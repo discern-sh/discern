@@ -1,10 +1,14 @@
 /**
  * `icculus init` — scaffold the harness into the current directory.
  *
- * Flow: resolve config (flags + wizard) → build the plan from the templates
- * tree → append the brief + manifest ops → review (or dry-run) → confirm →
- * apply → outro pointing at `/bootstrap`. Refuses to run over an existing
- * install unless `--force`.
+ * Flow: resolve config (flags + wizard) → build the seed plan from the templates
+ * tree → append the brief op → stamp the schema version → review (or dry-run) →
+ * confirm → apply → outro pointing at `/bootstrap`. Refuses to run over an
+ * existing install unless `--force` (which just re-runs without erroring).
+ *
+ * Every scaffolded file is a write-once seed EXCEPT `.icculus/skills/**`, which
+ * are materialized artifacts of the binary: always (re)written, gitignored, and
+ * symlinked into `.claude/skills/` by the engine's `guidelines` step.
  */
 
 import { type InitConfig, tokensFromConfig } from "../lib/config.ts";
@@ -22,27 +26,10 @@ import {
   mergeDocIntoFlags,
 } from "../lib/config_doc.ts";
 import { TomlEditor } from "../lib/toml_edit.ts";
+import { stampSchemaVersion } from "../lib/schema.ts";
 import { KIT_VERSION, SCHEMA_VERSION } from "../lib/version.ts";
-import {
-  loadManagedSpec,
-  loadManifest,
-  recordedHash as lookupRecordedHash,
-} from "../lib/manifest.ts";
-import {
-  applyPlan,
-  buildPlan,
-  managedEntriesFromPlan,
-  newFilesFromPlan,
-  type Plan,
-  planBrief,
-  planManifest,
-} from "../lib/fs_plan.ts";
-import {
-  planToJson,
-  renderNewFilesSummary,
-  renderPlan,
-  renderReview,
-} from "../lib/plan_view.ts";
+import { applyPlan, buildPlan, type Plan, planBrief } from "../lib/fs_plan.ts";
+import { planToJson, renderPlan, renderReview } from "../lib/plan_view.ts";
 
 /** Options accepted by the `init` command (global flags folded in). */
 export interface InitOptions extends InitFlags {
@@ -51,75 +38,64 @@ export interface InitOptions extends InitFlags {
   dryRun: boolean;
   force: boolean;
   /** Path to a JSON answers file (or `-` for stdin); implies non-interactive. */
-  config?: string;
+  config?: string | undefined;
 }
 
 const TEXT_DECODER = new TextDecoder();
 const TEXT_ENCODER = new TextEncoder();
 
 /**
- * Assemble the complete plan for a run: the template walk plus the brief and
- * manifest ops. The manifest's managed hashes are derived from the template
- * walk, so it is appended last.
- *
- * `init` is non-destructive for managed files: a same-named managed file already
- * on disk is only overwritten when it is *provably the kit's* — its sha256 still
- * matches the recorded hash in the existing manifest. So the plan is built with
- * the existing manifest's recorded hashes (the very same mechanism `upgrade`
- * uses), and a user-edited or foreign managed file is preserved with its kit
- * version written alongside as `<path>.new`. When there is no manifest (a first
- * install over a repo that happens to share a path, or an unreadable one), every
- * present managed file is treated as not-ours and preserved.
- *
- * Unlike `upgrade`, a missing manifest is *normal* for `init` (most installs are
- * fresh), so it is not surfaced as a warning here — the review screen and the
- * post-init summary report any preserved `.new` files instead.
+ * Assemble the complete plan for an `init` run: the seed templates walk plus the
+ * brief op, with the schema version stamped into the generated config so a later
+ * `upgrade` reads the right anchor. Re-running over an existing install simply
+ * skips the seeds already present (they are the user's) and re-materializes the
+ * bundled skills.
  */
 export async function assembleInitPlan(params: {
   templatesDir: string;
   destDir: string;
   config: InitConfig;
   /** Declarative slots/scopes/side_gates/ratchets fills from `init --config`. */
-  fills?: IcculusConfigDoc;
+  fills?: IcculusConfigDoc | undefined;
 }): Promise<Plan> {
   const { templatesDir, destDir, config } = params;
   const tokens = tokensFromConfig(config);
 
-  // Re-running `init --force` over an existing install: read its manifest so a
-  // pristine managed file refreshes cleanly and only genuine user edits get a
-  // `.new` sibling. A fresh dir simply has no manifest, and everything creates.
-  const { manifest } = await loadManifest(destDir);
-
-  const plan = await buildPlan({
-    templatesDir,
-    destDir,
-    tokens,
-    mode: "init",
-    recordedHash: (targetRel) =>
-      manifest ? lookupRecordedHash(manifest, targetRel) : undefined,
-    managedSpec: await loadManagedSpec(templatesDir),
-  });
+  const plan = await buildPlan({ templatesDir, destDir, tokens });
 
   const briefOp = await planBrief(destDir, config.brief);
-  const managed = managedEntriesFromPlan(plan);
-  const manifestOp = await planManifest({
-    destDir,
-    kitVersion: KIT_VERSION,
-    schemaVersion: SCHEMA_VERSION,
-    slug: config.slug,
-    agents: config.agents,
-    managed,
-  });
-
-  plan.ops.push(briefOp, manifestOp);
+  plan.ops.push(briefOp);
   plan.ops.sort((a, b) => a.targetRel.localeCompare(b.targetRel));
 
-  // Apply declarative fills (from init --config) to the generated .icculus/config.toml,
-  // so the plan's bytes are final — dry-run/json show them and apply writes them.
+  // Stamp `[meta].schema_version` into the freshly-generated config, then apply
+  // any declarative fills (from `init --config`). Both edit the config op's
+  // bytes in place, so the plan's bytes are final — dry-run/json show them and
+  // apply writes them. A `skip` config (an existing seed) is left untouched.
+  stampSchemaIntoPlan(plan, SCHEMA_VERSION);
   if (params.fills) {
     applyFillsToPlan(plan, params.fills);
   }
   return plan;
+}
+
+/** Find the `.icculus/config.toml` op that is about to be created, or undefined. */
+function freshConfigOp(plan: Plan): Plan["ops"][number] | undefined {
+  const op = plan.ops.find((o) => o.targetRel === ".icculus/config.toml");
+  if (!op || op.disposition === "skip") {
+    return undefined; // absent, or an existing seed left as the user's.
+  }
+  return op;
+}
+
+/** Stamp `[meta].schema_version` into a freshly-generated config op, in place. */
+function stampSchemaIntoPlan(plan: Plan, version: number): void {
+  const op = freshConfigOp(plan);
+  if (!op) {
+    return;
+  }
+  const editor = new TomlEditor(TEXT_DECODER.decode(op.bytes));
+  stampSchemaVersion(editor, version);
+  op.bytes = TEXT_ENCODER.encode(editor.toString());
 }
 
 /**
@@ -128,8 +104,8 @@ export async function assembleInitPlan(params: {
  * config is a `skip` (an existing seed left as the user's — fills never clobber it).
  */
 function applyFillsToPlan(plan: Plan, fills: IcculusConfigDoc): void {
-  const op = plan.ops.find((o) => o.targetRel === ".icculus/config.toml");
-  if (!op || op.disposition === "skip") {
+  const op = freshConfigOp(plan);
+  if (!op) {
     return;
   }
   const editor = new TomlEditor(TEXT_DECODER.decode(op.bytes));
@@ -147,7 +123,7 @@ export async function runInit(options: InitOptions): Promise<number> {
   // `icculus.toml` left by a pre-migration install.
   if ((await resolveConfigPath(destDir)) !== undefined && !options.force) {
     const message =
-      "an icculus install already exists here. Re-run with --force to refresh, or use `icculus upgrade` to refresh managed files only.";
+      "an icculus install already exists here. Re-run with --force to refresh, or use `icculus upgrade` to bring it to this kit version.";
     if (options.json) {
       log.jsonResult({ ok: false, error: "already_initialized", message });
     } else {
@@ -246,9 +222,6 @@ export async function runInit(options: InitOptions): Promise<number> {
 
   // Scaffold.
   const changed = await applyPlan(plan);
-  // Managed files we did not replace (the on-disk copy was the user's): the
-  // kit's version was written as `<path>.new`. Reported in both surfaces.
-  const newFiles = newFilesFromPlan(plan);
 
   if (options.json) {
     log.jsonResult({
@@ -256,14 +229,12 @@ export async function runInit(options: InitOptions): Promise<number> {
       project: { slug: config.slug, agents: config.agents },
       kit_version: KIT_VERSION,
       written: changed.map((op) => op.targetRel),
-      new_files: newFiles.map((op) => op.targetRel),
     });
     return 0;
   }
 
   log.line();
   log.ok(`Scaffolded ${changed.length} files into ${destDir}.`);
-  renderNewFilesSummary(log, newFiles);
   printOutro(log, config);
   return 0;
 }
@@ -275,13 +246,13 @@ function printOutro(log: Logger, config: InitConfig): void {
   );
   log.line();
   log.line(
-    "  agent                 the task runner — ./agent finish, ./agent doctor",
+    "  icculus               the task runner — icculus finish, icculus doctor",
   );
   log.line(
     "  .icculus/config.toml  edit by hand — teaches the harness about your stack",
   );
   log.line(
-    "  .icculus/             the engine, guidance, skills, your brief, and the manifest",
+    "  .icculus/             your guidance, brief, skills, and recipes",
   );
   log.line(
     "  .claude/settings.json merged (your existing settings were preserved)",
@@ -300,7 +271,7 @@ function printOutro(log: Logger, config: InitConfig): void {
     `  2. Wire your capabilities. The harness ships with none, so until you fill`,
   );
   log.line(
-    `     them ${log.bold("./agent finish")} passes without checking anything.`,
+    `     them ${log.bold("icculus finish")} passes without checking anything.`,
   );
   log.line(
     `     Run ${log.bold("/bootstrap")} (or edit ${
@@ -310,8 +281,8 @@ function printOutro(log: Logger, config: InitConfig): void {
   log.line("     format / lint / test commands.");
   log.line(
     `  3. Run ${
-      log.bold("./agent doctor")
-    } to verify the install (dispatcher, hooks,`,
+      log.bold("icculus doctor")
+    } to verify the install (config, schema,`,
   );
   log.line("     capabilities, git worktree support).");
 }

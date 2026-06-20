@@ -23,7 +23,8 @@
     "jsr:@std/path@^1.0.8": "1.1.5",
     "jsr:@std/path@^1.1.5": "1.1.5",
     "jsr:@std/text@^1.0.19": "1.0.19",
-    "jsr:@std/toml@^1.0.2": "1.0.11"
+    "jsr:@std/toml@^1.0.2": "1.0.11",
+    "jsr:@std/yaml@1": "1.1.1"
   },
   "jsr": {
     "@cliffy/ansi@1.2.1": {
@@ -119,6 +120,9 @@
       "dependencies": [
         "jsr:@std/collections"
       ]
+    },
+    "@std/yaml@1.1.1": {
+      "integrity": "a57665ecf3d17b926380593a56625d8a10cc7281802f1e993b5ebc94a48e71f8"
     }
   },
   "workspace": {

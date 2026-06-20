@@ -4,7 +4,8 @@
  *
  * A preset is a **file overlay plus config fills**: every file in the preset dir
  * is scaffolded with the same token/merge/exec-bit machinery as `init`
- * (seed/managed rules apply), and an optional `preset.json` at its root —
+ * (the seed-scaffolding rules apply — create-or-skip, never overwrite a present
+ * file), and an optional `preset.json` at its root —
  * metadata, never scaffolded — is an icculus config document (the same shape
  * `init --config` reads) whose capabilities / checks / scopes / ratchets are
  * written into the project's `.icculus/config.toml` via the comment-preserving
@@ -21,11 +22,6 @@ import { parseIcculusToml } from "../lib/toml_render.ts";
 import { resolveConfigPath } from "../lib/paths.ts";
 import { DEFAULTS, type InitConfig, tokensFromConfig } from "../lib/config.ts";
 import { applyPlan, buildPlan } from "../lib/fs_plan.ts";
-import {
-  DEFAULT_MANAGED_SPEC,
-  loadManagedSpec,
-  mergeManagedSpecs,
-} from "../lib/manifest.ts";
 import { planToJson, renderPlan, renderReview } from "../lib/plan_view.ts";
 import { confirmProceed } from "../lib/prompts.ts";
 import { TomlEditor } from "../lib/toml_edit.ts";
@@ -185,19 +181,10 @@ export async function runAddPreset(
         : [...DEFAULTS.agents]) as InitConfig["agents"],
   };
   const tokens = tokensFromConfig(config);
-  // A preset's files are classified by the base managed-set plus any the preset
-  // declares in its own managed.json (so it can own managed overlay files); the
-  // declaration itself is never scaffolded.
-  const presetSpec = await loadManagedSpec(presetDir);
-  const plan = await buildPlan({
-    templatesDir: presetDir,
-    destDir,
-    tokens,
-    mode: "init",
-    managedSpec: presetSpec
-      ? mergeManagedSpecs(DEFAULT_MANAGED_SPEC, presetSpec)
-      : DEFAULT_MANAGED_SPEC,
-  });
+  // A preset's files overlay exactly like the base templates tree: seed files
+  // are write-once (a changed preset file on re-apply is skipped as a present
+  // seed), and any `.icculus/skills/**` it ships are materialized (overwritten).
+  const plan = await buildPlan({ templatesDir: presetDir, destDir, tokens });
   // preset.json is metadata (config fills), not a scaffolded file.
   plan.ops = plan.ops.filter((op) => op.targetRel !== PRESET_MANIFEST);
 

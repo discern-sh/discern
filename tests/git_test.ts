@@ -18,7 +18,7 @@
 
 import { assert, assertEquals } from "@std/assert";
 import { join } from "@std/path";
-import { worktreeState } from "../src/lib/git.ts";
+import { type WorktreeState, worktreeState } from "../src/lib/git.ts";
 import { withTempDir } from "./helpers.ts";
 
 const DEVNULL = "/dev/null";
@@ -61,7 +61,7 @@ async function initRepo(dir: string): Promise<void> {
  * the process environment (so the inherited-env subprocess stays hermetic),
  * restoring the prior values afterwards.
  */
-async function isolatedState(dir: string) {
+async function isolatedState(dir: string): Promise<WorktreeState> {
   const keys = [
     "GIT_CONFIG_GLOBAL",
     "GIT_CONFIG_SYSTEM",
@@ -98,11 +98,11 @@ Deno.test("a tracked modification reports dirty with the porcelain line", async 
     assertEquals(state.changes.length, 1);
     // Porcelain marks a tracked, unstaged content change as ` M <path>`.
     assert(
-      state.changes[0].includes("file.txt"),
+      state.changes[0]!.includes("file.txt"),
       `expected the change to name file.txt, got: ${state.changes[0]}`,
     );
     assert(
-      state.changes[0].trimStart().startsWith("M"),
+      state.changes[0]!.trimStart().startsWith("M"),
       `expected a modified marker, got: ${state.changes[0]}`,
     );
   });

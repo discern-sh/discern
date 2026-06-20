@@ -39,8 +39,18 @@ _Verified defects and correctness risks. Nothing outstanding._
 
 ## 🟠 Cleanup — known dead or slow code
 
-_Dead code, N+1s, and known-slow paths worth removing or fixing. Nothing
-outstanding._
+- [ ] **`isContractExecutable` still special-cases paths the cutover deleted.**
+      The seam that forces the executable bit on a scaffolded file — needed
+      because `deno compile` flattens bundled source modes to read-only — lists
+      only `agent` and `.icculus/engine/<recipe>`, both removed with the shell
+      engine. So it now returns `false` for everything `templates/` ships
+      (harmless, but dead). Keep the seam for any future executable seed, but
+      drop the `agent`/`.icculus/engine/` cases, refresh the comment, and update
+      the tests still asserting the old contract. Evidence:
+      `src/lib/template.ts:97` (the function) and its caller
+      `src/lib/fs_plan.ts:179`; tests `tests/template_test.ts:108-117` and the
+      `.icculus/engine/` executable-preservation cases in
+      `tests/fs_plan_test.ts`.
 
 ## 🟡 Smaller fixes & polish
 
@@ -51,27 +61,34 @@ outstanding._
       by hand. Make it close to mandatory: a single loud "do this next"
       call-to-action in the outro, and/or a nudge from `doctor`/the first
       `finish` while every slot is still a no-op. Evidence:
-      `src/commands/init.ts:282` (`printOutro`); the all-no-op gate nudge
-      already exists at `templates/.icculus/engine/finish:305`.
+      `src/commands/init.ts:243` (`printOutro`); the all-no-op gate nudge
+      already exists at `src/engine/gate/finish.ts:243`.
 
 - [ ] **The v3→v4 config migration leaves stale comment blocks behind.** It is
       comment-preserving, so it rewrites the tables (`[slots]`→`[capabilities]`/
       `[checks]`, `[scopes]` arrays→tables, drops `[evidence]`) but leaves the
-      explanatory comment blocks that describe the *retired* structure — the big
+      explanatory comment blocks that describe the _retired_ structure — the big
       `[slots]`/`phase` header, the `[ratchets]` "slot" references, the
-      `[evidence]` header — and appends the new tables orphaned at the end of the
-      file, detached from their comments. The output is valid TOML but messy
-      enough that a migrated install needs a hand-tidy to match the v4 template's
-      layout. Consider also dropping a deleted section's leading comment block, or
-      re-emitting the template comments for the sections the step rewrites.
-      Observed needing a hand-tidy on several v3→v4 installs. Evidence:
-      `src/lib/migrations.ts:281-284` (the `from: 3` step deletes the tables via
-      comment-preserving `deleteSection`, leaving their comment blocks); target
-      layout is `templates/.icculus/config.toml.tmpl`.
+      `[evidence]` header — and appends the new tables orphaned at the end of
+      the file, detached from their comments. The output is valid TOML but messy
+      enough that a migrated install needs a hand-tidy to match the v4
+      template's layout. Consider also dropping a deleted section's leading
+      comment block, or re-emitting the template comments for the sections the
+      step rewrites. Observed needing a hand-tidy on several v3→v4 installs.
+      Evidence: `src/lib/migrations.ts:281-284` (the `from: 3` step deletes the
+      tables via comment-preserving `deleteSection`, leaving their comment
+      blocks); target layout is `templates/.icculus/config.toml.tmpl`.
 
 ## 🟢 Test & tooling hygiene
 
-_Test-suite and tooling hygiene. Nothing outstanding._
+- [ ] **Ratchet the coverage floor back up toward its pre-cutover level.** The
+      single-binary cutover moved the engine into `src/` (now instrumented by
+      `deno task coverage`), so the same suite covers a larger tree and src/
+      line coverage fell from ~94% to ~84%. The floor was re-baselined down to
+      83 to land the cutover (ADR 0019); raise it as engine coverage improves.
+      Weakest spots in the post-cutover run were `src/lib/skills.ts` (~62%) and
+      `src/shared/capabilities.ts` (~50%). Evidence: `.icculus/config.toml`
+      `[ratchets.coverage].limit`.
 
 ## 🔵 Unmerged / at-risk work — decide: land or drop
 

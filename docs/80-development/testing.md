@@ -3,7 +3,7 @@
 _The testing approach in this repo — how tests are written, how they run, and
 the patterns the gate assumes._
 
-The `test` capability in `.icculus/config.toml` is what `agent finish` runs;
+The `test` capability in `.icculus/config.toml` is what the `finish` gate runs;
 this doc explains how to write tests that pass it and how to run them while
 iterating.
 
@@ -18,20 +18,23 @@ deno test --filter "convergence"        # a filtered subset by test name
 ```
 
 `deno task test` grants `--allow-read --allow-write --allow-env --allow-run`
-(the suite shells out to `agent` and `git`) and excludes `.claude/`, `dist/`,
-`templates/`, and `tests/fixtures/`.
+(the suite runs the engine via `deno run src/main.ts` and shells out to `git`)
+and excludes `.claude/`, `dist/`, `templates/`, and `tests/fixtures/`.
 
 There are **two layers**, sharing two helper modules:
 
 - **Installer tests** drive the Deno CLI as a real subprocess via `runCli`
   ([tests/helpers.ts](../../tests/helpers.ts)), so Cliffy parsing, the global
   flags, `--json` output, and exit codes are all exercised end to end.
-- **Engine tests** (`tests/engine_*`) scaffold the **real** `templates/` into a
-  temp dir using the installer's own plan/apply path, then shell out to the
-  installed `agent` via `runAgent`
-  ([tests/engine_helpers.ts](../../tests/engine_helpers.ts)). So a `templates/`
-  engine change is validated whether or not the root install is synced — no
-  second test framework for the POSIX shell.
+- **Engine tests** (`tests/engine_*`) scaffold the **real** `templates/` (the
+  config and recipes seed) into a temp dir using the installer's own plan/apply
+  path, then run the engine as a real subprocess via `runAgent`
+  ([tests/engine_helpers.ts](../../tests/engine_helpers.ts)) —
+  `deno run
+  src/main.ts <verb>` inside that dir, with an `icculus` shim on
+  `PATH` so project recipes resolve. So the engine verbs (`finish`, `worktree`,
+  …) and their `--json` contracts are exercised against a faithful install, end
+  to end.
 
 **Parallel-safety is structural.** Every test does its work inside a fresh
 `withTempDir` directory and, when it needs git, a hermetic repo from `gitInit`
@@ -61,25 +64,26 @@ full run" trap is exactly this failure).
   a change touches the install/upgrade/migration path.
 - **Put coverage in the right place.** Engine behaviour →
   `tests/engine_*_test.ts`; installer behaviour → the other `tests/*_test.ts`.
-  Every public recipe is expected to have execution coverage (a guard test
-  enforces it), so a new recipe needs a test that actually runs it.
+  Each engine verb is exercised by a subprocess test that actually runs it
+  through `runAgent`, so a new verb needs a test in `tests/engine_*` that drives
+  it end to end.
 
 ## Coverage
 
-Line coverage of the installer (`src/`) is measured by `deno task coverage`
+Line coverage of `src/` is measured by `deno task coverage`
 ([scripts/coverage.ts](../../scripts/coverage.ts)): it runs the whole suite
-under Deno's coverage instrument and prints one `ICCULUS_METRIC coverage <pct>`
-line. **Only `src/` counts** — Deno cannot instrument the POSIX-shell engine
-under `templates/`, which the `engine_*` shell-out tests cover behaviourally
-instead. So the number is the TypeScript half by construction; the engine's
-safety net is those tests, not a percentage.
+under Deno's coverage instrument, filters the lcov to paths under `/src/`, and
+prints one `ICCULUS_METRIC coverage <pct>` line. Because the engine is now
+TypeScript under `src/engine/`, it is instrumented like the rest of `src/` — the
+`engine_*` subprocess tests that drive the verbs through `src/main.ts` count
+toward the number, so installer and engine share one coverage figure.
 
 That metric feeds a ratchet — `[ratchets.coverage]` in
 [.icculus/config.toml](../../.icculus/config.toml) — a floor that only ever
-rises. `agent
-ratchets` holds it; it is slow, so it is **not** part of
-`agent finish`, and CI enforces it on every pull request. To raise the floor:
-add tests, then bump `limit` to just below the newly measured value.
+rises. The `ratchets` verb holds it (in this repo, `deno task dev ratchets`); it
+is slow, so it is **not** part of the `finish` gate, and CI enforces it on every
+pull request. To raise the floor: add tests, then bump `limit` to just below the
+newly measured value.
 
 Some code is **intentionally** uncovered: the interactive TTY paths — the `init`
 wizard prompts ([src/lib/prompts.ts](../../src/lib/prompts.ts)) and the `docs`

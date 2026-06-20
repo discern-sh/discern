@@ -1,16 +1,13 @@
 /**
  * Edge-path coverage for `icculus upgrade` (src/commands/upgrade.ts). The other
- * upgrade_*_test.ts files cover the happy paths — orphan reconciliation, the
- * --check primitive, the git guard, the migration fold, grouped output, and
- * convergence. This file drives the failure and reporting branches they leave
- * uncovered:
+ * upgrade_*_test.ts files cover the happy paths — the --check primitive, the git
+ * guard, the migration fold, and convergence. This file drives the failure and
+ * reporting branches they leave uncovered:
  *
  *   - the pre-flight refusals: no .icculus/config.toml, unparseable toml, missing
  *     templates dir;
- *   - the manifest-absent / manifest-unparseable warnings (and the empty-orphan
- *     path they imply);
  *   - the human-mode (non-JSON) renderings of --check ok, --dry-run, the dirty
- *     guard, the migrations-applied summary, and the kept-orphan warning;
+ *     guard, and the migrations-applied summary;
  *   - --dry-run's --json payload and its pending-migration preview;
  *   - the agents-default fallback when .icculus/config.toml carries no agents key.
  *
@@ -54,12 +51,22 @@ async function initCommittedRepo(dir: string): Promise<void> {
   await git(dir, "commit", "-m", "initial");
 }
 
-/** Overwrite the install's recorded schema_version (to model one behind). */
+/** Overwrite the install's recorded `[meta].schema_version` (to model one behind). */
 async function setSchema(dir: string, version: number): Promise<void> {
-  const mp = join(dir, ".icculus/manifest.json");
-  const m = JSON.parse(await Deno.readTextFile(mp));
-  m.schema_version = version;
-  await Deno.writeTextFile(mp, `${JSON.stringify(m, null, 2)}\n`);
+  const p = join(dir, ".icculus/config.toml");
+  const text = await Deno.readTextFile(p);
+  await Deno.writeTextFile(
+    p,
+    text.replace(/schema_version\s*=\s*\d+/, `schema_version = ${version}`),
+  );
+}
+
+/** The recorded `[meta].schema_version` of an install's config. */
+async function recordedSchema(dir: string): Promise<number> {
+  const m = (await readTarget(dir, ".icculus/config.toml")).match(
+    /schema_version\s*=\s*(\d+)/,
+  );
+  return m ? Number(m[1]) : NaN;
 }
 
 // ---- pre-flight refusals --------------------------------------------------
@@ -140,53 +147,6 @@ Deno.test("upgrade fails as templates_not_found when the templates dir is absent
   });
 });
 
-// ---- manifest-absent / manifest-unparseable -------------------------------
-
-Deno.test("upgrade (human) with no manifest warns and treats edited files as .new", async () => {
-  await withTempDir(async (dir) => {
-    await init(dir);
-    // With no manifest there are no recorded hashes, so upgrade cannot tell a
-    // pristine file from an edited one: a managed file whose bytes differ from
-    // the template is assumed edited and preserved as `.new`. Run in human mode
-    // so the warning renders (it is suppressed under --json).
-    const agent = join(dir, "agent");
-    await Deno.writeTextFile(
-      agent,
-      `${await Deno.readTextFile(agent)}\n# local edit\n`,
-    );
-    await Deno.remove(join(dir, ".icculus/manifest.json"));
-    const r = await runCli(["upgrade"], dir); // non-git temp dir → proceeds
-    assertEquals(r.code, 0, r.stderr);
-    assertStringIncludes(r.stderr, "manifest"); // the warn rides stderr
-    // The edited-but-unrecorded file is preserved as a `.new` sibling.
-    assertEquals(await targetExists(dir, "agent.new"), true);
-    // The upgrade rebuilds a manifest from disk, so one exists again.
-    assertEquals(await targetExists(dir, ".icculus/manifest.json"), true);
-  });
-});
-
-Deno.test("upgrade --json with an unparseable manifest warns and proceeds", async () => {
-  await withTempDir(async (dir) => {
-    await init(dir);
-    // Corrupt the manifest JSON: parseManifest throws, upgrade warns and treats
-    // every managed file as edited (no recorded hashes to trust). In --json mode
-    // the warn is suppressed, so we assert the report shape and the disk instead.
-    await Deno.writeTextFile(
-      join(dir, ".icculus/manifest.json"),
-      "{ not valid json",
-    );
-    const r = await runCli(["upgrade", "--json"], dir);
-    assertEquals(r.code, 0, r.stderr);
-    const res = JSON.parse(r.stdout);
-    assertEquals(res.ok, true);
-    // No trustworthy recorded hashes → no orphan reconciliation.
-    assertEquals(res.orphans_kept, []);
-    assertEquals(res.removed, []);
-    // The untrusted manifest is replaced by a freshly rebuilt one.
-    assertEquals(await targetExists(dir, ".icculus/manifest.json"), true);
-  });
-});
-
 // ---- agents-default fallback ----------------------------------------------
 
 Deno.test("upgrade fills agents from defaults when .icculus/config.toml carries no agents key", async () => {
@@ -216,26 +176,25 @@ Deno.test("upgrade --check (human) confirms an in-sync install and exits zero", 
     const r = await runCli(["upgrade", "--check"], dir);
     assertEquals(r.code, 0, r.stderr);
     // The ok line is the human rendering of `ok: true` (no JSON envelope).
-    assertStringIncludes(r.stderr, "in sync");
+    assertStringIncludes(r.stderr, "up to date");
   });
 });
 
 // ---- --dry-run ------------------------------------------------------------
 
-Deno.test("upgrade --dry-run --json returns a plan and writes nothing", async () => {
+Deno.test("upgrade --dry-run --json previews the skills materialization and writes nothing", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
-    // Drop a managed file so the plan has a concrete entry to report.
-    await Deno.remove(join(dir, ".icculus/engine/doctor"));
     const r = await runCli(["upgrade", "--dry-run", "--json"], dir);
     assertEquals(r.code, 0, r.stderr);
     const res = JSON.parse(r.stdout);
     assertEquals(res.ok, true);
     assertEquals(res.dry_run, true);
-    assert(Array.isArray(res.plan), "the dry-run payload carries a plan array");
+    assert(
+      Array.isArray(res.skills),
+      "the dry-run payload lists the skills it would materialize",
+    );
     assertEquals(res.pending_migrations, []); // current install → none pending
-    // A dry run must not perform the write it previewed.
-    assertEquals(await targetExists(dir, ".icculus/engine/doctor"), false);
   });
 });
 
@@ -250,11 +209,10 @@ Deno.test("upgrade --dry-run --json previews pending migrations without running 
     assertEquals(res.dry_run, true);
     assertEquals(
       res.pending_migrations.map((m: { from: number }) => m.from),
-      [1, 2, 3],
+      [1, 2, 3, 4],
     );
     // Still a dry run: the schema is untouched on disk.
-    const m = JSON.parse(await readTarget(dir, ".icculus/manifest.json"));
-    assertEquals(m.schema_version, 1);
+    assertEquals(await recordedSchema(dir), 1);
   });
 });
 
@@ -268,8 +226,7 @@ Deno.test("upgrade --dry-run (human) names pending migrations and writes nothing
     assertStringIncludes(r.stderr, "1→2"); // "1→2"
     // …and the closing reassurance that nothing was written.
     assertStringIncludes(r.stderr, "No files were written");
-    const m = JSON.parse(await readTarget(dir, ".icculus/manifest.json"));
-    assertEquals(m.schema_version, 1); // untouched
+    assertEquals(await recordedSchema(dir), 1); // untouched
   });
 });
 
@@ -375,51 +332,5 @@ Deno.test("upgrade (human) reports the migrations it applied", async () => {
     // The step's note was surfaced as a detail line.
     assertStringIncludes(err, "wrote the MIGRATED marker");
     assertEquals(await targetExists(dir, "MIGRATED"), true);
-  });
-});
-
-// ---- kept-orphan warning, human mode --------------------------------------
-
-/**
- * Record a managed file the templates no longer ship, with a recorded hash that
- * differs from the on-disk bytes so it reads as user-edited (a kept orphan).
- */
-async function injectEditedOrphan(
-  dir: string,
-  rel: string,
-): Promise<void> {
-  await Deno.writeTextFile(join(dir, rel), "mine\n");
-  const mp = join(dir, ".icculus/manifest.json");
-  const m = JSON.parse(await Deno.readTextFile(mp));
-  m.managed.push({ path: rel, sha256: "0".repeat(64) }); // hash mismatch → edited
-  await Deno.writeTextFile(mp, `${JSON.stringify(m, null, 2)}\n`);
-}
-
-Deno.test("upgrade (human) warns about a single kept orphan with its reason", async () => {
-  await withTempDir(async (dir) => {
-    await init(dir);
-    await injectEditedOrphan(dir, ".icculus/engine/edited-one");
-    const r = await runCli(["upgrade"], dir); // non-git temp dir → proceeds
-    assertEquals(r.code, 0, r.stderr);
-    // Singular phrasing ("1 managed file … no longer shipped but kept") plus the
-    // path-and-reason detail line.
-    assertStringIncludes(r.stderr, "no longer shipped but kept");
-    assertStringIncludes(r.stderr, ".icculus/engine/edited-one");
-    // The file is reported, never deleted.
-    assertEquals(await targetExists(dir, ".icculus/engine/edited-one"), true);
-  });
-});
-
-Deno.test("upgrade (human) warns about multiple kept orphans (plural phrasing)", async () => {
-  await withTempDir(async (dir) => {
-    await init(dir);
-    await injectEditedOrphan(dir, ".icculus/engine/edited-a");
-    await injectEditedOrphan(dir, ".icculus/engine/edited-b");
-    const r = await runCli(["upgrade"], dir);
-    assertEquals(r.code, 0, r.stderr);
-    // Plural phrasing ("2 managed files …").
-    assertStringIncludes(r.stderr, "2 managed files");
-    assertStringIncludes(r.stderr, ".icculus/engine/edited-a");
-    assertStringIncludes(r.stderr, ".icculus/engine/edited-b");
   });
 });

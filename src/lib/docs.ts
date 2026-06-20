@@ -94,7 +94,7 @@ export function extractTitle(md: string): string | undefined {
   for (const raw of md.split(/\r?\n/)) {
     const m = raw.match(/^\s{0,3}(#{1,6})\s+(.*?)\s*#*\s*$/);
     if (m) {
-      const text = inlineToPlain(m[2]).trim();
+      const text = inlineToPlain(m[2]!).trim();
       if (text) return text;
     }
   }
@@ -148,7 +148,7 @@ async function resolveDocsDir(
  */
 export async function discoverDocs(opts: {
   cwd: string;
-  dir?: string;
+  dir?: string | undefined;
 }): Promise<DocsTree | undefined> {
   const docsDir = await resolveDocsDir(opts.cwd, opts.dir);
   if (!docsDir) return undefined;
@@ -167,7 +167,7 @@ export async function discoverDocs(opts: {
     // underscore directory segment (_adr, _internal, …). The browser exposes
     // only the user-facing tree. Tested in tests/docs_test.ts.
     if (parts.slice(0, -1).some((seg) => seg.startsWith("_"))) continue;
-    const section = parts.length > 1 ? parts[0] : "";
+    const section = parts.length > 1 ? parts[0]! : "";
     const slug = basename(absPath).replace(/\.md$/i, "");
 
     let title: string;
@@ -223,7 +223,7 @@ export function resolveDoc(
     aliases(e).includes(lower) || e.absPath === asAbs
   );
 
-  if (matches.length === 1) return { kind: "found", entry: matches[0] };
+  if (matches.length === 1) return { kind: "found", entry: matches[0]! };
   if (matches.length > 1) return { kind: "ambiguous", entries: matches };
   return { kind: "none" };
 }

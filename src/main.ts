@@ -22,6 +22,15 @@ import {
   runConfigSetRatchet,
   runConfigSetScope,
 } from "./commands/config.ts";
+import {
+  attachEngineCommands,
+  dispatchHelper,
+  dispatchRecipeOrSuggest,
+  KNOWN_ENGINE_VERBS,
+  printProjectRecipes,
+  runConfigRead,
+  warnShadowedRecipe,
+} from "./engine/dispatch.ts";
 
 /**
  * Resolve the effective "no colour" decision. Cliffy maps `--no-color` to a
@@ -47,8 +56,21 @@ function globalFlags(options: unknown): { json: boolean; noColor: boolean } {
   return { json: o.json ?? false, noColor: noColorFrom(o.color) };
 }
 
+/**
+ * The type of `buildCli`'s root command. Cliffy threads the two `globalOption`
+ * declarations into the command's generics, so the concrete type is impractical
+ * to write by hand. We name it from a type-only `declare` (no runtime value is
+ * emitted) whose chain mirrors the real root built in `buildCli`.
+ */
+declare function rootShape(): ReturnType<
+  ReturnType<
+    Command<void, void, void, []>["globalOption"]
+  >["globalOption"]
+>;
+type RootCommand = ReturnType<typeof rootShape>;
+
 /** Build the root command with its global flags and subcommands. */
-function buildCli() {
+function buildCli(): RootCommand {
   const root = new Command()
     .name("icculus")
     .version(KIT_VERSION)
@@ -63,7 +85,7 @@ function buildCli() {
       "--no-color",
       "Disable colour (also honours NO_COLOR and non-TTY output).",
     )
-    .action(function () {
+    .action(function (): void {
       // No subcommand: show help.
       this.showHelp();
     });
@@ -116,12 +138,15 @@ function buildCli() {
   root
     .command("upgrade")
     .description(
-      "Refresh managed engine files (hash-aware; never clobbers edits).",
+      "Refresh the project's config schema, materialized skills, and compiled guidance to match the installed binary.",
     )
-    .option("--dry-run", "Print the plan and write nothing.")
+    .option(
+      "--dry-run",
+      "Preview the pending migrations and skills refresh; write nothing.",
+    )
     .option(
       "--check",
-      "Report drift (managed files out of sync) and exit non-zero; write nothing.",
+      "Report whether config-schema migrations are pending (exit non-zero if so); write nothing.",
     )
     .option(
       "--allow-dirty",
@@ -325,27 +350,123 @@ function buildCli() {
       );
     });
 
+  // Read-side config surface — what a project recipe uses to read
+  // .icculus/config.toml (replacing the shell config_* helpers).
+  const configGet = new Command()
+    .description("Print a scalar config value.")
+    .arguments("<key:string>")
+    .action(async (_o, key: string) => {
+      Deno.exit(await runConfigRead("get", key));
+    });
+  const configArray = new Command()
+    .description("Print an array config value, one item per line.")
+    .arguments("<key:string>")
+    .action(async (_o, key: string) => {
+      Deno.exit(await runConfigRead("array", key));
+    });
+  const configHas = new Command()
+    .description("Exit 0 if a key or section exists, 1 otherwise (silent).")
+    .arguments("<key:string>")
+    .action(async (_o, key: string) => {
+      Deno.exit(await runConfigRead("has", key));
+    });
+  const configSubsections = new Command()
+    .description("Print the immediate child table names under a section.")
+    .arguments("<key:string>")
+    .action(async (_o, key: string) => {
+      Deno.exit(await runConfigRead("subsections", key));
+    });
+  const configKeys = new Command()
+    .description("Print the flat key names declared in a section.")
+    .arguments("<key:string>")
+    .action(async (_o, key: string) => {
+      Deno.exit(await runConfigRead("keys", key));
+    });
+
   const config = new Command()
     .description(
-      "Programmatically edit .icculus/config.toml (comment-preserving).",
+      "Edit (set-*) or read (get/array/has/subsections/keys) .icculus/config.toml.",
     )
-    .action(function () {
+    .action(function (): void {
       this.showHelp();
     })
     .command("set-capability", setCapability)
     .command("set-check", setCheck)
     .command("set-scope", setScope)
     .command("set-ratchet", setRatchet)
-    .command("set", setScalar);
+    .command("set", setScalar)
+    .command("get", configGet)
+    .command("array", configArray)
+    .command("has", configHas)
+    .command("subsections", configSubsections)
+    .command("keys", configKeys);
 
   root.command("config", config);
+
+  // The project task-runner verbs (finish, tidy, worktree:*, …) — the former
+  // shell `agent` recipes, now first-class `icculus` subcommands. The cast drops
+  // the threaded global-option generics (which the engine actions don't read) —
+  // Cliffy's generic Command type is impractical to spell at this boundary.
+  attachEngineCommands(root as unknown as Command);
 
   return root;
 }
 
+/**
+ * Installer verbs Cliffy owns; combined with the engine verbs to decide which
+ * unknown first tokens fall through to a project recipe.
+ */
+const KNOWN_VERBS: ReadonlySet<string> = new Set<string>([
+  "init",
+  "upgrade",
+  "doctor",
+  "migrate",
+  "add-preset",
+  "docs",
+  "config",
+  ...KNOWN_ENGINE_VERBS,
+]);
+
 /** Parse argv and dispatch. Exported for tests; called below when run directly. */
 export async function main(args: string[]): Promise<void> {
-  await buildCli().parse(args);
+  // Normalise `worktree:<sub>` → `worktree <sub>` for the Cliffy group (Cliffy
+  // forbids ':' in command names).
+  let argv = args;
+  const first = argv[0];
+  if (first !== undefined && first.startsWith("worktree:")) {
+    argv = ["worktree", first.slice("worktree:".length), ...argv.slice(1)];
+  }
+  const verb = argv[0];
+
+  // Internal helper verbs (remove-worktree-safely, with-gotchas, …): handled
+  // before Cliffy so a wrapped command's flags pass through raw.
+  if (verb !== undefined) {
+    const helperCode = await dispatchHelper(verb, argv.slice(1));
+    if (helperCode !== null) {
+      Deno.exit(helperCode);
+    }
+  }
+
+  // Root help: Cliffy's help plus the project-recipe listing (the shell `agent
+  // --help` showed both).
+  if (verb === undefined || verb === "-h" || verb === "--help") {
+    console.log(buildCli().getHelp());
+    await printProjectRecipes();
+    Deno.exit(0);
+  }
+
+  // A built-in engine verb with a same-named project recipe: warn it is shadowed.
+  if (KNOWN_ENGINE_VERBS.has(verb)) {
+    await warnShadowedRecipe(verb);
+  }
+
+  // Recipe fallthrough: an unknown verb (not a flag, not a known command) is a
+  // project-owned executable recipe, or an "unknown recipe" suggestion.
+  if (!verb.startsWith("-") && !KNOWN_VERBS.has(verb)) {
+    Deno.exit(await dispatchRecipeOrSuggest(verb, argv.slice(1)));
+  }
+
+  await buildCli().parse(argv);
 }
 
 if (import.meta.main) {

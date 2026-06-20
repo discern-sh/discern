@@ -40,8 +40,9 @@ function recordingStep(from: number, log: number[]): Migration {
 
 Deno.test("the production chain is contiguous up to the current schema", () => {
   // One step per bump, from 1 up to SCHEMA_VERSION: 1→2 (main_branch backfill),
-  // 2→3 (the .icculus/ surface consolidation), and 3→4 (capabilities/checks).
-  assertEquals(MIGRATIONS.map((m) => m.from), [1, 2, 3]);
+  // 2→3 (the .icculus/ surface consolidation), 3→4 (capabilities/checks), and
+  // 4→5 (prune the pre-existing on-disk shell engine).
+  assertEquals(MIGRATIONS.map((m) => m.from), [1, 2, 3, 4]);
   assert(isChainContiguous(MIGRATIONS, SCHEMA_VERSION));
 });
 
@@ -74,11 +75,11 @@ Deno.test("migration 1→2 never clobbers a custom main_branch", async () => {
   });
 });
 
-Deno.test("migration 2→3 moves the config + guidance seeds (managed files left to the sync)", async () => {
+Deno.test("migration 2→3 moves the config + guidance seeds (shell dispatcher left to the prune step)", async () => {
   await withTempDir(async (dir) => {
     // An old-layout install: config at the root, guidance under .ai/, and
-    // worktree hooks that call ./bin/agent. bin/agent and .ai/skills are MANAGED
-    // — the step leaves them for upgrade's orphan-prune + sync, not a rename.
+    // worktree hooks that call ./bin/agent. The shell dispatcher (bin/agent) is
+    // left in place by 2→3 — the final prune step (4→5) removes it, not a rename.
     await Deno.writeTextFile(
       join(dir, "icculus.toml"),
       '[project]\nslug = "demo"\n\n[scopes]\nneutral = ["docs/", ".ai/", ".claude/"]\n',
@@ -108,7 +109,7 @@ Deno.test("migration 2→3 moves the config + guidance seeds (managed files left
     );
     assertEquals(await targetExists(dir, "icculus.toml"), false);
     assertEquals(await targetExists(dir, ".ai/guidelines/demo.md"), false);
-    // The managed dispatcher is untouched here — the file sync reconciles it.
+    // The shell dispatcher is untouched here — the 4→5 prune step removes it.
     assertEquals(await targetExists(dir, "bin/agent"), true);
 
     // Hooks repointed at the root dispatcher; neutral globs repointed at .icculus/.
@@ -207,6 +208,111 @@ Deno.test("migration 3→4 converts slots→capabilities/checks, inlines ratchet
   });
 });
 
+Deno.test("migration 4→5 prunes a pre-existing on-disk shell engine, agent, and manifest", async () => {
+  await withTempDir(async (dir) => {
+    // An install made before the TS-native engine carried a committed shell
+    // engine: the engine tree, a root dispatcher, and a hash-tracking manifest.
+    await Deno.mkdir(join(dir, ".icculus/engine/lib"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, ".icculus/engine/finish"),
+      "#!/bin/sh\n",
+    );
+    await Deno.writeTextFile(
+      join(dir, ".icculus/engine/lib/output.sh"),
+      "x() { :; }\n",
+    );
+    await Deno.writeTextFile(join(dir, "agent"), "#!/bin/sh\n");
+    await Deno.mkdir(join(dir, ".icculus"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, ".icculus/manifest.json"),
+      '{ "kit_version": "1.0.0" }\n',
+    );
+    // A seed the step must NOT touch.
+    await Deno.writeTextFile(
+      join(dir, ".icculus/config.toml"),
+      '[project]\nslug = "demo"\n',
+    );
+    // Pre-cutover worktree hooks calling the `./agent` dispatcher that the prune
+    // deletes. The `agent/$name` branch prefix must survive — only `./agent`
+    // names the dispatcher.
+    await Deno.mkdir(join(dir, ".claude"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, ".claude/settings.json"),
+      `${
+        JSON.stringify({
+          hooks: {
+            SessionStart: [{ command: "./agent worktree:ensure" }],
+            WorktreeRemove: [{
+              command:
+                "sh -c 'git worktree add -b agent/$name dir; ./agent worktree:teardown'",
+            }],
+          },
+        })
+      }\n`,
+    );
+    // A pre-cutover .gitignore: it already ignores CLAUDE.md (self-host era) and
+    // carries a user entry, but NOT the now-materialized skills (those were
+    // committed-managed before the cutover).
+    await Deno.writeTextFile(
+      join(dir, ".gitignore"),
+      "/node_modules\n/CLAUDE.md\n",
+    );
+
+    const applied = await applyMigrations({ destDir: dir, from: 4, to: 5 });
+    assertEquals(applied.map((m) => m.from), [4]);
+
+    // The whole shell engine tree, the dispatcher, and the manifest are gone.
+    assertEquals(await targetExists(dir, ".icculus/engine"), false);
+    assertEquals(await targetExists(dir, ".icculus/engine/finish"), false);
+    assertEquals(await targetExists(dir, "agent"), false);
+    assertEquals(await targetExists(dir, ".icculus/manifest.json"), false);
+    // The seed config is untouched.
+    assertEquals(await targetExists(dir, ".icculus/config.toml"), true);
+
+    // The worktree hooks are repointed off the pruned `./agent` at `icculus`,
+    // and the `agent/<name>` branch prefix is left intact.
+    const settings = await Deno.readTextFile(
+      join(dir, ".claude/settings.json"),
+    );
+    assert(!settings.includes("./agent"), "no stale ./agent hook remains");
+    assertStringIncludes(settings, "icculus worktree:ensure");
+    assertStringIncludes(settings, "icculus worktree:teardown");
+    assertStringIncludes(settings, "agent/$name");
+
+    // The materialized skills are now gitignored; the user's entry and the
+    // already-present CLAUDE.md line survive, and CLAUDE.md is not duplicated.
+    const gitignore = await Deno.readTextFile(join(dir, ".gitignore"));
+    assertStringIncludes(gitignore, "/.icculus/skills/");
+    assertStringIncludes(gitignore, "/node_modules");
+    assertEquals(gitignore.match(/^\s*\/?CLAUDE\.md\b/gm)?.length, 1);
+
+    // Idempotent: a re-run over the already-pruned install is a clean no-op —
+    // the hooks stay repointed and the .gitignore gains no duplicate lines.
+    await applyMigrations({ destDir: dir, from: 4, to: 5 });
+    assertEquals(await targetExists(dir, ".icculus/config.toml"), true);
+    assertEquals(
+      await Deno.readTextFile(join(dir, ".claude/settings.json")),
+      settings,
+    );
+    assertEquals(await Deno.readTextFile(join(dir, ".gitignore")), gitignore);
+  });
+});
+
+Deno.test("migration 4→5 is a clean no-op on a fresh install (no shell engine to prune)", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.mkdir(join(dir, ".icculus"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, ".icculus/config.toml"),
+      '[project]\nslug = "demo"\n',
+    );
+    // No engine, no agent, no manifest — the step removes nothing and does not
+    // throw.
+    const applied = await applyMigrations({ destDir: dir, from: 4, to: 5 });
+    assertEquals(applied.map((m) => m.from), [4]);
+    assertEquals(await targetExists(dir, ".icculus/config.toml"), true);
+  });
+});
+
 Deno.test("isChainContiguous accepts a full chain and rejects gaps / dups / wrong length", () => {
   const step = (from: number): Migration => ({
     from,
@@ -290,6 +396,21 @@ Deno.test("context: write / read / exists / remove (idempotent)", async () => {
     await ctx.remove("a/b.txt");
     assertEquals(await ctx.exists("a/b.txt"), false);
     await ctx.remove("a/b.txt"); // already gone — no throw
+  });
+});
+
+Deno.test("context: removeAll deletes a subtree and is idempotent", async () => {
+  await withTempDir(async (dir) => {
+    const ctx = createMigrationContext(dir);
+    await ctx.writeText("tree/sub/leaf.txt", "x"); // creates the nested dirs
+    assertEquals(await ctx.exists("tree/sub/leaf.txt"), true);
+    await ctx.removeAll("tree"); // recursive — removes the whole subtree
+    assertEquals(await ctx.exists("tree"), false);
+    await ctx.removeAll("tree"); // already gone — no throw
+    // A plain file is removed too.
+    await ctx.writeText("solo", "y");
+    await ctx.removeAll("solo");
+    assertEquals(await ctx.exists("solo"), false);
   });
 });
 

@@ -15,6 +15,12 @@ export interface LogOptions {
   json: boolean;
   /** Force colour off regardless of TTY (set by --no-color / NO_COLOR). */
   noColor: boolean;
+  /**
+   * Which stream info/ok/heading/detail go to. "stderr" (the default) suits the
+   * installer (machine JSON on stdout); the engine recipes pass "stdout" to match
+   * the shell `output.sh` (info/ok/heading → stdout, warn/error → stderr).
+   */
+  humanStream?: "stdout" | "stderr";
 }
 
 /** Resolve whether colour should be used for this run. */
@@ -34,11 +40,22 @@ export function colourEnabled(noColor: boolean): boolean {
 export class Logger {
   readonly json: boolean;
   private readonly colour: boolean;
+  private readonly humanStream: "stdout" | "stderr";
 
   /** Build a logger from the resolved run options. */
   constructor(options: LogOptions) {
     this.json = options.json;
     this.colour = colourEnabled(options.noColor);
+    this.humanStream = options.humanStream ?? "stderr";
+  }
+
+  /** Write a human line to the configured stream (stderr by default). */
+  private writeHuman(line: string): void {
+    if (this.humanStream === "stdout") {
+      console.log(line);
+    } else {
+      console.error(line);
+    }
   }
 
   /** Apply a colour transform only when colour is enabled. */
@@ -51,7 +68,7 @@ export class Logger {
     if (this.json) {
       return;
     }
-    console.error(`${this.paint(colors.cyan, "→")} ${message}`);
+    this.writeHuman(`${this.paint(colors.cyan, "→")} ${message}`);
   }
 
   /** Success line (green check). Suppressed in JSON mode. */
@@ -59,7 +76,7 @@ export class Logger {
     if (this.json) {
       return;
     }
-    console.error(`${this.paint(colors.green, "✓")} ${message}`);
+    this.writeHuman(`${this.paint(colors.green, "✓")} ${message}`);
   }
 
   /** Non-fatal warning (yellow bang) to stderr. Suppressed in JSON mode. */
@@ -83,7 +100,7 @@ export class Logger {
     if (this.json) {
       return;
     }
-    console.error(`\n${this.paint(colors.bold, text)}`);
+    this.writeHuman(`\n${this.paint(colors.bold, text)}`);
   }
 
   /** A dimmed detail line, indented under a heading. Suppressed in JSON mode. */
@@ -91,7 +108,7 @@ export class Logger {
     if (this.json) {
       return;
     }
-    console.error(`  ${this.paint(colors.dim, text)}`);
+    this.writeHuman(`  ${this.paint(colors.dim, text)}`);
   }
 
   /** Plain line to stdout (the user-facing channel for human output). */

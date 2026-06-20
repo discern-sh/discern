@@ -1,6 +1,18 @@
 # ADR 0010: Self-host the harness — install icculus into its own repo
 
-**Status**: accepted
+**Status**: accepted; **superseded by
+[ADR 0019](0019-single-binary-ts-engine.md)** — see _Update (single-binary
+cutover)_ below.
+
+## Update (single-binary cutover)
+
+The single-binary cutover ([ADR 0019](0019-single-binary-ts-engine.md)) inverts
+self-host. There is no committed shell harness to install into the repo — the
+engine is TypeScript compiled into the `icculus` binary — so the repo self-hosts
+by running its **own** engine (`deno task dev finish`), with no second copy to
+keep in sync. The drift-gate this ADR established (`selfcheck`/`selfsync`) is
+removed: the regression class it guarded is made structurally impossible,
+because there is nothing that can drift.
 
 ## Context
 

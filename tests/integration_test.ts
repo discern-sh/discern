@@ -2,22 +2,24 @@
  * End-to-end integration against the REAL committed templates tree.
  *
  * Unlike fs_plan_test (which uses a stable synthetic fixture), this asserts the
- * installer scaffolds the actual harness: a parseable `.icculus/config.toml` and a
- * working (executable) `agent`. The real tree grows as other agents add
- * files; auto-discovery means new files don't break this — we assert the stable
- * foundation only.
+ * installer scaffolds the actual harness: a parseable `.icculus/config.toml` with
+ * the schema stamped, materialized skills, and the merged settings. The real
+ * tree grows as other agents add files; auto-discovery means new files don't
+ * break this — we assert the stable foundation only.
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { assembleInitPlan } from "../src/commands/init.ts";
+import type { InitConfig } from "../src/lib/config.ts";
 import { applyPlan } from "../src/lib/fs_plan.ts";
 import { parseIcculusToml } from "../src/lib/toml_render.ts";
-import { parseManifest } from "../src/lib/manifest.ts";
+import { schemaFromRaw } from "../src/lib/schema.ts";
+import { SCHEMA_VERSION } from "../src/lib/version.ts";
 import { REAL_TEMPLATES, withTempDir } from "./helpers.ts";
 
 /** A resolved config for a non-interactive integration scaffold. */
-function integrationConfig() {
+function integrationConfig(): InitConfig {
   return {
     projectName: "Integration Demo",
     slug: "integration-demo",
@@ -55,24 +57,14 @@ Deno.test("init scaffolds the real templates into a working harness", async () =
       }`,
     );
 
-    // 2. agent exists and is executable.
-    const agentInfo = await Deno.stat(join(dir, "agent"));
-    assert(agentInfo.isFile);
-    assertEquals((agentInfo.mode ?? 0) & 0o111 ? "exec" : "noexec", "exec");
+    // 2. The schema version is stamped into the config's [meta] block.
+    assertEquals(schemaFromRaw(toml.raw), SCHEMA_VERSION);
 
-    // 3. The manifest is present, parses, and records managed engine files.
-    const manifest = parseManifest(
-      await Deno.readTextFile(join(dir, ".icculus/manifest.json")),
+    // 3. The bundled skills are materialized under .icculus/skills/.
+    const skillInfo = await Deno.stat(
+      join(dir, ".icculus/skills/bootstrap/SKILL.md"),
     );
-    assertEquals(manifest.project.slug, "integration-demo");
-    assert(
-      manifest.managed.some((e) => e.path === "agent"),
-      "manifest should track agent as managed",
-    );
-    assert(
-      manifest.managed.every((e) => /^[0-9a-f]{64}$/.test(e.sha256)),
-      "every managed entry should carry a 64-hex sha256",
-    );
+    assert(skillInfo.isFile, "the bootstrap skill should be materialized");
 
     // 4. The brief was written verbatim under a header.
     assertStringIncludes(
@@ -90,48 +82,21 @@ Deno.test("init scaffolds the real templates into a working harness", async () =
       JSON.stringify(settings.hooks.WorktreeCreate),
       "agent/",
     );
+
+    // 6. No committed shell engine is laid down — the engine lives in the binary.
+    await assertAbsent(join(dir, "agent"));
+    await assertAbsent(join(dir, ".icculus/engine"));
+    await assertAbsent(join(dir, ".icculus/manifest.json"));
   });
 });
 
-Deno.test("init then upgrade over the real tree leaves managed files up to date", async () => {
-  await withTempDir(async (dir) => {
-    const plan = await assembleInitPlan({
-      templatesDir: REAL_TEMPLATES,
-      destDir: dir,
-      config: integrationConfig(),
-    });
-    await applyPlan(plan);
-
-    const manifest = parseManifest(
-      await Deno.readTextFile(join(dir, ".icculus/manifest.json")),
-    );
-    const { buildPlan } = await import("../src/lib/fs_plan.ts");
-    const { recordedHash } = await import("../src/lib/manifest.ts");
-
-    const up = await buildPlan({
-      templatesDir: REAL_TEMPLATES,
-      destDir: dir,
-      tokens: {
-        project_name: "Integration Demo",
-        project_slug: "integration-demo",
-        branch_prefix: "agent/",
-        agents_array: '"claude_code", "codex"',
-        gotchas_doc: "docs/80-development/finish-gate-gotchas.md",
-        scopes_neutral: '"docs/", ".icculus/", ".claude/"',
-        scopes_web: '"src/**", "app/**"',
-        scopes_previewable: '"public/**"',
-        kit_version: manifest.kit_version,
-      },
-      mode: "upgrade",
-      recordedHash: (rel) => recordedHash(manifest, rel),
-    });
-
-    // Right after init, every managed file matches its recorded hash: all skip.
-    const nonSkip = up.ops.filter((o) => o.disposition !== "skip");
-    assertEquals(
-      nonSkip.map((o) => o.targetRel),
-      [],
-      "a freshly-initialized tree should have nothing to upgrade",
-    );
-  });
-});
+/** Assert a path does NOT exist. */
+async function assertAbsent(path: string): Promise<void> {
+  let exists = true;
+  try {
+    await Deno.stat(path);
+  } catch {
+    exists = false;
+  }
+  assert(!exists, `expected ${path} not to be scaffolded`);
+}

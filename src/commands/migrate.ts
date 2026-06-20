@@ -2,21 +2,22 @@
  * `icculus migrate` — report the install's migration status (ADR 0014).
  *
  * Migrations are a versioned chain that `icculus upgrade` runs automatically
- * (then syncs files and stamps the new schema). This command is the read-only
- * inspection surface: it shows the install's recorded schema version and any
- * steps still pending, and points at `upgrade` to apply them. It deliberately
- * never writes — applying a migration without the file sync would leave a
- * half-migrated install, so applying is upgrade's job alone.
+ * (then re-materializes skills, recompiles guidelines, and stamps the new
+ * schema). This command is the read-only inspection surface: it shows the
+ * install's recorded schema version and any steps still pending, and points at
+ * `upgrade` to apply them. It deliberately never writes — applying a migration
+ * without the rest of the upgrade would leave a half-migrated install, so
+ * applying is upgrade's job alone.
  *
- * The bespoke 0.x→1.0 transform this command once performed was retired with the
- * versioned schema model (ADR 0014): the current shape is schema 1 and the chain
- * starts clean, so a pre-1.0 config is no longer auto-rewritten.
+ * The recorded schema lives in the config under `[meta].schema_version`; a
+ * config predating the field reads as schema 1 (or a legacy manifest's recorded
+ * version), and the chain carries it forward.
  */
 
 import { Logger } from "../lib/log.ts";
 import { resolveConfigPath } from "../lib/paths.ts";
-import { selfCmd } from "../lib/invocation.ts";
-import { loadManifest } from "../lib/manifest.ts";
+import { parseIcculusToml } from "../lib/toml_render.ts";
+import { resolveRecordedSchema } from "../lib/schema.ts";
 import { SCHEMA_VERSION } from "../lib/version.ts";
 import { type Migration, pendingMigrations } from "../lib/migrations.ts";
 
@@ -38,7 +39,8 @@ export async function runMigrate(options: MigrateOptions): Promise<number> {
   const log = new Logger(options);
   const destDir = Deno.cwd();
 
-  if ((await resolveConfigPath(destDir)) === undefined) {
+  const configPath = await resolveConfigPath(destDir);
+  if (configPath === undefined) {
     const message =
       "no icculus install here — run `icculus init` first, or cd into the project root.";
     if (options.json) {
@@ -49,10 +51,16 @@ export async function runMigrate(options: MigrateOptions): Promise<number> {
     return 1;
   }
 
-  // The recorded schema anchors the chain. Absent a manifest we can't know it,
-  // so assume current (nothing pending) — `doctor` flags a missing manifest.
-  const { manifest } = await loadManifest(destDir);
-  const recorded = manifest?.schema_version ?? SCHEMA_VERSION;
+  // The recorded schema anchors the chain. It is read from the config's
+  // `[meta].schema_version` (falling back to a legacy manifest, else schema 1).
+  let raw: Record<string, unknown> = {};
+  try {
+    raw = parseIcculusToml(await Deno.readTextFile(configPath)).raw;
+  } catch {
+    // An unparseable config still reports a status; treat it as having no
+    // recorded schema, so the resolver falls back as it would for a fresh field.
+  }
+  const recorded = await resolveRecordedSchema(raw, destDir);
   const pending = pendingMigrations(recorded, SCHEMA_VERSION, options.registry);
   const code = options.check && pending.length > 0 ? 1 : 0;
 
@@ -81,6 +89,6 @@ export async function runMigrate(options: MigrateOptions): Promise<number> {
     log.detail(`${m.from}→${m.from + 1}: ${m.describe}`);
   }
   log.line();
-  log.info(`Apply them: run \`${await selfCmd("sync")}\`.`);
+  log.info("Apply them: run `icculus upgrade`.");
   return code;
 }

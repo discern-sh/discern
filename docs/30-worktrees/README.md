@@ -2,7 +2,7 @@
 
 _Throwaway git Worktrees so an agent never works in the main checkout._
 
-This subtree covers the Worktree lifecycle. The `agent worktree*` Recipes
+This subtree covers the Worktree lifecycle. The `icculus worktree*` verbs
 provision and tear down an isolated `git worktree` (and its branch) per change,
 each with its **own database** and a **deterministic dev-server port** so
 concurrent Worktrees never collide. The git mechanics are generic; the two
@@ -11,15 +11,14 @@ empty config in `.icculus/config.toml` until a project wires them, so a Worktree
 round is a clean no-op until then (ADR 0007, ADR 0018).
 
 The lifecycle is driven by hooks in `.claude/settings.json`: `SessionStart` →
-[`worktree:ensure`](../../templates/.icculus/engine/worktree-ensure) (idempotent
-setup), `WorktreeCreate` →
-[`worktree`](../../templates/.icculus/engine/worktree) (first-time setup),
-`WorktreeRemove` →
-[`worktree:teardown`](../../templates/.icculus/engine/worktree-teardown). When a
-change is done, [`worktree:exit`](../../templates/.icculus/engine/worktree-exit)
-**graduates** the branch into the main repo and removes the Worktree;
-[`worktree-name`](../../templates/.icculus/engine/worktree-name) resolves a
-Worktree's stable identity (id / site / branch / port / db).
+[`worktree:ensure`](../../src/engine/worktree/lifecycle.ts) (idempotent setup),
+`WorktreeCreate` → [`worktree`](../../src/engine/worktree/lifecycle.ts)
+(first-time setup), `WorktreeRemove` →
+[`worktree:teardown`](../../src/engine/worktree/lifecycle.ts). When a change is
+done, [`worktree:exit`](../../src/engine/worktree/lifecycle.ts) **graduates**
+the branch into the main repo and removes the Worktree;
+[`worktree-name`](../../src/engine/worktree/identity.ts) resolves a Worktree's
+stable identity (id / site / branch / port / db).
 
 > **Status: stub.** This README orients the subtree; the leaves below are not
 > written yet. Fill them with the

@@ -122,8 +122,8 @@ Notes that keep the proposal honest:
 
 ## Step 6 — Compile, capture, and verify
 
-1. Run **`agent guidelines`** to compile `.icculus/guidelines/` + `.icculus/skills/` into the per-agent files (`CLAUDE.md`, `AGENTS.md`, …) and link the skills.
-2. Run **`agent doctor`** to verify the install — dispatcher executable, hooks present, every configured capability command resolvable, git worktree support, required tools on PATH.
+1. Run **`icculus guidelines`** to compile `.icculus/guidelines/` + `.icculus/skills/` into the per-agent files (`CLAUDE.md`, `AGENTS.md`, …) and link the skills.
+2. Run **`icculus doctor`** to verify the install — dispatcher executable, hooks present, every configured capability command resolvable, git worktree support, required tools on PATH.
 3. **Record the deferred wiring in `TODO.md`.** Everything you *proposed but did not activate* is outstanding work — and a comment in `.icculus/config.toml` or a line in your chat reply is not where the next agent (or the maintainer) will look. `TODO.md` is the shared backlog. Add a terse item (a bold title + one line, in the bucket that fits) for each open decision: the capabilities still awaiting confirmation, the `[worktree]` db / dev-server / `inherit_env` / setup settings left empty, any tool worth adding (a static analyser, a JS linter), and any test database or service the suite needs to run. This is what stops the bootstrap proposals from being silently lost when the session ends.
 4. Fix anything `doctor` flags (it returns the exact remedy), then summarise for the user: the principles you drafted, the subtrees you proposed, the capability fills awaiting their confirmation, and the `TODO.md` items you recorded. Point them at the [`document-subsystem`](/.icculus/skills/document-subsystem/SKILL.md) skill as the next step for filling in each subtree's leaves.
 
@@ -137,4 +137,4 @@ Notes that keep the proposal honest:
 - No stale "starts as a skeleton / run `/bootstrap`" notes remain — the `docs/README.md` and `docs/00-orientation/README.md` intros describe the filled tree, not an empty one.
 - `.icculus/config.toml` capability fills are **proposed** for every detected stack (committed only if the user confirms).
 - `TODO.md` records the deferred wiring (unactivated capabilities, empty worktree settings, tools or test databases to add) so no open decision lives only in a comment or the chat.
-- `agent guidelines` and `agent doctor` have been run and `doctor` is green.
+- `icculus guidelines` and `icculus doctor` have been run and `doctor` is green.

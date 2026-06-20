@@ -40,11 +40,11 @@ export interface DocsOptions {
   /** Never page rendered output through `$PAGER`. */
   noPager: boolean;
   /** Override the docs directory (default `<project root>/docs`). */
-  dir?: string;
+  dir?: string | undefined;
   /** Override the wrap width (default: the terminal width, capped). */
-  width?: number;
+  width?: number | undefined;
   /** A specific doc to open (slug, `section/slug`, or path). */
-  target?: string;
+  target?: string | undefined;
 }
 
 /** The machine-readable record for one doc (sans content). */
@@ -149,7 +149,7 @@ async function browse(tree: DocsTree, options: DocsOptions): Promise<number> {
         search: true,
         info: true,
         maxRows: 14,
-        default: last,
+        ...(last !== undefined ? { default: last } : {}),
       });
     } catch {
       // Cancelled (Ctrl-C / Esc) — a clean exit, not an error.

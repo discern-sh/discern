@@ -1,14 +1,15 @@
 # Finish-gate gotchas
 
-_Non-obvious ways `agent finish` fails — each with its fix. The everyday gate
+_Non-obvious ways the `finish` gate fails — each with its fix. The everyday gate
 procedure lives in [getting-started.md](getting-started.md) and
 [code-conventions.md](code-conventions.md); this page is the "why did it fail in
 a way the message didn't explain" reference._
 
-The gate **points an agent here when a stage fails** in a non-obvious way: each
-fix/build/check/test stage runs through `with-gotchas`, which prints a pointer
-to this doc (the path is `[project].gotchas_doc` in `.icculus/config.toml`) when
-its stage exits non-zero. So the explanation is one step away even for an agent
+The gate **points an agent here when a stage fails** in a non-obvious way: when
+a fix/build/check/test stage exits non-zero, the engine's gotchas wiring
+([`src/engine/gate/gotchas.ts`](../../src/engine/gate/gotchas.ts)) prints a
+pointer to this doc (the path is `[project].gotchas_doc` in
+`.icculus/config.toml`). So the explanation is one step away even for an agent
 that has never hit the failure.
 
 These are real failure modes, each with its fix. **If you hit a new one, add it
@@ -24,23 +25,23 @@ gate has something useful to point at on day one.
 
 ### `main` advanced during your session
 
-**Symptom.** Every stage passes, then `agent finish` stops at the very end with
-a message that your branch does not contain the latest `main`. It does **not**
-merge for you.
+**Symptom.** Every stage passes, then `deno task dev finish` stops at the very
+end with a message that your branch does not contain the latest `main`. It does
+**not** merge for you.
 
 **Cause.** The merge check is the gate's **final** step, deliberately — so you
 fix all the real failures first and integrate `main` once, cleanly, at the end.
 While you were working, `main` moved.
 
 **Fix.** Commit your work, run `git merge main`, resolve any conflicts and
-commit the merge, then run `agent finish` again to verify the merged result. (In
-the main checkout, not a worktree, this check is a no-op — there is nothing to
-integrate into.)
+commit the merge, then run `deno task dev finish` again to verify the merged
+result. (In the main checkout, not a worktree, this check is a no-op — there is
+nothing to integrate into.)
 
 ### A check passes alone but fails in the full run
 
 **Symptom.** You run one test (or linter) over the files you changed and it is
-green, but the same step goes red inside `agent finish`.
+green, but the same step goes red inside `deno task dev finish`.
 
 **Cause.** Shared state or ordering. The gate runs the full suite — often in
 parallel — so tests that lean on a shared resource (a file, a database row, a
@@ -65,8 +66,8 @@ half-written while something read them).
 **Fix.** Rebuild from clean and re-run. The gate already orders `build` (and
 `fix`) **before** `check`/`test` so artifacts are complete before anything reads
 them — so if you are hitting this, you likely ran a step by hand out of order,
-or a partial build was left behind. Let `agent finish` run the stages in order
-rather than invoking a check directly against stale output.
+or a partial build was left behind. Let `deno task dev finish` run the stages in
+order rather than invoking a check directly against stale output.
 
 ### A merge pulled in a new dependency
 
@@ -87,15 +88,15 @@ non-zero exit) rather than a clear "not found".
 
 ### A failure shows up as exit 0
 
-**Symptom.** You pipe `agent finish` into `tee`, `tail`, or another command to
-capture its output, and it appears to succeed even though a stage clearly
-failed.
+**Symptom.** You pipe `deno task dev finish` into `tee`, `tail`, or another
+command to capture its output, and it appears to succeed even though a stage
+clearly failed.
 
 **Cause.** A pipeline reports the **last** command's exit code, not the gate's.
 The real non-zero status is masked by the pipe.
 
-**Fix.** Run `agent finish` bare so its true exit code surfaces. If you must
-capture output, use a method that preserves the original exit status (for
+**Fix.** Run `deno task dev finish` bare so its true exit code surfaces. If you
+must capture output, use a method that preserves the original exit status (for
 example, redirect to a file rather than piping, or set your shell's `pipefail`
 option).
 
