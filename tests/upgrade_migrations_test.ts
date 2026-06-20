@@ -22,12 +22,22 @@ async function init(dir: string): Promise<void> {
   );
 }
 
-/** Overwrite the install's recorded schema_version (to model one behind). */
+/** Overwrite the install's recorded `[meta].schema_version` (to model one behind). */
 async function setSchema(dir: string, version: number): Promise<void> {
-  const mp = join(dir, ".icculus/manifest.json");
-  const m = JSON.parse(await Deno.readTextFile(mp));
-  m.schema_version = version;
-  await Deno.writeTextFile(mp, `${JSON.stringify(m, null, 2)}\n`);
+  const p = join(dir, ".icculus/config.toml");
+  const text = await Deno.readTextFile(p);
+  await Deno.writeTextFile(
+    p,
+    text.replace(/schema_version\s*=\s*\d+/, `schema_version = ${version}`),
+  );
+}
+
+/** The recorded `[meta].schema_version` of an install's config. */
+async function recordedSchema(dir: string): Promise<number> {
+  const m = (await readTarget(dir, ".icculus/config.toml")).match(
+    /schema_version\s*=\s*(\d+)/,
+  );
+  return m ? Number(m[1]) : NaN;
 }
 
 /**
@@ -90,9 +100,8 @@ Deno.test("upgrade runs a pending migration before the sync, then stamps the sch
         'branch_prefix = "wt/"',
       ),
     );
-    // And the manifest was stamped to the current schema.
-    const m = JSON.parse(await readTarget(dir, ".icculus/manifest.json"));
-    assertEquals(m.schema_version, SCHEMA_VERSION);
+    // And the config was stamped to the current schema.
+    assertEquals(await recordedSchema(dir), SCHEMA_VERSION);
   });
 });
 
@@ -106,9 +115,8 @@ Deno.test("upgrade re-running an applied migration is a no-op (idempotent fold)"
       apply: (ctx) => ctx.writeText("MIGRATED", "yes\n"),
     }];
     assertEquals(await upgradeIn(dir, chain), 0); // schema 1 → 2, runs
-    // Now at schema 2: re-running finds nothing pending and still succeeds.
+    // Now at the current schema: re-running finds nothing pending, still succeeds.
     assertEquals(await upgradeIn(dir, chain), 0);
-    const m = JSON.parse(await readTarget(dir, ".icculus/manifest.json"));
-    assertEquals(m.schema_version, SCHEMA_VERSION);
+    assertEquals(await recordedSchema(dir), SCHEMA_VERSION);
   });
 });

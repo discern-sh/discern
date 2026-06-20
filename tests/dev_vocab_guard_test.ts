@@ -4,13 +4,13 @@
  *
  * `icculus` is both a product and a self-hosting repo, so two command
  * vocabularies coexist: the user's (`icculus …`) and the kit's own Deno-task
- * aliases (`deno task selfsync` / `selfcheck`). The latter must never reach a
- * user — not in shipped `templates/`, and not in `src/` user-facing output.
+ * aliases (`deno task <task>`). The latter must never reach a user — not in
+ * shipped `templates/` (every project receives it verbatim), and not in any
+ * user-facing output the binary prints. These tests fail the gate if the
+ * vocabulary leaks, so a future command can't quietly reintroduce the regression.
  *
- * `src/lib/invocation.ts` is the single sanctioned home for those alias strings
- * (`selfCmd` renders them only where they apply). These tests fail the gate if
- * the vocabulary leaks anywhere else, so a future command can't quietly
- * reintroduce the regression — the gate teaches the convention on violation.
+ * Since the managed-file machinery (and its `selfsync`/`selfcheck` aliases) was
+ * removed, those alias names should no longer appear anywhere under `src/`.
  */
 
 import { assertEquals } from "@std/assert";
@@ -21,10 +21,8 @@ const REPO_ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
 const SRC = join(REPO_ROOT, "src");
 const TEMPLATES = join(REPO_ROOT, "templates");
 
-/** The Deno-task alias names that are meaningful only inside this repo. */
-const SELF_HOST_TOKENS = ["selfsync", "selfcheck"];
-/** The only `src/` module allowed to name the aliases — it is what renders them. */
-const SANCTIONED = join("src", "lib", "invocation.ts");
+/** The retired Deno-task alias names that should no longer exist anywhere. */
+const RETIRED_TOKENS = ["selfsync", "selfcheck"];
 
 /** Every file under `root`, as `[repo-relative path, contents]`. */
 async function textFiles(root: string): Promise<Array<[string, string]>> {
@@ -41,24 +39,24 @@ async function textFiles(root: string): Promise<Array<[string, string]>> {
   return out;
 }
 
-Deno.test("self-host command vocabulary stays out of src/ (except the renderer)", async () => {
+Deno.test("the retired self-host aliases appear nowhere under src/", async () => {
   const offenders: string[] = [];
   for (const [rel, text] of await textFiles(SRC)) {
-    if (rel === SANCTIONED) continue;
-    for (const token of SELF_HOST_TOKENS) {
+    for (const token of RETIRED_TOKENS) {
       if (text.includes(token)) offenders.push(`${rel} contains "${token}"`);
     }
   }
   assertEquals(
     offenders,
     [],
-    "self-host vocabulary leaked into user-facing code — render commands " +
-      `through selfCmd() in ${SANCTIONED}:\n  ${offenders.join("\n  ")}`,
+    `retired self-host vocabulary still present under src/:\n  ${
+      offenders.join("\n  ")
+    }`,
   );
 });
 
 Deno.test("shipped templates/ never name engine-developer commands", async () => {
-  const banned = ["deno task", ...SELF_HOST_TOKENS];
+  const banned = ["deno task", ...RETIRED_TOKENS];
   const offenders: string[] = [];
   for (const [rel, text] of await textFiles(TEMPLATES)) {
     for (const token of banned) {

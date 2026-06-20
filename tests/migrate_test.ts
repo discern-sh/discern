@@ -20,10 +20,12 @@ async function init(dir: string): Promise<void> {
 }
 
 async function setSchema(dir: string, version: number): Promise<void> {
-  const mp = join(dir, ".icculus/manifest.json");
-  const m = JSON.parse(await Deno.readTextFile(mp));
-  m.schema_version = version;
-  await Deno.writeTextFile(mp, `${JSON.stringify(m, null, 2)}\n`);
+  const p = join(dir, ".icculus/config.toml");
+  const text = await Deno.readTextFile(p);
+  await Deno.writeTextFile(
+    p,
+    text.replace(/schema_version\s*=\s*\d+/, `schema_version = ${version}`),
+  );
 }
 
 /** Run `runMigrate` in-process against `dir` (resolves from Deno.cwd()). */
@@ -147,8 +149,8 @@ Deno.test("migrate --json lists the pending step from a rewound schema", async (
     const res = JSON.parse(r.stdout);
     assertEquals(res.ok, false);
     assertEquals(res.schema.recorded, 1);
-    assertEquals(res.schema.current, 4);
-    assertEquals(res.pending_migrations.length, 3);
+    assertEquals(res.schema.current, 5);
+    assertEquals(res.pending_migrations.length, 4);
     assertEquals(res.pending_migrations[0].from, 1);
     assertEquals(res.pending_migrations[0].to, 2);
     assertStringIncludes(res.pending_migrations[0].describe, "main_branch");

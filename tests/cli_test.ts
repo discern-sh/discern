@@ -19,6 +19,21 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
+/** Assert a path does NOT exist on disk. */
+async function assertNotExists(path: string): Promise<void> {
+  assert(!(await pathExists(path)), `expected ${path} not to exist`);
+}
+
+/** Rewrite an install's recorded `[meta].schema_version`. */
+async function setSchema(dir: string, version: number): Promise<void> {
+  const p = join(dir, ".icculus/config.toml");
+  const text = await Deno.readTextFile(p);
+  await Deno.writeTextFile(
+    p,
+    text.replace(/schema_version\s*=\s*\d+/, `schema_version = ${version}`),
+  );
+}
+
 Deno.test("--version prints the kit version", async () => {
   await withTempDir(async (dir) => {
     const { code, stdout } = await runCli(["--version"], dir);
@@ -39,10 +54,16 @@ Deno.test("init --yes --json scaffolds and reports JSON", async () => {
     assertEquals(result.project.slug, "cli-demo");
     assert(Array.isArray(result.written));
     assert(result.written.includes(".icculus/config.toml"));
-    assert(result.written.includes("agent"));
+    // A materialized skill is written (always, gitignored).
+    assert(
+      result.written.some((p: string) => p.startsWith(".icculus/skills/")),
+      "init should materialize the bundled skills",
+    );
     // The files really landed.
     await Deno.stat(join(dir, ".icculus/config.toml"));
-    await Deno.stat(join(dir, "agent"));
+    await Deno.stat(join(dir, ".icculus/skills"));
+    // No committed shell engine: there is no root `agent` dispatcher.
+    await assertNotExists(join(dir, "agent"));
   });
 });
 
@@ -79,7 +100,7 @@ Deno.test("init refuses over an existing .icculus/config.toml without --force", 
   });
 });
 
-Deno.test("init --force proceeds over an existing install", async () => {
+Deno.test("init --force proceeds over an existing install (re-runs without erroring)", async () => {
   await withTempDir(async (dir) => {
     await runCli(["init", "--yes", "--json", "--slug", "first"], dir);
     const { code, stdout } = await runCli(
@@ -89,53 +110,37 @@ Deno.test("init --force proceeds over an existing install", async () => {
     assertEquals(code, 0);
     const result = JSON.parse(stdout);
     assertEquals(result.ok, true);
-    // A pristine re-install refreshes nothing into `.new`.
-    assertEquals(result.new_files, []);
+    // The existing config seed is left as-is (a present seed is skipped), so it
+    // is not in the written list.
+    assert(!result.written.includes(".icculus/config.toml"));
+    // The materialized skills are always re-written, so they are.
+    assert(
+      result.written.some((p: string) => p.startsWith(".icculus/skills/")),
+    );
   });
 });
 
-Deno.test("init preserves a pre-existing managed file: .new in plan and result JSON", async () => {
+Deno.test("init leaves a pre-existing seed file untouched (no overwrite, no .new)", async () => {
   await withTempDir(async (dir) => {
-    // A repo already carrying a same-named managed file, no icculus manifest.
-    await Deno.mkdir(join(dir, ".icculus/engine"), { recursive: true });
+    // A repo already carrying a file at a seed path the kit would scaffold.
+    await Deno.mkdir(join(dir, ".icculus/guidelines"), { recursive: true });
+    const userBody = "# the user's own guideline — must survive init\n";
     await Deno.writeTextFile(
-      join(dir, ".icculus/engine/finish"),
-      "#!/bin/sh\n# the user's own finish recipe\n",
+      join(dir, ".icculus/guidelines/demo.md"),
+      userBody,
     );
 
-    // 1. Dry-run --json must show the `.new` disposition without writing.
-    const dry = await runCli(
-      ["init", "--yes", "--dry-run", "--json", "--slug", "demo"],
-      dir,
-    );
-    assertEquals(dry.code, 0);
-    const dryResult = JSON.parse(dry.stdout);
-    const newOp = dryResult.plan.find((op: { path: string }) =>
-      op.path === ".icculus/engine/finish.new"
-    );
-    assert(newOp, "dry-run plan should contain a .new op for the managed file");
-    assertEquals(newOp.action, "new");
-    // Dry-run wrote nothing: no manifest, no .new on disk.
-    assert(!(await pathExists(join(dir, ".icculus/engine/finish.new"))));
-    assert(!(await pathExists(join(dir, ".icculus/config.toml"))));
-
-    // 2. The real run preserves the original and reports the `.new` in JSON.
-    const { code, stdout } = await runCli(
+    const { code } = await runCli(
       ["init", "--yes", "--json", "--slug", "demo"],
       dir,
     );
     assertEquals(code, 0);
-    const result = JSON.parse(stdout);
-    assert(
-      result.new_files.includes(".icculus/engine/finish.new"),
-      "result JSON should list the preserved file's .new sibling",
+    // The user's file is byte-for-byte intact; no `.new` sibling is produced.
+    assertEquals(
+      await Deno.readTextFile(join(dir, ".icculus/guidelines/demo.md")),
+      userBody,
     );
-    // Original survived byte-for-byte; the kit's version is alongside.
-    assertStringIncludes(
-      await Deno.readTextFile(join(dir, ".icculus/engine/finish")),
-      "the user's own finish recipe",
-    );
-    await Deno.stat(join(dir, ".icculus/engine/finish.new"));
+    await assertNotExists(join(dir, ".icculus/guidelines/demo.md.new"));
   });
 });
 
@@ -171,10 +176,7 @@ Deno.test("doctor flags a stale schema version and points at upgrade", async () 
       0,
     );
     // Model an install left a schema behind (a migration shipped since).
-    const mp = join(dir, ".icculus/manifest.json");
-    const m = JSON.parse(await Deno.readTextFile(mp));
-    m.schema_version = 0;
-    await Deno.writeTextFile(mp, `${JSON.stringify(m, null, 2)}\n`);
+    await setSchema(dir, 1);
 
     const { stdout } = await runCli(["doctor", "--json"], dir);
     const result = JSON.parse(stdout);

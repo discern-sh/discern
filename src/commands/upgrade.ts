@@ -1,53 +1,48 @@
 /**
- * `icculus upgrade` — refresh only the managed files, hash-aware.
+ * `icculus upgrade` — bring an install forward to the current kit.
  *
- * For each managed file in the new templates tree:
- *   missing               → write it.
- *   present and pristine  → overwrite (current hash matches the manifest).
- *   present but edited    → write `<path>.new`, preserve the original, warn.
- * New managed files are written. SEED files are never touched. The manifest's
- * kit version and managed hashes are bumped to reflect the new state.
+ * The managed-file/hash machinery is gone (there is no committed engine to keep
+ * in sync — the engine lives in the binary). What remains is narrow and additive:
+ *
+ *   1. run any pending config-schema migrations (ADR 0014);
+ *   2. re-materialize the bundled skills into `.icculus/skills/` (always
+ *      overwritten — they are the binary's artifact, not the user's);
+ *   3. recompile the guidelines (which also reconciles the `.claude/skills/`
+ *      symlinks against the freshly materialized skills);
+ *   4. stamp the new `[meta].schema_version` into the config.
+ *
+ * Seed files (`.icculus/config.toml`, guidelines, brief, …) are never touched.
+ * The clean-tree git guard keeps the upgrade revertible.
  */
 
-import { join } from "@std/path";
 import { Logger } from "../lib/log.ts";
-import { selfCmd } from "../lib/invocation.ts";
 import { worktreeState } from "../lib/git.ts";
 import { resolveConfigPath, resolveTemplatesDir } from "../lib/paths.ts";
 import { parseIcculusToml } from "../lib/toml_render.ts";
 import { DEFAULTS, type InitConfig, tokensFromConfig } from "../lib/config.ts";
 import { KIT_VERSION, SCHEMA_VERSION } from "../lib/version.ts";
-import {
-  buildManifest,
-  loadManagedSpec,
-  type Manifest,
-  parseManifest,
-  recordedHash as lookupRecordedHash,
-  serializeManifest,
-} from "../lib/manifest.ts";
+import { resolveRecordedSchema, stampSchemaVersion } from "../lib/schema.ts";
+import { TomlEditor } from "../lib/toml_edit.ts";
 import {
   applyPlan,
   buildPlan,
-  newFilesFromPlan,
-  type OrphanKept,
+  isMaterialized,
   type Plan,
   type PlanOp,
-  planOrphanRemovals,
-  reconcileManagedEntries,
 } from "../lib/fs_plan.ts";
 import {
   applyMigrations,
   type Migration,
   pendingMigrations,
 } from "../lib/migrations.ts";
-import { planToJson, renderUpgradeSummary } from "../lib/plan_view.ts";
+import { compileGuidelines } from "../engine/guidelines.ts";
 
 /** Options accepted by the `upgrade` command. */
 export interface UpgradeOptions {
   json: boolean;
   noColor: boolean;
   dryRun: boolean;
-  /** Report drift (managed files out of sync with templates/) and exit; write nothing. */
+  /** Report whether config migrations are pending and exit; write nothing. */
   check: boolean;
   /** Upgrade even with uncommitted tracked changes (skip the clean-tree guard). */
   allowDirty: boolean;
@@ -73,9 +68,9 @@ async function readTextIfExists(path: string): Promise<string | undefined> {
 
 /**
  * Reconstruct the content tokens an upgrade needs from the project's existing
- * `.icculus/config.toml` and manifest. Managed engine files are token-free, so the only
- * path token that matters is the slug; content tokens are filled from config
- * with documented defaults so any stray token still resolves consistently.
+ * `.icculus/config.toml`. Materialized skills are token-free, so the only path
+ * token that matters is the slug; content tokens are filled from config with
+ * documented defaults so any stray token still resolves consistently.
  */
 function tokensForUpgrade(
   toml: ReturnType<typeof parseIcculusToml>,
@@ -91,6 +86,26 @@ function tokensForUpgrade(
         ? toml.project.agents
         : [...DEFAULTS.agents]) as InitConfig["agents"],
   };
+}
+
+/**
+ * Build the materialization plan: the full templates walk filtered to the
+ * always-overwritten `.icculus/skills/**` artifacts. Seed files are deliberately
+ * excluded — `upgrade` refreshes the binary's artifacts, it never re-scaffolds
+ * the user's seeds.
+ */
+async function buildSkillsPlan(
+  templatesDir: string,
+  destDir: string,
+  config: InitConfig,
+): Promise<Plan> {
+  const plan = await buildPlan({
+    templatesDir,
+    destDir,
+    tokens: tokensFromConfig(config),
+  });
+  plan.ops = plan.ops.filter((op) => isMaterialized(op.targetRel));
+  return plan;
 }
 
 /** Run `icculus upgrade`. Returns a process exit code. */
@@ -129,25 +144,6 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     return 1;
   }
 
-  // Load the existing manifest (for the recorded hashes that decide overwrite vs .new).
-  const manifestPath = join(destDir, ".icculus/manifest.json");
-  const manifestText = await readTextIfExists(manifestPath);
-  let manifest: Manifest | undefined;
-  if (manifestText !== undefined) {
-    try {
-      manifest = parseManifest(manifestText);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      log.warn(
-        `could not parse existing manifest (${message}); treating all managed files as edited.`,
-      );
-    }
-  } else {
-    log.warn(
-      "no .icculus/manifest.json found; treating all managed files as edited.",
-    );
-  }
-
   let templatesDir: string;
   try {
     templatesDir = await resolveTemplatesDir();
@@ -162,15 +158,11 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
   }
 
   const config = tokensForUpgrade(toml);
-  const tokens = tokensFromConfig(config);
-  const managedSpec = await loadManagedSpec(templatesDir);
 
-  // The migration chain to run before the file sync (ADR 0014): every step from
-  // the install's recorded schema up to this build's SCHEMA_VERSION. Absent a
-  // manifest we cannot know the version, so we run none — the file sync still
-  // heals managed files. The chain is empty at schema 1, so `pending` is [] for
-  // every current install today; Phase 2's rename is the first real step.
-  const migrateFrom = manifest?.schema_version ?? SCHEMA_VERSION;
+  // The migration chain to run: every step from the install's recorded schema
+  // (read from `[meta].schema_version`, falling back to a legacy manifest or
+  // schema 1) up to this build's SCHEMA_VERSION.
+  const migrateFrom = await resolveRecordedSchema(toml.raw, destDir);
   const pending = pendingMigrations(
     migrateFrom,
     SCHEMA_VERSION,
@@ -182,125 +174,51 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     describe: m.describe,
   }));
 
-  // Build the file-sync plan and its orphan reconciliation against the *current*
-  // disk. Called once up front (for --check / --dry-run and the initial apply),
-  // then again after migrations run, since a step may have moved or rewritten
-  // files the plan must re-examine.
-  const buildUpgradePlan = async (): Promise<{
-    plan: Plan;
-    orphans: { removals: PlanOp[]; kept: OrphanKept[] };
-  }> => {
-    const p = await buildPlan({
-      templatesDir,
-      destDir,
-      tokens,
-      mode: "upgrade",
-      recordedHash: (targetRel) =>
-        manifest ? lookupRecordedHash(manifest, targetRel) : undefined,
-      managedSpec,
-    });
-    const o = manifest
-      ? await planOrphanRemovals({
-        destDir,
-        recorded: manifest.managed,
-        plan: p,
-      })
-      : { removals: [] as PlanOp[], kept: [] as OrphanKept[] };
-    p.ops.push(...o.removals);
-    p.ops.sort((a, b) => a.targetRel.localeCompare(b.targetRel));
-    return { plan: p, orphans: o };
-  };
-
-  let { plan, orphans } = await buildUpgradePlan();
-
+  // --check: report whether config migrations are pending. There is no managed
+  // drift any more — an install is current iff its schema is current.
   if (options.check) {
-    // A managed file is in sync iff its disposition is "skip". An edited managed
-    // file's op targets "<path>.new"; strip that so we report the canonical path.
-    const drifted = plan.ops.filter(
-      (op) => op.managed && op.disposition !== "skip",
-    );
-    const canonical = (rel: string) => rel.replace(/\.new$/, "");
-    // Schema currency is drift too (ADR 0014, the self-host canary): an install
-    // recorded at an older schema than this build needs an upgrade to migrate.
-    // An absent manifest is already reported above as all-files-drift, so it is
-    // not double-counted here.
-    const recordedSchema = manifest?.schema_version;
-    const schemaOk = recordedSchema === undefined ||
-      recordedSchema === SCHEMA_VERSION;
-    const ok = drifted.length === 0 && schemaOk;
+    const ok = pending.length === 0;
     if (options.json) {
       log.jsonResult({
         ok,
         check: true,
-        drifted: drifted.map((op) => ({
-          path: canonical(op.targetRel),
-          action: op.disposition,
-        })),
-        schema: { recorded: recordedSchema ?? null, current: SCHEMA_VERSION },
+        schema: { recorded: migrateFrom, current: SCHEMA_VERSION },
         pending_migrations: pendingJson,
-        orphans_kept: orphans.kept.map((o) => o.path),
       });
+    } else if (ok) {
+      log.ok(`Install is up to date (schema ${SCHEMA_VERSION}).`);
     } else {
-      if (ok) {
-        log.ok("Managed files are in sync with templates/.");
-      } else {
-        if (drifted.length > 0) {
-          log.error(
-            `Managed files have drifted from templates/ (${drifted.length}):`,
-          );
-          for (const op of drifted) {
-            log.detail(`${canonical(op.targetRel)} (${op.disposition})`);
-          }
-        }
-        if (!schemaOk) {
-          log.error(
-            `Install schema is v${recordedSchema}, but this build expects v${SCHEMA_VERSION}.`,
-          );
-          for (const m of pending) {
-            log.detail(`migration ${m.from}→${m.from + 1}: ${m.describe}`);
-          }
-        }
-        log.line();
-        log.info(`Heal it: run \`${await selfCmd("sync")}\`.`);
+      log.error(
+        `Install schema is v${migrateFrom}, but this build expects v${SCHEMA_VERSION}.`,
+      );
+      for (const m of pending) {
+        log.detail(`migration ${m.from}→${m.from + 1}: ${m.describe}`);
       }
-      warnKeptOrphans(log, orphans.kept);
+      log.line();
+      log.info("Apply it: run `icculus upgrade`.");
     }
     return ok ? 0 : 1;
   }
 
   if (options.dryRun) {
+    const skillsPlan = await buildSkillsPlan(templatesDir, destDir, config);
     if (options.json) {
       log.jsonResult({
         ok: true,
         dry_run: true,
         pending_migrations: pendingJson,
-        plan: planToJson(plan),
+        skills: skillsPlan.ops.map((op) => op.targetRel),
       });
     } else {
       if (pending.length > 0) {
-        log.info(`Would run ${pending.length} migration(s) first:`);
+        log.info(`Would run ${pending.length} migration(s):`);
         for (const m of pending) {
           log.detail(`${m.from}→${m.from + 1}: ${m.describe}`);
         }
         log.line();
       }
-      // Group the plan exactly as the post-apply summary does, so a dry run
-      // reads the same way (not a flat, intermingled list).
-      const wouldRefresh = plan.ops.filter((op) =>
-        op.managed &&
-        (op.disposition === "overwrite" || op.disposition === "create")
-      );
-      const upToDate = plan.ops.filter((op) =>
-        op.managed && op.disposition === "skip"
-      );
-      const toRemove = plan.ops.filter((op) => op.disposition === "remove");
-      renderUpgradeSummary(
-        log,
-        wouldRefresh,
-        upToDate,
-        newFilesFromPlan(plan),
-        toRemove,
-        { dryRun: true },
+      log.info(
+        `Would re-materialize ${skillsPlan.ops.length} skill file(s) and recompile guidelines.`,
       );
       log.line();
       log.info("No files were written (--dry-run).");
@@ -343,10 +261,8 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     }
   }
 
-  // Run the migration chain before the file sync (ADR 0014). A step may move or
-  // rewrite files, so if any ran, rebuild the plan against the post-migration
-  // disk before applying. The chain is empty at schema 1, so this is a no-op for
-  // every current install today.
+  // 1. Run the migration chain. Steps are idempotent; the final one prunes any
+  // pre-existing on-disk shell engine.
   const applied = await applyMigrations({
     destDir,
     from: migrateFrom,
@@ -354,45 +270,44 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     registry: options.registry,
     onNote: (m) => log.detail(m),
   });
-  if (applied.length > 0) {
-    ({ plan, orphans } = await buildUpgradePlan());
+
+  // 2. Re-materialize the bundled skills (always overwritten).
+  const skillsPlan = await buildSkillsPlan(templatesDir, destDir, config);
+  const materialized = await applyPlan(skillsPlan);
+
+  // 3. Recompile guidelines (also reconciles the .claude/skills/ symlinks). A
+  // failure here is non-fatal to the upgrade — the schema is still stamped — but
+  // it is reported.
+  let guidelinesOk = true;
+  try {
+    // Pass upgrade's own logger so its narration follows upgrade's stream
+    // discipline (suppressed in --json, stderr in human mode) — never polluting
+    // the stdout JSON object.
+    await compileGuidelines(destDir, log);
+  } catch (error) {
+    guidelinesOk = false;
+    log.warn(
+      `could not recompile guidelines: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
   }
 
-  const changed = await applyPlan(plan);
-
-  // Rebuild the manifest: keep prior entries for managed files we didn't touch
-  // this round (still on disk), and record fresh hashes for everything written.
-  const refreshed = changed.filter((op) =>
-    op.disposition === "overwrite" || op.disposition === "create"
-  );
-  const newFiles = newFilesFromPlan(plan);
-  const preserved = plan.ops.filter((op) =>
-    op.disposition === "skip" && op.managed
-  );
-  const removed = changed.filter((op) => op.disposition === "remove");
-
-  const updatedManifest = await rebuildManifest({
-    config,
-    plan,
-    previous: manifest,
-    destDir,
-  });
-  await Deno.writeTextFile(manifestPath, serializeManifest(updatedManifest));
+  // 4. Stamp the new schema version into the config.
+  await stampSchema(configPath!, SCHEMA_VERSION);
 
   if (options.json) {
     log.jsonResult({
       ok: true,
       kit_version: KIT_VERSION,
+      schema: { recorded: migrateFrom, current: SCHEMA_VERSION },
       migrations_applied: applied.map((m) => ({
         from: m.from,
         to: m.from + 1,
         describe: m.describe,
       })),
-      refreshed: refreshed.map((op) => op.targetRel),
-      preserved: preserved.map((op) => op.targetRel),
-      new_files: newFiles.map((op) => op.targetRel),
-      removed: removed.map((op) => op.targetRel),
-      orphans_kept: orphans.kept.map((o) => o.path),
+      skills_materialized: materialized.map((op) => op.targetRel),
+      guidelines_compiled: guidelinesOk,
     });
     return 0;
   }
@@ -403,59 +318,37 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
       log.detail(`${m.from}→${m.from + 1}: ${m.describe}`);
     }
   }
-  renderUpgradeSummary(log, refreshed, preserved, newFiles, removed);
-  warnKeptOrphans(log, orphans.kept);
+  renderUpgradeSummary(log, materialized, applied.length, guidelinesOk);
   return 0;
 }
 
 /**
- * Warn about managed orphans left in place: files the new templates no longer
- * ship but whose on-disk copy is not the kit's (edited, or a foreign same-named
- * file). They are reported, never deleted — a safe rename that must carry edits
- * forward is an explicit migration step, not an automatic prune. No-op when the
- * list is empty.
+ * Render the human upgrade summary: how many skills were re-materialized and
+ * whether guidelines recompiled. The schema stamp is implicit (it always runs).
  */
-function warnKeptOrphans(log: Logger, kept: OrphanKept[]): void {
-  if (kept.length === 0) {
-    return;
+function renderUpgradeSummary(
+  log: Logger,
+  materialized: PlanOp[],
+  migrationCount: number,
+  guidelinesOk: boolean,
+): void {
+  log.heading("Upgrade summary");
+  if (migrationCount > 0) {
+    log.info(`migrations applied: ${migrationCount}`);
   }
-  log.line();
-  log.warn(
-    `${kept.length} managed file${
-      kept.length === 1 ? "" : "s"
-    } no longer shipped but kept (your copy differs from the kit's):`,
-  );
-  for (const o of kept) {
-    log.detail(`${o.path} — ${o.reason}`);
+  log.ok(`skills re-materialized: ${materialized.length}`);
+  if (guidelinesOk) {
+    log.ok("guidelines recompiled");
   }
+  log.ok(`install stamped at schema ${SCHEMA_VERSION}`);
 }
 
-/**
- * Produce the post-upgrade manifest. Its managed entries are reconciled against
- * what is on disk *now* — after migrations and `applyPlan` (see
- * `reconcileManagedEntries`): every managed file the kit wrote this round, plus
- * any prior entry whose file still exists (an edited orphan, or the canonical
- * path of a `.new`). Removed orphans and migration-renamed-away paths are gone
- * from disk, so they drop out — no `remove`-op bookkeeping needed.
- */
-async function rebuildManifest(params: {
-  config: InitConfig;
-  plan: Plan;
-  previous?: Manifest | undefined;
-  destDir: string;
-}): Promise<Manifest> {
-  const { config, plan, previous, destDir } = params;
-  const managed = await reconcileManagedEntries({
-    destDir,
-    previous: previous?.managed ?? [],
-    plan,
-  });
-  return buildManifest({
-    kitVersion: KIT_VERSION,
-    schemaVersion: SCHEMA_VERSION,
-    generatedAt: new Date().toISOString(),
-    slug: config.slug,
-    agents: config.agents,
-    managed,
-  });
+/** Stamp `[meta].schema_version` into the config at `configPath`, in place. */
+async function stampSchema(
+  configPath: string,
+  version: number,
+): Promise<void> {
+  const editor = new TomlEditor(await Deno.readTextFile(configPath));
+  stampSchemaVersion(editor, version);
+  await Deno.writeTextFile(configPath, editor.toString());
 }

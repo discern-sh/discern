@@ -79,13 +79,14 @@ async function lstat(path: string): Promise<Deno.FileInfo | undefined> {
  */
 export async function compileGuidelines(
   root: string,
+  logger?: Logger,
 ): Promise<GuidelinesResult> {
-  // Engine recipe: info/ok → stdout (matching the shell `output.sh`).
-  const log = new Logger({
-    json: false,
-    noColor: false,
-    humanStream: "stdout",
-  });
+  // info/ok → stdout (matching the shell `output.sh`), UNLESS the caller passes
+  // its own logger to control the stream — e.g. `upgrade --json` passes its
+  // json-mode logger so this narration is suppressed and the JSON object stays
+  // the only thing on stdout.
+  const log = logger ??
+    new Logger({ json: false, noColor: false, humanStream: "stdout" });
 
   const sourcesDir = join(root, ".icculus/guidelines");
   const skillsDir = join(root, ".icculus/skills");

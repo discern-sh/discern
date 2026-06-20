@@ -162,11 +162,8 @@ export function attachEngineCommands(root: Command): void {
       "Compile .icculus/guidelines/* into the agent files + link skills.",
     )
     .action(async () => {
-      const r = await compileGuidelines(await requireRoot());
-      const log = makeLogger();
-      log.ok(
-        `guidelines: compiled ${r.agentsWritten.length} agent file(s); ${r.skillsLinked} skill(s) linked, ${r.skillsPruned} pruned.`,
-      );
+      // compileGuidelines narrates to stdout via its default logger.
+      await compileGuidelines(await requireRoot());
       Deno.exit(0);
     });
 

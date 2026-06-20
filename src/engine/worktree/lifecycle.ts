@@ -45,6 +45,7 @@ import {
 // `worktree` recipe's step 8). If the module is not present yet at integration
 // time, this import is the single seam to wire up.
 import { compileGuidelines } from "../guidelines.ts";
+import { materializeSkills } from "../../lib/skills.ts";
 
 /** Context shared by every lifecycle operation. */
 export interface LifecycleContext {
@@ -318,10 +319,18 @@ export async function worktreeSetup(ctx: LifecycleContext): Promise<void> {
     }
   }
 
-  // 8. compile agent guidelines (non-fatal)
+  // 8. materialize the bundled skills into THIS worktree, then compile the agent
+  // guidelines (which links the skills into .claude/skills/). A linked worktree
+  // does NOT inherit the gitignored .icculus/skills/ from the main checkout, so
+  // it must be materialized here or there would be nothing to link. Non-fatal.
+  try {
+    await materializeSkills(ctx.root);
+  } catch {
+    ctx.log.warn("Skill materialization reported an error — continuing.");
+  }
   ctx.log.info("Compiling agent guidelines…");
   try {
-    await compileGuidelines(ctx.root);
+    await compileGuidelines(ctx.root, ctx.log);
   } catch {
     ctx.log.warn("Guideline compilation reported an error — continuing.");
   }
