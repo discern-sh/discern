@@ -224,6 +224,16 @@ Deno.test("a legacy install whose schema lives only in a manifest upgrades and p
         })
       }\n`,
     );
+    // A pre-cutover install committed its skills; model that by removing the
+    // materialized-skills ignore from the init-written .gitignore.
+    const giPath = join(dir, ".gitignore");
+    await Deno.writeTextFile(
+      giPath,
+      (await Deno.readTextFile(giPath))
+        .split("\n")
+        .filter((l) => !/\.icculus\/skills/.test(l))
+        .join("\n"),
+    );
 
     const res = await upgrade(dir);
     // The legacy manifest anchored the chain at schema 4 → only 4→5 runs.
@@ -242,6 +252,11 @@ Deno.test("a legacy install whose schema lives only in a manifest upgrades and p
       "hooks still call the deleted ./agent",
     );
     assertStringIncludes(settings, "icculus worktree:ensure");
+    // …the now-materialized skills are gitignored again…
+    assertStringIncludes(
+      await readTarget(dir, ".gitignore"),
+      "/.icculus/skills/",
+    );
     // …and the schema is now stamped in the config the user owns.
     assertEquals(await recordedSchema(dir), res.schema.current);
   });

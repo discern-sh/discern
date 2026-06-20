@@ -250,6 +250,13 @@ Deno.test("migration 4→5 prunes a pre-existing on-disk shell engine, agent, an
         })
       }\n`,
     );
+    // A pre-cutover .gitignore: it already ignores CLAUDE.md (self-host era) and
+    // carries a user entry, but NOT the now-materialized skills (those were
+    // committed-managed before the cutover).
+    await Deno.writeTextFile(
+      join(dir, ".gitignore"),
+      "/node_modules\n/CLAUDE.md\n",
+    );
 
     const applied = await applyMigrations({ destDir: dir, from: 4, to: 5 });
     assertEquals(applied.map((m) => m.from), [4]);
@@ -272,14 +279,22 @@ Deno.test("migration 4→5 prunes a pre-existing on-disk shell engine, agent, an
     assertStringIncludes(settings, "icculus worktree:teardown");
     assertStringIncludes(settings, "agent/$name");
 
+    // The materialized skills are now gitignored; the user's entry and the
+    // already-present CLAUDE.md line survive, and CLAUDE.md is not duplicated.
+    const gitignore = await Deno.readTextFile(join(dir, ".gitignore"));
+    assertStringIncludes(gitignore, "/.icculus/skills/");
+    assertStringIncludes(gitignore, "/node_modules");
+    assertEquals(gitignore.match(/^\s*\/?CLAUDE\.md\b/gm)?.length, 1);
+
     // Idempotent: a re-run over the already-pruned install is a clean no-op —
-    // the hooks stay repointed (no `./agent` left to swap again).
+    // the hooks stay repointed and the .gitignore gains no duplicate lines.
     await applyMigrations({ destDir: dir, from: 4, to: 5 });
     assertEquals(await targetExists(dir, ".icculus/config.toml"), true);
     assertEquals(
       await Deno.readTextFile(join(dir, ".claude/settings.json")),
       settings,
     );
+    assertEquals(await Deno.readTextFile(join(dir, ".gitignore")), gitignore);
   });
 });
 

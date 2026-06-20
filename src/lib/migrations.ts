@@ -322,6 +322,30 @@ export const MIGRATIONS: Migration[] = [
         ".claude/settings.json",
         (t) => t.replaceAll("./agent", "icculus"),
       );
+      // A pre-cutover install committed its skills (they were managed) and may not
+      // ignore the now-materialized/compiled artifacts. Ensure `.gitignore` ignores
+      // them — append only what is missing (idempotent), never clobbering the
+      // user's file. Untracking already-committed copies (`git rm --cached`) is a
+      // git-index operation left to the operator; a migration only edits files.
+      const ignore = (await ctx.readText(".gitignore")) ?? "";
+      const wantIgnore: Array<[RegExp, string]> = [
+        [/^\s*\/?\.icculus\/skills\b/m, "/.icculus/skills/"],
+        [/^\s*\/?CLAUDE\.md\b/m, "/CLAUDE.md"],
+      ];
+      const missingIgnore = wantIgnore
+        .filter(([re]) => !re.test(ignore))
+        .map(([, line]) => line);
+      if (missingIgnore.length > 0) {
+        const block = [
+          "# icculus: materialized/compiled artifacts (re-published on upgrade)",
+          ...missingIgnore,
+        ].join("\n");
+        const base = ignore === "" ? "" : `${ignore.replace(/\n+$/, "")}\n\n`;
+        await ctx.writeText(".gitignore", `${base}${block}\n`);
+        ctx.note(
+          `gitignored materialized artifacts: ${missingIgnore.join(", ")}`,
+        );
+      }
       if (had) {
         ctx.note(
           "removed the legacy shell engine, root agent, and manifest.json; repointed the worktree hooks at `icculus`",
