@@ -35,7 +35,7 @@ const ENCODER = new TextEncoder();
 /** Signal an entire process group, falling back to the direct child. */
 export function killTree(pid: number, sig: Deno.Signal): void {
   try {
-    Deno.kill(-pid, sig); // negative pid → the process group (Phase 0a verified)
+    Deno.kill(-pid, sig); // negative pid → the whole process group (reaches grandchildren)
   } catch {
     try {
       Deno.kill(pid, sig);

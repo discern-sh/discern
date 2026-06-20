@@ -1,12 +1,12 @@
 # Project recipes
 
-This directory holds **your project's own `agent` commands** — first-class verbs
-the task runner dispatches alongside the built-in engine recipes (`agent finish`,
-`agent worktree:exit`, …), but owned entirely by you.
+This directory holds **your project's own `icculus` commands** — first-class verbs
+the task runner dispatches alongside the built-in engine recipes (`icculus finish`,
+`icculus worktree:exit`, …), but owned entirely by you.
 
-Unlike `.icculus/engine/` (kit-managed, refreshed by `icculus upgrade`), this
-directory is **unmanaged**: `icculus` never writes, refreshes, or `.new`-preserves
-anything here. Add, edit, and delete recipes freely.
+The built-in engine lives inside the `icculus` binary; this directory is **yours**:
+`icculus` never writes or refreshes anything here. Add, edit, and delete recipes
+freely.
 
 ## Add a recipe
 
@@ -15,22 +15,25 @@ Create an executable script whose **second line** is a `# desc:` summary:
 ```sh
 #!/usr/bin/env sh
 # desc: reset local fixtures to a known state
-. "$ICCULUS_LIB/bootstrap.sh"   # optional: config_get, info/ok/die, run_parallel
+set -eu
 
-heading "Resetting fixtures…"
+# Read config by calling the binary (no shell library to source):
+target="$(icculus config get some.key)"
+
+echo "Resetting fixtures…"
 # ... your commands ...
-ok "Fixtures reset."
+echo "Fixtures reset."
 ```
 
 Then:
 
 ```sh
 chmod +x .icculus/recipes/reset-fixtures
-agent reset-fixtures      # runs it
-agent --help              # lists it under "Project recipes"
+icculus reset-fixtures    # runs it
+icculus --help            # lists it under "Project recipes"
 ```
 
-The filename is the verb. As with engine recipes, `agent some:verb` maps to a
+The filename is the verb. As with engine recipes, `icculus some:verb` maps to a
 file named `some-verb` (`:` → `-`).
 
 ## Rules
@@ -39,8 +42,11 @@ file named `some-verb` (`:` → `-`).
 - **The engine always wins.** A recipe whose name collides with a built-in
   (e.g. `finish`) is **ignored with a warning** — rename it. The core gate can
   never be redefined by a project file.
-- **Library access.** A recipe invoked via `agent <name>` inherits the harness
-  paths, so `. "$ICCULUS_LIB/bootstrap.sh"` gives you `config_get`, the
-  `info`/`ok`/`warn`/`die` helpers, `run_parallel`, and the `[slots]` accessors.
-- **Relocate if you like.** Set `[recipes].dir` in `icculus.toml` to point
+- **No shell library to source.** A recipe is a standalone executable in any
+  language. `icculus` exec's it with the `ICCULUS_*` environment exported
+  (notably `ICCULUS_ROOT`, `ICCULUS_RECIPES`, and `MAIN_BRANCH`) and your args
+  forwarded. Read config by calling the binary — `icculus config get <key>` (and
+  `icculus config array|has|subsections|keys <…>`) — and worktree identity with
+  `icculus worktree-name --db|--site|--port`.
+- **Relocate if you like.** Set `[recipes].dir` in `.icculus/config.toml` to point
   somewhere other than `.icculus/recipes`.

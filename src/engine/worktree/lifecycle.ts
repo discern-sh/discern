@@ -39,11 +39,9 @@ import {
   WorktreeGitError,
 } from "./git.ts";
 
-// integration: ../guidelines.ts — another stream is authoring this module; its
-// export is `compileGuidelines(root: string): Promise<...>`. Imported here so
-// worktree setup recompiles the agent guidelines as its final step (the shell
-// `worktree` recipe's step 8). If the module is not present yet at integration
-// time, this import is the single seam to wire up.
+// worktree setup recompiles the agent guidance as its final step — materializing
+// the bundled skills and compiling CLAUDE.md/AGENTS.md inside the freshly created
+// worktree (a linked worktree does not inherit the gitignored .icculus/skills/).
 import { compileGuidelines } from "../guidelines.ts";
 import { materializeSkills } from "../../lib/skills.ts";
 

@@ -39,8 +39,18 @@ _Verified defects and correctness risks. Nothing outstanding._
 
 ## 🟠 Cleanup — known dead or slow code
 
-_Dead code, N+1s, and known-slow paths worth removing or fixing. Nothing
-outstanding._
+- [ ] **`isContractExecutable` still special-cases paths the cutover deleted.**
+      The seam that forces the executable bit on a scaffolded file — needed
+      because `deno compile` flattens bundled source modes to read-only — lists
+      only `agent` and `.icculus/engine/<recipe>`, both removed with the shell
+      engine. So it now returns `false` for everything `templates/` ships
+      (harmless, but dead). Keep the seam for any future executable seed, but
+      drop the `agent`/`.icculus/engine/` cases, refresh the comment, and update
+      the tests still asserting the old contract. Evidence:
+      `src/lib/template.ts:97` (the function) and its caller
+      `src/lib/fs_plan.ts:179`; tests `tests/template_test.ts:108-117` and the
+      `.icculus/engine/` executable-preservation cases in
+      `tests/fs_plan_test.ts`.
 
 ## 🟡 Smaller fixes & polish
 

@@ -9,7 +9,7 @@ import { assertEquals, assertStringIncludes } from "@std/assert";
 import { withTempDir } from "./helpers.ts";
 import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
 
-Deno.test("engine smoke: agent --help lists commands and exits 0", async () => {
+Deno.test("engine smoke: icculus --help lists commands and exits 0", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     const r = await runAgent(dir, ["--help"]);

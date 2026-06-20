@@ -1,13 +1,15 @@
 /**
- * Engine-test harness — scaffold the REAL templates into a temp dir, then shell
- * out to the installed `agent` and assert on its output + exit code.
+ * Engine-test harness — scaffold the seed surface into a temp dir, then drive the
+ * TypeScript engine through `src/main.ts` and assert on its output + exit code.
  *
- * The Deno suite otherwise covers the INSTALLER (`src/`); the POSIX engine under
- * `templates/.icculus/engine/` had no automated coverage. This module closes
- * that gap without a second test framework: it reuses the installer's own
- * `assembleInitPlan`/`applyPlan` to lay down a faithful install (so the engine
- * runs exactly the bytes a real `icculus init` would write), then drives the
- * recipes through the dispatcher.
+ * The engine lives under `src/engine/**`, compiled into the binary. These tests
+ * run it the way a real install does: `runAgent` invokes the engine via the repo's
+ * `src/main.ts`, with an `icculus` shim on PATH so a project recipe or hook that
+ * calls `icculus <verb>` resolves the same command a real install would. It reuses
+ * the installer's own `assembleInitPlan`/`applyPlan` to lay down a faithful install
+ * (so the engine runs exactly the bytes a real `icculus init` would write), then
+ * drives the verbs through the dispatcher. The suite is the engine's black-box
+ * behavioral parity oracle.
  *
  * Tests that exercise scope/scope-gate/ratchet behaviour need a git repo so
  * `changed-scopes` can answer; `gitInit` makes a hermetic one (its own config,
