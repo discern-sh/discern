@@ -28,6 +28,7 @@ import {
   dispatchRecipeOrSuggest,
   KNOWN_ENGINE_VERBS,
   printProjectRecipes,
+  runConfigRead,
   warnShadowedRecipe,
 } from "./engine/dispatch.ts";
 
@@ -346,9 +347,42 @@ function buildCli(): RootCommand {
       );
     });
 
+  // Read-side config surface — what a project recipe uses to read
+  // .icculus/config.toml (replacing the shell config_* helpers).
+  const configGet = new Command()
+    .description("Print a scalar config value.")
+    .arguments("<key:string>")
+    .action(async (_o, key: string) => {
+      Deno.exit(await runConfigRead("get", key));
+    });
+  const configArray = new Command()
+    .description("Print an array config value, one item per line.")
+    .arguments("<key:string>")
+    .action(async (_o, key: string) => {
+      Deno.exit(await runConfigRead("array", key));
+    });
+  const configHas = new Command()
+    .description("Exit 0 if a key or section exists, 1 otherwise (silent).")
+    .arguments("<key:string>")
+    .action(async (_o, key: string) => {
+      Deno.exit(await runConfigRead("has", key));
+    });
+  const configSubsections = new Command()
+    .description("Print the immediate child table names under a section.")
+    .arguments("<key:string>")
+    .action(async (_o, key: string) => {
+      Deno.exit(await runConfigRead("subsections", key));
+    });
+  const configKeys = new Command()
+    .description("Print the flat key names declared in a section.")
+    .arguments("<key:string>")
+    .action(async (_o, key: string) => {
+      Deno.exit(await runConfigRead("keys", key));
+    });
+
   const config = new Command()
     .description(
-      "Programmatically edit .icculus/config.toml (comment-preserving).",
+      "Edit (set-*) or read (get/array/has/subsections/keys) .icculus/config.toml.",
     )
     .action(function (): void {
       this.showHelp();
@@ -357,7 +391,12 @@ function buildCli(): RootCommand {
     .command("set-check", setCheck)
     .command("set-scope", setScope)
     .command("set-ratchet", setRatchet)
-    .command("set", setScalar);
+    .command("set", setScalar)
+    .command("get", configGet)
+    .command("array", configArray)
+    .command("has", configHas)
+    .command("subsections", configSubsections)
+    .command("keys", configKeys);
 
   root.command("config", config);
 

@@ -21,8 +21,7 @@ import {
 
 const SLUG_RECIPE = `#!/usr/bin/env sh
 # desc: print the project slug
-. "$ICCULUS_LIB/bootstrap.sh"
-printf 'SLUG=%s\\n' "$(config_get project.slug)"
+printf 'SLUG=%s\\n' "$(icculus config get project.slug)"
 `;
 
 Deno.test("recipes: a project recipe runs via agent <name>", async () => {
@@ -53,7 +52,7 @@ Deno.test("recipes: a project recipe is listed under --help", async () => {
   });
 });
 
-Deno.test("recipes: a project recipe can source the engine library", async () => {
+Deno.test("recipes: a project recipe reads config via icculus config get", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeExecutable(join(dir, ".icculus/recipes/show-slug"), SLUG_RECIPE);
@@ -63,24 +62,21 @@ Deno.test("recipes: a project recipe can source the engine library", async () =>
   });
 });
 
-Deno.test("recipes: a project recipe keeps shell globbing (engine noglob is not imposed on it)", async () => {
+Deno.test("recipes: a project recipe uses normal shell globbing", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     // Files for the recipe to glob over.
     await writeExecutable(join(dir, "glob-fixture/a.txt"), "a");
     await writeExecutable(join(dir, "glob-fixture/b.txt"), "b");
     await writeExecutable(join(dir, "glob-fixture/c.txt"), "c");
-    // A project recipe that sources the engine library (for its helpers) AND
-    // relies on a shell glob — the exact shape of a native sub-app recipe like
-    // `ls "$dir"/*.xcodeproj`. The engine runs under `set -f` (ADR 0012), but
-    // that is an ENGINE policy: a project recipe must keep normal globbing, or a
-    // routine `icculus upgrade` would silently break it (glob matches nothing).
+    // A project recipe is a standalone executable with normal shell globbing —
+    // the exact shape of a native sub-app recipe like `ls "$dir"/*.xcodeproj`. It
+    // reads ICCULUS_ROOT from the environment the dispatcher exports.
     await writeExecutable(
       join(dir, ".icculus/recipes/globby"),
       [
         "#!/usr/bin/env sh",
         "# desc: count files via a shell glob",
-        '. "$ICCULUS_LIB/bootstrap.sh"',
         "_n=0",
         'for _f in "$ICCULUS_ROOT"/glob-fixture/*.txt; do',
         '    [ -e "$_f" ] || continue',
@@ -92,7 +88,6 @@ Deno.test("recipes: a project recipe keeps shell globbing (engine noglob is not 
     );
     const r = await runAgent(dir, ["globby"]);
     assertEquals(r.code, 0, r.output);
-    // 3 if the glob expanded; 0 if engine noglob leaked onto the project recipe.
     assertStringIncludes(r.stdout, "GLOB_COUNT=3");
   });
 });

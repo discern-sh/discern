@@ -249,7 +249,7 @@ function printSuccessTail(cfg: Config, out: Out, changed: string[]): void {
   }
   if (cfg.subsections("ratchets").length > 0) {
     out.info(
-      `Before pushing, hold the ratchets: ${out.c.bold}agent ratchets${out.c.reset} (slow, so not part of finish).`,
+      `Before pushing, hold the ratchets: ${out.c.bold}icculus ratchets${out.c.reset} (slow, so not part of finish).`,
     );
   }
   if (

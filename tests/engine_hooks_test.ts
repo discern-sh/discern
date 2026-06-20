@@ -13,14 +13,9 @@ import { assert, assertEquals } from "@std/assert";
 import { join } from "@std/path";
 import { exists } from "@std/fs";
 import { withTempDir } from "./helpers.ts";
-import { gitInit, scaffoldEngine } from "./engine_helpers.ts";
+import { engineEnv, gitInit, scaffoldEngine } from "./engine_helpers.ts";
 
 const DECODER = new TextDecoder();
-const GIT_ISOLATION = {
-  GIT_CONFIG_GLOBAL: "/dev/null",
-  GIT_CONFIG_SYSTEM: "/dev/null",
-  GIT_TERMINAL_PROMPT: "0",
-};
 
 /** jq is a hard dependency of two hooks; skip those when it is unavailable. */
 const HAS_JQ = await (async () => {
@@ -53,7 +48,7 @@ async function runHook(
   const child = new Deno.Command("sh", {
     args: ["-c", command],
     cwd: dir,
-    env: { NO_COLOR: "1", ...GIT_ISOLATION },
+    env: await engineEnv(),
     stdin: "piped",
     stdout: "piped",
     stderr: "piped",

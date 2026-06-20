@@ -451,6 +451,46 @@ async function helperWithGotchas(args: string[]): Promise<number> {
   return code;
 }
 
+/**
+ * `icculus config <get|array|has|subsections|keys> <key>` — the READ side of the
+ * config surface. This is what a project recipe uses to read `.icculus/config.toml`
+ * (replacing the shell `config_get`/`config_array` it used to source). `has`
+ * answers via the exit code; the rest print to stdout.
+ */
+export async function runConfigRead(
+  op: "get" | "array" | "has" | "subsections" | "keys",
+  key: string,
+): Promise<number> {
+  const root = await findRoot();
+  if (root === undefined) {
+    console.error(`icculus: ${NO_PROJECT}`);
+    return 1;
+  }
+  const cfg = await Config.load(root);
+  switch (op) {
+    case "get":
+      console.log(cfg.get(key));
+      return 0;
+    case "array":
+      for (const v of cfg.array(key)) {
+        console.log(v);
+      }
+      return 0;
+    case "has":
+      return cfg.has(key) ? 0 : 1;
+    case "subsections":
+      for (const v of cfg.subsections(key)) {
+        console.log(v);
+      }
+      return 0;
+    case "keys":
+      for (const v of cfg.keys(key)) {
+        console.log(v);
+      }
+      return 0;
+  }
+}
+
 /** Read a recipe's first `# desc:` line, or undefined when it has none. */
 async function firstDescLine(file: string): Promise<string | undefined> {
   let text: string;
@@ -566,15 +606,7 @@ export async function dispatchRecipeOrSuggest(
       cfg.get("project.main_branch", "main");
     const child = new Deno.Command(recipeFile, {
       args,
-      env: {
-        ...recipeEnvVars({ root, recipesDir, recipesAbs, mainBranch }),
-        // Transitional (Phase 2): the shell engine is still scaffolded, so an
-        // old-contract recipe that sources $ICCULUS_LIB keeps working. Removed
-        // in Phase 3 (recipes then read config via `icculus config get`).
-        ICCULUS_ENGINE: join(root, ".icculus/engine"),
-        ICCULUS_LIB: join(root, ".icculus/engine/lib"),
-        ICCULUS_ENGINE_RECIPE: "0",
-      },
+      env: recipeEnvVars({ root, recipesDir, recipesAbs, mainBranch }),
       stdin: "inherit",
       stdout: "inherit",
       stderr: "inherit",

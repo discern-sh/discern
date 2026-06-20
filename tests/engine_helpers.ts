@@ -46,13 +46,50 @@ const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 const MAIN_TS = join(REPO_ROOT, "src", "main.ts");
 const DENO_JSON = join(REPO_ROOT, "deno.json");
 
+/** Shell-quote a path for the shim script. */
+function shq(s: string): string {
+  return `'${s.replaceAll("'", "'\\''")}'`;
+}
+
 /**
- * Which engine implementation `runAgent` drives: "ts" (the in-binary TS engine
- * via `deno run src/main.ts <verb>`, the default) or "shell" (the scaffolded
- * `agent` dispatcher). The `ICCULUS_ENGINE_IMPL` env toggle lets the same
- * behavioural suite run against either during the shell→TS build-out.
+ * A lazily-created directory holding an `icculus` shim that execs the TS engine
+ * exactly as runAgent does. Prepended to PATH so a project recipe (`icculus
+ * config get …`) or a settings.json hook (`icculus worktree …`) resolves the
+ * command the same way a real install (binary on PATH) would.
  */
-const ENGINE_IMPL = Deno.env.get("ICCULUS_ENGINE_IMPL") ?? "ts";
+let shimDirCache: string | undefined;
+async function icculusShimDir(): Promise<string> {
+  if (shimDirCache !== undefined) {
+    return shimDirCache;
+  }
+  const dir = await Deno.makeTempDir({ prefix: "icculus-shim-" });
+  const shim = join(dir, "icculus");
+  await Deno.writeTextFile(
+    shim,
+    `#!/usr/bin/env sh\nexec deno run --no-check --config ${
+      shq(DENO_JSON)
+    } -A ${shq(MAIN_TS)} "$@"\n`,
+  );
+  await Deno.chmod(shim, 0o755);
+  shimDirCache = dir;
+  return dir;
+}
+
+/**
+ * Build the environment for an engine subprocess: colour off, git isolated, the
+ * `icculus` shim on PATH, plus any caller overrides.
+ */
+export async function engineEnv(
+  extra: Record<string, string> = {},
+): Promise<Record<string, string>> {
+  const shim = await icculusShimDir();
+  return {
+    NO_COLOR: "1",
+    PATH: `${shim}:${Deno.env.get("PATH") ?? ""}`,
+    ...GIT_ISOLATION,
+    ...extra,
+  };
+}
 
 /**
  * Scaffold the real harness (engine, dispatcher, default `.icculus/config.toml`) into
@@ -87,31 +124,13 @@ export async function runAgent(
   args: string[],
   opts: { cwd?: string; env?: Record<string, string> } = {},
 ): Promise<RunResult> {
-  const env = { NO_COLOR: "1", ...GIT_ISOLATION, ...opts.env };
-  const cwd = opts.cwd ?? dir;
-  const command = ENGINE_IMPL === "shell"
-    ? new Deno.Command(join(dir, "agent"), {
-      args,
-      cwd,
-      env,
-      stdout: "piped",
-      stderr: "piped",
-    })
-    : new Deno.Command("deno", {
-      args: [
-        "run",
-        "--no-check",
-        "--config",
-        DENO_JSON,
-        "-A",
-        MAIN_TS,
-        ...args,
-      ],
-      cwd,
-      env,
-      stdout: "piped",
-      stderr: "piped",
-    });
+  const command = new Deno.Command("deno", {
+    args: ["run", "--no-check", "--config", DENO_JSON, "-A", MAIN_TS, ...args],
+    cwd: opts.cwd ?? dir,
+    env: await engineEnv(opts.env),
+    stdout: "piped",
+    stderr: "piped",
+  });
   const { code, stdout, stderr } = await command.output();
   const out = DECODER.decode(stdout);
   const err = DECODER.decode(stderr);

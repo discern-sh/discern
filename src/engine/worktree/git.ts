@@ -254,7 +254,7 @@ export async function assertMainMerged(
 ): Promise<MainMergedResult> {
   const { absoluteGitDir, commonGitDir } = await resolveGitDirs(cwd);
   // Outside a repo, or in the main checkout → clean no-op (this sits at the end
-  // of `agent finish`, which also runs in the main checkout).
+  // of `icculus finish`, which also runs in the main checkout).
   if (absoluteGitDir === undefined || commonGitDir === undefined) {
     return { kind: "skipped" };
   }
