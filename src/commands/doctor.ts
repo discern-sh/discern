@@ -187,6 +187,60 @@ export async function runChecks(destDir: string): Promise<Check[]> {
     // The capabilities check above already reported any config read failure.
   }
 
+  // 5. recipe contract — no project recipe still sources the retired shell
+  // library. The pre-binary engine exported `ICCULUS_LIB`, and a recipe could
+  // `. "$ICCULUS_LIB/bootstrap.sh"` for config/output helpers. That library is
+  // gone (the engine is in the binary), so such a recipe now breaks at runtime;
+  // flag it and point at the new contract. README.md is documentation, not a
+  // recipe, so it is skipped.
+  try {
+    const cfg = new Config(tomlText);
+    const recipesDir = join(
+      destDir,
+      cfg.get("recipes.dir", ".icculus/recipes"),
+    );
+    const offenders: string[] = [];
+    let scanned = 0;
+    try {
+      for await (const entry of Deno.readDir(recipesDir)) {
+        if (!entry.isFile || entry.name === "README.md") {
+          continue;
+        }
+        scanned++;
+        const body = await Deno.readTextFile(join(recipesDir, entry.name));
+        if (body.includes("ICCULUS_LIB") || body.includes("bootstrap.sh")) {
+          offenders.push(entry.name);
+        }
+      }
+    } catch (error) {
+      if (!(error instanceof Deno.errors.NotFound)) {
+        throw error;
+      }
+      // No recipes directory — nothing to check.
+    }
+    if (offenders.length === 0) {
+      checks.push({
+        name: "recipe contract",
+        ok: true,
+        detail: scanned === 0
+          ? "no project recipes to check"
+          : `${scanned} recipe(s); none source the retired shell library`,
+      });
+    } else {
+      checks.push({
+        name: "recipe contract",
+        ok: false,
+        detail: `recipe(s) source the removed shell library: ${
+          offenders.join(", ")
+        }`,
+        fix:
+          "recipes are standalone executables now — read config with `icculus config get` instead of sourcing `$ICCULUS_LIB/bootstrap.sh` (see .icculus/recipes/README.md)",
+      });
+    }
+  } catch {
+    // A config read failure was already reported by an earlier check.
+  }
+
   return checks;
 }
 

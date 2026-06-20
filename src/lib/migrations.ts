@@ -129,8 +129,9 @@ export const MIGRATIONS: Migration[] = [
       // moved: skills are re-materialized at the new path by the upgrade, and the
       // pre-existing shell engine — dispatcher included — is pruned by the final
       // chain step. Repoint the worktree hooks at the root dispatcher path the
-      // historical layout used (the prune step then removes the dispatcher
-      // itself; the hook is replaced when settings are next merged).
+      // historical layout used; the dispatcher still exists at this schema, so
+      // `./agent` is correct here. The final prune step then removes the
+      // dispatcher and repoints the hook at the on-PATH `icculus` binary.
       await ctx.rewrite(
         ".claude/settings.json",
         (t) => t.replaceAll("./bin/agent", "./agent"),
@@ -310,9 +311,20 @@ export const MIGRATIONS: Migration[] = [
       await ctx.removeAll(".icculus/engine");
       await ctx.remove("agent");
       await ctx.remove(".icculus/manifest.json");
+      // The worktree hooks called the now-deleted `./agent` dispatcher; repoint
+      // them at the on-PATH `icculus` binary so they survive the prune. In
+      // settings `./agent` only ever names the dispatcher (the `agent/<name>`
+      // branch prefix has no `./`), so this literal swap is safe and idempotent
+      // — a no-op once already repointed, or when there is no settings file.
+      // `upgrade` never re-merges the settings seed, so this step is what
+      // carries the hooks across the cutover.
+      await ctx.rewrite(
+        ".claude/settings.json",
+        (t) => t.replaceAll("./agent", "icculus"),
+      );
       if (had) {
         ctx.note(
-          "removed the legacy shell engine, root agent, and manifest.json",
+          "removed the legacy shell engine, root agent, and manifest.json; repointed the worktree hooks at `icculus`",
         );
       }
     },

@@ -201,3 +201,32 @@ Deno.test("doctor: a fresh install reports its wired capabilities", async () => 
     assertStringIncludes(caps.detail, "test");
   });
 });
+
+Deno.test("doctor: a fresh install passes the recipe-contract check (README is not a recipe)", async () => {
+  await withTempDir(async (dir) => {
+    await initInstall(dir);
+    // The scaffold ships only .icculus/recipes/README.md, which is docs, not a
+    // recipe — so there is nothing sourcing the retired shell library.
+    const { code, payload } = await runDoctorJson(dir);
+    assertEquals(code, 0);
+    assertEquals(check(payload, "recipe contract").ok, true);
+  });
+});
+
+Deno.test("doctor: a recipe sourcing the retired shell library is flagged with the new-contract fix", async () => {
+  await withTempDir(async (dir) => {
+    await initInstall(dir);
+    // A recipe carried forward from a pre-binary install: it sources the engine
+    // library that no longer exists, so it would break at runtime.
+    await Deno.writeTextFile(
+      join(dir, ".icculus/recipes/reset"),
+      '#!/usr/bin/env sh\n# desc: reset fixtures\n. "$ICCULUS_LIB/bootstrap.sh"\nok done\n',
+    );
+    const { code, payload } = await runDoctorJson(dir);
+    assertEquals(code, 1);
+    const recipe = check(payload, "recipe contract");
+    assertEquals(recipe.ok, false);
+    assertStringIncludes(recipe.detail, "reset");
+    assertStringIncludes(recipe.fix ?? "", "icculus config get");
+  });
+});

@@ -232,6 +232,24 @@ Deno.test("migration 4→5 prunes a pre-existing on-disk shell engine, agent, an
       join(dir, ".icculus/config.toml"),
       '[project]\nslug = "demo"\n',
     );
+    // Pre-cutover worktree hooks calling the `./agent` dispatcher that the prune
+    // deletes. The `agent/$name` branch prefix must survive — only `./agent`
+    // names the dispatcher.
+    await Deno.mkdir(join(dir, ".claude"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, ".claude/settings.json"),
+      `${
+        JSON.stringify({
+          hooks: {
+            SessionStart: [{ command: "./agent worktree:ensure" }],
+            WorktreeRemove: [{
+              command:
+                "sh -c 'git worktree add -b agent/$name dir; ./agent worktree:teardown'",
+            }],
+          },
+        })
+      }\n`,
+    );
 
     const applied = await applyMigrations({ destDir: dir, from: 4, to: 5 });
     assertEquals(applied.map((m) => m.from), [4]);
@@ -244,9 +262,24 @@ Deno.test("migration 4→5 prunes a pre-existing on-disk shell engine, agent, an
     // The seed config is untouched.
     assertEquals(await targetExists(dir, ".icculus/config.toml"), true);
 
-    // Idempotent: a re-run over the already-pruned install is a clean no-op.
+    // The worktree hooks are repointed off the pruned `./agent` at `icculus`,
+    // and the `agent/<name>` branch prefix is left intact.
+    const settings = await Deno.readTextFile(
+      join(dir, ".claude/settings.json"),
+    );
+    assert(!settings.includes("./agent"), "no stale ./agent hook remains");
+    assertStringIncludes(settings, "icculus worktree:ensure");
+    assertStringIncludes(settings, "icculus worktree:teardown");
+    assertStringIncludes(settings, "agent/$name");
+
+    // Idempotent: a re-run over the already-pruned install is a clean no-op —
+    // the hooks stay repointed (no `./agent` left to swap again).
     await applyMigrations({ destDir: dir, from: 4, to: 5 });
     assertEquals(await targetExists(dir, ".icculus/config.toml"), true);
+    assertEquals(
+      await Deno.readTextFile(join(dir, ".claude/settings.json")),
+      settings,
+    );
   });
 });
 

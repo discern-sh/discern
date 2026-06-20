@@ -215,6 +215,15 @@ Deno.test("a legacy install whose schema lives only in a manifest upgrades and p
       "#!/bin/sh\n",
     );
     await Deno.writeTextFile(join(dir, "agent"), "#!/bin/sh\n");
+    // …and worktree hooks that call that `./agent` dispatcher.
+    await Deno.writeTextFile(
+      join(dir, ".claude/settings.json"),
+      `${
+        JSON.stringify({
+          hooks: { SessionStart: [{ command: "./agent worktree:ensure" }] },
+        })
+      }\n`,
+    );
 
     const res = await upgrade(dir);
     // The legacy manifest anchored the chain at schema 4 → only 4→5 runs.
@@ -226,6 +235,13 @@ Deno.test("a legacy install whose schema lives only in a manifest upgrades and p
     assertEquals(await runCliExists(dir, ".icculus/engine"), false);
     assertEquals(await runCliExists(dir, "agent"), false);
     assertEquals(await runCliExists(dir, ".icculus/manifest.json"), false);
+    // …the worktree hooks are repointed off the deleted `./agent` at `icculus`…
+    const settings = await readTarget(dir, ".claude/settings.json");
+    assert(
+      !settings.includes("./agent"),
+      "hooks still call the deleted ./agent",
+    );
+    assertStringIncludes(settings, "icculus worktree:ensure");
     // …and the schema is now stamped in the config the user owns.
     assertEquals(await recordedSchema(dir), res.schema.current);
   });
