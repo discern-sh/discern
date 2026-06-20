@@ -142,7 +142,7 @@ Deno.test("JSON mode: jsonResult emits a pretty-printed payload to stdout", asyn
   assertEquals(out.length, 1);
   // Pretty-printed with a two-space indent.
   assertEquals(out[0], JSON.stringify({ ok: true, items: ["a"] }, null, 2));
-  assertStringIncludes(out[0], "\n  ");
+  assertStringIncludes(out[0]!, "\n  ");
 });
 
 Deno.test("colourEnabled(true) is always false (forced off)", () => {

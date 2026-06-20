@@ -429,8 +429,8 @@ export async function applyMigrations(params: {
   destDir: string;
   from: number;
   to: number;
-  registry?: Migration[];
-  onNote?: (message: string) => void;
+  registry?: Migration[] | undefined;
+  onNote?: ((message: string) => void) | undefined;
 }): Promise<Migration[]> {
   const { destDir, from, to } = params;
   const registry = params.registry ?? MIGRATIONS;

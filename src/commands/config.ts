@@ -156,7 +156,11 @@ export async function runConfigSetCapability(
  */
 export async function runConfigSetCheck(
   name: string,
-  opts: ConfigOptions & { stage: string; run: string; provides?: string },
+  opts: ConfigOptions & {
+    stage: string;
+    run: string;
+    provides?: string | undefined;
+  },
 ): Promise<number> {
   if (!NAME_RE.test(name)) {
     return fail(
@@ -188,9 +192,9 @@ export async function runConfigSetScope(
   name: string,
   globs: string[],
   opts: ConfigOptions & {
-    neutral?: boolean;
-    previewable?: boolean;
-    gate?: string;
+    neutral?: boolean | undefined;
+    previewable?: boolean | undefined;
+    gate?: string | undefined;
   },
 ): Promise<number> {
   if (!NAME_RE.test(name)) {
@@ -229,8 +233,8 @@ export async function runConfigSetRatchet(
   opts: ConfigOptions & {
     limit: string;
     run: string;
-    metric?: string;
-    direction?: string;
+    metric?: string | undefined;
+    direction?: string | undefined;
   },
 ): Promise<number> {
   if (!NAME_RE.test(name)) {

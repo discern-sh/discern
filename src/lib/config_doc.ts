@@ -80,7 +80,7 @@ const NAME_RE = /^[A-Za-z0-9_-]+$/;
 
 /** Major component of a version value ("1.2" -> "1", 1 -> "1"). */
 function majorOf(version: string | number): string {
-  return String(version).split(".")[0].trim();
+  return String(version).split(".")[0]!.trim();
 }
 
 /**

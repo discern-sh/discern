@@ -21,13 +21,13 @@ import type { Logger } from "./log.ts";
 
 /** Raw flag values passed to `init` (all optional; undefined → ask/default). */
 export interface InitFlags {
-  name?: string;
-  slug?: string;
-  branchPrefix?: string;
-  sourceGlobs?: string;
-  brief?: string;
-  agents?: string;
-  yes?: boolean;
+  name?: string | undefined;
+  slug?: string | undefined;
+  branchPrefix?: string | undefined;
+  sourceGlobs?: string | undefined;
+  brief?: string | undefined;
+  agents?: string | undefined;
+  yes?: boolean | undefined;
 }
 
 /** Resolve the `--brief` flag value: a literal, or `@path` read from disk. */

@@ -19,6 +19,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { assembleInitPlan } from "../src/commands/init.ts";
+import type { InitConfig } from "../src/lib/config.ts";
 import { applyPlan, type Plan } from "../src/lib/fs_plan.ts";
 import { parseManifest, recordedHash } from "../src/lib/manifest.ts";
 import {
@@ -32,7 +33,7 @@ import {
 const MANAGED_RECIPE = ".icculus/engine/recipe";
 
 /** A resolved config for the fixture-backed init (matches testTokens identity). */
-function fixtureConfig() {
+function fixtureConfig(): InitConfig {
   return {
     projectName: "Demo App",
     slug: "demo-app",

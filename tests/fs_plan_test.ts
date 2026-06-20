@@ -65,7 +65,7 @@ Deno.test("a managed.json declaration drives classification (and is never scaffo
 });
 
 /** Build and apply an init plan over the fixture tree into `dir`. */
-async function scaffold(dir: string) {
+async function scaffold(dir: string): Promise<Plan> {
   const plan = await buildPlan({
     templatesDir: FIXTURE_TEMPLATES,
     destDir: dir,
@@ -461,8 +461,8 @@ Deno.test("planOrphanRemovals removes a pristine orphan, keeps an edited one, ig
     assertEquals(removals.map((o) => o.targetRel), [
       ".icculus/engine/obsolete",
     ]);
-    assertEquals(removals[0].disposition, "remove");
-    assertEquals(removals[0].managed, true);
+    assertEquals(removals[0]!.disposition, "remove");
+    assertEquals(removals[0]!.managed, true);
     assertEquals(kept.map((o) => o.path), [".icculus/engine/edited"]);
   });
 });

@@ -86,7 +86,7 @@ export class TomlEditor {
         `config key must be section.key (got "${dottedKey}")`,
       );
     }
-    const key = segments[segments.length - 1];
+    const key = segments[segments.length - 1]!;
     const section = segments.slice(0, -1).join(".");
 
     const span = this.findSection(section);
@@ -105,7 +105,7 @@ export class TomlEditor {
     // `#`, so the anchored regex never matches it — we then insert a real key.
     const keyRe = new RegExp(`^(\\s*)${escapeRegExp(key)}(\\s*=\\s*).*$`);
     for (let i = span.headerIdx + 1; i < span.bodyEnd; i++) {
-      const m = this.lines[i].match(keyRe);
+      const m = this.lines[i]!.match(keyRe);
       if (m) {
         this.lines[i] = `${m[1]}${key}${m[2]}${literal}`;
         return this;
@@ -125,7 +125,7 @@ export class TomlEditor {
     if (segments.length < 2) {
       return false;
     }
-    const key = segments[segments.length - 1];
+    const key = segments[segments.length - 1]!;
     const section = segments.slice(0, -1).join(".");
     const span = this.findSection(section);
     if (span === null) {
@@ -133,7 +133,7 @@ export class TomlEditor {
     }
     const keyRe = new RegExp(`^(\\s*)${escapeRegExp(key)}(\\s*=\\s*).*$`);
     for (let i = span.headerIdx + 1; i < span.bodyEnd; i++) {
-      if (keyRe.test(this.lines[i])) {
+      if (keyRe.test(this.lines[i]!)) {
         this.lines.splice(i, 1);
         return true;
       }
@@ -191,11 +191,11 @@ export class TomlEditor {
     section: string,
   ): { headerIdx: number; bodyEnd: number } | null {
     for (let i = 0; i < this.lines.length; i++) {
-      const m = this.lines[i].match(HEADER_RE);
-      if (m && m[1].trim() === section) {
+      const m = this.lines[i]!.match(HEADER_RE);
+      if (m && m[1]!.trim() === section) {
         let end = i + 1;
         for (; end < this.lines.length; end++) {
-          if (HEADER_RE.test(this.lines[end])) {
+          if (HEADER_RE.test(this.lines[end]!)) {
             break;
           }
         }

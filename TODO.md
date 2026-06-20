@@ -57,17 +57,17 @@ outstanding._
 - [ ] **The v3→v4 config migration leaves stale comment blocks behind.** It is
       comment-preserving, so it rewrites the tables (`[slots]`→`[capabilities]`/
       `[checks]`, `[scopes]` arrays→tables, drops `[evidence]`) but leaves the
-      explanatory comment blocks that describe the *retired* structure — the big
+      explanatory comment blocks that describe the _retired_ structure — the big
       `[slots]`/`phase` header, the `[ratchets]` "slot" references, the
-      `[evidence]` header — and appends the new tables orphaned at the end of the
-      file, detached from their comments. The output is valid TOML but messy
-      enough that a migrated install needs a hand-tidy to match the v4 template's
-      layout. Consider also dropping a deleted section's leading comment block, or
-      re-emitting the template comments for the sections the step rewrites.
-      Observed needing a hand-tidy on several v3→v4 installs. Evidence:
-      `src/lib/migrations.ts:281-284` (the `from: 3` step deletes the tables via
-      comment-preserving `deleteSection`, leaving their comment blocks); target
-      layout is `templates/.icculus/config.toml.tmpl`.
+      `[evidence]` header — and appends the new tables orphaned at the end of
+      the file, detached from their comments. The output is valid TOML but messy
+      enough that a migrated install needs a hand-tidy to match the v4
+      template's layout. Consider also dropping a deleted section's leading
+      comment block, or re-emitting the template comments for the sections the
+      step rewrites. Observed needing a hand-tidy on several v3→v4 installs.
+      Evidence: `src/lib/migrations.ts:281-284` (the `from: 3` step deletes the
+      tables via comment-preserving `deleteSection`, leaving their comment
+      blocks); target layout is `templates/.icculus/config.toml.tmpl`.
 
 ## 🟢 Test & tooling hygiene
 

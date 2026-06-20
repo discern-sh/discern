@@ -310,7 +310,7 @@ export interface PlanOpJson {
   path: string;
   action: OpDisposition;
   managed: boolean;
-  note?: string;
+  note?: string | undefined;
 }
 
 /** Reduce a plan to its JSON-friendly op list. */

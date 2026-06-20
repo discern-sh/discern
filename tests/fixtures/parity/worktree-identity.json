@@ -1,0 +1,30 @@
+{
+  "_provenance": "Phase 0d parity capture (single-binary refactor). Pins Risk R1 (POSIX cksum parity) and worktree identity. Captured from the shell engine templates/.icculus/engine/worktree-name + system cksum on aarch64-apple-darwin, Deno 2.8.3. The TS shared/crc.ts + engine/worktree/identity.ts MUST reproduce these exactly. cksum input is `printf '%s' <id>` with NO trailing newline. The empty-string crc 4294967295 (0xFFFFFFFF) proves POSIX cksum (poly 0x04C11DB7, length-fed, final-complement), not zlib crc32 (which is 0 for empty).",
+  "cksum": [
+    { "input": "", "crc": 4294967295, "octets": 0 },
+    { "input": "a", "crc": 1220704766, "octets": 1 },
+    { "input": "ab", "crc": 2072780115, "octets": 2 },
+    { "input": "wt-feature", "crc": 3223225200, "octets": 10 },
+    { "input": "feature-x", "crc": 1344881967, "octets": 9 },
+    { "input": "this-is-a-very-long-worktree-id-that-exceeds-the-site-label-limit-x", "crc": 316377843, "octets": 67 }
+  ],
+  "identity": {
+    "slug": "icculus",
+    "branch_prefix": "agent/",
+    "port_band": { "base": 13000, "span": 2000 },
+    "site_dns_label_limit": 63,
+    "cases": [
+      { "id": "a", "port": 13766, "site": "icculus-a", "db": "icculus_a", "branch": "agent/a" },
+      { "id": "wt-feature", "port": 14200, "site": "icculus-wt-feature", "db": "icculus_wt_feature", "branch": "agent/wt-feature" },
+      { "id": "feature-x", "port": 14967, "site": "icculus-feature-x", "db": "icculus_feature_x", "branch": "agent/feature-x" },
+      {
+        "id": "this-is-a-very-long-worktree-id-that-exceeds-the-site-label-limit-x",
+        "_note": "len 67 > max_id_len 55 (=63-7-1) triggers fit_site_id: keep id[0:45] + '-' + crc; the id[0:44] tail '-' yields the double dash 'exceeds--316377843'. db does NOT clamp.",
+        "port": 14843,
+        "site": "icculus-this-is-a-very-long-worktree-id-that-exceeds--316377843",
+        "db": "icculus_this_is_a_very_long_worktree_id_that_exceeds_the_site_label_limit_x",
+        "branch": "agent/this-is-a-very-long-worktree-id-that-exceeds-the-site-label-limit-x"
+      }
+    ]
+  }
+}

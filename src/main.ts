@@ -47,8 +47,21 @@ function globalFlags(options: unknown): { json: boolean; noColor: boolean } {
   return { json: o.json ?? false, noColor: noColorFrom(o.color) };
 }
 
+/**
+ * The type of `buildCli`'s root command. Cliffy threads the two `globalOption`
+ * declarations into the command's generics, so the concrete type is impractical
+ * to write by hand. We name it from a type-only `declare` (no runtime value is
+ * emitted) whose chain mirrors the real root built in `buildCli`.
+ */
+declare function rootShape(): ReturnType<
+  ReturnType<
+    Command<void, void, void, []>["globalOption"]
+  >["globalOption"]
+>;
+type RootCommand = ReturnType<typeof rootShape>;
+
 /** Build the root command with its global flags and subcommands. */
-function buildCli() {
+function buildCli(): RootCommand {
   const root = new Command()
     .name("icculus")
     .version(KIT_VERSION)
@@ -63,7 +76,7 @@ function buildCli() {
       "--no-color",
       "Disable colour (also honours NO_COLOR and non-TTY output).",
     )
-    .action(function () {
+    .action(function (): void {
       // No subcommand: show help.
       this.showHelp();
     });
@@ -329,7 +342,7 @@ function buildCli() {
     .description(
       "Programmatically edit .icculus/config.toml (comment-preserving).",
     )
-    .action(function () {
+    .action(function (): void {
       this.showHelp();
     })
     .command("set-capability", setCapability)

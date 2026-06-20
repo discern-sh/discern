@@ -64,9 +64,9 @@ export interface PlanOp {
   /** True when the target path is a managed (upgrade-refreshed) file. */
   managed: boolean;
   /** sha256 of `bytes`, present for managed writes (recorded in the manifest). */
-  sha256?: string;
+  sha256?: string | undefined;
   /** Human-readable note rendered in dry-run / review (e.g. "skip — seed present"). */
-  note?: string;
+  note?: string | undefined;
 }
 
 /** A complete plan plus any token-drift warnings gathered while building it. */
@@ -173,8 +173,8 @@ export async function buildPlan(params: {
   destDir: string;
   tokens: TokenMap;
   mode: "init" | "upgrade";
-  recordedHash?: (targetRel: string) => string | undefined;
-  managedSpec?: ManagedSpec;
+  recordedHash?: ((targetRel: string) => string | undefined) | undefined;
+  managedSpec?: ManagedSpec | undefined;
 }): Promise<Plan> {
   const { templatesDir, destDir, tokens, mode, recordedHash } = params;
   const managedSpec = params.managedSpec ?? DEFAULT_MANAGED_SPEC;
@@ -256,7 +256,7 @@ async function planFileWrite(params: {
   destDir: string;
   tokens: TokenMap;
   managed: boolean;
-  recordedHash?: (targetRel: string) => string | undefined;
+  recordedHash?: ((targetRel: string) => string | undefined) | undefined;
   unknownTokens: Map<string, string[]>;
 }): Promise<PlanOp> {
   const { sourceAbs, templateRel, targetRel, destDir, tokens, managed } =

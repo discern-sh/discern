@@ -54,9 +54,12 @@ Deno.test("merge appends a genuinely new hook group for the same event", () => {
   };
   // The user's group is kept and ours is appended: two distinct groups.
   assertEquals(result.hooks.SessionStart.length, 2);
-  assertEquals(result.hooks.SessionStart[0].hooks[0].command, "user-own-hook");
   assertEquals(
-    result.hooks.SessionStart[1].hooks[0].command,
+    result.hooks.SessionStart[0]!.hooks[0]!.command,
+    "user-own-hook",
+  );
+  assertEquals(
+    result.hooks.SessionStart[1]!.hooks[0]!.command,
     "./agent worktree:ensure",
   );
 });

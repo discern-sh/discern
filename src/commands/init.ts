@@ -51,7 +51,7 @@ export interface InitOptions extends InitFlags {
   dryRun: boolean;
   force: boolean;
   /** Path to a JSON answers file (or `-` for stdin); implies non-interactive. */
-  config?: string;
+  config?: string | undefined;
 }
 
 const TEXT_DECODER = new TextDecoder();
@@ -80,7 +80,7 @@ export async function assembleInitPlan(params: {
   destDir: string;
   config: InitConfig;
   /** Declarative slots/scopes/side_gates/ratchets fills from `init --config`. */
-  fills?: IcculusConfigDoc;
+  fills?: IcculusConfigDoc | undefined;
 }): Promise<Plan> {
   const { templatesDir, destDir, config } = params;
   const tokens = tokensFromConfig(config);

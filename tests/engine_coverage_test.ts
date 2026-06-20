@@ -48,7 +48,7 @@ async function directlyInvoked(): Promise<Set<string>> {
     const text = await Deno.readTextFile(e.path);
     for (const m of text.matchAll(/runAgent\([\s\S]*?\[\s*"([^"]+)"/g)) {
       // The dispatcher maps a `:`-verb (worktree:exit) to a `-`-file name.
-      verbs.add(m[1].replaceAll(":", "-"));
+      verbs.add(m[1]!.replaceAll(":", "-"));
     }
   }
   return verbs;

@@ -11,13 +11,14 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { assembleInitPlan } from "../src/commands/init.ts";
+import type { InitConfig } from "../src/lib/config.ts";
 import { applyPlan } from "../src/lib/fs_plan.ts";
 import { parseIcculusToml } from "../src/lib/toml_render.ts";
 import { parseManifest } from "../src/lib/manifest.ts";
 import { REAL_TEMPLATES, withTempDir } from "./helpers.ts";
 
 /** A resolved config for a non-interactive integration scaffold. */
-function integrationConfig() {
+function integrationConfig(): InitConfig {
   return {
     projectName: "Integration Demo",
     slug: "integration-demo",

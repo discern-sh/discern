@@ -56,7 +56,7 @@ export interface UpgradeOptions {
    * overridable so tests can drive the fold with synthetic steps without a real
    * `SCHEMA_VERSION` bump.
    */
-  registry?: Migration[];
+  registry?: Migration[] | undefined;
 }
 
 /** Read a text file, or undefined if absent. */
@@ -441,7 +441,7 @@ function warnKeptOrphans(log: Logger, kept: OrphanKept[]): void {
 async function rebuildManifest(params: {
   config: InitConfig;
   plan: Plan;
-  previous?: Manifest;
+  previous?: Manifest | undefined;
   destDir: string;
 }): Promise<Manifest> {
   const { config, plan, previous, destDir } = params;

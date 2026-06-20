@@ -17,10 +17,10 @@ export function renderTomlStringList(items: string[]): string {
 /** A minimally-validated view of a parsed `.icculus/config.toml`. */
 export interface IcculusToml {
   project: {
-    slug?: string;
-    branch_prefix?: string;
-    agents?: string[];
-    gotchas_doc?: string;
+    slug?: string | undefined;
+    branch_prefix?: string | undefined;
+    agents?: string[] | undefined;
+    gotchas_doc?: string | undefined;
   };
   raw: Record<string, unknown>;
 }

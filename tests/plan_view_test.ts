@@ -96,12 +96,12 @@ Deno.test("renderPlan writes the heading to stderr and one padded row per op to 
   assertEquals(err, ["\nDry run — would write:"]);
   // One row per op on stdout, each starting with the padded label.
   assertEquals(out.length, 2);
-  assertStringIncludes(out[0], "create");
-  assertStringIncludes(out[0], "agent");
+  assertStringIncludes(out[0]!, "create");
+  assertStringIncludes(out[0]!, "agent");
   // The managed op carries the dim [managed] marker (identity without colour).
-  assertStringIncludes(out[1], "update");
-  assertStringIncludes(out[1], ".icculus/engine/lib.sh");
-  assertStringIncludes(out[1], "[managed]");
+  assertStringIncludes(out[1]!, "update");
+  assertStringIncludes(out[1]!, ".icculus/engine/lib.sh");
+  assertStringIncludes(out[1]!, "[managed]");
 });
 
 Deno.test("renderPlan renders the note suffix and maps every disposition to its label", async () => {
@@ -117,15 +117,15 @@ Deno.test("renderPlan renders the note suffix and maps every disposition to its 
   const { out } = await capture(() => renderPlan(plainLogger(), p, "h"));
   assertEquals(out.length, 7);
   // Disposition → label mapping (DISPOSITION_LABEL).
-  assertStringIncludes(out[0], "create");
-  assertStringIncludes(out[1], "update");
-  assertStringIncludes(out[2], "skip");
-  assertStringIncludes(out[3], "new file");
-  assertStringIncludes(out[4], "merge");
-  assertStringIncludes(out[5], "append");
-  assertStringIncludes(out[6], "remove");
+  assertStringIncludes(out[0]!, "create");
+  assertStringIncludes(out[1]!, "update");
+  assertStringIncludes(out[2]!, "skip");
+  assertStringIncludes(out[3]!, "new file");
+  assertStringIncludes(out[4]!, "merge");
+  assertStringIncludes(out[5]!, "append");
+  assertStringIncludes(out[6]!, "remove");
   // The note is appended after an em-dash on the op that has one.
-  assertStringIncludes(out[2], "— already up to date");
+  assertStringIncludes(out[2]!, "— already up to date");
 });
 
 Deno.test("renderPlan on an empty plan prints only the heading, no rows", async () => {
