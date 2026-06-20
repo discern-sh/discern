@@ -1,6 +1,16 @@
 # ADR 0001: Project-owned recipes live in an unmanaged `.icculus/recipes/`
 
-**Status**: accepted
+**Status**: accepted; **amended by [ADR 0019](0019-single-binary-ts-engine.md)**
+— see _Update (single-binary cutover)_ below.
+
+## Update (single-binary cutover)
+
+Under the single-binary cutover ([ADR 0019](0019-single-binary-ts-engine.md)),
+`bin/agent` and `.icculus/engine/` are gone: the dispatcher is `icculus` and the
+engine is compiled into the binary. Project recipes still live in an unmanaged
+`.icculus/recipes/`, auto-discovered and exec'd on an unknown verb — but they
+read config via `icculus config get` rather than sourcing a shell library, and
+the engine-always-wins shadow rule survives.
 
 ## Context
 
