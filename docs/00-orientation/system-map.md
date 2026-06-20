@@ -7,52 +7,57 @@ documentation tree should slot into place.
 
 ## The system, end to end
 
-Two halves meet at `templates/`. The **Installer** (under `src/`) reads
-`templates/` — the source of truth — and writes a **Harness** into a project.
-From then on the Harness runs on its own, in pure POSIX shell.
+One self-contained binary, `icculus`, on `PATH`. Its **Installer** verbs write a
+project's seed files (and materialize the bundled Skills); its **Engine** verbs
+— TypeScript compiled into the same binary — run the gate and the worktree
+workflow. No engine is installed into the project; nothing it writes needs a
+runtime.
 
-### Build / install axis — how a Harness comes to exist
+### Build / install axis — how an install comes to exist
 
 ```
-┌──────────────┐   reads    ┌──────────────────────────┐
-│   src/       │ ─────────► │       templates/         │
-│  Installer   │            │  (source of truth for    │
-│  (Deno CLI)  │            │   everything installed)  │
-└──────┬───────┘            └──────────────────────────┘
+┌──────────────────────────────┐   bundles    ┌──────────────────────────┐
+│   the `icculus` binary       │ ◄─────────── │       templates/         │
+│  Installer verbs + Engine    │  (compiled   │  seed + skill sources    │
+│  (one self-contained binary) │   in)        │  (bundled into binary)   │
+└──────────────┬───────────────┘              └──────────────────────────┘
        │  icculus init / upgrade
-       │  copy · render · merge · append  — by disposition
+       │  write seeds · merge · append · materialize skills
        ▼
 ┌────────────────────────────────────────────────────────────┐
-│                   An install — the Harness                  │
-│  the root `agent`  ·  the `.icculus/` namespace:            │
-│  engine/ · config.toml · guidelines/ · skills/ · manifest   │
+│                   An install — on disk                      │
+│  the `.icculus/` namespace (no engine, no manifest):        │
+│  config.toml · guidelines/ · brief.md · recipes/  (yours)   │
+│  skills/  (the binary's — gitignored)                       │
+│  + merged .claude/settings.json, appended .gitignore        │
 │  (docs/ + TODO.md arrive later, via /bootstrap)             │
 └────────────────────────────────────────────────────────────┘
 ```
 
-### Run-time axis — what happens inside an install
+### Run-time axis — what happens when you run a verb
 
 ```
 person / coding agent
-       │  agent <verb>
+       │  icculus <verb>
        ▼
-┌──────────────┐   routes to    ┌─────────────────────────────┐
-│    agent     │ ─────────────► │   .icculus/engine/  Recipe   │
-│ (dispatcher) │                │  finish · tidy · worktree ·  │
-└──────────────┘                │  doctor · guidelines · …     │
-                                └──────────────┬──────────────┘
-                                               │  reads commands from
-                                               ▼
-                                ┌──────────────────────────────┐
-                                │     .icculus/config.toml      │
-                                │  Capabilities · Checks ·      │
-                                │  Scopes (+ gates) · Ratchets ·│
-                                │  Worktree settings            │
-                                └──────────────────────────────┘
+┌──────────────────────┐  known verb  ┌─────────────────────────────┐
+│   icculus binary     │ ───────────► │   Engine handler (in-binary) │
+│  dispatch.ts:        │              │  finish · tidy · worktree ·  │
+│  root + verb routing │              │  ratchets · guidelines · …   │
+└──────────┬───────────┘              └──────────────┬──────────────┘
+           │ unknown verb                            │  reads commands from
+           ▼                                         ▼
+┌──────────────────────────────┐        ┌──────────────────────────────┐
+│  project Recipe (exec'd)     │        │     .icculus/config.toml      │
+│  .icculus/recipes/<verb>     │        │  Capabilities · Checks ·      │
+│  with ICCULUS_* exported     │ ─────► │  Scopes (+ gates) · Ratchets ·│
+│  (built-in verb wins)        │ reads  │  Worktree settings            │
+└──────────────────────────────┘  via   └──────────────────────────────┘
+                                 icculus config get
 ```
 
-`agent finish` walks the Stages in order, attributing each job to one Capability
-or Check:
+`icculus finish` walks the Stages in order, attributing each job to one
+Capability or Check:
 
 ```
   fix  ───►  build  ───►  check ∥ test  ───►  scope gates  ───►  main-merged
@@ -63,31 +68,35 @@ or Check:
 The Worktree workflow brackets a change, keeping the main checkout untouched:
 
 ```
-main checkout ──agent worktree──► Worktree  (branch + own db + own port)
-      ▲                                │
-      └─────────── agent worktree:exit ┘   graduate branch + tear down
+main checkout ──icculus worktree──► Worktree  (branch + own db + own port)
+      ▲                                  │
+      └────────── icculus worktree:exit ─┘   graduate branch + tear down
 ```
 
 ---
 
 ## Where each piece runs
 
-- **The Installer is a build-time CLI**, not a service. It runs as a Deno
-  process during `init`/`upgrade`/`doctor` and compiles to standalone binaries
-  in `dist/`. It is **absent from an installed project** — nothing it provides
-  is a runtime dependency.
-- **The Harness is files plus short-lived shell processes.** The root `agent`
-  and each Engine Recipe are `#!/usr/bin/env sh` programs spawned per invocation
-  and gone when the command returns. There is **no daemon and no server** — work
-  happens synchronously when you run `agent <verb>`.
+- **The Installer is build-time work, not a service.** The `init`/`upgrade`/
+  `doctor` verbs run, write or refresh a project's files, and exit. They are
+  **absent from an installed project's runtime** — once a project is set up,
+  nothing the Installer did is a runtime dependency.
+- **The whole tool is one self-contained binary.** The Engine is TypeScript
+  compiled into it; a verb spawns a process that runs and is gone when the
+  command returns. There is **no daemon and no server** — work happens
+  synchronously when you run `icculus <verb>`. An install carries no engine of
+  its own.
 - **Concurrency is in-process fan-out, not a queue.** Inside `finish`, the
-  parallel Stages run their Capabilities and Checks as concurrent background
-  `sh` jobs via the Engine's job runner (`lib/jobs.sh`), collected before the
-  Stage returns.
+  parallel Stages run their Capabilities and Checks as concurrent child
+  processes via the Engine's job runner
+  ([`src/engine/jobs/runner.ts`](../../src/engine/jobs/runner.ts)), collected
+  before the Stage returns. Fail-fast cancellation tree-kills the running
+  siblings via Deno's process-group kill
+  ([`command.ts`](../../src/engine/jobs/command.ts)).
 - **Persistent state lives in the repo.** `.icculus/config.toml` (hand-edited
-  config), `.icculus/manifest.json` (generated hashes + Kit/Schema versions),
-  and the git repo itself (branches and linked Worktrees under
-  `.claude/worktrees/`). No database, no external state.
+  config, which also carries `[meta].schema_version`) and the git repo itself
+  (branches and linked Worktrees under `.claude/worktrees/`). No manifest, no
+  database, no external state.
 - **The only hard external dependency is `git`.** A project's own stack tools
   (the formatter, linter, test runner named as Capabilities) are invoked by
   those Capabilities, not bundled — the Engine shells out to whatever the
@@ -99,9 +108,9 @@ main checkout ──agent worktree──► Worktree  (branch + own db + own por
 
 | Region of the map                                           | Documented in                                              |
 | ----------------------------------------------------------- | ---------------------------------------------------------- |
-| `src/` Installer, the disposition copy, the Manifest        | [`../10-installer/`](../10-installer/)                     |
-| `agent finish`, the Stage walk, Scopes, Scope gates         | [`../20-quality-gate/`](../20-quality-gate/)               |
+| `src/` Installer verbs, the seed writes, schema migrations  | [`../10-installer/`](../10-installer/)                     |
+| `icculus finish`, the Stage walk, Scopes, Scope gates       | [`../20-quality-gate/`](../20-quality-gate/)               |
 | The Worktree bracket and its database / dev-server settings | [`../30-worktrees/`](../30-worktrees/)                     |
 | Guidance source → Compiled agent files, bundled Skills      | [`../40-agent-guidance/`](../40-agent-guidance/)           |
-| `agent` dispatch and the `lib/` shell library               | [`../50-engine-internals/`](../50-engine-internals/)       |
-| `templates/` ↔ install surface (Managed vs yours)           | [install-surface.md](../80-development/install-surface.md) |
+| Verb dispatch and the TypeScript engine                     | [`../50-engine-internals/`](../50-engine-internals/)       |
+| The install surface — yours vs the binary's                 | [install-surface.md](../80-development/install-surface.md) |

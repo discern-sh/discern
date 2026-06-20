@@ -2,10 +2,10 @@
 
 <!--
   This is the author-once source for the project's agent guidelines. It is
-  compiled by `agent guidelines` into the per-agent files at the repo root
+  compiled by `icculus guidelines` into the per-agent files at the repo root
   (CLAUDE.md, AGENTS.md, …). NEVER hand-edit those generated copies — they carry
   a do-not-edit banner and are overwritten on every compile. Edit THIS file (and
-  the skills under .icculus/skills/), then run `agent guidelines`.
+  the skills under .icculus/skills/), then run `icculus guidelines`.
 
   `/bootstrap` fleshes this stub out from .icculus/brief.md. The standing
   disciplines below (docs, TODO, worktree, finish gate) are the same on every
@@ -34,10 +34,10 @@ When you defer a fix, descope, or find a real issue you will not address this ro
 
 ## Working in a worktree
 
-Sessions usually run inside a linked git worktree with its own checkout and config. Stay inside the worktree root: every path you construct and every directory change must stay within it — never read, edit, or write files in the main checkout from a worktree session. When the work is ready to hand back, graduate the branch into the main checkout with `agent worktree:exit` (the [`handoff-worktree`](/.icculus/skills/handoff-worktree/SKILL.md) skill drives this).
+Sessions usually run inside a linked git worktree with its own checkout and config. Stay inside the worktree root: every path you construct and every directory change must stay within it — never read, edit, or write files in the main checkout from a worktree session. When the work is ready to hand back, graduate the branch into the main checkout with `icculus worktree:exit` (the [`handoff-worktree`](/.icculus/skills/handoff-worktree/SKILL.md) skill drives this).
 
 ## Finishing a task
 
-After any coding task, run **`agent finish`** before presenting your work as done. It is the complete end-to-end gate — it applies your fixers, builds, runs static checks and tests in parallel, fires any scope `gate`s that fired, and (in a worktree) verifies your branch contains the latest `main`. If it reports anything, fix it and run it again; do not declare a task done on a red gate. `agent tidy` is the faster inner loop (fixers + checks, no build or tests) for use while iterating.
+After any coding task, run **`icculus finish`** before presenting your work as done. It is the complete end-to-end gate — it applies your fixers, builds, runs static checks and tests in parallel, fires any scope `gate`s that fired, and (in a worktree) verifies your branch contains the latest `main`. If it reports anything, fix it and run it again; do not declare a task done on a red gate. `icculus tidy` is the faster inner loop (fixers + checks, no build or tests) for use while iterating.
 
-When `agent finish` stops at the merge check, it means `main` advanced during your session: commit your work, run `git merge main` (resolve conflicts, commit), then run `agent finish` again. If a stage fails in a way the message does not explain, the gate points you at [`docs/80-development/finish-gate-gotchas.md`](/docs/80-development/finish-gate-gotchas.md) — read the matching entry, and add a new one if you hit a trap that is not yet recorded.
+When `icculus finish` stops at the merge check, it means `main` advanced during your session: commit your work, run `git merge main` (resolve conflicts, commit), then run `icculus finish` again. If a stage fails in a way the message does not explain, the gate points you at [`docs/80-development/finish-gate-gotchas.md`](/docs/80-development/finish-gate-gotchas.md) — read the matching entry, and add a new one if you hit a trap that is not yet recorded.

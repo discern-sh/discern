@@ -17,144 +17,159 @@ and the rest of the tree reads as variations on them.
 
 ### icculus
 
-The whole tool: the **Installer** plus the **Harness** it ships. icculus
-scaffolds a stack-neutral agentic-development harness into any repository, in
-one command, and keeps it upgradable thereafter. The name (and `agent`,
-`.icculus/`) is a working placeholder pending a final one.
+The whole tool: a single self-contained binary that is both the **Installer**
+and the **Engine**. icculus scaffolds a stack-neutral agentic-development
+harness into any repository, in one command, and keeps it upgradable thereafter.
+The name (and `.icculus/`) is a working placeholder pending a final one.
 
 ### Installer
 
-The Deno/TypeScript CLI — `icculus init`, `upgrade`, `doctor`, `migrate`,
-`config`, `add-preset` — that lives under [`src/`](../../src/) and compiles to
-single-file binaries in `dist/`. It scaffolds and refreshes an install. It is a
-build-time tool only: an installed project never needs Deno, and the Installer
-is never a runtime dependency of it.
+The scaffolding face of the `icculus` binary — `icculus init`, `upgrade`,
+`doctor`, `migrate`, `config`, `add-preset`. Its TypeScript lives under
+[`src/`](../../src/) and compiles into the single-file binary. It writes and
+refreshes a project's files; it is build-time work only — an installed project
+never needs Deno, and the Installer is never a runtime dependency of it.
 
 ### Harness
 
-What an install _contains and runs_: the [`agent`](#agent-the-dispatcher)
-dispatcher, the [Engine](#engine), the `.icculus/config.toml` config, and the
-bundled [Skills](#skill). It is pure POSIX shell plus a TOML config. Every file
-in it originates in [`templates/`](../../templates/) — the source of truth —
-which the Installer copies, renders, merges, or appends into place. (The docs
-tree and `TODO.md` are not part of the install; they are written on demand after
-install by the bundled Skills.)
+What an install _gives a project_: the `icculus` verbs it can run, a
+`.icculus/config.toml` config, the bundled [Skills](#skill), and the compiled
+guidance. The logic — the [Engine](#engine) — is in the binary, not installed
+into the project; on disk an install carries only its config, its
+[Skills](#skill), its [Recipes](#recipe), and generated files. The seed and
+Skill files an install starts from originate under
+[`templates/`](../../templates/) and are **bundled into the binary**, which
+writes them out at `init`/`upgrade`. (The docs tree and `TODO.md` are not part
+of the install; they are written on demand after install by the bundled Skills.)
 
 ### Engine
 
-The stack-neutral logic of the Harness: the [Recipes](#recipe) and the shared
-shell library under [`.icculus/engine/`](../../templates/.icculus/engine/). The
-Engine knows nothing stack-specific — it runs the [Capabilities](#capability),
-[Checks](#check), [Scopes](#scope), and [worktree settings](#worktree-settings)
-a project declares in `.icculus/config.toml`. All Engine files are
-[managed](#managed-file).
+The stack-neutral logic behind the `icculus` run-time verbs (`finish`, `tidy`,
+`worktree`/`worktree:*`, `ratchets`, `guidelines`, `changed-scopes`, …), written
+in **TypeScript and compiled into the binary** under
+[`src/engine/`](../../src/engine/) (sharing [`src/shared/`](../../src/shared/)
+with the Installer). The Engine knows nothing stack-specific — it runs the
+[Capabilities](#capability), [Checks](#check), [Scopes](#scope), and
+[worktree settings](#worktree-settings) a project declares in
+`.icculus/config.toml`. It is the limit case of
+[the binary's](#the-binarys-files) files: not installed into a project at all.
 
-### `agent` (the dispatcher)
+### Dispatcher
 
-[`agent`](../../templates/agent), the task-runner surface a coding agent or
-person drives day to day. It finds the project root (the nearest ancestor with a
-`.icculus/config.toml`) and routes `agent <verb>` to the matching
-[Recipe](#recipe), with the harness paths exported. Tiny and dependency-free:
-the Recipes hold the logic.
+The verb-routing front of the `icculus` binary
+([`src/engine/dispatch.ts`](../../src/engine/dispatch.ts)). It finds the project
+root (the nearest ancestor with a `.icculus/config.toml`), routes a known verb
+to its built-in handler, and on an _unknown_ verb execs a matching project
+[Recipe](#recipe) with the `ICCULUS_*` environment exported. A built-in verb
+wins over a same-named recipe (warning on the shadow).
 
 ### Recipe
 
-One Engine command — a file under `.icculus/engine/` (e.g. `finish`, `tidy`,
-`worktree`, `doctor`). A name with a colon maps to a hyphenated file
-(`worktree:exit` → `worktree-exit`). A project may add its **own** unmanaged
-recipes under `.icculus/recipes/`; on a name collision the Engine wins
+A project's **own** `icculus` verb — a language-agnostic executable under
+`.icculus/recipes/`. The binary execs it on an unknown verb, with `ICCULUS_*`
+exported; a name with a colon maps to a hyphenated file (`some:verb` →
+`some-verb`). A recipe reads config through the
+`icculus config get|array|has|
+subsections|keys` surface and worktree identity
+through `icculus worktree-name --db|--site|--port` — it does **not** source a
+shell library. On a name collision with a built-in verb the binary wins
 ([ADR 0001](../_adr/0001-project-owned-recipes.md)).
 
 ---
 
-## The installer & the sync model
+## The installer & upgrades
 
 Terms for how an install is created, kept current, and migrated. Covered in
 depth under [`../10-installer/`](../10-installer/).
 
-### Kit version
+### Binary version
 
-The Installer's semantic version (e.g. `1.0.0`), declared once in `deno.json`
-and read everywhere through [`version.ts`](../../src/lib/version.ts). Recorded
-in the [Manifest](#manifest) and shown by `--version`.
+The `icculus` binary's semantic version (e.g. `1.0.0`), declared once in
+`deno.json` and read everywhere through
+[`version.ts`](../../src/lib/version.ts). Shown by `--version`. Getting a newer
+binary (via `install.sh`/`brew`/a future `self-update`) is a separate axis from
+`icculus upgrade`, which brings a _project_ into line with the binary it is run
+from.
 
 ### Schema version
 
 A plain monotonic integer — the anchor the [Migration](#migration) chain steps
-from. Distinct from the Kit version on purpose: it bumps **only** when an
-installed project needs a migration to stay correct, so most releases leave it
-untouched. The current shape is schema **4**.
-
-### Manifest
-
-[`.icculus/manifest.json`](#generated-file) — the [generated](#generated-file)
-record of an install's Kit version, Schema version, and a content hash of every
-[managed file](#managed-file). It is what lets `upgrade` and `selfcheck` tell a
-pristine managed file from an edited one, and a current install from a stale
-one.
+from, stamped into `[meta].schema_version` in `.icculus/config.toml`. It bumps
+**only** when an installed project needs a migration to stay correct, so most
+releases leave it untouched. The current shape is schema **5**.
 
 ### Migration
 
 One **idempotent** step that brings an install from Schema version `N` to `N+1`.
-`upgrade` reads the recorded Schema version, runs every pending step in order up
-to the build's, then re-stamps. A step can edit `.icculus/config.toml`
-comment-preserving, move/rewrite files, and deep-merge settings
-([ADR 0014](../_adr/0014-versioned-migration-system.md)).
+`upgrade` reads `[meta].schema_version` from `.icculus/config.toml`, runs every
+pending step in order up to the binary's, then re-stamps it. A step can edit
+`.icculus/config.toml` comment-preserving, move/rewrite files, and deep-merge
+settings ([ADR 0014](../_adr/0014-versioned-migration-system.md)).
 
 ### Preset
 
 A reusable overlay applied with `icculus add-preset <name>`: a `presets/<name>/`
-directory whose files are scaffolded onto a project (with the same managed/yours
-rules as `init`) plus an optional `preset.json` at its root — an icculus config
-document whose `capabilities` / `checks` / `scopes` / `ratchets` are written
-into `.icculus/config.toml`. Supersedes the former "adapter" overlay; the kit
-bundles none ([ADR 0018](../_adr/0018-vocabulary-consolidation.md)).
+directory whose files are scaffolded onto a project (with the same yours-vs-the-
+binary's rules as `init`) plus an optional `preset.json` at its root — an
+icculus config document whose `capabilities` / `checks` / `scopes` / `ratchets`
+are written into `.icculus/config.toml`. Supersedes the former "adapter"
+overlay; the binary bundles none
+([ADR 0018](../_adr/0018-vocabulary-consolidation.md)).
 
 ---
 
 ## File dispositions
 
-Every path an install contains has a **disposition** — how `icculus` treats it
-on `upgrade`, and where it is edited. The four are mapped across the whole
-surface in [install-surface.md](../80-development/install-surface.md).
-
-### Managed file
-
-A file copied verbatim from the kit's [`templates/`](../../templates/) tree and
-held byte-identical to it by `selfcheck`. `icculus upgrade` refreshes it, and a
-local edit is reported as drift and preserved alongside as `<file>.new`. A
-managed file is edited at its `templates/` source, never at its installed path —
-the managed set is declared in [`managed.json`](../../templates/managed.json)
-(see [ADR 0008](../_adr/0008-declarative-managed-set.md)).
+Every path an install touches has a **disposition** — how `icculus` treats it on
+`upgrade`, and where it is edited. Ownership is **two buckets**:
+[yours](#your-files--yours) (committed seeds, write-once) and
+[the binary's](#the-binarys-files) (gitignored, re-published artifacts). The
+[Merged](#merged-file) seeds and [Generated](#generated-file) artifacts are
+named refinements within them. The full surface is mapped in
+[install-surface.md](../80-development/install-surface.md).
 
 ### Your files / Yours
 
-A file written once — then owned by the project, never refreshed or flagged by
-`upgrade`, and edited in place (the opposite of a
-[managed file](#managed-file)). Some are laid at `icculus init` from a
-`templates/….tmpl` (`.icculus/config.toml`, the project guidelines); others are
-created on demand after install by the bundled Skills (the `docs/` tree and
-`TODO.md`, written by `/bootstrap`).
+A file written once — then owned by the project, **committed**, never refreshed
+or flagged by `upgrade`, and edited in place. These are the seeds `init` lays
+down: `.icculus/config.toml`, the project guidelines, the project brief, the
+`.icculus/recipes/` README, plus the [Merged](#merged-file)
+`.claude/settings.json` and `.gitignore`. Others are created on demand after
+install by the bundled Skills (the `docs/` tree and `TODO.md`, written by
+`/bootstrap`).
+
+### The binary's files
+
+A **gitignored** artifact the binary re-publishes on every `upgrade`, always
+safe to overwrite because the binary owns it — the opposite of
+[yours](#your-files--yours). The bundled [Skills](#skill) (materialized into
+`.icculus/skills/`), the `.claude/skills/` symlinks, and the compiled
+`CLAUDE.md`/`AGENTS.md` are all the binary's. The [Engine](#engine) is the limit
+case: the binary's, but not on disk in a project at all. (This bucket replaces
+the retired notion of a "managed file" — there are no content hashes, no `.new`
+preservation, and no drift detection, because nothing here is committed.)
 
 ### Merged file
 
-A file folded into whatever the project already has rather than written whole,
-so an existing project keeps its own content. It is produced only at `init` and
-left untouched by `upgrade`, in one of two forms: a structured merge
-(`.claude/settings.json`) or an idempotent append (`.gitignore`).
+A [yours](#your-files--yours) seed folded into whatever the project already has
+rather than written whole, so an existing project keeps its own content. It is
+produced only at `init` and left untouched by `upgrade`, in one of two forms: a
+structured merge (`.claude/settings.json`) or an idempotent append
+(`.gitignore`).
 
 ### Generated file
 
-A file produced by a harness command after install rather than copied from a
-template, and reproduced by re-running that command rather than edited directly.
-The `guidelines` recipe compiles `CLAUDE.md`, `AGENTS.md`, and the
-`.claude/skills/` symlinks; the installer writes `.icculus/manifest.json`.
+One of [the binary's](#the-binarys-files) files produced by an `icculus` command
+rather than copied from a template, and reproduced by re-running that command
+rather than edited directly. `icculus guidelines` compiles `CLAUDE.md`,
+`AGENTS.md`, and the `.claude/skills/` symlinks; `init`/`upgrade` materialize
+the `.icculus/skills/` tree.
 
 ---
 
 ## The quality gate
 
-Terms for `agent finish` and what it runs. Covered in depth under
+Terms for `icculus finish` and what it runs. Covered in depth under
 [`../20-quality-gate/`](../20-quality-gate/).
 
 ### Capability
@@ -178,7 +193,7 @@ as its own labelled job in its declared Stage, exactly like a Capability
 
 ### Readiness
 
-Whether a project's gate is meaningfully wired, reported by `agent doctor`.
+Whether a project's gate is meaningfully wired, reported by `icculus doctor`.
 Because the [Capability](#capability) vocabulary is **closed**, the Engine can
 enumerate which of the five are filled and which are knowably absent, and judge
 whether the install clears a minimal bar (a test plus at least one static
@@ -197,11 +212,11 @@ no longer a user-facing word.
 
 ### Gate
 
-`agent finish` — the compound quality gate: the Capability and Check
+`icculus finish` — the compound quality gate: the Capability and Check
 [Stages](#stage) in order (`fix ∥ build`, then `check ∥ test`), then any
 [Scope](#scope) `gate`s that fired, then (in a worktree) the main-merged check.
 Each Capability and Check runs as its own labelled job, so a failure is
-attributed to the precise one. `agent tidy` is the fast inner loop — the
+attributed to the precise one. `icculus tidy` is the fast inner loop — the
 fix-stage then check-stage work, no build or test.
 
 ### Scope
@@ -221,7 +236,7 @@ lint-error count), declared under `[ratchets]` and held against `main`. It
 **inlines its own `run`**, the command that prints
 `ICCULUS_METRIC <metric>
 <number>`. Ratchets are slow, so they run on demand via
-`agent ratchets`, not as part of `finish`
+`icculus ratchets`, not as part of `finish`
 ([ADR 0003](../_adr/0003-named-metric-ratchets.md),
 [ADR 0018](../_adr/0018-vocabulary-consolidation.md)).
 
@@ -250,7 +265,7 @@ project wires them, so a worktree round is a clean no-op until then
 
 ### Graduate
 
-What `agent worktree:exit` does: integrate the worktree's branch into the main
+What `icculus worktree:exit` does: integrate the worktree's branch into the main
 repo and tear the worktree down (database and dev-server link removed, directory
 pruned). Requires the branch to already carry `main`.
 
@@ -270,15 +285,18 @@ place guidance is authored.
 ### Compiled agent file
 
 `CLAUDE.md`, `AGENTS.md`, and the like — per-agent instruction files
-[generated](#generated-file) from the Guidance source by `agent guidelines`,
+[generated](#generated-file) from the Guidance source by `icculus guidelines`,
 each carrying a do-not-edit banner. Which files are emitted is set by
 `[project].agents` (`claude_code` → `CLAUDE.md`, `codex` → `AGENTS.md`).
 
 ### Skill
 
 A bundled agent capability shipped under `.icculus/skills/<name>/SKILL.md` (e.g.
-`bootstrap`, `document-subsystem`, `write-adr`) and made discoverable through
-`.claude/skills/` symlinks. All shipped Skills are [managed](#managed-file).
+`bootstrap`, `document-subsystem`, `write-adr`). `init`/`upgrade` materialize
+the bundled Skills into `.icculus/skills/` (gitignored) and symlink them into
+`.claude/skills/`. All shipped Skills are [the binary's](#the-binarys-files):
+overwritten on every `upgrade`, though a user's own real (non-symlink)
+`.claude/skills/<name>` is left alone.
 
 ---
 

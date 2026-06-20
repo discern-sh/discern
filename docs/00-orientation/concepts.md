@@ -27,9 +27,10 @@ Everything below fits in **four layers**:
 3. **The agent surface — what agents read and run:**
    [Guidance](glossary.md#guidance-source) (always-on),
    [Skills](glossary.md#skill) (on-demand), [Recipes](glossary.md#recipe) (your
-   `agent` verbs).
-4. **The ownership model — who owns what:** [managed](glossary.md#managed-file)
-   vs. **[yours](glossary.md#your-files--yours)**, with
+   own `icculus` verbs).
+4. **The ownership model — who owns what:**
+   **[yours](glossary.md#your-files--yours)** (committed seeds) vs. **the
+   [binary's](glossary.md#the-binarys-files)** (re-published artifacts), with
    [Presets](glossary.md#preset) layering reusable stacks on top.
 
 ---
@@ -41,21 +42,23 @@ harness — a quality gate, an isolated-worktree workflow, an author-once agent
 guidance pipeline, and a docs discipline — installed in one command and
 upgradable thereafter.
 
-It has **two halves**:
+It is **one self-contained binary** with two faces:
 
-- The **Installer** — a Deno/TypeScript CLI under [`src/`](../../src/). It
-  _scaffolds_ a project (`init`), _refreshes_ it (`upgrade`), and checks it
-  (`doctor`). It is a build-time tool that compiles to standalone binaries; an
-  installed project never needs it again at runtime.
-- The **Harness** — what an install contains and runs: the `agent` dispatcher,
-  the **Engine**, a `.icculus/config.toml` config, and bundled Skills. It is
-  pure POSIX shell plus TOML, with no runtime dependency.
+- The **Installer** — the `icculus init` / `upgrade` / `doctor` / `migrate` /
+  `config` / `add-preset` verbs. They _scaffold_ a project, _refresh_ it, and
+  check it. This face is build-time work: it writes a project's files, then
+  steps out of the way.
+- The **Engine** — the stack-neutral logic behind `icculus finish` / `tidy` /
+  `worktree` / … . It is **TypeScript compiled into the binary**
+  ([`src/engine/`](../../src/engine/), sharing
+  [`src/shared/`](../../src/shared/) with the Installer), not files installed
+  into the project.
 
-The pivot between them is [`templates/`](../../templates/), the **source of
-truth**: every file a Harness contains originates there, and the Installer
-copies, renders, merges, or appends it into place. That single rule — author in
-`templates/`, generate the install — is what keeps a thousand installs
-consistent and upgradable.
+Both faces are the same `icculus` command on `PATH`; an installed project
+carries no engine of its own and needs no Deno at runtime. The seed and Skill
+files an install starts from are **bundled into the binary** (their source lives
+under [`templates/`](../../templates/)) and written out by `init`/`upgrade` —
+there is no committed copy of the harness to keep in sync.
 
 The Engine is deliberately **ignorant of your stack**. It runs "the test
 Capability," "the fix-stage work," "the `gate` for this Scope" — names it
@@ -71,13 +74,17 @@ Fill the Capabilities once and the generic Engine becomes your project's gate.
 ## How it works, end to end
 
 **1. Install.** `icculus init` reads a few answers and the project brief, then
-lays the Harness down from `templates/`: the `agent` dispatcher, the Engine, a
-`.icculus/config.toml` with no Capabilities wired yet (a green gate you grow
-into — an omitted capability is simply skipped), and a `.icculus/manifest.json`
-recording a hash of every **Managed file**. Files split by **disposition** —
-Managed (refreshed from the kit), [yours](glossary.md#your-files--yours)
-(written once, then kept), Merged, Generated. The docs tree and `TODO.md` are
-not scaffolded at install; the
+lays down only _your_ seed files: a `.icculus/config.toml` with no Capabilities
+wired yet (a green gate you grow into — an omitted capability is simply
+skipped), a guidelines stub, the project brief, a `.icculus/recipes/` README, a
+merged `.claude/settings.json`, and an appended `.gitignore` fragment. It then
+**materializes** the bundled Skills into `.icculus/skills/` (gitignored) and
+symlinks them into `.claude/skills/`. There is no engine and no manifest to
+write — the Engine is in the binary. Files split by **disposition**:
+[yours](glossary.md#your-files--yours) (the committed seeds, written once then
+kept), [the binary's](glossary.md#the-binarys-files) (gitignored artifacts it
+re-publishes, like the Skills), plus the Merged `settings.json`/`.gitignore`.
+The docs tree and `TODO.md` are not scaffolded at install; the
 [`bootstrap`](../../templates/.icculus/skills/bootstrap/SKILL.md) Skill writes
 them on demand afterward.
 
@@ -88,32 +95,35 @@ fills (formatter, linter, type-checker, tests) and writes the docs tree and
 `TODO.md` from the brief. The Engine stays generic; only `.icculus/config.toml`
 learns the stack.
 
-**3. Work behind the gate.** Day to day, everything is driven through the
-`agent` dispatcher:
+**3. Work behind the gate.** Day to day, everything is driven through `icculus`
+verbs:
 
-- `agent worktree` carves an isolated **Worktree** (and branch) for a change, so
-  the main checkout is never touched. Each Worktree gets its own database and
+- `icculus worktree` carves an isolated **Worktree** (and branch) for a change,
+  so the main checkout is never touched. Each Worktree gets its own database and
   dev-server port through the **Worktree settings** — empty until wired.
-- `agent tidy` is the fast inner loop: the fix-stage Capabilities, then the
+- `icculus tidy` is the fast inner loop: the fix-stage Capabilities, then the
   check-stage ones.
-- `agent finish` is the full **Gate**: fix and build, then check and test in
+- `icculus finish` is the full **Gate**: fix and build, then check and test in
   parallel, then any **Scope** `gate`s that fired, then the main-merged check.
   Each Capability and **Check** runs as its own labelled job, so failure points
   at the exact one; `--json` makes that machine-readable.
-- `agent worktree:exit` **graduates** the branch into the main repo and tears
+- `icculus worktree:exit` **graduates** the branch into the main repo and tears
   the Worktree down.
 
-**4. Stay current.** As the kit evolves, `icculus upgrade` refreshes Managed
-files **hash-aware**: pristine ones are overwritten, locally-edited ones
-preserved with the new version dropped beside as `<file>.new`, your files left
-untouched. When a release needs an install to change shape, a **Schema version**
-bump runs an idempotent **Migration** chain before the file sync. This repo runs
-this very loop on itself: `selfcheck` (a [Check](glossary.md#check)) fails the
-Gate if the root install ever drifts from `templates/`.
+**4. Stay current.** When you install a newer `icculus` binary,
+`icculus
+upgrade` brings the _project_ into line with it: it runs any pending
+config-schema **Migration**s, re-materializes the bundled Skills (always
+overwritten — they are the binary's), recompiles the guidance, and re-stamps the
+**Schema version** in `.icculus/config.toml`. Your seed files are left
+untouched. There is nothing to hash and nothing to drift: the engine is in the
+binary, not on disk. This repo proves the loop by running its _own_ engine
+straight from source — `deno task dev finish` — so the gate the maintainer runs
+is the gate that ships, with no second copy to keep in sync.
 
 Alongside the runtime path, guidance flows author-once → compile-everywhere: you
 edit one **Guidance source** (`.icculus/guidelines/<slug>.md`) and
-`agent guidelines` compiles it to each **Compiled agent file** (`CLAUDE.md`,
+`icculus guidelines` compiles it to each **Compiled agent file** (`CLAUDE.md`,
 `AGENTS.md`), so several agents share one set of instructions.
 
 ---
@@ -123,9 +133,9 @@ edit one **Guidance source** (`.icculus/guidelines/<slug>.md`) and
 | Want to understand...                                         | Go to                                                      |
 | ------------------------------------------------------------- | ---------------------------------------------------------- |
 | How an install is created, refreshed, and migrated            | [`../10-installer/`](../10-installer/)                     |
-| `agent finish` — Capabilities, Checks, Scopes, Ratchets       | [`../20-quality-gate/`](../20-quality-gate/)               |
+| `icculus finish` — Capabilities, Checks, Scopes, Ratchets     | [`../20-quality-gate/`](../20-quality-gate/)               |
 | The isolated-Worktree workflow and its settings seams         | [`../30-worktrees/`](../30-worktrees/)                     |
 | Author-once → compile-everywhere guidance, and bundled Skills | [`../40-agent-guidance/`](../40-agent-guidance/)           |
-| The `agent` dispatcher and the shared POSIX-shell library     | [`../50-engine-internals/`](../50-engine-internals/)       |
-| The exact map of what an install contains (Managed vs yours)  | [install-surface.md](../80-development/install-surface.md) |
+| The dispatcher and the TypeScript engine                      | [`../50-engine-internals/`](../50-engine-internals/)       |
+| The exact map of what an install contains (yours vs binary's) | [install-surface.md](../80-development/install-surface.md) |
 | Why the system is shaped this way                             | [design-principles.md](design-principles.md)               |

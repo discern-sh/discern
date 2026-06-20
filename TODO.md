@@ -51,8 +51,8 @@ outstanding._
       by hand. Make it close to mandatory: a single loud "do this next"
       call-to-action in the outro, and/or a nudge from `doctor`/the first
       `finish` while every slot is still a no-op. Evidence:
-      `src/commands/init.ts:282` (`printOutro`); the all-no-op gate nudge
-      already exists at `templates/.icculus/engine/finish:305`.
+      `src/commands/init.ts:243` (`printOutro`); the all-no-op gate nudge
+      already exists at `src/engine/gate/finish.ts:243`.
 
 - [ ] **The v3→v4 config migration leaves stale comment blocks behind.** It is
       comment-preserving, so it rewrites the tables (`[slots]`→`[capabilities]`/

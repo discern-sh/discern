@@ -34,47 +34,53 @@ any agent.
 
 **How it shows up.** `finish` builds its stages by iterating over whatever
 `[capabilities]` and `[checks]` declare
-([finish](../../templates/.icculus/engine/finish)), deriving each known
-capability's stage from its name; the engine reads commands through
-`config_get`, never by name. The worktree database and dev-server seams are
-empty config until a project wires them. The one place concrete ecosystems are
-named on purpose is the stack-detection table in the
-[`bootstrap`](../../templates/.icculus/skills/bootstrap/SKILL.md) skill — whose
-job is to _propose_ capability fills, never to bake them into the engine.
+([finish.ts](../../src/engine/gate/finish.ts) via
+[stages.ts](../../src/engine/gate/stages.ts)), deriving each known capability's
+stage from its name; the engine reads commands through the config reader
+([config_read.ts](../../src/shared/config_read.ts)), never by name. The worktree
+database and dev-server seams are empty config until a project wires them. The
+one place concrete ecosystems are named on purpose is the stack-detection table
+in the [`bootstrap`](../../templates/.icculus/skills/bootstrap/SKILL.md) skill —
+whose job is to _propose_ capability fills, never to bake them into the engine.
 
 ---
 
 ## 2. One source of truth — author once, generate the rest
 
-Every fact lives in exactly one authoritative place. `templates/` is the source
-of truth for everything an install receives; agent guidance is authored once in
-`.icculus/guidelines/` and compiled to each agent's file; a metric, a
-managed-file list, a version are each declared once and read everywhere. Where a
-second copy must exist it is _generated_, marked as generated, and never
-hand-edited.
+Every fact lives in exactly one authoritative place. The engine is one
+TypeScript implementation compiled into the binary, not a copy installed per
+project; the seed and skill files an install starts from are authored once under
+`templates/` and bundled into the binary; agent guidance is authored once in
+`.icculus/guidelines/` and compiled to each agent's file; a metric, a version
+are each declared once and read everywhere. Where a second copy must exist it is
+_generated_, marked as generated, and never hand-edited.
 
 **Why it matters.** Duplicated facts drift, and drift is silent until something
 breaks — a reader follows a stale doc, two copies of one behaviour diverge with
 every fix that lands in only one of them. With one source per fact, consistency
 is a property of the system, not of human vigilance.
 
-**How it shows up.** [`managed.json`](../../templates/managed.json) declares the
-managed set once ([ADR 0008](../_adr/0008-declarative-managed-set.md));
-`agent guidelines` compiles `CLAUDE.md`/`AGENTS.md` from a single guidance
-source; [`version.ts`](../../src/lib/version.ts) is the only home for the kit
-and schema versions; the `Generated file` and `Managed file` dispositions in the
-[glossary](glossary.md) carry the rule that a generated copy is reproduced,
+**How it shows up.** The engine has one home in
+[`src/engine/`](../../src/engine/) — there is no second committed copy to drift
+from ([ADR 0019](../_adr/0019-single-binary-ts-engine.md)); `icculus guidelines`
+compiles `CLAUDE.md`/`AGENTS.md` from a single guidance source;
+[`version.ts`](../../src/lib/version.ts) is the only home for the binary and
+schema versions; the [Generated file](glossary.md#generated-file) and
+[The binary's files](glossary.md#the-binarys-files) dispositions in the
+[glossary](glossary.md) carry the rule that a re-published copy is reproduced,
 never edited.
 
 ---
 
-## 3. Re-running is always safe — refresh managed, preserve edits, never clobber
+## 3. Re-running is always safe — your files written once, the binary's always re-publishable
 
 `icculus` scaffolds into a repository you care about, so every command must be
-safe to run again. `upgrade` overwrites a managed file only when it is pristine;
-a local edit is preserved untouched and the new version written alongside as
-`<file>.new`. Your files are never refreshed. A managed file the kit no longer
-ships is _reported_, not deleted, when your copy differs. Migrations are
+safe to run again. The ownership split makes this structural: _your_ files (the
+committed seeds — config, guidelines, brief, recipes README, merged
+`settings.json`/`.gitignore`) are written once by `init` and never touched
+again, so `upgrade` cannot clobber an edit. _The binary's_ files (the
+gitignored, re-published artifacts — skills, the compiled guidance) are always
+safe to overwrite precisely because they are not yours to edit. Migrations are
 idempotent and the tree must be clean (or `--allow-dirty`) so an upgrade stays
 revertible with `git checkout`.
 
@@ -82,35 +88,41 @@ revertible with `git checkout`.
 stop running — and an un-runnable `upgrade` means installs rot. Safety is what
 makes the harness _upgradable_ rather than a one-shot scaffold.
 
-**How it shows up.** The hash-aware plan in
-[upgrade.ts](../../src/commands/upgrade.ts) maps each managed file to overwrite
-/ `.new` / skip against the manifest hash; `planOrphanRemovals` keeps edited
-orphans; the clean-tree guard refuses a dirty tree without `--allow-dirty`
+**How it shows up.** [upgrade.ts](../../src/commands/upgrade.ts) never rewrites
+a committed seed: it runs pending config-schema migrations, re-materializes the
+bundled skills, recompiles guidance, and re-stamps `[meta].schema_version` —
+nothing else. There are no content hashes, no `.new` files, and no orphan
+reconciliation, because nothing the binary publishes is committed
+([ADR 0019](../_adr/0019-single-binary-ts-engine.md)). The clean-tree guard
+refuses a dirty tree without `--allow-dirty`
 ([ADR 0014](../_adr/0014-versioned-migration-system.md)); every
 [migration](../../src/lib/migrations.ts) step is written to no-op on a second
 run.
 
 ---
 
-## 4. The installed harness is dependency-free POSIX shell
+## 4. An installed project carries no runtime dependency
 
-What lands in a target project is pure `sh` plus a TOML config — no Deno, no
-Node, no runtime to install. The Deno/TypeScript half is the _installer_; it
-builds and ships the harness but never becomes a runtime dependency of the
-projects that use it.
+The `icculus` binary is self-contained — V8 is baked in — so a target project
+needs no Deno, no Node, nothing but the one binary on `PATH` plus `git`. The
+engine ships _inside_ the binary as compiled TypeScript; it is never installed
+into the project as files that would drag a runtime along. What lands in a
+project is config, gitignored artifacts, and generated guidance — data, not a
+second program.
 
 **Why it matters.** A harness that imposes a runtime cannot honestly claim to
-drop into "any project." Portability dies the moment the engine needs something
-the host doesn't already have. POSIX `sh` is the one interpreter every target
-already runs.
+drop into "any project." Portability dies the moment running the gate needs
+something the host doesn't already have. A single self-contained binary is the
+one thing a target can always run.
 
-**How it shows up.** Every recipe under
-[`.icculus/engine/`](../../templates/.icculus/engine/) is `#!/usr/bin/env sh`
-sourcing the dependency-free library in `lib/`; config is read by an awk TOML
-parser, not a language runtime; the gate runs `shellcheck` and a dash/bash CI
-matrix to keep the shell portable
-([ADR 0012](../_adr/0012-engine-noglob-default.md)). Deno appears only in
-`deno task` build/test tooling, never in an install.
+**How it shows up.** The engine lives in [`src/engine/`](../../src/engine/) and
+compiles into the binary; project [recipes](glossary.md#recipe) stay
+language-agnostic executables that read config through
+`icculus config get|array|has|subsections|keys` rather than sourcing any
+library. Config is parsed with strict `@std/toml` inside the binary
+([config_read.ts](../../src/shared/config_read.ts)). Deno appears only in
+`deno task` build/test tooling, never as a dependency of an install
+([ADR 0019](../_adr/0019-single-binary-ts-engine.md)).
 
 ---
 
@@ -128,33 +140,40 @@ let broken work through — the expensive failure. But once something has alread
 failed, burning wall-clock on doomed siblings just slows the agent's loop. Safe
 when unsure, fast when certain.
 
-**How it shows up.**
-[`changed-scopes`](../../templates/.icculus/engine/changed-scopes) classifies
-unknown paths as gated code; a scope's `gate` fires only when that scope
-actually changed ([ADR 0018](../_adr/0018-vocabulary-consolidation.md));
-`[gate].fail_fast` defaults on and the structured report attributes failure to a
-single capability or check ([ADR 0004](../_adr/0004-structured-finish-json.md)).
+**How it shows up.** [`changed.ts`](../../src/engine/scopes/changed.ts)
+classifies unknown paths as gated code; a scope's `gate` fires only when that
+scope actually changed ([ADR 0018](../_adr/0018-vocabulary-consolidation.md));
+`[gate].fail_fast` defaults on — the first failing job tree-kills its running
+siblings via Deno's process-group kill
+([command.ts](../../src/engine/jobs/command.ts)) — and the structured report
+attributes failure to a single capability or check
+([ADR 0004](../_adr/0004-structured-finish-json.md)).
 
 ---
 
-## 6. Self-host the harness — the repo runs on the gate it ships
+## 6. Self-host the harness — the repo runs on the engine it ships
 
-icculus installs into itself. The `agent` dispatcher, engine, and skills at the
-repo root are a real install of `templates/`, and `selfcheck` proves they stay
-byte-identical to it. The gate that ships is the gate the maintainer runs; there
-is no separate "dev" path that could diverge from what users get.
+icculus runs on itself. This repo's gate _is_ the binary's own engine, invoked
+straight from source via `deno task dev finish`. Because the engine lives in one
+place — compiled into the binary, never copied into a project — there is no
+second committed copy that could drift, and so nothing to keep in sync. The gate
+that ships is the gate the maintainer runs; there is no separate "dev" path that
+could diverge from what users get.
 
 **Why it matters.** The strongest test of a portable harness is that it holds
 its own author to the same discipline. Self-hosting collapses the gap between
-"what we ship" and "what we use" to zero — a regression in the shipped harness
-breaks our own build the same day, not a user's repo months later.
+"what we ship" and "what we use" to zero — a regression in the shipped engine
+breaks our own build the same day, not a user's repo months later. Collapsing
+the engine to a single home goes one better: the old drift the previous
+self-host model had to _detect_ is now impossible by construction.
 
-**How it shows up.** `deno task selfcheck` (≡ `upgrade --check`) is wired as a
-`check`-stage Check (`[checks.selfcheck]`), so drift between the root install
-and `templates/` fails `agent finish`
-([ADR 0010](../_adr/0010-self-host-the-harness.md)); the `tests/engine_*` suites
-scaffold the real `templates/` into temp dirs and run `agent` against them; CI
-runs `agent finish`.
+**How it shows up.** The `deno.json` `gate` task is `deno task dev finish`, so
+the repo gates itself with the very engine it ships; there is no `selfcheck` or
+`shellcheck` Check, because there is no installed copy to compare against
+([ADR 0019](../_adr/0019-single-binary-ts-engine.md), superseding
+[ADR 0010](../_adr/0010-self-host-the-harness.md)). The `tests/engine_*` suites
+scaffold a project into temp dirs and run the engine against them; CI runs the
+same gate.
 
 ---
 
@@ -167,7 +186,7 @@ drag a runtime along (4) — which together are what let the harness be
 **installable and upgradable** rather than copied-and-forked per project. The
 last two are how the engine behaves under uncertainty (5) and how we keep
 ourselves honest that it works (6): self-hosting (6) is only credible _because_
-the engine is stack-neutral (1) and sourced from one truth (2), so the install
+the engine is stack-neutral (1) and sourced from one truth (2), so the engine
 that gates this very repo is the same one users receive.
 
 When you propose a change that violates one of these principles, that is a

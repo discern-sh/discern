@@ -8,11 +8,9 @@
     ".scratch": true
   },
   "search.exclude": {
-    "agent": true,
-    ".icculus/engine": true,
     ".icculus/skills": true,
+    ".claude/skills": true,
     "AGENTS.md": true,
-    "CLAUDE.md": true,
-    ".icculus/manifest.json": true
+    "CLAUDE.md": true
   }
 }
