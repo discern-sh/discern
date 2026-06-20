@@ -80,7 +80,12 @@ async function lstat(path: string): Promise<Deno.FileInfo | undefined> {
 export async function compileGuidelines(
   root: string,
 ): Promise<GuidelinesResult> {
-  const log = new Logger({ json: false, noColor: false });
+  // Engine recipe: info/ok → stdout (matching the shell `output.sh`).
+  const log = new Logger({
+    json: false,
+    noColor: false,
+    humanStream: "stdout",
+  });
 
   const sourcesDir = join(root, ".icculus/guidelines");
   const skillsDir = join(root, ".icculus/skills");
@@ -165,19 +170,19 @@ export async function compileGuidelines(
  */
 async function collectSources(sourcesDir: string): Promise<string[]> {
   const sources: string[] = [];
-  let entries: AsyncIterable<Deno.DirEntry>;
+  // NotFound surfaces during iteration (Deno.readDir is lazy), so the try must
+  // wrap the for-await, not the readDir call.
   try {
-    entries = Deno.readDir(sourcesDir);
+    for await (const entry of Deno.readDir(sourcesDir)) {
+      if (entry.isFile && entry.name.endsWith(".md")) {
+        sources.push(join(sourcesDir, entry.name));
+      }
+    }
   } catch (err) {
     if (err instanceof Deno.errors.NotFound) {
       return [];
     }
     throw err;
-  }
-  for await (const entry of entries) {
-    if (entry.isFile && entry.name.endsWith(".md")) {
-      sources.push(join(sourcesDir, entry.name));
-    }
   }
   sources.sort();
   return sources;
@@ -197,23 +202,21 @@ async function linkSkills(
   log: Logger,
 ): Promise<number> {
   let linked = 0;
-  let entries: AsyncIterable<Deno.DirEntry>;
+  // Collect first, so `.claude/skills/` is created only when there is a skill to
+  // link (matching the shell, which guards the mkdir on the source dir existing).
+  // NotFound surfaces during iteration, so the try wraps the for-await.
+  const skills: string[] = [];
   try {
-    entries = Deno.readDir(skillsDir);
+    for await (const entry of Deno.readDir(skillsDir)) {
+      if (entry.isDirectory) {
+        skills.push(entry.name);
+      }
+    }
   } catch (err) {
     if (err instanceof Deno.errors.NotFound) {
       return 0;
     }
     throw err;
-  }
-
-  // Collect first, so `.claude/skills/` is created only when there is a skill to
-  // link (matching the shell, which guards the mkdir on the source dir existing).
-  const skills: string[] = [];
-  for await (const entry of entries) {
-    if (entry.isDirectory) {
-      skills.push(entry.name);
-    }
   }
   if (skills.length === 0) {
     return 0;
@@ -254,28 +257,27 @@ async function pruneSkillLinks(
   claudeSkillsDir: string,
 ): Promise<number> {
   let pruned = 0;
-  let entries: AsyncIterable<Deno.DirEntry>;
+  // NotFound surfaces during iteration, so the try wraps the for-await.
   try {
-    entries = Deno.readDir(claudeSkillsDir);
+    for await (const entry of Deno.readDir(claudeSkillsDir)) {
+      if (!entry.isSymlink) {
+        continue;
+      }
+      const skill = basename(entry.name);
+      if ((await lstat(join(skillsDir, skill)))?.isDirectory) {
+        continue;
+      }
+      const link = join(claudeSkillsDir, skill);
+      if (await Deno.readLink(link) === skillLinkTarget(skill)) {
+        await Deno.remove(link);
+        pruned++;
+      }
+    }
   } catch (err) {
     if (err instanceof Deno.errors.NotFound) {
       return 0;
     }
     throw err;
-  }
-  for await (const entry of entries) {
-    if (!entry.isSymlink) {
-      continue;
-    }
-    const skill = basename(entry.name);
-    if ((await lstat(join(skillsDir, skill)))?.isDirectory) {
-      continue;
-    }
-    const link = join(claudeSkillsDir, skill);
-    if (await Deno.readLink(link) === skillLinkTarget(skill)) {
-      await Deno.remove(link);
-      pruned++;
-    }
   }
   return pruned;
 }

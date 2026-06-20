@@ -1,0 +1,599 @@
+/**
+ * The engine-verb dispatcher: attaches the project task-runner verbs (the former
+ * shell `agent` recipes) to the `icculus` CLI, and falls through to project-owned
+ * executable recipes under `.icculus/recipes/` for an unknown verb. The TS
+ * replacement for the shell `agent` dispatcher.
+ *
+ * Engine verbs operate on the project (found by walking up to `.icculus/config.toml`),
+ * so each requires a project root. `worktree:<sub>` is normalised to the Cliffy
+ * group `worktree <sub>` before parsing (Cliffy forbids `:` in command names).
+ */
+
+import { Command } from "@cliffy/command";
+import { join } from "@std/path";
+import { Config } from "../shared/config_read.ts";
+import { findRoot, recipeEnvVars } from "../shared/env.ts";
+import { Logger } from "../lib/log.ts";
+import { runFinish } from "./gate/finish.ts";
+import { runTidy } from "./gate/tidy.ts";
+import { runTestCapability } from "./gate/test.ts";
+import { runRatchets } from "./gate/ratchets.ts";
+import { runChangedScopes } from "./scopes/changed.ts";
+import { compileGuidelines } from "./guidelines.ts";
+import {
+  IdentityError,
+  type LifecycleContext,
+  lifecycleContext,
+  worktreeEnsure,
+  worktreeExit,
+  WorktreeGitError,
+  worktreeNameField,
+  worktreePrune,
+  worktreeSetup,
+  worktreeTeardown,
+} from "./worktree/lifecycle.ts";
+import { inheritMainEnvVars, removeWorktreeSafely } from "./worktree/git.ts";
+import { gotchasHint } from "./gate/gotchas.ts";
+import { colorEnabled } from "./output.ts";
+
+/** The top-level engine verbs Cliffy owns (everything else → recipe fallthrough). */
+export const KNOWN_ENGINE_VERBS: ReadonlySet<string> = new Set([
+  "finish",
+  "tidy",
+  "test",
+  "ratchets",
+  "guidelines",
+  "changed-scopes",
+  "worktree",
+  "worktree-name",
+]);
+
+/** Hyphenated engine recipe names + their displayed (colon) form, for the suggester. */
+const ENGINE_RECIPE_NAMES: readonly string[] = [
+  "finish",
+  "tidy",
+  "test",
+  "ratchets",
+  "guidelines",
+  "changed-scopes",
+  "worktree",
+  "worktree-name",
+  "worktree-exit",
+  "worktree-ensure",
+  "worktree-teardown",
+  "worktree-prune",
+];
+
+/** Render a recipe's file name as the user types it (worktree-exit → worktree:exit). */
+function displayName(name: string): string {
+  if (name === "worktree-name") {
+    return "worktree-name";
+  }
+  if (name.startsWith("worktree-")) {
+    return `worktree:${name.slice("worktree-".length)}`;
+  }
+  if (name.startsWith("finish-")) {
+    return `finish:${name.slice("finish-".length)}`;
+  }
+  return name;
+}
+
+/** Logger for engine human output — info/ok/heading → stdout (matching the shell
+ * recipes); NO_COLOR / non-TTY honoured by Logger. */
+function makeLogger(): Logger {
+  return new Logger({ json: false, noColor: false, humanStream: "stdout" });
+}
+
+const NO_PROJECT =
+  "not inside an icculus project (no .icculus/config.toml in this directory or any parent).";
+
+/** Resolve the project root, or print the shell-`agent`-style error and exit 1. */
+async function requireRoot(): Promise<string> {
+  const root = await findRoot();
+  if (root === undefined) {
+    console.error(`icculus: ${NO_PROJECT}`);
+    console.error("       Run `icculus init` to scaffold one.");
+    Deno.exit(1);
+  }
+  return root;
+}
+
+/** Map a thrown worktree error to an exit code, logging its message. */
+function handleWorktreeError(e: unknown, log: Logger): number {
+  if (e instanceof WorktreeGitError || e instanceof IdentityError) {
+    log.error(e.message);
+    return 1;
+  }
+  throw e;
+}
+
+/** Build a lifecycle context and run a worktree operation, mapping errors to codes. */
+async function runWorktreeOp(
+  op: (ctx: LifecycleContext) => Promise<void>,
+): Promise<number> {
+  const root = await requireRoot();
+  const log = makeLogger();
+  try {
+    await op(await lifecycleContext(root, log));
+    return 0;
+  } catch (e) {
+    return handleWorktreeError(e, log);
+  }
+}
+
+/** Attach the engine task-runner verbs to the `icculus` root command. */
+export function attachEngineCommands(root: Command): void {
+  root
+    .command("finish")
+    .description("The full quality gate — run before calling work done.")
+    .option("--json", "Emit a machine-readable gate report on stdout.")
+    .action(async (o) => {
+      Deno.exit(
+        await runFinish(await requireRoot(), { json: o.json ?? false }),
+      );
+    });
+
+  root
+    .command("tidy")
+    .description("Fast inner loop: the fixers, then the read-only checks.")
+    .action(async () => {
+      Deno.exit(await runTidy(await requireRoot()));
+    });
+
+  root
+    .command("test")
+    .description("Run the test capability.")
+    .action(async () => {
+      Deno.exit(await runTestCapability(await requireRoot()));
+    });
+
+  root
+    .command("ratchets")
+    .description(
+      "Hold every metric ratchet (slow; on demand, not part of finish).",
+    )
+    .action(async () => {
+      Deno.exit(await runRatchets(await requireRoot()));
+    });
+
+  root
+    .command("guidelines")
+    .description(
+      "Compile .icculus/guidelines/* into the agent files + link skills.",
+    )
+    .action(async () => {
+      const r = await compileGuidelines(await requireRoot());
+      const log = makeLogger();
+      log.ok(
+        `guidelines: compiled ${r.agentsWritten.length} agent file(s); ${r.skillsLinked} skill(s) linked, ${r.skillsPruned} pruned.`,
+      );
+      Deno.exit(0);
+    });
+
+  root
+    .command("changed-scopes")
+    .description("Classify which scopes the branch + working tree changed.")
+    .option("--json", "Emit a JSON array of the changed scopes/markers.")
+    .option(
+      "--has <scope:string>",
+      "Exit 0/1 membership test for one scope (silent).",
+    )
+    .action(async (o) => {
+      Deno.exit(
+        await runChangedScopes(await requireRoot(), {
+          json: o.json ?? false,
+          ...(o.has !== undefined ? { has: o.has } : {}),
+        }),
+      );
+    });
+
+  root
+    .command("worktree-name")
+    .description(
+      "Resolve a worktree's stable identity (id/site/branch/port/db).",
+    )
+    .option("--id", "Print the safe worktree id (default).")
+    .option("--site", "Print the dev-server site/host name.")
+    .option("--branch", "Print the default branch name.")
+    .option("--port", "Print the deterministic dev-server port.")
+    .option("--db", "Print the database-name-safe identity.")
+    .arguments("[path:string]")
+    .action(async (o, path) => {
+      const field = o.site
+        ? "site"
+        : o.branch
+        ? "branch"
+        : o.port
+        ? "port"
+        : o.db
+        ? "db"
+        : "id";
+      const root = await requireRoot();
+      try {
+        console.log(await worktreeNameField(root, field, path ?? Deno.cwd()));
+        Deno.exit(0);
+      } catch (e) {
+        if (e instanceof IdentityError) {
+          console.error(e.message);
+          Deno.exit(1);
+        }
+        throw e;
+      }
+    });
+
+  const worktree = new Command()
+    .description("Set up the current worktree (run by the create hook).")
+    .action(async () => {
+      Deno.exit(await runWorktreeOp(worktreeSetup));
+    })
+    .command(
+      "exit",
+      new Command()
+        .description("Graduate this worktree's branch into the main checkout.")
+        .action(async () => {
+          Deno.exit(await runWorktreeOp(worktreeExit));
+        }),
+    )
+    .command(
+      "ensure",
+      new Command()
+        .description("Idempotent session-start worktree setup.")
+        .action(async () => {
+          Deno.exit(
+            await runWorktreeOp(async (ctx) => {
+              await worktreeEnsure(ctx);
+            }),
+          );
+        }),
+    )
+    .command(
+      "teardown",
+      new Command()
+        .description("Discard this worktree's database + dev-server link.")
+        .action(async () => {
+          Deno.exit(await runWorktreeOp(worktreeTeardown));
+        }),
+    )
+    .command(
+      "prune",
+      new Command()
+        .description("Sweep stale worktrees and fully-merged branches.")
+        .option("-y, --yes", "Non-interactive: skip the confirm prompt.")
+        .action(async (o) => {
+          Deno.exit(
+            await runWorktreeOp((ctx) =>
+              worktreePrune(ctx, {
+                assumeYes: (o.yes ?? false) || !Deno.stdin.isTerminal(),
+              })
+            ),
+          );
+        }),
+    );
+  root.command("worktree", worktree);
+}
+
+/** Length of the common leading run of two strings. */
+function commonPrefixLen(a: string, b: string): number {
+  let n = 0;
+  while (n < a.length && n < b.length && a[n] === b[n]) {
+    n++;
+  }
+  return n;
+}
+
+/** Length of the common trailing run of two strings. */
+function commonSuffixLen(a: string, b: string): number {
+  let n = 0;
+  while (
+    n < a.length && n < b.length && a[a.length - 1 - n] === b[b.length - 1 - n]
+  ) {
+    n++;
+  }
+  return n;
+}
+
+/** Whether `name` is a plausible near-match for the folded typo (shell match_candidate). */
+function matchCandidate(typo: string, name: string): boolean {
+  if (name.includes(typo) || typo.includes(name)) {
+    return true;
+  }
+  if (
+    Math.abs(typo.length - name.length) <= 2 && commonPrefixLen(typo, name) >= 3
+  ) {
+    return true;
+  }
+  return commonSuffixLen(typo, name) >= 4;
+}
+
+/** Executable project recipes (file is executable) carrying a `# desc:` line. */
+async function projectRecipeNames(recipesAbs: string): Promise<string[]> {
+  const names: string[] = [];
+  try {
+    for await (const entry of Deno.readDir(recipesAbs)) {
+      if (!entry.isFile) {
+        continue;
+      }
+      if (!(await isExecutable(join(recipesAbs, entry.name)))) {
+        continue;
+      }
+      // Skip a recipe shadowed by an engine verb (it would never run).
+      if (KNOWN_ENGINE_VERBS.has(entry.name)) {
+        continue;
+      }
+      names.push(entry.name);
+    }
+  } catch {
+    // no recipes dir — nothing to suggest
+  }
+  return names;
+}
+
+/** Suggest a near-matching recipe for a typo, or undefined. */
+async function suggestRecipe(
+  recipesAbs: string,
+  typo: string,
+): Promise<string | undefined> {
+  const folded = typo.replace(/:/g, "-");
+  for (const name of ENGINE_RECIPE_NAMES) {
+    if (matchCandidate(folded, name)) {
+      return displayName(name);
+    }
+  }
+  for (const name of await projectRecipeNames(recipesAbs)) {
+    if (matchCandidate(folded, name)) {
+      return displayName(name);
+    }
+  }
+  return undefined;
+}
+
+/** Whether a path is an executable regular file. */
+async function isExecutable(path: string): Promise<boolean> {
+  try {
+    const st = await Deno.stat(path);
+    return st.isFile && ((st.mode ?? 0) & 0o111) !== 0;
+  } catch {
+    return false;
+  }
+}
+
+/** Internal helper verbs — callable for scripts/tests, but collapsed out of the
+ * main help listing (like the shell's `# helper:` recipes). */
+const HELPER_VERBS: ReadonlySet<string> = new Set([
+  "remove-worktree-safely",
+  "inherit-main-env-vars",
+  "with-gotchas",
+]);
+
+/** Whether `verb` is an internal helper verb. */
+export function isHelperVerb(verb: string): boolean {
+  return HELPER_VERBS.has(verb);
+}
+
+/**
+ * Dispatch an internal helper verb, or return null if `verb` is not one. Handled
+ * before Cliffy so a wrapped command's flags (`with-gotchas sh -c …`) pass raw.
+ */
+export async function dispatchHelper(
+  verb: string,
+  args: string[],
+): Promise<number | null> {
+  switch (verb) {
+    case "remove-worktree-safely":
+      return await helperRemoveWorktree(args);
+    case "inherit-main-env-vars":
+      return await helperInheritEnv();
+    case "with-gotchas":
+      return await helperWithGotchas(args);
+    default:
+      return null;
+  }
+}
+
+/** `remove-worktree-safely <path>` — robustly remove a worktree of this repo. */
+async function helperRemoveWorktree(args: string[]): Promise<number> {
+  const target = args[0];
+  if (target === undefined) {
+    console.error("remove-worktree-safely: a path argument is required.");
+    return 1;
+  }
+  const log = makeLogger();
+  try {
+    await removeWorktreeSafely(target, Deno.cwd());
+    return 0;
+  } catch (e) {
+    return handleWorktreeError(e, log);
+  }
+}
+
+/** `inherit-main-env-vars` — copy [worktree].inherit_env vars from main's .env. */
+async function helperInheritEnv(): Promise<number> {
+  const root = await findRoot();
+  if (root === undefined) {
+    console.error(`icculus: ${NO_PROJECT}`);
+    return 1;
+  }
+  const log = makeLogger();
+  const cfg = await Config.load(root);
+  try {
+    await inheritMainEnvVars({
+      worktreeRoot: root,
+      vars: cfg.array("worktree.inherit_env"),
+      log,
+    });
+    return 0;
+  } catch (e) {
+    return handleWorktreeError(e, log);
+  }
+}
+
+/** `with-gotchas <command> [args…]` — run a command; on failure print the gotchas
+ * pointer and propagate its exit code (no `set -e`: it observes the failure). */
+async function helperWithGotchas(args: string[]): Promise<number> {
+  const [command, ...rest] = args;
+  if (command === undefined) {
+    console.error("with-gotchas: no command given.");
+    return 1;
+  }
+  const child = new Deno.Command(command, {
+    args: rest,
+    stdin: "inherit",
+    stdout: "inherit",
+    stderr: "inherit",
+  }).spawn();
+  const code = (await child.status).code;
+  if (code !== 0) {
+    const root = await findRoot();
+    if (root !== undefined) {
+      gotchasHint(await Config.load(root), root, colorEnabled());
+    }
+  }
+  return code;
+}
+
+/** Read a recipe's first `# desc:` line, or undefined when it has none. */
+async function firstDescLine(file: string): Promise<string | undefined> {
+  let text: string;
+  try {
+    text = await Deno.readTextFile(file);
+  } catch {
+    return undefined;
+  }
+  for (const line of text.split("\n")) {
+    const m = line.match(/^# desc:\s?(.*)$/);
+    if (m) {
+      return m[1];
+    }
+  }
+  return undefined;
+}
+
+/** True when a path exists (any type). */
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await Deno.lstat(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** The project recipes directory: its configured name and absolute path. */
+function recipesDirOf(root: string, cfg: Config): { rel: string; abs: string } {
+  const rel = cfg.get("recipes.dir", ".icculus/recipes");
+  const abs = rel.startsWith("/") ? rel : join(root, rel);
+  return { rel, abs };
+}
+
+/**
+ * Print the "Project recipes" help section: executables under the recipes dir
+ * carrying a `# desc:` line, skipping any name shadowed by a built-in. No-op
+ * outside a project or when there are no listable recipes.
+ */
+export async function printProjectRecipes(): Promise<void> {
+  const root = await findRoot();
+  if (root === undefined) {
+    return;
+  }
+  const cfg = await Config.load(root);
+  const { rel, abs } = recipesDirOf(root, cfg);
+  const lines: string[] = [];
+  try {
+    for await (const entry of Deno.readDir(abs)) {
+      if (!entry.isFile || KNOWN_ENGINE_VERBS.has(entry.name)) {
+        continue;
+      }
+      const file = join(abs, entry.name);
+      if (!(await isExecutable(file))) {
+        continue;
+      }
+      const desc = await firstDescLine(file);
+      if (desc === undefined) {
+        continue;
+      }
+      lines.push(`  ${displayName(entry.name).padEnd(20)} ${desc}`);
+    }
+  } catch {
+    return; // no recipes dir
+  }
+  if (lines.length === 0) {
+    return;
+  }
+  console.log(`\nProject recipes (from ${rel}):`);
+  for (const line of lines) {
+    console.log(line);
+  }
+}
+
+/** Warn (to stderr) when a project recipe is shadowed by the built-in `verb`. */
+export async function warnShadowedRecipe(verb: string): Promise<void> {
+  const root = await findRoot();
+  if (root === undefined) {
+    return;
+  }
+  const cfg = await Config.load(root);
+  const { abs } = recipesDirOf(root, cfg);
+  if (await pathExists(join(abs, verb.replace(/:/g, "-")))) {
+    console.error(
+      `icculus: project recipe "${verb}" is shadowed by a built-in and was NOT run.`,
+    );
+  }
+}
+
+/**
+ * Handle an unknown top-level verb: exec a matching project recipe under
+ * `.icculus/recipes/` (the engine always wins, so a recipe colliding with a
+ * built-in is unreachable here), report an existing-but-non-executable recipe,
+ * else print an "unknown recipe" message with a near-match suggestion. Returns
+ * the process exit code.
+ */
+export async function dispatchRecipeOrSuggest(
+  verb: string,
+  args: string[],
+): Promise<number> {
+  const root = await findRoot();
+  if (root === undefined) {
+    console.error(`icculus: ${NO_PROJECT}`);
+    console.error("       Run `icculus init` to scaffold one.");
+    return 1;
+  }
+  const cfg = await Config.load(root);
+  const { rel: recipesDir, abs: recipesAbs } = recipesDirOf(root, cfg);
+  const recipeFile = join(recipesAbs, verb.replace(/:/g, "-"));
+
+  if (await isExecutable(recipeFile)) {
+    const mainBranch = Deno.env.get("MAIN_BRANCH") ||
+      cfg.get("project.main_branch", "main");
+    const child = new Deno.Command(recipeFile, {
+      args,
+      env: {
+        ...recipeEnvVars({ root, recipesDir, recipesAbs, mainBranch }),
+        // Transitional (Phase 2): the shell engine is still scaffolded, so an
+        // old-contract recipe that sources $ICCULUS_LIB keeps working. Removed
+        // in Phase 3 (recipes then read config via `icculus config get`).
+        ICCULUS_ENGINE: join(root, ".icculus/engine"),
+        ICCULUS_LIB: join(root, ".icculus/engine/lib"),
+        ICCULUS_ENGINE_RECIPE: "0",
+      },
+      stdin: "inherit",
+      stdout: "inherit",
+      stderr: "inherit",
+    }).spawn();
+    return (await child.status).code;
+  }
+
+  if (await pathExists(recipeFile)) {
+    console.error(
+      `icculus: recipe "${verb}" exists but is not executable: ${recipeFile}`,
+    );
+    console.error(`       Run: chmod +x "${recipeFile}"`);
+    return 1;
+  }
+
+  console.error(`icculus: unknown recipe "${verb}".`);
+  const guess = await suggestRecipe(recipesAbs, verb);
+  if (guess !== undefined) {
+    console.error(`       Did you mean \`${guess}\`?`);
+  }
+  return 1;
+}

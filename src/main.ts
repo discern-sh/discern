@@ -22,6 +22,14 @@ import {
   runConfigSetRatchet,
   runConfigSetScope,
 } from "./commands/config.ts";
+import {
+  attachEngineCommands,
+  dispatchHelper,
+  dispatchRecipeOrSuggest,
+  KNOWN_ENGINE_VERBS,
+  printProjectRecipes,
+  warnShadowedRecipe,
+} from "./engine/dispatch.ts";
 
 /**
  * Resolve the effective "no colour" decision. Cliffy maps `--no-color` to a
@@ -353,12 +361,70 @@ function buildCli(): RootCommand {
 
   root.command("config", config);
 
+  // The project task-runner verbs (finish, tidy, worktree:*, …) — the former
+  // shell `agent` recipes, now first-class `icculus` subcommands. The cast drops
+  // the threaded global-option generics (which the engine actions don't read) —
+  // Cliffy's generic Command type is impractical to spell at this boundary.
+  attachEngineCommands(root as unknown as Command);
+
   return root;
 }
 
+/**
+ * Installer verbs Cliffy owns; combined with the engine verbs to decide which
+ * unknown first tokens fall through to a project recipe.
+ */
+const KNOWN_VERBS: ReadonlySet<string> = new Set<string>([
+  "init",
+  "upgrade",
+  "doctor",
+  "migrate",
+  "add-preset",
+  "docs",
+  "config",
+  ...KNOWN_ENGINE_VERBS,
+]);
+
 /** Parse argv and dispatch. Exported for tests; called below when run directly. */
 export async function main(args: string[]): Promise<void> {
-  await buildCli().parse(args);
+  // Normalise `worktree:<sub>` → `worktree <sub>` for the Cliffy group (Cliffy
+  // forbids ':' in command names).
+  let argv = args;
+  const first = argv[0];
+  if (first !== undefined && first.startsWith("worktree:")) {
+    argv = ["worktree", first.slice("worktree:".length), ...argv.slice(1)];
+  }
+  const verb = argv[0];
+
+  // Internal helper verbs (remove-worktree-safely, with-gotchas, …): handled
+  // before Cliffy so a wrapped command's flags pass through raw.
+  if (verb !== undefined) {
+    const helperCode = await dispatchHelper(verb, argv.slice(1));
+    if (helperCode !== null) {
+      Deno.exit(helperCode);
+    }
+  }
+
+  // Root help: Cliffy's help plus the project-recipe listing (the shell `agent
+  // --help` showed both).
+  if (verb === undefined || verb === "-h" || verb === "--help") {
+    console.log(buildCli().getHelp());
+    await printProjectRecipes();
+    Deno.exit(0);
+  }
+
+  // A built-in engine verb with a same-named project recipe: warn it is shadowed.
+  if (KNOWN_ENGINE_VERBS.has(verb)) {
+    await warnShadowedRecipe(verb);
+  }
+
+  // Recipe fallthrough: an unknown verb (not a flag, not a known command) is a
+  // project-owned executable recipe, or an "unknown recipe" suggestion.
+  if (!verb.startsWith("-") && !KNOWN_VERBS.has(verb)) {
+    Deno.exit(await dispatchRecipeOrSuggest(verb, argv.slice(1)));
+  }
+
+  await buildCli().parse(argv);
 }
 
 if (import.meta.main) {

@@ -16,7 +16,9 @@ Deno.test("engine smoke: agent --help lists commands and exits 0", async () => {
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "Commands:");
     assertStringIncludes(r.stdout, "finish");
-    assertStringIncludes(r.stdout, "worktree:exit");
+    // The dispatcher is now Cliffy: worktree subcommands live under the `worktree`
+    // group (`icculus worktree --help`), not flat in the top-level listing.
+    assertStringIncludes(r.stdout, "worktree");
   });
 });
 

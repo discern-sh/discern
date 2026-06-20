@@ -46,17 +46,51 @@ export function writeStderr(s: string): void {
   }
 }
 
+/** Write a string fully to stdout. */
+export function writeStdout(s: string): void {
+  const bytes = ENCODER.encode(s);
+  let n = 0;
+  while (n < bytes.length) {
+    n += Deno.stdout.writeSync(bytes.subarray(n));
+  }
+}
+
+/** A string writer targeting stdout or stderr. */
+export function streamWriter(
+  stream: "stdout" | "stderr",
+): (s: string) => void {
+  return stream === "stdout" ? writeStdout : writeStderr;
+}
+
+/** A raw-byte writer targeting stdout or stderr (for the job runner's output). */
+export function byteWriter(
+  stream: "stdout" | "stderr",
+): (b: Uint8Array) => void {
+  const target = stream === "stdout" ? Deno.stdout : Deno.stderr;
+  return (b: Uint8Array): void => {
+    let n = 0;
+    while (n < b.length) {
+      n += target.writeSync(b.subarray(n));
+    }
+  };
+}
+
+/** The ANSI / plain palette for a colour mode. */
+export function palette(color: boolean): Palette {
+  return color ? ANSI : PLAIN;
+}
+
 /**
- * Whether colour is on (stderr is a TTY and NO_COLOR is unset) — the engine
- * routes human output to stderr, so the TTY check is on stderr (the shell's
- * `output.sh` checks stdout, but the gate now writes human output to stderr).
+ * Whether colour is on (stdout is a TTY and NO_COLOR is unset). The engine routes
+ * human output to stdout (matching the shell `output.sh`, which checks `[ -t 1 ]`),
+ * so the TTY check is on stdout.
  */
 export function colorEnabled(): boolean {
   const nc = Deno.env.get("NO_COLOR");
   if (nc !== undefined && nc !== "") {
     return false;
   }
-  return Deno.stderr.isTerminal();
+  return Deno.stdout.isTerminal();
 }
 
 /** The human-output surface a gate recipe uses. */
@@ -72,17 +106,25 @@ export interface Out {
   raw(s: string): void;
 }
 
-/** Build the output surface for a given colour mode. */
-export function makeOut(color: boolean): Out {
+/**
+ * Build the output surface. info/ok/heading/raw go to `infoStream` — stdout for
+ * the non-`--json` gate (matching the shell), stderr for `finish --json` (keeping
+ * stdout clean for the JSON object). warn/error ALWAYS go to stderr.
+ */
+export function makeOut(
+  color: boolean,
+  infoStream: "stdout" | "stderr" = "stdout",
+): Out {
   const c = color ? ANSI : PLAIN;
+  const w = streamWriter(infoStream);
   return {
     c,
     color,
-    info: (m: string): void => writeStderr(`${c.cyan}→${c.reset} ${m}\n`),
-    ok: (m: string): void => writeStderr(`${c.green}✓${c.reset} ${m}\n`),
+    info: (m: string): void => w(`${c.cyan}→${c.reset} ${m}\n`),
+    ok: (m: string): void => w(`${c.green}✓${c.reset} ${m}\n`),
     warn: (m: string): void => writeStderr(`${c.yellow}!${c.reset} ${m}\n`),
     error: (m: string): void => writeStderr(`${c.red}✗${c.reset} ${m}\n`),
-    heading: (m: string): void => writeStderr(`\n${c.bold}${m}${c.reset}\n`),
-    raw: (s: string): void => writeStderr(s),
+    heading: (m: string): void => w(`\n${c.bold}${m}${c.reset}\n`),
+    raw: (s: string): void => w(s),
   };
 }

@@ -21,7 +21,8 @@ import { type RunOptions, runParallel, runSerial } from "../jobs/runner.ts";
 import { cmdsInStage, jobsInStage } from "./stages.ts";
 import { gotchasHint } from "./gotchas.ts";
 import { changedScopes } from "../scopes/changed.ts";
-import { colorEnabled, makeOut, type Out } from "../output.ts";
+import { byteWriter, colorEnabled, makeOut, type Out } from "../output.ts";
+import { assertMainMerged } from "../worktree/git.ts";
 
 /** A per-job entry in the `--json` report. */
 interface JobReport {
@@ -46,70 +47,6 @@ interface GateReport {
   scope_gates: ScopeGateReport[];
   scopes_changed: string[];
   failed_stage: string | null;
-}
-
-/** Capture `git -C root …` stdout (trimmed), or null on any failure. */
-async function gitCapture(
-  root: string,
-  args: string[],
-): Promise<string | null> {
-  try {
-    const out = await new Deno.Command("git", {
-      args: ["-C", root, ...args],
-      stdout: "piped",
-      stderr: "null",
-    }).output();
-    return out.success ? new TextDecoder().decode(out.stdout).trim() : null;
-  } catch {
-    return null;
-  }
-}
-
-/** True when `git -C root …` exits 0. */
-async function gitOk(root: string, args: string[]): Promise<boolean> {
-  try {
-    return (await new Deno.Command("git", {
-      args: ["-C", root, ...args],
-      stdout: "null",
-      stderr: "null",
-    }).output()).success;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * The merge check: confirm the branch carries main. A NO-OP in the main checkout
- * (where the worktree's git dir equals the common git dir) and when not a repo —
- * exactly like the shell `assert-main-merged`. In a linked worktree it fails when
- * main is not an ancestor of HEAD (the branch is behind main).
- * (Integration: dedupe against worktree/git.ts once both land.)
- */
-async function assertMainMerged(
-  root: string,
-  mainBranch: string,
-): Promise<boolean> {
-  const abs = await gitCapture(root, ["rev-parse", "--absolute-git-dir"]);
-  if (abs === null) {
-    return true; // not a usable repo → no-op
-  }
-  const common = await gitCapture(root, ["rev-parse", "--git-common-dir"]);
-  if (common === null) {
-    return true;
-  }
-  const commonAbs = common.startsWith("/") ? common : `${root}/${common}`;
-  let absResolved = abs;
-  let commonResolved = commonAbs;
-  try {
-    absResolved = await Deno.realPath(abs);
-  } catch { /* keep the unresolved path */ }
-  try {
-    commonResolved = await Deno.realPath(commonAbs);
-  } catch { /* keep the unresolved path */ }
-  if (absResolved === commonResolved) {
-    return true; // main checkout → the merge check is a no-op
-  }
-  return await gitOk(root, ["merge-base", "--is-ancestor", mainBranch, "HEAD"]);
 }
 
 /** Build the `--json` report from the accumulated per-job results. */
@@ -174,6 +111,7 @@ function failMessage(stage: string): string {
 /** Run the gate once, accumulating per-job results and building the report. */
 async function runGate(
   root: string,
+  json: boolean,
 ): Promise<
   {
     report: GateReport;
@@ -184,13 +122,18 @@ async function runGate(
   }
 > {
   const cfg = await Config.load(root);
+  // Non-json: human output → stdout (matching the shell). --json: human → stderr,
+  // leaving stdout for the single JSON object.
+  const infoStream = json ? "stderr" : "stdout";
+  const color = colorEnabled();
   const runOpts: RunOptions = {
     stream: cfg.bool("gate.stream"),
     // fail_fast defaults ON: abort the moment a job fails.
     failFast: cfg.get("gate.fail_fast", "true") !== "false",
-    color: colorEnabled(),
+    color,
+    write: byteWriter(infoStream),
   };
-  const out = makeOut(runOpts.color);
+  const out = makeOut(color, infoStream);
 
   const results = new Map<string, JobResult>();
   const record = (rs: JobResult[]): void => {
@@ -260,11 +203,11 @@ async function runGate(
       }
     }
   }
-  // merge check
+  // merge check (no-op in the main checkout / outside a worktree)
   if (failedStage === null) {
     const mainBranch = Deno.env.get("MAIN_BRANCH") ||
       cfg.get("project.main_branch", "main");
-    if (!(await assertMainMerged(root, mainBranch))) {
+    if ((await assertMainMerged(root, mainBranch)).kind === "behind") {
       failedStage = "merge";
     }
   }
@@ -324,14 +267,17 @@ export async function runFinish(
   root: string,
   opts: { json: boolean },
 ): Promise<number> {
-  const { report, failedStage, cfg, out, changed } = await runGate(root);
+  const { report, failedStage, cfg, out, changed } = await runGate(
+    root,
+    opts.json,
+  );
   if (opts.json) {
     console.log(JSON.stringify(report));
     return failedStage === null ? 0 : 1;
   }
   if (failedStage !== null) {
     out.error(failMessage(failedStage));
-    gotchasHint(cfg, root, out);
+    gotchasHint(cfg, root, out.color);
     return 1;
   }
   printSuccessTail(cfg, out, changed);

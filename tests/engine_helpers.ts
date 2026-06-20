@@ -16,7 +16,7 @@
  * test-specific capabilities/checks/scopes/ratchets.
  */
 
-import { dirname, join } from "@std/path";
+import { dirname, fromFileUrl, join } from "@std/path";
 import { ensureDir } from "@std/fs";
 import { assembleInitPlan } from "../src/commands/init.ts";
 import { applyPlan } from "../src/lib/fs_plan.ts";
@@ -39,6 +39,20 @@ const GIT_ISOLATION: Record<string, string> = {
   GIT_CONFIG_SYSTEM: "/dev/null",
   GIT_TERMINAL_PROMPT: "0",
 };
+
+/** Repo paths for driving the TS engine (its import map must be pointed at the
+ * repo's deno.json since the temp project has none up its tree). */
+const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
+const MAIN_TS = join(REPO_ROOT, "src", "main.ts");
+const DENO_JSON = join(REPO_ROOT, "deno.json");
+
+/**
+ * Which engine implementation `runAgent` drives: "ts" (the in-binary TS engine
+ * via `deno run src/main.ts <verb>`, the default) or "shell" (the scaffolded
+ * `agent` dispatcher). The `ICCULUS_ENGINE_IMPL` env toggle lets the same
+ * behavioural suite run against either during the shell→TS build-out.
+ */
+const ENGINE_IMPL = Deno.env.get("ICCULUS_ENGINE_IMPL") ?? "ts";
 
 /**
  * Scaffold the real harness (engine, dispatcher, default `.icculus/config.toml`) into
@@ -73,13 +87,31 @@ export async function runAgent(
   args: string[],
   opts: { cwd?: string; env?: Record<string, string> } = {},
 ): Promise<RunResult> {
-  const command = new Deno.Command(join(dir, "agent"), {
-    args,
-    cwd: opts.cwd ?? dir,
-    env: { NO_COLOR: "1", ...GIT_ISOLATION, ...opts.env },
-    stdout: "piped",
-    stderr: "piped",
-  });
+  const env = { NO_COLOR: "1", ...GIT_ISOLATION, ...opts.env };
+  const cwd = opts.cwd ?? dir;
+  const command = ENGINE_IMPL === "shell"
+    ? new Deno.Command(join(dir, "agent"), {
+      args,
+      cwd,
+      env,
+      stdout: "piped",
+      stderr: "piped",
+    })
+    : new Deno.Command("deno", {
+      args: [
+        "run",
+        "--no-check",
+        "--config",
+        DENO_JSON,
+        "-A",
+        MAIN_TS,
+        ...args,
+      ],
+      cwd,
+      env,
+      stdout: "piped",
+      stderr: "piped",
+    });
   const { code, stdout, stderr } = await command.output();
   const out = DECODER.decode(stdout);
   const err = DECODER.decode(stderr);
