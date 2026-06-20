@@ -138,12 +138,15 @@ function buildCli(): RootCommand {
   root
     .command("upgrade")
     .description(
-      "Refresh managed engine files (hash-aware; never clobbers edits).",
+      "Refresh the project's config schema, materialized skills, and compiled guidance to match the installed binary.",
     )
-    .option("--dry-run", "Print the plan and write nothing.")
+    .option(
+      "--dry-run",
+      "Preview the pending migrations and skills refresh; write nothing.",
+    )
     .option(
       "--check",
-      "Report drift (managed files out of sync) and exit non-zero; write nothing.",
+      "Report whether config-schema migrations are pending (exit non-zero if so); write nothing.",
     )
     .option(
       "--allow-dirty",

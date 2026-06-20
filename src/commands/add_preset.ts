@@ -4,7 +4,8 @@
  *
  * A preset is a **file overlay plus config fills**: every file in the preset dir
  * is scaffolded with the same token/merge/exec-bit machinery as `init`
- * (seed/managed rules apply), and an optional `preset.json` at its root —
+ * (the seed-scaffolding rules apply — create-or-skip, never overwrite a present
+ * file), and an optional `preset.json` at its root —
  * metadata, never scaffolded — is an icculus config document (the same shape
  * `init --config` reads) whose capabilities / checks / scopes / ratchets are
  * written into the project's `.icculus/config.toml` via the comment-preserving

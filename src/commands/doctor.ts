@@ -29,8 +29,10 @@ export interface Check {
   ok: boolean;
   /** What was found (always set). */
   detail: string;
-  /** The exact remedy, set when `ok` is false. */
+  /** The exact remedy, set when `ok` is false (or for an advisory `warn`). */
   fix?: string;
+  /** An advisory: rendered as a warning, but does NOT make doctor unhealthy. */
+  warn?: boolean;
 }
 
 /** The first whitespace-delimited word of a command, or undefined for an empty
@@ -241,6 +243,60 @@ export async function runChecks(destDir: string): Promise<Check[]> {
     // A config read failure was already reported by an earlier check.
   }
 
+  // 6. `sh` resolves — the job runner and the recipe fallthrough both exec via
+  // `sh -c`, so a missing `sh` would break the gate and every project recipe.
+  if (await commandResolves("sh")) {
+    checks.push({ name: "sh", ok: true, detail: "present on PATH" });
+  } else {
+    checks.push({
+      name: "sh",
+      ok: false,
+      detail: "`sh` is not on PATH",
+      fix:
+        "install a POSIX shell — the gate and project recipes run commands via `sh -c`",
+    });
+  }
+
+  // 7. worktree-automation layering (advisory). If .claude/settings.json carries
+  // a worktree-lifecycle hook whose command does not invoke the harness CLI, a
+  // different tool also automates worktrees here and would double setup/teardown.
+  // Advisory only (a warn, still healthy): the install is fine, but the operator
+  // should reconcile the hooks. "Ours" = the command calls `icculus` (an install)
+  // or `deno task dev` (this repo self-hosting from source).
+  try {
+    const raw = await Deno.readTextFile(join(destDir, ".claude/settings.json"));
+    const settings = JSON.parse(raw) as {
+      hooks?: Record<
+        string,
+        Array<{ hooks?: Array<{ command?: unknown }> }> | undefined
+      >;
+    };
+    const groups = settings.hooks ?? {};
+    const foreign = [
+      ...(groups.WorktreeCreate ?? []),
+      ...(groups.WorktreeRemove ?? []),
+      ...(groups.SessionStart ?? []),
+    ]
+      .flatMap((g) => g.hooks ?? [])
+      .map((h) => (typeof h.command === "string" ? h.command : ""))
+      .filter((c) => /worktree/i.test(c))
+      .filter((c) => !c.includes("icculus") && !c.includes("deno task dev"));
+    if (foreign.length > 0) {
+      checks.push({
+        name: "worktree automation",
+        ok: true,
+        warn: true,
+        detail:
+          "another tool also automates worktrees in .claude/settings.json (a worktree hook does not call `icculus`)",
+        fix:
+          "reconcile the hooks by hand so worktree setup/teardown isn't doubled",
+      });
+    }
+  } catch {
+    // No settings.json, a malformed one, or unreadable: this advisory is
+    // best-effort, so skip it silently (install validity is checked above).
+  }
+
   return checks;
 }
 
@@ -263,7 +319,12 @@ export async function runDoctor(options: DoctorOptions): Promise<number> {
 
   log.heading("icculus doctor");
   for (const check of checks) {
-    if (check.ok) {
+    if (check.warn) {
+      log.warn(`${check.name}: ${check.detail}`);
+      if (check.fix) {
+        log.detail(`fix: ${check.fix}`);
+      }
+    } else if (check.ok) {
       log.ok(`${check.name}: ${check.detail}`);
     } else {
       log.error(`${check.name}: ${check.detail}`);
@@ -274,7 +335,12 @@ export async function runDoctor(options: DoctorOptions): Promise<number> {
   }
   log.line();
   if (healthy) {
-    log.ok("All checks passed.");
+    const advisories = checks.filter((c) => c.warn).length;
+    log.ok(
+      advisories > 0
+        ? "All checks passed (see the advisory above)."
+        : "All checks passed.",
+    );
   } else {
     log.error("Some checks failed — see the fixes above.");
   }

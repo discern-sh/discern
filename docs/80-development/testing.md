@@ -18,8 +18,8 @@ deno test --filter "convergence"        # a filtered subset by test name
 ```
 
 `deno task test` grants `--allow-read --allow-write --allow-env --allow-run`
-(the suite shells out to `agent` and `git`) and excludes `.claude/`, `dist/`,
-`templates/`, and `tests/fixtures/`.
+(the suite runs the engine via `deno run src/main.ts` and shells out to `git`)
+and excludes `.claude/`, `dist/`, `templates/`, and `tests/fixtures/`.
 
 There are **two layers**, sharing two helper modules:
 

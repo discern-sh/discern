@@ -21,6 +21,7 @@ interface DoctorCheck {
   ok: boolean;
   detail: string;
   fix?: string;
+  warn?: boolean;
 }
 
 /** The `doctor --json` payload shape we assert against. */
@@ -228,5 +229,37 @@ Deno.test("doctor: a recipe sourcing the retired shell library is flagged with t
     assertEquals(recipe.ok, false);
     assertStringIncludes(recipe.detail, "reset");
     assertStringIncludes(recipe.fix ?? "", "icculus config get");
+  });
+});
+
+Deno.test("doctor: a fresh install confirms `sh` resolves on PATH", async () => {
+  await withTempDir(async (dir) => {
+    await initInstall(dir);
+    const { code, payload } = await runDoctorJson(dir);
+    assertEquals(code, 0);
+    assertEquals(check(payload, "sh").ok, true);
+  });
+});
+
+Deno.test("doctor: a foreign worktree hook is an advisory warning, not a failure", async () => {
+  await withTempDir(async (dir) => {
+    await initInstall(dir);
+    // Inject another tool's worktree automation alongside the harness's own hooks
+    // (which call `icculus`); the harness's stay, this one is foreign.
+    const p = join(dir, ".claude/settings.json");
+    // deno-lint-ignore no-explicit-any
+    const settings = JSON.parse(await Deno.readTextFile(p)) as any;
+    settings.hooks ??= {};
+    (settings.hooks.WorktreeCreate ??= []).push({
+      hooks: [{ type: "command", command: "other-tool worktree-setup" }],
+    });
+    await Deno.writeTextFile(p, `${JSON.stringify(settings, null, 2)}\n`);
+
+    const { code, payload } = await runDoctorJson(dir);
+    assertEquals(code, 0); // an advisory does NOT make doctor unhealthy
+    assertEquals(payload.ok, true);
+    const wt = check(payload, "worktree automation");
+    assertEquals(wt.ok, true);
+    assertEquals(wt.warn, true);
   });
 });

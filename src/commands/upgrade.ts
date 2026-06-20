@@ -300,7 +300,9 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     log.jsonResult({
       ok: true,
       kit_version: KIT_VERSION,
-      schema: { recorded: migrateFrom, current: SCHEMA_VERSION },
+      // `from` is the pre-upgrade schema; the install now records `current`
+      // (the stamp ran above), so reporting it as still "recorded" would mislead.
+      schema: { from: migrateFrom, current: SCHEMA_VERSION },
       migrations_applied: applied.map((m) => ({
         from: m.from,
         to: m.from + 1,
@@ -341,6 +343,12 @@ function renderUpgradeSummary(
     log.ok("guidelines recompiled");
   }
   log.ok(`install stamped at schema ${SCHEMA_VERSION}`);
+  // R6: keep the two upgrade axes distinct — `icculus upgrade` refreshed THIS
+  // project to match the installed binary; getting a NEWER binary is separate.
+  log.line();
+  log.info(
+    "This refreshed your project to match the installed icculus. To get a newer icculus itself, re-run the installer (e.g. `brew upgrade icculus`).",
+  );
 }
 
 /** Stamp `[meta].schema_version` into the config at `configPath`, in place. */

@@ -219,7 +219,9 @@ export function attachEngineCommands(root: Command): void {
     });
 
   const worktree = new Command()
-    .description("Set up the current worktree (run by the create hook).")
+    .description(
+      "Per-worktree workflow. Bare: set up the current worktree (run by the create hook). Sub-verbs are typed with a colon: worktree:exit, worktree:ensure, worktree:teardown, worktree:prune.",
+    )
     .action(async () => {
       Deno.exit(await runWorktreeOp(worktreeSetup));
     })
