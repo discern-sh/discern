@@ -71,7 +71,14 @@ outstanding._
 
 ## 🟢 Test & tooling hygiene
 
-_Test-suite and tooling hygiene. Nothing outstanding._
+- [ ] **Ratchet the coverage floor back up toward its pre-cutover level.** The
+      single-binary cutover moved the engine into `src/` (now instrumented by
+      `deno task coverage`), so the same suite covers a larger tree and src/
+      line coverage fell from ~94% to ~84%. The floor was re-baselined down to
+      83 to land the cutover (ADR 0019); raise it as engine coverage improves.
+      Weakest spots in the post-cutover run were `src/lib/skills.ts` (~62%) and
+      `src/shared/capabilities.ts` (~50%). Evidence: `.icculus/config.toml`
+      `[ratchets.coverage].limit`.
 
 ## 🔵 Unmerged / at-risk work — decide: land or drop
 
