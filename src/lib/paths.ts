@@ -1,26 +1,34 @@
 /**
- * Locate the scaffold `templates/` tree.
+ * Path resolution for an icculus install and the bundled `templates/` tree.
  *
- * The tree is auto-discovered, never hardcoded: other agents own its contents
- * and add files over time. Resolution order:
- *   1. `ICCULUS_TEMPLATES_DIR` env override (used by tests and power users).
- *   2. a `templates/` directory found by walking up from this module's location
- *      (works under `deno run` from a checkout, and under a `deno compile`
- *      binary built with `--include templates/`).
- *
- * Walking up rather than assuming a fixed depth keeps the resolver robust if the
- * source layout shifts.
+ * The whole footprint in a project is a single root file, `icculus.toml` (ADR
+ * 0020). Everything else a project opts into — guidance prose, authored skills,
+ * recipes — lives at a config-pointed location with a sensible discoverable
+ * default, read only when present. This module owns those defaults and resolvers,
+ * plus the install-config locator and the `templates/` discovery.
  */
 
 import { dirname, fromFileUrl, join } from "@std/path";
+import { expandGlob } from "@std/fs";
+import {
+  CONFIG_REL,
+  installedConfigRel,
+  LEGACY_CONFIG_REL,
+} from "../shared/env.ts";
+import type { Config } from "../shared/config_read.ts";
 
-/**
- * The install's config file lives in the `.icculus/` namespace. The legacy
- * pre-consolidation location (a root `icculus.toml`) is still recognised by
- * `resolveConfigPath` so `upgrade` can detect and migrate an old-layout install.
- */
-export const CONFIG_REL = ".icculus/config.toml";
-export const LEGACY_CONFIG_REL = "icculus.toml";
+// Re-export the install markers so installer-side callers can import them from
+// the lib layer (the canonical definitions live in the shared env module).
+export { CONFIG_REL, LEGACY_CONFIG_REL };
+
+/** Default authored-skills directory (`[skills].dir`), relative to the root. */
+export const DEFAULT_SKILLS_DIR = "skills";
+
+/** Default recipes directory (`[recipes].dir`), relative to the root. */
+export const DEFAULT_RECIPES_DIR = "recipes";
+
+/** Default guidance source globs (`[guidance].sources`), relative to the root. */
+export const DEFAULT_GUIDANCE_SOURCES: readonly string[] = ["guidance.md"];
 
 /** True when `path` is an existing directory. */
 async function isDir(path: string): Promise<boolean> {
@@ -32,39 +40,93 @@ async function isDir(path: string): Promise<boolean> {
   }
 }
 
-/** True when `path` is an existing file. */
-async function isFile(path: string): Promise<boolean> {
-  try {
-    return (await Deno.stat(path)).isFile;
-  } catch {
-    return false;
-  }
-}
-
 /**
- * Resolve the config file inside an install directory: the consolidated
- * `.icculus/config.toml` if present, else a legacy root `icculus.toml`, else
- * `undefined` when `destDir` is not an icculus install. The new path is preferred
- * so a migrated install is unambiguous; the legacy fallback is what lets
- * `upgrade`/`migrate` recognise a pre-migration install and carry it forward.
+ * Resolve the config file inside an install directory: the root `icculus.toml`
+ * if present, else a legacy `.icculus/config.toml`, else `undefined` when
+ * `destDir` is not an icculus install. The new path is preferred so a migrated
+ * install is unambiguous; the legacy fallback is what lets `upgrade`/`migrate`
+ * recognise a pre-6 install and carry it forward.
  */
 export async function resolveConfigPath(
   destDir: string,
 ): Promise<string | undefined> {
-  const primary = join(destDir, CONFIG_REL);
-  if (await isFile(primary)) {
-    return primary;
+  const rel = await installedConfigRel(destDir);
+  return rel === undefined ? undefined : join(destDir, rel);
+}
+
+/** A directory referenced by config: the configured value (relative or absolute)
+ * and its absolute resolution. */
+export interface ResolvedDir {
+  /** The configured value, verbatim (relative or absolute). */
+  rel: string;
+  /** The directory resolved to an absolute path. */
+  abs: string;
+}
+
+/** Resolve a relative-or-absolute configured dir against `root`. */
+function resolveDir(root: string, value: string): ResolvedDir {
+  return { rel: value, abs: value.startsWith("/") ? value : join(root, value) };
+}
+
+/**
+ * The authored-skills directory: `[skills].dir`, default `./skills`. Read only
+ * when present by the caller — the default lets a `skills/` dir be picked up with
+ * zero config, and points elsewhere when configured.
+ */
+export function resolveSkillsDir(root: string, config: Config): ResolvedDir {
+  return resolveDir(root, config.get("skills.dir", DEFAULT_SKILLS_DIR));
+}
+
+/**
+ * The project recipes directory: `[recipes].dir`, default `./recipes`. The
+ * default works with no config; point it elsewhere (e.g. `tools/`) if preferred.
+ */
+export function resolveRecipesDir(root: string, config: Config): ResolvedDir {
+  return resolveDir(root, config.get("recipes.dir", DEFAULT_RECIPES_DIR));
+}
+
+/**
+ * Expand `[guidance].sources` (default `["guidance.md"]`) into the matched source
+ * files under `root`, present-only: a pattern that matches nothing simply
+ * contributes nothing. Globs are supported. Results are de-duplicated and sorted
+ * for a stable concatenation order regardless of match order.
+ */
+export async function resolveGuidanceSources(
+  root: string,
+  config: Config,
+): Promise<string[]> {
+  const configured = config.array("guidance.sources");
+  const patterns = configured.length > 0
+    ? configured
+    : [...DEFAULT_GUIDANCE_SOURCES];
+  const matched = new Set<string>();
+  for (const pattern of patterns) {
+    // Absolute patterns are honoured as-is; relative ones resolve against root.
+    const glob = pattern.startsWith("/") ? pattern : join(root, pattern);
+    for await (const entry of expandGlob(glob, { includeDirs: false })) {
+      if (entry.isFile) {
+        matched.add(entry.path);
+      }
+    }
   }
-  const legacy = join(destDir, LEGACY_CONFIG_REL);
-  if (await isFile(legacy)) {
-    return legacy;
-  }
-  return undefined;
+  return [...matched].sort();
+}
+
+/** The bundled-skills directory inside the resolved `templates/` tree. */
+export async function resolveBundledSkillsDir(): Promise<string> {
+  return join(await resolveTemplatesDir(), "skills");
 }
 
 /**
  * Resolve the absolute path to the templates tree. Throws a clear error if it
  * cannot be found, listing the override env var as the escape hatch.
+ *
+ * The tree is auto-discovered, never hardcoded: other agents own its contents
+ * and add files over time. Resolution order:
+ *   1. `ICCULUS_TEMPLATES_DIR` env override (used by tests and power users).
+ *   2. a `templates/` directory found by walking up from this module's location
+ *      (works under `deno run` from a checkout, and under a `deno compile`
+ *      binary built with `--include templates/`).
  */
 export async function resolveTemplatesDir(): Promise<string> {
   const override = Deno.env.get("ICCULUS_TEMPLATES_DIR");

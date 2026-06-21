@@ -1,7 +1,8 @@
 /**
- * The runtime config reader: one parse of `.icculus/config.toml` (via `@std/toml`)
- * exposing the small accessor surface the engine and recipes need. Replaces the
- * shell `config.sh` + `toml.awk` pair with a single typed reader.
+ * The runtime config reader: one parse of the install config (`icculus.toml`, or
+ * a legacy `.icculus/config.toml`) via `@std/toml`, exposing the small accessor
+ * surface the engine and recipes need. Replaces the shell `config.sh` + `toml.awk`
+ * pair with a single typed reader.
  *
  * `@std/toml` is a full TOML parser, stricter than the lenient `toml.awk` it
  * replaces (Risk R4): a config the awk read leniently could now throw on parse.
@@ -11,7 +12,7 @@
 
 import { parse } from "@std/toml";
 import { join } from "@std/path";
-import { CONFIG_REL } from "./env.ts";
+import { CONFIG_REL, installedConfigRel } from "./env.ts";
 
 /** True for a non-null, non-array object (a TOML table). */
 function isTable(v: unknown): v is Record<string, unknown> {
@@ -30,9 +31,11 @@ export class Config {
     this.data = parse(text) as Record<string, unknown>;
   }
 
-  /** Load and parse `.icculus/config.toml` from under a project `root`. */
+  /** Load and parse the install config (`icculus.toml`, or a legacy
+   * `.icculus/config.toml`) from under a project `root`. */
   static async load(root: string): Promise<Config> {
-    return new Config(await Deno.readTextFile(join(root, CONFIG_REL)));
+    const rel = (await installedConfigRel(root)) ?? CONFIG_REL;
+    return new Config(await Deno.readTextFile(join(root, rel)));
   }
 
   /** Resolve a dotted key to its raw parsed value, or undefined. */

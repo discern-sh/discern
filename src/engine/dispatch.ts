@@ -1,18 +1,24 @@
 /**
  * The engine-verb dispatcher: attaches the project task-runner verbs (the former
  * shell `agent` recipes) to the `icculus` CLI, and falls through to project-owned
- * executable recipes under `.icculus/recipes/` for an unknown verb. The TS
- * replacement for the shell `agent` dispatcher.
+ * executable recipes under `[recipes].dir` (default `./recipes`) for an unknown
+ * verb. The TS replacement for the shell `agent` dispatcher.
  *
- * Engine verbs operate on the project (found by walking up to `.icculus/config.toml`),
- * so each requires a project root. `worktree:<sub>` is normalised to the Cliffy
+ * Engine verbs operate on the project (found by walking up to `icculus.toml`), so
+ * each requires a project root. `worktree:<sub>` is normalised to the Cliffy
  * group `worktree <sub>` before parsing (Cliffy forbids `:` in command names).
  */
 
 import { Command } from "@cliffy/command";
 import { join } from "@std/path";
 import { Config } from "../shared/config_read.ts";
-import { findRoot, recipeEnvVars } from "../shared/env.ts";
+import {
+  CONFIG_REL,
+  findRoot,
+  installedConfigRel,
+  recipeEnvVars,
+} from "../shared/env.ts";
+import { resolveRecipesDir } from "../lib/paths.ts";
 import { Logger } from "../lib/log.ts";
 import { runFinish } from "./gate/finish.ts";
 import { runTidy } from "./gate/tidy.ts";
@@ -85,7 +91,7 @@ function makeLogger(): Logger {
 }
 
 const NO_PROJECT =
-  "not inside an icculus project (no .icculus/config.toml in this directory or any parent).";
+  "not inside an icculus project (no icculus.toml in this directory or any parent).";
 
 /** Resolve the project root, or print the shell-`agent`-style error and exit 1. */
 async function requireRoot(): Promise<string> {
@@ -517,11 +523,10 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
-/** The project recipes directory: its configured name and absolute path. */
+/** The project recipes directory: its configured name and absolute path
+ * (`[recipes].dir`, default `./recipes`). */
 function recipesDirOf(root: string, cfg: Config): { rel: string; abs: string } {
-  const rel = cfg.get("recipes.dir", ".icculus/recipes");
-  const abs = rel.startsWith("/") ? rel : join(root, rel);
-  return { rel, abs };
+  return resolveRecipesDir(root, cfg);
 }
 
 /**
@@ -603,9 +608,16 @@ export async function dispatchRecipeOrSuggest(
   if (await isExecutable(recipeFile)) {
     const mainBranch = Deno.env.get("MAIN_BRANCH") ||
       cfg.get("project.main_branch", "main");
+    const tomlPath = join(root, (await installedConfigRel(root)) ?? CONFIG_REL);
     const child = new Deno.Command(recipeFile, {
       args,
-      env: recipeEnvVars({ root, recipesDir, recipesAbs, mainBranch }),
+      env: recipeEnvVars({
+        root,
+        tomlPath,
+        recipesDir,
+        recipesAbs,
+        mainBranch,
+      }),
       stdin: "inherit",
       stdout: "inherit",
       stderr: "inherit",
