@@ -1,6 +1,8 @@
 # ADR 0016: Consolidate the install surface under `.icculus/`
 
-**Status**: accepted
+**Status**: accepted; **superseded by [ADR 0020](0020-dissolve-icculus-dir.md)**
+(the `.icculus/` namespace this introduced is dissolved into a single root
+`icculus.toml`).
 
 ## Context
 

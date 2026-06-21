@@ -39,18 +39,7 @@ _Verified defects and correctness risks. Nothing outstanding._
 
 ## 🟠 Cleanup — known dead or slow code
 
-- [ ] **`isContractExecutable` still special-cases paths the cutover deleted.**
-      The seam that forces the executable bit on a scaffolded file — needed
-      because `deno compile` flattens bundled source modes to read-only — lists
-      only `agent` and `.icculus/engine/<recipe>`, both removed with the shell
-      engine. So it now returns `false` for everything `templates/` ships
-      (harmless, but dead). Keep the seam for any future executable seed, but
-      drop the `agent`/`.icculus/engine/` cases, refresh the comment, and update
-      the tests still asserting the old contract. Evidence:
-      `src/lib/template.ts:97` (the function) and its caller
-      `src/lib/fs_plan.ts:179`; tests `tests/template_test.ts:108-117` and the
-      `.icculus/engine/` executable-preservation cases in
-      `tests/fs_plan_test.ts`.
+_Nothing outstanding._
 
 ## 🟡 Smaller fixes & polish
 
@@ -74,10 +63,13 @@ _Verified defects and correctness risks. Nothing outstanding._
       enough that a migrated install needs a hand-tidy to match the v4
       template's layout. Consider also dropping a deleted section's leading
       comment block, or re-emitting the template comments for the sections the
-      step rewrites. Observed needing a hand-tidy on several v3→v4 installs.
-      Evidence: `src/lib/migrations.ts:281-284` (the `from: 3` step deletes the
-      tables via comment-preserving `deleteSection`, leaving their comment
-      blocks); target layout is `templates/.icculus/config.toml.tmpl`.
+      step rewrites. Observed needing a hand-tidy on several v3→v4 installs. The
+      `5 → 6` step (ADR 0020) has the mirror issue: it appends the new
+      `[features]`/`[guidance]`/`[skills]` sections comment-less at EOF. Consider
+      dropping a deleted section's leading comment block, or re-emitting the
+      template comments for the sections a step rewrites/adds. Evidence:
+      `src/lib/migrations.ts` (the `from: 3` and `from: 5` steps); target layout
+      is `templates/icculus.toml.tmpl`.
 
 ## 🟢 Test & tooling hygiene
 
@@ -86,9 +78,9 @@ _Verified defects and correctness risks. Nothing outstanding._
       `deno task coverage`), so the same suite covers a larger tree and src/
       line coverage fell from ~94% to ~84%. The floor was re-baselined down to
       83 to land the cutover (ADR 0019); raise it as engine coverage improves.
-      Weakest spots in the post-cutover run were `src/lib/skills.ts` (~62%) and
-      `src/shared/capabilities.ts` (~50%). Evidence: `.icculus/config.toml`
-      `[ratchets.coverage].limit`.
+      Weakest spots to target include `src/shared/capabilities.ts` (~50%) and
+      the newer `src/lib/skills.ts` / `src/shared/features.ts`. Evidence:
+      `icculus.toml` `[ratchets.coverage].limit`.
 
 ## 🔵 Unmerged / at-risk work — decide: land or drop
 
