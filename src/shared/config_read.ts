@@ -1,7 +1,8 @@
 /**
- * The runtime config reader: one parse of `.icculus/config.toml` (via `@std/toml`)
- * exposing the small accessor surface the engine and recipes need. Replaces the
- * shell `config.sh` + `toml.awk` pair with a single typed reader.
+ * The runtime config reader: one parse of the install config (`icculus.toml`, or
+ * a legacy `icculus.toml`) via `@std/toml`, exposing the small accessor
+ * surface the engine and recipes need. Replaces the shell `config.sh` + `toml.awk`
+ * pair with a single typed reader.
  *
  * `@std/toml` is a full TOML parser, stricter than the lenient `toml.awk` it
  * replaces (Risk R4): a config the awk read leniently could now throw on parse.
@@ -11,7 +12,7 @@
 
 import { parse } from "@std/toml";
 import { join } from "@std/path";
-import { CONFIG_REL } from "./env.ts";
+import { CONFIG_REL, installedConfigRel } from "./env.ts";
 
 /** True for a non-null, non-array object (a TOML table). */
 function isTable(v: unknown): v is Record<string, unknown> {
@@ -19,7 +20,42 @@ function isTable(v: unknown): v is Record<string, unknown> {
 }
 
 /**
- * A parsed `.icculus/config.toml` with the engine's read accessors. Mirrors the
+ * A friendly one-line summary of a TOML parse failure. `@std/toml`'s message is
+ * accurate but cryptic (e.g. "key length is not a positive number, Parse error
+ * on line 3, column 8"); lead with a plain "syntax error near line N in
+ * icculus.toml" when a line number is present, keeping the raw detail in parens.
+ * Shared by {@link ConfigParseError} (engine verbs) and `parseIcculusToml`
+ * (doctor/upgrade/migrate) so the diagnostic reads the same everywhere.
+ */
+export function tomlSyntaxHint(err: unknown): string {
+  const raw = (err instanceof Error ? err.message : String(err)).trim()
+    // `@std/toml` sometimes repeats its own "Parse error on line N, column M:"
+    // prefix; collapse the duplicate so the detail reads once.
+    .replace(
+      /(Parse error on line \d+, column \d+: )(?=Parse error on line \d+, column \d+: )/g,
+      "",
+    );
+  const line = raw.match(/line (\d+)/i)?.[1];
+  return line !== undefined
+    ? `syntax error near line ${line} in icculus.toml (${raw})`
+    : `icculus.toml is not valid TOML: ${raw}`;
+}
+
+/**
+ * A clear, catchable error for an unparseable install config. Replaces the raw
+ * `@std/toml` `SyntaxError` (which, uncaught, dumps a stack trace at a user who
+ * merely has a config typo). The CLI's top-level handler turns this into a clean
+ * one-line message and a non-zero exit, in both human and `--json` modes.
+ */
+export class ConfigParseError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ConfigParseError";
+  }
+}
+
+/**
+ * A parsed `icculus.toml` with the engine's read accessors. Mirrors the
  * shell `config_get`/`config_array`/`config_subsections`/`config_keys`/
  * `config_has`/`config_bool`.
  */
@@ -27,12 +63,18 @@ export class Config {
   private readonly data: Record<string, unknown>;
 
   constructor(text: string) {
-    this.data = parse(text) as Record<string, unknown>;
+    try {
+      this.data = parse(text) as Record<string, unknown>;
+    } catch (err) {
+      throw new ConfigParseError(tomlSyntaxHint(err));
+    }
   }
 
-  /** Load and parse `.icculus/config.toml` from under a project `root`. */
+  /** Load and parse the install config (`icculus.toml`, or a legacy
+   * `icculus.toml`) from under a project `root`. */
   static async load(root: string): Promise<Config> {
-    return new Config(await Deno.readTextFile(join(root, CONFIG_REL)));
+    const rel = (await installedConfigRel(root)) ?? CONFIG_REL;
+    return new Config(await Deno.readTextFile(join(root, rel)));
   }
 
   /** Resolve a dotted key to its raw parsed value, or undefined. */

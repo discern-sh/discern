@@ -41,10 +41,13 @@
       "dist/",
       "tests/fixtures/",
       "PLAN.md",
-      ".icculus/",
+      "icculus.toml",
+      "guidance.md",
+      "brief.md",
       ".claude/",
       "AGENTS.md",
       "CLAUDE.md",
+      "GEMINI.md",
       ".idea/"
     ]
   },
@@ -61,7 +64,6 @@
       "templates/",
       "dist/",
       "tests/fixtures/",
-      ".icculus/",
       ".claude/"
     ]
   },

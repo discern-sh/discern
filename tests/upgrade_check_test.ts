@@ -21,7 +21,7 @@ async function init(dir: string): Promise<void> {
 
 /** Rewrite `[meta].schema_version` to model an install a migration behind. */
 async function setSchema(dir: string, version: number): Promise<void> {
-  const p = join(dir, ".icculus/config.toml");
+  const p = join(dir, "icculus.toml");
   const text = await Deno.readTextFile(p);
   const replaced = text.replace(
     /schema_version\s*=\s*\d+/,
@@ -47,12 +47,12 @@ Deno.test("upgrade --check writes nothing", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
     await setSchema(dir, 1);
-    const before = await Deno.readTextFile(join(dir, ".icculus/config.toml"));
+    const before = await Deno.readTextFile(join(dir, "icculus.toml"));
     const r = await runCli(["upgrade", "--check", "--json"], dir);
     assertEquals(r.code, 1, r.stderr);
     // A read-only check must not stamp the schema or otherwise edit the config.
     assertEquals(
-      await Deno.readTextFile(join(dir, ".icculus/config.toml")),
+      await Deno.readTextFile(join(dir, "icculus.toml")),
       before,
     );
   });
@@ -67,11 +67,11 @@ Deno.test("upgrade --check flags a stale schema and lists the pending steps", as
     const res = JSON.parse(r.stdout);
     assertEquals(res.ok, false);
     assertEquals(res.schema.recorded, 1);
-    assertEquals(res.schema.current, 5);
+    assertEquals(res.schema.current, 6);
     // Every step from 1 up to the current schema is pending.
     assertEquals(
       res.pending_migrations.map((m: { from: number }) => m.from),
-      [1, 2, 3, 4],
+      [1, 2, 3, 4, 5],
     );
   });
 });

@@ -2,7 +2,7 @@
  * Engine tests for project-owned recipes (ADR 0001).
  *
  * `agent` resolves the kit-managed engine first, then an unmanaged
- * project-recipes dir (`[recipes].dir`, default `.icculus/recipes`). These tests
+ * project-recipes dir (`[recipes].dir`, default `recipes`). These tests
  * drive the real dispatcher: a project recipe runs and lists in --help; a
  * name-collision is shadowed (engine wins) with a warning; a relocated dir is
  * honoured; and a recipe can use the engine library.
@@ -28,7 +28,7 @@ Deno.test("recipes: a project recipe runs via agent <name>", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeExecutable(
-      join(dir, ".icculus/recipes/hello"),
+      join(dir, "recipes/hello"),
       "#!/usr/bin/env sh\n# desc: say hello\necho HELLO-FROM-PROJECT\n",
     );
     const r = await runAgent(dir, ["hello"]);
@@ -41,7 +41,7 @@ Deno.test("recipes: a project recipe is listed under --help", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeExecutable(
-      join(dir, ".icculus/recipes/hello"),
+      join(dir, "recipes/hello"),
       "#!/usr/bin/env sh\n# desc: say hello\necho hi\n",
     );
     const r = await runAgent(dir, ["--help"]);
@@ -55,7 +55,7 @@ Deno.test("recipes: a project recipe is listed under --help", async () => {
 Deno.test("recipes: a project recipe reads config via icculus config get", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    await writeExecutable(join(dir, ".icculus/recipes/show-slug"), SLUG_RECIPE);
+    await writeExecutable(join(dir, "recipes/show-slug"), SLUG_RECIPE);
     const r = await runAgent(dir, ["show-slug"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "SLUG=engine-test");
@@ -73,7 +73,7 @@ Deno.test("recipes: a project recipe uses normal shell globbing", async () => {
     // the exact shape of a native sub-app recipe like `ls "$dir"/*.xcodeproj`. It
     // reads ICCULUS_ROOT from the environment the dispatcher exports.
     await writeExecutable(
-      join(dir, ".icculus/recipes/globby"),
+      join(dir, "recipes/globby"),
       [
         "#!/usr/bin/env sh",
         "# desc: count files via a shell glob",
@@ -98,7 +98,7 @@ Deno.test("recipes: a name colliding with an engine recipe is shadowed (engine w
     await gitInit(dir);
     // A project recipe named `finish` must NOT override the gate.
     await writeExecutable(
-      join(dir, ".icculus/recipes/finish"),
+      join(dir, "recipes/finish"),
       "#!/usr/bin/env sh\n# desc: not the real finish\necho PROJECT-FINISH-RAN\n",
     );
     const r = await runAgent(dir, ["finish"]);
@@ -116,7 +116,7 @@ Deno.test("recipes: a shadowed name is omitted from the --help project listing",
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeExecutable(
-      join(dir, ".icculus/recipes/finish"),
+      join(dir, "recipes/finish"),
       "#!/usr/bin/env sh\n# desc: not the real finish\necho hi\n",
     );
     const r = await runAgent(dir, ["--help"]);
@@ -132,8 +132,11 @@ Deno.test("recipes: a shadowed name is omitted from the --help project listing",
 Deno.test("recipes: a non-executable project recipe is reported, not run", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
+    // The recipes dir is opt-in (no longer scaffolded), so create it before
+    // dropping a non-executable file straight in (writeExecutable would chmod +x).
+    await Deno.mkdir(join(dir, "recipes"), { recursive: true });
     await Deno.writeTextFile(
-      join(dir, ".icculus/recipes/deploy"),
+      join(dir, "recipes/deploy"),
       "#!/usr/bin/env sh\n# desc: deploy\necho deployed\n",
     );
     // No chmod +x.
@@ -177,12 +180,12 @@ Deno.test("recipes: ICCULUS_RECIPES is exported into a recipe's environment", as
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeExecutable(
-      join(dir, ".icculus/recipes/show-recipes-dir"),
+      join(dir, "recipes/show-recipes-dir"),
       "#!/usr/bin/env sh\n# desc: print the recipes dir\nprintf 'RECIPES=%s\\n' \"$ICCULUS_RECIPES\"\n",
     );
     const r = await runAgent(dir, ["show-recipes-dir"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, ".icculus/recipes");
+    assertStringIncludes(r.stdout, "/recipes");
   });
 });
 
@@ -190,7 +193,7 @@ Deno.test("recipes: an unknown verb suggests a near-match project recipe", async
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeExecutable(
-      join(dir, ".icculus/recipes/deploy"),
+      join(dir, "recipes/deploy"),
       "#!/usr/bin/env sh\n# desc: deploy\necho deployed\n",
     );
     const r = await runAgent(dir, ["deplyo"]); // transposed typo

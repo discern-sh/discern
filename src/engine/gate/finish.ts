@@ -234,7 +234,7 @@ function printSuccessTail(cfg: Config, out: Out, changed: string[]): void {
       "Gate passed — but no capability or check is wired, so nothing was actually checked (a no-op gate).",
     );
     out.warn(
-      "Add [capabilities] (format/lint/typecheck/test/build) to .icculus/config.toml — or run /bootstrap.",
+      "Add [capabilities] (format/lint/typecheck/test/build) to icculus.toml — or run /bootstrap.",
     );
   } else {
     out.ok("Everything built and all checks passed.");

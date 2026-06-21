@@ -1,38 +1,46 @@
 # Agent guidance (author-once → compile-everywhere)
 
-_One Guidance source compiled to every agent's instruction file._
+_icculus's built-in harness guidance plus your sources, compiled to every
+agent's instruction file._
 
-This subtree covers the instruction pipeline. You author a single **Guidance
-source** — `.icculus/guidelines/<slug>.md` — and
-[`icculus guidelines`](../../src/engine/guidelines.ts) compiles it into each
-**Compiled agent file** (`CLAUDE.md`, `AGENTS.md`, …), selected by
-`[project].agents` in `.icculus/config.toml` (`claude_code` → `CLAUDE.md`,
-`codex` → `AGENTS.md`). The same verb refreshes the `.claude/skills/` symlinks
-that make the bundled **Skills** discoverable.
+This subtree covers the instruction pipeline. icculus ships **built-in harness
+guidance** bundled in the binary
+([`templates/guidance/`](../../templates/guidance/)); you add your own
+**Guidance source** — `[guidance].sources` in `icculus.toml`, default
+`guidance.md`, globs allowed.
+[`icculus guidelines`](../../src/engine/guidelines.ts) compiles
+`[built-in base] + [a section per enabled feature] + [your sources]` into each
+**Compiled agent file**, selected by `[guidance].agents` (`claude_code` →
+`CLAUDE.md`, `codex` → `AGENTS.md`, `gemini` → `GEMINI.md`). The same verb
+(re)materializes the **Skills** into `.claude/skills/`.
 
 The compiled files carry a do-not-edit banner and are
 [Generated](../00-orientation/glossary.md#generated-file): never hand-edited,
-always reproduced by re-running the verb. Driving several agents from one source
-is what keeps guidance provider-agnostic — write the rule once, every agent gets
-it.
+always reproduced by re-running the verb. `AGENTS.md` is the one **tracked**
+agent file (so guidance changes show in review, and a stale one fails CI's
+`git diff --exit-code`); `CLAUDE.md` and `GEMINI.md` are gitignored mirrors.
+Driving several agents from one source is what keeps guidance provider-agnostic
+— write the rule once, every agent gets it; the built-in guidance is
+feature-aware, so a subsystem you disable in `[features]` drops its section.
 
-The bundled Skills (`bootstrap`, `document-subsystem`, `write-adr`, and
-`handoff-worktree`) are materialized into
-[`.icculus/skills/`](../../.icculus/skills/) — gitignored artifacts the binary
-re-publishes, not committed files.
+The Skills are the bundled built-ins (`bootstrap`, `document-subsystem`,
+`write-adr`, `handoff-worktree`) plus any you author under `[skills].dir`
+(default `./skills`, yours overriding a built-in by name). They materialize into
+[`.claude/skills/`](../../.claude/skills/) — gitignored artifacts the binary
+re-publishes: built-ins **copied**, authored skills **symlinked**.
 
 > **Status: stub.** This README orients the subtree; the leaves below are not
 > written yet. Fill them with the
-> [`document-subsystem`](../../.icculus/skills/document-subsystem/SKILL.md)
+> [`document-subsystem`](../../templates/skills/document-subsystem/SKILL.md)
 > skill.
 
 ## Planned leaves
 
-| File _(to be written)_     | What it will cover                                                               |
-| -------------------------- | -------------------------------------------------------------------------------- |
-| `the-guidelines-recipe.md` | How `icculus guidelines` compiles the source into per-agent files and banners.   |
-| `the-compiled-files.md`    | The agent-file targets, the `[project].agents` selector, the do-not-edit rule.   |
-| `bundled-skills.md`        | What each shipped Skill does and how the `.claude/skills/` symlinks expose them. |
+| File _(to be written)_     | What it will cover                                                                                            |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `the-guidelines-recipe.md` | How `icculus guidelines` assembles built-in + sources into per-agent files and banners.                       |
+| `the-compiled-files.md`    | The agent-file targets, the `[guidance].agents` selector, tracked vs gitignored, the do-not-edit rule.        |
+| `bundled-skills.md`        | What each shipped Skill does, the built-in/authored override rule, and how `.claude/skills/` is materialized. |
 
 ## See also
 

@@ -1,13 +1,14 @@
 /**
  * `icculus config <subcommand>` — programmatic, comment-preserving edits to an
- * existing `.icculus/config.toml` (ADR 0005). Lets a scaffolder or CI set
- * capabilities, checks, scopes, ratchets, and arbitrary scalars without
- * re-implementing TOML editing. Every subcommand honours `--json` and `--dry-run`.
+ * existing `icculus.toml` (ADR 0005). Lets a scaffolder or CI set capabilities,
+ * checks, scopes, ratchets, and arbitrary scalars without re-implementing TOML
+ * editing. Every subcommand honours `--json` and `--dry-run`.
  */
 
-import { join } from "@std/path";
+import { join, relative } from "@std/path";
 import { Logger } from "../lib/log.ts";
 import { resolveConfigPath } from "../lib/paths.ts";
+import { CONFIG_REL } from "../shared/env.ts";
 import { KNOWN_CAPABILITIES, STAGES } from "../lib/config.ts";
 import {
   tomlBool,
@@ -49,7 +50,7 @@ function fail(
 }
 
 /**
- * Load `.icculus/config.toml` from the cwd, apply the edits through `TomlEditor`
+ * Load `icculus.toml` from the cwd, apply the edits through `TomlEditor`
  * (preserving comments), and write it back — or, with `--dry-run`, report what
  * would change and write nothing. `summary` is the human success line.
  */
@@ -60,7 +61,9 @@ async function applyEdits(
 ): Promise<number> {
   const log = new Logger(opts);
   const path = (await resolveConfigPath(Deno.cwd())) ??
-    join(Deno.cwd(), ".icculus/config.toml");
+    join(Deno.cwd(), CONFIG_REL);
+  // Report the install-relative config path (icculus.toml, or a legacy location).
+  const fileRel = relative(Deno.cwd(), path);
 
   let text: string;
   try {
@@ -97,7 +100,7 @@ async function applyEdits(
       log.jsonResult({
         ok: true,
         dry_run: true,
-        file: ".icculus/config.toml",
+        file: fileRel,
         edits,
       });
     } else {
@@ -111,7 +114,7 @@ async function applyEdits(
 
   await Deno.writeTextFile(path, result);
   if (opts.json) {
-    log.jsonResult({ ok: true, file: ".icculus/config.toml", edits });
+    log.jsonResult({ ok: true, file: fileRel, edits });
   } else {
     log.ok(summary);
     for (const edit of edits) {

@@ -20,7 +20,7 @@ async function init(dir: string): Promise<void> {
 }
 
 async function setSchema(dir: string, version: number): Promise<void> {
-  const p = join(dir, ".icculus/config.toml");
+  const p = join(dir, "icculus.toml");
   const text = await Deno.readTextFile(p);
   await Deno.writeTextFile(
     p,
@@ -73,7 +73,7 @@ Deno.test("migrate errors cleanly when not initialized", async () => {
 Deno.test("migrate --check signals pending steps; bare migrate does not", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
-    await setSchema(dir, 1); // one schema behind (build is at 2)
+    await setSchema(dir, 1); // behind the build (schema 6) → the synthetic step is pending
     const chain: Migration[] = [{
       from: 1,
       describe: "a pending step",
@@ -102,7 +102,7 @@ Deno.test("migrate human output reports up to date on a current install", async 
 
 Deno.test("migrate human output errors cleanly when not initialized", async () => {
   await withTempDir(async (dir) => {
-    // No `init` → no .icculus/config.toml; the non-JSON branch logs the error to stderr.
+    // No `init` → no icculus.toml; the non-JSON branch logs the error to stderr.
     const r = await runCli(["migrate"], dir);
     assertEquals(r.code, 1);
     assertStringIncludes(r.stderr, "no icculus install here");
@@ -149,8 +149,8 @@ Deno.test("migrate --json lists the pending step from a rewound schema", async (
     const res = JSON.parse(r.stdout);
     assertEquals(res.ok, false);
     assertEquals(res.schema.recorded, 1);
-    assertEquals(res.schema.current, 5);
-    assertEquals(res.pending_migrations.length, 4);
+    assertEquals(res.schema.current, 6);
+    assertEquals(res.pending_migrations.length, 5);
     assertEquals(res.pending_migrations[0].from, 1);
     assertEquals(res.pending_migrations[0].to, 2);
     assertStringIncludes(res.pending_migrations[0].describe, "main_branch");

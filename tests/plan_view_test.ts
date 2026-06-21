@@ -78,7 +78,7 @@ function plan(
 
 Deno.test("renderPlan writes the heading to stderr and one padded row per op to stdout", async () => {
   const p = plan([
-    op(".icculus/config.toml", "create"),
+    op("icculus.toml", "create"),
     op(".gitignore", "append"),
   ]);
   const { err, out } = await capture(() =>
@@ -87,7 +87,7 @@ Deno.test("renderPlan writes the heading to stderr and one padded row per op to 
   assertEquals(err, ["\nDry run — would write:"]);
   assertEquals(out.length, 2);
   assertStringIncludes(out[0]!, "create");
-  assertStringIncludes(out[0]!, ".icculus/config.toml");
+  assertStringIncludes(out[0]!, "icculus.toml");
   assertStringIncludes(out[1]!, "append");
   assertStringIncludes(out[1]!, ".gitignore");
 });
@@ -121,16 +121,10 @@ Deno.test("renderPlan on an empty plan prints only the heading, no rows", async 
 // renderReview — the grouped review-and-confirm screen.
 // ---------------------------------------------------------------------------
 
-Deno.test("renderReview groups config, guidance + skills, docs, harness and integration", async () => {
+Deno.test("renderReview groups config, your content, and integration", async () => {
   const p = plan([
-    op(".icculus/config.toml", "create"),
-    op(".icculus/guidelines/icculus.md", "create"),
-    op(".icculus/skills/foo/SKILL.md", "create"),
-    op(".icculus/skills/foo/helper.sh", "create"),
-    op(".icculus/skills/bar/SKILL.md", "create"),
-    op("docs/00-orientation.md", "create"),
-    op("TODO.md", "create"),
-    op(".icculus/brief.md", "create"),
+    op("icculus.toml", "create"),
+    op("brief.md", "create"),
     op(".gitignore", "append"),
     op(".claude/settings.json", "merge"),
   ]);
@@ -142,22 +136,13 @@ Deno.test("renderReview groups config, guidance + skills, docs, harness and inte
   assertStringIncludes(err.join("\n"), "/projects/demo");
   assertStringIncludes(err.join("\n"), "will set up its harness");
   // The total file count line.
-  assertStringIncludes(text, "10 files.");
-  // Config group.
+  assertStringIncludes(text, "4 files.");
+  // Config group names the one root file.
   assertStringIncludes(text, "Config");
-  assertStringIncludes(text, ".icculus/config.toml");
-  // Agent guidance: the guideline path is listed, skills collapsed to a count.
-  assertStringIncludes(text, "Agent guidance");
-  assertStringIncludes(text, ".icculus/guidelines/icculus.md");
-  // Two distinct skill directories (foo, bar), not three files.
-  assertStringIncludes(text, "2 portable skills");
-  // Docs scaffold: only the docs/ file is counted, plus TODO.md listed.
-  assertStringIncludes(text, "Docs scaffold");
-  assertStringIncludes(text, "1 files — orientation, ADRs, gate gotchas");
-  assertStringIncludes(text, "TODO.md");
-  // Harness group (the brief + recipes).
-  assertStringIncludes(text, "Harness");
-  assertStringIncludes(text, "your brief and recipes");
+  assertStringIncludes(text, "icculus.toml");
+  // Other seeded content (the brief) is grouped under "Your content".
+  assertStringIncludes(text, "Your content");
+  assertStringIncludes(text, "brief.md");
   // Integration files grouped by how they land.
   assertStringIncludes(text, "Git & agent settings");
   assertStringIncludes(text, "merged into your existing settings");
@@ -166,14 +151,14 @@ Deno.test("renderReview groups config, guidance + skills, docs, harness and inte
   assertStringIncludes(text, "icculus init --dry-run");
 });
 
-Deno.test("renderReview lists unclassified ops under 'Other', with and without notes", async () => {
+Deno.test("renderReview lists seeded content under 'Your content', with and without notes", async () => {
   const p = plan([
     op("stray/file.txt", "create", { note: "a stray note" }),
     op("stray/bare.txt", "create"),
   ]);
   const { out } = await capture(() => renderReview(plainLogger(), p, "/dest"));
   const text = out.join("\n");
-  assertStringIncludes(text, "Other");
+  assertStringIncludes(text, "Your content");
   assertStringIncludes(text, "stray/file.txt");
   assertStringIncludes(text, "— a stray note");
   const bareLine = out.find((l) => l.includes("stray/bare.txt"));
@@ -198,12 +183,10 @@ Deno.test("renderReview omits every optional group for a minimal plan", async ()
   );
   const text = out.join("\n");
   assert(!text.includes("Config\n") && !text.includes("  Config "));
-  assert(!text.includes("Agent guidance"));
-  assert(!text.includes("Harness"));
-  assert(!text.includes("Other"));
   assert(!text.includes("Git & agent settings"));
-  // Docs scaffold is present (it is the one file we gave).
-  assertStringIncludes(text, "Docs scaffold");
+  // The one seeded file is grouped under "Your content".
+  assertStringIncludes(text, "Your content");
+  assertStringIncludes(text, "docs/x.md");
   assert(!err.join("\n").includes("unknown token"));
 });
 
@@ -248,6 +231,6 @@ Deno.test("init --dry-run prints the full per-file plan via renderPlan", async (
     // The flat listing names the seed files with the create label; nothing was
     // written (dry run).
     assertStringIncludes(stdout, "create");
-    assertStringIncludes(stdout, ".icculus/config.toml");
+    assertStringIncludes(stdout, "icculus.toml");
   });
 });

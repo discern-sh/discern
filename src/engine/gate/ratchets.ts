@@ -38,26 +38,31 @@ function extractMetric(output: string, metric: string): string | undefined {
   return value;
 }
 
-/** Read a scalar key from main's `.icculus/config.toml` (the never-loosen baseline). */
+/** Read a scalar key from main's config (the never-loosen baseline). Reads the
+ * new root `icculus.toml`, falling back to the legacy `.icculus/config.toml` so a
+ * branch whose main has not yet been migrated still ratchets correctly. */
 async function ratchetMainValue(
   root: string,
   mainBranch: string,
   key: string,
 ): Promise<number | undefined> {
-  try {
-    const out = await new Deno.Command("git", {
-      args: ["-C", root, "show", `${mainBranch}:.icculus/config.toml`],
-      stdout: "piped",
-      stderr: "null",
-    }).output();
-    if (!out.success) {
-      return undefined;
+  for (const rel of ["icculus.toml", ".icculus/config.toml"]) {
+    try {
+      const out = await new Deno.Command("git", {
+        args: ["-C", root, "show", `${mainBranch}:${rel}`],
+        stdout: "piped",
+        stderr: "null",
+      }).output();
+      if (!out.success) {
+        continue;
+      }
+      const cfg = new Config(new TextDecoder().decode(out.stdout));
+      return cfg.getNumber(key);
+    } catch {
+      // try the next candidate path
     }
-    const cfg = new Config(new TextDecoder().decode(out.stdout));
-    return cfg.getNumber(key);
-  } catch {
-    return undefined;
   }
+  return undefined;
 }
 
 /** Run one ratchet's measurement command, returning its combined output. The

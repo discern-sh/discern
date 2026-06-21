@@ -4,19 +4,17 @@ _The rules the tooling enforces, and the conventions to follow when writing code
 here._
 
 This doc is the detailed companion to the **Conventions** section of the project
-guidelines (`.icculus/guidelines/icculus.md`). The guidelines hold the short,
-agent-facing form; this doc holds the full reasoning. Keep the two in step, and
-keep both aligned with what the `[capabilities]` and `[checks]` in
-`.icculus/config.toml` actually enforce — the written rule and the enforced rule
-must never disagree.
+guidance (`guidance.md`). The guidance holds the short, agent-facing form; this
+doc holds the full reasoning. Keep the two in step, and keep both aligned with
+what the `[capabilities]` and `[checks]` in `icculus.toml` actually enforce —
+the written rule and the enforced rule must never disagree.
 
 ## What the gate enforces
 
-The fix- and check-stage work in
-[`.icculus/config.toml`](../../.icculus/config.toml) is the mechanical rules:
-`format`, `lint`, and `typecheck` are known **Capabilities** (the engine derives
-their Stage from the name). To satisfy all of them at once, run `icculus tidy`
-(in this repo, `deno task dev tidy`).
+The fix- and check-stage work in [`icculus.toml`](../../icculus.toml) is the
+mechanical rules: `format`, `lint`, and `typecheck` are known **Capabilities**
+(the engine derives their Stage from the name). To satisfy all of them at once,
+run `icculus tidy` (in this repo, `deno task dev tidy`).
 
 | Name        | Kind       | Stage | Command                  | What it checks / how to satisfy                                                                                                                                                                                 |
 | ----------- | ---------- | ----- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -36,19 +34,22 @@ release-only, so it is simply omitted), and the `test` capability
 The conventions the tooling cannot fully enforce, but the project still holds:
 
 - **The golden rule — yours vs the binary's.** Ownership is two buckets
-  ([ADR 0019](../_adr/0019-single-binary-ts-engine.md)). _Yours_ are the
-  committed seed files (`.icculus/config.toml`, `docs/**`,
-  `.icculus/guidelines/icculus.md`, `TODO.md`) — edit them in place. _The
-  binary's_ are gitignored, re-published artifacts (`.icculus/skills/**`,
-  `.claude/skills/**`, compiled `CLAUDE.md`/`AGENTS.md`); the engine
-  (`src/engine/**`) is the limit case — code in this repo, never on disk in an
-  install. Change the engine or a skill by editing the source here and
-  re-running the producing command; don't expect to find a committed copy to
-  sync. See [install-surface.md](install-surface.md) for the full bucket map.
-- **Never hand-edit the binary's artifacts.** `CLAUDE.md` and `AGENTS.md` are
-  compiled from `.icculus/guidelines/*.md` by `icculus guidelines` (in this
-  repo, `deno task dev guidelines`); edit the guidance source and recompile.
-  They carry a do-not-edit banner.
+  ([ADR 0019](../_adr/0019-single-binary-ts-engine.md),
+  [ADR 0020](../_adr/0020-dissolve-icculus-dir.md)). _Yours_ are the committed
+  files (`icculus.toml`, `docs/**`, your `guidance.md`, authored skills under
+  `./skills/`, `TODO.md`) — edit them in place. _The binary's_ are gitignored,
+  re-published artifacts (`.claude/skills/**`, compiled
+  `CLAUDE.md`/`GEMINI.md`); `AGENTS.md` is the one tracked generated file; the
+  engine, built-in skills, and built-in guidance are bundled in the binary —
+  never on disk in an install. Change the engine, a built-in skill, or built-in
+  guidance by editing the source here and re-running the producing command;
+  don't expect to find a committed copy to sync. See
+  [install-surface.md](install-surface.md) for the full bucket map.
+- **Never hand-edit the generated agent files.** `AGENTS.md` (tracked),
+  `CLAUDE.md`, and `GEMINI.md` are compiled from icculus's built-in guidance
+  plus your `[guidance].sources` by `icculus guidelines` (in this repo,
+  `deno task dev guidelines`); edit the guidance source and recompile. They
+  carry a do-not-edit banner.
 - **Run from source, never `dist/`.** Use `deno task dev <cmd>`; the `dist/`
   binaries bundle a frozen `templates/` snapshot. Don't put `--` before a
   subcommand.

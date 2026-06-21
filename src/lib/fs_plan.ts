@@ -12,16 +12,16 @@
  * plan; the executor applies a plan (or, for dry-run, the caller just renders
  * it).
  *
- * Every scaffolded file is a SEED — the user's once written, never overwritten —
- * with ONE exception: `.icculus/skills/**` are *materialized artifacts* of the
- * binary (bundled via `--include templates`), gitignored, and always overwritten
- * so a re-run refreshes them to the kit's current copy.
+ * Every scaffolded file is a SEED — the user's once written, never overwritten.
+ * The binary's own artifacts are NOT scaffolded here: bundled skills
+ * (`templates/skills/`) and built-in guidance (`templates/guidance/`) are
+ * materialized/read straight from the binary, never written into the user's tree,
+ * so the walker skips those subtrees entirely.
  */
 
 import { ensureDir, walk } from "@std/fs";
 import { dirname, join, relative, SEPARATOR } from "@std/path";
 import {
-  isContractExecutable,
   isGitignoreFragment,
   isSettingsTemplate,
   isTemplateFile,
@@ -67,16 +67,17 @@ const TEXT_DECODER = new TextDecoder();
 const TEXT_ENCODER = new TextEncoder();
 
 /**
- * The materialized-artifact prefix. Files under here are the binary's, not the
- * user's: copied verbatim from the bundled templates, gitignored, and always
- * overwritten so `init`/`upgrade` refresh them. (The engine's `guidelines` step
- * then symlinks them into `.claude/skills/`.)
+ * Top-level templates subtrees that are the binary's OWN artifacts, not seeds:
+ * bundled skills (materialized into `.claude/skills/`) and built-in guidance
+ * (read by the compiler). The seed walk skips them so they are never written into
+ * the user's tracked tree.
  */
-const MATERIALIZED_PREFIX = ".icculus/skills/";
+const NON_SEED_SUBTREES: readonly string[] = ["skills/", "guidance/"];
 
-/** True when a target path is a materialized artifact (always overwritten). */
-export function isMaterialized(targetRel: string): boolean {
-  return targetRel.replaceAll("\\", "/").startsWith(MATERIALIZED_PREFIX);
+/** True when a template-relative path is one of the binary's non-seed subtrees. */
+function isNonSeed(templateRel: string): boolean {
+  const p = templateRel.replaceAll("\\", "/");
+  return NON_SEED_SUBTREES.some((prefix) => p.startsWith(prefix));
 }
 
 /** Read a file's bytes, or undefined if it does not exist. */
@@ -99,20 +100,27 @@ const GITIGNORE_MARKER = "# --- icculus harness ---";
 /**
  * Walk the templates tree and produce a complete scaffolding plan.
  *
- * Every file is a write-once SEED (create-or-skip), except `.icculus/skills/**`,
- * which are materialized artifacts always (re)written. `.claude/settings.json`
+ * Every file is a write-once SEED (create-or-skip). The binary's own artifacts
+ * (`templates/skills/`, `templates/guidance/`) are skipped — they are
+ * materialized/read from the binary, never seeded. `.claude/settings.json`
  * deep-merges; `.gitignore` appends the harness fragment idempotently.
  *
- * @param templatesDir absolute path to the `templates/` tree to scaffold from
- * @param destDir      absolute destination root (the project being scaffolded)
- * @param tokens       resolved content tokens
+ * @param templatesDir   absolute path to the `templates/` tree to scaffold from
+ * @param destDir        absolute destination root (the project being scaffolded)
+ * @param tokens         resolved content tokens
+ * @param excludeNonSeed skip the binary's own `skills/`/`guidance/` subtrees.
+ *   Set when scaffolding from the BINARY's templates (`init`), where those are
+ *   materialized/read from the binary rather than seeded. Left false for a preset
+ *   overlay, whose `skills/` IS an intended authored-skill overlay.
  */
 export async function buildPlan(params: {
   templatesDir: string;
   destDir: string;
   tokens: TokenMap;
+  excludeNonSeed?: boolean;
 }): Promise<Plan> {
   const { templatesDir, destDir, tokens } = params;
+  const excludeNonSeed = params.excludeNonSeed ?? false;
   const ops: PlanOp[] = [];
   const unknownTokens = new Map<string, string[]>();
 
@@ -121,6 +129,11 @@ export async function buildPlan(params: {
       SEPARATOR,
       "/",
     );
+
+    // Skip the binary's own artifacts — never seeded into the user's tree.
+    if (excludeNonSeed && isNonSeed(templateRel)) {
+      continue;
+    }
 
     if (isGitignoreFragment(templateRel)) {
       const op = await planGitignoreAppend(entry.path, destDir);
@@ -156,11 +169,8 @@ export async function buildPlan(params: {
 }
 
 /**
- * Plan a single content/verbatim file write.
- *
- * Seed files (everything but `.icculus/skills/**`) are write-once: created when
- * absent, skipped when already present (the user's). Materialized artifacts are
- * always (re)written so a re-run refreshes them to the kit's bundled copy.
+ * Plan a single content/verbatim file write. Every seed is write-once: created
+ * when absent, skipped when already present (the user's).
  */
 async function planFileWrite(params: {
   sourceAbs: string;
@@ -172,13 +182,12 @@ async function planFileWrite(params: {
 }): Promise<PlanOp> {
   const { sourceAbs, templateRel, targetRel, destDir, tokens } = params;
   const sourceStat = await Deno.stat(sourceAbs);
-  let sourceMode = (sourceStat.mode ?? 0o644) & 0o777;
-  // The harness contract decides exec-ness for shipped recipes/skills helpers;
-  // OR it in so the bit survives even when the source mode is unreliable (the
-  // `deno compile` embedded filesystem reports every file as read-only).
-  if (isContractExecutable(targetRel)) {
-    sourceMode |= 0o755;
-  }
+  // OR in owner read+write: a scaffolded seed is the user's to edit, but the
+  // `deno compile` embedded filesystem flattens every bundled template to
+  // read-only — without this, `init` would lay down a read-only `icculus.toml`
+  // that the user (and `icculus config set`/`/bootstrap`) then can't rewrite.
+  // Any exec bit on the real source is preserved (0o555 → 0o755).
+  const sourceMode = ((sourceStat.mode ?? 0o644) & 0o777) | 0o600;
 
   let bytes: Uint8Array;
   if (isTemplateFile(templateRel)) {
@@ -189,26 +198,11 @@ async function planFileWrite(params: {
     }
     bytes = TEXT_ENCODER.encode(text);
   } else {
-    // Verbatim copy: skills and other non-.tmpl files are token-free.
+    // Verbatim copy: non-.tmpl seed files are token-free.
     bytes = await Deno.readFile(sourceAbs);
   }
 
   const targetAbs = join(destDir, targetRel);
-
-  // Materialized artifacts are the binary's: always overwrite so a re-run
-  // refreshes them. Their bytes are token-free, so create vs overwrite carries
-  // identical content — labelled `create` for a clean review either way.
-  if (isMaterialized(targetRel)) {
-    return {
-      kind: "write",
-      targetRel,
-      targetAbs,
-      disposition: "create",
-      bytes,
-      mode: sourceMode,
-      note: "materialized skill (always refreshed)",
-    };
-  }
 
   // A seed: write once. If it is already present it is the user's — skip it.
   const existing = await readBytesIfExists(targetAbs);
@@ -309,15 +303,16 @@ async function planGitignoreAppend(
 }
 
 /**
- * Build the op for `.icculus/brief.md` — a SEED file: written once with a short
+ * Build the op for the root `brief.md` — a SEED file: written once with a short
  * header, never overwritten if already present (preserves any edits the user or
- * `/bootstrap` made).
+ * `/bootstrap` made). Only seeded when the captured brief is non-empty (see
+ * `assembleInitPlan`), so a default install's footprint stays just `icculus.toml`.
  */
 export async function planBrief(
   destDir: string,
   brief: string,
 ): Promise<PlanOp> {
-  const targetRel = ".icculus/brief.md";
+  const targetRel = "brief.md";
   const targetAbs = join(destDir, targetRel);
   const body = brief.trimEnd();
   const content = `# Project brief\n\n` +

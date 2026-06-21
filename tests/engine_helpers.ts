@@ -139,9 +139,9 @@ export async function runAgent(
   return { code, stdout: out, stderr: err, output: out + err };
 }
 
-/** Overwrite the scaffolded `.icculus/config.toml` (a seed file) with test content. */
+/** Overwrite the scaffolded root `icculus.toml` (a seed file) with test content. */
 export async function writeConfig(dir: string, toml: string): Promise<void> {
-  await Deno.writeTextFile(join(dir, ".icculus/config.toml"), toml);
+  await Deno.writeTextFile(join(dir, "icculus.toml"), toml);
 }
 
 /** Write an executable file (e.g. a project recipe or a capability command). */

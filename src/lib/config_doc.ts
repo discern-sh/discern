@@ -7,7 +7,7 @@
  *   - a preset's `preset.json` — the config half of an `add-preset` overlay.
  *
  * Both apply the document's `capabilities` / `checks` / `scopes` / `ratchets` to
- * a project's `.icculus/config.toml` through the comment-preserving `TomlEditor`.
+ * a project's `icculus.toml` through the comment-preserving `TomlEditor`.
  * Because this shape is a published contract (a JSON Schema ships at
  * `schema/icculus-config.schema.json`), it carries an optional `version` so it
  * can evolve without silently misreading an older or newer document, and accepts
@@ -15,6 +15,7 @@
  */
 
 import { KNOWN_CAPABILITIES, STAGES } from "./config.ts";
+import { FEATURES, isFeature } from "../shared/features.ts";
 import type { InitFlags } from "./prompts.ts";
 import type { TomlEditor } from "./toml_edit.ts";
 
@@ -63,6 +64,8 @@ export interface IcculusConfigDoc {
   source_globs?: string[];
   brief?: string;
   agents?: string[];
+  /** `[features]` toggles — a feature name mapped to a boolean (default true). */
+  features?: Record<string, boolean>;
   /** Preset metadata; ignored by `init --config`. */
   description?: string;
   /** `[capabilities]` fills — a known capability name mapped to a command (or list). */
@@ -159,7 +162,7 @@ export function mergeDocIntoFlags(
 
 /**
  * Apply a document's `capabilities`/`checks`/`scopes`/`ratchets` fills to a
- * `TomlEditor` over a project's `.icculus/config.toml`. Validates names and
+ * `TomlEditor` over a project's `icculus.toml`. Validates names and
  * enum-ish values (capability name, stage, direction) the same way the `config`
  * subcommand does; throws on bad input so the caller can report it.
  */
@@ -167,6 +170,17 @@ export function applyConfigDoc(
   editor: TomlEditor,
   doc: IcculusConfigDoc,
 ): void {
+  // Features: a known toggle name mapped to a boolean. An unknown name is a typo
+  // worth catching rather than silently ignoring.
+  for (const [name, value] of Object.entries(doc.features ?? {})) {
+    if (!isFeature(name)) {
+      throw new Error(
+        `unknown feature "${name}" (known: ${FEATURES.join(", ")})`,
+      );
+    }
+    editor.setBool(`features.${name}`, value);
+  }
+
   // Capabilities: a known name mapped to a command (or list). The stage is
   // derived by the engine, so none is written. An unknown name has no derivable
   // stage — reject it, pointing the author at [checks].

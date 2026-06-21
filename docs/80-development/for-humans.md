@@ -15,14 +15,17 @@ of the engine — it lives in the binary
 running its own engine from source (`deno task dev finish`), so there is **no**
 second copy to keep in sync and nothing that can drift.
 
-What an install does lay down splits into **two buckets**: _your_ committed seed
-files (config, guidelines, brief, recipes, settings, gitignore), and _the
-binary's_ gitignored, re-published artifacts (the materialised skills and the
-compiled agent files). The full file-by-file map is in
-[install-surface.md](install-surface.md), and the
-[dispositions](../00-orientation/glossary.md#file-dispositions) are defined in
-the glossary. Edit your seed files in place; the binary's artifacts are produced
-from source in this repo and overwritten on `upgrade`.
+What an install does lay down is anchored by **one root file, `icculus.toml`**
+([ADR 0020](../_adr/0020-dissolve-icculus-dir.md)). Files split into **two
+buckets**: _your_ committed files (`icculus.toml`, the `brief.md` seed, and the
+content you author at config-pointed paths — `guidance.md`, `./skills/`,
+`./recipes/` — plus the merged settings/gitignore), and _the binary's_
+gitignored, re-published artifacts (the materialised `.claude/skills/` and the
+compiled `CLAUDE.md`/`GEMINI.md`; `AGENTS.md` is the one tracked generated
+file). The full file-by-file map is in [install-surface.md](install-surface.md),
+and the [dispositions](../00-orientation/glossary.md#file-dispositions) are
+defined in the glossary. Edit your files in place; the binary's artifacts are
+produced from source in this repo and overwritten on `upgrade`.
 
 ## Prerequisites
 
@@ -44,13 +47,13 @@ Stack-specific setup (installing project dependencies, running the app) lives in
 - **Colours** — the scopes are committed in
   [`.idea/scopes/`](../../.idea/scopes/). Assign colours once in **Settings →
   Editor → File Colors**, ticking _Share_ so they travel with the repo: `Tests`
-  → blue, `Templates` → green, `Managed and generated`
-  (`CLAUDE.md`/`AGENTS.md` + `.icculus/skills/` + `.claude/skills/`) → rose or
-  orange (your "don't touch" colour).
+  → blue, `Templates` → green, `Generated`
+  (`CLAUDE.md`/`AGENTS.md`/`GEMINI.md` + `.claude/skills/`) → rose or orange
+  (your "don't touch" colour).
 - **Optional** — to drop the binary's re-published artifacts out of search
-  entirely, right-click `.icculus/skills/` and `.claude/skills/` → _Mark
-  Directory as → Excluded_. This is an alternative to the rose colour, not an
-  addition: excluded folders ignore file colours.
+  entirely, right-click `.claude/skills/` → _Mark Directory as → Excluded_. This
+  is an alternative to the rose colour, not an addition: excluded folders ignore
+  file colours.
 
 ### VS Code
 
@@ -60,18 +63,17 @@ out of search. There is no simple built-in equivalent for the colour-coding.
 
 ### Any editor
 
-Don't hand-edit the binary's artifacts: `CLAUDE.md` and `AGENTS.md` are compiled
-from [`.icculus/guidelines/`](../../.icculus/guidelines/) by
-`icculus
-guidelines`. Edit the guidelines source and recompile — in this repo,
-with `deno task dev guidelines`.
+Don't hand-edit the generated agent files: `AGENTS.md` (tracked), `CLAUDE.md`,
+and `GEMINI.md` are compiled from icculus's built-in guidance plus your
+[`guidance.md`](../../guidance.md) by `icculus guidelines`. Edit your guidance
+source and recompile — in this repo, with `deno task dev guidelines`.
 
 ## Working alongside the agents
 
 - Agent sessions run in linked git worktrees under `.claude/worktrees/<name>/`,
   each with its own checkout.
 - To take over an agent's branch and continue in the main checkout, run the
-  [`handoff-worktree`](../../.icculus/skills/handoff-worktree/SKILL.md) skill.
+  [`handoff-worktree`](../../templates/skills/handoff-worktree/SKILL.md) skill.
   It runs `icculus worktree:exit`, which commits the work, tears the worktree
   down, and checks the branch out in the main repo.
 - Drive the gate yourself any time. In this repo (self-hosting from source):

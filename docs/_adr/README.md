@@ -4,15 +4,16 @@ This directory holds **icculus's own** Architecture Decision Records: short
 documents capturing a significant decision about the kit's design, the context
 that forced it, and the reasoning behind it.
 
-icculus _ships_ the ADR discipline to the projects it scaffolds
-([`templates/docs/_adr/`](../../templates/docs/_adr/)). This directory is
-icculus applying that discipline to itself — recording the decisions behind the
-engine and installer here, in the same format.
+icculus _ships_ the ADR discipline to the projects it scaffolds via its bundled
+`write-adr` skill, which creates `docs/_adr/` on demand from its skeleton at
+[`templates/skills/write-adr/skel/docs/_adr/`](../../templates/skills/write-adr/skel/docs/_adr/).
+This directory is icculus applying that discipline to itself — recording the
+decisions behind the engine and installer here, in the same format.
 
 **The canonical ADR format is the one icculus ships:**
-[`templates/docs/_adr/README.md`](../../templates/docs/_adr/README.md), with the
-copy-paste template at
-[`templates/docs/_adr/0000-template.md`](../../templates/docs/_adr/0000-template.md).
+[`templates/skills/write-adr/skel/docs/_adr/README.md`](../../templates/skills/write-adr/skel/docs/_adr/README.md),
+with the copy-paste template at
+[`templates/skills/write-adr/skel/docs/_adr/0000-template.md`](../../templates/skills/write-adr/skel/docs/_adr/0000-template.md).
 Read it before drafting. In brief: number continuously (`NNNN-slug.md`, first
 real ADR is `0001`); state the decision in the title; write one only when the
 decision is hard to reverse, surprising without context, and a real trade-off.
@@ -38,3 +39,4 @@ decision is hard to reverse, surprising without context, and a real trade-off.
 - [0017 — Declare capabilities, derive the gate](0017-capabilities-model.md)
 - [0018 — Consolidate the harness vocabulary into four layers](0018-vocabulary-consolidation.md)
 - [0019 — Collapse into one binary with a TypeScript-native engine](0019-single-binary-ts-engine.md)
+- [0020 — Dissolve `.icculus/` into a single root `icculus.toml`](0020-dissolve-icculus-dir.md)

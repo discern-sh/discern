@@ -1,7 +1,7 @@
 /**
  * CLI tests for `init --config <file>` (ADR 0005): a JSON answers file drives a
  * fresh, non-interactive install, with capabilities/checks/scopes/ratchets
- * applied to the generated .icculus/config.toml (comments preserved). Run as
+ * applied to the generated icculus.toml (comments preserved). Run as
  * subprocesses.
  */
 
@@ -40,7 +40,7 @@ Deno.test("init --config scaffolds from a JSON answers file", async () => {
     assertEquals(result.ok, true);
     assertEquals(result.project.slug, "my-app");
 
-    const toml = await Deno.readTextFile(join(dir, ".icculus/config.toml"));
+    const toml = await Deno.readTextFile(join(dir, "icculus.toml"));
     assertStringIncludes(toml, 'test = "vitest run"'); // capability fill
     assertStringIncludes(toml, "[checks.licenses]"); // check table
     assertStringIncludes(toml, 'paths = ["native/**"]'); // scope fill
@@ -53,7 +53,7 @@ Deno.test("init --config scaffolds from a JSON answers file", async () => {
 
     // The brief was captured.
     assertStringIncludes(
-      await Deno.readTextFile(join(dir, ".icculus/brief.md")),
+      await Deno.readTextFile(join(dir, "brief.md")),
       "A declaratively-configured app.",
     );
   });
@@ -70,7 +70,7 @@ Deno.test("init --config - reads the answers file from stdin", async () => {
     assertEquals(r.code, 0, r.stderr);
     assertEquals(JSON.parse(r.stdout).project.slug, "my-app");
     assertStringIncludes(
-      await Deno.readTextFile(join(dir, ".icculus/config.toml")),
+      await Deno.readTextFile(join(dir, "icculus.toml")),
       'test = "vitest run"',
     );
   });

@@ -28,7 +28,7 @@ trail.
 The subsystems are numbered subtrees, in the order a newcomer should read them.
 Each currently holds a `README.md` tour; deeper leaves are filled
 subtree-by-subtree with the
-[`document-subsystem`](../.icculus/skills/document-subsystem/SKILL.md) skill.
+[`document-subsystem`](../templates/skills/document-subsystem/SKILL.md) skill.
 The numbers are a reading order, not a contract — rename and renumber freely.
 
 | Path                                         | What's in it                                                                                                                                                                                                                                                                                                                                                                                                              |
@@ -52,7 +52,7 @@ The numbers are a reading order, not a contract — rename and renumber freely.
 ## How this tree is produced and kept current
 
 The tree is seeded once by `/bootstrap`, then grown subtree-by-subtree with the
-[`document-subsystem`](../.icculus/skills/document-subsystem/SKILL.md) skill,
+[`document-subsystem`](../templates/skills/document-subsystem/SKILL.md) skill,
 which follows the brief in
 [_internal/documenter-agent-brief.md](_internal/documenter-agent-brief.md). A
 single skeleton-and-orientation pass establishes the shared terminology and

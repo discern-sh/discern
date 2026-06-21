@@ -16,8 +16,8 @@ needs Deno.
 The command surface is six verbs: `init` (scaffold), `upgrade` (run pending
 migrations, re-materialize Skills, recompile guidance), `doctor` (verify an
 install), `migrate` (report pending Schema steps), `config` (comment-preserving
-`.icculus/config.toml` edits), and `add-preset` (overlay a reusable preset).
-Routing lives in [`main.ts`](../../src/main.ts); each verb's logic is in
+`icculus.toml` edits), and `add-preset` (overlay a reusable preset). Routing
+lives in [`main.ts`](../../src/main.ts); each verb's logic is in
 `src/commands/`.
 
 The ideas worth understanding here: the **disposition**-driven scaffold, with
@@ -27,11 +27,13 @@ write-once) and [the binary's](../00-orientation/glossary.md#the-binarys-files)
 (gitignored, re-published artifacts) — so `upgrade` overwrites the binary's
 files but never touches yours; and the **Schema-version**
 [Migration](../00-orientation/glossary.md#migration) chain that evolves an
-install's shape, stamped into `[meta].schema_version` in `.icculus/config.toml`.
+install's shape, stamped into `[meta].schema_version` in `icculus.toml` (the
+`5 → 6` step dissolved the old `.icculus/` namespace into this one root file —
+[ADR 0020](../_adr/0020-dissolve-icculus-dir.md)).
 
 > **Status: stub.** This README orients the subtree; the leaves below are not
 > written yet. Fill them with the
-> [`document-subsystem`](../../.icculus/skills/document-subsystem/SKILL.md)
+> [`document-subsystem`](../../templates/skills/document-subsystem/SKILL.md)
 > skill.
 
 ## Planned leaves

@@ -22,7 +22,7 @@ import {
   MIGRATIONS,
   pendingMigrations,
 } from "../src/lib/migrations.ts";
-import { targetExists, withTempDir } from "./helpers.ts";
+import { REAL_TEMPLATES, targetExists, withTempDir } from "./helpers.ts";
 
 /** A synthetic step that records its `from` when applied. */
 function recordingStep(from: number, log: number[]): Migration {
@@ -40,9 +40,10 @@ function recordingStep(from: number, log: number[]): Migration {
 
 Deno.test("the production chain is contiguous up to the current schema", () => {
   // One step per bump, from 1 up to SCHEMA_VERSION: 1→2 (main_branch backfill),
-  // 2→3 (the .icculus/ surface consolidation), 3→4 (capabilities/checks), and
-  // 4→5 (prune the pre-existing on-disk shell engine).
-  assertEquals(MIGRATIONS.map((m) => m.from), [1, 2, 3, 4]);
+  // 2→3 (the .icculus/ surface consolidation), 3→4 (capabilities/checks),
+  // 4→5 (prune the pre-existing on-disk shell engine), and 5→6 (dissolve
+  // .icculus/ into the single-file footprint).
+  assertEquals(MIGRATIONS.map((m) => m.from), [1, 2, 3, 4, 5]);
   assert(isChainContiguous(MIGRATIONS, SCHEMA_VERSION));
 });
 
@@ -310,6 +311,143 @@ Deno.test("migration 4→5 is a clean no-op on a fresh install (no shell engine 
     const applied = await applyMigrations({ destDir: dir, from: 4, to: 5 });
     assertEquals(applied.map((m) => m.from), [4]);
     assertEquals(await targetExists(dir, ".icculus/config.toml"), true);
+  });
+});
+
+Deno.test("migration 5→6 dissolves .icculus/: moves config/guidance/recipes/authored-skills out, prunes bundled, adds sections", async () => {
+  await withTempDir(async (dir) => {
+    // A realistic schema-5 install: config + guidelines + recipes + a MIX of a
+    // bundled skill (pristine, to be pruned) and an authored one (to be moved),
+    // a brief, and a pre-6 .gitignore.
+    await Deno.mkdir(join(dir, ".icculus/guidelines"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, ".icculus/config.toml"),
+      [
+        "[meta]",
+        "schema_version = 5",
+        "[project]",
+        'slug = "demo"',
+        'agents = ["claude_code"]',
+        "[recipes]",
+        'dir = ".icculus/recipes"',
+        "",
+      ].join("\n"),
+    );
+    await Deno.writeTextFile(
+      join(dir, ".icculus/guidelines/icculus.md"),
+      "# my authored guidance\n",
+    );
+    await Deno.writeTextFile(join(dir, ".icculus/brief.md"), "build a thing\n");
+    await Deno.mkdir(join(dir, ".icculus/recipes"), { recursive: true });
+    await Deno.writeTextFile(join(dir, ".icculus/recipes/README.md"), "docs\n");
+    await Deno.writeTextFile(
+      join(dir, ".icculus/recipes/deploy"),
+      "#!/bin/sh\n",
+    );
+    // A pristine bundled skill (byte-identical to the shipped one → pruned) and an
+    // authored skill (a unique name → moved to ./skills/, preserved).
+    const shippedHandoff = await Deno.readTextFile(
+      join(REAL_TEMPLATES, "skills/handoff-worktree/SKILL.md"),
+    );
+    await Deno.mkdir(join(dir, ".icculus/skills/handoff-worktree"), {
+      recursive: true,
+    });
+    await Deno.writeTextFile(
+      join(dir, ".icculus/skills/handoff-worktree/SKILL.md"),
+      shippedHandoff,
+    );
+    await Deno.mkdir(join(dir, ".icculus/skills/kit-special"), {
+      recursive: true,
+    });
+    await Deno.writeTextFile(
+      join(dir, ".icculus/skills/kit-special/SKILL.md"),
+      "# my own hand-authored skill\n",
+    );
+    await Deno.writeTextFile(
+      join(dir, ".gitignore"),
+      "/node_modules\n/CLAUDE.md\n/.icculus/skills/\n",
+    );
+
+    const applied = await applyMigrations({
+      destDir: dir,
+      from: 5,
+      to: 6,
+      onNote: () => {},
+    });
+    assertEquals(applied.map((m) => m.from), [5]);
+
+    // Config moved to the root single-file footprint; new sections present.
+    assertEquals(await targetExists(dir, "icculus.toml"), true);
+    assertEquals(await targetExists(dir, ".icculus"), false);
+    const toml = await Deno.readTextFile(join(dir, "icculus.toml"));
+    assertStringIncludes(toml, "[features]");
+    assertStringIncludes(toml, "[guidance]");
+    assertStringIncludes(toml, "[skills]");
+    // Agents migrated from [project] to [guidance].
+    assert(!/\[project\][^[]*agents/s.test(toml), "[project].agents removed");
+
+    // Guidance prose moved to ./guidance.md; recipes moved to ./recipes/.
+    assertStringIncludes(
+      await Deno.readTextFile(join(dir, "guidance.md")),
+      "my authored guidance",
+    );
+    assertEquals(await targetExists(dir, "recipes/deploy"), true);
+    assertEquals(await targetExists(dir, "brief.md"), true);
+
+    // R1: the AUTHORED skill is preserved (moved to ./skills/); the pristine
+    // bundled one is pruned (the binary re-ships it).
+    assertEquals(await targetExists(dir, "skills/kit-special/SKILL.md"), true);
+    assertEquals(await targetExists(dir, "skills/handoff-worktree"), false);
+
+    // .gitignore: the dead .icculus ignore is gone; the mirrors are ignored;
+    // AGENTS.md is NOT ignored; the user's entry survives.
+    const gitignore = await Deno.readTextFile(join(dir, ".gitignore"));
+    assert(!/\.icculus/.test(gitignore), "no .icculus ignore remains");
+    assertStringIncludes(gitignore, "/node_modules");
+    assertStringIncludes(gitignore, "/GEMINI.md");
+    assert(!/^\s*\/?AGENTS\.md\b/m.test(gitignore), "AGENTS.md stays tracked");
+
+    // Idempotent: a re-run over the migrated install is a clean no-op.
+    await applyMigrations({ destDir: dir, from: 5, to: 6, onNote: () => {} });
+    assertEquals(await targetExists(dir, "icculus.toml"), true);
+    assertEquals(await targetExists(dir, "skills/kit-special/SKILL.md"), true);
+  });
+});
+
+Deno.test("migration 5→6 preserves a CUSTOMIZED bundled skill that differs only in a non-SKILL.md file (R1)", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.mkdir(join(dir, ".icculus"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, ".icculus/config.toml"),
+      '[meta]\nschema_version = 5\n[project]\nslug = "demo"\n',
+    );
+    // A bundled-named skill whose SKILL.md is the PRISTINE shipped copy, but with
+    // a user-added file elsewhere in the tree. The SKILL.md-only check would have
+    // judged this "pristine" and deleted the whole dir, losing the custom file.
+    const shippedSkill = await Deno.readTextFile(
+      join(REAL_TEMPLATES, "skills/write-adr/SKILL.md"),
+    );
+    await Deno.mkdir(join(dir, ".icculus/skills/write-adr/skel/docs/_adr"), {
+      recursive: true,
+    });
+    await Deno.writeTextFile(
+      join(dir, ".icculus/skills/write-adr/SKILL.md"),
+      shippedSkill,
+    );
+    await Deno.writeTextFile(
+      join(dir, ".icculus/skills/write-adr/skel/docs/_adr/MY-NOTE.md"),
+      "# my customization the migration must not delete\n",
+    );
+
+    await applyMigrations({ destDir: dir, from: 5, to: 6, onNote: () => {} });
+
+    // The whole customized tree is preserved as an authored override, not pruned.
+    assertEquals(await targetExists(dir, "skills/write-adr/SKILL.md"), true);
+    assertEquals(
+      await targetExists(dir, "skills/write-adr/skel/docs/_adr/MY-NOTE.md"),
+      true,
+    );
+    assertEquals(await targetExists(dir, ".icculus"), false);
   });
 });
 

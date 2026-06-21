@@ -4,12 +4,13 @@
  * guard, the migration fold, and convergence. This file drives the failure and
  * reporting branches they leave uncovered:
  *
- *   - the pre-flight refusals: no .icculus/config.toml, unparseable toml, missing
- *     templates dir;
+ *   - the pre-flight refusals: no icculus.toml, unparseable toml; and the
+ *     non-fatal path when the templates dir is missing (the guideline compile
+ *     is skipped but the upgrade still succeeds);
  *   - the human-mode (non-JSON) renderings of --check ok, --dry-run, the dirty
  *     guard, and the migrations-applied summary;
  *   - --dry-run's --json payload and its pending-migration preview;
- *   - the agents-default fallback when .icculus/config.toml carries no agents key.
+ *   - the agents-default fallback when icculus.toml carries no agents key.
  *
  * Human output goes to stderr; machine assertions read --json from stdout.
  */
@@ -53,7 +54,7 @@ async function initCommittedRepo(dir: string): Promise<void> {
 
 /** Overwrite the install's recorded `[meta].schema_version` (to model one behind). */
 async function setSchema(dir: string, version: number): Promise<void> {
-  const p = join(dir, ".icculus/config.toml");
+  const p = join(dir, "icculus.toml");
   const text = await Deno.readTextFile(p);
   await Deno.writeTextFile(
     p,
@@ -63,7 +64,7 @@ async function setSchema(dir: string, version: number): Promise<void> {
 
 /** The recorded `[meta].schema_version` of an install's config. */
 async function recordedSchema(dir: string): Promise<number> {
-  const m = (await readTarget(dir, ".icculus/config.toml")).match(
+  const m = (await readTarget(dir, "icculus.toml")).match(
     /schema_version\s*=\s*(\d+)/,
   );
   return m ? Number(m[1]) : NaN;
@@ -71,9 +72,9 @@ async function recordedSchema(dir: string): Promise<number> {
 
 // ---- pre-flight refusals --------------------------------------------------
 
-Deno.test("upgrade with no .icculus/config.toml fails as not_initialized (--json)", async () => {
+Deno.test("upgrade with no icculus.toml fails as not_initialized (--json)", async () => {
   await withTempDir(async (dir) => {
-    // A bare dir is not an install: there is no .icculus/config.toml to refresh.
+    // A bare dir is not an install: there is no icculus.toml to refresh.
     const r = await runCli(["upgrade", "--json"], dir);
     assertEquals(r.code, 1);
     const res = JSON.parse(r.stdout);
@@ -83,7 +84,7 @@ Deno.test("upgrade with no .icculus/config.toml fails as not_initialized (--json
   });
 });
 
-Deno.test("upgrade with no .icculus/config.toml fails as not_initialized (human)", async () => {
+Deno.test("upgrade with no icculus.toml fails as not_initialized (human)", async () => {
   await withTempDir(async (dir) => {
     const r = await runCli(["upgrade"], dir);
     assertEquals(r.code, 1);
@@ -91,12 +92,12 @@ Deno.test("upgrade with no .icculus/config.toml fails as not_initialized (human)
   });
 });
 
-Deno.test("upgrade with an unparseable .icculus/config.toml fails as invalid_toml (--json)", async () => {
+Deno.test("upgrade with an unparseable icculus.toml fails as invalid_toml (--json)", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
     // Corrupt the toml so parseIcculusToml throws.
     await Deno.writeTextFile(
-      join(dir, ".icculus/config.toml"),
+      join(dir, "icculus.toml"),
       "this = = broken\n[[[\n",
     );
     const r = await runCli(["upgrade", "--json"], dir);
@@ -108,11 +109,11 @@ Deno.test("upgrade with an unparseable .icculus/config.toml fails as invalid_tom
   });
 });
 
-Deno.test("upgrade with an unparseable .icculus/config.toml fails as invalid_toml (human)", async () => {
+Deno.test("upgrade with an unparseable icculus.toml fails as invalid_toml (human)", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
     await Deno.writeTextFile(
-      join(dir, ".icculus/config.toml"),
+      join(dir, "icculus.toml"),
       "broken = = =\n[[[\n",
     );
     const r = await runCli(["upgrade"], dir);
@@ -122,49 +123,57 @@ Deno.test("upgrade with an unparseable .icculus/config.toml fails as invalid_tom
   });
 });
 
-Deno.test("upgrade fails as templates_not_found when the templates dir is absent (--json)", async () => {
+Deno.test("upgrade survives an absent templates dir: guidelines just don't compile (--json)", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
-    // Point resolution at a path that does not exist; resolveTemplatesDir throws.
+    // Point resolution at a path that does not exist; the guideline compile
+    // (which materializes skills + writes agent files) throws. That failure is
+    // non-fatal to the upgrade — the schema is still stamped — so the command
+    // succeeds but reports the compile was skipped.
     const r = await runCli(["upgrade", "--json"], dir, {
       ICCULUS_TEMPLATES_DIR: join(dir, "no", "such", "templates"),
     });
-    assertEquals(r.code, 1);
+    assertEquals(r.code, 0, r.stderr);
     const res = JSON.parse(r.stdout);
-    assertEquals(res.ok, false);
-    assertEquals(res.error, "templates_not_found");
+    assertEquals(res.ok, true);
+    assertEquals(res.guidelines_compiled, false);
+    assertEquals(res.skills, null);
+    assertEquals(res.agents_written, []);
   });
 });
 
-Deno.test("upgrade fails as templates_not_found when the templates dir is absent (human)", async () => {
+Deno.test("upgrade survives an absent templates dir: warns and exits zero (human)", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
     const r = await runCli(["upgrade"], dir, {
       ICCULUS_TEMPLATES_DIR: join(dir, "no", "such", "templates"),
     });
-    assertEquals(r.code, 1);
-    assert(r.stderr.length > 0);
+    assertEquals(r.code, 0, r.stderr);
+    // The compile failure surfaces as a non-fatal warning on stderr.
+    assertStringIncludes(r.stderr, "could not recompile guidelines");
   });
 });
 
 // ---- agents-default fallback ----------------------------------------------
 
-Deno.test("upgrade fills agents from defaults when .icculus/config.toml carries no agents key", async () => {
+Deno.test("upgrade fills agents from defaults when icculus.toml carries no agents key", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
-    // Strip the `agents = [...]` line so toml.project.agents is absent; the
-    // upgrade must fall back to DEFAULTS.agents to resolve content tokens.
-    const tomlPath = join(dir, ".icculus/config.toml");
+    // Strip the `agents = [...]` line so [guidance].agents is absent; the
+    // guideline compile must fall back to the default agents to resolve content.
+    const tomlPath = join(dir, "icculus.toml");
     const stripped = (await Deno.readTextFile(tomlPath))
       .split("\n")
       .filter((l) => !/^\s*agents\s*=/.test(l))
       .join("\n");
     await Deno.writeTextFile(tomlPath, stripped);
-    // The upgrade still succeeds; the engine files are agent-token-free, so the
-    // fallback only has to resolve cleanly — which it does.
+    // The upgrade still succeeds and compiles the default agent files.
     const r = await runCli(["upgrade", "--json"], dir);
     assertEquals(r.code, 0, r.stderr);
-    assertEquals(JSON.parse(r.stdout).ok, true);
+    const res = JSON.parse(r.stdout);
+    assertEquals(res.ok, true);
+    assertEquals(res.guidelines_compiled, true);
+    assertEquals(res.agents_written, ["CLAUDE.md", "AGENTS.md"]);
   });
 });
 
@@ -182,7 +191,7 @@ Deno.test("upgrade --check (human) confirms an in-sync install and exits zero", 
 
 // ---- --dry-run ------------------------------------------------------------
 
-Deno.test("upgrade --dry-run --json previews the skills materialization and writes nothing", async () => {
+Deno.test("upgrade --dry-run --json previews pending migrations and writes nothing", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
     const r = await runCli(["upgrade", "--dry-run", "--json"], dir);
@@ -190,10 +199,8 @@ Deno.test("upgrade --dry-run --json previews the skills materialization and writ
     const res = JSON.parse(r.stdout);
     assertEquals(res.ok, true);
     assertEquals(res.dry_run, true);
-    assert(
-      Array.isArray(res.skills),
-      "the dry-run payload lists the skills it would materialize",
-    );
+    // The dry-run payload no longer enumerates skills (the compiler does that on
+    // a real run); it previews only the pending migration chain.
     assertEquals(res.pending_migrations, []); // current install → none pending
   });
 });
@@ -209,7 +216,7 @@ Deno.test("upgrade --dry-run --json previews pending migrations without running 
     assertEquals(res.dry_run, true);
     assertEquals(
       res.pending_migrations.map((m: { from: number }) => m.from),
-      [1, 2, 3, 4],
+      [1, 2, 3, 4, 5],
     );
     // Still a dry run: the schema is untouched on disk.
     assertEquals(await recordedSchema(dir), 1);
@@ -236,13 +243,13 @@ Deno.test("upgrade (human) refuses a dirty tree and lists the changed paths", as
   await withTempDir(async (dir) => {
     await initCommittedRepo(dir);
     await Deno.writeTextFile(
-      join(dir, ".icculus/config.toml"),
-      `${await Deno.readTextFile(join(dir, ".icculus/config.toml"))}\n# edit\n`,
+      join(dir, "icculus.toml"),
+      `${await Deno.readTextFile(join(dir, "icculus.toml"))}\n# edit\n`,
     );
     const r = await runCli(["upgrade"], dir);
     assertEquals(r.code, 1);
     assertStringIncludes(r.stderr, "uncommitted changes");
-    assertStringIncludes(r.stderr, ".icculus/config.toml"); // the dirty path is detailed
+    assertStringIncludes(r.stderr, "icculus.toml"); // the dirty path is detailed
   });
 });
 

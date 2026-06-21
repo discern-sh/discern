@@ -7,8 +7,10 @@ provision and tear down an isolated `git worktree` (and its branch) per change,
 each with its **own database** and a **deterministic dev-server port** so
 concurrent Worktrees never collide. The git mechanics are generic; the two
 stack-specific seams — the database and dev-server **worktree settings** — are
-empty config in `.icculus/config.toml` until a project wires them, so a Worktree
-round is a clean no-op until then (ADR 0007, ADR 0018).
+empty `[worktree]` config in `icculus.toml` until a project wires them, so a
+Worktree round is a clean no-op until then. The whole workflow is the
+`worktrees` feature, which can be turned off in `[features]` (ADR 0007, ADR
+0018, ADR 0020).
 
 The lifecycle is driven by hooks in `.claude/settings.json`: `SessionStart` →
 [`worktree:ensure`](../../src/engine/worktree/lifecycle.ts) (idempotent setup),
@@ -22,7 +24,7 @@ stable identity (id / site / branch / port / db).
 
 > **Status: stub.** This README orients the subtree; the leaves below are not
 > written yet. Fill them with the
-> [`document-subsystem`](../../.icculus/skills/document-subsystem/SKILL.md)
+> [`document-subsystem`](../../templates/skills/document-subsystem/SKILL.md)
 > skill.
 
 ## Planned leaves

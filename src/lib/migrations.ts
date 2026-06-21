@@ -19,12 +19,15 @@
  * safe — content is carried to the new path.
  */
 
-import { ensureDir } from "@std/fs";
-import { dirname, join } from "@std/path";
+import { ensureDir, walk } from "@std/fs";
+import { dirname, join, relative } from "@std/path";
 import { TomlEditor } from "./toml_edit.ts";
 import { mergeSettings } from "./settings_merge.ts";
 import { parseIcculusToml } from "./toml_render.ts";
 import { KNOWN_CAPABILITIES } from "./config.ts";
+import { bundledSkillNames } from "./skills.ts";
+import { resolveBundledSkillsDir } from "./paths.ts";
+import { FEATURES } from "../shared/features.ts";
 
 /** True for a non-null, non-array object. */
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -353,7 +356,269 @@ export const MIGRATIONS: Migration[] = [
       }
     },
   },
+  {
+    from: 5,
+    describe:
+      "dissolve .icculus/ into the single-file footprint: config → root icculus.toml; move guidance/recipes/authored skills out; prune bundled skills; add [features]/[guidance]/[skills] (ADR 0020)",
+    apply: async (ctx) => {
+      // Capture the legacy [project].agents (to seed [guidance].agents) BEFORE
+      // moving the config, while it is still readable at its old location.
+      let legacyAgents: string[] = [];
+      const before = await ctx.readConfig();
+      if (before !== undefined) {
+        try {
+          const raw = parseIcculusToml(before).raw;
+          const project = isRecord(raw.project) ? raw.project : {};
+          if (Array.isArray(project.agents)) {
+            legacyAgents = project.agents.filter(
+              (a): a is string => typeof a === "string",
+            );
+          }
+        } catch {
+          // unparseable — upgrade validates the config first; belt-and-braces.
+        }
+      }
+
+      // 1. Move the config to the root single-file footprint.
+      await ctx.rename(".icculus/config.toml", "icculus.toml");
+
+      // 2. Add the new sections (only-if-absent), migrating agents across. The
+      // line editor appends functional sections; the full commented blocks live
+      // in the template for reference.
+      const movedText = await ctx.readConfig();
+      let raw: Record<string, unknown> = {};
+      if (movedText !== undefined) {
+        try {
+          raw = parseIcculusToml(movedText).raw;
+        } catch {
+          // belt-and-braces; leave raw empty so every section is treated absent.
+        }
+      }
+      const features = isRecord(raw.features) ? raw.features : {};
+      const guidance = isRecord(raw.guidance) ? raw.guidance : {};
+      const skills = isRecord(raw.skills) ? raw.skills : {};
+      const recipes = isRecord(raw.recipes) ? raw.recipes : {};
+      await ctx.editToml((e) => {
+        for (const f of FEATURES) {
+          if (features[f] === undefined) {
+            e.setBool(`features.${f}`, true);
+          }
+        }
+        if (guidance.sources === undefined) {
+          e.setStringArray("guidance.sources", ["guidance.md"]);
+        }
+        if (guidance.agents === undefined) {
+          e.setStringArray(
+            "guidance.agents",
+            legacyAgents.length > 0 ? legacyAgents : ["claude_code", "codex"],
+          );
+        }
+        if (skills.dir === undefined) {
+          e.setString("skills.dir", "skills");
+        }
+        const rdir = typeof recipes.dir === "string" ? recipes.dir : undefined;
+        if (rdir === undefined || rdir === ".icculus/recipes") {
+          e.setString("recipes.dir", "recipes");
+        }
+        // The agents list now lives under [guidance]; drop the legacy copy.
+        e.deleteKey("project.agents");
+      });
+
+      // 3. Move the user's guideline prose → ./guidance.md (concatenated).
+      if (
+        !(await ctx.exists("guidance.md")) &&
+        (await ctx.exists(".icculus/guidelines"))
+      ) {
+        const dir = join(ctx.destDir, ".icculus/guidelines");
+        const files: string[] = [];
+        for await (const entry of Deno.readDir(dir)) {
+          if (entry.isFile && entry.name.endsWith(".md")) {
+            files.push(entry.name);
+          }
+        }
+        files.sort();
+        if (files.length > 0) {
+          let body = "";
+          for (const f of files) {
+            body += await Deno.readTextFile(join(dir, f));
+            if (!body.endsWith("\n")) {
+              body += "\n";
+            }
+            body += "\n";
+          }
+          await ctx.writeText("guidance.md", body.replace(/\n+$/, "\n"));
+          ctx.note(`moved ${files.length} guideline file(s) → guidance.md`);
+        }
+      }
+
+      // 4. Move recipes → ./recipes/ (the old README is documentation; dropped
+      // with .icculus/ below).
+      if (await ctx.exists(".icculus/recipes")) {
+        for await (
+          const entry of Deno.readDir(join(ctx.destDir, ".icculus/recipes"))
+        ) {
+          if (entry.name === "README.md") {
+            continue;
+          }
+          await ctx.rename(
+            `.icculus/recipes/${entry.name}`,
+            `recipes/${entry.name}`,
+          );
+        }
+        ctx.note("moved recipes → ./recipes/");
+      }
+
+      // 5. Move the brief → ./brief.md (authored intent, read by /bootstrap).
+      await ctx.rename(".icculus/brief.md", "brief.md");
+
+      // 6. Split skills (§3.5): authored dirs move to ./skills/; pristine bundled
+      // copies are pruned (the binary re-ships them). A bundled-NAMED dir whose
+      // CONTENTS differ from the bundled one — in ANY file, not just SKILL.md —
+      // is a customization, preserved as authored rather than lost (R1), and
+      // noted loudly.
+      if (await ctx.exists(".icculus/skills")) {
+        const bundled = new Set(await bundledSkillNames());
+        for await (
+          const entry of Deno.readDir(join(ctx.destDir, ".icculus/skills"))
+        ) {
+          if (!entry.isDirectory) {
+            continue;
+          }
+          const name = entry.name;
+          const isPristineBundled = bundled.has(name) &&
+            await sameSkillTree(ctx.destDir, name);
+          if (isPristineBundled) {
+            await ctx.removeAll(`.icculus/skills/${name}`);
+          } else {
+            await ctx.rename(`.icculus/skills/${name}`, `skills/${name}`);
+            ctx.note(
+              bundled.has(name)
+                ? `preserved CUSTOMIZED skill skills/${name} (it differs from the built-in; it now overrides it)`
+                : `preserved authored skill: skills/${name}`,
+            );
+          }
+        }
+      }
+
+      // 7. Fix .gitignore: drop the dead .icculus/ ignores, ensure the new
+      // generated mirrors are ignored, and keep AGENTS.md tracked.
+      await fixGitignoreForSchema6(ctx);
+
+      // 8. Delete the now-emptied .icculus/ namespace.
+      await ctx.removeAll(".icculus");
+      ctx.note(
+        "dissolved .icculus/ — the footprint is now a root icculus.toml",
+      );
+    },
+  },
 ];
+
+/**
+ * Whether the install's `.icculus/skills/<name>` is byte-identical to the bundled
+ * built-in's — the WHOLE directory tree, every file, not just `SKILL.md`. A
+ * pristine materialized copy (identical) is safe to prune (the binary re-ships
+ * it); ANY difference — a changed, added, or removed file anywhere in the tree —
+ * means the user customized it, so it must be preserved (R1). Erring toward
+ * preservation: a read/resolve failure compares unequal.
+ */
+async function sameSkillTree(destDir: string, name: string): Promise<boolean> {
+  let bundledDir: string;
+  try {
+    bundledDir = await resolveBundledSkillsDir();
+  } catch {
+    return false;
+  }
+  const installed = join(destDir, ".icculus/skills", name);
+  const ship = join(bundledDir, name);
+  const a = await treeFiles(installed);
+  const b = await treeFiles(ship);
+  if (a === undefined || b === undefined || a.length !== b.length) {
+    return false;
+  }
+  const bySet = new Set(b);
+  for (const rel of a) {
+    if (!bySet.has(rel)) {
+      return false; // a file present on one side but not the other
+    }
+    if (!(await sameBytes(join(installed, rel), join(ship, rel)))) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/** Sorted relative paths of every regular file under `dir`, or undefined if the
+ * directory can't be read. */
+async function treeFiles(dir: string): Promise<string[] | undefined> {
+  try {
+    const out: string[] = [];
+    for await (const entry of walk(dir, { includeDirs: false })) {
+      out.push(relative(dir, entry.path));
+    }
+    return out.sort();
+  } catch {
+    return undefined;
+  }
+}
+
+/** Whether two files have byte-identical contents (false if either is unreadable). */
+async function sameBytes(a: string, b: string): Promise<boolean> {
+  try {
+    const [x, y] = await Promise.all([Deno.readFile(a), Deno.readFile(b)]);
+    if (x.length !== y.length) {
+      return false;
+    }
+    for (let i = 0; i < x.length; i++) {
+      if (x[i] !== y[i]) {
+        return false;
+      }
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Rewrite `.gitignore` for the schema-6 layout: remove any `.icculus/`-pointed
+ * ignore, ensure `/CLAUDE.md` and `/GEMINI.md` are ignored, and ensure
+ * `/AGENTS.md` is NOT (it is the one tracked agent file). Idempotent; a no-op
+ * when there is no `.gitignore`.
+ */
+async function fixGitignoreForSchema6(ctx: MigrationContext): Promise<void> {
+  const existing = await ctx.readText(".gitignore");
+  if (existing === undefined) {
+    return;
+  }
+  const lines = existing.split("\n")
+    // Drop dead `.icculus` ignore RULES and any (mistaken) AGENTS.md ignore, but
+    // keep comments and blanks intact (a rule line is non-blank, non-`#`).
+    .filter((l) => {
+      const t = l.trim();
+      if (t === "" || t.startsWith("#")) {
+        return true;
+      }
+      return !/\.icculus/.test(l) && !/^\/?AGENTS\.md$/.test(t);
+    });
+  const has = (re: RegExp): boolean => lines.some((l) => re.test(l));
+  const additions: string[] = [];
+  if (!has(/^\s*\/?CLAUDE\.md\b/)) additions.push("/CLAUDE.md");
+  if (!has(/^\s*\/?GEMINI\.md\b/)) additions.push("/GEMINI.md");
+  if (!has(/^\s*\/?\.claude\/\*/)) {
+    additions.push("/.claude/*", "!/.claude/settings.json");
+  }
+  let text = lines.join("\n");
+  if (additions.length > 0) {
+    const base = text.replace(/\n+$/, "");
+    text = `${base}\n\n# icculus: generated/ephemeral artifacts\n${
+      additions.join("\n")
+    }\n`;
+  }
+  if (text !== existing) {
+    await ctx.writeText(".gitignore", text);
+    ctx.note("updated .gitignore for the schema-6 layout");
+  }
+}
 
 /** Build the context a migration uses to transform the install at `destDir`. */
 export function createMigrationContext(

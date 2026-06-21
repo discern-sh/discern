@@ -37,7 +37,7 @@ async function mainWithWorktree(dir: string, name: string): Promise<string> {
 }
 
 /**
- * A minimal valid config. The default scaffolded `.icculus/config.toml` already carries
+ * A minimal valid config. The default scaffolded `icculus.toml` already carries
  * the `[worktree]` seams (all empty), but tests that need specific adapter
  * commands or an `inherit_env` list overwrite it via `writeConfig` with this
  * shape plus their own additions.
@@ -71,7 +71,7 @@ Deno.test("remove-worktree-safely refuses to delete the main checkout", async ()
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "main checkout");
     assert(
-      await exists(join(dir, ".icculus/config.toml")),
+      await exists(join(dir, "icculus.toml")),
       `main checkout must be left intact\n${r.output}`,
     );
   });
@@ -221,12 +221,12 @@ Deno.test("worktree:teardown runs the configured db-drop and dev-server-unlink a
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "tear");
     // The recipe reads its config from the CURRENT root, which inside a worktree
-    // resolves to the worktree's own .icculus/config.toml (find_root walks up from pwd
+    // resolves to the worktree's own icculus.toml (find_root walks up from pwd
     // and stops at the worktree). So the adapter commands go there, not main's.
     // Harmless commands that drop a marker into the worktree root prove each seam
     // fired; `@dir@` expands to this worktree's checkout.
     await Deno.writeTextFile(
-      join(wt, ".icculus/config.toml"),
+      join(wt, "icculus.toml"),
       baseConfig(
         [
           "",
@@ -273,9 +273,9 @@ Deno.test("inherit-main-env-vars copies a whitelisted var from main's .env into 
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "envwt");
     // The inherit list is read from the current root = the worktree's own
-    // .icculus/config.toml; the secret is read from the MAIN checkout's .env.
+    // icculus.toml; the secret is read from the MAIN checkout's .env.
     await Deno.writeTextFile(
-      join(wt, ".icculus/config.toml"),
+      join(wt, "icculus.toml"),
       baseConfig('\n[worktree]\ninherit_env = ["FOO"]'),
     );
 
@@ -297,7 +297,7 @@ Deno.test("inherit-main-env-vars is a no-op when the worktree has no .env yet", 
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "noenv");
     await Deno.writeTextFile(
-      join(wt, ".icculus/config.toml"),
+      join(wt, "icculus.toml"),
       baseConfig('\n[worktree]\ninherit_env = ["FOO"]'),
     );
     await Deno.writeTextFile(join(dir, ".env"), "FOO=bar\n");

@@ -1,5 +1,5 @@
 /**
- * Unit tests for the small `.icculus/config.toml` fragment renderer and the
+ * Unit tests for the small `icculus.toml` fragment renderer and the
  * parse-and-validate used by `doctor`.
  *
  * `renderTomlStringList` turns answers into the quoted, comma-joined array items
@@ -92,26 +92,28 @@ Deno.test("parseIcculusToml treats a top-level array document as no project", ()
   assertEquals(parsed.raw.points, [1, 2, 3]);
 });
 
-Deno.test("parseIcculusToml throws a clear error on invalid TOML", () => {
+Deno.test("parseIcculusToml throws a clear, line-numbered error on invalid TOML", () => {
   const err = assertThrows(
     () => parseIcculusToml("this is = = not valid"),
     Error,
   );
+  // Leads with a friendly, line-numbered hint naming the file.
   assert(
-    err.message.startsWith(".icculus/config.toml is not valid TOML:"),
+    err.message.includes("syntax error near line 1 in icculus.toml"),
     `unexpected message: ${err.message}`,
   );
 });
 
 Deno.test("parseIcculusToml surfaces the underlying parser message", () => {
-  // An unterminated string is a parse error; the wrapped message must mention it.
+  // An unterminated string is a parse error on line 2; the wrapped message must
+  // name the line AND carry the raw parser detail (in parens).
   const err = assertThrows(
     () => parseIcculusToml('[project]\nslug = "unterminated'),
     Error,
   );
-  assert(err.message.includes(".icculus/config.toml is not valid TOML:"));
-  // Something beyond the bare prefix is carried through from the parser.
+  assert(err.message.includes("syntax error near line 2 in icculus.toml"));
   assert(
-    err.message.length > ".icculus/config.toml is not valid TOML: ".length,
+    err.message.includes("(Parse error on line"),
+    `raw parser detail missing: ${err.message}`,
   );
 });

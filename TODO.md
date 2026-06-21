@@ -39,18 +39,7 @@ _Verified defects and correctness risks. Nothing outstanding._
 
 ## 🟠 Cleanup — known dead or slow code
 
-- [ ] **`isContractExecutable` still special-cases paths the cutover deleted.**
-      The seam that forces the executable bit on a scaffolded file — needed
-      because `deno compile` flattens bundled source modes to read-only — lists
-      only `agent` and `.icculus/engine/<recipe>`, both removed with the shell
-      engine. So it now returns `false` for everything `templates/` ships
-      (harmless, but dead). Keep the seam for any future executable seed, but
-      drop the `agent`/`.icculus/engine/` cases, refresh the comment, and update
-      the tests still asserting the old contract. Evidence:
-      `src/lib/template.ts:97` (the function) and its caller
-      `src/lib/fs_plan.ts:179`; tests `tests/template_test.ts:108-117` and the
-      `.icculus/engine/` executable-preservation cases in
-      `tests/fs_plan_test.ts`.
+_Nothing outstanding._
 
 ## 🟡 Smaller fixes & polish
 
@@ -74,10 +63,35 @@ _Verified defects and correctness risks. Nothing outstanding._
       enough that a migrated install needs a hand-tidy to match the v4
       template's layout. Consider also dropping a deleted section's leading
       comment block, or re-emitting the template comments for the sections the
-      step rewrites. Observed needing a hand-tidy on several v3→v4 installs.
-      Evidence: `src/lib/migrations.ts:281-284` (the `from: 3` step deletes the
-      tables via comment-preserving `deleteSection`, leaving their comment
-      blocks); target layout is `templates/.icculus/config.toml.tmpl`.
+      step rewrites. Observed needing a hand-tidy on several v3→v4 installs. The
+      `5 → 6` step (ADR 0020) has the mirror issue: it appends the new
+      `[features]`/`[guidance]`/`[skills]` sections comment-less at EOF (and in
+      reverse key order). Net effect: a migrating user lands on a barer,
+      comment- stripped config than a fresh `init` produces — the two onboarding
+      paths diverge. The clean fix is to re-render `icculus.toml` from the
+      commented template, preserving the user's values, rather than line-editing
+      in place. Consider also dropping a deleted section's leading comment
+      block. Evidence: `src/lib/migrations.ts` (the `from: 3` and `from: 5`
+      steps); target layout is `templates/icculus.toml.tmpl`.
+
+- [ ] **The 5→6 migration doesn't relocate a `.icculus/`-pointed
+      `gotchas_doc`.** If `[project].gotchas_doc` pointed inside
+      `.icculus/guidelines/`, that file is concatenated into `guidance.md` and
+      `.icculus/` is deleted, leaving `gotchas_doc` dangling (and merging a
+      distinct doc into general guidance). `doctor` now _flags_ a dangling
+      `gotchas_doc`, but the migration should relocate it (or keep it
+      standalone) rather than rely on the user noticing. The common case
+      (`gotchas_doc` under `docs/`, or empty) is unaffected. Evidence:
+      `src/lib/migrations.ts` (`from: 5`); `src/commands/doctor.ts` (the new
+      "gotchas doc" check surfaces it).
+
+- [ ] **`config set <key> <value>` strips the edited line's inline comment.**
+      The comment-preserving `TomlEditor.setLiteral` rewrites the whole
+      `key = …` line, dropping any trailing `# …` annotation, so editing the
+      self-documenting `icculus.toml` via the CLI quietly degrades it one line
+      at a time (e.g. `config set features.worktrees false` drops that line's
+      trailing `# …` annotation). Preserve a trailing inline comment when
+      rewriting a value. Evidence: `src/lib/toml_edit.ts` (`setLiteral`).
 
 ## 🟢 Test & tooling hygiene
 
@@ -86,9 +100,9 @@ _Verified defects and correctness risks. Nothing outstanding._
       `deno task coverage`), so the same suite covers a larger tree and src/
       line coverage fell from ~94% to ~84%. The floor was re-baselined down to
       83 to land the cutover (ADR 0019); raise it as engine coverage improves.
-      Weakest spots in the post-cutover run were `src/lib/skills.ts` (~62%) and
-      `src/shared/capabilities.ts` (~50%). Evidence: `.icculus/config.toml`
-      `[ratchets.coverage].limit`.
+      Weakest spots to target include `src/shared/capabilities.ts` (~50%) and
+      the newer `src/lib/skills.ts` / `src/shared/features.ts`. Evidence:
+      `icculus.toml` `[ratchets.coverage].limit`.
 
 ## 🔵 Unmerged / at-risk work — decide: land or drop
 

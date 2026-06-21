@@ -17,7 +17,7 @@ export async function runTestCapability(root: string): Promise<number> {
 
   if (testCmd === ":") {
     out.info(
-      'No test capability is configured (set test = "<command>" under [capabilities] in .icculus/config.toml).',
+      'No test capability is configured (set test = "<command>" under [capabilities] in icculus.toml).',
     );
     return 0;
   }

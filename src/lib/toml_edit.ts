@@ -1,7 +1,7 @@
 /**
- * A surgical, comment-preserving editor for the `.icculus/config.toml` subset.
+ * A surgical, comment-preserving editor for the `icculus.toml` subset.
  *
- * `.icculus/config.toml` is heavily commented (every slot carries a `# e.g.` hint; every
+ * `icculus.toml` is heavily commented (every slot carries a `# e.g.` hint; every
  * section a paragraph of guidance). A parse→stringify round-trip through a normal
  * TOML library strips all of that. So this editor operates on the raw text as
  * lines and only ever rewrites the *value* of a targeted key — preserving the
@@ -57,7 +57,7 @@ export function tomlStringArray(items: string[]): string {
 const HEADER_RE = /^\s*\[([^\]]+)\]/;
 
 /**
- * Edits the `.icculus/config.toml` subset in place, preserving comments and layout.
+ * Edits the `icculus.toml` subset in place, preserving comments and layout.
  * Mutating methods return `this` for chaining; `toString()` yields the result.
  */
 export class TomlEditor {

@@ -3,7 +3,6 @@
  * temp-dir harness that cleans up after itself.
  */
 
-import { ensureDir } from "@std/fs";
 import { dirname, fromFileUrl, join } from "@std/path";
 import type { TokenMap } from "../src/lib/template.ts";
 
@@ -115,13 +114,11 @@ export async function withTempDir(
 }
 
 /**
- * Seed a minimal config at the consolidated `.icculus/config.toml` path, creating
- * the `.icculus/` namespace dir. For tests that fake an install without running
- * the installer (which would create the dir itself).
+ * Seed a minimal config at the root `icculus.toml` path. For tests that fake an
+ * install without running the installer.
  */
 export async function seedConfig(dir: string, content: string): Promise<void> {
-  await ensureDir(join(dir, ".icculus"));
-  await Deno.writeTextFile(join(dir, ".icculus/config.toml"), content);
+  await Deno.writeTextFile(join(dir, "icculus.toml"), content);
 }
 
 /** Read a target file relative to a destination dir as text. */

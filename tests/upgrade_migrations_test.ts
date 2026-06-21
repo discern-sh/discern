@@ -24,7 +24,7 @@ async function init(dir: string): Promise<void> {
 
 /** Overwrite the install's recorded `[meta].schema_version` (to model one behind). */
 async function setSchema(dir: string, version: number): Promise<void> {
-  const p = join(dir, ".icculus/config.toml");
+  const p = join(dir, "icculus.toml");
   const text = await Deno.readTextFile(p);
   await Deno.writeTextFile(
     p,
@@ -34,7 +34,7 @@ async function setSchema(dir: string, version: number): Promise<void> {
 
 /** The recorded `[meta].schema_version` of an install's config. */
 async function recordedSchema(dir: string): Promise<number> {
-  const m = (await readTarget(dir, ".icculus/config.toml")).match(
+  const m = (await readTarget(dir, "icculus.toml")).match(
     /schema_version\s*=\s*(\d+)/,
   );
   return m ? Number(m[1]) : NaN;
@@ -77,7 +77,7 @@ Deno.test("a current install has nothing pending and applies no migrations", asy
 Deno.test("upgrade runs a pending migration before the sync, then stamps the schema", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
-    await setSchema(dir, SCHEMA_VERSION - 1); // model an install one schema behind (build is at 2)
+    await setSchema(dir, SCHEMA_VERSION - 1); // model an install one schema behind
 
     const ran: string[] = [];
     // A synthetic 1→2 step (overrides the production chain via the registry seam).
@@ -96,7 +96,7 @@ Deno.test("upgrade runs a pending migration before the sync, then stamps the sch
     // Its effects landed: the marker file and the config edit.
     assertEquals(await targetExists(dir, "MIGRATED"), true);
     assert(
-      (await readTarget(dir, ".icculus/config.toml")).includes(
+      (await readTarget(dir, "icculus.toml")).includes(
         'branch_prefix = "wt/"',
       ),
     );

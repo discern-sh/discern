@@ -22,7 +22,7 @@ record is a decision.
 The engine never hardcodes a language, test runner, build tool, or framework. It
 runs "the test capability," "the fix-stage capabilities," "the `gate` for this
 scope" — names it discovers, not commands it knows. Everything specific to a
-project's stack lives in `.icculus/config.toml` (`[capabilities]`, `[scopes]`,
+project's stack lives in `icculus.toml` (`[capabilities]`, `[scopes]`,
 `[worktree]`), and a fresh install wires no capabilities at all — an omitted
 capability is knowably absent, so the gate is green before any of them is filled
 ([ADR 0017](../_adr/0017-capabilities-model.md)).
@@ -40,8 +40,8 @@ stage from its name; the engine reads commands through the config reader
 ([config_read.ts](../../src/shared/config_read.ts)), never by name. The worktree
 database and dev-server seams are empty config until a project wires them. The
 one place concrete ecosystems are named on purpose is the stack-detection table
-in the [`bootstrap`](../../templates/.icculus/skills/bootstrap/SKILL.md) skill —
-whose job is to _propose_ capability fills, never to bake them into the engine.
+in the [`bootstrap`](../../templates/skills/bootstrap/SKILL.md) skill — whose
+job is to _propose_ capability fills, never to bake them into the engine.
 
 ---
 
@@ -49,11 +49,12 @@ whose job is to _propose_ capability fills, never to bake them into the engine.
 
 Every fact lives in exactly one authoritative place. The engine is one
 TypeScript implementation compiled into the binary, not a copy installed per
-project; the seed and skill files an install starts from are authored once under
-`templates/` and bundled into the binary; agent guidance is authored once in
-`.icculus/guidelines/` and compiled to each agent's file; a metric, a version
-are each declared once and read everywhere. Where a second copy must exist it is
-_generated_, marked as generated, and never hand-edited.
+project; the seed, skill, and built-in-guidance files an install starts from are
+authored once under `templates/` and bundled into the binary; agent guidance is
+authored once (icculus's built-ins plus your `[guidance].sources`) and compiled
+to each agent's file; a metric, a version are each declared once and read
+everywhere. Where a second copy must exist it is _generated_, marked as
+generated, and never hand-edited.
 
 **Why it matters.** Duplicated facts drift, and drift is silent until something
 breaks — a reader follows a stale doc, two copies of one behaviour diverge with
@@ -63,9 +64,9 @@ is a property of the system, not of human vigilance.
 **How it shows up.** The engine has one home in
 [`src/engine/`](../../src/engine/) — there is no second committed copy to drift
 from ([ADR 0019](../_adr/0019-single-binary-ts-engine.md)); `icculus guidelines`
-compiles `CLAUDE.md`/`AGENTS.md` from a single guidance source;
-[`version.ts`](../../src/lib/version.ts) is the only home for the binary and
-schema versions; the [Generated file](glossary.md#generated-file) and
+compiles the agent files (`AGENTS.md`/`CLAUDE.md`/`GEMINI.md`) from one guidance
+source set; [`version.ts`](../../src/lib/version.ts) is the only home for the
+binary and schema versions; the [Generated file](glossary.md#generated-file) and
 [The binary's files](glossary.md#the-binarys-files) dispositions in the
 [glossary](glossary.md) carry the rule that a re-published copy is reproduced,
 never edited.
@@ -76,11 +77,14 @@ never edited.
 
 `icculus` scaffolds into a repository you care about, so every command must be
 safe to run again. The ownership split makes this structural: _your_ files (the
-committed seeds — config, guidelines, brief, recipes README, merged
-`settings.json`/`.gitignore`) are written once by `init` and never touched
-again, so `upgrade` cannot clobber an edit. _The binary's_ files (the
-gitignored, re-published artifacts — skills, the compiled guidance) are always
-safe to overwrite precisely because they are not yours to edit. Migrations are
+committed `icculus.toml`, the `brief.md` seed, the merged
+`settings.json`/`.gitignore`, and the content you author at config-pointed paths
+— `guidance.md`, `./skills/`, `./recipes/`) are written once by `init` (or by
+you) and never touched again, so `upgrade` cannot clobber an edit. _The
+binary's_ files (the gitignored, re-published artifacts — the materialized
+skills, the compiled `CLAUDE.md`/`GEMINI.md`) are always safe to overwrite
+precisely because they are not yours to edit; the one tracked generated file,
+`AGENTS.md`, is banner-headed and rewritten on recompile. Migrations are
 idempotent and the tree must be clean (or `--allow-dirty`) so an upgrade stays
 revertible with `git checkout`.
 
