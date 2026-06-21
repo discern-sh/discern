@@ -101,8 +101,10 @@ discern init                 # walk the wizard — name, slug, what you're build
 # → in your coding agent:
 /bootstrap                   # fills principles/docs/guidance + proposes capability fills
 # day to day:
-discern finish               # the full quality gate — run before calling work done
-discern worktree:exit        # graduate a worktree's branch back to main for review
+discern prepare              # fast inner loop: fixers + checks, no build/test
+discern finish               # full definition-of-done gate
+discern graduate             # graduate the isolated worktree branch back for review
+discern refresh              # refresh generated agent files/skills/integration artifacts
 ```
 
 `init` writes a single `discern.toml`, compiles the agent files, and
@@ -205,7 +207,7 @@ capability you don't have and the gate simply skips it.
 with **each capability (and check) as its own tracked job** (the mutating
 fix-stage work serially, the rest concurrently within their stage).
 `discern
-tidy` is the fast inner loop: the fix-stage then the check-stage
+prepare` is the fast inner loop: the fix-stage then the check-stage
 capabilities, no build or tests.
 
 **Worked example — how `discern` wires _itself_ (a Deno project):**
@@ -290,7 +292,7 @@ Your always-on agent guidance lives in **`guidance.md`** at the root — the
 default `[guidance].sources` (globs allowed; read only if present). discern's
 own built-in harness guidance is bundled in the binary and **always prepended**,
 feature-aware (a disabled feature drops its section), so your file is purely
-additive. `discern guidelines` compiles `[built-in] + [your sources]` into **one
+additive. `discern refresh` compiles `[built-in] + [your sources]` into **one
 generated file per provider** named in `[guidance].agents` — never hand-edit the
 outputs.
 
@@ -447,8 +449,8 @@ discern reset-fixtures
 ```
 
 The **engine always wins** on a name collision: a project recipe named like a
-built-in (`finish`, `worktree:exit`, …) is ignored with a warning, so the core
-gate can never be redefined by a project file.
+built-in (`finish`, `graduate`, …) is ignored with a warning, so the core gate
+can never be redefined by a project file.
 
 ---
 
@@ -647,15 +649,15 @@ presets/my-stack/
 The former engine recipes are first-class `discern` subcommands — the same
 binary that scaffolds also runs the gate and the worktree lifecycle:
 
-| command                                | does                                                                                                                           |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `discern finish`                       | the full quality gate. Run before calling any task done. `--json` for a machine-readable report.                               |
-| `discern tidy`                         | fixers + checks, no build/test — the fast inner loop.                                                                          |
-| `discern test`                         | run the `test` capability.                                                                                                     |
-| `discern ratchets`                     | hold every metric ratchet — each `[ratchets.<name>]` (slow; not part of `finish`).                                             |
-| `discern worktree:exit`                | graduate this worktree's branch into the main checkout.                                                                        |
-| `discern worktree:teardown` / `:prune` | discard a worktree / sweep stale ones.                                                                                         |
-| `discern guidelines`                   | compile built-in guidance + your `[guidance].sources` → each agent's file (`AGENTS.md`, `CLAUDE.md`, …) + refresh skill links. |
+| command                                | does                                                                                                                                                                                              |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `discern finish`                       | the full quality gate. Run before calling any task done. `--json` for a machine-readable report.                                                                                                  |
+| `discern prepare`                      | fixers + checks, no build/test — the fast inner loop.                                                                                                                                             |
+| `discern test`                         | run the `test` capability.                                                                                                                                                                        |
+| `discern ratchets`                     | hold every metric ratchet — each `[ratchets.<name>]` (slow; not part of `finish`).                                                                                                                |
+| `discern graduate`                     | graduate this worktree's branch into the main checkout.                                                                                                                                           |
+| `discern worktree:teardown` / `:prune` | discard a worktree / sweep stale ones.                                                                                                                                                            |
+| `discern refresh`                      | regenerate the agent files, skills, and integration artifacts — compiles built-in guidance + your `[guidance].sources` → each agent's file (`AGENTS.md`, `CLAUDE.md`, …) + refreshes skill links. |
 
 `worktree:ensure`, `worktree-name`, and `changed-scopes` round out the set (the
 worktree hooks call them). Run `discern --help` for the live list — it also
@@ -735,12 +737,12 @@ that failed (or is `null`).
   no orphan reconciliation, no drift detection.
 - **Author once, compile everywhere — agent-agnostic.** Write your guidance in
   `guidance.md` and your skills under `[skills].dir`; discern prepends its
-  always-on built-in harness guidance and `discern guidelines` compiles the
-  result to every agent's own instruction file, so one repo can drive Claude
-  Code, Codex, Gemini, and others — even several at once — with no divergence.
-  The per-agent copies (`CLAUDE.md`, …) are generated and gitignored;
-  `AGENTS.md`, the cross-agent standard, is tracked so compiled-guidance changes
-  still surface in review.
+  always-on built-in harness guidance and `discern refresh` compiles the result
+  to every agent's own instruction file, so one repo can drive Claude Code,
+  Codex, Gemini, and others — even several at once — with no divergence. The
+  per-agent copies (`CLAUDE.md`, …) are generated and gitignored; `AGENTS.md`,
+  the cross-agent standard, is tracked so compiled-guidance changes still
+  surface in review.
 
 ---
 
@@ -755,7 +757,7 @@ via the `gate` task in `deno.json`:
 
 ```sh
 deno task dev finish   # deno fmt (fix) → deno lint + deno check (check) ∥ deno task test (test)
-deno task dev tidy     # the fast inner loop: fix + check, no tests
+deno task dev prepare  # the fast inner loop: fix + check, no tests
 ```
 
 (`deno task dev` is `deno run -A src/main.ts`, so this is the same code path a

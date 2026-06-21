@@ -1,8 +1,8 @@
 /**
- * The worktree lifecycle recipe entry points — the TS port of the `worktree`,
- * `worktree-ensure`, `worktree-exit`, `worktree-teardown`, and `worktree-prune`
- * recipes. These compose the identity, token, and git layers into the operations
- * the dispatcher exposes as `discern worktree` / `worktree:*`.
+ * The worktree lifecycle entry points — worktree setup, ensure, graduate,
+ * teardown, and prune. These compose the identity, token, and git layers into the
+ * operations the dispatcher exposes as `discern worktree`, `discern graduate`, and
+ * `worktree:*`.
  *
  * Adapter seams ([worktree.db].clone/drop, [worktree.dev_server].link/unlink) are
  * operator-supplied command strings run via `sh -c` after `@…@` token expansion.
@@ -254,7 +254,7 @@ async function recordPort(
  * Set up a freshly-created linked worktree — the `worktree` recipe. Asserts the
  * worktree precondition, ensures a named branch, runs the db-clone and
  * dev-server-link adapters (fatal on failure), inherits env vars, records the
- * port, runs `[worktree.setup].steps` in order, compiles the agent guidelines,
+ * port, runs `[worktree.setup].steps` in order, refreshes the agent files,
  * and drops the ready sentinel. Throws on a fatal step.
  */
 export async function worktreeSetup(ctx: LifecycleContext): Promise<void> {
@@ -316,14 +316,14 @@ export async function worktreeSetup(ctx: LifecycleContext): Promise<void> {
     }
   }
 
-  // 8. compile the agent guidelines, which also materializes skills into THIS
+  // 8. refresh the agent files, which also materializes skills into THIS
   // worktree's .claude/skills/. A linked worktree does NOT inherit that gitignored
   // directory from the main checkout, so it must be (re)built here. Non-fatal.
-  ctx.log.info("Compiling agent guidelines…");
+  ctx.log.info("Refreshing agent files…");
   try {
     await compileGuidelines(ctx.root, ctx.log);
   } catch {
-    ctx.log.warn("Guideline compilation reported an error — continuing.");
+    ctx.log.warn("Agent-file refresh reported an error — continuing.");
   }
 
   // mark this worktree configured
@@ -403,14 +403,14 @@ export async function worktreeTeardown(ctx: LifecycleContext): Promise<void> {
 }
 
 /**
- * Graduate this worktree's branch into the main repo — the `worktree:exit`
- * recipe. Requires the latest main is integrated, tears down the worktree's
+ * Graduate this worktree's branch into the main repo — the `discern graduate`
+ * command. Requires the latest main is integrated, tears down the worktree's
  * external resources, WIP-commits any uncommitted changes, removes the worktree
  * directory, checks the branch out in main, then soft-resets the WIP commit so
  * those changes land staged. Refuses to touch a dirty main checkout. Throws
  * `WorktreeGitError` on any unrecoverable error (the branch keeps its commits).
  */
-export async function worktreeExit(ctx: LifecycleContext): Promise<void> {
+export async function graduate(ctx: LifecycleContext): Promise<void> {
   const gitBin = Deno.env.get("GIT_BIN") ?? "git";
   const run = async (
     args: string[],

@@ -51,7 +51,7 @@
     "agents": {
       "type": "array",
       "items": { "type": "string", "enum": ["claude_code", "codex"] },
-      "description": "Which agent instruction files to compile from .discern/guidelines/."
+      "description": "Which agent instruction files to compile (e.g. claude_code, codex)."
     },
     "description": {
       "type": "string",

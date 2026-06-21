@@ -13,7 +13,7 @@ Run the gate before you call any change done:
   grouped into stages: a `fix` stage (formatters/codemods, run first), then `check`
   (lint, type-check) and `test` in parallel, with `build` slotted in as configured.
   A clean `finish` is the bar for "done".
-- **`discern tidy`** — the fast inner loop: the `fix` then `check` stages only, no
+- **`discern prepare`** — the fast inner loop: the `fix` then `check` stages only, no
   tests or build. Use it while iterating.
 - **`discern test`** — just the test command.
 
@@ -26,12 +26,14 @@ to see what is wired and to validate the install.
 ## Generated agent files — never hand-edit
 
 The agent instruction file you are reading (`AGENTS.md`, `CLAUDE.md`, or a sibling)
-is a **generated artifact**. It is compiled by `discern guidelines` from discern's
-built-in harness guidance plus the project's own `[guidance].sources`. Editing the
-generated file is pointless — the next compile overwrites it. To change guidance,
-edit a source under `[guidance].sources` (default `guidance.md`) and re-run
-`discern guidelines`. `AGENTS.md` is committed (so guidance changes show up in
-review); the other provider mirrors are gitignored.
+is a **generated artifact**. It is compiled by `discern refresh` — which
+regenerates the generated agent files, the materialized skills, and the
+integration artifacts — from discern's built-in harness guidance plus the
+project's own `[guidance].sources`. Editing the generated file is pointless — the
+next compile overwrites it. To change guidance, edit a source under
+`[guidance].sources` (default `guidance.md`) and re-run `discern refresh`.
+`AGENTS.md` is committed (so guidance changes show up in review); the other
+provider mirrors are gitignored.
 
 ## What's yours vs. what's discern's
 

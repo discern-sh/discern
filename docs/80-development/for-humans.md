@@ -65,8 +65,8 @@ out of search. There is no simple built-in equivalent for the colour-coding.
 
 Don't hand-edit the generated agent files: `AGENTS.md` (tracked), `CLAUDE.md`,
 and `GEMINI.md` are compiled from discern's built-in guidance plus your
-[`guidance.md`](../../guidance.md) by `discern guidelines`. Edit your guidance
-source and recompile — in this repo, with `deno task dev guidelines`.
+[`guidance.md`](../../guidance.md) by `discern refresh`. Edit your guidance
+source and recompile — in this repo, with `deno task dev refresh`.
 
 ## Working alongside the agents
 
@@ -74,13 +74,13 @@ source and recompile — in this repo, with `deno task dev guidelines`.
   each with its own checkout.
 - To take over an agent's branch and continue in the main checkout, run the
   [`handoff-worktree`](../../templates/skills/handoff-worktree/SKILL.md) skill.
-  It runs `discern worktree:exit`, which commits the work, tears the worktree
-  down, and checks the branch out in the main repo.
+  It runs `discern graduate`, which commits the work, tears the worktree down,
+  and checks the branch out in the main repo.
 - Drive the gate yourself any time. In this repo (self-hosting from source):
   `deno task dev finish` (the full gate, also `deno task gate`),
-  `deno task dev tidy` (fast: fixers + checks), and `deno task dev doctor`
+  `deno task dev prepare` (fast: fixers + checks), and `deno task dev doctor`
   (health check). In a project with the binary on `PATH`, these are
-  `discern finish` / `discern tidy` / `discern doctor`.
+  `discern finish` / `discern prepare` / `discern doctor`.
 
 ## Keeping this page current
 

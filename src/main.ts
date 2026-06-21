@@ -78,7 +78,7 @@ declare function rootShape(): ReturnType<
 type RootCommand = ReturnType<typeof rootShape>;
 
 /** Build the root command with its global flags and subcommands. Subsystem verbs
- * (worktree, ratchets, guidelines, skills, docs) are attached only when their
+ * (worktree, ratchets, refresh, skills, docs) are attached only when their
  * feature is enabled, so `--help` lists exactly the active verbs. */
 function buildCli(enabled: ReadonlySet<Feature>): RootCommand {
   const root = new Command()
@@ -415,7 +415,7 @@ function buildCli(enabled: ReadonlySet<Feature>): RootCommand {
 
   root.command("config", config);
 
-  // The project task-runner verbs (finish, tidy, worktree:*, …) — the former
+  // The project task-runner verbs (finish, prepare, graduate, worktree:*, …) — the former
   // shell `agent` recipes, now first-class `discern` subcommands. The cast drops
   // the threaded global-option generics (which the engine actions don't read) —
   // Cliffy's generic Command type is impractical to spell at this boundary.

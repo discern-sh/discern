@@ -13,20 +13,20 @@ A project's entire discern footprint is a single root file, **`discern.toml`** (
 ## ⚠️ Edit in place — there is no managed copy to sync
 The old two-program era kept a committed shell engine byte-identical to `templates/` via a manifest, `.new` files, and a `selfcheck`/`selfsync` gate. **All of that is gone.** The rules now:
 - **The engine and installer are TypeScript under `src/**` — edit them in place.** There is no second copy, no hash tracking, no drift to detect. The gate (`deno task dev finish`) type-checks and tests them.
-- **`templates/**` is the distribution surface** — edit the seed/skill/guidance *source* here (keep it generic; see below). To reflect a bundled-skill or built-in-guidance edit in this repo's own `.claude/skills/` and `AGENTS.md`, re-run `deno task dev guidelines` (or `upgrade`).
+- **`templates/**` is the distribution surface** — edit the seed/skill/guidance *source* here (keep it generic; see below). To reflect a bundled-skill or built-in-guidance edit in this repo's own `.claude/skills/` and `AGENTS.md`, re-run `deno task dev refresh` (or `upgrade`).
 - **`CLAUDE.md` / `AGENTS.md` are generated** from discern's built-in guidance (`templates/guidance/*`) plus this repo's `guidance.md` — never hand-edit them. Edit `guidance.md` and recompile.
 - **`.claude/skills/` is a materialized artifact (gitignored)** — the binary republishes it from `templates/skills/**`. Don't hand-edit; edit the source under `templates/skills/`.
 
-**Agent guidance is yours.** Customise it by editing `guidance.md` (this file) — never `templates/`, which only holds the generic built-in guidance other projects receive. Then run `deno task dev guidelines` to recompile `CLAUDE.md`/`AGENTS.md` (the compiled *outputs* — never hand-edit those). Nothing overwrites your `guidance.md`.
+**Agent guidance is yours.** Customise it by editing `guidance.md` (this file) — never `templates/`, which only holds the generic built-in guidance other projects receive. Then run `deno task dev refresh` to recompile `CLAUDE.md`/`AGENTS.md` (the compiled *outputs* — never hand-edit those). Nothing overwrites your `guidance.md`.
 
 | To change… | Edit… | Then run |
 | --- | --- | --- |
 | the gate / the engine / the dispatcher / a verb | `src/engine/**`, `src/main.ts` (in place) | `deno task dev finish` |
 | an installer command | `src/commands/**` (in place) | `deno task dev finish` |
-| a bundled skill | `templates/skills/…` | `deno task dev guidelines` (re-materialize) |
-| the built-in harness guidance | `templates/guidance/*.md` | `deno task dev guidelines` |
+| a bundled skill | `templates/skills/…` | `deno task dev refresh` (re-materialize) |
+| the built-in harness guidance | `templates/guidance/*.md` | `deno task dev refresh` |
 | a seed file users receive | `templates/…` | — |
-| this guidance (yours) | `guidance.md` | `deno task dev guidelines` |
+| this guidance (yours) | `guidance.md` | `deno task dev refresh` |
 | project config (yours) | `discern.toml`, `deno.json` | — |
 
 ## Keep the shipped surface generic
@@ -34,7 +34,7 @@ The old two-program era kept a committed shell engine byte-identical to `templat
 
 ## The gate
 - `deno task dev finish` — full gate (run from the repo root): `deno fmt` (fix) → `deno lint` + `deno check src/main.ts` (check) ∥ `deno task test` (test). This is the repo running its **own** TS engine (`deno.json`'s `gate` task), so a regression in the engine surfaces here.
-- `deno task dev tidy` — fast inner loop: fix + check, no tests.
+- `deno task dev prepare` — fast inner loop: fix + check, no tests.
 - There is no `selfcheck`/`selfsync`: with no committed engine copy there is nothing to drift. CI runs `deno task dev finish` plus a trailing `git diff --exit-code` (so the auto-fixing fix stage stays a hard check, and a stale generated `AGENTS.md` fails).
 
 ## Running discern from source
@@ -44,7 +44,7 @@ Always `deno task dev <cmd>` (or `deno run -A src/main.ts <cmd>`). Note: do **no
 `deno task test` is the authority on correctness, engine included: the `tests/engine_*` suite scaffolds the seed surface into temp dirs and drives the TS engine via `deno task dev <verb>` (with a `discern` PATH shim so recipes and hooks resolve the binary like a real install). It is the behavioral parity oracle for the engine. If a bad engine change ever breaks `deno task dev finish` itself, run `deno task test` directly. Add engine coverage to `tests/engine_*_test.ts`; installer coverage to the other `tests/*_test.ts`.
 
 ## Generated files — never hand-edit
-`CLAUDE.md` (gitignored) and `AGENTS.md` (tracked) are compiled from discern's built-in guidance plus `guidance.md` by `deno task dev guidelines`. Edit `guidance.md` and recompile. The repo drives multiple agents from one source (`claude_code`, `codex`), so guidance stays provider-agnostic.
+`CLAUDE.md` (gitignored) and `AGENTS.md` (tracked) are compiled from discern's built-in guidance plus `guidance.md` by `deno task dev refresh`. Edit `guidance.md` and recompile. The repo drives multiple agents from one source (`claude_code`, `codex`), so guidance stays provider-agnostic.
 
 ## Decisions
 Architecture decisions live in `docs/_adr/` (0001+). Add one for any notable change. The dissolution of `.discern/` into a single root `discern.toml` is [ADR 0020](docs/_adr/0020-dissolve-discern-dir.md); the single-binary cutover is [ADR 0019](docs/_adr/0019-single-binary-ts-engine.md).

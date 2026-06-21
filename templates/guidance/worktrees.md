@@ -8,7 +8,7 @@ seams it needs (a per-worktree database and dev-server) in `[worktree]`.
   create hook runs `discern worktree` to set it up: a deterministic dev-server
   port, any inherited env vars, the configured setup steps, and freshly
   materialized skills + guidance.
-- **`discern worktree:exit`** graduates the current worktree's branch back into the
+- **`discern graduate`** graduates the current worktree's branch back into the
   main checkout — commit your work first; it refuses to run if the branch is behind
   the integration branch (run `discern finish` to integrate) or if the main
   checkout is dirty.

@@ -16,8 +16,8 @@ These work the same regardless of language or framework (shown here as
 
 - **`deno task dev worktree`** sets up an isolated checkout for a change (see
   the worktree note in the project guidelines).
-- **`deno task dev tidy`** is the fast inner loop — applies the fix-stage work,
-  then the check-stage work; no build, no tests.
+- **`deno task dev prepare`** is the fast inner loop — applies the fix-stage
+  work, then the check-stage work; no build, no tests.
 - **`deno task dev finish`** is the full gate — fixers and build, then checks
   and tests in parallel, then any scope `gate`s whose scope changed, then (in a
   worktree) the merge check. Run it before declaring a change done.
@@ -69,7 +69,7 @@ does not, `deno task dev doctor` and the
 [ADR 0019](../_adr/0019-single-binary-ts-engine.md)): the
 `.claude/settings.json` hooks provision an isolated worktree per session and
 tear it down afterward (here they call `deno task dev worktree:*`), and
-`deno task dev worktree:exit` graduates a finished branch back into the main
+`deno task dev graduate` graduates a finished branch back into the main
 checkout. Editing rules (yours vs the binary's) live in
 [code-conventions.md](code-conventions.md); IDE colour/exclude setup is in
 [for-humans.md](for-humans.md).

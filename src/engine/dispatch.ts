@@ -24,17 +24,17 @@ import { ejectSkill, listSkills, materializeSkills } from "../lib/skills.ts";
 import { TomlEditor } from "../lib/toml_edit.ts";
 import { Logger } from "../lib/log.ts";
 import { runFinish } from "./gate/finish.ts";
-import { runTidy } from "./gate/tidy.ts";
+import { runPrepare } from "./gate/prepare.ts";
 import { runTestCapability } from "./gate/test.ts";
 import { runRatchets } from "./gate/ratchets.ts";
 import { runChangedScopes } from "./scopes/changed.ts";
 import { compileGuidelines } from "./guidelines.ts";
 import {
+  graduate,
   IdentityError,
   type LifecycleContext,
   lifecycleContext,
   worktreeEnsure,
-  worktreeExit,
   WorktreeGitError,
   worktreeNameField,
   worktreePrune,
@@ -50,11 +50,12 @@ import { colorEnabled } from "./output.ts";
  * attached for a given project (a disabled one errors with "feature disabled"). */
 export const KNOWN_ENGINE_VERBS: ReadonlySet<string> = new Set([
   "finish",
-  "tidy",
+  "prepare",
   "test",
   "ratchets",
-  "guidelines",
+  "refresh",
   "changed-scopes",
+  "graduate",
   "worktree",
   "worktree-name",
   "skills",
@@ -63,20 +64,20 @@ export const KNOWN_ENGINE_VERBS: ReadonlySet<string> = new Set([
 /** Hyphenated engine recipe names + their displayed (colon) form, for the suggester. */
 const ENGINE_RECIPE_NAMES: readonly string[] = [
   "finish",
-  "tidy",
+  "prepare",
   "test",
   "ratchets",
-  "guidelines",
+  "refresh",
   "changed-scopes",
+  "graduate",
   "worktree",
   "worktree-name",
-  "worktree-exit",
   "worktree-ensure",
   "worktree-teardown",
   "worktree-prune",
 ];
 
-/** Render a recipe's file name as the user types it (worktree-exit → worktree:exit). */
+/** Render a recipe's file name as the user types it (worktree-teardown → worktree:teardown). */
 function displayName(name: string): string {
   if (name === "worktree-name") {
     return "worktree-name";
@@ -152,10 +153,12 @@ export function attachEngineCommands(
     });
 
   root
-    .command("tidy")
-    .description("Fast inner loop: the fixers, then the read-only checks.")
+    .command("prepare")
+    .description(
+      "Fast inner loop: the fixers, then the read-only checks (no build, no tests).",
+    )
     .action(async () => {
-      Deno.exit(await runTidy(await requireRoot()));
+      Deno.exit(await runPrepare(await requireRoot()));
     });
 
   root
@@ -178,9 +181,9 @@ export function attachEngineCommands(
 
   if (enabled.has("guidance")) {
     root
-      .command("guidelines")
+      .command("refresh")
       .description(
-        "Compile the agent files from built-in + [guidance].sources; materialize skills.",
+        "Refresh the generated agent files, skills, and integration artifacts.",
       )
       .action(async () => {
         // compileGuidelines narrates to stdout via its default logger.
@@ -213,6 +216,15 @@ export function attachEngineCommands(
   if (!enabled.has("worktrees")) {
     return;
   }
+
+  root
+    .command("graduate")
+    .description(
+      "Finish the work, then graduate this worktree's branch into the main checkout for review.",
+    )
+    .action(async () => {
+      Deno.exit(await runWorktreeOp(graduate));
+    });
 
   root
     .command("worktree-name")
@@ -250,19 +262,11 @@ export function attachEngineCommands(
 
   const worktree = new Command()
     .description(
-      "Per-worktree workflow. Bare: set up the current worktree (run by the create hook). Sub-verbs are typed with a colon: worktree:exit, worktree:ensure, worktree:teardown, worktree:prune.",
+      "Per-worktree workflow. Bare: set up the current worktree (run by the create hook). Sub-verbs are typed with a colon: worktree:ensure, worktree:teardown, worktree:prune. (Graduating a branch is the top-level `discern graduate`.)",
     )
     .action(async () => {
       Deno.exit(await runWorktreeOp(worktreeSetup));
     })
-    .command(
-      "exit",
-      new Command()
-        .description("Graduate this worktree's branch into the main checkout.")
-        .action(async () => {
-          Deno.exit(await runWorktreeOp(worktreeExit));
-        }),
-    )
     .command(
       "ensure",
       new Command()

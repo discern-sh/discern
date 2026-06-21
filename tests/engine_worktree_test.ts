@@ -28,7 +28,7 @@ async function mainWithWorktree(dir: string, name: string): Promise<string> {
   return await addWorktree(dir, name);
 }
 
-Deno.test("worktree setup: compiles guidelines and links skills inside the worktree", async () => {
+Deno.test("worktree setup: refreshes agent files and links skills inside the worktree", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "alpha");
     const r = await runAgent(wt, ["worktree"]);
@@ -61,14 +61,14 @@ Deno.test("worktree:ensure sets up once, then is a no-op", async () => {
   });
 });
 
-Deno.test("worktree:exit graduates the branch into main and removes the worktree", async () => {
+Deno.test("graduate: moves the branch into main and removes the worktree", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "gamma");
     await Deno.writeTextFile(join(wt, "feature.txt"), "work\n");
     await git(wt, "add", "-A");
     await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
 
-    const r = await runAgent(wt, ["worktree:exit"]);
+    const r = await runAgent(wt, ["graduate"]);
     assertEquals(r.code, 0, r.output);
     assertEquals(
       await exists(wt),
@@ -84,7 +84,7 @@ Deno.test("worktree:exit graduates the branch into main and removes the worktree
   });
 });
 
-Deno.test("worktree:exit refuses (non-destructively) when the main checkout is dirty", async () => {
+Deno.test("graduate refuses (non-destructively) when the main checkout is dirty", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "delta");
     // Dirty a tracked file in main: exit must refuse rather than clobber it.
@@ -94,7 +94,7 @@ Deno.test("worktree:exit refuses (non-destructively) when the main checkout is d
       `${await Deno.readTextFile(toml)}\n# dirty\n`,
     );
 
-    const r = await runAgent(wt, ["worktree:exit"]);
+    const r = await runAgent(wt, ["graduate"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "uncommitted changes");
     assertEquals(

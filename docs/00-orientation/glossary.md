@@ -45,15 +45,15 @@ of the install; they are written on demand after install by the bundled Skills.)
 
 ### Engine
 
-The stack-neutral logic behind the `discern` run-time verbs (`finish`, `tidy`,
-`worktree`/`worktree:*`, `ratchets`, `guidelines`, `changed-scopes`, …), written
-in **TypeScript and compiled into the binary** under
-[`src/engine/`](../../src/engine/) (sharing [`src/shared/`](../../src/shared/)
-with the Installer). The Engine knows nothing stack-specific — it runs the
-[Capabilities](#capability), [Checks](#check), [Scopes](#scope), and
-[worktree settings](#worktree-settings) a project declares in `discern.toml`. It
-is the limit case of [the binary's](#the-binarys-files) files: not installed
-into a project at all.
+The stack-neutral logic behind the `discern` run-time verbs (`finish`,
+`prepare`, `worktree`/`worktree:*`, `graduate`, `ratchets`, `refresh`,
+`changed-scopes`, …), written in **TypeScript and compiled into the binary**
+under [`src/engine/`](../../src/engine/) (sharing
+[`src/shared/`](../../src/shared/) with the Installer). The Engine knows nothing
+stack-specific — it runs the [Capabilities](#capability), [Checks](#check),
+[Scopes](#scope), and [worktree settings](#worktree-settings) a project declares
+in `discern.toml`. It is the limit case of [the binary's](#the-binarys-files)
+files: not installed into a project at all.
 
 ### Dispatcher
 
@@ -175,7 +175,7 @@ structured merge (`.claude/settings.json`) or an idempotent append
 A file produced by a `discern` command rather than copied from a template, and
 reproduced by re-running that command rather than edited directly.
 `discern
-guidelines` compiles the agent files (`CLAUDE.md`, `AGENTS.md`,
+refresh` compiles the agent files (`CLAUDE.md`, `AGENTS.md`,
 `GEMINI.md`) and materializes `.claude/skills/`. Most are
 [the binary's](#the-binarys-files) (gitignored); `AGENTS.md` is the one tracked
 generated file, banner-headed, so guidance changes are reviewable and a stale
@@ -246,7 +246,7 @@ no longer a user-facing word.
 [Stages](#stage) in order (`fix ∥ build`, then `check ∥ test`), then any
 [Scope](#scope) `gate`s that fired, then (in a worktree) the main-merged check.
 Each Capability and Check runs as its own labelled job, so a failure is
-attributed to the precise one. `discern tidy` is the fast inner loop — the
+attributed to the precise one. `discern prepare` is the fast inner loop — the
 fix-stage then check-stage work, no build or test.
 
 ### Scope
@@ -296,8 +296,8 @@ whole workflow is the `worktrees` [Feature](#feature), inert when it is off
 
 ### Graduate
 
-What `discern worktree:exit` does: integrate the worktree's branch into the main
-repo and tear the worktree down (database and dev-server link removed, directory
+What `discern graduate` does: integrate the worktree's branch into the main repo
+and tear the worktree down (database and dev-server link removed, directory
 pruned). Requires the branch to already carry `main`.
 
 ---
@@ -319,7 +319,7 @@ sources extend it rather than replace it.
 ### Compiled agent file
 
 `CLAUDE.md`, `AGENTS.md`, `GEMINI.md` — per-agent instruction files
-[generated](#generated-file) by `discern guidelines` from the built-in guidance
+[generated](#generated-file) by `discern refresh` from the built-in guidance
 (one section per enabled [Feature](#feature)) plus the Guidance source, each
 carrying a do-not-edit banner. Which files are emitted is set by
 `[guidance].agents` (`claude_code` → `CLAUDE.md`, `codex` → `AGENTS.md`,
@@ -333,9 +333,9 @@ discern's **bundled** built-ins (in the binary,
 [`templates/skills/`](../../templates/skills/) — `bootstrap`,
 `document-subsystem`, `write-adr`, `handoff-worktree`) plus any you **author**
 under `[skills].dir` (default `./skills`), where yours override a built-in of
-the same name. `discern guidelines` (and `init`/`upgrade`) materialize the set
-into `.claude/skills/` (gitignored, [the binary's](#the-binarys-files)):
-built-ins **copied**, authored skills **symlinked** so edits are live.
+the same name. `discern refresh` (and `init`/`upgrade`) materialize the set into
+`.claude/skills/` (gitignored, [the binary's](#the-binarys-files)): built-ins
+**copied**, authored skills **symlinked** so edits are live.
 `discern skills
 list` shows the set; `discern skills eject <name>` copies a
 built-in into your dir to customize. The `skills` [Feature](#feature) governs

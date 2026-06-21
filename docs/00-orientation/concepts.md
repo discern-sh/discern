@@ -48,7 +48,7 @@ It is **one self-contained binary** with two faces:
   `config` / `add-preset` verbs. They _scaffold_ a project, _refresh_ it, and
   check it. This face is build-time work: it writes a project's files, then
   steps out of the way.
-- The **Engine** — the stack-neutral logic behind `discern finish` / `tidy` /
+- The **Engine** — the stack-neutral logic behind `discern finish` / `prepare` /
   `worktree` / … . It is **TypeScript compiled into the binary**
   ([`src/engine/`](../../src/engine/), sharing
   [`src/shared/`](../../src/shared/) with the Installer), not files installed
@@ -106,14 +106,14 @@ verbs:
 - `discern worktree` carves an isolated **Worktree** (and branch) for a change,
   so the main checkout is never touched. Each Worktree gets its own database and
   dev-server port through the **Worktree settings** — empty until wired.
-- `discern tidy` is the fast inner loop: the fix-stage Capabilities, then the
+- `discern prepare` is the fast inner loop: the fix-stage Capabilities, then the
   check-stage ones.
 - `discern finish` is the full **Gate**: fix and build, then check and test in
   parallel, then any **Scope** `gate`s that fired, then the main-merged check.
   Each Capability and **Check** runs as its own labelled job, so failure points
   at the exact one; `--json` makes that machine-readable.
-- `discern worktree:exit` **graduates** the branch into the main repo and tears
-  the Worktree down.
+- `discern graduate` **graduates** the branch into the main repo and tears the
+  Worktree down.
 
 **4. Stay current.** When you install a newer `discern` binary,
 `discern
@@ -130,9 +130,9 @@ with no second copy to keep in sync.
 
 Alongside the runtime path, guidance flows author-once → compile-everywhere:
 discern's built-in harness guidance plus your **Guidance source** (`guidance.md`
-by default) are compiled by `discern guidelines` into each **Compiled agent
-file** (`AGENTS.md` tracked, `CLAUDE.md`/`GEMINI.md` gitignored), so several
-agents share one set of instructions.
+by default) are compiled by `discern refresh` into each **Compiled agent file**
+(`AGENTS.md` tracked, `CLAUDE.md`/`GEMINI.md` gitignored), so several agents
+share one set of instructions.
 
 ---
 

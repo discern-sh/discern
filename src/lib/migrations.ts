@@ -153,7 +153,7 @@ export const MIGRATIONS: Migration[] = [
         "moved discern.toml→.discern/config.toml and .ai/guidelines→.discern/guidelines",
       );
       ctx.note(
-        ".discern/skills are re-materialized by the upgrade; run `discern guidelines` after",
+        ".discern/skills are re-materialized by the upgrade; run `discern refresh` after",
       );
     },
   },
@@ -311,7 +311,7 @@ export const MIGRATIONS: Migration[] = [
       // safe on a fresh install too. The skill symlinks under `.claude/skills/`
       // that the old dispatcher's `guidelines` step created still point at the
       // re-materialized `.discern/skills/`, so they need no surgery here; the
-      // next `discern guidelines` reconciles them.
+      // next `discern refresh` reconciles them.
       const had = await ctx.exists(".discern/engine") ||
         await ctx.exists("agent") ||
         await ctx.exists(".discern/manifest.json");

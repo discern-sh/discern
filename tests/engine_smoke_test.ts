@@ -16,10 +16,11 @@ Deno.test("engine smoke: discern --help lists commands and exits 0", async () =>
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "Commands:");
     assertStringIncludes(r.stdout, "finish");
-    // Cliffy renders the worktree group as `worktree` and routing normalises
-    // `worktree:exit` → `worktree exit`, but the group's description surfaces the
-    // colon-spelled sub-verbs in the top-level help so users learn the spelling.
-    assertStringIncludes(r.stdout, "worktree:exit");
+    // `graduate` is promoted to a top-level command; the worktree group still
+    // surfaces its colon-spelled sub-verbs in its description, so the top-level
+    // help teaches both the promotion and the colon spelling.
+    assertStringIncludes(r.stdout, "graduate");
+    assertStringIncludes(r.stdout, "worktree:teardown");
   });
 });
 

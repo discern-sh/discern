@@ -63,7 +63,7 @@ is a property of the system, not of human vigilance.
 
 **How it shows up.** The engine has one home in
 [`src/engine/`](../../src/engine/) — there is no second committed copy to drift
-from ([ADR 0019](../_adr/0019-single-binary-ts-engine.md)); `discern guidelines`
+from ([ADR 0019](../_adr/0019-single-binary-ts-engine.md)); `discern refresh`
 compiles the agent files (`AGENTS.md`/`CLAUDE.md`/`GEMINI.md`) from one guidance
 source set; [`version.ts`](../../src/lib/version.ts) is the only home for the
 binary and schema versions; the [Generated file](glossary.md#generated-file) and

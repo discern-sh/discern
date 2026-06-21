@@ -42,3 +42,4 @@ decision is hard to reverse, surprising without context, and a real trade-off.
 - [0020 — Dissolve `.discern/` into a single root `discern.toml`](0020-dissolve-discern-dir.md)
 - [0021 — Migrations insert a new section's documented block at its canonical position](0021-migrations-insert-documented-sections.md)
 - [0022 — Rename the harness to discern](0022-rename-to-discern.md)
+- [0023 — Rename and promote the workflow commands](0023-rename-workflow-commands.md)

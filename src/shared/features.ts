@@ -60,7 +60,8 @@ const VERB_FEATURE: Readonly<Record<string, Feature>> = {
   worktree: "worktrees",
   "worktree-name": "worktrees",
   ratchets: "ratchets",
-  guidelines: "guidance",
+  refresh: "guidance",
+  graduate: "worktrees",
   skills: "skills",
   docs: "docs",
 };

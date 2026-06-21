@@ -1,6 +1,6 @@
 ---
 name: handoff-worktree
-description: Migrate the current worktree's branch into the main repository so the user can review, test, and continue work there. Runs `discern worktree:exit`, which commits the work as needed, tears down the worktree's adapters (database, dev-server) and removes the worktree directory, then checks the branch out in the main repo as the latest commit. Requires the branch already contains the latest main (it stops and points you to `discern finish` if not) and refuses to run if the main checkout has uncommitted changes. Use whenever the user signals they want to take over a worktree session — phrases like "handoff worktree", "handoff this", "finish up and move it back to main", "I'll take it from here", "move this branch out of the worktree", or "graduate this branch". Trigger this even if the user does not explicitly say "skill" — the intent is what matters.
+description: Migrate the current worktree's branch into the main repository so the user can review, test, and continue work there. Runs `discern graduate`, which commits the work as needed, tears down the worktree's adapters (database, dev-server) and removes the worktree directory, then checks the branch out in the main repo as the latest commit. Requires the branch already contains the latest main (it stops and points you to `discern finish` if not) and refuses to run if the main checkout has uncommitted changes. Use whenever the user signals they want to take over a worktree session — phrases like "handoff worktree", "handoff this", "finish up and move it back to main", "I'll take it from here", "move this branch out of the worktree", or "graduate this branch". Trigger this even if the user does not explicitly say "skill" — the intent is what matters.
 ---
 
 # Handoff Worktree
@@ -8,7 +8,7 @@ description: Migrate the current worktree's branch into the main repository so t
 The mechanical work — integrating the latest main, tearing down the worktree's adapters (database, dev-server link), committing as needed, removing the worktree, checking the branch out in main, and soft-resetting any WIP commit — is done by the harness:
 
 ```
-discern worktree:exit
+discern graduate
 ```
 
 That one command is the single, deterministic implementation. Your job is to **run it** and **relay the outcome** to the user. Do not try to replicate its logic step-by-step with individual `git` commands — the recipe is the source of truth and is much faster and safer than reasoning through git one step at a time.
@@ -26,7 +26,7 @@ A clean tree means the handoff migrates your commit **intact**, and the user lan
 **Then run the handoff** with no arguments, from inside the worktree:
 
 ```bash
-discern worktree:exit
+discern graduate
 ```
 
 The recipe integrates main, prints its plan, then a line per step it executes, then a final summary. It exits `0` on success and non-zero on any unrecoverable error.
@@ -39,7 +39,7 @@ After it finishes:
 
 ## When the recipe is missing or fails to run
 
-`discern worktree:exit` requires the `discern` binary and a harness-configured project (a `discern.toml`). If the command reports that it is missing — for example you're in a project that doesn't have the harness — mention this and ask how the user wants to proceed rather than improvising a manual handoff; a silent manual handoff loses the fault tolerance the recipe provides.
+`discern graduate` requires the `discern` binary and a harness-configured project (a `discern.toml`). If the command reports that it is missing — for example you're in a project that doesn't have the harness — mention this and ask how the user wants to proceed rather than improvising a manual handoff; a silent manual handoff loses the fault tolerance the recipe provides.
 
 ## Caveats to keep in mind after a successful handoff
 

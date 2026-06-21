@@ -12,9 +12,9 @@ whole Stage. A known Capability's Stage is derived from its name; a Check states
 its own. After the Stages come the **Scope** `gate`s for any Scope that changed,
 then (in a Worktree) the main-merged check.
 
-`discern tidy` is the fast inner loop: the fix-stage then check-stage work, with
-no build or test. `--json` emits a machine-readable report of every Capability,
-Check, and Scope gate (ADR 0004, ADR 0017) for an agent to consume.
+`discern prepare` is the fast inner loop: the fix-stage then check-stage work,
+with no build or test. `--json` emits a machine-readable report of every
+Capability, Check, and Scope gate (ADR 0004, ADR 0017) for an agent to consume.
 
 The supporting ideas: **Capabilities** are the five known commands (`format` /
 `build` / `lint` / `typecheck` / `test`) and a **Check** is custom gate work

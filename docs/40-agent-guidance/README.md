@@ -8,7 +8,8 @@ guidance** bundled in the binary
 ([`templates/guidance/`](../../templates/guidance/)); you add your own
 **Guidance source** — `[guidance].sources` in `discern.toml`, default
 `guidance.md`, globs allowed.
-[`discern guidelines`](../../src/engine/guidelines.ts) compiles
+[`discern refresh`](../../src/engine/guidelines.ts) regenerates the generated
+agent files, skills, and integration artifacts: it compiles
 `[built-in base] + [a section per enabled feature] + [your sources]` into each
 **Compiled agent file**, selected by `[guidance].agents` (`claude_code` →
 `CLAUDE.md`, `codex` → `AGENTS.md`, `gemini` → `GEMINI.md`). The same verb
@@ -38,7 +39,7 @@ re-publishes: built-ins **copied**, authored skills **symlinked**.
 
 | File _(to be written)_     | What it will cover                                                                                            |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `the-guidelines-recipe.md` | How `discern guidelines` assembles built-in + sources into per-agent files and banners.                       |
+| `the-guidelines-recipe.md` | How `discern refresh` assembles built-in + sources into per-agent files and banners.                          |
 | `the-compiled-files.md`    | The agent-file targets, the `[guidance].agents` selector, tracked vs gitignored, the do-not-edit rule.        |
 | `bundled-skills.md`        | What each shipped Skill does, the built-in/authored override rule, and how `.claude/skills/` is materialized. |
 

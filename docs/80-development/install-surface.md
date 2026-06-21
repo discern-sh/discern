@@ -65,7 +65,7 @@ subcommands:
 | Command                  | What it does                                                                                                                          | Source                                                               |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
 | `discern finish`         | The full gate — `fix`+`build`, then `check`+`test` in parallel, scope-matched scope gates, and (in a worktree) the main-merged check. | [`src/engine/gate/finish.ts`](../../src/engine/gate/finish.ts)       |
-| `discern tidy`           | The fast inner loop — fixers then read-only checks; no build or test.                                                                 | [`src/engine/gate/tidy.ts`](../../src/engine/gate/tidy.ts)           |
+| `discern prepare`        | The fast inner loop — fixers then read-only checks; no build or test.                                                                 | [`src/engine/gate/prepare.ts`](../../src/engine/gate/prepare.ts)     |
 | `discern test`           | The `test` capability on its own.                                                                                                     | [`src/engine/gate/test.ts`](../../src/engine/gate/test.ts)           |
 | `discern ratchets`       | Holds never-loosen metric floors/ceilings against `main` (on demand; not part of `finish`).                                           | [`src/engine/gate/ratchets.ts`](../../src/engine/gate/ratchets.ts)   |
 | `discern changed-scopes` | Classifies which scopes the branch touches; fails **open** (an unknown path runs more gates, never fewer).                            | [`src/engine/scopes/changed.ts`](../../src/engine/scopes/changed.ts) |
@@ -102,7 +102,7 @@ until you wire them. The whole workflow sits behind `[features].worktrees`.
 | --------------------------- | ------------------------------------------------------------------------------- |
 | `discern worktree`          | Sets up a freshly-created worktree (run by the `WorktreeCreate` hook).          |
 | `discern worktree:ensure`   | Session-start idempotent setup (run by the `SessionStart` hook).                |
-| `discern worktree:exit`     | Graduates the branch into the main repo and tears the worktree down.            |
+| `discern graduate`          | Graduates the branch into the main repo and tears the worktree down.            |
 | `discern worktree:teardown` | Tears down a worktree's database and dev-server link (run by `WorktreeRemove`). |
 | `discern worktree:prune`    | Sweeps stale worktrees, fully-merged branches, and orphan directories.          |
 | `discern worktree-name`     | Resolves a worktree's stable identity (id / site / branch / port / db).         |
@@ -122,13 +122,13 @@ the stable worktree identity (POSIX-`cksum`-faithful) in
 | `CLAUDE.md`, `GEMINI.md` | generated | The gitignored per-agent mirrors (claude_code / gemini), compiled from the same source; carry a do-not-edit banner.                         |
 | `.claude/skills/*`       | generated | Materialised skills the agent discovers — built-ins copied, authored skills symlinked.                                                      |
 
-`discern guidelines`
-([`src/engine/guidelines.ts`](../../src/engine/guidelines.ts)) compiles each
-agent file as **discern's built-in harness guidance** (always prepended, one
-section per enabled feature) **plus your `[guidance].sources`**, and
-(re)materialises the skills. Which files it writes is set by `[guidance].agents`
-in `discern.toml` (`claude_code` → `CLAUDE.md`, `codex` → `AGENTS.md`, `gemini`
-→ `GEMINI.md`).
+`discern refresh` ([`src/engine/guidelines.ts`](../../src/engine/guidelines.ts))
+regenerates the generated agent files, skills, and integration artifacts: it
+compiles each agent file as **discern's built-in harness guidance** (always
+prepended, one section per enabled feature) **plus your `[guidance].sources`**,
+and (re)materialises the skills. Which files it writes is set by
+`[guidance].agents` in `discern.toml` (`claude_code` → `CLAUDE.md`, `codex` →
+`AGENTS.md`, `gemini` → `GEMINI.md`).
 
 ## Bundled skills
 
@@ -136,7 +136,7 @@ Four skills the coding agent can invoke are **bundled in the binary** (their
 source lives under [`templates/skills/`](../../templates/skills/), compiled in
 via `deno compile --include templates`), and a project can add its own under
 `[skills].dir` (default `./skills`, yours overriding a built-in by name).
-`discern guidelines` (and `init`/`upgrade`) materialise the effective set into
+`discern refresh` (and `init`/`upgrade`) materialise the effective set into
 `.claude/skills/` — **generated**, gitignored: built-ins **copied**, authored
 skills **symlinked** so edits are live (see
 [`src/lib/skills.ts`](../../src/lib/skills.ts)). `discern skills list` shows the

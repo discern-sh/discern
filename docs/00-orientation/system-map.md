@@ -44,8 +44,8 @@ person / coding agent
        ▼
 ┌──────────────────────┐  known verb  ┌─────────────────────────────┐
 │   discern binary     │ ───────────► │   Engine handler (in-binary) │
-│  dispatch.ts:        │              │  finish · tidy · worktree ·  │
-│  root + verb routing │              │  ratchets · guidelines · …   │
+│  dispatch.ts:        │              │  finish · prepare · worktree │
+│  root + verb routing │              │  ratchets · refresh · …      │
 └──────────┬───────────┘              └──────────────┬──────────────┘
            │ unknown verb                            │  reads commands from
            ▼                                         ▼
@@ -72,7 +72,7 @@ The Worktree workflow brackets a change, keeping the main checkout untouched:
 ```
 main checkout ──discern worktree──► Worktree  (branch + own db + own port)
       ▲                                  │
-      └────────── discern worktree:exit ─┘   graduate branch + tear down
+      └─────────────── discern graduate ─┘   graduate branch + tear down
 ```
 
 ---

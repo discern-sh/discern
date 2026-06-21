@@ -1,8 +1,7 @@
 /**
- * `tidy` — the fast inner loop: the fix-stage jobs, then the read-only
- * check-stage jobs (no build, no tests). The TS port of the shell `tidy` recipe.
- * The fixers run first (serially, via the joined fix command) since order
- * matters, then the checks.
+ * `prepare` — the fast inner loop behind `discern prepare`: the fix-stage jobs,
+ * then the read-only check-stage jobs (no build, no tests). The fixers run first
+ * (serially, via the joined fix command) since order matters, then the checks.
  */
 
 import { Config } from "../../shared/config_read.ts";
@@ -10,8 +9,8 @@ import { cmdsInStage } from "./stages.ts";
 import { colorEnabled, makeOut } from "../output.ts";
 import { runShellInherit } from "./run-shell.ts";
 
-/** Run `tidy`. Returns a process exit code. */
-export async function runTidy(root: string): Promise<number> {
+/** Run `prepare`. Returns a process exit code. */
+export async function runPrepare(root: string): Promise<number> {
   const cfg = await Config.load(root);
   const out = makeOut(colorEnabled());
 
@@ -27,6 +26,6 @@ export async function runTidy(root: string): Promise<number> {
     return 1;
   }
 
-  out.ok("Tidy complete — fixers applied and checks passed.");
+  out.ok("Prepare complete — fixers applied and checks passed.");
   return 0;
 }

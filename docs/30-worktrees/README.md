@@ -17,8 +17,8 @@ The lifecycle is driven by hooks in `.claude/settings.json`: `SessionStart` →
 `WorktreeCreate` → [`worktree`](../../src/engine/worktree/lifecycle.ts)
 (first-time setup), `WorktreeRemove` →
 [`worktree:teardown`](../../src/engine/worktree/lifecycle.ts). When a change is
-done, [`worktree:exit`](../../src/engine/worktree/lifecycle.ts) **graduates**
-the branch into the main repo and removes the Worktree;
+done, [`graduate`](../../src/engine/worktree/lifecycle.ts) graduates the branch
+into the main repo and removes the Worktree;
 [`worktree-name`](../../src/engine/worktree/identity.ts) resolves a Worktree's
 stable identity (id / site / branch / port / db).
 
@@ -31,7 +31,7 @@ stable identity (id / site / branch / port / db).
 
 | File _(to be written)_     | What it will cover                                                                        |
 | -------------------------- | ----------------------------------------------------------------------------------------- |
-| `the-lifecycle.md`         | create → ensure → exit → teardown → prune, and the hooks that fire each.                  |
+| `the-lifecycle.md`         | create → ensure → graduate → teardown → prune, and the hooks that fire each.              |
 | `worktree-identity.md`     | How a Worktree's id, site, branch, port, and db name are derived and read.                |
 | `the-worktree-settings.md` | The database and dev-server seams, their runtime tokens, and how to wire them (ADR 0007). |
 | `integration.md`           | Graduating a branch into `main`, and the prune/sweep of stale Worktrees.                  |

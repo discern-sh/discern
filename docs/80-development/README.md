@@ -12,7 +12,7 @@ this repo it runs from source as `deno task dev <verb>`; a project with the
 
 - `worktree` provisions an isolated checkout for a change (see the worktree note
   in the project guidelines).
-- `tidy` is the fast inner loop — it applies the fix-stage work, then the
+- `prepare` is the fast inner loop — it applies the fix-stage work, then the
   check-stage work, and never builds or tests.
 - `finish` is the full gate: it runs the fix- and build-stage work, then `check`
   and `test` in parallel, fires any scope `gate`s whose scope changed, and (in a

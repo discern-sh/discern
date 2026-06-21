@@ -14,7 +14,7 @@ the written rule and the enforced rule must never disagree.
 The fix- and check-stage work in [`discern.toml`](../../discern.toml) is the
 mechanical rules: `format`, `lint`, and `typecheck` are known **Capabilities**
 (the engine derives their Stage from the name). To satisfy all of them at once,
-run `discern tidy` (in this repo, `deno task dev tidy`).
+run `discern prepare` (in this repo, `deno task dev prepare`).
 
 | Name        | Kind       | Stage | Command                  | What it checks / how to satisfy                                                                                                                                                                                 |
 | ----------- | ---------- | ----- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -47,9 +47,9 @@ The conventions the tooling cannot fully enforce, but the project still holds:
   [install-surface.md](install-surface.md) for the full bucket map.
 - **Never hand-edit the generated agent files.** `AGENTS.md` (tracked),
   `CLAUDE.md`, and `GEMINI.md` are compiled from discern's built-in guidance
-  plus your `[guidance].sources` by `discern guidelines` (in this repo,
-  `deno task dev guidelines`); edit the guidance source and recompile. They
-  carry a do-not-edit banner.
+  plus your `[guidance].sources` by `discern refresh` (in this repo,
+  `deno task dev refresh`); edit the guidance source and recompile. They carry a
+  do-not-edit banner.
 - **Run from source, never `dist/`.** Use `deno task dev <cmd>`; the `dist/`
   binaries bundle a frozen `templates/` snapshot. Don't put `--` before a
   subcommand.

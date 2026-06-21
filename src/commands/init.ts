@@ -8,7 +8,7 @@
  *
  * Every scaffolded file is a write-once seed EXCEPT the materialized skills under
  * `.claude/skills/**` — artifacts of the binary, always (re)written and gitignored
- * (bundled skills copied in, authored ones symlinked) by the engine's `guidelines`
+ * (bundled skills copied in, authored ones symlinked) by the engine's `refresh`
  * step.
  */
 
