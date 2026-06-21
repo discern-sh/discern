@@ -554,9 +554,15 @@ async function fixGitignoreForSchema6(ctx: MigrationContext): Promise<void> {
     return;
   }
   const lines = existing.split("\n")
-    // drop dead .icculus/ ignores and any (mistaken) AGENTS.md ignore.
-    .filter((l) => !/\.icculus\//.test(l))
-    .filter((l) => !/^\s*\/?AGENTS\.md\s*$/.test(l));
+    // Drop dead `.icculus` ignore RULES and any (mistaken) AGENTS.md ignore, but
+    // keep comments and blanks intact (a rule line is non-blank, non-`#`).
+    .filter((l) => {
+      const t = l.trim();
+      if (t === "" || t.startsWith("#")) {
+        return true;
+      }
+      return !/\.icculus/.test(l) && !/^\/?AGENTS\.md$/.test(t);
+    });
   const has = (re: RegExp): boolean => lines.some((l) => re.test(l));
   const additions: string[] = [];
   if (!has(/^\s*\/?CLAUDE\.md\b/)) additions.push("/CLAUDE.md");

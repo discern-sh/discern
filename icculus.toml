@@ -21,7 +21,6 @@ main_branch = "main"
 
 # Which agent instruction files `icculus guidelines` compiles from .icculus/guidelines/.
 # Known targets: "claude_code" -> CLAUDE.md, "codex" -> AGENTS.md.
-agents = ["claude_code", "codex"]
 
 # Where the gate points an agent when a stage fails in a non-obvious way. Keep
 # this doc current with the traps specific to your stack (see the comment block
@@ -33,7 +32,7 @@ gotchas_doc = "docs/80-development/finish-gate-gotchas.md"
 # (ADR 0014): `icculus upgrade` reads it, runs any pending migrations, and
 # re-stamps it. Edit by hand only to force a re-migration.
 [meta]
-schema_version = 5
+schema_version = 6
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -163,4 +162,18 @@ fail_fast = true
 [recipes]
 # Where your recipes live, relative to the project root. The default works with
 # no config at all; point it elsewhere (e.g. "tools/") if you prefer.
-dir = ".icculus/recipes"
+dir = "recipes"
+
+[features]
+docs = true
+skills = true
+guidance = true
+ratchets = true
+worktrees = true
+
+[guidance]
+agents = ["claude_code", "codex"]
+sources = ["guidance.md"]
+
+[skills]
+dir = "skills"
