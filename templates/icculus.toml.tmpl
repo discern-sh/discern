@@ -52,6 +52,41 @@ docs      = true   # the `docs` browser over your docs/ tree
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# [guidance] — the author-once → compile-everywhere agent-instruction pipeline.
+# `icculus guidelines` compiles icculus's built-in harness guidance (always
+# prepended, feature-aware) plus YOUR sources below into one generated file per
+# provider. The generated files are never hand-edited: AGENTS.md is tracked (so
+# guidance changes show in review); the other mirrors are gitignored.
+# ─────────────────────────────────────────────────────────────────────────────
+
+[guidance]
+# Your guideline source file(s), relative to the project root. Globs are allowed.
+# Read only if present; the built-in harness guidance is always prepended, so
+# these are additive. Run `/bootstrap` to seed a starter guidance.md.
+sources = ["guidance.md"]
+
+# Which provider files to emit. Known targets:
+#   "claude_code" -> CLAUDE.md   "codex" -> AGENTS.md   "gemini" -> GEMINI.md
+agents = [{{agents_array}}]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# [skills] — focused, reusable task playbooks. The effective set is icculus's
+# bundled built-ins plus YOUR authored skills under the directory below, where
+# yours override a built-in of the same name. icculus materializes the set into
+# .claude/skills/ (gitignored): built-ins copied, yours symlinked (edits are live).
+#   icculus skills list           show the set + which of yours override which
+#   icculus skills eject <name>   copy a built-in here so you can customize it
+# ─────────────────────────────────────────────────────────────────────────────
+
+[skills]
+# Where your authored skills live, relative to the project root. The default
+# works with no config at all; point it elsewhere if you prefer. Read only if
+# present, so a project with no skills/ dir simply uses the built-ins.
+dir = "skills"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # [capabilities] — the core commands the gate runs, one per known capability.
 # Each maps to a gate stage automatically:
 #   format     fix    a formatter/codemod (mutating; runs first, serially)
@@ -116,41 +151,6 @@ neutral = true
 # [scopes.native]
 # paths = ["native/**"]
 # gate  = "make -C native check"
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# [guidance] — the author-once → compile-everywhere agent-instruction pipeline.
-# `icculus guidelines` compiles icculus's built-in harness guidance (always
-# prepended, feature-aware) plus YOUR sources below into one generated file per
-# provider. The generated files are never hand-edited: AGENTS.md is tracked (so
-# guidance changes show in review); the other mirrors are gitignored.
-# ─────────────────────────────────────────────────────────────────────────────
-
-[guidance]
-# Your guideline source file(s), relative to the project root. Globs are allowed.
-# Read only if present; the built-in harness guidance is always prepended, so
-# these are additive. Run `/bootstrap` to seed a starter guidance.md.
-sources = ["guidance.md"]
-
-# Which provider files to emit. Known targets:
-#   "claude_code" -> CLAUDE.md   "codex" -> AGENTS.md   "gemini" -> GEMINI.md
-agents = [{{agents_array}}]
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# [skills] — focused, reusable task playbooks. The effective set is icculus's
-# bundled built-ins plus YOUR authored skills under the directory below, where
-# yours override a built-in of the same name. icculus materializes the set into
-# .claude/skills/ (gitignored): built-ins copied, yours symlinked (edits are live).
-#   icculus skills list           show the set + which of yours override which
-#   icculus skills eject <name>   copy a built-in here so you can customize it
-# ─────────────────────────────────────────────────────────────────────────────
-
-[skills]
-# Where your authored skills live, relative to the project root. The default
-# works with no config at all; point it elsewhere if you prefer. Read only if
-# present, so a project with no skills/ dir simply uses the built-ins.
-dir = "skills"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
