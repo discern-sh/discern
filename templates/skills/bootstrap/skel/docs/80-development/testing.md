@@ -2,9 +2,9 @@
 
 *The testing approach in this repo — how tests are written, how they run, and the patterns the gate assumes.*
 
-> This doc is a skeleton. The `/bootstrap` skill (and the [`document-subsystem`](../../.icculus/skills/document-subsystem/SKILL.md) skill, when filling the `80-development` subtree) writes it from the project's actual test stack. Look for the `<!-- /bootstrap fills this -->` marker.
+> This doc is a skeleton. The `/bootstrap` skill (and the [`document-subsystem`](../../.claude/skills/document-subsystem/SKILL.md) skill, when filling the `80-development` subtree) writes it from the project's actual test stack. Look for the `<!-- /bootstrap fills this -->` marker.
 
-The `test` capability in `.icculus/config.toml` is what `icculus finish` runs; this doc explains how to write tests that pass it and how to run them while iterating.
+The `test` capability in `icculus.toml` is what `icculus finish` runs; this doc explains how to write tests that pass it and how to run them while iterating.
 
 ## How tests run
 

@@ -2,7 +2,7 @@
 
 A short narrative that connects the dots — the mental model of {{project_name}} in a few minutes. For precise per-term definitions, jump to the [glossary](glossary.md). For where each piece lives in code, follow the subsystem subtree READMEs.
 
-> This doc is a skeleton. The `/bootstrap` skill fills it from the brief at `.icculus/brief.md`. The headings below are a suggested shape — keep, drop, or reorder them to fit the system.
+> This doc is a skeleton. The `/bootstrap` skill fills it from the brief at `brief.md`. The headings below are a suggested shape — keep, drop, or reorder them to fit the system.
 
 > **Naming contract.** The canonical capitalised nouns defined in the [glossary](glossary.md) are used verbatim throughout this tree. Introduce them here, then use them — and only them — everywhere else. Do not invent synonyms.
 

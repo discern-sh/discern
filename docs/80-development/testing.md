@@ -3,9 +3,8 @@
 _The testing approach in this repo — how tests are written, how they run, and
 the patterns the gate assumes._
 
-The `test` capability in `.icculus/config.toml` is what the `finish` gate runs;
-this doc explains how to write tests that pass it and how to run them while
-iterating.
+The `test` capability in `icculus.toml` is what the `finish` gate runs; this doc
+explains how to write tests that pass it and how to run them while iterating.
 
 ## How tests run
 
@@ -27,7 +26,7 @@ There are **two layers**, sharing two helper modules:
   ([tests/helpers.ts](../../tests/helpers.ts)), so Cliffy parsing, the global
   flags, `--json` output, and exit codes are all exercised end to end.
 - **Engine tests** (`tests/engine_*`) scaffold the **real** `templates/` (the
-  config and recipes seed) into a temp dir using the installer's own plan/apply
+  `icculus.toml` seed) into a temp dir using the installer's own plan/apply
   path, then run the engine as a real subprocess via `runAgent`
   ([tests/engine_helpers.ts](../../tests/engine_helpers.ts)) —
   `deno run
@@ -79,10 +78,10 @@ TypeScript under `src/engine/`, it is instrumented like the rest of `src/` — t
 toward the number, so installer and engine share one coverage figure.
 
 That metric feeds a ratchet — `[ratchets.coverage]` in
-[.icculus/config.toml](../../.icculus/config.toml) — a floor that only ever
-rises. The `ratchets` verb holds it (in this repo, `deno task dev ratchets`); it
-is slow, so it is **not** part of the `finish` gate, and CI enforces it on every
-pull request. To raise the floor: add tests, then bump `limit` to just below the
+[icculus.toml](../../icculus.toml) — a floor that only ever rises. The
+`ratchets` verb holds it (in this repo, `deno task dev ratchets`); it is slow,
+so it is **not** part of the `finish` gate, and CI enforces it on every pull
+request. To raise the floor: add tests, then bump `limit` to just below the
 newly measured value.
 
 Some code is **intentionally** uncovered: the interactive TTY paths — the `init`

@@ -18,17 +18,19 @@ runtime.
 ```
 ┌──────────────────────────────┐   bundles    ┌──────────────────────────┐
 │   the `icculus` binary       │ ◄─────────── │       templates/         │
-│  Installer verbs + Engine    │  (compiled   │  seed + skill sources    │
-│  (one self-contained binary) │   in)        │  (bundled into binary)   │
+│  Installer verbs + Engine    │  (compiled   │  seed · skill · guidance │
+│  (one self-contained binary) │   in)        │  sources (bundled in)    │
 └──────────────┬───────────────┘              └──────────────────────────┘
        │  icculus init / upgrade
-       │  write seeds · merge · append · materialize skills
+       │  write seeds · merge · append · materialize skills · compile guidance
        ▼
 ┌────────────────────────────────────────────────────────────┐
 │                   An install — on disk                      │
-│  the `.icculus/` namespace (no engine, no manifest):        │
-│  config.toml · guidelines/ · brief.md · recipes/  (yours)   │
-│  skills/  (the binary's — gitignored)                       │
+│  icculus.toml  — the one root file (no engine, no manifest) │
+│  + your config-pointed content (read if present):           │
+│      guidance.md · ./skills/ · ./recipes/ · brief.md (yours)│
+│  + generated: AGENTS.md (tracked), CLAUDE.md/GEMINI.md,     │
+│      .claude/skills/  (the binary's — gitignored)           │
 │  + merged .claude/settings.json, appended .gitignore        │
 │  (docs/ + TODO.md arrive later, via /bootstrap)             │
 └────────────────────────────────────────────────────────────┘
@@ -48,10 +50,10 @@ person / coding agent
            │ unknown verb                            │  reads commands from
            ▼                                         ▼
 ┌──────────────────────────────┐        ┌──────────────────────────────┐
-│  project Recipe (exec'd)     │        │     .icculus/config.toml      │
-│  .icculus/recipes/<verb>     │        │  Capabilities · Checks ·      │
-│  with ICCULUS_* exported     │ ─────► │  Scopes (+ gates) · Ratchets ·│
-│  (built-in verb wins)        │ reads  │  Worktree settings            │
+│  project Recipe (exec'd)     │        │        icculus.toml           │
+│  ./recipes/<verb>            │        │  Features · Capabilities ·    │
+│  with ICCULUS_* exported     │ ─────► │  Checks · Scopes (+ gates) ·  │
+│  (built-in verb wins)        │ reads  │  Ratchets · Worktree settings │
 └──────────────────────────────┘  via   └──────────────────────────────┘
                                  icculus config get
 ```
@@ -93,7 +95,7 @@ main checkout ──icculus worktree──► Worktree  (branch + own db + own p
   before the Stage returns. Fail-fast cancellation tree-kills the running
   siblings via Deno's process-group kill
   ([`command.ts`](../../src/engine/jobs/command.ts)).
-- **Persistent state lives in the repo.** `.icculus/config.toml` (hand-edited
+- **Persistent state lives in the repo.** `icculus.toml` (the hand-edited
   config, which also carries `[meta].schema_version`) and the git repo itself
   (branches and linked Worktrees under `.claude/worktrees/`). No manifest, no
   database, no external state.

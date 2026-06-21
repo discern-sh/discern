@@ -6,7 +6,7 @@ The full documentation tree for {{project_name}}. Audience is layered: each subt
 
 If you're new, start with [00-orientation/](00-orientation/) and follow the trail.
 
-> This tree starts as a skeleton. Run the `/bootstrap` skill to have your coding agent seed it from the project brief at `.icculus/brief.md`. The markers below (`<!-- /bootstrap fills this -->`) show what is still a placeholder.
+> This tree starts as a skeleton. Run the `/bootstrap` skill to have your coding agent seed it from the project brief at `brief.md`. The markers below (`<!-- /bootstrap fills this -->`) show what is still a placeholder.
 
 ---
 
@@ -42,7 +42,7 @@ The subsystems are numbered subtrees, in the order a newcomer should read them �
 
 ## How this tree is produced and kept current
 
-The tree is seeded once by `/bootstrap`, then grown subtree-by-subtree with the [`document-subsystem`](../.icculus/skills/document-subsystem/SKILL.md) skill, which follows the brief in [_internal/documenter-agent-brief.md](_internal/documenter-agent-brief.md). A single skeleton-and-orientation pass establishes the shared terminology and shape before any subtree is filled in.
+The tree is seeded once by `/bootstrap`, then grown subtree-by-subtree with the [`document-subsystem`](../.claude/skills/document-subsystem/SKILL.md) skill, which follows the brief in [_internal/documenter-agent-brief.md](_internal/documenter-agent-brief.md). A single skeleton-and-orientation pass establishes the shared terminology and shape before any subtree is filled in.
 
 Because the tree is the source of truth, it must not drift from code. When you change something a doc describes — the architecture, the data model, a subsystem's documented behaviour, a public convention, or whether a feature exists — update the affected docs in the same change.
 

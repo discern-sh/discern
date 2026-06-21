@@ -4,7 +4,7 @@ Every {{project_name}}-specific term, defined precisely. This is the canonical d
 
 For a narrative tour of how these terms relate, read [concepts.md](concepts.md). For the architectural shape, see [system-map.md](system-map.md).
 
-> This doc is a skeleton. The `/bootstrap` skill fills it from the brief at `.icculus/brief.md`. Group terms under headings that match the system's parts; the structure below is a starting point.
+> This doc is a skeleton. The `/bootstrap` skill fills it from the brief at `brief.md`. Group terms under headings that match the system's parts; the structure below is a starting point.
 
 ---
 

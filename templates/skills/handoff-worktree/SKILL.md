@@ -39,7 +39,7 @@ After it finishes:
 
 ## When the recipe is missing or fails to run
 
-`icculus worktree:exit` requires the `icculus` binary and a harness-configured project (an `.icculus/config.toml`). If the command reports that it is missing — for example you're in a project that doesn't have the harness — mention this and ask how the user wants to proceed rather than improvising a manual handoff; a silent manual handoff loses the fault tolerance the recipe provides.
+`icculus worktree:exit` requires the `icculus` binary and a harness-configured project (an `icculus.toml`). If the command reports that it is missing — for example you're in a project that doesn't have the harness — mention this and ask how the user wants to proceed rather than improvising a manual handoff; a silent manual handoff loses the fault tolerance the recipe provides.
 
 ## Caveats to keep in mind after a successful handoff
 

@@ -2,9 +2,9 @@
 
 *The rules the tooling enforces, and the conventions to follow when writing code here.*
 
-> This doc is a skeleton. The `/bootstrap` skill (and the [`document-subsystem`](../../.icculus/skills/document-subsystem/SKILL.md) skill, when filling the `80-development` subtree) writes it from the project's actual stack and the Conventions section of the project guidelines. Look for the `<!-- /bootstrap fills this -->` marker.
+> This doc is a skeleton. The `/bootstrap` skill (and the [`document-subsystem`](../../.claude/skills/document-subsystem/SKILL.md) skill, when filling the `80-development` subtree) writes it from the project's actual stack and the Conventions section of the project guidance. Look for the `<!-- /bootstrap fills this -->` marker.
 
-This doc is the detailed companion to the **Conventions** section of the project guidelines (`.icculus/guidelines/<slug>.md`). The guidelines hold the short, agent-facing form; this doc holds the full reasoning and examples. Keep the two in step, and keep both aligned with what the `[capabilities]` in `.icculus/config.toml` actually enforce — the written rule and the enforced rule must never disagree.
+This doc is the detailed companion to the **Conventions** section of the project guidance (`guidance.md`). The guidance holds the short, agent-facing form; this doc holds the full reasoning and examples. Keep the two in step, and keep both aligned with what the `[capabilities]` in `icculus.toml` actually enforce — the written rule and the enforced rule must never disagree.
 
 ## What the gate enforces
 

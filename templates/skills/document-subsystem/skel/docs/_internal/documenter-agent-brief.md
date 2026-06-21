@@ -4,7 +4,7 @@ This file is read by every documenter agent that produces or refreshes a subtree
 
 This brief is the constant; the scope manifest is the variable.
 
-The [`document-subsystem`](../../.icculus/skills/document-subsystem/SKILL.md) skill dispatches this brief — invoke it to document or refresh a subtree rather than working freehand.
+The [`document-subsystem`](../../.claude/skills/document-subsystem/SKILL.md) skill dispatches this brief — invoke it to document or refresh a subtree rather than working freehand.
 
 ---
 

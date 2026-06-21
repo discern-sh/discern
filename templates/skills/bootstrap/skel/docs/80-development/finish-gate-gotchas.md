@@ -2,7 +2,7 @@
 
 *Non-obvious ways `icculus finish` fails — each with its fix. The everyday gate procedure lives in [getting-started.md](getting-started.md) and [code-conventions.md](code-conventions.md); this page is the "why did it fail in a way the message didn't explain" reference.*
 
-The gate **points an agent here when a stage fails** in a non-obvious way: when a fix/build/check/test stage exits non-zero, the gate prints a pointer to this doc (the path is `[project].gotchas_doc` in `.icculus/config.toml`). So the explanation is one step away even for an agent that has never hit the failure.
+The gate **points an agent here when a stage fails** in a non-obvious way: when a fix/build/check/test stage exits non-zero, the gate prints a pointer to this doc (the path is `[project].gotchas_doc` in `icculus.toml`). So the explanation is one step away even for an agent that has never hit the failure.
 
 These are real failure modes, each with its fix. **If you hit a new one, add it here** — that is what keeps this page worth pointing at.
 
@@ -56,7 +56,7 @@ These arise from how the harness works (git worktrees, parallel stages, build ar
 
 **Symptom.** A change you made does not trigger the scope `gate`, preview, or build you expected — for example a docs-only change runs almost nothing.
 
-**Cause.** This is by design. The gate classifies which scopes a change touched (`[scopes]` in `.icculus/config.toml`) and skips work that cannot be affected: a change confined to `neutral` paths runs no scope `gate`s and gets no preview. Classification **fails open** — a path matching no rule counts as a real code change, so an unknown path runs *more* gates, never fewer.
+**Cause.** This is by design. The gate classifies which scopes a change touched (`[scopes]` in `icculus.toml`) and skips work that cannot be affected: a change confined to `neutral` paths runs no scope `gate`s and gets no preview. Classification **fails open** — a path matching no rule counts as a real code change, so an unknown path runs *more* gates, never fewer.
 
 **Fix.** If something was skipped that should not have been, your `[scopes]` globs do not match the paths you changed — widen them. If something ran that you expected to be skipped, the path fell through to the fail-open default; add it to `neutral` (or the right scope) if it genuinely needs no gate.
 

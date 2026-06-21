@@ -2,7 +2,7 @@
 
 Bird's-eye view of how {{project_name}} fits together. Read this once and the rest of the documentation tree should slot into place.
 
-> This doc is a skeleton. The `/bootstrap` skill fills it from the brief at `.icculus/brief.md`. The map is **ASCII-first** so it lives in the text and stays diffable — draw the boxes and arrows below.
+> This doc is a skeleton. The `/bootstrap` skill fills it from the brief at `brief.md`. The map is **ASCII-first** so it lives in the text and stays diffable — draw the boxes and arrows below.
 
 ---
 

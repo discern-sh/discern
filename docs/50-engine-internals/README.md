@@ -4,11 +4,12 @@ _The dispatcher and the TypeScript modules every built-in verb is built on._
 
 This subtree covers the shared substrate under the gate, the Worktree workflow,
 and guidance. [`dispatch.ts`](../../src/engine/dispatch.ts) is the
-**dispatcher**: it finds the project root (the nearest ancestor with a
-`.icculus/config.toml`), routes a known `icculus <verb>` to its built-in
-in-binary handler, execs an _unknown_ verb as a matching project Recipe (with
-the `ICCULUS_*` environment exported), lets the Engine win on a name collision
-with a project recipe, and suggests a near-match on a typo.
+**dispatcher**: it finds the project root (the nearest ancestor with an
+`icculus.toml`), routes a known `icculus <verb>` to its built-in in-binary
+handler, execs an _unknown_ verb as a matching project Recipe (with the
+`ICCULUS_*` environment exported), lets the Engine win on a name collision with
+a project recipe, and suggests a near-match on a typo. A verb whose subsystem is
+turned off in `[features]` is reported as disabled rather than falling through.
 
 The Engine is **TypeScript compiled into the binary**, under
 [`src/engine/`](../../src/engine/) and sharing
@@ -18,9 +19,13 @@ The built-in handlers are organised by area: the gate and its job runner
 ([`gate/`](../../src/engine/gate/), [`jobs/`](../../src/engine/jobs/)), scope
 classification ([`scopes/`](../../src/engine/scopes/)), the worktree lifecycle
 and identity ([`worktree/`](../../src/engine/worktree/)), and the guideline
-compiler ([`guidelines.ts`](../../src/engine/guidelines.ts)). Shared concerns —
-config reading, capability/stage constants, the POSIX-`cksum` port, and root
-discovery with `ICCULUS_*` — live under [`src/shared/`](../../src/shared/).
+compiler ([`guidelines.ts`](../../src/engine/guidelines.ts)) — which assembles
+icculus's built-in guidance plus the project's sources and materializes the
+skills. Shared concerns — config reading, the
+[feature toggles](../00-orientation/glossary.md#feature)
+([`features.ts`](../../src/shared/features.ts)), capability/stage constants, the
+POSIX-`cksum` port, and root discovery with `ICCULUS_*` — live under
+[`src/shared/`](../../src/shared/).
 
 Scope globs are matched in-memory by
 [`scopes/glob.ts`](../../src/engine/scopes/glob.ts), so a glob in a config value
@@ -30,16 +35,16 @@ internal plumbing: the built-in verbs run it, you rarely read it directly.
 
 > **Status: stub.** This README orients the subtree; the leaves below are not
 > written yet. Fill them with the
-> [`document-subsystem`](../../.icculus/skills/document-subsystem/SKILL.md)
+> [`document-subsystem`](../../templates/skills/document-subsystem/SKILL.md)
 > skill.
 
 ## Planned leaves
 
-| File _(to be written)_ | What it will cover                                                                    |
-| ---------------------- | ------------------------------------------------------------------------------------- |
-| `the-dispatcher.md`    | Root-finding, dispatch, engine-wins-on-collision, the typo suggester, `--help`.       |
-| `config-access.md`     | Reading `.icculus/config.toml` via `config_read.ts` and the `icculus config` surface. |
-| `the-job-runner.md`    | Serial/parallel staging, labelling, fail-fast tree-kill, and the structured channel.  |
+| File _(to be written)_ | What it will cover                                                                                               |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `the-dispatcher.md`    | Root-finding (`icculus.toml`), dispatch, engine-wins-on-collision, feature gating, the typo suggester, `--help`. |
+| `config-access.md`     | Reading `icculus.toml` via `config_read.ts`, the `[features]` toggles, and the `icculus config` surface.         |
+| `the-job-runner.md`    | Serial/parallel staging, labelling, fail-fast tree-kill, and the structured channel.                             |
 
 ## See also
 

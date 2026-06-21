@@ -26,7 +26,7 @@ they are slow (ADR 0003).
 
 > **Status: stub.** This README orients the subtree; the leaves below are not
 > written yet. Fill them with the
-> [`document-subsystem`](../../.icculus/skills/document-subsystem/SKILL.md)
+> [`document-subsystem`](../../templates/skills/document-subsystem/SKILL.md)
 > skill.
 
 ## Planned leaves

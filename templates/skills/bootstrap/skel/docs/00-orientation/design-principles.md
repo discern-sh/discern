@@ -11,7 +11,7 @@ If a change you are about to make violates one of these, treat that as a signal 
 <!-- /bootstrap fills this -->
 
 <!--
-  The `/bootstrap` skill writes 3–7 principles here from `.icculus/brief.md`.
+  The `/bootstrap` skill writes 3–7 principles here from `brief.md`.
   Delete this comment and the EXAMPLE block below once the real principles exist.
 
   Each principle follows the same shape:

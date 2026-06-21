@@ -15,9 +15,9 @@ This skill produces or refreshes one subtree under `docs/` — a subsystem's `RE
 
 ## 1. Confirm the prerequisites
 
-**If `docs/_internal/documenter-agent-brief.md` doesn't exist yet** (a project where `init` scaffolded no docs and this is the first documenter run), create the `_internal` scaffolding from this skill's skeleton first: copy `.icculus/skills/document-subsystem/skel/docs/_internal/` → `docs/_internal/` (the brief plus the scope-manifest template).
+**If `docs/_internal/documenter-agent-brief.md` doesn't exist yet** (a project where `init` scaffolded no docs and this is the first documenter run), create the `_internal` scaffolding from this skill's skeleton first: copy `.claude/skills/document-subsystem/skel/docs/_internal/` → `docs/_internal/` (the brief plus the scope-manifest template).
 
-The brief assumes the orientation tier already exists — `docs/00-orientation/{concepts,glossary,system-map}.md` and the canonical terminology. If those are still skeletons, run [`bootstrap`](/.icculus/skills/bootstrap/SKILL.md) first; a subtree documented before the shared vocabulary is settled will use names nothing else agrees with.
+The brief assumes the orientation tier already exists — `docs/00-orientation/{concepts,glossary,system-map}.md` and the canonical terminology. If those are still skeletons, run [`bootstrap`](/.claude/skills/bootstrap/SKILL.md) first; a subtree documented before the shared vocabulary is settled will use names nothing else agrees with.
 
 Identify the target subtree (e.g. `30-<subsystem>/`). If the user named a subsystem rather than a path, map it to its numbered subtree.
 

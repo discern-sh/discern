@@ -65,11 +65,11 @@ _Nothing outstanding._
       comment block, or re-emitting the template comments for the sections the
       step rewrites. Observed needing a hand-tidy on several v3→v4 installs. The
       `5 → 6` step (ADR 0020) has the mirror issue: it appends the new
-      `[features]`/`[guidance]`/`[skills]` sections comment-less at EOF. Consider
-      dropping a deleted section's leading comment block, or re-emitting the
-      template comments for the sections a step rewrites/adds. Evidence:
-      `src/lib/migrations.ts` (the `from: 3` and `from: 5` steps); target layout
-      is `templates/icculus.toml.tmpl`.
+      `[features]`/`[guidance]`/`[skills]` sections comment-less at EOF.
+      Consider dropping a deleted section's leading comment block, or
+      re-emitting the template comments for the sections a step rewrites/adds.
+      Evidence: `src/lib/migrations.ts` (the `from: 3` and `from: 5` steps);
+      target layout is `templates/icculus.toml.tmpl`.
 
 ## 🟢 Test & tooling hygiene
 

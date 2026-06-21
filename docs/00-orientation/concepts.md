@@ -55,45 +55,50 @@ It is **one self-contained binary** with two faces:
   into the project.
 
 Both faces are the same `icculus` command on `PATH`; an installed project
-carries no engine of its own and needs no Deno at runtime. The seed and Skill
-files an install starts from are **bundled into the binary** (their source lives
-under [`templates/`](../../templates/)) and written out by `init`/`upgrade` —
-there is no committed copy of the harness to keep in sync.
+carries no engine of its own and needs no Deno at runtime. The seed files, the
+built-in Skills, and the built-in guidance an install starts from are **bundled
+into the binary** (their source lives under [`templates/`](../../templates/))
+and written out by `init`/`upgrade` — there is no committed copy of the harness
+to keep in sync. The whole icculus footprint in a project is **one root file,
+`icculus.toml`** ([ADR 0020](../_adr/0020-dissolve-icculus-dir.md)); everything
+else you keep lives at open, config-pointed paths you choose.
 
 The Engine is deliberately **ignorant of your stack**. It runs "the test
 Capability," "the fix-stage work," "the `gate` for this Scope" — names it
-discovers from `.icculus/config.toml`, never commands it knows. A **Capability**
-is one of five known things a project can do (`format` / `build` / `lint` /
-`typecheck` / `test`); the Engine **derives the [Stage](glossary.md#stage)**
-each runs in from its name, so you never write a scheduling keyword. Anything
-outside those five is a **[Check](glossary.md#check)** with an explicit Stage.
-Fill the Capabilities once and the generic Engine becomes your project's gate.
+discovers from `icculus.toml`, never commands it knows. A **Capability** is one
+of five known things a project can do (`format` / `build` / `lint` / `typecheck`
+/ `test`); the Engine **derives the [Stage](glossary.md#stage)** each runs in
+from its name, so you never write a scheduling keyword. Anything outside those
+five is a **[Check](glossary.md#check)** with an explicit Stage. Fill the
+Capabilities once and the generic Engine becomes your project's gate. A separate
+`[features]` table toggles whole subsystems (worktrees, ratchets, guidance,
+skills, docs) on or off — distinct from the Capabilities that wire the gate.
 
 ---
 
 ## How it works, end to end
 
 **1. Install.** `icculus init` reads a few answers and the project brief, then
-lays down only _your_ seed files: a `.icculus/config.toml` with no Capabilities
-wired yet (a green gate you grow into — an omitted capability is simply
-skipped), a guidelines stub, the project brief, a `.icculus/recipes/` README, a
-merged `.claude/settings.json`, and an appended `.gitignore` fragment. It then
-**materializes** the bundled Skills into `.icculus/skills/` (gitignored) and
-symlinks them into `.claude/skills/`. There is no engine and no manifest to
-write — the Engine is in the binary. Files split by **disposition**:
-[yours](glossary.md#your-files--yours) (the committed seeds, written once then
-kept), [the binary's](glossary.md#the-binarys-files) (gitignored artifacts it
-re-publishes, like the Skills), plus the Merged `settings.json`/`.gitignore`.
-The docs tree and `TODO.md` are not scaffolded at install; the
-[`bootstrap`](../../templates/.icculus/skills/bootstrap/SKILL.md) Skill writes
-them on demand afterward.
+lays down only _your_ seed files: an `icculus.toml` with no Capabilities wired
+yet (a green gate you grow into — an omitted capability is simply skipped), the
+project `brief.md` (when non-empty), a merged `.claude/settings.json`, and an
+appended `.gitignore` fragment. It then **materializes** the bundled Skills into
+`.claude/skills/` (gitignored) and compiles the agent guidance. There is no
+engine and no manifest to write — the Engine is in the binary. Files split by
+**disposition**: [yours](glossary.md#your-files--yours) (the committed seeds,
+written once then kept), [the binary's](glossary.md#the-binarys-files)
+(gitignored artifacts it re-publishes, like the materialized Skills), plus the
+Merged `settings.json`/`.gitignore`. The docs tree and `TODO.md` are not
+scaffolded at install; the
+[`bootstrap`](../../templates/skills/bootstrap/SKILL.md) Skill writes them on
+demand afterward.
 
 **2. Fill in the stack.** The
-[`bootstrap`](../../templates/.icculus/skills/bootstrap/SKILL.md) Skill — run by
-the coding agent already in the loop — sniffs the repo and _proposes_ Capability
-fills (formatter, linter, type-checker, tests) and writes the docs tree and
-`TODO.md` from the brief. The Engine stays generic; only `.icculus/config.toml`
-learns the stack.
+[`bootstrap`](../../templates/skills/bootstrap/SKILL.md) Skill — run by the
+coding agent already in the loop — sniffs the repo and _proposes_ Capability
+fills (formatter, linter, type-checker, tests), seeds a starter `guidance.md`,
+and writes the docs tree and `TODO.md` from the brief. The Engine stays generic;
+only `icculus.toml` learns the stack.
 
 **3. Work behind the gate.** Day to day, everything is driven through `icculus`
 verbs:
@@ -113,18 +118,21 @@ verbs:
 **4. Stay current.** When you install a newer `icculus` binary,
 `icculus
 upgrade` brings the _project_ into line with it: it runs any pending
-config-schema **Migration**s, re-materializes the bundled Skills (always
-overwritten — they are the binary's), recompiles the guidance, and re-stamps the
-**Schema version** in `.icculus/config.toml`. Your seed files are left
-untouched. There is nothing to hash and nothing to drift: the engine is in the
-binary, not on disk. This repo proves the loop by running its _own_ engine
-straight from source — `deno task dev finish` — so the gate the maintainer runs
-is the gate that ships, with no second copy to keep in sync.
+config-schema **Migration**s (the `5 → 6` step dissolved `.icculus/` into the
+single root `icculus.toml`), re-materializes the Skills (always overwritten —
+they are the binary's), recompiles the guidance, and re-stamps the **Schema
+version** in `icculus.toml`. Your seed files are left untouched. There is
+nothing to hash and nothing to drift: the engine is in the binary, not on disk.
+This repo proves the loop by running its _own_ engine straight from source —
+`deno task dev
+finish` — so the gate the maintainer runs is the gate that ships,
+with no second copy to keep in sync.
 
-Alongside the runtime path, guidance flows author-once → compile-everywhere: you
-edit one **Guidance source** (`.icculus/guidelines/<slug>.md`) and
-`icculus guidelines` compiles it to each **Compiled agent file** (`CLAUDE.md`,
-`AGENTS.md`), so several agents share one set of instructions.
+Alongside the runtime path, guidance flows author-once → compile-everywhere:
+icculus's built-in harness guidance plus your **Guidance source** (`guidance.md`
+by default) are compiled by `icculus guidelines` into each **Compiled agent
+file** (`AGENTS.md` tracked, `CLAUDE.md`/`GEMINI.md` gitignored), so several
+agents share one set of instructions.
 
 ---
 

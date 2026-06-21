@@ -2,7 +2,7 @@
 
 This directory holds the project's **Architecture Decision Records (ADRs)** — short documents that capture a significant decision, the context that forced it, and the reasoning behind it. An ADR answers the question a future reader will ask: *"why on earth was it done this way?"*
 
-**This file is the canonical ADR format for the project.** Other guidance — the [design principles](../00-orientation/design-principles.md) (whose override mechanism is "write an ADR"), the [`write-adr`](../../.icculus/skills/write-adr/SKILL.md) skill — points here rather than restating the format. There is exactly one home for "how we write ADRs", and it is this page.
+**This file is the canonical ADR format for the project.** Other guidance — the [design principles](../00-orientation/design-principles.md) (whose override mechanism is "write an ADR"), the [`write-adr`](../../.claude/skills/write-adr/SKILL.md) skill — points here rather than restating the format. There is exactly one home for "how we write ADRs", and it is this page.
 
 To start a new ADR, copy [`0000-template.md`](0000-template.md).
 
