@@ -181,9 +181,10 @@ export async function runAddPreset(
         : [...DEFAULTS.agents]) as InitConfig["agents"],
   };
   const tokens = tokensFromConfig(config);
-  // A preset's files overlay exactly like the base templates tree: seed files
-  // are write-once (a changed preset file on re-apply is skipped as a present
-  // seed), and any `.icculus/skills/**` it ships are materialized (overwritten).
+  // A preset's files overlay exactly like the base templates tree: every file is
+  // a write-once seed (a changed preset file on re-apply is skipped as a present
+  // seed). Unlike `init`, a preset's `skills/`/`guidance/` ARE intended overlays,
+  // so they are scaffolded (excludeNonSeed defaults off).
   const plan = await buildPlan({ templatesDir: presetDir, destDir, tokens });
   // preset.json is metadata (config fills), not a scaffolded file.
   plan.ops = plan.ops.filter((op) => op.targetRel !== PRESET_MANIFEST);
@@ -225,7 +226,7 @@ export async function runAddPreset(
     } else {
       renderPlan(log, plan, `Dry run — preset "${name}" would overlay:`);
       if (filledToml !== undefined) {
-        log.info("Would also apply config fills to .icculus/config.toml.");
+        log.info("Would also apply config fills to icculus.toml.");
       }
     }
     return 0;
@@ -234,7 +235,7 @@ export async function runAddPreset(
   if (!options.json) {
     renderReview(log, plan, destDir);
     if (filledToml !== undefined) {
-      log.line("  .icculus/config.toml  apply preset config fills");
+      log.line("  icculus.toml  apply preset config fills");
     }
     log.line();
   }
@@ -260,7 +261,7 @@ export async function runAddPreset(
     log.ok(op.targetRel);
   }
   if (filledToml !== undefined) {
-    log.ok(".icculus/config.toml (config fills applied)");
+    log.ok("icculus.toml (config fills applied)");
   }
   log.ok(`Preset "${name}" applied.`);
   return 0;

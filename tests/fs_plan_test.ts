@@ -3,8 +3,8 @@
  * tests own the behaviours the spec calls out: content + path token
  * substitution, `.tmpl` stripping, exec-bit preservation, settings deep-merge
  * into an existing file, `.gitignore` append idempotency, write-once seed
- * skipping, the always-overwrite materialization of `.icculus/skills/**`, and
- * dry-run-writes-nothing.
+ * skipping, the `excludeNonSeed` skip of the binary's `skills/`/`guidance/`
+ * subtrees, and dry-run-writes-nothing.
  *
  * They use the fixture (not the real templates) so they stay stable while other
  * agents fill the real tree.
@@ -15,7 +15,6 @@ import { join } from "@std/path";
 import {
   applyPlan,
   buildPlan,
-  isMaterialized,
   type Plan,
   planBrief,
 } from "../src/lib/fs_plan.ts";
@@ -28,33 +27,30 @@ import {
   withTempDir,
 } from "./helpers.ts";
 
-/** Build and apply an init plan over the fixture tree into `dir`. */
+/** Build and apply an init-style plan over the fixture tree into `dir` (the
+ * binary's skills/ + guidance/ subtrees excluded, exactly as `init` does). */
 async function scaffold(dir: string): Promise<Plan> {
   const plan = await buildPlan({
     templatesDir: FIXTURE_TEMPLATES,
     destDir: dir,
     tokens: testTokens(),
+    excludeNonSeed: true,
   });
   await applyPlan(plan);
   return plan;
 }
 
-Deno.test("isMaterialized matches only the .icculus/skills/ prefix", () => {
-  assert(isMaterialized(".icculus/skills/foo/SKILL.md"));
-  assert(!isMaterialized(".icculus/guidelines/foo.md"));
-  assert(!isMaterialized(".icculus/config.toml"));
-  assert(!isMaterialized("docs/skills/x.md"));
-});
-
 Deno.test("init substitutes content tokens in *.tmpl files", async () => {
   await withTempDir(async (dir) => {
     await scaffold(dir);
-    const toml = await readTarget(dir, ".icculus/config.toml");
+    const toml = await readTarget(dir, "icculus.toml");
     assertStringIncludes(toml, 'slug = "demo-app"');
     assertStringIncludes(toml, 'branch_prefix = "agent/"');
     assertStringIncludes(toml, 'agents = ["claude_code", "codex"]');
     // The @db@ runtime token (different delimiter) is preserved verbatim.
     assertStringIncludes(toml, 'clone = "createdb @db@"');
+    // An unknown {{token}} is left verbatim (drift probe).
+    assertStringIncludes(toml, 'custom = "{{unknown_token}}"');
   });
 });
 
@@ -62,75 +58,61 @@ Deno.test("init resolves the {{project_slug}} path token and strips .tmpl", asyn
   await withTempDir(async (dir) => {
     await scaffold(dir);
     // Name carried the slug token; both the name token and .tmpl resolve.
-    assert(await targetExists(dir, ".icculus/guidelines/demo-app.md"));
-    assert(
-      !(await targetExists(dir, ".icculus/guidelines/{{project_slug}}.md")),
-    );
-    const body = await readTarget(dir, ".icculus/guidelines/demo-app.md");
-    assertStringIncludes(body, "# Demo App guidelines");
+    assert(await targetExists(dir, "docs/demo-app-guide.md"));
+    assert(!(await targetExists(dir, "docs/{{project_slug}}-guide.md")));
+    const body = await readTarget(dir, "docs/demo-app-guide.md");
+    assertStringIncludes(body, "# Demo App guide");
+    assertStringIncludes(body, "Slug: demo-app");
   });
 });
 
 Deno.test("init strips .tmpl from the config file name", async () => {
   await withTempDir(async (dir) => {
     await scaffold(dir);
-    assert(await targetExists(dir, ".icculus/config.toml"));
-    assert(!(await targetExists(dir, ".icculus/config.toml.tmpl")));
+    assert(await targetExists(dir, "icculus.toml"));
+    assert(!(await targetExists(dir, "icculus.toml.tmpl")));
   });
 });
 
-Deno.test("init preserves the source exec bit (0755 recipe, 0644 lib)", async () => {
+Deno.test("init preserves the source exec bit (0755 hook, 0644 doc)", async () => {
   await withTempDir(async (dir) => {
     await scaffold(dir);
-    assertEquals(await modeOf(dir, "agent"), 0o755);
-    assertEquals(await modeOf(dir, ".icculus/engine/recipe"), 0o755);
-    assertEquals(await modeOf(dir, ".icculus/engine/lib/helper.sh"), 0o644);
-  });
-});
-
-Deno.test("init forces agent and recipes executable even from a non-exec source", async () => {
-  // Regression: the `deno compile` embedded filesystem reports every bundled
-  // file as read-only (0444), which would strip the exec bit the contract files
-  // need. The contract must restore it. We emulate that environment by building
-  // a source tree whose dispatcher/recipe are deliberately 0644.
-  await withTempDir(async (src) => {
-    await Deno.mkdir(join(src, "bin"), { recursive: true });
-    await Deno.mkdir(join(src, ".icculus/engine/lib"), { recursive: true });
-    await Deno.writeTextFile(join(src, "agent"), "#!/bin/sh\necho hi\n");
-    await Deno.writeTextFile(
-      join(src, ".icculus/engine/recipe"),
-      "#!/bin/sh\n",
-    );
-    await Deno.writeTextFile(
-      join(src, ".icculus/engine/lib/helper.sh"),
-      "x() { :; }\n",
-    );
-    await Deno.chmod(join(src, "agent"), 0o644);
-    await Deno.chmod(join(src, ".icculus/engine/recipe"), 0o644);
-    await Deno.chmod(join(src, ".icculus/engine/lib/helper.sh"), 0o644);
-
-    await withTempDir(async (dir) => {
-      const plan = await buildPlan({
-        templatesDir: src,
-        destDir: dir,
-        tokens: testTokens(),
-      });
-      await applyPlan(plan);
-      // Contract files restored to executable; the lib helper stays non-exec.
-      assertEquals(await modeOf(dir, "agent"), 0o755);
-      assertEquals(await modeOf(dir, ".icculus/engine/recipe"), 0o755);
-      assertEquals(await modeOf(dir, ".icculus/engine/lib/helper.sh"), 0o644);
-    });
+    assertEquals(await modeOf(dir, "bin/hook"), 0o755);
+    assertEquals(await modeOf(dir, "docs/00-orientation/concepts.md"), 0o644);
   });
 });
 
 Deno.test("init copies a token-free file verbatim", async () => {
   await withTempDir(async (dir) => {
     await scaffold(dir);
-    const recipe = await readTarget(dir, ".icculus/engine/recipe");
-    assertStringIncludes(recipe, "fixture recipe v1");
+    const doc = await readTarget(dir, "docs/00-orientation/concepts.md");
+    assertStringIncludes(doc, "verbatim SEED");
     // No token machinery touched a verbatim file.
-    assert(!recipe.includes("{{"));
+    assert(!doc.includes("{{"));
+  });
+});
+
+Deno.test("excludeNonSeed skips the binary's skills/ and guidance/ subtrees", async () => {
+  await withTempDir(async (dir) => {
+    // init-style: skills/ + guidance/ are the binary's, materialized/read from
+    // the binary, never seeded.
+    const excluded = await buildPlan({
+      templatesDir: FIXTURE_TEMPLATES,
+      destDir: dir,
+      tokens: testTokens(),
+      excludeNonSeed: true,
+    });
+    assert(!excluded.ops.some((o) => o.targetRel.startsWith("skills/")));
+    assert(!excluded.ops.some((o) => o.targetRel.startsWith("guidance/")));
+
+    // preset-style (default): a preset's skills/ IS an intended overlay.
+    const included = await buildPlan({
+      templatesDir: FIXTURE_TEMPLATES,
+      destDir: dir,
+      tokens: testTokens(),
+    });
+    assert(included.ops.some((o) => o.targetRel === "skills/demo/SKILL.md"));
+    assert(included.ops.some((o) => o.targetRel === "guidance/base.md"));
   });
 });
 
@@ -212,74 +194,26 @@ Deno.test("gitignore append preserves pre-existing content", async () => {
 Deno.test("a seed file already present is skipped, never overwritten", async () => {
   await withTempDir(async (dir) => {
     await scaffold(dir);
-    // Edit a seed (the verbatim recipe is a plain seed now).
-    const recipeAbs = join(dir, ".icculus/engine/recipe");
-    await Deno.writeTextFile(recipeAbs, "my own recipe\n");
+    // Edit a seed (the verbatim doc is a plain seed).
+    const seedAbs = join(dir, "docs/00-orientation/concepts.md");
+    await Deno.writeTextFile(seedAbs, "my own notes\n");
 
     const plan = await buildPlan({
       templatesDir: FIXTURE_TEMPLATES,
       destDir: dir,
       tokens: testTokens(),
+      excludeNonSeed: true,
     });
-    const op = plan.ops.find((o) => o.targetRel === ".icculus/engine/recipe");
+    const op = plan.ops.find((o) =>
+      o.targetRel === "docs/00-orientation/concepts.md"
+    );
     assert(op);
     assertEquals(op.disposition, "skip");
     await applyPlan(plan);
     // The user's edit survived: a present seed is left as-is.
     assertEquals(
-      await readTarget(dir, ".icculus/engine/recipe"),
-      "my own recipe\n",
-    );
-  });
-});
-
-Deno.test("a .icculus/skills/ file is materialized: always (re)written, overwriting an edit", async () => {
-  await withTempDir(async (dir) => {
-    // A minimal templates tree carrying one skill file.
-    const templates = join(dir, "templates");
-    const dest = join(dir, "dest");
-    await Deno.mkdir(join(templates, ".icculus/skills/demo"), {
-      recursive: true,
-    });
-    await Deno.mkdir(dest, { recursive: true });
-    await Deno.writeTextFile(
-      join(templates, ".icculus/skills/demo/SKILL.md"),
-      "kit skill v2\n",
-    );
-
-    // The plan marks the skill `create` (materialized, always written).
-    const first = await buildPlan({
-      templatesDir: templates,
-      destDir: dest,
-      tokens: testTokens(),
-    });
-    const op = first.ops.find((o) =>
-      o.targetRel === ".icculus/skills/demo/SKILL.md"
-    );
-    assert(op);
-    assertEquals(op.disposition, "create");
-    await applyPlan(first);
-
-    // The user edits it; a re-plan still overwrites (it is the binary's).
-    await Deno.writeTextFile(
-      join(dest, ".icculus/skills/demo/SKILL.md"),
-      "user tampered\n",
-    );
-    const second = await buildPlan({
-      templatesDir: templates,
-      destDir: dest,
-      tokens: testTokens(),
-    });
-    const op2 = second.ops.find((o) =>
-      o.targetRel === ".icculus/skills/demo/SKILL.md"
-    );
-    assert(op2);
-    // Materialized → not a `skip`; applying restores the kit's bytes.
-    assertEquals(op2.disposition, "create");
-    await applyPlan(second);
-    assertEquals(
-      await readTarget(dest, ".icculus/skills/demo/SKILL.md"),
-      "kit skill v2\n",
+      await readTarget(dir, "docs/00-orientation/concepts.md"),
+      "my own notes\n",
     );
   });
 });
@@ -291,6 +225,7 @@ Deno.test("dry-run plan writes nothing to disk", async () => {
       templatesDir: FIXTURE_TEMPLATES,
       destDir: dir,
       tokens: testTokens(),
+      excludeNonSeed: true,
     });
     // The directory remains empty.
     const entries = [...Deno.readDirSync(dir)];
@@ -298,15 +233,12 @@ Deno.test("dry-run plan writes nothing to disk", async () => {
   });
 });
 
-Deno.test("brief is a write-once seed: not overwritten on re-run", async () => {
+Deno.test("brief is a write-once seed at root brief.md", async () => {
   await withTempDir(async (dir) => {
     const op1 = await planBrief(dir, "first brief");
-    await Deno.mkdir(join(dir, ".icculus"), { recursive: true });
+    assertEquals(op1.targetRel, "brief.md");
     await Deno.writeFile(op1.targetAbs, op1.bytes);
-    assertStringIncludes(
-      await readTarget(dir, ".icculus/brief.md"),
-      "first brief",
-    );
+    assertStringIncludes(await readTarget(dir, "brief.md"), "first brief");
 
     // A second plan sees the existing brief and marks it skip.
     const op2 = await planBrief(dir, "second brief");

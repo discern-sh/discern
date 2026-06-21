@@ -39,11 +39,10 @@ import {
   WorktreeGitError,
 } from "./git.ts";
 
-// worktree setup recompiles the agent guidance as its final step — materializing
-// the bundled skills and compiling CLAUDE.md/AGENTS.md inside the freshly created
-// worktree (a linked worktree does not inherit the gitignored .icculus/skills/).
+// worktree setup recompiles the agent guidance as its final step — which also
+// materializes skills into .claude/skills/ inside the freshly created worktree (a
+// linked worktree does not inherit that gitignored directory from the main checkout).
 import { compileGuidelines } from "../guidelines.ts";
-import { materializeSkills } from "../../lib/skills.ts";
 
 /** Context shared by every lifecycle operation. */
 export interface LifecycleContext {
@@ -317,15 +316,9 @@ export async function worktreeSetup(ctx: LifecycleContext): Promise<void> {
     }
   }
 
-  // 8. materialize the bundled skills into THIS worktree, then compile the agent
-  // guidelines (which links the skills into .claude/skills/). A linked worktree
-  // does NOT inherit the gitignored .icculus/skills/ from the main checkout, so
-  // it must be materialized here or there would be nothing to link. Non-fatal.
-  try {
-    await materializeSkills(ctx.root);
-  } catch {
-    ctx.log.warn("Skill materialization reported an error — continuing.");
-  }
+  // 8. compile the agent guidelines, which also materializes skills into THIS
+  // worktree's .claude/skills/. A linked worktree does NOT inherit that gitignored
+  // directory from the main checkout, so it must be (re)built here. Non-fatal.
   ctx.log.info("Compiling agent guidelines…");
   try {
     await compileGuidelines(ctx.root, ctx.log);

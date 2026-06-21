@@ -50,9 +50,9 @@ Deno.test("upgrade refuses a tree with uncommitted tracked changes", async () =>
     await initCommittedRepo(dir);
     // Dirty a tracked file.
     await Deno.writeTextFile(
-      join(dir, ".icculus/config.toml"),
+      join(dir, "icculus.toml"),
       `${await Deno.readTextFile(
-        join(dir, ".icculus/config.toml"),
+        join(dir, "icculus.toml"),
       )}\n# local edit\n`,
     );
     const r = await runCli(["upgrade", "--json"], dir);
@@ -61,7 +61,7 @@ Deno.test("upgrade refuses a tree with uncommitted tracked changes", async () =>
     assertEquals(res.ok, false);
     assertEquals(res.error, "dirty_worktree");
     assert(
-      res.changes.some((c: string) => c.includes(".icculus/config.toml")),
+      res.changes.some((c: string) => c.includes("icculus.toml")),
       "the dirty file should be listed",
     );
   });
@@ -71,9 +71,9 @@ Deno.test("upgrade --allow-dirty overrides the guard", async () => {
   await withTempDir(async (dir) => {
     await initCommittedRepo(dir);
     await Deno.writeTextFile(
-      join(dir, ".icculus/config.toml"),
+      join(dir, "icculus.toml"),
       `${await Deno.readTextFile(
-        join(dir, ".icculus/config.toml"),
+        join(dir, "icculus.toml"),
       )}\n# local edit\n`,
     );
     const r = await runCli(["upgrade", "--allow-dirty", "--json"], dir);
@@ -97,9 +97,9 @@ Deno.test("upgrade --check is never blocked by a dirty tree", async () => {
   await withTempDir(async (dir) => {
     await initCommittedRepo(dir);
     await Deno.writeTextFile(
-      join(dir, ".icculus/config.toml"),
+      join(dir, "icculus.toml"),
       `${await Deno.readTextFile(
-        join(dir, ".icculus/config.toml"),
+        join(dir, "icculus.toml"),
       )}\n# local edit\n`,
     );
     // --check writes nothing, so the guard does not apply: it reports sync state.

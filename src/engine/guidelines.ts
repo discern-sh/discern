@@ -1,81 +1,145 @@
 /**
- * The guideline compiler: one single-source-of-truth, agent-agnostic guideline
- * tree (`.icculus/guidelines/*.md`) compiled into many generated agent-specific
- * outputs (CLAUDE.md, AGENTS.md, …). The TS port of the shell `engine/guidelines`
- * recipe — dependency-free plain concatenation, so the same source can never
- * diverge per agent.
+ * The guideline compiler (ADR 0020): assemble icculus's **bundled, feature-aware
+ * built-in harness guidance** plus the project's **own config-pointed sources**
+ * into the generated per-provider agent files (CLAUDE.md, AGENTS.md, GEMINI.md, …).
  *
- * It does two INDEPENDENT jobs, each idempotent and safe to run from anywhere:
- *   1. Concatenate `.icculus/guidelines/*.md` (sorted) into every configured
- *      agent file, per `[project].agents` in `.icculus/config.toml`.
- *   2. Reconcile the `.claude/skills/<skill>` symlinks with `.icculus/skills/` —
- *      linking author-once skills so the agent can discover them, and pruning
- *      links whose skill has been removed — so the two stay in lock-step.
+ * The compiled body is, in order:
+ *   1. icculus's built-in base guidance (always),
+ *   2. a built-in section for each ENABLED feature (a disabled feature's guidance
+ *      is omitted automatically — that is the mechanism behind feature toggles),
+ *   3. the user's `[guidance].sources` (default `guidance.md`, globs allowed),
+ *      appended so they extend the built-ins.
  *
- * Job 2 runs even when job 1 has no sources to compile, so a freshly-scaffolded
- * project still gets discoverable skills.
+ * It writes each provider file named in `[guidance].agents` (falling back to the
+ * pre-migration `[project].agents`). Every output carries a generated banner —
+ * `AGENTS.md` is the one tracked agent file (so guidance changes show in review);
+ * every other mirror is gitignored. Nothing is hand-edited: edit your sources,
+ * or icculus's built-ins, and recompile.
  *
- * No generated-file banner is prepended to the agent files: the guideline
- * source's own opening text carries the edit-the-source-not-the-copies rule, so a
- * banner would only ride along in every agent's context for zero benefit.
+ * Two independent jobs, each gated on its feature and safe to run from anywhere:
+ *   - `features.skills`  → materialize skills into `.claude/skills/` (see lib/skills.ts);
+ *   - `features.guidance`→ compile the agent files described above.
+ * The skills job runs even when guidance is off, so skills stay discoverable.
  */
 
 import { ensureDir } from "@std/fs";
-import { basename, dirname, join } from "@std/path";
+import { dirname, join } from "@std/path";
 import { Config } from "../shared/config_read.ts";
+import { type Feature, isFeatureEnabled } from "../shared/features.ts";
+import { resolveGuidanceSources, resolveTemplatesDir } from "../lib/paths.ts";
+import { materializeSkills } from "../lib/skills.ts";
 import { Logger } from "../lib/log.ts";
 
 /** What a single `compileGuidelines` run accomplished. */
 export interface GuidelinesResult {
   /** Output paths (relative to `root`) written, in agent-config order. */
   agentsWritten: string[];
-  /** Skills (re)linked into `.claude/skills/` in pass 1. */
+  /** Bundled skills copied into `.claude/skills/`. */
+  skillsCopied: number;
+  /** Authored skills symlinked into `.claude/skills/`. */
   skillsLinked: number;
-  /** Dangling skill links pruned from `.claude/skills/` in pass 2. */
+  /** Stale managed skill entries pruned from `.claude/skills/`. */
   skillsPruned: number;
 }
 
 /**
- * Map a `[project].agents` entry to the file path (relative to the project root)
- * `compileGuidelines` writes for it. This is the one table to extend when
- * teaching the harness a new agent product — for example a future Junie:
- * `junie: ".junie/guidelines.md"`. An unknown agent yields `undefined` and is
- * warned about and skipped, never guessed.
+ * Map a `[guidance].agents` entry to the file path (relative to the project root)
+ * `compileGuidelines` writes for it, and whether that file is tracked in git.
+ * This is the one table to extend when teaching the harness a new provider. An
+ * unknown agent yields `undefined` and is warned about and skipped, never guessed.
+ *
+ * Rule: `AGENTS.md` (codex) is the single tracked agent file; every other mirror
+ * is gitignored (see the .gitignore fragment).
  */
-const AGENT_OUTPUT_PATH: Readonly<Record<string, string>> = {
-  claude_code: "CLAUDE.md",
-  codex: "AGENTS.md",
+const AGENT_OUTPUT: Readonly<
+  Record<string, { path: string; tracked: boolean }>
+> = {
+  codex: { path: "AGENTS.md", tracked: true },
+  claude_code: { path: "CLAUDE.md", tracked: false },
+  gemini: { path: "GEMINI.md", tracked: false },
 };
 
 /** The output path for an agent name, or undefined when unmapped. */
 function agentOutputPath(agent: string): string | undefined {
-  return Object.hasOwn(AGENT_OUTPUT_PATH, agent)
-    ? AGENT_OUTPUT_PATH[agent]
+  return Object.hasOwn(AGENT_OUTPUT, agent)
+    ? AGENT_OUTPUT[agent]!.path
     : undefined;
 }
 
-/** The relative symlink target a managed `.claude/skills/<skill>` link holds. */
-function skillLinkTarget(skill: string): string {
-  return `../../.icculus/skills/${skill}`;
+/** Default providers to emit when neither `[guidance].agents` nor the legacy
+ * `[project].agents` is set. */
+const DEFAULT_AGENTS: readonly string[] = ["claude_code", "codex"];
+
+/**
+ * The built-in guidance sections, in compile order. The base section is always
+ * included; every other section is gated on its feature, so disabling a feature
+ * drops its guidance from the compiled output automatically.
+ */
+const BUILTIN_SECTIONS: ReadonlyArray<{ file: string; feature?: Feature }> = [
+  { file: "base.md" },
+  { file: "worktrees.md", feature: "worktrees" },
+  { file: "ratchets.md", feature: "ratchets" },
+  { file: "skills.md", feature: "skills" },
+  { file: "docs.md", feature: "docs" },
+];
+
+/** The generated-file banner prepended to every compiled provider file. */
+function banner(): string {
+  return [
+    "<!-- GENERATED by `icculus guidelines` — do NOT edit this file.",
+    "     It is compiled from icculus's built-in harness guidance plus your",
+    "     [guidance].sources. Edit those (or icculus's built-ins) and recompile. -->",
+    "",
+    "",
+  ].join("\n");
 }
 
-/** Stat a path without following symlinks; undefined when it does not exist. */
-async function lstat(path: string): Promise<Deno.FileInfo | undefined> {
-  try {
-    return await Deno.lstat(path);
-  } catch (err) {
-    if (err instanceof Deno.errors.NotFound) {
-      return undefined;
-    }
-    throw err;
+/** The providers to emit: `[guidance].agents`, else the legacy `[project].agents`,
+ * else the default pair. */
+function guidanceAgents(config: Config): string[] {
+  const guidance = config.array("guidance.agents");
+  if (guidance.length > 0) {
+    return guidance;
   }
+  const legacy = config.array("project.agents");
+  return legacy.length > 0 ? legacy : [...DEFAULT_AGENTS];
 }
 
 /**
- * Compile the guideline blob into the configured agent files and reconcile the
- * skill symlinks. Resolves to a summary of what changed. The worktree lifecycle
- * calls this with the discovered project `root`; the name and signature are a
- * cross-module contract.
+ * Read and concatenate icculus's built-in guidance sections for the enabled
+ * features, in {@link BUILTIN_SECTIONS} order. A missing section file is skipped
+ * defensively (the distribution ships them, but a custom templates tree might not).
+ */
+async function builtinGuidance(config: Config): Promise<string> {
+  const dir = join(await resolveTemplatesDir(), "guidance");
+  let out = "";
+  for (const section of BUILTIN_SECTIONS) {
+    if (section.feature && !isFeatureEnabled(config, section.feature)) {
+      continue;
+    }
+    let text: string;
+    try {
+      text = await Deno.readTextFile(join(dir, section.file));
+    } catch (err) {
+      if (err instanceof Deno.errors.NotFound) {
+        continue;
+      }
+      throw err;
+    }
+    out += text;
+    if (!out.endsWith("\n")) {
+      out += "\n";
+    }
+    out += "\n";
+  }
+  return out;
+}
+
+/**
+ * Compile the agent files from the built-in guidance + the project's sources, and
+ * materialize skills. Each job is gated on its feature. Resolves to a summary of
+ * what changed. The worktree lifecycle and `upgrade` call this with the discovered
+ * project `root`; the name and signature are a cross-module contract.
  */
 export async function compileGuidelines(
   root: string,
@@ -88,197 +152,76 @@ export async function compileGuidelines(
   const log = logger ??
     new Logger({ json: false, noColor: false, humanStream: "stdout" });
 
-  const sourcesDir = join(root, ".icculus/guidelines");
-  const skillsDir = join(root, ".icculus/skills");
-  const claudeSkillsDir = join(root, ".claude/skills");
+  const config = await Config.load(root);
 
-  // --- job 1: compile the guideline blob into agent files (best-effort) -----
-  //
-  // Collect the guideline sources, compile them into one blob, and write that to
-  // each configured agent file. A missing dir or empty source set is NOT fatal:
-  // it warns and skips, so job 2 (skill links) below still runs.
+  // --- job 1: materialize skills into .claude/skills/ (gated) ----------------
+  let skills = { copied: 0, linked: 0, pruned: 0 };
+  if (isFeatureEnabled(config, "skills")) {
+    skills = await materializeSkills(root, config, log);
+  }
+
+  // --- job 2: compile the agent files (gated) --------------------------------
   const agentsWritten: string[] = [];
+  if (!isFeatureEnabled(config, "guidance")) {
+    log.info("guidance feature is off — no agent files compiled.");
+    return summarize(agentsWritten, skills, log, /*guidanceOff*/ true);
+  }
 
-  const sources = await collectSources(sourcesDir);
-  if (sources.length === 0) {
-    log.warn(
-      `guidelines: no sources in ${sourcesDir}/*.md — skipping agent-file compilation.`,
-    );
-  } else {
-    // Concatenate the sorted sources, each followed by a newline (matching the
-    // shell's `cat "$_src" >> …; printf '\n'`).
-    let compiled = "";
-    for (const src of sources) {
-      compiled += await Deno.readTextFile(src);
-      compiled += "\n";
-    }
+  let body = await builtinGuidance(config);
+  const sources = await resolveGuidanceSources(root, config);
+  for (const src of sources) {
+    body += await Deno.readTextFile(src);
+    body += "\n";
+  }
+  const compiled = banner() + body;
 
-    const config = await Config.load(root);
-    for (const agent of config.array("project.agents")) {
-      const rel = agentOutputPath(agent);
-      if (rel === undefined) {
-        log.warn(
-          `guidelines: unknown agent '${agent}' in [project].agents — skipping (no output mapping).`,
-        );
-        continue;
-      }
-      const out = join(root, rel);
-      // Create the parent directory for nested targets (e.g. .junie/guidelines.md).
-      await ensureDir(dirname(out));
-      await Deno.writeTextFile(out, compiled);
-      // A generated file should be readable like any other source (mode 0644).
-      await Deno.chmod(out, 0o644);
-      agentsWritten.push(rel);
-    }
-
-    if (agentsWritten.length === 0) {
+  for (const agent of guidanceAgents(config)) {
+    const rel = agentOutputPath(agent);
+    if (rel === undefined) {
       log.warn(
-        'guidelines: no known agents in [project].agents — compiled nothing. Set agents = ["claude_code", …].',
-      );
-    }
-  }
-
-  // --- job 2: reconcile skill symlinks (always) -----------------------------
-  //
-  // Mirror `.icculus/skills/<skill>` into `.claude/skills/<skill>` so author-once
-  // skills are discoverable by the agent. A reconcile, not just an add: pass 1
-  // links every live skill, pass 2 prunes links whose skill is gone. Runs
-  // unconditionally — independent of job 1 — so a project with no guideline
-  // sources still gets discoverable skills.
-  const skillsLinked = await linkSkills(skillsDir, claudeSkillsDir, log);
-  const skillsPruned = await pruneSkillLinks(skillsDir, claudeSkillsDir);
-
-  // --- summary --------------------------------------------------------------
-  const writtenList = agentsWritten.length > 0
-    ? agentsWritten.join(",")
-    : "(none)";
-  log.ok(
-    `guidelines: compiled ${sources.length} source(s) into ${agentsWritten.length} agent file(s): ${writtenList}`,
-  );
-  log.info(
-    skillsPruned > 0
-      ? `skills linked into .claude/skills/: ${skillsLinked} (pruned ${skillsPruned} stale)`
-      : `skills linked into .claude/skills/: ${skillsLinked}`,
-  );
-
-  return { agentsWritten, skillsLinked, skillsPruned };
-}
-
-/**
- * Collect the guideline source files (`*.md`) under `sourcesDir`, sorted by path.
- * A missing directory yields an empty list (the caller warns and skips). Sorting
- * keeps the concatenation order stable regardless of directory-read order.
- */
-async function collectSources(sourcesDir: string): Promise<string[]> {
-  const sources: string[] = [];
-  // NotFound surfaces during iteration (Deno.readDir is lazy), so the try must
-  // wrap the for-await, not the readDir call.
-  try {
-    for await (const entry of Deno.readDir(sourcesDir)) {
-      if (entry.isFile && entry.name.endsWith(".md")) {
-        sources.push(join(sourcesDir, entry.name));
-      }
-    }
-  } catch (err) {
-    if (err instanceof Deno.errors.NotFound) {
-      return [];
-    }
-    throw err;
-  }
-  sources.sort();
-  return sources;
-}
-
-/**
- * Pass 1 — link every live skill. For each directory under `.icculus/skills/`,
- * (re)create the symlink `.claude/skills/<skill>` → `../../.icculus/skills/<skill>`.
- * Idempotent: an existing symlink is removed first, so a renamed or retargeted
- * skill is corrected. A non-symlink at the target (a real file or directory a
- * user dropped there) is left untouched and warned about, so we never clobber it.
- * Returns the count of links (re)created.
- */
-async function linkSkills(
-  skillsDir: string,
-  claudeSkillsDir: string,
-  log: Logger,
-): Promise<number> {
-  let linked = 0;
-  // Collect first, so `.claude/skills/` is created only when there is a skill to
-  // link (matching the shell, which guards the mkdir on the source dir existing).
-  // NotFound surfaces during iteration, so the try wraps the for-await.
-  const skills: string[] = [];
-  try {
-    for await (const entry of Deno.readDir(skillsDir)) {
-      if (entry.isDirectory) {
-        skills.push(entry.name);
-      }
-    }
-  } catch (err) {
-    if (err instanceof Deno.errors.NotFound) {
-      return 0;
-    }
-    throw err;
-  }
-  if (skills.length === 0) {
-    return 0;
-  }
-
-  await ensureDir(claudeSkillsDir);
-  for (const skill of skills) {
-    const link = join(claudeSkillsDir, skill);
-    const info = await lstat(link);
-    if (info !== undefined && !info.isSymlink) {
-      log.warn(
-        `guidelines: ${link} exists and is not a symlink — leaving it alone.`,
+        `guidelines: unknown agent '${agent}' in [guidance].agents — skipping (no output mapping).`,
       );
       continue;
     }
-    // Remove any existing symlink first so the target is always refreshed.
-    if (info !== undefined) {
-      await Deno.remove(link);
-    }
-    // Relative target keeps the link valid if the project tree is moved.
-    await Deno.symlink(skillLinkTarget(skill), link);
-    linked++;
+    const out = join(root, rel);
+    await ensureDir(dirname(out));
+    await Deno.writeTextFile(out, compiled);
+    // A generated file should be readable like any other source (mode 0644).
+    await Deno.chmod(out, 0o644);
+    agentsWritten.push(rel);
   }
-  return linked;
+
+  if (agentsWritten.length === 0) {
+    log.warn(
+      'guidelines: no known providers in [guidance].agents — compiled nothing. Set agents = ["claude_code", …].',
+    );
+  } else {
+    log.ok(
+      `guidelines: compiled ${sources.length} source(s) + built-in guidance into ${agentsWritten.length} agent file(s): ${
+        agentsWritten.join(",")
+      }`,
+    );
+  }
+  return summarize(agentsWritten, skills, log, false);
 }
 
-/**
- * Pass 2 — prune stale links. A skill removed from `.icculus/skills/` leaves its
- * `.claude/skills/<skill>` symlink behind, now dangling. Remove every symlink we
- * created (target = the exact relative path we write) whose source skill is gone.
- * Matching that exact target is what makes pruning safe: a real file/dir, or a
- * user's own symlink pointing elsewhere, never matches and is left alone —
- * silently, since a link that is not ours is not a conflict to report. Returns
- * the count pruned.
- */
-async function pruneSkillLinks(
-  skillsDir: string,
-  claudeSkillsDir: string,
-): Promise<number> {
-  let pruned = 0;
-  // NotFound surfaces during iteration, so the try wraps the for-await.
-  try {
-    for await (const entry of Deno.readDir(claudeSkillsDir)) {
-      if (!entry.isSymlink) {
-        continue;
-      }
-      const skill = basename(entry.name);
-      if ((await lstat(join(skillsDir, skill)))?.isDirectory) {
-        continue;
-      }
-      const link = join(claudeSkillsDir, skill);
-      if (await Deno.readLink(link) === skillLinkTarget(skill)) {
-        await Deno.remove(link);
-        pruned++;
-      }
-    }
-  } catch (err) {
-    if (err instanceof Deno.errors.NotFound) {
-      return 0;
-    }
-    throw err;
+/** Build the result and emit the skill summary line. */
+function summarize(
+  agentsWritten: string[],
+  skills: { copied: number; linked: number; pruned: number },
+  log: Logger,
+  guidanceOff: boolean,
+): GuidelinesResult {
+  if (!guidanceOff || skills.copied + skills.linked > 0) {
+    log.info(
+      `skills in .claude/skills/: ${skills.copied} bundled, ${skills.linked} authored` +
+        (skills.pruned > 0 ? ` (pruned ${skills.pruned} stale)` : ""),
+    );
   }
-  return pruned;
+  return {
+    agentsWritten,
+    skillsCopied: skills.copied,
+    skillsLinked: skills.linked,
+    skillsPruned: skills.pruned,
+  };
 }

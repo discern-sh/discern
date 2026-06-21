@@ -1,3 +1,0 @@
-#!/usr/bin/env sh
-# Fixture managed recipe: verbatim, executable (0755), refreshed by upgrade.
-echo "fixture recipe v1"

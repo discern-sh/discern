@@ -9,12 +9,19 @@
  */
 
 import { join } from "@std/path";
-import { resolveConfigPath } from "../lib/paths.ts";
+import {
+  resolveConfigPath,
+  resolveGuidanceSources,
+  resolveRecipesDir,
+  resolveSkillsDir,
+} from "../lib/paths.ts";
+import { CONFIG_REL } from "../shared/env.ts";
 import { Logger } from "../lib/log.ts";
 import { parseIcculusToml } from "../lib/toml_render.ts";
 import { resolveRecordedSchema } from "../lib/schema.ts";
 import { KIT_VERSION, SCHEMA_VERSION } from "../lib/version.ts";
 import { Config } from "../shared/config_read.ts";
+import { isFeatureEnabled } from "../shared/features.ts";
 import { isKnownCapability } from "../shared/capabilities.ts";
 
 /** Options accepted by the `doctor` command. */
@@ -60,30 +67,30 @@ async function commandResolves(word: string): Promise<boolean> {
 export async function runChecks(destDir: string): Promise<Check[]> {
   const checks: Check[] = [];
 
-  // 1. the config (.icculus/config.toml, or a legacy icculus.toml) exists and parses.
+  // 1. the config (icculus.toml, or a legacy .icculus/config.toml) exists and parses.
   const tomlPath = (await resolveConfigPath(destDir)) ??
-    join(destDir, ".icculus/config.toml");
+    join(destDir, CONFIG_REL);
   let toml: ReturnType<typeof parseIcculusToml> | undefined;
   let tomlText: string | undefined;
   try {
     tomlText = await Deno.readTextFile(tomlPath);
     toml = parseIcculusToml(tomlText);
     checks.push({
-      name: ".icculus/config.toml",
+      name: "icculus.toml",
       ok: true,
       detail: "present and valid TOML",
     });
   } catch (error) {
     const isMissing = error instanceof Deno.errors.NotFound;
     checks.push({
-      name: ".icculus/config.toml",
+      name: "icculus.toml",
       ok: false,
       detail: isMissing
         ? "not found in this directory"
         : `invalid: ${error instanceof Error ? error.message : String(error)}`,
       fix: isMissing
         ? "run `icculus init` to scaffold the harness here"
-        : "fix the TOML syntax in .icculus/config.toml",
+        : "fix the TOML syntax in icculus.toml",
     });
     // Without a parseable config the remaining checks have nothing to read.
     return checks;
@@ -137,7 +144,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
       detail: `could not read capabilities: ${
         error instanceof Error ? error.message : String(error)
       }`,
-      fix: "fix the [capabilities] table in .icculus/config.toml",
+      fix: "fix the [capabilities] table in icculus.toml",
     });
   }
 
@@ -197,10 +204,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
   // recipe, so it is skipped.
   try {
     const cfg = new Config(tomlText);
-    const recipesDir = join(
-      destDir,
-      cfg.get("recipes.dir", ".icculus/recipes"),
-    );
+    const { abs: recipesDir } = resolveRecipesDir(destDir, cfg);
     const offenders: string[] = [];
     let scanned = 0;
     try {
@@ -236,7 +240,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
           offenders.join(", ")
         }`,
         fix:
-          "recipes are standalone executables now — read config with `icculus config get` instead of sourcing `$ICCULUS_LIB/bootstrap.sh` (see .icculus/recipes/README.md)",
+          "recipes are standalone executables now — read config with `icculus config get` instead of sourcing `$ICCULUS_LIB/bootstrap.sh`",
       });
     }
   } catch {
@@ -257,44 +261,89 @@ export async function runChecks(destDir: string): Promise<Check[]> {
     });
   }
 
-  // 7. worktree-automation layering (advisory). If .claude/settings.json carries
+  // 7. guidance/skills config resolves — if [guidance].sources or [skills].dir is
+  // configured, report what it resolves to. Both are present-only (an absent
+  // match/dir is fine), so this is informational: it surfaces a typo'd path
+  // before the user wonders why their guidance/skills aren't picked up.
+  try {
+    const cfg = new Config(tomlText);
+    if (isFeatureEnabled(cfg, "guidance")) {
+      const sources = await resolveGuidanceSources(destDir, cfg);
+      checks.push({
+        name: "guidance sources",
+        ok: true,
+        detail: sources.length === 0
+          ? "no source files match [guidance].sources yet (built-in guidance still compiles)"
+          : `${sources.length} source file(s) resolve`,
+      });
+    }
+    if (isFeatureEnabled(cfg, "skills")) {
+      const { rel, abs } = resolveSkillsDir(destDir, cfg);
+      let authored = 0;
+      try {
+        for await (const e of Deno.readDir(abs)) {
+          if (e.isDirectory) authored++;
+        }
+      } catch { /* absent dir — fine, built-ins still apply */ }
+      checks.push({
+        name: "skills",
+        ok: true,
+        detail: authored === 0
+          ? `no authored skills in ${rel}/ yet (built-ins still apply)`
+          : `${authored} authored skill(s) in ${rel}/`,
+      });
+    }
+  } catch {
+    // a config read failure was already reported above.
+  }
+
+  // 8. worktree-automation layering (advisory). If .claude/settings.json carries
   // a worktree-lifecycle hook whose command does not invoke the harness CLI, a
   // different tool also automates worktrees here and would double setup/teardown.
   // Advisory only (a warn, still healthy): the install is fine, but the operator
   // should reconcile the hooks. "Ours" = the command calls `icculus` (an install)
-  // or `deno task dev` (this repo self-hosting from source).
+  // or `deno task dev` (this repo self-hosting from source). Skipped when the
+  // worktrees feature is off (the hooks are inert / not icculus's concern).
+  let worktreesOn = true;
   try {
-    const raw = await Deno.readTextFile(join(destDir, ".claude/settings.json"));
-    const settings = JSON.parse(raw) as {
-      hooks?: Record<
-        string,
-        Array<{ hooks?: Array<{ command?: unknown }> }> | undefined
-      >;
-    };
-    const groups = settings.hooks ?? {};
-    const foreign = [
-      ...(groups.WorktreeCreate ?? []),
-      ...(groups.WorktreeRemove ?? []),
-      ...(groups.SessionStart ?? []),
-    ]
-      .flatMap((g) => g.hooks ?? [])
-      .map((h) => (typeof h.command === "string" ? h.command : ""))
-      .filter((c) => /worktree/i.test(c))
-      .filter((c) => !c.includes("icculus") && !c.includes("deno task dev"));
-    if (foreign.length > 0) {
-      checks.push({
-        name: "worktree automation",
-        ok: true,
-        warn: true,
-        detail:
-          "another tool also automates worktrees in .claude/settings.json (a worktree hook does not call `icculus`)",
-        fix:
-          "reconcile the hooks by hand so worktree setup/teardown isn't doubled",
-      });
+    worktreesOn = isFeatureEnabled(new Config(tomlText), "worktrees");
+  } catch { /* reported above */ }
+  if (worktreesOn) {
+    try {
+      const raw = await Deno.readTextFile(
+        join(destDir, ".claude/settings.json"),
+      );
+      const settings = JSON.parse(raw) as {
+        hooks?: Record<
+          string,
+          Array<{ hooks?: Array<{ command?: unknown }> }> | undefined
+        >;
+      };
+      const groups = settings.hooks ?? {};
+      const foreign = [
+        ...(groups.WorktreeCreate ?? []),
+        ...(groups.WorktreeRemove ?? []),
+        ...(groups.SessionStart ?? []),
+      ]
+        .flatMap((g) => g.hooks ?? [])
+        .map((h) => (typeof h.command === "string" ? h.command : ""))
+        .filter((c) => /worktree/i.test(c))
+        .filter((c) => !c.includes("icculus") && !c.includes("deno task dev"));
+      if (foreign.length > 0) {
+        checks.push({
+          name: "worktree automation",
+          ok: true,
+          warn: true,
+          detail:
+            "another tool also automates worktrees in .claude/settings.json (a worktree hook does not call `icculus`)",
+          fix:
+            "reconcile the hooks by hand so worktree setup/teardown isn't doubled",
+        });
+      }
+    } catch {
+      // No settings.json, a malformed one, or unreadable: this advisory is
+      // best-effort, so skip it silently (install validity is checked above).
     }
-  } catch {
-    // No settings.json, a malformed one, or unreadable: this advisory is
-    // best-effort, so skip it silently (install validity is checked above).
   }
 
   return checks;

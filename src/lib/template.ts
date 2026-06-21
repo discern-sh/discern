@@ -84,30 +84,6 @@ export function isSettingsTemplate(path: string): boolean {
 }
 
 /**
- * True when a *target* path must end up executable as part of the harness
- * contract: the root dispatcher `agent` and the top-level engine recipes (the
- * files `agent` invokes). The engine's `lib/` sources and `*.awk` data are
- * deliberately not executable.
- *
- * This is OR'd with the source file's own exec bit so the bit survives even when
- * the source mode is unreliable — notably the `deno compile` embedded
- * filesystem, which flattens every bundled file to read-only and would
- * otherwise strip the bit the recipes need.
- */
-export function isContractExecutable(targetRelPath: string): boolean {
-  const path = targetRelPath.replaceAll("\\", "/");
-  if (path === "agent") {
-    return true;
-  }
-  // A top-level engine recipe: directly under .icculus/engine/, not in lib/.
-  if (path.startsWith(".icculus/engine/")) {
-    const rest = path.slice(".icculus/engine/".length);
-    return !rest.includes("/");
-  }
-  return false;
-}
-
-/**
  * Turn a template-relative path into its scaffolded target path: substitute the
  * single path token (`{{project_slug}}`) and strip a trailing `.tmpl`.
  * Path tokens never carry drift — only `project_slug` is permitted in a name —

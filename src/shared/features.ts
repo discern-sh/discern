@@ -49,3 +49,23 @@ export function isFeatureEnabled(config: Config, name: Feature): boolean {
 export function enabledFeatures(config: Config): Feature[] {
   return FEATURES.filter((f) => isFeatureEnabled(config, f));
 }
+
+/**
+ * The feature that owns a top-level verb, or undefined for a core verb (always
+ * available). `worktree:<sub>` is normalised to `worktree` before this is called.
+ * Used by the CLI router to give a clear "feature disabled" error instead of an
+ * "unknown recipe" fallthrough.
+ */
+const VERB_FEATURE: Readonly<Record<string, Feature>> = {
+  worktree: "worktrees",
+  "worktree-name": "worktrees",
+  ratchets: "ratchets",
+  guidelines: "guidance",
+  skills: "skills",
+  docs: "docs",
+};
+
+/** The feature owning `verb`, or undefined when `verb` is a core verb. */
+export function featureForVerb(verb: string): Feature | undefined {
+  return Object.hasOwn(VERB_FEATURE, verb) ? VERB_FEATURE[verb] : undefined;
+}

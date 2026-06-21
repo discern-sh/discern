@@ -4,38 +4,32 @@
  * The managed-file/hash machinery is gone (there is no committed engine to keep
  * in sync — the engine lives in the binary). What remains is narrow and additive:
  *
- *   1. run any pending config-schema migrations (ADR 0014);
- *   2. re-materialize the bundled skills into `.icculus/skills/` (always
- *      overwritten — they are the binary's artifact, not the user's);
- *   3. recompile the guidelines (which also reconciles the `.claude/skills/`
- *      symlinks against the freshly materialized skills);
- *   4. stamp the new `[meta].schema_version` into the config.
+ *   1. run any pending config-schema migrations (ADR 0014/0020);
+ *   2. recompile the guidelines — which re-materializes the bundled skills into
+ *      `.claude/skills/` and writes the per-provider agent files (each gated on
+ *      its feature);
+ *   3. stamp the new `[meta].schema_version` into the config.
  *
- * Seed files (`.icculus/config.toml`, guidelines, brief, …) are never touched.
- * The clean-tree git guard keeps the upgrade revertible.
+ * Your files (`icculus.toml`, guidance sources, authored skills, recipes) are
+ * never touched. The clean-tree git guard keeps the upgrade revertible.
  */
 
 import { Logger } from "../lib/log.ts";
 import { worktreeState } from "../lib/git.ts";
-import { resolveConfigPath, resolveTemplatesDir } from "../lib/paths.ts";
+import { resolveConfigPath } from "../lib/paths.ts";
 import { parseIcculusToml } from "../lib/toml_render.ts";
-import { DEFAULTS, type InitConfig, tokensFromConfig } from "../lib/config.ts";
 import { KIT_VERSION, SCHEMA_VERSION } from "../lib/version.ts";
 import { resolveRecordedSchema, stampSchemaVersion } from "../lib/schema.ts";
 import { TomlEditor } from "../lib/toml_edit.ts";
-import {
-  applyPlan,
-  buildPlan,
-  isMaterialized,
-  type Plan,
-  type PlanOp,
-} from "../lib/fs_plan.ts";
 import {
   applyMigrations,
   type Migration,
   pendingMigrations,
 } from "../lib/migrations.ts";
-import { compileGuidelines } from "../engine/guidelines.ts";
+import {
+  compileGuidelines,
+  type GuidelinesResult,
+} from "../engine/guidelines.ts";
 
 /** Options accepted by the `upgrade` command. */
 export interface UpgradeOptions {
@@ -66,56 +60,14 @@ async function readTextIfExists(path: string): Promise<string | undefined> {
   }
 }
 
-/**
- * Reconstruct the content tokens an upgrade needs from the project's existing
- * `.icculus/config.toml`. Materialized skills are token-free, so the only path
- * token that matters is the slug; content tokens are filled from config with
- * documented defaults so any stray token still resolves consistently.
- */
-function tokensForUpgrade(
-  toml: ReturnType<typeof parseIcculusToml>,
-): InitConfig {
-  return {
-    projectName: toml.project.slug ?? "app",
-    slug: toml.project.slug ?? "app",
-    branchPrefix: toml.project.branch_prefix ?? DEFAULTS.branchPrefix,
-    sourceGlobs: [...DEFAULTS.sourceGlobs],
-    brief: "",
-    agents:
-      (toml.project.agents && toml.project.agents.length > 0
-        ? toml.project.agents
-        : [...DEFAULTS.agents]) as InitConfig["agents"],
-  };
-}
-
-/**
- * Build the materialization plan: the full templates walk filtered to the
- * always-overwritten `.icculus/skills/**` artifacts. Seed files are deliberately
- * excluded — `upgrade` refreshes the binary's artifacts, it never re-scaffolds
- * the user's seeds.
- */
-async function buildSkillsPlan(
-  templatesDir: string,
-  destDir: string,
-  config: InitConfig,
-): Promise<Plan> {
-  const plan = await buildPlan({
-    templatesDir,
-    destDir,
-    tokens: tokensFromConfig(config),
-  });
-  plan.ops = plan.ops.filter((op) => isMaterialized(op.targetRel));
-  return plan;
-}
-
 /** Run `icculus upgrade`. Returns a process exit code. */
 export async function runUpgrade(options: UpgradeOptions): Promise<number> {
   const log = new Logger(options);
   const destDir = Deno.cwd();
 
   // Must be inside an initialized project. Detect either layout so a
-  // pre-migration install (legacy root `icculus.toml`) is recognised and
-  // carried forward by the migration chain below.
+  // pre-6 install (legacy `.icculus/config.toml`) is recognised and carried
+  // forward by the migration chain below.
   const configPath = await resolveConfigPath(destDir);
   const tomlText = configPath === undefined
     ? undefined
@@ -143,21 +95,6 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     }
     return 1;
   }
-
-  let templatesDir: string;
-  try {
-    templatesDir = await resolveTemplatesDir();
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (options.json) {
-      log.jsonResult({ ok: false, error: "templates_not_found", message });
-    } else {
-      log.error(message);
-    }
-    return 1;
-  }
-
-  const config = tokensForUpgrade(toml);
 
   // The migration chain to run: every step from the install's recorded schema
   // (read from `[meta].schema_version`, falling back to a legacy manifest or
@@ -201,13 +138,11 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
   }
 
   if (options.dryRun) {
-    const skillsPlan = await buildSkillsPlan(templatesDir, destDir, config);
     if (options.json) {
       log.jsonResult({
         ok: true,
         dry_run: true,
         pending_migrations: pendingJson,
-        skills: skillsPlan.ops.map((op) => op.targetRel),
       });
     } else {
       if (pending.length > 0) {
@@ -218,7 +153,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
         log.line();
       }
       log.info(
-        `Would re-materialize ${skillsPlan.ops.length} skill file(s) and recompile guidelines.`,
+        "Would recompile the agent guidance and re-materialize the bundled skills.",
       );
       log.line();
       log.info("No files were written (--dry-run).");
@@ -261,8 +196,8 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     }
   }
 
-  // 1. Run the migration chain. Steps are idempotent; the final one prunes any
-  // pre-existing on-disk shell engine.
+  // 1. Run the migration chain. Steps are idempotent; for a pre-6 install the
+  // schema 5→6 step dissolves `.icculus/` into the new single-file layout.
   const applied = await applyMigrations({
     destDir,
     from: migrateFrom,
@@ -271,21 +206,16 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     onNote: (m) => log.detail(m),
   });
 
-  // 2. Re-materialize the bundled skills (always overwritten).
-  const skillsPlan = await buildSkillsPlan(templatesDir, destDir, config);
-  const materialized = await applyPlan(skillsPlan);
-
-  // 3. Recompile guidelines (also reconciles the .claude/skills/ symlinks). A
-  // failure here is non-fatal to the upgrade — the schema is still stamped — but
-  // it is reported.
-  let guidelinesOk = true;
+  // 2. Recompile the guidelines (re-materializes skills + writes agent files,
+  // each gated on its feature). A failure here is non-fatal to the upgrade — the
+  // schema is still stamped — but it is reported.
+  let guidelines: GuidelinesResult | undefined;
   try {
     // Pass upgrade's own logger so its narration follows upgrade's stream
     // discipline (suppressed in --json, stderr in human mode) — never polluting
     // the stdout JSON object.
-    await compileGuidelines(destDir, log);
+    guidelines = await compileGuidelines(destDir, log);
   } catch (error) {
-    guidelinesOk = false;
     log.warn(
       `could not recompile guidelines: ${
         error instanceof Error ? error.message : String(error)
@@ -293,8 +223,10 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     );
   }
 
-  // 4. Stamp the new schema version into the config.
-  await stampSchema(configPath!, SCHEMA_VERSION);
+  // 3. Stamp the new schema version into the config (now at its migrated path).
+  // `configPath` is defined here — `tomlText` was read from it above.
+  const newConfigPath = (await resolveConfigPath(destDir)) ?? configPath!;
+  await stampSchema(newConfigPath, SCHEMA_VERSION);
 
   if (options.json) {
     log.jsonResult({
@@ -308,8 +240,13 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
         to: m.from + 1,
         describe: m.describe,
       })),
-      skills_materialized: materialized.map((op) => op.targetRel),
-      guidelines_compiled: guidelinesOk,
+      skills: guidelines === undefined ? null : {
+        copied: guidelines.skillsCopied,
+        linked: guidelines.skillsLinked,
+        pruned: guidelines.skillsPruned,
+      },
+      agents_written: guidelines?.agentsWritten ?? [],
+      guidelines_compiled: guidelines !== undefined,
     });
     return 0;
   }
@@ -320,7 +257,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
       log.detail(`${m.from}→${m.from + 1}: ${m.describe}`);
     }
   }
-  renderUpgradeSummary(log, materialized, applied.length, guidelinesOk);
+  renderUpgradeSummary(log, guidelines, applied.length);
   return 0;
 }
 
@@ -330,17 +267,24 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
  */
 function renderUpgradeSummary(
   log: Logger,
-  materialized: PlanOp[],
+  guidelines: GuidelinesResult | undefined,
   migrationCount: number,
-  guidelinesOk: boolean,
 ): void {
   log.heading("Upgrade summary");
   if (migrationCount > 0) {
     log.info(`migrations applied: ${migrationCount}`);
   }
-  log.ok(`skills re-materialized: ${materialized.length}`);
-  if (guidelinesOk) {
-    log.ok("guidelines recompiled");
+  if (guidelines !== undefined) {
+    log.ok(
+      `skills re-materialized: ${
+        guidelines.skillsCopied + guidelines.skillsLinked
+      } (${guidelines.skillsCopied} bundled, ${guidelines.skillsLinked} authored)`,
+    );
+    log.ok(
+      guidelines.agentsWritten.length > 0
+        ? `guidelines recompiled: ${guidelines.agentsWritten.join(", ")}`
+        : "guidelines: nothing to compile",
+    );
   }
   log.ok(`install stamped at schema ${SCHEMA_VERSION}`);
   // R6: keep the two upgrade axes distinct — `icculus upgrade` refreshed THIS

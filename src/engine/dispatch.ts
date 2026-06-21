@@ -18,7 +18,10 @@ import {
   installedConfigRel,
   recipeEnvVars,
 } from "../shared/env.ts";
-import { resolveRecipesDir } from "../lib/paths.ts";
+import type { Feature } from "../shared/features.ts";
+import { resolveConfigPath, resolveRecipesDir } from "../lib/paths.ts";
+import { ejectSkill, listSkills, materializeSkills } from "../lib/skills.ts";
+import { TomlEditor } from "../lib/toml_edit.ts";
 import { Logger } from "../lib/log.ts";
 import { runFinish } from "./gate/finish.ts";
 import { runTidy } from "./gate/tidy.ts";
@@ -42,7 +45,9 @@ import { inheritMainEnvVars, removeWorktreeSafely } from "./worktree/git.ts";
 import { gotchasHint } from "./gate/gotchas.ts";
 import { colorEnabled } from "./output.ts";
 
-/** The top-level engine verbs Cliffy owns (everything else → recipe fallthrough). */
+/** The top-level engine verbs Cliffy owns (everything else → recipe fallthrough).
+ * This is the full set the engine *could* own; feature-gating decides which are
+ * attached for a given project (a disabled one errors with "feature disabled"). */
 export const KNOWN_ENGINE_VERBS: ReadonlySet<string> = new Set([
   "finish",
   "tidy",
@@ -52,6 +57,7 @@ export const KNOWN_ENGINE_VERBS: ReadonlySet<string> = new Set([
   "changed-scopes",
   "worktree",
   "worktree-name",
+  "skills",
 ]);
 
 /** Hyphenated engine recipe names + their displayed (colon) form, for the suggester. */
@@ -127,8 +133,14 @@ async function runWorktreeOp(
   }
 }
 
-/** Attach the engine task-runner verbs to the `icculus` root command. */
-export function attachEngineCommands(root: Command): void {
+/** Attach the engine task-runner verbs to the `icculus` root command. Optional
+ * subsystem verbs are attached only when their feature is enabled, so `--help`
+ * lists exactly the active verbs (a disabled verb errors via the main router). */
+export function attachEngineCommands(
+  root: Command,
+  enabled: ReadonlySet<Feature>,
+): void {
+  // Core gate verbs — always on.
   root
     .command("finish")
     .description("The full quality gate — run before calling work done.")
@@ -153,25 +165,33 @@ export function attachEngineCommands(root: Command): void {
       Deno.exit(await runTestCapability(await requireRoot()));
     });
 
-  root
-    .command("ratchets")
-    .description(
-      "Hold every metric ratchet (slow; on demand, not part of finish).",
-    )
-    .action(async () => {
-      Deno.exit(await runRatchets(await requireRoot()));
-    });
+  if (enabled.has("ratchets")) {
+    root
+      .command("ratchets")
+      .description(
+        "Hold every metric ratchet (slow; on demand, not part of finish).",
+      )
+      .action(async () => {
+        Deno.exit(await runRatchets(await requireRoot()));
+      });
+  }
 
-  root
-    .command("guidelines")
-    .description(
-      "Compile .icculus/guidelines/* into the agent files + link skills.",
-    )
-    .action(async () => {
-      // compileGuidelines narrates to stdout via its default logger.
-      await compileGuidelines(await requireRoot());
-      Deno.exit(0);
-    });
+  if (enabled.has("guidance")) {
+    root
+      .command("guidelines")
+      .description(
+        "Compile the agent files from built-in + [guidance].sources; materialize skills.",
+      )
+      .action(async () => {
+        // compileGuidelines narrates to stdout via its default logger.
+        await compileGuidelines(await requireRoot());
+        Deno.exit(0);
+      });
+  }
+
+  if (enabled.has("skills")) {
+    attachSkillsCommand(root);
+  }
 
   root
     .command("changed-scopes")
@@ -189,6 +209,10 @@ export function attachEngineCommands(root: Command): void {
         }),
       );
     });
+
+  if (!enabled.has("worktrees")) {
+    return;
+  }
 
   root
     .command("worktree-name")
@@ -275,6 +299,90 @@ export function attachEngineCommands(root: Command): void {
         }),
     );
   root.command("worktree", worktree);
+}
+
+/** Attach the `skills` command group (list / eject). Gated on `features.skills`. */
+function attachSkillsCommand(root: Command): void {
+  const skills = new Command()
+    .description(
+      "Manage skills: list the effective set, or eject a built-in to customize it.",
+    )
+    .action(function (): void {
+      this.showHelp();
+    })
+    .command(
+      "list",
+      new Command()
+        .description(
+          "List the effective skills (built-ins + yours; which override which).",
+        )
+        .option("--json", "Emit the listing as JSON.")
+        .action(async (o) => {
+          Deno.exit(await runSkillsList({ json: o.json ?? false }));
+        }),
+    )
+    .command(
+      "eject",
+      new Command()
+        .description(
+          "Copy a bundled built-in into [skills].dir so you can customize it.",
+        )
+        .arguments("<name:string>")
+        .action(async (_o, name: string) => {
+          Deno.exit(await runSkillsEject(name));
+        }),
+    );
+  root.command("skills", skills);
+}
+
+/** `icculus skills list` — print the effective skill set. */
+async function runSkillsList(opts: { json: boolean }): Promise<number> {
+  const root = await requireRoot();
+  const cfg = await Config.load(root);
+  const rows = await listSkills(root, cfg);
+  if (opts.json) {
+    console.log(JSON.stringify(rows, null, 2));
+    return 0;
+  }
+  if (rows.length === 0) {
+    console.log("No skills (none bundled, none authored).");
+    return 0;
+  }
+  console.log("Effective skills:");
+  for (const r of rows) {
+    const tag = r.source === "authored"
+      ? (r.overridesBundled ? "yours (overrides built-in)" : "yours")
+      : "built-in";
+    console.log(`  ${r.name.padEnd(24)} ${tag}`);
+  }
+  return 0;
+}
+
+/** `icculus skills eject <name>` — copy a built-in into `[skills].dir` to edit. */
+async function runSkillsEject(name: string): Promise<number> {
+  const root = await requireRoot();
+  const cfg = await Config.load(root);
+  try {
+    const result = await ejectSkill(root, cfg, name);
+    // Persist [skills].dir when it wasn't explicitly set, so the override is
+    // found by the resolver on the next materialize.
+    if (!cfg.has("skills.dir")) {
+      const path = (await resolveConfigPath(root)) ?? join(root, CONFIG_REL);
+      const editor = new TomlEditor(await Deno.readTextFile(path));
+      editor.setString("skills.dir", "skills");
+      await Deno.writeTextFile(path, editor.toString());
+    }
+    // Re-materialize so `.claude/skills/` reflects the ejected override now.
+    await materializeSkills(root, await Config.load(root));
+    console.log(
+      `Ejected "${name}" → ${result.destRel} (it now overrides the built-in).`,
+    );
+    console.log("Edit it there; `icculus skills list` confirms the override.");
+    return 0;
+  } catch (e) {
+    console.error(`icculus: ${e instanceof Error ? e.message : String(e)}`);
+    return 1;
+  }
 }
 
 /** Length of the common leading run of two strings. */

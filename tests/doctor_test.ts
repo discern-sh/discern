@@ -54,7 +54,7 @@ function check(payload: DoctorPayload, name: string): DoctorCheck {
 
 /** Rewrite an install's recorded `[meta].schema_version`. */
 async function setSchema(dir: string, version: number): Promise<void> {
-  const p = join(dir, ".icculus/config.toml");
+  const p = join(dir, "icculus.toml");
   const text = await Deno.readTextFile(p);
   await Deno.writeTextFile(
     p,
@@ -68,7 +68,7 @@ async function addCapability(
   key: string,
   value: string,
 ): Promise<void> {
-  const p = join(dir, ".icculus/config.toml");
+  const p = join(dir, "icculus.toml");
   const text = await Deno.readTextFile(p);
   await Deno.writeTextFile(
     p,
@@ -84,7 +84,7 @@ Deno.test("doctor --json: a fresh install is fully healthy and exits 0", async (
     assertEquals(payload.ok, true);
     assertEquals(payload.kit_version, "1.0.0");
     for (
-      const name of [".icculus/config.toml", "schema version", "capabilities"]
+      const name of ["icculus.toml", "schema version", "capabilities"]
     ) {
       assertEquals(check(payload, name).ok, true, `${name} should pass`);
     }
@@ -101,28 +101,28 @@ Deno.test("doctor: human (non-json) output reports a clean bill on stderr, exit 
     assertStringIncludes(stderr, "icculus doctor");
     assertStringIncludes(
       stderr,
-      ".icculus/config.toml: present and valid TOML",
+      "icculus.toml: present and valid TOML",
     );
-    assertStringIncludes(stderr, "schema 5 (current)");
+    assertStringIncludes(stderr, "schema 6 (current)");
     assertStringIncludes(stderr, "All checks passed.");
   });
 });
 
-Deno.test("doctor: invalid (malformed) .icculus/config.toml is flagged with a syntax fix", async () => {
+Deno.test("doctor: invalid (malformed) icculus.toml is flagged with a syntax fix", async () => {
   await withTempDir(async (dir) => {
     await initInstall(dir);
     await Deno.writeTextFile(
-      join(dir, ".icculus/config.toml"),
+      join(dir, "icculus.toml"),
       'this is = not valid toml [[[\n"unterminated\n',
     );
 
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 1);
     assertEquals(payload.ok, false);
-    const toml = check(payload, ".icculus/config.toml");
+    const toml = check(payload, "icculus.toml");
     assertEquals(toml.ok, false);
     assertStringIncludes(toml.detail, "invalid");
-    assertEquals(toml.fix, "fix the TOML syntax in .icculus/config.toml");
+    assertEquals(toml.fix, "fix the TOML syntax in icculus.toml");
     // With an unparseable config the later checks have nothing to read, so they
     // are not emitted.
     assertEquals(
@@ -134,11 +134,11 @@ Deno.test("doctor: invalid (malformed) .icculus/config.toml is flagged with a sy
 
 Deno.test("doctor: a missing config is flagged as not initialized", async () => {
   await withTempDir(async (dir) => {
-    // No `init` here — the dir has no .icculus/config.toml.
+    // No `init` here — the dir has no icculus.toml.
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 1);
     assertEquals(payload.ok, false);
-    const toml = check(payload, ".icculus/config.toml");
+    const toml = check(payload, "icculus.toml");
     assertEquals(toml.ok, false);
     assertStringIncludes(toml.detail, "not found");
     assertStringIncludes(toml.fix ?? "", "icculus init");
@@ -155,7 +155,7 @@ Deno.test("doctor: a stale schema is flagged with an upgrade fix", async () => {
     const schema = check(payload, "schema version");
     assertEquals(schema.ok, false);
     assertStringIncludes(schema.detail, "v1");
-    assertStringIncludes(schema.detail, "v5");
+    assertStringIncludes(schema.detail, "v6");
     assertStringIncludes(schema.fix ?? "", "icculus upgrade");
   });
 });
@@ -183,7 +183,7 @@ Deno.test("doctor: an unknown capability key is flagged with a rename fix", asyn
 
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 1);
-    assertEquals(check(payload, ".icculus/config.toml").ok, true);
+    assertEquals(check(payload, "icculus.toml").ok, true);
     const caps = check(payload, "capabilities");
     assertEquals(caps.ok, false);
     assertStringIncludes(caps.detail, "bogus");
@@ -203,11 +203,11 @@ Deno.test("doctor: a fresh install reports its wired capabilities", async () => 
   });
 });
 
-Deno.test("doctor: a fresh install passes the recipe-contract check (README is not a recipe)", async () => {
+Deno.test("doctor: a fresh install passes the recipe-contract check (no recipes seeded)", async () => {
   await withTempDir(async (dir) => {
     await initInstall(dir);
-    // The scaffold ships only .icculus/recipes/README.md, which is docs, not a
-    // recipe — so there is nothing sourcing the retired shell library.
+    // A fresh install seeds no recipes dir at all, so there is nothing sourcing
+    // the retired shell library.
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 0);
     assertEquals(check(payload, "recipe contract").ok, true);
@@ -218,9 +218,11 @@ Deno.test("doctor: a recipe sourcing the retired shell library is flagged with t
   await withTempDir(async (dir) => {
     await initInstall(dir);
     // A recipe carried forward from a pre-binary install: it sources the engine
-    // library that no longer exists, so it would break at runtime.
+    // library that no longer exists, so it would break at runtime. (The default
+    // [recipes].dir is ./recipes; a fresh install seeds no recipes dir.)
+    await Deno.mkdir(join(dir, "recipes"), { recursive: true });
     await Deno.writeTextFile(
-      join(dir, ".icculus/recipes/reset"),
+      join(dir, "recipes/reset"),
       '#!/usr/bin/env sh\n# desc: reset fixtures\n. "$ICCULUS_LIB/bootstrap.sh"\nok done\n',
     );
     const { code, payload } = await runDoctorJson(dir);

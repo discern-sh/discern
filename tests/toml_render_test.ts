@@ -1,5 +1,5 @@
 /**
- * Unit tests for the small `.icculus/config.toml` fragment renderer and the
+ * Unit tests for the small `icculus.toml` fragment renderer and the
  * parse-and-validate used by `doctor`.
  *
  * `renderTomlStringList` turns answers into the quoted, comma-joined array items
@@ -98,7 +98,7 @@ Deno.test("parseIcculusToml throws a clear error on invalid TOML", () => {
     Error,
   );
   assert(
-    err.message.startsWith(".icculus/config.toml is not valid TOML:"),
+    err.message.startsWith("icculus.toml is not valid TOML:"),
     `unexpected message: ${err.message}`,
   );
 });
@@ -109,9 +109,9 @@ Deno.test("parseIcculusToml surfaces the underlying parser message", () => {
     () => parseIcculusToml('[project]\nslug = "unterminated'),
     Error,
   );
-  assert(err.message.includes(".icculus/config.toml is not valid TOML:"));
+  assert(err.message.includes("icculus.toml is not valid TOML:"));
   // Something beyond the bare prefix is carried through from the parser.
   assert(
-    err.message.length > ".icculus/config.toml is not valid TOML: ".length,
+    err.message.length > "icculus.toml is not valid TOML: ".length,
   );
 });

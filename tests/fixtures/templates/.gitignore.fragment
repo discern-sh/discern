@@ -1,3 +1,5 @@
 # --- icculus harness ---
 /CLAUDE.md
-.icculus/evidence/
+/GEMINI.md
+/.claude/*
+!/.claude/settings.json

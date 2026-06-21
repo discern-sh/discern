@@ -1,10 +1,10 @@
 /**
- * The migration-system invariant (ADR 0014), narrowed to what survives the
- * managed-file teardown: an install brought forward by `upgrade` must reach the
- * **current schema**, with its config migrated into the **same shape** a fresh
- * init produces at that schema. (Byte-for-byte convergence is gone — there are no
- * managed files to converge, and a migrated *seed* carries no surrounding
- * comments, which is fine: the seed is the user's, not the kit's.)
+ * The migration-system invariant (ADR 0014/0020): an install brought forward by
+ * `upgrade` must reach the **current schema**, with its config migrated into the
+ * **same shape** a fresh init produces at that schema — now the dissolved
+ * single-file `icculus.toml` footprint. (Byte-for-byte convergence is gone: a
+ * migrated *seed* carries no surrounding comments, which is fine — the seed is
+ * the user's, not the kit's.)
  *
  * Installs are created in throwaway dirs (not git repos), so `upgrade`'s
  * clean-tree guard sees a non-repo; `--allow-dirty` keeps the runs deterministic.
@@ -14,10 +14,8 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { readTarget, runCli, withTempDir } from "./helpers.ts";
 
-/**
- * Scaffold a fresh install into `dir`. `--name` is pinned for parity with a
- * real in-place upgrade (which keeps the same directory).
- */
+/** Scaffold a fresh install into `dir`. `--name` is pinned for parity with a
+ * real in-place upgrade (which keeps the same directory). */
 async function init(dir: string): Promise<void> {
   assertEquals(
     (await runCli(["init", "--yes", "--slug", "demo", "--name", "Demo"], dir))
@@ -34,9 +32,31 @@ async function upgrade(dir: string): Promise<any> {
   return JSON.parse(r.stdout);
 }
 
+/** Layout-agnostic config path: the new root `icculus.toml`, else the legacy
+ * `.icculus/config.toml`. */
+async function configPath(dir: string): Promise<string> {
+  const root = join(dir, "icculus.toml");
+  try {
+    await Deno.stat(root);
+    return root;
+  } catch {
+    return join(dir, ".icculus/config.toml");
+  }
+}
+
+/** True when a path exists under an install dir. */
+async function pathExists(dir: string, rel: string): Promise<boolean> {
+  try {
+    await Deno.stat(join(dir, rel));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** The recorded `[meta].schema_version` of an install's config. */
 async function recordedSchema(dir: string): Promise<number> {
-  const m = (await readTarget(dir, ".icculus/config.toml")).match(
+  const m = (await Deno.readTextFile(await configPath(dir))).match(
     /schema_version\s*=\s*(\d+)/,
   );
   return m ? Number(m[1]) : NaN;
@@ -44,7 +64,7 @@ async function recordedSchema(dir: string): Promise<number> {
 
 /** Rewrite an install's recorded `[meta].schema_version`. */
 async function setSchema(dir: string, version: number): Promise<void> {
-  const p = join(dir, ".icculus/config.toml");
+  const p = await configPath(dir);
   const text = await Deno.readTextFile(p);
   await Deno.writeTextFile(
     p,
@@ -75,16 +95,14 @@ Deno.test("a second upgrade is a no-op (idempotent)", async () => {
 Deno.test("upgrade re-materializes the bundled skills and stamps the current schema", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
-    // Drop and tamper with a materialized skill: upgrade must restore it.
-    const skill = join(dir, ".icculus/skills/bootstrap/SKILL.md");
+    // init already materialized .claude/skills/; tamper a built-in copy — upgrade
+    // must restore it from the binary.
+    const skill = join(dir, ".claude/skills/bootstrap/SKILL.md");
     await Deno.writeTextFile(skill, "tampered\n");
     const res = await upgrade(dir);
+    assert(res.skills.copied >= 1, "bundled skills should be re-copied");
     assert(
-      res.skills_materialized.includes(".icculus/skills/bootstrap/SKILL.md"),
-      "the bundled skill should be re-materialized",
-    );
-    assert(
-      !(await readTarget(dir, ".icculus/skills/bootstrap/SKILL.md")).includes(
+      !(await readTarget(dir, ".claude/skills/bootstrap/SKILL.md")).includes(
         "tampered",
       ),
       "the kit's skill bytes should overwrite the tampered copy",
@@ -95,9 +113,9 @@ Deno.test("upgrade re-materializes the bundled skills and stamps the current sch
 
 // ---- the corpus: a real migration carries an old install forward ----------
 
-/** Strip the `main_branch` line(s) from an install's .icculus/config.toml. */
+/** Strip the `main_branch` line(s) from an install's config. */
 async function removeMainBranch(dir: string): Promise<void> {
-  const p = join(dir, ".icculus/config.toml");
+  const p = await configPath(dir);
   const kept = (await Deno.readTextFile(p))
     .split("\n")
     .filter((l) => !/^\s*main_branch\s*=/.test(l));
@@ -108,24 +126,28 @@ Deno.test("a schema-1 install missing main_branch upgrades to the current schema
   await withTempDir(async (older) => {
     await withTempDir(async (fresh) => {
       // Regress a current install to look like a schema-1 one made before
-      // main_branch existed: strip the field and reset the recorded schema.
+      // main_branch existed: strip the field and reset the recorded schema. A
+      // schema-1 install kept its config at the root (pre-.icculus/ consolidation).
       await init(older);
       await removeMainBranch(older);
       await setSchema(older, 1);
 
-      const res = await upgrade(older); // runs 1→2 … 4→5, materializes, stamps
+      const res = await upgrade(older); // runs 1→2 … 5→6, materializes, stamps
       assertEquals(
         res.migrations_applied.map((m: { from: number }) => m.from),
-        [1, 2, 3, 4],
+        [1, 2, 3, 4, 5],
       );
 
       await init(fresh); // a fresh install at the current schema
 
       // The migrated install reaches the same schema as a fresh one…
       assertEquals(await recordedSchema(older), await recordedSchema(fresh));
+      // …it ends up at the dissolved root footprint…
+      assertEquals(await pathExists(older, "icculus.toml"), true);
+      assertEquals(await pathExists(older, ".icculus"), false);
       // …and the 1→2 step restored the backfilled field.
       assertStringIncludes(
-        await readTarget(older, ".icculus/config.toml"),
+        await readTarget(older, "icculus.toml"),
         'main_branch = "main"',
       );
     });
@@ -133,12 +155,14 @@ Deno.test("a schema-1 install missing main_branch upgrades to the current schema
 });
 
 /**
- * Reverse the schema-4 capabilities shape on a fresh install: overwrite the seed
- * `.icculus/config.toml` with an equivalent pre-4 `[slots]`/`[scopes]`/`[evidence]`
- * config and reset the recorded schema to 3. The 3→4 step transforms only the
- * seed config; the later prune step finds nothing to remove on this fresh tree.
+ * Reverse to the schema-3 shape: model a pre-4 install whose config lives at the
+ * consolidated `.icculus/config.toml` with `[slots]`/`[scopes]`/`[evidence]` and a
+ * recorded schema of 3. The 3→4 step transforms the config; 5→6 dissolves it to
+ * the root footprint.
  */
 async function regressToV3(dir: string): Promise<void> {
+  await Deno.remove(join(dir, "icculus.toml"));
+  await Deno.mkdir(join(dir, ".icculus"), { recursive: true });
   await Deno.writeTextFile(
     join(dir, ".icculus/config.toml"),
     [
@@ -175,36 +199,41 @@ Deno.test("a schema-3 [slots] install upgrades to the capabilities shape and the
       await init(older); // a fresh install at the current schema
       await regressToV3(older); // reverse the seed config to the pre-4 shape
 
-      const res = await upgrade(older); // runs 3→4 then 4→5, materializes, stamps
+      const res = await upgrade(older); // runs 3→4, 4→5, 5→6, materializes, stamps
       assertEquals(
         res.migrations_applied.map((m: { from: number }) => m.from),
-        [3, 4],
+        [3, 4, 5],
       );
 
       await init(fresh);
       // The migrated install reaches the same schema as a fresh one.
       assertEquals(await recordedSchema(older), await recordedSchema(fresh));
-      // The seed converges in shape: capabilities present, the legacy structure gone.
-      const toml = await readTarget(older, ".icculus/config.toml");
+      // The seed converges in shape at the dissolved footprint: capabilities
+      // present, the legacy structure gone, the new sections added.
+      assertEquals(await pathExists(older, ".icculus"), false);
+      const toml = await readTarget(older, "icculus.toml");
       assertStringIncludes(toml, "[capabilities]");
       assertStringIncludes(toml, 'format = "deno fmt"');
+      assertStringIncludes(toml, "[features]");
       assert(!toml.includes("[slots."));
       assert(!toml.includes("[evidence]"));
     });
   });
 });
 
-Deno.test("a legacy install whose schema lives only in a manifest upgrades and prunes the shell engine", async () => {
+Deno.test("a legacy install whose schema lives only in a manifest upgrades, prunes the engine, and dissolves .icculus/", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
-    // Model a genuine pre-teardown install: schema recorded ONLY in a legacy
-    // manifest (no [meta] in the config), plus a committed shell engine + agent.
-    const p = join(dir, ".icculus/config.toml");
-    const stripped = (await Deno.readTextFile(p))
+    // Model a genuine pre-teardown (schema-4) install: config at the consolidated
+    // .icculus/ location, schema recorded ONLY in a legacy manifest (no [meta]),
+    // plus a committed shell engine + agent and hooks calling `./agent`.
+    await Deno.mkdir(join(dir, ".icculus"), { recursive: true });
+    const stripped = (await Deno.readTextFile(join(dir, "icculus.toml")))
       .split("\n")
       .filter((l) => !/^\s*schema_version\s*=/.test(l) && l.trim() !== "[meta]")
       .join("\n");
-    await Deno.writeTextFile(p, stripped);
+    await Deno.writeTextFile(join(dir, ".icculus/config.toml"), stripped);
+    await Deno.remove(join(dir, "icculus.toml"));
     await Deno.writeTextFile(
       join(dir, ".icculus/manifest.json"),
       '{ "kit_version": "1.0.0", "schema_version": 4 }\n',
@@ -215,7 +244,6 @@ Deno.test("a legacy install whose schema lives only in a manifest upgrades and p
       "#!/bin/sh\n",
     );
     await Deno.writeTextFile(join(dir, "agent"), "#!/bin/sh\n");
-    // …and worktree hooks that call that `./agent` dispatcher.
     await Deno.writeTextFile(
       join(dir, ".claude/settings.json"),
       `${
@@ -224,50 +252,31 @@ Deno.test("a legacy install whose schema lives only in a manifest upgrades and p
         })
       }\n`,
     );
-    // A pre-cutover install committed its skills; model that by removing the
-    // materialized-skills ignore from the init-written .gitignore.
-    const giPath = join(dir, ".gitignore");
-    await Deno.writeTextFile(
-      giPath,
-      (await Deno.readTextFile(giPath))
-        .split("\n")
-        .filter((l) => !/\.icculus\/skills/.test(l))
-        .join("\n"),
-    );
 
     const res = await upgrade(dir);
-    // The legacy manifest anchored the chain at schema 4 → only 4→5 runs.
+    // The manifest anchored the chain at schema 4 → 4→5 then 5→6 run.
     assertEquals(
       res.migrations_applied.map((m: { from: number }) => m.from),
-      [4],
+      [4, 5],
     );
-    // The prune step shed the shell engine, the dispatcher, and the manifest…
-    assertEquals(await runCliExists(dir, ".icculus/engine"), false);
-    assertEquals(await runCliExists(dir, "agent"), false);
-    assertEquals(await runCliExists(dir, ".icculus/manifest.json"), false);
-    // …the worktree hooks are repointed off the deleted `./agent` at `icculus`…
+    // The shell engine, dispatcher, manifest, and the whole .icculus/ namespace
+    // are gone; the config now lives at the root footprint.
+    assertEquals(await pathExists(dir, ".icculus"), false);
+    assertEquals(await pathExists(dir, "agent"), false);
+    assertEquals(await pathExists(dir, "icculus.toml"), true);
+    // The worktree hooks were repointed off the deleted `./agent` at `icculus`.
     const settings = await readTarget(dir, ".claude/settings.json");
     assert(
       !settings.includes("./agent"),
       "hooks still call the deleted ./agent",
     );
     assertStringIncludes(settings, "icculus worktree:ensure");
-    // …the now-materialized skills are gitignored again…
-    assertStringIncludes(
-      await readTarget(dir, ".gitignore"),
-      "/.icculus/skills/",
-    );
+    // The .gitignore was rewritten for the dissolved layout: no .icculus, the new
+    // mirrors ignored.
+    const gitignore = await readTarget(dir, ".gitignore");
+    assert(!/\.icculus/.test(gitignore), "no .icculus ignore remains");
+    assertStringIncludes(gitignore, "/GEMINI.md");
     // …and the schema is now stamped in the config the user owns.
     assertEquals(await recordedSchema(dir), res.schema.current);
   });
 });
-
-/** True when a path exists under an install dir. */
-async function runCliExists(dir: string, rel: string): Promise<boolean> {
-  try {
-    await Deno.stat(join(dir, rel));
-    return true;
-  } catch {
-    return false;
-  }
-}

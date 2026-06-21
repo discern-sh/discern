@@ -41,7 +41,7 @@ export function parseIcculusToml(text: string): IcculusToml {
     parsed = parseToml(text);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`.icculus/config.toml is not valid TOML: ${message}`);
+    throw new Error(`icculus.toml is not valid TOML: ${message}`);
   }
   const raw = isRecord(parsed) ? parsed : {};
   const project = isRecord(raw.project) ? raw.project : {};

@@ -15,6 +15,7 @@
  */
 
 import { KNOWN_CAPABILITIES, STAGES } from "./config.ts";
+import { FEATURES, isFeature } from "../shared/features.ts";
 import type { InitFlags } from "./prompts.ts";
 import type { TomlEditor } from "./toml_edit.ts";
 
@@ -63,6 +64,8 @@ export interface IcculusConfigDoc {
   source_globs?: string[];
   brief?: string;
   agents?: string[];
+  /** `[features]` toggles — a feature name mapped to a boolean (default true). */
+  features?: Record<string, boolean>;
   /** Preset metadata; ignored by `init --config`. */
   description?: string;
   /** `[capabilities]` fills — a known capability name mapped to a command (or list). */
@@ -167,6 +170,17 @@ export function applyConfigDoc(
   editor: TomlEditor,
   doc: IcculusConfigDoc,
 ): void {
+  // Features: a known toggle name mapped to a boolean. An unknown name is a typo
+  // worth catching rather than silently ignoring.
+  for (const [name, value] of Object.entries(doc.features ?? {})) {
+    if (!isFeature(name)) {
+      throw new Error(
+        `unknown feature "${name}" (known: ${FEATURES.join(", ")})`,
+      );
+    }
+    editor.setBool(`features.${name}`, value);
+  }
+
   // Capabilities: a known name mapped to a command (or list). The stage is
   // derived by the engine, so none is written. An unknown name has no derivable
   // stage — reject it, pointing the author at [checks].

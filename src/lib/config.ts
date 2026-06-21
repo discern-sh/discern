@@ -8,8 +8,9 @@ import type { TokenMap } from "./template.ts";
 import { renderTomlStringList } from "./toml_render.ts";
 import { KIT_VERSION } from "./version.ts";
 
-/** The agent files the kit knows how to emit. */
-export const KNOWN_AGENTS = ["claude_code", "codex"] as const;
+/** The agent/provider files the kit knows how to emit (claude_code→CLAUDE.md,
+ * codex→AGENTS.md, gemini→GEMINI.md). */
+export const KNOWN_AGENTS = ["claude_code", "codex", "gemini"] as const;
 export type AgentName = (typeof KNOWN_AGENTS)[number];
 
 // The capability vocabulary, gate stages, and slug validation are defined once
@@ -32,9 +33,12 @@ export type { Capability, Stage } from "../shared/capabilities.ts";
 export const DEFAULTS = {
   branchPrefix: "agent/",
   sourceGlobs: ["src/**", "app/**"],
-  agents: [...KNOWN_AGENTS] as AgentName[],
+  // Default to the two committed-standard providers; gemini is opt-in.
+  agents: ["claude_code", "codex"] as AgentName[],
   gotchasDoc: "",
-  scopesNeutral: ['"docs/"', '".icculus/"', '".claude/"'],
+  // Regions that need no gate: docs, the provider dir, and authored skills.
+  // (Root-level *.md — e.g. guidance.md — is treated as neutral by the classifier.)
+  scopesNeutral: ['"docs/"', '".claude/"', '"skills/"'],
   scopesPreviewable: ['"public/**"'],
 } as const;
 

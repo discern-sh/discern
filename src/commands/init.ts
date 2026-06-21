@@ -30,6 +30,7 @@ import { stampSchemaVersion } from "../lib/schema.ts";
 import { KIT_VERSION, SCHEMA_VERSION } from "../lib/version.ts";
 import { applyPlan, buildPlan, type Plan, planBrief } from "../lib/fs_plan.ts";
 import { planToJson, renderPlan, renderReview } from "../lib/plan_view.ts";
+import { compileGuidelines } from "../engine/guidelines.ts";
 
 /** Options accepted by the `init` command (global flags folded in). */
 export interface InitOptions extends InitFlags {
@@ -61,11 +62,23 @@ export async function assembleInitPlan(params: {
   const { templatesDir, destDir, config } = params;
   const tokens = tokensFromConfig(config);
 
-  const plan = await buildPlan({ templatesDir, destDir, tokens });
+  // `excludeNonSeed`: this scaffolds from the binary's own templates tree, whose
+  // skills/ + guidance/ are materialized/read from the binary, never seeded.
+  const plan = await buildPlan({
+    templatesDir,
+    destDir,
+    tokens,
+    excludeNonSeed: true,
+  });
 
-  const briefOp = await planBrief(destDir, config.brief);
-  plan.ops.push(briefOp);
-  plan.ops.sort((a, b) => a.targetRel.localeCompare(b.targetRel));
+  // The brief is the user's authored intent, captured at init for `/bootstrap`.
+  // It is seeded only when non-empty so a default install's footprint is just
+  // `icculus.toml` (+ the generated agent files). An empty brief writes nothing.
+  if (config.brief.trim().length > 0) {
+    const briefOp = await planBrief(destDir, config.brief);
+    plan.ops.push(briefOp);
+    plan.ops.sort((a, b) => a.targetRel.localeCompare(b.targetRel));
+  }
 
   // Stamp `[meta].schema_version` into the freshly-generated config, then apply
   // any declarative fills (from `init --config`). Both edit the config op's
@@ -75,12 +88,74 @@ export async function assembleInitPlan(params: {
   if (params.fills) {
     applyFillsToPlan(plan, params.fills);
   }
+  // A worktrees-off install (only reachable via `--config`) must not carry the
+  // worktree lifecycle hooks — strip them from the settings op (§3.4).
+  if (params.fills?.features?.worktrees === false) {
+    stripWorktreeHooksFromPlan(plan);
+  }
   return plan;
 }
 
-/** Find the `.icculus/config.toml` op that is about to be created, or undefined. */
+/**
+ * Remove the worktree-lifecycle hooks from the planned `.claude/settings.json`
+ * (the WorktreeCreate/WorktreeRemove groups and any SessionStart hook that calls
+ * the worktree workflow). Used when the worktrees feature is disabled at init, so
+ * a disabled feature leaves no inert hooks behind. A no-op if the settings op or
+ * its hooks are absent/malformed.
+ */
+function stripWorktreeHooksFromPlan(plan: Plan): void {
+  const op = plan.ops.find((o) => o.targetRel === ".claude/settings.json");
+  if (op === undefined) {
+    return;
+  }
+  let settings: Record<string, unknown>;
+  try {
+    const parsed: unknown = JSON.parse(TEXT_DECODER.decode(op.bytes));
+    if (
+      typeof parsed !== "object" || parsed === null || Array.isArray(parsed)
+    ) {
+      return;
+    }
+    settings = parsed as Record<string, unknown>;
+  } catch {
+    return;
+  }
+  const hooksRaw = settings.hooks;
+  if (
+    typeof hooksRaw !== "object" || hooksRaw === null || Array.isArray(hooksRaw)
+  ) {
+    return;
+  }
+  const hooks = hooksRaw as Record<string, unknown>;
+  delete hooks.WorktreeCreate;
+  delete hooks.WorktreeRemove;
+  const sessionStart = hooks.SessionStart;
+  if (Array.isArray(sessionStart)) {
+    const kept = sessionStart.filter((group) => {
+      const inner = (group as { hooks?: unknown }).hooks;
+      if (!Array.isArray(inner)) {
+        return true;
+      }
+      return !inner.some((h) => {
+        const cmd = (h as { command?: unknown }).command;
+        return typeof cmd === "string" && cmd.includes("worktree");
+      });
+    });
+    if (kept.length === 0) {
+      delete hooks.SessionStart;
+    } else {
+      hooks.SessionStart = kept;
+    }
+  }
+  if (Object.keys(hooks).length === 0) {
+    delete settings.hooks;
+  }
+  op.bytes = TEXT_ENCODER.encode(`${JSON.stringify(settings, null, 2)}\n`);
+}
+
+/** Find the `icculus.toml` op that is about to be created, or undefined. */
 function freshConfigOp(plan: Plan): Plan["ops"][number] | undefined {
-  const op = plan.ops.find((o) => o.targetRel === ".icculus/config.toml");
+  const op = plan.ops.find((o) => o.targetRel === "icculus.toml");
   if (!op || op.disposition === "skip") {
     return undefined; // absent, or an existing seed left as the user's.
   }
@@ -223,12 +298,30 @@ export async function runInit(options: InitOptions): Promise<number> {
   // Scaffold.
   const changed = await applyPlan(plan);
 
+  // Compile the agent guidance and materialize skills so a fresh install is
+  // usable immediately — AGENTS.md/CLAUDE.md present, skills discoverable. Pass
+  // init's logger so the narration follows its stream discipline (suppressed in
+  // --json). Non-fatal: a broken templates tree shouldn't fail the scaffold.
+  let agentsWritten: string[] = [];
+  try {
+    agentsWritten = (await compileGuidelines(destDir, log)).agentsWritten;
+  } catch (error) {
+    if (!options.json) {
+      log.warn(
+        `could not compile agent guidance: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
+
   if (options.json) {
     log.jsonResult({
       ok: true,
       project: { slug: config.slug, agents: config.agents },
       kit_version: KIT_VERSION,
       written: changed.map((op) => op.targetRel),
+      compiled: agentsWritten,
     });
     return 0;
   }
@@ -239,7 +332,7 @@ export async function runInit(options: InitOptions): Promise<number> {
   return 0;
 }
 
-/** Print the closing summary: the created tree and the next step. */
+/** Print the closing summary: the created footprint and the next step. */
 function printOutro(log: Logger, config: InitConfig): void {
   log.heading(
     `Done. ${log.bold(config.projectName)} now has an icculus harness.`,
@@ -249,13 +342,19 @@ function printOutro(log: Logger, config: InitConfig): void {
     "  icculus               the task runner — icculus finish, icculus doctor",
   );
   log.line(
-    "  .icculus/config.toml  edit by hand — teaches the harness about your stack",
+    "  icculus.toml          the whole footprint — edit by hand to teach the harness your stack",
   );
   log.line(
-    "  .icculus/             your guidance, brief, skills, and recipes",
+    "  AGENTS.md / CLAUDE.md compiled agent guidance (generated — don't hand-edit)",
   );
   log.line(
     "  .claude/settings.json merged (your existing settings were preserved)",
+  );
+  log.line();
+  log.line(
+    `  Opt into more by adding your own files: ${log.bold("guidance.md")}, ${
+      log.bold("skills/")
+    }, ${log.bold("recipes/")}.`,
   );
   log.line();
   log.heading("Next steps");
@@ -265,7 +364,7 @@ function printOutro(log: Logger, config: InitConfig): void {
     } in your coding agent to fill in principles,`,
   );
   log.line(
-    "     guidelines, and docs from your brief — and to propose capability fills.",
+    "     guidance, and docs from your brief — and to propose capability fills.",
   );
   log.line(
     `  2. Wire your capabilities. The harness ships with none, so until you fill`,
@@ -275,7 +374,7 @@ function printOutro(log: Logger, config: InitConfig): void {
   );
   log.line(
     `     Run ${log.bold("/bootstrap")} (or edit ${
-      log.bold(".icculus/config.toml")
+      log.bold("icculus.toml")
     }) to wire your`,
   );
   log.line("     format / lint / test commands.");

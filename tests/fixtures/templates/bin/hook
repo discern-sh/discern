@@ -1,0 +1,3 @@
+#!/usr/bin/env sh
+# Fixture executable seed: must keep its 0755 source mode through scaffolding.
+echo "fixture hook"

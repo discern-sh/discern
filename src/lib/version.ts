@@ -21,15 +21,18 @@ export const KIT_VERSION: string = denoJson.version;
  * `upgrade` reads the recorded value, brings the install forward, and re-stamps.
  * Most releases need no migration and leave this untouched.
  *
- * The current shape is schema **5**. The chain: schema-1→2 backfills
+ * The current shape is schema **6**. The chain: schema-1→2 backfills
  * `[project].main_branch`; schema-2→3 consolidates the install surface under
  * `.icculus/` (config + guidance seeds); schema-3→4 converts
  * `[slots]`→`[capabilities]`/`[checks]`, inlines ratchet runs, folds side-gates
  * into `[scopes.<name>].gate`, and drops `[evidence]` (ADR 0017/0018);
  * schema-4→5 prunes the pre-existing on-disk shell engine (`.icculus/engine/`,
  * the root `agent`, `.icculus/manifest.json`) left by an install made before the
- * TS-native engine. See `MIGRATIONS`. A config with no `[meta].schema_version`
- * is read as schema 1 (or a legacy manifest's recorded version), then migrated
+ * TS-native engine; schema-5→6 **dissolves `.icculus/`** into the single-file
+ * footprint — config to a root `icculus.toml`, guidance/recipes/authored-skills
+ * moved out, bundled skills pruned, `[features]`/`[guidance]`/`[skills]` sections
+ * added (ADR 0020). See `MIGRATIONS`. A config with no `[meta].schema_version` is
+ * read as schema 1 (or a legacy manifest's recorded version), then migrated
  * forward.
  */
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;

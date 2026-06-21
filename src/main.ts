@@ -9,6 +9,14 @@
 
 import { Command } from "@cliffy/command";
 import { KIT_VERSION } from "./lib/version.ts";
+import { Config } from "./shared/config_read.ts";
+import { findRoot } from "./shared/env.ts";
+import {
+  enabledFeatures,
+  type Feature,
+  featureForVerb,
+  FEATURES,
+} from "./shared/features.ts";
 import { runInit } from "./commands/init.ts";
 import { runUpgrade } from "./commands/upgrade.ts";
 import { runDoctor } from "./commands/doctor.ts";
@@ -69,8 +77,10 @@ declare function rootShape(): ReturnType<
 >;
 type RootCommand = ReturnType<typeof rootShape>;
 
-/** Build the root command with its global flags and subcommands. */
-function buildCli(): RootCommand {
+/** Build the root command with its global flags and subcommands. Subsystem verbs
+ * (worktree, ratchets, guidelines, skills, docs) are attached only when their
+ * feature is enabled, so `--help` lists exactly the active verbs. */
+function buildCli(enabled: ReadonlySet<Feature>): RootCommand {
   const root = new Command()
     .name("icculus")
     .version(KIT_VERSION)
@@ -116,7 +126,7 @@ function buildCli(): RootCommand {
     )
     .option("-y, --yes", "Non-interactive: use flags/defaults, no prompts.")
     .option("--dry-run", "Print the plan and write nothing.")
-    .option("--force", "Proceed even if .icculus/config.toml already exists.")
+    .option("--force", "Proceed even if icculus.toml already exists.")
     .action(async (options) => {
       const code = await runInit({
         json: options.json ?? false,
@@ -209,37 +219,39 @@ function buildCli(): RootCommand {
       Deno.exit(code);
     });
 
-  root
-    .command("docs [target:string]")
-    .description("Browse and read the project's documentation tree.")
-    .option(
-      "--raw",
-      "Print a doc's pristine Markdown source instead of rendering it.",
-    )
-    .option(
-      "--list",
-      "Print a plain table of contents and exit (never interactive).",
-    )
-    .option("--no-pager", "Don't page rendered output through $PAGER.")
-    .option(
-      "--dir <path:string>",
-      "Docs directory to browse (default: <project root>/docs).",
-    )
-    .option("--width <cols:number>", "Wrap width for rendered output.")
-    .action(async (options, target?: string) => {
-      const code = await runDocs({
-        json: options.json ?? false,
-        noColor: noColorFrom(options.color),
-        raw: options.raw ?? false,
-        list: options.list ?? false,
-        // Cliffy maps `--no-pager` to a negatable `pager` boolean (like --no-color).
-        noPager: options.pager === false,
-        dir: options.dir,
-        width: options.width,
-        target,
+  if (enabled.has("docs")) {
+    root
+      .command("docs [target:string]")
+      .description("Browse and read the project's documentation tree.")
+      .option(
+        "--raw",
+        "Print a doc's pristine Markdown source instead of rendering it.",
+      )
+      .option(
+        "--list",
+        "Print a plain table of contents and exit (never interactive).",
+      )
+      .option("--no-pager", "Don't page rendered output through $PAGER.")
+      .option(
+        "--dir <path:string>",
+        "Docs directory to browse (default: <project root>/docs).",
+      )
+      .option("--width <cols:number>", "Wrap width for rendered output.")
+      .action(async (options, target?: string) => {
+        const code = await runDocs({
+          json: options.json ?? false,
+          noColor: noColorFrom(options.color),
+          raw: options.raw ?? false,
+          list: options.list ?? false,
+          // Cliffy maps `--no-pager` to a negatable `pager` boolean (like --no-color).
+          noPager: options.pager === false,
+          dir: options.dir,
+          width: options.width,
+          target,
+        });
+        Deno.exit(code);
       });
-      Deno.exit(code);
-    });
+  }
 
   // `config` — programmatic, comment-preserving edits to an existing
   // .icculus/config.toml. Each subcommand is a standalone Command instance attached via
@@ -385,7 +397,7 @@ function buildCli(): RootCommand {
 
   const config = new Command()
     .description(
-      "Edit (set-*) or read (get/array/has/subsections/keys) .icculus/config.toml.",
+      "Edit (set-*) or read (get/array/has/subsections/keys) icculus.toml.",
     )
     .action(function (): void {
       this.showHelp();
@@ -407,9 +419,26 @@ function buildCli(): RootCommand {
   // shell `agent` recipes, now first-class `icculus` subcommands. The cast drops
   // the threaded global-option generics (which the engine actions don't read) —
   // Cliffy's generic Command type is impractical to spell at this boundary.
-  attachEngineCommands(root as unknown as Command);
+  attachEngineCommands(root as unknown as Command, enabled);
 
   return root;
+}
+
+/**
+ * Resolve the enabled features for the project the cwd is in. When not inside a
+ * project, every feature is reported enabled so `--help` and the core verbs
+ * behave normally (a verb that needs a project still errors with "no project").
+ */
+async function resolveEnabledFeatures(): Promise<ReadonlySet<Feature>> {
+  const root = await findRoot();
+  if (root === undefined) {
+    return new Set(FEATURES);
+  }
+  try {
+    return new Set(enabledFeatures(await Config.load(root)));
+  } catch {
+    return new Set(FEATURES);
+  }
 }
 
 /**
@@ -447,12 +476,27 @@ export async function main(args: string[]): Promise<void> {
     }
   }
 
+  // Resolve which features this project has enabled (all-on outside a project),
+  // so help lists only active verbs and a disabled verb errors clearly.
+  const enabled = await resolveEnabledFeatures();
+
   // Root help: Cliffy's help plus the project-recipe listing (the shell `agent
   // --help` showed both).
   if (verb === undefined || verb === "-h" || verb === "--help") {
-    console.log(buildCli().getHelp());
+    console.log(buildCli(enabled).getHelp());
     await printProjectRecipes();
     Deno.exit(0);
+  }
+
+  // A verb that belongs to a disabled feature: a clear error, not a recipe
+  // fallthrough or a bare "unknown command".
+  const owningFeature = featureForVerb(verb);
+  if (owningFeature !== undefined && !enabled.has(owningFeature)) {
+    console.error(
+      `icculus: the "${owningFeature}" feature is disabled in this project ` +
+        `(set [features].${owningFeature} = true in icculus.toml to enable it).`,
+    );
+    Deno.exit(1);
   }
 
   // A built-in engine verb with a same-named project recipe: warn it is shadowed.
@@ -466,7 +510,7 @@ export async function main(args: string[]): Promise<void> {
     Deno.exit(await dispatchRecipeOrSuggest(verb, argv.slice(1)));
   }
 
-  await buildCli().parse(argv);
+  await buildCli(enabled).parse(argv);
 }
 
 if (import.meta.main) {

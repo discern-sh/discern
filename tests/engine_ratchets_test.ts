@@ -129,6 +129,8 @@ Deno.test("ratchets: a limit may not be lowered vs main", async () => {
     await git(dir, "commit", "-q", "-m", "lower the floor", "--no-gpg-sign");
 
     const r = await runAgent(dir, ["ratchets"]);
+    // A floor may only rise vs main: the never-loosen baseline is read from main's
+    // root icculus.toml (with the legacy .icculus/config.toml as a fallback).
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.stderr, "only rises");
   });

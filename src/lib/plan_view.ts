@@ -31,52 +31,27 @@ function row(log: Logger, path: string, desc: string): string {
 }
 
 /**
- * Render a calm, grouped "what will change" review. Rather than a flat wall of
- * every file, it names the handful the user actually tunes, collapses the skills
- * / docs bulk to counts, and calls out the integration files merged into the
- * project. The full list is one `--dry-run` away.
+ * Render a calm, grouped "what will change" review. The footprint is small now
+ * (the dissolved layout seeds just `icculus.toml`, optionally a brief, and the
+ * integration files), so it names the config, lists any other seeds, and calls
+ * out the integration files merged into the project. The full list is one
+ * `--dry-run` away.
  */
 export function renderReview(log: Logger, plan: Plan, destDir: string): void {
   const ops = plan.ops;
   const pick = (pred: (o: PlanOp) => boolean) => ops.filter(pred);
 
-  const hasConfig = ops.some((o) => o.targetRel === ".icculus/config.toml");
-  const guidance = pick((o) => o.targetRel.startsWith(".icculus/guidelines/"));
-  const skills = pick((o) => o.targetRel.startsWith(".icculus/skills/"));
-  const docs = pick((o) =>
-    o.targetRel.startsWith("docs/") || o.targetRel === "TODO.md"
-  );
-  // Other .icculus/ machinery (the brief, recipes) — but not config, guidance,
-  // or skills grouped above.
-  const harness = pick((o) =>
-    o.targetRel.startsWith(".icculus/") &&
-    o.targetRel !== ".icculus/config.toml" &&
-    !o.targetRel.startsWith(".icculus/guidelines/") &&
-    !o.targetRel.startsWith(".icculus/skills/")
-  );
+  const hasConfig = ops.some((o) => o.targetRel === "icculus.toml");
   // The integration files land at the project root / .claude and may merge or
   // append into ones you already have — grouped together regardless of how.
   const integration = pick((o) =>
     o.targetRel === ".gitignore" || o.targetRel.startsWith(".claude/")
   );
-
   const integrationSet = new Set(integration);
-  const accountedFor = new Set<PlanOp>([
-    ...ops.filter((o) => o.targetRel === ".icculus/config.toml"),
-    ...guidance,
-    ...skills,
-    ...docs,
-    ...harness,
-    ...integration,
-  ]);
+  // Anything else that is seeded (e.g. brief.md) — not the config or integration.
   const other = ops.filter((o) =>
-    !accountedFor.has(o) && !integrationSet.has(o)
+    o.targetRel !== "icculus.toml" && !integrationSet.has(o)
   );
-
-  // Distinct skill directories, not the file count (one skill can ship helpers).
-  const skillCount = new Set(skills.map((o) => o.targetRel.split("/")[2])).size;
-  const docFileCount =
-    docs.filter((o) => o.targetRel.startsWith("docs/")).length;
 
   log.heading(`icculus will set up its harness in ${destDir}`);
   log.line(
@@ -90,51 +65,14 @@ export function renderReview(log: Logger, plan: Plan, destDir: string): void {
     log.line(
       row(
         log,
-        ".icculus/config.toml",
-        "the one file you tune — capabilities, scopes, worktree",
+        "icculus.toml",
+        "the whole footprint — capabilities, scopes, features, worktree",
       ),
     );
   }
 
-  if (guidance.length > 0 || skillCount > 0) {
-    log.line(
-      `\n  ${log.bold("Agent guidance")} ${
-        log.dim("— yours to fill in (via /bootstrap)")
-      }`,
-    );
-    for (const op of guidance) {
-      log.line(`    ${op.targetRel}`);
-    }
-    if (skillCount > 0) {
-      log.line(row(log, ".icculus/skills/", `${skillCount} portable skills`));
-    }
-  }
-
-  if (docs.length > 0) {
-    log.line(`\n  ${log.bold("Docs scaffold")}`);
-    if (docFileCount > 0) {
-      log.line(
-        row(
-          log,
-          "docs/",
-          `${docFileCount} files — orientation, ADRs, gate gotchas`,
-        ),
-      );
-    }
-    if (docs.some((o) => o.targetRel === "TODO.md")) {
-      log.line(`    TODO.md`);
-    }
-  }
-
-  if (harness.length > 0) {
-    log.line(`\n  ${log.bold("Harness")}`);
-    log.line(
-      row(log, ".icculus/", `${harness.length} files — your brief and recipes`),
-    );
-  }
-
   if (other.length > 0) {
-    log.line(`\n  ${log.bold("Other")}`);
+    log.line(`\n  ${log.bold("Your content")}`);
     for (const op of other) {
       log.line(`    ${op.targetRel}${op.note ? log.dim(` — ${op.note}`) : ""}`);
     }

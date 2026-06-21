@@ -3,7 +3,7 @@
  * against a FAKE example preset fixture (a toy "stack" under
  * tests/fixtures/presets/example/ — not a real ecosystem, not shipped).
  * `add-preset` overlays the preset's files AND applies its preset.json config
- * fills to .icculus/config.toml.
+ * fills to icculus.toml.
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
@@ -48,12 +48,12 @@ Deno.test("add-preset overlays the example preset's files and config fills", asy
     assertEquals(result.config_fills, true);
 
     // Files overlaid: a seed recipe, a seed guideline fragment, a managed skill.
-    assert(await exists(join(dir, ".icculus/recipes/example-deploy")));
-    assert(await exists(join(dir, ".icculus/guidelines/example.md")));
-    assert(await exists(join(dir, ".icculus/skills/example-skill/SKILL.md")));
+    assert(await exists(join(dir, "recipes/example-deploy")));
+    assert(await exists(join(dir, "guidance.md")));
+    assert(await exists(join(dir, "skills/example-skill/SKILL.md")));
     // The overlaid recipe kept its exec bit.
     const recipeInfo = await Deno.stat(
-      join(dir, ".icculus/recipes/example-deploy"),
+      join(dir, "recipes/example-deploy"),
     );
     assert(
       ((recipeInfo.mode ?? 0) & 0o111) !== 0,
@@ -62,13 +62,13 @@ Deno.test("add-preset overlays the example preset's files and config fills", asy
     // preset.json is metadata — never scaffolded into the project.
     assert(!(await exists(join(dir, "preset.json"))));
 
-    // Config fills landed in .icculus/config.toml, comments intact.
-    const toml = await Deno.readTextFile(join(dir, ".icculus/config.toml"));
+    // Config fills landed in icculus.toml, comments intact.
+    const toml = await Deno.readTextFile(join(dir, "icculus.toml"));
     assertStringIncludes(toml, 'test = "echo running example tests"'); // capability
     assertStringIncludes(toml, 'paths = ["example/**"]'); // scope paths
     assertStringIncludes(toml, 'gate = "echo example side gate"'); // scope gate
     assertStringIncludes(toml, "[ratchets.examplesize]"); // ratchet
-    assertStringIncludes(toml, "# .icculus/config.toml"); // template comment survived
+    assertStringIncludes(toml, "# icculus.toml"); // template comment survived
   });
 });
 
@@ -85,7 +85,7 @@ Deno.test("add-preset: the overlaid project recipe is runnable via agent", async
 Deno.test("add-preset --dry-run writes nothing (files or fills)", async () => {
   await withTempDir(async (dir) => {
     await runCli(["init", "--yes", "--slug", "demo"], dir);
-    const before = await Deno.readTextFile(join(dir, ".icculus/config.toml"));
+    const before = await Deno.readTextFile(join(dir, "icculus.toml"));
     const r = await runCli(
       ["add-preset", "example", "--yes", "--dry-run", "--json"],
       dir,
@@ -93,9 +93,9 @@ Deno.test("add-preset --dry-run writes nothing (files or fills)", async () => {
     );
     assertEquals(r.code, 0, r.stderr);
     assertEquals(JSON.parse(r.stdout).dry_run, true);
-    assert(!(await exists(join(dir, ".icculus/recipes/example-deploy"))));
+    assert(!(await exists(join(dir, "recipes/example-deploy"))));
     assertEquals(
-      await Deno.readTextFile(join(dir, ".icculus/config.toml")),
+      await Deno.readTextFile(join(dir, "icculus.toml")),
       before,
     );
   });
@@ -136,9 +136,9 @@ async function stagePreset(
   return { env: { ICCULUS_PRESETS_DIR: presetsRoot }, presetsRoot };
 }
 
-Deno.test("add-preset reports not_initialized when there is no .icculus/config.toml (--json)", async () => {
+Deno.test("add-preset reports not_initialized when there is no icculus.toml (--json)", async () => {
   await withTempDir(async (dir) => {
-    // No `init` here — the dir has no .icculus/config.toml.
+    // No `init` here — the dir has no icculus.toml.
     const r = await runCli(
       ["add-preset", "example", "--yes", "--json"],
       dir,
@@ -193,7 +193,7 @@ Deno.test("add-preset with no presets dir reports 'ships no presets yet'", async
 Deno.test("add-preset --dry-run prints the plan as plain text and writes nothing", async () => {
   await withTempDir(async (dir) => {
     await runCli(["init", "--yes", "--slug", "demo"], dir);
-    const before = await Deno.readTextFile(join(dir, ".icculus/config.toml"));
+    const before = await Deno.readTextFile(join(dir, "icculus.toml"));
     const r = await runCli(
       ["add-preset", "example", "--yes", "--dry-run"],
       dir,
@@ -202,16 +202,16 @@ Deno.test("add-preset --dry-run prints the plan as plain text and writes nothing
     assertEquals(r.code, 0, r.stderr);
     // The plan rows print to stdout (the user-facing channel); the heading and
     // the config-fills note are status lines on stderr.
-    assertStringIncludes(r.stdout, ".icculus/recipes/example-deploy");
+    assertStringIncludes(r.stdout, "recipes/example-deploy");
     assertStringIncludes(r.stderr, 'Dry run — preset "example" would overlay');
     assertStringIncludes(
       r.stderr,
-      "Would also apply config fills to .icculus/config.toml",
+      "Would also apply config fills to icculus.toml",
     );
     // Nothing was written.
-    assert(!(await exists(join(dir, ".icculus/recipes/example-deploy"))));
+    assert(!(await exists(join(dir, "recipes/example-deploy"))));
     assertEquals(
-      await Deno.readTextFile(join(dir, ".icculus/config.toml")),
+      await Deno.readTextFile(join(dir, "icculus.toml")),
       before,
     );
   });
@@ -220,9 +220,9 @@ Deno.test("add-preset --dry-run prints the plan as plain text and writes nothing
 Deno.test("add-preset overlays a preset that has no preset.json (files only, no fills)", async () => {
   await withTempDir(async (dir) => {
     await runCli(["init", "--yes", "--slug", "demo"], dir);
-    const before = await Deno.readTextFile(join(dir, ".icculus/config.toml"));
+    const before = await Deno.readTextFile(join(dir, "icculus.toml"));
     const { env } = await stagePreset(dir, "filesonly", {
-      ".icculus/guidelines/filesonly.md": "# files only preset\n",
+      "recipes/filesonly": "# files only preset\n",
     });
 
     const r = await runCli(
@@ -233,12 +233,12 @@ Deno.test("add-preset overlays a preset that has no preset.json (files only, no 
     assertEquals(r.code, 0, r.stderr);
     const result = JSON.parse(r.stdout);
     assertEquals(result.ok, true);
-    // No preset.json → no config fills, and .icculus/config.toml is untouched.
+    // No preset.json → no config fills, and icculus.toml is untouched.
     assertEquals(result.config_fills, false);
-    assert(result.written.includes(".icculus/guidelines/filesonly.md"));
-    assert(await exists(join(dir, ".icculus/guidelines/filesonly.md")));
+    assert(result.written.includes("recipes/filesonly"));
+    assert(await exists(join(dir, "recipes/filesonly")));
     assertEquals(
-      await Deno.readTextFile(join(dir, ".icculus/config.toml")),
+      await Deno.readTextFile(join(dir, "icculus.toml")),
       before,
     );
   });
@@ -247,9 +247,9 @@ Deno.test("add-preset overlays a preset that has no preset.json (files only, no 
 Deno.test("add-preset rejects a preset.json that is not a JSON object", async () => {
   await withTempDir(async (dir) => {
     await runCli(["init", "--yes", "--slug", "demo"], dir);
-    const before = await Deno.readTextFile(join(dir, ".icculus/config.toml"));
+    const before = await Deno.readTextFile(join(dir, "icculus.toml"));
     const { env } = await stagePreset(dir, "badjson", {
-      ".icculus/guidelines/badjson.md": "# preset with a non-object manifest\n",
+      "recipes/badjson": "# preset with a non-object manifest\n",
       "preset.json": '["not", "an", "object"]',
     });
 
@@ -264,9 +264,9 @@ Deno.test("add-preset rejects a preset.json that is not a JSON object", async ()
     assertEquals(result.error, "invalid_preset");
     assertStringIncludes(result.message, "must be a JSON object");
     // Failed before writing anything (neither the file nor the toml changed).
-    assert(!(await exists(join(dir, ".icculus/guidelines/badjson.md"))));
+    assert(!(await exists(join(dir, "recipes/badjson"))));
     assertEquals(
-      await Deno.readTextFile(join(dir, ".icculus/config.toml")),
+      await Deno.readTextFile(join(dir, "icculus.toml")),
       before,
     );
   });
@@ -316,17 +316,17 @@ Deno.test("add-preset rejects a preset.json with an unsupported version", async 
   });
 });
 
-Deno.test("add-preset falls back to default agents when .icculus/config.toml omits them", async () => {
+Deno.test("add-preset falls back to default agents when icculus.toml omits them", async () => {
   await withTempDir(async (dir) => {
     await runCli(["init", "--yes", "--slug", "demo"], dir);
     // Strip the `agents = [...]` line so the command takes the DEFAULTS branch
     // when building its scaffold config.
-    const original = await Deno.readTextFile(join(dir, ".icculus/config.toml"));
+    const original = await Deno.readTextFile(join(dir, "icculus.toml"));
     const stripped = original
       .split("\n")
       .filter((line) => !line.trimStart().startsWith("agents ="))
       .join("\n");
-    await Deno.writeTextFile(join(dir, ".icculus/config.toml"), stripped);
+    await Deno.writeTextFile(join(dir, "icculus.toml"), stripped);
 
     const r = await runCli(
       ["add-preset", "example", "--yes", "--json"],
@@ -336,6 +336,6 @@ Deno.test("add-preset falls back to default agents when .icculus/config.toml omi
     assertEquals(r.code, 0, r.stderr);
     assertEquals(JSON.parse(r.stdout).ok, true);
     // The overlay still applied normally despite the missing agents key.
-    assert(await exists(join(dir, ".icculus/recipes/example-deploy")));
+    assert(await exists(join(dir, "recipes/example-deploy")));
   });
 });
