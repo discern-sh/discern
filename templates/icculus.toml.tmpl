@@ -255,8 +255,8 @@ fail_fast = true
 # with a warning — the engine always wins, so a project file can never redefine
 # the core gate. A recipe is a standalone executable in any language: `icculus`
 # exec's it with the ICCULUS_* environment exported (ICCULUS_ROOT, ICCULUS_RECIPES,
-# MAIN_BRANCH, …) and your args forwarded. It does not source any shell library —
-# read config by calling the binary (`icculus config get <key>`) and worktree
+# MAIN_BRANCH, …) and your args forwarded. A recipe is self-contained: it reads
+# config by calling the binary (`icculus config get <key>`) and resolves worktree
 # identity with `icculus worktree-name --db|--site|--port`.
 # ─────────────────────────────────────────────────────────────────────────────
 
