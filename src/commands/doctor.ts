@@ -26,7 +26,7 @@ import {
   FEATURES,
   isFeatureEnabled,
 } from "../shared/features.ts";
-import { isKnownCapability } from "../shared/capabilities.ts";
+import { capStage, isKnownCapability } from "../shared/capabilities.ts";
 
 /** Options accepted by the `doctor` command. */
 export interface DoctorOptions {
@@ -400,6 +400,39 @@ export async function runChecks(destDir: string): Promise<Check[]> {
       // No settings.json, a malformed one, or unreadable: this advisory is
       // best-effort, so skip it silently (install validity is checked above).
     }
+  }
+
+  // 11. capability-shaped checks (advisory). The symmetric counterpart to check
+  // 3 (which flags a capability key that belongs in [checks]): a [checks.<name>]
+  // whose name IS a standard capability and whose stage is that capability's
+  // canonical stage is almost certainly meant to be a [capabilities] entry —
+  // which doctor reports and /bootstrap fills, and a check does not. Nudge toward
+  // the free capability slot. Advisory only (still healthy): a custom-named check
+  // with a standard stage is legitimate when the label is the point.
+  try {
+    const cfg = new Config(tomlText);
+    const wired = new Set(cfg.keys("capabilities").filter(isKnownCapability));
+    const misfiled = cfg.subsections("checks").filter((chk) =>
+      isKnownCapability(chk) && !wired.has(chk) &&
+      cfg.get(`checks.${chk}.stage`, "") === capStage(chk)
+    );
+    if (misfiled.length > 0) {
+      checks.push({
+        name: "capability-shaped checks",
+        ok: true,
+        warn: true,
+        detail: `${
+          misfiled.map((c) => `[checks.${c}]`).join(", ")
+        } match a standard capability at its canonical stage`,
+        fix: `wire as a capability instead (e.g. [capabilities].${
+          misfiled[0]
+        } = "…"), so doctor reports it and /bootstrap can fill it — unless the [checks.${
+          misfiled[0]
+        }] name is deliberate`,
+      });
+    }
+  } catch {
+    // a config read failure was already reported above.
   }
 
   return checks;
