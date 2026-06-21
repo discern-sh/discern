@@ -7,7 +7,7 @@
  *   - a preset's `preset.json` — the config half of an `add-preset` overlay.
  *
  * Both apply the document's `capabilities` / `checks` / `scopes` / `ratchets` to
- * a project's `.icculus/config.toml` through the comment-preserving `TomlEditor`.
+ * a project's `icculus.toml` through the comment-preserving `TomlEditor`.
  * Because this shape is a published contract (a JSON Schema ships at
  * `schema/icculus-config.schema.json`), it carries an optional `version` so it
  * can evolve without silently misreading an older or newer document, and accepts
@@ -162,7 +162,7 @@ export function mergeDocIntoFlags(
 
 /**
  * Apply a document's `capabilities`/`checks`/`scopes`/`ratchets` fills to a
- * `TomlEditor` over a project's `.icculus/config.toml`. Validates names and
+ * `TomlEditor` over a project's `icculus.toml`. Validates names and
  * enum-ish values (capability name, stage, direction) the same way the `config`
  * subcommand does; throws on bad input so the caller can report it.
  */

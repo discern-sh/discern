@@ -1,4 +1,4 @@
-# .icculus/config.toml — the one file that teaches a stack-neutral harness about YOUR
+# icculus.toml — the one file that teaches a stack-neutral harness about YOUR
 # project. The engine is generic and lives inside the `icculus` binary; everything
 # specific to your language and tools lives here. This file is yours: edit it by
 # hand. `icculus upgrade` runs config-schema migrations, re-materializes the bundled
@@ -18,9 +18,6 @@ branch_prefix = "agent/"
 # The integration branch the gate merges into and worktrees graduate onto.
 # Override per-invocation with the MAIN_BRANCH env var.
 main_branch = "main"
-
-# Which agent instruction files `icculus guidelines` compiles from .icculus/guidelines/.
-# Known targets: "claude_code" -> CLAUDE.md, "codex" -> AGENTS.md.
 
 # Where the gate points an agent when a stage fails in a non-obvious way. Keep
 # this doc current with the traps specific to your stack (see the comment block
@@ -67,7 +64,7 @@ test      = "deno task test"
 # Docs and agent-guidance sources need no gate (generated guidance is refreshed by
 # the gate itself; editing the source changes no behaviour). Root-level *.md too.
 [scopes.docs]
-paths   = ["docs/", ".icculus/", ".claude/"]
+paths   = ["docs/", ".claude/", "skills/"]
 neutral = true
 
 

@@ -50,7 +50,7 @@ function fail(
 }
 
 /**
- * Load `.icculus/config.toml` from the cwd, apply the edits through `TomlEditor`
+ * Load `icculus.toml` from the cwd, apply the edits through `TomlEditor`
  * (preserving comments), and write it back — or, with `--dry-run`, report what
  * would change and write nothing. `summary` is the human success line.
  */

@@ -265,3 +265,46 @@ Deno.test("doctor: a foreign worktree hook is an advisory warning, not a failure
     assertEquals(wt.warn, true);
   });
 });
+
+Deno.test("doctor: reports the [features] toggle state and reflects a disabled feature", async () => {
+  await withTempDir(async (dir) => {
+    await initInstall(dir);
+    const fresh = await runDoctorJson(dir);
+    assertEquals(fresh.code, 0);
+    const f = check(fresh.payload, "features");
+    assertEquals(f.ok, true);
+    assertStringIncludes(f.detail, "all on");
+
+    // Disable one feature via the real config surface; doctor must surface it.
+    assertEquals(
+      (await runCli(["config", "set", "features.worktrees", "false"], dir))
+        .code,
+      0,
+    );
+    const after = await runDoctorJson(dir);
+    assertEquals(after.code, 0); // a disabled feature is healthy, just reported
+    assertStringIncludes(
+      check(after.payload, "features").detail,
+      "off: worktrees",
+    );
+  });
+});
+
+Deno.test("doctor: flags a gotchas_doc that points at a missing file", async () => {
+  await withTempDir(async (dir) => {
+    await initInstall(dir);
+    assertEquals(
+      (await runCli(
+        ["config", "set", "project.gotchas_doc", "docs/nope.md"],
+        dir,
+      )).code,
+      0,
+    );
+    const { code, payload } = await runDoctorJson(dir);
+    assertEquals(code, 1);
+    const g = check(payload, "gotchas doc");
+    assertEquals(g.ok, false);
+    assertStringIncludes(g.detail, "does not exist");
+    assertStringIncludes(g.fix ?? "", "gotchas_doc");
+  });
+});

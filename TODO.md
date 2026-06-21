@@ -65,11 +65,33 @@ _Nothing outstanding._
       comment block, or re-emitting the template comments for the sections the
       step rewrites. Observed needing a hand-tidy on several v3→v4 installs. The
       `5 → 6` step (ADR 0020) has the mirror issue: it appends the new
-      `[features]`/`[guidance]`/`[skills]` sections comment-less at EOF.
-      Consider dropping a deleted section's leading comment block, or
-      re-emitting the template comments for the sections a step rewrites/adds.
-      Evidence: `src/lib/migrations.ts` (the `from: 3` and `from: 5` steps);
-      target layout is `templates/icculus.toml.tmpl`.
+      `[features]`/`[guidance]`/`[skills]` sections comment-less at EOF (and in
+      reverse key order). Net effect: a migrating user lands on a barer,
+      comment- stripped config than a fresh `init` produces — the two onboarding
+      paths diverge. The clean fix is to re-render `icculus.toml` from the
+      commented template, preserving the user's values, rather than line-editing
+      in place. Consider also dropping a deleted section's leading comment
+      block. Evidence: `src/lib/migrations.ts` (the `from: 3` and `from: 5`
+      steps); target layout is `templates/icculus.toml.tmpl`.
+
+- [ ] **The 5→6 migration doesn't relocate a `.icculus/`-pointed
+      `gotchas_doc`.** If `[project].gotchas_doc` pointed inside
+      `.icculus/guidelines/`, that file is concatenated into `guidance.md` and
+      `.icculus/` is deleted, leaving `gotchas_doc` dangling (and merging a
+      distinct doc into general guidance). `doctor` now _flags_ a dangling
+      `gotchas_doc`, but the migration should relocate it (or keep it
+      standalone) rather than rely on the user noticing. The common case
+      (`gotchas_doc` under `docs/`, or empty) is unaffected. Evidence:
+      `src/lib/migrations.ts` (`from: 5`); `src/commands/doctor.ts` (the new
+      "gotchas doc" check surfaces it).
+
+- [ ] **`config set <key> <value>` strips the edited line's inline comment.**
+      The comment-preserving `TomlEditor.setLiteral` rewrites the whole
+      `key = …` line, dropping any trailing `# …` annotation, so editing the
+      self-documenting `icculus.toml` via the CLI quietly degrades it one line
+      at a time (e.g. `config set features.worktrees false` drops that line's
+      trailing `# …` annotation). Preserve a trailing inline comment when
+      rewriting a value. Evidence: `src/lib/toml_edit.ts` (`setLiteral`).
 
 ## 🟢 Test & tooling hygiene
 

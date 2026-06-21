@@ -46,7 +46,7 @@ import { compileGuidelines } from "../guidelines.ts";
 
 /** Context shared by every lifecycle operation. */
 export interface LifecycleContext {
-  /** The project root (holds `.icculus/config.toml`). */
+  /** The project root (holds `icculus.toml`). */
   root: string;
   /** The parsed project config. */
   config: Config;

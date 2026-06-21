@@ -566,7 +566,7 @@ async function helperWithGotchas(args: string[]): Promise<number> {
 
 /**
  * `icculus config <get|array|has|subsections|keys> <key>` — the READ side of the
- * config surface. This is what a project recipe uses to read `.icculus/config.toml`
+ * config surface. This is what a project recipe uses to read `icculus.toml`
  * (replacing the shell `config_get`/`config_array` it used to source). `has`
  * answers via the exit code; the rest print to stdout.
  */

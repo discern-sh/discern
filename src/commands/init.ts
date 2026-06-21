@@ -175,7 +175,7 @@ function stampSchemaIntoPlan(plan: Plan, version: number): void {
 
 /**
  * Apply the answers file's slots/scopes/side_gates/ratchets to the generated
- * `.icculus/config.toml` op via the comment-preserving editor. A no-op when the
+ * `icculus.toml` op via the comment-preserving editor. A no-op when the
  * config is a `skip` (an existing seed left as the user's — fills never clobber it).
  */
 function applyFillsToPlan(plan: Plan, fills: IcculusConfigDoc): void {
@@ -194,7 +194,7 @@ export async function runInit(options: InitOptions): Promise<number> {
   const destDir = Deno.cwd();
 
   // Guard: refuse to scaffold over an existing install unless forced. Detect
-  // either layout — the consolidated `.icculus/config.toml` or a legacy root
+  // either layout — the consolidated `icculus.toml` or a legacy root
   // `icculus.toml` left by a pre-migration install.
   if ((await resolveConfigPath(destDir)) !== undefined && !options.force) {
     const message =
@@ -383,5 +383,5 @@ function printOutro(log: Logger, config: InitConfig): void {
       log.bold("icculus doctor")
     } to verify the install (config, schema,`,
   );
-  log.line("     capabilities, git worktree support).");
+  log.line("     capabilities, features, and more).");
 }

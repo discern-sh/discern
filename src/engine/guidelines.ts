@@ -164,7 +164,7 @@ export async function compileGuidelines(
   const agentsWritten: string[] = [];
   if (!isFeatureEnabled(config, "guidance")) {
     log.info("guidance feature is off — no agent files compiled.");
-    return summarize(agentsWritten, skills, log, /*guidanceOff*/ true);
+    return summarize(agentsWritten, skills);
   }
 
   let body = await builtinGuidance(config);
@@ -202,22 +202,15 @@ export async function compileGuidelines(
       }`,
     );
   }
-  return summarize(agentsWritten, skills, log, false);
+  return summarize(agentsWritten, skills);
 }
 
-/** Build the result and emit the skill summary line. */
+/** Build the result. The skills narration is emitted once by `materializeSkills`,
+ * so this does not repeat it. */
 function summarize(
   agentsWritten: string[],
   skills: { copied: number; linked: number; pruned: number },
-  log: Logger,
-  guidanceOff: boolean,
 ): GuidelinesResult {
-  if (!guidanceOff || skills.copied + skills.linked > 0) {
-    log.info(
-      `skills in .claude/skills/: ${skills.copied} bundled, ${skills.linked} authored` +
-        (skills.pruned > 0 ? ` (pruned ${skills.pruned} stale)` : ""),
-    );
-  }
   return {
     agentsWritten,
     skillsCopied: skills.copied,

@@ -21,7 +21,11 @@ import { parseIcculusToml } from "../lib/toml_render.ts";
 import { resolveRecordedSchema } from "../lib/schema.ts";
 import { KIT_VERSION, SCHEMA_VERSION } from "../lib/version.ts";
 import { Config } from "../shared/config_read.ts";
-import { isFeatureEnabled } from "../shared/features.ts";
+import {
+  enabledFeatures,
+  FEATURES,
+  isFeatureEnabled,
+} from "../shared/features.ts";
 import { isKnownCapability } from "../shared/capabilities.ts";
 
 /** Options accepted by the `doctor` command. */
@@ -47,6 +51,15 @@ export interface Check {
 function firstWord(command: string): string | undefined {
   const word = command.trim().split(/\s+/)[0];
   return word === undefined || word === "" || word === ":" ? undefined : word;
+}
+
+/** Whether a regular file exists at `path`. */
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    return (await Deno.stat(path)).isFile;
+  } catch {
+    return false;
+  }
 }
 
 /** Whether `word` resolves as a command (on PATH, a shell builtin, or a path). */
@@ -240,7 +253,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
           offenders.join(", ")
         }`,
         fix:
-          "recipes are standalone executables now — read config with `icculus config get` instead of sourcing `$ICCULUS_LIB/bootstrap.sh`",
+          "recipes are standalone executables now — read config with `icculus config get` instead of sourcing the retired `$ICCULUS_LIB` shell library",
       });
     }
   } catch {
@@ -297,7 +310,50 @@ export async function runChecks(destDir: string): Promise<Check[]> {
     // a config read failure was already reported above.
   }
 
-  // 8. worktree-automation layering (advisory). If .claude/settings.json carries
+  // 8. features — surface the [features] toggle state, so a user can SEE which
+  // subsystems are on without inferring it from missing `--help` verbs.
+  try {
+    const cfg = new Config(tomlText);
+    const on = new Set(enabledFeatures(cfg));
+    const off = FEATURES.filter((f) => !on.has(f));
+    checks.push({
+      name: "features",
+      ok: true,
+      detail: off.length === 0
+        ? "all on (worktrees, ratchets, guidance, skills, docs)"
+        : `on: ${[...on].join(", ") || "none"}; off: ${off.join(", ")}`,
+    });
+  } catch {
+    // a config read failure was already reported above.
+  }
+
+  // 9. gotchas doc resolves — if [project].gotchas_doc is set, the file the gate
+  // points a failing agent at must exist (a 5→6 migration of a `.icculus/`-pointed
+  // doc, or a typo, can leave it dangling).
+  try {
+    const cfg = new Config(tomlText);
+    const doc = cfg.get("project.gotchas_doc", "").trim();
+    if (doc !== "") {
+      const abs = doc.startsWith("/") ? doc : join(destDir, doc);
+      const exists = await fileExists(abs);
+      checks.push(
+        exists
+          ? { name: "gotchas doc", ok: true, detail: `${doc} resolves` }
+          : {
+            name: "gotchas doc",
+            ok: false,
+            detail:
+              `[project].gotchas_doc points at "${doc}", which does not exist`,
+            fix:
+              "point [project].gotchas_doc at an existing file, or clear it (empty disables the pointer)",
+          },
+      );
+    }
+  } catch {
+    // a config read failure was already reported above.
+  }
+
+  // 10. worktree-automation layering (advisory). If .claude/settings.json carries
   // a worktree-lifecycle hook whose command does not invoke the harness CLI, a
   // different tool also automates worktrees here and would double setup/teardown.
   // Advisory only (a warn, still healthy): the install is fine, but the operator

@@ -1,6 +1,6 @@
 /**
  * The runtime config reader: one parse of the install config (`icculus.toml`, or
- * a legacy `.icculus/config.toml`) via `@std/toml`, exposing the small accessor
+ * a legacy `icculus.toml`) via `@std/toml`, exposing the small accessor
  * surface the engine and recipes need. Replaces the shell `config.sh` + `toml.awk`
  * pair with a single typed reader.
  *
@@ -20,7 +20,20 @@ function isTable(v: unknown): v is Record<string, unknown> {
 }
 
 /**
- * A parsed `.icculus/config.toml` with the engine's read accessors. Mirrors the
+ * A clear, catchable error for an unparseable install config. Replaces the raw
+ * `@std/toml` `SyntaxError` (which, uncaught, dumps a stack trace at a user who
+ * merely has a config typo). The CLI's top-level handler turns this into a clean
+ * one-line message and a non-zero exit, in both human and `--json` modes.
+ */
+export class ConfigParseError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ConfigParseError";
+  }
+}
+
+/**
+ * A parsed `icculus.toml` with the engine's read accessors. Mirrors the
  * shell `config_get`/`config_array`/`config_subsections`/`config_keys`/
  * `config_has`/`config_bool`.
  */
@@ -28,11 +41,19 @@ export class Config {
   private readonly data: Record<string, unknown>;
 
   constructor(text: string) {
-    this.data = parse(text) as Record<string, unknown>;
+    try {
+      this.data = parse(text) as Record<string, unknown>;
+    } catch (err) {
+      throw new ConfigParseError(
+        `icculus.toml is not valid TOML: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
   }
 
   /** Load and parse the install config (`icculus.toml`, or a legacy
-   * `.icculus/config.toml`) from under a project `root`. */
+   * `icculus.toml`) from under a project `root`. */
   static async load(root: string): Promise<Config> {
     const rel = (await installedConfigRel(root)) ?? CONFIG_REL;
     return new Config(await Deno.readTextFile(join(root, rel)));

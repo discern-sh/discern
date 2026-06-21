@@ -1,5 +1,5 @@
 /**
- * Building the gate's jobs for a stage from `.icculus/config.toml`. The TS port of
+ * Building the gate's jobs for a stage from `icculus.toml`. The TS port of
  * the shell `jobs_in_stage` / `cmds_in_stage` (jobs.sh tail).
  *
  *   capabilities  every `[capabilities]` flat key that is known and whose derived

@@ -19,8 +19,8 @@
  * safe — content is carried to the new path.
  */
 
-import { ensureDir } from "@std/fs";
-import { dirname, join } from "@std/path";
+import { ensureDir, walk } from "@std/fs";
+import { dirname, join, relative } from "@std/path";
 import { TomlEditor } from "./toml_edit.ts";
 import { mergeSettings } from "./settings_merge.ts";
 import { parseIcculusToml } from "./toml_render.ts";
@@ -473,8 +473,9 @@ export const MIGRATIONS: Migration[] = [
 
       // 6. Split skills (§3.5): authored dirs move to ./skills/; pristine bundled
       // copies are pruned (the binary re-ships them). A bundled-NAMED dir whose
-      // SKILL.md differs from the bundled one is a customization — preserved as
-      // authored rather than lost, then noted loudly.
+      // CONTENTS differ from the bundled one — in ANY file, not just SKILL.md —
+      // is a customization, preserved as authored rather than lost (R1), and
+      // noted loudly.
       if (await ctx.exists(".icculus/skills")) {
         const bundled = new Set(await bundledSkillNames());
         for await (
@@ -485,7 +486,7 @@ export const MIGRATIONS: Migration[] = [
           }
           const name = entry.name;
           const isPristineBundled = bundled.has(name) &&
-            await sameSkillContent(ctx.destDir, name);
+            await sameSkillTree(ctx.destDir, name);
           if (isPristineBundled) {
             await ctx.removeAll(`.icculus/skills/${name}`);
           } else {
@@ -513,33 +514,69 @@ export const MIGRATIONS: Migration[] = [
 ];
 
 /**
- * Whether the SKILL.md of the install's `.icculus/skills/<name>` is byte-identical
- * to the bundled built-in's. A pristine materialized copy (identical) is safe to
- * prune; a divergent one is a customization we must preserve. Missing files
- * compare unequal, erring toward preservation.
+ * Whether the install's `.icculus/skills/<name>` is byte-identical to the bundled
+ * built-in's — the WHOLE directory tree, every file, not just `SKILL.md`. A
+ * pristine materialized copy (identical) is safe to prune (the binary re-ships
+ * it); ANY difference — a changed, added, or removed file anywhere in the tree —
+ * means the user customized it, so it must be preserved (R1). Erring toward
+ * preservation: a read/resolve failure compares unequal.
  */
-async function sameSkillContent(
-  destDir: string,
-  name: string,
-): Promise<boolean> {
+async function sameSkillTree(destDir: string, name: string): Promise<boolean> {
   let bundledDir: string;
   try {
     bundledDir = await resolveBundledSkillsDir();
   } catch {
     return false;
   }
-  const read = async (p: string): Promise<string | undefined> => {
-    try {
-      return await Deno.readTextFile(p);
-    } catch {
-      return undefined;
+  const installed = join(destDir, ".icculus/skills", name);
+  const ship = join(bundledDir, name);
+  const a = await treeFiles(installed);
+  const b = await treeFiles(ship);
+  if (a === undefined || b === undefined || a.length !== b.length) {
+    return false;
+  }
+  const bySet = new Set(b);
+  for (const rel of a) {
+    if (!bySet.has(rel)) {
+      return false; // a file present on one side but not the other
     }
-  };
-  const installed = await read(
-    join(destDir, ".icculus/skills", name, "SKILL.md"),
-  );
-  const ship = await read(join(bundledDir, name, "SKILL.md"));
-  return installed !== undefined && ship !== undefined && installed === ship;
+    if (!(await sameBytes(join(installed, rel), join(ship, rel)))) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/** Sorted relative paths of every regular file under `dir`, or undefined if the
+ * directory can't be read. */
+async function treeFiles(dir: string): Promise<string[] | undefined> {
+  try {
+    const out: string[] = [];
+    for await (const entry of walk(dir, { includeDirs: false })) {
+      out.push(relative(dir, entry.path));
+    }
+    return out.sort();
+  } catch {
+    return undefined;
+  }
+}
+
+/** Whether two files have byte-identical contents (false if either is unreadable). */
+async function sameBytes(a: string, b: string): Promise<boolean> {
+  try {
+    const [x, y] = await Promise.all([Deno.readFile(a), Deno.readFile(b)]);
+    if (x.length !== y.length) {
+      return false;
+    }
+    for (let i = 0; i < x.length; i++) {
+      if (x[i] !== y[i]) {
+        return false;
+      }
+    }
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**

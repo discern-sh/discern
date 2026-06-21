@@ -9,7 +9,7 @@
 
 import { Command } from "@cliffy/command";
 import { KIT_VERSION } from "./lib/version.ts";
-import { Config } from "./shared/config_read.ts";
+import { Config, ConfigParseError } from "./shared/config_read.ts";
 import { findRoot } from "./shared/env.ts";
 import {
   enabledFeatures,
@@ -254,7 +254,7 @@ function buildCli(enabled: ReadonlySet<Feature>): RootCommand {
   }
 
   // `config` — programmatic, comment-preserving edits to an existing
-  // .icculus/config.toml. Each subcommand is a standalone Command instance attached via
+  // icculus.toml. Each subcommand is a standalone Command instance attached via
   // `.command(name, instance)` (the reliable Cliffy form for a command group).
   const setCapability = new Command()
     .description(
@@ -363,7 +363,7 @@ function buildCli(enabled: ReadonlySet<Feature>): RootCommand {
     });
 
   // Read-side config surface — what a project recipe uses to read
-  // .icculus/config.toml (replacing the shell config_* helpers).
+  // icculus.toml (replacing the shell config_* helpers).
   const configGet = new Command()
     .description("Print a scalar config value.")
     .arguments("<key:string>")
@@ -467,50 +467,71 @@ export async function main(args: string[]): Promise<void> {
   }
   const verb = argv[0];
 
-  // Internal helper verbs (remove-worktree-safely, with-gotchas, …): handled
-  // before Cliffy so a wrapped command's flags pass through raw.
-  if (verb !== undefined) {
-    const helperCode = await dispatchHelper(verb, argv.slice(1));
-    if (helperCode !== null) {
-      Deno.exit(helperCode);
+  try {
+    // Internal helper verbs (remove-worktree-safely, with-gotchas, …): handled
+    // before Cliffy so a wrapped command's flags pass through raw.
+    if (verb !== undefined) {
+      const helperCode = await dispatchHelper(verb, argv.slice(1));
+      if (helperCode !== null) {
+        Deno.exit(helperCode);
+      }
     }
+
+    // Resolve which features this project has enabled (all-on outside a project),
+    // so help lists only active verbs and a disabled verb errors clearly.
+    const enabled = await resolveEnabledFeatures();
+
+    // Root help: Cliffy's help plus the project-recipe listing (the shell `agent
+    // --help` showed both).
+    if (verb === undefined || verb === "-h" || verb === "--help") {
+      console.log(buildCli(enabled).getHelp());
+      await printProjectRecipes();
+      Deno.exit(0);
+    }
+
+    // A verb that belongs to a disabled feature: a clear error, not a recipe
+    // fallthrough or a bare "unknown command".
+    const owningFeature = featureForVerb(verb);
+    if (owningFeature !== undefined && !enabled.has(owningFeature)) {
+      console.error(
+        `icculus: the "${owningFeature}" feature is disabled in this project ` +
+          `(set [features].${owningFeature} = true in icculus.toml to enable it).`,
+      );
+      Deno.exit(1);
+    }
+
+    // A built-in engine verb with a same-named project recipe: warn it is shadowed.
+    if (KNOWN_ENGINE_VERBS.has(verb)) {
+      await warnShadowedRecipe(verb);
+    }
+
+    // Recipe fallthrough: an unknown verb (not a flag, not a known command) is a
+    // project-owned executable recipe, or an "unknown recipe" suggestion.
+    if (!verb.startsWith("-") && !KNOWN_VERBS.has(verb)) {
+      Deno.exit(await dispatchRecipeOrSuggest(verb, argv.slice(1)));
+    }
+
+    await buildCli(enabled).parse(argv);
+  } catch (err) {
+    // An unparseable icculus.toml must read as a clean diagnostic, not a raw
+    // stack trace — in both human and `--json` modes (a CI/agent consuming JSON
+    // gets a structured error, not garbage). Other errors propagate unchanged.
+    if (err instanceof ConfigParseError) {
+      if (argv.includes("--json")) {
+        console.log(
+          JSON.stringify({
+            ok: false,
+            error: "invalid_toml",
+            message: err.message,
+          }),
+        );
+      } else {
+        console.error(`icculus: ${err.message}`);
+      }
+      Deno.exit(1);
+    }
+    throw err;
   }
-
-  // Resolve which features this project has enabled (all-on outside a project),
-  // so help lists only active verbs and a disabled verb errors clearly.
-  const enabled = await resolveEnabledFeatures();
-
-  // Root help: Cliffy's help plus the project-recipe listing (the shell `agent
-  // --help` showed both).
-  if (verb === undefined || verb === "-h" || verb === "--help") {
-    console.log(buildCli(enabled).getHelp());
-    await printProjectRecipes();
-    Deno.exit(0);
-  }
-
-  // A verb that belongs to a disabled feature: a clear error, not a recipe
-  // fallthrough or a bare "unknown command".
-  const owningFeature = featureForVerb(verb);
-  if (owningFeature !== undefined && !enabled.has(owningFeature)) {
-    console.error(
-      `icculus: the "${owningFeature}" feature is disabled in this project ` +
-        `(set [features].${owningFeature} = true in icculus.toml to enable it).`,
-    );
-    Deno.exit(1);
-  }
-
-  // A built-in engine verb with a same-named project recipe: warn it is shadowed.
-  if (KNOWN_ENGINE_VERBS.has(verb)) {
-    await warnShadowedRecipe(verb);
-  }
-
-  // Recipe fallthrough: an unknown verb (not a flag, not a known command) is a
-  // project-owned executable recipe, or an "unknown recipe" suggestion.
-  if (!verb.startsWith("-") && !KNOWN_VERBS.has(verb)) {
-    Deno.exit(await dispatchRecipeOrSuggest(verb, argv.slice(1)));
-  }
-
-  await buildCli(enabled).parse(argv);
 }
 
 if (import.meta.main) {

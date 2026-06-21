@@ -414,6 +414,43 @@ Deno.test("migration 5→6 dissolves .icculus/: moves config/guidance/recipes/au
   });
 });
 
+Deno.test("migration 5→6 preserves a CUSTOMIZED bundled skill that differs only in a non-SKILL.md file (R1)", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.mkdir(join(dir, ".icculus"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, ".icculus/config.toml"),
+      '[meta]\nschema_version = 5\n[project]\nslug = "demo"\n',
+    );
+    // A bundled-named skill whose SKILL.md is the PRISTINE shipped copy, but with
+    // a user-added file elsewhere in the tree. The SKILL.md-only check would have
+    // judged this "pristine" and deleted the whole dir, losing the custom file.
+    const shippedSkill = await Deno.readTextFile(
+      join(REAL_TEMPLATES, "skills/write-adr/SKILL.md"),
+    );
+    await Deno.mkdir(join(dir, ".icculus/skills/write-adr/skel/docs/_adr"), {
+      recursive: true,
+    });
+    await Deno.writeTextFile(
+      join(dir, ".icculus/skills/write-adr/SKILL.md"),
+      shippedSkill,
+    );
+    await Deno.writeTextFile(
+      join(dir, ".icculus/skills/write-adr/skel/docs/_adr/MY-NOTE.md"),
+      "# my customization the migration must not delete\n",
+    );
+
+    await applyMigrations({ destDir: dir, from: 5, to: 6, onNote: () => {} });
+
+    // The whole customized tree is preserved as an authored override, not pruned.
+    assertEquals(await targetExists(dir, "skills/write-adr/SKILL.md"), true);
+    assertEquals(
+      await targetExists(dir, "skills/write-adr/skel/docs/_adr/MY-NOTE.md"),
+      true,
+    );
+    assertEquals(await targetExists(dir, ".icculus"), false);
+  });
+});
+
 Deno.test("isChainContiguous accepts a full chain and rejects gaps / dups / wrong length", () => {
   const step = (from: number): Migration => ({
     from,

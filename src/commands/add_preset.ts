@@ -8,7 +8,7 @@
  * file), and an optional `preset.json` at its root —
  * metadata, never scaffolded — is an icculus config document (the same shape
  * `init --config` reads) whose capabilities / checks / scopes / ratchets are
- * written into the project's `.icculus/config.toml` via the comment-preserving
+ * written into the project's `icculus.toml` via the comment-preserving
  * editor. So a preset overlays both files (recipes, skills, guideline fragments,
  * docs) and config (capabilities, checks, scopes).
  *

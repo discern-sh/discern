@@ -220,3 +220,26 @@ Deno.test("add-preset reports unknown preset with a friendly error", async () =>
     assertEquals(result.error, "unknown_preset");
   });
 });
+
+Deno.test("a malformed icculus.toml fails cleanly (no stack trace), in human and JSON", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(
+      join(dir, "icculus.toml"),
+      'this is = not valid toml [[[\n"unterminated\n',
+    );
+    // Human mode: a one-line diagnostic on stderr, exit 1, no raw "Uncaught".
+    const human = await runCli(["config", "get", "project.slug"], dir);
+    assertEquals(human.code, 1);
+    assertStringIncludes(human.stderr, "icculus.toml is not valid TOML");
+    assert(
+      !human.stderr.includes("Uncaught"),
+      `must not dump a stack trace:\n${human.stderr}`,
+    );
+    // JSON mode: a structured error on stdout (a CI/agent consumer parses it).
+    const json = await runCli(["finish", "--json"], dir);
+    assertEquals(json.code, 1);
+    const result = JSON.parse(json.stdout);
+    assertEquals(result.ok, false);
+    assertEquals(result.error, "invalid_toml");
+  });
+});
