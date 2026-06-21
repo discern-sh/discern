@@ -26,7 +26,7 @@ Ask the user a couple of sharp questions **only when the repo itself is uninform
 
 ## Step 0.5 — Materialise the doc skeletons
 
-`init` no longer scaffolds `docs/` or `TODO.md` — the skeletons ship with this skill so the tree is created only when you are about to fill it. The skill is materialised at `.claude/skills/bootstrap/`, so its `skel/` lives at `.claude/skills/bootstrap/skel/`. Copy the skeletons into the project root now:
+The `docs/` tree and `TODO.md` ship as skeletons inside this skill, so the tree is created only when you are about to fill it. The skill is materialised at `.claude/skills/bootstrap/`, so its `skel/` lives at `.claude/skills/bootstrap/skel/`. Copy the skeletons into the project root now:
 
 - `.claude/skills/bootstrap/skel/docs/` → `docs/`
 - `.claude/skills/bootstrap/skel/TODO.md` → `TODO.md`

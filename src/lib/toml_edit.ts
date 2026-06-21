@@ -20,6 +20,11 @@ function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/** True for a blank (whitespace-only) line. */
+function isBlankLine(line: string): boolean {
+  return line.trim() === "";
+}
+
 /** Render a string as a double-quoted TOML value (escaping `\` and `"`). */
 export function tomlString(value: string): string {
   if (value.includes("\n")) {
@@ -155,6 +160,67 @@ export class TomlEditor {
     }
     this.lines.splice(span.headerIdx, span.bodyEnd - span.headerIdx);
     return true;
+  }
+
+  /** True when the section exists (its `[header]` line is present). */
+  hasSection(section: string): boolean {
+    return this.findSection(section) !== null;
+  }
+
+  /**
+   * Insert a pre-rendered multi-line section block — its doc-comment paragraph,
+   * `[header]`, and body — immediately after the `anchor` section, with a
+   * blank-line gap matching the file's section spacing. Falls back to an EOF
+   * append when `anchor` is absent. `block` must carry no surrounding blank lines
+   * (use {@link sectionBlockFromTemplate} to produce one). Unlike `setLiteral`'s
+   * bare-key EOF append, this places a section, documented, at a chosen position
+   * — so a migration can give an evolving config the layout a fresh init has.
+   */
+  insertSectionBlockAfter(anchor: string, block: string): this {
+    const blockLines = block.split("\n");
+    const span = this.findSection(anchor);
+    if (span === null) {
+      return this.appendSectionBlock(blockLines);
+    }
+    // Insert right after the anchor's last content line: step back over the
+    // blank lines trailing its body so our own gap controls the spacing.
+    let at = span.bodyEnd;
+    while (at - 1 > span.headerIdx && isBlankLine(this.lines[at - 1]!)) {
+      at--;
+    }
+    this.lines.splice(at, 0, "", "", ...blockLines);
+    return this;
+  }
+
+  /**
+   * Insert a section block at the top of the file — after any leading comment
+   * preamble, before the first section header — with a blank-line gap before the
+   * first section. Used to place a freshly-added, documented `[meta]` first, the
+   * way a fresh init has it. Falls back to an EOF append when there is no section
+   * header yet.
+   */
+  insertSectionBlockAtTop(block: string): this {
+    const blockLines = block.split("\n");
+    const firstHeader = this.lines.findIndex((l) => HEADER_RE.test(l));
+    if (firstHeader === -1) {
+      return this.appendSectionBlock(blockLines);
+    }
+    this.lines.splice(firstHeader, 0, ...blockLines, "", "");
+    return this;
+  }
+
+  /** Append a section block at EOF, separated from existing content by a gap. */
+  private appendSectionBlock(blockLines: string[]): this {
+    while (
+      this.lines.length > 0 && isBlankLine(this.lines[this.lines.length - 1]!)
+    ) {
+      this.lines.pop();
+    }
+    if (this.lines.length > 0) {
+      this.lines.push("", "");
+    }
+    this.lines.push(...blockLines);
+    return this;
   }
 
   /** Set a string-valued key. */

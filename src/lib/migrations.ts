@@ -23,7 +23,11 @@ import { ensureDir, walk } from "@std/fs";
 import { dirname, join, relative } from "@std/path";
 import { TomlEditor } from "./toml_edit.ts";
 import { mergeSettings } from "./settings_merge.ts";
-import { parseIcculusToml } from "./toml_render.ts";
+import { parseIcculusToml, renderTomlStringList } from "./toml_render.ts";
+import {
+  readConfigTemplate,
+  sectionBlockFromTemplate,
+} from "./config_template.ts";
 import { KNOWN_CAPABILITIES } from "./config.ts";
 import { bundledSkillNames } from "./skills.ts";
 import { resolveBundledSkillsDir } from "./paths.ts";
@@ -382,9 +386,16 @@ export const MIGRATIONS: Migration[] = [
       // 1. Move the config to the root single-file footprint.
       await ctx.rename(".icculus/config.toml", "icculus.toml");
 
-      // 2. Add the new sections (only-if-absent), migrating agents across. The
-      // line editor appends functional sections; the full commented blocks live
-      // in the template for reference.
+      // 2. Add the new sections. A fresh `init` lays the whole template down, so
+      // its config reads fully documented; an only-if-absent *line* edit here
+      // would instead append bare keys at EOF, leaving a migrated config
+      // progressively worse-documented than an init'd one the longer it has
+      // existed. So when a section is wholly absent — the common case, since
+      // [features]/[guidance]/[skills] are new in schema 6 — insert its canonical
+      // doc-commented block from the template at its canonical position, giving a
+      // migrated config the same quality as a fresh one. Fall back to a bare key
+      // edit only when a section is already partly present (so a hand edit is
+      // never clobbered) or the template can't be read.
       const movedText = await ctx.readConfig();
       let raw: Record<string, unknown> = {};
       if (movedText !== undefined) {
@@ -394,32 +405,81 @@ export const MIGRATIONS: Migration[] = [
           // belt-and-braces; leave raw empty so every section is treated absent.
         }
       }
-      const features = isRecord(raw.features) ? raw.features : {};
-      const guidance = isRecord(raw.guidance) ? raw.guidance : {};
-      const skills = isRecord(raw.skills) ? raw.skills : {};
-      const recipes = isRecord(raw.recipes) ? raw.recipes : {};
+      const featuresTbl = isRecord(raw.features) ? raw.features : undefined;
+      const guidanceTbl = isRecord(raw.guidance) ? raw.guidance : undefined;
+      const skillsTbl = isRecord(raw.skills) ? raw.skills : undefined;
+      const recipesTbl = isRecord(raw.recipes) ? raw.recipes : undefined;
+      const agents = legacyAgents.length > 0
+        ? legacyAgents
+        : ["claude_code", "codex"];
+      const tmpl = await readConfigTemplate();
+      // A section's canonical block from the template, with content tokens filled
+      // (only [guidance] carries one, `{{agents_array}}`). Undefined when the
+      // template is unavailable or the section is not in it.
+      const block = (section: string): string | undefined =>
+        tmpl === undefined
+          ? undefined
+          : sectionBlockFromTemplate(tmpl, section)?.replace(
+            "{{agents_array}}",
+            renderTomlStringList(agents),
+          );
       await ctx.editToml((e) => {
-        for (const f of FEATURES) {
-          if (features[f] === undefined) {
-            e.setBool(`features.${f}`, true);
+        // [meta] first and documented, when an install predating it never had one
+        // (a legacy, manifest-anchored upgrade would otherwise gain a bare [meta]
+        // at EOF from the schema stamp). Only-if-absent: an existing [meta] is
+        // left exactly where it is.
+        const metaBlock = block("meta");
+        if (!e.hasSection("meta") && metaBlock !== undefined) {
+          e.insertSectionBlockAtTop(metaBlock);
+        }
+
+        // [features] / [guidance] / [skills] — grouped after [project]. Inserted
+        // in order so each is the anchor for the next; the bare fallback fills
+        // any key whose value is absent (all of them when the section is new).
+        const featuresBlock = block("features");
+        if (featuresTbl === undefined && featuresBlock !== undefined) {
+          e.insertSectionBlockAfter("project", featuresBlock);
+        } else {
+          for (const f of FEATURES) {
+            if (featuresTbl?.[f] === undefined) {
+              e.setBool(`features.${f}`, true);
+            }
           }
         }
-        if (guidance.sources === undefined) {
-          e.setStringArray("guidance.sources", ["guidance.md"]);
+
+        const guidanceBlock = block("guidance");
+        if (guidanceTbl === undefined && guidanceBlock !== undefined) {
+          e.insertSectionBlockAfter("features", guidanceBlock);
+        } else {
+          if (guidanceTbl?.sources === undefined) {
+            e.setStringArray("guidance.sources", ["guidance.md"]);
+          }
+          if (guidanceTbl?.agents === undefined) {
+            e.setStringArray("guidance.agents", agents);
+          }
         }
-        if (guidance.agents === undefined) {
-          e.setStringArray(
-            "guidance.agents",
-            legacyAgents.length > 0 ? legacyAgents : ["claude_code", "codex"],
-          );
-        }
-        if (skills.dir === undefined) {
+
+        const skillsBlock = block("skills");
+        if (skillsTbl === undefined && skillsBlock !== undefined) {
+          e.insertSectionBlockAfter("guidance", skillsBlock);
+        } else if (skillsTbl?.dir === undefined) {
           e.setString("skills.dir", "skills");
         }
-        const rdir = typeof recipes.dir === "string" ? recipes.dir : undefined;
-        if (rdir === undefined || rdir === ".icculus/recipes") {
-          e.setString("recipes.dir", "recipes");
+
+        // [recipes] — canonically last. When present, only repoint the dead
+        // `.icculus/recipes` default (never touching a custom dir).
+        const recipesBlock = block("recipes");
+        if (recipesTbl === undefined && recipesBlock !== undefined) {
+          e.insertSectionBlockAfter("gate", recipesBlock);
+        } else {
+          const rdir = typeof recipesTbl?.dir === "string"
+            ? recipesTbl.dir
+            : undefined;
+          if (rdir === undefined || rdir === ".icculus/recipes") {
+            e.setString("recipes.dir", "recipes");
+          }
         }
+
         // The agents list now lives under [guidance]; drop the legacy copy.
         e.deleteKey("project.agents");
       });

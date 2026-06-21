@@ -76,6 +76,21 @@ async function addCapability(
   );
 }
 
+/** Append a `[checks.<name>]` table to the scaffold's config. */
+async function addCheck(
+  dir: string,
+  name: string,
+  stage: string,
+  run: string,
+): Promise<void> {
+  const p = join(dir, "icculus.toml");
+  const text = await Deno.readTextFile(p);
+  await Deno.writeTextFile(
+    p,
+    `${text}\n[checks.${name}]\nstage = "${stage}"\nrun = "${run}"\n`,
+  );
+}
+
 Deno.test("doctor --json: a fresh install is fully healthy and exits 0", async () => {
   await withTempDir(async (dir) => {
     await initInstall(dir);
@@ -286,6 +301,55 @@ Deno.test("doctor: reports the [features] toggle state and reflects a disabled f
     assertStringIncludes(
       check(after.payload, "features").detail,
       "off: worktrees",
+    );
+  });
+});
+
+Deno.test("doctor: nudges a [checks.x] that mirrors a standard capability (advisory)", async () => {
+  await withTempDir(async (dir) => {
+    await initInstall(dir);
+    // A standard capability wired as a check: name `lint` at its canonical stage.
+    // `echo` resolves on PATH so the command check passes — isolating the nudge.
+    await addCheck(dir, "lint", "check", "echo lint");
+
+    const { code, payload } = await runDoctorJson(dir);
+    assertEquals(code, 0); // advisory — the install is healthy
+    assertEquals(payload.ok, true);
+    const nudge = check(payload, "capability-shaped checks");
+    assertEquals(nudge.warn, true);
+    assertStringIncludes(nudge.detail, "[checks.lint]");
+    assertStringIncludes(nudge.fix ?? "", "[capabilities].lint");
+  });
+});
+
+Deno.test("doctor: does NOT nudge a custom-named check, or one at a non-canonical stage", async () => {
+  await withTempDir(async (dir) => {
+    await initInstall(dir);
+    // `licenses` is not a capability name; `lint` at stage `test` is not lint's
+    // canonical stage — neither is a misfiled capability.
+    await addCheck(dir, "licenses", "check", "license-scan");
+    await addCheck(dir, "lint", "test", "weird");
+
+    const { payload } = await runDoctorJson(dir);
+    assertEquals(
+      payload.checks.find((c) => c.name === "capability-shaped checks"),
+      undefined,
+      "no nudge for a legitimately custom check",
+    );
+  });
+});
+
+Deno.test("doctor: does NOT nudge when the capability slot is already wired", async () => {
+  await withTempDir(async (dir) => {
+    await initInstall(dir);
+    // [capabilities].lint is taken, so [checks.lint] can't move there — no nudge.
+    await addCapability(dir, "lint", "eslint .");
+    await addCheck(dir, "lint", "check", "stylelint .");
+
+    const { payload } = await runDoctorJson(dir);
+    assertEquals(
+      payload.checks.find((c) => c.name === "capability-shaped checks"),
+      undefined,
     );
   });
 });

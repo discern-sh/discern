@@ -59,6 +59,55 @@ Deno.test("editor appends a brand-new section at EOF", () => {
   assert(out.indexOf("[recipes]") > out.indexOf("[scopes.side_gates]"));
 });
 
+Deno.test("hasSection reports presence of a section header", () => {
+  const e = new TomlEditor(SAMPLE);
+  assert(e.hasSection("project"));
+  assert(e.hasSection("scopes.side_gates"));
+  assert(!e.hasSection("features"));
+});
+
+Deno.test("insertSectionBlockAfter places a documented block after an anchor section", () => {
+  const block = "# docs for features\n[features]\nworktrees = true";
+  const out = new TomlEditor(SAMPLE).insertSectionBlockAfter("project", block)
+    .toString();
+  const lines = out.split("\n");
+  const projectIdx = lines.indexOf("[project]");
+  const featuresIdx = lines.indexOf("[features]");
+  const slotsIdx = lines.indexOf("[slots.test]");
+  // The block lands after [project] but before the originally-following section.
+  assert(projectIdx < featuresIdx && featuresIdx < slotsIdx);
+  // The doc comment came with it; the anchor's own content is intact.
+  assertStringIncludes(out, "# docs for features\n[features]");
+  assertStringIncludes(out, 'slug = "demo"   # the slug');
+  // Separated by a blank-line gap, not jammed against the anchor's last line.
+  assert(out.includes('slug = "demo"   # the slug\n\n\n# docs for features'));
+});
+
+Deno.test("insertSectionBlockAfter falls back to an EOF append when the anchor is absent", () => {
+  const block = "# docs\n[brandnew]\nk = 1";
+  const out = new TomlEditor(SAMPLE).insertSectionBlockAfter("ghost", block)
+    .toString();
+  assert(out.indexOf("[brandnew]") > out.indexOf("[scopes.side_gates]"));
+  assertStringIncludes(out, "# docs\n[brandnew]\nk = 1");
+});
+
+Deno.test("insertSectionBlockAtTop places a block after the preamble, before the first section", () => {
+  const block = "[meta]\n# managed\nschema_version = 6";
+  const out = new TomlEditor(SAMPLE).insertSectionBlockAtTop(block).toString();
+  const lines = out.split("\n");
+  // The leading comment preamble stays on top; [meta] precedes the first section.
+  assertEquals(lines[0], "# top comment");
+  assert(lines.indexOf("[meta]") < lines.indexOf("[project]"));
+  assert(lines.indexOf("# top comment") < lines.indexOf("[meta]"));
+});
+
+Deno.test("insertSectionBlockAtTop on a header-only file (no preamble) puts the block first", () => {
+  const out = new TomlEditor('[project]\nslug = "x"\n')
+    .insertSectionBlockAtTop("[meta]\nschema_version = 6").toString();
+  assert(out.startsWith("[meta]\nschema_version = 6\n"));
+  assertStringIncludes(out, "[meta]\nschema_version = 6\n\n\n[project]");
+});
+
 Deno.test("editor adds a real key alongside a commented-out hint", () => {
   const out = new TomlEditor(SAMPLE).setString(
     "scopes.side_gates.native",

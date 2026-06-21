@@ -46,8 +46,8 @@ review); the other provider mirrors are gitignored.
 
 Custom project commands can be added as **recipes**: drop an executable carrying a
 `# desc: ...` line into `[recipes].dir` (default `./recipes`) and it becomes a
-first-class `icculus <name>` command. A recipe reads config by calling the binary
-(`icculus config get <key>`), not by sourcing any library.
+first-class `icculus <name>` command. A recipe is self-contained: it reads config
+by calling the binary (`icculus config get <key>`).
 
 ## Isolated worktree workflow
 

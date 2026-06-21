@@ -217,6 +217,25 @@ Deno.test("a schema-3 [slots] install upgrades to the capabilities shape and the
       assertStringIncludes(toml, "[features]");
       assert(!toml.includes("[slots."));
       assert(!toml.includes("[evidence]"));
+      // Papercut 1: the schema-6 sections arrive WITH their doc blocks, grouped
+      // after [project] — so a migrated config reads like a fresh init's, not a
+      // pile of bare keys at EOF.
+      assertStringIncludes(
+        toml,
+        "# [features] — toggle whole icculus subsystems",
+      );
+      assertStringIncludes(toml, "# [guidance] — the author-once");
+      assertStringIncludes(
+        toml,
+        "# [skills] — focused, reusable task playbooks",
+      );
+      const at = (s: string) => toml.indexOf(s);
+      assert(
+        at("[project]") < at("[features]") &&
+          at("[features]") < at("[guidance]") &&
+          at("[guidance]") < at("[skills]"),
+        "new sections grouped, in order, after [project]",
+      );
     });
   });
 });
@@ -278,5 +297,14 @@ Deno.test("a legacy install whose schema lives only in a manifest upgrades, prun
     assertStringIncludes(gitignore, "/GEMINI.md");
     // …and the schema is now stamped in the config the user owns.
     assertEquals(await recordedSchema(dir), res.schema.current);
+    // Papercut 1: this install had NO [meta] (its version lived only in the
+    // manifest). The migration gives it a documented [meta] FIRST — not a bare
+    // [meta] appended at EOF by the stamp.
+    const toml = await readTarget(dir, "icculus.toml");
+    assertStringIncludes(toml, "# The install schema version");
+    assert(
+      toml.indexOf("[meta]") < toml.indexOf("[project]"),
+      "[meta] leads the file",
+    );
   });
 });
