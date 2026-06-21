@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/jackwh/icculus/main/schema/icculus-config.schema.json",
-  "title": "icculus config document",
-  "description": "The declarative config shape consumed by `icculus init --config <file>` and by a preset's `preset.json`. Its capabilities/checks/scopes/ratchets are written into a project's .icculus/config.toml via the comment-preserving editor. Every field is optional.",
+  "$id": "https://raw.githubusercontent.com/jackwh/discern/main/schema/discern-config.schema.json",
+  "title": "discern config document",
+  "description": "The declarative config shape consumed by `discern init --config <file>` and by a preset's `preset.json`. Its capabilities/checks/scopes/ratchets are written into a project's .discern/config.toml via the comment-preserving editor. Every field is optional.",
   "type": "object",
   "additionalProperties": false,
   "$defs": {
@@ -17,7 +17,7 @@
   "properties": {
     "$schema": {
       "type": "string",
-      "description": "Editor-only pointer to this schema; ignored by icculus."
+      "description": "Editor-only pointer to this schema; ignored by discern."
     },
     "version": {
       "description": "Document major version. Omit (assumed current) or use a matching major; this build understands version 2.",
@@ -51,7 +51,7 @@
     "agents": {
       "type": "array",
       "items": { "type": "string", "enum": ["claude_code", "codex"] },
-      "description": "Which agent instruction files to compile from .icculus/guidelines/."
+      "description": "Which agent instruction files to compile from .discern/guidelines/."
     },
     "description": {
       "type": "string",
@@ -142,7 +142,7 @@
           },
           "run": {
             "$ref": "#/$defs/commandOrList",
-            "description": "The command whose output emits the metric line: ICCULUS_METRIC <metric> <number>."
+            "description": "The command whose output emits the metric line: DISCERN_METRIC <metric> <number>."
           }
         }
       },

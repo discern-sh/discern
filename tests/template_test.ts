@@ -26,7 +26,7 @@ function tokens(): TokenMap {
     branch_prefix: "agent/",
     agents_array: '"claude_code", "codex"',
     gotchas_doc: "docs/80-development/finish-gate-gotchas.md",
-    scopes_neutral: '"docs/", ".icculus/", ".claude/"',
+    scopes_neutral: '"docs/", ".discern/", ".claude/"',
     scopes_web: '"src/**", "app/**"',
     scopes_previewable: '"public/**"',
     kit_version: "0.1.0",
@@ -86,8 +86,8 @@ Deno.test("resolveTargetPath substitutes the slug path token and strips .tmpl", 
 
 Deno.test("resolveTargetPath strips .tmpl from a token-free path", () => {
   assertEquals(
-    resolveTargetPath("icculus.toml.tmpl", "demo-app"),
-    "icculus.toml",
+    resolveTargetPath("discern.toml.tmpl", "demo-app"),
+    "discern.toml",
   );
 });
 
@@ -96,7 +96,7 @@ Deno.test("resolveTargetPath leaves a non-template path unchanged", () => {
 });
 
 Deno.test("file-kind predicates classify the special paths", () => {
-  assertEquals(isTemplateFile("icculus.toml.tmpl"), true);
+  assertEquals(isTemplateFile("discern.toml.tmpl"), true);
   assertEquals(isTemplateFile("brief.md"), false);
   assertEquals(isGitignoreFragment(".gitignore.fragment"), true);
   assertEquals(isGitignoreFragment(".gitignore"), false);

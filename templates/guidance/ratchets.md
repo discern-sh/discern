@@ -2,14 +2,14 @@
 
 A **ratchet** is a number you only ever want to improve — line coverage, a
 bundle-size budget, a lint/type-error count. Each `[ratchets.<name>]` in
-`icculus.toml` declares one: a `run` command that emits the metric, a `direction`
+`discern.toml` declares one: a `run` command that emits the metric, a `direction`
 (`up` = a floor that may only rise, `down` = a ceiling that may only fall), and a
 `limit` compared against the integration branch so a branch can never loosen it.
 
-Ratchets are **slow and on-demand** — they are NOT part of `icculus finish`. Hold
+Ratchets are **slow and on-demand** — they are NOT part of `discern finish`. Hold
 them explicitly before pushing:
 
-- **`icculus ratchets`** — run every configured ratchet and fail if any regressed.
+- **`discern ratchets`** — run every configured ratchet and fail if any regressed.
 
 When you make a change that moves a ratcheted metric the good way, tighten the
-`limit` in `icculus.toml` to lock the gain in.
+`limit` in `discern.toml` to lock the gain in.

@@ -12,21 +12,21 @@ evaporates; `selfCmd` and its gate guard are deleted.
 
 ## Context
 
-icculus is self-hosted (ADR 0010): the same `upgrade` logic that refreshes an
+discern is self-hosted (ADR 0010): the same `upgrade` logic that refreshes an
 external install also keeps this repo's managed files in sync with `templates/`.
 The repo drives it through Deno tasks — `deno task selfsync` (≡
-`icculus
-upgrade`) and `deno task selfcheck` (≡ `icculus upgrade --check`) —
-wired as a gate slot in `icculus.toml`. Those task names are an engine-developer
+`discern
+upgrade`) and `deno task selfcheck` (≡ `discern upgrade --check`) —
+wired as a gate slot in `discern.toml`. Those task names are an engine-developer
 convenience; they exist only in this repo's `deno.json`.
 
 The two audiences run the **same** `runUpgrade` code path: an engine dev via
-`deno task selfcheck`, an end user via the compiled `icculus upgrade --check`.
+`deno task selfcheck`, an end user via the compiled `discern upgrade --check`.
 So a remediation hint hardcoded for one audience leaks to the other. It did: the
 drift message read `` Heal it: run `deno task selfsync` `` in every external
 project — pointing users at a task that does not exist there (and a tool,
 `deno`, they may not have). The inverse hardcoding is no better:
-`icculus
+`discern
 upgrade` is a footgun in this repo, because the compiled binary carries
 a frozen `templates/` snapshot and would heal against the wrong source
 (AGENTS.md forbids running `dist/` while developing). The right command
@@ -49,7 +49,7 @@ decided in one place and enforced by the gate.
 - **Ground-truth marker.** `selfCmd` returns the Deno-task form when (and only
   when) the project's `deno.json` declares a `selfsync` task — i.e. the command
   it prints actually exists where the user stands. Everything else gets the
-  product form (`icculus upgrade`). A missing/unreadable/malformed `deno.json`
+  product form (`discern upgrade`). A missing/unreadable/malformed `deno.json`
   fails safe to the product form.
 - **Enforced, not remembered.** `tests/dev_vocab_guard_test.ts` fails the gate
   if `selfsync`/`selfcheck` appear under `src/` outside the renderer, or if
@@ -60,10 +60,10 @@ Explicit *no*s:
 - **Not** detection via `Deno.execPath()` (compiled binary vs `deno run`). It
   breaks under `deno test`, and it answers the wrong question — a source
   checkout upgrading someone else's external project must still say
-  `icculus
+  `discern
   upgrade`. The honest signal is "does this command exist here," not
   "how was I launched."
-- **Not** "always print `icculus upgrade`." Simplest, but reintroduces the repo
+- **Not** "always print `discern upgrade`." Simplest, but reintroduces the repo
   footgun above.
 - **Not** a documentation-only house rule. That is the discipline ADR 0012
   already rejected: it relies on every future author remembering an invisible

@@ -1,14 +1,14 @@
 /**
- * `icculus add-preset <name>` — overlay a preset from `presets/<name>/` onto
+ * `discern add-preset <name>` — overlay a preset from `presets/<name>/` onto
  * the current project (ADR 0007, ADR 0018).
  *
  * A preset is a **file overlay plus config fills**: every file in the preset dir
  * is scaffolded with the same token/merge/exec-bit machinery as `init`
  * (the seed-scaffolding rules apply — create-or-skip, never overwrite a present
  * file), and an optional `preset.json` at its root —
- * metadata, never scaffolded — is an icculus config document (the same shape
+ * metadata, never scaffolded — is a discern config document (the same shape
  * `init --config` reads) whose capabilities / checks / scopes / ratchets are
- * written into the project's `icculus.toml` via the comment-preserving
+ * written into the project's `discern.toml` via the comment-preserving
  * editor. So a preset overlays both files (recipes, skills, guideline fragments,
  * docs) and config (capabilities, checks, scopes).
  *
@@ -18,7 +18,7 @@
 
 import { dirname, fromFileUrl, join } from "@std/path";
 import { Logger } from "../lib/log.ts";
-import { parseIcculusToml } from "../lib/toml_render.ts";
+import { parseDiscernToml } from "../lib/toml_render.ts";
 import { resolveConfigPath } from "../lib/paths.ts";
 import { DEFAULTS, type InitConfig, tokensFromConfig } from "../lib/config.ts";
 import { applyPlan, buildPlan } from "../lib/fs_plan.ts";
@@ -28,21 +28,21 @@ import { TomlEditor } from "../lib/toml_edit.ts";
 import {
   applyConfigDoc,
   assertSupportedVersion,
-  type IcculusConfigDoc,
+  type DiscernConfigDoc,
 } from "../lib/config_doc.ts";
 
 /** The reserved metadata filename at a preset root (never scaffolded). */
 const PRESET_MANIFEST = "preset.json";
 
 /**
- * Load a preset's `preset.json`, or undefined if absent. It is an icculus config
+ * Load a preset's `preset.json`, or undefined if absent. It is a discern config
  * document (its capabilities/checks/scopes/ratchets are the fills); a
  * `description` field, if present, is metadata only. Its `version`, if present,
  * is validated the same way `init --config` validates one.
  */
 async function loadPresetFills(
   presetDir: string,
-): Promise<IcculusConfigDoc | undefined> {
+): Promise<DiscernConfigDoc | undefined> {
   let text: string;
   try {
     text = await Deno.readTextFile(join(presetDir, PRESET_MANIFEST));
@@ -56,12 +56,12 @@ async function loadPresetFills(
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
     throw new Error(`${PRESET_MANIFEST} must be a JSON object`);
   }
-  assertSupportedVersion(parsed as IcculusConfigDoc);
-  return parsed as IcculusConfigDoc;
+  assertSupportedVersion(parsed as DiscernConfigDoc);
+  return parsed as DiscernConfigDoc;
 }
 
 /** True when a preset's document carries any config to apply. */
-function hasFills(fills: IcculusConfigDoc | undefined): boolean {
+function hasFills(fills: DiscernConfigDoc | undefined): boolean {
   return !!fills &&
     !!(fills.capabilities || fills.checks || fills.scopes || fills.ratchets);
 }
@@ -76,7 +76,7 @@ export interface AddPresetOptions {
 
 /** Locate the `presets/` directory (sibling of `templates/`), if it exists. */
 async function resolvePresetsDir(): Promise<string | undefined> {
-  const override = Deno.env.get("ICCULUS_PRESETS_DIR");
+  const override = Deno.env.get("DISCERN_PRESETS_DIR");
   if (override) {
     return (await isDir(override)) ? override : undefined;
   }
@@ -120,7 +120,7 @@ async function listPresets(
   return names.sort();
 }
 
-/** Run `icculus add-preset <name>`. Returns a process exit code. */
+/** Run `discern add-preset <name>`. Returns a process exit code. */
 export async function runAddPreset(
   name: string,
   options: AddPresetOptions,
@@ -130,15 +130,15 @@ export async function runAddPreset(
 
   // Must be inside an initialized project (either layout — see resolveConfigPath).
   const configPath = await resolveConfigPath(destDir);
-  let toml: ReturnType<typeof parseIcculusToml>;
+  let toml: ReturnType<typeof parseDiscernToml>;
   try {
     if (configPath === undefined) {
-      throw new Deno.errors.NotFound("no icculus config");
+      throw new Deno.errors.NotFound("no discern config");
     }
-    toml = parseIcculusToml(await Deno.readTextFile(configPath));
+    toml = parseDiscernToml(await Deno.readTextFile(configPath));
   } catch {
     const message =
-      "no icculus install here — run `icculus init` before adding a preset.";
+      "no discern install here — run `discern init` before adding a preset.";
     if (options.json) {
       log.jsonResult({ ok: false, error: "not_initialized", message });
     } else {
@@ -191,7 +191,7 @@ export async function runAddPreset(
 
   // Load the preset's config fills and pre-compute the edited config, so a bad
   // preset.json fails before anything is written and dry-run reports it.
-  let fills: IcculusConfigDoc | undefined;
+  let fills: DiscernConfigDoc | undefined;
   let filledToml: string | undefined;
   try {
     fills = await loadPresetFills(presetDir);
@@ -226,7 +226,7 @@ export async function runAddPreset(
     } else {
       renderPlan(log, plan, `Dry run — preset "${name}" would overlay:`);
       if (filledToml !== undefined) {
-        log.info("Would also apply config fills to icculus.toml.");
+        log.info("Would also apply config fills to discern.toml.");
       }
     }
     return 0;
@@ -235,7 +235,7 @@ export async function runAddPreset(
   if (!options.json) {
     renderReview(log, plan, destDir);
     if (filledToml !== undefined) {
-      log.line("  icculus.toml  apply preset config fills");
+      log.line("  discern.toml  apply preset config fills");
     }
     log.line();
   }
@@ -261,7 +261,7 @@ export async function runAddPreset(
     log.ok(op.targetRel);
   }
   if (filledToml !== undefined) {
-    log.ok("icculus.toml (config fills applied)");
+    log.ok("discern.toml (config fills applied)");
   }
   log.ok(`Preset "${name}" applied.`);
   return 0;

@@ -1,5 +1,5 @@
 /**
- * Unit tests for the **icculus config document** loader/validator
+ * Unit tests for the **discern config document** loader/validator
  * (`src/lib/config_doc.ts`) — the JSON shape behind `init --config` and a
  * preset's `preset.json`.
  *
@@ -17,7 +17,7 @@ import {
   applyConfigDoc,
   assertSupportedVersion,
   CONFIG_DOC_VERSION,
-  type IcculusConfigDoc,
+  type DiscernConfigDoc,
   loadConfigDoc,
 } from "../src/lib/config_doc.ts";
 import { TomlEditor } from "../src/lib/toml_edit.ts";
@@ -70,7 +70,7 @@ Deno.test("assertSupportedVersion refuses a too-new numeric major", () => {
 
 Deno.test("loadConfigDoc reads and returns a valid document", async () => {
   await withTempDir(async (dir) => {
-    const doc: IcculusConfigDoc = {
+    const doc: DiscernConfigDoc = {
       version: CONFIG_DOC_VERSION,
       name: "Demo",
       slug: "demo",

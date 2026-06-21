@@ -4,17 +4,17 @@
  *
  * The engine lives under `src/engine/**`, compiled into the binary. These tests
  * run it the way a real install does: `runAgent` invokes the engine via the repo's
- * `src/main.ts`, with an `icculus` shim on PATH so a project recipe or hook that
- * calls `icculus <verb>` resolves the same command a real install would. It reuses
+ * `src/main.ts`, with a `discern` shim on PATH so a project recipe or hook that
+ * calls `discern <verb>` resolves the same command a real install would. It reuses
  * the installer's own `assembleInitPlan`/`applyPlan` to lay down a faithful install
- * (so the engine runs exactly the bytes a real `icculus init` would write), then
+ * (so the engine runs exactly the bytes a real `discern init` would write), then
  * drives the verbs through the dispatcher. The suite is the engine's black-box
  * behavioral parity oracle.
  *
  * Tests that exercise scope/scope-gate/ratchet behaviour need a git repo so
  * `changed-scopes` can answer; `gitInit` makes a hermetic one (its own config,
  * no signing, a `main` branch) so a developer's global git settings can't leak
- * in. `writeConfig` overwrites the scaffolded `.icculus/config.toml` (a seed file) with
+ * in. `writeConfig` overwrites the scaffolded `.discern/config.toml` (a seed file) with
  * test-specific capabilities/checks/scopes/ratchets.
  */
 
@@ -54,18 +54,18 @@ function shq(s: string): string {
 }
 
 /**
- * A lazily-created directory holding an `icculus` shim that execs the TS engine
- * exactly as runAgent does. Prepended to PATH so a project recipe (`icculus
- * config get …`) or a settings.json hook (`icculus worktree …`) resolves the
+ * A lazily-created directory holding a `discern` shim that execs the TS engine
+ * exactly as runAgent does. Prepended to PATH so a project recipe (`discern
+ * config get …`) or a settings.json hook (`discern worktree …`) resolves the
  * command the same way a real install (binary on PATH) would.
  */
 let shimDirCache: string | undefined;
-async function icculusShimDir(): Promise<string> {
+async function discernShimDir(): Promise<string> {
   if (shimDirCache !== undefined) {
     return shimDirCache;
   }
-  const dir = await Deno.makeTempDir({ prefix: "icculus-shim-" });
-  const shim = join(dir, "icculus");
+  const dir = await Deno.makeTempDir({ prefix: "discern-shim-" });
+  const shim = join(dir, "discern");
   await Deno.writeTextFile(
     shim,
     `#!/usr/bin/env sh\nexec deno run --no-check --config ${
@@ -79,12 +79,12 @@ async function icculusShimDir(): Promise<string> {
 
 /**
  * Build the environment for an engine subprocess: colour off, git isolated, the
- * `icculus` shim on PATH, plus any caller overrides.
+ * `discern` shim on PATH, plus any caller overrides.
  */
 export async function engineEnv(
   extra: Record<string, string> = {},
 ): Promise<Record<string, string>> {
-  const shim = await icculusShimDir();
+  const shim = await discernShimDir();
   return {
     NO_COLOR: "1",
     PATH: `${shim}:${Deno.env.get("PATH") ?? ""}`,
@@ -94,7 +94,7 @@ export async function engineEnv(
 }
 
 /**
- * Scaffold the real harness (engine, dispatcher, default `.icculus/config.toml`) into
+ * Scaffold the real harness (engine, dispatcher, default `.discern/config.toml`) into
  * `dir` via the installer's own plan/apply path, so the bytes under test are the
  * bytes a real install ships. Tests usually follow with `writeConfig` to set
  * the capabilities/checks/scopes/ratchets they need.
@@ -139,9 +139,9 @@ export async function runAgent(
   return { code, stdout: out, stderr: err, output: out + err };
 }
 
-/** Overwrite the scaffolded root `icculus.toml` (a seed file) with test content. */
+/** Overwrite the scaffolded root `discern.toml` (a seed file) with test content. */
 export async function writeConfig(dir: string, toml: string): Promise<void> {
-  await Deno.writeTextFile(join(dir, "icculus.toml"), toml);
+  await Deno.writeTextFile(join(dir, "discern.toml"), toml);
 }
 
 /** Write an executable file (e.g. a project recipe or a capability command). */

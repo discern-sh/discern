@@ -4,7 +4,7 @@
  * The schema version (ADR 0014) is the anchor the migration chain steps from: a
  * plain monotonic integer, distinct from the kit's display version, that bumps
  * only when an installed project needs a migration to stay correct. It used to
- * live in a separate `.icculus/manifest.json`; with the managed-file machinery
+ * live in a separate `.discern/manifest.json`; with the managed-file machinery
  * gone, it moves into the config the user already owns.
  *
  * `init` stamps the current value via {@link stampSchemaVersion}; `upgrade` reads
@@ -41,7 +41,7 @@ export function schemaFromRaw(
  *
  *   1. `[meta].schema_version` in the config, if present. A fresh `init` always
  *      stamps it, so every current install hits this.
- *   2. else a legacy `.icculus/manifest.json`'s `schema_version`, if present —
+ *   2. else a legacy `.discern/manifest.json`'s `schema_version`, if present —
  *      so an old hash-tracked install starts its migration from the right step
  *      (and its engine is pruned by the final step).
  *   3. else `1` — a config predating the field is, by definition, a schema-1
@@ -63,7 +63,7 @@ export async function resolveRecordedSchema(
 }
 
 /**
- * Read `schema_version` from a legacy `.icculus/manifest.json`, or undefined
+ * Read `schema_version` from a legacy `.discern/manifest.json`, or undefined
  * when the manifest is absent, unreadable, or carries no integer version. The
  * manifest is otherwise dead — only its recorded schema still anchors an
  * upgrading legacy install, after which the prune step deletes the file.
@@ -73,7 +73,7 @@ async function schemaFromLegacyManifest(
 ): Promise<number | undefined> {
   let text: string;
   try {
-    text = await Deno.readTextFile(join(destDir, ".icculus/manifest.json"));
+    text = await Deno.readTextFile(join(destDir, ".discern/manifest.json"));
   } catch {
     return undefined;
   }

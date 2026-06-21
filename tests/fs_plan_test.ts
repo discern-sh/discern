@@ -43,7 +43,7 @@ async function scaffold(dir: string): Promise<Plan> {
 Deno.test("init substitutes content tokens in *.tmpl files", async () => {
   await withTempDir(async (dir) => {
     await scaffold(dir);
-    const toml = await readTarget(dir, "icculus.toml");
+    const toml = await readTarget(dir, "discern.toml");
     assertStringIncludes(toml, 'slug = "demo-app"');
     assertStringIncludes(toml, 'branch_prefix = "agent/"');
     assertStringIncludes(toml, 'agents = ["claude_code", "codex"]');
@@ -69,8 +69,8 @@ Deno.test("init resolves the {{project_slug}} path token and strips .tmpl", asyn
 Deno.test("init strips .tmpl from the config file name", async () => {
   await withTempDir(async (dir) => {
     await scaffold(dir);
-    assert(await targetExists(dir, "icculus.toml"));
-    assert(!(await targetExists(dir, "icculus.toml.tmpl")));
+    assert(await targetExists(dir, "discern.toml"));
+    assert(!(await targetExists(dir, "discern.toml.tmpl")));
   });
 });
 
@@ -85,11 +85,11 @@ Deno.test("init preserves the source exec bit (0755 hook, 0644 doc)", async () =
 Deno.test("init normalizes a read-only source seed to owner-writable", async () => {
   // The `deno compile` embedded filesystem reports every bundled template as
   // read-only (0o444). A scaffolded seed is the user's to edit (and `config
-  // set`/`/bootstrap` rewrite icculus.toml), so the plan must restore owner
+  // set`/`/bootstrap` rewrite discern.toml), so the plan must restore owner
   // write. Emulate that environment with a deliberately 0o444 source.
   await withTempDir(async (src) => {
-    await Deno.writeTextFile(join(src, "icculus.toml.tmpl"), "[project]\n");
-    await Deno.chmod(join(src, "icculus.toml.tmpl"), 0o444);
+    await Deno.writeTextFile(join(src, "discern.toml.tmpl"), "[project]\n");
+    await Deno.chmod(join(src, "discern.toml.tmpl"), 0o444);
     await withTempDir(async (dir) => {
       const plan = await buildPlan({
         templatesDir: src,
@@ -97,7 +97,7 @@ Deno.test("init normalizes a read-only source seed to owner-writable", async () 
         tokens: testTokens(),
       });
       await applyPlan(plan);
-      const mode = await modeOf(dir, "icculus.toml");
+      const mode = await modeOf(dir, "discern.toml");
       assertEquals(
         mode & 0o600,
         0o600,
@@ -193,12 +193,12 @@ Deno.test("gitignore append is idempotent via the marker line", async () => {
   await withTempDir(async (dir) => {
     await scaffold(dir);
     const first = await readTarget(dir, ".gitignore");
-    assertStringIncludes(first, "# --- icculus harness ---");
+    assertStringIncludes(first, "# --- discern harness ---");
     await scaffold(dir);
     const second = await readTarget(dir, ".gitignore");
     // Re-running does not append the fragment twice.
     assertEquals(second, first);
-    assertEquals(second.match(/# --- icculus harness ---/g)?.length, 1);
+    assertEquals(second.match(/# --- discern harness ---/g)?.length, 1);
   });
 });
 
@@ -208,10 +208,10 @@ Deno.test("gitignore append preserves pre-existing content", async () => {
     await scaffold(dir);
     const gitignore = await readTarget(dir, ".gitignore");
     assertStringIncludes(gitignore, "node_modules/");
-    assertStringIncludes(gitignore, "# --- icculus harness ---");
+    assertStringIncludes(gitignore, "# --- discern harness ---");
     // The user's line comes first, the fragment is appended after.
     assert(
-      gitignore.indexOf("node_modules/") < gitignore.indexOf("# --- icculus"),
+      gitignore.indexOf("node_modules/") < gitignore.indexOf("# --- discern"),
     );
   });
 });

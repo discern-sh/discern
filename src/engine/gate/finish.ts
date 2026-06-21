@@ -234,7 +234,7 @@ function printSuccessTail(cfg: Config, out: Out, changed: string[]): void {
       "Gate passed — but no capability or check is wired, so nothing was actually checked (a no-op gate).",
     );
     out.warn(
-      "Add [capabilities] (format/lint/typecheck/test/build) to icculus.toml — or run /bootstrap.",
+      "Add [capabilities] (format/lint/typecheck/test/build) to discern.toml — or run /bootstrap.",
     );
   } else {
     out.ok("Everything built and all checks passed.");
@@ -249,7 +249,7 @@ function printSuccessTail(cfg: Config, out: Out, changed: string[]): void {
   }
   if (cfg.subsections("ratchets").length > 0) {
     out.info(
-      `Before pushing, hold the ratchets: ${out.c.bold}icculus ratchets${out.c.reset} (slow, so not part of finish).`,
+      `Before pushing, hold the ratchets: ${out.c.bold}discern ratchets${out.c.reset} (slow, so not part of finish).`,
     );
   }
   if (

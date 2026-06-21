@@ -1,6 +1,6 @@
 ---
 name: handoff-worktree
-description: Migrate the current worktree's branch into the main repository so the user can review, test, and continue work there. Runs `icculus worktree:exit`, which commits the work as needed, tears down the worktree's adapters (database, dev-server) and removes the worktree directory, then checks the branch out in the main repo as the latest commit. Requires the branch already contains the latest main (it stops and points you to `icculus finish` if not) and refuses to run if the main checkout has uncommitted changes. Use whenever the user signals they want to take over a worktree session — phrases like "handoff worktree", "handoff this", "finish up and move it back to main", "I'll take it from here", "move this branch out of the worktree", or "graduate this branch". Trigger this even if the user does not explicitly say "skill" — the intent is what matters.
+description: Migrate the current worktree's branch into the main repository so the user can review, test, and continue work there. Runs `discern worktree:exit`, which commits the work as needed, tears down the worktree's adapters (database, dev-server) and removes the worktree directory, then checks the branch out in the main repo as the latest commit. Requires the branch already contains the latest main (it stops and points you to `discern finish` if not) and refuses to run if the main checkout has uncommitted changes. Use whenever the user signals they want to take over a worktree session — phrases like "handoff worktree", "handoff this", "finish up and move it back to main", "I'll take it from here", "move this branch out of the worktree", or "graduate this branch". Trigger this even if the user does not explicitly say "skill" — the intent is what matters.
 ---
 
 # Handoff Worktree
@@ -8,7 +8,7 @@ description: Migrate the current worktree's branch into the main repository so t
 The mechanical work — integrating the latest main, tearing down the worktree's adapters (database, dev-server link), committing as needed, removing the worktree, checking the branch out in main, and soft-resetting any WIP commit — is done by the harness:
 
 ```
-icculus worktree:exit
+discern worktree:exit
 ```
 
 That one command is the single, deterministic implementation. Your job is to **run it** and **relay the outcome** to the user. Do not try to replicate its logic step-by-step with individual `git` commands — the recipe is the source of truth and is much faster and safer than reasoning through git one step at a time.
@@ -26,7 +26,7 @@ A clean tree means the handoff migrates your commit **intact**, and the user lan
 **Then run the handoff** with no arguments, from inside the worktree:
 
 ```bash
-icculus worktree:exit
+discern worktree:exit
 ```
 
 The recipe integrates main, prints its plan, then a line per step it executes, then a final summary. It exits `0` on success and non-zero on any unrecoverable error.
@@ -35,11 +35,11 @@ After it finishes:
 
 1. **On success**, paraphrase the summary back to the user — which branch they're on, where, and that their work is the latest commit on it (ready to test, then fast-forward merge into `main`, or extend with follow-up commits first). If you had to leave changes uncommitted, note that they landed staged rather than committed. Then carry on collaborating from the main repo — this session continues; no need to start a new one. The shell's working directory is reset automatically when the worktree disappears.
 
-2. **On failure**, the recipe exits with a clear message on stderr. The most common cause is the **main-merged gate**: if `main` advanced during the session, the recipe stops *before* touching anything and points you to run `icculus finish` (which is where you integrate main) first, so a stale branch is never graduated. Other causes include: the main checkout has uncommitted changes (the user must commit or stash them — don't do it for them), not in a worktree, detached HEAD, or the branch is checked out elsewhere. Read the error, summarise it in plain language, and if it's the gate, run `icculus finish` (commit, `git merge main`, re-run) before retrying. For anything ambiguous, pause for the user's direction.
+2. **On failure**, the recipe exits with a clear message on stderr. The most common cause is the **main-merged gate**: if `main` advanced during the session, the recipe stops *before* touching anything and points you to run `discern finish` (which is where you integrate main) first, so a stale branch is never graduated. Other causes include: the main checkout has uncommitted changes (the user must commit or stash them — don't do it for them), not in a worktree, detached HEAD, or the branch is checked out elsewhere. Read the error, summarise it in plain language, and if it's the gate, run `discern finish` (commit, `git merge main`, re-run) before retrying. For anything ambiguous, pause for the user's direction.
 
 ## When the recipe is missing or fails to run
 
-`icculus worktree:exit` requires the `icculus` binary and a harness-configured project (an `icculus.toml`). If the command reports that it is missing — for example you're in a project that doesn't have the harness — mention this and ask how the user wants to proceed rather than improvising a manual handoff; a silent manual handoff loses the fault tolerance the recipe provides.
+`discern worktree:exit` requires the `discern` binary and a harness-configured project (a `discern.toml`). If the command reports that it is missing — for example you're in a project that doesn't have the harness — mention this and ask how the user wants to proceed rather than improvising a manual handoff; a silent manual handoff loses the fault tolerance the recipe provides.
 
 ## Caveats to keep in mind after a successful handoff
 

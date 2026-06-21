@@ -1,16 +1,16 @@
 /**
- * Edge-path coverage for `icculus upgrade` (src/commands/upgrade.ts). The other
+ * Edge-path coverage for `discern upgrade` (src/commands/upgrade.ts). The other
  * upgrade_*_test.ts files cover the happy paths — the --check primitive, the git
  * guard, the migration fold, and convergence. This file drives the failure and
  * reporting branches they leave uncovered:
  *
- *   - the pre-flight refusals: no icculus.toml, unparseable toml; and the
+ *   - the pre-flight refusals: no discern.toml, unparseable toml; and the
  *     non-fatal path when the templates dir is missing (the guideline compile
  *     is skipped but the upgrade still succeeds);
  *   - the human-mode (non-JSON) renderings of --check ok, --dry-run, the dirty
  *     guard, and the migrations-applied summary;
  *   - --dry-run's --json payload and its pending-migration preview;
- *   - the agents-default fallback when icculus.toml carries no agents key.
+ *   - the agents-default fallback when discern.toml carries no agents key.
  *
  * Human output goes to stderr; machine assertions read --json from stdout.
  */
@@ -54,7 +54,7 @@ async function initCommittedRepo(dir: string): Promise<void> {
 
 /** Overwrite the install's recorded `[meta].schema_version` (to model one behind). */
 async function setSchema(dir: string, version: number): Promise<void> {
-  const p = join(dir, "icculus.toml");
+  const p = join(dir, "discern.toml");
   const text = await Deno.readTextFile(p);
   await Deno.writeTextFile(
     p,
@@ -64,7 +64,7 @@ async function setSchema(dir: string, version: number): Promise<void> {
 
 /** The recorded `[meta].schema_version` of an install's config. */
 async function recordedSchema(dir: string): Promise<number> {
-  const m = (await readTarget(dir, "icculus.toml")).match(
+  const m = (await readTarget(dir, "discern.toml")).match(
     /schema_version\s*=\s*(\d+)/,
   );
   return m ? Number(m[1]) : NaN;
@@ -72,32 +72,32 @@ async function recordedSchema(dir: string): Promise<number> {
 
 // ---- pre-flight refusals --------------------------------------------------
 
-Deno.test("upgrade with no icculus.toml fails as not_initialized (--json)", async () => {
+Deno.test("upgrade with no discern.toml fails as not_initialized (--json)", async () => {
   await withTempDir(async (dir) => {
-    // A bare dir is not an install: there is no icculus.toml to refresh.
+    // A bare dir is not an install: there is no discern.toml to refresh.
     const r = await runCli(["upgrade", "--json"], dir);
     assertEquals(r.code, 1);
     const res = JSON.parse(r.stdout);
     assertEquals(res.ok, false);
     assertEquals(res.error, "not_initialized");
-    assertStringIncludes(res.message, "icculus init");
+    assertStringIncludes(res.message, "discern init");
   });
 });
 
-Deno.test("upgrade with no icculus.toml fails as not_initialized (human)", async () => {
+Deno.test("upgrade with no discern.toml fails as not_initialized (human)", async () => {
   await withTempDir(async (dir) => {
     const r = await runCli(["upgrade"], dir);
     assertEquals(r.code, 1);
-    assertStringIncludes(r.stderr, "icculus init");
+    assertStringIncludes(r.stderr, "discern init");
   });
 });
 
-Deno.test("upgrade with an unparseable icculus.toml fails as invalid_toml (--json)", async () => {
+Deno.test("upgrade with an unparseable discern.toml fails as invalid_toml (--json)", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
-    // Corrupt the toml so parseIcculusToml throws.
+    // Corrupt the toml so parseDiscernToml throws.
     await Deno.writeTextFile(
-      join(dir, "icculus.toml"),
+      join(dir, "discern.toml"),
       "this = = broken\n[[[\n",
     );
     const r = await runCli(["upgrade", "--json"], dir);
@@ -109,11 +109,11 @@ Deno.test("upgrade with an unparseable icculus.toml fails as invalid_toml (--jso
   });
 });
 
-Deno.test("upgrade with an unparseable icculus.toml fails as invalid_toml (human)", async () => {
+Deno.test("upgrade with an unparseable discern.toml fails as invalid_toml (human)", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
     await Deno.writeTextFile(
-      join(dir, "icculus.toml"),
+      join(dir, "discern.toml"),
       "broken = = =\n[[[\n",
     );
     const r = await runCli(["upgrade"], dir);
@@ -131,7 +131,7 @@ Deno.test("upgrade survives an absent templates dir: guidelines just don't compi
     // non-fatal to the upgrade — the schema is still stamped — so the command
     // succeeds but reports the compile was skipped.
     const r = await runCli(["upgrade", "--json"], dir, {
-      ICCULUS_TEMPLATES_DIR: join(dir, "no", "such", "templates"),
+      DISCERN_TEMPLATES_DIR: join(dir, "no", "such", "templates"),
     });
     assertEquals(r.code, 0, r.stderr);
     const res = JSON.parse(r.stdout);
@@ -146,7 +146,7 @@ Deno.test("upgrade survives an absent templates dir: warns and exits zero (human
   await withTempDir(async (dir) => {
     await init(dir);
     const r = await runCli(["upgrade"], dir, {
-      ICCULUS_TEMPLATES_DIR: join(dir, "no", "such", "templates"),
+      DISCERN_TEMPLATES_DIR: join(dir, "no", "such", "templates"),
     });
     assertEquals(r.code, 0, r.stderr);
     // The compile failure surfaces as a non-fatal warning on stderr.
@@ -156,12 +156,12 @@ Deno.test("upgrade survives an absent templates dir: warns and exits zero (human
 
 // ---- agents-default fallback ----------------------------------------------
 
-Deno.test("upgrade fills agents from defaults when icculus.toml carries no agents key", async () => {
+Deno.test("upgrade fills agents from defaults when discern.toml carries no agents key", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
     // Strip the `agents = [...]` line so [guidance].agents is absent; the
     // guideline compile must fall back to the default agents to resolve content.
-    const tomlPath = join(dir, "icculus.toml");
+    const tomlPath = join(dir, "discern.toml");
     const stripped = (await Deno.readTextFile(tomlPath))
       .split("\n")
       .filter((l) => !/^\s*agents\s*=/.test(l))
@@ -243,13 +243,13 @@ Deno.test("upgrade (human) refuses a dirty tree and lists the changed paths", as
   await withTempDir(async (dir) => {
     await initCommittedRepo(dir);
     await Deno.writeTextFile(
-      join(dir, "icculus.toml"),
-      `${await Deno.readTextFile(join(dir, "icculus.toml"))}\n# edit\n`,
+      join(dir, "discern.toml"),
+      `${await Deno.readTextFile(join(dir, "discern.toml"))}\n# edit\n`,
     );
     const r = await runCli(["upgrade"], dir);
     assertEquals(r.code, 1);
     assertStringIncludes(r.stderr, "uncommitted changes");
-    assertStringIncludes(r.stderr, "icculus.toml"); // the dirty path is detailed
+    assertStringIncludes(r.stderr, "discern.toml"); // the dirty path is detailed
   });
 });
 

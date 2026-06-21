@@ -2,12 +2,12 @@
 
 _Throwaway git Worktrees so an agent never works in the main checkout._
 
-This subtree covers the Worktree lifecycle. The `icculus worktree*` verbs
+This subtree covers the Worktree lifecycle. The `discern worktree*` verbs
 provision and tear down an isolated `git worktree` (and its branch) per change,
 each with its **own database** and a **deterministic dev-server port** so
 concurrent Worktrees never collide. The git mechanics are generic; the two
 stack-specific seams — the database and dev-server **worktree settings** — are
-empty `[worktree]` config in `icculus.toml` until a project wires them, so a
+empty `[worktree]` config in `discern.toml` until a project wires them, so a
 Worktree round is a clean no-op until then. The whole workflow is the
 `worktrees` feature, which can be turned off in `[features]` (ADR 0007, ADR
 0018, ADR 0020).

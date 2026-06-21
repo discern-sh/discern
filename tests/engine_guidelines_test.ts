@@ -1,5 +1,5 @@
 /**
- * Engine coverage for `icculus guidelines` — the verb that compiles the agent
+ * Engine coverage for `discern guidelines` — the verb that compiles the agent
  * instruction files (job 1: built-in guidance + the project's `[guidance].sources`)
  * AND materializes skills into `.claude/skills/` (job 2): bundled built-ins are
  * copied in, authored skills (under `[skills].dir`) are symlinked. The two jobs

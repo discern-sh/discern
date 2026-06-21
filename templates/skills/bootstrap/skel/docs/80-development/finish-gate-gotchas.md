@@ -1,8 +1,8 @@
 # Finish-gate gotchas
 
-*Non-obvious ways `icculus finish` fails — each with its fix. The everyday gate procedure lives in [getting-started.md](getting-started.md) and [code-conventions.md](code-conventions.md); this page is the "why did it fail in a way the message didn't explain" reference.*
+*Non-obvious ways `discern finish` fails — each with its fix. The everyday gate procedure lives in [getting-started.md](getting-started.md) and [code-conventions.md](code-conventions.md); this page is the "why did it fail in a way the message didn't explain" reference.*
 
-The gate **points an agent here when a stage fails** in a non-obvious way: when a fix/build/check/test stage exits non-zero, the gate prints a pointer to this doc (the path is `[project].gotchas_doc` in `icculus.toml`). So the explanation is one step away even for an agent that has never hit the failure.
+The gate **points an agent here when a stage fails** in a non-obvious way: when a fix/build/check/test stage exits non-zero, the gate prints a pointer to this doc (the path is `[project].gotchas_doc` in `discern.toml`). So the explanation is one step away even for an agent that has never hit the failure.
 
 These are real failure modes, each with its fix. **If you hit a new one, add it here** — that is what keeps this page worth pointing at.
 
@@ -14,15 +14,15 @@ These arise from how the harness works (git worktrees, parallel stages, build ar
 
 ### `main` advanced during your session
 
-**Symptom.** Every stage passes, then `icculus finish` stops at the very end with a message that your branch does not contain the latest `main`. It does **not** merge for you.
+**Symptom.** Every stage passes, then `discern finish` stops at the very end with a message that your branch does not contain the latest `main`. It does **not** merge for you.
 
 **Cause.** The merge check is the gate's **final** step, deliberately — so you fix all the real failures first and integrate `main` once, cleanly, at the end. While you were working, `main` moved.
 
-**Fix.** Commit your work, run `git merge main`, resolve any conflicts and commit the merge, then run `icculus finish` again to verify the merged result. (In the main checkout, not a worktree, this check is a no-op — there is nothing to integrate into.)
+**Fix.** Commit your work, run `git merge main`, resolve any conflicts and commit the merge, then run `discern finish` again to verify the merged result. (In the main checkout, not a worktree, this check is a no-op — there is nothing to integrate into.)
 
 ### A check passes alone but fails in the full run
 
-**Symptom.** You run one test (or linter) over the files you changed and it is green, but the same step goes red inside `icculus finish`.
+**Symptom.** You run one test (or linter) over the files you changed and it is green, but the same step goes red inside `discern finish`.
 
 **Cause.** Shared state or ordering. The gate runs the full suite — often in parallel — so tests that lean on a shared resource (a file, a database row, a global, a fixed port) or that assume they run in a particular order pass in isolation and collide at scale. A targeted run never exercises the collision.
 
@@ -34,7 +34,7 @@ These arise from how the harness works (git worktrees, parallel stages, build ar
 
 **Cause.** A `build` capability produces artifacts that a later `check`/`test` stage reads, and the artifacts on disk are from a previous run (or were half-written while something read them).
 
-**Fix.** Rebuild from clean and re-run. The gate already orders `build` (and `fix`) **before** `check`/`test` so artifacts are complete before anything reads them — so if you are hitting this, you likely ran a step by hand out of order, or a partial build was left behind. Let `icculus finish` run the stages in order rather than invoking a check directly against stale output.
+**Fix.** Rebuild from clean and re-run. The gate already orders `build` (and `fix`) **before** `check`/`test` so artifacts are complete before anything reads them — so if you are hitting this, you likely ran a step by hand out of order, or a partial build was left behind. Let `discern finish` run the stages in order rather than invoking a check directly against stale output.
 
 ### A merge pulled in a new dependency
 
@@ -46,17 +46,17 @@ These arise from how the harness works (git worktrees, parallel stages, build ar
 
 ### A failure shows up as exit 0
 
-**Symptom.** You pipe `icculus finish` into `tee`, `tail`, or another command to capture its output, and it appears to succeed even though a stage clearly failed.
+**Symptom.** You pipe `discern finish` into `tee`, `tail`, or another command to capture its output, and it appears to succeed even though a stage clearly failed.
 
 **Cause.** A pipeline reports the **last** command's exit code, not the gate's. The real non-zero status is masked by the pipe.
 
-**Fix.** Run `icculus finish` bare so its true exit code surfaces. If you must capture output, use a method that preserves the original exit status (for example, redirect to a file rather than piping, or set your shell's `pipefail` option).
+**Fix.** Run `discern finish` bare so its true exit code surfaces. If you must capture output, use a method that preserves the original exit status (for example, redirect to a file rather than piping, or set your shell's `pipefail` option).
 
 ### The gate skips a step you expected it to run (scope detection)
 
 **Symptom.** A change you made does not trigger the scope `gate`, preview, or build you expected — for example a docs-only change runs almost nothing.
 
-**Cause.** This is by design. The gate classifies which scopes a change touched (`[scopes]` in `icculus.toml`) and skips work that cannot be affected: a change confined to `neutral` paths runs no scope `gate`s and gets no preview. Classification **fails open** — a path matching no rule counts as a real code change, so an unknown path runs *more* gates, never fewer.
+**Cause.** This is by design. The gate classifies which scopes a change touched (`[scopes]` in `discern.toml`) and skips work that cannot be affected: a change confined to `neutral` paths runs no scope `gate`s and gets no preview. Classification **fails open** — a path matching no rule counts as a real code change, so an unknown path runs *more* gates, never fewer.
 
 **Fix.** If something was skipped that should not have been, your `[scopes]` globs do not match the paths you changed — widen them. If something ran that you expected to be skipped, the path fell through to the fail-open default; add it to `neutral` (or the right scope) if it genuinely needs no gate.
 

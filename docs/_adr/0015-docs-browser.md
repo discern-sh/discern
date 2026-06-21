@@ -1,10 +1,10 @@
-# ADR 0015: `icculus docs` — an in-binary docs browser with a hand-rolled terminal Markdown renderer
+# ADR 0015: `discern docs` — an in-binary docs browser with a hand-rolled terminal Markdown renderer
 
 **Status**: accepted
 
 ## Context
 
-icculus scaffolds a `docs/` tree into every install (orientation, a glossary, a
+discern scaffolds a `docs/` tree into every install (orientation, a glossary, a
 system map, design principles, ADRs) and grows it subtree-by-subtree with the
 `document-subsystem` skill. As that tree fills up it becomes the thing it was
 meant to be — the canonical map of the system — but reading it means knowing the
@@ -27,13 +27,13 @@ subset we actually need.
 
 ## Decision
 
-The docs browser is **`icculus docs`, a subcommand of the binary**, with a
+The docs browser is **`discern docs`, a subcommand of the binary**, with a
 **hand-rolled, dependency-light Markdown→terminal renderer**, serving **one
 command to two audiences** decided by the TTY.
 
-- **It lives in the binary, not the shell engine.** `icculus docs` browses the
-  install's own `docs/` (found by walking up to the nearest `icculus.toml`, the
-  same anchor `bin/agent` uses). The `icculus` binary is already on PATH
+- **It lives in the binary, not the shell engine.** `discern docs` browses the
+  install's own `docs/` (found by walking up to the nearest `discern.toml`, the
+  same anchor `bin/agent` uses). The `discern` binary is already on PATH
   wherever it installed a project, so every install gets the viewer for free —
   with **no new file under `templates/`** and nothing added to the managed set.
 - **The renderer is ours** (`src/lib/markdown.ts`): a focused subset — headings,

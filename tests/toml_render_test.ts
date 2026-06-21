@@ -1,9 +1,9 @@
 /**
- * Unit tests for the small `icculus.toml` fragment renderer and the
+ * Unit tests for the small `discern.toml` fragment renderer and the
  * parse-and-validate used by `doctor`.
  *
  * `renderTomlStringList` turns answers into the quoted, comma-joined array items
- * the template literal expects (with `"` escaped). `parseIcculusToml` surfaces a
+ * the template literal expects (with `"` escaped). `parseDiscernToml` surfaces a
  * minimally-typed view of `[project]`: present string/array fields are kept,
  * wrong-typed or missing fields collapse to `undefined`, and invalid TOML throws
  * a message that says so. Both sides of each branch are exercised.
@@ -11,7 +11,7 @@
 
 import { assert, assertEquals, assertThrows } from "@std/assert";
 import {
-  parseIcculusToml,
+  parseDiscernToml,
   renderTomlStringList,
 } from "../src/lib/toml_render.ts";
 
@@ -31,7 +31,7 @@ Deno.test("renderTomlStringList escapes embedded double-quotes", () => {
   assertEquals(renderTomlStringList(['say "hi"']), '"say \\"hi\\""');
 });
 
-Deno.test("parseIcculusToml reads a fully-populated [project] block", () => {
+Deno.test("parseDiscernToml reads a fully-populated [project] block", () => {
   const text = `
 [project]
 slug = "demo-app"
@@ -39,7 +39,7 @@ branch_prefix = "agent/"
 agents = ["claude_code", "codex"]
 gotchas_doc = "docs/gotchas.md"
 `;
-  const parsed = parseIcculusToml(text);
+  const parsed = parseDiscernToml(text);
   assertEquals(parsed.project.slug, "demo-app");
   assertEquals(parsed.project.branch_prefix, "agent/");
   assertEquals(parsed.project.agents, ["claude_code", "codex"]);
@@ -48,8 +48,8 @@ gotchas_doc = "docs/gotchas.md"
   assert("project" in parsed.raw);
 });
 
-Deno.test("parseIcculusToml tolerates a missing [project] block", () => {
-  const parsed = parseIcculusToml(`title = "no project here"`);
+Deno.test("parseDiscernToml tolerates a missing [project] block", () => {
+  const parsed = parseDiscernToml(`title = "no project here"`);
   assertEquals(parsed.project, {
     slug: undefined,
     branch_prefix: undefined,
@@ -59,7 +59,7 @@ Deno.test("parseIcculusToml tolerates a missing [project] block", () => {
   assertEquals(parsed.raw.title, "no project here");
 });
 
-Deno.test("parseIcculusToml drops wrong-typed fields to undefined", () => {
+Deno.test("parseDiscernToml drops wrong-typed fields to undefined", () => {
   // Numbers where strings are expected, and a non-table `project` value are all
   // coerced away rather than surfaced as the wrong type.
   const text = `
@@ -69,7 +69,7 @@ branch_prefix = true
 gotchas_doc = 4.5
 agents = "claude_code"
 `;
-  const parsed = parseIcculusToml(text);
+  const parsed = parseDiscernToml(text);
   assertEquals(parsed.project.slug, undefined);
   assertEquals(parsed.project.branch_prefix, undefined);
   assertEquals(parsed.project.gotchas_doc, undefined);
@@ -77,41 +77,41 @@ agents = "claude_code"
   assertEquals(parsed.project.agents, undefined);
 });
 
-Deno.test("parseIcculusToml filters non-string entries out of the agents array", () => {
-  const parsed = parseIcculusToml(`
+Deno.test("parseDiscernToml filters non-string entries out of the agents array", () => {
+  const parsed = parseDiscernToml(`
 [project]
 agents = ["claude_code", 7, "codex", true]
 `);
   assertEquals(parsed.project.agents, ["claude_code", "codex"]);
 });
 
-Deno.test("parseIcculusToml treats a top-level array document as no project", () => {
+Deno.test("parseDiscernToml treats a top-level array document as no project", () => {
   // Valid TOML, but the root parses to a record without a `project` table.
-  const parsed = parseIcculusToml(`points = [1, 2, 3]`);
+  const parsed = parseDiscernToml(`points = [1, 2, 3]`);
   assertEquals(parsed.project.slug, undefined);
   assertEquals(parsed.raw.points, [1, 2, 3]);
 });
 
-Deno.test("parseIcculusToml throws a clear, line-numbered error on invalid TOML", () => {
+Deno.test("parseDiscernToml throws a clear, line-numbered error on invalid TOML", () => {
   const err = assertThrows(
-    () => parseIcculusToml("this is = = not valid"),
+    () => parseDiscernToml("this is = = not valid"),
     Error,
   );
   // Leads with a friendly, line-numbered hint naming the file.
   assert(
-    err.message.includes("syntax error near line 1 in icculus.toml"),
+    err.message.includes("syntax error near line 1 in discern.toml"),
     `unexpected message: ${err.message}`,
   );
 });
 
-Deno.test("parseIcculusToml surfaces the underlying parser message", () => {
+Deno.test("parseDiscernToml surfaces the underlying parser message", () => {
   // An unterminated string is a parse error on line 2; the wrapped message must
   // name the line AND carry the raw parser detail (in parens).
   const err = assertThrows(
-    () => parseIcculusToml('[project]\nslug = "unterminated'),
+    () => parseDiscernToml('[project]\nslug = "unterminated'),
     Error,
   );
-  assert(err.message.includes("syntax error near line 2 in icculus.toml"));
+  assert(err.message.includes("syntax error near line 2 in discern.toml"));
   assert(
     err.message.includes("(Parse error on line"),
     `raw parser detail missing: ${err.message}`,

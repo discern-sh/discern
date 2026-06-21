@@ -5,8 +5,8 @@
  * wherever an agent keeps the checkout.
  *
  * Identity sources, in order:
- *   1. `ICCULUS_WORKTREE_ID` from the environment, when valid.
- *   2. `ICCULUS_WORKTREE_ID` from the target worktree's `.env`, when valid.
+ *   1. `DISCERN_WORKTREE_ID` from the environment, when valid.
+ *   2. `DISCERN_WORKTREE_ID` from the target worktree's `.env`, when valid.
  *   3. Git's linked-worktree admin-directory basename (refusing the main
  *      checkout, where `--absolute-git-dir` == `--git-common-dir`).
  *
@@ -26,7 +26,7 @@ const PORT_BASE = 13000;
 const PORT_SPAN = 2000;
 /** The DNS label length limit a site/host name must fit within. */
 const DNS_LABEL_LIMIT = 63;
-/** Validation pattern for an explicit `ICCULUS_WORKTREE_ID` override. */
+/** Validation pattern for an explicit `DISCERN_WORKTREE_ID` override. */
 const OVERRIDE_ID_RE = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,80}$/;
 
 /** A resolved worktree identity: every derived token in one object. */
@@ -129,7 +129,7 @@ export function siteForId(slug: string, id: string): string {
 export function validateOverrideId(raw: string): string {
   if (!OVERRIDE_ID_RE.test(raw)) {
     throw new IdentityError(
-      `worktree-name: invalid ICCULUS_WORKTREE_ID '${raw}'. Use letters, numbers, dots, dashes, or underscores.`,
+      `worktree-name: invalid DISCERN_WORKTREE_ID '${raw}'. Use letters, numbers, dots, dashes, or underscores.`,
     );
   }
   return sanitizeSlug(raw);
@@ -155,15 +155,15 @@ export function deriveIdentity(
 
 /**
  * Resolve the project slug and branch prefix from config, with env overrides
- * (`ICCULUS_PROJECT_SLUG` / `ICCULUS_WORKTREE_BRANCH_PREFIX`) winning. The slug
+ * (`DISCERN_PROJECT_SLUG` / `DISCERN_WORKTREE_BRANCH_PREFIX`) winning. The slug
  * is sanitized and must be non-empty. Mirrors the shell `worktree-name`
  * settings block.
  */
 export async function loadIdentitySettings(
   root: string,
 ): Promise<IdentitySettings> {
-  let rawSlug = Deno.env.get("ICCULUS_PROJECT_SLUG") ?? "";
-  let branchPrefix = Deno.env.get("ICCULUS_WORKTREE_BRANCH_PREFIX");
+  let rawSlug = Deno.env.get("DISCERN_PROJECT_SLUG") ?? "";
+  let branchPrefix = Deno.env.get("DISCERN_WORKTREE_BRANCH_PREFIX");
   if (rawSlug === "" || branchPrefix === undefined) {
     // Tolerant config read: a missing toml just leaves the defaults in place.
     let config: Config | undefined;
@@ -182,7 +182,7 @@ export async function loadIdentitySettings(
   const slug = sanitizeSlug(rawSlug);
   if (slug === "") {
     throw new IdentityError(
-      "worktree-name: project slug resolved to an empty value (set [project].slug or ICCULUS_PROJECT_SLUG).",
+      "worktree-name: project slug resolved to an empty value (set [project].slug or DISCERN_PROJECT_SLUG).",
     );
   }
   return { slug, branchPrefix };
@@ -248,7 +248,7 @@ function stripOuterQuotes(value: string): string {
   return trimmed;
 }
 
-/** Read an `ICCULUS_WORKTREE_ID` override from the target's `.env`, if present. */
+/** Read an `DISCERN_WORKTREE_ID` override from the target's `.env`, if present. */
 async function readDotenvId(target: string): Promise<string | undefined> {
   let text: string;
   try {
@@ -257,8 +257,8 @@ async function readDotenvId(target: string): Promise<string | undefined> {
     return undefined; // no .env
   }
   for (const line of text.split("\n")) {
-    if (line.startsWith("ICCULUS_WORKTREE_ID=")) {
-      return stripOuterQuotes(line.slice("ICCULUS_WORKTREE_ID=".length));
+    if (line.startsWith("DISCERN_WORKTREE_ID=")) {
+      return stripOuterQuotes(line.slice("DISCERN_WORKTREE_ID=".length));
     }
   }
   return undefined;
@@ -341,7 +341,7 @@ export async function resolveWorktreeId(
 ): Promise<string> {
   const canonical = await canonicalizeTarget(target);
 
-  const envOverride = Deno.env.get("ICCULUS_WORKTREE_ID");
+  const envOverride = Deno.env.get("DISCERN_WORKTREE_ID");
   if (envOverride !== undefined && envOverride !== "") {
     return validateOverrideId(envOverride);
   }

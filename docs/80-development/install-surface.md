@@ -1,13 +1,13 @@
 # Install surface
 
-_What `icculus init` lays down in a project, and which files are **yours**
+_What `discern init` lays down in a project, and which files are **yours**
 (written once, then kept), **generated** (re-published artifacts, always safe to
 overwrite), or **bundled** (shipped inside the binary, never on disk)._
 
-One `icculus init` scaffolds the harness into a project. The whole icculus
-footprint is **one root file, `icculus.toml`**
-([ADR 0020](../_adr/0020-dissolve-icculus-dir.md)) — there is no hidden
-`.icculus/` directory. The seed files originate in
+One `discern init` scaffolds the harness into a project. The whole discern
+footprint is **one root file, `discern.toml`**
+([ADR 0020](../_adr/0020-dissolve-discern-dir.md)) — there is no hidden
+`.discern/` directory. The seed files originate in
 [`templates/`](../../templates/) — the source of truth — which the binary
 renders, merges, or appends into place; the built-in skills and guidance are
 bundled in the binary itself and materialised on disk only as generated output.
@@ -16,9 +16,9 @@ This page is the durable map of that surface, grouped by what each part does.
 It is deliberately **not** an exhaustive file list. The per-file truth lives in
 self-describing sources that never go stale — consult those for the leaves:
 
-> - `icculus --help` lists every subcommand (the former engine recipes are now
+> - `discern --help` lists every subcommand (the former engine recipes are now
 >   first-class verbs).
-> - [`icculus.toml`](../../templates/icculus.toml.tmpl) documents every config
+> - [`discern.toml`](../../templates/discern.toml.tmpl) documents every config
 >   block in its own comments.
 
 ## The two buckets
@@ -26,7 +26,7 @@ self-describing sources that never go stale — consult those for the leaves:
 Every path in an install is one of two kinds. The bucket decides how the binary
 treats it on `upgrade` and where you change it.
 
-| Bucket           | What it is                                                                                                                                                                                 | On `icculus upgrade`                            | Where you change it                                              |
+| Bucket           | What it is                                                                                                                                                                                 | On `discern upgrade`                            | Where you change it                                              |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------- | ---------------------------------------------------------------- |
 | **yours**        | Committed seed files: rendered once from a `templates/….tmpl` (or merged/appended into what was already there) at `init`, then owned by the project. Authored skills/recipes/guidance too. | Untouched.                                      | Edit the file in place.                                          |
 | **the binary's** | Gitignored, re-published artifacts: the materialised `.claude/skills/` and the compiled agent files. Produced from the bundled sources, written out, always safe to overwrite.             | Re-published — overwritten to match the binary. | Edit the source (in this repo) and re-run the producing command. |
@@ -53,28 +53,28 @@ they are generated from the bundled sources.
 
 | Path                                                | Bucket | What it is                                                                                                                                                                                                                                                                                                                                                                                                        |
 | --------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`icculus.toml`](../../templates/icculus.toml.tmpl) | yours  | The one hand-edited file — the entire icculus footprint. It teaches the generic engine about your stack: `[features]` toggles, capabilities, checks, scopes (with gates), worktree settings, ratchets, gate ergonomics, and the `[guidance]`/`[skills]`/`[recipes]` pointers. Its `[meta].schema_version` is the migration anchor ([ADR 0014](../_adr/0014-versioned-migration-system.md)), stamped by `upgrade`. |
+| [`discern.toml`](../../templates/discern.toml.tmpl) | yours  | The one hand-edited file — the entire discern footprint. It teaches the generic engine about your stack: `[features]` toggles, capabilities, checks, scopes (with gates), worktree settings, ratchets, gate ergonomics, and the `[guidance]`/`[skills]`/`[recipes]` pointers. Its `[meta].schema_version` is the migration anchor ([ADR 0014](../_adr/0014-versioned-migration-system.md)), stamped by `upgrade`. |
 | `brief.md`                                          | yours  | The project brief captured at `init` (seeded only when non-empty); the [`bootstrap`](../../templates/skills/bootstrap/SKILL.md) skill reads it to fill the docs and guidance.                                                                                                                                                                                                                                     |
 
 ## The quality gate
 
 The gate is part of the binary's TypeScript engine
-([`src/engine/`](../../src/engine/)). Its public verbs are first-class `icculus`
+([`src/engine/`](../../src/engine/)). Its public verbs are first-class `discern`
 subcommands:
 
 | Command                  | What it does                                                                                                                          | Source                                                               |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `icculus finish`         | The full gate — `fix`+`build`, then `check`+`test` in parallel, scope-matched scope gates, and (in a worktree) the main-merged check. | [`src/engine/gate/finish.ts`](../../src/engine/gate/finish.ts)       |
-| `icculus tidy`           | The fast inner loop — fixers then read-only checks; no build or test.                                                                 | [`src/engine/gate/tidy.ts`](../../src/engine/gate/tidy.ts)           |
-| `icculus test`           | The `test` capability on its own.                                                                                                     | [`src/engine/gate/test.ts`](../../src/engine/gate/test.ts)           |
-| `icculus ratchets`       | Holds never-loosen metric floors/ceilings against `main` (on demand; not part of `finish`).                                           | [`src/engine/gate/ratchets.ts`](../../src/engine/gate/ratchets.ts)   |
-| `icculus changed-scopes` | Classifies which scopes the branch touches; fails **open** (an unknown path runs more gates, never fewer).                            | [`src/engine/scopes/changed.ts`](../../src/engine/scopes/changed.ts) |
+| `discern finish`         | The full gate — `fix`+`build`, then `check`+`test` in parallel, scope-matched scope gates, and (in a worktree) the main-merged check. | [`src/engine/gate/finish.ts`](../../src/engine/gate/finish.ts)       |
+| `discern tidy`           | The fast inner loop — fixers then read-only checks; no build or test.                                                                 | [`src/engine/gate/tidy.ts`](../../src/engine/gate/tidy.ts)           |
+| `discern test`           | The `test` capability on its own.                                                                                                     | [`src/engine/gate/test.ts`](../../src/engine/gate/test.ts)           |
+| `discern ratchets`       | Holds never-loosen metric floors/ceilings against `main` (on demand; not part of `finish`).                                           | [`src/engine/gate/ratchets.ts`](../../src/engine/gate/ratchets.ts)   |
+| `discern changed-scopes` | Classifies which scopes the branch touches; fails **open** (an unknown path runs more gates, never fewer).                            | [`src/engine/scopes/changed.ts`](../../src/engine/scopes/changed.ts) |
 
 The gate, `config`, and `doctor` are **core** — always on. The other subsystems
 each sit behind a `[features]` toggle (`worktrees`, `ratchets`, `guidance`,
 `skills`, `docs`, all default on); disabling one hides its verbs, omits its
 guidance section, skips its doctor checks, and leaves its hooks out of
-`settings.json` ([ADR 0020](../_adr/0020-dissolve-icculus-dir.md)). A _feature_
+`settings.json` ([ADR 0020](../_adr/0020-dissolve-discern-dir.md)). A _feature_
 is not a _capability_: `[features]` toggles whole subsystems,
 [`[capabilities]`](#the-quality-gate) is the gate's command table.
 
@@ -95,23 +95,23 @@ readiness report.
 Generic git mechanics in the engine
 ([`src/engine/worktree/`](../../src/engine/worktree/)), driven by the hooks in
 [Bookkeeping & integration](#bookkeeping--integration). The two stack-specific
-seams (database, dev-server) are empty `[worktree]` config in `icculus.toml`
+seams (database, dev-server) are empty `[worktree]` config in `discern.toml`
 until you wire them. The whole workflow sits behind `[features].worktrees`.
 
 | Command                     | What it does                                                                    |
 | --------------------------- | ------------------------------------------------------------------------------- |
-| `icculus worktree`          | Sets up a freshly-created worktree (run by the `WorktreeCreate` hook).          |
-| `icculus worktree:ensure`   | Session-start idempotent setup (run by the `SessionStart` hook).                |
-| `icculus worktree:exit`     | Graduates the branch into the main repo and tears the worktree down.            |
-| `icculus worktree:teardown` | Tears down a worktree's database and dev-server link (run by `WorktreeRemove`). |
-| `icculus worktree:prune`    | Sweeps stale worktrees, fully-merged branches, and orphan directories.          |
-| `icculus worktree-name`     | Resolves a worktree's stable identity (id / site / branch / port / db).         |
+| `discern worktree`          | Sets up a freshly-created worktree (run by the `WorktreeCreate` hook).          |
+| `discern worktree:ensure`   | Session-start idempotent setup (run by the `SessionStart` hook).                |
+| `discern worktree:exit`     | Graduates the branch into the main repo and tears the worktree down.            |
+| `discern worktree:teardown` | Tears down a worktree's database and dev-server link (run by `WorktreeRemove`). |
+| `discern worktree:prune`    | Sweeps stale worktrees, fully-merged branches, and orphan directories.          |
+| `discern worktree-name`     | Resolves a worktree's stable identity (id / site / branch / port / db).         |
 
 The lifecycle logic lives in
 [`src/engine/worktree/lifecycle.ts`](../../src/engine/worktree/lifecycle.ts);
 the stable worktree identity (POSIX-`cksum`-faithful) in
 [`src/engine/worktree/identity.ts`](../../src/engine/worktree/identity.ts). Run
-`icculus --help` for the full verb list.
+`discern --help` for the full verb list.
 
 ## Agent instructions (author-once → compile-everywhere)
 
@@ -122,12 +122,12 @@ the stable worktree identity (POSIX-`cksum`-faithful) in
 | `CLAUDE.md`, `GEMINI.md` | generated | The gitignored per-agent mirrors (claude_code / gemini), compiled from the same source; carry a do-not-edit banner.                         |
 | `.claude/skills/*`       | generated | Materialised skills the agent discovers — built-ins copied, authored skills symlinked.                                                      |
 
-`icculus guidelines`
+`discern guidelines`
 ([`src/engine/guidelines.ts`](../../src/engine/guidelines.ts)) compiles each
-agent file as **icculus's built-in harness guidance** (always prepended, one
+agent file as **discern's built-in harness guidance** (always prepended, one
 section per enabled feature) **plus your `[guidance].sources`**, and
 (re)materialises the skills. Which files it writes is set by `[guidance].agents`
-in `icculus.toml` (`claude_code` → `CLAUDE.md`, `codex` → `AGENTS.md`, `gemini`
+in `discern.toml` (`claude_code` → `CLAUDE.md`, `codex` → `AGENTS.md`, `gemini`
 → `GEMINI.md`).
 
 ## Bundled skills
@@ -136,11 +136,11 @@ Four skills the coding agent can invoke are **bundled in the binary** (their
 source lives under [`templates/skills/`](../../templates/skills/), compiled in
 via `deno compile --include templates`), and a project can add its own under
 `[skills].dir` (default `./skills`, yours overriding a built-in by name).
-`icculus guidelines` (and `init`/`upgrade`) materialise the effective set into
+`discern guidelines` (and `init`/`upgrade`) materialise the effective set into
 `.claude/skills/` — **generated**, gitignored: built-ins **copied**, authored
 skills **symlinked** so edits are live (see
-[`src/lib/skills.ts`](../../src/lib/skills.ts)). `icculus skills list` shows the
-set and which of yours override which; `icculus skills eject <name>` copies a
+[`src/lib/skills.ts`](../../src/lib/skills.ts)). `discern skills list` shows the
+set and which of yours override which; `discern skills eject <name>` copies a
 built-in into `./skills/` so you can customise it. Each is a `SKILL.md` under
 its own directory:
 
@@ -173,15 +173,15 @@ materialises.
 | Path                                                                  | Bucket         | What it is                                                                                                                                                                                                                                                                                    |
 | --------------------------------------------------------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `TODO.md`                                                             | yours          | The shared backlog for deferred or at-risk work; documents its own format. Lazy — not shipped at `init`; created by `/bootstrap` (or on the first deferral) from the `bootstrap` skill skeleton, then yours to keep.                                                                          |
-| `recipes/` (`[recipes].dir`)                                          | yours          | Your own `icculus <verb>` recipes (default `./recipes`, read only if present) — the engine wins on a name collision ([ADR 0001](../_adr/0001-project-owned-recipes.md)). Recipes read config through `icculus config get`, not by sourcing a shell library.                                   |
-| [`.claude/settings.json`](../../templates/.claude/settings.json.tmpl) | yours (merged) | Adds a `Read(./.env)` deny and three hooks — `SessionStart` → `icculus worktree:ensure`, `WorktreeCreate` → branch + `icculus worktree`, `WorktreeRemove` → `icculus worktree:teardown` — preserving existing settings. (The worktree hooks are omitted when `[features].worktrees = false`.) |
+| `recipes/` (`[recipes].dir`)                                          | yours          | Your own `discern <verb>` recipes (default `./recipes`, read only if present) — the engine wins on a name collision ([ADR 0001](../_adr/0001-project-owned-recipes.md)). Recipes read config through `discern config get`, not by sourcing a shell library.                                   |
+| [`.claude/settings.json`](../../templates/.claude/settings.json.tmpl) | yours (merged) | Adds a `Read(./.env)` deny and three hooks — `SessionStart` → `discern worktree:ensure`, `WorktreeCreate` → branch + `discern worktree`, `WorktreeRemove` → `discern worktree:teardown` — preserving existing settings. (The worktree hooks are omitted when `[features].worktrees = false`.) |
 | [`.gitignore`](../../templates/.gitignore.fragment)                   | yours (merged) | Idempotently ignores `/CLAUDE.md`, `/GEMINI.md`, and `/.claude/*` (except the tracked settings files). `AGENTS.md` is deliberately left tracked.                                                                                                                                              |
 
 > In this repo (which self-hosts from source), the same `.claude/settings.json`
-> hooks call `deno task dev worktree:*` instead of `icculus worktree:*` — the
+> hooks call `deno task dev worktree:*` instead of `discern worktree:*` — the
 > distributed
 > [`templates/.claude/settings.json.tmpl`](../../templates/.claude/settings.json.tmpl)
-> uses the on-`PATH` `icculus` binary.
+> uses the on-`PATH` `discern` binary.
 
 One path appears only at run time, never from `init`, and is gitignored:
 `.claude/worktrees/` (the linked worktree checkouts).

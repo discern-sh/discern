@@ -7,7 +7,7 @@ a reliable experience. (Agents keep this page current too.)_
 
 ## The one idea to hold onto: the engine is the binary's, not on disk
 
-icculus is **one self-contained Deno binary** with the engine (the gate, the
+discern is **one self-contained Deno binary** with the engine (the gate, the
 worktree workflow, ratchets, the guideline compiler) compiled in as TypeScript
 under [`src/engine/`](../../src/engine/). A project never has a committed copy
 of the engine — it lives in the binary
@@ -15,9 +15,9 @@ of the engine — it lives in the binary
 running its own engine from source (`deno task dev finish`), so there is **no**
 second copy to keep in sync and nothing that can drift.
 
-What an install does lay down is anchored by **one root file, `icculus.toml`**
-([ADR 0020](../_adr/0020-dissolve-icculus-dir.md)). Files split into **two
-buckets**: _your_ committed files (`icculus.toml`, the `brief.md` seed, and the
+What an install does lay down is anchored by **one root file, `discern.toml`**
+([ADR 0020](../_adr/0020-dissolve-discern-dir.md)). Files split into **two
+buckets**: _your_ committed files (`discern.toml`, the `brief.md` seed, and the
 content you author at config-pointed paths — `guidance.md`, `./skills/`,
 `./recipes/` — plus the merged settings/gitignore), and _the binary's_
 gitignored, re-published artifacts (the materialised `.claude/skills/` and the
@@ -64,8 +64,8 @@ out of search. There is no simple built-in equivalent for the colour-coding.
 ### Any editor
 
 Don't hand-edit the generated agent files: `AGENTS.md` (tracked), `CLAUDE.md`,
-and `GEMINI.md` are compiled from icculus's built-in guidance plus your
-[`guidance.md`](../../guidance.md) by `icculus guidelines`. Edit your guidance
+and `GEMINI.md` are compiled from discern's built-in guidance plus your
+[`guidance.md`](../../guidance.md) by `discern guidelines`. Edit your guidance
 source and recompile — in this repo, with `deno task dev guidelines`.
 
 ## Working alongside the agents
@@ -74,13 +74,13 @@ source and recompile — in this repo, with `deno task dev guidelines`.
   each with its own checkout.
 - To take over an agent's branch and continue in the main checkout, run the
   [`handoff-worktree`](../../templates/skills/handoff-worktree/SKILL.md) skill.
-  It runs `icculus worktree:exit`, which commits the work, tears the worktree
+  It runs `discern worktree:exit`, which commits the work, tears the worktree
   down, and checks the branch out in the main repo.
 - Drive the gate yourself any time. In this repo (self-hosting from source):
   `deno task dev finish` (the full gate, also `deno task gate`),
   `deno task dev tidy` (fast: fixers + checks), and `deno task dev doctor`
   (health check). In a project with the binary on `PATH`, these are
-  `icculus finish` / `icculus tidy` / `icculus doctor`.
+  `discern finish` / `discern tidy` / `discern doctor`.
 
 ## Keeping this page current
 

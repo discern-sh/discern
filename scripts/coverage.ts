@@ -1,9 +1,9 @@
 /**
- * Measure `src/` line coverage and emit it as an icculus ratchet metric.
+ * Measure `src/` line coverage and emit it as a discern ratchet metric.
  *
  * This is the measurement command behind `[ratchets.coverage]` (see ADR 0003 and
- * `.icculus/config.toml`). The harness runs it on demand via `icculus ratchets`,
- * scans the output for the LAST `ICCULUS_METRIC coverage <number>` line, and holds
+ * `.discern/config.toml`). The harness runs it on demand via `discern ratchets`,
+ * scans the output for the LAST `DISCERN_METRIC coverage <number>` line, and holds
  * it at or above the configured floor.
  *
  * It runs the full suite under Deno coverage, then computes line coverage over
@@ -66,7 +66,7 @@ function srcLineCoverage(
   return { pct, hit, found };
 }
 
-const profile = await Deno.makeTempDir({ prefix: "icculus-coverage-" });
+const profile = await Deno.makeTempDir({ prefix: "discern-coverage-" });
 try {
   // 1. Run the whole suite under coverage instrumentation.
   await deno([...TEST_ARGS, `--coverage=${profile}`]);
@@ -78,7 +78,7 @@ try {
   const lcov = await deno(["coverage", profile, "--lcov"], { capture: true });
   const { pct, hit, found } = srcLineCoverage(lcov);
   console.error(`src/ line coverage: ${hit}/${found} lines`);
-  console.log(`ICCULUS_METRIC coverage ${pct.toFixed(1)}`);
+  console.log(`DISCERN_METRIC coverage ${pct.toFixed(1)}`);
 } finally {
   await Deno.remove(profile, { recursive: true });
 }

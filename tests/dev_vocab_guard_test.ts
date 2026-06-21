@@ -2,8 +2,8 @@
  * Distribution-vocabulary guards — the net that keeps engine-developer commands
  * out of anything an end user sees.
  *
- * `icculus` is both a product and a self-hosting repo, so two command
- * vocabularies coexist: the user's (`icculus …`) and the kit's own Deno-task
+ * `discern` is both a product and a self-hosting repo, so two command
+ * vocabularies coexist: the user's (`discern …`) and the kit's own Deno-task
  * aliases (`deno task <task>`). The latter must never reach a user — not in
  * shipped `templates/` (every project receives it verbatim), and not in any
  * user-facing output the binary prints. These tests fail the gate if the

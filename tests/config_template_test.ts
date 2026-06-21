@@ -16,14 +16,14 @@ import { REAL_TEMPLATES } from "./helpers.ts";
 
 /** The real committed config template text. */
 async function realTemplate(): Promise<string> {
-  return await Deno.readTextFile(join(REAL_TEMPLATES, "icculus.toml.tmpl"));
+  return await Deno.readTextFile(join(REAL_TEMPLATES, "discern.toml.tmpl"));
 }
 
 Deno.test("extracts a ruled-doc section (features) with its doc block, header, and body", async () => {
   const block = sectionBlockFromTemplate(await realTemplate(), "features")!;
   assert(block !== undefined, "features block should be found");
   // Leads with the section's documentation paragraph...
-  assertStringIncludes(block, "# [features] — toggle whole icculus subsystems");
+  assertStringIncludes(block, "# [features] — toggle whole discern subsystems");
   // ...then the header...
   assertStringIncludes(block, "\n[features]\n");
   // ...then the body of defaults.
@@ -43,7 +43,7 @@ Deno.test("extracts [guidance] including its {{agents_array}} token (for the cal
 
 Deno.test("extracts the last section ([recipes]) up to EOF, trailing blanks trimmed", async () => {
   const block = sectionBlockFromTemplate(await realTemplate(), "recipes")!;
-  assertStringIncludes(block, "# [recipes] — your own `icculus` commands");
+  assertStringIncludes(block, "# [recipes] — your own `discern` commands");
   assertStringIncludes(block, "\n[recipes]\n");
   assertStringIncludes(block, 'dir = "recipes"');
   assert(!block.endsWith("\n"), "trailing blank lines are trimmed");

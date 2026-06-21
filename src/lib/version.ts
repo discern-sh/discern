@@ -23,13 +23,13 @@ export const KIT_VERSION: string = denoJson.version;
  *
  * The current shape is schema **6**. The chain: schema-1→2 backfills
  * `[project].main_branch`; schema-2→3 consolidates the install surface under
- * `.icculus/` (config + guidance seeds); schema-3→4 converts
+ * `.discern/` (config + guidance seeds); schema-3→4 converts
  * `[slots]`→`[capabilities]`/`[checks]`, inlines ratchet runs, folds side-gates
  * into `[scopes.<name>].gate`, and drops `[evidence]` (ADR 0017/0018);
- * schema-4→5 prunes the pre-existing on-disk shell engine (`.icculus/engine/`,
- * the root `agent`, `.icculus/manifest.json`) left by an install made before the
- * TS-native engine; schema-5→6 **dissolves `.icculus/`** into the single-file
- * footprint — config to a root `icculus.toml`, guidance/recipes/authored-skills
+ * schema-4→5 prunes the pre-existing on-disk shell engine (`.discern/engine/`,
+ * the root `agent`, `.discern/manifest.json`) left by an install made before the
+ * TS-native engine; schema-5→6 **dissolves `.discern/`** into the single-file
+ * footprint — config to a root `discern.toml`, guidance/recipes/authored-skills
  * moved out, bundled skills pruned, `[features]`/`[guidance]`/`[skills]` sections
  * added (ADR 0020). See `MIGRATIONS`. A config with no `[meta].schema_version` is
  * read as schema 1 (or a legacy manifest's recorded version), then migrated

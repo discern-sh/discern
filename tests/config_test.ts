@@ -68,7 +68,7 @@ Deno.test("tokensFromConfig produces the full token contract", () => {
   assertEquals(map.agents_array, '"claude_code", "codex"');
   assertEquals(map.scopes_web, '"src/**", "lib/**"');
   // The neutral/previewable/gotchas defaults are fixed. Neutral now names docs,
-  // the provider dir, and authored skills (the dissolved layout has no .icculus/).
+  // the provider dir, and authored skills (the dissolved layout has no .discern/).
   assertEquals(map.scopes_neutral, '"docs/", ".claude/", "skills/"');
   assertEquals(map.scopes_previewable, '"public/**"');
 });

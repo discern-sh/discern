@@ -3,7 +3,7 @@
  *
  * Every ratchet is a `[ratchets.<name>]` table with a direction (up=floor,
  * down=ceiling), a `limit`, and an inline `run` command that emits
- * `ICCULUS_METRIC <name> <number>`. There is no built-in or special ratchet —
+ * `DISCERN_METRIC <name> <number>`. There is no built-in or special ratchet —
  * "coverage" is just a conventional name. `agent ratchets` runs them all.
  */
 
@@ -52,7 +52,7 @@ Deno.test("ratchets: coverage passes when the emitted metric meets the floor", a
         name: "coverage",
         direction: "up",
         limit: "80",
-        run: "echo 'ICCULUS_METRIC coverage 85'",
+        run: "echo 'DISCERN_METRIC coverage 85'",
       }),
     );
     await gitInit(dir);
@@ -71,7 +71,7 @@ Deno.test("ratchets: coverage fails when the emitted metric is below the floor",
         name: "coverage",
         direction: "up",
         limit: "80",
-        run: "echo 'ICCULUS_METRIC coverage 70'",
+        run: "echo 'DISCERN_METRIC coverage 70'",
       }),
     );
     await gitInit(dir);
@@ -81,10 +81,10 @@ Deno.test("ratchets: coverage fails when the emitted metric is below the floor",
   });
 });
 
-Deno.test("ratchets: a trailing NN% is NOT read — only the ICCULUS_METRIC marker counts", async () => {
+Deno.test("ratchets: a trailing NN% is NOT read — only the DISCERN_METRIC marker counts", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    // No ICCULUS_METRIC line — only a trailing percentage. There is no fallback
+    // No DISCERN_METRIC line — only a trailing percentage. There is no fallback
     // any more, so the metric is unreadable and the ratchet errors.
     await writeConfig(
       dir,
@@ -111,7 +111,7 @@ Deno.test("ratchets: a limit may not be lowered vs main", async () => {
         name: "coverage",
         direction: "up",
         limit: "80",
-        run: "echo 'ICCULUS_METRIC coverage 99'",
+        run: "echo 'DISCERN_METRIC coverage 99'",
       }),
     );
     await gitInit(dir); // main now has ratchets.coverage.limit = 80
@@ -122,7 +122,7 @@ Deno.test("ratchets: a limit may not be lowered vs main", async () => {
         name: "coverage",
         direction: "up",
         limit: "70",
-        run: "echo 'ICCULUS_METRIC coverage 99'",
+        run: "echo 'DISCERN_METRIC coverage 99'",
       }),
     );
     await git(dir, "add", "-A");
@@ -130,7 +130,7 @@ Deno.test("ratchets: a limit may not be lowered vs main", async () => {
 
     const r = await runAgent(dir, ["ratchets"]);
     // A floor may only rise vs main: the never-loosen baseline is read from main's
-    // root icculus.toml (with the legacy .icculus/config.toml as a fallback).
+    // root discern.toml (with the legacy .discern/config.toml as a fallback).
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.stderr, "only rises");
   });
@@ -146,7 +146,7 @@ Deno.test("ratchets: a down-ratchet passes within its ceiling", async () => {
         metric: "bundle_bytes",
         direction: "down",
         limit: "100",
-        run: "echo 'ICCULUS_METRIC bundle_bytes 50'",
+        run: "echo 'DISCERN_METRIC bundle_bytes 50'",
       }),
     );
     await gitInit(dir);
@@ -167,7 +167,7 @@ Deno.test("ratchets: a down-ratchet fails above its ceiling", async () => {
         metric: "bundle_bytes",
         direction: "down",
         limit: "100",
-        run: "echo 'ICCULUS_METRIC bundle_bytes 150'",
+        run: "echo 'DISCERN_METRIC bundle_bytes 150'",
       }),
     );
     await gitInit(dir);
@@ -186,7 +186,7 @@ Deno.test("ratchets: an up-ratchet passes above its floor", async () => {
         name: "typecov",
         direction: "up",
         limit: "90",
-        run: "echo 'ICCULUS_METRIC typecov 95'",
+        run: "echo 'DISCERN_METRIC typecov 95'",
       }),
     );
     await gitInit(dir);
@@ -234,13 +234,13 @@ Deno.test("ratchets: runs every configured ratchet, aggregating failures", async
         "[ratchets.coverage]",
         'direction = "up"',
         "limit = 80",
-        "run = \"echo 'ICCULUS_METRIC coverage 95'\"",
+        "run = \"echo 'DISCERN_METRIC coverage 95'\"",
         "",
         "[ratchets.bundle]",
         'metric = "bundle_bytes"',
         'direction = "down"',
         "limit = 100",
-        "run = \"echo 'ICCULUS_METRIC bundle_bytes 150'\"",
+        "run = \"echo 'DISCERN_METRIC bundle_bytes 150'\"",
         "",
       ].join("\n"),
     );

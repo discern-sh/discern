@@ -9,14 +9,14 @@ Deno.test("tomlSyntaxHint leads with the line number when the parser gives one",
   const hint = tomlSyntaxHint(
     new Error("key length is not a positive number, Parse error on line 3"),
   );
-  assert(hint.includes("syntax error near line 3 in icculus.toml"));
+  assert(hint.includes("syntax error near line 3 in discern.toml"));
   // the raw parser detail is carried through in parens.
   assert(hint.includes("(key length is not a positive number"));
 });
 
 Deno.test("tomlSyntaxHint falls back to a plain message with no line number", () => {
   const hint = tomlSyntaxHint(new Error("totally opaque failure"));
-  assertEquals(hint, "icculus.toml is not valid TOML: totally opaque failure");
+  assertEquals(hint, "discern.toml is not valid TOML: totally opaque failure");
 });
 
 Deno.test("a malformed config throws a catchable ConfigParseError with the hint", () => {
@@ -39,7 +39,7 @@ stage = "check"
 run = "deno task selfcheck"
 
 [scopes.docs]
-paths = ["docs/", ".icculus/"]
+paths = ["docs/", ".discern/"]
 neutral = true
 
 [worktree]

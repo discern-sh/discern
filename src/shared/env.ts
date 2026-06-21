@@ -1,17 +1,17 @@
 /**
- * Project-root discovery and the `ICCULUS_*` environment a project recipe is
+ * Project-root discovery and the `DISCERN_*` environment a project recipe is
  * exec'd with.
  *
- * The whole icculus footprint in a project is a single root file: `icculus.toml`
- * (ADR 0020 dissolved the hidden `.icculus/` namespace). The binary finds the
+ * The whole discern footprint in a project is a single root file: `discern.toml`
+ * (ADR 0020 dissolved the hidden `.discern/` namespace). The binary finds the
  * project root by walking up from the cwd to the nearest ancestor holding that
- * file. The pre-6 consolidated location (`.icculus/config.toml`) is still
+ * file. The pre-6 consolidated location (`.discern/config.toml`) is still
  * recognised as a legacy marker so a not-yet-upgraded install is found and
  * carried forward by `upgrade`/`migrate`.
  *
  * The recipe env replaces what the old shell dispatcher exported, minus the
- * engine paths that no longer exist on disk (`ICCULUS_ENGINE`/`ICCULUS_LIB`) — a
- * recipe now reads config via `icculus config get`, not by sourcing a shell
+ * engine paths that no longer exist on disk (`DISCERN_ENGINE`/`DISCERN_LIB`) — a
+ * recipe now reads config via `discern config get`, not by sourcing a shell
  * library.
  */
 
@@ -19,14 +19,14 @@ import { dirname, join } from "@std/path";
 
 /** Relative path of the install marker the root walk looks for (the dissolved
  * single-file footprint). */
-export const CONFIG_REL = "icculus.toml";
+export const CONFIG_REL = "discern.toml";
 
 /** The pre-6 consolidated location, still recognised as a legacy/migration-source
  * marker so a not-yet-upgraded install is found and carried forward. */
-export const LEGACY_CONFIG_REL = ".icculus/config.toml";
+export const LEGACY_CONFIG_REL = ".discern/config.toml";
 
 /** The install markers in precedence order — the new single-file footprint first,
- * the legacy `.icculus/` location second. */
+ * the legacy `.discern/` location second. */
 export const CONFIG_MARKERS: readonly string[] = [
   CONFIG_REL,
   LEGACY_CONFIG_REL,
@@ -43,8 +43,8 @@ async function isFile(path: string): Promise<boolean> {
 
 /**
  * Walk up from `start` (default: the cwd) to the nearest ancestor that is an
- * icculus install — one holding a root `icculus.toml` (or, for a not-yet-upgraded
- * install, a legacy `.icculus/config.toml`). Returns the project root, or
+ * discern install — one holding a root `discern.toml` (or, for a not-yet-upgraded
+ * install, a legacy `.discern/config.toml`). Returns the project root, or
  * undefined if none exists in this directory or any parent.
  */
 export async function findRoot(
@@ -67,8 +67,8 @@ export async function findRoot(
 
 /**
  * The relative path of the config file present under `root` — the new
- * `icculus.toml` if present, else the legacy `.icculus/config.toml`, else
- * undefined when `root` is not an icculus install. The new path is preferred so a
+ * `discern.toml` if present, else the legacy `.discern/config.toml`, else
+ * undefined when `root` is not a discern install. The new path is preferred so a
  * migrated install is unambiguous; the legacy fallback is what lets the engine,
  * `upgrade`, and `migrate` keep working in a pre-6 install.
  */
@@ -83,11 +83,11 @@ export async function installedConfigRel(
   return undefined;
 }
 
-/** The resolved pieces a recipe's `ICCULUS_*` environment is built from. */
+/** The resolved pieces a recipe's `DISCERN_*` environment is built from. */
 export interface RecipeEnv {
   /** Absolute project root. */
   root: string;
-  /** Absolute path to the install config (resolved: `icculus.toml` or legacy). */
+  /** Absolute path to the install config (resolved: `discern.toml` or legacy). */
   tomlPath: string;
   /** The `[recipes].dir` value as configured (relative or absolute). */
   recipesDir: string;
@@ -98,15 +98,15 @@ export interface RecipeEnv {
 }
 
 /**
- * Build the `ICCULUS_*` environment variables a project recipe is exec'd with.
+ * Build the `DISCERN_*` environment variables a project recipe is exec'd with.
  * Mirrors the subset the shell dispatcher exported that survives the refactor.
  */
 export function recipeEnvVars(e: RecipeEnv): Record<string, string> {
   return {
-    ICCULUS_ROOT: e.root,
-    ICCULUS_TOML: e.tomlPath,
-    ICCULUS_RECIPES: e.recipesAbs,
-    ICCULUS_RECIPES_DIR: e.recipesDir,
+    DISCERN_ROOT: e.root,
+    DISCERN_TOML: e.tomlPath,
+    DISCERN_RECIPES: e.recipesAbs,
+    DISCERN_RECIPES_DIR: e.recipesDir,
     MAIN_BRANCH: e.mainBranch,
   };
 }

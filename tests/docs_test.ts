@@ -1,6 +1,6 @@
 /**
  * Tests for the docs browser: discovery/resolution (`src/lib/docs.ts`) in
- * process, and the `icculus docs` command surface end-to-end via the CLI.
+ * process, and the `discern docs` command surface end-to-end via the CLI.
  *
  * The interactive picker needs a TTY, so it is not exercised here; the
  * subprocess runs are all non-interactive (piped stdio), which is exactly the
@@ -12,7 +12,7 @@ import { join } from "@std/path";
 import { discoverDocs, extractTitle, resolveDoc } from "../src/lib/docs.ts";
 import { runCli, seedConfig, withTempDir } from "./helpers.ts";
 
-/** Write a small but representative docs tree (with an .icculus/config.toml anchor). */
+/** Write a small but representative docs tree (with an .discern/config.toml anchor). */
 async function makeDocsProject(dir: string): Promise<void> {
   await seedConfig(dir, 'slug = "demo"\n');
   const files: Record<string, string> = {
@@ -111,7 +111,7 @@ Deno.test("docs --list prints a grouped table of contents", async () => {
     await makeDocsProject(dir);
     const { code, stdout } = await runCli(["docs", "--list"], dir);
     assertEquals(code, 0);
-    assertStringIncludes(stdout, "icculus docs");
+    assertStringIncludes(stdout, "discern docs");
     assertStringIncludes(stdout, "00-intro/");
     assertStringIncludes(stdout, "Alpha");
   });
@@ -122,7 +122,7 @@ Deno.test("bare docs is non-interactive off a TTY (prints the TOC, no hang)", as
     await makeDocsProject(dir);
     const { code, stdout } = await runCli(["docs"], dir);
     assertEquals(code, 0);
-    assertStringIncludes(stdout, "icculus docs");
+    assertStringIncludes(stdout, "discern docs");
   });
 });
 

@@ -4,7 +4,7 @@
 
 ## Context
 
-A fresh `icculus init` lays the whole config template down, so the config it
+A fresh `discern init` lays the whole config template down, so the config it
 produces reads well: every section preceded by its `# ───` documentation
 paragraph, in a deliberate order, `[meta]` first. The
 [migration chain](0014-versioned-migration-system.md) evolves an _existing_
@@ -14,7 +14,7 @@ never touch a value or comment the user wrote.
 Within that constraint the migration added sections the cheapest way the
 comment-preserving editor ([ADR 0005](0005-declarative-config.md)) offered: a
 bare key edit, which **appends a new section as bare keys at EOF**. So the
-`5 → 6` step ([ADR 0020](0020-dissolve-icculus-dir.md)) — which introduces
+`5 → 6` step ([ADR 0020](0020-dissolve-discern-dir.md)) — which introduces
 `[features]`, `[guidance]`, `[skills]` — dumped them, undocumented, at the
 bottom of the file, in the reverse of the template's order. The longer a project
 had existed, the worse its config read: a fresh install was fully documented, an
@@ -57,7 +57,7 @@ The explicit **no**s:
   _wholly absent_. A section already partly present falls back to a per-key,
   only-if-absent edit (never clobbering a hand edit); a section already present
   is left exactly as the user has it. An existing `[meta]` is never moved.
-- **No `icculus config normalize` / `upgrade --reformat`.** A command that
+- **No `discern config normalize` / `upgrade --reformat`.** A command that
   rewrites the whole config in template order was considered and rejected (see
   below): the papercut is about migration _output_, and fixing it at the point
   of insertion is lossless and simpler.

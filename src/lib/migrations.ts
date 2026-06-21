@@ -23,7 +23,7 @@ import { ensureDir, walk } from "@std/fs";
 import { dirname, join, relative } from "@std/path";
 import { TomlEditor } from "./toml_edit.ts";
 import { mergeSettings } from "./settings_merge.ts";
-import { parseIcculusToml, renderTomlStringList } from "./toml_render.ts";
+import { parseDiscernToml, renderTomlStringList } from "./toml_render.ts";
 import {
   readConfigTemplate,
   sectionBlockFromTemplate,
@@ -63,7 +63,7 @@ export interface MigrationContext {
   rename(from: string, to: string): Promise<void>;
   /** Read-transform-write a target file's text; a no-op if absent or unchanged. */
   rewrite(rel: string, fn: (text: string) => string): Promise<void>;
-  /** Read the install config (`.icculus/config.toml`, or a legacy `icculus.toml`), or undefined. */
+  /** Read the install config (`.discern/config.toml`, or a legacy `discern.toml`), or undefined. */
   readConfig(): Promise<string | undefined>;
   /** Edit the install config comment-preserving; a no-op if there is no config. */
   editToml(fn: (editor: TomlEditor) => void): Promise<void>;
@@ -90,7 +90,7 @@ export interface Migration {
  * `1 → 2` backfills `[project].main_branch`. It is the first real step — a
  * deliberately small, safe seed evolution that exercises the whole pipeline
  * end-to-end (the kit rename will come later, as a further step). `main_branch`
- * is a long-standing engine-read field; an install whose `icculus.toml` predates
+ * is a long-standing engine-read field; an install whose `discern.toml` predates
  * it relied on the engine's implicit `"main"` default, so making it explicit is
  * a genuine improvement. Only-if-absent, so a custom integration branch is never
  * clobbered, and a no-op on any install that already has it.
@@ -106,7 +106,7 @@ export const MIGRATIONS: Migration[] = [
       }
       let raw: Record<string, unknown>;
       try {
-        raw = parseIcculusToml(text).raw;
+        raw = parseDiscernToml(text).raw;
       } catch {
         return; // unparseable — upgrade validates the config first; belt-and-braces.
       }
@@ -123,37 +123,37 @@ export const MIGRATIONS: Migration[] = [
   {
     from: 2,
     describe:
-      "consolidate the install surface under .icculus/ (move the config + guidance seeds)",
+      "consolidate the install surface under .discern/ (move the config + guidance seeds)",
     apply: async (ctx) => {
-      // Carry the SEEDS into the `.icculus/` namespace. A seed is the user's, so a
+      // Carry the SEEDS into the `.discern/` namespace. A seed is the user's, so a
       // rename here is the only thing that moves its content forward. `rename`
       // wraps Deno.rename (whole-directory moves) and is idempotent — a no-op once
       // the source is gone, so a re-run, or an install already in the new layout,
       // passes through cleanly.
-      await ctx.rename("icculus.toml", ".icculus/config.toml");
-      await ctx.rename(".ai/guidelines", ".icculus/guidelines");
+      await ctx.rename("discern.toml", ".discern/config.toml");
+      await ctx.rename(".ai/guidelines", ".discern/guidelines");
       // The old shell dispatcher (bin/agent) and skills (.ai/skills) are not
       // moved: skills are re-materialized at the new path by the upgrade, and the
       // pre-existing shell engine — dispatcher included — is pruned by the final
       // chain step. Repoint the worktree hooks at the root dispatcher path the
       // historical layout used; the dispatcher still exists at this schema, so
       // `./agent` is correct here. The final prune step then removes the
-      // dispatcher and repoints the hook at the on-PATH `icculus` binary.
+      // dispatcher and repoints the hook at the on-PATH `discern` binary.
       await ctx.rewrite(
         ".claude/settings.json",
         (t) => t.replaceAll("./bin/agent", "./agent"),
       );
       // Best-effort: the default neutral-scope globs named `.ai/`; guidance now
-      // lives under `.icculus/`. A customised list simply won't match — harmless.
+      // lives under `.discern/`. A customised list simply won't match — harmless.
       await ctx.rewrite(
-        ".icculus/config.toml",
-        (t) => t.replaceAll('".ai/"', '".icculus/"'),
+        ".discern/config.toml",
+        (t) => t.replaceAll('".ai/"', '".discern/"'),
       );
       ctx.note(
-        "moved icculus.toml→.icculus/config.toml and .ai/guidelines→.icculus/guidelines",
+        "moved discern.toml→.discern/config.toml and .ai/guidelines→.discern/guidelines",
       );
       ctx.note(
-        ".icculus/skills are re-materialized by the upgrade; run `icculus guidelines` after",
+        ".discern/skills are re-materialized by the upgrade; run `discern guidelines` after",
       );
     },
   },
@@ -168,7 +168,7 @@ export const MIGRATIONS: Migration[] = [
       }
       let raw: Record<string, unknown>;
       try {
-        raw = parseIcculusToml(text).raw;
+        raw = parseDiscernToml(text).raw;
       } catch {
         return; // unparseable — upgrade validates the config first; belt-and-braces.
       }
@@ -301,7 +301,7 @@ export const MIGRATIONS: Migration[] = [
   {
     from: 4,
     describe:
-      "prune the pre-existing on-disk shell engine (.icculus/engine/, the root agent, .icculus/manifest.json)",
+      "prune the pre-existing on-disk shell engine (.discern/engine/, the root agent, .discern/manifest.json)",
     apply: async (ctx) => {
       // An install made before the TS-native engine carried a committed shell
       // engine: the generic engine tree, a root `agent` dispatcher, and a
@@ -310,16 +310,16 @@ export const MIGRATIONS: Migration[] = [
       // All three removals are idempotent (a no-op when already gone), so this is
       // safe on a fresh install too. The skill symlinks under `.claude/skills/`
       // that the old dispatcher's `guidelines` step created still point at the
-      // re-materialized `.icculus/skills/`, so they need no surgery here; the
-      // next `icculus guidelines` reconciles them.
-      const had = await ctx.exists(".icculus/engine") ||
+      // re-materialized `.discern/skills/`, so they need no surgery here; the
+      // next `discern guidelines` reconciles them.
+      const had = await ctx.exists(".discern/engine") ||
         await ctx.exists("agent") ||
-        await ctx.exists(".icculus/manifest.json");
-      await ctx.removeAll(".icculus/engine");
+        await ctx.exists(".discern/manifest.json");
+      await ctx.removeAll(".discern/engine");
       await ctx.remove("agent");
-      await ctx.remove(".icculus/manifest.json");
+      await ctx.remove(".discern/manifest.json");
       // The worktree hooks called the now-deleted `./agent` dispatcher; repoint
-      // them at the on-PATH `icculus` binary so they survive the prune. In
+      // them at the on-PATH `discern` binary so they survive the prune. In
       // settings `./agent` only ever names the dispatcher (the `agent/<name>`
       // branch prefix has no `./`), so this literal swap is safe and idempotent
       // — a no-op once already repointed, or when there is no settings file.
@@ -327,7 +327,7 @@ export const MIGRATIONS: Migration[] = [
       // carries the hooks across the cutover.
       await ctx.rewrite(
         ".claude/settings.json",
-        (t) => t.replaceAll("./agent", "icculus"),
+        (t) => t.replaceAll("./agent", "discern"),
       );
       // A pre-cutover install committed its skills (they were managed) and may not
       // ignore the now-materialized/compiled artifacts. Ensure `.gitignore` ignores
@@ -336,7 +336,7 @@ export const MIGRATIONS: Migration[] = [
       // git-index operation left to the operator; a migration only edits files.
       const ignore = (await ctx.readText(".gitignore")) ?? "";
       const wantIgnore: Array<[RegExp, string]> = [
-        [/^\s*\/?\.icculus\/skills\b/m, "/.icculus/skills/"],
+        [/^\s*\/?\.discern\/skills\b/m, "/.discern/skills/"],
         [/^\s*\/?CLAUDE\.md\b/m, "/CLAUDE.md"],
       ];
       const missingIgnore = wantIgnore
@@ -344,7 +344,7 @@ export const MIGRATIONS: Migration[] = [
         .map(([, line]) => line);
       if (missingIgnore.length > 0) {
         const block = [
-          "# icculus: materialized/compiled artifacts (re-published on upgrade)",
+          "# discern: materialized/compiled artifacts (re-published on upgrade)",
           ...missingIgnore,
         ].join("\n");
         const base = ignore === "" ? "" : `${ignore.replace(/\n+$/, "")}\n\n`;
@@ -355,7 +355,7 @@ export const MIGRATIONS: Migration[] = [
       }
       if (had) {
         ctx.note(
-          "removed the legacy shell engine, root agent, and manifest.json; repointed the worktree hooks at `icculus`",
+          "removed the legacy shell engine, root agent, and manifest.json; repointed the worktree hooks at `discern`",
         );
       }
     },
@@ -363,7 +363,7 @@ export const MIGRATIONS: Migration[] = [
   {
     from: 5,
     describe:
-      "dissolve .icculus/ into the single-file footprint: config → root icculus.toml; move guidance/recipes/authored skills out; prune bundled skills; add [features]/[guidance]/[skills] (ADR 0020)",
+      "dissolve .discern/ into the single-file footprint: config → root discern.toml; move guidance/recipes/authored skills out; prune bundled skills; add [features]/[guidance]/[skills] (ADR 0020)",
     apply: async (ctx) => {
       // Capture the legacy [project].agents (to seed [guidance].agents) BEFORE
       // moving the config, while it is still readable at its old location.
@@ -371,7 +371,7 @@ export const MIGRATIONS: Migration[] = [
       const before = await ctx.readConfig();
       if (before !== undefined) {
         try {
-          const raw = parseIcculusToml(before).raw;
+          const raw = parseDiscernToml(before).raw;
           const project = isRecord(raw.project) ? raw.project : {};
           if (Array.isArray(project.agents)) {
             legacyAgents = project.agents.filter(
@@ -384,7 +384,7 @@ export const MIGRATIONS: Migration[] = [
       }
 
       // 1. Move the config to the root single-file footprint.
-      await ctx.rename(".icculus/config.toml", "icculus.toml");
+      await ctx.rename(".discern/config.toml", "discern.toml");
 
       // 2. Add the new sections. A fresh `init` lays the whole template down, so
       // its config reads fully documented; an only-if-absent *line* edit here
@@ -400,7 +400,7 @@ export const MIGRATIONS: Migration[] = [
       let raw: Record<string, unknown> = {};
       if (movedText !== undefined) {
         try {
-          raw = parseIcculusToml(movedText).raw;
+          raw = parseDiscernToml(movedText).raw;
         } catch {
           // belt-and-braces; leave raw empty so every section is treated absent.
         }
@@ -467,7 +467,7 @@ export const MIGRATIONS: Migration[] = [
         }
 
         // [recipes] — canonically last. When present, only repoint the dead
-        // `.icculus/recipes` default (never touching a custom dir).
+        // `.discern/recipes` default (never touching a custom dir).
         const recipesBlock = block("recipes");
         if (recipesTbl === undefined && recipesBlock !== undefined) {
           e.insertSectionBlockAfter("gate", recipesBlock);
@@ -475,7 +475,7 @@ export const MIGRATIONS: Migration[] = [
           const rdir = typeof recipesTbl?.dir === "string"
             ? recipesTbl.dir
             : undefined;
-          if (rdir === undefined || rdir === ".icculus/recipes") {
+          if (rdir === undefined || rdir === ".discern/recipes") {
             e.setString("recipes.dir", "recipes");
           }
         }
@@ -487,9 +487,9 @@ export const MIGRATIONS: Migration[] = [
       // 3. Move the user's guideline prose → ./guidance.md (concatenated).
       if (
         !(await ctx.exists("guidance.md")) &&
-        (await ctx.exists(".icculus/guidelines"))
+        (await ctx.exists(".discern/guidelines"))
       ) {
-        const dir = join(ctx.destDir, ".icculus/guidelines");
+        const dir = join(ctx.destDir, ".discern/guidelines");
         const files: string[] = [];
         for await (const entry of Deno.readDir(dir)) {
           if (entry.isFile && entry.name.endsWith(".md")) {
@@ -512,16 +512,16 @@ export const MIGRATIONS: Migration[] = [
       }
 
       // 4. Move recipes → ./recipes/ (the old README is documentation; dropped
-      // with .icculus/ below).
-      if (await ctx.exists(".icculus/recipes")) {
+      // with .discern/ below).
+      if (await ctx.exists(".discern/recipes")) {
         for await (
-          const entry of Deno.readDir(join(ctx.destDir, ".icculus/recipes"))
+          const entry of Deno.readDir(join(ctx.destDir, ".discern/recipes"))
         ) {
           if (entry.name === "README.md") {
             continue;
           }
           await ctx.rename(
-            `.icculus/recipes/${entry.name}`,
+            `.discern/recipes/${entry.name}`,
             `recipes/${entry.name}`,
           );
         }
@@ -529,17 +529,17 @@ export const MIGRATIONS: Migration[] = [
       }
 
       // 5. Move the brief → ./brief.md (authored intent, read by /bootstrap).
-      await ctx.rename(".icculus/brief.md", "brief.md");
+      await ctx.rename(".discern/brief.md", "brief.md");
 
       // 6. Split skills (§3.5): authored dirs move to ./skills/; pristine bundled
       // copies are pruned (the binary re-ships them). A bundled-NAMED dir whose
       // CONTENTS differ from the bundled one — in ANY file, not just SKILL.md —
       // is a customization, preserved as authored rather than lost (R1), and
       // noted loudly.
-      if (await ctx.exists(".icculus/skills")) {
+      if (await ctx.exists(".discern/skills")) {
         const bundled = new Set(await bundledSkillNames());
         for await (
-          const entry of Deno.readDir(join(ctx.destDir, ".icculus/skills"))
+          const entry of Deno.readDir(join(ctx.destDir, ".discern/skills"))
         ) {
           if (!entry.isDirectory) {
             continue;
@@ -548,9 +548,9 @@ export const MIGRATIONS: Migration[] = [
           const isPristineBundled = bundled.has(name) &&
             await sameSkillTree(ctx.destDir, name);
           if (isPristineBundled) {
-            await ctx.removeAll(`.icculus/skills/${name}`);
+            await ctx.removeAll(`.discern/skills/${name}`);
           } else {
-            await ctx.rename(`.icculus/skills/${name}`, `skills/${name}`);
+            await ctx.rename(`.discern/skills/${name}`, `skills/${name}`);
             ctx.note(
               bundled.has(name)
                 ? `preserved CUSTOMIZED skill skills/${name} (it differs from the built-in; it now overrides it)`
@@ -560,21 +560,21 @@ export const MIGRATIONS: Migration[] = [
         }
       }
 
-      // 7. Fix .gitignore: drop the dead .icculus/ ignores, ensure the new
+      // 7. Fix .gitignore: drop the dead .discern/ ignores, ensure the new
       // generated mirrors are ignored, and keep AGENTS.md tracked.
       await fixGitignoreForSchema6(ctx);
 
-      // 8. Delete the now-emptied .icculus/ namespace.
-      await ctx.removeAll(".icculus");
+      // 8. Delete the now-emptied .discern/ namespace.
+      await ctx.removeAll(".discern");
       ctx.note(
-        "dissolved .icculus/ — the footprint is now a root icculus.toml",
+        "dissolved .discern/ — the footprint is now a root discern.toml",
       );
     },
   },
 ];
 
 /**
- * Whether the install's `.icculus/skills/<name>` is byte-identical to the bundled
+ * Whether the install's `.discern/skills/<name>` is byte-identical to the bundled
  * built-in's — the WHOLE directory tree, every file, not just `SKILL.md`. A
  * pristine materialized copy (identical) is safe to prune (the binary re-ships
  * it); ANY difference — a changed, added, or removed file anywhere in the tree —
@@ -588,7 +588,7 @@ async function sameSkillTree(destDir: string, name: string): Promise<boolean> {
   } catch {
     return false;
   }
-  const installed = join(destDir, ".icculus/skills", name);
+  const installed = join(destDir, ".discern/skills", name);
   const ship = join(bundledDir, name);
   const a = await treeFiles(installed);
   const b = await treeFiles(ship);
@@ -640,7 +640,7 @@ async function sameBytes(a: string, b: string): Promise<boolean> {
 }
 
 /**
- * Rewrite `.gitignore` for the schema-6 layout: remove any `.icculus/`-pointed
+ * Rewrite `.gitignore` for the schema-6 layout: remove any `.discern/`-pointed
  * ignore, ensure `/CLAUDE.md` and `/GEMINI.md` are ignored, and ensure
  * `/AGENTS.md` is NOT (it is the one tracked agent file). Idempotent; a no-op
  * when there is no `.gitignore`.
@@ -651,14 +651,14 @@ async function fixGitignoreForSchema6(ctx: MigrationContext): Promise<void> {
     return;
   }
   const lines = existing.split("\n")
-    // Drop dead `.icculus` ignore RULES and any (mistaken) AGENTS.md ignore, but
+    // Drop dead `.discern` ignore RULES and any (mistaken) AGENTS.md ignore, but
     // keep comments and blanks intact (a rule line is non-blank, non-`#`).
     .filter((l) => {
       const t = l.trim();
       if (t === "" || t.startsWith("#")) {
         return true;
       }
-      return !/\.icculus/.test(l) && !/^\/?AGENTS\.md$/.test(t);
+      return !/\.discern/.test(l) && !/^\/?AGENTS\.md$/.test(t);
     });
   const has = (re: RegExp): boolean => lines.some((l) => re.test(l));
   const additions: string[] = [];
@@ -670,7 +670,7 @@ async function fixGitignoreForSchema6(ctx: MigrationContext): Promise<void> {
   let text = lines.join("\n");
   if (additions.length > 0) {
     const base = text.replace(/\n+$/, "");
-    text = `${base}\n\n# icculus: generated/ephemeral artifacts\n${
+    text = `${base}\n\n# discern: generated/ephemeral artifacts\n${
       additions.join("\n")
     }\n`;
   }
@@ -755,12 +755,12 @@ export function createMigrationContext(
   }
 
   // Resolve the config's target-relative path for THIS install: the consolidated
-  // `.icculus/config.toml` if present, else a legacy root `icculus.toml`. Resolved
+  // `.discern/config.toml` if present, else a legacy root `discern.toml`. Resolved
   // per call so a step that renames the config is seen by any later step.
   async function configRel(): Promise<string> {
-    return (await exists(".icculus/config.toml"))
-      ? ".icculus/config.toml"
-      : "icculus.toml";
+    return (await exists(".discern/config.toml"))
+      ? ".discern/config.toml"
+      : "discern.toml";
   }
 
   async function readConfig(): Promise<string | undefined> {

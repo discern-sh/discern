@@ -2,7 +2,7 @@
  * The migration-system invariant (ADR 0014/0020): an install brought forward by
  * `upgrade` must reach the **current schema**, with its config migrated into the
  * **same shape** a fresh init produces at that schema — now the dissolved
- * single-file `icculus.toml` footprint. (Byte-for-byte convergence is gone: a
+ * single-file `discern.toml` footprint. (Byte-for-byte convergence is gone: a
  * migrated *seed* carries no surrounding comments, which is fine — the seed is
  * the user's, not the kit's.)
  *
@@ -32,15 +32,15 @@ async function upgrade(dir: string): Promise<any> {
   return JSON.parse(r.stdout);
 }
 
-/** Layout-agnostic config path: the new root `icculus.toml`, else the legacy
- * `.icculus/config.toml`. */
+/** Layout-agnostic config path: the new root `discern.toml`, else the legacy
+ * `.discern/config.toml`. */
 async function configPath(dir: string): Promise<string> {
-  const root = join(dir, "icculus.toml");
+  const root = join(dir, "discern.toml");
   try {
     await Deno.stat(root);
     return root;
   } catch {
-    return join(dir, ".icculus/config.toml");
+    return join(dir, ".discern/config.toml");
   }
 }
 
@@ -127,7 +127,7 @@ Deno.test("a schema-1 install missing main_branch upgrades to the current schema
     await withTempDir(async (fresh) => {
       // Regress a current install to look like a schema-1 one made before
       // main_branch existed: strip the field and reset the recorded schema. A
-      // schema-1 install kept its config at the root (pre-.icculus/ consolidation).
+      // schema-1 install kept its config at the root (pre-.discern/ consolidation).
       await init(older);
       await removeMainBranch(older);
       await setSchema(older, 1);
@@ -143,11 +143,11 @@ Deno.test("a schema-1 install missing main_branch upgrades to the current schema
       // The migrated install reaches the same schema as a fresh one…
       assertEquals(await recordedSchema(older), await recordedSchema(fresh));
       // …it ends up at the dissolved root footprint…
-      assertEquals(await pathExists(older, "icculus.toml"), true);
-      assertEquals(await pathExists(older, ".icculus"), false);
+      assertEquals(await pathExists(older, "discern.toml"), true);
+      assertEquals(await pathExists(older, ".discern"), false);
       // …and the 1→2 step restored the backfilled field.
       assertStringIncludes(
-        await readTarget(older, "icculus.toml"),
+        await readTarget(older, "discern.toml"),
         'main_branch = "main"',
       );
     });
@@ -156,15 +156,15 @@ Deno.test("a schema-1 install missing main_branch upgrades to the current schema
 
 /**
  * Reverse to the schema-3 shape: model a pre-4 install whose config lives at the
- * consolidated `.icculus/config.toml` with `[slots]`/`[scopes]`/`[evidence]` and a
+ * consolidated `.discern/config.toml` with `[slots]`/`[scopes]`/`[evidence]` and a
  * recorded schema of 3. The 3→4 step transforms the config; 5→6 dissolves it to
  * the root footprint.
  */
 async function regressToV3(dir: string): Promise<void> {
-  await Deno.remove(join(dir, "icculus.toml"));
-  await Deno.mkdir(join(dir, ".icculus"), { recursive: true });
+  await Deno.remove(join(dir, "discern.toml"));
+  await Deno.mkdir(join(dir, ".discern"), { recursive: true });
   await Deno.writeTextFile(
-    join(dir, ".icculus/config.toml"),
+    join(dir, ".discern/config.toml"),
     [
       "[meta]",
       "schema_version = 3",
@@ -183,7 +183,7 @@ async function regressToV3(dir: string): Promise<void> {
       'run = "deno lint"',
       "",
       "[scopes]",
-      'neutral = ["docs/", ".icculus/", ".claude/"]',
+      'neutral = ["docs/", ".discern/", ".claude/"]',
       'web = ["src/**"]',
       "",
       "[evidence]",
@@ -210,8 +210,8 @@ Deno.test("a schema-3 [slots] install upgrades to the capabilities shape and the
       assertEquals(await recordedSchema(older), await recordedSchema(fresh));
       // The seed converges in shape at the dissolved footprint: capabilities
       // present, the legacy structure gone, the new sections added.
-      assertEquals(await pathExists(older, ".icculus"), false);
-      const toml = await readTarget(older, "icculus.toml");
+      assertEquals(await pathExists(older, ".discern"), false);
+      const toml = await readTarget(older, "discern.toml");
       assertStringIncludes(toml, "[capabilities]");
       assertStringIncludes(toml, 'format = "deno fmt"');
       assertStringIncludes(toml, "[features]");
@@ -222,7 +222,7 @@ Deno.test("a schema-3 [slots] install upgrades to the capabilities shape and the
       // pile of bare keys at EOF.
       assertStringIncludes(
         toml,
-        "# [features] — toggle whole icculus subsystems",
+        "# [features] — toggle whole discern subsystems",
       );
       assertStringIncludes(toml, "# [guidance] — the author-once");
       assertStringIncludes(
@@ -240,26 +240,26 @@ Deno.test("a schema-3 [slots] install upgrades to the capabilities shape and the
   });
 });
 
-Deno.test("a legacy install whose schema lives only in a manifest upgrades, prunes the engine, and dissolves .icculus/", async () => {
+Deno.test("a legacy install whose schema lives only in a manifest upgrades, prunes the engine, and dissolves .discern/", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
     // Model a genuine pre-teardown (schema-4) install: config at the consolidated
-    // .icculus/ location, schema recorded ONLY in a legacy manifest (no [meta]),
+    // .discern/ location, schema recorded ONLY in a legacy manifest (no [meta]),
     // plus a committed shell engine + agent and hooks calling `./agent`.
-    await Deno.mkdir(join(dir, ".icculus"), { recursive: true });
-    const stripped = (await Deno.readTextFile(join(dir, "icculus.toml")))
+    await Deno.mkdir(join(dir, ".discern"), { recursive: true });
+    const stripped = (await Deno.readTextFile(join(dir, "discern.toml")))
       .split("\n")
       .filter((l) => !/^\s*schema_version\s*=/.test(l) && l.trim() !== "[meta]")
       .join("\n");
-    await Deno.writeTextFile(join(dir, ".icculus/config.toml"), stripped);
-    await Deno.remove(join(dir, "icculus.toml"));
+    await Deno.writeTextFile(join(dir, ".discern/config.toml"), stripped);
+    await Deno.remove(join(dir, "discern.toml"));
     await Deno.writeTextFile(
-      join(dir, ".icculus/manifest.json"),
+      join(dir, ".discern/manifest.json"),
       '{ "kit_version": "1.0.0", "schema_version": 4 }\n',
     );
-    await Deno.mkdir(join(dir, ".icculus/engine"), { recursive: true });
+    await Deno.mkdir(join(dir, ".discern/engine"), { recursive: true });
     await Deno.writeTextFile(
-      join(dir, ".icculus/engine/finish"),
+      join(dir, ".discern/engine/finish"),
       "#!/bin/sh\n",
     );
     await Deno.writeTextFile(join(dir, "agent"), "#!/bin/sh\n");
@@ -278,29 +278,29 @@ Deno.test("a legacy install whose schema lives only in a manifest upgrades, prun
       res.migrations_applied.map((m: { from: number }) => m.from),
       [4, 5],
     );
-    // The shell engine, dispatcher, manifest, and the whole .icculus/ namespace
+    // The shell engine, dispatcher, manifest, and the whole .discern/ namespace
     // are gone; the config now lives at the root footprint.
-    assertEquals(await pathExists(dir, ".icculus"), false);
+    assertEquals(await pathExists(dir, ".discern"), false);
     assertEquals(await pathExists(dir, "agent"), false);
-    assertEquals(await pathExists(dir, "icculus.toml"), true);
-    // The worktree hooks were repointed off the deleted `./agent` at `icculus`.
+    assertEquals(await pathExists(dir, "discern.toml"), true);
+    // The worktree hooks were repointed off the deleted `./agent` at `discern`.
     const settings = await readTarget(dir, ".claude/settings.json");
     assert(
       !settings.includes("./agent"),
       "hooks still call the deleted ./agent",
     );
-    assertStringIncludes(settings, "icculus worktree:ensure");
-    // The .gitignore was rewritten for the dissolved layout: no .icculus, the new
+    assertStringIncludes(settings, "discern worktree:ensure");
+    // The .gitignore was rewritten for the dissolved layout: no .discern, the new
     // mirrors ignored.
     const gitignore = await readTarget(dir, ".gitignore");
-    assert(!/\.icculus/.test(gitignore), "no .icculus ignore remains");
+    assert(!/\.discern/.test(gitignore), "no .discern ignore remains");
     assertStringIncludes(gitignore, "/GEMINI.md");
     // …and the schema is now stamped in the config the user owns.
     assertEquals(await recordedSchema(dir), res.schema.current);
     // Papercut 1: this install had NO [meta] (its version lived only in the
     // manifest). The migration gives it a documented [meta] FIRST — not a bare
     // [meta] appended at EOF by the stamp.
-    const toml = await readTarget(dir, "icculus.toml");
+    const toml = await readTarget(dir, "discern.toml");
     assertStringIncludes(toml, "# The install schema version");
     assert(
       toml.indexOf("[meta]") < toml.indexOf("[project]"),

@@ -2,7 +2,7 @@
  * End-to-end integration against the REAL committed templates tree.
  *
  * Unlike fs_plan_test (which uses a stable synthetic fixture), this asserts the
- * installer scaffolds the actual harness: a parseable root `icculus.toml` with
+ * installer scaffolds the actual harness: a parseable root `discern.toml` with
  * the schema stamped, materialized skills, and the merged settings. The real
  * tree grows as other agents add files; auto-discovery means new files don't
  * break this — we assert the stable foundation only.
@@ -18,7 +18,7 @@ import { join } from "@std/path";
 import { assembleInitPlan } from "../src/commands/init.ts";
 import type { InitConfig } from "../src/lib/config.ts";
 import { applyPlan } from "../src/lib/fs_plan.ts";
-import { parseIcculusToml } from "../src/lib/toml_render.ts";
+import { parseDiscernToml } from "../src/lib/toml_render.ts";
 import { schemaFromRaw } from "../src/lib/schema.ts";
 import { SCHEMA_VERSION } from "../src/lib/version.ts";
 import { materializeSkills } from "../src/lib/skills.ts";
@@ -46,9 +46,9 @@ Deno.test("init scaffolds the real templates into a working harness", async () =
     });
     await applyPlan(plan);
 
-    // 1. icculus.toml exists and parses, with our identity substituted.
-    const tomlText = await Deno.readTextFile(join(dir, "icculus.toml"));
-    const toml = parseIcculusToml(tomlText);
+    // 1. discern.toml exists and parses, with our identity substituted.
+    const tomlText = await Deno.readTextFile(join(dir, "discern.toml"));
+    const toml = parseDiscernToml(tomlText);
     assertEquals(toml.project.slug, "integration-demo");
     assertEquals(toml.project.branch_prefix, "agent/");
     // The agents list now lives under [guidance] (the author-once → compile
@@ -56,13 +56,13 @@ Deno.test("init scaffolds the real templates into a working harness", async () =
     const guidance = toml.raw.guidance as { agents?: unknown } | undefined;
     assertEquals(guidance?.agents, ["claude_code", "codex"]);
     // Every content token resolved. Runtime tokens use the @…@ delimiter now, so
-    // NO {{…}} token should remain in the installed icculus.toml at all.
+    // NO {{…}} token should remain in the installed discern.toml at all.
     const leaked = [...tomlText.matchAll(/\{\{\s*([a-z0-9_]+)\s*\}\}/g)]
       .map((m) => m[1]);
     assertEquals(
       leaked,
       [],
-      `unresolved content token(s) in icculus.toml: ${leaked.join(", ")}`,
+      `unresolved content token(s) in discern.toml: ${leaked.join(", ")}`,
     );
 
     // 2. The schema version is stamped into the config's [meta] block.
@@ -96,8 +96,8 @@ Deno.test("init scaffolds the real templates into a working harness", async () =
 
     // 6. No committed shell engine is laid down — the engine lives in the binary.
     await assertAbsent(join(dir, "agent"));
-    await assertAbsent(join(dir, ".icculus/engine"));
-    await assertAbsent(join(dir, ".icculus/manifest.json"));
+    await assertAbsent(join(dir, ".discern/engine"));
+    await assertAbsent(join(dir, ".discern/manifest.json"));
   });
 });
 

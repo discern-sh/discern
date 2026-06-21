@@ -4,19 +4,19 @@
 
 ## Context
 
-icculus was **two programs**. The installer (`src/`) was Deno/TypeScript,
+discern was **two programs**. The installer (`src/`) was Deno/TypeScript,
 compiled to a self-contained binary. The engine — the gate, the worktree
 lifecycle, ratchets, scope classification, the guideline compiler, the `agent`
 dispatcher — was **POSIX shell**, committed into each project under
-`.icculus/engine/` as **managed** files the installer kept byte-identical to
+`.discern/engine/` as **managed** files the installer kept byte-identical to
 `templates/`.
 
 That split bought portability (the installed harness needed no runtime) but
 charged three rents:
 
-1. **DX confusion.** `agent` is a repo-local file, not on `PATH`; `.icculus/`
-   files invisibly drive it; two command vocabularies (`icculus` vs `agent`,
-   `deno task selfsync` vs `icculus upgrade`) for one tool.
+1. **DX confusion.** `agent` is a repo-local file, not on `PATH`; `.discern/`
+   files invisibly drive it; two command vocabularies (`discern` vs `agent`,
+   `deno task selfsync` vs `discern upgrade`) for one tool.
 2. **Self-imposed overhead.** A large slice of the installer existed _only_ to
    ship-and-sync the committed shell engine: manifest content-hashing, `.new`
    preservation, orphan reconciliation, `selfcheck`/`selfsync` drift detection,
@@ -49,35 +49,37 @@ delete the committed-engine sync machinery with it.
    `Deno.kill(-pid)`) for fail-fast cancellation — genuinely _better_ than
    portable `sh`'s best-effort sibling kill, not just different.
 
-2. **`icculus` is the one command; `agent` is dropped.** The former engine
-   recipes are first-class `icculus` subcommands (`finish`, `tidy`, `test`,
+2. **`discern` is the one command; `agent` is dropped.** The former engine
+   recipes are first-class `discern` subcommands (`finish`, `tidy`, `test`,
    `ratchets`, `guidelines`, `worktree`/`worktree:*`, `worktree-name`,
    `changed-scopes`). The root `agent` file is no longer scaffolded; worktree
-   hooks, docs, and compiled guidance repoint to `icculus`.
+   hooks, docs, and compiled guidance repoint to `discern`.
 
 3. **"Managed files" retire.** With no committed engine to sync, there is no
    `manifest.json`, no content hashes, no `.new` preservation, no orphan
    reconciliation, no drift detection. `init` lays down only _your_ seed files
    (config, guidelines stub, brief, recipes README, merged settings, gitignore).
    **Skills become materialized artifacts**: bundled in the binary, copied to
-   `.icculus/skills/` by `init`/`upgrade` (always overwritten — they are the
+   `.discern/skills/` by `init`/`upgrade` (always overwritten — they are the
    binary's), **gitignored**, then symlinked into `.claude/skills/`. The
    ownership model is now two buckets: _yours_ (committed seeds, write-once) and
    _the binary's_ (gitignored, re-published artifacts — skills, compiled
    `CLAUDE.md`/`AGENTS.md`; the engine is the limit case, not even on disk).
 
 4. **Project recipes stay language-agnostic executables.** The binary discovers
-   `.icculus/recipes/*` and execs the match with `ICCULUS_*` exported. Recipes
+   `.discern/recipes/*` and execs the match with `DISCERN_*` exported. Recipes
    no longer source a shell library; they read config through a new
-   `icculus config get|array|has|subsections|keys` surface. The engine still
+   `discern config get|array|has|subsections|keys` surface. The engine still
    wins on a name collision (warn on shadow).
 
-5. **Names unchanged.** `icculus`, `.icculus/`, the `@db@`/`@project_slug@`
+5. **Names unchanged.** `discern`, `.discern/`, the `@db@`/`@project_slug@`
    worktree tokens, and the `[capabilities]`/`[checks]`/`[scopes]`/`[ratchets]`
-   config shape all survive. A rename is a separate, later migration.
+   config shape all survive this cutover. Renaming the harness was left to a
+   separate, later change — since carried out (see
+   [ADR 0022](0022-rename-to-discern.md)).
 
 The explicit **no**s: no committed shell engine; no `agent` dispatcher; no
-managed-file machinery; no `set -f`/`ICCULUS_ENGINE_RECIPE` noglob marker; no
+managed-file machinery; no `set -f`/`DISCERN_ENGINE_RECIPE` noglob marker; no
 dual-vocabulary renderer.
 
 ## Consequences
@@ -90,7 +92,7 @@ dual-vocabulary renderer.
   impossible: there is nothing that can drift.
 - **[ADR 0012](0012-engine-noglob-default.md) (engine noglob) retires.** Glob
   classification is in-memory TS (`engine/scopes/glob.ts`); `set -f` and the
-  `ICCULUS_ENGINE_RECIPE` marker are gone. A project recipe is just an
+  `DISCERN_ENGINE_RECIPE` marker are gone. A project recipe is just an
   executable with normal shell globbing.
 - **[ADR 0013](0013-product-vocabulary-in-user-output.md) (vocabulary renderer)
   retires.** With no committed copy there is no `selfsync`/`selfcheck`, so the
@@ -99,7 +101,7 @@ dual-vocabulary renderer.
 - **[ADR 0008](0008-declarative-managed-set.md) is moot.** `managed.json` and
   the managed-set classifier are deleted.
 - **[ADR 0001](0001-project-owned-recipes.md) is amended.** Recipes read config
-  via `icculus config get`, not by sourcing the engine library; the
+  via `discern config get`, not by sourcing the engine library; the
   engine-always-wins shadow rule survives.
 - **The installer shrinks sharply.** `manifest.ts`, `invocation.ts`, the
   hash/`.new`/orphan logic in `fs_plan.ts`, the managed-sync half of
@@ -126,7 +128,7 @@ dual-vocabulary renderer.
   primitives, not a shell engine in a nicer wrapper.
 - **Keep `agent` as a thin shim that forwards to the binary.** Rejected: two
   command names is exactly the DX confusion the cutover removes. The recipes are
-  first-class `icculus` verbs now.
+  first-class `discern` verbs now.
 - **Keep managed-file sync for skills (commit them, hash-track them).**
   Rejected: skills are the binary's, identical for every install — materializing
   them (gitignored, re-published on `upgrade`) is simpler than a hash-tracked,

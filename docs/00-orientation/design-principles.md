@@ -1,6 +1,6 @@
 # Design principles
 
-The handful of rules the icculus codebase keeps coming back to. Each one shows
+The handful of rules the discern codebase keeps coming back to. Each one shows
 up in dozens of decisions; together they explain why the system is shaped the
 way it is.
 
@@ -22,7 +22,7 @@ record is a decision.
 The engine never hardcodes a language, test runner, build tool, or framework. It
 runs "the test capability," "the fix-stage capabilities," "the `gate` for this
 scope" — names it discovers, not commands it knows. Everything specific to a
-project's stack lives in `icculus.toml` (`[capabilities]`, `[scopes]`,
+project's stack lives in `discern.toml` (`[capabilities]`, `[scopes]`,
 `[worktree]`), and a fresh install wires no capabilities at all — an omitted
 capability is knowably absent, so the gate is green before any of them is filled
 ([ADR 0017](../_adr/0017-capabilities-model.md)).
@@ -51,7 +51,7 @@ Every fact lives in exactly one authoritative place. The engine is one
 TypeScript implementation compiled into the binary, not a copy installed per
 project; the seed, skill, and built-in-guidance files an install starts from are
 authored once under `templates/` and bundled into the binary; agent guidance is
-authored once (icculus's built-ins plus your `[guidance].sources`) and compiled
+authored once (discern's built-ins plus your `[guidance].sources`) and compiled
 to each agent's file; a metric, a version are each declared once and read
 everywhere. Where a second copy must exist it is _generated_, marked as
 generated, and never hand-edited.
@@ -63,7 +63,7 @@ is a property of the system, not of human vigilance.
 
 **How it shows up.** The engine has one home in
 [`src/engine/`](../../src/engine/) — there is no second committed copy to drift
-from ([ADR 0019](../_adr/0019-single-binary-ts-engine.md)); `icculus guidelines`
+from ([ADR 0019](../_adr/0019-single-binary-ts-engine.md)); `discern guidelines`
 compiles the agent files (`AGENTS.md`/`CLAUDE.md`/`GEMINI.md`) from one guidance
 source set; [`version.ts`](../../src/lib/version.ts) is the only home for the
 binary and schema versions; the [Generated file](glossary.md#generated-file) and
@@ -75,9 +75,9 @@ never edited.
 
 ## 3. Re-running is always safe — your files written once, the binary's always re-publishable
 
-`icculus` scaffolds into a repository you care about, so every command must be
+`discern` scaffolds into a repository you care about, so every command must be
 safe to run again. The ownership split makes this structural: _your_ files (the
-committed `icculus.toml`, the `brief.md` seed, the merged
+committed `discern.toml`, the `brief.md` seed, the merged
 `settings.json`/`.gitignore`, and the content you author at config-pointed paths
 — `guidance.md`, `./skills/`, `./recipes/`) are written once by `init` (or by
 you) and never touched again, so `upgrade` cannot clobber an edit. _The
@@ -107,7 +107,7 @@ run.
 
 ## 4. An installed project carries no runtime dependency
 
-The `icculus` binary is self-contained — V8 is baked in — so a target project
+The `discern` binary is self-contained — V8 is baked in — so a target project
 needs no Deno, no Node, nothing but the one binary on `PATH` plus `git`. The
 engine ships _inside_ the binary as compiled TypeScript; it is never installed
 into the project as files that would drag a runtime along. What lands in a
@@ -122,7 +122,7 @@ one thing a target can always run.
 **How it shows up.** The engine lives in [`src/engine/`](../../src/engine/) and
 compiles into the binary; project [recipes](glossary.md#recipe) stay
 language-agnostic executables that read config through
-`icculus config get|array|has|subsections|keys` rather than sourcing any
+`discern config get|array|has|subsections|keys` rather than sourcing any
 library. Config is parsed with strict `@std/toml` inside the binary
 ([config_read.ts](../../src/shared/config_read.ts)). Deno appears only in
 `deno task` build/test tooling, never as a dependency of an install
@@ -157,7 +157,7 @@ attributes failure to a single capability or check
 
 ## 6. Self-host the harness — the repo runs on the engine it ships
 
-icculus runs on itself. This repo's gate _is_ the binary's own engine, invoked
+discern runs on itself. This repo's gate _is_ the binary's own engine, invoked
 straight from source via `deno task dev finish`. Because the engine lives in one
 place — compiled into the binary, never copied into a project — there is no
 second committed copy that could drift, and so nothing to keep in sync. The gate

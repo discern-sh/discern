@@ -1,11 +1,11 @@
 /**
  * Risk R1 parity: the TS worktree identity MUST reproduce the exact port/site/db/
  * branch/id values the shell engine produces. These vectors were captured from
- * `templates/.icculus/engine/worktree-name` + system `cksum` (see the fixture's
+ * `templates/.discern/engine/worktree-name` + system `cksum` (see the fixture's
  * `_provenance`). A drift here silently shifts every existing worktree's identity.
  *
  * Two layers are pinned: the POSIX `cksum` vectors (the hash the derivation rests
- * on) and the full identity cases (id/site/branch/port/db for slug `icculus`).
+ * on) and the full identity cases (id/site/branch/port/db for slug `discern`).
  */
 
 import { assertEquals } from "@std/assert";
@@ -103,17 +103,17 @@ Deno.test("the long-id case triggers the fit_site_id tail hash (documented doubl
   assertEquals(dbNameForId(slug, longCase.id), longCase.db);
 });
 
-Deno.test("resolveWorktreeId honours the ICCULUS_WORKTREE_ID env override (parity ids)", async () => {
+Deno.test("resolveWorktreeId honours the DISCERN_WORKTREE_ID env override (parity ids)", async () => {
   const settings: IdentitySettings = {
     slug: fixture.identity.slug,
     branchPrefix: fixture.identity.branch_prefix,
   };
-  const prevId = Deno.env.get("ICCULUS_WORKTREE_ID");
-  const prevSlug = Deno.env.get("ICCULUS_PROJECT_SLUG");
-  Deno.env.set("ICCULUS_PROJECT_SLUG", "icculus");
+  const prevId = Deno.env.get("DISCERN_WORKTREE_ID");
+  const prevSlug = Deno.env.get("DISCERN_PROJECT_SLUG");
+  Deno.env.set("DISCERN_PROJECT_SLUG", "discern");
   try {
     for (const c of fixture.identity.cases) {
-      Deno.env.set("ICCULUS_WORKTREE_ID", c.id);
+      Deno.env.set("DISCERN_WORKTREE_ID", c.id);
       // The override path validates + sanitizes; every fixture id is already a
       // clean slug, so it round-trips to the same value the derivation expects.
       const id = await resolveWorktreeId(settings);
@@ -126,25 +126,25 @@ Deno.test("resolveWorktreeId honours the ICCULUS_WORKTREE_ID env override (parit
     }
   } finally {
     if (prevId === undefined) {
-      Deno.env.delete("ICCULUS_WORKTREE_ID");
+      Deno.env.delete("DISCERN_WORKTREE_ID");
     } else {
-      Deno.env.set("ICCULUS_WORKTREE_ID", prevId);
+      Deno.env.set("DISCERN_WORKTREE_ID", prevId);
     }
     if (prevSlug === undefined) {
-      Deno.env.delete("ICCULUS_PROJECT_SLUG");
+      Deno.env.delete("DISCERN_PROJECT_SLUG");
     } else {
-      Deno.env.set("ICCULUS_PROJECT_SLUG", prevSlug);
+      Deno.env.set("DISCERN_PROJECT_SLUG", prevSlug);
     }
   }
 });
 
-Deno.test("an invalid ICCULUS_WORKTREE_ID override is rejected", async () => {
+Deno.test("an invalid DISCERN_WORKTREE_ID override is rejected", async () => {
   const settings: IdentitySettings = {
-    slug: "icculus",
+    slug: "discern",
     branchPrefix: "agent/",
   };
-  const prev = Deno.env.get("ICCULUS_WORKTREE_ID");
-  Deno.env.set("ICCULUS_WORKTREE_ID", "has spaces/and!bad");
+  const prev = Deno.env.get("DISCERN_WORKTREE_ID");
+  Deno.env.set("DISCERN_WORKTREE_ID", "has spaces/and!bad");
   try {
     let threw = false;
     try {
@@ -160,9 +160,9 @@ Deno.test("an invalid ICCULUS_WORKTREE_ID override is rejected", async () => {
     );
   } finally {
     if (prev === undefined) {
-      Deno.env.delete("ICCULUS_WORKTREE_ID");
+      Deno.env.delete("DISCERN_WORKTREE_ID");
     } else {
-      Deno.env.set("ICCULUS_WORKTREE_ID", prev);
+      Deno.env.set("DISCERN_WORKTREE_ID", prev);
     }
   }
 });
@@ -172,10 +172,10 @@ Deno.test("sanitization: an override id is lowercased and dash-normalised", () =
   // resolveWorktreeId above. Here, pin the slug-collision `wt-` rule's inputs by
   // checking the derivation stays stable for an already-clean id.
   const settings: IdentitySettings = {
-    slug: "icculus",
+    slug: "discern",
     branchPrefix: "agent/",
   };
   const got = deriveIdentity("feature-x", settings);
   assertEquals(got.branch, "agent/feature-x");
-  assertEquals(got.db, "icculus_feature_x");
+  assertEquals(got.db, "discern_feature_x");
 });

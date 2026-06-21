@@ -1,7 +1,7 @@
 /**
- * TOML rendering and reading for `icculus.toml`.
+ * TOML rendering and reading for `discern.toml`.
  *
- * `icculus.toml` itself is produced by token-substituting `icculus.toml.tmpl`,
+ * `discern.toml` itself is produced by token-substituting `discern.toml.tmpl`,
  * so there is no full TOML *writer* here — only the small fragment renderers
  * that turn answers into the TOML-array literals the template expects (e.g.
  * `agents = [{{agents_array}}]`), plus a parse-and-validate used by `doctor`.
@@ -15,8 +15,8 @@ export function renderTomlStringList(items: string[]): string {
   return items.map((item) => `"${item.replaceAll('"', '\\"')}"`).join(", ");
 }
 
-/** A minimally-validated view of a parsed `icculus.toml`. */
-export interface IcculusToml {
+/** A minimally-validated view of a parsed `discern.toml`. */
+export interface DiscernToml {
   project: {
     slug?: string | undefined;
     branch_prefix?: string | undefined;
@@ -32,11 +32,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * Parse `icculus.toml` text and surface the `[project]` block. Throws a clear
+ * Parse `discern.toml` text and surface the `[project]` block. Throws a clear
  * error if the text is not valid TOML; tolerates missing fields (the caller
  * decides which are required) so `doctor` can report them precisely.
  */
-export function parseIcculusToml(text: string): IcculusToml {
+export function parseDiscernToml(text: string): DiscernToml {
   let parsed: unknown;
   try {
     parsed = parseToml(text);

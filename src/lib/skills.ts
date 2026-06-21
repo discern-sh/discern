@@ -100,7 +100,7 @@ export async function resolveEffectiveSkills(
   return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/** A listing row for `icculus skills list`. */
+/** A listing row for `discern skills list`. */
 export interface SkillListing {
   name: string;
   source: SkillSource;
@@ -110,7 +110,7 @@ export interface SkillListing {
   hasBundled: boolean;
 }
 
-/** The effective set as listing rows (for `icculus skills list`). */
+/** The effective set as listing rows (for `discern skills list`). */
 export async function listSkills(
   root: string,
   config: Config,
@@ -172,7 +172,7 @@ async function removeAny(path: string, isDir: boolean): Promise<void> {
  * Reconcile `.claude/skills/` with the effective skill set: copy bundled skills,
  * symlink authored ones (relative, so edits are live and the link survives a tree
  * move), and prune managed entries that are no longer effective. Foreign entries
- * (a real directory whose name icculus does not manage) are left untouched and
+ * (a real directory whose name discern does not manage) are left untouched and
  * warned about, so a stray drop-in is never clobbered. Returns a summary.
  */
 export async function materializeSkills(
@@ -219,7 +219,7 @@ export async function materializeSkills(
     // A foreign real directory left over (name not managed) can't reach here —
     // every effective name was removed in the prune pass. But a real non-symlink
     // a user dropped under a managed name would have been removed above; that is
-    // acceptable since `.claude/skills/` is icculus-generated.
+    // acceptable since `.claude/skills/` is discern-generated.
     const existing = await lstat(target);
     if (existing !== undefined) {
       // Should be gone (prune handles managed names); guard defensively.

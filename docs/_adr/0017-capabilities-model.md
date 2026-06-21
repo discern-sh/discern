@@ -27,7 +27,7 @@ project. Two frictions followed:
    it provides. The set of slots was open-ended, and you cannot report what is
    _missing_ from an open-ended set. This blocks the things readiness enables:
    an `agent doctor` that tells a newcomer whether the harness is actually
-   wired, and a future `icculus audit` that could advise _other_ repositories
+   wired, and a future `discern audit` that could advise _other_ repositories
    toward best-practice tooling — both of which need to reason over a closed,
    known vocabulary.
 
@@ -71,7 +71,7 @@ of things a project can do. The engine derives the scheduling.
    survive _inside_ the engine (the parallel shape `fix → build → check ∥ test`
    is unchanged), but the author never writes one. The mapping lives in exactly
    two mirrored places: `KNOWN_CAPABILITIES` in `src/lib/config.ts` and
-   `cap_stage()` in `templates/.icculus/engine/lib/capabilities.sh`.
+   `cap_stage()` in `templates/.discern/engine/lib/capabilities.sh`.
 
 3. **An omitted capability is knowably absent.** There is no `:` no-op default
    anymore. A capability you don't have is simply not in the file — and _that
@@ -110,7 +110,7 @@ that moves to the ratchet's inline `run`, see
   config reads as a declaration of what the project can do, and `agent doctor`
   can report which of the five are wired and whether the install clears a
   minimal bar (test plus at least one static check). This is the foundation an
-  `icculus audit` would stand on.
+  `discern audit` would stand on.
 - **The config reads like a sentence.** `format = "deno fmt"` replaces a
   three-line, two-concept block. The most common gate —
   format/lint/typecheck/test — is four lines under one header, no scheduling

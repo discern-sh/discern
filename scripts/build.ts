@@ -1,8 +1,8 @@
 /**
- * Build the per-platform `icculus` binaries via `deno compile`.
+ * Build the per-platform `discern` binaries via `deno compile`.
  *
  * Each target produces a single self-contained binary with the `templates/`
- * tree bundled (`--include templates`), so the installed `icculus` needs no
+ * tree bundled (`--include templates`), so the installed `discern` needs no
  * Deno and no network to scaffold. Output goes to `dist/`.
  *
  * Run: `deno task build` (optionally `deno task build -- <target>` to build one).
@@ -19,15 +19,15 @@ interface Target {
 
 /** The four platforms the release pipeline produces. */
 const TARGETS: Target[] = [
-  { triple: "x86_64-apple-darwin", output: "icculus-x86_64-apple-darwin" },
-  { triple: "aarch64-apple-darwin", output: "icculus-aarch64-apple-darwin" },
+  { triple: "x86_64-apple-darwin", output: "discern-x86_64-apple-darwin" },
+  { triple: "aarch64-apple-darwin", output: "discern-aarch64-apple-darwin" },
   {
     triple: "x86_64-unknown-linux-gnu",
-    output: "icculus-x86_64-unknown-linux-gnu",
+    output: "discern-x86_64-unknown-linux-gnu",
   },
   {
     triple: "aarch64-unknown-linux-gnu",
-    output: "icculus-aarch64-unknown-linux-gnu",
+    output: "discern-aarch64-unknown-linux-gnu",
   },
 ];
 

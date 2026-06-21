@@ -1,16 +1,16 @@
-# Architecture Decision Records — icculus itself
+# Architecture Decision Records — discern itself
 
-This directory holds **icculus's own** Architecture Decision Records: short
+This directory holds **discern's own** Architecture Decision Records: short
 documents capturing a significant decision about the kit's design, the context
 that forced it, and the reasoning behind it.
 
-icculus _ships_ the ADR discipline to the projects it scaffolds via its bundled
+discern _ships_ the ADR discipline to the projects it scaffolds via its bundled
 `write-adr` skill, which creates `docs/_adr/` on demand from its skeleton at
 [`templates/skills/write-adr/skel/docs/_adr/`](../../templates/skills/write-adr/skel/docs/_adr/).
-This directory is icculus applying that discipline to itself — recording the
+This directory is discern applying that discipline to itself — recording the
 decisions behind the engine and installer here, in the same format.
 
-**The canonical ADR format is the one icculus ships:**
+**The canonical ADR format is the one discern ships:**
 [`templates/skills/write-adr/skel/docs/_adr/README.md`](../../templates/skills/write-adr/skel/docs/_adr/README.md),
 with the copy-paste template at
 [`templates/skills/write-adr/skel/docs/_adr/0000-template.md`](../../templates/skills/write-adr/skel/docs/_adr/0000-template.md).
@@ -34,10 +34,11 @@ decision is hard to reverse, surprising without context, and a real trade-off.
 - [0012 — Engine noglob (`set -f`) by default](0012-engine-noglob-default.md)
 - [0013 — Product vocabulary in user-facing output](0013-product-vocabulary-in-user-output.md)
 - [0014 — A versioned, reversible migration system](0014-versioned-migration-system.md)
-- [0015 — `icculus docs` browser + terminal Markdown renderer](0015-docs-browser.md)
-- [0016 — Consolidate the install surface under `.icculus/`](0016-consolidate-install-surface.md)
+- [0015 — `discern docs` browser + terminal Markdown renderer](0015-docs-browser.md)
+- [0016 — Consolidate the install surface under `.discern/`](0016-consolidate-install-surface.md)
 - [0017 — Declare capabilities, derive the gate](0017-capabilities-model.md)
 - [0018 — Consolidate the harness vocabulary into four layers](0018-vocabulary-consolidation.md)
 - [0019 — Collapse into one binary with a TypeScript-native engine](0019-single-binary-ts-engine.md)
-- [0020 — Dissolve `.icculus/` into a single root `icculus.toml`](0020-dissolve-icculus-dir.md)
+- [0020 — Dissolve `.discern/` into a single root `discern.toml`](0020-dissolve-discern-dir.md)
 - [0021 — Migrations insert a new section's documented block at its canonical position](0021-migrations-insert-documented-sections.md)
+- [0022 — Rename the harness to discern](0022-rename-to-discern.md)

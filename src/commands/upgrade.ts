@@ -1,5 +1,5 @@
 /**
- * `icculus upgrade` — bring an install forward to the current kit.
+ * `discern upgrade` — bring an install forward to the current kit.
  *
  * The managed-file/hash machinery is gone (there is no committed engine to keep
  * in sync — the engine lives in the binary). What remains is narrow and additive:
@@ -10,14 +10,14 @@
  *      its feature);
  *   3. stamp the new `[meta].schema_version` into the config.
  *
- * Your files (`icculus.toml`, guidance sources, authored skills, recipes) are
+ * Your files (`discern.toml`, guidance sources, authored skills, recipes) are
  * never touched. The clean-tree git guard keeps the upgrade revertible.
  */
 
 import { Logger } from "../lib/log.ts";
 import { worktreeState } from "../lib/git.ts";
 import { resolveConfigPath } from "../lib/paths.ts";
-import { parseIcculusToml } from "../lib/toml_render.ts";
+import { parseDiscernToml } from "../lib/toml_render.ts";
 import { KIT_VERSION, SCHEMA_VERSION } from "../lib/version.ts";
 import { resolveRecordedSchema, stampSchemaVersion } from "../lib/schema.ts";
 import { TomlEditor } from "../lib/toml_edit.ts";
@@ -60,13 +60,13 @@ async function readTextIfExists(path: string): Promise<string | undefined> {
   }
 }
 
-/** Run `icculus upgrade`. Returns a process exit code. */
+/** Run `discern upgrade`. Returns a process exit code. */
 export async function runUpgrade(options: UpgradeOptions): Promise<number> {
   const log = new Logger(options);
   const destDir = Deno.cwd();
 
   // Must be inside an initialized project. Detect either layout so a
-  // pre-6 install (legacy `.icculus/config.toml`) is recognised and carried
+  // pre-6 install (legacy `.discern/config.toml`) is recognised and carried
   // forward by the migration chain below.
   const configPath = await resolveConfigPath(destDir);
   const tomlText = configPath === undefined
@@ -74,7 +74,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     : await readTextIfExists(configPath);
   if (tomlText === undefined) {
     const message =
-      "no icculus install here — run `icculus init` first. `upgrade` refreshes an existing install.";
+      "no discern install here — run `discern init` first. `upgrade` refreshes an existing install.";
     if (options.json) {
       log.jsonResult({ ok: false, error: "not_initialized", message });
     } else {
@@ -83,9 +83,9 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     return 1;
   }
 
-  let toml: ReturnType<typeof parseIcculusToml>;
+  let toml: ReturnType<typeof parseDiscernToml>;
   try {
-    toml = parseIcculusToml(tomlText);
+    toml = parseDiscernToml(tomlText);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (options.json) {
@@ -132,7 +132,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
         log.detail(`migration ${m.from}→${m.from + 1}: ${m.describe}`);
       }
       log.line();
-      log.info("Apply it: run `icculus upgrade`.");
+      log.info("Apply it: run `discern upgrade`.");
     }
     return ok ? 0 : 1;
   }
@@ -197,7 +197,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
   }
 
   // 1. Run the migration chain. Steps are idempotent; for a pre-6 install the
-  // schema 5→6 step dissolves `.icculus/` into the new single-file layout.
+  // schema 5→6 step dissolves `.discern/` into the new single-file layout.
   const applied = await applyMigrations({
     destDir,
     from: migrateFrom,
@@ -287,11 +287,11 @@ function renderUpgradeSummary(
     );
   }
   log.ok(`install stamped at schema ${SCHEMA_VERSION}`);
-  // R6: keep the two upgrade axes distinct — `icculus upgrade` refreshed THIS
+  // R6: keep the two upgrade axes distinct — `discern upgrade` refreshed THIS
   // project to match the installed binary; getting a NEWER binary is separate.
   log.line();
   log.info(
-    "This refreshed your project to match the installed icculus. To get a newer icculus itself, re-run the installer (e.g. `brew upgrade icculus`).",
+    "This refreshed your project to match the installed discern. To get a newer discern itself, re-run the installer (e.g. `brew upgrade discern`).",
   );
 }
 

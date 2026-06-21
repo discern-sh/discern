@@ -4,8 +4,8 @@
 
 ## Context
 
-icculus 0.x grew several capabilities (ADRs 0001–0008) under a standing
-constraint: **existing `icculus.toml` files keep working untouched**. That
+discern 0.x grew several capabilities (ADRs 0001–0008) under a standing
+constraint: **existing `discern.toml` files keep working untouched**. That
 constraint earned its keep early, but it also forced compromises that ossified
 into the design:
 
@@ -47,21 +47,21 @@ ADR it touches (see the _Update (1.0)_ sections):
 - **`fail_fast` defaults on** — opt out, not in; it applies to side gates too.
   (ADR 0006)
 - **A first-class config document** — the `init --config` / `adapter.json` shape
-  is named (`IcculusConfigDoc`), versioned, and backed by a published JSON
+  is named (`DiscernConfigDoc`), versioned, and backed by a published JSON
   Schema. (ADRs 0005, 0007)
 - **Distinct runtime-token delimiter** — worktree tokens move to `@db@` …, so
   the installer's `{{…}}` content tokens need no special-case.
 - **Declarative managed-set** — `templates/managed.json` declares it; adapters
   can extend it. (ADR 0008)
 
-### `icculus migrate`
+### `discern migrate`
 
-Ship a one-shot `icculus migrate` that rewrites a pre-1.0 `icculus.toml` to the
+Ship a one-shot `discern migrate` that rewrites a pre-1.0 `discern.toml` to the
 1.0 shape in place (comment-preserving): `coverage_min` → a
 `[ratchets.coverage]` table, the `coverage` slot phase → a measurement slot, and
 `{{db}}` … → `@db@` …. It is idempotent (a clean 1.0 file reports nothing to do)
-and honours `--dry-run`/`--json`. It touches only `icculus.toml`; the engine
-itself is refreshed by `icculus upgrade`, as always.
+and honours `--dry-run`/`--json`. It touches only `discern.toml`; the engine
+itself is refreshed by `discern upgrade`, as always.
 
 To close the loop, **`upgrade` and `doctor` detect a pre-1.0 config** (reusing
 the migrator's own change-detection) and point the user at `migrate`. That
@@ -86,7 +86,7 @@ The kit version moves to **1.0.0**.
   slot), one fast-by-default gate, one versioned config document, one token
   delimiter per layer, one declared managed-set. Several special-cases and ~tens
   of lines of fallback logic are gone.
-- It is a **breaking change** for any 0.x `icculus.toml`. `migrate` covers the
+- It is a **breaking change** for any 0.x `discern.toml`. `migrate` covers the
   silent breakages (a `coverage_min` that would otherwise just stop being read);
   the loud ones (an unknown `coverage` phase, an unexpanded `{{db}}`) surface
   through `doctor` and the gate anyway, and `migrate` fixes them too.

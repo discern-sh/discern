@@ -1,6 +1,6 @@
 name: gate
 
-# Run the repo's own quality gate — the same `icculus finish` developers run —
+# Run the repo's own quality gate — the same `discern finish` developers run —
 # on every push to main and every pull request. The trailing `git diff
 # --exit-code` turns the auto-fixing `fix` stage (deno fmt) into a hard check: CI
 # fixes nothing, it only verifies the committed tree is already clean.
@@ -37,7 +37,7 @@ jobs:
           # gate stops re-downloading every dependency on each run.
           cache: true
 
-      - name: Run the gate (icculus finish, via the dev binary)
+      - name: Run the gate (discern finish, via the dev binary)
         run: deno task dev finish
 
       - name: Assert a clean tree (the fix stage must change nothing in CI)
@@ -58,8 +58,8 @@ jobs:
           deno-version: v2.x
           cache: true
 
-      # The "never loosen vs main" half of each ratchet reads `main:icculus.toml`
-      # (with a legacy `.icculus/config.toml` fallback). A PR checkout does not
+      # The "never loosen vs main" half of each ratchet reads `main:discern.toml`
+      # (with a legacy `.discern/config.toml` fallback). A PR checkout does not
       # carry the base branch, so fetch its tip; the check self-skips if it is
       # still unavailable (e.g. before the ratchet is on main).
       - name: Fetch main for the never-loosen comparison

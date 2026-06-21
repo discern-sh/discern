@@ -2,7 +2,7 @@
  * The worktree lifecycle recipe entry points — the TS port of the `worktree`,
  * `worktree-ensure`, `worktree-exit`, `worktree-teardown`, and `worktree-prune`
  * recipes. These compose the identity, token, and git layers into the operations
- * the dispatcher exposes as `icculus worktree` / `worktree:*`.
+ * the dispatcher exposes as `discern worktree` / `worktree:*`.
  *
  * Adapter seams ([worktree.db].clone/drop, [worktree.dev_server].link/unlink) are
  * operator-supplied command strings run via `sh -c` after `@…@` token expansion.
@@ -46,7 +46,7 @@ import { compileGuidelines } from "../guidelines.ts";
 
 /** Context shared by every lifecycle operation. */
 export interface LifecycleContext {
-  /** The project root (holds `icculus.toml`). */
+  /** The project root (holds `discern.toml`). */
   root: string;
   /** The parsed project config. */
   config: Config;
@@ -178,12 +178,12 @@ async function teardownAdapters(
   }
 }
 
-/** The per-worktree setup sentinel path (`git rev-parse --git-path icculus-worktree-ready`). */
+/** The per-worktree setup sentinel path (`git rev-parse --git-path discern-worktree-ready`). */
 async function readySentinelPath(cwd: string): Promise<string | undefined> {
   const gitBin = Deno.env.get("GIT_BIN") ?? "git";
   try {
     const out = await new Deno.Command(gitBin, {
-      args: ["rev-parse", "--git-path", "icculus-worktree-ready"],
+      args: ["rev-parse", "--git-path", "discern-worktree-ready"],
       cwd,
       stdout: "piped",
       stderr: "null",
@@ -220,11 +220,11 @@ async function recordPort(
   }
   if (envText === undefined) {
     ctx.log.ok(
-      `Worktree dev-server port: ${port} (read it via: icculus worktree-name --port).`,
+      `Worktree dev-server port: ${port} (read it via: discern worktree-name --port).`,
     );
     return;
   }
-  const key = "ICCULUS_WORKTREE_PORT=";
+  const key = "DISCERN_WORKTREE_PORT=";
   const lines = envText.split("\n");
   let replaced = false;
   const next = lines.map((line) => {
@@ -260,10 +260,10 @@ async function recordPort(
 export async function worktreeSetup(ctx: LifecycleContext): Promise<void> {
   // 1. must be inside a linked worktree
   try {
-    await assertInWorktree("icculus worktree", ctx.cwd);
+    await assertInWorktree("discern worktree", ctx.cwd);
   } catch {
     throw new WorktreeGitError(
-      "icculus worktree must be run from inside a linked git worktree, not the main checkout.",
+      "discern worktree must be run from inside a linked git worktree, not the main checkout.",
     );
   }
 
@@ -377,7 +377,7 @@ export async function worktreeEnsure(
     }
   }
   ctx.log.warn(
-    "[icculus] Worktree not configured yet; running 'icculus worktree'…",
+    "[discern] Worktree not configured yet; running 'discern worktree'…",
   );
   await worktreeSetup(ctx);
   return { kind: "ran" };
@@ -390,10 +390,10 @@ export async function worktreeEnsure(
  */
 export async function worktreeTeardown(ctx: LifecycleContext): Promise<void> {
   try {
-    await assertInWorktree("icculus worktree:teardown", ctx.cwd);
+    await assertInWorktree("discern worktree:teardown", ctx.cwd);
   } catch {
     throw new WorktreeGitError(
-      "icculus worktree:teardown must be run from inside a linked git worktree, not the main checkout.",
+      "discern worktree:teardown must be run from inside a linked git worktree, not the main checkout.",
     );
   }
   ctx.log.heading("Tearing down this worktree…");
@@ -481,7 +481,7 @@ export async function worktreeExit(ctx: LifecycleContext): Promise<void> {
   );
   if (merged.kind === "behind") {
     throw new WorktreeGitError(
-      "Branch is behind main. Run 'icculus finish' to integrate it (commit, git merge main, re-run), then retry.",
+      "Branch is behind main. Run 'discern finish' to integrate it (commit, git merge main, re-run), then retry.",
     );
   }
   ctx.log.ok("Branch contains the latest main.");
@@ -614,10 +614,10 @@ export async function worktreePrune(
   opts: WorktreePruneOptions = {},
 ): Promise<void> {
   try {
-    await assertNotInWorktree("icculus worktree:prune", ctx.cwd);
+    await assertNotInWorktree("discern worktree:prune", ctx.cwd);
   } catch {
     throw new WorktreeGitError(
-      "icculus worktree:prune must be run from the main checkout, not a linked worktree.",
+      "discern worktree:prune must be run from the main checkout, not a linked worktree.",
     );
   }
 
@@ -634,7 +634,7 @@ export async function worktreePrune(
   // Point at the per-worktree DB seam, since prune intentionally leaves DBs alone.
   if (ctx.config.get("worktree.db.drop", "") !== "") {
     ctx.log.info(
-      "Databases are not pruned here — drop a discarded worktree's DB from inside it with: icculus worktree:teardown",
+      "Databases are not pruned here — drop a discarded worktree's DB from inside it with: discern worktree:teardown",
     );
   }
 
@@ -650,7 +650,7 @@ export async function worktreePrune(
 
 /**
  * Resolve a single identity field for the `worktree-name` command surface. Kept
- * here so the dispatcher can map `icculus worktree-name --<field>` to one call
+ * here so the dispatcher can map `discern worktree-name --<field>` to one call
  * without reaching into the identity internals. Throws `IdentityError` (carrying
  * an exit code) on a resolution failure, exactly as the shell did.
  */

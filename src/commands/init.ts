@@ -1,14 +1,15 @@
 /**
- * `icculus init` — scaffold the harness into the current directory.
+ * `discern init` — scaffold the harness into the current directory.
  *
  * Flow: resolve config (flags + wizard) → build the seed plan from the templates
  * tree → append the brief op → stamp the schema version → review (or dry-run) →
  * confirm → apply → outro pointing at `/bootstrap`. Refuses to run over an
  * existing install unless `--force` (which just re-runs without erroring).
  *
- * Every scaffolded file is a write-once seed EXCEPT `.icculus/skills/**`, which
- * are materialized artifacts of the binary: always (re)written, gitignored, and
- * symlinked into `.claude/skills/` by the engine's `guidelines` step.
+ * Every scaffolded file is a write-once seed EXCEPT the materialized skills under
+ * `.claude/skills/**` — artifacts of the binary, always (re)written and gitignored
+ * (bundled skills copied in, authored ones symlinked) by the engine's `guidelines`
+ * step.
  */
 
 import { type InitConfig, tokensFromConfig } from "../lib/config.ts";
@@ -21,7 +22,7 @@ import {
 } from "../lib/prompts.ts";
 import {
   applyConfigDoc,
-  type IcculusConfigDoc,
+  type DiscernConfigDoc,
   loadConfigDoc,
   mergeDocIntoFlags,
 } from "../lib/config_doc.ts";
@@ -57,7 +58,7 @@ export async function assembleInitPlan(params: {
   destDir: string;
   config: InitConfig;
   /** Declarative slots/scopes/side_gates/ratchets fills from `init --config`. */
-  fills?: IcculusConfigDoc | undefined;
+  fills?: DiscernConfigDoc | undefined;
 }): Promise<Plan> {
   const { templatesDir, destDir, config } = params;
   const tokens = tokensFromConfig(config);
@@ -73,7 +74,7 @@ export async function assembleInitPlan(params: {
 
   // The brief is the user's authored intent, captured at init for `/bootstrap`.
   // It is seeded only when non-empty so a default install's footprint is just
-  // `icculus.toml` (+ the generated agent files). An empty brief writes nothing.
+  // `discern.toml` (+ the generated agent files). An empty brief writes nothing.
   if (config.brief.trim().length > 0) {
     const briefOp = await planBrief(destDir, config.brief);
     plan.ops.push(briefOp);
@@ -153,9 +154,9 @@ function stripWorktreeHooksFromPlan(plan: Plan): void {
   op.bytes = TEXT_ENCODER.encode(`${JSON.stringify(settings, null, 2)}\n`);
 }
 
-/** Find the `icculus.toml` op that is about to be created, or undefined. */
+/** Find the `discern.toml` op that is about to be created, or undefined. */
 function freshConfigOp(plan: Plan): Plan["ops"][number] | undefined {
-  const op = plan.ops.find((o) => o.targetRel === "icculus.toml");
+  const op = plan.ops.find((o) => o.targetRel === "discern.toml");
   if (!op || op.disposition === "skip") {
     return undefined; // absent, or an existing seed left as the user's.
   }
@@ -175,10 +176,10 @@ function stampSchemaIntoPlan(plan: Plan, version: number): void {
 
 /**
  * Apply the answers file's slots/scopes/side_gates/ratchets to the generated
- * `icculus.toml` op via the comment-preserving editor. A no-op when the
+ * `discern.toml` op via the comment-preserving editor. A no-op when the
  * config is a `skip` (an existing seed left as the user's — fills never clobber it).
  */
-function applyFillsToPlan(plan: Plan, fills: IcculusConfigDoc): void {
+function applyFillsToPlan(plan: Plan, fills: DiscernConfigDoc): void {
   const op = freshConfigOp(plan);
   if (!op) {
     return;
@@ -188,17 +189,17 @@ function applyFillsToPlan(plan: Plan, fills: IcculusConfigDoc): void {
   op.bytes = TEXT_ENCODER.encode(editor.toString());
 }
 
-/** Run `icculus init`. Returns a process exit code. */
+/** Run `discern init`. Returns a process exit code. */
 export async function runInit(options: InitOptions): Promise<number> {
   const log = new Logger(options);
   const destDir = Deno.cwd();
 
   // Guard: refuse to scaffold over an existing install unless forced. Detect
-  // either layout — the consolidated `icculus.toml` or a legacy root
-  // `icculus.toml` left by a pre-migration install.
+  // either layout — the consolidated `discern.toml` or a legacy root
+  // `discern.toml` left by a pre-migration install.
   if ((await resolveConfigPath(destDir)) !== undefined && !options.force) {
     const message =
-      "an icculus install already exists here. Re-run with --force to refresh, or use `icculus upgrade` to bring it to this kit version.";
+      "a discern install already exists here. Re-run with --force to refresh, or use `discern upgrade` to bring it to this kit version.";
     if (options.json) {
       log.jsonResult({ ok: false, error: "already_initialized", message });
     } else {
@@ -221,7 +222,7 @@ export async function runInit(options: InitOptions): Promise<number> {
   }
 
   // Load the --config document (declarative, non-interactive) if given.
-  let fileAnswers: IcculusConfigDoc | undefined;
+  let fileAnswers: DiscernConfigDoc | undefined;
   if (options.config !== undefined) {
     try {
       fileAnswers = await loadConfigDoc(options.config);
@@ -335,14 +336,14 @@ export async function runInit(options: InitOptions): Promise<number> {
 /** Print the closing summary: the created footprint and the next step. */
 function printOutro(log: Logger, config: InitConfig): void {
   log.heading(
-    `Done. ${log.bold(config.projectName)} now has an icculus harness.`,
+    `Done. ${log.bold(config.projectName)} now has a discern harness.`,
   );
   log.line();
   log.line(
-    "  icculus               the task runner — icculus finish, icculus doctor",
+    "  discern               the task runner — discern finish, discern doctor",
   );
   log.line(
-    "  icculus.toml          the whole footprint — edit by hand to teach the harness your stack",
+    "  discern.toml          the whole footprint — edit by hand to teach the harness your stack",
   );
   log.line(
     "  AGENTS.md / CLAUDE.md compiled agent guidance (generated — don't hand-edit)",
@@ -370,17 +371,17 @@ function printOutro(log: Logger, config: InitConfig): void {
     `  2. Wire your capabilities. The harness ships with none, so until you fill`,
   );
   log.line(
-    `     them ${log.bold("icculus finish")} passes without checking anything.`,
+    `     them ${log.bold("discern finish")} passes without checking anything.`,
   );
   log.line(
     `     Run ${log.bold("/bootstrap")} (or edit ${
-      log.bold("icculus.toml")
+      log.bold("discern.toml")
     }) to wire your`,
   );
   log.line("     format / lint / test commands.");
   log.line(
     `  3. Run ${
-      log.bold("icculus doctor")
+      log.bold("discern doctor")
     } to verify the install (config, schema,`,
   );
   log.line("     capabilities, features, and more).");

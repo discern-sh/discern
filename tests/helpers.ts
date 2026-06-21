@@ -58,7 +58,7 @@ export async function runCli(
       ...args,
     ],
     cwd,
-    env: { ICCULUS_TEMPLATES_DIR: REAL_TEMPLATES, NO_COLOR: "1", ...env },
+    env: { DISCERN_TEMPLATES_DIR: REAL_TEMPLATES, NO_COLOR: "1", ...env },
     stdin: stdin !== undefined ? "piped" : "null",
     stdout: "piped",
     stderr: "piped",
@@ -93,7 +93,7 @@ export function testTokens(overrides: Partial<TokenMap> = {}): TokenMap {
     branch_prefix: "agent/",
     agents_array: '"claude_code", "codex"',
     gotchas_doc: "",
-    scopes_neutral: '"docs/", ".icculus/", ".claude/"',
+    scopes_neutral: '"docs/", ".discern/", ".claude/"',
     scopes_web: '"src/**", "app/**"',
     scopes_previewable: '"public/**"',
     kit_version: "0.1.0",
@@ -105,7 +105,7 @@ export function testTokens(overrides: Partial<TokenMap> = {}): TokenMap {
 export async function withTempDir(
   fn: (dir: string) => Promise<void>,
 ): Promise<void> {
-  const dir = await Deno.makeTempDir({ prefix: "icculus-test-" });
+  const dir = await Deno.makeTempDir({ prefix: "discern-test-" });
   try {
     await fn(dir);
   } finally {
@@ -114,11 +114,11 @@ export async function withTempDir(
 }
 
 /**
- * Seed a minimal config at the root `icculus.toml` path. For tests that fake an
+ * Seed a minimal config at the root `discern.toml` path. For tests that fake an
  * install without running the installer.
  */
 export async function seedConfig(dir: string, content: string): Promise<void> {
-  await Deno.writeTextFile(join(dir, "icculus.toml"), content);
+  await Deno.writeTextFile(join(dir, "discern.toml"), content);
 }
 
 /** Read a target file relative to a destination dir as text. */

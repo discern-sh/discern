@@ -1,10 +1,10 @@
 /**
  * The engine-verb dispatcher: attaches the project task-runner verbs (the former
- * shell `agent` recipes) to the `icculus` CLI, and falls through to project-owned
+ * shell `agent` recipes) to the `discern` CLI, and falls through to project-owned
  * executable recipes under `[recipes].dir` (default `./recipes`) for an unknown
  * verb. The TS replacement for the shell `agent` dispatcher.
  *
- * Engine verbs operate on the project (found by walking up to `icculus.toml`), so
+ * Engine verbs operate on the project (found by walking up to `discern.toml`), so
  * each requires a project root. `worktree:<sub>` is normalised to the Cliffy
  * group `worktree <sub>` before parsing (Cliffy forbids `:` in command names).
  */
@@ -97,14 +97,14 @@ function makeLogger(): Logger {
 }
 
 const NO_PROJECT =
-  "not inside an icculus project (no icculus.toml in this directory or any parent).";
+  "not inside a discern project (no discern.toml in this directory or any parent).";
 
 /** Resolve the project root, or print the shell-`agent`-style error and exit 1. */
 async function requireRoot(): Promise<string> {
   const root = await findRoot();
   if (root === undefined) {
-    console.error(`icculus: ${NO_PROJECT}`);
-    console.error("       Run `icculus init` to scaffold one.");
+    console.error(`discern: ${NO_PROJECT}`);
+    console.error("       Run `discern init` to scaffold one.");
     Deno.exit(1);
   }
   return root;
@@ -133,7 +133,7 @@ async function runWorktreeOp(
   }
 }
 
-/** Attach the engine task-runner verbs to the `icculus` root command. Optional
+/** Attach the engine task-runner verbs to the `discern` root command. Optional
  * subsystem verbs are attached only when their feature is enabled, so `--help`
  * lists exactly the active verbs (a disabled verb errors via the main router). */
 export function attachEngineCommands(
@@ -335,7 +335,7 @@ function attachSkillsCommand(root: Command): void {
   root.command("skills", skills);
 }
 
-/** `icculus skills list` — print the effective skill set. */
+/** `discern skills list` — print the effective skill set. */
 async function runSkillsList(opts: { json: boolean }): Promise<number> {
   const root = await requireRoot();
   const cfg = await Config.load(root);
@@ -358,7 +358,7 @@ async function runSkillsList(opts: { json: boolean }): Promise<number> {
   return 0;
 }
 
-/** `icculus skills eject <name>` — copy a built-in into `[skills].dir` to edit. */
+/** `discern skills eject <name>` — copy a built-in into `[skills].dir` to edit. */
 async function runSkillsEject(name: string): Promise<number> {
   const root = await requireRoot();
   const cfg = await Config.load(root);
@@ -377,10 +377,10 @@ async function runSkillsEject(name: string): Promise<number> {
     console.log(
       `Ejected "${name}" → ${result.destRel} (it now overrides the built-in).`,
     );
-    console.log("Edit it there; `icculus skills list` confirms the override.");
+    console.log("Edit it there; `discern skills list` confirms the override.");
     return 0;
   } catch (e) {
-    console.error(`icculus: ${e instanceof Error ? e.message : String(e)}`);
+    console.error(`discern: ${e instanceof Error ? e.message : String(e)}`);
     return 1;
   }
 }
@@ -523,7 +523,7 @@ async function helperRemoveWorktree(args: string[]): Promise<number> {
 async function helperInheritEnv(): Promise<number> {
   const root = await findRoot();
   if (root === undefined) {
-    console.error(`icculus: ${NO_PROJECT}`);
+    console.error(`discern: ${NO_PROJECT}`);
     return 1;
   }
   const log = makeLogger();
@@ -565,8 +565,8 @@ async function helperWithGotchas(args: string[]): Promise<number> {
 }
 
 /**
- * `icculus config <get|array|has|subsections|keys> <key>` — the READ side of the
- * config surface. This is what a project recipe uses to read `icculus.toml`
+ * `discern config <get|array|has|subsections|keys> <key>` — the READ side of the
+ * config surface. This is what a project recipe uses to read `discern.toml`
  * (replacing the shell `config_get`/`config_array` it used to source). `has`
  * answers via the exit code; the rest print to stdout.
  */
@@ -576,7 +576,7 @@ export async function runConfigRead(
 ): Promise<number> {
   const root = await findRoot();
   if (root === undefined) {
-    console.error(`icculus: ${NO_PROJECT}`);
+    console.error(`discern: ${NO_PROJECT}`);
     return 1;
   }
   const cfg = await Config.load(root);
@@ -687,14 +687,14 @@ export async function warnShadowedRecipe(verb: string): Promise<void> {
   const { abs } = recipesDirOf(root, cfg);
   if (await pathExists(join(abs, verb.replace(/:/g, "-")))) {
     console.error(
-      `icculus: project recipe "${verb}" is shadowed by a built-in and was NOT run.`,
+      `discern: project recipe "${verb}" is shadowed by a built-in and was NOT run.`,
     );
   }
 }
 
 /**
  * Handle an unknown top-level verb: exec a matching project recipe under
- * `.icculus/recipes/` (the engine always wins, so a recipe colliding with a
+ * `.discern/recipes/` (the engine always wins, so a recipe colliding with a
  * built-in is unreachable here), report an existing-but-non-executable recipe,
  * else print an "unknown recipe" message with a near-match suggestion. Returns
  * the process exit code.
@@ -705,8 +705,8 @@ export async function dispatchRecipeOrSuggest(
 ): Promise<number> {
   const root = await findRoot();
   if (root === undefined) {
-    console.error(`icculus: ${NO_PROJECT}`);
-    console.error("       Run `icculus init` to scaffold one.");
+    console.error(`discern: ${NO_PROJECT}`);
+    console.error("       Run `discern init` to scaffold one.");
     return 1;
   }
   const cfg = await Config.load(root);
@@ -735,13 +735,13 @@ export async function dispatchRecipeOrSuggest(
 
   if (await pathExists(recipeFile)) {
     console.error(
-      `icculus: recipe "${verb}" exists but is not executable: ${recipeFile}`,
+      `discern: recipe "${verb}" exists but is not executable: ${recipeFile}`,
     );
     console.error(`       Run: chmod +x "${recipeFile}"`);
     return 1;
   }
 
-  console.error(`icculus: unknown recipe "${verb}".`);
+  console.error(`discern: unknown recipe "${verb}".`);
   const guess = await suggestRecipe(recipesAbs, verb);
   if (guess !== undefined) {
     console.error(`       Did you mean \`${guess}\`?`);

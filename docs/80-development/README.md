@@ -8,7 +8,7 @@ the quality gate fails in a way the message did not explain.
 
 The end-to-end loop is short and the same on every stack the harness runs on. In
 this repo it runs from source as `deno task dev <verb>`; a project with the
-`icculus` binary on `PATH` runs `icculus <verb>`:
+`discern` binary on `PATH` runs `discern <verb>`:
 
 - `worktree` provisions an isolated checkout for a change (see the worktree note
   in the project guidelines).
@@ -24,7 +24,7 @@ this repo it runs from source as `deno task dev <verb>`; a project with the
 | File                                             | What's in it                                                                                                                                                                                                                |
 | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [finish-gate-gotchas.md](finish-gate-gotchas.md) | Non-obvious ways the `finish` gate fails — the stack-independent traps (merge check, parallel-run state, stale artifacts, masked exit codes), plus a section for your stack's own. The gate points here when a stage fails. |
-| [install-surface.md](install-surface.md)         | What `icculus init` lays down in a project, mapped by function, with the two-bucket (yours / the binary's) disposition of each part and where to change it.                                                                 |
+| [install-surface.md](install-surface.md)         | What `discern init` lays down in a project, mapped by function, with the two-bucket (yours / the binary's) disposition of each part and where to change it.                                                                 |
 | [for-humans.md](for-humans.md)                   | What a human with the repo checked out does: IDE colour/exclude setup (JetBrains + VS Code), local prerequisites, and how to work alongside the agents.                                                                     |
 | [getting-started.md](getting-started.md)         | From a fresh clone to a first green gate: prerequisites (Deno, git), running the tool from source, and the harness loop.                                                                                                    |
 | [testing.md](testing.md)                         | The two test layers (installer subprocess + engine subprocess driving `src/main.ts` against the real templates), the temp-dir / hermetic-git harness, and the parallel-safe patterns the gate assumes.                      |

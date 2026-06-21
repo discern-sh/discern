@@ -15,7 +15,7 @@ seed" contract this ADR refined no longer exists — ownership is now _yours_
 ## Context
 
 "Managed vs seed" is the contract that makes `upgrade` safe: a **managed** file
-(`bin/agent`, `.icculus/engine/**`, `.ai/skills/**`) is hash-tracked and
+(`bin/agent`, `.discern/engine/**`, `.ai/skills/**`) is hash-tracked and
 refreshed by `upgrade` (preserved as `.new` when the user edited it), while a
 **seed** file (everything else) is write-once. Until now that classification was
 **hardcoded in the installer** — `MANAGED_EXACT` / `MANAGED_PREFIXES` constants
@@ -36,7 +36,7 @@ Move the managed-set into a **declaration the template ships**, and let the
 installer read it.
 
 - **`templates/managed.json`** declares the set:
-  `{ "exact": ["bin/agent"], "prefixes": [".icculus/engine/", ".ai/skills/"] }`.
+  `{ "exact": ["bin/agent"], "prefixes": [".discern/engine/", ".ai/skills/"] }`.
   It is **installer metadata, never scaffolded** (the plan walker skips it, the
   same way `add-adapter` skips `adapter.json`).
 - **`manifest.ts`** exposes a `ManagedSpec` (`{ exact, prefixes }`),

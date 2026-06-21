@@ -21,7 +21,7 @@ import {
 
 const SLUG_RECIPE = `#!/usr/bin/env sh
 # desc: print the project slug
-printf 'SLUG=%s\\n' "$(icculus config get project.slug)"
+printf 'SLUG=%s\\n' "$(discern config get project.slug)"
 `;
 
 Deno.test("recipes: a project recipe runs via agent <name>", async () => {
@@ -52,7 +52,7 @@ Deno.test("recipes: a project recipe is listed under --help", async () => {
   });
 });
 
-Deno.test("recipes: a project recipe reads config via icculus config get", async () => {
+Deno.test("recipes: a project recipe reads config via discern config get", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeExecutable(join(dir, "recipes/show-slug"), SLUG_RECIPE);
@@ -71,14 +71,14 @@ Deno.test("recipes: a project recipe uses normal shell globbing", async () => {
     await writeExecutable(join(dir, "glob-fixture/c.txt"), "c");
     // A project recipe is a standalone executable with normal shell globbing —
     // the exact shape of a native sub-app recipe like `ls "$dir"/*.xcodeproj`. It
-    // reads ICCULUS_ROOT from the environment the dispatcher exports.
+    // reads DISCERN_ROOT from the environment the dispatcher exports.
     await writeExecutable(
       join(dir, "recipes/globby"),
       [
         "#!/usr/bin/env sh",
         "# desc: count files via a shell glob",
         "_n=0",
-        'for _f in "$ICCULUS_ROOT"/glob-fixture/*.txt; do',
+        'for _f in "$DISCERN_ROOT"/glob-fixture/*.txt; do',
         '    [ -e "$_f" ] || continue',
         "    _n=$((_n + 1))",
         "done",
@@ -176,12 +176,12 @@ Deno.test("recipes: [recipes].dir relocates the project recipes directory", asyn
   });
 });
 
-Deno.test("recipes: ICCULUS_RECIPES is exported into a recipe's environment", async () => {
+Deno.test("recipes: DISCERN_RECIPES is exported into a recipe's environment", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeExecutable(
       join(dir, "recipes/show-recipes-dir"),
-      "#!/usr/bin/env sh\n# desc: print the recipes dir\nprintf 'RECIPES=%s\\n' \"$ICCULUS_RECIPES\"\n",
+      "#!/usr/bin/env sh\n# desc: print the recipes dir\nprintf 'RECIPES=%s\\n' \"$DISCERN_RECIPES\"\n",
     );
     const r = await runAgent(dir, ["show-recipes-dir"]);
     assertEquals(r.code, 0, r.output);
