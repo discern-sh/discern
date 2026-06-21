@@ -1,0 +1,115 @@
+/**
+ * Read the canonical, doc-commented blocks out of the `icculus.toml` template.
+ *
+ * The template (`templates/icculus.toml.tmpl`) is the single source of truth for
+ * how a section *should* read in a project's config: its `# ───` documentation
+ * paragraph, its `[header]`, and its body of commented defaults. `init` lays the
+ * whole template down, so a fresh config is fully documented. A 5→6 migration
+ * (ADR 0020) adds sections to an *existing* config — and an only-if-absent line
+ * edit would append them as bare keys, leaving a migrated config worse-documented
+ * than an init'd one the longer it has existed.
+ *
+ * This module closes that gap: it extracts a section's canonical block verbatim
+ * from the template so the migration can insert it (doc block and all) at the
+ * section's canonical position, giving a migrated config the same quality as a
+ * fresh one. It is template-shaped, not a general TOML parser — it reads the
+ * regular structure the template author maintains.
+ */
+
+import { join } from "@std/path";
+import { resolveTemplatesDir } from "./paths.ts";
+
+/** The template file name inside the resolved `templates/` tree. */
+const CONFIG_TEMPLATE_NAME = "icculus.toml.tmpl";
+
+/** Matches a section header line, capturing the section path inside the brackets. */
+const HEADER_RE = /^\[([^\]]+)\]/;
+
+/** Matches the opening/closing line of a `# ───` ruled documentation block. */
+const RULE_RE = /^#\s*─/;
+
+/** True for a blank (whitespace-only) line. */
+function isBlank(line: string): boolean {
+  return line.trim() === "";
+}
+
+/** True for a comment line (`# …`). */
+function isComment(line: string): boolean {
+  return /^\s*#/.test(line);
+}
+
+/**
+ * Extract a top-level section's canonical block from the `icculus.toml` template
+ * text: its documentation comment block (when it has one), the `[section]`
+ * header, and the section body — as one multi-line string with no surrounding
+ * blank lines. Returns `undefined` when the section header is absent.
+ *
+ * The doc block is the comment run immediately above the header (the ruled `# ───`
+ * paragraph most sections carry, kept with the single blank line that separates
+ * it from the header). A section whose comment-run-above reaches the very top of
+ * the file is documented inline in its body instead (as `[meta]` is), and the
+ * file preamble is never pulled in as its doc block.
+ */
+export function sectionBlockFromTemplate(
+  templateText: string,
+  section: string,
+): string | undefined {
+  const lines = templateText.split("\n");
+  const headerIdx = lines.findIndex((l) => {
+    const m = l.match(HEADER_RE);
+    return m !== null && m[1]!.trim() === section;
+  });
+  if (headerIdx === -1) {
+    return undefined;
+  }
+
+  // Body: the lines after the header up to the next section — either its header
+  // or the `# ───` doc block that introduces it — with trailing blanks trimmed.
+  let bodyEnd = headerIdx + 1;
+  for (; bodyEnd < lines.length; bodyEnd++) {
+    if (HEADER_RE.test(lines[bodyEnd]!) || RULE_RE.test(lines[bodyEnd]!)) {
+      break;
+    }
+  }
+  while (bodyEnd > headerIdx + 1 && isBlank(lines[bodyEnd - 1]!)) {
+    bodyEnd--;
+  }
+  const body = lines.slice(headerIdx + 1, bodyEnd);
+
+  // Doc block: scan up over the single separating blank, then the comment run.
+  // If that run reaches the top of the file it is the preamble, not this
+  // section's documentation (the [meta] case) — drop it.
+  let i = headerIdx - 1;
+  while (i >= 0 && isBlank(lines[i]!)) {
+    i--;
+  }
+  const docEnd = i;
+  while (i >= 0 && isComment(lines[i]!)) {
+    i--;
+  }
+  const docStart = i + 1;
+  const reachedTop = i < 0;
+  const docBefore = (!reachedTop && docEnd >= docStart)
+    ? lines.slice(docStart, docEnd + 1)
+    : [];
+
+  const out = docBefore.length > 0
+    ? [...docBefore, "", lines[headerIdx]!, ...body]
+    : [lines[headerIdx]!, ...body];
+  return out.join("\n");
+}
+
+/**
+ * Read the bundled `icculus.toml` template text, or `undefined` if the templates
+ * tree cannot be resolved or read. Callers (the migration) treat `undefined` as
+ * "fall back to a plain key edit" rather than failing — a missing template must
+ * never break an upgrade.
+ */
+export async function readConfigTemplate(): Promise<string | undefined> {
+  try {
+    const dir = await resolveTemplatesDir();
+    return await Deno.readTextFile(join(dir, CONFIG_TEMPLATE_NAME));
+  } catch {
+    return undefined;
+  }
+}

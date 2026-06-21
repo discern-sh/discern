@@ -383,8 +383,30 @@ Deno.test("migration 5→6 dissolves .icculus/: moves config/guidance/recipes/au
     assertStringIncludes(toml, "[features]");
     assertStringIncludes(toml, "[guidance]");
     assertStringIncludes(toml, "[skills]");
+    // Each new section arrives WITH its canonical doc block (not a bare EOF
+    // append), so a migrated config reads like a fresh init's — the papercut.
+    assertStringIncludes(
+      toml,
+      "# [features] — toggle whole icculus subsystems",
+    );
+    assertStringIncludes(toml, "# [guidance] — the author-once");
+    assertStringIncludes(toml, "# [skills] — focused, reusable task playbooks");
+    // ...and at the canonical position: grouped, in order, after [project] —
+    // never dumped at EOF.
+    const at = (s: string) => toml.indexOf(s);
+    assert(
+      at("[project]") < at("[features]") &&
+        at("[features]") < at("[guidance]") &&
+        at("[guidance]") < at("[skills]"),
+      "new sections are grouped, in order, after [project]",
+    );
+    // No template token leaked into the installed config.
+    assertEquals([...toml.matchAll(/\{\{/g)].length, 0, "no unfilled tokens");
+    // The legacy [recipes].dir default is repointed at the root layout.
+    assertStringIncludes(toml, 'dir = "recipes"');
     // Agents migrated from [project] to [guidance].
     assert(!/\[project\][^[]*agents/s.test(toml), "[project].agents removed");
+    assertStringIncludes(toml, 'agents = ["claude_code"]');
 
     // Guidance prose moved to ./guidance.md; recipes moved to ./recipes/.
     assertStringIncludes(
@@ -407,11 +429,74 @@ Deno.test("migration 5→6 dissolves .icculus/: moves config/guidance/recipes/au
     assertStringIncludes(gitignore, "/GEMINI.md");
     assert(!/^\s*\/?AGENTS\.md\b/m.test(gitignore), "AGENTS.md stays tracked");
 
-    // Idempotent: a re-run over the migrated install is a clean no-op.
+    // Idempotent: a re-run over the migrated install changes nothing — the
+    // sections are present now, so insertion is skipped, not repeated.
     await applyMigrations({ destDir: dir, from: 5, to: 6, onNote: () => {} });
-    assertEquals(await targetExists(dir, "icculus.toml"), true);
+    assertEquals(await Deno.readTextFile(join(dir, "icculus.toml")), toml);
     assertEquals(await targetExists(dir, "skills/kit-special/SKILL.md"), true);
   });
+});
+
+Deno.test("migration 5→6 inserts a documented [meta] at the top when an install never had one", async () => {
+  await withTempDir(async (dir) => {
+    // A legacy-shaped schema-5 config with NO [meta] (its version came from a
+    // manifest). Without this, the schema stamp would later append a bare [meta]
+    // at EOF — the bottom-heavy papercut, for the oldest installs.
+    await Deno.mkdir(join(dir, ".icculus"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, ".icculus/config.toml"),
+      '[project]\nslug = "demo"\n',
+    );
+
+    await applyMigrations({ destDir: dir, from: 5, to: 6, onNote: () => {} });
+
+    const toml = await Deno.readTextFile(join(dir, "icculus.toml"));
+    // [meta] is present, documented, and first — ahead of [project].
+    assertStringIncludes(toml, "[meta]");
+    assertStringIncludes(toml, "# The install schema version");
+    assertStringIncludes(toml, "schema_version =");
+    assert(
+      toml.indexOf("[meta]") < toml.indexOf("[project]"),
+      "[meta] is first",
+    );
+    // The new sections still group after [project].
+    assert(toml.indexOf("[project]") < toml.indexOf("[features]"));
+  });
+});
+
+Deno.test("migration 5→6 still adds the sections (bare) when the template can't be read", async () => {
+  // Graceful degradation: if the bundled template can't be resolved, the
+  // migration must still produce a functionally complete config — just without
+  // the doc blocks — rather than dropping the new sections.
+  const saved = Deno.env.get("ICCULUS_TEMPLATES_DIR");
+  Deno.env.set(
+    "ICCULUS_TEMPLATES_DIR",
+    join(saved ?? "/tmp", "no-such-dir-xyz"),
+  );
+  try {
+    await withTempDir(async (dir) => {
+      await Deno.mkdir(join(dir, ".icculus"), { recursive: true });
+      await Deno.writeTextFile(
+        join(dir, ".icculus/config.toml"),
+        '[meta]\nschema_version = 5\n[project]\nslug = "demo"\n',
+      );
+
+      await applyMigrations({ destDir: dir, from: 5, to: 6, onNote: () => {} });
+
+      const toml = await Deno.readTextFile(join(dir, "icculus.toml"));
+      assertStringIncludes(toml, "[features]");
+      assertStringIncludes(toml, "[guidance]");
+      assertStringIncludes(toml, "[skills]");
+      // Functional, but undocumented — the fallback path took over.
+      assert(
+        !toml.includes("# [features] — toggle"),
+        "no doc block in fallback",
+      );
+    });
+  } finally {
+    if (saved === undefined) Deno.env.delete("ICCULUS_TEMPLATES_DIR");
+    else Deno.env.set("ICCULUS_TEMPLATES_DIR", saved);
+  }
 });
 
 Deno.test("migration 5→6 preserves a CUSTOMIZED bundled skill that differs only in a non-SKILL.md file (R1)", async () => {
