@@ -182,7 +182,12 @@ async function planFileWrite(params: {
 }): Promise<PlanOp> {
   const { sourceAbs, templateRel, targetRel, destDir, tokens } = params;
   const sourceStat = await Deno.stat(sourceAbs);
-  const sourceMode = (sourceStat.mode ?? 0o644) & 0o777;
+  // OR in owner read+write: a scaffolded seed is the user's to edit, but the
+  // `deno compile` embedded filesystem flattens every bundled template to
+  // read-only — without this, `init` would lay down a read-only `icculus.toml`
+  // that the user (and `icculus config set`/`/bootstrap`) then can't rewrite.
+  // Any exec bit on the real source is preserved (0o555 → 0o755).
+  const sourceMode = ((sourceStat.mode ?? 0o644) & 0o777) | 0o600;
 
   let bytes: Uint8Array;
   if (isTemplateFile(templateRel)) {

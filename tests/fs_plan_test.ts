@@ -82,6 +82,31 @@ Deno.test("init preserves the source exec bit (0755 hook, 0644 doc)", async () =
   });
 });
 
+Deno.test("init normalizes a read-only source seed to owner-writable", async () => {
+  // The `deno compile` embedded filesystem reports every bundled template as
+  // read-only (0o444). A scaffolded seed is the user's to edit (and `config
+  // set`/`/bootstrap` rewrite icculus.toml), so the plan must restore owner
+  // write. Emulate that environment with a deliberately 0o444 source.
+  await withTempDir(async (src) => {
+    await Deno.writeTextFile(join(src, "icculus.toml.tmpl"), "[project]\n");
+    await Deno.chmod(join(src, "icculus.toml.tmpl"), 0o444);
+    await withTempDir(async (dir) => {
+      const plan = await buildPlan({
+        templatesDir: src,
+        destDir: dir,
+        tokens: testTokens(),
+      });
+      await applyPlan(plan);
+      const mode = await modeOf(dir, "icculus.toml");
+      assertEquals(
+        mode & 0o600,
+        0o600,
+        `expected owner rw; got ${mode.toString(8)}`,
+      );
+    });
+  });
+});
+
 Deno.test("init copies a token-free file verbatim", async () => {
   await withTempDir(async (dir) => {
     await scaffold(dir);
