@@ -8,6 +8,7 @@
  */
 
 import { parse as parseToml } from "@std/toml";
+import { tomlSyntaxHint } from "../shared/config_read.ts";
 
 /** Render a list of strings as comma-joined, double-quoted TOML array items. */
 export function renderTomlStringList(items: string[]): string {
@@ -40,8 +41,7 @@ export function parseIcculusToml(text: string): IcculusToml {
   try {
     parsed = parseToml(text);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`icculus.toml is not valid TOML: ${message}`);
+    throw new Error(tomlSyntaxHint(error));
   }
   const raw = isRecord(parsed) ? parsed : {};
   const project = isRecord(raw.project) ? raw.project : {};

@@ -308,3 +308,19 @@ Deno.test("doctor: flags a gotchas_doc that points at a missing file", async () 
     assertStringIncludes(g.fix ?? "", "gotchas_doc");
   });
 });
+
+Deno.test("doctor: reports resolved guidance sources and authored skills when present", async () => {
+  await withTempDir(async (dir) => {
+    await initInstall(dir);
+    // A guidance source + an authored skill exercise the "populated" branch of
+    // both checks (a fresh install only hits the "none yet" branch).
+    await Deno.writeTextFile(join(dir, "guidance.md"), "# project guidance\n");
+    await Deno.mkdir(join(dir, "skills/my-skill"), { recursive: true });
+    await Deno.writeTextFile(join(dir, "skills/my-skill/SKILL.md"), "# mine\n");
+
+    const { code, payload } = await runDoctorJson(dir);
+    assertEquals(code, 0);
+    assertStringIncludes(check(payload, "guidance sources").detail, "resolve");
+    assertStringIncludes(check(payload, "skills").detail, "1 authored skill");
+  });
+});

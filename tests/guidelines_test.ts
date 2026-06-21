@@ -77,3 +77,52 @@ Deno.test("compileGuidelines: banner + built-in + sources; copies built-ins, sym
     await Deno.remove(tmp, { recursive: true });
   }
 });
+
+Deno.test("compileGuidelines respects [features]: guidance off compiles nothing; skills off materializes nothing", async () => {
+  // guidance off → no agent files, but skills still materialize (jobs are gated
+  // independently).
+  const a = await Deno.makeTempDir({ prefix: "icculus-guidelines-off-" });
+  try {
+    await Deno.writeTextFile(
+      join(a, "icculus.toml"),
+      '[features]\nguidance = false\n[guidance]\nagents = ["claude_code"]\n',
+    );
+    const r = await compileGuidelines(a);
+    assertEquals(r.agentsWritten, []);
+    assertEquals(
+      await Deno.lstat(join(a, "CLAUDE.md")).then(() => true).catch(() =>
+        false
+      ),
+      false,
+      "no agent file when guidance is off",
+    );
+    assert(
+      r.skillsCopied >= 1,
+      "skills still materialize when only guidance is off",
+    );
+  } finally {
+    await Deno.remove(a, { recursive: true });
+  }
+
+  // skills off → nothing under .claude/skills/, but guidance still compiles.
+  const b = await Deno.makeTempDir({ prefix: "icculus-skills-off-" });
+  try {
+    await Deno.writeTextFile(
+      join(b, "icculus.toml"),
+      '[features]\nskills = false\n[guidance]\nagents = ["claude_code"]\n',
+    );
+    const r = await compileGuidelines(b);
+    assertEquals(r.skillsCopied, 0);
+    assertEquals(r.skillsLinked, 0);
+    assertEquals(
+      await Deno.lstat(join(b, ".claude/skills")).then(() => true).catch(() =>
+        false
+      ),
+      false,
+      "no .claude/skills when skills is off",
+    );
+    assertEquals(r.agentsWritten, ["CLAUDE.md"]);
+  } finally {
+    await Deno.remove(b, { recursive: true });
+  }
+});

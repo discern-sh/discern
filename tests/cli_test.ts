@@ -230,7 +230,8 @@ Deno.test("a malformed icculus.toml fails cleanly (no stack trace), in human and
     // Human mode: a one-line diagnostic on stderr, exit 1, no raw "Uncaught".
     const human = await runCli(["config", "get", "project.slug"], dir);
     assertEquals(human.code, 1);
-    assertStringIncludes(human.stderr, "icculus.toml is not valid TOML");
+    assertStringIncludes(human.stderr, "syntax error near line");
+    assertStringIncludes(human.stderr, "icculus.toml");
     assert(
       !human.stderr.includes("Uncaught"),
       `must not dump a stack trace:\n${human.stderr}`,

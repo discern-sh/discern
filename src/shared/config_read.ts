@@ -20,6 +20,28 @@ function isTable(v: unknown): v is Record<string, unknown> {
 }
 
 /**
+ * A friendly one-line summary of a TOML parse failure. `@std/toml`'s message is
+ * accurate but cryptic (e.g. "key length is not a positive number, Parse error
+ * on line 3, column 8"); lead with a plain "syntax error near line N in
+ * icculus.toml" when a line number is present, keeping the raw detail in parens.
+ * Shared by {@link ConfigParseError} (engine verbs) and `parseIcculusToml`
+ * (doctor/upgrade/migrate) so the diagnostic reads the same everywhere.
+ */
+export function tomlSyntaxHint(err: unknown): string {
+  const raw = (err instanceof Error ? err.message : String(err)).trim()
+    // `@std/toml` sometimes repeats its own "Parse error on line N, column M:"
+    // prefix; collapse the duplicate so the detail reads once.
+    .replace(
+      /(Parse error on line \d+, column \d+: )(?=Parse error on line \d+, column \d+: )/g,
+      "",
+    );
+  const line = raw.match(/line (\d+)/i)?.[1];
+  return line !== undefined
+    ? `syntax error near line ${line} in icculus.toml (${raw})`
+    : `icculus.toml is not valid TOML: ${raw}`;
+}
+
+/**
  * A clear, catchable error for an unparseable install config. Replaces the raw
  * `@std/toml` `SyntaxError` (which, uncaught, dumps a stack trace at a user who
  * merely has a config typo). The CLI's top-level handler turns this into a clean
@@ -44,11 +66,7 @@ export class Config {
     try {
       this.data = parse(text) as Record<string, unknown>;
     } catch (err) {
-      throw new ConfigParseError(
-        `icculus.toml is not valid TOML: ${
-          err instanceof Error ? err.message : String(err)
-        }`,
-      );
+      throw new ConfigParseError(tomlSyntaxHint(err));
     }
   }
 

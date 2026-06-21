@@ -1,5 +1,28 @@
-import { assertEquals } from "@std/assert";
-import { Config } from "../src/shared/config_read.ts";
+import { assert, assertEquals, assertThrows } from "@std/assert";
+import {
+  Config,
+  ConfigParseError,
+  tomlSyntaxHint,
+} from "../src/shared/config_read.ts";
+
+Deno.test("tomlSyntaxHint leads with the line number when the parser gives one", () => {
+  const hint = tomlSyntaxHint(
+    new Error("key length is not a positive number, Parse error on line 3"),
+  );
+  assert(hint.includes("syntax error near line 3 in icculus.toml"));
+  // the raw parser detail is carried through in parens.
+  assert(hint.includes("(key length is not a positive number"));
+});
+
+Deno.test("tomlSyntaxHint falls back to a plain message with no line number", () => {
+  const hint = tomlSyntaxHint(new Error("totally opaque failure"));
+  assertEquals(hint, "icculus.toml is not valid TOML: totally opaque failure");
+});
+
+Deno.test("a malformed config throws a catchable ConfigParseError with the hint", () => {
+  const err = assertThrows(() => new Config("oops = [[["), ConfigParseError);
+  assert((err as Error).message.includes("syntax error near line 1"));
+});
 
 const SAMPLE = `
 [project]
