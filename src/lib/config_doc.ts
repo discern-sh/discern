@@ -1,15 +1,15 @@
 /**
- * The **icculus config document** — the one JSON shape that declaratively
+ * The **discern config document** — the one JSON shape that declaratively
  * describes a project's gate config (ADR 0005, ADR 0017/0018). It is consumed in
  * two places:
  *
- *   - `icculus init --config <file>` — drives a fresh, non-interactive install.
+ *   - `discern init --config <file>` — drives a fresh, non-interactive install.
  *   - a preset's `preset.json` — the config half of an `add-preset` overlay.
  *
  * Both apply the document's `capabilities` / `checks` / `scopes` / `ratchets` to
- * a project's `icculus.toml` through the comment-preserving `TomlEditor`.
+ * a project's `discern.toml` through the comment-preserving `TomlEditor`.
  * Because this shape is a published contract (a JSON Schema ships at
- * `schema/icculus-config.schema.json`), it carries an optional `version` so it
+ * `schema/discern-config.schema.json`), it carries an optional `version` so it
  * can evolve without silently misreading an older or newer document, and accepts
  * a `$schema` pointer for editor validation.
  */
@@ -52,8 +52,8 @@ interface RatchetSpec {
   run: CommandOrList;
 }
 
-/** The full shape of an icculus config document (every field optional). */
-export interface IcculusConfigDoc {
+/** The full shape of a discern config document (every field optional). */
+export interface DiscernConfigDoc {
   /** Editor-only JSON Schema pointer; ignored by the loader. */
   $schema?: string;
   /** Document major version (default: the current `CONFIG_DOC_VERSION`). */
@@ -94,7 +94,7 @@ function majorOf(version: string | number): string {
  */
 export async function loadConfigDoc(
   source: string,
-): Promise<IcculusConfigDoc> {
+): Promise<DiscernConfigDoc> {
   let text: string;
   if (source === "-") {
     text = await new Response(Deno.stdin.readable).text();
@@ -116,15 +116,15 @@ export async function loadConfigDoc(
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
     throw new Error("--config file must be a JSON object");
   }
-  assertSupportedVersion(parsed as IcculusConfigDoc);
-  return parsed as IcculusConfigDoc;
+  assertSupportedVersion(parsed as DiscernConfigDoc);
+  return parsed as DiscernConfigDoc;
 }
 
 /**
  * Throw when a document declares a `version` whose major this build does not
  * understand. An absent version is assumed current.
  */
-export function assertSupportedVersion(doc: IcculusConfigDoc): void {
+export function assertSupportedVersion(doc: DiscernConfigDoc): void {
   if (doc.version === undefined) {
     return;
   }
@@ -144,7 +144,7 @@ export function assertSupportedVersion(doc: IcculusConfigDoc): void {
  */
 export function mergeDocIntoFlags(
   flags: InitFlags,
-  doc: IcculusConfigDoc | undefined,
+  doc: DiscernConfigDoc | undefined,
 ): InitFlags {
   if (!doc) {
     return flags;
@@ -162,13 +162,13 @@ export function mergeDocIntoFlags(
 
 /**
  * Apply a document's `capabilities`/`checks`/`scopes`/`ratchets` fills to a
- * `TomlEditor` over a project's `icculus.toml`. Validates names and
+ * `TomlEditor` over a project's `discern.toml`. Validates names and
  * enum-ish values (capability name, stage, direction) the same way the `config`
  * subcommand does; throws on bad input so the caller can report it.
  */
 export function applyConfigDoc(
   editor: TomlEditor,
-  doc: IcculusConfigDoc,
+  doc: DiscernConfigDoc,
 ): void {
   // Features: a known toggle name mapped to a boolean. An unknown name is a typo
   // worth catching rather than silently ignoring.

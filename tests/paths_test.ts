@@ -2,7 +2,7 @@
  * Unit tests for {@link resolveTemplatesDir} — the auto-discovery of the
  * scaffold `templates/` tree.
  *
- * Two resolution paths exist: an `ICCULUS_TEMPLATES_DIR` override (validated to
+ * Two resolution paths exist: an `DISCERN_TEMPLATES_DIR` override (validated to
  * be a real directory, else a clear throw) and a walk-up from the module's own
  * location. We drive the override branch in both directions — a valid dir is
  * returned verbatim, a non-directory is rejected with a message that names the
@@ -18,9 +18,9 @@ import { join } from "@std/path";
 import { resolveTemplatesDir } from "../src/lib/paths.ts";
 import { REAL_TEMPLATES, withTempDir } from "./helpers.ts";
 
-const OVERRIDE = "ICCULUS_TEMPLATES_DIR";
+const OVERRIDE = "DISCERN_TEMPLATES_DIR";
 
-/** Run `fn` with `ICCULUS_TEMPLATES_DIR` set to `value`, restoring it after. */
+/** Run `fn` with `DISCERN_TEMPLATES_DIR` set to `value`, restoring it after. */
 async function withOverride(
   value: string,
   fn: () => Promise<void>,
@@ -35,7 +35,7 @@ async function withOverride(
   }
 }
 
-/** Run `fn` with `ICCULUS_TEMPLATES_DIR` removed, restoring it after. */
+/** Run `fn` with `DISCERN_TEMPLATES_DIR` removed, restoring it after. */
 async function withoutOverride(fn: () => Promise<void>): Promise<void> {
   const had = Deno.env.get(OVERRIDE);
   Deno.env.delete(OVERRIDE);

@@ -1,7 +1,7 @@
 /**
- * Path resolution for an icculus install and the bundled `templates/` tree.
+ * Path resolution for a discern install and the bundled `templates/` tree.
  *
- * The whole footprint in a project is a single root file, `icculus.toml` (ADR
+ * The whole footprint in a project is a single root file, `discern.toml` (ADR
  * 0020). Everything else a project opts into — guidance prose, authored skills,
  * recipes — lives at a config-pointed location with a sensible discoverable
  * default, read only when present. This module owns those defaults and resolvers,
@@ -41,9 +41,9 @@ async function isDir(path: string): Promise<boolean> {
 }
 
 /**
- * Resolve the config file inside an install directory: the root `icculus.toml`
- * if present, else a legacy `.icculus/config.toml`, else `undefined` when
- * `destDir` is not an icculus install. The new path is preferred so a migrated
+ * Resolve the config file inside an install directory: the root `discern.toml`
+ * if present, else a legacy `.discern/config.toml`, else `undefined` when
+ * `destDir` is not a discern install. The new path is preferred so a migrated
  * install is unambiguous; the legacy fallback is what lets `upgrade`/`migrate`
  * recognise a pre-6 install and carry it forward.
  */
@@ -123,19 +123,19 @@ export async function resolveBundledSkillsDir(): Promise<string> {
  *
  * The tree is auto-discovered, never hardcoded: other agents own its contents
  * and add files over time. Resolution order:
- *   1. `ICCULUS_TEMPLATES_DIR` env override (used by tests and power users).
+ *   1. `DISCERN_TEMPLATES_DIR` env override (used by tests and power users).
  *   2. a `templates/` directory found by walking up from this module's location
  *      (works under `deno run` from a checkout, and under a `deno compile`
  *      binary built with `--include templates/`).
  */
 export async function resolveTemplatesDir(): Promise<string> {
-  const override = Deno.env.get("ICCULUS_TEMPLATES_DIR");
+  const override = Deno.env.get("DISCERN_TEMPLATES_DIR");
   if (override) {
     if (await isDir(override)) {
       return override;
     }
     throw new Error(
-      `ICCULUS_TEMPLATES_DIR is set to "${override}" but that is not a directory.`,
+      `DISCERN_TEMPLATES_DIR is set to "${override}" but that is not a directory.`,
     );
   }
 
@@ -154,6 +154,6 @@ export async function resolveTemplatesDir(): Promise<string> {
   }
 
   throw new Error(
-    "could not locate the templates/ tree. Set ICCULUS_TEMPLATES_DIR to its path.",
+    "could not locate the templates/ tree. Set DISCERN_TEMPLATES_DIR to its path.",
   );
 }

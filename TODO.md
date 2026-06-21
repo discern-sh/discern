@@ -1,4 +1,4 @@
-# Open work — icculus
+# Open work — discern
 
 The single source of truth for **outstanding work**: verified defects, deferred
 fixes, known dead code, and at-risk or unmerged work. The
@@ -68,16 +68,16 @@ _Nothing outstanding._
       `[features]`/`[guidance]`/`[skills]` sections comment-less at EOF (and in
       reverse key order). Net effect: a migrating user lands on a barer,
       comment- stripped config than a fresh `init` produces — the two onboarding
-      paths diverge. The clean fix is to re-render `icculus.toml` from the
+      paths diverge. The clean fix is to re-render `discern.toml` from the
       commented template, preserving the user's values, rather than line-editing
       in place. Consider also dropping a deleted section's leading comment
       block. Evidence: `src/lib/migrations.ts` (the `from: 3` and `from: 5`
-      steps); target layout is `templates/icculus.toml.tmpl`.
+      steps); target layout is `templates/discern.toml.tmpl`.
 
-- [ ] **The 5→6 migration doesn't relocate a `.icculus/`-pointed
+- [ ] **The 5→6 migration doesn't relocate a `.discern/`-pointed
       `gotchas_doc`.** If `[project].gotchas_doc` pointed inside
-      `.icculus/guidelines/`, that file is concatenated into `guidance.md` and
-      `.icculus/` is deleted, leaving `gotchas_doc` dangling (and merging a
+      `.discern/guidelines/`, that file is concatenated into `guidance.md` and
+      `.discern/` is deleted, leaving `gotchas_doc` dangling (and merging a
       distinct doc into general guidance). `doctor` now _flags_ a dangling
       `gotchas_doc`, but the migration should relocate it (or keep it
       standalone) rather than rely on the user noticing. The common case
@@ -88,7 +88,7 @@ _Nothing outstanding._
 - [ ] **`config set <key> <value>` strips the edited line's inline comment.**
       The comment-preserving `TomlEditor.setLiteral` rewrites the whole
       `key = …` line, dropping any trailing `# …` annotation, so editing the
-      self-documenting `icculus.toml` via the CLI quietly degrades it one line
+      self-documenting `discern.toml` via the CLI quietly degrades it one line
       at a time (e.g. `config set features.worktrees false` drops that line's
       trailing `# …` annotation). Preserve a trailing inline comment when
       rewriting a value. Evidence: `src/lib/toml_edit.ts` (`setLiteral`).
@@ -102,7 +102,7 @@ _Nothing outstanding._
       83 to land the cutover (ADR 0019); raise it as engine coverage improves.
       Weakest spots to target include `src/shared/capabilities.ts` (~50%) and
       the newer `src/lib/skills.ts` / `src/shared/features.ts`. Evidence:
-      `icculus.toml` `[ratchets.coverage].limit`.
+      `discern.toml` `[ratchets.coverage].limit`.
 
 ## 🔵 Unmerged / at-risk work — decide: land or drop
 

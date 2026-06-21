@@ -16,7 +16,7 @@ The 1.0 redesign **removes that privilege**. There is now exactly one model:
   `limit` / `slot`. Coverage is just the conventional name for one
   (`[ratchets.coverage]`); nothing about it is special.
 - **`coverage_min`, the reserved name, the `0`-disables rule, and the `NN%`
-  fallback are gone.** The `ICCULUS_METRIC <name> <number>` marker is the _only_
+  fallback are gone.** The `DISCERN_METRIC <name> <number>` marker is the _only_
   way a slot reports a number. A ratchet's `limit` and `slot` are both required.
 - **One command, `agent ratchets`**, runs every `[ratchets.<name>]`.
   `agent finish:coverage` / `agent finish:ratchets` are removed.
@@ -24,7 +24,7 @@ The 1.0 redesign **removes that privilege**. There is now exactly one model:
   gate never runs it; the ratchet runs it on demand) — see _Update (1.0)_ in the
   slot/phase model. The phantom `coverage` phase is gone.
 
-`icculus migrate` rewrites a pre-1.0 `coverage_min` into a `[ratchets.coverage]`
+`discern migrate` rewrites a pre-1.0 `coverage_min` into a `[ratchets.coverage]`
 table. Everything in the original decision about the _mechanism_ (two halves:
 never-loosened-vs-`main`, measured-vs-limit; `up`/`down`; the emission
 convention) stands unchanged — only coverage's special-casing was dropped.
@@ -65,14 +65,14 @@ convention; coverage becomes the built-in instance.
 A slot reports a metric by printing a line:
 
 ```
-ICCULUS_METRIC <name> <number>
+DISCERN_METRIC <name> <number>
 ```
 
 The engine runs the slot, captures its output, and takes the **last**
-`ICCULUS_METRIC <name>` value (last-wins, so a re-measured value supersedes).
+`DISCERN_METRIC <name>` value (last-wins, so a re-measured value supersedes).
 This replaces the grep with an explicit, named marker that cannot be confused
 with incidental output. For **backward compatibility, the coverage ratchet also
-accepts a trailing `NN%`** when no `ICCULUS_METRIC coverage` line is present —
+accepts a trailing `NN%`** when no `DISCERN_METRIC coverage` line is present —
 so existing coverage slots that print `87.4%` keep working untouched.
 
 ### Named ratchets
@@ -90,7 +90,7 @@ Each ratchet enforces the same two halves coverage does, generalised by
 direction:
 
 - **Never loosened vs `main`.** The `limit` on this branch is compared to its
-  value on `main` (read cheaply from `git show main:icculus.toml`). For `up`,
+  value on `main` (read cheaply from `git show main:discern.toml`). For `up`,
   the floor may only rise; for `down`, the ceiling may only fall.
 - **Measured vs limit.** Run the slot, read the metric, and for `up` fail when
   `measured < limit`; for `down` fail when `measured > limit`.
@@ -121,7 +121,7 @@ is one implementation behind both recipes.
 
 - Any only-ever-improve number is now ratchetable in any language — lint counts,
   artifact size, perf budgets, type-coverage — via a small, declarative table.
-- The metric read is robust: an explicit `ICCULUS_METRIC` marker instead of "the
+- The metric read is robust: an explicit `DISCERN_METRIC` marker instead of "the
   last percentage we happened to see". Coverage keeps its `%` fallback, so
   nothing existing breaks.
 - Backward compatible: with no `[ratchets.<name>]` tables and the default
@@ -138,7 +138,7 @@ is one implementation behind both recipes.
 - **Keep grepping, just parameterise the regex.** Rejected: still brittle, still
   guessing at output shape. An explicit emitted marker is the robust fix and
   costs a slot one `printf`.
-- **Write metrics to a file (`.icculus/metrics/<name>`) instead of stdout.** A
+- **Write metrics to a file (`.discern/metrics/<name>`) instead of stdout.** A
   reasonable alternative, but it needs file-path coordination and cleanup, and
   couples the slot to a directory convention. A stdout marker is zero-setup and
   composes with any command via a pipe. (The file approach remains open as a

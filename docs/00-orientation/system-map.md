@@ -1,13 +1,13 @@
 # System map
 
-Bird's-eye view of how icculus fits together. Read this once and the rest of the
+Bird's-eye view of how discern fits together. Read this once and the rest of the
 documentation tree should slot into place.
 
 ---
 
 ## The system, end to end
 
-One self-contained binary, `icculus`, on `PATH`. Its **Installer** verbs write a
+One self-contained binary, `discern`, on `PATH`. Its **Installer** verbs write a
 project's seed files (and materialize the bundled Skills); its **Engine** verbs
 — TypeScript compiled into the same binary — run the gate and the worktree
 workflow. No engine is installed into the project; nothing it writes needs a
@@ -17,16 +17,16 @@ runtime.
 
 ```
 ┌──────────────────────────────┐   bundles    ┌──────────────────────────┐
-│   the `icculus` binary       │ ◄─────────── │       templates/         │
+│   the `discern` binary       │ ◄─────────── │       templates/         │
 │  Installer verbs + Engine    │  (compiled   │  seed · skill · guidance │
 │  (one self-contained binary) │   in)        │  sources (bundled in)    │
 └──────────────┬───────────────┘              └──────────────────────────┘
-       │  icculus init / upgrade
+       │  discern init / upgrade
        │  write seeds · merge · append · materialize skills · compile guidance
        ▼
 ┌────────────────────────────────────────────────────────────┐
 │                   An install — on disk                      │
-│  icculus.toml  — the one root file (no engine, no manifest) │
+│  discern.toml  — the one root file (no engine, no manifest) │
 │  + your config-pointed content (read if present):           │
 │      guidance.md · ./skills/ · ./recipes/ · brief.md (yours)│
 │  + generated: AGENTS.md (tracked), CLAUDE.md/GEMINI.md,     │
@@ -40,25 +40,25 @@ runtime.
 
 ```
 person / coding agent
-       │  icculus <verb>
+       │  discern <verb>
        ▼
 ┌──────────────────────┐  known verb  ┌─────────────────────────────┐
-│   icculus binary     │ ───────────► │   Engine handler (in-binary) │
-│  dispatch.ts:        │              │  finish · tidy · worktree ·  │
-│  root + verb routing │              │  ratchets · guidelines · …   │
+│   discern binary     │ ───────────► │   Engine handler (in-binary) │
+│  dispatch.ts:        │              │  finish · prepare · worktree │
+│  root + verb routing │              │  ratchets · refresh · …      │
 └──────────┬───────────┘              └──────────────┬──────────────┘
            │ unknown verb                            │  reads commands from
            ▼                                         ▼
 ┌──────────────────────────────┐        ┌──────────────────────────────┐
-│  project Recipe (exec'd)     │        │        icculus.toml           │
+│  project Recipe (exec'd)     │        │        discern.toml           │
 │  ./recipes/<verb>            │        │  Features · Capabilities ·    │
-│  with ICCULUS_* exported     │ ─────► │  Checks · Scopes (+ gates) ·  │
+│  with DISCERN_* exported     │ ─────► │  Checks · Scopes (+ gates) ·  │
 │  (built-in verb wins)        │ reads  │  Ratchets · Worktree settings │
 └──────────────────────────────┘  via   └──────────────────────────────┘
-                                 icculus config get
+                                 discern config get
 ```
 
-`icculus finish` walks the Stages in order, attributing each job to one
+`discern finish` walks the Stages in order, attributing each job to one
 Capability or Check:
 
 ```
@@ -70,9 +70,9 @@ Capability or Check:
 The Worktree workflow brackets a change, keeping the main checkout untouched:
 
 ```
-main checkout ──icculus worktree──► Worktree  (branch + own db + own port)
+main checkout ──discern worktree──► Worktree  (branch + own db + own port)
       ▲                                  │
-      └────────── icculus worktree:exit ─┘   graduate branch + tear down
+      └─────────────── discern graduate ─┘   graduate branch + tear down
 ```
 
 ---
@@ -86,7 +86,7 @@ main checkout ──icculus worktree──► Worktree  (branch + own db + own p
 - **The whole tool is one self-contained binary.** The Engine is TypeScript
   compiled into it; a verb spawns a process that runs and is gone when the
   command returns. There is **no daemon and no server** — work happens
-  synchronously when you run `icculus <verb>`. An install carries no engine of
+  synchronously when you run `discern <verb>`. An install carries no engine of
   its own.
 - **Concurrency is in-process fan-out, not a queue.** Inside `finish`, the
   parallel Stages run their Capabilities and Checks as concurrent child
@@ -95,7 +95,7 @@ main checkout ──icculus worktree──► Worktree  (branch + own db + own p
   before the Stage returns. Fail-fast cancellation tree-kills the running
   siblings via Deno's process-group kill
   ([`command.ts`](../../src/engine/jobs/command.ts)).
-- **Persistent state lives in the repo.** `icculus.toml` (the hand-edited
+- **Persistent state lives in the repo.** `discern.toml` (the hand-edited
   config, which also carries `[meta].schema_version`) and the git repo itself
   (branches and linked Worktrees under `.claude/worktrees/`). No manifest, no
   database, no external state.
@@ -111,7 +111,7 @@ main checkout ──icculus worktree──► Worktree  (branch + own db + own p
 | Region of the map                                           | Documented in                                              |
 | ----------------------------------------------------------- | ---------------------------------------------------------- |
 | `src/` Installer verbs, the seed writes, schema migrations  | [`../10-installer/`](../10-installer/)                     |
-| `icculus finish`, the Stage walk, Scopes, Scope gates       | [`../20-quality-gate/`](../20-quality-gate/)               |
+| `discern finish`, the Stage walk, Scopes, Scope gates       | [`../20-quality-gate/`](../20-quality-gate/)               |
 | The Worktree bracket and its database / dev-server settings | [`../30-worktrees/`](../30-worktrees/)                     |
 | Guidance source → Compiled agent files, bundled Skills      | [`../40-agent-guidance/`](../40-agent-guidance/)           |
 | Verb dispatch and the TypeScript engine                     | [`../50-engine-internals/`](../50-engine-internals/)       |

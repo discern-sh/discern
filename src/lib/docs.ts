@@ -1,7 +1,7 @@
 /**
  * Discover and resolve the project's documentation tree.
  *
- * `icculus docs` browses the install's own `docs/` directory — the seed tree
+ * `discern docs` browses the install's own `docs/` directory — the seed tree
  * `init` scaffolds and `/bootstrap` fills, not anything under `templates/`. This
  * module finds that tree, indexes every Markdown file (path, section, slug, and
  * the title pulled from its first heading), orders it the way a reader expects
@@ -69,7 +69,7 @@ async function isDir(path: string): Promise<boolean> {
 }
 
 /**
- * Walk up from `start` to the nearest ancestor that is an icculus install — the
+ * Walk up from `start` to the nearest ancestor that is a discern install — the
  * project root, the same anchor the `agent` dispatcher uses. Returns undefined
  * if none is found before the filesystem root.
  */

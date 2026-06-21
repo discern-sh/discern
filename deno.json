@@ -1,5 +1,5 @@
 {
-  "name": "icculus",
+  "name": "discern",
   "version": "1.0.0",
   "exports": "./src/main.ts",
   "compilerOptions": {
@@ -41,7 +41,7 @@
       "dist/",
       "tests/fixtures/",
       "PLAN.md",
-      "icculus.toml",
+      "discern.toml",
       "guidance.md",
       "brief.md",
       ".claude/",

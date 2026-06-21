@@ -1,4 +1,4 @@
-# ADR 0011: Adopt the isolated-worktree workflow for icculus's own development
+# ADR 0011: Adopt the isolated-worktree workflow for discern's own development
 
 **Status**: accepted
 
@@ -6,7 +6,7 @@
 
 [ADR 0010](0010-self-host-the-harness.md) installed the harness into this repo
 and made `agent finish` the gate, but it deliberately **deferred** one piece:
-whether to develop icculus inside the harness's own isolated git worktrees. The
+whether to develop discern inside the harness's own isolated git worktrees. The
 `SessionStart`/`WorktreeCreate`/`WorktreeRemove` hooks shipped scaffolded but
 dormant, and the open question was parked in `TODO.md`.
 
@@ -22,7 +22,7 @@ them to `sh -c` removes the one thing standing between "scaffolded" and
 
 ## Decision
 
-Adopt the worktree workflow as the way icculus is developed: each line of work
+Adopt the worktree workflow as the way discern is developed: each line of work
 gets its own isolated worktree under `.claude/worktrees/`, created and torn down
 by the harness hooks.
 

@@ -1,5 +1,5 @@
 /**
- * CLI tests for `icculus upgrade --check` — the read-only currency primitive.
+ * CLI tests for `discern upgrade --check` — the read-only currency primitive.
  * With the managed-file machinery gone there is no file drift to detect: an
  * install is current iff its recorded schema (`[meta].schema_version`) is current.
  * `--check` reports that and exits non-zero when config migrations are pending,
@@ -21,7 +21,7 @@ async function init(dir: string): Promise<void> {
 
 /** Rewrite `[meta].schema_version` to model an install a migration behind. */
 async function setSchema(dir: string, version: number): Promise<void> {
-  const p = join(dir, "icculus.toml");
+  const p = join(dir, "discern.toml");
   const text = await Deno.readTextFile(p);
   const replaced = text.replace(
     /schema_version\s*=\s*\d+/,
@@ -47,12 +47,12 @@ Deno.test("upgrade --check writes nothing", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
     await setSchema(dir, 1);
-    const before = await Deno.readTextFile(join(dir, "icculus.toml"));
+    const before = await Deno.readTextFile(join(dir, "discern.toml"));
     const r = await runCli(["upgrade", "--check", "--json"], dir);
     assertEquals(r.code, 1, r.stderr);
     // A read-only check must not stamp the schema or otherwise edit the config.
     assertEquals(
-      await Deno.readTextFile(join(dir, "icculus.toml")),
+      await Deno.readTextFile(join(dir, "discern.toml")),
       before,
     );
   });
@@ -94,7 +94,7 @@ Deno.test("upgrade --check heals with the product command, never engine-internal
     assertEquals(r.code, 1, r.stderr);
     // The hint is always the product command — the retired self-host Deno-task
     // aliases (`deno task selfsync`/`selfcheck`) must never leak into output.
-    assertStringIncludes(r.stderr, "icculus upgrade");
+    assertStringIncludes(r.stderr, "discern upgrade");
     assertEquals(r.stderr.includes("deno task"), false, r.stderr);
     assertEquals(r.stderr.includes("selfsync"), false, r.stderr);
   });

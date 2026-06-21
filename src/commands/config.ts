@@ -1,6 +1,6 @@
 /**
- * `icculus config <subcommand>` — programmatic, comment-preserving edits to an
- * existing `icculus.toml` (ADR 0005). Lets a scaffolder or CI set capabilities,
+ * `discern config <subcommand>` — programmatic, comment-preserving edits to an
+ * existing `discern.toml` (ADR 0005). Lets a scaffolder or CI set capabilities,
  * checks, scopes, ratchets, and arbitrary scalars without re-implementing TOML
  * editing. Every subcommand honours `--json` and `--dry-run`.
  */
@@ -50,7 +50,7 @@ function fail(
 }
 
 /**
- * Load `icculus.toml` from the cwd, apply the edits through `TomlEditor`
+ * Load `discern.toml` from the cwd, apply the edits through `TomlEditor`
  * (preserving comments), and write it back — or, with `--dry-run`, report what
  * would change and write nothing. `summary` is the human success line.
  */
@@ -62,7 +62,7 @@ async function applyEdits(
   const log = new Logger(opts);
   const path = (await resolveConfigPath(Deno.cwd())) ??
     join(Deno.cwd(), CONFIG_REL);
-  // Report the install-relative config path (icculus.toml, or a legacy location).
+  // Report the install-relative config path (discern.toml, or a legacy location).
   const fileRel = relative(Deno.cwd(), path);
 
   let text: string;
@@ -71,7 +71,7 @@ async function applyEdits(
   } catch (error) {
     const isMissing = error instanceof Deno.errors.NotFound;
     const message = isMissing
-      ? "no icculus install here — run `icculus init` first, or cd into the project root."
+      ? "no discern install here — run `discern init` first, or cd into the project root."
       : `could not read the config: ${
         error instanceof Error ? error.message : String(error)
       }`;
@@ -229,7 +229,7 @@ export async function runConfigSetScope(
  *
  * Every ratchet is a `[ratchets.<name>]` table — `coverage` is just a
  * conventional name, with no special handling. The `run` command emits the
- * metric line: `ICCULUS_METRIC <metric> <number>`.
+ * metric line: `DISCERN_METRIC <metric> <number>`.
  */
 export async function runConfigSetRatchet(
   name: string,

@@ -4,29 +4,29 @@
 
 ## Context
 
-icculus has two ways to push a change into an installed project:
+discern has two ways to push a change into an installed project:
 
 - **`upgrade`** refreshes _managed_ files. It walks the new `templates/` tree
   and, per file, compares three hashes — the on-disk bytes, the kit's new bytes,
   and the manifest's recorded hash — to decide skip / overwrite /
   preserve-as-`.new`. Seed files are never touched.
-- **`migrate`** (ADR 0009) rewrites a project's `icculus.toml` from the 0.x
+- **`migrate`** (ADR 0009) rewrites a project's `discern.toml` from the 0.x
   shape to 1.0. Its rules are hardcoded to that one jump, and it detects whether
   it applies by sniffing the file's content.
 
 This pairing carries every 1.0 install correctly, but it was built for two
 narrow jobs: _content edits to managed files_ and _one known config jump_. The
 larger, structural changes now planned — renaming or splitting engine recipes,
-reorganising the docs tree, evolving the `icculus.toml` shape again, and
-eventually renaming the kit itself (`icculus`, `bin/agent`, and `.icculus/` are
-still placeholders) — hit limits that are structural, not incidental:
+reorganising the docs tree, evolving the `discern.toml` shape again, and
+eventually renaming the kit itself (its name and the `bin/agent`/`.discern/`
+layout are still provisional) — hit limits that are structural, not incidental:
 
 - **`upgrade` cannot remove or rename.** It only ever writes files present in
   the _new_ templates; a managed file dropped from templates is left on every
   consumer's disk forever. Renaming, splitting, or deleting a recipe or skill is
   therefore unsafe — consumers silently accumulate orphans.
 - **Seed files cannot evolve structurally.** Upgrade skips them; only
-  `icculus.toml` has any evolution path, through the bespoke `migrate`. A change
+  `discern.toml` has any evolution path, through the bespoke `migrate`. A change
   to the docs tree, the guidelines format, the `.claude` hooks, or the config
   shape beyond that one jump cannot reach an existing install.
 - **Migration is a one-shot, not a sequence.** The install records no schema
@@ -64,7 +64,7 @@ safety.
    small, idempotent step (`from → to`) that describes and applies its change.
    `upgrade` computes the delta between the install's `schema_version` and the
    kit's current version and runs the intervening steps in order. A step may
-   edit `icculus.toml` (via the existing comment-preserving editor), **delete or
+   edit `discern.toml` (via the existing comment-preserving editor), **delete or
    rename managed _and_ seed files**, rewrite content inside user-owned files,
    and merge `.claude/settings.json`. This is where renames, tree
    reorganisations, and the eventual kit rename live. The bespoke 0.x→1.0
@@ -134,7 +134,7 @@ rename lands later as a further step, validated by the same convergence test.
   same discipline as the `selfcheck` drift gate — it makes "did you ship this to
   consumers?" a gate failure rather than a later surprise.
 - Retiring the 0.x→1.0 `migrate` rather than porting it means a 0.x
-  `icculus.toml` is no longer auto-handled. This is acceptable _only_ because of
+  `discern.toml` is no longer auto-handled. This is acceptable _only_ because of
   the pre-adoption window and the one hand-migrated consumer; the same choice
   would be unacceptable post-release. It revises the migration mechanism
   recorded in ADR 0009 while leaving the rest of that decision (the 1.0 shape

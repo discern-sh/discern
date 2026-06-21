@@ -1,6 +1,6 @@
 # Glossary
 
-Every icculus-specific term, defined precisely. This is the canonical
+Every discern-specific term, defined precisely. This is the canonical
 dictionary: the names defined here are used verbatim across the whole
 documentation tree, and synonyms are not introduced. The few nouns the whole
 system is built on come first, because they show up everywhere else.
@@ -15,16 +15,15 @@ For the architectural shape, see [system-map.md](system-map.md).
 The handful of building blocks the rest of the system rests on. Understand these
 and the rest of the tree reads as variations on them.
 
-### icculus
+### discern
 
 The whole tool: a single self-contained binary that is both the **Installer**
-and the **Engine**. icculus scaffolds a stack-neutral agentic-development
+and the **Engine**. discern scaffolds a stack-neutral agentic-development
 harness into any repository, in one command, and keeps it upgradable thereafter.
-The name (and `icculus.toml`) is a working placeholder pending a final one.
 
 ### Installer
 
-The scaffolding face of the `icculus` binary — `icculus init`, `upgrade`,
+The scaffolding face of the `discern` binary — `discern init`, `upgrade`,
 `doctor`, `migrate`, `config`, `add-preset`. Its TypeScript lives under
 [`src/`](../../src/) and compiles into the single-file binary. It writes and
 refreshes a project's files; it is build-time work only — an installed project
@@ -32,11 +31,11 @@ never needs Deno, and the Installer is never a runtime dependency of it.
 
 ### Harness
 
-What an install _gives a project_: the `icculus` verbs it can run, an
-`icculus.toml` config, the bundled [Skills](#skill), and the compiled guidance.
+What an install _gives a project_: the `discern` verbs it can run, an
+`discern.toml` config, the bundled [Skills](#skill), and the compiled guidance.
 The logic — the [Engine](#engine) — is in the binary, not installed into the
-project; on disk the entire icculus footprint is **one root file,
-`icculus.toml`** ([ADR 0020](../_adr/0020-dissolve-icculus-dir.md)), alongside
+project; on disk the entire discern footprint is **one root file,
+`discern.toml`** ([ADR 0020](../_adr/0020-dissolve-discern-dir.md)), alongside
 any config-pointed content you author (your [Guidance source](#guidance-source),
 [Skills](#skill), [Recipes](#recipe)) and the generated files. The seed and
 Skill files an install starts from originate under
@@ -46,36 +45,36 @@ of the install; they are written on demand after install by the bundled Skills.)
 
 ### Engine
 
-The stack-neutral logic behind the `icculus` run-time verbs (`finish`, `tidy`,
-`worktree`/`worktree:*`, `ratchets`, `guidelines`, `changed-scopes`, …), written
-in **TypeScript and compiled into the binary** under
-[`src/engine/`](../../src/engine/) (sharing [`src/shared/`](../../src/shared/)
-with the Installer). The Engine knows nothing stack-specific — it runs the
-[Capabilities](#capability), [Checks](#check), [Scopes](#scope), and
-[worktree settings](#worktree-settings) a project declares in `icculus.toml`. It
-is the limit case of [the binary's](#the-binarys-files) files: not installed
-into a project at all.
+The stack-neutral logic behind the `discern` run-time verbs (`finish`,
+`prepare`, `worktree`/`worktree:*`, `graduate`, `ratchets`, `refresh`,
+`changed-scopes`, …), written in **TypeScript and compiled into the binary**
+under [`src/engine/`](../../src/engine/) (sharing
+[`src/shared/`](../../src/shared/) with the Installer). The Engine knows nothing
+stack-specific — it runs the [Capabilities](#capability), [Checks](#check),
+[Scopes](#scope), and [worktree settings](#worktree-settings) a project declares
+in `discern.toml`. It is the limit case of [the binary's](#the-binarys-files)
+files: not installed into a project at all.
 
 ### Dispatcher
 
-The verb-routing front of the `icculus` binary
+The verb-routing front of the `discern` binary
 ([`src/engine/dispatch.ts`](../../src/engine/dispatch.ts)). It finds the project
-root (the nearest ancestor with an `icculus.toml`), routes a known verb to its
+root (the nearest ancestor with a `discern.toml`), routes a known verb to its
 built-in handler, and on an _unknown_ verb execs a matching project
-[Recipe](#recipe) with the `ICCULUS_*` environment exported. A built-in verb
+[Recipe](#recipe) with the `DISCERN_*` environment exported. A built-in verb
 wins over a same-named recipe (warning on the shadow); a verb whose
 [Feature](#feature) is disabled reports "feature disabled" rather than falling
 through.
 
 ### Recipe
 
-A project's **own** `icculus` verb — a language-agnostic executable under
+A project's **own** `discern` verb — a language-agnostic executable under
 `[recipes].dir` (default `./recipes`). The binary execs it on an unknown verb,
-with `ICCULUS_*` exported; a name with a colon maps to a hyphenated file
+with `DISCERN_*` exported; a name with a colon maps to a hyphenated file
 (`some:verb` → `some-verb`). A recipe reads config through the
-`icculus config get|array|has|
+`discern config get|array|has|
 subsections|keys` surface and worktree identity
-through `icculus worktree-name --db|--site|--port` — it does **not** source a
+through `discern worktree-name --db|--site|--port` — it does **not** source a
 shell library. On a name collision with a built-in verb the binary wins
 ([ADR 0001](../_adr/0001-project-owned-recipes.md)).
 
@@ -88,48 +87,48 @@ depth under [`../10-installer/`](../10-installer/).
 
 ### Binary version
 
-The `icculus` binary's semantic version (e.g. `1.0.0`), declared once in
+The `discern` binary's semantic version (e.g. `1.0.0`), declared once in
 `deno.json` and read everywhere through
 [`version.ts`](../../src/lib/version.ts). Shown by `--version`. Getting a newer
 binary (via `install.sh`/`brew`/a future `self-update`) is a separate axis from
-`icculus upgrade`, which brings a _project_ into line with the binary it is run
+`discern upgrade`, which brings a _project_ into line with the binary it is run
 from.
 
 ### Schema version
 
 A plain monotonic integer — the anchor the [Migration](#migration) chain steps
-from, stamped into `[meta].schema_version` in `icculus.toml`. It bumps **only**
+from, stamped into `[meta].schema_version` in `discern.toml`. It bumps **only**
 when an installed project needs a migration to stay correct, so most releases
 leave it untouched. The current shape is schema **6** — the `5 → 6` step
-dissolved `.icculus/` into the single-file footprint
-([ADR 0020](../_adr/0020-dissolve-icculus-dir.md)).
+dissolved `.discern/` into the single-file footprint
+([ADR 0020](../_adr/0020-dissolve-discern-dir.md)).
 
 ### Migration
 
 One **idempotent** step that brings an install from Schema version `N` to `N+1`.
-`upgrade` reads `[meta].schema_version` (from `icculus.toml`, or a legacy
-`.icculus/config.toml` for a pre-6 install), runs every pending step in order up
+`upgrade` reads `[meta].schema_version` (from `discern.toml`, or a legacy
+`.discern/config.toml` for a pre-6 install), runs every pending step in order up
 to the binary's, then re-stamps it. A step can edit the config
 comment-preserving, move/rewrite files, and deep-merge settings — the `5 → 6`
 step moves the config to the root, relocates guidance/recipes/authored skills
-out of `.icculus/`, prunes the pristine bundled skills, and deletes `.icculus/`
+out of `.discern/`, prunes the pristine bundled skills, and deletes `.discern/`
 ([ADR 0014](../_adr/0014-versioned-migration-system.md),
-[ADR 0020](../_adr/0020-dissolve-icculus-dir.md)).
+[ADR 0020](../_adr/0020-dissolve-discern-dir.md)).
 
 ### Preset
 
-A reusable overlay applied with `icculus add-preset <name>`: a `presets/<name>/`
+A reusable overlay applied with `discern add-preset <name>`: a `presets/<name>/`
 directory whose files are scaffolded onto a project (with the same yours-vs-the-
 binary's rules as `init`) plus an optional `preset.json` at its root — an
-icculus config document whose `capabilities` / `checks` / `scopes` / `ratchets`
-are written into `icculus.toml`. Supersedes the former "adapter" overlay; the
+discern config document whose `capabilities` / `checks` / `scopes` / `ratchets`
+are written into `discern.toml`. Supersedes the former "adapter" overlay; the
 binary bundles none ([ADR 0018](../_adr/0018-vocabulary-consolidation.md)).
 
 ---
 
 ## File dispositions
 
-Every path an install touches has a **disposition** — how `icculus` treats it on
+Every path an install touches has a **disposition** — how `discern` treats it on
 `upgrade`, and where it is edited. Ownership is **two buckets**:
 [yours](#your-files--yours) (committed seeds, write-once) and
 [the binary's](#the-binarys-files) (gitignored, re-published artifacts). The
@@ -141,7 +140,7 @@ named refinements within them. The full surface is mapped in
 
 A file written once — then owned by the project, **committed**, never refreshed
 or flagged by `upgrade`, and edited in place. The one seed `init` always lays
-down is `icculus.toml` (the entire icculus footprint); it also seeds the project
+down is `discern.toml` (the entire discern footprint); it also seeds the project
 `brief.md` when non-empty, plus the [Merged](#merged-file)
 `.claude/settings.json` and `.gitignore`. The rest are content you author at
 config-pointed locations (your [Guidance source](#guidance-source)
@@ -173,10 +172,10 @@ structured merge (`.claude/settings.json`) or an idempotent append
 
 ### Generated file
 
-A file produced by an `icculus` command rather than copied from a template, and
+A file produced by a `discern` command rather than copied from a template, and
 reproduced by re-running that command rather than edited directly.
-`icculus
-guidelines` compiles the agent files (`CLAUDE.md`, `AGENTS.md`,
+`discern
+refresh` compiles the agent files (`CLAUDE.md`, `AGENTS.md`,
 `GEMINI.md`) and materializes `.claude/skills/`. Most are
 [the binary's](#the-binarys-files) (gitignored); `AGENTS.md` is the one tracked
 generated file, banner-headed, so guidance changes are reviewable and a stale
@@ -186,12 +185,12 @@ copy fails CI's `git diff --exit-code`.
 
 ## The quality gate
 
-Terms for `icculus finish` and what it runs. Covered in depth under
+Terms for `discern finish` and what it runs. Covered in depth under
 [`../20-quality-gate/`](../20-quality-gate/).
 
 ### Feature
 
-One of the toggleable subsystems listed under `[features]` in `icculus.toml` —
+One of the toggleable subsystems listed under `[features]` in `discern.toml` —
 `worktrees`, `ratchets`, `guidance`, `skills`, `docs` — each defaulting **on**.
 Setting one to `false` removes it coherently: its verbs hide from `--help` (and
 error if invoked), its hooks are left out of `settings.json`, its guidance
@@ -199,13 +198,13 @@ section is dropped, and its [`doctor`](#installer) checks skip. A Feature is
 **distinct from a [Capability](#capability)**: `[features]` toggles whole
 subsystems, `[capabilities]` is the gate's command table. The gate, `config`,
 and `doctor` are core and not listed
-([ADR 0020](../_adr/0020-dissolve-icculus-dir.md),
+([ADR 0020](../_adr/0020-dissolve-discern-dir.md),
 [`features.ts`](../../src/shared/features.ts)).
 
 ### Capability
 
 One of a small, **closed** vocabulary of things a project can do, declared flat
-under `[capabilities]` in `icculus.toml`: `format`, `build`, `lint`,
+under `[capabilities]` in `discern.toml`: `format`, `build`, `lint`,
 `typecheck`, `test`. Each is a name mapped to a command (or a list run in
 order); the Engine **derives the gate [Stage](#stage)** from the name, so an
 author never writes a scheduling keyword. The set is closed — an unknown key is
@@ -224,7 +223,7 @@ as its own labelled job in its declared Stage, exactly like a Capability
 
 ### Readiness
 
-Whether a project's gate is meaningfully wired, reported by `icculus doctor`.
+Whether a project's gate is meaningfully wired, reported by `discern doctor`.
 Because the [Capability](#capability) vocabulary is **closed**, the Engine can
 enumerate which of the five are filled and which are knowably absent, and judge
 whether the install clears a minimal bar (a test plus at least one static
@@ -243,11 +242,11 @@ no longer a user-facing word.
 
 ### Gate
 
-`icculus finish` — the compound quality gate: the Capability and Check
+`discern finish` — the compound quality gate: the Capability and Check
 [Stages](#stage) in order (`fix ∥ build`, then `check ∥ test`), then any
 [Scope](#scope) `gate`s that fired, then (in a worktree) the main-merged check.
 Each Capability and Check runs as its own labelled job, so a failure is
-attributed to the precise one. `icculus tidy` is the fast inner loop — the
+attributed to the precise one. `discern prepare` is the fast inner loop — the
 fix-stage then check-stage work, no build or test.
 
 ### Scope
@@ -265,9 +264,9 @@ change, so it runs more gates, never fewer
 A never-loosen quality floor or ceiling (line coverage, a size budget, a
 lint-error count), declared under `[ratchets]` and held against `main`. It
 **inlines its own `run`**, the command that prints
-`ICCULUS_METRIC <metric>
+`DISCERN_METRIC <metric>
 <number>`. Ratchets are slow, so they run on demand via
-`icculus ratchets`, not as part of `finish`
+`discern ratchets`, not as part of `finish`
 ([ADR 0003](../_adr/0003-named-metric-ratchets.md),
 [ADR 0018](../_adr/0018-vocabulary-consolidation.md)).
 
@@ -289,7 +288,7 @@ dev-server port and its own database, so concurrent worktrees never collide.
 The stack-specific seams the worktree workflow calls but does not implement: the
 **database** seam (clone/drop a per-worktree database), the **dev-server** seam
 (link/unlink a per-worktree site), plus the per-worktree `inherit_env`, `port`,
-and `setup` keys. All are empty/default `[worktree]` config in `icculus.toml`
+and `setup` keys. All are empty/default `[worktree]` config in `discern.toml`
 until a project wires them, so a worktree round is a clean no-op until then. The
 whole workflow is the `worktrees` [Feature](#feature), inert when it is off
 ([ADR 0007](../_adr/0007-adapter-contract.md),
@@ -297,8 +296,8 @@ whole workflow is the `worktrees` [Feature](#feature), inert when it is off
 
 ### Graduate
 
-What `icculus worktree:exit` does: integrate the worktree's branch into the main
-repo and tear the worktree down (database and dev-server link removed, directory
+What `discern graduate` does: integrate the worktree's branch into the main repo
+and tear the worktree down (database and dev-server link removed, directory
 pruned). Requires the branch to already carry `main`.
 
 ---
@@ -311,16 +310,16 @@ depth under [`../40-agent-guidance/`](../40-agent-guidance/).
 ### Guidance source
 
 The project's own agent instructions ([yours](#your-files--yours)), at the
-location(s) named by `[guidance].sources` in `icculus.toml` — default
+location(s) named by `[guidance].sources` in `discern.toml` — default
 `guidance.md` at the root, globs allowed, read only if present. They are
-**additive**: icculus's built-in harness guidance (bundled,
+**additive**: discern's built-in harness guidance (bundled,
 [`templates/guidance/`](../../templates/guidance/)) is always prepended, so your
 sources extend it rather than replace it.
 
 ### Compiled agent file
 
 `CLAUDE.md`, `AGENTS.md`, `GEMINI.md` — per-agent instruction files
-[generated](#generated-file) by `icculus guidelines` from the built-in guidance
+[generated](#generated-file) by `discern refresh` from the built-in guidance
 (one section per enabled [Feature](#feature)) plus the Guidance source, each
 carrying a do-not-edit banner. Which files are emitted is set by
 `[guidance].agents` (`claude_code` → `CLAUDE.md`, `codex` → `AGENTS.md`,
@@ -330,15 +329,15 @@ gitignored.
 ### Skill
 
 A focused agent capability shipped as a `SKILL.md`. The effective set is
-icculus's **bundled** built-ins (in the binary,
+discern's **bundled** built-ins (in the binary,
 [`templates/skills/`](../../templates/skills/) — `bootstrap`,
 `document-subsystem`, `write-adr`, `handoff-worktree`) plus any you **author**
 under `[skills].dir` (default `./skills`), where yours override a built-in of
-the same name. `icculus guidelines` (and `init`/`upgrade`) materialize the set
-into `.claude/skills/` (gitignored, [the binary's](#the-binarys-files)):
-built-ins **copied**, authored skills **symlinked** so edits are live.
-`icculus skills
-list` shows the set; `icculus skills eject <name>` copies a
+the same name. `discern refresh` (and `init`/`upgrade`) materialize the set into
+`.claude/skills/` (gitignored, [the binary's](#the-binarys-files)): built-ins
+**copied**, authored skills **symlinked** so edits are live.
+`discern skills
+list` shows the set; `discern skills eject <name>` copies a
 built-in into your dir to customize. The `skills` [Feature](#feature) governs
 the whole subsystem.
 

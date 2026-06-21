@@ -1,11 +1,11 @@
 /**
  * A small, dependency-light Markdown → terminal renderer.
  *
- * The docs tree icculus scaffolds is CommonMark-ish prose: headings, paragraphs,
+ * The docs tree discern scaffolds is CommonMark-ish prose: headings, paragraphs,
  * fenced code, lists, blockquotes, GFM tables, and inline emphasis / code /
  * links. This module renders that subset to a styled string for a terminal — it
  * is deliberately NOT a spec-complete parser. The goal is a *readable* viewer
- * for `icculus docs`, not round-trip fidelity.
+ * for `discern docs`, not round-trip fidelity.
  *
  * Two design choices matter:
  *

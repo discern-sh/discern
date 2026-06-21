@@ -54,7 +54,7 @@ function check(payload: DoctorPayload, name: string): DoctorCheck {
 
 /** Rewrite an install's recorded `[meta].schema_version`. */
 async function setSchema(dir: string, version: number): Promise<void> {
-  const p = join(dir, "icculus.toml");
+  const p = join(dir, "discern.toml");
   const text = await Deno.readTextFile(p);
   await Deno.writeTextFile(
     p,
@@ -68,7 +68,7 @@ async function addCapability(
   key: string,
   value: string,
 ): Promise<void> {
-  const p = join(dir, "icculus.toml");
+  const p = join(dir, "discern.toml");
   const text = await Deno.readTextFile(p);
   await Deno.writeTextFile(
     p,
@@ -83,7 +83,7 @@ async function addCheck(
   stage: string,
   run: string,
 ): Promise<void> {
-  const p = join(dir, "icculus.toml");
+  const p = join(dir, "discern.toml");
   const text = await Deno.readTextFile(p);
   await Deno.writeTextFile(
     p,
@@ -99,7 +99,7 @@ Deno.test("doctor --json: a fresh install is fully healthy and exits 0", async (
     assertEquals(payload.ok, true);
     assertEquals(payload.kit_version, "1.0.0");
     for (
-      const name of ["icculus.toml", "schema version", "capabilities"]
+      const name of ["discern.toml", "schema version", "capabilities"]
     ) {
       assertEquals(check(payload, name).ok, true, `${name} should pass`);
     }
@@ -113,31 +113,31 @@ Deno.test("doctor: human (non-json) output reports a clean bill on stderr, exit 
     await initInstall(dir);
     const { code, stderr } = await runCli(["doctor"], dir);
     assertEquals(code, 0);
-    assertStringIncludes(stderr, "icculus doctor");
+    assertStringIncludes(stderr, "discern doctor");
     assertStringIncludes(
       stderr,
-      "icculus.toml: present and valid TOML",
+      "discern.toml: present and valid TOML",
     );
     assertStringIncludes(stderr, "schema 6 (current)");
     assertStringIncludes(stderr, "All checks passed.");
   });
 });
 
-Deno.test("doctor: invalid (malformed) icculus.toml is flagged with a syntax fix", async () => {
+Deno.test("doctor: invalid (malformed) discern.toml is flagged with a syntax fix", async () => {
   await withTempDir(async (dir) => {
     await initInstall(dir);
     await Deno.writeTextFile(
-      join(dir, "icculus.toml"),
+      join(dir, "discern.toml"),
       'this is = not valid toml [[[\n"unterminated\n',
     );
 
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 1);
     assertEquals(payload.ok, false);
-    const toml = check(payload, "icculus.toml");
+    const toml = check(payload, "discern.toml");
     assertEquals(toml.ok, false);
     assertStringIncludes(toml.detail, "invalid");
-    assertEquals(toml.fix, "fix the TOML syntax in icculus.toml");
+    assertEquals(toml.fix, "fix the TOML syntax in discern.toml");
     // With an unparseable config the later checks have nothing to read, so they
     // are not emitted.
     assertEquals(
@@ -149,14 +149,14 @@ Deno.test("doctor: invalid (malformed) icculus.toml is flagged with a syntax fix
 
 Deno.test("doctor: a missing config is flagged as not initialized", async () => {
   await withTempDir(async (dir) => {
-    // No `init` here — the dir has no icculus.toml.
+    // No `init` here — the dir has no discern.toml.
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 1);
     assertEquals(payload.ok, false);
-    const toml = check(payload, "icculus.toml");
+    const toml = check(payload, "discern.toml");
     assertEquals(toml.ok, false);
     assertStringIncludes(toml.detail, "not found");
-    assertStringIncludes(toml.fix ?? "", "icculus init");
+    assertStringIncludes(toml.fix ?? "", "discern init");
   });
 });
 
@@ -171,7 +171,7 @@ Deno.test("doctor: a stale schema is flagged with an upgrade fix", async () => {
     assertEquals(schema.ok, false);
     assertStringIncludes(schema.detail, "v1");
     assertStringIncludes(schema.detail, "v6");
-    assertStringIncludes(schema.fix ?? "", "icculus upgrade");
+    assertStringIncludes(schema.fix ?? "", "discern upgrade");
   });
 });
 
@@ -184,7 +184,7 @@ Deno.test("doctor: human output for a stale schema prints the fix and a failure 
     assertEquals(code, 1);
     assertStringIncludes(stderr, "schema version:");
     assertStringIncludes(stderr, "fix: ");
-    assertStringIncludes(stderr, "icculus upgrade");
+    assertStringIncludes(stderr, "discern upgrade");
     assertStringIncludes(stderr, "Some checks failed");
   });
 });
@@ -198,7 +198,7 @@ Deno.test("doctor: an unknown capability key is flagged with a rename fix", asyn
 
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 1);
-    assertEquals(check(payload, "icculus.toml").ok, true);
+    assertEquals(check(payload, "discern.toml").ok, true);
     const caps = check(payload, "capabilities");
     assertEquals(caps.ok, false);
     assertStringIncludes(caps.detail, "bogus");
@@ -238,14 +238,14 @@ Deno.test("doctor: a recipe sourcing the retired shell library is flagged with t
     await Deno.mkdir(join(dir, "recipes"), { recursive: true });
     await Deno.writeTextFile(
       join(dir, "recipes/reset"),
-      '#!/usr/bin/env sh\n# desc: reset fixtures\n. "$ICCULUS_LIB/bootstrap.sh"\nok done\n',
+      '#!/usr/bin/env sh\n# desc: reset fixtures\n. "$DISCERN_LIB/bootstrap.sh"\nok done\n',
     );
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 1);
     const recipe = check(payload, "recipe contract");
     assertEquals(recipe.ok, false);
     assertStringIncludes(recipe.detail, "reset");
-    assertStringIncludes(recipe.fix ?? "", "icculus config get");
+    assertStringIncludes(recipe.fix ?? "", "discern config get");
   });
 });
 
@@ -262,7 +262,7 @@ Deno.test("doctor: a foreign worktree hook is an advisory warning, not a failure
   await withTempDir(async (dir) => {
     await initInstall(dir);
     // Inject another tool's worktree automation alongside the harness's own hooks
-    // (which call `icculus`); the harness's stay, this one is foreign.
+    // (which call `discern`); the harness's stay, this one is foreign.
     const p = join(dir, ".claude/settings.json");
     // deno-lint-ignore no-explicit-any
     const settings = JSON.parse(await Deno.readTextFile(p)) as any;

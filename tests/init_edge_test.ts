@@ -25,7 +25,7 @@ Deno.test("init reports templates_not_found in JSON when the override dir is mis
     const { code, stdout } = await runCli(
       ["init", "--yes", "--json", "--slug", "demo"],
       dir,
-      { ICCULUS_TEMPLATES_DIR: join(dir, "does-not-exist") },
+      { DISCERN_TEMPLATES_DIR: join(dir, "does-not-exist") },
     );
     assertEquals(code, 1);
     const result = JSON.parse(stdout);
@@ -33,7 +33,7 @@ Deno.test("init reports templates_not_found in JSON when the override dir is mis
     assertEquals(result.error, "templates_not_found");
     assertStringIncludes(result.message, "not a directory");
     // Nothing was scaffolded — the guard fires before any plan is built.
-    assert(!(await pathExists(join(dir, "icculus.toml"))));
+    assert(!(await pathExists(join(dir, "discern.toml"))));
   });
 });
 
@@ -42,7 +42,7 @@ Deno.test("init reports templates_not_found to stderr without --json", async () 
     const { code, stdout, stderr } = await runCli(
       ["init", "--yes", "--slug", "demo"],
       dir,
-      { ICCULUS_TEMPLATES_DIR: join(dir, "nope") },
+      { DISCERN_TEMPLATES_DIR: join(dir, "nope") },
     );
     assertEquals(code, 1);
     assertStringIncludes(stderr, "not a directory");
@@ -53,7 +53,7 @@ Deno.test("init reports templates_not_found to stderr without --json", async () 
 
 // --- already_initialized, human branch (init.ts 163-165) ---
 
-Deno.test("init refuses over an existing icculus.toml to stderr without --json", async () => {
+Deno.test("init refuses over an existing discern.toml to stderr without --json", async () => {
   await withTempDir(async (dir) => {
     assertEquals(
       (await runCli(["init", "--yes", "--slug", "first"], dir)).code,
@@ -64,7 +64,7 @@ Deno.test("init refuses over an existing icculus.toml to stderr without --json",
       dir,
     );
     assertEquals(code, 1);
-    assertStringIncludes(stderr, "an icculus install already exists here");
+    assertStringIncludes(stderr, "a discern install already exists here");
     assertStringIncludes(stderr, "--force");
     // No JSON payload printed in the human branch.
     assertEquals(stdout.trim(), "");
@@ -84,7 +84,7 @@ Deno.test("init reports invalid --config JSON to stderr without --json", async (
     assertStringIncludes(stderr, "not valid JSON");
     assertEquals(stdout.trim(), "");
     // The guard fired before planning — nothing scaffolded.
-    assert(!(await pathExists(join(dir, "icculus.toml"))));
+    assert(!(await pathExists(join(dir, "discern.toml"))));
   });
 });
 
@@ -133,21 +133,21 @@ Deno.test("init reports invalid --config fills to stderr without --json", async 
   });
 });
 
-// --- applyFillsToPlan early return when icculus.toml is a skip (init.ts 143-145) ---
+// --- applyFillsToPlan early return when discern.toml is a skip (init.ts 143-145) ---
 
-Deno.test("init --force --config leaves an existing icculus.toml untouched (fills skip the seed)", async () => {
+Deno.test("init --force --config leaves an existing discern.toml untouched (fills skip the seed)", async () => {
   await withTempDir(async (dir) => {
-    // First, a plain install so a seed icculus.toml exists on disk.
+    // First, a plain install so a seed discern.toml exists on disk.
     assertEquals(
       (await runCli(["init", "--yes", "--slug", "edge-app"], dir)).code,
       0,
     );
-    const before = await Deno.readTextFile(join(dir, "icculus.toml"));
+    const before = await Deno.readTextFile(join(dir, "discern.toml"));
     // The fresh seed carries no capability fills.
     assert(!before.includes('test = "vitest run"'));
 
     // Re-init with --force AND a --config that *would* fill capabilities. Because
-    // icculus.toml is a seed already present, its plan op is `skip`, so
+    // discern.toml is a seed already present, its plan op is `skip`, so
     // applyFillsToPlan returns early and never applies the fills — the seed is
     // left exactly as the user's.
     await Deno.writeTextFile(join(dir, "answers.json"), ANSWERS);
@@ -159,7 +159,7 @@ Deno.test("init --force --config leaves an existing icculus.toml untouched (fill
     assertEquals(JSON.parse(run.stdout).ok, true);
 
     // The seed is byte-for-byte unchanged: the fills did not land.
-    const after = await Deno.readTextFile(join(dir, "icculus.toml"));
+    const after = await Deno.readTextFile(join(dir, "discern.toml"));
     assertEquals(after, before);
     assert(!after.includes('test = "vitest run"'));
   });

@@ -3,7 +3,7 @@
 _The testing approach in this repo — how tests are written, how they run, and
 the patterns the gate assumes._
 
-The `test` capability in `icculus.toml` is what the `finish` gate runs; this doc
+The `test` capability in `discern.toml` is what the `finish` gate runs; this doc
 explains how to write tests that pass it and how to run them while iterating.
 
 ## How tests run
@@ -26,11 +26,11 @@ There are **two layers**, sharing two helper modules:
   ([tests/helpers.ts](../../tests/helpers.ts)), so Cliffy parsing, the global
   flags, `--json` output, and exit codes are all exercised end to end.
 - **Engine tests** (`tests/engine_*`) scaffold the **real** `templates/` (the
-  `icculus.toml` seed) into a temp dir using the installer's own plan/apply
+  `discern.toml` seed) into a temp dir using the installer's own plan/apply
   path, then run the engine as a real subprocess via `runAgent`
   ([tests/engine_helpers.ts](../../tests/engine_helpers.ts)) —
   `deno run
-  src/main.ts <verb>` inside that dir, with an `icculus` shim on
+  src/main.ts <verb>` inside that dir, with a `discern` shim on
   `PATH` so project recipes resolve. So the engine verbs (`finish`, `worktree`,
   …) and their `--json` contracts are exercised against a faithful install, end
   to end.
@@ -51,7 +51,7 @@ full run" trap is exactly this failure).
   Colour is forced off (`NO_COLOR`) so assertions match plain text.
 - **Scaffold from the real templates.** Engine tests use `scaffoldEngine` (which
   lays down `REAL_TEMPLATES` through `assembleInitPlan`/`applyPlan`), so the
-  bytes under test are the bytes a real `icculus init` ships. Use `writeConfig`
+  bytes under test are the bytes a real `discern init` ships. Use `writeConfig`
   to set the `[capabilities]`/`[checks]`/`[scopes]`/`[ratchets]` a case needs,
   and `addWorktree` for the worktree-recipe layout.
 - **Use fixtures for unit-level installer tests.** `FIXTURE_TEMPLATES` plus
@@ -72,13 +72,13 @@ full run" trap is exactly this failure).
 Line coverage of `src/` is measured by `deno task coverage`
 ([scripts/coverage.ts](../../scripts/coverage.ts)): it runs the whole suite
 under Deno's coverage instrument, filters the lcov to paths under `/src/`, and
-prints one `ICCULUS_METRIC coverage <pct>` line. Because the engine is now
+prints one `DISCERN_METRIC coverage <pct>` line. Because the engine is now
 TypeScript under `src/engine/`, it is instrumented like the rest of `src/` — the
 `engine_*` subprocess tests that drive the verbs through `src/main.ts` count
 toward the number, so installer and engine share one coverage figure.
 
 That metric feeds a ratchet — `[ratchets.coverage]` in
-[icculus.toml](../../icculus.toml) — a floor that only ever rises. The
+[discern.toml](../../discern.toml) — a floor that only ever rises. The
 `ratchets` verb holds it (in this repo, `deno task dev ratchets`); it is slow,
 so it is **not** part of the `finish` gate, and CI enforces it on every pull
 request. To raise the floor: add tests, then bump `limit` to just below the

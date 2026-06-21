@@ -1,4 +1,4 @@
-# ADR 0005: Declarative config — a comment-preserving editor, `icculus config`, and `init --config`
+# ADR 0005: Declarative config — a comment-preserving editor, `discern config`, and `init --config`
 
 **Status**: accepted; **amended by the 1.0 redesign** — see _Update (1.0)_
 below.
@@ -10,20 +10,20 @@ The original decision below shipped the `init --config` shape as a type called
 reused for `adapter.json`. Once two surfaces consumed it, it was a published API
 in all but name.
 
-1.0 makes that explicit: it is now the **icculus config document**
-(`IcculusConfigDoc`, in `src/lib/config_doc.ts`), with a deliberately neutral
+1.0 makes that explicit: it is now the **discern config document**
+(`DiscernConfigDoc`, in `src/lib/config_doc.ts`), with a deliberately neutral
 name, an optional **`version`** (a document declaring a major this build doesn't
 understand is refused, not misread), an accepted **`$schema`** pointer, and a
-**published JSON Schema** at `schema/icculus-config.schema.json` for editor
+**published JSON Schema** at `schema/discern-config.schema.json` for editor
 validation. `init --config` and `adapter.json` (ADR 0007) are its two consumers.
 The `ratchets` field also drops the pre-1.0 `coverage_min` number shorthand (ADR
 0003): every ratchet is a table.
 
 ## Context
 
-icculus exists to be driven by other tools: a wrapping scaffolder runs
-`icculus init` and then layers its own stack-specific pieces on top. Today that
-layering means **hand-editing `icculus.toml`** — there is no supported way to
+discern exists to be driven by other tools: a wrapping scaffolder runs
+`discern init` and then layers its own stack-specific pieces on top. Today that
+layering means **hand-editing `discern.toml`** — there is no supported way to
 set slots, scopes, side-gates, or ratchets programmatically. Non-interactive
 `init` takes discrete flags (`--name`, `--slug`, `--source-globs`,
 `--brief @file`, …) that cover only the `[project]` identity and the `web`
@@ -31,7 +31,7 @@ scope; everything else a real project needs is left to the scaffolder to write
 into TOML itself.
 
 So every scaffolder/CI re-implements TOML editing — and doing it naively breaks
-things. `icculus.toml` is **heavily commented** (every slot carries a `# e.g.`
+things. `discern.toml` is **heavily commented** (every slot carries a `# e.g.`
 hint; every section a paragraph of guidance). A parse→stringify round-trip
 through a normal TOML library **strips all of that**, degrading the file the kit
 worked hard to make legible. So the editing has to be _surgical_ (preserve
@@ -59,20 +59,20 @@ through a TOML AST:
   values via the existing TOML renderers and call `setLiteral`.
 
 This editor is the one place TOML editing lives. It targets the documented
-`icculus.toml` subset (the same shape `toml.awk` reads): `[section]` /
+`discern.toml` subset (the same shape `toml.awk` reads): `[section]` /
 `[section.sub]` headers and single-line `key = scalar|array` lines.
 
-### 2. An `icculus config` subcommand (edit an existing install)
+### 2. A `discern config` subcommand (edit an existing install)
 
 ```
-icculus config set-slot <name> --phase <phase> --run <cmd>
-icculus config set-scope <name> <glob>...
-icculus config set-side-gate <scope> --run <cmd>
-icculus config set-ratchet <name> --limit <n> [--metric <m>] [--direction up|down] [--slot <s>]
-icculus config set <dotted.key> <value> [--number | --bool | --string]
+discern config set-slot <name> --phase <phase> --run <cmd>
+discern config set-scope <name> <glob>...
+discern config set-side-gate <scope> --run <cmd>
+discern config set-ratchet <name> --limit <n> [--metric <m>] [--direction up|down] [--slot <s>]
+discern config set <dotted.key> <value> [--number | --bool | --string]
 ```
 
-Each finds `icculus.toml` in the cwd, applies the edit through `TomlEditor`, and
+Each finds `discern.toml` in the cwd, applies the edit through `TomlEditor`, and
 writes it back — comments intact. Light validation matches `doctor`'s
 expectations (slot `--phase` ∈ the known phases; ratchet `--direction` ∈
 `up`/`down`; `--limit` numeric; names are TOML-bare-key shaped). `set` infers
@@ -88,7 +88,7 @@ and `--dry-run` (report the edits, write nothing) — parity with `init`/`doctor
 file and scaffolds non-interactively. Base fields mirror the flags (`name`,
 `slug`, `branch_prefix`, `source_globs`, `brief`, `agents`); the value-add is
 `slots`, `scopes`, `side_gates`, and `ratchets`, which are applied to the
-**generated** `icculus.toml` via `TomlEditor` _as part of building the plan_ —
+**generated** `discern.toml` via `TomlEditor` _as part of building the plan_ —
 so `--dry-run` and `--json` show the final file and `apply` writes it, with no
 separate edit step. Explicit flags override file values; the file overrides
 defaults.
@@ -110,11 +110,11 @@ defaults.
 
 ## Consequences
 
-- A scaffolder or CI can drive icculus end-to-end without owning any TOML
+- A scaffolder or CI can drive discern end-to-end without owning any TOML
   editing: `init --config` for a fresh, fully-specified install;
-  `icculus config …` to adjust an existing one. This is the central win for the
+  `discern config …` to adjust an existing one. This is the central win for the
   "consumed by another project" use case.
-- `icculus.toml` stays legible: programmatic edits preserve its comments and
+- `discern.toml` stays legible: programmatic edits preserve its comments and
   layout, so a file a scaffolder touched still reads like the hand-written one.
 - The editor targets the documented config subset, not arbitrary TOML. That's a
   deliberate bound — it matches what `toml.awk` reads, so the editor and the
@@ -129,7 +129,7 @@ defaults.
 ## Alternatives considered
 
 - **Round-trip through `@std/toml`.** Rejected: it strips every comment, gutting
-  the carefully-annotated `icculus.toml`. Comment preservation is the whole
+  the carefully-annotated `discern.toml`. Comment preservation is the whole
   point.
 - **A full comment-preserving TOML AST library.** Overkill and a heavy
   dependency for the tiny, fixed subset the kit uses. A few-dozen-line surgical

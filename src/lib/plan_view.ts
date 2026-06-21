@@ -32,7 +32,7 @@ function row(log: Logger, path: string, desc: string): string {
 
 /**
  * Render a calm, grouped "what will change" review. The footprint is small now
- * (the dissolved layout seeds just `icculus.toml`, optionally a brief, and the
+ * (the dissolved layout seeds just `discern.toml`, optionally a brief, and the
  * integration files), so it names the config, lists any other seeds, and calls
  * out the integration files merged into the project. The full list is one
  * `--dry-run` away.
@@ -41,7 +41,7 @@ export function renderReview(log: Logger, plan: Plan, destDir: string): void {
   const ops = plan.ops;
   const pick = (pred: (o: PlanOp) => boolean) => ops.filter(pred);
 
-  const hasConfig = ops.some((o) => o.targetRel === "icculus.toml");
+  const hasConfig = ops.some((o) => o.targetRel === "discern.toml");
   // The integration files land at the project root / .claude and may merge or
   // append into ones you already have — grouped together regardless of how.
   const integration = pick((o) =>
@@ -50,10 +50,10 @@ export function renderReview(log: Logger, plan: Plan, destDir: string): void {
   const integrationSet = new Set(integration);
   // Anything else that is seeded (e.g. brief.md) — not the config or integration.
   const other = ops.filter((o) =>
-    o.targetRel !== "icculus.toml" && !integrationSet.has(o)
+    o.targetRel !== "discern.toml" && !integrationSet.has(o)
   );
 
-  log.heading(`icculus will set up its harness in ${destDir}`);
+  log.heading(`discern will set up its harness in ${destDir}`);
   log.line(
     log.dim(
       `  ${ops.length} files. It never overwrites anything you already have.`,
@@ -65,7 +65,7 @@ export function renderReview(log: Logger, plan: Plan, destDir: string): void {
     log.line(
       row(
         log,
-        "icculus.toml",
+        "discern.toml",
         "the whole footprint — capabilities, scopes, features, worktree",
       ),
     );
@@ -95,7 +95,7 @@ export function renderReview(log: Logger, plan: Plan, destDir: string): void {
   }
 
   log.line();
-  log.line(log.dim("  See every file with:  icculus init --dry-run"));
+  log.line(log.dim("  See every file with:  discern init --dry-run"));
 
   if (plan.unknownTokens.size > 0) {
     log.line();

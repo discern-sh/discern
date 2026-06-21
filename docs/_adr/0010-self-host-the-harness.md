@@ -1,4 +1,4 @@
-# ADR 0010: Self-host the harness — install icculus into its own repo
+# ADR 0010: Self-host the harness — install discern into its own repo
 
 **Status**: accepted; **superseded by
 [ADR 0019](0019-single-binary-ts-engine.md)** — see _Update (single-binary
@@ -8,7 +8,7 @@ cutover)_ below.
 
 The single-binary cutover ([ADR 0019](0019-single-binary-ts-engine.md)) inverts
 self-host. There is no committed shell harness to install into the repo — the
-engine is TypeScript compiled into the `icculus` binary — so the repo self-hosts
+engine is TypeScript compiled into the `discern` binary — so the repo self-hosts
 by running its **own** engine (`deno task dev finish`), with no second copy to
 keep in sync. The drift-gate this ADR established (`selfcheck`/`selfsync`) is
 removed: the regression class it guarded is made structurally impossible,
@@ -16,10 +16,10 @@ because there is nothing that can drift.
 
 ## Context
 
-icculus is an agentic-development harness in two halves: a Deno/TypeScript
+discern is an agentic-development harness in two halves: a Deno/TypeScript
 installer (`src/`) and the POSIX-shell harness it installs (`templates/`, the
 source of truth). Until now the repo was **not** self-installed — there was no
-root `icculus.toml`, `bin/agent`, or `.icculus/`. The README's self-hosting
+root `discern.toml`, `bin/agent`, or `.discern/`. The README's self-hosting
 section was therefore aspirational: the repo's real gate was the local
 convention `deno fmt && deno lint && deno check src/main.ts && deno task test`,
 and CI only built release binaries.
@@ -37,15 +37,15 @@ backward-compatibility cost to doing it now.
 
 Install the harness into the repo and make `./bin/agent finish` the repo's gate.
 
-- **Committed managed copy ("Option C").** `icculus init` runs at the root; the
-  managed set (`bin/agent`, `.icculus/engine/**`, `.ai/skills/**`) is committed
+- **Committed managed copy ("Option C").** `discern init` runs at the root; the
+  managed set (`bin/agent`, `.discern/engine/**`, `.ai/skills/**`) is committed
   as a copy of `templates/`, alongside the seed files `init` writes
-  (`icculus.toml`, `docs/**`, `.ai/guidelines/icculus.md`, `TODO.md`).
+  (`discern.toml`, `docs/**`, `.ai/guidelines/discern.md`, `TODO.md`).
 - **Drift is a gate-enforced invariant.** A new read-only
-  `icculus upgrade --check` (exposed as `deno task selfcheck`) exits non-zero if
+  `discern upgrade --check` (exposed as `deno task selfcheck`) exits non-zero if
   any managed file differs from `templates/`. It is wired as `[slots.selfcheck]`
   in the `check` phase, so `agent finish` fails on drift. Healing is one command
-  — `deno task selfsync` (≡ `icculus upgrade`) — which propagates `templates/` →
+  — `deno task selfsync` (≡ `discern upgrade`) — which propagates `templates/` →
   the install.
 - **The golden rule.** To change a managed file you edit `templates/` and run
   `deno task selfsync`; never edit the root copy (a direct edit is reported as
@@ -55,19 +55,19 @@ Install the harness into the repo and make `./bin/agent finish` the repo's gate.
   `selfcheck` (check); `deno task test` (test). Build stays a no-op
   (`deno task build` is release-only).
 - **Guidance via the pipeline.** Agent guidance is authored in
-  `.ai/guidelines/icculus.md` (a seed) and compiled by `agent guidelines` into
+  `.ai/guidelines/discern.md` (a seed) and compiled by `agent guidelines` into
   `AGENTS.md` (tracked) and `CLAUDE.md` (generated, gitignored).
 - **CI runs the repo's own gate** (`agent finish`) on push and PR, with a
   trailing `git diff --exit-code` so the auto-fixing `fix` phase becomes a hard
   check.
-- **fmt/lint exclude the managed artifacts** (`.icculus/`, `.ai/`, `AGENTS.md`,
+- **fmt/lint exclude the managed artifacts** (`.discern/`, `.ai/`, `AGENTS.md`,
   `CLAUDE.md`, plus `.idea/`) so the formatter never rewrites a managed file
   into drift or fights the guidelines compiler.
 
 ## Consequences
 
-- The repo now has **two copies of the engine**: `templates/.icculus/engine/**`
-  (the source the test suite runs) and `.icculus/engine/**` (the installed copy
+- The repo now has **two copies of the engine**: `templates/.discern/engine/**`
+  (the source the test suite runs) and `.discern/engine/**` (the installed copy
   that gates this repo). The `selfcheck` gate plus the golden rule keep them
   identical; the cost is the discipline of editing `templates/` and syncing.
 - The gate runs on itself: `agent finish` runs `deno task test`, whose
@@ -79,8 +79,8 @@ Install the harness into the repo and make `./bin/agent finish` the repo's gate.
 - The test suite remains the **correctness arbiter** for the engine: a
   `templates/` change is validated by `deno task test` whether or not the
   install is synced yet. If a bad engine change ever breaks `agent finish`
-  itself, fall back to `deno task test` or `git checkout .icculus/engine`.
-- `icculus upgrade --check` is a genuinely useful new feature for any user (CI
+  itself, fall back to `deno task test` or `git checkout .discern/engine`.
+- `discern upgrade --check` is a genuinely useful new feature for any user (CI
   can now assert harness sync), not just an internal device.
 - The isolated-worktree workflow is now installed and exercisable for real, but
   adopting it for this repo's own development is deferred (see `TODO.md`); the

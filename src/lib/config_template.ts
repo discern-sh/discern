@@ -1,7 +1,7 @@
 /**
- * Read the canonical, doc-commented blocks out of the `icculus.toml` template.
+ * Read the canonical, doc-commented blocks out of the `discern.toml` template.
  *
- * The template (`templates/icculus.toml.tmpl`) is the single source of truth for
+ * The template (`templates/discern.toml.tmpl`) is the single source of truth for
  * how a section *should* read in a project's config: its `# ───` documentation
  * paragraph, its `[header]`, and its body of commented defaults. `init` lays the
  * whole template down, so a fresh config is fully documented. A 5→6 migration
@@ -20,7 +20,7 @@ import { join } from "@std/path";
 import { resolveTemplatesDir } from "./paths.ts";
 
 /** The template file name inside the resolved `templates/` tree. */
-const CONFIG_TEMPLATE_NAME = "icculus.toml.tmpl";
+const CONFIG_TEMPLATE_NAME = "discern.toml.tmpl";
 
 /** Matches a section header line, capturing the section path inside the brackets. */
 const HEADER_RE = /^\[([^\]]+)\]/;
@@ -39,7 +39,7 @@ function isComment(line: string): boolean {
 }
 
 /**
- * Extract a top-level section's canonical block from the `icculus.toml` template
+ * Extract a top-level section's canonical block from the `discern.toml` template
  * text: its documentation comment block (when it has one), the `[section]`
  * header, and the section body — as one multi-line string with no surrounding
  * blank lines. Returns `undefined` when the section header is absent.
@@ -100,7 +100,7 @@ export function sectionBlockFromTemplate(
 }
 
 /**
- * Read the bundled `icculus.toml` template text, or `undefined` if the templates
+ * Read the bundled `discern.toml` template text, or `undefined` if the templates
  * tree cannot be resolved or read. Callers (the migration) treat `undefined` as
  * "fall back to a plain key edit" rather than failing — a missing template must
  * never break an upgrade.

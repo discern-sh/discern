@@ -5,28 +5,28 @@ below.
 
 ## Update (1.0)
 
-`adapter.json` is now described as what it is: an **icculus config document**
+`adapter.json` is now described as what it is: an **discern config document**
 (ADR 0005's _Update_) — the same versioned, schema-backed shape `init --config`
 reads, rather than an "`init --config`-shaped" struct. `add-adapter` validates
 its `version` the same way, and an adapter author can point its `$schema` at
-`schema/icculus-config.schema.json` for editor validation. The contract is
+`schema/discern-config.schema.json` for editor validation. The contract is
 otherwise unchanged.
 
 ## Context
 
-`icculus add-adapter <name>` shipped as mechanism-only: it scaffolds an
+`discern add-adapter <name>` shipped as mechanism-only: it scaffolds an
 `adapters/<name>/` tree onto the project with the same token/merge/exec-bit
 machinery as `init`, but nothing was bundled, the contract was undocumented, and
 — critically — it could only overlay **files**. An adapter could add a project
 recipe, a skill, a guideline fragment, or a doc, but it could **not** contribute
 **slots, scopes, side-gates, or ratchets**, because those live in the single
-`icculus.toml`, which is a seed (already present) that a file overlay leaves
+`discern.toml`, which is a seed (already present) that a file overlay leaves
 untouched. So an "adapter" couldn't actually do the stack-specific half of what
 an adapter is for.
 
 ADR 0005 added a comment-preserving `TomlEditor` and the `applyAnswerFills`
 routine that `init --config` uses to write slots/scopes/side-gates/ratchets into
-the generated `icculus.toml`. That is exactly the missing capability — an
+the generated `discern.toml`. That is exactly the missing capability — an
 adapter should be able to carry the same fills.
 
 The tension the task names: an adapter is inherently stack-specific, so a
@@ -43,13 +43,13 @@ and prove it with a clearly-labelled fake example adapter used only in a test
 
 - **Everything in it is overlaid onto the project** with the same rules as
   `init`: seed files (recipes, guideline fragments, docs) are write-once;
-  managed files (`.ai/skills/**`, `.icculus/engine/**`) follow the hash-aware
+  managed files (`.ai/skills/**`, `.discern/engine/**`) follow the hash-aware
   overwrite/`.new` rule; `.claude/settings.json` deep-merges;
   `.gitignore.fragment` appends.
 - **One file is special: `adapter.json`** at the adapter root. It is metadata,
   not scaffolded (it is filtered out of the overlay). It is an
   `init --config`-shaped document whose `slots` / `scopes` / `side_gates` /
-  `ratchets` are applied to the project's existing `icculus.toml` via
+  `ratchets` are applied to the project's existing `discern.toml` via
   `TomlEditor` (comments preserved), reusing `applyAnswerFills`. An optional
   `description` is shown when listing adapters.
 
@@ -71,7 +71,7 @@ the fills.
 
 - `add-adapter` is now a complete, documented extension point: a distributable
   bundle can overlay both files and config in one command, comments intact.
-- Adapters and `icculus config` / `init --config` share one editor and one fills
+- Adapters and `discern config` / `init --config` share one editor and one fills
   format — an adapter author writes the same JSON shape a CI scaffolder does.
 - The kit stays stack-neutral: the contract is documented and tested, but no
   real adapter ships. A project that just wants to layer its own stack should
@@ -88,10 +88,10 @@ the fills.
 - **Ship a real reference adapter (e.g. node).** Rejected: violates
   stack-neutrality. A fake example fixture exercises the contract without baking
   in an ecosystem.
-- **A separate `icculus apply-fills` command instead of folding fills into
+- **A separate `discern apply-fills` command instead of folding fills into
   `add-adapter`.** Rejected: an adapter should be one cohesive bundle applied by
   one command; `init --config` and `config` already cover standalone fills.
-- **Put fills inside the overlaid `icculus.toml`.** Rejected: the project's
-  `icculus.toml` is a seed (already present), so an overlaid one is skipped —
+- **Put fills inside the overlaid `discern.toml`.** Rejected: the project's
+  `discern.toml` is a seed (already present), so an overlaid one is skipped —
   and a full file can't _merge_ slots into the user's existing config the way an
   `adapter.json` fill can.

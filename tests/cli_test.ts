@@ -26,7 +26,7 @@ async function assertNotExists(path: string): Promise<void> {
 
 /** Rewrite an install's recorded `[meta].schema_version`. */
 async function setSchema(dir: string, version: number): Promise<void> {
-  const p = join(dir, "icculus.toml");
+  const p = join(dir, "discern.toml");
   const text = await Deno.readTextFile(p);
   await Deno.writeTextFile(
     p,
@@ -54,13 +54,13 @@ Deno.test("init --yes --json scaffolds and reports JSON", async () => {
     assertEquals(result.project.slug, "cli-demo");
     assert(Array.isArray(result.written));
     // The whole footprint is the single root config file (ADR 0020).
-    assert(result.written.includes("icculus.toml"));
+    assert(result.written.includes("discern.toml"));
     // init now compiles the agent files; `compiled` lists them.
     assert(Array.isArray(result.compiled));
     assert(result.compiled.includes("AGENTS.md"));
     assert(result.compiled.includes("CLAUDE.md"));
     // The files really landed.
-    await Deno.stat(join(dir, "icculus.toml"));
+    await Deno.stat(join(dir, "discern.toml"));
     await Deno.stat(join(dir, "AGENTS.md"));
     await Deno.stat(join(dir, "CLAUDE.md"));
     // The bundled skills are materialized into `.claude/skills/` (gitignored).
@@ -89,7 +89,7 @@ Deno.test("init --dry-run --json writes nothing", async () => {
   });
 });
 
-Deno.test("init refuses over an existing icculus.toml without --force", async () => {
+Deno.test("init refuses over an existing discern.toml without --force", async () => {
   await withTempDir(async (dir) => {
     await runCli(["init", "--yes", "--json", "--slug", "first"], dir);
     const { code, stdout } = await runCli(
@@ -115,7 +115,7 @@ Deno.test("init --force proceeds over an existing install (re-runs without error
     assertEquals(result.ok, true);
     // The existing config seed is left as-is (a present seed is skipped), so it
     // is not in the written list.
-    assert(!result.written.includes("icculus.toml"));
+    assert(!result.written.includes("discern.toml"));
     // The agent files are recompiled on every run, so `compiled` lists them.
     assert(result.compiled.includes("AGENTS.md"));
     assert(result.compiled.includes("CLAUDE.md"));
@@ -128,7 +128,7 @@ Deno.test("init leaves a pre-existing seed file untouched (no overwrite, no .new
     // is needed since init otherwise refuses over an existing install; with it,
     // the present seed is left as the user's (skipped), not overwritten.
     const userBody = "# the user's own config — must survive init\n";
-    await Deno.writeTextFile(join(dir, "icculus.toml"), userBody);
+    await Deno.writeTextFile(join(dir, "discern.toml"), userBody);
 
     const { code } = await runCli(
       ["init", "--yes", "--force", "--json", "--slug", "demo"],
@@ -137,10 +137,10 @@ Deno.test("init leaves a pre-existing seed file untouched (no overwrite, no .new
     assertEquals(code, 0);
     // The user's file is byte-for-byte intact; no `.new` sibling is produced.
     assertEquals(
-      await Deno.readTextFile(join(dir, "icculus.toml")),
+      await Deno.readTextFile(join(dir, "discern.toml")),
       userBody,
     );
-    await assertNotExists(join(dir, "icculus.toml.new"));
+    await assertNotExists(join(dir, "discern.toml.new"));
   });
 });
 
@@ -162,7 +162,7 @@ Deno.test("doctor --json reports invalid result when not initialized", async () 
     const result = JSON.parse(stdout);
     assertEquals(result.ok, false);
     const toml = result.checks.find((c: { name: string }) =>
-      c.name === "icculus.toml"
+      c.name === "discern.toml"
     );
     assertEquals(toml.ok, false);
     assert(typeof toml.fix === "string" && toml.fix.length > 0);
@@ -221,17 +221,17 @@ Deno.test("add-preset reports unknown preset with a friendly error", async () =>
   });
 });
 
-Deno.test("a malformed icculus.toml fails cleanly (no stack trace), in human and JSON", async () => {
+Deno.test("a malformed discern.toml fails cleanly (no stack trace), in human and JSON", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(
-      join(dir, "icculus.toml"),
+      join(dir, "discern.toml"),
       'this is = not valid toml [[[\n"unterminated\n',
     );
     // Human mode: a one-line diagnostic on stderr, exit 1, no raw "Uncaught".
     const human = await runCli(["config", "get", "project.slug"], dir);
     assertEquals(human.code, 1);
     assertStringIncludes(human.stderr, "syntax error near line");
-    assertStringIncludes(human.stderr, "icculus.toml");
+    assertStringIncludes(human.stderr, "discern.toml");
     assert(
       !human.stderr.includes("Uncaught"),
       `must not dump a stack trace:\n${human.stderr}`,

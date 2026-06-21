@@ -1,5 +1,5 @@
 /**
- * CLI tests for `icculus migrate` (ADR 0014). It is now the read-only migration
+ * CLI tests for `discern migrate` (ADR 0014). It is now the read-only migration
  * *status* surface: it reports the install's recorded schema and any pending
  * chain steps, and points at `upgrade` to apply them — it never writes. The
  * bespoke 0.x→1.0 transform it once performed is retired (the chain starts clean
@@ -20,7 +20,7 @@ async function init(dir: string): Promise<void> {
 }
 
 async function setSchema(dir: string, version: number): Promise<void> {
-  const p = join(dir, "icculus.toml");
+  const p = join(dir, "discern.toml");
   const text = await Deno.readTextFile(p);
   await Deno.writeTextFile(
     p,
@@ -102,11 +102,11 @@ Deno.test("migrate human output reports up to date on a current install", async 
 
 Deno.test("migrate human output errors cleanly when not initialized", async () => {
   await withTempDir(async (dir) => {
-    // No `init` → no icculus.toml; the non-JSON branch logs the error to stderr.
+    // No `init` → no discern.toml; the non-JSON branch logs the error to stderr.
     const r = await runCli(["migrate"], dir);
     assertEquals(r.code, 1);
-    assertStringIncludes(r.stderr, "no icculus install here");
-    assertStringIncludes(r.stderr, "icculus init");
+    assertStringIncludes(r.stderr, "no discern install here");
+    assertStringIncludes(r.stderr, "discern init");
   });
 });
 

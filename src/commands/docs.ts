@@ -1,5 +1,5 @@
 /**
- * `icculus docs` — browse and read the project's documentation tree.
+ * `discern docs` — browse and read the project's documentation tree.
  *
  * One command serves two audiences, decided by how it is invoked:
  *
@@ -175,7 +175,7 @@ function printToc(tree: DocsTree, cwd: string, color: boolean): void {
   );
 
   const lines: string[] = [
-    `${paint(colors.bold, "icculus docs")} — ${tree.entries.length} ` +
+    `${paint(colors.bold, "discern docs")} — ${tree.entries.length} ` +
     `documents in ${display(tree.docsDir, cwd)}`,
   ];
   let section: string | null = null;
@@ -206,7 +206,7 @@ async function viewTarget(
       log.jsonResult({ ok: false, error: "not_found", message });
     } else {
       log.error(message);
-      log.detail("list what's available: icculus docs --list");
+      log.detail("list what's available: discern docs --list");
     }
     return 1;
   }
@@ -244,7 +244,7 @@ async function viewTarget(
   return 0;
 }
 
-/** Run `icculus docs`. Returns a process exit code. */
+/** Run `discern docs`. Returns a process exit code. */
 export async function runDocs(options: DocsOptions): Promise<number> {
   const log = new Logger(options);
   const cwd = Deno.cwd();

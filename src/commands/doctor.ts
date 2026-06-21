@@ -1,5 +1,5 @@
 /**
- * `icculus doctor` — verify the install. Every check returns an actionable
+ * `discern doctor` — verify the install. Every check returns an actionable
  * diagnostic: not just pass/fail, but the exact fix when something is wrong.
  *
  * With the engine in the binary (no committed shell engine, no `agent`
@@ -17,7 +17,7 @@ import {
 } from "../lib/paths.ts";
 import { CONFIG_REL } from "../shared/env.ts";
 import { Logger } from "../lib/log.ts";
-import { parseIcculusToml } from "../lib/toml_render.ts";
+import { parseDiscernToml } from "../lib/toml_render.ts";
 import { resolveRecordedSchema } from "../lib/schema.ts";
 import { KIT_VERSION, SCHEMA_VERSION } from "../lib/version.ts";
 import { Config } from "../shared/config_read.ts";
@@ -80,30 +80,30 @@ async function commandResolves(word: string): Promise<boolean> {
 export async function runChecks(destDir: string): Promise<Check[]> {
   const checks: Check[] = [];
 
-  // 1. the config (icculus.toml, or a legacy .icculus/config.toml) exists and parses.
+  // 1. the config (discern.toml, or a legacy .discern/config.toml) exists and parses.
   const tomlPath = (await resolveConfigPath(destDir)) ??
     join(destDir, CONFIG_REL);
-  let toml: ReturnType<typeof parseIcculusToml> | undefined;
+  let toml: ReturnType<typeof parseDiscernToml> | undefined;
   let tomlText: string | undefined;
   try {
     tomlText = await Deno.readTextFile(tomlPath);
-    toml = parseIcculusToml(tomlText);
+    toml = parseDiscernToml(tomlText);
     checks.push({
-      name: "icculus.toml",
+      name: "discern.toml",
       ok: true,
       detail: "present and valid TOML",
     });
   } catch (error) {
     const isMissing = error instanceof Deno.errors.NotFound;
     checks.push({
-      name: "icculus.toml",
+      name: "discern.toml",
       ok: false,
       detail: isMissing
         ? "not found in this directory"
         : `invalid: ${error instanceof Error ? error.message : String(error)}`,
       fix: isMissing
-        ? "run `icculus init` to scaffold the harness here"
-        : "fix the TOML syntax in icculus.toml",
+        ? "run `discern init` to scaffold the harness here"
+        : "fix the TOML syntax in discern.toml",
     });
     // Without a parseable config the remaining checks have nothing to read.
     return checks;
@@ -123,7 +123,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
       ok: false,
       detail:
         `install schema v${recorded}, this build expects v${SCHEMA_VERSION}`,
-      fix: "run `icculus upgrade` to migrate the install",
+      fix: "run `discern upgrade` to migrate the install",
     });
   }
 
@@ -157,7 +157,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
       detail: `could not read capabilities: ${
         error instanceof Error ? error.message : String(error)
       }`,
-      fix: "fix the [capabilities] table in icculus.toml",
+      fix: "fix the [capabilities] table in discern.toml",
     });
   }
 
@@ -210,8 +210,8 @@ export async function runChecks(destDir: string): Promise<Check[]> {
   }
 
   // 5. recipe contract — no project recipe still sources the retired shell
-  // library. The pre-binary engine exported `ICCULUS_LIB`, and a recipe could
-  // `. "$ICCULUS_LIB/bootstrap.sh"` for config/output helpers. That library is
+  // library. The pre-binary engine exported `DISCERN_LIB`, and a recipe could
+  // `. "$DISCERN_LIB/bootstrap.sh"` for config/output helpers. That library is
   // gone (the engine is in the binary), so such a recipe now breaks at runtime;
   // flag it and point at the new contract. README.md is documentation, not a
   // recipe, so it is skipped.
@@ -227,7 +227,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
         }
         scanned++;
         const body = await Deno.readTextFile(join(recipesDir, entry.name));
-        if (body.includes("ICCULUS_LIB") || body.includes("bootstrap.sh")) {
+        if (body.includes("DISCERN_LIB") || body.includes("bootstrap.sh")) {
           offenders.push(entry.name);
         }
       }
@@ -253,7 +253,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
           offenders.join(", ")
         }`,
         fix:
-          "recipes are standalone executables now — read config with `icculus config get` instead of sourcing the retired `$ICCULUS_LIB` shell library",
+          "recipes are standalone executables now — read config with `discern config get` instead of sourcing the retired `$DISCERN_LIB` shell library",
       });
     }
   } catch {
@@ -328,7 +328,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
   }
 
   // 9. gotchas doc resolves — if [project].gotchas_doc is set, the file the gate
-  // points a failing agent at must exist (a 5→6 migration of a `.icculus/`-pointed
+  // points a failing agent at must exist (a 5→6 migration of a `.discern/`-pointed
   // doc, or a typo, can leave it dangling).
   try {
     const cfg = new Config(tomlText);
@@ -357,9 +357,9 @@ export async function runChecks(destDir: string): Promise<Check[]> {
   // a worktree-lifecycle hook whose command does not invoke the harness CLI, a
   // different tool also automates worktrees here and would double setup/teardown.
   // Advisory only (a warn, still healthy): the install is fine, but the operator
-  // should reconcile the hooks. "Ours" = the command calls `icculus` (an install)
+  // should reconcile the hooks. "Ours" = the command calls `discern` (an install)
   // or `deno task dev` (this repo self-hosting from source). Skipped when the
-  // worktrees feature is off (the hooks are inert / not icculus's concern).
+  // worktrees feature is off (the hooks are inert / not discern's concern).
   let worktreesOn = true;
   try {
     worktreesOn = isFeatureEnabled(new Config(tomlText), "worktrees");
@@ -384,14 +384,14 @@ export async function runChecks(destDir: string): Promise<Check[]> {
         .flatMap((g) => g.hooks ?? [])
         .map((h) => (typeof h.command === "string" ? h.command : ""))
         .filter((c) => /worktree/i.test(c))
-        .filter((c) => !c.includes("icculus") && !c.includes("deno task dev"));
+        .filter((c) => !c.includes("discern") && !c.includes("deno task dev"));
       if (foreign.length > 0) {
         checks.push({
           name: "worktree automation",
           ok: true,
           warn: true,
           detail:
-            "another tool also automates worktrees in .claude/settings.json (a worktree hook does not call `icculus`)",
+            "another tool also automates worktrees in .claude/settings.json (a worktree hook does not call `discern`)",
           fix:
             "reconcile the hooks by hand so worktree setup/teardown isn't doubled",
         });
@@ -438,7 +438,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
   return checks;
 }
 
-/** Run `icculus doctor`. Returns a process exit code (0 = healthy). */
+/** Run `discern doctor`. Returns a process exit code (0 = healthy). */
 export async function runDoctor(options: DoctorOptions): Promise<number> {
   const log = new Logger(options);
   const destDir = Deno.cwd();
@@ -455,7 +455,7 @@ export async function runDoctor(options: DoctorOptions): Promise<number> {
     return healthy ? 0 : 1;
   }
 
-  log.heading("icculus doctor");
+  log.heading("discern doctor");
   for (const check of checks) {
     if (check.warn) {
       log.warn(`${check.name}: ${check.detail}`);

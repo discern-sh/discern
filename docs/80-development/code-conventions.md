@@ -6,15 +6,15 @@ here._
 This doc is the detailed companion to the **Conventions** section of the project
 guidance (`guidance.md`). The guidance holds the short, agent-facing form; this
 doc holds the full reasoning. Keep the two in step, and keep both aligned with
-what the `[capabilities]` and `[checks]` in `icculus.toml` actually enforce —
+what the `[capabilities]` and `[checks]` in `discern.toml` actually enforce —
 the written rule and the enforced rule must never disagree.
 
 ## What the gate enforces
 
-The fix- and check-stage work in [`icculus.toml`](../../icculus.toml) is the
+The fix- and check-stage work in [`discern.toml`](../../discern.toml) is the
 mechanical rules: `format`, `lint`, and `typecheck` are known **Capabilities**
 (the engine derives their Stage from the name). To satisfy all of them at once,
-run `icculus tidy` (in this repo, `deno task dev tidy`).
+run `discern prepare` (in this repo, `deno task dev prepare`).
 
 | Name        | Kind       | Stage | Command                  | What it checks / how to satisfy                                                                                                                                                                                 |
 | ----------- | ---------- | ----- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -35,8 +35,8 @@ The conventions the tooling cannot fully enforce, but the project still holds:
 
 - **The golden rule — yours vs the binary's.** Ownership is two buckets
   ([ADR 0019](../_adr/0019-single-binary-ts-engine.md),
-  [ADR 0020](../_adr/0020-dissolve-icculus-dir.md)). _Yours_ are the committed
-  files (`icculus.toml`, `docs/**`, your `guidance.md`, authored skills under
+  [ADR 0020](../_adr/0020-dissolve-discern-dir.md)). _Yours_ are the committed
+  files (`discern.toml`, `docs/**`, your `guidance.md`, authored skills under
   `./skills/`, `TODO.md`) — edit them in place. _The binary's_ are gitignored,
   re-published artifacts (`.claude/skills/**`, compiled
   `CLAUDE.md`/`GEMINI.md`); `AGENTS.md` is the one tracked generated file; the
@@ -46,10 +46,10 @@ The conventions the tooling cannot fully enforce, but the project still holds:
   don't expect to find a committed copy to sync. See
   [install-surface.md](install-surface.md) for the full bucket map.
 - **Never hand-edit the generated agent files.** `AGENTS.md` (tracked),
-  `CLAUDE.md`, and `GEMINI.md` are compiled from icculus's built-in guidance
-  plus your `[guidance].sources` by `icculus guidelines` (in this repo,
-  `deno task dev guidelines`); edit the guidance source and recompile. They
-  carry a do-not-edit banner.
+  `CLAUDE.md`, and `GEMINI.md` are compiled from discern's built-in guidance
+  plus your `[guidance].sources` by `discern refresh` (in this repo,
+  `deno task dev refresh`); edit the guidance source and recompile. They carry a
+  do-not-edit banner.
 - **Run from source, never `dist/`.** Use `deno task dev <cmd>`; the `dist/`
   binaries bundle a frozen `templates/` snapshot. Don't put `--` before a
   subcommand.
@@ -61,9 +61,9 @@ The conventions the tooling cannot fully enforce, but the project still holds:
 - **Strict TypeScript, repo-wide.** The whole repo is held to strict TS via
   `deno.json` `compilerOptions` plus a strict lint rule set; the engine is
   type-checked like the rest, not an exception. Keep types sound.
-- **Keep the repo's own task vocabulary out of what ships.** `icculus` is both a
+- **Keep the repo's own task vocabulary out of what ships.** `discern` is both a
   product and a self-hosting repo, so two command vocabularies coexist: the
-  user's (`icculus …`) and the repo's `deno task <task>` aliases. The latter
+  user's (`discern …`) and the repo's `deno task <task>` aliases. The latter
   must never reach a user — not in shipped `templates/` (received verbatim by
   every project) nor in user-facing output the binary prints. A guard test
   ([tests/dev_vocab_guard_test.ts](../../tests/dev_vocab_guard_test.ts)) fails

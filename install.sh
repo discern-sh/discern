@@ -1,22 +1,22 @@
 #!/bin/sh
 #
-# icculus installer — download the right prebuilt binary and put it on PATH.
+# discern installer — download the right prebuilt binary and put it on PATH.
 #
-#   curl -fsSL https://raw.githubusercontent.com/jackwh/icculus/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/jackwh/discern/main/install.sh | sh
 #
 # Detects your OS/arch, fetches the matching binary from the latest GitHub
-# release (or $ICCULUS_VERSION), installs it to a writable bin dir, and chmods
+# release (or $DISCERN_VERSION), installs it to a writable bin dir, and chmods
 # it. POSIX sh; needs curl (or wget) and either tar-free single-binary download.
 #
 # Environment overrides:
-#   ICCULUS_REPO     owner/repo to download from (default: jackwh/icculus)
-#   ICCULUS_VERSION  release tag to install (default: latest)
-#   ICCULUS_BIN_DIR  install directory (default: ~/.local/bin, else /usr/local/bin)
+#   DISCERN_REPO     owner/repo to download from (default: jackwh/discern)
+#   DISCERN_VERSION  release tag to install (default: latest)
+#   DISCERN_BIN_DIR  install directory (default: ~/.local/bin, else /usr/local/bin)
 
 set -eu
 
-REPO="${ICCULUS_REPO:-jackwh/icculus}"
-VERSION="${ICCULUS_VERSION:-latest}"
+REPO="${DISCERN_REPO:-jackwh/discern}"
+VERSION="${DISCERN_VERSION:-latest}"
 
 # --- pretty output (only on a TTY) ---------------------------------------
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
@@ -33,7 +33,7 @@ if command -v curl >/dev/null 2>&1; then
 elif command -v wget >/dev/null 2>&1; then
     DL_OUT="wget -qO"
 else
-    die "need curl or wget to download icculus."
+    die "need curl or wget to download discern."
 fi
 
 # --- detect OS/arch and map to a release asset triple --------------------
@@ -43,7 +43,7 @@ arch=$(uname -m)
 case "$os" in
     Darwin) os_part="apple-darwin" ;;
     Linux)  os_part="unknown-linux-gnu" ;;
-    *) die "unsupported OS \"$os\". icculus ships macOS and Linux binaries (Windows: use WSL)." ;;
+    *) die "unsupported OS \"$os\". discern ships macOS and Linux binaries (Windows: use WSL)." ;;
 esac
 
 case "$arch" in
@@ -52,7 +52,7 @@ case "$arch" in
     *) die "unsupported architecture \"$arch\"." ;;
 esac
 
-asset="icculus-${arch_part}-${os_part}"
+asset="discern-${arch_part}-${os_part}"
 
 # --- resolve the download URL --------------------------------------------
 if [ "$VERSION" = "latest" ]; then
@@ -62,19 +62,19 @@ else
 fi
 
 # --- choose an install dir ------------------------------------------------
-if [ -n "${ICCULUS_BIN_DIR:-}" ]; then
-    bin_dir="$ICCULUS_BIN_DIR"
+if [ -n "${DISCERN_BIN_DIR:-}" ]; then
+    bin_dir="$DISCERN_BIN_DIR"
 elif [ -d "$HOME/.local/bin" ] || mkdir -p "$HOME/.local/bin" 2>/dev/null; then
     bin_dir="$HOME/.local/bin"
 elif [ -w /usr/local/bin ]; then
     bin_dir="/usr/local/bin"
 else
-    die "no writable install dir. Set ICCULUS_BIN_DIR to a directory on your PATH."
+    die "no writable install dir. Set DISCERN_BIN_DIR to a directory on your PATH."
 fi
 mkdir -p "$bin_dir" || die "could not create install dir: $bin_dir"
 
-dest="$bin_dir/icculus"
-tmp=$(mktemp 2>/dev/null || mktemp -t icculus)
+dest="$bin_dir/discern"
+tmp=$(mktemp 2>/dev/null || mktemp -t discern)
 
 # --- download -------------------------------------------------------------
 info "downloading ${BOLD}${asset}${RESET} from ${REPO} (${VERSION})"
@@ -88,7 +88,7 @@ fi
 chmod +x "$tmp"
 mv "$tmp" "$dest" || die "could not move binary into $bin_dir"
 
-info "installed ${BOLD}icculus${RESET} to ${dest}"
+info "installed ${BOLD}discern${RESET} to ${dest}"
 
 # --- PATH hint ------------------------------------------------------------
 case ":$PATH:" in
@@ -97,4 +97,4 @@ case ":$PATH:" in
            "$RED" "$RESET" "$bin_dir" "$bin_dir" >&2 ;;
 esac
 
-printf '%sRun:%s icculus init\n' "$BOLD" "$RESET"
+printf '%sRun:%s discern init\n' "$BOLD" "$RESET"

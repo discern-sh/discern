@@ -112,11 +112,11 @@ Deno.test("gate fail_fast: this project's config wins over an inherited env var"
     await gitInit(dir);
 
     // Simulate `finish` running nested inside another gate: the PARENT exported
-    // ICCULUS_GATE_FAIL_FAST=1 (the suite shells out to `agent finish`). This
+    // DISCERN_GATE_FAIL_FAST=1 (the suite shells out to `agent finish`). This
     // child's own config says false, so it must still run the slow sibling to
     // completion — the inherited env must not override [gate].fail_fast.
     const r = await runAgent(dir, ["finish"], {
-      env: { ICCULUS_GATE_FAIL_FAST: "1" },
+      env: { DISCERN_GATE_FAIL_FAST: "1" },
     });
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "RAN-TO-END");

@@ -1,13 +1,13 @@
 ---
 name: bootstrap
-description: Seed a freshly-installed Icculus harness from the project brief. Use right after `icculus init`, or when the user runs /bootstrap, or asks to "set up the docs", "fill in the principles/guidelines", "bootstrap the harness", or "propose the capability fills". The agent already in the loop does all the authoring — no API key, no provider lock-in.
+description: Seed a freshly-installed discern harness from the project brief. Use right after `discern init`, or when the user runs /bootstrap, or asks to "set up the docs", "fill in the principles/guidelines", "bootstrap the harness", or "propose the capability fills". The agent already in the loop does all the authoring — no API key, no provider lock-in.
 ---
 
 # Bootstrap the harness
 
-`icculus init` lays down only the harness machinery and an `icculus.toml` whose capabilities are all unset — it deliberately scaffolds **no docs tree and no `TODO.md`** (those appear once there is real content to put in them). Your job is to **create and fill** the docs and guidance **from the project's own context** — the brief the user wrote at install time, plus what the repository reveals about itself. The doc skeletons ship with this skill under `skel/`; you copy them in (Step 0.5), then fill them.
+`discern init` lays down only the harness machinery and a `discern.toml` whose capabilities are all unset — it deliberately scaffolds **no docs tree and no `TODO.md`** (those appear once there is real content to put in them). Your job is to **create and fill** the docs and guidance **from the project's own context** — the brief the user wrote at install time, plus what the repository reveals about itself. The doc skeletons ship with this skill under `skel/`; you copy them in (Step 0.5), then fill them.
 
-You — the coding agent already in this session — do the authoring. There is no API key and no external service: the whole point is that the agent in the loop seeds the project. Work through the steps below in order. Treat everything you write as a first draft for the user to refine, and **propose rather than silently overwrite** anything the user will want to confirm (especially the `icculus.toml` capability fills).
+You — the coding agent already in this session — do the authoring. There is no API key and no external service: the whole point is that the agent in the loop seeds the project. Work through the steps below in order. Treat everything you write as a first draft for the user to refine, and **propose rather than silently overwrite** anything the user will want to confirm (especially the `discern.toml` capability fills).
 
 > Stay domain-agnostic in the docs and guidance you write: principles, concepts, and conventions describe *this* project, not the harness and not any example. The stack-detection table in Step 5 is the one place where naming many ecosystems is correct — that step's whole job is to recognise them.
 
@@ -51,7 +51,7 @@ Good principles are specific to this project and falsifiable: you can point at a
 
 ## Step 2 — Fill the project guidance
 
-Open **`guidance.md`** (at the repo root — the default `[guidance].sources`). This file holds **only this project's own conventions**: icculus's built-in harness guidance (docs, TODO, worktree, finish gate) is bundled and auto-prepended at compile time, so you don't repeat the standing disciplines here. Flesh out the stub:
+Open **`guidance.md`** (at the repo root — the default `[guidance].sources`). This file holds **only this project's own conventions**: discern's built-in harness guidance (docs, TODO, worktree, finish gate) is bundled and auto-prepended at compile time, so you don't repeat the standing disciplines here. Flesh out the stub:
 
 - The one-line pitch at the top — what the project is and who it's for.
 - The **Conventions** section — language idioms, style, structure, naming, error handling, anything the tooling enforces. Keep it aligned with the capabilities you'll propose in Step 5, so the written rule and the enforced rule agree.
@@ -92,7 +92,7 @@ Propose the subtree set to the user before committing to it — the numbering is
 
 This is the one step where naming concrete ecosystems is right: you're detecting which one this is.
 
-Inventory the repo for stack signals, then fill the `[capabilities]` in **`icculus.toml`** — the standard format / lint / typecheck / test / build command for each detected stack. A capability maps to its command by name; the engine derives the gate stage from the name, so you never write a stage for one. While you're here, also wire `[scopes]` (where the code lives) and any `[ratchets]` (metrics worth tracking), and reach for `[checks.<name>]` for gate work that isn't one of the five known capabilities. **Propose, don't overwrite:** show the user a diff, or write the suggested command as a comment beside the unset capability, and let them confirm. An omitted capability is "knowably absent", so a wrong guess never breaks the gate.
+Inventory the repo for stack signals, then fill the `[capabilities]` in **`discern.toml`** — the standard format / lint / typecheck / test / build command for each detected stack. A capability maps to its command by name; the engine derives the gate stage from the name, so you never write a stage for one. While you're here, also wire `[scopes]` (where the code lives) and any `[ratchets]` (metrics worth tracking), and reach for `[checks.<name>]` for gate work that isn't one of the five known capabilities. **Propose, don't overwrite:** show the user a diff, or write the suggested command as a comment beside the unset capability, and let them confirm. An omitted capability is "knowably absent", so a wrong guess never breaks the gate.
 
 Detection lookup (signal file → ecosystem → the usual tools to suggest):
 
@@ -114,16 +114,16 @@ Notes that keep the proposal honest:
 - **A known tool maps to a capability by name.** Formatter → `format`, linter → `lint`, type-checker → `typecheck`, the test suite → `test`, a build/bundle step → `build`. The engine reads the stage from the capability name — you don't set one. Anything outside those five (a coverage threshold, a schema validator, a license check) is a `[checks.<name>]` with an explicit `stage` (`fix` | `build` | `check` | `test`).
 - **Monorepo / polyglot:** several stacks can coexist. Chain tools in one capability with `&&`, or add a `[scopes.<name>]` for a sub-app with its own `gate` so changes there run that sub-app's checks.
 - **Wire the obvious scopes and worktree settings too** while you're here: point `[scopes]` globs at where this project's code actually lives, and if the project has a database or a dev server, note the `[worktree.db]` / `[worktree.dev_server]` worktree settings for the user to fill — again as proposals, not silent edits.
-- **Point the gate at its gotchas doc.** Step 0.5 created `docs/80-development/finish-gate-gotchas.md`; set `[project].gotchas_doc = "docs/80-development/finish-gate-gotchas.md"` in `icculus.toml` so a non-obvious gate failure points agents at it (`init` leaves `gotchas_doc` empty).
+- **Point the gate at its gotchas doc.** Step 0.5 created `docs/80-development/finish-gate-gotchas.md`; set `[project].gotchas_doc = "docs/80-development/finish-gate-gotchas.md"` in `discern.toml` so a non-obvious gate failure points agents at it (`init` leaves `gotchas_doc` empty).
 - **Leave a capability unset** if the stack has no standard tool for it. A green gate you grow into beats a red gate on day one.
 
 ---
 
 ## Step 6 — Compile, capture, and verify
 
-1. Run **`icculus guidelines`** to compile the built-in harness guidance + `guidance.md` into the per-provider agent files (`AGENTS.md` tracked, `CLAUDE.md` / `GEMINI.md` gitignored) and materialize the skills into `.claude/skills/`.
-2. Run **`icculus doctor`** to verify the install — dispatcher executable, hooks present, every configured capability command resolvable, git worktree support, required tools on PATH.
-3. **Record the deferred wiring in `TODO.md`.** Everything you *proposed but did not activate* is outstanding work — and a comment in `icculus.toml` or a line in your chat reply is not where the next agent (or the maintainer) will look. `TODO.md` is the shared backlog. Add a terse item (a bold title + one line, in the bucket that fits) for each open decision: the capabilities still awaiting confirmation, the `[worktree]` db / dev-server / `inherit_env` / setup settings left empty, any tool worth adding (a static analyser, a JS linter), and any test database or service the suite needs to run. This is what stops the bootstrap proposals from being silently lost when the session ends.
+1. Run **`discern refresh`** to compile the built-in harness guidance + `guidance.md` into the per-provider agent files (`AGENTS.md` tracked, `CLAUDE.md` / `GEMINI.md` gitignored) and materialize the skills into `.claude/skills/`.
+2. Run **`discern doctor`** to verify the install — dispatcher executable, hooks present, every configured capability command resolvable, git worktree support, required tools on PATH.
+3. **Record the deferred wiring in `TODO.md`.** Everything you *proposed but did not activate* is outstanding work — and a comment in `discern.toml` or a line in your chat reply is not where the next agent (or the maintainer) will look. `TODO.md` is the shared backlog. Add a terse item (a bold title + one line, in the bucket that fits) for each open decision: the capabilities still awaiting confirmation, the `[worktree]` db / dev-server / `inherit_env` / setup settings left empty, any tool worth adding (a static analyser, a JS linter), and any test database or service the suite needs to run. This is what stops the bootstrap proposals from being silently lost when the session ends.
 4. Fix anything `doctor` flags (it returns the exact remedy), then summarise for the user: the principles you drafted, the subtrees you proposed, the capability fills awaiting their confirmation, and the `TODO.md` items you recorded. Point them at the [`document-subsystem`](/.claude/skills/document-subsystem/SKILL.md) skill as the next step for filling in each subtree's leaves.
 
 ---
@@ -134,6 +134,6 @@ Notes that keep the proposal honest:
 - `guidance.md` has a real pitch and Conventions section.
 - The orientation docs (concepts, glossary, system-map) are seeded, the `80-development/` leaves are filled, and the numbered subsystem subtrees are named with stub READMEs.
 - No stale "starts as a skeleton / run `/bootstrap`" notes remain — the `docs/README.md` and `docs/00-orientation/README.md` intros describe the filled tree, not an empty one.
-- `icculus.toml` capability fills are **proposed** for every detected stack (committed only if the user confirms).
+- `discern.toml` capability fills are **proposed** for every detected stack (committed only if the user confirms).
 - `TODO.md` records the deferred wiring (unactivated capabilities, empty worktree settings, tools or test databases to add) so no open decision lives only in a comment or the chat.
-- `icculus guidelines` and `icculus doctor` have been run and `doctor` is green.
+- `discern refresh` and `discern doctor` have been run and `doctor` is green.

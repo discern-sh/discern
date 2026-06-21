@@ -1,6 +1,6 @@
 ## Documentation & decisions
 
-This project keeps a documentation tree under `docs/`, browsable with **`icculus
+This project keeps a documentation tree under `docs/`, browsable with **`discern
 docs`** (a target argument opens a specific page; `--list` prints the table of
 contents). Keep the docs current with the code: when you change documented
 behaviour, update the matching page in the same change — a stale doc is a bug.

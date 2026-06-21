@@ -1,6 +1,6 @@
 # The quality gate
 
-_`icculus finish` — the compound gate that fixes, builds, checks, and tests
+_`discern finish` — the compound gate that fixes, builds, checks, and tests
 before work is called done._
 
 This subtree covers the gate and everything it runs. The built-in
@@ -12,9 +12,9 @@ whole Stage. A known Capability's Stage is derived from its name; a Check states
 its own. After the Stages come the **Scope** `gate`s for any Scope that changed,
 then (in a Worktree) the main-merged check.
 
-`icculus tidy` is the fast inner loop: the fix-stage then check-stage work, with
-no build or test. `--json` emits a machine-readable report of every Capability,
-Check, and Scope gate (ADR 0004, ADR 0017) for an agent to consume.
+`discern prepare` is the fast inner loop: the fix-stage then check-stage work,
+with no build or test. `--json` emits a machine-readable report of every
+Capability, Check, and Scope gate (ADR 0004, ADR 0017) for an agent to consume.
 
 The supporting ideas: **Capabilities** are the five known commands (`format` /
 `build` / `lint` / `typecheck` / `test`) and a **Check** is custom gate work
@@ -36,7 +36,7 @@ they are slow (ADR 0003).
 | `the-finish-stages.md`       | The Stage order, serial-vs-parallel rules, fail-fast, and the gotchas pointer on fail.                |
 | `capabilities-and-checks.md` | The five known Capabilities, the derived Stage, custom Checks, and how the Engine finds them.         |
 | `scopes-and-gates.md`        | Scope globs, fail-open classification, and wiring a Scope `gate` (ADR 0018).                          |
-| `ratchets.md`                | Never-loosen floors/ceilings, the `ICCULUS_METRIC` protocol, holding against `main`.                  |
+| `ratchets.md`                | Never-loosen floors/ceilings, the `DISCERN_METRIC` protocol, holding against `main`.                  |
 | `the-json-report.md`         | The `finish --json` shape and how an agent reads pass/fail per Capability/Check (ADR 0004, ADR 0017). |
 
 ## See also

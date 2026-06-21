@@ -1,5 +1,5 @@
 /**
- * Engine coverage for `icculus guidelines` — the verb that compiles the agent
+ * Engine coverage for `discern refresh` — the verb that compiles the agent
  * instruction files (job 1: built-in guidance + the project's `[guidance].sources`)
  * AND materializes skills into `.claude/skills/` (job 2): bundled built-ins are
  * copied in, authored skills (under `[skills].dir`) are symlinked. The two jobs
@@ -19,11 +19,11 @@ import { ensureDir, exists } from "@std/fs";
 import { withTempDir } from "./helpers.ts";
 import { runAgent, scaffoldEngine, writeExecutable } from "./engine_helpers.ts";
 
-Deno.test("engine guidelines: compiles agent files and materializes bundled skills", async () => {
+Deno.test("engine refresh: compiles agent files and materializes bundled skills", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
 
-    const r = await runAgent(dir, ["guidelines"]);
+    const r = await runAgent(dir, ["refresh"]);
     assertEquals(r.code, 0, r.output);
 
     // Job 1: the configured agent file (claude_code → CLAUDE.md) was compiled,
@@ -48,7 +48,7 @@ Deno.test("engine guidelines: compiles agent files and materializes bundled skil
   });
 });
 
-Deno.test("engine guidelines: materializes skills even with no guideline sources (jobs are independent)", async () => {
+Deno.test("engine refresh: materializes skills even with no guideline sources (jobs are independent)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     // A fresh scaffold has no `guidance.md` source at all: job 1 compiles only
@@ -58,7 +58,7 @@ Deno.test("engine guidelines: materializes skills even with no guideline sources
       "precondition: no source",
     );
 
-    const r = await runAgent(dir, ["guidelines"]);
+    const r = await runAgent(dir, ["refresh"]);
     assertEquals(r.code, 0, r.output);
     assert(
       await exists(join(dir, ".claude/skills/handoff-worktree/SKILL.md")),
@@ -67,11 +67,11 @@ Deno.test("engine guidelines: materializes skills even with no guideline sources
   });
 });
 
-Deno.test("engine guidelines: compiled agent files are world-readable (0644)", async () => {
+Deno.test("engine refresh: compiled agent files are world-readable (0644)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
 
-    const r = await runAgent(dir, ["guidelines"]);
+    const r = await runAgent(dir, ["refresh"]);
     assertEquals(r.code, 0, r.output);
 
     const mode = (await Deno.stat(join(dir, "CLAUDE.md"))).mode ?? 0;
@@ -85,13 +85,13 @@ Deno.test("engine guidelines: compiled agent files are world-readable (0644)", a
   });
 });
 
-Deno.test("engine guidelines: prunes the link of an authored skill removed from the source tree", async () => {
+Deno.test("engine refresh: prunes the link of an authored skill removed from the source tree", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     // An authored skill under ./skills/ is symlinked into .claude/skills/.
     await writeExecutable(join(dir, "skills/temp/SKILL.md"), "temp skill");
 
-    let r = await runAgent(dir, ["guidelines"]);
+    let r = await runAgent(dir, ["refresh"]);
     assertEquals(r.code, 0, r.output);
     assert(
       await exists(join(dir, ".claude/skills/temp/SKILL.md")),
@@ -100,7 +100,7 @@ Deno.test("engine guidelines: prunes the link of an authored skill removed from 
 
     // Remove the authored skill; re-running must prune the now-dangling link.
     await Deno.remove(join(dir, "skills/temp"), { recursive: true });
-    r = await runAgent(dir, ["guidelines"]);
+    r = await runAgent(dir, ["refresh"]);
     assertEquals(r.code, 0, r.output);
 
     await assertRejects(
@@ -118,7 +118,7 @@ Deno.test("engine guidelines: prunes the link of an authored skill removed from 
   });
 });
 
-Deno.test("engine guidelines: reconcile leaves a foreign entry it did not create alone", async () => {
+Deno.test("engine refresh: reconcile leaves a foreign entry it did not create alone", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await ensureDir(join(dir, ".claude/skills"));
@@ -134,7 +134,7 @@ Deno.test("engine guidelines: reconcile leaves a foreign entry it did not create
       join(dir, ".claude/skills/shared"),
     );
 
-    const r = await runAgent(dir, ["guidelines"]);
+    const r = await runAgent(dir, ["refresh"]);
     assertEquals(r.code, 0, r.output);
 
     // It is not a managed name and not dangling, so reconcile must leave it.

@@ -79,7 +79,7 @@ all human output to stderr.
   status would be a guess.
 - **Durations** are whole wall-clock seconds, captured per job by
   `run_parallel`. `run_parallel` gains an opt-in side channel: when
-  `ICCULUS_JOBS_RESULTS` names a file, it appends `<label>\t<code>\t<seconds>`
+  `DISCERN_JOBS_RESULTS` names a file, it appends `<label>\t<code>\t<seconds>`
   per job. With the variable unset (every existing caller), behaviour is
   unchanged.
 - **Failure still produces JSON.** A failing stage in `--json` mode emits the
@@ -92,7 +92,7 @@ all human output to stderr.
 
 ## Consequences
 
-- Agent-driven workflows — icculus's reason for being — can consume gate results
+- Agent-driven workflows — discern's reason for being — can consume gate results
   cleanly: which phase/side-gate failed, what was skipped by scope, how long
   each took, all without scraping.
 - Item 2's side-gate aggregation is now complete: side-gates appear in

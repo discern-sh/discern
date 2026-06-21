@@ -3,7 +3,7 @@
  * recipe + `lib/ratchets.sh` (ADR 0003). Each `[ratchets.<name>]` enforces two
  * halves: NEVER LOOSENED vs main (the limit compared to main's value — a floor
  * may only rise, a ceiling only fall) and MEASURED vs limit (run the command,
- * read the `ICCULUS_METRIC <name> <number>` line — last wins). Slow, so on demand,
+ * read the `DISCERN_METRIC <name> <number>` line — last wins). Slow, so on demand,
  * never part of finish. Every ratchet runs even if one fails.
  */
 
@@ -22,7 +22,7 @@ function isNumber(s: string): boolean {
 }
 
 /**
- * The last `ICCULUS_METRIC <metric> <value>` token-triple in `output`, scanned
+ * The last `DISCERN_METRIC <metric> <value>` token-triple in `output`, scanned
  * per line (matching the shell awk). Returns undefined when absent.
  */
 function extractMetric(output: string, metric: string): string | undefined {
@@ -30,7 +30,7 @@ function extractMetric(output: string, metric: string): string | undefined {
   for (const line of output.split("\n")) {
     const t = line.split(/\s+/).filter((x) => x !== "");
     for (let i = 0; i + 2 < t.length; i++) {
-      if (t[i] === "ICCULUS_METRIC" && t[i + 1] === metric) {
+      if (t[i] === "DISCERN_METRIC" && t[i + 1] === metric) {
         value = t[i + 2];
       }
     }
@@ -39,14 +39,14 @@ function extractMetric(output: string, metric: string): string | undefined {
 }
 
 /** Read a scalar key from main's config (the never-loosen baseline). Reads the
- * new root `icculus.toml`, falling back to the legacy `.icculus/config.toml` so a
+ * new root `discern.toml`, falling back to the legacy `.discern/config.toml` so a
  * branch whose main has not yet been migrated still ratchets correctly. */
 async function ratchetMainValue(
   root: string,
   mainBranch: string,
   key: string,
 ): Promise<number | undefined> {
-  for (const rel of ["icculus.toml", ".icculus/config.toml"]) {
+  for (const rel of ["discern.toml", ".discern/config.toml"]) {
     try {
       const out = await new Deno.Command("git", {
         args: ["-C", root, "show", `${mainBranch}:${rel}`],
@@ -67,7 +67,7 @@ async function ratchetMainValue(
 
 /** Run one ratchet's measurement command, returning its combined output. The
  * run's exit code is deliberately NOT consulted (the shell masks it via `| tee`);
- * only the emitted ICCULUS_METRIC line decides pass/fail. */
+ * only the emitted DISCERN_METRIC line decides pass/fail. */
 async function measure(command: string): Promise<string> {
   const out = await new Deno.Command("sh", {
     args: ["-c", command],
@@ -144,7 +144,7 @@ async function ratchetCheck(
   const measuredStr = extractMetric(output, metric);
   if (measuredStr === undefined) {
     out.error(
-      `ratchet '${name}': could not read metric '${metric}'. Emit a line: ICCULUS_METRIC ${metric} <number>.`,
+      `ratchet '${name}': could not read metric '${metric}'. Emit a line: DISCERN_METRIC ${metric} <number>.`,
     );
     return false;
   }

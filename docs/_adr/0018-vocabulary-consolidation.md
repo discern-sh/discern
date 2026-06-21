@@ -63,7 +63,7 @@ The concrete moves:
 
   ```toml
   [scopes.docs]
-  paths   = ["docs/", ".icculus/"]
+  paths   = ["docs/", ".discern/"]
   neutral = true
 
   [scopes.native]
@@ -72,7 +72,7 @@ The concrete moves:
   ```
 
 - **A ratchet inlines its measurement command.** `[ratchets.<name>]` gains a
-  required **`run`** (which emits `ICCULUS_METRIC <metric> <n>`); the `slot`
+  required **`run`** (which emits `DISCERN_METRIC <metric> <n>`); the `slot`
   reference and the "measurement slot" concept are gone.
 
   ```toml
@@ -83,12 +83,12 @@ The concrete moves:
   ```
 
 - **`[evidence]` is cut.** The config section, the `agent evidence` recipe, the
-  `finish` pre-check, the `.icculus/evidence/` store, and its `.gitignore` line
+  `finish` pre-check, the `.discern/evidence/` store, and its `.gitignore` line
   all go. A project that wants a pre-finish artifact gate writes a `[check]`.
 
 - **"Adapter" splits.** The installable overlay becomes a **preset**:
   `add-adapter` → `add-preset`, `adapters/` → `presets/`, `adapter.json` →
-  `preset.json`, `ICCULUS_ADAPTERS_DIR` → `ICCULUS_PRESETS_DIR`. The worktree
+  `preset.json`, `DISCERN_ADAPTERS_DIR` → `DISCERN_PRESETS_DIR`. The worktree
   database/dev-server seams stop being called "adapters" — they are **worktree
   settings** (the `[worktree.db]` / `[worktree.dev_server]` config keys are
   unchanged; only the prose is).

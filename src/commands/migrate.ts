@@ -1,7 +1,7 @@
 /**
- * `icculus migrate` — report the install's migration status (ADR 0014).
+ * `discern migrate` — report the install's migration status (ADR 0014).
  *
- * Migrations are a versioned chain that `icculus upgrade` runs automatically
+ * Migrations are a versioned chain that `discern upgrade` runs automatically
  * (then re-materializes skills, recompiles guidelines, and stamps the new
  * schema). This command is the read-only inspection surface: it shows the
  * install's recorded schema version and any steps still pending, and points at
@@ -16,7 +16,7 @@
 
 import { Logger } from "../lib/log.ts";
 import { resolveConfigPath } from "../lib/paths.ts";
-import { parseIcculusToml } from "../lib/toml_render.ts";
+import { parseDiscernToml } from "../lib/toml_render.ts";
 import { resolveRecordedSchema } from "../lib/schema.ts";
 import { SCHEMA_VERSION } from "../lib/version.ts";
 import { type Migration, pendingMigrations } from "../lib/migrations.ts";
@@ -34,7 +34,7 @@ export interface MigrateOptions {
   registry?: Migration[];
 }
 
-/** Run `icculus migrate`. Returns a process exit code. */
+/** Run `discern migrate`. Returns a process exit code. */
 export async function runMigrate(options: MigrateOptions): Promise<number> {
   const log = new Logger(options);
   const destDir = Deno.cwd();
@@ -42,7 +42,7 @@ export async function runMigrate(options: MigrateOptions): Promise<number> {
   const configPath = await resolveConfigPath(destDir);
   if (configPath === undefined) {
     const message =
-      "no icculus install here — run `icculus init` first, or cd into the project root.";
+      "no discern install here — run `discern init` first, or cd into the project root.";
     if (options.json) {
       log.jsonResult({ ok: false, error: "not_initialized", message });
     } else {
@@ -55,7 +55,7 @@ export async function runMigrate(options: MigrateOptions): Promise<number> {
   // `[meta].schema_version` (falling back to a legacy manifest, else schema 1).
   let raw: Record<string, unknown> = {};
   try {
-    raw = parseIcculusToml(await Deno.readTextFile(configPath)).raw;
+    raw = parseDiscernToml(await Deno.readTextFile(configPath)).raw;
   } catch {
     // An unparseable config still reports a status; treat it as having no
     // recorded schema, so the resolver falls back as it would for a fresh field.
@@ -89,6 +89,6 @@ export async function runMigrate(options: MigrateOptions): Promise<number> {
     log.detail(`${m.from}→${m.from + 1}: ${m.describe}`);
   }
   log.line();
-  log.info("Apply them: run `icculus upgrade`.");
+  log.info("Apply them: run `discern upgrade`.");
   return code;
 }

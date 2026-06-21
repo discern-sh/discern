@@ -4,10 +4,10 @@ _Cloning, setting up, and running the project locally for the first time._
 
 This is the path from a fresh clone to a running project and a first green gate.
 The harness commands are the same on every stack; the stack-specific steps for
-icculus itself (one self-contained Deno binary — installer and TypeScript engine
+discern itself (one self-contained Deno binary — installer and TypeScript engine
 in one) are below. This repo self-hosts from source, so the harness verbs run as
 `deno task dev <verb>`; a project with the binary on `PATH` runs
-`icculus <verb>` instead.
+`discern <verb>` instead.
 
 ## The harness loop
 
@@ -16,8 +16,8 @@ These work the same regardless of language or framework (shown here as
 
 - **`deno task dev worktree`** sets up an isolated checkout for a change (see
   the worktree note in the project guidelines).
-- **`deno task dev tidy`** is the fast inner loop — applies the fix-stage work,
-  then the check-stage work; no build, no tests.
+- **`deno task dev prepare`** is the fast inner loop — applies the fix-stage
+  work, then the check-stage work; no build, no tests.
 - **`deno task dev finish`** is the full gate — fixers and build, then checks
   and tests in parallel, then any scope `gate`s whose scope changed, then (in a
   worktree) the merge check. Run it before declaring a change done.
@@ -47,9 +47,9 @@ deno task dev init                # scaffold into the current dir (try a scratch
 deno task build                   # compile per-platform binaries → dist/ (release only)
 ```
 
-icculus has no long-running app to start — it is one CLI binary with the engine
+discern has no long-running app to start — it is one CLI binary with the engine
 compiled in. To _see it work_, either scaffold it into a temp directory with
-`deno task dev init` and drive `icculus` (or `deno task dev`) there, or just run
+`deno task dev init` and drive `discern` (or `deno task dev`) there, or just run
 the gate in this repo.
 
 **Your first green gate.** From the repo root:
@@ -64,12 +64,12 @@ stage) in parallel with `deno task test` (test). There is no `build` capability
 does not, `deno task dev doctor` and the
 [finish-gate gotchas](finish-gate-gotchas.md) explain what to fix.
 
-**Working in this repo.** icculus self-hosts the worktree workflow
+**Working in this repo.** discern self-hosts the worktree workflow
 ([ADR 0011](../_adr/0011-adopt-worktree-workflow.md), as amended by
 [ADR 0019](../_adr/0019-single-binary-ts-engine.md)): the
 `.claude/settings.json` hooks provision an isolated worktree per session and
 tear it down afterward (here they call `deno task dev worktree:*`), and
-`deno task dev worktree:exit` graduates a finished branch back into the main
+`deno task dev graduate` graduates a finished branch back into the main
 checkout. Editing rules (yours vs the binary's) live in
 [code-conventions.md](code-conventions.md); IDE colour/exclude setup is in
 [for-humans.md](for-humans.md).

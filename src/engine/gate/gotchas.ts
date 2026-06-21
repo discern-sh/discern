@@ -33,7 +33,7 @@ export function gotchasHint(
       "If the error above is not self-explanatory, record the fix in a\n",
     );
     writeStderr(
-      "gotchas doc and point [project].gotchas_doc in icculus.toml at it,\n",
+      "gotchas doc and point [project].gotchas_doc in discern.toml at it,\n",
     );
     writeStderr("so the next failure carries its own guidance.\n");
   }

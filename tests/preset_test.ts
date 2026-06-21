@@ -3,7 +3,7 @@
  * against a FAKE example preset fixture (a toy "stack" under
  * tests/fixtures/presets/example/ — not a real ecosystem, not shipped).
  * `add-preset` overlays the preset's files AND applies its preset.json config
- * fills to icculus.toml.
+ * fills to discern.toml.
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
@@ -12,13 +12,13 @@ import { dirname, fromFileUrl, join } from "@std/path";
 import { runCli, withTempDir } from "./helpers.ts";
 import { runAgent } from "./engine_helpers.ts";
 
-/** Absolute path to the fixture presets dir (passed via ICCULUS_PRESETS_DIR). */
+/** Absolute path to the fixture presets dir (passed via DISCERN_PRESETS_DIR). */
 const FIXTURE_PRESETS = join(
   dirname(fromFileUrl(import.meta.url)),
   "fixtures",
   "presets",
 );
-const PRESET_ENV = { ICCULUS_PRESETS_DIR: FIXTURE_PRESETS };
+const PRESET_ENV = { DISCERN_PRESETS_DIR: FIXTURE_PRESETS };
 
 /** True when a path exists. */
 async function exists(path: string): Promise<boolean> {
@@ -62,13 +62,13 @@ Deno.test("add-preset overlays the example preset's files and config fills", asy
     // preset.json is metadata — never scaffolded into the project.
     assert(!(await exists(join(dir, "preset.json"))));
 
-    // Config fills landed in icculus.toml, comments intact.
-    const toml = await Deno.readTextFile(join(dir, "icculus.toml"));
+    // Config fills landed in discern.toml, comments intact.
+    const toml = await Deno.readTextFile(join(dir, "discern.toml"));
     assertStringIncludes(toml, 'test = "echo running example tests"'); // capability
     assertStringIncludes(toml, 'paths = ["example/**"]'); // scope paths
     assertStringIncludes(toml, 'gate = "echo example side gate"'); // scope gate
     assertStringIncludes(toml, "[ratchets.examplesize]"); // ratchet
-    assertStringIncludes(toml, "# icculus.toml"); // template comment survived
+    assertStringIncludes(toml, "# discern.toml"); // template comment survived
   });
 });
 
@@ -85,7 +85,7 @@ Deno.test("add-preset: the overlaid project recipe is runnable via agent", async
 Deno.test("add-preset --dry-run writes nothing (files or fills)", async () => {
   await withTempDir(async (dir) => {
     await runCli(["init", "--yes", "--slug", "demo"], dir);
-    const before = await Deno.readTextFile(join(dir, "icculus.toml"));
+    const before = await Deno.readTextFile(join(dir, "discern.toml"));
     const r = await runCli(
       ["add-preset", "example", "--yes", "--dry-run", "--json"],
       dir,
@@ -95,7 +95,7 @@ Deno.test("add-preset --dry-run writes nothing (files or fills)", async () => {
     assertEquals(JSON.parse(r.stdout).dry_run, true);
     assert(!(await exists(join(dir, "recipes/example-deploy"))));
     assertEquals(
-      await Deno.readTextFile(join(dir, "icculus.toml")),
+      await Deno.readTextFile(join(dir, "discern.toml")),
       before,
     );
   });
@@ -133,12 +133,12 @@ async function stagePreset(
     await Deno.mkdir(dirname(path), { recursive: true });
     await Deno.writeTextFile(path, contents);
   }
-  return { env: { ICCULUS_PRESETS_DIR: presetsRoot }, presetsRoot };
+  return { env: { DISCERN_PRESETS_DIR: presetsRoot }, presetsRoot };
 }
 
-Deno.test("add-preset reports not_initialized when there is no icculus.toml (--json)", async () => {
+Deno.test("add-preset reports not_initialized when there is no discern.toml (--json)", async () => {
   await withTempDir(async (dir) => {
-    // No `init` here — the dir has no icculus.toml.
+    // No `init` here — the dir has no discern.toml.
     const r = await runCli(
       ["add-preset", "example", "--yes", "--json"],
       dir,
@@ -148,7 +148,7 @@ Deno.test("add-preset reports not_initialized when there is no icculus.toml (--j
     const result = JSON.parse(r.stdout);
     assertEquals(result.ok, false);
     assertEquals(result.error, "not_initialized");
-    assertStringIncludes(result.message, "icculus init");
+    assertStringIncludes(result.message, "discern init");
   });
 });
 
@@ -160,7 +160,7 @@ Deno.test("add-preset reports not_initialized as plain text without --json", asy
       PRESET_ENV,
     );
     assertEquals(r.code, 1);
-    assertStringIncludes(r.stderr, "no icculus install here");
+    assertStringIncludes(r.stderr, "no discern install here");
   });
 });
 
@@ -179,7 +179,7 @@ Deno.test("add-preset reports an unknown preset as plain text (no --json)", asyn
 Deno.test("add-preset with no presets dir reports 'ships no presets yet'", async () => {
   await withTempDir(async (dir) => {
     await runCli(["init", "--yes", "--slug", "demo"], dir);
-    // No ICCULUS_PRESETS_DIR and the repo bundles none, so the resolver walks
+    // No DISCERN_PRESETS_DIR and the repo bundles none, so the resolver walks
     // up, finds nothing, and the available list is empty.
     const r = await runCli(["add-preset", "example", "--json"], dir);
     assertEquals(r.code, 1);
@@ -193,7 +193,7 @@ Deno.test("add-preset with no presets dir reports 'ships no presets yet'", async
 Deno.test("add-preset --dry-run prints the plan as plain text and writes nothing", async () => {
   await withTempDir(async (dir) => {
     await runCli(["init", "--yes", "--slug", "demo"], dir);
-    const before = await Deno.readTextFile(join(dir, "icculus.toml"));
+    const before = await Deno.readTextFile(join(dir, "discern.toml"));
     const r = await runCli(
       ["add-preset", "example", "--yes", "--dry-run"],
       dir,
@@ -206,12 +206,12 @@ Deno.test("add-preset --dry-run prints the plan as plain text and writes nothing
     assertStringIncludes(r.stderr, 'Dry run — preset "example" would overlay');
     assertStringIncludes(
       r.stderr,
-      "Would also apply config fills to icculus.toml",
+      "Would also apply config fills to discern.toml",
     );
     // Nothing was written.
     assert(!(await exists(join(dir, "recipes/example-deploy"))));
     assertEquals(
-      await Deno.readTextFile(join(dir, "icculus.toml")),
+      await Deno.readTextFile(join(dir, "discern.toml")),
       before,
     );
   });
@@ -220,7 +220,7 @@ Deno.test("add-preset --dry-run prints the plan as plain text and writes nothing
 Deno.test("add-preset overlays a preset that has no preset.json (files only, no fills)", async () => {
   await withTempDir(async (dir) => {
     await runCli(["init", "--yes", "--slug", "demo"], dir);
-    const before = await Deno.readTextFile(join(dir, "icculus.toml"));
+    const before = await Deno.readTextFile(join(dir, "discern.toml"));
     const { env } = await stagePreset(dir, "filesonly", {
       "recipes/filesonly": "# files only preset\n",
     });
@@ -233,12 +233,12 @@ Deno.test("add-preset overlays a preset that has no preset.json (files only, no 
     assertEquals(r.code, 0, r.stderr);
     const result = JSON.parse(r.stdout);
     assertEquals(result.ok, true);
-    // No preset.json → no config fills, and icculus.toml is untouched.
+    // No preset.json → no config fills, and discern.toml is untouched.
     assertEquals(result.config_fills, false);
     assert(result.written.includes("recipes/filesonly"));
     assert(await exists(join(dir, "recipes/filesonly")));
     assertEquals(
-      await Deno.readTextFile(join(dir, "icculus.toml")),
+      await Deno.readTextFile(join(dir, "discern.toml")),
       before,
     );
   });
@@ -247,7 +247,7 @@ Deno.test("add-preset overlays a preset that has no preset.json (files only, no 
 Deno.test("add-preset rejects a preset.json that is not a JSON object", async () => {
   await withTempDir(async (dir) => {
     await runCli(["init", "--yes", "--slug", "demo"], dir);
-    const before = await Deno.readTextFile(join(dir, "icculus.toml"));
+    const before = await Deno.readTextFile(join(dir, "discern.toml"));
     const { env } = await stagePreset(dir, "badjson", {
       "recipes/badjson": "# preset with a non-object manifest\n",
       "preset.json": '["not", "an", "object"]',
@@ -266,7 +266,7 @@ Deno.test("add-preset rejects a preset.json that is not a JSON object", async ()
     // Failed before writing anything (neither the file nor the toml changed).
     assert(!(await exists(join(dir, "recipes/badjson"))));
     assertEquals(
-      await Deno.readTextFile(join(dir, "icculus.toml")),
+      await Deno.readTextFile(join(dir, "discern.toml")),
       before,
     );
   });
@@ -316,17 +316,17 @@ Deno.test("add-preset rejects a preset.json with an unsupported version", async 
   });
 });
 
-Deno.test("add-preset falls back to default agents when icculus.toml omits them", async () => {
+Deno.test("add-preset falls back to default agents when discern.toml omits them", async () => {
   await withTempDir(async (dir) => {
     await runCli(["init", "--yes", "--slug", "demo"], dir);
     // Strip the `agents = [...]` line so the command takes the DEFAULTS branch
     // when building its scaffold config.
-    const original = await Deno.readTextFile(join(dir, "icculus.toml"));
+    const original = await Deno.readTextFile(join(dir, "discern.toml"));
     const stripped = original
       .split("\n")
       .filter((line) => !line.trimStart().startsWith("agents ="))
       .join("\n");
-    await Deno.writeTextFile(join(dir, "icculus.toml"), stripped);
+    await Deno.writeTextFile(join(dir, "discern.toml"), stripped);
 
     const r = await runCli(
       ["add-preset", "example", "--yes", "--json"],

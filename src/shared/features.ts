@@ -1,5 +1,5 @@
 /**
- * The icculus **feature** toggles — the on/off switches for whole subsystems
+ * The discern **feature** toggles — the on/off switches for whole subsystems
  * (ADR 0020). The single source of truth every other module consults to decide
  * whether worktrees, ratchets, guidance compilation, skills, or the docs browser
  * are active. A disabled feature must vanish coherently: its verbs hide, its
@@ -60,7 +60,8 @@ const VERB_FEATURE: Readonly<Record<string, Feature>> = {
   worktree: "worktrees",
   "worktree-name": "worktrees",
   ratchets: "ratchets",
-  guidelines: "guidance",
+  refresh: "guidance",
+  graduate: "worktrees",
   skills: "skills",
   docs: "docs",
 };

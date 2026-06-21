@@ -8,7 +8,7 @@
 The single-binary cutover ([ADR 0019](0019-single-binary-ts-engine.md)) makes
 the engine TypeScript, not shell. Scope glob classification is in-memory in
 [`src/engine/scopes/glob.ts`](../../src/engine/scopes/glob.ts), so there is no
-unquoted shell word-splitting to guard. `set -f` and the `ICCULUS_ENGINE_RECIPE`
+unquoted shell word-splitting to guard. `set -f` and the `DISCERN_ENGINE_RECIPE`
 marker are gone; a project recipe is just an executable with normal shell
 globbing.
 
@@ -46,7 +46,7 @@ the engine.
 ## Decision
 
 Disable pathname expansion for engine recipes: `lib/bootstrap.sh` — sourced
-first by every recipe — runs `set -f`, gated on the `ICCULUS_ENGINE_RECIPE`
+first by every recipe — runs `set -f`, gated on the `DISCERN_ENGINE_RECIPE`
 marker that `bin/agent` sets per dispatch (`1` for an engine recipe, `0` for a
 project recipe). Globbing is off for every engine recipe by default; project
 recipes that merely source the library keep normal globbing (see Refinement).
@@ -73,7 +73,7 @@ actually reproduces this bug class).
   glob is **loud** (the loop iterates the literal pattern once, so the feature
   visibly does nothing), unlike the silent bug this prevents. The bootstrap
   comment and this ADR document the rule; `set +f` is the escape hatch.
-- Project recipes under `.icculus/recipes/` are NOT subject to noglob: they
+- Project recipes under `.discern/recipes/` are NOT subject to noglob: they
   source bootstrap for its helpers, not to inherit engine shell policy, so they
   keep normal globbing. `bootstrap.sh` stays a stable contract for recipe
   authors (it provides the library; it does not impose shell modes). See
@@ -95,13 +95,13 @@ actually reproduces this bug class).
 
 The first implementation put `set -f` unconditionally in `bootstrap.sh`. Because
 project recipes also source bootstrap (for `config_get`, `info`, `die`, …), they
-inherited noglob too — and on the next `icculus upgrade`, a downstream project's
+inherited noglob too — and on the next `discern upgrade`, a downstream project's
 custom recipe that used `ls "$dir"/*.xcodeproj` silently matched nothing. That
 was a breaking change to the recipe-authoring contract, leaked through a shared
 file.
 
 Fix: scope the policy to engine recipes. `bin/agent` exports
-`ICCULUS_ENGINE_RECIPE=1` before dispatching an engine recipe and `=0` before a
+`DISCERN_ENGINE_RECIPE=1` before dispatching an engine recipe and `=0` before a
 project recipe; `bootstrap.sh` runs `set -f` only when the marker is `1`. Engine
 recipes keep the structural guarantee above; project recipes keep normal
 globbing. The lesson generalises: `bootstrap.sh` is a contract surface shared

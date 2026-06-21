@@ -1,6 +1,6 @@
 /**
- * The runtime config reader: one parse of the install config (`icculus.toml`, or
- * a legacy `icculus.toml`) via `@std/toml`, exposing the small accessor
+ * The runtime config reader: one parse of the install config (`discern.toml`, or
+ * a legacy `discern.toml`) via `@std/toml`, exposing the small accessor
  * surface the engine and recipes need. Replaces the shell `config.sh` + `toml.awk`
  * pair with a single typed reader.
  *
@@ -23,8 +23,8 @@ function isTable(v: unknown): v is Record<string, unknown> {
  * A friendly one-line summary of a TOML parse failure. `@std/toml`'s message is
  * accurate but cryptic (e.g. "key length is not a positive number, Parse error
  * on line 3, column 8"); lead with a plain "syntax error near line N in
- * icculus.toml" when a line number is present, keeping the raw detail in parens.
- * Shared by {@link ConfigParseError} (engine verbs) and `parseIcculusToml`
+ * discern.toml" when a line number is present, keeping the raw detail in parens.
+ * Shared by {@link ConfigParseError} (engine verbs) and `parseDiscernToml`
  * (doctor/upgrade/migrate) so the diagnostic reads the same everywhere.
  */
 export function tomlSyntaxHint(err: unknown): string {
@@ -37,8 +37,8 @@ export function tomlSyntaxHint(err: unknown): string {
     );
   const line = raw.match(/line (\d+)/i)?.[1];
   return line !== undefined
-    ? `syntax error near line ${line} in icculus.toml (${raw})`
-    : `icculus.toml is not valid TOML: ${raw}`;
+    ? `syntax error near line ${line} in discern.toml (${raw})`
+    : `discern.toml is not valid TOML: ${raw}`;
 }
 
 /**
@@ -55,7 +55,7 @@ export class ConfigParseError extends Error {
 }
 
 /**
- * A parsed `icculus.toml` with the engine's read accessors. Mirrors the
+ * A parsed `discern.toml` with the engine's read accessors. Mirrors the
  * shell `config_get`/`config_array`/`config_subsections`/`config_keys`/
  * `config_has`/`config_bool`.
  */
@@ -70,8 +70,8 @@ export class Config {
     }
   }
 
-  /** Load and parse the install config (`icculus.toml`, or a legacy
-   * `icculus.toml`) from under a project `root`. */
+  /** Load and parse the install config (`discern.toml`, or a legacy
+   * `discern.toml`) from under a project `root`. */
   static async load(root: string): Promise<Config> {
     const rel = (await installedConfigRel(root)) ?? CONFIG_REL;
     return new Config(await Deno.readTextFile(join(root, rel)));

@@ -1,5 +1,5 @@
 /**
- * Building the gate's jobs for a stage from `icculus.toml`. The TS port of
+ * Building the gate's jobs for a stage from `discern.toml`. The TS port of
  * the shell `jobs_in_stage` / `cmds_in_stage` (jobs.sh tail).
  *
  *   capabilities  every `[capabilities]` flat key that is known and whose derived
@@ -66,7 +66,7 @@ export function jobsInStage(config: Config, stage: Stage): StageJob[] {
 /**
  * Join the commands of every job in a stage with ` && `, in jobsInStage order;
  * `:` when the stage has no real job (so a track is never empty). Used by the
- * tidy/test convenience recipes and the no-op detection in finish's tail.
+ * prepare/test convenience recipes and the no-op detection in finish's tail.
  */
 export function cmdsInStage(config: Config, stage: Stage): string {
   const cmds = jobsInStage(config, stage).map((j) => j.command).filter((c) =>

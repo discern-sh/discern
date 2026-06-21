@@ -1,6 +1,6 @@
 name: release
 
-# Build the per-platform `icculus` binaries and attach them to the GitHub
+# Build the per-platform `discern` binaries and attach them to the GitHub
 # Release whenever a v* tag is pushed.
 
 on:
@@ -49,15 +49,15 @@ jobs:
 
       - name: Checksum
         working-directory: dist
-        run: shasum -a 256 "icculus-${{ matrix.target }}" > "icculus-${{ matrix.target }}.sha256"
+        run: shasum -a 256 "discern-${{ matrix.target }}" > "discern-${{ matrix.target }}.sha256"
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: icculus-${{ matrix.target }}
+          name: discern-${{ matrix.target }}
           path: |
-            dist/icculus-${{ matrix.target }}
-            dist/icculus-${{ matrix.target }}.sha256
+            dist/discern-${{ matrix.target }}
+            dist/discern-${{ matrix.target }}.sha256
           if-no-files-found: error
 
   release:
@@ -79,5 +79,5 @@ jobs:
       - name: Attach binaries to the release
         uses: softprops/action-gh-release@v3
         with:
-          files: dist/icculus-*
+          files: dist/discern-*
           fail_on_unmatched_files: true

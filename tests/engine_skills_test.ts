@@ -1,5 +1,5 @@
 /**
- * Engine coverage for the `icculus skills` command group (list / eject) — the
+ * Engine coverage for the `discern skills` command group (list / eject) — the
  * dispatcher handlers that wrap `src/lib/skills.ts`. Driven through the real CLI
  * so Cliffy parsing, the feature gate, and the JSON surface are exercised.
  */
@@ -10,7 +10,7 @@ import { exists } from "@std/fs";
 import { withTempDir } from "./helpers.ts";
 import { runAgent, scaffoldEngine, writeConfig } from "./engine_helpers.ts";
 
-Deno.test("icculus skills list shows the built-ins, and --json emits structured rows", async () => {
+Deno.test("discern skills list shows the built-ins, and --json emits structured rows", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
 
@@ -30,7 +30,7 @@ Deno.test("icculus skills list shows the built-ins, and --json emits structured 
   });
 });
 
-Deno.test("icculus skills eject copies a built-in and the effective set then prefers it", async () => {
+Deno.test("discern skills eject copies a built-in and the effective set then prefers it", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
 
@@ -52,7 +52,7 @@ Deno.test("icculus skills eject copies a built-in and the effective set then pre
   });
 });
 
-Deno.test("icculus skills eject rejects an unknown skill", async () => {
+Deno.test("discern skills eject rejects an unknown skill", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     const r = await runAgent(dir, ["skills", "eject", "does-not-exist"]);

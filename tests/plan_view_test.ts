@@ -78,7 +78,7 @@ function plan(
 
 Deno.test("renderPlan writes the heading to stderr and one padded row per op to stdout", async () => {
   const p = plan([
-    op("icculus.toml", "create"),
+    op("discern.toml", "create"),
     op(".gitignore", "append"),
   ]);
   const { err, out } = await capture(() =>
@@ -87,7 +87,7 @@ Deno.test("renderPlan writes the heading to stderr and one padded row per op to 
   assertEquals(err, ["\nDry run — would write:"]);
   assertEquals(out.length, 2);
   assertStringIncludes(out[0]!, "create");
-  assertStringIncludes(out[0]!, "icculus.toml");
+  assertStringIncludes(out[0]!, "discern.toml");
   assertStringIncludes(out[1]!, "append");
   assertStringIncludes(out[1]!, ".gitignore");
 });
@@ -123,7 +123,7 @@ Deno.test("renderPlan on an empty plan prints only the heading, no rows", async 
 
 Deno.test("renderReview groups config, your content, and integration", async () => {
   const p = plan([
-    op("icculus.toml", "create"),
+    op("discern.toml", "create"),
     op("brief.md", "create"),
     op(".gitignore", "append"),
     op(".claude/settings.json", "merge"),
@@ -139,7 +139,7 @@ Deno.test("renderReview groups config, your content, and integration", async () 
   assertStringIncludes(text, "4 files.");
   // Config group names the one root file.
   assertStringIncludes(text, "Config");
-  assertStringIncludes(text, "icculus.toml");
+  assertStringIncludes(text, "discern.toml");
   // Other seeded content (the brief) is grouped under "Your content".
   assertStringIncludes(text, "Your content");
   assertStringIncludes(text, "brief.md");
@@ -148,7 +148,7 @@ Deno.test("renderReview groups config, your content, and integration", async () 
   assertStringIncludes(text, "merged into your existing settings");
   assertStringIncludes(text, "the harness section appended to your .gitignore");
   // The closing hint to see every file.
-  assertStringIncludes(text, "icculus init --dry-run");
+  assertStringIncludes(text, "discern init --dry-run");
 });
 
 Deno.test("renderReview lists seeded content under 'Your content', with and without notes", async () => {
@@ -217,7 +217,7 @@ Deno.test("init review screen (no --dry-run) renders the grouped summary via ren
     const text = stdout + stderr;
     assertStringIncludes(text, "will set up its harness");
     assertStringIncludes(text, "Config");
-    assertStringIncludes(text, "icculus init --dry-run");
+    assertStringIncludes(text, "discern init --dry-run");
   });
 });
 
@@ -231,6 +231,6 @@ Deno.test("init --dry-run prints the full per-file plan via renderPlan", async (
     // The flat listing names the seed files with the create label; nothing was
     // written (dry run).
     assertStringIncludes(stdout, "create");
-    assertStringIncludes(stdout, "icculus.toml");
+    assertStringIncludes(stdout, "discern.toml");
   });
 });

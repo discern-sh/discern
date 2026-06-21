@@ -1,5 +1,5 @@
 /**
- * `icculus` — the CLI entrypoint.
+ * `discern` — the CLI entrypoint.
  *
  * Wires the Cliffy command tree, threads the global flags (`--json`,
  * `--no-color`, `--help`, `--version`) into every subcommand, and maps each
@@ -78,11 +78,11 @@ declare function rootShape(): ReturnType<
 type RootCommand = ReturnType<typeof rootShape>;
 
 /** Build the root command with its global flags and subcommands. Subsystem verbs
- * (worktree, ratchets, guidelines, skills, docs) are attached only when their
+ * (worktree, ratchets, refresh, skills, docs) are attached only when their
  * feature is enabled, so `--help` lists exactly the active verbs. */
 function buildCli(enabled: ReadonlySet<Feature>): RootCommand {
   const root = new Command()
-    .name("icculus")
+    .name("discern")
     .version(KIT_VERSION)
     .description(
       "Scaffold a stack-neutral agentic development harness into any project.",
@@ -126,7 +126,7 @@ function buildCli(enabled: ReadonlySet<Feature>): RootCommand {
     )
     .option("-y, --yes", "Non-interactive: use flags/defaults, no prompts.")
     .option("--dry-run", "Print the plan and write nothing.")
-    .option("--force", "Proceed even if icculus.toml already exists.")
+    .option("--force", "Proceed even if discern.toml already exists.")
     .action(async (options) => {
       const code = await runInit({
         json: options.json ?? false,
@@ -254,7 +254,7 @@ function buildCli(enabled: ReadonlySet<Feature>): RootCommand {
   }
 
   // `config` — programmatic, comment-preserving edits to an existing
-  // icculus.toml. Each subcommand is a standalone Command instance attached via
+  // discern.toml. Each subcommand is a standalone Command instance attached via
   // `.command(name, instance)` (the reliable Cliffy form for a command group).
   const setCapability = new Command()
     .description(
@@ -363,7 +363,7 @@ function buildCli(enabled: ReadonlySet<Feature>): RootCommand {
     });
 
   // Read-side config surface — what a project recipe uses to read
-  // icculus.toml (replacing the shell config_* helpers).
+  // discern.toml (replacing the shell config_* helpers).
   const configGet = new Command()
     .description("Print a scalar config value.")
     .arguments("<key:string>")
@@ -397,7 +397,7 @@ function buildCli(enabled: ReadonlySet<Feature>): RootCommand {
 
   const config = new Command()
     .description(
-      "Edit (set-*) or read (get/array/has/subsections/keys) icculus.toml.",
+      "Edit (set-*) or read (get/array/has/subsections/keys) discern.toml.",
     )
     .action(function (): void {
       this.showHelp();
@@ -415,8 +415,8 @@ function buildCli(enabled: ReadonlySet<Feature>): RootCommand {
 
   root.command("config", config);
 
-  // The project task-runner verbs (finish, tidy, worktree:*, …) — the former
-  // shell `agent` recipes, now first-class `icculus` subcommands. The cast drops
+  // The project task-runner verbs (finish, prepare, graduate, worktree:*, …) — the former
+  // shell `agent` recipes, now first-class `discern` subcommands. The cast drops
   // the threaded global-option generics (which the engine actions don't read) —
   // Cliffy's generic Command type is impractical to spell at this boundary.
   attachEngineCommands(root as unknown as Command, enabled);
@@ -494,8 +494,8 @@ export async function main(args: string[]): Promise<void> {
     const owningFeature = featureForVerb(verb);
     if (owningFeature !== undefined && !enabled.has(owningFeature)) {
       console.error(
-        `icculus: the "${owningFeature}" feature is disabled in this project ` +
-          `(set [features].${owningFeature} = true in icculus.toml to enable it).`,
+        `discern: the "${owningFeature}" feature is disabled in this project ` +
+          `(set [features].${owningFeature} = true in discern.toml to enable it).`,
       );
       Deno.exit(1);
     }
@@ -513,7 +513,7 @@ export async function main(args: string[]): Promise<void> {
 
     await buildCli(enabled).parse(argv);
   } catch (err) {
-    // An unparseable icculus.toml must read as a clean diagnostic, not a raw
+    // An unparseable discern.toml must read as a clean diagnostic, not a raw
     // stack trace — in both human and `--json` modes (a CI/agent consuming JSON
     // gets a structured error, not garbage). Other errors propagate unchanged.
     if (err instanceof ConfigParseError) {
@@ -526,7 +526,7 @@ export async function main(args: string[]): Promise<void> {
           }),
         );
       } else {
-        console.error(`icculus: ${err.message}`);
+        console.error(`discern: ${err.message}`);
       }
       Deno.exit(1);
     }

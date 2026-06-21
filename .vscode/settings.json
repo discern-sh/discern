@@ -3,12 +3,12 @@
     ".claude/worktrees": true,
     ".claude/skills": true,
     "dist": true,
-    ".icculus/evidence": true,
+    ".discern/evidence": true,
     "coverage": true,
     ".scratch": true
   },
   "search.exclude": {
-    ".icculus/skills": true,
+    ".discern/skills": true,
     ".claude/skills": true,
     "AGENTS.md": true,
     "CLAUDE.md": true

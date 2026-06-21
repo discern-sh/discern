@@ -48,7 +48,7 @@ isn't on macOS, `set -m` job control isn't reliable in scripts). So both must
 
 Add two **opt-in, default-off** behaviours to `run_parallel`, configured under a
 new `[gate]` section and passed to the runner as environment flags (the same
-side-channel pattern as `ICCULUS_JOBS_RESULTS`):
+side-channel pattern as `DISCERN_JOBS_RESULTS`):
 
 ```toml
 [gate]
@@ -56,12 +56,12 @@ stream    = false   # stream slot output live (line-prefixed) instead of bufferi
 fail_fast = false   # cancel in-flight siblings when one job fails
 ```
 
-- **`stream`** → `ICCULUS_GATE_STREAM=1`. Each job's output is piped live
+- **`stream`** → `DISCERN_GATE_STREAM=1`. Each job's output is piped live
   through a line-prefixer (`── <label> │ …`) so concurrent jobs are still
   attributable. The job's exit code is captured _before_ the pipe (so it's the
   command's status, not the prefixer's), and the post-run dump is skipped (the
   output already streamed).
-- **`fail_fast`** → `ICCULUS_GATE_FAIL_FAST=1`. The runner polls the per-job
+- **`fail_fast`** → `DISCERN_GATE_FAIL_FAST=1`. The runner polls the per-job
   result files (1-second granularity — portable `sleep`) and, on the first
   non-zero exit, sends `SIGTERM` to the still-running jobs. Each job runs its
   command as a backgrounded child under a `TERM` trap that forwards the signal

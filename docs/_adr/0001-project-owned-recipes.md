@@ -1,4 +1,4 @@
-# ADR 0001: Project-owned recipes live in an unmanaged `.icculus/recipes/`
+# ADR 0001: Project-owned recipes live in an unmanaged `.discern/recipes/`
 
 **Status**: accepted; **amended by [ADR 0019](0019-single-binary-ts-engine.md)**
 — see _Update (single-binary cutover)_ below.
@@ -6,25 +6,25 @@
 ## Update (single-binary cutover)
 
 Under the single-binary cutover ([ADR 0019](0019-single-binary-ts-engine.md)),
-`bin/agent` and `.icculus/engine/` are gone: the dispatcher is `icculus` and the
+`bin/agent` and `.discern/engine/` are gone: the dispatcher is `discern` and the
 engine is compiled into the binary. Project recipes still live in an unmanaged
-`.icculus/recipes/`, auto-discovered and exec'd on an unknown verb — but they
-read config via `icculus config get` rather than sourcing a shell library, and
+`.discern/recipes/`, auto-discovered and exec'd on an unknown verb — but they
+read config via `discern config get` rather than sourcing a shell library, and
 the engine-always-wins shadow rule survives.
 
 ## Context
 
 `bin/agent` is the task-runner surface a coding agent drives: `agent finish`,
 `agent worktree:exit`, and so on. It dispatches a verb to a file by mapping `:`
-to `-` and running `.icculus/engine/<recipe>`. Recipes are auto-discovered from
+to `-` and running `.discern/engine/<recipe>`. Recipes are auto-discovered from
 the files on disk — drop one in and it works, no registry.
 
-But `.icculus/engine/` is **managed**: it is kit-owned, hash-tracked in the
-manifest, and refreshed by `icculus upgrade`. A project that wants its own
+But `.discern/engine/` is **managed**: it is kit-owned, hash-tracked in the
+manifest, and refreshed by `discern upgrade`. A project that wants its own
 first-class `agent <verb>` command (say `agent deploy`, `agent seed-db`) has
 nowhere to put it except that managed directory. Doing so is hazardous:
 
-- **Upgrade churn.** A project file in `.icculus/engine/` is not in the
+- **Upgrade churn.** A project file in `.discern/engine/` is not in the
   manifest, so it is treated as "not provably ours" — but it sits among files
   `upgrade` rewrites, and a future engine recipe of the same name would land as
   a `.new` sibling or, worse, shadow it.
@@ -43,11 +43,11 @@ Add a project-owned recipe directory that `bin/agent` resolves in addition to
 the engine, kept strictly separate from the managed engine.
 
 - **Location** is config-declared: a new optional key `[recipes].dir`,
-  defaulting to `.icculus/recipes`. The default applies even when the key is
+  defaulting to `.discern/recipes`. The default applies even when the key is
   absent, so existing installs gain the feature on the next `upgrade` of
   `bin/agent` with no config edit.
-- **Unmanaged.** `.icculus/recipes/` matches no managed prefix
-  (`.icculus/engine/`, `.ai/skills/`, `bin/agent`), so it is never tracked,
+- **Unmanaged.** `.discern/recipes/` matches no managed prefix
+  (`.discern/engine/`, `.ai/skills/`, `bin/agent`), so it is never tracked,
   refreshed, or `.new`-preserved by `init`/`upgrade`. It is the project's.
 - **Resolution precedence: the engine always wins.** `bin/agent` checks the
   engine first, then the project recipes dir. A project recipe whose name
@@ -61,10 +61,10 @@ the engine, kept strictly separate from the managed engine.
   considers project recipes. A colliding (shadowed) name is omitted from the
   project-recipes listing, since it does not run.
 - **Library access.** A project recipe invoked via `agent <name>` inherits the
-  exported `ICCULUS_*` paths, so it can `. "$ICCULUS_LIB/bootstrap.sh"` to get
+  exported `DISCERN_*` paths, so it can `. "$DISCERN_LIB/bootstrap.sh"` to get
   the same `info`/`ok`/`die`, `config_get`, and `run_parallel` surface the
   engine recipes use.
-- **Scaffolding.** `init` writes a seed `.icculus/recipes/README.md` documenting
+- **Scaffolding.** `init` writes a seed `.discern/recipes/README.md` documenting
   the directory and the `# desc:` contract. As a seed it is write-once and never
   touched by `upgrade`.
 
@@ -82,12 +82,12 @@ the engine, kept strictly separate from the managed engine.
   every dispatch attempt and its omission from help.
 - `bin/agent` does one extra `config_get` per run to read `[recipes].dir`. It
   already reads config for `MAIN_BRANCH`, so this is folded into the same load.
-- Backward compatible: no `[recipes]` section and no `.icculus/recipes/` dir
+- Backward compatible: no `[recipes]` section and no `.discern/recipes/` dir
   means the default dir simply doesn't exist, and resolution is unchanged.
 
 ## Alternatives considered
 
-- **A fixed, non-configurable `.icculus/recipes/`.** Simpler, but a config key
+- **A fixed, non-configurable `.discern/recipes/`.** Simpler, but a config key
   costs little, lets a project point at an existing `tools/` or `bin/recipes/`
   directory, and fits the declarative-config direction. The default keeps the
   zero-config case trivial.
