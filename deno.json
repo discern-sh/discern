@@ -21,6 +21,7 @@
     "fmt": "deno fmt",
     "lint": "deno lint",
     "coverage": "deno run --allow-read --allow-write --allow-env --allow-run scripts/coverage.ts",
+    "codegen": "deno run --allow-read --allow-write scripts/codegen.ts",
     "check": "deno check src/main.ts",
     "gate": "deno task dev finish"
   },

@@ -189,7 +189,10 @@ const skillsSection = z.strictObject({
   "Focused, reusable task playbooks. The effective set is discern's bundled built-ins plus your authored skills under the directory below, where yours override a built-in of the same name.",
 );
 
-const capabilitiesSection = z.strictObject({
+/** The closed [capabilities] object: the five known names, each an optional
+ * command-or-list. Shared by the live config (prefaulted) AND the document
+ * (optional), so both — and the generated JSON Schema — derive from one shape. */
+const capabilitiesObject = z.strictObject({
   format: commandOrList.optional().describe(
     "fix stage — a formatter/codemod (mutating; runs first, serially).",
   ),
@@ -203,7 +206,9 @@ const capabilitiesSection = z.strictObject({
     "check stage — read-only type checking.",
   ),
   test: commandOrList.optional().describe("test stage — the test suite."),
-}).prefault({}).describe(
+});
+
+const capabilitiesSection = capabilitiesObject.prefault({}).describe(
   "The core commands the gate runs, one per known capability; each maps to a gate stage automatically. The set is CLOSED — for custom work use a [checks.<name>] table with an explicit stage. OMIT a capability you don't have.",
 );
 
@@ -334,10 +339,14 @@ export const CONFIG_DOC_VERSION = "2";
 /** The document's gate-config tables reuse the *same* building blocks as the live
  * config, so the document shape can never diverge from what the engine reads. The
  * base fields (name/slug/brief/source_globs/agents) are install inputs the
- * document layer maps onto the live sections. The document is lenient (unknown
- * keys ignored) so a newer field within the same major never breaks an older
- * reader (ADR 0005). */
-export const configDocSchema = z.looseObject({
+ * document layer maps onto the live sections.
+ *
+ * Strict here drives a STRICT generated editor JSON Schema (so a typo'd key is
+ * flagged while authoring a preset / config doc). The *runtime* loader stays
+ * lenient — `loadConfigDoc` parses + version-checks, and `applyConfigDoc` reads
+ * only the fields it applies — so a newer field within the same major never
+ * breaks an older reader (ADR 0005). */
+export const configDocSchema = z.strictObject({
   $schema: z.string().optional().describe(
     "Editor-only pointer to this schema; ignored by discern.",
   ),
@@ -366,13 +375,9 @@ export const configDocSchema = z.looseObject({
   features: z.record(z.string(), z.boolean()).optional().describe(
     "[features] toggles — a feature name mapped to a boolean (default true).",
   ),
-  capabilities: z.record(
-    z.enum(Object.keys(KNOWN_CAPABILITIES) as [string, ...string[]]),
-    commandOrList,
-  )
-    .optional().describe(
-      "[capabilities] fills — a known capability name mapped to a command (or list). The gate stage is derived from the name; the set is closed.",
-    ),
+  capabilities: capabilitiesObject.optional().describe(
+    "[capabilities] fills — a known capability name mapped to a command (or list). The gate stage is derived from the name; the set is closed.",
+  ),
   checks: z.record(z.string().regex(NAME_RE), checkValue).optional().describe(
     "[checks.<name>] fills — custom gate work outside the known capability vocabulary.",
   ),
@@ -387,8 +392,10 @@ export const configDocSchema = z.looseObject({
   "The declarative config shape consumed by `discern init --config <file>` and by a preset's `preset.json`. Its capabilities/checks/scopes/ratchets are written into a project's discern.toml via the comment-preserving editor. Every field is optional.",
 );
 
-/** The config-document shape. Internal alias of the inferred Zod type. */
-export type DiscernConfigDoc = z.infer<typeof configDocSchema>;
+/** The config-document shape — the *input* view (what an author writes, before
+ * defaults), so optional attributes (a scope's `neutral`, a ratchet's
+ * `direction`) stay optional. Internal alias of the inferred Zod type. */
+export type DiscernConfigDoc = z.input<typeof configDocSchema>;
 
 // ── parse / validate / load ────────────────────────────────────────────────────
 

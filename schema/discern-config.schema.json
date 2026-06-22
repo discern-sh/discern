@@ -2,151 +2,293 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/jackwh/discern/main/schema/discern-config.schema.json",
   "title": "discern config document",
-  "description": "The declarative config shape consumed by `discern init --config <file>` and by a preset's `preset.json`. Its capabilities/checks/scopes/ratchets are written into a project's .discern/config.toml via the comment-preserving editor. Every field is optional.",
   "type": "object",
-  "additionalProperties": false,
-  "$defs": {
-    "commandOrList": {
-      "description": "A single command, or a list of commands run in order.",
-      "oneOf": [
-        { "type": "string" },
-        { "type": "array", "items": { "type": "string" }, "minItems": 1 }
-      ]
-    }
-  },
   "properties": {
     "$schema": {
-      "type": "string",
-      "description": "Editor-only pointer to this schema; ignored by discern."
+      "description": "Editor-only pointer to this schema; ignored by discern.",
+      "type": "string"
     },
     "version": {
       "description": "Document major version. Omit (assumed current) or use a matching major; this build understands version 2.",
-      "oneOf": [
-        { "type": "string", "pattern": "^2(\\.[0-9]+)*$" },
-        { "type": "integer", "const": 2 }
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        }
       ]
     },
     "name": {
-      "type": "string",
-      "description": "Project name (free text)."
+      "description": "Project name (free text).",
+      "type": "string"
     },
     "slug": {
-      "type": "string",
-      "pattern": "^[a-z0-9][a-z0-9-]*$",
-      "description": "Project slug: lowercase letters, digits and dashes, starting with a letter or digit."
+      "description": "Project slug: lowercase letters, digits and dashes, starting with a letter or digit.",
+      "type": "string"
     },
     "branch_prefix": {
-      "type": "string",
-      "description": "Branch prefix for worktrees, e.g. \"agent/\"."
+      "description": "Branch prefix for worktrees, e.g. \"agent/\".",
+      "type": "string"
     },
     "source_globs": {
+      "description": "Primary source globs, e.g. [\"src/**\"].",
       "type": "array",
-      "items": { "type": "string" },
-      "description": "Primary source globs, e.g. [\"src/**\"]."
-    },
-    "brief": {
-      "type": "string",
-      "description": "Free-text description of what the project is."
-    },
-    "agents": {
-      "type": "array",
-      "items": { "type": "string", "enum": ["claude_code", "codex"] },
-      "description": "Which agent instruction files to compile (e.g. claude_code, codex)."
-    },
-    "description": {
-      "type": "string",
-      "description": "Preset metadata, shown when listing presets; ignored by `init --config`."
-    },
-    "capabilities": {
-      "type": "object",
-      "description": "[capabilities] fills — a known capability name mapped to a command (or a list). The gate stage is derived from the name. The set is closed; for custom work use `checks`.",
-      "additionalProperties": { "$ref": "#/$defs/commandOrList" },
-      "propertyNames": {
-        "enum": ["format", "build", "lint", "typecheck", "test"]
+      "items": {
+        "type": "string"
       }
     },
-    "checks": {
+    "brief": {
+      "description": "Free-text description of what the project is.",
+      "type": "string"
+    },
+    "agents": {
+      "description": "Which agent instruction files to compile (claude_code, codex, gemini).",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "claude_code",
+          "codex",
+          "gemini"
+        ]
+      }
+    },
+    "description": {
+      "description": "Preset metadata, shown when listing presets; ignored by `init --config`.",
+      "type": "string"
+    },
+    "features": {
+      "description": "[features] toggles — a feature name mapped to a boolean (default true).",
       "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {
+        "type": "boolean"
+      }
+    },
+    "capabilities": {
+      "description": "[capabilities] fills — a known capability name mapped to a command (or list). The gate stage is derived from the name; the set is closed.",
+      "type": "object",
+      "properties": {
+        "format": {
+          "description": "fix stage — a formatter/codemod (mutating; runs first, serially).",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "build": {
+          "description": "build stage — produce artifacts later stages read (compile, bundle).",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "lint": {
+          "description": "check stage — read-only static analysis.",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "typecheck": {
+          "description": "check stage — read-only type checking.",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "test": {
+          "description": "test stage — the test suite.",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "checks": {
       "description": "[checks.<name>] fills — custom gate work outside the known capability vocabulary.",
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_-]+$"
+      },
       "additionalProperties": {
         "type": "object",
-        "additionalProperties": false,
-        "required": ["stage", "run"],
         "properties": {
           "stage": {
             "type": "string",
-            "enum": ["fix", "build", "check", "test"],
-            "description": "When the check runs in the gate."
+            "enum": [
+              "fix",
+              "build",
+              "check",
+              "test"
+            ],
+            "description": "When the check runs in the gate (fix|build|check|test)."
           },
           "run": {
-            "$ref": "#/$defs/commandOrList",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            ],
             "description": "The command(s) to run."
           },
           "provides": {
-            "type": "string",
-            "description": "Optional free-text label (for humans / audit)."
+            "description": "Optional free-text label, for humans / audit.",
+            "type": "string"
           }
-        }
-      },
-      "propertyNames": { "pattern": "^[A-Za-z0-9_-]+$" }
+        },
+        "required": [
+          "stage",
+          "run"
+        ],
+        "additionalProperties": false
+      }
     },
     "scopes": {
-      "type": "object",
       "description": "[scopes.<name>] tables — a named region defined by `paths`, with optional attributes.",
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_-]+$"
+      },
       "additionalProperties": {
         "type": "object",
-        "additionalProperties": false,
-        "required": ["paths"],
         "properties": {
           "paths": {
             "type": "array",
-            "items": { "type": "string" },
+            "items": {
+              "type": "string"
+            },
             "description": "The globs that define the scope."
           },
           "neutral": {
-            "type": "boolean",
-            "description": "true: changes here need no gate."
+            "default": false,
+            "description": "true: changes here need no gate (docs, agent guidance).",
+            "type": "boolean"
           },
           "previewable": {
-            "type": "boolean",
-            "description": "true: a person could see changes here."
+            "default": false,
+            "description": "true: a person could see changes here — worth a preview link.",
+            "type": "boolean"
           },
           "gate": {
-            "$ref": "#/$defs/commandOrList",
-            "description": "A command to run when this scope changed (the former side gate)."
+            "description": "A command discern finish runs when this scope changed (a sub-component with its own self-contained gate).",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            ]
           }
-        }
-      },
-      "propertyNames": { "pattern": "^[A-Za-z0-9_-]+$" }
+        },
+        "required": [
+          "paths"
+        ],
+        "additionalProperties": false
+      }
     },
     "ratchets": {
-      "type": "object",
       "description": "[ratchets.<name>] tables. Coverage is just a conventional name.",
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_-]+$"
+      },
       "additionalProperties": {
         "type": "object",
-        "additionalProperties": false,
-        "required": ["limit", "run"],
         "properties": {
           "metric": {
-            "type": "string",
-            "description": "Metric name the run emits (default: the ratchet name)."
+            "description": "Metric name the run emits (default: the ratchet name).",
+            "type": "string"
           },
           "direction": {
+            "default": "up",
+            "description": "\"up\": limit is a floor; \"down\": limit is a ceiling.",
             "type": "string",
-            "enum": ["up", "down"],
-            "description": "\"up\": limit is a floor; \"down\": limit is a ceiling. Default \"up\"."
+            "enum": [
+              "up",
+              "down"
+            ]
           },
           "limit": {
             "type": "number",
             "description": "The floor (up) or ceiling (down)."
           },
           "run": {
-            "$ref": "#/$defs/commandOrList",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            ],
             "description": "The command whose output emits the metric line: DISCERN_METRIC <metric> <number>."
           }
-        }
-      },
-      "propertyNames": { "pattern": "^[A-Za-z0-9_-]+$" }
+        },
+        "required": [
+          "limit",
+          "run"
+        ],
+        "additionalProperties": false
+      }
     }
-  }
+  },
+  "additionalProperties": false,
+  "description": "The declarative config shape consumed by `discern init --config <file>` and by a preset's `preset.json`. Its capabilities/checks/scopes/ratchets are written into a project's discern.toml via the comment-preserving editor. Every field is optional."
 }
