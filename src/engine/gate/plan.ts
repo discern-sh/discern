@@ -170,23 +170,41 @@ export function scopeGatesGroup(jobs: PlannedJob[]): JobGroup | undefined {
 }
 
 /**
+ * Assemble a gate plan from its stage groups, an optional scope-gates group, and
+ * the changed scopes. The SINGLE composition both paths route through — the
+ * `--dry-run` planner ({@link buildGatePlan}) and the apply executor (which
+ * classifies scopes AFTER the stage groups run) — so a new group can't be added to
+ * one path and forgotten in the other.
+ */
+export function composeGatePlan(
+  stageGroups: JobGroup[],
+  scopeGates: JobGroup | undefined,
+  changed: string[],
+): GatePlan {
+  return {
+    groups: scopeGates === undefined
+      ? stageGroups
+      : [...stageGroups, scopeGates],
+    mergeCheck: true,
+    scopesChanged: changed,
+  };
+}
+
+/**
  * Build the full gate plan from the typed config and the changed scopes (already
  * classified by the caller — the only read-only I/O). Pure given those inputs, so
  * the whole "what would the gate run" decision is unit-testable without a
  * subprocess. Mirrors the gate's order: fix (serial) → build → check∥test →
  * scope-gates, then a trailing merge check. Used by `--dry-run` (which classifies
- * scopes once, read-only); the apply path assembles the same plan but classifies
- * scopes AFTER the stage groups run, so the executor composes
- * {@link buildStageGroups} + {@link scopeGatesGroup} directly.
+ * scopes once, read-only); the apply path classifies scopes AFTER the stage groups
+ * run and {@link composeGatePlan}s the same shape.
  */
 export function buildGatePlan(cfg: DiscernConfig, changed: string[]): GatePlan {
-  const groups = buildStageGroups(cfg);
-  const sg = scopeGatesGroup(planScopeGates(cfg, changed));
-  return {
-    groups: sg === undefined ? groups : [...groups, sg],
-    mergeCheck: true,
-    scopesChanged: changed,
-  };
+  return composeGatePlan(
+    buildStageGroups(cfg),
+    scopeGatesGroup(planScopeGates(cfg, changed)),
+    changed,
+  );
 }
 
 // ── the ADR-0004 `finish --json` report (a serialization of plan + results) ─────

@@ -23,7 +23,7 @@ import {
   buildGatePlan,
   buildGateReport,
   buildStageGroups,
-  type GatePlan,
+  composeGatePlan,
   gatePlanToEngine,
   type GateReport,
   type JobGroup,
@@ -146,11 +146,7 @@ async function runGate(
   }
 
   // 5. Assemble the executed plan and serialize it into the report.
-  const plan: GatePlan = {
-    groups: sgGroup === undefined ? stageGroups : [...stageGroups, sgGroup],
-    mergeCheck: true,
-    scopesChanged: changed,
-  };
+  const plan = composeGatePlan(stageGroups, sgGroup, changed);
   return {
     report: buildGateReport(plan, results, failedStage),
     failedStage,
