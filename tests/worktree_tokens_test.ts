@@ -115,12 +115,14 @@ Deno.test("expandTokens inserts a value with shell metacharacters verbatim (no r
   assertEquals(asked.sort(), ["db", "site"]);
 });
 
-Deno.test("the token list is the documented five, in order", () => {
+Deno.test("the token list is the documented seven, in order", () => {
   assertEquals([...WORKTREE_TOKENS], [
     "db",
     "site",
     "port",
     "project_slug",
     "dir",
+    "worktree",
+    "resource",
   ]);
 });

@@ -6,8 +6,8 @@
  * prune). This file pins down the surfaces it leaves uncovered: the safety
  * boundary of `remove-worktree-safely` (refuse the main checkout / a non-worktree
  * path), the BRANCH-pruning behaviour of `worktree:prune` (a merged branch with
- * no worktree is deleted; an unmerged one is kept), the teardown ADAPTER seams
- * actually firing (db `drop` + dev-server `unlink`, not just the no-op path),
+ * no worktree is deleted; an unmerged one is kept), teardown destroying a
+ * worktree's declared resources (not just the no-op path),
  * `inherit-main-env-vars` copying a whitelisted secret into a worktree's `.env`,
  * and `with-gotchas` printing its failure pointer while propagating the exit code.
  *
@@ -211,43 +211,47 @@ async function branchList(dir: string): Promise<string> {
   return new TextDecoder().decode(stdout);
 }
 
-// ── worktree:teardown — the adapter seams actually firing ───────────────────
+// ── worktree:teardown — resources actually destroyed ────────────────────────
 //
-// The sibling test proves teardown is a clean no-op when the seams are unset.
-// This proves the other half: a configured db `drop` and dev-server `unlink`
-// both run, with the `@dir@` runtime token expanded to the worktree root.
+// The sibling test proves teardown is a clean no-op when nothing is declared.
+// This proves the other half: a resource created at setup is destroyed at
+// teardown (via the ledger's frozen command), with its handle expanded. The
+// markers live OUTSIDE the worktree so the destroy can be checked afterwards.
 
-Deno.test("worktree:teardown runs the configured db-drop and dev-server-unlink adapters", async () => {
+Deno.test("worktree:teardown destroys the worktree's resources", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "tear");
-    // The recipe reads its config from the CURRENT root, which inside a worktree
-    // resolves to the worktree's own discern.toml (find_root walks up from pwd
-    // and stops at the worktree). So the adapter commands go there, not main's.
-    // Harmless commands that drop a marker into the worktree root prove each seam
-    // fired; `@dir@` expands to this worktree's checkout.
+    const markers = join(dir, "markers");
+    // Append a resource to the scaffolded config (keeping [guidance] etc. so the
+    // setup step's guidance refresh still runs).
+    const cfg = await Deno.readTextFile(join(wt, "discern.toml"));
     await Deno.writeTextFile(
       join(wt, "discern.toml"),
-      baseConfig(
-        [
-          "",
-          "[worktree.db]",
-          'drop = "touch @dir@/DB_DROPPED"',
-          "",
-          "[worktree.dev_server]",
-          'unlink = "touch @dir@/SERVER_UNLINKED"',
-        ].join("\n"),
-      ),
+      `${cfg}\n[worktree.resources.thing]\n` +
+        `create  = "mkdir -p ${markers} && touch ${markers}/@resource@.live"\n` +
+        `destroy = "mkdir -p ${markers} && rm -f ${markers}/@resource@.live && touch ${markers}/@resource@.gone"\n`,
+    );
+
+    // Setup creates the resource (and the ledger entry teardown acts on).
+    const setup = await runAgent(wt, ["worktree"]);
+    assertEquals(setup.code, 0, setup.output);
+    const handle =
+      (await runAgent(wt, ["worktree-name", "--resource", "thing"])).stdout
+        .trim();
+    assert(
+      await exists(join(markers, `${handle}.live`)),
+      `setup did not create the resource\n${setup.output}`,
     );
 
     const r = await runAgent(wt, ["worktree:teardown"]);
     assertEquals(r.code, 0, r.output);
     assert(
-      await exists(join(wt, "DB_DROPPED")),
-      `db drop adapter did not run (no DB_DROPPED marker)\n${r.output}`,
+      await exists(join(markers, `${handle}.gone`)),
+      `teardown did not destroy the resource\n${r.output}`,
     );
     assert(
-      await exists(join(wt, "SERVER_UNLINKED")),
-      `dev-server unlink adapter did not run (no SERVER_UNLINKED marker)\n${r.output}`,
+      !(await exists(join(markers, `${handle}.live`))),
+      "teardown left the live marker",
     );
   });
 });

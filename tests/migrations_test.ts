@@ -43,9 +43,118 @@ Deno.test("the production chain is contiguous up to the current schema", () => {
   // One step per bump, from 1 up to SCHEMA_VERSION: 1→2 (main_branch backfill),
   // 2→3 (the .discern/ surface consolidation), 3→4 (capabilities/checks),
   // 4→5 (prune the pre-existing on-disk shell engine), 5→6 (dissolve .discern/
-  // into the single-file footprint), and 6→7 (bootstrap skill → command).
-  assertEquals(MIGRATIONS.map((m) => m.from), [1, 2, 3, 4, 5, 6]);
+  // into the single-file footprint), 6→7 (bootstrap skill → command), and
+  // 7→8 (db/dev_server → [worktree.resources.*]).
+  assertEquals(MIGRATIONS.map((m) => m.from), [1, 2, 3, 4, 5, 6, 7]);
   assert(isChainContiguous(MIGRATIONS, SCHEMA_VERSION));
+});
+
+Deno.test("migration 7→8 converts non-empty db/dev_server into [worktree.resources.*]", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      [
+        "[project]",
+        'slug = "demo"',
+        "",
+        "[worktree]",
+        "enabled = true",
+        "port = true",
+        "",
+        "# Database seam.",
+        "[worktree.db]",
+        'clone = "createdb @db@"',
+        'drop  = "dropdb @db@"',
+        "",
+        "# Dev-server seam.",
+        "[worktree.dev_server]",
+        'link   = "up @site@"',
+        'unlink = "down @site@"',
+        "",
+        "# Post-create setup.",
+        "[worktree.setup]",
+        "steps = []",
+        "",
+      ].join("\n"),
+    );
+    await applyMigrations({ destDir: dir, from: 7, to: 8 });
+    const toml = await Deno.readTextFile(join(dir, "discern.toml"));
+    // Legacy tables (and their own doc comments) are gone; [worktree.setup] stays.
+    assert(!toml.includes("[worktree.db]"), "legacy db table not removed");
+    assert(
+      !toml.includes("[worktree.dev_server]"),
+      "legacy dev_server not removed",
+    );
+    assert(!toml.includes("# Database seam"), "stale db comment left behind");
+    assertStringIncludes(toml, "# Post-create setup."); // sibling comment preserved
+    // Commands carried forward, tokens unchanged.
+    assertStringIncludes(toml, "[worktree.resources.db]");
+    assertStringIncludes(toml, 'create  = "createdb @db@"');
+    assertStringIncludes(toml, 'destroy = "dropdb @db@"');
+    assertStringIncludes(toml, "[worktree.resources.dev_server]");
+    assertStringIncludes(toml, 'create  = "up @site@"');
+  });
+});
+
+Deno.test("migration 7→8 is idempotent and adds examples for an empty-seam config", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      [
+        "[worktree]",
+        "enabled = true",
+        "port = true",
+        "",
+        "[worktree.db]",
+        'clone = ""',
+        'drop  = ""',
+        "",
+        "[worktree.dev_server]",
+        'link   = ""',
+        'unlink = ""',
+        "",
+        "[worktree.setup]",
+        "steps = []",
+        "",
+      ].join("\n"),
+    );
+    await applyMigrations({ destDir: dir, from: 7, to: 8 });
+    const once = await Deno.readTextFile(join(dir, "discern.toml"));
+    // Empty seams → removed, no live tables, commented examples added.
+    assert(!once.includes("[worktree.db]"));
+    assertStringIncludes(once, "# [worktree.resources.db]");
+    assertStringIncludes(once, "# [worktree.resources.example]");
+    // Re-running the step is a no-op (the legacy tables are already gone).
+    await applyMigrations({ destDir: dir, from: 7, to: 8 });
+    assertEquals(await Deno.readTextFile(join(dir, "discern.toml")), once);
+  });
+});
+
+Deno.test("migration 7→8 never clobbers a hand-added resource of the same name", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      [
+        "[worktree]",
+        "enabled = true",
+        "",
+        "[worktree.db]",
+        'clone = "createdb @db@"',
+        "",
+        "[worktree.resources.db]",
+        'create = "my-own-createdb @db@"',
+        "",
+      ].join("\n"),
+    );
+    await applyMigrations({ destDir: dir, from: 7, to: 8 });
+    const toml = await Deno.readTextFile(join(dir, "discern.toml"));
+    assert(!toml.includes("[worktree.db]\n"), "legacy table not removed");
+    assertStringIncludes(toml, 'create = "my-own-createdb @db@"'); // user's wins
+    assert(
+      !toml.includes('create = "createdb @db@"'),
+      "legacy clone clobbered the hand-added resource",
+    );
+  });
 });
 
 Deno.test("migration 1→2 backfills [project].main_branch when the config predates it", async () => {
