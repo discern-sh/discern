@@ -73,9 +73,9 @@ Deno.test("init scaffolds the real templates into a working harness", async () =
     // the way runInit/worktree setup do — so drive that step here, then assert.
     await materializeSkills(dir, await Config.load(dir));
     const skillInfo = await Deno.stat(
-      join(dir, ".claude/skills/bootstrap/SKILL.md"),
+      join(dir, ".claude/skills/write-adr/SKILL.md"),
     );
-    assert(skillInfo.isFile, "the bootstrap skill should be materialized");
+    assert(skillInfo.isFile, "the write-adr skill should be materialized");
 
     // 4. The brief was written verbatim under a header (at the root brief.md).
     assertStringIncludes(

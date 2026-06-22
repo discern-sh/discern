@@ -60,8 +60,8 @@ Deno.test("compileGuidelines: banner + built-in + sources; copies built-ins, sym
     assert((await Deno.lstat(link)).isSymlink, "expected a symlink");
     assertEquals(await Deno.readLink(link), "../../skills/demo");
     // A bundled built-in is copied in as a real directory (not a symlink).
-    const bootstrap = await Deno.lstat(join(tmp, ".claude/skills/bootstrap"));
-    assert(bootstrap.isDirectory && !bootstrap.isSymlink);
+    const builtin = await Deno.lstat(join(tmp, ".claude/skills/write-adr"));
+    assert(builtin.isDirectory && !builtin.isSymlink);
 
     // --- prune: remove the authored skill, re-run → the dangling link is gone --
     await Deno.remove(join(tmp, "skills/demo"), { recursive: true });

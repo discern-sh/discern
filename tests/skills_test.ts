@@ -52,11 +52,10 @@ async function authoredSkill(root: string, name: string): Promise<void> {
 
 Deno.test("bundledSkillNames lists the shipped built-ins, sorted", async () => {
   const names = await bundledSkillNames();
-  // The repo ships these four; assert membership + sortedness (not an exact set,
-  // so adding a built-in later doesn't break this test).
+  // The repo ships these built-ins; assert membership + sortedness (not an exact
+  // set, so adding a built-in later doesn't break this test).
   for (
     const n of [
-      "bootstrap",
       "document-subsystem",
       "handoff-worktree",
       "write-adr",
@@ -73,22 +72,22 @@ Deno.test("bundledSkillNames lists the shipped built-ins, sorted", async () => {
 Deno.test("resolveEffectiveSkills: bundled-only when no authored dir", async () => {
   await withTempDir(async (root) => {
     const eff = await resolveEffectiveSkills(root, cfg());
-    assert(eff.length >= 4);
+    assert(eff.length >= 3);
     assert(eff.every((e) => e.source === "bundled" && !e.overridesBundled));
-    assert(eff.some((e) => e.name === "bootstrap"));
+    assert(eff.some((e) => e.name === "write-adr"));
   });
 });
 
 Deno.test("resolveEffectiveSkills: authored overrides a bundled name; unique authored stands alone", async () => {
   await withTempDir(async (root) => {
-    await authoredSkill(root, "bootstrap"); // shadows a built-in
+    await authoredSkill(root, "document-subsystem"); // shadows a built-in
     await authoredSkill(root, "my-skill"); // unique
     const eff = await resolveEffectiveSkills(root, cfg());
     const byName = new Map(eff.map((e) => [e.name, e]));
 
-    const bootstrap = byName.get("bootstrap")!;
-    assertEquals(bootstrap.source, "authored");
-    assertEquals(bootstrap.overridesBundled, true);
+    const overridden = byName.get("document-subsystem")!;
+    assertEquals(overridden.source, "authored");
+    assertEquals(overridden.overridesBundled, true);
 
     const mine = byName.get("my-skill")!;
     assertEquals(mine.source, "authored");
@@ -101,14 +100,14 @@ Deno.test("resolveEffectiveSkills: authored overrides a bundled name; unique aut
 
 Deno.test("listSkills annotates source / override / hasBundled", async () => {
   await withTempDir(async (root) => {
-    await authoredSkill(root, "bootstrap");
+    await authoredSkill(root, "document-subsystem");
     await authoredSkill(root, "my-skill");
     const rows = new Map(
       (await listSkills(root, cfg())).map((r) => [r.name, r]),
     );
 
-    assertEquals(rows.get("bootstrap"), {
-      name: "bootstrap",
+    assertEquals(rows.get("document-subsystem"), {
+      name: "document-subsystem",
       source: "authored",
       overridesBundled: true,
       hasBundled: true,
@@ -126,10 +125,10 @@ Deno.test("listSkills annotates source / override / hasBundled", async () => {
 Deno.test("materializeSkills: bundled copied, authored symlinked", async () => {
   await withTempDir(async (root) => {
     await authoredSkill(root, "my-skill");
-    await authoredSkill(root, "bootstrap"); // override → symlink, not copy
+    await authoredSkill(root, "document-subsystem"); // override → symlink, not copy
     const res = await materializeSkills(root, cfg());
-    assert(res.copied >= 3, `expected the non-overridden built-ins copied`);
-    assertEquals(res.linked, 2); // my-skill + the bootstrap override
+    assert(res.copied >= 2, `expected the non-overridden built-ins copied`);
+    assertEquals(res.linked, 2); // my-skill + the document-subsystem override
     assertEquals(res.pruned, 0);
 
     const sk = claudeSkillsDirOf(root);
@@ -144,7 +143,7 @@ Deno.test("materializeSkills: bundled copied, authored symlinked", async () => {
       "../../skills/my-skill",
     );
     // The override is a symlink too (authored wins over the bundled copy).
-    assert((await Deno.lstat(join(sk, "bootstrap"))).isSymlink);
+    assert((await Deno.lstat(join(sk, "document-subsystem"))).isSymlink);
   });
 });
 
@@ -193,18 +192,18 @@ Deno.test("materializeSkills: leaves a foreign entry (unmanaged name, live targe
 
 Deno.test("ejectSkill copies a built-in into [skills].dir, writable, then refuses to clobber", async () => {
   await withTempDir(async (root) => {
-    const res = await ejectSkill(root, cfg(), "bootstrap");
-    assertEquals(res.destRel, join("skills", "bootstrap"));
-    assert(await exists(join(root, "skills/bootstrap/SKILL.md")));
+    const res = await ejectSkill(root, cfg(), "write-adr");
+    assertEquals(res.destRel, join("skills", "write-adr"));
+    assert(await exists(join(root, "skills/write-adr/SKILL.md")));
     // Writable (the embedded FS reports read-only; eject must restore owner write).
     assertEquals(
-      (await modeOf(root, "skills/bootstrap/SKILL.md")) & 0o600,
+      (await modeOf(root, "skills/write-adr/SKILL.md")) & 0o600,
       0o600,
     );
 
     // Re-ejecting over an existing authored copy refuses (never clobbers edits).
     await assertRejects(
-      () => ejectSkill(root, cfg(), "bootstrap"),
+      () => ejectSkill(root, cfg(), "write-adr"),
       Error,
       "already exists",
     );
@@ -218,6 +217,6 @@ Deno.test("ejectSkill rejects an unknown skill, listing the available ones", asy
       Error,
       'no bundled skill named "nope"',
     );
-    assertStringIncludes((err as Error).message, "bootstrap");
+    assertStringIncludes((err as Error).message, "write-adr");
   });
 });

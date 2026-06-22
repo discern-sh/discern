@@ -118,7 +118,7 @@ Deno.test("doctor: human (non-json) output reports a clean bill on stderr, exit 
       stderr,
       "discern.toml: present and valid TOML",
     );
-    assertStringIncludes(stderr, "schema 6 (current)");
+    assertStringIncludes(stderr, "schema 7 (current)");
     assertStringIncludes(stderr, "All checks passed.");
   });
 });
@@ -170,7 +170,7 @@ Deno.test("doctor: a stale schema is flagged with an upgrade fix", async () => {
     const schema = check(payload, "schema version");
     assertEquals(schema.ok, false);
     assertStringIncludes(schema.detail, "v1");
-    assertStringIncludes(schema.detail, "v6");
+    assertStringIncludes(schema.detail, "v7");
     assertStringIncludes(schema.fix ?? "", "discern upgrade");
   });
 });

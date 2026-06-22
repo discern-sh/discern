@@ -85,7 +85,7 @@ Deno.test("init preserves the source exec bit (0755 hook, 0644 doc)", async () =
 Deno.test("init normalizes a read-only source seed to owner-writable", async () => {
   // The `deno compile` embedded filesystem reports every bundled template as
   // read-only (0o444). A scaffolded seed is the user's to edit (and `config
-  // set`/`/bootstrap` rewrite discern.toml), so the plan must restore owner
+  // set`/`discern bootstrap` rewrite discern.toml), so the plan must restore owner
   // write. Emulate that environment with a deliberately 0o444 source.
   await withTempDir(async (src) => {
     await Deno.writeTextFile(join(src, "discern.toml.tmpl"), "[project]\n");

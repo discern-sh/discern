@@ -41,9 +41,9 @@ function recordingStep(from: number, log: number[]): Migration {
 Deno.test("the production chain is contiguous up to the current schema", () => {
   // One step per bump, from 1 up to SCHEMA_VERSION: 1→2 (main_branch backfill),
   // 2→3 (the .discern/ surface consolidation), 3→4 (capabilities/checks),
-  // 4→5 (prune the pre-existing on-disk shell engine), and 5→6 (dissolve
-  // .discern/ into the single-file footprint).
-  assertEquals(MIGRATIONS.map((m) => m.from), [1, 2, 3, 4, 5]);
+  // 4→5 (prune the pre-existing on-disk shell engine), 5→6 (dissolve .discern/
+  // into the single-file footprint), and 6→7 (bootstrap skill → command).
+  assertEquals(MIGRATIONS.map((m) => m.from), [1, 2, 3, 4, 5, 6]);
   assert(isChainContiguous(MIGRATIONS, SCHEMA_VERSION));
 });
 
@@ -533,6 +533,79 @@ Deno.test("migration 5→6 preserves a CUSTOMIZED bundled skill that differs onl
       true,
     );
     assertEquals(await targetExists(dir, ".discern"), false);
+  });
+});
+
+Deno.test("migration 6→7 back-fills [meta].bootstrapped = true when capabilities are wired", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      '[meta]\nschema_version = 6\n[project]\nslug = "demo"\n[capabilities]\nformat = "deno fmt"\n',
+    );
+    const applied = await applyMigrations({ destDir: dir, from: 6, to: 7 });
+    assertEquals(applied.map((m) => m.from), [6]);
+    assertStringIncludes(
+      await Deno.readTextFile(join(dir, "discern.toml")),
+      "bootstrapped = true",
+    );
+  });
+});
+
+Deno.test("migration 6→7 back-fills true when a docs/ tree exists, even without capabilities", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      '[meta]\nschema_version = 6\n[project]\nslug = "demo"\n',
+    );
+    await Deno.mkdir(join(dir, "docs"));
+    await applyMigrations({ destDir: dir, from: 6, to: 7 });
+    assertStringIncludes(
+      await Deno.readTextFile(join(dir, "discern.toml")),
+      "bootstrapped = true",
+    );
+  });
+});
+
+Deno.test("migration 6→7 leaves the marker absent for a bare install (absent ≡ not bootstrapped)", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      '[meta]\nschema_version = 6\n[project]\nslug = "demo"\n',
+    );
+    await applyMigrations({ destDir: dir, from: 6, to: 7 });
+    // No capabilities, no docs/ → first `discern bootstrap` should still run, so
+    // the migration records nothing (a bare install reads as not bootstrapped).
+    assert(
+      !(await Deno.readTextFile(join(dir, "discern.toml"))).includes(
+        "bootstrapped",
+      ),
+    );
+  });
+});
+
+Deno.test("migration 6→7 prunes the stale materialized bootstrap skill and never clobbers an explicit marker", async () => {
+  await withTempDir(async (dir) => {
+    // A configured install that already recorded bootstrapped = false by hand:
+    // the back-fill must not flip it to true despite the capabilities.
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      '[meta]\nschema_version = 6\nbootstrapped = false\n[project]\nslug = "demo"\n[capabilities]\nformat = "x"\n',
+    );
+    await Deno.mkdir(join(dir, ".claude/skills/bootstrap"), {
+      recursive: true,
+    });
+    await Deno.writeTextFile(
+      join(dir, ".claude/skills/bootstrap/SKILL.md"),
+      "stale materialized copy\n",
+    );
+    await applyMigrations({ destDir: dir, from: 6, to: 7 });
+    // The retired skill's materialized copy is gone (it is no longer bundled).
+    assertEquals(await targetExists(dir, ".claude/skills/bootstrap"), false);
+    // The hand-set marker is preserved, not overwritten.
+    assertStringIncludes(
+      await Deno.readTextFile(join(dir, "discern.toml")),
+      "bootstrapped = false",
+    );
   });
 });
 

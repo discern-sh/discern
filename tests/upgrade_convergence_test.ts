@@ -97,12 +97,12 @@ Deno.test("upgrade re-materializes the bundled skills and stamps the current sch
     await init(dir);
     // init already materialized .claude/skills/; tamper a built-in copy — upgrade
     // must restore it from the binary.
-    const skill = join(dir, ".claude/skills/bootstrap/SKILL.md");
+    const skill = join(dir, ".claude/skills/write-adr/SKILL.md");
     await Deno.writeTextFile(skill, "tampered\n");
     const res = await upgrade(dir);
     assert(res.skills.copied >= 1, "bundled skills should be re-copied");
     assert(
-      !(await readTarget(dir, ".claude/skills/bootstrap/SKILL.md")).includes(
+      !(await readTarget(dir, ".claude/skills/write-adr/SKILL.md")).includes(
         "tampered",
       ),
       "the kit's skill bytes should overwrite the tampered copy",
@@ -132,10 +132,10 @@ Deno.test("a schema-1 install missing main_branch upgrades to the current schema
       await removeMainBranch(older);
       await setSchema(older, 1);
 
-      const res = await upgrade(older); // runs 1→2 … 5→6, materializes, stamps
+      const res = await upgrade(older); // runs 1→2 … 6→7, materializes, stamps
       assertEquals(
         res.migrations_applied.map((m: { from: number }) => m.from),
-        [1, 2, 3, 4, 5],
+        [1, 2, 3, 4, 5, 6],
       );
 
       await init(fresh); // a fresh install at the current schema
@@ -202,7 +202,7 @@ Deno.test("a schema-3 [slots] install upgrades to the capabilities shape and the
       const res = await upgrade(older); // runs 3→4, 4→5, 5→6, materializes, stamps
       assertEquals(
         res.migrations_applied.map((m: { from: number }) => m.from),
-        [3, 4, 5],
+        [3, 4, 5, 6],
       );
 
       await init(fresh);
@@ -276,7 +276,7 @@ Deno.test("a legacy install whose schema lives only in a manifest upgrades, prun
     // The manifest anchored the chain at schema 4 → 4→5 then 5→6 run.
     assertEquals(
       res.migrations_applied.map((m: { from: number }) => m.from),
-      [4, 5],
+      [4, 5, 6],
     );
     // The shell engine, dispatcher, manifest, and the whole .discern/ namespace
     // are gone; the config now lives at the root footprint.
