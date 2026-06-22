@@ -168,6 +168,9 @@ export async function runAddPreset(
     return 1;
   }
 
+  // Past the guarded read above, the config path is known to exist.
+  if (configPath === undefined) return 1;
+
   // A preset is scaffolded exactly like the base templates tree.
   const config: InitConfig = {
     projectName: toml.project.slug ?? "app",
@@ -195,11 +198,11 @@ export async function runAddPreset(
   let filledToml: string | undefined;
   try {
     fills = await loadPresetFills(presetDir);
-    if (hasFills(fills)) {
+    if (fills !== undefined && hasFills(fills)) {
       const editor = new TomlEditor(
-        await Deno.readTextFile(configPath!),
+        await Deno.readTextFile(configPath),
       );
-      applyConfigDoc(editor, fills!);
+      applyConfigDoc(editor, fills);
       filledToml = editor.toString();
     }
   } catch (error) {
@@ -246,7 +249,7 @@ export async function runAddPreset(
 
   const changed = await applyPlan(plan);
   if (filledToml !== undefined) {
-    await Deno.writeTextFile(configPath!, filledToml);
+    await Deno.writeTextFile(configPath, filledToml);
   }
   if (options.json) {
     log.jsonResult({

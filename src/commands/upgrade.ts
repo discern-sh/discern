@@ -224,8 +224,11 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
   }
 
   // 3. Stamp the new schema version into the config (now at its migrated path).
-  // `configPath` is defined here — `tomlText` was read from it above.
-  const newConfigPath = (await resolveConfigPath(destDir)) ?? configPath!;
+  // Re-resolve in case the migration moved it, falling back to the original path.
+  const newConfigPath = (await resolveConfigPath(destDir)) ?? configPath;
+  if (newConfigPath === undefined) {
+    throw new Error("config path could not be resolved after migration");
+  }
   await stampSchema(newConfigPath, SCHEMA_VERSION);
 
   if (options.json) {

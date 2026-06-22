@@ -16,7 +16,7 @@
  * developer's global git settings can neither leak in nor be mutated.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertExists } from "@std/assert";
 import { join } from "@std/path";
 import { type WorktreeState, worktreeState } from "../src/lib/git.ts";
 import { withTempDir } from "./helpers.ts";
@@ -96,14 +96,16 @@ Deno.test("a tracked modification reports dirty with the porcelain line", async 
     assertEquals(state.kind, "dirty");
     assert(state.kind === "dirty");
     assertEquals(state.changes.length, 1);
+    const change = state.changes[0];
+    assertExists(change);
     // Porcelain marks a tracked, unstaged content change as ` M <path>`.
     assert(
-      state.changes[0]!.includes("file.txt"),
-      `expected the change to name file.txt, got: ${state.changes[0]}`,
+      change.includes("file.txt"),
+      `expected the change to name file.txt, got: ${change}`,
     );
     assert(
-      state.changes[0]!.trimStart().startsWith("M"),
-      `expected a modified marker, got: ${state.changes[0]}`,
+      change.trimStart().startsWith("M"),
+      `expected a modified marker, got: ${change}`,
     );
   });
 });

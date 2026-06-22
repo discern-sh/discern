@@ -86,12 +86,12 @@ export class TomlEditor {
    */
   setLiteral(dottedKey: string, literal: string): this {
     const segments = dottedKey.split(".");
-    if (segments.length < 2) {
+    const key = segments.at(-1);
+    if (segments.length < 2 || key === undefined) {
       throw new Error(
         `config key must be section.key (got "${dottedKey}")`,
       );
     }
-    const key = segments[segments.length - 1]!;
     const section = segments.slice(0, -1).join(".");
 
     const span = this.findSection(section);
@@ -110,9 +110,11 @@ export class TomlEditor {
     // `#`, so the anchored regex never matches it — we then insert a real key.
     const keyRe = new RegExp(`^(\\s*)${escapeRegExp(key)}(\\s*=\\s*).*$`);
     for (let i = span.headerIdx + 1; i < span.bodyEnd; i++) {
-      const m = this.lines[i]!.match(keyRe);
+      const lineText = this.lines[i];
+      if (lineText === undefined) continue;
+      const m = lineText.match(keyRe);
       if (m) {
-        this.lines[i] = `${m[1]}${key}${m[2]}${literal}`;
+        this.lines[i] = `${m[1] ?? ""}${key}${m[2] ?? ""}${literal}`;
         return this;
       }
     }
@@ -127,10 +129,10 @@ export class TomlEditor {
    */
   deleteKey(dottedKey: string): boolean {
     const segments = dottedKey.split(".");
-    if (segments.length < 2) {
+    const key = segments.at(-1);
+    if (segments.length < 2 || key === undefined) {
       return false;
     }
-    const key = segments[segments.length - 1]!;
     const section = segments.slice(0, -1).join(".");
     const span = this.findSection(section);
     if (span === null) {
@@ -138,7 +140,8 @@ export class TomlEditor {
     }
     const keyRe = new RegExp(`^(\\s*)${escapeRegExp(key)}(\\s*=\\s*).*$`);
     for (let i = span.headerIdx + 1; i < span.bodyEnd; i++) {
-      if (keyRe.test(this.lines[i]!)) {
+      const lineText = this.lines[i];
+      if (lineText !== undefined && keyRe.test(lineText)) {
         this.lines.splice(i, 1);
         return true;
       }
@@ -185,7 +188,9 @@ export class TomlEditor {
     // Insert right after the anchor's last content line: step back over the
     // blank lines trailing its body so our own gap controls the spacing.
     let at = span.bodyEnd;
-    while (at - 1 > span.headerIdx && isBlankLine(this.lines[at - 1]!)) {
+    while (at - 1 > span.headerIdx) {
+      const prev = this.lines[at - 1];
+      if (prev === undefined || !isBlankLine(prev)) break;
       at--;
     }
     this.lines.splice(at, 0, "", "", ...blockLines);
@@ -211,9 +216,9 @@ export class TomlEditor {
 
   /** Append a section block at EOF, separated from existing content by a gap. */
   private appendSectionBlock(blockLines: string[]): this {
-    while (
-      this.lines.length > 0 && isBlankLine(this.lines[this.lines.length - 1]!)
-    ) {
+    while (this.lines.length > 0) {
+      const last = this.lines.at(-1);
+      if (last === undefined || !isBlankLine(last)) break;
       this.lines.pop();
     }
     if (this.lines.length > 0) {
@@ -257,11 +262,13 @@ export class TomlEditor {
     section: string,
   ): { headerIdx: number; bodyEnd: number } | null {
     for (let i = 0; i < this.lines.length; i++) {
-      const m = this.lines[i]!.match(HEADER_RE);
-      if (m && m[1]!.trim() === section) {
+      const lineText = this.lines[i];
+      const path = lineText?.match(HEADER_RE)?.[1];
+      if (path !== undefined && path.trim() === section) {
         let end = i + 1;
         for (; end < this.lines.length; end++) {
-          if (HEADER_RE.test(this.lines[end]!)) {
+          const endLine = this.lines[end];
+          if (endLine !== undefined && HEADER_RE.test(endLine)) {
             break;
           }
         }

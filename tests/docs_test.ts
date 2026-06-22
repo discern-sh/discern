@@ -7,7 +7,12 @@
  * agent/script path the command must serve without ever blocking on a prompt.
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertExists,
+  assertStringIncludes,
+} from "@std/assert";
 import { join } from "@std/path";
 import { discoverDocs, extractTitle, resolveDoc } from "../src/lib/docs.ts";
 import { runCli, seedConfig, withTempDir } from "./helpers.ts";
@@ -42,7 +47,8 @@ Deno.test("discoverDocs lists user-facing docs in reading order, README first", 
     ]);
     assert(!tree.entries.some((e) => e.path.includes("_adr")));
     // Titles come from each file's first heading.
-    const alpha = tree.entries.find((e) => e.slug === "alpha")!;
+    const alpha = tree.entries.find((e) => e.slug === "alpha");
+    assertExists(alpha);
     assertEquals(alpha.title, "Alpha");
     assertEquals(alpha.section, "00-intro");
   });
@@ -57,7 +63,8 @@ Deno.test("extractTitle reads the first heading and flattens inline markup", () 
 Deno.test("resolveDoc handles slug, path, ambiguity, and misses", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
-    const tree = (await discoverDocs({ cwd: dir }))!;
+    const tree = await discoverDocs({ cwd: dir });
+    assertExists(tree);
 
     assertEquals(resolveDoc(tree, "alpha", dir).kind, "found");
     assertEquals(resolveDoc(tree, "00-intro/beta", dir).kind, "found");
@@ -298,8 +305,10 @@ Deno.test("discoverDocs humanises the slug when a doc has no heading", async () 
       join(dir, "docs/no-heading.md"),
       "Just a body, no heading.\n",
     );
-    const tree = (await discoverDocs({ cwd: dir }))!;
-    const entry = tree.entries.find((e) => e.slug === "no-heading")!;
+    const tree = await discoverDocs({ cwd: dir });
+    assertExists(tree);
+    const entry = tree.entries.find((e) => e.slug === "no-heading");
+    assertExists(entry);
     assertEquals(entry.title, "No heading");
   });
 });
@@ -314,10 +323,11 @@ Deno.test("discoverDocs falls back to a humanised title when a doc cannot be rea
       join(dir, "docs/missing-target.md"),
       join(dir, "docs/dangling.md"),
     );
-    const tree = (await discoverDocs({ cwd: dir }))!;
+    const tree = await discoverDocs({ cwd: dir });
+    assertExists(tree);
     const entry = tree.entries.find((e) => e.slug === "dangling");
-    assert(entry, "expected the dangling entry to be indexed");
-    assertEquals(entry!.title, "Dangling");
+    assertExists(entry, "expected the dangling entry to be indexed");
+    assertEquals(entry.title, "Dangling");
   });
 });
 
@@ -345,7 +355,8 @@ Deno.test("docs --dir to a missing directory errors with that path", async () =>
 Deno.test("resolveDoc treats a whitespace-only target as a miss", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
-    const tree = (await discoverDocs({ cwd: dir }))!;
+    const tree = await discoverDocs({ cwd: dir });
+    assertExists(tree);
     // Trimmed to empty → an early "none", never touching the matcher.
     assertEquals(resolveDoc(tree, "   ", dir).kind, "none");
     assertEquals(resolveDoc(tree, "./", dir).kind, "none");

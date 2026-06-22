@@ -62,6 +62,7 @@
         "no-external-import",
         "no-node-globals",
         "no-non-null-asserted-optional-chain",
+        "no-non-null-assertion",
         "no-process-global",
         "no-self-compare",
         "no-slow-types",

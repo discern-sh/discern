@@ -9,6 +9,7 @@
 import {
   assert,
   assertEquals,
+  assertExists,
   assertRejects,
   assertStringIncludes,
 } from "@std/assert";
@@ -675,8 +676,9 @@ Deno.test("context: editToml edits comment-preserving, no-ops without a config",
     );
     await ctx.editToml((e) => e.setString("project.branch_prefix", "agent/"));
     const toml = await ctx.readText(".discern/config.toml");
-    assert(toml!.includes('branch_prefix = "agent/"'));
-    assert(toml!.includes("# my config"), "comments are preserved");
+    assertExists(toml);
+    assert(toml.includes('branch_prefix = "agent/"'));
+    assert(toml.includes("# my config"), "comments are preserved");
   });
 });
 
@@ -685,11 +687,15 @@ Deno.test("context: mergeSettings deep-merges into .claude/settings.json", async
     const ctx = createMigrationContext(dir);
     // Absent → created.
     await ctx.mergeSettings({ model: "opus" });
-    let settings = JSON.parse((await ctx.readText(".claude/settings.json"))!);
+    const created = await ctx.readText(".claude/settings.json");
+    assertExists(created);
+    let settings = JSON.parse(created);
     assertEquals(settings.model, "opus");
     // Existing → merged, prior keys kept.
     await ctx.mergeSettings({ permissions: { deny: ["Read(./.env)"] } });
-    settings = JSON.parse((await ctx.readText(".claude/settings.json"))!);
+    const merged = await ctx.readText(".claude/settings.json");
+    assertExists(merged);
+    settings = JSON.parse(merged);
     assertEquals(settings.model, "opus");
     assertEquals(settings.permissions.deny, ["Read(./.env)"]);
   });

@@ -8,7 +8,7 @@
  * running the merger.
  */
 
-import { assertEquals, assertNotStrictEquals } from "@std/assert";
+import { assertEquals, assertExists, assertNotStrictEquals } from "@std/assert";
 import { mergeSettings } from "../src/lib/settings_merge.ts";
 
 /** The kit's incoming settings, shaped like the real template. */
@@ -54,14 +54,16 @@ Deno.test("merge appends a genuinely new hook group for the same event", () => {
   };
   // The user's group is kept and ours is appended: two distinct groups.
   assertEquals(result.hooks.SessionStart.length, 2);
-  assertEquals(
-    result.hooks.SessionStart[0]!.hooks[0]!.command,
-    "user-own-hook",
-  );
-  assertEquals(
-    result.hooks.SessionStart[1]!.hooks[0]!.command,
-    "./agent worktree:ensure",
-  );
+  const userGroup = result.hooks.SessionStart[0];
+  assertExists(userGroup);
+  const userHook = userGroup.hooks[0];
+  assertExists(userHook);
+  assertEquals(userHook.command, "user-own-hook");
+  const ourGroup = result.hooks.SessionStart[1];
+  assertExists(ourGroup);
+  const ourHook = ourGroup.hooks[0];
+  assertExists(ourHook);
+  assertEquals(ourHook.command, "./agent worktree:ensure");
 });
 
 Deno.test("permissions.deny is unioned, not replaced", () => {

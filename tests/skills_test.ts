@@ -11,6 +11,7 @@
 import {
   assert,
   assertEquals,
+  assertExists,
   assertRejects,
   assertStringIncludes,
 } from "@std/assert";
@@ -86,16 +87,20 @@ Deno.test("resolveEffectiveSkills: authored overrides a bundled name; unique aut
     const eff = await resolveEffectiveSkills(root, cfg());
     const byName = new Map(eff.map((e) => [e.name, e]));
 
-    const bootstrap = byName.get("bootstrap")!;
+    const bootstrap = byName.get("bootstrap");
+    assertExists(bootstrap);
     assertEquals(bootstrap.source, "authored");
     assertEquals(bootstrap.overridesBundled, true);
 
-    const mine = byName.get("my-skill")!;
+    const mine = byName.get("my-skill");
+    assertExists(mine);
     assertEquals(mine.source, "authored");
     assertEquals(mine.overridesBundled, false);
 
     // A non-overridden built-in stays bundled.
-    assertEquals(byName.get("write-adr")!.source, "bundled");
+    const writeAdr = byName.get("write-adr");
+    assertExists(writeAdr);
+    assertEquals(writeAdr.source, "bundled");
   });
 });
 
@@ -119,7 +124,9 @@ Deno.test("listSkills annotates source / override / hasBundled", async () => {
       overridesBundled: false,
       hasBundled: false,
     });
-    assertEquals(rows.get("write-adr")!.source, "bundled");
+    const writeAdr = rows.get("write-adr");
+    assertExists(writeAdr);
+    assertEquals(writeAdr.source, "bundled");
   });
 });
 
