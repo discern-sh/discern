@@ -94,9 +94,10 @@ readiness report.
 
 Generic git mechanics in the engine
 ([`src/engine/worktree/`](../../src/engine/worktree/)), driven by the hooks in
-[Bookkeeping & integration](#bookkeeping--integration). The two stack-specific
-seams (database, dev-server) are empty `[worktree]` config in `discern.toml`
-until you wire them. The whole workflow sits behind `[features].worktrees`.
+[Bookkeeping & integration](#bookkeeping--integration). The stack-specific part
+is the per-worktree **resources** (`[worktree.resources.<name>]`) a project
+declares in `discern.toml`; a fresh install declares none. The whole workflow
+sits behind `[features].worktrees`.
 
 | Command                     | What it does                                                                    |
 | --------------------------- | ------------------------------------------------------------------------------- |

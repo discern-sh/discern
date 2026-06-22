@@ -102,8 +102,9 @@ only `discern.toml` learns the stack.
 verbs:
 
 - `discern worktree` carves an isolated **Worktree** (and branch) for a change,
-  so the main checkout is never touched. Each Worktree gets its own database and
-  dev-server port through the **Worktree settings** — empty until wired.
+  so the main checkout is never touched. Each Worktree gets its own dev-server
+  port and any per-worktree **resources** (a database, an emulator, …) a project
+  declares through the **Worktree settings** — none until wired.
 - `discern prepare` is the fast inner loop: the fix-stage Capabilities, then the
   check-stage ones.
 - `discern finish` is the full **Gate**: fix and build, then check and test in

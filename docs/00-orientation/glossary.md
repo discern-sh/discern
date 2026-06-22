@@ -99,9 +99,9 @@ from.
 A plain monotonic integer — the anchor the [Migration](#migration) chain steps
 from, stamped into `[meta].schema_version` in `discern.toml`. It bumps **only**
 when an installed project needs a migration to stay correct, so most releases
-leave it untouched. The current shape is schema **6** — the `5 → 6` step
-dissolved `.discern/` into the single-file footprint
-([ADR 0020](../_adr/0020-dissolve-discern-dir.md)).
+leave it untouched. The current shape is schema **8** — the `7 → 8` step
+generalized the hard-coded db/dev-server adapters into per-worktree resources
+([ADR 0025](../_adr/0025-worktree-resources.md)).
 
 ### Migration
 
@@ -285,20 +285,32 @@ dev-server port and its own database, so concurrent worktrees never collide.
 
 ### Worktree settings
 
-The stack-specific seams the worktree workflow calls but does not implement: the
-**database** seam (clone/drop a per-worktree database), the **dev-server** seam
-(link/unlink a per-worktree site), plus the per-worktree `inherit_env`, `port`,
-and `setup` keys. All are empty/default `[worktree]` config in `discern.toml`
-until a project wires them, so a worktree round is a clean no-op until then. The
-whole workflow is the `worktrees` [Feature](#feature), inert when it is off
-([ADR 0007](../_adr/0007-adapter-contract.md),
-[ADR 0018](../_adr/0018-vocabulary-consolidation.md)).
+The stack-specific part of the worktree workflow the engine calls but does not
+implement: per-worktree **[resources](#worktree-resource)**
+(`[worktree.resources.<name>]` with `create`/`destroy`), plus the per-worktree
+`inherit_env`, `port`, and `setup` keys. A fresh install declares no resources,
+so a worktree round is a clean no-op until a project wires one. The whole
+workflow is the `worktrees` [Feature](#feature), inert when it is off
+([ADR 0011](../_adr/0011-adopt-worktree-workflow.md),
+[ADR 0025](../_adr/0025-worktree-resources.md)).
+
+### Worktree resource
+
+An external thing a worktree needs in isolation — a database, an emulator, a
+container, a queue — declared as `[worktree.resources.<name>]` with a `create`
+command (run once at setup) and a `destroy` (run once at teardown). It is
+created once, reused by every later command for the life of the worktree, and
+destroyed at teardown; a worktree that vanishes without a clean teardown has its
+resources reclaimed by `worktree:prune` (the GC safety net). Its
+project-namespaced handle is read with `worktree-name --resource <name>` or the
+`DISCERN_RESOURCE_<NAME>` env var
+([ADR 0025](../_adr/0025-worktree-resources.md)).
 
 ### Graduate
 
 What `discern graduate` does: integrate the worktree's branch into the main repo
-and tear the worktree down (database and dev-server link removed, directory
-pruned). Requires the branch to already carry `main`.
+and tear the worktree down (its resources destroyed, directory pruned). Requires
+the branch to already carry `main`.
 
 ---
 
