@@ -478,6 +478,12 @@ export async function gitKeyIsLive(
 ): Promise<boolean> {
   // `gitdir` holds the absolute path of the checkout's `.git` gitlink file. If
   // that file is gone the worktree was removed out-of-band — a dead key.
+  // NOTE: `pathExists` returns false on a transient stat error too, so this can
+  // vote "dead" for a live worktree — the fail-open-toward-destroy direction. It is
+  // safe only as DEFENSE IN DEPTH: an entry reaches this re-check only after the
+  // snapshot already classified it reclaimable (not live by path AND handle), and
+  // the handle is independently re-checked against disk before the destroy. Do not
+  // make this the sole guard.
   const target = (await firstLine(
     join(commonGitDir, "worktrees", gitKey, "gitdir"),
   ))?.trim();
