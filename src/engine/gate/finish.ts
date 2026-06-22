@@ -14,7 +14,11 @@
  * whose stage aborted before it ran → `status:"skipped"`.
  */
 
-import { Config } from "../../shared/config_read.ts";
+import {
+  type DiscernConfig,
+  loadConfig,
+  toCommand,
+} from "../../shared/config_schema.ts";
 import { type Stage, STAGES } from "../../shared/capabilities.ts";
 import type { Job, JobResult } from "../jobs/types.ts";
 import { type RunOptions, runParallel, runSerial } from "../jobs/runner.ts";
@@ -51,7 +55,7 @@ interface GateReport {
 
 /** Build the `--json` report from the accumulated per-job results. */
 function buildReport(
-  cfg: Config,
+  cfg: DiscernConfig,
   results: Map<string, JobResult>,
   changed: string[],
   failedStage: string | null,
@@ -70,8 +74,8 @@ function buildReport(
     }
   }
   const scope_gates: ScopeGateReport[] = [];
-  for (const scope of cfg.subsections("scopes")) {
-    if (cfg.get(`scopes.${scope}.gate`, "") === "") {
+  for (const [scope, spec] of Object.entries(cfg.scopes)) {
+    if (toCommand(spec.gate) === "") {
       continue;
     }
     const r = results.get(`scope:${scope}`);
@@ -116,20 +120,20 @@ async function runGate(
   {
     report: GateReport;
     failedStage: string | null;
-    cfg: Config;
+    cfg: DiscernConfig;
     out: Out;
     changed: string[];
   }
 > {
-  const cfg = await Config.load(root);
+  const cfg = await loadConfig(root);
   // Non-json: human output → stdout (matching the shell). --json: human → stderr,
   // leaving stdout for the single JSON object.
   const infoStream = json ? "stderr" : "stdout";
   const color = colorEnabled();
   const runOpts: RunOptions = {
-    stream: cfg.bool("gate.stream"),
+    stream: cfg.gate.stream,
     // fail_fast defaults ON: abort the moment a job fails.
-    failFast: cfg.get("gate.fail_fast", "true") !== "false",
+    failFast: cfg.gate.fail_fast,
     color,
     write: byteWriter(infoStream),
   };
@@ -187,8 +191,8 @@ async function runGate(
   const changed = await changedScopes(root, cfg);
   if (failedStage === null) {
     const gateJobs: Job[] = [];
-    for (const scope of cfg.subsections("scopes")) {
-      const gateCmd = cfg.get(`scopes.${scope}.gate`, "");
+    for (const [scope, spec] of Object.entries(cfg.scopes)) {
+      const gateCmd = toCommand(spec.gate);
       if (gateCmd === "" || !changed.includes(scope)) {
         continue;
       }
@@ -206,7 +210,7 @@ async function runGate(
   // merge check (no-op in the main checkout / outside a worktree)
   if (failedStage === null) {
     const mainBranch = Deno.env.get("MAIN_BRANCH") ||
-      cfg.get("project.main_branch", "main");
+      cfg.project.main_branch;
     if ((await assertMainMerged(root, mainBranch)).kind === "behind") {
       failedStage = "merge";
     }
@@ -222,7 +226,11 @@ async function runGate(
 }
 
 /** Print the informational success tail (non-`--json`). */
-function printSuccessTail(cfg: Config, out: Out, changed: string[]): void {
+function printSuccessTail(
+  cfg: DiscernConfig,
+  out: Out,
+  changed: string[],
+): void {
   let unfilled = 0;
   for (const stage of STAGES) {
     if (cmdsInStage(cfg, stage) === ":") {
@@ -247,13 +255,13 @@ function printSuccessTail(cfg: Config, out: Out, changed: string[]): void {
       "If you changed something meaningful, update the docs to match before you finish.",
     );
   }
-  if (cfg.subsections("ratchets").length > 0) {
+  if (Object.keys(cfg.ratchets).length > 0) {
     out.info(
       `Before pushing, hold the ratchets: ${out.c.bold}discern ratchets${out.c.reset} (slow, so not part of finish).`,
     );
   }
   if (
-    cfg.get("worktree.resources.dev_server.create", "") !== "" &&
+    (cfg.worktree.resources.dev_server?.create ?? "") !== "" &&
     changed.includes("previewable")
   ) {
     out.info(

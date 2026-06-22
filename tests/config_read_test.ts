@@ -1,9 +1,14 @@
 import { assert, assertEquals, assertThrows } from "@std/assert";
 import {
-  Config,
   ConfigParseError,
+  RawConfig,
   tomlSyntaxHint,
 } from "../src/shared/config_read.ts";
+
+// `RawConfig` is the narrow, UNTYPED reader behind `discern config get` (the
+// recipe passthrough) and the ratchet cross-branch baseline. It applies no schema
+// and no defaults — it returns exactly what is on disk. The typed engine reader is
+// exercised by config_schema_test.ts.
 
 Deno.test("tomlSyntaxHint leads with the line number when the parser gives one", () => {
   const hint = tomlSyntaxHint(
@@ -20,7 +25,7 @@ Deno.test("tomlSyntaxHint falls back to a plain message with no line number", ()
 });
 
 Deno.test("a malformed config throws a catchable ConfigParseError with the hint", () => {
-  const err = assertThrows(() => new Config("oops = [[["), ConfigParseError);
+  const err = assertThrows(() => new RawConfig("oops = [[["), ConfigParseError);
   assert((err as Error).message.includes("syntax error near line 1"));
 });
 
@@ -42,16 +47,8 @@ run = "deno task selfcheck"
 paths = ["docs/", ".discern/"]
 neutral = true
 
-[worktree]
-enabled = true
-port = true
-
 [worktree.db]
 clone = "createdb -T t_template @db@ # hash-inside-a-quoted-string"
-
-[gate]
-fail_fast = true
-stream = false
 
 [ratchets.coverage]
 direction = "up"
@@ -59,7 +56,7 @@ limit = 80
 `;
 
 Deno.test("get reads scalars and stringifies non-strings", () => {
-  const c = new Config(SAMPLE);
+  const c = new RawConfig(SAMPLE);
   assertEquals(c.get("project.slug"), "demo-app");
   // A '#' inside a quoted string is part of the value (full parser, like the old
   // awk decomment) — not an inline comment.
@@ -72,16 +69,8 @@ Deno.test("get reads scalars and stringifies non-strings", () => {
   assertEquals(c.get("missing.key"), "");
 });
 
-Deno.test("bool is true only for boolean true", () => {
-  const c = new Config(SAMPLE);
-  assertEquals(c.bool("worktree.enabled"), true);
-  assertEquals(c.bool("gate.fail_fast"), true);
-  assertEquals(c.bool("gate.stream"), false);
-  assertEquals(c.bool("missing"), false);
-});
-
 Deno.test("array: array yields items, scalar yields one, absent yields []", () => {
-  const c = new Config(SAMPLE);
+  const c = new RawConfig(SAMPLE);
   assertEquals(c.array("capabilities.lint"), ["eslint .", "stylelint ."]);
   assertEquals(c.array("capabilities.format"), ["deno fmt"]);
   assertEquals(c.array("project.agents"), ["claude_code", "codex"]);
@@ -89,7 +78,7 @@ Deno.test("array: array yields items, scalar yields one, absent yields []", () =
 });
 
 Deno.test("subsections returns child table names only", () => {
-  const c = new Config(SAMPLE);
+  const c = new RawConfig(SAMPLE);
   assertEquals(c.subsections("checks"), ["selfcheck"]);
   assertEquals(c.subsections("scopes"), ["docs"]);
   assertEquals(c.subsections("ratchets"), ["coverage"]);
@@ -97,14 +86,13 @@ Deno.test("subsections returns child table names only", () => {
 });
 
 Deno.test("keys returns flat keys, excluding nested tables", () => {
-  const c = new Config(SAMPLE);
+  const c = new RawConfig(SAMPLE);
   assertEquals(c.keys("capabilities").sort(), ["format", "lint"]);
-  // worktree has scalar keys (enabled, port) AND a nested [worktree.db] table.
-  assertEquals(c.keys("worktree").sort(), ["enabled", "port"]);
+  assertEquals(c.keys("project").sort(), ["agents", "main_branch", "slug"]);
 });
 
 Deno.test("has covers scalars, arrays, and table headers", () => {
-  const c = new Config(SAMPLE);
+  const c = new RawConfig(SAMPLE);
   assertEquals(c.has("project.slug"), true);
   assertEquals(c.has("project.agents"), true);
   assertEquals(c.has("worktree.db"), true); // a table header
@@ -112,7 +100,7 @@ Deno.test("has covers scalars, arrays, and table headers", () => {
 });
 
 Deno.test("getNumber coerces numeric scalars", () => {
-  const c = new Config(SAMPLE);
+  const c = new RawConfig(SAMPLE);
   assertEquals(c.getNumber("ratchets.coverage.limit"), 80);
   assertEquals(c.getNumber("project.slug"), undefined);
 });

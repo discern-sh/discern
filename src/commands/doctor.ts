@@ -20,7 +20,7 @@ import { Logger } from "../lib/log.ts";
 import { parseDiscernToml } from "../lib/toml_render.ts";
 import { resolveRecordedSchema } from "../lib/schema.ts";
 import { KIT_VERSION, SCHEMA_VERSION } from "../lib/version.ts";
-import { Config } from "../shared/config_read.ts";
+import { parseConfig, toCommandList } from "../shared/config_schema.ts";
 import {
   enabledFeatures,
   FEATURES,
@@ -80,11 +80,12 @@ async function commandResolves(word: string): Promise<boolean> {
 export async function runChecks(destDir: string): Promise<Check[]> {
   const checks: Check[] = [];
 
-  // 1. the config (discern.toml, or a legacy .discern/config.toml) exists and parses.
+  // 1. the config (discern.toml, or a legacy .discern/config.toml) exists and is
+  // syntactically valid TOML.
   const tomlPath = (await resolveConfigPath(destDir)) ??
     join(destDir, CONFIG_REL);
-  let toml: ReturnType<typeof parseDiscernToml> | undefined;
-  let tomlText: string | undefined;
+  let toml: ReturnType<typeof parseDiscernToml>;
+  let tomlText: string;
   try {
     tomlText = await Deno.readTextFile(tomlPath);
     toml = parseDiscernToml(tomlText);
@@ -127,58 +128,67 @@ export async function runChecks(destDir: string): Promise<Check[]> {
     });
   }
 
-  // 3. capabilities resolve — the engine's own reader parses the config and the
-  // declared [capabilities] are all in the known vocabulary.
-  try {
-    const cfg = new Config(tomlText);
-    const declared = cfg.keys("capabilities");
-    const unknown = declared.filter((k) => !isKnownCapability(k));
-    if (unknown.length === 0) {
+  // 3. config schema — validate the WHOLE config against the typed schema, in ONE
+  // parse. This folds in every structural check doctor used to re-implement (an
+  // unknown capability key, a dead [worktree.db]/[worktree.dev_server] adapter, a
+  // bad check stage, an unknown section…): each surfaces as a path-qualified issue
+  // straight from the schema's own validator. The syntax was already verified
+  // above, so `parseConfig` returns issues here rather than throwing.
+  const { config, issues } = parseConfig(tomlText);
+  if (issues.length === 0) {
+    checks.push({
+      name: "config schema",
+      ok: true,
+      detail: "all sections and keys recognized",
+    });
+  } else {
+    for (const issue of issues) {
       checks.push({
-        name: "capabilities",
-        ok: true,
-        detail: declared.length === 0
-          ? "none wired yet (gate passes without checking)"
-          : `wired: ${declared.join(", ")}`,
-      });
-    } else {
-      checks.push({
-        name: "capabilities",
+        name: "config schema",
         ok: false,
-        detail: `unknown capability key(s): ${unknown.join(", ")}`,
+        detail: issue.path === ""
+          ? issue.message
+          : `[${issue.path}] ${issue.message}`,
         fix:
-          "rename to a known capability (format, build, lint, typecheck, test) or move it under [checks]",
+          "fix the flagged key in discern.toml (or run `discern upgrade` if it is leftover from an older schema)",
       });
     }
-  } catch (error) {
-    checks.push({
-      name: "capabilities",
-      ok: false,
-      detail: `could not read capabilities: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-      fix: "fix the [capabilities] table in discern.toml",
-    });
   }
 
-  // 4. capability/check commands resolve — the first word of each declared
+  // The remaining checks read the typed, fully-defaulted config. When the schema
+  // failed it is undefined and they are skipped — the issues above are the
+  // actionable report, and re-deriving them from a half-valid config would only
+  // add noise.
+  if (config === undefined) {
+    return checks;
+  }
+
+  // 4. capabilities — informational: which are wired (the unknown-key case is now
+  // a schema issue above, so a valid config only ever lists known capabilities).
+  const wiredCaps = Object.entries(config.capabilities)
+    .filter(([, v]) => v !== undefined).map(([k]) => k);
+  checks.push({
+    name: "capabilities",
+    ok: true,
+    detail: wiredCaps.length === 0
+      ? "none wired yet (gate passes without checking)"
+      : `wired: ${wiredCaps.join(", ")}`,
+  });
+
+  // 5. capability/check commands resolve — the first word of each declared
   // command is on PATH, so the gate will not die with "command not found".
-  try {
-    const cfg = new Config(tomlText);
+  {
     const commands: { label: string; word: string }[] = [];
-    for (const cap of cfg.keys("capabilities")) {
-      if (!isKnownCapability(cap)) {
-        continue;
-      }
-      for (const c of cfg.array(`capabilities.${cap}`)) {
+    for (const [cap, value] of Object.entries(config.capabilities)) {
+      for (const c of toCommandList(value)) {
         const word = firstWord(c);
         if (word !== undefined) {
           commands.push({ label: cap, word });
         }
       }
     }
-    for (const chk of cfg.subsections("checks")) {
-      for (const c of cfg.array(`checks.${chk}.run`)) {
+    for (const [chk, spec] of Object.entries(config.checks)) {
+      for (const c of toCommandList(spec.run)) {
         const word = firstWord(c);
         if (word !== undefined) {
           commands.push({ label: chk, word });
@@ -191,33 +201,33 @@ export async function runChecks(destDir: string): Promise<Check[]> {
         missing.push(`${label} → ${word}`);
       }
     }
-    if (missing.length === 0) {
-      checks.push({
-        name: "capability commands",
-        ok: true,
-        detail: commands.length === 0 ? "none to check" : "all resolve on PATH",
-      });
-    } else {
-      checks.push({
-        name: "capability commands",
-        ok: false,
-        detail: `command not found: ${missing.join(", ")}`,
-        fix: "install the tool, or fix the command in [capabilities]/[checks]",
-      });
-    }
-  } catch {
-    // The capabilities check above already reported any config read failure.
+    checks.push(
+      missing.length === 0
+        ? {
+          name: "capability commands",
+          ok: true,
+          detail: commands.length === 0
+            ? "none to check"
+            : "all resolve on PATH",
+        }
+        : {
+          name: "capability commands",
+          ok: false,
+          detail: `command not found: ${missing.join(", ")}`,
+          fix:
+            "install the tool, or fix the command in [capabilities]/[checks]",
+        },
+    );
   }
 
-  // 5. recipe contract — no project recipe still sources the retired shell
+  // 6. recipe contract — no project recipe still sources the retired shell
   // library. The pre-binary engine exported `DISCERN_LIB`, and a recipe could
   // `. "$DISCERN_LIB/bootstrap.sh"` for config/output helpers. That library is
   // gone (the engine is in the binary), so such a recipe now breaks at runtime;
   // flag it and point at the new contract. README.md is documentation, not a
   // recipe, so it is skipped.
-  try {
-    const cfg = new Config(tomlText);
-    const { abs: recipesDir } = resolveRecipesDir(destDir, cfg);
+  {
+    const { abs: recipesDir } = resolveRecipesDir(destDir, config);
     const offenders: string[] = [];
     let scanned = 0;
     try {
@@ -237,30 +247,28 @@ export async function runChecks(destDir: string): Promise<Check[]> {
       }
       // No recipes directory — nothing to check.
     }
-    if (offenders.length === 0) {
-      checks.push({
-        name: "recipe contract",
-        ok: true,
-        detail: scanned === 0
-          ? "no project recipes to check"
-          : `${scanned} recipe(s); none source the retired shell library`,
-      });
-    } else {
-      checks.push({
-        name: "recipe contract",
-        ok: false,
-        detail: `recipe(s) source the removed shell library: ${
-          offenders.join(", ")
-        }`,
-        fix:
-          "recipes are standalone executables now — read config with `discern config get` instead of sourcing the retired `$DISCERN_LIB` shell library",
-      });
-    }
-  } catch {
-    // A config read failure was already reported by an earlier check.
+    checks.push(
+      offenders.length === 0
+        ? {
+          name: "recipe contract",
+          ok: true,
+          detail: scanned === 0
+            ? "no project recipes to check"
+            : `${scanned} recipe(s); none source the retired shell library`,
+        }
+        : {
+          name: "recipe contract",
+          ok: false,
+          detail: `recipe(s) source the removed shell library: ${
+            offenders.join(", ")
+          }`,
+          fix:
+            "recipes are standalone executables now — read config with `discern config get` instead of sourcing the retired `$DISCERN_LIB` shell library",
+        },
+    );
   }
 
-  // 6. `sh` resolves — the job runner and the recipe fallthrough both exec via
+  // 7. `sh` resolves — the job runner and the recipe fallthrough both exec via
   // `sh -c`, so a missing `sh` would break the gate and every project recipe.
   if (await commandResolves("sh")) {
     checks.push({ name: "sh", ok: true, detail: "present on PATH" });
@@ -274,47 +282,41 @@ export async function runChecks(destDir: string): Promise<Check[]> {
     });
   }
 
-  // 7. guidance/skills config resolves — if [guidance].sources or [skills].dir is
+  // 8. guidance/skills config resolves — if [guidance].sources or [skills].dir is
   // configured, report what it resolves to. Both are present-only (an absent
   // match/dir is fine), so this is informational: it surfaces a typo'd path
   // before the user wonders why their guidance/skills aren't picked up.
-  try {
-    const cfg = new Config(tomlText);
-    if (isFeatureEnabled(cfg, "guidance")) {
-      const sources = await resolveGuidanceSources(destDir, cfg);
-      checks.push({
-        name: "guidance sources",
-        ok: true,
-        detail: sources.length === 0
-          ? "no source files match [guidance].sources yet (built-in guidance still compiles)"
-          : `${sources.length} source file(s) resolve`,
-      });
-    }
-    if (isFeatureEnabled(cfg, "skills")) {
-      const { rel, abs } = resolveSkillsDir(destDir, cfg);
-      let authored = 0;
-      try {
-        for await (const e of Deno.readDir(abs)) {
-          if (e.isDirectory) authored++;
-        }
-      } catch { /* absent dir — fine, built-ins still apply */ }
-      checks.push({
-        name: "skills",
-        ok: true,
-        detail: authored === 0
-          ? `no authored skills in ${rel}/ yet (built-ins still apply)`
-          : `${authored} authored skill(s) in ${rel}/`,
-      });
-    }
-  } catch {
-    // a config read failure was already reported above.
+  if (isFeatureEnabled(config, "guidance")) {
+    const sources = await resolveGuidanceSources(destDir, config);
+    checks.push({
+      name: "guidance sources",
+      ok: true,
+      detail: sources.length === 0
+        ? "no source files match [guidance].sources yet (built-in guidance still compiles)"
+        : `${sources.length} source file(s) resolve`,
+    });
+  }
+  if (isFeatureEnabled(config, "skills")) {
+    const { rel, abs } = resolveSkillsDir(destDir, config);
+    let authored = 0;
+    try {
+      for await (const e of Deno.readDir(abs)) {
+        if (e.isDirectory) authored++;
+      }
+    } catch { /* absent dir — fine, built-ins still apply */ }
+    checks.push({
+      name: "skills",
+      ok: true,
+      detail: authored === 0
+        ? `no authored skills in ${rel}/ yet (built-ins still apply)`
+        : `${authored} authored skill(s) in ${rel}/`,
+    });
   }
 
-  // 8. features — surface the [features] toggle state, so a user can SEE which
+  // 9. features — surface the [features] toggle state, so a user can SEE which
   // subsystems are on without inferring it from missing `--help` verbs.
-  try {
-    const cfg = new Config(tomlText);
-    const on = new Set(enabledFeatures(cfg));
+  {
+    const on = new Set(enabledFeatures(config));
     const off = FEATURES.filter((f) => !on.has(f));
     checks.push({
       name: "features",
@@ -323,16 +325,13 @@ export async function runChecks(destDir: string): Promise<Check[]> {
         ? "all on (worktrees, ratchets, guidance, skills, docs)"
         : `on: ${[...on].join(", ") || "none"}; off: ${off.join(", ")}`,
     });
-  } catch {
-    // a config read failure was already reported above.
   }
 
-  // 9. gotchas doc resolves — if [project].gotchas_doc is set, the file the gate
+  // 10. gotchas doc resolves — if [project].gotchas_doc is set, the file the gate
   // points a failing agent at must exist (a 5→6 migration of a `.discern/`-pointed
   // doc, or a typo, can leave it dangling).
-  try {
-    const cfg = new Config(tomlText);
-    const doc = cfg.get("project.gotchas_doc", "").trim();
+  {
+    const doc = config.project.gotchas_doc.trim();
     if (doc !== "") {
       const abs = doc.startsWith("/") ? doc : join(destDir, doc);
       const exists = await fileExists(abs);
@@ -349,22 +348,16 @@ export async function runChecks(destDir: string): Promise<Check[]> {
           },
       );
     }
-  } catch {
-    // a config read failure was already reported above.
   }
 
-  // 10. worktree-automation layering (advisory). If .claude/settings.json carries
+  // 11. worktree-automation layering (advisory). If .claude/settings.json carries
   // a worktree-lifecycle hook whose command does not invoke the harness CLI, a
   // different tool also automates worktrees here and would double setup/teardown.
   // Advisory only (a warn, still healthy): the install is fine, but the operator
   // should reconcile the hooks. "Ours" = the command calls `discern` (an install)
   // or `deno task dev` (this repo self-hosting from source). Skipped when the
   // worktrees feature is off (the hooks are inert / not discern's concern).
-  let worktreesOn = true;
-  try {
-    worktreesOn = isFeatureEnabled(new Config(tomlText), "worktrees");
-  } catch { /* reported above */ }
-  if (worktreesOn) {
+  if (isFeatureEnabled(config, "worktrees")) {
     try {
       const raw = await Deno.readTextFile(
         join(destDir, ".claude/settings.json"),
@@ -402,20 +395,20 @@ export async function runChecks(destDir: string): Promise<Check[]> {
     }
   }
 
-  // 11. capability-shaped checks (advisory). The symmetric counterpart to check
-  // 3 (which flags a capability key that belongs in [checks]): a [checks.<name>]
-  // whose name IS a standard capability and whose stage is that capability's
-  // canonical stage is almost certainly meant to be a [capabilities] entry —
-  // which doctor reports and `discern bootstrap` fills, and a check does not. Nudge toward
-  // the free capability slot. Advisory only (still healthy): a custom-named check
-  // with a standard stage is legitimate when the label is the point.
-  try {
-    const cfg = new Config(tomlText);
-    const wired = new Set(cfg.keys("capabilities").filter(isKnownCapability));
-    const misfiled = cfg.subsections("checks").filter((chk) =>
-      isKnownCapability(chk) && !wired.has(chk) &&
-      cfg.get(`checks.${chk}.stage`, "") === capStage(chk)
-    );
+  // 12. capability-shaped checks (advisory). A [checks.<name>] whose name IS a
+  // standard capability and whose stage is that capability's canonical stage is
+  // almost certainly meant to be a [capabilities] entry — which doctor reports and
+  // `discern bootstrap` fills, and a check does not. Nudge toward the free
+  // capability slot. Advisory only (still healthy): a custom-named check with a
+  // standard stage is legitimate when the label is the point.
+  {
+    const wired = new Set(wiredCaps.filter(isKnownCapability));
+    const misfiled = Object.entries(config.checks)
+      .filter(([chk, spec]) =>
+        isKnownCapability(chk) && !wired.has(chk) &&
+        spec.stage === capStage(chk)
+      )
+      .map(([chk]) => chk);
     if (misfiled.length > 0) {
       checks.push({
         name: "capability-shaped checks",
@@ -431,49 +424,18 @@ export async function runChecks(destDir: string): Promise<Check[]> {
         }] name is deliberate`,
       });
     }
-  } catch {
-    // a config read failure was already reported above.
-  }
-
-  // 12. dead worktree adapters (hard fail). The engine reads only
-  // [worktree.resources.<name>] now; a leftover [worktree.db]/[worktree.dev_server]
-  // is dead config — and dangerously SILENT (setup would succeed with no database).
-  // The schema check above catches an un-upgraded install, but a hand-maintained
-  // config that never bumped its version would pass that, so flag the tables
-  // directly.
-  try {
-    const cfg = new Config(tomlText);
-    const dead = ["worktree.db", "worktree.dev_server"].filter((t) =>
-      cfg.has(t)
-    );
-    if (dead.length > 0) {
-      checks.push({
-        name: "worktree resources",
-        ok: false,
-        detail: `dead config: [${
-          dead.join("] / [")
-        }] — the engine now reads [worktree.resources.<name>]`,
-        fix:
-          "run `discern upgrade`, or move clone/drop→[worktree.resources.db].create/destroy and link/unlink→[worktree.resources.dev_server].create/destroy by hand, then delete the legacy tables",
-      });
-    }
-  } catch {
-    // a config read failure was already reported above.
   }
 
   // 13. worktree-resource commands resolve (advisory). The first word of each
   // declared create/destroy/ensure should be on PATH, so a worktree round won't
   // die with "command not found".
-  try {
-    const cfg = new Config(tomlText);
+  {
     const missing: string[] = [];
-    for (const name of cfg.subsections("worktree.resources")) {
-      for (const verb of ["create", "destroy", "ensure"]) {
-        const word = firstWord(
-          cfg.get(`worktree.resources.${name}.${verb}`, ""),
-        );
+    for (const [name, r] of Object.entries(config.worktree.resources)) {
+      for (const cmd of [r.create, r.destroy, r.ensure]) {
+        const word = firstWord(cmd);
         if (word !== undefined && !(await commandResolves(word))) {
-          missing.push(`${name}.${verb} → ${word}`);
+          missing.push(`${name} → ${word}`);
         }
       }
     }
@@ -487,8 +449,6 @@ export async function runChecks(destDir: string): Promise<Check[]> {
           "install the tool, or fix the command in [worktree.resources.<name>]",
       });
     }
-  } catch {
-    // a config read failure was already reported above.
   }
 
   return checks;

@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { Config } from "../src/shared/config_read.ts";
+import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { cmdsInStage, jobsInStage } from "../src/engine/gate/stages.ts";
 
 const CFG = `
@@ -19,7 +19,7 @@ run = ":"
 `;
 
 Deno.test("jobsInStage: capabilities by derived stage, with array expansion", () => {
-  const c = new Config(CFG);
+  const c = parseConfigOrThrow(CFG);
   const check = jobsInStage(c, "check");
   assertEquals(check.map((j) => j.label), [
     "lint",
@@ -34,12 +34,12 @@ Deno.test("jobsInStage: capabilities by derived stage, with array expansion", ()
 });
 
 Deno.test("jobsInStage: a ':' no-op check is skipped", () => {
-  const c = new Config(CFG);
+  const c = parseConfigOrThrow(CFG);
   assertEquals(jobsInStage(c, "build"), []);
 });
 
 Deno.test("cmdsInStage joins with && and is ':' when empty", () => {
-  const c = new Config(CFG);
+  const c = parseConfigOrThrow(CFG);
   assertEquals(
     cmdsInStage(c, "check"),
     "eslint . && stylelint . && tsc --noEmit && deno task selfcheck",

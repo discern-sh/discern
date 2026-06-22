@@ -16,9 +16,10 @@
  * never listed here.
  */
 
-import type { Config } from "./config_read.ts";
+import type { DiscernConfig } from "./config_schema.ts";
 
-/** The toggleable subsystems, in display order. */
+/** The toggleable subsystems, in display order. Must match the keys of the
+ * schema's `[features]` section (a guard test pins this). */
 export const FEATURES = [
   "worktrees",
   "ratchets",
@@ -36,18 +37,20 @@ export function isFeature(name: string): name is Feature {
 }
 
 /**
- * Whether feature `name` is enabled for `config`. Defaults to true: a feature is
- * on unless `[features].<name>` is the literal `false`. (An absent table, an
- * absent key, or any non-`false` value all read as enabled.)
+ * Whether feature `name` is enabled for `config`. Every feature defaults to ON;
+ * the schema turns an absent `[features]` table or key into `true`, so a feature
+ * is enabled unless `[features].<name>` is the literal `false`.
  */
-export function isFeatureEnabled(config: Config, name: Feature): boolean {
-  return config.get(`features.${name}`, "true").trim().toLowerCase() !==
-    "false";
+export function isFeatureEnabled(
+  config: DiscernConfig,
+  name: Feature,
+): boolean {
+  return config.features[name];
 }
 
 /** The enabled features for `config`, in {@link FEATURES} order. */
-export function enabledFeatures(config: Config): Feature[] {
-  return FEATURES.filter((f) => isFeatureEnabled(config, f));
+export function enabledFeatures(config: DiscernConfig): Feature[] {
+  return FEATURES.filter((f) => config.features[f]);
 }
 
 /**

@@ -24,7 +24,7 @@
 
 import { ensureDir } from "@std/fs";
 import { dirname, join } from "@std/path";
-import { Config } from "../shared/config_read.ts";
+import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { type Feature, isFeatureEnabled } from "../shared/features.ts";
 import { resolveGuidanceSources, resolveTemplatesDir } from "../lib/paths.ts";
 import { materializeSkills } from "../lib/skills.ts";
@@ -95,12 +95,11 @@ function banner(): string {
 
 /** The providers to emit: `[guidance].agents`, else the legacy `[project].agents`,
  * else the default pair. */
-function guidanceAgents(config: Config): string[] {
-  const guidance = config.array("guidance.agents");
-  if (guidance.length > 0) {
-    return guidance;
+function guidanceAgents(config: DiscernConfig): string[] {
+  if (config.guidance.agents.length > 0) {
+    return config.guidance.agents;
   }
-  const legacy = config.array("project.agents");
+  const legacy = config.project.agents ?? [];
   return legacy.length > 0 ? legacy : [...DEFAULT_AGENTS];
 }
 
@@ -109,7 +108,7 @@ function guidanceAgents(config: Config): string[] {
  * features, in {@link BUILTIN_SECTIONS} order. A missing section file is skipped
  * defensively (the distribution ships them, but a custom templates tree might not).
  */
-async function builtinGuidance(config: Config): Promise<string> {
+async function builtinGuidance(config: DiscernConfig): Promise<string> {
   const dir = join(await resolveTemplatesDir(), "guidance");
   let out = "";
   for (const section of BUILTIN_SECTIONS) {
@@ -151,7 +150,7 @@ export async function compileGuidelines(
   const log = logger ??
     new Logger({ json: false, noColor: false, humanStream: "stdout" });
 
-  const config = await Config.load(root);
+  const config = await loadConfig(root);
 
   // --- job 1: materialize skills into .claude/skills/ (gated) ----------------
   let skills = { copied: 0, linked: 0, pruned: 0 };

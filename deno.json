@@ -25,6 +25,7 @@
     "gate": "deno task dev finish"
   },
   "imports": {
+    "@zod/zod": "jsr:@zod/zod@^4.4.3",
     "@cliffy/command": "jsr:@cliffy/command@^1.0.0-rc.8",
     "@cliffy/prompt": "jsr:@cliffy/prompt@^1.0.0-rc.8",
     "@cliffy/table": "jsr:@cliffy/table@^1.0.0-rc.8",

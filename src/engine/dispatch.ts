@@ -11,7 +11,8 @@
 
 import { Command } from "@cliffy/command";
 import { join } from "@std/path";
-import { Config } from "../shared/config_read.ts";
+import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
+import { RawConfig } from "../shared/config_read.ts";
 import {
   CONFIG_REL,
   findRoot,
@@ -376,7 +377,7 @@ function attachSkillsCommand(root: Command): void {
 /** `discern skills list` — print the effective skill set. */
 async function runSkillsList(opts: { json: boolean }): Promise<number> {
   const root = await requireRoot();
-  const cfg = await Config.load(root);
+  const cfg = await loadConfig(root);
   const rows = await listSkills(root, cfg);
   if (opts.json) {
     console.log(JSON.stringify(rows, null, 2));
@@ -399,19 +400,21 @@ async function runSkillsList(opts: { json: boolean }): Promise<number> {
 /** `discern skills eject <name>` — copy a built-in into `[skills].dir` to edit. */
 async function runSkillsEject(name: string): Promise<number> {
   const root = await requireRoot();
-  const cfg = await Config.load(root);
+  const cfg = await loadConfig(root);
   try {
     const result = await ejectSkill(root, cfg, name);
     // Persist [skills].dir when it wasn't explicitly set, so the override is
-    // found by the resolver on the next materialize.
-    if (!cfg.has("skills.dir")) {
-      const path = (await resolveConfigPath(root)) ?? join(root, CONFIG_REL);
-      const editor = new TomlEditor(await Deno.readTextFile(path));
+    // found by the resolver on the next materialize. Presence is a raw question
+    // ("is the key written?"), not a typed one (the typed value always defaults).
+    const path = (await resolveConfigPath(root)) ?? join(root, CONFIG_REL);
+    const text = await Deno.readTextFile(path);
+    if (!new RawConfig(text).has("skills.dir")) {
+      const editor = new TomlEditor(text);
       editor.setString("skills.dir", "skills");
       await Deno.writeTextFile(path, editor.toString());
     }
     // Re-materialize so `.claude/skills/` reflects the ejected override now.
-    await materializeSkills(root, await Config.load(root));
+    await materializeSkills(root, await loadConfig(root));
     console.log(
       `Ejected "${name}" → ${result.destRel} (it now overrides the built-in).`,
     );
@@ -565,11 +568,11 @@ async function helperInheritEnv(): Promise<number> {
     return 1;
   }
   const log = makeLogger();
-  const cfg = await Config.load(root);
+  const cfg = await loadConfig(root);
   try {
     await inheritMainEnvVars({
       worktreeRoot: root,
-      vars: cfg.array("worktree.inherit_env"),
+      vars: cfg.worktree.inherit_env,
       log,
     });
     return 0;
@@ -596,7 +599,7 @@ async function helperWithGotchas(args: string[]): Promise<number> {
   if (code !== 0) {
     const root = await findRoot();
     if (root !== undefined) {
-      gotchasHint(await Config.load(root), root, colorEnabled());
+      gotchasHint(await loadConfig(root), root, colorEnabled());
     }
   }
   return code;
@@ -617,7 +620,9 @@ export async function runConfigRead(
     console.error(`discern: ${NO_PROJECT}`);
     return 1;
   }
-  const cfg = await Config.load(root);
+  // The recipe-facing passthrough reads ARBITRARY dotted keys verbatim, so it uses
+  // the raw reader (no schema, no defaults) rather than the typed loader.
+  const cfg = await RawConfig.load(root);
   switch (op) {
     case "get":
       console.log(cfg.get(key));
@@ -671,7 +676,10 @@ async function pathExists(path: string): Promise<boolean> {
 
 /** The project recipes directory: its configured name and absolute path
  * (`[recipes].dir`, default `./recipes`). */
-function recipesDirOf(root: string, cfg: Config): { rel: string; abs: string } {
+function recipesDirOf(
+  root: string,
+  cfg: DiscernConfig,
+): { rel: string; abs: string } {
   return resolveRecipesDir(root, cfg);
 }
 
@@ -685,7 +693,7 @@ export async function printProjectRecipes(): Promise<void> {
   if (root === undefined) {
     return;
   }
-  const cfg = await Config.load(root);
+  const cfg = await loadConfig(root);
   const { rel, abs } = recipesDirOf(root, cfg);
   const lines: string[] = [];
   try {
@@ -721,7 +729,7 @@ export async function warnShadowedRecipe(verb: string): Promise<void> {
   if (root === undefined) {
     return;
   }
-  const cfg = await Config.load(root);
+  const cfg = await loadConfig(root);
   const { abs } = recipesDirOf(root, cfg);
   if (await pathExists(join(abs, verb.replace(/:/g, "-")))) {
     console.error(
@@ -747,13 +755,13 @@ export async function dispatchRecipeOrSuggest(
     console.error("       Run `discern init` to scaffold one.");
     return 1;
   }
-  const cfg = await Config.load(root);
+  const cfg = await loadConfig(root);
   const { rel: recipesDir, abs: recipesAbs } = recipesDirOf(root, cfg);
   const recipeFile = join(recipesAbs, verb.replace(/:/g, "-"));
 
   if (await isExecutable(recipeFile)) {
     const mainBranch = Deno.env.get("MAIN_BRANCH") ||
-      cfg.get("project.main_branch", "main");
+      cfg.project.main_branch;
     const tomlPath = join(root, (await installedConfigRel(root)) ?? CONFIG_REL);
     const child = new Deno.Command(recipeFile, {
       args,

@@ -209,14 +209,17 @@ Deno.test("ratchets: a misconfigured ratchet (no run command) errors clearly", a
         "[ratchets.coverage]",
         'direction = "up"',
         "limit = 80",
-        // no `run` key at all — nothing to measure
+        // no `run` key at all — nothing to measure. `run` is now schema-required,
+        // so this is caught at load with a path-qualified message, not deferred to
+        // a runtime "no run command" check.
         "",
       ].join("\n"),
     );
     await gitInit(dir);
     const r = await runAgent(dir, ["ratchets"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.stderr, "has no run command");
+    assertStringIncludes(r.stderr, "discern.toml is invalid");
+    assertStringIncludes(r.stderr, "ratchets.coverage.run");
   });
 });
 

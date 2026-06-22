@@ -29,7 +29,7 @@
 import { join } from "@std/path";
 import { ensureDir } from "@std/fs";
 import type { Logger } from "../../lib/log.ts";
-import type { Config } from "../../shared/config_read.ts";
+import type { DiscernConfig } from "../../shared/config_schema.ts";
 import {
   type IdentitySettings,
   resourceForId,
@@ -50,7 +50,7 @@ const MAX_RETRIES = 5;
 /** The minimal slice of the lifecycle context the resource layer needs (kept
  * structural so it never imports `LifecycleContext` — that would cycle). */
 export interface ResourceContext {
-  config: Config;
+  config: DiscernConfig;
   log: Logger;
   /** The directory commands run from (the worktree root, or main for GC). */
   cwd: string;
@@ -102,20 +102,16 @@ export interface ResourceEntry {
 }
 
 /** Read the declared resources in document order (the create/destroy order). */
-export function readResourceSpecs(config: Config): ResourceSpec[] {
-  return config.subsections("worktree.resources").map((name) => {
-    const key = (k: string) => `worktree.resources.${name}.${k}`;
-    return {
-      name,
-      create: config.get(key("create"), ""),
-      destroy: config.get(key("destroy"), ""),
-      ensure: config.get(key("ensure"), ""),
-      // Default true: absent ⇒ "true" ⇒ not "false" ⇒ true.
-      required: config.get(key("required"), "true") !== "false",
-      retries: clampRetries(config.getNumber(key("retries"))),
-      gc: config.get(key("gc"), "true") !== "false",
-    };
-  });
+export function readResourceSpecs(config: DiscernConfig): ResourceSpec[] {
+  return Object.entries(config.worktree.resources).map(([name, r]) => ({
+    name,
+    create: r.create,
+    destroy: r.destroy,
+    ensure: r.ensure,
+    required: r.required,
+    retries: clampRetries(r.retries),
+    gc: r.gc,
+  }));
 }
 
 /** Clamp a configured retry count into `[0, MAX_RETRIES]`. */
@@ -135,7 +131,7 @@ function clampRetries(n: number | undefined): number {
 export function buildTokenResolver(
   identity: WorktreeIdentity,
   settings: IdentitySettings,
-  config: Config,
+  config: DiscernConfig,
   worktreeRoot: string,
   resourceName?: string,
 ): TokenResolver {
@@ -148,7 +144,7 @@ export function buildTokenResolver(
       case "port":
         return String(identity.port);
       case "project_slug":
-        return config.get("project.slug", "");
+        return config.project.slug;
       case "dir":
         return worktreeRoot;
       case "worktree":
@@ -385,7 +381,7 @@ export async function createResources(
       await writeEntry(commonGitDir, {
         schema: LEDGER_SCHEMA,
         seq: idx,
-        project_slug: ctx.config.get("project.slug", ""),
+        project_slug: ctx.config.project.slug,
         git_key: gitKey,
         worktree_id: identity.id,
         worktree_path: worktreePath,

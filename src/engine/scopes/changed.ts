@@ -9,7 +9,7 @@
  * default) and `previewable` (a previewable-flagged scope changed).
  */
 
-import { Config } from "../../shared/config_read.ts";
+import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import { pathMatchesPattern } from "./glob.ts";
 
 /** Run `git -C root <args>`, capturing stdout. `ok:false` on any failure. */
@@ -81,29 +81,27 @@ async function collectPaths(
   return paths;
 }
 
-/** Does `path` match any glob in scope `name`'s `paths` array? */
-function pathMatchesScope(config: Config, path: string, name: string): boolean {
-  return config.array(`scopes.${name}.paths`).some((pat) =>
-    pathMatchesPattern(path, pat)
-  );
+/** Does `path` match any glob in `paths`? */
+function pathMatchesGlobs(paths: string[], path: string): boolean {
+  return paths.some((pat) => pathMatchesPattern(path, pat));
 }
 
 /**
  * The classified scopes/markers for the current branch, in stable order: the
  * `code` marker, the `previewable` marker, then the firing scopes that matched
- * (in declaration order). Pass a pre-loaded Config to avoid re-parsing.
+ * (in declaration order). Pass a pre-loaded config to avoid re-parsing.
  */
 export async function changedScopes(
   root: string,
-  cfg?: Config,
+  cfg?: DiscernConfig,
 ): Promise<string[]> {
-  const config = cfg ?? await Config.load(root);
-  const subs = config.subsections("scopes");
-  const neutralScopes = subs.filter((s) => config.bool(`scopes.${s}.neutral`));
-  const fireScopes = subs.filter((s) => !config.bool(`scopes.${s}.neutral`));
+  const config = cfg ?? await loadConfig(root);
+  const scopes = config.scopes;
+  const names = Object.keys(scopes);
+  const neutralScopes = names.filter((s) => scopes[s]?.neutral);
+  const fireScopes = names.filter((s) => !scopes[s]?.neutral);
 
-  const mainBranch = Deno.env.get("MAIN_BRANCH") ||
-    config.get("project.main_branch", "main");
+  const mainBranch = Deno.env.get("MAIN_BRANCH") || config.project.main_branch;
   const paths = await collectPaths(root, mainBranch);
   if (paths === null) {
     // Fail open: cannot tell what changed → report every scope/marker.
@@ -113,7 +111,7 @@ export async function changedScopes(
   // A path is neutral if it matches a neutral scope, or is a root-level *.md.
   const isNeutral = (path: string): boolean => {
     for (const s of neutralScopes) {
-      if (pathMatchesScope(config, path, s)) {
+      if (pathMatchesGlobs(scopes[s]?.paths ?? [], path)) {
         return true;
       }
     }
@@ -133,9 +131,9 @@ export async function changedScopes(
       if (fired.includes(s)) {
         continue;
       }
-      if (pathMatchesScope(config, path, s)) {
+      if (pathMatchesGlobs(scopes[s]?.paths ?? [], path)) {
         fired.push(s);
-        if (config.bool(`scopes.${s}.previewable`)) {
+        if (scopes[s]?.previewable) {
           previewable = true;
         }
       }

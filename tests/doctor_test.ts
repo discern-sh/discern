@@ -193,16 +193,17 @@ Deno.test("doctor: an unknown capability key is flagged with a rename fix", asyn
   await withTempDir(async (dir) => {
     await initInstall(dir);
     // Inject a capability key outside the known vocabulary. Still valid TOML, so
-    // the config check passes — but the capabilities check flags it.
+    // the syntax check passes — but the schema check (the closed [capabilities]
+    // vocabulary) flags it with the rename/move-to-[checks] guidance.
     await addCapability(dir, "bogus", "echo hi");
 
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 1);
     assertEquals(check(payload, "discern.toml").ok, true);
-    const caps = check(payload, "capabilities");
-    assertEquals(caps.ok, false);
-    assertStringIncludes(caps.detail, "bogus");
-    assertStringIncludes(caps.fix ?? "", "known capability");
+    const schema = check(payload, "config schema");
+    assertEquals(schema.ok, false);
+    assertStringIncludes(schema.detail, "bogus");
+    assertStringIncludes(schema.detail, "known capability");
   });
 });
 
