@@ -123,7 +123,7 @@ steps = []   # e.g. ["npm ci", "npm run build"]
 # up as coverage improves (see TODO.md).
 [ratchets.coverage]
 direction = "up"
-limit     = 83
+limit     = 84
 run       = "deno task coverage"
 
 # ─────────────────────────────────────────────────────────────────────────────
