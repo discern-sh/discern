@@ -253,7 +253,7 @@ function printSuccessTail(cfg: Config, out: Out, changed: string[]): void {
     );
   }
   if (
-    cfg.get("worktree.dev_server.link", "") !== "" &&
+    cfg.get("worktree.resources.dev_server.create", "") !== "" &&
     changed.includes("previewable")
   ) {
     out.info(

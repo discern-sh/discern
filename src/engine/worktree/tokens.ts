@@ -2,17 +2,24 @@
  * The adapter-token convention — the TS port of `wt_expand_tokens` /
  * `wt_replace_all` from the shell `lib/worktree.sh`.
  *
- * Operator-supplied adapter commands in `[worktree.db]` and `[worktree.dev_server]`
- * carry RUNTIME tokens that are substituted with values derived from THIS
- * worktree's identity before the command runs. They use the `@…@` delimiter —
- * distinct from the installer's `{{…}}` content tokens (already substituted at
- * init) — so the two layers never collide:
+ * Project-supplied resource commands in `[worktree.resources.<name>]`
+ * (`create`/`destroy`/`ensure`) carry RUNTIME tokens that are substituted with
+ * values derived from THIS worktree's identity before the command runs. They use
+ * the `@…@` delimiter — distinct from the installer's `{{…}}` content tokens
+ * (already substituted at init) — so the two layers never collide:
  *
  *   @db@            the database-name-safe identity      (worktree-name --db)
  *   @site@          the dev-server site/host name        (worktree-name --site)
  *   @port@          the deterministic per-worktree port  (worktree-name --port)
+ *   @worktree@      the worktree's base handle, slug-id  (worktree-name --worktree)
+ *   @resource@      this resource's handle, slug-id-name (worktree-name --resource <name>)
  *   @project_slug@  the project slug                     (config project.slug)
  *   @dir@           the worktree root                    (the checkout's abs path)
+ *
+ * `@resource@` is bound to the resource whose command is running, so it is only
+ * meaningful inside a resource's own `create`/`destroy`/`ensure`; in
+ * `[worktree.setup].steps` (which run outside any single resource) it resolves to
+ * the empty string.
  *
  * A token's value is resolved only when that token actually appears, so a command
  * naming no tokens triggers no resolution work. Replacement is a plain
@@ -21,13 +28,15 @@
  * never loops.
  */
 
-/** The five adapter tokens, in the shell's resolution order. */
+/** The adapter tokens, in resolution order (db/site/port preserve the shell's). */
 export const WORKTREE_TOKENS = [
   "db",
   "site",
   "port",
   "project_slug",
   "dir",
+  "worktree",
+  "resource",
 ] as const;
 
 /** One of the recognised adapter token names. */
