@@ -182,6 +182,67 @@ Deno.test("worktree:prune deletes a dangling fully-merged branch but keeps an un
   });
 });
 
+// ── worktree:prune — the dry-run plan must AGREE with the real run ───────────
+//
+// Regression guard (ADR 0027): `--dry-run` builds a plan from what prune WOULD
+// remove and reclaim. A dry-run that reports "nothing to do" while the real run
+// then removes worktrees and deletes branches is the exact plan/apply divergence
+// the model forbids — and was a real bug (pruneGitWorktrees/sweepOrphanWorktrees
+// narrated their candidates but returned EMPTY lists in dryRun mode, so the plan
+// read nothing). This pins the two paths to agree.
+
+Deno.test("worktree:prune --dry-run lists what the real run removes, and acts on nothing", async () => {
+  await withTempDir(async (dir) => {
+    // A live, clean, fully-merged worktree — a genuine removal candidate.
+    const mergedWt = await mainWithWorktree(dir, "victim");
+    await Deno.writeTextFile(join(mergedWt, "m.txt"), "m\n");
+    await git(mergedWt, "add", "-A");
+    await git(mergedWt, "commit", "-q", "-m", "m", "--no-gpg-sign");
+    await git(dir, "merge", "--no-ff", "-m", "merge victim", "agent/victim");
+
+    // Dry-run must NAME the candidate (not claim "nothing to do") and touch nothing.
+    const dry = await runAgent(dir, ["worktree:prune", "--dry-run"]);
+    assertEquals(dry.code, 0, dry.output);
+    assertStringIncludes(dry.stdout, "victim");
+    assert(
+      !dry.stdout.includes("nothing to do"),
+      `dry-run wrongly reported an empty plan\n${dry.stdout}`,
+    );
+    assert(
+      await exists(mergedWt),
+      `dry-run must not remove the worktree\n${dry.output}`,
+    );
+
+    // --dry-run --json: the plan carries the worktree and its branch.
+    const dryJson = await runAgent(dir, [
+      "worktree:prune",
+      "--dry-run",
+      "--json",
+    ]);
+    const plan = JSON.parse(dryJson.stdout.trim());
+    const labels: string[] = plan.plan.steps.map((s: { label: string }) =>
+      s.label
+    );
+    assert(
+      labels.some((l) => l.includes("victim")),
+      `the dry-run plan should include the victim worktree\n${dryJson.stdout}`,
+    );
+
+    // The real run removes exactly what the dry-run promised.
+    const real = await runAgent(dir, ["worktree:prune", "--yes"]);
+    assertEquals(real.code, 0, real.output);
+    assertEquals(
+      await exists(mergedWt),
+      false,
+      `the real run should remove the worktree the dry-run named\n${real.output}`,
+    );
+    assert(
+      !(await branchList(dir)).includes("agent/victim"),
+      "the merged branch should be deleted by the real run",
+    );
+  });
+});
+
 Deno.test("worktree:prune refuses to run from inside a linked worktree", async () => {
   await withTempDir(async (dir) => {
     // Pool housekeeping is a main-checkout operation (guarded by
