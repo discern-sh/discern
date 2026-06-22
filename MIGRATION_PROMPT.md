@@ -56,9 +56,11 @@ at load** (each was either a silent no-op or a silently-wrong default before):
    `docs = "yes"` (must be `docs = true`), or a misspelled `worktree = false`
    (the feature is `worktrees`). A quoted boolean like `fail_fast = "false"`
    under `[gate]` now fails too — it must be a bare `fail_fast = false`.
-8. **`discern config set <unknown.key> <value>`** now writes a key the schema
-   doesn't know, so the _next_ config read fails. Only set keys that exist in
-   the config reference.
+8. **`discern config set <unknown.key>` is now refused at write time** with
+   `unknown config key "…"` (it used to write the key and let the next read
+   fail). A valid-but-incomplete path is still allowed (e.g. set
+   `ratchets.x.limit` before its `run`). Only set keys that exist in the config
+   reference; for custom gate work use `discern config set-check`.
 
 ## Steps to bring this install into compliance
 

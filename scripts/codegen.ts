@@ -1,9 +1,12 @@
 /**
  * Regenerate the committed artifacts that derive from the canonical config schema
- * (ADR 0026): the editor JSON Schema, the `discern.toml` template prose, and the
- * docs config-reference. Run it after editing `src/shared/config_schema.ts`:
+ * (ADR 0026): the editor JSON Schema and the docs config-reference. Run it after
+ * editing `src/shared/config_schema.ts`:
  *
  *   deno task codegen
+ *
+ * (The `discern.toml` template is NOT regenerated — it stays hand-authored for
+ * legibility per ADR 0005, bound to the schema by drift-guard tests instead.)
  *
  * A sync test (`tests/config_codegen_test.ts`) asserts each committed file equals
  * its generator output, so forgetting to regenerate fails the gate.

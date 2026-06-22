@@ -3,6 +3,7 @@ import {
   AGENT_NAMES,
   ConfigParseError,
   ConfigValidationError,
+  isSettableConfigPath,
   parseConfig,
   parseConfigOrThrow,
   toCommand,
@@ -135,6 +136,29 @@ Deno.test("strict: a dead [worktree.db] adapter is rejected with an upgrade hint
       i.path === "worktree" && /dead config|upgrade/.test(i.message)
     ),
   );
+});
+
+Deno.test("a quoted boolean gets a tailored hint, not the raw Zod message", () => {
+  const { issues } = parseConfig(`[gate]\nfail_fast = "false"\n`);
+  const issue = issues.find((i) => i.path === "gate.fail_fast");
+  assert(issue !== undefined);
+  assert(/bare `true` or `false`/.test(issue.message), issue?.message);
+});
+
+Deno.test("isSettableConfigPath: known leaf/record paths yes, typos no", () => {
+  // Known scalar leaves and record paths are settable.
+  assert(isSettableConfigPath("project.slug"));
+  assert(isSettableConfigPath("gate.fail_fast"));
+  assert(isSettableConfigPath("features.docs"));
+  assert(isSettableConfigPath("ratchets.coverage.limit")); // valid-but-incomplete OK
+  assert(isSettableConfigPath("checks.x.stage"));
+  assert(isSettableConfigPath("worktree.resources.db.create"));
+  // Typos and unknown keys are not.
+  assert(!isSettableConfigPath("project.frobnicate"));
+  assert(!isSettableConfigPath("features.bogus"));
+  assert(!isSettableConfigPath("capabilities.deploy")); // closed vocabulary
+  assert(!isSettableConfigPath("nope.at.all"));
+  assert(!isSettableConfigPath("ratchets.coverage.bogus"));
 });
 
 Deno.test("a bad check stage and a bad ratchet direction are rejected", () => {

@@ -2,9 +2,11 @@
  * The **single source of truth for `discern.toml`** — one Zod schema from which
  * every other artifact derives (ADR 0026). It defines every section, key, type,
  * **default**, and **human description**; the engine reads a fully-typed,
- * fully-defaulted object parsed through it, the editor JSON Schema is generated
- * from it (see `config_codegen.ts`), and the template prose + docs reference
- * render from its `.describe(...)` annotations.
+ * fully-defaulted object parsed through it, and the editor JSON Schema + the docs
+ * config-reference are generated from it (see `config_codegen.ts`) — the docs
+ * rendering straight from its `.describe(...)` annotations. (The `discern.toml`
+ * template stays hand-authored for legibility — ADR 0005 — bound to the schema by
+ * drift-guard tests rather than generated.)
  *
  * Before this, the config's shape/defaults/prose were smeared across a stringly
  * accessor, wizard defaults, a hand-written JSON Schema, the closed vocabularies,
@@ -67,9 +69,10 @@ export class ConfigParseError extends Error {
 /** TOML bare-key shape, enforced for check/scope/ratchet/resource names. */
 const NAME_RE = /^[A-Za-z0-9_-]+$/;
 
-/** The agent/provider files discern knows how to emit. The closed set is the
- * single source for the document's `agents` enum (so the generated JSON Schema
- * can never again miss one — the historical gemini-shaped staleness bug). */
+/** The agent/provider files discern knows how to emit — the single source for
+ * the document's `agents` enum, the generated editor JSON Schema (so it can never
+ * again miss one — the historical gemini-shaped staleness bug), AND the
+ * installer's `KNOWN_AGENTS` (re-exported from `lib/config.ts`). */
 export const AGENT_NAMES = ["claude_code", "codex", "gemini"] as const;
 
 /** A capability/check/gate/ratchet value: one command, or a list run in order. */
@@ -461,6 +464,16 @@ function toConfigIssue(issue: z.core.$ZodIssue): ConfigIssue {
         : `unknown key(s) in [${path}]: ${keys}`,
     };
   }
+  // A boolean value written as a quoted string is the most common type trip
+  // (`fail_fast = "false"`, `docs = "yes"`); the raw Zod message ("expected
+  // boolean, received string") doesn't hint the fix.
+  if (issue.code === "invalid_type" && issue.expected === "boolean") {
+    return {
+      path,
+      message:
+        "expected a boolean — use a bare `true` or `false` (not a quoted string).",
+    };
+  }
   return { path, message: issue.message };
 }
 
@@ -509,6 +522,54 @@ export function parseConfigOrThrow(text: string): DiscernConfig {
 export async function loadConfig(root: string): Promise<DiscernConfig> {
   const rel = (await installedConfigRel(root)) ?? CONFIG_REL;
   return parseConfigOrThrow(await Deno.readTextFile(join(root, rel)));
+}
+
+/** True for a non-null, non-array object. */
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+/** The live schema as a JSON Schema, computed once for path checks. */
+let liveJsonSchema: Record<string, unknown> | undefined;
+function liveSchemaJson(): Record<string, unknown> {
+  if (liveJsonSchema === undefined) {
+    liveJsonSchema = z.toJSONSchema(configSchema, { io: "input" }) as Record<
+      string,
+      unknown
+    >;
+  }
+  return liveJsonSchema;
+}
+
+/**
+ * Whether a dotted key is a writable path in the schema — so `discern config set`
+ * can refuse a typo (`project.frobnicate`, `features.bogus`) at WRITE time rather
+ * than leave a config the next read rejects. A record section (`checks`, `scopes`,
+ * `ratchets`, `worktree.resources`) accepts any `<name>` segment, then matches the
+ * value shape's keys. This deliberately permits a valid-but-incomplete path (e.g.
+ * `ratchets.coverage.limit` before its `run` is set) — incremental table
+ * construction is legitimate; only an UNKNOWN key/section is rejected.
+ */
+export function isSettableConfigPath(dotted: string): boolean {
+  let node: Record<string, unknown> | undefined = liveSchemaJson();
+  for (const seg of dotted.split(".")) {
+    if (node === undefined) {
+      return false;
+    }
+    const props: Record<string, unknown> | undefined = isRecord(node.properties)
+      ? node.properties
+      : undefined;
+    const child: unknown = props?.[seg];
+    if (props !== undefined && Object.hasOwn(props, seg)) {
+      node = isRecord(child) ? child : undefined;
+    } else if (isRecord(node.additionalProperties)) {
+      // A record table: `seg` is a `<name>`; descend into the value shape.
+      node = node.additionalProperties;
+    } else {
+      return false; // not a known key, and not a repeatable-name table
+    }
+  }
+  return true;
 }
 
 /**

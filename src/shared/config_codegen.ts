@@ -1,8 +1,10 @@
 /**
  * Generators that derive the shipped, committed artifacts from the canonical Zod
- * schema (ADR 0026) — so the editor JSON Schema, the `discern.toml` template
- * prose, and the docs config-reference all render from one source and can never
- * drift from what the engine enforces.
+ * schema (ADR 0026) — the editor JSON Schema and the docs config-reference both
+ * render from one source and can never drift from what the engine enforces. (The
+ * `discern.toml` template stays hand-authored to preserve its curated, legible
+ * comments — ADR 0005 — and is bound to the schema by drift-guard tests instead,
+ * not regenerated here.)
  *
  * Run by `deno task codegen`; a sync test asserts each committed artifact equals
  * its generator output, so a schema change that isn't regenerated fails the gate.
