@@ -39,7 +39,7 @@ import {
 import { expandTokens, WORKTREE_TOKENS } from "./tokens.ts";
 import type { TokenResolver, WorktreeToken } from "./tokens.ts";
 import { writeEnvVar } from "./env_file.ts";
-import { WorktreeGitError } from "./git.ts";
+import { gitKeyIsLive, WorktreeGitError } from "./git.ts";
 
 /** The ledger entry format version (forward-compat: GC skips unknown majors). */
 const LEDGER_SCHEMA = 1;
@@ -270,11 +270,7 @@ async function deleteEntryCAS(
   if (current === undefined) {
     return true; // already gone
   }
-  if (
-    current.git_key === expected.git_key &&
-    current.resource_identity === expected.resource_identity &&
-    current.created_at === expected.created_at
-  ) {
+  if (sameEntry(expected, current)) {
     await removeEntryFile(path);
     return true;
   }
@@ -283,21 +279,27 @@ async function deleteEntryCAS(
 
 // ── command execution ─────────────────────────────────────────────────────────
 
-/** Run a command via `sh -c` with extra env, returning its exit code. */
+/** Run a command via `sh -c` with extra env, returning its exit code. A spawn
+ * failure (no `sh`, a resource limit) resolves to a non-zero code rather than
+ * throwing, so one bad resource never aborts a whole teardown/prune. */
 async function runShellEnv(
   command: string,
   cwd: string,
   env: Record<string, string>,
 ): Promise<number> {
-  const child = new Deno.Command("sh", {
-    args: ["-c", command],
-    cwd,
-    env,
-    stdin: "inherit",
-    stdout: "inherit",
-    stderr: "inherit",
-  }).spawn();
-  return (await child.status).code;
+  try {
+    const child = new Deno.Command("sh", {
+      args: ["-c", command],
+      cwd,
+      env,
+      stdin: "inherit",
+      stdout: "inherit",
+      stderr: "inherit",
+    }).spawn();
+    return (await child.status).code;
+  } catch {
+    return 127; // could not spawn — treat as a failed (retryable) command
+  }
 }
 
 /** Sleep for `ms` milliseconds. */
@@ -617,6 +619,13 @@ export interface GcResult {
  * live) AND no live worktree still holds the path or the resource handle. A
  * `gc = false` entry is never reclaimed here (teardown-only). Deletion is
  * compare-and-swap. Best-effort: a failed destroy keeps the entry to retry.
+ *
+ * The liveness sets passed in are a SNAPSHOT; the destroy loop can run for
+ * seconds, during which a concurrent worktree-create can recycle a freed git_key
+ * and rewrite its ledger entry. So immediately before each destroy we re-validate
+ * AGAINST DISK — a fresh `gitKeyIsLive` check and an entry re-read — and skip if
+ * the key is now live or the entry was replaced. That closes the window where GC
+ * would otherwise destroy a fresh tenant's live resource.
  */
 export async function gcOrphanResources(p: GcParams): Promise<GcResult> {
   const result: GcResult = { reclaimed: [], kept: 0, failed: false };
@@ -635,6 +644,16 @@ export async function gcOrphanResources(p: GcParams): Promise<GcResult> {
       result.reclaimed.push(entry.resource_identity);
       continue;
     }
+    // Re-validate against disk right before destroying (see the doc comment): the
+    // git_key must still be dead AND the on-disk entry must still be the one we
+    // read — else a concurrent create recycled the key, and this is a live tenant.
+    if (
+      await gitKeyIsLive(p.commonGitDir, entry.git_key) ||
+      !sameEntry(entry, await readEntry(path))
+    ) {
+      result.kept++;
+      continue;
+    }
     p.log.line(`  reclaiming ${label}…`);
     if (await runDestroyEntry(entry, p.cwd, p.log)) {
       if (await deleteEntryCAS(path, entry)) {
@@ -645,4 +664,12 @@ export async function gcOrphanResources(p: GcParams): Promise<GcResult> {
     }
   }
   return result;
+}
+
+/** Whether `b` is the same ledger entry `a` was read as (the CAS identity:
+ * git_key + resource_identity + created_at). False when `b` is missing/replaced. */
+function sameEntry(a: ResourceEntry, b: ResourceEntry | undefined): boolean {
+  return b !== undefined && b.git_key === a.git_key &&
+    b.resource_identity === a.resource_identity &&
+    b.created_at === a.created_at;
 }

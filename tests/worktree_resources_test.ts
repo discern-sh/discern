@@ -310,6 +310,111 @@ Deno.test("GC keeps a LIVE worktree's resource (never reclaims it)", async () =>
   });
 });
 
+Deno.test("GC re-checks liveness on disk and keeps a resource the snapshot wrongly omitted (C1 race)", async () => {
+  await withTempDir(async (dir) => {
+    await mainRepo(dir);
+    const wt = await addWorktree(dir, "racy");
+    const markers = join(dir, "markers");
+    await Deno.writeTextFile(join(wt, "discern.toml"), resourceConfig(markers));
+    const { settings, identity } = await identityOf(wt, wt);
+    const { common, key } = await commonAndKey(wt);
+    await createResources(await ctxFor(wt), identity, settings, common, key);
+    const handle = resourceForId(settings.slug, identity.id, "thing");
+
+    // The worktree is LIVE on disk, but the liveness SNAPSHOT wrongly omits it (a
+    // stale snapshot taken before a concurrent create registered/recycled the
+    // key). The fresh per-entry re-check must keep it — never destroy a live one.
+    const result = await gcOrphanResources({
+      commonGitDir: common,
+      cwd: dir,
+      liveGitKeys: new Set(),
+      livePaths: new Set(),
+      liveIdentities: new Set(),
+      dryRun: false,
+      log: quietLog(),
+    });
+    assertEquals(result.reclaimed.length, 0);
+    assert(
+      !(await exists(join(markers, `${handle}.gone`))),
+      "GC destroyed a live resource despite a stale snapshot",
+    );
+    assertEquals((await listEntries(common)).length, 1);
+  });
+});
+
+Deno.test("GC reclaims ONLY the orphaned worktree's resource when a live one coexists (path-reuse keystone)", async () => {
+  await withTempDir(async (dir) => {
+    await mainRepo(dir);
+    const markers = join(dir, "markers");
+    const a = await addWorktree(dir, "gone");
+    const b = await addWorktree(dir, "alive");
+    for (const wt of [a, b]) {
+      await Deno.writeTextFile(
+        join(wt, "discern.toml"),
+        resourceConfig(markers),
+      );
+      const { settings, identity } = await identityOf(wt, wt);
+      const { common, key } = await commonAndKey(wt);
+      await createResources(await ctxFor(wt), identity, settings, common, key);
+    }
+    const { settings: sa, identity: ia } = await identityOf(a, a);
+    const { settings: sb, identity: ib } = await identityOf(b, b);
+    const ha = resourceForId(sa.slug, ia.id, "thing");
+    const hb = resourceForId(sb.slug, ib.id, "thing");
+    const { common } = await commonAndKey(b);
+
+    await Deno.remove(a, { recursive: true }); // A vanishes; B stays live.
+
+    const result = await gcOrphanResources({
+      commonGitDir: common,
+      cwd: dir,
+      liveGitKeys: await liveWorktreeGitKeys(common),
+      livePaths: await liveWorktreePaths(dir),
+      liveIdentities: new Set(),
+      dryRun: false,
+      log: quietLog(),
+    });
+    assertEquals(result.reclaimed, [ha]); // A's only
+    assert(
+      await exists(join(markers, `${ha}.gone`)),
+      "A's orphan not reclaimed",
+    );
+    assert(
+      !(await exists(join(markers, `${hb}.gone`))),
+      "B's LIVE resource was destroyed",
+    );
+    const remaining = await listEntries(common);
+    assertEquals(remaining.length, 1);
+    assertEquals(remaining[0]?.entry.resource_identity, hb);
+  });
+});
+
+Deno.test("two worktrees set up concurrently write two distinct ledger entries (no corruption)", async () => {
+  await withTempDir(async (dir) => {
+    await mainRepo(dir);
+    const markers = join(dir, "markers");
+    const a = await addWorktree(dir, "one");
+    const b = await addWorktree(dir, "two");
+    await Promise.all([a, b].map(async (wt) => {
+      await Deno.writeTextFile(
+        join(wt, "discern.toml"),
+        resourceConfig(markers),
+      );
+      const { settings, identity } = await identityOf(wt, wt);
+      const { common, key } = await commonAndKey(wt);
+      await createResources(await ctxFor(wt), identity, settings, common, key);
+    }));
+    const { common } = await commonAndKey(a);
+    const entries = await listEntries(common);
+    assertEquals(
+      entries.length,
+      2,
+      "concurrent setups did not produce 2 entries",
+    );
+    assertEquals(new Set(entries.map((e) => e.entry.git_key)).size, 2);
+  });
+});
+
 Deno.test("GC recycling guard: a handle a live worktree still owns is kept", async () => {
   await withTempDir(async (dir) => {
     await mainRepo(dir);

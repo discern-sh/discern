@@ -101,6 +101,36 @@ Deno.test("a required create failure aborts setup; required = false does not", a
   });
 });
 
+Deno.test("graduate destroys the worktree's resources before removing it", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "grad");
+    // Markers under a gitignored path so they don't dirty main (graduate refuses
+    // a dirty main checkout) yet survive the worktree's removal.
+    const markers = join(dir, ".claude", "markers");
+    await declareResource(
+      wt,
+      markers,
+      [
+        'create  = "mkdir -p @MARKERS@ && touch @MARKERS@/@resource@.live"',
+        'destroy = "mkdir -p @MARKERS@ && rm -f @MARKERS@/@resource@.live && touch @MARKERS@/@resource@.gone"',
+      ].join("\n"),
+    );
+    assertEquals((await runAgent(wt, ["worktree"])).code, 0);
+    const handle =
+      (await runAgent(wt, ["worktree-name", "--resource", "thing"])).stdout
+        .trim();
+
+    // graduate tears resources down at step 4 (while @dir@ still resolves), then
+    // removes the worktree — so a graduated worktree leaves no orphan.
+    const grad = await runAgent(wt, ["graduate"]);
+    assertEquals(grad.code, 0, grad.output);
+    assert(
+      await exists(join(markers, `${handle}.gone`)),
+      `graduate did not destroy the resource\n${grad.output}`,
+    );
+  });
+});
+
 Deno.test("worktree:ensure runs a resource's ensure on an already-configured worktree", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "ens");

@@ -458,18 +458,30 @@ export async function liveWorktreeGitKeys(
     return keys; // no worktrees admin dir → no live linked worktrees
   }
   for (const entry of entries) {
-    if (!entry.isDirectory) {
-      continue;
-    }
-    // `gitdir` holds the absolute path of the checkout's `.git` gitlink file. If
-    // that file is gone the worktree was removed out-of-band — a dead key.
-    const target = (await firstLine(join(worktreesDir, entry.name, "gitdir")))
-      ?.trim();
-    if (target !== undefined && target !== "" && await pathExists(target)) {
+    if (entry.isDirectory && await gitKeyIsLive(commonGitDir, entry.name)) {
       keys.add(entry.name);
     }
   }
   return keys;
+}
+
+/**
+ * Whether one git key is live RIGHT NOW — its `<common>/worktrees/<key>/gitdir`
+ * back-pointer names a checkout that still exists. The single-key form of
+ * {@link liveWorktreeGitKeys}, for a fresh re-check immediately before a
+ * destructive GC action (closing the race where a concurrent worktree-create
+ * recycles a freed key after the liveness snapshot was taken).
+ */
+export async function gitKeyIsLive(
+  commonGitDir: string,
+  gitKey: string,
+): Promise<boolean> {
+  // `gitdir` holds the absolute path of the checkout's `.git` gitlink file. If
+  // that file is gone the worktree was removed out-of-band — a dead key.
+  const target = (await firstLine(
+    join(commonGitDir, "worktrees", gitKey, "gitdir"),
+  ))?.trim();
+  return target !== undefined && target !== "" && await pathExists(target);
 }
 
 /**
