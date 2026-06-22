@@ -51,8 +51,7 @@ defines every section, key, type, **default**, and **human description**
   `loadConfig` fail fast with a clear, path-qualified `ConfigValidationError`. A
   TOML _syntax_ error stays a `ConfigParseError`. Both surface through the one
   top-level CLI handler, human and `--json`. The engine reads a **fully-typed,
-  fully-defaulted object** — `cfg.worktree.resources.db
-  .create`,
+  fully-defaulted object** — typed field access (`cfg.gate.fail_fast`),
   autocompleted, no string keys. The old
   `get/array/bool/has/subsections/keys/getNumber` surface is gone.
 
