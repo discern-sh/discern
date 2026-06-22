@@ -193,13 +193,12 @@ Deno.test("worktree:prune reclaims a vanished worktree's resource (GC), and --dr
     // The worktree vanishes WITHOUT a clean teardown.
     await Deno.remove(wt, { recursive: true });
 
-    // Dry run: reports the orphan, reclaims nothing.
+    // Dry run: the prune plan lists the orphan as a reclaim, but acts on nothing
+    // (ADR 0027 folded prune's dry-run into the shared plan listing).
     const dry = await runAgent(dir, ["worktree:prune", "--dry-run"]);
     assertEquals(dry.code, 0, dry.output);
-    assertStringIncludes(
-      dry.output,
-      "Would reclaim 1 orphaned worktree resource",
-    );
+    assertStringIncludes(dry.output, handle);
+    assertStringIncludes(dry.output, "reclaim orphaned resource");
     assert(
       !(await exists(join(markers, `${handle}.gone`))),
       "dry-run ran the destroy",

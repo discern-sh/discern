@@ -27,6 +27,14 @@ clean teardown** (the garbage-collection safety net).
 [`worktree-name`](../../src/engine/worktree/identity.ts) resolves a Worktree's
 stable identity (id / site / branch / port / db / worktree / resource).
 
+Each effectful lifecycle verb — `worktree` (setup), `worktree:teardown`,
+`worktree:prune`, and `graduate` — takes a `--dry-run` that prints the plan
+(what it _would_ create, destroy, reclaim, or move) and touches nothing, plus a
+`--json` serialization of plan + results
+([ADR 0027](../_adr/0027-plan-apply-engine-execution.md)). The destructive ones
+— prune's GC and graduation's WIP-commit / remove / checkout dance — are
+inspectable before they act.
+
 ## Leaves
 
 | File                                 | Covers                                                                                                                                                                    |

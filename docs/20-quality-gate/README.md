@@ -14,7 +14,13 @@ then (in a Worktree) the main-merged check.
 
 `discern prepare` is the fast inner loop: the fix-stage then check-stage work,
 with no build or test. `--json` emits a machine-readable report of every
-Capability, Check, and Scope gate (ADR 0004, ADR 0017) for an agent to consume.
+Capability, Check, and Scope gate (ADR 0004, ADR 0017) for an agent to consume —
+now a serialization of the plan `finish` executed, not a re-derivation.
+`finish
+--dry-run` prints that plan (the jobs and Scope gates that _would_ run)
+without running anything
+([ADR 0027](../_adr/0027-plan-apply-engine-execution.md)); it lists what would
+run and is honest that it cannot predict which jobs fail-fast would skip.
 
 The supporting ideas: **Capabilities** are the five known commands (`format` /
 `build` / `lint` / `typecheck` / `test`) and a **Check** is custom gate work

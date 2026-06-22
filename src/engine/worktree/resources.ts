@@ -480,30 +480,49 @@ export async function recordResourceEnv(
 // ── teardown: destroy ─────────────────────────────────────────────────────────
 
 /**
+ * This worktree's ledger entries in DESTRUCTION order — every entry for `gitKey`,
+ * sorted by reverse creation seq (so a dependency created first is destroyed
+ * last). The read-only basis of both the teardown plan and `destroyResources`.
+ */
+export async function entriesForWorktree(
+  commonGitDir: string,
+  gitKey: string,
+): Promise<LedgerItem[]> {
+  return (await listEntries(commonGitDir))
+    .filter((e) => e.entry.git_key === gitKey)
+    .sort((a, b) => b.entry.seq - a.entry.seq);
+}
+
+/**
  * Tear down this worktree's resources — every ledger entry for `gitKey`, in
  * reverse creation order (so a dependency created first is destroyed last). Runs
  * the FROZEN destroy command (what was true at create), best-effort and
  * idempotent. An entry is cleared only on success; a failed destroy keeps it so a
- * later `worktree:prune` retries (self-healing).
+ * later `worktree:prune` retries (self-healing). Returns which resources were
+ * destroyed and which were kept-for-retry, so the caller can report them.
  */
 export async function destroyResources(
   ctx: ResourceContext,
   commonGitDir: string,
   gitKey: string,
-): Promise<void> {
-  const entries = (await listEntries(commonGitDir))
-    .filter((e) => e.entry.git_key === gitKey)
-    .sort((a, b) => b.entry.seq - a.entry.seq);
-  for (const { path, entry } of entries) {
+): Promise<{ destroyed: string[]; failed: string[] }> {
+  const destroyed: string[] = [];
+  const failed: string[] = [];
+  for (
+    const { path, entry } of await entriesForWorktree(commonGitDir, gitKey)
+  ) {
     ctx.log.info(`Destroying worktree resource '${entry.resource_name}'…`);
     if (await runDestroyEntry(entry, ctx.cwd, ctx.log)) {
       await removeEntryFile(path);
+      destroyed.push(entry.resource_name);
     } else {
       ctx.log.warn(
         `Worktree resource '${entry.resource_name}' destroy reported an error — keeping its ledger entry for prune to retry.`,
       );
+      failed.push(entry.resource_name);
     }
   }
+  return { destroyed, failed };
 }
 
 /**
@@ -607,6 +626,59 @@ export interface GcResult {
   failed: boolean;
 }
 
+/** A ledger entry paired with its on-disk path (the unit GC and the plan act on). */
+export interface LedgerItem {
+  path: string;
+  entry: ResourceEntry;
+}
+
+/** The live-worktree snapshot the orphan classifier reasons against. */
+export interface LiveWorktrees {
+  /** Admin-dir basenames (`git_key`) whose checkout still exists. */
+  gitKeys: Set<string>;
+  /** Canonical paths of currently-registered worktrees. */
+  paths: Set<string>;
+  /** Resource handles currently owned by live worktrees (recycling guard). */
+  identities: Set<string>;
+}
+
+/** A ledger split into the orphans GC may reclaim and a count of those it keeps. */
+export interface OrphanClassification {
+  /** Entries whose worktree is provably gone and that GC may reclaim. */
+  reclaimable: LedgerItem[];
+  /** Count of entries kept: live, path/handle-guarded, or `gc = false`. */
+  kept: number;
+}
+
+/**
+ * The PURE orphan-reclaim DECISION: given the ledger and the live-worktree
+ * snapshot, which entries are orphans GC may reclaim and how many it keeps. An
+ * entry is KEPT when its worktree is still live (by git_key, path, OR resource
+ * handle — the recycling guard) or it opted out of GC (`gc = false`); everything
+ * else is reclaimable. No I/O — the liveness sets and the ledger are passed in, so
+ * this is unit-testable in microseconds and is the load-bearing safety logic the
+ * effectful `gcOrphanResources` and the prune plan both build on (ADR 0027).
+ */
+export function classifyOrphans(
+  entries: LedgerItem[],
+  live: LiveWorktrees,
+): OrphanClassification {
+  const reclaimable: LedgerItem[] = [];
+  let kept = 0;
+  for (const item of entries) {
+    const e = item.entry;
+    const isLive = live.gitKeys.has(e.git_key) ||
+      live.paths.has(e.worktree_path) ||
+      live.identities.has(e.resource_identity);
+    if (isLive || e.gc === false) {
+      kept++;
+      continue;
+    }
+    reclaimable.push(item);
+  }
+  return { reclaimable, kept };
+}
+
 /**
  * Reclaim resources whose worktree vanished without a clean teardown. CONSERVATIVE
  * by construction: it only ever runs a destroy command that is IN this project's
@@ -623,15 +695,16 @@ export interface GcResult {
  * would otherwise destroy a fresh tenant's live resource.
  */
 export async function gcOrphanResources(p: GcParams): Promise<GcResult> {
-  const result: GcResult = { reclaimed: [], kept: 0, failed: false };
-  for (const { path, entry } of await listEntries(p.commonGitDir)) {
-    const live = p.liveGitKeys.has(entry.git_key) ||
-      p.livePaths.has(entry.worktree_path) ||
-      p.liveIdentities.has(entry.resource_identity);
-    if (live || entry.gc === false) {
-      result.kept++;
-      continue;
-    }
+  const { reclaimable, kept } = classifyOrphans(
+    await listEntries(p.commonGitDir),
+    {
+      gitKeys: p.liveGitKeys,
+      paths: p.livePaths,
+      identities: p.liveIdentities,
+    },
+  );
+  const result: GcResult = { reclaimed: [], kept, failed: false };
+  for (const { path, entry } of reclaimable) {
     const label =
       `${entry.resource_name} (${entry.resource_identity}) from removed worktree ${entry.git_key}`;
     if (p.dryRun) {

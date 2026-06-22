@@ -14,7 +14,7 @@
  */
 
 import { join } from "@std/path";
-import type { Logger } from "../../lib/log.ts";
+import { Logger } from "../../lib/log.ts";
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import {
   deriveIdentity,
@@ -28,14 +28,35 @@ import {
 } from "./identity.ts";
 import { writeEnvVar } from "./env_file.ts";
 import {
+  classifyOrphans,
   createResources,
   destroyResources,
   ensureResources,
+  entriesForWorktree,
   gcOrphanResources,
   type GcResult,
+  listEntries,
   readResourceSpecs,
   recordResourceEnv,
 } from "./resources.ts";
+import {
+  type GraduatePlan,
+  graduatePlanToEngine,
+  type PrunePlan,
+  prunePlanToEngine,
+  type SetupPlan,
+  setupPlanToEngine,
+  type SetupStepDesc,
+  type TeardownPlan,
+  teardownPlanToEngine,
+} from "./plan.ts";
+import type { EnginePlan, StepResult } from "../plan/types.ts";
+import {
+  loggerSink,
+  planToJson,
+  renderPlan,
+  resultsToJson,
+} from "../plan/view.ts";
 import {
   assertInWorktree,
   assertMainMerged,
@@ -79,6 +100,36 @@ export async function lifecycleContext(
   return { root, config: await loadConfig(root), log, cwd };
 }
 
+/** Flags shared by every effectful worktree verb: preview-only and machine output. */
+export interface WorktreeOpOptions {
+  /** Show the plan and touch nothing. */
+  dryRun?: boolean;
+  /** Emit a machine-readable (plan, results) object on stdout. */
+  json?: boolean;
+}
+
+/**
+ * Emit a built plan as a `--dry-run` — human listing (through the shared renderer)
+ * or, in `--json` mode, the plan JSON on stdout. Touches nothing. The single fork
+ * every worktree verb funnels its dry-run through.
+ */
+function emitDryRun(
+  ctx: LifecycleContext,
+  plan: EnginePlan,
+  json: boolean,
+): void {
+  if (json) {
+    console.log(JSON.stringify({ dry_run: true, plan: planToJson(plan) }));
+    return;
+  }
+  renderPlan(loggerSink(ctx.log), plan);
+}
+
+/** Emit an applied verb's (plan, results) as `--json` on stdout. */
+function emitResults(results: StepResult[]): void {
+  console.log(JSON.stringify(resultsToJson(results)));
+}
+
 /** Run a command string via `sh -c` in `cwd`, inheriting stdio. Returns its exit code. */
 async function runShell(command: string, cwd: string): Promise<number> {
   if (command === "") {
@@ -112,16 +163,29 @@ async function resolveContextIdentity(
  * backstop). A no-op when nothing was created. Run from inside the worktree (so
  * `@dir@`-bearing destroys still resolve).
  */
-async function teardownResources(ctx: LifecycleContext): Promise<void> {
+async function teardownResources(
+  ctx: LifecycleContext,
+): Promise<{ destroyed: string[]; failed: string[] }> {
   const commonGitDir = await resolveCommonGitDir(ctx.cwd);
   const gitKey = await worktreeGitKey(ctx.cwd);
   if (commonGitDir === undefined || gitKey === undefined) {
     ctx.log.warn(
       "Could not resolve this worktree's git identity — skipping resource teardown.",
     );
-    return;
+    return { destroyed: [], failed: [] };
   }
-  await destroyResources(ctx, commonGitDir, gitKey);
+  return await destroyResources(ctx, commonGitDir, gitKey);
+}
+
+/** Read this worktree's teardown plan — the ledger entries it would destroy, in
+ * destruction order. Read-only; `[]` when the git identity can't be resolved. */
+async function buildTeardownPlan(ctx: LifecycleContext): Promise<TeardownPlan> {
+  const commonGitDir = await resolveCommonGitDir(ctx.cwd);
+  const gitKey = await worktreeGitKey(ctx.cwd);
+  if (commonGitDir === undefined || gitKey === undefined) {
+    return { entries: [] };
+  }
+  return { entries: await entriesForWorktree(commonGitDir, gitKey) };
 }
 
 /** The per-worktree setup sentinel path (`git rev-parse --git-path discern-worktree-ready`). */
@@ -166,13 +230,72 @@ async function recordPort(
 }
 
 /**
+ * Build the worktree-setup plan: the steps setup would perform, derived from the
+ * config and the resolved identity. Read-only — it resolves the branch name
+ * without creating it, so a `--dry-run` preview touches nothing.
+ */
+async function buildSetupPlan(ctx: LifecycleContext): Promise<SetupPlan> {
+  const settings = await loadIdentitySettings(ctx.root);
+  const id = await resolveWorktreeId(settings, ctx.cwd);
+  const identity = deriveIdentity(id, settings);
+  const current = (await makeGitRunner(ctx)(["branch", "--show-current"]))
+    .stdout.trim();
+  const branch = current !== "" ? current : identity.branch;
+
+  const steps: SetupStepDesc[] = [
+    { kind: "git", label: "ensure-branch", note: branch },
+  ];
+  for (const spec of readResourceSpecs(ctx.config)) {
+    if (spec.create !== "" || spec.destroy !== "") {
+      steps.push({
+        kind: "resource-create",
+        label: spec.name,
+        note: resourceForId(settings.slug, id, spec.name),
+      });
+    }
+  }
+  if (ctx.config.worktree.inherit_env.length > 0) {
+    steps.push({
+      kind: "env",
+      label: "inherit-env",
+      note: ctx.config.worktree.inherit_env.join(", "),
+    });
+  }
+  if (ctx.config.worktree.port) {
+    steps.push({
+      kind: "env",
+      label: "record-port",
+      note: String(identity.port),
+    });
+  }
+  for (const step of ctx.config.worktree.setup.steps) {
+    steps.push({ kind: "setup-step", label: step });
+  }
+  steps.push({ kind: "refresh", label: "refresh agent files" });
+  return { branch, steps };
+}
+
+/** Map a built setup plan's steps to `--json` results (all ran — setup throws on a
+ * fatal step, so reaching the end means every step succeeded). */
+function setupResults(plan: SetupPlan): StepResult[] {
+  return plan.steps.map((s) => ({
+    step: { kind: s.kind, label: s.label, disposition: "run", note: s.note },
+    outcome: "ok",
+  }));
+}
+
+/**
  * Set up a freshly-created linked worktree — the `worktree` recipe. Asserts the
  * worktree precondition, ensures a named branch, creates the per-worktree
  * resources (a `required` create is fatal), inherits env vars, records the port +
  * resource handles into `.env`, runs `[worktree.setup].steps` in order, refreshes
  * the agent files, and drops the ready sentinel. Throws on a fatal step.
+ * `--dry-run` shows the plan and touches nothing.
  */
-export async function worktreeSetup(ctx: LifecycleContext): Promise<void> {
+export async function worktreeSetup(
+  ctx: LifecycleContext,
+  opts: WorktreeOpOptions = {},
+): Promise<void> {
   // 1. must be inside a linked worktree
   try {
     await assertInWorktree("discern worktree", ctx.cwd);
@@ -180,6 +303,15 @@ export async function worktreeSetup(ctx: LifecycleContext): Promise<void> {
     throw new WorktreeGitError(
       "discern worktree must be run from inside a linked git worktree, not the main checkout.",
     );
+  }
+
+  if (opts.dryRun ?? false) {
+    emitDryRun(
+      ctx,
+      setupPlanToEngine(await buildSetupPlan(ctx)),
+      opts.json ?? false,
+    );
+    return;
   }
 
   ctx.log.heading("Setting up this worktree…");
@@ -243,6 +375,10 @@ export async function worktreeSetup(ctx: LifecycleContext): Promise<void> {
   }
 
   ctx.log.ok("Worktree setup complete.");
+
+  if (opts.json ?? false) {
+    emitResults(setupResults(await buildSetupPlan(ctx)));
+  }
 }
 
 /** The outcome of the idempotent session-start ensure check. */
@@ -299,7 +435,10 @@ export async function worktreeEnsure(
  * branch — the `worktree:teardown` recipe, used when DISCARDING a worktree.
  * Asserts the worktree precondition; destroys every resource the worktree created.
  */
-export async function worktreeTeardown(ctx: LifecycleContext): Promise<void> {
+export async function worktreeTeardown(
+  ctx: LifecycleContext,
+  opts: WorktreeOpOptions = {},
+): Promise<void> {
   try {
     await assertInWorktree("discern worktree:teardown", ctx.cwd);
   } catch {
@@ -307,25 +446,49 @@ export async function worktreeTeardown(ctx: LifecycleContext): Promise<void> {
       "discern worktree:teardown must be run from inside a linked git worktree, not the main checkout.",
     );
   }
+
+  const plan = await buildTeardownPlan(ctx);
+  if (opts.dryRun ?? false) {
+    emitDryRun(ctx, teardownPlanToEngine(plan), opts.json ?? false);
+    return;
+  }
+
   ctx.log.heading("Tearing down this worktree…");
-  await teardownResources(ctx);
+  const { destroyed, failed } = await teardownResources(ctx);
   ctx.log.ok("Worktree teardown complete.");
+
+  if (opts.json ?? false) {
+    const results: StepResult[] = plan.entries.map((item) => ({
+      step: {
+        kind: "resource-destroy",
+        label: item.entry.resource_name,
+        disposition: "run",
+        note: item.entry.resource_identity,
+      },
+      outcome: failed.includes(item.entry.resource_name)
+        ? "failed"
+        : destroyed.includes(item.entry.resource_name)
+        ? "ok"
+        : "skipped",
+    }));
+    emitResults(results);
+  }
 }
 
-/**
- * Graduate this worktree's branch into the main repo — the `discern graduate`
- * command. Requires the latest main is integrated, tears down the worktree's
- * external resources, WIP-commits any uncommitted changes, removes the worktree
- * directory, checks the branch out in main, then soft-resets the WIP commit so
- * those changes land staged. Refuses to touch a dirty main checkout. Throws
- * `WorktreeGitError` on any unrecoverable error (the branch keeps its commits).
- */
-export async function graduate(ctx: LifecycleContext): Promise<void> {
+/** A captured git run for the lifecycle layer's inline git calls. */
+interface GitOut {
+  success: boolean;
+  stdout: string;
+  stderr: string;
+}
+
+/** A bound git runner for the graduation flow (defaults to the worktree cwd). */
+type GitRunner = (args: string[], cwd?: string) => Promise<GitOut>;
+
+/** Build the git runner graduation uses — captures stdout/stderr, never throws. */
+function makeGitRunner(ctx: LifecycleContext): GitRunner {
   const gitBin = Deno.env.get("GIT_BIN") ?? "git";
-  const run = async (
-    args: string[],
-    cwd: string = ctx.cwd,
-  ): Promise<GitOut> => {
+  return async (args: string[], cwd: string = ctx.cwd): Promise<GitOut> => {
     try {
       const out = await new Deno.Command(gitBin, {
         args,
@@ -343,8 +506,21 @@ export async function graduate(ctx: LifecycleContext): Promise<void> {
       return { success: false, stdout: "", stderr: "git is not on PATH" };
     }
   };
+}
 
-  // step 1: diagnose
+/**
+ * The read-only diagnosis a graduation acts on — the plan-build half. Asserts the
+ * preconditions (in a worktree, not the main repo, branch contains main, main is
+ * clean), throwing the same `WorktreeGitError`s as before so a plan only exists for
+ * a graduation that may proceed. Resolves the branch name read-only for display;
+ * the authoritative branch (created if the worktree is detached) is ensured by the
+ * executor, so building a plan — and `--dry-run` — never mutates.
+ */
+async function buildGraduatePlan(
+  ctx: LifecycleContext,
+  run: GitRunner,
+): Promise<GraduatePlan> {
+  // diagnose
   if (!(await run(["rev-parse", "--is-inside-work-tree"])).success) {
     throw new WorktreeGitError("Not inside a git repository.");
   }
@@ -360,16 +536,12 @@ export async function graduate(ctx: LifecycleContext): Promise<void> {
   const worktreePath = (await run(["rev-parse", "--show-toplevel"])).stdout
     .trim();
 
-  // ensure a named branch
+  // resolve the branch name read-only (the executor ensures/creates it)
   const settings = await loadIdentitySettings(ctx.root);
   const id = await resolveWorktreeId(settings, ctx.cwd);
   const identity = deriveIdentity(id, settings);
-  const worktreeBranch = await ensureWorktreeBranch(identity.branch, ctx.cwd);
-  if (worktreeBranch === "") {
-    throw new WorktreeGitError(
-      "Worktree is in detached HEAD state and ensure-worktree-branch could not create a named branch.",
-    );
-  }
+  const current = (await run(["branch", "--show-current"])).stdout.trim();
+  const worktreeBranch = current !== "" ? current : identity.branch;
 
   const mainRepo = await mainRepoPath(ctx.cwd);
   if (mainRepo === undefined) {
@@ -383,7 +555,7 @@ export async function graduate(ctx: LifecycleContext): Promise<void> {
     );
   }
 
-  // step 2: require main is integrated
+  // require main is integrated
   ctx.log.info("Checking the branch contains the latest main…");
   const merged = await assertMainMerged(
     ctx.cwd,
@@ -415,7 +587,45 @@ export async function graduate(ctx: LifecycleContext): Promise<void> {
     );
   }
 
-  // step 3: plan
+  return {
+    worktreeBranch,
+    worktreePath,
+    mainRepo,
+    mainBranch,
+    worktreeDirty,
+    hasResources: readResourceSpecs(ctx.config).length > 0,
+  };
+}
+
+/**
+ * Apply a graduation plan — the mutation dance. Ensures the named branch
+ * (creating one if the worktree is detached), tears down the resources, WIP-commits
+ * any uncommitted changes, removes the worktree, checks the branch out in main, then
+ * soft-resets the WIP commit so those changes land staged. Narrates exactly as
+ * before; throws `WorktreeGitError` on any unrecoverable error (the branch keeps
+ * its commits). Returns the per-step results for `--json`.
+ */
+async function executeGraduatePlan(
+  ctx: LifecycleContext,
+  run: GitRunner,
+  plan: GraduatePlan,
+): Promise<StepResult[]> {
+  // ensure a named branch (the one mutating step the read-only diagnosis deferred)
+  const settings = await loadIdentitySettings(ctx.root);
+  const id = await resolveWorktreeId(settings, ctx.cwd);
+  const identity = deriveIdentity(id, settings);
+  const worktreeBranch = await ensureWorktreeBranch(identity.branch, ctx.cwd);
+  if (worktreeBranch === "") {
+    throw new WorktreeGitError(
+      "Worktree is in detached HEAD state and ensure-worktree-branch could not create a named branch.",
+    );
+  }
+  const { worktreePath, mainRepo, mainBranch, worktreeDirty } = plan;
+  const results: StepResult[] = [];
+  const done = (kind: StepResult["step"]["kind"], label: string): void => {
+    results.push({ step: { kind, label, disposition: "run" }, outcome: "ok" });
+  };
+
   ctx.log.heading("Graduation plan");
   ctx.log.detail(`Branch:        ${worktreeBranch}`);
   ctx.log.detail(`From worktree: ${worktreePath}`);
@@ -426,12 +636,13 @@ export async function graduate(ctx: LifecycleContext): Promise<void> {
     );
   }
 
-  // step 4: tear down external resources (non-fatal, while still in the worktree
-  // so @dir@-bearing destroys resolve, and before removal so no orphan is left)
+  // tear down external resources (non-fatal, while still in the worktree so
+  // @dir@-bearing destroys resolve, and before removal so no orphan is left)
   ctx.log.info("Tearing down the worktree's resources…");
   await teardownResources(ctx);
+  done("resource-destroy", "teardown resources");
 
-  // step 5: WIP commit if needed
+  // WIP commit if needed
   let madeWipCommit = false;
   if (worktreeDirty) {
     ctx.log.info("Committing leftover uncommitted worktree changes as WIP…");
@@ -449,9 +660,10 @@ export async function graduate(ctx: LifecycleContext): Promise<void> {
     }
     madeWipCommit = true;
     ctx.log.ok("WIP commit created.");
+    done("git", "wip-commit");
   }
 
-  // step 6: remove the worktree (from the main repo)
+  // remove the worktree (from the main repo)
   ctx.log.info(`Removing worktree: ${worktreePath}`);
   try {
     await removeWorktreeSafely(worktreePath, mainRepo);
@@ -461,8 +673,9 @@ export async function graduate(ctx: LifecycleContext): Promise<void> {
     );
   }
   ctx.log.ok("Worktree directory removed.");
+  done("git", "remove-worktree");
 
-  // step 7: check out the branch in main
+  // check out the branch in main
   ctx.log.info(`Checking out ${worktreeBranch} in main repo…`);
   const checkout = await run(["checkout", "--quiet", worktreeBranch], mainRepo);
   if (!checkout.success) {
@@ -471,8 +684,9 @@ export async function graduate(ctx: LifecycleContext): Promise<void> {
     );
   }
   ctx.log.ok(`On ${worktreeBranch} at ${mainRepo}.`);
+  done("git", "checkout");
 
-  // step 8: soft-reset the WIP commit if we made one
+  // soft-reset the WIP commit if we made one
   if (madeWipCommit) {
     ctx.log.info(
       "Unstaging WIP commit so changes land staged-but-uncommitted…",
@@ -481,17 +695,38 @@ export async function graduate(ctx: LifecycleContext): Promise<void> {
     ctx.log.ok(
       "WIP commit unstaged; previously uncommitted changes are now staged here.",
     );
+    done("git", "unstage-wip");
   }
 
   ctx.log.heading("Graduation complete.");
   ctx.log.line(`  You are on ${worktreeBranch} in ${mainRepo}.`);
+  return results;
 }
 
-/** A captured git run for the lifecycle layer's inline git calls. */
-interface GitOut {
-  success: boolean;
-  stdout: string;
-  stderr: string;
+/**
+ * Graduate this worktree's branch into the main repo — the `discern graduate`
+ * command. Requires the latest main is integrated, tears down the worktree's
+ * external resources, WIP-commits any uncommitted changes, removes the worktree
+ * directory, checks the branch out in main, then soft-resets the WIP commit so
+ * those changes land staged. Refuses to touch a dirty main checkout. `--dry-run`
+ * shows the plan (after the read-only preconditions pass) and touches nothing.
+ * Throws `WorktreeGitError` on any unrecoverable error (the branch keeps its
+ * commits).
+ */
+export async function graduate(
+  ctx: LifecycleContext,
+  opts: WorktreeOpOptions = {},
+): Promise<void> {
+  const run = makeGitRunner(ctx);
+  const plan = await buildGraduatePlan(ctx, run);
+  if (opts.dryRun ?? false) {
+    emitDryRun(ctx, graduatePlanToEngine(plan), opts.json ?? false);
+    return;
+  }
+  const results = await executeGraduatePlan(ctx, run, plan);
+  if (opts.json ?? false) {
+    emitResults(results);
+  }
 }
 
 /** Resolve a possibly-relative git-common-dir against `cwd` and canonicalize it. */
@@ -513,6 +748,53 @@ export interface WorktreePruneOptions {
   assumeYes?: boolean;
   /** Report what would be removed/reclaimed without acting. */
   dryRun?: boolean;
+  /** Emit a machine-readable (plan, results) object on stdout. */
+  json?: boolean;
+}
+
+/**
+ * The read-only prune SCAN — what `worktree:prune` would remove and reclaim,
+ * gathered without acting. The git-worktree and orphan-dir scans run their
+ * existing functions in `dryRun` mode through a quiet logger (so planning never
+ * narrates); the resource reclaims come from the pure {@link classifyOrphans}
+ * decision over the ledger. The deliverable a `--dry-run` renders and the apply
+ * path reports.
+ */
+async function buildPrunePlan(ctx: LifecycleContext): Promise<PrunePlan> {
+  const quiet = new Logger({ json: true, noColor: true });
+  const prune = await pruneGitWorktrees({
+    dryRun: true,
+    includeDetached: true,
+    mainBranch: ctx.config.project.main_branch,
+    log: quiet,
+  });
+  const sweep = await sweepOrphanWorktrees({ dryRun: true, log: quiet });
+  return {
+    worktreesToRemove: prune.removed,
+    branchesToDelete: prune.branchesDeleted,
+    orphanDirs: sweep.removed,
+    resourceReclaims: await planResourceReclaims(ctx),
+  };
+}
+
+/**
+ * The orphaned-resource handles GC would reclaim — the read-only half of the
+ * resource GC, built from the pure {@link classifyOrphans} decision over the
+ * ledger and the live-worktree snapshot. No destroy, no ledger writes. A no-op
+ * outside a git repo.
+ */
+async function planResourceReclaims(ctx: LifecycleContext): Promise<string[]> {
+  const commonGitDir = await resolveCommonGitDir(ctx.cwd);
+  if (commonGitDir === undefined) {
+    return [];
+  }
+  const livePaths = await liveWorktreePaths(ctx.cwd);
+  const { reclaimable } = classifyOrphans(await listEntries(commonGitDir), {
+    gitKeys: await liveWorktreeGitKeys(commonGitDir),
+    paths: livePaths,
+    identities: await liveResourceIdentitySet(ctx, livePaths),
+  });
+  return reclaimable.map((item) => item.entry.resource_identity);
 }
 
 /**
@@ -520,8 +802,8 @@ export interface WorktreePruneOptions {
  * worktrees and fully-merged branches, reclaims gitlinked orphan directories, then
  * reclaims orphaned per-worktree RESOURCES (the GC safety net: a resource whose
  * worktree vanished without a clean teardown). Refuses to run from inside a linked
- * worktree (pool housekeeping belongs to the main checkout). Throws on a setup or
- * removal failure.
+ * worktree (pool housekeeping belongs to the main checkout). `--dry-run` renders
+ * the prune plan and touches nothing. Throws on a setup or removal failure.
  */
 export async function worktreePrune(
   ctx: LifecycleContext,
@@ -534,34 +816,72 @@ export async function worktreePrune(
       "discern worktree:prune must be run from the main checkout, not a linked worktree.",
     );
   }
-  const dryRun = opts.dryRun ?? false;
+  const json = opts.json ?? false;
 
-  ctx.log.heading(
-    dryRun
-      ? "Prune (dry run): worktrees and fully-merged branches…"
-      : "Pruning worktrees and fully-merged branches…",
-  );
+  // Dry-run: scan read-only and render the plan; touch nothing.
+  if (opts.dryRun ?? false) {
+    emitDryRun(ctx, prunePlanToEngine(await buildPrunePlan(ctx)), json);
+    return;
+  }
+
+  // Apply: run the real removals, narrating exactly as before.
+  ctx.log.heading("Pruning worktrees and fully-merged branches…");
   const prune = await pruneGitWorktrees({
-    dryRun,
+    dryRun: false,
     includeDetached: true,
     mainBranch: ctx.config.project.main_branch,
     log: ctx.log,
   });
 
   ctx.log.heading("Reclaiming orphaned worktree directories…");
-  const sweep = await sweepOrphanWorktrees({ dryRun, log: ctx.log });
+  const sweep = await sweepOrphanWorktrees({ dryRun: false, log: ctx.log });
 
   ctx.log.heading("Reclaiming orphaned worktree resources…");
-  const gc = await gcWorktreeResources(ctx, dryRun);
+  const gc = await gcWorktreeResources(ctx, false);
 
   if (prune.failed || sweep.failed || gc.failed) {
     throw new WorktreeGitError("One or more cleanups failed.");
   }
-  ctx.log.ok(dryRun ? "Dry run complete." : "Prune complete.");
+  ctx.log.ok("Prune complete.");
   // `assumeYes` is accepted for dispatcher parity; the interactive confirmation
   // belongs to the dispatcher (which owns the TTY), so prune runs the removals
   // directly once invoked. See note in git.ts pruneGitWorktrees.
   void opts.assumeYes;
+
+  if (json) {
+    emitResults(pruneResults(prune, sweep, gc));
+  }
+}
+
+/** Map the real prune/sweep/GC outcomes to `--json` step results. */
+function pruneResults(
+  prune: { removed: string[]; branchesDeleted: string[] },
+  sweep: { removed: string[] },
+  gc: GcResult,
+): StepResult[] {
+  const step = (
+    kind: StepResult["step"]["kind"],
+    label: string,
+    note: string,
+    group: string,
+  ): StepResult => ({
+    step: { kind, label, disposition: "run", note, group },
+    outcome: "ok",
+  });
+  return [
+    ...prune.removed.map((w) =>
+      step("git", w, "removed stale worktree", "Worktrees")
+    ),
+    ...prune.branchesDeleted.map((b) =>
+      step("git", b, "deleted fully-merged branch", "Branches")
+    ),
+    ...sweep.removed.map((d) =>
+      step("git", d, "reclaimed orphan directory", "Orphan directories")
+    ),
+    ...gc.reclaimed.map((r) =>
+      step("resource-destroy", r, "reclaimed orphaned resource", "Resources")
+    ),
+  ];
 }
 
 /**
