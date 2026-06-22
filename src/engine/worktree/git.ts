@@ -752,9 +752,8 @@ export async function pruneGitWorktrees(
   if (removeCandidates.length === 0 && deleteBranches.length === 0) {
     log.line("Nothing to remove.");
   } else {
-    for (let i = 0; i < removeCandidates.length; i++) {
-      const worktreePath = removeCandidates[i]!;
-      const branchToDelete = removeCandidateBranches[i]!;
+    for (const [i, worktreePath] of removeCandidates.entries()) {
+      const branchToDelete = removeCandidateBranches[i] ?? "";
       log.line(`Removing ${worktreePath}...`);
       try {
         await removeWorktreeSafely(worktreePath, repoRoot);

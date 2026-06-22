@@ -6,7 +6,12 @@
  * synthetic input (doc-block detection, the inline-doc/[meta] case, body bounds).
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertExists,
+  assertStringIncludes,
+} from "@std/assert";
 import { join } from "@std/path";
 import {
   readConfigTemplate,
@@ -20,8 +25,8 @@ async function realTemplate(): Promise<string> {
 }
 
 Deno.test("extracts a ruled-doc section (features) with its doc block, header, and body", async () => {
-  const block = sectionBlockFromTemplate(await realTemplate(), "features")!;
-  assert(block !== undefined, "features block should be found");
+  const block = sectionBlockFromTemplate(await realTemplate(), "features");
+  assertExists(block, "features block should be found");
   // Leads with the section's documentation paragraph...
   assertStringIncludes(block, "# [features] — toggle whole discern subsystems");
   // ...then the header...
@@ -35,14 +40,16 @@ Deno.test("extracts a ruled-doc section (features) with its doc block, header, a
 });
 
 Deno.test("extracts [guidance] including its {{agents_array}} token (for the caller to fill)", async () => {
-  const block = sectionBlockFromTemplate(await realTemplate(), "guidance")!;
+  const block = sectionBlockFromTemplate(await realTemplate(), "guidance");
+  assertExists(block);
   assertStringIncludes(block, "[guidance]");
   assertStringIncludes(block, 'sources = ["guidance.md"]');
   assertStringIncludes(block, "agents = [{{agents_array}}]");
 });
 
 Deno.test("extracts the last section ([recipes]) up to EOF, trailing blanks trimmed", async () => {
-  const block = sectionBlockFromTemplate(await realTemplate(), "recipes")!;
+  const block = sectionBlockFromTemplate(await realTemplate(), "recipes");
+  assertExists(block);
   assertStringIncludes(block, "# [recipes] — your own `discern` commands");
   assertStringIncludes(block, "\n[recipes]\n");
   assertStringIncludes(block, 'dir = "recipes"');
@@ -50,7 +57,8 @@ Deno.test("extracts the last section ([recipes]) up to EOF, trailing blanks trim
 });
 
 Deno.test("[meta] is inline-documented: its body holds the comments, no preamble is pulled in", async () => {
-  const block = sectionBlockFromTemplate(await realTemplate(), "meta")!;
+  const block = sectionBlockFromTemplate(await realTemplate(), "meta");
+  assertExists(block);
   // Starts AT the header — the file preamble above [meta] is not its doc block.
   assert(
     block.startsWith("[meta]"),
@@ -80,7 +88,8 @@ Deno.test("does not match a sub-table when asked for the top-level name", () => 
     "[worktree.db]",
     'clone = ""',
   ].join("\n");
-  const block = sectionBlockFromTemplate(t, "worktree")!;
+  const block = sectionBlockFromTemplate(t, "worktree");
+  assertExists(block);
   assertStringIncludes(block, "[worktree]");
   assertStringIncludes(block, "enabled = true");
   assert(!block.includes("[worktree.db]"), "stops before the sub-table header");
@@ -111,7 +120,8 @@ Deno.test("body ends at the next ruled doc block, not just the next header", () 
     "[b]",
     "y = 2",
   ].join("\n");
-  const block = sectionBlockFromTemplate(t, "a")!;
+  const block = sectionBlockFromTemplate(t, "a");
+  assertExists(block);
   assertEquals(block, "# ───\n# [a] — docs for a\n# ───\n\n[a]\nx = 1");
   assert(!block.includes("[b]") && !block.includes("docs for b"));
 });
@@ -125,13 +135,14 @@ Deno.test("a comment run reaching the top of the file is treated as preamble, no
     "[first]",
     "k = 1",
   ].join("\n");
-  const block = sectionBlockFromTemplate(t, "first")!;
+  const block = sectionBlockFromTemplate(t, "first");
+  assertExists(block);
   assertEquals(block, "[first]\nk = 1"); // preamble excluded
 });
 
 Deno.test("readConfigTemplate resolves the bundled template", async () => {
   const text = await readConfigTemplate();
-  assert(text !== undefined, "the bundled template should resolve");
-  assertStringIncludes(text!, "[features]");
-  assertStringIncludes(text!, "[guidance]");
+  assertExists(text, "the bundled template should resolve");
+  assertStringIncludes(text, "[features]");
+  assertStringIncludes(text, "[guidance]");
 });

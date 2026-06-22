@@ -197,11 +197,12 @@ async function viewTarget(
   options: DocsOptions,
   log: Logger,
   cwd: string,
+  target: string,
 ): Promise<number> {
-  const res = resolveDoc(tree, options.target!, cwd);
+  const res = resolveDoc(tree, target, cwd);
 
   if (res.kind === "none") {
-    const message = `no doc matches "${options.target}".`;
+    const message = `no doc matches "${target}".`;
     if (options.json) {
       log.jsonResult({ ok: false, error: "not_found", message });
     } else {
@@ -213,7 +214,7 @@ async function viewTarget(
 
   if (res.kind === "ambiguous") {
     const candidates = res.entries.map((e) => e.path);
-    const message = `"${options.target}" matches ${candidates.length} docs.`;
+    const message = `"${target}" matches ${candidates.length} docs.`;
     if (options.json) {
       log.jsonResult({ ok: false, error: "ambiguous", message, candidates });
     } else {
@@ -278,7 +279,7 @@ export async function runDocs(options: DocsOptions): Promise<number> {
 
   // 1. A specific doc was named → view / raw / JSON-emit just that one.
   if (options.target !== undefined && options.target !== "") {
-    return await viewTarget(tree, options, log, cwd);
+    return await viewTarget(tree, options, log, cwd, options.target);
   }
 
   // 2. `--json` with no target → the machine-readable index.

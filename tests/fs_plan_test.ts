@@ -253,7 +253,7 @@ Deno.test("dry-run plan writes nothing to disk", async () => {
       excludeNonSeed: true,
     });
     // The directory remains empty.
-    const entries = [...Deno.readDirSync(dir)];
+    const entries = await Array.fromAsync(Deno.readDir(dir));
     assertEquals(entries.length, 0);
   });
 });

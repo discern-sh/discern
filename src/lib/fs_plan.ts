@@ -68,11 +68,16 @@ const TEXT_ENCODER = new TextEncoder();
 
 /**
  * Top-level templates subtrees that are the binary's OWN artifacts, not seeds:
- * bundled skills (materialized into `.claude/skills/`) and built-in guidance
- * (read by the compiler). The seed walk skips them so they are never written into
- * the user's tracked tree.
+ * bundled skills (materialized into `.claude/skills/`), built-in guidance (read by
+ * the compiler), and the bootstrap assets (instructions + doc skeletons that
+ * `discern bootstrap` reads/lays on demand — ADR 0024). The seed walk skips them so
+ * they are never written into the user's tracked tree.
  */
-const NON_SEED_SUBTREES: readonly string[] = ["skills/", "guidance/"];
+const NON_SEED_SUBTREES: readonly string[] = [
+  "skills/",
+  "guidance/",
+  "bootstrap/",
+];
 
 /** True when a template-relative path is one of the binary's non-seed subtrees. */
 function isNonSeed(templateRel: string): boolean {

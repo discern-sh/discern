@@ -9,7 +9,12 @@
  * `jsonResult` speaks.
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertExists,
+  assertStringIncludes,
+} from "@std/assert";
 import { colourEnabled, Logger } from "../src/lib/log.ts";
 
 /** Capture everything written to console.error / console.log while `fn` runs. */
@@ -140,9 +145,11 @@ Deno.test("JSON mode: jsonResult emits a pretty-printed payload to stdout", asyn
   );
   assertEquals(err, []);
   assertEquals(out.length, 1);
+  const payload = out[0];
+  assertExists(payload);
   // Pretty-printed with a two-space indent.
-  assertEquals(out[0], JSON.stringify({ ok: true, items: ["a"] }, null, 2));
-  assertStringIncludes(out[0]!, "\n  ");
+  assertEquals(payload, JSON.stringify({ ok: true, items: ["a"] }, null, 2));
+  assertStringIncludes(payload, "\n  ");
 });
 
 Deno.test("colourEnabled(true) is always false (forced off)", () => {

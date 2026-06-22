@@ -98,6 +98,15 @@ Deno.test("init scaffolds the real templates into a working harness", async () =
     await assertAbsent(join(dir, "agent"));
     await assertAbsent(join(dir, ".discern/engine"));
     await assertAbsent(join(dir, ".discern/manifest.json"));
+
+    // 7. The binary's OWN template subtrees are NEVER seeded into the project tree
+    // — they are materialized/read from the binary on demand. A regression here
+    // re-pollutes the user's tracked tree, exactly what ADR 0024 removed for the
+    // bootstrap assets. `docs/` is likewise lazy (laid by `discern bootstrap`).
+    await assertAbsent(join(dir, "bootstrap"));
+    await assertAbsent(join(dir, "skills"));
+    await assertAbsent(join(dir, "guidance"));
+    await assertAbsent(join(dir, "docs"));
   });
 });
 

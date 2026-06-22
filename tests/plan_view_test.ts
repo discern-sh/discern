@@ -13,7 +13,12 @@
  * `init`.
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertExists,
+  assertStringIncludes,
+} from "@std/assert";
 import { Logger } from "../src/lib/log.ts";
 import type { OpDisposition, Plan, PlanOp } from "../src/lib/fs_plan.ts";
 import { planToJson, renderPlan, renderReview } from "../src/lib/plan_view.ts";
@@ -86,10 +91,13 @@ Deno.test("renderPlan writes the heading to stderr and one padded row per op to 
   );
   assertEquals(err, ["\nDry run — would write:"]);
   assertEquals(out.length, 2);
-  assertStringIncludes(out[0]!, "create");
-  assertStringIncludes(out[0]!, "discern.toml");
-  assertStringIncludes(out[1]!, "append");
-  assertStringIncludes(out[1]!, ".gitignore");
+  const [row0, row1] = out;
+  assertExists(row0);
+  assertExists(row1);
+  assertStringIncludes(row0, "create");
+  assertStringIncludes(row0, "discern.toml");
+  assertStringIncludes(row1, "append");
+  assertStringIncludes(row1, ".gitignore");
 });
 
 Deno.test("renderPlan maps every (seed-era) disposition to its label and renders the note suffix", async () => {
@@ -101,12 +109,17 @@ Deno.test("renderPlan maps every (seed-era) disposition to its label and renders
   ]);
   const { out } = await capture(() => renderPlan(plainLogger(), p, "h"));
   assertEquals(out.length, 4);
-  assertStringIncludes(out[0]!, "create");
-  assertStringIncludes(out[1]!, "skip");
-  assertStringIncludes(out[2]!, "merge");
-  assertStringIncludes(out[3]!, "append");
+  const [row0, row1, row2, row3] = out;
+  assertExists(row0);
+  assertExists(row1);
+  assertExists(row2);
+  assertExists(row3);
+  assertStringIncludes(row0, "create");
+  assertStringIncludes(row1, "skip");
+  assertStringIncludes(row2, "merge");
+  assertStringIncludes(row3, "append");
   // The note is appended after an em-dash on the op that has one.
-  assertStringIncludes(out[1]!, "— seed present");
+  assertStringIncludes(row1, "— seed present");
 });
 
 Deno.test("renderPlan on an empty plan prints only the heading, no rows", async () => {

@@ -10,7 +10,12 @@
  * empty-input fallbacks to defaults).
  */
 
-import { assertEquals, assertRejects, assertStringIncludes } from "@std/assert";
+import {
+  assertEquals,
+  assertExists,
+  assertRejects,
+  assertStringIncludes,
+} from "@std/assert";
 import { join } from "@std/path";
 import {
   canPrompt,
@@ -91,12 +96,11 @@ Deno.test("resolveInitConfig warns on an unknown agent, drops it, keeps the know
     assertEquals(config.agents, ["claude_code"]);
     // A warning naming the unknown agent was emitted to stderr.
     const warning = lines.find((l) => l.includes("ignoring unknown agent"));
-    assertEquals(
-      warning !== undefined,
-      true,
+    assertExists(
+      warning,
       `expected an unknown-agent warning; saw: ${JSON.stringify(lines)}`,
     );
-    assertStringIncludes(warning!, "bogus");
+    assertStringIncludes(warning, "bogus");
   });
 });
 

@@ -61,9 +61,8 @@ const AGENT_OUTPUT: Readonly<
 
 /** The output path for an agent name, or undefined when unmapped. */
 function agentOutputPath(agent: string): string | undefined {
-  return Object.hasOwn(AGENT_OUTPUT, agent)
-    ? AGENT_OUTPUT[agent]!.path
-    : undefined;
+  if (!Object.hasOwn(AGENT_OUTPUT, agent)) return undefined;
+  return AGENT_OUTPUT[agent]?.path;
 }
 
 /** Default providers to emit when neither `[guidance].agents` nor the legacy

@@ -291,15 +291,15 @@ function styleRun(text: string, style: Style, color: boolean): string {
  */
 function annotateLinksForPlain(segs: Seg[]): Seg[] {
   const out: Seg[] = [];
-  for (let i = 0; i < segs.length; i++) {
-    const seg = segs[i]!;
+  for (const [i, seg] of segs.entries()) {
     if (!seg.href) {
       out.push(seg);
       continue;
     }
     const href = seg.href;
     out.push({ ...seg, href: undefined });
-    const last = i + 1 >= segs.length || segs[i + 1]!.href !== href;
+    const next = segs[i + 1];
+    const last = next === undefined || next.href !== href;
     // A bare autolink already shows its URL; don't echo it twice.
     if (last && seg.text !== href) out.push({ text: ` (${href})` });
   }
@@ -324,6 +324,11 @@ function toChars(segs: Seg[]): SChar[] {
   return chars;
 }
 
+/** True when a styled char exists and carries whitespace (out-of-range → false). */
+function isSpace(c: SChar | undefined): boolean {
+  return c !== undefined && /\s/.test(c.ch);
+}
+
 /**
  * Greedy word-wrap a styled-character stream to `width`, breaking on spaces and
  * keeping words intact (a word longer than `width` overflows rather than being
@@ -336,15 +341,15 @@ function wrapChars(chars: SChar[], width: number): SChar[][] {
   let i = 0;
 
   while (i < chars.length) {
-    if (/\s/.test(chars[i]!.ch)) {
+    if (isSpace(chars[i])) {
       let j = i;
-      while (j < chars.length && /\s/.test(chars[j]!.ch)) j++;
+      while (isSpace(chars[j])) j++;
       pendingSpace = line.length > 0;
       i = j;
       continue;
     }
     let j = i;
-    while (j < chars.length && !/\s/.test(chars[j]!.ch)) j++;
+    while (j < chars.length && !isSpace(chars[j])) j++;
     const word = chars.slice(i, j);
     const sep = pendingSpace ? 1 : 0;
     if (line.length > 0 && line.length + sep + word.length > width) {
@@ -366,10 +371,16 @@ function emitChars(chars: SChar[], color: boolean): string {
   let out = "";
   let k = 0;
   while (k < chars.length) {
+    const ck = chars[k];
+    if (ck === undefined) break;
     let m = k;
-    while (m < chars.length && sameStyle(chars[m]!.style, chars[k]!.style)) m++;
+    while (m < chars.length) {
+      const cm = chars[m];
+      if (cm === undefined || !sameStyle(cm.style, ck.style)) break;
+      m++;
+    }
     const text = chars.slice(k, m).map((c) => c.ch).join("");
-    out += styleRun(text, chars[k]!.style, color);
+    out += styleRun(text, ck.style, color);
     k = m;
   }
   return out;
@@ -508,9 +519,12 @@ function renderList(
     // GFM task list: a leading [ ] / [x] becomes a checkbox glyph.
     const task = text.match(/^\[([ xX])\]\s+(.*)$/);
     if (task) {
-      const checked = task[1]!.toLowerCase() === "x";
-      bullet = checked ? "☑" : "☐";
-      text = task[2]!;
+      const mark = task[1];
+      const rest = task[2];
+      if (mark !== undefined && rest !== undefined) {
+        bullet = mark.toLowerCase() === "x" ? "☑" : "☐";
+        text = rest;
+      }
     }
 
     const paintedBullet = color
@@ -535,10 +549,14 @@ function matchListItem(
 ): { indent: number; ordered: boolean; content: string } | undefined {
   const m = line.match(/^(\s*)([-*+]|\d+[.)])\s+(.*)$/);
   if (!m) return undefined;
+  const [, indent, marker, content] = m;
+  if (indent === undefined || marker === undefined || content === undefined) {
+    return undefined;
+  }
   return {
-    indent: m[1]!.length,
-    ordered: /\d/.test(m[2]!),
-    content: m[3]!,
+    indent: indent.length,
+    ordered: /\d/.test(marker),
+    content,
   };
 }
 
@@ -578,7 +596,8 @@ export function renderMarkdown(
 
   let i = 0;
   while (i < lines.length) {
-    const line = lines[i]!;
+    const line = lines[i];
+    if (line === undefined) break;
 
     if (line.trim() === "") {
       i++;
@@ -587,13 +606,15 @@ export function renderMarkdown(
 
     // Fenced code block.
     const fence = line.match(/^(\s*)(```|~~~)\s*([^\s`~]*)/);
-    if (fence) {
-      const marker = fence[2]!;
+    const fenceMarker = fence?.[2];
+    if (fence && fenceMarker !== undefined) {
       const lang = fence[3] ?? "";
       const code: string[] = [];
       i++;
-      while (i < lines.length && !lines[i]!.trim().startsWith(marker)) {
-        code.push(lines[i]!);
+      while (i < lines.length) {
+        const cur = lines[i];
+        if (cur === undefined || cur.trim().startsWith(fenceMarker)) break;
+        code.push(cur);
         i++;
       }
       i++; // consume the closing fence
@@ -604,9 +625,13 @@ export function renderMarkdown(
     // ATX heading.
     const heading = line.match(/^(#{1,6})\s+(.*?)\s*#*\s*$/);
     if (heading) {
-      pushBlock(renderHeading(heading[1]!.length, heading[2]!, width, color));
-      i++;
-      continue;
+      const hashes = heading[1];
+      const headingText = heading[2];
+      if (hashes !== undefined && headingText !== undefined) {
+        pushBlock(renderHeading(hashes.length, headingText, width, color));
+        i++;
+        continue;
+      }
     }
 
     // Horizontal rule.
@@ -621,8 +646,10 @@ export function renderMarkdown(
     // Blockquote: collect the run, strip markers, render recursively, prefix.
     if (/^\s*>/.test(line)) {
       const inner: string[] = [];
-      while (i < lines.length && /^\s*>/.test(lines[i]!)) {
-        inner.push(lines[i]!.replace(/^\s*>\s?/, ""));
+      while (i < lines.length) {
+        const cur = lines[i];
+        if (cur === undefined || !/^\s*>/.test(cur)) break;
+        inner.push(cur.replace(/^\s*>\s?/, ""));
         i++;
       }
       const rendered = renderMarkdown(inner.join("\n"), {
@@ -635,15 +662,16 @@ export function renderMarkdown(
     }
 
     // GFM table: a header row followed by a delimiter row.
+    const delimiter = lines[i + 1];
     if (
-      /\|/.test(line) && i + 1 < lines.length && isTableDelimiter(lines[i + 1]!)
+      /\|/.test(line) && delimiter !== undefined && isTableDelimiter(delimiter)
     ) {
       const rows: string[][] = [splitRow(line)];
       i += 2; // skip header + delimiter
-      while (
-        i < lines.length && /\|/.test(lines[i]!) && lines[i]!.trim() !== ""
-      ) {
-        rows.push(splitRow(lines[i]!));
+      while (i < lines.length) {
+        const cur = lines[i];
+        if (cur === undefined || !/\|/.test(cur) || cur.trim() === "") break;
+        rows.push(splitRow(cur));
         i++;
       }
       pushBlock(renderTable(rows, width));
@@ -655,24 +683,28 @@ export function renderMarkdown(
       const items: ListItem[] = [];
       let baseIndent = -1;
       while (i < lines.length) {
-        const item = matchListItem(lines[i]!);
+        const cur = lines[i];
+        if (cur === undefined) break;
+        const item = matchListItem(cur);
         if (item) {
           if (baseIndent === -1) baseIndent = item.indent;
           const depth = Math.max(
             0,
             Math.round((item.indent - baseIndent) / 2),
           );
+          const ordinal = cur.trim().match(/^\d+[.)]/)?.[0];
           items.push({
             depth,
-            marker: item.ordered ? lines[i]!.trim().match(/^\d+[.)]/)![0] : "•",
+            marker: item.ordered && ordinal !== undefined ? ordinal : "•",
             text: item.content,
           });
           i++;
         } else if (
-          lines[i]!.trim() !== "" && /^\s+/.test(lines[i]!) && items.length
+          cur.trim() !== "" && /^\s+/.test(cur) && items.length
         ) {
           // A continuation line: fold it into the current item.
-          items[items.length - 1]!.text += " " + lines[i]!.trim();
+          const lastItem = items[items.length - 1];
+          if (lastItem) lastItem.text += " " + cur.trim();
           i++;
         } else {
           break;
@@ -685,8 +717,10 @@ export function renderMarkdown(
     // Paragraph: gather until the next block construct, then wrap.
     const para: string[] = [line];
     i++;
-    while (i < lines.length && !isBlockStart(lines[i]!)) {
-      para.push(lines[i]!);
+    while (i < lines.length) {
+      const cur = lines[i];
+      if (cur === undefined || isBlockStart(cur)) break;
+      para.push(cur);
       i++;
     }
     pushBlock(renderInlineBlock(para.join(" "), width, color));

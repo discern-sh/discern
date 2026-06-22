@@ -18,6 +18,9 @@ Deno.test("discern bootstrap lays the doc skeletons when absent and prints the i
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     assertEquals(await exists(join(dir, "docs")), false);
+    // The bootstrap assets are binary-embedded, never seeded into the project
+    // (ADR 0024): a fresh install must not carry a `bootstrap/` tree.
+    assertEquals(await exists(join(dir, "bootstrap")), false);
 
     const r = await runAgent(dir, ["bootstrap"]);
     assertEquals(r.code, 0, r.output);
@@ -105,6 +108,34 @@ Deno.test("the bootstrap nudge and the command retire once setup is recorded", a
     assert(
       !postHelp.stdout.includes(HELP_DESC),
       "bootstrap should be hidden from help once recorded",
+    );
+  });
+});
+
+Deno.test("the nudge fires on work verbs but not on plumbing verbs", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir); // unbootstrapped
+    const finish = await runAgent(dir, ["finish"]);
+    assertStringIncludes(finish.stderr, "isn't bootstrapped yet");
+    // `refresh` is machinery (and `discern bootstrap` itself runs it) — no nudge,
+    // so the reminder never leaks into the regen/hook path.
+    const refresh = await runAgent(dir, ["refresh"]);
+    assert(!refresh.stderr.includes("isn't bootstrapped yet"));
+  });
+});
+
+Deno.test("an unparseable config surfaces its TOML error without the bootstrap nudge", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir); // unbootstrapped
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      "this is = not valid toml [[[\n",
+    );
+    const r = await runAgent(dir, ["finish"]);
+    assertEquals(r.code, 1, r.output);
+    assert(
+      !r.stderr.includes("isn't bootstrapped yet"),
+      "the nudge must not bury the real TOML parse error",
     );
   });
 });

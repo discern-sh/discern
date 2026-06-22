@@ -470,10 +470,14 @@ function buildCli(
 }
 
 /** The cwd project's resolved CLI state: enabled features, whether we are inside a
- * project at all, and whether it has recorded `[meta].bootstrapped`. */
+ * project at all, whether its config parsed, and whether it recorded
+ * `[meta].bootstrapped`. */
 interface ProjectState {
   enabled: ReadonlySet<Feature>;
   inProject: boolean;
+  /** False when the config could not be parsed (so the nudge is suppressed and the
+   * real ConfigParseError surfaces on its own, unobscured). */
+  configOk: boolean;
   bootstrapped: boolean;
 }
 
@@ -483,7 +487,8 @@ interface ProjectState {
  * core verbs behave normally (a verb that needs a project still errors with "no
  * project"), and `bootstrapped`/`inProject` are false (so the bootstrap nudge and
  * self-hiding never fire outside a project). An unparseable config degrades the
- * same way — never block the CLI on a config the user is mid-edit on.
+ * same way (`configOk: false`) — never block the CLI, and never nudge over the real
+ * TOML error, on a config the user is mid-edit on.
  */
 async function resolveProjectState(): Promise<ProjectState> {
   const root = await findRoot();
@@ -491,6 +496,7 @@ async function resolveProjectState(): Promise<ProjectState> {
     return {
       enabled: new Set(FEATURES),
       inProject: false,
+      configOk: true,
       bootstrapped: false,
     };
   }
@@ -499,19 +505,31 @@ async function resolveProjectState(): Promise<ProjectState> {
     return {
       enabled: new Set(enabledFeatures(cfg)),
       inProject: true,
+      configOk: true,
       bootstrapped: cfg.bool("meta.bootstrapped"),
     };
   } catch {
-    return { enabled: new Set(FEATURES), inProject: true, bootstrapped: false };
+    return {
+      enabled: new Set(FEATURES),
+      inProject: true,
+      configOk: false,
+      bootstrapped: false,
+    };
   }
 }
 
-/** Verbs that earn the one-time "not bootstrapped yet" nudge: the engine work
- * verbs plus `docs`. Excludes setup/config/help verbs (init, upgrade, doctor,
- * migrate, add-preset, bootstrap, config) so the reminder never spams a recipe's
- * `config get` calls or the setup path itself. */
+/** Verbs that earn the one-time "not bootstrapped yet" nudge: the human-facing work
+ * verbs only. Deliberately EXCLUDES the plumbing that hooks and scripts call
+ * (`worktree`, `worktree-name`, `changed-scopes`, `refresh`, `skills`) so the
+ * reminder never leaks into hook stderr, and the setup/config verbs (init, upgrade,
+ * doctor, migrate, add-preset, bootstrap, config) so it never spams a recipe's
+ * `config` reads or the setup path itself. */
 const NUDGE_VERBS: ReadonlySet<string> = new Set<string>([
-  ...KNOWN_ENGINE_VERBS,
+  "finish",
+  "prepare",
+  "test",
+  "ratchets",
+  "graduate",
   "docs",
 ]);
 
@@ -556,7 +574,8 @@ export async function main(args: string[]): Promise<void> {
     // plus its bootstrap state — one config read, so help lists only active verbs,
     // a disabled verb errors clearly, and the bootstrap nudge/self-hiding know
     // whether setup is still outstanding.
-    const { enabled, inProject, bootstrapped } = await resolveProjectState();
+    const { enabled, inProject, configOk, bootstrapped } =
+      await resolveProjectState();
     const hideBootstrap = inProject && bootstrapped;
 
     // Root help: Cliffy's help plus the project-recipe listing (the shell `agent
@@ -583,9 +602,10 @@ export async function main(args: string[]): Promise<void> {
     // nothing is unsafe pre-bootstrap, and a hard gate would punish the
     // manual-config and just-run-my-tests paths. Suppressed in --json so a
     // machine-readable stdout is never accompanied by chatter the caller didn't ask
-    // for (the nudge goes to stderr regardless).
+    // for (the nudge goes to stderr regardless), and when the config didn't parse so
+    // the real TOML error isn't buried under it.
     if (
-      inProject && !bootstrapped && !argv.includes("--json") &&
+      inProject && configOk && !bootstrapped && !argv.includes("--json") &&
       NUDGE_VERBS.has(verb)
     ) {
       console.error(

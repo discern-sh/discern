@@ -55,11 +55,14 @@ export function sectionBlockFromTemplate(
   section: string,
 ): string | undefined {
   const lines = templateText.split("\n");
-  const headerIdx = lines.findIndex((l) => {
-    const m = l.match(HEADER_RE);
-    return m !== null && m[1]!.trim() === section;
-  });
+  const headerIdx = lines.findIndex(
+    (l) => l.match(HEADER_RE)?.[1]?.trim() === section,
+  );
   if (headerIdx === -1) {
+    return undefined;
+  }
+  const headerLine = lines[headerIdx];
+  if (headerLine === undefined) {
     return undefined;
   }
 
@@ -67,11 +70,14 @@ export function sectionBlockFromTemplate(
   // or the `# ───` doc block that introduces it — with trailing blanks trimmed.
   let bodyEnd = headerIdx + 1;
   for (; bodyEnd < lines.length; bodyEnd++) {
-    if (HEADER_RE.test(lines[bodyEnd]!) || RULE_RE.test(lines[bodyEnd]!)) {
+    const cur = lines[bodyEnd];
+    if (cur === undefined || HEADER_RE.test(cur) || RULE_RE.test(cur)) {
       break;
     }
   }
-  while (bodyEnd > headerIdx + 1 && isBlank(lines[bodyEnd - 1]!)) {
+  while (bodyEnd > headerIdx + 1) {
+    const prev = lines[bodyEnd - 1];
+    if (prev === undefined || !isBlank(prev)) break;
     bodyEnd--;
   }
   const body = lines.slice(headerIdx + 1, bodyEnd);
@@ -80,11 +86,15 @@ export function sectionBlockFromTemplate(
   // If that run reaches the top of the file it is the preamble, not this
   // section's documentation (the [meta] case) — drop it.
   let i = headerIdx - 1;
-  while (i >= 0 && isBlank(lines[i]!)) {
+  while (i >= 0) {
+    const cur = lines[i];
+    if (cur === undefined || !isBlank(cur)) break;
     i--;
   }
   const docEnd = i;
-  while (i >= 0 && isComment(lines[i]!)) {
+  while (i >= 0) {
+    const cur = lines[i];
+    if (cur === undefined || !isComment(cur)) break;
     i--;
   }
   const docStart = i + 1;
@@ -94,8 +104,8 @@ export function sectionBlockFromTemplate(
     : [];
 
   const out = docBefore.length > 0
-    ? [...docBefore, "", lines[headerIdx]!, ...body]
-    : [lines[headerIdx]!, ...body];
+    ? [...docBefore, "", headerLine, ...body]
+    : [headerLine, ...body];
   return out.join("\n");
 }
 

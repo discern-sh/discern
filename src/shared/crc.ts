@@ -29,13 +29,13 @@ const TABLE: Uint32Array = ((): Uint32Array => {
 export function cksum(bytes: Uint8Array): number {
   let crc = 0;
   for (const b of bytes) {
-    crc = ((crc << 8) ^ TABLE[((crc >>> 24) ^ b) & 0xff]!) >>> 0;
+    crc = ((crc << 8) ^ (TABLE[((crc >>> 24) ^ b) & 0xff] ?? 0)) >>> 0;
   }
   // Feed the byte length, low byte first, until it is zero (the POSIX rule that
   // distinguishes cksum from a plain CRC-32). Empty input feeds nothing, so the
   // crc stays 0 and one's-complements to 0xFFFFFFFF.
   for (let n = bytes.length; n > 0; n = Math.floor(n / 256)) {
-    crc = ((crc << 8) ^ TABLE[((crc >>> 24) ^ (n & 0xff)) & 0xff]!) >>> 0;
+    crc = ((crc << 8) ^ (TABLE[((crc >>> 24) ^ (n & 0xff)) & 0xff] ?? 0)) >>> 0;
   }
   return (~crc) >>> 0;
 }
