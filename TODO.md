@@ -43,16 +43,6 @@ _Nothing outstanding._
 
 ## 🟡 Smaller fixes & polish
 
-- [ ] **`init` undersells `/bootstrap` — make the handoff feel required, not
-      optional.** A fresh install is non-functional until `/bootstrap` fills the
-      slots and docs, but the `init` outro lists `/bootstrap` as merely "step 1
-      of next steps" — easy to skip, and no developer will fill the many blanks
-      by hand. Make it close to mandatory: a single loud "do this next"
-      call-to-action in the outro, and/or a nudge from `doctor`/the first
-      `finish` while every slot is still a no-op. Evidence:
-      `src/commands/init.ts:243` (`printOutro`); the all-no-op gate nudge
-      already exists at `src/engine/gate/finish.ts:243`.
-
 - [ ] **The v3→v4 config migration leaves stale comment blocks behind.** It is
       comment-preserving, so it rewrites the tables (`[slots]`→`[capabilities]`/
       `[checks]`, `[scopes]` arrays→tables, drops `[evidence]`) but leaves the
@@ -117,17 +107,22 @@ outstanding._
       has. The first real install (`passapp`, an established Laravel app)
       surfaced a concrete gap: the repo already had its own `docs/` (loose files
       `Stripe.md`, `Annuities.md`, `Mathematics.md`, `Deployment.md`,
-      `Filament.md`, and `docs/AI/*`), and `/bootstrap` built a _parallel_
-      numbered tree beside them — declaring `docs/README.md` the "canonical
-      source of truth" while never acknowledging or folding in the existing
-      docs. Several overlap directly with the new subtrees it created
+      `Filament.md`, and `docs/AI/*`), and `discern bootstrap` built a
+      _parallel_ numbered tree beside them — declaring `docs/README.md` the
+      "canonical source of truth" while never acknowledging or folding in the
+      existing docs. Several overlap directly with the new subtrees it created
       (`Stripe.md` ↔ `60-billing`, `docs/AI/` ↔ `40-ai`,
       `Mathematics.md`/`Annuities.md` ↔ `30-questions`, `Deployment.md` ↔
       `80-development`, `Filament.md` ↔ `70-admin`), leaving the developer with
       two doc systems and no guidance on reconciling them. Tackle as part of a
       broader opt-in model where a developer chooses which harness pieces to
-      install rather than getting everything — and where `init`/`/bootstrap`
-      detect pre-existing docs and either fold them into the tree or record them
-      for folding. (Observed in the `passapp` control case; that staging area
-      will be discarded and re-run, so re-confirm against a fresh run. Worth an
-      ADR when designed.)
+      install rather than getting everything — and where
+      `init`/`discern
+      bootstrap` detect pre-existing docs and either fold
+      them into the tree or record them for folding. **Partly addressed:**
+      `discern bootstrap` no longer lays the skeleton tree when a `docs/`
+      already exists ([ADR 0024](docs/_adr/0024-bootstrap-as-command.md)), so it
+      no longer builds a _parallel_ tree — but acknowledging/folding
+      pre-existing loose docs and the opt-in install model remain. (Observed in
+      the `passapp` control case; that staging area will be discarded and
+      re-run, so re-confirm against a fresh run. Worth an ADR when designed.)

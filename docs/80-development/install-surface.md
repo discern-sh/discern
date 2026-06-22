@@ -54,7 +54,7 @@ they are generated from the bundled sources.
 | Path                                                | Bucket | What it is                                                                                                                                                                                                                                                                                                                                                                                                        |
 | --------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [`discern.toml`](../../templates/discern.toml.tmpl) | yours  | The one hand-edited file — the entire discern footprint. It teaches the generic engine about your stack: `[features]` toggles, capabilities, checks, scopes (with gates), worktree settings, ratchets, gate ergonomics, and the `[guidance]`/`[skills]`/`[recipes]` pointers. Its `[meta].schema_version` is the migration anchor ([ADR 0014](../_adr/0014-versioned-migration-system.md)), stamped by `upgrade`. |
-| `brief.md`                                          | yours  | The project brief captured at `init` (seeded only when non-empty); the [`bootstrap`](../../templates/skills/bootstrap/SKILL.md) skill reads it to fill the docs and guidance.                                                                                                                                                                                                                                     |
+| `brief.md`                                          | yours  | The project brief captured at `init` (seeded only when non-empty); `discern bootstrap` reads it to fill the docs and guidance.                                                                                                                                                                                                                                                                                    |
 
 ## The quality gate
 
@@ -115,12 +115,12 @@ the stable worktree identity (POSIX-`cksum`-faithful) in
 
 ## Agent instructions (author-once → compile-everywhere)
 
-| Path                     | Bucket    | What it is                                                                                                                                  |
-| ------------------------ | --------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `guidance.md`            | yours     | Your hand-authored guidance source(s) — the default `[guidance].sources`, additive to the built-ins. Globs allowed. Seeded by `/bootstrap`. |
-| `AGENTS.md`              | generated | The **tracked** per-agent file (codex), banner-headed; a stale one fails CI's `git diff --exit-code`.                                       |
-| `CLAUDE.md`, `GEMINI.md` | generated | The gitignored per-agent mirrors (claude_code / gemini), compiled from the same source; carry a do-not-edit banner.                         |
-| `.claude/skills/*`       | generated | Materialised skills the agent discovers — built-ins copied, authored skills symlinked.                                                      |
+| Path                     | Bucket    | What it is                                                                                                                                         |
+| ------------------------ | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `guidance.md`            | yours     | Your hand-authored guidance source(s) — the default `[guidance].sources`, additive to the built-ins. Globs allowed. Seeded by `discern bootstrap`. |
+| `AGENTS.md`              | generated | The **tracked** per-agent file (codex), banner-headed; a stale one fails CI's `git diff --exit-code`.                                              |
+| `CLAUDE.md`, `GEMINI.md` | generated | The gitignored per-agent mirrors (claude_code / gemini), compiled from the same source; carry a do-not-edit banner.                                |
+| `.claude/skills/*`       | generated | Materialised skills the agent discovers — built-ins copied, authored skills symlinked.                                                             |
 
 `discern refresh` ([`src/engine/guidelines.ts`](../../src/engine/guidelines.ts))
 regenerates the generated agent files, skills, and integration artifacts: it
@@ -146,33 +146,36 @@ its own directory:
 
 | Skill                                                                      | What it does                                                      |
 | -------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| [`bootstrap`](../../templates/skills/bootstrap/SKILL.md)                   | Seed a freshly-installed harness from the project brief.          |
 | [`document-subsystem`](../../templates/skills/document-subsystem/SKILL.md) | Write or refresh a `docs/` subtree per the documenter brief.      |
 | [`write-adr`](../../templates/skills/write-adr/SKILL.md)                   | Record a significant decision as an Architecture Decision Record. |
 | [`handoff-worktree`](../../templates/skills/handoff-worktree/SKILL.md)     | Graduate the current worktree's branch into the main repo.        |
 
+(Seeding a fresh install is **not** a skill — it is the `discern bootstrap`
+command; see below and [ADR 0024](../_adr/0024-bootstrap-as-command.md).)
+
 ## Documentation & ADR scaffold (lazy — not part of the install surface)
 
 `init` writes **no** `docs/` tree and **no** `TODO.md`. The doc, ADR, and TODO
-skeletons ship **inside the skills that create them**, under
-`templates/skills/<skill>/skel/`, and are materialised on demand:
+skeletons ship **with whatever creates them** — the `discern bootstrap` command
+(under `templates/bootstrap/skel/`) and two skills (under
+`templates/skills/<skill>/skel/`) — and are materialised on demand:
 
-| Materialised by                                                            | Skeleton it carries                                                          | What lands in the project                                                                                            |
-| -------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| [`bootstrap`](../../templates/skills/bootstrap/SKILL.md) (`/bootstrap`)    | `skel/docs/{README.md, 00-orientation/*, 80-development/*}` + `skel/TODO.md` | The orientation tree, the `80-development/` tree (incl. `finish-gate-gotchas`), and `TODO.md` — copied, then filled. |
-| [`write-adr`](../../templates/skills/write-adr/SKILL.md)                   | `skel/docs/_adr/{0000-template.md, README.md}`                               | `docs/_adr/`, created on first use.                                                                                  |
-| [`document-subsystem`](../../templates/skills/document-subsystem/SKILL.md) | `skel/docs/_internal/{documenter-agent-brief.md, scopes/_template.md}`       | `docs/_internal/`, the documenter brief and per-subtree scope-manifest template.                                     |
+| Materialised by                                                            | Skeleton it carries                                                                              | What lands in the project                                                                                                                         |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `discern bootstrap` (the command)                                          | `templates/bootstrap/skel/docs/{README.md, 00-orientation/*, 80-development/*}` + `skel/TODO.md` | The orientation tree, the `80-development/` tree (incl. `finish-gate-gotchas`), and `TODO.md` — laid only when the project has none, then filled. |
+| [`write-adr`](../../templates/skills/write-adr/SKILL.md)                   | `skel/docs/_adr/{0000-template.md, README.md}`                                                   | `docs/_adr/`, created on first use.                                                                                                               |
+| [`document-subsystem`](../../templates/skills/document-subsystem/SKILL.md) | `skel/docs/_internal/{documenter-agent-brief.md, scopes/_template.md}`                           | `docs/_internal/`, the documenter brief and per-subtree scope-manifest template.                                                                  |
 
 So `docs/`, `TODO.md`, `guidance.md`, and the compiled agent files appear
 **after** install, with real content — they are no longer a static part of the
-install surface. This page lives in the `80-development/` tree that `/bootstrap`
-materialises.
+install surface. This page lives in the `80-development/` tree that
+`discern bootstrap` materialises.
 
 ## Bookkeeping & integration
 
 | Path                                                                  | Bucket         | What it is                                                                                                                                                                                                                                                                                    |
 | --------------------------------------------------------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `TODO.md`                                                             | yours          | The shared backlog for deferred or at-risk work; documents its own format. Lazy — not shipped at `init`; created by `/bootstrap` (or on the first deferral) from the `bootstrap` skill skeleton, then yours to keep.                                                                          |
+| `TODO.md`                                                             | yours          | The shared backlog for deferred or at-risk work; documents its own format. Lazy — not shipped at `init`; created by `discern bootstrap` (or on the first deferral) from its bundled skeleton, then yours to keep.                                                                             |
 | `recipes/` (`[recipes].dir`)                                          | yours          | Your own `discern <verb>` recipes (default `./recipes`, read only if present) — the engine wins on a name collision ([ADR 0001](../_adr/0001-project-owned-recipes.md)). Recipes read config through `discern config get`, not by sourcing a shell library.                                   |
 | [`.claude/settings.json`](../../templates/.claude/settings.json.tmpl) | yours (merged) | Adds a `Read(./.env)` deny and three hooks — `SessionStart` → `discern worktree:ensure`, `WorktreeCreate` → branch + `discern worktree`, `WorktreeRemove` → `discern worktree:teardown` — preserving existing settings. (The worktree hooks are omitted when `[features].worktrees = false`.) |
 | [`.gitignore`](../../templates/.gitignore.fragment)                   | yours (merged) | Idempotently ignores `/CLAUDE.md`, `/GEMINI.md`, and `/.claude/*` (except the tracked settings files). `AGENTS.md` is deliberately left tracked.                                                                                                                                              |

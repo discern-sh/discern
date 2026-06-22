@@ -40,8 +40,8 @@ stage from its name; the engine reads commands through the config reader
 ([config_read.ts](../../src/shared/config_read.ts)), never by name. The worktree
 database and dev-server seams are empty config until a project wires them. The
 one place concrete ecosystems are named on purpose is the stack-detection table
-in the [`bootstrap`](../../templates/skills/bootstrap/SKILL.md) skill — whose
-job is to _propose_ capability fills, never to bake them into the engine.
+in `discern bootstrap` — whose job is to _propose_ capability fills, never to
+bake them into the engine.
 
 ---
 

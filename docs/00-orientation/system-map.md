@@ -32,7 +32,7 @@ runtime.
 │  + generated: AGENTS.md (tracked), CLAUDE.md/GEMINI.md,     │
 │      .claude/skills/  (the binary's — gitignored)           │
 │  + merged .claude/settings.json, appended .gitignore        │
-│  (docs/ + TODO.md arrive later, via /bootstrap)             │
+│  (docs/ + TODO.md arrive later, via discern bootstrap)      │
 └────────────────────────────────────────────────────────────┘
 ```
 

@@ -89,15 +89,13 @@ engine and no manifest to write — the Engine is in the binary. Files split by
 written once then kept), [the binary's](glossary.md#the-binarys-files)
 (gitignored artifacts it re-publishes, like the materialized Skills), plus the
 Merged `settings.json`/`.gitignore`. The docs tree and `TODO.md` are not
-scaffolded at install; the
-[`bootstrap`](../../templates/skills/bootstrap/SKILL.md) Skill writes them on
-demand afterward.
+scaffolded at install; the `discern bootstrap` command writes them on demand
+afterward.
 
-**2. Fill in the stack.** The
-[`bootstrap`](../../templates/skills/bootstrap/SKILL.md) Skill — run by the
-coding agent already in the loop — sniffs the repo and _proposes_ Capability
-fills (formatter, linter, type-checker, tests), seeds a starter `guidance.md`,
-and writes the docs tree and `TODO.md` from the brief. The Engine stays generic;
+**2. Fill in the stack.** The `discern bootstrap` command — run by the coding
+agent already in the loop — sniffs the repo and _proposes_ Capability fills
+(formatter, linter, type-checker, tests), seeds a starter `guidance.md`, and
+writes the docs tree and `TODO.md` from the brief. The Engine stays generic;
 only `discern.toml` learns the stack.
 
 **3. Work behind the gate.** Day to day, everything is driven through `discern`

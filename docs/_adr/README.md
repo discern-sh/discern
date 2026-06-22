@@ -43,3 +43,4 @@ decision is hard to reverse, surprising without context, and a real trade-off.
 - [0021 — Migrations insert a new section's documented block at its canonical position](0021-migrations-insert-documented-sections.md)
 - [0022 — Rename the harness to discern](0022-rename-to-discern.md)
 - [0023 — Rename and promote the workflow commands](0023-rename-workflow-commands.md)
+- [0024 — Bootstrap is a command, not a skill](0024-bootstrap-as-command.md)

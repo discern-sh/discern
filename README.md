@@ -98,8 +98,9 @@ WSL.
 ```sh
 cd your-project              # fresh or existing repo (git required)
 discern init                 # walk the wizard — name, slug, what you're building
-# → in your coding agent:
-/bootstrap                   # fills principles/docs/guidance + proposes capability fills
+# → ask your coding agent to run:
+discern bootstrap            # fills principles/docs/guidance + proposes capability fills
+discern bootstrap done       # validate and record that setup is complete
 # day to day:
 discern prepare              # fast inner loop: fixers + checks, no build/test
 discern finish               # full definition-of-done gate
@@ -111,7 +112,7 @@ discern refresh              # refresh generated agent files/skills/integration 
 materializes the bundled skills into `.claude/skills/`; it **merges** into an
 existing `.claude/settings.json` rather than clobbering it. Nothing of yours
 appears until you opt in — `guidance.md`, a `skills/` dir, a `recipes/` dir
-surface in the open as you fill them. `/bootstrap` is a shipped skill that has
+surface in the open as you fill them. `discern bootstrap` is a command that has
 _your own_ coding agent author the project-specific content and sniff the repo
 to propose the capability fills — no API key, no provider lock-in.
 
@@ -136,11 +137,11 @@ As you opt in, **your** files appear in the open at paths you control (the
 defaults shown):
 
 ```
-guidance.md                # author-once agent guidance (you and /bootstrap fill it); [guidance].sources
+guidance.md                # author-once agent guidance (you and `discern bootstrap` fill it); [guidance].sources
 skills/…                   # YOUR authored skills — yours override a built-in of the same name; [skills].dir
 recipes/…                  # YOUR own discern commands (the dir is yours); [recipes].dir
 brief.md                   # what you told init you're building (captured only when non-empty)
-# also grown by /bootstrap:
+# also grown by discern bootstrap:
 docs/…                     # numbered docs tree + design-principles + _adr + gotchas
 TODO.md                    # the shared backlog discipline
 ```
@@ -808,8 +809,8 @@ Working, verified, and committed:
 - ✅ Worktree harness with database / dev-server / env / port worktree settings.
 - ✅ Author-once guidance compiler (built-in ⊕ your `guidance.md`) + a
   bundled-plus-authored skill set (`discern skills list`/`eject`).
-- ✅ Docs / principles / ADR / TODO scaffolding + the `/bootstrap` seeding
-  skill.
+- ✅ Docs / principles / ADR / TODO scaffolding + the `discern bootstrap`
+  seeding command.
 - ✅ Declarative config — `discern config` + `init --config` (comment-preserving
   programmatic edits), and a documented `add-preset` contract (file overlay +
   config fills).
@@ -825,8 +826,8 @@ Follow-ups:
 
 - **Bundled stack presets** (`add-preset node`, `python`, …): the preset
   contract is complete and documented (see _Writing a preset_), but no preset is
-  bundled yet — that stays stack-neutral. For now, `/bootstrap` detects your
-  stack and proposes capability fills directly, or drive it with
+  bundled yet — that stays stack-neutral. For now, `discern bootstrap` detects
+  your stack and proposes capability fills directly, or drive it with
   `init --config`.
 - **Publishing**: the GitHub slug is wired to `jackwh/discern` (override with
   `DISCERN_REPO`); wire up the release before distributing.
