@@ -83,6 +83,52 @@ _Nothing outstanding._
       trailing `# …` annotation). Preserve a trailing inline comment when
       rewriting a value. Evidence: `src/lib/toml_edit.ts` (`setLiteral`).
 
+- [ ] **`worktree:prune` apply re-scans instead of consuming its plan (footgun,
+      gate-guarded).** `pruneGitWorktrees`/`sweepOrphanWorktrees` still take a
+      `dryRun` flag whose two return paths must stay in lock-step (the original
+      catastrophe was the dry path returning empty lists). Both now return their
+      candidates in dry mode, and `tests/engine_plan_parity_test.ts` fails the
+      gate if a dry/wet divergence ever returns — so the footgun is neutralised,
+      not removed. The clean structural fix: split each into a pure `scan*()`
+      (no `dryRun`, always returns candidates) + a thin `apply*(scan)`, have
+      `buildPrunePlan` carry the scan, and have `worktreePrune` apply _consume_
+      that scan (as teardown now consumes its plan) — so the apply path can't
+      re-scan and diverge. Deferred as the rm-rf core: marginal safety over the
+      existing gate test, real refactor risk. Evidence:
+      `src/engine/worktree/git.ts` (`pruneGitWorktrees` ~677,
+      `sweepOrphanWorktrees` ~920); `src/engine/worktree/lifecycle.ts`
+      (`worktreePrune`, `buildPrunePlan`).
+
+- [ ] **`worktree:prune --dry-run` no longer mentions stale-metadata pruning.**
+      The pre-plan dry-run narrated "Would also prune N stale metadata entries";
+      the plan-based dry-run drops it (it isn't a candidate in `PruneResult`,
+      and the apply's trailing `git worktree prune` cleans it regardless). Non-
+      destructive git bookkeeping, absent from the `--json` contract, so the gap
+      is cosmetic — but the preview is now slightly less informative than the
+      act. Consider adding a `staleMetadata` count to `PruneResult` and a plan
+      detail line. Evidence: `src/engine/worktree/git.ts` (`pruneGitWorktrees`,
+      the `dryRun` return ~832); `src/engine/worktree/plan.ts`
+      (`prunePlanToEngine`).
+
+- [ ] **`init`/`upgrade` `--json` report `ok:true` when agent-guidance
+      compilation failed.** The primary operation (scaffold / migrate + stamp)
+      did succeed and the failure IS surfaced in a sub-field (`compiled:[]` /
+      `guidelines_compiled:false`), and guidance is regenerable via
+      `discern
+      refresh` — so this is defensible, not a clear bug. But a
+      consumer keying on top-level `ok` won't learn the agent files didn't
+      compile. Decide whether `ok` should reflect a secondary-artifact failure,
+      and apply it consistently across the installer verbs. Evidence:
+      `src/commands/init.ts` (~306, ~319); `src/commands/upgrade.ts` (~209).
+
+- [ ] **`skills` `targetExists` treats an unreadable symlink target as
+      missing.** A bare `catch {}` conflates "absent" with "couldn't stat", so a
+      symlink whose target is merely unreadable (e.g. EACCES) could be pruned
+      during materialize. Self-healing (the symlink is recreated on the next
+      `discern refresh`), hence low severity, but the stat error should be
+      distinguished from a genuine absence. Evidence: `src/lib/skills.ts`
+      (`targetExists` ~151).
+
 ## 🟢 Test & tooling hygiene
 
 - [ ] **Genericise the `addWorktree` test helper off the `.claude/worktrees`

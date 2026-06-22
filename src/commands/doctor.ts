@@ -206,9 +206,11 @@ export async function runChecks(destDir: string): Promise<Check[]> {
         ? {
           name: "capability commands",
           ok: true,
+          // Honest about scope: only the LEADING command of each is probed, not
+          // every word of a piped/`&&`-chained command (doctor is an advisory).
           detail: commands.length === 0
             ? "none to check"
-            : "all resolve on PATH",
+            : "each command's leading binary resolves on PATH",
         }
         : {
           name: "capability commands",
