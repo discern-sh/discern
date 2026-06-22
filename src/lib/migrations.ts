@@ -21,7 +21,7 @@
 
 import { ensureDir, walk } from "@std/fs";
 import { dirname, join, relative } from "@std/path";
-import { TomlEditor } from "./toml_edit.ts";
+import { TomlEditor, tomlString } from "./toml_edit.ts";
 import { mergeSettings } from "./settings_merge.ts";
 import { parseDiscernToml, renderTomlStringList } from "./toml_render.ts";
 import {
@@ -618,7 +618,186 @@ export const MIGRATIONS: Migration[] = [
       }
     },
   },
+  {
+    from: 7,
+    describe:
+      "generalize [worktree.db]/[worktree.dev_server] into [worktree.resources.<name>]; carry non-empty commands forward as create/destroy, then add the commented resource examples (ADR 0025)",
+    apply: async (ctx) => {
+      const text = await ctx.readConfig();
+      if (text === undefined) {
+        return; // no config to evolve.
+      }
+      let raw: Record<string, unknown>;
+      try {
+        raw = parseDiscernToml(text).raw;
+      } catch {
+        return; // unparseable — upgrade validates the config first; belt-and-braces.
+      }
+      const worktree = isRecord(raw.worktree) ? raw.worktree : {};
+      const legacyDb = isRecord(worktree.db) ? worktree.db : undefined;
+      const legacyDev = isRecord(worktree.dev_server)
+        ? worktree.dev_server
+        : undefined;
+      // Idempotency: the legacy shape is exactly the presence of these tables; the
+      // step's final act removes both, so a re-run (or an already-new config) here
+      // returns immediately.
+      if (legacyDb === undefined && legacyDev === undefined) {
+        return;
+      }
+      const resources = isRecord(worktree.resources) ? worktree.resources : {};
+      const str = (v: unknown): string => (typeof v === "string" ? v : "");
+      const dbCreate = str(legacyDb?.clone);
+      const dbDestroy = str(legacyDb?.drop);
+      const devCreate = str(legacyDev?.link);
+      const devDestroy = str(legacyDev?.unlink);
+
+      // Convert a legacy table to a live resource only when its command is
+      // non-empty AND a hand-added resource of that name does not already exist
+      // (never clobber the user's own [worktree.resources.<name>]).
+      const blocks: string[] = [];
+      if (
+        resources.db === undefined && (dbCreate !== "" || dbDestroy !== "")
+      ) {
+        blocks.push(liveResourceBlock("db", dbCreate, dbDestroy));
+      }
+      if (
+        resources.dev_server === undefined &&
+        (devCreate !== "" || devDestroy !== "")
+      ) {
+        blocks.push(liveResourceBlock("dev_server", devCreate, devDestroy));
+      }
+      // What to insert where the legacy tables were: the user's converted live
+      // tables; else the commented examples (unless they already declare some
+      // resources, in which case add nothing).
+      const insertBlock = blocks.length > 0
+        ? blocks.join("\n\n")
+        : (Object.keys(resources).length > 0 ? "" : COMMENTED_RESOURCES_BLOCK);
+
+      await ctx.rewrite("discern.toml", (t) => {
+        let out = removeWorktreeTable(t, "[worktree.db]");
+        out = removeWorktreeTable(out, "[worktree.dev_server]");
+        if (insertBlock !== "") {
+          out = insertAfterWorktreeBase(out, insertBlock);
+        }
+        return out.replace(/\n{3,}/g, "\n\n");
+      });
+
+      if (blocks.length > 0) {
+        ctx.note(
+          "converted [worktree.db]/[worktree.dev_server] → [worktree.resources.*] (any inline comments on the old keys were not carried)",
+        );
+      } else {
+        ctx.note(
+          "removed the empty [worktree.db]/[worktree.dev_server]; added commented [worktree.resources.*] examples",
+        );
+      }
+    },
+  },
 ];
+
+/** Render a live `[worktree.resources.<name>]` table (only the non-empty keys). */
+function liveResourceBlock(
+  name: string,
+  create: string,
+  destroy: string,
+): string {
+  const lines = [`[worktree.resources.${name}]`];
+  if (create !== "") {
+    lines.push(`create  = ${tomlString(create)}`);
+  }
+  if (destroy !== "") {
+    lines.push(`destroy = ${tomlString(destroy)}`);
+  }
+  return lines.join("\n");
+}
+
+/**
+ * Remove a `[worktree.<name>]` table — its `[header]`, its key/value body (up to
+ * the first blank, comment, or next header), the contiguous comment paragraph that
+ * directly precedes it (its OWN doc comment), and one trailing blank separator.
+ * Unlike `TomlEditor.deleteSection` (greedy to the next header), this stops at the
+ * blank/comment boundary, so the FOLLOWING section keeps its own doc comment. A
+ * no-op when the header is absent.
+ */
+function removeWorktreeTable(text: string, header: string): string {
+  const lines = text.split("\n");
+  const idx = lines.findIndex((l) => l.trim() === header);
+  if (idx === -1) {
+    return text;
+  }
+  let end = idx + 1;
+  while (end < lines.length) {
+    const t = (lines[end] ?? "").trim();
+    if (t === "" || t.startsWith("#") || t.startsWith("[")) {
+      break;
+    }
+    end++;
+  }
+  let start = idx;
+  while (start - 1 >= 0 && (lines[start - 1] ?? "").trim().startsWith("#")) {
+    start--;
+  }
+  if (end < lines.length && (lines[end] ?? "").trim() === "") {
+    end++; // consume the one blank line that separated the table
+  }
+  lines.splice(start, end - start);
+  return lines.join("\n");
+}
+
+/**
+ * Insert `block` right after the LAST scalar key of the `[worktree]` table (its
+ * keys are interspersed with doc comments, so this scans the whole table body up
+ * to the first subsection/next-section header), separated by blank lines — where
+ * the legacy db/dev_server tables sat, before `[worktree.setup]`. Appends at EOF
+ * when there is no `[worktree]` table.
+ */
+function insertAfterWorktreeBase(text: string, block: string): string {
+  const lines = text.split("\n");
+  const hdr = lines.findIndex((l) => l.trim() === "[worktree]");
+  if (hdr === -1) {
+    return `${text.replace(/\n+$/, "")}\n\n${block}\n`;
+  }
+  // The [worktree] table body runs to the next header (subsection or top-level).
+  let bodyEnd = hdr + 1;
+  while (
+    bodyEnd < lines.length && !(lines[bodyEnd] ?? "").trim().startsWith("[")
+  ) {
+    bodyEnd++;
+  }
+  // Insert after the last `key = value` line (skipping comments/blanks).
+  let insertAt = hdr + 1;
+  for (let i = hdr + 1; i < bodyEnd; i++) {
+    const t = (lines[i] ?? "").trim();
+    if (t !== "" && !t.startsWith("#")) {
+      insertAt = i + 1;
+    }
+  }
+  lines.splice(insertAt, 0, "", ...block.split("\n"));
+  return lines.join("\n");
+}
+
+/** The commented `[worktree.resources.*]` examples a fresh init / migration lays
+ * down — db and dev_server demoted to examples, plus a generic resource. Kept in
+ * sync with the `[worktree]` region of templates/discern.toml.tmpl. */
+const COMMENTED_RESOURCES_BLOCK =
+  `# A per-worktree database, so tests never clash. Uses @db@ (db-name-safe).
+# [worktree.resources.db]
+# create  = "createdb -T @project_slug@_template @db@"
+# destroy = "dropdb --if-exists @db@"
+
+# A per-worktree dev-server site (a Docker vhost, an ngrok tunnel, a reverse-proxy
+# entry, …). Uses @site@ (DNS-safe). Declared after db so it is torn down first.
+# [worktree.resources.dev_server]
+# create  = "link-site @site@ @port@"
+# destroy = "unlink-site @site@"
+
+# Any other isolated resource — an emulator, a queue, a bucket, a namespace.
+# [worktree.resources.example]
+# create   = "make-thing @resource@"
+# destroy  = "destroy-thing @resource@"
+# ensure   = "ensure-thing @resource@"   # optional: reconcile drift at session start
+# required = true                          # optional: false = create failure is non-fatal
+# retries  = 0                             # optional: retry create N times`;
 
 /**
  * Whether the install's `.discern/skills/<name>` is byte-identical to the bundled

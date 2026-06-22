@@ -435,6 +435,62 @@ export async function runChecks(destDir: string): Promise<Check[]> {
     // a config read failure was already reported above.
   }
 
+  // 12. dead worktree adapters (hard fail). The engine reads only
+  // [worktree.resources.<name>] now; a leftover [worktree.db]/[worktree.dev_server]
+  // is dead config — and dangerously SILENT (setup would succeed with no database).
+  // The schema check above catches an un-upgraded install, but a hand-maintained
+  // config that never bumped its version would pass that, so flag the tables
+  // directly.
+  try {
+    const cfg = new Config(tomlText);
+    const dead = ["worktree.db", "worktree.dev_server"].filter((t) =>
+      cfg.has(t)
+    );
+    if (dead.length > 0) {
+      checks.push({
+        name: "worktree resources",
+        ok: false,
+        detail: `dead config: [${
+          dead.join("] / [")
+        }] — the engine now reads [worktree.resources.<name>]`,
+        fix:
+          "run `discern upgrade`, or move clone/drop→[worktree.resources.db].create/destroy and link/unlink→[worktree.resources.dev_server].create/destroy by hand, then delete the legacy tables",
+      });
+    }
+  } catch {
+    // a config read failure was already reported above.
+  }
+
+  // 13. worktree-resource commands resolve (advisory). The first word of each
+  // declared create/destroy/ensure should be on PATH, so a worktree round won't
+  // die with "command not found".
+  try {
+    const cfg = new Config(tomlText);
+    const missing: string[] = [];
+    for (const name of cfg.subsections("worktree.resources")) {
+      for (const verb of ["create", "destroy", "ensure"]) {
+        const word = firstWord(
+          cfg.get(`worktree.resources.${name}.${verb}`, ""),
+        );
+        if (word !== undefined && !(await commandResolves(word))) {
+          missing.push(`${name}.${verb} → ${word}`);
+        }
+      }
+    }
+    if (missing.length > 0) {
+      checks.push({
+        name: "worktree resource commands",
+        ok: true,
+        warn: true,
+        detail: `command not found: ${missing.join(", ")}`,
+        fix:
+          "install the tool, or fix the command in [worktree.resources.<name>]",
+      });
+    }
+  } catch {
+    // a config read failure was already reported above.
+  }
+
   return checks;
 }
 

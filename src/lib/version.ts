@@ -34,8 +34,12 @@ export const KIT_VERSION: string = denoJson.version;
  * added (ADR 0020); schema-6→7 turns bootstrap from a materialized skill into the
  * `discern bootstrap` command — it prunes the stale `.claude/skills/bootstrap/`
  * copy and back-fills `[meta].bootstrapped = true` for an already-configured
- * install so the new setup reminder never nags it (ADR 0024). See `MIGRATIONS`. A
- * config with no `[meta].schema_version` is read as schema 1 (or a legacy
- * manifest's recorded version), then migrated forward.
+ * install so the new setup reminder never nags it (ADR 0024); schema-7 to 8
+ * generalizes the hard-coded `[worktree.db]`/`[worktree.dev_server]` adapters into
+ * the generic `[worktree.resources.<name>]` seam — it carries non-empty
+ * clone/drop and link/unlink forward as create/destroy, deletes the legacy tables,
+ * and adds the commented resource examples (ADR 0025). See `MIGRATIONS`. A config
+ * with no `[meta].schema_version` is read as schema 1 (or a legacy manifest's
+ * recorded version), then migrated forward.
  */
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
