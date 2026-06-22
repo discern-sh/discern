@@ -123,16 +123,31 @@ function handleWorktreeError(e: unknown, log: Logger): number {
   throw e;
 }
 
-/** Build a lifecycle context and run a worktree operation, mapping errors to codes. */
+/**
+ * Build a lifecycle context and run a worktree operation, mapping errors to codes.
+ * In `--json` mode the human narration is suppressed (Logger json mode) so stdout
+ * carries only the verb's JSON object, and a thrown worktree error is emitted as a
+ * `{ ok:false, error }` object rather than a (suppressed) human line.
+ */
 async function runWorktreeOp(
   op: (ctx: LifecycleContext) => Promise<void>,
+  opts: { json?: boolean } = {},
 ): Promise<number> {
   const root = await requireRoot();
-  const log = makeLogger();
+  const json = opts.json ?? false;
+  const log = new Logger({
+    json,
+    noColor: false,
+    humanStream: json ? "stderr" : "stdout",
+  });
   try {
     await op(await lifecycleContext(root, log));
     return 0;
   } catch (e) {
+    if (json && (e instanceof WorktreeGitError || e instanceof IdentityError)) {
+      console.log(JSON.stringify({ ok: false, error: e.message }));
+      return 1;
+    }
     return handleWorktreeError(e, log);
   }
 }
@@ -184,8 +199,21 @@ export function attachEngineCommands(
       .description(
         "Hold every metric ratchet (slow; on demand, not part of finish).",
       )
-      .action(async () => {
-        Deno.exit(await runRatchets(await requireRoot()));
+      .option(
+        "--json",
+        "Emit a machine-readable (plan, results) object on stdout.",
+      )
+      .option(
+        "--dry-run",
+        "Show the ratchets that would be measured; touch nothing.",
+      )
+      .action(async (o) => {
+        Deno.exit(
+          await runRatchets(await requireRoot(), {
+            json: o.json ?? false,
+            dryRun: o.dryRun ?? false,
+          }),
+        );
       });
   }
 
@@ -232,8 +260,19 @@ export function attachEngineCommands(
     .description(
       "Finish the work, then graduate this worktree's branch into the main checkout for review.",
     )
-    .action(async () => {
-      Deno.exit(await runWorktreeOp(graduate));
+    .option(
+      "--json",
+      "Emit a machine-readable (plan, results) object on stdout.",
+    )
+    .option("--dry-run", "Show the graduation plan; touch nothing.")
+    .action(async (o) => {
+      const json = o.json ?? false;
+      Deno.exit(
+        await runWorktreeOp(
+          (ctx) => graduate(ctx, { json, dryRun: o.dryRun ?? false }),
+          { json },
+        ),
+      );
     });
 
   root
@@ -297,8 +336,19 @@ export function attachEngineCommands(
     .description(
       "Per-worktree workflow. Bare: set up the current worktree (run by the create hook). Sub-verbs are typed with a colon: worktree:ensure, worktree:teardown, worktree:prune. (Graduating a branch is the top-level `discern graduate`.)",
     )
-    .action(async () => {
-      Deno.exit(await runWorktreeOp(worktreeSetup));
+    .option(
+      "--json",
+      "Emit a machine-readable (plan, results) object on stdout.",
+    )
+    .option("--dry-run", "Show the setup plan; touch nothing.")
+    .action(async (o) => {
+      const json = o.json ?? false;
+      Deno.exit(
+        await runWorktreeOp(
+          (ctx) => worktreeSetup(ctx, { json, dryRun: o.dryRun ?? false }),
+          { json },
+        ),
+      );
     })
     .command(
       "ensure",
@@ -318,8 +368,20 @@ export function attachEngineCommands(
         .description(
           "Discard this worktree's resources (destroy without graduating).",
         )
-        .action(async () => {
-          Deno.exit(await runWorktreeOp(worktreeTeardown));
+        .option(
+          "--json",
+          "Emit a machine-readable (plan, results) object on stdout.",
+        )
+        .option("--dry-run", "Show the teardown plan; touch nothing.")
+        .action(async (o) => {
+          const json = o.json ?? false;
+          Deno.exit(
+            await runWorktreeOp(
+              (ctx) =>
+                worktreeTeardown(ctx, { json, dryRun: o.dryRun ?? false }),
+              { json },
+            ),
+          );
         }),
     )
     .command(
@@ -333,13 +395,21 @@ export function attachEngineCommands(
           "--dry-run",
           "Report what would be removed/reclaimed without acting.",
         )
+        .option(
+          "--json",
+          "Emit a machine-readable (plan, results) object on stdout.",
+        )
         .action(async (o) => {
+          const json = o.json ?? false;
           Deno.exit(
-            await runWorktreeOp((ctx) =>
-              worktreePrune(ctx, {
-                assumeYes: (o.yes ?? false) || !Deno.stdin.isTerminal(),
-                dryRun: o.dryRun ?? false,
-              })
+            await runWorktreeOp(
+              (ctx) =>
+                worktreePrune(ctx, {
+                  assumeYes: (o.yes ?? false) || !Deno.stdin.isTerminal(),
+                  dryRun: o.dryRun ?? false,
+                  json,
+                }),
+              { json },
             ),
           );
         }),

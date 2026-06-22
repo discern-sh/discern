@@ -87,7 +87,7 @@ Deno.test("buildGatePlan: groups in fix→build→check/test→scope_gates order
 });
 
 Deno.test("buildGatePlan: empty stages produce no group (a no-op gate has no groups)", () => {
-  const bare = parseConfigOrThrow("[project]\nslug = \"x\"\n");
+  const bare = parseConfigOrThrow('[project]\nslug = "x"\n');
   const plan = buildGatePlan(bare, []);
   assertEquals(plan.groups, []);
   assert(plan.mergeCheck);
@@ -149,7 +149,10 @@ Deno.test("gatePlanToEngine: firing job is run, unchanged scope gate is skip, me
   const gadget = engine.steps.find((s) => s.label === "scope:gadget");
   assertEquals(widget?.disposition, "run");
   assertEquals(gadget?.disposition, "skip");
-  assertEquals(engine.steps.find((s) => s.label === "format")?.disposition, "run");
+  assertEquals(
+    engine.steps.find((s) => s.label === "format")?.disposition,
+    "run",
+  );
   assertEquals(
     engine.steps.find((s) => s.kind === "merge-check")?.disposition,
     "gate",
