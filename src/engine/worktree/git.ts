@@ -841,7 +841,17 @@ export async function pruneGitWorktrees(
         }.`,
       );
     }
-    return { removed: [], branchesDeleted: [], failed: false };
+    // The result must describe what WOULD be removed/deleted — dryRun gates the
+    // EFFECTS, never the reported plan. (A caller building a plan reads these
+    // lists; returning empty here is the divergence the plan/apply model forbids.)
+    return {
+      removed: removeCandidates,
+      branchesDeleted: [
+        ...removeCandidateBranches.filter((b) => b !== ""),
+        ...deleteBranches,
+      ],
+      failed: false,
+    };
   }
 
   const deleteBranchSafe = async (branch: string): Promise<boolean> => {
@@ -903,7 +913,7 @@ export interface SweepOptions {
 
 /** The outcome of an orphan sweep. */
 export interface SweepResult {
-  /** Orphan directories found and removed. */
+  /** Orphan directories removed (or that would be, in a dry run). */
   removed: string[];
   /** Whether any removal failed. */
   failed: boolean;
@@ -1014,7 +1024,8 @@ export async function sweepOrphanWorktrees(
         orphans.length === 1 ? "y" : "ies"
       }.`,
     );
-    return { removed: [], failed: false };
+    // Return the candidates — dryRun gates the removal, not the reported plan.
+    return { removed: orphans, failed: false };
   }
 
   const removed: string[] = [];
