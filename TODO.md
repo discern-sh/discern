@@ -85,6 +85,22 @@ _Nothing outstanding._
 
 ## 🟢 Test & tooling hygiene
 
+- [ ] **Genericise the `addWorktree` test helper off the `.claude/worktrees`
+      convention.** The shared helper creates test worktrees under
+      `<main>/.claude/worktrees/<name>` — the same location discern's production
+      `WorktreeCreate` hook uses — and relies on `.claude/` being gitignored so
+      the worktree directory doesn't dirty main (which `graduate` would refuse).
+      The engine itself is now agent-agnostic (it discovers worktree locations
+      from git's registry, not a hardcoded path — see
+      [`sweepOrphanWorktrees`](src/engine/worktree/git.ts)), so the helper's use
+      of `.claude/` is the last place the test suite assumes that path. Rework
+      `addWorktree`/`mainWithWorktree` to create worktrees in a location that
+      assumes no agent-specific path (e.g. an external temp dir, or a neutral
+      gitignored subtree), then fold `tests/engine_helpers.ts` into the
+      `.claude`-assumption regression guard. Touches the ~6 test files that use
+      the helper. Evidence: `tests/engine_helpers.ts` (`addWorktree`);
+      `tests/agent_agnostic_test.ts` (the guard to extend).
+
 - [ ] **Ratchet the coverage floor back up toward its pre-cutover level.** The
       single-binary cutover moved the engine into `src/` (now instrumented by
       `deno task coverage`), so the same suite covers a larger tree and src/
