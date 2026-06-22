@@ -893,7 +893,7 @@ export async function pruneGitWorktrees(
 
 /** Options for {@link sweepOrphanWorktrees}. */
 export interface SweepOptions {
-  /** Extra directories to scan (besides the registered parents + .claude/worktrees). */
+  /** Extra directories to scan (besides every registered worktree's parent). */
   extraDirs?: string[];
   /** Print what would be reclaimed without removing anything. */
   dryRun?: boolean;
@@ -913,9 +913,9 @@ export interface SweepResult {
  * Reclaim orphaned worktree directories — directories git no longer tracks but
  * which still carry a `.git` gitlink into this repo's worktrees admin area. The
  * TS port of `sweep-orphan-worktrees`. Scans the parent of every registered
- * worktree, the `<main>/.claude/worktrees` convention, and any `extraDirs`.
- * Removal goes through {@link removeWorktreeSafely}, which re-checks the
- * boundary. Throws `WorktreeGitError` when not in a git repo.
+ * worktree (git-derived, so it makes no assumption about WHERE worktrees live)
+ * plus any `extraDirs`. Removal goes through {@link removeWorktreeSafely}, which
+ * re-checks the boundary. Throws `WorktreeGitError` when not in a git repo.
  */
 export async function sweepOrphanWorktrees(
   opts: SweepOptions,
@@ -942,8 +942,11 @@ export async function sweepOrphanWorktrees(
     registeredPaths.add(await realPathOr(p));
   }
 
-  // Scan dirs: the .claude/worktrees default, every registered worktree's
-  // parent, and any extra dirs — deduped.
+  // Scan dirs: every registered worktree's parent, plus any extra dirs — deduped.
+  // The engine deliberately hardcodes NO worktree-location convention (e.g. an
+  // agent's `.claude/worktrees`): it is agent-agnostic, so it discovers locations
+  // from git's own registry. A caller that knows a convention passes it via
+  // `extraDirs`.
   const scanSet = new Set<string>();
   const addScan = async (dir: string): Promise<void> => {
     if (!(await isDir(dir))) {
@@ -951,7 +954,6 @@ export async function sweepOrphanWorktrees(
     }
     scanSet.add(await realPathOr(dir));
   };
-  await addScan(join(mainRepo, ".claude", "worktrees"));
   for (const p of registeredRaw) {
     if (!(await isDir(p))) {
       continue;
