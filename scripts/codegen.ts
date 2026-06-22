@@ -10,7 +10,10 @@
  */
 
 import { dirname, fromFileUrl, join } from "@std/path";
-import { renderConfigDocSchemaJson } from "../src/shared/config_codegen.ts";
+import {
+  renderConfigDocSchemaJson,
+  renderConfigReferenceDoc,
+} from "../src/shared/config_codegen.ts";
 
 const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
 
@@ -33,3 +36,7 @@ async function write(rel: string, text: string): Promise<void> {
 
 console.log("Regenerating config artifacts from src/shared/config_schema.ts:");
 await write("schema/discern-config.schema.json", renderConfigDocSchemaJson());
+await write(
+  "docs/10-installer/config-reference.md",
+  renderConfigReferenceDoc(),
+);

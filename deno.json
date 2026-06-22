@@ -50,7 +50,9 @@
       "AGENTS.md",
       "CLAUDE.md",
       "GEMINI.md",
-      ".idea/"
+      ".idea/",
+      "schema/discern-config.schema.json",
+      "docs/10-installer/config-reference.md"
     ]
   },
   "lint": {
