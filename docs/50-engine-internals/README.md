@@ -33,6 +33,19 @@ never expands against the filesystem the way an unquoted shell glob would; a
 project Recipe is just an executable with normal shell globbing. This is
 internal plumbing: the built-in verbs run it, you rarely read it directly.
 
+Every **effectful** verb follows a **plan/apply** shape
+([ADR 0027](../_adr/0027-plan-apply-engine-execution.md)): it computes a pure
+plan first (read-only — load config, classify changed scopes, read the resource
+ledger), then a thin executor applies it. That split is what gives `finish`,
+`graduate`, `worktree` setup/teardown/prune, and `ratchets` a `--dry-run`
+(render the plan, touch nothing) and a `--json` that **serializes (plan,
+results)** rather than re-deriving it. The plan vocabulary and the one shared
+plan→human/JSON renderer live under [`engine/plan/`](../../src/engine/plan/) —
+the engine mirror of the installer's [`fs_plan.ts`](../../src/lib/fs_plan.ts) /
+[`plan_view.ts`](../../src/lib/plan_view.ts). The decision logic each verb plans
+from (gate job derivation, scope-gate selection, the prune-GC reclaim decision)
+is factored into pure functions, unit-tested with no subprocess.
+
 > **Status: stub.** This README orients the subtree; the leaves below are not
 > written yet. Fill them with the
 > [`document-subsystem`](../../templates/skills/document-subsystem/SKILL.md)
@@ -40,14 +53,17 @@ internal plumbing: the built-in verbs run it, you rarely read it directly.
 
 ## Planned leaves
 
-| File _(to be written)_ | What it will cover                                                                                               |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `the-dispatcher.md`    | Root-finding (`discern.toml`), dispatch, engine-wins-on-collision, feature gating, the typo suggester, `--help`. |
-| `config-access.md`     | Reading `discern.toml` via `config_read.ts`, the `[features]` toggles, and the `discern config` surface.         |
-| `the-job-runner.md`    | Serial/parallel staging, labelling, fail-fast tree-kill, and the structured channel.                             |
+| File _(to be written)_    | What it will cover                                                                                                     |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `the-dispatcher.md`       | Root-finding (`discern.toml`), dispatch, engine-wins-on-collision, feature gating, the typo suggester, `--help`.       |
+| `config-access.md`        | Reading `discern.toml` via `config_read.ts`, the `[features]` toggles, and the `discern config` surface.               |
+| `the-job-runner.md`       | Serial/parallel staging, labelling, fail-fast tree-kill, and the structured channel.                                   |
+| `the-plan-apply-model.md` | The engine `Plan` vocabulary, the thin executors, the one renderer, and how `--dry-run` / `--json` derive from a plan. |
 
 ## See also
 
 - [system-map.md](../00-orientation/system-map.md) — the run-time dispatch axis.
 - [ADR 0019](../_adr/0019-single-binary-ts-engine.md) — collapsing into one
   binary with a TypeScript-native engine.
+- [ADR 0027](../_adr/0027-plan-apply-engine-execution.md) — plan/apply as the
+  engine's execution model (the `--dry-run` / serialized-`--json` seam).

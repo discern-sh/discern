@@ -46,3 +46,4 @@ decision is hard to reverse, surprising without context, and a real trade-off.
 - [0024 — Bootstrap is a command, not a skill](0024-bootstrap-as-command.md)
 - [0025 — Generalize the db/dev-server adapters into per-worktree resources with orphan GC](0025-worktree-resources.md)
 - [0026 — One typed (Zod) config schema as the single source of truth](0026-typed-config-schema.md)
+- [0027 — Plan/apply as the engine's execution model](0027-plan-apply-engine-execution.md)
