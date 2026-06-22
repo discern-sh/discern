@@ -253,7 +253,7 @@ export async function runDocs(options: DocsOptions): Promise<number> {
   if (!tree) {
     const message = options.dir
       ? `no documentation directory at "${options.dir}".`
-      : "no docs/ directory here — run `/bootstrap` to seed one, or pass --dir <path>.";
+      : "no docs/ directory here — run `discern bootstrap` to seed one, or pass --dir <path>.";
     if (options.json) {
       log.jsonResult({ ok: false, error: "no_docs", message });
     } else {

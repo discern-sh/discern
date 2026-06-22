@@ -12,7 +12,7 @@
 [meta]
 # The install schema version — managed by discern (bumped by `discern upgrade`).
 # Don't edit this by hand.
-schema_version = 6
+schema_version = 7
 
 
 [project]
@@ -62,7 +62,7 @@ docs      = true   # the `docs` browser over your docs/ tree
 [guidance]
 # Your guideline source file(s), relative to the project root. Globs are allowed.
 # Read only if present; the built-in harness guidance is always prepended, so
-# these are additive. Run `/bootstrap` to seed a starter guidance.md.
+# these are additive. Run `discern bootstrap` to seed a starter guidance.md.
 sources = ["guidance.md"]
 
 # Which provider files to emit. Known targets:
@@ -96,7 +96,7 @@ dir = "skills"
 #   test       test   the test suite
 # A value is one command, or a list run in order: lint = ["eslint .", "stylelint ."].
 # OMIT a capability you don't have — an absent capability is "knowably absent", so
-# a fresh install is a green gate you grow into. Run `/bootstrap` to have your
+# a fresh install is a green gate you grow into. Run `discern bootstrap` to have your
 # coding agent fill these by sniffing the repo; `discern doctor` shows which are wired.
 #
 # `discern prepare` is the fast inner loop: it runs the fix-stage then the check-stage

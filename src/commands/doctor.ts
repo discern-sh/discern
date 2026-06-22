@@ -406,7 +406,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
   // 3 (which flags a capability key that belongs in [checks]): a [checks.<name>]
   // whose name IS a standard capability and whose stage is that capability's
   // canonical stage is almost certainly meant to be a [capabilities] entry —
-  // which doctor reports and /bootstrap fills, and a check does not. Nudge toward
+  // which doctor reports and `discern bootstrap` fills, and a check does not. Nudge toward
   // the free capability slot. Advisory only (still healthy): a custom-named check
   // with a standard stage is legitimate when the label is the point.
   try {
@@ -426,7 +426,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
         } match a standard capability at its canonical stage`,
         fix: `wire as a capability instead (e.g. [capabilities].${
           misfiled[0]
-        } = "…"), so doctor reports it and /bootstrap can fill it — unless the [checks.${
+        } = "…"), so doctor reports it and \`discern bootstrap\` can fill it — unless the [checks.${
           misfiled[0]
         }] name is deliberate`,
       });

@@ -4,13 +4,13 @@ Every {{project_name}}-specific term, defined precisely. This is the canonical d
 
 For a narrative tour of how these terms relate, read [concepts.md](concepts.md). For the architectural shape, see [system-map.md](system-map.md).
 
-> This doc is a skeleton. The `/bootstrap` skill fills it from the brief at `brief.md`. Group terms under headings that match the system's parts; the structure below is a starting point.
+> This doc is a skeleton. The `discern bootstrap` command fills it from the brief at `brief.md`. Group terms under headings that match the system's parts; the structure below is a starting point.
 
 ---
 
 ## Core nouns
 
-<!-- /bootstrap fills this -->
+<!-- bootstrap fills this -->
 
 _(Define the two or three building blocks the rest of the system rests on — the ones a newcomer must understand before anything else makes sense. One precise paragraph each. State what the thing is, not how it is built.)_
 
@@ -22,7 +22,7 @@ _(One-paragraph definition. Replace with the project's real core nouns.)_
 
 ## <Area>
 
-<!-- /bootstrap fills this -->
+<!-- bootstrap fills this -->
 
 _(Add a section per area of the system — typically aligned with the subsystem subtrees. Under each, define the terms that area introduces. A term is defined in exactly one place; other docs cross-link here rather than redefining it.)_
 

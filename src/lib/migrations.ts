@@ -528,7 +528,7 @@ export const MIGRATIONS: Migration[] = [
         ctx.note("moved recipes → ./recipes/");
       }
 
-      // 5. Move the brief → ./brief.md (authored intent, read by /bootstrap).
+      // 5. Move the brief → ./brief.md (authored intent, read by `discern bootstrap`).
       await ctx.rename(".discern/brief.md", "brief.md");
 
       // 6. Split skills (§3.5): authored dirs move to ./skills/; pristine bundled
@@ -569,6 +569,53 @@ export const MIGRATIONS: Migration[] = [
       ctx.note(
         "dissolved .discern/ — the footprint is now a root discern.toml",
       );
+    },
+  },
+  {
+    from: 6,
+    describe:
+      "retire the bootstrap skill for the `discern bootstrap` command: prune the stale .claude/skills/bootstrap/ copy and back-fill [meta].bootstrapped for an already-configured install (ADR 0024)",
+    apply: async (ctx) => {
+      // Bootstrap is now a CLI command, not a materialized skill. Remove the
+      // pristine copy the old layout left under .claude/skills/: it is no longer
+      // in the bundled set, so `materializeSkills` treats it as a foreign dir and
+      // would leave it forever. Idempotent (a no-op once gone). An AUTHORED skill
+      // the user named "bootstrap" is a symlink, not a tree we ship — removing the
+      // link is harmless, the next refresh re-links it from [skills].dir.
+      await ctx.removeAll(".claude/skills/bootstrap");
+
+      const text = await ctx.readConfig();
+      if (text === undefined) {
+        return; // no config to evolve.
+      }
+      let raw: Record<string, unknown>;
+      try {
+        raw = parseDiscernToml(text).raw;
+      } catch {
+        return; // unparseable — upgrade validates the config first; belt-and-braces.
+      }
+      const meta = isRecord(raw.meta) ? raw.meta : {};
+      if (meta.bootstrapped !== undefined) {
+        return; // the marker is already decided — never overwrite the user's value.
+      }
+      // Back-fill: an install that already has capabilities wired or a docs/ tree
+      // is effectively bootstrapped, so record it and the reminder stays quiet. A
+      // bare install gets no marker — absent ≡ not bootstrapped everywhere, so its
+      // first `discern bootstrap` runs normally. Only-if-true keeps "absent"
+      // meaning exactly one thing.
+      const caps = isRecord(raw.capabilities) ? raw.capabilities : {};
+      const configured = Object.keys(caps).length > 0 ||
+        await ctx.exists("docs");
+      if (configured) {
+        await ctx.editToml((e) => e.setBool("meta.bootstrapped", true));
+        ctx.note(
+          "back-filled [meta].bootstrapped = true (install already configured)",
+        );
+      } else {
+        ctx.note(
+          "not yet bootstrapped — run `discern bootstrap` to seed the docs",
+        );
+      }
     },
   },
 ];

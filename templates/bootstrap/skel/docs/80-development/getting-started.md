@@ -2,7 +2,7 @@
 
 *Cloning, setting up, and running the project locally for the first time.*
 
-> This doc is a skeleton. The `/bootstrap` skill (and the [`document-subsystem`](../../.claude/skills/document-subsystem/SKILL.md) skill, when filling the `80-development` subtree) writes it from the project's actual stack. Look for the `<!-- /bootstrap fills this -->` marker.
+> This doc is a skeleton. The `discern bootstrap` command (and the [`document-subsystem`](../../.claude/skills/document-subsystem/SKILL.md) skill, when filling the `80-development` subtree) writes it from the project's actual stack. Look for the `<!-- bootstrap fills this -->` marker.
 
 This is the path from a fresh clone to a running project and a first green gate. The harness commands are the same on every stack; the stack-specific steps (installing dependencies, configuring the environment, running the app) are filled in below.
 
@@ -17,6 +17,6 @@ These work the same regardless of language or framework:
 
 ## Setting up
 
-<!-- /bootstrap fills this -->
+<!-- bootstrap fills this -->
 
 _(The stack-specific steps: prerequisites to install, how to fetch dependencies, environment/config setup, how to start the app, and what a first `discern finish` should produce. Keep these aligned with the `[capabilities]` and `[worktree]` settings in `discern.toml`.)_

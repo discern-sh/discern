@@ -13,7 +13,7 @@ An Architecture Decision Record captures a significant decision, the context tha
 
 ## 0. Ensure the ADR home exists
 
-ADRs live in `docs/_adr/`. If that directory doesn't exist yet — a project that hasn't run `/bootstrap` — create it from this skill's skeleton before writing: copy `.claude/skills/write-adr/skel/docs/_adr/` (the canonical `README.md` format guide and `0000-template.md`) to `docs/_adr/`. If it already exists, skip this.
+ADRs live in `docs/_adr/`. If that directory doesn't exist yet — a project that hasn't run `discern bootstrap` — create it from this skill's skeleton before writing: copy `.claude/skills/write-adr/skel/docs/_adr/` (the canonical `README.md` format guide and `0000-template.md`) to `docs/_adr/`. If it already exists, skip this.
 
 ---
 

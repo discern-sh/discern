@@ -31,8 +31,11 @@ export const KIT_VERSION: string = denoJson.version;
  * TS-native engine; schema-5→6 **dissolves `.discern/`** into the single-file
  * footprint — config to a root `discern.toml`, guidance/recipes/authored-skills
  * moved out, bundled skills pruned, `[features]`/`[guidance]`/`[skills]` sections
- * added (ADR 0020). See `MIGRATIONS`. A config with no `[meta].schema_version` is
- * read as schema 1 (or a legacy manifest's recorded version), then migrated
- * forward.
+ * added (ADR 0020); schema-6→7 turns bootstrap from a materialized skill into the
+ * `discern bootstrap` command — it prunes the stale `.claude/skills/bootstrap/`
+ * copy and back-fills `[meta].bootstrapped = true` for an already-configured
+ * install so the new setup reminder never nags it (ADR 0024). See `MIGRATIONS`. A
+ * config with no `[meta].schema_version` is read as schema 1 (or a legacy
+ * manifest's recorded version), then migrated forward.
  */
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;

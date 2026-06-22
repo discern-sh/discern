@@ -23,6 +23,7 @@ import { runDoctor } from "./commands/doctor.ts";
 import { runMigrate } from "./commands/migrate.ts";
 import { runAddPreset } from "./commands/add_preset.ts";
 import { runDocs } from "./commands/docs.ts";
+import { runBootstrap, runBootstrapDone } from "./commands/bootstrap.ts";
 import {
   runConfigSet,
   runConfigSetCapability,
@@ -79,8 +80,13 @@ type RootCommand = ReturnType<typeof rootShape>;
 
 /** Build the root command with its global flags and subcommands. Subsystem verbs
  * (worktree, ratchets, refresh, skills, docs) are attached only when their
- * feature is enabled, so `--help` lists exactly the active verbs. */
-function buildCli(enabled: ReadonlySet<Feature>): RootCommand {
+ * feature is enabled, so `--help` lists exactly the active verbs. `bootstrap` is
+ * hidden from help once the project records `[meta].bootstrapped` (it stays
+ * callable with `--force`). */
+function buildCli(
+  enabled: ReadonlySet<Feature>,
+  hideBootstrap: boolean,
+): RootCommand {
   const root = new Command()
     .name("discern")
     .version(KIT_VERSION)
@@ -144,6 +150,45 @@ function buildCli(enabled: ReadonlySet<Feature>): RootCommand {
       });
       Deno.exit(code);
     });
+
+  // `bootstrap` — seed a freshly-installed harness from the project brief. The
+  // agent in the loop runs it, reads the printed instructions, authors the docs +
+  // guidance, then runs `bootstrap done` to validate and record completion. Not a
+  // materialized skill (ADR 0024), so nothing lingers in the project tree.
+  const bootstrap = new Command()
+    .description(
+      "Seed a freshly-installed harness from the project brief (run once, after init).",
+    )
+    .option("--force", "Re-run even if already bootstrapped.")
+    .action(async (options) => {
+      Deno.exit(
+        await runBootstrap({
+          json: globalFlags(options).json,
+          force: options.force ?? false,
+        }),
+      );
+    })
+    .command(
+      "done",
+      new Command()
+        .description("Validate the bootstrap and record [meta].bootstrapped.")
+        .option("--force", "Record completion even if skeleton markers remain.")
+        .action(async (options) => {
+          Deno.exit(
+            await runBootstrapDone({
+              json: globalFlags(options).json,
+              force: options.force ?? false,
+            }),
+          );
+        }),
+    );
+  // Hide on the REGISTERED command, not the pre-registration instance: the
+  // instance form of `.command()` re-parents, so `bootstrap.hidden()` wouldn't
+  // take. `bootstrap` stays reachable (and `--force`-able) when hidden.
+  const bootstrapCmd = root.command("bootstrap", bootstrap);
+  if (hideBootstrap) {
+    bootstrapCmd.hidden();
+  }
 
   root
     .command("upgrade")
@@ -424,22 +469,51 @@ function buildCli(enabled: ReadonlySet<Feature>): RootCommand {
   return root;
 }
 
+/** The cwd project's resolved CLI state: enabled features, whether we are inside a
+ * project at all, and whether it has recorded `[meta].bootstrapped`. */
+interface ProjectState {
+  enabled: ReadonlySet<Feature>;
+  inProject: boolean;
+  bootstrapped: boolean;
+}
+
 /**
- * Resolve the enabled features for the project the cwd is in. When not inside a
- * project, every feature is reported enabled so `--help` and the core verbs
- * behave normally (a verb that needs a project still errors with "no project").
+ * Resolve the CLI state for the project the cwd is in, with a single config read.
+ * When not inside a project, every feature is reported enabled so `--help` and the
+ * core verbs behave normally (a verb that needs a project still errors with "no
+ * project"), and `bootstrapped`/`inProject` are false (so the bootstrap nudge and
+ * self-hiding never fire outside a project). An unparseable config degrades the
+ * same way — never block the CLI on a config the user is mid-edit on.
  */
-async function resolveEnabledFeatures(): Promise<ReadonlySet<Feature>> {
+async function resolveProjectState(): Promise<ProjectState> {
   const root = await findRoot();
   if (root === undefined) {
-    return new Set(FEATURES);
+    return {
+      enabled: new Set(FEATURES),
+      inProject: false,
+      bootstrapped: false,
+    };
   }
   try {
-    return new Set(enabledFeatures(await Config.load(root)));
+    const cfg = await Config.load(root);
+    return {
+      enabled: new Set(enabledFeatures(cfg)),
+      inProject: true,
+      bootstrapped: cfg.bool("meta.bootstrapped"),
+    };
   } catch {
-    return new Set(FEATURES);
+    return { enabled: new Set(FEATURES), inProject: true, bootstrapped: false };
   }
 }
+
+/** Verbs that earn the one-time "not bootstrapped yet" nudge: the engine work
+ * verbs plus `docs`. Excludes setup/config/help verbs (init, upgrade, doctor,
+ * migrate, add-preset, bootstrap, config) so the reminder never spams a recipe's
+ * `config get` calls or the setup path itself. */
+const NUDGE_VERBS: ReadonlySet<string> = new Set<string>([
+  ...KNOWN_ENGINE_VERBS,
+  "docs",
+]);
 
 /**
  * Installer verbs Cliffy owns; combined with the engine verbs to decide which
@@ -447,6 +521,7 @@ async function resolveEnabledFeatures(): Promise<ReadonlySet<Feature>> {
  */
 const KNOWN_VERBS: ReadonlySet<string> = new Set<string>([
   "init",
+  "bootstrap",
   "upgrade",
   "doctor",
   "migrate",
@@ -478,13 +553,16 @@ export async function main(args: string[]): Promise<void> {
     }
 
     // Resolve which features this project has enabled (all-on outside a project),
-    // so help lists only active verbs and a disabled verb errors clearly.
-    const enabled = await resolveEnabledFeatures();
+    // plus its bootstrap state — one config read, so help lists only active verbs,
+    // a disabled verb errors clearly, and the bootstrap nudge/self-hiding know
+    // whether setup is still outstanding.
+    const { enabled, inProject, bootstrapped } = await resolveProjectState();
+    const hideBootstrap = inProject && bootstrapped;
 
     // Root help: Cliffy's help plus the project-recipe listing (the shell `agent
     // --help` showed both).
     if (verb === undefined || verb === "-h" || verb === "--help") {
-      console.log(buildCli(enabled).getHelp());
+      console.log(buildCli(enabled, hideBootstrap).getHelp());
       await printProjectRecipes();
       Deno.exit(0);
     }
@@ -500,6 +578,22 @@ export async function main(args: string[]): Promise<void> {
       Deno.exit(1);
     }
 
+    // One-time setup nudge (ADR 0024): until the project records
+    // `[meta].bootstrapped`, remind on the work verbs. A reminder, never a block —
+    // nothing is unsafe pre-bootstrap, and a hard gate would punish the
+    // manual-config and just-run-my-tests paths. Suppressed in --json so a
+    // machine-readable stdout is never accompanied by chatter the caller didn't ask
+    // for (the nudge goes to stderr regardless).
+    if (
+      inProject && !bootstrapped && !argv.includes("--json") &&
+      NUDGE_VERBS.has(verb)
+    ) {
+      console.error(
+        "discern: this project isn't bootstrapped yet — ask your agent to run " +
+          "`discern bootstrap` (or run it yourself).",
+      );
+    }
+
     // A built-in engine verb with a same-named project recipe: warn it is shadowed.
     if (KNOWN_ENGINE_VERBS.has(verb)) {
       await warnShadowedRecipe(verb);
@@ -511,7 +605,7 @@ export async function main(args: string[]): Promise<void> {
       Deno.exit(await dispatchRecipeOrSuggest(verb, argv.slice(1)));
     }
 
-    await buildCli(enabled).parse(argv);
+    await buildCli(enabled, hideBootstrap).parse(argv);
   } catch (err) {
     // An unparseable discern.toml must read as a clean diagnostic, not a raw
     // stack trace — in both human and `--json` modes (a CI/agent consuming JSON

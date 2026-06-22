@@ -8,10 +8,10 @@ If a change you are about to make violates one of these, treat that as a signal 
 
 ---
 
-<!-- /bootstrap fills this -->
+<!-- bootstrap fills this -->
 
 <!--
-  The `/bootstrap` skill writes 3–7 principles here from `brief.md`.
+  The `discern bootstrap` command writes 3–7 principles here from `brief.md`.
   Delete this comment and the EXAMPLE block below once the real principles exist.
 
   Each principle follows the same shape:
@@ -31,9 +31,9 @@ If a change you are about to make violates one of these, treat that as a signal 
   actually governs decisions — 3–7, not a wish list.
 -->
 
-## 1. Keep one home for every fact _(EXAMPLE — replace during `/bootstrap`)_
+## 1. Keep one home for every fact _(EXAMPLE — replace during `discern bootstrap`)_
 
-> This is a placeholder principle, here only to show the shape. `/bootstrap` replaces it with principles drawn from this project's brief. It is deliberately generic — do not keep it as-is.
+> This is a placeholder principle, here only to show the shape. `discern bootstrap` replaces it with principles drawn from this project's brief. It is deliberately generic — do not keep it as-is.
 
 Every fact in the system — a piece of configuration, a documented convention, a unit of behaviour — lives in exactly one authoritative place. Where a second copy must exist, it is *generated* from the source, marked as generated, and never hand-edited.
 
@@ -45,7 +45,7 @@ Every fact in the system — a piece of configuration, a documented convention, 
 
 ## What these add up to
 
-<!-- /bootstrap fills this -->
+<!-- bootstrap fills this -->
 
 _(Once the principles exist, summarise how they reinforce each other — the few sentences that explain why this particular set, taken together, produces the system's character. Principles are rarely independent; this is where you show the reader how they interlock.)_
 

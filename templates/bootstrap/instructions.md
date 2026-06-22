@@ -1,11 +1,8 @@
----
-name: bootstrap
-description: Seed a freshly-installed discern harness from the project brief. Use right after `discern init`, or when the user runs /bootstrap, or asks to "set up the docs", "fill in the principles/guidelines", "bootstrap the harness", or "propose the capability fills". The agent already in the loop does all the authoring — no API key, no provider lock-in.
----
-
 # Bootstrap the harness
 
-`discern init` lays down only the harness machinery and a `discern.toml` whose capabilities are all unset — it deliberately scaffolds **no docs tree and no `TODO.md`** (those appear once there is real content to put in them). Your job is to **create and fill** the docs and guidance **from the project's own context** — the brief the user wrote at install time, plus what the repository reveals about itself. The doc skeletons ship with this skill under `skel/`; you copy them in (Step 0.5), then fill them.
+> You are reading this because **`discern bootstrap` printed it**. These are instructions for *you, the coding agent in this session*: work through them in order, then run `discern bootstrap done` to finish. (There is no skill file and no second program — discern just hands you the brief.)
+
+`discern init` lays down only the harness machinery and a `discern.toml` whose capabilities are all unset — it deliberately scaffolds **no docs tree and no `TODO.md`** (those appear once there is real content to put in them). Your job is to **create and fill** the docs and guidance **from the project's own context** — the brief the user wrote at install time, plus what the repository reveals about itself. discern lays the doc skeletons for you when the project has none (see Step 0.5); you fill them.
 
 You — the coding agent already in this session — do the authoring. There is no API key and no external service: the whole point is that the agent in the loop seeds the project. Work through the steps below in order. Treat everything you write as a first draft for the user to refine, and **propose rather than silently overwrite** anything the user will want to confirm (especially the `discern.toml` capability fills).
 
@@ -24,14 +21,15 @@ Ask the user a couple of sharp questions **only when the repo itself is uninform
 
 ---
 
-## Step 0.5 — Materialise the doc skeletons
+## Step 0.5 — Check the doc skeletons
 
-The `docs/` tree and `TODO.md` ship as skeletons inside this skill, so the tree is created only when you are about to fill it. The skill is materialised at `.claude/skills/bootstrap/`, so its `skel/` lives at `.claude/skills/bootstrap/skel/`. Copy the skeletons into the project root now:
+`discern bootstrap` has already laid the skeletons for you — **but only when the project had none**, so existing docs are never disturbed:
 
-- `.claude/skills/bootstrap/skel/docs/` → `docs/`
-- `.claude/skills/bootstrap/skel/TODO.md` → `TODO.md`
+- if there was no `docs/` tree, it scaffolded one (the orientation docs plus the `80-development/` leaves) for you to fill;
+- if `TODO.md` was absent, it created that too;
+- if you **already had** a `docs/` tree (or a `TODO.md`), discern left it untouched — work with what is there, adapting these steps to your existing structure rather than imposing the skeleton shape below.
 
-Every skeleton uses `{{project_name}}` as a placeholder for the project's name — replace it as you fill each file (you have the name from the brief and `[project].slug`). Leave `skel/` itself untouched; it stays with the skill for the next project.
+The command's output told you which of these happened. The scaffolded files already carry the project name; the remaining placeholders are the `<!-- bootstrap fills this -->` markers and the EXAMPLE principle, which you replace as you go.
 
 ---
 
@@ -62,7 +60,7 @@ Open **`guidance.md`** (at the repo root — the default `[guidance].sources`). 
 
 ## Step 3 — Seed the orientation docs
 
-Fill the three orientation skeletons from the brief, removing the `<!-- /bootstrap fills this -->` markers as you complete each section:
+Fill the three orientation skeletons from the brief, removing the `<!-- bootstrap fills this -->` markers as you complete each section:
 
 - **`docs/00-orientation/concepts.md`** — the narrative tour: the core building blocks and how material flows through them, in plain language. Introduce the canonical nouns here.
 - **`docs/00-orientation/glossary.md`** — define each canonical noun once, precisely. Core nouns first, then a section per area.
@@ -70,7 +68,7 @@ Fill the three orientation skeletons from the brief, removing the `<!-- /bootstr
 
 Use the same capitalised canonical nouns across all three (and everywhere else). Don't introduce synonyms.
 
-Then clear the stale "starts as a skeleton" notes so the filled tree doesn't still announce itself as empty: the blockquote at the top of **`docs/00-orientation/README.md`** (it points readers at `/bootstrap` and the `<!-- /bootstrap fills this -->` markers) and the one-line skeleton blockquote atop each doc you just filled. Once a doc is real, a note telling the reader it is empty is worse than no note.
+Then clear the stale "starts as a skeleton" notes so the filled tree doesn't still announce itself as empty: the blockquote at the top of **`docs/00-orientation/README.md`** (it points readers at `discern bootstrap` and the `<!-- bootstrap fills this -->` markers) and the one-line skeleton blockquote atop each doc you just filled. Once a doc is real, a note telling the reader it is empty is worse than no note.
 
 ---
 
@@ -78,11 +76,11 @@ Then clear the stale "starts as a skeleton" notes so the filled tree doesn't sti
 
 Decide the numbered subsystem subtrees this project needs (`10-…`, `20-…`, … `80-development/` already exists). Then:
 
-- Update the **Subsystems** table in **`docs/README.md`** with the proposed names and a one-liner each, removing the placeholder rows. Also clear the "this tree starts as a skeleton — run `/bootstrap`" blockquote above the table: once the subtrees are real, that note is stale.
+- Update the **Subsystems** table in **`docs/README.md`** with the proposed names and a one-liner each, removing the placeholder rows. Also clear the "this tree starts as a skeleton — run `discern bootstrap`" blockquote above the table: once the subtrees are real, that note is stale.
 - Reflect the same names in the "what to read next" / "how the map relates" tables in the orientation docs.
 - **Create the directories with a stub `README.md` each** (a title and a one-line "what this subtree covers"), so the tree is navigable — but don't write the leaves now. Filling a subtree's leaves is the [`document-subsystem`](/.claude/skills/document-subsystem/SKILL.md) skill's job, run per subsystem when you're ready.
 
-**Exception — fill the `80-development/` leaves now.** Those leaves (`getting-started.md`, `testing.md`, `code-conventions.md`) ship with `<!-- /bootstrap fills this -->` markers and are *stack-level*, not subsystem-deep: everything they need — the setup steps, the test runner, the formatter and build — you already have from the brief and the Step 5 stack sniff. Fill them now, clearing their markers, and keep them aligned with the guidelines (Step 2) and the capabilities you propose (Step 5). Only the *numbered* subtree leaves are deferred to `document-subsystem`.
+**Exception — fill the `80-development/` leaves now.** Those leaves (`getting-started.md`, `testing.md`, `code-conventions.md`) ship with `<!-- bootstrap fills this -->` markers and are *stack-level*, not subsystem-deep: everything they need — the setup steps, the test runner, the formatter and build — you already have from the brief and the Step 5 stack sniff. Fill them now, clearing their markers, and keep them aligned with the guidelines (Step 2) and the capabilities you propose (Step 5). Only the *numbered* subtree leaves are deferred to `document-subsystem`.
 
 Propose the subtree set to the user before committing to it — the numbering is a reading order, easy to change, but worth a sanity check.
 
@@ -125,15 +123,17 @@ Notes that keep the proposal honest:
 2. Run **`discern doctor`** to verify the install — dispatcher executable, hooks present, every configured capability command resolvable, git worktree support, required tools on PATH.
 3. **Record the deferred wiring in `TODO.md`.** Everything you *proposed but did not activate* is outstanding work — and a comment in `discern.toml` or a line in your chat reply is not where the next agent (or the maintainer) will look. `TODO.md` is the shared backlog. Add a terse item (a bold title + one line, in the bucket that fits) for each open decision: the capabilities still awaiting confirmation, the `[worktree]` db / dev-server / `inherit_env` / setup settings left empty, any tool worth adding (a static analyser, a JS linter), and any test database or service the suite needs to run. This is what stops the bootstrap proposals from being silently lost when the session ends.
 4. Fix anything `doctor` flags (it returns the exact remedy), then summarise for the user: the principles you drafted, the subtrees you proposed, the capability fills awaiting their confirmation, and the `TODO.md` items you recorded. Point them at the [`document-subsystem`](/.claude/skills/document-subsystem/SKILL.md) skill as the next step for filling in each subtree's leaves.
+5. **Run `discern bootstrap done`** to lock it in. It validates the result — no `<!-- bootstrap fills this -->` markers and no EXAMPLE principle left behind — then records `[meta].bootstrapped` in `discern.toml`, which retires the one-time setup reminder and hides `discern bootstrap` from the command list. If it reports leftover markers, finish those and re-run it (or pass `--force` if a flagged file is a deliberate exception).
 
 ---
 
 ## Done when
 
-- `design-principles.md` holds real, project-specific principles (no EXAMPLE block, no `<!-- /bootstrap fills this -->` markers left).
+- `design-principles.md` holds real, project-specific principles (no EXAMPLE block, no `<!-- bootstrap fills this -->` markers left).
 - `guidance.md` has a real pitch and Conventions section.
 - The orientation docs (concepts, glossary, system-map) are seeded, the `80-development/` leaves are filled, and the numbered subsystem subtrees are named with stub READMEs.
-- No stale "starts as a skeleton / run `/bootstrap`" notes remain — the `docs/README.md` and `docs/00-orientation/README.md` intros describe the filled tree, not an empty one.
+- No stale "starts as a skeleton / run `discern bootstrap`" notes remain — the `docs/README.md` and `docs/00-orientation/README.md` intros describe the filled tree, not an empty one.
 - `discern.toml` capability fills are **proposed** for every detected stack (committed only if the user confirms).
 - `TODO.md` records the deferred wiring (unactivated capabilities, empty worktree settings, tools or test databases to add) so no open decision lives only in a comment or the chat.
 - `discern refresh` and `discern doctor` have been run and `doctor` is green.
+- `discern bootstrap done` has been run and reports success (it records `[meta].bootstrapped`).

@@ -185,7 +185,7 @@ async function planFileWrite(params: {
   // OR in owner read+write: a scaffolded seed is the user's to edit, but the
   // `deno compile` embedded filesystem flattens every bundled template to
   // read-only — without this, `init` would lay down a read-only `discern.toml`
-  // that the user (and `discern config set`/`/bootstrap`) then can't rewrite.
+  // that the user (and `discern config set`/`discern bootstrap`) then can't rewrite.
   // Any exec bit on the real source is preserved (0o555 → 0o755).
   const sourceMode = ((sourceStat.mode ?? 0o644) & 0o777) | 0o600;
 
@@ -305,7 +305,7 @@ async function planGitignoreAppend(
 /**
  * Build the op for the root `brief.md` — a SEED file: written once with a short
  * header, never overwritten if already present (preserves any edits the user or
- * `/bootstrap` made). Only seeded when the captured brief is non-empty (see
+ * `discern bootstrap` made). Only seeded when the captured brief is non-empty (see
  * `assembleInitPlan`), so a default install's footprint stays just `discern.toml`.
  */
 export async function planBrief(
@@ -316,7 +316,7 @@ export async function planBrief(
   const targetAbs = join(destDir, targetRel);
   const body = brief.trimEnd();
   const content = `# Project brief\n\n` +
-    `<!-- Captured at \`discern init\`. Read by the /bootstrap skill to seed\n` +
+    `<!-- Captured at \`discern init\`. Read by \`discern bootstrap\` to seed\n` +
     `     principles, guidelines, and docs. Edit freely. -->\n\n` +
     `${
       body.length > 0 ? body : "_(no description given at init — fill this in)_"

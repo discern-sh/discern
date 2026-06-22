@@ -4,7 +4,7 @@ The shape of the system in plain English. Read this tier once and the rest of th
 
 Orientation is deliberately small and stable. The subsystem subtrees go deep on mechanism; this tier exists so you understand *what the pieces are* and *why the system is shaped the way it is* before you read how any one piece works.
 
-> These four docs start as skeletons. The `/bootstrap` skill fills them from the project brief at `brief.md`. Look for the `<!-- /bootstrap fills this -->` markers.
+> These four docs start as skeletons. The `discern bootstrap` command fills them from the project brief at `brief.md`. Look for the `<!-- bootstrap fills this -->` markers.
 
 ---
 

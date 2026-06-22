@@ -3,7 +3,7 @@
  *
  * Flow: resolve config (flags + wizard) → build the seed plan from the templates
  * tree → append the brief op → stamp the schema version → review (or dry-run) →
- * confirm → apply → outro pointing at `/bootstrap`. Refuses to run over an
+ * confirm → apply → outro pointing at `discern bootstrap`. Refuses to run over an
  * existing install unless `--force` (which just re-runs without erroring).
  *
  * Every scaffolded file is a write-once seed EXCEPT the materialized skills under
@@ -72,7 +72,7 @@ export async function assembleInitPlan(params: {
     excludeNonSeed: true,
   });
 
-  // The brief is the user's authored intent, captured at init for `/bootstrap`.
+  // The brief is the user's authored intent, captured at init for `discern bootstrap`.
   // It is seeded only when non-empty so a default install's footprint is just
   // `discern.toml` (+ the generated agent files). An empty brief writes nothing.
   if (config.brief.trim().length > 0) {
@@ -360,29 +360,31 @@ function printOutro(log: Logger, config: InitConfig): void {
   log.line();
   log.heading("Next steps");
   log.line(
-    `  1. Run ${
-      log.bold("/bootstrap")
-    } in your coding agent to fill in principles,`,
+    `  1. Ask your coding agent to run ${
+      log.bold("discern bootstrap")
+    } to finish setup (recommended).`,
   );
   log.line(
-    "     guidance, and docs from your brief — and to propose capability fills.",
+    "     It fills principles, guidance, and docs from your brief and proposes your",
   );
   log.line(
-    `  2. Wire your capabilities. The harness ships with none, so until you fill`,
+    `     capability fills — then records it with ${
+      log.bold("discern bootstrap done")
+    }.`,
   );
   log.line(
-    `     them ${log.bold("discern finish")} passes without checking anything.`,
-  );
-  log.line(
-    `     Run ${log.bold("/bootstrap")} (or edit ${
+    `     Prefer to wire things by hand? Edit ${
       log.bold("discern.toml")
-    }) to wire your`,
+    } yourself — the harness ships`,
   );
-  log.line("     format / lint / test commands.");
   log.line(
-    `  3. Run ${
-      log.bold("discern doctor")
-    } to verify the install (config, schema,`,
+    `     with no capabilities, so ${
+      log.bold("discern finish")
+    } passes until you fill them.`,
   );
-  log.line("     capabilities, features, and more).");
+  log.line(
+    `  2. Run ${
+      log.bold("discern doctor")
+    } to verify the install (config, schema, capabilities, and more).`,
+  );
 }
