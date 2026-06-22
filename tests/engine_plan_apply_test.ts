@@ -86,6 +86,50 @@ Deno.test("finish --dry-run --json emits the plan, not a run report", async () =
   });
 });
 
+Deno.test("finish classifies scopes AFTER the fix stage (a fixer's new file fires its scope gate)", async () => {
+  // Regression guard for the scope-classification TIMING (ADR 0027): scopes are
+  // classified from the working tree AFTER the fix stage runs, so a fix-stage
+  // codemod that creates a file inside a scope makes that scope's gate fire. If
+  // classification moved before the fix stage, the gate would be (wrongly) skipped
+  // — running FEWER gates than the post-fix tree warrants, against fail-open.
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[capabilities]",
+        // The fixer creates an untracked file inside the `gen` scope.
+        'format = "mkdir -p generated && touch generated/new.txt"',
+        "",
+        "[scopes.gen]",
+        'paths = ["generated/**"]',
+        'gate = "echo gen-gate-ran"',
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+
+    const r = await runAgent(dir, ["finish", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    const obj = parseJson(r.stdout);
+    assert(
+      obj.scopes_changed.includes("gen"),
+      `the fixer's new file should make 'gen' a changed scope\n${r.stdout}`,
+    );
+    const gen = obj.scope_gates.find((g: { scope: string }) =>
+      g.scope === "gen"
+    );
+    assertEquals(
+      gen.status,
+      "ok",
+      "the gen scope gate must have fired and passed",
+    );
+  });
+});
+
 // ── ratchets ──────────────────────────────────────────────────────────────────
 
 Deno.test("ratchets --dry-run lists the ratchet without measuring it", async () => {

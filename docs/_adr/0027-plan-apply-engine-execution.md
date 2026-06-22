@@ -146,14 +146,22 @@ existing `finish --json` tests stay green unchanged.
   `--dry-run` into a real plan rather than leaving a parallel path was the
   point). Every other existing human string and the `finish --json`,
   `changed-scopes --json`, and `worktree-name --json` contracts are unchanged.
-- **A subtle, safe ordering shift in two places.** The gate now classifies the
-  changed scopes at plan time (a read-only git read) rather than mid-run after
-  the check/test stage; and graduation now creates the worktree's branch in the
-  _executor_ (after the read-only preconditions pass) rather than during
-  diagnosis. Both are observationally identical for real inputs — fixers don't
-  move scope membership, and a detached+behind worktree now fails the
-  precondition _before_ a branch is created rather than after, which is strictly
-  better.
+- **Scope timing is preserved exactly.** The gate's apply path still classifies
+  the changed scopes _after_ the stage groups run (`buildStageGroups` →
+  `changedScopes` → `scopeGatesGroup`), not before — because `changedScopes`
+  reads the working tree, which a fix-stage codemod can mutate, and classifying
+  earlier could run _fewer_ scope gates than the post-fix tree warrants, against
+  the fail-open bias. `--dry-run` classifies once, read-only (it runs no fixers,
+  so the tree it sees is the one the apply would start from); the pure
+  `buildGatePlan` composes the same two halves for that preview and for the unit
+  tests.
+- **One genuinely safe ordering shift.** Graduation now creates the worktree's
+  branch in the _executor_ (after the read-only preconditions pass) rather than
+  during diagnosis, so a detached+behind worktree fails the precondition
+  _before_ a branch is created rather than after — strictly better. The only
+  observable consequence is cosmetic: in the doubly-rare
+  detached-HEAD-plus-dirty-main case, the refusal message names the base branch
+  (`agent/foo`) rather than a disambiguated created one (`agent/foo-a1b2c3d4`).
 
 ## Alternatives considered
 

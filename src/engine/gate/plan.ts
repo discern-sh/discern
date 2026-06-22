@@ -103,15 +103,12 @@ export function planScopeGates(
 }
 
 /**
- * Build the full gate plan from the typed config and the changed scopes (already
- * classified by the caller — the only read-only I/O). Pure given those inputs, so
- * the whole "what would the gate run" decision is unit-testable without a
- * subprocess. Mirrors the hand-unrolled order: fix (serial) → build → check∥test →
- * scope-gates, then a trailing merge check. The scope-gates group holds EVERY
- * configured gate (firing ones `willRun`, unchanged ones not) so the report and
- * the dry-run listing see them all; the executor runs only the firing ones.
+ * The capability/check job groups — fix (serial) → build → check∥test — derived
+ * from the typed config alone. These are independent of the changed scopes, so the
+ * executor can run them BEFORE classifying scopes (preserving the gate's original
+ * timing, where a fix-stage edit is reflected in the scope classification).
  */
-export function buildGatePlan(cfg: DiscernConfig, changed: string[]): GatePlan {
+export function buildStageGroups(cfg: DiscernConfig): JobGroup[] {
   const groups: JobGroup[] = [];
 
   const fix = planStageJobs(cfg, "fix");
@@ -150,18 +147,46 @@ export function buildGatePlan(cfg: DiscernConfig, changed: string[]): GatePlan {
     });
   }
 
-  const scopeGates = planScopeGates(cfg, changed);
-  if (scopeGates.length > 0) {
-    groups.push({
-      stage: "scope_gates",
-      mode: "parallel",
-      heading: "Running gates for changed scopes...",
-      display: "Scope gates",
-      jobs: scopeGates,
-    });
-  }
+  return groups;
+}
 
-  return { groups, mergeCheck: true, scopesChanged: changed };
+/**
+ * The scope-gates group for the changed scopes, or undefined when no scope
+ * declares a gate. The group holds EVERY configured gate (firing ones `willRun`,
+ * unchanged ones not) so the report and the dry-run listing see them all; the
+ * executor runs only the firing ones.
+ */
+export function scopeGatesGroup(jobs: PlannedJob[]): JobGroup | undefined {
+  if (jobs.length === 0) {
+    return undefined;
+  }
+  return {
+    stage: "scope_gates",
+    mode: "parallel",
+    heading: "Running gates for changed scopes...",
+    display: "Scope gates",
+    jobs,
+  };
+}
+
+/**
+ * Build the full gate plan from the typed config and the changed scopes (already
+ * classified by the caller — the only read-only I/O). Pure given those inputs, so
+ * the whole "what would the gate run" decision is unit-testable without a
+ * subprocess. Mirrors the gate's order: fix (serial) → build → check∥test →
+ * scope-gates, then a trailing merge check. Used by `--dry-run` (which classifies
+ * scopes once, read-only); the apply path assembles the same plan but classifies
+ * scopes AFTER the stage groups run, so the executor composes
+ * {@link buildStageGroups} + {@link scopeGatesGroup} directly.
+ */
+export function buildGatePlan(cfg: DiscernConfig, changed: string[]): GatePlan {
+  const groups = buildStageGroups(cfg);
+  const sg = scopeGatesGroup(planScopeGates(cfg, changed));
+  return {
+    groups: sg === undefined ? groups : [...groups, sg],
+    mergeCheck: true,
+    scopesChanged: changed,
+  };
 }
 
 // ── the ADR-0004 `finish --json` report (a serialization of plan + results) ─────

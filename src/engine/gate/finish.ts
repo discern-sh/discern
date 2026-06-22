@@ -22,9 +22,13 @@ import { type RunOptions, runParallel, runSerial } from "../jobs/runner.ts";
 import {
   buildGatePlan,
   buildGateReport,
+  buildStageGroups,
   type GatePlan,
   gatePlanToEngine,
   type GateReport,
+  type JobGroup,
+  planScopeGates,
+  scopeGatesGroup,
 } from "./plan.ts";
 import { cmdsInStage } from "./stages.ts";
 import { gotchasHint } from "./gotchas.ts";
@@ -33,60 +37,33 @@ import { byteWriter, colorEnabled, makeOut, type Out } from "../output.ts";
 import { assertMainMerged } from "../worktree/git.ts";
 import { outSink, planToJson, renderPlan } from "../plan/view.ts";
 
-/** The outcome of applying a gate plan: the per-job results + the failed stage. */
-interface GateExecution {
-  results: Map<string, JobResult>;
-  failedStage: string | null;
-}
-
 /**
- * Apply a gate plan — the thin executor. Walks the plan's groups in order, running
- * each group's firing jobs (serial for the mutating fix stage, parallel otherwise)
- * and stopping at the first group that fails. The merge check runs last, only when
- * every group passed (it self-skips outside a worktree). Owns every effect; the
- * plan and the report are pure.
+ * Run one job group — the thin per-group executor. Runs the group's firing jobs
+ * (serial for the mutating fix stage, parallel otherwise), records their results,
+ * and returns whether the group passed. A group with no firing job (e.g. a
+ * scope-gates group whose scopes are all unchanged) is a clean pass with no
+ * heading.
  */
-async function executeGatePlan(
-  plan: GatePlan,
-  root: string,
-  cfg: DiscernConfig,
+async function runGroup(
+  group: JobGroup,
+  results: Map<string, JobResult>,
   runOpts: RunOptions,
   out: Out,
-): Promise<GateExecution> {
-  const results = new Map<string, JobResult>();
-  const record = (rs: JobResult[]): void => {
-    for (const r of rs) {
-      results.set(r.label, r);
-    }
-  };
-  let failedStage: string | null = null;
-
-  for (const group of plan.groups) {
-    const jobs: Job[] = group.jobs
-      .filter((j) => j.willRun)
-      .map((j) => ({ label: j.label, command: j.command }));
-    if (jobs.length === 0) {
-      continue; // a scope-gates group whose scopes are all unchanged
-    }
-    out.heading(group.heading);
-    const r = group.mode === "serial"
-      ? await runSerial(jobs, runOpts)
-      : await runParallel(jobs, runOpts);
-    record(r.results);
-    if (!r.ok) {
-      failedStage = group.stage;
-      break;
-    }
+): Promise<boolean> {
+  const jobs: Job[] = group.jobs
+    .filter((j) => j.willRun)
+    .map((j) => ({ label: j.label, command: j.command }));
+  if (jobs.length === 0) {
+    return true;
   }
-
-  if (failedStage === null && plan.mergeCheck) {
-    const mainBranch = Deno.env.get("MAIN_BRANCH") || cfg.project.main_branch;
-    if ((await assertMainMerged(root, mainBranch)).kind === "behind") {
-      failedStage = "merge";
-    }
+  out.heading(group.heading);
+  const r = group.mode === "serial"
+    ? await runSerial(jobs, runOpts)
+    : await runParallel(jobs, runOpts);
+  for (const res of r.results) {
+    results.set(res.label, res);
   }
-
-  return { results, failedStage };
+  return r.ok;
 }
 
 /** The human die message for each failed stage (matches the shell fail_phase). */
@@ -134,18 +111,46 @@ async function runGate(
   };
   const out = makeOut(color, infoStream);
 
-  // Read-only I/O at plan time: classify the changed scopes, then build the plan.
+  const results = new Map<string, JobResult>();
+  let failedStage: string | null = null;
+
+  // 1. Run the capability/check stage groups (fix → build → check∥test). These do
+  //    not depend on the changed scopes, so they run first.
+  const stageGroups = buildStageGroups(cfg);
+  for (const group of stageGroups) {
+    if (!(await runGroup(group, results, runOpts, out))) {
+      failedStage = group.stage;
+      break;
+    }
+  }
+
+  // 2. Classify the changed scopes AFTER the stage groups — preserving the gate's
+  //    original timing, so a fix-stage edit is reflected and scope selection keeps
+  //    its fail-open bias (it never runs FEWER gates than the post-fix tree warrants).
   const changed = await changedScopes(root, cfg);
-  const plan = buildGatePlan(cfg, changed);
+  const sgGroup = scopeGatesGroup(planScopeGates(cfg, changed));
 
-  const { results, failedStage } = await executeGatePlan(
-    plan,
-    root,
-    cfg,
-    runOpts,
-    out,
-  );
+  // 3. Scope gates (only when the stage groups passed).
+  if (failedStage === null && sgGroup !== undefined) {
+    if (!(await runGroup(sgGroup, results, runOpts, out))) {
+      failedStage = "scope_gates";
+    }
+  }
 
+  // 4. Merge check (no-op in the main checkout / outside a worktree).
+  if (failedStage === null) {
+    const mainBranch = Deno.env.get("MAIN_BRANCH") || cfg.project.main_branch;
+    if ((await assertMainMerged(root, mainBranch)).kind === "behind") {
+      failedStage = "merge";
+    }
+  }
+
+  // 5. Assemble the executed plan and serialize it into the report.
+  const plan: GatePlan = {
+    groups: sgGroup === undefined ? stageGroups : [...stageGroups, sgGroup],
+    mergeCheck: true,
+    scopesChanged: changed,
+  };
   return {
     report: buildGateReport(plan, results, failedStage),
     failedStage,
