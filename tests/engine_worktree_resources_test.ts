@@ -101,6 +101,39 @@ Deno.test("a required create failure aborts setup; required = false does not", a
   });
 });
 
+Deno.test("worktree:ensure runs a resource's ensure on an already-configured worktree", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "ens");
+    const markers = join(dir, "markers");
+    await declareResource(
+      wt,
+      markers,
+      [
+        'create  = "true"',
+        'destroy = "true"',
+        'ensure  = "mkdir -p @MARKERS@ && touch @MARKERS@/@resource@.ensured"',
+      ].join("\n"),
+    );
+    // Setup marks the worktree configured (create runs, no ensure yet).
+    assertEquals((await runAgent(wt, ["worktree"])).code, 0);
+    const handle =
+      (await runAgent(wt, ["worktree-name", "--resource", "thing"])).stdout
+        .trim();
+    assert(
+      !(await exists(join(markers, `${handle}.ensured`))),
+      "ensure ran during setup",
+    );
+
+    // Session-start ensure on an already-configured worktree reconciles drift.
+    const ens = await runAgent(wt, ["worktree:ensure"]);
+    assertEquals(ens.code, 0, ens.output);
+    assert(
+      await exists(join(markers, `${handle}.ensured`)),
+      `ensure did not run\n${ens.output}`,
+    );
+  });
+});
+
 Deno.test("worktree:prune reclaims a vanished worktree's resource (GC), and --dry-run does not", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "orph");
