@@ -44,6 +44,40 @@ Deno.test("config set-capability fills a capability and preserves comments", asy
   });
 });
 
+Deno.test("config set refuses an unknown key at write time (no bricked config)", async () => {
+  await withTempDir(async (dir) => {
+    await init(dir);
+    const before = await readToml(dir);
+    const r = await runCli(
+      ["config", "set", "project.frobnicate", "hello", "--json"],
+      dir,
+    );
+    assertEquals(r.code, 1);
+    const result = JSON.parse(r.stdout);
+    assertEquals(result.ok, false);
+    assertEquals(result.error, "unknown_key");
+    assertStringIncludes(result.message, "unknown config key");
+    // The config is untouched — the bad key was never written.
+    assertEquals(await readToml(dir), before);
+    // And the install still loads cleanly.
+    const doctor = await runCli(["doctor", "--json"], dir);
+    assertEquals(JSON.parse(doctor.stdout).ok, true);
+  });
+});
+
+Deno.test("config set allows a valid-but-incomplete path (incremental table build)", async () => {
+  await withTempDir(async (dir) => {
+    await init(dir);
+    // Setting one key of a ratchet table before its siblings is legitimate.
+    const r = await runCli(
+      ["config", "set", "ratchets.coverage.limit", "80"],
+      dir,
+    );
+    assertEquals(r.code, 0, r.stderr);
+    assertStringIncludes(await readToml(dir), "limit = 80");
+  });
+});
+
 Deno.test("config set-capability rejects an unknown capability name", async () => {
   await withTempDir(async (dir) => {
     await init(dir);

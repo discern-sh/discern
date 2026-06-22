@@ -5,16 +5,16 @@
  * (`[project].gotchas_doc`); an empty gotchas_doc disables the doc line.
  */
 
-import type { Config } from "../../shared/config_read.ts";
+import type { DiscernConfig } from "../../shared/config_schema.ts";
 import { palette, writeStderr } from "../output.ts";
 
 /** Print the failure pointer to stderr. */
 export function gotchasHint(
-  config: Config,
+  config: DiscernConfig,
   root: string,
   color: boolean,
 ): void {
-  const doc = config.get("project.gotchas_doc", "");
+  const doc = config.project.gotchas_doc;
   const c = palette(color);
   writeStderr("\n");
   writeStderr(

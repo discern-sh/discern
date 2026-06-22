@@ -16,7 +16,10 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { join } from "@std/path";
-import { Config } from "../src/shared/config_read.ts";
+import {
+  type DiscernConfig,
+  parseConfigOrThrow,
+} from "../src/shared/config_schema.ts";
 import {
   bundledSkillNames,
   claudeSkillsDirOf,
@@ -38,8 +41,8 @@ async function exists(path: string): Promise<boolean> {
 }
 
 /** A config with the default `[skills].dir = skills`. */
-function cfg(dir = "skills"): Config {
-  return new Config(`[skills]\ndir = "${dir}"\n`);
+function cfg(dir = "skills"): DiscernConfig {
+  return parseConfigOrThrow(`[skills]\ndir = "${dir}"\n`);
 }
 
 /** Write an authored skill dir with a stub SKILL.md under `<root>/skills/<name>`. */

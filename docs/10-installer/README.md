@@ -31,6 +31,17 @@ install's shape, stamped into `[meta].schema_version` in `discern.toml` (the
 `5 → 6` step dissolved the old `.discern/` namespace into this one root file —
 [ADR 0020](../_adr/0020-dissolve-discern-dir.md)).
 
+## Config reference
+
+[`config-reference.md`](config-reference.md) documents every `discern.toml`
+section, key, type, and default. It is **generated** from the one canonical
+config schema
+([`src/shared/config_schema.ts`](../../src/shared/config_schema.ts),
+[ADR 0026](../_adr/0026-typed-config-schema.md)) by `deno task codegen` — so the
+reference, the editor [JSON Schema](../../schema/discern-config.schema.json),
+and the rules the engine enforces all come from one source and cannot drift.
+Edit the schema, not the generated files.
+
 > **Status: stub.** This README orients the subtree; the leaves below are not
 > written yet. Fill them with the
 > [`document-subsystem`](../../templates/skills/document-subsystem/SKILL.md)

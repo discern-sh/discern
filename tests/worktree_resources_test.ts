@@ -14,7 +14,7 @@ import { exists } from "@std/fs";
 import { withTempDir } from "./helpers.ts";
 import { addWorktree, gitInit } from "./engine_helpers.ts";
 import { Logger } from "../src/lib/log.ts";
-import { Config } from "../src/shared/config_read.ts";
+import { loadConfig, parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import {
   deriveIdentity,
   type IdentitySettings,
@@ -91,7 +91,7 @@ Deno.test("resourceEnvName: DISCERN_RESOURCE_<NAME> mapping", () => {
 // ── spec reader: document order + defaults ────────────────────────────────────
 
 Deno.test("readResourceSpecs: document order, not alphabetical", () => {
-  const cfg = new Config(`[worktree.resources.zebra]
+  const cfg = parseConfigOrThrow(`[worktree.resources.zebra]
 create = "z"
 [worktree.resources.alpha]
 create = "a"
@@ -100,7 +100,7 @@ create = "a"
 });
 
 Deno.test("readResourceSpecs: required/gc default true; retries default 0", () => {
-  const cfg = new Config(`[worktree.resources.a]
+  const cfg = parseConfigOrThrow(`[worktree.resources.a]
 create = "x"
 [worktree.resources.b]
 create = "x"
@@ -168,7 +168,7 @@ destroy = "rm -f ${markers}/@resource@.live; mkdir -p ${markers} && touch ${mark
 /** Build a ResourceContext rooted at a worktree. */
 async function ctxFor(worktree: string): Promise<ResourceContext> {
   return {
-    config: await Config.load(worktree),
+    config: await loadConfig(worktree),
     log: quietLog(),
     cwd: worktree,
   };

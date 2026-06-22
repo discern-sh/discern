@@ -22,7 +22,7 @@ import { parseDiscernToml } from "../src/lib/toml_render.ts";
 import { schemaFromRaw } from "../src/lib/schema.ts";
 import { SCHEMA_VERSION } from "../src/lib/version.ts";
 import { materializeSkills } from "../src/lib/skills.ts";
-import { Config } from "../src/shared/config_read.ts";
+import { loadConfig } from "../src/shared/config_schema.ts";
 import { REAL_TEMPLATES, withTempDir } from "./helpers.ts";
 
 /** A resolved config for a non-interactive integration scaffold. */
@@ -71,7 +71,7 @@ Deno.test("init scaffolds the real templates into a working harness", async () =
     // 3. The bundled skills materialize (copied) into .claude/skills/. The plan
     // lays down only seeds; skills are the binary's own artifacts, materialized
     // the way runInit/worktree setup do — so drive that step here, then assert.
-    await materializeSkills(dir, await Config.load(dir));
+    await materializeSkills(dir, await loadConfig(dir));
     const skillInfo = await Deno.stat(
       join(dir, ".claude/skills/write-adr/SKILL.md"),
     );

@@ -12,12 +12,12 @@
  * Empty and `:` no-op commands are skipped.
  */
 
-import type { Config } from "../../shared/config_read.ts";
 import {
-  capStage,
-  isKnownCapability,
-  type Stage,
-} from "../../shared/capabilities.ts";
+  type DiscernConfig,
+  toCommand,
+  toCommandList,
+} from "../../shared/config_schema.ts";
+import { capStage, type Stage } from "../../shared/capabilities.ts";
 
 /** One gate job with the metadata `finish --json` reports. */
 export interface StageJob {
@@ -27,19 +27,17 @@ export interface StageJob {
 }
 
 /** The jobs that run in `stage`, capabilities first then checks, in declared order. */
-export function jobsInStage(config: Config, stage: Stage): StageJob[] {
+export function jobsInStage(config: DiscernConfig, stage: Stage): StageJob[] {
   const jobs: StageJob[] = [];
 
-  // (a) capabilities — flat keys of [capabilities], placed by their derived stage.
-  for (const cap of config.keys("capabilities")) {
-    if (!isKnownCapability(cap)) {
-      continue; // unknown key: skip (doctor errors on it)
-    }
-    if (capStage(cap) !== stage) {
+  // (a) capabilities — each declared capability, placed by its derived stage. An
+  // array-valued capability expands to one job per element.
+  for (const [cap, value] of Object.entries(config.capabilities)) {
+    if (value === undefined || capStage(cap) !== stage) {
       continue;
     }
-    // config.array yields one item for a scalar, N for an array (empties/":" dropped).
-    config.array(`capabilities.${cap}`).forEach((command, i) => {
+    // A scalar yields one job; a list yields one per element (empties/":" dropped).
+    toCommandList(value).forEach((command, i) => {
       jobs.push({
         label: i === 0 ? cap : `${cap}#${i + 1}`,
         command,
@@ -48,13 +46,13 @@ export function jobsInStage(config: Config, stage: Stage): StageJob[] {
     });
   }
 
-  // (b) checks — explicit stage; run is a scalar.
-  for (const chk of config.subsections("checks")) {
-    if (config.get(`checks.${chk}.stage`) !== stage) {
+  // (b) checks — explicit stage; a list run joins into one job command.
+  for (const [chk, spec] of Object.entries(config.checks)) {
+    if (spec.stage !== stage) {
       continue;
     }
-    const run = config.get(`checks.${chk}.run`, "");
-    if (run === "" || run === ":") {
+    const run = toCommand(spec.run);
+    if (run === "") {
       continue;
     }
     jobs.push({ label: chk, command: run, kind: "check" });
@@ -68,7 +66,7 @@ export function jobsInStage(config: Config, stage: Stage): StageJob[] {
  * `:` when the stage has no real job (so a track is never empty). Used by the
  * prepare/test convenience recipes and the no-op detection in finish's tail.
  */
-export function cmdsInStage(config: Config, stage: Stage): string {
+export function cmdsInStage(config: DiscernConfig, stage: Stage): string {
   const cmds = jobsInStage(config, stage).map((j) => j.command).filter((c) =>
     c.length > 0
   );

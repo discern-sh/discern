@@ -16,67 +16,24 @@
 
 import { KNOWN_CAPABILITIES, STAGES } from "./config.ts";
 import { FEATURES, isFeature } from "../shared/features.ts";
+import {
+  CONFIG_DOC_VERSION,
+  type DiscernConfigDoc,
+} from "../shared/config_schema.ts";
 import type { InitFlags } from "./prompts.ts";
 import type { TomlEditor } from "./toml_edit.ts";
 
-/**
- * The config-document major version this build understands. A document may omit
- * `version` (assumed current) or carry a matching major; a different major is a
- * breaking shape this build refuses rather than misreads.
- */
-export const CONFIG_DOC_VERSION = "2";
+// The document's shape, its major version, and its editor JSON Schema all derive
+// from the one canonical schema (`config_schema.ts`, ADR 0026) — re-exported here
+// so the installer keeps importing them from this module. `applyConfigDoc` below
+// is the runtime translator that writes a (loosely-parsed, possibly-malformed)
+// document into a project's discern.toml, with author-friendly per-section
+// messages; the schema is the published contract a `preset.json` validates against.
+export { CONFIG_DOC_VERSION };
+export type { DiscernConfigDoc };
 
 /** A capability/check/gate value: one command, or a list run in order. */
 type CommandOrList = string | string[];
-
-/** A `[checks.<name>]` table — custom gate work with an explicit stage. */
-interface CheckSpec {
-  stage: string;
-  run: CommandOrList;
-  provides?: string;
-}
-
-/** A `[scopes.<name>]` table — a named region with optional attributes. */
-interface ScopeSpec {
-  paths: string[];
-  neutral?: boolean;
-  previewable?: boolean;
-  gate?: CommandOrList;
-}
-
-/** A `[ratchets.<name>]` table as expressed in the config document. */
-interface RatchetSpec {
-  metric?: string;
-  direction?: string;
-  limit: number | string;
-  run: CommandOrList;
-}
-
-/** The full shape of a discern config document (every field optional). */
-export interface DiscernConfigDoc {
-  /** Editor-only JSON Schema pointer; ignored by the loader. */
-  $schema?: string;
-  /** Document major version (default: the current `CONFIG_DOC_VERSION`). */
-  version?: string | number;
-  name?: string;
-  slug?: string;
-  branch_prefix?: string;
-  source_globs?: string[];
-  brief?: string;
-  agents?: string[];
-  /** `[features]` toggles — a feature name mapped to a boolean (default true). */
-  features?: Record<string, boolean>;
-  /** Preset metadata; ignored by `init --config`. */
-  description?: string;
-  /** `[capabilities]` fills — a known capability name mapped to a command (or list). */
-  capabilities?: Record<string, CommandOrList>;
-  /** `[checks.<name>]` fills — custom gate work with an explicit stage. */
-  checks?: Record<string, CheckSpec>;
-  /** `[scopes.<name>]` fills — a named region with paths and optional attributes. */
-  scopes?: Record<string, ScopeSpec>;
-  /** `[ratchets.<name>]` tables (coverage is just a conventional name). */
-  ratchets?: Record<string, RatchetSpec>;
-}
 
 /** TOML bare-key shape, enforced for slot/scope/side-gate/ratchet names. */
 const NAME_RE = /^[A-Za-z0-9_-]+$/;
@@ -192,27 +149,32 @@ export function applyConfigDoc(
         }; use a [checks.<name>] table with a stage for custom work)`,
       );
     }
+    if (run === undefined) {
+      continue; // a known key present with no value — nothing to write
+    }
     setCommand(editor, `capabilities.${name}`, run);
   }
 
-  // Checks: an explicit stage (∈ STAGES) + a run command + an optional label.
+  // Checks: an explicit stage (∈ STAGES) + a run command + an optional label. The
+  // document is loosely parsed (untrusted JSON), so each schema-required field is
+  // validated here with an author-friendly message rather than trusted from the type.
   for (const [name, spec] of Object.entries(doc.checks ?? {})) {
     assertName("check", name);
-    if (spec.stage === undefined) {
+    const stage = spec.stage as string | undefined;
+    if (stage === undefined) {
       throw new Error(`check "${name}": a stage is required`);
     }
-    if (!(STAGES as readonly string[]).includes(spec.stage)) {
+    if (!(STAGES as readonly string[]).includes(stage)) {
       throw new Error(
-        `check "${name}": unknown stage "${spec.stage}" (use ${
-          STAGES.join(", ")
-        })`,
+        `check "${name}": unknown stage "${stage}" (use ${STAGES.join(", ")})`,
       );
     }
-    if (spec.run === undefined) {
+    const run = spec.run as CommandOrList | undefined;
+    if (run === undefined) {
       throw new Error(`check "${name}": a run command is required`);
     }
-    editor.setString(`checks.${name}.stage`, spec.stage);
-    setCommand(editor, `checks.${name}.run`, spec.run);
+    editor.setString(`checks.${name}.stage`, stage);
+    setCommand(editor, `checks.${name}.run`, run);
     if (spec.provides !== undefined) {
       editor.setString(`checks.${name}.provides`, spec.provides);
     }
@@ -239,17 +201,18 @@ export function applyConfigDoc(
   // Ratchets: a required run (emits the metric) + limit; direction/metric default.
   for (const [name, spec] of Object.entries(doc.ratchets ?? {})) {
     assertName("ratchet", name);
-    const direction = spec.direction ?? "up";
+    const direction = (spec.direction ?? "up") as string;
     if (direction !== "up" && direction !== "down") {
       throw new Error(`ratchet "${name}": direction must be "up" or "down"`);
     }
-    if (spec.run === undefined) {
+    const run = spec.run as CommandOrList | undefined;
+    if (run === undefined) {
       throw new Error(`ratchet "${name}": a run command is required`);
     }
     editor.setString(`ratchets.${name}.metric`, spec.metric ?? name);
     editor.setString(`ratchets.${name}.direction`, direction);
     editor.setNumber(`ratchets.${name}.limit`, spec.limit);
-    setCommand(editor, `ratchets.${name}.run`, spec.run);
+    setCommand(editor, `ratchets.${name}.run`, run);
   }
 }
 

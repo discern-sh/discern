@@ -4,14 +4,14 @@
  * the shell `test` recipe.
  */
 
-import { Config } from "../../shared/config_read.ts";
+import { loadConfig } from "../../shared/config_schema.ts";
 import { cmdsInStage } from "./stages.ts";
 import { colorEnabled, makeOut } from "../output.ts";
 import { runShellInherit } from "./run-shell.ts";
 
 /** Run `test`. Returns a process exit code. */
 export async function runTestCapability(root: string): Promise<number> {
-  const cfg = await Config.load(root);
+  const cfg = await loadConfig(root);
   const out = makeOut(colorEnabled());
   const testCmd = cmdsInStage(cfg, "test");
 

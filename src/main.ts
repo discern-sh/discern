@@ -9,7 +9,11 @@
 
 import { Command } from "@cliffy/command";
 import { KIT_VERSION } from "./lib/version.ts";
-import { Config, ConfigParseError } from "./shared/config_read.ts";
+import {
+  ConfigParseError,
+  ConfigValidationError,
+  loadConfig,
+} from "./shared/config_schema.ts";
 import { findRoot } from "./shared/env.ts";
 import {
   enabledFeatures,
@@ -501,12 +505,12 @@ async function resolveProjectState(): Promise<ProjectState> {
     };
   }
   try {
-    const cfg = await Config.load(root);
+    const cfg = await loadConfig(root);
     return {
       enabled: new Set(enabledFeatures(cfg)),
       inProject: true,
       configOk: true,
-      bootstrapped: cfg.bool("meta.bootstrapped"),
+      bootstrapped: cfg.meta.bootstrapped,
     };
   } catch {
     return {
@@ -627,16 +631,22 @@ export async function main(args: string[]): Promise<void> {
 
     await buildCli(enabled, hideBootstrap).parse(argv);
   } catch (err) {
-    // An unparseable discern.toml must read as a clean diagnostic, not a raw
-    // stack trace — in both human and `--json` modes (a CI/agent consuming JSON
-    // gets a structured error, not garbage). Other errors propagate unchanged.
-    if (err instanceof ConfigParseError) {
+    // An unparseable or schema-invalid discern.toml must read as a clean
+    // diagnostic, not a raw stack trace — in both human and `--json` modes (a
+    // CI/agent consuming JSON gets a structured error, not garbage). A syntax
+    // error reads `invalid_toml`; a schema violation reads `invalid_config` and
+    // carries the per-issue list. Other errors propagate unchanged.
+    if (
+      err instanceof ConfigParseError || err instanceof ConfigValidationError
+    ) {
+      const isValidation = err instanceof ConfigValidationError;
       if (argv.includes("--json")) {
         console.log(
           JSON.stringify({
             ok: false,
-            error: "invalid_toml",
+            error: isValidation ? "invalid_config" : "invalid_toml",
             message: err.message,
+            ...(isValidation ? { issues: err.issues } : {}),
           }),
         );
       } else {

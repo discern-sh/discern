@@ -21,10 +21,12 @@
     "fmt": "deno fmt",
     "lint": "deno lint",
     "coverage": "deno run --allow-read --allow-write --allow-env --allow-run scripts/coverage.ts",
+    "codegen": "deno run --allow-read --allow-write scripts/codegen.ts",
     "check": "deno check src/main.ts",
     "gate": "deno task dev finish"
   },
   "imports": {
+    "@zod/zod": "jsr:@zod/zod@^4.4.3",
     "@cliffy/command": "jsr:@cliffy/command@^1.0.0-rc.8",
     "@cliffy/prompt": "jsr:@cliffy/prompt@^1.0.0-rc.8",
     "@cliffy/table": "jsr:@cliffy/table@^1.0.0-rc.8",
@@ -48,7 +50,9 @@
       "AGENTS.md",
       "CLAUDE.md",
       "GEMINI.md",
-      ".idea/"
+      ".idea/",
+      "schema/discern-config.schema.json",
+      "docs/10-installer/config-reference.md"
     ]
   },
   "lint": {

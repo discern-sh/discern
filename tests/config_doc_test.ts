@@ -189,7 +189,7 @@ Deno.test("applyConfigDoc defaults a ratchet's direction and metric", () => {
   const ed = editor();
   // No direction → "up"; no metric → the ratchet name.
   applyConfigDoc(ed, {
-    ratchets: { size: { limit: "500000", run: "measure-size" } },
+    ratchets: { size: { limit: 500000, run: "measure-size" } },
   });
   const out = ed.toString();
   assert(out.includes('direction = "up"'));
@@ -208,11 +208,17 @@ Deno.test("applyConfigDoc on an empty document leaves the config untouched", () 
 // ---- applyConfigDoc: validation branches -----------------------------------
 
 Deno.test("applyConfigDoc rejects an unknown capability name", () => {
+  // Deliberately malformed: a capability key outside the closed vocabulary. The
+  // schema-derived type forbids it, so the test casts past it to exercise the
+  // runtime guard's author-friendly message.
   assertThrows(
     () =>
-      applyConfigDoc(editor(), {
-        capabilities: { deploy: "deploy.sh" },
-      }),
+      applyConfigDoc(
+        editor(),
+        {
+          capabilities: { deploy: "deploy.sh" },
+        } as unknown as DiscernConfigDoc,
+      ),
     Error,
     'unknown capability "deploy"',
   );
@@ -221,19 +227,21 @@ Deno.test("applyConfigDoc rejects an unknown capability name", () => {
 Deno.test("applyConfigDoc rejects a check with no stage or an unknown stage", () => {
   assertThrows(
     () =>
-      applyConfigDoc(editor(), {
-        checks: {
-          x: { run: "y" } as unknown as { stage: string; run: string },
-        },
-      }),
+      applyConfigDoc(
+        editor(),
+        { checks: { x: { run: "y" } } } as unknown as DiscernConfigDoc,
+      ),
     Error,
     'check "x": a stage is required',
   );
   assertThrows(
     () =>
-      applyConfigDoc(editor(), {
-        checks: { x: { stage: "deploy", run: "y" } },
-      }),
+      applyConfigDoc(
+        editor(),
+        {
+          checks: { x: { stage: "deploy", run: "y" } },
+        } as unknown as DiscernConfigDoc,
+      ),
     Error,
     'check "x": unknown stage "deploy"',
   );
@@ -268,9 +276,12 @@ Deno.test("applyConfigDoc rejects a ratchet with no run, and a bad direction", (
   );
   assertThrows(
     () =>
-      applyConfigDoc(editor(), {
-        ratchets: { coverage: { direction: "sideways", limit: 1, run: "m" } },
-      }),
+      applyConfigDoc(
+        editor(),
+        {
+          ratchets: { coverage: { direction: "sideways", limit: 1, run: "m" } },
+        } as unknown as DiscernConfigDoc,
+      ),
     Error,
     'ratchet "coverage": direction must be "up" or "down"',
   );

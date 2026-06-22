@@ -8,10 +8,15 @@ import type { TokenMap } from "./template.ts";
 import { renderTomlStringList } from "./toml_render.ts";
 import { KIT_VERSION } from "./version.ts";
 
-/** The agent/provider files the kit knows how to emit (claude_code→CLAUDE.md,
- * codex→AGENTS.md, gemini→GEMINI.md). */
-export const KNOWN_AGENTS = ["claude_code", "codex", "gemini"] as const;
-export type AgentName = (typeof KNOWN_AGENTS)[number];
+// The agent/provider vocabulary (claude_code→CLAUDE.md, codex→AGENTS.md,
+// gemini→GEMINI.md) is defined once on the canonical schema as `AGENT_NAMES` and
+// re-exported here under the installer's long-standing name, so the wizard, the
+// config document, and the generated editor JSON Schema share one list.
+import { AGENT_NAMES } from "../shared/config_schema.ts";
+
+/** The agent/provider files the kit knows how to emit. */
+export const KNOWN_AGENTS = AGENT_NAMES;
+export type AgentName = (typeof AGENT_NAMES)[number];
 
 // The capability vocabulary, gate stages, and slug validation are defined once
 // in the shared engine/installer module and re-exported here so existing

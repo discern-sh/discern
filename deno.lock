@@ -24,7 +24,9 @@
     "jsr:@std/path@^1.1.5": "1.1.5",
     "jsr:@std/text@^1.0.19": "1.0.19",
     "jsr:@std/toml@^1.0.2": "1.0.11",
-    "jsr:@std/yaml@1": "1.1.1"
+    "jsr:@std/yaml@1": "1.1.1",
+    "jsr:@zod/zod@4": "4.4.3",
+    "jsr:@zod/zod@^4.4.3": "4.4.3"
   },
   "jsr": {
     "@cliffy/ansi@1.2.1": {
@@ -123,6 +125,9 @@
     },
     "@std/yaml@1.1.1": {
       "integrity": "a57665ecf3d17b926380593a56625d8a10cc7281802f1e993b5ebc94a48e71f8"
+    },
+    "@zod/zod@4.4.3": {
+      "integrity": "4712ac0967efaa718b37c36eaffb4e1d4457e1a266aef6efb3ab36f54a6fefe4"
     }
   },
   "workspace": {
@@ -135,7 +140,8 @@
       "jsr:@std/encoding@^1.0.7",
       "jsr:@std/fs@^1.0.13",
       "jsr:@std/path@^1.0.8",
-      "jsr:@std/toml@^1.0.2"
+      "jsr:@std/toml@^1.0.2",
+      "jsr:@zod/zod@^4.4.3"
     ]
   }
 }

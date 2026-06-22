@@ -48,8 +48,9 @@ function baseConfig(extra = ""): string {
     'slug = "engine-test"',
     'main_branch = "main"',
     "",
-    "[scopes]",
-    'neutral = ["docs/"]',
+    "[scopes.docs]",
+    'paths = ["docs/"]',
+    "neutral = true",
     extra,
     "",
   ].join("\n");

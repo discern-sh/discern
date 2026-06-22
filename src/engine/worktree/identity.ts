@@ -18,7 +18,7 @@
 
 import { basename, dirname, isAbsolute, join, resolve } from "@std/path";
 import { cksumString } from "../../shared/crc.ts";
-import { Config } from "../../shared/config_read.ts";
+import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 
 /** The dev-server port band: 13000–14999, clear of common local services. */
 const PORT_BASE = 13000;
@@ -189,18 +189,19 @@ export async function loadIdentitySettings(
   let rawSlug = Deno.env.get("DISCERN_PROJECT_SLUG") ?? "";
   let branchPrefix = Deno.env.get("DISCERN_WORKTREE_BRANCH_PREFIX");
   if (rawSlug === "" || branchPrefix === undefined) {
-    // Tolerant config read: a missing toml just leaves the defaults in place.
-    let config: Config | undefined;
+    // Tolerant config read: a missing or invalid toml just leaves the defaults in
+    // place (worktree naming must work even when the config is mid-edit).
+    let config: DiscernConfig | undefined;
     try {
-      config = await Config.load(root);
+      config = await loadConfig(root);
     } catch {
       config = undefined;
     }
     if (rawSlug === "") {
-      rawSlug = config?.get("project.slug", "") ?? "";
+      rawSlug = config?.project.slug ?? "";
     }
     if (branchPrefix === undefined) {
-      branchPrefix = config?.get("project.branch_prefix", "agent/") ?? "agent/";
+      branchPrefix = config?.project.branch_prefix ?? "agent/";
     }
   }
   const slug = sanitizeSlug(rawSlug);

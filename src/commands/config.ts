@@ -9,6 +9,7 @@ import { join, relative } from "@std/path";
 import { Logger } from "../lib/log.ts";
 import { resolveConfigPath } from "../lib/paths.ts";
 import { CONFIG_REL } from "../shared/env.ts";
+import { isSettableConfigPath } from "../shared/config_schema.ts";
 import { KNOWN_CAPABILITIES, STAGES } from "../lib/config.ts";
 import {
   tomlBool,
@@ -280,6 +281,17 @@ export async function runConfigSet(
 ): Promise<number> {
   if (key.split(".").length < 2) {
     return fail(opts, `key must be section.key (got "${key}").`);
+  }
+  // Refuse a key the schema doesn't know AT WRITE TIME, so `config set` can't
+  // report success and leave a config the next read rejects (a typo'd section or
+  // key). A valid-but-incomplete path (e.g. ratchets.coverage.limit before its
+  // run) is allowed — only an unknown key/section is rejected.
+  if (!isSettableConfigPath(key)) {
+    return fail(
+      opts,
+      `unknown config key "${key}" — it is not part of the discern.toml schema (see docs/10-installer/config-reference.md). For custom gate work use \`config set-check\`.`,
+      "unknown_key",
+    );
   }
   if ([opts.number, opts.bool, opts.string].filter(Boolean).length > 1) {
     return fail(opts, `give at most one of --number, --bool, --string.`);

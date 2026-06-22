@@ -1,18 +1,25 @@
 /**
- * The runtime config reader: one parse of the install config (`discern.toml`, or
- * a legacy `discern.toml`) via `@std/toml`, exposing the small accessor
- * surface the engine and recipes need. Replaces the shell `config.sh` + `toml.awk`
- * pair with a single typed reader.
+ * **Raw, untyped** dotted-key access to a parsed `discern.toml`. The engine reads
+ * the config through the typed schema (`config_schema.ts`, `loadConfig`); this
+ * module is the narrow exception for the two jobs that genuinely need an
+ * un-validated, generic reader and must NOT trip schema validation:
  *
- * `@std/toml` is a full TOML parser, stricter than the lenient `toml.awk` it
- * replaces (Risk R4): a config the awk read leniently could now throw on parse.
- * The shipped template stays within strict TOML, and `doctor`/`migrate` surface
- * a parse failure rather than letting it pass silently.
+ *   - `discern config <get|array|has|subsections|keys> <key>` — the recipe-facing
+ *     passthrough, a `jq`-for-the-config that reads arbitrary dotted keys verbatim.
+ *   - the ratchet "never-loosen vs main" baseline, which reads an *older* config
+ *     out of `git show main:discern.toml` and only wants one number out of it.
+ *
+ * It carries no schema knowledge, so there is nothing here to drift. The TOML
+ * syntax diagnostics and the typed loader live in `config_schema.ts`; the errors
+ * are re-exported here so existing importers keep resolving.
  */
 
 import { parse } from "@std/toml";
 import { join } from "@std/path";
 import { CONFIG_REL, installedConfigRel } from "./env.ts";
+import { ConfigParseError, tomlSyntaxHint } from "./config_schema.ts";
+
+export { ConfigParseError, tomlSyntaxHint } from "./config_schema.ts";
 
 /** True for a non-null, non-array object (a TOML table). */
 function isTable(v: unknown): v is Record<string, unknown> {
@@ -20,46 +27,11 @@ function isTable(v: unknown): v is Record<string, unknown> {
 }
 
 /**
- * A friendly one-line summary of a TOML parse failure. `@std/toml`'s message is
- * accurate but cryptic (e.g. "key length is not a positive number, Parse error
- * on line 3, column 8"); lead with a plain "syntax error near line N in
- * discern.toml" when a line number is present, keeping the raw detail in parens.
- * Shared by {@link ConfigParseError} (engine verbs) and `parseDiscernToml`
- * (doctor/upgrade/migrate) so the diagnostic reads the same everywhere.
+ * A raw view of a parsed `discern.toml` exposing generic dotted-key reads. Unlike
+ * the typed {@link import("./config_schema.ts").DiscernConfig}, it applies no
+ * schema, no defaults, and no validation — it returns exactly what is on disk.
  */
-export function tomlSyntaxHint(err: unknown): string {
-  const raw = (err instanceof Error ? err.message : String(err)).trim()
-    // `@std/toml` sometimes repeats its own "Parse error on line N, column M:"
-    // prefix; collapse the duplicate so the detail reads once.
-    .replace(
-      /(Parse error on line \d+, column \d+: )(?=Parse error on line \d+, column \d+: )/g,
-      "",
-    );
-  const line = raw.match(/line (\d+)/i)?.[1];
-  return line !== undefined
-    ? `syntax error near line ${line} in discern.toml (${raw})`
-    : `discern.toml is not valid TOML: ${raw}`;
-}
-
-/**
- * A clear, catchable error for an unparseable install config. Replaces the raw
- * `@std/toml` `SyntaxError` (which, uncaught, dumps a stack trace at a user who
- * merely has a config typo). The CLI's top-level handler turns this into a clean
- * one-line message and a non-zero exit, in both human and `--json` modes.
- */
-export class ConfigParseError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "ConfigParseError";
-  }
-}
-
-/**
- * A parsed `discern.toml` with the engine's read accessors. Mirrors the
- * shell `config_get`/`config_array`/`config_subsections`/`config_keys`/
- * `config_has`/`config_bool`.
- */
-export class Config {
+export class RawConfig {
   private readonly data: Record<string, unknown>;
 
   constructor(text: string) {
@@ -70,11 +42,11 @@ export class Config {
     }
   }
 
-  /** Load and parse the install config (`discern.toml`, or a legacy
-   * `discern.toml`) from under a project `root`. */
-  static async load(root: string): Promise<Config> {
+  /** Read the install config (`discern.toml`, or a legacy `.discern/config.toml`)
+   * from under a project `root` as a raw, un-validated view. */
+  static async load(root: string): Promise<RawConfig> {
     const rel = (await installedConfigRel(root)) ?? CONFIG_REL;
-    return new Config(await Deno.readTextFile(join(root, rel)));
+    return new RawConfig(await Deno.readTextFile(join(root, rel)));
   }
 
   /** Resolve a dotted key to its raw parsed value, or undefined. */
@@ -89,10 +61,7 @@ export class Config {
     return cur;
   }
 
-  /**
-   * A scalar as a string (numbers/booleans stringified), or `dflt` when absent.
-   * Mirrors `config_get`.
-   */
+  /** A scalar as a string (numbers/booleans stringified), or `dflt` when absent. */
   get(key: string, dflt = ""): string {
     const v = this.resolve(key);
     if (typeof v === "string") {
@@ -116,18 +85,10 @@ export class Config {
     return undefined;
   }
 
-  /** True only when the value is boolean `true` (or the string "true"). */
-  bool(key: string): boolean {
-    const v = this.resolve(key);
-    return v === true || v === "true";
-  }
-
   /**
-   * Array of string items. Mirrors `config_array`: a TOML array yields its
-   * items, a scalar yields a one-element list, an absent value yields `[]`.
-   * Empty items and the `:` no-op are dropped. (Unlike the shell's incidental
-   * comma-splitting of scalars, a scalar is taken whole — multi-command values
-   * use a TOML array, as the config documents.)
+   * Array of string items: a TOML array yields its items, a scalar yields a
+   * one-element list, an absent value yields `[]`. Empty items and the `:` no-op
+   * are dropped.
    */
   array(key: string): string[] {
     const v = this.resolve(key);
@@ -153,10 +114,7 @@ export class Config {
     return items;
   }
 
-  /**
-   * Immediate child table names under `prefix` (the `[prefix.<name>]` tables).
-   * Mirrors `config_subsections`.
-   */
+  /** Immediate child table names under `prefix` (the `[prefix.<name>]` tables). */
   subsections(prefix: string): string[] {
     const t = this.resolve(prefix);
     if (!isTable(t)) {
@@ -165,10 +123,7 @@ export class Config {
     return Object.entries(t).filter(([, v]) => isTable(v)).map(([k]) => k);
   }
 
-  /**
-   * Flat key names declared directly in `[section]` (scalar/array values, not
-   * nested tables). Mirrors `config_keys`.
-   */
+  /** Flat key names declared directly in `[section]` (scalars/arrays, not tables). */
   keys(section: string): string[] {
     const t = this.resolve(section);
     if (!isTable(t)) {

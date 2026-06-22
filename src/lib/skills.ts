@@ -21,7 +21,7 @@
 
 import { join, relative } from "@std/path";
 import { copy, ensureDir } from "@std/fs";
-import type { Config } from "../shared/config_read.ts";
+import type { DiscernConfig } from "../shared/config_schema.ts";
 import type { Logger } from "./log.ts";
 import { resolveBundledSkillsDir, resolveSkillsDir } from "./paths.ts";
 
@@ -73,7 +73,7 @@ export async function bundledSkillNames(): Promise<string[]> {
  */
 export async function resolveEffectiveSkills(
   root: string,
-  config: Config,
+  config: DiscernConfig,
 ): Promise<SkillEntry[]> {
   const bundledDir = await resolveBundledSkillsDir();
   const bundled = await dirNames(bundledDir);
@@ -113,7 +113,7 @@ export interface SkillListing {
 /** The effective set as listing rows (for `discern skills list`). */
 export async function listSkills(
   root: string,
-  config: Config,
+  config: DiscernConfig,
 ): Promise<SkillListing[]> {
   const bundled = new Set(await bundledSkillNames());
   const effective = await resolveEffectiveSkills(root, config);
@@ -177,7 +177,7 @@ async function removeAny(path: string, isDir: boolean): Promise<void> {
  */
 export async function materializeSkills(
   root: string,
-  config: Config,
+  config: DiscernConfig,
   log?: Logger,
 ): Promise<MaterializeResult> {
   const effective = await resolveEffectiveSkills(root, config);
@@ -260,7 +260,7 @@ export interface EjectResult {
  */
 export async function ejectSkill(
   root: string,
-  config: Config,
+  config: DiscernConfig,
   name: string,
 ): Promise<EjectResult> {
   const bundledDir = await resolveBundledSkillsDir();

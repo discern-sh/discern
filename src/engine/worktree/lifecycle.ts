@@ -15,7 +15,7 @@
 
 import { join } from "@std/path";
 import type { Logger } from "../../lib/log.ts";
-import { Config } from "../../shared/config_read.ts";
+import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import {
   deriveIdentity,
   IdentityError,
@@ -63,7 +63,7 @@ export interface LifecycleContext {
   /** The project root (holds `discern.toml`). */
   root: string;
   /** The parsed project config. */
-  config: Config;
+  config: DiscernConfig;
   /** The logger for human output. */
   log: Logger;
   /** The directory the operation runs from (default: the project root). */
@@ -76,7 +76,7 @@ export async function lifecycleContext(
   log: Logger,
   cwd: string = root,
 ): Promise<LifecycleContext> {
-  return { root, config: await Config.load(root), log, cwd };
+  return { root, config: await loadConfig(root), log, cwd };
 }
 
 /** Run a command string via `sh -c` in `cwd`, inheriting stdio. Returns its exit code. */
@@ -153,7 +153,7 @@ async function recordPort(
   ctx: LifecycleContext,
   identity: WorktreeIdentity,
 ): Promise<void> {
-  if (!ctx.config.bool("worktree.port")) {
+  if (!ctx.config.worktree.port) {
     return;
   }
   const port = String(identity.port);
@@ -206,7 +206,7 @@ export async function worktreeSetup(ctx: LifecycleContext): Promise<void> {
   // 4. inherit env vars from main
   await inheritMainEnvVars({
     worktreeRoot: ctx.cwd,
-    vars: ctx.config.array("worktree.inherit_env"),
+    vars: ctx.config.worktree.inherit_env,
     log: ctx.log,
   });
 
@@ -214,7 +214,7 @@ export async function worktreeSetup(ctx: LifecycleContext): Promise<void> {
   await recordPort(ctx, identity);
 
   // 6. post-create setup steps (stop on first failure)
-  for (const step of ctx.config.array("worktree.setup.steps")) {
+  for (const step of ctx.config.worktree.setup.steps) {
     ctx.log.info(`Setup step: ${step}`);
     const code = await runShell(step, ctx.cwd);
     if (code !== 0) {
@@ -263,7 +263,7 @@ export type EnsureResult =
 export async function worktreeEnsure(
   ctx: LifecycleContext,
 ): Promise<EnsureResult> {
-  if (!ctx.config.bool("worktree.enabled")) {
+  if (!ctx.config.worktree.enabled) {
     return { kind: "skipped" };
   }
   // Skip when not inside a linked worktree (including the main checkout).
@@ -387,7 +387,7 @@ export async function graduate(ctx: LifecycleContext): Promise<void> {
   ctx.log.info("Checking the branch contains the latest main…");
   const merged = await assertMainMerged(
     ctx.cwd,
-    ctx.config.get("project.main_branch", "main"),
+    ctx.config.project.main_branch,
   );
   if (merged.kind === "behind") {
     throw new WorktreeGitError(
@@ -544,7 +544,7 @@ export async function worktreePrune(
   const prune = await pruneGitWorktrees({
     dryRun,
     includeDetached: true,
-    mainBranch: ctx.config.get("project.main_branch", "main"),
+    mainBranch: ctx.config.project.main_branch,
     log: ctx.log,
   });
 
@@ -692,7 +692,7 @@ export async function worktreeResourcesList(
 ): Promise<string[]> {
   const settings = await loadIdentitySettings(root);
   const id = await resolveWorktreeId(settings, target);
-  const config = await Config.load(root);
+  const config = await loadConfig(root);
   return readResourceSpecs(config).map(
     (s) => `${s.name}=${resourceForId(settings.slug, id, s.name)}`,
   );

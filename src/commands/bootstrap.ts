@@ -18,7 +18,7 @@
 
 import { ensureDir, walk } from "@std/fs";
 import { dirname, join, relative } from "@std/path";
-import { Config } from "../shared/config_read.ts";
+import { loadConfig } from "../shared/config_schema.ts";
 import { CONFIG_REL, findRoot } from "../shared/env.ts";
 import { resolveBootstrapDir, resolveConfigPath } from "../lib/paths.ts";
 import { TomlEditor } from "../lib/toml_edit.ts";
@@ -117,9 +117,9 @@ export async function runBootstrap(opts: BootstrapOptions): Promise<number> {
   if (root === undefined) {
     return 1;
   }
-  const cfg = await Config.load(root);
+  const cfg = await loadConfig(root);
 
-  if (cfg.bool(BOOTSTRAPPED_KEY) && !opts.force) {
+  if (cfg.meta.bootstrapped && !opts.force) {
     const message =
       "this project is already bootstrapped. Re-run with --force to seed it again.";
     if (opts.json) {
@@ -132,7 +132,7 @@ export async function runBootstrap(opts: BootstrapOptions): Promise<number> {
     return 0;
   }
 
-  const name = displayNameFromSlug(cfg.get("project.slug", ""));
+  const name = displayNameFromSlug(cfg.project.slug);
   const bootstrapDir = await resolveBootstrapDir();
   const skelDir = join(bootstrapDir, "skel");
 

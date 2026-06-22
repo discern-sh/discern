@@ -15,20 +15,11 @@ import {
   installedConfigRel,
   LEGACY_CONFIG_REL,
 } from "../shared/env.ts";
-import type { Config } from "../shared/config_read.ts";
+import type { DiscernConfig } from "../shared/config_schema.ts";
 
 // Re-export the install markers so installer-side callers can import them from
 // the lib layer (the canonical definitions live in the shared env module).
 export { CONFIG_REL, LEGACY_CONFIG_REL };
-
-/** Default authored-skills directory (`[skills].dir`), relative to the root. */
-export const DEFAULT_SKILLS_DIR = "skills";
-
-/** Default recipes directory (`[recipes].dir`), relative to the root. */
-export const DEFAULT_RECIPES_DIR = "recipes";
-
-/** Default guidance source globs (`[guidance].sources`), relative to the root. */
-export const DEFAULT_GUIDANCE_SOURCES: readonly string[] = ["guidance.md"];
 
 /** True when `path` is an existing directory. */
 async function isDir(path: string): Promise<boolean> {
@@ -73,16 +64,22 @@ function resolveDir(root: string, value: string): ResolvedDir {
  * when present by the caller — the default lets a `skills/` dir be picked up with
  * zero config, and points elsewhere when configured.
  */
-export function resolveSkillsDir(root: string, config: Config): ResolvedDir {
-  return resolveDir(root, config.get("skills.dir", DEFAULT_SKILLS_DIR));
+export function resolveSkillsDir(
+  root: string,
+  config: DiscernConfig,
+): ResolvedDir {
+  return resolveDir(root, config.skills.dir);
 }
 
 /**
  * The project recipes directory: `[recipes].dir`, default `./recipes`. The
  * default works with no config; point it elsewhere (e.g. `tools/`) if preferred.
  */
-export function resolveRecipesDir(root: string, config: Config): ResolvedDir {
-  return resolveDir(root, config.get("recipes.dir", DEFAULT_RECIPES_DIR));
+export function resolveRecipesDir(
+  root: string,
+  config: DiscernConfig,
+): ResolvedDir {
+  return resolveDir(root, config.recipes.dir);
 }
 
 /**
@@ -93,12 +90,13 @@ export function resolveRecipesDir(root: string, config: Config): ResolvedDir {
  */
 export async function resolveGuidanceSources(
   root: string,
-  config: Config,
+  config: DiscernConfig,
 ): Promise<string[]> {
-  const configured = config.array("guidance.sources");
-  const patterns = configured.length > 0
-    ? configured
-    : [...DEFAULT_GUIDANCE_SOURCES];
+  // The schema defaults an absent `[guidance].sources` to `["guidance.md"]`; an
+  // explicit empty list also falls back to it (an install that compiles only the
+  // built-in guidance still wants the default source picked up when present).
+  const configured = config.guidance.sources;
+  const patterns = configured.length > 0 ? configured : ["guidance.md"];
   const matched = new Set<string>();
   for (const pattern of patterns) {
     // Absolute patterns are honoured as-is; relative ones resolve against root.

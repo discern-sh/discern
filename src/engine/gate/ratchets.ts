@@ -7,7 +7,12 @@
  * never part of finish. Every ratchet runs even if one fails.
  */
 
-import { Config } from "../../shared/config_read.ts";
+import {
+  loadConfig,
+  type RatchetConfig,
+  toCommand,
+} from "../../shared/config_schema.ts";
+import { RawConfig } from "../../shared/config_read.ts";
 import { colorEnabled, makeOut, type Out } from "../output.ts";
 
 /** True when `s` is a non-negative decimal number (matches the shell predicate). */
@@ -56,7 +61,9 @@ async function ratchetMainValue(
       if (!out.success) {
         continue;
       }
-      const cfg = new Config(new TextDecoder().decode(out.stdout));
+      // Read main's (possibly older, possibly un-migrated) config RAW — it must
+      // not trip the current schema; only one number is needed out of it.
+      const cfg = new RawConfig(new TextDecoder().decode(out.stdout));
       return cfg.getNumber(key);
     } catch {
       // try the next candidate path
@@ -79,39 +86,22 @@ async function measure(command: string): Promise<string> {
   return dec.decode(out.stdout) + dec.decode(out.stderr);
 }
 
-/** Check one ratchet by name. Prints its own pass/fail line; returns held/failed. */
+/** Check one ratchet. Prints its own pass/fail line; returns held/failed. The
+ * spec is already schema-validated (direction ∈ up|down, limit a number, run
+ * present), so the structural checks the shell did are gone — folded into the
+ * schema. */
 async function ratchetCheck(
-  cfg: Config,
+  spec: RatchetConfig,
+  name: string,
   root: string,
   mainBranch: string,
-  name: string,
   out: Out,
 ): Promise<boolean> {
-  const direction = cfg.get(`ratchets.${name}.direction`, "up");
-  const metric = cfg.get(`ratchets.${name}.metric`, name);
-  const command = cfg.get(`ratchets.${name}.run`, "");
+  const direction = spec.direction;
+  const metric = spec.metric ?? name;
+  const command = toCommand(spec.run);
+  const limit = spec.limit;
   const limitKey = `ratchets.${name}.limit`;
-
-  if (direction !== "up" && direction !== "down") {
-    out.error(
-      `ratchet '${name}': direction must be "up" or "down" (got "${direction}").`,
-    );
-    return false;
-  }
-  if (!cfg.has(limitKey)) {
-    out.error(
-      `ratchet '${name}': no limit (set limit = <number> under [ratchets.${name}]).`,
-    );
-    return false;
-  }
-  const limitStr = cfg.get(limitKey);
-  if (!isNumber(limitStr)) {
-    out.error(
-      `ratchet '${name}': limit (${limitKey}) is not a number: '${limitStr}'.`,
-    );
-    return false;
-  }
-  const limit = Number(limitStr);
 
   // never loosened vs main
   const main = await ratchetMainValue(root, mainBranch, limitKey);
@@ -131,7 +121,7 @@ async function ratchetCheck(
   }
 
   // measure
-  if (command === "" || command === ":") {
+  if (command === "") {
     out.error(
       `ratchet '${name}' has no run command (set run = "<command>" under [ratchets.${name}]).`,
     );
@@ -183,12 +173,11 @@ async function ratchetCheck(
 
 /** Run `ratchets`. Returns a process exit code (non-zero if any ratchet failed). */
 export async function runRatchets(root: string): Promise<number> {
-  const cfg = await Config.load(root);
+  const cfg = await loadConfig(root);
   const out = makeOut(colorEnabled());
-  const mainBranch = Deno.env.get("MAIN_BRANCH") ||
-    cfg.get("project.main_branch", "main");
+  const mainBranch = Deno.env.get("MAIN_BRANCH") || cfg.project.main_branch;
 
-  const ratchets = cfg.subsections("ratchets");
+  const ratchets = Object.entries(cfg.ratchets);
   if (ratchets.length === 0) {
     out.info(
       "No ratchets configured. Add a [ratchets.<name>] table (e.g. [ratchets.coverage]).",
@@ -197,8 +186,8 @@ export async function runRatchets(root: string): Promise<number> {
   }
 
   let failed = false;
-  for (const name of ratchets) {
-    if (!(await ratchetCheck(cfg, root, mainBranch, name, out))) {
+  for (const [name, spec] of ratchets) {
+    if (!(await ratchetCheck(spec, name, root, mainBranch, out))) {
       failed = true;
     }
   }
