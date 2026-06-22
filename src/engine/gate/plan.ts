@@ -1,0 +1,287 @@
+/**
+ * The gate's **pure planning core** — "given the typed config and the changed
+ * scopes, which jobs and scope-gates run." Everything here is a pure function of
+ * its arguments: no subprocess, no git, no filesystem. The effectful executor
+ * lives in `finish.ts`; the read-only I/O (loading config, classifying changed
+ * scopes) is the caller's, passed in as arguments.
+ *
+ * The plan carries the gate's stages as DATA — an ordered list of {@link JobGroup}
+ * — not baked into the type. The current gate unrolls `fix → build → check∥test →
+ * scope-gates` by hand; a future change will resolve a `needs`/`provides` DAG by
+ * topological sort and PRODUCE this same `GatePlan` (a different `groups` list),
+ * so the executor and the report never need to know which produced it.
+ */
+
+import { type DiscernConfig, toCommand } from "../../shared/config_schema.ts";
+import type { Stage } from "../../shared/capabilities.ts";
+import { jobsInStage } from "./stages.ts";
+import type { JobResult } from "../jobs/types.ts";
+import type { EnginePlan, PlanStep } from "../plan/types.ts";
+
+/**
+ * A gate job as planned: the command to run plus the metadata the ADR-0004 report
+ * needs. `willRun` is false only for a configured-but-unchanged scope gate (listed
+ * and reported as skipped); capabilities and checks are always planned to run —
+ * fail-fast skips can't be predicted at plan time (the dry-run honesty rule).
+ */
+export interface PlannedJob {
+  label: string;
+  command: string;
+  kind: "capability" | "check" | "scope-gate";
+  /** The stage reported in `jobs[].stage` (a real STAGE), or "scope_gates". */
+  reportStage: Stage | "scope_gates";
+  willRun: boolean;
+}
+
+/**
+ * A scheduled group of jobs — the unit the executor walks. A future needs/provides
+ * resolver produces these (topological layers) instead of the hand-unroll.
+ */
+export interface JobGroup {
+  /** The failed-stage label for this group (fix | build | check/test | scope_gates). */
+  stage: string;
+  /** How the group's jobs are scheduled. */
+  mode: "serial" | "parallel";
+  /** The heading shown while the group runs (the current finish narration). */
+  heading: string;
+  /** A short label for the dry-run plan listing. */
+  display: string;
+  jobs: PlannedJob[];
+}
+
+/**
+ * A pure, inspectable description of one gate run: the ordered job groups, whether
+ * the merge check fires, and the scopes the branch changed. Built before any job
+ * spawns; executed by `executeGatePlan`; serialized to the ADR-0004 report.
+ */
+export interface GatePlan {
+  groups: JobGroup[];
+  /** The merge check runs last (it self-skips in the main checkout). */
+  mergeCheck: boolean;
+  scopesChanged: string[];
+}
+
+/**
+ * The capability/check jobs for a real gate stage (fix|build|check|test), as
+ * planned jobs. Pure: derived from the typed config alone.
+ */
+export function planStageJobs(cfg: DiscernConfig, stage: Stage): PlannedJob[] {
+  return jobsInStage(cfg, stage).map((j) => ({
+    label: j.label,
+    command: j.command,
+    kind: j.kind,
+    reportStage: stage,
+    willRun: true,
+  }));
+}
+
+/**
+ * The scope-gate jobs, in declared order — every scope with a non-empty gate,
+ * marked `willRun` only when its scope is among `changed`. Pure: config + the
+ * changed-scope list (the read-only classification is the caller's). This is the
+ * scope-gate SELECTION logic, unit-tested with zero I/O.
+ */
+export function planScopeGates(
+  cfg: DiscernConfig,
+  changed: string[],
+): PlannedJob[] {
+  const out: PlannedJob[] = [];
+  for (const [scope, spec] of Object.entries(cfg.scopes)) {
+    const command = toCommand(spec.gate);
+    if (command === "") {
+      continue;
+    }
+    out.push({
+      label: `scope:${scope}`,
+      command,
+      kind: "scope-gate",
+      reportStage: "scope_gates",
+      willRun: changed.includes(scope),
+    });
+  }
+  return out;
+}
+
+/**
+ * Build the full gate plan from the typed config and the changed scopes (already
+ * classified by the caller — the only read-only I/O). Pure given those inputs, so
+ * the whole "what would the gate run" decision is unit-testable without a
+ * subprocess. Mirrors the hand-unrolled order: fix (serial) → build → check∥test →
+ * scope-gates, then a trailing merge check. The scope-gates group holds EVERY
+ * configured gate (firing ones `willRun`, unchanged ones not) so the report and
+ * the dry-run listing see them all; the executor runs only the firing ones.
+ */
+export function buildGatePlan(cfg: DiscernConfig, changed: string[]): GatePlan {
+  const groups: JobGroup[] = [];
+
+  const fix = planStageJobs(cfg, "fix");
+  if (fix.length > 0) {
+    groups.push({
+      stage: "fix",
+      mode: "serial",
+      heading: "Applying fixers...",
+      display: "Fix",
+      jobs: fix,
+    });
+  }
+
+  const build = planStageJobs(cfg, "build");
+  if (build.length > 0) {
+    groups.push({
+      stage: "build",
+      mode: "parallel",
+      heading: "Building artifacts...",
+      display: "Build",
+      jobs: build,
+    });
+  }
+
+  const checkTest = [
+    ...planStageJobs(cfg, "check"),
+    ...planStageJobs(cfg, "test"),
+  ];
+  if (checkTest.length > 0) {
+    groups.push({
+      stage: "check/test",
+      mode: "parallel",
+      heading: "Checking and testing...",
+      display: "Check & test",
+      jobs: checkTest,
+    });
+  }
+
+  const scopeGates = planScopeGates(cfg, changed);
+  if (scopeGates.length > 0) {
+    groups.push({
+      stage: "scope_gates",
+      mode: "parallel",
+      heading: "Running gates for changed scopes...",
+      display: "Scope gates",
+      jobs: scopeGates,
+    });
+  }
+
+  return { groups, mergeCheck: true, scopesChanged: changed };
+}
+
+// ── the ADR-0004 `finish --json` report (a serialization of plan + results) ─────
+
+/** A per-job entry in the `--json` report. */
+export interface JobReport {
+  name: string;
+  kind: "capability" | "check";
+  stage: Stage;
+  status: "ok" | "failed" | "skipped";
+  duration_s: number;
+}
+
+/** A per-scope-gate entry in the `--json` report. */
+export interface ScopeGateReport {
+  scope: string;
+  status: "ok" | "failed" | "skipped";
+  duration_s: number;
+}
+
+/** The full `finish --json` report object (ADR 0004). */
+export interface GateReport {
+  ok: boolean;
+  jobs: JobReport[];
+  scope_gates: ScopeGateReport[];
+  scopes_changed: string[];
+  failed_stage: string | null;
+}
+
+/** A job's status from its result (absent = its stage aborted before it → skipped). */
+function jobStatus(r: JobResult | undefined): "ok" | "failed" | "skipped" {
+  if (r === undefined) {
+    return "skipped";
+  }
+  return r.code === 0 ? "ok" : "failed";
+}
+
+/**
+ * Build the ADR-0004 `--json` report by SERIALIZING the plan it executed plus the
+ * per-job results — not by re-deriving from config. Walks the plan's groups in
+ * order: capability/check jobs land in `jobs[]` (in fix→build→check→test order),
+ * scope-gate jobs in `scope_gates[]` (declared order), each looked up by label
+ * (missing → skipped). A configured-but-unchanged scope gate has no result, so it
+ * reports `skipped`, exactly as before.
+ */
+export function buildGateReport(
+  plan: GatePlan,
+  results: Map<string, JobResult>,
+  failedStage: string | null,
+): GateReport {
+  const jobs: JobReport[] = [];
+  const scope_gates: ScopeGateReport[] = [];
+  for (const group of plan.groups) {
+    for (const j of group.jobs) {
+      const r = results.get(j.label);
+      const status = jobStatus(r);
+      const duration_s = r === undefined ? 0 : r.durationS;
+      if (j.kind === "scope-gate") {
+        scope_gates.push({
+          scope: j.label.replace(/^scope:/, ""),
+          status,
+          duration_s,
+        });
+      } else {
+        jobs.push({
+          name: j.label,
+          kind: j.kind,
+          stage: j.reportStage as Stage,
+          status,
+          duration_s,
+        });
+      }
+    }
+  }
+  return {
+    ok: failedStage === null,
+    jobs,
+    scope_gates,
+    scopes_changed: plan.scopesChanged,
+    failed_stage: failedStage,
+  };
+}
+
+// ── projection to the shared renderer (the `--dry-run` listing) ─────────────────
+
+/**
+ * Project a gate plan onto the common {@link EnginePlan} the shared renderer
+ * prints. Each job becomes a step grouped by its stage; a firing job is `run`, an
+ * unchanged scope gate is `skip`. A trailing `gate` step stands for the merge
+ * check. Honest by construction: capabilities/checks render as "run" — fail-fast
+ * may still skip some, which a plan cannot predict.
+ */
+export function gatePlanToEngine(plan: GatePlan): EnginePlan {
+  const steps: PlanStep[] = [];
+  for (const group of plan.groups) {
+    for (const j of group.jobs) {
+      steps.push({
+        kind: j.kind === "scope-gate" ? "scope-gate" : "job",
+        label: j.label,
+        disposition: j.willRun ? "run" : "skip",
+        note: j.willRun ? j.command : "scope unchanged",
+        group: group.display,
+      });
+    }
+  }
+  if (plan.mergeCheck) {
+    steps.push({
+      kind: "merge-check",
+      label: "merge-check",
+      disposition: "gate",
+      note:
+        "verify this branch contains the integration branch (no-op in main)",
+    });
+  }
+  const changed = plan.scopesChanged.length > 0
+    ? plan.scopesChanged.join(", ")
+    : "(none)";
+  return {
+    title: "Gate plan",
+    details: [`scopes changed: ${changed}`],
+    steps,
+  };
+}

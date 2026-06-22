@@ -149,9 +149,16 @@ export function attachEngineCommands(
     .command("finish")
     .description("The full quality gate — run before calling work done.")
     .option("--json", "Emit a machine-readable gate report on stdout.")
+    .option(
+      "--dry-run",
+      "Show the gate plan (the jobs and scope-gates that would run); touch nothing.",
+    )
     .action(async (o) => {
       Deno.exit(
-        await runFinish(await requireRoot(), { json: o.json ?? false }),
+        await runFinish(await requireRoot(), {
+          json: o.json ?? false,
+          dryRun: o.dryRun ?? false,
+        }),
       );
     });
 
