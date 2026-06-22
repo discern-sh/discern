@@ -37,12 +37,14 @@ const BOOTSTRAPPED_KEY = "meta.bootstrapped";
 
 /**
  * Markers a scaffolded skeleton carries until the agent fills it: the
- * `<!-- bootstrap fills this -->` sentinels and the placeholder EXAMPLE principle.
- * `bootstrap done` refuses to mark setup complete while any remain.
+ * `<!-- bootstrap fills this -->` sentinels and the placeholder EXAMPLE principle
+ * heading (`_(EXAMPLE — replace during ...)_`). Both are specific to the shipped
+ * skeleton, so a project's own prose won't trip them. `bootstrap done` refuses to
+ * mark setup complete while any remain.
  */
 const SKELETON_MARKERS: readonly string[] = [
   "bootstrap fills this",
-  "(EXAMPLE",
+  "(EXAMPLE — replace",
 ];
 
 /** Resolve the project root, or print the standard "no project" error and return undefined. */

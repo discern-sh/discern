@@ -127,6 +127,26 @@ Deno.test("discern bootstrap is still callable with --force after it is recorded
   });
 });
 
+Deno.test("discern bootstrap done ignores a real doc that merely mentions EXAMPLE", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    // A genuine doc (no skeleton) that happens to contain the bare word EXAMPLE
+    // and an open paren — the validator must not mistake it for the skeleton's
+    // `_(EXAMPLE — replace during ...)_` placeholder heading.
+    await Deno.mkdir(join(dir, "docs"));
+    await Deno.writeTextFile(
+      join(dir, "docs/README.md"),
+      "# Docs\n\nSee the sample config (EXAMPLE) in the appendix.\n",
+    );
+    const done = await runAgent(dir, ["bootstrap", "done"]);
+    assertEquals(done.code, 0, done.output);
+    assertStringIncludes(
+      await Deno.readTextFile(join(dir, "discern.toml")),
+      "bootstrapped = true",
+    );
+  });
+});
+
 Deno.test("discern bootstrap --json emits structured output", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
