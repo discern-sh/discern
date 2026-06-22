@@ -166,15 +166,8 @@ async function resolveContextIdentity(
 async function teardownResources(
   ctx: LifecycleContext,
 ): Promise<{ destroyed: string[]; failed: string[] }> {
-  const commonGitDir = await resolveCommonGitDir(ctx.cwd);
-  const gitKey = await worktreeGitKey(ctx.cwd);
-  if (commonGitDir === undefined || gitKey === undefined) {
-    ctx.log.warn(
-      "Could not resolve this worktree's git identity — skipping resource teardown.",
-    );
-    return { destroyed: [], failed: [] };
-  }
-  return await destroyResources(ctx, commonGitDir, gitKey);
+  const { entries } = await buildTeardownPlan(ctx);
+  return await destroyResources(ctx, entries);
 }
 
 /** Read this worktree's teardown plan — the ledger entries it would destroy, in
@@ -275,13 +268,29 @@ async function buildSetupPlan(ctx: LifecycleContext): Promise<SetupPlan> {
   return { branch, steps };
 }
 
-/** Map a built setup plan's steps to `--json` results (all ran — setup throws on a
- * fatal step, so reaching the end means every step succeeded). */
-function setupResults(plan: SetupPlan): StepResult[] {
-  return plan.steps.map((s) => ({
-    step: { kind: s.kind, label: s.label, disposition: "run", note: s.note },
-    outcome: "ok",
-  }));
+/**
+ * Map the EXECUTED setup plan to `--json` results — recording what actually
+ * happened, not a synthesized all-`ok`. A fatal step (a required resource, a
+ * `setup.steps` non-zero exit) throws before this is reached; the steps that
+ * warn-and-continue are reported honestly: a non-required resource whose create
+ * failed, or an agent-file refresh that threw, is `failed`, not `ok`. The plan is
+ * the one built before execution (never re-derived), so the reported steps can't
+ * drift from what the dry-run previewed.
+ */
+function setupResults(
+  plan: SetupPlan,
+  failedResources: string[],
+  refreshOk: boolean,
+): StepResult[] {
+  return plan.steps.map((s) => {
+    const failed = (s.kind === "resource-create" &&
+      failedResources.includes(s.label)) ||
+      (s.kind === "refresh" && !refreshOk);
+    return {
+      step: { kind: s.kind, label: s.label, disposition: "run", note: s.note },
+      outcome: failed ? "failed" : "ok",
+    };
+  });
 }
 
 /**
@@ -305,12 +314,11 @@ export async function worktreeSetup(
     );
   }
 
+  // Build the plan ONCE — the dry-run renders it and the apply records its
+  // outcomes against it, so the preview and the `--json` report can't drift.
+  const plan = await buildSetupPlan(ctx);
   if (opts.dryRun ?? false) {
-    emitDryRun(
-      ctx,
-      setupPlanToEngine(await buildSetupPlan(ctx)),
-      opts.json ?? false,
-    );
+    emitDryRun(ctx, setupPlanToEngine(plan), opts.json ?? false);
     return;
   }
 
@@ -324,10 +332,13 @@ export async function worktreeSetup(
 
   // 3. create the per-worktree resources (ledger-logged for GC; a required
   // create failure aborts setup). Resources need the worktree's git identity.
+  let createdFailed: string[] = [];
   const commonGitDir = await resolveCommonGitDir(ctx.cwd);
   const gitKey = await worktreeGitKey(ctx.cwd);
   if (commonGitDir !== undefined && gitKey !== undefined) {
-    await createResources(ctx, identity, settings, commonGitDir, gitKey);
+    createdFailed =
+      (await createResources(ctx, identity, settings, commonGitDir, gitKey))
+        .failed;
     await recordResourceEnv(ctx, identity, settings);
   } else if (readResourceSpecs(ctx.config).length > 0) {
     throw new WorktreeGitError(
@@ -356,11 +367,14 @@ export async function worktreeSetup(
 
   // 7. refresh the agent files, which also materializes skills into THIS
   // worktree's .claude/skills/. A linked worktree does NOT inherit that gitignored
-  // directory from the main checkout, so it must be (re)built here. Non-fatal.
+  // directory from the main checkout, so it must be (re)built here. Non-fatal —
+  // but its real outcome is recorded, not reported as a blanket success.
   ctx.log.info("Refreshing agent files…");
+  let refreshOk = true;
   try {
     await compileGuidelines(ctx.root, ctx.log);
   } catch {
+    refreshOk = false;
     ctx.log.warn("Agent-file refresh reported an error — continuing.");
   }
 
@@ -377,7 +391,7 @@ export async function worktreeSetup(
   ctx.log.ok("Worktree setup complete.");
 
   if (opts.json ?? false) {
-    emitResults(setupResults(await buildSetupPlan(ctx)));
+    emitResults(setupResults(plan, createdFailed, refreshOk));
   }
 }
 
@@ -454,7 +468,9 @@ export async function worktreeTeardown(
   }
 
   ctx.log.heading("Tearing down this worktree…");
-  const { destroyed, failed } = await teardownResources(ctx);
+  // Apply CONSUMES the plan: destroy exactly the entries the dry-run previewed,
+  // not a fresh re-read that could have drifted.
+  const { destroyed, failed } = await destroyResources(ctx, plan.entries);
   ctx.log.ok("Worktree teardown complete.");
 
   if (opts.json ?? false) {
@@ -906,6 +922,13 @@ async function gcWorktreeResources(
     liveGitKeys: await liveWorktreeGitKeys(commonGitDir),
     livePaths,
     liveIdentities: await liveResourceIdentitySet(ctx, livePaths),
+    // Re-evaluate handle ownership against CURRENT disk state before each destroy:
+    // a worktree created mid-loop can own this handle under a fresh git_key that
+    // the snapshot — and the `gitKeyIsLive` re-check — both miss (M1).
+    recheckIdentityLive: async (identity: string): Promise<boolean> => {
+      const paths = await liveWorktreePaths(ctx.cwd);
+      return (await liveResourceIdentitySet(ctx, paths)).has(identity);
+    },
     dryRun,
     log: ctx.log,
   });
@@ -942,6 +965,10 @@ async function liveResourceIdentitySet(
   try {
     settings = await loadIdentitySettings(ctx.root);
   } catch {
+    // This handle guard is ONE of three independent GC liveness checks (git_key,
+    // path, identity) — and the git_key + path guards are re-validated against disk
+    // before each destroy. So returning an empty set here only narrows this third
+    // line of defense; it must never become the sole guard a destroy relies on.
     return set;
   }
   for (const path of livePaths) {

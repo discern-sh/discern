@@ -355,9 +355,10 @@ export async function createResources(
   settings: IdentitySettings,
   commonGitDir: string,
   gitKey: string,
-): Promise<void> {
+): Promise<{ failed: string[] }> {
   const specs = readResourceSpecs(ctx.config);
   const worktreePath = await canonical(ctx.cwd);
+  const failed: string[] = [];
   let seq = 0;
   for (const spec of specs) {
     const idx = seq++;
@@ -413,9 +414,11 @@ export async function createResources(
         ctx.log.warn(
           `Worktree resource '${spec.name}' create failed (required = false) — continuing.`,
         );
+        failed.push(spec.name);
       }
     }
   }
+  return { failed };
 }
 
 /** Resolve every token a set of command templates names, for the ledger token_map. */
@@ -494,23 +497,22 @@ export async function entriesForWorktree(
 }
 
 /**
- * Tear down this worktree's resources — every ledger entry for `gitKey`, in
- * reverse creation order (so a dependency created first is destroyed last). Runs
- * the FROZEN destroy command (what was true at create), best-effort and
- * idempotent. An entry is cleared only on success; a failed destroy keeps it so a
- * later `worktree:prune` retries (self-healing). Returns which resources were
- * destroyed and which were kept-for-retry, so the caller can report them.
+ * Tear down a worktree's resources — destroy each of the GIVEN ledger entries (the
+ * teardown plan, already in reverse-creation order, so a dependency created first
+ * is destroyed last). Runs the FROZEN destroy command (what was true at create),
+ * best-effort and idempotent. The caller passes the entries it planned from, so
+ * apply acts on exactly the previewed set — there is no re-read that could drift
+ * from the plan. An entry is cleared only on success; a failed destroy keeps it so
+ * a later `worktree:prune` retries (self-healing). Returns which resources were
+ * destroyed and which were kept-for-retry.
  */
 export async function destroyResources(
   ctx: ResourceContext,
-  commonGitDir: string,
-  gitKey: string,
+  entries: LedgerItem[],
 ): Promise<{ destroyed: string[]; failed: string[] }> {
   const destroyed: string[] = [];
   const failed: string[] = [];
-  for (
-    const { path, entry } of await entriesForWorktree(commonGitDir, gitKey)
-  ) {
+  for (const { path, entry } of entries) {
     ctx.log.info(`Destroying worktree resource '${entry.resource_name}'…`);
     if (await runDestroyEntry(entry, ctx.cwd, ctx.log)) {
       await removeEntryFile(path);
@@ -611,6 +613,15 @@ export interface GcParams {
   livePaths: Set<string>;
   /** Resource handles currently owned by live worktrees (recycling guard). */
   liveIdentities: Set<string>;
+  /**
+   * Re-check, against CURRENT disk state, whether a resource handle is owned by a
+   * live worktree — the recycling guard re-evaluated right before each irreversible
+   * destroy. The snapshot `liveIdentities` is taken once; a long GC loop can run for
+   * seconds, during which a concurrent worktree-create can recycle this HANDLE under
+   * a DIFFERENT git_key (so the `gitKeyIsLive` re-check alone misses it). Returns
+   * true to KEEP the entry. Optional: when absent, only the snapshot guards it.
+   */
+  recheckIdentityLive?: (identity: string) => Promise<boolean>;
   /** Report what would be reclaimed without acting. */
   dryRun: boolean;
   log: Logger;
@@ -689,10 +700,12 @@ export function classifyOrphans(
  *
  * The liveness sets passed in are a SNAPSHOT; the destroy loop can run for
  * seconds, during which a concurrent worktree-create can recycle a freed git_key
- * and rewrite its ledger entry. So immediately before each destroy we re-validate
- * AGAINST DISK — a fresh `gitKeyIsLive` check and an entry re-read — and skip if
- * the key is now live or the entry was replaced. That closes the window where GC
- * would otherwise destroy a fresh tenant's live resource.
+ * (rewriting its ledger entry) OR recycle this resource's HANDLE under a different
+ * git_key. So immediately before each destroy we re-validate AGAINST DISK on all
+ * three axes — a fresh `gitKeyIsLive` check, an entry re-read, and a fresh
+ * `recheckIdentityLive` handle check — and skip if any says the entry is now a live
+ * tenant's. That closes the window where GC would otherwise destroy a fresh
+ * worktree's live resource.
  */
 export async function gcOrphanResources(p: GcParams): Promise<GcResult> {
   const { reclaimable, kept } = classifyOrphans(
@@ -713,11 +726,14 @@ export async function gcOrphanResources(p: GcParams): Promise<GcResult> {
       continue;
     }
     // Re-validate against disk right before destroying (see the doc comment): the
-    // git_key must still be dead AND the on-disk entry must still be the one we
-    // read — else a concurrent create recycled the key, and this is a live tenant.
+    // git_key must still be dead, the on-disk entry must still be the one we read,
+    // AND no live worktree may now own this handle — else a concurrent create
+    // recycled the key or the handle, and this is a live tenant.
     if (
       await gitKeyIsLive(p.commonGitDir, entry.git_key) ||
-      !sameEntry(entry, await readEntry(path))
+      !sameEntry(entry, await readEntry(path)) ||
+      (p.recheckIdentityLive !== undefined &&
+        await p.recheckIdentityLive(entry.resource_identity))
     ) {
       result.kept++;
       continue;

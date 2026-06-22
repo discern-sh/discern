@@ -28,6 +28,7 @@ import { upsertEnvLine } from "../src/engine/worktree/env_file.ts";
 import {
   createResources,
   destroyResources,
+  entriesForWorktree,
   gcOrphanResources,
   listEntries,
   readResourceSpecs,
@@ -205,7 +206,7 @@ Deno.test("createResources writes a ledger entry and runs create; teardown destr
     assertExists(first);
     assertEquals(first.entry.resource_identity, handle);
 
-    await destroyResources(ctx, common, key);
+    await destroyResources(ctx, await entriesForWorktree(common, key));
     assert(
       await exists(join(markers, `${handle}.gone`)),
       "destroy did not run",
@@ -232,9 +233,9 @@ Deno.test("destroy is idempotent (a second teardown is a clean no-op)", async ()
     const { common, key } = await commonAndKey(wt);
     const ctx = await ctxFor(wt);
     await createResources(ctx, identity, settings, common, key);
-    await destroyResources(ctx, common, key);
+    await destroyResources(ctx, await entriesForWorktree(common, key));
     // No entries remain; a second teardown must not throw and must stay empty.
-    await destroyResources(ctx, common, key);
+    await destroyResources(ctx, await entriesForWorktree(common, key));
     assertEquals((await listEntries(common)).length, 0);
   });
 });
@@ -339,6 +340,53 @@ Deno.test("GC re-checks liveness on disk and keeps a resource the snapshot wrong
       "GC destroyed a live resource despite a stale snapshot",
     );
     assertEquals((await listEntries(common)).length, 1);
+  });
+});
+
+Deno.test("GC re-checks HANDLE liveness on disk and keeps an orphan whose handle a mid-loop create recycled (M1)", async () => {
+  await withTempDir(async (dir) => {
+    await mainRepo(dir);
+    const wt = await addWorktree(dir, "recycled");
+    const markers = join(dir, "markers");
+    await Deno.writeTextFile(join(wt, "discern.toml"), resourceConfig(markers));
+    const { settings, identity } = await identityOf(wt, wt);
+    const { common, key } = await commonAndKey(wt);
+    await createResources(await ctxFor(wt), identity, settings, common, key);
+    const handle = resourceForId(settings.slug, identity.id, "thing");
+
+    // The owning worktree is GENUINELY gone (its git_key is dead, the entry is a
+    // true orphan the snapshot + gitKeyIsLive both classify as reclaimable). But a
+    // worktree created DURING the destroy loop now owns the same HANDLE under a
+    // different git_key — modelled by recheckIdentityLive returning true. The
+    // freshest guard (M1) must veto the destroy, else GC kills the live tenant.
+    await Deno.remove(wt, { recursive: true });
+
+    const result = await gcOrphanResources({
+      commonGitDir: common,
+      cwd: dir,
+      liveGitKeys: await liveWorktreeGitKeys(common),
+      livePaths: await liveWorktreePaths(dir),
+      liveIdentities: new Set(), // snapshot: handle NOT yet live
+      recheckIdentityLive: (id) => Promise.resolve(id === handle), // fresh: now live
+      dryRun: false,
+      log: quietLog(),
+    });
+
+    assertEquals(
+      result.reclaimed.length,
+      0,
+      "M1: destroyed a recycled-live handle",
+    );
+    assert(result.kept >= 1);
+    assert(
+      !(await exists(join(markers, `${handle}.gone`))),
+      "M1: GC ran destroy on a handle a live worktree now owns",
+    );
+    assertEquals(
+      (await listEntries(common)).length,
+      1,
+      "M1: GC dropped the entry of a recycled-live handle",
+    );
   });
 });
 
