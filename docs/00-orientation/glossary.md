@@ -74,9 +74,9 @@ with `DISCERN_*` exported; a name with a colon maps to a hyphenated file
 (`some:verb` → `some-verb`). A recipe reads config through the
 `discern config get|array|has|
 subsections|keys` surface and worktree identity
-through `discern worktree-name --db|--site|--port` — it does **not** source a
-shell library. On a name collision with a built-in verb the binary wins
-([ADR 0001](../_adr/0001-project-owned-recipes.md)).
+through `discern worktree-name --db|--site|--port|--resource <name>` — it does
+**not** source a shell library. On a name collision with a built-in verb the
+binary wins ([ADR 0001](../_adr/0001-project-owned-recipes.md)).
 
 ---
 
@@ -281,7 +281,8 @@ Terms for the isolated-worktree workflow. Covered in depth under
 
 A throwaway, isolated `git worktree` (and its branch) for a single change, so an
 agent never works directly in the main checkout. Each gets a deterministic
-dev-server port and its own database, so concurrent worktrees never collide.
+dev-server port and any per-worktree [resources](#worktree-resource) a project
+declares, so concurrent worktrees never collide.
 
 ### Worktree settings
 

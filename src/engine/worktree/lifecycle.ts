@@ -295,7 +295,7 @@ export async function worktreeEnsure(
 }
 
 /**
- * Tear down this worktree's database + dev-server link without graduating its
+ * Tear down this worktree's resources without graduating its
  * branch — the `worktree:teardown` recipe, used when DISCARDING a worktree.
  * Asserts the worktree precondition; destroys every resource the worktree created.
  */

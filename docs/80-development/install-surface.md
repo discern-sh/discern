@@ -99,14 +99,14 @@ is the per-worktree **resources** (`[worktree.resources.<name>]`) a project
 declares in `discern.toml`; a fresh install declares none. The whole workflow
 sits behind `[features].worktrees`.
 
-| Command                     | What it does                                                                    |
-| --------------------------- | ------------------------------------------------------------------------------- |
-| `discern worktree`          | Sets up a freshly-created worktree (run by the `WorktreeCreate` hook).          |
-| `discern worktree:ensure`   | Session-start idempotent setup (run by the `SessionStart` hook).                |
-| `discern graduate`          | Graduates the branch into the main repo and tears the worktree down.            |
-| `discern worktree:teardown` | Tears down a worktree's database and dev-server link (run by `WorktreeRemove`). |
-| `discern worktree:prune`    | Sweeps stale worktrees, fully-merged branches, and orphan directories.          |
-| `discern worktree-name`     | Resolves a worktree's stable identity (id / site / branch / port / db).         |
+| Command                     | What it does                                                                       |
+| --------------------------- | ---------------------------------------------------------------------------------- |
+| `discern worktree`          | Sets up a freshly-created worktree (run by the `WorktreeCreate` hook).             |
+| `discern worktree:ensure`   | Session-start idempotent setup (run by the `SessionStart` hook).                   |
+| `discern graduate`          | Graduates the branch into the main repo and tears the worktree down.               |
+| `discern worktree:teardown` | Destroys a worktree's resources (run by `WorktreeRemove`).                         |
+| `discern worktree:prune`    | Sweeps stale worktrees, fully-merged branches, orphan dirs, and orphan resources.  |
+| `discern worktree-name`     | Resolves a worktree's stable identity (id / site / branch / port / db / resource). |
 
 The lifecycle logic lives in
 [`src/engine/worktree/lifecycle.ts`](../../src/engine/worktree/lifecycle.ts);

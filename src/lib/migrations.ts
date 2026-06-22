@@ -655,16 +655,19 @@ export const MIGRATIONS: Migration[] = [
       // non-empty AND a hand-added resource of that name does not already exist
       // (never clobber the user's own [worktree.resources.<name>]).
       const blocks: string[] = [];
+      const converted: string[] = [];
       if (
         resources.db === undefined && (dbCreate !== "" || dbDestroy !== "")
       ) {
         blocks.push(liveResourceBlock("db", dbCreate, dbDestroy));
+        converted.push("db");
       }
       if (
         resources.dev_server === undefined &&
         (devCreate !== "" || devDestroy !== "")
       ) {
         blocks.push(liveResourceBlock("dev_server", devCreate, devDestroy));
+        converted.push("dev_server");
       }
       // What to insert where the legacy tables were: the user's converted live
       // tables; else the commented examples (unless they already declare some
@@ -682,9 +685,11 @@ export const MIGRATIONS: Migration[] = [
         return out.replace(/\n{3,}/g, "\n\n");
       });
 
-      if (blocks.length > 0) {
+      if (converted.length > 0) {
         ctx.note(
-          "converted [worktree.db]/[worktree.dev_server] → [worktree.resources.*] (any inline comments on the old keys were not carried)",
+          `converted ${
+            converted.map((n) => `[worktree.${n}]`).join(" + ")
+          } → [worktree.resources.*] (any inline comments on the old keys were not carried)`,
         );
       } else {
         ctx.note(
@@ -794,10 +799,12 @@ const COMMENTED_RESOURCES_BLOCK =
 # Any other isolated resource — an emulator, a queue, a bucket, a namespace.
 # [worktree.resources.example]
 # create   = "make-thing @resource@"
-# destroy  = "destroy-thing @resource@"
+# destroy  = "destroy-thing @resource@"   # idempotent: may re-run via worktree:prune
 # ensure   = "ensure-thing @resource@"   # optional: reconcile drift at session start
 # required = true                          # optional: false = create failure is non-fatal
-# retries  = 0                             # optional: retry create N times`;
+# retries  = 0                             # optional: retry create/destroy N times
+# gc       = true                          # optional: false = never orphan-prune it
+#                                          #   (teardown-only; for data-loss-sensitive ones)`;
 
 /**
  * Whether the install's `.discern/skills/<name>` is byte-identical to the bundled

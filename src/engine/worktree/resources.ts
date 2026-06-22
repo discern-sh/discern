@@ -350,8 +350,8 @@ async function canonical(path: string): Promise<string> {
  * Create every declared resource in document order. For a resource with a
  * `destroy`, the ledger entry is written FIRST (an intent-log, so a crash
  * mid-create is still GC-able), then `create` runs. A failed `create` aborts setup
- * when `required` (the default, preserving the old db/dev_server behaviour), else
- * warns and continues. No-op for a resource with neither command.
+ * when `required` (the default), else warns and continues. No-op for a resource
+ * with neither command.
  */
 export async function createResources(
   ctx: ResourceContext,
@@ -488,8 +488,7 @@ export async function recordResourceEnv(
  * reverse creation order (so a dependency created first is destroyed last). Runs
  * the FROZEN destroy command (what was true at create), best-effort and
  * idempotent. An entry is cleared only on success; a failed destroy keeps it so a
- * later `worktree:prune` retries (self-healing). Mirrors the old db/dev_server
- * teardown ordering.
+ * later `worktree:prune` retries (self-healing).
  */
 export async function destroyResources(
   ctx: ResourceContext,

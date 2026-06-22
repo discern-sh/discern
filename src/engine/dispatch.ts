@@ -307,7 +307,9 @@ export function attachEngineCommands(
     .command(
       "teardown",
       new Command()
-        .description("Discard this worktree's database + dev-server link.")
+        .description(
+          "Discard this worktree's resources (destroy without graduating).",
+        )
         .action(async () => {
           Deno.exit(await runWorktreeOp(worktreeTeardown));
         }),

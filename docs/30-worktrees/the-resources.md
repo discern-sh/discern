@@ -31,8 +31,7 @@ Resources are **created top-to-bottom and destroyed bottom-to-top** (document
 order at create, reversed at destroy), so a dependency declared first is torn
 down last. Commands run via `sh -c` after `@…@` token expansion; an empty
 command is a clean no-op. A `required` create that fails aborts setup loudly
-(preserving the old db/dev_server behaviour); `required = false` warns and
-continues.
+(the default); `required = false` warns and continues.
 
 ## The lifecycle
 
@@ -45,7 +44,10 @@ continues.
 
 Teardown is **best-effort and idempotent**: a failure is logged and never
 strands a Worktree (a later prune is the backstop), and a destroy that runs when
-the resource is already gone must be a clean no-op — author it that way.
+the resource is already gone must be a clean no-op — author it that way. Author
+`destroy` to be **cwd-independent**, too: at teardown it runs from the Worktree,
+but at GC it runs from the **main checkout** (the Worktree is gone), so use
+`@…@` handles or absolute paths — never a relative path like `./cache`.
 
 ## Identity, ownership, and namespacing
 

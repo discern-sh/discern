@@ -1,11 +1,11 @@
 ---
 name: handoff-worktree
-description: Migrate the current worktree's branch into the main repository so the user can review, test, and continue work there. Runs `discern graduate`, which commits the work as needed, tears down the worktree's adapters (database, dev-server) and removes the worktree directory, then checks the branch out in the main repo as the latest commit. Requires the branch already contains the latest main (it stops and points you to `discern finish` if not) and refuses to run if the main checkout has uncommitted changes. Use whenever the user signals they want to take over a worktree session — phrases like "handoff worktree", "handoff this", "finish up and move it back to main", "I'll take it from here", "move this branch out of the worktree", or "graduate this branch". Trigger this even if the user does not explicitly say "skill" — the intent is what matters.
+description: Migrate the current worktree's branch into the main repository so the user can review, test, and continue work there. Runs `discern graduate`, which commits the work as needed, destroys the worktree's resources and removes the worktree directory, then checks the branch out in the main repo as the latest commit. Requires the branch already contains the latest main (it stops and points you to `discern finish` if not) and refuses to run if the main checkout has uncommitted changes. Use whenever the user signals they want to take over a worktree session — phrases like "handoff worktree", "handoff this", "finish up and move it back to main", "I'll take it from here", "move this branch out of the worktree", or "graduate this branch". Trigger this even if the user does not explicitly say "skill" — the intent is what matters.
 ---
 
 # Handoff Worktree
 
-The mechanical work — integrating the latest main, tearing down the worktree's adapters (database, dev-server link), committing as needed, removing the worktree, checking the branch out in main, and soft-resetting any WIP commit — is done by the harness:
+The mechanical work — integrating the latest main, destroying the worktree's resources, committing as needed, removing the worktree, checking the branch out in main, and soft-resetting any WIP commit — is done by the harness:
 
 ```
 discern graduate
@@ -48,7 +48,7 @@ These don't usually need to be surfaced to the user, but stay aware of them as y
 - Any absolute paths you cached earlier that pointed inside the worktree are now stale. Re-resolve from the main repo path when needed.
 - For load-bearing files you read pre-handoff, re-read them if you're about to edit — your in-context view might be slightly out of date.
 - Any background processes that were running inside the worktree (dev servers, file watchers) will have died when the directory was removed. Mention this only if the user seems to expect one to still be running.
-- The worktree's adapters (its database and any dev-server link) are torn down as part of the handoff, so the worktree's preview URL stops resolving.
+- The worktree's resources (e.g. its database and any dev-server link) are destroyed as part of the handoff, so the worktree's preview URL stops resolving.
 
 ## What not to do
 
