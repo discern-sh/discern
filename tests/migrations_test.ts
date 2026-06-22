@@ -920,3 +920,100 @@ Deno.test("a rename migration is idempotent end-to-end through applyMigrations",
     assertEquals(await targetExists(dir, "b"), true);
   });
 });
+
+// ---- failure-branch recovery (the untested half of the recovery model) -----
+//
+// The migration runner's safety story is: a step that throws ABORTS the chain
+// (later steps never run), the CALLER never stamps the schema on failure (the
+// stamp happens only after applyMigrations returns), and because every step is
+// idempotent, a re-run replays the full pending set safely and converges. The
+// idempotency half is well-covered above; this pins the FAILURE half — the one
+// the audit flagged as the missing guard for the data-loss concern.
+
+Deno.test("applyMigrations: a step that throws aborts the chain, runs no later step, and a clean re-run converges idempotently", async () => {
+  await withTempDir(async (dir) => {
+    const calls: { s1: number; s2: number; s3: number } = {
+      s1: 0,
+      s2: 0,
+      s3: 0,
+    };
+    // Each step writes its marker ONCE (the real idempotent pattern: a no-op when
+    // already applied). The middle step throws on its first attempt only,
+    // modelling a transient failure partway through the chain.
+    const writeOnce = async (
+      ctx: {
+        exists(r: string): Promise<boolean>;
+        writeText(r: string, c: string): Promise<void>;
+      },
+      marker: string,
+    ): Promise<void> => {
+      if (!(await ctx.exists(marker))) {
+        await ctx.writeText(marker, "applied");
+      }
+    };
+    const registry: Migration[] = [
+      {
+        from: 1,
+        describe: "s1",
+        apply: (ctx) => {
+          calls.s1++;
+          return writeOnce(ctx, "s1.marker");
+        },
+      },
+      {
+        from: 2,
+        describe: "s2 (transiently fails once)",
+        apply: async (ctx) => {
+          calls.s2++;
+          if (calls.s2 === 1) {
+            throw new Error("transient boom");
+          }
+          await writeOnce(ctx, "s2.marker");
+        },
+      },
+      {
+        from: 3,
+        describe: "s3",
+        apply: (ctx) => {
+          calls.s3++;
+          return writeOnce(ctx, "s3.marker");
+        },
+      },
+    ];
+
+    // First run: the middle step throws → applyMigrations propagates and aborts.
+    await assertRejects(
+      () => applyMigrations({ destDir: dir, from: 1, to: 4, registry }),
+      Error,
+      "transient boom",
+    );
+    // Partial progress persisted for the step that ran; the LATER step never ran
+    // (the throw must abort the loop, not skip-and-continue).
+    assertEquals(await targetExists(dir, "s1.marker"), true);
+    assertEquals(await targetExists(dir, "s2.marker"), false);
+    assertEquals(
+      await targetExists(dir, "s3.marker"),
+      false,
+      "a step AFTER the failure ran despite the abort",
+    );
+    assertEquals(calls, { s1: 1, s2: 1, s3: 0 });
+
+    // applyMigrations THREW, so it never returned — the caller's post-return
+    // schema stamp is structurally unreachable, leaving the full pending set to
+    // re-run. Re-run with the now-recovered registry: it converges.
+    const applied = await applyMigrations({
+      destDir: dir,
+      from: 1,
+      to: 4,
+      registry,
+    });
+    assertEquals(applied.map((m) => m.from), [1, 2, 3]);
+    // Every step's effect is present now.
+    assertEquals(await targetExists(dir, "s1.marker"), true);
+    assertEquals(await targetExists(dir, "s2.marker"), true);
+    assertEquals(await targetExists(dir, "s3.marker"), true);
+    // The already-applied step was REPLAYED (called again) but idempotent — its
+    // marker is untouched, proving the replay is safe, not corrupting.
+    assertEquals(calls, { s1: 2, s2: 2, s3: 1 });
+  });
+});
