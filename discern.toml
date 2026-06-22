@@ -24,14 +24,12 @@ main_branch = "main"
 # the gate prints on failure). Empty disables the pointer.
 gotchas_doc = "docs/80-development/finish-gate-gotchas.md"
 
-
 # [meta] — installer bookkeeping. `schema_version` is the migration anchor
 # (ADR 0014): `discern upgrade` reads it, runs any pending migrations, and
 # re-stamps it. Edit by hand only to force a re-migration.
 [meta]
 bootstrapped = true
-schema_version = 7
-
+schema_version = 8
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [capabilities] — the core commands the gate runs, one per known capability.
@@ -47,14 +45,12 @@ lint      = "deno lint"
 typecheck = "deno check src/main.ts"
 test      = "deno task test"
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # [checks.<name>] — custom gate work outside the known capability vocabulary.
 # `stage` (required) is one of fix|build|check|test. None are wired here: the
 # selfcheck/shellcheck checks retired with the committed shell engine (the engine
 # now lives in the binary, so there is no installed copy to keep in sync).
 # ─────────────────────────────────────────────────────────────────────────────
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [scopes.<name>] — named regions of the repo. `paths` globs define a scope; the
@@ -67,7 +63,6 @@ test      = "deno task test"
 [scopes.docs]
 paths   = ["docs/", ".claude/", "skills/"]
 neutral = true
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [worktree] — the isolated-worktree workflow. The git mechanics are generic;
@@ -86,25 +81,29 @@ inherit_env = []   # e.g. ["APP_KEY", "OPENAI_API_KEY"]
 # concurrent worktrees never collide. Read it with `discern worktree-name --port`.
 port = true
 
-# Database seam. Each worktree gets its own database so tests never clash.
-# Runtime tokens use @…@ (the engine expands them per-worktree, at run time):
-# @db@ is the derived database name, @project_slug@ your project slug. Leave empty
-# for a project with no database. (The example below uses a Postgres template DB.)
-[worktree.db]
-clone = ""   # e.g. "createdb -T @project_slug@_template @db@"
-drop  = ""   # e.g. "dropdb --if-exists @db@"
+# A per-worktree database, so tests never clash. Uses @db@ (db-name-safe).
+# [worktree.resources.db]
+# create  = "createdb -T @project_slug@_template @db@"
+# destroy = "dropdb --if-exists @db@"
 
-# Dev-server seam — link/unlink a per-worktree site (a Docker vhost, an ngrok
-# tunnel, a reverse-proxy entry, …). Leave empty for none.
-[worktree.dev_server]
-link   = ""
-unlink = ""
+# A per-worktree dev-server site (a Docker vhost, an ngrok tunnel, a reverse-proxy
+# entry, …). Uses @site@ (DNS-safe). Declared after db so it is torn down first.
+# [worktree.resources.dev_server]
+# create  = "link-site @site@ @port@"
+# destroy = "unlink-site @site@"
+
+# Any other isolated resource — an emulator, a queue, a bucket, a namespace.
+# [worktree.resources.example]
+# create   = "make-thing @resource@"
+# destroy  = "destroy-thing @resource@"
+# ensure   = "ensure-thing @resource@"   # optional: reconcile drift at session start
+# required = true                          # optional: false = create failure is non-fatal
+# retries  = 0                             # optional: retry create N times
 
 # Post-create setup: commands run once after a worktree is created (install
 # deps, run migrations, warm caches). Run in order.
 [worktree.setup]
 steps = []   # e.g. ["npm ci", "npm run build"]
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [ratchets] — never-loosen quality floors, enforced on demand by `discern ratchets`
@@ -125,7 +124,6 @@ direction = "up"
 limit     = 83
 run       = "deno task coverage"
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # [gate] — ergonomics for the parallel gate stages (and scope gates). These
 # affect how `discern finish` runs its concurrent jobs.
@@ -143,7 +141,6 @@ stream = false
 # tree-kills a cancelled job's whole process group (Deno `detached` + `Deno.kill`),
 # so its grandchildren don't linger.
 fail_fast = true
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [recipes] — your OWN `discern` commands. Drop an executable script carrying a
