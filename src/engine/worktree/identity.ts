@@ -122,6 +122,30 @@ export function siteForId(slug: string, id: string): string {
 }
 
 /**
+ * The worktree's resource-agnostic base handle: `<slug>-<id>` sanitized (the
+ * `@worktree@` token). Like {@link siteForId} but NOT DNS-fitted — a plain,
+ * predictable, project-namespaced name a generic external resource manager can
+ * use. Deterministic per worktree; the slug prefix keeps two projects' worktrees
+ * from ever colliding on the same host.
+ */
+export function worktreeBase(slug: string, id: string): string {
+  return sanitizeSlug(`${slug}-${id}`);
+}
+
+/**
+ * A named resource's per-worktree handle: `<slug>-<id>-<name>` sanitized (the
+ * `@resource@` token, bound to the resource whose `create`/`destroy`/`ensure` is
+ * running). Deterministic (same worktree + name ⇒ same handle), unique across
+ * worktrees (the id) and across resources (the name), namespaced by project (the
+ * slug prefix ⇒ cross-project non-collision), and shell/CLI/resource-name-safe
+ * (sanitized to `[a-z0-9-]`). Unclamped, matching {@link dbNameForId}'s
+ * convention — a resource that needs a length-bounded DNS label uses `@site@`.
+ */
+export function resourceForId(slug: string, id: string, name: string): string {
+  return sanitizeSlug(`${slug}-${id}-${name}`);
+}
+
+/**
  * Validate an explicit id override against the override pattern, then normalise
  * it to a slug. Mirrors the shell `validate_override_id`. Throws an
  * `IdentityError` (exit 1) on an invalid value.

@@ -12,7 +12,7 @@
 [meta]
 # The install schema version — managed by discern (bumped by `discern upgrade`).
 # Don't edit this by hand.
-schema_version = 7
+schema_version = 8
 
 
 [project]
@@ -155,9 +155,9 @@ neutral = true
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [worktree] — the isolated-worktree workflow. The git mechanics are generic;
-# the two seams (database, dev-server) are empty by default, so a worktree round
-# is a clean no-op until you wire them to your stack. (Inert when
-# [features].worktrees = false.)
+# everything project-specific is a RESOURCE you declare below. A fresh install
+# declares none, so a worktree round is a clean no-op until you wire one. (Inert
+# when [features].worktrees = false.)
 # ─────────────────────────────────────────────────────────────────────────────
 
 [worktree]
@@ -169,24 +169,58 @@ inherit_env = []   # e.g. ["APP_KEY", "OPENAI_API_KEY"]
 
 # Give each worktree a deterministic dev-server port (hashed from its id) so
 # concurrent worktrees never collide. Read it with `discern worktree-name --port`.
+# This is derived IDENTITY, not a resource — it provisions nothing.
 port = true
 
-# Database seam. Each worktree gets its own database so tests never clash.
-# Runtime tokens use @…@ (the engine expands them per-worktree, at run time):
-# @db@ is the derived database name, @project_slug@ your project slug. Leave empty
-# for a project with no database. (The example below uses a Postgres template DB.)
-[worktree.db]
-clone = ""   # e.g. "createdb -T @project_slug@_template @db@"
-drop  = ""   # e.g. "dropdb --if-exists @db@"
+# ─────────────────────────────────────────────────────────────────────────────
+# [worktree.resources.<name>] — per-worktree external resources (a database, an
+# emulator, a container, a queue). Each declares a `create` command (run once at
+# setup) and a `destroy` (run once at teardown), with optional `ensure`
+# (re-readiness at session start), `required` (default true: a create failure
+# aborts setup), `retries` (default 0), and `gc` (default true: may orphan-prune
+# reclaim it). Resources are CREATED top-to-bottom and DESTROYED bottom-to-top.
+# Commands run via `sh -c` after @…@ token expansion; an empty command is a clean
+# no-op. A worktree that vanishes without a clean teardown has its resources
+# reclaimed by `discern worktree:prune` (the GC safety net) — so author `destroy`
+# to be idempotent (it may run again via prune) and cwd-independent (prune runs it
+# from the main checkout: use @…@ handles or absolute paths, not relative ones).
+#
+# Runtime tokens (expanded per-worktree, at run time):
+#   @worktree@      this worktree's base handle   (slug-id)
+#   @resource@      this resource's handle        (slug-id-name; this resource only)
+#   @db@            database-name-safe identity    (underscores; for db engines)
+#   @site@          dev-server site/host name      (DNS-safe; for vhosts/tunnels)
+#   @port@          the deterministic dev-server port
+#   @project_slug@  your project slug
+#   @dir@           this worktree's root
+# Read a handle back from a recipe with `discern worktree-name --resource <name>`
+# (also exported into the worktree's .env as DISCERN_RESOURCE_<NAME>).
+# ─────────────────────────────────────────────────────────────────────────────
 
-# Dev-server seam — link/unlink a per-worktree site (a Docker vhost, an ngrok
-# tunnel, a reverse-proxy entry, …). Leave empty for none.
-[worktree.dev_server]
-link   = ""
-unlink = ""
+# A per-worktree database, so tests never clash. Uses @db@ (db-name-safe).
+# [worktree.resources.db]
+# create  = "createdb -T @project_slug@_template @db@"
+# destroy = "dropdb --if-exists @db@"
 
-# Post-create setup: commands run once after a worktree is created (install
-# deps, run migrations, warm caches). Run in order.
+# A per-worktree dev-server site (a Docker vhost, an ngrok tunnel, a reverse-proxy
+# entry, …). Uses @site@ (DNS-safe). Declared after db so it is torn down first.
+# [worktree.resources.dev_server]
+# create  = "link-site @site@ @port@"
+# destroy = "unlink-site @site@"
+
+# Any other isolated resource — an emulator, a queue, a bucket, a namespace.
+# [worktree.resources.example]
+# create   = "make-thing @resource@"
+# destroy  = "destroy-thing @resource@"   # idempotent: may re-run via worktree:prune
+# ensure   = "ensure-thing @resource@"   # optional: reconcile drift at session start
+# required = true                          # optional: false = create failure is non-fatal
+# retries  = 0                             # optional: retry create/destroy N times
+# gc       = true                          # optional: false = never orphan-prune it
+#                                          #   (teardown-only; for data-loss-sensitive ones)
+
+# Post-create setup: commands run once after a worktree's resources are created
+# (install deps, run migrations, warm caches). Run in order. @resource@ is not
+# bound here — use @worktree@/@db@/@site@.
 [worktree.setup]
 steps = []   # e.g. ["npm ci", "npm run build"]
 
@@ -257,7 +291,7 @@ fail_fast = true
 # exec's it with the DISCERN_* environment exported (DISCERN_ROOT, DISCERN_RECIPES,
 # MAIN_BRANCH, …) and your args forwarded. A recipe is self-contained: it reads
 # config by calling the binary (`discern config get <key>`) and resolves worktree
-# identity with `discern worktree-name --db|--site|--port`.
+# identity with `discern worktree-name --db|--site|--port|--resource <name>`.
 # ─────────────────────────────────────────────────────────────────────────────
 
 [recipes]

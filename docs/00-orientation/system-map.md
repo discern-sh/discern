@@ -108,11 +108,11 @@ main checkout ──discern worktree──► Worktree  (branch + own db + own p
 
 ## How the map relates to the subtrees
 
-| Region of the map                                           | Documented in                                              |
-| ----------------------------------------------------------- | ---------------------------------------------------------- |
-| `src/` Installer verbs, the seed writes, schema migrations  | [`../10-installer/`](../10-installer/)                     |
-| `discern finish`, the Stage walk, Scopes, Scope gates       | [`../20-quality-gate/`](../20-quality-gate/)               |
-| The Worktree bracket and its database / dev-server settings | [`../30-worktrees/`](../30-worktrees/)                     |
-| Guidance source → Compiled agent files, bundled Skills      | [`../40-agent-guidance/`](../40-agent-guidance/)           |
-| Verb dispatch and the TypeScript engine                     | [`../50-engine-internals/`](../50-engine-internals/)       |
-| The install surface — yours vs the binary's                 | [install-surface.md](../80-development/install-surface.md) |
+| Region of the map                                          | Documented in                                              |
+| ---------------------------------------------------------- | ---------------------------------------------------------- |
+| `src/` Installer verbs, the seed writes, schema migrations | [`../10-installer/`](../10-installer/)                     |
+| `discern finish`, the Stage walk, Scopes, Scope gates      | [`../20-quality-gate/`](../20-quality-gate/)               |
+| The Worktree bracket and its per-worktree resources        | [`../30-worktrees/`](../30-worktrees/)                     |
+| Guidance source → Compiled agent files, bundled Skills     | [`../40-agent-guidance/`](../40-agent-guidance/)           |
+| Verb dispatch and the TypeScript engine                    | [`../50-engine-internals/`](../50-engine-internals/)       |
+| The install surface — yours vs the binary's                | [install-surface.md](../80-development/install-surface.md) |

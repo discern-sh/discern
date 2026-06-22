@@ -377,11 +377,19 @@ async function gitlinksInto(
   return link.startsWith(`${commonGitDir}/worktrees/`);
 }
 
-/** Resolve the shared common git dir as seen from `mainRepo`. */
-async function commonGitDirFrom(
-  mainRepo: string,
+/**
+ * Resolve the shared common git dir (`git rev-parse --git-common-dir`) as a
+ * canonical absolute path, from any worktree or the main checkout. LOAD-BEARING
+ * for the resource ledger: git prints an ABSOLUTE path from a linked worktree but
+ * a RELATIVE `.git` from the main checkout, so the writer (a worktree) and the GC
+ * (the main checkout) MUST normalise through this one helper or they would target
+ * different `<common>/discern/` directories and the ledger would be invisible to
+ * GC. Returns undefined outside a git repository.
+ */
+export async function resolveCommonGitDir(
+  cwd?: string,
 ): Promise<string | undefined> {
-  const run = await git(["rev-parse", "--git-common-dir"], mainRepo);
+  const run = await git(["rev-parse", "--git-common-dir"], cwd);
   if (!run.success) {
     return undefined;
   }
@@ -390,9 +398,110 @@ async function commonGitDirFrom(
     return undefined;
   }
   if (!isAbsolute(raw)) {
-    raw = join(mainRepo, raw);
+    raw = resolve(cwd ?? Deno.cwd(), raw);
   }
   return await realPathOr(raw);
+}
+
+/** Resolve the shared common git dir as seen from `mainRepo`. */
+async function commonGitDirFrom(
+  mainRepo: string,
+): Promise<string | undefined> {
+  return await resolveCommonGitDir(mainRepo);
+}
+
+/**
+ * This linked worktree's git key — the basename of its admin directory
+ * (`<common>/worktrees/<key>`), git's own stable, unique-per-live-worktree
+ * identity. The ledger keys on this (not the resolved worktree id, which the
+ * `DISCERN_WORKTREE_ID` override can move; not the path, which symlinks and reuse
+ * make ambiguous). Returns undefined outside a repo or in the main checkout
+ * (where the absolute and common git dirs are the same).
+ */
+export async function worktreeGitKey(
+  cwd?: string,
+): Promise<string | undefined> {
+  const { absoluteGitDir, commonGitDir } = await resolveGitDirs(
+    cwd ?? Deno.cwd(),
+  );
+  if (
+    absoluteGitDir === undefined || commonGitDir === undefined ||
+    absoluteGitDir === commonGitDir
+  ) {
+    return undefined;
+  }
+  return basename(absoluteGitDir);
+}
+
+/**
+ * The set of LIVE linked-worktree keys — the basenames of `<common>/worktrees/<key>`
+ * admin directories whose back-pointer (`gitdir`) still names an existing checkout.
+ * This is git's own registry of live worktrees and the authoritative orphan-GC
+ * key: it is immune to path canonicalisation and to the `DISCERN_WORKTREE_ID`
+ * override that can make a resolved worktree id differ from its admin-dir name. A
+ * dir whose checkout is gone (hard kill / `rm -rf`) is dropped, so a ledger entry
+ * keyed by a missing key is provably an orphan. Empty when there is no worktrees
+ * admin dir.
+ */
+export async function liveWorktreeGitKeys(
+  commonGitDir: string,
+): Promise<Set<string>> {
+  const keys = new Set<string>();
+  const worktreesDir = join(commonGitDir, "worktrees");
+  let entries: Deno.DirEntry[];
+  try {
+    entries = [];
+    for await (const e of Deno.readDir(worktreesDir)) {
+      entries.push(e);
+    }
+  } catch {
+    return keys; // no worktrees admin dir → no live linked worktrees
+  }
+  for (const entry of entries) {
+    if (entry.isDirectory && await gitKeyIsLive(commonGitDir, entry.name)) {
+      keys.add(entry.name);
+    }
+  }
+  return keys;
+}
+
+/**
+ * Whether one git key is live RIGHT NOW — its `<common>/worktrees/<key>/gitdir`
+ * back-pointer names a checkout that still exists. The single-key form of
+ * {@link liveWorktreeGitKeys}, for a fresh re-check immediately before a
+ * destructive GC action (closing the race where a concurrent worktree-create
+ * recycles a freed key after the liveness snapshot was taken).
+ */
+export async function gitKeyIsLive(
+  commonGitDir: string,
+  gitKey: string,
+): Promise<boolean> {
+  // `gitdir` holds the absolute path of the checkout's `.git` gitlink file. If
+  // that file is gone the worktree was removed out-of-band — a dead key.
+  const target = (await firstLine(
+    join(commonGitDir, "worktrees", gitKey, "gitdir"),
+  ))?.trim();
+  return target !== undefined && target !== "" && await pathExists(target);
+}
+
+/**
+ * The canonical paths of every currently-registered, non-prunable worktree of
+ * this repo — a secondary, fail-safe guard for resource GC (never reclaim a
+ * resource whose worktree path is still registered, even if the key bookkeeping
+ * looks orphaned). Factored from {@link sweepOrphanWorktrees}'s inline scan.
+ */
+export async function liveWorktreePaths(cwd?: string): Promise<Set<string>> {
+  const run = await git(["worktree", "list", "--porcelain"], cwd);
+  const paths = new Set<string>();
+  for (const rec of parseWorktreeList(run.stdout)) {
+    if (rec.prunable || rec.path === "") {
+      continue;
+    }
+    if (await isDir(rec.path)) {
+      paths.add(await realPathOr(rec.path));
+    }
+  }
+  return paths;
 }
 
 /**
@@ -784,8 +893,10 @@ export async function pruneGitWorktrees(
 
 /** Options for {@link sweepOrphanWorktrees}. */
 export interface SweepOptions {
-  /** Extra directories to scan (besides the registered parents + .claude/worktrees). */
+  /** Extra directories to scan (besides every registered worktree's parent). */
   extraDirs?: string[];
+  /** Print what would be reclaimed without removing anything. */
+  dryRun?: boolean;
   /** The logger for the scan/removal narration. */
   log: Logger;
 }
@@ -802,9 +913,9 @@ export interface SweepResult {
  * Reclaim orphaned worktree directories — directories git no longer tracks but
  * which still carry a `.git` gitlink into this repo's worktrees admin area. The
  * TS port of `sweep-orphan-worktrees`. Scans the parent of every registered
- * worktree, the `<main>/.claude/worktrees` convention, and any `extraDirs`.
- * Removal goes through {@link removeWorktreeSafely}, which re-checks the
- * boundary. Throws `WorktreeGitError` when not in a git repo.
+ * worktree (git-derived, so it makes no assumption about WHERE worktrees live)
+ * plus any `extraDirs`. Removal goes through {@link removeWorktreeSafely}, which
+ * re-checks the boundary. Throws `WorktreeGitError` when not in a git repo.
  */
 export async function sweepOrphanWorktrees(
   opts: SweepOptions,
@@ -831,8 +942,11 @@ export async function sweepOrphanWorktrees(
     registeredPaths.add(await realPathOr(p));
   }
 
-  // Scan dirs: the .claude/worktrees default, every registered worktree's
-  // parent, and any extra dirs — deduped.
+  // Scan dirs: every registered worktree's parent, plus any extra dirs — deduped.
+  // The engine deliberately hardcodes NO worktree-location convention (e.g. an
+  // agent's `.claude/worktrees`): it is agent-agnostic, so it discovers locations
+  // from git's own registry. A caller that knows a convention passes it via
+  // `extraDirs`.
   const scanSet = new Set<string>();
   const addScan = async (dir: string): Promise<void> => {
     if (!(await isDir(dir))) {
@@ -840,7 +954,6 @@ export async function sweepOrphanWorktrees(
     }
     scanSet.add(await realPathOr(dir));
   };
-  await addScan(join(mainRepo, ".claude", "worktrees"));
   for (const p of registeredRaw) {
     if (!(await isDir(p))) {
       continue;
@@ -893,6 +1006,15 @@ export async function sweepOrphanWorktrees(
   );
   for (const dir of orphans) {
     log.line(`  ${dir}`);
+  }
+
+  if (opts.dryRun) {
+    log.line(
+      `Would reclaim ${orphans.length} orphaned worktree director${
+        orphans.length === 1 ? "y" : "ies"
+      }.`,
+    );
+    return { removed: [], failed: false };
   }
 
   const removed: string[] = [];

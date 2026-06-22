@@ -38,6 +38,8 @@ import {
   WorktreeGitError,
   worktreeNameField,
   worktreePrune,
+  worktreeResourceHandle,
+  worktreeResourcesList,
   worktreeSetup,
   worktreeTeardown,
 } from "./worktree/lifecycle.ts";
@@ -229,27 +231,50 @@ export function attachEngineCommands(
   root
     .command("worktree-name")
     .description(
-      "Resolve a worktree's stable identity (id/site/branch/port/db).",
+      "Resolve a worktree's stable identity (id/site/branch/port/db/worktree/resource).",
     )
     .option("--id", "Print the safe worktree id (default).")
     .option("--site", "Print the dev-server site/host name.")
     .option("--branch", "Print the default branch name.")
     .option("--port", "Print the deterministic dev-server port.")
     .option("--db", "Print the database-name-safe identity.")
+    .option(
+      "--worktree",
+      "Print the worktree's base resource handle (slug-id).",
+    )
+    .option(
+      "--resource <name:string>",
+      "Print a named resource's handle (slug-id-name).",
+    )
+    .option(
+      "--resources",
+      "Print every declared resource as name=handle lines.",
+    )
     .arguments("[path:string]")
     .action(async (o, path) => {
-      const field = o.site
-        ? "site"
-        : o.branch
-        ? "branch"
-        : o.port
-        ? "port"
-        : o.db
-        ? "db"
-        : "id";
       const root = await requireRoot();
+      const target = path ?? Deno.cwd();
       try {
-        console.log(await worktreeNameField(root, field, path ?? Deno.cwd()));
+        if (o.resource !== undefined) {
+          console.log(await worktreeResourceHandle(root, o.resource, target));
+        } else if (o.resources) {
+          for (const line of await worktreeResourcesList(root, target)) {
+            console.log(line);
+          }
+        } else {
+          const field = o.site
+            ? "site"
+            : o.branch
+            ? "branch"
+            : o.port
+            ? "port"
+            : o.db
+            ? "db"
+            : o.worktree
+            ? "worktree"
+            : "id";
+          console.log(await worktreeNameField(root, field, target));
+        }
         Deno.exit(0);
       } catch (e) {
         if (e instanceof IdentityError) {
@@ -282,7 +307,9 @@ export function attachEngineCommands(
     .command(
       "teardown",
       new Command()
-        .description("Discard this worktree's database + dev-server link.")
+        .description(
+          "Discard this worktree's resources (destroy without graduating).",
+        )
         .action(async () => {
           Deno.exit(await runWorktreeOp(worktreeTeardown));
         }),
@@ -290,13 +317,20 @@ export function attachEngineCommands(
     .command(
       "prune",
       new Command()
-        .description("Sweep stale worktrees and fully-merged branches.")
+        .description(
+          "Sweep stale worktrees, fully-merged branches, and orphaned resources.",
+        )
         .option("-y, --yes", "Non-interactive: skip the confirm prompt.")
+        .option(
+          "--dry-run",
+          "Report what would be removed/reclaimed without acting.",
+        )
         .action(async (o) => {
           Deno.exit(
             await runWorktreeOp((ctx) =>
               worktreePrune(ctx, {
                 assumeYes: (o.yes ?? false) || !Deno.stdin.isTerminal(),
+                dryRun: o.dryRun ?? false,
               })
             ),
           );

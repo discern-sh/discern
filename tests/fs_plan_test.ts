@@ -48,7 +48,7 @@ Deno.test("init substitutes content tokens in *.tmpl files", async () => {
     assertStringIncludes(toml, 'branch_prefix = "agent/"');
     assertStringIncludes(toml, 'agents = ["claude_code", "codex"]');
     // The @db@ runtime token (different delimiter) is preserved verbatim.
-    assertStringIncludes(toml, 'clone = "createdb @db@"');
+    assertStringIncludes(toml, 'create = "createdb @db@"');
     // An unknown {{token}} is left verbatim (drift probe).
     assertStringIncludes(toml, 'custom = "{{unknown_token}}"');
   });

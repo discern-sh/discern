@@ -1,14 +1,16 @@
 /**
  * The worktree lifecycle entry points — worktree setup, ensure, graduate,
- * teardown, and prune. These compose the identity, token, and git layers into the
- * operations the dispatcher exposes as `discern worktree`, `discern graduate`, and
- * `worktree:*`.
+ * teardown, and prune. These compose the identity, resource, and git layers into
+ * the operations the dispatcher exposes as `discern worktree`, `discern graduate`,
+ * and `worktree:*`.
  *
- * Adapter seams ([worktree.db].clone/drop, [worktree.dev_server].link/unlink) are
- * operator-supplied command strings run via `sh -c` after `@…@` token expansion.
- * An empty command is a clean no-op. Setup adapters are fatal (a broken setup
- * must be loud); teardown adapters are non-fatal (a hiccup must never strand a
- * worktree). [worktree.setup].steps run in order, stopping at the first failure.
+ * Per-worktree external resources ([worktree.resources.<name>].create/destroy)
+ * are project-supplied command strings run via `sh -c` after `@…@` token
+ * expansion (see ./resources.ts). They are created once at setup (a `required`
+ * create is fatal — a broken setup must be loud), destroyed once at teardown
+ * (best-effort — a hiccup must never strand a worktree; a later prune is the
+ * backstop), and reclaimed by prune when a worktree vanishes without a clean
+ * teardown. [worktree.setup].steps run in order, stopping at the first failure.
  */
 
 import { join } from "@std/path";
@@ -17,26 +19,38 @@ import { Config } from "../../shared/config_read.ts";
 import {
   deriveIdentity,
   IdentityError,
+  type IdentitySettings,
   loadIdentitySettings,
   resolveWorktreeId,
+  resourceForId,
+  worktreeBase,
   type WorktreeIdentity,
 } from "./identity.ts";
+import { writeEnvVar } from "./env_file.ts";
 import {
-  expandTokens,
-  type TokenResolver,
-  type WorktreeToken,
-} from "./tokens.ts";
+  createResources,
+  destroyResources,
+  ensureResources,
+  gcOrphanResources,
+  type GcResult,
+  readResourceSpecs,
+  recordResourceEnv,
+} from "./resources.ts";
 import {
   assertInWorktree,
   assertMainMerged,
   assertNotInWorktree,
   ensureWorktreeBranch,
   inheritMainEnvVars,
+  liveWorktreeGitKeys,
+  liveWorktreePaths,
   mainRepoPath,
   pruneGitWorktrees,
   removeWorktreeSafely,
+  resolveCommonGitDir,
   sweepOrphanWorktrees,
   WorktreeGitError,
+  worktreeGitKey,
 } from "./git.ts";
 
 // worktree setup recompiles the agent guidance as its final step — which also
@@ -65,64 +79,6 @@ export async function lifecycleContext(
   return { root, config: await Config.load(root), log, cwd };
 }
 
-/**
- * A token resolver bound to a worktree's identity and root. `@db@`/`@site@`/
- * `@port@` come from the resolved identity; `@project_slug@` from config (the
- * raw configured slug, matching the shell `wt_token_value`); `@dir@` from the
- * worktree root. Built lazily so a command naming no tokens resolves nothing.
- */
-function tokenResolver(
-  identity: WorktreeIdentity,
-  config: Config,
-  worktreeRoot: string,
-): TokenResolver {
-  return (token: WorktreeToken): string => {
-    switch (token) {
-      case "db":
-        return identity.db;
-      case "site":
-        return identity.site;
-      case "port":
-        return String(identity.port);
-      case "project_slug":
-        return config.get("project.slug", "");
-      case "dir":
-        return worktreeRoot;
-    }
-  };
-}
-
-/** The result of running one adapter command. */
-interface AdapterRun {
-  /** True when the command was empty (a no-op) or exited 0. */
-  ok: boolean;
-  /** The process exit code (0 for an empty no-op). */
-  code: number;
-}
-
-/**
- * Run one adapter command after token expansion, but only when non-empty. Prints
- * `label` via `log.info` first. An empty command is a clean success no-op.
- * Mirrors the shell `wt_run_adapter`.
- */
-async function runAdapter(
-  ctx: LifecycleContext,
-  identity: WorktreeIdentity,
-  label: string,
-  rawCommand: string,
-): Promise<AdapterRun> {
-  if (rawCommand === "") {
-    return { ok: true, code: 0 };
-  }
-  ctx.log.info(label);
-  const expanded = await expandTokens(
-    rawCommand,
-    tokenResolver(identity, ctx.config, ctx.cwd),
-  );
-  const code = await runShell(expanded, ctx.cwd);
-  return { ok: code === 0, code };
-}
-
 /** Run a command string via `sh -c` in `cwd`, inheriting stdio. Returns its exit code. */
 async function runShell(command: string, cwd: string): Promise<number> {
   if (command === "") {
@@ -139,43 +95,33 @@ async function runShell(command: string, cwd: string): Promise<number> {
   return status.code;
 }
 
-/** Resolve this worktree's full identity from the context's cwd. */
+/** Resolve this worktree's full identity (and the settings it derived from) from
+ * the context's cwd. */
 async function resolveContextIdentity(
   ctx: LifecycleContext,
-): Promise<WorktreeIdentity> {
+): Promise<{ identity: WorktreeIdentity; settings: IdentitySettings }> {
   const settings = await loadIdentitySettings(ctx.root);
   const id = await resolveWorktreeId(settings, ctx.cwd);
-  return deriveIdentity(id, settings);
+  return { identity: deriveIdentity(id, settings), settings };
 }
 
 /**
- * Tear down this worktree's external resources: first unlink the dev server,
- * then drop the database. Both are no-ops when unset. Failures are reported but
- * NOT fatal — a teardown hiccup must never strand a worktree (a later prune is
- * the backstop). Mirrors the shell `wt_teardown`.
+ * Tear down this worktree's external resources — every ledger entry for this
+ * worktree, destroyed in reverse creation order. Best-effort and non-fatal: a
+ * teardown hiccup must never strand a worktree (a later `worktree:prune` is the
+ * backstop). A no-op when nothing was created. Run from inside the worktree (so
+ * `@dir@`-bearing destroys still resolve).
  */
-async function teardownAdapters(
-  ctx: LifecycleContext,
-  identity: WorktreeIdentity,
-): Promise<void> {
-  const unlink = await runAdapter(
-    ctx,
-    identity,
-    "Unlinking the worktree dev server…",
-    ctx.config.get("worktree.dev_server.unlink", ""),
-  );
-  if (!unlink.ok) {
-    ctx.log.warn("Dev-server unlink reported an error — continuing.");
+async function teardownResources(ctx: LifecycleContext): Promise<void> {
+  const commonGitDir = await resolveCommonGitDir(ctx.cwd);
+  const gitKey = await worktreeGitKey(ctx.cwd);
+  if (commonGitDir === undefined || gitKey === undefined) {
+    ctx.log.warn(
+      "Could not resolve this worktree's git identity — skipping resource teardown.",
+    );
+    return;
   }
-  const drop = await runAdapter(
-    ctx,
-    identity,
-    "Dropping the worktree database…",
-    ctx.config.get("worktree.db.drop", ""),
-  );
-  if (!drop.ok) {
-    ctx.log.warn("Database drop reported an error — continuing.");
-  }
+  await destroyResources(ctx, commonGitDir, gitKey);
 }
 
 /** The per-worktree setup sentinel path (`git rev-parse --git-path discern-worktree-ready`). */
@@ -211,51 +157,20 @@ async function recordPort(
     return;
   }
   const port = String(identity.port);
-  const envPath = join(ctx.cwd, ".env");
-  let envText: string | undefined;
-  try {
-    envText = await Deno.readTextFile(envPath);
-  } catch {
-    envText = undefined;
-  }
-  if (envText === undefined) {
-    ctx.log.ok(
-      `Worktree dev-server port: ${port} (read it via: discern worktree-name --port).`,
-    );
-    return;
-  }
-  const key = "DISCERN_WORKTREE_PORT=";
-  const lines = envText.split("\n");
-  let replaced = false;
-  const next = lines.map((line) => {
-    if (!replaced && line.startsWith(key)) {
-      replaced = true;
-      return `${key}${port}`;
-    }
-    return line;
-  });
-  if (!replaced) {
-    // Append, mirroring the shell `printf ... >> .env` (which adds a trailing NL).
-    if (envText.endsWith("\n") || envText === "") {
-      next.splice(
-        next.length - (envText.endsWith("\n") ? 1 : 0),
-        0,
-        `${key}${port}`,
-      );
-    } else {
-      next.push(`${key}${port}`);
-    }
-  }
-  await Deno.writeTextFile(envPath, next.join("\n"));
-  ctx.log.ok(`Worktree dev-server port: ${port} (recorded in .env).`);
+  const wrote = await writeEnvVar(ctx.cwd, "DISCERN_WORKTREE_PORT", port);
+  ctx.log.ok(
+    wrote
+      ? `Worktree dev-server port: ${port} (recorded in .env).`
+      : `Worktree dev-server port: ${port} (read it via: discern worktree-name --port).`,
+  );
 }
 
 /**
  * Set up a freshly-created linked worktree — the `worktree` recipe. Asserts the
- * worktree precondition, ensures a named branch, runs the db-clone and
- * dev-server-link adapters (fatal on failure), inherits env vars, records the
- * port, runs `[worktree.setup].steps` in order, refreshes the agent files,
- * and drops the ready sentinel. Throws on a fatal step.
+ * worktree precondition, ensures a named branch, creates the per-worktree
+ * resources (a `required` create is fatal), inherits env vars, records the port +
+ * resource handles into `.env`, runs `[worktree.setup].steps` in order, refreshes
+ * the agent files, and drops the ready sentinel. Throws on a fatal step.
  */
 export async function worktreeSetup(ctx: LifecycleContext): Promise<void> {
   // 1. must be inside a linked worktree
@@ -275,39 +190,30 @@ export async function worktreeSetup(ctx: LifecycleContext): Promise<void> {
   const identity = deriveIdentity(id, settings);
   await ensureWorktreeBranch(identity.branch, ctx.cwd);
 
-  // 3. database clone (fatal on failure)
-  const clone = await runAdapter(
-    ctx,
-    identity,
-    "Cloning the worktree database…",
-    ctx.config.get("worktree.db.clone", ""),
-  );
-  if (!clone.ok) {
-    throw new WorktreeGitError("The database clone step failed.");
+  // 3. create the per-worktree resources (ledger-logged for GC; a required
+  // create failure aborts setup). Resources need the worktree's git identity.
+  const commonGitDir = await resolveCommonGitDir(ctx.cwd);
+  const gitKey = await worktreeGitKey(ctx.cwd);
+  if (commonGitDir !== undefined && gitKey !== undefined) {
+    await createResources(ctx, identity, settings, commonGitDir, gitKey);
+    await recordResourceEnv(ctx, identity, settings);
+  } else if (readResourceSpecs(ctx.config).length > 0) {
+    throw new WorktreeGitError(
+      "Could not resolve this worktree's git identity for resource setup.",
+    );
   }
 
-  // 4. dev-server link (fatal on failure)
-  const link = await runAdapter(
-    ctx,
-    identity,
-    "Linking the worktree dev server…",
-    ctx.config.get("worktree.dev_server.link", ""),
-  );
-  if (!link.ok) {
-    throw new WorktreeGitError("The dev-server link step failed.");
-  }
-
-  // 5. inherit env vars from main
+  // 4. inherit env vars from main
   await inheritMainEnvVars({
     worktreeRoot: ctx.cwd,
     vars: ctx.config.array("worktree.inherit_env"),
     log: ctx.log,
   });
 
-  // 6. record the deterministic port
+  // 5. record the deterministic port
   await recordPort(ctx, identity);
 
-  // 7. post-create setup steps (stop on first failure)
+  // 6. post-create setup steps (stop on first failure)
   for (const step of ctx.config.array("worktree.setup.steps")) {
     ctx.log.info(`Setup step: ${step}`);
     const code = await runShell(step, ctx.cwd);
@@ -316,7 +222,7 @@ export async function worktreeSetup(ctx: LifecycleContext): Promise<void> {
     }
   }
 
-  // 8. refresh the agent files, which also materializes skills into THIS
+  // 7. refresh the agent files, which also materializes skills into THIS
   // worktree's .claude/skills/. A linked worktree does NOT inherit that gitignored
   // directory from the main checkout, so it must be (re)built here. Non-fatal.
   ctx.log.info("Refreshing agent files…");
@@ -370,6 +276,11 @@ export async function worktreeEnsure(
   if (marker !== undefined) {
     try {
       if ((await Deno.stat(marker)).isFile) {
+        // Already set up — reconcile any resource that declares an `ensure`
+        // (re-ready a resource that died out-of-band, e.g. a host reboot). Cheap
+        // and silent when nothing declares `ensure`.
+        const { identity, settings } = await resolveContextIdentity(ctx);
+        await ensureResources(ctx, identity, settings);
         return { kind: "already" };
       }
     } catch {
@@ -384,9 +295,9 @@ export async function worktreeEnsure(
 }
 
 /**
- * Tear down this worktree's database + dev-server link without graduating its
+ * Tear down this worktree's resources without graduating its
  * branch — the `worktree:teardown` recipe, used when DISCARDING a worktree.
- * Asserts the worktree precondition; both adapters are clean no-ops when unset.
+ * Asserts the worktree precondition; destroys every resource the worktree created.
  */
 export async function worktreeTeardown(ctx: LifecycleContext): Promise<void> {
   try {
@@ -397,8 +308,7 @@ export async function worktreeTeardown(ctx: LifecycleContext): Promise<void> {
     );
   }
   ctx.log.heading("Tearing down this worktree…");
-  const identity = await resolveContextIdentity(ctx);
-  await teardownAdapters(ctx, identity);
+  await teardownResources(ctx);
   ctx.log.ok("Worktree teardown complete.");
 }
 
@@ -516,9 +426,10 @@ export async function graduate(ctx: LifecycleContext): Promise<void> {
     );
   }
 
-  // step 4: tear down external resources (non-fatal, while still in the worktree)
-  ctx.log.info("Tearing down the worktree's database and dev-server link…");
-  await teardownAdapters(ctx, identity);
+  // step 4: tear down external resources (non-fatal, while still in the worktree
+  // so @dir@-bearing destroys resolve, and before removal so no orphan is left)
+  ctx.log.info("Tearing down the worktree's resources…");
+  await teardownResources(ctx);
 
   // step 5: WIP commit if needed
   let madeWipCommit = false;
@@ -600,14 +511,17 @@ async function realPathOrLifecycle(raw: string, cwd: string): Promise<string> {
 export interface WorktreePruneOptions {
   /** Run non-interactively (the dispatcher passes this when there is no TTY). */
   assumeYes?: boolean;
+  /** Report what would be removed/reclaimed without acting. */
+  dryRun?: boolean;
 }
 
 /**
- * Housekeeping for the worktree pool — the `worktree:prune` recipe. Removes
- * stale worktrees and fully-merged branches, then reclaims gitlinked orphan
- * directories. Refuses to run from inside a linked worktree (pool housekeeping
- * belongs to the main checkout). Databases are deliberately NOT swept here.
- * Throws on a setup failure or a removal failure.
+ * Housekeeping for the worktree pool — the `worktree:prune` recipe. Removes stale
+ * worktrees and fully-merged branches, reclaims gitlinked orphan directories, then
+ * reclaims orphaned per-worktree RESOURCES (the GC safety net: a resource whose
+ * worktree vanished without a clean teardown). Refuses to run from inside a linked
+ * worktree (pool housekeeping belongs to the main checkout). Throws on a setup or
+ * removal failure.
  */
 export async function worktreePrune(
   ctx: LifecycleContext,
@@ -620,32 +534,107 @@ export async function worktreePrune(
       "discern worktree:prune must be run from the main checkout, not a linked worktree.",
     );
   }
+  const dryRun = opts.dryRun ?? false;
 
-  ctx.log.heading("Pruning worktrees and fully-merged branches…");
+  ctx.log.heading(
+    dryRun
+      ? "Prune (dry run): worktrees and fully-merged branches…"
+      : "Pruning worktrees and fully-merged branches…",
+  );
   const prune = await pruneGitWorktrees({
+    dryRun,
     includeDetached: true,
     mainBranch: ctx.config.get("project.main_branch", "main"),
     log: ctx.log,
   });
 
   ctx.log.heading("Reclaiming orphaned worktree directories…");
-  const sweep = await sweepOrphanWorktrees({ log: ctx.log });
+  const sweep = await sweepOrphanWorktrees({ dryRun, log: ctx.log });
 
-  // Point at the per-worktree DB seam, since prune intentionally leaves DBs alone.
-  if (ctx.config.get("worktree.db.drop", "") !== "") {
-    ctx.log.info(
-      "Databases are not pruned here — drop a discarded worktree's DB from inside it with: discern worktree:teardown",
-    );
-  }
+  ctx.log.heading("Reclaiming orphaned worktree resources…");
+  const gc = await gcWorktreeResources(ctx, dryRun);
 
-  if (prune.failed || sweep.failed) {
+  if (prune.failed || sweep.failed || gc.failed) {
     throw new WorktreeGitError("One or more cleanups failed.");
   }
-  ctx.log.ok("Prune complete.");
+  ctx.log.ok(dryRun ? "Dry run complete." : "Prune complete.");
   // `assumeYes` is accepted for dispatcher parity; the interactive confirmation
   // belongs to the dispatcher (which owns the TTY), so prune runs the removals
   // directly once invoked. See note in git.ts pruneGitWorktrees.
   void opts.assumeYes;
+}
+
+/**
+ * The resource-GC pass of `worktree:prune`: reclaim any ledgered resource whose
+ * worktree is gone. Conservative — `gcOrphanResources` only acts on entries this
+ * project's ledger holds, and never on one a live worktree still owns (by key,
+ * path, or resource handle). A no-op outside a git repo.
+ */
+async function gcWorktreeResources(
+  ctx: LifecycleContext,
+  dryRun: boolean,
+): Promise<GcResult> {
+  const empty: GcResult = { reclaimed: [], kept: 0, failed: false };
+  const commonGitDir = await resolveCommonGitDir(ctx.cwd);
+  if (commonGitDir === undefined) {
+    return empty;
+  }
+  const livePaths = await liveWorktreePaths(ctx.cwd);
+  const gc = await gcOrphanResources({
+    commonGitDir,
+    cwd: ctx.cwd,
+    liveGitKeys: await liveWorktreeGitKeys(commonGitDir),
+    livePaths,
+    liveIdentities: await liveResourceIdentitySet(ctx, livePaths),
+    dryRun,
+    log: ctx.log,
+  });
+  const n = gc.reclaimed.length;
+  if (dryRun) {
+    ctx.log.line(
+      `Would reclaim ${n} orphaned worktree resource${n === 1 ? "" : "s"}.`,
+    );
+  } else if (n === 0) {
+    ctx.log.line("No orphaned worktree resources found.");
+  } else {
+    ctx.log.ok(
+      `Reclaimed ${n} orphaned worktree resource${n === 1 ? "" : "s"}.`,
+    );
+  }
+  return gc;
+}
+
+/**
+ * The set of resource handles currently owned by LIVE worktrees — the recycling
+ * guard, so GC never reclaims an orphan whose handle a live worktree now holds
+ * (e.g. a reused container name). Empty when no resources are declared.
+ */
+async function liveResourceIdentitySet(
+  ctx: LifecycleContext,
+  livePaths: Set<string>,
+): Promise<Set<string>> {
+  const set = new Set<string>();
+  const specs = readResourceSpecs(ctx.config);
+  if (specs.length === 0) {
+    return set;
+  }
+  let settings: IdentitySettings;
+  try {
+    settings = await loadIdentitySettings(ctx.root);
+  } catch {
+    return set;
+  }
+  for (const path of livePaths) {
+    try {
+      const id = await resolveWorktreeId(settings, path);
+      for (const spec of specs) {
+        set.add(resourceForId(settings.slug, id, spec.name));
+      }
+    } catch {
+      // a worktree whose id can't be resolved — skip (it just isn't a guard)
+    }
+  }
+  return set;
 }
 
 /**
@@ -656,7 +645,7 @@ export async function worktreePrune(
  */
 export async function worktreeNameField(
   root: string,
-  field: "id" | "site" | "branch" | "port" | "db",
+  field: "id" | "site" | "branch" | "port" | "db" | "worktree",
   target: string = Deno.cwd(),
 ): Promise<string> {
   const settings = await loadIdentitySettings(root);
@@ -673,7 +662,40 @@ export async function worktreeNameField(
       return String(identity.port);
     case "db":
       return identity.db;
+    case "worktree":
+      return worktreeBase(settings.slug, identity.id);
   }
+}
+
+/**
+ * Resolve a named resource's handle for `worktree-name --resource <name>` — the
+ * runtime-discovery query that equals what the resource's `create` used and what
+ * `DISCERN_RESOURCE_<NAME>` carries in the worktree's `.env`.
+ */
+export async function worktreeResourceHandle(
+  root: string,
+  name: string,
+  target: string = Deno.cwd(),
+): Promise<string> {
+  const settings = await loadIdentitySettings(root);
+  const id = await resolveWorktreeId(settings, target);
+  return resourceForId(settings.slug, id, name);
+}
+
+/**
+ * List every declared resource's handle as `name=handle` lines, for
+ * `worktree-name --resources` (visibility into a worktree's resources).
+ */
+export async function worktreeResourcesList(
+  root: string,
+  target: string = Deno.cwd(),
+): Promise<string[]> {
+  const settings = await loadIdentitySettings(root);
+  const id = await resolveWorktreeId(settings, target);
+  const config = await Config.load(root);
+  return readResourceSpecs(config).map(
+    (s) => `${s.name}=${resourceForId(settings.slug, id, s.name)}`,
+  );
 }
 
 export { IdentityError, WorktreeGitError };
