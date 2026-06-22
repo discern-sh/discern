@@ -29,7 +29,8 @@ gotchas_doc = "docs/80-development/finish-gate-gotchas.md"
 # (ADR 0014): `discern upgrade` reads it, runs any pending migrations, and
 # re-stamps it. Edit by hand only to force a re-migration.
 [meta]
-schema_version = 6
+bootstrapped = true
+schema_version = 7
 
 
 # ─────────────────────────────────────────────────────────────────────────────
