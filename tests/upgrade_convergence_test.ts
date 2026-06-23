@@ -133,10 +133,10 @@ Deno.test("a schema-1 install missing main_branch upgrades to the current schema
       await removeMainBranch(older);
       await setSchema(older, 1);
 
-      const res = await upgrade(older); // runs 1→2 … 7→8, materializes, stamps
+      const res = await upgrade(older); // runs 1→2 … 8→9, materializes, stamps
       assertEquals(
         res.data.migrations_applied.map((m: { from: number }) => m.from),
-        [1, 2, 3, 4, 5, 6, 7],
+        [1, 2, 3, 4, 5, 6, 7, 8],
       );
 
       await init(fresh); // a fresh install at the current schema
@@ -203,7 +203,7 @@ Deno.test("a schema-3 [slots] install upgrades to the capabilities shape and the
       const res = await upgrade(older); // runs 3→4, 4→5, 5→6, materializes, stamps
       assertEquals(
         res.data.migrations_applied.map((m: { from: number }) => m.from),
-        [3, 4, 5, 6, 7],
+        [3, 4, 5, 6, 7, 8],
       );
 
       await init(fresh);
@@ -277,7 +277,7 @@ Deno.test("a legacy install whose schema lives only in a manifest upgrades, prun
     // The manifest anchored the chain at schema 4 → 4→5 then 5→6 run.
     assertEquals(
       res.data.migrations_applied.map((m: { from: number }) => m.from),
-      [4, 5, 6, 7],
+      [4, 5, 6, 7, 8],
     );
     // The shell engine, dispatcher, manifest, and the whole .discern/ namespace
     // are gone; the config now lives at the root footprint.

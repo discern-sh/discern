@@ -68,11 +68,11 @@ Deno.test("upgrade --check flags a stale schema and lists the pending steps", as
     const res = JSON.parse(r.stdout);
     assertEquals(res.ok, false);
     assertEquals(res.data.schema.recorded, 1);
-    assertEquals(res.data.schema.current, 8);
+    assertEquals(res.data.schema.current, 9);
     // Every step from 1 up to the current schema is pending.
     assertEquals(
       res.data.pending_migrations.map((m: { from: number }) => m.from),
-      [1, 2, 3, 4, 5, 6, 7],
+      [1, 2, 3, 4, 5, 6, 7, 8],
     );
   });
 });
