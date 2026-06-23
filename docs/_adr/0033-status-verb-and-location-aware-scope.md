@@ -83,11 +83,34 @@ fleet); `--local` forces local-only; the two together is a refusal. The result
 consumer reads the shape it got rather than guessing.
 
 The fleet rows are deliberately **cheap** — branch, clean?, changed-file count,
-ahead/behind the integration branch, and a best-effort id/port read from each
-worktree's `.env`. `status` does **not** run per-worktree changed-scope
-classification across the fleet; the supervisor view needs dirty/ahead/behind,
-not a full per-worktree gate analysis. The single-worktree local view is where
-`changed_scopes` and the `gate` block belong.
+ahead/behind the integration branch, a **last-activity** timestamp, and a
+best-effort id/port read from each worktree's `.env`. `status` does **not** run
+per-worktree changed-scope classification across the fleet; the supervisor view
+needs dirty/ahead/behind, not a full per-worktree gate analysis. The
+single-worktree local view is where `changed_scopes` and the `gate` block
+belong.
+
+### Last activity is git-and-filesystem evidence, not conversation state
+
+A row's **last activity** is the latest of two signals: the most recent **HEAD
+movement** (the per-worktree reflog — which captures commits, checkouts/resets,
+**and the worktree's own creation**) and the newest **mtime among uncommitted
+files**. Reading the reflog's creation entry is the load-bearing detail: a
+worktree spawned _today_ off a week-old branch point has a HEAD **commit** time
+from last week, so commit-time alone would make a fresh spawned-for-discussion
+worktree (no commits, no edits) read as stale — the opposite of the signal an
+operator wants. The reflog is appended only on HEAD _movement_, never on reads,
+so a read-only `status` (which itself shells out to git) never disturbs it.
+
+We deliberately do **not** try to detect an _ongoing conversation that writes no
+files_ (an agent session open for days with no commits or edits). That state
+lives in the agent's own transcript, **outside** the worktree and in
+**vendor-specific** locations (e.g. one agent keeps
+`~/.../projects/**/*.jsonl`), and the engine is deliberately agent-agnostic — it
+hardcodes no agent's on-disk conventions. Coupling last-activity to a particular
+vendor's transcript would violate that and rot. The git+filesystem evidence
+(creation, commits, edits) covers the overwhelming majority of "is this worktree
+active?" judgements; the no-write-conversation case is the acknowledged gap.
 
 ### Single source of truth for the git/identity reads
 

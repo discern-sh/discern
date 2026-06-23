@@ -14,6 +14,7 @@ import { join, relative } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import {
   addWorktree,
+  engineEnv,
   git,
   gitInit,
   runAgent,
@@ -67,6 +68,18 @@ Deno.test("status: from the main checkout, the default leads with the fleet (and
       ),
       `fleet must include the worktree row: ${JSON.stringify(obj.data.fleet)}`,
     );
+    // Every row carries a recent last_activity (an ISO timestamp).
+    for (const e of obj.data.fleet) {
+      assert(
+        typeof e.last_activity === "string",
+        `fleet row should carry last_activity: ${JSON.stringify(e)}`,
+      );
+      const ageMs = Date.now() - Date.parse(e.last_activity);
+      assert(
+        ageMs >= 0 && ageMs < 5 * 60 * 1000,
+        `last_activity should be recent, got ${e.last_activity}`,
+      );
+    }
     // Leading with the fleet omits the heavy local-only blocks.
     assertEquals(obj.data.gate, undefined);
     assertEquals(obj.data.changed_scopes, undefined);
@@ -189,6 +202,64 @@ Deno.test("status: a clean worktree ahead of main hints it is ready to graduate"
     assert(
       (obj.hints ?? []).some((h: string) => h.includes("graduate")),
       `expected a 'ready to graduate' hint: ${JSON.stringify(obj.hints)}`,
+    );
+  });
+});
+
+/** Run git in `dir` with the hermetic engine env plus any extra env (e.g. backdated
+ * commit dates), throwing on failure. Lets a test forge an old branch point. */
+async function rawGit(
+  dir: string,
+  args: string[],
+  extraEnv: Record<string, string> = {},
+): Promise<void> {
+  const c = new Deno.Command("git", {
+    args,
+    cwd: dir,
+    env: await engineEnv(extraEnv),
+    stdout: "null",
+    stderr: "piped",
+  });
+  const { success, stderr } = await c.output();
+  if (!success) {
+    throw new Error(
+      `git ${args.join(" ")} failed: ${new TextDecoder().decode(stderr)}`,
+    );
+  }
+}
+
+Deno.test("status fleet: a freshly spawned worktree reads as recent, not as old as its branch point", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, SCOPE_CONFIG);
+    // A repo whose only commit is years old — so HEAD's commit time is stale.
+    const OLD = "2021-06-01T12:00:00";
+    await rawGit(dir, ["init", "-q"]);
+    await rawGit(dir, ["config", "user.email", "t@example.com"]);
+    await rawGit(dir, ["config", "user.name", "Test"]);
+    await rawGit(dir, ["config", "commit.gpgsign", "false"]);
+    await rawGit(dir, ["add", "-A"]);
+    await rawGit(dir, ["commit", "-q", "-m", "old", "--no-gpg-sign"], {
+      GIT_AUTHOR_DATE: OLD,
+      GIT_COMMITTER_DATE: OLD,
+    });
+    await rawGit(dir, ["branch", "-M", "main"]);
+    // Spawn a worktree NOW — no commits of its own, HEAD is the 2021 branch point.
+    await addWorktree(dir, "fresh");
+
+    const r = await runAgent(dir, ["status", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    const obj = parseStatus(r.stdout);
+    const row = obj.data.fleet.find((e: { is_main: boolean }) => !e.is_main);
+    assert(
+      row?.last_activity,
+      `worktree row should carry last_activity: ${r.stdout}`,
+    );
+    // Its creation (the reflog), not the 2021 HEAD commit, drives last_activity.
+    const ageMs = Date.now() - Date.parse(row.last_activity);
+    assert(
+      ageMs < 5 * 60 * 1000,
+      `a just-spawned worktree must read as recent, not 2021 — got ${row.last_activity}`,
     );
   });
 });

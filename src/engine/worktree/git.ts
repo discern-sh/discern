@@ -668,6 +668,12 @@ export interface GitSnapshot {
   ahead: number;
   /** Commits on the integration branch not yet in HEAD. */
   behind: number;
+  /** Unix-seconds timestamp of the most recent activity: the latest of the last
+   * HEAD movement (the reflog — a commit, checkout/reset, OR the worktree's own
+   * creation, so a freshly-spawned worktree reads as recent rather than as old as
+   * its branch point) and the newest mtime among uncommitted files. Undefined when
+   * neither can be determined (e.g. an empty repo with no commits or reflog). */
+  lastActivity?: number;
 }
 
 /**
@@ -709,14 +715,95 @@ export async function gitSnapshot(
   const branchRun = await git(["branch", "--show-current"], cwd);
   const branch = branchRun.success ? branchRun.stdout.trim() : "";
   const statusRun = await git(["status", "--porcelain"], cwd);
-  const changedFiles = statusRun.success
-    ? statusRun.stdout.split("\n").filter((l) => l !== "").length
-    : 0;
+  const dirtyLines = statusRun.success
+    ? statusRun.stdout.split("\n").filter((l) => l !== "")
+    : [];
   const { ahead, behind } = await aheadBehind(
     cwd,
     integrationBranch(mainBranchFallback),
   );
-  return { branch, clean: changedFiles === 0, changedFiles, ahead, behind };
+  const lastActivity = await lastActivityAt(cwd, dirtyLines);
+  return {
+    branch,
+    clean: dirtyLines.length === 0,
+    changedFiles: dirtyLines.length,
+    ahead,
+    behind,
+    ...(lastActivity !== undefined ? { lastActivity } : {}),
+  };
+}
+
+/**
+ * The most recent activity timestamp (unix seconds) for the checkout at `cwd`: the
+ * latest of the last HEAD movement (the reflog — which captures commits, checkouts,
+ * AND the worktree's own creation) and the newest mtime among the uncommitted files
+ * (`dirtyLines` from `git status --porcelain`). Pure reads. Undefined when nothing
+ * can be determined. Including the reflog's creation entry is deliberate: it keeps a
+ * freshly-spawned worktree from reading as old as the branch point it forked from.
+ */
+async function lastActivityAt(
+  cwd: string,
+  dirtyLines: string[],
+): Promise<number | undefined> {
+  // Last HEAD movement: the reflog's newest entry time. Reflog is appended only on
+  // HEAD *movement* (commit/checkout/reset/creation), never on reads, so this is
+  // stable across repeated read-only `status` runs. Fall back to the HEAD commit
+  // time when the reflog is unavailable (disabled, or an oddly-configured repo).
+  let best = await lastHeadMoveTime(cwd) ?? await headCommitTime(cwd);
+  for (const line of dirtyLines) {
+    const path = porcelainPath(line);
+    if (path === "") {
+      continue;
+    }
+    const mtime = await fileMtime(join(cwd, path));
+    if (mtime !== undefined && (best === undefined || mtime > best)) {
+      best = mtime;
+    }
+  }
+  return best;
+}
+
+/** The working-tree path a `git status --porcelain` line names ("XY path", or the
+ * post-arrow path of a "XY old -> new" rename), with git's wrapping quotes stripped. */
+function porcelainPath(line: string): string {
+  let p = line.slice(3);
+  const arrow = p.indexOf(" -> ");
+  if (arrow >= 0) {
+    p = p.slice(arrow + 4);
+  }
+  return p.replace(/^"/, "").replace(/"$/, "");
+}
+
+/** A file's mtime in unix seconds, or undefined when it can't be stat'd (a deletion). */
+async function fileMtime(path: string): Promise<number | undefined> {
+  try {
+    const m = (await Deno.stat(path)).mtime;
+    return m === null ? undefined : Math.floor(m.getTime() / 1000);
+  } catch {
+    return undefined;
+  }
+}
+
+/** The unix-seconds time of the newest HEAD reflog entry (the last HEAD movement),
+ * or undefined when the reflog is empty/unavailable. `--date=unix` renders the
+ * selector as `HEAD@{<unix>}`, which we parse — stable across git's locales. */
+async function lastHeadMoveTime(cwd: string): Promise<number | undefined> {
+  const run = await git(["reflog", "--date=unix", "-1"], cwd);
+  if (!run.success) {
+    return undefined;
+  }
+  const m = run.stdout.match(/@\{(\d+)\}/);
+  return m === null ? undefined : Number(m[1]);
+}
+
+/** The committer time (unix seconds) of HEAD, or undefined in a repo with no commits. */
+async function headCommitTime(cwd: string): Promise<number | undefined> {
+  const run = await git(["log", "-1", "--format=%ct"], cwd);
+  if (!run.success) {
+    return undefined;
+  }
+  const t = run.stdout.trim();
+  return t === "" ? undefined : Number(t) || undefined;
 }
 
 /** One registered worktree of this repo, with its cheap read-only snapshot. */
@@ -732,6 +819,8 @@ export interface FleetWorktree {
   /** Commits ahead of / behind the integration branch. */
   ahead: number;
   behind: number;
+  /** Unix-seconds timestamp of the most recent activity (see {@link GitSnapshot}). */
+  lastActivity?: number;
 }
 
 /**
@@ -768,6 +857,9 @@ export async function listWorktreeFleet(
       changedFiles: snap?.changedFiles ?? 0,
       ahead: snap?.ahead ?? 0,
       behind: snap?.behind ?? 0,
+      ...(snap?.lastActivity !== undefined
+        ? { lastActivity: snap.lastActivity }
+        : {}),
     });
   }
   return out;

@@ -129,7 +129,8 @@ const TOOLS: McpTool[] = [
       "lists what the gate WOULD fire (wired capabilities, checks, triggered scope " +
       "gates); data.worktree carries this worktree's id/port/db and provisioned " +
       "resources; data.features and data.ratchets list the configured set. From the " +
-      "main checkout it leads with data.fleet (a cheap row per worktree); set all=true " +
+      "main checkout it leads with data.fleet (a cheap row per worktree: branch, " +
+      "dirty/ahead/behind, and a last_activity timestamp); set all=true " +
       "to include the fleet from a worktree, or local=true to suppress it. hints[] are " +
       "advisory next-steps (e.g. run discern_finish, ready to graduate) — never an " +
       "unverified pass/fail.",

@@ -107,6 +107,10 @@ interface StatusFleetEntry {
   changed_files: number;
   ahead: number;
   behind: number;
+  /** ISO 8601 timestamp of the most recent activity — the latest of the last HEAD
+   * movement (commit, checkout, or the worktree's creation) and the newest mtime
+   * among uncommitted files. Omitted when it can't be determined. */
+  last_activity?: string;
   /** Best-effort, read from the worktree's `.env`; omitted when absent. */
   id?: string;
   port?: number;
@@ -329,6 +333,9 @@ async function fleetEntryFor(row: FleetWorktree): Promise<StatusFleetEntry> {
     ahead: row.ahead,
     behind: row.behind,
   };
+  if (row.lastActivity !== undefined) {
+    entry.last_activity = new Date(row.lastActivity * 1000).toISOString();
+  }
   const envText = await readEnvFile(row.path);
   if (envText !== undefined) {
     const id = readEnvVar(envText, "DISCERN_WORKTREE_ID");
@@ -533,6 +540,31 @@ function trunc(s: string, n: number): string {
   return s.length <= n ? s : `${s.slice(0, n - 1)}…`;
 }
 
+/** A compact relative age ("3d ago", "2h ago", "just now") from an ISO timestamp,
+ * for the fleet table's Last Activity column. "—" when unknown. */
+function relativeAge(iso: string | undefined): string {
+  if (iso === undefined) {
+    return "—";
+  }
+  const then = Date.parse(iso);
+  if (Number.isNaN(then)) {
+    return "—";
+  }
+  const secs = Math.max(0, Math.floor((Date.now() - then) / 1000));
+  if (secs < 60) return "just now";
+  const mins = Math.floor(secs / 60);
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return `${weeks}w ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+  return `${Math.floor(days / 365)}y ago`;
+}
+
 /** Render the status result as a compact human summary on stdout (quiet under
  * `--json`, which never calls this). */
 function renderStatusHuman(result: DiscernResult): void {
@@ -620,18 +652,20 @@ function renderStatusHuman(result: DiscernResult): void {
 function renderFleetTable(out: Out, fleet: StatusFleetEntry[]): void {
   const c = out.c;
   out.raw(
-    `\n  ${c.dim}${"WORKTREE".padEnd(22)}${"BRANCH".padEnd(26)}${
-      "STATE".padEnd(13)
-    }AHEAD/BEHIND${c.reset}\n`,
+    `\n  ${c.dim}${"WORKTREE".padEnd(20)}${"BRANCH".padEnd(24)}${
+      "STATE".padEnd(12)
+    }${"AHEAD/BEHIND".padEnd(13)}LAST ACTIVITY${c.reset}\n`,
   );
   for (const e of fleet) {
     const name = e.is_main ? "(main)" : (e.id ?? e.branch ?? basename(e.path));
     const state = e.clean ? "clean" : `${e.changed_files} changed`;
     const counts = e.is_main ? "—" : `${e.ahead}/${e.behind}`;
     out.raw(
-      `  ${trunc(name, 21).padEnd(22)}${
-        trunc(e.branch || "(detached)", 25).padEnd(26)
-      }${state.padEnd(13)}${counts}\n`,
+      `  ${trunc(name, 19).padEnd(20)}${
+        trunc(e.branch || "(detached)", 23).padEnd(24)
+      }${state.padEnd(12)}${counts.padEnd(13)}${
+        relativeAge(e.last_activity)
+      }\n`,
     );
   }
 }
