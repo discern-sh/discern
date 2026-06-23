@@ -1,9 +1,35 @@
-# discern
+# `discern`
 
-**A portable agentic-development harness you can drop into any project, in one
+Machines write the code now. **`discern` is where your judgment still lives**.
+
+---
+
+Coding agents can turn out days of work in minutes.
+
+But trusting them, or getting their work safely into a shared codebase? That part never sped up.
+
+`discern` solves this problem:
+
+1. **Point as many agents at a problem as you want**. Each one works in its own sealed copy, so they never trip over each other and you never untangle a mess two of them made at once.
+2. **Switch between agents whenever you like**. A single source-of-truth ensures they all treat your codebase predictably.
+3. **Stop babysitting and let them run**. When they're finished, you'll have a regression-proof change that not only passes every test, but improves coverage too.
+
+Nothing reaches `main` until it clears the same standards you'd hold a person to:
+
+* `discern` doesn't write code, run a model, or require API keys.
+* It works with all the agents you already use.
+* It works with whatever language you already write.
+
+`discern` is the layer that keeps a human in charge of the work the machines increasingly do.
+
+And it's been built with care, by a human who shares all the same doubts as you about shipping code nobody understands.
+
+`discern` automates the hard parts correctly – leaving you with more time to *build*, and less time to *babysit*. 
+
+---
+
+**[`discern`](https://discern.sh) is a portable agentic-development harness you can drop into any project, in one
 command.**
-
-**[discern.sh](https://discern.sh)**
 
 `discern` scaffolds a small, opinionated set of safety rails for working with
 coding agents — a compound quality gate, an isolated git-worktree workflow, an
