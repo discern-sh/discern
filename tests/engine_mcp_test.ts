@@ -34,6 +34,11 @@ class McpClient {
     await this.writer.write(ENCODER.encode(`${JSON.stringify(msg)}\n`));
   }
 
+  /** Send raw bytes (e.g. a final message WITHOUT a trailing newline). */
+  async sendRaw(text: string): Promise<void> {
+    await this.writer.write(ENCODER.encode(text));
+  }
+
   /** Read the next non-empty JSON line from the server. */
   // deno-lint-ignore no-explicit-any
   async recv(): Promise<any> {
@@ -55,12 +60,22 @@ class McpClient {
     }
   }
 
-  /** Close stdin (ending the server loop) and await a clean exit. */
-  async close(): Promise<number> {
+  /** Close stdin — ends the server's read loop (and triggers its EOF drain). */
+  async closeStdin(): Promise<void> {
     await this.writer.close();
+  }
+
+  /** Await a clean exit and release the stdout reader. */
+  async finish(): Promise<number> {
     const status = await this.child.status;
     await this.reader.cancel();
     return status.code;
+  }
+
+  /** Close stdin and await a clean exit (the common end-of-test path). */
+  async close(): Promise<number> {
+    await this.closeStdin();
+    return await this.finish();
   }
 }
 
@@ -148,6 +163,60 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     const err = await mcp.recv();
     assertEquals(err.id, 5);
     assert(err.error, "unknown tool should be a JSON-RPC error");
+
+    assertEquals(await mcp.close(), 0);
+  });
+});
+
+Deno.test("discern mcp: a final message without a trailing newline is still answered (not dropped)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const mcp = await spawnMcp(dir);
+    // Send initialize WITH a newline, then a second request with NO trailing newline,
+    // then close stdin. The loop must drain the final un-terminated line on EOF.
+    await mcp.send({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} });
+    assertEquals((await mcp.recv()).id, 1);
+    // A final request with NO trailing newline, then close stdin: the server must
+    // drain the un-terminated line on EOF and answer it (it'd be dropped pre-fix).
+    await mcp.sendRaw(
+      JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }),
+    );
+    await mcp.closeStdin();
+    const list = await mcp.recv();
+    assertEquals(list.id, 2);
+    assert(Array.isArray(list.result.tools));
+    assertEquals(await mcp.finish(), 0);
+  });
+});
+
+Deno.test("discern mcp: protocol version, ping, and unknown method are handled correctly", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const mcp = await spawnMcp(dir);
+
+    // An UNSUPPORTED protocol version → the server answers with its own default,
+    // not a false agreement on a revision it doesn't speak.
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: { protocolVersion: "1999-01-01" },
+    });
+    assertEquals((await mcp.recv()).result.protocolVersion, "2025-06-18");
+
+    // ping → empty result.
+    await mcp.send({ jsonrpc: "2.0", id: 2, method: "ping" });
+    const pong = await mcp.recv();
+    assertEquals(pong.id, 2);
+    assertEquals(pong.result, {});
+
+    // An unknown method → a JSON-RPC method-not-found error (-32601).
+    await mcp.send({ jsonrpc: "2.0", id: 3, method: "no/such/method" });
+    const err = await mcp.recv();
+    assertEquals(err.id, 3);
+    assertEquals(err.error.code, -32601);
 
     assertEquals(await mcp.close(), 0);
   });

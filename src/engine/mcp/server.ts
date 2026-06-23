@@ -19,8 +19,14 @@ import { type DiscernResult, serializeResult } from "../../shared/result.ts";
 import { finishResult } from "../gate/finish.ts";
 import { changedScopesResult } from "../scopes/changed.ts";
 
-/** The MCP protocol revision this server speaks when a client doesn't pin one. */
-const DEFAULT_PROTOCOL_VERSION = "2025-06-18";
+/** The MCP protocol revisions this server speaks; the first is the default when a
+ * client doesn't pin one, and any other requested revision is echoed only if known. */
+const SUPPORTED_PROTOCOL_VERSIONS: readonly string[] = [
+  "2025-06-18",
+  "2025-03-26",
+  "2024-11-05",
+];
+const DEFAULT_PROTOCOL_VERSION = SUPPORTED_PROTOCOL_VERSIONS[0];
 const SERVER_NAME = "discern";
 const SERVER_VERSION = "1.0.0";
 
@@ -146,11 +152,16 @@ async function dispatch(
   }
   switch (method) {
     case "initialize": {
+      // Echo the client's protocol version only if we actually speak it; otherwise
+      // answer with our default rather than agreeing to a revision we don't support.
       const requested = msg.params?.protocolVersion;
-      reply(id, {
-        protocolVersion: typeof requested === "string"
+      const protocolVersion =
+        typeof requested === "string" &&
+          SUPPORTED_PROTOCOL_VERSIONS.includes(requested)
           ? requested
-          : DEFAULT_PROTOCOL_VERSION,
+          : DEFAULT_PROTOCOL_VERSION;
+      reply(id, {
+        protocolVersion,
         capabilities: { tools: { listChanged: false } },
         serverInfo: { name: SERVER_NAME, version: SERVER_VERSION },
       });
@@ -185,24 +196,33 @@ export async function runMcpServer(): Promise<number> {
   const root = await findRoot();
   const decoder = new TextDecoder();
   let buffer = "";
+  const handleLine = async (line: string): Promise<void> => {
+    const trimmed = line.trim();
+    if (trimmed === "") {
+      return;
+    }
+    let msg: JsonRpcMessage;
+    try {
+      msg = JSON.parse(trimmed) as JsonRpcMessage;
+    } catch {
+      return; // a malformed line has no id to address — drop it
+    }
+    await dispatch(msg, root);
+  };
   for await (const chunk of Deno.stdin.readable) {
     buffer += decoder.decode(chunk, { stream: true });
     let nl = buffer.indexOf("\n");
     while (nl >= 0) {
-      const line = buffer.slice(0, nl).trim();
+      const line = buffer.slice(0, nl);
       buffer = buffer.slice(nl + 1);
       nl = buffer.indexOf("\n");
-      if (line === "") {
-        continue;
-      }
-      let msg: JsonRpcMessage;
-      try {
-        msg = JSON.parse(line) as JsonRpcMessage;
-      } catch {
-        continue; // a malformed line has no id to address — drop it
-      }
-      await dispatch(msg, root);
+      await handleLine(line);
     }
   }
+  // Flush the decoder and dispatch any final message that arrived without a
+  // trailing newline (a conformant client newline-terminates, but don't hang on one
+  // that frames its last message otherwise).
+  buffer += decoder.decode();
+  await handleLine(buffer);
   return 0;
 }
