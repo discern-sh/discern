@@ -466,7 +466,15 @@ async function runSkillsList(opts: { json: boolean }): Promise<number> {
   const cfg = await loadConfig(root);
   const rows = await listSkills(root, cfg);
   if (opts.json) {
-    console.log(JSON.stringify(rows, null, 2));
+    console.log(
+      JSON.stringify(
+        serializeResult({
+          ok: true,
+          verb: "skills:list",
+          data: { skills: rows },
+        }),
+      ),
+    );
     return 0;
   }
   if (rows.length === 0) {
