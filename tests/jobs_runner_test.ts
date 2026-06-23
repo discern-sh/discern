@@ -1,6 +1,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { runParallel, runSerial } from "../src/engine/jobs/runner.ts";
-import { capText, finalCode } from "../src/engine/jobs/command.ts";
+import { finalCode } from "../src/engine/jobs/command.ts";
+import { capText } from "../src/shared/result.ts";
 import type { Job } from "../src/engine/jobs/types.ts";
 
 /** A capturing output sink for assertions on banners + job output. */
@@ -120,6 +121,31 @@ Deno.test("a fail-fast-cancelled sibling is flagged cancelled and carries no out
   // The killed sibling is not a real failure: flagged cancelled, no diagnostic output.
   assertEquals(victim?.cancelled, true);
   assertEquals(victim?.output, undefined);
+  // …and the banner says "cancelled", not "FAILED".
+  assertStringIncludes(s.text(), "── victim ─ cancelled");
+});
+
+Deno.test("a sibling that TRAPS SIGTERM and exits non-zero is still cancelled, not a failure", async () => {
+  // Regression guard: deriving `cancelled` from the OS signal alone misses a process
+  // that traps SIGTERM and exits via its handler (signal===null, code!==0) — a common
+  // pattern (test runners, dev servers). Such a sibling must NOT be reported as a
+  // genuine failure with a bogus diagnostic. Keyed on the abort signal, it isn't.
+  const s = makeSink();
+  const r = await runParallel([
+    { label: "boom", command: "exit 2" },
+    { label: "trapper", command: "trap 'exit 7' TERM; sleep 30" },
+  ], { stream: false, failFast: true, color: false, write: s.write });
+  const trapper = r.results.find((x) => x.label === "trapper");
+  assertEquals(trapper?.cancelled, true, JSON.stringify(trapper));
+  assertEquals(
+    trapper?.output,
+    undefined,
+    "a cancelled sibling owes no diagnostic",
+  );
+  // The genuine failure (boom) is NOT marked cancelled — it keeps its real verdict.
+  const boom = r.results.find((x) => x.label === "boom");
+  assertEquals(boom?.cancelled, undefined);
+  assertEquals(boom?.code, 2);
 });
 
 Deno.test("capText: returns short text unchanged, head+tail caps an overflow", () => {
@@ -133,7 +159,7 @@ Deno.test("capText: returns short text unchanged, head+tail caps an overflow", (
     big.text.length < 20_000,
     "capped text should be shorter than the input",
   );
-  assertStringIncludes(big.text, "bytes elided"); // the middle marker
+  assertStringIncludes(big.text, "chars elided"); // the middle marker
   assert(big.text.startsWith("A"), "head retained");
   assert(big.text.endsWith("B"), "tail retained");
 });

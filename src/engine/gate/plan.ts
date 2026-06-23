@@ -17,14 +17,15 @@ import type { Stage } from "../../shared/capabilities.ts";
 import { jobsInStage } from "./stages.ts";
 import { normalizeDiagnostics } from "./diagnostics.ts";
 import type { JobResult } from "../jobs/types.ts";
-import type {
-  Diagnostic,
-  DiscernResult,
-  EnginePlan,
-  PlanStep,
-  StepKind,
-  StepOutcome,
-  StepResult,
+import {
+  capText,
+  type Diagnostic,
+  type DiscernResult,
+  type EnginePlan,
+  type PlanStep,
+  type StepKind,
+  type StepOutcome,
+  type StepResult,
 } from "../../shared/result.ts";
 
 /**
@@ -226,9 +227,13 @@ export interface GateData {
   scopes_changed: string[];
 }
 
-/** A step's outcome from its result (absent = its stage aborted before it → skipped). */
+/**
+ * A step's outcome from its result: absent (its stage aborted before it) OR
+ * fail-fast-cancelled → `skipped` (neither is a failure to fix); a clean exit →
+ * `ok`; anything else → `failed`.
+ */
 function stepOutcome(r: JobResult | undefined): StepOutcome {
-  if (r === undefined) {
+  if (r === undefined || r.cancelled === true) {
     return "skipped";
   }
   return r.code === 0 ? "ok" : "failed";
@@ -266,10 +271,11 @@ export function buildGateResult(
         durationS: r === undefined ? 0 : r.durationS,
       });
       // A genuine failure earns a diagnostic — a fail-fast-cancelled sibling is
-      // excluded (not a failure to fix). When the captured output is a recognized
-      // machine format (SARIF), normalize it into one Tier-1 diagnostic per finding
-      // (file/line/rule); otherwise a single Tier-0 diagnostic carries the raw
-      // output + reproduce_cmd — which alone moves the agent off "re-run and scrape".
+      // excluded (not a failure to fix). When the FULL captured output is a
+      // recognized machine format (SARIF), normalize it into one Tier-1 diagnostic
+      // per finding (file/line/rule); otherwise a single Tier-0 diagnostic carries
+      // the output (capped here, at the diagnostic boundary) + reproduce_cmd — which
+      // alone moves the agent off "re-run and scrape".
       if (r !== undefined && r.code !== 0 && r.cancelled !== true) {
         const normalized = r.output !== undefined
           ? normalizeDiagnostics(r.output, j.label, j.command)
@@ -277,13 +283,14 @@ export function buildGateResult(
         if (normalized !== undefined) {
           diagnostics.push(...normalized);
         } else {
+          const capped = r.output !== undefined ? capText(r.output) : undefined;
           diagnostics.push({
             tool: j.label,
             severity: "error",
             message: `${j.label} failed (exit ${r.code})`,
             reproduce_cmd: j.command,
-            output: r.output,
-            truncated: r.truncated,
+            output: capped?.text,
+            truncated: capped?.truncated === true ? true : undefined,
           });
         }
       }

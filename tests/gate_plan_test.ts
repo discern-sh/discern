@@ -159,6 +159,88 @@ Deno.test("buildGateResult: an aborted stage leaves later jobs skipped; the fail
   assertEquals(diag.reproduce_cmd, "deno fmt");
 });
 
+Deno.test("buildGateResult: a cancelled sibling is reported skipped, not failed, and earns no diagnostic", () => {
+  const plan = buildGatePlan(FULL, []);
+  const results = new Map<string, JobResult>([
+    // lint genuinely failed (carries output); typecheck was fail-fast-cancelled.
+    ["lint", {
+      label: "lint",
+      status: "failed",
+      code: 1,
+      durationS: 0,
+      output: "boom",
+    }],
+    [
+      "typecheck",
+      {
+        label: "typecheck",
+        status: "failed",
+        code: 1,
+        durationS: 0,
+        cancelled: true,
+      },
+    ],
+  ]);
+  const result = buildGateResult(plan, results, "check/test");
+  const steps = result.steps ?? [];
+  const step = (l: string) => steps.find((s) => s.step.label === l);
+  assertEquals(step("lint")?.outcome, "failed");
+  assertEquals(step("typecheck")?.outcome, "skipped"); // cancelled → skipped, not failed
+  // Only the genuine failure earns a diagnostic; the cancelled sibling does not.
+  const diags = result.diagnostics ?? [];
+  assert(diags.some((d) => d.tool === "lint"));
+  assert(!diags.some((d) => d.tool === "typecheck"));
+});
+
+Deno.test("buildGateResult: a LARGE SARIF output is normalized to one diagnostic per finding (not a truncated Tier-0 blob)", () => {
+  // Exceed the Tier-0 cap, to prove normalization runs on the FULL captured output —
+  // not the capped string (which would be invalid JSON and collapse to one blob).
+  const findings = Array.from({ length: 300 }, (_, i) => ({
+    ruleId: `rule-${i}`,
+    level: "error",
+    message: { text: `problem number ${i} with some descriptive padding text` },
+    locations: [{
+      physicalLocation: {
+        artifactLocation: { uri: `src/file${i}.ts` },
+        region: { startLine: i + 1 },
+      },
+    }],
+  }));
+  const sarif = JSON.stringify({
+    version: "2.1.0",
+    runs: [{ results: findings }],
+  });
+  assert(
+    sarif.length > 16_000,
+    "fixture must exceed the Tier-0 cap to be a real test",
+  );
+
+  const results = new Map<string, JobResult>([
+    ["lint", {
+      label: "lint",
+      status: "failed",
+      code: 1,
+      durationS: 0,
+      output: sarif,
+    }],
+  ]);
+  const result = buildGateResult(
+    buildGatePlan(FULL, []),
+    results,
+    "check/test",
+  );
+  const diags = result.diagnostics ?? [];
+  assertEquals(
+    diags.length,
+    300,
+    "one structured diagnostic per SARIF finding",
+  );
+  assertEquals(diags[0]?.rule, "rule-0");
+  assertEquals(diags[0]?.file, "src/file0.ts");
+  // Every diagnostic is Tier-1 (located) — none fell back to a raw Tier-0 blob.
+  assert(diags.every((d) => d.file !== undefined && d.output === undefined));
+});
+
 Deno.test("gatePlanToEngine: firing job is run, unchanged scope gate is skip, merge-check is a gate", () => {
   const plan = buildGatePlan(FULL, ["widget"]);
   const engine = gatePlanToEngine(plan);

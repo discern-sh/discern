@@ -50,7 +50,9 @@ export function extractSarif(
     }
     const version = typeof obj.version === "string" ? obj.version : "";
     const schema = typeof obj.$schema === "string" ? obj.$schema : "";
-    if (version.startsWith("2.") || /sarif/i.test(schema)) {
+    // A real SARIF version is exactly `2.x.y`; require that shape (not any "2."
+    // prefix) or an explicit sarif `$schema`, so a non-SARIF tool can't be misread.
+    if (/^2\.\d/.test(version) || /sarif/i.test(schema)) {
       return obj;
     }
   }
@@ -62,9 +64,9 @@ function str(v: unknown): string | undefined {
   return typeof v === "string" && v !== "" ? v : undefined;
 }
 
-/** Read a nested positive integer, or undefined. */
+/** Read a 1-based positive integer (SARIF line/column), or undefined. */
 function int(v: unknown): number | undefined {
-  return typeof v === "number" && Number.isFinite(v) ? v : undefined;
+  return typeof v === "number" && Number.isInteger(v) && v > 0 ? v : undefined;
 }
 
 /** Map a SARIF `level` to the diagnostic severity (everything non-warning is an error). */
