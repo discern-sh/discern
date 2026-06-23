@@ -106,6 +106,11 @@ It is surfaced as:
 - **One self-healing path.** `renderAgentFiles` being the single renderer means
   a future change to the compile (a new feature section, a provider) is
   reflected in the check for free.
+- **Extended by [ADR 0035](0035-guidance-templating-engine.md).** The compile
+  now templates the built-in sections against a context derived purely from
+  committed config; routing it through the same `renderAgentFiles` keeps this
+  currency check authoritative, and the config-only context is what keeps the
+  recompile deterministic.
 
 ## Alternatives considered
 

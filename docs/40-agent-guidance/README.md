@@ -26,9 +26,12 @@ Code's `@`-include rather than duplicating it (so the two can never drift);
 canonical file is emitted, each mirror falls back to the full body. They carry
 no banner — `discern status` / `discern finish` flag a generated file that has
 drifted from its source instead. Driving several agents from one source is what
-keeps guidance provider-agnostic — write the rule once, every agent gets it; the
+keeps guidance provider-agnostic — write the rule once, every agent gets it. The
 built-in guidance is feature-aware, so a subsystem you disable in `[features]`
-drops its section.
+drops its section; it is also **config-aware** — each built-in section is
+rendered through a small [templating engine](the-templating-engine.md) so the
+generic shipped prose names your real branch and omits content for anything you
+haven't configured (a ratchet, a worktree resource).
 
 The Skills are the bundled built-ins (`bootstrap`, `document-subsystem`,
 `write-adr`, `handoff-worktree`) plus any you author under `[skills].dir`
@@ -40,6 +43,12 @@ re-publishes: built-ins **copied**, authored skills **symlinked**.
 > written yet. Fill them with the
 > [`document-subsystem`](../../templates/skills/document-subsystem/SKILL.md)
 > skill.
+
+## Reference
+
+- [the-templating-engine.md](the-templating-engine.md) — the `{{var}}` /
+  `{{#if}}` engine that renders the built-in sections against committed config,
+  its strictness, and the config-only invariant.
 
 ## Planned leaves
 

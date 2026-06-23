@@ -54,3 +54,4 @@ decision is hard to reverse, surprising without context, and a real trade-off.
 - [0032 — The Claude Code mirror imports AGENTS.md instead of duplicating it](0032-claude-md-imports-agents-md.md)
 - [0033 — A `status` verb with location-aware scope](0033-status-verb-and-location-aware-scope.md)
 - [0034 — AGENTS.md is an untracked build artifact, guarded by a currency check](0034-agents-md-untracked-currency-check.md)
+- [0035 — A strict, config-only template engine for the built-in guidance](0035-guidance-templating-engine.md)

@@ -26,6 +26,10 @@ import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { type Feature, isFeatureEnabled } from "../shared/features.ts";
 import { resolveGuidanceSources, resolveTemplatesDir } from "../lib/paths.ts";
 import { providerFor } from "../lib/providers.ts";
+import {
+  type GuidanceContext,
+  renderGuidanceTemplate,
+} from "./guidance_template.ts";
 
 /** Default providers to emit when neither `[guidance].agents` nor the legacy
  * `[project].agents` is set. */
@@ -55,12 +59,41 @@ export function guidanceAgents(config: DiscernConfig): string[] {
 }
 
 /**
- * Read and concatenate discern's built-in guidance sections for the enabled
- * features, in {@link BUILTIN_SECTIONS} order. A missing section file is skipped
- * defensively (the distribution ships them, but a custom templates tree might not).
+ * The template context the built-in sections render against — a PURE function of
+ * COMMITTED config. It must read NOTHING that varies between two runs on the same
+ * commit (no git branch/status, env, clock, randomness, absolute paths, or
+ * gitignored/per-worktree files); that purity is what keeps the generated files'
+ * currency check deterministic and the gate stable (ADR 0034). In particular
+ * `main_branch` is the committed `[project].main_branch`, NEVER the `MAIN_BRANCH`
+ * env override — that runtime override lives in the worktree/git layer, not in the
+ * loaded config this reads. Keep it minimal: add a variable or predicate only when
+ * a template actually uses it.
+ */
+function guidanceContext(config: DiscernConfig): GuidanceContext {
+  return {
+    vars: {
+      branch_prefix: config.project.branch_prefix,
+      main_branch: config.project.main_branch,
+    },
+    preds: {
+      has_ratchets: Object.keys(config.ratchets).length > 0,
+      has_worktree_resources: Object.keys(config.worktree.resources).length > 0,
+    },
+  };
+}
+
+/**
+ * Read, template, and concatenate discern's built-in guidance sections for the
+ * enabled features, in {@link BUILTIN_SECTIONS} order. Each section is rendered
+ * against {@link guidanceContext} so generic prose can name the project's real
+ * branch prefix / integration branch and drop config-gated content. ONLY built-in
+ * sections are templated — the user's `[guidance].sources` are appended verbatim by
+ * {@link composeGuidanceBody}. A missing section file is skipped defensively (the
+ * distribution ships them, but a custom templates tree might not).
  */
 async function builtinGuidance(config: DiscernConfig): Promise<string> {
   const dir = join(await resolveTemplatesDir(), "guidance");
+  const ctx = guidanceContext(config);
   let out = "";
   for (const section of BUILTIN_SECTIONS) {
     if (section.feature && !isFeatureEnabled(config, section.feature)) {
@@ -74,6 +107,12 @@ async function builtinGuidance(config: DiscernConfig): Promise<string> {
         continue;
       }
       throw err;
+    }
+    text = renderGuidanceTemplate(text, ctx);
+    // A section a conditional collapsed to nothing contributes nothing — no stray
+    // blank line, no empty heading.
+    if (text.trim() === "") {
+      continue;
     }
     out += text;
     if (!out.endsWith("\n")) {

@@ -78,6 +78,23 @@ Deno.test("checkGuidanceCurrent: clean after a compile; flags a hand-edit stale 
   }
 });
 
+Deno.test("renderAgentFiles: two renders of the same config are byte-identical (deterministic)", async () => {
+  // The built-in sections are templated against a context built purely from
+  // committed config (ADR 0034), so the compile output cannot vary run-to-run on
+  // the same commit — the property the stateless currency check relies on.
+  const dir = await scaffold();
+  try {
+    const a = await renderAgentFiles(dir);
+    const b = await renderAgentFiles(dir);
+    assertEquals([...a.keys()].sort(), [...b.keys()].sort());
+    for (const [path, body] of a) {
+      assertEquals(b.get(path), body, `${path} must render identically twice`);
+    }
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
 Deno.test("checkGuidanceCurrent: guidance feature off → nothing to render or check", async () => {
   const dir = await Deno.makeTempDir({ prefix: "discern-render-off-" });
   try {
