@@ -153,6 +153,46 @@ _Nothing outstanding._
       `changedScopesResult`) instead of the print-and-exit `runX`. Add tools as
       those cores are extracted. Evidence: `src/engine/mcp/server.ts` (`TOOLS`).
 
+- [ ] **Tier-2 diagnostics: populate `fix_available`.** The `Diagnostic` field
+      and the ADR-0028 Tier-2 tier exist, but nothing sets it. Derive it from
+      whether a `fix`-stage command is wired for the failing capability (a
+      formatter that may auto-resolve it). Evidence: `src/shared/result.ts`
+      (`Diagnostic.fix_available`); `src/engine/gate/plan.ts`
+      (`buildGateResult`).
+
+- [ ] **`prepare`/`test` `--json` carry no `steps`/`diagnostics`.** They now
+      emit a valid `{ok, verb}` envelope (no stdout pollution), but they run the
+      joined stage command via `runShellInherit`, so they can't produce per-job
+      results the way `finish` does. Rework them to run through the job runner
+      (the `runGate` machinery), so `prepare --json` gives the same `steps[]` +
+      structured `diagnostics[]`. Evidence: `src/engine/gate/prepare.ts`,
+      `src/engine/gate/test.ts`, `src/engine/gate/run-shell.ts`.
+
+- [ ] **The apply path's human output isn't rendered FROM the result.**
+      `finish`, the worktree verbs, and `ratchets` narrate during execution, in
+      parallel with the `steps[]` they serialize for `--json` — kept consistent
+      by convention, not structure (ADR 0028 is now precise about this). A
+      shared `StepResult[]` renderer (the mirror of `renderPlan`, which covers
+      only plans) would make the apply path a true rendering of the one object
+      too. Evidence: `src/engine/worktree/lifecycle.ts` (parallel
+      `log.info`/`done()`); `src/shared/result.ts` (`renderPlan`).
+
+- [ ] **`skills eject` is the lone CLI verb off the envelope.** A mutating verb
+      that emits `console.log`/`console.error` with no `--json`. Low
+      agent-consumption (interactive customization), but it should return a
+      `DiscernResult` for completeness. Evidence: `src/engine/dispatch.ts`
+      (`runSkillsEject`).
+
+- [ ] **Human-output polish (cosmetic).** (a) A SARIF-emitting check dumps its
+      raw JSON to the human stream before the parsed Failures block — humans pay
+      for both the raw and located views. (b) No `FORCE_COLOR` override: colour
+      is gated on `Deno.stdout.isTerminal()` only, so piped human output is
+      always plain. (c) A single failure is reported three times (the stream
+      banner, the Failures block, and the `✗ The <stage> stage failed.` die
+      line). Evidence: `src/engine/jobs/runner.ts`; `src/engine/output.ts`
+      (`colorEnabled`); `src/engine/gate/finish.ts` (`renderFailures` +
+      `failMessage`).
+
 ## 🟢 Test & tooling hygiene
 
 - [ ] **Genericise the `addWorktree` test helper off the `.claude/worktrees`
