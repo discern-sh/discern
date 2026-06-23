@@ -43,9 +43,12 @@ object you can parse directly:
 - `steps[]` records what ran; verb-specific detail rides in `data`.
 
 discern also runs as an **MCP server** — **`discern mcp`** exposes the verbs as
-tools (`discern_finish`, `discern_audit`, `discern_changed_scopes`) that return the
-same envelope as a structured result. If your client has the server configured,
-prefer the tools; otherwise call the CLI with `--json`.
+tools that return the same envelope as a structured result: `discern_finish`,
+`discern_prepare`, `discern_test`, `discern_doctor`, `discern_audit`, and
+`discern_changed_scopes`, plus `discern_docs` (read the docs tree) and
+`discern_graduate` (graduate this worktree's branch) when those features are
+enabled. Each is the same `--json` envelope, surfaced natively. If your client has
+the server configured, prefer the tools; otherwise call the CLI with `--json`.
 
 ## Auditing the setup
 

@@ -203,20 +203,38 @@ export async function compileGuidelines(
   }
   const compiled = banner() + body;
 
+  // The canonical agent file the pointer mirrors import: the tracked provider in
+  // this run (codex → AGENTS.md). When none is emitted there is nothing to point
+  // at, so every file gets the full compiled body instead.
+  const canonicalRel = agents
+    .map((a) => providerFor(a)?.guidanceFile)
+    .find((g) => g !== undefined && g.tracked)?.path;
+
   for (const agent of agents) {
-    const rel = providerFor(agent)?.guidanceFile.path;
-    if (rel === undefined) {
+    const gf = providerFor(agent)?.guidanceFile;
+    if (gf === undefined) {
       log.warn(
         `refresh: unknown agent '${agent}' in [guidance].agents — skipping (no output mapping).`,
       );
       continue;
     }
-    const out = join(root, rel);
+    const out = join(root, gf.path);
     await ensureDir(dirname(out));
-    await Deno.writeTextFile(out, compiled);
+    // A provider that supports an import (Claude Code) writes a pointer to the
+    // canonical file instead of duplicating the whole body — but only when that
+    // file is actually being emitted, and isn't this same file. Otherwise the full
+    // compiled guidance is written.
+    let fileBody = compiled;
+    if (
+      gf.pointer !== undefined && canonicalRel !== undefined &&
+      canonicalRel !== gf.path
+    ) {
+      fileBody = gf.pointer(canonicalRel);
+    }
+    await Deno.writeTextFile(out, fileBody);
     // A generated file should be readable like any other source (mode 0644).
     await Deno.chmod(out, 0o644);
-    agentsWritten.push(rel);
+    agentsWritten.push(gf.path);
   }
 
   if (agentsWritten.length === 0) {

@@ -52,6 +52,7 @@ import {
 } from "./plan.ts";
 import {
   appliedResult,
+  type DiscernResult,
   type EnginePlan,
   previewResult,
   renderPlan,
@@ -746,16 +747,60 @@ export async function graduate(
   ctx: LifecycleContext,
   opts: WorktreeOpOptions = {},
 ): Promise<void> {
+  const result = await graduateResult(ctx, { dryRun: opts.dryRun ?? false });
+  if (opts.json ?? false) {
+    emitResult(result);
+  } else if (result.dry_run === true && result.plan !== undefined) {
+    // Human dry-run: render the plan the result carries (an apply already narrated
+    // through ctx.log while executeGraduatePlan ran).
+    renderPlan(loggerSink(ctx.log), result.plan);
+  }
+}
+
+/**
+ * Perform the graduation and return its {@link DiscernResult} — the plan (dry-run)
+ * or the executed steps — without emitting or exiting. The single source the CLI's
+ * `--json` ({@link graduate}) and the MCP server both render. NOT pure: on an apply
+ * it runs the real git mutations + resource teardown (narrating through `ctx.log`,
+ * which the MCP server silences with a quiet logger). The read-only preconditions
+ * (in a worktree, main integrated, clean main checkout) still throw
+ * `WorktreeGitError` when they refuse — the caller maps that to an error envelope
+ * via {@link worktreeErrorResult}.
+ */
+export async function graduateResult(
+  ctx: LifecycleContext,
+  opts: { dryRun?: boolean } = {},
+): Promise<DiscernResult> {
   const run = makeGitRunner(ctx);
   const plan = await buildGraduatePlan(ctx, run);
   if (opts.dryRun ?? false) {
-    emitDryRun(ctx, "graduate", graduatePlanToEngine(plan), opts.json ?? false);
-    return;
+    return previewResult("graduate", graduatePlanToEngine(plan));
   }
-  const results = await executeGraduatePlan(ctx, run, plan);
-  if (opts.json ?? false) {
-    emitResults("graduate", results);
+  return appliedResult("graduate", await executeGraduatePlan(ctx, run, plan));
+}
+
+/**
+ * Map a thrown worktree precondition / identity error to its {@link DiscernResult}
+ * error fields, or undefined when `e` is neither. The single source of the failure
+ * slugs (`precondition_failed`, `identity_error`) shared by the CLI runner
+ * (`runWorktreeOp`) and the MCP server, so the two surfaces never diverge. The
+ * caller rethrows when this returns undefined (a genuinely unexpected error).
+ */
+export function worktreeErrorResult(
+  verb: string,
+  e: unknown,
+): DiscernResult | undefined {
+  if (e instanceof WorktreeGitError || e instanceof IdentityError) {
+    return {
+      ok: false,
+      verb,
+      error: e instanceof IdentityError
+        ? "identity_error"
+        : "precondition_failed",
+      message: e.message,
+    };
   }
+  return undefined;
 }
 
 /** Resolve a possibly-relative git-common-dir against `cwd` and canonicalize it. */

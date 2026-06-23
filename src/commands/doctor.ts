@@ -27,6 +27,7 @@ import {
   isFeatureEnabled,
 } from "../shared/features.ts";
 import { capStage, isKnownCapability } from "../shared/capabilities.ts";
+import type { DiscernResult } from "../shared/result.ts";
 
 /** Options accepted by the `doctor` command. */
 export interface DoctorOptions {
@@ -456,23 +457,34 @@ export async function runChecks(destDir: string): Promise<Check[]> {
   return checks;
 }
 
+/**
+ * Compute the `doctor` {@link DiscernResult} without printing — the entry point the
+ * MCP server renders, and the source the CLI's `--json` serializes. Runs the
+ * install checks and folds them into the envelope (`ok` = every check passed; the
+ * per-check detail + fix ride in `data.checks`).
+ */
+export async function doctorResult(destDir: string): Promise<DiscernResult> {
+  const checks = await runChecks(destDir);
+  return {
+    ok: checks.every((c) => c.ok),
+    verb: "doctor",
+    data: { kit_version: KIT_VERSION, checks },
+  };
+}
+
 /** Run `discern doctor`. Returns a process exit code (0 = healthy). */
 export async function runDoctor(options: DoctorOptions): Promise<number> {
   const log = new Logger(options);
   const destDir = Deno.cwd();
 
-  const checks = await runChecks(destDir);
-  const healthy = checks.every((c) => c.ok);
-
   if (options.json) {
-    log.result({
-      ok: healthy,
-      verb: "doctor",
-      data: { kit_version: KIT_VERSION, checks },
-    });
-    return healthy ? 0 : 1;
+    const result = await doctorResult(destDir);
+    log.result(result);
+    return result.ok ? 0 : 1;
   }
 
+  const checks = await runChecks(destDir);
+  const healthy = checks.every((c) => c.ok);
   log.heading("discern doctor");
   for (const check of checks) {
     if (check.warn) {
