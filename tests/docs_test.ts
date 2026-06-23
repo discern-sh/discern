@@ -87,8 +87,9 @@ Deno.test("docs --json emits the index", async () => {
     assertEquals(code, 0);
     const res = JSON.parse(stdout);
     assertEquals(res.ok, true);
-    assertEquals(res.count, 4);
-    assert(res.docs.some((d: { slug: string }) => d.slug === "alpha"));
+    assertEquals(res.verb, "docs");
+    assertEquals(res.data.count, 4);
+    assert(res.data.docs.some((d: { slug: string }) => d.slug === "alpha"));
   });
 });
 
@@ -99,8 +100,8 @@ Deno.test("docs <slug> --json returns the single doc with its content", async ()
     assertEquals(code, 0);
     const res = JSON.parse(stdout);
     assertEquals(res.ok, true);
-    assertEquals(res.doc.path, "docs/00-intro/alpha.md");
-    assertStringIncludes(res.doc.content, "The alpha body.");
+    assertEquals(res.data.doc.path, "docs/00-intro/alpha.md");
+    assertStringIncludes(res.data.doc.content, "The alpha body.");
   });
 });
 
@@ -163,7 +164,7 @@ Deno.test("docs reports an ambiguous target with candidates", async () => {
     assertEquals(code, 1);
     const res = JSON.parse(stdout);
     assertEquals(res.error, "ambiguous");
-    assert(res.candidates.length >= 2);
+    assert(res.data.candidates.length >= 2);
   });
 });
 
@@ -183,7 +184,7 @@ Deno.test("docs excludes _-prefixed internal directories from every view", async
     const index = await runCli(["docs", "--json"], dir);
     const res = JSON.parse(index.stdout);
     assert(
-      res.docs.every((d: { path: string }) => !d.path.includes("_adr")),
+      res.data.docs.every((d: { path: string }) => !d.path.includes("_adr")),
       "the index must not contain internal docs",
     );
     const list = await runCli(["docs", "--list"], dir);
@@ -205,7 +206,9 @@ Deno.test("docs --dir can target an internal subtree directly", async () => {
     assertEquals(code, 0);
     const res = JSON.parse(stdout);
     assertEquals(res.ok, true);
-    assert(res.docs.some((d: { slug: string }) => d.slug === "0001-first"));
+    assert(
+      res.data.docs.some((d: { slug: string }) => d.slug === "0001-first"),
+    );
   });
 });
 
@@ -248,8 +251,8 @@ Deno.test("docs --json reports an empty tree as count 0 (only internal docs pres
     assertEquals(code, 0);
     const res = JSON.parse(stdout);
     assertEquals(res.ok, true);
-    assertEquals(res.count, 0);
-    assertEquals(res.docs, []);
+    assertEquals(res.data.count, 0);
+    assertEquals(res.data.docs, []);
   });
 });
 

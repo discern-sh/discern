@@ -38,7 +38,8 @@ Deno.test("init --config scaffolds from a JSON answers file", async () => {
     assertEquals(r.code, 0, r.stderr);
     const result = JSON.parse(r.stdout);
     assertEquals(result.ok, true);
-    assertEquals(result.project.slug, "my-app");
+    assertEquals(result.verb, "init");
+    assertEquals(result.data.project.slug, "my-app");
 
     const toml = await Deno.readTextFile(join(dir, "discern.toml"));
     assertStringIncludes(toml, 'test = "vitest run"'); // capability fill
@@ -68,7 +69,7 @@ Deno.test("init --config - reads the answers file from stdin", async () => {
       ANSWERS,
     );
     assertEquals(r.code, 0, r.stderr);
-    assertEquals(JSON.parse(r.stdout).project.slug, "my-app");
+    assertEquals(JSON.parse(r.stdout).data.project.slug, "my-app");
     assertStringIncludes(
       await Deno.readTextFile(join(dir, "discern.toml")),
       'test = "vitest run"',
@@ -84,7 +85,7 @@ Deno.test("init --config: an explicit flag overrides the file value", async () =
       dir,
     );
     assertEquals(r.code, 0, r.stderr);
-    assertEquals(JSON.parse(r.stdout).project.slug, "flag-wins");
+    assertEquals(JSON.parse(r.stdout).data.project.slug, "flag-wins");
   });
 });
 
@@ -96,7 +97,7 @@ Deno.test("init --config --dry-run writes nothing", async () => {
       dir,
     );
     assertEquals(r.code, 0, r.stderr);
-    assertEquals(JSON.parse(r.stdout).dry_run, true);
+    assertEquals(JSON.parse(r.stdout).data.dry_run, true);
     // Only the answers file exists; nothing was scaffolded.
     let entries = 0;
     for await (const _ of Deno.readDir(dir)) {

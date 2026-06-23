@@ -140,7 +140,12 @@ export async function runAddPreset(
     const message =
       "no discern install here — run `discern init` before adding a preset.";
     if (options.json) {
-      log.jsonResult({ ok: false, error: "not_initialized", message });
+      log.result({
+        ok: false,
+        verb: "add-preset",
+        error: "not_initialized",
+        message,
+      });
     } else {
       log.error(message);
     }
@@ -156,11 +161,12 @@ export async function runAddPreset(
       ? `unknown preset "${name}". Available: ${available.join(", ")}.`
       : `unknown preset "${name}". This build ships no presets yet.`;
     if (options.json) {
-      log.jsonResult({
+      log.result({
         ok: false,
+        verb: "add-preset",
         error: "unknown_preset",
         message,
-        available,
+        data: { available },
       });
     } else {
       log.error(message);
@@ -210,7 +216,12 @@ export async function runAddPreset(
       error instanceof Error ? error.message : String(error)
     }`;
     if (options.json) {
-      log.jsonResult({ ok: false, error: "invalid_preset", message });
+      log.result({
+        ok: false,
+        verb: "add-preset",
+        error: "invalid_preset",
+        message,
+      });
     } else {
       log.error(message);
     }
@@ -219,12 +230,15 @@ export async function runAddPreset(
 
   if (options.dryRun) {
     if (options.json) {
-      log.jsonResult({
+      log.result({
         ok: true,
-        dry_run: true,
-        preset: name,
-        plan: planToJson(plan),
-        config_fills: filledToml !== undefined,
+        verb: "add-preset",
+        data: {
+          dry_run: true,
+          preset: name,
+          plan: planToJson(plan),
+          config_fills: filledToml !== undefined,
+        },
       });
     } else {
       renderPlan(log, plan, `Dry run — preset "${name}" would overlay:`);
@@ -252,11 +266,14 @@ export async function runAddPreset(
     await Deno.writeTextFile(configPath, filledToml);
   }
   if (options.json) {
-    log.jsonResult({
+    log.result({
       ok: true,
-      preset: name,
-      written: changed.map((op) => op.targetRel),
-      config_fills: filledToml !== undefined,
+      verb: "add-preset",
+      data: {
+        preset: name,
+        written: changed.map((op) => op.targetRel),
+        config_fills: filledToml !== undefined,
+      },
     });
     return 0;
   }

@@ -136,9 +136,9 @@ Deno.test("upgrade survives an absent templates dir: guidelines just don't compi
     assertEquals(r.code, 0, r.stderr);
     const res = JSON.parse(r.stdout);
     assertEquals(res.ok, true);
-    assertEquals(res.guidelines_compiled, false);
-    assertEquals(res.skills, null);
-    assertEquals(res.agents_written, []);
+    assertEquals(res.data.guidelines_compiled, false);
+    assertEquals(res.data.skills, null);
+    assertEquals(res.data.agents_written, []);
   });
 });
 
@@ -172,8 +172,8 @@ Deno.test("upgrade fills agents from defaults when discern.toml carries no agent
     assertEquals(r.code, 0, r.stderr);
     const res = JSON.parse(r.stdout);
     assertEquals(res.ok, true);
-    assertEquals(res.guidelines_compiled, true);
-    assertEquals(res.agents_written, ["CLAUDE.md", "AGENTS.md"]);
+    assertEquals(res.data.guidelines_compiled, true);
+    assertEquals(res.data.agents_written, ["CLAUDE.md", "AGENTS.md"]);
   });
 });
 
@@ -198,10 +198,10 @@ Deno.test("upgrade --dry-run --json previews pending migrations and writes nothi
     assertEquals(r.code, 0, r.stderr);
     const res = JSON.parse(r.stdout);
     assertEquals(res.ok, true);
-    assertEquals(res.dry_run, true);
+    assertEquals(res.data.dry_run, true);
     // The dry-run payload no longer enumerates skills (the compiler does that on
     // a real run); it previews only the pending migration chain.
-    assertEquals(res.pending_migrations, []); // current install → none pending
+    assertEquals(res.data.pending_migrations, []); // current install → none pending
   });
 });
 
@@ -213,9 +213,9 @@ Deno.test("upgrade --dry-run --json previews pending migrations without running 
     const r = await runCli(["upgrade", "--dry-run", "--json"], dir);
     assertEquals(r.code, 0, r.stderr);
     const res = JSON.parse(r.stdout);
-    assertEquals(res.dry_run, true);
+    assertEquals(res.data.dry_run, true);
     assertEquals(
-      res.pending_migrations.map((m: { from: number }) => m.from),
+      res.data.pending_migrations.map((m: { from: number }) => m.from),
       [1, 2, 3, 4, 5, 6, 7],
     );
     // Still a dry run: the schema is untouched on disk.
@@ -272,8 +272,8 @@ Deno.test("upgrade truncates the dirty-change list past ten entries", async () =
     assertEquals(res.error, "dirty_worktree");
     // The JSON payload carries the full change list…
     assert(
-      res.changes.length >= 14,
-      `expected >=14 changes, got ${res.changes.length}`,
+      res.data.changes.length >= 14,
+      `expected >=14 changes, got ${res.data.changes.length}`,
     );
     // …while the human stderr caps the detail and appends a "more" tail.
     const human = await runCli(["upgrade"], dir);

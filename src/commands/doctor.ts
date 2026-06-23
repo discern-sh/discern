@@ -465,10 +465,10 @@ export async function runDoctor(options: DoctorOptions): Promise<number> {
   const healthy = checks.every((c) => c.ok);
 
   if (options.json) {
-    log.jsonResult({
+    log.result({
       ok: healthy,
-      kit_version: KIT_VERSION,
-      checks,
+      verb: "doctor",
+      data: { kit_version: KIT_VERSION, checks },
     });
     return healthy ? 0 : 1;
   }

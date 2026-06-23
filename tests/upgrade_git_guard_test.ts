@@ -61,7 +61,7 @@ Deno.test("upgrade refuses a tree with uncommitted tracked changes", async () =>
     assertEquals(res.ok, false);
     assertEquals(res.error, "dirty_worktree");
     assert(
-      res.changes.some((c: string) => c.includes("discern.toml")),
+      res.data.changes.some((c: string) => c.includes("discern.toml")),
       "the dirty file should be listed",
     );
   });

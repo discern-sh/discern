@@ -68,9 +68,9 @@ Deno.test("a current install has nothing pending and applies no migrations", asy
     await init(dir); // a fresh install is stamped at the current schema
     const r = await runCli(["upgrade", "--json"], dir);
     assertEquals(r.code, 0, r.stderr);
-    assertEquals(JSON.parse(r.stdout).migrations_applied, []);
+    assertEquals(JSON.parse(r.stdout).data.migrations_applied, []);
     const c = await runCli(["upgrade", "--check", "--json"], dir);
-    assertEquals(JSON.parse(c.stdout).pending_migrations, []);
+    assertEquals(JSON.parse(c.stdout).data.pending_migrations, []);
   });
 });
 

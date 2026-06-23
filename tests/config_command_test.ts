@@ -33,8 +33,11 @@ Deno.test("config set-capability fills a capability and preserves comments", asy
     assertEquals(r.code, 0, r.stderr);
     const result = JSON.parse(r.stdout);
     assertEquals(result.ok, true);
+    assertEquals(result.verb, "config");
     assert(
-      result.edits.some((e: { key: string }) => e.key === "capabilities.test"),
+      result.data.edits.some((e: { key: string }) =>
+        e.key === "capabilities.test"
+      ),
     );
 
     const toml = await readToml(dir);
@@ -114,7 +117,7 @@ Deno.test("config set-check writes a check table", async () => {
     const result = JSON.parse(r.stdout);
     assertEquals(result.ok, true);
     assert(
-      result.edits.some((e: { key: string }) =>
+      result.data.edits.some((e: { key: string }) =>
         e.key === "checks.licenses.run"
       ),
     );
@@ -283,7 +286,7 @@ Deno.test("config --dry-run writes nothing", async () => {
       dir,
     );
     assertEquals(r.code, 0, r.stderr);
-    assertEquals(JSON.parse(r.stdout).dry_run, true);
+    assertEquals(JSON.parse(r.stdout).data.dry_run, true);
     assertEquals(await readToml(dir), before); // unchanged
   });
 });
@@ -563,10 +566,10 @@ Deno.test("config set --dry-run --json reports the edit and writes nothing", asy
     );
     assertEquals(r.code, 0, r.stderr);
     const result = JSON.parse(r.stdout);
-    assertEquals(result.dry_run, true);
-    assertEquals(result.file, "discern.toml");
+    assertEquals(result.data.dry_run, true);
+    assertEquals(result.data.file, "discern.toml");
     assert(
-      result.edits.some((e: { key: string; literal: string }) =>
+      result.data.edits.some((e: { key: string; literal: string }) =>
         e.key === "project.slug" && e.literal === '"renamed"'
       ),
     );

@@ -43,7 +43,7 @@ function fail(
 ): number {
   const log = new Logger(opts);
   if (opts.json) {
-    log.jsonResult({ ok: false, error, message });
+    log.result({ ok: false, verb: "config", error, message });
   } else {
     log.error(message);
   }
@@ -98,11 +98,10 @@ async function applyEdits(
 
   if (opts.dryRun) {
     if (opts.json) {
-      log.jsonResult({
+      log.result({
         ok: true,
-        dry_run: true,
-        file: fileRel,
-        edits,
+        verb: "config",
+        data: { dry_run: true, file: fileRel, edits },
       });
     } else {
       log.info("Dry run — would set:");
@@ -115,7 +114,7 @@ async function applyEdits(
 
   await Deno.writeTextFile(path, result);
   if (opts.json) {
-    log.jsonResult({ ok: true, file: fileRel, edits });
+    log.result({ ok: true, verb: "config", data: { file: fileRel, edits } });
   } else {
     log.ok(summary);
     for (const edit of edits) {

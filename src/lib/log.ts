@@ -8,7 +8,11 @@
  */
 
 import { colors } from "@cliffy/ansi/colors";
-import type { RenderSink } from "../shared/result.ts";
+import {
+  type DiscernResult,
+  type RenderSink,
+  serializeResult,
+} from "../shared/result.ts";
 
 /** How a command should present its results. */
 export interface LogOptions {
@@ -126,6 +130,19 @@ export class Logger {
       return;
     }
     console.log(JSON.stringify(payload, null, 2));
+  }
+
+  /**
+   * Emit a {@link DiscernResult} as the verb's single `--json` object — the
+   * envelope every verb shares (ADR 0028). Only does anything in JSON mode; the
+   * human path is the verb's own narration. The installer-verb counterpart of the
+   * engine's `serializeResult` emit.
+   */
+  result(r: DiscernResult): void {
+    if (!this.json) {
+      return;
+    }
+    console.log(JSON.stringify(serializeResult(r), null, 2));
   }
 
   /** Bold a fragment of text inline (no-op without colour). */

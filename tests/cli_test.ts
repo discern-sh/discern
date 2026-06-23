@@ -51,14 +51,15 @@ Deno.test("init --yes --json scaffolds and reports JSON", async () => {
     assertEquals(code, 0);
     const result = JSON.parse(stdout);
     assertEquals(result.ok, true);
-    assertEquals(result.project.slug, "cli-demo");
-    assert(Array.isArray(result.written));
+    assertEquals(result.verb, "init");
+    assertEquals(result.data.project.slug, "cli-demo");
+    assert(Array.isArray(result.data.written));
     // The whole footprint is the single root config file (ADR 0020).
-    assert(result.written.includes("discern.toml"));
+    assert(result.data.written.includes("discern.toml"));
     // init now compiles the agent files; `compiled` lists them.
-    assert(Array.isArray(result.compiled));
-    assert(result.compiled.includes("AGENTS.md"));
-    assert(result.compiled.includes("CLAUDE.md"));
+    assert(Array.isArray(result.data.compiled));
+    assert(result.data.compiled.includes("AGENTS.md"));
+    assert(result.data.compiled.includes("CLAUDE.md"));
     // The files really landed.
     await Deno.stat(join(dir, "discern.toml"));
     await Deno.stat(join(dir, "AGENTS.md"));
@@ -78,8 +79,8 @@ Deno.test("init --dry-run --json writes nothing", async () => {
     );
     assertEquals(code, 0);
     const result = JSON.parse(stdout);
-    assertEquals(result.dry_run, true);
-    assert(Array.isArray(result.plan));
+    assertEquals(result.data.dry_run, true);
+    assert(Array.isArray(result.data.plan));
     // Nothing was written.
     let entries = 0;
     for await (const _ of Deno.readDir(dir)) {
@@ -115,10 +116,10 @@ Deno.test("init --force proceeds over an existing install (re-runs without error
     assertEquals(result.ok, true);
     // The existing config seed is left as-is (a present seed is skipped), so it
     // is not in the written list.
-    assert(!result.written.includes("discern.toml"));
+    assert(!result.data.written.includes("discern.toml"));
     // The agent files are recompiled on every run, so `compiled` lists them.
-    assert(result.compiled.includes("AGENTS.md"));
-    assert(result.compiled.includes("CLAUDE.md"));
+    assert(result.data.compiled.includes("AGENTS.md"));
+    assert(result.data.compiled.includes("CLAUDE.md"));
   });
 });
 
@@ -161,7 +162,7 @@ Deno.test("doctor --json reports invalid result when not initialized", async () 
     assertEquals(code, 1);
     const result = JSON.parse(stdout);
     assertEquals(result.ok, false);
-    const toml = result.checks.find((c: { name: string }) =>
+    const toml = result.data.checks.find((c: { name: string }) =>
       c.name === "discern.toml"
     );
     assertEquals(toml.ok, false);
@@ -180,7 +181,7 @@ Deno.test("doctor flags a stale schema version and points at upgrade", async () 
 
     const { stdout } = await runCli(["doctor", "--json"], dir);
     const result = JSON.parse(stdout);
-    const schema = result.checks.find((c: { name: string }) =>
+    const schema = result.data.checks.find((c: { name: string }) =>
       c.name === "schema version"
     );
     assert(schema !== undefined, "expected a 'schema version' check");
@@ -197,7 +198,7 @@ Deno.test("doctor reports the schema version is current on a fresh install", asy
     );
     const { stdout } = await runCli(["doctor", "--json"], dir);
     const result = JSON.parse(stdout);
-    const schema = result.checks.find((c: { name: string }) =>
+    const schema = result.data.checks.find((c: { name: string }) =>
       c.name === "schema version"
     );
     assert(

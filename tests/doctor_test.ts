@@ -27,8 +27,11 @@ interface DoctorCheck {
 /** The `doctor --json` payload shape we assert against. */
 interface DoctorPayload {
   ok: boolean;
-  kit_version: string;
-  checks: DoctorCheck[];
+  verb: string;
+  data: {
+    kit_version: string;
+    checks: DoctorCheck[];
+  };
 }
 
 /** Scaffold a healthy install in `dir`; assert it succeeded. */
@@ -47,7 +50,7 @@ async function runDoctorJson(
 
 /** Find a named check in a payload, asserting it is present. */
 function check(payload: DoctorPayload, name: string): DoctorCheck {
-  const found = payload.checks.find((c) => c.name === name);
+  const found = payload.data.checks.find((c) => c.name === name);
   assert(found !== undefined, `expected a '${name}' check`);
   return found;
 }
@@ -97,7 +100,8 @@ Deno.test("doctor --json: a fresh install is fully healthy and exits 0", async (
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 0);
     assertEquals(payload.ok, true);
-    assertEquals(payload.kit_version, "1.0.0");
+    assertEquals(payload.verb, "doctor");
+    assertEquals(payload.data.kit_version, "1.0.0");
     for (
       const name of ["discern.toml", "schema version", "capabilities"]
     ) {
@@ -141,7 +145,7 @@ Deno.test("doctor: invalid (malformed) discern.toml is flagged with a syntax fix
     // With an unparseable config the later checks have nothing to read, so they
     // are not emitted.
     assertEquals(
-      payload.checks.find((c) => c.name === "schema version"),
+      payload.data.checks.find((c) => c.name === "schema version"),
       undefined,
     );
   });
@@ -333,7 +337,7 @@ Deno.test("doctor: does NOT nudge a custom-named check, or one at a non-canonica
 
     const { payload } = await runDoctorJson(dir);
     assertEquals(
-      payload.checks.find((c) => c.name === "capability-shaped checks"),
+      payload.data.checks.find((c) => c.name === "capability-shaped checks"),
       undefined,
       "no nudge for a legitimately custom check",
     );
@@ -349,7 +353,7 @@ Deno.test("doctor: does NOT nudge when the capability slot is already wired", as
 
     const { payload } = await runDoctorJson(dir);
     assertEquals(
-      payload.checks.find((c) => c.name === "capability-shaped checks"),
+      payload.data.checks.find((c) => c.name === "capability-shaped checks"),
       undefined,
     );
   });

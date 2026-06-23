@@ -44,7 +44,12 @@ export async function runMigrate(options: MigrateOptions): Promise<number> {
     const message =
       "no discern install here — run `discern init` first, or cd into the project root.";
     if (options.json) {
-      log.jsonResult({ ok: false, error: "not_initialized", message });
+      log.result({
+        ok: false,
+        verb: "migrate",
+        error: "not_initialized",
+        message,
+      });
     } else {
       log.error(message);
     }
@@ -65,14 +70,17 @@ export async function runMigrate(options: MigrateOptions): Promise<number> {
   const code = options.check && pending.length > 0 ? 1 : 0;
 
   if (options.json) {
-    log.jsonResult({
+    log.result({
       ok: pending.length === 0,
-      schema: { recorded, current: SCHEMA_VERSION },
-      pending_migrations: pending.map((m) => ({
-        from: m.from,
-        to: m.from + 1,
-        describe: m.describe,
-      })),
+      verb: "migrate",
+      data: {
+        schema: { recorded, current: SCHEMA_VERSION },
+        pending_migrations: pending.map((m) => ({
+          from: m.from,
+          to: m.from + 1,
+          describe: m.describe,
+        })),
+      },
     });
     return code;
   }
