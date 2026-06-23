@@ -127,6 +127,7 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     const names = list.result.tools.map((t: { name: string }) => t.name);
     assert(names.includes("discern_finish"), JSON.stringify(names));
     assert(names.includes("discern_prepare"), JSON.stringify(names));
+    assert(names.includes("discern_test"), JSON.stringify(names));
     assert(names.includes("discern_doctor"), JSON.stringify(names));
     assert(names.includes("discern_changed_scopes"), JSON.stringify(names));
     assert(names.includes("discern_audit"), JSON.stringify(names));
@@ -212,6 +213,24 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     assertEquals(prep.result.isError, false);
     assertEquals(prep.result.structuredContent.verb, "prepare");
     assertEquals(prep.result.structuredContent.ok, true);
+
+    // tools/call discern_test → the test capability. None is wired in the scaffold,
+    // so it's a trivial pass carrying a "no test configured" hint.
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 9,
+      method: "tools/call",
+      params: { name: "discern_test" },
+    });
+    const test = await mcp.recv();
+    assertEquals(test.id, 9);
+    assertEquals(test.result.isError, false);
+    assertEquals(test.result.structuredContent.verb, "test");
+    assertEquals(test.result.structuredContent.ok, true);
+    assert(
+      Array.isArray(test.result.structuredContent.hints),
+      "an unconfigured test carries a hint that nothing ran",
+    );
 
     // an unknown tool is a JSON-RPC error.
     await mcp.send({

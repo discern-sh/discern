@@ -147,10 +147,10 @@ _Nothing outstanding._
       (`buildGateResult` calls it).
 
 - [ ] **`discern mcp` could expose more read/run verbs.** Wired so far:
-      `finish`, `prepare`, `doctor`, `changed_scopes`, `audit`, `docs`, and
-      `graduate` (the last two feature-gated) — each backed by a
+      `finish`, `prepare`, `test`, `doctor`, `changed_scopes`, `audit`, `docs`,
+      and `graduate` (the last two feature-gated) — each backed by a
       result-returning core
-      (`finishResult`/`prepareResult`/`doctorResult`/`docsResult`/
+      (`finishResult`/`prepareResult`/`testResult`/`doctorResult`/`docsResult`/
       `graduateResult`/…). `ratchets` is the obvious next candidate (extract a
       `ratchetsResult` core first). The `worktree`/`worktree:*` lifecycle verbs
       are deliberately NOT exposed: they are driven by the

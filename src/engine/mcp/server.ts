@@ -25,6 +25,7 @@ import {
 import { Logger } from "../../lib/log.ts";
 import { finishResult } from "../gate/finish.ts";
 import { prepareResult } from "../gate/prepare.ts";
+import { testResult } from "../gate/test.ts";
 import { auditResult } from "../audit/audit.ts";
 import { changedScopesResult } from "../scopes/changed.ts";
 import { doctorResult } from "../../commands/doctor.ts";
@@ -89,6 +90,15 @@ const TOOLS: McpTool[] = [
       "fixers MUTATE the working tree (e.g. a formatter rewrites files).",
     inputSchema: { type: "object", properties: {}, required: [] },
     run: (root) => prepareResult(root),
+  },
+  {
+    name: "discern_test",
+    description:
+      "Run the project's test capability on its own (the `test` stage, outside the " +
+      "full gate) and return the result envelope. When no test command is configured " +
+      "it is a trivial pass carrying a hint that says so.",
+    inputSchema: { type: "object", properties: {}, required: [] },
+    run: (root) => testResult(root),
   },
   {
     name: "discern_doctor",
