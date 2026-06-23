@@ -13,7 +13,7 @@ import { Command } from "@cliffy/command";
 import { join } from "@std/path";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { RawConfig } from "../shared/config_read.ts";
-import { serializeResult } from "../shared/result.ts";
+import { emitResult } from "../shared/emit.ts";
 import {
   CONFIG_REL,
   findRoot,
@@ -152,14 +152,14 @@ async function runWorktreeOp(
     return 0;
   } catch (e) {
     if (json && (e instanceof WorktreeGitError || e instanceof IdentityError)) {
-      console.log(JSON.stringify(serializeResult({
+      emitResult({
         ok: false,
         verb: opts.verb ?? "worktree",
         error: e instanceof IdentityError
           ? "identity_error"
           : "precondition_failed",
         message: e.message,
-      })));
+      });
       return 1;
     }
     return handleWorktreeError(e, log);
@@ -310,7 +310,7 @@ export function attachEngineCommands(
             humanStream: "stderr",
           });
           const res = await compileGuidelines(root, log);
-          console.log(JSON.stringify(serializeResult({
+          emitResult({
             ok: true,
             verb: "refresh",
             data: {
@@ -321,7 +321,7 @@ export function attachEngineCommands(
                 pruned: res.skillsPruned,
               },
             },
-          })));
+          });
         } else {
           // compileGuidelines narrates to stdout via its default logger.
           await compileGuidelines(root);
@@ -563,15 +563,11 @@ async function runSkillsList(opts: { json: boolean }): Promise<number> {
   const cfg = await loadConfig(root);
   const rows = await listSkills(root, cfg);
   if (opts.json) {
-    console.log(
-      JSON.stringify(
-        serializeResult({
-          ok: true,
-          verb: "skills:list",
-          data: { skills: rows },
-        }),
-      ),
-    );
+    emitResult({
+      ok: true,
+      verb: "skills:list",
+      data: { skills: rows },
+    });
     return 0;
   }
   if (rows.length === 0) {

@@ -12,7 +12,7 @@
 import { loadConfig } from "../../shared/config_schema.ts";
 import { cmdsInStage } from "./stages.ts";
 import { colorEnabled, makeOut } from "../output.ts";
-import { serializeResult } from "../../shared/result.ts";
+import { emitResult } from "../../shared/emit.ts";
 import { runShellInherit } from "./run-shell.ts";
 
 /** Run `prepare`. Returns a process exit code. */
@@ -27,7 +27,7 @@ export async function runPrepare(
 
   const done = (ok: boolean): number => {
     if (json) {
-      console.log(JSON.stringify(serializeResult({ ok, verb: "prepare" })));
+      emitResult({ ok, verb: "prepare" });
     }
     return ok ? 0 : 1;
   };

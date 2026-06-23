@@ -45,8 +45,8 @@ import {
   type DiscernResult,
   previewResult,
   renderPlan,
-  serializeResult,
 } from "../../shared/result.ts";
+import { emitResult } from "../../shared/emit.ts";
 
 /**
  * Run one job group — the thin per-group executor. Runs the group's firing jobs
@@ -227,9 +227,7 @@ async function dryRunGate(
   const engine = gatePlanToEngine(plan);
   if (json) {
     // A preview is a DiscernResult carrying `plan` + `dry_run` (no `steps`).
-    console.log(
-      JSON.stringify(serializeResult(previewResult("finish", engine))),
-    );
+    emitResult(previewResult("finish", engine));
     return 0;
   }
   renderPlan(outSink(makeOut(colorEnabled())), engine);
@@ -297,7 +295,7 @@ export async function runFinish(
     opts.json,
   );
   if (opts.json) {
-    console.log(JSON.stringify(serializeResult(result)));
+    emitResult(result);
     return failedStage === null ? 0 : 1;
   }
   if (failedStage !== null) {

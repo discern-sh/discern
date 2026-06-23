@@ -55,9 +55,9 @@ import {
   type EnginePlan,
   previewResult,
   renderPlan,
-  serializeResult,
   type StepResult,
 } from "../../shared/result.ts";
+import { emitResult } from "../../shared/emit.ts";
 import {
   assertInWorktree,
   assertMainMerged,
@@ -121,7 +121,7 @@ function emitDryRun(
   json: boolean,
 ): void {
   if (json) {
-    console.log(JSON.stringify(serializeResult(previewResult(verb, plan))));
+    emitResult(previewResult(verb, plan));
     return;
   }
   renderPlan(loggerSink(ctx.log), plan);
@@ -129,7 +129,7 @@ function emitDryRun(
 
 /** Emit an applied verb's result as the `--json` DiscernResult on stdout. */
 function emitResults(verb: string, results: StepResult[]): void {
-  console.log(JSON.stringify(serializeResult(appliedResult(verb, results))));
+  emitResult(appliedResult(verb, results));
 }
 
 /** Run a command string via `sh -c` in `cwd`, inheriting stdio. Returns its exit code. */
