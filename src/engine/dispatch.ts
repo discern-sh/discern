@@ -315,6 +315,7 @@ export function attachEngineCommands(
             verb: "refresh",
             data: {
               agents_written: res.agentsWritten,
+              mcp_wired: res.mcpWired,
               skills: {
                 copied: res.skillsCopied,
                 linked: res.skillsLinked,

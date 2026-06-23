@@ -212,7 +212,7 @@ export function providersWithHooks(): Provider[] {
  */
 export async function wireProviderMcp(
   root: string,
-  agents: readonly AgentName[],
+  agents: readonly string[],
   server: McpServerSpec = DISCERN_MCP_SERVER,
 ): Promise<string[]> {
   const written: string[] = [];

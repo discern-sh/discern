@@ -28,13 +28,15 @@ import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { type Feature, isFeatureEnabled } from "../shared/features.ts";
 import { resolveGuidanceSources, resolveTemplatesDir } from "../lib/paths.ts";
 import { materializeSkills } from "../lib/skills.ts";
-import { providerFor } from "../lib/providers.ts";
+import { providerFor, wireProviderMcp } from "../lib/providers.ts";
 import { Logger } from "../lib/log.ts";
 
 /** What a single `compileGuidelines` run accomplished. */
 export interface GuidelinesResult {
   /** Output paths (relative to `root`) written, in agent-config order. */
   agentsWritten: string[];
+  /** Project files written wiring each agent's MCP server (`.mcp.json`, settings). */
+  mcpWired: string[];
   /** Bundled skills copied into `.claude/skills/`. */
   skillsCopied: number;
   /** Authored skills symlinked into `.claude/skills/`. */
@@ -129,6 +131,7 @@ export async function compileGuidelines(
     new Logger({ json: false, noColor: false, humanStream: "stdout" });
 
   const config = await loadConfig(root);
+  const agents = guidanceAgents(config);
 
   // --- job 1: materialize skills into .claude/skills/ (gated) ----------------
   let skills = { copied: 0, linked: 0, pruned: 0 };
@@ -136,11 +139,29 @@ export async function compileGuidelines(
     skills = await materializeSkills(root, config, log);
   }
 
-  // --- job 2: compile the agent files (gated) --------------------------------
+  // --- job 2: wire each configured agent's MCP server (ADR 0030/0031) ---------
+  // An idempotent integration artifact, independent of the guidance feature — so
+  // it is (re-)established on every refresh / upgrade / worktree-setup, not only
+  // at init. Best-effort: a wiring hiccup must not fail the compile.
+  let mcpWired: string[] = [];
+  try {
+    mcpWired = await wireProviderMcp(root, agents);
+    if (mcpWired.length > 0) {
+      log.info(`registered the discern MCP server in: ${mcpWired.join(", ")}`);
+    }
+  } catch (error) {
+    log.warn(
+      `could not wire the MCP server: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+
+  // --- job 3: compile the agent files (gated) --------------------------------
   const agentsWritten: string[] = [];
   if (!isFeatureEnabled(config, "guidance")) {
     log.info("guidance feature is off — no agent files compiled.");
-    return summarize(agentsWritten, skills);
+    return summarize(agentsWritten, mcpWired, skills);
   }
 
   let body = await builtinGuidance(config);
@@ -151,7 +172,7 @@ export async function compileGuidelines(
   }
   const compiled = banner() + body;
 
-  for (const agent of guidanceAgents(config)) {
+  for (const agent of agents) {
     const rel = providerFor(agent)?.guidanceFile.path;
     if (rel === undefined) {
       log.warn(
@@ -178,17 +199,19 @@ export async function compileGuidelines(
       }`,
     );
   }
-  return summarize(agentsWritten, skills);
+  return summarize(agentsWritten, mcpWired, skills);
 }
 
 /** Build the result. The skills narration is emitted once by `materializeSkills`,
  * so this does not repeat it. */
 function summarize(
   agentsWritten: string[],
+  mcpWired: string[],
   skills: { copied: number; linked: number; pruned: number },
 ): GuidelinesResult {
   return {
     agentsWritten,
+    mcpWired,
     skillsCopied: skills.copied,
     skillsLinked: skills.linked,
     skillsPruned: skills.pruned,

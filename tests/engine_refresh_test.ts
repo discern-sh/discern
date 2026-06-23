@@ -48,6 +48,31 @@ Deno.test("engine refresh: compiles agent files and materializes bundled skills"
   });
 });
 
+Deno.test("engine refresh: backfills the discern MCP server for an install that lacks it (idempotent)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    // A plan-scaffolded install has no .mcp.json yet (it is wired by the refresh
+    // core, not seeded) — exactly the pre-feature / not-yet-wired state a real
+    // `discern upgrade`/`refresh` must heal without a force-init.
+    assert(
+      !(await exists(join(dir, ".mcp.json"))),
+      "precondition: no .mcp.json",
+    );
+
+    // First refresh backfills it and reports it under --json.
+    const r = await runAgent(dir, ["refresh", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    const data = JSON.parse(r.stdout.trim()).data;
+    assert(data.mcp_wired.includes(".mcp.json"), r.stdout);
+    const mcp = JSON.parse(await Deno.readTextFile(join(dir, ".mcp.json")));
+    assertEquals(mcp.mcpServers.discern.command, "discern");
+
+    // Second refresh is a clean no-op for MCP (already present).
+    const r2 = await runAgent(dir, ["refresh", "--json"]);
+    assertEquals(JSON.parse(r2.stdout.trim()).data.mcp_wired, []);
+  });
+});
+
 Deno.test("engine refresh: materializes skills even with no guideline sources (jobs are independent)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

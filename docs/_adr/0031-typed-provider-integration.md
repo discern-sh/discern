@@ -44,29 +44,32 @@ its provider. The discern MCP server itself is one constant
 instead of its own table:
 
 - `guidelines.ts` compiles to `provider.guidanceFile.path`;
-- `init` wires each configured provider's `mcp.register` (writing `.mcp.json` +
-  the approval in settings) and drives hook-stripping from `provider.hooks`;
+- the refresh core (`compileGuidelines`) wires each configured provider's
+  `mcp.register` (`.mcp.json` + the approval in settings), so `init`, `upgrade`,
+  `refresh`, and worktree-setup all (re-)establish it idempotently; `init`
+  drives hook-stripping from `provider.hooks`;
 - future provider-specific behaviour (e.g. a per-agent skills dir) extends the
   same record rather than adding a new scattered conditional.
 
-**Claude Code is implemented end-to-end** (guidance `CLAUDE.md`; MCP via
-`.mcp.json` `{type:"stdio", command:"discern", args:["mcp"]}` +
-`.claude/
-settings.json` `enabledMcpjsonServers`; hooks in
-`.claude/settings.json`). Codex and Gemini carry their guidance-file mappings
-(unchanged behaviour) with their `mcp`/`hooks` integrations left as **typed
-`TODO`s** — because no universal setup exists, each must be authored against
-that agent's real mechanism, which we will do separately. An unconfigured
-integration is simply skipped, never guessed.
+**Claude Code is implemented end-to-end**: guidance `CLAUDE.md`; MCP via a stdio
+`discern mcp` server in `.mcp.json`, pre-approved with `enabledMcpjsonServers`
+in `.claude/settings.json`; and hooks in that same settings file. Codex and
+Gemini carry their guidance-file mappings (unchanged behaviour) with their
+`mcp`/`hooks` integrations left as **typed `TODO`s** — because no universal
+setup exists, each must be authored against that agent's real mechanism, which
+we will do separately. An unconfigured integration is simply skipped, never
+guessed.
 
 ## Consequences
 
 - **Adding or completing a provider is one record.** The compiler enforces
   completeness across the registry; provider-specific behaviour can no longer
   drift between guidelines, init, and the worktree lifecycle.
-- **MCP wiring is agent-agnostic by construction.** `init` iterates the
-  configured providers and calls each one's `register`; it has no
-  Claude-specific branch. Teaching another agent is filling its `mcp` field.
+- **MCP wiring is agent-agnostic by construction, and self-healing.** The
+  refresh core iterates the configured providers and calls each one's `register`
+  (no Claude-specific branch), so `init` establishes it while
+  `refresh`/`upgrade` backfill an install that lacks it. Teaching another agent
+  is filling its `mcp`.
 - **The worktree-hook surface is typed**, so a future Codex hook integration
   reuses the same `HooksIntegration` shape rather than inventing a parallel
   path.

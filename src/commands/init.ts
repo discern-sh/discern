@@ -32,11 +32,7 @@ import { KIT_VERSION, SCHEMA_VERSION } from "../lib/version.ts";
 import { applyPlan, buildPlan, type Plan, planBrief } from "../lib/fs_plan.ts";
 import { planToJson, renderPlan, renderReview } from "../lib/plan_view.ts";
 import { compileGuidelines } from "../engine/guidelines.ts";
-import {
-  type HooksIntegration,
-  providersWithHooks,
-  wireProviderMcp,
-} from "../lib/providers.ts";
+import { type HooksIntegration, providersWithHooks } from "../lib/providers.ts";
 
 /** Options accepted by the `init` command (global flags folded in). */
 export interface InitOptions extends InitFlags {
@@ -339,33 +335,21 @@ export async function runInit(options: InitOptions): Promise<number> {
   // Scaffold.
   const changed = await applyPlan(plan);
 
-  // Compile the agent guidance and materialize skills so a fresh install is
-  // usable immediately — AGENTS.md/CLAUDE.md present, skills discoverable. Pass
-  // init's logger so the narration follows its stream discipline (suppressed in
-  // --json). Non-fatal: a broken templates tree shouldn't fail the scaffold.
+  // Compile guidance, materialize skills, and wire each agent's MCP server — all
+  // via the one refresh core (compileGuidelines), so init/upgrade/refresh stay
+  // consistent (ADR 0031). Pass init's logger so the narration follows its stream
+  // discipline (suppressed in --json). Non-fatal: a broken templates tree
+  // shouldn't fail the scaffold.
   let agentsWritten: string[] = [];
+  let mcpWired: string[] = [];
   try {
-    agentsWritten = (await compileGuidelines(destDir, log)).agentsWritten;
+    const g = await compileGuidelines(destDir, log);
+    agentsWritten = g.agentsWritten;
+    mcpWired = g.mcpWired;
   } catch (error) {
     if (!options.json) {
       log.warn(
         `could not compile agent guidance: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
-    }
-  }
-
-  // Wire each configured agent's MCP server into the project (idempotent;
-  // ADR 0031). Agents without an MCP integration are skipped (a typed TODO).
-  // Best-effort: a wiring hiccup must not fail the scaffold.
-  let mcpWired: string[] = [];
-  try {
-    mcpWired = await wireProviderMcp(destDir, config.agents);
-  } catch (error) {
-    if (!options.json) {
-      log.warn(
-        `could not wire the MCP server: ${
           error instanceof Error ? error.message : String(error)
         }`,
       );

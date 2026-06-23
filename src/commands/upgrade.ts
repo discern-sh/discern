@@ -266,6 +266,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
           pruned: guidelines.skillsPruned,
         },
         agents_written: guidelines?.agentsWritten ?? [],
+        mcp_wired: guidelines?.mcpWired ?? [],
         guidelines_compiled: guidelines !== undefined,
       },
     });
