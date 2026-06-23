@@ -28,7 +28,12 @@ import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { type Feature, isFeatureEnabled } from "../shared/features.ts";
 import { resolveGuidanceSources, resolveTemplatesDir } from "../lib/paths.ts";
 import { materializeSkills } from "../lib/skills.ts";
-import { providerFor, wireProviderMcp } from "../lib/providers.ts";
+import {
+  MCP_RESTART_HINT,
+  providerFor,
+  unwireProviderMcp,
+  wireProviderMcp,
+} from "../lib/providers.ts";
 import { Logger } from "../lib/log.ts";
 
 /** What a single `compileGuidelines` run accomplished. */
@@ -37,6 +42,10 @@ export interface GuidelinesResult {
   agentsWritten: string[];
   /** Project files written wiring each agent's MCP server (`.mcp.json`, settings). */
   mcpWired: string[];
+  /** Project files changed removing the MCP server (when `features.mcp` is off). */
+  mcpRemoved: string[];
+  /** Agent/user-facing advice from this run (e.g. the MCP first-install restart hint). */
+  hints: string[];
   /** Bundled skills copied into `.claude/skills/`. */
   skillsCopied: number;
   /** Authored skills symlinked into `.claude/skills/`. */
@@ -139,19 +148,41 @@ export async function compileGuidelines(
     skills = await materializeSkills(root, config, log);
   }
 
-  // --- job 2: wire each configured agent's MCP server (ADR 0030/0031) ---------
-  // An idempotent integration artifact, independent of the guidance feature — so
-  // it is (re-)established on every refresh / upgrade / worktree-setup, not only
-  // at init. Best-effort: a wiring hiccup must not fail the compile.
+  // --- job 2: MCP integration (gated on features.mcp; ADR 0030/0031) ----------
+  // An idempotent integration artifact, independent of the guidance feature. When
+  // ON, (re-)establish the server for every configured agent on each refresh /
+  // upgrade / worktree-setup; when OFF, REMOVE any previously-wired config. A
+  // FIRST install yields the restart hint (surfaced to the user AND the result
+  // `hints`). Best-effort: a hiccup must not fail the compile.
   let mcpWired: string[] = [];
+  let mcpRemoved: string[] = [];
+  const hints: string[] = [];
   try {
-    mcpWired = await wireProviderMcp(root, agents);
-    if (mcpWired.length > 0) {
-      log.info(`registered the discern MCP server in: ${mcpWired.join(", ")}`);
+    if (isFeatureEnabled(config, "mcp")) {
+      const r = await wireProviderMcp(root, agents);
+      mcpWired = r.written;
+      if (r.written.length > 0) {
+        log.info(
+          `registered the discern MCP server in: ${r.written.join(", ")}`,
+        );
+      }
+      if (r.firstInstall) {
+        hints.push(MCP_RESTART_HINT);
+        log.info(MCP_RESTART_HINT);
+      }
+    } else {
+      mcpRemoved = await unwireProviderMcp(root, agents);
+      if (mcpRemoved.length > 0) {
+        log.info(
+          `removed the discern MCP server (mcp feature off) from: ${
+            mcpRemoved.join(", ")
+          }`,
+        );
+      }
     }
   } catch (error) {
     log.warn(
-      `could not wire the MCP server: ${
+      `could not update the MCP integration: ${
         error instanceof Error ? error.message : String(error)
       }`,
     );
@@ -161,7 +192,7 @@ export async function compileGuidelines(
   const agentsWritten: string[] = [];
   if (!isFeatureEnabled(config, "guidance")) {
     log.info("guidance feature is off — no agent files compiled.");
-    return summarize(agentsWritten, mcpWired, skills);
+    return summarize(agentsWritten, mcpWired, mcpRemoved, hints, skills);
   }
 
   let body = await builtinGuidance(config);
@@ -199,7 +230,7 @@ export async function compileGuidelines(
       }`,
     );
   }
-  return summarize(agentsWritten, mcpWired, skills);
+  return summarize(agentsWritten, mcpWired, mcpRemoved, hints, skills);
 }
 
 /** Build the result. The skills narration is emitted once by `materializeSkills`,
@@ -207,11 +238,15 @@ export async function compileGuidelines(
 function summarize(
   agentsWritten: string[],
   mcpWired: string[],
+  mcpRemoved: string[],
+  hints: string[],
   skills: { copied: number; linked: number; pruned: number },
 ): GuidelinesResult {
   return {
     agentsWritten,
     mcpWired,
+    mcpRemoved,
+    hints,
     skillsCopied: skills.copied,
     skillsLinked: skills.linked,
     skillsPruned: skills.pruned,

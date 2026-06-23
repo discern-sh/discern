@@ -255,16 +255,18 @@ export function attachEngineCommands(
       );
     });
 
-  root
-    .command("mcp")
-    .description(
-      "Run an MCP server (stdio) exposing the verbs to an agent as tools.",
-    )
-    .action(async () => {
-      // The server resolves the project root itself and reports a missing one
-      // per tool-call, so it need not requireRoot up front.
-      Deno.exit(await runMcpServer());
-    });
+  if (enabled.has("mcp")) {
+    root
+      .command("mcp")
+      .description(
+        "Run an MCP server (stdio) exposing the verbs to an agent as tools.",
+      )
+      .action(async () => {
+        // The server resolves the project root itself and reports a missing one
+        // per tool-call, so it need not requireRoot up front.
+        Deno.exit(await runMcpServer());
+      });
+  }
 
   if (enabled.has("ratchets")) {
     root
@@ -313,9 +315,11 @@ export function attachEngineCommands(
           emitResult({
             ok: true,
             verb: "refresh",
+            hints: res.hints,
             data: {
               agents_written: res.agentsWritten,
               mcp_wired: res.mcpWired,
+              mcp_removed: res.mcpRemoved,
               skills: {
                 copied: res.skillsCopied,
                 linked: res.skillsLinked,

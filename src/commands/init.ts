@@ -342,10 +342,12 @@ export async function runInit(options: InitOptions): Promise<number> {
   // shouldn't fail the scaffold.
   let agentsWritten: string[] = [];
   let mcpWired: string[] = [];
+  let hints: string[] = [];
   try {
     const g = await compileGuidelines(destDir, log);
     agentsWritten = g.agentsWritten;
     mcpWired = g.mcpWired;
+    hints = g.hints;
   } catch (error) {
     if (!options.json) {
       log.warn(
@@ -360,6 +362,7 @@ export async function runInit(options: InitOptions): Promise<number> {
     log.result({
       ok: true,
       verb: "init",
+      hints,
       data: {
         project: { slug: config.slug, agents: config.agents },
         kit_version: KIT_VERSION,

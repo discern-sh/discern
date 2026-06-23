@@ -250,6 +250,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     log.result({
       ok: true,
       verb: "upgrade",
+      hints: guidelines?.hints ?? [],
       data: {
         kit_version: KIT_VERSION,
         // `from` is the pre-upgrade schema; the install now records `current`
@@ -267,6 +268,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
         },
         agents_written: guidelines?.agentsWritten ?? [],
         mcp_wired: guidelines?.mcpWired ?? [],
+        mcp_removed: guidelines?.mcpRemoved ?? [],
         guidelines_compiled: guidelines !== undefined,
       },
     });

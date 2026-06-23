@@ -4,15 +4,17 @@
  * the Claude Code MCP wiring is correct and idempotent.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import { AGENT_NAMES } from "../src/shared/config_schema.ts";
 import {
   DISCERN_MCP_SERVER,
+  MCP_RESTART_HINT,
   providerFor,
   PROVIDERS,
   providersWithHooks,
+  unwireProviderMcp,
   wireProviderMcp,
 } from "../src/lib/providers.ts";
 
@@ -70,8 +72,12 @@ Deno.test("today only Claude Code wires MCP + hooks; the others are typed TODOs"
 Deno.test("wireProviderMcp writes .mcp.json + approval for Claude Code, idempotently", async () => {
   await withTempDir(async (dir) => {
     const first = await wireProviderMcp(dir, ["claude_code"]);
-    assert(first.includes(".mcp.json"), first.join(","));
-    assert(first.includes(".claude/settings.json"), first.join(","));
+    assert(first.written.includes(".mcp.json"), first.written.join(","));
+    assert(
+      first.written.includes(".claude/settings.json"),
+      first.written.join(","),
+    );
+    assert(first.firstInstall, "a fresh wire must report firstInstall");
 
     const mcp = JSON.parse(await Deno.readTextFile(join(dir, ".mcp.json")));
     assertEquals(mcp.mcpServers.discern, {
@@ -84,9 +90,101 @@ Deno.test("wireProviderMcp writes .mcp.json + approval for Claude Code, idempote
     );
     assertEquals(settings.enabledMcpjsonServers, ["discern"]);
 
-    // Idempotent: a second wiring, with both already in place, writes nothing.
-    assertEquals(await wireProviderMcp(dir, ["claude_code"]), []);
+    // Idempotent: a second wiring writes nothing AND is not a first install (so
+    // no restart hint fires on a re-apply).
+    const second = await wireProviderMcp(dir, ["claude_code"]);
+    assertEquals(second.written, []);
+    assertEquals(second.firstInstall, false);
   });
+});
+
+Deno.test("wireProviderMcp MERGES into an existing .mcp.json, preserving other servers", async () => {
+  await withTempDir(async (dir) => {
+    // A project that already has its own MCP server configured.
+    await Deno.writeTextFile(
+      join(dir, ".mcp.json"),
+      JSON.stringify(
+        { mcpServers: { other: { type: "stdio", command: "other-tool" } } },
+        null,
+        2,
+      ),
+    );
+    const r = await wireProviderMcp(dir, ["claude_code"]);
+    // Adding discern next to an existing server is NOT a no-op, but the discern
+    // name was absent → still a first install.
+    assert(r.firstInstall, "discern was absent → firstInstall");
+    const mcp = JSON.parse(await Deno.readTextFile(join(dir, ".mcp.json")));
+    assertEquals(mcp.mcpServers.other, {
+      type: "stdio",
+      command: "other-tool",
+    }); // preserved
+    assertEquals(mcp.mcpServers.discern.command, "discern"); // added
+  });
+});
+
+Deno.test("unwireProviderMcp removes discern but keeps the user's other servers/settings", async () => {
+  await withTempDir(async (dir) => {
+    // Existing project config with another server + another approval + permissions.
+    await Deno.writeTextFile(
+      join(dir, ".mcp.json"),
+      JSON.stringify(
+        { mcpServers: { other: { type: "stdio", command: "other-tool" } } },
+        null,
+        2,
+      ),
+    );
+    await Deno.mkdir(join(dir, ".claude"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, ".claude/settings.json"),
+      JSON.stringify(
+        {
+          permissions: { deny: ["Read(./.env)"] },
+          enabledMcpjsonServers: ["other"],
+        },
+        null,
+        2,
+      ),
+    );
+    await wireProviderMcp(dir, ["claude_code"]); // discern now present
+
+    const removed = await unwireProviderMcp(dir, ["claude_code"]);
+    assert(removed.includes(".mcp.json"));
+    assert(removed.includes(".claude/settings.json"));
+
+    const mcp = JSON.parse(await Deno.readTextFile(join(dir, ".mcp.json")));
+    assertEquals(mcp.mcpServers.other, {
+      type: "stdio",
+      command: "other-tool",
+    }); // kept
+    assertEquals("discern" in mcp.mcpServers, false); // gone
+    const settings = JSON.parse(
+      await Deno.readTextFile(join(dir, ".claude/settings.json")),
+    );
+    assertEquals(settings.permissions.deny, ["Read(./.env)"]); // kept
+    assertEquals(settings.enabledMcpjsonServers, ["other"]); // discern dropped
+
+    // Idempotent: a second unwire changes nothing.
+    assertEquals(await unwireProviderMcp(dir, ["claude_code"]), []);
+  });
+});
+
+Deno.test("unwireProviderMcp removes a .mcp.json that discern alone created", async () => {
+  await withTempDir(async (dir) => {
+    await wireProviderMcp(dir, ["claude_code"]); // discern is the only server
+    await unwireProviderMcp(dir, ["claude_code"]);
+    // The husk we created is gone, not left as an empty `{}`.
+    let exists = true;
+    try {
+      await Deno.stat(join(dir, ".mcp.json"));
+    } catch {
+      exists = false;
+    }
+    assert(!exists, ".mcp.json discern alone created should be removed");
+  });
+});
+
+Deno.test("the MCP restart hint names a restart and persists thereafter", () => {
+  assertStringIncludes(MCP_RESTART_HINT.toLowerCase(), "restart");
 });
 
 Deno.test("wireProviderMcp preserves existing settings and unions the approval list", async () => {
@@ -114,7 +212,9 @@ Deno.test("wireProviderMcp preserves existing settings and unions the approval l
 
 Deno.test("wireProviderMcp skips agents without an MCP integration (a typed TODO)", async () => {
   await withTempDir(async (dir) => {
-    assertEquals(await wireProviderMcp(dir, ["codex", "gemini"]), []);
+    const r = await wireProviderMcp(dir, ["codex", "gemini"]);
+    assertEquals(r.written, []);
+    assertEquals(r.firstInstall, false);
     let created = true;
     try {
       await Deno.stat(join(dir, ".mcp.json"));

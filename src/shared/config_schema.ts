@@ -169,6 +169,9 @@ const featuresSection = z.strictObject({
   docs: z.boolean().default(true).describe(
     "The `docs` browser over your docs/ tree.",
   ),
+  mcp: z.boolean().default(true).describe(
+    "The MCP integration: the `discern mcp` server, and wiring it into each configured agent's project config (disable to remove it on the next refresh).",
+  ),
 }).prefault({}).describe(
   "Toggle whole discern subsystems on/off. Every feature defaults to ON; set one to false to remove it coherently. NOTE: a *feature* is NOT a *capability* — [capabilities] is the gate's command table; [features] toggles subsystems.",
 );
