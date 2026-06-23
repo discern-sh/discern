@@ -196,15 +196,27 @@ export function attachEngineCommands(
     .description(
       "Fast inner loop: the fixers, then the read-only checks (no build, no tests).",
     )
-    .action(async () => {
-      Deno.exit(await runPrepare(await requireRoot()));
+    .option(
+      "--json",
+      "Emit the result as a JSON DiscernResult on stdout (output → stderr).",
+    )
+    .action(async (o) => {
+      Deno.exit(
+        await runPrepare(await requireRoot(), { json: o.json ?? false }),
+      );
     });
 
   root
     .command("test")
     .description("Run the test capability.")
-    .action(async () => {
-      Deno.exit(await runTestCapability(await requireRoot()));
+    .option(
+      "--json",
+      "Emit the result as a JSON DiscernResult on stdout (output → stderr).",
+    )
+    .action(async (o) => {
+      Deno.exit(
+        await runTestCapability(await requireRoot(), { json: o.json ?? false }),
+      );
     });
 
   root
@@ -248,9 +260,36 @@ export function attachEngineCommands(
       .description(
         "Refresh the generated agent files, skills, and integration artifacts.",
       )
-      .action(async () => {
-        // compileGuidelines narrates to stdout via its default logger.
-        await compileGuidelines(await requireRoot());
+      .option(
+        "--json",
+        "Emit the result as a JSON DiscernResult on stdout (narration → stderr).",
+      )
+      .action(async (o) => {
+        const root = await requireRoot();
+        if (o.json ?? false) {
+          // --json: narration → stderr, the result envelope → stdout.
+          const log = new Logger({
+            json: true,
+            noColor: false,
+            humanStream: "stderr",
+          });
+          const res = await compileGuidelines(root, log);
+          console.log(JSON.stringify(serializeResult({
+            ok: true,
+            verb: "refresh",
+            data: {
+              agents_written: res.agentsWritten,
+              skills: {
+                copied: res.skillsCopied,
+                linked: res.skillsLinked,
+                pruned: res.skillsPruned,
+              },
+            },
+          })));
+        } else {
+          // compileGuidelines narrates to stdout via its default logger.
+          await compileGuidelines(root);
+        }
         Deno.exit(0);
       });
   }
