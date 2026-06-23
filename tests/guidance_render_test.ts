@@ -95,6 +95,99 @@ Deno.test("renderAgentFiles: two renders of the same config are byte-identical (
   }
 });
 
+Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolation is real, not cosmetic)", async () => {
+  // Bare = schema defaults (branch_prefix agent/, main_branch main, no ratchets,
+  // no resources). Rich = custom branch/main, a ratchet, and a resource declared.
+  const bare = await Deno.makeTempDir({ prefix: "discern-tmpl-bare-" });
+  const rich = await Deno.makeTempDir({ prefix: "discern-tmpl-rich-" });
+  try {
+    await Deno.writeTextFile(
+      join(bare, "discern.toml"),
+      '[guidance]\nagents = ["codex"]\n',
+    );
+    await Deno.writeTextFile(
+      join(rich, "discern.toml"),
+      [
+        "[project]",
+        'branch_prefix = "wt/"',
+        'main_branch = "trunk"',
+        "[guidance]",
+        'agents = ["codex"]',
+        "[ratchets.coverage]",
+        "limit = 80",
+        'run = "echo DISCERN_METRIC coverage 80"',
+        "[worktree.resources.db]",
+        'create = "createdb x"',
+        'destroy = "dropdb x"',
+        "",
+      ].join("\n"),
+    );
+
+    const bareBody = (await renderAgentFiles(bare)).get("AGENTS.md");
+    const richBody = (await renderAgentFiles(rich)).get("AGENTS.md");
+    assert(bareBody !== undefined && richBody !== undefined);
+    assert(bareBody !== richBody, "config must change the rendered guidance");
+
+    // {{var}} interpolates the committed values.
+    assert(bareBody.includes("prefixed `agent/`"), "bare branch prefix");
+    assert(richBody.includes("prefixed `wt/`"), "rich branch prefix");
+    // The integration branch interpolates too (asserted on the backticked token,
+    // since prose line-wrapping may separate it from neighbouring words).
+    assert(bareBody.includes("`main`"), "bare integration branch");
+    assert(richBody.includes("`trunk`"), "rich integration branch");
+    assert(
+      !richBody.includes("`main`"),
+      "custom main_branch replaces the default",
+    );
+
+    // {{#if has_ratchets}} drops the whole section unless a ratchet is declared.
+    assert(!bareBody.includes("## Quality ratchets"), "no inert ratchet prose");
+    assert(richBody.includes("## Quality ratchets"), "ratchet section present");
+
+    // {{#if has_worktree_resources}} gates the resource-lifecycle detail.
+    assert(
+      !bareBody.includes("The git mechanics are generic"),
+      "no inert resource prose",
+    );
+    assert(
+      richBody.includes("The git mechanics are generic"),
+      "resource detail present",
+    );
+    assert(richBody.includes("--resource <name>"), "resource flag documented");
+  } finally {
+    await Deno.remove(bare, { recursive: true });
+    await Deno.remove(rich, { recursive: true });
+  }
+});
+
+Deno.test("checkGuidanceCurrent: a templated, non-default config compiles current (no drift)", async () => {
+  // Proves the templated output a refresh writes is exactly what the currency
+  // check recomputes — the ADR 0034 invariant, exercised with live interpolation.
+  const dir = await Deno.makeTempDir({ prefix: "discern-tmpl-currency-" });
+  try {
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      [
+        "[project]",
+        'branch_prefix = "wt/"',
+        "[guidance]",
+        'agents = ["claude_code", "codex"]',
+        "[ratchets.coverage]",
+        "limit = 80",
+        'run = "echo hi"',
+        "[worktree.resources.db]",
+        'create = "createdb x"',
+        'destroy = "dropdb x"',
+        "",
+      ].join("\n"),
+    );
+    await compileGuidelines(dir);
+    assertEquals(await checkGuidanceCurrent(dir), []);
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
 Deno.test("checkGuidanceCurrent: guidance feature off → nothing to render or check", async () => {
   const dir = await Deno.makeTempDir({ prefix: "discern-render-off-" });
   try {
