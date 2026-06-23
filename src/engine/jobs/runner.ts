@@ -24,6 +24,14 @@ export interface RunOptions {
   color: boolean;
   /** Sink for human output (banners + buffered job output). Default: stderr. */
   write?: (chunk: Uint8Array) => void;
+  /**
+   * Suppress ALL output — banners AND job output — under `--json`, where the
+   * result envelope is the entire program output (ADR 0030). Jobs still run and a
+   * genuine failure's output is still captured for its diagnostic; only the live
+   * writing is withheld. Forces buffered capture so `spawnJob` cannot stream-write
+   * either.
+   */
+  quiet?: boolean;
 }
 
 const ENCODER = new TextEncoder();
@@ -73,6 +81,10 @@ export async function runParallel(
   opts: RunOptions,
 ): Promise<StageRunResult> {
   const write = opts.write ?? defaultWrite;
+  // Quiet (--json): withhold every write and force buffered capture so spawnJob
+  // can't stream-write either. Failure output is still captured for diagnostics.
+  const quiet = opts.quiet ?? false;
+  const stream = quiet ? false : opts.stream;
   if (jobs.length === 0) {
     return { ok: true, results: [] };
   }
@@ -80,7 +92,7 @@ export async function runParallel(
   const settled = await Promise.all(jobs.map((job) =>
     spawnJob(job, {
       signal: controller.signal,
-      stream: opts.stream,
+      stream,
       write,
     }).then((s) => {
       if (opts.failFast && s.result.code !== 0) {
@@ -89,10 +101,12 @@ export async function runParallel(
       return s;
     })
   ));
-  for (const s of settled) {
-    write(banner(s.result, opts.color));
-    if (!opts.stream && s.output.length > 0) {
-      write(s.output);
+  if (!quiet) {
+    for (const s of settled) {
+      write(banner(s.result, opts.color));
+      if (!stream && s.output.length > 0) {
+        write(s.output);
+      }
     }
   }
   const results = settled.map((s) => s.result);
@@ -110,13 +124,17 @@ export async function runSerial(
   opts: RunOptions,
 ): Promise<StageRunResult> {
   const write = opts.write ?? defaultWrite;
+  const quiet = opts.quiet ?? false;
+  const stream = quiet ? false : opts.stream;
   const results: JobResult[] = [];
   let ok = true;
   for (const job of jobs) {
-    const s = await spawnJob(job, { stream: opts.stream, write });
-    write(banner(s.result, opts.color));
-    if (!opts.stream && s.output.length > 0) {
-      write(s.output);
+    const s = await spawnJob(job, { stream, write });
+    if (!quiet) {
+      write(banner(s.result, opts.color));
+      if (!stream && s.output.length > 0) {
+        write(s.output);
+      }
     }
     results.push(s.result);
     if (s.result.code !== 0) {

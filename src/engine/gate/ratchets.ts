@@ -228,9 +228,9 @@ export async function runRatchets(
   const json = opts.json ?? false;
   const dryRun = opts.dryRun ?? false;
   const cfg = await loadConfig(root);
-  // Non-json: human output → stdout (matching the shell). --json: human → stderr,
-  // leaving stdout for the single JSON object.
-  const out = makeOut(colorEnabled(), json ? "stderr" : "stdout");
+  // --json: quiet — the result envelope is the entire output (ADR 0030). Every
+  // ratchet's measurement output flows through `out`, so a quiet Out silences it.
+  const out = makeOut(colorEnabled(), { quiet: json });
   const mainBranch = Deno.env.get("MAIN_BRANCH") || cfg.project.main_branch;
 
   const plan = buildRatchetPlan(cfg);

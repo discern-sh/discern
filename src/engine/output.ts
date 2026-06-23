@@ -57,13 +57,6 @@ export function writeStdout(s: string): void {
   }
 }
 
-/** A string writer targeting stdout or stderr. */
-export function streamWriter(
-  stream: "stdout" | "stderr",
-): (s: string) => void {
-  return stream === "stdout" ? writeStdout : writeStderr;
-}
-
 /** A raw-byte writer targeting stdout or stderr (for the job runner's output). */
 export function byteWriter(
   stream: "stdout" | "stderr",
@@ -109,25 +102,40 @@ export interface Out {
 }
 
 /**
- * Build the output surface. info/ok/heading/raw go to `infoStream` — stdout for
- * the non-`--json` gate (matching the shell), stderr for `finish --json` (keeping
- * stdout clean for the JSON object). warn/error ALWAYS go to stderr.
+ * Build the output surface. In human mode info/ok/heading/raw go to stdout
+ * (matching the shell `output.sh`) and warn/error to stderr. In `quiet` mode —
+ * used under `--json`, where the result envelope is the ENTIRE program output
+ * (ADR 0030) — every method is a no-op, so nothing a verb narrates reaches
+ * stdout OR stderr. This mirrors the installer `Logger`, which already silences
+ * its human methods in JSON mode: one silence rule, both halves of the binary.
  */
 export function makeOut(
   color: boolean,
-  infoStream: "stdout" | "stderr" = "stdout",
+  opts: { quiet?: boolean } = {},
 ): Out {
   const c = color ? ANSI : PLAIN;
-  const w = streamWriter(infoStream);
+  if (opts.quiet ?? false) {
+    const noop = (): void => {};
+    return {
+      c,
+      color,
+      info: noop,
+      ok: noop,
+      warn: noop,
+      error: noop,
+      heading: noop,
+      raw: noop,
+    };
+  }
   return {
     c,
     color,
-    info: (m: string): void => w(`${c.cyan}→${c.reset} ${m}\n`),
-    ok: (m: string): void => w(`${c.green}✓${c.reset} ${m}\n`),
+    info: (m: string): void => writeStdout(`${c.cyan}→${c.reset} ${m}\n`),
+    ok: (m: string): void => writeStdout(`${c.green}✓${c.reset} ${m}\n`),
     warn: (m: string): void => writeStderr(`${c.yellow}!${c.reset} ${m}\n`),
     error: (m: string): void => writeStderr(`${c.red}✗${c.reset} ${m}\n`),
-    heading: (m: string): void => w(`\n${c.bold}${m}${c.reset}\n`),
-    raw: (s: string): void => w(s),
+    heading: (m: string): void => writeStdout(`\n${c.bold}${m}${c.reset}\n`),
+    raw: (s: string): void => writeStdout(s),
   };
 }
 

@@ -109,18 +109,19 @@ async function runGate(
   }
 > {
   const cfg = await loadConfig(root);
-  // Non-json: human output → stdout (matching the shell). --json: human → stderr,
-  // leaving stdout for the single JSON object.
-  const infoStream = json ? "stderr" : "stdout";
+  // Human: gate narration + job output → stdout (matching the shell). --json:
+  // quiet — the result envelope is the entire output (ADR 0030), so the runner
+  // and the Out are silenced and nothing streams to any fd.
   const color = colorEnabled();
   const runOpts: RunOptions = {
     stream: cfg.gate.stream,
     // fail_fast defaults ON: abort the moment a job fails.
     failFast: cfg.gate.fail_fast,
     color,
-    write: byteWriter(infoStream),
+    write: byteWriter("stdout"),
+    quiet: json,
   };
-  const out = makeOut(color, infoStream);
+  const out = makeOut(color, { quiet: json });
 
   const results = new Map<string, JobResult>();
   let failedStage: string | null = null;

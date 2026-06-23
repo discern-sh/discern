@@ -68,7 +68,7 @@ Deno.test("prepare/test/refresh --json: stdout is a pure DiscernResult, never hu
   });
 });
 
-Deno.test("prepare --json: a failing check reports ok:false on stdout, error text on stderr", async () => {
+Deno.test("prepare --json: a failing check reports ok:false as the ENTIRE output (nothing leaks to stderr)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -88,8 +88,13 @@ Deno.test("prepare --json: a failing check reports ok:false on stdout, error tex
     const obj = pureJson(r.stdout); // stdout is STILL pure JSON on failure
     assertEquals(obj.ok, false);
     assertEquals(obj.verb, "prepare");
-    // The command's own output went to stderr, off the JSON channel.
-    assertStringIncludes(r.stderr, "boom-on-stderr");
+    // --json is quiet (ADR 0030): the failing command's output is SUPPRESSED, not
+    // rerouted to stderr — so an agent capturing combined streams sees only the
+    // envelope. (Surfacing it as a diagnostic is the deferred prepare enrichment.)
+    assert(
+      !r.stderr.includes("boom-on-stderr"),
+      `--json must not leak command output to stderr; got: ${r.stderr}`,
+    );
   });
 });
 
