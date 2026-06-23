@@ -379,3 +379,58 @@ Deno.test("finish --json: human mode is unaffected (stdout still human, not JSON
     assert(!parsed, "human-mode stdout should not be a JSON object");
   });
 });
+
+Deno.test("finish --json: a STALE generated agent file fails the guidance check; refresh fixes it", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    await runAgent(dir, ["refresh"]); // compile CLAUDE.md so it is current
+
+    // Baseline: current generated files → the gate passes.
+    assertEquals((await runAgent(dir, ["finish", "--json"])).code, 0);
+
+    // Hand-edit the generated file → stale → the gate blocks.
+    const claudePath = join(dir, "CLAUDE.md");
+    await Deno.writeTextFile(
+      claudePath,
+      `${await Deno.readTextFile(claudePath)}\nstray hand edit\n`,
+    );
+    const r = await runAgent(dir, ["finish", "--json"]);
+    assertEquals(r.code, 1, r.output);
+    const obj = parseJson(r.stdout);
+    assertEquals(obj.ok, false);
+    assertEquals(obj.data.failed_stage, "guidance");
+    const diag = diagFor(obj, "guidance");
+    assert(diag !== undefined, `expected a guidance diagnostic: ${r.stdout}`);
+    assertEquals(diag.reproduce_cmd, "discern refresh");
+    assertStringIncludes(diag.output, "CLAUDE.md");
+    assertStringIncludes(diag.output, "[guidance].sources"); // the redirect
+    assertStringIncludes(diag.output, "stray hand edit"); // the diff shows the loss
+
+    // Regenerating satisfies the check — the gate passes again.
+    await runAgent(dir, ["refresh"]);
+    assertEquals(
+      (await runAgent(dir, ["finish", "--json"])).code,
+      0,
+      "refresh should clear the drift",
+    );
+  });
+});
+
+Deno.test("finish --json: a MISSING generated agent file does NOT block (untracked artifact absent)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    await runAgent(dir, ["refresh"]);
+    await Deno.remove(join(dir, "CLAUDE.md")); // model a fresh checkout / deletion
+
+    const r = await runAgent(dir, ["finish", "--json"]);
+    // Missing is advisory (surfaced by `status`), never a gate failure — else a
+    // fresh checkout with no generated file would red-light first-run CI.
+    assertEquals(r.code, 0, r.output);
+    const obj = parseJson(r.stdout);
+    assertEquals(obj.ok, true);
+    assertEquals(obj.data.failed_stage, null);
+    assertEquals(diagFor(obj, "guidance"), undefined);
+  });
+});

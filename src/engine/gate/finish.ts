@@ -41,12 +41,18 @@ import {
 } from "../output.ts";
 import { assertMainMerged } from "../worktree/git.ts";
 import {
+  capText,
   type Diagnostic,
   type DiscernResult,
   previewResult,
   renderPlan,
 } from "../../shared/result.ts";
 import { emitResult } from "../../shared/emit.ts";
+import { isFeatureEnabled } from "../../shared/features.ts";
+import {
+  checkGuidanceCurrent,
+  type GuidanceDriftEntry,
+} from "../guidance_render.ts";
 
 /**
  * Run one job group — the thin per-group executor. Runs the group's firing jobs
@@ -88,11 +94,61 @@ function failMessage(stage: string): string {
       return "The check/test stage failed.";
     case "scope_gates":
       return "One or more scope gates failed.";
+    case "guidance":
+      return "Generated agent files are out of date — run `discern refresh`.";
     case "merge":
       return "Integrate main, then re-run finish.";
     default:
       return "A gate stage failed.";
   }
+}
+
+/**
+ * A compact, plain-text summary of how a stale generated file differs from what
+ * `discern refresh` would write — the non-blank lines present in the file but NOT
+ * in the recompiled body (what a refresh would remove, a hand-edit included).
+ * Bounded so it never floods the diagnostic.
+ */
+function driftDiff(entry: GuidanceDriftEntry): string {
+  const expected = new Set(entry.expected.split("\n"));
+  const added = (entry.actual ?? "").split("\n")
+    .filter((l) => l.trim() !== "" && !expected.has(l));
+  const shown = added.slice(0, 12).map((l) => `  + ${l}`);
+  if (added.length > shown.length) {
+    shown.push(`  … and ${added.length - shown.length} more line(s)`);
+  }
+  const head =
+    `${entry.path}: differs from what \`discern refresh\` would write.`;
+  return added.length > 0
+    ? `${head}\n  These lines are in the file but not the recompiled output (a refresh removes them):\n${
+      shown.join("\n")
+    }`
+    : `${head}\n  (the file is missing content a refresh would restore.)`;
+}
+
+/**
+ * The Tier-0 {@link Diagnostic} for a stale generated agent file: the `discern
+ * refresh` reproduce command, the redirect (edits belong in `[guidance].sources`,
+ * not the generated file), and a capped diff of what a refresh would change — the
+ * rescue, since the untracked file has no `git diff` to fall back on.
+ */
+function guidanceDiagnostic(stale: GuidanceDriftEntry[]): Diagnostic {
+  const files = stale.map((d) => d.path).join(", ");
+  const capped = capText(
+    `Generated agent files are out of date: ${files}.\n` +
+      "Run `discern refresh` to regenerate them. If you meant to change the " +
+      "guidance, edit your [guidance].sources (e.g. guidance.md) instead — a direct " +
+      "edit to a generated file is overwritten on the next refresh.\n\n" +
+      stale.map(driftDiff).join("\n\n"),
+  );
+  return {
+    tool: "guidance",
+    severity: "error",
+    message: `generated agent file(s) out of date: ${files}`,
+    reproduce_cmd: "discern refresh",
+    output: capped.text,
+    truncated: capped.truncated === true ? true : undefined,
+  };
 }
 
 /** Run the gate once: plan, apply, build the result. */
@@ -149,7 +205,23 @@ async function runGate(
     }
   }
 
-  // 4. Merge check (no-op in the main checkout / outside a worktree).
+  // 4. Generated-artifacts currency (ADR 0034): block a STALE agent file — one
+  //    present but no longer matching what `discern refresh` would write (a
+  //    hand-edit, or an un-refreshed source/config change). A MISSING file is not a
+  //    failure here: an untracked artifact is legitimately absent on a fresh
+  //    checkout, so blocking it would red-light first-run CI. Gated on `guidance`.
+  const guidanceOn = isFeatureEnabled(cfg, "guidance");
+  let guidanceDiag: Diagnostic | undefined;
+  if (failedStage === null && guidanceOn) {
+    const stale = (await checkGuidanceCurrent(root, cfg))
+      .filter((d) => d.reason === "stale");
+    if (stale.length > 0) {
+      failedStage = "guidance";
+      guidanceDiag = guidanceDiagnostic(stale);
+    }
+  }
+
+  // 5. Merge check (no-op in the main checkout / outside a worktree).
   if (failedStage === null) {
     const mainBranch = Deno.env.get("MAIN_BRANCH") || cfg.project.main_branch;
     if ((await assertMainMerged(root, mainBranch)).kind === "behind") {
@@ -157,10 +229,16 @@ async function runGate(
     }
   }
 
-  // 5. Assemble the executed plan + result, attaching the agent-facing hints —
+  // 6. Assemble the executed plan + result, attaching the agent-facing hints —
   //    the same next-step advice the human tail prints, promoted into the envelope.
-  const plan = composeGatePlan(stageGroups, sgGroup, changed);
+  const plan = composeGatePlan(stageGroups, sgGroup, changed, guidanceOn);
   const result = buildGateResult(plan, results, failedStage);
+  // The guidance check isn't a plan-group job, so its diagnostic (the diff + the
+  // `discern refresh` reproduce command) is attached here, like the merge stage's
+  // failed_stage rides in `data` without a job entry.
+  if (guidanceDiag !== undefined) {
+    result.diagnostics = [...(result.diagnostics ?? []), guidanceDiag];
+  }
   const hints = buildGateHints(cfg, changed, failedStage);
   if (hints.length > 0) {
     result.hints = hints;

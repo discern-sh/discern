@@ -13,6 +13,7 @@
  */
 
 import { type DiscernConfig, toCommand } from "../../shared/config_schema.ts";
+import { isFeatureEnabled } from "../../shared/features.ts";
 import type { Stage } from "../../shared/capabilities.ts";
 import { jobsInStage } from "./stages.ts";
 import { normalizeDiagnostics } from "./diagnostics.ts";
@@ -66,6 +67,9 @@ export interface JobGroup {
  */
 export interface GatePlan {
   groups: JobGroup[];
+  /** The generated-artifacts currency check runs after the scope gates (ADR 0034);
+   * true when the `guidance` feature is on. Blocks on a STALE agent file. */
+  guidanceCheck: boolean;
   /** The merge check runs last (it self-skips in the main checkout). */
   mergeCheck: boolean;
   scopesChanged: string[];
@@ -190,11 +194,13 @@ export function composeGatePlan(
   stageGroups: JobGroup[],
   scopeGates: JobGroup | undefined,
   changed: string[],
+  guidanceCheck: boolean,
 ): GatePlan {
   return {
     groups: scopeGates === undefined
       ? stageGroups
       : [...stageGroups, scopeGates],
+    guidanceCheck,
     mergeCheck: true,
     scopesChanged: changed,
   };
@@ -214,6 +220,7 @@ export function buildGatePlan(cfg: DiscernConfig, changed: string[]): GatePlan {
     buildStageGroups(cfg),
     scopeGatesGroup(planScopeGates(cfg, changed)),
     changed,
+    isFeatureEnabled(cfg, "guidance"),
   );
 }
 
@@ -330,6 +337,15 @@ export function gatePlanToEngine(plan: GatePlan): EnginePlan {
         group: group.display,
       });
     }
+  }
+  if (plan.guidanceCheck) {
+    steps.push({
+      kind: "guidance-check",
+      label: "guidance-check",
+      disposition: "gate",
+      note:
+        "verify the generated agent files match their sources (`discern refresh` if stale)",
+    });
   }
   if (plan.mergeCheck) {
     steps.push({
