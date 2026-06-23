@@ -181,6 +181,64 @@ Deno.test("finish --json: a failing scope-gate reports ok:false at the scope_gat
   });
 });
 
+Deno.test("finish --json: a SARIF-emitting check yields Tier-1 diagnostics with file/line/rule", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    const sarif = JSON.stringify({
+      version: "2.1.0",
+      $schema: "https://json.schemastore.org/sarif-2.1.0.json",
+      runs: [{
+        tool: { driver: { name: "ESLint" } },
+        results: [{
+          ruleId: "no-debugger",
+          level: "error",
+          message: { text: "Unexpected 'debugger' statement." },
+          locations: [{
+            physicalLocation: {
+              artifactLocation: { uri: "src/app.ts" },
+              region: { startLine: 42, startColumn: 3 },
+            },
+          }],
+        }],
+      }],
+    });
+    await Deno.writeTextFile(join(dir, "lint.sarif"), sarif);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        'main_branch = "main"',
+        "",
+        "[capabilities]",
+        // The check prints SARIF (as a real `--format sarif` run would), then fails.
+        'lint = "cat lint.sarif; exit 1"',
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+    const r = await runAgent(dir, ["finish", "--json"]);
+    assertEquals(r.code, 1, r.output);
+
+    const obj = parseJson(r.stdout);
+    assertEquals(obj.ok, false);
+    // The raw output was normalized into a structured, located finding.
+    const diag = diagFor(obj, "lint");
+    assert(
+      diag,
+      `expected a lint diagnostic, got ${JSON.stringify(obj.diagnostics)}`,
+    );
+    assertEquals(diag.file, "src/app.ts");
+    assertEquals(diag.line, 42);
+    assertEquals(diag.col, 3);
+    assertEquals(diag.rule, "no-debugger");
+    assertEquals(diag.severity, "error");
+    assertStringIncludes(diag.message, "debugger");
+    // reproduce_cmd is still the gate job's own command.
+    assertEquals(diag.reproduce_cmd, "cat lint.sarif; exit 1");
+  });
+});
+
 Deno.test("finish --dry-run --json: emits a preview envelope (plan, no steps)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

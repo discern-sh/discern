@@ -84,11 +84,16 @@ needs no per-tool knowledge:
   This alone flips the loop to act → read-error → fix, for every tool in every
   stack. A fail-fast- _cancelled_ sibling is excluded (it isn't a failure to
   fix).
-- **Tier 1 — normalize (later, opt-in).** A capability/check may declare a
-  diagnostics `format`; discern parses `output` into `file`/`line`/`rule`. We
-  lean on machine formats tools already emit (SARIF + a generic
-  `file:line:col: message` regex), so the neutral core stays neutral — parsing
-  is a declared, per-check capability, never baked-in tool knowledge.
+- **Tier 1 — normalize.** discern parses recognized machine formats into
+  `file`/`line`/`col`/`rule` — one diagnostic per finding. The first format is
+  **SARIF**, _auto-detected_: a project opts in simply by making its command
+  emit SARIF (`eslint --format sarif .`), and discern recognizes the **format**,
+  never the tool, so the neutral core stays neutral. Detection is unambiguous
+  (valid JSON + a `runs` array + a 2.x/sarif marker), so a non-SARIF tool can
+  never be misread; anything unrecognized falls back to the Tier-0 raw
+  diagnostic. Declared _text_ formats (a per-check regex via a future
+  `[diagnostics.<name>]` table) are the next slice — deferred because they need
+  a config-surface decision, where SARIF needed none.
 - **Tier 2 — derive.** `fix_available` follows from whether a fixer is wired.
 
 ### MCP is a renderer, not a rewrite

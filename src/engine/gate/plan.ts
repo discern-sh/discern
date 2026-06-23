@@ -15,6 +15,7 @@
 import { type DiscernConfig, toCommand } from "../../shared/config_schema.ts";
 import type { Stage } from "../../shared/capabilities.ts";
 import { jobsInStage } from "./stages.ts";
+import { normalizeDiagnostics } from "./diagnostics.ts";
 import type { JobResult } from "../jobs/types.ts";
 import type {
   Diagnostic,
@@ -264,18 +265,27 @@ export function buildGateResult(
         outcome: stepOutcome(r),
         durationS: r === undefined ? 0 : r.durationS,
       });
-      // A genuine failure earns a Tier-0 diagnostic — even with no captured output,
-      // its `reproduce_cmd` alone moves the agent off "re-run and scrape". A
-      // fail-fast-cancelled sibling is excluded: it's not a failure to fix.
+      // A genuine failure earns a diagnostic — a fail-fast-cancelled sibling is
+      // excluded (not a failure to fix). When the captured output is a recognized
+      // machine format (SARIF), normalize it into one Tier-1 diagnostic per finding
+      // (file/line/rule); otherwise a single Tier-0 diagnostic carries the raw
+      // output + reproduce_cmd — which alone moves the agent off "re-run and scrape".
       if (r !== undefined && r.code !== 0 && r.cancelled !== true) {
-        diagnostics.push({
-          tool: j.label,
-          severity: "error",
-          message: `${j.label} failed (exit ${r.code})`,
-          reproduce_cmd: j.command,
-          output: r.output,
-          truncated: r.truncated,
-        });
+        const normalized = r.output !== undefined
+          ? normalizeDiagnostics(r.output, j.label, j.command)
+          : undefined;
+        if (normalized !== undefined) {
+          diagnostics.push(...normalized);
+        } else {
+          diagnostics.push({
+            tool: j.label,
+            severity: "error",
+            message: `${j.label} failed (exit ${r.code})`,
+            reproduce_cmd: j.command,
+            output: r.output,
+            truncated: r.truncated,
+          });
+        }
       }
     }
   }
