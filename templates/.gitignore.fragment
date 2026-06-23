@@ -13,3 +13,8 @@
 /.claude/*
 !/.claude/settings.json
 !/.claude/settings.local.json
+# NOTE: `.mcp.json` (the project-scoped MCP servers `discern refresh` wires
+# `discern mcp` into) is deliberately NOT listed here. It is shared, co-owned
+# config that discern MERGES into (preserving your own servers) — like
+# .claude/settings.json, not a wholesale-regenerated derivative like CLAUDE.md —
+# so the team gets the server. Leave it tracked; never add it to this fragment.

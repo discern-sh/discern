@@ -12,7 +12,7 @@
 import { loadConfig } from "../../shared/config_schema.ts";
 import { cmdsInStage } from "./stages.ts";
 import { colorEnabled, makeOut } from "../output.ts";
-import { serializeResult } from "../../shared/result.ts";
+import { emitResult } from "../../shared/emit.ts";
 import { runShellInherit } from "./run-shell.ts";
 
 /** Run `prepare`. Returns a process exit code. */
@@ -22,24 +22,24 @@ export async function runPrepare(
 ): Promise<number> {
   const json = opts.json ?? false;
   const cfg = await loadConfig(root);
-  // --json: human narration → stderr, leaving stdout for the single JSON object.
-  const out = makeOut(colorEnabled(), json ? "stderr" : "stdout");
+  // --json: quiet — the result envelope is the entire output (ADR 0030).
+  const out = makeOut(colorEnabled(), { quiet: json });
 
   const done = (ok: boolean): number => {
     if (json) {
-      console.log(JSON.stringify(serializeResult({ ok, verb: "prepare" })));
+      emitResult({ ok, verb: "prepare" });
     }
     return ok ? 0 : 1;
   };
 
   out.heading("Fixing code...");
-  if (!(await runShellInherit(cmdsInStage(cfg, "fix"), { toStderr: json }))) {
+  if (!(await runShellInherit(cmdsInStage(cfg, "fix"), { quiet: json }))) {
     out.error("A fixer failed.");
     return done(false);
   }
 
   out.heading("Checking...");
-  if (!(await runShellInherit(cmdsInStage(cfg, "check"), { toStderr: json }))) {
+  if (!(await runShellInherit(cmdsInStage(cfg, "check"), { quiet: json }))) {
     out.error("A check failed.");
     return done(false);
   }

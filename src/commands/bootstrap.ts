@@ -20,7 +20,7 @@ import { ensureDir, walk } from "@std/fs";
 import { dirname, join, relative } from "@std/path";
 import { loadConfig } from "../shared/config_schema.ts";
 import { CONFIG_REL, findRoot } from "../shared/env.ts";
-import { serializeResult } from "../shared/result.ts";
+import { emitResult } from "../shared/emit.ts";
 import { resolveBootstrapDir, resolveConfigPath } from "../lib/paths.ts";
 import { TomlEditor } from "../lib/toml_edit.ts";
 
@@ -56,14 +56,12 @@ async function rootOrError(
   const root = await findRoot();
   if (root === undefined) {
     if (json) {
-      console.log(
-        JSON.stringify(serializeResult({
-          ok: false,
-          verb,
-          error: "no_project",
-          message: NO_PROJECT,
-        })),
-      );
+      emitResult({
+        ok: false,
+        verb,
+        error: "no_project",
+        message: NO_PROJECT,
+      });
     } else {
       console.error(`discern: ${NO_PROJECT}`);
       console.error("       Run `discern init` to scaffold one.");
@@ -132,13 +130,11 @@ export async function runBootstrap(opts: BootstrapOptions): Promise<number> {
     const message =
       "this project is already bootstrapped. Re-run with --force to seed it again.";
     if (opts.json) {
-      console.log(
-        JSON.stringify(serializeResult({
-          ok: true,
-          verb: "bootstrap",
-          data: { already_bootstrapped: true, message },
-        })),
-      );
+      emitResult({
+        ok: true,
+        verb: "bootstrap",
+        data: { already_bootstrapped: true, message },
+      });
     } else {
       console.log(`discern: ${message}`);
     }
@@ -177,13 +173,11 @@ export async function runBootstrap(opts: BootstrapOptions): Promise<number> {
   );
 
   if (opts.json) {
-    console.log(
-      JSON.stringify(serializeResult({
-        ok: true,
-        verb: "bootstrap",
-        data: { scaffolded, skipped, instructions },
-      })),
-    );
+    emitResult({
+      ok: true,
+      verb: "bootstrap",
+      data: { scaffolded, skipped, instructions },
+    });
     return 0;
   }
 
@@ -260,15 +254,13 @@ export async function runBootstrapDone(
       `bootstrap is not finished — ${leftover.length} file(s) still carry skeleton markers ` +
       "(a `<!-- bootstrap fills this -->` sentinel or the EXAMPLE principle).";
     if (opts.json) {
-      console.log(
-        JSON.stringify(serializeResult({
-          ok: false,
-          verb: "bootstrap:done",
-          error: "incomplete",
-          message,
-          data: { leftover },
-        })),
-      );
+      emitResult({
+        ok: false,
+        verb: "bootstrap:done",
+        error: "incomplete",
+        message,
+        data: { leftover },
+      });
     } else {
       console.error(`discern: ${message}`);
       for (const f of leftover) {
@@ -289,13 +281,11 @@ export async function runBootstrapDone(
 
   const forced = leftover.length > 0;
   if (opts.json) {
-    console.log(
-      JSON.stringify(serializeResult({
-        ok: true,
-        verb: "bootstrap:done",
-        data: { bootstrapped: true, forced, leftover },
-      })),
-    );
+    emitResult({
+      ok: true,
+      verb: "bootstrap:done",
+      data: { bootstrapped: true, forced, leftover },
+    });
     return 0;
   }
   console.log(

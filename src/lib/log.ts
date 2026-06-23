@@ -8,11 +8,8 @@
  */
 
 import { colors } from "@cliffy/ansi/colors";
-import {
-  type DiscernResult,
-  type RenderSink,
-  serializeResult,
-} from "../shared/result.ts";
+import type { DiscernResult, RenderSink } from "../shared/result.ts";
+import { emitResult } from "../shared/emit.ts";
 
 /** How a command should present its results. */
 export interface LogOptions {
@@ -135,14 +132,15 @@ export class Logger {
   /**
    * Emit a {@link DiscernResult} as the verb's single `--json` object — the
    * envelope every verb shares (ADR 0028). Only does anything in JSON mode; the
-   * human path is the verb's own narration. Compact (one line), matching the engine
-   * verbs' `serializeResult` emit so the wire shape is whitespace-identical too.
+   * human path is the verb's own narration. Delegates to the shared
+   * {@link emitResult} chokepoint (ADR 0030) so installer and engine verbs print
+   * the wire shape through one site.
    */
   result(r: DiscernResult): void {
     if (!this.json) {
       return;
     }
-    console.log(JSON.stringify(serializeResult(r)));
+    emitResult(r);
   }
 
   /** Bold a fragment of text inline (no-op without colour). */

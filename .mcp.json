@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "discern": {
+      "type": "stdio",
+      "command": "discern",
+      "args": [
+        "mcp"
+      ]
+    }
+  }
+}

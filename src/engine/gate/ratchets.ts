@@ -26,10 +26,10 @@ import {
   appliedResult,
   previewResult,
   renderPlan,
-  serializeResult,
   type StepOutcome,
   type StepResult,
 } from "../../shared/result.ts";
+import { emitResult } from "../../shared/emit.ts";
 
 /** True when `s` is a non-negative decimal number (matches the shell predicate). */
 function isNumber(s: string): boolean {
@@ -228,9 +228,9 @@ export async function runRatchets(
   const json = opts.json ?? false;
   const dryRun = opts.dryRun ?? false;
   const cfg = await loadConfig(root);
-  // Non-json: human output → stdout (matching the shell). --json: human → stderr,
-  // leaving stdout for the single JSON object.
-  const out = makeOut(colorEnabled(), json ? "stderr" : "stdout");
+  // --json: quiet — the result envelope is the entire output (ADR 0030). Every
+  // ratchet's measurement output flows through `out`, so a quiet Out silences it.
+  const out = makeOut(colorEnabled(), { quiet: json });
   const mainBranch = Deno.env.get("MAIN_BRANCH") || cfg.project.main_branch;
 
   const plan = buildRatchetPlan(cfg);
@@ -239,9 +239,7 @@ export async function runRatchets(
   if (dryRun) {
     const engine = ratchetPlanToEngine(plan);
     if (json) {
-      console.log(
-        JSON.stringify(serializeResult(previewResult("ratchets", engine))),
-      );
+      emitResult(previewResult("ratchets", engine));
       return 0;
     }
     renderPlan(outSink(out), engine);
@@ -250,9 +248,7 @@ export async function runRatchets(
 
   if (plan.ratchets.length === 0) {
     if (json) {
-      console.log(
-        JSON.stringify(serializeResult(appliedResult("ratchets", []))),
-      );
+      emitResult(appliedResult("ratchets", []));
       return 0;
     }
     out.info(
@@ -264,9 +260,7 @@ export async function runRatchets(
   const { ok, results } = await executeRatchetPlan(plan, root, mainBranch, out);
 
   if (json) {
-    console.log(
-      JSON.stringify(serializeResult(appliedResult("ratchets", results))),
-    );
+    emitResult(appliedResult("ratchets", results));
     return ok ? 0 : 1;
   }
 

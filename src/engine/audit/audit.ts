@@ -19,7 +19,8 @@
 import { Select } from "@cliffy/prompt";
 import { loadConfig } from "../../shared/config_schema.ts";
 import { isFeatureEnabled } from "../../shared/features.ts";
-import { type DiscernResult, serializeResult } from "../../shared/result.ts";
+import type { DiscernResult } from "../../shared/result.ts";
+import { emitResult } from "../../shared/emit.ts";
 import { colorEnabled, makeOut, type Out, type Palette } from "../output.ts";
 import { buildContext, CATEGORIES, isDeterministic } from "./rules.ts";
 import type {
@@ -435,13 +436,13 @@ export async function runAudit(
   // --json: the single envelope, computed by the shared core.
   if (opts.json) {
     const result = await auditResult(root, opts);
-    console.log(JSON.stringify(serializeResult(result)));
+    emitResult(result);
     return result.ok ? 0 : 1;
   }
 
   const built = await buildReport(root, opts);
   const color = colorEnabled();
-  const out = makeOut(color, "stdout");
+  const out = makeOut(color);
   if ("error" in built) {
     out.error(built.error.message ?? "audit failed.");
     return 1;

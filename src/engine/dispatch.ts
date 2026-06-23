@@ -13,7 +13,7 @@ import { Command } from "@cliffy/command";
 import { join } from "@std/path";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { RawConfig } from "../shared/config_read.ts";
-import { serializeResult } from "../shared/result.ts";
+import { emitResult } from "../shared/emit.ts";
 import {
   CONFIG_REL,
   findRoot,
@@ -152,14 +152,14 @@ async function runWorktreeOp(
     return 0;
   } catch (e) {
     if (json && (e instanceof WorktreeGitError || e instanceof IdentityError)) {
-      console.log(JSON.stringify(serializeResult({
+      emitResult({
         ok: false,
         verb: opts.verb ?? "worktree",
         error: e instanceof IdentityError
           ? "identity_error"
           : "precondition_failed",
         message: e.message,
-      })));
+      });
       return 1;
     }
     return handleWorktreeError(e, log);
@@ -255,16 +255,18 @@ export function attachEngineCommands(
       );
     });
 
-  root
-    .command("mcp")
-    .description(
-      "Run an MCP server (stdio) exposing the verbs to an agent as tools.",
-    )
-    .action(async () => {
-      // The server resolves the project root itself and reports a missing one
-      // per tool-call, so it need not requireRoot up front.
-      Deno.exit(await runMcpServer());
-    });
+  if (enabled.has("mcp")) {
+    root
+      .command("mcp")
+      .description(
+        "Run an MCP server (stdio) exposing the verbs to an agent as tools.",
+      )
+      .action(async () => {
+        // The server resolves the project root itself and reports a missing one
+        // per tool-call, so it need not requireRoot up front.
+        Deno.exit(await runMcpServer());
+      });
+  }
 
   if (enabled.has("ratchets")) {
     root
@@ -310,18 +312,21 @@ export function attachEngineCommands(
             humanStream: "stderr",
           });
           const res = await compileGuidelines(root, log);
-          console.log(JSON.stringify(serializeResult({
+          emitResult({
             ok: true,
             verb: "refresh",
+            hints: res.hints,
             data: {
               agents_written: res.agentsWritten,
+              mcp_wired: res.mcpWired,
+              mcp_removed: res.mcpRemoved,
               skills: {
                 copied: res.skillsCopied,
                 linked: res.skillsLinked,
                 pruned: res.skillsPruned,
               },
             },
-          })));
+          });
         } else {
           // compileGuidelines narrates to stdout via its default logger.
           await compileGuidelines(root);
@@ -563,15 +568,11 @@ async function runSkillsList(opts: { json: boolean }): Promise<number> {
   const cfg = await loadConfig(root);
   const rows = await listSkills(root, cfg);
   if (opts.json) {
-    console.log(
-      JSON.stringify(
-        serializeResult({
-          ok: true,
-          verb: "skills:list",
-          data: { skills: rows },
-        }),
-      ),
-    );
+    emitResult({
+      ok: true,
+      verb: "skills:list",
+      data: { skills: rows },
+    });
     return 0;
   }
   if (rows.length === 0) {

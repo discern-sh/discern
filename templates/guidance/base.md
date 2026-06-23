@@ -23,6 +23,26 @@ custom) in `discern.toml`. If a stage has no command configured, it passes
 trivially — a fresh install is a green gate you grow into. Run **`discern doctor`**
 to see what is wired and to validate the install.
 
+## Machine-readable output (`--json`) and MCP
+
+Every `discern` verb accepts **`--json`**, and when you run discern from a tool
+call whose output you parse, you should pass it. In `--json` mode the verb emits a
+single machine-readable `DiscernResult` and **nothing else** — all human narration
+and command output is suppressed, so the combined stdout+stderr is exactly one JSON
+object you can parse directly:
+
+- `ok` is the one field every verb sets. A failure also carries `diagnostics[]`:
+  each with the failing `tool`, a `message`, the exact `reproduce_cmd`, and the
+  command's captured `output` (plus `file`/`line`/`rule` when it emits a recognized
+  format) — enough to fix without re-running and scraping stderr.
+- `hints[]` carries the same next-step advice the human output would print.
+- `steps[]` records what ran; verb-specific detail rides in `data`.
+
+discern also runs as an **MCP server** — **`discern mcp`** exposes the verbs as
+tools (`discern_finish`, `discern_audit`, `discern_changed_scopes`) that return the
+same envelope as a structured result. If your client has the server configured,
+prefer the tools; otherwise call the CLI with `--json`.
+
 ## Auditing the setup
 
 Where the gate asks "did this change pass?", **`discern audit`** asks "is this

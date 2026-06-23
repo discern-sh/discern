@@ -216,6 +216,20 @@ Deno.test("gitignore append preserves pre-existing content", async () => {
   });
 });
 
+Deno.test("the gitignore leaves .mcp.json trackable (project-scoped MCP is shared)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffold(dir);
+    const gitignore = await readTarget(dir, ".gitignore");
+    // .mcp.json is shared, co-owned config discern MERGES into (like
+    // .claude/settings.json), NOT a wholesale-regenerated derivative like
+    // CLAUDE.md — it must stay trackable so the team gets the server.
+    assert(
+      !/^\s*\/?\.mcp\.json\s*$/m.test(gitignore),
+      `.mcp.json must not be gitignored:\n${gitignore}`,
+    );
+  });
+});
+
 Deno.test("a seed file already present is skipped, never overwritten", async () => {
   await withTempDir(async (dir) => {
     await scaffold(dir);

@@ -10,7 +10,7 @@
 import { loadConfig } from "../../shared/config_schema.ts";
 import { cmdsInStage } from "./stages.ts";
 import { colorEnabled, makeOut } from "../output.ts";
-import { serializeResult } from "../../shared/result.ts";
+import { emitResult } from "../../shared/emit.ts";
 import { runShellInherit } from "./run-shell.ts";
 
 /** Run `test`. Returns a process exit code. */
@@ -20,12 +20,13 @@ export async function runTestCapability(
 ): Promise<number> {
   const json = opts.json ?? false;
   const cfg = await loadConfig(root);
-  const out = makeOut(colorEnabled(), json ? "stderr" : "stdout");
+  // --json: quiet — the result envelope is the entire output (ADR 0030).
+  const out = makeOut(colorEnabled(), { quiet: json });
   const testCmd = cmdsInStage(cfg, "test");
 
   const done = (ok: boolean): number => {
     if (json) {
-      console.log(JSON.stringify(serializeResult({ ok, verb: "test" })));
+      emitResult({ ok, verb: "test" });
     }
     return ok ? 0 : 1;
   };
@@ -38,7 +39,7 @@ export async function runTestCapability(
   }
 
   out.heading("Running tests...");
-  if (!(await runShellInherit(testCmd, { toStderr: json }))) {
+  if (!(await runShellInherit(testCmd, { quiet: json }))) {
     out.error("Tests failed.");
     return done(false);
   }

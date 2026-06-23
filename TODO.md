@@ -160,13 +160,15 @@ _Nothing outstanding._
       (`Diagnostic.fix_available`); `src/engine/gate/plan.ts`
       (`buildGateResult`).
 
-- [ ] **`prepare`/`test` `--json` carry no `steps`/`diagnostics`.** They now
-      emit a valid `{ok, verb}` envelope (no stdout pollution), but they run the
-      joined stage command via `runShellInherit`, so they can't produce per-job
-      results the way `finish` does. Rework them to run through the job runner
-      (the `runGate` machinery), so `prepare --json` gives the same `steps[]` +
-      structured `diagnostics[]`. Evidence: `src/engine/gate/prepare.ts`,
-      `src/engine/gate/test.ts`, `src/engine/gate/run-shell.ts`.
+- [ ] **`prepare`/`test` `--json` carry no `steps`/`diagnostics`.** They emit a
+      valid `{ok, verb}` envelope, but run the joined stage command via
+      `runShellInherit`, which under `--json` now DISCARDS the command's output
+      (the quiet rule, ADR 0030) — so a failing `prepare --json` is opaque
+      (`ok:false`, no diagnostic). Rework them to run through the job runner
+      (the `runGate` machinery) so the failure is captured into `steps[]` +
+      structured `diagnostics[]` like `finish`. Evidence:
+      `src/engine/gate/prepare.ts`, `src/engine/gate/test.ts`,
+      `src/engine/gate/run-shell.ts`.
 
 - [ ] **The apply path's human output isn't rendered FROM the result.**
       `finish`, the worktree verbs, and `ratchets` narrate during execution, in

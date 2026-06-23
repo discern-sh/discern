@@ -28,41 +28,30 @@ import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { type Feature, isFeatureEnabled } from "../shared/features.ts";
 import { resolveGuidanceSources, resolveTemplatesDir } from "../lib/paths.ts";
 import { materializeSkills } from "../lib/skills.ts";
+import {
+  MCP_RESTART_HINT,
+  providerFor,
+  unwireProviderMcp,
+  wireProviderMcp,
+} from "../lib/providers.ts";
 import { Logger } from "../lib/log.ts";
 
 /** What a single `compileGuidelines` run accomplished. */
 export interface GuidelinesResult {
   /** Output paths (relative to `root`) written, in agent-config order. */
   agentsWritten: string[];
+  /** Project files written wiring each agent's MCP server (`.mcp.json`, settings). */
+  mcpWired: string[];
+  /** Project files changed removing the MCP server (when `features.mcp` is off). */
+  mcpRemoved: string[];
+  /** Agent/user-facing advice from this run (e.g. the MCP first-install restart hint). */
+  hints: string[];
   /** Bundled skills copied into `.claude/skills/`. */
   skillsCopied: number;
   /** Authored skills symlinked into `.claude/skills/`. */
   skillsLinked: number;
   /** Stale managed skill entries pruned from `.claude/skills/`. */
   skillsPruned: number;
-}
-
-/**
- * Map a `[guidance].agents` entry to the file path (relative to the project root)
- * `compileGuidelines` writes for it, and whether that file is tracked in git.
- * This is the one table to extend when teaching the harness a new provider. An
- * unknown agent yields `undefined` and is warned about and skipped, never guessed.
- *
- * Rule: `AGENTS.md` (codex) is the single tracked agent file; every other mirror
- * is gitignored (see the .gitignore fragment).
- */
-const AGENT_OUTPUT: Readonly<
-  Record<string, { path: string; tracked: boolean }>
-> = {
-  codex: { path: "AGENTS.md", tracked: true },
-  claude_code: { path: "CLAUDE.md", tracked: false },
-  gemini: { path: "GEMINI.md", tracked: false },
-};
-
-/** The output path for an agent name, or undefined when unmapped. */
-function agentOutputPath(agent: string): string | undefined {
-  if (!Object.hasOwn(AGENT_OUTPUT, agent)) return undefined;
-  return AGENT_OUTPUT[agent]?.path;
 }
 
 /** Default providers to emit when neither `[guidance].agents` nor the legacy
@@ -151,6 +140,7 @@ export async function compileGuidelines(
     new Logger({ json: false, noColor: false, humanStream: "stdout" });
 
   const config = await loadConfig(root);
+  const agents = guidanceAgents(config);
 
   // --- job 1: materialize skills into .claude/skills/ (gated) ----------------
   let skills = { copied: 0, linked: 0, pruned: 0 };
@@ -158,11 +148,51 @@ export async function compileGuidelines(
     skills = await materializeSkills(root, config, log);
   }
 
-  // --- job 2: compile the agent files (gated) --------------------------------
+  // --- job 2: MCP integration (gated on features.mcp; ADR 0030/0031) ----------
+  // An idempotent integration artifact, independent of the guidance feature. When
+  // ON, (re-)establish the server for every configured agent on each refresh /
+  // upgrade / worktree-setup; when OFF, REMOVE any previously-wired config. A
+  // FIRST install yields the restart hint (surfaced to the user AND the result
+  // `hints`). Best-effort: a hiccup must not fail the compile.
+  let mcpWired: string[] = [];
+  let mcpRemoved: string[] = [];
+  const hints: string[] = [];
+  try {
+    if (isFeatureEnabled(config, "mcp")) {
+      const r = await wireProviderMcp(root, agents);
+      mcpWired = r.written;
+      if (r.written.length > 0) {
+        log.info(
+          `registered the discern MCP server in: ${r.written.join(", ")}`,
+        );
+      }
+      if (r.firstInstall) {
+        hints.push(MCP_RESTART_HINT);
+        log.info(MCP_RESTART_HINT);
+      }
+    } else {
+      mcpRemoved = await unwireProviderMcp(root, agents);
+      if (mcpRemoved.length > 0) {
+        log.info(
+          `removed the discern MCP server (mcp feature off) from: ${
+            mcpRemoved.join(", ")
+          }`,
+        );
+      }
+    }
+  } catch (error) {
+    log.warn(
+      `could not update the MCP integration: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+
+  // --- job 3: compile the agent files (gated) --------------------------------
   const agentsWritten: string[] = [];
   if (!isFeatureEnabled(config, "guidance")) {
     log.info("guidance feature is off — no agent files compiled.");
-    return summarize(agentsWritten, skills);
+    return summarize(agentsWritten, mcpWired, mcpRemoved, hints, skills);
   }
 
   let body = await builtinGuidance(config);
@@ -173,8 +203,8 @@ export async function compileGuidelines(
   }
   const compiled = banner() + body;
 
-  for (const agent of guidanceAgents(config)) {
-    const rel = agentOutputPath(agent);
+  for (const agent of agents) {
+    const rel = providerFor(agent)?.guidanceFile.path;
     if (rel === undefined) {
       log.warn(
         `refresh: unknown agent '${agent}' in [guidance].agents — skipping (no output mapping).`,
@@ -200,17 +230,23 @@ export async function compileGuidelines(
       }`,
     );
   }
-  return summarize(agentsWritten, skills);
+  return summarize(agentsWritten, mcpWired, mcpRemoved, hints, skills);
 }
 
 /** Build the result. The skills narration is emitted once by `materializeSkills`,
  * so this does not repeat it. */
 function summarize(
   agentsWritten: string[],
+  mcpWired: string[],
+  mcpRemoved: string[],
+  hints: string[],
   skills: { copied: number; linked: number; pruned: number },
 ): GuidelinesResult {
   return {
     agentsWritten,
+    mcpWired,
+    mcpRemoved,
+    hints,
     skillsCopied: skills.copied,
     skillsLinked: skills.linked,
     skillsPruned: skills.pruned,

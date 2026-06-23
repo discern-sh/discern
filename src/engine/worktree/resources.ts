@@ -277,20 +277,23 @@ async function deleteEntryCAS(
 
 /** Run a command via `sh -c` with extra env, returning its exit code. A spawn
  * failure (no `sh`, a resource limit) resolves to a non-zero code rather than
- * throwing, so one bad resource never aborts a whole teardown/prune. */
+ * throwing, so one bad resource never aborts a whole teardown/prune. In `quiet`
+ * mode (--json) the command's stdio is discarded so the result envelope stays the
+ * entire output (ADR 0030); otherwise it is inherited so the user sees it live. */
 async function runShellEnv(
   command: string,
   cwd: string,
   env: Record<string, string>,
+  quiet: boolean,
 ): Promise<number> {
   try {
     const child = new Deno.Command("sh", {
       args: ["-c", command],
       cwd,
       env,
-      stdin: "inherit",
-      stdout: "inherit",
-      stderr: "inherit",
+      stdin: quiet ? "null" : "inherit",
+      stdout: quiet ? "null" : "inherit",
+      stderr: quiet ? "null" : "inherit",
     }).spawn();
     return (await child.status).code;
   } catch {
@@ -319,7 +322,7 @@ async function runWithRetries(
     return true;
   }
   for (let attempt = 0;; attempt++) {
-    const code = await runShellEnv(command, cwd, env);
+    const code = await runShellEnv(command, cwd, env, log.json);
     if (code === 0) {
       return true;
     }

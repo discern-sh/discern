@@ -10,7 +10,8 @@
  */
 
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
-import { type DiscernResult, serializeResult } from "../../shared/result.ts";
+import type { DiscernResult } from "../../shared/result.ts";
+import { emitResult } from "../../shared/emit.ts";
 import { pathMatchesPattern } from "./glob.ts";
 
 /** Run `git -C root <args>`, capturing stdout. `ok:false` on any failure. */
@@ -192,7 +193,7 @@ export async function runChangedScopes(
     return scopes.includes(opts.has) ? 0 : 1;
   }
   if (opts.json) {
-    console.log(JSON.stringify(serializeResult(changedScopesEnvelope(scopes))));
+    emitResult(changedScopesEnvelope(scopes));
     return 0;
   }
   for (const s of scopes) {

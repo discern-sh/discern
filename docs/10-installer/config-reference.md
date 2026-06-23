@@ -40,6 +40,7 @@ Toggle whole discern subsystems on/off. Every feature defaults to ON; set one to
 | `guidance` | boolean | `true` | Compile agent files from built-in + your sources. |
 | `skills` | boolean | `true` | Bundled + authored skills, materialized into .claude/skills/. |
 | `docs` | boolean | `true` | The `docs` browser over your docs/ tree. |
+| `mcp` | boolean | `true` | The MCP integration: the `discern mcp` server, and wiring it into each configured agent's project config (disable to remove it on the next refresh). |
 
 ## `[guidance]`
 
