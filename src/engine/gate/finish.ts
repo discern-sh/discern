@@ -157,23 +157,59 @@ async function runGate(
     }
   }
 
-  // 5. Assemble the executed plan and serialize it into the result.
+  // 5. Assemble the executed plan + result, attaching the agent-facing hints —
+  //    the same next-step advice the human tail prints, promoted into the envelope.
   const plan = composeGatePlan(stageGroups, sgGroup, changed);
-  return {
-    result: buildGateResult(plan, results, failedStage),
-    failedStage,
-    cfg,
-    out,
-    changed,
-  };
+  const result = buildGateResult(plan, results, failedStage);
+  const hints = buildGateHints(cfg, changed, failedStage);
+  if (hints.length > 0) {
+    result.hints = hints;
+  }
+  return { result, failedStage, cfg, out, changed };
 }
 
-/** Print the informational success tail (non-`--json`). */
-function printSuccessTail(
+/**
+ * The agent-facing "what next" hints for a finished gate — the SINGLE source of
+ * the advice that rides in the `--json` envelope (`hints`) and is printed by the
+ * human success tail. On a failure: where the project documents its known gate
+ * failures (when a `gotchas_doc` is set). On success: update the docs, hold the
+ * ratchets, view a previewable change.
+ */
+function buildGateHints(
   cfg: DiscernConfig,
-  out: Out,
   changed: string[],
-): void {
+  failedStage: string | null,
+): string[] {
+  if (failedStage !== null) {
+    const doc = cfg.project.gotchas_doc;
+    return doc !== ""
+      ? [
+        `If the failure above isn't self-explanatory, this project's known gate failures and their fixes are documented in ${doc}.`,
+      ]
+      : [];
+  }
+  const hints = [
+    "If you changed documented behaviour, update the docs to match before you finish.",
+  ];
+  if (Object.keys(cfg.ratchets).length > 0) {
+    hints.push(
+      "Before pushing, hold the ratchets with `discern ratchets` (slow, so not part of finish).",
+    );
+  }
+  if (
+    (cfg.worktree.resources.dev_server?.create ?? "") !== "" &&
+    changed.includes("previewable")
+  ) {
+    hints.push(
+      "A previewable change landed — start this worktree's dev server to view it.",
+    );
+  }
+  return hints;
+}
+
+/** Print the informational success tail (non-`--json`): the pass line + gate-health
+ * note, then the same `hints` the envelope carries (so human and machine agree). */
+function printSuccessTail(cfg: DiscernConfig, out: Out, hints: string[]): void {
   let unfilled = 0;
   for (const stage of STAGES) {
     if (cmdsInStage(cfg, stage) === ":") {
@@ -194,22 +230,9 @@ function printSuccessTail(
         `${out.c.dim}note: ${unfilled} of 4 gate stages have no command yet.${out.c.reset}`,
       );
     }
-    out.info(
-      "If you changed something meaningful, update the docs to match before you finish.",
-    );
   }
-  if (Object.keys(cfg.ratchets).length > 0) {
-    out.info(
-      `Before pushing, hold the ratchets: ${out.c.bold}discern ratchets${out.c.reset} (slow, so not part of finish).`,
-    );
-  }
-  if (
-    (cfg.worktree.resources.dev_server?.create ?? "") !== "" &&
-    changed.includes("previewable")
-  ) {
-    out.info(
-      "A previewable change landed — start this worktree's dev server to view it.",
-    );
+  for (const hint of hints) {
+    out.info(hint);
   }
 }
 
@@ -291,10 +314,7 @@ export async function runFinish(
   if (opts.dryRun ?? false) {
     return await dryRunGate(root, opts.json);
   }
-  const { result, failedStage, cfg, out, changed } = await runGate(
-    root,
-    opts.json,
-  );
+  const { result, failedStage, cfg, out } = await runGate(root, opts.json);
   if (opts.json) {
     emitResult(result);
     return failedStage === null ? 0 : 1;
@@ -305,6 +325,6 @@ export async function runFinish(
     gotchasHint(cfg, root, out.color);
     return 1;
   }
-  printSuccessTail(cfg, out, changed);
+  printSuccessTail(cfg, out, result.hints ?? []);
   return 0;
 }

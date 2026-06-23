@@ -160,6 +160,14 @@ export interface DiscernResult {
   diagnostics?: Diagnostic[] | undefined;
   /** Verb-specific payload that doesn't fit steps (checks, schema versions, file lists). */
   data?: unknown;
+  /**
+   * Agent-facing "what next" advice (ADR 0030): the next-step nudges a human run
+   * prints (hold the ratchets, start the dev server, update the docs; on a failed
+   * gate, where the gotchas are documented), promoted into the envelope so a quiet
+   * `--json` run loses none of it. Purely advisory — NOT errors (those are `error`
+   * / `diagnostics`).
+   */
+  hints?: string[] | undefined;
   /** A machine-stable error slug when the verb refused/aborted (e.g. "dirty_worktree"). */
   error?: string | undefined;
   /** A human sentence accompanying `error`. */
@@ -380,6 +388,9 @@ export function serializeResult(r: DiscernResult): Record<string, unknown> {
   }
   if (r.data !== undefined) {
     out.data = r.data;
+  }
+  if (r.hints !== undefined && r.hints.length > 0) {
+    out.hints = r.hints;
   }
   if (r.error !== undefined) {
     out.error = r.error;

@@ -296,6 +296,73 @@ Deno.test("finish (human): a failure prints a structured Failures block with rep
   });
 });
 
+Deno.test("finish --json: a passing gate carries next-step hints, and the human tail prints the SAME strings", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        'main_branch = "main"',
+        "",
+        "[capabilities]",
+        'test = "echo ok"',
+        "",
+        "[ratchets.cov]",
+        'run = "echo DISCERN_METRIC cov 90"',
+        'direction = "up"',
+        "limit = 80",
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+
+    // --json: the advice rides in the envelope (promoted off the human-only tail).
+    const r = await runAgent(dir, ["finish", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    const obj = parseJson(r.stdout);
+    assertEquals(obj.ok, true);
+    assert(Array.isArray(obj.hints), `expected hints[], got ${r.stdout}`);
+    const hints = obj.hints.join("\n");
+    assertStringIncludes(hints, "docs"); // update-the-docs nudge
+    assertStringIncludes(hints, "discern ratchets"); // ratchets configured → hold them
+
+    // Human mode renders the exact same hint strings (one source of truth).
+    const human = await runAgent(dir, ["finish"]);
+    assertEquals(human.code, 0, human.output);
+    for (const hint of obj.hints) {
+      assertStringIncludes(human.output, hint);
+    }
+  });
+});
+
+Deno.test("finish --json: a failing gate carries the gotchas-doc pointer as a hint", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        'main_branch = "main"',
+        'gotchas_doc = "docs/gotchas.md"',
+        "",
+        "[capabilities]",
+        'lint = "exit 1"',
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+    const r = await runAgent(dir, ["finish", "--json"]);
+    assertEquals(r.code, 1, r.output);
+    const obj = parseJson(r.stdout);
+    assertEquals(obj.ok, false);
+    assert(Array.isArray(obj.hints), `expected hints[], got ${r.stdout}`);
+    assertStringIncludes(obj.hints.join("\n"), "docs/gotchas.md");
+  });
+});
+
 Deno.test("finish --json: human mode is unaffected (stdout still human, not JSON)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
