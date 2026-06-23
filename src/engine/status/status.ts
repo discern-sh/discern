@@ -36,6 +36,10 @@ import {
 import { changedScopes } from "../scopes/changed.ts";
 import { planScopeGates } from "../gate/plan.ts";
 import {
+  checkGuidanceCurrent,
+  type GuidanceDriftEntry,
+} from "../guidance_render.ts";
+import {
   assertMainMerged,
   type FleetWorktree,
   gitSnapshot,
@@ -137,6 +141,9 @@ interface StatusData {
   gate?: StatusGate;
   features: StatusFeatures;
   ratchets: string[];
+  /** Generated agent files (e.g. AGENTS.md) that don't match what `discern refresh`
+   * would write — missing or stale. Omitted when all current or guidance is off. */
+  stale_generated?: string[];
   fleet?: StatusFleetEntry[];
 }
 
@@ -244,6 +251,18 @@ export async function statusResult(
     data.gate = buildGateBlock(cfg, changed);
   }
 
+  // Generated-artifacts currency (ADR 0034): a cheap read-only check that the agent
+  // files match what `discern refresh` would write. Advisory only here — surfaced as
+  // a hint so a drifted or not-yet-built AGENTS.md is noticed at orientation, never
+  // an unverified pass/fail. Skipped when guidance is off (nothing is generated).
+  let guidanceDrift: GuidanceDriftEntry[] = [];
+  if (isFeatureEnabled(cfg, "guidance")) {
+    guidanceDrift = await checkGuidanceCurrent(root, cfg);
+    if (guidanceDrift.length > 0) {
+      data.stale_generated = guidanceDrift.map((d) => d.path);
+    }
+  }
+
   // The fleet survey, each row augmented with its best-effort id/port from `.env`.
   let fleet: StatusFleetEntry[] | undefined;
   if (includeFleet) {
@@ -261,6 +280,7 @@ export async function statusResult(
     fleet,
     worktreesOn: features.worktrees,
     liveCount,
+    guidanceDrift,
   });
 
   return {
@@ -379,6 +399,8 @@ interface HintContext {
   fleet: StatusFleetEntry[] | undefined;
   worktreesOn: boolean;
   liveCount: number;
+  /** Generated agent files that don't match what `discern refresh` would write. */
+  guidanceDrift: GuidanceDriftEntry[];
 }
 
 /**
@@ -388,6 +410,19 @@ interface HintContext {
 async function buildStatusHints(ctx: HintContext): Promise<string[]> {
   const hints: string[] = [];
   const main = ctx.mainBranch;
+
+  // Generated agent files drifted from their source — actionable anywhere, so lead
+  // with it. "missing" (not built yet) reads differently from "stale" (a drift that
+  // a refresh would overwrite), so the redirect to the source only shows for stale.
+  if (ctx.guidanceDrift.length > 0) {
+    const paths = ctx.guidanceDrift.map((d) => d.path).join(", ");
+    const allMissing = ctx.guidanceDrift.every((d) => d.reason === "missing");
+    hints.push(
+      allMissing
+        ? `Generated agent files aren't built yet (${paths}); run \`discern refresh\`.`
+        : `Generated agent files are out of date (${paths}); run \`discern refresh\` — edits belong in your [guidance].sources, not the generated file.`,
+    );
+  }
 
   if (ctx.location === "worktree" && ctx.git !== null) {
     const g = ctx.git;

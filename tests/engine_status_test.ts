@@ -328,3 +328,58 @@ Deno.test("status is pure observation: it mutates nothing and provisions no reso
     );
   });
 });
+
+Deno.test("status: a drifted generated agent file is listed and hinted to refresh", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    await runAgent(dir, ["refresh"]); // compile CLAUDE.md so it exists and is current
+
+    // Hand-edit the generated file → it no longer matches what `refresh` would write.
+    const claudePath = join(dir, "CLAUDE.md");
+    await Deno.writeTextFile(
+      claudePath,
+      `${await Deno.readTextFile(claudePath)}\n<!-- a stray hand edit -->\n`,
+    );
+
+    const r = await runAgent(dir, ["status", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    const obj = parseStatus(r.stdout);
+    assert(
+      (obj.data.stale_generated ?? []).includes("CLAUDE.md"),
+      `expected CLAUDE.md in stale_generated: ${r.stdout}`,
+    );
+    assert(
+      (obj.hints ?? []).some((h: string) =>
+        h.includes("out of date") && h.includes("discern refresh")
+      ),
+      `expected an out-of-date refresh hint: ${JSON.stringify(obj.hints)}`,
+    );
+    // status is read-only — it must NOT silently regenerate the drifted file.
+    assert(
+      (await Deno.readTextFile(claudePath)).includes("a stray hand edit"),
+      "status must not rewrite the generated file",
+    );
+  });
+});
+
+Deno.test("status: a missing generated agent file hints it isn't built yet", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    await runAgent(dir, ["refresh"]);
+    // An untracked artifact can go absent (deleted, or a fresh checkout).
+    await Deno.remove(join(dir, "CLAUDE.md"));
+
+    const r = await runAgent(dir, ["status", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    const obj = parseStatus(r.stdout);
+    assert((obj.data.stale_generated ?? []).includes("CLAUDE.md"), r.stdout);
+    assert(
+      (obj.hints ?? []).some((h: string) =>
+        h.includes("aren't built yet") && h.includes("discern refresh")
+      ),
+      `expected a not-built-yet hint: ${JSON.stringify(obj.hints)}`,
+    );
+  });
+});

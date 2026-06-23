@@ -1,0 +1,189 @@
+/**
+ * The PURE guidance renderer (ADR 0034): compute the exact content `discern
+ * refresh` would write for each provider's agent file, with NO side effects.
+ *
+ * This is the SINGLE source of the compiled-file content. The writer
+ * (`compileGuidelines`) renders here and writes; the currency checker
+ * (`checkGuidanceCurrent`, consumed by `discern status` and `discern finish`)
+ * renders here and compares to disk. Because both go through
+ * {@link renderAgentFiles}, the check can never disagree with what a refresh would
+ * produce — there is no second copy of the compile logic, and no stored hash to
+ * keep in sync.
+ *
+ * The compiled body is, in order: discern's built-in base guidance (always), a
+ * built-in section per ENABLED feature (a disabled feature's section is omitted —
+ * the feature-toggle mechanism), then the user's `[guidance].sources`. Each
+ * provider file is either that full body or — for a provider that declares a
+ * `pointer` and is not itself canonical — a pointer importing the canonical file.
+ *
+ * This module is effect-free (reads only) and deliberately free of the skills/MCP
+ * machinery in `guidelines.ts`, so the gate and `status` can import the check
+ * without pulling those in.
+ */
+
+import { join } from "@std/path";
+import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
+import { type Feature, isFeatureEnabled } from "../shared/features.ts";
+import { resolveGuidanceSources, resolveTemplatesDir } from "../lib/paths.ts";
+import { providerFor } from "../lib/providers.ts";
+
+/** Default providers to emit when neither `[guidance].agents` nor the legacy
+ * `[project].agents` is set. */
+const DEFAULT_AGENTS: readonly string[] = ["claude_code", "codex"];
+
+/**
+ * The built-in guidance sections, in compile order. The base section is always
+ * included; every other section is gated on its feature, so disabling a feature
+ * drops its guidance from the compiled output automatically.
+ */
+const BUILTIN_SECTIONS: ReadonlyArray<{ file: string; feature?: Feature }> = [
+  { file: "base.md" },
+  { file: "worktrees.md", feature: "worktrees" },
+  { file: "ratchets.md", feature: "ratchets" },
+  { file: "skills.md", feature: "skills" },
+  { file: "docs.md", feature: "docs" },
+];
+
+/** The providers to emit: `[guidance].agents`, else the legacy `[project].agents`,
+ * else the default pair. */
+export function guidanceAgents(config: DiscernConfig): string[] {
+  if (config.guidance.agents.length > 0) {
+    return config.guidance.agents;
+  }
+  const legacy = config.project.agents ?? [];
+  return legacy.length > 0 ? legacy : [...DEFAULT_AGENTS];
+}
+
+/**
+ * Read and concatenate discern's built-in guidance sections for the enabled
+ * features, in {@link BUILTIN_SECTIONS} order. A missing section file is skipped
+ * defensively (the distribution ships them, but a custom templates tree might not).
+ */
+async function builtinGuidance(config: DiscernConfig): Promise<string> {
+  const dir = join(await resolveTemplatesDir(), "guidance");
+  let out = "";
+  for (const section of BUILTIN_SECTIONS) {
+    if (section.feature && !isFeatureEnabled(config, section.feature)) {
+      continue;
+    }
+    let text: string;
+    try {
+      text = await Deno.readTextFile(join(dir, section.file));
+    } catch (err) {
+      if (err instanceof Deno.errors.NotFound) {
+        continue;
+      }
+      throw err;
+    }
+    out += text;
+    if (!out.endsWith("\n")) {
+      out += "\n";
+    }
+    out += "\n";
+  }
+  return out;
+}
+
+/**
+ * The full compiled guidance body: built-in sections (feature-gated) followed by
+ * the user's `[guidance].sources`, each separated by a blank line — the content a
+ * canonical / full-body provider file holds.
+ */
+export async function composeGuidanceBody(
+  root: string,
+  config: DiscernConfig,
+): Promise<string> {
+  let body = await builtinGuidance(config);
+  const sources = await resolveGuidanceSources(root, config);
+  for (const src of sources) {
+    body += await Deno.readTextFile(src);
+    body += "\n";
+  }
+  return body;
+}
+
+/**
+ * The expected content of every agent file `discern refresh` would write, keyed by
+ * project-relative path. Empty when the `guidance` feature is off (nothing is
+ * generated). Each configured provider gets the full body, or — when it declares a
+ * `pointer` and a different canonical file is also emitted — that pointer. Unknown
+ * agent names are skipped (the writer warns about them). PURE: reads only.
+ */
+export async function renderAgentFiles(
+  root: string,
+  config?: DiscernConfig,
+): Promise<Map<string, string>> {
+  const cfg = config ?? await loadConfig(root);
+  const out = new Map<string, string>();
+  if (!isFeatureEnabled(cfg, "guidance")) {
+    return out;
+  }
+  const agents = guidanceAgents(cfg);
+  const body = await composeGuidanceBody(root, cfg);
+  // The canonical agent file the pointer mirrors import (codex → AGENTS.md). When
+  // none is emitted there is nothing to point at, so every file gets the full body.
+  const canonicalRel = agents
+    .map((a) => providerFor(a)?.guidanceFile)
+    .find((g) => g !== undefined && g.canonical)?.path;
+  for (const agent of agents) {
+    const gf = providerFor(agent)?.guidanceFile;
+    if (gf === undefined) {
+      continue;
+    }
+    let fileBody = body;
+    if (
+      gf.pointer !== undefined && canonicalRel !== undefined &&
+      canonicalRel !== gf.path
+    ) {
+      fileBody = gf.pointer(canonicalRel);
+    }
+    out.set(gf.path, fileBody);
+  }
+  return out;
+}
+
+/** One generated agent file that does not match what `refresh` would write. */
+export interface GuidanceDriftEntry {
+  /** Project-relative path of the generated file. */
+  path: string;
+  /**
+   * `missing` — absent on disk (the expected state of an untracked artifact on a
+   * fresh checkout); `stale` — present but its bytes differ from the recompiled
+   * body (a real drift: a hand-edit, or an un-refreshed source/config change).
+   */
+  reason: "missing" | "stale";
+  /** What `refresh` would write. */
+  expected: string;
+  /** The current on-disk bytes — present only when `reason` is `stale`. */
+  actual?: string;
+}
+
+/**
+ * Compare every agent file `refresh` would write against what is on disk, and
+ * return the ones that don't match (empty = all current, or the `guidance` feature
+ * is off). The stateless currency check (ADR 0034): recompile in memory via
+ * {@link renderAgentFiles}, diff against disk — no stored hash. PURE: reads only.
+ */
+export async function checkGuidanceCurrent(
+  root: string,
+  config?: DiscernConfig,
+): Promise<GuidanceDriftEntry[]> {
+  const expectedFiles = await renderAgentFiles(root, config);
+  const drift: GuidanceDriftEntry[] = [];
+  for (const [rel, expected] of expectedFiles) {
+    let actual: string;
+    try {
+      actual = await Deno.readTextFile(join(root, rel));
+    } catch (err) {
+      if (err instanceof Deno.errors.NotFound) {
+        drift.push({ path: rel, reason: "missing", expected });
+        continue;
+      }
+      throw err;
+    }
+    if (actual !== expected) {
+      drift.push({ path: rel, reason: "stale", expected, actual });
+    }
+  }
+  return drift;
+}

@@ -1,33 +1,29 @@
 /**
- * The guideline compiler (ADR 0020): assemble discern's **bundled, feature-aware
- * built-in harness guidance** plus the project's **own config-pointed sources**
- * into the generated per-provider agent files (CLAUDE.md, AGENTS.md, GEMINI.md, …).
+ * The guideline compiler (ADR 0020): the EFFECTFUL orchestrator that writes the
+ * generated per-provider agent files (CLAUDE.md, AGENTS.md, GEMINI.md, …),
+ * materializes skills, and wires the MCP server. The pure content — what each file
+ * should contain — is computed by `renderAgentFiles` in `./guidance_render.ts`,
+ * the single source this writer and the `status`/`finish` currency check both use,
+ * so a generated file can never silently disagree with what a refresh produces
+ * (ADR 0034). It writes each provider file named in `[guidance].agents` (falling
+ * back to the pre-migration `[project].agents`).
  *
- * The compiled body is, in order:
- *   1. discern's built-in base guidance (always),
- *   2. a built-in section for each ENABLED feature (a disabled feature's guidance
- *      is omitted automatically — that is the mechanism behind feature toggles),
- *   3. the user's `[guidance].sources` (default `guidance.md`, globs allowed),
- *      appended so they extend the built-ins.
- *
- * It writes each provider file named in `[guidance].agents` (falling back to the
- * pre-migration `[project].agents`). The files carry no banner — they open with
- * the guidance itself; `base.md`'s in-body "never hand-edit" section conveys
- * their generated-ness to every agent (ADR 0034), and the `finish`/`status`
- * currency check guards drift. Nothing is hand-edited: edit your sources, or
- * discern's built-ins, and recompile.
+ * The files carry no banner — they open with the guidance itself; `base.md`'s
+ * in-body "never hand-edit" section conveys their generated-ness to every agent,
+ * and the currency check guards drift. Nothing is hand-edited: edit your sources,
+ * or discern's built-ins, and recompile.
  *
  * Two independent jobs, each gated on its feature and safe to run from anywhere:
  *   - `features.skills`  → materialize skills into `.claude/skills/` (see lib/skills.ts);
- *   - `features.guidance`→ compile the agent files described above.
+ *   - `features.guidance`→ compile the agent files via `renderAgentFiles`.
  * The skills job runs even when guidance is off, so skills stay discoverable.
  */
 
 import { ensureDir } from "@std/fs";
 import { dirname, join } from "@std/path";
-import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
-import { type Feature, isFeatureEnabled } from "../shared/features.ts";
-import { resolveGuidanceSources, resolveTemplatesDir } from "../lib/paths.ts";
+import { loadConfig } from "../shared/config_schema.ts";
+import { isFeatureEnabled } from "../shared/features.ts";
+import { resolveGuidanceSources } from "../lib/paths.ts";
 import { materializeSkills } from "../lib/skills.ts";
 import {
   MCP_RESTART_HINT,
@@ -35,6 +31,7 @@ import {
   unwireProviderMcp,
   wireProviderMcp,
 } from "../lib/providers.ts";
+import { guidanceAgents, renderAgentFiles } from "./guidance_render.ts";
 import { Logger } from "../lib/log.ts";
 
 /** What a single `compileGuidelines` run accomplished. */
@@ -53,63 +50,6 @@ export interface GuidelinesResult {
   skillsLinked: number;
   /** Stale managed skill entries pruned from `.claude/skills/`. */
   skillsPruned: number;
-}
-
-/** Default providers to emit when neither `[guidance].agents` nor the legacy
- * `[project].agents` is set. */
-const DEFAULT_AGENTS: readonly string[] = ["claude_code", "codex"];
-
-/**
- * The built-in guidance sections, in compile order. The base section is always
- * included; every other section is gated on its feature, so disabling a feature
- * drops its guidance from the compiled output automatically.
- */
-const BUILTIN_SECTIONS: ReadonlyArray<{ file: string; feature?: Feature }> = [
-  { file: "base.md" },
-  { file: "worktrees.md", feature: "worktrees" },
-  { file: "ratchets.md", feature: "ratchets" },
-  { file: "skills.md", feature: "skills" },
-  { file: "docs.md", feature: "docs" },
-];
-
-/** The providers to emit: `[guidance].agents`, else the legacy `[project].agents`,
- * else the default pair. */
-function guidanceAgents(config: DiscernConfig): string[] {
-  if (config.guidance.agents.length > 0) {
-    return config.guidance.agents;
-  }
-  const legacy = config.project.agents ?? [];
-  return legacy.length > 0 ? legacy : [...DEFAULT_AGENTS];
-}
-
-/**
- * Read and concatenate discern's built-in guidance sections for the enabled
- * features, in {@link BUILTIN_SECTIONS} order. A missing section file is skipped
- * defensively (the distribution ships them, but a custom templates tree might not).
- */
-async function builtinGuidance(config: DiscernConfig): Promise<string> {
-  const dir = join(await resolveTemplatesDir(), "guidance");
-  let out = "";
-  for (const section of BUILTIN_SECTIONS) {
-    if (section.feature && !isFeatureEnabled(config, section.feature)) {
-      continue;
-    }
-    let text: string;
-    try {
-      text = await Deno.readTextFile(join(dir, section.file));
-    } catch (err) {
-      if (err instanceof Deno.errors.NotFound) {
-        continue;
-      }
-      throw err;
-    }
-    out += text;
-    if (!out.endsWith("\n")) {
-      out += "\n";
-    }
-    out += "\n";
-  }
-  return out;
 }
 
 /**
@@ -185,21 +125,11 @@ export async function compileGuidelines(
     return summarize(agentsWritten, mcpWired, mcpRemoved, hints, skills);
   }
 
-  let body = await builtinGuidance(config);
-  const sources = await resolveGuidanceSources(root, config);
-  for (const src of sources) {
-    body += await Deno.readTextFile(src);
-    body += "\n";
-  }
-  const compiled = body;
-
-  // The canonical agent file the pointer mirrors import: the canonical provider in
-  // this run (codex → AGENTS.md). When none is emitted there is nothing to point
-  // at, so every file gets the full compiled body instead.
-  const canonicalRel = agents
-    .map((a) => providerFor(a)?.guidanceFile)
-    .find((g) => g !== undefined && g.canonical)?.path;
-
+  // Render the expected content for every configured provider — the SINGLE source
+  // of the compiled-file content, shared with the `status`/`finish` currency check
+  // (ADR 0034) — then write each. A provider that declares an import (Claude Code)
+  // already gets a pointer to the canonical file here, not a duplicate body.
+  const rendered = await renderAgentFiles(root, config);
   for (const agent of agents) {
     const gf = providerFor(agent)?.guidanceFile;
     if (gf === undefined) {
@@ -208,19 +138,12 @@ export async function compileGuidelines(
       );
       continue;
     }
+    const fileBody = rendered.get(gf.path);
+    if (fileBody === undefined) {
+      continue; // guidance off (already returned above) — defensive.
+    }
     const out = join(root, gf.path);
     await ensureDir(dirname(out));
-    // A provider that supports an import (Claude Code) writes a pointer to the
-    // canonical file instead of duplicating the whole body — but only when that
-    // file is actually being emitted, and isn't this same file. Otherwise the full
-    // compiled guidance is written.
-    let fileBody = compiled;
-    if (
-      gf.pointer !== undefined && canonicalRel !== undefined &&
-      canonicalRel !== gf.path
-    ) {
-      fileBody = gf.pointer(canonicalRel);
-    }
     await Deno.writeTextFile(out, fileBody);
     // A generated file should be readable like any other source (mode 0644).
     await Deno.chmod(out, 0o644);
@@ -232,8 +155,9 @@ export async function compileGuidelines(
       'refresh: no known providers in [guidance].agents — compiled nothing. Set agents = ["claude_code", …].',
     );
   } else {
+    const sourceCount = (await resolveGuidanceSources(root, config)).length;
     log.ok(
-      `refresh: compiled ${sources.length} source(s) + built-in guidance into ${agentsWritten.length} agent file(s): ${
+      `refresh: compiled ${sourceCount} source(s) + built-in guidance into ${agentsWritten.length} agent file(s): ${
         agentsWritten.join(",")
       }`,
     );
