@@ -49,7 +49,7 @@ It is **one self-contained binary** with two faces:
   check it. This face is build-time work: it writes a project's files, then
   steps out of the way.
 - The **Engine** — the stack-neutral logic behind `discern finish` / `prepare` /
-  `worktree` / … . It is **TypeScript compiled into the binary**
+  `audit` / `worktree` / … . It is **TypeScript compiled into the binary**
   ([`src/engine/`](../../src/engine/), sharing
   [`src/shared/`](../../src/shared/) with the Installer), not files installed
   into the project.

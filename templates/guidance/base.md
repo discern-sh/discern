@@ -23,6 +23,24 @@ custom) in `discern.toml`. If a stage has no command configured, it passes
 trivially — a fresh install is a green gate you grow into. Run **`discern doctor`**
 to see what is wired and to validate the install.
 
+## Auditing the setup
+
+Where the gate asks "did this change pass?", **`discern audit`** asks "is this
+setup any good?". It scores the project against a best-practices checklist (tests
+wired, substantive guidance, docs and decision records, a quality ratchet,
+per-worktree resources for anything shared) and ranks the weakest areas, with the
+exact fix and why it matters for each. Some rules it decides itself; others it
+**surfaces for you to judge** against the cited material (e.g. the project's own
+guidance) — a `?` review item. Run it to find where to invest, then act:
+
+- **`discern audit`** — the weakest-first report (interactive on a terminal).
+- **`discern audit --json`** — the same result as a machine-readable object; read
+  `data.categories[].rules` (each with a `fix` and `teach`) and `…[].reviews`
+  (each a question plus the material to judge it against), and improve them. It is
+  also exposed as the `discern_audit` MCP tool, so you can pull it natively.
+- **`discern audit --category <name>`** focuses one area; **`--min-score <n>`**
+  exits non-zero below a floor (a CI/agent gate).
+
 ## Generated agent files — never hand-edit
 
 The agent instruction file you are reading (`AGENTS.md`, `CLAUDE.md`, or a sibling)

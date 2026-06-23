@@ -46,7 +46,7 @@ of the install; they are written on demand after install by the bundled Skills.)
 ### Engine
 
 The stack-neutral logic behind the `discern` run-time verbs (`finish`,
-`prepare`, `worktree`/`worktree:*`, `graduate`, `ratchets`, `refresh`,
+`prepare`, `audit`, `worktree`/`worktree:*`, `graduate`, `ratchets`, `refresh`,
 `changed-scopes`, …), written in **TypeScript and compiled into the binary**
 under [`src/engine/`](../../src/engine/) (sharing
 [`src/shared/`](../../src/shared/) with the Installer). The Engine knows nothing
