@@ -59,11 +59,17 @@ interface DiscernResult {
 ```
 
 `serializeResult` is the ONE place the wire shape is defined (undefined fields
-dropped). A preview carries `plan` and no `steps`; an apply carries `steps`. The
-human path renders the same `DiscernResult`, so the two can never disagree on
-_what happened_ — though a verb may add bespoke human _advice_ (finish's success
-tail, doctor's per-check fix hints) on top, and **live streamed job output stays
-a side-channel** (you cannot render post-hoc bytes from a settled object).
+dropped). A preview carries `plan` + `dry_run` and no `steps`; an apply carries
+`steps`. How tightly human and machine output are bound differs by path, and the
+ADR is precise about it: for a **preview**, the human listing and the JSON are
+two renderings of one object through one shared renderer (`renderPlan`), so they
+cannot disagree. For an **apply**, the JSON is the serialized result while the
+human narration is produced _during execution_ — kept consistent because both
+read the same run, a convention rather than a structural invariant (there is no
+shared `steps[]` renderer yet; unifying that is future work). A verb may add
+bespoke human _advice_ (finish's success tail, doctor's per-check fix hints) on
+top, and **live streamed job output stays a side-channel** (you cannot render
+post-hoc bytes from a settled object).
 
 We deliberately did **not** force every verb's payload into one shape: a doctor
 check is not a gate job, a pending migration is not a step. Per-verb data rides
@@ -94,7 +100,9 @@ needs no per-tool knowledge:
   diagnostic. Declared _text_ formats (a per-check regex via a future
   `[diagnostics.<name>]` table) are the next slice — deferred because they need
   a config-surface decision, where SARIF needed none.
-- **Tier 2 — derive.** `fix_available` follows from whether a fixer is wired.
+- **Tier 2 — derive (planned).** `fix_available` will follow from whether a
+  fixer is wired for the failing capability; the field exists on the
+  `Diagnostic` but is not yet populated (see TODO.md).
 
 ### MCP is a renderer, not a rewrite
 
@@ -106,8 +114,10 @@ verbs is `serializeResult` over stdio — a third rendering of the same spine.
 - **Agents loop act → read-error → fix.** The failure's command and output are
   in the result; no re-run, no stderr scraping. This is the headline DX win and
   the reason the work was prioritized above backward compatibility.
-- **Human and machine output can't drift.** Both read one object; a regression
-  in one is visible in the other.
+- **Human and machine output share a renderer for previews** (and are parallel
+  renderings of the same run for applies). A preview's two views cannot drift;
+  an apply's are kept consistent by construction until a shared `steps[]`
+  renderer lands.
 - **One contract to learn and to test.** `serializeResult` is the single wire
   definition; new verbs get the envelope for free.
 - **Breaking — every `--json` shape changed.** `finish` no longer emits

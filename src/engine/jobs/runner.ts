@@ -50,11 +50,14 @@ const ON: Palette = {
 };
 const OFF: Palette = { dim: "", reset: "", green: "", red: "" };
 
-/** Render the per-job status line, byte-matching the shell `run_parallel` banner. */
+/** Render the per-job status line. A fail-fast-cancelled sibling is labelled
+ * `cancelled`, not `FAILED` — it wasn't a real failure, just killed mid-run. */
 function banner(result: JobResult, color: boolean): Uint8Array {
   const c = color ? ON : OFF;
   const tail = result.code === 0
     ? `${c.green}ok${c.reset}`
+    : result.cancelled === true
+    ? `${c.dim}cancelled${c.reset}`
     : `${c.red}FAILED (exit ${result.code})${c.reset}`;
   return ENCODER.encode(`${c.dim}── ${result.label} ─${c.reset} ${tail}\n`);
 }

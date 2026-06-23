@@ -34,33 +34,14 @@ const ENCODER = new TextEncoder();
 const DECODER = new TextDecoder();
 
 /**
- * Chars retained in a failed job's captured `output` — the Tier-0 diagnostic. Large
- * enough to carry a tool's error block + summary, bounded so it never floods an
- * agent's context. When the real output is larger, the head and tail are kept (a
- * compiler lists the first error early; a runner prints its summary at the end).
- */
-const CAPTURE_CAP = 16_000;
-
-/**
  * Hard cap (bytes) on the buffer retained for the capture in STREAM mode, where
- * output isn't otherwise held in memory. Generous vs CAPTURE_CAP so the head/tail
- * trim sees real context; bounds worst-case memory on a pathological stream.
+ * output isn't otherwise held in memory. Split into a head and a tail window so a
+ * failed streamed job carries both its first errors and its trailing summary;
+ * bounds worst-case memory on a pathological stream.
  */
 const STREAM_CAP_BYTES = 1_000_000;
-
-/** Cap a captured string to CAPTURE_CAP, keeping the head and tail when it overflows. */
-export function capText(s: string): { text: string; truncated: boolean } {
-  if (s.length <= CAPTURE_CAP) {
-    return { text: s, truncated: false };
-  }
-  const head = Math.floor(CAPTURE_CAP * 0.6);
-  const tail = CAPTURE_CAP - head;
-  const elided = s.length - head - tail;
-  return {
-    text: `${s.slice(0, head)}\n… ${elided} bytes elided …\n${s.slice(-tail)}`,
-    truncated: true,
-  };
-}
+const HEAD_CAP = STREAM_CAP_BYTES / 2;
+const TAIL_CAP = STREAM_CAP_BYTES - HEAD_CAP;
 
 /** Signal an entire process group, falling back to the direct child. */
 export function killTree(pid: number, sig: Deno.Signal): void {
@@ -167,17 +148,44 @@ export async function spawnJob(
     }
   }
 
-  // `chunks` holds the full output for the buffered human write (buffered mode).
-  // `capBuf` retains a byte-capped copy for the failure diagnostic in STREAM mode,
-  // where `chunks` stays empty — so a failed streamed job still carries its output.
+  // `chunks` holds the full output for the buffered human write + diagnostic
+  // (buffered mode). In STREAM mode `chunks` stays empty and a byte-capped head +
+  // tail window is retained instead, so a failed streamed job still carries a
+  // diagnostic with both its first errors and its trailing summary.
   const chunks: Uint8Array[] = [];
-  const capBuf: Uint8Array[] = [];
-  let capBytes = 0;
+  const headBuf: Uint8Array[] = [];
+  let headBytes = 0;
+  const tailBuf: Uint8Array[] = [];
+  let tailBytes = 0;
+  let elidedBytes = 0;
   const retainCapped = (c: Uint8Array): void => {
-    if (capBytes < STREAM_CAP_BYTES) {
-      capBuf.push(c);
-      capBytes += c.length;
+    if (headBytes < HEAD_CAP) {
+      headBuf.push(c);
+      headBytes += c.length;
+      return;
     }
+    tailBuf.push(c);
+    tailBytes += c.length;
+    while (
+      tailBytes - (tailBuf[0]?.length ?? 0) >= TAIL_CAP && tailBuf.length > 1
+    ) {
+      const dropped = tailBuf.shift();
+      if (dropped !== undefined) {
+        tailBytes -= dropped.length;
+        elidedBytes += dropped.length;
+      }
+    }
+  };
+  // Assemble the stream-mode capture: contiguous when it fit the head window (so
+  // SARIF normalization still parses), head + tail with a marker once it overflowed.
+  const streamCapture = (): string => {
+    const head = DECODER.decode(concat(headBuf));
+    if (tailBuf.length === 0) {
+      return head;
+    }
+    return `${head}\n… ${elidedBytes} bytes elided …\n${
+      DECODER.decode(concat(tailBuf))
+    }`;
   };
   const drain = async (s: ReadableStream<Uint8Array>): Promise<void> => {
     if (opts.stream) {
@@ -198,11 +206,15 @@ export async function spawnJob(
     signal.removeEventListener("abort", onAbort);
   }
 
-  // A job killed mid-run (terminated by a signal) reports 1 like the shell; one
-  // that exited on its own keeps its real code — even if a sibling's failure
-  // aborted the stage after this job had already finished.
-  const cancelled = status.signal !== null;
+  // A job killed mid-run keeps its real exit code via finalCode. "Cancelled" means
+  // fail-fast aborted the run AND this job did not exit clean — keyed on the abort
+  // signal, NOT the OS signal, so a sibling that TRAPS SIGTERM and exits non-zero is
+  // still recognised as cancelled (not a genuine failure). The job that failed
+  // FIRST built its result before its own `.then` fired the abort, so its
+  // `signal.aborted` is still false → it is correctly NOT cancelled and keeps its
+  // diagnostic. A job that finished clean (code 0) before an abort stays ok.
   const code = finalCode(status.code, status.signal);
+  const cancelled = (opts.signal?.aborted ?? false) && code !== 0;
   const durationS = Math.round((performance.now() - start) / 1000);
   const result: JobResult = {
     label: job.label,
@@ -213,18 +225,13 @@ export async function spawnJob(
   if (cancelled) {
     result.cancelled = true;
   }
-  // Attach captured output only on a GENUINE failure (not a cancelled sibling) —
-  // that's where a diagnostic is owed, and it keeps the rest lean. Source the bytes
-  // from `chunks` (buffered mode, full) or `capBuf` (stream mode, capped); the
-  // string is then head/tail capped for the agent's context budget.
+  // Attach the FULL captured output on a GENUINE failure (not a cancelled sibling).
+  // Capping is deferred to the diagnostic layer so structured normalization (SARIF)
+  // sees the whole output; only the Tier-0 fallback is capped.
   if (code !== 0 && !cancelled) {
-    const raw = DECODER.decode(concat(opts.stream ? capBuf : chunks));
+    const raw = opts.stream ? streamCapture() : DECODER.decode(concat(chunks));
     if (raw.length > 0) {
-      const { text, truncated } = capText(raw);
-      result.output = text;
-      if (truncated) {
-        result.truncated = true;
-      }
+      result.output = raw;
     }
   }
   return {

@@ -261,6 +261,7 @@ Deno.test("finish --dry-run --json: emits a preview envelope (plan, no steps)", 
     const obj = parseJson(r.stdout);
     assertEquals(obj.ok, true);
     assertEquals(obj.verb, "finish");
+    assertEquals(obj.dry_run, true); // the uniform "is this a preview?" signal
     assertEquals(obj.plan.title, "Gate plan");
     assert(
       obj.plan.steps.some((s: { label: string }) => s.label === "test"),

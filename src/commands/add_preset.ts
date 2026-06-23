@@ -233,8 +233,8 @@ export async function runAddPreset(
       log.result({
         ok: true,
         verb: "add-preset",
+        dry_run: true,
         data: {
-          dry_run: true,
           preset: name,
           plan: planToJson(plan),
           config_fills: filledToml !== undefined,

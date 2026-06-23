@@ -93,7 +93,7 @@ Deno.test("add-preset --dry-run writes nothing (files or fills)", async () => {
       PRESET_ENV,
     );
     assertEquals(r.code, 0, r.stderr);
-    assertEquals(JSON.parse(r.stdout).data.dry_run, true);
+    assertEquals(JSON.parse(r.stdout).dry_run, true);
     assert(!(await exists(join(dir, "recipes/example-deploy"))));
     assertEquals(
       await Deno.readTextFile(join(dir, "discern.toml")),

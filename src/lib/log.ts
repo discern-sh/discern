@@ -135,14 +135,14 @@ export class Logger {
   /**
    * Emit a {@link DiscernResult} as the verb's single `--json` object — the
    * envelope every verb shares (ADR 0028). Only does anything in JSON mode; the
-   * human path is the verb's own narration. The installer-verb counterpart of the
-   * engine's `serializeResult` emit.
+   * human path is the verb's own narration. Compact (one line), matching the engine
+   * verbs' `serializeResult` emit so the wire shape is whitespace-identical too.
    */
   result(r: DiscernResult): void {
     if (!this.json) {
       return;
     }
-    console.log(JSON.stringify(serializeResult(r), null, 2));
+    console.log(JSON.stringify(serializeResult(r)));
   }
 
   /** Bold a fragment of text inline (no-op without colour). */

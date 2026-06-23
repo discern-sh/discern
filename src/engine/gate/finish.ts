@@ -226,11 +226,9 @@ async function dryRunGate(
   const plan = buildGatePlan(cfg, changed);
   const engine = gatePlanToEngine(plan);
   if (json) {
-    // A preview is a DiscernResult carrying only `plan` (no `steps`): nothing ran.
+    // A preview is a DiscernResult carrying `plan` + `dry_run` (no `steps`).
     console.log(
-      JSON.stringify(
-        serializeResult({ ok: true, verb: "finish", plan: engine }),
-      ),
+      JSON.stringify(serializeResult(previewResult("finish", engine))),
     );
     return 0;
   }

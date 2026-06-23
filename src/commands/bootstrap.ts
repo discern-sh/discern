@@ -20,6 +20,7 @@ import { ensureDir, walk } from "@std/fs";
 import { dirname, join, relative } from "@std/path";
 import { loadConfig } from "../shared/config_schema.ts";
 import { CONFIG_REL, findRoot } from "../shared/env.ts";
+import { serializeResult } from "../shared/result.ts";
 import { resolveBootstrapDir, resolveConfigPath } from "../lib/paths.ts";
 import { TomlEditor } from "../lib/toml_edit.ts";
 
@@ -48,12 +49,20 @@ const SKELETON_MARKERS: readonly string[] = [
 ];
 
 /** Resolve the project root, or print the standard "no project" error and return undefined. */
-async function rootOrError(json: boolean): Promise<string | undefined> {
+async function rootOrError(
+  json: boolean,
+  verb: string,
+): Promise<string | undefined> {
   const root = await findRoot();
   if (root === undefined) {
     if (json) {
       console.log(
-        JSON.stringify({ ok: false, error: "no_project", message: NO_PROJECT }),
+        JSON.stringify(serializeResult({
+          ok: false,
+          verb,
+          error: "no_project",
+          message: NO_PROJECT,
+        })),
       );
     } else {
       console.error(`discern: ${NO_PROJECT}`);
@@ -113,7 +122,7 @@ async function copyTreeSubstituting(
  * then print the setup instructions for the agent in the loop to act on.
  */
 export async function runBootstrap(opts: BootstrapOptions): Promise<number> {
-  const root = await rootOrError(opts.json);
+  const root = await rootOrError(opts.json, "bootstrap");
   if (root === undefined) {
     return 1;
   }
@@ -124,7 +133,11 @@ export async function runBootstrap(opts: BootstrapOptions): Promise<number> {
       "this project is already bootstrapped. Re-run with --force to seed it again.";
     if (opts.json) {
       console.log(
-        JSON.stringify({ ok: true, alreadyBootstrapped: true, message }),
+        JSON.stringify(serializeResult({
+          ok: true,
+          verb: "bootstrap",
+          data: { already_bootstrapped: true, message },
+        })),
       );
     } else {
       console.log(`discern: ${message}`);
@@ -165,7 +178,11 @@ export async function runBootstrap(opts: BootstrapOptions): Promise<number> {
 
   if (opts.json) {
     console.log(
-      JSON.stringify({ ok: true, scaffolded, skipped, instructions }, null, 2),
+      JSON.stringify(serializeResult({
+        ok: true,
+        verb: "bootstrap",
+        data: { scaffolded, skipped, instructions },
+      })),
     );
     return 0;
   }
@@ -202,7 +219,7 @@ export async function runBootstrap(opts: BootstrapOptions): Promise<number> {
 export async function runBootstrapDone(
   opts: BootstrapOptions,
 ): Promise<number> {
-  const root = await rootOrError(opts.json);
+  const root = await rootOrError(opts.json, "bootstrap:done");
   if (root === undefined) {
     return 1;
   }
@@ -244,7 +261,13 @@ export async function runBootstrapDone(
       "(a `<!-- bootstrap fills this -->` sentinel or the EXAMPLE principle).";
     if (opts.json) {
       console.log(
-        JSON.stringify({ ok: false, error: "incomplete", leftover, message }),
+        JSON.stringify(serializeResult({
+          ok: false,
+          verb: "bootstrap:done",
+          error: "incomplete",
+          message,
+          data: { leftover },
+        })),
       );
     } else {
       console.error(`discern: ${message}`);
@@ -267,7 +290,11 @@ export async function runBootstrapDone(
   const forced = leftover.length > 0;
   if (opts.json) {
     console.log(
-      JSON.stringify({ ok: true, bootstrapped: true, forced, leftover }),
+      JSON.stringify(serializeResult({
+        ok: true,
+        verb: "bootstrap:done",
+        data: { bootstrapped: true, forced, leftover },
+      })),
     );
     return 0;
   }

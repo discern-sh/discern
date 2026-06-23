@@ -146,6 +146,12 @@ export interface DiscernResult {
   ok: boolean;
   /** The verb that produced this result ("finish", "graduate", "doctor", …). */
   verb: string;
+  /**
+   * True when this is a preview (`--dry-run`): nothing was applied. The ONE
+   * uniform "is this a preview?" signal across every verb — the engine plan rides
+   * in `plan`, an installer's fs-plan in `data`, but `dry_run` marks both.
+   */
+  dry_run?: boolean | undefined;
   /** Dry-run / preview: the plan that WOULD run (mutually exclusive with `steps`). */
   plan?: EnginePlan | undefined;
   /** Apply: the steps that ran and how each turned out. */
@@ -158,6 +164,45 @@ export interface DiscernResult {
   error?: string | undefined;
   /** A human sentence accompanying `error`. */
   message?: string | undefined;
+}
+
+// ── captured-output capping (the Tier-0 diagnostic budget) ──────────────────
+
+/**
+ * Chars retained in a failed command's captured `output` — large enough for a
+ * tool's error block + summary, bounded so it never floods an agent's context.
+ */
+const CAPTURE_CAP = 16_000;
+
+const isHighSurrogate = (c: number): boolean => c >= 0xd800 && c <= 0xdbff;
+const isLowSurrogate = (c: number): boolean => c >= 0xdc00 && c <= 0xdfff;
+
+/**
+ * Cap a captured string to {@link CAPTURE_CAP}, keeping the head AND tail when it
+ * overflows (a compiler lists the first error early; a runner prints its summary at
+ * the end). Applied at the diagnostic boundary, not at capture, so structured
+ * normalization (SARIF) still sees the full output. Cuts are snapped off UTF-16
+ * surrogate boundaries so a multi-byte char is never split into a lone surrogate.
+ */
+export function capText(s: string): { text: string; truncated: boolean } {
+  if (s.length <= CAPTURE_CAP) {
+    return { text: s, truncated: false };
+  }
+  let head = Math.floor(CAPTURE_CAP * 0.6);
+  if (isHighSurrogate(s.charCodeAt(head - 1))) {
+    head -= 1; // don't split a surrogate pair at the head cut
+  }
+  let tailStart = s.length - (CAPTURE_CAP - head);
+  if (isLowSurrogate(s.charCodeAt(tailStart))) {
+    tailStart += 1; // …nor at the tail cut
+  }
+  const elided = tailStart - head;
+  return {
+    text: `${s.slice(0, head)}\n… ${elided} chars elided …\n${
+      s.slice(tailStart)
+    }`,
+    truncated: true,
+  };
 }
 
 // ── the shared plan renderer (the `--dry-run` listing) ──────────────────────
@@ -287,7 +332,7 @@ export function resultsToJson(results: StepResult[]): {
  * `plan` and no `steps`, the structural signal that nothing acted.
  */
 export function previewResult(verb: string, plan: EnginePlan): DiscernResult {
-  return { ok: true, verb, plan };
+  return { ok: true, verb, dry_run: true, plan };
 }
 
 /**
@@ -321,6 +366,9 @@ export function appliedResult(
  */
 export function serializeResult(r: DiscernResult): Record<string, unknown> {
   const out: Record<string, unknown> = { ok: r.ok, verb: r.verb };
+  if (r.dry_run !== undefined) {
+    out.dry_run = r.dry_run;
+  }
   if (r.plan !== undefined) {
     out.plan = planToJson(r.plan);
   }
