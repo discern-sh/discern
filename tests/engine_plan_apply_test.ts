@@ -160,7 +160,13 @@ Deno.test("ratchets --dry-run lists the ratchet without measuring it", async () 
 
     const j = await runAgent(dir, ["ratchets", "--dry-run", "--json"]);
     assertEquals(j.code, 0, j.output);
-    assertEquals(parseJson(j.stdout).dry_run, true);
+    const obj = parseJson(j.stdout);
+    // A preview envelope: verb + plan, no executed steps.
+    assertEquals(obj.verb, "ratchets");
+    assertEquals(obj.steps, undefined);
+    assert(
+      obj.plan.steps.some((s: { label: string }) => s.label === "coverage"),
+    );
   });
 });
 
@@ -325,6 +331,9 @@ Deno.test("graduate --json reports a precondition failure as a JSON error", asyn
     assertEquals(r.code, 1, r.output);
     const obj = parseJson(r.stdout); // the error is a JSON object, not a human line
     assertEquals(obj.ok, false);
-    assertStringIncludes(obj.error, "uncommitted changes");
+    assertEquals(obj.verb, "graduate");
+    // error is a machine-stable slug; the human sentence rides in `message`.
+    assertEquals(obj.error, "precondition_failed");
+    assertStringIncludes(obj.message, "uncommitted changes");
   });
 });

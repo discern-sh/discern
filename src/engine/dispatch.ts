@@ -13,6 +13,7 @@ import { Command } from "@cliffy/command";
 import { join } from "@std/path";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { RawConfig } from "../shared/config_read.ts";
+import { serializeResult } from "../shared/result.ts";
 import {
   CONFIG_REL,
   findRoot,
@@ -127,11 +128,12 @@ function handleWorktreeError(e: unknown, log: Logger): number {
  * Build a lifecycle context and run a worktree operation, mapping errors to codes.
  * In `--json` mode the human narration is suppressed (Logger json mode) so stdout
  * carries only the verb's JSON object, and a thrown worktree error is emitted as a
- * `{ ok:false, error }` object rather than a (suppressed) human line.
+ * `DiscernResult` (`{ok:false, verb, error, message}`) rather than a (suppressed)
+ * human line — a precondition slug in `error`, the human sentence in `message`.
  */
 async function runWorktreeOp(
   op: (ctx: LifecycleContext) => Promise<void>,
-  opts: { json?: boolean } = {},
+  opts: { json?: boolean; verb?: string } = {},
 ): Promise<number> {
   const root = await requireRoot();
   const json = opts.json ?? false;
@@ -145,7 +147,14 @@ async function runWorktreeOp(
     return 0;
   } catch (e) {
     if (json && (e instanceof WorktreeGitError || e instanceof IdentityError)) {
-      console.log(JSON.stringify({ ok: false, error: e.message }));
+      console.log(JSON.stringify(serializeResult({
+        ok: false,
+        verb: opts.verb ?? "worktree",
+        error: e instanceof IdentityError
+          ? "identity_error"
+          : "precondition_failed",
+        message: e.message,
+      })));
       return 1;
     }
     return handleWorktreeError(e, log);
@@ -270,7 +279,7 @@ export function attachEngineCommands(
       Deno.exit(
         await runWorktreeOp(
           (ctx) => graduate(ctx, { json, dryRun: o.dryRun ?? false }),
-          { json },
+          { json, verb: "graduate" },
         ),
       );
     });
@@ -346,7 +355,7 @@ export function attachEngineCommands(
       Deno.exit(
         await runWorktreeOp(
           (ctx) => worktreeSetup(ctx, { json, dryRun: o.dryRun ?? false }),
-          { json },
+          { json, verb: "worktree" },
         ),
       );
     })
@@ -379,7 +388,7 @@ export function attachEngineCommands(
             await runWorktreeOp(
               (ctx) =>
                 worktreeTeardown(ctx, { json, dryRun: o.dryRun ?? false }),
-              { json },
+              { json, verb: "worktree:teardown" },
             ),
           );
         }),
@@ -409,7 +418,7 @@ export function attachEngineCommands(
                   dryRun: o.dryRun ?? false,
                   json,
                 }),
-              { json },
+              { json, verb: "worktree:prune" },
             ),
           );
         }),

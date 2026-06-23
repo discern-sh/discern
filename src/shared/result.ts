@@ -280,6 +280,36 @@ export function resultsToJson(results: StepResult[]): {
   };
 }
 
+// ── envelope constructors ───────────────────────────────────────────────────
+
+/**
+ * A preview (dry-run) result: the plan that WOULD run, nothing executed. Carries
+ * `plan` and no `steps`, the structural signal that nothing acted.
+ */
+export function previewResult(verb: string, plan: EnginePlan): DiscernResult {
+  return { ok: true, verb, plan };
+}
+
+/**
+ * An applied result: the steps that ran (ok when none failed), with optional
+ * diagnostics. The single place the "ok = no step failed" rule lives, so every
+ * plan/apply verb agrees on it.
+ */
+export function appliedResult(
+  verb: string,
+  results: StepResult[],
+  diagnostics?: Diagnostic[],
+): DiscernResult {
+  return {
+    ok: results.every((r) => r.outcome !== "failed"),
+    verb,
+    steps: results,
+    diagnostics: diagnostics !== undefined && diagnostics.length > 0
+      ? diagnostics
+      : undefined,
+  };
+}
+
 // ── the envelope serializer ─────────────────────────────────────────────────
 
 /**

@@ -23,9 +23,10 @@ import {
   ratchetPlanToEngine,
 } from "./ratchet_plan.ts";
 import {
-  planToJson,
+  appliedResult,
+  previewResult,
   renderPlan,
-  resultsToJson,
+  serializeResult,
   type StepOutcome,
   type StepResult,
 } from "../../shared/result.ts";
@@ -238,7 +239,9 @@ export async function runRatchets(
   if (dryRun) {
     const engine = ratchetPlanToEngine(plan);
     if (json) {
-      console.log(JSON.stringify({ dry_run: true, plan: planToJson(engine) }));
+      console.log(
+        JSON.stringify(serializeResult(previewResult("ratchets", engine))),
+      );
       return 0;
     }
     renderPlan(outSink(out), engine);
@@ -247,7 +250,9 @@ export async function runRatchets(
 
   if (plan.ratchets.length === 0) {
     if (json) {
-      console.log(JSON.stringify(resultsToJson([])));
+      console.log(
+        JSON.stringify(serializeResult(appliedResult("ratchets", []))),
+      );
       return 0;
     }
     out.info(
@@ -259,7 +264,9 @@ export async function runRatchets(
   const { ok, results } = await executeRatchetPlan(plan, root, mainBranch, out);
 
   if (json) {
-    console.log(JSON.stringify(resultsToJson(results)));
+    console.log(
+      JSON.stringify(serializeResult(appliedResult("ratchets", results))),
+    );
     return ok ? 0 : 1;
   }
 
