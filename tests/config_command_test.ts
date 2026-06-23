@@ -286,7 +286,7 @@ Deno.test("config --dry-run writes nothing", async () => {
       dir,
     );
     assertEquals(r.code, 0, r.stderr);
-    assertEquals(JSON.parse(r.stdout).data.dry_run, true);
+    assertEquals(JSON.parse(r.stdout).dry_run, true);
     assertEquals(await readToml(dir), before); // unchanged
   });
 });
@@ -566,7 +566,7 @@ Deno.test("config set --dry-run --json reports the edit and writes nothing", asy
     );
     assertEquals(r.code, 0, r.stderr);
     const result = JSON.parse(r.stdout);
-    assertEquals(result.data.dry_run, true);
+    assertEquals(result.dry_run, true);
     assertEquals(result.data.file, "discern.toml");
     assert(
       result.data.edits.some((e: { key: string; literal: string }) =>

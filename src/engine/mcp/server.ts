@@ -155,11 +155,10 @@ async function dispatch(
       // Echo the client's protocol version only if we actually speak it; otherwise
       // answer with our default rather than agreeing to a revision we don't support.
       const requested = msg.params?.protocolVersion;
-      const protocolVersion =
-        typeof requested === "string" &&
+      const protocolVersion = typeof requested === "string" &&
           SUPPORTED_PROTOCOL_VERSIONS.includes(requested)
-          ? requested
-          : DEFAULT_PROTOCOL_VERSION;
+        ? requested
+        : DEFAULT_PROTOCOL_VERSION;
       reply(id, {
         protocolVersion,
         capabilities: { tools: { listChanged: false } },

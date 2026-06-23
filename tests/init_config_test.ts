@@ -97,7 +97,7 @@ Deno.test("init --config --dry-run writes nothing", async () => {
       dir,
     );
     assertEquals(r.code, 0, r.stderr);
-    assertEquals(JSON.parse(r.stdout).data.dry_run, true);
+    assertEquals(JSON.parse(r.stdout).dry_run, true);
     // Only the answers file exists; nothing was scaffolded.
     let entries = 0;
     for await (const _ of Deno.readDir(dir)) {

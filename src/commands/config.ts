@@ -101,7 +101,8 @@ async function applyEdits(
       log.result({
         ok: true,
         verb: "config",
-        data: { dry_run: true, file: fileRel, edits },
+        dry_run: true,
+        data: { file: fileRel, edits },
       });
     } else {
       log.info("Dry run — would set:");

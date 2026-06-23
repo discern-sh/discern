@@ -146,6 +146,12 @@ export interface DiscernResult {
   ok: boolean;
   /** The verb that produced this result ("finish", "graduate", "doctor", …). */
   verb: string;
+  /**
+   * True when this is a preview (`--dry-run`): nothing was applied. The ONE
+   * uniform "is this a preview?" signal across every verb — the engine plan rides
+   * in `plan`, an installer's fs-plan in `data`, but `dry_run` marks both.
+   */
+  dry_run?: boolean | undefined;
   /** Dry-run / preview: the plan that WOULD run (mutually exclusive with `steps`). */
   plan?: EnginePlan | undefined;
   /** Apply: the steps that ran and how each turned out. */
@@ -326,7 +332,7 @@ export function resultsToJson(results: StepResult[]): {
  * `plan` and no `steps`, the structural signal that nothing acted.
  */
 export function previewResult(verb: string, plan: EnginePlan): DiscernResult {
-  return { ok: true, verb, plan };
+  return { ok: true, verb, dry_run: true, plan };
 }
 
 /**
@@ -360,6 +366,9 @@ export function appliedResult(
  */
 export function serializeResult(r: DiscernResult): Record<string, unknown> {
   const out: Record<string, unknown> = { ok: r.ok, verb: r.verb };
+  if (r.dry_run !== undefined) {
+    out.dry_run = r.dry_run;
+  }
   if (r.plan !== undefined) {
     out.plan = planToJson(r.plan);
   }

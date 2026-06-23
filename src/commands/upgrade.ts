@@ -155,7 +155,8 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
       log.result({
         ok: true,
         verb: "upgrade",
-        data: { dry_run: true, pending_migrations: pendingJson },
+        dry_run: true,
+        data: { pending_migrations: pendingJson },
       });
     } else {
       if (pending.length > 0) {

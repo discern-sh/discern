@@ -79,7 +79,7 @@ Deno.test("init --dry-run --json writes nothing", async () => {
     );
     assertEquals(code, 0);
     const result = JSON.parse(stdout);
-    assertEquals(result.data.dry_run, true);
+    assertEquals(result.dry_run, true);
     assert(Array.isArray(result.data.plan));
     // Nothing was written.
     let entries = 0;

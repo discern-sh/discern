@@ -138,6 +138,7 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     const finish = call.result.structuredContent;
     assertEquals(finish.ok, true);
     assertEquals(finish.verb, "finish");
+    assertEquals(finish.dry_run, true); // the uniform preview signal, over MCP too
     assertEquals(finish.plan.title, "Gate plan"); // a preview carries the plan
     // The text content mirrors the structured content (same serialized object).
     assert(call.result.content[0].text.includes('"verb": "finish"'));

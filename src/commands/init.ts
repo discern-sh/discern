@@ -291,8 +291,8 @@ export async function runInit(options: InitOptions): Promise<number> {
       log.result({
         ok: true,
         verb: "init",
+        dry_run: true,
         data: {
-          dry_run: true,
           project: { slug: config.slug, agents: config.agents },
           plan: planToJson(plan),
         },
