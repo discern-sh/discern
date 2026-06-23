@@ -117,7 +117,9 @@ async function writeStrongFiles(dir: string): Promise<void> {
   await Deno.writeTextFile(
     join(dir, "guidance.md"),
     // Substantive prose (> the 400 non-whitespace-char substance threshold).
-    "# Project guidance\n\n" + "This project follows a few hard conventions an agent could not infer from the code alone. ".repeat(8),
+    "# Project guidance\n\n" +
+      "This project follows a few hard conventions an agent could not infer from the code alone. "
+        .repeat(8),
   );
   await ensureDir(join(dir, "docs", "_adr"));
   await Deno.writeTextFile(join(dir, "docs", "README.md"), "# Docs\n");
@@ -141,7 +143,10 @@ Deno.test("audit --json: a fresh install scores low and teaches every gap", asyn
     assertEquals(payload.ok, true);
     assertEquals(payload.verb, "audit");
     assert(payload.data !== undefined);
-    assert(payload.data.score < 50, `expected a low score, got ${payload.data.score}`);
+    assert(
+      payload.data.score < 50,
+      `expected a low score, got ${payload.data.score}`,
+    );
 
     // The gate category is fully unwired → all three rules fail, each with a fix.
     const gate = cat(payload, "gate");
@@ -149,12 +154,18 @@ Deno.test("audit --json: a fresh install scores low and teaches every gap", asyn
     for (const id of ["gate.test", "gate.static-analysis", "gate.format"]) {
       const r = rule(gate, id);
       assertEquals(r.status, "fail");
-      assert(r.fix !== undefined && r.fix.length > 0, `${id} should carry a fix`);
+      assert(
+        r.fix !== undefined && r.fix.length > 0,
+        `${id} should carry a fix`,
+      );
       assert(r.teach.length > 0, `${id} should carry a teach`);
     }
 
     // Not bootstrapped → setup flags it with the bootstrap fix.
-    assertEquals(rule(cat(payload, "setup"), "setup.bootstrapped").status, "fail");
+    assertEquals(
+      rule(cat(payload, "setup"), "setup.bootstrapped").status,
+      "fail",
+    );
   });
 });
 
@@ -171,11 +182,21 @@ Deno.test("audit --json: wiring the practices raises the score and passes the ru
     assertEquals(code, 0);
     assert(payload.data !== undefined);
     // Every deterministic rule is satisfied → a perfect score, no weak rules.
-    assertEquals(payload.data.score, 100, JSON.stringify(payload.data.categories));
+    assertEquals(
+      payload.data.score,
+      100,
+      JSON.stringify(payload.data.categories),
+    );
     assertEquals(payload.data.weak, 0);
     assertEquals(rule(cat(payload, "gate"), "gate.test").status, "pass");
-    assertEquals(rule(cat(payload, "setup"), "setup.bootstrapped").status, "pass");
-    assertEquals(rule(cat(payload, "guidance"), "guidance.source").status, "pass");
+    assertEquals(
+      rule(cat(payload, "setup"), "setup.bootstrapped").status,
+      "pass",
+    );
+    assertEquals(
+      rule(cat(payload, "guidance"), "guidance.source").status,
+      "pass",
+    );
     assertEquals(rule(cat(payload, "docs"), "docs.adrs").status, "pass");
     assertEquals(rule(cat(payload, "ratchets"), "ratchets.any").status, "pass");
   });

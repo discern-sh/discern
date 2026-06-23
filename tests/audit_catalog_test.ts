@@ -73,9 +73,15 @@ Deno.test("audit catalog: rule ids are unique and namespaced by their category",
   const seen = new Set<string>();
   const catNames = new Set<string>();
   for (const category of CATEGORIES) {
-    assert(!catNames.has(category.name), `duplicate category '${category.name}'`);
+    assert(
+      !catNames.has(category.name),
+      `duplicate category '${category.name}'`,
+    );
     catNames.add(category.name);
-    assert(category.rules.length > 0, `category '${category.name}' has no rules`);
+    assert(
+      category.rules.length > 0,
+      `category '${category.name}' has no rules`,
+    );
     for (const rule of category.rules) {
       assert(!seen.has(rule.id), `duplicate rule id '${rule.id}'`);
       seen.add(rule.id);
@@ -108,7 +114,10 @@ Deno.test("audit scoring: a fully-wired project scores 100 with no weak rules", 
   assertEquals(report.score, 100);
   assertEquals(report.weak, 0);
   // Every subjective rule still surfaces as an open review even at a perfect score.
-  assert(report.reviews > 0, "subjective rules are reviews regardless of score");
+  assert(
+    report.reviews > 0,
+    "subjective rules are reviews regardless of score",
+  );
 });
 
 Deno.test("audit scoring: a bare project scores low and ranks the worst category first", () => {
@@ -121,7 +130,8 @@ Deno.test("audit scoring: a bare project scores low and ranks the worst category
   // Ranking is monotonic non-decreasing in score.
   for (let i = 1; i < report.categories.length; i++) {
     assert(
-      (report.categories[i]?.score ?? 0) >= (report.categories[i - 1]?.score ?? 0),
+      (report.categories[i]?.score ?? 0) >=
+        (report.categories[i - 1]?.score ?? 0),
       "categories must be sorted weakest-first",
     );
   }
@@ -143,7 +153,10 @@ Deno.test("audit scoring: partial credit moves the score between fail and pass",
     }),
     "setup",
   ).categories[0]?.score ?? -1;
-  assert(fail < partial && partial < pass, `expected fail<partial<pass, got ${fail},${partial},${pass}`);
+  assert(
+    fail < partial && partial < pass,
+    `expected fail<partial<pass, got ${fail},${partial},${pass}`,
+  );
 });
 
 Deno.test("audit scoring: a disabled feature drops its whole category", () => {
