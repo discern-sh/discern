@@ -77,7 +77,9 @@ Deno.test("finish --dry-run --json emits the plan, not a run report", async () =
     const r = await runAgent(dir, ["finish", "--dry-run", "--json"]);
     assertEquals(r.code, 0, r.output);
     const obj = parseJson(r.stdout);
-    assertEquals(obj.dry_run, true);
+    // A preview is a DiscernResult carrying only `plan` (no executed `steps`).
+    assertEquals(obj.verb, "finish");
+    assertEquals(obj.steps, undefined);
     assertEquals(obj.plan.title, "Gate plan");
     assert(
       obj.plan.steps.some((s: { label: string }) => s.label === "test"),
@@ -116,14 +118,14 @@ Deno.test("finish classifies scopes AFTER the fix stage (a fixer's new file fire
     assertEquals(r.code, 0, r.output);
     const obj = parseJson(r.stdout);
     assert(
-      obj.scopes_changed.includes("gen"),
+      obj.data.scopes_changed.includes("gen"),
       `the fixer's new file should make 'gen' a changed scope\n${r.stdout}`,
     );
-    const gen = obj.scope_gates.find((g: { scope: string }) =>
-      g.scope === "gen"
+    const gen = obj.steps.find((s: { label: string }) =>
+      s.label === "scope:gen"
     );
     assertEquals(
-      gen.status,
+      gen.outcome,
       "ok",
       "the gen scope gate must have fired and passed",
     );

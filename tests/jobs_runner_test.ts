@@ -1,6 +1,6 @@
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { runParallel, runSerial } from "../src/engine/jobs/runner.ts";
-import { finalCode } from "../src/engine/jobs/command.ts";
+import { capText, finalCode } from "../src/engine/jobs/command.ts";
 import type { Job } from "../src/engine/jobs/types.ts";
 
 /** A capturing output sink for assertions on banners + job output. */
@@ -92,6 +92,50 @@ Deno.test("buffered mode captures combined stdout+stderr after the banner", asyn
   assert(s.text().includes("── noisy ─ FAILED (exit 1)"), s.text());
   assert(s.text().includes("hello-stdout"), s.text());
   assert(s.text().includes("oops-stderr"), s.text());
+});
+
+Deno.test("a genuinely failed job carries its captured output for the diagnostic; a passing one does not", async () => {
+  const s = makeSink();
+  const r = await runParallel([
+    { label: "fail", command: "echo why-it-failed >&2; exit 1" },
+    { label: "pass", command: "echo all-good; true" },
+  ], { stream: false, failFast: false, color: false, write: s.write });
+  const fail = r.results.find((x) => x.label === "fail");
+  const pass = r.results.find((x) => x.label === "pass");
+  // The failure's result carries the captured output (the Tier-0 diagnostic payload).
+  assert(fail?.output !== undefined, "expected the failed job to carry output");
+  assertStringIncludes(fail.output, "why-it-failed");
+  assertEquals(fail.cancelled, undefined);
+  // A passing job stays lean — no output, no cancelled flag.
+  assertEquals(pass?.output, undefined);
+});
+
+Deno.test("a fail-fast-cancelled sibling is flagged cancelled and carries no output", async () => {
+  const s = makeSink();
+  const r = await runParallel([
+    { label: "boom", command: "exit 1" },
+    { label: "victim", command: "echo partial; sleep 30" },
+  ], { stream: false, failFast: true, color: false, write: s.write });
+  const victim = r.results.find((x) => x.label === "victim");
+  // The killed sibling is not a real failure: flagged cancelled, no diagnostic output.
+  assertEquals(victim?.cancelled, true);
+  assertEquals(victim?.output, undefined);
+});
+
+Deno.test("capText: returns short text unchanged, head+tail caps an overflow", () => {
+  const small = capText("just a little");
+  assertEquals(small.truncated, false);
+  assertEquals(small.text, "just a little");
+
+  const big = capText("A".repeat(10_000) + "B".repeat(10_000));
+  assert(big.truncated, "expected the 20k string to be truncated");
+  assert(
+    big.text.length < 20_000,
+    "capped text should be shorter than the input",
+  );
+  assertStringIncludes(big.text, "bytes elided"); // the middle marker
+  assert(big.text.startsWith("A"), "head retained");
+  assert(big.text.endsWith("B"), "tail retained");
 });
 
 Deno.test("finalCode: a self-exited job keeps its real code; a signal-killed job reports 1", () => {

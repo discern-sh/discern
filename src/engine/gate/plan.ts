@@ -16,7 +16,15 @@ import { type DiscernConfig, toCommand } from "../../shared/config_schema.ts";
 import type { Stage } from "../../shared/capabilities.ts";
 import { jobsInStage } from "./stages.ts";
 import type { JobResult } from "../jobs/types.ts";
-import type { EnginePlan, PlanStep } from "../../shared/result.ts";
+import type {
+  Diagnostic,
+  DiscernResult,
+  EnginePlan,
+  PlanStep,
+  StepKind,
+  StepOutcome,
+  StepResult,
+} from "../../shared/result.ts";
 
 /**
  * A gate job as planned: the command to run plus the metadata the ADR-0004 report
@@ -207,35 +215,18 @@ export function buildGatePlan(cfg: DiscernConfig, changed: string[]): GatePlan {
   );
 }
 
-// ── the ADR-0004 `finish --json` report (a serialization of plan + results) ─────
+// ── the `finish` result (a DiscernResult serialization of plan + results) ───────
 
-/** A per-job entry in the `--json` report. */
-export interface JobReport {
-  name: string;
-  kind: "capability" | "check";
-  stage: Stage;
-  status: "ok" | "failed" | "skipped";
-  duration_s: number;
-}
-
-/** A per-scope-gate entry in the `--json` report. */
-export interface ScopeGateReport {
-  scope: string;
-  status: "ok" | "failed" | "skipped";
-  duration_s: number;
-}
-
-/** The full `finish --json` report object (ADR 0004). */
-export interface GateReport {
-  ok: boolean;
-  jobs: JobReport[];
-  scope_gates: ScopeGateReport[];
-  scopes_changed: string[];
+/** The finish-specific `data` payload on its {@link DiscernResult}. */
+export interface GateData {
+  /** The stage that failed (`fix`|`build`|`check/test`|`scope_gates`|`merge`), or null. */
   failed_stage: string | null;
+  /** The scopes the branch changed (drives which scope gates fired). */
+  scopes_changed: string[];
 }
 
-/** A job's status from its result (absent = its stage aborted before it → skipped). */
-function jobStatus(r: JobResult | undefined): "ok" | "failed" | "skipped" {
+/** A step's outcome from its result (absent = its stage aborted before it → skipped). */
+function stepOutcome(r: JobResult | undefined): StepOutcome {
   if (r === undefined) {
     return "skipped";
   }
@@ -243,48 +234,61 @@ function jobStatus(r: JobResult | undefined): "ok" | "failed" | "skipped" {
 }
 
 /**
- * Build the ADR-0004 `--json` report by SERIALIZING the plan it executed plus the
- * per-job results — not by re-deriving from config. Walks the plan's groups in
- * order: capability/check jobs land in `jobs[]` (in fix→build→check→test order),
- * scope-gate jobs in `scope_gates[]` (declared order), each looked up by label
- * (missing → skipped). A configured-but-unchanged scope gate has no result, so it
- * reports `skipped`, exactly as before.
+ * Build the `finish` {@link DiscernResult} by SERIALIZING the plan it executed plus
+ * the per-job results — not by re-deriving from config. Each capability/check/scope-
+ * gate job becomes a {@link StepResult} (looked up by label; missing → skipped), in
+ * plan order, so the same projection feeds both the dry-run plan and the executed
+ * result. A failed job that captured output yields a Tier-0 {@link Diagnostic} —
+ * the structured "why" carrying the command to reproduce it and its output. The
+ * gate's own concerns (which stage failed, which scopes changed) ride in `data`.
  */
-export function buildGateReport(
+export function buildGateResult(
   plan: GatePlan,
   results: Map<string, JobResult>,
   failedStage: string | null,
-): GateReport {
-  const jobs: JobReport[] = [];
-  const scope_gates: ScopeGateReport[] = [];
+): DiscernResult {
+  const steps: StepResult[] = [];
+  const diagnostics: Diagnostic[] = [];
   for (const group of plan.groups) {
     for (const j of group.jobs) {
       const r = results.get(j.label);
-      const status = jobStatus(r);
-      const duration_s = r === undefined ? 0 : r.durationS;
-      if (j.kind === "scope-gate") {
-        scope_gates.push({
-          scope: j.label.replace(/^scope:/, ""),
-          status,
-          duration_s,
-        });
-      } else {
-        jobs.push({
-          name: j.label,
-          kind: j.kind,
-          stage: j.reportStage as Stage,
-          status,
-          duration_s,
+      const kind: StepKind = j.kind === "scope-gate" ? "scope-gate" : "job";
+      steps.push({
+        step: {
+          kind,
+          label: j.label,
+          disposition: j.willRun ? "run" : "skip",
+          note: j.willRun ? j.command : "scope unchanged",
+          group: group.display,
+        },
+        outcome: stepOutcome(r),
+        durationS: r === undefined ? 0 : r.durationS,
+      });
+      // A genuine failure earns a Tier-0 diagnostic — even with no captured output,
+      // its `reproduce_cmd` alone moves the agent off "re-run and scrape". A
+      // fail-fast-cancelled sibling is excluded: it's not a failure to fix.
+      if (r !== undefined && r.code !== 0 && r.cancelled !== true) {
+        diagnostics.push({
+          tool: j.label,
+          severity: "error",
+          message: `${j.label} failed (exit ${r.code})`,
+          reproduce_cmd: j.command,
+          output: r.output,
+          truncated: r.truncated,
         });
       }
     }
   }
+  const data: GateData = {
+    failed_stage: failedStage,
+    scopes_changed: plan.scopesChanged,
+  };
   return {
     ok: failedStage === null,
-    jobs,
-    scope_gates,
-    scopes_changed: plan.scopesChanged,
-    failed_stage: failedStage,
+    verb: "finish",
+    steps,
+    diagnostics: diagnostics.length > 0 ? diagnostics : undefined,
+    data,
   };
 }
 

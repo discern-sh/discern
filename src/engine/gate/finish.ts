@@ -21,11 +21,10 @@ import type { Job, JobResult } from "../jobs/types.ts";
 import { type RunOptions, runParallel, runSerial } from "../jobs/runner.ts";
 import {
   buildGatePlan,
-  buildGateReport,
+  buildGateResult,
   buildStageGroups,
   composeGatePlan,
   gatePlanToEngine,
-  type GateReport,
   type JobGroup,
   planScopeGates,
   scopeGatesGroup,
@@ -41,7 +40,12 @@ import {
   outSink,
 } from "../output.ts";
 import { assertMainMerged } from "../worktree/git.ts";
-import { planToJson, renderPlan } from "../../shared/result.ts";
+import {
+  type Diagnostic,
+  type DiscernResult,
+  renderPlan,
+  serializeResult,
+} from "../../shared/result.ts";
 
 /**
  * Run one job group — the thin per-group executor. Runs the group's firing jobs
@@ -90,13 +94,13 @@ function failMessage(stage: string): string {
   }
 }
 
-/** Run the gate once: plan, apply, build the report. */
+/** Run the gate once: plan, apply, build the result. */
 async function runGate(
   root: string,
   json: boolean,
 ): Promise<
   {
-    report: GateReport;
+    result: DiscernResult;
     failedStage: string | null;
     cfg: DiscernConfig;
     out: Out;
@@ -151,10 +155,10 @@ async function runGate(
     }
   }
 
-  // 5. Assemble the executed plan and serialize it into the report.
+  // 5. Assemble the executed plan and serialize it into the result.
   const plan = composeGatePlan(stageGroups, sgGroup, changed);
   return {
-    report: buildGateReport(plan, results, failedStage),
+    result: buildGateResult(plan, results, failedStage),
     failedStage,
     cfg,
     out,
@@ -221,11 +225,42 @@ async function dryRunGate(
   const plan = buildGatePlan(cfg, changed);
   const engine = gatePlanToEngine(plan);
   if (json) {
-    console.log(JSON.stringify({ dry_run: true, plan: planToJson(engine) }));
+    // A preview is a DiscernResult carrying only `plan` (no `steps`): nothing ran.
+    console.log(
+      JSON.stringify(
+        serializeResult({ ok: true, verb: "finish", plan: engine }),
+      ),
+    );
     return 0;
   }
   renderPlan(outSink(makeOut(colorEnabled())), engine);
   return 0;
+}
+
+/**
+ * Render the structured failures block (human mode) — a clean list of each failed
+ * tool with its location (Tier 1, when parsed) and the exact command to reproduce
+ * it in isolation. The full tool output already streamed above; this is the
+ * scannable "what to fix and how to re-run it" summary, the human mirror of the
+ * `diagnostics[]` an agent reads from `--json`.
+ */
+function renderFailures(out: Out, diagnostics: Diagnostic[]): void {
+  if (diagnostics.length === 0) {
+    return;
+  }
+  const c = out.c;
+  out.heading(`Failures (${diagnostics.length})`);
+  for (const d of diagnostics) {
+    const loc = d.file !== undefined
+      ? ` ${c.dim}${d.file}${
+        d.line !== undefined ? `:${d.line}` : ""
+      }${c.reset}`
+      : "";
+    out.raw(
+      `  ${c.red}✗${c.reset} ${d.tool}${loc} ${c.dim}—${c.reset} ${d.message}\n`,
+    );
+    out.raw(`    ${c.dim}reproduce:${c.reset} ${d.reproduce_cmd}\n`);
+  }
 }
 
 /** Run `finish`. Returns a process exit code. */
@@ -236,15 +271,16 @@ export async function runFinish(
   if (opts.dryRun ?? false) {
     return await dryRunGate(root, opts.json);
   }
-  const { report, failedStage, cfg, out, changed } = await runGate(
+  const { result, failedStage, cfg, out, changed } = await runGate(
     root,
     opts.json,
   );
   if (opts.json) {
-    console.log(JSON.stringify(report));
+    console.log(JSON.stringify(serializeResult(result)));
     return failedStage === null ? 0 : 1;
   }
   if (failedStage !== null) {
+    renderFailures(out, result.diagnostics ?? []);
     out.error(failMessage(failedStage));
     gotchasHint(cfg, root, out.color);
     return 1;

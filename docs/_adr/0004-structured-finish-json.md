@@ -1,7 +1,9 @@
 # ADR 0004: `agent finish --json` — structured gate output
 
-**Status**: accepted; **amended by the 1.0 redesign** — see _Update (1.0)_
-below.
+**Status**: **superseded by
+[ADR 0028](0028-result-envelope-and-diagnostics.md)** (the bespoke `GateReport`
+shape is replaced by the universal `DiscernResult` envelope + normalized
+diagnostics); previously amended by the 1.0 redesign — see _Update (1.0)_ below.
 
 ## Update (1.0)
 

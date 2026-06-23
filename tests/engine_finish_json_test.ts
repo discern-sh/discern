@@ -1,15 +1,16 @@
 /**
- * Engine tests for structured `agent finish --json` output (ADR 0004).
+ * Engine tests for the structured `finish --json` result — the DiscernResult
+ * envelope (ADR 0028).
  *
  * In --json mode finish emits a single JSON object on stdout (human output goes
- * to stderr): per-JOB results (the execution unit — each capability/check runs
- * as its own job, reported as {name, kind, stage, status, duration_s}), per-
- * scope-gate results (fired = ok/failed, configured-but-unchanged = skipped),
- * the scopes that changed, and the failed stage. These tests parse the stdout
- * and assert the shape.
+ * to stderr): the uniform `{ok, verb, steps, diagnostics?, data}` shell every
+ * verb returns. Each capability/check/scope-gate is a `steps[]` entry; a GENUINE
+ * failure also yields a `diagnostics[]` entry carrying the command to reproduce it
+ * and its captured output — the structured "why" an agent fixes from. The gate's
+ * own `failed_stage` / `scopes_changed` ride in the verb-specific `data`.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import {
@@ -25,7 +26,14 @@ function parseJson(stdout: string): any {
   return JSON.parse(stdout.trim());
 }
 
-Deno.test("finish --json: no-op gate emits ok:true with an empty jobs array", async () => {
+// deno-lint-ignore no-explicit-any
+const stepFor = (obj: any, label: string) =>
+  obj.steps.find((s: { label: string }) => s.label === label);
+// deno-lint-ignore no-explicit-any
+const diagFor = (obj: any, tool: string) =>
+  (obj.diagnostics ?? []).find((d: { tool: string }) => d.tool === tool);
+
+Deno.test("finish --json: a no-op gate emits ok:true, verb, and no job steps", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -34,19 +42,22 @@ Deno.test("finish --json: no-op gate emits ok:true with an empty jobs array", as
 
     const obj = parseJson(r.stdout); // stdout must be ONLY the JSON object
     assertEquals(obj.ok, true);
-    assertEquals(obj.failed_stage, null);
-    // The default install wires no capability/check, so no job runs at all —
-    // there are no "noop" rows any more, just an empty jobs list.
-    assert(
-      Array.isArray(obj.jobs) && obj.jobs.length === 0,
-      `expected zero jobs on a no-op gate, got ${JSON.stringify(obj.jobs)}`,
+    assertEquals(obj.verb, "finish");
+    assertEquals(obj.data.failed_stage, null);
+    // The default install wires no capability/check, so no JOB-kind step ran.
+    const jobs = obj.steps.filter((s: { kind: string }) => s.kind === "job");
+    assertEquals(
+      jobs.length,
+      0,
+      `expected zero job steps on a no-op gate, got ${JSON.stringify(jobs)}`,
     );
-    assert(Array.isArray(obj.scope_gates));
-    assert(Array.isArray(obj.scopes_changed));
+    assert(Array.isArray(obj.data.scopes_changed));
+    // No failure → the diagnostics field is omitted entirely.
+    assertEquals(obj.diagnostics, undefined);
   });
 });
 
-Deno.test("finish --json: a failing check reports ok:false and the failed stage", async () => {
+Deno.test("finish --json: a failing check reports ok:false, a failed step, and a diagnostic with captured output", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -61,7 +72,8 @@ Deno.test("finish --json: a failing check reports ok:false and the failed stage"
         "neutral = true",
         "",
         "[capabilities]",
-        'lint = "exit 1"', // lint is a check-stage capability
+        // a check-stage capability that prints to stderr, then fails
+        'lint = "echo boom-on-stderr >&2; exit 1"',
         "",
       ].join("\n"),
     );
@@ -71,16 +83,25 @@ Deno.test("finish --json: a failing check reports ok:false and the failed stage"
 
     const obj = parseJson(r.stdout);
     assertEquals(obj.ok, false);
-    assertEquals(obj.failed_stage, "check/test");
-    // The failure is attributed to the precise job, not a whole stage.
-    const lint = obj.jobs.find((s: { name: string }) => s.name === "lint");
-    assertEquals(lint.status, "failed");
-    assertEquals(lint.stage, "check");
-    assertEquals(lint.kind, "capability");
+    assertEquals(obj.verb, "finish");
+    assertEquals(obj.data.failed_stage, "check/test");
+    // The failure is attributed to the precise job step.
+    const lint = stepFor(obj, "lint");
+    assertEquals(lint.outcome, "failed");
+    assertEquals(lint.kind, "job");
+    // …and to a structured diagnostic carrying the reproduce command + output.
+    const diag = diagFor(obj, "lint");
+    assert(
+      diag,
+      `expected a diagnostic for lint, got ${JSON.stringify(obj.diagnostics)}`,
+    );
+    assertEquals(diag.severity, "error");
+    assertEquals(diag.reproduce_cmd, "echo boom-on-stderr >&2; exit 1");
+    assertStringIncludes(diag.output, "boom-on-stderr");
   });
 });
 
-Deno.test("finish --json: scope-gates report fired (ok) and unchanged (skipped)", async () => {
+Deno.test("finish --json: scope-gates report fired (ok) and unchanged (skipped) steps", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -112,19 +133,16 @@ Deno.test("finish --json: scope-gates report fired (ok) and unchanged (skipped)"
 
     const obj = parseJson(r.stdout);
     assertEquals(obj.ok, true);
-    const widget = obj.scope_gates.find((g: { scope: string }) =>
-      g.scope === "widget"
-    );
-    const gadget = obj.scope_gates.find((g: { scope: string }) =>
-      g.scope === "gadget"
-    );
-    assertEquals(widget.status, "ok"); // fired and passed
-    assertEquals(gadget.status, "skipped"); // configured, scope unchanged
-    assert(obj.scopes_changed.includes("widget"));
+    const widget = stepFor(obj, "scope:widget");
+    const gadget = stepFor(obj, "scope:gadget");
+    assertEquals(widget.kind, "scope-gate");
+    assertEquals(widget.outcome, "ok"); // fired and passed
+    assertEquals(gadget.outcome, "skipped"); // configured, scope unchanged
+    assert(obj.data.scopes_changed.includes("widget"));
   });
 });
 
-Deno.test("finish --json: a failing scope-gate reports ok:false at the scope_gates stage", async () => {
+Deno.test("finish --json: a failing scope-gate reports ok:false at the scope_gates stage with a diagnostic", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -152,11 +170,70 @@ Deno.test("finish --json: a failing scope-gate reports ok:false at the scope_gat
 
     const obj = parseJson(r.stdout);
     assertEquals(obj.ok, false);
-    assertEquals(obj.failed_stage, "scope_gates");
-    const widget = obj.scope_gates.find((g: { scope: string }) =>
-      g.scope === "widget"
+    assertEquals(obj.data.failed_stage, "scope_gates");
+    const widget = stepFor(obj, "scope:widget");
+    assertEquals(widget.outcome, "failed");
+    // A failure with no output still earns a diagnostic — its reproduce_cmd alone
+    // moves the agent off "re-run and scrape".
+    const diag = diagFor(obj, "scope:widget");
+    assert(diag, "expected a diagnostic for the failed scope gate");
+    assertEquals(diag.reproduce_cmd, "exit 1");
+  });
+});
+
+Deno.test("finish --dry-run --json: emits a preview envelope (plan, no steps)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        'main_branch = "main"',
+        "",
+        "[capabilities]",
+        'test = "echo hi"',
+        "",
+      ].join("\n"),
     );
-    assertEquals(widget.status, "failed");
+    await gitInit(dir);
+    const r = await runAgent(dir, ["finish", "--dry-run", "--json"]);
+    assertEquals(r.code, 0, r.output);
+
+    const obj = parseJson(r.stdout);
+    assertEquals(obj.ok, true);
+    assertEquals(obj.verb, "finish");
+    assertEquals(obj.plan.title, "Gate plan");
+    assert(
+      obj.plan.steps.some((s: { label: string }) => s.label === "test"),
+      "dry-run plan should list the test job",
+    );
+    // A preview ran nothing, so there are no executed steps.
+    assertEquals(obj.steps, undefined);
+  });
+});
+
+Deno.test("finish (human): a failure prints a structured Failures block with reproduce commands", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        'main_branch = "main"',
+        "",
+        "[capabilities]",
+        'lint = "exit 7"',
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+    const r = await runAgent(dir, ["finish"]); // human mode
+    assertEquals(r.code, 1, r.output);
+    assertStringIncludes(r.output, "Failures");
+    assertStringIncludes(r.output, "reproduce:");
+    assertStringIncludes(r.output, "exit 7");
   });
 });
 
