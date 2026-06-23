@@ -124,6 +124,7 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     const names = list.result.tools.map((t: { name: string }) => t.name);
     assert(names.includes("discern_finish"), JSON.stringify(names));
     assert(names.includes("discern_changed_scopes"), JSON.stringify(names));
+    assert(names.includes("discern_audit"), JSON.stringify(names));
 
     // tools/call discern_finish {dry_run:true} → the preview DiscernResult.
     await mcp.send({
@@ -153,6 +154,22 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     const cs = await mcp.recv();
     assertEquals(cs.result.structuredContent.verb, "changed-scopes");
     assert(Array.isArray(cs.result.structuredContent.data.scopes));
+
+    // tools/call discern_audit → the scored best-practices DiscernResult.
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 6,
+      method: "tools/call",
+      params: { name: "discern_audit", arguments: {} },
+    });
+    const audit = await mcp.recv();
+    assertEquals(audit.id, 6);
+    assertEquals(audit.result.structuredContent.verb, "audit");
+    assertEquals(typeof audit.result.structuredContent.data.score, "number");
+    assert(
+      Array.isArray(audit.result.structuredContent.data.categories),
+      "audit data carries the scored categories",
+    );
 
     // an unknown tool is a JSON-RPC error.
     await mcp.send({
