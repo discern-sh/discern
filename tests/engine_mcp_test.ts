@@ -6,12 +6,15 @@
  */
 
 import { assert, assertEquals } from "@std/assert";
+import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import {
+  addWorktree,
   DENO_JSON,
   engineEnv,
   gitInit,
   MAIN_TS,
+  runAgent,
   scaffoldEngine,
 } from "./engine_helpers.ts";
 
@@ -123,8 +126,14 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     assertEquals(list.id, 2);
     const names = list.result.tools.map((t: { name: string }) => t.name);
     assert(names.includes("discern_finish"), JSON.stringify(names));
+    assert(names.includes("discern_prepare"), JSON.stringify(names));
+    assert(names.includes("discern_doctor"), JSON.stringify(names));
     assert(names.includes("discern_changed_scopes"), JSON.stringify(names));
     assert(names.includes("discern_audit"), JSON.stringify(names));
+    // The feature-gated tools are listed too (the default scaffold has every
+    // feature on).
+    assert(names.includes("discern_docs"), JSON.stringify(names));
+    assert(names.includes("discern_graduate"), JSON.stringify(names));
 
     // tools/call discern_finish {dry_run:true} → the preview DiscernResult.
     await mcp.send({
@@ -170,6 +179,39 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
       Array.isArray(audit.result.structuredContent.data.categories),
       "audit data carries the scored categories",
     );
+
+    // tools/call discern_doctor → the install-verification DiscernResult.
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 7,
+      method: "tools/call",
+      params: { name: "discern_doctor" },
+    });
+    const doctor = await mcp.recv();
+    assertEquals(doctor.id, 7);
+    assertEquals(doctor.result.structuredContent.verb, "doctor");
+    assert(
+      Array.isArray(doctor.result.structuredContent.data.checks),
+      "doctor data carries the per-check list",
+    );
+    assertEquals(
+      typeof doctor.result.structuredContent.data.kit_version,
+      "string",
+    );
+
+    // tools/call discern_prepare → the fast inner loop. No capability is wired in
+    // the scaffold, so each stage is the `:` no-op and prepare passes.
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 8,
+      method: "tools/call",
+      params: { name: "discern_prepare" },
+    });
+    const prep = await mcp.recv();
+    assertEquals(prep.id, 8);
+    assertEquals(prep.result.isError, false);
+    assertEquals(prep.result.structuredContent.verb, "prepare");
+    assertEquals(prep.result.structuredContent.ok, true);
 
     // an unknown tool is a JSON-RPC error.
     await mcp.send({
@@ -235,6 +277,167 @@ Deno.test("discern mcp: protocol version, ping, and unknown method are handled c
     const err = await mcp.recv();
     assertEquals(err.id, 3);
     assertEquals(err.error.code, -32601);
+
+    assertEquals(await mcp.close(), 0);
+  });
+});
+
+Deno.test("discern mcp: discern_docs returns the index, a single doc, and a not_found error", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    // The scaffold ships no docs/ tree until bootstrap — seed a tiny one.
+    await Deno.mkdir(join(dir, "docs", "00-orientation"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, "docs", "00-orientation", "concepts.md"),
+      "# Concepts\n\nThe core ideas of the project.\n",
+    );
+    const mcp = await spawnMcp(dir);
+    await mcp.send({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} });
+    await mcp.recv();
+
+    // No argument → the machine-readable index.
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "discern_docs" },
+    });
+    const index = await mcp.recv();
+    assertEquals(index.result.isError, false);
+    assertEquals(index.result.structuredContent.verb, "docs");
+    assert(index.result.structuredContent.data.count >= 1);
+    const entry = index.result.structuredContent.data.docs[0];
+    assertEquals(typeof entry.slug, "string");
+    assert(entry.slug.length > 0, JSON.stringify(entry));
+
+    // A target → that one doc's full Markdown content.
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: { name: "discern_docs", arguments: { target: entry.slug } },
+    });
+    const doc = await mcp.recv();
+    assertEquals(doc.result.isError, false);
+    assert(
+      doc.result.structuredContent.data.doc.content.includes(
+        "The core ideas of the project",
+      ),
+      "the single-doc result carries the file's content",
+    );
+
+    // A missing target → a not_found error envelope (isError true).
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 4,
+      method: "tools/call",
+      params: { name: "discern_docs", arguments: { target: "no-such-doc" } },
+    });
+    const miss = await mcp.recv();
+    assertEquals(miss.result.isError, true);
+    assertEquals(miss.result.structuredContent.error, "not_found");
+
+    assertEquals(await mcp.close(), 0);
+  });
+});
+
+Deno.test("discern mcp: discern_graduate previews from a worktree and refuses from the main checkout", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+
+    // From the MAIN checkout: graduate refuses with a clean error envelope (not a
+    // server crash) — the precondition throw, mapped to the same slug the CLI uses.
+    const main = await spawnMcp(dir);
+    await main.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {},
+    });
+    await main.recv();
+    await main.send({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "discern_graduate", arguments: { dry_run: true } },
+    });
+    const refused = await main.recv();
+    assertEquals(refused.result.isError, true);
+    assertEquals(refused.result.structuredContent.verb, "graduate");
+    assertEquals(
+      refused.result.structuredContent.error,
+      "precondition_failed",
+    );
+    assertEquals(await main.close(), 0);
+
+    // From inside a WORKTREE (its branch already contains main): a dry-run returns
+    // the graduation plan and touches nothing.
+    const wt = await addWorktree(dir, "grad");
+    const wtMcp = await spawnMcp(wt);
+    await wtMcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {},
+    });
+    await wtMcp.recv();
+    await wtMcp.send({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "discern_graduate", arguments: { dry_run: true } },
+    });
+    const preview = await wtMcp.recv();
+    assertEquals(preview.result.isError, false);
+    assertEquals(preview.result.structuredContent.verb, "graduate");
+    assertEquals(preview.result.structuredContent.dry_run, true);
+    assert(
+      preview.result.structuredContent.plan,
+      "a graduate preview carries the plan",
+    );
+    assertEquals(await wtMcp.close(), 0);
+  });
+});
+
+Deno.test("discern mcp: a disabled feature hides its tool and refuses the call", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    // Turn the worktrees feature off through the real config editor.
+    const set = await runAgent(dir, [
+      "config",
+      "set",
+      "features.worktrees",
+      "false",
+      "--bool",
+    ]);
+    assertEquals(set.code, 0, set.output);
+
+    const mcp = await spawnMcp(dir);
+    await mcp.send({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} });
+    await mcp.recv();
+
+    // tools/list omits discern_graduate (worktrees off) but keeps the always-on
+    // tools and the still-enabled docs tool.
+    await mcp.send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
+    const list = await mcp.recv();
+    const names = list.result.tools.map((t: { name: string }) => t.name);
+    assert(!names.includes("discern_graduate"), JSON.stringify(names));
+    assert(names.includes("discern_docs"), JSON.stringify(names));
+    assert(names.includes("discern_finish"), JSON.stringify(names));
+
+    // Calling the disabled tool anyway → a feature_disabled error envelope.
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: { name: "discern_graduate", arguments: { dry_run: true } },
+    });
+    const refused = await mcp.recv();
+    assertEquals(refused.result.isError, true);
+    assertEquals(refused.result.structuredContent.error, "feature_disabled");
 
     assertEquals(await mcp.close(), 0);
   });

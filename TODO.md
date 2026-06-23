@@ -146,12 +146,17 @@ _Nothing outstanding._
       (`normalizeDiagnostics` — SARIF only); `src/engine/gate/plan.ts`
       (`buildGateResult` calls it).
 
-- [ ] **`discern mcp` exposes only `finish` + `changed_scopes`.** The MCP server
-      renders any verb's `DiscernResult`, but only two tools are wired so far.
-      Adding `doctor`, `ratchets`, etc. is a few lines each — but each needs its
-      verb factored into a result-returning core (like `finishResult` /
-      `changedScopesResult`) instead of the print-and-exit `runX`. Add tools as
-      those cores are extracted. Evidence: `src/engine/mcp/server.ts` (`TOOLS`).
+- [ ] **`discern mcp` could expose more read/run verbs.** Wired so far:
+      `finish`, `prepare`, `doctor`, `changed_scopes`, `audit`, `docs`, and
+      `graduate` (the last two feature-gated) — each backed by a
+      result-returning core
+      (`finishResult`/`prepareResult`/`doctorResult`/`docsResult`/
+      `graduateResult`/…). `ratchets` is the obvious next candidate (extract a
+      `ratchetsResult` core first). The `worktree`/`worktree:*` lifecycle verbs
+      are deliberately NOT exposed: they are driven by the
+      worktree-create/session hooks, and an agent must not hop between or
+      `prune` the worktree it is sitting in. Evidence:
+      `src/engine/mcp/server.ts` (`TOOLS`).
 
 - [ ] **Tier-2 diagnostics: populate `fix_available`.** The `Diagnostic` field
       and the ADR-0028 Tier-2 tier exist, but nothing sets it. Derive it from

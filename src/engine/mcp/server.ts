@@ -16,9 +16,24 @@
 
 import { findRoot } from "../../shared/env.ts";
 import { type DiscernResult, serializeResult } from "../../shared/result.ts";
+import { loadConfig } from "../../shared/config_schema.ts";
+import {
+  enabledFeatures,
+  type Feature,
+  FEATURES,
+} from "../../shared/features.ts";
+import { Logger } from "../../lib/log.ts";
 import { finishResult } from "../gate/finish.ts";
+import { prepareResult } from "../gate/prepare.ts";
 import { auditResult } from "../audit/audit.ts";
 import { changedScopesResult } from "../scopes/changed.ts";
+import { doctorResult } from "../../commands/doctor.ts";
+import { docsResult } from "../../commands/docs.ts";
+import {
+  graduateResult,
+  lifecycleContext,
+  worktreeErrorResult,
+} from "../worktree/lifecycle.ts";
 
 /** The MCP protocol revisions this server speaks; the first is the default when a
  * client doesn't pin one, and any other requested revision is echoed only if known. */
@@ -36,6 +51,9 @@ interface McpTool {
   name: string;
   description: string;
   inputSchema: Record<string, unknown>;
+  /** When set, the tool is listed and callable only if this feature is enabled —
+   * the MCP mirror of the CLI's per-feature verb gating. */
+  feature?: Feature;
   /** Run the verb in `root` with the call's arguments → the result to render. */
   run(root: string, args: Record<string, unknown>): Promise<DiscernResult>;
 }
@@ -61,6 +79,26 @@ const TOOLS: McpTool[] = [
       required: [],
     },
     run: (root, args) => finishResult(root, { dryRun: args.dry_run === true }),
+  },
+  {
+    name: "discern_prepare",
+    description:
+      "Run the fast inner-loop gate — the fix-stage fixers, then the read-only " +
+      "check-stage jobs (no build, no tests) — and return the result envelope. The " +
+      "quick check to run while iterating, before the full discern_finish. NOTE: the " +
+      "fixers MUTATE the working tree (e.g. a formatter rewrites files).",
+    inputSchema: { type: "object", properties: {}, required: [] },
+    run: (root) => prepareResult(root),
+  },
+  {
+    name: "discern_doctor",
+    description:
+      "Verify the discern install and return each check as an actionable result: " +
+      "config validity, schema currency, whether the declared capability commands " +
+      "resolve on PATH, and advisories. data.checks lists every check with its detail " +
+      "and — on failure — the exact fix.",
+    inputSchema: { type: "object", properties: {}, required: [] },
+    run: (root) => doctorResult(root),
   },
   {
     name: "discern_changed_scopes",
@@ -102,7 +140,83 @@ const TOOLS: McpTool[] = [
           : undefined,
       }),
   },
+  {
+    name: "discern_docs",
+    description:
+      "Read the project's documentation tree. With no argument, return the index — " +
+      "every doc's path, section, slug, and title. Pass `target` (a slug, " +
+      "`section/slug`, or path) to return that one doc's full Markdown content. The " +
+      "grounded source to consult before reasoning about this project's documented " +
+      "behaviour.",
+    feature: "docs",
+    inputSchema: {
+      type: "object",
+      properties: {
+        target: {
+          type: "string",
+          description:
+            "A specific doc to fetch (slug, section/slug, or path). Omit for the index.",
+        },
+      },
+      required: [],
+    },
+    run: (root, args) =>
+      docsResult(root, {
+        target: typeof args.target === "string" ? args.target : undefined,
+      }),
+  },
+  {
+    name: "discern_graduate",
+    description:
+      "Graduate THIS worktree's branch into the main checkout for review: tear down " +
+      "the worktree's resources, move the branch onto main, and leave the changes " +
+      "staged there. Requires the latest main is already integrated and the main " +
+      'checkout is clean — refuses (error:"precondition_failed") otherwise, pointing ' +
+      "at discern_finish to integrate first. Set dry_run to preview the plan without " +
+      "touching anything. Operates only on the worktree the server runs in; it cannot " +
+      "reach another.",
+    feature: "worktrees",
+    inputSchema: {
+      type: "object",
+      properties: {
+        dry_run: {
+          type: "boolean",
+          description:
+            "Preview the graduation plan and touch nothing (default false).",
+        },
+      },
+      required: [],
+    },
+    run: (root, args) =>
+      graduateToolResult(root, { dryRun: args.dry_run === true }),
+  },
 ];
+
+/**
+ * The `discern_graduate` tool core: build a lifecycle context with a quiet logger
+ * (graduate narrates through its logger as it runs — silence it so the stdio
+ * channel carries only protocol messages), perform the graduation, and map a
+ * precondition / identity refusal to the same error envelope the CLI returns.
+ * Unexpected errors propagate to {@link handleToolCall}'s catch-all.
+ */
+async function graduateToolResult(
+  root: string,
+  opts: { dryRun?: boolean },
+): Promise<DiscernResult> {
+  const ctx = await lifecycleContext(
+    root,
+    new Logger({ json: true, noColor: true }),
+  );
+  try {
+    return await graduateResult(ctx, opts);
+  } catch (e) {
+    const mapped = worktreeErrorResult("graduate", e);
+    if (mapped !== undefined) {
+      return mapped;
+    }
+    throw e;
+  }
+}
 
 /** A minimal JSON-RPC 2.0 request/notification as it arrives off the wire. */
 interface JsonRpcMessage {
@@ -133,11 +247,24 @@ function replyError(id: string | number, code: number, message: string): void {
   writeMessage({ jsonrpc: "2.0", id, error: { code, message } });
 }
 
-/** Handle `tools/call`: dispatch to the named tool and render its DiscernResult. */
+/** The verb slug behind a tool name (`discern_changed_scopes` → `changed-scopes`),
+ * for the envelope every failure path renders. */
+function verbOf(toolName: string): string {
+  return toolName.replace(/^discern_/, "").replace(/_/g, "-");
+}
+
+/**
+ * Handle `tools/call`: dispatch to the named tool and render its DiscernResult.
+ * Every refusal is rendered as a normal (error) {@link DiscernResult}, so a client
+ * reads it from the same envelope as any other failure — a disabled feature, a
+ * missing project, or an unexpected throw from the verb (caught here so a single
+ * tool error can never take the whole stdio server down).
+ */
 async function handleToolCall(
   id: string | number,
   params: Record<string, unknown>,
   root: string | undefined,
+  enabled: ReadonlySet<Feature>,
 ): Promise<void> {
   const name = typeof params.name === "string" ? params.name : "";
   const tool = TOOLS.find((t) => t.name === name);
@@ -145,21 +272,38 @@ async function handleToolCall(
     replyError(id, -32602, `unknown tool: ${name}`);
     return;
   }
-  if (root === undefined) {
-    // Render the "no project" condition as a normal (error) DiscernResult, so a
-    // client reads it from the same envelope as any other failure.
-    const result: DiscernResult = {
+  if (tool.feature !== undefined && !enabled.has(tool.feature)) {
+    renderResult(id, {
       ok: false,
-      verb: name.replace(/^discern_/, "").replace(/_/g, "-"),
+      verb: verbOf(name),
+      error: "feature_disabled",
+      message:
+        `the "${tool.feature}" feature is disabled in this project (set [features].${tool.feature} = true in discern.toml to enable it).`,
+    });
+    return;
+  }
+  if (root === undefined) {
+    renderResult(id, {
+      ok: false,
+      verb: verbOf(name),
       error: "not_initialized",
       message:
         "not inside a discern project (no discern.toml in this directory or any parent).",
-    };
-    renderResult(id, result);
+    });
     return;
   }
   const args = (params.arguments ?? {}) as Record<string, unknown>;
-  const result = await tool.run(root, args);
+  let result: DiscernResult;
+  try {
+    result = await tool.run(root, args);
+  } catch (e) {
+    result = {
+      ok: false,
+      verb: verbOf(name),
+      error: "internal_error",
+      message: e instanceof Error ? e.message : String(e),
+    };
+  }
   renderResult(id, result);
 }
 
@@ -177,6 +321,7 @@ function renderResult(id: string | number, result: DiscernResult): void {
 async function dispatch(
   msg: JsonRpcMessage,
   root: string | undefined,
+  enabled: ReadonlySet<Feature>,
 ): Promise<void> {
   const { method, id } = msg;
   // A notification carries no id and never gets a reply.
@@ -204,15 +349,19 @@ async function dispatch(
       return;
     case "tools/list":
       reply(id, {
-        tools: TOOLS.map((t) => ({
-          name: t.name,
-          description: t.description,
-          inputSchema: t.inputSchema,
-        })),
+        // List only the tools whose feature is enabled (or that gate on none) — the
+        // MCP mirror of the CLI listing exactly the active verbs in `--help`.
+        tools: TOOLS
+          .filter((t) => t.feature === undefined || enabled.has(t.feature))
+          .map((t) => ({
+            name: t.name,
+            description: t.description,
+            inputSchema: t.inputSchema,
+          })),
       });
       return;
     case "tools/call":
-      await handleToolCall(id, msg.params ?? {}, root);
+      await handleToolCall(id, msg.params ?? {}, root, enabled);
       return;
     default:
       replyError(id, -32601, `method not found: ${method}`);
@@ -220,12 +369,34 @@ async function dispatch(
 }
 
 /**
+ * Resolve which features this project has enabled — the gate for the feature-bound
+ * tools (`discern_docs`, `discern_graduate`). Mirrors the CLI's resolution: outside
+ * a project, or when the config can't be parsed, report every feature on (the
+ * per-call config read surfaces the real error), so the tool surface never silently
+ * shrinks because of a config the user is mid-edit on.
+ */
+async function resolveEnabledFeatures(
+  root: string | undefined,
+): Promise<ReadonlySet<Feature>> {
+  if (root === undefined) {
+    return new Set(FEATURES);
+  }
+  try {
+    return new Set(enabledFeatures(await loadConfig(root)));
+  } catch {
+    return new Set(FEATURES);
+  }
+}
+
+/**
  * Run the MCP server: read newline-delimited JSON-RPC from stdin, dispatch each
- * message, and write responses to stdout until stdin closes. The project root is
- * resolved once at startup; tools operate on it.
+ * message, and write responses to stdout until stdin closes. The project root and
+ * its enabled features are resolved once at startup; tools operate on the root and
+ * the feature-bound ones are gated by the enabled set.
  */
 export async function runMcpServer(): Promise<number> {
   const root = await findRoot();
+  const enabled = await resolveEnabledFeatures(root);
   const decoder = new TextDecoder();
   let buffer = "";
   const handleLine = async (line: string): Promise<void> => {
@@ -239,7 +410,7 @@ export async function runMcpServer(): Promise<number> {
     } catch {
       return; // a malformed line has no id to address — drop it
     }
-    await dispatch(msg, root);
+    await dispatch(msg, root, enabled);
   };
   for await (const chunk of Deno.stdin.readable) {
     buffer += decoder.decode(chunk, { stream: true });
