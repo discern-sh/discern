@@ -116,12 +116,12 @@ the stable worktree identity (POSIX-`cksum`-faithful) in
 
 ## Agent instructions (author-once → compile-everywhere)
 
-| Path                     | Bucket    | What it is                                                                                                                                         |
-| ------------------------ | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `guidance.md`            | yours     | Your hand-authored guidance source(s) — the default `[guidance].sources`, additive to the built-ins. Globs allowed. Seeded by `discern bootstrap`. |
-| `AGENTS.md`              | generated | The **tracked** per-agent file (codex), banner-headed; a stale one fails CI's `git diff --exit-code`.                                              |
-| `CLAUDE.md`, `GEMINI.md` | generated | The gitignored per-agent mirrors (claude_code / gemini), compiled from the same source; carry a do-not-edit banner.                                |
-| `.claude/skills/*`       | generated | Materialised skills the agent discovers — built-ins copied, authored skills symlinked.                                                             |
+| Path                     | Bucket    | What it is                                                                                                                                                                                                                                                  |
+| ------------------------ | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `guidance.md`            | yours     | Your hand-authored guidance source(s) — the default `[guidance].sources`, additive to the built-ins. Globs allowed. Seeded by `discern bootstrap`.                                                                                                          |
+| `AGENTS.md`              | generated | The **tracked** per-agent file (codex), banner-headed; a stale one fails CI's `git diff --exit-code`.                                                                                                                                                       |
+| `CLAUDE.md`, `GEMINI.md` | generated | The gitignored per-agent mirrors. `CLAUDE.md` is a banner + an `@AGENTS.md` import (Claude Code expands it), so it can't drift from the tracked source; `GEMINI.md` is a full copy until Gemini's include syntax is wired. Both carry a do-not-edit banner. |
+| `.claude/skills/*`       | generated | Materialised skills the agent discovers — built-ins copied, authored skills symlinked.                                                                                                                                                                      |
 
 `discern refresh` ([`src/engine/guidelines.ts`](../../src/engine/guidelines.ts))
 regenerates the generated agent files, skills, and integration artifacts: it

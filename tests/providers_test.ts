@@ -30,14 +30,22 @@ Deno.test("the registry is total: every known agent has a complete provider", ()
 });
 
 Deno.test("the guidance-file mapping is the documented one (AGENTS.md the only tracked file)", () => {
-  assertEquals(providerFor("claude_code")?.guidanceFile, {
-    path: "CLAUDE.md",
-    tracked: false,
-  });
-  assertEquals(providerFor("codex")?.guidanceFile, {
-    path: "AGENTS.md",
-    tracked: true,
-  });
+  // Claude Code's mirror points at the canonical file rather than duplicating it,
+  // so its guidanceFile carries a `pointer` that emits an `@<path>` import.
+  const claude = providerFor("claude_code")?.guidanceFile;
+  assertEquals(claude?.path, "CLAUDE.md");
+  assertEquals(claude?.tracked, false);
+  assertEquals(typeof claude?.pointer, "function");
+  assertEquals(claude?.pointer?.("AGENTS.md").includes("@AGENTS.md"), true);
+
+  // The canonical, tracked file holds the full compiled body — no pointer.
+  const codex = providerFor("codex")?.guidanceFile;
+  assertEquals(codex?.path, "AGENTS.md");
+  assertEquals(codex?.tracked, true);
+  assertEquals(codex?.pointer, undefined);
+
+  // Gemini's mirror is a full copy for now (its include syntax isn't wired) — no
+  // pointer, so the whole object is the documented pair.
   assertEquals(providerFor("gemini")?.guidanceFile, {
     path: "GEMINI.md",
     tracked: false,
