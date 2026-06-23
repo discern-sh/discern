@@ -178,14 +178,18 @@ Deno.test("discern bootstrap done ignores a real doc that merely mentions EXAMPL
   });
 });
 
-Deno.test("discern bootstrap --json emits structured output", async () => {
+Deno.test("discern bootstrap --json emits the DiscernResult envelope", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     const r = await runAgent(dir, ["bootstrap", "--json"]);
     assertEquals(r.code, 0, r.output);
     const res = JSON.parse(r.stdout);
     assertEquals(res.ok, true);
-    assert(res.scaffolded.includes("docs/"));
-    assert(typeof res.instructions === "string" && res.instructions.length > 0);
+    assertEquals(res.verb, "bootstrap");
+    assert(res.data.scaffolded.includes("docs/"));
+    assert(
+      typeof res.data.instructions === "string" &&
+        res.data.instructions.length > 0,
+    );
   });
 });
