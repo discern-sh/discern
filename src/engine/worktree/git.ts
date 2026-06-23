@@ -651,6 +651,128 @@ function parseWorktreeList(porcelain: string): WorktreeRecord[] {
   return records;
 }
 
+/**
+ * A cheap, read-only snapshot of one checkout: its current branch, whether the
+ * working tree is clean, how many paths changed, and how far HEAD sits ahead of /
+ * behind the integration branch. The shared shape behind both `status`'s local git
+ * block and each fleet row, so the per-worktree numbers are computed one way.
+ */
+export interface GitSnapshot {
+  /** The current branch, or "" when detached. */
+  branch: string;
+  /** No uncommitted changes (tracked or untracked) in the working tree. */
+  clean: boolean;
+  /** Count of `git status --porcelain` entries. */
+  changedFiles: number;
+  /** Commits on HEAD not yet in the integration branch. */
+  ahead: number;
+  /** Commits on the integration branch not yet in HEAD. */
+  behind: number;
+}
+
+/**
+ * Commits HEAD is ahead of / behind the integration branch, from one
+ * `git rev-list --left-right --count <integration>...HEAD` (left = behind, right =
+ * ahead). `{0, 0}` when the integration ref does not resolve (no local main, or a
+ * detached/empty repo) — never throws.
+ */
+async function aheadBehind(
+  cwd: string,
+  integration: string,
+): Promise<{ ahead: number; behind: number }> {
+  const run = await git(
+    ["rev-list", "--left-right", "--count", `${integration}...HEAD`],
+    cwd,
+  );
+  if (!run.success) {
+    return { ahead: 0, behind: 0 };
+  }
+  const [left, right] = run.stdout.trim().split(/\s+/);
+  return { behind: Number(left) || 0, ahead: Number(right) || 0 };
+}
+
+/**
+ * The read-only {@link GitSnapshot} for the checkout at `cwd`, compared to the
+ * integration branch (`MAIN_BRANCH` / `mainBranchFallback` / `main`). Pure reads —
+ * `rev-parse`, `branch`, `status --porcelain`, `rev-list` — so it never mutates the
+ * working tree. Returns undefined when `cwd` is not inside a git repository, so a
+ * caller can mark the git block unavailable rather than throw.
+ */
+export async function gitSnapshot(
+  cwd: string,
+  mainBranchFallback?: string,
+): Promise<GitSnapshot | undefined> {
+  const inside = await git(["rev-parse", "--is-inside-work-tree"], cwd);
+  if (!inside.success || inside.stdout.trim() !== "true") {
+    return undefined;
+  }
+  const branchRun = await git(["branch", "--show-current"], cwd);
+  const branch = branchRun.success ? branchRun.stdout.trim() : "";
+  const statusRun = await git(["status", "--porcelain"], cwd);
+  const changedFiles = statusRun.success
+    ? statusRun.stdout.split("\n").filter((l) => l !== "").length
+    : 0;
+  const { ahead, behind } = await aheadBehind(
+    cwd,
+    integrationBranch(mainBranchFallback),
+  );
+  return { branch, clean: changedFiles === 0, changedFiles, ahead, behind };
+}
+
+/** One registered worktree of this repo, with its cheap read-only snapshot. */
+export interface FleetWorktree {
+  /** Canonical worktree path. */
+  path: string;
+  /** Git lists the main checkout first — its row is flagged so nothing is hidden. */
+  isMain: boolean;
+  /** The current branch, or "" when detached. */
+  branch: string;
+  clean: boolean;
+  changedFiles: number;
+  /** Commits ahead of / behind the integration branch. */
+  ahead: number;
+  behind: number;
+}
+
+/**
+ * Every registered worktree of this repo, each with a cheap {@link GitSnapshot}
+ * (branch, cleanliness, files changed, ahead/behind the integration branch) — the
+ * supervisor's fleet survey for `status` from the main checkout. Reuses
+ * {@link parseWorktreeList} (the single porcelain parser) and {@link gitSnapshot}
+ * (the single per-checkout read), so a fleet row and the local block can never
+ * disagree on how a worktree's state is measured. The main checkout is always row 0
+ * (git lists it first). Empty when `cwd` is not inside a git repository.
+ */
+export async function listWorktreeFleet(
+  cwd: string,
+  mainBranchFallback?: string,
+): Promise<FleetWorktree[]> {
+  const listRun = await git(["worktree", "list", "--porcelain"], cwd);
+  if (!listRun.success) {
+    return [];
+  }
+  const out: FleetWorktree[] = [];
+  const records = parseWorktreeList(listRun.stdout);
+  for (const [i, rec] of records.entries()) {
+    const snap = await gitSnapshot(rec.path, mainBranchFallback);
+    const short = rec.branch.startsWith("refs/heads/")
+      ? rec.branch.slice("refs/heads/".length)
+      : rec.branch;
+    out.push({
+      path: await realPathOr(rec.path),
+      isMain: i === 0,
+      branch: snap?.branch !== undefined && snap.branch !== ""
+        ? snap.branch
+        : short,
+      clean: snap?.clean ?? true,
+      changedFiles: snap?.changedFiles ?? 0,
+      ahead: snap?.ahead ?? 0,
+      behind: snap?.behind ?? 0,
+    });
+  }
+  return out;
+}
+
 /** Options for {@link pruneGitWorktrees}. */
 export interface PruneOptions {
   /** Print what would happen without removing anything. */
