@@ -201,7 +201,12 @@ export async function runInit(options: InitOptions): Promise<number> {
     const message =
       "a discern install already exists here. Re-run with --force to refresh, or use `discern upgrade` to bring it to this kit version.";
     if (options.json) {
-      log.jsonResult({ ok: false, error: "already_initialized", message });
+      log.result({
+        ok: false,
+        verb: "init",
+        error: "already_initialized",
+        message,
+      });
     } else {
       log.error(message);
     }
@@ -214,7 +219,12 @@ export async function runInit(options: InitOptions): Promise<number> {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (options.json) {
-      log.jsonResult({ ok: false, error: "templates_not_found", message });
+      log.result({
+        ok: false,
+        verb: "init",
+        error: "templates_not_found",
+        message,
+      });
     } else {
       log.error(message);
     }
@@ -229,7 +239,12 @@ export async function runInit(options: InitOptions): Promise<number> {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       if (options.json) {
-        log.jsonResult({ ok: false, error: "invalid_config_file", message });
+        log.result({
+          ok: false,
+          verb: "init",
+          error: "invalid_config_file",
+          message,
+        });
       } else {
         log.error(message);
       }
@@ -258,7 +273,12 @@ export async function runInit(options: InitOptions): Promise<number> {
       error instanceof Error ? error.message : String(error)
     }`;
     if (options.json) {
-      log.jsonResult({ ok: false, error: "invalid_config_file", message });
+      log.result({
+        ok: false,
+        verb: "init",
+        error: "invalid_config_file",
+        message,
+      });
     } else {
       log.error(message);
     }
@@ -268,11 +288,14 @@ export async function runInit(options: InitOptions): Promise<number> {
   // Dry-run: print the plan, touch nothing.
   if (options.dryRun) {
     if (options.json) {
-      log.jsonResult({
+      log.result({
         ok: true,
-        dry_run: true,
-        project: { slug: config.slug, agents: config.agents },
-        plan: planToJson(plan),
+        verb: "init",
+        data: {
+          dry_run: true,
+          project: { slug: config.slug, agents: config.agents },
+          plan: planToJson(plan),
+        },
       });
     } else {
       renderPlan(log, plan, "Dry run — these operations would be performed:");
@@ -317,12 +340,15 @@ export async function runInit(options: InitOptions): Promise<number> {
   }
 
   if (options.json) {
-    log.jsonResult({
+    log.result({
       ok: true,
-      project: { slug: config.slug, agents: config.agents },
-      kit_version: KIT_VERSION,
-      written: changed.map((op) => op.targetRel),
-      compiled: agentsWritten,
+      verb: "init",
+      data: {
+        project: { slug: config.slug, agents: config.agents },
+        kit_version: KIT_VERSION,
+        written: changed.map((op) => op.targetRel),
+        compiled: agentsWritten,
+      },
     });
     return 0;
   }

@@ -45,7 +45,8 @@ Deno.test("add-preset overlays the example preset's files and config fills", asy
     assertEquals(r.code, 0, r.stderr);
     const result = JSON.parse(r.stdout);
     assertEquals(result.ok, true);
-    assertEquals(result.config_fills, true);
+    assertEquals(result.verb, "add-preset");
+    assertEquals(result.data.config_fills, true);
 
     // Files overlaid: a seed recipe, a seed guideline fragment, a managed skill.
     assert(await exists(join(dir, "recipes/example-deploy")));
@@ -92,7 +93,7 @@ Deno.test("add-preset --dry-run writes nothing (files or fills)", async () => {
       PRESET_ENV,
     );
     assertEquals(r.code, 0, r.stderr);
-    assertEquals(JSON.parse(r.stdout).dry_run, true);
+    assertEquals(JSON.parse(r.stdout).data.dry_run, true);
     assert(!(await exists(join(dir, "recipes/example-deploy"))));
     assertEquals(
       await Deno.readTextFile(join(dir, "discern.toml")),
@@ -113,7 +114,7 @@ Deno.test("add-preset still reports unknown presets with the fixtures dir set", 
     const result = JSON.parse(r.stdout);
     assertEquals(result.error, "unknown_preset");
     // The available list now includes the example fixture.
-    assert(result.available.includes("example"));
+    assert(result.data.available.includes("example"));
   });
 });
 
@@ -185,7 +186,7 @@ Deno.test("add-preset with no presets dir reports 'ships no presets yet'", async
     assertEquals(r.code, 1);
     const result = JSON.parse(r.stdout);
     assertEquals(result.error, "unknown_preset");
-    assertEquals(result.available, []);
+    assertEquals(result.data.available, []);
     assertStringIncludes(result.message, "ships no presets yet");
   });
 });
@@ -234,8 +235,8 @@ Deno.test("add-preset overlays a preset that has no preset.json (files only, no 
     const result = JSON.parse(r.stdout);
     assertEquals(result.ok, true);
     // No preset.json → no config fills, and discern.toml is untouched.
-    assertEquals(result.config_fills, false);
-    assert(result.written.includes("recipes/filesonly"));
+    assertEquals(result.data.config_fills, false);
+    assert(result.data.written.includes("recipes/filesonly"));
     assert(await exists(join(dir, "recipes/filesonly")));
     assertEquals(
       await Deno.readTextFile(join(dir, "discern.toml")),

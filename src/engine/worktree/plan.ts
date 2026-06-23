@@ -11,7 +11,7 @@
  * with the rest of the lifecycle in `lifecycle.ts`.
  */
 
-import type { EnginePlan, PlanStep } from "../plan/types.ts";
+import type { EnginePlan, PlanStep } from "../../shared/result.ts";
 import type { LedgerItem } from "./resources.ts";
 
 // ── teardown ────────────────────────────────────────────────────────────────

@@ -13,6 +13,7 @@ import { Command } from "@cliffy/command";
 import { join } from "@std/path";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { RawConfig } from "../shared/config_read.ts";
+import { serializeResult } from "../shared/result.ts";
 import {
   CONFIG_REL,
   findRoot,
@@ -25,6 +26,7 @@ import { ejectSkill, listSkills, materializeSkills } from "../lib/skills.ts";
 import { TomlEditor } from "../lib/toml_edit.ts";
 import { Logger } from "../lib/log.ts";
 import { runFinish } from "./gate/finish.ts";
+import { runMcpServer } from "./mcp/server.ts";
 import { runPrepare } from "./gate/prepare.ts";
 import { runTestCapability } from "./gate/test.ts";
 import { runRatchets } from "./gate/ratchets.ts";
@@ -62,6 +64,7 @@ export const KNOWN_ENGINE_VERBS: ReadonlySet<string> = new Set([
   "worktree",
   "worktree-name",
   "skills",
+  "mcp",
 ]);
 
 /** Hyphenated engine recipe names + their displayed (colon) form, for the suggester. */
@@ -127,11 +130,12 @@ function handleWorktreeError(e: unknown, log: Logger): number {
  * Build a lifecycle context and run a worktree operation, mapping errors to codes.
  * In `--json` mode the human narration is suppressed (Logger json mode) so stdout
  * carries only the verb's JSON object, and a thrown worktree error is emitted as a
- * `{ ok:false, error }` object rather than a (suppressed) human line.
+ * `DiscernResult` (`{ok:false, verb, error, message}`) rather than a (suppressed)
+ * human line — a precondition slug in `error`, the human sentence in `message`.
  */
 async function runWorktreeOp(
   op: (ctx: LifecycleContext) => Promise<void>,
-  opts: { json?: boolean } = {},
+  opts: { json?: boolean; verb?: string } = {},
 ): Promise<number> {
   const root = await requireRoot();
   const json = opts.json ?? false;
@@ -145,7 +149,14 @@ async function runWorktreeOp(
     return 0;
   } catch (e) {
     if (json && (e instanceof WorktreeGitError || e instanceof IdentityError)) {
-      console.log(JSON.stringify({ ok: false, error: e.message }));
+      console.log(JSON.stringify(serializeResult({
+        ok: false,
+        verb: opts.verb ?? "worktree",
+        error: e instanceof IdentityError
+          ? "identity_error"
+          : "precondition_failed",
+        message: e.message,
+      })));
       return 1;
     }
     return handleWorktreeError(e, log);
@@ -163,7 +174,10 @@ export function attachEngineCommands(
   root
     .command("finish")
     .description("The full quality gate — run before calling work done.")
-    .option("--json", "Emit a machine-readable gate report on stdout.")
+    .option(
+      "--json",
+      "Emit the gate result as a JSON DiscernResult on stdout (steps + diagnostics).",
+    )
     .option(
       "--dry-run",
       "Show the gate plan (the jobs and scope-gates that would run); touch nothing.",
@@ -193,6 +207,17 @@ export function attachEngineCommands(
       Deno.exit(await runTestCapability(await requireRoot()));
     });
 
+  root
+    .command("mcp")
+    .description(
+      "Run an MCP server (stdio) exposing the verbs to an agent as tools.",
+    )
+    .action(async () => {
+      // The server resolves the project root itself and reports a missing one
+      // per tool-call, so it need not requireRoot up front.
+      Deno.exit(await runMcpServer());
+    });
+
   if (enabled.has("ratchets")) {
     root
       .command("ratchets")
@@ -201,7 +226,7 @@ export function attachEngineCommands(
       )
       .option(
         "--json",
-        "Emit a machine-readable (plan, results) object on stdout.",
+        "Emit the result as a JSON DiscernResult object on stdout.",
       )
       .option(
         "--dry-run",
@@ -237,7 +262,10 @@ export function attachEngineCommands(
   root
     .command("changed-scopes")
     .description("Classify which scopes the branch + working tree changed.")
-    .option("--json", "Emit a JSON array of the changed scopes/markers.")
+    .option(
+      "--json",
+      "Emit a JSON DiscernResult (data.scopes lists the changed scopes/markers).",
+    )
     .option(
       "--has <scope:string>",
       "Exit 0/1 membership test for one scope (silent).",
@@ -270,7 +298,7 @@ export function attachEngineCommands(
       Deno.exit(
         await runWorktreeOp(
           (ctx) => graduate(ctx, { json, dryRun: o.dryRun ?? false }),
-          { json },
+          { json, verb: "graduate" },
         ),
       );
     });
@@ -346,7 +374,7 @@ export function attachEngineCommands(
       Deno.exit(
         await runWorktreeOp(
           (ctx) => worktreeSetup(ctx, { json, dryRun: o.dryRun ?? false }),
-          { json },
+          { json, verb: "worktree" },
         ),
       );
     })
@@ -370,7 +398,7 @@ export function attachEngineCommands(
         )
         .option(
           "--json",
-          "Emit a machine-readable (plan, results) object on stdout.",
+          "Emit the result as a JSON DiscernResult object on stdout.",
         )
         .option("--dry-run", "Show the teardown plan; touch nothing.")
         .action(async (o) => {
@@ -379,7 +407,7 @@ export function attachEngineCommands(
             await runWorktreeOp(
               (ctx) =>
                 worktreeTeardown(ctx, { json, dryRun: o.dryRun ?? false }),
-              { json },
+              { json, verb: "worktree:teardown" },
             ),
           );
         }),
@@ -397,7 +425,7 @@ export function attachEngineCommands(
         )
         .option(
           "--json",
-          "Emit a machine-readable (plan, results) object on stdout.",
+          "Emit the result as a JSON DiscernResult object on stdout.",
         )
         .action(async (o) => {
           const json = o.json ?? false;
@@ -409,7 +437,7 @@ export function attachEngineCommands(
                   dryRun: o.dryRun ?? false,
                   json,
                 }),
-              { json },
+              { json, verb: "worktree:prune" },
             ),
           );
         }),
@@ -432,7 +460,10 @@ function attachSkillsCommand(root: Command): void {
         .description(
           "List the effective skills (built-ins + yours; which override which).",
         )
-        .option("--json", "Emit the listing as JSON.")
+        .option(
+          "--json",
+          "Emit the listing as a JSON DiscernResult (data.skills).",
+        )
         .action(async (o) => {
           Deno.exit(await runSkillsList({ json: o.json ?? false }));
         }),
@@ -457,7 +488,15 @@ async function runSkillsList(opts: { json: boolean }): Promise<number> {
   const cfg = await loadConfig(root);
   const rows = await listSkills(root, cfg);
   if (opts.json) {
-    console.log(JSON.stringify(rows, null, 2));
+    console.log(
+      JSON.stringify(
+        serializeResult({
+          ok: true,
+          verb: "skills:list",
+          data: { skills: rows },
+        }),
+      ),
+    );
     return 0;
   }
   if (rows.length === 0) {

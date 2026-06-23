@@ -76,7 +76,12 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     const message =
       "no discern install here — run `discern init` first. `upgrade` refreshes an existing install.";
     if (options.json) {
-      log.jsonResult({ ok: false, error: "not_initialized", message });
+      log.result({
+        ok: false,
+        verb: "upgrade",
+        error: "not_initialized",
+        message,
+      });
     } else {
       log.error(message);
     }
@@ -89,7 +94,12 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (options.json) {
-      log.jsonResult({ ok: false, error: "invalid_toml", message });
+      log.result({
+        ok: false,
+        verb: "upgrade",
+        error: "invalid_toml",
+        message,
+      });
     } else {
       log.error(message);
     }
@@ -116,11 +126,14 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
   if (options.check) {
     const ok = pending.length === 0;
     if (options.json) {
-      log.jsonResult({
+      log.result({
         ok,
-        check: true,
-        schema: { recorded: migrateFrom, current: SCHEMA_VERSION },
-        pending_migrations: pendingJson,
+        verb: "upgrade",
+        data: {
+          check: true,
+          schema: { recorded: migrateFrom, current: SCHEMA_VERSION },
+          pending_migrations: pendingJson,
+        },
       });
     } else if (ok) {
       log.ok(`Install is up to date (schema ${SCHEMA_VERSION}).`);
@@ -139,10 +152,10 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
 
   if (options.dryRun) {
     if (options.json) {
-      log.jsonResult({
+      log.result({
         ok: true,
-        dry_run: true,
-        pending_migrations: pendingJson,
+        verb: "upgrade",
+        data: { dry_run: true, pending_migrations: pendingJson },
       });
     } else {
       if (pending.length > 0) {
@@ -172,11 +185,12 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
       const message =
         "working tree has uncommitted changes; commit or stash them so the upgrade stays revertible, or re-run with --allow-dirty.";
       if (options.json) {
-        log.jsonResult({
+        log.result({
           ok: false,
+          verb: "upgrade",
           error: "dirty_worktree",
           message,
-          changes: state.changes,
+          data: { changes: state.changes },
         });
       } else {
         log.error(message);
@@ -232,24 +246,27 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
   await stampSchema(newConfigPath, SCHEMA_VERSION);
 
   if (options.json) {
-    log.jsonResult({
+    log.result({
       ok: true,
-      kit_version: KIT_VERSION,
-      // `from` is the pre-upgrade schema; the install now records `current`
-      // (the stamp ran above), so reporting it as still "recorded" would mislead.
-      schema: { from: migrateFrom, current: SCHEMA_VERSION },
-      migrations_applied: applied.map((m) => ({
-        from: m.from,
-        to: m.from + 1,
-        describe: m.describe,
-      })),
-      skills: guidelines === undefined ? null : {
-        copied: guidelines.skillsCopied,
-        linked: guidelines.skillsLinked,
-        pruned: guidelines.skillsPruned,
+      verb: "upgrade",
+      data: {
+        kit_version: KIT_VERSION,
+        // `from` is the pre-upgrade schema; the install now records `current`
+        // (the stamp ran above), so reporting it as still "recorded" would mislead.
+        schema: { from: migrateFrom, current: SCHEMA_VERSION },
+        migrations_applied: applied.map((m) => ({
+          from: m.from,
+          to: m.from + 1,
+          describe: m.describe,
+        })),
+        skills: guidelines === undefined ? null : {
+          copied: guidelines.skillsCopied,
+          linked: guidelines.skillsLinked,
+          pruned: guidelines.skillsPruned,
+        },
+        agents_written: guidelines?.agentsWritten ?? [],
+        guidelines_compiled: guidelines !== undefined,
       },
-      agents_written: guidelines?.agentsWritten ?? [],
-      guidelines_compiled: guidelines !== undefined,
     });
     return 0;
   }

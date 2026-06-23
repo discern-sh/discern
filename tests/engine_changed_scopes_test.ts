@@ -1,0 +1,66 @@
+/**
+ * Engine coverage for the `changed-scopes` verb's output surface — the human
+ * line list, the `--has` membership exit code, and the `--json` DiscernResult
+ * envelope (ADR 0028: `{ok, verb, data:{scopes}}`, no longer a bare array).
+ */
+
+import { assert, assertEquals } from "@std/assert";
+import { join } from "@std/path";
+import { withTempDir } from "./helpers.ts";
+import {
+  gitInit,
+  runAgent,
+  scaffoldEngine,
+  writeConfig,
+  writeExecutable,
+} from "./engine_helpers.ts";
+
+async function scaffoldWithWidget(dir: string): Promise<void> {
+  await scaffoldEngine(dir);
+  await writeConfig(
+    dir,
+    [
+      "[project]",
+      'slug = "engine-test"',
+      'main_branch = "main"',
+      "",
+      "[scopes.widget]",
+      'paths = ["widget/**"]',
+      'gate = "true"',
+      "",
+    ].join("\n"),
+  );
+  await gitInit(dir);
+  await writeExecutable(join(dir, "widget/x.txt"), "x"); // make widget a changed scope
+}
+
+Deno.test("changed-scopes --json: emits the DiscernResult envelope, not a bare array", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldWithWidget(dir);
+    const r = await runAgent(dir, ["changed-scopes", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    const obj = JSON.parse(r.stdout.trim());
+    assertEquals(obj.ok, true);
+    assertEquals(obj.verb, "changed-scopes");
+    assert(Array.isArray(obj.data.scopes), r.stdout);
+    assert(obj.data.scopes.includes("widget"), r.stdout);
+  });
+});
+
+Deno.test("changed-scopes: human mode lists scopes one per line; --has tests membership by exit code", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldWithWidget(dir);
+
+    const human = await runAgent(dir, ["changed-scopes"]);
+    assertEquals(human.code, 0, human.output);
+    assert(
+      human.stdout.split("\n").includes("widget"),
+      `expected 'widget' on its own line, got: ${human.stdout}`,
+    );
+
+    const hit = await runAgent(dir, ["changed-scopes", "--has", "widget"]);
+    assertEquals(hit.code, 0, "widget changed → exit 0");
+    const miss = await runAgent(dir, ["changed-scopes", "--has", "nope"]);
+    assertEquals(miss.code, 1, "unknown scope → exit 1");
+  });
+});

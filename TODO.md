@@ -129,6 +129,30 @@ _Nothing outstanding._
       distinguished from a genuine absence. Evidence: `src/lib/skills.ts`
       (`targetExists` ~151).
 
+- [ ] **Tier-1 diagnostics: declared text formats (the `[diagnostics.<name>]`
+      regex slice).** `finish` normalizes a failed tool's output into structured
+      `{file,line,rule}` diagnostics only when the tool emits **SARIF**
+      (auto-detected —
+      [ADR 0028](docs/_adr/0028-result-envelope-and-diagnostics.md)). Tools that
+      emit only human text (the common case for many linters/compilers without a
+      SARIF flag) still carry their raw output (Tier 0). The planned next slice:
+      a `[diagnostics.<name>]` config table letting a Capability/Check declare a
+      `format = "regex"` + `pattern` (named groups
+      `file`/`line`/`col`/`rule`/`message`) so discern parses text output too.
+      Deferred because it needs a config-surface decision (a new section +
+      schema + codegen + the closed `[capabilities]` value shape) that SARIF
+      needed none of; worth its own small ADR. Wire it into
+      `normalizeDiagnostics`. Evidence: `src/engine/gate/diagnostics.ts`
+      (`normalizeDiagnostics` — SARIF only); `src/engine/gate/plan.ts`
+      (`buildGateResult` calls it).
+
+- [ ] **`discern mcp` exposes only `finish` + `changed_scopes`.** The MCP server
+      renders any verb's `DiscernResult`, but only two tools are wired so far.
+      Adding `doctor`, `ratchets`, etc. is a few lines each — but each needs its
+      verb factored into a result-returning core (like `finishResult` /
+      `changedScopesResult`) instead of the print-and-exit `runX`. Add tools as
+      those cores are extracted. Evidence: `src/engine/mcp/server.ts` (`TOOLS`).
+
 ## 🟢 Test & tooling hygiene
 
 - [ ] **Genericise the `addWorktree` test helper off the `.claude/worktrees`

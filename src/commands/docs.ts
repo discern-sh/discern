@@ -204,7 +204,7 @@ async function viewTarget(
   if (res.kind === "none") {
     const message = `no doc matches "${target}".`;
     if (options.json) {
-      log.jsonResult({ ok: false, error: "not_found", message });
+      log.result({ ok: false, verb: "docs", error: "not_found", message });
     } else {
       log.error(message);
       log.detail("list what's available: discern docs --list");
@@ -216,7 +216,13 @@ async function viewTarget(
     const candidates = res.entries.map((e) => e.path);
     const message = `"${target}" matches ${candidates.length} docs.`;
     if (options.json) {
-      log.jsonResult({ ok: false, error: "ambiguous", message, candidates });
+      log.result({
+        ok: false,
+        verb: "docs",
+        error: "ambiguous",
+        message,
+        data: { candidates },
+      });
     } else {
       log.error(`${message} Qualify it with a section or path:`);
       for (const e of res.entries) log.detail(e.path);
@@ -228,7 +234,11 @@ async function viewTarget(
   const content = await Deno.readTextFile(entry.absPath);
 
   if (options.json) {
-    log.jsonResult({ ok: true, doc: { ...toRecord(entry), content } });
+    log.result({
+      ok: true,
+      verb: "docs",
+      data: { doc: { ...toRecord(entry), content } },
+    });
     return 0;
   }
   if (options.raw) {
@@ -256,7 +266,7 @@ export async function runDocs(options: DocsOptions): Promise<number> {
       ? `no documentation directory at "${options.dir}".`
       : "no docs/ directory here — run `discern bootstrap` to seed one, or pass --dir <path>.";
     if (options.json) {
-      log.jsonResult({ ok: false, error: "no_docs", message });
+      log.result({ ok: false, verb: "docs", error: "no_docs", message });
     } else {
       log.error(message);
     }
@@ -265,11 +275,10 @@ export async function runDocs(options: DocsOptions): Promise<number> {
 
   if (tree.entries.length === 0) {
     if (options.json) {
-      log.jsonResult({
+      log.result({
         ok: true,
-        docs_dir: display(tree.docsDir, cwd),
-        count: 0,
-        docs: [],
+        verb: "docs",
+        data: { docs_dir: display(tree.docsDir, cwd), count: 0, docs: [] },
       });
       return 0;
     }
@@ -284,11 +293,14 @@ export async function runDocs(options: DocsOptions): Promise<number> {
 
   // 2. `--json` with no target → the machine-readable index.
   if (options.json) {
-    log.jsonResult({
+    log.result({
       ok: true,
-      docs_dir: display(tree.docsDir, cwd),
-      count: tree.entries.length,
-      docs: tree.entries.map(toRecord),
+      verb: "docs",
+      data: {
+        docs_dir: display(tree.docsDir, cwd),
+        count: tree.entries.length,
+        docs: tree.entries.map(toRecord),
+      },
     });
     return 0;
   }

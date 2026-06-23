@@ -13,14 +13,19 @@ its own. After the Stages come the **Scope** `gate`s for any Scope that changed,
 then (in a Worktree) the main-merged check.
 
 `discern prepare` is the fast inner loop: the fix-stage then check-stage work,
-with no build or test. `--json` emits a machine-readable report of every
-Capability, Check, and Scope gate (ADR 0004, ADR 0017) for an agent to consume —
-now a serialization of the plan `finish` executed, not a re-derivation.
-`finish
---dry-run` prints that plan (the jobs and Scope gates that _would_ run)
-without running anything
-([ADR 0027](../_adr/0027-plan-apply-engine-execution.md)); it lists what would
-run and is honest that it cannot predict which jobs fail-fast would skip.
+with no build or test. `--json` emits the **`DiscernResult` envelope** — the one
+result shape every verb returns
+([ADR 0028](../_adr/0028-result-envelope-and-diagnostics.md)):
+`{ok, verb, steps, diagnostics?, data}`, a serialization of the plan `finish`
+executed, not a re-derivation. Each Capability/Check/Scope gate is a `steps[]`
+entry; a genuine failure also yields a `diagnostics[]` entry carrying the
+command to reproduce it and its captured output (normalized to file/line/rule
+when the tool emits SARIF) — so an agent loops act→read-error→fix instead of
+re-running and scraping stderr. `finish --dry-run` prints the plan (the jobs and
+Scope gates that _would_ run) without running anything
+([ADR 0027](../_adr/0027-plan-apply-engine-execution.md)); it is honest that it
+cannot predict which jobs fail-fast would skip. The same envelope is served to
+agents natively over MCP by `discern mcp`.
 
 The supporting ideas: **Capabilities** are the five known commands (`format` /
 `build` / `lint` / `typecheck` / `test`) and a **Check** is custom gate work
@@ -37,13 +42,13 @@ they are slow (ADR 0003).
 
 ## Planned leaves
 
-| File _(to be written)_       | What it will cover                                                                                    |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `the-finish-stages.md`       | The Stage order, serial-vs-parallel rules, fail-fast, and the gotchas pointer on fail.                |
-| `capabilities-and-checks.md` | The five known Capabilities, the derived Stage, custom Checks, and how the Engine finds them.         |
-| `scopes-and-gates.md`        | Scope globs, fail-open classification, and wiring a Scope `gate` (ADR 0018).                          |
-| `ratchets.md`                | Never-loosen floors/ceilings, the `DISCERN_METRIC` protocol, holding against `main`.                  |
-| `the-json-report.md`         | The `finish --json` shape and how an agent reads pass/fail per Capability/Check (ADR 0004, ADR 0017). |
+| File _(to be written)_       | What it will cover                                                                                  |
+| ---------------------------- | --------------------------------------------------------------------------------------------------- |
+| `the-finish-stages.md`       | The Stage order, serial-vs-parallel rules, fail-fast, and the gotchas pointer on fail.              |
+| `capabilities-and-checks.md` | The five known Capabilities, the derived Stage, custom Checks, and how the Engine finds them.       |
+| `scopes-and-gates.md`        | Scope globs, fail-open classification, and wiring a Scope `gate` (ADR 0018).                        |
+| `ratchets.md`                | Never-loosen floors/ceilings, the `DISCERN_METRIC` protocol, holding against `main`.                |
+| `the-result-envelope.md`     | The `DiscernResult` envelope every verb returns, its `diagnostics[]`, and `discern mcp` (ADR 0028). |
 
 ## See also
 

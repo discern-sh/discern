@@ -22,11 +22,18 @@ Deno.test("discern skills list shows the built-ins, and --json emits structured 
 
     const json = await runAgent(dir, ["skills", "list", "--json"]);
     assertEquals(json.code, 0, json.output);
-    const rows = JSON.parse(json.stdout) as Array<{
-      name: string;
-      source: string;
-    }>;
-    assert(rows.some((r) => r.name === "write-adr" && r.source === "bundled"));
+    const obj = JSON.parse(json.stdout) as {
+      ok: boolean;
+      verb: string;
+      data: { skills: Array<{ name: string; source: string }> };
+    };
+    assertEquals(obj.ok, true);
+    assertEquals(obj.verb, "skills:list");
+    assert(
+      obj.data.skills.some((r) =>
+        r.name === "write-adr" && r.source === "bundled"
+      ),
+    );
   });
 });
 

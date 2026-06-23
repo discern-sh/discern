@@ -8,6 +8,11 @@
  */
 
 import { colors } from "@cliffy/ansi/colors";
+import {
+  type DiscernResult,
+  type RenderSink,
+  serializeResult,
+} from "../shared/result.ts";
 
 /** How a command should present its results. */
 export interface LogOptions {
@@ -127,6 +132,19 @@ export class Logger {
     console.log(JSON.stringify(payload, null, 2));
   }
 
+  /**
+   * Emit a {@link DiscernResult} as the verb's single `--json` object — the
+   * envelope every verb shares (ADR 0028). Only does anything in JSON mode; the
+   * human path is the verb's own narration. The installer-verb counterpart of the
+   * engine's `serializeResult` emit.
+   */
+  result(r: DiscernResult): void {
+    if (!this.json) {
+      return;
+    }
+    console.log(JSON.stringify(serializeResult(r), null, 2));
+  }
+
   /** Bold a fragment of text inline (no-op without colour). */
   bold(text: string): string {
     return this.paint(colors.bold, text);
@@ -136,4 +154,13 @@ export class Logger {
   dim(text: string): string {
     return this.paint(colors.dim, text);
   }
+}
+
+/** Adapt the installer's `Logger` to a {@link RenderSink} for the shared plan renderer. */
+export function loggerSink(log: Logger): RenderSink {
+  return {
+    heading: (t: string): void => log.heading(t),
+    line: (t: string): void => log.line(t),
+    dim: (t: string): string => log.dim(t),
+  };
 }

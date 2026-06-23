@@ -37,9 +37,10 @@ Deno.test("upgrade --check passes on a fresh, in-sync install", async () => {
     assertEquals(r.code, 0, r.stderr);
     const res = JSON.parse(r.stdout);
     assertEquals(res.ok, true);
-    assertEquals(res.check, true);
-    assertEquals(res.pending_migrations, []);
-    assertEquals(res.schema.recorded, res.schema.current);
+    assertEquals(res.verb, "upgrade");
+    assertEquals(res.data.check, true);
+    assertEquals(res.data.pending_migrations, []);
+    assertEquals(res.data.schema.recorded, res.data.schema.current);
   });
 });
 
@@ -66,11 +67,11 @@ Deno.test("upgrade --check flags a stale schema and lists the pending steps", as
     assertEquals(r.code, 1, r.stderr);
     const res = JSON.parse(r.stdout);
     assertEquals(res.ok, false);
-    assertEquals(res.schema.recorded, 1);
-    assertEquals(res.schema.current, 8);
+    assertEquals(res.data.schema.recorded, 1);
+    assertEquals(res.data.schema.current, 8);
     // Every step from 1 up to the current schema is pending.
     assertEquals(
-      res.pending_migrations.map((m: { from: number }) => m.from),
+      res.data.pending_migrations.map((m: { from: number }) => m.from),
       [1, 2, 3, 4, 5, 6, 7],
     );
   });

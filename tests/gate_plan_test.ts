@@ -1,6 +1,6 @@
 /**
  * Fast unit coverage for the gate's PURE planning core (`src/engine/gate/plan.ts`)
- * and the shared engine renderer (`src/engine/plan/view.ts`). These run with NO
+ * and the shared engine renderer (`src/shared/result.ts`). These run with NO
  * subprocess and NO git — the whole "what would the gate run, and how does it
  * serialize" decision is exercised in microseconds, the speed payoff of splitting
  * planning from execution (ADR 0027). The end-to-end behaviour is pinned by the
@@ -11,18 +11,19 @@ import { assert, assertEquals } from "@std/assert";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import {
   buildGatePlan,
-  buildGateReport,
+  buildGateResult,
+  type GateData,
   gatePlanToEngine,
   planScopeGates,
   planStageJobs,
 } from "../src/engine/gate/plan.ts";
 import type { JobResult } from "../src/engine/jobs/types.ts";
 import {
+  type EnginePlan,
   planToJson,
   renderPlan,
   type RenderSink,
-} from "../src/engine/plan/view.ts";
-import type { EnginePlan } from "../src/engine/plan/types.ts";
+} from "../src/shared/result.ts";
 
 const FULL = parseConfigOrThrow(`
 [capabilities]
@@ -93,7 +94,7 @@ Deno.test("buildGatePlan: empty stages produce no group (a no-op gate has no gro
   assert(plan.mergeCheck);
 });
 
-Deno.test("buildGateReport: serializes plan+results into the ADR-0004 shape", () => {
+Deno.test("buildGateResult: serializes plan+results into the DiscernResult envelope", () => {
   const plan = buildGatePlan(FULL, ["widget"]);
   // Simulate: fix+build+check/test all passed; widget gate passed; gadget skipped.
   const results = new Map<string, JobResult>();
@@ -106,40 +107,56 @@ Deno.test("buildGateReport: serializes plan+results into the ADR-0004 shape", ()
     ok(l);
   }
   ok("scope:widget");
-  const report = buildGateReport(plan, results, null);
+  const result = buildGateResult(plan, results, null);
+  const steps = result.steps ?? [];
 
-  assertEquals(report.ok, true);
-  assertEquals(report.failed_stage, null);
-  // jobs[] is the non-scope jobs in fix→build→check→test order.
-  assertEquals(report.jobs.map((j) => j.name), [
-    "format",
-    "build",
-    "lint",
-    "lint#2",
-    "typecheck",
-    "test",
-  ]);
-  assertEquals(report.jobs.find((j) => j.name === "format")?.stage, "fix");
-  assertEquals(report.jobs.find((j) => j.name === "test")?.kind, "capability");
-  // scope_gates[] lists every configured gate; the unchanged one is skipped.
-  const widget = report.scope_gates.find((g) => g.scope === "widget");
-  const gadget = report.scope_gates.find((g) => g.scope === "gadget");
-  assertEquals(widget?.status, "ok");
-  assertEquals(gadget?.status, "skipped");
+  assertEquals(result.ok, true);
+  assertEquals(result.verb, "finish");
+  assertEquals((result.data as GateData).failed_stage, null);
+  // The job-kind steps are the non-scope jobs in fix→build→check→test order.
+  assertEquals(
+    steps.filter((s) => s.step.kind === "job").map((s) => s.step.label),
+    ["format", "build", "lint", "lint#2", "typecheck", "test"],
+  );
+  // scope-gate steps list every configured gate; the unchanged one is skipped.
+  const sg = (scope: string) =>
+    steps.find((s) => s.step.label === `scope:${scope}`);
+  assertEquals(sg("widget")?.step.kind, "scope-gate");
+  assertEquals(sg("widget")?.outcome, "ok");
+  assertEquals(sg("gadget")?.outcome, "skipped");
+  // A clean run carries no diagnostics (the field is omitted).
+  assertEquals(result.diagnostics, undefined);
 });
 
-Deno.test("buildGateReport: a stage that aborted leaves later jobs skipped", () => {
+Deno.test("buildGateResult: an aborted stage leaves later jobs skipped; the failure is a diagnostic", () => {
   const plan = buildGatePlan(FULL, []);
-  // Only the fix job ran and failed; nothing else has a result.
+  // Only the fix job ran and failed (with captured output); nothing else has a result.
   const results = new Map<string, JobResult>([
-    ["format", { label: "format", status: "failed", code: 1, durationS: 0 }],
+    [
+      "format",
+      {
+        label: "format",
+        status: "failed",
+        code: 1,
+        durationS: 0,
+        output: "boom",
+      },
+    ],
   ]);
-  const report = buildGateReport(plan, results, "fix");
-  assertEquals(report.ok, false);
-  assertEquals(report.failed_stage, "fix");
-  assertEquals(report.jobs.find((j) => j.name === "format")?.status, "failed");
+  const result = buildGateResult(plan, results, "fix");
+  const steps = result.steps ?? [];
+  const step = (label: string) => steps.find((s) => s.step.label === label);
+
+  assertEquals(result.ok, false);
+  assertEquals((result.data as GateData).failed_stage, "fix");
+  assertEquals(step("format")?.outcome, "failed");
   // A later-stage job that never ran is "skipped", not absent.
-  assertEquals(report.jobs.find((j) => j.name === "test")?.status, "skipped");
+  assertEquals(step("test")?.outcome, "skipped");
+  // The failed job becomes a Tier-0 diagnostic carrying its output + reproduce cmd.
+  const diag = (result.diagnostics ?? []).find((d) => d.tool === "format");
+  assert(diag, "expected a diagnostic for the failed format job");
+  assertEquals(diag.output, "boom");
+  assertEquals(diag.reproduce_cmd, "deno fmt");
 });
 
 Deno.test("gatePlanToEngine: firing job is run, unchanged scope gate is skip, merge-check is a gate", () => {

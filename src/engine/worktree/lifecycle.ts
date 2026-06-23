@@ -14,7 +14,7 @@
  */
 
 import { join } from "@std/path";
-import { Logger } from "../../lib/log.ts";
+import { Logger, loggerSink } from "../../lib/log.ts";
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import {
   deriveIdentity,
@@ -50,13 +50,14 @@ import {
   type TeardownPlan,
   teardownPlanToEngine,
 } from "./plan.ts";
-import type { EnginePlan, StepResult } from "../plan/types.ts";
 import {
-  loggerSink,
-  planToJson,
+  appliedResult,
+  type EnginePlan,
+  previewResult,
   renderPlan,
-  resultsToJson,
-} from "../plan/view.ts";
+  serializeResult,
+  type StepResult,
+} from "../../shared/result.ts";
 import {
   assertInWorktree,
   assertMainMerged,
@@ -115,19 +116,20 @@ export interface WorktreeOpOptions {
  */
 function emitDryRun(
   ctx: LifecycleContext,
+  verb: string,
   plan: EnginePlan,
   json: boolean,
 ): void {
   if (json) {
-    console.log(JSON.stringify({ dry_run: true, plan: planToJson(plan) }));
+    console.log(JSON.stringify(serializeResult(previewResult(verb, plan))));
     return;
   }
   renderPlan(loggerSink(ctx.log), plan);
 }
 
-/** Emit an applied verb's (plan, results) as `--json` on stdout. */
-function emitResults(results: StepResult[]): void {
-  console.log(JSON.stringify(resultsToJson(results)));
+/** Emit an applied verb's result as the `--json` DiscernResult on stdout. */
+function emitResults(verb: string, results: StepResult[]): void {
+  console.log(JSON.stringify(serializeResult(appliedResult(verb, results))));
 }
 
 /** Run a command string via `sh -c` in `cwd`, inheriting stdio. Returns its exit code. */
@@ -318,7 +320,7 @@ export async function worktreeSetup(
   // outcomes against it, so the preview and the `--json` report can't drift.
   const plan = await buildSetupPlan(ctx);
   if (opts.dryRun ?? false) {
-    emitDryRun(ctx, setupPlanToEngine(plan), opts.json ?? false);
+    emitDryRun(ctx, "worktree", setupPlanToEngine(plan), opts.json ?? false);
     return;
   }
 
@@ -391,7 +393,7 @@ export async function worktreeSetup(
   ctx.log.ok("Worktree setup complete.");
 
   if (opts.json ?? false) {
-    emitResults(setupResults(plan, createdFailed, refreshOk));
+    emitResults("worktree", setupResults(plan, createdFailed, refreshOk));
   }
 }
 
@@ -463,7 +465,12 @@ export async function worktreeTeardown(
 
   const plan = await buildTeardownPlan(ctx);
   if (opts.dryRun ?? false) {
-    emitDryRun(ctx, teardownPlanToEngine(plan), opts.json ?? false);
+    emitDryRun(
+      ctx,
+      "worktree:teardown",
+      teardownPlanToEngine(plan),
+      opts.json ?? false,
+    );
     return;
   }
 
@@ -487,7 +494,7 @@ export async function worktreeTeardown(
         ? "ok"
         : "skipped",
     }));
-    emitResults(results);
+    emitResults("worktree:teardown", results);
   }
 }
 
@@ -736,12 +743,12 @@ export async function graduate(
   const run = makeGitRunner(ctx);
   const plan = await buildGraduatePlan(ctx, run);
   if (opts.dryRun ?? false) {
-    emitDryRun(ctx, graduatePlanToEngine(plan), opts.json ?? false);
+    emitDryRun(ctx, "graduate", graduatePlanToEngine(plan), opts.json ?? false);
     return;
   }
   const results = await executeGraduatePlan(ctx, run, plan);
   if (opts.json ?? false) {
-    emitResults(results);
+    emitResults("graduate", results);
   }
 }
 
@@ -836,7 +843,12 @@ export async function worktreePrune(
 
   // Dry-run: scan read-only and render the plan; touch nothing.
   if (opts.dryRun ?? false) {
-    emitDryRun(ctx, prunePlanToEngine(await buildPrunePlan(ctx)), json);
+    emitDryRun(
+      ctx,
+      "worktree:prune",
+      prunePlanToEngine(await buildPrunePlan(ctx)),
+      json,
+    );
     return;
   }
 
@@ -865,7 +877,7 @@ export async function worktreePrune(
   void opts.assumeYes;
 
   if (json) {
-    emitResults(pruneResults(prune, sweep, gc));
+    emitResults("worktree:prune", pruneResults(prune, sweep, gc));
   }
 }
 

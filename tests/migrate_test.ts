@@ -50,8 +50,9 @@ Deno.test("migrate reports up to date on a current install", async () => {
     assertEquals(r.code, 0, r.stderr);
     const res = JSON.parse(r.stdout);
     assertEquals(res.ok, true);
-    assertEquals(res.pending_migrations, []);
-    assertEquals(res.schema.recorded, res.schema.current);
+    assertEquals(res.verb, "migrate");
+    assertEquals(res.data.pending_migrations, []);
+    assertEquals(res.data.schema.recorded, res.data.schema.current);
   });
 });
 
@@ -148,11 +149,14 @@ Deno.test("migrate --json lists the pending step from a rewound schema", async (
     assertEquals(r.code, 0, r.stderr);
     const res = JSON.parse(r.stdout);
     assertEquals(res.ok, false);
-    assertEquals(res.schema.recorded, 1);
-    assertEquals(res.schema.current, 8);
-    assertEquals(res.pending_migrations.length, 7);
-    assertEquals(res.pending_migrations[0].from, 1);
-    assertEquals(res.pending_migrations[0].to, 2);
-    assertStringIncludes(res.pending_migrations[0].describe, "main_branch");
+    assertEquals(res.data.schema.recorded, 1);
+    assertEquals(res.data.schema.current, 8);
+    assertEquals(res.data.pending_migrations.length, 7);
+    assertEquals(res.data.pending_migrations[0].from, 1);
+    assertEquals(res.data.pending_migrations[0].to, 2);
+    assertStringIncludes(
+      res.data.pending_migrations[0].describe,
+      "main_branch",
+    );
   });
 });

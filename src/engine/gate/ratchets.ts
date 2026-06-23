@@ -15,20 +15,21 @@
 
 import { loadConfig } from "../../shared/config_schema.ts";
 import { RawConfig } from "../../shared/config_read.ts";
-import { colorEnabled, makeOut, type Out } from "../output.ts";
+import { colorEnabled, makeOut, type Out, outSink } from "../output.ts";
 import {
   buildRatchetPlan,
   type PlannedRatchet,
   type RatchetPlan,
   ratchetPlanToEngine,
 } from "./ratchet_plan.ts";
-import type { StepOutcome, StepResult } from "../plan/types.ts";
 import {
-  outSink,
-  planToJson,
+  appliedResult,
+  previewResult,
   renderPlan,
-  resultsToJson,
-} from "../plan/view.ts";
+  serializeResult,
+  type StepOutcome,
+  type StepResult,
+} from "../../shared/result.ts";
 
 /** True when `s` is a non-negative decimal number (matches the shell predicate). */
 function isNumber(s: string): boolean {
@@ -238,7 +239,9 @@ export async function runRatchets(
   if (dryRun) {
     const engine = ratchetPlanToEngine(plan);
     if (json) {
-      console.log(JSON.stringify({ dry_run: true, plan: planToJson(engine) }));
+      console.log(
+        JSON.stringify(serializeResult(previewResult("ratchets", engine))),
+      );
       return 0;
     }
     renderPlan(outSink(out), engine);
@@ -247,7 +250,9 @@ export async function runRatchets(
 
   if (plan.ratchets.length === 0) {
     if (json) {
-      console.log(JSON.stringify(resultsToJson([])));
+      console.log(
+        JSON.stringify(serializeResult(appliedResult("ratchets", []))),
+      );
       return 0;
     }
     out.info(
@@ -259,7 +264,9 @@ export async function runRatchets(
   const { ok, results } = await executeRatchetPlan(plan, root, mainBranch, out);
 
   if (json) {
-    console.log(JSON.stringify(resultsToJson(results)));
+    console.log(
+      JSON.stringify(serializeResult(appliedResult("ratchets", results))),
+    );
     return ok ? 0 : 1;
   }
 

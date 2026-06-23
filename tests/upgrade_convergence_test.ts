@@ -77,8 +77,9 @@ Deno.test("upgrade of a current install applies no migrations and stays at the c
     await init(dir);
     const fresh = await recordedSchema(dir);
     const res = await upgrade(dir);
-    assertEquals(res.migrations_applied, []);
-    assertEquals(res.schema.current, fresh);
+    assertEquals(res.verb, "upgrade");
+    assertEquals(res.data.migrations_applied, []);
+    assertEquals(res.data.schema.current, fresh);
     assertEquals(await recordedSchema(dir), fresh);
   });
 });
@@ -88,7 +89,7 @@ Deno.test("a second upgrade is a no-op (idempotent)", async () => {
     await init(dir);
     await upgrade(dir);
     const res = await upgrade(dir);
-    assertEquals(res.migrations_applied, []);
+    assertEquals(res.data.migrations_applied, []);
   });
 });
 
@@ -100,14 +101,14 @@ Deno.test("upgrade re-materializes the bundled skills and stamps the current sch
     const skill = join(dir, ".claude/skills/write-adr/SKILL.md");
     await Deno.writeTextFile(skill, "tampered\n");
     const res = await upgrade(dir);
-    assert(res.skills.copied >= 1, "bundled skills should be re-copied");
+    assert(res.data.skills.copied >= 1, "bundled skills should be re-copied");
     assert(
       !(await readTarget(dir, ".claude/skills/write-adr/SKILL.md")).includes(
         "tampered",
       ),
       "the kit's skill bytes should overwrite the tampered copy",
     );
-    assertEquals(await recordedSchema(dir), res.schema.current);
+    assertEquals(await recordedSchema(dir), res.data.schema.current);
   });
 });
 
@@ -134,7 +135,7 @@ Deno.test("a schema-1 install missing main_branch upgrades to the current schema
 
       const res = await upgrade(older); // runs 1→2 … 7→8, materializes, stamps
       assertEquals(
-        res.migrations_applied.map((m: { from: number }) => m.from),
+        res.data.migrations_applied.map((m: { from: number }) => m.from),
         [1, 2, 3, 4, 5, 6, 7],
       );
 
@@ -201,7 +202,7 @@ Deno.test("a schema-3 [slots] install upgrades to the capabilities shape and the
 
       const res = await upgrade(older); // runs 3→4, 4→5, 5→6, materializes, stamps
       assertEquals(
-        res.migrations_applied.map((m: { from: number }) => m.from),
+        res.data.migrations_applied.map((m: { from: number }) => m.from),
         [3, 4, 5, 6, 7],
       );
 
@@ -275,7 +276,7 @@ Deno.test("a legacy install whose schema lives only in a manifest upgrades, prun
     const res = await upgrade(dir);
     // The manifest anchored the chain at schema 4 → 4→5 then 5→6 run.
     assertEquals(
-      res.migrations_applied.map((m: { from: number }) => m.from),
+      res.data.migrations_applied.map((m: { from: number }) => m.from),
       [4, 5, 6, 7],
     );
     // The shell engine, dispatcher, manifest, and the whole .discern/ namespace
@@ -296,7 +297,7 @@ Deno.test("a legacy install whose schema lives only in a manifest upgrades, prun
     assert(!/\.discern/.test(gitignore), "no .discern ignore remains");
     assertStringIncludes(gitignore, "/GEMINI.md");
     // …and the schema is now stamped in the config the user owns.
-    assertEquals(await recordedSchema(dir), res.schema.current);
+    assertEquals(await recordedSchema(dir), res.data.schema.current);
     // Papercut 1: this install had NO [meta] (its version lived only in the
     // manifest). The migration gives it a documented [meta] FIRST — not a bare
     // [meta] appended at EOF by the stamp.

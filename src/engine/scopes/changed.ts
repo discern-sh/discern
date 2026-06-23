@@ -10,6 +10,7 @@
  */
 
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
+import { type DiscernResult, serializeResult } from "../../shared/result.ts";
 import { pathMatchesPattern } from "./glob.ts";
 
 /** Run `git -C root <args>`, capturing stdout. `ok:false` on any failure. */
@@ -162,6 +163,22 @@ export interface ChangedScopesOptions {
   has?: string;
 }
 
+/** The `changed-scopes` envelope for a classified scope list — the one shape both
+ * the CLI `--json` and the MCP tool render. */
+function changedScopesEnvelope(scopes: string[]): DiscernResult {
+  return { ok: true, verb: "changed-scopes", data: { scopes } };
+}
+
+/**
+ * Compute the `changed-scopes` {@link DiscernResult} without printing — the entry
+ * point the MCP server renders, and the source the CLI's `--json` serializes.
+ */
+export async function changedScopesResult(
+  root: string,
+): Promise<DiscernResult> {
+  return changedScopesEnvelope(await changedScopes(root));
+}
+
 /**
  * The `changed-scopes` subcommand: print the scopes (one per line), a JSON array
  * (`--json`), or test membership silently (`--has <name>` → exit 0/1).
@@ -175,7 +192,7 @@ export async function runChangedScopes(
     return scopes.includes(opts.has) ? 0 : 1;
   }
   if (opts.json) {
-    console.log(JSON.stringify(scopes));
+    console.log(JSON.stringify(serializeResult(changedScopesEnvelope(scopes))));
     return 0;
   }
   for (const s of scopes) {

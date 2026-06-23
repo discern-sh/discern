@@ -5,6 +5,8 @@
  * clean for the single JSON object (ADR 0004).
  */
 
+import type { RenderSink } from "../shared/result.ts";
+
 /** The ANSI palette, mirroring `output.sh`'s C_* variables. */
 export interface Palette {
   reset: string;
@@ -126,5 +128,14 @@ export function makeOut(
     error: (m: string): void => writeStderr(`${c.red}✗${c.reset} ${m}\n`),
     heading: (m: string): void => w(`\n${c.bold}${m}${c.reset}\n`),
     raw: (s: string): void => w(s),
+  };
+}
+
+/** Adapt the gate's `Out` to a {@link RenderSink} (writes to its info stream). */
+export function outSink(out: Out): RenderSink {
+  return {
+    heading: (t: string): void => out.heading(t),
+    line: (t: string): void => out.raw(`${t}\n`),
+    dim: (t: string): string => `${out.c.dim}${t}${out.c.reset}`,
   };
 }
