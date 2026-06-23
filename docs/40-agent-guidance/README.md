@@ -15,18 +15,20 @@ agent files, skills, and integration artifacts: it compiles
 `CLAUDE.md`, `codex` → `AGENTS.md`, `gemini` → `GEMINI.md`). The same verb
 (re)materializes the **Skills** into `.claude/skills/`.
 
-The compiled files carry a do-not-edit banner and are
+The compiled files are
 [Generated](../00-orientation/glossary.md#generated-file): never hand-edited,
-always reproduced by re-running the verb. `AGENTS.md` is the one **tracked**
-agent file (so guidance changes show in review, and a stale one fails CI's
-`git diff --exit-code`), and it holds the full compiled body — the single source
-the gitignored mirrors point back at. `CLAUDE.md` **imports** `AGENTS.md` via
-Claude Code's `@`-include rather than duplicating it (so the two can never
-drift); `GEMINI.md` is a full copy until Gemini's include syntax is wired. When
-no tracked file is emitted, each mirror falls back to the full body. Driving
-several agents from one source is what keeps guidance provider-agnostic — write
-the rule once, every agent gets it; the built-in guidance is feature-aware, so a
-subsystem you disable in `[features]` drops its section.
+always reproduced by re-running the verb, and gitignored build artifacts (ADR
+0034) — the reviewable, tracked form is your `[guidance].sources`. `AGENTS.md`
+holds the full compiled body — the single on-disk source the mirrors point back
+at (the **canonical** file). `CLAUDE.md` **imports** `AGENTS.md` via Claude
+Code's `@`-include rather than duplicating it (so the two can never drift);
+`GEMINI.md` is a full copy until Gemini's include syntax is wired. When no
+canonical file is emitted, each mirror falls back to the full body. They carry
+no banner — `discern status` / `discern finish` flag a generated file that has
+drifted from its source instead. Driving several agents from one source is what
+keeps guidance provider-agnostic — write the rule once, every agent gets it; the
+built-in guidance is feature-aware, so a subsystem you disable in `[features]`
+drops its section.
 
 The Skills are the bundled built-ins (`bootstrap`, `document-subsystem`,
 `write-adr`, `handoff-worktree`) plus any you author under `[skills].dir`

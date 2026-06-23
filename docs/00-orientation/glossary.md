@@ -99,9 +99,10 @@ from.
 A plain monotonic integer — the anchor the [Migration](#migration) chain steps
 from, stamped into `[meta].schema_version` in `discern.toml`. It bumps **only**
 when an installed project needs a migration to stay correct, so most releases
-leave it untouched. The current shape is schema **8** — the `7 → 8` step
-generalized the hard-coded db/dev-server adapters into per-worktree resources
-([ADR 0025](../_adr/0025-worktree-resources.md)).
+leave it untouched. The current shape is schema **9** — the `8 → 9` step
+untracks the generated `AGENTS.md`, adding `/AGENTS.md` to `.gitignore` so it
+joins the other compiled mirrors as a build artifact
+([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md)).
 
 ### Migration
 
@@ -154,13 +155,15 @@ A **gitignored** artifact the binary re-publishes on every `upgrade`, always
 safe to overwrite because the binary owns it — the opposite of
 [yours](#your-files--yours). The materialized [Skills](#skill) under
 `.claude/skills/` (built-ins copied, authored ones symlinked) and the compiled
-`CLAUDE.md`/`GEMINI.md` are all the binary's. `AGENTS.md` is the one **tracked**
-[Generated](#generated-file) exception. The [Engine](#engine), the built-in
-guidance, and the built-in Skill sources are the limit case: the binary's, but
-**bundled** inside it, not on disk in a project at all. (This bucket replaces
-the retired notion of a "managed file" — there are no content hashes, no `.new`
-preservation, and no drift detection, because nothing here is committed except
-the banner-headed `AGENTS.md`.)
+agent files `AGENTS.md`/`CLAUDE.md`/`GEMINI.md` are all the binary's
+[Generated](#generated-file) artifacts
+([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md)). The
+[Engine](#engine), the built-in guidance, and the built-in Skill sources are the
+limit case: the binary's, but **bundled** inside it, not on disk in a project at
+all. (This bucket replaces the retired notion of a "managed file" — there are no
+content hashes, no `.new` preservation, and no drift detection, because nothing
+here is committed at all; drift between a generated file and its source is
+caught by `discern finish`'s currency check instead.)
 
 ### Merged file
 
@@ -176,10 +179,10 @@ A file produced by a `discern` command rather than copied from a template, and
 reproduced by re-running that command rather than edited directly.
 `discern
 refresh` compiles the agent files (`CLAUDE.md`, `AGENTS.md`,
-`GEMINI.md`) and materializes `.claude/skills/`. Most are
-[the binary's](#the-binarys-files) (gitignored); `AGENTS.md` is the one tracked
-generated file, banner-headed, so guidance changes are reviewable and a stale
-copy fails CI's `git diff --exit-code`.
+`GEMINI.md`) and materializes `.claude/skills/`. They are all
+[the binary's](#the-binarys-files) gitignored build artifacts; the reviewable,
+tracked form is your `[guidance].sources`, and `discern finish` flags a
+generated file that has drifted from its source (ADR 0034).
 
 ---
 
@@ -333,11 +336,13 @@ sources extend it rather than replace it.
 
 `CLAUDE.md`, `AGENTS.md`, `GEMINI.md` — per-agent instruction files
 [generated](#generated-file) by `discern refresh` from the built-in guidance
-(one section per enabled [Feature](#feature)) plus the Guidance source, each
-carrying a do-not-edit banner. Which files are emitted is set by
-`[guidance].agents` (`claude_code` → `CLAUDE.md`, `codex` → `AGENTS.md`,
-`gemini` → `GEMINI.md`). `AGENTS.md` is the one **tracked** file; the others are
-gitignored.
+(one section per enabled [Feature](#feature)) plus the Guidance source. They
+carry no banner — they open with the guidance itself, and drift from their
+source is caught by `discern status` / `discern finish`
+([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md)). Which files
+are emitted is set by `[guidance].agents` (`claude_code` → `CLAUDE.md`, `codex`
+→ `AGENTS.md`, `gemini` → `GEMINI.md`). All are gitignored build artifacts;
+`AGENTS.md` is the **canonical** one (it holds the full body the others import).
 
 ### Skill
 

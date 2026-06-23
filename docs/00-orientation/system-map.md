@@ -29,7 +29,7 @@ runtime.
 │  discern.toml  — the one root file (no engine, no manifest) │
 │  + your config-pointed content (read if present):           │
 │      guidance.md · ./skills/ · ./recipes/ · brief.md (yours)│
-│  + generated: AGENTS.md (tracked), CLAUDE.md/GEMINI.md,     │
+│  + generated: AGENTS.md, CLAUDE.md/GEMINI.md,               │
 │      .claude/skills/  (the binary's — gitignored)           │
 │  + merged .claude/settings.json, appended .gitignore        │
 │  (docs/ + TODO.md arrive later, via discern bootstrap)      │

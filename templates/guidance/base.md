@@ -86,9 +86,11 @@ regenerates the generated agent files, the materialized skills, and the
 integration artifacts — from discern's built-in harness guidance plus the
 project's own `[guidance].sources`. Editing the generated file is pointless — the
 next compile overwrites it. To change guidance, edit a source under
-`[guidance].sources` (default `guidance.md`) and re-run `discern refresh`.
-`AGENTS.md` is committed (so guidance changes show up in review); the other
-provider mirrors are gitignored.
+`[guidance].sources` (default `guidance.md`) and re-run `discern refresh`. The
+generated files are all gitignored build artifacts; the tracked, reviewable form
+is your `[guidance].sources`, so guidance changes show up in review as source
+diffs. `discern status` and `discern finish` flag a generated file that has
+drifted from its source, so a stale or hand-edited one never goes unnoticed.
 
 ## What's yours vs. what's discern's
 

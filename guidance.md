@@ -8,7 +8,7 @@ discern is **one self-contained Deno binary** — there is no separate shell eng
 - **`templates/`** — the **distribution surface** the binary lays down or materializes into a project: the config template (`discern.toml.tmpl`), the settings template, the gitignore fragment, the **bundled built-in guidance** (`templates/guidance/*.md`), and the **bundled skills** (`templates/skills/**`). It is *not* an engine; there is no installed shell harness.
 
 ## The footprint: one root `discern.toml`
-A project's entire discern footprint is a single root file, **`discern.toml`** (ADR 0020 dissolved the old hidden `.discern/` directory). Everything else is bundled in the binary, a **config-pointed** location the user chooses (with discoverable defaults — `guidance.md`, `./skills`, `./recipes`), or a generated **output** (`AGENTS.md` tracked; `CLAUDE.md`/`GEMINI.md` gitignored; `.claude/skills/` materialized). `[features]` toggles whole subsystems on/off — do not confuse it with `[capabilities]` (the gate's command table).
+A project's entire discern footprint is a single root file, **`discern.toml`** (ADR 0020 dissolved the old hidden `.discern/` directory). Everything else is bundled in the binary, a **config-pointed** location the user chooses (with discoverable defaults — `guidance.md`, `./skills`, `./recipes`), or a generated **output** (`AGENTS.md`/`CLAUDE.md`/`GEMINI.md` are gitignored build artifacts — ADR 0034; `.claude/skills/` materialized). `[features]` toggles whole subsystems on/off — do not confuse it with `[capabilities]` (the gate's command table).
 
 ## ⚠️ Edit in place — there is no managed copy to sync
 The old two-program era kept a committed shell engine byte-identical to `templates/` via a manifest, `.new` files, and a `selfcheck`/`selfsync` gate. **All of that is gone.** The rules now:
@@ -35,7 +35,7 @@ The old two-program era kept a committed shell engine byte-identical to `templat
 ## The gate
 - `deno task dev finish` — full gate (run from the repo root): `deno fmt` (fix) → `deno lint` + `deno check src/main.ts` (check) ∥ `deno task test` (test). This is the repo running its **own** TS engine (`deno.json`'s `gate` task), so a regression in the engine surfaces here.
 - `deno task dev prepare` — fast inner loop: fix + check, no tests.
-- There is no `selfcheck`/`selfsync`: with no committed engine copy there is nothing to drift. CI runs `deno task dev finish` plus a trailing `git diff --exit-code` (so the auto-fixing fix stage stays a hard check, and a stale generated `AGENTS.md` fails).
+- There is no `selfcheck`/`selfsync`: with no committed engine copy there is nothing to drift. CI runs `deno task dev finish` plus a trailing `git diff --exit-code`, so the auto-fixing fix stage stays a hard check. The generated agent files (`AGENTS.md` included) are gitignored build artifacts (ADR 0034); `finish`'s own guidance-currency check — not the `git diff` — guards them against drifting from `templates/guidance/*` + `guidance.md`.
 
 ## Running discern from source
 Always `deno task dev <cmd>` (or `deno run -A src/main.ts <cmd>`). Note: do **not** insert `--` before the subcommand (`deno task dev -- upgrade` makes the CLI parser see `--` and print help). **Never** use the `dist/` binaries while developing — they bundle a frozen snapshot of `templates/` and the engine compiled at build time.
@@ -44,7 +44,7 @@ Always `deno task dev <cmd>` (or `deno run -A src/main.ts <cmd>`). Note: do **no
 `deno task test` is the authority on correctness, engine included: the `tests/engine_*` suite scaffolds the seed surface into temp dirs and drives the TS engine via `deno task dev <verb>` (with a `discern` PATH shim so recipes and hooks resolve the binary like a real install). It is the behavioral parity oracle for the engine. If a bad engine change ever breaks `deno task dev finish` itself, run `deno task test` directly. Add engine coverage to `tests/engine_*_test.ts`; installer coverage to the other `tests/*_test.ts`.
 
 ## Generated files — never hand-edit
-`CLAUDE.md` (gitignored) and `AGENTS.md` (tracked) are compiled from discern's built-in guidance plus `guidance.md` by `deno task dev refresh`. Edit `guidance.md` and recompile. The repo drives multiple agents from one source (`claude_code`, `codex`), so guidance stays provider-agnostic.
+`AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` (all gitignored build artifacts — ADR 0034) are compiled from discern's built-in guidance plus `guidance.md` by `deno task dev refresh`. Edit `guidance.md` and recompile; `deno task dev finish` fails if a generated file drifts from its source. The repo drives multiple agents from one source (`claude_code`, `codex`), so guidance stays provider-agnostic.
 
 ## Decisions
 Architecture decisions live in `docs/_adr/` (0001+). Add one for any notable change. The dissolution of `.discern/` into a single root `discern.toml` is [ADR 0020](docs/_adr/0020-dissolve-discern-dir.md); the single-binary cutover is [ADR 0019](docs/_adr/0019-single-binary-ts-engine.md).

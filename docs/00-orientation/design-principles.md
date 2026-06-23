@@ -82,9 +82,10 @@ committed `discern.toml`, the `brief.md` seed, the merged
 — `guidance.md`, `./skills/`, `./recipes/`) are written once by `init` (or by
 you) and never touched again, so `upgrade` cannot clobber an edit. _The
 binary's_ files (the gitignored, re-published artifacts — the materialized
-skills, the compiled `CLAUDE.md`/`GEMINI.md`) are always safe to overwrite
-precisely because they are not yours to edit; the one tracked generated file,
-`AGENTS.md`, is banner-headed and rewritten on recompile. Migrations are
+skills, the compiled agent files `AGENTS.md`/`CLAUDE.md`/`GEMINI.md`) are always
+safe to overwrite precisely because they are not yours to edit; they are
+rewritten on every recompile
+([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md)). Migrations are
 idempotent and the tree must be clean (or `--allow-dirty`) so an upgrade stays
 revertible with `git checkout`.
 

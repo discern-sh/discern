@@ -21,8 +21,8 @@ buckets**: _your_ committed files (`discern.toml`, the `brief.md` seed, and the
 content you author at config-pointed paths — `guidance.md`, `./skills/`,
 `./recipes/` — plus the merged settings/gitignore), and _the binary's_
 gitignored, re-published artifacts (the materialised `.claude/skills/` and the
-compiled `CLAUDE.md`/`GEMINI.md`; `AGENTS.md` is the one tracked generated
-file). The full file-by-file map is in [install-surface.md](install-surface.md),
+compiled agent files `AGENTS.md`/`CLAUDE.md`/`GEMINI.md`, all gitignored — ADR
+0034). The full file-by-file map is in [install-surface.md](install-surface.md),
 and the [dispositions](../00-orientation/glossary.md#file-dispositions) are
 defined in the glossary. Edit your files in place; the binary's artifacts are
 produced from source in this repo and overwritten on `upgrade`.
@@ -64,10 +64,11 @@ out of search. There is no simple built-in equivalent for the colour-coding.
 
 ### Any editor
 
-Don't hand-edit the generated agent files: `AGENTS.md` (tracked), `CLAUDE.md`,
-and `GEMINI.md` are compiled from discern's built-in guidance plus your
-[`guidance.md`](../../guidance.md) by `discern refresh`. Edit your guidance
-source and recompile — in this repo, with `deno task dev refresh`.
+Don't hand-edit the generated agent files: `AGENTS.md`, `CLAUDE.md`, and
+`GEMINI.md` (all gitignored build artifacts — ADR 0034) are compiled from
+discern's built-in guidance plus your [`guidance.md`](../../guidance.md) by
+`discern refresh`. Edit your guidance source and recompile — in this repo, with
+`deno task dev refresh`.
 
 ## Working alongside the agents
 
