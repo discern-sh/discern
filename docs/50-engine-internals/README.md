@@ -38,10 +38,15 @@ Every **effectful** verb follows a **plan/apply** shape
 plan first (read-only — load config, classify changed scopes, read the resource
 ledger), then a thin executor applies it. That split is what gives `finish`,
 `graduate`, `worktree` setup/teardown/prune, and `ratchets` a `--dry-run`
-(render the plan, touch nothing) and a `--json` that **serializes (plan,
-results)** rather than re-deriving it. The plan vocabulary and the one shared
-plan→human/JSON renderer live under [`engine/plan/`](../../src/engine/plan/) —
-the engine mirror of the installer's [`fs_plan.ts`](../../src/lib/fs_plan.ts) /
+(render the plan, touch nothing) and a `--json` that **serializes the
+`DiscernResult`** — the one envelope every verb returns
+([ADR 0028](../_adr/0028-result-envelope-and-diagnostics.md)) — rather than
+re-deriving it. The plan vocabulary, the diagnostic, the envelope, and the one
+shared plan→human/JSON renderer live in
+[`shared/result.ts`](../../src/shared/result.ts) (the base layer both halves
+import), with the `Out`/`Logger` sink adapters beside the writers they bridge —
+the engine generalization of the installer's
+[`fs_plan.ts`](../../src/lib/fs_plan.ts) /
 [`plan_view.ts`](../../src/lib/plan_view.ts). The decision logic each verb plans
 from (gate job derivation, scope-gate selection, the prune-GC reclaim decision)
 is factored into pure functions, unit-tested with no subprocess.

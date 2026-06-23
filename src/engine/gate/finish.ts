@@ -3,16 +3,16 @@
  * pure {@link GatePlan} (the job groups + scope-gates + merge check) is computed
  * first (`buildGatePlan`, from the typed config and the changed scopes), then a
  * thin executor applies it. `--dry-run` renders the plan and touches nothing;
- * `--json` SERIALIZES (plan, results) into the published report rather than
- * re-deriving it.
+ * `--json` SERIALIZES (plan, results) into the result rather than re-deriving it.
  *
- * The report shape is a published contract (ADR 0004) reproduced byte-for-shape:
- *
- *   { ok, jobs:[{name,kind,stage,status,duration_s}], scope_gates:[{scope,status,
- *     duration_s}], scopes_changed:[…], failed_stage }
- *
- * A no-op gate (nothing wired) → `jobs:[]`, `failed_stage:null`, `ok:true`. A job
- * whose stage aborted before it ran → `status:"skipped"`.
+ * The result is the universal {@link DiscernResult} envelope (ADR 0028) every verb
+ * returns: each capability/check/scope-gate is a `steps[]` entry, a genuine failure
+ * also yields a `diagnostics[]` entry (the command to reproduce it + its captured
+ * output, or — for a SARIF-emitting tool — normalized file/line/rule findings), and
+ * the gate's own `failed_stage`/`scopes_changed` ride in `data`. Human text and
+ * `--json` are two renderings of that one object; {@link finishResult} returns it
+ * unrendered for the MCP server. A job whose stage aborted before it ran →
+ * `outcome:"skipped"`.
  */
 
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";

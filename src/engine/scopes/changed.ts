@@ -163,6 +163,12 @@ export interface ChangedScopesOptions {
   has?: string;
 }
 
+/** The `changed-scopes` envelope for a classified scope list — the one shape both
+ * the CLI `--json` and the MCP tool render. */
+function changedScopesEnvelope(scopes: string[]): DiscernResult {
+  return { ok: true, verb: "changed-scopes", data: { scopes } };
+}
+
 /**
  * Compute the `changed-scopes` {@link DiscernResult} without printing — the entry
  * point the MCP server renders, and the source the CLI's `--json` serializes.
@@ -170,11 +176,7 @@ export interface ChangedScopesOptions {
 export async function changedScopesResult(
   root: string,
 ): Promise<DiscernResult> {
-  return {
-    ok: true,
-    verb: "changed-scopes",
-    data: { scopes: await changedScopes(root) },
-  };
+  return changedScopesEnvelope(await changedScopes(root));
 }
 
 /**
@@ -190,13 +192,7 @@ export async function runChangedScopes(
     return scopes.includes(opts.has) ? 0 : 1;
   }
   if (opts.json) {
-    console.log(
-      JSON.stringify(serializeResult({
-        ok: true,
-        verb: "changed-scopes",
-        data: { scopes },
-      })),
-    );
+    console.log(JSON.stringify(serializeResult(changedScopesEnvelope(scopes))));
     return 0;
   }
   for (const s of scopes) {

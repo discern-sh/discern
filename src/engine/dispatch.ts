@@ -174,7 +174,10 @@ export function attachEngineCommands(
   root
     .command("finish")
     .description("The full quality gate — run before calling work done.")
-    .option("--json", "Emit a machine-readable gate report on stdout.")
+    .option(
+      "--json",
+      "Emit the gate result as a JSON DiscernResult on stdout (steps + diagnostics).",
+    )
     .option(
       "--dry-run",
       "Show the gate plan (the jobs and scope-gates that would run); touch nothing.",
@@ -223,7 +226,7 @@ export function attachEngineCommands(
       )
       .option(
         "--json",
-        "Emit a machine-readable (plan, results) object on stdout.",
+        "Emit the result as a JSON DiscernResult object on stdout.",
       )
       .option(
         "--dry-run",
@@ -259,7 +262,10 @@ export function attachEngineCommands(
   root
     .command("changed-scopes")
     .description("Classify which scopes the branch + working tree changed.")
-    .option("--json", "Emit a JSON array of the changed scopes/markers.")
+    .option(
+      "--json",
+      "Emit a JSON DiscernResult (data.scopes lists the changed scopes/markers).",
+    )
     .option(
       "--has <scope:string>",
       "Exit 0/1 membership test for one scope (silent).",
@@ -392,7 +398,7 @@ export function attachEngineCommands(
         )
         .option(
           "--json",
-          "Emit a machine-readable (plan, results) object on stdout.",
+          "Emit the result as a JSON DiscernResult object on stdout.",
         )
         .option("--dry-run", "Show the teardown plan; touch nothing.")
         .action(async (o) => {
@@ -419,7 +425,7 @@ export function attachEngineCommands(
         )
         .option(
           "--json",
-          "Emit a machine-readable (plan, results) object on stdout.",
+          "Emit the result as a JSON DiscernResult object on stdout.",
         )
         .action(async (o) => {
           const json = o.json ?? false;
@@ -454,7 +460,10 @@ function attachSkillsCommand(root: Command): void {
         .description(
           "List the effective skills (built-ins + yours; which override which).",
         )
-        .option("--json", "Emit the listing as JSON.")
+        .option(
+          "--json",
+          "Emit the listing as a JSON DiscernResult (data.skills).",
+        )
         .action(async (o) => {
           Deno.exit(await runSkillsList({ json: o.json ?? false }));
         }),
