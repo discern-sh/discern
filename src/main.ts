@@ -9,6 +9,7 @@
 
 import { Command } from "@cliffy/command";
 import { KIT_VERSION } from "./lib/version.ts";
+import { emitResult } from "./shared/emit.ts";
 import {
   ConfigParseError,
   ConfigValidationError,
@@ -641,14 +642,16 @@ export async function main(args: string[]): Promise<void> {
     ) {
       const isValidation = err instanceof ConfigValidationError;
       if (argv.includes("--json")) {
-        console.log(
-          JSON.stringify({
-            ok: false,
-            error: isValidation ? "invalid_config" : "invalid_toml",
-            message: err.message,
-            ...(isValidation ? { issues: err.issues } : {}),
-          }),
-        );
+        // Route through the one envelope/chokepoint (ADR 0030) so even a
+        // pre-verb config error is the uniform DiscernResult an agent expects —
+        // carrying the attempted verb, with the per-issue list under `data`.
+        emitResult({
+          ok: false,
+          verb: verb ?? "discern",
+          error: isValidation ? "invalid_config" : "invalid_toml",
+          message: err.message,
+          ...(isValidation ? { data: { issues: err.issues } } : {}),
+        });
       } else {
         console.error(`discern: ${err.message}`);
       }
