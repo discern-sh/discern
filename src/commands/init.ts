@@ -393,7 +393,7 @@ function printOutro(log: Logger, config: InitConfig, mcpWired: string[]): void {
     "  discern.toml          the whole footprint — edit by hand to teach the harness your stack",
   );
   log.line(
-    "  AGENTS.md / CLAUDE.md compiled agent guidance (generated — don't hand-edit)",
+    "  AGENTS.md / CLAUDE.md compiled agent guidance (generated, gitignored — edit your sources)",
   );
   log.line(
     "  .claude/settings.json merged (your existing settings were preserved)",

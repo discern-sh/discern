@@ -29,31 +29,34 @@ Deno.test("the registry is total: every known agent has a complete provider", ()
   assertEquals(Object.keys(PROVIDERS).length, AGENT_NAMES.length);
 });
 
-Deno.test("the guidance-file mapping is the documented one (AGENTS.md the only tracked file)", () => {
+Deno.test("the guidance-file mapping is the documented one (AGENTS.md the one canonical file)", () => {
   // Claude Code's mirror points at the canonical file rather than duplicating it,
-  // so its guidanceFile carries a `pointer` that emits an `@<path>` import.
+  // so its guidanceFile carries a `pointer` that emits an `@<path>` import — and it
+  // is not itself canonical. (canonical is decoupled from git-tracking: ADR 0034
+  // makes every compiled file gitignored.)
   const claude = providerFor("claude_code")?.guidanceFile;
   assertEquals(claude?.path, "CLAUDE.md");
-  assertEquals(claude?.tracked, false);
+  assertEquals(claude?.canonical, false);
   assertEquals(typeof claude?.pointer, "function");
-  assertEquals(claude?.pointer?.("AGENTS.md").includes("@AGENTS.md"), true);
+  assertEquals(claude?.pointer?.("AGENTS.md"), "@AGENTS.md\n");
 
-  // The canonical, tracked file holds the full compiled body — no pointer.
+  // The canonical file holds the full compiled body — no pointer.
   const codex = providerFor("codex")?.guidanceFile;
   assertEquals(codex?.path, "AGENTS.md");
-  assertEquals(codex?.tracked, true);
+  assertEquals(codex?.canonical, true);
   assertEquals(codex?.pointer, undefined);
 
   // Gemini's mirror is a full copy for now (its include syntax isn't wired) — no
   // pointer, so the whole object is the documented pair.
   assertEquals(providerFor("gemini")?.guidanceFile, {
     path: "GEMINI.md",
-    tracked: false,
+    canonical: false,
   });
-  const tracked = Object.values(PROVIDERS)
-    .filter((p) => p.guidanceFile.tracked)
+  // Exactly one canonical file, and it is AGENTS.md.
+  const canonical = Object.values(PROVIDERS)
+    .filter((p) => p.guidanceFile.canonical)
     .map((p) => p.guidanceFile.path);
-  assertEquals(tracked, ["AGENTS.md"]);
+  assertEquals(canonical, ["AGENTS.md"]);
 });
 
 Deno.test("providerFor returns undefined for an unknown agent", () => {

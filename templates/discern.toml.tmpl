@@ -56,8 +56,10 @@ mcp       = true   # the `discern mcp` server + wiring it into each agent's conf
 # [guidance] — the author-once → compile-everywhere agent-instruction pipeline.
 # `discern refresh` compiles discern's built-in harness guidance (always
 # prepended, feature-aware) plus YOUR sources below into one generated file per
-# provider. The generated files are never hand-edited: AGENTS.md is tracked (so
-# guidance changes show in review); the other mirrors are gitignored.
+# provider. The generated files are build artifacts — gitignored, never
+# hand-edited. Edit your sources below (the tracked, reviewable form) and re-run
+# `discern refresh`; `discern status` / `discern finish` flag a generated file
+# that has drifted from its source.
 # ─────────────────────────────────────────────────────────────────────────────
 
 [guidance]

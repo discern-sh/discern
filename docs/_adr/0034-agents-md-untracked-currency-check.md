@@ -112,12 +112,15 @@ It is surfaced as:
 - **Keep the banner, just shorten/relocate it.** Rejected: any banner in the
   generated file is still wasted on the agents that can see it and invisible to
   the one that can't, and `base.md` already says it in-band.
-- **Keep `AGENTS.md` tracked; add only the check.** Viable, and what the discern
-  repo itself does for its _own_ `AGENTS.md` (its CI compile-verification wants
-  a tracked copy). Rejected as the shipped default: tracking a derivative is the
-  confusion this removes, and the check makes the tracked-file guard redundant.
-  Tracking is a per-project `.gitignore` choice, so a project that wants it
-  keeps it without the registry forcing it.
+- **Keep `AGENTS.md` tracked; add only the check.** Viable for a project that
+  wants the compiled body visible in its own diffs — tracking is a per-project
+  `.gitignore` choice, so such a project simply does not ignore `AGENTS.md`.
+  Rejected as the shipped default, and not taken by discern itself (it dogfoods
+  the untracked default): tracking a derivative is the confusion this removes,
+  the source (`guidance.md`/built-ins) is already the reviewable diff, and the
+  currency check makes the tracked-file guard redundant. Untracking also stops a
+  regenerated `AGENTS.md` from dirtying the tree every time a worktree
+  refreshes.
 - **Block `finish` on `missing` too.** Rejected: an untracked artifact is
   expected to be absent on a fresh checkout, so blocking would red-light
   first-run CI for every consumer. `status` still surfaces `missing` advisorily,

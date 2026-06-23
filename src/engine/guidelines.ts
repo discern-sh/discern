@@ -193,12 +193,12 @@ export async function compileGuidelines(
   }
   const compiled = body;
 
-  // The canonical agent file the pointer mirrors import: the tracked provider in
+  // The canonical agent file the pointer mirrors import: the canonical provider in
   // this run (codex → AGENTS.md). When none is emitted there is nothing to point
   // at, so every file gets the full compiled body instead.
   const canonicalRel = agents
     .map((a) => providerFor(a)?.guidanceFile)
-    .find((g) => g !== undefined && g.tracked)?.path;
+    .find((g) => g !== undefined && g.canonical)?.path;
 
   for (const agent of agents) {
     const gf = providerFor(agent)?.guidanceFile;

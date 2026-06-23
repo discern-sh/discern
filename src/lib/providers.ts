@@ -79,16 +79,23 @@ export interface HooksIntegration {
 export interface GuidanceFile {
   /** Project-relative path of the generated file. */
   readonly path: string;
-  /** Whether the file is git-tracked (exactly one provider — codex/AGENTS.md — is). */
-  readonly tracked: boolean;
   /**
-   * When set, and a *canonical* (tracked) agent file is also being emitted, this
-   * provider's file is written as a POINTER to that file rather than a full
-   * duplicate — using the provider's own include syntax (Claude Code's `@path`).
-   * Receives the canonical file's project-relative path; returns the whole file
-   * body. Absent → the provider always gets the full compiled guidance. The point
-   * is single-source-of-truth: the guidance lives in one compiled file and the
-   * mirror imports it, so the two can never drift.
+   * Whether this is the CANONICAL agent file: the one holding the full compiled
+   * body that every other provider's pointer imports (exactly one — codex /
+   * AGENTS.md). Decoupled from git-tracking (ADR 0034): the compiled files are all
+   * gitignored by default, so "canonical" is about being the single on-disk source,
+   * not about being committed. The `@<path>` import resolves a local file
+   * regardless of its git status, so the pointer mechanism is unaffected.
+   */
+  readonly canonical: boolean;
+  /**
+   * When set, and a canonical agent file is also being emitted, this provider's
+   * file is written as a POINTER to that file rather than a full duplicate — using
+   * the provider's own include syntax (Claude Code's `@path`). Receives the
+   * canonical file's project-relative path; returns the whole file body. Absent →
+   * the provider always gets the full compiled guidance. The point is
+   * single-source-of-truth: the guidance lives in one compiled file and the mirror
+   * imports it, so the two can never drift.
    */
   readonly pointer?: (canonicalPath: string) => string;
 }
@@ -261,8 +268,9 @@ async function unregisterClaudeCodeMcp(
  * Every provider, keyed by {@link AgentName}. A TOTAL Record, so a new agent
  * cannot be added to `AGENT_NAMES` without a complete provider here (a compile
  * error) — that is the mechanism that keeps the registry the single source of
- * truth. Rule: `AGENTS.md` (codex) is the one git-tracked agent file; every other
- * mirror is gitignored.
+ * truth. Rule: `AGENTS.md` (codex) is the one CANONICAL agent file (it holds the
+ * full body; the others point at it); all compiled files are gitignored by default
+ * (ADR 0034).
  */
 export const PROVIDERS: Record<AgentName, Provider> = {
   claude_code: {
@@ -270,7 +278,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     label: "Claude Code",
     guidanceFile: {
       path: "CLAUDE.md",
-      tracked: false,
+      canonical: false,
       pointer: claudeCodePointer,
     },
     mcp: {
@@ -287,7 +295,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
   codex: {
     name: "codex",
     label: "Codex",
-    guidanceFile: { path: "AGENTS.md", tracked: true },
+    guidanceFile: { path: "AGENTS.md", canonical: true },
     // TODO(provider:codex): wire MCP registration — author an McpIntegration
     // against Codex's own MCP-server config mechanism (it is NOT Claude Code's
     // .mcp.json). Until then `discern mcp` must be added by hand for Codex.
@@ -297,7 +305,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
   gemini: {
     name: "gemini",
     label: "Gemini",
-    guidanceFile: { path: "GEMINI.md", tracked: false },
+    guidanceFile: { path: "GEMINI.md", canonical: false },
     // TODO(provider:gemini): wire MCP registration — author an McpIntegration
     // against the Gemini CLI's own MCP-server config (it is NOT .mcp.json).
     // TODO(provider:gemini): declare the worktree-hook surface once supported.
