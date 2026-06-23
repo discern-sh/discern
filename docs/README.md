@@ -43,7 +43,7 @@ The numbers are a reading order, not a contract — rename and renumber freely.
 ### Reference material
 
 | Path                         | What's in it                                                                                                                                                              |
-|------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [_adr/](_adr/)               | Architecture Decision Records — significant design decisions and their rationale, under continuous numbering. [`_adr/README.md`](_adr/README.md) is the canonical format. |
 | [_internal/](_internal/)     | The documenter brief and per-subtree scope manifests used to write and refresh this tree. Not part of the user-facing docs; kept for reproducibility.                     |
 | [_maintainer/](_maintainer/) | The project maintainer's notes, thoughts, and ideas. Not part of the user-facing docs.                                                                                    |
