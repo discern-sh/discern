@@ -28,6 +28,7 @@ import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { type Feature, isFeatureEnabled } from "../shared/features.ts";
 import { resolveGuidanceSources, resolveTemplatesDir } from "../lib/paths.ts";
 import { materializeSkills } from "../lib/skills.ts";
+import { providerFor } from "../lib/providers.ts";
 import { Logger } from "../lib/log.ts";
 
 /** What a single `compileGuidelines` run accomplished. */
@@ -40,29 +41,6 @@ export interface GuidelinesResult {
   skillsLinked: number;
   /** Stale managed skill entries pruned from `.claude/skills/`. */
   skillsPruned: number;
-}
-
-/**
- * Map a `[guidance].agents` entry to the file path (relative to the project root)
- * `compileGuidelines` writes for it, and whether that file is tracked in git.
- * This is the one table to extend when teaching the harness a new provider. An
- * unknown agent yields `undefined` and is warned about and skipped, never guessed.
- *
- * Rule: `AGENTS.md` (codex) is the single tracked agent file; every other mirror
- * is gitignored (see the .gitignore fragment).
- */
-const AGENT_OUTPUT: Readonly<
-  Record<string, { path: string; tracked: boolean }>
-> = {
-  codex: { path: "AGENTS.md", tracked: true },
-  claude_code: { path: "CLAUDE.md", tracked: false },
-  gemini: { path: "GEMINI.md", tracked: false },
-};
-
-/** The output path for an agent name, or undefined when unmapped. */
-function agentOutputPath(agent: string): string | undefined {
-  if (!Object.hasOwn(AGENT_OUTPUT, agent)) return undefined;
-  return AGENT_OUTPUT[agent]?.path;
 }
 
 /** Default providers to emit when neither `[guidance].agents` nor the legacy
@@ -174,7 +152,7 @@ export async function compileGuidelines(
   const compiled = banner() + body;
 
   for (const agent of guidanceAgents(config)) {
-    const rel = agentOutputPath(agent);
+    const rel = providerFor(agent)?.guidanceFile.path;
     if (rel === undefined) {
       log.warn(
         `refresh: unknown agent '${agent}' in [guidance].agents — skipping (no output mapping).`,
