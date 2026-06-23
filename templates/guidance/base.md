@@ -5,6 +5,20 @@ is one self-contained binary; everything it knows about *this* project lives in 
 single root file, **`discern.toml`**. There is no hidden state directory — what you
 see in the tree is what there is.
 
+## Orient first — `discern status`
+
+Run **`discern status`** at the start of a session to see what's true right now and
+what to do next. It is pure observation — read-only, it never runs the gate or
+touches anything — so it is cheap to call reflexively. It reports the current
+branch and how far it sits from the integration branch, whether the tree is clean,
+which scopes changed, and what the gate *would* fire, plus advisory next-step
+hints (never an unverified pass/fail). The view follows where you run it: from a
+linked worktree it shows that worktree's own state; from the main checkout it leads
+with a survey of every worktree in flight (pass `--all` to add that survey from a
+worktree, `--local` to suppress it). It sits alongside two setup-facing verbs that
+answer different questions: **`discern doctor`** asks *"is it correctly
+installed?"* and **`discern audit`** asks *"is the setup any good?"*.
+
 ## The quality gate (always on)
 
 Run the gate before you call any change done:
@@ -40,8 +54,8 @@ object you can parse directly:
 
 discern also runs as an **MCP server** — **`discern mcp`** exposes the verbs as
 tools that return the same envelope as a structured result: `discern_finish`,
-`discern_prepare`, `discern_test`, `discern_doctor`, `discern_audit`, and
-`discern_changed_scopes`, plus `discern_docs` (read the docs tree) and
+`discern_prepare`, `discern_test`, `discern_doctor`, `discern_audit`,
+`discern_changed_scopes`, and `discern_status`, plus `discern_docs` (read the docs tree) and
 `discern_graduate` (graduate this worktree's branch) when those features are
 enabled. Each is the same `--json` envelope, surfaced natively. If your client has
 the server configured, prefer the tools; otherwise call the CLI with `--json`.

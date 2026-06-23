@@ -101,6 +101,13 @@ only `discern.toml` learns the stack.
 **3. Work behind the gate.** Day to day, everything is driven through `discern`
 verbs:
 
+- `discern status` is the read-only orient-first verb: _what's true right now
+  and what to do next_ — the branch, how far it sits from the integration
+  branch, what changed, and what the gate _would_ fire (it never runs anything).
+  From a **Worktree** it shows that Worktree's own state; from the main checkout
+  it surveys the whole fleet of Worktrees in flight. It rounds out the trio with
+  `discern doctor` (_is it correctly installed?_) and `discern audit` (_is the
+  setup any good?_).
 - `discern worktree` carves an isolated **Worktree** (and branch) for a change,
   so the main checkout is never touched. Each Worktree gets its own dev-server
   port and any per-worktree **resources** (a database, an emulator, …) a project
