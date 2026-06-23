@@ -43,9 +43,9 @@ Deno.test("the production chain is contiguous up to the current schema", () => {
   // One step per bump, from 1 up to SCHEMA_VERSION: 1→2 (main_branch backfill),
   // 2→3 (the .discern/ surface consolidation), 3→4 (capabilities/checks),
   // 4→5 (prune the pre-existing on-disk shell engine), 5→6 (dissolve .discern/
-  // into the single-file footprint), 6→7 (bootstrap skill → command), and
-  // 7→8 (db/dev_server → [worktree.resources.*]).
-  assertEquals(MIGRATIONS.map((m) => m.from), [1, 2, 3, 4, 5, 6, 7]);
+  // into the single-file footprint), 6→7 (bootstrap skill → command),
+  // 7→8 (db/dev_server → [worktree.resources.*]), and 8→9 (untrack AGENTS.md).
+  assertEquals(MIGRATIONS.map((m) => m.from), [1, 2, 3, 4, 5, 6, 7, 8]);
   assert(isChainContiguous(MIGRATIONS, SCHEMA_VERSION));
 });
 
@@ -154,6 +154,64 @@ Deno.test("migration 7→8 never clobbers a hand-added resource of the same name
       !toml.includes('create = "createdb @db@"'),
       "legacy clone clobbered the hand-added resource",
     );
+  });
+});
+
+Deno.test("migration 8→9 ignores AGENTS.md and notes the one-time git rm --cached", async () => {
+  await withTempDir(async (dir) => {
+    // A schema-8 .gitignore: the mirrors are ignored, AGENTS.md is still tracked.
+    await Deno.writeTextFile(
+      join(dir, ".gitignore"),
+      [
+        "/node_modules",
+        "",
+        "# --- discern harness ---",
+        "/CLAUDE.md",
+        "/GEMINI.md",
+        "",
+      ].join("\n"),
+    );
+    const notes: string[] = [];
+    await applyMigrations({
+      destDir: dir,
+      from: 8,
+      to: 9,
+      onNote: (m) => notes.push(m),
+    });
+
+    const gitignore = await Deno.readTextFile(join(dir, ".gitignore"));
+    // AGENTS.md is now ignored exactly once, grouped with the mirrors (before
+    // /CLAUDE.md), and the pre-existing entry is preserved.
+    assertEquals(gitignore.match(/^\s*\/?AGENTS\.md\b/gm)?.length, 1);
+    assert(
+      gitignore.indexOf("/AGENTS.md") < gitignore.indexOf("/CLAUDE.md"),
+      "AGENTS.md should be grouped with the other mirrors",
+    );
+    assertStringIncludes(gitignore, "/node_modules");
+    // The .gitignore line cannot drop an already-committed file from the index, so
+    // the step tells the user the one git command to finish the untracking.
+    assert(
+      notes.some((n) => n.includes("git rm --cached AGENTS.md")),
+      `expected a git-rm note, got: ${notes.join(" | ")}`,
+    );
+
+    // Idempotent: a re-run adds no duplicate and changes nothing.
+    await applyMigrations({ destDir: dir, from: 8, to: 9, onNote: () => {} });
+    const again = await Deno.readTextFile(join(dir, ".gitignore"));
+    assertEquals(again, gitignore);
+    assertEquals(again.match(/^\s*\/?AGENTS\.md\b/gm)?.length, 1);
+  });
+});
+
+Deno.test("migration 8→9 is a no-op when there is no .gitignore to amend", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      '[project]\nslug = "demo"\n',
+    );
+    // No .gitignore present — the step must neither throw nor create one.
+    await applyMigrations({ destDir: dir, from: 8, to: 9, onNote: () => {} });
+    assertEquals(await targetExists(dir, ".gitignore"), false);
   });
 });
 

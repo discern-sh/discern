@@ -698,6 +698,14 @@ export const MIGRATIONS: Migration[] = [
       }
     },
   },
+  {
+    from: 8,
+    describe:
+      "untrack the generated AGENTS.md: ignore /AGENTS.md so it joins CLAUDE.md/GEMINI.md as a build artifact, and note the one-time `git rm --cached` (ADR 0034)",
+    apply: async (ctx) => {
+      await ignoreAgentsMd(ctx);
+    },
+  },
 ];
 
 /** Render a live `[worktree.resources.<name>]` table (only the non-empty keys). */
@@ -911,6 +919,47 @@ async function fixGitignoreForSchema6(ctx: MigrationContext): Promise<void> {
     await ctx.writeText(".gitignore", text);
     ctx.note("updated .gitignore for the schema-6 layout");
   }
+}
+
+/**
+ * Add `/AGENTS.md` to `.gitignore` so the compiled agent file joins `/CLAUDE.md`
+ * and `/GEMINI.md` as an untracked build artifact (ADR 0034). The schema-6 step
+ * deliberately KEPT `AGENTS.md` tracked; this reverses that now that the currency
+ * check guards drift and the reviewable unit is the source.
+ *
+ * A `.gitignore` entry alone does not drop an already-committed file from the
+ * index, so the step also NOTES the one-time `git rm --cached AGENTS.md` for the
+ * user to run — untracking is a deliberate, committed history change, not
+ * something an upgrade should stage silently. Idempotent: a no-op when AGENTS.md
+ * is already ignored, and when there is no `.gitignore` to amend.
+ */
+async function ignoreAgentsMd(ctx: MigrationContext): Promise<void> {
+  const existing = await ctx.readText(".gitignore");
+  if (existing === undefined) {
+    return; // no .gitignore to amend (init always seeds one) — nothing to do.
+  }
+  if (/^\s*\/?AGENTS\.md\b/m.test(existing)) {
+    return; // already ignored — idempotent no-op.
+  }
+  const lines = existing.split("\n");
+  // Group it with the other compiled mirrors: insert just before the first
+  // /CLAUDE.md (or /GEMINI.md) rule. Failing that, append under a discern note.
+  const at = lines.findIndex((l) =>
+    /^\s*\/?CLAUDE\.md\b/.test(l) || /^\s*\/?GEMINI\.md\b/.test(l)
+  );
+  let text: string;
+  if (at !== -1) {
+    lines.splice(at, 0, "/AGENTS.md");
+    text = lines.join("\n");
+  } else {
+    const base = existing.replace(/\n+$/, "");
+    text =
+      `${base}\n\n# discern: the compiled agent file is a build artifact (ADR 0034)\n/AGENTS.md\n`;
+  }
+  await ctx.writeText(".gitignore", text);
+  ctx.note(
+    "ignored AGENTS.md (now a generated build artifact). Run `git rm --cached AGENTS.md` once to stop tracking it, then commit.",
+  );
 }
 
 /** Build the context a migration uses to transform the install at `destDir`. */

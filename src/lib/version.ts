@@ -21,7 +21,7 @@ export const KIT_VERSION: string = denoJson.version;
  * `upgrade` reads the recorded value, brings the install forward, and re-stamps.
  * Most releases need no migration and leave this untouched.
  *
- * The current shape is schema **8**. The chain: schema-1→2 backfills
+ * The current shape is schema **9**. The chain: schema-1→2 backfills
  * `[project].main_branch`; schema-2→3 consolidates the install surface under
  * `.discern/` (config + guidance seeds); schema-3→4 converts
  * `[slots]`→`[capabilities]`/`[checks]`, inlines ratchet runs, folds side-gates
@@ -38,8 +38,11 @@ export const KIT_VERSION: string = denoJson.version;
  * generalizes the hard-coded `[worktree.db]`/`[worktree.dev_server]` adapters into
  * the generic `[worktree.resources.<name>]` seam — it carries non-empty
  * clone/drop and link/unlink forward as create/destroy, deletes the legacy tables,
- * and adds the commented resource examples (ADR 0025). See `MIGRATIONS`. A config
+ * and adds the commented resource examples (ADR 0025); schema-8→9 **untracks the
+ * generated `AGENTS.md`** — it adds `/AGENTS.md` to `.gitignore` so the compiled
+ * agent file joins `CLAUDE.md`/`GEMINI.md` as a build artifact, and notes the
+ * one-time `git rm --cached AGENTS.md` (ADR 0034). See `MIGRATIONS`. A config
  * with no `[meta].schema_version` is read as schema 1 (or a legacy manifest's
  * recorded version), then migrated forward.
  */
-export const SCHEMA_VERSION = 8;
+export const SCHEMA_VERSION = 9;
