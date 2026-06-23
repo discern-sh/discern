@@ -30,9 +30,9 @@ Two problems surfaced:
   HTML comments before the model sees them, so the banner is invisible to the
   agent it most needs to deter — while Codex and most other agents receive it at
   the very top of the file, where attention is most valuable. The banner is also
-  **redundant**: the always-included `base.md` already carries a
-  `## Generated agent files — never hand-edit` section _in the body_, visible to
-  every agent (it is prose, not a comment).
+  **redundant**: the always-included `base.md` already carries the
+  never-hand-edit guidance _in the body_, visible to every agent (it is prose,
+  not a comment).
 - **Tracking a derivative invites the confusion it was meant to prevent.** The
   meaningful, reviewable artifact is the **source** (`guidance.md` + the
   config), which is already tracked. `AGENTS.md` is a pure function of those;

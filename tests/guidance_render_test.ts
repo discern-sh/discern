@@ -194,7 +194,7 @@ Deno.test("renderAgentFiles: base guidance is MCP-first with a CLI fallback (no 
     const body = (await renderAgentFiles(dir)).get("AGENTS.md");
     assert(body !== undefined);
     // MCP-first stance + the unreachable-server fallback are present...
-    assert(body.includes("Prefer the tools"), "states MCP-first");
+    assert(body.includes("Prefer a tool"), "states MCP-first");
     assert(
       body.includes("isn't reachable"),
       "carries the fallback instruction",

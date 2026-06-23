@@ -7,13 +7,13 @@ see in the tree is what there is.
 
 ## Calling discern
 
-Every verb is exposed both as an **MCP tool** (`discern_status`, `discern_finish`,
-…, served by `discern mcp`) and as the **`discern` CLI**. Prefer the tools — they
-return the same result as a structured object, ready to read. If the discern MCP
-server isn't reachable, say so and suggest looking into it once the task is done;
-until then fall back to the CLI (`discern <verb>`), passing `--json` whenever you
-parse the output — in `--json` mode a verb prints exactly one machine-readable
-result object and nothing else.
+discern's gate and observation verbs are also **MCP tools** (`discern_status`,
+`discern_finish`, …, served by `discern mcp`); every verb runs from the **`discern`
+CLI**. Prefer a tool when it exists — it returns the same result as a structured
+object, ready to read. If the discern MCP server isn't reachable, say so and
+suggest looking into it once the task is done; until then use the CLI
+(`discern <verb>`), passing `--json` whenever you parse the output — in `--json`
+mode a verb prints exactly one machine-readable result object and nothing else.
 
 ## Orient first — `discern_status`
 
@@ -63,28 +63,26 @@ guidance) — a `?` review item. Run it to find where to invest, then act:
 - **`discern_audit --category <name>`** focuses one area; **`--min-score <n>`**
   exits non-zero below a floor (a CI/agent gate).
 
-## Generated agent files — never hand-edit
+## What's yours, and what's generated
 
-The agent instruction file you are reading (`AGENTS.md`, `CLAUDE.md`, or a sibling)
-is a **generated artifact**. It is compiled by `discern refresh` — which
-regenerates the generated agent files, the materialized skills, and the
-integration artifacts — from discern's built-in harness guidance plus the
-project's own `[guidance].sources`. Editing the generated file is pointless — the
-next compile overwrites it. To change guidance, edit a source under
-`[guidance].sources` (default `guidance.md`) and re-run `discern refresh`. The
-generated files are all gitignored build artifacts; the tracked, reviewable form
-is your `[guidance].sources`, so guidance changes show up in review as source
-diffs. `discern status` and `discern finish` flag a generated file that has
-drifted from its source, so a stale or hand-edited one never goes unnoticed.
+Two kinds of file live in the tree:
 
-## What's yours vs. what's discern's
+- **Yours** — edit freely, tracked in git: `discern.toml`, your guidance sources
+  (`[guidance].sources`, default `guidance.md`), your authored skills under
+  `[skills].dir`, your recipes under `[recipes].dir`.
+- **Generated** — never hand-edit: the compiled agent files (`AGENTS.md`,
+  `CLAUDE.md`, and siblings — including the one you are reading now) and the
+  materialized `.claude/skills/`. `discern refresh` recompiles them, plus the MCP
+  wiring, from discern's built-in guidance plus your sources.
 
-- **Yours** (edit freely, tracked): `discern.toml`, your guidance sources, your
-  authored skills under `[skills].dir`, your recipes under `[recipes].dir`.
-- **discern's** (generated, don't hand-edit): the compiled agent files, and the
-  materialized `.claude/skills/`.
+So change what an agent reads at the source — edit a `[guidance].sources` file and
+re-run `discern refresh` — never the generated file, which the next compile
+overwrites. This is gate-backed, not a plea: the generated files are gitignored
+build artifacts (so the reviewable diff is your source), and `discern_status` /
+`discern_finish` recompile in memory and flag any that has drifted (ADR 0034) — a
+stale or hand-edited one fails the gate instead of slipping through.
 
-Custom project commands can be added as **recipes**: drop an executable carrying a
+Add your own `discern` commands as **recipes**: drop an executable carrying a
 `# desc: ...` line into `[recipes].dir` (default `./recipes`) and it becomes a
-first-class `discern <name>` command. A recipe is self-contained: it reads config
-by calling the binary (`discern config get <key>`).
+first-class `discern <name>` command, self-contained — it reads config via
+`discern config get <key>`.
