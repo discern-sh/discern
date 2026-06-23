@@ -14,6 +14,16 @@
     <option name="extensions" value="php" />
     <option name="transferred" value="true" />
   </component>
+  <component name="PhpCodeSniffer">
+    <phpcs_settings>
+      <phpcs_by_interpreter asDefaultInterpreter="true" interpreter_id="7ca2a0b8-3fcf-493d-8557-9e23e4a1b7ee" timeout="30000" />
+    </phpcs_settings>
+  </component>
+  <component name="PhpStan">
+    <PhpStan_settings>
+      <phpstan_by_interpreter asDefaultInterpreter="true" interpreter_id="7ca2a0b8-3fcf-493d-8557-9e23e4a1b7ee" timeout="60000" />
+    </PhpStan_settings>
+  </component>
   <component name="PhpStanOptionsConfiguration">
     <option name="transferred" value="true" />
   </component>
