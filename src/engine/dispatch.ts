@@ -26,6 +26,7 @@ import { ejectSkill, listSkills, materializeSkills } from "../lib/skills.ts";
 import { TomlEditor } from "../lib/toml_edit.ts";
 import { Logger } from "../lib/log.ts";
 import { runFinish } from "./gate/finish.ts";
+import { runMcpServer } from "./mcp/server.ts";
 import { runPrepare } from "./gate/prepare.ts";
 import { runTestCapability } from "./gate/test.ts";
 import { runRatchets } from "./gate/ratchets.ts";
@@ -63,6 +64,7 @@ export const KNOWN_ENGINE_VERBS: ReadonlySet<string> = new Set([
   "worktree",
   "worktree-name",
   "skills",
+  "mcp",
 ]);
 
 /** Hyphenated engine recipe names + their displayed (colon) form, for the suggester. */
@@ -200,6 +202,17 @@ export function attachEngineCommands(
     .description("Run the test capability.")
     .action(async () => {
       Deno.exit(await runTestCapability(await requireRoot()));
+    });
+
+  root
+    .command("mcp")
+    .description(
+      "Run an MCP server (stdio) exposing the verbs to an agent as tools.",
+    )
+    .action(async () => {
+      // The server resolves the project root itself and reports a missing one
+      // per tool-call, so it need not requireRoot up front.
+      Deno.exit(await runMcpServer());
     });
 
   if (enabled.has("ratchets")) {

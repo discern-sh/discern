@@ -43,10 +43,12 @@ const GIT_ISOLATION: Record<string, string> = {
 };
 
 /** Repo paths for driving the TS engine (its import map must be pointed at the
- * repo's deno.json since the temp project has none up its tree). */
+ * repo's deno.json since the temp project has none up its tree). Exported so a
+ * test that needs a long-running engine process (e.g. the MCP stdio server)
+ * spawns it exactly as runAgent does. */
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
-const MAIN_TS = join(REPO_ROOT, "src", "main.ts");
-const DENO_JSON = join(REPO_ROOT, "deno.json");
+export const MAIN_TS = join(REPO_ROOT, "src", "main.ts");
+export const DENO_JSON = join(REPO_ROOT, "deno.json");
 
 /** Shell-quote a path for the shim script. */
 function shq(s: string): string {

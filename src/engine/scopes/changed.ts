@@ -10,7 +10,7 @@
  */
 
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
-import { serializeResult } from "../../shared/result.ts";
+import { type DiscernResult, serializeResult } from "../../shared/result.ts";
 import { pathMatchesPattern } from "./glob.ts";
 
 /** Run `git -C root <args>`, capturing stdout. `ok:false` on any failure. */
@@ -161,6 +161,20 @@ export interface ChangedScopesOptions {
   json?: boolean;
   /** Exit-status-only membership test for a single scope/marker name. */
   has?: string;
+}
+
+/**
+ * Compute the `changed-scopes` {@link DiscernResult} without printing — the entry
+ * point the MCP server renders, and the source the CLI's `--json` serializes.
+ */
+export async function changedScopesResult(
+  root: string,
+): Promise<DiscernResult> {
+  return {
+    ok: true,
+    verb: "changed-scopes",
+    data: { scopes: await changedScopes(root) },
+  };
 }
 
 /**

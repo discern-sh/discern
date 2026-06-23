@@ -43,6 +43,7 @@ import { assertMainMerged } from "../worktree/git.ts";
 import {
   type Diagnostic,
   type DiscernResult,
+  previewResult,
   renderPlan,
   serializeResult,
 } from "../../shared/result.ts";
@@ -261,6 +262,28 @@ function renderFailures(out: Out, diagnostics: Diagnostic[]): void {
     );
     out.raw(`    ${c.dim}reproduce:${c.reset} ${d.reproduce_cmd}\n`);
   }
+}
+
+/**
+ * Compute the `finish` {@link DiscernResult} without printing or exiting — the
+ * entry point the MCP server (and any in-process caller) renders instead of the
+ * CLI's stdout. `dryRun` returns the preview (the plan, nothing run); otherwise it
+ * runs the gate, routing the human narration to stderr (json semantics) so a
+ * caller owning stdout — like the MCP stdio channel — stays uncontaminated.
+ */
+export async function finishResult(
+  root: string,
+  opts: { dryRun?: boolean } = {},
+): Promise<DiscernResult> {
+  if (opts.dryRun ?? false) {
+    const cfg = await loadConfig(root);
+    const changed = await changedScopes(root, cfg);
+    return previewResult(
+      "finish",
+      gatePlanToEngine(buildGatePlan(cfg, changed)),
+    );
+  }
+  return (await runGate(root, true)).result;
 }
 
 /** Run `finish`. Returns a process exit code. */
