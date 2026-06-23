@@ -130,6 +130,7 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     assert(names.includes("discern_test"), JSON.stringify(names));
     assert(names.includes("discern_doctor"), JSON.stringify(names));
     assert(names.includes("discern_changed_scopes"), JSON.stringify(names));
+    assert(names.includes("discern_status"), JSON.stringify(names));
     assert(names.includes("discern_audit"), JSON.stringify(names));
     // The feature-gated tools are listed too (the default scaffold has every
     // feature on).
@@ -164,6 +165,24 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     const cs = await mcp.recv();
     assertEquals(cs.result.structuredContent.verb, "changed-scopes");
     assert(Array.isArray(cs.result.structuredContent.data.scopes));
+
+    // tools/call discern_status → the situation/orientation DiscernResult. The
+    // server launched in the main checkout (no worktrees) → a local view.
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 10,
+      method: "tools/call",
+      params: { name: "discern_status" },
+    });
+    const status = await mcp.recv();
+    assertEquals(status.id, 10);
+    assertEquals(status.result.isError, false);
+    assertEquals(status.result.structuredContent.verb, "status");
+    assertEquals(status.result.structuredContent.data.location, "main");
+    assert(
+      status.result.structuredContent.data.features,
+      "status data carries the feature toggles",
+    );
 
     // tools/call discern_audit → the scored best-practices DiscernResult.
     await mcp.send({
