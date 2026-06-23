@@ -16,13 +16,17 @@ then (in a Worktree) the main-merged check.
 with no build or test. `--json` emits the **`DiscernResult` envelope** — the one
 result shape every verb returns
 ([ADR 0028](../_adr/0028-result-envelope-and-diagnostics.md)):
-`{ok, verb, steps, diagnostics?, data}`, a serialization of the plan `finish`
-executed, not a re-derivation. Each Capability/Check/Scope gate is a `steps[]`
-entry; a genuine failure also yields a `diagnostics[]` entry carrying the
-command to reproduce it and its captured output (normalized to file/line/rule
-when the tool emits SARIF) — so an agent loops act→read-error→fix instead of
-re-running and scraping stderr. `finish --dry-run` prints the plan (the jobs and
-Scope gates that _would_ run) without running anything
+`{ok, verb, steps, diagnostics?, hints?, data}`, a serialization of the plan
+`finish` executed, not a re-derivation. Each Capability/Check/Scope gate is a
+`steps[]` entry; a genuine failure also yields a `diagnostics[]` entry carrying
+the command to reproduce it and its captured output (normalized to
+file/line/rule when the tool emits SARIF) — so an agent loops act→read-error→fix
+instead of re-running and scraping stderr. `hints[]` carries the next-step
+advice the human tail prints. Under `--json` the envelope is the **entire**
+output: all narration and command output is suppressed (not rerouted), so the
+combined stdout+stderr is exactly that one object — safe for an agent to capture
+([ADR 0030](../_adr/0030-quiet-json-output.md)). `finish --dry-run` prints the
+plan (the jobs and Scope gates that _would_ run) without running anything
 ([ADR 0027](../_adr/0027-plan-apply-engine-execution.md)); it is honest that it
 cannot predict which jobs fail-fast would skip. The same envelope is served to
 agents natively over MCP by `discern mcp`.
