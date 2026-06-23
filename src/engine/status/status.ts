@@ -1,0 +1,637 @@
+/**
+ * `status` — the situation/orientation verb: *what is true right now, and what
+ * should I do next?* (ADR 0033). It complements the two setup-facing verbs without
+ * overlapping either: `doctor` answers "is it correctly installed?" (health),
+ * `audit` answers "is the setup any good?" (quality, changes rarely), and `status`
+ * answers "what changed and what now?" (situation, changes every commit) — so an
+ * agent calls it reflexively at the start of a session.
+ *
+ * `status` is PURE OBSERVATION. It never runs the gate, runs tests, measures
+ * ratchets, probes resource readiness, or creates/destroys anything. It does git
+ * *reads*, file reads (`.env`, config), and identity derivation only — fast enough
+ * to call reflexively. It reports what the gate WOULD fire and what CHANGED; it
+ * never asserts a pass/fail it didn't verify.
+ *
+ * The view is LOCATION-AWARE (ADR 0033): from a linked worktree the default is the
+ * local view (this worktree's own state); from the main checkout — with worktrees
+ * enabled and at least one live worktree — it leads with the fleet survey (a row per
+ * worktree, the main checkout included). `--all` adds the fleet from a worktree;
+ * `--local` suppresses it from the main checkout.
+ */
+
+import { basename } from "@std/path";
+import {
+  type DiscernConfig,
+  loadConfig,
+  toCommandList,
+} from "../../shared/config_schema.ts";
+import type { DiscernResult } from "../../shared/result.ts";
+import { emitResult } from "../../shared/emit.ts";
+import { findRoot } from "../../shared/env.ts";
+import { isFeatureEnabled } from "../../shared/features.ts";
+import {
+  type Capability,
+  KNOWN_CAPABILITIES,
+} from "../../shared/capabilities.ts";
+import { changedScopes } from "../scopes/changed.ts";
+import { planScopeGates } from "../gate/plan.ts";
+import {
+  assertMainMerged,
+  type FleetWorktree,
+  gitSnapshot,
+  listWorktreeFleet,
+  mainRepoPath,
+  worktreeGitKey,
+} from "../worktree/git.ts";
+import { IdentityError, resolveIdentity } from "../worktree/identity.ts";
+import { readResourceSpecs, resourceEnvName } from "../worktree/resources.ts";
+import { readEnvFile } from "../worktree/env_file.ts";
+import { colorEnabled, makeOut, type Out } from "../output.ts";
+
+/** The not-inside-a-project message (matches the dispatcher / MCP server slug). */
+const NO_PROJECT =
+  "not inside a discern project (no discern.toml in this directory or any parent).";
+
+/** Flags accepted by `status` on both surfaces. */
+export interface StatusOptions {
+  /** Include the fleet survey even from a worktree (a worktree surveying its siblings). */
+  all?: boolean;
+  /** Local view only — suppress the fleet survey even in the main checkout. */
+  local?: boolean;
+}
+
+// ── the `data` payload shapes (the wire contract; discriminated by `location`
+//    and the presence of `fleet`) ──────────────────────────────────────────────
+
+/** This worktree's derived identity + the resources actually recorded in its `.env`. */
+interface StatusWorktree {
+  id: string;
+  branch: string;
+  site: string;
+  port: number;
+  db: string;
+  /** name → handle, READ from this worktree's `.env` (never created). */
+  resources: Record<string, string>;
+}
+
+/** The local git situation relative to the integration branch. */
+interface StatusGit {
+  branch: string;
+  integration_branch: string;
+  clean: boolean;
+  changed_files: number;
+  /** Commits the branch is behind the integration branch; null = not comparable
+   * (the main checkout, or no local integration branch). */
+  behind_integration: number | null;
+  /** Commits the branch is ahead of the integration branch. */
+  ahead_integration: number;
+}
+
+/** What the gate WOULD fire for the current change — enumerated, never run. */
+interface StatusGate {
+  /** Wired capabilities (those with a real command), in canonical order. */
+  capabilities: string[];
+  /** Declared `[checks.<name>]`. */
+  checks: string[];
+  /** Scopes whose `gate` the current change triggers. */
+  scope_gates: string[];
+}
+
+/** One row of the fleet survey — intentionally cheap (git reads + a best-effort
+ * `.env` peek for id/port). */
+interface StatusFleetEntry {
+  path: string;
+  is_main: boolean;
+  branch: string;
+  clean: boolean;
+  changed_files: number;
+  ahead: number;
+  behind: number;
+  /** Best-effort, read from the worktree's `.env`; omitted when absent. */
+  id?: string;
+  port?: number;
+}
+
+/** The feature-toggle snapshot status reports. */
+interface StatusFeatures {
+  worktrees: boolean;
+  ratchets: boolean;
+  skills: boolean;
+  mcp: boolean;
+  docs: boolean;
+}
+
+/** The full `data` payload. The local-only heavy blocks (`changed_scopes`/`gate`)
+ * are present in the local view and omitted when leading with the fleet from the
+ * main checkout; `fleet` is present only when the fleet survey is included. */
+interface StatusData {
+  location: "main" | "worktree";
+  root: string;
+  worktree: StatusWorktree | null;
+  git: StatusGit | null;
+  changed_scopes?: string[];
+  gate?: StatusGate;
+  features: StatusFeatures;
+  ratchets: string[];
+  fleet?: StatusFleetEntry[];
+}
+
+// ── the result core (the single source the CLI and the MCP tool both render) ────
+
+/**
+ * Compute the `status` {@link DiscernResult} — pure observation, no mutation. The
+ * one entry point the MCP server renders and the CLI's `--json` serializes; neither
+ * re-derives anything. `ok` is true for any successful observation (a dirty worktree
+ * or a branch behind main is still a successful `status`, not a failure) — `ok:false`
+ * is reserved for an operational refusal (conflicting flags). `root` is used as the
+ * cwd for every git read and identity derivation, matching the other verb cores.
+ */
+export async function statusResult(
+  root: string,
+  opts: StatusOptions = {},
+): Promise<DiscernResult> {
+  const all = opts.all ?? false;
+  const local = opts.local ?? false;
+  if (all && local) {
+    return {
+      ok: false,
+      verb: "status",
+      error: "conflicting_flags",
+      message: "--all and --local cannot be combined — pick one.",
+    };
+  }
+
+  const cfg = await loadConfig(root);
+  const mainBranch = Deno.env.get("MAIN_BRANCH") || cfg.project.main_branch;
+
+  // Location: a linked worktree has its own git admin dir (worktreeGitKey defined);
+  // the main checkout (or no git repo) does not.
+  const gitKey = await worktreeGitKey(root);
+  const location: "main" | "worktree" = gitKey !== undefined
+    ? "worktree"
+    : "main";
+  const snap = await gitSnapshot(root, mainBranch);
+
+  // The git block — read-only; null when this isn't a git repo (degrade, don't throw).
+  let git: StatusGit | null = null;
+  if (snap !== undefined) {
+    // Reuse the canonical main-merged check for the behind/null distinction: it
+    // self-skips (→ null) in the main checkout or with no local integration branch.
+    const merged = await assertMainMerged(root, mainBranch);
+    const behind = merged.kind === "skipped"
+      ? null
+      : merged.kind === "merged"
+      ? 0
+      : Number(merged.behind) || 0;
+    git = {
+      branch: snap.branch,
+      integration_branch: mainBranch,
+      clean: snap.clean,
+      changed_files: snap.changedFiles,
+      behind_integration: behind,
+      ahead_integration: snap.ahead,
+    };
+  }
+
+  // The worktree identity block — only inside a linked worktree.
+  const worktree = location === "worktree"
+    ? await buildWorktreeBlock(root, cfg)
+    : null;
+
+  const features: StatusFeatures = {
+    worktrees: isFeatureEnabled(cfg, "worktrees"),
+    ratchets: isFeatureEnabled(cfg, "ratchets"),
+    skills: isFeatureEnabled(cfg, "skills"),
+    mcp: isFeatureEnabled(cfg, "mcp"),
+    docs: isFeatureEnabled(cfg, "docs"),
+  };
+
+  // Fleet decision. The fleet is meaningful only with the worktrees feature on, and
+  // only worth surveying from the main checkout (the supervisor view) or when a
+  // worktree explicitly asks via --all — so a plain local worktree view never pays
+  // for it. The survey is read-only either way.
+  const wantFleet = features.worktrees && (all || location === "main");
+  const fleetRows = wantFleet ? await listWorktreeFleet(root, mainBranch) : [];
+  const liveCount = fleetRows.filter((w) => !w.isMain).length;
+  const includeFleet = all
+    ? true
+    : local
+    ? false
+    : location === "main" && features.worktrees && liveCount >= 1;
+  // "Fleet-led" — the main-checkout supervisor view that leads with the fleet and
+  // omits the heavy local-only blocks. A worktree with --all keeps its local blocks
+  // AND gains the fleet, so it is not fleet-led.
+  const fleetLed = includeFleet && location === "main";
+
+  const data: StatusData = {
+    location,
+    root,
+    worktree,
+    git,
+    features,
+    ratchets: Object.keys(cfg.ratchets),
+  };
+
+  // Local-only heavy blocks: the changed scopes and what the gate would fire.
+  let changed: string[] | undefined;
+  if (!fleetLed) {
+    changed = await changedScopes(root, cfg);
+    data.changed_scopes = changed;
+    data.gate = buildGateBlock(cfg, changed);
+  }
+
+  // The fleet survey, each row augmented with its best-effort id/port from `.env`.
+  let fleet: StatusFleetEntry[] | undefined;
+  if (includeFleet) {
+    fleet = await Promise.all(fleetRows.map(fleetEntryFor));
+    data.fleet = fleet;
+  }
+
+  const hints = await buildStatusHints({
+    root,
+    cfg,
+    location,
+    mainBranch,
+    git,
+    changed,
+    fleet,
+    worktreesOn: features.worktrees,
+    liveCount,
+  });
+
+  return {
+    ok: true,
+    verb: "status",
+    data,
+    ...(hints.length > 0 ? { hints } : {}),
+  };
+}
+
+/** Resolve a worktree's identity block, degrading to null if identity can't be
+ * resolved (e.g. an empty slug) rather than crashing the read-only verb. */
+async function buildWorktreeBlock(
+  root: string,
+  cfg: DiscernConfig,
+): Promise<StatusWorktree | null> {
+  let identity;
+  try {
+    identity = await resolveIdentity(root, root);
+  } catch (e) {
+    if (e instanceof IdentityError) {
+      return null;
+    }
+    throw e;
+  }
+  return {
+    id: identity.id,
+    branch: identity.branch,
+    site: identity.site,
+    port: identity.port,
+    db: identity.db,
+    resources: await readWorktreeResources(root, cfg),
+  };
+}
+
+/** The resource handles ACTUALLY recorded in this worktree's `.env` (what was
+ * provisioned), not the derived set — a resource not yet created has no `.env`
+ * entry and is honestly absent. Reads only; never creates a `.env` or a resource. */
+async function readWorktreeResources(
+  root: string,
+  cfg: DiscernConfig,
+): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  const specs = readResourceSpecs(cfg);
+  if (specs.length === 0) {
+    return out;
+  }
+  const envText = await readEnvFile(root);
+  if (envText === undefined) {
+    return out;
+  }
+  for (const spec of specs) {
+    const value = readEnvVar(envText, resourceEnvName(spec.name));
+    if (value !== undefined && value !== "") {
+      out[spec.name] = value;
+    }
+  }
+  return out;
+}
+
+/** Augment a cheap fleet row with the worktree's id/port from its `.env` (best
+ * effort — omitted when absent). */
+async function fleetEntryFor(row: FleetWorktree): Promise<StatusFleetEntry> {
+  const entry: StatusFleetEntry = {
+    path: row.path,
+    is_main: row.isMain,
+    branch: row.branch,
+    clean: row.clean,
+    changed_files: row.changedFiles,
+    ahead: row.ahead,
+    behind: row.behind,
+  };
+  const envText = await readEnvFile(row.path);
+  if (envText !== undefined) {
+    const id = readEnvVar(envText, "DISCERN_WORKTREE_ID");
+    if (id !== undefined && id !== "") {
+      entry.id = id;
+    }
+    const port = readEnvVar(envText, "DISCERN_WORKTREE_PORT");
+    if (port !== undefined && /^\d+$/.test(port)) {
+      entry.port = Number(port);
+    }
+  }
+  return entry;
+}
+
+/** What the gate would fire: the wired capabilities (canonical order), the declared
+ * checks, and the scope gates the current change triggers — reusing the gate's own
+ * scope-gate selection (`planScopeGates`) so status and `finish` agree. */
+function buildGateBlock(cfg: DiscernConfig, changed: string[]): StatusGate {
+  const capabilities = (Object.keys(KNOWN_CAPABILITIES) as Capability[])
+    .filter((c) => toCommandList(cfg.capabilities[c]).length > 0);
+  const checks = Object.entries(cfg.checks)
+    .filter(([, spec]) => toCommandList(spec.run).length > 0)
+    .map(([name]) => name);
+  const scope_gates = planScopeGates(cfg, changed)
+    .filter((j) => j.willRun)
+    .map((j) => j.label.replace(/^scope:/, ""));
+  return { capabilities, checks, scope_gates };
+}
+
+// ── hints (advisory next-steps; never an unverified pass/fail) ───────────────────
+
+/** Everything the hint builder reads — assembled once so the hints can't drift from
+ * the reported data. */
+interface HintContext {
+  root: string;
+  cfg: DiscernConfig;
+  location: "main" | "worktree";
+  mainBranch: string;
+  git: StatusGit | null;
+  changed: string[] | undefined;
+  fleet: StatusFleetEntry[] | undefined;
+  worktreesOn: boolean;
+  liveCount: number;
+}
+
+/**
+ * The advisory "what next" lines. Honest by construction: every line is an
+ * observation plus a suggested command, never a claim that the gate passed.
+ */
+async function buildStatusHints(ctx: HintContext): Promise<string[]> {
+  const hints: string[] = [];
+  const main = ctx.mainBranch;
+
+  if (ctx.location === "worktree" && ctx.git !== null) {
+    const g = ctx.git;
+    const firedScopes = (ctx.changed ?? []).filter(
+      (s) => s !== "code" && s !== "previewable",
+    );
+    if (!g.clean) {
+      hints.push(
+        firedScopes.length > 0
+          ? `Changes in ${
+            firedScopes.join(", ")
+          }; run \`discern finish\` before calling work done.`
+          : "Uncommitted changes; run `discern finish` before calling work done.",
+      );
+    }
+    if (g.behind_integration !== null && g.behind_integration > 0) {
+      hints.push(
+        `Branch is ${g.behind_integration} behind ${main}; run \`discern finish\` to integrate before \`discern graduate\`.`,
+      );
+    }
+    if (g.clean && g.behind_integration === 0 && g.ahead_integration > 0) {
+      // graduate would refuse against a dirty main checkout — say so if we can see it.
+      const mainDirty = await isMainCheckoutDirty(ctx.root, main);
+      hints.push(
+        mainDirty
+          ? `Committed and up to date with ${main}, but the main checkout has uncommitted changes — commit or stash them there before \`discern graduate\`.`
+          : `Committed and up to date with ${main}; \`discern graduate\` when ready.`,
+      );
+    }
+  }
+
+  if (ctx.location === "main") {
+    if (!ctx.cfg.meta.bootstrapped) {
+      hints.push(
+        "A coding agent should run `discern bootstrap` to set up the project.",
+      );
+    }
+    if (!ctx.worktreesOn) {
+      hints.push(
+        "The worktrees workflow is off; work happens directly in this checkout.",
+      );
+    } else if (ctx.liveCount === 0) {
+      hints.push("No active worktrees; start one to begin work.");
+    } else if (ctx.fleet !== undefined) {
+      const others = ctx.fleet.filter((e) => !e.is_main);
+      const dirty = others.filter((e) => !e.clean);
+      if (dirty.length > 0) {
+        const names = dirty.map((e) => e.id ?? e.branch).join(", ");
+        hints.push(
+          `${dirty.length} worktree${dirty.length === 1 ? "" : "s"} ${
+            dirty.length === 1 ? "has" : "have"
+          } uncommitted changes: ${names}.`,
+        );
+      }
+      for (const e of others) {
+        if (e.clean && e.behind === 0 && e.ahead > 0) {
+          hints.push(
+            `Worktree ${e.id ?? e.branch} looks ready to graduate.`,
+          );
+        }
+      }
+    }
+  }
+
+  return hints;
+}
+
+/** Whether the main checkout has uncommitted changes — the cheap read that lets the
+ * graduate-readiness hint warn that graduation would refuse. False when it can't be
+ * resolved (no main repo, or we're already in it). */
+async function isMainCheckoutDirty(
+  root: string,
+  mainBranch: string,
+): Promise<boolean> {
+  const mainRepo = await mainRepoPath(root);
+  if (mainRepo === undefined || mainRepo === root) {
+    return false;
+  }
+  const snap = await gitSnapshot(mainRepo, mainBranch);
+  return snap !== undefined && !snap.clean;
+}
+
+/** Read a `KEY=value` from `.env` text (first match), stripping one layer of quotes. */
+function readEnvVar(text: string, key: string): string | undefined {
+  const prefix = `${key}=`;
+  for (const line of text.split("\n")) {
+    if (line.startsWith(prefix)) {
+      return stripQuotes(line.slice(prefix.length).trim());
+    }
+  }
+  return undefined;
+}
+
+/** Strip one layer of matching surrounding quotes. */
+function stripQuotes(value: string): string {
+  if (
+    value.length >= 2 &&
+    ((value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'")))
+  ) {
+    return value.slice(1, -1);
+  }
+  return value;
+}
+
+// ── the CLI runner ───────────────────────────────────────────────────────────
+
+/**
+ * Run `status`. Resolves the project root itself (rather than `requireRoot`-ing)
+ * so the not-initialized case is reported as the uniform envelope under `--json`,
+ * mirroring the MCP server's not-initialized path. Returns a process exit code
+ * (0 for any successful observation, 1 for a refusal / not-initialized).
+ */
+export async function runStatus(
+  opts: { json: boolean; all: boolean; local: boolean },
+): Promise<number> {
+  const root = await findRoot();
+  if (root === undefined) {
+    if (opts.json) {
+      emitResult({
+        ok: false,
+        verb: "status",
+        error: "not_initialized",
+        message: NO_PROJECT,
+      });
+    } else {
+      console.error(`discern: ${NO_PROJECT}`);
+      console.error("       Run `discern init` to scaffold one.");
+    }
+    return 1;
+  }
+  const result = await statusResult(root, { all: opts.all, local: opts.local });
+  if (opts.json) {
+    emitResult(result);
+    return result.ok ? 0 : 1;
+  }
+  renderStatusHuman(result);
+  return result.ok ? 0 : 1;
+}
+
+// ── human rendering (a compact situation summary; the fleet table when present) ──
+
+/** Left-pad a field label to a fixed gutter so the summary lines align. */
+function label(text: string): string {
+  return text.padEnd(11);
+}
+
+/** Truncate `s` to `n` chars with an ellipsis, for fixed-width table columns. */
+function trunc(s: string, n: number): string {
+  return s.length <= n ? s : `${s.slice(0, n - 1)}…`;
+}
+
+/** Render the status result as a compact human summary on stdout (quiet under
+ * `--json`, which never calls this). */
+function renderStatusHuman(result: DiscernResult): void {
+  const out = makeOut(colorEnabled());
+  if (!result.ok) {
+    out.error(result.message ?? "status failed.");
+    return;
+  }
+  const data = result.data as StatusData;
+  const c = out.c;
+  const dot = `  ${c.dim}·${c.reset} `;
+
+  out.heading(
+    `discern status — ${
+      data.location === "worktree" ? "worktree" : "main checkout"
+    }`,
+  );
+
+  if (data.git !== null) {
+    const g = data.git;
+    const state = g.clean ? "clean" : `${g.changed_files} changed`;
+    const behind = g.behind_integration === null
+      ? ""
+      : `, ${g.behind_integration} behind`;
+    out.raw(
+      `  ${label("branch")}${
+        g.branch || "(detached)"
+      }${dot}${state}${dot}${g.ahead_integration} ahead${behind} ${g.integration_branch}\n`,
+    );
+  } else {
+    out.raw(
+      `  ${label("git")}${c.dim}unavailable (not a git repository)${c.reset}\n`,
+    );
+  }
+
+  if (data.worktree !== null) {
+    const w = data.worktree;
+    out.raw(`  ${label("worktree")}${w.id}${dot}port ${w.port}\n`);
+    const resNames = Object.keys(w.resources);
+    if (resNames.length > 0) {
+      out.raw(
+        `  ${label("resources")}${
+          resNames.map((n) => `${n}=${w.resources[n]}`).join("  ")
+        }\n`,
+      );
+    }
+  }
+
+  if (data.changed_scopes !== undefined) {
+    out.raw(
+      `  ${label("scopes")}${
+        data.changed_scopes.length > 0
+          ? data.changed_scopes.join(", ")
+          : "(none changed)"
+      }\n`,
+    );
+  }
+
+  if (data.gate !== undefined) {
+    const g = data.gate;
+    const caps = g.capabilities.length > 0
+      ? g.capabilities.join(", ")
+      : "(none wired)";
+    const checks = g.checks.length > 0 ? `, ${g.checks.join(", ")}` : "";
+    const sg = g.scope_gates.length > 0
+      ? `${dot}scope gates: ${g.scope_gates.join(", ")}`
+      : "";
+    out.raw(`  ${label("gate")}${caps}${checks}${sg}\n`);
+  }
+
+  if (data.ratchets.length > 0) {
+    out.raw(`  ${label("ratchets")}${data.ratchets.join(", ")}\n`);
+  }
+
+  if (data.fleet !== undefined) {
+    renderFleetTable(out, data.fleet);
+  }
+
+  for (const hint of result.hints ?? []) {
+    out.info(hint);
+  }
+}
+
+/** Render the fleet survey as an aligned table. */
+function renderFleetTable(out: Out, fleet: StatusFleetEntry[]): void {
+  const c = out.c;
+  out.raw(
+    `\n  ${c.dim}${"WORKTREE".padEnd(22)}${"BRANCH".padEnd(26)}${
+      "STATE".padEnd(13)
+    }AHEAD/BEHIND${c.reset}\n`,
+  );
+  for (const e of fleet) {
+    const name = e.is_main ? "(main)" : (e.id ?? e.branch ?? basename(e.path));
+    const state = e.clean ? "clean" : `${e.changed_files} changed`;
+    const counts = e.is_main ? "—" : `${e.ahead}/${e.behind}`;
+    out.raw(
+      `  ${trunc(name, 21).padEnd(22)}${
+        trunc(e.branch || "(detached)", 25).padEnd(26)
+      }${state.padEnd(13)}${counts}\n`,
+    );
+  }
+}
