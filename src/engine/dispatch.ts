@@ -26,6 +26,7 @@ import { ejectSkill, listSkills, materializeSkills } from "../lib/skills.ts";
 import { TomlEditor } from "../lib/toml_edit.ts";
 import { Logger } from "../lib/log.ts";
 import { runFinish } from "./gate/finish.ts";
+import { runAudit } from "./audit/audit.ts";
 import { runMcpServer } from "./mcp/server.ts";
 import { runPrepare } from "./gate/prepare.ts";
 import { runTestCapability } from "./gate/test.ts";
@@ -57,6 +58,7 @@ export const KNOWN_ENGINE_VERBS: ReadonlySet<string> = new Set([
   "finish",
   "prepare",
   "test",
+  "audit",
   "ratchets",
   "refresh",
   "changed-scopes",
@@ -72,6 +74,7 @@ const ENGINE_RECIPE_NAMES: readonly string[] = [
   "finish",
   "prepare",
   "test",
+  "audit",
   "ratchets",
   "refresh",
   "changed-scopes",
@@ -216,6 +219,39 @@ export function attachEngineCommands(
     .action(async (o) => {
       Deno.exit(
         await runTestCapability(await requireRoot(), { json: o.json ?? false }),
+      );
+    });
+
+  root
+    .command("audit")
+    .description(
+      "Score the project's setup against the best-practices checklist; rank the weakest areas and teach how to improve them.",
+    )
+    .option(
+      "--json",
+      "Emit the audit as a JSON DiscernResult (data.score + data.categories with rules and review items).",
+    )
+    .option(
+      "--category <name:string>",
+      "Audit a single area (gate, setup, guidance, docs, worktrees, ratchets, skills).",
+    )
+    .option(
+      "--min-score <n:number>",
+      "Exit non-zero when the overall score is below this floor (a CI/agent gate).",
+    )
+    .option(
+      "--no-interactive",
+      "Print the full static report instead of the interactive drill-down (also implied off a TTY).",
+    )
+    .action(async (o) => {
+      Deno.exit(
+        await runAudit(await requireRoot(), {
+          json: o.json ?? false,
+          category: o.category,
+          minScore: o.minScore,
+          // Cliffy maps `--no-interactive` to a negatable `interactive` boolean.
+          interactive: o.interactive,
+        }),
       );
     });
 

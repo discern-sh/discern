@@ -17,6 +17,7 @@
 import { findRoot } from "../../shared/env.ts";
 import { type DiscernResult, serializeResult } from "../../shared/result.ts";
 import { finishResult } from "../gate/finish.ts";
+import { auditResult } from "../audit/audit.ts";
 import { changedScopesResult } from "../scopes/changed.ts";
 
 /** The MCP protocol revisions this server speaks; the first is the default when a
@@ -68,6 +69,38 @@ const TOOLS: McpTool[] = [
       "classification that decides which scope gates the quality gate fires.",
     inputSchema: { type: "object", properties: {}, required: [] },
     run: (root) => changedScopesResult(root),
+  },
+  {
+    name: "discern_audit",
+    description:
+      "Audit the project against the best-practices checklist and return the scored, " +
+      "weakest-first result. Each category lists deterministic rules (status, the finding, " +
+      "the exact fix, and why it matters) plus subjective review items — questions the " +
+      "agent should judge against the cited material (e.g. the guidance text) and act on. " +
+      "Use it to surface concrete setup improvements; pass a category to focus one area.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        category: {
+          type: "string",
+          description:
+            "Restrict to one area: gate, setup, guidance, docs, worktrees, ratchets, or skills.",
+        },
+        min_score: {
+          type: "number",
+          description:
+            "Mark the result failed (isError) when the overall score is below this floor.",
+        },
+      },
+      required: [],
+    },
+    run: (root, args) =>
+      auditResult(root, {
+        category: typeof args.category === "string" ? args.category : undefined,
+        minScore: typeof args.min_score === "number"
+          ? args.min_score
+          : undefined,
+      }),
   },
 ];
 
