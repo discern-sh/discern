@@ -66,6 +66,15 @@ Deno.test("init --yes --json scaffolds and reports JSON", async () => {
     await Deno.stat(join(dir, "CLAUDE.md"));
     // The bundled skills are materialized into `.claude/skills/` (gitignored).
     await Deno.stat(join(dir, ".claude/skills"));
+    // init wires the discern MCP server for Claude Code (ADR 0031): `.mcp.json`
+    // is written and reported under `mcp_wired`.
+    assert(Array.isArray(result.data.mcp_wired));
+    assert(
+      result.data.mcp_wired.includes(".mcp.json"),
+      JSON.stringify(result.data.mcp_wired),
+    );
+    const mcp = JSON.parse(await Deno.readTextFile(join(dir, ".mcp.json")));
+    assertEquals(mcp.mcpServers.discern.command, "discern");
     // No committed shell engine: there is no root `agent` dispatcher.
     await assertNotExists(join(dir, "agent"));
   });

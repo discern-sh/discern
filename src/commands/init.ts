@@ -32,6 +32,11 @@ import { KIT_VERSION, SCHEMA_VERSION } from "../lib/version.ts";
 import { applyPlan, buildPlan, type Plan, planBrief } from "../lib/fs_plan.ts";
 import { planToJson, renderPlan, renderReview } from "../lib/plan_view.ts";
 import { compileGuidelines } from "../engine/guidelines.ts";
+import {
+  type HooksIntegration,
+  providersWithHooks,
+  wireProviderMcp,
+} from "../lib/providers.ts";
 
 /** Options accepted by the `init` command (global flags folded in). */
 export interface InitOptions extends InitFlags {
@@ -97,39 +102,51 @@ export async function assembleInitPlan(params: {
   return plan;
 }
 
+/** True when `v` is a non-array JSON object. */
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
 /**
- * Remove the worktree-lifecycle hooks from the planned `.claude/settings.json`
- * (the WorktreeCreate/WorktreeRemove groups and any SessionStart hook that calls
- * the worktree workflow). Used when the worktrees feature is disabled at init, so
- * a disabled feature leaves no inert hooks behind. A no-op if the settings op or
- * its hooks are absent/malformed.
+ * Remove the worktree-lifecycle hooks from every hook-providing agent's planned
+ * settings file. Used when the worktrees feature is disabled at init, so a
+ * disabled feature leaves no inert hooks behind. Provider-driven (ADR 0031): the
+ * settings file and the hook-event vocabulary come from each {@link Provider}'s
+ * `hooks`, so a new agent's hooks are stripped the same way without editing here.
  */
 function stripWorktreeHooksFromPlan(plan: Plan): void {
-  const op = plan.ops.find((o) => o.targetRel === ".claude/settings.json");
+  for (const provider of providersWithHooks()) {
+    if (provider.hooks !== undefined) {
+      stripWorktreeHooksFromOp(plan, provider.hooks);
+    }
+  }
+}
+
+/** Strip one provider's worktree hooks (its create/remove event groups + any
+ * SessionStart hook that drives the worktree flow) from its planned settings op.
+ * A no-op when the op or its hooks are absent/malformed. */
+function stripWorktreeHooksFromOp(plan: Plan, h: HooksIntegration): void {
+  const op = plan.ops.find((o) => o.targetRel === h.settingsFile);
   if (op === undefined) {
     return;
   }
   let settings: Record<string, unknown>;
   try {
     const parsed: unknown = JSON.parse(TEXT_DECODER.decode(op.bytes));
-    if (
-      typeof parsed !== "object" || parsed === null || Array.isArray(parsed)
-    ) {
+    if (!isPlainObject(parsed)) {
       return;
     }
-    settings = parsed as Record<string, unknown>;
+    settings = parsed;
   } catch {
     return;
   }
-  const hooksRaw = settings.hooks;
-  if (
-    typeof hooksRaw !== "object" || hooksRaw === null || Array.isArray(hooksRaw)
-  ) {
+  if (!isPlainObject(settings.hooks)) {
     return;
   }
-  const hooks = hooksRaw as Record<string, unknown>;
-  delete hooks.WorktreeCreate;
-  delete hooks.WorktreeRemove;
+  const hooks = settings.hooks;
+  for (const key of h.worktreeEventKeys) {
+    delete hooks[key];
+  }
   const sessionStart = hooks.SessionStart;
   if (Array.isArray(sessionStart)) {
     const kept = sessionStart.filter((group) => {
@@ -137,9 +154,9 @@ function stripWorktreeHooksFromPlan(plan: Plan): void {
       if (!Array.isArray(inner)) {
         return true;
       }
-      return !inner.some((h) => {
-        const cmd = (h as { command?: unknown }).command;
-        return typeof cmd === "string" && cmd.includes("worktree");
+      return !inner.some((entry) => {
+        const cmd = (entry as { command?: unknown }).command;
+        return typeof cmd === "string" && cmd.includes(h.sessionHookNeedle);
       });
     });
     if (kept.length === 0) {
@@ -339,6 +356,22 @@ export async function runInit(options: InitOptions): Promise<number> {
     }
   }
 
+  // Wire each configured agent's MCP server into the project (idempotent;
+  // ADR 0031). Agents without an MCP integration are skipped (a typed TODO).
+  // Best-effort: a wiring hiccup must not fail the scaffold.
+  let mcpWired: string[] = [];
+  try {
+    mcpWired = await wireProviderMcp(destDir, config.agents);
+  } catch (error) {
+    if (!options.json) {
+      log.warn(
+        `could not wire the MCP server: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
+
   if (options.json) {
     log.result({
       ok: true,
@@ -348,6 +381,7 @@ export async function runInit(options: InitOptions): Promise<number> {
         kit_version: KIT_VERSION,
         written: changed.map((op) => op.targetRel),
         compiled: agentsWritten,
+        mcp_wired: mcpWired,
       },
     });
     return 0;
@@ -355,12 +389,12 @@ export async function runInit(options: InitOptions): Promise<number> {
 
   log.line();
   log.ok(`Scaffolded ${changed.length} files into ${destDir}.`);
-  printOutro(log, config);
+  printOutro(log, config, mcpWired);
   return 0;
 }
 
 /** Print the closing summary: the created footprint and the next step. */
-function printOutro(log: Logger, config: InitConfig): void {
+function printOutro(log: Logger, config: InitConfig, mcpWired: string[]): void {
   log.heading(
     `Done. ${log.bold(config.projectName)} now has a discern harness.`,
   );
@@ -377,6 +411,11 @@ function printOutro(log: Logger, config: InitConfig): void {
   log.line(
     "  .claude/settings.json merged (your existing settings were preserved)",
   );
+  if (mcpWired.includes(".mcp.json")) {
+    log.line(
+      "  .mcp.json             registered the discern MCP server (the verbs as tools)",
+    );
+  }
   log.line();
   log.line(
     `  Opt into more by adding your own files: ${log.bold("guidance.md")}, ${
