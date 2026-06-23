@@ -39,6 +39,7 @@ import {
   type LifecycleContext,
   lifecycleContext,
   worktreeEnsure,
+  worktreeErrorResult,
   WorktreeGitError,
   worktreeNameField,
   worktreePrune,
@@ -151,16 +152,12 @@ async function runWorktreeOp(
     await op(await lifecycleContext(root, log));
     return 0;
   } catch (e) {
-    if (json && (e instanceof WorktreeGitError || e instanceof IdentityError)) {
-      emitResult({
-        ok: false,
-        verb: opts.verb ?? "worktree",
-        error: e instanceof IdentityError
-          ? "identity_error"
-          : "precondition_failed",
-        message: e.message,
-      });
-      return 1;
+    if (json) {
+      const mapped = worktreeErrorResult(opts.verb ?? "worktree", e);
+      if (mapped !== undefined) {
+        emitResult(mapped);
+        return 1;
+      }
     }
     return handleWorktreeError(e, log);
   }

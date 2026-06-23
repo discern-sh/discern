@@ -28,6 +28,7 @@ import {
   type DocsTree,
   resolveDoc,
 } from "../lib/docs.ts";
+import type { DiscernResult } from "../shared/result.ts";
 
 /** Options accepted by the `docs` command (global flags folded in). */
 export interface DocsOptions {
@@ -191,7 +192,79 @@ function printToc(tree: DocsTree, cwd: string, color: boolean): void {
   console.log(lines.join("\n"));
 }
 
-/** Resolve a `--target`, then render / raw-dump / JSON-emit that single doc. */
+/**
+ * Compute the `docs` {@link DiscernResult} — the machine-readable index, or a
+ * single doc's record + content when `target` is given. The ONE source the CLI's
+ * `--json` paths and the MCP server both render; the human, raw, and interactive
+ * renderings live in {@link runDocs} / {@link viewTarget}. Mirrors the human
+ * resolution exactly: no tree, empty tree, target not-found / ambiguous / found,
+ * or the full index.
+ */
+export async function docsResult(
+  cwd: string,
+  opts: { target?: string | undefined; dir?: string | undefined } = {},
+): Promise<DiscernResult> {
+  const tree = await discoverDocs({ cwd, dir: opts.dir });
+  if (!tree) {
+    return {
+      ok: false,
+      verb: "docs",
+      error: "no_docs",
+      message: opts.dir
+        ? `no documentation directory at "${opts.dir}".`
+        : "no docs/ directory here — run `discern bootstrap` to seed one, or pass --dir <path>.",
+    };
+  }
+  if (tree.entries.length === 0) {
+    return {
+      ok: true,
+      verb: "docs",
+      data: { docs_dir: display(tree.docsDir, cwd), count: 0, docs: [] },
+    };
+  }
+
+  // A specific doc named → that one's record + content.
+  if (opts.target !== undefined && opts.target !== "") {
+    const res = resolveDoc(tree, opts.target, cwd);
+    if (res.kind === "none") {
+      return {
+        ok: false,
+        verb: "docs",
+        error: "not_found",
+        message: `no doc matches "${opts.target}".`,
+      };
+    }
+    if (res.kind === "ambiguous") {
+      return {
+        ok: false,
+        verb: "docs",
+        error: "ambiguous",
+        message: `"${opts.target}" matches ${res.entries.length} docs.`,
+        data: { candidates: res.entries.map((e) => e.path) },
+      };
+    }
+    const content = await Deno.readTextFile(res.entry.absPath);
+    return {
+      ok: true,
+      verb: "docs",
+      data: { doc: { ...toRecord(res.entry), content } },
+    };
+  }
+
+  // No target → the index.
+  return {
+    ok: true,
+    verb: "docs",
+    data: {
+      docs_dir: display(tree.docsDir, cwd),
+      count: tree.entries.length,
+      docs: tree.entries.map(toRecord),
+    },
+  };
+}
+
+/** Resolve a `--target`, then render or raw-dump that single doc (human path;
+ * `--json` goes through {@link docsResult}). */
 async function viewTarget(
   tree: DocsTree,
   options: DocsOptions,
@@ -202,45 +275,20 @@ async function viewTarget(
   const res = resolveDoc(tree, target, cwd);
 
   if (res.kind === "none") {
-    const message = `no doc matches "${target}".`;
-    if (options.json) {
-      log.result({ ok: false, verb: "docs", error: "not_found", message });
-    } else {
-      log.error(message);
-      log.detail("list what's available: discern docs --list");
-    }
+    log.error(`no doc matches "${target}".`);
+    log.detail("list what's available: discern docs --list");
     return 1;
   }
 
   if (res.kind === "ambiguous") {
-    const candidates = res.entries.map((e) => e.path);
-    const message = `"${target}" matches ${candidates.length} docs.`;
-    if (options.json) {
-      log.result({
-        ok: false,
-        verb: "docs",
-        error: "ambiguous",
-        message,
-        data: { candidates },
-      });
-    } else {
-      log.error(`${message} Qualify it with a section or path:`);
-      for (const e of res.entries) log.detail(e.path);
-    }
+    log.error(
+      `"${target}" matches ${res.entries.length} docs. Qualify it with a section or path:`,
+    );
+    for (const e of res.entries) log.detail(e.path);
     return 1;
   }
 
-  const entry = res.entry;
-  const content = await Deno.readTextFile(entry.absPath);
-
-  if (options.json) {
-    log.result({
-      ok: true,
-      verb: "docs",
-      data: { doc: { ...toRecord(entry), content } },
-    });
-    return 0;
-  }
+  const content = await Deno.readTextFile(res.entry.absPath);
   if (options.raw) {
     // Pristine source — exactly the file's bytes, no added newline.
     await Deno.stdout.write(new TextEncoder().encode(content));
@@ -259,60 +307,46 @@ async function viewTarget(
 export async function runDocs(options: DocsOptions): Promise<number> {
   const log = new Logger(options);
   const cwd = Deno.cwd();
-  const tree = await discoverDocs({ cwd, dir: options.dir });
 
-  if (!tree) {
-    const message = options.dir
-      ? `no documentation directory at "${options.dir}".`
-      : "no docs/ directory here — run `discern bootstrap` to seed one, or pass --dir <path>.";
-    if (options.json) {
-      log.result({ ok: false, verb: "docs", error: "no_docs", message });
-    } else {
-      log.error(message);
-    }
-    return 1;
+  // `--json`: the entire machine-readable surface (index, single doc, or error) is
+  // {@link docsResult} — the one shape the MCP server also renders. The human, raw,
+  // and interactive renderings below never run under `--json`.
+  if (options.json) {
+    const result = await docsResult(cwd, {
+      target: options.target,
+      dir: options.dir,
+    });
+    log.result(result);
+    return result.ok ? 0 : 1;
   }
 
+  const tree = await discoverDocs({ cwd, dir: options.dir });
+  if (!tree) {
+    log.error(
+      options.dir
+        ? `no documentation directory at "${options.dir}".`
+        : "no docs/ directory here — run `discern bootstrap` to seed one, or pass --dir <path>.",
+    );
+    return 1;
+  }
   if (tree.entries.length === 0) {
-    if (options.json) {
-      log.result({
-        ok: true,
-        verb: "docs",
-        data: { docs_dir: display(tree.docsDir, cwd), count: 0, docs: [] },
-      });
-      return 0;
-    }
     log.warn(`no Markdown files under ${display(tree.docsDir, cwd)}.`);
     return 0;
   }
 
-  // 1. A specific doc was named → view / raw / JSON-emit just that one.
+  // 1. A specific doc was named → render / raw-dump just that one.
   if (options.target !== undefined && options.target !== "") {
     return await viewTarget(tree, options, log, cwd, options.target);
   }
 
-  // 2. `--json` with no target → the machine-readable index.
-  if (options.json) {
-    log.result({
-      ok: true,
-      verb: "docs",
-      data: {
-        docs_dir: display(tree.docsDir, cwd),
-        count: tree.entries.length,
-        docs: tree.entries.map(toRecord),
-      },
-    });
-    return 0;
-  }
-
-  // 3. A real terminal and no `--list` → the interactive browser.
+  // 2. A real terminal and no `--list` → the interactive browser.
   const interactive = !options.list &&
     Deno.stdin.isTerminal() && Deno.stdout.isTerminal();
   if (interactive) {
     return await browse(tree, options);
   }
 
-  // 4. Otherwise (piped, redirected, or `--list`) → a plain table of contents.
+  // 3. Otherwise (piped, redirected, or `--list`) → a plain table of contents.
   printToc(tree, cwd, colourEnabled(options.noColor));
   return 0;
 }
