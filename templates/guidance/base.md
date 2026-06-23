@@ -5,9 +5,19 @@ is one self-contained binary; everything it knows about *this* project lives in 
 single root file, **`discern.toml`**. There is no hidden state directory — what you
 see in the tree is what there is.
 
-## Orient first — `discern status`
+## Calling discern
 
-Run **`discern status`** at the start of a session to see what's true right now and
+Every verb is exposed both as an **MCP tool** (`discern_status`, `discern_finish`,
+…, served by `discern mcp`) and as the **`discern` CLI**. Prefer the tools — they
+return the same result as a structured object, ready to read. If the discern MCP
+server isn't reachable, say so and suggest looking into it once the task is done;
+until then fall back to the CLI (`discern <verb>`), passing `--json` whenever you
+parse the output — in `--json` mode a verb prints exactly one machine-readable
+result object and nothing else.
+
+## Orient first — `discern_status`
+
+Call **`discern_status`** at the start of a session to see what's true right now and
 what to do next. It is pure observation — read-only, it never runs the gate or
 touches anything — so it is cheap to call reflexively. It reports the current
 branch and how far it sits from the integration branch, whether the tree is clean,
@@ -16,53 +26,30 @@ hints (never an unverified pass/fail). The view follows where you run it: from a
 linked worktree it shows that worktree's own state; from the main checkout it leads
 with a survey of every worktree in flight (pass `--all` to add that survey from a
 worktree, `--local` to suppress it). It sits alongside two setup-facing verbs that
-answer different questions: **`discern doctor`** asks *"is it correctly
-installed?"* and **`discern audit`** asks *"is the setup any good?"*.
+answer different questions: **`discern_doctor`** asks *"is it correctly
+installed?"* and **`discern_audit`** asks *"is the setup any good?"*.
 
 ## The quality gate (always on)
 
 Run the gate before you call any change done:
 
-- **`discern finish`** — the full gate. It runs the project's configured commands,
+- **`discern_finish`** — the full gate. It runs the project's configured commands,
   grouped into stages: a `fix` stage (formatters/codemods, run first), then `check`
   (lint, type-check) and `test` in parallel, with `build` slotted in as configured.
-  A clean `finish` is the bar for "done".
-- **`discern prepare`** — the fast inner loop: the `fix` then `check` stages only, no
+  A clean finish is the bar for "done".
+- **`discern_prepare`** — the fast inner loop: the `fix` then `check` stages only, no
   tests or build. Use it while iterating.
-- **`discern test`** — just the test command.
+- **`discern_test`** — just the test command.
 
 The commands themselves live under `[capabilities]` (the five known ones —
 `format`, `build`, `lint`, `typecheck`, `test`) and `[checks.<name>]` (anything
 custom) in `discern.toml`. If a stage has no command configured, it passes
-trivially — a fresh install is a green gate you grow into. Run **`discern doctor`**
+trivially — a fresh install is a green gate you grow into. Run **`discern_doctor`**
 to see what is wired and to validate the install.
-
-## Machine-readable output (`--json`) and MCP
-
-Every `discern` verb accepts **`--json`**, and when you run discern from a tool
-call whose output you parse, you should pass it. In `--json` mode the verb emits a
-single machine-readable `DiscernResult` and **nothing else** — all human narration
-and command output is suppressed, so the combined stdout+stderr is exactly one JSON
-object you can parse directly:
-
-- `ok` is the one field every verb sets. A failure also carries `diagnostics[]`:
-  each with the failing `tool`, a `message`, the exact `reproduce_cmd`, and the
-  command's captured `output` (plus `file`/`line`/`rule` when it emits a recognized
-  format) — enough to fix without re-running and scraping stderr.
-- `hints[]` carries the same next-step advice the human output would print.
-- `steps[]` records what ran; verb-specific detail rides in `data`.
-
-discern also runs as an **MCP server** — **`discern mcp`** exposes the verbs as
-tools that return the same envelope as a structured result: `discern_finish`,
-`discern_prepare`, `discern_test`, `discern_doctor`, `discern_audit`,
-`discern_changed_scopes`, and `discern_status`, plus `discern_docs` (read the docs tree) and
-`discern_graduate` (graduate this worktree's branch) when those features are
-enabled. Each is the same `--json` envelope, surfaced natively. If your client has
-the server configured, prefer the tools; otherwise call the CLI with `--json`.
 
 ## Auditing the setup
 
-Where the gate asks "did this change pass?", **`discern audit`** asks "is this
+Where the gate asks "did this change pass?", **`discern_audit`** asks "is this
 setup any good?". It scores the project against a best-practices checklist (tests
 wired, substantive guidance, docs and decision records, a quality ratchet,
 per-worktree resources for anything shared) and ranks the weakest areas, with the
@@ -70,12 +57,10 @@ exact fix and why it matters for each. Some rules it decides itself; others it
 **surfaces for you to judge** against the cited material (e.g. the project's own
 guidance) — a `?` review item. Run it to find where to invest, then act:
 
-- **`discern audit`** — the weakest-first report (interactive on a terminal).
-- **`discern audit --json`** — the same result as a machine-readable object; read
-  `data.categories[].rules` (each with a `fix` and `teach`) and `…[].reviews`
-  (each a question plus the material to judge it against), and improve them. It is
-  also exposed as the `discern_audit` MCP tool, so you can pull it natively.
-- **`discern audit --category <name>`** focuses one area; **`--min-score <n>`**
+- **`discern_audit`** — the weakest-first report (interactive in the CLI). Read its
+  `data.categories[].rules` (each with a `fix` and `teach`) and `…[].reviews` (each
+  a question plus the material to judge it against), and improve them.
+- **`discern_audit --category <name>`** focuses one area; **`--min-score <n>`**
   exits non-zero below a floor (a CI/agent gate).
 
 ## Generated agent files — never hand-edit

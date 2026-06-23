@@ -188,6 +188,32 @@ Deno.test("checkGuidanceCurrent: a templated, non-default config compiles curren
   }
 });
 
+Deno.test("renderAgentFiles: base guidance is MCP-first with a CLI fallback (no envelope dump or roster)", async () => {
+  const dir = await scaffold();
+  try {
+    const body = (await renderAgentFiles(dir)).get("AGENTS.md");
+    assert(body !== undefined);
+    // MCP-first stance + the unreachable-server fallback are present...
+    assert(body.includes("Prefer the tools"), "states MCP-first");
+    assert(
+      body.includes("isn't reachable"),
+      "carries the fallback instruction",
+    );
+    assert(body.includes("discern_finish"), "names the gate as a tool");
+    // ...and the de-duplicated content is gone (cut, not relocated twice).
+    assert(
+      !body.includes("Machine-readable output"),
+      "the verbose --json/MCP section is removed",
+    );
+    assert(
+      !body.includes("discern_changed_scopes"),
+      "the enumerated tool roster is cut",
+    );
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
 Deno.test("checkGuidanceCurrent: guidance feature off → nothing to render or check", async () => {
   const dir = await Deno.makeTempDir({ prefix: "discern-render-off-" });
   try {
