@@ -14,7 +14,7 @@
  */
 
 import { join } from "@std/path";
-import { Logger } from "../../lib/log.ts";
+import { Logger, loggerSink } from "../../lib/log.ts";
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import {
   deriveIdentity,
@@ -50,13 +50,13 @@ import {
   type TeardownPlan,
   teardownPlanToEngine,
 } from "./plan.ts";
-import type { EnginePlan, StepResult } from "../plan/types.ts";
 import {
-  loggerSink,
+  type EnginePlan,
   planToJson,
   renderPlan,
   resultsToJson,
-} from "../plan/view.ts";
+  type StepResult,
+} from "../../shared/result.ts";
 import {
   assertInWorktree,
   assertMainMerged,

@@ -8,6 +8,7 @@
  */
 
 import { colors } from "@cliffy/ansi/colors";
+import type { RenderSink } from "../shared/result.ts";
 
 /** How a command should present its results. */
 export interface LogOptions {
@@ -136,4 +137,13 @@ export class Logger {
   dim(text: string): string {
     return this.paint(colors.dim, text);
   }
+}
+
+/** Adapt the installer's `Logger` to a {@link RenderSink} for the shared plan renderer. */
+export function loggerSink(log: Logger): RenderSink {
+  return {
+    heading: (t: string): void => log.heading(t),
+    line: (t: string): void => log.line(t),
+    dim: (t: string): string => log.dim(t),
+  };
 }

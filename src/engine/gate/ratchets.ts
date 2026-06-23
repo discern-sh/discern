@@ -15,20 +15,20 @@
 
 import { loadConfig } from "../../shared/config_schema.ts";
 import { RawConfig } from "../../shared/config_read.ts";
-import { colorEnabled, makeOut, type Out } from "../output.ts";
+import { colorEnabled, makeOut, type Out, outSink } from "../output.ts";
 import {
   buildRatchetPlan,
   type PlannedRatchet,
   type RatchetPlan,
   ratchetPlanToEngine,
 } from "./ratchet_plan.ts";
-import type { StepOutcome, StepResult } from "../plan/types.ts";
 import {
-  outSink,
   planToJson,
   renderPlan,
   resultsToJson,
-} from "../plan/view.ts";
+  type StepOutcome,
+  type StepResult,
+} from "../../shared/result.ts";
 
 /** True when `s` is a non-negative decimal number (matches the shell predicate). */
 function isNumber(s: string): boolean {

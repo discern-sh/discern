@@ -1,6 +1,6 @@
 /**
  * Fast unit coverage for the gate's PURE planning core (`src/engine/gate/plan.ts`)
- * and the shared engine renderer (`src/engine/plan/view.ts`). These run with NO
+ * and the shared engine renderer (`src/shared/result.ts`). These run with NO
  * subprocess and NO git — the whole "what would the gate run, and how does it
  * serialize" decision is exercised in microseconds, the speed payoff of splitting
  * planning from execution (ADR 0027). The end-to-end behaviour is pinned by the
@@ -18,11 +18,11 @@ import {
 } from "../src/engine/gate/plan.ts";
 import type { JobResult } from "../src/engine/jobs/types.ts";
 import {
+  type EnginePlan,
   planToJson,
   renderPlan,
   type RenderSink,
-} from "../src/engine/plan/view.ts";
-import type { EnginePlan } from "../src/engine/plan/types.ts";
+} from "../src/shared/result.ts";
 
 const FULL = parseConfigOrThrow(`
 [capabilities]

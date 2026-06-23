@@ -16,7 +16,7 @@ import {
   type RatchetConfig,
   toCommand,
 } from "../../shared/config_schema.ts";
-import type { EnginePlan, PlanStep } from "../plan/types.ts";
+import type { EnginePlan, PlanStep } from "../../shared/result.ts";
 
 /**
  * One ratchet as planned: the resolved fields the executor reads, lifted out of

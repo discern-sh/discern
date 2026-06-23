@@ -33,9 +33,15 @@ import {
 import { cmdsInStage } from "./stages.ts";
 import { gotchasHint } from "./gotchas.ts";
 import { changedScopes } from "../scopes/changed.ts";
-import { byteWriter, colorEnabled, makeOut, type Out } from "../output.ts";
+import {
+  byteWriter,
+  colorEnabled,
+  makeOut,
+  type Out,
+  outSink,
+} from "../output.ts";
 import { assertMainMerged } from "../worktree/git.ts";
-import { outSink, planToJson, renderPlan } from "../plan/view.ts";
+import { planToJson, renderPlan } from "../../shared/result.ts";
 
 /**
  * Run one job group — the thin per-group executor. Runs the group's firing jobs

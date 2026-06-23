@@ -16,7 +16,7 @@ import { type DiscernConfig, toCommand } from "../../shared/config_schema.ts";
 import type { Stage } from "../../shared/capabilities.ts";
 import { jobsInStage } from "./stages.ts";
 import type { JobResult } from "../jobs/types.ts";
-import type { EnginePlan, PlanStep } from "../plan/types.ts";
+import type { EnginePlan, PlanStep } from "../../shared/result.ts";
 
 /**
  * A gate job as planned: the command to run plus the metadata the ADR-0004 report
