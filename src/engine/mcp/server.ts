@@ -28,6 +28,7 @@ import { prepareResult } from "../gate/prepare.ts";
 import { testResult } from "../gate/test.ts";
 import { auditResult } from "../audit/audit.ts";
 import { changedScopesResult } from "../scopes/changed.ts";
+import { statusResult } from "../status/status.ts";
 import { doctorResult } from "../../commands/doctor.ts";
 import { docsResult } from "../../commands/docs.ts";
 import {
@@ -117,6 +118,43 @@ const TOOLS: McpTool[] = [
       "classification that decides which scope gates the quality gate fires.",
     inputSchema: { type: "object", properties: {}, required: [] },
     run: (root) => changedScopesResult(root),
+  },
+  {
+    name: "discern_status",
+    description:
+      "Report what is true right now and what to do next — pure observation, never " +
+      "runs the gate, tests, ratchets, or touches anything. Call it at the start of a " +
+      'session to orient. data.location is "worktree" or "main"; data.git carries ' +
+      "branch/clean/changed-files and ahead/behind the integration branch; data.gate " +
+      "lists what the gate WOULD fire (wired capabilities, checks, triggered scope " +
+      "gates); data.worktree carries this worktree's id/port/db and provisioned " +
+      "resources; data.features and data.ratchets list the configured set. From the " +
+      "main checkout it leads with data.fleet (a cheap row per worktree: branch, " +
+      "dirty/ahead/behind, and a last_activity timestamp); set all=true " +
+      "to include the fleet from a worktree, or local=true to suppress it. hints[] are " +
+      "advisory next-steps (e.g. run discern_finish, ready to graduate) — never an " +
+      "unverified pass/fail.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        all: {
+          type: "boolean",
+          description:
+            "Include the fleet survey even from a worktree (default false).",
+        },
+        local: {
+          type: "boolean",
+          description:
+            "Local view only — suppress the fleet survey even in the main checkout (default false).",
+        },
+      },
+      required: [],
+    },
+    run: (root, args) =>
+      statusResult(root, {
+        all: args.all === true,
+        local: args.local === true,
+      }),
   },
   {
     name: "discern_audit",

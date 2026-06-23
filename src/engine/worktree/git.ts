@@ -651,6 +651,220 @@ function parseWorktreeList(porcelain: string): WorktreeRecord[] {
   return records;
 }
 
+/**
+ * A cheap, read-only snapshot of one checkout: its current branch, whether the
+ * working tree is clean, how many paths changed, and how far HEAD sits ahead of /
+ * behind the integration branch. The shared shape behind both `status`'s local git
+ * block and each fleet row, so the per-worktree numbers are computed one way.
+ */
+export interface GitSnapshot {
+  /** The current branch, or "" when detached. */
+  branch: string;
+  /** No uncommitted changes (tracked or untracked) in the working tree. */
+  clean: boolean;
+  /** Count of `git status --porcelain` entries. */
+  changedFiles: number;
+  /** Commits on HEAD not yet in the integration branch. */
+  ahead: number;
+  /** Commits on the integration branch not yet in HEAD. */
+  behind: number;
+  /** Unix-seconds timestamp of the most recent activity: the latest of the last
+   * HEAD movement (the reflog — a commit, checkout/reset, OR the worktree's own
+   * creation, so a freshly-spawned worktree reads as recent rather than as old as
+   * its branch point) and the newest mtime among uncommitted files. Undefined when
+   * neither can be determined (e.g. an empty repo with no commits or reflog). */
+  lastActivity?: number;
+}
+
+/**
+ * Commits HEAD is ahead of / behind the integration branch, from one
+ * `git rev-list --left-right --count <integration>...HEAD` (left = behind, right =
+ * ahead). `{0, 0}` when the integration ref does not resolve (no local main, or a
+ * detached/empty repo) — never throws.
+ */
+async function aheadBehind(
+  cwd: string,
+  integration: string,
+): Promise<{ ahead: number; behind: number }> {
+  const run = await git(
+    ["rev-list", "--left-right", "--count", `${integration}...HEAD`],
+    cwd,
+  );
+  if (!run.success) {
+    return { ahead: 0, behind: 0 };
+  }
+  const [left, right] = run.stdout.trim().split(/\s+/);
+  return { behind: Number(left) || 0, ahead: Number(right) || 0 };
+}
+
+/**
+ * The read-only {@link GitSnapshot} for the checkout at `cwd`, compared to the
+ * integration branch (`MAIN_BRANCH` / `mainBranchFallback` / `main`). Pure reads —
+ * `rev-parse`, `branch`, `status --porcelain`, `rev-list` — so it never mutates the
+ * working tree. Returns undefined when `cwd` is not inside a git repository, so a
+ * caller can mark the git block unavailable rather than throw.
+ */
+export async function gitSnapshot(
+  cwd: string,
+  mainBranchFallback?: string,
+): Promise<GitSnapshot | undefined> {
+  const inside = await git(["rev-parse", "--is-inside-work-tree"], cwd);
+  if (!inside.success || inside.stdout.trim() !== "true") {
+    return undefined;
+  }
+  const branchRun = await git(["branch", "--show-current"], cwd);
+  const branch = branchRun.success ? branchRun.stdout.trim() : "";
+  const statusRun = await git(["status", "--porcelain"], cwd);
+  const dirtyLines = statusRun.success
+    ? statusRun.stdout.split("\n").filter((l) => l !== "")
+    : [];
+  const { ahead, behind } = await aheadBehind(
+    cwd,
+    integrationBranch(mainBranchFallback),
+  );
+  const lastActivity = await lastActivityAt(cwd, dirtyLines);
+  return {
+    branch,
+    clean: dirtyLines.length === 0,
+    changedFiles: dirtyLines.length,
+    ahead,
+    behind,
+    ...(lastActivity !== undefined ? { lastActivity } : {}),
+  };
+}
+
+/**
+ * The most recent activity timestamp (unix seconds) for the checkout at `cwd`: the
+ * latest of the last HEAD movement (the reflog — which captures commits, checkouts,
+ * AND the worktree's own creation) and the newest mtime among the uncommitted files
+ * (`dirtyLines` from `git status --porcelain`). Pure reads. Undefined when nothing
+ * can be determined. Including the reflog's creation entry is deliberate: it keeps a
+ * freshly-spawned worktree from reading as old as the branch point it forked from.
+ */
+async function lastActivityAt(
+  cwd: string,
+  dirtyLines: string[],
+): Promise<number | undefined> {
+  // Last HEAD movement: the reflog's newest entry time. Reflog is appended only on
+  // HEAD *movement* (commit/checkout/reset/creation), never on reads, so this is
+  // stable across repeated read-only `status` runs. Fall back to the HEAD commit
+  // time when the reflog is unavailable (disabled, or an oddly-configured repo).
+  let best = await lastHeadMoveTime(cwd) ?? await headCommitTime(cwd);
+  for (const line of dirtyLines) {
+    const path = porcelainPath(line);
+    if (path === "") {
+      continue;
+    }
+    const mtime = await fileMtime(join(cwd, path));
+    if (mtime !== undefined && (best === undefined || mtime > best)) {
+      best = mtime;
+    }
+  }
+  return best;
+}
+
+/** The working-tree path a `git status --porcelain` line names ("XY path", or the
+ * post-arrow path of a "XY old -> new" rename), with git's wrapping quotes stripped. */
+function porcelainPath(line: string): string {
+  let p = line.slice(3);
+  const arrow = p.indexOf(" -> ");
+  if (arrow >= 0) {
+    p = p.slice(arrow + 4);
+  }
+  return p.replace(/^"/, "").replace(/"$/, "");
+}
+
+/** A file's mtime in unix seconds, or undefined when it can't be stat'd (a deletion). */
+async function fileMtime(path: string): Promise<number | undefined> {
+  try {
+    const m = (await Deno.stat(path)).mtime;
+    return m === null ? undefined : Math.floor(m.getTime() / 1000);
+  } catch {
+    return undefined;
+  }
+}
+
+/** The unix-seconds time of the newest HEAD reflog entry (the last HEAD movement),
+ * or undefined when the reflog is empty/unavailable. `--date=unix` renders the
+ * selector as `HEAD@{<unix>}`, which we parse — stable across git's locales. */
+async function lastHeadMoveTime(cwd: string): Promise<number | undefined> {
+  const run = await git(["reflog", "--date=unix", "-1"], cwd);
+  if (!run.success) {
+    return undefined;
+  }
+  const m = run.stdout.match(/@\{(\d+)\}/);
+  return m === null ? undefined : Number(m[1]);
+}
+
+/** The committer time (unix seconds) of HEAD, or undefined in a repo with no commits. */
+async function headCommitTime(cwd: string): Promise<number | undefined> {
+  const run = await git(["log", "-1", "--format=%ct"], cwd);
+  if (!run.success) {
+    return undefined;
+  }
+  const t = run.stdout.trim();
+  return t === "" ? undefined : Number(t) || undefined;
+}
+
+/** One registered worktree of this repo, with its cheap read-only snapshot. */
+export interface FleetWorktree {
+  /** Canonical worktree path. */
+  path: string;
+  /** Git lists the main checkout first — its row is flagged so nothing is hidden. */
+  isMain: boolean;
+  /** The current branch, or "" when detached. */
+  branch: string;
+  clean: boolean;
+  changedFiles: number;
+  /** Commits ahead of / behind the integration branch. */
+  ahead: number;
+  behind: number;
+  /** Unix-seconds timestamp of the most recent activity (see {@link GitSnapshot}). */
+  lastActivity?: number;
+}
+
+/**
+ * Every registered worktree of this repo, each with a cheap {@link GitSnapshot}
+ * (branch, cleanliness, files changed, ahead/behind the integration branch) — the
+ * supervisor's fleet survey for `status` from the main checkout. Reuses
+ * {@link parseWorktreeList} (the single porcelain parser) and {@link gitSnapshot}
+ * (the single per-checkout read), so a fleet row and the local block can never
+ * disagree on how a worktree's state is measured. The main checkout is always row 0
+ * (git lists it first). Empty when `cwd` is not inside a git repository.
+ */
+export async function listWorktreeFleet(
+  cwd: string,
+  mainBranchFallback?: string,
+): Promise<FleetWorktree[]> {
+  const listRun = await git(["worktree", "list", "--porcelain"], cwd);
+  if (!listRun.success) {
+    return [];
+  }
+  const out: FleetWorktree[] = [];
+  const records = parseWorktreeList(listRun.stdout);
+  for (const [i, rec] of records.entries()) {
+    const snap = await gitSnapshot(rec.path, mainBranchFallback);
+    const short = rec.branch.startsWith("refs/heads/")
+      ? rec.branch.slice("refs/heads/".length)
+      : rec.branch;
+    out.push({
+      path: await realPathOr(rec.path),
+      isMain: i === 0,
+      branch: snap?.branch !== undefined && snap.branch !== ""
+        ? snap.branch
+        : short,
+      clean: snap?.clean ?? true,
+      changedFiles: snap?.changedFiles ?? 0,
+      ahead: snap?.ahead ?? 0,
+      behind: snap?.behind ?? 0,
+      ...(snap?.lastActivity !== undefined
+        ? { lastActivity: snap.lastActivity }
+        : {}),
+    });
+  }
+  return out;
+}
+
 /** Options for {@link pruneGitWorktrees}. */
 export interface PruneOptions {
   /** Print what would happen without removing anything. */

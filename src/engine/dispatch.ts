@@ -32,6 +32,7 @@ import { runPrepare } from "./gate/prepare.ts";
 import { runTestCapability } from "./gate/test.ts";
 import { runRatchets } from "./gate/ratchets.ts";
 import { runChangedScopes } from "./scopes/changed.ts";
+import { runStatus } from "./status/status.ts";
 import { compileGuidelines } from "./guidelines.ts";
 import {
   graduate,
@@ -63,6 +64,7 @@ export const KNOWN_ENGINE_VERBS: ReadonlySet<string> = new Set([
   "ratchets",
   "refresh",
   "changed-scopes",
+  "status",
   "graduate",
   "worktree",
   "worktree-name",
@@ -79,6 +81,7 @@ const ENGINE_RECIPE_NAMES: readonly string[] = [
   "ratchets",
   "refresh",
   "changed-scopes",
+  "status",
   "graduate",
   "worktree",
   "worktree-name",
@@ -352,6 +355,36 @@ export function attachEngineCommands(
         await runChangedScopes(await requireRoot(), {
           json: o.json ?? false,
           ...(o.has !== undefined ? { has: o.has } : {}),
+        }),
+      );
+    });
+
+  // `status` — read-only situation/orientation: what's true right now and what to
+  // do next. Always on (like doctor); it resolves the root itself so the
+  // not-initialized case is the uniform envelope under --json.
+  root
+    .command("status")
+    .description(
+      "Show what's true right now and what to do next (read-only; never runs the gate).",
+    )
+    .option(
+      "--all",
+      "Include the fleet survey even from a worktree (local view PLUS the fleet).",
+    )
+    .option(
+      "--local",
+      "Local view only — suppress the fleet survey even in the main checkout.",
+    )
+    .option(
+      "--json",
+      "Emit the status as a JSON DiscernResult on stdout (data.location/git/fleet…).",
+    )
+    .action(async (o) => {
+      Deno.exit(
+        await runStatus({
+          json: o.json ?? false,
+          all: o.all ?? false,
+          local: o.local ?? false,
         }),
       );
     });
