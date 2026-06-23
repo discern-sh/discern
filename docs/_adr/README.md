@@ -50,3 +50,4 @@ decision is hard to reverse, surprising without context, and a real trade-off.
 - [0028 — One result envelope per verb, with normalized failure diagnostics](0028-result-envelope-and-diagnostics.md)
 - [0029 — A best-practices audit that splits deterministic from subjective rules](0029-best-practices-audit.md)
 - [0030 — `--json` is quiet: the envelope is the entire machine output](0030-quiet-json-output.md)
+- [0031 — One typed provider registry for every agent-specific integration](0031-typed-provider-integration.md)
