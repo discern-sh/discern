@@ -33,6 +33,10 @@ import {
   type Capability,
   KNOWN_CAPABILITIES,
 } from "../../shared/capabilities.ts";
+import {
+  findSkeletonMarkers,
+  setupUnfinishedHint,
+} from "../../shared/setup_state.ts";
 import { changedScopes } from "../scopes/changed.ts";
 import { planScopeGates } from "../gate/plan.ts";
 import {
@@ -144,6 +148,11 @@ interface StatusData {
   /** Generated agent files (e.g. AGENTS.md) that don't match what `discern refresh`
    * would write — missing or stale. Omitted when all current or guidance is off. */
   stale_generated?: string[];
+  /** Present (only) while one-time setup is unfinished — `[meta].bootstrapped` is
+   * not yet recorded. `pending_markers` lists scaffolded files still carrying
+   * skeleton markers (may be empty: all filled, but `setup done` not yet run).
+   * Omitted once setup is complete. */
+  setup_unfinished?: { pending_markers: string[] };
   fleet?: StatusFleetEntry[];
 }
 
@@ -263,6 +272,18 @@ export async function statusResult(
     }
   }
 
+  // One-time setup state (ADR 0036). Until `[meta].bootstrapped` is recorded the
+  // project is mid-setup and the agent must finish it — surfaced loudly (a banner,
+  // a lead hint) so a half-done setup isn't mistaken for a finished one. Walk for
+  // leftover skeleton markers only when it could be unfinished (`bootstrapped` is
+  // the cheap gate — a finished project never pays for the walk). Present in `data`
+  // only while outstanding, mirroring `stale_generated`.
+  let setupPending: string[] | undefined;
+  if (!cfg.meta.bootstrapped) {
+    setupPending = await findSkeletonMarkers(root);
+    data.setup_unfinished = { pending_markers: setupPending };
+  }
+
   // The fleet survey, each row augmented with its best-effort id/port from `.env`.
   let fleet: StatusFleetEntry[] | undefined;
   if (includeFleet) {
@@ -272,7 +293,6 @@ export async function statusResult(
 
   const hints = await buildStatusHints({
     root,
-    cfg,
     location,
     mainBranch,
     git,
@@ -281,6 +301,7 @@ export async function statusResult(
     worktreesOn: features.worktrees,
     liveCount,
     guidanceDrift,
+    setupPending,
   });
 
   return {
@@ -391,7 +412,6 @@ function buildGateBlock(cfg: DiscernConfig, changed: string[]): StatusGate {
  * the reported data. */
 interface HintContext {
   root: string;
-  cfg: DiscernConfig;
   location: "main" | "worktree";
   mainBranch: string;
   git: StatusGit | null;
@@ -401,6 +421,9 @@ interface HintContext {
   liveCount: number;
   /** Generated agent files that don't match what `discern refresh` would write. */
   guidanceDrift: GuidanceDriftEntry[];
+  /** Scaffolded files still carrying skeleton markers while setup is unfinished;
+   * undefined once `[meta].bootstrapped` is recorded. Drives the lead setup hint. */
+  setupPending: string[] | undefined;
 }
 
 /**
@@ -410,6 +433,13 @@ interface HintContext {
 async function buildStatusHints(ctx: HintContext): Promise<string[]> {
   const hints: string[] = [];
   const main = ctx.mainBranch;
+
+  // Setup not finished — the most fundamental "what now", so it leads every other
+  // hint, in every location (the old nudge only fired from the main checkout). The
+  // structured evidence is `data.setup_unfinished`; this is its advisory voice.
+  if (ctx.setupPending !== undefined) {
+    hints.push(setupUnfinishedHint(ctx.setupPending));
+  }
 
   // Generated agent files drifted from their source — actionable anywhere, so lead
   // with it. "missing" (not built yet) reads differently from "stale" (a drift that
@@ -455,11 +485,8 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
   }
 
   if (ctx.location === "main") {
-    if (!ctx.cfg.meta.bootstrapped) {
-      hints.push(
-        "This project isn't set up yet — run `discern` (or `discern setup`) to set it up.",
-      );
-    }
+    // (Setup-incomplete now leads the hints in every location — see the top of
+    // this builder — so it is no longer a main-only nudge here.)
     if (!ctx.worktreesOn) {
       hints.push(
         "The worktrees workflow is off; work happens directly in this checkout.",
@@ -617,6 +644,28 @@ function renderStatusHuman(result: DiscernResult): void {
       data.location === "worktree" ? "worktree" : "main checkout"
     }`,
   );
+
+  // Setup-not-finished leads everything else, loudly — a half-configured project
+  // mistaken for a finished one is the failure this banner guards. (Structured
+  // evidence is in data.setup_unfinished; this is its human face.)
+  if (data.setup_unfinished !== undefined) {
+    const pending = data.setup_unfinished.pending_markers;
+    out.raw(
+      `\n  ${c.yellow}${c.bold}⚠ SETUP NOT FINISHED${c.reset}${c.yellow} — this project is half-configured; completing it is your job, not a report to hand back.${c.reset}\n`,
+    );
+    out.raw(
+      `  ${c.dim}Work the brief \`discern setup\` prints (re-run it to reprint), then run \`discern setup done\` to finish.${c.reset}\n`,
+    );
+    if (pending.length > 0) {
+      const shown = pending.slice(0, 6).join(", ");
+      const more = pending.length > 6
+        ? `, +${pending.length - 6} more`
+        : "";
+      out.raw(
+        `  ${c.dim}Still carrying skeleton markers: ${shown}${more}.${c.reset}\n`,
+      );
+    }
+  }
 
   if (data.git !== null) {
     const g = data.git;
