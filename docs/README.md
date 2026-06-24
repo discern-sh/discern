@@ -52,8 +52,8 @@ The numbers are a reading order, not a contract — rename and renumber freely.
 
 ## How this tree is produced and kept current
 
-The tree is seeded once by `discern bootstrap`, then grown subtree-by-subtree
-with the [`document-subsystem`](../templates/skills/document-subsystem/SKILL.md)
+The tree is seeded once by `discern setup`, then grown subtree-by-subtree with
+the [`document-subsystem`](../templates/skills/document-subsystem/SKILL.md)
 skill, which follows the brief in
 [_internal/documenter-agent-brief.md](_internal/documenter-agent-brief.md). A
 single skeleton-and-orientation pass establishes the shared terminology and
