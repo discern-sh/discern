@@ -278,3 +278,12 @@ periodically in maintenance batches._
       /Users/jack/Sites/discern. It flagged some leftover uncommitted changes
       (likely deno fmt output or the merged IDE file) that landed staged. Let me
       inspect before fast-forwarding.")
+- [ ] Discern should make clear to end-users that the `docs` feature, and the
+      documentation subtree procedures, are _conceptually distinct_ from any
+      existing documentation the user has already set up in their project. The
+      reason for this is that the doctree represents _what can be inferred from
+      the user's codebase_ - which is what matters to their coding agents - and
+      likely diverges from what they would consciously choose to document
+      already. This is a teaching opportunity as it can be hard to understand
+      for new users, so should be folded in to `discern audit` and throughout
+      our own docs, guidance, and reference materials.
