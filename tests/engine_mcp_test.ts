@@ -141,6 +141,8 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     assert(names.includes("discern_changed_scopes"), JSON.stringify(names));
     assert(names.includes("discern_status"), JSON.stringify(names));
     assert(names.includes("discern_audit"), JSON.stringify(names));
+    // `discern_help` (discern's own docs) is always listed — not a project feature.
+    assert(names.includes("discern_help"), JSON.stringify(names));
     // The feature-gated tools are listed too (the default scaffold has every
     // feature on).
     assert(names.includes("discern_docs"), JSON.stringify(names));
@@ -371,6 +373,89 @@ Deno.test("discern mcp: discern_docs returns the index, a single doc, and a not_
     });
     const miss = await mcp.recv();
     assertEquals(miss.result.isError, true);
+    assertEquals(miss.result.structuredContent.error, "not_found");
+
+    assertEquals(await mcp.close(), 0);
+  });
+});
+
+Deno.test("discern mcp: discern_help returns discern's OWN docs, not the project's", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    // The host project has its own docs/ — discern_help must ignore it and serve
+    // discern's bundled documentation (resolved module-relative to this repo).
+    await Deno.mkdir(join(dir, "docs"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, "docs", "project-only.md"),
+      "# Project Only\n\nNothing to do with discern.\n",
+    );
+    const mcp = await spawnMcp(dir);
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await mcp.recv();
+
+    // No target → discern's own index (never the project's project-only.md).
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "discern_help", arguments: {} },
+    });
+    const index = await mcp.recv();
+    assertEquals(index.result.isError, false);
+    assertEquals(index.result.structuredContent.verb, "help");
+    const docs = index.result.structuredContent.data.docs;
+    assert(
+      docs.some((d: { slug: string }) => d.slug === "config-reference"),
+      "discern_help serves discern's own docs (the config reference)",
+    );
+    assert(
+      !docs.some((d: { slug: string }) => d.slug === "project-only"),
+      "discern_help must not serve the host project's docs",
+    );
+    // The internal ADR/maintainer trees are never exposed over MCP.
+    assert(
+      docs.every((d: { path: string }) =>
+        !d.path.includes("_adr") && !d.path.includes("_internal") &&
+        !d.path.includes("_maintainer")
+      ),
+      "discern_help excludes every internal subtree",
+    );
+
+    // A target → that one doc's full Markdown content.
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: {
+        name: "discern_help",
+        arguments: { target: "config-reference" },
+      },
+    });
+    const doc = await mcp.recv();
+    assertEquals(doc.result.isError, false);
+    assert(
+      doc.result.structuredContent.data.doc.content.includes(
+        "config reference",
+      ),
+      "the single-doc result carries the file's content",
+    );
+
+    // A missing target → a not_found error envelope.
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 4,
+      method: "tools/call",
+      params: { name: "discern_help", arguments: { target: "no-such-doc" } },
+    });
+    const miss = await mcp.recv();
+    assertEquals(miss.result.isError, true);
+    assertEquals(miss.result.structuredContent.verb, "help");
     assertEquals(miss.result.structuredContent.error, "not_found");
 
     assertEquals(await mcp.close(), 0);

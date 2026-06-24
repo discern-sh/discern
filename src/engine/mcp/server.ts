@@ -41,7 +41,7 @@ import { auditResult } from "../audit/audit.ts";
 import { changedScopesResult } from "../scopes/changed.ts";
 import { statusResult } from "../status/status.ts";
 import { doctorResult } from "../../commands/doctor.ts";
-import { docsResult } from "../../commands/docs.ts";
+import { docsResult, helpResult } from "../../commands/docs.ts";
 import {
   graduateResult,
   lifecycleContext,
@@ -184,6 +184,28 @@ const TOOLS: McpTool[] = [
     },
     run: (root, args) =>
       docsResult(root, {
+        target: typeof args.target === "string" ? args.target : undefined,
+      }),
+  },
+  {
+    name: "discern_help",
+    description:
+      "Read discern's OWN documentation — the harness's docs (the discern.toml " +
+      "config reference, the concepts, the gate/worktree/ratchet pages), bundled " +
+      "into every install. Distinct from discern_docs, which reads the host " +
+      "PROJECT's docs: call this to learn how discern itself works, before editing " +
+      "discern.toml or reasoning about the gate. With no argument, return the index " +
+      "(every doc's path, section, slug, and title); pass `target` (a slug, " +
+      "`section/slug`, or path) for that one doc's full Markdown content. Always " +
+      "available — it is discern's help, not a project feature — and serves only " +
+      "the public docs (the internal ADR/maintainer trees are never exposed here).",
+    inputSchema: {
+      target: z.string().optional().describe(
+        "A specific doc to fetch (slug, section/slug, or path). Omit for the index.",
+      ),
+    },
+    run: (root, args) =>
+      helpResult(root, {
         target: typeof args.target === "string" ? args.target : undefined,
       }),
   },
