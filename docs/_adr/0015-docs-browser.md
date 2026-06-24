@@ -55,10 +55,14 @@ command to two audiences** decided by the TTY.
   source, `--json` emits a machine index (or a single doc's record with
   content), `--list` prints a plain table of contents. It **never prompts** when
   stdin or stdout is not a terminal.
-- **Scoped to the user-facing tree.** Internal/reference subtrees in
-  `_`-prefixed directories (`_adr`, `_internal`) are excluded from every view,
-  so the browse stays focused on what an end user should read. `--dir docs/_adr`
-  targets one explicitly when needed.
+- **Scoped to the user-facing tree when browsing.** Internal/reference subtrees
+  in `_`-prefixed directories (`_adr`, `_internal`) are excluded from browsing,
+  indexing, and single-page resolution, so the normal command stays focused on
+  what an end user should read. `--dir docs/_adr` targets one explicitly when
+  needed. The explicit concatenation surface is the exception: `--export public`
+  keeps the filter, while `--export all` includes the entire tree and
+  `--export select --output <path>` offers top-level sections in a terminal
+  picker.
 
 Explicit *no*s:
 
@@ -82,6 +86,10 @@ Explicit *no*s:
   target, deterministic exit codes for not-found/ambiguous) that cannot hang on
   a prompt — the same human/agent split the gate already draws with
   `finish --json`.
+- Internal tooling can produce a deterministic, comment-delimited Markdown
+  bundle on stdout (`--export public|all`) or in an explicit output file. The
+  MCP tool remains index/page-oriented so an accidental call cannot return the
+  whole documentation corpus.
 - We now own a Markdown renderer. Exotic input (deeply nested blockquotes,
   setext headings, raw HTML blocks, reference-style links) renders approximately
   rather than perfectly. That is acceptable for a viewer of _our own_ docs, and

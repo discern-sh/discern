@@ -9,26 +9,40 @@
  *  - **An agent or a script** gets non-interactive surfaces it can consume: a
  *    target to render straight to stdout, `--raw` for the pristine Markdown
  *    source, `--json` for a machine-readable index (or a single doc's record),
- *    and `--list` for a plain table of contents. It never blocks on a prompt
- *    when stdin/stdout are not a TTY.
+ *    `--list` for a plain table of contents, and `--export` for one concatenated
+ *    Markdown stream. It never blocks on a prompt when stdin/stdout are not a
+ *    TTY.
  *
  * Rendering is handled by {@link renderMarkdown}; discovery and resolution by
  * {@link discoverDocs} / {@link resolveDoc}. This file is the glue: argument
  * dispatch, the interactive loop, and the pager.
  */
 
-import { Select } from "@cliffy/prompt";
+import { Checkbox, Select } from "@cliffy/prompt";
 import { colors } from "@cliffy/ansi/colors";
-import { relative } from "@std/path";
+import {
+  basename,
+  dirname,
+  isAbsolute,
+  relative,
+  resolve,
+  SEPARATOR,
+} from "@std/path";
 import { colourEnabled, Logger } from "../lib/log.ts";
 import { renderMarkdown } from "../lib/markdown.ts";
 import {
   discoverDocs,
   type DocEntry,
   type DocsTree,
+  filterDocsByGroups,
+  formatDocsExport,
+  groupDocs,
   resolveDoc,
 } from "../lib/docs.ts";
 import type { DiscernResult } from "../shared/result.ts";
+
+/** Supported concatenated Markdown export scopes. */
+type DocsExportScope = "public" | "all" | "select";
 
 /** Options accepted by the `docs` command (global flags folded in). */
 export interface DocsOptions {
@@ -46,6 +60,10 @@ export interface DocsOptions {
   width?: number | undefined;
   /** A specific doc to open (slug, `section/slug`, or path). */
   target?: string | undefined;
+  /** Concatenate docs to stdout or `output`. */
+  export?: string | undefined;
+  /** Write an export to this path instead of stdout. */
+  output?: string | undefined;
 }
 
 /** The machine-readable record for one doc (sans content). */
@@ -57,6 +75,52 @@ function toRecord(e: DocEntry): Record<string, string> {
 function display(abs: string, cwd: string): string {
   const rel = relative(cwd, abs);
   return rel && !rel.startsWith("..") ? rel : abs;
+}
+
+/** True when `candidate` is `root` itself or lexically nested beneath it. */
+function pathIsWithin(root: string, candidate: string): boolean {
+  const rel = relative(root, candidate);
+  return rel === "" ||
+    (rel !== ".." && !rel.startsWith(`..${SEPARATOR}`) && !isAbsolute(rel));
+}
+
+/**
+ * Resolve symlinks for an existing output, or for its existing parent when the
+ * output is new. This prevents `--output` escaping the lexical safety check via
+ * a symlinked file or directory.
+ */
+async function canonicalOutputPath(path: string): Promise<string> {
+  try {
+    return await Deno.realPath(path);
+  } catch {
+    try {
+      return resolve(await Deno.realPath(dirname(path)), basename(path));
+    } catch {
+      return path;
+    }
+  }
+}
+
+/** Parse an export scope without silently accepting a typo. */
+function exportScope(value: string): DocsExportScope | undefined {
+  return value === "public" || value === "all" || value === "select"
+    ? value
+    : undefined;
+}
+
+/** Report a command-usage failure in the active human/JSON presentation mode. */
+function invalidOptions(log: Logger, message: string): number {
+  if (log.json) {
+    log.result({
+      ok: false,
+      verb: "docs",
+      error: "invalid_options",
+      message,
+    });
+  } else {
+    log.error(message);
+  }
+  return 1;
 }
 
 /** The terminal's column count, or undefined when stdout is not a TTY. */
@@ -193,6 +257,107 @@ function printToc(tree: DocsTree, cwd: string, color: boolean): void {
 }
 
 /**
+ * Concatenate a selected docs scope and emit it atomically from the command's
+ * point of view: every source is read before stdout or the output file changes.
+ */
+async function exportDocs(
+  options: DocsOptions,
+  scope: DocsExportScope,
+  log: Logger,
+  cwd: string,
+): Promise<number> {
+  const tree = await discoverDocs({
+    cwd,
+    dir: options.dir,
+    includeInternal: scope !== "public",
+  });
+  if (!tree) {
+    log.error(
+      options.dir
+        ? `no documentation directory at "${options.dir}".`
+        : "no docs/ directory here — run `discern setup` to seed one, or pass --dir <path>.",
+    );
+    return 1;
+  }
+
+  let outputPath: string | undefined;
+  if (options.output) {
+    outputPath = resolve(cwd, options.output);
+    const docsDir = await Deno.realPath(tree.docsDir);
+    const canonicalOutput = await canonicalOutputPath(outputPath);
+    if (pathIsWithin(docsDir, canonicalOutput)) {
+      log.error(
+        `refusing to write an export inside ${
+          display(tree.docsDir, cwd)
+        }; choose a path outside the source documentation tree.`,
+      );
+      return 1;
+    }
+  }
+
+  let entries = tree.entries;
+  if (scope === "select") {
+    const groups = groupDocs(entries);
+    if (groups.length === 0) {
+      log.warn(`no Markdown files under ${display(tree.docsDir, cwd)}.`);
+      return 0;
+    }
+
+    let selected: string[];
+    try {
+      selected = await Checkbox.prompt<string>({
+        message: "Include documentation sections",
+        options: groups.map((group) => ({
+          name: `${group.name} (${group.entries.length})`,
+          value: group.name,
+          checked: !group.internal,
+        })),
+        minOptions: 1,
+      });
+    } catch {
+      // Cancelled (Ctrl-C / Esc) — do not create or overwrite the output file.
+      return 0;
+    }
+
+    entries = filterDocsByGroups(entries, selected);
+  }
+
+  let markdown: string;
+  try {
+    const sources = await Promise.all(
+      entries.map(async (entry) => ({
+        entry,
+        content: await Deno.readTextFile(entry.absPath),
+      })),
+    );
+    markdown = formatDocsExport(sources);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    log.error(`could not read every documentation source: ${message}`);
+    return 1;
+  }
+
+  if (outputPath) {
+    try {
+      await Deno.writeTextFile(outputPath, markdown);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      log.error(`could not write "${options.output}": ${message}`);
+      return 1;
+    }
+    log.ok(
+      `Exported ${entries.length} document${
+        entries.length === 1 ? "" : "s"
+      } to ${display(outputPath, cwd)}.`,
+    );
+    return 0;
+  }
+
+  await Deno.stdout.write(new TextEncoder().encode(markdown));
+  return 0;
+}
+
+/**
  * Compute the `docs` {@link DiscernResult} — the machine-readable index, or a
  * single doc's record + content when `target` is given. The ONE source the CLI's
  * `--json` paths and the MCP server both render; the human, raw, and interactive
@@ -307,6 +472,49 @@ async function viewTarget(
 export async function runDocs(options: DocsOptions): Promise<number> {
   const log = new Logger(options);
   const cwd = Deno.cwd();
+
+  if (options.output && !options.export) {
+    return invalidOptions(log, "--output requires --export.");
+  }
+
+  if (options.export) {
+    const scope = exportScope(options.export);
+    if (!scope) {
+      return invalidOptions(
+        log,
+        `unknown export scope "${options.export}"; expected public, all, or select.`,
+      );
+    }
+
+    const conflicts = [
+      options.target !== undefined ? "a target" : undefined,
+      options.json ? "--json" : undefined,
+      options.raw ? "--raw" : undefined,
+      options.list ? "--list" : undefined,
+      options.width !== undefined ? "--width" : undefined,
+      options.noPager ? "--no-pager" : undefined,
+    ].filter((value): value is string => value !== undefined);
+    if (conflicts.length > 0) {
+      return invalidOptions(
+        log,
+        `--export cannot be combined with ${conflicts.join(", ")}.`,
+      );
+    }
+
+    if (scope === "select") {
+      if (!options.output) {
+        return invalidOptions(log, "--export select requires --output <path>.");
+      }
+      if (!Deno.stdin.isTerminal() || !Deno.stdout.isTerminal()) {
+        return invalidOptions(
+          log,
+          "--export select requires an interactive terminal.",
+        );
+      }
+    }
+
+    return await exportDocs(options, scope, log, cwd);
+  }
 
   // `--json`: the entire machine-readable surface (index, single doc, or error) is
   // {@link docsResult} — the one shape the MCP server also renders. The human, raw,

@@ -282,6 +282,14 @@ function buildCli(
         "Docs directory to browse (default: <project root>/docs).",
       )
       .option("--width <cols:number>", "Wrap width for rendered output.")
+      .option(
+        "--export <scope:string>",
+        "Concatenate Markdown: public, all, or select.",
+      )
+      .option(
+        "--output <path:string>",
+        "Write an export to a file instead of stdout.",
+      )
       .action(async (options, target?: string) => {
         const code = await runDocs({
           json: options.json ?? false,
@@ -293,6 +301,8 @@ function buildCli(
           dir: options.dir,
           width: options.width,
           target,
+          export: options.export,
+          output: options.output,
         });
         Deno.exit(code);
       });

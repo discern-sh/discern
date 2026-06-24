@@ -14,8 +14,16 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { join } from "@std/path";
-import { discoverDocs, extractTitle, resolveDoc } from "../src/lib/docs.ts";
-import { runCli, seedConfig, withTempDir } from "./helpers.ts";
+import {
+  discoverDocs,
+  type DocEntry,
+  extractTitle,
+  filterDocsByGroups,
+  formatDocsExport,
+  groupDocs,
+  resolveDoc,
+} from "../src/lib/docs.ts";
+import { readTarget, runCli, seedConfig, withTempDir } from "./helpers.ts";
 
 /** Write a small but representative docs tree (with an .discern/config.toml anchor). */
 async function makeDocsProject(dir: string): Promise<void> {
@@ -31,6 +39,21 @@ async function makeDocsProject(dir: string): Promise<void> {
     await Deno.mkdir(join(dir, rel, ".."), { recursive: true });
     await Deno.writeTextFile(join(dir, rel), content);
   }
+}
+
+/** A minimal indexed entry for pure formatter/grouping tests. */
+function entry(path: string): DocEntry {
+  const relToDocs = path.replace(/^docs\//, "");
+  const parts = relToDocs.split("/");
+  const filename = parts.at(-1) ?? relToDocs;
+  return {
+    path,
+    absPath: `/${path}`,
+    relToDocs,
+    section: parts.length > 1 ? (parts[0] ?? "") : "",
+    slug: filename.replace(/\.md$/i, ""),
+    title: filename,
+  };
 }
 
 Deno.test("discoverDocs lists user-facing docs in reading order, README first", async () => {
@@ -52,6 +75,76 @@ Deno.test("discoverDocs lists user-facing docs in reading order, README first", 
     assertEquals(alpha.title, "Alpha");
     assertEquals(alpha.section, "00-intro");
   });
+});
+
+Deno.test("discoverDocs can include internal subtrees after public docs", async () => {
+  await withTempDir(async (dir) => {
+    await makeDocsProject(dir);
+    await Deno.mkdir(join(dir, "docs/_internal"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, "docs/_internal/brief.md"),
+      "# Brief\n",
+    );
+
+    const tree = await discoverDocs({ cwd: dir, includeInternal: true });
+    assertExists(tree);
+    assertEquals(tree.entries.map((e) => e.path), [
+      "docs/README.md",
+      "docs/00-intro/README.md",
+      "docs/00-intro/alpha.md",
+      "docs/00-intro/beta.md",
+      "docs/_adr/0001-first.md",
+      "docs/_internal/brief.md",
+    ]);
+  });
+});
+
+Deno.test("groupDocs creates ordered top-level picker groups", () => {
+  const entries = [
+    entry("docs/README.md"),
+    entry("docs/00-intro/README.md"),
+    entry("docs/00-intro/alpha.md"),
+    entry("docs/notes.md"),
+    entry("docs/_adr/0001-first.md"),
+  ];
+  const groups = groupDocs(entries);
+
+  assertEquals(
+    groups.map((group) => ({
+      name: group.name,
+      internal: group.internal,
+      count: group.entries.length,
+    })),
+    [
+      { name: "(root)", internal: false, count: 2 },
+      { name: "00-intro", internal: false, count: 2 },
+      { name: "_adr", internal: true, count: 1 },
+    ],
+  );
+  assertEquals(
+    filterDocsByGroups(entries, ["(root)", "_adr"]).map((item) => item.path),
+    [
+      "docs/README.md",
+      "docs/notes.md",
+      "docs/_adr/0001-first.md",
+    ],
+  );
+});
+
+Deno.test("formatDocsExport adds only source comments and separator newlines", () => {
+  assertEquals(
+    formatDocsExport([
+      { entry: entry("docs/one.md"), content: "# One" },
+      { entry: entry("docs/two.md"), content: "# Two\n" },
+    ]),
+    "<!-- BEGIN SOURCE: docs/one.md -->\n\n" +
+      "# One\n\n" +
+      "<!-- END SOURCE: docs/one.md -->\n\n" +
+      "<!-- BEGIN SOURCE: docs/two.md -->\n\n" +
+      "# Two\n\n" +
+      "<!-- END SOURCE: docs/two.md -->\n",
+  );
+  assertEquals(formatDocsExport([]), "");
 });
 
 Deno.test("extractTitle reads the first heading and flattens inline markup", () => {
@@ -111,6 +204,221 @@ Deno.test("docs <slug> --raw prints the pristine source", async () => {
     const { code, stdout } = await runCli(["docs", "alpha", "--raw"], dir);
     assertEquals(code, 0);
     assertEquals(stdout, "# Alpha\n\nThe alpha body.\n");
+  });
+});
+
+Deno.test("docs --export public concatenates only user-facing docs", async () => {
+  await withTempDir(async (dir) => {
+    await makeDocsProject(dir);
+    const { code, stdout, stderr } = await runCli(
+      ["docs", "--export", "public"],
+      dir,
+    );
+
+    assertEquals(code, 0);
+    assertEquals(stderr, "");
+    assert(stdout.startsWith("<!-- BEGIN SOURCE: docs/README.md -->\n\n"));
+    assertStringIncludes(stdout, "# Alpha");
+    assert(!stdout.includes("docs/_adr/0001-first.md"));
+    assertEquals(
+      stdout.match(/^<!-- BEGIN SOURCE:/gm)?.length,
+      4,
+    );
+    assertEquals(
+      stdout.match(/^<!-- END SOURCE:/gm)?.length,
+      4,
+    );
+  });
+});
+
+Deno.test("docs --export all includes internal docs after public docs", async () => {
+  await withTempDir(async (dir) => {
+    await makeDocsProject(dir);
+    const { code, stdout } = await runCli(
+      ["docs", "--export", "all"],
+      dir,
+    );
+
+    assertEquals(code, 0);
+    const beta = stdout.indexOf("<!-- BEGIN SOURCE: docs/00-intro/beta.md -->");
+    const adr = stdout.indexOf(
+      "<!-- BEGIN SOURCE: docs/_adr/0001-first.md -->",
+    );
+    assert(beta >= 0);
+    assert(adr > beta);
+    assertStringIncludes(stdout, "# ADR 0001: First");
+    assertEquals(stdout.match(/^<!-- BEGIN SOURCE:/gm)?.length, 5);
+  });
+});
+
+Deno.test("docs export can overwrite an explicit output file", async () => {
+  await withTempDir(async (dir) => {
+    await makeDocsProject(dir);
+    await Deno.writeTextFile(join(dir, "bundle.md"), "old\n");
+
+    const { code, stdout, stderr } = await runCli(
+      ["docs", "--export", "public", "--output", "bundle.md"],
+      dir,
+    );
+
+    assertEquals(code, 0);
+    assertEquals(stdout, "");
+    assertStringIncludes(stderr, "Exported 4 documents to bundle.md");
+    const bundle = await readTarget(dir, "bundle.md");
+    assert(bundle.startsWith("<!-- BEGIN SOURCE: docs/README.md -->"));
+    assert(!bundle.includes("old\n"));
+  });
+});
+
+Deno.test("docs export refuses output inside the source docs tree", async () => {
+  await withTempDir(async (dir) => {
+    await makeDocsProject(dir);
+    const { code, stdout, stderr } = await runCli(
+      [
+        "docs",
+        "--export",
+        "all",
+        "--output",
+        "docs/complete.md",
+      ],
+      dir,
+    );
+
+    assertEquals(code, 1);
+    assertEquals(stdout, "");
+    assertStringIncludes(stderr, "refusing to write an export inside docs");
+  });
+});
+
+Deno.test("docs export refuses an output symlink targeting a source doc", async () => {
+  await withTempDir(async (dir) => {
+    await makeDocsProject(dir);
+    await Deno.symlink(
+      join(dir, "docs/README.md"),
+      join(dir, "bundle.md"),
+    );
+    const original = await readTarget(dir, "docs/README.md");
+
+    const { code, stderr } = await runCli(
+      ["docs", "--export", "public", "--output", "bundle.md"],
+      dir,
+    );
+
+    assertEquals(code, 1);
+    assertStringIncludes(stderr, "refusing to write an export inside docs");
+    assertEquals(await readTarget(dir, "docs/README.md"), original);
+  });
+});
+
+Deno.test("docs export validates scope and incompatible flags", async () => {
+  await withTempDir(async (dir) => {
+    await makeDocsProject(dir);
+
+    const unknown = await runCli(
+      ["docs", "--export", "private"],
+      dir,
+    );
+    assertEquals(unknown.code, 1);
+    assertStringIncludes(unknown.stderr, "unknown export scope");
+
+    for (
+      const args of [
+        ["docs", "alpha", "--export", "public"],
+        ["docs", "--export", "public", "--raw"],
+        ["docs", "--export", "public", "--list"],
+        ["docs", "--export", "public", "--width", "80"],
+        ["docs", "--export", "public", "--no-pager"],
+      ]
+    ) {
+      const result = await runCli(args, dir);
+      assertEquals(result.code, 1, args.join(" "));
+      assertStringIncludes(result.stderr, "--export cannot be combined");
+      assertEquals(result.stdout, "");
+    }
+
+    const json = await runCli(
+      ["docs", "--export", "public", "--json"],
+      dir,
+    );
+    assertEquals(json.code, 1);
+    assertEquals(JSON.parse(json.stdout).error, "invalid_options");
+    assertEquals(json.stderr, "");
+  });
+});
+
+Deno.test("docs --output requires export mode", async () => {
+  await withTempDir(async (dir) => {
+    await makeDocsProject(dir);
+    const { code, stderr } = await runCli(
+      ["docs", "--output", "bundle.md"],
+      dir,
+    );
+    assertEquals(code, 1);
+    assertStringIncludes(stderr, "--output requires --export");
+  });
+});
+
+Deno.test("docs --export select requires output and an interactive terminal", async () => {
+  await withTempDir(async (dir) => {
+    await makeDocsProject(dir);
+
+    const noOutput = await runCli(
+      ["docs", "--export", "select"],
+      dir,
+    );
+    assertEquals(noOutput.code, 1);
+    assertStringIncludes(noOutput.stderr, "requires --output");
+
+    const nonInteractive = await runCli(
+      [
+        "docs",
+        "--export",
+        "select",
+        "--output",
+        "bundle.md",
+      ],
+      dir,
+    );
+    assertEquals(nonInteractive.code, 1);
+    assertStringIncludes(nonInteractive.stderr, "interactive terminal");
+  });
+});
+
+Deno.test("docs export reads every source before emitting output", async () => {
+  await withTempDir(async (dir) => {
+    await makeDocsProject(dir);
+    await Deno.writeTextFile(join(dir, "bundle.md"), "keep me\n");
+    await Deno.symlink(
+      join(dir, "docs/missing.md"),
+      join(dir, "docs/broken.md"),
+    );
+
+    const { code, stdout, stderr } = await runCli(
+      ["docs", "--export", "public"],
+      dir,
+    );
+    assertEquals(code, 1);
+    assertEquals(stdout, "");
+    assertStringIncludes(stderr, "could not read every documentation source");
+
+    const fileResult = await runCli(
+      ["docs", "--export", "public", "--output", "bundle.md"],
+      dir,
+    );
+    assertEquals(fileResult.code, 1);
+    assertEquals(await readTarget(dir, "bundle.md"), "keep me\n");
+  });
+});
+
+Deno.test("docs export reports a missing docs tree without partial output", async () => {
+  await withTempDir(async (dir) => {
+    const { code, stdout, stderr } = await runCli(
+      ["docs", "--export", "all"],
+      dir,
+    );
+    assertEquals(code, 1);
+    assertEquals(stdout, "");
+    assertStringIncludes(stderr, "no docs/ directory here");
   });
 });
 

@@ -53,6 +53,22 @@ export interface DocsTree {
   entries: DocEntry[];
 }
 
+/** One top-level section offered by the interactive export picker. */
+export interface DocGroup {
+  /** Top-level directory, or `(root)` for files directly under the docs dir. */
+  name: string;
+  /** Whether the group is an internal/reference `_`-prefixed subtree. */
+  internal: boolean;
+  /** Entries in their existing deterministic reading order. */
+  entries: DocEntry[];
+}
+
+/** One fully-read source file ready for concatenated Markdown export. */
+export interface DocSource {
+  entry: DocEntry;
+  content: string;
+}
+
 /** The outcome of resolving a free-form target to a doc. */
 export type ResolveResult =
   | { kind: "found"; entry: DocEntry }
@@ -110,7 +126,8 @@ function humanise(slug: string): string {
 
 /**
  * A sort key that yields reading order: within any directory `README.md` comes
- * first, then entries fall in path order. Compared lexicographically.
+ * first, `_`-prefixed directories come after public directories, and all other
+ * entries fall in path order. Compared lexicographically.
  */
 function sortKey(relPath: string): string {
   const segs = relPath.split("/");
@@ -118,6 +135,8 @@ function sortKey(relPath: string): string {
     .map((seg, idx) =>
       idx === segs.length - 1 && seg.toLowerCase() === "readme.md"
         ? "\x00"
+        : idx < segs.length - 1 && seg.startsWith("_")
+        ? `\uffff${seg.toLowerCase()}`
         : seg.toLowerCase()
     )
     .join("/");
@@ -143,13 +162,15 @@ async function resolveDocsDir(
  * `dir` overrides the default `<project root>/docs` location.
  *
  * Internal/reference subtrees in `_`-prefixed directories (`_adr`, `_internal`)
- * are excluded — the browser shows only the user-facing tree. Point `--dir` at
- * one (`--dir docs/_adr`) to browse it directly, where it is no longer nested
- * under an underscore.
+ * are excluded by default — the browser shows only the user-facing tree.
+ * `includeInternal` indexes them for full-tree export. Point `--dir` at one
+ * (`--dir docs/_adr`) to browse it directly, where it is no longer nested under
+ * an underscore.
  */
 export async function discoverDocs(opts: {
   cwd: string;
   dir?: string | undefined;
+  includeInternal?: boolean | undefined;
 }): Promise<DocsTree | undefined> {
   const docsDir = await resolveDocsDir(opts.cwd, opts.dir);
   if (!docsDir) return undefined;
@@ -167,7 +188,12 @@ export async function discoverDocs(opts: {
     // Skip internal/reference subtrees: any doc whose path has a leading-
     // underscore directory segment (_adr, _internal, …). The browser exposes
     // only the user-facing tree. Tested in tests/docs_test.ts.
-    if (parts.slice(0, -1).some((seg) => seg.startsWith("_"))) continue;
+    if (
+      !opts.includeInternal &&
+      parts.slice(0, -1).some((seg) => seg.startsWith("_"))
+    ) {
+      continue;
+    }
     const section = parts.length > 1 ? (parts[0] ?? "") : "";
     const slug = basename(absPath).replace(/\.md$/i, "");
 
@@ -182,12 +208,62 @@ export async function discoverDocs(opts: {
   }
 
   entries.sort((a, b) => {
-    const ka = sortKey(a.path);
-    const kb = sortKey(b.path);
+    const ka = sortKey(a.relToDocs);
+    const kb = sortKey(b.relToDocs);
     return ka < kb ? -1 : ka > kb ? 1 : 0;
   });
 
   return { root, docsDir, entries };
+}
+
+/**
+ * Group entries by their top-level docs section for the interactive export
+ * picker. Group order and entry order both follow discovery's reading order.
+ */
+export function groupDocs(entries: readonly DocEntry[]): DocGroup[] {
+  const groups = new Map<string, DocGroup>();
+  for (const entry of entries) {
+    const name = docGroupName(entry);
+    let group = groups.get(name);
+    if (!group) {
+      group = {
+        name,
+        internal: name.startsWith("_"),
+        entries: [],
+      };
+      groups.set(name, group);
+    }
+    group.entries.push(entry);
+  }
+  return [...groups.values()];
+}
+
+/** Keep only picker-selected groups without disturbing global reading order. */
+export function filterDocsByGroups(
+  entries: readonly DocEntry[],
+  selectedGroups: readonly string[],
+): DocEntry[] {
+  const selected = new Set(selectedGroups);
+  return entries.filter((entry) => selected.has(docGroupName(entry)));
+}
+
+/** The top-level picker group for one entry. */
+function docGroupName(entry: DocEntry): string {
+  const parts = entry.relToDocs.split("/");
+  return parts.length === 1 ? "(root)" : (parts[0] ?? "(root)");
+}
+
+/**
+ * Concatenate fully-read docs into one Markdown stream. Source bytes remain
+ * untouched; only the begin/end comments and separator newlines are added.
+ */
+export function formatDocsExport(sources: readonly DocSource[]): string {
+  if (sources.length === 0) return "";
+  return sources.map(({ entry, content }) => {
+    const source = content.endsWith("\n") ? content : `${content}\n`;
+    return `<!-- BEGIN SOURCE: ${entry.path} -->\n\n${source}\n` +
+      `<!-- END SOURCE: ${entry.path} -->`;
+  }).join("\n\n") + "\n";
 }
 
 /** The lowercase strings that should resolve to `entry`. */

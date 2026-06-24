@@ -513,7 +513,7 @@ can never be redefined by a project file.
 | `config <sub>`      | programmatically edit `discern.toml`, comments intact — `set-capability`, `set-check`, `set-scope`, `set-ratchet`, `set`. See _Driving discern programmatically_.                                                                                                                                                                                                                                                                                                                               |
 | `skills <sub>`      | manage the effective skill set — `list` (built-ins + yours, showing overrides), `eject <name>` (copy a built-in into `[skills].dir` to customize it). See _Skills_.                                                                                                                                                                                                                                                                                                                             |
 | `add-preset <name>` | overlay a preset from `presets/<name>/`: its files **and** its `preset.json` config fills. Ships no presets; see _Writing a preset_.                                                                                                                                                                                                                                                                                                                                                            |
-| `docs [target]`     | browse and read the project's `docs/` tree. No target on a terminal opens an interactive, searchable picker; a target renders that doc (paged). Agent/script surfaces never block on a prompt: `--json` (the index, or a single doc's record), `--raw` (pristine Markdown), `--list` (plain table of contents). See _Browsing the docs_.                                                                                                                                                        |
+| `docs [target]`     | browse and read the project's `docs/` tree. No target on a terminal opens an interactive, searchable picker; a target renders that doc (paged). Agent/script surfaces never block on a prompt: `--json` (the index, or a single doc's record), `--raw` (pristine Markdown), `--list` (plain table of contents), and `--export public\|all` (concatenated Markdown). See _Browsing the docs_.                                                                                                    |
 
 Global flags: `--json`, `--no-color` (also honours `NO_COLOR` and non-TTY),
 `--help`, `--version`.
@@ -536,6 +536,12 @@ and agents alike, decided by whether it runs at a terminal.
   its raw `content`); `--raw` prints the pristine Markdown source; `--list`
   prints a plain table of contents. `--dir <path>` points at a docs tree
   elsewhere; `--no-pager` and `--width <cols>` tune rendering.
+- **For one-file exports.** `--export public` concatenates the user-facing tree;
+  `--export all` includes `_`-prefixed reference material too. The Markdown is
+  written to stdout for redirection, or to `--output <path>`. On a terminal,
+  `--export select --output <path>` opens a checkbox picker for top-level
+  sections. Every source is wrapped in `BEGIN SOURCE` / `END SOURCE` HTML
+  comments.
 
 It shows the **user-facing** tree only — `_`-prefixed reference directories
 (`_adr`, `_internal`) are excluded to keep the command focused. Point `--dir`
@@ -546,6 +552,8 @@ discern docs                              # browse interactively (searchable)
 discern docs concepts                     # render one doc (paged)
 discern docs concepts --raw               # the pristine Markdown source
 discern docs --json | jq -r '.docs[].path'   # the index, for tooling
+discern docs --export public > docs-public.md
+discern docs --export all --output docs-complete.md
 ```
 
 The renderer is a small, dependency-light Markdown→terminal pass (it owns its
