@@ -80,7 +80,7 @@ Deno.test("upgrade with no discern.toml fails as not_initialized (--json)", asyn
     const res = JSON.parse(r.stdout);
     assertEquals(res.ok, false);
     assertEquals(res.error, "not_initialized");
-    assertStringIncludes(res.message, "discern init");
+    assertStringIncludes(res.message, "discern setup");
   });
 });
 
@@ -88,7 +88,7 @@ Deno.test("upgrade with no discern.toml fails as not_initialized (human)", async
   await withTempDir(async (dir) => {
     const r = await runCli(["upgrade"], dir);
     assertEquals(r.code, 1);
-    assertStringIncludes(r.stderr, "discern init");
+    assertStringIncludes(r.stderr, "discern setup");
   });
 });
 

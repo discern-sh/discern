@@ -44,7 +44,7 @@ upgradable thereafter.
 
 It is **one self-contained binary** with two faces:
 
-- The **Installer** — the `discern init` / `upgrade` / `doctor` / `migrate` /
+- The **Installer** — the `discern setup` / `upgrade` / `doctor` / `migrate` /
   `config` / `add-preset` verbs. They _scaffold_ a project, _refresh_ it, and
   check it. This face is build-time work: it writes a project's files, then
   steps out of the way.
@@ -58,7 +58,7 @@ Both faces are the same `discern` command on `PATH`; an installed project
 carries no engine of its own and needs no Deno at runtime. The seed files, the
 built-in Skills, and the built-in guidance an install starts from are **bundled
 into the binary** (their source lives under [`templates/`](../../templates/))
-and written out by `init`/`upgrade` — there is no committed copy of the harness
+and written out by `setup`/`upgrade` — there is no committed copy of the harness
 to keep in sync. The whole discern footprint in a project is **one root file,
 `discern.toml`** ([ADR 0020](../_adr/0020-dissolve-discern-dir.md)); everything
 else you keep lives at open, config-pointed paths you choose.
@@ -78,24 +78,25 @@ skills, docs) on or off — distinct from the Capabilities that wire the gate.
 
 ## How it works, end to end
 
-**1. Install.** `discern init` reads a few answers and the project brief, then
-lays down only _your_ seed files: a `discern.toml` with no Capabilities wired
-yet (a green gate you grow into — an omitted capability is simply skipped), the
-project `brief.md` (when non-empty), a merged `.claude/settings.json`, and an
+**1. Set up.** `discern setup` is non-interactive — it asks the user nothing at
+the CLI. It lays down only _your_ seed files with zero-config defaults: a
+`discern.toml` with no Capabilities wired yet (a green gate you grow into — an
+omitted capability is simply skipped), a merged `.claude/settings.json`, and an
 appended `.gitignore` fragment. It then **materializes** the bundled Skills into
 `.claude/skills/` (gitignored) and compiles the agent guidance. There is no
 engine and no manifest to write — the Engine is in the binary. Files split by
 **disposition**: [yours](glossary.md#your-files--yours) (the committed seeds,
 written once then kept), [the binary's](glossary.md#the-binarys-files)
 (gitignored artifacts it re-publishes, like the materialized Skills), plus the
-Merged `settings.json`/`.gitignore`. The docs tree and `TODO.md` are not
-scaffolded at install; the `discern bootstrap` command writes them on demand
-afterward.
+Merged `settings.json`/`.gitignore`. The same command then lays the docs-tree
+and `TODO.md` skeletons (only when the project has none) and prints the
+authoring instructions for the agent.
 
-**2. Fill in the stack.** The `discern bootstrap` command — run by the coding
-agent already in the loop — sniffs the repo and _proposes_ Capability fills
-(formatter, linter, type-checker, tests), seeds a starter `guidance.md`, and
-writes the docs tree and `TODO.md` from the brief. The Engine stays generic;
+**2. Fill in the stack.** The same `discern setup` run prints instructions the
+coding agent already in the loop works through: it sniffs the repo, asks the
+user a few clarifying questions, and _proposes_ Capability fills (formatter,
+linter, type-checker, tests), seeds a starter `guidance.md`, and fills the docs
+tree and `TODO.md` from the repo and those answers. The Engine stays generic;
 only `discern.toml` learns the stack.
 
 **3. Work behind the gate.** Day to day, everything is driven through `discern`

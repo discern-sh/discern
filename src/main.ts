@@ -22,13 +22,12 @@ import {
   featureForVerb,
   FEATURES,
 } from "./shared/features.ts";
-import { runInit } from "./commands/init.ts";
+import { runSetup, runSetupDone } from "./commands/setup.ts";
 import { runUpgrade } from "./commands/upgrade.ts";
 import { runDoctor } from "./commands/doctor.ts";
 import { runMigrate } from "./commands/migrate.ts";
 import { runAddPreset } from "./commands/add_preset.ts";
 import { runDocs } from "./commands/docs.ts";
-import { runBootstrap, runBootstrapDone } from "./commands/bootstrap.ts";
 import {
   runConfigSet,
   runConfigSetCapability,
@@ -85,12 +84,12 @@ type RootCommand = ReturnType<typeof rootShape>;
 
 /** Build the root command with its global flags and subcommands. Subsystem verbs
  * (worktree, ratchets, refresh, skills, docs) are attached only when their
- * feature is enabled, so `--help` lists exactly the active verbs. `bootstrap` is
- * hidden from help once the project records `[meta].bootstrapped` (it stays
- * callable with `--force`). */
+ * feature is enabled, so `--help` lists exactly the active verbs. `setup` is hidden
+ * from help once the project records `[meta].bootstrapped` (it stays callable with
+ * `--force`). */
 function buildCli(
   enabled: ReadonlySet<Feature>,
-  hideBootstrap: boolean,
+  hideSetup: boolean,
 ): RootCommand {
   const root = new Command()
     .name("discern")
@@ -111,9 +110,16 @@ function buildCli(
       this.showHelp();
     });
 
-  root
-    .command("init")
-    .description("Scaffold the harness into the current directory.")
+  // `setup` — the one-time, zero-config harness setup (ADR 0036): it scaffolds the
+  // machinery, lays the doc skeletons, and prints the instructions for the agent in
+  // the loop, which authors the docs + guidance and proposes the capability fills,
+  // then runs `setup done` to validate and record completion. Bare `discern`
+  // (pre-setup) routes here too. The flags drive a declarative scaffold (CI /
+  // presets); the default run takes them all from defaults — no decisions at the CLI.
+  const setup = new Command()
+    .description(
+      "Set up the harness here (run once; your coding agent does it for you).",
+    )
     .option("--name <name:string>", "Project name (free text).")
     .option("--slug <slug:string>", "Project slug (^[a-z0-9][a-z0-9-]*$).")
     .option("--branch-prefix <prefix:string>", "Branch prefix for worktrees.", {
@@ -133,54 +139,43 @@ function buildCli(
     )
     .option(
       "--config <file:string>",
-      "JSON answers file (or - for stdin). Drives a fresh install declaratively; implies non-interactive.",
+      "JSON answers file (or - for stdin) to scaffold declaratively.",
     )
-    .option("-y, --yes", "Non-interactive: use flags/defaults, no prompts.")
+    .option(
+      "-y, --yes",
+      "Accepted for back-compat; setup is always non-interactive.",
+      {
+        hidden: true,
+      },
+    )
     .option("--dry-run", "Print the plan and write nothing.")
-    .option("--force", "Proceed even if discern.toml already exists.")
+    .option("--force", "Re-run even if already set up (re-scaffold + re-seed).")
     .action(async (options) => {
-      const code = await runInit({
-        json: options.json ?? false,
-        noColor: noColorFrom(options.color),
-        dryRun: options.dryRun ?? false,
-        force: options.force ?? false,
-        yes: options.yes ?? false,
-        name: options.name,
-        slug: options.slug,
-        branchPrefix: options.branchPrefix,
-        sourceGlobs: options.sourceGlobs,
-        brief: options.brief,
-        agents: options.agents,
-        config: options.config,
-      });
-      Deno.exit(code);
-    });
-
-  // `bootstrap` — seed a freshly-installed harness from the project brief. The
-  // agent in the loop runs it, reads the printed instructions, authors the docs +
-  // guidance, then runs `bootstrap done` to validate and record completion. Not a
-  // materialized skill (ADR 0024), so nothing lingers in the project tree.
-  const bootstrap = new Command()
-    .description(
-      "Seed a freshly-installed harness from the project brief (run once, after init).",
-    )
-    .option("--force", "Re-run even if already bootstrapped.")
-    .action(async (options) => {
+      const { json, noColor } = globalFlags(options);
       Deno.exit(
-        await runBootstrap({
-          json: globalFlags(options).json,
+        await runSetup({
+          json,
+          noColor,
+          dryRun: options.dryRun ?? false,
           force: options.force ?? false,
+          name: options.name,
+          slug: options.slug,
+          branchPrefix: options.branchPrefix,
+          sourceGlobs: options.sourceGlobs,
+          brief: options.brief,
+          agents: options.agents,
+          config: options.config,
         }),
       );
     })
     .command(
       "done",
       new Command()
-        .description("Validate the bootstrap and record [meta].bootstrapped.")
+        .description("Validate setup and record [meta].bootstrapped.")
         .option("--force", "Record completion even if skeleton markers remain.")
         .action(async (options) => {
           Deno.exit(
-            await runBootstrapDone({
+            await runSetupDone({
               json: globalFlags(options).json,
               force: options.force ?? false,
             }),
@@ -188,11 +183,11 @@ function buildCli(
         }),
     );
   // Hide on the REGISTERED command, not the pre-registration instance: the
-  // instance form of `.command()` re-parents, so `bootstrap.hidden()` wouldn't
-  // take. `bootstrap` stays reachable (and `--force`-able) when hidden.
-  const bootstrapCmd = root.command("bootstrap", bootstrap);
-  if (hideBootstrap) {
-    bootstrapCmd.hidden();
+  // instance form of `.command()` re-parents, so `setup.hidden()` wouldn't take.
+  // `setup` stays reachable (and `--force`-able) when hidden.
+  const setupCmd = root.command("setup", setup);
+  if (hideSetup) {
+    setupCmd.hidden();
   }
 
   root
@@ -523,28 +518,60 @@ async function resolveProjectState(): Promise<ProjectState> {
   }
 }
 
-/** Verbs that earn the one-time "not bootstrapped yet" nudge: the human-facing work
- * verbs only. Deliberately EXCLUDES the plumbing that hooks and scripts call
- * (`worktree`, `worktree-name`, `changed-scopes`, `refresh`, `skills`) so the
- * reminder never leaks into hook stderr, and the setup/config verbs (init, upgrade,
- * doctor, migrate, add-preset, bootstrap, config) so it never spams a recipe's
- * `config` reads or the setup path itself. */
-const NUDGE_VERBS: ReadonlySet<string> = new Set<string>([
+/**
+ * Whether a bare `discern` (no verb) should run setup rather than print help.
+ * In a project: run it whenever setup is still outstanding (the resume path). Not
+ * in a project: only when the cwd is a git work tree — the freshly-installed
+ * "tell your agent to run discern" path — so a bare `discern` in a stray directory
+ * never scaffolds it (the explicit `discern setup` always does). ADR 0036.
+ */
+async function shouldRunSetupBare(
+  inProject: boolean,
+  bootstrapped: boolean,
+): Promise<boolean> {
+  if (inProject) {
+    return !bootstrapped;
+  }
+  return await isGitWorkTree(Deno.cwd());
+}
+
+/** True when `dir` is inside a git work tree (cheap `git rev-parse` probe). */
+async function isGitWorkTree(dir: string): Promise<boolean> {
+  try {
+    const { success } = await new Deno.Command("git", {
+      args: ["rev-parse", "--is-inside-work-tree"],
+      cwd: dir,
+      stdout: "null",
+      stderr: "null",
+    }).output();
+    return success;
+  } catch {
+    return false;
+  }
+}
+
+/** Work verbs that hard-redirect to setup until the project records
+ * `[meta].bootstrapped` (ADR 0036): running an empty gate pre-setup would report a
+ * false "all-green", so these refuse and point at `discern` / `discern setup`.
+ * Deliberately EXCLUDES `docs` (knowledge is useful before setup), `status` /
+ * `doctor` (you orient and debug a broken install with them), the plumbing hooks
+ * and scripts call (`worktree`, `worktree-name`, `changed-scopes`, `refresh`,
+ * `skills`, `config`), and the setup verb itself. */
+const REDIRECT_VERBS: ReadonlySet<string> = new Set<string>([
   "finish",
   "prepare",
   "test",
   "ratchets",
   "graduate",
-  "docs",
 ]);
 
 /**
  * Installer verbs Cliffy owns; combined with the engine verbs to decide which
- * unknown first tokens fall through to a project recipe.
+ * unknown first tokens fall through to a project recipe. (`init`/`bootstrap` are
+ * rewritten to `setup` before this check — ADR 0036.)
  */
 const KNOWN_VERBS: ReadonlySet<string> = new Set<string>([
-  "init",
-  "bootstrap",
+  "setup",
   "upgrade",
   "doctor",
   "migrate",
@@ -563,6 +590,15 @@ export async function main(args: string[]): Promise<void> {
   if (first !== undefined && first.startsWith("worktree:")) {
     argv = ["worktree", first.slice("worktree:".length), ...argv.slice(1)];
   }
+  // `init`/`bootstrap` were unified into `setup` (ADR 0036): redirect the retired
+  // names — and their subcommands (`bootstrap done` → `setup done`) — with a note,
+  // so old muscle memory and older docs keep working.
+  if (first === "init" || first === "bootstrap") {
+    console.error(
+      `discern: \`discern ${first}\` is now \`discern setup\` — running it.`,
+    );
+    argv = ["setup", ...argv.slice(1)];
+  }
   const verb = argv[0];
 
   try {
@@ -576,17 +612,36 @@ export async function main(args: string[]): Promise<void> {
     }
 
     // Resolve which features this project has enabled (all-on outside a project),
-    // plus its bootstrap state — one config read, so help lists only active verbs,
-    // a disabled verb errors clearly, and the bootstrap nudge/self-hiding know
-    // whether setup is still outstanding.
+    // plus its setup state — one config read, so help lists only active verbs, a
+    // disabled verb errors clearly, and the setup redirect/self-hiding know whether
+    // setup is still outstanding.
     const { enabled, inProject, configOk, bootstrapped } =
       await resolveProjectState();
-    const hideBootstrap = inProject && bootstrapped;
+    const hideSetup = inProject && bootstrapped;
 
-    // Root help: Cliffy's help plus the project-recipe listing (the shell `agent
-    // --help` showed both).
-    if (verb === undefined || verb === "-h" || verb === "--help") {
-      console.log(buildCli(enabled, hideBootstrap).getHelp());
+    // Bare `discern`: pre-setup, this IS the setup trigger — the install message
+    // tells the user to "tell your coding agent to run discern" (ADR 0036). Once the
+    // project is set up (or outside a git repo, to avoid scaffolding a stray dir),
+    // it falls through to help.
+    if (verb === undefined) {
+      if (await shouldRunSetupBare(inProject, bootstrapped)) {
+        Deno.exit(
+          await runSetup({
+            json: false,
+            noColor: noColorFrom(undefined),
+            dryRun: false,
+            force: false,
+          }),
+        );
+      }
+      console.log(buildCli(enabled, hideSetup).getHelp());
+      await printProjectRecipes();
+      Deno.exit(0);
+    }
+
+    // Explicit help: Cliffy's help plus the project-recipe listing.
+    if (verb === "-h" || verb === "--help") {
+      console.log(buildCli(enabled, hideSetup).getHelp());
       await printProjectRecipes();
       Deno.exit(0);
     }
@@ -602,21 +657,25 @@ export async function main(args: string[]): Promise<void> {
       Deno.exit(1);
     }
 
-    // One-time setup nudge (ADR 0024): until the project records
-    // `[meta].bootstrapped`, remind on the work verbs. A reminder, never a block —
-    // nothing is unsafe pre-bootstrap, and a hard gate would punish the
-    // manual-config and just-run-my-tests paths. Suppressed in --json so a
-    // machine-readable stdout is never accompanied by chatter the caller didn't ask
-    // for (the nudge goes to stderr regardless), and when the config didn't parse so
-    // the real TOML error isn't buried under it.
+    // Pre-setup hard redirect (ADR 0036): until the project records
+    // `[meta].bootstrapped`, the work verbs refuse and point at setup — running an
+    // empty gate would report a false "all-green". A clean funnel, not a generic
+    // block: docs/status/doctor/config and the setup/plumbing verbs stay open, and
+    // a parse-broken config still surfaces its own TOML error (the configOk guard).
+    // It fires in --json too, as a structured `not_set_up` result, so an agent
+    // consuming JSON learns to set up rather than misreading an empty pass.
     if (
-      inProject && configOk && !bootstrapped && !argv.includes("--json") &&
-      NUDGE_VERBS.has(verb)
+      inProject && configOk && !bootstrapped && REDIRECT_VERBS.has(verb)
     ) {
-      console.error(
-        "discern: this project isn't bootstrapped yet — ask your agent to run " +
-          "`discern bootstrap` (or run it yourself).",
-      );
+      const message =
+        "this project isn't set up yet. Run `discern` (or `discern setup`) to set it " +
+        "up — your coding agent does it for you.";
+      if (argv.includes("--json")) {
+        emitResult({ ok: false, verb, error: "not_set_up", message });
+      } else {
+        console.error(`discern: ${message}`);
+      }
+      Deno.exit(1);
     }
 
     // A built-in engine verb with a same-named project recipe: warn it is shadowed.
@@ -630,7 +689,7 @@ export async function main(args: string[]): Promise<void> {
       Deno.exit(await dispatchRecipeOrSuggest(verb, argv.slice(1)));
     }
 
-    await buildCli(enabled, hideBootstrap).parse(argv);
+    await buildCli(enabled, hideSetup).parse(argv);
   } catch (err) {
     // An unparseable or schema-invalid discern.toml must read as a clean
     // diagnostic, not a raw stack trace — in both human and `--json` modes (a

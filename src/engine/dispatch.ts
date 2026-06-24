@@ -15,6 +15,10 @@ import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { RawConfig } from "../shared/config_read.ts";
 import { emitResult } from "../shared/emit.ts";
 import {
+  findSkeletonMarkers,
+  setupUnfinishedHint,
+} from "../shared/setup_state.ts";
+import {
   CONFIG_REL,
   findRoot,
   installedConfigRel,
@@ -118,7 +122,7 @@ async function requireRoot(): Promise<string> {
   const root = await findRoot();
   if (root === undefined) {
     console.error(`discern: ${NO_PROJECT}`);
-    console.error("       Run `discern init` to scaffold one.");
+    console.error("       Run `discern setup` to scaffold one.");
     Deno.exit(1);
   }
   return root;
@@ -164,6 +168,23 @@ async function runWorktreeOp(
     }
     return handleWorktreeError(e, log);
   }
+}
+
+/**
+ * Defence in depth behind the `status` banner: the SessionStart hook runs
+ * `discern worktree:ensure` on every session start, so a session opened while
+ * one-time setup is still outstanding ([meta].bootstrapped unset) is told — at the
+ * top, before it does anything — to resume and finish it, rather than assuming the
+ * earlier session completed it. Plain stdout, which a SessionStart hook injects as
+ * context; provider-neutral (no hook-schema coupling). Gated on !bootstrapped, so a
+ * finished project never walks the tree on session start.
+ */
+async function remindIfSetupUnfinished(ctx: LifecycleContext): Promise<void> {
+  if (ctx.config.meta.bootstrapped) {
+    return;
+  }
+  const pending = await findSkeletonMarkers(ctx.root);
+  ctx.log.line(`[discern] ${setupUnfinishedHint(pending)}`);
 }
 
 /** Attach the engine task-runner verbs to the `discern` root command. Optional
@@ -495,6 +516,7 @@ export function attachEngineCommands(
         .action(async () => {
           Deno.exit(
             await runWorktreeOp(async (ctx) => {
+              await remindIfSetupUnfinished(ctx);
               await worktreeEnsure(ctx);
             }),
           );
@@ -974,7 +996,7 @@ export async function dispatchRecipeOrSuggest(
   const root = await findRoot();
   if (root === undefined) {
     console.error(`discern: ${NO_PROJECT}`);
-    console.error("       Run `discern init` to scaffold one.");
+    console.error("       Run `discern setup` to scaffold one.");
     return 1;
   }
   const cfg = await loadConfig(root);

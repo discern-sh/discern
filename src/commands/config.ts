@@ -72,7 +72,7 @@ async function applyEdits(
   } catch (error) {
     const isMissing = error instanceof Deno.errors.NotFound;
     const message = isMissing
-      ? "no discern install here — run `discern init` first, or cd into the project root."
+      ? "no discern install here — run `discern setup` first, or cd into the project root."
       : `could not read the config: ${
         error instanceof Error ? error.message : String(error)
       }`;

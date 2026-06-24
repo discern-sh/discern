@@ -23,7 +23,7 @@ harness into any repository, in one command, and keeps it upgradable thereafter.
 
 ### Installer
 
-The scaffolding face of the `discern` binary — `discern init`, `upgrade`,
+The scaffolding face of the `discern` binary — `discern setup`, `upgrade`,
 `doctor`, `migrate`, `config`, `add-preset`. Its TypeScript lives under
 [`src/`](../../src/) and compiles into the single-file binary. It writes and
 refreshes a project's files; it is build-time work only — an installed project
@@ -40,7 +40,7 @@ any config-pointed content you author (your [Guidance source](#guidance-source),
 [Skills](#skill), [Recipes](#recipe)) and the generated files. The seed and
 Skill files an install starts from originate under
 [`templates/`](../../templates/) and are **bundled into the binary**, which
-writes them out at `init`/`upgrade`. (The docs tree and `TODO.md` are not part
+writes them out at `setup`/`upgrade`. (The docs tree and `TODO.md` are not part
 of the install; they are written on demand after install by the bundled Skills.)
 
 ### Engine
@@ -120,7 +120,7 @@ out of `.discern/`, prunes the pristine bundled skills, and deletes `.discern/`
 
 A reusable overlay applied with `discern add-preset <name>`: a `presets/<name>/`
 directory whose files are scaffolded onto a project (with the same yours-vs-the-
-binary's rules as `init`) plus an optional `preset.json` at its root — an
+binary's rules as `setup`) plus an optional `preset.json` at its root — an
 discern config document whose `capabilities` / `checks` / `scopes` / `ratchets`
 are written into `discern.toml`. Supersedes the former "adapter" overlay; the
 binary bundles none ([ADR 0018](../_adr/0018-vocabulary-consolidation.md)).
@@ -140,14 +140,14 @@ named refinements within them. The full surface is mapped in
 ### Your files / Yours
 
 A file written once — then owned by the project, **committed**, never refreshed
-or flagged by `upgrade`, and edited in place. The one seed `init` always lays
+or flagged by `upgrade`, and edited in place. The one seed `setup` always lays
 down is `discern.toml` (the entire discern footprint); it also seeds the project
 `brief.md` when non-empty, plus the [Merged](#merged-file)
 `.claude/settings.json` and `.gitignore`. The rest are content you author at
 config-pointed locations (your [Guidance source](#guidance-source)
 `guidance.md`, authored [Skills](#skill) under `[skills].dir`,
 [Recipes](#recipe) under `[recipes].dir`) or are created on demand after install
-by `discern bootstrap` (the `docs/` tree and `TODO.md`).
+by `discern setup` (the `docs/` tree and `TODO.md`).
 
 ### The binary's files
 
@@ -169,7 +169,7 @@ caught by `discern finish`'s currency check instead.)
 
 A [yours](#your-files--yours) seed folded into whatever the project already has
 rather than written whole, so an existing project keeps its own content. It is
-produced only at `init` and left untouched by `upgrade`, in one of two forms: a
+produced only at `setup` and left untouched by `upgrade`, in one of two forms: a
 structured merge (`.claude/settings.json`) or an idempotent append
 (`.gitignore`).
 
@@ -351,9 +351,9 @@ discern's **bundled** built-ins (in the binary,
 [`templates/skills/`](../../templates/skills/) — `bootstrap`,
 `document-subsystem`, `write-adr`, `handoff-worktree`) plus any you **author**
 under `[skills].dir` (default `./skills`), where yours override a built-in of
-the same name. `discern refresh` (and `init`/`upgrade`) materialize the set into
-`.claude/skills/` (gitignored, [the binary's](#the-binarys-files)): built-ins
-**copied**, authored skills **symlinked** so edits are live.
+the same name. `discern refresh` (and `setup`/`upgrade`) materialize the set
+into `.claude/skills/` (gitignored, [the binary's](#the-binarys-files)):
+built-ins **copied**, authored skills **symlinked** so edits are live.
 `discern skills
 list` shows the set; `discern skills eject <name>` copies a
 built-in into your dir to customize. The `skills` [Feature](#feature) governs

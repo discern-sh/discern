@@ -104,7 +104,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
         ? "not found in this directory"
         : `invalid: ${error instanceof Error ? error.message : String(error)}`,
       fix: isMissing
-        ? "run `discern init` to scaffold the harness here"
+        ? "run `discern setup` to scaffold the harness here"
         : "fix the TOML syntax in discern.toml",
     });
     // Without a parseable config the remaining checks have nothing to read.
@@ -401,7 +401,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
   // 12. capability-shaped checks (advisory). A [checks.<name>] whose name IS a
   // standard capability and whose stage is that capability's canonical stage is
   // almost certainly meant to be a [capabilities] entry — which doctor reports and
-  // `discern bootstrap` fills, and a check does not. Nudge toward the free
+  // `discern setup` fills, and a check does not. Nudge toward the free
   // capability slot. Advisory only (still healthy): a custom-named check with a
   // standard stage is legitimate when the label is the point.
   {
@@ -422,7 +422,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
         } match a standard capability at its canonical stage`,
         fix: `wire as a capability instead (e.g. [capabilities].${
           misfiled[0]
-        } = "…"), so doctor reports it and \`discern bootstrap\` can fill it — unless the [checks.${
+        } = "…"), so doctor reports it and \`discern setup\` can fill it — unless the [checks.${
           misfiled[0]
         }] name is deliberate`,
       });

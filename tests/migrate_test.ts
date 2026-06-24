@@ -107,7 +107,7 @@ Deno.test("migrate human output errors cleanly when not initialized", async () =
     const r = await runCli(["migrate"], dir);
     assertEquals(r.code, 1);
     assertStringIncludes(r.stderr, "no discern install here");
-    assertStringIncludes(r.stderr, "discern init");
+    assertStringIncludes(r.stderr, "discern setup");
   });
 });
 

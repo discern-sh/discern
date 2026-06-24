@@ -160,7 +160,7 @@ Deno.test("doctor: a missing config is flagged as not initialized", async () => 
     const toml = check(payload, "discern.toml");
     assertEquals(toml.ok, false);
     assertStringIncludes(toml.detail, "not found");
-    assertStringIncludes(toml.fix ?? "", "discern init");
+    assertStringIncludes(toml.fix ?? "", "discern setup");
   });
 });
 

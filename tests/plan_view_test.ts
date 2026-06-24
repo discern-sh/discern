@@ -161,7 +161,7 @@ Deno.test("renderReview groups config, your content, and integration", async () 
   assertStringIncludes(text, "merged into your existing settings");
   assertStringIncludes(text, "the harness section appended to your .gitignore");
   // The closing hint to see every file.
-  assertStringIncludes(text, "discern init --dry-run");
+  assertStringIncludes(text, "re-running with --dry-run");
 });
 
 Deno.test("renderReview lists seeded content under 'Your content', with and without notes", async () => {
@@ -219,25 +219,15 @@ Deno.test("planToJson maps each op to {path, action, note}", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Integration: the real review/dry-run renderers wired through `init`.
+// Integration: the dry-run plan renderer wired through `setup`. (The grouped
+// review screen `renderReview` is now only used by `add-preset` — covered in
+// preset_test; `setup` is non-interactive, so it has no review screen.)
 // ---------------------------------------------------------------------------
 
-Deno.test("init review screen (no --dry-run) renders the grouped summary via renderReview", async () => {
-  await withTempDir(async (dir) => {
-    // No --yes: the confirm prompt is declined on the closed stdin, but the
-    // review screen is printed first. NO_COLOR is set by runCli.
-    const { stdout, stderr } = await runCli(["init", "--slug", "demo"], dir);
-    const text = stdout + stderr;
-    assertStringIncludes(text, "will set up its harness");
-    assertStringIncludes(text, "Config");
-    assertStringIncludes(text, "discern init --dry-run");
-  });
-});
-
-Deno.test("init --dry-run prints the full per-file plan via renderPlan", async () => {
+Deno.test("setup --dry-run prints the full per-file plan via renderPlan", async () => {
   await withTempDir(async (dir) => {
     const { code, stdout } = await runCli(
-      ["init", "--yes", "--dry-run", "--slug", "demo"],
+      ["setup", "--dry-run", "--slug", "demo"],
       dir,
     );
     assertEquals(code, 0);

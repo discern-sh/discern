@@ -2,6 +2,12 @@
 
 **Status**: accepted
 
+> **Amended by [ADR 0036](0036-unify-setup.md):** the `bootstrap` command was
+> folded into a single `discern setup` (with `init`), and the pre-setup "nudge,
+> not gate" below became a **hard redirect** for the work verbs. The
+> command-not-a-skill decision and the `[meta].bootstrapped` marker recorded
+> here still stand.
+
 ## Context
 
 The bundled `bootstrap` skill seeded a fresh install from the project brief —

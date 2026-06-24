@@ -20,8 +20,9 @@
 
 import { dirname, fromFileUrl, join } from "@std/path";
 import { ensureDir } from "@std/fs";
-import { assembleInitPlan } from "../src/commands/init.ts";
+import { assembleInitPlan } from "../src/commands/setup.ts";
 import { applyPlan } from "../src/lib/fs_plan.ts";
+import { TomlEditor } from "../src/lib/toml_edit.ts";
 import { REAL_TEMPLATES } from "./helpers.ts";
 
 /** The captured result of one `agent` invocation. */
@@ -101,7 +102,10 @@ export async function engineEnv(
  * bytes a real install ships. Tests usually follow with `writeConfig` to set
  * the capabilities/checks/scopes/ratchets they need.
  */
-export async function scaffoldEngine(dir: string): Promise<void> {
+export async function scaffoldEngine(
+  dir: string,
+  opts: { bootstrapped?: boolean } = {},
+): Promise<void> {
   const plan = await assembleInitPlan({
     templatesDir: REAL_TEMPLATES,
     destDir: dir,
@@ -115,6 +119,20 @@ export async function scaffoldEngine(dir: string): Promise<void> {
     },
   });
   await applyPlan(plan);
+  // Engine tests exercise a *configured* harness — a project past its one-time
+  // setup. Mark it set up by default so the work verbs (finish/test/…) run rather
+  // than hard-redirecting to setup (ADR 0036); setup/audit tests that need the
+  // un-set-up state pass `{ bootstrapped: false }`.
+  if (opts.bootstrapped !== false) {
+    await markBootstrapped(join(dir, "discern.toml"));
+  }
+}
+
+/** Record `[meta].bootstrapped = true` in a scaffolded config (comment-preserving). */
+async function markBootstrapped(configPath: string): Promise<void> {
+  const editor = new TomlEditor(await Deno.readTextFile(configPath));
+  editor.setBool("meta.bootstrapped", true);
+  await Deno.writeTextFile(configPath, editor.toString());
 }
 
 /**
@@ -141,9 +159,17 @@ export async function runAgent(
   return { code, stdout: out, stderr: err, output: out + err };
 }
 
-/** Overwrite the scaffolded root `discern.toml` (a seed file) with test content. */
+/**
+ * Overwrite the scaffolded root `discern.toml` (a seed file) with test content.
+ * Keeps the install "set up" (so work verbs run, not redirect — ADR 0036) unless
+ * the test config explicitly mentions `bootstrapped` (its own opt-out).
+ */
 export async function writeConfig(dir: string, toml: string): Promise<void> {
-  await Deno.writeTextFile(join(dir, "discern.toml"), toml);
+  const path = join(dir, "discern.toml");
+  await Deno.writeTextFile(path, toml);
+  if (!toml.includes("bootstrapped")) {
+    await markBootstrapped(path);
+  }
 }
 
 /** Write an executable file (e.g. a project recipe or a capability command). */
