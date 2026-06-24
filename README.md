@@ -1,8 +1,11 @@
-# `discern`
+# `discern`: code got cheap, judgment didn't.
 
-Machines write the code now. **`discern` is where your judgment still lives**.
+Your AI writes your code now. **`discern` makes sure it holds up**.
+
+One command to start. Your coding agent handles the setup — tests, checks, the guardrails real teams use — then quietly keeps your codebase honest while you build.
 
 ---
+
 
 Coding agents can turn out days of work in minutes.
 
@@ -884,3 +887,7 @@ The practices here were extracted from a production application's mature
 agentic-development harness and generalised: the orchestration is lifted intact,
 while the stack-specific pieces — build tools, framework, native targets — are
 dropped or pushed behind the capabilities, checks, and worktree settings above.
+
+***
+
+AI writes your code now. **`discern` holds it accountable**.
