@@ -116,14 +116,14 @@ export async function resolveBundledSkillsDir(): Promise<string> {
 }
 
 /**
- * The bundled bootstrap directory inside the resolved `templates/` tree. Holds
- * `instructions.md` (the agent-facing setup brief `discern bootstrap` prints) and
- * `skel/` (the doc-tree skeletons it lays when a project has none). Bootstrap is a
- * CLI command, not a materialized skill (ADR 0024), so its assets live here rather
- * than under `templates/skills/`.
+ * The bundled setup directory inside the resolved `templates/` tree. Holds
+ * `instructions.md` (the agent-facing setup brief `discern setup` prints) and
+ * `skel/` (the doc-tree skeletons it lays when a project has none). Setup is a CLI
+ * command, not a materialized skill (ADR 0024, 0036), so its assets live here
+ * rather than under `templates/skills/`.
  */
-export async function resolveBootstrapDir(): Promise<string> {
-  return join(await resolveTemplatesDir(), "bootstrap");
+export async function resolveSetupDir(): Promise<string> {
+  return join(await resolveTemplatesDir(), "setup");
 }
 
 /**

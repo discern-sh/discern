@@ -4,8 +4,8 @@
  * the human report, the category filter, and the exit codes are all exercised), the
  * black-box parity oracle for the auditor's behaviour.
  *
- * The scaffolded install (a fresh `discern init`) is deliberately weak — nothing
- * wired, not bootstrapped, no guidance/docs — so it exercises the failing/teaching
+ * A `scaffoldEngine(dir, { bootstrapped: false })` install is deliberately weak —
+ * nothing wired, not set up, no guidance/docs — so it exercises the failing/teaching
  * path; a second config wires the practices and exercises the passing path. The
  * pure scoring/ranking/catalog-integrity invariants are guarded separately in
  * `audit_catalog_test.ts`.
@@ -136,7 +136,7 @@ async function writeStrongFiles(dir: string): Promise<void> {
 
 Deno.test("audit --json: a fresh install scores low and teaches every gap", async () => {
   await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
+    await scaffoldEngine(dir, { bootstrapped: false });
     const { code, payload } = await auditJson(dir);
 
     assertEquals(code, 0, "an audit run itself succeeds (advisory by default)");
@@ -161,7 +161,7 @@ Deno.test("audit --json: a fresh install scores low and teaches every gap", asyn
       assert(r.teach.length > 0, `${id} should carry a teach`);
     }
 
-    // Not bootstrapped → setup flags it with the bootstrap fix.
+    // Not set up → the setup category flags it with the `discern setup` fix.
     assertEquals(
       rule(cat(payload, "setup"), "setup.bootstrapped").status,
       "fail",
@@ -259,7 +259,7 @@ Deno.test("audit --category: focuses one area; an unknown category is a clean er
 
 Deno.test("audit --min-score: gates the build below the floor", async () => {
   await withTempDir(async (dir) => {
-    await scaffoldEngine(dir); // a weak install (~11/100)
+    await scaffoldEngine(dir, { bootstrapped: false }); // a weak install (~11/100)
 
     const below = await auditJson(dir, ["--min-score", "50"]);
     assertEquals(below.code, 1, "a score under the floor exits non-zero");

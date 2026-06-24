@@ -40,8 +40,8 @@ stage from its name; the engine reads commands through the config reader
 ([config_read.ts](../../src/shared/config_read.ts)), never by name. The
 per-worktree resources are empty config until a project declares them. The one
 place concrete ecosystems are named on purpose is the stack-detection table in
-`discern bootstrap` — whose job is to _propose_ capability fills, never to bake
-them into the engine.
+`discern setup` — whose job is to _propose_ capability fills, never to bake them
+into the engine.
 
 ---
 
@@ -79,7 +79,7 @@ never edited.
 safe to run again. The ownership split makes this structural: _your_ files (the
 committed `discern.toml`, the `brief.md` seed, the merged
 `settings.json`/`.gitignore`, and the content you author at config-pointed paths
-— `guidance.md`, `./skills/`, `./recipes/`) are written once by `init` (or by
+— `guidance.md`, `./skills/`, `./recipes/`) are written once by `setup` (or by
 you) and never touched again, so `upgrade` cannot clobber an edit. _The
 binary's_ files (the gitignored, re-published artifacts — the materialized
 skills, the compiled agent files `AGENTS.md`/`CLAUDE.md`/`GEMINI.md`) are always

@@ -69,14 +69,14 @@ const TEXT_ENCODER = new TextEncoder();
 /**
  * Top-level templates subtrees that are the binary's OWN artifacts, not seeds:
  * bundled skills (materialized into `.claude/skills/`), built-in guidance (read by
- * the compiler), and the bootstrap assets (instructions + doc skeletons that
- * `discern bootstrap` reads/lays on demand — ADR 0024). The seed walk skips them so
- * they are never written into the user's tracked tree.
+ * the compiler), and the setup assets (instructions + doc skeletons that
+ * `discern setup` reads/lays on demand — ADR 0024, 0036). The seed walk skips them
+ * so they are never written into the user's tracked tree.
  */
 const NON_SEED_SUBTREES: readonly string[] = [
   "skills/",
   "guidance/",
-  "bootstrap/",
+  "setup/",
 ];
 
 /** True when a template-relative path is one of the binary's non-seed subtrees. */
@@ -189,8 +189,8 @@ async function planFileWrite(params: {
   const sourceStat = await Deno.stat(sourceAbs);
   // OR in owner read+write: a scaffolded seed is the user's to edit, but the
   // `deno compile` embedded filesystem flattens every bundled template to
-  // read-only — without this, `init` would lay down a read-only `discern.toml`
-  // that the user (and `discern config set`/`discern bootstrap`) then can't rewrite.
+  // read-only — without this, `setup` would lay down a read-only `discern.toml`
+  // that the user (and `discern config set`/`discern setup`) then can't rewrite.
   // Any exec bit on the real source is preserved (0o555 → 0o755).
   const sourceMode = ((sourceStat.mode ?? 0o644) & 0o777) | 0o600;
 
@@ -310,8 +310,9 @@ async function planGitignoreAppend(
 /**
  * Build the op for the root `brief.md` — a SEED file: written once with a short
  * header, never overwritten if already present (preserves any edits the user or
- * `discern bootstrap` made). Only seeded when the captured brief is non-empty (see
- * `assembleInitPlan`), so a default install's footprint stays just `discern.toml`.
+ * `discern setup` made). Only seeded when a brief is supplied (via `--brief` /
+ * `--config`; the default zero-config run supplies none), so a default install's
+ * footprint stays just `discern.toml`.
  */
 export async function planBrief(
   destDir: string,
@@ -321,10 +322,12 @@ export async function planBrief(
   const targetAbs = join(destDir, targetRel);
   const body = brief.trimEnd();
   const content = `# Project brief\n\n` +
-    `<!-- Captured at \`discern init\`. Read by \`discern bootstrap\` to seed\n` +
+    `<!-- Captured at \`discern setup\`. Read by the setup instructions to seed\n` +
     `     principles, guidelines, and docs. Edit freely. -->\n\n` +
     `${
-      body.length > 0 ? body : "_(no description given at init — fill this in)_"
+      body.length > 0
+        ? body
+        : "_(no description given at setup — fill this in)_"
     }\n`;
   const bytes = TEXT_ENCODER.encode(content);
   const existing = await readBytesIfExists(targetAbs);

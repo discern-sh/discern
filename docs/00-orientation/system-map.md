@@ -21,7 +21,7 @@ runtime.
 │  Installer verbs + Engine    │  (compiled   │  seed · skill · guidance │
 │  (one self-contained binary) │   in)        │  sources (bundled in)    │
 └──────────────┬───────────────┘              └──────────────────────────┘
-       │  discern init / upgrade
+       │  discern setup / upgrade
        │  write seeds · merge · append · materialize skills · compile guidance
        ▼
 ┌────────────────────────────────────────────────────────────┐
@@ -32,7 +32,7 @@ runtime.
 │  + generated: AGENTS.md, CLAUDE.md/GEMINI.md,               │
 │      .claude/skills/  (the binary's — gitignored)           │
 │  + merged .claude/settings.json, appended .gitignore        │
-│  (docs/ + TODO.md arrive later, via discern bootstrap)      │
+│  (docs/ + TODO.md arrive later, via discern setup)      │
 └────────────────────────────────────────────────────────────┘
 ```
 
@@ -79,7 +79,7 @@ main checkout ──discern worktree──► Worktree  (branch + own db + own p
 
 ## Where each piece runs
 
-- **The Installer is build-time work, not a service.** The `init`/`upgrade`/
+- **The Installer is build-time work, not a service.** The `setup`/`upgrade`/
   `doctor` verbs run, write or refresh a project's files, and exit. They are
   **absent from an installed project's runtime** — once a project is set up,
   nothing the Installer did is a runtime dependency.

@@ -1,10 +1,10 @@
 # Install surface
 
-_What `discern init` lays down in a project, and which files are **yours**
+_What `discern setup` lays down in a project, and which files are **yours**
 (written once, then kept), **generated** (re-published artifacts, always safe to
 overwrite), or **bundled** (shipped inside the binary, never on disk)._
 
-One `discern init` scaffolds the harness into a project. The whole discern
+One `discern setup` scaffolds the harness into a project. The whole discern
 footprint is **one root file, `discern.toml`**
 ([ADR 0020](../_adr/0020-dissolve-discern-dir.md)) — there is no hidden
 `.discern/` directory. The seed files originate in
@@ -26,10 +26,10 @@ self-describing sources that never go stale — consult those for the leaves:
 Every path in an install is one of two kinds. The bucket decides how the binary
 treats it on `upgrade` and where you change it.
 
-| Bucket           | What it is                                                                                                                                                                                 | On `discern upgrade`                            | Where you change it                                              |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------- | ---------------------------------------------------------------- |
-| **yours**        | Committed seed files: rendered once from a `templates/….tmpl` (or merged/appended into what was already there) at `init`, then owned by the project. Authored skills/recipes/guidance too. | Untouched.                                      | Edit the file in place.                                          |
-| **the binary's** | Gitignored, re-published artifacts: the materialised `.claude/skills/` and the compiled agent files. Produced from the bundled sources, written out, always safe to overwrite.             | Re-published — overwritten to match the binary. | Edit the source (in this repo) and re-run the producing command. |
+| Bucket           | What it is                                                                                                                                                                                  | On `discern upgrade`                            | Where you change it                                              |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------- |
+| **yours**        | Committed seed files: rendered once from a `templates/….tmpl` (or merged/appended into what was already there) at `setup`, then owned by the project. Authored skills/recipes/guidance too. | Untouched.                                      | Edit the file in place.                                          |
+| **the binary's** | Gitignored, re-published artifacts: the materialised `.claude/skills/` and the compiled agent files. Produced from the bundled sources, written out, always safe to overwrite.              | Re-published — overwritten to match the binary. | Edit the source (in this repo) and re-run the producing command. |
 
 A third category is **bundled**: the engine, the built-in skills
 ([`templates/skills/`](../../templates/skills/)), and the built-in harness
@@ -40,7 +40,7 @@ binary's bucket ([ADR 0019](../_adr/0019-single-binary-ts-engine.md)). There is
 retired there is nothing committed to sync. The same buckets are defined in the
 [glossary](../00-orientation/glossary.md#file-dispositions).
 
-Two seed files are special-cased at `init` so an existing project keeps what it
+Two seed files are special-cased at `setup` so an existing project keeps what it
 already had: `.claude/settings.json` by structured merge, and `.gitignore` by
 idempotent append.
 
@@ -54,7 +54,7 @@ they are generated from the bundled sources.
 | Path                                                | Bucket | What it is                                                                                                                                                                                                                                                                                                                                                                                                        |
 | --------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [`discern.toml`](../../templates/discern.toml.tmpl) | yours  | The one hand-edited file — the entire discern footprint. It teaches the generic engine about your stack: `[features]` toggles, capabilities, checks, scopes (with gates), worktree settings, ratchets, gate ergonomics, and the `[guidance]`/`[skills]`/`[recipes]` pointers. Its `[meta].schema_version` is the migration anchor ([ADR 0014](../_adr/0014-versioned-migration-system.md)), stamped by `upgrade`. |
-| `brief.md`                                          | yours  | The project brief captured at `init` (seeded only when non-empty); `discern bootstrap` reads it to fill the docs and guidance.                                                                                                                                                                                                                                                                                    |
+| `brief.md`                                          | yours  | An optional project brief — seeded only when one is supplied (`discern setup --brief`/`--config`; the default zero-config run supplies none). When present, the agent reads it to help fill the docs and guidance.                                                                                                                                                                                                |
 
 ## The quality gate
 
@@ -118,7 +118,7 @@ the stable worktree identity (POSIX-`cksum`-faithful) in
 
 | Path                     | Bucket    | What it is                                                                                                                                                                                                                                                              |
 | ------------------------ | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `guidance.md`            | yours     | Your hand-authored guidance source(s) — the default `[guidance].sources`, additive to the built-ins. Globs allowed. Seeded by `discern bootstrap`.                                                                                                                      |
+| `guidance.md`            | yours     | Your hand-authored guidance source(s) — the default `[guidance].sources`, additive to the built-ins. Globs allowed. Seeded by `discern setup`.                                                                                                                          |
 | `AGENTS.md`              | generated | The **canonical** per-agent file (codex) — holds the full compiled body the mirrors import. Gitignored (ADR 0034); a stale one fails `discern finish`'s guidance-currency check.                                                                                        |
 | `CLAUDE.md`, `GEMINI.md` | generated | The gitignored per-agent mirrors. `CLAUDE.md` is just an `@AGENTS.md` import (Claude Code expands it), so it can't drift from the canonical file; `GEMINI.md` is a full copy until Gemini's include syntax is wired. No banner — drift is caught by the currency check. |
 | `.claude/skills/*`       | generated | Materialised skills the agent discovers — built-ins copied, authored skills symlinked.                                                                                                                                                                                  |
@@ -137,7 +137,7 @@ Four skills the coding agent can invoke are **bundled in the binary** (their
 source lives under [`templates/skills/`](../../templates/skills/), compiled in
 via `deno compile --include templates`), and a project can add its own under
 `[skills].dir` (default `./skills`, yours overriding a built-in by name).
-`discern refresh` (and `init`/`upgrade`) materialise the effective set into
+`discern refresh` (and `setup`/`upgrade`) materialise the effective set into
 `.claude/skills/` — **generated**, gitignored: built-ins **copied**, authored
 skills **symlinked** so edits are live (see
 [`src/lib/skills.ts`](../../src/lib/skills.ts)). `discern skills list` shows the
@@ -151,32 +151,33 @@ its own directory:
 | [`write-adr`](../../templates/skills/write-adr/SKILL.md)                   | Record a significant decision as an Architecture Decision Record. |
 | [`handoff-worktree`](../../templates/skills/handoff-worktree/SKILL.md)     | Graduate the current worktree's branch into the main repo.        |
 
-(Seeding a fresh install is **not** a skill — it is the `discern bootstrap`
-command; see below and [ADR 0024](../_adr/0024-bootstrap-as-command.md).)
+(Seeding a fresh install is **not** a skill — it is the `discern setup` command;
+see below and [ADR 0024](../_adr/0024-bootstrap-as-command.md), amended by
+[ADR 0036](../_adr/0036-unify-setup.md).)
 
 ## Documentation & ADR scaffold (lazy — not part of the install surface)
 
-`init` writes **no** `docs/` tree and **no** `TODO.md`. The doc, ADR, and TODO
-skeletons ship **with whatever creates them** — the `discern bootstrap` command
-(under `templates/bootstrap/skel/`) and two skills (under
+`setup` writes **no** `docs/` tree and **no** `TODO.md`. The doc, ADR, and TODO
+skeletons ship **with whatever creates them** — the `discern setup` command
+(under `templates/setup/skel/`) and two skills (under
 `templates/skills/<skill>/skel/`) — and are materialised on demand:
 
-| Materialised by                                                            | Skeleton it carries                                                                              | What lands in the project                                                                                                                         |
-| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `discern bootstrap` (the command)                                          | `templates/bootstrap/skel/docs/{README.md, 00-orientation/*, 80-development/*}` + `skel/TODO.md` | The orientation tree, the `80-development/` tree (incl. `finish-gate-gotchas`), and `TODO.md` — laid only when the project has none, then filled. |
-| [`write-adr`](../../templates/skills/write-adr/SKILL.md)                   | `skel/docs/_adr/{0000-template.md, README.md}`                                                   | `docs/_adr/`, created on first use.                                                                                                               |
-| [`document-subsystem`](../../templates/skills/document-subsystem/SKILL.md) | `skel/docs/_internal/{documenter-agent-brief.md, scopes/_template.md}`                           | `docs/_internal/`, the documenter brief and per-subtree scope-manifest template.                                                                  |
+| Materialised by                                                            | Skeleton it carries                                                                          | What lands in the project                                                                                                                         |
+| -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `discern setup` (the command)                                              | `templates/setup/skel/docs/{README.md, 00-orientation/*, 80-development/*}` + `skel/TODO.md` | The orientation tree, the `80-development/` tree (incl. `finish-gate-gotchas`), and `TODO.md` — laid only when the project has none, then filled. |
+| [`write-adr`](../../templates/skills/write-adr/SKILL.md)                   | `skel/docs/_adr/{0000-template.md, README.md}`                                               | `docs/_adr/`, created on first use.                                                                                                               |
+| [`document-subsystem`](../../templates/skills/document-subsystem/SKILL.md) | `skel/docs/_internal/{documenter-agent-brief.md, scopes/_template.md}`                       | `docs/_internal/`, the documenter brief and per-subtree scope-manifest template.                                                                  |
 
 So `docs/`, `TODO.md`, `guidance.md`, and the compiled agent files appear
 **after** install, with real content — they are no longer a static part of the
 install surface. This page lives in the `80-development/` tree that
-`discern bootstrap` materialises.
+`discern setup` materialises.
 
 ## Bookkeeping & integration
 
 | Path                                                                  | Bucket         | What it is                                                                                                                                                                                                                                                                                    |
 | --------------------------------------------------------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `TODO.md`                                                             | yours          | The shared backlog for deferred or at-risk work; documents its own format. Lazy — not shipped at `init`; created by `discern bootstrap` (or on the first deferral) from its bundled skeleton, then yours to keep.                                                                             |
+| `TODO.md`                                                             | yours          | The shared backlog for deferred or at-risk work; documents its own format. Lazy — not shipped at `setup`; created by `discern setup` (or on the first deferral) from its bundled skeleton, then yours to keep.                                                                                |
 | `recipes/` (`[recipes].dir`)                                          | yours          | Your own `discern <verb>` recipes (default `./recipes`, read only if present) — the engine wins on a name collision ([ADR 0001](../_adr/0001-project-owned-recipes.md)). Recipes read config through `discern config get`, not by sourcing a shell library.                                   |
 | [`.claude/settings.json`](../../templates/.claude/settings.json.tmpl) | yours (merged) | Adds a `Read(./.env)` deny and three hooks — `SessionStart` → `discern worktree:ensure`, `WorktreeCreate` → branch + `discern worktree`, `WorktreeRemove` → `discern worktree:teardown` — preserving existing settings. (The worktree hooks are omitted when `[features].worktrees = false`.) |
 | [`.gitignore`](../../templates/.gitignore.fragment)                   | yours (merged) | Idempotently ignores the compiled agent files `/AGENTS.md`, `/CLAUDE.md`, `/GEMINI.md` (all build artifacts — ADR 0034) and `/.claude/*` (except the tracked settings files).                                                                                                                 |
@@ -187,5 +188,5 @@ install surface. This page lives in the `80-development/` tree that
 > [`templates/.claude/settings.json.tmpl`](../../templates/.claude/settings.json.tmpl)
 > uses the on-`PATH` `discern` binary.
 
-One path appears only at run time, never from `init`, and is gitignored:
+One path appears only at run time, never from `setup`, and is gitignored:
 `.claude/worktrees/` (the linked worktree checkouts).

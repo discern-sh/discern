@@ -42,7 +42,7 @@ export async function runMigrate(options: MigrateOptions): Promise<number> {
   const configPath = await resolveConfigPath(destDir);
   if (configPath === undefined) {
     const message =
-      "no discern install here — run `discern init` first, or cd into the project root.";
+      "no discern install here — run `discern setup` first, or cd into the project root.";
     if (options.json) {
       log.result({
         ok: false,

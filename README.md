@@ -2,10 +2,11 @@
 
 Your AI writes your code now. **`discern` makes sure it holds up**.
 
-One command to start. Your coding agent handles the setup — tests, checks, the guardrails real teams use — then quietly keeps your codebase honest while you build.
+One command to start. Your coding agent handles the setup — tests, checks, the
+guardrails real teams use — then quietly keeps your codebase honest while you
+build.
 
 ---
-
 
 Coding agents can turn out days of work in minutes.
 
@@ -134,12 +135,14 @@ WSL.
 
 ## Quickstart
 
+**Zero-configuration: you make no decisions — your coding agent does the
+setup.** After installing, just tell your agent (running its most capable model)
+to run `discern`:
+
 ```sh
 cd your-project              # fresh or existing repo (git required)
-discern init                 # walk the wizard — name, slug, what you're building
-# → ask your coding agent to run:
-discern bootstrap            # fills principles/docs/guidance + proposes capability fills
-discern bootstrap done       # validate and record that setup is complete
+# then, in your coding agent:
+discern                      # one-time setup: scaffolds + has the agent author the project
 # day to day:
 discern prepare              # fast inner loop: fixers + checks, no build/test
 discern finish               # full definition-of-done gate
@@ -147,19 +150,21 @@ discern graduate             # graduate the isolated worktree branch back for re
 discern refresh              # refresh generated agent files/skills/integration artifacts
 ```
 
-`init` writes a single `discern.toml`, compiles the agent files, and
-materializes the bundled skills into `.claude/skills/`; it **merges** into an
-existing `.claude/settings.json` rather than clobbering it. Nothing of yours
-appears until you opt in — `guidance.md`, a `skills/` dir, a `recipes/` dir
-surface in the open as you fill them. `discern bootstrap` is a command that has
-_your own_ coding agent author the project-specific content and sniff the repo
-to propose the capability fills — no API key, no provider lock-in.
+`discern setup` (which bare `discern` runs the first time, before setup is
+recorded) writes a single `discern.toml`, compiles the agent files, materializes
+the bundled skills into `.claude/skills/`, and **merges** into an existing
+`.claude/settings.json` rather than clobbering it — then prints instructions the
+agent works through: it sniffs the repo, asks you a few clarifying questions,
+and authors the docs, guidance, and design principles, proposing the capability
+fills. No wizard, no API key, no provider lock-in. Nothing of yours appears
+until you opt in — `guidance.md`, a `skills/` dir, a `recipes/` dir surface in
+the open as you fill them. `discern setup done` records completion.
 
 ---
 
 ## What gets installed
 
-A fresh `discern init` lands **one file you own**, plus the generated agent
+A fresh `discern setup` lands **one file you own**, plus the generated agent
 files and the two integration files:
 
 ```
@@ -176,11 +181,11 @@ As you opt in, **your** files appear in the open at paths you control (the
 defaults shown):
 
 ```
-guidance.md                # author-once agent guidance (you and `discern bootstrap` fill it); [guidance].sources
+guidance.md                # author-once agent guidance (you and `discern setup` fill it); [guidance].sources
 skills/…                   # YOUR authored skills — yours override a built-in of the same name; [skills].dir
 recipes/…                  # YOUR own discern commands (the dir is yours); [recipes].dir
 brief.md                   # what you told init you're building (captured only when non-empty)
-# also grown by discern bootstrap:
+# also grown by discern setup:
 docs/…                     # numbered docs tree + design-principles + _adr + gotchas
 TODO.md                    # the shared backlog discipline
 ```
@@ -392,7 +397,7 @@ Worktree-command **runtime tokens**, expanded per-worktree just before the
 command runs: `@db@` (worktree DB name), `@site@` (derived site name), `@port@`
 (derived dev port), `@project_slug@`, `@dir@` (worktree root). They use the
 `@…@` delimiter — distinct from the installer's `{{…}}` content tokens (already
-substituted at `init`), so the two layers never collide. An empty worktree
+substituted at `setup`), so the two layers never collide. An empty worktree
 command is a clean no-op.
 
 ### Ratchets
@@ -500,7 +505,8 @@ can never be redefined by a project file.
 
 | command             | does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `init`              | scaffold `discern.toml` into the cwd (fresh or existing repo), compile the agent files, and materialize the bundled skills. Wizard, `--yes` + flags, or `--config <file>` (JSON answers file). `--dry-run`, `--json`, `--force`. Never overwrites a file you already have — see _Yours vs. the binary's_.                                                                                                                                                                                       |
+| `setup`             | the one-time, zero-config setup (bare `discern` runs it before setup is recorded): scaffold `discern.toml` + the agent files + the doc skeletons, then print the instructions your coding agent works through (it asks you any questions — no CLI wizard). Always non-interactive. `--config <file>` (JSON answers, for CI/presets), `--dry-run`, `--json`, `--force`. Never overwrites a file you already have. The retired init and bootstrap names redirect here.                            |
+| `setup done`        | validate the setup (no skeleton markers left) and record `[meta].bootstrapped`, retiring the pre-setup redirect. `--force` records despite leftovers.                                                                                                                                                                                                                                                                                                                                           |
 | `upgrade`           | refresh the project to match the installed binary: run any pending config-schema migrations → re-materialize the bundled skills → recompile guidance → stamp `[meta].schema_version`. Refuses a dirty tree unless `--allow-dirty`, so an upgrade stays `git checkout`-revertible. `--dry-run`, `--json`, `--check` (config migrations pending?). Getting a _newer binary_ is a separate axis (`install.sh` / `brew upgrade`). See _Upgrading an existing install_ and _Yours vs. the binary's_. |
 | `doctor`            | verify the install: the config parses, the schema is current (`[meta].schema_version` vs the binary), every `[capabilities]` key is known, and capability/check commands resolve on `PATH`. Skips checks for any disabled `[features]`.                                                                                                                                                                                                                                                         |
 | `migrate`           | report the install's recorded `[meta].schema_version` and any pending config-schema migration steps (read-only); `--check` exits non-zero when steps are pending. `upgrade` applies them. See _Schema migrations_.                                                                                                                                                                                                                                                                              |
@@ -647,7 +653,7 @@ Explicit flags override file values.
 ```
 
 ```sh
-discern init --config answers.json        # or:  cat answers.json | discern init --config -
+discern setup --config answers.json        # or:  cat answers.json | discern setup --config -
 ```
 
 The document shape is a **published contract**: a JSON Schema ships at
@@ -664,7 +670,7 @@ to many projects with one command. `discern add-preset <name>` reads
 `presets/<name>/` and overlays:
 
 - **Files** — everything in the preset dir is scaffolded onto the project with
-  the same rules as `init`: your files (project recipes, guideline fragments,
+  the same rules as `setup`: your files (project recipes, guideline fragments,
   docs) are write-once; `.claude/settings.json` deep-merges.
 - **Config fills** — an optional `preset.json` at the preset root (metadata,
   never scaffolded) is an **discern config document** (the same shape
@@ -789,7 +795,7 @@ that failed (or is `null`).
 ## Self-hosting
 
 This repository **runs on its own harness** — discern develops on the same
-engine it ships. `discern init` was run at the root, so its own config and
+engine it ships. `discern setup` was run at the root, so its own config and
 authored content (`discern.toml`, `guidance.md`, …) live here. Because the
 engine is compiled into the binary rather than committed, there is **no second
 copy and nothing to drift** — the repo runs its own engine straight from source
@@ -803,11 +809,11 @@ deno task dev prepare  # the fast inner loop: fix + check, no tests
 (`deno task dev` is `deno run -A src/main.ts`, so this is the same code path a
 released `discern finish` takes — just from source. ADR 0019 records the
 cutover; it supersedes [ADR 0010](docs/_adr/0010-self-host-the-harness.md),
-whose drift-detection guard is now moot.) Everything `init` wrote and everything
-since (`discern.toml`, `guidance.md`, `docs/`, `TODO.md`) is _yours_: edited in
-place, never distributed.
+whose drift-detection guard is now moot.) Everything `setup` wrote and
+everything since (`discern.toml`, `guidance.md`, `docs/`, `TODO.md`) is _yours_:
+edited in place, never distributed.
 
-The installer↔install lifecycle — `init` → `finish` → `upgrade` — is also
+The installer↔install lifecycle — `setup` → `finish` → `upgrade` — is also
 exercised hermetically by the test suite (`deno task test` scaffolds a fresh
 install into temp dirs and drives the engine), so an engine change is validated
 directly. CI runs the same gate (`deno task dev finish`) on every push and PR.
@@ -823,11 +829,11 @@ deno fmt && deno lint && deno check src/main.ts
 deno task build                           # per-platform binaries → dist/
 ```
 
-`src/` is the whole tool: the installer (`init`/`upgrade`/`doctor`/…) and the
+`src/` is the whole tool: the installer (`setup`/`upgrade`/`doctor`/…) and the
 engine (`src/engine/**`, sharing `src/shared/**`) compiled into one binary.
 `templates/` holds only the **seed and built-in files bundled into the binary**
 — the `discern.toml` template, the gitignore fragment, the always-on harness
-`guidance/`, and the built-in `skills/` materialized at `init`/`upgrade` — not
+`guidance/`, and the built-in `skills/` materialized at `setup`/`upgrade` — not
 an engine. Adding an engine verb? Wire it in `src/engine/dispatch.ts` (the
 dispatcher) and add its module under `src/engine/**`; `--help` picks it up.
 
@@ -837,7 +843,7 @@ dispatcher) and add its module under `src/engine/**`; `--help` picks it up.
 
 Working, verified, and committed:
 
-- ✅ Installer (`init`/`upgrade`/`doctor`/`add-preset`), single-binary build +
+- ✅ Installer (`setup`/`upgrade`/`doctor`/`add-preset`), single-binary build +
   release pipeline.
 - ✅ **Single-file footprint** — the whole install is one root `discern.toml`
   (schema 6), with `[features]` toggling whole subsystems on/off (ADR 0020).
@@ -848,8 +854,8 @@ Working, verified, and committed:
 - ✅ Worktree harness with database / dev-server / env / port worktree settings.
 - ✅ Author-once guidance compiler (built-in ⊕ your `guidance.md`) + a
   bundled-plus-authored skill set (`discern skills list`/`eject`).
-- ✅ Docs / principles / ADR / TODO scaffolding + the `discern bootstrap`
-  seeding command.
+- ✅ Docs / principles / ADR / TODO scaffolding + the `discern setup` seeding
+  command.
 - ✅ Declarative config — `discern config` + `init --config` (comment-preserving
   programmatic edits), and a documented `add-preset` contract (file overlay +
   config fills).
@@ -865,8 +871,8 @@ Follow-ups:
 
 - **Bundled stack presets** (`add-preset node`, `python`, …): the preset
   contract is complete and documented (see _Writing a preset_), but no preset is
-  bundled yet — that stays stack-neutral. For now, `discern bootstrap` detects
-  your stack and proposes capability fills directly, or drive it with
+  bundled yet — that stays stack-neutral. For now, `discern setup` detects your
+  stack and proposes capability fills directly, or drive it with
   `init --config`.
 - **Publishing**: the GitHub slug is wired to `jackwh/discern` (override with
   `DISCERN_REPO`); wire up the release before distributing.
@@ -883,6 +889,6 @@ agentic-development harness and generalised: the orchestration is lifted intact,
 while the stack-specific pieces — build tools, framework, native targets — are
 dropped or pushed behind the capabilities, checks, and worktree settings above.
 
-***
+---
 
 AI writes your code now. **`discern` holds it accountable**.

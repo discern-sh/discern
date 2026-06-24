@@ -26,9 +26,9 @@ import type {
 
 // ── gathering the facts ─────────────────────────────────────────────────────
 
-/** The bootstrap skeleton seeds guidance.md with this phrase until the agent fills
- * it; its presence means the guidance is still a placeholder, not real prose. */
-const GUIDANCE_PLACEHOLDER_MARK = "bootstrap fills this";
+/** The setup skeleton seeds guidance.md with this phrase until the agent fills it;
+ * its presence means the guidance is still a placeholder, not real prose. */
+const GUIDANCE_PLACEHOLDER_MARK = "setup fills this";
 
 /** Substance threshold (non-whitespace chars) below which a guidance file reads as
  * a stub rather than real, project-specific guidance. */
@@ -243,19 +243,19 @@ const SETUP: Category = {
     {
       kind: "deterministic",
       id: "setup.bootstrapped",
-      title: "Project bootstrapped",
+      title: "Project set up",
       weight: 2,
-      fix: "discern bootstrap",
+      fix: "discern setup",
       teach:
-        "Bootstrapping seeds the docs skeleton and prompts the agent to author your " +
-        "guidance and design principles from the project brief. Until it runs, the " +
-        "harness is a bare gate. Run `discern bootstrap`, then `discern bootstrap done`.",
+        "Setup seeds the docs skeleton and prompts the agent to author your guidance " +
+        "and design principles from the repo and your answers. Until it runs, the " +
+        "harness is a bare gate. Run `discern setup`, then `discern setup done`.",
       evaluate: (ctx): { status: "pass" | "fail"; detail: string } =>
         ctx.config.meta.bootstrapped
           ? { status: "pass", detail: "[meta].bootstrapped is set" }
           : {
             status: "fail",
-            detail: "the one-time bootstrap has not been run",
+            detail: "the one-time setup has not been run",
           },
     },
     {
@@ -382,11 +382,11 @@ const DOCS: Category = {
       id: "docs.tree",
       title: "Documentation tree present",
       weight: 2,
-      fix: "discern bootstrap (seeds the docs/ skeleton), then fill it in",
+      fix: "discern setup (seeds the docs/ skeleton), then fill it in",
       teach:
         "A browsable docs/ tree (with a README at its root) is where the project's " +
         "shape lives for future-you and the agents grounding work in it. `discern docs` " +
-        "browses it; `discern bootstrap` seeds the skeleton.",
+        "browses it; `discern setup` seeds the skeleton.",
       evaluate: (ctx): { status: "pass" | "fail"; detail: string } =>
         ctx.docsTree
           ? { status: "pass", detail: "docs/ with a README.md exists" }

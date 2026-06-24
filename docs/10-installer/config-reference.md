@@ -15,7 +15,7 @@ Installer bookkeeping. `schema_version` is the migration anchor; edit by hand on
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `schema_version` | number | — | The install schema version — managed by discern (bumped by `discern upgrade`). Don't edit by hand. |
-| `bootstrapped` | boolean | `false` | Whether `discern bootstrap` has run — silences the one-time setup nudge. |
+| `bootstrapped` | boolean | `false` | Whether `discern setup` has completed — retires the one-time setup redirect. |
 
 ## `[project]`
 

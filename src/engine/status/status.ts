@@ -457,7 +457,7 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
   if (ctx.location === "main") {
     if (!ctx.cfg.meta.bootstrapped) {
       hints.push(
-        "A coding agent should run `discern bootstrap` to set up the project.",
+        "This project isn't set up yet — run `discern` (or `discern setup`) to set it up.",
       );
     }
     if (!ctx.worktreesOn) {
@@ -550,7 +550,7 @@ export async function runStatus(
       });
     } else {
       console.error(`discern: ${NO_PROJECT}`);
-      console.error("       Run `discern init` to scaffold one.");
+      console.error("       Run `discern setup` to scaffold one.");
     }
     return 1;
   }

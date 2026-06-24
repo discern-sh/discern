@@ -42,31 +42,35 @@ Deno.test("--version prints the kit version", async () => {
   });
 });
 
-Deno.test("init --yes --json scaffolds and reports JSON", async () => {
+Deno.test("setup --json scaffolds and reports JSON", async () => {
   await withTempDir(async (dir) => {
     const { code, stdout } = await runCli(
-      ["init", "--yes", "--json", "--name", "CLI Demo", "--slug", "cli-demo"],
+      ["setup", "--json", "--name", "CLI Demo", "--slug", "cli-demo"],
       dir,
     );
     assertEquals(code, 0);
     const result = JSON.parse(stdout);
     assertEquals(result.ok, true);
-    assertEquals(result.verb, "init");
+    assertEquals(result.verb, "setup");
     assertEquals(result.data.project.slug, "cli-demo");
     assert(Array.isArray(result.data.written));
-    // The whole footprint is the single root config file (ADR 0020).
+    // The whole machinery footprint is the single root config file (ADR 0020).
     assert(result.data.written.includes("discern.toml"));
-    // init now compiles the agent files; `compiled` lists them.
+    // setup compiles the agent files; `compiled` lists them.
     assert(Array.isArray(result.data.compiled));
     assert(result.data.compiled.includes("AGENTS.md"));
     assert(result.data.compiled.includes("CLAUDE.md"));
+    // It also lays the doc skeletons; `skeletons` lists them, and it prints the
+    // agent instructions inline.
+    assert(result.data.skeletons.includes("docs/"));
+    assert(typeof result.data.instructions === "string");
     // The files really landed.
     await Deno.stat(join(dir, "discern.toml"));
     await Deno.stat(join(dir, "AGENTS.md"));
     await Deno.stat(join(dir, "CLAUDE.md"));
     // The bundled skills are materialized into `.claude/skills/` (gitignored).
     await Deno.stat(join(dir, ".claude/skills"));
-    // init wires the discern MCP server for Claude Code (ADR 0031): `.mcp.json`
+    // setup wires the discern MCP server for Claude Code (ADR 0031): `.mcp.json`
     // is written and reported under `mcp_wired`.
     assert(Array.isArray(result.data.mcp_wired));
     assert(
@@ -80,10 +84,10 @@ Deno.test("init --yes --json scaffolds and reports JSON", async () => {
   });
 });
 
-Deno.test("init --dry-run --json writes nothing", async () => {
+Deno.test("setup --dry-run --json writes nothing", async () => {
   await withTempDir(async (dir) => {
     const { code, stdout } = await runCli(
-      ["init", "--yes", "--dry-run", "--json", "--slug", "dry-demo"],
+      ["setup", "--dry-run", "--json", "--slug", "dry-demo"],
       dir,
     );
     assertEquals(code, 0);
@@ -99,25 +103,24 @@ Deno.test("init --dry-run --json writes nothing", async () => {
   });
 });
 
-Deno.test("init refuses over an existing discern.toml without --force", async () => {
+Deno.test("setup re-run over a set-up install reports already_set_up (idempotent)", async () => {
   await withTempDir(async (dir) => {
-    await runCli(["init", "--yes", "--json", "--slug", "first"], dir);
-    const { code, stdout } = await runCli(
-      ["init", "--yes", "--json", "--slug", "again"],
-      dir,
-    );
-    assertEquals(code, 1);
+    await runCli(["setup", "--slug", "first"], dir);
+    // Mark setup complete (--force: the laid skeletons still carry markers).
+    await runCli(["setup", "done", "--force"], dir);
+    const { code, stdout } = await runCli(["setup", "--json"], dir);
+    assertEquals(code, 0);
     const result = JSON.parse(stdout);
-    assertEquals(result.ok, false);
-    assertEquals(result.error, "already_initialized");
+    assertEquals(result.ok, true);
+    assertEquals(result.data.already_set_up, true);
   });
 });
 
-Deno.test("init --force proceeds over an existing install (re-runs without erroring)", async () => {
+Deno.test("setup --force re-scaffolds an existing install without erroring", async () => {
   await withTempDir(async (dir) => {
-    await runCli(["init", "--yes", "--json", "--slug", "first"], dir);
+    await runCli(["setup", "--json", "--slug", "first"], dir);
     const { code, stdout } = await runCli(
-      ["init", "--yes", "--force", "--json", "--slug", "first"],
+      ["setup", "--force", "--json", "--slug", "first"],
       dir,
     );
     assertEquals(code, 0);
@@ -132,16 +135,15 @@ Deno.test("init --force proceeds over an existing install (re-runs without error
   });
 });
 
-Deno.test("init leaves a pre-existing seed file untouched (no overwrite, no .new)", async () => {
+Deno.test("setup --force leaves a pre-existing seed file untouched (no overwrite, no .new)", async () => {
   await withTempDir(async (dir) => {
-    // A repo already carrying the config seed the kit would scaffold. `--force`
-    // is needed since init otherwise refuses over an existing install; with it,
-    // the present seed is left as the user's (skipped), not overwritten.
-    const userBody = "# the user's own config — must survive init\n";
+    // A repo already carrying the config seed the kit would scaffold; the present
+    // seed is left as the user's (skipped), not overwritten.
+    const userBody = "# the user's own config — must survive setup\n";
     await Deno.writeTextFile(join(dir, "discern.toml"), userBody);
 
     const { code } = await runCli(
-      ["init", "--yes", "--force", "--json", "--slug", "demo"],
+      ["setup", "--force", "--json", "--slug", "demo"],
       dir,
     );
     assertEquals(code, 0);
@@ -154,10 +156,10 @@ Deno.test("init leaves a pre-existing seed file untouched (no overwrite, no .new
   });
 });
 
-Deno.test("init rejects an invalid --slug", async () => {
+Deno.test("setup rejects an invalid --slug", async () => {
   await withTempDir(async (dir) => {
     const { code, stderr } = await runCli(
-      ["init", "--yes", "--slug", "Bad Slug"],
+      ["setup", "--slug", "Bad Slug"],
       dir,
     );
     assert(code !== 0);
@@ -182,7 +184,7 @@ Deno.test("doctor --json reports invalid result when not initialized", async () 
 Deno.test("doctor flags a stale schema version and points at upgrade", async () => {
   await withTempDir(async (dir) => {
     assertEquals(
-      (await runCli(["init", "--yes", "--slug", "demo"], dir)).code,
+      (await runCli(["setup", "--slug", "demo"], dir)).code,
       0,
     );
     // Model an install left a schema behind (a migration shipped since).
@@ -202,7 +204,7 @@ Deno.test("doctor flags a stale schema version and points at upgrade", async () 
 Deno.test("doctor reports the schema version is current on a fresh install", async () => {
   await withTempDir(async (dir) => {
     assertEquals(
-      (await runCli(["init", "--yes", "--slug", "demo"], dir)).code,
+      (await runCli(["setup", "--slug", "demo"], dir)).code,
       0,
     );
     const { stdout } = await runCli(["doctor", "--json"], dir);
@@ -219,7 +221,7 @@ Deno.test("doctor reports the schema version is current on a fresh install", asy
 
 Deno.test("add-preset reports unknown preset with a friendly error", async () => {
   await withTempDir(async (dir) => {
-    await runCli(["init", "--yes", "--json", "--slug", "demo"], dir);
+    await runCli(["setup", "--json", "--slug", "demo"], dir);
     const { code, stdout } = await runCli(
       ["add-preset", "node", "--json"],
       dir,

@@ -36,8 +36,7 @@ produced from source in this repo and overwritten on `upgrade`.
   session that creates or removes a worktree needs it on `PATH`.
 
 Stack-specific setup (installing project dependencies, running the app) lives in
-[getting-started.md](getting-started.md) once `discern bootstrap` has filled it
-in.
+[getting-started.md](getting-started.md) once `discern setup` has filled it in.
 
 ## IDE setup
 

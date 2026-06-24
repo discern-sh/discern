@@ -138,7 +138,7 @@ export async function runAddPreset(
     toml = parseDiscernToml(await Deno.readTextFile(configPath));
   } catch {
     const message =
-      "no discern install here — run `discern init` before adding a preset.";
+      "no discern install here — run `discern setup` before adding a preset.";
     if (options.json) {
       log.result({
         ok: false,

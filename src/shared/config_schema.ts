@@ -129,7 +129,7 @@ const metaSection = z.strictObject({
     "The install schema version — managed by discern (bumped by `discern upgrade`). Don't edit by hand.",
   ),
   bootstrapped: z.boolean().default(false).describe(
-    "Whether `discern bootstrap` has run — silences the one-time setup nudge.",
+    "Whether `discern setup` has completed — retires the one-time setup redirect.",
   ),
 }).prefault({}).describe(
   "Installer bookkeeping. `schema_version` is the migration anchor; edit by hand only to force a re-migration.",
@@ -395,7 +395,7 @@ export const configDocSchema = z.strictObject({
       "[ratchets.<name>] tables. Coverage is just a conventional name.",
     ),
 }).describe(
-  "The declarative config shape consumed by `discern init --config <file>` and by a preset's `preset.json`. Its capabilities/checks/scopes/ratchets are written into a project's discern.toml via the comment-preserving editor. Every field is optional.",
+  "The declarative config shape consumed by `discern setup --config <file>` and by a preset's `preset.json`. Its capabilities/checks/scopes/ratchets are written into a project's discern.toml via the comment-preserving editor. Every field is optional.",
 );
 
 /** The config-document shape — the *input* view (what an author writes, before

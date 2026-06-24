@@ -51,7 +51,7 @@ full run" trap is exactly this failure).
   Colour is forced off (`NO_COLOR`) so assertions match plain text.
 - **Scaffold from the real templates.** Engine tests use `scaffoldEngine` (which
   lays down `REAL_TEMPLATES` through `assembleInitPlan`/`applyPlan`), so the
-  bytes under test are the bytes a real `discern init` ships. Use `writeConfig`
+  bytes under test are the bytes a real `discern setup` ships. Use `writeConfig`
   to set the `[capabilities]`/`[checks]`/`[scopes]`/`[ratchets]` a case needs,
   and `addWorktree` for the worktree-recipe layout.
 - **Use fixtures for unit-level installer tests.** `FIXTURE_TEMPLATES` plus
@@ -84,9 +84,9 @@ so it is **not** part of the `finish` gate, and CI enforces it on every pull
 request. To raise the floor: add tests, then bump `limit` to just below the
 newly measured value.
 
-Some code is **intentionally** uncovered: the interactive TTY paths — the `init`
-wizard prompts ([src/lib/prompts.ts](../../src/lib/prompts.ts)) and the `docs`
-browser's `Select` loop and pager
+Some code is **intentionally** uncovered: the interactive TTY paths — the prompt
+helpers ([src/lib/prompts.ts](../../src/lib/prompts.ts), e.g. `add-preset`'s
+confirm) and the `docs` browser's `Select` loop and pager
 ([src/commands/docs.ts](../../src/commands/docs.ts)) — only run on a real
 terminal, which a black-box subprocess suite can't drive without a pseudo-TTY.
 Cover the flag/error branches around them and leave the prompt bodies; the floor
