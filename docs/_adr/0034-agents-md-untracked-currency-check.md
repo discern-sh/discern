@@ -30,9 +30,9 @@ Two problems surfaced:
   HTML comments before the model sees them, so the banner is invisible to the
   agent it most needs to deter — while Codex and most other agents receive it at
   the very top of the file, where attention is most valuable. The banner is also
-  **redundant**: the always-included `base.md` already carries a
-  `## Generated agent files — never hand-edit` section _in the body_, visible to
-  every agent (it is prose, not a comment).
+  **redundant**: the always-included `base.md` already carries the
+  never-hand-edit guidance _in the body_, visible to every agent (it is prose,
+  not a comment).
 - **Tracking a derivative invites the confusion it was meant to prevent.** The
   meaningful, reviewable artifact is the **source** (`guidance.md` + the
   config), which is already tracked. `AGENTS.md` is a pure function of those;
@@ -106,6 +106,11 @@ It is surfaced as:
 - **One self-healing path.** `renderAgentFiles` being the single renderer means
   a future change to the compile (a new feature section, a provider) is
   reflected in the check for free.
+- **Extended by [ADR 0035](0035-guidance-templating-engine.md).** The compile
+  now templates the built-in sections against a context derived purely from
+  committed config; routing it through the same `renderAgentFiles` keeps this
+  currency check authoritative, and the config-only context is what keeps the
+  recompile deterministic.
 
 ## Alternatives considered
 
