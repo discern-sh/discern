@@ -4,6 +4,9 @@
 
 Amends [ADR 0024](0024-bootstrap-as-command.md) (which made bootstrap a command,
 not a skill) and builds on [ADR 0016](0016-consolidate-install-surface.md).
+Hardened by [ADR 0037](0037-setup-incompleteness-observable.md), which makes the
+unfinished-setup state observable so the handoff can't be mistaken for
+completion.
 
 ## Context
 
