@@ -43,7 +43,10 @@ import {
   groupDocs,
   resolveDoc,
 } from "../lib/docs.ts";
-import { resolveBundledDocsDir } from "../lib/paths.ts";
+import {
+  BUNDLED_INTERNAL_DOC_DIRS,
+  resolveBundledDocsDir,
+} from "../lib/paths.ts";
 import type { DiscernResult } from "../shared/result.ts";
 
 /** Supported concatenated Markdown export scopes. */
@@ -117,6 +120,21 @@ function listScopes(scopes: readonly DocsExportScope[]): string {
   return `${scopes.slice(0, -1).join(", ")}, or ${scopes.at(-1) ?? ""}`;
 }
 
+/**
+ * The internal-subtree policy for a browse. `help --adr` reveals the bundled ADR
+ * tree — and ONLY that ({@link BUNDLED_INTERNAL_DOC_DIRS}), never `_internal` /
+ * `_maintainer`, and never over MCP (the `helpResult` path passes nothing).
+ * Everything else stays public-only.
+ */
+function internalScope(
+  desc: DocsVerb,
+  options: DocsOptions,
+): boolean | readonly string[] {
+  return desc.verb === "help" && options.adr
+    ? BUNDLED_INTERNAL_DOC_DIRS
+    : false;
+}
+
 /** Options accepted by the `docs` command (global flags folded in). */
 export interface DocsOptions {
   json: boolean;
@@ -133,6 +151,8 @@ export interface DocsOptions {
   width?: number | undefined;
   /** A specific doc to open (slug, `section/slug`, or path). */
   target?: string | undefined;
+  /** `help` only: also surface the bundled ADR subtree (hidden by default). */
+  adr?: boolean | undefined;
   /** Concatenate docs to stdout or `output`. */
   export?: string | undefined;
   /** Write an export to this path instead of stdout. */
@@ -454,12 +474,18 @@ async function exportDocs(
 async function treeResult(
   desc: DocsVerb,
   cwd: string,
-  opts: { target?: string | undefined; dir?: string | undefined } = {},
+  opts: {
+    target?: string | undefined;
+    dir?: string | undefined;
+    internal?: boolean | readonly string[] | undefined;
+  } = {},
 ): Promise<DiscernResult> {
   const resolved = await desc.resolveDir(opts);
-  const tree = resolved.kind === "missing"
-    ? undefined
-    : await discoverDocs({ cwd, dir: resolved.dir });
+  const tree = resolved.kind === "missing" ? undefined : await discoverDocs({
+    cwd,
+    dir: resolved.dir,
+    includeInternal: opts.internal,
+  });
   if (!tree) {
     return {
       ok: false,
@@ -611,6 +637,7 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
       options.json ? "--json" : undefined,
       options.raw ? "--raw" : undefined,
       options.list ? "--list" : undefined,
+      options.adr ? "--adr" : undefined,
       options.width !== undefined ? "--width" : undefined,
       options.noPager ? "--no-pager" : undefined,
     ].filter((value): value is string => value !== undefined);
@@ -642,6 +669,10 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
     return await exportDocs(desc, options, scope, log, cwd);
   }
 
+  // `help --adr` widens discovery to the bundled ADR subtree; every other browse
+  // (and every `docs` browse, and the MCP path) stays public-only.
+  const internal = internalScope(desc, options);
+
   // `--json`: the entire machine-readable surface (index, single doc, or error)
   // is {@link treeResult} — the one shape the MCP server also renders. The human,
   // raw, and interactive renderings below never run under `--json`.
@@ -649,6 +680,7 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
     const result = await treeResult(desc, cwd, {
       target: options.target,
       dir: options.dir,
+      internal,
     });
     log.result(result);
     return result.ok ? 0 : 1;
@@ -657,7 +689,7 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
   const resolved = await desc.resolveDir(options);
   const tree = resolved.kind === "missing"
     ? undefined
-    : await discoverDocs({ cwd, dir: resolved.dir });
+    : await discoverDocs({ cwd, dir: resolved.dir, includeInternal: internal });
   if (!tree) {
     log.error(desc.missingTree(options));
     return 1;

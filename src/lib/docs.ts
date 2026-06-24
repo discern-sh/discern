@@ -156,6 +156,19 @@ async function resolveDocsDir(
   return (await isDir(candidate)) ? candidate : undefined;
 }
 
+/** Whether a doc buried under one or more `_`-prefixed segments is admitted, given
+ * the `includeInternal` policy: `true` admits all, a list admits a doc only when
+ * EVERY one of its buried segments is named in it (so an `["_adr"]` allowlist
+ * surfaces `_adr/…` but never `_internal/…`), and `false`/absent admits none. */
+function internalAdmits(
+  includeInternal: boolean | readonly string[] | undefined,
+  buriedSegs: readonly string[],
+): boolean {
+  if (includeInternal === true) return true;
+  if (!includeInternal) return false;
+  return buriedSegs.every((seg) => includeInternal.includes(seg));
+}
+
 /**
  * Index the project's docs tree. Returns undefined when no docs directory
  * exists (the caller turns that into a friendly "nothing to browse" message).
@@ -163,14 +176,16 @@ async function resolveDocsDir(
  *
  * Internal/reference subtrees in `_`-prefixed directories (`_adr`, `_internal`)
  * are excluded by default — the browser shows only the user-facing tree.
- * `includeInternal` indexes them for full-tree export. Point `--dir` at one
- * (`--dir docs/_adr`) to browse it directly, where it is no longer nested under
- * an underscore.
+ * `includeInternal` widens that: `true` indexes every internal subtree (full-tree
+ * export), and a string[] allowlist indexes ONLY the named ones (e.g. `["_adr"]`
+ * for `help --adr`, which reveals the ADRs without ever exposing `_internal` /
+ * `_maintainer`). Point `--dir` at one (`--dir docs/_adr`) to browse it directly,
+ * where it is no longer nested under an underscore.
  */
 export async function discoverDocs(opts: {
   cwd: string;
   dir?: string | undefined;
-  includeInternal?: boolean | undefined;
+  includeInternal?: boolean | readonly string[] | undefined;
 }): Promise<DocsTree | undefined> {
   const docsDir = await resolveDocsDir(opts.cwd, opts.dir);
   if (!docsDir) return undefined;
@@ -187,10 +202,12 @@ export async function discoverDocs(opts: {
     const parts = relToDocs.split("/");
     // Skip internal/reference subtrees: any doc whose path has a leading-
     // underscore directory segment (_adr, _internal, …). The browser exposes
-    // only the user-facing tree. Tested in tests/docs_test.ts.
+    // only the user-facing tree unless `includeInternal` admits it (all, or a
+    // named allowlist). Tested in tests/docs_test.ts.
+    const buriedSegs = parts.slice(0, -1).filter((seg) => seg.startsWith("_"));
     if (
-      !opts.includeInternal &&
-      parts.slice(0, -1).some((seg) => seg.startsWith("_"))
+      buriedSegs.length > 0 &&
+      !internalAdmits(opts.includeInternal, buriedSegs)
     ) {
       continue;
     }

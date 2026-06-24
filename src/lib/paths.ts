@@ -126,6 +126,17 @@ export async function resolveBundledSkillsDir(): Promise<string> {
 export const BUNDLED_DOCS_STAGE_DIR = ".discern-help-docs";
 
 /**
+ * The internal (`_`-prefixed) doc subtrees that ARE bundled into the binary and
+ * may be surfaced — only through an explicit opt-in (`discern help --adr`), never
+ * by default and never over MCP. Default-DENY is the safety property: the build
+ * embeds public docs plus exactly these, and `--adr` reveals exactly these, so a
+ * new `_`-prefixed tree (e.g. `_maintainer`) stays private until it is added here
+ * on purpose. The single source for both the embed (`scripts/build.ts`) and the
+ * view (the `--adr` allowlist).
+ */
+export const BUNDLED_INTERNAL_DOC_DIRS: readonly string[] = ["_adr"];
+
+/**
  * The bundled setup directory inside the resolved `templates/` tree. Holds
  * `instructions.md` (the agent-facing setup brief `discern setup` prints) and
  * `skel/` (the doc-tree skeletons it lays when a project has none). Setup is a CLI

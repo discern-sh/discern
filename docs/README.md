@@ -26,8 +26,10 @@ Two commands read a documentation tree, and they read **different** ones:
   the index, `discern help config-reference` for one page, and `--list` /
   `--json` / `--raw` for scripted access. It always serves discern's **public**
   docs (never the host project's), is available even where the `docs` feature is
-  off, and never shows or ships the internal `_adr` / `_internal` /
-  `_maintainer` subtrees ([ADR 0039](_adr/0039-bundled-help-docs.md)).
+  off, and never shows the `_internal` / `_maintainer` subtrees
+  ([ADR 0039](_adr/0039-bundled-help-docs.md)). The ADRs are hidden by default
+  but can be browsed with `discern help --adr` (CLI only — the MCP tool never
+  exposes them).
 - **`discern docs`** browses **the host project's own `docs/`** (resolved from
   the project root). Inside the discern repo it surfaces this very tree —
   because here the project's docs _are_ discern's docs — but in any other

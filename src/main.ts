@@ -332,6 +332,10 @@ function buildCli(
       "--list",
       "Print a plain table of contents and exit (never interactive).",
     )
+    .option(
+      "--adr",
+      "Also surface discern's Architecture Decision Records (hidden by default).",
+    )
     .option("--no-pager", "Don't page rendered output through $PAGER.")
     .option("--width <cols:number>", "Wrap width for rendered output.")
     .option(
@@ -348,6 +352,7 @@ function buildCli(
         noColor: noColorFrom(options.color),
         raw: options.raw ?? false,
         list: options.list ?? false,
+        adr: options.adr ?? false,
         noPager: options.pager === false,
         width: options.width,
         target,

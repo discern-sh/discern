@@ -4,11 +4,12 @@
  * Each target produces a single self-contained binary with two trees bundled:
  *  - `templates/` (`--include templates`), so the installed `discern` needs no
  *    Deno and no network to scaffold; and
- *  - discern's OWN public documentation, staged into {@link BUNDLED_DOCS_STAGE_DIR}
- *    first (see {@link stagePublicDocs}) and `--include`d, so `discern help`
- *    serves it from any install. Only the PUBLIC subtrees are staged — the
- *    `_maintainer`/`_internal`/`_adr` trees are never embedded in a customer
- *    binary.
+ *  - discern's OWN documentation, staged into {@link BUNDLED_DOCS_STAGE_DIR}
+ *    first (see {@link stageBundledDocs}) and `--include`d, so `discern help`
+ *    serves it from any install. The PUBLIC subtrees plus the opt-in
+ *    {@link BUNDLED_INTERNAL_DOC_DIRS} (the ADRs, reachable only via
+ *    `discern help --adr`) are staged; `_internal`/`_maintainer` are never
+ *    embedded in a customer binary.
  *
  * Output goes to `dist/`.
  *
@@ -17,7 +18,10 @@
 
 import { copy, ensureDir } from "@std/fs";
 import { join } from "@std/path";
-import { BUNDLED_DOCS_STAGE_DIR } from "../src/lib/paths.ts";
+import {
+  BUNDLED_DOCS_STAGE_DIR,
+  BUNDLED_INTERNAL_DOC_DIRS,
+} from "../src/lib/paths.ts";
 
 /** A compile target: Deno's triple and the binary file name we ship. */
 interface Target {
@@ -49,22 +53,31 @@ const PERMISSIONS = [
 ];
 
 /**
- * Stage discern's PUBLIC documentation into {@link BUNDLED_DOCS_STAGE_DIR} for
- * embedding, excluding every `_`-prefixed subtree (`_adr`, `_internal`,
- * `_maintainer`) so positioning/marketing/internal notes never ship inside a
- * customer binary. The tree nests an inner `docs/` so the embedded path matches a
- * checkout (`docs/…`); {@link resolveBundledDocsDir} reads it back. Returns the
- * staged parent directory to `--include`. Curation is at the EMBED here; the view
- * (`includeInternal: false`) is the second line of defence (ADR 0039).
+ * Stage discern's documentation into {@link BUNDLED_DOCS_STAGE_DIR} for embedding:
+ * the PUBLIC subtrees plus exactly the opt-in {@link BUNDLED_INTERNAL_DOC_DIRS}
+ * (the ADRs, surfaced only by `discern help --adr`). Every other `_`-prefixed
+ * subtree (`_internal`, `_maintainer`) is excluded, so internal/maintainer notes
+ * never ship inside a customer binary — default-deny, so a new private tree stays
+ * out until it is added to the allowlist on purpose. The tree nests an inner
+ * `docs/` so the embedded path matches a checkout (`docs/…`);
+ * {@link resolveBundledDocsDir} reads it back. Returns the staged parent directory
+ * to `--include`. Curation is at the EMBED here; the view (the default
+ * `includeInternal: false`, and the `--adr` allowlist) is the second line of
+ * defence (ADR 0039).
  */
-async function stagePublicDocs(): Promise<string> {
+async function stageBundledDocs(): Promise<string> {
   await Deno.remove(BUNDLED_DOCS_STAGE_DIR, { recursive: true }).catch(
     () => {},
   );
   const stagedDocs = join(BUNDLED_DOCS_STAGE_DIR, "docs");
   await ensureDir(stagedDocs);
   for await (const entry of Deno.readDir("docs")) {
-    if (entry.name.startsWith("_")) continue;
+    if (
+      entry.name.startsWith("_") &&
+      !BUNDLED_INTERNAL_DOC_DIRS.includes(entry.name)
+    ) {
+      continue;
+    }
     await copy(join("docs", entry.name), join(stagedDocs, entry.name));
   }
   return BUNDLED_DOCS_STAGE_DIR;
@@ -147,7 +160,7 @@ async function main(): Promise<void> {
     Deno.exit(1);
   }
 
-  const docsStageDir = await stagePublicDocs();
+  const docsStageDir = await stageBundledDocs();
   try {
     for (const target of targets) {
       await compileTarget(target, distDir, docsStageDir);

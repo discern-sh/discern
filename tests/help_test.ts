@@ -200,6 +200,62 @@ Deno.test("help excludes internal _adr/_internal/_maintainer from every view", a
   });
 });
 
+Deno.test("help --adr surfaces ONLY the ADR tree, never _internal/_maintainer", async () => {
+  await withTempDir(async (dir) => {
+    const help = await makeHelpFixture(dir);
+
+    // --adr widens the index to include the ADR subtree...
+    const { code, stdout } = await runCli(
+      ["help", "--adr", "--json"],
+      dir,
+      { DISCERN_DOCS_DIR: help },
+    );
+    assertEquals(code, 0);
+    const res = JSON.parse(stdout);
+    assert(
+      res.data.docs.some((d: { slug: string }) => d.slug === "0001-first"),
+      "--adr surfaces the ADR docs",
+    );
+    // ...but never the other internal subtrees (allowlist, not all-internal).
+    for (const buried of ["_internal", "_maintainer"]) {
+      assert(
+        res.data.docs.every((d: { path: string }) => !d.path.includes(buried)),
+        `--adr must not surface ${buried}`,
+      );
+    }
+
+    // An ADR resolves as a target only with --adr; it is hidden by default.
+    const withAdr = await runCli(
+      ["help", "--adr", "0001-first", "--json"],
+      dir,
+      { DISCERN_DOCS_DIR: help },
+    );
+    assertEquals(withAdr.code, 0);
+    assertEquals(JSON.parse(withAdr.stdout).data.doc.slug, "0001-first");
+
+    const withoutAdr = await runCli(
+      ["help", "0001-first", "--json"],
+      dir,
+      { DISCERN_DOCS_DIR: help },
+    );
+    assertEquals(withoutAdr.code, 1);
+    assertEquals(JSON.parse(withoutAdr.stdout).error, "not_found");
+  });
+});
+
+Deno.test("help --adr cannot be combined with --export", async () => {
+  await withTempDir(async (dir) => {
+    const help = await makeHelpFixture(dir);
+    const { code, stderr } = await runCli(
+      ["help", "--export", "public", "--adr"],
+      dir,
+      { DISCERN_DOCS_DIR: help },
+    );
+    assertEquals(code, 1);
+    assertStringIncludes(stderr, "--export cannot be combined with --adr");
+  });
+});
+
 Deno.test("help is available even when the `docs` feature is disabled", async () => {
   await withTempDir(async (dir) => {
     const help = await makeHelpFixture(dir, "[features]\ndocs = false\n");

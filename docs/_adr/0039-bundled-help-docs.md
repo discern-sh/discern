@@ -44,8 +44,8 @@ serving **discern's own bundled documentation**, available in every install.
   vary: the directory to read, the verb label carried in results/messages, and
   the wording when the tree is missing. The interactive browser, renderer,
   target resolution, `--list`/`--json`/`--raw`, and export are reused verbatim.
-  `helpResult()` mirrors `docsResult()` — the one shape a future `discern_help`
-  MCP tool and the `--json` path both render (no MCP tool is registered yet).
+  `helpResult()` mirrors `docsResult()` — the one shape the `--json` path and
+  the `discern_help` MCP tool both render.
 
 - **Bundled, resolved module-relative.** `resolveBundledDocsDir()` is the twin
   of `resolveTemplatesDir()`: it finds discern's docs by walking up from the
@@ -55,13 +55,13 @@ serving **discern's own bundled documentation**, available in every install.
   what closes the gap.
 
 - **Curation is at the embed, with the view as a second line of defence.**
-  `scripts/build.ts` stages only the PUBLIC docs subtrees into a transient
-  `.discern-help-docs/docs/` (excluding every `_`-prefixed tree) and
-  `--include`s that, so `_maintainer`/`_internal`/`_adr` are never embedded in a
+  `scripts/build.ts` stages the public docs subtrees (plus the opt-in ADR
+  allowlist — see below) into a transient `.discern-help-docs/docs/` and
+  `--include`s that, so `_internal` / `_maintainer` are never embedded in a
   customer binary. The staged tree nests an inner `docs/` so embedded paths read
-  `docs/…`, identical to a checkout. On top of that, `help` always discovers
-  with `includeInternal: false`, so even the repo's full `docs/` (the checkout
-  fallback) shows only the public tree.
+  `docs/…`, identical to a checkout. On top of that, `help` discovers with
+  `includeInternal: false` by default, so even the repo's full `docs/` (the
+  checkout fallback) shows only the public tree unless `--adr` opts in.
 
 - **Always available; no `--dir`.** `help` is registered UNCONDITIONALLY in
   `main.ts` (not gated on the `docs` feature) — it is discern's own help, useful
@@ -83,10 +83,18 @@ serving **discern's own bundled documentation**, available in every install.
   The matching MCP tool `discern_help` mirrors `discern_docs` and is likewise
   ungated.
 
-- **ADRs are out of scope for v1.** The public subtrees (`00-orientation` …
-  `80-development`, including `10-installer/config-reference.md`) are what
-  ships. The `_adr/` history is useful but verbose; it can be added later behind
-  an opt-in if there is demand.
+- **The ADRs ship behind an opt-in flag.** The public subtrees (`00-orientation`
+  … `80-development`, including `10-installer/config-reference.md`) are the
+  default surface. The `_adr/` history is useful but verbose, so it is hidden by
+  default and revealed only by `discern help --adr` — a nod to the project
+  dogfooding itself, for the genuinely curious. It is **CLI-only**: the MCP
+  `discern_help` tool never exposes it (an agent gets the curated public set).
+  The build embeds the ADRs too (the `--adr` view needs them), but `_internal` /
+  `_maintainer` are never embedded. The set of internal subtrees that
+  ship-and-are-revealable lives once in `BUNDLED_INTERNAL_DOC_DIRS` (`paths.ts`)
+  and is **default-deny**: the build stages public docs plus exactly that
+  allowlist, and `--adr` reveals exactly that allowlist, so a new `_`-prefixed
+  tree stays private until it is added on purpose.
 
 ## Consequences
 
@@ -109,9 +117,9 @@ serving **discern's own bundled documentation**, available in every install.
   interrupted build cannot dirty the tree or shadow the live `docs/` in a later
   `deno task dev help`.
 
-- **MCP parity is structured but not wired.** `helpResult` is factored and
-  MCP-ready; registering `discern_help` / `discern://help` is a separate
-  tranche.
+- **MCP parity comes for free.** Because `helpResult` is the same result core,
+  the `discern_help` MCP tool is a thin adapter mirroring `discern_docs` — it
+  serves the public set only (no `--adr`) and is ungated, exactly like the CLI.
 
 ## Alternatives considered
 
