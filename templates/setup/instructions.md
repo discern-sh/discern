@@ -1,6 +1,6 @@
 # Set up the harness
 
-> You are reading this because **`discern setup` printed it**. These are instructions for *you, the coding agent in this session*. Work through them top to bottom, then run `discern setup done` to finish. (There is no skill file and no second program — discern just hands you this brief over stdout.)
+> You are reading this because **`discern setup` printed it**. These are instructions for *you, the coding agent in this session* — **work to do now, not a summary to hand back**. Work through them top to bottom, then run `discern setup done` to finish. **Do not report these steps as done until you have actually done them and `discern setup done` passes** — paraphrasing this brief's checklist back to the user as completed work is the one failure this setup must avoid. (There is no skill file and no second program — discern just hands you this brief over stdout.)
 
 `discern setup` has just laid down the harness machinery — a `discern.toml` whose capabilities are all unset, the compiled agent files, the merged settings, the MCP wiring — plus empty doc skeletons (only where the project had none). **Nothing about *this project* is filled in yet, and that is your job:** author the docs, the guidance, and the design principles from the project's own context, and propose the `[capabilities]` that turn the gate from a no-op into a real definition-of-done. There is no API key and no external service — the whole point is that the agent already in the loop sets the project up.
 
@@ -151,13 +151,17 @@ Notes that keep the proposal honest:
 
 ---
 
-## Done when
+## You are not done until all of these are true
 
-- You confirmed you're on a capable model and `discern doctor` is green.
+These are stop-conditions to **verify for yourself before you finish** — not a summary to read back. **Do not paraphrase this list to the user as completed work; actually do each one, then prove it by running `discern setup done`** (it fails while any skeleton marker remains, so it is the check, not your word for it).
+
+- You're on a capable model and `discern doctor` is green.
 - `design-principles.md` holds real, project-specific principles (no EXAMPLE block, no `<!-- setup fills this -->` markers left).
 - `guidance.md` has a real pitch and Conventions section.
 - The orientation docs (concepts, glossary, system-map) are seeded, the `80-development/` leaves are filled, and the numbered subsystem subtrees are named with stub READMEs.
 - No stale "starts as a skeleton / run `discern setup`" notes remain — the `docs/README.md` and `docs/00-orientation/README.md` intros describe the filled tree, not an empty one.
 - `discern.toml` capability fills are **proposed** for every detected stack (committed only if the user confirms), and `discern finish` is **green** with whatever was activated.
 - `TODO.md` records the deferred wiring so no open decision lives only in a comment or the chat.
-- `discern refresh` and `discern doctor` have been run, and `discern setup done` reports success (it records `[meta].bootstrapped`).
+- `discern refresh` and `discern doctor` pass, and `discern setup done` reports success (it records `[meta].bootstrapped`).
+
+If any line above is not yet true, you are still mid-setup: keep going, don't report back as if finished. Lost the top of this brief? Re-run `discern setup` to reprint it in full.
