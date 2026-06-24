@@ -8,12 +8,23 @@
  * reimplementation. New tools are a few lines each as their result-returning core
  * is factored out.
  *
- * Transport: the MCP stdio convention — newline-delimited JSON-RPC 2.0 on
- * stdin/stdout. stdout carries ONLY protocol messages; every verb routes its human
- * narration to stderr (json semantics), so the channel stays clean. Hand-rolled
- * (no SDK dependency) to keep discern one self-contained binary.
+ * The wire is the official MCP TypeScript SDK (`@modelcontextprotocol/sdk`) over
+ * its {@link StdioServerTransport} (ADR 0038): the SDK owns the JSON-RPC framing,
+ * the `initialize`/`ping` handshake, protocol-version negotiation, and the tool
+ * dispatch; discern owns only the tool table and the result rendering. The SDK
+ * bundles cleanly into the single `deno compile` binary under least privilege, so
+ * "one self-contained binary" still holds — the earlier hand-rolled loop traded
+ * that off needlessly.
+ *
+ * Transport: the MCP stdio convention — stdout carries ONLY protocol messages;
+ * every verb routes its human narration to stderr (json semantics), so the channel
+ * stays clean (the ADR 0030 `--json` purity rule, here over MCP).
  */
 
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import process from "process";
+import { z } from "@zod/zod";
 import { findRoot } from "../../shared/env.ts";
 import { type DiscernResult, serializeResult } from "../../shared/result.ts";
 import { loadConfig } from "../../shared/config_schema.ts";
@@ -37,24 +48,19 @@ import {
   worktreeErrorResult,
 } from "../worktree/lifecycle.ts";
 
-/** The MCP protocol revisions this server speaks; the first is the default when a
- * client doesn't pin one, and any other requested revision is echoed only if known. */
-const SUPPORTED_PROTOCOL_VERSIONS: readonly string[] = [
-  "2025-06-18",
-  "2025-03-26",
-  "2024-11-05",
-];
-const DEFAULT_PROTOCOL_VERSION = SUPPORTED_PROTOCOL_VERSIONS[0];
 const SERVER_NAME = "discern";
 const SERVER_VERSION = "1.0.0";
 
-/** A JSON-RPC tool: its advertised schema plus the handler that runs the verb. */
+/** A tool: its advertised schema plus the handler that runs the verb. The SDK
+ * converts {@link inputSchema} (a Zod raw shape, omitted when the verb takes no
+ * arguments) to the JSON Schema it advertises in `tools/list`. */
 interface McpTool {
   name: string;
   description: string;
-  inputSchema: Record<string, unknown>;
-  /** When set, the tool is listed and callable only if this feature is enabled —
-   * the MCP mirror of the CLI's per-feature verb gating. */
+  /** The verb's arguments as a Zod raw shape; absent for an argument-less verb. */
+  inputSchema?: z.ZodRawShape;
+  /** When set, the tool is registered (listed and callable) only if this feature is
+   * enabled — the MCP mirror of the CLI's per-feature verb gating. */
   feature?: Feature;
   /** Run the verb in `root` with the call's arguments → the result to render. */
   run(root: string, args: Record<string, unknown>): Promise<DiscernResult>;
@@ -70,15 +76,9 @@ const TOOLS: McpTool[] = [
       "(tool, file/line when available, message, and the exact command to reproduce " +
       "each failure). Set dry_run to preview the plan without running anything.",
     inputSchema: {
-      type: "object",
-      properties: {
-        dry_run: {
-          type: "boolean",
-          description:
-            "Preview the gate plan and touch nothing (default false).",
-        },
-      },
-      required: [],
+      dry_run: z.boolean().optional().describe(
+        "Preview the gate plan and touch nothing (default false).",
+      ),
     },
     run: (root, args) => finishResult(root, { dryRun: args.dry_run === true }),
   },
@@ -89,7 +89,6 @@ const TOOLS: McpTool[] = [
       "check-stage jobs (no build, no tests) — and return the result envelope. The " +
       "quick check to run while iterating, before the full discern_finish. NOTE: the " +
       "fixers MUTATE the working tree (e.g. a formatter rewrites files).",
-    inputSchema: { type: "object", properties: {}, required: [] },
     run: (root) => prepareResult(root),
   },
   {
@@ -98,7 +97,6 @@ const TOOLS: McpTool[] = [
       "Run the project's test capability on its own (the `test` stage, outside the " +
       "full gate) and return the result envelope. When no test command is configured " +
       "it is a trivial pass carrying a hint that says so.",
-    inputSchema: { type: "object", properties: {}, required: [] },
     run: (root) => testResult(root),
   },
   {
@@ -108,7 +106,6 @@ const TOOLS: McpTool[] = [
       "config validity, schema currency, whether the declared capability commands " +
       "resolve on PATH, and advisories. data.checks lists every check with its detail " +
       "and — on failure — the exact fix.",
-    inputSchema: { type: "object", properties: {}, required: [] },
     run: (root) => doctorResult(root),
   },
   {
@@ -116,7 +113,6 @@ const TOOLS: McpTool[] = [
     description:
       "List which project scopes the current branch and working tree changed — the " +
       "classification that decides which scope gates the quality gate fires.",
-    inputSchema: { type: "object", properties: {}, required: [] },
     run: (root) => changedScopesResult(root),
   },
   {
@@ -135,20 +131,12 @@ const TOOLS: McpTool[] = [
       "advisory next-steps (e.g. run discern_finish, ready to graduate) — never an " +
       "unverified pass/fail.",
     inputSchema: {
-      type: "object",
-      properties: {
-        all: {
-          type: "boolean",
-          description:
-            "Include the fleet survey even from a worktree (default false).",
-        },
-        local: {
-          type: "boolean",
-          description:
-            "Local view only — suppress the fleet survey even in the main checkout (default false).",
-        },
-      },
-      required: [],
+      all: z.boolean().optional().describe(
+        "Include the fleet survey even from a worktree (default false).",
+      ),
+      local: z.boolean().optional().describe(
+        "Local view only — suppress the fleet survey even in the main checkout (default false).",
+      ),
     },
     run: (root, args) =>
       statusResult(root, {
@@ -165,20 +153,12 @@ const TOOLS: McpTool[] = [
       "agent should judge against the cited material (e.g. the guidance text) and act on. " +
       "Use it to surface concrete setup improvements; pass a category to focus one area.",
     inputSchema: {
-      type: "object",
-      properties: {
-        category: {
-          type: "string",
-          description:
-            "Restrict to one area: gate, setup, guidance, docs, worktrees, ratchets, or skills.",
-        },
-        min_score: {
-          type: "number",
-          description:
-            "Mark the result failed (isError) when the overall score is below this floor.",
-        },
-      },
-      required: [],
+      category: z.string().optional().describe(
+        "Restrict to one area: gate, setup, guidance, docs, worktrees, ratchets, or skills.",
+      ),
+      min_score: z.number().optional().describe(
+        "Mark the result failed (isError) when the overall score is below this floor.",
+      ),
     },
     run: (root, args) =>
       auditResult(root, {
@@ -198,15 +178,9 @@ const TOOLS: McpTool[] = [
       "behaviour.",
     feature: "docs",
     inputSchema: {
-      type: "object",
-      properties: {
-        target: {
-          type: "string",
-          description:
-            "A specific doc to fetch (slug, section/slug, or path). Omit for the index.",
-        },
-      },
-      required: [],
+      target: z.string().optional().describe(
+        "A specific doc to fetch (slug, section/slug, or path). Omit for the index.",
+      ),
     },
     run: (root, args) =>
       docsResult(root, {
@@ -225,15 +199,9 @@ const TOOLS: McpTool[] = [
       "reach another.",
     feature: "worktrees",
     inputSchema: {
-      type: "object",
-      properties: {
-        dry_run: {
-          type: "boolean",
-          description:
-            "Preview the graduation plan and touch nothing (default false).",
-        },
-      },
-      required: [],
+      dry_run: z.boolean().optional().describe(
+        "Preview the graduation plan and touch nothing (default false).",
+      ),
     },
     run: (root, args) =>
       graduateToolResult(root, { dryRun: args.dry_run === true }),
@@ -245,7 +213,7 @@ const TOOLS: McpTool[] = [
  * (graduate narrates through its logger as it runs — silence it so the stdio
  * channel carries only protocol messages), perform the graduation, and map a
  * precondition / identity refusal to the same error envelope the CLI returns.
- * Unexpected errors propagate to {@link handleToolCall}'s catch-all.
+ * Unexpected errors propagate to {@link runTool}'s catch-all.
  */
 async function graduateToolResult(
   root: string,
@@ -266,154 +234,63 @@ async function graduateToolResult(
   }
 }
 
-/** A minimal JSON-RPC 2.0 request/notification as it arrives off the wire. */
-interface JsonRpcMessage {
-  jsonrpc?: string;
-  id?: string | number | null;
-  method?: string;
-  params?: Record<string, unknown>;
-}
-
-const ENCODER = new TextEncoder();
-
-/** Write one JSON-RPC message as a single newline-terminated line to stdout. */
-function writeMessage(msg: Record<string, unknown>): void {
-  const bytes = ENCODER.encode(`${JSON.stringify(msg)}\n`);
-  let n = 0;
-  while (n < bytes.length) {
-    n += Deno.stdout.writeSync(bytes.subarray(n));
-  }
-}
-
-/** A JSON-RPC success response for `id`. */
-function reply(id: string | number, result: unknown): void {
-  writeMessage({ jsonrpc: "2.0", id, result });
-}
-
-/** A JSON-RPC error response for `id`. */
-function replyError(id: string | number, code: number, message: string): void {
-  writeMessage({ jsonrpc: "2.0", id, error: { code, message } });
-}
-
 /** The verb slug behind a tool name (`discern_changed_scopes` → `changed-scopes`),
  * for the envelope every failure path renders. */
 function verbOf(toolName: string): string {
   return toolName.replace(/^discern_/, "").replace(/_/g, "-");
 }
 
+/** One MCP tool result: the serialized DiscernResult mirrored across the text and
+ * structured channels, with `isError` reflecting the verb's `ok`. */
+interface ToolResult {
+  content: { type: "text"; text: string }[];
+  structuredContent: Record<string, unknown>;
+  isError: boolean;
+}
+
+/** Render a DiscernResult as an MCP tool result (text + structured, isError on !ok). */
+function renderResult(result: DiscernResult): ToolResult {
+  const serialized = serializeResult(result);
+  return {
+    content: [{ type: "text", text: JSON.stringify(serialized, null, 2) }],
+    structuredContent: serialized,
+    isError: !result.ok,
+  };
+}
+
 /**
- * Handle `tools/call`: dispatch to the named tool and render its DiscernResult.
- * Every refusal is rendered as a normal (error) {@link DiscernResult}, so a client
- * reads it from the same envelope as any other failure — a disabled feature, a
- * missing project, or an unexpected throw from the verb (caught here so a single
- * tool error can never take the whole stdio server down).
+ * Run one tool call and render its DiscernResult. Every refusal is rendered as a
+ * normal (error) {@link DiscernResult} — a missing project, or an unexpected throw
+ * from the verb (caught here so a single tool error can never take the whole stdio
+ * server down). A disabled feature is handled earlier, by simply not registering
+ * its tool — so it is absent from `tools/list` and the SDK rejects a call to it.
  */
-async function handleToolCall(
-  id: string | number,
-  params: Record<string, unknown>,
+async function runTool(
+  tool: McpTool,
   root: string | undefined,
-  enabled: ReadonlySet<Feature>,
-): Promise<void> {
-  const name = typeof params.name === "string" ? params.name : "";
-  const tool = TOOLS.find((t) => t.name === name);
-  if (tool === undefined) {
-    replyError(id, -32602, `unknown tool: ${name}`);
-    return;
-  }
-  if (tool.feature !== undefined && !enabled.has(tool.feature)) {
-    renderResult(id, {
-      ok: false,
-      verb: verbOf(name),
-      error: "feature_disabled",
-      message:
-        `the "${tool.feature}" feature is disabled in this project (set [features].${tool.feature} = true in discern.toml to enable it).`,
-    });
-    return;
-  }
+  args: Record<string, unknown>,
+): Promise<ToolResult> {
   if (root === undefined) {
-    renderResult(id, {
+    return renderResult({
       ok: false,
-      verb: verbOf(name),
+      verb: verbOf(tool.name),
       error: "not_initialized",
       message:
         "not inside a discern project (no discern.toml in this directory or any parent).",
     });
-    return;
   }
-  const args = (params.arguments ?? {}) as Record<string, unknown>;
   let result: DiscernResult;
   try {
     result = await tool.run(root, args);
   } catch (e) {
     result = {
       ok: false,
-      verb: verbOf(name),
+      verb: verbOf(tool.name),
       error: "internal_error",
       message: e instanceof Error ? e.message : String(e),
     };
   }
-  renderResult(id, result);
-}
-
-/** Render a DiscernResult as an MCP tool result (text + structured, isError on !ok). */
-function renderResult(id: string | number, result: DiscernResult): void {
-  const serialized = serializeResult(result);
-  reply(id, {
-    content: [{ type: "text", text: JSON.stringify(serialized, null, 2) }],
-    structuredContent: serialized,
-    isError: !result.ok,
-  });
-}
-
-/** Dispatch one parsed message. Notifications (no id) get no response. */
-async function dispatch(
-  msg: JsonRpcMessage,
-  root: string | undefined,
-  enabled: ReadonlySet<Feature>,
-): Promise<void> {
-  const { method, id } = msg;
-  // A notification carries no id and never gets a reply.
-  if (id === undefined || id === null) {
-    return; // e.g. notifications/initialized — nothing to do
-  }
-  switch (method) {
-    case "initialize": {
-      // Echo the client's protocol version only if we actually speak it; otherwise
-      // answer with our default rather than agreeing to a revision we don't support.
-      const requested = msg.params?.protocolVersion;
-      const protocolVersion = typeof requested === "string" &&
-          SUPPORTED_PROTOCOL_VERSIONS.includes(requested)
-        ? requested
-        : DEFAULT_PROTOCOL_VERSION;
-      reply(id, {
-        protocolVersion,
-        capabilities: { tools: { listChanged: false } },
-        serverInfo: { name: SERVER_NAME, version: SERVER_VERSION },
-      });
-      return;
-    }
-    case "ping":
-      reply(id, {});
-      return;
-    case "tools/list":
-      reply(id, {
-        // List only the tools whose feature is enabled (or that gate on none) — the
-        // MCP mirror of the CLI listing exactly the active verbs in `--help`.
-        tools: TOOLS
-          .filter((t) => t.feature === undefined || enabled.has(t.feature))
-          .map((t) => ({
-            name: t.name,
-            description: t.description,
-            inputSchema: t.inputSchema,
-          })),
-      });
-      return;
-    case "tools/call":
-      await handleToolCall(id, msg.params ?? {}, root, enabled);
-      return;
-    default:
-      replyError(id, -32601, `method not found: ${method}`);
-  }
+  return renderResult(result);
 }
 
 /**
@@ -437,43 +314,51 @@ async function resolveEnabledFeatures(
 }
 
 /**
- * Run the MCP server: read newline-delimited JSON-RPC from stdin, dispatch each
- * message, and write responses to stdout until stdin closes. The project root and
- * its enabled features are resolved once at startup; tools operate on the root and
- * the feature-bound ones are gated by the enabled set.
+ * Run the MCP server over stdio via the official SDK. The project root and its
+ * enabled features are resolved once at startup; every enabled tool is registered
+ * (feature-disabled tools are omitted, the MCP mirror of the CLI listing only the
+ * active verbs), and each operates on that root. `connect` starts the transport;
+ * the server then runs until stdin closes (the transport's `onclose`), at which
+ * point this resolves and the process exits.
  */
 export async function runMcpServer(): Promise<number> {
   const root = await findRoot();
   const enabled = await resolveEnabledFeatures(root);
-  const decoder = new TextDecoder();
-  let buffer = "";
-  const handleLine = async (line: string): Promise<void> => {
-    const trimmed = line.trim();
-    if (trimmed === "") {
-      return;
+  const server = new McpServer({ name: SERVER_NAME, version: SERVER_VERSION });
+
+  for (const tool of TOOLS) {
+    if (tool.feature !== undefined && !enabled.has(tool.feature)) {
+      continue;
     }
-    let msg: JsonRpcMessage;
-    try {
-      msg = JSON.parse(trimmed) as JsonRpcMessage;
-    } catch {
-      return; // a malformed line has no id to address — drop it
-    }
-    await dispatch(msg, root, enabled);
-  };
-  for await (const chunk of Deno.stdin.readable) {
-    buffer += decoder.decode(chunk, { stream: true });
-    let nl = buffer.indexOf("\n");
-    while (nl >= 0) {
-      const line = buffer.slice(0, nl);
-      buffer = buffer.slice(nl + 1);
-      nl = buffer.indexOf("\n");
-      await handleLine(line);
+    if (tool.inputSchema !== undefined) {
+      server.registerTool(
+        tool.name,
+        { description: tool.description, inputSchema: tool.inputSchema },
+        (args: Record<string, unknown>) => runTool(tool, root, args),
+      );
+    } else {
+      // An argument-less verb registers no input schema, so the SDK skips
+      // argument validation — the call is accepted whether or not the client
+      // sends an (empty) `arguments` object. Its callback receives only the
+      // request `extra`, so there are no arguments to forward.
+      server.registerTool(
+        tool.name,
+        { description: tool.description },
+        () => runTool(tool, root, {}),
+      );
     }
   }
-  // Flush the decoder and dispatch any final message that arrived without a
-  // trailing newline (a conformant client newline-terminates, but don't hang on one
-  // that frames its last message otherwise).
-  buffer += decoder.decode();
-  await handleLine(buffer);
+
+  const transport = new StdioServerTransport();
+  // The SDK's stdio transport closes only on an explicit `close()` — it does not
+  // react to stdin EOF. Bridge that here so the server shuts down cleanly when the
+  // client closes the pipe (and `runMcpServer` returns rather than deadlocking the
+  // top-level await): on stdin `end`, close the transport, whose `onclose` resolves.
+  const closed = new Promise<void>((resolve) => {
+    transport.onclose = (): void => resolve();
+  });
+  process.stdin.once("end", () => void transport.close());
+  await server.connect(transport);
+  await closed;
   return 0;
 }

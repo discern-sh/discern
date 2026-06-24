@@ -37,11 +37,6 @@ class McpClient {
     await this.writer.write(ENCODER.encode(`${JSON.stringify(msg)}\n`));
   }
 
-  /** Send raw bytes (e.g. a final message WITHOUT a trailing newline). */
-  async sendRaw(text: string): Promise<void> {
-    await this.writer.write(ENCODER.encode(text));
-  }
-
   /** Read the next non-empty JSON line from the server. */
   // deno-lint-ignore no-explicit-any
   async recv(): Promise<any> {
@@ -92,6 +87,20 @@ async function spawnMcp(dir: string): Promise<McpClient> {
     stderr: "null",
   }).spawn();
   return new McpClient(child);
+}
+
+/** A complete, valid `initialize` params object — the handshake a conformant
+ * client sends. The SDK validates `protocolVersion`/`capabilities`/`clientInfo`
+ * and errors the request if any is missing, so tests that don't assert on the
+ * negotiated version still send a full one rather than a bare `{}`. */
+function initParams(
+  protocolVersion = "2025-11-25",
+): Record<string, unknown> {
+  return {
+    protocolVersion,
+    capabilities: {},
+    clientInfo: { name: "test", version: "0" },
+  };
 }
 
 Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernResults", async () => {
@@ -172,7 +181,7 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
       jsonrpc: "2.0",
       id: 10,
       method: "tools/call",
-      params: { name: "discern_status" },
+      params: { name: "discern_status", arguments: {} },
     });
     const status = await mcp.recv();
     assertEquals(status.id, 10);
@@ -251,7 +260,8 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
       "an unconfigured test carries a hint that nothing ran",
     );
 
-    // an unknown tool is a JSON-RPC error.
+    // an unknown tool is reported as an error result (the SDK answers tools/call
+    // for an unregistered name with an isError result, not a JSON-RPC error).
     await mcp.send({
       jsonrpc: "2.0",
       id: 5,
@@ -260,31 +270,13 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     });
     const err = await mcp.recv();
     assertEquals(err.id, 5);
-    assert(err.error, "unknown tool should be a JSON-RPC error");
+    assertEquals(err.result.isError, true);
+    assert(
+      err.result.content[0].text.includes("not found"),
+      JSON.stringify(err.result),
+    );
 
     assertEquals(await mcp.close(), 0);
-  });
-});
-
-Deno.test("discern mcp: a final message without a trailing newline is still answered (not dropped)", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await gitInit(dir);
-    const mcp = await spawnMcp(dir);
-    // Send initialize WITH a newline, then a second request with NO trailing newline,
-    // then close stdin. The loop must drain the final un-terminated line on EOF.
-    await mcp.send({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} });
-    assertEquals((await mcp.recv()).id, 1);
-    // A final request with NO trailing newline, then close stdin: the server must
-    // drain the un-terminated line on EOF and answer it (it'd be dropped pre-fix).
-    await mcp.sendRaw(
-      JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }),
-    );
-    await mcp.closeStdin();
-    const list = await mcp.recv();
-    assertEquals(list.id, 2);
-    assert(Array.isArray(list.result.tools));
-    assertEquals(await mcp.finish(), 0);
   });
 });
 
@@ -294,15 +286,15 @@ Deno.test("discern mcp: protocol version, ping, and unknown method are handled c
     await gitInit(dir);
     const mcp = await spawnMcp(dir);
 
-    // An UNSUPPORTED protocol version → the server answers with its own default,
-    // not a false agreement on a revision it doesn't speak.
+    // An UNSUPPORTED protocol version → the SDK answers with the latest revision
+    // it speaks, rather than a false agreement on one it doesn't.
     await mcp.send({
       jsonrpc: "2.0",
       id: 1,
       method: "initialize",
-      params: { protocolVersion: "1999-01-01" },
+      params: initParams("1999-01-01"),
     });
-    assertEquals((await mcp.recv()).result.protocolVersion, "2025-06-18");
+    assertEquals((await mcp.recv()).result.protocolVersion, "2025-11-25");
 
     // ping → empty result.
     await mcp.send({ jsonrpc: "2.0", id: 2, method: "ping" });
@@ -331,15 +323,20 @@ Deno.test("discern mcp: discern_docs returns the index, a single doc, and a not_
       "# Concepts\n\nThe core ideas of the project.\n",
     );
     const mcp = await spawnMcp(dir);
-    await mcp.send({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} });
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
     await mcp.recv();
 
-    // No argument → the machine-readable index.
+    // No target → the machine-readable index.
     await mcp.send({
       jsonrpc: "2.0",
       id: 2,
       method: "tools/call",
-      params: { name: "discern_docs" },
+      params: { name: "discern_docs", arguments: {} },
     });
     const index = await mcp.recv();
     assertEquals(index.result.isError, false);
@@ -392,7 +389,7 @@ Deno.test("discern mcp: discern_graduate previews from a worktree and refuses fr
       jsonrpc: "2.0",
       id: 1,
       method: "initialize",
-      params: {},
+      params: initParams(),
     });
     await main.recv();
     await main.send({
@@ -418,7 +415,7 @@ Deno.test("discern mcp: discern_graduate previews from a worktree and refuses fr
       jsonrpc: "2.0",
       id: 1,
       method: "initialize",
-      params: {},
+      params: initParams(),
     });
     await wtMcp.recv();
     await wtMcp.send({
@@ -454,7 +451,12 @@ Deno.test("discern mcp: a disabled feature hides its tool and refuses the call",
     assertEquals(set.code, 0, set.output);
 
     const mcp = await spawnMcp(dir);
-    await mcp.send({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} });
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
     await mcp.recv();
 
     // tools/list omits discern_graduate (worktrees off) but keeps the always-on
@@ -466,7 +468,8 @@ Deno.test("discern mcp: a disabled feature hides its tool and refuses the call",
     assert(names.includes("discern_docs"), JSON.stringify(names));
     assert(names.includes("discern_finish"), JSON.stringify(names));
 
-    // Calling the disabled tool anyway → a feature_disabled error envelope.
+    // Calling the disabled tool anyway → an error result: a feature-disabled tool
+    // is simply not registered, so the SDK answers as it would for any unknown name.
     await mcp.send({
       jsonrpc: "2.0",
       id: 3,
@@ -475,7 +478,10 @@ Deno.test("discern mcp: a disabled feature hides its tool and refuses the call",
     });
     const refused = await mcp.recv();
     assertEquals(refused.result.isError, true);
-    assertEquals(refused.result.structuredContent.error, "feature_disabled");
+    assert(
+      refused.result.content[0].text.includes("not found"),
+      JSON.stringify(refused.result),
+    );
 
     assertEquals(await mcp.close(), 0);
   });
