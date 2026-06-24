@@ -1,7 +1,11 @@
 /**
- * `discern docs` — browse and read the project's documentation tree.
+ * `discern docs` and `discern help` — browse and read a documentation tree.
  *
- * One command serves two audiences, decided by how it is invoked:
+ * The two verbs share every line of this file through a {@link DocsVerb}
+ * descriptor (ADR 0039); only the tree they read differs: `docs` serves the
+ * project's own `docs/` (resolved from the project root), `help` serves
+ * discern's OWN documentation, bundled into every install. Both serve two
+ * audiences, decided by how the verb is invoked:
  *
  *  - **A human at a terminal** gets an interactive, searchable picker (Cliffy's
  *    `Select`, with type-to-filter) and a rendered, paged view of whatever they
@@ -39,10 +43,79 @@ import {
   groupDocs,
   resolveDoc,
 } from "../lib/docs.ts";
+import { resolveBundledDocsDir } from "../lib/paths.ts";
 import type { DiscernResult } from "../shared/result.ts";
 
 /** Supported concatenated Markdown export scopes. */
 type DocsExportScope = "public" | "all" | "select";
+
+/**
+ * How `discern docs` (the project's own `docs/` tree) and `discern help`
+ * (discern's OWN bundled documentation) differ. Everything else — the
+ * interactive browser, the renderer, target resolution, `--list`, `--json`, and
+ * export — operates on a resolved {@link DocsTree} + {@link DocsOptions} and is
+ * shared verbatim (ADR 0039). Only three things vary: which directory is read,
+ * the verb label carried in results/messages, and the wording when the tree is
+ * missing.
+ */
+interface DocsVerb {
+  /** The label in every {@link DiscernResult} and user-facing message. */
+  verb: "docs" | "help";
+  /** Machine-stable error slug when the tree is absent (`no_docs` / `no_help`). */
+  missingError: string;
+  /**
+   * Resolve the directory to hand {@link discoverDocs}. `docs` passes a user
+   * `--dir` through (and `undefined` keeps discovery's project-root default);
+   * `help` resolves discern's bundled tree and reports `missing` when a binary
+   * was built without it (it must NEVER fall back to a project's `docs/`).
+   */
+  resolveDir(opts: { dir?: string | undefined }): Promise<DirResolution>;
+  /** The human message when no tree is found (verb-specific wording). */
+  missingTree(opts: { dir?: string | undefined }): string;
+  /** Export scopes this verb accepts (`help` is public-only — no internal tree). */
+  exportScopes: readonly DocsExportScope[];
+}
+
+/**
+ * The outcome of a verb's directory resolution. `ok` with an `undefined` dir is
+ * meaningful for `docs` (discovery falls back to `<project root>/docs`); `missing`
+ * means the tree cannot be located at all and the shared core must not probe a
+ * project root in its place.
+ */
+type DirResolution =
+  | { kind: "ok"; dir: string | undefined }
+  | { kind: "missing" };
+
+/** `discern docs` — the install's own project documentation tree. */
+const DOCS_VERB: DocsVerb = {
+  verb: "docs",
+  missingError: "no_docs",
+  resolveDir: (opts) => Promise.resolve({ kind: "ok", dir: opts.dir }),
+  missingTree: (opts) =>
+    opts.dir
+      ? `no documentation directory at "${opts.dir}".`
+      : "no docs/ directory here — run `discern setup` to seed one, or pass --dir <path>.",
+  exportScopes: ["public", "all", "select"],
+};
+
+/** `discern help` — discern's OWN documentation, bundled into every install. */
+const HELP_VERB: DocsVerb = {
+  verb: "help",
+  missingError: "no_help",
+  resolveDir: async () => {
+    const dir = await resolveBundledDocsDir();
+    return dir ? { kind: "ok", dir } : { kind: "missing" };
+  },
+  missingTree: () =>
+    "discern's bundled documentation is missing from this binary — this is a build defect; please report it.",
+  exportScopes: ["public"],
+};
+
+/** Render an allowed-scope list for an error message ("public, all, or select"). */
+function listScopes(scopes: readonly DocsExportScope[]): string {
+  if (scopes.length <= 1) return scopes.join("");
+  return `${scopes.slice(0, -1).join(", ")}, or ${scopes.at(-1) ?? ""}`;
+}
 
 /** Options accepted by the `docs` command (global flags folded in). */
 export interface DocsOptions {
@@ -101,19 +174,22 @@ async function canonicalOutputPath(path: string): Promise<string> {
   }
 }
 
-/** Parse an export scope without silently accepting a typo. */
-function exportScope(value: string): DocsExportScope | undefined {
-  return value === "public" || value === "all" || value === "select"
-    ? value
+/** Parse an export scope against the verb's allowed set (no silent typos). */
+function exportScope(
+  value: string,
+  allowed: readonly DocsExportScope[],
+): DocsExportScope | undefined {
+  return (allowed as readonly string[]).includes(value)
+    ? value as DocsExportScope
     : undefined;
 }
 
 /** Report a command-usage failure in the active human/JSON presentation mode. */
-function invalidOptions(log: Logger, message: string): number {
+function invalidOptions(log: Logger, verb: string, message: string): number {
   if (log.json) {
     log.result({
       ok: false,
-      verb: "docs",
+      verb,
       error: "invalid_options",
       message,
     });
@@ -230,7 +306,12 @@ async function browse(tree: DocsTree, options: DocsOptions): Promise<number> {
 }
 
 /** Print a grouped, plain table of contents to stdout. */
-function printToc(tree: DocsTree, cwd: string, color: boolean): void {
+function printToc(
+  verb: string,
+  tree: DocsTree,
+  cwd: string,
+  color: boolean,
+): void {
   const paint = (fn: (s: string) => string, s: string) => color ? fn(s) : s;
   const labelOf = (e: DocEntry) =>
     e.section ? e.relToDocs.slice(e.section.length + 1) : e.relToDocs;
@@ -240,7 +321,7 @@ function printToc(tree: DocsTree, cwd: string, color: boolean): void {
   );
 
   const lines: string[] = [
-    `${paint(colors.bold, "discern docs")} — ${tree.entries.length} ` +
+    `${paint(colors.bold, `discern ${verb}`)} — ${tree.entries.length} ` +
     `documents in ${display(tree.docsDir, cwd)}`,
   ];
   let section: string | null = null;
@@ -261,37 +342,41 @@ function printToc(tree: DocsTree, cwd: string, color: boolean): void {
  * point of view: every source is read before stdout or the output file changes.
  */
 async function exportDocs(
+  desc: DocsVerb,
   options: DocsOptions,
   scope: DocsExportScope,
   log: Logger,
   cwd: string,
 ): Promise<number> {
-  const tree = await discoverDocs({
+  const resolved = await desc.resolveDir(options);
+  const tree = resolved.kind === "missing" ? undefined : await discoverDocs({
     cwd,
-    dir: options.dir,
+    dir: resolved.dir,
     includeInternal: scope !== "public",
   });
   if (!tree) {
-    log.error(
-      options.dir
-        ? `no documentation directory at "${options.dir}".`
-        : "no docs/ directory here — run `discern setup` to seed one, or pass --dir <path>.",
-    );
+    log.error(desc.missingTree(options));
     return 1;
   }
 
   let outputPath: string | undefined;
   if (options.output) {
     outputPath = resolve(cwd, options.output);
-    const docsDir = await Deno.realPath(tree.docsDir);
-    const canonicalOutput = await canonicalOutputPath(outputPath);
-    if (pathIsWithin(docsDir, canonicalOutput)) {
-      log.error(
-        `refusing to write an export inside ${
-          display(tree.docsDir, cwd)
-        }; choose a path outside the source documentation tree.`,
-      );
-      return 1;
+    // The within-tree guard protects a project's editable docs/ from being
+    // clobbered by its own export. `help`'s tree is discern's read-only bundled
+    // documentation (a binary's embedded copy), so there is nothing to protect —
+    // and probing it with realPath would be meaningless.
+    if (desc.verb === "docs") {
+      const docsDir = await Deno.realPath(tree.docsDir);
+      const canonicalOutput = await canonicalOutputPath(outputPath);
+      if (pathIsWithin(docsDir, canonicalOutput)) {
+        log.error(
+          `refusing to write an export inside ${
+            display(tree.docsDir, cwd)
+          }; choose a path outside the source documentation tree.`,
+        );
+        return 1;
+      }
     }
   }
 
@@ -358,32 +443,35 @@ async function exportDocs(
 }
 
 /**
- * Compute the `docs` {@link DiscernResult} — the machine-readable index, or a
+ * Compute a docs/help {@link DiscernResult} — the machine-readable index, or a
  * single doc's record + content when `target` is given. The ONE source the CLI's
  * `--json` paths and the MCP server both render; the human, raw, and interactive
- * renderings live in {@link runDocs} / {@link viewTarget}. Mirrors the human
+ * renderings live in {@link runTree} / {@link viewTarget}. Mirrors the human
  * resolution exactly: no tree, empty tree, target not-found / ambiguous / found,
- * or the full index.
+ * or the full index. The `desc` selects the project tree (`docs`) or discern's
+ * bundled tree (`help`); the shape is otherwise identical.
  */
-export async function docsResult(
+async function treeResult(
+  desc: DocsVerb,
   cwd: string,
   opts: { target?: string | undefined; dir?: string | undefined } = {},
 ): Promise<DiscernResult> {
-  const tree = await discoverDocs({ cwd, dir: opts.dir });
+  const resolved = await desc.resolveDir(opts);
+  const tree = resolved.kind === "missing"
+    ? undefined
+    : await discoverDocs({ cwd, dir: resolved.dir });
   if (!tree) {
     return {
       ok: false,
-      verb: "docs",
-      error: "no_docs",
-      message: opts.dir
-        ? `no documentation directory at "${opts.dir}".`
-        : "no docs/ directory here — run `discern setup` to seed one, or pass --dir <path>.",
+      verb: desc.verb,
+      error: desc.missingError,
+      message: desc.missingTree(opts),
     };
   }
   if (tree.entries.length === 0) {
     return {
       ok: true,
-      verb: "docs",
+      verb: desc.verb,
       data: { docs_dir: display(tree.docsDir, cwd), count: 0, docs: [] },
     };
   }
@@ -394,7 +482,7 @@ export async function docsResult(
     if (res.kind === "none") {
       return {
         ok: false,
-        verb: "docs",
+        verb: desc.verb,
         error: "not_found",
         message: `no doc matches "${opts.target}".`,
       };
@@ -402,7 +490,7 @@ export async function docsResult(
     if (res.kind === "ambiguous") {
       return {
         ok: false,
-        verb: "docs",
+        verb: desc.verb,
         error: "ambiguous",
         message: `"${opts.target}" matches ${res.entries.length} docs.`,
         data: { candidates: res.entries.map((e) => e.path) },
@@ -411,7 +499,7 @@ export async function docsResult(
     const content = await Deno.readTextFile(res.entry.absPath);
     return {
       ok: true,
-      verb: "docs",
+      verb: desc.verb,
       data: { doc: { ...toRecord(res.entry), content } },
     };
   }
@@ -419,7 +507,7 @@ export async function docsResult(
   // No target → the index.
   return {
     ok: true,
-    verb: "docs",
+    verb: desc.verb,
     data: {
       docs_dir: display(tree.docsDir, cwd),
       count: tree.entries.length,
@@ -428,9 +516,33 @@ export async function docsResult(
   };
 }
 
+/**
+ * The `docs` result core — {@link treeResult} over the project's own `docs/`
+ * tree. Backs the CLI's `--json` path and the MCP `discern_docs` tool.
+ */
+export function docsResult(
+  cwd: string,
+  opts: { target?: string | undefined; dir?: string | undefined } = {},
+): Promise<DiscernResult> {
+  return treeResult(DOCS_VERB, cwd, opts);
+}
+
+/**
+ * The `help` result core — {@link treeResult} over discern's OWN bundled docs.
+ * The single shape a future `discern_help` MCP tool and the CLI's `--json` path
+ * both render, mirroring {@link docsResult}. (No `--dir`: the doc set is fixed.)
+ */
+export function helpResult(
+  cwd: string,
+  opts: { target?: string | undefined } = {},
+): Promise<DiscernResult> {
+  return treeResult(HELP_VERB, cwd, opts);
+}
+
 /** Resolve a `--target`, then render or raw-dump that single doc (human path;
- * `--json` goes through {@link docsResult}). */
+ * `--json` goes through {@link treeResult}). */
 async function viewTarget(
+  verb: string,
   tree: DocsTree,
   options: DocsOptions,
   log: Logger,
@@ -441,7 +553,7 @@ async function viewTarget(
 
   if (res.kind === "none") {
     log.error(`no doc matches "${target}".`);
-    log.detail("list what's available: discern docs --list");
+    log.detail(`list what's available: discern ${verb} --list`);
     return 1;
   }
 
@@ -468,21 +580,29 @@ async function viewTarget(
   return 0;
 }
 
-/** Run `discern docs`. Returns a process exit code. */
-export async function runDocs(options: DocsOptions): Promise<number> {
+/**
+ * Run a docs/help browse. Returns a process exit code. The `desc` selects the
+ * tree (`docs` → the project's `docs/`; `help` → discern's bundled docs); the
+ * argument dispatch, export pipeline, `--json` surface, interactive browser, and
+ * pager are shared verbatim.
+ */
+async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
   const log = new Logger(options);
   const cwd = Deno.cwd();
 
   if (options.output && !options.export) {
-    return invalidOptions(log, "--output requires --export.");
+    return invalidOptions(log, desc.verb, "--output requires --export.");
   }
 
   if (options.export) {
-    const scope = exportScope(options.export);
+    const scope = exportScope(options.export, desc.exportScopes);
     if (!scope) {
       return invalidOptions(
         log,
-        `unknown export scope "${options.export}"; expected public, all, or select.`,
+        desc.verb,
+        `unknown export scope "${options.export}"; expected ${
+          listScopes(desc.exportScopes)
+        }.`,
       );
     }
 
@@ -497,30 +617,36 @@ export async function runDocs(options: DocsOptions): Promise<number> {
     if (conflicts.length > 0) {
       return invalidOptions(
         log,
+        desc.verb,
         `--export cannot be combined with ${conflicts.join(", ")}.`,
       );
     }
 
     if (scope === "select") {
       if (!options.output) {
-        return invalidOptions(log, "--export select requires --output <path>.");
+        return invalidOptions(
+          log,
+          desc.verb,
+          "--export select requires --output <path>.",
+        );
       }
       if (!Deno.stdin.isTerminal() || !Deno.stdout.isTerminal()) {
         return invalidOptions(
           log,
+          desc.verb,
           "--export select requires an interactive terminal.",
         );
       }
     }
 
-    return await exportDocs(options, scope, log, cwd);
+    return await exportDocs(desc, options, scope, log, cwd);
   }
 
-  // `--json`: the entire machine-readable surface (index, single doc, or error) is
-  // {@link docsResult} — the one shape the MCP server also renders. The human, raw,
-  // and interactive renderings below never run under `--json`.
+  // `--json`: the entire machine-readable surface (index, single doc, or error)
+  // is {@link treeResult} — the one shape the MCP server also renders. The human,
+  // raw, and interactive renderings below never run under `--json`.
   if (options.json) {
-    const result = await docsResult(cwd, {
+    const result = await treeResult(desc, cwd, {
       target: options.target,
       dir: options.dir,
     });
@@ -528,13 +654,12 @@ export async function runDocs(options: DocsOptions): Promise<number> {
     return result.ok ? 0 : 1;
   }
 
-  const tree = await discoverDocs({ cwd, dir: options.dir });
+  const resolved = await desc.resolveDir(options);
+  const tree = resolved.kind === "missing"
+    ? undefined
+    : await discoverDocs({ cwd, dir: resolved.dir });
   if (!tree) {
-    log.error(
-      options.dir
-        ? `no documentation directory at "${options.dir}".`
-        : "no docs/ directory here — run `discern setup` to seed one, or pass --dir <path>.",
-    );
+    log.error(desc.missingTree(options));
     return 1;
   }
   if (tree.entries.length === 0) {
@@ -544,7 +669,7 @@ export async function runDocs(options: DocsOptions): Promise<number> {
 
   // 1. A specific doc was named → render / raw-dump just that one.
   if (options.target !== undefined && options.target !== "") {
-    return await viewTarget(tree, options, log, cwd, options.target);
+    return await viewTarget(desc.verb, tree, options, log, cwd, options.target);
   }
 
   // 2. A real terminal and no `--list` → the interactive browser.
@@ -555,6 +680,16 @@ export async function runDocs(options: DocsOptions): Promise<number> {
   }
 
   // 3. Otherwise (piped, redirected, or `--list`) → a plain table of contents.
-  printToc(tree, cwd, colourEnabled(options.noColor));
+  printToc(desc.verb, tree, cwd, colourEnabled(options.noColor));
   return 0;
+}
+
+/** Run `discern docs` — browse the project's own documentation tree. */
+export function runDocs(options: DocsOptions): Promise<number> {
+  return runTree(DOCS_VERB, options);
+}
+
+/** Run `discern help` — browse discern's OWN bundled documentation. */
+export function runHelp(options: DocsOptions): Promise<number> {
+  return runTree(HELP_VERB, options);
 }

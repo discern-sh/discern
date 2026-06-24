@@ -27,7 +27,7 @@ import { runUpgrade } from "./commands/upgrade.ts";
 import { runDoctor } from "./commands/doctor.ts";
 import { runMigrate } from "./commands/migrate.ts";
 import { runAddPreset } from "./commands/add_preset.ts";
-import { runDocs } from "./commands/docs.ts";
+import { runDocs, runHelp } from "./commands/docs.ts";
 import {
   runConfigSet,
   runConfigSetCapability,
@@ -84,9 +84,10 @@ type RootCommand = ReturnType<typeof rootShape>;
 
 /** Build the root command with its global flags and subcommands. Subsystem verbs
  * (worktree, ratchets, refresh, skills, docs) are attached only when their
- * feature is enabled, so `--help` lists exactly the active verbs. `setup` is hidden
- * from help once the project records `[meta].bootstrapped` (it stays callable with
- * `--force`). */
+ * feature is enabled, so `--help` lists exactly the active verbs. `help` (browse
+ * discern's own bundled docs) is attached UNCONDITIONALLY — it is discern's own
+ * help, not a project feature. `setup` is hidden from help once the project records
+ * `[meta].bootstrapped` (it stays callable with `--force`). */
 function buildCli(
   enabled: ReadonlySet<Feature>,
   hideSetup: boolean,
@@ -307,6 +308,50 @@ function buildCli(
         Deno.exit(code);
       });
   }
+
+  // `help` — browse discern's OWN bundled documentation (the config reference,
+  // concepts, the gate/worktree/ratchet docs). Registered UNCONDITIONALLY: it is
+  // discern's own help, available in every install regardless of which features
+  // the project enabled — unlike `docs`, which serves the project's tree and is
+  // gated on the `docs` feature. The doc set is fixed and bundled, so there is no
+  // `--dir`; `--help`/`-h` (Cliffy usage) is a separate surface and coexists with
+  // it. Mirrors `docs`'s read flags (target, --list/--raw/--json/--no-pager/--width)
+  // plus a public-only `--export`.
+  root
+    .command("help [target:string]")
+    .description("Browse and read discern's own documentation.")
+    .option(
+      "--raw",
+      "Print a doc's pristine Markdown source instead of rendering it.",
+    )
+    .option(
+      "--list",
+      "Print a plain table of contents and exit (never interactive).",
+    )
+    .option("--no-pager", "Don't page rendered output through $PAGER.")
+    .option("--width <cols:number>", "Wrap width for rendered output.")
+    .option(
+      "--export <scope:string>",
+      "Concatenate Markdown to stdout: public.",
+    )
+    .option(
+      "--output <path:string>",
+      "Write an export to a file instead of stdout.",
+    )
+    .action(async (options, target?: string) => {
+      const code = await runHelp({
+        json: options.json ?? false,
+        noColor: noColorFrom(options.color),
+        raw: options.raw ?? false,
+        list: options.list ?? false,
+        noPager: options.pager === false,
+        width: options.width,
+        target,
+        export: options.export,
+        output: options.output,
+      });
+      Deno.exit(code);
+    });
 
   // `config` — programmatic, comment-preserving edits to an existing
   // discern.toml. Each subcommand is a standalone Command instance attached via
@@ -587,6 +632,7 @@ const KNOWN_VERBS: ReadonlySet<string> = new Set<string>([
   "migrate",
   "add-preset",
   "docs",
+  "help",
   "config",
   ...KNOWN_ENGINE_VERBS,
 ]);
