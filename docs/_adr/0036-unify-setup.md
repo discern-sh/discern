@@ -65,11 +65,15 @@ zero-configuration.**
   point at `discern setup` (exit non-zero; a structured `not_set_up` result
   under `--json`). This **amends ADR 0024's "nudge, not gate"** for these verbs:
   an empty gate pre-setup reports a false "all-green," which is worse than a
-  clear redirect. `docs`, `status`, `doctor`, `config`, the plumbing the hooks
-  call, and `setup` itself stay open, and a parse-broken config still surfaces
-  its own TOML error rather than the redirect (the `configOk` guard) — so the
-  spirit of 0024 (never wall the debugging or read-only paths) is preserved
-  where it matters.
+  clear redirect. `help` (discern's own documentation), `status`, `doctor`,
+  `config`, the plumbing the hooks call, and `setup` itself stay open, and a
+  parse-broken config still surfaces its own TOML error rather than the redirect
+  (the `configOk` guard) — so the spirit of 0024 (never wall the debugging or
+  read-only paths) is preserved where it matters. (`docs` was originally exempt
+  too, but it browses the project's _own_ tree, which is empty until setup fills
+  it; it later joined the gated set, with `help` as the pre-setup documentation
+  surface — [ADR 0039](0039-bundled-help-docs.md). The gated set lives once in
+  `shared/setup_state.ts`, shared by the CLI router and the MCP server.)
 - **`init` and `bootstrap` redirect to `setup`.** The retired names (and
   `bootstrap done` → `setup done`) still work, printing a one-line "now
   `discern

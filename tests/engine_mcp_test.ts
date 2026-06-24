@@ -462,6 +462,50 @@ Deno.test("discern mcp: discern_help returns discern's OWN docs, not the project
   });
 });
 
+Deno.test("discern mcp: pre-setup gates docs and the gate verbs, but not help", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { bootstrapped: false }); // un-set-up
+    await gitInit(dir);
+    const mcp = await spawnMcp(dir);
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await mcp.recv();
+
+    // A bootstrap-gated tool refuses with the structured not_set_up envelope.
+    for (
+      const [id, name] of [[2, "discern_docs"], [3, "discern_finish"]] as const
+    ) {
+      await mcp.send({
+        jsonrpc: "2.0",
+        id,
+        method: "tools/call",
+        params: { name, arguments: {} },
+      });
+      const refused = await mcp.recv();
+      assertEquals(refused.result.isError, true, name);
+      assertEquals(refused.result.structuredContent.error, "not_set_up", name);
+    }
+
+    // `discern_help` stays open pre-setup — discern's own docs are what you need now.
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 4,
+      method: "tools/call",
+      params: { name: "discern_help", arguments: {} },
+    });
+    const help = await mcp.recv();
+    assertEquals(help.result.isError, false);
+    assertEquals(help.result.structuredContent.verb, "help");
+    assert(help.result.structuredContent.data.count > 0);
+
+    assertEquals(await mcp.close(), 0);
+  });
+});
+
 Deno.test("discern mcp: discern_graduate previews from a worktree and refuses from the main checkout", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

@@ -32,7 +32,8 @@ Two commands read a documentation tree, and they read **different** ones:
   the project root). Inside the discern repo it surfaces this very tree —
   because here the project's docs _are_ discern's docs — but in any other
   install it reads that project's documentation. It is gated on the `docs`
-  feature and takes a `--dir` override.
+  feature, takes a `--dir` override, and (unlike `help`) is refused before
+  setup, since the project's tree is empty until setup seeds and fills it.
 
 Both share one implementation and the same surfaces: an interactive picker on a
 TTY, and `--list` / `--json` / `--raw` / `--export` off one.

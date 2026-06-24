@@ -17,6 +17,10 @@ import {
 } from "./shared/config_schema.ts";
 import { findRoot } from "./shared/env.ts";
 import {
+  NOT_SET_UP_MESSAGE,
+  verbNeedsBootstrap,
+} from "./shared/setup_state.ts";
+import {
   enabledFeatures,
   type Feature,
   featureForVerb,
@@ -605,21 +609,6 @@ async function isGitWorkTree(dir: string): Promise<boolean> {
   }
 }
 
-/** Work verbs that hard-redirect to setup until the project records
- * `[meta].bootstrapped` (ADR 0036): running an empty gate pre-setup would report a
- * false "all-green", so these refuse and point at `discern` / `discern setup`.
- * Deliberately EXCLUDES `docs` (knowledge is useful before setup), `status` /
- * `doctor` (you orient and debug a broken install with them), the plumbing hooks
- * and scripts call (`worktree`, `worktree-name`, `changed-scopes`, `refresh`,
- * `skills`, `config`), and the setup verb itself. */
-const REDIRECT_VERBS: ReadonlySet<string> = new Set<string>([
-  "finish",
-  "prepare",
-  "test",
-  "ratchets",
-  "graduate",
-]);
-
 /**
  * Installer verbs Cliffy owns; combined with the engine verbs to decide which
  * unknown first tokens fall through to a project recipe. (`init`/`bootstrap` are
@@ -714,22 +703,25 @@ export async function main(args: string[]): Promise<void> {
     }
 
     // Pre-setup hard redirect (ADR 0036): until the project records
-    // `[meta].bootstrapped`, the work verbs refuse and point at setup — running an
-    // empty gate would report a false "all-green". A clean funnel, not a generic
-    // block: docs/status/doctor/config and the setup/plumbing verbs stay open, and
-    // a parse-broken config still surfaces its own TOML error (the configOk guard).
+    // `[meta].bootstrapped`, the bootstrap-gated verbs refuse and point at setup —
+    // running an empty gate would report a false "all-green", and `docs` would
+    // browse an empty tree. A clean funnel, not a generic block: `help` (discern's
+    // own docs), status/doctor/config and the setup/plumbing verbs stay open, and a
+    // parse-broken config still surfaces its own TOML error (the configOk guard).
     // It fires in --json too, as a structured `not_set_up` result, so an agent
     // consuming JSON learns to set up rather than misreading an empty pass.
     if (
-      inProject && configOk && !bootstrapped && REDIRECT_VERBS.has(verb)
+      inProject && configOk && !bootstrapped && verbNeedsBootstrap(verb)
     ) {
-      const message =
-        "this project isn't set up yet. Run `discern` (or `discern setup`) to set it " +
-        "up — your coding agent does it for you.";
       if (argv.includes("--json")) {
-        emitResult({ ok: false, verb, error: "not_set_up", message });
+        emitResult({
+          ok: false,
+          verb,
+          error: "not_set_up",
+          message: NOT_SET_UP_MESSAGE,
+        });
       } else {
-        console.error(`discern: ${message}`);
+        console.error(`discern: ${NOT_SET_UP_MESSAGE}`);
       }
       Deno.exit(1);
     }

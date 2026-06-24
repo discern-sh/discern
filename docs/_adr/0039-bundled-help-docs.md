@@ -71,6 +71,18 @@ serving **discern's own bundled documentation**, available in every install.
   `discern help
   [topic]` (the docs surface) coexist.
 
+- **`help` is the pre-setup documentation surface; `docs` is gated.** The
+  pre-setup redirect (ADR 0036) originally exempted `docs`. With `help` now
+  serving discern's own documentation, that exemption moves: `docs` joins the
+  gated set — its tree is the project's own, empty until setup fills it, so
+  browsing it pre-setup shows nothing useful — while `help` stays open, because
+  consulting discern's docs (the config reference, the concepts) is exactly what
+  an agent does _while_ setting a project up. The gated-verb set lives once in
+  `shared/setup_state.ts` and is applied identically by the CLI router and the
+  MCP server, so the two surfaces never disagree on what is reachable pre-setup.
+  The matching MCP tool `discern_help` mirrors `discern_docs` and is likewise
+  ungated.
+
 - **ADRs are out of scope for v1.** The public subtrees (`00-orientation` …
   `80-development`, including `10-installer/config-reference.md`) are what
   ships. The `_adr/` history is useful but verbose; it can be added later behind

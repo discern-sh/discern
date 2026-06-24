@@ -135,6 +135,25 @@ Deno.test("the redirect fires on work verbs but not on plumbing verbs", async ()
   });
 });
 
+Deno.test("docs is gated pre-setup but help is not", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { bootstrapped: false }); // un-set-up
+
+    // `docs` now redirects: there is no project doc tree to browse until setup
+    // seeds and fills it.
+    const docs = await runAgent(dir, ["docs", "--json"]);
+    assertEquals(docs.code, 1, docs.output);
+    assertEquals(JSON.parse(docs.stdout).error, "not_set_up");
+
+    // `help` (discern's own documentation) stays open — it is exactly what you
+    // consult at this point. It serves discern's bundled docs, not the project's.
+    const help = await runAgent(dir, ["help", "--list"]);
+    assertEquals(help.code, 0, help.output);
+    assert(!help.stderr.includes("isn't set up yet"));
+    assertStringIncludes(help.stdout, "discern help");
+  });
+});
+
 Deno.test("the pre-setup redirect is a structured not_set_up result under --json", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
