@@ -29,6 +29,26 @@ Deno.test("the registry is total: every known agent has a complete provider", ()
   assertEquals(Object.keys(PROVIDERS).length, AGENT_NAMES.length);
 });
 
+Deno.test("every agent renders a distinct `<label> (<file>)` choice — the init prompt's display", () => {
+  // The `init` agent-files Checkbox derives each option's display from the
+  // registry: `${label} (${guidanceFile.path})`. The label and path must be
+  // 1:1 with the agent, or two agents render identically and one is silently
+  // mislabelled (the "two Codexs" bug, when a hardcoded fallback labelled both
+  // codex and gemini "Codex (AGENTS.md)").
+  const display = (name: typeof AGENT_NAMES[number]) =>
+    `${PROVIDERS[name].label} (${PROVIDERS[name].guidanceFile.path})`;
+  assertEquals(display("claude_code"), "Claude Code (CLAUDE.md)");
+  assertEquals(display("codex"), "Codex (AGENTS.md)");
+  assertEquals(display("gemini"), "Gemini (GEMINI.md)");
+  // No two agents share a rendered choice.
+  const rendered = AGENT_NAMES.map(display);
+  assertEquals(
+    new Set(rendered).size,
+    AGENT_NAMES.length,
+    rendered.join(" | "),
+  );
+});
+
 Deno.test("the guidance-file mapping is the documented one (AGENTS.md the one canonical file)", () => {
   // Claude Code's mirror points at the canonical file rather than duplicating it,
   // so its guidanceFile carries a `pointer` that emits an `@<path>` import — and it

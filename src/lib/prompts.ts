@@ -17,6 +17,7 @@ import {
   SLUG_RULE,
   slugify,
 } from "./config.ts";
+import { PROVIDERS } from "./providers.ts";
 import type { Logger } from "./log.ts";
 
 /** Raw flag values passed to `init` (all optional; undefined → ask/default). */
@@ -146,9 +147,7 @@ export async function resolveInitConfig(
     agents = await Checkbox.prompt({
       message: "Which agent instruction files should be emitted?",
       options: KNOWN_AGENTS.map((a) => ({
-        name: a === "claude_code"
-          ? "Claude Code (CLAUDE.md)"
-          : "Codex (AGENTS.md)",
+        name: `${PROVIDERS[a].label} (${PROVIDERS[a].guidanceFile.path})`,
         value: a,
       })),
       default: [...DEFAULTS.agents],
