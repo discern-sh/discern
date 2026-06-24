@@ -116,6 +116,16 @@ export async function resolveBundledSkillsDir(): Promise<string> {
 }
 
 /**
+ * The repo-root staging directory `scripts/build.ts` lays the PUBLIC docs into
+ * before `--include`-ing it (so customer binaries embed the public tree only,
+ * never `_maintainer`/`_internal`). The single source of truth for the name,
+ * shared by the build (which writes it) and {@link resolveBundledDocsDir} (which
+ * reads it). It nests an inner `docs/` so the resolved tree's basename is `docs`
+ * and indexed paths read `docs/…`, identical to a checkout.
+ */
+export const BUNDLED_DOCS_STAGE_DIR = ".discern-help-docs";
+
+/**
  * The bundled setup directory inside the resolved `templates/` tree. Holds
  * `instructions.md` (the agent-facing setup brief `discern setup` prints) and
  * `skel/` (the doc-tree skeletons it lays when a project has none). Setup is a CLI
@@ -165,4 +175,53 @@ export async function resolveTemplatesDir(): Promise<string> {
   throw new Error(
     "could not locate the templates/ tree. Set DISCERN_TEMPLATES_DIR to its path.",
   );
+}
+
+/**
+ * Resolve the absolute path to discern's OWN bundled documentation — the tree
+ * `discern help` serves, distinct from a project's `docs/` (which `discern docs`
+ * resolves via the project root). Like {@link resolveTemplatesDir} it is
+ * discovered module-relative, so it works both under `deno run` from this
+ * checkout and inside a `deno compile` binary built with the staged docs
+ * `--include`d.
+ *
+ * Resolution order:
+ *   1. `DISCERN_DOCS_DIR` env override (tests point this at a fixture).
+ *   2. the build-staged PUBLIC docs embedded in a compiled binary, found by
+ *      walking up to a `<dir>/<BUNDLED_DOCS_STAGE_DIR>/docs` (the inner `docs`
+ *      gives the tree a `docs/…` path shape identical to a checkout).
+ *   3. this repo's own `docs/` when running from a checkout. Its internal
+ *      `_`-prefixed subtrees are filtered out by the VIEW (`includeInternal:
+ *      false`), not the embed — only the staged path is curated at build time.
+ *
+ * Returns `undefined` only when no tree can be located (a build defect in a
+ * binary; never in a checkout) — the caller turns that into a clear message
+ * rather than serving a project's docs by mistake.
+ */
+export async function resolveBundledDocsDir(): Promise<string | undefined> {
+  const override = Deno.env.get("DISCERN_DOCS_DIR");
+  if (override) {
+    return (await isDir(override)) ? override : undefined;
+  }
+
+  // Walk up from this module's directory, preferring the staged public tree (a
+  // compiled binary) and falling back to the repo's `docs/` (a checkout).
+  let dir = dirname(fromFileUrl(import.meta.url));
+  for (let depth = 0; depth < 8; depth++) {
+    const staged = join(dir, BUNDLED_DOCS_STAGE_DIR, "docs");
+    if (await isDir(staged)) {
+      return staged;
+    }
+    const checkout = join(dir, "docs");
+    if (await isDir(checkout)) {
+      return checkout;
+    }
+    const parent = dirname(dir);
+    if (parent === dir) {
+      break;
+    }
+    dir = parent;
+  }
+
+  return undefined;
 }
