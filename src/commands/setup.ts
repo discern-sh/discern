@@ -455,6 +455,13 @@ export async function runSetup(opts: SetupOptions): Promise<number> {
       verb: "setup",
       hints: scaffold?.hints ?? [],
       data: {
+        // The scaffold succeeded, but SETUP is not done — the agent must now act
+        // on `instructions`. Carry that explicitly so a JSON-consuming agent can't
+        // read `ok: true` / exit 0 as "task complete" (the failure this guards).
+        complete: false,
+        bootstrapped: false,
+        next_action:
+          "Work through `data.instructions`, then run `discern setup done` to finish.",
         project: {
           slug: cfg?.project.slug ?? scaffold?.config.slug ?? "",
           agents: cfg?.guidance.agents ?? [],
@@ -471,16 +478,31 @@ export async function runSetup(opts: SetupOptions): Promise<number> {
     return 0;
   }
 
-  // Human/agent: a short scaffold + skeleton preamble (on stdout, the channel the
-  // agent reads), then the instructions verbatim so it reads them straight off.
+  // Human/agent: everything on stdout (the channel the agent reads) so the frame
+  // can't land on a stream it ignores. A loud handoff banner leads — the scaffold
+  // succeeding is NOT the task succeeding, and exit 0 + a green check read as
+  // "done" is exactly the failure this guards. Then the scaffold facts, the brief
+  // verbatim, and a tail-survivable footer that survives context truncation: even
+  // if the top is chopped, the last lines still say "not done", how to reprint the
+  // brief, and how to finish.
+  const heavyRule = "═".repeat(72);
+  const thinRule = "─".repeat(72);
+  console.log(heavyRule);
+  console.log("  SETUP STARTED — NOT FINISHED.");
+  console.log(
+    "  The steps below are a task for you, the agent, to perform now — not a",
+  );
+  console.log("  result to summarise back to the user as already done.");
+  console.log(heavyRule);
+  console.log("");
   if (scaffold) {
-    log.ok(`Scaffolded ${scaffold.written.length} files into ${destDir}.`);
+    console.log(`Scaffolded ${scaffold.written.length} files into ${destDir}.`);
   }
   if (laid.length > 0) {
     console.log(
-      `Scaffolded ${
+      `Created ${
         laid.join(", ")
-      } (filled with the project name; complete them below).`,
+      } (filled with the project name; you complete them below).`,
     );
   }
   if (skipped.length > 0) {
@@ -491,9 +513,24 @@ export async function runSetup(opts: SetupOptions): Promise<number> {
     );
   }
   console.log("");
-  console.log("─".repeat(72));
+  console.log(thinRule);
   console.log("");
   console.log(instructions);
+  console.log("");
+  console.log(heavyRule);
+  console.log(
+    "  You are NOT done. Work the steps above, then run `discern setup done` —",
+  );
+  console.log("  that gate is the only thing that completes setup.");
+  console.log(
+    "  • Brief truncated or scrolled off? Re-run `discern setup` to reprint it in",
+  );
+  console.log("    full — it is idempotent and won't touch your work.");
+  console.log(
+    "  • `discern status` will keep reporting setup as unfinished until",
+  );
+  console.log("    `discern setup done` passes.");
+  console.log(heavyRule);
   return 0;
 }
 
