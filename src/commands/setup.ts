@@ -51,6 +51,7 @@ import { type HooksIntegration, providersWithHooks } from "../lib/providers.ts";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { CONFIG_REL, findRoot } from "../shared/env.ts";
 import { emitResult } from "../shared/emit.ts";
+import { findSkeletonMarkers } from "../shared/setup_state.ts";
 
 /** Options accepted by `discern setup` (global flags + declarative passthrough). */
 export interface SetupOptions extends InitFlags {
@@ -76,18 +77,6 @@ const BOOTSTRAPPED_KEY = "meta.bootstrapped";
 
 const NO_PROJECT =
   "not inside a discern project (no discern.toml in this directory or any parent).";
-
-/**
- * Markers a scaffolded skeleton carries until the agent fills it: the
- * `<!-- setup fills this -->` sentinels and the placeholder EXAMPLE principle
- * heading (`_(EXAMPLE — replace during ...)_`). Both are specific to the shipped
- * skeleton, so a project's own prose won't trip them. `setup done` refuses to mark
- * setup complete while any remain.
- */
-const SKELETON_MARKERS: readonly string[] = [
-  "setup fills this",
-  "(EXAMPLE — replace",
-];
 
 /**
  * Assemble the complete plan for a scaffold run: the seed templates walk plus the
@@ -521,33 +510,7 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
   }
 
   // Validate: no scaffolded doc (or the guidance source) may still carry a marker.
-  const leftover: string[] = [];
-  const docsDir = join(root, "docs");
-  if (await pathExists(docsDir)) {
-    for await (
-      const entry of walk(docsDir, { includeDirs: false, exts: [".md"] })
-    ) {
-      try {
-        const text = await Deno.readTextFile(entry.path);
-        if (SKELETON_MARKERS.some((m) => text.includes(m))) {
-          leftover.push(relative(root, entry.path));
-        }
-      } catch {
-        // unreadable — skip; it cannot be asserted as a leftover marker.
-      }
-    }
-  }
-  const guidance = join(root, "guidance.md");
-  if (await pathExists(guidance)) {
-    try {
-      if ((await Deno.readTextFile(guidance)).includes("setup fills this")) {
-        leftover.push("guidance.md");
-      }
-    } catch {
-      // unreadable — skip.
-    }
-  }
-  leftover.sort();
+  const leftover = await findSkeletonMarkers(root);
 
   if (leftover.length > 0 && !opts.force) {
     const message =
