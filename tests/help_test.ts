@@ -8,11 +8,7 @@
  * `DISCERN_DOCS_DIR` pointing the bundled-docs resolver at a controlled fixture.
  */
 
-import {
-  assert,
-  assertEquals,
-  assertStringIncludes,
-} from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, fromFileUrl, join } from "@std/path";
 import { readTarget, runCli, seedConfig, withTempDir } from "./helpers.ts";
 
@@ -297,7 +293,10 @@ Deno.test("dogfood: help serves THIS repo's own docs (config reference)", async 
   // No DISCERN_DOCS_DIR override: the resolver walks up from the module to this
   // repo's docs/, exactly as a checkout run does. Proves the real wiring, and
   // that the cwd's project resolution is bypassed.
-  const single = await runCli(["help", "config-reference", "--json"], REPO_ROOT);
+  const single = await runCli(
+    ["help", "config-reference", "--json"],
+    REPO_ROOT,
+  );
   assertEquals(single.code, 0);
   const sres = JSON.parse(single.stdout);
   assertEquals(sres.ok, true);
