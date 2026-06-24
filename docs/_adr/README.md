@@ -55,3 +55,5 @@ decision is hard to reverse, surprising without context, and a real trade-off.
 - [0033 — A `status` verb with location-aware scope](0033-status-verb-and-location-aware-scope.md)
 - [0034 — AGENTS.md is an untracked build artifact, guarded by a currency check](0034-agents-md-untracked-currency-check.md)
 - [0035 — A strict, config-only template engine for the built-in guidance](0035-guidance-templating-engine.md)
+- [0036 — Unify init + bootstrap into one zero-config `discern setup`](0036-unify-setup.md)
+- [0037 — Setup-incompleteness is an observable state, not a prose handoff](0037-setup-incompleteness-observable.md)

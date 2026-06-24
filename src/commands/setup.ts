@@ -51,6 +51,7 @@ import { type HooksIntegration, providersWithHooks } from "../lib/providers.ts";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { CONFIG_REL, findRoot } from "../shared/env.ts";
 import { emitResult } from "../shared/emit.ts";
+import { findSkeletonMarkers } from "../shared/setup_state.ts";
 
 /** Options accepted by `discern setup` (global flags + declarative passthrough). */
 export interface SetupOptions extends InitFlags {
@@ -76,18 +77,6 @@ const BOOTSTRAPPED_KEY = "meta.bootstrapped";
 
 const NO_PROJECT =
   "not inside a discern project (no discern.toml in this directory or any parent).";
-
-/**
- * Markers a scaffolded skeleton carries until the agent fills it: the
- * `<!-- setup fills this -->` sentinels and the placeholder EXAMPLE principle
- * heading (`_(EXAMPLE — replace during ...)_`). Both are specific to the shipped
- * skeleton, so a project's own prose won't trip them. `setup done` refuses to mark
- * setup complete while any remain.
- */
-const SKELETON_MARKERS: readonly string[] = [
-  "setup fills this",
-  "(EXAMPLE — replace",
-];
 
 /**
  * Assemble the complete plan for a scaffold run: the seed templates walk plus the
@@ -466,6 +455,13 @@ export async function runSetup(opts: SetupOptions): Promise<number> {
       verb: "setup",
       hints: scaffold?.hints ?? [],
       data: {
+        // The scaffold succeeded, but SETUP is not done — the agent must now act
+        // on `instructions`. Carry that explicitly so a JSON-consuming agent can't
+        // read `ok: true` / exit 0 as "task complete" (the failure this guards).
+        complete: false,
+        bootstrapped: false,
+        next_action:
+          "Work through `data.instructions`, then run `discern setup done` to finish.",
         project: {
           slug: cfg?.project.slug ?? scaffold?.config.slug ?? "",
           agents: cfg?.guidance.agents ?? [],
@@ -482,10 +478,25 @@ export async function runSetup(opts: SetupOptions): Promise<number> {
     return 0;
   }
 
-  // Human/agent: a short scaffold + skeleton preamble (on stdout, the channel the
-  // agent reads), then the instructions verbatim so it reads them straight off.
+  // Human/agent: everything on stdout (the channel the agent reads) so the frame
+  // can't land on a stream it ignores. A loud handoff banner leads — the scaffold
+  // succeeding is NOT the task succeeding, and exit 0 + a green check read as
+  // "done" is exactly the failure this guards. Then the scaffold facts, the brief
+  // verbatim, and a tail-survivable footer that survives context truncation: even
+  // if the top is chopped, the last lines still say "not done", how to reprint the
+  // brief, and how to finish.
+  const heavyRule = "═".repeat(72);
+  const thinRule = "─".repeat(72);
+  console.log(heavyRule);
+  console.log("  SETUP STARTED — NOT FINISHED.");
+  console.log(
+    "  The steps below are a task for you, the agent, to perform now — not a",
+  );
+  console.log("  result to summarise back to the user as already done.");
+  console.log(heavyRule);
+  console.log("");
   if (scaffold) {
-    log.ok(`Scaffolded ${scaffold.written.length} files into ${destDir}.`);
+    console.log(`Scaffolded ${scaffold.written.length} files into ${destDir}.`);
   }
   if (laid.length > 0) {
     console.log(
@@ -502,9 +513,24 @@ export async function runSetup(opts: SetupOptions): Promise<number> {
     );
   }
   console.log("");
-  console.log("─".repeat(72));
+  console.log(thinRule);
   console.log("");
   console.log(instructions);
+  console.log("");
+  console.log(heavyRule);
+  console.log(
+    "  You are NOT done. Work the steps above, then run `discern setup done` —",
+  );
+  console.log("  that gate is the only thing that completes setup.");
+  console.log(
+    "  • Brief truncated or scrolled off? Re-run `discern setup` to reprint it in",
+  );
+  console.log("    full — it is idempotent and won't touch your work.");
+  console.log(
+    "  • `discern status` will keep reporting setup as unfinished until",
+  );
+  console.log("    `discern setup done` passes.");
+  console.log(heavyRule);
   return 0;
 }
 
@@ -521,33 +547,7 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
   }
 
   // Validate: no scaffolded doc (or the guidance source) may still carry a marker.
-  const leftover: string[] = [];
-  const docsDir = join(root, "docs");
-  if (await pathExists(docsDir)) {
-    for await (
-      const entry of walk(docsDir, { includeDirs: false, exts: [".md"] })
-    ) {
-      try {
-        const text = await Deno.readTextFile(entry.path);
-        if (SKELETON_MARKERS.some((m) => text.includes(m))) {
-          leftover.push(relative(root, entry.path));
-        }
-      } catch {
-        // unreadable — skip; it cannot be asserted as a leftover marker.
-      }
-    }
-  }
-  const guidance = join(root, "guidance.md");
-  if (await pathExists(guidance)) {
-    try {
-      if ((await Deno.readTextFile(guidance)).includes("setup fills this")) {
-        leftover.push("guidance.md");
-      }
-    } catch {
-      // unreadable — skip.
-    }
-  }
-  leftover.sort();
+  const leftover = await findSkeletonMarkers(root);
 
   if (leftover.length > 0 && !opts.force) {
     const message =
