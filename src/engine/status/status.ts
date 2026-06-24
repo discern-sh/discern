@@ -658,9 +658,7 @@ function renderStatusHuman(result: DiscernResult): void {
     );
     if (pending.length > 0) {
       const shown = pending.slice(0, 6).join(", ");
-      const more = pending.length > 6
-        ? `, +${pending.length - 6} more`
-        : "";
+      const more = pending.length > 6 ? `, +${pending.length - 6} more` : "";
       out.raw(
         `  ${c.dim}Still carrying skeleton markers: ${shown}${more}.${c.reset}\n`,
       );
