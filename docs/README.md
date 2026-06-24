@@ -15,6 +15,30 @@ trail.
 
 ---
 
+## Browsing from the CLI
+
+Two commands read a documentation tree, and they read **different** ones:
+
+- **`discern help`** browses **discern's own documentation** — this tree —
+  bundled into every install. Run it from any project that uses discern to read
+  the [config reference](10-installer/config-reference.md), the concepts, or the
+  gate/worktree/ratchet pages, without leaving the terminal: `discern help` for
+  the index, `discern help config-reference` for one page, and `--list` /
+  `--json` / `--raw` for scripted access. It always serves discern's **public**
+  docs (never the host project's), is available even where the `docs` feature is
+  off, and never shows or ships the internal `_adr` / `_internal` /
+  `_maintainer` subtrees ([ADR 0039](_adr/0039-bundled-help-docs.md)).
+- **`discern docs`** browses **the host project's own `docs/`** (resolved from
+  the project root). Inside the discern repo it surfaces this very tree —
+  because here the project's docs _are_ discern's docs — but in any other
+  install it reads that project's documentation. It is gated on the `docs`
+  feature and takes a `--dir` override.
+
+Both share one implementation and the same surfaces: an interactive picker on a
+TTY, and `--list` / `--json` / `--raw` / `--export` off one.
+
+---
+
 ## Reading order
 
 ### Start here
