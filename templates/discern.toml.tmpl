@@ -65,7 +65,7 @@ mcp       = true   # the `discern mcp` server + wiring it into each agent's conf
 [guidance]
 # Your guideline source file(s), relative to the project root. Globs are allowed.
 # Read only if present; the built-in harness guidance is always prepended, so
-# these are additive. Run `discern bootstrap` to seed a starter guidance.md.
+# these are additive. `discern setup` has your coding agent seed a starter guidance.md.
 sources = ["guidance.md"]
 
 # Which provider files to emit. Known targets:
@@ -99,8 +99,8 @@ dir = "skills"
 #   test       test   the test suite
 # A value is one command, or a list run in order: lint = ["eslint .", "stylelint ."].
 # OMIT a capability you don't have — an absent capability is "knowably absent", so
-# a fresh install is a green gate you grow into. Run `discern bootstrap` to have your
-# coding agent fill these by sniffing the repo; `discern doctor` shows which are wired.
+# a fresh install is a green gate you grow into. `discern setup` has your coding agent
+# fill these by sniffing the repo; `discern doctor` shows which are wired.
 #
 # `discern prepare` is the fast inner loop: it runs the fix-stage then the check-stage
 # capabilities, and never builds or tests.

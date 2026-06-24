@@ -97,4 +97,7 @@ case ":$PATH:" in
            "$RED" "$RESET" "$bin_dir" "$bin_dir" >&2 ;;
 esac
 
-printf '%sRun:%s discern init\n' "$BOLD" "$RESET"
+printf '\n%sNext:%s tell your coding agent to run %sdiscern%s — it sets up the project for you.\n' \
+    "$GREEN" "$RESET" "$BOLD" "$RESET"
+printf '      Setup is a one-time, high-leverage step, so point your %smost capable model%s at it.\n' \
+    "$BOLD" "$RESET"
