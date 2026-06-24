@@ -500,9 +500,9 @@ export async function runSetup(opts: SetupOptions): Promise<number> {
   }
   if (laid.length > 0) {
     console.log(
-      `Created ${
+      `Scaffolded ${
         laid.join(", ")
-      } (filled with the project name; you complete them below).`,
+      } (filled with the project name; complete them below).`,
     );
   }
   if (skipped.length > 0) {
