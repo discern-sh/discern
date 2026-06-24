@@ -267,3 +267,14 @@ periodically in maintenance batches._
 
 - [ ] `base.md` guidance needs polishing: do this once MCP and guideline work is
       concluded and wrapped up as a final pass.
+- [ ] Skill guidance needs improving, it implies that _running_ discern finish
+      integrates main, when it doesn't. (Agent said: "Main advanced during the
+      session — my branch no longer contains its tip. The skill's guidance is
+      clear: run discern finish to integrate main, then retry.")
+- [ ] Something is going wrong during `graduate` or `finish` - on several
+      occasions agents have graduated and found unexpected deno fmt leftovers
+      afterwards, which require an additional commit to resolve. (Agent said:
+      "Graduated — I'm now on agent/frosty-cohen-2ecaf9 in the main repo at
+      /Users/jack/Sites/discern. It flagged some leftover uncommitted changes
+      (likely deno fmt output or the merged IDE file) that landed staged. Let me
+      inspect before fast-forwarding.")
