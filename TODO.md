@@ -265,5 +265,5 @@ outstanding._
 _Small things Jack finds whilst reviewing code and documentation; cleaned up
 periodically in maintenance batches._
 
-- [ ] `base.md` guidance needs polishing: do this once MCP and guideline work
-      is concluded and wrapped up as a final pass.
+- [ ] `base.md` guidance needs polishing: do this once MCP and guideline work is
+      concluded and wrapped up as a final pass.
