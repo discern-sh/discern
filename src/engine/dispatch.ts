@@ -118,7 +118,7 @@ async function requireRoot(): Promise<string> {
   const root = await findRoot();
   if (root === undefined) {
     console.error(`discern: ${NO_PROJECT}`);
-    console.error("       Run `discern init` to scaffold one.");
+    console.error("       Run `discern setup` to scaffold one.");
     Deno.exit(1);
   }
   return root;
@@ -974,7 +974,7 @@ export async function dispatchRecipeOrSuggest(
   const root = await findRoot();
   if (root === undefined) {
     console.error(`discern: ${NO_PROJECT}`);
-    console.error("       Run `discern init` to scaffold one.");
+    console.error("       Run `discern setup` to scaffold one.");
     return 1;
   }
   const cfg = await loadConfig(root);

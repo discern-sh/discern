@@ -212,7 +212,7 @@ export async function docsResult(
       error: "no_docs",
       message: opts.dir
         ? `no documentation directory at "${opts.dir}".`
-        : "no docs/ directory here — run `discern bootstrap` to seed one, or pass --dir <path>.",
+        : "no docs/ directory here — run `discern setup` to seed one, or pass --dir <path>.",
     };
   }
   if (tree.entries.length === 0) {
@@ -325,7 +325,7 @@ export async function runDocs(options: DocsOptions): Promise<number> {
     log.error(
       options.dir
         ? `no documentation directory at "${options.dir}".`
-        : "no docs/ directory here — run `discern bootstrap` to seed one, or pass --dir <path>.",
+        : "no docs/ directory here — run `discern setup` to seed one, or pass --dir <path>.",
     );
     return 1;
   }

@@ -6,7 +6,7 @@ The full documentation tree for {{project_name}}. Audience is layered: each subt
 
 If you're new, start with [00-orientation/](00-orientation/) and follow the trail.
 
-> This tree starts as a skeleton. Run the `discern bootstrap` command to have your coding agent seed it from the project brief at `brief.md`. The markers below (`<!-- bootstrap fills this -->`) show what is still a placeholder.
+> This tree starts as a skeleton. Run the `discern setup` command to have your coding agent seed it from the repo and a few questions it asks you. The markers below (`<!-- setup fills this -->`) show what is still a placeholder.
 
 ---
 
@@ -20,14 +20,14 @@ If you're new, start with [00-orientation/](00-orientation/) and follow the trai
 
 ### Subsystems
 
-<!-- bootstrap fills this -->
+<!-- setup fills this -->
 
-The subsystems are numbered subtrees, in the order a newcomer should read them — `10-…` through `80-…`. Each has a `README.md` tour plus deeper leaves. `discern bootstrap` proposes the subtree names from the project brief and the repo's shape; until then, only the placeholders below exist. Rename and renumber freely — the numbers are a reading order, not a contract.
+The subsystems are numbered subtrees, in the order a newcomer should read them — `10-…` through `80-…`. Each has a `README.md` tour plus deeper leaves. `discern setup` proposes the subtree names from the repo's shape; until then, only the placeholders below exist. Rename and renumber freely — the numbers are a reading order, not a contract.
 
 | Path | What's in it |
 |---|---|
-| `10-<subsystem>/` | _Proposed during `discern bootstrap`._ |
-| `20-<subsystem>/` | _Proposed during `discern bootstrap`._ |
+| `10-<subsystem>/` | _Proposed during `discern setup`._ |
+| `20-<subsystem>/` | _Proposed during `discern setup`._ |
 | `…` | _Add as many numbered subtrees as the system needs._ |
 | [80-development/](80-development/) | Working on {{project_name}}: getting set up, the testing approach, code conventions, and the [finish-gate gotchas](80-development/finish-gate-gotchas.md) the quality gate points at when a step fails in a non-obvious way. |
 
@@ -42,7 +42,7 @@ The subsystems are numbered subtrees, in the order a newcomer should read them �
 
 ## How this tree is produced and kept current
 
-The tree is seeded once by `discern bootstrap`, then grown subtree-by-subtree with the [`document-subsystem`](../.claude/skills/document-subsystem/SKILL.md) skill, which follows the brief in [_internal/documenter-agent-brief.md](_internal/documenter-agent-brief.md). A single skeleton-and-orientation pass establishes the shared terminology and shape before any subtree is filled in.
+The tree is seeded once by `discern setup`, then grown subtree-by-subtree with the [`document-subsystem`](../.claude/skills/document-subsystem/SKILL.md) skill, which follows the brief in [_internal/documenter-agent-brief.md](_internal/documenter-agent-brief.md). A single skeleton-and-orientation pass establishes the shared terminology and shape before any subtree is filled in.
 
 Because the tree is the source of truth, it must not drift from code. When you change something a doc describes — the architecture, the data model, a subsystem's documented behaviour, a public convention, or whether a feature exists — update the affected docs in the same change.
 

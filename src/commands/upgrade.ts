@@ -74,7 +74,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     : await readTextIfExists(configPath);
   if (tomlText === undefined) {
     const message =
-      "no discern install here — run `discern init` first. `upgrade` refreshes an existing install.";
+      "no discern install here — run `discern setup` first. `upgrade` refreshes an existing install.";
     if (options.json) {
       log.result({
         ok: false,

@@ -95,7 +95,7 @@ export function renderReview(log: Logger, plan: Plan, destDir: string): void {
   }
 
   log.line();
-  log.line(log.dim("  See every file with:  discern init --dry-run"));
+  log.line(log.dim("  See every file by re-running with --dry-run."));
 
   if (plan.unknownTokens.size > 0) {
     log.line();

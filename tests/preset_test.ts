@@ -149,7 +149,7 @@ Deno.test("add-preset reports not_initialized when there is no discern.toml (--j
     const result = JSON.parse(r.stdout);
     assertEquals(result.ok, false);
     assertEquals(result.error, "not_initialized");
-    assertStringIncludes(result.message, "discern init");
+    assertStringIncludes(result.message, "discern setup");
   });
 });
 

@@ -1,6 +1,6 @@
 /**
- * `init` error / edge branches not exercised by the happy-path suites
- * (`cli_test.ts`, `init_config_test.ts`, `init_managed_test.ts`). Each existing
+ * `setup` error / edge branches not exercised by the happy-path suites
+ * (`cli_test.ts`, `init_config_test.ts`). Each existing
  * error test asserts the `--json` surface; these pin the *human* (non-JSON)
  * reporting branches that print to stderr instead, plus the templates-not-found
  * guard and the fills-over-a-skipped-seed early return. Run as subprocesses via
@@ -18,12 +18,12 @@ const ANSWERS = JSON.stringify({
   capabilities: { test: "vitest run" },
 });
 
-// --- templates_not_found: resolveTemplatesDir throws (init.ts 172-180) ---
+// --- templates_not_found: resolveTemplatesDir throws ---
 
-Deno.test("init reports templates_not_found in JSON when the override dir is missing", async () => {
+Deno.test("setup reports templates_not_found in JSON when the override dir is missing", async () => {
   await withTempDir(async (dir) => {
     const { code, stdout } = await runCli(
-      ["init", "--yes", "--json", "--slug", "demo"],
+      ["setup", "--json", "--slug", "demo"],
       dir,
       { DISCERN_TEMPLATES_DIR: join(dir, "does-not-exist") },
     );
@@ -37,10 +37,10 @@ Deno.test("init reports templates_not_found in JSON when the override dir is mis
   });
 });
 
-Deno.test("init reports templates_not_found to stderr without --json", async () => {
+Deno.test("setup reports templates_not_found to stderr without --json", async () => {
   await withTempDir(async (dir) => {
     const { code, stdout, stderr } = await runCli(
-      ["init", "--yes", "--slug", "demo"],
+      ["setup", "--slug", "demo"],
       dir,
       { DISCERN_TEMPLATES_DIR: join(dir, "nope") },
     );
@@ -51,33 +51,31 @@ Deno.test("init reports templates_not_found to stderr without --json", async () 
   });
 });
 
-// --- already_initialized, human branch (init.ts 163-165) ---
+// --- already-set-up, human branch (setup is idempotent, not a refusal) ---
 
-Deno.test("init refuses over an existing discern.toml to stderr without --json", async () => {
+Deno.test("setup reports already-set-up to stdout once recorded, without --json", async () => {
   await withTempDir(async (dir) => {
     assertEquals(
-      (await runCli(["init", "--yes", "--slug", "first"], dir)).code,
+      (await runCli(["setup", "--slug", "first"], dir)).code,
       0,
     );
-    const { code, stdout, stderr } = await runCli(
-      ["init", "--yes", "--slug", "again"],
-      dir,
-    );
-    assertEquals(code, 1);
-    assertStringIncludes(stderr, "a discern install already exists here");
-    assertStringIncludes(stderr, "--force");
-    // No JSON payload printed in the human branch.
-    assertEquals(stdout.trim(), "");
+    // Record completion (--force: the laid skeletons still carry markers).
+    assertEquals((await runCli(["setup", "done", "--force"], dir)).code, 0);
+
+    // A re-run is not a refusal — it reports it is already set up and exits 0.
+    const { code, stdout } = await runCli(["setup", "--slug", "again"], dir);
+    assertEquals(code, 0);
+    assertStringIncludes(stdout, "already set up");
   });
 });
 
-// --- invalid_config_file from loadConfigDoc, human branch (init.ts 191-193) ---
+// --- invalid_config_file from loadConfigDoc, human branch ---
 
-Deno.test("init reports invalid --config JSON to stderr without --json", async () => {
+Deno.test("setup reports invalid --config JSON to stderr without --json", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "bad.json"), "{ not json");
     const { code, stdout, stderr } = await runCli(
-      ["init", "--config", "bad.json"],
+      ["setup", "--config", "bad.json"],
       dir,
     );
     assertEquals(code, 1);
@@ -88,10 +86,10 @@ Deno.test("init reports invalid --config JSON to stderr without --json", async (
   });
 });
 
-Deno.test("init reports a missing --config file to stderr without --json", async () => {
+Deno.test("setup reports a missing --config file to stderr without --json", async () => {
   await withTempDir(async (dir) => {
     const { code, stdout, stderr } = await runCli(
-      ["init", "--config", "absent.json"],
+      ["setup", "--config", "absent.json"],
       dir,
     );
     assertEquals(code, 1);
@@ -102,9 +100,9 @@ Deno.test("init reports a missing --config file to stderr without --json", async
   });
 });
 
-// --- invalid fills from assembleInitPlan, human branch (init.ts 220-222) ---
+// --- invalid fills from assembleInitPlan, human branch ---
 
-Deno.test("init reports invalid --config fills to stderr without --json", async () => {
+Deno.test("setup reports invalid --config fills to stderr without --json", async () => {
   await withTempDir(async (dir) => {
     // A document that parses and is the right version, but carries an invalid
     // fill (bad check stage) — so loadConfigDoc succeeds and the error surfaces
@@ -117,7 +115,7 @@ Deno.test("init reports invalid --config fills to stderr without --json", async 
       }),
     );
     const { code, stdout, stderr } = await runCli(
-      ["init", "--config", "answers.json"],
+      ["setup", "--config", "answers.json"],
       dir,
     );
     assertEquals(code, 1);
@@ -133,13 +131,13 @@ Deno.test("init reports invalid --config fills to stderr without --json", async 
   });
 });
 
-// --- applyFillsToPlan early return when discern.toml is a skip (init.ts 143-145) ---
+// --- applyFillsToPlan early return when discern.toml is a skip ---
 
-Deno.test("init --force --config leaves an existing discern.toml untouched (fills skip the seed)", async () => {
+Deno.test("setup --force --config leaves an existing discern.toml untouched (fills skip the seed)", async () => {
   await withTempDir(async (dir) => {
     // First, a plain install so a seed discern.toml exists on disk.
     assertEquals(
-      (await runCli(["init", "--yes", "--slug", "edge-app"], dir)).code,
+      (await runCli(["setup", "--slug", "edge-app"], dir)).code,
       0,
     );
     const before = await Deno.readTextFile(join(dir, "discern.toml"));
@@ -152,7 +150,7 @@ Deno.test("init --force --config leaves an existing discern.toml untouched (fill
     // left exactly as the user's.
     await Deno.writeTextFile(join(dir, "answers.json"), ANSWERS);
     const run = await runCli(
-      ["init", "--force", "--config", "answers.json", "--json"],
+      ["setup", "--force", "--config", "answers.json", "--json"],
       dir,
     );
     assertEquals(run.code, 0, run.stderr);

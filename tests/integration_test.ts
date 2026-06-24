@@ -8,14 +8,14 @@
  * break this — we assert the stable foundation only.
  *
  * `assembleInitPlan` + `applyPlan` lay down only the seeds; bundled skills are the
- * binary's own artifacts, materialized separately (by `runInit`/worktree setup).
+ * binary's own artifacts, materialized separately (by `runSetup`/worktree setup).
  * This test drives `materializeSkills` itself after applying the plan so it can
  * assert the materialized `.claude/skills/` surface a real install ends up with.
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import { assembleInitPlan } from "../src/commands/init.ts";
+import { assembleInitPlan } from "../src/commands/setup.ts";
 import type { InitConfig } from "../src/lib/config.ts";
 import { applyPlan } from "../src/lib/fs_plan.ts";
 import { parseDiscernToml } from "../src/lib/toml_render.ts";

@@ -3,7 +3,7 @@
  * describes a project's gate config (ADR 0005, ADR 0017/0018). It is consumed in
  * two places:
  *
- *   - `discern init --config <file>` — drives a fresh, non-interactive install.
+ *   - `discern setup --config <file>` — drives a fresh, non-interactive install.
  *   - a preset's `preset.json` — the config half of an `add-preset` overlay.
  *
  * Both apply the document's `capabilities` / `checks` / `scopes` / `ratchets` to

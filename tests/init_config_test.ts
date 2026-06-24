@@ -1,5 +1,5 @@
 /**
- * CLI tests for `init --config <file>` (ADR 0005): a JSON answers file drives a
+ * CLI tests for `setup --config <file>` (ADR 0005): a JSON answers file drives a
  * fresh, non-interactive install, with capabilities/checks/scopes/ratchets
  * applied to the generated discern.toml (comments preserved). Run as
  * subprocesses.
@@ -31,14 +31,17 @@ const ANSWERS = JSON.stringify({
   },
 });
 
-Deno.test("init --config scaffolds from a JSON answers file", async () => {
+Deno.test("setup --config scaffolds from a JSON answers file", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "answers.json"), ANSWERS);
-    const r = await runCli(["init", "--config", "answers.json", "--json"], dir);
+    const r = await runCli(
+      ["setup", "--config", "answers.json", "--json"],
+      dir,
+    );
     assertEquals(r.code, 0, r.stderr);
     const result = JSON.parse(r.stdout);
     assertEquals(result.ok, true);
-    assertEquals(result.verb, "init");
+    assertEquals(result.verb, "setup");
     assertEquals(result.data.project.slug, "my-app");
 
     const toml = await Deno.readTextFile(join(dir, "discern.toml"));
@@ -60,10 +63,10 @@ Deno.test("init --config scaffolds from a JSON answers file", async () => {
   });
 });
 
-Deno.test("init --config - reads the answers file from stdin", async () => {
+Deno.test("setup --config - reads the answers file from stdin", async () => {
   await withTempDir(async (dir) => {
     const r = await runCli(
-      ["init", "--config", "-", "--json"],
+      ["setup", "--config", "-", "--json"],
       dir,
       {},
       ANSWERS,
@@ -77,11 +80,11 @@ Deno.test("init --config - reads the answers file from stdin", async () => {
   });
 });
 
-Deno.test("init --config: an explicit flag overrides the file value", async () => {
+Deno.test("setup --config: an explicit flag overrides the file value", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "answers.json"), ANSWERS);
     const r = await runCli(
-      ["init", "--config", "answers.json", "--slug", "flag-wins", "--json"],
+      ["setup", "--config", "answers.json", "--slug", "flag-wins", "--json"],
       dir,
     );
     assertEquals(r.code, 0, r.stderr);
@@ -89,11 +92,11 @@ Deno.test("init --config: an explicit flag overrides the file value", async () =
   });
 });
 
-Deno.test("init --config --dry-run writes nothing", async () => {
+Deno.test("setup --config --dry-run writes nothing", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "answers.json"), ANSWERS);
     const r = await runCli(
-      ["init", "--config", "answers.json", "--dry-run", "--json"],
+      ["setup", "--config", "answers.json", "--dry-run", "--json"],
       dir,
     );
     assertEquals(r.code, 0, r.stderr);
@@ -107,10 +110,10 @@ Deno.test("init --config --dry-run writes nothing", async () => {
   });
 });
 
-Deno.test("init --config rejects invalid JSON", async () => {
+Deno.test("setup --config rejects invalid JSON", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "bad.json"), "{ not json");
-    const r = await runCli(["init", "--config", "bad.json", "--json"], dir);
+    const r = await runCli(["setup", "--config", "bad.json", "--json"], dir);
     assertEquals(r.code, 1);
     const result = JSON.parse(r.stdout);
     assertEquals(result.ok, false);
@@ -118,13 +121,16 @@ Deno.test("init --config rejects invalid JSON", async () => {
   });
 });
 
-Deno.test("init --config rejects an unsupported document version", async () => {
+Deno.test("setup --config rejects an unsupported document version", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(
       join(dir, "answers.json"),
       JSON.stringify({ version: "3", slug: "x" }),
     );
-    const r = await runCli(["init", "--config", "answers.json", "--json"], dir);
+    const r = await runCli(
+      ["setup", "--config", "answers.json", "--json"],
+      dir,
+    );
     assertEquals(r.code, 1);
     const result = JSON.parse(r.stdout);
     assertEquals(result.error, "invalid_config_file");
@@ -132,7 +138,7 @@ Deno.test("init --config rejects an unsupported document version", async () => {
   });
 });
 
-Deno.test("init --config rejects an invalid fill (bad check stage)", async () => {
+Deno.test("setup --config rejects an invalid fill (bad check stage)", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(
       join(dir, "answers.json"),
@@ -141,7 +147,10 @@ Deno.test("init --config rejects an invalid fill (bad check stage)", async () =>
         checks: { t: { stage: "bogus", run: "x" } },
       }),
     );
-    const r = await runCli(["init", "--config", "answers.json", "--json"], dir);
+    const r = await runCli(
+      ["setup", "--config", "answers.json", "--json"],
+      dir,
+    );
     assertEquals(r.code, 1);
     const result = JSON.parse(r.stdout);
     assertEquals(result.error, "invalid_config_file");

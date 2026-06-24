@@ -290,5 +290,5 @@
     }
   },
   "additionalProperties": false,
-  "description": "The declarative config shape consumed by `discern init --config <file>` and by a preset's `preset.json`. Its capabilities/checks/scopes/ratchets are written into a project's discern.toml via the comment-preserving editor. Every field is optional."
+  "description": "The declarative config shape consumed by `discern setup --config <file>` and by a preset's `preset.json`. Its capabilities/checks/scopes/ratchets are written into a project's discern.toml via the comment-preserving editor. Every field is optional."
 }
