@@ -17,6 +17,9 @@
 /.claude/*
 !/.claude/settings.json
 !/.claude/settings.local.json
+# Skills are also materialized into the cross-tool .agents/skills/ standard dir
+# (Codex's repo path, Gemini's preferred alias) — generated, so ignore it too.
+/.agents/skills/
 # NOTE: `.mcp.json` (the project-scoped MCP servers `discern refresh` wires
 # `discern mcp` into) is deliberately NOT listed here. It is shared, co-owned
 # config that discern MERGES into (preserving your own servers) — like
