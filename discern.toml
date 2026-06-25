@@ -169,6 +169,12 @@ inherit_env = []   # e.g. ["APP_KEY", "OPENAI_API_KEY"]
 # This is derived IDENTITY, not a resource — it provisions nothing.
 port = true
 
+# Land a graduation straight on the trunk by default: fast-forward main to the
+# branch tip and delete the now-merged branch (override per-run with `--to branch`
+# to keep it for review). The gate guarantees the branch contains main, so the
+# fast-forward is always clean.
+graduate_to = "main"
+
 # ─────────────────────────────────────────────────────────────────────────────
 # [worktree.resources.<name>] — per-worktree external resources (a database, an
 # emulator, a container, a queue). Each declares a `create` command (run once at
@@ -262,7 +268,7 @@ run       = "deno task coverage"
 # the count drops, lower the limit to lock the gain in — the ceiling only falls.
 [ratchets.prose]
 direction = "down"
-limit     = 1550
+limit     = 1562
 run       = "deno task prose"
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -34,15 +34,14 @@ is also **config-aware** — each built-in section is rendered through a small
 your real branch and omits content for anything you haven't configured (a
 ratchet, a worktree resource).
 
-The Skills are the bundled built-ins (`document-subsystem`, `write-adr`,
-`handoff-worktree`) plus any you author under `[skills].dir` (default
-`./skills`, yours overriding a built-in by name). They materialize into each
-configured agent's skills directory ([`.claude/skills/`](../../.claude/skills/)
-for Claude Code, the cross-tool `.agents/skills/` for Codex and Gemini — Claude
-Code does not read the shared dir;
-[ADR 0042](../_adr/0042-per-agent-skills-materialization.md)) — gitignored
-artifacts the binary re-publishes: built-ins **copied**, authored skills
-**symlinked**. The materialized skills are guarded by the **same currency
+The Skills are the bundled built-ins (`document-subsystem` and `write-adr`) plus
+any you author under `[skills].dir` (default `./skills`, yours overriding a
+built-in by name). They materialize into each configured agent's skills
+directory ([`.claude/skills/`](../../.claude/skills/) for Claude Code, the
+cross-tool `.agents/skills/` for Codex and Gemini — Claude Code does not read
+the shared dir; [ADR 0042](../_adr/0042-per-agent-skills-materialization.md)) —
+gitignored artifacts the binary re-publishes: built-ins **copied**, authored
+skills **symlinked**. The materialized skills are guarded by the **same currency
 check** as the compiled files: `discern status` / `discern finish` flag a skills
 dir that has drifted from the effective set, so a hand-edited or stale copy is
 caught, not silent

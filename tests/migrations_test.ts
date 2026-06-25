@@ -14,6 +14,7 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { join } from "@std/path";
+import { copy } from "@std/fs";
 import { SCHEMA_VERSION } from "../src/lib/version.ts";
 import {
   applyMigrations,
@@ -611,17 +612,14 @@ Deno.test("migration 5→6 dissolves .discern/: moves config/guidance/recipes/au
       join(dir, ".discern/recipes/deploy"),
       "#!/bin/sh\n",
     );
-    // A pristine bundled skill (byte-identical to the shipped one → pruned) and an
-    // authored skill (a unique name → moved to ./skills/, preserved).
-    const shippedHandoff = await Deno.readTextFile(
-      join(REAL_TEMPLATES, "skills/handoff-worktree/SKILL.md"),
-    );
-    await Deno.mkdir(join(dir, ".discern/skills/handoff-worktree"), {
-      recursive: true,
-    });
-    await Deno.writeTextFile(
-      join(dir, ".discern/skills/handoff-worktree/SKILL.md"),
-      shippedHandoff,
+    // A pristine bundled skill (the WHOLE tree copied byte-for-byte → pruned, since
+    // the binary re-ships it) and an authored skill (a unique name → moved to
+    // ./skills/, preserved). The prune check compares every file in the tree, not
+    // just SKILL.md, so the fixture mirrors the full bundled directory.
+    await Deno.mkdir(join(dir, ".discern/skills"), { recursive: true });
+    await copy(
+      join(REAL_TEMPLATES, "skills/write-adr"),
+      join(dir, ".discern/skills/write-adr"),
     );
     await Deno.mkdir(join(dir, ".discern/skills/kit-special"), {
       recursive: true,
@@ -686,7 +684,7 @@ Deno.test("migration 5→6 dissolves .discern/: moves config/guidance/recipes/au
     // R1: the AUTHORED skill is preserved (moved to ./skills/); the pristine
     // bundled one is pruned (the binary re-ships it).
     assertEquals(await targetExists(dir, "skills/kit-special/SKILL.md"), true);
-    assertEquals(await targetExists(dir, "skills/handoff-worktree"), false);
+    assertEquals(await targetExists(dir, "skills/write-adr"), false);
 
     // .gitignore: the dead .discern ignore is gone; the mirrors are ignored;
     // AGENTS.md is NOT ignored; the user's entry survives.

@@ -119,10 +119,12 @@ Deno.test("teardownPlanToEngine: one destroy step per ledger entry", () => {
 
 Deno.test("graduatePlanToEngine: dirty worktree adds WIP-commit/unstage; resources gate the teardown step", () => {
   const base = {
+    to: "branch" as const,
     worktreeBranch: "agent/x",
     worktreePath: "/repo/.wt/x",
     mainRepo: "/repo",
     mainBranch: "main",
+    trunk: "main",
   };
   const dirty = graduatePlanToEngine({
     ...base,
@@ -156,6 +158,49 @@ Deno.test("graduatePlanToEngine: dirty worktree adds WIP-commit/unstage; resourc
     clean.steps.find((s) => s.label === "teardown resources")?.disposition,
     "skip",
   );
+  // `branch` mode lands on the worktree branch in the main repo.
+  assert(clean.details.some((d) => d.includes("Into main:")));
+});
+
+Deno.test("graduatePlanToEngine: to=main fast-forwards the trunk and deletes the branch instead of a checkout", () => {
+  const base = {
+    to: "main" as const,
+    worktreeBranch: "agent/x",
+    worktreePath: "/repo/.wt/x",
+    mainRepo: "/repo",
+    mainBranch: "main",
+    trunk: "main",
+  };
+  const dirty = graduatePlanToEngine({
+    ...base,
+    worktreeDirty: true,
+    hasResources: true,
+  });
+  // The checkout step is replaced by fast-forward-trunk + delete-branch, and the
+  // unstage still trails (soft-reset runs after the branch is deleted).
+  assertEquals(dirty.steps.map((s) => s.label), [
+    "teardown resources",
+    "wip-commit",
+    "remove-worktree",
+    "fast-forward-trunk",
+    "delete-branch",
+    "unstage-wip",
+  ]);
+
+  const clean = graduatePlanToEngine({
+    ...base,
+    worktreeDirty: false,
+    hasResources: false,
+  });
+  assertEquals(clean.steps.map((s) => s.label), [
+    "teardown resources",
+    "remove-worktree",
+    "fast-forward-trunk",
+    "delete-branch",
+  ]);
+  // The landing detail names the trunk fast-forward + branch deletion, not a checkout.
+  assert(clean.details.some((d) => d.includes("Into trunk:")));
+  assert(!clean.steps.some((s) => s.label === "checkout"));
 });
 
 Deno.test("setupPlanToEngine: every step runs, branch surfaced as a detail", () => {

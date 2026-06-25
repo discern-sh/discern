@@ -12,6 +12,7 @@
  */
 
 import type { EnginePlan, PlanStep } from "../../shared/result.ts";
+import type { GraduateTarget } from "../../shared/config_schema.ts";
 import type { LedgerItem } from "./resources.ts";
 
 // ── teardown ────────────────────────────────────────────────────────────────
@@ -43,10 +44,15 @@ export function teardownPlanToEngine(plan: TeardownPlan): EnginePlan {
  * dirty main) are checked while BUILDING this — a plan only exists for a
  * graduation that may proceed. */
 export interface GraduatePlan {
+  /** Where the branch lands: `"branch"` (review-first, branch preserved) or
+   * `"main"` (fast-forward the trunk and delete the now-merged branch). */
+  to: GraduateTarget;
   worktreeBranch: string;
   worktreePath: string;
   mainRepo: string;
   mainBranch: string;
+  /** The trunk a `--to main` graduation fast-forwards (`[project].main_branch`). */
+  trunk: string;
   /** Whether the worktree has uncommitted changes (→ a WIP-commit/unstage dance). */
   worktreeDirty: boolean;
   /** Whether any external resource is declared (→ a teardown step). */
@@ -82,12 +88,29 @@ export function graduatePlanToEngine(plan: GraduatePlan): EnginePlan {
     disposition: "run",
     note: plan.worktreePath,
   });
-  steps.push({
-    kind: "git",
-    label: "checkout",
-    disposition: "run",
-    note: `${plan.worktreeBranch} in ${plan.mainRepo}`,
-  });
+  if (plan.to === "main") {
+    // Land on the trunk: fast-forward it to the branch tip (always clean — the
+    // gate guarantees the branch contains the trunk), then delete the merged branch.
+    steps.push({
+      kind: "git",
+      label: "fast-forward-trunk",
+      disposition: "run",
+      note: `${plan.trunk} → ${plan.worktreeBranch} in ${plan.mainRepo}`,
+    });
+    steps.push({
+      kind: "git",
+      label: "delete-branch",
+      disposition: "run",
+      note: `${plan.worktreeBranch} (merged into ${plan.trunk})`,
+    });
+  } else {
+    steps.push({
+      kind: "git",
+      label: "checkout",
+      disposition: "run",
+      note: `${plan.worktreeBranch} in ${plan.mainRepo}`,
+    });
+  }
   if (plan.worktreeDirty) {
     steps.push({
       kind: "git",
@@ -96,12 +119,15 @@ export function graduatePlanToEngine(plan: GraduatePlan): EnginePlan {
       note: "soft-reset so the changes land staged-but-uncommitted",
     });
   }
+  const landing = plan.to === "main"
+    ? `Into trunk:    ${plan.mainRepo} (fast-forward ${plan.trunk}, delete ${plan.worktreeBranch})`
+    : `Into main:     ${plan.mainRepo} (on ${plan.mainBranch})`;
   return {
     title: "Graduation plan",
     details: [
       `Branch:        ${plan.worktreeBranch}`,
       `From worktree: ${plan.worktreePath}`,
-      `Into main:     ${plan.mainRepo} (on ${plan.mainBranch})`,
+      landing,
     ],
     steps,
   };

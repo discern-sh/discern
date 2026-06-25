@@ -174,6 +174,14 @@ inherit_env = []   # e.g. ["APP_KEY", "OPENAI_API_KEY"]
 # This is derived IDENTITY, not a resource — it provisions nothing.
 port = true
 
+# Where `discern graduate` lands by default (override per-run with `--to`):
+#   "branch"  leave the work on its own branch, checked out in the main repo for
+#             review — the worktree branch is preserved (the safe default).
+#   "main"    fast-forward the trunk to the branch tip, check the trunk out, and
+#             delete the now-merged branch. The gate already guarantees the branch
+#             contains the trunk, so this is always a clean fast-forward.
+graduate_to = "branch"
+
 # ─────────────────────────────────────────────────────────────────────────────
 # [worktree.resources.<name>] — per-worktree external resources (a database, an
 # emulator, a container, a queue). Each declares a `create` command (run once at

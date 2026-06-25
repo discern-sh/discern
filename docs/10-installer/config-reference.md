@@ -99,6 +99,7 @@ The isolated-worktree workflow. The git mechanics are generic; everything projec
 | --- | --- | --- | --- |
 | `enabled` | boolean | `false` | Run the idempotent worktree setup automatically at session start. |
 | `port` | boolean | `false` | Give each worktree a deterministic dev-server port (hashed from its id) so concurrent worktrees never collide. Derived identity, not a resource — it provisions nothing. |
+| `graduate_to` | `branch` \| `main` | `"branch"` | Where `discern graduate` lands by default. "branch" (the safe default) leaves the work on its own branch, checked out in the main repo for review — the branch is preserved. "main" fast-forwards the trunk to the branch tip, checks the trunk out, and deletes the now-merged branch (the gate already guarantees the branch contains the trunk, so this is always a clean fast-forward). Override per-run with `--to branch\|main`. |
 | `inherit_env` | string[] | `[]` | Environment values copied from the main checkout's .env into a new worktree's .env (secrets a fresh worktree needs but that aren't in version control). |
 
 ### `[worktree.resources.<name>]`

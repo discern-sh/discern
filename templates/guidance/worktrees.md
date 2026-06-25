@@ -11,10 +11,15 @@ handle, call **`discern_help`**.{{/if}}
   resources,{{/if}} records a deterministic
   dev-server port{{#if has_worktree_resources}} + the resource handles{{/if}} into `.env`, inherits env vars, runs the
   configured setup steps, and freshly materializes skills + guidance.
-- **`discern graduate`** graduates the current worktree's branch back into the
-  main checkout — commit your work first; it refuses to run if the branch is behind
-  `{{main_branch}}` (run `discern finish` to integrate) or if the main
-  checkout is dirty.
+- **`discern graduate`** hands the current worktree's branch back to the main
+  checkout. It is the single deterministic implementation of that handoff — run it
+  rather than moving the branch by hand, and relay its result. Commit your work
+  with a real message first, so it lands as a proper review commit. By default it
+  lands on its own branch for review; pass **`--to main`** to fast-forward
+  `{{main_branch}}` to the branch tip and delete the now-merged branch instead (set
+  the per-project default with `[worktree].graduate_to`). It refuses if the branch
+  is behind `{{main_branch}}` — integrate it (`git merge {{main_branch}}`) and
+  re-run — or if the main checkout is dirty.
 - **`discern worktree:prune`** sweeps stale worktrees and fully-merged branches{{#if has_worktree_resources}} (reclaiming the resources of any that vanished without a clean teardown){{/if}}. `--dry-run` reports without acting.
 
 Resolve a worktree's stable identity with **`discern worktree-name`**

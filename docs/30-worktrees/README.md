@@ -23,7 +23,9 @@ resources), `WorktreeRemove` →
 hook entries parse their payload in the binary itself — no `jq`
 ([ADR 0040](../_adr/0040-worktree-hooks-in-the-binary.md)). When a change is
 done, [`graduate`](../../src/engine/worktree/lifecycle.ts) graduates the branch
-into the main repo and removes the Worktree;
+into the main repo and removes the Worktree — by default onto its own branch for
+review, or with `--to main` (the `[worktree].graduate_to` default)
+fast-forwarding the trunk to it and deleting the merged branch;
 [`worktree:prune`](../../src/engine/worktree/lifecycle.ts) sweeps stale
 Worktrees and **reclaims the resources of any Worktree that vanished without a
 clean teardown** (the garbage-collection safety net).

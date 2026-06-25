@@ -298,10 +298,6 @@ periodically in maintenance batches._
 
 - [ ] `base.md` guidance needs polishing: do this once MCP and guideline work is
       concluded and wrapped up as a final pass.
-- [ ] Skill guidance needs improving, it implies that _running_ discern finish
-      integrates main, when it doesn't. (Agent said: "Main advanced during the
-      session — my branch no longer contains its tip. The skill's guidance is
-      clear: run discern finish to integrate main, then retry.")
 - [ ] Discern should make clear to end-users that the `docs` feature, and the
       documentation subtree procedures, are _conceptually distinct_ from any
       existing documentation the user has already set up in their project. The
@@ -319,6 +315,5 @@ periodically in maintenance batches._
       aspects of the platform use the same conventions consistently everywhere.
       Noteworthy inconsistencies currently (non-exhaustive list):
       `discern <verb>` where <verb> is a single word, but `worktree:prune` etc.
-      is two words; `discern graduate` vs `/handoff-worktree` skill (why have
-      both?); etc...
+      is two words; etc...
 - [ ] 'skel' - just no. TitleCase... maybe?

@@ -269,6 +269,25 @@ export async function git(dir: string, ...args: string[]): Promise<void> {
 }
 
 /**
+ * Like {@link git}, but captures and returns trimmed stdout — for tests that read
+ * git state (the current branch, whether a ref still exists). Throws on failure.
+ */
+export async function gitOut(dir: string, ...args: string[]): Promise<string> {
+  const c = new Deno.Command("git", {
+    args,
+    cwd: dir,
+    env: GIT_ISOLATION,
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const { success, stdout, stderr } = await c.output();
+  if (!success) {
+    throw new Error(`git ${args.join(" ")} failed: ${DECODER.decode(stderr)}`);
+  }
+  return DECODER.decode(stdout).trim();
+}
+
+/**
  * Create a linked git worktree at `<mainDir>/.claude/worktrees/<name>` on a new
  * branch `agent/<name>` — the layout the worktree-* recipes expect. `mainDir`
  * must already be a git repo (call `gitInit` first). Returns the worktree's
