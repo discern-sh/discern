@@ -234,7 +234,7 @@ const scopesSection = z.record(z.string().regex(NAME_RE), scopeValue).default(
 
 const resourceValue = z.strictObject({
   create: z.string().default("").describe(
-    "Command run once at worktree setup. An empty command is a clean no-op.",
+    "Command run once at worktree setup (skipped when the resource is already provisioned). Author it idempotent and cwd-independent. An empty command is a clean no-op.",
   ),
   destroy: z.string().default("").describe(
     "Command run once at teardown. Author it idempotent (it may re-run via worktree:prune) and cwd-independent.",
@@ -269,7 +269,7 @@ const worktreeSection = z.strictObject({
     ),
   setup: z.strictObject({
     steps: z.array(z.string()).default([]).describe(
-      "Commands run once after a worktree's resources are created (install deps, run migrations, warm caches). Run in order.",
+      "Commands run once after a worktree's resources are created (install deps, run migrations, warm caches). Run in order; skipped once the worktree is configured. Author each idempotent so a recovered partial setup re-runs safely.",
     ),
   }).prefault({}).describe("Post-create setup steps."),
 }).prefault({}).describe(
