@@ -1,4 +1,4 @@
-# ADR 0043: Setup involves the user and proceeds — it does not gate every step
+# ADR 0044: Setup involves the user and proceeds — it does not gate every step
 
 **Status**: accepted
 

@@ -8,7 +8,7 @@ Hardened by [ADR 0037](0037-setup-incompleteness-observable.md), which makes the
 unfinished-setup state observable so the handoff can't be mistaken for
 completion. The setup-brief interaction model it established —
 propose-and-confirm — is later revised to _involve, don't gate_ by
-[ADR 0043](0043-setup-involve-not-gate.md).
+[ADR 0044](0044-setup-involve-not-gate.md).
 
 ## Context
 

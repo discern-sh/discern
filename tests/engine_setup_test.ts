@@ -288,7 +288,7 @@ Deno.test("discern setup --json emits the DiscernResult envelope", async () => {
   });
 });
 
-Deno.test("the brief teaches involve-don't-gate (narrate + atomic commits), not a per-step confirm gate (ADR 0043)", async () => {
+Deno.test("the brief teaches involve-don't-gate (narrate + atomic commits), not a per-step confirm gate (ADR 0044)", async () => {
   // Read the printed brief directly — `templates/` is excluded from `deno fmt`,
   // so these anchors stay on one line and won't be reflowed out from under us.
   const brief = await Deno.readTextFile(
