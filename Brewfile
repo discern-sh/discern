@@ -33,10 +33,9 @@ brew "deno"
 # Xcode Command Line Tools — this line is belt-and-braces for a fresh machine.)
 brew "git"
 
-# The Claude Code worktree hooks in .claude/settings.json pipe each hook's JSON
-# payload through jq (WorktreeCreate / WorktreeRemove). Required to drive the
-# worktree lifecycle through a coding agent.
-brew "jq"
+# That is the whole required set. Note discern does NOT need jq: the Claude Code
+# worktree hooks read their JSON payload in the binary itself (`discern
+# worktree:create` / `:remove`), so there is no shell-tool dependency (ADR 0039).
 
 #
 # RECOMMENDED (not required by the build or the engine)

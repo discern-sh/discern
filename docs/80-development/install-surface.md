@@ -99,14 +99,16 @@ is the per-worktree **resources** (`[worktree.resources.<name>]`) a project
 declares in `discern.toml`; a fresh install declares none. The whole workflow
 sits behind `[features].worktrees`.
 
-| Command                     | What it does                                                                       |
-| --------------------------- | ---------------------------------------------------------------------------------- |
-| `discern worktree`          | Sets up a freshly-created worktree (run by the `WorktreeCreate` hook).             |
-| `discern worktree:ensure`   | Session-start idempotent setup (run by the `SessionStart` hook).                   |
-| `discern graduate`          | Graduates the branch into the main repo and tears the worktree down.               |
-| `discern worktree:teardown` | Destroys a worktree's resources (run by `WorktreeRemove`).                         |
-| `discern worktree:prune`    | Sweeps stale worktrees, fully-merged branches, orphan dirs, and orphan resources.  |
-| `discern worktree-name`     | Resolves a worktree's stable identity (id / site / branch / port / db / resource). |
+| Command                     | What it does                                                                         |
+| --------------------------- | ------------------------------------------------------------------------------------ |
+| `discern worktree:create`   | Creates + sets up a worktree from the `WorktreeCreate` hook's JSON payload (stdin).  |
+| `discern worktree`          | Sets up a freshly-created worktree (what `worktree:create` runs inside it).          |
+| `discern worktree:ensure`   | Session-start idempotent setup (run by the `SessionStart` hook).                     |
+| `discern graduate`          | Graduates the branch into the main repo and tears the worktree down.                 |
+| `discern worktree:remove`   | Tears a worktree down from the `WorktreeRemove` hook's payload (stdin; best-effort). |
+| `discern worktree:teardown` | Destroys a worktree's resources (what `worktree:remove` runs).                       |
+| `discern worktree:prune`    | Sweeps stale worktrees, fully-merged branches, orphan dirs, and orphan resources.    |
+| `discern worktree-name`     | Resolves a worktree's stable identity (id / site / branch / port / db / resource).   |
 
 The lifecycle logic lives in
 [`src/engine/worktree/lifecycle.ts`](../../src/engine/worktree/lifecycle.ts);
@@ -175,12 +177,12 @@ install surface. This page lives in the `80-development/` tree that
 
 ## Bookkeeping & integration
 
-| Path                                                                  | Bucket         | What it is                                                                                                                                                                                                                                                                                    |
-| --------------------------------------------------------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `TODO.md`                                                             | yours          | The shared backlog for deferred or at-risk work; documents its own format. Lazy — not shipped at `setup`; created by `discern setup` (or on the first deferral) from its bundled skeleton, then yours to keep.                                                                                |
-| `recipes/` (`[recipes].dir`)                                          | yours          | Your own `discern <verb>` recipes (default `./recipes`, read only if present) — the engine wins on a name collision ([ADR 0001](../_adr/0001-project-owned-recipes.md)). Recipes read config through `discern config get`, not by sourcing a shell library.                                   |
-| [`.claude/settings.json`](../../templates/.claude/settings.json.tmpl) | yours (merged) | Adds a `Read(./.env)` deny and three hooks — `SessionStart` → `discern worktree:ensure`, `WorktreeCreate` → branch + `discern worktree`, `WorktreeRemove` → `discern worktree:teardown` — preserving existing settings. (The worktree hooks are omitted when `[features].worktrees = false`.) |
-| [`.gitignore`](../../templates/.gitignore.fragment)                   | yours (merged) | Idempotently ignores the compiled agent files `/AGENTS.md`, `/CLAUDE.md`, `/GEMINI.md` (all build artifacts — ADR 0034) and `/.claude/*` (except the tracked settings files).                                                                                                                 |
+| Path                                                                  | Bucket         | What it is                                                                                                                                                                                                                                                                                |
+| --------------------------------------------------------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TODO.md`                                                             | yours          | The shared backlog for deferred or at-risk work; documents its own format. Lazy — not shipped at `setup`; created by `discern setup` (or on the first deferral) from its bundled skeleton, then yours to keep.                                                                            |
+| `recipes/` (`[recipes].dir`)                                          | yours          | Your own `discern <verb>` recipes (default `./recipes`, read only if present) — the engine wins on a name collision ([ADR 0001](../_adr/0001-project-owned-recipes.md)). Recipes read config through `discern config get`, not by sourcing a shell library.                               |
+| [`.claude/settings.json`](../../templates/.claude/settings.json.tmpl) | yours (merged) | Adds a `Read(./.env)` deny and three hooks — `SessionStart` → `discern worktree:ensure`, `WorktreeCreate` → `discern worktree:create`, `WorktreeRemove` → `discern worktree:remove` — preserving existing settings. (The worktree hooks are omitted when `[features].worktrees = false`.) |
+| [`.gitignore`](../../templates/.gitignore.fragment)                   | yours (merged) | Idempotently ignores the compiled agent files `/AGENTS.md`, `/CLAUDE.md`, `/GEMINI.md` (all build artifacts — ADR 0034) and `/.claude/*` (except the tracked settings files).                                                                                                             |
 
 > In this repo (which self-hosts from source), the same `.claude/settings.json`
 > hooks call `deno task dev worktree:*` instead of `discern worktree:*` — the
