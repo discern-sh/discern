@@ -12,7 +12,7 @@
 [meta]
 # The install schema version — managed by discern (bumped by `discern upgrade`).
 # Don't edit this by hand.
-schema_version = 8
+schema_version = 11
 
 
 [project]
@@ -278,9 +278,9 @@ stream = false
 
 # Cancel the in-flight sibling commands the moment one fails, instead of running
 # every command to completion. ON by default — an agent-driven gate wants a fast
-# abort. Set false to run every job and see all failures in one pass. Best
-# effort: a command's own grandchildren may briefly linger (portable sh has no
-# atomic process-tree kill).
+# abort. Set false to run every job and see all failures in one pass. The engine
+# tree-kills a cancelled job's whole process group, so its grandchildren don't
+# linger.
 fail_fast = true
 
 

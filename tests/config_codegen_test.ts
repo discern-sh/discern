@@ -5,6 +5,7 @@ import {
   renderConfigReferenceDoc,
 } from "../src/shared/config_codegen.ts";
 import { parseConfig } from "../src/shared/config_schema.ts";
+import { SCHEMA_VERSION } from "../src/lib/version.ts";
 
 // These prove the committed, shipped artifacts stay in lockstep with the canonical
 // Zod schema (ADR 0026): a schema change that isn't regenerated (`deno task
@@ -105,6 +106,20 @@ Deno.test("the shipped discern.toml.tmpl renders to a config that VALIDATES unde
   const { config, issues } = parseConfig(await renderedTemplate());
   assertEquals(issues, [], "the template must produce a schema-valid config");
   assert(config !== undefined);
+});
+
+// `init` stamps the live SCHEMA_VERSION over the template's literal, so a stale
+// literal is invisible at runtime — but the seed is a reference users read, and
+// the literal had silently drifted (8 while the build was at 11). Bind it to the
+// one source of truth so a future SCHEMA_VERSION bump that forgets the seed fails
+// here instead of shipping a misleading number.
+Deno.test("discern.toml.tmpl's [meta].schema_version tracks the live SCHEMA_VERSION", async () => {
+  const { config } = parseConfig(await renderedTemplate());
+  assertEquals(
+    config?.meta.schema_version,
+    SCHEMA_VERSION,
+    "templates/discern.toml.tmpl [meta].schema_version is stale — bump it to match SCHEMA_VERSION in src/lib/version.ts",
+  );
 });
 
 Deno.test("every schema section appears in discern.toml.tmpl (no silent section drift)", async () => {
