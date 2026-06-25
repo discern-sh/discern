@@ -231,7 +231,10 @@ export async function statusResult(
   // The fleet survey, each row augmented with its best-effort id/port from `.env`.
   let fleet: StatusFleetEntry[] | undefined;
   if (includeFleet) {
-    fleet = await Promise.all(fleetRows.map(fleetEntryFor));
+    // Canonicalize the invocation root once so each row's is_current compares like
+    // for like against row.path (also canonical).
+    const here = await Deno.realPath(root).catch(() => root);
+    fleet = await Promise.all(fleetRows.map((row) => fleetEntryFor(row, here)));
     data.fleet = fleet;
   }
 
@@ -309,10 +312,16 @@ async function readWorktreeResources(
 
 /** Augment a cheap fleet row with the worktree's id/port from its `.env` (best
  * effort — omitted when absent). */
-async function fleetEntryFor(row: FleetWorktree): Promise<StatusFleetEntry> {
+async function fleetEntryFor(
+  row: FleetWorktree,
+  here: string,
+): Promise<StatusFleetEntry> {
   const entry: StatusFleetEntry = {
     path: row.path,
     is_main: row.isMain,
+    // Occupancy, not git state: the row the call is rooted in. `row.path` is already
+    // canonical (realPathOr in listWorktreeFleet); `here` is canonicalized to match.
+    is_current: row.path === here,
     branch: row.branch,
     clean: row.clean,
     changed_files: row.changedFiles,
@@ -704,12 +713,20 @@ function renderFleetTable(out: Out, fleet: StatusFleetEntry[]): void {
     const name = e.is_main ? "(main)" : (e.id ?? e.branch ?? basename(e.path));
     const state = e.clean ? "clean" : `${e.changed_files} changed`;
     const counts = e.is_main ? "—" : `${e.ahead}/${e.behind}`;
+    const you = e.is_current ? ` ${c.dim}← you${c.reset}` : "";
     out.raw(
       `  ${trunc(name, 19).padEnd(20)}${
         trunc(e.branch || "(detached)", 23).padEnd(24)
       }${state.padEnd(12)}${counts.padEnd(13)}${
         relativeAge(e.last_activity)
-      }\n`,
+      }${you}\n`,
+    );
+  }
+  // The ownership framing for humans (the agent-facing form is the --json-only hint):
+  // only when the survey holds a line of work other than the current one.
+  if (fleet.some((e) => !e.is_main && !e.is_current)) {
+    out.raw(
+      `  ${c.dim}Other worktrees are separate lines of work — don't start work in one you didn't create.${c.reset}\n`,
     );
   }
 }

@@ -97,6 +97,75 @@ Deno.test("status: from the main checkout, the default leads with the fleet (and
   });
 });
 
+Deno.test("status fleet: exactly the main row is is_current from the main checkout", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    await addWorktree(dir, "alpha");
+    await addWorktree(dir, "beta");
+
+    const obj = parseStatus((await runAgent(dir, ["status", "--json"])).stdout);
+    const fleet = obj.data.fleet as Array<
+      { is_main: boolean; is_current: boolean; branch: string }
+    >;
+    // Every row carries the (required) boolean — never undefined.
+    for (const e of fleet) {
+      assertEquals(typeof e.is_current, "boolean", JSON.stringify(e));
+    }
+    // Exactly one row is current, and from the main checkout it is the main row;
+    // every worktree row is explicitly not-current (not absent, not "available").
+    const current = fleet.filter((e) => e.is_current);
+    assertEquals(
+      current.length,
+      1,
+      `exactly one current row: ${JSON.stringify(fleet)}`,
+    );
+    assert(current[0]?.is_main, "the current row from main is the main row");
+    for (const e of fleet) {
+      if (!e.is_main) {
+        assertEquals(e.is_current, false, `worktree row not current: ${
+          JSON.stringify(e)
+        }`);
+      }
+    }
+  });
+});
+
+Deno.test("status fleet: under --all from a worktree, that worktree's row is is_current", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "alpha");
+    await addWorktree(dir, "beta");
+
+    const obj = parseStatus(
+      (await runAgent(wt, ["status", "--all", "--json"])).stdout,
+    );
+    const fleet = obj.data.fleet as Array<
+      { is_main: boolean; is_current: boolean; branch: string }
+    >;
+    const current = fleet.filter((e) => e.is_current);
+    assertEquals(
+      current.length,
+      1,
+      `exactly one current row: ${JSON.stringify(fleet)}`,
+    );
+    assertEquals(current[0]?.branch, "agent/alpha", "the current row is this worktree");
+    assertEquals(current[0]?.is_main, false);
+    // The sibling worktree and the main row are present but not current.
+    assertEquals(
+      fleet.find((e) => e.is_main)?.is_current,
+      false,
+      "the main row is not current from a worktree",
+    );
+    assertEquals(
+      fleet.find((e) => e.branch === "agent/beta")?.is_current,
+      false,
+      "a sibling worktree is not current",
+    );
+  });
+});
+
 Deno.test("status: from a worktree, the default is local; --all adds the fleet", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

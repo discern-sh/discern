@@ -240,7 +240,9 @@ const TOOLS: McpTool[] = [
       "refresh for either); data.setup_unfinished is present while the project's " +
       "one-time setup is still incomplete. From the " +
       "main checkout it leads with data.fleet (a cheap row per worktree: branch, " +
-      "dirty/ahead/behind, and a last_activity timestamp); set all=true " +
+      "dirty/ahead/behind, a last_activity timestamp, and is_current marking the row " +
+      "this call is rooted in — every other row is a separate line of work, not a " +
+      "workspace to claim, and a clean tree never means one is free); set all=true " +
       "to include the fleet from a worktree, or local=true to suppress it. hints[] are " +
       "advisory next-steps (e.g. run discern_finish, ready to graduate) — never an " +
       "unverified pass/fail.",

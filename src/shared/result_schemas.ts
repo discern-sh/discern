@@ -181,10 +181,13 @@ const statusGateSchema = z.strictObject({
 });
 export type StatusGate = z.infer<typeof statusGateSchema>;
 
-/** One row of the fleet survey. */
+/** One row of the fleet survey. `is_current` marks the row the status call is
+ * rooted in (the main row from the main checkout; the current worktree's row under
+ * `--all`); every other row is a separate line of work. */
 const statusFleetEntrySchema = z.strictObject({
   path: z.string(),
   is_main: z.boolean(),
+  is_current: z.boolean(),
   branch: z.string(),
   clean: z.boolean(),
   changed_files: z.number(),
