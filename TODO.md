@@ -245,6 +245,19 @@ _Nothing outstanding._
       currency check + its tests). Evidence: `discern.toml`
       `[ratchets.coverage].limit`.
 
+- [ ] **Drive the prose advisory backlog down (the `prose` ratchet).** Vale
+      lints `docs/` on every gate: `[checks.prose]` blocks on error-severity
+      findings (held at zero), and the whole advisory count — warnings +
+      suggestions — sits under a falling ceiling in `[ratchets.prose]` (1540 at
+      integration; mirrors `[ratchets.coverage]`). The bulk is
+      `Microsoft.Passive` (~500) plus `SentenceLength`/`Semicolon`; whittle them
+      down and lower the limit to lock each gain in. The ceiling rises only when
+      _new_ docs are integrated (more prose, more advisories) — that
+      re-baselining is deliberate, not a regression. House-style rule choices
+      live in `.vale.ini` and the project vocabulary in
+      `.vale/config/vocabularies/Project/accept.txt`. Evidence: `discern.toml`
+      `[ratchets.prose].limit`; `deno task prose`.
+
 ## 🔵 Unmerged / at-risk work — decide: land or drop
 
 _Work built but not merged, or otherwise at risk of being lost. Nothing
@@ -306,9 +319,9 @@ periodically in maintenance batches._
       for new users, so should be folded in to `discern audit` and throughout
       our own docs, guidance, and reference materials.
 - [ ] Fan-out agentic review/rewrite for public-facing audiences of all
-      documentation (waiting on Vale lint setup); plus all ADRs. Once complete,
-      ensure agents know future documentation changes will be publicly visible
-      to end-users, including future ADRs.
+      documentation (Vale prose lint is now wired — see `[ratchets.prose]`);
+      plus all ADRs. Once complete, ensure agents know future documentation
+      changes will be publicly visible to end-users, including future ADRs.
 - [ ] Conduct a general-purpose thorough "consistency review" - establish all
       aspects of the platform use the same conventions consistently everywhere.
       Noteworthy inconsistencies currently (non-exhaustive list):

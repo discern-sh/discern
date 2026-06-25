@@ -15,11 +15,11 @@ the engine-always-wins shadow rule survives.
 ## Context
 
 `bin/agent` is the task-runner surface a coding agent drives: `agent finish`,
-`agent worktree:exit`, and so on. It dispatches a verb to a file by mapping `:`
+`agent worktree:exit`, and more. It dispatches a verb to a file by mapping `:`
 to `-` and running `.discern/engine/<recipe>`. Recipes are auto-discovered from
 the files on disk — drop one in and it works, no registry.
 
-But `.discern/engine/` is **managed**: it is kit-owned, hash-tracked in the
+However, `.discern/engine/` is **managed**: it is kit-owned, hash-tracked in the
 manifest, and refreshed by `discern upgrade`. A project that wants its own
 first-class `agent <verb>` command (say `agent deploy`, `agent seed-db`) has
 nowhere to put it except that managed directory. Doing so is hazardous:

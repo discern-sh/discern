@@ -11,7 +11,7 @@ system is shaped the way it is_ before you read how any one piece works.
 
 ## What's in here
 
-| Read this                                    | If you want to...                                                                         |
+| Read this                                    | If you want to…                                                                           |
 | -------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | [concepts.md](concepts.md)                   | Understand the moving parts at a glance — a short narrative tour of the system.           |
 | [system-map.md](system-map.md)               | See the architecture as one picture (ASCII).                                              |

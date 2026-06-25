@@ -48,13 +48,13 @@ judgement"). The auditor therefore never reports a confident verdict it cannot
 stand behind.
 
 The verb is **three renderings of one `DiscernResult`** (ADR 0028): a
-weakest-first human report — interactive drill-down on a TTY, full static report
-otherwise — `--json` for agents and CI, and the `discern_audit` MCP tool so an
-agent surfaces improvements natively. It is **advisory by default** (a completed
-audit is `ok:true`); `--min-score <n>` flips it into an enforcement gate
-(`ok:false`, exit 1 below the floor), and `--category <name>` focuses one area.
-It is **feature-aware**: a category gated on a disabled feature is skipped
-entirely, the same way a disabled feature's guidance section and verbs vanish.
+weakest-first human report — interactive on a TTY, full static report otherwise
+— `--json` for agents and CI, and the `discern_audit` MCP tool so an agent
+surfaces improvements natively. It is **advisory by default** (a completed audit
+is `ok:true`); `--min-score <n>` flips it into an enforcement gate (`ok:false`,
+exit 1 below the floor), and `--category <name>` focuses one area. It is
+**feature-aware**: a category gated on a disabled feature is skipped entirely,
+the same way a disabled feature's guidance section and verbs vanish.
 
 The catalog (`src/engine/audit/rules.ts`) is **data, not control flow** — a
 category list of rules, each a pure function of a once-gathered `AuditContext`.

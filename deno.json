@@ -21,6 +21,7 @@
     "fmt": "deno fmt",
     "lint": "deno lint",
     "coverage": "deno run --allow-read --allow-write --allow-env --allow-run scripts/coverage.ts",
+    "prose": "deno run --allow-read --allow-env --allow-run scripts/prose.ts",
     "codegen": "deno run --allow-read --allow-write scripts/codegen.ts",
     "inspect-mcp": "deno run --allow-read --allow-run scripts/inspect_mcp.ts",
     "check": "deno check src/main.ts",

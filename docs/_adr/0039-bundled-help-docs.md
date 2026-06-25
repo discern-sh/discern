@@ -104,7 +104,7 @@ serving **discern's own bundled documentation**, available in every install.
   `discern help config-reference`, `discern help concepts` — without leaving the
   terminal, and an agent grounding work in `discern.toml` has the reference on
   hand. It is the same well-tested surface as `discern docs`, so it inherits the
-  non-interactive `--json`/`--raw`/`--list` contract for free.
+  non-interactive `--json`/`--raw`/`--list` contract at no extra cost.
 
 - **`docs` and `help` cannot drift.** They are one code path. A change to the
   browser, the renderer, or the result shape lands in both at once; the only
@@ -119,9 +119,9 @@ serving **discern's own bundled documentation**, available in every install.
   interrupted build cannot dirty the tree or shadow the live `docs/` in a later
   `deno task dev help`.
 
-- **MCP parity comes for free.** Because `helpResult` is the same result core,
-  the `discern_help` MCP tool is a thin adapter mirroring `discern_docs` — it
-  serves the public set only (no `--adr`) and is ungated, exactly like the CLI.
+- **MCP parity is automatic.** Because `helpResult` is the same result core, the
+  `discern_help` MCP tool is a thin adapter mirroring `discern_docs` — it serves
+  the public set only (no `--adr`) and is ungated, exactly like the CLI.
 
 ## Alternatives considered
 

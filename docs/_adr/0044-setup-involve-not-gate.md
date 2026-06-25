@@ -88,8 +88,8 @@ The explicit **no**s:
   (ADR 0037) all stay exactly as hardened. The brief states outright that
   per-stage commits and reassuring narration are transparency _during_ setup and
   must **not** be paraphrased to the user as "setup complete." Warmer narration
-  must not become a second "looks done" signal — the very failure 0037 exists to
-  prevent.
+  must not become a second "looks done" signal — the exact failure 0037 exists
+  to prevent.
 - **Not a licence to act irreversibly.** "Proceed without asking" is scoped to
   reversible, low-stakes changes; the genuine-decision carve-out is the
   boundary, and it is enumerated in the brief. External per-worktree resources

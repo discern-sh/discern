@@ -12,7 +12,7 @@ already had the right execution shape. `init`/`add-preset` compute a pure `Plan`
 it, with rendering kept separate
 ([`src/lib/plan_view.ts`](../../src/lib/plan_view.ts)) so planning stays pure.
 That one split is why those verbs get `--dry-run`, a review screen, and
-idempotency almost for free.
+near-free idempotency.
 
 The **engine half never adopted it.** Every effectful engine verb computed _and_
 executed in a single imperative pass:

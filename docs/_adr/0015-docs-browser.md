@@ -34,8 +34,9 @@ command to two audiences** decided by the TTY.
 - **It lives in the binary, not the shell engine.** `discern docs` browses the
   install's own `docs/` (found by walking up to the nearest `discern.toml`, the
   same anchor `bin/agent` uses). The `discern` binary is already on PATH
-  wherever it installed a project, so every install gets the viewer for free —
-  with **no new file under `templates/`** and nothing added to the managed set.
+  wherever it installed a project, so every install gets the viewer at no extra
+  cost — with **no new file under `templates/`** and nothing added to the
+  managed set.
 - **The renderer is ours** (`src/lib/markdown.ts`): a focused subset — headings,
   paragraphs, inline emphasis/code/strikethrough/links, ordered/unordered/task
   lists, fenced code, blockquotes, GFM tables, HR — rendered to ANSI. It is a
