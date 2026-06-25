@@ -657,7 +657,8 @@ function registerResources(
  * clients load when MCP connects (it rides in the `initialize` result). discern's
  * operating model in a few imperative lines, carrying the strong MCP-first stance:
  * these tools are the primary surface, not the CLI. Feature-aware, mirroring the
- * tool gating — the docs and graduate lines appear only when their feature is on.
+ * tool gating — the docs, ratchets, and graduate lines appear only when their
+ * feature is on.
  */
 function buildInstructions(enabled: ReadonlySet<Feature>): string {
   const lines = [
@@ -674,11 +675,19 @@ function buildInstructions(enabled: ReadonlySet<Feature>): string {
     "than re-running and scraping.",
     "- Learn how discern itself works (the gate, discern.toml, worktrees) with " +
     "discern_help.",
+    "- Verify the install with discern_doctor when something looks misconfigured " +
+    "(bad config, a command not on PATH, a stale schema).",
   ];
   if (enabled.has("docs")) {
     lines.push("- Read THIS project's own documentation with discern_docs.");
   }
   lines.push("- Find concrete setup improvements with discern_audit.");
+  if (enabled.has("ratchets")) {
+    lines.push(
+      "- Before pushing, hold the quality ratchets with discern_ratchets — slow " +
+        "and on-demand, so NOT part of discern_finish.",
+    );
+  }
   if (enabled.has("worktrees")) {
     lines.push(
       "- When a branch is finished and integrated, graduate it into the main " +

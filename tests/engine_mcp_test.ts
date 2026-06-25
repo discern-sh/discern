@@ -844,7 +844,12 @@ Deno.test("discern mcp: discern_ratchets is hidden when the ratchets feature is 
       method: "initialize",
       params: initParams(),
     });
-    await mcp.recv();
+    const init = await mcp.recv();
+    // ratchets off → its line drops from the instructions too (mirrors tool gating).
+    assert(
+      !(init.result.instructions as string).includes("discern_ratchets"),
+      init.result.instructions,
+    );
     await mcp.send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
     const list = await mcp.recv();
     const names = list.result.tools.map((t: { name: string }) => t.name);
@@ -876,6 +881,9 @@ Deno.test("discern mcp: the server advertises a non-empty, MCP-first instruction
     assert(instructions.includes("discern_finish"), instructions);
     // Worktrees are on in the default scaffold → the graduate line is present.
     assert(instructions.includes("discern_graduate"), instructions);
+    // Always-on diagnostics, plus the feature-gated ratchets line (on by default).
+    assert(instructions.includes("discern_doctor"), instructions);
+    assert(instructions.includes("discern_ratchets"), instructions);
     assertEquals(await mcp.close(), 0);
   });
 });
