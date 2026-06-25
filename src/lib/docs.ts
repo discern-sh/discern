@@ -179,7 +179,7 @@ function internalAdmits(
  * `includeInternal` widens that: `true` indexes every internal subtree (full-tree
  * export), and a string[] allowlist indexes ONLY the named ones (e.g. `["_adr"]`
  * for `help --adr`, which reveals the ADRs without ever exposing `_internal` /
- * `_maintainer`). Point `--dir` at one (`--dir docs/_adr`) to browse it directly,
+ * `_private`). Point `--dir` at one (`--dir docs/_adr`) to browse it directly,
  * where it is no longer nested under an underscore.
  */
 export async function discoverDocs(opts: {

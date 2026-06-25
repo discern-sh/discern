@@ -123,7 +123,7 @@ function listScopes(scopes: readonly DocsExportScope[]): string {
 /**
  * The internal-subtree policy for a browse. `help --adr` reveals the bundled ADR
  * tree — and ONLY that ({@link BUNDLED_INTERNAL_DOC_DIRS}), never `_internal` /
- * `_maintainer`, and never over MCP (the `helpResult` path passes nothing).
+ * `_private`, and never over MCP (the `helpResult` path passes nothing).
  * Everything else stays public-only.
  */
 function internalScope(

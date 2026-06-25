@@ -422,7 +422,7 @@ Deno.test("discern mcp: discern_help returns discern's OWN docs, not the project
     assert(
       docs.every((d: { path: string }) =>
         !d.path.includes("_adr") && !d.path.includes("_internal") &&
-        !d.path.includes("_maintainer")
+        !d.path.includes("_private")
       ),
       "discern_help excludes every internal subtree",
     );

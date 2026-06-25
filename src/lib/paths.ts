@@ -116,9 +116,9 @@ export async function resolveBundledSkillsDir(): Promise<string> {
 }
 
 /**
- * The repo-root staging directory `scripts/build.ts` lays the PUBLIC docs into
- * before `--include`-ing it (so customer binaries embed the public tree only,
- * never `_maintainer`/`_internal`). The single source of truth for the name,
+ * The repo-root staging directory `scripts/build.ts` lays the bundled docs into
+ * before `--include`-ing it (so customer binaries embed the public tree plus the
+ * ADR allowlist, never `_private`/`_internal`). The single source of truth for the name,
  * shared by the build (which writes it) and {@link resolveBundledDocsDir} (which
  * reads it). It nests an inner `docs/` so the resolved tree's basename is `docs`
  * and indexed paths read `docs/…`, identical to a checkout.
@@ -130,11 +130,23 @@ export const BUNDLED_DOCS_STAGE_DIR = ".discern-help-docs";
  * may be surfaced — only through an explicit opt-in (`discern help --adr`), never
  * by default and never over MCP. Default-DENY is the safety property: the build
  * embeds public docs plus exactly these, and `--adr` reveals exactly these, so a
- * new `_`-prefixed tree (e.g. `_maintainer`) stays private until it is added here
- * on purpose. The single source for both the embed (`scripts/build.ts`) and the
- * view (the `--adr` allowlist).
+ * new private tree (e.g. anything under `_private/`) stays out of every customer
+ * binary until it is added here on purpose. The single source for both the embed
+ * (`scripts/build.ts`) and the view (the `--adr` allowlist).
  */
 export const BUNDLED_INTERNAL_DOC_DIRS: readonly string[] = ["_adr"];
+
+/**
+ * Whether a top-level `docs/` entry (a public subtree, the root `README`, or an
+ * allowlisted internal tree) is embedded into the binary for `discern help`.
+ * Default-DENY: a `_`-prefixed tree ships only when named in
+ * {@link BUNDLED_INTERNAL_DOC_DIRS}, so `_internal` / `_private` (and any future
+ * private tree) are excluded automatically. The one predicate the build filters
+ * on and the curation guard test pins.
+ */
+export function isBundledDocEntry(name: string): boolean {
+  return !name.startsWith("_") || BUNDLED_INTERNAL_DOC_DIRS.includes(name);
+}
 
 /**
  * The bundled setup directory inside the resolved `templates/` tree. Holds

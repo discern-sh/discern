@@ -43,7 +43,7 @@ async function makeHelpFixture(
     "00-intro/glossary.md": "# Glossary\n",
     "_adr/0001-first.md": "# ADR 0001: First\n",
     "_internal/brief.md": "# Documenter brief\n",
-    "_maintainer/positioning.md": "# Positioning\n",
+    "_private/positioning.md": "# Positioning\n",
   };
   for (const [rel, content] of Object.entries(files)) {
     await Deno.mkdir(join(help, rel, ".."), { recursive: true });
@@ -161,7 +161,7 @@ Deno.test("help <ambiguous> --json reports ambiguous with candidates", async () 
   });
 });
 
-Deno.test("help excludes internal _adr/_internal/_maintainer from every view", async () => {
+Deno.test("help excludes internal _adr/_internal/_private from every view", async () => {
   await withTempDir(async (dir) => {
     const help = await makeHelpFixture(dir);
 
@@ -171,7 +171,7 @@ Deno.test("help excludes internal _adr/_internal/_maintainer from every view", a
       { DISCERN_DOCS_DIR: help },
     );
     const res = JSON.parse(index.stdout);
-    for (const buried of ["_adr", "_internal", "_maintainer"]) {
+    for (const buried of ["_adr", "_internal", "_private"]) {
       assert(
         res.data.docs.every((d: { path: string }) => !d.path.includes(buried)),
         `the help index must not contain ${buried}`,
@@ -191,7 +191,7 @@ Deno.test("help excludes internal _adr/_internal/_maintainer from every view", a
       dir,
       { DISCERN_DOCS_DIR: help },
     );
-    for (const buried of ["_adr", "_internal", "_maintainer", "Positioning"]) {
+    for (const buried of ["_adr", "_internal", "_private", "Positioning"]) {
       assert(
         !list.stdout.includes(buried),
         `the help TOC must not list ${buried}`,
@@ -200,7 +200,7 @@ Deno.test("help excludes internal _adr/_internal/_maintainer from every view", a
   });
 });
 
-Deno.test("help --adr surfaces ONLY the ADR tree, never _internal/_maintainer", async () => {
+Deno.test("help --adr surfaces ONLY the ADR tree, never _internal/_private", async () => {
   await withTempDir(async (dir) => {
     const help = await makeHelpFixture(dir);
 
@@ -217,7 +217,7 @@ Deno.test("help --adr surfaces ONLY the ADR tree, never _internal/_maintainer", 
       "--adr surfaces the ADR docs",
     );
     // ...but never the other internal subtrees (allowlist, not all-internal).
-    for (const buried of ["_internal", "_maintainer"]) {
+    for (const buried of ["_internal", "_private"]) {
       assert(
         res.data.docs.every((d: { path: string }) => !d.path.includes(buried)),
         `--adr must not surface ${buried}`,
@@ -288,7 +288,7 @@ Deno.test("help --export public concatenates only the public docs", async () => 
     assertEquals(stderr, "");
     assert(stdout.startsWith("<!-- BEGIN SOURCE: helpdocs/README.md -->\n\n"));
     assertStringIncludes(stdout, "Concepts at a glance");
-    assert(!stdout.includes("Positioning"), "must not export _maintainer");
+    assert(!stdout.includes("Positioning"), "must not export _private");
     assert(!stdout.includes("Documenter brief"), "must not export _internal");
     assertEquals(stdout.match(/^<!-- BEGIN SOURCE:/gm)?.length, 4);
   });
@@ -365,7 +365,7 @@ Deno.test("dogfood: help serves THIS repo's own docs (config reference)", async 
   assert(ires.data.count > 0);
   assert(
     ires.data.docs.every((d: { path: string }) =>
-      !d.path.includes("_adr") && !d.path.includes("_maintainer") &&
+      !d.path.includes("_adr") && !d.path.includes("_private") &&
       !d.path.includes("_internal")
     ),
     "the dogfood index must exclude discern's own internal subtrees",

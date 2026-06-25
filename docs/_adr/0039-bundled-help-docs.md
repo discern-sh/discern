@@ -28,10 +28,10 @@ directory-resolution strategy, the verb label, and whether the surface is
 feature-gated.
 
 A complication: discern's `docs/` tree contains internal subtrees that must not
-reach customers — `_maintainer/` (positioning, marketing, maintainer notes),
-`_internal/` (the documenter brief), and the verbose `_adr/` history. The view
-already excludes every `_`-prefixed subtree by default, but a customer binary
-should ideally not even _embed_ the marketing/internal material.
+reach customers — `_private/` (the maintainer's positioning, marketing, and
+research notes), `_internal/` (the documenter brief), and the verbose `_adr/`
+history. The view already excludes every `_`-prefixed subtree by default, but a
+customer binary should ideally not even _embed_ the marketing/internal material.
 
 ## Decision
 
@@ -57,7 +57,7 @@ serving **discern's own bundled documentation**, available in every install.
 - **Curation is at the embed, with the view as a second line of defence.**
   `scripts/build.ts` stages the public docs subtrees (plus the opt-in ADR
   allowlist — see below) into a transient `.discern-help-docs/docs/` and
-  `--include`s that, so `_internal` / `_maintainer` are never embedded in a
+  `--include`s that, so `_internal` / `_private` are never embedded in a
   customer binary. The staged tree nests an inner `docs/` so embedded paths read
   `docs/…`, identical to a checkout. On top of that, `help` discovers with
   `includeInternal: false` by default, so even the repo's full `docs/` (the
@@ -90,11 +90,13 @@ serving **discern's own bundled documentation**, available in every install.
   dogfooding itself, for the genuinely curious. It is **CLI-only**: the MCP
   `discern_help` tool never exposes it (an agent gets the curated public set).
   The build embeds the ADRs too (the `--adr` view needs them), but `_internal` /
-  `_maintainer` are never embedded. The set of internal subtrees that
-  ship-and-are-revealable lives once in `BUNDLED_INTERNAL_DOC_DIRS` (`paths.ts`)
-  and is **default-deny**: the build stages public docs plus exactly that
-  allowlist, and `--adr` reveals exactly that allowlist, so a new `_`-prefixed
-  tree stays private until it is added on purpose.
+  `_private` are never embedded. The set of internal subtrees that
+  ship-and-are-revealable lives once in `BUNDLED_INTERNAL_DOC_DIRS`
+  (`paths.ts`), behind the `isBundledDocEntry` predicate the build and a guard
+  test (`tests/docs_curation_test.ts`) share, and is **default-deny**: the build
+  stages public docs plus exactly that allowlist, and `--adr` reveals exactly
+  that allowlist, so a new `_`-prefixed tree (e.g. anything dropped under the
+  `_private/` umbrella) stays private until it is added on purpose.
 
 ## Consequences
 
@@ -125,9 +127,9 @@ serving **discern's own bundled documentation**, available in every install.
 
 - **Embed the whole `docs/` tree (`--include docs`) and rely only on the view to
   hide internals.** Simpler — no staging — and was the sanctioned fallback. But
-  it embeds `_maintainer` positioning/marketing inside every customer binary,
-  which we would rather not ship even if it is never surfaced. Staging keeps the
-  embed itself clean; the view is then defence in depth, not the only guard.
+  it embeds `_private` positioning/marketing inside every customer binary, which
+  we would rather not ship even if it is never surfaced. Staging keeps the embed
+  itself clean; the view is then defence in depth, not the only guard.
 
 - **Generate a separate help-docs artifact or fetch docs over the network.**
   Forfeits discern's "one self-contained binary, no network at runtime" property
