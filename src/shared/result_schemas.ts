@@ -1,0 +1,356 @@
+/**
+ * The **typed wire schemas** for every `discern` verb's result — the SSOT spine of
+ * the MCP surface (ADR 0041). Where `result.ts` defines the result *vocabulary* as
+ * TypeScript interfaces and `serializeResult` defines the wire *shape*, this module
+ * is the one place that shape is described as runtime-checkable **Zod** schemas:
+ *
+ *  - the {@link EnvelopeSchema} mirrors exactly what `serializeResult` emits;
+ *  - a per-verb **data schema** models each verb's `data` payload (every mode), and
+ *    the verb's core types its `data` as `z.infer<…>` of that schema — so a core
+ *    that drifts from its schema is a COMPILE error;
+ *  - a per-verb **output schema** is the envelope with `data` narrowed, which the
+ *    MCP server advertises as the tool's `outputSchema`.
+ *
+ * The discipline this buys: the SDK validates a tool's `structuredContent` against
+ * its `outputSchema` on every call, so an output schema that doesn't match reality
+ * turns a VALID call into an ERROR. Tying the schema to the type (compile time) and
+ * proving faithfulness with a test (`tests/result_schemas_test.ts` runs each verb
+ * and validates its real `serializeResult` output) keeps the two from drifting — the
+ * MCP analog of the gate's guidance-currency check.
+ *
+ * Layer note: this is a `shared/` module — it depends only on `result.ts` and Zod,
+ * never on `src/engine/**`, so the engine cores import their data types FROM here
+ * (engine → shared), never the reverse.
+ */
+
+import { z } from "@zod/zod";
+
+// ── ring 1+2 mirrors: the plan / step / diagnostic sub-shapes ────────────────
+// Zod mirrors of the `result.ts` interfaces `serializeResult` emits. They are
+// proven faithful by the result-schema test running real finish/graduate results
+// (whose steps, plans, and diagnostics exercise every field) through these.
+
+/** The disposition vocabulary ({@link import("./result.ts").StepDisposition}). */
+const dispositionEnum = z.enum(["run", "skip", "gate"]);
+
+/** The step-kind vocabulary ({@link import("./result.ts").StepKind}). */
+const stepKindEnum = z.enum([
+  "job",
+  "scope-gate",
+  "merge-check",
+  "guidance-check",
+  "resource-create",
+  "resource-destroy",
+  "git",
+  "setup-step",
+  "env",
+  "refresh",
+  "ratchet",
+]);
+
+/** The executed-step outcome ({@link import("./result.ts").StepOutcome}). */
+const outcomeEnum = z.enum(["ok", "failed", "skipped"]);
+
+/** Mirror of {@link import("./result.ts").Diagnostic} — a normalized failure. */
+export const DiagnosticSchema = z.strictObject({
+  tool: z.string(),
+  severity: z.enum(["error", "warning"]),
+  message: z.string(),
+  reproduce_cmd: z.string(),
+  output: z.string().optional(),
+  truncated: z.boolean().optional(),
+  file: z.string().optional(),
+  line: z.number().optional(),
+  col: z.number().optional(),
+  rule: z.string().optional(),
+  fix_available: z.boolean().optional(),
+});
+
+/** Mirror of {@link import("./result.ts").PlanStepJson} — one planned step. */
+export const PlanStepJsonSchema = z.strictObject({
+  kind: stepKindEnum,
+  label: z.string(),
+  disposition: dispositionEnum,
+  note: z.string().optional(),
+  group: z.string().optional(),
+});
+
+/** Mirror of {@link import("./result.ts").StepResultJson} — a step + its outcome. */
+export const StepResultJsonSchema = z.strictObject({
+  kind: stepKindEnum,
+  label: z.string(),
+  disposition: dispositionEnum,
+  note: z.string().optional(),
+  group: z.string().optional(),
+  outcome: outcomeEnum,
+  duration_s: z.number().optional(),
+});
+
+/** Mirror of {@link import("./result.ts").PlanJson} — a whole dry-run plan. */
+export const PlanJsonSchema = z.strictObject({
+  title: z.string(),
+  details: z.array(z.string()),
+  steps: z.array(PlanStepJsonSchema),
+});
+
+// ── ring 3: the envelope ─────────────────────────────────────────────────────
+
+/**
+ * The envelope fields every {@link import("./result.ts").DiscernResult} serializes
+ * to, mirroring `serializeResult` exactly: `ok`/`verb` always present, everything
+ * else optional (`serializeResult` drops undefined fields, so a refusal envelope
+ * `{ok, verb, error, message}` validates too). `data` is left open here — each
+ * per-verb output schema narrows it. Composed into the output schemas below; locked
+ * to `serializeResult` by the result-schema test.
+ */
+const ENVELOPE_FIELDS = {
+  ok: z.boolean(),
+  verb: z.string(),
+  dry_run: z.boolean().optional(),
+  plan: PlanJsonSchema.optional(),
+  steps: z.array(StepResultJsonSchema).optional(),
+  diagnostics: z.array(DiagnosticSchema).optional(),
+  data: z.unknown().optional(),
+  hints: z.array(z.string()).optional(),
+  error: z.string().optional(),
+  message: z.string().optional(),
+};
+
+/** The base envelope schema, with `data` left open. The output schemas below narrow
+ * `data` per verb; this bare form is the schema for the data-less verbs (prepare,
+ * test, graduate, ratchets). */
+export const EnvelopeSchema = z.strictObject(ENVELOPE_FIELDS);
+
+// ── per-verb `data` schemas (the source; the core's `data` type infers from it) ──
+
+/** `finish` — the gate's own concerns ({@link import("../engine/gate/plan.ts").GateData}). */
+export const GateDataSchema = z.strictObject({
+  failed_stage: z.string().nullable(),
+  scopes_changed: z.array(z.string()),
+});
+export type GateData = z.infer<typeof GateDataSchema>;
+
+/** `changed-scopes` — the classified scope/marker list. */
+export const ChangedScopesDataSchema = z.strictObject({
+  scopes: z.array(z.string()),
+});
+export type ChangedScopesData = z.infer<typeof ChangedScopesDataSchema>;
+
+// status ──────────────────────────────────────────────────────────────────────
+
+/** This worktree's derived identity + the resources recorded in its `.env`. */
+const statusWorktreeSchema = z.strictObject({
+  id: z.string(),
+  branch: z.string(),
+  site: z.string(),
+  port: z.number(),
+  db: z.string(),
+  resources: z.record(z.string(), z.string()),
+});
+export type StatusWorktree = z.infer<typeof statusWorktreeSchema>;
+
+/** The local git situation relative to the integration branch. */
+const statusGitSchema = z.strictObject({
+  branch: z.string(),
+  integration_branch: z.string(),
+  clean: z.boolean(),
+  changed_files: z.number(),
+  behind_integration: z.number().nullable(),
+  ahead_integration: z.number(),
+});
+export type StatusGit = z.infer<typeof statusGitSchema>;
+
+/** What the gate WOULD fire for the current change — enumerated, never run. */
+const statusGateSchema = z.strictObject({
+  capabilities: z.array(z.string()),
+  checks: z.array(z.string()),
+  scope_gates: z.array(z.string()),
+});
+export type StatusGate = z.infer<typeof statusGateSchema>;
+
+/** One row of the fleet survey. */
+const statusFleetEntrySchema = z.strictObject({
+  path: z.string(),
+  is_main: z.boolean(),
+  branch: z.string(),
+  clean: z.boolean(),
+  changed_files: z.number(),
+  ahead: z.number(),
+  behind: z.number(),
+  last_activity: z.string().optional(),
+  id: z.string().optional(),
+  port: z.number().optional(),
+});
+export type StatusFleetEntry = z.infer<typeof statusFleetEntrySchema>;
+
+/** The feature-toggle snapshot status reports. */
+const statusFeaturesSchema = z.strictObject({
+  worktrees: z.boolean(),
+  ratchets: z.boolean(),
+  skills: z.boolean(),
+  mcp: z.boolean(),
+  docs: z.boolean(),
+});
+export type StatusFeatures = z.infer<typeof statusFeaturesSchema>;
+
+/** `status` — the full situation payload. The local-only heavy blocks
+ * (`changed_scopes`/`gate`) are present in the local view and omitted when leading
+ * with the fleet from main; `fleet` is present only when the survey is included. */
+export const StatusDataSchema = z.strictObject({
+  location: z.enum(["main", "worktree"]),
+  root: z.string(),
+  worktree: statusWorktreeSchema.nullable(),
+  git: statusGitSchema.nullable(),
+  changed_scopes: z.array(z.string()).optional(),
+  gate: statusGateSchema.optional(),
+  features: statusFeaturesSchema,
+  ratchets: z.array(z.string()),
+  stale_generated: z.array(z.string()).optional(),
+  setup_unfinished: z.strictObject({ pending_markers: z.array(z.string()) })
+    .optional(),
+  fleet: z.array(statusFleetEntrySchema).optional(),
+});
+export type StatusData = z.infer<typeof StatusDataSchema>;
+
+// doctor ────────────────────────────────────────────────────────────────────
+
+/** One doctor check ({@link import("../commands/doctor.ts").Check}). */
+export const CheckSchema = z.strictObject({
+  name: z.string(),
+  ok: z.boolean(),
+  detail: z.string(),
+  fix: z.string().optional(),
+  warn: z.boolean().optional(),
+});
+export type Check = z.infer<typeof CheckSchema>;
+
+/** The runtime-environment summary doctor reports. */
+export const DoctorEnvironmentSchema = z.strictObject({
+  discern: z.string(),
+  platform: z.string(),
+  git: z.string().optional(),
+});
+export type DoctorEnvironment = z.infer<typeof DoctorEnvironmentSchema>;
+
+/** `doctor` — the install-verification payload. */
+export const DoctorDataSchema = z.strictObject({
+  kit_version: z.string(),
+  environment: DoctorEnvironmentSchema,
+  checks: z.array(CheckSchema),
+});
+export type DoctorData = z.infer<typeof DoctorDataSchema>;
+
+// audit ─────────────────────────────────────────────────────────────────────
+
+/** A pointer to the project material a subjective review item is judged against. */
+const auditEvidenceSchema = z.strictObject({
+  source: z.string(),
+  excerpt: z.string(),
+});
+
+/** One deterministic rule's evaluated result. */
+const ruleResultSchema = z.strictObject({
+  id: z.string(),
+  title: z.string(),
+  status: z.enum(["pass", "partial", "fail"]),
+  weight: z.number(),
+  detail: z.string(),
+  fix: z.string().optional(),
+  teach: z.string(),
+});
+
+/** One open subjective review item for the agent to judge. */
+const reviewResultSchema = z.strictObject({
+  id: z.string(),
+  title: z.string(),
+  ask: z.string(),
+  teach: z.string(),
+  against: auditEvidenceSchema.optional(),
+});
+
+/** One audited category's evaluated result. */
+const auditCategorySchema = z.strictObject({
+  name: z.string(),
+  title: z.string(),
+  score: z.number(),
+  weight: z.number(),
+  weak: z.number(),
+  rules: z.array(ruleResultSchema),
+  reviews: z.array(reviewResultSchema),
+});
+
+/** `audit` — the scored, weakest-first best-practices payload. */
+export const AuditDataSchema = z.strictObject({
+  score: z.number(),
+  weak: z.number(),
+  open_reviews: z.number(),
+  categories: z.array(auditCategorySchema),
+});
+export type AuditData = z.infer<typeof AuditDataSchema>;
+
+// docs / help ──────────────────────────────────────────────────────────────
+
+/** One doc's record (no content). */
+const docRecordSchema = z.strictObject({
+  path: z.string(),
+  section: z.string(),
+  slug: z.string(),
+  title: z.string(),
+});
+export type DocRecord = z.infer<typeof docRecordSchema>;
+
+/**
+ * `docs`/`help` — the documentation payload, across every mode: the index
+ * (`docs_dir`/`count`/`docs`), an empty tree (`count:0`), a single doc
+ * (`doc` with content), or an ambiguous match (`candidates`). Modeled as one object
+ * with mode-specific optionals (a not-found is a bare error envelope with no data).
+ */
+export const DocsDataSchema = z.strictObject({
+  docs_dir: z.string().optional(),
+  count: z.number().optional(),
+  docs: z.array(docRecordSchema).optional(),
+  doc: docRecordSchema.extend({ content: z.string() }).optional(),
+  candidates: z.array(z.string()).optional(),
+});
+export type DocsData = z.infer<typeof DocsDataSchema>;
+
+// ── per-verb output schemas (the envelope with `data` narrowed) ──────────────
+// Advertised by the MCP server as each tool's `outputSchema`; the SDK validates a
+// call's `structuredContent` against `<schema>.shape`. The data-less verbs use the
+// bare {@link EnvelopeSchema}.
+
+/** `finish` output: envelope + the gate's `data`. */
+export const FinishOutputSchema = z.strictObject({
+  ...ENVELOPE_FIELDS,
+  data: GateDataSchema.optional(),
+});
+
+/** `status` output: envelope + the situation `data`. */
+export const StatusOutputSchema = z.strictObject({
+  ...ENVELOPE_FIELDS,
+  data: StatusDataSchema.optional(),
+});
+
+/** `doctor` output: envelope + the install-check `data`. */
+export const DoctorOutputSchema = z.strictObject({
+  ...ENVELOPE_FIELDS,
+  data: DoctorDataSchema.optional(),
+});
+
+/** `changed-scopes` output: envelope + the scope-list `data`. */
+export const ChangedScopesOutputSchema = z.strictObject({
+  ...ENVELOPE_FIELDS,
+  data: ChangedScopesDataSchema.optional(),
+});
+
+/** `audit` output: envelope + the scored `data`. */
+export const AuditOutputSchema = z.strictObject({
+  ...ENVELOPE_FIELDS,
+  data: AuditDataSchema.optional(),
+});
+
+/** `docs`/`help` output: envelope + the documentation `data`. */
+export const DocsOutputSchema = z.strictObject({
+  ...ENVELOPE_FIELDS,
+  data: DocsDataSchema.optional(),
+});

@@ -26,6 +26,14 @@ import {
   toCommandList,
 } from "../../shared/config_schema.ts";
 import type { DiscernResult } from "../../shared/result.ts";
+import type {
+  StatusData,
+  StatusFeatures,
+  StatusFleetEntry,
+  StatusGate,
+  StatusGit,
+  StatusWorktree,
+} from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { findRoot } from "../../shared/env.ts";
 import { isFeatureEnabled } from "../../shared/features.ts";
@@ -68,93 +76,11 @@ export interface StatusOptions {
   local?: boolean;
 }
 
-// ── the `data` payload shapes (the wire contract; discriminated by `location`
-//    and the presence of `fleet`) ──────────────────────────────────────────────
-
-/** This worktree's derived identity + the resources actually recorded in its `.env`. */
-interface StatusWorktree {
-  id: string;
-  branch: string;
-  site: string;
-  port: number;
-  db: string;
-  /** name → handle, READ from this worktree's `.env` (never created). */
-  resources: Record<string, string>;
-}
-
-/** The local git situation relative to the integration branch. */
-interface StatusGit {
-  branch: string;
-  integration_branch: string;
-  clean: boolean;
-  changed_files: number;
-  /** Commits the branch is behind the integration branch; null = not comparable
-   * (the main checkout, or no local integration branch). */
-  behind_integration: number | null;
-  /** Commits the branch is ahead of the integration branch. */
-  ahead_integration: number;
-}
-
-/** What the gate WOULD fire for the current change — enumerated, never run. */
-interface StatusGate {
-  /** Wired capabilities (those with a real command), in canonical order. */
-  capabilities: string[];
-  /** Declared `[checks.<name>]`. */
-  checks: string[];
-  /** Scopes whose `gate` the current change triggers. */
-  scope_gates: string[];
-}
-
-/** One row of the fleet survey — intentionally cheap (git reads + a best-effort
- * `.env` peek for id/port). */
-interface StatusFleetEntry {
-  path: string;
-  is_main: boolean;
-  branch: string;
-  clean: boolean;
-  changed_files: number;
-  ahead: number;
-  behind: number;
-  /** ISO 8601 timestamp of the most recent activity — the latest of the last HEAD
-   * movement (commit, checkout, or the worktree's creation) and the newest mtime
-   * among uncommitted files. Omitted when it can't be determined. */
-  last_activity?: string;
-  /** Best-effort, read from the worktree's `.env`; omitted when absent. */
-  id?: string;
-  port?: number;
-}
-
-/** The feature-toggle snapshot status reports. */
-interface StatusFeatures {
-  worktrees: boolean;
-  ratchets: boolean;
-  skills: boolean;
-  mcp: boolean;
-  docs: boolean;
-}
-
-/** The full `data` payload. The local-only heavy blocks (`changed_scopes`/`gate`)
- * are present in the local view and omitted when leading with the fleet from the
- * main checkout; `fleet` is present only when the fleet survey is included. */
-interface StatusData {
-  location: "main" | "worktree";
-  root: string;
-  worktree: StatusWorktree | null;
-  git: StatusGit | null;
-  changed_scopes?: string[];
-  gate?: StatusGate;
-  features: StatusFeatures;
-  ratchets: string[];
-  /** Generated agent files (e.g. AGENTS.md) that don't match what `discern refresh`
-   * would write — missing or stale. Omitted when all current or guidance is off. */
-  stale_generated?: string[];
-  /** Present (only) while one-time setup is unfinished — `[meta].bootstrapped` is
-   * not yet recorded. `pending_markers` lists scaffolded files still carrying
-   * skeleton markers (may be empty: all filled, but `setup done` not yet run).
-   * Omitted once setup is complete. */
-  setup_unfinished?: { pending_markers: string[] };
-  fleet?: StatusFleetEntry[];
-}
+// ── the `data` payload shapes ──────────────────────────────────────────────────
+// The wire contract (discriminated by `location` and the presence of `fleet`) lives
+// as Zod schemas in `result_schemas.ts` — the SSOT the MCP `outputSchema` advertises.
+// Typing this core's `data` (and its sub-blocks) as the inferred types means any
+// drift from the schema is a compile error.
 
 // ── the result core (the single source the CLI and the MCP tool both render) ────
 

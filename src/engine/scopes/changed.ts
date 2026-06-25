@@ -11,6 +11,7 @@
 
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import type { DiscernResult } from "../../shared/result.ts";
+import type { ChangedScopesData } from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { pathMatchesPattern } from "./glob.ts";
 
@@ -167,7 +168,11 @@ export interface ChangedScopesOptions {
 /** The `changed-scopes` envelope for a classified scope list — the one shape both
  * the CLI `--json` and the MCP tool render. */
 function changedScopesEnvelope(scopes: string[]): DiscernResult {
-  return { ok: true, verb: "changed-scopes", data: { scopes } };
+  return {
+    ok: true,
+    verb: "changed-scopes",
+    data: { scopes } satisfies ChangedScopesData,
+  };
 }
 
 /**

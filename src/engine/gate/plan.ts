@@ -17,6 +17,7 @@ import { isFeatureEnabled } from "../../shared/features.ts";
 import type { Stage } from "../../shared/capabilities.ts";
 import { jobsInStage } from "./stages.ts";
 import { normalizeDiagnostics } from "./diagnostics.ts";
+import type { GateData } from "../../shared/result_schemas.ts";
 import type { JobResult } from "../jobs/types.ts";
 import {
   capText,
@@ -265,13 +266,12 @@ export function buildGatePlan(cfg: DiscernConfig, changed: string[]): GatePlan {
 
 // ── the `finish` result (a DiscernResult serialization of plan + results) ───────
 
-/** The finish-specific `data` payload on its {@link DiscernResult}. */
-export interface GateData {
-  /** The stage that failed (`fix`|`build`|`check/test`|`scope_gates`|`merge`), or null. */
-  failed_stage: string | null;
-  /** The scopes the branch changed (drives which scope gates fired). */
-  scopes_changed: string[];
-}
+/** The finish-specific `data` payload on its {@link DiscernResult}. The shape is
+ * defined once as `GateDataSchema` in `result_schemas.ts` (the SSOT the MCP
+ * `outputSchema` advertises); re-exported here for the gate code and tests that
+ * build or read it. Typing `buildGateResult`'s `data` as this makes any drift from
+ * the schema a compile error. */
+export type { GateData };
 
 /**
  * A step's outcome from its result: absent (its stage aborted before it) OR

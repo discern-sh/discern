@@ -29,6 +29,11 @@ import {
 import { capStage, isKnownCapability } from "../shared/capabilities.ts";
 import { gitVersion } from "../engine/worktree/git.ts";
 import type { DiscernResult } from "../shared/result.ts";
+import type {
+  Check,
+  DoctorData,
+  DoctorEnvironment,
+} from "../shared/result_schemas.ts";
 
 /** Options accepted by the `doctor` command. */
 export interface DoctorOptions {
@@ -36,16 +41,11 @@ export interface DoctorOptions {
   noColor: boolean;
 }
 
-/** The runtime environment summary — triage context a user can paste into a bug
- * report: which discern build, on what platform, against which git. */
-export interface DoctorEnvironment {
-  /** The discern build version (`KIT_VERSION`). */
-  discern: string;
-  /** `os/arch`, e.g. `darwin/aarch64`. */
-  platform: string;
-  /** `git --version` output, omitted when git is unavailable. */
-  git?: string;
-}
+/** The runtime-environment summary doctor reports — triage context a user can paste
+ * into a bug report (which discern build, on what platform, against which git).
+ * Defined as `DoctorEnvironmentSchema` in `result_schemas.ts` (the SSOT) and
+ * re-exported here. */
+export type { DoctorEnvironment };
 
 /** Gather the {@link DoctorEnvironment} — the shared source for the human header
  * line and the `--json` `data.environment` block. */
@@ -58,17 +58,9 @@ export async function doctorEnvironment(): Promise<DoctorEnvironment> {
   };
 }
 
-/** One diagnostic result. */
-export interface Check {
-  name: string;
-  ok: boolean;
-  /** What was found (always set). */
-  detail: string;
-  /** The exact remedy, set when `ok` is false (or for an advisory `warn`). */
-  fix?: string;
-  /** An advisory: rendered as a warning, but does NOT make doctor unhealthy. */
-  warn?: boolean;
-}
+/** One doctor diagnostic — defined as `CheckSchema` in `result_schemas.ts` (the
+ * SSOT) and re-exported here. */
+export type { Check };
 
 /** `git --version` trimmed for a compact display ("git version 2.5.0" → "2.5.0").
  * The full string is preserved verbatim in the `--json` environment block. */
@@ -520,7 +512,7 @@ export async function doctorResult(destDir: string): Promise<DiscernResult> {
       kit_version: KIT_VERSION,
       environment: await doctorEnvironment(),
       checks,
-    },
+    } satisfies DoctorData,
   };
 }
 
