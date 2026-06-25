@@ -70,9 +70,11 @@ function stringField(
 /**
  * `discern worktree:create` — the `WorktreeCreate` hook entry point. Reads
  * `{name, cwd}` from stdin, creates a linked worktree at
- * `<cwd>/.claude/worktrees/<name>` on branch `<branch_prefix><name>` (idempotent
- * if it already exists), runs the per-worktree setup inside it, and prints the
- * worktree's path on stdout for Claude Code to read. Returns a process exit code.
+ * `<cwd>/.claude/worktrees/<name>` on branch `<branch_prefix><name>`, runs the
+ * per-worktree setup inside it, and prints the worktree's path on stdout for
+ * Claude Code to read. Idempotent end to end — a re-fired hook leaves an existing
+ * worktree in place and re-readies it (resources via `ensure`, setup steps
+ * skipped) rather than re-creating anything. Returns a process exit code.
  */
 export async function worktreeCreateHook(): Promise<number> {
   const log = hookLogger();

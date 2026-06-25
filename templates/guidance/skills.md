@@ -5,9 +5,10 @@ agent. The effective set is the bundled built-ins shipped in the binary plus the
 project's **authored skills** under `[skills].dir` (default `./skills`), where an
 authored skill **overrides a bundled one of the same name**.
 
-discern materializes the effective set into `.claude/skills/` (gitignored): bundled
-skills are copied in, authored skills are symlinked so your edits are live. You
-never edit `.claude/skills/` by hand.
+discern materializes the effective set into each configured agent's skills
+directory (`.claude/skills/` for Claude Code, the cross-tool `.agents/skills/` for
+Codex and Gemini; all gitignored): bundled skills are copied in, authored skills
+are symlinked so your edits are live. You never edit those directories by hand.
 
 - **`discern skills list`** — show the effective set and which authored skills
   override which built-ins.

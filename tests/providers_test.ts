@@ -14,6 +14,7 @@ import {
   providerFor,
   PROVIDERS,
   providersWithHooks,
+  skillsDirsForAgents,
   unwireProviderMcp,
   wireProviderMcp,
 } from "../src/lib/providers.ts";
@@ -27,6 +28,34 @@ Deno.test("the registry is total: every known agent has a complete provider", ()
     assert(p.guidanceFile.path.endsWith(".md"), `${name}: odd guidance file`);
   }
   assertEquals(Object.keys(PROVIDERS).length, AGENT_NAMES.length);
+});
+
+Deno.test("every known agent declares a skills directory (all SKILL.md-format)", () => {
+  for (const name of AGENT_NAMES) {
+    const dir = providerFor(name)?.skillsDir;
+    assert(dir !== undefined && dir.length > 0, `${name}: no skills dir`);
+  }
+  // Claude keeps its own; Codex + Gemini share the cross-tool standard.
+  assertEquals(providerFor("claude_code")?.skillsDir, ".claude/skills");
+  assertEquals(providerFor("codex")?.skillsDir, ".agents/skills");
+  assertEquals(providerFor("gemini")?.skillsDir, ".agents/skills");
+});
+
+Deno.test("skillsDirsForAgents: dedupes Codex+Gemini onto the shared .agents/skills", () => {
+  // The default agent set materializes into two dirs (Claude's + the shared one).
+  assertEquals(skillsDirsForAgents(["claude_code", "codex"]), [
+    ".claude/skills",
+    ".agents/skills",
+  ]);
+  // Codex + Gemini collapse to a single shared dir (no redundant materialization).
+  assertEquals(skillsDirsForAgents(["codex", "gemini"]), [".agents/skills"]);
+  // All three → two dirs, deduped and in first-seen order.
+  assertEquals(skillsDirsForAgents(["claude_code", "codex", "gemini"]), [
+    ".claude/skills",
+    ".agents/skills",
+  ]);
+  // An unknown agent contributes nothing (skipped, never guessed).
+  assertEquals(skillsDirsForAgents(["nope"]), []);
 });
 
 Deno.test("every agent renders a distinct `<label> (<file>)` choice — the init prompt's display", () => {

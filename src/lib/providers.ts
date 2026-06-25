@@ -1,14 +1,16 @@
 /**
  * The typed provider registry (ADR 0031): the single source of truth for
  * everything agent-specific — the compiled guidance file, the worktree-hook
- * surface, and the MCP-server registration. Keyed by {@link AgentName} as a TOTAL
- * Record, so the type checker forces a complete entry for every known agent and
- * provider-specific behaviour can never drift across the codebase.
+ * surface, the MCP-server registration, and the skills directory. Keyed by
+ * {@link AgentName} as a TOTAL Record, so the type checker forces a complete entry
+ * for every known agent and provider-specific behaviour can never drift across the
+ * codebase.
  *
  * Claude Code is implemented end-to-end. Other agents carry their guidance-file
- * mapping (the long-standing behaviour) with `mcp`/`hooks` left as typed TODOs —
- * there is no universal setup, so each must be authored against that agent's own
- * mechanism. An absent integration is simply skipped, never guessed.
+ * mapping (the long-standing behaviour) and their skills directory, with
+ * `mcp`/`hooks` left as typed TODOs — there is no universal setup, so each must be
+ * authored against that agent's own mechanism. An absent integration is simply
+ * skipped, never guessed.
  */
 
 import { dirname, join } from "@std/path";
@@ -111,6 +113,13 @@ export interface Provider {
   readonly mcp?: McpIntegration;
   /** Worktree-hook surface. Absent → not yet supported for this agent. */
   readonly hooks?: HooksIntegration;
+  /**
+   * Project-relative directory this agent discovers SKILL.md skills in; discern
+   * materializes the effective skill set into it. Absent → no skills target for
+   * this agent (skipped, never guessed). All three known agents use the identical
+   * SKILL.md folder format, differing only in the directory.
+   */
+  readonly skillsDir?: string;
 }
 
 /**
@@ -167,6 +176,14 @@ async function writeJsonObject(path: string, value: unknown): Promise<void> {
 
 const CLAUDE_MCP_FILE = ".mcp.json";
 const CLAUDE_SETTINGS_FILE = ".claude/settings.json";
+
+/** Claude Code's own project skills directory. Claude Code does NOT read the
+ * cross-tool `.agents/skills/` (anthropics/claude-code#31005), so it keeps its own. */
+const CLAUDE_SKILLS_DIR = ".claude/skills";
+
+/** The cross-tool Agent Skills standard project directory — Codex's only repo path
+ * and Gemini's preferred alias — so the two share one materialization target. */
+const AGENTS_SKILLS_DIR = ".agents/skills";
 
 /**
  * Register discern's MCP server for Claude Code: write the server into the
@@ -291,11 +308,13 @@ export const PROVIDERS: Record<AgentName, Provider> = {
       worktreeEventKeys: ["WorktreeCreate", "WorktreeRemove"],
       sessionHookNeedle: "worktree",
     },
+    skillsDir: CLAUDE_SKILLS_DIR,
   },
   codex: {
     name: "codex",
     label: "Codex",
     guidanceFile: { path: "AGENTS.md", canonical: true },
+    skillsDir: AGENTS_SKILLS_DIR,
     // TODO(provider:codex): wire MCP registration — author an McpIntegration
     // against Codex's own MCP-server config mechanism (it is NOT Claude Code's
     // .mcp.json). Until then `discern mcp` must be added by hand for Codex.
@@ -306,6 +325,9 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     name: "gemini",
     label: "Gemini",
     guidanceFile: { path: "GEMINI.md", canonical: false },
+    // Gemini reads .gemini/skills/ AND the .agents/skills/ alias (which takes
+    // precedence) — use the shared alias so Codex + Gemini dedupe to one dir.
+    skillsDir: AGENTS_SKILLS_DIR,
     // TODO(provider:gemini): wire MCP registration — author an McpIntegration
     // against the Gemini CLI's own MCP-server config (it is NOT .mcp.json).
     // TODO(provider:gemini): declare the worktree-hook surface once supported.
@@ -322,6 +344,23 @@ export function providerFor(agent: string): Provider | undefined {
 /** Every provider that declares a worktree-hook surface. */
 export function providersWithHooks(): Provider[] {
   return Object.values(PROVIDERS).filter((p) => p.hooks !== undefined);
+}
+
+/**
+ * The deduplicated skills directories to materialize into for the given configured
+ * agents — each agent's `skillsDir`, in first-seen order, skipping an unknown agent
+ * or one with no skills target. Codex and Gemini collapse to a single
+ * `.agents/skills/`; Claude Code adds its own `.claude/skills/`.
+ */
+export function skillsDirsForAgents(agents: readonly string[]): string[] {
+  const dirs: string[] = [];
+  for (const agent of agents) {
+    const dir = providerFor(agent)?.skillsDir;
+    if (dir !== undefined && !dirs.includes(dir)) {
+      dirs.push(dir);
+    }
+  }
+  return dirs;
 }
 
 /**

@@ -41,8 +41,10 @@ export const KIT_VERSION: string = denoJson.version;
  * and adds the commented resource examples (ADR 0025); schema-8→9 **untracks the
  * generated `AGENTS.md`** — it adds `/AGENTS.md` to `.gitignore` so the compiled
  * agent file joins `CLAUDE.md`/`GEMINI.md` as a build artifact, and notes the
- * one-time `git rm --cached AGENTS.md` (ADR 0034). See `MIGRATIONS`. A config
- * with no `[meta].schema_version` is read as schema 1 (or a legacy manifest's
- * recorded version), then migrated forward.
+ * one-time `git rm --cached AGENTS.md` (ADR 0034); schema-9→10 ignores
+ * `/.agents/skills/`, the cross-tool dir skills now materialize into for
+ * Codex/Gemini (ADR 0042). See `MIGRATIONS`. A config with no
+ * `[meta].schema_version` is read as schema 1 (or a legacy manifest's recorded
+ * version), then migrated forward.
  */
-export const SCHEMA_VERSION = 9;
+export const SCHEMA_VERSION = 10;

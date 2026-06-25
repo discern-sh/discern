@@ -29,7 +29,7 @@ gotchas_doc = "docs/80-development/finish-gate-gotchas.md"
 # re-stamps it. Edit by hand only to force a re-migration.
 [meta]
 bootstrapped = true
-schema_version = 9
+schema_version = 10
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [capabilities] — the core commands the gate runs, one per known capability.
