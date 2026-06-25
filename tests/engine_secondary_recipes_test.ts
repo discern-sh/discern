@@ -68,7 +68,7 @@ Deno.test("prepare/test/refresh --json: stdout is a pure DiscernResult, never hu
   });
 });
 
-Deno.test("prepare --json: a failing check reports ok:false as the ENTIRE output (nothing leaks to stderr)", async () => {
+Deno.test("prepare --json: a failing check carries steps[] + diagnostics[] as the ENTIRE output (nothing leaks to stderr)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -88,11 +88,57 @@ Deno.test("prepare --json: a failing check reports ok:false as the ENTIRE output
     const obj = pureJson(r.stdout); // stdout is STILL pure JSON on failure
     assertEquals(obj.ok, false);
     assertEquals(obj.verb, "prepare");
-    // --json is quiet (ADR 0030): the failing command's output is SUPPRESSED, not
-    // rerouted to stderr — so an agent capturing combined streams sees only the
-    // envelope. (Surfacing it as a diagnostic is the deferred prepare enrichment.)
+    // prepare now runs through the job runner, so a failure carries the same
+    // structured shape `finish` does: a steps[] entry plus a Tier-0 diagnostic with
+    // the tool, the command to reproduce it, and its captured output — the agent's
+    // act→read→fix loop, not a bare ok:false.
+    assert(Array.isArray(obj.steps) && obj.steps.length > 0, r.stdout);
+    const diag = obj.diagnostics?.find((d: { tool: string }) =>
+      d.tool === "lint"
+    );
+    assert(diag !== undefined, `expected a lint diagnostic; got: ${r.stdout}`);
+    assertEquals(diag.reproduce_cmd, "echo boom-on-stderr >&2; exit 1");
+    assertStringIncludes(diag.output, "boom-on-stderr");
+    // --json is still quiet (ADR 0030): the failing command's output is captured
+    // INTO the diagnostic, never rerouted to stderr — so an agent capturing combined
+    // streams sees only the envelope on stdout and nothing on stderr.
     assert(
       !r.stderr.includes("boom-on-stderr"),
+      `--json must not leak command output to stderr; got: ${r.stderr}`,
+    );
+  });
+});
+
+Deno.test("test --json: a failing test carries steps[] + diagnostics[] (and nothing leaks to stderr)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[capabilities]",
+        'test = "echo boom-in-tests >&2; exit 1"',
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+    const r = await runAgent(dir, ["test", "--json"]);
+    assertEquals(r.code, 1, r.output);
+    const obj = pureJson(r.stdout);
+    assertEquals(obj.ok, false);
+    assertEquals(obj.verb, "test");
+    // `discern test` runs through the same job runner as the gate, so a failing test
+    // command yields a step plus a Tier-0 diagnostic — not a bare ok:false.
+    assert(Array.isArray(obj.steps) && obj.steps.length > 0, r.stdout);
+    const diag = obj.diagnostics?.find((d: { tool: string }) =>
+      d.tool === "test"
+    );
+    assert(diag !== undefined, `expected a test diagnostic; got: ${r.stdout}`);
+    assertStringIncludes(diag.output, "boom-in-tests");
+    assert(
+      !r.stderr.includes("boom-in-tests"),
       `--json must not leak command output to stderr; got: ${r.stderr}`,
     );
   });

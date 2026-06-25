@@ -17,28 +17,21 @@
 
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import { STAGES } from "../../shared/capabilities.ts";
-import type { Job, JobResult } from "../jobs/types.ts";
-import { type RunOptions, runParallel, runSerial } from "../jobs/runner.ts";
+import type { JobResult } from "../jobs/types.ts";
 import {
   buildGatePlan,
   buildGateResult,
   buildStageGroups,
   composeGatePlan,
   gatePlanToEngine,
-  type JobGroup,
   planScopeGates,
   scopeGatesGroup,
 } from "./plan.ts";
+import { gateRunContext, runGroup } from "./execute.ts";
 import { cmdsInStage } from "./stages.ts";
 import { gotchasHint } from "./gotchas.ts";
 import { changedScopes } from "../scopes/changed.ts";
-import {
-  byteWriter,
-  colorEnabled,
-  makeOut,
-  type Out,
-  outSink,
-} from "../output.ts";
+import { colorEnabled, makeOut, type Out, outSink } from "../output.ts";
 import { assertMainMerged } from "../worktree/git.ts";
 import {
   capText,
@@ -53,35 +46,6 @@ import {
   checkGuidanceCurrent,
   type GuidanceDriftEntry,
 } from "../guidance_render.ts";
-
-/**
- * Run one job group — the thin per-group executor. Runs the group's firing jobs
- * (serial for the mutating fix stage, parallel otherwise), records their results,
- * and returns whether the group passed. A group with no firing job (e.g. a
- * scope-gates group whose scopes are all unchanged) is a clean pass with no
- * heading.
- */
-async function runGroup(
-  group: JobGroup,
-  results: Map<string, JobResult>,
-  runOpts: RunOptions,
-  out: Out,
-): Promise<boolean> {
-  const jobs: Job[] = group.jobs
-    .filter((j) => j.willRun)
-    .map((j) => ({ label: j.label, command: j.command }));
-  if (jobs.length === 0) {
-    return true;
-  }
-  out.heading(group.heading);
-  const r = group.mode === "serial"
-    ? await runSerial(jobs, runOpts)
-    : await runParallel(jobs, runOpts);
-  for (const res of r.results) {
-    results.set(res.label, res);
-  }
-  return r.ok;
-}
 
 /** The human die message for each failed stage (matches the shell fail_phase). */
 function failMessage(stage: string): string {
@@ -167,17 +131,9 @@ async function runGate(
   const cfg = await loadConfig(root);
   // Human: gate narration + job output → stdout (matching the shell). --json:
   // quiet — the result envelope is the entire output (ADR 0030), so the runner
-  // and the Out are silenced and nothing streams to any fd.
-  const color = colorEnabled();
-  const runOpts: RunOptions = {
-    stream: cfg.gate.stream,
-    // fail_fast defaults ON: abort the moment a job fails.
-    failFast: cfg.gate.fail_fast,
-    color,
-    write: byteWriter("stdout"),
-    quiet: json,
-  };
-  const out = makeOut(color, { quiet: json });
+  // and the Out are silenced and nothing streams to any fd. The shared run context
+  // (job RunOptions + the narration Out) is the one `prepare`/`test` use too.
+  const { runOpts, out } = gateRunContext(cfg, json);
 
   const results = new Map<string, JobResult>();
   let failedStage: string | null = null;

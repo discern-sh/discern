@@ -117,6 +117,70 @@ export function planScopeGates(
 }
 
 /**
+ * Display metadata for a single stage's job group — the runner heading, the dry-run
+ * label, and how the stage's jobs are scheduled. The fix stage is serial (a later
+ * fixer may depend on an earlier one's edits); the rest run in parallel. `finish`
+ * runs check and test as ONE combined group ({@link checkTestGroup}), so these
+ * check/test headings are used only by `prepare` (check) and `discern test` (test).
+ */
+const STAGE_GROUP_META: Record<
+  Stage,
+  { mode: "serial" | "parallel"; heading: string; display: string }
+> = {
+  fix: { mode: "serial", heading: "Applying fixers...", display: "Fix" },
+  build: {
+    mode: "parallel",
+    heading: "Building artifacts...",
+    display: "Build",
+  },
+  check: { mode: "parallel", heading: "Checking...", display: "Check" },
+  test: { mode: "parallel", heading: "Running tests...", display: "Test" },
+};
+
+/**
+ * A single stage's job group, or undefined when the stage has no real job. The unit
+ * `prepare` (fix + check) and `discern test` (test) compose directly; `finish` uses
+ * it for fix and build, and runs check∥test as one combined group.
+ */
+export function stageGroup(
+  cfg: DiscernConfig,
+  stage: Stage,
+): JobGroup | undefined {
+  const jobs = planStageJobs(cfg, stage);
+  if (jobs.length === 0) {
+    return undefined;
+  }
+  const meta = STAGE_GROUP_META[stage];
+  return {
+    stage,
+    mode: meta.mode,
+    heading: meta.heading,
+    display: meta.display,
+    jobs,
+  };
+}
+
+/**
+ * The combined check∥test group `finish` runs — both stages' jobs in ONE parallel
+ * group, so the read-only checks and the tests overlap. (`prepare` runs the check
+ * stage alone; `discern test` runs the test stage alone — each via {@link
+ * stageGroup}.)
+ */
+export function checkTestGroup(cfg: DiscernConfig): JobGroup | undefined {
+  const jobs = [...planStageJobs(cfg, "check"), ...planStageJobs(cfg, "test")];
+  if (jobs.length === 0) {
+    return undefined;
+  }
+  return {
+    stage: "check/test",
+    mode: "parallel",
+    heading: "Checking and testing...",
+    display: "Check & test",
+    jobs,
+  };
+}
+
+/**
  * The capability/check job groups — fix (serial) → build → check∥test — derived
  * from the typed config alone. These are independent of the changed scopes, so the
  * executor can run them BEFORE classifying scopes (preserving the gate's original
@@ -124,43 +188,18 @@ export function planScopeGates(
  */
 export function buildStageGroups(cfg: DiscernConfig): JobGroup[] {
   const groups: JobGroup[] = [];
-
-  const fix = planStageJobs(cfg, "fix");
-  if (fix.length > 0) {
-    groups.push({
-      stage: "fix",
-      mode: "serial",
-      heading: "Applying fixers...",
-      display: "Fix",
-      jobs: fix,
-    });
+  const fix = stageGroup(cfg, "fix");
+  if (fix !== undefined) {
+    groups.push(fix);
   }
-
-  const build = planStageJobs(cfg, "build");
-  if (build.length > 0) {
-    groups.push({
-      stage: "build",
-      mode: "parallel",
-      heading: "Building artifacts...",
-      display: "Build",
-      jobs: build,
-    });
+  const build = stageGroup(cfg, "build");
+  if (build !== undefined) {
+    groups.push(build);
   }
-
-  const checkTest = [
-    ...planStageJobs(cfg, "check"),
-    ...planStageJobs(cfg, "test"),
-  ];
-  if (checkTest.length > 0) {
-    groups.push({
-      stage: "check/test",
-      mode: "parallel",
-      heading: "Checking and testing...",
-      display: "Check & test",
-      jobs: checkTest,
-    });
+  const checkTest = checkTestGroup(cfg);
+  if (checkTest !== undefined) {
+    groups.push(checkTest);
   }
-
   return groups;
 }
 
@@ -247,22 +286,22 @@ function stepOutcome(r: JobResult | undefined): StepOutcome {
 }
 
 /**
- * Build the `finish` {@link DiscernResult} by SERIALIZING the plan it executed plus
- * the per-job results — not by re-deriving from config. Each capability/check/scope-
- * gate job becomes a {@link StepResult} (looked up by label; missing → skipped), in
- * plan order, so the same projection feeds both the dry-run plan and the executed
- * result. A failed job that captured output yields a Tier-0 {@link Diagnostic} —
- * the structured "why" carrying the command to reproduce it and its output. The
- * gate's own concerns (which stage failed, which scopes changed) ride in `data`.
+ * Serialize executed job groups into {@link StepResult}s + {@link Diagnostic}s — the
+ * projection shared by `finish`, `prepare`, and `discern test`. Each capability/
+ * check/scope-gate job becomes a step (looked up by label; missing → skipped), in
+ * plan order. A genuine failure that captured output yields a Tier-0 diagnostic (the
+ * command to reproduce it + its captured output), or — when the FULL captured output
+ * is a recognized machine format (SARIF) — one Tier-1 diagnostic per finding
+ * (file/line/rule). A fail-fast-cancelled sibling is neither failed nor diagnosed
+ * (it wasn't a real failure, just killed mid-run).
  */
-export function buildGateResult(
-  plan: GatePlan,
+export function serializeJobSteps(
+  groups: JobGroup[],
   results: Map<string, JobResult>,
-  failedStage: string | null,
-): DiscernResult {
+): { steps: StepResult[]; diagnostics: Diagnostic[] } {
   const steps: StepResult[] = [];
   const diagnostics: Diagnostic[] = [];
-  for (const group of plan.groups) {
+  for (const group of groups) {
     for (const j of group.jobs) {
       const r = results.get(j.label);
       const kind: StepKind = j.kind === "scope-gate" ? "scope-gate" : "job";
@@ -277,12 +316,6 @@ export function buildGateResult(
         outcome: stepOutcome(r),
         durationS: r === undefined ? 0 : r.durationS,
       });
-      // A genuine failure earns a diagnostic — a fail-fast-cancelled sibling is
-      // excluded (not a failure to fix). When the FULL captured output is a
-      // recognized machine format (SARIF), normalize it into one Tier-1 diagnostic
-      // per finding (file/line/rule); otherwise a single Tier-0 diagnostic carries
-      // the output (capped here, at the diagnostic boundary) + reproduce_cmd — which
-      // alone moves the agent off "re-run and scrape".
       if (r !== undefined && r.code !== 0 && r.cancelled !== true) {
         const normalized = r.output !== undefined
           ? normalizeDiagnostics(r.output, j.label, j.command)
@@ -303,6 +336,22 @@ export function buildGateResult(
       }
     }
   }
+  return { steps, diagnostics };
+}
+
+/**
+ * Build the `finish` {@link DiscernResult} by SERIALIZING the plan it executed plus
+ * the per-job results — not by re-deriving from config. The steps + diagnostics are
+ * the shared {@link serializeJobSteps} projection (so the dry-run plan and the
+ * executed result agree); the gate's own concerns (which stage failed, which scopes
+ * changed) ride in `data`.
+ */
+export function buildGateResult(
+  plan: GatePlan,
+  results: Map<string, JobResult>,
+  failedStage: string | null,
+): DiscernResult {
+  const { steps, diagnostics } = serializeJobSteps(plan.groups, results);
   const data: GateData = {
     failed_stage: failedStage,
     scopes_changed: plan.scopesChanged,
