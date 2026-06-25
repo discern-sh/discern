@@ -44,9 +44,9 @@ Deno.test("the production chain is contiguous up to the current schema", () => {
   // 2→3 (the .discern/ surface consolidation), 3→4 (capabilities/checks),
   // 4→5 (prune the pre-existing on-disk shell engine), 5→6 (dissolve .discern/
   // into the single-file footprint), 6→7 (bootstrap skill → command),
-  // 7→8 (db/dev_server → [worktree.resources.*]), 8→9 (untrack AGENTS.md), and
-  // 9→10 (ignore .agents/skills/).
-  assertEquals(MIGRATIONS.map((m) => m.from), [1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  // 7→8 (db/dev_server → [worktree.resources.*]), 8→9 (untrack AGENTS.md),
+  // 9→10 (ignore .agents/skills/), and 10→11 (drop [features].mcp).
+  assertEquals(MIGRATIONS.map((m) => m.from), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
   assert(isChainContiguous(MIGRATIONS, SCHEMA_VERSION));
 });
 
@@ -282,6 +282,35 @@ Deno.test("migration 9→10 is a no-op when there is no .gitignore to amend", as
     );
     await applyMigrations({ destDir: dir, from: 9, to: 10, onNote: () => {} });
     assertEquals(await targetExists(dir, ".gitignore"), false);
+  });
+});
+
+Deno.test("migration 10→11 drops [features].mcp, preserving the rest of [features]", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      [
+        "[features]",
+        "worktrees = true",
+        "docs      = true",
+        "mcp       = true   # the discern mcp server",
+        "",
+        "[guidance]",
+        'agents = ["codex"]',
+        "",
+      ].join("\n"),
+    );
+    await applyMigrations({ destDir: dir, from: 10, to: 11, onNote: () => {} });
+    const toml = await Deno.readTextFile(join(dir, "discern.toml"));
+    assert(!/^\s*mcp\s*=/m.test(toml), `the mcp key must be gone:\n${toml}`);
+    assertStringIncludes(toml, "worktrees = true"); // siblings kept
+    assertStringIncludes(toml, "docs      = true");
+    assertStringIncludes(toml, "[guidance]"); // the rest of the config is intact
+
+    // Idempotent: re-running 10→11 on the now-mcp-less config changes nothing.
+    const after = await Deno.readTextFile(join(dir, "discern.toml"));
+    await applyMigrations({ destDir: dir, from: 10, to: 11, onNote: () => {} });
+    assertEquals(await Deno.readTextFile(join(dir, "discern.toml")), after);
   });
 });
 

@@ -26,7 +26,6 @@ export const FEATURES = [
   "guidance",
   "skills",
   "docs",
-  "mcp",
 ] as const;
 
 /** One toggleable subsystem name. */
@@ -68,7 +67,6 @@ const VERB_FEATURE: Readonly<Record<string, Feature>> = {
   graduate: "worktrees",
   skills: "skills",
   docs: "docs",
-  mcp: "mcp",
 };
 
 /** The feature owning `verb`, or undefined when `verb` is a core verb. */

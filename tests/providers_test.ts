@@ -15,7 +15,6 @@ import {
   PROVIDERS,
   providersWithHooks,
   skillsDirsForAgents,
-  unwireProviderMcp,
   wireProviderMcp,
 } from "../src/lib/providers.ts";
 
@@ -179,67 +178,6 @@ Deno.test("wireProviderMcp MERGES into an existing .mcp.json, preserving other s
       command: "other-tool",
     }); // preserved
     assertEquals(mcp.mcpServers.discern.command, "discern"); // added
-  });
-});
-
-Deno.test("unwireProviderMcp removes discern but keeps the user's other servers/settings", async () => {
-  await withTempDir(async (dir) => {
-    // Existing project config with another server + another approval + permissions.
-    await Deno.writeTextFile(
-      join(dir, ".mcp.json"),
-      JSON.stringify(
-        { mcpServers: { other: { type: "stdio", command: "other-tool" } } },
-        null,
-        2,
-      ),
-    );
-    await Deno.mkdir(join(dir, ".claude"), { recursive: true });
-    await Deno.writeTextFile(
-      join(dir, ".claude/settings.json"),
-      JSON.stringify(
-        {
-          permissions: { deny: ["Read(./.env)"] },
-          enabledMcpjsonServers: ["other"],
-        },
-        null,
-        2,
-      ),
-    );
-    await wireProviderMcp(dir, ["claude_code"]); // discern now present
-
-    const removed = await unwireProviderMcp(dir, ["claude_code"]);
-    assert(removed.includes(".mcp.json"));
-    assert(removed.includes(".claude/settings.json"));
-
-    const mcp = JSON.parse(await Deno.readTextFile(join(dir, ".mcp.json")));
-    assertEquals(mcp.mcpServers.other, {
-      type: "stdio",
-      command: "other-tool",
-    }); // kept
-    assertEquals("discern" in mcp.mcpServers, false); // gone
-    const settings = JSON.parse(
-      await Deno.readTextFile(join(dir, ".claude/settings.json")),
-    );
-    assertEquals(settings.permissions.deny, ["Read(./.env)"]); // kept
-    assertEquals(settings.enabledMcpjsonServers, ["other"]); // discern dropped
-
-    // Idempotent: a second unwire changes nothing.
-    assertEquals(await unwireProviderMcp(dir, ["claude_code"]), []);
-  });
-});
-
-Deno.test("unwireProviderMcp removes a .mcp.json that discern alone created", async () => {
-  await withTempDir(async (dir) => {
-    await wireProviderMcp(dir, ["claude_code"]); // discern is the only server
-    await unwireProviderMcp(dir, ["claude_code"]);
-    // The husk we created is gone, not left as an empty `{}`.
-    let exists = true;
-    try {
-      await Deno.stat(join(dir, ".mcp.json"));
-    } catch {
-      exists = false;
-    }
-    assert(!exists, ".mcp.json discern alone created should be removed");
   });
 });
 

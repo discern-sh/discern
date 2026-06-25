@@ -30,7 +30,6 @@ import {
   MCP_RESTART_HINT,
   providerFor,
   skillsDirsForAgents,
-  unwireProviderMcp,
   wireProviderMcp,
 } from "../lib/providers.ts";
 import { guidanceAgents, renderAgentFiles } from "./guidance_render.ts";
@@ -42,8 +41,6 @@ export interface GuidelinesResult {
   agentsWritten: string[];
   /** Project files written wiring each agent's MCP server (`.mcp.json`, settings). */
   mcpWired: string[];
-  /** Project files changed removing the MCP server (when `features.mcp` is off). */
-  mcpRemoved: string[];
   /** Agent/user-facing advice from this run (e.g. the MCP first-install restart hint). */
   hints: string[];
   /** Bundled skills copied, summed across every configured agent's skills dir. */
@@ -85,37 +82,25 @@ export async function compileGuidelines(
     );
   }
 
-  // --- job 2: MCP integration (gated on features.mcp; ADR 0030/0031) ----------
-  // An idempotent integration artifact, independent of the guidance feature. When
-  // ON, (re-)establish the server for every configured agent on each refresh /
-  // upgrade / worktree-setup; when OFF, REMOVE any previously-wired config. A
+  // --- job 2: MCP integration (always; ADR 0045) ------------------------------
+  // The MCP server is core infrastructure, not a toggle — an idempotent
+  // integration artifact (re-)established for every configured agent on each
+  // refresh / upgrade / worktree-setup, independent of the guidance feature. A
   // FIRST install yields the restart hint (surfaced to the user AND the result
   // `hints`). Best-effort: a hiccup must not fail the compile.
   let mcpWired: string[] = [];
-  let mcpRemoved: string[] = [];
   const hints: string[] = [];
   try {
-    if (isFeatureEnabled(config, "mcp")) {
-      const r = await wireProviderMcp(root, agents);
-      mcpWired = r.written;
-      if (r.written.length > 0) {
-        log.info(
-          `registered the discern MCP server in: ${r.written.join(", ")}`,
-        );
-      }
-      if (r.firstInstall) {
-        hints.push(MCP_RESTART_HINT);
-        log.info(MCP_RESTART_HINT);
-      }
-    } else {
-      mcpRemoved = await unwireProviderMcp(root, agents);
-      if (mcpRemoved.length > 0) {
-        log.info(
-          `removed the discern MCP server (mcp feature off) from: ${
-            mcpRemoved.join(", ")
-          }`,
-        );
-      }
+    const r = await wireProviderMcp(root, agents);
+    mcpWired = r.written;
+    if (r.written.length > 0) {
+      log.info(
+        `registered the discern MCP server in: ${r.written.join(", ")}`,
+      );
+    }
+    if (r.firstInstall) {
+      hints.push(MCP_RESTART_HINT);
+      log.info(MCP_RESTART_HINT);
     }
   } catch (error) {
     log.warn(
@@ -129,7 +114,7 @@ export async function compileGuidelines(
   const agentsWritten: string[] = [];
   if (!isFeatureEnabled(config, "guidance")) {
     log.info("guidance feature is off — no agent files compiled.");
-    return summarize(agentsWritten, mcpWired, mcpRemoved, hints, skills);
+    return summarize(agentsWritten, mcpWired, hints, skills);
   }
 
   // Render the expected content for every configured provider — the SINGLE source
@@ -169,7 +154,7 @@ export async function compileGuidelines(
       }`,
     );
   }
-  return summarize(agentsWritten, mcpWired, mcpRemoved, hints, skills);
+  return summarize(agentsWritten, mcpWired, hints, skills);
 }
 
 /** Build the result. The skills narration is emitted once by `materializeSkills`,
@@ -177,14 +162,12 @@ export async function compileGuidelines(
 function summarize(
   agentsWritten: string[],
   mcpWired: string[],
-  mcpRemoved: string[],
   hints: string[],
   skills: { copied: number; linked: number; pruned: number },
 ): GuidelinesResult {
   return {
     agentsWritten,
     mcpWired,
-    mcpRemoved,
     hints,
     skillsCopied: skills.copied,
     skillsLinked: skills.linked,

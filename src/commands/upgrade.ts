@@ -286,7 +286,6 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
         },
         agents_written: guidelines?.agentsWritten ?? [],
         mcp_wired: guidelines?.mcpWired ?? [],
-        mcp_removed: guidelines?.mcpRemoved ?? [],
         guidelines_compiled: guidelines !== undefined,
       },
     });
