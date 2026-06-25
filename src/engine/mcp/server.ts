@@ -21,7 +21,10 @@
  * stays clean (the ADR 0030 `--json` purity rule, here over MCP).
  */
 
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import {
+  McpServer,
+  ResourceTemplate,
+} from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import process from "process";
 import { z } from "@zod/zod";
@@ -30,6 +33,7 @@ import { type DiscernResult, serializeResult } from "../../shared/result.ts";
 import {
   AuditOutputSchema,
   ChangedScopesOutputSchema,
+  type DocsData,
   DocsOutputSchema,
   DoctorOutputSchema,
   EnvelopeSchema,
@@ -481,6 +485,171 @@ async function resolveEnabledFeatures(
   }
 }
 
+// ── resources (readable context, paired with the tools; ADR 0041) ────────────
+// Resources are application-driven and NOT reliably auto-injected across the 80% of
+// clients, so the tools stay the reliable path; resources are the elegant
+// attachable surface alongside them. Each is computed FRESH on every read (no
+// subscriptions, no listChanged) and serves the verb's `data` payload — not the
+// full DiscernResult envelope.
+
+const JSON_MIME = "application/json";
+const MARKDOWN_MIME = "text/markdown";
+
+/** One resource read: a single text part carrying `text` at `uri` with `mimeType`. */
+function resourceText(
+  uri: URL,
+  mimeType: string,
+  text: string,
+): { contents: { uri: string; mimeType: string; text: string }[] } {
+  return { contents: [{ uri: uri.href, mimeType, text }] };
+}
+
+/** Pretty-print a value as the JSON a resource serves. */
+function asJson(data: unknown): string {
+  return JSON.stringify(data, null, 2);
+}
+
+/** Throw the canonical not-set-up refusal when a bootstrap-gated resource is read
+ * before the project records `[meta].bootstrapped` — the resource mirror of the
+ * tool's pre-setup gate. */
+async function assertResourceBootstrapped(root: string): Promise<void> {
+  if (!(await bootstrapGatePasses(root))) {
+    throw new Error(NOT_SET_UP_MESSAGE);
+  }
+}
+
+/**
+ * Register the doc-tree resources for one scheme (`docs` = the project's tree,
+ * `help` = discern's own): a fixed index (`discern://<scheme>` → the JSON index)
+ * and a `{target}` template (`discern://<scheme>/{target}` → that one doc's
+ * Markdown). `index`/`single` are the verb cores (the caller pre-guards them); a
+ * not-found or refused read throws, which the SDK renders as a resource-read error.
+ */
+function registerDocTree(
+  server: McpServer,
+  scheme: "docs" | "help",
+  label: string,
+  index: () => Promise<DiscernResult>,
+  single: (target: string) => Promise<DiscernResult>,
+): void {
+  server.registerResource(
+    `discern-${scheme}-index`,
+    `discern://${scheme}`,
+    {
+      description:
+        `The index of ${label} — every doc's path, section, slug, and title.`,
+      mimeType: JSON_MIME,
+    },
+    async (uri: URL) => {
+      const result = await index();
+      if (!result.ok) {
+        throw new Error(result.message ?? `cannot read ${scheme}.`);
+      }
+      return resourceText(uri, JSON_MIME, asJson(result.data));
+    },
+  );
+  server.registerResource(
+    `discern-${scheme}-doc`,
+    new ResourceTemplate(`discern://${scheme}/{target}`, { list: undefined }),
+    {
+      description:
+        `One document from ${label}, by slug, section/slug, or path.`,
+      mimeType: MARKDOWN_MIME,
+    },
+    async (uri: URL, variables: { [key: string]: string | string[] }) => {
+      const raw = variables.target;
+      const target = Array.isArray(raw) ? (raw[0] ?? "") : (raw ?? "");
+      const result = await single(target);
+      const data = result.data as DocsData | undefined;
+      if (!result.ok || data?.doc === undefined) {
+        throw new Error(result.message ?? `no doc matches "${target}".`);
+      }
+      return resourceText(uri, MARKDOWN_MIME, data.doc.content);
+    },
+  );
+}
+
+/**
+ * Register the readable resources, mirroring the tools' feature- and pre-setup-
+ * gating: `discern://status`, `discern://changed-scopes`, and `discern://config`
+ * are always available; `discern://help` (+ a `{target}` template) is too; and
+ * `discern://docs` (+ template) is registered only with the `docs` feature on and
+ * refuses per read until the project is bootstrapped — exactly as the matching tools
+ * do. Every read recomputes from the verb core.
+ */
+function registerResources(
+  server: McpServer,
+  root: string,
+  enabled: ReadonlySet<Feature>,
+): void {
+  server.registerResource(
+    "discern-status",
+    "discern://status",
+    {
+      description:
+        "A live discern_status snapshot: the git situation, what the gate would fire, the features and ratchets, and (from the main checkout) the worktree fleet.",
+      mimeType: JSON_MIME,
+    },
+    async (uri: URL) =>
+      resourceText(uri, JSON_MIME, asJson((await statusResult(root)).data)),
+  );
+
+  server.registerResource(
+    "discern-changed-scopes",
+    "discern://changed-scopes",
+    {
+      description:
+        "The project scopes the current branch and working tree changed — what decides which scope gates fire.",
+      mimeType: JSON_MIME,
+    },
+    async (uri: URL) =>
+      resourceText(
+        uri,
+        JSON_MIME,
+        asJson((await changedScopesResult(root)).data),
+      ),
+  );
+
+  server.registerResource(
+    "discern-config",
+    "discern://config",
+    {
+      description:
+        "The resolved discern.toml configuration for this project (fully defaulted).",
+      mimeType: JSON_MIME,
+    },
+    async (uri: URL) =>
+      resourceText(uri, JSON_MIME, asJson(await loadConfig(root))),
+  );
+
+  // help — discern's OWN documentation, always available (the pre-setup surface).
+  registerDocTree(
+    server,
+    "help",
+    "discern's own documentation",
+    () => helpResult(root),
+    (target) => helpResult(root, { target }),
+  );
+
+  // docs — the project's documentation, gated on the `docs` feature and (per read)
+  // on bootstrap, mirroring the discern_docs tool.
+  if (enabled.has("docs")) {
+    registerDocTree(
+      server,
+      "docs",
+      "the project's documentation",
+      async () => {
+        await assertResourceBootstrapped(root);
+        return docsResult(root);
+      },
+      async (target) => {
+        await assertResourceBootstrapped(root);
+        return docsResult(root, { target });
+      },
+    );
+  }
+}
+
 /**
  * The server's `instructions` — the native "when to use which tool" block capable
  * clients load when MCP connects (it rides in the `initialize` result). discern's
@@ -568,6 +737,12 @@ export async function runMcpServer(): Promise<number> {
         () => runTool(tool, root, {}),
       );
     }
+  }
+
+  // Resources — readable context paired with the tools (ADR 0041). Registered only
+  // inside a project (root resolved at startup); each read recomputes fresh.
+  if (root !== undefined) {
+    registerResources(server, root, enabled);
   }
 
   const transport = new StdioServerTransport();

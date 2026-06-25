@@ -894,3 +894,179 @@ Deno.test("discern mcp: instructions are feature-aware (no graduate line when wo
     assertEquals(await mcp.close(), 0);
   });
 });
+
+Deno.test("discern mcp: resources list, template, and read fresh content", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    // Seed a project docs tree so discern://docs has content.
+    await Deno.mkdir(join(dir, "docs", "00-orientation"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, "docs", "00-orientation", "concepts.md"),
+      "# Concepts\n\nThe core ideas of the project.\n",
+    );
+    const mcp = await spawnMcp(dir);
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    const init = await mcp.recv();
+    assert(
+      init.result.capabilities.resources,
+      "server should advertise the resources capability",
+    );
+
+    // resources/list → the fixed resources (gated like their tools, all on here).
+    await mcp.send({ jsonrpc: "2.0", id: 2, method: "resources/list" });
+    const list = await mcp.recv();
+    const uris = (list.result.resources as { uri: string }[]).map((r) => r.uri);
+    for (
+      const u of [
+        "discern://status",
+        "discern://changed-scopes",
+        "discern://config",
+        "discern://help",
+        "discern://docs",
+      ]
+    ) {
+      assert(uris.includes(u), `${u} missing from ${JSON.stringify(uris)}`);
+    }
+
+    // resources/templates/list → the {target} doc templates.
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 3,
+      method: "resources/templates/list",
+    });
+    const templates = await mcp.recv();
+    const tpl = (templates.result.resourceTemplates as {
+      uriTemplate: string;
+    }[]).map((t) => t.uriTemplate);
+    assert(tpl.includes("discern://docs/{target}"), JSON.stringify(tpl));
+    assert(tpl.includes("discern://help/{target}"), JSON.stringify(tpl));
+
+    // read discern://status → a fresh JSON snapshot (the data payload, not the
+    // envelope).
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 4,
+      method: "resources/read",
+      params: { uri: "discern://status" },
+    });
+    const status = await mcp.recv();
+    const statusPart = status.result.contents[0];
+    assertEquals(statusPart.mimeType, "application/json");
+    assertEquals(statusPart.uri, "discern://status");
+    const statusData = JSON.parse(statusPart.text);
+    assertEquals(statusData.location, "main");
+    assert(
+      statusData.features,
+      "the status resource carries the feature toggles",
+    );
+
+    // read discern://changed-scopes
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 5,
+      method: "resources/read",
+      params: { uri: "discern://changed-scopes" },
+    });
+    const cs = await mcp.recv();
+    assert(Array.isArray(JSON.parse(cs.result.contents[0].text).scopes));
+
+    // read discern://config → the resolved DiscernConfig.
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 6,
+      method: "resources/read",
+      params: { uri: "discern://config" },
+    });
+    const cfg = await mcp.recv();
+    assert(
+      JSON.parse(cfg.result.contents[0].text).project,
+      "the config resource carries [project]",
+    );
+
+    // read discern://help (index) + a single help doc (Markdown).
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 7,
+      method: "resources/read",
+      params: { uri: "discern://help" },
+    });
+    const help = await mcp.recv();
+    assert(
+      JSON.parse(help.result.contents[0].text).docs.some((
+        d: { slug: string },
+      ) => d.slug === "config-reference"),
+      "discern://help indexes discern's own docs",
+    );
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 8,
+      method: "resources/read",
+      params: { uri: "discern://help/config-reference" },
+    });
+    const helpDoc = await mcp.recv();
+    assertEquals(helpDoc.result.contents[0].mimeType, "text/markdown");
+    assert(helpDoc.result.contents[0].text.includes("config reference"));
+
+    // read discern://docs (index) + the seeded project doc (Markdown).
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 9,
+      method: "resources/read",
+      params: { uri: "discern://docs" },
+    });
+    const docs = await mcp.recv();
+    const slug = JSON.parse(docs.result.contents[0].text).docs[0].slug;
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 10,
+      method: "resources/read",
+      params: { uri: `discern://docs/${slug}` },
+    });
+    const doc = await mcp.recv();
+    assertEquals(doc.result.contents[0].mimeType, "text/markdown");
+    assert(
+      doc.result.contents[0].text.includes("The core ideas of the project"),
+      "the docs template serves the doc's Markdown content",
+    );
+
+    assertEquals(await mcp.close(), 0);
+  });
+});
+
+Deno.test("discern mcp: the docs resource is gated on the docs feature; help and status stay", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const set = await runAgent(dir, [
+      "config",
+      "set",
+      "features.docs",
+      "false",
+      "--bool",
+    ]);
+    assertEquals(set.code, 0, set.output);
+
+    const mcp = await spawnMcp(dir);
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await mcp.recv();
+    await mcp.send({ jsonrpc: "2.0", id: 2, method: "resources/list" });
+    const list = await mcp.recv();
+    const uris = (list.result.resources as { uri: string }[]).map((r) => r.uri);
+    assert(!uris.includes("discern://docs"), JSON.stringify(uris));
+    // help (discern's own docs) and the always-on snapshots stay.
+    assert(uris.includes("discern://help"), JSON.stringify(uris));
+    assert(uris.includes("discern://status"), JSON.stringify(uris));
+    assertEquals(await mcp.close(), 0);
+  });
+});
