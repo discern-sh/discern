@@ -169,7 +169,7 @@ ratchets = true
 worktrees = true
 
 [guidance]
-agents = ["claude_code", "codex"]
+agents = ["claude_code", "codex", "gemini"]
 sources = ["guidance.md"]
 
 [skills]
