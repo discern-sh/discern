@@ -50,6 +50,7 @@ import { Logger } from "../../lib/log.ts";
 import { finishResult } from "../gate/finish.ts";
 import { prepareResult } from "../gate/prepare.ts";
 import { testResult } from "../gate/test.ts";
+import { ratchetsResult } from "../gate/ratchets.ts";
 import { auditResult } from "../audit/audit.ts";
 import { changedScopesResult } from "../scopes/changed.ts";
 import { statusResult } from "../status/status.ts";
@@ -170,6 +171,27 @@ const TOOLS: McpTool[] = [
       "full gate) and return the result envelope. When no test command is configured " +
       "it is a trivial pass carrying a hint that says so.",
     run: (root) => testResult(root),
+  },
+  {
+    name: "discern_ratchets",
+    title: "Hold the ratchets",
+    outputSchema: EnvelopeSchema.shape,
+    annotations: MUTATING,
+    description:
+      "Hold every configured quality ratchet (a never-loosen metric floor/ceiling): " +
+      "run each ratchet's measurement command, compare it to its limit, and assert " +
+      "the limit was not loosened versus main. Returns the per-ratchet steps[]. SLOW " +
+      "and ON DEMAND — it runs the metric commands, so it is NOT part of " +
+      "discern_finish; hold it explicitly before pushing. Set dry_run to preview " +
+      "which ratchets would run without measuring anything.",
+    feature: "ratchets",
+    inputSchema: {
+      dry_run: z.boolean().optional().describe(
+        "Preview the ratchets that would run and measure nothing (default false).",
+      ),
+    },
+    run: (root, args) =>
+      ratchetsResult(root, { dryRun: args.dry_run === true }),
   },
   {
     name: "discern_doctor",

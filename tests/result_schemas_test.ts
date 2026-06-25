@@ -35,6 +35,7 @@ import {
 import { finishResult } from "../src/engine/gate/finish.ts";
 import { prepareResult } from "../src/engine/gate/prepare.ts";
 import { testResult } from "../src/engine/gate/test.ts";
+import { ratchetsResult } from "../src/engine/gate/ratchets.ts";
 import { doctorResult } from "../src/commands/doctor.ts";
 import { changedScopesResult } from "../src/engine/scopes/changed.ts";
 import { statusResult } from "../src/engine/status/status.ts";
@@ -314,6 +315,34 @@ Deno.test("docs/help results are faithful (index, single doc, not-found, no-tree
       await helpResult(dir, { target: "no-such-doc" }),
       "help not-found",
     );
+  });
+});
+
+Deno.test("ratchets result is faithful (dry-run plan and applied steps)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[ratchets.coverage]",
+        'run = "echo DISCERN_METRIC coverage 90"',
+        'direction = "up"',
+        "limit = 80",
+        "",
+      ].join("\n"),
+    );
+    expectValid(
+      EnvelopeSchema,
+      await ratchetsResult(dir, { dryRun: true }),
+      "ratchets dry-run",
+    );
+    const applied = await ratchetsResult(dir);
+    assertEquals(applied.ok, true);
+    expectValid(EnvelopeSchema, applied, "ratchets applied");
   });
 });
 

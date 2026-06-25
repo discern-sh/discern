@@ -24,6 +24,7 @@ import {
 } from "./ratchet_plan.ts";
 import {
   appliedResult,
+  type DiscernResult,
   previewResult,
   renderPlan,
   type StepOutcome,
@@ -220,6 +221,33 @@ async function executeRatchetPlan(
   return { ok, results };
 }
 
+/**
+ * Compute the `ratchets` {@link DiscernResult} without printing or exiting — the
+ * entry point the MCP server renders, and the source the CLI's `--json` serializes.
+ * Slow and ON DEMAND: it runs every ratchet's measurement command (and a git read
+ * of main's baseline), so it is NOT part of `finish`. `dryRun` returns the plan
+ * (no git, no measurement); an empty config is a clean pass; otherwise it applies
+ * the plan QUIET — the measurement output flows through a silent Out so a caller
+ * owning stdout (the MCP stdio channel) stays uncontaminated.
+ */
+export async function ratchetsResult(
+  root: string,
+  opts: { dryRun?: boolean } = {},
+): Promise<DiscernResult> {
+  const cfg = await loadConfig(root);
+  const plan = buildRatchetPlan(cfg);
+  if (opts.dryRun ?? false) {
+    return previewResult("ratchets", ratchetPlanToEngine(plan));
+  }
+  if (plan.ratchets.length === 0) {
+    return appliedResult("ratchets", []);
+  }
+  const mainBranch = Deno.env.get("MAIN_BRANCH") || cfg.project.main_branch;
+  const out = makeOut(colorEnabled(), { quiet: true });
+  const { results } = await executeRatchetPlan(plan, root, mainBranch, out);
+  return appliedResult("ratchets", results);
+}
+
 /** Run `ratchets`. Returns a process exit code (non-zero if any ratchet failed). */
 export async function runRatchets(
   root: string,
@@ -227,43 +255,35 @@ export async function runRatchets(
 ): Promise<number> {
   const json = opts.json ?? false;
   const dryRun = opts.dryRun ?? false;
-  const cfg = await loadConfig(root);
-  // --json: quiet — the result envelope is the entire output (ADR 0030). Every
-  // ratchet's measurement output flows through `out`, so a quiet Out silences it.
-  const out = makeOut(colorEnabled(), { quiet: json });
-  const mainBranch = Deno.env.get("MAIN_BRANCH") || cfg.project.main_branch;
 
+  // --json/MCP: the result envelope is the entire output (ADR 0030) — compute it
+  // through the shared core and emit it.
+  if (json) {
+    const result = await ratchetsResult(root, { dryRun });
+    emitResult(result);
+    return result.ok ? 0 : 1;
+  }
+
+  // Human path: narrate live (each ratchet's measurement output flows through `out`).
+  const cfg = await loadConfig(root);
+  const out = makeOut(colorEnabled(), { quiet: false });
+  const mainBranch = Deno.env.get("MAIN_BRANCH") || cfg.project.main_branch;
   const plan = buildRatchetPlan(cfg);
 
   // --dry-run: show the plan, touch nothing — no git, no measurement.
   if (dryRun) {
-    const engine = ratchetPlanToEngine(plan);
-    if (json) {
-      emitResult(previewResult("ratchets", engine));
-      return 0;
-    }
-    renderPlan(outSink(out), engine);
+    renderPlan(outSink(out), ratchetPlanToEngine(plan));
     return 0;
   }
 
   if (plan.ratchets.length === 0) {
-    if (json) {
-      emitResult(appliedResult("ratchets", []));
-      return 0;
-    }
     out.info(
       "No ratchets configured. Add a [ratchets.<name>] table (e.g. [ratchets.coverage]).",
     );
     return 0;
   }
 
-  const { ok, results } = await executeRatchetPlan(plan, root, mainBranch, out);
-
-  if (json) {
-    emitResult(appliedResult("ratchets", results));
-    return ok ? 0 : 1;
-  }
-
+  const { ok } = await executeRatchetPlan(plan, root, mainBranch, out);
   if (!ok) {
     out.error("One or more ratchets failed.");
     return 1;

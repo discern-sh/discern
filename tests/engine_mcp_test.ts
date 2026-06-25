@@ -766,6 +766,73 @@ Deno.test("discern mcp: a tool call's structuredContent validates against its ad
   });
 });
 
+Deno.test("discern mcp: discern_ratchets is listed (slow/on-demand), not read-only, and previews a dry-run", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const mcp = await spawnMcp(dir);
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await mcp.recv();
+
+    // Listed with the ratchets feature on (the default scaffold).
+    await mcp.send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
+    const list = await mcp.recv();
+    const tools = list.result.tools as ListedTool[];
+    const rt = tools.find((t) => t.name === "discern_ratchets");
+    assert(rt !== undefined, "discern_ratchets should be listed");
+    // It runs the metric commands, so it is NOT read-only.
+    assertEquals(rt.annotations?.readOnlyHint, false);
+
+    // A dry-run preview returns the plan and measures nothing.
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: { name: "discern_ratchets", arguments: { dry_run: true } },
+    });
+    const preview = await mcp.recv();
+    assertEquals(preview.result.isError, false);
+    assertEquals(preview.result.structuredContent.verb, "ratchets");
+    assertEquals(preview.result.structuredContent.dry_run, true);
+
+    assertEquals(await mcp.close(), 0);
+  });
+});
+
+Deno.test("discern mcp: discern_ratchets is hidden when the ratchets feature is off", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const set = await runAgent(dir, [
+      "config",
+      "set",
+      "features.ratchets",
+      "false",
+      "--bool",
+    ]);
+    assertEquals(set.code, 0, set.output);
+
+    const mcp = await spawnMcp(dir);
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await mcp.recv();
+    await mcp.send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
+    const list = await mcp.recv();
+    const names = list.result.tools.map((t: { name: string }) => t.name);
+    assert(!names.includes("discern_ratchets"), JSON.stringify(names));
+    assertEquals(await mcp.close(), 0);
+  });
+});
+
 Deno.test("discern mcp: the server advertises a non-empty, MCP-first instructions block", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
