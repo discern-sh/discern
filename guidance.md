@@ -40,6 +40,9 @@ The old two-program era kept a committed shell engine byte-identical to `templat
 ## Running discern from source
 Always `deno task dev <cmd>` (or `deno run -A src/main.ts <cmd>`). Note: do **not** insert `--` before the subcommand (`deno task dev -- upgrade` makes the CLI parser see `--` and print help). **Never** use the `dist/` binaries while developing — they bundle a frozen snapshot of `templates/` and the engine compiled at build time.
 
+## Inspecting the MCP server
+`deno task inspect-mcp` opens the [MCP Inspector](https://github.com/modelcontextprotocol/inspector) against discern's own MCP server (run from source) — for eyeballing the tool surface (annotations, input/output schemas, resources) while editing `src/engine/mcp/server.ts`. Append `--cli --method tools/list` (or `tools/call --tool-name … --tool-arg k=v`) for a browser-less one-shot call; the script header (`scripts/inspect_mcp.ts`) has the full usage. A maintainer helper run via `npx`: it is not part of the gate, and not bundled — it lives in `scripts/`, outside `templates/`, so it never ships to a project.
+
 ## Testing
 `deno task test` is the authority on correctness, engine included: the `tests/engine_*` suite scaffolds the seed surface into temp dirs and drives the TS engine via `deno task dev <verb>` (with a `discern` PATH shim so recipes and hooks resolve the binary like a real install). It is the behavioral parity oracle for the engine. If a bad engine change ever breaks `deno task dev finish` itself, run `deno task test` directly. Add engine coverage to `tests/engine_*_test.ts`; installer coverage to the other `tests/*_test.ts`.
 
