@@ -42,7 +42,14 @@ export function colourEnabled(noColor: boolean): boolean {
 export class Logger {
   readonly json: boolean;
   private readonly colour: boolean;
-  private readonly humanStream: "stdout" | "stderr";
+  /**
+   * Which stream human (non-JSON) narration goes to. Public so a helper that runs
+   * a subprocess can route the child's stdout to the SAME channel — keeping the
+   * parent's stdout clean for a caller that reserves it for a machine result (the
+   * `worktree:create` hook returns the worktree path on stdout; see
+   * `engine/worktree/shell.ts`).
+   */
+  readonly humanStream: "stdout" | "stderr";
 
   /** Build a logger from the resolved run options. */
   constructor(options: LogOptions) {
@@ -113,7 +120,22 @@ export class Logger {
     this.writeHuman(`  ${this.paint(colors.dim, text)}`);
   }
 
-  /** Plain line to stdout (the user-facing channel for human output). */
+  /**
+   * A plain content line on STDOUT — always, independent of `humanStream`. This is
+   * deliberately the logger's CONTENT/result channel (a plan row, a `config` edit
+   * echo), kept separate from the NARRATION channel ({@link info}/{@link ok}/
+   * {@link heading}/{@link detail}, which follow `humanStream`). The split is
+   * load-bearing: `renderPlan` (shared/result.ts) routes its heading to the
+   * narration stream but each plan row through here, so the rows stay
+   * capturable/greppable even when narration is sent to stderr (see the renderPlan
+   * test). Single capturable values (`config get`) bypass the logger with a direct
+   * `console.log`. Suppressed in JSON mode.
+   *
+   * Corollary for a caller that reserves stdout for its OWN machine result — the
+   * `worktree:create` hook returns the worktree path there: it must NOT narrate via
+   * `line()` on that path. It routes its setup commands' output to stderr (see
+   * `engine/worktree/shell.ts`) and the hook test asserts stdout stays the path.
+   */
   line(text = ""): void {
     if (this.json) {
       return;

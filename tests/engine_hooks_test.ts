@@ -103,6 +103,39 @@ Deno.test("hook WorktreeCreate: creates the worktree, runs setup, prints its pat
   });
 });
 
+Deno.test("hook WorktreeCreate: a setup step that writes to stdout never pollutes the path", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    // A `[worktree.setup]` step that prints to stdout — exactly what `vale sync`,
+    // `npm ci`, etc. do. Its output must be routed to stderr, NOT prepended to the
+    // worktree path the hook returns on stdout. Committed (HEAD) so the freshly
+    // checked-out worktree carries it and setup actually runs it.
+    const noise = "DISCERN-SETUP-STDOUT-NOISE";
+    const cfgPath = join(dir, "discern.toml");
+    const cfg = await Deno.readTextFile(cfgPath);
+    assertStringIncludes(cfg, "steps = []"); // template default we override
+    await Deno.writeTextFile(
+      cfgPath,
+      cfg.replace("steps = []", `steps = ["echo ${noise}"]`),
+    );
+    await gitInit(dir);
+
+    const r = await runHook(dir, await hookCommand(dir, "WorktreeCreate"), {
+      name: "noisy",
+      cwd: dir,
+    });
+    assertEquals(r.code, 0, r.stderr);
+
+    const wt = join(dir, ".claude/worktrees/noisy");
+    // The path on stdout is EXACTLY the worktree path — no setup output, and so no
+    // embedded newline. (A regression here is the "path contains control
+    // characters" failure Claude Code reports.)
+    assertEquals(r.stdout, wt);
+    // The step still ran and its output is visible — rerouted to stderr, not lost.
+    assertStringIncludes(r.stderr, noise);
+  });
+});
+
 Deno.test("hook WorktreeCreate: re-firing on an existing worktree is idempotent", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
