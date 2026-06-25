@@ -105,7 +105,7 @@ port = true
 # Post-create setup: commands run once after a worktree is created (install
 # deps, run migrations, warm caches). Run in order.
 [worktree.setup]
-steps = []   # e.g. ["npm ci", "npm run build"]
+steps = ["vale sync"]   # e.g. ["npm ci", "npm run build"]
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [ratchets] — never-loosen quality floors, enforced on demand by `discern ratchets`
