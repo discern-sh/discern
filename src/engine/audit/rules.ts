@@ -341,7 +341,7 @@ const GUIDANCE: Category = {
       weight: 1,
       fix: "discern refresh",
       teach:
-        "The per-provider agent files (AGENTS.md / CLAUDE.md) are compiled from the " +
+        "The per-provider agent files (one per configured agent) are compiled from the " +
         "built-in guidance plus your sources. If none exist, agents are flying blind. " +
         "Run `discern refresh` to (re)compile them.",
       evaluate: (ctx): { status: "pass" | "fail"; detail: string } =>
@@ -349,7 +349,7 @@ const GUIDANCE: Category = {
           ? { status: "pass", detail: "a compiled agent file is present" }
           : {
             status: "fail",
-            detail: "no compiled agent file (AGENTS.md / CLAUDE.md) found",
+            detail: "no compiled agent file found",
           },
     },
     {

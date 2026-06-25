@@ -65,10 +65,17 @@ everywhere.**
 
 2. **A parity test (`tests/agent_parity_test.ts`) is the forcing function** for
    the surfaces that _can't_ be compile-coupled — the static seed `.gitignore`
-   fragment and the neutral-scope seed. For **every** `AGENT_NAMES` entry it
-   asserts the fragment ignores the guidance file and covers the skills dir, and
-   the neutral scopes neutralize the generated dir. A new agent red-lights the
-   gate until each surface learns it.
+   fragment, the neutral-scope seed, and each hooks provider's seed settings
+   template. For **every** `AGENT_NAMES` entry it asserts the fragment ignores
+   the guidance file and covers the skills dir, and the neutral scopes
+   neutralize the generated dir; and for every provider that declares a hooks
+   surface it asserts the seed settings template
+   (`templates/.claude/settings.json.tmpl`) carries the registry's
+   `worktreeEventKeys` + `sessionHookNeedle`. A new agent — or a renamed hook
+   event — red-lights the gate until each surface learns it. The gitignore
+   "covered" semantics are a SINGLE exported definition (`ignoreCovers`) that
+   both this test and the upgrade-time reconciler use, so the guard and the
+   convergence can never disagree.
 
 3. **`ensureAgentArtifactsIgnored`** — an idempotent, registry-derived
    `.gitignore` reconciler run on every `discern upgrade` — makes EXISTING

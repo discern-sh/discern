@@ -28,8 +28,10 @@ import {
   allSkillsDirs,
   neutralAgentScopePaths,
   providerFor,
+  providersWithHooks,
 } from "../src/lib/providers.ts";
 import { defaultNeutralScopes } from "../src/lib/config.ts";
+import { ignoreCovers } from "../src/lib/agent_gitignore.ts";
 
 const REPO = fromFileUrl(new URL("../", import.meta.url));
 
@@ -40,30 +42,13 @@ const FRAGMENT = await Deno.readTextFile(
 );
 const FRAGMENT_LINES = FRAGMENT.split("\n").map((l) => l.trim());
 
-/** Does the fragment carry an ignore line for this exact file path (with or without
- * a leading slash)? */
-function fragmentIgnoresFile(path: string): boolean {
-  return FRAGMENT_LINES.includes(`/${path}`) || FRAGMENT_LINES.includes(path);
-}
-
-/**
- * Is this materialized skills dir ignored by the fragment — either by an exact
- * `/<dir>/` rule, or by an ancestor wildcard (`/.claude/*` covers `.claude/skills`)?
- * Matches git's own semantics closely enough to assert coverage without reimplementing
- * gitignore.
- */
-function fragmentIgnoresDir(dir: string): boolean {
-  const top = dir.split("/")[0];
-  const variants = [
-    `/${dir}`,
-    `/${dir}/`,
-    `${dir}/`,
-    `/${top}/*`,
-    `/${top}/`,
-    `/${top}`,
-  ];
-  return variants.some((v) => FRAGMENT_LINES.includes(v));
-}
+// Coverage is decided by the ONE shared definition from the reconciler module
+// (`ignoreCovers`), so this guard and the upgrade-time convergence can never disagree
+// about what counts as "already ignored" — no second copy of the gitignore semantics.
+const fragmentIgnoresFile = (path: string) =>
+  ignoreCovers(FRAGMENT_LINES, path, false);
+const fragmentIgnoresDir = (dir: string) =>
+  ignoreCovers(FRAGMENT_LINES, dir, true);
 
 Deno.test("registry aggregators stay total: one guidance file + a skills dir per known agent", () => {
   const guidanceFiles = allGuidanceFilePaths();
@@ -159,5 +144,42 @@ Deno.test("KEYSTONE: every known agent is covered by every cross-cutting satelli
         `${name}: generated region ${top} not in the seed neutral scopes`,
       );
     }
+  }
+});
+
+Deno.test("the seed settings template seeds each hooks provider's registry worktree-event keys", async () => {
+  // A hooks provider's worktree-lifecycle hooks are seeded into a STATIC settings
+  // template, but the ENGINE reads the event names from the registry's
+  // HooksIntegration (the hook-stripper in `setup`, the doctor worktree-automation
+  // advisory). If the static seed and the registry drift, new installs seed hook
+  // names the engine no longer recognises — an agent surface diverging with a green
+  // gate (the gap ADR 0043's "every satellite" claim must actually cover). This ties
+  // the seed back: a renamed event key red-lights the gate until the template follows.
+  for (const provider of providersWithHooks()) {
+    const integ = provider.hooks;
+    assert(
+      integ !== undefined,
+      `${provider.name}: providersWithHooks but no hooks`,
+    );
+    const tmplPath = join(REPO, "templates", `${integ.settingsFile}.tmpl`);
+    let tmpl: string;
+    try {
+      tmpl = await Deno.readTextFile(tmplPath);
+    } catch {
+      throw new Error(
+        `${provider.name} declares hooks in ${integ.settingsFile}, but no seed template exists at templates/${integ.settingsFile}.tmpl — its seeded hooks cannot be kept in step with the registry`,
+      );
+    }
+    for (const key of integ.worktreeEventKeys) {
+      assert(
+        tmpl.includes(`"${key}"`),
+        `templates/${integ.settingsFile}.tmpl does not seed the "${key}" hook the registry declares for ${provider.name} — the seed and the engine's hook vocabulary have drifted`,
+      );
+    }
+    // The session-start hook the registry identifies by needle must be seeded too.
+    assert(
+      new RegExp(integ.sessionHookNeedle, "i").test(tmpl),
+      `templates/${integ.settingsFile}.tmpl seeds no command matching the registry's sessionHookNeedle ("${integ.sessionHookNeedle}") for ${provider.name}`,
+    );
   }
 });

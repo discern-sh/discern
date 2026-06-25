@@ -474,15 +474,20 @@ export interface SkillsDriftEntry {
  * materialization places with `copy` — compared by content, never mode/mtime, so the
  * embedded-template FS's read-only flattening never reads as drift. */
 async function treesEqual(a: string, b: string): Promise<boolean> {
-  const list = async (
-    rootDir: string,
-  ): Promise<Map<string, "file" | "dir">> => {
-    const m = new Map<string, "file" | "dir">();
+  type Kind = "file" | "dir" | "symlink";
+  const list = async (rootDir: string): Promise<Map<string, Kind>> => {
+    const m = new Map<string, Kind>();
+    // followSymlinks defaults off, so a symlink is yielded as itself (not descended).
     for await (const e of walk(rootDir, { includeDirs: true })) {
       if (e.path === rootDir) {
         continue;
       }
-      m.set(relative(rootDir, e.path), e.isDirectory ? "dir" : "file");
+      const kind: Kind = e.isSymlink
+        ? "symlink"
+        : e.isDirectory
+        ? "dir"
+        : "file";
+      m.set(relative(rootDir, e.path), kind);
     }
     return m;
   };
@@ -500,6 +505,17 @@ async function treesEqual(a: string, b: string): Promise<boolean> {
         Deno.readFile(join(b, rel)),
       ]);
       if (ba.length !== bb.length || !ba.every((v, i) => v === bb[i])) {
+        return false;
+      }
+    } else if (kind === "symlink") {
+      // Compare link targets, never follow them — a symlink-to-dir would otherwise
+      // read as a directory and crash the byte compare (defensive: bundled skills
+      // carry none today, but a future one might).
+      const [la, lb] = await Promise.all([
+        Deno.readLink(join(a, rel)),
+        Deno.readLink(join(b, rel)),
+      ]);
+      if (la !== lb) {
         return false;
       }
     }
