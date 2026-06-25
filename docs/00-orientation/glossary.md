@@ -348,8 +348,8 @@ are emitted is set by `[guidance].agents` (`claude_code` → `CLAUDE.md`, `codex
 
 A focused agent capability shipped as a `SKILL.md`. The effective set is
 discern's **bundled** built-ins (in the binary,
-[`templates/skills/`](../../templates/skills/) — `bootstrap`,
-`document-subsystem`, `write-adr`, `handoff-worktree`) plus any you **author**
+[`templates/skills/`](../../templates/skills/) — `document-subsystem`
+and `write-adr`) plus any you **author**
 under `[skills].dir` (default `./skills`), where yours override a built-in of
 the same name. `discern refresh` (and `setup`/`upgrade`) materialize the set
 into `.claude/skills/` (gitignored, [the binary's](#the-binarys-files)):

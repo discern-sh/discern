@@ -151,7 +151,6 @@ its own directory:
 | -------------------------------------------------------------------------- | ----------------------------------------------------------------- |
 | [`document-subsystem`](../../templates/skills/document-subsystem/SKILL.md) | Write or refresh a `docs/` subtree per the documenter brief.      |
 | [`write-adr`](../../templates/skills/write-adr/SKILL.md)                   | Record a significant decision as an Architecture Decision Record. |
-| [`handoff-worktree`](../../templates/skills/handoff-worktree/SKILL.md)     | Graduate the current worktree's branch into the main repo.        |
 
 (Seeding a fresh install is **not** a skill — it is the `discern setup` command;
 see below and [ADR 0024](../_adr/0024-bootstrap-as-command.md), amended by

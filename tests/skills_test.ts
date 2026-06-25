@@ -67,7 +67,6 @@ Deno.test("bundledSkillNames lists the shipped built-ins, sorted", async () => {
   for (
     const n of [
       "document-subsystem",
-      "handoff-worktree",
       "write-adr",
     ]
   ) {
@@ -82,7 +81,7 @@ Deno.test("bundledSkillNames lists the shipped built-ins, sorted", async () => {
 Deno.test("resolveEffectiveSkills: bundled-only when no authored dir", async () => {
   await withTempDir(async (root) => {
     const eff = await resolveEffectiveSkills(root, cfg());
-    assert(eff.length >= 3);
+    assert(eff.length >= 2);
     assert(eff.every((e) => e.source === "bundled" && !e.overridesBundled));
     assert(eff.some((e) => e.name === "write-adr"));
   });
@@ -143,7 +142,7 @@ Deno.test("materializeSkills: bundled copied, authored symlinked", async () => {
     await authoredSkill(root, "my-skill");
     await authoredSkill(root, "document-subsystem"); // override → symlink, not copy
     const res = await materializeSkills(root, cfg(), CLAUDE_SKILLS);
-    assert(res.copied >= 2, `expected the non-overridden built-ins copied`);
+    assert(res.copied >= 1, `expected the non-overridden built-ins copied`);
     assertEquals(res.linked, 2); // my-skill + the document-subsystem override
     assertEquals(res.pruned, 0);
 

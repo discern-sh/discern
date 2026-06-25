@@ -612,7 +612,7 @@ async function buildGraduatePlan(
   );
   if (merged.kind === "behind") {
     throw new WorktreeGitError(
-      "Branch is behind main. Run 'discern finish' to integrate it (commit, git merge main, re-run), then retry.",
+      "Branch is behind main. Integrate the latest main into it (commit your work, then `git merge main`) and re-run — `discern finish` gates on this same check.",
     );
   }
   ctx.log.ok("Branch contains the latest main.");

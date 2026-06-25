@@ -34,8 +34,8 @@ is also **config-aware** — each built-in section is rendered through a small
 your real branch and omits content for anything you haven't configured (a
 ratchet, a worktree resource).
 
-The Skills are the bundled built-ins (`document-subsystem`, `write-adr`,
-`handoff-worktree`) plus any you author under `[skills].dir` (default
+The Skills are the bundled built-ins (`document-subsystem` and `write-adr`)
+plus any you author under `[skills].dir` (default
 `./skills`, yours overriding a built-in by name). They materialize into each
 configured agent's skills directory ([`.claude/skills/`](../../.claude/skills/)
 for Claude Code, the cross-tool `.agents/skills/` for Codex and Gemini — Claude

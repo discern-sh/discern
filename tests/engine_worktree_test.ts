@@ -39,7 +39,7 @@ Deno.test("worktree setup: refreshes agent files and links skills inside the wor
       `CLAUDE.md missing\n${r.output}`,
     );
     assert(
-      await exists(join(wt, ".claude/skills/handoff-worktree/SKILL.md")),
+      await exists(join(wt, ".claude/skills/write-adr/SKILL.md")),
       `bundled skills not linked in the worktree\n${r.output}`,
     );
     assertStringIncludes(r.output, "Worktree setup complete");
