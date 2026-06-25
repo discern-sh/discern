@@ -17,6 +17,10 @@ import {
 } from "./shared/config_schema.ts";
 import { findRoot } from "./shared/env.ts";
 import {
+  NOT_SET_UP_MESSAGE,
+  verbNeedsBootstrap,
+} from "./shared/setup_state.ts";
+import {
   enabledFeatures,
   type Feature,
   featureForVerb,
@@ -27,7 +31,7 @@ import { runUpgrade } from "./commands/upgrade.ts";
 import { runDoctor } from "./commands/doctor.ts";
 import { runMigrate } from "./commands/migrate.ts";
 import { runAddPreset } from "./commands/add_preset.ts";
-import { runDocs } from "./commands/docs.ts";
+import { runDocs, runHelp } from "./commands/docs.ts";
 import {
   runConfigSet,
   runConfigSetCapability,
@@ -84,9 +88,10 @@ type RootCommand = ReturnType<typeof rootShape>;
 
 /** Build the root command with its global flags and subcommands. Subsystem verbs
  * (worktree, ratchets, refresh, skills, docs) are attached only when their
- * feature is enabled, so `--help` lists exactly the active verbs. `setup` is hidden
- * from help once the project records `[meta].bootstrapped` (it stays callable with
- * `--force`). */
+ * feature is enabled, so `--help` lists exactly the active verbs. `help` (browse
+ * discern's own bundled docs) is attached UNCONDITIONALLY — it is discern's own
+ * help, not a project feature. `setup` is hidden from help once the project records
+ * `[meta].bootstrapped` (it stays callable with `--force`). */
 function buildCli(
   enabled: ReadonlySet<Feature>,
   hideSetup: boolean,
@@ -307,6 +312,55 @@ function buildCli(
         Deno.exit(code);
       });
   }
+
+  // `help` — browse discern's OWN bundled documentation (the config reference,
+  // concepts, the gate/worktree/ratchet docs). Registered UNCONDITIONALLY: it is
+  // discern's own help, available in every install regardless of which features
+  // the project enabled — unlike `docs`, which serves the project's tree and is
+  // gated on the `docs` feature. The doc set is fixed and bundled, so there is no
+  // `--dir`; `--help`/`-h` (Cliffy usage) is a separate surface and coexists with
+  // it. Mirrors `docs`'s read flags (target, --list/--raw/--json/--no-pager/--width)
+  // plus a public-only `--export`.
+  root
+    .command("help [target:string]")
+    .description("Browse and read discern's own documentation.")
+    .option(
+      "--raw",
+      "Print a doc's pristine Markdown source instead of rendering it.",
+    )
+    .option(
+      "--list",
+      "Print a plain table of contents and exit (never interactive).",
+    )
+    .option(
+      "--adr",
+      "Also surface discern's Architecture Decision Records (hidden by default).",
+    )
+    .option("--no-pager", "Don't page rendered output through $PAGER.")
+    .option("--width <cols:number>", "Wrap width for rendered output.")
+    .option(
+      "--export <scope:string>",
+      "Concatenate Markdown to stdout: public.",
+    )
+    .option(
+      "--output <path:string>",
+      "Write an export to a file instead of stdout.",
+    )
+    .action(async (options, target?: string) => {
+      const code = await runHelp({
+        json: options.json ?? false,
+        noColor: noColorFrom(options.color),
+        raw: options.raw ?? false,
+        list: options.list ?? false,
+        adr: options.adr ?? false,
+        noPager: options.pager === false,
+        width: options.width,
+        target,
+        export: options.export,
+        output: options.output,
+      });
+      Deno.exit(code);
+    });
 
   // `config` — programmatic, comment-preserving edits to an existing
   // discern.toml. Each subcommand is a standalone Command instance attached via
@@ -560,21 +614,6 @@ async function isGitWorkTree(dir: string): Promise<boolean> {
   }
 }
 
-/** Work verbs that hard-redirect to setup until the project records
- * `[meta].bootstrapped` (ADR 0036): running an empty gate pre-setup would report a
- * false "all-green", so these refuse and point at `discern` / `discern setup`.
- * Deliberately EXCLUDES `docs` (knowledge is useful before setup), `status` /
- * `doctor` (you orient and debug a broken install with them), the plumbing hooks
- * and scripts call (`worktree`, `worktree-name`, `changed-scopes`, `refresh`,
- * `skills`, `config`), and the setup verb itself. */
-const REDIRECT_VERBS: ReadonlySet<string> = new Set<string>([
-  "finish",
-  "prepare",
-  "test",
-  "ratchets",
-  "graduate",
-]);
-
 /**
  * Installer verbs Cliffy owns; combined with the engine verbs to decide which
  * unknown first tokens fall through to a project recipe. (`init`/`bootstrap` are
@@ -587,6 +626,7 @@ const KNOWN_VERBS: ReadonlySet<string> = new Set<string>([
   "migrate",
   "add-preset",
   "docs",
+  "help",
   "config",
   ...KNOWN_ENGINE_VERBS,
 ]);
@@ -668,22 +708,25 @@ export async function main(args: string[]): Promise<void> {
     }
 
     // Pre-setup hard redirect (ADR 0036): until the project records
-    // `[meta].bootstrapped`, the work verbs refuse and point at setup — running an
-    // empty gate would report a false "all-green". A clean funnel, not a generic
-    // block: docs/status/doctor/config and the setup/plumbing verbs stay open, and
-    // a parse-broken config still surfaces its own TOML error (the configOk guard).
+    // `[meta].bootstrapped`, the bootstrap-gated verbs refuse and point at setup —
+    // running an empty gate would report a false "all-green", and `docs` would
+    // browse an empty tree. A clean funnel, not a generic block: `help` (discern's
+    // own docs), status/doctor/config and the setup/plumbing verbs stay open, and a
+    // parse-broken config still surfaces its own TOML error (the configOk guard).
     // It fires in --json too, as a structured `not_set_up` result, so an agent
     // consuming JSON learns to set up rather than misreading an empty pass.
     if (
-      inProject && configOk && !bootstrapped && REDIRECT_VERBS.has(verb)
+      inProject && configOk && !bootstrapped && verbNeedsBootstrap(verb)
     ) {
-      const message =
-        "this project isn't set up yet. Run `discern` (or `discern setup`) to set it " +
-        "up — your coding agent does it for you.";
       if (argv.includes("--json")) {
-        emitResult({ ok: false, verb, error: "not_set_up", message });
+        emitResult({
+          ok: false,
+          verb,
+          error: "not_set_up",
+          message: NOT_SET_UP_MESSAGE,
+        });
       } else {
-        console.error(`discern: ${message}`);
+        console.error(`discern: ${NOT_SET_UP_MESSAGE}`);
       }
       Deno.exit(1);
     }

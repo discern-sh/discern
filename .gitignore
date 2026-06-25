@@ -4,6 +4,10 @@
 # Compiled CLI binaries produced by `deno task build` / `deno compile`.
 /dist/
 
+# Transient public-docs staging dir `deno task build` embeds for `discern help`
+# (removed after each build; ignored so an interrupted build can't dirty the tree).
+/.discern-help-docs/
+
 # Coverage and scratch output.
 /coverage/
 /.scratch/

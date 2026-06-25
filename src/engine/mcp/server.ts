@@ -33,6 +33,10 @@ import {
   type Feature,
   FEATURES,
 } from "../../shared/features.ts";
+import {
+  NOT_SET_UP_MESSAGE,
+  verbNeedsBootstrap,
+} from "../../shared/setup_state.ts";
 import { Logger } from "../../lib/log.ts";
 import { finishResult } from "../gate/finish.ts";
 import { prepareResult } from "../gate/prepare.ts";
@@ -41,7 +45,7 @@ import { auditResult } from "../audit/audit.ts";
 import { changedScopesResult } from "../scopes/changed.ts";
 import { statusResult } from "../status/status.ts";
 import { doctorResult } from "../../commands/doctor.ts";
-import { docsResult } from "../../commands/docs.ts";
+import { docsResult, helpResult } from "../../commands/docs.ts";
 import {
   graduateResult,
   lifecycleContext,
@@ -188,6 +192,28 @@ const TOOLS: McpTool[] = [
       }),
   },
   {
+    name: "discern_help",
+    description:
+      "Read discern's OWN documentation — the harness's docs (the discern.toml " +
+      "config reference, the concepts, the gate/worktree/ratchet pages), bundled " +
+      "into every install. Distinct from discern_docs, which reads the host " +
+      "PROJECT's docs: call this to learn how discern itself works, before editing " +
+      "discern.toml or reasoning about the gate. With no argument, return the index " +
+      "(every doc's path, section, slug, and title); pass `target` (a slug, " +
+      "`section/slug`, or path) for that one doc's full Markdown content. Always " +
+      "available — it is discern's help, not a project feature — and serves only " +
+      "the public docs (the internal ADR/maintainer trees are never exposed here).",
+    inputSchema: {
+      target: z.string().optional().describe(
+        "A specific doc to fetch (slug, section/slug, or path). Omit for the index.",
+      ),
+    },
+    run: (root, args) =>
+      helpResult(root, {
+        target: typeof args.target === "string" ? args.target : undefined,
+      }),
+  },
+  {
     name: "discern_graduate",
     description:
       "Graduate THIS worktree's branch into the main checkout for review: tear down " +
@@ -279,6 +305,21 @@ async function runTool(
         "not inside a discern project (no discern.toml in this directory or any parent).",
     });
   }
+  // Pre-setup gate — the MCP mirror of the CLI redirect: a bootstrap-gated verb
+  // (the gate verbs and `discern_docs`) refuses until the project records
+  // `[meta].bootstrapped`, so an agent never reads a false all-green or an empty
+  // doc tree. `discern_help`/`discern_status`/`discern_doctor`/`discern_audit` are
+  // not gated — they are exactly what you reach for before setup is done.
+  if (
+    verbNeedsBootstrap(verbOf(tool.name)) && !(await bootstrapGatePasses(root))
+  ) {
+    return renderResult({
+      ok: false,
+      verb: verbOf(tool.name),
+      error: "not_set_up",
+      message: NOT_SET_UP_MESSAGE,
+    });
+  }
   let result: DiscernResult;
   try {
     result = await tool.run(root, args);
@@ -291,6 +332,22 @@ async function runTool(
     };
   }
   return renderResult(result);
+}
+
+/**
+ * Whether the pre-setup gate should let a bootstrap-gated tool run: true once the
+ * project records `[meta].bootstrapped`, and also true when the config cannot be
+ * read — so the verb's own core surfaces the real config error rather than a
+ * misleading `not_set_up` (the MCP mirror of the CLI's `configOk` guard). Resolved
+ * per call, not once at startup, so a project bootstrapped mid-session (via the
+ * CLI, alongside a long-lived server) is picked up without a restart.
+ */
+async function bootstrapGatePasses(root: string): Promise<boolean> {
+  try {
+    return (await loadConfig(root)).meta.bootstrapped;
+  } catch {
+    return true;
+  }
 }
 
 /**

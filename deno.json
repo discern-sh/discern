@@ -44,6 +44,7 @@
     "exclude": [
       "templates/",
       "dist/",
+      ".discern-help-docs/",
       "tests/fixtures/",
       "PLAN.md",
       "discern.toml",
@@ -84,11 +85,18 @@
     "exclude": [
       "templates/",
       "dist/",
+      ".discern-help-docs/",
       "tests/fixtures/",
       ".claude/"
     ]
   },
   "test": {
-    "exclude": [".claude/", "dist/", "templates/", "tests/fixtures/"]
+    "exclude": [
+      ".claude/",
+      "dist/",
+      ".discern-help-docs/",
+      "templates/",
+      "tests/fixtures/"
+    ]
   }
 }
