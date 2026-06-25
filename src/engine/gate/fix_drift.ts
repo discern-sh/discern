@@ -1,5 +1,5 @@
 /**
- * Fix-stage strand detection (ADR 0046) — the gate's guard against a CLEAN finish
+ * Fix-stage strand detection (ADR 0047) — the gate's guard against a CLEAN finish
  * that nonetheless leaves uncommitted fixer output in the working tree.
  *
  * The fix stage is *meant* to mutate (a formatter, a codemod). The danger is narrow:
@@ -16,7 +16,7 @@
  * edit the fixer extends — is not mistaken for a fresh strand.
  *
  * Scope: TRACKED changes only — exactly what CI's trailing `git diff --exit-code`
- * catches, the guard this check brings to the local gate (ADR 0046). A fixer that
+ * catches, the guard this check brings to the local gate (ADR 0047). A fixer that
  * emits a brand-new UNTRACKED file is out of scope: it shows plainly as `??` in git
  * status and `git diff` ignores it too, so a codemod that creates a file (and the
  * scope gate that validates it) is unaffected.

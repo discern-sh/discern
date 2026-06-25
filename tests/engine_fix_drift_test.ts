@@ -1,5 +1,5 @@
 /**
- * Fix-stage strand detection (ADR 0046). The fix stage may mutate the tree, but a
+ * Fix-stage strand detection (ADR 0047). The fix stage may mutate the tree, but a
  * GREEN finish must not hide uncommitted fixer output: a fixer that reformats a file
  * the agent already COMMITTED leaves a change a clean gate would otherwise conceal
  * until `discern graduate` scoops it up staged-but-uncommitted in the main checkout.

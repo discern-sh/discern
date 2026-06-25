@@ -1,4 +1,4 @@
-# ADR 0046: Finish blocks a fix stage that strands uncommitted changes
+# ADR 0047: Finish blocks a fix stage that strands uncommitted changes
 
 **Status**: accepted. Mirrors, for the working tree, the generated-artifact
 currency check from [ADR 0034](0034-agents-md-untracked-currency-check.md);

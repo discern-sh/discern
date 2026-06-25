@@ -178,7 +178,7 @@ async function runGate(
   //    tree; snapshot the working-tree dirty set immediately before and after it so the
   //    tail (step 4c) can flag a fixer that reformatted a committed-clean file — the
   //    uncommitted fixer output a green gate would otherwise hide until graduate
-  //    (ADR 0046). Skip the snapshots entirely when no fix stage is wired.
+  //    (ADR 0047). Skip the snapshots entirely when no fix stage is wired.
   const stageGroups = buildStageGroups(cfg);
   const hasFix = stageGroups.some((g) => g.stage === "fix");
   const dirtyBeforeFix = hasFix ? await worktreeDirtyPaths(root) : null;
@@ -238,7 +238,7 @@ async function runGate(
     }
   }
 
-  // 4c. Fix-stage strand detection (ADR 0034's sibling, ADR 0046): the fix stage may
+  // 4c. Fix-stage strand detection (ADR 0034's sibling, ADR 0047): the fix stage may
   //     MUTATE the tree (that's its job), but a clean gate must not hide uncommitted
   //     fixer output. Flag only files that were CLEAN at finish-start and the fix stage
   //     dirtied (D1 \ D0) — so a fixer reworking the agent's own uncommitted edits (the
