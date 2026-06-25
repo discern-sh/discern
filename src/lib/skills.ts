@@ -4,18 +4,20 @@
  * Skills come from two places, with one consistent rule: **bundled built-ins**
  * (shipped inside the binary under `templates/skills/`) plus **your authored
  * skills** (under `[skills].dir`, default `./skills`), where *yours win by name*.
- * The effective set is materialized into the provider directory `.claude/skills/`
- * (gitignored, the provider's, never the user's footprint):
+ * The effective set is materialized into EACH configured agent's skills directory
+ * (the provider registry's `skillsDir` — `.claude/skills/` for Claude Code, the
+ * cross-tool `.agents/skills/` shared by Codex + Gemini; all gitignored, the
+ * providers', never the user's footprint):
  *   - a bundled skill is **copied** in (its source lives in the binary, out of the
  *     project tree, so a symlink would dangle);
  *   - an authored skill is **symlinked** to `[skills].dir` (so edits are live).
  *
- * No directory is ever part-tracked/part-ignored: `[skills].dir` is 100% yours,
- * `.claude/skills/` is 100% generated. That removes by construction the mixed-
+ * No directory is ever part-tracked/part-ignored: `[skills].dir` is 100% yours, an
+ * agent skills dir is 100% generated. That removes by construction the mixed-
  * ignore trap that silently de-tracked authored skills on upgrade.
  *
  * `init`/`upgrade` materialize for the main checkout; a linked git worktree does
- * NOT inherit the gitignored `.claude/skills/`, so worktree setup materializes it
+ * NOT inherit the gitignored agent skills dirs, so worktree setup materializes them
  * too. Materialization always reconciles, so a removed/ejected skill never lingers.
  */
 
@@ -212,42 +214,71 @@ async function writeMaterializedNames(
 /** Surface foreign entries left untouched in `.claude/skills/` (a user drop-in under
  * an unmanaged name). The directory is discern-generated, so a stray entry is worth
  * a heads-up — but never a deletion, per the never-clobber-a-drop-in contract. */
-function warnForeignSkills(log: Logger | undefined, foreign: string[]): void {
+function warnForeignSkills(
+  log: Logger | undefined,
+  skillsRel: string,
+  foreign: string[],
+): void {
   if (foreign.length === 0) {
     return;
   }
   const plural = foreign.length === 1 ? "entry" : "entries";
   log?.warn(
-    `.claude/skills/ has ${foreign.length} unmanaged ${plural} discern left untouched: ${
+    `${skillsRel}/ has ${foreign.length} unmanaged ${plural} discern left untouched: ${
       foreign.sort().join(", ")
     }`,
   );
 }
 
 /**
- * Reconcile `.claude/skills/` with the effective skill set: copy bundled skills,
- * symlink authored ones (relative, so edits are live and the link survives a tree
- * move), and prune entries discern owns that are no longer effective — a removed
- * authored skill's dangling symlink AND a real-directory copy of a bundled skill a
- * newer binary stopped shipping (tracked via {@link MATERIALIZED_MANIFEST}, so it
- * self-heals instead of needing a one-off migration per removal). A genuinely
- * foreign entry — a name discern never materialized — is left untouched and warned
- * about, so a stray drop-in is never clobbered. Returns a summary.
+ * Materialize the effective skill set into EVERY configured agent's skills
+ * directory. `dirs` are the project-relative targets — one per agent family, from
+ * {@link skillsDirsForAgents}: `.claude/skills/` for Claude Code, the cross-tool
+ * `.agents/skills/` shared by Codex + Gemini. The SAME effective set is reconciled
+ * into each. Returns the summary summed across all directories. An empty `dirs`
+ * (no configured agent has a skills target) materializes nothing.
  */
 export async function materializeSkills(
   root: string,
   config: DiscernConfig,
+  dirs: readonly string[],
   log?: Logger,
 ): Promise<MaterializeResult> {
   const effective = await resolveEffectiveSkills(root, config);
-  const managed = new Map(effective.map((e) => [e.name, e]));
-  const claudeSkillsDir = join(root, CLAUDE_SKILLS_REL);
+  const total: MaterializeResult = { copied: 0, linked: 0, pruned: 0 };
+  for (const rel of dirs) {
+    const r = await materializeSkillsDir(rel, join(root, rel), effective, log);
+    total.copied += r.copied;
+    total.linked += r.linked;
+    total.pruned += r.pruned;
+  }
+  return total;
+}
 
-  // The names discern materialized on the LAST run. A real directory under one of
-  // these names that is no longer effective is a stale copy discern placed (e.g. a
-  // bundled skill dropped from a newer binary) — safe to prune. Without this record
-  // such an orphan is indistinguishable from a user drop-in, so it would leak.
-  const ownedBefore = await readMaterializedNames(claudeSkillsDir);
+/**
+ * Reconcile ONE agent skills directory with the effective skill set: copy bundled
+ * skills, symlink authored ones (relative, so edits are live and the link survives
+ * a tree move), and prune entries discern owns that are no longer effective — a
+ * removed authored skill's dangling symlink AND a real-directory copy of a bundled
+ * skill a newer binary stopped shipping (tracked via {@link MATERIALIZED_MANIFEST},
+ * per directory, so it self-heals instead of needing a one-off migration per
+ * removal). A genuinely foreign entry — a name discern never materialized — is left
+ * untouched and warned about, so a stray drop-in is never clobbered. `skillsRel` is
+ * the project-relative path (for logs); `skillsAbs` is where the work happens.
+ */
+async function materializeSkillsDir(
+  skillsRel: string,
+  skillsAbs: string,
+  effective: SkillEntry[],
+  log?: Logger,
+): Promise<MaterializeResult> {
+  const managed = new Map(effective.map((e) => [e.name, e]));
+
+  // The names discern materialized on the LAST run, in THIS directory. A real dir
+  // under one of these names that is no longer effective is a stale copy discern
+  // placed (e.g. a bundled skill dropped from a newer binary) — safe to prune.
+  // Without this record such an orphan is indistinguishable from a user drop-in.
+  const ownedBefore = await readMaterializedNames(skillsAbs);
 
   let pruned = 0;
   const foreign: string[] = [];
@@ -257,11 +288,11 @@ export async function materializeSkills(
   // directory whose name discern materialized before but no longer ships. Anything
   // else is a foreign drop-in: leave it, and warn (never clobber it).
   try {
-    for await (const entry of Deno.readDir(claudeSkillsDir)) {
+    for await (const entry of Deno.readDir(skillsAbs)) {
       if (entry.name === MATERIALIZED_MANIFEST) {
         continue; // discern's own ownership record, not a skill
       }
-      const path = join(claudeSkillsDir, entry.name);
+      const path = join(skillsAbs, entry.name);
       const realDir = entry.isDirectory && !entry.isSymlink;
       if (managed.has(entry.name)) {
         await removeAny(path, realDir);
@@ -281,29 +312,29 @@ export async function materializeSkills(
     if (!(error instanceof Deno.errors.NotFound)) {
       throw error;
     }
-    // No `.claude/skills/` yet — created below only if there is anything to place.
+    // No skills dir yet — created below only if there is anything to place.
   }
 
-  warnForeignSkills(log, foreign);
+  warnForeignSkills(log, skillsRel, foreign);
 
   if (effective.length === 0) {
     // Nothing to place; still record the now-empty ownership set when the dir
     // exists, so a later run can tell a future orphan from a foreign drop-in.
-    if (await targetExists(claudeSkillsDir)) {
-      await writeMaterializedNames(claudeSkillsDir, []);
+    if (await targetExists(skillsAbs)) {
+      await writeMaterializedNames(skillsAbs, []);
     }
     return { copied: 0, linked: 0, pruned };
   }
 
-  await ensureDir(claudeSkillsDir);
+  await ensureDir(skillsAbs);
   let copied = 0;
   let linked = 0;
   for (const skill of effective) {
-    const target = join(claudeSkillsDir, skill.name);
+    const target = join(skillsAbs, skill.name);
     // A foreign real directory left over (name not managed) can't reach here —
     // every effective name was removed in the prune pass. But a real non-symlink
     // a user dropped under a managed name would have been removed above; that is
-    // acceptable since `.claude/skills/` is discern-generated.
+    // acceptable since the agent skills dir is discern-generated.
     const existing = await lstat(target);
     if (existing !== undefined) {
       // Should be gone (prune handles managed names); guard defensively.
@@ -313,19 +344,19 @@ export async function materializeSkills(
       await copy(skill.srcAbs, target);
       copied++;
     } else {
-      await Deno.symlink(relative(claudeSkillsDir, skill.srcAbs), target);
+      await Deno.symlink(relative(skillsAbs, skill.srcAbs), target);
       linked++;
     }
   }
 
-  // Record what discern now owns, so the next run can prune any of these names a
-  // future binary stops shipping — the self-healing the manifest exists for.
-  await writeMaterializedNames(claudeSkillsDir, effective.map((e) => e.name));
+  // Record what discern now owns in THIS dir, so the next run can prune any of these
+  // names a future binary stops shipping — the self-healing the manifest exists for.
+  await writeMaterializedNames(skillsAbs, effective.map((e) => e.name));
 
   log?.info(
     pruned > 0
-      ? `skills materialized into .claude/skills/: ${copied} bundled, ${linked} authored (pruned ${pruned} stale)`
-      : `skills materialized into .claude/skills/: ${copied} bundled, ${linked} authored`,
+      ? `skills materialized into ${skillsRel}/: ${copied} bundled, ${linked} authored (pruned ${pruned} stale)`
+      : `skills materialized into ${skillsRel}/: ${copied} bundled, ${linked} authored`,
   );
   return { copied, linked, pruned };
 }

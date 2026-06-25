@@ -22,6 +22,8 @@ import { parseDiscernToml } from "../src/lib/toml_render.ts";
 import { schemaFromRaw } from "../src/lib/schema.ts";
 import { SCHEMA_VERSION } from "../src/lib/version.ts";
 import { materializeSkills } from "../src/lib/skills.ts";
+import { skillsDirsForAgents } from "../src/lib/providers.ts";
+import { guidanceAgents } from "../src/engine/guidance_render.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import { REAL_TEMPLATES, withTempDir } from "./helpers.ts";
 
@@ -68,10 +70,12 @@ Deno.test("init scaffolds the real templates into a working harness", async () =
     // 2. The schema version is stamped into the config's [meta] block.
     assertEquals(schemaFromRaw(toml.raw), SCHEMA_VERSION);
 
-    // 3. The bundled skills materialize (copied) into .claude/skills/. The plan
-    // lays down only seeds; skills are the binary's own artifacts, materialized
-    // the way runInit/worktree setup do — so drive that step here, then assert.
-    await materializeSkills(dir, await loadConfig(dir));
+    // 3. The bundled skills materialize (copied) into each configured agent's
+    // skills dir. The plan lays down only seeds; skills are the binary's own
+    // artifacts, materialized the way runInit/worktree setup do — so drive that
+    // step here (for the project's real agent set), then assert.
+    const cfg = await loadConfig(dir);
+    await materializeSkills(dir, cfg, skillsDirsForAgents(guidanceAgents(cfg)));
     const skillInfo = await Deno.stat(
       join(dir, ".claude/skills/write-adr/SKILL.md"),
     );

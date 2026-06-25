@@ -27,6 +27,7 @@ import {
 import type { Feature } from "../shared/features.ts";
 import { resolveConfigPath, resolveRecipesDir } from "../lib/paths.ts";
 import { ejectSkill, listSkills, materializeSkills } from "../lib/skills.ts";
+import { skillsDirsForAgents } from "../lib/providers.ts";
 import { TomlEditor } from "../lib/toml_edit.ts";
 import { Logger } from "../lib/log.ts";
 import { runFinish } from "./gate/finish.ts";
@@ -38,6 +39,7 @@ import { runRatchets } from "./gate/ratchets.ts";
 import { runChangedScopes } from "./scopes/changed.ts";
 import { runStatus } from "./status/status.ts";
 import { compileGuidelines } from "./guidelines.ts";
+import { guidanceAgents } from "./guidance_render.ts";
 import {
   graduate,
   IdentityError,
@@ -683,8 +685,14 @@ async function runSkillsEject(name: string): Promise<number> {
       editor.setString("skills.dir", "skills");
       await Deno.writeTextFile(path, editor.toString());
     }
-    // Re-materialize so `.claude/skills/` reflects the ejected override now.
-    await materializeSkills(root, await loadConfig(root));
+    // Re-materialize so each agent's skills dir reflects the ejected override now
+    // (reloaded, since [skills].dir may have just been written above).
+    const updated = await loadConfig(root);
+    await materializeSkills(
+      root,
+      updated,
+      skillsDirsForAgents(guidanceAgents(updated)),
+    );
     console.log(
       `Ejected "${name}" → ${result.destRel} (it now overrides the built-in).`,
     );

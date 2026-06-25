@@ -33,9 +33,14 @@ Deno.test("compileGuidelines: built-in + sources (no banner); copies built-ins, 
     const first = await compileGuidelines(tmp);
     // Provider files written in [guidance].agents order.
     assertEquals(first.agentsWritten, ["CLAUDE.md", "AGENTS.md"]);
-    // The authored demo is symlinked; the bundled built-ins are copied.
-    assertEquals(first.skillsLinked, 1);
-    assert(first.skillsCopied >= 1, "expected bundled built-ins to be copied");
+    // Skills materialize into BOTH configured agents' dirs: Claude's .claude/skills
+    // and Codex's shared .agents/skills. So the authored demo is symlinked twice and
+    // the bundled built-ins copied twice — the counts sum across the two dirs.
+    assertEquals(first.skillsLinked, 2);
+    assert(
+      first.skillsCopied >= 2,
+      "expected bundled built-ins copied into both dirs",
+    );
     assertEquals(first.skillsPruned, 0);
 
     // AGENTS.md is the canonical agent file: NO banner — it opens with discern's
@@ -63,19 +68,24 @@ Deno.test("compileGuidelines: built-in + sources (no banner); copies built-ins, 
     const claude = await Deno.readTextFile(join(tmp, "CLAUDE.md"));
     assertEquals(claude, "@AGENTS.md\n");
 
-    // The authored skill is a relative symlink into ./skills/.
+    // The authored skill is a relative symlink into ./skills/ — in BOTH agent dirs.
     const link = join(tmp, ".claude/skills/demo");
     assert((await Deno.lstat(link)).isSymlink, "expected a symlink");
     assertEquals(await Deno.readLink(link), "../../skills/demo");
+    assert(
+      (await Deno.lstat(join(tmp, ".agents/skills/demo"))).isSymlink,
+      "expected the authored skill in the shared .agents/skills dir too",
+    );
     // A bundled built-in is copied in as a real directory (not a symlink).
     const builtin = await Deno.lstat(join(tmp, ".claude/skills/write-adr"));
     assert(builtin.isDirectory && !builtin.isSymlink);
 
     // --- prune: remove the authored skill, re-run → the dangling link is gone --
+    // from BOTH dirs (so pruned counts 2).
     await Deno.remove(join(tmp, "skills/demo"), { recursive: true });
     const second = await compileGuidelines(tmp);
     assertEquals(second.skillsLinked, 0);
-    assertEquals(second.skillsPruned, 1);
+    assertEquals(second.skillsPruned, 2);
     assertEquals(
       await Deno.lstat(link).then(() => true).catch(() => false),
       false,
