@@ -82,9 +82,10 @@ discern's built-in guidance plus your [`guidance.md`](../../guidance.md) by
 - Agent sessions run in linked git worktrees under `.claude/worktrees/<name>/`,
   each with its own checkout.
 - To take over an agent's branch and continue in the main checkout, run
-  [`discern graduate`](../30-worktrees/README.md). It commits the work as needed,
-  tears the worktree down, and checks the branch out in the main repo — or, with
-  `--to main`, fast-forwards your trunk to it and deletes the merged branch.
+  [`discern graduate`](../30-worktrees/README.md). It commits the work as
+  needed, tears the worktree down, and checks the branch out in the main repo —
+  or, with `--to main`, fast-forwards your trunk to it and deletes the merged
+  branch.
 - Drive the gate yourself any time. In this repo (self-hosting from source):
   `deno task dev finish` (the full gate, also `deno task gate`),
   `deno task dev prepare` (fast: fixers + checks), and `deno task dev doctor`

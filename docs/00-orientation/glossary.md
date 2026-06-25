@@ -314,7 +314,10 @@ project-namespaced handle is read with `worktree-name --resource <name>` or the
 
 What `discern graduate` does: integrate the worktree's branch into the main repo
 and tear the worktree down (its resources destroyed, directory pruned). Requires
-the branch to already carry `main`.
+the branch to already carry `main`. The landing is configurable
+(`[worktree].graduate_to`, or `--to` per run): `branch` checks the branch out in
+the main repo for review (the default); `main` fast-forwards the trunk to the
+branch tip and deletes the now-merged branch.
 
 ---
 
@@ -348,16 +351,15 @@ are emitted is set by `[guidance].agents` (`claude_code` → `CLAUDE.md`, `codex
 
 A focused agent capability shipped as a `SKILL.md`. The effective set is
 discern's **bundled** built-ins (in the binary,
-[`templates/skills/`](../../templates/skills/) — `document-subsystem`
-and `write-adr`) plus any you **author**
-under `[skills].dir` (default `./skills`), where yours override a built-in of
-the same name. `discern refresh` (and `setup`/`upgrade`) materialize the set
-into `.claude/skills/` (gitignored, [the binary's](#the-binarys-files)):
-built-ins **copied**, authored skills **symlinked** so edits are live.
-`discern skills
-list` shows the set; `discern skills eject <name>` copies a
-built-in into your dir to customize. The `skills` [Feature](#feature) governs
-the whole subsystem.
+[`templates/skills/`](../../templates/skills/) — `document-subsystem` and
+`write-adr`) plus any you **author** under `[skills].dir` (default `./skills`),
+where yours override a built-in of the same name. `discern refresh` (and
+`setup`/`upgrade`) materialize the set into `.claude/skills/` (gitignored,
+[the binary's](#the-binarys-files)): built-ins **copied**, authored skills
+**symlinked** so edits are live. `discern skills
+list` shows the set;
+`discern skills eject <name>` copies a built-in into your dir to customize. The
+`skills` [Feature](#feature) governs the whole subsystem.
 
 ---
 

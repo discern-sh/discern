@@ -64,3 +64,5 @@ decision is hard to reverse, surprising without context, and a real trade-off.
 - [0042 — Per-agent skills materialization](0042-per-agent-skills-materialization.md)
 - [0043 — The provider registry is the enforced single source for every agent surface](0043-registry-derived-agent-parity.md)
 - [0044 — Setup involves the user and proceeds; it does not gate every step](0044-setup-involve-not-gate.md)
+- [0045 — The MCP server is core infrastructure, not a feature toggle](0045-mcp-is-core-infrastructure.md)
+- [0046 — A configurable graduation destination, and removing the handoff-worktree skill](0046-graduate-destination-and-skill-removal.md)
