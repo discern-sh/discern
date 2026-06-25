@@ -14,7 +14,7 @@ section per enabled feature] + [your sources]`
 the **distribution surface** — every project, in every language and domain,
 receives them verbatim. That gave two problems the research on effective
 agent-instruction files
-([`docs/_private/maintainer/agent-instruction-files-research.md`](../_private/maintainer/agent-instruction-files-research.md))
+([`docs/_private/research/agent-instruction-files-research.md`](../_private/research/agent-instruction-files-research.md))
 flags directly:
 
 - **Generic prose can't be concrete.** The shipped text could only refer to "the
