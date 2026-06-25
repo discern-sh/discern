@@ -16,28 +16,10 @@ export function gotchasHint(
 ): void {
   const doc = config.project.gotchas_doc;
   const c = palette(color);
-  writeStderr("\n");
+  const lead = `\n${c.dim}── a gate step failed.${c.reset}`;
   writeStderr(
-    `${c.dim}── a gate step failed ───────────────────────────────────────${c.reset}\n`,
-  );
-  if (doc !== "") {
-    writeStderr(
-      "If the error above is not self-explanatory, the non-obvious ways\n",
-    );
-    writeStderr(
-      "this gate fails — each with its fix — are written down here:\n",
-    );
-    writeStderr(`  ${c.cyan}${root}/${doc}${c.reset}\n`);
-  } else {
-    writeStderr(
-      "If the error above is not self-explanatory, record the fix in a\n",
-    );
-    writeStderr(
-      "gotchas doc and point [project].gotchas_doc in discern.toml at it,\n",
-    );
-    writeStderr("so the next failure carries its own guidance.\n");
-  }
-  writeStderr(
-    `${c.dim}─────────────────────────────────────────────────────────────${c.reset}\n`,
+    doc !== ""
+      ? `${lead} If it isn't self-explanatory, this project's known gate failures and their fixes are documented in ${c.cyan}${root}/${doc}${c.reset}.\n`
+      : `${lead} If it isn't self-explanatory, record the fix in a gotchas doc and point ${c.cyan}[project].gotchas_doc${c.reset} in discern.toml at it.\n`,
   );
 }
