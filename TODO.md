@@ -291,3 +291,9 @@ periodically in maintenance batches._
       documentation (waiting on Vale lint setup); plus all ADRs. Once complete,
       ensure agents know future documentation changes will be publicly visible
       to end-users, including future ADRs.
+- [ ] Conduct a general-purpose thorough "consistency review" - establish all
+      aspects of the platform use the same conventions consistently everywhere.
+      Noteworthy inconsistencies currently (non-exhaustive list):
+      `discern <verb>` where <verb> is a single word, but `worktree:prune` etc.
+      is two words; `discern graduate` vs `/handoff-worktree` skill (why have
+      both?); etc...
