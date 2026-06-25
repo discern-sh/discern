@@ -77,7 +77,7 @@ same-category tool collision, is claimable on Homebrew core, carries a
   name is precisely the dual-spelling debt the project's single-source-of-truth
   discipline exists to avoid.
 - **Keep the old name in the historical ADRs as the on-the-record name.**
-  Rejected: the brief was a clean slate, with no occurrence of the prior title
+  Rejected: the brief was written fresh, with no occurrence of the prior title
   anywhere in the tracked tree. Git history preserves the provenance, so the
   former name stays recoverable without keeping it in the docs.
 - **Defer the rename until just before launch.** Rejected: the cost only rises

@@ -80,7 +80,7 @@ Specifics worth recording:
 - **Spec conformance is no longer our code to maintain.** The handshake,
   framing, negotiation, and error shapes track the SDK; deepening the
   integration is a matter of using SDK features, not re-implementing protocol.
-  The advertised revision jumps from `2025-06-18` to `2025-11-25` for free.
+  The advertised revision jumps from `2025-06-18` to `2025-11-25` at no cost.
 - **The dependency surface grows and cannot be trimmed.** The SDK pulls ~70
   transitive npm packages (express, hono, jose, ajv, cors, …) for its HTTP +
   OAuth server side, which stdio never touches. They are inert at runtime (no

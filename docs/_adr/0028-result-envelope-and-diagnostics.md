@@ -81,8 +81,8 @@ plus the shared `plan`/`steps` machinery — not a single Procrustean record.
 A `Diagnostic` is
 `{tool, severity, message, reproduce_cmd, output?, truncated?,
 file?, line?, col?, rule?, fix_available?}`.
-It is layered by how much discern knows about a tool — and the lion's share
-needs no per-tool knowledge:
+It is layered by how much discern knows about a tool — and most of it needs no
+per-tool knowledge:
 
 - **Tier 0 — capture (this ADR; stack-neutral, no parsing).** Each failed gate
   command attaches its captured combined output (tail-capped) and
@@ -119,7 +119,7 @@ verbs is `serializeResult` over stdio — a third rendering of the same spine.
   an apply's are kept consistent by construction until a shared `steps[]`
   renderer lands.
 - **One contract to learn and to test.** `serializeResult` is the single wire
-  definition; new verbs get the envelope for free.
+  definition; new verbs get the envelope automatically.
 - **Breaking — every `--json` shape changed.** `finish` no longer emits
   `jobs[]`/`scope_gates[]`/`failed_stage` at top level (now `steps[]` +
   `diagnostics[]`, with `failed_stage`/`scopes_changed` under `data`); the

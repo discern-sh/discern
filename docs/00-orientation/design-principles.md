@@ -173,7 +173,7 @@ the engine to a single home goes one better: the old drift the previous
 self-host model had to _detect_ is now impossible by construction.
 
 **How it shows up.** The `deno.json` `gate` task is `deno task dev finish`, so
-the repo gates itself with the very engine it ships; there is no `selfcheck` or
+the repo gates itself with the same engine it ships; there is no `selfcheck` or
 `shellcheck` Check, because there is no installed copy to compare against
 ([ADR 0019](../_adr/0019-single-binary-ts-engine.md), superseding
 [ADR 0010](../_adr/0010-self-host-the-harness.md)). The `tests/engine_*` suites
@@ -192,7 +192,7 @@ drag a runtime along (4) — which together are what let the harness be
 last two are how the engine behaves under uncertainty (5) and how we keep
 ourselves honest that it works (6): self-hosting (6) is only credible _because_
 the engine is stack-neutral (1) and sourced from one truth (2), so the engine
-that gates this very repo is the same one users receive.
+that gates this repo is the same one users receive.
 
 When you propose a change that violates one of these principles, that is a
 signal to question the change — not the principle. If you have a genuinely good

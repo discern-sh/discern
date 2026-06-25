@@ -25,7 +25,7 @@ gate has something useful to point at on day one.
 
 ### `main` advanced during your session
 
-**Symptom.** Every stage passes, then `deno task dev finish` stops at the very
+**Symptom.** Every stage passes, then `deno task dev finish` stops right at the
 end with a message that your branch does not contain the latest `main`. It does
 **not** merge for you.
 
