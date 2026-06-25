@@ -93,29 +93,29 @@ belong.
 ### A fleet row is marked current; "clean" is never "available"
 
 The fleet is a supervisor's read-only survey of the lines of work in flight, not
-a pool of workspaces to claim. An agent once read it the other way: from the main
-checkout it saw another agent's worktree listed as clean and up to date, inferred
-"clean means free", and started work inside it. That is a category error. `clean`
-is a **git** fact (no uncommitted changes); availability is an **occupancy** fact
-(no live effort owns it) — and a worktree can be pristine yet owned by an agent
-still planning or reading, with nothing written yet.
+a pool of workspaces to claim. An agent once read it the other way: from the
+main checkout it saw another agent's worktree listed as clean and up to date,
+inferred "clean means free", and started work inside it. That is a category
+error. `clean` is a **git** fact (no uncommitted changes); availability is an
+**occupancy** fact (no live effort owns it) — and a worktree can be pristine yet
+owned by an agent still planning or reading, with nothing written yet.
 
 `status` cannot truthfully assert occupancy, so it never does. It encodes
-ownership **structurally**: a worktree exists, so a line of work owns it. Each row
-carries `is_current` — true for the row the call is rooted in (the main row from
-the main checkout, the current worktree's row under `--all`), false for the rest.
-The only honest signals are "this row is yours" and "this row is another
+ownership **structurally**: a worktree exists, so a line of work owns it. Each
+row carries `is_current` — true for the row the call is rooted in (the main row
+from the main checkout, the current worktree's row under `--all`), false for the
+rest. The only honest signals are "this row is yours" and "this row is another
 effort's"; no row is labelled free. The human table marks the current row and
 captions the others as separate lines of work; a `--json`-only hint repeats the
 rule on the agent channel where the fleet is read. The rule itself lives in the
 always-on guidance — this reinforces it in the output.
 
 Detecting occupancy directly is deliberately out of scope, for the reason last
-activity stops at git-and-filesystem evidence (below): a session that has written
-nothing lives in the agent's transcript, outside the worktree and in
-vendor-specific locations, and the engine stays agent-agnostic. The affordance for
-"an agent on `main` needs its own worktree" is the `discern start` follow-up in
-`TODO.md` — create a fresh one, never adopt an existing.
+activity stops at git-and-filesystem evidence (below): a session that has
+written nothing lives in the agent's transcript, outside the worktree and in
+vendor-specific locations, and the engine stays agent-agnostic. The affordance
+for "an agent on `main` needs its own worktree" is the `discern start` follow-up
+in `TODO.md` — create a fresh one, never adopt an existing.
 
 ### Last activity is git-and-filesystem evidence, not conversation state
 

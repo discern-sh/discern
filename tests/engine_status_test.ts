@@ -124,9 +124,11 @@ Deno.test("status fleet: exactly the main row is is_current from the main checko
     assert(current[0]?.is_main, "the current row from main is the main row");
     for (const e of fleet) {
       if (!e.is_main) {
-        assertEquals(e.is_current, false, `worktree row not current: ${
-          JSON.stringify(e)
-        }`);
+        assertEquals(
+          e.is_current,
+          false,
+          `worktree row not current: ${JSON.stringify(e)}`,
+        );
       }
     }
   });
@@ -151,7 +153,11 @@ Deno.test("status fleet: under --all from a worktree, that worktree's row is is_
       1,
       `exactly one current row: ${JSON.stringify(fleet)}`,
     );
-    assertEquals(current[0]?.branch, "agent/alpha", "the current row is this worktree");
+    assertEquals(
+      current[0]?.branch,
+      "agent/alpha",
+      "the current row is this worktree",
+    );
     assertEquals(current[0]?.is_main, false);
     // The sibling worktree and the main row are present but not current.
     assertEquals(
