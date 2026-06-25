@@ -15,6 +15,7 @@
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import { type JobGroup, serializeJobSteps, stageGroup } from "./plan.ts";
 import { gateRunContext, runJobGroups } from "./execute.ts";
+import { renderFailureTail } from "./failure_tail.ts";
 import { emitResult } from "../../shared/emit.ts";
 import type { DiscernResult } from "../../shared/result.ts";
 import type { Out } from "../output.ts";
@@ -45,7 +46,14 @@ function preparePlanGroups(cfg: DiscernConfig): JobGroup[] {
 async function runPrepareGate(
   root: string,
   json: boolean,
-): Promise<{ result: DiscernResult; failedStage: string | null; out: Out }> {
+): Promise<
+  {
+    result: DiscernResult;
+    failedStage: string | null;
+    out: Out;
+    cfg: DiscernConfig;
+  }
+> {
   const cfg = await loadConfig(root);
   const groups = preparePlanGroups(cfg);
   const { runOpts, out } = gateRunContext(cfg, json);
@@ -57,7 +65,7 @@ async function runPrepareGate(
     steps,
     diagnostics: diagnostics.length > 0 ? diagnostics : undefined,
   };
-  return { result, failedStage, out };
+  return { result, failedStage, out, cfg };
 }
 
 /**
@@ -81,9 +89,15 @@ export async function runPrepare(
     return result.ok ? 0 : 1;
   }
 
-  const { failedStage, out } = await runPrepareGate(root, false);
+  const { result, failedStage, out, cfg } = await runPrepareGate(root, false);
   if (failedStage !== null) {
-    out.error(failedStage === "fix" ? "A fixer failed." : "A check failed.");
+    renderFailureTail(out, {
+      cfg,
+      root,
+      verb: "prepare",
+      headline: failedStage === "fix" ? "A fixer failed." : "A check failed.",
+      diagnostics: result.diagnostics ?? [],
+    });
     return 1;
   }
   out.ok("Prepare complete — fixers applied and checks passed.");

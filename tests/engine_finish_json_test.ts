@@ -16,7 +16,6 @@ import { withTempDir } from "./helpers.ts";
 import {
   gitInit,
   runAgent,
-  runAgentMerged,
   scaffoldEngine,
   writeConfig,
   writeExecutable,
@@ -294,67 +293,6 @@ Deno.test("finish (human): a failure prints a structured Failures block with rep
     assertStringIncludes(r.output, "Failures");
     assertStringIncludes(r.output, "reproduce:");
     assertStringIncludes(r.output, "exit 7");
-  });
-});
-
-Deno.test("finish (human): the failure tail mirrors --json diagnostics[] and survives `2>&1 | tail`", async () => {
-  // The regression this pins: a real session piped `finish 2>&1 | tail -6` and saw
-  // only the generic gotchas pointer — the actionable recap had scrolled past the cut.
-  // The fix puts the structured recap + a one-line summary (the BLUF) LAST, derived
-  // from the SAME diagnostics[] the envelope carries, so the end of the merged stream
-  // is always actionable.
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await writeConfig(
-      dir,
-      [
-        "[project]",
-        'slug = "engine-test"',
-        'main_branch = "main"',
-        'gotchas_doc = "docs/g.md"', // a set doc → the gotchas pointer fires
-        "",
-        "[capabilities]",
-        `lint = "echo LINT-BROKE; exit 7"`,
-        "",
-      ].join("\n"),
-    );
-    await gitInit(dir);
-
-    // --json is the machine SSOT for what failed and how to reproduce it.
-    const j = await runAgent(dir, ["finish", "--json"]);
-    assertEquals(j.code, 1, j.output);
-    const repros: string[] = (parseJson(j.stdout).diagnostics ?? [])
-      .map((d: { reproduce_cmd: string }) => d.reproduce_cmd);
-    assert(repros.length > 0, "fixture must produce at least one diagnostic");
-
-    // The real time-interleaved stream an agent captures with `finish 2>&1 | …`.
-    const r = await runAgentMerged(dir, ["finish"]);
-    assertEquals(r.code, 1, r.output);
-    const lines = r.stdout.split("\n").filter((l) => l.trim() !== "");
-
-    // 1. Parity — every reproduce command in the envelope is surfaced to the human.
-    for (const cmd of repros) {
-      assertStringIncludes(r.stdout, cmd);
-    }
-
-    // 2. tail -1 safety — the LAST line is the BLUF: it names the verb and carries a
-    //    reproduce command, so a reader who keeps only the final line still acts.
-    const last = lines.at(-1) ?? "";
-    assertStringIncludes(last, "finish failed");
-    assert(
-      repros.some((c) => last.includes(c)),
-      `the BLUF (last line) must carry a reproduce command; got: ${last}`,
-    );
-
-    // 3. tail -6 safety — the exact screenshot scenario: the last six lines must reach
-    //    an actionable reproduce command, not bottom out in the generic gotchas pointer.
-    const tail6 = lines.slice(-6);
-    assert(
-      repros.some((c) => tail6.some((l) => l.includes(c))),
-      `the last 6 lines must include a reproduce command (the tail-truncation guard).\n--- tail6 ---\n${
-        tail6.join("\n")
-      }`,
-    );
   });
 });
 

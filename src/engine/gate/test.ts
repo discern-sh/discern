@@ -11,9 +11,10 @@
  * gate treats an unwired stage.
  */
 
-import { loadConfig } from "../../shared/config_schema.ts";
+import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import { serializeJobSteps, stageGroup } from "./plan.ts";
 import { gateRunContext, runJobGroups } from "./execute.ts";
+import { renderFailureTail } from "./failure_tail.ts";
 import { emitResult } from "../../shared/emit.ts";
 import type { DiscernResult } from "../../shared/result.ts";
 import type { Out } from "../output.ts";
@@ -39,6 +40,7 @@ async function runTestGate(
     failedStage: string | null;
     out: Out;
     configured: boolean;
+    cfg: DiscernConfig;
   }
 > {
   const cfg = await loadConfig(root);
@@ -50,6 +52,7 @@ async function runTestGate(
       failedStage: null,
       out,
       configured: false,
+      cfg,
     };
   }
   const { results, failedStage } = await runJobGroups([group], runOpts, out);
@@ -64,6 +67,7 @@ async function runTestGate(
     failedStage,
     out,
     configured: true,
+    cfg,
   };
 }
 
@@ -88,13 +92,22 @@ export async function runTestCapability(
     return result.ok ? 0 : 1;
   }
 
-  const { failedStage, out, configured } = await runTestGate(root, false);
+  const { result, failedStage, out, configured, cfg } = await runTestGate(
+    root,
+    false,
+  );
   if (!configured) {
     out.info(NO_TEST_CONFIGURED);
     return 0;
   }
   if (failedStage !== null) {
-    out.error("Tests failed.");
+    renderFailureTail(out, {
+      cfg,
+      root,
+      verb: "test",
+      headline: "Tests failed.",
+      diagnostics: result.diagnostics ?? [],
+    });
     return 1;
   }
   out.ok("Tests passed.");
