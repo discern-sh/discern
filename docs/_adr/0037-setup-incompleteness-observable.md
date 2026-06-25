@@ -7,6 +7,9 @@ bootstrap into `discern setup`), applying the "gate-detectable, not a plea"
 pattern of [ADR 0034](0034-agents-md-untracked-currency-check.md) and leaning on
 `status` as the reflexive orientation verb
 ([ADR 0033](0033-status-verb-and-location-aware-scope.md)).
+[ADR 0043](0043-setup-involve-not-gate.md) later revises the same brief's
+interaction model (propose-and-confirm → involve-narrate-commit-revert) while
+preserving the incompleteness signaling hardened here.
 
 ## Context
 
