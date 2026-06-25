@@ -20,28 +20,43 @@ The compiled files are
 always reproduced by re-running the verb, and gitignored build artifacts (ADR
 0034) — the reviewable, tracked form is your `[guidance].sources`. `AGENTS.md`
 holds the full compiled body — the single on-disk source the mirrors point back
-at (the **canonical** file). `CLAUDE.md` **imports** `AGENTS.md` via Claude
-Code's `@`-include rather than duplicating it (so the two can never drift);
-`GEMINI.md` is a full copy until Gemini's include syntax is wired. When no
-canonical file is emitted, each mirror falls back to the full body. They carry
-no banner — `discern status` / `discern finish` flag a generated file that has
-drifted from its source instead. Driving several agents from one source is what
-keeps guidance provider-agnostic — write the rule once, every agent gets it. The
-built-in guidance is feature-aware, so a subsystem you disable in `[features]`
-drops its section; it is also **config-aware** — each built-in section is
-rendered through a small [templating engine](the-templating-engine.md) so the
-generic shipped prose names your real branch and omits content for anything you
-haven't configured (a ratchet, a worktree resource).
+at (the **canonical** file). Both `CLAUDE.md` and `GEMINI.md` **import**
+`AGENTS.md` via the `@`-include their CLIs share rather than duplicating it (so
+they can never drift); `AGENTS.md` is the canonical body precisely because Codex
+has no import directive to point with. When no canonical file is emitted, each
+mirror falls back to the full body. They carry no banner — `discern status` /
+`discern finish` flag a generated file that has drifted from its source instead.
+Driving several agents from one source is what keeps guidance provider-agnostic
+— write the rule once, every agent gets it. The built-in guidance is
+feature-aware, so a subsystem you disable in `[features]` drops its section; it
+is also **config-aware** — each built-in section is rendered through a small
+[templating engine](the-templating-engine.md) so the generic shipped prose names
+your real branch and omits content for anything you haven't configured (a
+ratchet, a worktree resource).
 
-The Skills are the bundled built-ins (`bootstrap`, `document-subsystem`,
-`write-adr`, `handoff-worktree`) plus any you author under `[skills].dir`
-(default `./skills`, yours overriding a built-in by name). They materialize into
-each configured agent's skills directory
-([`.claude/skills/`](../../.claude/skills/) for Claude Code, the cross-tool
-`.agents/skills/` for Codex and Gemini — Claude Code does not read the shared
-dir; [ADR 0042](../_adr/0042-per-agent-skills-materialization.md)) — gitignored
+The Skills are the bundled built-ins (`document-subsystem`, `write-adr`,
+`handoff-worktree`) plus any you author under `[skills].dir` (default
+`./skills`, yours overriding a built-in by name). They materialize into each
+configured agent's skills directory ([`.claude/skills/`](../../.claude/skills/)
+for Claude Code, the cross-tool `.agents/skills/` for Codex and Gemini — Claude
+Code does not read the shared dir;
+[ADR 0042](../_adr/0042-per-agent-skills-materialization.md)) — gitignored
 artifacts the binary re-publishes: built-ins **copied**, authored skills
-**symlinked**.
+**symlinked**. The materialized skills are guarded by the **same currency
+check** as the compiled files: `discern status` / `discern finish` flag a skills
+dir that has drifted from the effective set, so a hand-edited or stale copy is
+caught, not silent
+([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md), extended to
+skills).
+
+Everything agent-specific — each agent's instruction file, skills dir, MCP and
+worktree-hook surfaces — lives in ONE typed provider registry
+([`src/lib/providers.ts`](../../src/lib/providers.ts);
+[ADR 0031](../_adr/0031-typed-provider-integration.md)), and the cross-cutting
+consumers (the seed `.gitignore`, the neutral scopes, the audit's agent-file
+probe) all derive from it. A registry-driven parity test fails the build if a
+new agent isn't handled across every surface, so the integrations cannot drift
+as agents are added ([ADR 0043](../_adr/0043-registry-derived-agent-parity.md)).
 
 > **Status: stub.** This README orients the subtree; the leaves below are not
 > written yet. Fill them with the

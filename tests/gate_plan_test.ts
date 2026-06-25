@@ -241,7 +241,7 @@ Deno.test("buildGateResult: a LARGE SARIF output is normalized to one diagnostic
   assert(diags.every((d) => d.file !== undefined && d.output === undefined));
 });
 
-Deno.test("gatePlanToEngine: firing job is run, unchanged scope gate is skip, guidance- and merge-check are gates", () => {
+Deno.test("gatePlanToEngine: firing job is run, unchanged scope gate is skip, guidance-, skills- and merge-check are gates", () => {
   const plan = buildGatePlan(FULL, ["widget"]);
   const engine = gatePlanToEngine(plan);
   const widget = engine.steps.find((s) => s.label === "scope:widget");
@@ -252,10 +252,14 @@ Deno.test("gatePlanToEngine: firing job is run, unchanged scope gate is skip, gu
     engine.steps.find((s) => s.label === "format")?.disposition,
     "run",
   );
-  // The guidance currency check (FULL leaves the guidance feature on) and the
-  // merge check are both read-only `gate` preconditions, listed for honesty.
+  // The guidance + skills currency checks (FULL leaves both features on) and the
+  // merge check are all read-only `gate` preconditions, listed for honesty.
   assertEquals(
     engine.steps.find((s) => s.kind === "guidance-check")?.disposition,
+    "gate",
+  );
+  assertEquals(
+    engine.steps.find((s) => s.kind === "skills-check")?.disposition,
     "gate",
   );
   assertEquals(

@@ -22,10 +22,15 @@
  */
 
 import { join, relative } from "@std/path";
-import { copy, ensureDir } from "@std/fs";
-import type { DiscernConfig } from "../shared/config_schema.ts";
+import { copy, ensureDir, walk } from "@std/fs";
+import {
+  type DiscernConfig,
+  resolveConfiguredAgents,
+} from "../shared/config_schema.ts";
+import { isFeatureEnabled } from "../shared/features.ts";
 import type { Logger } from "./log.ts";
 import { resolveBundledSkillsDir, resolveSkillsDir } from "./paths.ts";
+import { providerFor, skillsDirsForAgents } from "./providers.ts";
 
 /** Where a skill in the effective set comes from. */
 export type SkillSource = "authored" | "bundled";
@@ -41,9 +46,6 @@ export interface SkillEntry {
   /** True when an authored skill shadows a bundled built-in of the same name. */
   overridesBundled: boolean;
 }
-
-/** The directory the provider (Claude Code) discovers skills in. */
-const CLAUDE_SKILLS_REL = ".claude/skills";
 
 /**
  * discern's ownership record inside `.claude/skills/`: the skill names it
@@ -423,7 +425,236 @@ async function chmodWritable(dir: string): Promise<void> {
   }
 }
 
-/** The provider skills directory, for callers that report or clean it. */
+/** Claude Code's provider skills directory, for callers that report or clean it.
+ * Sourced from the registry (the SSOT) — `claude_code` always declares a skills
+ * dir (guarded by the total Provider record + providers_test); the undefined branch
+ * is unreachable in practice and only guards a broken registry. */
 export function claudeSkillsDirOf(root: string): string {
-  return join(root, CLAUDE_SKILLS_REL);
+  const dir = providerFor("claude_code")?.skillsDir;
+  if (dir === undefined) {
+    throw new Error(
+      "registry invariant broken: claude_code declares no skillsDir",
+    );
+  }
+  return join(root, dir);
+}
+
+// ── currency check (ADR 0034, extended to skills) ───────────────────────────
+// The stateless skills analog of `checkGuidanceCurrent`: re-resolve the effective
+// set and compare it to what is materialized on disk, with NO stored hash. (The
+// MATERIALIZED_MANIFEST is reconciliation state the WRITE path uses for pruning;
+// this is read-only OBSERVATION, the dual the gate and `status` consume.) Because it
+// and `materializeSkills` both go through `resolveEffectiveSkills`, the check can
+// never disagree with what a refresh would place — the same single-source guarantee
+// guidance has.
+
+/** One materialized skills entry that does not match what `discern refresh` would
+ * place. */
+export interface SkillsDriftEntry {
+  /** Project-relative skills dir the drift is in. */
+  dir: string;
+  /**
+   * `missing` — the whole dir is absent (the expected state of a gitignored artifact
+   * on a fresh checkout; non-blocking, exactly like a missing guidance file).
+   * `stale` — the dir exists but an effective skill is absent / differs from its
+   * source, or a managed entry lingers that is no longer effective (real drift: a
+   * hand-edit or an un-refreshed change; this is what blocks `finish`).
+   * `foreign` — an unmanaged entry discern never placed (reported, never clobbered —
+   * mirrors materialization's never-touch-a-drop-in contract; non-blocking).
+   */
+  reason: "missing" | "stale" | "foreign";
+  /** The skill name involved (`""` for a whole-dir `missing`). */
+  name: string;
+  /** Human-readable detail for the diagnostic / hint. */
+  detail: string;
+}
+
+/** Recursive content equality: the same tree of files with byte-identical contents.
+ * Detects a hand-edited (or upgrade-stale) copy of a BUNDLED skill, which
+ * materialization places with `copy` — compared by content, never mode/mtime, so the
+ * embedded-template FS's read-only flattening never reads as drift. */
+async function treesEqual(a: string, b: string): Promise<boolean> {
+  type Kind = "file" | "dir" | "symlink";
+  const list = async (rootDir: string): Promise<Map<string, Kind>> => {
+    const m = new Map<string, Kind>();
+    // followSymlinks defaults off, so a symlink is yielded as itself (not descended).
+    for await (const e of walk(rootDir, { includeDirs: true })) {
+      if (e.path === rootDir) {
+        continue;
+      }
+      const kind: Kind = e.isSymlink
+        ? "symlink"
+        : e.isDirectory
+        ? "dir"
+        : "file";
+      m.set(relative(rootDir, e.path), kind);
+    }
+    return m;
+  };
+  const [ma, mb] = await Promise.all([list(a), list(b)]);
+  if (ma.size !== mb.size) {
+    return false;
+  }
+  for (const [rel, kind] of ma) {
+    if (mb.get(rel) !== kind) {
+      return false;
+    }
+    if (kind === "file") {
+      const [ba, bb] = await Promise.all([
+        Deno.readFile(join(a, rel)),
+        Deno.readFile(join(b, rel)),
+      ]);
+      if (ba.length !== bb.length || !ba.every((v, i) => v === bb[i])) {
+        return false;
+      }
+    } else if (kind === "symlink") {
+      // Compare link targets, never follow them — a symlink-to-dir would otherwise
+      // read as a directory and crash the byte compare (defensive: bundled skills
+      // carry none today, but a future one might).
+      const [la, lb] = await Promise.all([
+        Deno.readLink(join(a, rel)),
+        Deno.readLink(join(b, rel)),
+      ]);
+      if (la !== lb) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+/** Why an on-disk entry for an EFFECTIVE skill doesn't match its source, or
+ * undefined when it matches: a bundled skill must be a real dir byte-equal to its
+ * source; an authored skill must be a live symlink to `[skills].dir/<name>`. */
+async function skillMismatch(
+  skillsAbs: string,
+  path: string,
+  entry: Deno.DirEntry,
+  skill: SkillEntry,
+): Promise<string | undefined> {
+  if (skill.source === "authored") {
+    if (!entry.isSymlink) {
+      return `${skill.name} should be a symlink to the authored source, not a copy`;
+    }
+    const expected = relative(skillsAbs, skill.srcAbs);
+    let actual: string;
+    try {
+      actual = await Deno.readLink(path);
+    } catch {
+      return `${skill.name} symlink is unreadable`;
+    }
+    if (actual !== expected) {
+      return `${skill.name} points at ${actual}, expected ${expected}`;
+    }
+    if (!(await targetExists(path))) {
+      return `${skill.name} symlink is dangling`;
+    }
+    return undefined;
+  }
+  // bundled
+  if (entry.isSymlink || !entry.isDirectory) {
+    return `${skill.name} should be a copied directory`;
+  }
+  if (!(await treesEqual(path, skill.srcAbs))) {
+    return `${skill.name} differs from the bundled source (hand-edited or stale)`;
+  }
+  return undefined;
+}
+
+/** Reconcile ONE materialized skills dir against the effective set, read-only. */
+async function checkSkillsDir(
+  rel: string,
+  abs: string,
+  effective: SkillEntry[],
+): Promise<SkillsDriftEntry[]> {
+  const drift: SkillsDriftEntry[] = [];
+  const managed = new Map(effective.map((e) => [e.name, e]));
+
+  // Whole dir absent → missing (non-blocking), and only when something is expected.
+  if (await lstat(abs) === undefined) {
+    if (effective.length > 0) {
+      drift.push({
+        dir: rel,
+        reason: "missing",
+        name: "",
+        detail: `${rel}/ is not materialized yet`,
+      });
+    }
+    return drift;
+  }
+
+  const ownedBefore = await readMaterializedNames(abs);
+  const seen = new Set<string>();
+  for await (const entry of Deno.readDir(abs)) {
+    if (entry.name === MATERIALIZED_MANIFEST) {
+      continue; // discern's ownership record, not a skill
+    }
+    seen.add(entry.name);
+    const path = join(abs, entry.name);
+    const skill = managed.get(entry.name);
+    if (skill === undefined) {
+      // Not effective: a stale managed entry (or dangling link) discern should have
+      // pruned, versus a foreign drop-in it must never touch.
+      const stale = ownedBefore.has(entry.name) ||
+        (entry.isSymlink && !(await targetExists(path)));
+      drift.push({
+        dir: rel,
+        reason: stale ? "stale" : "foreign",
+        name: entry.name,
+        detail: stale
+          ? `${rel}/${entry.name} lingers but is no longer in the effective set`
+          : `${rel}/${entry.name} is an unmanaged entry discern did not place`,
+      });
+      continue;
+    }
+    const mismatch = await skillMismatch(abs, path, entry, skill);
+    if (mismatch !== undefined) {
+      drift.push({
+        dir: rel,
+        reason: "stale",
+        name: entry.name,
+        detail: mismatch,
+      });
+    }
+  }
+
+  // An effective skill entirely absent from an existing dir → stale (incomplete
+  // materialization, e.g. a newer binary's bundled skill not yet refreshed in).
+  for (const e of effective) {
+    if (!seen.has(e.name)) {
+      drift.push({
+        dir: rel,
+        reason: "stale",
+        name: e.name,
+        detail: `${rel}/${e.name} is in the effective set but not materialized`,
+      });
+    }
+  }
+  return drift;
+}
+
+/**
+ * Compare what `discern refresh` would materialize against what is on disk, across
+ * EVERY configured agent's skills dir, and return the entries that don't match
+ * (empty = all current, or the `skills` feature is off). The stateless currency
+ * check for skills: re-resolve the effective set via {@link resolveEffectiveSkills},
+ * diff against disk — no stored hash. PURE: reads only.
+ */
+export async function checkSkillsCurrent(
+  root: string,
+  config: DiscernConfig,
+): Promise<SkillsDriftEntry[]> {
+  if (!isFeatureEnabled(config, "skills")) {
+    return [];
+  }
+  const dirs = skillsDirsForAgents(resolveConfiguredAgents(config));
+  if (dirs.length === 0) {
+    return [];
+  }
+  const effective = await resolveEffectiveSkills(root, config);
+  const drift: SkillsDriftEntry[] = [];
+  for (const rel of dirs) {
+    drift.push(...await checkSkillsDir(rel, join(root, rel), effective));
+  }
+  return drift;
 }

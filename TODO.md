@@ -221,11 +221,12 @@ _Nothing outstanding._
 - [ ] **Ratchet the coverage floor back up toward its pre-cutover level.** The
       single-binary cutover moved the engine into `src/` (now instrumented by
       `deno task coverage`), so the same suite covers a larger tree and src/
-      line coverage fell from ~94% to ~84%. The floor was re-baselined down to
-      83 to land the cutover (ADR 0019); raise it as engine coverage improves.
-      Weakest spots to target include `src/shared/capabilities.ts` (~50%) and
-      the newer `src/lib/skills.ts` / `src/shared/features.ts`. Evidence:
-      `discern.toml` `[ratchets.coverage].limit`.
+      line coverage fell from ~94% to ~84% at the cutover (ADR 0019). It has since
+      climbed back to ~87.8%, and the floor has been ratcheted 83 → 85 → 87 to lock
+      that in; keep raising it as coverage improves. Weakest spots to target include
+      `src/shared/capabilities.ts` (~50%) and `src/shared/features.ts`
+      (`src/lib/skills.ts` was bolstered by the skills currency check + its tests).
+      Evidence: `discern.toml` `[ratchets.coverage].limit`.
 
 ## 🔵 Unmerged / at-risk work — decide: land or drop
 

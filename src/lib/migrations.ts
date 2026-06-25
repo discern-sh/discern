@@ -32,6 +32,7 @@ import { KNOWN_CAPABILITIES } from "./config.ts";
 import { bundledSkillNames } from "./skills.ts";
 import { resolveBundledSkillsDir } from "./paths.ts";
 import { FEATURES } from "../shared/features.ts";
+import { DEFAULT_AGENTS } from "../shared/config_schema.ts";
 
 /** True for a non-null, non-array object. */
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -411,7 +412,7 @@ export const MIGRATIONS: Migration[] = [
       const recipesTbl = isRecord(raw.recipes) ? raw.recipes : undefined;
       const agents = legacyAgents.length > 0
         ? legacyAgents
-        : ["claude_code", "codex"];
+        : [...DEFAULT_AGENTS];
       const tmpl = await readConfigTemplate();
       // A section's canonical block from the template, with content tokens filled
       // (only [guidance] carries one, `{{agents_array}}`). Undefined when the

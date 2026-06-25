@@ -95,12 +95,12 @@ Deno.test("the guidance-file mapping is the documented one (AGENTS.md the one ca
   assertEquals(codex?.canonical, true);
   assertEquals(codex?.pointer, undefined);
 
-  // Gemini's mirror is a full copy for now (its include syntax isn't wired) — no
-  // pointer, so the whole object is the documented pair.
-  assertEquals(providerFor("gemini")?.guidanceFile, {
-    path: "GEMINI.md",
-    canonical: false,
-  });
+  // Gemini's mirror points at the canonical AGENTS.md via its `@path` Memory Import
+  // (vendor-verified, `.md`-only), exactly like Claude — not a duplicated body.
+  const gemini = providerFor("gemini")?.guidanceFile;
+  assertEquals(gemini?.path, "GEMINI.md");
+  assertEquals(gemini?.canonical, false);
+  assertEquals(gemini?.pointer?.("AGENTS.md"), "@AGENTS.md\n");
   // Exactly one canonical file, and it is AGENTS.md.
   const canonical = Object.values(PROVIDERS)
     .filter((p) => p.guidanceFile.canonical)

@@ -434,3 +434,39 @@ Deno.test("finish --json: a MISSING generated agent file does NOT block (untrack
     assertEquals(diagFor(obj, "guidance"), undefined);
   });
 });
+
+Deno.test("finish --json: a hand-edited materialized skill blocks (skills); a foreign drop-in does not", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    // Materialize the agent files + skills so the currency checks have real artifacts.
+    await runAgent(dir, ["refresh"]);
+    const skillsDir = join(dir, ".claude", "skills");
+
+    // Hand-edit a copied bundled skill → stale → finish blocks with a skills diagnostic.
+    await Deno.writeTextFile(
+      join(skillsDir, "write-adr", "SKILL.md"),
+      "\nHAND EDIT\n",
+      { append: true },
+    );
+    let obj = parseJson((await runAgent(dir, ["finish", "--json"])).stdout);
+    assertEquals(obj.data.failed_stage, "skills");
+    const diag = diagFor(obj, "skills");
+    assert(diag !== undefined, "a skills diagnostic should be attached");
+    assertEquals(diag.reproduce_cmd, "discern refresh");
+
+    // Re-materialize, then drop in a FOREIGN skill discern never owns — it must NOT
+    // block finish (the never-clobber contract; only `stale` blocks).
+    await runAgent(dir, ["refresh"]);
+    await Deno.mkdir(join(skillsDir, "user-dropin"));
+    await Deno.writeTextFile(
+      join(skillsDir, "user-dropin", "SKILL.md"),
+      "# mine\n",
+    );
+    obj = parseJson((await runAgent(dir, ["finish", "--json"])).stdout);
+    assertEquals(
+      obj.data.failed_stage,
+      null,
+      "a foreign drop-in must not block finish",
+    );
+  });
+});
