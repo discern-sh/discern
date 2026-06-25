@@ -41,8 +41,8 @@ import {
   StatusOutputSchema,
 } from "../../shared/result_schemas.ts";
 import {
-  type GraduateTarget,
   GRADUATE_TARGETS,
+  type GraduateTarget,
   loadConfig,
 } from "../../shared/config_schema.ts";
 import {
@@ -346,8 +346,8 @@ const TOOLS: McpTool[] = [
     description:
       "Graduate THIS worktree's branch into the main checkout: tear down the " +
       "worktree's resources, commit any leftover changes, remove the worktree, then " +
-      "land the branch per `to`. `to:\"branch\"` checks it out in the main repo for " +
-      "review (branch preserved); `to:\"main\"` fast-forwards the trunk to the branch " +
+      'land the branch per `to`. `to:"branch"` checks it out in the main repo for ' +
+      'review (branch preserved); `to:"main"` fast-forwards the trunk to the branch ' +
       "tip and deletes the now-merged branch. Omit `to` to use the project default " +
       "([worktree].graduate_to). This is the single deterministic implementation — " +
       "run it rather than reproducing the steps with git; commit the work with a real " +
@@ -384,7 +384,7 @@ const TOOLS: McpTool[] = [
  */
 async function graduateToolResult(
   root: string,
-  opts: { dryRun?: boolean; to?: GraduateTarget },
+  opts: { dryRun?: boolean; to?: GraduateTarget | undefined },
 ): Promise<DiscernResult> {
   const ctx = await lifecycleContext(
     root,

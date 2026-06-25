@@ -114,7 +114,7 @@ export interface WorktreeOpOptions {
   /** Emit a machine-readable (plan, results) object on stdout. */
   json?: boolean;
   /** Graduate only: where the branch lands. Overrides `[worktree].graduate_to`. */
-  to?: GraduateTarget;
+  to?: GraduateTarget | undefined;
 }
 
 /**
@@ -841,7 +841,7 @@ export async function graduate(
  */
 export async function graduateResult(
   ctx: LifecycleContext,
-  opts: { dryRun?: boolean; to?: GraduateTarget } = {},
+  opts: { dryRun?: boolean; to?: GraduateTarget | undefined } = {},
 ): Promise<DiscernResult> {
   const run = makeGitRunner(ctx);
   const to = opts.to ?? ctx.config.worktree.graduate_to;
