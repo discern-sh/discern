@@ -47,9 +47,16 @@ test      = "deno task test"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [checks.<name>] — custom gate work outside the known capability vocabulary.
-# `stage` (required) is one of fix|build|check|test. None are wired here: the
-# selfcheck/shellcheck checks retired with the committed shell engine (the engine
-# now lives in the binary, so there is no installed copy to keep in sync).
+# `stage` (required) is one of fix|build|check|test. One is wired below: `prose`
+# lints docs/ with Vale at the check stage — error-severity findings block the
+# gate, while the advisory tiers (warnings, suggestions) are held by the
+# [ratchets.prose] ceiling instead. (The old selfcheck/shellcheck checks retired
+# with the committed shell engine — no installed copy to keep in sync.)
+
+[checks.prose]
+stage = "check"
+run   = "vale --minAlertLevel error docs/"
+provides = "docs prose lint (Vale; error-severity findings block the gate)"
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -125,6 +132,16 @@ steps = ["vale sync"]   # e.g. ["npm ci", "npm run build"]
 direction = "up"
 limit     = 87
 run       = "deno task coverage"
+
+# Prose ratchet — hold the docs' Vale alert count at or below a falling ceiling.
+# `deno task prose` runs Vale over docs/ and emits DISCERN_METRIC prose <count>
+# (every severity; error-severity findings are separately blocked by the gate via
+# [checks.prose]). Held by `discern ratchets`, enforced on every PR in CI. When
+# the count drops, lower the limit to lock the gain in — the ceiling only falls.
+[ratchets.prose]
+direction = "down"
+limit     = 1503
+run       = "deno task prose"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [gate] — ergonomics for the parallel gate stages (and scope gates). These

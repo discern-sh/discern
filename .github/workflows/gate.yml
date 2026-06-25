@@ -24,6 +24,13 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# Pin the Vale version CI installs to lint docs/. Both the [checks.prose] gate
+# and the [ratchets.prose] metric shell out to `vale`, so it must be on PATH and
+# its styles synced before `discern finish` / `ratchets` run. Bump this alongside
+# the Brewfile when upgrading Vale locally.
+env:
+  VALE_VERSION: "3.15.1"
+
 jobs:
   gate:
     runs-on: ubuntu-latest
@@ -36,6 +43,15 @@ jobs:
           # Cache the Deno install and module cache (keyed off deno.lock) so the
           # gate stops re-downloading every dependency on each run.
           cache: true
+
+      # Vale is the linter behind the [checks.prose] gate. Install the pinned
+      # binary to /usr/local/bin and sync its styles (Microsoft, proselint) into
+      # the gitignored .vale/ before the gate runs.
+      - name: Install Vale and sync its styles
+        run: |
+          curl -sfL "https://github.com/errata-ai/vale/releases/download/v${VALE_VERSION}/vale_${VALE_VERSION}_Linux_64-bit.tar.gz" \
+            | sudo tar -xz -C /usr/local/bin vale
+          vale sync
 
       - name: Run the gate (discern finish, via the dev binary)
         run: deno task dev finish
@@ -64,6 +80,13 @@ jobs:
       # still unavailable (e.g. before the ratchet is on main).
       - name: Fetch main for the never-loosen comparison
         run: git fetch --no-tags --depth=1 origin +refs/heads/main:refs/heads/main || true
+
+      # The prose ratchet measures with Vale; install + sync it like the gate job.
+      - name: Install Vale and sync its styles
+        run: |
+          curl -sfL "https://github.com/errata-ai/vale/releases/download/v${VALE_VERSION}/vale_${VALE_VERSION}_Linux_64-bit.tar.gz" \
+            | sudo tar -xz -C /usr/local/bin vale
+          vale sync
 
       - name: Hold the ratchets
         run: deno task dev ratchets
