@@ -1,20 +1,22 @@
 /**
- * `test` — a convenience over the `test` capability (the gate runs it in parallel
- * with the read-only checks; this runs just the tests, on demand). The TS port of
- * the shell `test` recipe.
+ * `test` — run the project's `test` stage on its own (the gate runs it in parallel
+ * with the read-only checks; this runs just the tests, on demand). It goes through
+ * the gate's job runner, so a failure carries the SAME `steps[]` + structured
+ * `diagnostics[]` `finish` returns (ADR 0028), not a bare `ok:false`.
  *
- * The work runs in {@link testResult}, the result-returning core the MCP server
- * and the CLI's `--json` both render; the human runner narrates around the same
- * run. `--json` is quiet — the envelope is the entire stdout (ADR 0030); richer
- * `steps`/`diagnostics` is deferred (see TODO.md).
+ * One core ({@link runTestGate}) runs the test group; {@link testResult} runs it
+ * quiet and returns the {@link DiscernResult} the MCP server (and the CLI's `--json`)
+ * render, while {@link runTestCapability} narrates the same run. An unconfigured
+ * `test` capability is a trivial pass carrying a hint that nothing ran — like the
+ * gate treats an unwired stage.
  */
 
 import { loadConfig } from "../../shared/config_schema.ts";
-import { cmdsInStage } from "./stages.ts";
-import { colorEnabled, makeOut } from "../output.ts";
+import { serializeJobSteps, stageGroup } from "./plan.ts";
+import { gateRunContext, runJobGroups } from "./execute.ts";
 import { emitResult } from "../../shared/emit.ts";
 import type { DiscernResult } from "../../shared/result.ts";
-import { runShellInherit } from "./run-shell.ts";
+import type { Out } from "../output.ts";
 
 /** The line shown — as a human note and as an envelope hint — when no test
  * capability is wired, so a trivial pass is never mistaken for "tests ran". */
@@ -22,20 +24,57 @@ const NO_TEST_CONFIGURED =
   'No test capability is configured (set test = "<command>" under [capabilities] in discern.toml).';
 
 /**
+ * Run the test gate once: build the test stage's group and run it through the shared
+ * job runner (quiet under `--json`/MCP), serializing to a {@link DiscernResult}
+ * carrying `steps[]` + `diagnostics[]`. When no test command is wired, returns the
+ * trivial pass with the {@link NO_TEST_CONFIGURED} hint. The single source the
+ * result core and the human runner share.
+ */
+async function runTestGate(
+  root: string,
+  json: boolean,
+): Promise<
+  {
+    result: DiscernResult;
+    failedStage: string | null;
+    out: Out;
+    configured: boolean;
+  }
+> {
+  const cfg = await loadConfig(root);
+  const group = stageGroup(cfg, "test");
+  const { runOpts, out } = gateRunContext(cfg, json);
+  if (group === undefined) {
+    return {
+      result: { ok: true, verb: "test", hints: [NO_TEST_CONFIGURED] },
+      failedStage: null,
+      out,
+      configured: false,
+    };
+  }
+  const { results, failedStage } = await runJobGroups([group], runOpts, out);
+  const { steps, diagnostics } = serializeJobSteps([group], results);
+  return {
+    result: {
+      ok: failedStage === null,
+      verb: "test",
+      steps,
+      diagnostics: diagnostics.length > 0 ? diagnostics : undefined,
+    },
+    failedStage,
+    out,
+    configured: true,
+  };
+}
+
+/**
  * Compute the `test` {@link DiscernResult} without printing or exiting — the entry
  * point the MCP server renders, and the source the CLI's `--json` serializes. Runs
- * the test command quiet so a caller owning stdout (the MCP stdio channel) stays
- * uncontaminated. An unconfigured `test` capability is a trivial pass (like the
- * gate treats an unwired stage), carrying a hint so the caller knows nothing ran.
+ * the test command quiet (output captured, not streamed) so a caller owning stdout
+ * (the MCP stdio channel) stays uncontaminated; a failure rides in `diagnostics[]`.
  */
 export async function testResult(root: string): Promise<DiscernResult> {
-  const cfg = await loadConfig(root);
-  const testCmd = cmdsInStage(cfg, "test");
-  if (testCmd === ":") {
-    return { ok: true, verb: "test", hints: [NO_TEST_CONFIGURED] };
-  }
-  const ok = await runShellInherit(testCmd, { quiet: true });
-  return { ok, verb: "test" };
+  return (await runTestGate(root, true)).result;
 }
 
 /** Run `test`. Returns a process exit code. */
@@ -49,16 +88,12 @@ export async function runTestCapability(
     return result.ok ? 0 : 1;
   }
 
-  const cfg = await loadConfig(root);
-  const out = makeOut(colorEnabled());
-  const testCmd = cmdsInStage(cfg, "test");
-  if (testCmd === ":") {
+  const { failedStage, out, configured } = await runTestGate(root, false);
+  if (!configured) {
     out.info(NO_TEST_CONFIGURED);
     return 0;
   }
-
-  out.heading("Running tests...");
-  if (!(await runShellInherit(testCmd, { quiet: false }))) {
+  if (failedStage !== null) {
     out.error("Tests failed.");
     return 1;
   }

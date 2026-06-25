@@ -83,10 +83,10 @@ the CLI. It lays down only _your_ seed files with zero-config defaults: a
 `discern.toml` with no Capabilities wired yet (a green gate you grow into — an
 omitted capability is simply skipped), a merged `.claude/settings.json`, and an
 appended `.gitignore` fragment. It then **materializes** the bundled Skills into
-`.claude/skills/` (gitignored) and compiles the agent guidance. There is no
-engine and no manifest to write — the Engine is in the binary. Files split by
-**disposition**: [yours](glossary.md#your-files--yours) (the committed seeds,
-written once then kept), [the binary's](glossary.md#the-binarys-files)
+each configured agent's skills dir (gitignored) and compiles the agent guidance.
+There is no engine and no manifest to write — the Engine is in the binary. Files
+split by **disposition**: [yours](glossary.md#your-files--yours) (the committed
+seeds, written once then kept), [the binary's](glossary.md#the-binarys-files)
 (gitignored artifacts it re-publishes, like the materialized Skills), plus the
 Merged `settings.json`/`.gitignore`. The same command then lays the docs-tree
 and `TODO.md` skeletons (only when the project has none) and prints the
@@ -96,7 +96,11 @@ authoring instructions for the agent.
 coding agent already in the loop works through: it sniffs the repo, asks the
 user a few clarifying questions, and _proposes_ Capability fills (formatter,
 linter, type-checker, tests), seeds a starter `guidance.md`, and fills the docs
-tree and `TODO.md` from the repo and those answers. The Engine stays generic;
+tree and `TODO.md` from the repo and those answers — working transparently
+throughout: recommending each change, saying why it helps and that `discern` is
+what will enforce it, committing each stage on its own so the user can review or
+revert, and pausing only for genuine decisions rather than gating every step
+([ADR 0044](../_adr/0044-setup-involve-not-gate.md)). The Engine stays generic;
 only `discern.toml` learns the stack.
 
 **3. Work behind the gate.** Day to day, everything is driven through `discern`

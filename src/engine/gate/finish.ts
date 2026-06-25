@@ -17,28 +17,21 @@
 
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import { STAGES } from "../../shared/capabilities.ts";
-import type { Job, JobResult } from "../jobs/types.ts";
-import { type RunOptions, runParallel, runSerial } from "../jobs/runner.ts";
+import type { JobResult } from "../jobs/types.ts";
 import {
   buildGatePlan,
   buildGateResult,
   buildStageGroups,
   composeGatePlan,
   gatePlanToEngine,
-  type JobGroup,
   planScopeGates,
   scopeGatesGroup,
 } from "./plan.ts";
+import { gateRunContext, runGroup } from "./execute.ts";
 import { cmdsInStage } from "./stages.ts";
 import { gotchasHint } from "./gotchas.ts";
 import { changedScopes } from "../scopes/changed.ts";
-import {
-  byteWriter,
-  colorEnabled,
-  makeOut,
-  type Out,
-  outSink,
-} from "../output.ts";
+import { colorEnabled, makeOut, type Out, outSink } from "../output.ts";
 import { assertMainMerged } from "../worktree/git.ts";
 import {
   capText,
@@ -53,35 +46,7 @@ import {
   checkGuidanceCurrent,
   type GuidanceDriftEntry,
 } from "../guidance_render.ts";
-
-/**
- * Run one job group — the thin per-group executor. Runs the group's firing jobs
- * (serial for the mutating fix stage, parallel otherwise), records their results,
- * and returns whether the group passed. A group with no firing job (e.g. a
- * scope-gates group whose scopes are all unchanged) is a clean pass with no
- * heading.
- */
-async function runGroup(
-  group: JobGroup,
-  results: Map<string, JobResult>,
-  runOpts: RunOptions,
-  out: Out,
-): Promise<boolean> {
-  const jobs: Job[] = group.jobs
-    .filter((j) => j.willRun)
-    .map((j) => ({ label: j.label, command: j.command }));
-  if (jobs.length === 0) {
-    return true;
-  }
-  out.heading(group.heading);
-  const r = group.mode === "serial"
-    ? await runSerial(jobs, runOpts)
-    : await runParallel(jobs, runOpts);
-  for (const res of r.results) {
-    results.set(res.label, res);
-  }
-  return r.ok;
-}
+import { checkSkillsCurrent, type SkillsDriftEntry } from "../../lib/skills.ts";
 
 /** The human die message for each failed stage (matches the shell fail_phase). */
 function failMessage(stage: string): string {
@@ -95,7 +60,9 @@ function failMessage(stage: string): string {
     case "scope_gates":
       return "One or more scope gates failed.";
     case "guidance":
-      return "Generated agent files are out of date — run `discern refresh`.";
+      return "Generated agent files are out of date — run `discern refresh` (edits belong in your [guidance].sources, not the generated file, which a refresh overwrites).";
+    case "skills":
+      return "Materialized skills are out of date — run `discern refresh` (edits belong in your [skills].dir source, not the materialized copy, which a refresh overwrites).";
     case "merge":
       return "Integrate main, then re-run finish.";
     default:
@@ -151,6 +118,31 @@ function guidanceDiagnostic(stale: GuidanceDriftEntry[]): Diagnostic {
   };
 }
 
+/**
+ * A diagnostic for stale MATERIALIZED skills: which dirs/skills drifted from the
+ * effective set, and the `discern refresh` that re-materializes them. The skills
+ * analog of {@link guidanceDiagnostic} — same redirect (edit the source, not the
+ * generated copy), so the two generated-artifact failures read identically.
+ */
+function skillsDiagnostic(stale: SkillsDriftEntry[]): Diagnostic {
+  const dirs = [...new Set(stale.map((d) => d.dir))].join(", ");
+  const capped = capText(
+    `Materialized skills are out of date in: ${dirs}.\n` +
+      "Run `discern refresh` to re-materialize them. If you meant to change a skill, " +
+      "edit its source under [skills].dir (or `discern skills eject` a bundled one) — a " +
+      "direct edit to a materialized copy is overwritten on the next refresh.\n\n" +
+      stale.map((d) => `  • ${d.detail}`).join("\n"),
+  );
+  return {
+    tool: "skills",
+    severity: "error",
+    message: `materialized skills out of date: ${dirs}`,
+    reproduce_cmd: "discern refresh",
+    output: capped.text,
+    truncated: capped.truncated === true ? true : undefined,
+  };
+}
+
 /** Run the gate once: plan, apply, build the result. */
 async function runGate(
   root: string,
@@ -167,17 +159,9 @@ async function runGate(
   const cfg = await loadConfig(root);
   // Human: gate narration + job output → stdout (matching the shell). --json:
   // quiet — the result envelope is the entire output (ADR 0030), so the runner
-  // and the Out are silenced and nothing streams to any fd.
-  const color = colorEnabled();
-  const runOpts: RunOptions = {
-    stream: cfg.gate.stream,
-    // fail_fast defaults ON: abort the moment a job fails.
-    failFast: cfg.gate.fail_fast,
-    color,
-    write: byteWriter("stdout"),
-    quiet: json,
-  };
-  const out = makeOut(color, { quiet: json });
+  // and the Out are silenced and nothing streams to any fd. The shared run context
+  // (job RunOptions + the narration Out) is the one `prepare`/`test` use too.
+  const { runOpts, out } = gateRunContext(cfg, json);
 
   const results = new Map<string, JobResult>();
   let failedStage: string | null = null;
@@ -221,6 +205,22 @@ async function runGate(
     }
   }
 
+  // 4b. Materialized-skills currency (ADR 0034, extended to skills): block a STALE
+  //     skills dir — one drifted from the effective set (a hand-edited copy, a
+  //     lingering managed entry, an un-refreshed change). MISSING (the whole dir
+  //     absent on a fresh checkout) and FOREIGN (an unmanaged drop-in) do NOT block,
+  //     exactly as for guidance. Gated on `skills`.
+  const skillsOn = isFeatureEnabled(cfg, "skills");
+  let skillsDiag: Diagnostic | undefined;
+  if (failedStage === null && skillsOn) {
+    const stale = (await checkSkillsCurrent(root, cfg))
+      .filter((d) => d.reason === "stale");
+    if (stale.length > 0) {
+      failedStage = "skills";
+      skillsDiag = skillsDiagnostic(stale);
+    }
+  }
+
   // 5. Merge check (no-op in the main checkout / outside a worktree).
   if (failedStage === null) {
     const mainBranch = Deno.env.get("MAIN_BRANCH") || cfg.project.main_branch;
@@ -231,13 +231,22 @@ async function runGate(
 
   // 6. Assemble the executed plan + result, attaching the agent-facing hints —
   //    the same next-step advice the human tail prints, promoted into the envelope.
-  const plan = composeGatePlan(stageGroups, sgGroup, changed, guidanceOn);
+  const plan = composeGatePlan(
+    stageGroups,
+    sgGroup,
+    changed,
+    guidanceOn,
+    skillsOn,
+  );
   const result = buildGateResult(plan, results, failedStage);
-  // The guidance check isn't a plan-group job, so its diagnostic (the diff + the
-  // `discern refresh` reproduce command) is attached here, like the merge stage's
-  // failed_stage rides in `data` without a job entry.
+  // The currency checks aren't plan-group jobs, so their diagnostics (the diff / the
+  // drift list + the `discern refresh` reproduce command) are attached here, like the
+  // merge stage's failed_stage rides in `data` without a job entry.
   if (guidanceDiag !== undefined) {
     result.diagnostics = [...(result.diagnostics ?? []), guidanceDiag];
+  }
+  if (skillsDiag !== undefined) {
+    result.diagnostics = [...(result.diagnostics ?? []), skillsDiag];
   }
   const hints = buildGateHints(cfg, changed, failedStage);
   if (hints.length > 0) {

@@ -48,6 +48,7 @@ import {
   resolveBundledDocsDir,
 } from "../lib/paths.ts";
 import type { DiscernResult } from "../shared/result.ts";
+import type { DocRecord, DocsData } from "../shared/result_schemas.ts";
 
 /** Supported concatenated Markdown export scopes. */
 type DocsExportScope = "public" | "all" | "select";
@@ -160,7 +161,7 @@ export interface DocsOptions {
 }
 
 /** The machine-readable record for one doc (sans content). */
-function toRecord(e: DocEntry): Record<string, string> {
+function toRecord(e: DocEntry): DocRecord {
   return { path: e.path, section: e.section, slug: e.slug, title: e.title };
 }
 
@@ -498,7 +499,11 @@ async function treeResult(
     return {
       ok: true,
       verb: desc.verb,
-      data: { docs_dir: display(tree.docsDir, cwd), count: 0, docs: [] },
+      data: {
+        docs_dir: display(tree.docsDir, cwd),
+        count: 0,
+        docs: [],
+      } satisfies DocsData,
     };
   }
 
@@ -519,14 +524,16 @@ async function treeResult(
         verb: desc.verb,
         error: "ambiguous",
         message: `"${opts.target}" matches ${res.entries.length} docs.`,
-        data: { candidates: res.entries.map((e) => e.path) },
+        data: {
+          candidates: res.entries.map((e) => e.path),
+        } satisfies DocsData,
       };
     }
     const content = await Deno.readTextFile(res.entry.absPath);
     return {
       ok: true,
       verb: desc.verb,
-      data: { doc: { ...toRecord(res.entry), content } },
+      data: { doc: { ...toRecord(res.entry), content } } satisfies DocsData,
     };
   }
 
@@ -538,7 +545,7 @@ async function treeResult(
       docs_dir: display(tree.docsDir, cwd),
       count: tree.entries.length,
       docs: tree.entries.map(toRecord),
-    },
+    } satisfies DocsData,
   };
 }
 

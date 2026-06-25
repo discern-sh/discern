@@ -52,7 +52,7 @@ export interface AuditContext {
   docsTree: boolean;
   /** Count of real ADRs under `docs/_adr` (a `NNNN-*.md`, excluding `0000-template`). */
   adrCount: number;
-  /** Whether at least one compiled agent file (AGENTS.md / CLAUDE.md / GEMINI.md) exists. */
+  /** Whether at least one compiled agent file (any configured provider's) exists. */
   agentFilePresent: boolean;
   /** Count of authored skill directories under `[skills].dir`. */
   authoredSkills: number;

@@ -193,6 +193,21 @@ async function readySentinelPath(cwd: string): Promise<string | undefined> {
   }
 }
 
+/** Whether this worktree's ready sentinel is present — the proof setup completed.
+ * The one read of "is this worktree already configured?", shared by the setup and
+ * the session-start ensure paths. */
+async function sentinelPresent(cwd: string): Promise<boolean> {
+  const marker = await readySentinelPath(cwd);
+  if (marker === undefined) {
+    return false;
+  }
+  try {
+    return (await Deno.stat(marker)).isFile;
+  } catch {
+    return false;
+  }
+}
+
 /** Record the deterministic port in this worktree's `.env`, or report it. */
 async function recordPort(
   ctx: LifecycleContext,
@@ -282,12 +297,17 @@ function setupResults(
 }
 
 /**
- * Set up a freshly-created linked worktree — the `worktree` recipe. Asserts the
- * worktree precondition, ensures a named branch, creates the per-worktree
- * resources (a `required` create is fatal), inherits env vars, records the port +
- * resource handles into `.env`, runs `[worktree.setup].steps` in order, refreshes
- * the agent files, and drops the ready sentinel. Throws on a fatal step.
- * `--dry-run` shows the plan and touches nothing.
+ * Set up a linked worktree — the `worktree` recipe. Asserts the worktree
+ * precondition, ensures a named branch, provisions the per-worktree resources (a
+ * `required` create is fatal), inherits env vars, records the port + resource
+ * handles into `.env`, runs `[worktree.setup].steps` in order, refreshes the agent
+ * files, and drops the ready sentinel. Throws on a fatal step. `--dry-run` shows
+ * the plan and touches nothing.
+ *
+ * Idempotent: when the worktree is already configured (the sentinel is present),
+ * the non-idempotent phases are not repeated — resources are re-readied via
+ * `ensure` rather than re-created, and the setup steps are skipped — so a re-fired
+ * `worktree:create` hook or a re-run `discern worktree` is safe.
  */
 export async function worktreeSetup(
   ctx: LifecycleContext,
@@ -318,15 +338,27 @@ export async function worktreeSetup(
   const identity = deriveIdentity(id, settings);
   await ensureWorktreeBranch(identity.branch, ctx.cwd);
 
-  // 3. create the per-worktree resources (ledger-logged for GC; a required
-  // create failure aborts setup). Resources need the worktree's git identity.
+  // Has this worktree already completed setup? The ready sentinel is the proof. The
+  // two non-ensure callers — a re-fired `worktree:create` hook and an explicit
+  // `discern worktree` — reach here on an already-configured worktree, where the
+  // non-idempotent phases (resource `create`, `[worktree.setup].steps`) must not
+  // re-run. (`worktreeEnsure` gates the session-start path the same way.)
+  const configured = await sentinelPresent(ctx.cwd);
+
+  // 3. provision the per-worktree resources. On a FIRST setup, create them
+  // (ledger-logged for GC; a required create failure aborts setup). On a re-entry,
+  // re-ready them via `ensure` instead — never re-create. Needs the git identity.
   let createdFailed: string[] = [];
   const commonGitDir = await resolveCommonGitDir(ctx.cwd);
   const gitKey = await worktreeGitKey(ctx.cwd);
   if (commonGitDir !== undefined && gitKey !== undefined) {
-    createdFailed =
-      (await createResources(ctx, identity, settings, commonGitDir, gitKey))
-        .failed;
+    if (configured) {
+      await ensureResources(ctx, identity, settings);
+    } else {
+      createdFailed =
+        (await createResources(ctx, identity, settings, commonGitDir, gitKey))
+          .failed;
+    }
     await recordResourceEnv(ctx, identity, settings);
   } else if (readResourceSpecs(ctx.config).length > 0) {
     throw new WorktreeGitError(
@@ -344,12 +376,20 @@ export async function worktreeSetup(
   // 5. record the deterministic port
   await recordPort(ctx, identity);
 
-  // 6. post-create setup steps (stop on first failure)
-  for (const step of ctx.config.worktree.setup.steps) {
-    ctx.log.info(`Setup step: ${step}`);
-    const code = await runShellRouted(step, { cwd: ctx.cwd, log: ctx.log });
-    if (code !== 0) {
-      throw new WorktreeGitError(`Setup step failed: ${step}`);
+  // 6. post-create setup steps (stop on first failure). Skipped once the worktree
+  // is configured — they ran at first setup and are not re-run (author them
+  // idempotent so a recovered partial setup can re-run them safely).
+  if (configured) {
+    if (ctx.config.worktree.setup.steps.length > 0) {
+      ctx.log.info("Worktree already configured — skipping setup steps.");
+    }
+  } else {
+    for (const step of ctx.config.worktree.setup.steps) {
+      ctx.log.info(`Setup step: ${step}`);
+      const code = await runShellRouted(step, { cwd: ctx.cwd, log: ctx.log });
+      if (code !== 0) {
+        throw new WorktreeGitError(`Setup step failed: ${step}`);
+      }
     }
   }
 
@@ -410,20 +450,13 @@ export async function worktreeEnsure(
   } catch {
     return { kind: "skipped" };
   }
-  const marker = await readySentinelPath(ctx.cwd);
-  if (marker !== undefined) {
-    try {
-      if ((await Deno.stat(marker)).isFile) {
-        // Already set up — reconcile any resource that declares an `ensure`
-        // (re-ready a resource that died out-of-band, e.g. a host reboot). Cheap
-        // and silent when nothing declares `ensure`.
-        const { identity, settings } = await resolveContextIdentity(ctx);
-        await ensureResources(ctx, identity, settings);
-        return { kind: "already" };
-      }
-    } catch {
-      // sentinel absent — fall through and run setup
-    }
+  if (await sentinelPresent(ctx.cwd)) {
+    // Already set up — reconcile any resource that declares an `ensure` (re-ready a
+    // resource that died out-of-band, e.g. a host reboot). Cheap and silent when
+    // nothing declares `ensure`.
+    const { identity, settings } = await resolveContextIdentity(ctx);
+    await ensureResources(ctx, identity, settings);
+    return { kind: "already" };
   }
   ctx.log.warn(
     "[discern] Worktree not configured yet; running 'discern worktree'…",

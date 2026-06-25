@@ -21,12 +21,25 @@
  * stays clean (the ADR 0030 `--json` purity rule, here over MCP).
  */
 
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import {
+  McpServer,
+  ResourceTemplate,
+} from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import process from "process";
 import { z } from "@zod/zod";
 import { findRoot } from "../../shared/env.ts";
 import { type DiscernResult, serializeResult } from "../../shared/result.ts";
+import {
+  AuditOutputSchema,
+  ChangedScopesOutputSchema,
+  DatalessEnvelopeSchema,
+  type DocsData,
+  DocsOutputSchema,
+  DoctorOutputSchema,
+  FinishOutputSchema,
+  StatusOutputSchema,
+} from "../../shared/result_schemas.ts";
 import { loadConfig } from "../../shared/config_schema.ts";
 import {
   enabledFeatures,
@@ -41,7 +54,9 @@ import { Logger } from "../../lib/log.ts";
 import { finishResult } from "../gate/finish.ts";
 import { prepareResult } from "../gate/prepare.ts";
 import { testResult } from "../gate/test.ts";
+import { ratchetsResult } from "../gate/ratchets.ts";
 import { auditResult } from "../audit/audit.ts";
+import { CATEGORY_NAMES } from "../audit/rules.ts";
 import { changedScopesResult } from "../scopes/changed.ts";
 import { statusResult } from "../status/status.ts";
 import { doctorResult } from "../../commands/doctor.ts";
@@ -55,14 +70,66 @@ import {
 const SERVER_NAME = "discern";
 const SERVER_VERSION = "1.0.0";
 
-/** A tool: its advertised schema plus the handler that runs the verb. The SDK
- * converts {@link inputSchema} (a Zod raw shape, omitted when the verb takes no
- * arguments) to the JSON Schema it advertises in `tools/list`. */
+/**
+ * Honest behavioural hints for a tool — the MCP `ToolAnnotations`. Mirrors the
+ * SDK's type (which `registerTool` accepts) field-for-field; declared here because
+ * the SDK keeps that type behind a `types.js` subpath its package `exports` map
+ * doesn't expose. All properties are hints, never guarantees.
+ */
+interface ToolAnnotations {
+  /** A short human label (the SDK also accepts a top-level `title`). */
+  title?: string;
+  /** The tool does not modify its environment (pure observation). */
+  readOnlyHint?: boolean;
+  /** The tool may perform irreversible updates (only meaningful when not read-only). */
+  destructiveHint?: boolean;
+  /** Repeated calls with the same args have no effect beyond the first. */
+  idempotentHint?: boolean;
+  /** The tool interacts with an open/external world (e.g. the network). */
+  openWorldHint?: boolean;
+}
+
+/** A pure observation — reads project state, mutates nothing, and reaches nothing
+ * external (git/file reads only), so the world is closed. Trivially idempotent. */
+const READ_ONLY: ToolAnnotations = {
+  readOnlyHint: true,
+  idempotentHint: true,
+  openWorldHint: false,
+};
+/** Runs the project's own configured commands (and may rewrite files), but
+ * reclaims/destroys nothing. `openWorldHint` is left UNSET (it defaults to true):
+ * those commands are arbitrary and may reach the network, so claiming a closed
+ * world would be dishonest. */
+const MUTATING: ToolAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: false,
+};
+/** Tears down per-worktree resources (running their configured destroy commands)
+ * and moves the branch — a one-way operation. Like {@link MUTATING}, those commands
+ * are arbitrary, so `openWorldHint` is left unset. */
+const DESTRUCTIVE: ToolAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: true,
+};
+
+/** A tool: its advertised schema + metadata plus the handler that runs the verb.
+ * The SDK converts {@link inputSchema}/{@link outputSchema} (Zod raw shapes, the
+ * latter the per-verb schema from result_schemas.ts) to the JSON Schemas it
+ * advertises in `tools/list`, and validates a call's `structuredContent` against the
+ * output schema. */
 interface McpTool {
   name: string;
+  /** A short human label shown by clients alongside the tool. */
+  title?: string;
   description: string;
   /** The verb's arguments as a Zod raw shape; absent for an argument-less verb. */
   inputSchema?: z.ZodRawShape;
+  /** The result shape this tool advertises (a Zod raw shape — a per-verb output
+   * schema's `.shape`). The SDK validates every call's `structuredContent` against
+   * it, so it MUST match what the verb actually returns (ADR 0041). */
+  outputSchema?: z.ZodRawShape;
+  /** Honest behavioural hints (read-only / destructive / …). */
+  annotations?: ToolAnnotations;
   /** When set, the tool is registered (listed and callable) only if this feature is
    * enabled — the MCP mirror of the CLI's per-feature verb gating. */
   feature?: Feature;
@@ -74,6 +141,9 @@ interface McpTool {
 const TOOLS: McpTool[] = [
   {
     name: "discern_finish",
+    title: "Run the quality gate",
+    outputSchema: FinishOutputSchema.shape,
+    annotations: MUTATING,
     description:
       "Run the discern quality gate (formatters, checks, tests, scope gates) and " +
       "return the structured result: per-step outcomes plus normalized diagnostics " +
@@ -88,6 +158,9 @@ const TOOLS: McpTool[] = [
   },
   {
     name: "discern_prepare",
+    title: "Run the fast gate",
+    outputSchema: DatalessEnvelopeSchema.shape,
+    annotations: MUTATING,
     description:
       "Run the fast inner-loop gate — the fix-stage fixers, then the read-only " +
       "check-stage jobs (no build, no tests) — and return the result envelope. The " +
@@ -97,6 +170,9 @@ const TOOLS: McpTool[] = [
   },
   {
     name: "discern_test",
+    title: "Run the tests",
+    outputSchema: DatalessEnvelopeSchema.shape,
+    annotations: MUTATING,
     description:
       "Run the project's test capability on its own (the `test` stage, outside the " +
       "full gate) and return the result envelope. When no test command is configured " +
@@ -104,7 +180,31 @@ const TOOLS: McpTool[] = [
     run: (root) => testResult(root),
   },
   {
+    name: "discern_ratchets",
+    title: "Hold the ratchets",
+    outputSchema: DatalessEnvelopeSchema.shape,
+    annotations: MUTATING,
+    description:
+      "Hold every configured quality ratchet (a never-loosen metric floor/ceiling): " +
+      "run each ratchet's measurement command, compare it to its limit, and assert " +
+      "the limit was not loosened versus main. Returns the per-ratchet steps[]. SLOW " +
+      "and ON DEMAND — it runs the metric commands, so it is NOT part of " +
+      "discern_finish; hold it explicitly before pushing. Set dry_run to preview " +
+      "which ratchets would run without measuring anything.",
+    feature: "ratchets",
+    inputSchema: {
+      dry_run: z.boolean().optional().describe(
+        "Preview the ratchets that would run and measure nothing (default false).",
+      ),
+    },
+    run: (root, args) =>
+      ratchetsResult(root, { dryRun: args.dry_run === true }),
+  },
+  {
     name: "discern_doctor",
+    title: "Check the install",
+    outputSchema: DoctorOutputSchema.shape,
+    annotations: READ_ONLY,
     description:
       "Verify the discern install and return each check as an actionable result: " +
       "config validity, schema currency, whether the declared capability commands " +
@@ -114,6 +214,9 @@ const TOOLS: McpTool[] = [
   },
   {
     name: "discern_changed_scopes",
+    title: "List changed scopes",
+    outputSchema: ChangedScopesOutputSchema.shape,
+    annotations: READ_ONLY,
     description:
       "List which project scopes the current branch and working tree changed — the " +
       "classification that decides which scope gates the quality gate fires.",
@@ -121,6 +224,9 @@ const TOOLS: McpTool[] = [
   },
   {
     name: "discern_status",
+    title: "Project status",
+    outputSchema: StatusOutputSchema.shape,
+    annotations: READ_ONLY,
     description:
       "Report what is true right now and what to do next — pure observation, never " +
       "runs the gate, tests, ratchets, or touches anything. Call it at the start of a " +
@@ -128,7 +234,10 @@ const TOOLS: McpTool[] = [
       "branch/clean/changed-files and ahead/behind the integration branch; data.gate " +
       "lists what the gate WOULD fire (wired capabilities, checks, triggered scope " +
       "gates); data.worktree carries this worktree's id/port/db and provisioned " +
-      "resources; data.features and data.ratchets list the configured set. From the " +
+      "resources; data.features and data.ratchets list the configured set. " +
+      "data.stale_generated flags generated agent files that have drifted from " +
+      "their sources (run discern refresh), and data.setup_unfinished is present " +
+      "while the project's one-time setup is still incomplete. From the " +
       "main checkout it leads with data.fleet (a cheap row per worktree: branch, " +
       "dirty/ahead/behind, and a last_activity timestamp); set all=true " +
       "to include the fleet from a worktree, or local=true to suppress it. hints[] are " +
@@ -150,6 +259,9 @@ const TOOLS: McpTool[] = [
   },
   {
     name: "discern_audit",
+    title: "Audit the setup",
+    outputSchema: AuditOutputSchema.shape,
+    annotations: READ_ONLY,
     description:
       "Audit the project against the best-practices checklist and return the scored, " +
       "weakest-first result. Each category lists deterministic rules (status, the finding, " +
@@ -158,7 +270,7 @@ const TOOLS: McpTool[] = [
       "Use it to surface concrete setup improvements; pass a category to focus one area.",
     inputSchema: {
       category: z.string().optional().describe(
-        "Restrict to one area: gate, setup, guidance, docs, worktrees, ratchets, or skills.",
+        `Restrict to one area: ${CATEGORY_NAMES.join(", ")}.`,
       ),
       min_score: z.number().optional().describe(
         "Mark the result failed (isError) when the overall score is below this floor.",
@@ -174,6 +286,9 @@ const TOOLS: McpTool[] = [
   },
   {
     name: "discern_docs",
+    title: "Read project docs",
+    outputSchema: DocsOutputSchema.shape,
+    annotations: READ_ONLY,
     description:
       "Read the project's documentation tree. With no argument, return the index — " +
       "every doc's path, section, slug, and title. Pass `target` (a slug, " +
@@ -193,6 +308,9 @@ const TOOLS: McpTool[] = [
   },
   {
     name: "discern_help",
+    title: "Read discern's docs",
+    outputSchema: DocsOutputSchema.shape,
+    annotations: READ_ONLY,
     description:
       "Read discern's OWN documentation — the harness's docs (the discern.toml " +
       "config reference, the concepts, the gate/worktree/ratchet pages), bundled " +
@@ -215,6 +333,9 @@ const TOOLS: McpTool[] = [
   },
   {
     name: "discern_graduate",
+    title: "Graduate the worktree",
+    outputSchema: DatalessEnvelopeSchema.shape,
+    annotations: DESTRUCTIVE,
     description:
       "Graduate THIS worktree's branch into the main checkout for review: tear down " +
       "the worktree's resources, move the branch onto main, and leave the changes " +
@@ -370,6 +491,216 @@ async function resolveEnabledFeatures(
   }
 }
 
+// ── resources (readable context, paired with the tools; ADR 0041) ────────────
+// Resources are application-driven and NOT reliably auto-injected across the 80% of
+// clients, so the tools stay the reliable path; resources are the elegant
+// attachable surface alongside them. Each is computed FRESH on every read (no
+// subscriptions, no listChanged) and serves the verb's `data` payload — not the
+// full DiscernResult envelope.
+
+const JSON_MIME = "application/json";
+const MARKDOWN_MIME = "text/markdown";
+
+/** One resource read: a single text part carrying `text` at `uri` with `mimeType`. */
+function resourceText(
+  uri: URL,
+  mimeType: string,
+  text: string,
+): { contents: { uri: string; mimeType: string; text: string }[] } {
+  return { contents: [{ uri: uri.href, mimeType, text }] };
+}
+
+/** Pretty-print a value as the JSON a resource serves. */
+function asJson(data: unknown): string {
+  return JSON.stringify(data, null, 2);
+}
+
+/** Throw the canonical not-set-up refusal when a bootstrap-gated resource is read
+ * before the project records `[meta].bootstrapped` — the resource mirror of the
+ * tool's pre-setup gate. */
+async function assertResourceBootstrapped(root: string): Promise<void> {
+  if (!(await bootstrapGatePasses(root))) {
+    throw new Error(NOT_SET_UP_MESSAGE);
+  }
+}
+
+/**
+ * Register the doc-tree resources for one scheme (`docs` = the project's tree,
+ * `help` = discern's own): a fixed index (`discern://<scheme>` → the JSON index)
+ * and a `{target}` template (`discern://<scheme>/{target}` → that one doc's
+ * Markdown). `index`/`single` are the verb cores (the caller pre-guards them); a
+ * not-found or refused read throws, which the SDK renders as a resource-read error.
+ */
+function registerDocTree(
+  server: McpServer,
+  scheme: "docs" | "help",
+  label: string,
+  index: () => Promise<DiscernResult>,
+  single: (target: string) => Promise<DiscernResult>,
+): void {
+  server.registerResource(
+    `discern-${scheme}-index`,
+    `discern://${scheme}`,
+    {
+      description:
+        `The index of ${label} — every doc's path, section, slug, and title.`,
+      mimeType: JSON_MIME,
+    },
+    async (uri: URL) => {
+      const result = await index();
+      if (!result.ok) {
+        throw new Error(result.message ?? `cannot read ${scheme}.`);
+      }
+      return resourceText(uri, JSON_MIME, asJson(result.data));
+    },
+  );
+  server.registerResource(
+    `discern-${scheme}-doc`,
+    new ResourceTemplate(`discern://${scheme}/{target}`, { list: undefined }),
+    {
+      description:
+        `One document from ${label}, by slug, section/slug, or path.`,
+      mimeType: MARKDOWN_MIME,
+    },
+    async (uri: URL, variables: { [key: string]: string | string[] }) => {
+      const raw = variables.target;
+      const target = Array.isArray(raw) ? (raw[0] ?? "") : (raw ?? "");
+      const result = await single(target);
+      const data = result.data as DocsData | undefined;
+      if (!result.ok || data?.doc === undefined) {
+        throw new Error(result.message ?? `no doc matches "${target}".`);
+      }
+      return resourceText(uri, MARKDOWN_MIME, data.doc.content);
+    },
+  );
+}
+
+/**
+ * Register the readable resources, mirroring the tools' feature- and pre-setup-
+ * gating: `discern://status`, `discern://changed-scopes`, and `discern://config`
+ * are always available; `discern://help` (+ a `{target}` template) is too; and
+ * `discern://docs` (+ template) is registered only with the `docs` feature on and
+ * refuses per read until the project is bootstrapped — exactly as the matching tools
+ * do. Every read recomputes from the verb core.
+ */
+function registerResources(
+  server: McpServer,
+  root: string,
+  enabled: ReadonlySet<Feature>,
+): void {
+  server.registerResource(
+    "discern-status",
+    "discern://status",
+    {
+      description:
+        "A live discern_status snapshot: the git situation, what the gate would fire, the features and ratchets, and (from the main checkout) the worktree fleet.",
+      mimeType: JSON_MIME,
+    },
+    async (uri: URL) =>
+      resourceText(uri, JSON_MIME, asJson((await statusResult(root)).data)),
+  );
+
+  server.registerResource(
+    "discern-changed-scopes",
+    "discern://changed-scopes",
+    {
+      description:
+        "The project scopes the current branch and working tree changed — what decides which scope gates fire.",
+      mimeType: JSON_MIME,
+    },
+    async (uri: URL) =>
+      resourceText(
+        uri,
+        JSON_MIME,
+        asJson((await changedScopesResult(root)).data),
+      ),
+  );
+
+  server.registerResource(
+    "discern-config",
+    "discern://config",
+    {
+      description:
+        "The resolved discern.toml configuration for this project (fully defaulted).",
+      mimeType: JSON_MIME,
+    },
+    async (uri: URL) =>
+      resourceText(uri, JSON_MIME, asJson(await loadConfig(root))),
+  );
+
+  // help — discern's OWN documentation, always available (the pre-setup surface).
+  registerDocTree(
+    server,
+    "help",
+    "discern's own documentation",
+    () => helpResult(root),
+    (target) => helpResult(root, { target }),
+  );
+
+  // docs — the project's documentation, gated on the `docs` feature and (per read)
+  // on bootstrap, mirroring the discern_docs tool.
+  if (enabled.has("docs")) {
+    registerDocTree(
+      server,
+      "docs",
+      "the project's documentation",
+      async () => {
+        await assertResourceBootstrapped(root);
+        return docsResult(root);
+      },
+      async (target) => {
+        await assertResourceBootstrapped(root);
+        return docsResult(root, { target });
+      },
+    );
+  }
+}
+
+/**
+ * The server's `instructions` — the native "when to use which tool" block capable
+ * clients load when MCP connects (it rides in the `initialize` result). discern's
+ * operating model in a few imperative lines, carrying the strong MCP-first stance:
+ * these tools are the primary surface, not the CLI. Feature-aware, mirroring the
+ * tool gating — the docs, ratchets, and graduate lines appear only when their
+ * feature is on.
+ */
+function buildInstructions(enabled: ReadonlySet<Feature>): string {
+  const lines = [
+    "discern is this project's quality harness, and these tools are the primary " +
+    "surface for working in it — prefer them over shelling out to the `discern` " +
+    "CLI; each returns a structured result you can read directly.",
+    "",
+    "- Orient at the start of a session with discern_status: the branch's " +
+    "situation, what the gate would fire, and advisory next steps.",
+    "- Before calling any change done, run discern_finish (the full gate). While " +
+    "iterating, use discern_prepare (the fast fix-then-check loop) and discern_test " +
+    "(just the tests). On a failure, read the result's diagnostics[] — the tool, " +
+    "the command to reproduce it, the captured output — and fix from those rather " +
+    "than re-running and scraping.",
+    "- Learn how discern itself works (the gate, discern.toml, worktrees) with " +
+    "discern_help.",
+    "- Verify the install with discern_doctor when something looks misconfigured " +
+    "(bad config, a command not on PATH, a stale schema).",
+  ];
+  if (enabled.has("docs")) {
+    lines.push("- Read THIS project's own documentation with discern_docs.");
+  }
+  lines.push("- Find concrete setup improvements with discern_audit.");
+  if (enabled.has("ratchets")) {
+    lines.push(
+      "- Before pushing, hold the quality ratchets with discern_ratchets — slow " +
+        "and on-demand, so NOT part of discern_finish.",
+    );
+  }
+  if (enabled.has("worktrees")) {
+    lines.push(
+      "- When a branch is finished and integrated, graduate it into the main " +
+        "checkout for review with discern_graduate.",
+    );
+  }
+  return lines.join("\n");
+}
+
 /**
  * Run the MCP server over stdio via the official SDK. The project root and its
  * enabled features are resolved once at startup; every enabled tool is registered
@@ -381,16 +712,33 @@ async function resolveEnabledFeatures(
 export async function runMcpServer(): Promise<number> {
   const root = await findRoot();
   const enabled = await resolveEnabledFeatures(root);
-  const server = new McpServer({ name: SERVER_NAME, version: SERVER_VERSION });
+  const server = new McpServer(
+    { name: SERVER_NAME, version: SERVER_VERSION },
+    { instructions: buildInstructions(enabled) },
+  );
 
   for (const tool of TOOLS) {
     if (tool.feature !== undefined && !enabled.has(tool.feature)) {
       continue;
     }
+    // The shared config: description plus the honest metadata (title, the per-verb
+    // outputSchema the SDK validates structuredContent against, and the behavioural
+    // annotations). Built with conditional keys so an absent field is omitted rather
+    // than set to `undefined` (exactOptionalPropertyTypes).
+    const config = {
+      description: tool.description,
+      ...(tool.title !== undefined ? { title: tool.title } : {}),
+      ...(tool.outputSchema !== undefined
+        ? { outputSchema: tool.outputSchema }
+        : {}),
+      ...(tool.annotations !== undefined
+        ? { annotations: tool.annotations }
+        : {}),
+    };
     if (tool.inputSchema !== undefined) {
       server.registerTool(
         tool.name,
-        { description: tool.description, inputSchema: tool.inputSchema },
+        { ...config, inputSchema: tool.inputSchema },
         (args: Record<string, unknown>) => runTool(tool, root, args),
       );
     } else {
@@ -400,10 +748,16 @@ export async function runMcpServer(): Promise<number> {
       // request `extra`, so there are no arguments to forward.
       server.registerTool(
         tool.name,
-        { description: tool.description },
+        config,
         () => runTool(tool, root, {}),
       );
     }
+  }
+
+  // Resources — readable context paired with the tools (ADR 0041). Registered only
+  // inside a project (root resolved at startup); each read recomputes fresh.
+  if (root !== undefined) {
+    registerResources(server, root, enabled);
   }
 
   const transport = new StdioServerTransport();

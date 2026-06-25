@@ -7,10 +7,41 @@
 ## Operating principles — read these first
 
 - **Use the most capable model available** (Step 0). This is a one-time setup whose output every future session inherits — it is worth your best model.
-- **Ask, don't guess.** There is no brief file. Derive intent from the repository, and ask the user for what the code can't tell you — **once, early, in a single batch**, not peppered across every step.
-- **Propose, don't overwrite.** Treat everything you write as a first draft for the user to refine. For anything they'll want to confirm — above all the `discern.toml` capability fills — show it and let them confirm rather than silently committing.
+- **Ask, don't guess.** There is no brief file. Derive intent from the repository, and ask the user for what the code can't tell you — **once, early, in a single batch**, not peppered across every step. (Pausing later for a genuine decision is different — that's a real fork, not peppering.)
+- **Involve, don't gate.** Recommend each change, explain it, and proceed on anything reversible while narrating — committing it as its own revertible step — instead of stopping for permission before every action. Pause only for genuine decisions. Everything you write is still a first draft the user can refine or revert; the per-stage commit is what makes that literally true. The next section, *How to work with the user*, is the heart of how this setup should feel — read it.
 - **Stay this-project-specific.** Principles, concepts, and conventions describe *this* project, not the harness and not any example. The stack-detection table in Step 7 is the one place where naming many ecosystems is correct — that step's whole job is to recognise them.
 - **It is safe to re-run.** `discern` (and `discern setup`) is idempotent and non-destructive: it never overwrites your work or an existing `docs/` tree. If this session is interrupted, the user just runs `discern` again and you pick up where you left off.
+
+---
+
+## How to work with the user — involve, don't gate
+
+You are setting up a project for someone who may be newer to shipping reliable software — building through coding agents, but without the background that keeps a codebase holding together over time. They can be unsettled by an agent that changes things silently or pulls in outside tools without explanation. Your job is to keep them **informed and in control without making them approve every routine step**. The stance is **involve, don't gate**: recommend, explain, proceed with the reversible change while narrating it, and commit it on its own so they can always undo it — rather than stopping to ask "may I?" before each action.
+
+**Narrate each meaningful recommendation in five beats.** When you add a tool, dependency, or piece of config the project is missing, walk the user through it:
+
+1. **Recommend it as a shared step** — "I'm recommending we add ‹the missing capability›…".
+2. **Say why it helps** — tie it to something they care about: that the code keeps holding up as it grows, that mistakes get caught before they ship, that the project stays reliable.
+3. **Name `discern` as the source** — "…so `discern` can ‹check this for you / hold the line on it for you›." They should learn that the suggestion came from `discern`, and that `discern` is the thing watching their back.
+4. **Preserve their authority and name the risk of skipping** — "If you change your mind we can revert this commit later — but skipping it risks ‹quality slipping, or subtle bugs that are hard to track down later›."
+5. **Proceed and say what you're doing** — "I'm adding it now and wiring it into `discern` for you" — then do it, and commit it as its own focused step.
+
+Beat 4's promise is true *because of* beat 5: each recommendation lands as its own atomic commit, so "we can revert later" is literal — the commit **is** the undo. That linkage is the whole safety model; don't break it by batching unrelated changes into one commit.
+
+**Commit atomically, stage by stage.** Each stage that produces a coherent change — the design principles, the guidance, the orientation docs, the subsystem stubs, each capability you wire — gets its own focused, atomic commit with a clear, plain-language message. Say you're doing it ("I'm committing this on its own, so you can undo just this piece if you ever want to"). This is what makes proceeding-without-asking safe: every step is independently reviewable and revertible.
+
+**Pause for genuine decisions.** Default to acting — with narration — on anything reversible, low-stakes, and with a single obvious answer. **Stop and genuinely ask the user** only when a decision is:
+
+- hard or costly to reverse, or
+- a real fork between legitimate alternatives that only the user can choose, or
+- one that carries cost, security, privacy, or data implications, or
+- one that depends on intent or context you can't infer from the repository.
+
+The discovery questions in Step 1 are not a gate — that is you learning the project, and it stays. What goes away is the reflexive "may I?" before every routine, reversible action.
+
+**Keep the volume right.** Narrate at the level of meaningful stages and decisions, not every file you touch — warm and clear, never a wall of text. Bias toward fewer, well-placed explanations: the user should come away feeling informed and in control, not buried in commentary.
+
+**Narration is not completion.** Proceeding and committing as you go is about transparency *during* setup — it is **not** licence to tell the user setup is finished. Completion is still only the stop-conditions at the foot of this brief plus a passing `discern setup done`; never paraphrase your per-stage commits back as "setup complete." (And note: the `discern setup` *command* doesn't prompt you for anything — but you should still converse, narrate, and occasionally ask. A non-interactive command and a transparent conversation with the user are different things.)
 
 ---
 
@@ -93,11 +124,11 @@ Decide the numbered subsystem subtrees this project needs (`10-…`, `20-…`, �
 
 **Exception — fill the `80-development/` leaves now.** Those leaves (`getting-started.md`, `testing.md`, `code-conventions.md`) ship with `<!-- setup fills this -->` markers and are *stack-level*, not subsystem-deep: everything they need — the setup steps, the test runner, the formatter and build — you already have from Step 1 and the Step 7 stack sniff. Fill them now, clearing their markers, and keep them aligned with the guidance (Step 4) and the capabilities you propose (Step 7). Only the *numbered* subtree leaves are deferred to `document-subsystem`.
 
-Propose the subtree set to the user before committing to it — the numbering is a reading order, easy to change, but worth a sanity check.
+Run the subtree set past the user as a quick sanity check — the numbering is a reading order, easy to change and easy to revert — then create the stub directories and commit them. This is a narrate-and-proceed step, not a decision to gate on.
 
 ---
 
-## Step 7 — Sniff the stack and propose the capabilities
+## Step 7 — Sniff the stack and recommend the capabilities
 
 This is the one step where naming concrete ecosystems is right: you're detecting which one this is.
 
@@ -113,7 +144,7 @@ discern config set-scope native 'native/**' --gate "make -C native check"
 discern config set-ratchet coverage --direction up --limit 80 --run "<coverage tool>"
 ```
 
-Prefer these over hand-editing TOML. **Propose, don't overwrite:** show the user the commands (or the diff) and let them confirm before you activate a capability — an unconfirmed guess can wait as a comment beside the unset key. An omitted capability is "knowably absent", so a wrong guess never breaks the gate.
+Prefer these over hand-editing TOML. **Wire each capability the involve-don't-gate way.** A capability fill is the textbook case for the five beats: for every one you're confident the project genuinely has, recommend it, explain that it lets `discern` check that part of the project for you, note that the commit is revertible — then activate it and commit it on its own. Activating a capability is reversible (revert the commit, or drop it back to a comment), and Step 8 proves it green before you finish, so a confident fill is exactly the kind of low-stakes, reversible change to proceed on. **Pause and genuinely ask** only when it is a real decision: two legitimate commands where the choice matters, or a command that would do more than check — touch real data, hit a paid or networked service, or run long. A capability you can't pin down can wait as a comment beside the unset key; an omitted capability is "knowably absent", so a wrong guess never breaks the gate.
 
 Detection lookup (signal file → ecosystem → the usual tools to suggest):
 
@@ -134,7 +165,7 @@ Notes that keep the proposal honest:
 - **Verify before suggesting.** Read the manifest's actual scripts/dependencies — propose the command the project really has, not the textbook one. If a stack declares a custom test script, suggest that.
 - **A known tool maps to a capability by name.** Formatter → `format`, linter → `lint`, type-checker → `typecheck`, the test suite → `test`, a build/bundle step → `build`. Anything outside those five (a coverage threshold, a schema validator, a license check) is a `[checks.<name>]` with an explicit `stage` (`fix` | `build` | `check` | `test`).
 - **Monorepo / polyglot:** several stacks can coexist. Chain tools in one capability with `&&`, or add a `[scopes.<name>]` for a sub-app with its own `gate`.
-- **Wire the obvious scopes and worktree resources too** while you're here: point `[scopes]` globs at where this project's code actually lives, and if the project needs a per-worktree external resource (a database, an emulator, a container), note a `[worktree.resources.<name>]` table with `create`/`destroy` for the user to fill — again as proposals, not silent edits.
+- **Wire the obvious scopes and worktree resources too** while you're here: point `[scopes]` globs at where this project's code actually lives, and if the project needs a per-worktree external resource (a database, an emulator, a container), note a `[worktree.resources.<name>]` table with `create`/`destroy` for the user to fill — an external resource carries cost and data implications, so it is a genuine decision to leave with them, not something to wire silently.
 - **Point the gate at its gotchas doc.** Step 2 created `docs/80-development/finish-gate-gotchas.md`; set `[project].gotchas_doc = "docs/80-development/finish-gate-gotchas.md"` so a non-obvious gate failure points agents at it.
 - **Leave a capability unset** if the stack has no standard tool for it. A green gate you grow into beats a red gate on day one.
 
@@ -144,9 +175,9 @@ Notes that keep the proposal honest:
 
 1. Run **`discern refresh`** to compile the built-in harness guidance + `guidance.md` into the per-provider agent files (`AGENTS.md`, `CLAUDE.md`, … — all gitignored build artifacts except `AGENTS.md`) and materialize the skills into `.claude/skills/`.
 2. Run **`discern doctor`** to verify the install — dispatcher executable, hooks present, every configured capability command resolvable on PATH, git worktree support. Fix anything it flags (it returns the exact remedy).
-3. **Prove the gate is real.** Once the user has confirmed the capability fills and you've activated them, run **`discern finish`** and confirm it goes **green** — every wired command actually runs and passes. If a command fails, fix the command (or the wiring), or back that capability out to a comment; **don't leave a red gate or a wrong command behind**. A green `finish` with real capabilities is the proof setup worked — not just that the config parses.
-4. **Record the deferred wiring in `TODO.md`.** Everything you *proposed but did not activate* is outstanding work, and a comment in `discern.toml` or a line in chat is not where the next agent will look. Add a terse item (bold title + one line, in the right bucket) for each open decision: capabilities still awaiting confirmation, any `[worktree.resources.<name>]` / `[worktree]` inherit_env / setup steps left to wire, any tool worth adding, any test database or service the suite needs.
-5. **Summarise for the user:** the principles you drafted, the subtrees you proposed, the capability fills awaiting their confirmation, the `TODO.md` items you recorded, and the result of `discern finish`. Point them at the [`document-subsystem`](/.claude/skills/document-subsystem/SKILL.md) skill as the next step for filling in each subtree's leaves.
+3. **Prove the gate is real.** With the capabilities you recommended and wired now active, run **`discern finish`** and confirm it goes **green** — every wired command actually runs and passes. If a command fails, fix the command (or the wiring), or back that capability out to a comment; **don't leave a red gate or a wrong command behind**. A green `finish` with real capabilities is the proof setup worked — not just that the config parses.
+4. **Record the deferred wiring in `TODO.md`.** Everything you *proposed but did not activate* is outstanding work, and a comment in `discern.toml` or a line in chat is not where the next agent will look. Add a terse item (bold title + one line, in the right bucket) for each open decision: any capability you deliberately left for the user to decide (a genuine fork you paused on), any `[worktree.resources.<name>]` / `[worktree]` inherit_env / setup steps left to wire, any tool worth adding, any test database or service the suite needs.
+5. **Summarise for the user:** the principles you drafted, the subtrees you proposed, the capabilities you wired and committed (plus any genuine fork you left for them to decide), the `TODO.md` items you recorded, and the result of `discern finish`. Point them at the [`document-subsystem`](/.claude/skills/document-subsystem/SKILL.md) skill as the next step for filling in each subtree's leaves.
 6. **Run `discern setup done`** to lock it in. It validates the result — no `<!-- setup fills this -->` markers and no EXAMPLE principle left behind — then records `[meta].bootstrapped`, which retires the one-time setup redirect and hides `discern setup` from the command list. If it reports leftover markers, finish those and re-run it (or pass `--force` if a flagged file is a deliberate exception).
 
 ---
@@ -160,7 +191,7 @@ These are stop-conditions to **verify for yourself before you finish** — not a
 - `guidance.md` has a real pitch and Conventions section.
 - The orientation docs (concepts, glossary, system-map) are seeded, the `80-development/` leaves are filled, and the numbered subsystem subtrees are named with stub READMEs.
 - No stale "starts as a skeleton / run `discern setup`" notes remain — the `docs/README.md` and `docs/00-orientation/README.md` intros describe the filled tree, not an empty one.
-- `discern.toml` capability fills are **proposed** for every detected stack (committed only if the user confirms), and `discern finish` is **green** with whatever was activated.
+- `discern.toml` capability fills are **recommended, narrated, and committed** for every detected stack you were confident in — each its own revertible commit — with any genuine fork left for the user to decide and recorded in `TODO.md`; and `discern finish` is **green** with whatever was activated.
 - `TODO.md` records the deferred wiring so no open decision lives only in a comment or the chat.
 - `discern refresh` and `discern doctor` pass, and `discern setup done` reports success (it records `[meta].bootstrapped`).
 

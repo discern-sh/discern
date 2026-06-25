@@ -14,6 +14,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { runCli, withTempDir } from "./helpers.ts";
+import { FEATURES } from "../src/shared/features.ts";
 
 /** One check in the `doctor --json` payload. */
 interface DoctorCheck {
@@ -121,6 +122,20 @@ Deno.test("doctor --json: a fresh install is fully healthy and exits 0", async (
   });
 });
 
+Deno.test("doctor: the features check names every feature when all are on", async () => {
+  await withTempDir(async (dir) => {
+    await initInstall(dir);
+    const { payload } = await runDoctorJson(dir);
+    // A fresh install has every feature on → the detail derives the full list from
+    // the FEATURES SSOT, so each one (mcp included) must appear.
+    const detail = check(payload, "features").detail;
+    assertStringIncludes(detail, "all on");
+    for (const f of FEATURES) {
+      assertStringIncludes(detail, f, `features check should name '${f}'`);
+    }
+  });
+});
+
 Deno.test("doctor: the git check fails with a fix when git is unreachable", async () => {
   await withTempDir(async (dir) => {
     await initInstall(dir);
@@ -148,7 +163,7 @@ Deno.test("doctor: human (non-json) output reports a clean bill on stderr, exit 
     // The environment header gives at-a-glance triage context.
     assertStringIncludes(stderr, "discern 1.0.0 ·");
     assertStringIncludes(stderr, "discern.toml: present and valid TOML");
-    assertStringIncludes(stderr, "schema 9 (current)");
+    assertStringIncludes(stderr, "schema 10 (current)");
     assertStringIncludes(stderr, "git: ");
     assertStringIncludes(stderr, "All checks passed.");
   });
@@ -201,7 +216,7 @@ Deno.test("doctor: a stale schema is flagged with an upgrade fix", async () => {
     const schema = check(payload, "schema version");
     assertEquals(schema.ok, false);
     assertStringIncludes(schema.detail, "v1");
-    assertStringIncludes(schema.detail, "v9");
+    assertStringIncludes(schema.detail, "v10");
     assertStringIncludes(schema.fix ?? "", "discern upgrade");
   });
 });
@@ -419,5 +434,27 @@ Deno.test("doctor: reports resolved guidance sources and authored skills when pr
     assertEquals(code, 0);
     assertStringIncludes(check(payload, "guidance sources").detail, "resolve");
     assertStringIncludes(check(payload, "skills").detail, "1 authored skill");
+  });
+});
+
+Deno.test("doctor: surfaces per-agent integration coverage (MCP/hooks Claude-only, by design)", async () => {
+  await withTempDir(async (dir) => {
+    await initInstall(dir); // default agents: claude_code + codex
+    const { code, payload } = await runDoctorJson(dir);
+    assertEquals(code, 0); // a registry-described divergence is healthy, just reported
+
+    // Claude Code wires every surface.
+    const claude = check(payload, "agent: Claude Code");
+    assertEquals(claude.ok, true);
+    assertStringIncludes(claude.detail, "guidance CLAUDE.md");
+    assertStringIncludes(claude.detail, "mcp");
+    assertStringIncludes(claude.detail, "hooks");
+
+    // Codex's MCP/hooks use their own mechanism — surfaced explicitly, not a silent
+    // gap (the EXPECTED divergence made visible).
+    const codex = check(payload, "agent: Codex");
+    assertEquals(codex.ok, true);
+    assertStringIncludes(codex.detail, "guidance AGENTS.md");
+    assertStringIncludes(codex.detail, "not wired");
   });
 });

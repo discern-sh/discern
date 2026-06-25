@@ -168,6 +168,55 @@ Deno.test("worktree:ensure runs a resource's ensure on an already-configured wor
   });
 });
 
+Deno.test("worktree setup is idempotent: a re-run re-readies but never re-creates or re-runs steps", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "idem");
+    const markers = join(dir, "markers");
+    // A setup step that APPENDS (so a re-run is detectable), filled into the
+    // scaffolded empty steps array.
+    const cfg = await Deno.readTextFile(join(wt, "discern.toml"));
+    await Deno.writeTextFile(
+      join(wt, "discern.toml"),
+      cfg.replace(
+        "steps = []",
+        `steps = ["mkdir -p ${markers} && echo s >> ${markers}/step.log"]`,
+      ),
+    );
+    // A resource whose create likewise APPENDS — a re-create would be visible.
+    await declareResource(
+      wt,
+      markers,
+      [
+        'create  = "mkdir -p @MARKERS@ && echo c >> @MARKERS@/@resource@.create"',
+        'destroy = "rm -f @MARKERS@/@resource@.create"',
+      ].join("\n"),
+    );
+
+    const first = await runAgent(wt, ["worktree"]);
+    assertEquals(first.code, 0, first.output);
+    const handle =
+      (await runAgent(wt, ["worktree-name", "--resource", "thing"])).stdout
+        .trim();
+
+    // Re-enter setup (as a re-fired create hook or an explicit `discern worktree`
+    // would): it must re-ready, not re-create or re-run steps.
+    const second = await runAgent(wt, ["worktree"]);
+    assertEquals(second.code, 0, second.output);
+    assertStringIncludes(second.output, "already configured");
+
+    assertEquals(
+      await Deno.readTextFile(join(markers, `${handle}.create`)),
+      "c\n",
+      "resource create must not re-run on a configured worktree",
+    );
+    assertEquals(
+      await Deno.readTextFile(join(markers, "step.log")),
+      "s\n",
+      "setup steps must not re-run on a configured worktree",
+    );
+  });
+});
+
 Deno.test("worktree:prune reclaims a vanished worktree's resource (GC), and --dry-run does not", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "orph");

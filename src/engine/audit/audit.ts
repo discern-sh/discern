@@ -20,6 +20,7 @@ import { Select } from "@cliffy/prompt";
 import { loadConfig } from "../../shared/config_schema.ts";
 import { isFeatureEnabled } from "../../shared/features.ts";
 import type { DiscernResult } from "../../shared/result.ts";
+import type { AuditData } from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { colorEnabled, makeOut, type Out, type Palette } from "../output.ts";
 import { buildContext, CATEGORIES, isDeterministic } from "./rules.ts";
@@ -198,8 +199,10 @@ async function buildReport(
   return { report: evaluateReport(ctx, opts.category) };
 }
 
-/** Reduce an {@link AuditReport} to the verb's `data` payload. */
-function reportData(report: AuditReport): Record<string, unknown> {
+/** Reduce an {@link AuditReport} to the verb's `data` payload. Typed as the
+ * schema-inferred {@link AuditData} (the SSOT in `result_schemas.ts`), so a drift
+ * between this mapping and the advertised MCP `outputSchema` is a compile error. */
+function reportData(report: AuditReport): AuditData {
   return {
     score: report.score,
     weak: report.weak,

@@ -1,58 +1,73 @@
 /**
- * `prepare` — the fast inner loop behind `discern prepare`: the fix-stage jobs,
- * then the read-only check-stage jobs (no build, no tests). The fixers run first
- * (serially, via the joined fix command) since order matters, then the checks.
+ * `prepare` — the fast inner loop behind `discern prepare`: the fix-stage fixers
+ * (serial; order matters), then the read-only check-stage jobs (no build, no
+ * tests). It runs through the gate's job runner, so a failure is captured into the
+ * SAME `steps[]` + structured `diagnostics[]` `finish` returns — the act→read→fix
+ * loop, not a bare `ok:false` (ADR 0028).
  *
- * The work runs in ONE place ({@link runPrepareStages}); the human runner narrates
- * through an `Out`, while {@link prepareResult} runs it quiet and returns the
- * {@link DiscernResult} envelope the MCP server (and the CLI's `--json`) render.
- * `--json` is quiet — the envelope is the entire stdout (ADR 0030). Richer per-job
- * `steps`/`diagnostics` (as `finish` carries) would need prepare to run via the job
- * runner rather than the joined-command shell — deferred (see TODO.md).
+ * One core ({@link runPrepareGate}) builds the groups and runs them; {@link
+ * prepareResult} runs it quiet and returns the {@link DiscernResult} the MCP server
+ * (and the CLI's `--json`) render, while {@link runPrepare} narrates the same run and
+ * prints a human tail. `--json` is quiet — the envelope is the entire stdout (ADR
+ * 0030), with a failure's output captured into its diagnostic rather than streamed.
  */
 
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
-import { cmdsInStage } from "./stages.ts";
-import { colorEnabled, makeOut, type Out } from "../output.ts";
+import { type JobGroup, serializeJobSteps, stageGroup } from "./plan.ts";
+import { gateRunContext, runJobGroups } from "./execute.ts";
 import { emitResult } from "../../shared/emit.ts";
 import type { DiscernResult } from "../../shared/result.ts";
-import { runShellInherit } from "./run-shell.ts";
+import type { Out } from "../output.ts";
 
 /**
- * Run the two prepare stages — the fixers (serially; order matters), then the
- * read-only checks — narrating through `out` when one is given. Returns whether
- * both passed and which stage failed. The single source the human runner and the
- * result-returning core share, so the two can never run different work.
+ * The prepare job groups: the fix stage (serial), then the check stage — no build,
+ * no tests (those belong to the full `discern finish`).
  */
-async function runPrepareStages(
-  cfg: DiscernConfig,
-  opts: { out?: Out; quiet: boolean },
-): Promise<{ ok: boolean; failed?: "fix" | "check" }> {
-  opts.out?.heading("Fixing code...");
-  if (
-    !(await runShellInherit(cmdsInStage(cfg, "fix"), { quiet: opts.quiet }))
-  ) {
-    return { ok: false, failed: "fix" };
+function preparePlanGroups(cfg: DiscernConfig): JobGroup[] {
+  const groups: JobGroup[] = [];
+  const fix = stageGroup(cfg, "fix");
+  if (fix !== undefined) {
+    groups.push(fix);
   }
-  opts.out?.heading("Checking...");
-  if (
-    !(await runShellInherit(cmdsInStage(cfg, "check"), { quiet: opts.quiet }))
-  ) {
-    return { ok: false, failed: "check" };
+  const check = stageGroup(cfg, "check");
+  if (check !== undefined) {
+    groups.push(check);
   }
-  return { ok: true };
+  return groups;
+}
+
+/**
+ * Run the prepare gate once: build the groups, run them through the shared job
+ * runner (quiet under `--json`/MCP), and serialize to a {@link DiscernResult}
+ * carrying `steps[]` + `diagnostics[]`. The single source the result core and the
+ * human runner share, so the two can never run different work.
+ */
+async function runPrepareGate(
+  root: string,
+  json: boolean,
+): Promise<{ result: DiscernResult; failedStage: string | null; out: Out }> {
+  const cfg = await loadConfig(root);
+  const groups = preparePlanGroups(cfg);
+  const { runOpts, out } = gateRunContext(cfg, json);
+  const { results, failedStage } = await runJobGroups(groups, runOpts, out);
+  const { steps, diagnostics } = serializeJobSteps(groups, results);
+  const result: DiscernResult = {
+    ok: failedStage === null,
+    verb: "prepare",
+    steps,
+    diagnostics: diagnostics.length > 0 ? diagnostics : undefined,
+  };
+  return { result, failedStage, out };
 }
 
 /**
  * Compute the `prepare` {@link DiscernResult} without printing or exiting — the
  * entry point the MCP server renders, and the source the CLI's `--json` serializes.
- * Runs quiet (the fixers + checks with their stdio discarded) so a caller owning
- * stdout — like the MCP stdio channel — stays uncontaminated.
+ * Runs quiet (job stdio captured, not streamed) so a caller owning stdout — like the
+ * MCP stdio channel — stays uncontaminated; a failure rides in `diagnostics[]`.
  */
 export async function prepareResult(root: string): Promise<DiscernResult> {
-  const cfg = await loadConfig(root);
-  const { ok } = await runPrepareStages(cfg, { quiet: true });
-  return { ok, verb: "prepare" };
+  return (await runPrepareGate(root, true)).result;
 }
 
 /** Run `prepare`. Returns a process exit code. */
@@ -66,11 +81,9 @@ export async function runPrepare(
     return result.ok ? 0 : 1;
   }
 
-  const cfg = await loadConfig(root);
-  const out = makeOut(colorEnabled());
-  const { ok, failed } = await runPrepareStages(cfg, { out, quiet: false });
-  if (!ok) {
-    out.error(failed === "fix" ? "A fixer failed." : "A check failed.");
+  const { failedStage, out } = await runPrepareGate(root, false);
+  if (failedStage !== null) {
+    out.error(failedStage === "fix" ? "A fixer failed." : "A check failed.");
     return 1;
   }
   out.ok("Prepare complete — fixers applied and checks passed.");

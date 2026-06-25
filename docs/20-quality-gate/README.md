@@ -49,19 +49,20 @@ for the agent to judge against the cited material
 ([ADR 0029](../_adr/0029-best-practices-audit.md)).
 
 > **Status: stub.** This README orients the subtree; the leaves below are not
-> written yet (except the written [`audit.md`](audit.md)). Fill the rest with
-> the [`document-subsystem`](../../templates/skills/document-subsystem/SKILL.md)
+> written yet (except the written [`audit.md`](audit.md) and
+> [`the-result-envelope.md`](the-result-envelope.md)). Fill the rest with the
+> [`document-subsystem`](../../templates/skills/document-subsystem/SKILL.md)
 > skill.
 
 ## Planned leaves
 
-| File _(to be written)_       | What it will cover                                                                                  |
-| ---------------------------- | --------------------------------------------------------------------------------------------------- |
-| `the-finish-stages.md`       | The Stage order, serial-vs-parallel rules, fail-fast, and the gotchas pointer on fail.              |
-| `capabilities-and-checks.md` | The five known Capabilities, the derived Stage, custom Checks, and how the Engine finds them.       |
-| `scopes-and-gates.md`        | Scope globs, fail-open classification, and wiring a Scope `gate` (ADR 0018).                        |
-| `ratchets.md`                | Never-loosen floors/ceilings, the `DISCERN_METRIC` protocol, holding against `main`.                |
-| `the-result-envelope.md`     | The `DiscernResult` envelope every verb returns, its `diagnostics[]`, and `discern mcp` (ADR 0028). |
+| File _(to be written)_                                         | What it will cover                                                                                                                                                |
+| -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `the-finish-stages.md`                                         | The Stage order, serial-vs-parallel rules, fail-fast, and the gotchas pointer on fail.                                                                            |
+| `capabilities-and-checks.md`                                   | The five known Capabilities, the derived Stage, custom Checks, and how the Engine finds them.                                                                     |
+| `scopes-and-gates.md`                                          | Scope globs, fail-open classification, and wiring a Scope `gate` (ADR 0018).                                                                                      |
+| `ratchets.md`                                                  | Never-loosen floors/ceilings, the `DISCERN_METRIC` protocol, holding against `main`.                                                                              |
+| [`the-result-envelope.md`](the-result-envelope.md) _(written)_ | The `DiscernResult` envelope every verb returns, its `diagnostics[]`, the typed result schemas, and `discern mcp`'s self-describing surface (ADR 0028, ADR 0041). |
 
 ## See also
 

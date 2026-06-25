@@ -26,9 +26,17 @@ import {
   toCommandList,
 } from "../../shared/config_schema.ts";
 import type { DiscernResult } from "../../shared/result.ts";
+import type {
+  StatusData,
+  StatusFeatures,
+  StatusFleetEntry,
+  StatusGate,
+  StatusGit,
+  StatusWorktree,
+} from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { findRoot } from "../../shared/env.ts";
-import { isFeatureEnabled } from "../../shared/features.ts";
+import { FEATURES, isFeatureEnabled } from "../../shared/features.ts";
 import {
   type Capability,
   KNOWN_CAPABILITIES,
@@ -43,6 +51,7 @@ import {
   checkGuidanceCurrent,
   type GuidanceDriftEntry,
 } from "../guidance_render.ts";
+import { checkSkillsCurrent, type SkillsDriftEntry } from "../../lib/skills.ts";
 import {
   assertMainMerged,
   type FleetWorktree,
@@ -68,93 +77,11 @@ export interface StatusOptions {
   local?: boolean;
 }
 
-// ── the `data` payload shapes (the wire contract; discriminated by `location`
-//    and the presence of `fleet`) ──────────────────────────────────────────────
-
-/** This worktree's derived identity + the resources actually recorded in its `.env`. */
-interface StatusWorktree {
-  id: string;
-  branch: string;
-  site: string;
-  port: number;
-  db: string;
-  /** name → handle, READ from this worktree's `.env` (never created). */
-  resources: Record<string, string>;
-}
-
-/** The local git situation relative to the integration branch. */
-interface StatusGit {
-  branch: string;
-  integration_branch: string;
-  clean: boolean;
-  changed_files: number;
-  /** Commits the branch is behind the integration branch; null = not comparable
-   * (the main checkout, or no local integration branch). */
-  behind_integration: number | null;
-  /** Commits the branch is ahead of the integration branch. */
-  ahead_integration: number;
-}
-
-/** What the gate WOULD fire for the current change — enumerated, never run. */
-interface StatusGate {
-  /** Wired capabilities (those with a real command), in canonical order. */
-  capabilities: string[];
-  /** Declared `[checks.<name>]`. */
-  checks: string[];
-  /** Scopes whose `gate` the current change triggers. */
-  scope_gates: string[];
-}
-
-/** One row of the fleet survey — intentionally cheap (git reads + a best-effort
- * `.env` peek for id/port). */
-interface StatusFleetEntry {
-  path: string;
-  is_main: boolean;
-  branch: string;
-  clean: boolean;
-  changed_files: number;
-  ahead: number;
-  behind: number;
-  /** ISO 8601 timestamp of the most recent activity — the latest of the last HEAD
-   * movement (commit, checkout, or the worktree's creation) and the newest mtime
-   * among uncommitted files. Omitted when it can't be determined. */
-  last_activity?: string;
-  /** Best-effort, read from the worktree's `.env`; omitted when absent. */
-  id?: string;
-  port?: number;
-}
-
-/** The feature-toggle snapshot status reports. */
-interface StatusFeatures {
-  worktrees: boolean;
-  ratchets: boolean;
-  skills: boolean;
-  mcp: boolean;
-  docs: boolean;
-}
-
-/** The full `data` payload. The local-only heavy blocks (`changed_scopes`/`gate`)
- * are present in the local view and omitted when leading with the fleet from the
- * main checkout; `fleet` is present only when the fleet survey is included. */
-interface StatusData {
-  location: "main" | "worktree";
-  root: string;
-  worktree: StatusWorktree | null;
-  git: StatusGit | null;
-  changed_scopes?: string[];
-  gate?: StatusGate;
-  features: StatusFeatures;
-  ratchets: string[];
-  /** Generated agent files (e.g. AGENTS.md) that don't match what `discern refresh`
-   * would write — missing or stale. Omitted when all current or guidance is off. */
-  stale_generated?: string[];
-  /** Present (only) while one-time setup is unfinished — `[meta].bootstrapped` is
-   * not yet recorded. `pending_markers` lists scaffolded files still carrying
-   * skeleton markers (may be empty: all filled, but `setup done` not yet run).
-   * Omitted once setup is complete. */
-  setup_unfinished?: { pending_markers: string[] };
-  fleet?: StatusFleetEntry[];
-}
+// ── the `data` payload shapes ──────────────────────────────────────────────────
+// The wire contract (discriminated by `location` and the presence of `fleet`) lives
+// as Zod schemas in `result_schemas.ts` — the SSOT the MCP `outputSchema` advertises.
+// Typing this core's `data` (and its sub-blocks) as the inferred types means any
+// drift from the schema is a compile error.
 
 // ── the result core (the single source the CLI and the MCP tool both render) ────
 
@@ -218,13 +145,11 @@ export async function statusResult(
     ? await buildWorktreeBlock(root, cfg)
     : null;
 
-  const features: StatusFeatures = {
-    worktrees: isFeatureEnabled(cfg, "worktrees"),
-    ratchets: isFeatureEnabled(cfg, "ratchets"),
-    skills: isFeatureEnabled(cfg, "skills"),
-    mcp: isFeatureEnabled(cfg, "mcp"),
-    docs: isFeatureEnabled(cfg, "docs"),
-  };
+  // Built from the FEATURES SSOT (not a hand-listed object) so every toggle is
+  // reported and a new feature can't silently go missing from status.
+  const features: StatusFeatures = Object.fromEntries(
+    FEATURES.map((f) => [f, isFeatureEnabled(cfg, f)]),
+  ) as StatusFeatures;
 
   // Fleet decision. The fleet is meaningful only with the worktrees feature on, and
   // only worth surveying from the main checkout (the supervisor view) or when a
@@ -272,6 +197,25 @@ export async function statusResult(
     }
   }
 
+  // The same read-only currency check, for the MATERIALIZED skills (ADR 0034,
+  // extended to skills). Advisory here, like `stale_generated`: a drifted or
+  // not-yet-materialized skills dir is noticed at orientation. Skipped when skills
+  // is off. Reports the affected skill paths (dir/name), `missing` dirs included.
+  let skillsDrift: SkillsDriftEntry[] = [];
+  if (isFeatureEnabled(cfg, "skills")) {
+    skillsDrift = await checkSkillsCurrent(root, cfg);
+    // Report only `missing`/`stale` (parallel to `stale_generated` for guidance) — a
+    // `foreign` drop-in is NOT discern's to fix (the materializer leaves it and warns),
+    // so listing it under a `stale_`-named field would tell an agent to "refresh" a
+    // file a refresh won't touch. It is intentionally absent from the structured field.
+    const reportable = skillsDrift.filter((d) => d.reason !== "foreign");
+    if (reportable.length > 0) {
+      data.stale_materialized = reportable.map((d) =>
+        d.name === "" ? d.dir : `${d.dir}/${d.name}`
+      );
+    }
+  }
+
   // One-time setup state (ADR 0036). Until `[meta].bootstrapped` is recorded the
   // project is mid-setup and the agent must finish it — surfaced loudly (a banner,
   // a lead hint) so a half-done setup isn't mistaken for a finished one. Walk for
@@ -301,6 +245,7 @@ export async function statusResult(
     worktreesOn: features.worktrees,
     liveCount,
     guidanceDrift,
+    skillsDrift,
     setupPending,
   });
 
@@ -421,6 +366,8 @@ interface HintContext {
   liveCount: number;
   /** Generated agent files that don't match what `discern refresh` would write. */
   guidanceDrift: GuidanceDriftEntry[];
+  /** Materialized skills that don't match the effective set a refresh would place. */
+  skillsDrift: SkillsDriftEntry[];
   /** Scaffolded files still carrying skeleton markers while setup is unfinished;
    * undefined once `[meta].bootstrapped` is recorded. Drives the lead setup hint. */
   setupPending: string[] | undefined;
@@ -451,6 +398,21 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
       allMissing
         ? `Generated agent files aren't built yet (${paths}); run \`discern refresh\`.`
         : `Generated agent files are out of date (${paths}); run \`discern refresh\` — edits belong in your [guidance].sources, not the generated file.`,
+    );
+  }
+
+  // Materialized skills drifted from the effective set — the same advisory shape as
+  // guidance. `missing`/`foreign` (a not-yet-built dir, an unmanaged drop-in) read
+  // differently from `stale` (a drift a refresh overwrites), so only stale gets the
+  // edit-the-source redirect; foreign is surfaced but never presented as fixable.
+  const realSkillsDrift = ctx.skillsDrift.filter((d) => d.reason !== "foreign");
+  if (realSkillsDrift.length > 0) {
+    const dirs = [...new Set(realSkillsDrift.map((d) => d.dir))].join(", ");
+    const allMissing = realSkillsDrift.every((d) => d.reason === "missing");
+    hints.push(
+      allMissing
+        ? `Skills aren't materialized yet (${dirs}); run \`discern refresh\`.`
+        : `Materialized skills are out of date (${dirs}); run \`discern refresh\` — edits belong in your [skills].dir source, not the materialized copy.`,
     );
   }
 

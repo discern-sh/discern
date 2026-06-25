@@ -6,7 +6,9 @@ Amends [ADR 0024](0024-bootstrap-as-command.md) (which made bootstrap a command,
 not a skill) and builds on [ADR 0016](0016-consolidate-install-surface.md).
 Hardened by [ADR 0037](0037-setup-incompleteness-observable.md), which makes the
 unfinished-setup state observable so the handoff can't be mistaken for
-completion.
+completion. The setup-brief interaction model it established —
+propose-and-confirm — is later revised to _involve, don't gate_ by
+[ADR 0044](0044-setup-involve-not-gate.md).
 
 ## Context
 

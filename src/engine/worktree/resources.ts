@@ -343,6 +343,22 @@ export async function createResources(
     if (spec.create === "" && spec.destroy === "") {
       continue; // an inert resource — nothing to manage
     }
+    // Already provisioned? A ledger entry for this (worktree, resource) is the proof
+    // `create` already ran — it is the intent-log written just before create. Re-
+    // entering setup (a re-fired create hook, a recovered partial setup, an explicit
+    // `discern worktree`) must NOT re-run create: a `createdb` / `docker run --name`
+    // is not idempotent, and its "already exists" non-zero exit would abort an
+    // already-good worktree. Skip it; session-start `ensure` re-readies it if asked.
+    if (
+      spec.destroy !== "" &&
+      (await readEntry(entryPath(commonGitDir, gitKey, spec.name))) !==
+        undefined
+    ) {
+      ctx.log.info(
+        `Worktree resource '${spec.name}' already provisioned — skipping create.`,
+      );
+      continue;
+    }
     const resolver = buildTokenResolver(
       identity,
       settings,
