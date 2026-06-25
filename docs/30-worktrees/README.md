@@ -16,11 +16,14 @@ workflow is the `worktrees` feature, which can be turned off in `[features]`
 The lifecycle is driven by hooks in `.claude/settings.json`: `SessionStart` →
 [`worktree:ensure`](../../src/engine/worktree/lifecycle.ts) (idempotent setup +
 resource `ensure`), `WorktreeCreate` →
-[`worktree`](../../src/engine/worktree/lifecycle.ts) (first-time setup creates
-the resources), `WorktreeRemove` →
-[`worktree:teardown`](../../src/engine/worktree/lifecycle.ts) (destroys them).
-When a change is done, [`graduate`](../../src/engine/worktree/lifecycle.ts)
-graduates the branch into the main repo and removes the Worktree;
+[`worktree:create`](../../src/lib/worktree_hooks.ts) (reads the hook's JSON
+payload, adds the worktree, then runs first-time setup — which creates the
+resources), `WorktreeRemove` →
+[`worktree:remove`](../../src/lib/worktree_hooks.ts) (tears it down). Those two
+hook entries parse their payload in the binary itself — no `jq`
+([ADR 0040](../_adr/0040-worktree-hooks-in-the-binary.md)). When a change is
+done, [`graduate`](../../src/engine/worktree/lifecycle.ts) graduates the branch
+into the main repo and removes the Worktree;
 [`worktree:prune`](../../src/engine/worktree/lifecycle.ts) sweeps stale
 Worktrees and **reclaims the resources of any Worktree that vanished without a
 clean teardown** (the garbage-collection safety net).

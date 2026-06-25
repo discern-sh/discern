@@ -83,15 +83,29 @@ async function git(args: string[], cwd?: string): Promise<GitRun> {
 
 /** Whether the configured git binary is runnable at all. */
 export async function gitAvailable(): Promise<boolean> {
+  return (await gitVersion()) !== undefined;
+}
+
+/**
+ * The configured git binary's version line (`git --version` → e.g. `git version
+ * 2.43.0`), or undefined when git is missing or unrunnable. The single git-binary
+ * probe behind both {@link gitAvailable} and `doctor`'s git check, so "is git
+ * here?" and "which git?" are answered the same way.
+ */
+export async function gitVersion(): Promise<string | undefined> {
   try {
     const output = await new Deno.Command(gitBin(), {
       args: ["--version"],
-      stdout: "null",
+      stdout: "piped",
       stderr: "null",
     }).output();
-    return output.success;
+    if (!output.success) {
+      return undefined;
+    }
+    const line = new TextDecoder().decode(output.stdout).trim();
+    return line === "" ? undefined : line;
   } catch {
-    return false;
+    return undefined;
   }
 }
 
@@ -340,6 +354,31 @@ export async function ensureWorktreeBranch(
     );
   }
   return candidate;
+}
+
+/**
+ * Create a linked worktree at `dir` on a fresh branch `branch`, added from the
+ * main checkout at `mainRepo`. Idempotent: if `dir` is already a worktree (its
+ * `.git` exists) it is a no-op, so a hook that re-fires never errors. Throws
+ * `WorktreeGitError` on a git failure. The caller chooses the directory and the
+ * branch name — this helper bakes in NO location or naming convention (the git
+ * layer stays agent-agnostic; the Claude-Code-specific `.claude/worktrees`
+ * convention lives in the hook adapter that calls this).
+ */
+export async function addWorktree(
+  mainRepo: string,
+  dir: string,
+  branch: string,
+): Promise<void> {
+  if (await pathExists(join(dir, ".git"))) {
+    return;
+  }
+  const run = await git(["worktree", "add", dir, "-b", branch], mainRepo);
+  if (!run.success) {
+    throw new WorktreeGitError(
+      `git worktree add failed for '${dir}' on branch '${branch}': ${run.stderr.trim()}`,
+    );
+  }
 }
 
 /** Canonicalize a target that may already be gone (parent + basename fallback). */

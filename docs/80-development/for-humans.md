@@ -31,9 +31,15 @@ produced from source in this repo and overwritten on `upgrade`.
 
 - **[Deno](https://deno.com)** — the only toolchain this repo needs
   (`deno task`, the gate from source).
-- **git** with worktree support (any recent version).
-- **jq** — used by the worktree hooks in `.claude/settings.json`, so an agent
-  session that creates or removes a worktree needs it on `PATH`.
+- **git** with worktree support (any recent version) — the worktree workflow,
+  ratchets, and `status` all shell out to it.
+
+That is the whole list: the worktree hooks read their JSON payload in the binary
+itself, so there is no `jq` (or other shell-tool) dependency
+([ADR 0040](../_adr/0040-worktree-hooks-in-the-binary.md)). A
+[`Brewfile`](../../Brewfile) at the repo root pins the toolchain for
+macOS/Homebrew users (`brew bundle install` from the root); `discern doctor`
+verifies that `git` and a POSIX `sh` resolve on `PATH`.
 
 Stack-specific setup (installing project dependencies, running the app) lives in
 [getting-started.md](getting-started.md) once `discern setup` has filled it in.

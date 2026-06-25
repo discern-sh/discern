@@ -30,6 +30,7 @@ interface DoctorPayload {
   verb: string;
   data: {
     kit_version: string;
+    environment: { discern: string; platform: string; git?: string };
     checks: DoctorCheck[];
   };
 }
@@ -103,12 +104,38 @@ Deno.test("doctor --json: a fresh install is fully healthy and exits 0", async (
     assertEquals(payload.verb, "doctor");
     assertEquals(payload.data.kit_version, "1.0.0");
     for (
-      const name of ["discern.toml", "schema version", "capabilities"]
+      const name of ["discern.toml", "schema version", "capabilities", "git"]
     ) {
       assertEquals(check(payload, name).ok, true, `${name} should pass`);
     }
     // The schema check names the current version.
     assertStringIncludes(check(payload, "schema version").detail, "current");
+    // The git check reports the resolved version (triage context).
+    assertStringIncludes(check(payload, "git").detail, ".");
+    // The environment block is populated for bug-report triage.
+    assertEquals(payload.data.environment.discern, "1.0.0");
+    assert(
+      payload.data.environment.platform.includes("/"),
+      "platform should be os/arch",
+    );
+  });
+});
+
+Deno.test("doctor: the git check fails with a fix when git is unreachable", async () => {
+  await withTempDir(async (dir) => {
+    await initInstall(dir);
+    // Point GIT_BIN at a name that does not resolve, so the git probe fails the
+    // same way a machine with no git would — without touching the real PATH.
+    const { code, stdout } = await runCli(["doctor", "--json"], dir, {
+      GIT_BIN: "definitely-not-git-12345",
+    });
+    const payload = JSON.parse(stdout) as DoctorPayload;
+    assertEquals(code, 1);
+    const git = check(payload, "git");
+    assertEquals(git.ok, false);
+    assertStringIncludes(git.fix ?? "", "install git");
+    // The environment block records git as absent (omitted) rather than crashing.
+    assertEquals(payload.data.environment.git, undefined);
   });
 });
 
@@ -118,11 +145,11 @@ Deno.test("doctor: human (non-json) output reports a clean bill on stderr, exit 
     const { code, stderr } = await runCli(["doctor"], dir);
     assertEquals(code, 0);
     assertStringIncludes(stderr, "discern doctor");
-    assertStringIncludes(
-      stderr,
-      "discern.toml: present and valid TOML",
-    );
+    // The environment header gives at-a-glance triage context.
+    assertStringIncludes(stderr, "discern 1.0.0 ·");
+    assertStringIncludes(stderr, "discern.toml: present and valid TOML");
     assertStringIncludes(stderr, "schema 9 (current)");
+    assertStringIncludes(stderr, "git: ");
     assertStringIncludes(stderr, "All checks passed.");
   });
 });
@@ -189,7 +216,8 @@ Deno.test("doctor: human output for a stale schema prints the fix and a failure 
     assertStringIncludes(stderr, "schema version:");
     assertStringIncludes(stderr, "fix: ");
     assertStringIncludes(stderr, "discern upgrade");
-    assertStringIncludes(stderr, "Some checks failed");
+    // The failure summary counts the failed checks.
+    assertStringIncludes(stderr, "1 check failed — see the fixes above.");
   });
 });
 

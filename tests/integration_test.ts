@@ -83,7 +83,10 @@ Deno.test("init scaffolds the real templates into a working harness", async () =
       "An end-to-end integration brief.",
     );
 
-    // 5. The merged settings parse and carry the branch_prefix substitution.
+    // 5. The merged settings parse and wire the worktree hooks to the binary's
+    // own dispatches (the create/remove hooks read their JSON payload natively —
+    // no jq, no branch_prefix substitution; the branch prefix is asserted on the
+    // rendered discern.toml above). See ADR 0039.
     const settings = JSON.parse(
       await Deno.readTextFile(join(dir, ".claude/settings.json")),
     );
@@ -91,8 +94,9 @@ Deno.test("init scaffolds the real templates into a working harness", async () =
     assert(Array.isArray(settings.hooks?.WorktreeCreate));
     assertStringIncludes(
       JSON.stringify(settings.hooks.WorktreeCreate),
-      "agent/",
+      "worktree:create",
     );
+    assert(!/\bjq\b/.test(JSON.stringify(settings.hooks)));
 
     // 6. No committed shell engine is laid down — the engine lives in the binary.
     await assertAbsent(join(dir, "agent"));
