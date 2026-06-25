@@ -13,8 +13,8 @@ import { Command } from "@cliffy/command";
 import { join } from "@std/path";
 import {
   type DiscernConfig,
-  type GraduateTarget,
   GRADUATE_TARGETS,
+  type GraduateTarget,
   loadConfig,
 } from "../shared/config_schema.ts";
 import { RawConfig } from "../shared/config_read.ts";
@@ -445,7 +445,8 @@ export function attachEngineCommands(
       const json = o.json ?? false;
       const to = o.to;
       if (
-        to !== undefined && !(GRADUATE_TARGETS as readonly string[]).includes(to)
+        to !== undefined &&
+        !(GRADUATE_TARGETS as readonly string[]).includes(to)
       ) {
         console.error(
           `discern: invalid --to "${to}" (expected one of: ${
