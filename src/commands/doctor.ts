@@ -365,7 +365,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
       name: "features",
       ok: true,
       detail: off.length === 0
-        ? "all on (worktrees, ratchets, guidance, skills, docs)"
+        ? `all on (${[...on].join(", ")})`
         : `on: ${[...on].join(", ") || "none"}; off: ${off.join(", ")}`,
     });
   }

@@ -14,6 +14,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { runCli, withTempDir } from "./helpers.ts";
+import { FEATURES } from "../src/shared/features.ts";
 
 /** One check in the `doctor --json` payload. */
 interface DoctorCheck {
@@ -118,6 +119,20 @@ Deno.test("doctor --json: a fresh install is fully healthy and exits 0", async (
       payload.data.environment.platform.includes("/"),
       "platform should be os/arch",
     );
+  });
+});
+
+Deno.test("doctor: the features check names every feature when all are on", async () => {
+  await withTempDir(async (dir) => {
+    await initInstall(dir);
+    const { payload } = await runDoctorJson(dir);
+    // A fresh install has every feature on → the detail derives the full list from
+    // the FEATURES SSOT, so each one (mcp included) must appear.
+    const detail = check(payload, "features").detail;
+    assertStringIncludes(detail, "all on");
+    for (const f of FEATURES) {
+      assertStringIncludes(detail, f, `features check should name '${f}'`);
+    }
   });
 });
 
