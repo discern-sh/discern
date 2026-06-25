@@ -30,6 +30,7 @@ import {
   compileGuidelines,
   type GuidelinesResult,
 } from "../engine/guidelines.ts";
+import { ensureAgentArtifactsIgnored } from "../lib/agent_gitignore.ts";
 
 /** Options accepted by the `upgrade` command. */
 export interface UpgradeOptions {
@@ -220,6 +221,23 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     registry: options.registry,
     onNote: (m) => log.detail(m),
   });
+
+  // 1b. Reconcile .gitignore against the CURRENT registry's agent artifacts —
+  // idempotent and registry-derived, so a future agent's generated files are ignored
+  // on the next upgrade with no bespoke per-agent migration (ADR 0043). A no-op for an
+  // install whose .gitignore already covers every artifact (today's normal case).
+  try {
+    const added = await ensureAgentArtifactsIgnored(destDir);
+    if (added.length > 0) {
+      log.detail(`gitignored new agent build artifacts: ${added.join(", ")}`);
+    }
+  } catch (error) {
+    log.warn(
+      `could not reconcile .gitignore for agent artifacts: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
 
   // 2. Recompile the guidelines (re-materializes skills + writes agent files,
   // each gated on its feature). A failure here is non-fatal to the upgrade — the

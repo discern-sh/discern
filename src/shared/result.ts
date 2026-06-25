@@ -42,6 +42,7 @@ export type StepKind =
   | "scope-gate" // run a scope's self-contained gate
   | "merge-check" // assert the branch contains the integration branch
   | "guidance-check" // assert the generated agent files match their sources
+  | "skills-check" // assert the materialized skills match the effective set
   | "resource-create" // create a per-worktree external resource
   | "resource-destroy" // destroy / reclaim a per-worktree external resource
   | "git" // a git mutation (branch, wip-commit, remove, checkout, reset, sweep)

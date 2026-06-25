@@ -56,6 +56,7 @@ import { prepareResult } from "../gate/prepare.ts";
 import { testResult } from "../gate/test.ts";
 import { ratchetsResult } from "../gate/ratchets.ts";
 import { auditResult } from "../audit/audit.ts";
+import { CATEGORY_NAMES } from "../audit/rules.ts";
 import { changedScopesResult } from "../scopes/changed.ts";
 import { statusResult } from "../status/status.ts";
 import { doctorResult } from "../../commands/doctor.ts";
@@ -233,7 +234,11 @@ const TOOLS: McpTool[] = [
       "branch/clean/changed-files and ahead/behind the integration branch; data.gate " +
       "lists what the gate WOULD fire (wired capabilities, checks, triggered scope " +
       "gates); data.worktree carries this worktree's id/port/db and provisioned " +
-      "resources; data.features and data.ratchets list the configured set. From the " +
+      "resources; data.features and data.ratchets list the configured set. " +
+      "data.stale_generated flags generated agent files, and data.stale_materialized " +
+      "the materialized skills, that have drifted from their sources (run discern " +
+      "refresh for either); data.setup_unfinished is present while the project's " +
+      "one-time setup is still incomplete. From the " +
       "main checkout it leads with data.fleet (a cheap row per worktree: branch, " +
       "dirty/ahead/behind, and a last_activity timestamp); set all=true " +
       "to include the fleet from a worktree, or local=true to suppress it. hints[] are " +
@@ -266,7 +271,7 @@ const TOOLS: McpTool[] = [
       "Use it to surface concrete setup improvements; pass a category to focus one area.",
     inputSchema: {
       category: z.string().optional().describe(
-        "Restrict to one area: gate, setup, guidance, docs, worktrees, ratchets, or skills.",
+        `Restrict to one area: ${CATEGORY_NAMES.join(", ")}.`,
       ),
       min_score: z.number().optional().describe(
         "Mark the result failed (isError) when the overall score is below this floor.",
@@ -657,7 +662,8 @@ function registerResources(
  * clients load when MCP connects (it rides in the `initialize` result). discern's
  * operating model in a few imperative lines, carrying the strong MCP-first stance:
  * these tools are the primary surface, not the CLI. Feature-aware, mirroring the
- * tool gating — the docs and graduate lines appear only when their feature is on.
+ * tool gating — the docs, ratchets, and graduate lines appear only when their
+ * feature is on.
  */
 function buildInstructions(enabled: ReadonlySet<Feature>): string {
   const lines = [
@@ -674,11 +680,19 @@ function buildInstructions(enabled: ReadonlySet<Feature>): string {
     "than re-running and scraping.",
     "- Learn how discern itself works (the gate, discern.toml, worktrees) with " +
     "discern_help.",
+    "- Verify the install with discern_doctor when something looks misconfigured " +
+    "(bad config, a command not on PATH, a stale schema).",
   ];
   if (enabled.has("docs")) {
     lines.push("- Read THIS project's own documentation with discern_docs.");
   }
   lines.push("- Find concrete setup improvements with discern_audit.");
+  if (enabled.has("ratchets")) {
+    lines.push(
+      "- Before pushing, hold the quality ratchets with discern_ratchets — slow " +
+        "and on-demand, so NOT part of discern_finish.",
+    );
+  }
   if (enabled.has("worktrees")) {
     lines.push(
       "- When a branch is finished and integrated, graduate it into the main " +

@@ -32,6 +32,7 @@ import { KNOWN_CAPABILITIES } from "./config.ts";
 import { bundledSkillNames } from "./skills.ts";
 import { resolveBundledSkillsDir } from "./paths.ts";
 import { FEATURES } from "../shared/features.ts";
+import { DEFAULT_AGENTS } from "../shared/config_schema.ts";
 
 /** True for a non-null, non-array object. */
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -411,7 +412,7 @@ export const MIGRATIONS: Migration[] = [
       const recipesTbl = isRecord(raw.recipes) ? raw.recipes : undefined;
       const agents = legacyAgents.length > 0
         ? legacyAgents
-        : ["claude_code", "codex"];
+        : [...DEFAULT_AGENTS];
       const tmpl = await readConfigTemplate();
       // A section's canonical block from the template, with content tokens filled
       // (only [guidance] carries one, `{{agents_array}}`). Undefined when the
@@ -706,6 +707,14 @@ export const MIGRATIONS: Migration[] = [
       await ignoreAgentsMd(ctx);
     },
   },
+  {
+    from: 9,
+    describe:
+      "ignore /.agents/skills/: skills now materialize there for Codex/Gemini (the cross-tool standard), so the generated dir joins .claude/skills as an untracked build artifact (ADR 0042)",
+    apply: async (ctx) => {
+      await ignoreAgentsSkills(ctx);
+    },
+  },
 ];
 
 /** Render a live `[worktree.resources.<name>]` table (only the non-empty keys). */
@@ -959,6 +968,44 @@ async function ignoreAgentsMd(ctx: MigrationContext): Promise<void> {
   await ctx.writeText(".gitignore", text);
   ctx.note(
     "ignored AGENTS.md (now a generated build artifact). Run `git rm --cached AGENTS.md` once to stop tracking it, then commit.",
+  );
+}
+
+/**
+ * Add `/.agents/skills/` to `.gitignore`. Skills now materialize into each agent's
+ * skills dir; for Codex and Gemini that is the cross-tool `.agents/skills/` standard
+ * (Codex's repo path, Gemini's preferred alias). The generated dir joins
+ * `.claude/skills/` as an untracked build artifact. Idempotent: a no-op when already
+ * ignored, and when there is no `.gitignore` to amend.
+ */
+async function ignoreAgentsSkills(ctx: MigrationContext): Promise<void> {
+  const existing = await ctx.readText(".gitignore");
+  if (existing === undefined) {
+    return; // no .gitignore to amend (init always seeds one) — nothing to do.
+  }
+  if (/^\s*\/?\.agents\/skills\b/m.test(existing)) {
+    return; // already ignored — idempotent no-op.
+  }
+  const lines = existing.split("\n");
+  // Group it with the .claude/* materialized-skills ignore: insert after the
+  // `/.claude/*` rule and its `!`-exception lines. Failing that, append under a note.
+  let at = lines.findIndex((l) => /^\s*\/?\.claude\/\*/.test(l));
+  let text: string;
+  if (at !== -1) {
+    at++;
+    while (at < lines.length && /^\s*!/.test(lines[at] ?? "")) {
+      at++; // step past the !/.claude/settings… exceptions
+    }
+    lines.splice(at, 0, "/.agents/skills/");
+    text = lines.join("\n");
+  } else {
+    const base = existing.replace(/\n+$/, "");
+    text =
+      `${base}\n\n# discern: skills materialized for Codex/Gemini (the cross-tool .agents/skills/ standard)\n/.agents/skills/\n`;
+  }
+  await ctx.writeText(".gitignore", text);
+  ctx.note(
+    "ignored .agents/skills/ (skills now materialize there for Codex/Gemini).",
   );
 }
 

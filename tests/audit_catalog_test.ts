@@ -14,7 +14,7 @@
 
 import { assert, assertEquals } from "@std/assert";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
-import { CATEGORIES } from "../src/engine/audit/rules.ts";
+import { CATEGORIES, CATEGORY_NAMES } from "../src/engine/audit/rules.ts";
 import { evaluateReport } from "../src/engine/audit/audit.ts";
 import type { AuditContext } from "../src/engine/audit/types.ts";
 
@@ -68,6 +68,13 @@ run = "echo"
     },
   );
 }
+
+Deno.test("audit catalog: CATEGORY_NAMES is derived from the catalog, in order (SSOT)", () => {
+  // The CLI help and the MCP tool's --category description interpolate this list,
+  // so it must stay derived from CATEGORIES rather than hand-listed.
+  assertEquals(CATEGORY_NAMES, CATEGORIES.map((c) => c.name));
+  assert(CATEGORY_NAMES.length > 0);
+});
 
 Deno.test("audit catalog: rule ids are unique and namespaced by their category", () => {
   const seen = new Set<string>();

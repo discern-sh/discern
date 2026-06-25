@@ -12,7 +12,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { exists } from "@std/fs";
-import { withTempDir } from "./helpers.ts";
+import { REAL_TEMPLATES, withTempDir } from "./helpers.ts";
 import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
 
 /** The H1 of the printed setup instructions (templates/setup/instructions.md). */
@@ -286,4 +286,46 @@ Deno.test("discern setup --json emits the DiscernResult envelope", async () => {
         res.data.instructions.length > 0,
     );
   });
+});
+
+Deno.test("the brief teaches involve-don't-gate (narrate + atomic commits), not a per-step confirm gate (ADR 0044)", async () => {
+  // Read the printed brief directly — `templates/` is excluded from `deno fmt`,
+  // so these anchors stay on one line and won't be reflowed out from under us.
+  const brief = await Deno.readTextFile(
+    join(REAL_TEMPLATES, "setup", "instructions.md"),
+  );
+
+  // The interaction model is taught: a named stance, the five-beat narration
+  // pattern, discern named as the source of the recommendation, per-stage atomic
+  // commits, and the explicit carve-out for decisions that DO warrant a pause.
+  assertStringIncludes(brief, "involve, don't gate");
+  assertStringIncludes(brief, "five beats");
+  assertStringIncludes(brief, "Name `discern` as the source");
+  assertStringIncludes(brief, "atomic commit");
+  assertStringIncludes(brief, "genuine decision");
+
+  // Reversibility-IS-safety is spelled out — the commit is the undo — so
+  // "proceed without asking" can never be read as "act irreversibly".
+  assertStringIncludes(brief, "the undo");
+
+  // The old propose-and-confirm gate is reconciled away in EVERY place it lived:
+  // the operating principle, the Step 7 capability gate, and the stop-condition.
+  // These are the structural guards that keep the consent gate from creeping back.
+  assert(
+    !brief.includes("Propose, don't overwrite"),
+    "the propose-and-confirm operating principle must not return",
+  );
+  assert(
+    !brief.includes("let them confirm"),
+    "per-step confirm-gating language must not return",
+  );
+  assert(
+    !brief.includes("committed only if the user confirms"),
+    "the capability-fill confirm gate must not return in the stop-conditions",
+  );
+
+  // The warmer narration must NOT soften the incompleteness signal (ADR 0037):
+  // per-stage commits are transparency during setup, not "setup complete".
+  assertStringIncludes(brief, "Narration is not completion");
+  assertStringIncludes(brief, "You are not done until all of these are true");
 });

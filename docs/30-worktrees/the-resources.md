@@ -19,7 +19,7 @@ provisions nothing.
 
 ```toml
 [worktree.resources.<name>]
-create  = "..."   # run once at setup     (empty = no-op)
+create  = "..."   # run once at setup; author idempotent (empty = no-op)
 destroy = "..."   # run once at teardown  (empty = nothing to tear down / GC)
 ensure  = "..."   # optional: idempotent re-readiness, run at session start
 required = true   # optional: a failed create aborts setup (default true)
@@ -35,12 +35,13 @@ command is a clean no-op. A `required` create that fails aborts setup loudly
 
 ## The lifecycle
 
-| Phase                                    | What happens                                                                                                                                 |
-| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `discern worktree`                       | **setup** — creates each resource (a ledger entry is written first, so a crash mid-create is GC-able), then records its handle into `.env`.  |
-| any later command                        | **reuse** — the resource persists for the whole Worktree; nothing re-creates it. Pay an expensive readiness cost once, never per-invocation. |
-| `discern worktree:teardown` / `graduate` | **destroy** — runs each resource's destroy in reverse order (best-effort), then clears its ledger entry. A clean exit leaves no orphan.      |
-| `discern worktree:prune`                 | **garbage-collect** — reclaims the resources of any Worktree that vanished WITHOUT a clean teardown (hard kill, `rm -rf`, crash).            |
+| Phase                                     | What happens                                                                                                                                                               |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `discern worktree` (first run)            | **setup** — creates each resource (a ledger entry is written first, so a crash mid-create is GC-able), then records its handle into `.env`.                                |
+| `discern worktree` re-run / re-fired hook | **re-ready, never re-create** — an already-configured worktree skips resource `create` and the setup steps, running each resource's `ensure` instead. Setup is idempotent. |
+| any later command                         | **reuse** — the resource persists for the whole Worktree; nothing re-creates it. Pay an expensive readiness cost once, never per-invocation.                               |
+| `discern worktree:teardown` / `graduate`  | **destroy** — runs each resource's destroy in reverse order (best-effort), then clears its ledger entry. A clean exit leaves no orphan.                                    |
+| `discern worktree:prune`                  | **garbage-collect** — reclaims the resources of any Worktree that vanished WITHOUT a clean teardown (hard kill, `rm -rf`, crash).                                          |
 
 Teardown is **best-effort and idempotent**: a failure is logged and never
 strands a Worktree (a later prune is the backstop), and a destroy that runs when

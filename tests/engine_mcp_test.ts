@@ -730,6 +730,49 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
   });
 });
 
+Deno.test("discern mcp: discern_status documents its actionable data fields (incl. stale_materialized)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const mcp = await spawnMcp(dir);
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await mcp.recv();
+
+    await mcp.send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
+    const list = await mcp.recv();
+    const status =
+      (list.result.tools as { name: string; description: string }[])
+        .find((t) => t.name === "discern_status");
+    assert(status !== undefined, "discern_status should be listed");
+
+    // What the agent SEES (the tool description) must name every actionable advisory
+    // field status DOES emit — each tells the agent to run a command (`discern
+    // refresh`, or finish setup). `stale_materialized` is why this guard exists: it
+    // arrived with the materialized-skills currency check AFTER its two siblings were
+    // documented, and silently went unmentioned. Pin all three so a new advisory
+    // field can't drift into the payload undocumented the same way.
+    for (
+      const field of [
+        "stale_generated",
+        "stale_materialized",
+        "setup_unfinished",
+      ]
+    ) {
+      assert(
+        status.description.includes(field),
+        `discern_status description must document data.${field}; got:\n${status.description}`,
+      );
+    }
+
+    assertEquals(await mcp.close(), 0);
+  });
+});
+
 Deno.test("discern mcp: a tool call's structuredContent validates against its advertised schema", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
@@ -844,7 +887,12 @@ Deno.test("discern mcp: discern_ratchets is hidden when the ratchets feature is 
       method: "initialize",
       params: initParams(),
     });
-    await mcp.recv();
+    const init = await mcp.recv();
+    // ratchets off → its line drops from the instructions too (mirrors tool gating).
+    assert(
+      !(init.result.instructions as string).includes("discern_ratchets"),
+      init.result.instructions,
+    );
     await mcp.send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
     const list = await mcp.recv();
     const names = list.result.tools.map((t: { name: string }) => t.name);
@@ -876,6 +924,9 @@ Deno.test("discern mcp: the server advertises a non-empty, MCP-first instruction
     assert(instructions.includes("discern_finish"), instructions);
     // Worktrees are on in the default scaffold → the graduate line is present.
     assert(instructions.includes("discern_graduate"), instructions);
+    // Always-on diagnostics, plus the feature-gated ratchets line (on by default).
+    assert(instructions.includes("discern_doctor"), instructions);
+    assert(instructions.includes("discern_ratchets"), instructions);
     assertEquals(await mcp.close(), 0);
   });
 });
