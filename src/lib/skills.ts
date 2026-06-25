@@ -43,6 +43,15 @@ export interface SkillEntry {
 /** The directory the provider (Claude Code) discovers skills in. */
 const CLAUDE_SKILLS_REL = ".claude/skills";
 
+/**
+ * discern's ownership record inside `.claude/skills/`: the skill names it
+ * materialized on the last run. It is what lets a later run prune a stale copy
+ * discern itself placed (a bundled skill a newer binary stopped shipping) WITHOUT
+ * clobbering a user's hand-placed drop-in — the two are otherwise indistinguishable
+ * real directories. A dotfile, so the provider's skill discovery ignores it.
+ */
+export const MATERIALIZED_MANIFEST = ".discern-materialized.json";
+
 /** Directory names directly under `dir` (sorted), or `[]` if `dir` is absent. */
 async function dirNames(dir: string): Promise<string[]> {
   const names: string[] = [];
@@ -168,12 +177,62 @@ async function removeAny(path: string, isDir: boolean): Promise<void> {
   }
 }
 
+/** The names discern materialized last run (its ownership record), or `[]` when the
+ * record is absent or unreadable — a corrupt record simply disables orphan pruning
+ * for this run rather than risking a wrong deletion. */
+async function readMaterializedNames(
+  claudeSkillsDir: string,
+): Promise<Set<string>> {
+  try {
+    const text = await Deno.readTextFile(
+      join(claudeSkillsDir, MATERIALIZED_MANIFEST),
+    );
+    const parsed = JSON.parse(text);
+    if (Array.isArray(parsed)) {
+      return new Set(parsed.filter((n): n is string => typeof n === "string"));
+    }
+  } catch {
+    // absent or corrupt — nothing to reconcile this run.
+  }
+  return new Set();
+}
+
+/** Record the skill names discern now owns, sorted so the file is byte-stable run
+ * to run (it is never diffed today, but determinism here costs nothing). */
+async function writeMaterializedNames(
+  claudeSkillsDir: string,
+  names: string[],
+): Promise<void> {
+  await Deno.writeTextFile(
+    join(claudeSkillsDir, MATERIALIZED_MANIFEST),
+    `${JSON.stringify([...names].sort(), null, 2)}\n`,
+  );
+}
+
+/** Surface foreign entries left untouched in `.claude/skills/` (a user drop-in under
+ * an unmanaged name). The directory is discern-generated, so a stray entry is worth
+ * a heads-up — but never a deletion, per the never-clobber-a-drop-in contract. */
+function warnForeignSkills(log: Logger | undefined, foreign: string[]): void {
+  if (foreign.length === 0) {
+    return;
+  }
+  const plural = foreign.length === 1 ? "entry" : "entries";
+  log?.warn(
+    `.claude/skills/ has ${foreign.length} unmanaged ${plural} discern left untouched: ${
+      foreign.sort().join(", ")
+    }`,
+  );
+}
+
 /**
  * Reconcile `.claude/skills/` with the effective skill set: copy bundled skills,
  * symlink authored ones (relative, so edits are live and the link survives a tree
- * move), and prune managed entries that are no longer effective. Foreign entries
- * (a real directory whose name discern does not manage) are left untouched and
- * warned about, so a stray drop-in is never clobbered. Returns a summary.
+ * move), and prune entries discern owns that are no longer effective — a removed
+ * authored skill's dangling symlink AND a real-directory copy of a bundled skill a
+ * newer binary stopped shipping (tracked via {@link MATERIALIZED_MANIFEST}, so it
+ * self-heals instead of needing a one-off migration per removal). A genuinely
+ * foreign entry — a name discern never materialized — is left untouched and warned
+ * about, so a stray drop-in is never clobbered. Returns a summary.
  */
 export async function materializeSkills(
   root: string,
@@ -184,20 +243,38 @@ export async function materializeSkills(
   const managed = new Map(effective.map((e) => [e.name, e]));
   const claudeSkillsDir = join(root, CLAUDE_SKILLS_REL);
 
-  let pruned = 0;
+  // The names discern materialized on the LAST run. A real directory under one of
+  // these names that is no longer effective is a stale copy discern placed (e.g. a
+  // bundled skill dropped from a newer binary) — safe to prune. Without this record
+  // such an orphan is indistinguishable from a user drop-in, so it would leak.
+  const ownedBefore = await readMaterializedNames(claudeSkillsDir);
 
-  // Prune pass: remove existing entries we manage (recreated below) and any
-  // dangling symlink (a previously-authored skill the user has since removed).
+  let pruned = 0;
+  const foreign: string[] = [];
+
+  // Prune pass: remove entries we manage (recreated below) and entries discern owns
+  // that are now stale — a dangling symlink (a removed authored skill) or a real
+  // directory whose name discern materialized before but no longer ships. Anything
+  // else is a foreign drop-in: leave it, and warn (never clobber it).
   try {
     for await (const entry of Deno.readDir(claudeSkillsDir)) {
+      if (entry.name === MATERIALIZED_MANIFEST) {
+        continue; // discern's own ownership record, not a skill
+      }
       const path = join(claudeSkillsDir, entry.name);
+      const realDir = entry.isDirectory && !entry.isSymlink;
       if (managed.has(entry.name)) {
-        await removeAny(path, entry.isDirectory && !entry.isSymlink);
+        await removeAny(path, realDir);
         continue;
       }
       if (entry.isSymlink && !(await targetExists(path))) {
         await removeAny(path, false);
         pruned++;
+      } else if (realDir && ownedBefore.has(entry.name)) {
+        await removeAny(path, true);
+        pruned++;
+      } else {
+        foreign.push(entry.name);
       }
     }
   } catch (error) {
@@ -207,7 +284,14 @@ export async function materializeSkills(
     // No `.claude/skills/` yet — created below only if there is anything to place.
   }
 
+  warnForeignSkills(log, foreign);
+
   if (effective.length === 0) {
+    // Nothing to place; still record the now-empty ownership set when the dir
+    // exists, so a later run can tell a future orphan from a foreign drop-in.
+    if (await targetExists(claudeSkillsDir)) {
+      await writeMaterializedNames(claudeSkillsDir, []);
+    }
     return { copied: 0, linked: 0, pruned };
   }
 
@@ -233,6 +317,10 @@ export async function materializeSkills(
       linked++;
     }
   }
+
+  // Record what discern now owns, so the next run can prune any of these names a
+  // future binary stops shipping — the self-healing the manifest exists for.
+  await writeMaterializedNames(claudeSkillsDir, effective.map((e) => e.name));
 
   log?.info(
     pruned > 0

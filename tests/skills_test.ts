@@ -26,6 +26,7 @@ import {
   ejectSkill,
   listSkills,
   materializeSkills,
+  MATERIALIZED_MANIFEST,
   resolveEffectiveSkills,
 } from "../src/lib/skills.ts";
 import { modeOf, withTempDir } from "./helpers.ts";
@@ -196,6 +197,43 @@ Deno.test("materializeSkills: leaves a foreign entry (unmanaged name, live targe
     assert(
       (await Deno.lstat(join(sk, "mine-link"))).isSymlink,
       "live link survives",
+    );
+  });
+});
+
+Deno.test("materializeSkills: prunes a real-dir copy of a bundled skill it no longer ships, but never a drop-in", async () => {
+  await withTempDir(async (root) => {
+    const sk = claudeSkillsDirOf(root);
+    // First materialize records discern's ownership manifest for the real bundled set.
+    await materializeSkills(root, cfg());
+
+    // Simulate a bundled skill a newer binary stopped shipping: a real copied dir
+    // whose name discern recorded as materialized, now absent from the effective set.
+    await Deno.mkdir(join(sk, "gone-skill"));
+    await Deno.writeTextFile(join(sk, "gone-skill/SKILL.md"), "stale bundled copy");
+    const manifestPath = join(sk, MATERIALIZED_MANIFEST);
+    const owned = JSON.parse(await Deno.readTextFile(manifestPath)) as string[];
+    await Deno.writeTextFile(
+      manifestPath,
+      JSON.stringify([...owned, "gone-skill"], null, 2),
+    );
+
+    // A genuine user drop-in (a name discern never materialized) must survive — even
+    // though it is also a real dir with a SKILL.md.
+    await Deno.mkdir(join(sk, "mine-real"));
+    await Deno.writeTextFile(join(sk, "mine-real/SKILL.md"), "real");
+
+    const res = await materializeSkills(root, cfg());
+
+    assertEquals(
+      await exists(join(sk, "gone-skill")),
+      false,
+      "an orphaned bundled-skill copy discern owned must be pruned",
+    );
+    assert(res.pruned >= 1, "the orphan prune should be reported");
+    assert(
+      await exists(join(sk, "mine-real/SKILL.md")),
+      "a foreign drop-in discern never materialized must never be clobbered",
     );
   });
 });
