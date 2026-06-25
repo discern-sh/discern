@@ -297,3 +297,4 @@ periodically in maintenance batches._
       `discern <verb>` where <verb> is a single word, but `worktree:prune` etc.
       is two words; `discern graduate` vs `/handoff-worktree` skill (why have
       both?); etc...
+- [ ] 'skel' - just no. TitleCase... maybe?
