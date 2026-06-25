@@ -29,7 +29,7 @@ import {
 } from "../shared/config_schema.ts";
 import { type Feature, isFeatureEnabled } from "../shared/features.ts";
 import { resolveGuidanceSources, resolveTemplatesDir } from "../lib/paths.ts";
-import { providerFor } from "../lib/providers.ts";
+import { providerFor, skillsDirsForAgents } from "../lib/providers.ts";
 import {
   type GuidanceContext,
   renderGuidanceTemplate,
@@ -68,10 +68,23 @@ export const guidanceAgents = resolveConfiguredAgents;
  * a template actually uses it.
  */
 function guidanceContext(config: DiscernConfig): GuidanceContext {
+  // The agent files and skills dirs THIS project actually generates, named from the
+  // SAME registry source renderAgentFiles / materializeSkills write to (config
+  // agents → provider guidance-file paths / skills dirs), so the list base.md prints
+  // can never drift from what is produced. Each item is backticked since a
+  // comma-joined list can't be wrapped per-item by the `{{var}}` template.
+  const agents = resolveConfiguredAgents(config);
+  const codeList = (items: readonly string[]): string =>
+    items.map((i) => `\`${i}\``).join(", ");
+  const agentFiles = agents
+    .map((a) => providerFor(a)?.guidanceFile.path)
+    .filter((p): p is string => p !== undefined);
   return {
     vars: {
       branch_prefix: config.project.branch_prefix,
       main_branch: config.project.main_branch,
+      generated_agent_files: codeList(agentFiles),
+      materialized_skills_dirs: codeList(skillsDirsForAgents(agents)),
     },
     preds: {
       has_ratchets: Object.keys(config.ratchets).length > 0,

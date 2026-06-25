@@ -160,6 +160,48 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
   }
 });
 
+Deno.test("renderAgentFiles: the never-edit sentence names the project's real generated files (config-derived)", async () => {
+  // generated_agent_files / materialized_skills_dirs derive from [guidance].agents
+  // through the SAME registry renderAgentFiles / materializeSkills write to, so the
+  // names base.md prints can never drift from the files actually produced.
+  const solo = await Deno.makeTempDir({ prefix: "discern-genfiles-solo-" });
+  const multi = await Deno.makeTempDir({ prefix: "discern-genfiles-multi-" });
+  try {
+    await Deno.writeTextFile(
+      join(solo, "discern.toml"),
+      '[guidance]\nagents = ["codex"]\n',
+    );
+    await Deno.writeTextFile(
+      join(multi, "discern.toml"),
+      '[guidance]\nagents = ["claude_code", "codex", "gemini"]\n',
+    );
+    const soloBody = (await renderAgentFiles(solo)).get("AGENTS.md");
+    const multiBody = (await renderAgentFiles(multi)).get("AGENTS.md");
+    assert(soloBody !== undefined && multiBody !== undefined);
+
+    // Solo: codex alone → only its file and skills dir are named.
+    assert(soloBody.includes("agent files (`AGENTS.md`"), soloBody);
+    assert(soloBody.includes("(`.agents/skills`)"), soloBody);
+    assert(!soloBody.includes("CLAUDE.md"), "no agent it doesn't generate");
+
+    // Multi: every configured agent's file is named, deduping the shared skills dir
+    // (codex + gemini both materialize into .agents/skills).
+    assert(
+      multiBody.includes("`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`"),
+      multiBody,
+    );
+    assert(
+      multiBody.includes("`.claude/skills`, `.agents/skills`"),
+      "codex + gemini share .agents/skills — deduped, not listed twice",
+    );
+    // Config-derived: a different agent set yields a different list.
+    assert(soloBody !== multiBody, "the file list tracks [guidance].agents");
+  } finally {
+    await Deno.remove(solo, { recursive: true });
+    await Deno.remove(multi, { recursive: true });
+  }
+});
+
 Deno.test("checkGuidanceCurrent: a templated, non-default config compiles current (no drift)", async () => {
   // Proves the templated output a refresh writes is exactly what the currency
   // check recomputes — the ADR 0034 invariant, exercised with live interpolation.

@@ -35,11 +35,10 @@ Two kinds of file live in the tree:
 - **Yours** — edit freely, tracked in git: `discern.toml`, your guidance sources
   (`[guidance].sources`, default `guidance.md`), your authored skills under
   `[skills].dir`, your recipes under `[recipes].dir`.
-- **Generated** — never hand-edit: the compiled agent files (`AGENTS.md`,
-  `CLAUDE.md`, and any sibling such as `GEMINI.md` — including the one you are
-  reading now) and the materialized per-agent skills directories (`.claude/skills/`,
-  the cross-tool `.agents/skills/`). `discern refresh` recompiles them all from
-  discern's built-in guidance plus your sources.
+- **Generated** — never hand-edit: the compiled agent files ({{generated_agent_files}}
+  — including the one you are reading now) and the materialized per-agent skills
+  directories ({{materialized_skills_dirs}}). `discern refresh` recompiles them all
+  from discern's built-in guidance plus your sources.
 
 So change what an agent reads at the source — edit a `[guidance].sources` file and
 re-run `discern refresh` — never the generated file, which the next compile
