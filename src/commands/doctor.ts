@@ -27,12 +27,35 @@ import {
   isFeatureEnabled,
 } from "../shared/features.ts";
 import { capStage, isKnownCapability } from "../shared/capabilities.ts";
+import { gitVersion } from "../engine/worktree/git.ts";
 import type { DiscernResult } from "../shared/result.ts";
 
 /** Options accepted by the `doctor` command. */
 export interface DoctorOptions {
   json: boolean;
   noColor: boolean;
+}
+
+/** The runtime environment summary — triage context a user can paste into a bug
+ * report: which discern build, on what platform, against which git. */
+export interface DoctorEnvironment {
+  /** The discern build version (`KIT_VERSION`). */
+  discern: string;
+  /** `os/arch`, e.g. `darwin/aarch64`. */
+  platform: string;
+  /** `git --version` output, omitted when git is unavailable. */
+  git?: string;
+}
+
+/** Gather the {@link DoctorEnvironment} — the shared source for the human header
+ * line and the `--json` `data.environment` block. */
+export async function doctorEnvironment(): Promise<DoctorEnvironment> {
+  const git = await gitVersion();
+  return {
+    discern: KIT_VERSION,
+    platform: `${Deno.build.os}/${Deno.build.arch}`,
+    ...(git !== undefined ? { git } : {}),
+  };
 }
 
 /** One diagnostic result. */
@@ -45,6 +68,12 @@ export interface Check {
   fix?: string;
   /** An advisory: rendered as a warning, but does NOT make doctor unhealthy. */
   warn?: boolean;
+}
+
+/** `git --version` trimmed for a compact display ("git version 2.5.0" → "2.5.0").
+ * The full string is preserved verbatim in the `--json` environment block. */
+function gitDisplayVersion(raw: string): string {
+  return raw.replace(/^git version\s+/, "");
 }
 
 /** The first whitespace-delimited word of a command, or undefined for an empty
@@ -285,6 +314,25 @@ export async function runChecks(destDir: string): Promise<Check[]> {
     });
   }
 
+  // 7b. `git` resolves — discern shells out to git pervasively (the worktree
+  // workflow, ratchets' base comparison, graduation, scope diffing, status), so a
+  // missing git breaks the core of the tool. Required (not advisory): the version
+  // string doubles as triage context in a bug report.
+  {
+    const version = await gitVersion();
+    checks.push(
+      version !== undefined
+        ? { name: "git", ok: true, detail: gitDisplayVersion(version) }
+        : {
+          name: "git",
+          ok: false,
+          detail: "`git` is not on PATH (or is not runnable)",
+          fix:
+            "install git — discern's worktrees, ratchets, graduation, and status all shell out to it",
+        },
+    );
+  }
+
   // 8. guidance/skills config resolves — if [guidance].sources or [skills].dir is
   // configured, report what it resolves to. Both are present-only (an absent
   // match/dir is fine), so this is informational: it surfaces a typo'd path
@@ -468,7 +516,11 @@ export async function doctorResult(destDir: string): Promise<DiscernResult> {
   return {
     ok: checks.every((c) => c.ok),
     verb: "doctor",
-    data: { kit_version: KIT_VERSION, checks },
+    data: {
+      kit_version: KIT_VERSION,
+      environment: await doctorEnvironment(),
+      checks,
+    },
   };
 }
 
@@ -486,6 +538,12 @@ export async function runDoctor(options: DoctorOptions): Promise<number> {
   const checks = await runChecks(destDir);
   const healthy = checks.every((c) => c.ok);
   log.heading("discern doctor");
+  const env = await doctorEnvironment();
+  log.detail(
+    `discern ${env.discern} · ${env.platform} · git ${
+      env.git !== undefined ? gitDisplayVersion(env.git) : "not found"
+    }`,
+  );
   for (const check of checks) {
     if (check.warn) {
       log.warn(`${check.name}: ${check.detail}`);
@@ -510,7 +568,10 @@ export async function runDoctor(options: DoctorOptions): Promise<number> {
         : "All checks passed.",
     );
   } else {
-    log.error("Some checks failed — see the fixes above.");
+    const failed = checks.filter((c) => !c.ok).length;
+    log.error(
+      `${failed} check${failed === 1 ? "" : "s"} failed — see the fixes above.`,
+    );
   }
   return healthy ? 0 : 1;
 }
