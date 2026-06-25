@@ -38,6 +38,28 @@ commit the merge, then run `deno task dev finish` again to verify the merged
 result. (In the main checkout, not a worktree, this check is a no-op — there is
 nothing to integrate into.)
 
+### The fix stage reformatted a file you already committed
+
+**Symptom.** `finish` stops right at the end — every stage green — reporting
+that the fix stage left uncommitted changes (`failed_stage: "fix_drift"`). It
+names a file, often a trivial Markdown reflow, that you thought was already
+committed and done.
+
+**Cause.** The fix stage (a formatter or codemod — here `deno fmt`) runs first
+and mutates in place. If you committed a file that was not yet in the
+formatter's canonical form — the everyday case for hand-written prose, where
+editing a paragraph leaves a wrap the formatter will not accept — the next
+`finish` reformats it and leaves the result uncommitted. A green gate used to
+hide that. Now `finish` blocks, so the change cannot ride along uncommitted into
+`graduate`, which would otherwise strand it staged in the main checkout.
+
+**Fix.** The diff is the formatter's own output: review it (`git diff`), commit
+it (`git add -A && git commit`), then re-run `finish`. To skip the round trip,
+run `finish` (or `prepare`) **before** your final commit, so the fixer's changes
+are part of it rather than a follow-up. A fixer reworking files you have not
+committed yet — your normal inner loop — never trips this; only an
+already-committed file does.
+
 ### A check passes alone but fails in the full run
 
 **Symptom.** You run one test (or linter) over the files you changed and it is

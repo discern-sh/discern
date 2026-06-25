@@ -302,13 +302,6 @@ periodically in maintenance batches._
       integrates main, when it doesn't. (Agent said: "Main advanced during the
       session — my branch no longer contains its tip. The skill's guidance is
       clear: run discern finish to integrate main, then retry.")
-- [ ] Something is going wrong during `graduate` or `finish` - on several
-      occasions agents have graduated and found unexpected deno fmt leftovers
-      afterwards, which require an additional commit to resolve. (Agent said:
-      "Graduated — I'm now on agent/frosty-cohen-2ecaf9 in the main repo at
-      /Users/jack/Sites/discern. It flagged some leftover uncommitted changes
-      (likely deno fmt output or the merged IDE file) that landed staged. Let me
-      inspect before fast-forwarding.")
 - [ ] Discern should make clear to end-users that the `docs` feature, and the
       documentation subtree procedures, are _conceptually distinct_ from any
       existing documentation the user has already set up in their project. The

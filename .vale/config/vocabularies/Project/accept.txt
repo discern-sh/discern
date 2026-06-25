@@ -61,6 +61,7 @@ exec'd
 fail_fast
 fd
 footgun
+formatter('s|s)?
 frontmatter
 Gartner
 GCs?
@@ -119,6 +120,8 @@ READMEs?
 recompiles?
 recoverability
 reflog
+reflow(s|ed|ing)?
+reformat(s|ted|ting)?
 reframe
 reimplementing
 renderers?
