@@ -146,17 +146,59 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
 
     // {{#if has_worktree_resources}} gates the resource-lifecycle detail.
     assert(
-      !bareBody.includes("The git mechanics are generic"),
+      !bareBody.includes("per-worktree external"),
       "no inert resource prose",
     );
     assert(
-      richBody.includes("The git mechanics are generic"),
+      richBody.includes("per-worktree external"),
       "resource detail present",
     );
     assert(richBody.includes("--resource <name>"), "resource flag documented");
   } finally {
     await Deno.remove(bare, { recursive: true });
     await Deno.remove(rich, { recursive: true });
+  }
+});
+
+Deno.test("renderAgentFiles: the never-edit sentence names the project's real generated files (config-derived)", async () => {
+  // generated_agent_files / materialized_skills_dirs derive from [guidance].agents
+  // through the SAME registry renderAgentFiles / materializeSkills write to, so the
+  // names base.md prints can never drift from the files actually produced.
+  const solo = await Deno.makeTempDir({ prefix: "discern-genfiles-solo-" });
+  const multi = await Deno.makeTempDir({ prefix: "discern-genfiles-multi-" });
+  try {
+    await Deno.writeTextFile(
+      join(solo, "discern.toml"),
+      '[guidance]\nagents = ["codex"]\n',
+    );
+    await Deno.writeTextFile(
+      join(multi, "discern.toml"),
+      '[guidance]\nagents = ["claude_code", "codex", "gemini"]\n',
+    );
+    const soloBody = (await renderAgentFiles(solo)).get("AGENTS.md");
+    const multiBody = (await renderAgentFiles(multi)).get("AGENTS.md");
+    assert(soloBody !== undefined && multiBody !== undefined);
+
+    // Solo: codex alone → only its file and skills dir are named.
+    assert(soloBody.includes("agent files (`AGENTS.md`"), soloBody);
+    assert(soloBody.includes("(`.agents/skills`)"), soloBody);
+    assert(!soloBody.includes("CLAUDE.md"), "no agent it doesn't generate");
+
+    // Multi: every configured agent's file is named, deduping the shared skills dir
+    // (codex + gemini both materialize into .agents/skills).
+    assert(
+      multiBody.includes("`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`"),
+      multiBody,
+    );
+    assert(
+      multiBody.includes("`.claude/skills`, `.agents/skills`"),
+      "codex + gemini share .agents/skills — deduped, not listed twice",
+    );
+    // Config-derived: a different agent set yields a different list.
+    assert(soloBody !== multiBody, "the file list tracks [guidance].agents");
+  } finally {
+    await Deno.remove(solo, { recursive: true });
+    await Deno.remove(multi, { recursive: true });
   }
 });
 
@@ -194,7 +236,7 @@ Deno.test("renderAgentFiles: base guidance is MCP-first with a CLI fallback (no 
     const body = (await renderAgentFiles(dir)).get("AGENTS.md");
     assert(body !== undefined);
     // MCP-first stance + the unreachable-server fallback are present...
-    assert(body.includes("Prefer a tool"), "states MCP-first");
+    assert(body.includes("primary surface"), "states MCP-first");
     assert(
       body.includes("isn't reachable"),
       "carries the fallback instruction",

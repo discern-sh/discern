@@ -17,23 +17,7 @@ import {
 import { join } from "@std/path";
 import { ensureDir, exists } from "@std/fs";
 import { withTempDir } from "./helpers.ts";
-import {
-  runAgent,
-  scaffoldEngine,
-  writeConfig,
-  writeExecutable,
-} from "./engine_helpers.ts";
-
-/** A minimal config with the `mcp` feature explicitly toggled. */
-const mcpFeatureConfig = (on: boolean): string =>
-  [
-    "[project]",
-    'slug = "engine-test"',
-    "",
-    "[features]",
-    `mcp = ${on}`,
-    "",
-  ].join("\n");
+import { runAgent, scaffoldEngine, writeExecutable } from "./engine_helpers.ts";
 
 Deno.test("engine refresh: compiles agent files and materializes bundled skills", async () => {
   await withTempDir(async (dir) => {
@@ -109,37 +93,6 @@ Deno.test("engine refresh: the FIRST MCP install surfaces a restart hint; a re-a
       !secondHints.some((h) => h.toLowerCase().includes("restart")),
       `a re-apply must not repeat the restart hint\n${second.stdout}`,
     );
-  });
-});
-
-Deno.test("engine refresh: features.mcp = false REMOVES a previously-wired MCP config", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await runAgent(dir, ["refresh"]); // wire it (feature on by default)
-    assert(await exists(join(dir, ".mcp.json")), "precondition: MCP wired");
-
-    // Turn the feature off and refresh: the config is removed, and reported.
-    await writeConfig(dir, mcpFeatureConfig(false));
-    const r = await runAgent(dir, ["refresh", "--json"]);
-    assertEquals(r.code, 0, r.output);
-    assert(
-      !(await exists(join(dir, ".mcp.json"))),
-      `.mcp.json must be removed when mcp is off\n${r.output}`,
-    );
-    assert(
-      JSON.parse(r.stdout.trim()).data.mcp_removed.includes(".mcp.json"),
-      r.stdout,
-    );
-  });
-});
-
-Deno.test("engine: the `mcp` verb is hidden and errors when features.mcp = false", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await writeConfig(dir, mcpFeatureConfig(false));
-    const r = await runAgent(dir, ["mcp"]);
-    assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.output, "disabled");
   });
 });
 

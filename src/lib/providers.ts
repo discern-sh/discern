@@ -55,16 +55,14 @@ export interface McpWireResult {
   firstInstall: boolean;
 }
 
-/** How a provider registers — and removes — an MCP server in a project. Both
- * directions are idempotent and preserve the file's other contents. */
+/** How a provider registers an MCP server in a project — idempotently, preserving
+ * the file's other contents. The discern server is core infrastructure (ADR 0045),
+ * always wired; there is no feature-off removal path. */
 export interface McpIntegration {
   /** The project-relative config file this provider keeps its servers in. */
   readonly configFile: string;
   /** Register `server` for this provider under `root`, idempotently. */
   register(root: string, server: McpServerSpec): Promise<McpWireResult>;
-  /** Remove `server` for this provider under `root`, idempotently. Returns the
-   * project-relative paths changed (empty when it was already absent). */
-  unregister(root: string, server: McpServerSpec): Promise<string[]>;
 }
 
 /** A provider's worktree-automation surface: where its lifecycle hooks live and
@@ -240,54 +238,6 @@ async function registerClaudeCodeMcp(
   return { written, firstInstall };
 }
 
-/**
- * Remove discern's MCP server for Claude Code (the inverse of registration; used
- * when the `mcp` feature is turned off). Deletes the server from `.mcp.json` and
- * its approval from `.claude/settings.json`, both idempotently — preserving any
- * OTHER servers/settings, and removing a `.mcp.json` discern alone created rather
- * than leaving an empty husk.
- */
-async function unregisterClaudeCodeMcp(
-  root: string,
-  server: McpServerSpec,
-): Promise<string[]> {
-  const written: string[] = [];
-
-  const mcpPath = join(root, CLAUDE_MCP_FILE);
-  const mcpDoc = await readJsonObject(mcpPath);
-  if (isObject(mcpDoc.mcpServers) && server.name in mcpDoc.mcpServers) {
-    delete mcpDoc.mcpServers[server.name];
-    const hasOtherServers = Object.keys(mcpDoc.mcpServers).length > 0;
-    const hasOtherKeys = Object.keys(mcpDoc).some((k) => k !== "mcpServers");
-    if (!hasOtherServers && !hasOtherKeys) {
-      // The file held only our server — remove it, don't leave an empty husk.
-      await Deno.remove(mcpPath).catch(() => {});
-    } else {
-      if (!hasOtherServers) {
-        delete mcpDoc.mcpServers;
-      }
-      await writeJsonObject(mcpPath, mcpDoc);
-    }
-    written.push(CLAUDE_MCP_FILE);
-  }
-
-  const setPath = join(root, CLAUDE_SETTINGS_FILE);
-  const settings = await readJsonObject(setPath);
-  const approved = asStringArray(settings.enabledMcpjsonServers);
-  if (approved.includes(server.name)) {
-    const next = approved.filter((s) => s !== server.name);
-    if (next.length === 0) {
-      delete settings.enabledMcpjsonServers;
-    } else {
-      settings.enabledMcpjsonServers = next;
-    }
-    await writeJsonObject(setPath, settings);
-    written.push(CLAUDE_SETTINGS_FILE);
-  }
-
-  return written;
-}
-
 // ── the registry ────────────────────────────────────────────────────────────
 
 /**
@@ -310,7 +260,6 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     mcp: {
       configFile: CLAUDE_MCP_FILE,
       register: registerClaudeCodeMcp,
-      unregister: unregisterClaudeCodeMcp,
     },
     hooks: {
       settingsFile: CLAUDE_SETTINGS_FILE,
@@ -449,24 +398,4 @@ export async function wireProviderMcp(
     }
   }
   return { written: [...new Set(written)], firstInstall };
-}
-
-/**
- * Remove discern's MCP server from the project for each configured agent that
- * supports it (idempotent) — used when the `mcp` feature is turned off. Returns
- * the unique project-relative files changed.
- */
-export async function unwireProviderMcp(
-  root: string,
-  agents: readonly string[],
-  server: McpServerSpec = DISCERN_MCP_SERVER,
-): Promise<string[]> {
-  const written: string[] = [];
-  for (const agent of agents) {
-    const mcp = providerFor(agent)?.mcp;
-    if (mcp !== undefined) {
-      written.push(...await mcp.unregister(root, server));
-    }
-  }
-  return [...new Set(written)];
 }

@@ -39,7 +39,9 @@ itself, so there is no `jq` (or other shell-tool) dependency
 ([ADR 0040](../_adr/0040-worktree-hooks-in-the-binary.md)). A
 [`Brewfile`](../../Brewfile) at the repo root pins the toolchain for
 macOS/Homebrew users (`brew bundle install` from the root); `discern doctor`
-verifies that `git` and a POSIX `sh` resolve on `PATH`.
+verifies that `git` and a POSIX `sh` resolve on `PATH`. The one _optional_ extra
+is **Node**, needed only for the MCP Inspector helper
+([below](#inspecting-the-mcp-server)) — never for the gate, build, or tests.
 
 Stack-specific setup (installing project dependencies, running the app) lives in
 [getting-started.md](getting-started.md) once `discern setup` has filled it in.
@@ -88,6 +90,26 @@ discern's built-in guidance plus your [`guidance.md`](../../guidance.md) by
   `deno task dev prepare` (fast: fixers + checks), and `deno task dev doctor`
   (health check). In a project with the binary on `PATH`, these are
   `discern finish` / `discern prepare` / `discern doctor`.
+
+## Inspecting the MCP server
+
+`deno task inspect-mcp` opens the
+[MCP Inspector](https://github.com/modelcontextprotocol/inspector) against
+discern's own MCP server (`discern mcp`, run from source), for eyeballing the
+tool surface — annotations, input/output schemas, resources — while editing
+[`src/engine/mcp/server.ts`](../../src/engine/mcp/server.ts). The default opens
+the browser UI; append `--cli --method tools/list` (or
+`tools/call --tool-name … --tool-arg k=v`) for a one-shot terminal call. Full
+usage is in the script header,
+[`scripts/inspect_mcp.ts`](../../scripts/inspect_mcp.ts).
+
+It is a **human-only debugging convenience** — not part of the gate, and not
+bundled into the binary (it lives in `scripts/`, outside `templates/`). It is
+the repo's one tool that needs **Node** on `PATH`: the Inspector is a Node
+application that launches Node subprocesses (`spawnPromise("node", …)`), so it
+runs via `npx` and cannot run under Deno alone. Node is therefore an optional
+maintainer dependency — commented in the [`Brewfile`](../../Brewfile); install
+it only if you want the Inspector.
 
 ## Keeping this page current
 

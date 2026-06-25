@@ -26,3 +26,9 @@ brew "git"
 
 # gh: GitHub CLI is recommended, but not required.
 # brew "gh"
+
+# node: optional - only for `deno task inspect-mcp`, which runs the MCP Inspector
+# (a Node tool) via npx to debug discern's MCP server. Not needed for the gate,
+# build, or tests; install it only if you want the Inspector. See
+# docs/80-development/for-humans.md.
+# brew "node"

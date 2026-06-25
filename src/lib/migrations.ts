@@ -715,6 +715,17 @@ export const MIGRATIONS: Migration[] = [
       await ignoreAgentsSkills(ctx);
     },
   },
+  {
+    from: 10,
+    describe:
+      "drop [features].mcp — the MCP server is core infrastructure now, not a toggle; its config block is wired unconditionally (ADR 0045)",
+    apply: async (ctx) => {
+      // Idempotent: deleteKey removes only the `mcp = …` line (inline comment and
+      // all), leaving the rest of [features] and its doc comments intact; a no-op
+      // when the key is already absent.
+      await ctx.editToml((e) => e.deleteKey("features.mcp"));
+    },
+  },
 ];
 
 /** Render a live `[worktree.resources.<name>]` table (only the non-empty keys). */

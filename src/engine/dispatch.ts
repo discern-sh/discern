@@ -285,18 +285,18 @@ export function attachEngineCommands(
       );
     });
 
-  if (enabled.has("mcp")) {
-    root
-      .command("mcp")
-      .description(
-        "Run an MCP server (stdio) exposing the verbs to an agent as tools.",
-      )
-      .action(async () => {
-        // The server resolves the project root itself and reports a missing one
-        // per tool-call, so it need not requireRoot up front.
-        Deno.exit(await runMcpServer());
-      });
-  }
+  // The MCP server is core infrastructure (ADR 0045), not a feature — always
+  // available, like finish/status/the config surface.
+  root
+    .command("mcp")
+    .description(
+      "Run an MCP server (stdio) exposing the verbs to an agent as tools.",
+    )
+    .action(async () => {
+      // The server resolves the project root itself and reports a missing one
+      // per tool-call, so it need not requireRoot up front.
+      Deno.exit(await runMcpServer());
+    });
 
   if (enabled.has("ratchets")) {
     root
@@ -349,7 +349,6 @@ export function attachEngineCommands(
             data: {
               agents_written: res.agentsWritten,
               mcp_wired: res.mcpWired,
-              mcp_removed: res.mcpRemoved,
               skills: {
                 copied: res.skillsCopied,
                 linked: res.skillsLinked,

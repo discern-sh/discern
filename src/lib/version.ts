@@ -43,8 +43,9 @@ export const KIT_VERSION: string = denoJson.version;
  * agent file joins `CLAUDE.md`/`GEMINI.md` as a build artifact, and notes the
  * one-time `git rm --cached AGENTS.md` (ADR 0034); schema-9→10 ignores
  * `/.agents/skills/`, the cross-tool dir skills now materialize into for
- * Codex/Gemini (ADR 0042). See `MIGRATIONS`. A config with no
- * `[meta].schema_version` is read as schema 1 (or a legacy manifest's recorded
- * version), then migrated forward.
+ * Codex/Gemini (ADR 0042); schema-10→11 drops `[features].mcp` — the MCP server
+ * is core infrastructure now, not a toggle (ADR 0045). See `MIGRATIONS`. A config
+ * with no `[meta].schema_version` is read as schema 1 (or a legacy manifest's
+ * recorded version), then migrated forward.
  */
-export const SCHEMA_VERSION = 10;
+export const SCHEMA_VERSION = 11;

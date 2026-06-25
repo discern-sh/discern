@@ -138,6 +138,18 @@ Deno.test("strict: a dead [worktree.db] adapter is rejected with an upgrade hint
   );
 });
 
+Deno.test("strict: a leftover [features].mcp is rejected with an upgrade hint (ADR 0045)", () => {
+  // MCP is core infrastructure now, not a toggle — an old config carrying the key
+  // must not crash cryptically; it gets the friendly "run discern upgrade" nudge,
+  // and `upgrade`'s 10→11 migration drops it.
+  const { issues } = parseConfig(`[features]\nmcp = true\n`);
+  assert(
+    issues.some((i) =>
+      i.path === "features" && /dead config|upgrade/.test(i.message)
+    ),
+  );
+});
+
 Deno.test("a quoted boolean gets a tailored hint, not the raw Zod message", () => {
   const { issues } = parseConfig(`[gate]\nfail_fast = "false"\n`);
   const issue = issues.find((i) => i.path === "gate.fail_fast");

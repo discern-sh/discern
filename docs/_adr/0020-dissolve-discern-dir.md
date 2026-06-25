@@ -3,7 +3,10 @@
 **Status**: accepted; **supersedes
 [ADR 0016](0016-consolidate-install-surface.md)**; the single-root-file
 **config** footprint is narrowed for _runtime_ per-worktree state by
-[ADR 0025](0025-worktree-resources.md) (the resource ledger under `.git/`)
+[ADR 0025](0025-worktree-resources.md) (the resource ledger under `.git/`); the
+`[features]` set introduced here is later revised by
+[ADR 0045](0045-mcp-is-core-infrastructure.md) (which drops `mcp` — the MCP
+server became core infrastructure, not a toggle)
 
 ## Context
 

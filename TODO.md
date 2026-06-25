@@ -158,6 +158,22 @@ _Nothing outstanding._
       `prune` the worktree it is sitting in. Evidence:
       `src/engine/mcp/server.ts` (`TOOLS`).
 
+- [ ] **A `discern start` verb to launch a worktree from the main checkout.** An
+      agent invoked on `main` (not in a worktree) has no affordance to spin up
+      its own isolated worktree, so it improvises badly: observed an agent call
+      `discern status`, see an idle, up-to-date worktree belonging to _another_
+      agent (which simply hadn't started working yet), and move in to work there
+      — jumping into someone else's worktree was its only option. A
+      `discern start` (a naming-convention sibling of `finish`/`graduate`) would
+      create a fresh worktree on its own `agent/` branch and guide the agent to
+      move inside it before continuing. MCP wrinkle: the server runs rooted in
+      one worktree, so a `discern_start` tool would have to return the new
+      worktree's path and tell the agent to re-root there, not silently
+      relocate. Distinct from — and complementary to — the
+      deliberately-unexposed `worktree:*` lifecycle verbs above: this _creates_
+      a worktree to inhabit; it never hops into or prunes an existing one.
+      Follow-up, after the MCP server expansion.
+
 - [ ] **Tier-2 diagnostics: populate `fix_available`.** The `Diagnostic` field
       and the ADR-0028 Tier-2 tier exist, but nothing sets it. Derive it from
       whether a `fix`-stage command is wired for the failing capability (a

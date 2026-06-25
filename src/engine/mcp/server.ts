@@ -235,9 +235,10 @@ const TOOLS: McpTool[] = [
       "lists what the gate WOULD fire (wired capabilities, checks, triggered scope " +
       "gates); data.worktree carries this worktree's id/port/db and provisioned " +
       "resources; data.features and data.ratchets list the configured set. " +
-      "data.stale_generated flags generated agent files that have drifted from " +
-      "their sources (run discern refresh), and data.setup_unfinished is present " +
-      "while the project's one-time setup is still incomplete. From the " +
+      "data.stale_generated flags generated agent files, and data.stale_materialized " +
+      "the materialized skills, that have drifted from their sources (run discern " +
+      "refresh for either); data.setup_unfinished is present while the project's " +
+      "one-time setup is still incomplete. From the " +
       "main checkout it leads with data.fleet (a cheap row per worktree: branch, " +
       "dirty/ahead/behind, and a last_activity timestamp); set all=true " +
       "to include the fleet from a worktree, or local=true to suppress it. hints[] are " +

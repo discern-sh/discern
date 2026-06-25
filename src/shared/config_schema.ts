@@ -181,9 +181,6 @@ const featuresSection = z.strictObject({
   docs: z.boolean().default(true).describe(
     "The `docs` browser over your docs/ tree.",
   ),
-  mcp: z.boolean().default(true).describe(
-    "The MCP integration: the `discern mcp` server, and wiring it into each configured agent's project config (disable to remove it on the next refresh).",
-  ),
 }).prefault({}).describe(
   "Toggle whole discern subsystems on/off. Every feature defaults to ON; set one to false to remove it coherently. NOTE: a *feature* is NOT a *capability* — [capabilities] is the gate's command table; [features] toggles subsystems.",
 );
@@ -486,6 +483,13 @@ function toConfigIssue(issue: z.core.$ZodIssue): ConfigIssue {
         path,
         message:
           `dead config ${keys} — the engine reads [worktree.resources.<name>] now; run \`discern upgrade\` to migrate it.`,
+      };
+    }
+    if (path === "features" && issue.keys.includes("mcp")) {
+      return {
+        path,
+        message:
+          `dead config ${keys} — the MCP server is core infrastructure now, not a toggle; run \`discern upgrade\` to drop it.`,
       };
     }
     return {
