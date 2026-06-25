@@ -146,11 +146,11 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
 
     // {{#if has_worktree_resources}} gates the resource-lifecycle detail.
     assert(
-      !bareBody.includes("The git mechanics are generic"),
+      !bareBody.includes("per-worktree external"),
       "no inert resource prose",
     );
     assert(
-      richBody.includes("The git mechanics are generic"),
+      richBody.includes("per-worktree external"),
       "resource detail present",
     );
     assert(richBody.includes("--resource <name>"), "resource flag documented");
