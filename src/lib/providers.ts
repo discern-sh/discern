@@ -94,9 +94,11 @@ export interface GuidanceFile {
   /**
    * When set, and a canonical agent file is also being emitted, this provider's
    * file is written as a POINTER to that file rather than a full duplicate — using
-   * the provider's own include syntax (Claude Code's `@path`). Receives the
-   * canonical file's project-relative path; returns the whole file body. Absent →
-   * the provider always gets the full compiled guidance. The point is
+   * the provider's own include syntax (the `@path` import Claude Code AND Gemini CLI
+   * both support; see {@link atImportPointer}). Receives the canonical file's
+   * project-relative path; returns the whole file body. Absent → the provider always
+   * gets the full compiled guidance (e.g. Codex, whose `AGENTS.md` has no import
+   * directive — so it is the canonical file the others point at). The point is
    * single-source-of-truth: the guidance lives in one compiled file and the mirror
    * imports it, so the two can never drift.
    */
@@ -124,18 +126,24 @@ export interface Provider {
 }
 
 /**
- * Claude Code's guidance file rendered as a pointer to the canonical agent file:
- * a single `@<path>` import line, which Claude Code expands in place when it loads
- * `CLAUDE.md`. So the compiled guidance lives in ONE file (`AGENTS.md`) and the
- * Claude mirror can never drift from it — the same mechanism a user's own
- * `~/.claude/CLAUDE.md` uses to `@`-import a shared source.
+ * A guidance file rendered as a pointer to the canonical agent file: a single
+ * `@<path>` import line the agent expands in place when it loads its instruction
+ * file. So the compiled guidance lives in ONE file (`AGENTS.md`) and every mirror
+ * imports it rather than duplicating the body — they can never drift from it.
+ *
+ * The `@path` syntax is byte-identical and vendor-supported for BOTH Claude Code
+ * (`CLAUDE.md`, the mechanism a user's own `~/.claude/CLAUDE.md` uses) and Gemini
+ * CLI (`GEMINI.md`, its Memory Import Processor — `.md`-only, which `@AGENTS.md`
+ * satisfies), so one function serves both. Codex's `AGENTS.md` has NO import
+ * directive, which is exactly why it is the canonical full-body file the others
+ * point AT, never a pointer itself (verified against vendor docs; ADR 0043).
  *
  * No banner: Claude Code strips HTML comments before the model sees them, so a
  * do-not-edit banner here would be invisible to the only agent that reads this
  * file. The generated-ness is conveyed in-band by `base.md`, and drift is guarded
  * by the `finish`/`status` currency check (ADR 0034).
  */
-export function claudeCodePointer(canonicalPath: string): string {
+export function atImportPointer(canonicalPath: string): string {
   return `@${canonicalPath}\n`;
 }
 
@@ -297,7 +305,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     guidanceFile: {
       path: "CLAUDE.md",
       canonical: false,
-      pointer: claudeCodePointer,
+      pointer: atImportPointer,
     },
     mcp: {
       configFile: CLAUDE_MCP_FILE,
@@ -325,7 +333,14 @@ export const PROVIDERS: Record<AgentName, Provider> = {
   gemini: {
     name: "gemini",
     label: "Gemini",
-    guidanceFile: { path: "GEMINI.md", canonical: false },
+    // GEMINI.md points at the canonical AGENTS.md via Gemini's `@path` Memory Import
+    // (verified vendor support — `.md`-only, which `@AGENTS.md` satisfies), exactly
+    // like Claude Code, so the body lives in one file and the mirror can't drift.
+    guidanceFile: {
+      path: "GEMINI.md",
+      canonical: false,
+      pointer: atImportPointer,
+    },
     // Gemini reads .gemini/skills/ AND the .agents/skills/ alias (which takes
     // precedence) — use the shared alias so Codex + Gemini dedupe to one dir.
     skillsDir: AGENTS_SKILLS_DIR,

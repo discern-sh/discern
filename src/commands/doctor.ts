@@ -20,7 +20,13 @@ import { Logger } from "../lib/log.ts";
 import { parseDiscernToml } from "../lib/toml_render.ts";
 import { resolveRecordedSchema } from "../lib/schema.ts";
 import { KIT_VERSION, SCHEMA_VERSION } from "../lib/version.ts";
-import { parseConfig, toCommandList } from "../shared/config_schema.ts";
+import {
+  AGENT_NAMES,
+  parseConfig,
+  resolveConfiguredAgents,
+  toCommandList,
+} from "../shared/config_schema.ts";
+import { providerFor } from "../lib/providers.ts";
 import {
   enabledFeatures,
   FEATURES,
@@ -353,6 +359,44 @@ export async function runChecks(destDir: string): Promise<Check[]> {
       detail: authored === 0
         ? `no authored skills in ${rel}/ yet (built-ins still apply)`
         : `${authored} authored skill(s) in ${rel}/`,
+    });
+  }
+
+  // 8b. agent integrations — per CONFIGURED agent, the integration surfaces the
+  // provider registry wires today (guidance file, skills dir, MCP, worktree hooks).
+  // Makes per-agent coverage EXPLICIT rather than a silent gap: MCP/hooks are
+  // Claude-only because Codex/Gemini use different mechanisms (their config files /
+  // the absence of a worktree-hook event), so an operator can SEE why an agent lacks
+  // a surface instead of suspecting a bug. An unknown agent name is a real error.
+  for (const name of resolveConfiguredAgents(config)) {
+    const provider = providerFor(name);
+    if (provider === undefined) {
+      checks.push({
+        name: `agent: ${name}`,
+        ok: false,
+        detail: `configured agent "${name}" is not one discern knows`,
+        fix: `use a known agent (${AGENT_NAMES.join(", ")}) or remove it`,
+      });
+      continue;
+    }
+    const wired = [
+      `guidance ${provider.guidanceFile.path}`,
+      provider.skillsDir ? `skills ${provider.skillsDir}` : undefined,
+      provider.mcp ? "mcp" : undefined,
+      provider.hooks ? "hooks" : undefined,
+    ].filter((s): s is string => s !== undefined);
+    const todo = [
+      provider.mcp ? undefined : "mcp",
+      provider.hooks ? undefined : "hooks",
+    ].filter((s): s is string => s !== undefined);
+    checks.push({
+      name: `agent: ${provider.label}`,
+      ok: true,
+      detail: todo.length === 0
+        ? `wired: ${wired.join(", ")}`
+        : `wired: ${wired.join(", ")}; uses its own mechanism (not wired): ${
+          todo.join(", ")
+        }`,
     });
   }
 

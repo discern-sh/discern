@@ -421,3 +421,25 @@ Deno.test("doctor: reports resolved guidance sources and authored skills when pr
     assertStringIncludes(check(payload, "skills").detail, "1 authored skill");
   });
 });
+
+Deno.test("doctor: surfaces per-agent integration coverage (MCP/hooks Claude-only, by design)", async () => {
+  await withTempDir(async (dir) => {
+    await initInstall(dir); // default agents: claude_code + codex
+    const { code, payload } = await runDoctorJson(dir);
+    assertEquals(code, 0); // a registry-described divergence is healthy, just reported
+
+    // Claude Code wires every surface.
+    const claude = check(payload, "agent: Claude Code");
+    assertEquals(claude.ok, true);
+    assertStringIncludes(claude.detail, "guidance CLAUDE.md");
+    assertStringIncludes(claude.detail, "mcp");
+    assertStringIncludes(claude.detail, "hooks");
+
+    // Codex's MCP/hooks use their own mechanism — surfaced explicitly, not a silent
+    // gap (the EXPECTED divergence made visible).
+    const codex = check(payload, "agent: Codex");
+    assertEquals(codex.ok, true);
+    assertStringIncludes(codex.detail, "guidance AGENTS.md");
+    assertStringIncludes(codex.detail, "not wired");
+  });
+});
