@@ -161,16 +161,54 @@ fail_fast = true
 # no config at all; point it elsewhere (e.g. "tools/") if you prefer.
 dir = "recipes"
 
+# ─────────────────────────────────────────────────────────────────────────────
+# [features] — toggle whole discern subsystems on/off. Every feature defaults to
+# ON; set one to false to remove it coherently (its verbs hide, its hooks aren't
+# written, its guidance section is dropped from the compiled agent files, and its
+# doctor checks are skipped). The quality gate, config, and doctor are core and
+# always on — they are not listed here.
+#
+# NOTE: a *feature* is NOT a *capability*. [capabilities] (above) is the gate's
+# command table; [features] toggles subsystems. Different sections, different jobs.
+# ─────────────────────────────────────────────────────────────────────────────
+
 [features]
-docs = true
-skills = true
-guidance = true
-ratchets = true
-worktrees = true
+docs      = true   # the `docs` browser over your docs/ tree
+skills    = true   # bundled + authored skills, materialized into .claude/skills/
+guidance  = true   # compile agent files from built-in + your sources
+ratchets  = true   # never-loosen metric floors (the `ratchets` verb)
+worktrees = true   # the isolated git-worktree workflow (worktree / worktree:* verbs)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# [guidance] — the author-once → compile-everywhere agent-instruction pipeline.
+# `discern refresh` compiles discern's built-in harness guidance (always
+# prepended, feature-aware) plus YOUR sources below into one generated file per
+# provider. The generated files are build artifacts — gitignored, never
+# hand-edited. Edit your sources below (the tracked, reviewable form) and re-run
+# `discern refresh`; `discern status` / `discern finish` flag a generated file
+# that has drifted from its source.
+# ─────────────────────────────────────────────────────────────────────────────
 
 [guidance]
+# Which provider files to emit. Known targets:
+#   "claude_code" -> CLAUDE.md   "codex" -> AGENTS.md   "gemini" -> GEMINI.md
 agents = ["claude_code", "codex", "gemini"]
+
+# Your guideline source file(s), relative to the project root. Globs are allowed.
+# Read only if present; the built-in harness guidance is always prepended, so
+# these are additive. `discern setup` has your coding agent seed a starter guidance.md.
 sources = ["guidance.md"]
 
+# ─────────────────────────────────────────────────────────────────────────────
+# [skills] — focused, reusable task playbooks. The effective set is discern's
+# bundled built-ins plus YOUR authored skills under the directory below, where
+# yours override a built-in of the same name. discern materializes the set into
+# .claude/skills/ (gitignored): built-ins copied, yours symlinked (edits are live).
+#   discern skills list           show the set + which of yours override which
+#   discern skills eject <name>   copy a built-in here so you can customize it
+# ─────────────────────────────────────────────────────────────────────────────
+
 [skills]
+# Where your authored skills live, relative to the project root. The default
+# works with no config at all; point it elsewhere if you prefer.
 dir = "skills"
