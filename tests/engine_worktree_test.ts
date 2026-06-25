@@ -17,6 +17,7 @@ import {
   addWorktree,
   git,
   gitInit,
+  gitOut,
   runAgent,
   scaffoldEngine,
 } from "./engine_helpers.ts";
@@ -81,6 +82,72 @@ Deno.test("graduate: moves the branch into main and removes the worktree", async
       `branch not graduated into main\n${r.output}`,
     );
     assertStringIncludes(r.output, "Graduation complete");
+  });
+});
+
+Deno.test("graduate --to main: fast-forwards the trunk, lands on it, and deletes the merged branch", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "epsilon");
+    await Deno.writeTextFile(join(wt, "feature.txt"), "work\n");
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
+
+    const r = await runAgent(wt, ["graduate", "--to", "main"]);
+    assertEquals(r.code, 0, r.output);
+    assertEquals(
+      await exists(wt),
+      false,
+      `worktree should be removed\n${r.output}`,
+    );
+    // The work landed on the trunk itself, which is now checked out in main…
+    assert(
+      await exists(join(dir, "feature.txt")),
+      `work not fast-forwarded onto the trunk\n${r.output}`,
+    );
+    assertEquals(
+      await gitOut(dir, "branch", "--show-current"),
+      "main",
+      `main checkout should be on the trunk, not the worktree branch\n${r.output}`,
+    );
+    // …and the now-merged worktree branch is gone.
+    assertEquals(
+      await gitOut(dir, "branch", "--list", "agent/epsilon"),
+      "",
+      `the merged branch should be deleted\n${r.output}`,
+    );
+    assertStringIncludes(r.output, "Graduation complete");
+  });
+});
+
+Deno.test("graduate honours [worktree].graduate_to = main as the default destination", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "zeta");
+    // Flip the project default to land on the trunk; the call passes no --to. Edit
+    // the worktree's own checked-out config (graduate loads config from its root).
+    const toml = join(wt, "discern.toml");
+    await Deno.writeTextFile(
+      toml,
+      (await Deno.readTextFile(toml)).replace(
+        'graduate_to = "branch"',
+        'graduate_to = "main"',
+      ),
+    );
+    await Deno.writeTextFile(join(wt, "feature.txt"), "work\n");
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
+
+    const r = await runAgent(wt, ["graduate"]);
+    assertEquals(r.code, 0, r.output);
+    assertEquals(
+      await gitOut(dir, "branch", "--show-current"),
+      "main",
+      `the configured default should land on the trunk\n${r.output}`,
+    );
+    assertEquals(
+      await gitOut(dir, "branch", "--list", "agent/zeta"),
+      "",
+      `the configured default should delete the merged branch\n${r.output}`,
+    );
   });
 });
 
