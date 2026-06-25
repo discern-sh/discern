@@ -460,6 +460,42 @@ async function resolveEnabledFeatures(
 }
 
 /**
+ * The server's `instructions` — the native "when to use which tool" block capable
+ * clients load when MCP connects (it rides in the `initialize` result). discern's
+ * operating model in a few imperative lines, carrying the strong MCP-first stance:
+ * these tools are the primary surface, not the CLI. Feature-aware, mirroring the
+ * tool gating — the docs and graduate lines appear only when their feature is on.
+ */
+function buildInstructions(enabled: ReadonlySet<Feature>): string {
+  const lines = [
+    "discern is this project's quality harness, and these tools are the primary " +
+    "surface for working in it — prefer them over shelling out to the `discern` " +
+    "CLI; each returns a structured result you can read directly.",
+    "",
+    "- Orient at the start of a session with discern_status: the branch's " +
+    "situation, what the gate would fire, and advisory next steps.",
+    "- Before calling any change done, run discern_finish (the full gate). While " +
+    "iterating, use discern_prepare (the fast fix-then-check loop) and discern_test " +
+    "(just the tests). On a failure, read the result's diagnostics[] — the tool, " +
+    "the command to reproduce it, the captured output — and fix from those rather " +
+    "than re-running and scraping.",
+    "- Learn how discern itself works (the gate, discern.toml, worktrees) with " +
+    "discern_help.",
+  ];
+  if (enabled.has("docs")) {
+    lines.push("- Read THIS project's own documentation with discern_docs.");
+  }
+  lines.push("- Find concrete setup improvements with discern_audit.");
+  if (enabled.has("worktrees")) {
+    lines.push(
+      "- When a branch is finished and integrated, graduate it into the main " +
+        "checkout for review with discern_graduate.",
+    );
+  }
+  return lines.join("\n");
+}
+
+/**
  * Run the MCP server over stdio via the official SDK. The project root and its
  * enabled features are resolved once at startup; every enabled tool is registered
  * (feature-disabled tools are omitted, the MCP mirror of the CLI listing only the
@@ -470,7 +506,10 @@ async function resolveEnabledFeatures(
 export async function runMcpServer(): Promise<number> {
   const root = await findRoot();
   const enabled = await resolveEnabledFeatures(root);
-  const server = new McpServer({ name: SERVER_NAME, version: SERVER_VERSION });
+  const server = new McpServer(
+    { name: SERVER_NAME, version: SERVER_VERSION },
+    { instructions: buildInstructions(enabled) },
+  );
 
   for (const tool of TOOLS) {
     if (tool.feature !== undefined && !enabled.has(tool.feature)) {

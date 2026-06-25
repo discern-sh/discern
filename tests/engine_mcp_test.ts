@@ -765,3 +765,65 @@ Deno.test("discern mcp: a tool call's structuredContent validates against its ad
     assertEquals(await mcp.close(), 0);
   });
 });
+
+Deno.test("discern mcp: the server advertises a non-empty, MCP-first instructions block", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const mcp = await spawnMcp(dir);
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    const init = await mcp.recv();
+    const instructions = init.result.instructions;
+    assert(
+      typeof instructions === "string" && instructions.length > 0,
+      "the server should advertise instructions in its initialize result",
+    );
+    // It names the operating model's core tools (orient, gate) — the "when to use
+    // which tool" block.
+    assert(instructions.includes("discern_status"), instructions);
+    assert(instructions.includes("discern_finish"), instructions);
+    // Worktrees are on in the default scaffold → the graduate line is present.
+    assert(instructions.includes("discern_graduate"), instructions);
+    assertEquals(await mcp.close(), 0);
+  });
+});
+
+Deno.test("discern mcp: instructions are feature-aware (no graduate line when worktrees off)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const set = await runAgent(dir, [
+      "config",
+      "set",
+      "features.worktrees",
+      "false",
+      "--bool",
+    ]);
+    assertEquals(set.code, 0, set.output);
+
+    const mcp = await spawnMcp(dir);
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    const init = await mcp.recv();
+    const instructions = init.result.instructions as string;
+    assert(typeof instructions === "string" && instructions.length > 0);
+    // The graduate tool isn't registered with worktrees off, so its line is dropped
+    // from the instructions too (the block mirrors the tool gating).
+    assert(
+      !instructions.includes("discern_graduate"),
+      `worktrees off → no graduate line; got:\n${instructions}`,
+    );
+    // The always-on guidance still stands.
+    assert(instructions.includes("discern_status"), instructions);
+    assertEquals(await mcp.close(), 0);
+  });
+});
