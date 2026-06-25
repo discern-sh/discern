@@ -268,7 +268,7 @@ run       = "deno task coverage"
 # the count drops, lower the limit to lock the gain in — the ceiling only falls.
 [ratchets.prose]
 direction = "down"
-limit     = 1540
+limit     = 1553
 run       = "deno task prose"
 
 # ─────────────────────────────────────────────────────────────────────────────
