@@ -14,7 +14,8 @@
  * or discern's built-ins, and recompile.
  *
  * Two independent jobs, each gated on its feature and safe to run from anywhere:
- *   - `features.skills`  → materialize skills into `.claude/skills/` (see lib/skills.ts);
+ *   - `features.skills`  → materialize skills into each configured agent's skills
+ *     dir (`.claude/skills/`, `.agents/skills/`; see lib/skills.ts + the registry);
  *   - `features.guidance`→ compile the agent files via `renderAgentFiles`.
  * The skills job runs even when guidance is off, so skills stay discoverable.
  */
@@ -28,6 +29,7 @@ import { materializeSkills } from "../lib/skills.ts";
 import {
   MCP_RESTART_HINT,
   providerFor,
+  skillsDirsForAgents,
   unwireProviderMcp,
   wireProviderMcp,
 } from "../lib/providers.ts";
@@ -44,11 +46,11 @@ export interface GuidelinesResult {
   mcpRemoved: string[];
   /** Agent/user-facing advice from this run (e.g. the MCP first-install restart hint). */
   hints: string[];
-  /** Bundled skills copied into `.claude/skills/`. */
+  /** Bundled skills copied, summed across every configured agent's skills dir. */
   skillsCopied: number;
-  /** Authored skills symlinked into `.claude/skills/`. */
+  /** Authored skills symlinked, summed across every configured agent's skills dir. */
   skillsLinked: number;
-  /** Stale managed skill entries pruned from `.claude/skills/`. */
+  /** Stale managed skill entries pruned, summed across every agent's skills dir. */
   skillsPruned: number;
 }
 
@@ -72,10 +74,15 @@ export async function compileGuidelines(
   const config = await loadConfig(root);
   const agents = guidanceAgents(config);
 
-  // --- job 1: materialize skills into .claude/skills/ (gated) ----------------
+  // --- job 1: materialize skills into each configured agent's skills dir (gated) --
   let skills = { copied: 0, linked: 0, pruned: 0 };
   if (isFeatureEnabled(config, "skills")) {
-    skills = await materializeSkills(root, config, log);
+    skills = await materializeSkills(
+      root,
+      config,
+      skillsDirsForAgents(agents),
+      log,
+    );
   }
 
   // --- job 2: MCP integration (gated on features.mcp; ADR 0030/0031) ----------

@@ -22,7 +22,11 @@
  */
 
 import { join } from "@std/path";
-import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
+import {
+  type DiscernConfig,
+  loadConfig,
+  resolveConfiguredAgents,
+} from "../shared/config_schema.ts";
 import { type Feature, isFeatureEnabled } from "../shared/features.ts";
 import { resolveGuidanceSources, resolveTemplatesDir } from "../lib/paths.ts";
 import { providerFor } from "../lib/providers.ts";
@@ -30,10 +34,6 @@ import {
   type GuidanceContext,
   renderGuidanceTemplate,
 } from "./guidance_template.ts";
-
-/** Default providers to emit when neither `[guidance].agents` nor the legacy
- * `[project].agents` is set. */
-const DEFAULT_AGENTS: readonly string[] = ["claude_code", "codex"];
 
 /**
  * The built-in guidance sections, in compile order. The base section is always
@@ -48,15 +48,13 @@ const BUILTIN_SECTIONS: ReadonlyArray<{ file: string; feature?: Feature }> = [
   { file: "docs.md", feature: "docs" },
 ];
 
-/** The providers to emit: `[guidance].agents`, else the legacy `[project].agents`,
- * else the default pair. */
-export function guidanceAgents(config: DiscernConfig): string[] {
-  if (config.guidance.agents.length > 0) {
-    return config.guidance.agents;
-  }
-  const legacy = config.project.agents ?? [];
-  return legacy.length > 0 ? legacy : [...DEFAULT_AGENTS];
-}
+/**
+ * The providers to emit: `[guidance].agents`, else the legacy `[project].agents`,
+ * else the default pair. Re-exported under the long-standing `guidanceAgents` name;
+ * the resolution itself lives in the shared schema module ({@link
+ * resolveConfiguredAgents}) so the compiler and the skills currency check share it.
+ */
+export const guidanceAgents = resolveConfiguredAgents;
 
 /**
  * The template context the built-in sections render against — a PURE function of

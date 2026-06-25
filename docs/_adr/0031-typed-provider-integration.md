@@ -49,7 +49,8 @@ instead of its own table:
   `refresh`, and worktree-setup all (re-)establish it idempotently; `init`
   drives hook-stripping from `provider.hooks`;
 - future provider-specific behaviour (e.g. a per-agent skills dir) extends the
-  same record rather than adding a new scattered conditional.
+  same record rather than adding a new scattered conditional. (The per-agent
+  skills dir was added in [ADR 0042](0042-per-agent-skills-materialization.md).)
 
 **Claude Code is implemented end-to-end**: guidance `CLAUDE.md`; MCP via a stdio
 `discern mcp` server in `.mcp.json`, pre-approved with `enabledMcpjsonServers`

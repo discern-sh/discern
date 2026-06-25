@@ -166,6 +166,18 @@ destroy = "rm -f ${markers}/@resource@.live; mkdir -p ${markers} && touch ${mark
 `;
 }
 
+/** Like {@link resourceConfig} but with a create that APPENDS a line each run, so a
+ * test can prove create ran exactly once across repeated setups. */
+function countingResourceConfig(markers: string): string {
+  return `[project]
+slug = "proj"
+
+[worktree.resources.thing]
+create  = "mkdir -p ${markers} && echo c >> ${markers}/@resource@.create"
+destroy = "rm -f ${markers}/@resource@.create"
+`;
+}
+
 /** Build a ResourceContext rooted at a worktree. */
 async function ctxFor(worktree: string): Promise<ResourceContext> {
   return {
@@ -237,6 +249,38 @@ Deno.test("destroy is idempotent (a second teardown is a clean no-op)", async ()
     // No entries remain; a second teardown must not throw and must stay empty.
     await destroyResources(ctx, await entriesForWorktree(common, key));
     assertEquals((await listEntries(common)).length, 0);
+  });
+});
+
+Deno.test("createResources is idempotent: a provisioned resource skips create on re-run", async () => {
+  await withTempDir(async (dir) => {
+    await mainRepo(dir);
+    const wt = await addWorktree(dir, "idem-create");
+    const markers = join(dir, "markers");
+    await Deno.writeTextFile(
+      join(wt, "discern.toml"),
+      countingResourceConfig(markers),
+    );
+    const { settings, identity } = await identityOf(wt, wt);
+    const { common, key } = await commonAndKey(wt);
+    const ctx = await ctxFor(wt);
+
+    await createResources(ctx, identity, settings, common, key);
+    // Re-entering setup (a re-fired create hook, a recovered partial setup) must NOT
+    // re-run create — the ledger entry from the first run is the proof it already ran.
+    await createResources(ctx, identity, settings, common, key);
+
+    const handle = resourceForId(settings.slug, identity.id, "thing");
+    assertEquals(
+      await Deno.readTextFile(join(markers, `${handle}.create`)),
+      "c\n",
+      "create must run exactly once across two setups",
+    );
+    assertEquals(
+      (await listEntries(common)).length,
+      1,
+      "the re-run must not write a second ledger entry",
+    );
   });
 });
 

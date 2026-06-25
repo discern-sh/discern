@@ -75,6 +75,18 @@ const NAME_RE = /^[A-Za-z0-9_-]+$/;
  * installer's `KNOWN_AGENTS` (re-exported from `lib/config.ts`). */
 export const AGENT_NAMES = ["claude_code", "codex", "gemini"] as const;
 
+/**
+ * The providers a fresh install emits when neither `[guidance].agents` nor the
+ * legacy `[project].agents` is set — the two committed-standard agents (gemini is
+ * opt-in). The ONE definition of this default, shared by the init seed
+ * (`lib/config.ts`), the compile fallback ({@link resolveConfiguredAgents}), and
+ * the schema-migration fallback, so the three can never disagree.
+ */
+export const DEFAULT_AGENTS = [
+  "claude_code",
+  "codex",
+] as const satisfies readonly (typeof AGENT_NAMES)[number][];
+
 /** A capability/check/gate/ratchet value: one command, or a list run in order. */
 const commandOrList = z.union([z.string(), z.array(z.string())]).describe(
   "A single command, or a list of commands run in order.",
@@ -234,7 +246,7 @@ const scopesSection = z.record(z.string().regex(NAME_RE), scopeValue).default(
 
 const resourceValue = z.strictObject({
   create: z.string().default("").describe(
-    "Command run once at worktree setup. An empty command is a clean no-op.",
+    "Command run once at worktree setup (skipped when the resource is already provisioned). Author it idempotent and cwd-independent. An empty command is a clean no-op.",
   ),
   destroy: z.string().default("").describe(
     "Command run once at teardown. Author it idempotent (it may re-run via worktree:prune) and cwd-independent.",
@@ -269,7 +281,7 @@ const worktreeSection = z.strictObject({
     ),
   setup: z.strictObject({
     steps: z.array(z.string()).default([]).describe(
-      "Commands run once after a worktree's resources are created (install deps, run migrations, warm caches). Run in order.",
+      "Commands run once after a worktree's resources are created (install deps, run migrations, warm caches). Run in order; skipped once the worktree is configured. Author each idempotent so a recovered partial setup re-runs safely.",
     ),
   }).prefault({}).describe("Post-create setup steps."),
 }).prefault({}).describe(
@@ -323,6 +335,22 @@ export const configSchema = z.strictObject({
 /** The fully-typed, fully-defaulted live config the engine reads. Internal alias
  * of the inferred Zod type — never part of the package's exported API. */
 export type DiscernConfig = z.infer<typeof configSchema>;
+
+/**
+ * The provider names to emit guidance / materialize skills for: the configured
+ * `[guidance].agents`, else the legacy `[project].agents`, else {@link
+ * DEFAULT_AGENTS}. The single resolver shared by the compiler, the worktree
+ * dispatcher, AND the skills currency check — so "which agents are configured" is
+ * answered identically everywhere, never re-derived per call-site. Pure: reads only
+ * the passed config.
+ */
+export function resolveConfiguredAgents(config: DiscernConfig): string[] {
+  if (config.guidance.agents.length > 0) {
+    return config.guidance.agents;
+  }
+  const legacy = config.project.agents ?? [];
+  return legacy.length > 0 ? legacy : [...DEFAULT_AGENTS];
+}
 
 /** One `[checks.<name>]` entry, fully defaulted. */
 export type CheckConfig = z.infer<typeof checkValue>;

@@ -17,6 +17,7 @@ import { join } from "@std/path";
 import { toCommandList } from "../../shared/config_schema.ts";
 import type { DiscernConfig } from "../../shared/config_schema.ts";
 import { resolveGuidanceSources, resolveSkillsDir } from "../../lib/paths.ts";
+import { allGuidanceFilePaths } from "../../lib/providers.ts";
 import type {
   AuditContext,
   Category,
@@ -93,9 +94,11 @@ async function countAuthoredSkills(
   return count;
 }
 
-/** Whether any compiled agent file is present (the output of `discern refresh`). */
+/** Whether any compiled agent file is present (the output of `discern refresh`).
+ * Derived from the provider registry (every agent's `guidanceFile.path`), so a new
+ * agent's file counts without editing this probe. */
 async function anyAgentFile(root: string): Promise<boolean> {
-  for (const name of ["AGENTS.md", "CLAUDE.md", "GEMINI.md"]) {
+  for (const name of allGuidanceFilePaths()) {
     if (await fileExists(join(root, name))) {
       return true;
     }
@@ -338,7 +341,7 @@ const GUIDANCE: Category = {
       weight: 1,
       fix: "discern refresh",
       teach:
-        "The per-provider agent files (AGENTS.md / CLAUDE.md) are compiled from the " +
+        "The per-provider agent files (one per configured agent) are compiled from the " +
         "built-in guidance plus your sources. If none exist, agents are flying blind. " +
         "Run `discern refresh` to (re)compile them.",
       evaluate: (ctx): { status: "pass" | "fail"; detail: string } =>
@@ -346,7 +349,7 @@ const GUIDANCE: Category = {
           ? { status: "pass", detail: "a compiled agent file is present" }
           : {
             status: "fail",
-            detail: "no compiled agent file (AGENTS.md / CLAUDE.md) found",
+            detail: "no compiled agent file found",
           },
     },
     {

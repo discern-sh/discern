@@ -44,8 +44,9 @@ Deno.test("the production chain is contiguous up to the current schema", () => {
   // 2→3 (the .discern/ surface consolidation), 3→4 (capabilities/checks),
   // 4→5 (prune the pre-existing on-disk shell engine), 5→6 (dissolve .discern/
   // into the single-file footprint), 6→7 (bootstrap skill → command),
-  // 7→8 (db/dev_server → [worktree.resources.*]), and 8→9 (untrack AGENTS.md).
-  assertEquals(MIGRATIONS.map((m) => m.from), [1, 2, 3, 4, 5, 6, 7, 8]);
+  // 7→8 (db/dev_server → [worktree.resources.*]), 8→9 (untrack AGENTS.md), and
+  // 9→10 (ignore .agents/skills/).
+  assertEquals(MIGRATIONS.map((m) => m.from), [1, 2, 3, 4, 5, 6, 7, 8, 9]);
   assert(isChainContiguous(MIGRATIONS, SCHEMA_VERSION));
 });
 
@@ -211,6 +212,75 @@ Deno.test("migration 8→9 is a no-op when there is no .gitignore to amend", asy
     );
     // No .gitignore present — the step must neither throw nor create one.
     await applyMigrations({ destDir: dir, from: 8, to: 9, onNote: () => {} });
+    assertEquals(await targetExists(dir, ".gitignore"), false);
+  });
+});
+
+Deno.test("migration 9→10 ignores .agents/skills/ after the .claude block, idempotently", async () => {
+  await withTempDir(async (dir) => {
+    // A schema-9 .gitignore carrying the .claude materialized-skills block.
+    await Deno.writeTextFile(
+      join(dir, ".gitignore"),
+      [
+        "/node_modules",
+        "",
+        "# --- discern harness ---",
+        "/AGENTS.md",
+        "/CLAUDE.md",
+        "/GEMINI.md",
+        "/.claude/*",
+        "!/.claude/settings.json",
+        "!/.claude/settings.local.json",
+        "",
+      ].join("\n"),
+    );
+    await applyMigrations({ destDir: dir, from: 9, to: 10, onNote: () => {} });
+
+    const gitignore = await Deno.readTextFile(join(dir, ".gitignore"));
+    // Ignored exactly once, after the whole .claude block (past its ! exceptions).
+    assertEquals(gitignore.match(/^\s*\/?\.agents\/skills\b/gm)?.length, 1);
+    assert(
+      gitignore.indexOf("/.agents/skills/") >
+        gitignore.indexOf("!/.claude/settings.local.json"),
+      ".agents/skills should sit after the .claude block's exceptions",
+    );
+    assertStringIncludes(gitignore, "/node_modules");
+
+    // Idempotent: a re-run adds no duplicate and changes nothing.
+    await applyMigrations({ destDir: dir, from: 9, to: 10, onNote: () => {} });
+    const again = await Deno.readTextFile(join(dir, ".gitignore"));
+    assertEquals(again, gitignore);
+    assertEquals(again.match(/^\s*\/?\.agents\/skills\b/gm)?.length, 1);
+  });
+});
+
+Deno.test("migration 9→10 appends with a note when there is no .claude/* anchor", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, ".gitignore"), "/node_modules\n");
+    const notes: string[] = [];
+    await applyMigrations({
+      destDir: dir,
+      from: 9,
+      to: 10,
+      onNote: (m) => notes.push(m),
+    });
+    const gitignore = await Deno.readTextFile(join(dir, ".gitignore"));
+    assertEquals(gitignore.match(/^\s*\/?\.agents\/skills\b/gm)?.length, 1);
+    assertStringIncludes(gitignore, "/node_modules");
+    assert(
+      notes.some((n) => n.includes(".agents/skills")),
+      `expected an .agents/skills note, got: ${notes.join(" | ")}`,
+    );
+  });
+});
+
+Deno.test("migration 9→10 is a no-op when there is no .gitignore to amend", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      '[project]\nslug = "demo"\n',
+    );
+    await applyMigrations({ destDir: dir, from: 9, to: 10, onNote: () => {} });
     assertEquals(await targetExists(dir, ".gitignore"), false);
   });
 });

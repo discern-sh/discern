@@ -20,7 +20,13 @@ import { Logger } from "../lib/log.ts";
 import { parseDiscernToml } from "../lib/toml_render.ts";
 import { resolveRecordedSchema } from "../lib/schema.ts";
 import { KIT_VERSION, SCHEMA_VERSION } from "../lib/version.ts";
-import { parseConfig, toCommandList } from "../shared/config_schema.ts";
+import {
+  AGENT_NAMES,
+  parseConfig,
+  resolveConfiguredAgents,
+  toCommandList,
+} from "../shared/config_schema.ts";
+import { providerFor, providersWithHooks } from "../lib/providers.ts";
 import {
   enabledFeatures,
   FEATURES,
@@ -356,6 +362,44 @@ export async function runChecks(destDir: string): Promise<Check[]> {
     });
   }
 
+  // 8b. agent integrations — per CONFIGURED agent, the integration surfaces the
+  // provider registry wires today (guidance file, skills dir, MCP, worktree hooks).
+  // Makes per-agent coverage EXPLICIT rather than a silent gap: MCP/hooks are
+  // Claude-only because Codex/Gemini use different mechanisms (their config files /
+  // the absence of a worktree-hook event), so an operator can SEE why an agent lacks
+  // a surface instead of suspecting a bug. An unknown agent name is a real error.
+  for (const name of resolveConfiguredAgents(config)) {
+    const provider = providerFor(name);
+    if (provider === undefined) {
+      checks.push({
+        name: `agent: ${name}`,
+        ok: false,
+        detail: `configured agent "${name}" is not one discern knows`,
+        fix: `use a known agent (${AGENT_NAMES.join(", ")}) or remove it`,
+      });
+      continue;
+    }
+    const wired = [
+      `guidance ${provider.guidanceFile.path}`,
+      provider.skillsDir ? `skills ${provider.skillsDir}` : undefined,
+      provider.mcp ? "mcp" : undefined,
+      provider.hooks ? "hooks" : undefined,
+    ].filter((s): s is string => s !== undefined);
+    const todo = [
+      provider.mcp ? undefined : "mcp",
+      provider.hooks ? undefined : "hooks",
+    ].filter((s): s is string => s !== undefined);
+    checks.push({
+      name: `agent: ${provider.label}`,
+      ok: true,
+      detail: todo.length === 0
+        ? `wired: ${wired.join(", ")}`
+        : `wired: ${wired.join(", ")}; uses its own mechanism (not wired): ${
+          todo.join(", ")
+        }`,
+    });
+  }
+
   // 9. features — surface the [features] toggle state, so a user can SEE which
   // subsystems are on without inferring it from missing `--help` verbs.
   {
@@ -393,48 +437,60 @@ export async function runChecks(destDir: string): Promise<Check[]> {
     }
   }
 
-  // 11. worktree-automation layering (advisory). If .claude/settings.json carries
-  // a worktree-lifecycle hook whose command does not invoke the harness CLI, a
-  // different tool also automates worktrees here and would double setup/teardown.
+  // 11. worktree-automation layering (advisory). If a hooks provider's settings file
+  // carries a worktree-lifecycle hook whose command does not invoke the harness CLI,
+  // a different tool also automates worktrees here and would double setup/teardown.
   // Advisory only (a warn, still healthy): the install is fine, but the operator
-  // should reconcile the hooks. "Ours" = the command calls `discern` (an install)
-  // or `deno task dev` (this repo self-hosting from source). Skipped when the
-  // worktrees feature is off (the hooks are inert / not discern's concern).
+  // should reconcile the hooks. "Ours" = the command calls `discern` (an install) or
+  // `deno task dev` (this repo self-hosting from source). The provider's settings file
+  // and the worktree-command needle are read FROM the registry (every provider that
+  // declares a hooks surface), so a second hooks-provider is covered without editing
+  // this check. Skipped when worktrees is off (the hooks are inert / not our concern).
   if (isFeatureEnabled(config, "worktrees")) {
-    try {
-      const raw = await Deno.readTextFile(
-        join(destDir, ".claude/settings.json"),
-      );
-      const settings = JSON.parse(raw) as {
-        hooks?: Record<
-          string,
-          Array<{ hooks?: Array<{ command?: unknown }> }> | undefined
-        >;
-      };
-      const groups = settings.hooks ?? {};
-      const foreign = [
-        ...(groups.WorktreeCreate ?? []),
-        ...(groups.WorktreeRemove ?? []),
-        ...(groups.SessionStart ?? []),
-      ]
-        .flatMap((g) => g.hooks ?? [])
-        .map((h) => (typeof h.command === "string" ? h.command : ""))
-        .filter((c) => /worktree/i.test(c))
-        .filter((c) => !c.includes("discern") && !c.includes("deno task dev"));
-      if (foreign.length > 0) {
-        checks.push({
-          name: "worktree automation",
-          ok: true,
-          warn: true,
-          detail:
-            "another tool also automates worktrees in .claude/settings.json (a worktree hook does not call `discern`)",
-          fix:
-            "reconcile the hooks by hand so worktree setup/teardown isn't doubled",
-        });
+    const foreignFiles: string[] = [];
+    for (const provider of providersWithHooks()) {
+      const integ = provider.hooks;
+      if (integ === undefined) {
+        continue; // providersWithHooks guarantees this, but narrow for the checker.
       }
-    } catch {
-      // No settings.json, a malformed one, or unreadable: this advisory is
-      // best-effort, so skip it silently (install validity is checked above).
+      try {
+        const raw = await Deno.readTextFile(join(destDir, integ.settingsFile));
+        const settings = JSON.parse(raw) as {
+          hooks?: Record<
+            string,
+            Array<{ hooks?: Array<{ command?: unknown }> }> | undefined
+          >;
+        };
+        // Scan EVERY hook group for a worktree-touching command (the registry's
+        // needle) that isn't discern's — no hardcoded event-name list to fall behind.
+        const needle = new RegExp(integ.sessionHookNeedle, "i");
+        const foreign = Object.values(settings.hooks ?? {})
+          .flatMap((g) => g ?? [])
+          .flatMap((g) => g.hooks ?? [])
+          .map((h) => (typeof h.command === "string" ? h.command : ""))
+          .filter((c) => needle.test(c))
+          .filter((c) =>
+            !c.includes("discern") && !c.includes("deno task dev")
+          );
+        if (foreign.length > 0) {
+          foreignFiles.push(integ.settingsFile);
+        }
+      } catch {
+        // No settings file, a malformed one, or unreadable: this advisory is
+        // best-effort, so skip it silently (install validity is checked above).
+      }
+    }
+    if (foreignFiles.length > 0) {
+      checks.push({
+        name: "worktree automation",
+        ok: true,
+        warn: true,
+        detail: `another tool also automates worktrees in ${
+          foreignFiles.join(", ")
+        } (a worktree hook does not call \`discern\`)`,
+        fix:
+          "reconcile the hooks by hand so worktree setup/teardown isn't doubled",
+      });
     }
   }
 
