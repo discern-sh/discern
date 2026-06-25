@@ -20,9 +20,13 @@
  *       --tool-name discern_status --tool-arg local=true
  *       → one-shot CLI calls, printed as JSON, no browser.
  *
- * Everything you pass is forwarded to the Inspector as ITS flags; discern's
- * server command is appended after `--`, so the Inspector hands it to the OS
- * verbatim and Commander never reinterprets deno's `--allow-*` flags.
+ * discern's server command comes first (right after the package name); anything
+ * you pass follows it and is parsed by the Inspector as its own flags. That is
+ * the Inspector's documented order — `inspector <server-cmd> --cli --method …
+ * --tool-arg …` — and it keeps a variadic operation flag like `--tool-arg` last,
+ * where it cannot swallow the trailing server command. (A `--` separator is
+ * deliberately NOT used: `npx` strips the first `--` before the Inspector sees
+ * it, which would drop the separator and let `--tool-arg` eat the command.)
  */
 
 import { fromFileUrl } from "@std/path";
@@ -42,20 +46,19 @@ const SERVER_PERMISSIONS = [
 const MAIN_TS = fromFileUrl(new URL("../src/main.ts", import.meta.url));
 
 /** Spawn the Inspector over `npx`, wired to discern's MCP server, and return its
- * exit code. The server command sits after `--`; the user's args precede it and
- * are parsed as the Inspector's own options (UI by default, `--cli ...` for a
- * one-shot call). */
+ * exit code. The server command leads; the user's args trail it and are parsed
+ * as the Inspector's own options (UI by default, `--cli ...` for a one-shot
+ * call). */
 async function main(): Promise<number> {
   const args = [
     "-y",
     "@modelcontextprotocol/inspector",
-    ...Deno.args,
-    "--",
     Deno.execPath(),
     "run",
     ...SERVER_PERMISSIONS,
     MAIN_TS,
     "mcp",
+    ...Deno.args,
   ];
 
   let child: Deno.ChildProcess;
