@@ -26,6 +26,7 @@ import { type DiscernResult, serializeResult } from "../src/shared/result.ts";
 import {
   AuditOutputSchema,
   ChangedScopesOutputSchema,
+  DatalessEnvelopeSchema,
   DocsOutputSchema,
   DoctorOutputSchema,
   EnvelopeSchema,
@@ -120,6 +121,20 @@ Deno.test("envelope schema is locked to serializeResult's wire shape", () => {
   assertEquals(Object.keys(serialized).sort(), schemaKeys);
 });
 
+Deno.test("DatalessEnvelopeSchema forbids a data payload (the data-less SSOT guard)", () => {
+  const base = { ok: true, verb: "prepare" };
+  // A data-less result validates.
+  assert(DatalessEnvelopeSchema.safeParse(base).success);
+  // The same result carrying a `data` payload is REJECTED — so a data-less verb
+  // that grows a `data` field fails its faithfulness test (and the SDK's output
+  // validation) until the payload is modelled. The bare EnvelopeSchema (data:
+  // unknown), by contrast, would silently accept it.
+  assert(
+    !DatalessEnvelopeSchema.safeParse({ ...base, data: { x: 1 } }).success,
+  );
+  assert(EnvelopeSchema.safeParse({ ...base, data: { x: 1 } }).success);
+});
+
 Deno.test("finish result is faithful to FinishOutputSchema (preview, clean, failing)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
@@ -154,9 +169,18 @@ Deno.test("prepare/test results are faithful (clean and failing)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    // Clean no-op scaffold: both pass.
-    expectValid(EnvelopeSchema, await prepareResult(dir), "prepare clean");
-    expectValid(EnvelopeSchema, await testResult(dir), "test unconfigured");
+    // Clean no-op scaffold: both pass. They carry no `data`, so they validate
+    // against the strict DatalessEnvelopeSchema (which forbids a `data` key).
+    expectValid(
+      DatalessEnvelopeSchema,
+      await prepareResult(dir),
+      "prepare clean",
+    );
+    expectValid(
+      DatalessEnvelopeSchema,
+      await testResult(dir),
+      "test unconfigured",
+    );
 
     await writeConfig(
       dir,
@@ -172,10 +196,10 @@ Deno.test("prepare/test results are faithful (clean and failing)", async () => {
     );
     const prep = await prepareResult(dir);
     assertEquals(prep.ok, false);
-    expectValid(EnvelopeSchema, prep, "prepare failing");
+    expectValid(DatalessEnvelopeSchema, prep, "prepare failing");
     const test = await testResult(dir);
     assertEquals(test.ok, false);
-    expectValid(EnvelopeSchema, test, "test failing");
+    expectValid(DatalessEnvelopeSchema, test, "test failing");
   });
 });
 
@@ -336,13 +360,13 @@ Deno.test("ratchets result is faithful (dry-run plan and applied steps)", async 
       ].join("\n"),
     );
     expectValid(
-      EnvelopeSchema,
+      DatalessEnvelopeSchema,
       await ratchetsResult(dir, { dryRun: true }),
       "ratchets dry-run",
     );
     const applied = await ratchetsResult(dir);
     assertEquals(applied.ok, true);
-    expectValid(EnvelopeSchema, applied, "ratchets applied");
+    expectValid(DatalessEnvelopeSchema, applied, "ratchets applied");
   });
 });
 
@@ -357,6 +381,6 @@ Deno.test("graduate result is faithful (dry-run plan from a worktree)", async ()
     );
     const preview = await graduateResult(ctx, { dryRun: true });
     assertEquals(preview.dry_run, true);
-    expectValid(EnvelopeSchema, preview, "graduate dry-run");
+    expectValid(DatalessEnvelopeSchema, preview, "graduate dry-run");
   });
 });

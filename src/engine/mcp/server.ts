@@ -33,10 +33,10 @@ import { type DiscernResult, serializeResult } from "../../shared/result.ts";
 import {
   AuditOutputSchema,
   ChangedScopesOutputSchema,
+  DatalessEnvelopeSchema,
   type DocsData,
   DocsOutputSchema,
   DoctorOutputSchema,
-  EnvelopeSchema,
   FinishOutputSchema,
   StatusOutputSchema,
 } from "../../shared/result_schemas.ts";
@@ -88,25 +88,27 @@ interface ToolAnnotations {
   openWorldHint?: boolean;
 }
 
-/** A pure observation — reads project state, mutates nothing, reaches nothing
- * external. Trivially idempotent. */
+/** A pure observation — reads project state, mutates nothing, and reaches nothing
+ * external (git/file reads only), so the world is closed. Trivially idempotent. */
 const READ_ONLY: ToolAnnotations = {
   readOnlyHint: true,
   idempotentHint: true,
   openWorldHint: false,
 };
-/** Runs project commands and may rewrite files (a fixer), but reclaims/destroys
- * nothing. Not read-only; not destructive. */
+/** Runs the project's own configured commands (and may rewrite files), but
+ * reclaims/destroys nothing. `openWorldHint` is left UNSET (it defaults to true):
+ * those commands are arbitrary and may reach the network, so claiming a closed
+ * world would be dishonest. */
 const MUTATING: ToolAnnotations = {
   readOnlyHint: false,
   destructiveHint: false,
-  openWorldHint: false,
 };
-/** Tears down per-worktree resources and moves the branch — a one-way operation. */
+/** Tears down per-worktree resources (running their configured destroy commands)
+ * and moves the branch — a one-way operation. Like {@link MUTATING}, those commands
+ * are arbitrary, so `openWorldHint` is left unset. */
 const DESTRUCTIVE: ToolAnnotations = {
   readOnlyHint: false,
   destructiveHint: true,
-  openWorldHint: false,
 };
 
 /** A tool: its advertised schema + metadata plus the handler that runs the verb.
@@ -156,7 +158,7 @@ const TOOLS: McpTool[] = [
   {
     name: "discern_prepare",
     title: "Run the fast gate",
-    outputSchema: EnvelopeSchema.shape,
+    outputSchema: DatalessEnvelopeSchema.shape,
     annotations: MUTATING,
     description:
       "Run the fast inner-loop gate — the fix-stage fixers, then the read-only " +
@@ -168,7 +170,7 @@ const TOOLS: McpTool[] = [
   {
     name: "discern_test",
     title: "Run the tests",
-    outputSchema: EnvelopeSchema.shape,
+    outputSchema: DatalessEnvelopeSchema.shape,
     annotations: MUTATING,
     description:
       "Run the project's test capability on its own (the `test` stage, outside the " +
@@ -179,7 +181,7 @@ const TOOLS: McpTool[] = [
   {
     name: "discern_ratchets",
     title: "Hold the ratchets",
-    outputSchema: EnvelopeSchema.shape,
+    outputSchema: DatalessEnvelopeSchema.shape,
     annotations: MUTATING,
     description:
       "Hold every configured quality ratchet (a never-loosen metric floor/ceiling): " +
@@ -328,7 +330,7 @@ const TOOLS: McpTool[] = [
   {
     name: "discern_graduate",
     title: "Graduate the worktree",
-    outputSchema: EnvelopeSchema.shape,
+    outputSchema: DatalessEnvelopeSchema.shape,
     annotations: DESTRUCTIVE,
     description:
       "Graduate THIS worktree's branch into the main checkout for review: tear down " +

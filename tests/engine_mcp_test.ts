@@ -699,6 +699,26 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
       true,
     );
 
+    // openWorldHint honesty: the pure observers claim a closed world; the
+    // command-running tools leave it unset (it defaults open), since their
+    // configured commands are arbitrary and may reach the network.
+    assertEquals(
+      byName.get("discern_status")?.annotations?.openWorldHint,
+      false,
+    );
+    assertEquals(
+      byName.get("discern_finish")?.annotations?.openWorldHint,
+      undefined,
+    );
+    assertEquals(
+      byName.get("discern_ratchets")?.annotations?.openWorldHint,
+      undefined,
+    );
+    assertEquals(
+      byName.get("discern_graduate")?.annotations?.openWorldHint,
+      undefined,
+    );
+
     // The advertised outputSchema names the envelope fields it validates, and
     // finish's narrows `data` to the gate payload.
     const finishProps = byName.get("discern_finish")?.outputSchema?.properties;

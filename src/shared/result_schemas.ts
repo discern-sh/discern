@@ -97,29 +97,40 @@ export const PlanJsonSchema = z.strictObject({
 
 /**
  * The envelope fields every {@link import("./result.ts").DiscernResult} serializes
- * to, mirroring `serializeResult` exactly: `ok`/`verb` always present, everything
- * else optional (`serializeResult` drops undefined fields, so a refusal envelope
- * `{ok, verb, error, message}` validates too). `data` is left open here — each
- * per-verb output schema narrows it. Composed into the output schemas below; locked
- * to `serializeResult` by the result-schema test.
+ * to EXCEPT `data`, mirroring `serializeResult` exactly: `ok`/`verb` always present,
+ * everything else optional (`serializeResult` drops undefined fields, so a refusal
+ * envelope `{ok, verb, error, message}` validates too). `data` is added separately —
+ * the data-bearing verbs narrow it (below), the data-less verbs FORBID it (so a
+ * future payload can't slip in unmodelled). Composed into the output schemas below;
+ * locked to `serializeResult` by the result-schema test.
  */
-const ENVELOPE_FIELDS = {
+const ENVELOPE_BASE_FIELDS = {
   ok: z.boolean(),
   verb: z.string(),
   dry_run: z.boolean().optional(),
   plan: PlanJsonSchema.optional(),
   steps: z.array(StepResultJsonSchema).optional(),
   diagnostics: z.array(DiagnosticSchema).optional(),
-  data: z.unknown().optional(),
   hints: z.array(z.string()).optional(),
   error: z.string().optional(),
   message: z.string().optional(),
 };
 
-/** The base envelope schema, with `data` left open. The output schemas below narrow
- * `data` per verb; this bare form is the schema for the data-less verbs (prepare,
- * test, graduate, ratchets). */
-export const EnvelopeSchema = z.strictObject(ENVELOPE_FIELDS);
+/** The general "any envelope" schema, with `data` left open (`unknown`). Locked to
+ * `serializeResult` by the result-schema test (a maximal result carries `data`). */
+export const EnvelopeSchema = z.strictObject({
+  ...ENVELOPE_BASE_FIELDS,
+  data: z.unknown().optional(),
+});
+
+/**
+ * The envelope for the data-LESS verbs (`prepare`, `test`, `ratchets`, `graduate`):
+ * strict and WITHOUT a `data` field. They carry no `data` today, and this makes that
+ * a checked invariant — a result that grows a `data` payload fails its faithfulness
+ * test (and the SDK's output validation) until the payload is modelled, the SSOT
+ * guard the bare `EnvelopeSchema` (`data: unknown`) can't give.
+ */
+export const DatalessEnvelopeSchema = z.strictObject(ENVELOPE_BASE_FIELDS);
 
 // ── per-verb `data` schemas (the source; the core's `data` type infers from it) ──
 
@@ -321,36 +332,36 @@ export type DocsData = z.infer<typeof DocsDataSchema>;
 
 /** `finish` output: envelope + the gate's `data`. */
 export const FinishOutputSchema = z.strictObject({
-  ...ENVELOPE_FIELDS,
+  ...ENVELOPE_BASE_FIELDS,
   data: GateDataSchema.optional(),
 });
 
 /** `status` output: envelope + the situation `data`. */
 export const StatusOutputSchema = z.strictObject({
-  ...ENVELOPE_FIELDS,
+  ...ENVELOPE_BASE_FIELDS,
   data: StatusDataSchema.optional(),
 });
 
 /** `doctor` output: envelope + the install-check `data`. */
 export const DoctorOutputSchema = z.strictObject({
-  ...ENVELOPE_FIELDS,
+  ...ENVELOPE_BASE_FIELDS,
   data: DoctorDataSchema.optional(),
 });
 
 /** `changed-scopes` output: envelope + the scope-list `data`. */
 export const ChangedScopesOutputSchema = z.strictObject({
-  ...ENVELOPE_FIELDS,
+  ...ENVELOPE_BASE_FIELDS,
   data: ChangedScopesDataSchema.optional(),
 });
 
 /** `audit` output: envelope + the scored `data`. */
 export const AuditOutputSchema = z.strictObject({
-  ...ENVELOPE_FIELDS,
+  ...ENVELOPE_BASE_FIELDS,
   data: AuditDataSchema.optional(),
 });
 
 /** `docs`/`help` output: envelope + the documentation `data`. */
 export const DocsOutputSchema = z.strictObject({
-  ...ENVELOPE_FIELDS,
+  ...ENVELOPE_BASE_FIELDS,
   data: DocsDataSchema.optional(),
 });
