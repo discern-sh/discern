@@ -38,6 +38,7 @@ import {
 } from "./identity.ts";
 import { expandTokens, WORKTREE_TOKENS } from "./tokens.ts";
 import type { TokenResolver, WorktreeToken } from "./tokens.ts";
+import { runShellRouted } from "./shell.ts";
 import { writeEnvVar } from "./env_file.ts";
 import { gitKeyIsLive, WorktreeGitError } from "./git.ts";
 
@@ -275,32 +276,6 @@ async function deleteEntryCAS(
 
 // ── command execution ─────────────────────────────────────────────────────────
 
-/** Run a command via `sh -c` with extra env, returning its exit code. A spawn
- * failure (no `sh`, a resource limit) resolves to a non-zero code rather than
- * throwing, so one bad resource never aborts a whole teardown/prune. In `quiet`
- * mode (--json) the command's stdio is discarded so the result envelope stays the
- * entire output (ADR 0030); otherwise it is inherited so the user sees it live. */
-async function runShellEnv(
-  command: string,
-  cwd: string,
-  env: Record<string, string>,
-  quiet: boolean,
-): Promise<number> {
-  try {
-    const child = new Deno.Command("sh", {
-      args: ["-c", command],
-      cwd,
-      env,
-      stdin: quiet ? "null" : "inherit",
-      stdout: quiet ? "null" : "inherit",
-      stderr: quiet ? "null" : "inherit",
-    }).spawn();
-    return (await child.status).code;
-  } catch {
-    return 127; // could not spawn — treat as a failed (retryable) command
-  }
-}
-
 /** Sleep for `ms` milliseconds. */
 function delay(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
@@ -322,7 +297,7 @@ async function runWithRetries(
     return true;
   }
   for (let attempt = 0;; attempt++) {
-    const code = await runShellEnv(command, cwd, env, log.json);
+    const code = await runShellRouted(command, { cwd, log, env });
     if (code === 0) {
       return true;
     }

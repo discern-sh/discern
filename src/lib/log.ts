@@ -42,7 +42,14 @@ export function colourEnabled(noColor: boolean): boolean {
 export class Logger {
   readonly json: boolean;
   private readonly colour: boolean;
-  private readonly humanStream: "stdout" | "stderr";
+  /**
+   * Which stream human (non-JSON) narration goes to. Public so a helper that runs
+   * a subprocess can route the child's stdout to the SAME channel — keeping the
+   * parent's stdout clean for a caller that reserves it for a machine result (the
+   * `worktree:create` hook returns the worktree path on stdout; see
+   * `engine/worktree/shell.ts`).
+   */
+  readonly humanStream: "stdout" | "stderr";
 
   /** Build a logger from the resolved run options. */
   constructor(options: LogOptions) {
