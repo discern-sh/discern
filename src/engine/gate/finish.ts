@@ -29,7 +29,7 @@ import {
 } from "./plan.ts";
 import { gateRunContext, runGroup } from "./execute.ts";
 import { cmdsInStage } from "./stages.ts";
-import { gotchasHint } from "./gotchas.ts";
+import { renderFailureTail } from "./failure_tail.ts";
 import { changedScopes } from "../scopes/changed.ts";
 import { colorEnabled, makeOut, type Out, outSink } from "../output.ts";
 import { assertMainMerged } from "../worktree/git.ts";
@@ -346,65 +346,6 @@ async function dryRunGate(
 }
 
 /**
- * Render the structured failures block (human mode) — a clean list of each failed
- * tool with its location (Tier 1, when parsed) and the exact command to reproduce
- * it in isolation. The full tool output already streamed above; this is the
- * scannable "what to fix and how to re-run it" summary, the human mirror of the
- * `diagnostics[]` an agent reads from `--json`.
- */
-function renderFailures(out: Out, diagnostics: Diagnostic[]): void {
-  if (diagnostics.length === 0) {
-    return;
-  }
-  const c = out.c;
-  out.heading(`Failures (${diagnostics.length})`);
-  for (const d of diagnostics) {
-    const loc = d.file !== undefined
-      ? ` ${c.dim}${d.file}${
-        d.line !== undefined ? `:${d.line}` : ""
-      }${c.reset}`
-      : "";
-    out.raw(
-      `  ${c.red}✗${c.reset} ${d.tool}${loc} ${c.dim}—${c.reset} ${d.message}\n`,
-    );
-    out.raw(`    ${c.dim}reproduce:${c.reset} ${d.reproduce_cmd}\n`);
-  }
-}
-
-/**
- * The tail-safe summary line — the LAST thing a failed `finish` prints, so a reader
- * who keeps only the end of the stream (`… | tail`) still sees what failed and how to
- * re-run it, not a generic pointer. Its reproduce commands are the de-duplicated
- * `reproduce_cmd`s of the SAME `diagnostics[]` the envelope carries — one source, not a
- * second. With no diagnostics (only the merge check) it falls back to the stage
- * message. Written to stdout, the recap's stream, so it survives `2>/dev/null` and
- * lands last in a merged stream.
- */
-function renderFailBluf(
-  out: Out,
-  verb: string,
-  failedStage: string,
-  diagnostics: Diagnostic[],
-): void {
-  const c = out.c;
-  if (diagnostics.length === 0) {
-    out.raw(
-      `${c.red}✗${c.reset} ${verb} failed: ${failMessage(failedStage)}\n`,
-    );
-    return;
-  }
-  const cmds = [...new Set(diagnostics.map((d) => d.reproduce_cmd))];
-  const shown = cmds.slice(0, 3).join(" ; ");
-  const more = cmds.length > 3 ? ` ; +${cmds.length - 3} more` : "";
-  const n = diagnostics.length;
-  out.raw(
-    `${c.red}✗${c.reset} ${verb} failed — ${n} problem${
-      n === 1 ? "" : "s"
-    }; reproduce: ${shown}${more}\n`,
-  );
-}
-
-/**
  * Compute the `finish` {@link DiscernResult} without printing or exiting — the
  * entry point the MCP server (and any in-process caller) renders instead of the
  * CLI's stdout. `dryRun` returns the preview (the plan, nothing run); otherwise it
@@ -440,10 +381,13 @@ export async function runFinish(
     return failedStage === null ? 0 : 1;
   }
   if (failedStage !== null) {
-    out.error(failMessage(failedStage));
-    gotchasHint(cfg, root, out.color);
-    renderFailures(out, result.diagnostics ?? []);
-    renderFailBluf(out, "finish", failedStage, result.diagnostics ?? []);
+    renderFailureTail(out, {
+      cfg,
+      root,
+      verb: "finish",
+      headline: failMessage(failedStage),
+      diagnostics: result.diagnostics ?? [],
+    });
     return 1;
   }
   printSuccessTail(cfg, out, result.hints ?? []);
