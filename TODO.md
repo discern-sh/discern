@@ -287,3 +287,13 @@ periodically in maintenance batches._
       already. This is a teaching opportunity as it can be hard to understand
       for new users, so should be folded in to `discern audit` and throughout
       our own docs, guidance, and reference materials.
+- [ ] Fan-out agentic review/rewrite for public-facing audiences of all
+      documentation (waiting on Vale lint setup); plus all ADRs. Once complete,
+      ensure agents know future documentation changes will be publicly visible
+      to end-users, including future ADRs.
+- [ ] Conduct a general-purpose thorough "consistency review" - establish all
+      aspects of the platform use the same conventions consistently everywhere.
+      Noteworthy inconsistencies currently (non-exhaustive list):
+      `discern <verb>` where <verb> is a single word, but `worktree:prune` etc.
+      is two words; `discern graduate` vs `/handoff-worktree` skill (why have
+      both?); etc...

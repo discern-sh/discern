@@ -14,6 +14,44 @@ import { walk } from "@std/fs";
 import { join, relative } from "@std/path";
 
 /**
+ * Work verbs that refuse until the project records `[meta].bootstrapped` (ADR
+ * 0036): running them before setup would mislead — an empty gate reports a false
+ * "all-green", and an unconfigured doc tree is empty. Both the CLI router
+ * (`main.ts`) and the MCP server (`engine/mcp/server.ts`) gate on this ONE set so
+ * the two surfaces can never disagree on what is reachable pre-setup.
+ *
+ * Deliberately EXCLUDES the knowledge/orientation verbs you reach for before
+ * setup is done — `help` (discern's own documentation, the thing you consult at
+ * exactly this moment), `status`/`doctor` (orient and debug a broken install) —
+ * plus the plumbing the hooks and `setup` itself drive (`refresh`, `worktree`,
+ * `changed-scopes`, `config`, …) and `setup`. `docs` IS gated: it browses the
+ * project's own tree, which has nothing in it until setup seeds and fills it
+ * (`help` is the pre-setup documentation surface instead).
+ */
+export const BOOTSTRAP_GATED_VERBS: ReadonlySet<string> = new Set<string>([
+  "finish",
+  "prepare",
+  "test",
+  "ratchets",
+  "graduate",
+  "docs",
+]);
+
+/** True when `verb` refuses until the project is set up (see {@link BOOTSTRAP_GATED_VERBS}). */
+export function verbNeedsBootstrap(verb: string): boolean {
+  return BOOTSTRAP_GATED_VERBS.has(verb);
+}
+
+/**
+ * The canonical refusal shown when a {@link BOOTSTRAP_GATED_VERBS} verb runs
+ * before setup — the same sentence in the CLI's `not_set_up` error and the MCP
+ * tool's, so the funnel toward `discern setup` reads identically on both surfaces.
+ */
+export const NOT_SET_UP_MESSAGE =
+  "this project isn't set up yet. Run `discern` (or `discern setup`) to set it " +
+  "up — your coding agent does it for you.";
+
+/**
  * Markers a scaffolded skeleton carries until the agent fills it: the
  * `<!-- setup fills this -->` sentinels and the placeholder EXAMPLE principle
  * heading (`_(EXAMPLE — replace during ...)_`). Both are specific to the shipped

@@ -15,6 +15,33 @@ trail.
 
 ---
 
+## Browsing from the CLI
+
+Two commands read a documentation tree, and they read **different** ones:
+
+- **`discern help`** browses **discern's own documentation** — this tree —
+  bundled into every install. Run it from any project that uses discern to read
+  the [config reference](10-installer/config-reference.md), the concepts, or the
+  gate/worktree/ratchet pages, without leaving the terminal: `discern help` for
+  the index, `discern help config-reference` for one page, and `--list` /
+  `--json` / `--raw` for scripted access. It always serves discern's **public**
+  docs (never the host project's), is available even where the `docs` feature is
+  off, and never shows the `_internal` / `_private` subtrees
+  ([ADR 0039](_adr/0039-bundled-help-docs.md)). The ADRs are hidden by default
+  but can be browsed with `discern help --adr` (CLI only — the MCP tool never
+  exposes them).
+- **`discern docs`** browses **the host project's own `docs/`** (resolved from
+  the project root). Inside the discern repo it surfaces this very tree —
+  because here the project's docs _are_ discern's docs — but in any other
+  install it reads that project's documentation. It is gated on the `docs`
+  feature, takes a `--dir` override, and (unlike `help`) is refused before
+  setup, since the project's tree is empty until setup seeds and fills it.
+
+Both share one implementation and the same surfaces: an interactive picker on a
+TTY, and `--list` / `--json` / `--raw` / `--export` off one.
+
+---
+
 ## Reading order
 
 ### Start here
@@ -42,11 +69,20 @@ The numbers are a reading order, not a contract — rename and renumber freely.
 
 ### Reference material
 
-| Path                         | What's in it                                                                                                                                                              |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [_adr/](_adr/)               | Architecture Decision Records — significant design decisions and their rationale, under continuous numbering. [`_adr/README.md`](_adr/README.md) is the canonical format. |
-| [_internal/](_internal/)     | The documenter brief and per-subtree scope manifests used to write and refresh this tree. Not part of the user-facing docs; kept for reproducibility.                     |
-| [_maintainer/](_maintainer/) | The project maintainer's notes, thoughts, and ideas. Not part of the user-facing docs.                                                                                    |
+| Path                     | What's in it                                                                                                                                                                                                                                                  |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [_adr/](_adr/)           | Architecture Decision Records — significant design decisions and their rationale, under continuous numbering. [`_adr/README.md`](_adr/README.md) is the canonical format. Embedded in the binary and browsable with `discern help --adr` (hidden by default). |
+| [_internal/](_internal/) | The documenter brief and per-subtree scope manifests used to write and refresh this tree. Methodology, not user-facing; kept for reproducibility (and seeded into every install's own tree).                                                                  |
+| [_private/](_private/)   | discern-only material that never ships to users — the maintainer's notes, positioning, and research. Never embedded in a binary and never surfaced by `help`.                                                                                                 |
+
+The three reference trees map onto how `discern help` curates them: the numbered
+subtrees above are **public** (always shipped); `_adr/` is **internal but
+opt-in** (shipped, revealed only by `--adr`); and `_internal/` and `_private/`
+(and any other `_`-prefixed tree) are **private** — excluded from the binary and
+the `help` view by default. The single allowlist of what ships is
+`BUNDLED_INTERNAL_DOC_DIRS` in [`src/lib/paths.ts`](../src/lib/paths.ts), so a
+new private tree is safe the moment it is created, with no list to remember (a
+guard test pins this — `tests/docs_curation_test.ts`).
 
 ---
 
