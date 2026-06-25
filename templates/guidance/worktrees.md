@@ -7,7 +7,7 @@ container, a queue) as `[worktree.resources.<name>]` tables, each with a `create
 command (run at setup) and a `destroy` (run at teardown).{{/if}}
 
 - A worktree is created on its own branch (prefixed `{{branch_prefix}}`). The
-  create hook runs `discern worktree` to set it up:{{#if has_worktree_resources}} it creates the declared
+  create hook (`discern worktree:create`) adds it and sets it up:{{#if has_worktree_resources}} it creates the declared
   resources (a `required` create failure aborts setup),{{/if}} records a deterministic
   dev-server port{{#if has_worktree_resources}} + the resource handles{{/if}} into `.env`, inherits env vars, runs the
   configured setup steps, and freshly materializes skills + guidance.

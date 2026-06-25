@@ -1,35 +1,22 @@
 /**
- * Coverage for the shell hook commands wired into `.claude/settings.json` — the
- * SessionStart / WorktreeCreate / WorktreeRemove one-liners that drive the
- * worktree workflow. They are jq + git + dispatch shell, run by the agent
- * harness (never by `agent finish`), so a quoting or jq-path slip surfaces only
- * at runtime. Each test extracts the command from the RENDERED settings and runs
- * it exactly as the harness would: `sh -c <command>` with the event's JSON
- * payload on stdin. The file matches `engine_*_test.ts`, so it runs in CI's
- * dash/bash matrix too.
+ * Coverage for the worktree-lifecycle hook commands wired into
+ * `.claude/settings.json` — the SessionStart / WorktreeCreate / WorktreeRemove
+ * entries that drive the worktree workflow. They are now thin `discern
+ * worktree:ensure` / `worktree:create` / `worktree:remove` dispatches: the binary
+ * reads the hook's JSON payload from stdin itself, so the hooks no longer shell
+ * out to `jq` (ADR 0039). Each test extracts the command from the RENDERED
+ * settings and runs it exactly as the harness would — `sh -c <command>` with the
+ * event's JSON payload on stdin — so a regression in the hook contract surfaces
+ * here. The file matches `engine_*_test.ts`, so it runs in CI's dash/bash matrix.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { exists } from "@std/fs";
 import { withTempDir } from "./helpers.ts";
 import { engineEnv, gitInit, scaffoldEngine } from "./engine_helpers.ts";
 
 const DECODER = new TextDecoder();
-
-/** jq is a hard dependency of two hooks; skip those when it is unavailable. */
-const HAS_JQ = await (async () => {
-  try {
-    const c = new Deno.Command("jq", {
-      args: ["--version"],
-      stdout: "null",
-      stderr: "null",
-    });
-    return (await c.output()).success;
-  } catch {
-    return false;
-  }
-})();
 
 /** The command string a settings.json hook event runs (first hook of the group). */
 async function hookCommand(dir: string, event: string): Promise<string> {
@@ -64,6 +51,26 @@ async function runHook(
   };
 }
 
+Deno.test("hooks: no worktree hook shells out to jq anymore", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    const raw = await Deno.readTextFile(join(dir, ".claude/settings.json"));
+    assert(
+      !/\bjq\b/.test(raw),
+      `settings.json should not reference jq:\n${raw}`,
+    );
+    // The create/remove hooks are the thin binary dispatches that replaced it.
+    assertStringIncludes(
+      await hookCommand(dir, "WorktreeCreate"),
+      "worktree:create",
+    );
+    assertStringIncludes(
+      await hookCommand(dir, "WorktreeRemove"),
+      "worktree:remove",
+    );
+  });
+});
+
 Deno.test("hook SessionStart: dispatches worktree:ensure (a no-op in the main checkout)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
@@ -73,51 +80,80 @@ Deno.test("hook SessionStart: dispatches worktree:ensure (a no-op in the main ch
   });
 });
 
-Deno.test({
-  name:
-    "hook WorktreeCreate: creates the worktree, runs setup, prints its path",
-  ignore: !HAS_JQ,
-  fn: async () => {
-    await withTempDir(async (dir) => {
-      await scaffoldEngine(dir);
-      await gitInit(dir);
-      const r = await runHook(dir, await hookCommand(dir, "WorktreeCreate"), {
-        name: "hooked",
-        cwd: dir,
-      });
-      assertEquals(r.code, 0, r.stderr);
-
-      const wt = join(dir, ".claude/worktrees/hooked");
-      // The hook prints the new worktree's path on stdout — Claude Code reads it.
-      assertEquals(r.stdout.trim(), wt);
-      // It is a real linked worktree, with `agent worktree` setup having run.
-      assert(await exists(join(wt, ".git")), `not a worktree\n${r.stderr}`);
-      assert(
-        await exists(join(wt, ".claude/skills/handoff-worktree/SKILL.md")),
-        `setup did not run inside the worktree\n${r.stderr}`,
-      );
+Deno.test("hook WorktreeCreate: creates the worktree, runs setup, prints its path", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const r = await runHook(dir, await hookCommand(dir, "WorktreeCreate"), {
+      name: "hooked",
+      cwd: dir,
     });
-  },
+    assertEquals(r.code, 0, r.stderr);
+
+    const wt = join(dir, ".claude/worktrees/hooked");
+    // The hook prints ONLY the new worktree's path on stdout (no trailing
+    // newline) — Claude Code reads it as the worktree location.
+    assertEquals(r.stdout, wt);
+    // It is a real linked worktree, with `discern worktree` setup having run.
+    assert(await exists(join(wt, ".git")), `not a worktree\n${r.stderr}`);
+    assert(
+      await exists(join(wt, ".claude/skills/handoff-worktree/SKILL.md")),
+      `setup did not run inside the worktree\n${r.stderr}`,
+    );
+  });
 });
 
-Deno.test({
-  name: "hook WorktreeRemove: tears down a worktree and never fails the event",
-  ignore: !HAS_JQ,
-  fn: async () => {
-    await withTempDir(async (dir) => {
-      await scaffoldEngine(dir);
-      await gitInit(dir);
-      // Make a worktree with the create hook, then feed its path to remove.
-      await runHook(dir, await hookCommand(dir, "WorktreeCreate"), {
-        name: "doomed",
-        cwd: dir,
-      });
-      const wt = join(dir, ".claude/worktrees/doomed");
-      const r = await runHook(dir, await hookCommand(dir, "WorktreeRemove"), {
-        worktree_path: wt,
-      });
-      // The remove hook ends in `|| true`: teardown problems never fail the event.
-      assertEquals(r.code, 0, r.stderr);
+Deno.test("hook WorktreeCreate: re-firing on an existing worktree is idempotent", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const create = await hookCommand(dir, "WorktreeCreate");
+    const payload = { name: "again", cwd: dir };
+    const first = await runHook(dir, create, payload);
+    assertEquals(first.code, 0, first.stderr);
+    // A second create for the same name must not error on the already-added
+    // worktree — it re-runs setup and re-prints the same path.
+    const second = await runHook(dir, create, payload);
+    assertEquals(second.code, 0, second.stderr);
+    assertEquals(second.stdout, join(dir, ".claude/worktrees/again"));
+  });
+});
+
+Deno.test("hook WorktreeCreate: a payload missing name/cwd fails loudly", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const r = await runHook(dir, await hookCommand(dir, "WorktreeCreate"), {
+      cwd: dir,
     });
-  },
+    assertEquals(r.code, 1);
+    assertStringIncludes(r.stderr, "name");
+  });
+});
+
+Deno.test("hook WorktreeRemove: tears down a worktree and never fails the event", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    // Make a worktree with the create hook, then feed its path to remove.
+    await runHook(dir, await hookCommand(dir, "WorktreeCreate"), {
+      name: "doomed",
+      cwd: dir,
+    });
+    const wt = join(dir, ".claude/worktrees/doomed");
+    const r = await runHook(dir, await hookCommand(dir, "WorktreeRemove"), {
+      worktree_path: wt,
+    });
+    // The remove hook is best-effort: teardown problems never fail the event.
+    assertEquals(r.code, 0, r.stderr);
+  });
+});
+
+Deno.test("hook WorktreeRemove: a missing worktree path is a clean no-op", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const r = await runHook(dir, await hookCommand(dir, "WorktreeRemove"), {});
+    assertEquals(r.code, 0, r.stderr);
+  });
 });

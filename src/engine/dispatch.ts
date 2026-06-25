@@ -54,6 +54,10 @@ import {
   worktreeTeardown,
 } from "./worktree/lifecycle.ts";
 import { inheritMainEnvVars, removeWorktreeSafely } from "./worktree/git.ts";
+import {
+  worktreeCreateHook,
+  worktreeRemoveHook,
+} from "../lib/worktree_hooks.ts";
 import { gotchasHint } from "./gate/gotchas.ts";
 import { colorEnabled } from "./output.ts";
 
@@ -89,6 +93,8 @@ const ENGINE_RECIPE_NAMES: readonly string[] = [
   "graduate",
   "worktree",
   "worktree-name",
+  "worktree-create",
+  "worktree-remove",
   "worktree-ensure",
   "worktree-teardown",
   "worktree-prune",
@@ -542,6 +548,26 @@ export function attachEngineCommands(
               { json, verb: "worktree:teardown" },
             ),
           );
+        }),
+    )
+    .command(
+      "create",
+      new Command()
+        .description(
+          "WorktreeCreate hook entry: read {name, cwd} JSON on stdin, create the worktree, set it up, and print its path.",
+        )
+        .action(async () => {
+          Deno.exit(await worktreeCreateHook());
+        }),
+    )
+    .command(
+      "remove",
+      new Command()
+        .description(
+          "WorktreeRemove hook entry: read {worktree_path} JSON on stdin and tear the worktree down (never fails the event).",
+        )
+        .action(async () => {
+          Deno.exit(await worktreeRemoveHook());
         }),
     )
     .command(
