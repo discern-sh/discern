@@ -36,11 +36,12 @@ haven't configured (a ratchet, a worktree resource).
 The Skills are the bundled built-ins (`bootstrap`, `document-subsystem`,
 `write-adr`, `handoff-worktree`) plus any you author under `[skills].dir`
 (default `./skills`, yours overriding a built-in by name). They materialize into
-each configured agent's skills directory ([`.claude/skills/`](../../.claude/skills/)
-for Claude Code, the cross-tool `.agents/skills/` for Codex and Gemini — Claude
-Code does not read the shared dir; [ADR 0042](../_adr/0042-per-agent-skills-materialization.md))
-— gitignored artifacts the binary re-publishes: built-ins **copied**, authored
-skills **symlinked**.
+each configured agent's skills directory
+([`.claude/skills/`](../../.claude/skills/) for Claude Code, the cross-tool
+`.agents/skills/` for Codex and Gemini — Claude Code does not read the shared
+dir; [ADR 0042](../_adr/0042-per-agent-skills-materialization.md)) — gitignored
+artifacts the binary re-publishes: built-ins **copied**, authored skills
+**symlinked**.
 
 > **Status: stub.** This README orients the subtree; the leaves below are not
 > written yet. Fill them with the
@@ -55,10 +56,10 @@ skills **symlinked**.
 
 ## Planned leaves
 
-| File _(to be written)_     | What it will cover                                                                                            |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `the-guidelines-recipe.md` | How `discern refresh` assembles built-in + sources into per-agent files and banners.                          |
-| `the-compiled-files.md`    | The agent-file targets, the `[guidance].agents` selector, tracked vs gitignored, the do-not-edit rule.        |
+| File _(to be written)_     | What it will cover                                                                                                   |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `the-guidelines-recipe.md` | How `discern refresh` assembles built-in + sources into per-agent files and banners.                                 |
+| `the-compiled-files.md`    | The agent-file targets, the `[guidance].agents` selector, tracked vs gitignored, the do-not-edit rule.               |
 | `bundled-skills.md`        | What each shipped Skill does, the built-in/authored override rule, and how the agents' skills dirs are materialized. |
 
 ## See also
