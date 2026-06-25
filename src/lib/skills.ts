@@ -26,6 +26,7 @@ import { copy, ensureDir } from "@std/fs";
 import type { DiscernConfig } from "../shared/config_schema.ts";
 import type { Logger } from "./log.ts";
 import { resolveBundledSkillsDir, resolveSkillsDir } from "./paths.ts";
+import { providerFor } from "./providers.ts";
 
 /** Where a skill in the effective set comes from. */
 export type SkillSource = "authored" | "bundled";
@@ -41,9 +42,6 @@ export interface SkillEntry {
   /** True when an authored skill shadows a bundled built-in of the same name. */
   overridesBundled: boolean;
 }
-
-/** The directory the provider (Claude Code) discovers skills in. */
-const CLAUDE_SKILLS_REL = ".claude/skills";
 
 /**
  * discern's ownership record inside `.claude/skills/`: the skill names it
@@ -423,7 +421,16 @@ async function chmodWritable(dir: string): Promise<void> {
   }
 }
 
-/** The provider skills directory, for callers that report or clean it. */
+/** Claude Code's provider skills directory, for callers that report or clean it.
+ * Sourced from the registry (the SSOT) — `claude_code` always declares a skills
+ * dir (guarded by the total Provider record + providers_test); the undefined branch
+ * is unreachable in practice and only guards a broken registry. */
 export function claudeSkillsDirOf(root: string): string {
-  return join(root, CLAUDE_SKILLS_REL);
+  const dir = providerFor("claude_code")?.skillsDir;
+  if (dir === undefined) {
+    throw new Error(
+      "registry invariant broken: claude_code declares no skillsDir",
+    );
+  }
+  return join(root, dir);
 }

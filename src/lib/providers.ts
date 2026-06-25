@@ -16,6 +16,7 @@
 import { dirname, join } from "@std/path";
 import { ensureDir } from "@std/fs";
 import type { AgentName } from "./config.ts";
+import { AGENT_NAMES } from "../shared/config_schema.ts";
 
 // ── the MCP server discern registers ────────────────────────────────────────
 
@@ -361,6 +362,54 @@ export function skillsDirsForAgents(agents: readonly string[]): string[] {
     }
   }
   return dirs;
+}
+
+// ── registry-derived agent-path aggregators ─────────────────────────────────
+// The SINGLE place every cross-cutting consumer (the seed `.gitignore`, the
+// neutral-scope defaults, the audit's agent-file probe, the gitignore-convergence
+// migration, and the parity guard) reads agent-specific paths FROM. Each derives
+// from `PROVIDERS`, so adding an agent to `AGENT_NAMES` extends them for free — no
+// hand-maintained second list to fall out of sync (the ADR 0031/0042 contract).
+
+/** Every compiled guidance-file path across all known agents (CLAUDE.md, AGENTS.md,
+ * GEMINI.md, …), in registry order. */
+export function allGuidanceFilePaths(): string[] {
+  return AGENT_NAMES.map((a) => PROVIDERS[a].guidanceFile.path);
+}
+
+/** Every distinct skills directory discern materializes into across all known
+ * agents — `.claude/skills` plus the shared `.agents/skills`, deduped. */
+export function allSkillsDirs(): string[] {
+  return skillsDirsForAgents(AGENT_NAMES);
+}
+
+/**
+ * The gate-neutral region for each agent's generated footprint: the top path
+ * segment of every known agent's skills directory (`.claude/skills` → `.claude/`,
+ * `.agents/skills` → `.agents/`), deduped in first-seen order. Seeds the neutral
+ * scopes so a change under ANY agent's generated dir needs no gate — uniformly,
+ * for every agent the registry knows, present and future.
+ */
+export function neutralAgentScopePaths(): string[] {
+  const out: string[] = [];
+  for (const dir of allSkillsDirs()) {
+    const top = `${dir.split("/")[0]}/`;
+    if (!out.includes(top)) {
+      out.push(top);
+    }
+  }
+  return out;
+}
+
+/** The project-relative paths discern GENERATES for agents that must be gitignored:
+ * each compiled guidance file and each materialized skills dir. Registry-derived, so
+ * the seed `.gitignore` and the convergence migration cover every agent's artifacts
+ * without a hand-maintained literal list. */
+export function agentArtifactPaths(): {
+  guidanceFiles: string[];
+  skillsDirs: string[];
+} {
+  return { guidanceFiles: allGuidanceFilePaths(), skillsDirs: allSkillsDirs() };
 }
 
 /**

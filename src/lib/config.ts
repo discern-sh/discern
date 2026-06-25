@@ -12,7 +12,8 @@ import { KIT_VERSION } from "./version.ts";
 // gemini→GEMINI.md) is defined once on the canonical schema as `AGENT_NAMES` and
 // re-exported here under the installer's long-standing name, so the wizard, the
 // config document, and the generated editor JSON Schema share one list.
-import { AGENT_NAMES } from "../shared/config_schema.ts";
+import { AGENT_NAMES, DEFAULT_AGENTS } from "../shared/config_schema.ts";
+import { neutralAgentScopePaths } from "./providers.ts";
 
 /** The agent/provider files the kit knows how to emit. */
 export const KNOWN_AGENTS = AGENT_NAMES;
@@ -39,13 +40,26 @@ export const DEFAULTS = {
   branchPrefix: "agent/",
   sourceGlobs: ["src/**", "app/**"],
   // Default to the two committed-standard providers; gemini is opt-in.
-  agents: ["claude_code", "codex"] as AgentName[],
+  agents: [...DEFAULT_AGENTS] as AgentName[],
   gotchasDoc: "",
-  // Regions that need no gate: docs, the provider dir, and authored skills.
-  // (Root-level *.md — e.g. guidance.md — is treated as neutral by the classifier.)
-  scopesNeutral: ['"docs/"', '".claude/"', '"skills/"'],
   scopesPreviewable: ['"public/**"'],
 } as const;
+
+/**
+ * The neutral-scope globs a fresh install seeds (already TOML-quoted): docs, the
+ * authored-skills source, and EVERY known agent's generated dir — the last derived
+ * from the provider registry via {@link neutralAgentScopePaths}, so adding an agent
+ * neutralizes its dir automatically instead of leaving a hand-maintained
+ * `.claude/`-only list to drift. Root-level *.md (e.g. guidance.md) is treated as
+ * neutral by the classifier regardless.
+ */
+export function defaultNeutralScopes(): string[] {
+  return [
+    '"docs/"',
+    '"skills/"',
+    ...neutralAgentScopePaths().map((p) => `"${p}"`),
+  ];
+}
 
 /** The fully-resolved answers that drive scaffolding. */
 export interface InitConfig {
@@ -108,7 +122,7 @@ export function tokensFromConfig(config: InitConfig): TokenMap {
     branch_prefix: config.branchPrefix,
     agents_array: renderTomlStringList(config.agents),
     gotchas_doc: DEFAULTS.gotchasDoc,
-    scopes_neutral: DEFAULTS.scopesNeutral.join(", "),
+    scopes_neutral: defaultNeutralScopes().join(", "),
     scopes_web: renderTomlStringList(config.sourceGlobs),
     scopes_previewable: DEFAULTS.scopesPreviewable.join(", "),
     kit_version: KIT_VERSION,
