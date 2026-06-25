@@ -7,6 +7,10 @@
 
 import { assert, assertEquals } from "@std/assert";
 import { join } from "@std/path";
+import {
+  DoctorOutputSchema,
+  StatusOutputSchema,
+} from "../src/shared/result_schemas.ts";
 import { withTempDir } from "./helpers.ts";
 import {
   addWorktree,
@@ -610,6 +614,152 @@ Deno.test("discern mcp: a disabled feature hides its tool and refuses the call",
     assert(
       refused.result.content[0].text.includes("not found"),
       JSON.stringify(refused.result),
+    );
+
+    assertEquals(await mcp.close(), 0);
+  });
+});
+
+/** The shape of one tool as `tools/list` advertises it (the fields this suite reads). */
+interface ListedTool {
+  name: string;
+  title?: string;
+  outputSchema?: {
+    type?: string;
+    properties?: Record<string, unknown>;
+  };
+  annotations?: {
+    readOnlyHint?: boolean;
+    destructiveHint?: boolean;
+    openWorldHint?: boolean;
+  };
+}
+
+Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest annotations", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const mcp = await spawnMcp(dir);
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await mcp.recv();
+
+    await mcp.send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
+    const list = await mcp.recv();
+    const byName = new Map(
+      (list.result.tools as ListedTool[]).map((t) => [t.name, t] as const),
+    );
+
+    // Every tool advertises a non-empty title, an object outputSchema, and
+    // annotations — the self-describing surface this tranche adds.
+    for (
+      const name of [
+        "discern_finish",
+        "discern_prepare",
+        "discern_test",
+        "discern_doctor",
+        "discern_changed_scopes",
+        "discern_status",
+        "discern_audit",
+        "discern_docs",
+        "discern_help",
+        "discern_graduate",
+      ]
+    ) {
+      const t = byName.get(name);
+      assert(t !== undefined, `missing tool ${name}`);
+      assert(
+        typeof t.title === "string" && t.title.length > 0,
+        `${name} has no title`,
+      );
+      assertEquals(t.outputSchema?.type, "object", `${name} outputSchema`);
+      assert(t.annotations !== undefined, `${name} has no annotations`);
+    }
+
+    // Honest annotations: the pure-observation verbs are read-only; the gate verbs
+    // mutate (a fixer rewrites files / commands run); graduate is destructive.
+    assertEquals(byName.get("discern_status")?.annotations?.readOnlyHint, true);
+    assertEquals(byName.get("discern_doctor")?.annotations?.readOnlyHint, true);
+    assertEquals(byName.get("discern_audit")?.annotations?.readOnlyHint, true);
+    assertEquals(
+      byName.get("discern_finish")?.annotations?.readOnlyHint,
+      false,
+    );
+    assertEquals(
+      byName.get("discern_prepare")?.annotations?.readOnlyHint,
+      false,
+    );
+    assertEquals(byName.get("discern_test")?.annotations?.readOnlyHint, false);
+    assertEquals(
+      byName.get("discern_graduate")?.annotations?.destructiveHint,
+      true,
+    );
+
+    // The advertised outputSchema names the envelope fields it validates, and
+    // finish's narrows `data` to the gate payload.
+    const finishProps = byName.get("discern_finish")?.outputSchema?.properties;
+    assert(finishProps?.ok !== undefined, "finish outputSchema has ok");
+    assert(finishProps?.verb !== undefined, "finish outputSchema has verb");
+    assert(finishProps?.data !== undefined, "finish outputSchema narrows data");
+
+    assertEquals(await mcp.close(), 0);
+  });
+});
+
+Deno.test("discern mcp: a tool call's structuredContent validates against its advertised schema", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const mcp = await spawnMcp(dir);
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await mcp.recv();
+
+    // The SDK already validates structuredContent against the outputSchema before
+    // sending (a mismatch would surface as an error), but assert it independently
+    // against the SAME Zod source the schema is built from — the end-to-end SSOT
+    // check, on top of Phase 2's core-level faithfulness tests.
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "discern_status", arguments: {} },
+    });
+    const status = await mcp.recv();
+    assertEquals(status.result.isError, false);
+    const sParsed = StatusOutputSchema.safeParse(
+      status.result.structuredContent,
+    );
+    assert(
+      sParsed.success,
+      `status structuredContent drifted: ${
+        JSON.stringify(sParsed.success ? [] : sParsed.error.issues)
+      }`,
+    );
+
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: { name: "discern_doctor" },
+    });
+    const doctor = await mcp.recv();
+    const dParsed = DoctorOutputSchema.safeParse(
+      doctor.result.structuredContent,
+    );
+    assert(
+      dParsed.success,
+      `doctor structuredContent drifted: ${
+        JSON.stringify(dParsed.success ? [] : dParsed.error.issues)
+      }`,
     );
 
     assertEquals(await mcp.close(), 0);

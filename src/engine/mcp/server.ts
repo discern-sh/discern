@@ -27,6 +27,15 @@ import process from "process";
 import { z } from "@zod/zod";
 import { findRoot } from "../../shared/env.ts";
 import { type DiscernResult, serializeResult } from "../../shared/result.ts";
+import {
+  AuditOutputSchema,
+  ChangedScopesOutputSchema,
+  DocsOutputSchema,
+  DoctorOutputSchema,
+  EnvelopeSchema,
+  FinishOutputSchema,
+  StatusOutputSchema,
+} from "../../shared/result_schemas.ts";
 import { loadConfig } from "../../shared/config_schema.ts";
 import {
   enabledFeatures,
@@ -55,14 +64,64 @@ import {
 const SERVER_NAME = "discern";
 const SERVER_VERSION = "1.0.0";
 
-/** A tool: its advertised schema plus the handler that runs the verb. The SDK
- * converts {@link inputSchema} (a Zod raw shape, omitted when the verb takes no
- * arguments) to the JSON Schema it advertises in `tools/list`. */
+/**
+ * Honest behavioural hints for a tool — the MCP `ToolAnnotations`. Mirrors the
+ * SDK's type (which `registerTool` accepts) field-for-field; declared here because
+ * the SDK keeps that type behind a `types.js` subpath its package `exports` map
+ * doesn't expose. All properties are hints, never guarantees.
+ */
+interface ToolAnnotations {
+  /** A short human label (the SDK also accepts a top-level `title`). */
+  title?: string;
+  /** The tool does not modify its environment (pure observation). */
+  readOnlyHint?: boolean;
+  /** The tool may perform irreversible updates (only meaningful when not read-only). */
+  destructiveHint?: boolean;
+  /** Repeated calls with the same args have no effect beyond the first. */
+  idempotentHint?: boolean;
+  /** The tool interacts with an open/external world (e.g. the network). */
+  openWorldHint?: boolean;
+}
+
+/** A pure observation — reads project state, mutates nothing, reaches nothing
+ * external. Trivially idempotent. */
+const READ_ONLY: ToolAnnotations = {
+  readOnlyHint: true,
+  idempotentHint: true,
+  openWorldHint: false,
+};
+/** Runs project commands and may rewrite files (a fixer), but reclaims/destroys
+ * nothing. Not read-only; not destructive. */
+const MUTATING: ToolAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: false,
+  openWorldHint: false,
+};
+/** Tears down per-worktree resources and moves the branch — a one-way operation. */
+const DESTRUCTIVE: ToolAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: true,
+  openWorldHint: false,
+};
+
+/** A tool: its advertised schema + metadata plus the handler that runs the verb.
+ * The SDK converts {@link inputSchema}/{@link outputSchema} (Zod raw shapes, the
+ * latter the per-verb schema from result_schemas.ts) to the JSON Schemas it
+ * advertises in `tools/list`, and validates a call's `structuredContent` against the
+ * output schema. */
 interface McpTool {
   name: string;
+  /** A short human label shown by clients alongside the tool. */
+  title?: string;
   description: string;
   /** The verb's arguments as a Zod raw shape; absent for an argument-less verb. */
   inputSchema?: z.ZodRawShape;
+  /** The result shape this tool advertises (a Zod raw shape — a per-verb output
+   * schema's `.shape`). The SDK validates every call's `structuredContent` against
+   * it, so it MUST match what the verb actually returns (ADR 0041). */
+  outputSchema?: z.ZodRawShape;
+  /** Honest behavioural hints (read-only / destructive / …). */
+  annotations?: ToolAnnotations;
   /** When set, the tool is registered (listed and callable) only if this feature is
    * enabled — the MCP mirror of the CLI's per-feature verb gating. */
   feature?: Feature;
@@ -74,6 +133,9 @@ interface McpTool {
 const TOOLS: McpTool[] = [
   {
     name: "discern_finish",
+    title: "Run the quality gate",
+    outputSchema: FinishOutputSchema.shape,
+    annotations: MUTATING,
     description:
       "Run the discern quality gate (formatters, checks, tests, scope gates) and " +
       "return the structured result: per-step outcomes plus normalized diagnostics " +
@@ -88,6 +150,9 @@ const TOOLS: McpTool[] = [
   },
   {
     name: "discern_prepare",
+    title: "Run the fast gate",
+    outputSchema: EnvelopeSchema.shape,
+    annotations: MUTATING,
     description:
       "Run the fast inner-loop gate — the fix-stage fixers, then the read-only " +
       "check-stage jobs (no build, no tests) — and return the result envelope. The " +
@@ -97,6 +162,9 @@ const TOOLS: McpTool[] = [
   },
   {
     name: "discern_test",
+    title: "Run the tests",
+    outputSchema: EnvelopeSchema.shape,
+    annotations: MUTATING,
     description:
       "Run the project's test capability on its own (the `test` stage, outside the " +
       "full gate) and return the result envelope. When no test command is configured " +
@@ -105,6 +173,9 @@ const TOOLS: McpTool[] = [
   },
   {
     name: "discern_doctor",
+    title: "Check the install",
+    outputSchema: DoctorOutputSchema.shape,
+    annotations: READ_ONLY,
     description:
       "Verify the discern install and return each check as an actionable result: " +
       "config validity, schema currency, whether the declared capability commands " +
@@ -114,6 +185,9 @@ const TOOLS: McpTool[] = [
   },
   {
     name: "discern_changed_scopes",
+    title: "List changed scopes",
+    outputSchema: ChangedScopesOutputSchema.shape,
+    annotations: READ_ONLY,
     description:
       "List which project scopes the current branch and working tree changed — the " +
       "classification that decides which scope gates the quality gate fires.",
@@ -121,6 +195,9 @@ const TOOLS: McpTool[] = [
   },
   {
     name: "discern_status",
+    title: "Project status",
+    outputSchema: StatusOutputSchema.shape,
+    annotations: READ_ONLY,
     description:
       "Report what is true right now and what to do next — pure observation, never " +
       "runs the gate, tests, ratchets, or touches anything. Call it at the start of a " +
@@ -150,6 +227,9 @@ const TOOLS: McpTool[] = [
   },
   {
     name: "discern_audit",
+    title: "Audit the setup",
+    outputSchema: AuditOutputSchema.shape,
+    annotations: READ_ONLY,
     description:
       "Audit the project against the best-practices checklist and return the scored, " +
       "weakest-first result. Each category lists deterministic rules (status, the finding, " +
@@ -174,6 +254,9 @@ const TOOLS: McpTool[] = [
   },
   {
     name: "discern_docs",
+    title: "Read project docs",
+    outputSchema: DocsOutputSchema.shape,
+    annotations: READ_ONLY,
     description:
       "Read the project's documentation tree. With no argument, return the index — " +
       "every doc's path, section, slug, and title. Pass `target` (a slug, " +
@@ -193,6 +276,9 @@ const TOOLS: McpTool[] = [
   },
   {
     name: "discern_help",
+    title: "Read discern's docs",
+    outputSchema: DocsOutputSchema.shape,
+    annotations: READ_ONLY,
     description:
       "Read discern's OWN documentation — the harness's docs (the discern.toml " +
       "config reference, the concepts, the gate/worktree/ratchet pages), bundled " +
@@ -215,6 +301,9 @@ const TOOLS: McpTool[] = [
   },
   {
     name: "discern_graduate",
+    title: "Graduate the worktree",
+    outputSchema: EnvelopeSchema.shape,
+    annotations: DESTRUCTIVE,
     description:
       "Graduate THIS worktree's branch into the main checkout for review: tear down " +
       "the worktree's resources, move the branch onto main, and leave the changes " +
@@ -387,10 +476,24 @@ export async function runMcpServer(): Promise<number> {
     if (tool.feature !== undefined && !enabled.has(tool.feature)) {
       continue;
     }
+    // The shared config: description plus the honest metadata (title, the per-verb
+    // outputSchema the SDK validates structuredContent against, and the behavioural
+    // annotations). Built with conditional keys so an absent field is omitted rather
+    // than set to `undefined` (exactOptionalPropertyTypes).
+    const config = {
+      description: tool.description,
+      ...(tool.title !== undefined ? { title: tool.title } : {}),
+      ...(tool.outputSchema !== undefined
+        ? { outputSchema: tool.outputSchema }
+        : {}),
+      ...(tool.annotations !== undefined
+        ? { annotations: tool.annotations }
+        : {}),
+    };
     if (tool.inputSchema !== undefined) {
       server.registerTool(
         tool.name,
-        { description: tool.description, inputSchema: tool.inputSchema },
+        { ...config, inputSchema: tool.inputSchema },
         (args: Record<string, unknown>) => runTool(tool, root, args),
       );
     } else {
@@ -400,7 +503,7 @@ export async function runMcpServer(): Promise<number> {
       // request `extra`, so there are no arguments to forward.
       server.registerTool(
         tool.name,
-        { description: tool.description },
+        config,
         () => runTool(tool, root, {}),
       );
     }
