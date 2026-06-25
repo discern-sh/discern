@@ -83,7 +83,7 @@ the CLI. It lays down only _your_ seed files with zero-config defaults: a
 `discern.toml` with no Capabilities wired yet (a green gate you grow into — an
 omitted capability is simply skipped), a merged `.claude/settings.json`, and an
 appended `.gitignore` fragment. It then **materializes** the bundled Skills into
-`.claude/skills/` (gitignored) and compiles the agent guidance. There is no
+each configured agent's skills dir (gitignored) and compiles the agent guidance. There is no
 engine and no manifest to write — the Engine is in the binary. Files split by
 **disposition**: [yours](glossary.md#your-files--yours) (the committed seeds,
 written once then kept), [the binary's](glossary.md#the-binarys-files)
