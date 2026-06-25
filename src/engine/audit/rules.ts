@@ -568,6 +568,11 @@ export const CATEGORIES: readonly Category[] = [
   SKILLS,
 ];
 
+/** The audit category slugs, in catalog order — the SSOT for every human/agent-
+ * facing list of `--category` values. The CLI help and the MCP tool's `category`
+ * description interpolate this, so they cannot drift from the catalog. */
+export const CATEGORY_NAMES: readonly string[] = CATEGORIES.map((c) => c.name);
+
 /** Type guards used by the runner to split a category's rules by kind. */
 export function isDeterministic(
   rule: { kind: string },

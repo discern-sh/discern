@@ -56,6 +56,7 @@ import { prepareResult } from "../gate/prepare.ts";
 import { testResult } from "../gate/test.ts";
 import { ratchetsResult } from "../gate/ratchets.ts";
 import { auditResult } from "../audit/audit.ts";
+import { CATEGORY_NAMES } from "../audit/rules.ts";
 import { changedScopesResult } from "../scopes/changed.ts";
 import { statusResult } from "../status/status.ts";
 import { doctorResult } from "../../commands/doctor.ts";
@@ -266,7 +267,7 @@ const TOOLS: McpTool[] = [
       "Use it to surface concrete setup improvements; pass a category to focus one area.",
     inputSchema: {
       category: z.string().optional().describe(
-        "Restrict to one area: gate, setup, guidance, docs, worktrees, ratchets, or skills.",
+        `Restrict to one area: ${CATEGORY_NAMES.join(", ")}.`,
       ),
       min_score: z.number().optional().describe(
         "Mark the result failed (isError) when the overall score is below this floor.",

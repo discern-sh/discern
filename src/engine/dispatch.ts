@@ -31,6 +31,7 @@ import { TomlEditor } from "../lib/toml_edit.ts";
 import { Logger } from "../lib/log.ts";
 import { runFinish } from "./gate/finish.ts";
 import { runAudit } from "./audit/audit.ts";
+import { CATEGORY_NAMES } from "./audit/rules.ts";
 import { runMcpServer } from "./mcp/server.ts";
 import { runPrepare } from "./gate/prepare.ts";
 import { runTestCapability } from "./gate/test.ts";
@@ -260,7 +261,7 @@ export function attachEngineCommands(
     )
     .option(
       "--category <name:string>",
-      "Audit a single area (gate, setup, guidance, docs, worktrees, ratchets, skills).",
+      `Audit a single area (${CATEGORY_NAMES.join(", ")}).`,
     )
     .option(
       "--min-score <n:number>",
