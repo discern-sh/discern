@@ -62,3 +62,4 @@ decision is hard to reverse, surprising without context, and a real trade-off.
 - [0040 — The worktree hooks parse their payload in the binary (no jq)](0040-worktree-hooks-in-the-binary.md)
 - [0041 — A self-describing MCP surface built on typed result schemas](0041-self-describing-mcp-surface.md)
 - [0042 — Per-agent skills materialization](0042-per-agent-skills-materialization.md)
+- [0043 — The provider registry is the enforced single source for every agent surface](0043-registry-derived-agent-parity.md)
