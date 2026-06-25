@@ -5,10 +5,11 @@ agentic
 ajv
 allowlist
 Anthropic
+apply
 arXiv
 autograde
 autoloader
-backfilling
+backfill(s|ed|ing)?
 backgrounded
 basename
 blockquotes?
@@ -22,9 +23,10 @@ chokepoint
 CI
 classmap
 claude_code
-CLI
+CLIs?
 codemod
 composable
+concat
 configs?
 conformant
 CORS
@@ -34,7 +36,8 @@ cwd
 darwin
 DBs?
 declaratively
-deduping
+dedup(e|es|ed|ing)?
+deduplicat(e|ed|es|ing|ion)?
 Deno
 deps
 dev
@@ -49,6 +52,7 @@ dotdir
 dotfile
 dotfolder
 effectful
+else
 enum
 env
 eval
@@ -73,6 +77,7 @@ Infracost
 init
 inlines?
 inspectable
+install
 jose
 jq
 JSDoc
@@ -122,6 +127,7 @@ rollout
 sandboxed
 scaffolded
 scaffolder
+schema
 Schmid
 scriptable
 SDK

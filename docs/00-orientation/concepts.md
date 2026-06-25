@@ -149,7 +149,7 @@ guarded by the currency check), so several agents share one set of instructions.
 
 ## What to read next
 
-| Want to understand...                                         | Go to                                                      |
+| Want to understand…                                           | Go to                                                      |
 | ------------------------------------------------------------- | ---------------------------------------------------------- |
 | How an install is created, refreshed, and migrated            | [`../10-installer/`](../10-installer/)                     |
 | `discern finish` — Capabilities, Checks, Scopes, Ratchets     | [`../20-quality-gate/`](../20-quality-gate/)               |

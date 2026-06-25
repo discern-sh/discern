@@ -61,11 +61,11 @@ discern audit --json              # the DiscernResult envelope (for agents and C
 discern audit --min-score 70      # exit non-zero when the overall score is below the floor
 ```
 
-On a TTY the human report prints the ranked summary, then offers an interactive
-drill-down into each area; piped or with `--no-interactive` it prints every
-category's detail so nothing hides behind a prompt. A failing deterministic rule
-shows its fix and teach; a review shows the question, the material to look at,
-and the teach.
+On a TTY the human report prints the ranked summary, then lets you open each
+area interactively; piped or with `--no-interactive` it prints every category's
+detail so nothing hides behind a prompt. A failing deterministic rule shows its
+fix and teach; a review shows the question, the material to look at, and the
+teach.
 
 ## The result envelope
 
