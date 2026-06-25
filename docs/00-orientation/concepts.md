@@ -96,7 +96,11 @@ authoring instructions for the agent.
 coding agent already in the loop works through: it sniffs the repo, asks the
 user a few clarifying questions, and _proposes_ Capability fills (formatter,
 linter, type-checker, tests), seeds a starter `guidance.md`, and fills the docs
-tree and `TODO.md` from the repo and those answers. The Engine stays generic;
+tree and `TODO.md` from the repo and those answers — working transparently
+throughout: recommending each change, saying why it helps and that `discern` is
+what will enforce it, committing each stage on its own so the user can review or
+revert, and pausing only for genuine decisions rather than gating every step
+([ADR 0043](../_adr/0043-setup-involve-not-gate.md)). The Engine stays generic;
 only `discern.toml` learns the stack.
 
 **3. Work behind the gate.** Day to day, everything is driven through `discern`
