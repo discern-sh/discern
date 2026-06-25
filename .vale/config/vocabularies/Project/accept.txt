@@ -1,6 +1,7 @@
 accessor
 ADRs?
 advisorily
+affordance
 agentic
 ajv
 allowlist
@@ -86,6 +87,7 @@ Junie
 knowably
 Laravel
 lcov
+liveness
 lockfile
 lookups?
 Lulla
