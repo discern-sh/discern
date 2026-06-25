@@ -33,6 +33,31 @@ async function git(
 }
 
 /**
+ * Parse `git status --porcelain=v1` stdout into the list of changed paths. Porcelain
+ * lines are "XY <path>", renames "XY <old> -> <new>": strip the 3-char status prefix,
+ * keep the post-arrow (new) path, and drop git's wrapping quotes. Shared by the scope
+ * classifier and the gate's fix-stage strand check, so both read porcelain identically.
+ */
+export function parsePorcelainPaths(stdout: string): string[] {
+  const paths: string[] = [];
+  for (const raw of stdout.split("\n")) {
+    if (raw === "") {
+      continue;
+    }
+    let p = raw.slice(3);
+    const arrow = p.indexOf(" -> ");
+    if (arrow >= 0) {
+      p = p.slice(arrow + 4);
+    }
+    p = p.replace(/^"/, "").replace(/"$/, "");
+    if (p !== "") {
+      paths.push(p);
+    }
+  }
+  return paths;
+}
+
+/**
  * Collect the branch's changed paths (committed since the merge-base with main,
  * plus the working tree). Returns null to signal fail-open (git unavailable or
  * no diff base).
@@ -65,22 +90,9 @@ async function collectPaths(
       paths.push(p);
     }
   }
-  // Porcelain v1 lines are "XY <path>", renames "XY <old> -> <new>": strip the
-  // 3-char status prefix, keep the post-arrow path, drop git's wrapping quotes.
-  for (const raw of pending.stdout.split("\n")) {
-    if (raw === "") {
-      continue;
-    }
-    let p = raw.slice(3);
-    const arrow = p.indexOf(" -> ");
-    if (arrow >= 0) {
-      p = p.slice(arrow + 4);
-    }
-    p = p.replace(/^"/, "").replace(/"$/, "");
-    if (p !== "") {
-      paths.push(p);
-    }
-  }
+  // Porcelain v1 lines are "XY <path>", renames "XY <old> -> <new>" — parsed by the
+  // shared parsePorcelainPaths (also used by the gate's fix-stage strand check).
+  paths.push(...parsePorcelainPaths(pending.stdout));
   return paths;
 }
 
