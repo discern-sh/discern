@@ -71,6 +71,9 @@ export interface GatePlan {
   /** The generated-artifacts currency check runs after the scope gates (ADR 0034);
    * true when the `guidance` feature is on. Blocks on a STALE agent file. */
   guidanceCheck: boolean;
+  /** The materialized-skills currency check (ADR 0034, extended to skills); true
+   * when the `skills` feature is on. Blocks on a STALE skills dir, like guidance. */
+  skillsCheck: boolean;
   /** The merge check runs last (it self-skips in the main checkout). */
   mergeCheck: boolean;
   scopesChanged: string[];
@@ -235,12 +238,14 @@ export function composeGatePlan(
   scopeGates: JobGroup | undefined,
   changed: string[],
   guidanceCheck: boolean,
+  skillsCheck: boolean,
 ): GatePlan {
   return {
     groups: scopeGates === undefined
       ? stageGroups
       : [...stageGroups, scopeGates],
     guidanceCheck,
+    skillsCheck,
     mergeCheck: true,
     scopesChanged: changed,
   };
@@ -261,6 +266,7 @@ export function buildGatePlan(cfg: DiscernConfig, changed: string[]): GatePlan {
     scopeGatesGroup(planScopeGates(cfg, changed)),
     changed,
     isFeatureEnabled(cfg, "guidance"),
+    isFeatureEnabled(cfg, "skills"),
   );
 }
 
@@ -394,6 +400,15 @@ export function gatePlanToEngine(plan: GatePlan): EnginePlan {
       disposition: "gate",
       note:
         "verify the generated agent files match their sources (`discern refresh` if stale)",
+    });
+  }
+  if (plan.skillsCheck) {
+    steps.push({
+      kind: "skills-check",
+      label: "skills-check",
+      disposition: "gate",
+      note:
+        "verify the materialized skills match the effective set (`discern refresh` if stale)",
     });
   }
   if (plan.mergeCheck) {

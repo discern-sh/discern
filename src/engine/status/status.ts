@@ -51,6 +51,7 @@ import {
   checkGuidanceCurrent,
   type GuidanceDriftEntry,
 } from "../guidance_render.ts";
+import { checkSkillsCurrent, type SkillsDriftEntry } from "../../lib/skills.ts";
 import {
   assertMainMerged,
   type FleetWorktree,
@@ -198,6 +199,20 @@ export async function statusResult(
     }
   }
 
+  // The same read-only currency check, for the MATERIALIZED skills (ADR 0034,
+  // extended to skills). Advisory here, like `stale_generated`: a drifted or
+  // not-yet-materialized skills dir is noticed at orientation. Skipped when skills
+  // is off. Reports the affected skill paths (dir/name), `missing` dirs included.
+  let skillsDrift: SkillsDriftEntry[] = [];
+  if (isFeatureEnabled(cfg, "skills")) {
+    skillsDrift = await checkSkillsCurrent(root, cfg);
+    if (skillsDrift.length > 0) {
+      data.stale_materialized = skillsDrift.map((d) =>
+        d.name === "" ? d.dir : `${d.dir}/${d.name}`
+      );
+    }
+  }
+
   // One-time setup state (ADR 0036). Until `[meta].bootstrapped` is recorded the
   // project is mid-setup and the agent must finish it — surfaced loudly (a banner,
   // a lead hint) so a half-done setup isn't mistaken for a finished one. Walk for
@@ -227,6 +242,7 @@ export async function statusResult(
     worktreesOn: features.worktrees,
     liveCount,
     guidanceDrift,
+    skillsDrift,
     setupPending,
   });
 
@@ -347,6 +363,8 @@ interface HintContext {
   liveCount: number;
   /** Generated agent files that don't match what `discern refresh` would write. */
   guidanceDrift: GuidanceDriftEntry[];
+  /** Materialized skills that don't match the effective set a refresh would place. */
+  skillsDrift: SkillsDriftEntry[];
   /** Scaffolded files still carrying skeleton markers while setup is unfinished;
    * undefined once `[meta].bootstrapped` is recorded. Drives the lead setup hint. */
   setupPending: string[] | undefined;
@@ -377,6 +395,21 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
       allMissing
         ? `Generated agent files aren't built yet (${paths}); run \`discern refresh\`.`
         : `Generated agent files are out of date (${paths}); run \`discern refresh\` — edits belong in your [guidance].sources, not the generated file.`,
+    );
+  }
+
+  // Materialized skills drifted from the effective set — the same advisory shape as
+  // guidance. `missing`/`foreign` (a not-yet-built dir, an unmanaged drop-in) read
+  // differently from `stale` (a drift a refresh overwrites), so only stale gets the
+  // edit-the-source redirect; foreign is surfaced but never presented as fixable.
+  const realSkillsDrift = ctx.skillsDrift.filter((d) => d.reason !== "foreign");
+  if (realSkillsDrift.length > 0) {
+    const dirs = [...new Set(realSkillsDrift.map((d) => d.dir))].join(", ");
+    const allMissing = realSkillsDrift.every((d) => d.reason === "missing");
+    hints.push(
+      allMissing
+        ? `Skills aren't materialized yet (${dirs}); run \`discern refresh\`.`
+        : `Materialized skills are out of date (${dirs}); run \`discern refresh\` — edits belong in your [skills].dir source, not the materialized copy.`,
     );
   }
 

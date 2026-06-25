@@ -46,6 +46,7 @@ import {
   checkGuidanceCurrent,
   type GuidanceDriftEntry,
 } from "../guidance_render.ts";
+import { checkSkillsCurrent, type SkillsDriftEntry } from "../../lib/skills.ts";
 
 /** The human die message for each failed stage (matches the shell fail_phase). */
 function failMessage(stage: string): string {
@@ -60,6 +61,8 @@ function failMessage(stage: string): string {
       return "One or more scope gates failed.";
     case "guidance":
       return "Generated agent files are out of date — run `discern refresh`.";
+    case "skills":
+      return "Materialized skills are out of date — run `discern refresh`.";
     case "merge":
       return "Integrate main, then re-run finish.";
     default:
@@ -109,6 +112,31 @@ function guidanceDiagnostic(stale: GuidanceDriftEntry[]): Diagnostic {
     tool: "guidance",
     severity: "error",
     message: `generated agent file(s) out of date: ${files}`,
+    reproduce_cmd: "discern refresh",
+    output: capped.text,
+    truncated: capped.truncated === true ? true : undefined,
+  };
+}
+
+/**
+ * A diagnostic for stale MATERIALIZED skills: which dirs/skills drifted from the
+ * effective set, and the `discern refresh` that re-materializes them. The skills
+ * analog of {@link guidanceDiagnostic} — same redirect (edit the source, not the
+ * generated copy), so the two generated-artifact failures read identically.
+ */
+function skillsDiagnostic(stale: SkillsDriftEntry[]): Diagnostic {
+  const dirs = [...new Set(stale.map((d) => d.dir))].join(", ");
+  const capped = capText(
+    `Materialized skills are out of date in: ${dirs}.\n` +
+      "Run `discern refresh` to re-materialize them. To change a skill, edit its " +
+      "source under [skills].dir (or `discern skills eject` a bundled one) — a direct " +
+      "edit to a materialized copy is overwritten on the next refresh.\n\n" +
+      stale.map((d) => `  • ${d.detail}`).join("\n"),
+  );
+  return {
+    tool: "skills",
+    severity: "error",
+    message: `materialized skills out of date: ${dirs}`,
     reproduce_cmd: "discern refresh",
     output: capped.text,
     truncated: capped.truncated === true ? true : undefined,
@@ -177,6 +205,22 @@ async function runGate(
     }
   }
 
+  // 4b. Materialized-skills currency (ADR 0034, extended to skills): block a STALE
+  //     skills dir — one drifted from the effective set (a hand-edited copy, a
+  //     lingering managed entry, an un-refreshed change). MISSING (the whole dir
+  //     absent on a fresh checkout) and FOREIGN (an unmanaged drop-in) do NOT block,
+  //     exactly as for guidance. Gated on `skills`.
+  const skillsOn = isFeatureEnabled(cfg, "skills");
+  let skillsDiag: Diagnostic | undefined;
+  if (failedStage === null && skillsOn) {
+    const stale = (await checkSkillsCurrent(root, cfg))
+      .filter((d) => d.reason === "stale");
+    if (stale.length > 0) {
+      failedStage = "skills";
+      skillsDiag = skillsDiagnostic(stale);
+    }
+  }
+
   // 5. Merge check (no-op in the main checkout / outside a worktree).
   if (failedStage === null) {
     const mainBranch = Deno.env.get("MAIN_BRANCH") || cfg.project.main_branch;
@@ -187,13 +231,22 @@ async function runGate(
 
   // 6. Assemble the executed plan + result, attaching the agent-facing hints —
   //    the same next-step advice the human tail prints, promoted into the envelope.
-  const plan = composeGatePlan(stageGroups, sgGroup, changed, guidanceOn);
+  const plan = composeGatePlan(
+    stageGroups,
+    sgGroup,
+    changed,
+    guidanceOn,
+    skillsOn,
+  );
   const result = buildGateResult(plan, results, failedStage);
-  // The guidance check isn't a plan-group job, so its diagnostic (the diff + the
-  // `discern refresh` reproduce command) is attached here, like the merge stage's
-  // failed_stage rides in `data` without a job entry.
+  // The currency checks aren't plan-group jobs, so their diagnostics (the diff / the
+  // drift list + the `discern refresh` reproduce command) are attached here, like the
+  // merge stage's failed_stage rides in `data` without a job entry.
   if (guidanceDiag !== undefined) {
     result.diagnostics = [...(result.diagnostics ?? []), guidanceDiag];
+  }
+  if (skillsDiag !== undefined) {
+    result.diagnostics = [...(result.diagnostics ?? []), skillsDiag];
   }
   const hints = buildGateHints(cfg, changed, failedStage);
   if (hints.length > 0) {
