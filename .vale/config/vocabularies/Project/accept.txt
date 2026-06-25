@@ -122,6 +122,8 @@ rollout
 sandboxed
 scaffolded
 scaffolder
+Schmid
+scriptable
 SDK
 selfcheck
 semver
