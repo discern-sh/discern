@@ -36,7 +36,7 @@ import type {
 } from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { findRoot } from "../../shared/env.ts";
-import { isFeatureEnabled } from "../../shared/features.ts";
+import { FEATURES, isFeatureEnabled } from "../../shared/features.ts";
 import {
   type Capability,
   KNOWN_CAPABILITIES,
@@ -144,13 +144,11 @@ export async function statusResult(
     ? await buildWorktreeBlock(root, cfg)
     : null;
 
-  const features: StatusFeatures = {
-    worktrees: isFeatureEnabled(cfg, "worktrees"),
-    ratchets: isFeatureEnabled(cfg, "ratchets"),
-    skills: isFeatureEnabled(cfg, "skills"),
-    mcp: isFeatureEnabled(cfg, "mcp"),
-    docs: isFeatureEnabled(cfg, "docs"),
-  };
+  // Built from the FEATURES SSOT (not a hand-listed object) so every toggle is
+  // reported and a new feature can't silently go missing from status.
+  const features: StatusFeatures = Object.fromEntries(
+    FEATURES.map((f) => [f, isFeatureEnabled(cfg, f)]),
+  ) as StatusFeatures;
 
   // Fleet decision. The fleet is meaningful only with the worktrees feature on, and
   // only worth surveying from the main checkout (the supervisor view) or when a

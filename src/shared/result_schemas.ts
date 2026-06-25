@@ -18,12 +18,13 @@
  * and validates its real `serializeResult` output) keeps the two from drifting — the
  * MCP analog of the gate's guidance-currency check.
  *
- * Layer note: this is a `shared/` module — it depends only on `result.ts` and Zod,
- * never on `src/engine/**`, so the engine cores import their data types FROM here
- * (engine → shared), never the reverse.
+ * Layer note: this is a `shared/` module — it depends only on `result.ts`, the
+ * feature SSOT (`features.ts`), and Zod, never on `src/engine/**`, so the engine
+ * cores import their data types FROM here (engine → shared), never the reverse.
  */
 
 import { z } from "@zod/zod";
+import { type Feature, FEATURES } from "./features.ts";
 
 // ── ring 1+2 mirrors: the plan / step / diagnostic sub-shapes ────────────────
 // Zod mirrors of the `result.ts` interfaces `serializeResult` emits. They are
@@ -194,14 +195,16 @@ const statusFleetEntrySchema = z.strictObject({
 });
 export type StatusFleetEntry = z.infer<typeof statusFleetEntrySchema>;
 
-/** The feature-toggle snapshot status reports. */
-const statusFeaturesSchema = z.strictObject({
-  worktrees: z.boolean(),
-  ratchets: z.boolean(),
-  skills: z.boolean(),
-  mcp: z.boolean(),
-  docs: z.boolean(),
-});
+/** The feature-toggle snapshot status reports — one boolean per {@link FEATURES}
+ * entry, derived from that SSOT so a newly-added feature can't silently go
+ * unreported (the shape is pinned to FEATURES by a guard test in
+ * `result_schemas_test.ts`). */
+const statusFeaturesSchema = z.strictObject(
+  Object.fromEntries(FEATURES.map((f) => [f, z.boolean()])) as Record<
+    Feature,
+    z.ZodBoolean
+  >,
+);
 export type StatusFeatures = z.infer<typeof statusFeaturesSchema>;
 
 /** `status` — the full situation payload. The local-only heavy blocks

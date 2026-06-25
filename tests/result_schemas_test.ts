@@ -31,8 +31,10 @@ import {
   DoctorOutputSchema,
   EnvelopeSchema,
   FinishOutputSchema,
+  StatusDataSchema,
   StatusOutputSchema,
 } from "../src/shared/result_schemas.ts";
+import { FEATURES } from "../src/shared/features.ts";
 import { finishResult } from "../src/engine/gate/finish.ts";
 import { prepareResult } from "../src/engine/gate/prepare.ts";
 import { testResult } from "../src/engine/gate/test.ts";
@@ -237,12 +239,30 @@ Deno.test("changed-scopes result is faithful", async () => {
   });
 });
 
+Deno.test("status features schema reports exactly the FEATURES set (SSOT pin)", () => {
+  // The feature snapshot is derived from FEATURES; this pins the schema's shape to
+  // that SSOT so a newly-added feature can't silently drop out of status.
+  assertEquals(
+    Object.keys(StatusDataSchema.shape.features.shape).sort(),
+    [...FEATURES].sort(),
+  );
+});
+
 Deno.test("status result is faithful across modes (main, fleet, worktree, unset-up)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
     // Main checkout, local view.
-    expectValid(StatusOutputSchema, await statusResult(dir), "status main");
+    const mainStatus = await statusResult(dir);
+    expectValid(StatusOutputSchema, mainStatus, "status main");
+    // Every feature toggle is reported (the end-to-end side of the SSOT pin).
+    assertEquals(
+      Object.keys(
+        (mainStatus.data as { features: Record<string, boolean> }).features,
+      ).sort(),
+      [...FEATURES].sort(),
+      "status data.features must carry every FEATURES toggle",
+    );
     // Main checkout with the fleet survey forced on (exercises StatusFleetEntry).
     expectValid(
       StatusOutputSchema,
