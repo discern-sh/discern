@@ -25,8 +25,8 @@ import {
   claudeSkillsDirOf,
   ejectSkill,
   listSkills,
-  materializeSkills,
   MATERIALIZED_MANIFEST,
+  materializeSkills,
   resolveEffectiveSkills,
 } from "../src/lib/skills.ts";
 import { modeOf, withTempDir } from "./helpers.ts";
@@ -210,7 +210,10 @@ Deno.test("materializeSkills: prunes a real-dir copy of a bundled skill it no lo
     // Simulate a bundled skill a newer binary stopped shipping: a real copied dir
     // whose name discern recorded as materialized, now absent from the effective set.
     await Deno.mkdir(join(sk, "gone-skill"));
-    await Deno.writeTextFile(join(sk, "gone-skill/SKILL.md"), "stale bundled copy");
+    await Deno.writeTextFile(
+      join(sk, "gone-skill/SKILL.md"),
+      "stale bundled copy",
+    );
     const manifestPath = join(sk, MATERIALIZED_MANIFEST);
     const owned = JSON.parse(await Deno.readTextFile(manifestPath)) as string[];
     await Deno.writeTextFile(

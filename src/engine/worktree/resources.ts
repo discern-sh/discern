@@ -351,7 +351,8 @@ export async function createResources(
     // already-good worktree. Skip it; session-start `ensure` re-readies it if asked.
     if (
       spec.destroy !== "" &&
-      (await readEntry(entryPath(commonGitDir, gitKey, spec.name))) !== undefined
+      (await readEntry(entryPath(commonGitDir, gitKey, spec.name))) !==
+        undefined
     ) {
       ctx.log.info(
         `Worktree resource '${spec.name}' already provisioned — skipping create.`,
