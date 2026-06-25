@@ -160,6 +160,42 @@ export async function runAgent(
 }
 
 /**
+ * Like {@link runAgent}, but with stderr merged into stdout AT THE OS LEVEL (`2>&1`),
+ * so the returned `stdout` is the real time-interleaved stream an agent captures with
+ * `<verb> 2>&1 | …`. {@link runAgent} pipes the two streams separately and concatenates
+ * them (`out + err`), which discards the interleaving — wrong for asserting what a
+ * `tail`/`head` of the combined stream actually keeps.
+ */
+export async function runAgentMerged(
+  dir: string,
+  args: string[],
+  opts: { cwd?: string; env?: Record<string, string> } = {},
+): Promise<RunResult> {
+  const inner = [
+    "deno",
+    "run",
+    "--no-check",
+    "--config",
+    DENO_JSON,
+    "-A",
+    MAIN_TS,
+    ...args,
+  ]
+    .map(shq)
+    .join(" ");
+  const command = new Deno.Command("sh", {
+    args: ["-c", `${inner} 2>&1`],
+    cwd: opts.cwd ?? dir,
+    env: await engineEnv(opts.env),
+    stdout: "piped",
+    stderr: "null",
+  });
+  const { code, stdout } = await command.output();
+  const out = DECODER.decode(stdout);
+  return { code, stdout: out, stderr: "", output: out };
+}
+
+/**
  * Overwrite the scaffolded root `discern.toml` (a seed file) with test content.
  * Keeps the install "set up" (so work verbs run, not redirect — ADR 0036) unless
  * the test config explicitly mentions `bootstrapped` (its own opt-out).

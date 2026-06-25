@@ -372,6 +372,39 @@ function renderFailures(out: Out, diagnostics: Diagnostic[]): void {
 }
 
 /**
+ * The tail-safe summary line — the LAST thing a failed `finish` prints, so a reader
+ * who keeps only the end of the stream (`… | tail`) still sees what failed and how to
+ * re-run it, not a generic pointer. Its reproduce commands are the de-duplicated
+ * `reproduce_cmd`s of the SAME `diagnostics[]` the envelope carries — one source, not a
+ * second. With no diagnostics (only the merge check) it falls back to the stage
+ * message. Written to stdout, the recap's stream, so it survives `2>/dev/null` and
+ * lands last in a merged stream.
+ */
+function renderFailBluf(
+  out: Out,
+  verb: string,
+  failedStage: string,
+  diagnostics: Diagnostic[],
+): void {
+  const c = out.c;
+  if (diagnostics.length === 0) {
+    out.raw(
+      `${c.red}✗${c.reset} ${verb} failed: ${failMessage(failedStage)}\n`,
+    );
+    return;
+  }
+  const cmds = [...new Set(diagnostics.map((d) => d.reproduce_cmd))];
+  const shown = cmds.slice(0, 3).join(" ; ");
+  const more = cmds.length > 3 ? ` ; +${cmds.length - 3} more` : "";
+  const n = diagnostics.length;
+  out.raw(
+    `${c.red}✗${c.reset} ${verb} failed — ${n} problem${
+      n === 1 ? "" : "s"
+    }; reproduce: ${shown}${more}\n`,
+  );
+}
+
+/**
  * Compute the `finish` {@link DiscernResult} without printing or exiting — the
  * entry point the MCP server (and any in-process caller) renders instead of the
  * CLI's stdout. `dryRun` returns the preview (the plan, nothing run); otherwise it
@@ -407,9 +440,10 @@ export async function runFinish(
     return failedStage === null ? 0 : 1;
   }
   if (failedStage !== null) {
-    renderFailures(out, result.diagnostics ?? []);
     out.error(failMessage(failedStage));
     gotchasHint(cfg, root, out.color);
+    renderFailures(out, result.diagnostics ?? []);
+    renderFailBluf(out, "finish", failedStage, result.diagnostics ?? []);
     return 1;
   }
   printSuccessTail(cfg, out, result.hints ?? []);
