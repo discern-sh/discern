@@ -206,8 +206,13 @@ export async function statusResult(
   let skillsDrift: SkillsDriftEntry[] = [];
   if (isFeatureEnabled(cfg, "skills")) {
     skillsDrift = await checkSkillsCurrent(root, cfg);
-    if (skillsDrift.length > 0) {
-      data.stale_materialized = skillsDrift.map((d) =>
+    // Report only `missing`/`stale` (parallel to `stale_generated` for guidance) — a
+    // `foreign` drop-in is NOT discern's to fix (the materializer leaves it and warns),
+    // so listing it under a `stale_`-named field would tell an agent to "refresh" a
+    // file a refresh won't touch. It is intentionally absent from the structured field.
+    const reportable = skillsDrift.filter((d) => d.reason !== "foreign");
+    if (reportable.length > 0) {
+      data.stale_materialized = reportable.map((d) =>
         d.name === "" ? d.dir : `${d.dir}/${d.name}`
       );
     }

@@ -60,9 +60,9 @@ function failMessage(stage: string): string {
     case "scope_gates":
       return "One or more scope gates failed.";
     case "guidance":
-      return "Generated agent files are out of date — run `discern refresh`.";
+      return "Generated agent files are out of date — run `discern refresh` (edits belong in your [guidance].sources, not the generated file, which a refresh overwrites).";
     case "skills":
-      return "Materialized skills are out of date — run `discern refresh`.";
+      return "Materialized skills are out of date — run `discern refresh` (edits belong in your [skills].dir source, not the materialized copy, which a refresh overwrites).";
     case "merge":
       return "Integrate main, then re-run finish.";
     default:
@@ -128,9 +128,9 @@ function skillsDiagnostic(stale: SkillsDriftEntry[]): Diagnostic {
   const dirs = [...new Set(stale.map((d) => d.dir))].join(", ");
   const capped = capText(
     `Materialized skills are out of date in: ${dirs}.\n` +
-      "Run `discern refresh` to re-materialize them. To change a skill, edit its " +
-      "source under [skills].dir (or `discern skills eject` a bundled one) — a direct " +
-      "edit to a materialized copy is overwritten on the next refresh.\n\n" +
+      "Run `discern refresh` to re-materialize them. If you meant to change a skill, " +
+      "edit its source under [skills].dir (or `discern skills eject` a bundled one) — a " +
+      "direct edit to a materialized copy is overwritten on the next refresh.\n\n" +
       stale.map((d) => `  • ${d.detail}`).join("\n"),
   );
   return {
