@@ -90,32 +90,32 @@ needs dirty/ahead/behind, not a full per-worktree gate analysis. The
 single-worktree local view is where `changed_scopes` and the `gate` block
 belong.
 
-### A fleet row is marked current; "clean" is never "available"
+### `status` marks the current fleet row — "clean" is never "available"
 
-The fleet is a supervisor's read-only survey of the lines of work in flight, not
-a pool of workspaces to claim. An agent once read it the other way: from the
-main checkout it saw another agent's worktree listed as clean and up to date,
-inferred "clean means free", and started work inside it. That is a category
-error. `clean` is a **git** fact (no uncommitted changes); availability is an
-**occupancy** fact (no live effort owns it) — and a worktree can be pristine yet
-owned by an agent still planning or reading, with nothing written yet.
+The fleet is a supervisor's read-only survey of the work in flight, not a pool
+of workspaces to claim. An agent once read it the other way. From the main
+checkout it saw another agent's worktree show up clean and current, took "clean"
+to mean "free", and started work inside it. That is a category error. `clean` is
+a **git** fact: no uncommitted changes. Availability is an **occupancy** fact:
+no live effort owns it. A worktree can sit pristine and still belong to an agent
+who is planning or reading, having written nothing yet.
 
-`status` cannot truthfully assert occupancy, so it never does. It encodes
-ownership **structurally**: a worktree exists, so a line of work owns it. Each
-row carries `is_current` — true for the row the call is rooted in (the main row
-from the main checkout, the current worktree's row under `--all`), false for the
-rest. The only honest signals are "this row is yours" and "this row is another
-effort's"; no row is labelled free. The human table marks the current row and
-captions the others as separate lines of work; a `--json`-only hint repeats the
-rule on the agent channel where the fleet is read. The rule itself lives in the
-always-on guidance — this reinforces it in the output.
+So `status` never claims occupancy, which it cannot know. It marks ownership
+**structurally** instead: a worktree exists, so a line of work owns it. Every
+row carries `is_current`. It reads true for the row the call roots in — the main
+row from the main checkout, the current worktree's row under `--all` — and false
+for the rest. The honest signals are "this row is yours" and "this row is
+another effort's". No row ever reads as free. The human table flags the current
+row and captions the others as separate lines of work. A `--json`-only hint
+carries the same rule to an agent the moment it reads the fleet. The rule itself
+lives in the always-on guidance. This only reinforces it.
 
-Detecting occupancy directly is deliberately out of scope, for the reason last
-activity stops at git-and-filesystem evidence (below): a session that has
-written nothing lives in the agent's transcript, outside the worktree and in
-vendor-specific locations, and the engine stays agent-agnostic. The affordance
+Reading occupancy straight from a session stays out of scope, for the reason
+last activity stops at git-and-filesystem evidence (below). A live session that
+writes nothing lives in the agent's own transcript, outside the worktree and in
+vendor-specific locations, and the engine stays agent-agnostic. The path forward
 for "an agent on `main` needs its own worktree" is the `discern start` follow-up
-in `TODO.md` — create a fresh one, never adopt an existing.
+in `TODO.md`: create a fresh one, never adopt an existing.
 
 ### Last activity is git-and-filesystem evidence, not conversation state
 
@@ -172,12 +172,12 @@ re-implements no git plumbing.
   views (a richer dashboard, a CI summary) build on them rather than re-parsing
   porcelain.
 - **The fleet says which row is yours, never which is free.** `is_current` marks
-  the caller's own row; every other row is another line of work. "Clean" stays a
-  git fact and never an availability claim; ownership is encoded structurally (a
-  worktree's existence means a line of work owns it), not by guessing session
-  liveness; and the always-on guidance plus a `--json`-only hint carry the rule.
-  Adopting another line's worktree is the mistake this closes — `discern start`
-  (see `TODO.md`) is the future path for an agent on `main` that needs its own.
+  the caller's own row. Every other row is another line of work. "Clean" stays a
+  git fact, never an availability claim. Ownership is structural: a worktree's
+  existence means a line of work owns it, so `status` never guesses session
+  liveness. The always-on guidance and a `--json`-only hint both carry the rule.
+  Adopting another line's worktree is the mistake this closes. `discern start`
+  (see `TODO.md`) is the path for an agent on `main` that needs its own.
 
 ## Alternatives considered
 
