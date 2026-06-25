@@ -22,6 +22,7 @@ import {
   writeConfig,
   writeExecutable,
 } from "./engine_helpers.ts";
+import { FLEET_OWNERSHIP_HINT } from "../src/engine/status/status.ts";
 
 /** A config with a project slug and one gated scope (so changed-scopes/gate have
  * something to classify), written before gitInit so a worktree inherits it. */
@@ -162,6 +163,58 @@ Deno.test("status fleet: under --all from a worktree, that worktree's row is is_
       fleet.find((e) => e.branch === "agent/beta")?.is_current,
       false,
       "a sibling worktree is not current",
+    );
+  });
+});
+
+Deno.test("status fleet: the ownership rule rides in hints[] for an agent (main checkout)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    await addWorktree(dir, "alpha");
+
+    const obj = parseStatus((await runAgent(dir, ["status", "--json"])).stdout);
+    assert(
+      (obj.hints ?? []).includes(FLEET_OWNERSHIP_HINT),
+      `hints must carry the fleet ownership rule: ${JSON.stringify(obj.hints)}`,
+    );
+  });
+});
+
+Deno.test("status fleet: the ownership rule rides in hints[] under --all from a worktree", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "alpha");
+    await addWorktree(dir, "beta"); // a sibling → a line of work other than this one
+
+    const obj = parseStatus(
+      (await runAgent(wt, ["status", "--all", "--json"])).stdout,
+    );
+    assert(
+      (obj.hints ?? []).includes(FLEET_OWNERSHIP_HINT),
+      `--all hints must carry the ownership rule: ${JSON.stringify(obj.hints)}`,
+    );
+  });
+});
+
+Deno.test("status fleet: the ownership rule is agent-only — humans get the caption, not the hint", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    await addWorktree(dir, "alpha");
+
+    const r = await runAgent(dir, ["status"]); // human mode (no --json)
+    assertEquals(r.code, 0, r.output);
+    // The agent-channel hint text never appears in interactive output…
+    assert(
+      !r.output.includes(FLEET_OWNERSHIP_HINT),
+      `the ownership hint must not appear as a human line: ${r.output}`,
+    );
+    // …but the dim caption beneath the fleet table does.
+    assert(
+      r.output.includes("Other worktrees are separate lines of work"),
+      `expected the fleet caption in human output: ${r.output}`,
     );
   });
 });

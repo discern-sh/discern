@@ -362,6 +362,17 @@ function buildGateBlock(cfg: DiscernConfig, changed: string[]): StatusGate {
 
 // ── hints (advisory next-steps; never an unverified pass/fail) ───────────────────
 
+/**
+ * The fleet ownership rule, agent-facing. Pushed into `hints[]` (the `--json` / MCP
+ * channel, ADR 0030) whenever the survey holds a line of work other than this one —
+ * never into interactive human output, where the dim caption under the fleet table
+ * carries the same framing. Exported as a named constant so both the human renderer
+ * (which filters it out) and the test (which asserts it in) reference one string, not
+ * a brittle inline literal that could drift.
+ */
+export const FLEET_OWNERSHIP_HINT =
+  "Worktrees in the fleet belong to separate lines of work — never start work in one you didn't create; a clean working tree doesn't mean it's free.";
+
 /** Everything the hint builder reads — assembled once so the hints can't drift from
  * the reported data. */
 interface HintContext {
@@ -453,6 +464,13 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
           : `Committed and up to date with ${main}; \`discern graduate\` when ready.`,
       );
     }
+  }
+
+  // The survey holds a line of work other than this one — give the agent the
+  // ownership rule (json/MCP only; humans get the caption under the fleet table).
+  // Location-agnostic: fires from the main checkout and under --all from a worktree.
+  if (ctx.fleet?.some((e) => !e.is_main && !e.is_current)) {
+    hints.push(FLEET_OWNERSHIP_HINT);
   }
 
   if (ctx.location === "main") {
@@ -697,6 +715,9 @@ function renderStatusHuman(result: DiscernResult): void {
   }
 
   for (const hint of result.hints ?? []) {
+    // The fleet ownership rule is agent-only (json/MCP); humans get the caption
+    // beneath the fleet table instead.
+    if (hint === FLEET_OWNERSHIP_HINT) continue;
     out.info(hint);
   }
 }
