@@ -20,3 +20,12 @@ handle, call **`discern_help`**.{{/if}}
 Resolve a worktree's stable identity with **`discern worktree-name`**
 (`--id`/`--site`/`--branch`/`--port`/`--db`/`--worktree`{{#if has_worktree_resources}}/`--resource <name>`{{/if}}). Do
 your work inside the worktree, not the main checkout.
+
+**A worktree belongs to exactly one line of work — never start work in a worktree
+you didn't create.** A clean working tree does *not* mean it's free: another agent
+may be planning, reading, or discussing in it without having written anything yet.
+Operate only in the worktree you were launched into (or the main checkout). The
+worktrees `discern status` lists are a *survey of other efforts in flight*, not a
+pool to claim from — if you're on the main checkout and the task needs its own
+isolated workspace, a fresh worktree must be *created* for it (the orchestrator's
+or worktree-create hook's job), never repurposed from an existing one.

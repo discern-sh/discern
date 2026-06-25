@@ -13,7 +13,9 @@ that connects also loads discern's own `instructions`, which say *when* to reach
 for each tool; lean on them. The essentials:
 
 - **Orient first.** Call **`discern_status`** at the start of a session — read-only
-  and cheap — for what's true now and what to do next.
+  and cheap — for what's true now and what to do next. From the main checkout it
+  surveys the other lines of work in flight; a worktree it lists belongs to another
+  effort — orient by it, never start work in one you didn't create.
 - **A clean `discern_finish` is the bar for "done".** It runs the project's whole
   quality gate; don't call a change finished until it passes. Iterate with
   **`discern_prepare`** (the fast fix-then-check loop). On a failure, read the
