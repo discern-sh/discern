@@ -30,7 +30,9 @@ function cfg(extra = ""): DiscernConfig {
 const DIRS = skillsDirsForAgents(["claude_code"]); // [".claude/skills"]
 const SKILLS_REL = DIRS[0];
 if (SKILLS_REL === undefined) {
-  throw new Error("registry invariant broken: claude_code declares no skills dir");
+  throw new Error(
+    "registry invariant broken: claude_code declares no skills dir",
+  );
 }
 
 /** Write an authored skill so the effective set mixes copied + symlinked entries. */
@@ -43,7 +45,10 @@ async function authoredSkill(root: string, name: string): Promise<void> {
 }
 
 /** Materialize the effective set into the single Claude dir, the clean baseline. */
-async function materializeClean(root: string, config: DiscernConfig) {
+async function materializeClean(
+  root: string,
+  config: DiscernConfig,
+): Promise<void> {
   await materializeSkills(root, config, DIRS);
 }
 
