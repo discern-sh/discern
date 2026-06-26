@@ -24,23 +24,7 @@
 
 import { capText, type Diagnostic } from "../../shared/result.ts";
 import { parsePorcelainPaths } from "../scopes/changed.ts";
-
-/** Run `git -C root <args>`, capturing stdout; `ok:false` on any failure. */
-async function git(
-  root: string,
-  args: string[],
-): Promise<{ ok: boolean; stdout: string }> {
-  try {
-    const out = await new Deno.Command("git", {
-      args: ["-C", root, ...args],
-      stdout: "piped",
-      stderr: "null",
-    }).output();
-    return { ok: out.success, stdout: new TextDecoder().decode(out.stdout) };
-  } catch {
-    return { ok: false, stdout: "" };
-  }
-}
+import { runGit } from "../../shared/subprocess.ts";
 
 /**
  * The set of TRACKED paths with uncommitted changes (staged or unstaged) — the dirt
@@ -52,12 +36,11 @@ async function git(
 export async function worktreeDirtyPaths(
   root: string,
 ): Promise<Set<string> | null> {
-  const r = await git(root, [
-    "status",
-    "--porcelain=v1",
-    "--untracked-files=no",
-  ]);
-  if (!r.ok) {
+  const r = await runGit(
+    ["status", "--porcelain=v1", "--untracked-files=no"],
+    { cwd: root },
+  );
+  if (!r.success) {
     return null;
   }
   return new Set(parsePorcelainPaths(r.stdout));
@@ -86,7 +69,7 @@ export async function fixDriftDiagnostic(
 ): Promise<Diagnostic> {
   const shown = paths.slice(0, 10).join(", ");
   const more = paths.length > 10 ? `, … (+${paths.length - 10} more)` : "";
-  const diff = await git(root, ["diff", "--", ...paths]);
+  const diff = await runGit(["diff", "--", ...paths], { cwd: root });
   const body = capText(
     `The fix stage reformatted ${paths.length} file(s) that were committed-clean at ` +
       `the start of this run, leaving uncommitted changes:\n` +
@@ -95,7 +78,7 @@ export async function fixDriftDiagnostic(
       `(e.g. \`git add -A && git commit\`), then re-run \`discern finish\`. A clean ` +
       `finish must mean a clean tree: graduating now would strand these changes ` +
       `staged-but-uncommitted in the main checkout.` +
-      (diff.ok && diff.stdout.trim() !== "" ? `\n\n${diff.stdout}` : ""),
+      (diff.success && diff.stdout.trim() !== "" ? `\n\n${diff.stdout}` : ""),
   );
   return {
     tool: "fix",

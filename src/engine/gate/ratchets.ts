@@ -31,6 +31,7 @@ import {
   type StepResult,
 } from "../../shared/result.ts";
 import { emitResult } from "../../shared/emit.ts";
+import { runGit } from "../../shared/subprocess.ts";
 
 /** True when `s` is a non-negative decimal number. */
 function isNumber(s: string): boolean {
@@ -74,22 +75,14 @@ async function ratchetMainValue(
   key: string,
 ): Promise<number | undefined> {
   for (const rel of ["discern.toml", ".discern/config.toml"]) {
-    try {
-      const out = await new Deno.Command("git", {
-        args: ["-C", root, "show", `${mainBranch}:${rel}`],
-        stdout: "piped",
-        stderr: "null",
-      }).output();
-      if (!out.success) {
-        continue;
-      }
-      // Read main's (possibly older, possibly un-migrated) config RAW — it must
-      // not trip the current schema; only one number is needed out of it.
-      const cfg = new RawConfig(new TextDecoder().decode(out.stdout));
-      return cfg.getNumber(key);
-    } catch {
-      // try the next candidate path
+    const out = await runGit(["show", `${mainBranch}:${rel}`], { cwd: root });
+    if (!out.success) {
+      continue;
     }
+    // Read main's (possibly older, possibly un-migrated) config RAW — it must
+    // not trip the current schema; only one number is needed out of it.
+    const cfg = new RawConfig(out.stdout);
+    return cfg.getNumber(key);
   }
   return undefined;
 }

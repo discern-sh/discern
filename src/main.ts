@@ -10,6 +10,7 @@
 import { Command } from "@cliffy/command";
 import { KIT_VERSION } from "./lib/version.ts";
 import { emitResult } from "./shared/emit.ts";
+import { runGit } from "./shared/subprocess.ts";
 import {
   AGENT_NAMES,
   ConfigParseError,
@@ -603,17 +604,8 @@ async function shouldRunSetupBare(
 
 /** True when `dir` is inside a git work tree (cheap `git rev-parse` probe). */
 async function isGitWorkTree(dir: string): Promise<boolean> {
-  try {
-    const { success } = await new Deno.Command("git", {
-      args: ["rev-parse", "--is-inside-work-tree"],
-      cwd: dir,
-      stdout: "null",
-      stderr: "null",
-    }).output();
-    return success;
-  } catch {
-    return false;
-  }
+  return (await runGit(["rev-parse", "--is-inside-work-tree"], { cwd: dir }))
+    .success;
 }
 
 /**

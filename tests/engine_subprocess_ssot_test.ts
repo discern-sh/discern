@@ -1,0 +1,52 @@
+/**
+ * Architectural guard (ADR 0054): every git invocation funnels through the shared
+ * runner in src/shared/subprocess.ts, so GIT_BIN handling, output decoding, and
+ * the spawn-failure fallback are single-sourced — the GIT_BIN override is honored
+ * at every git call site because there is exactly one. A raw
+ * `new Deno.Command(gitBin()|"git", …)` anywhere else under src/ fails this test —
+ * route it through runGit() instead.
+ *
+ * (The shell half of this guard — `sh -c` spawns — is added alongside that
+ * consolidation.)
+ */
+
+import { assertEquals } from "@std/assert";
+import { walk } from "@std/fs";
+import { dirname, fromFileUrl, join, relative } from "@std/path";
+
+const REPO_ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
+const SRC = join(REPO_ROOT, "src");
+
+/** Every `.ts` file under `src/`, as `[repo-relative path, contents]`. */
+async function srcFiles(): Promise<Array<[string, string]>> {
+  const out: Array<[string, string]> = [];
+  for await (const entry of walk(SRC, { includeDirs: false })) {
+    if (!entry.path.endsWith(".ts")) continue;
+    out.push([
+      relative(REPO_ROOT, entry.path),
+      await Deno.readTextFile(entry.path),
+    ]);
+  }
+  return out;
+}
+
+/** The one file permitted to spawn git directly — the shared runner's home. */
+const GIT_SPAWN_HOME = join("src", "shared", "subprocess.ts");
+
+/** A `new Deno.Command(…)` whose binary is git: the gitBin() resolver or a literal. */
+const GIT_SPAWN = /new Deno\.Command\(\s*(?:gitBin\(\)|["']git["'])/;
+
+Deno.test("every git spawn funnels through the shared runGit", async () => {
+  const offenders: string[] = [];
+  for (const [rel, text] of await srcFiles()) {
+    if (rel === GIT_SPAWN_HOME) continue;
+    if (GIT_SPAWN.test(text)) offenders.push(rel);
+  }
+  assertEquals(
+    offenders,
+    [],
+    `git is spawned outside ${GIT_SPAWN_HOME} — route it through runGit():\n  ${
+      offenders.join("\n  ")
+    }`,
+  );
+});

@@ -17,6 +17,7 @@
 
 import { join } from "@std/path";
 import { agentArtifactPaths } from "./providers.ts";
+import { runGit } from "../shared/subprocess.ts";
 
 /** The marker the reconciler appends its added lines under (distinct from the seed
  * fragment's own `# --- discern harness ---` banner). */
@@ -90,22 +91,13 @@ async function gitTrackedFiles(
   if (files.length === 0) {
     return new Set();
   }
-  try {
-    const out = await new Deno.Command("git", {
-      args: ["-C", destDir, "ls-files", "--", ...files],
-      stdout: "piped",
-      stderr: "null",
-    }).output();
-    if (!out.success) {
-      return new Set();
-    }
-    return new Set(
-      new TextDecoder().decode(out.stdout).split("\n")
-        .map((l) => l.trim()).filter((l) => l !== ""),
-    );
-  } catch {
+  const r = await runGit(["ls-files", "--", ...files], { cwd: destDir });
+  if (!r.success) {
     return new Set();
   }
+  return new Set(
+    r.stdout.split("\n").map((l) => l.trim()).filter((l) => l !== ""),
+  );
 }
 
 /**

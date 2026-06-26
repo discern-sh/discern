@@ -33,6 +33,7 @@ import {
 } from "./identity.ts";
 import { writeEnvVar } from "./env_file.ts";
 import { runShellRouted } from "./shell.ts";
+import { type GitResult, runGit } from "../../shared/subprocess.ts";
 import {
   classifyOrphans,
   createResources,
@@ -178,26 +179,19 @@ async function buildTeardownPlan(ctx: LifecycleContext): Promise<TeardownPlan> {
 
 /** The per-worktree setup sentinel path (`git rev-parse --git-path discern-worktree-ready`). */
 async function readySentinelPath(cwd: string): Promise<string | undefined> {
-  const gitBin = Deno.env.get("GIT_BIN") ?? "git";
-  try {
-    const out = await new Deno.Command(gitBin, {
-      args: ["rev-parse", "--git-path", "discern-worktree-ready"],
-      cwd,
-      stdout: "piped",
-      stderr: "null",
-    }).output();
-    if (!out.success) {
-      return undefined;
-    }
-    const raw = new TextDecoder().decode(out.stdout).trim();
-    if (raw === "") {
-      return undefined;
-    }
-    // `--git-path` may print a path relative to the worktree's cwd.
-    return raw.startsWith("/") ? raw : join(cwd, raw);
-  } catch {
+  const r = await runGit(
+    ["rev-parse", "--git-path", "discern-worktree-ready"],
+    { cwd },
+  );
+  if (!r.success) {
     return undefined;
   }
+  const raw = r.stdout.trim();
+  if (raw === "") {
+    return undefined;
+  }
+  // `--git-path` may print a path relative to the worktree's cwd.
+  return raw.startsWith("/") ? raw : join(cwd, raw);
 }
 
 /** Whether this worktree's ready sentinel is present — the proof setup completed.
@@ -524,37 +518,12 @@ export async function worktreeTeardown(
   }
 }
 
-/** A captured git run for the lifecycle layer's inline git calls. */
-interface GitOut {
-  success: boolean;
-  stdout: string;
-  stderr: string;
-}
-
 /** A bound git runner for the graduation flow (defaults to the worktree cwd). */
-type GitRunner = (args: string[], cwd?: string) => Promise<GitOut>;
+type GitRunner = (args: string[], cwd?: string) => Promise<GitResult>;
 
-/** Build the git runner graduation uses — captures stdout/stderr, never throws. */
+/** The git runner graduation uses — the shared runner bound to the worktree cwd. */
 function makeGitRunner(ctx: LifecycleContext): GitRunner {
-  const gitBin = Deno.env.get("GIT_BIN") ?? "git";
-  return async (args: string[], cwd: string = ctx.cwd): Promise<GitOut> => {
-    try {
-      const out = await new Deno.Command(gitBin, {
-        args,
-        cwd,
-        stdout: "piped",
-        stderr: "piped",
-      }).output();
-      const dec = new TextDecoder();
-      return {
-        success: out.success,
-        stdout: dec.decode(out.stdout),
-        stderr: dec.decode(out.stderr),
-      };
-    } catch {
-      return { success: false, stdout: "", stderr: "git is not on PATH" };
-    }
-  };
+  return (args: string[], cwd: string = ctx.cwd) => runGit(args, { cwd });
 }
 
 /**

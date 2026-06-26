@@ -17,6 +17,7 @@
 
 import { basename, dirname, isAbsolute, join, resolve } from "@std/path";
 import type { Logger } from "../../lib/log.ts";
+import { type GitResult, runGit } from "../../shared/subprocess.ts";
 
 /** A fatal worktree-git condition. */
 export class WorktreeGitError extends Error {
@@ -24,11 +25,6 @@ export class WorktreeGitError extends Error {
     super(message);
     this.name = "WorktreeGitError";
   }
-}
-
-/** The configured git binary (`GIT_BIN`, default `git`). */
-function gitBin(): string {
-  return Deno.env.get("GIT_BIN") ?? "git";
 }
 
 /**
@@ -48,36 +44,13 @@ export function integrationBranch(fallback?: string): string {
   return "main";
 }
 
-/** The result of running git: success flag, captured stdout, and stderr. */
-interface GitRun {
-  success: boolean;
-  stdout: string;
-  stderr: string;
-}
-
 /**
- * Run a git command, capturing stdout+stderr. `cwd` runs git there (used instead
- * of `-C`). A missing/unrunnable git resolves to a failed
- * run with an explanatory stderr rather than throwing.
+ * Thin binding to the shared git runner, preserving this module's positional
+ * `(args, cwd?)` call shape used throughout the worktree git mechanics. The spawn
+ * itself — GIT_BIN, decoding, the no-git fallback — lives once in {@link runGit}.
  */
-async function git(args: string[], cwd?: string): Promise<GitRun> {
-  let output: Deno.CommandOutput;
-  try {
-    output = await new Deno.Command(gitBin(), {
-      args,
-      ...(cwd !== undefined ? { cwd } : {}),
-      stdout: "piped",
-      stderr: "piped",
-    }).output();
-  } catch {
-    return { success: false, stdout: "", stderr: "git is not on PATH" };
-  }
-  const dec = new TextDecoder();
-  return {
-    success: output.success,
-    stdout: dec.decode(output.stdout),
-    stderr: dec.decode(output.stderr),
-  };
+function git(args: string[], cwd?: string): Promise<GitResult> {
+  return runGit(args, cwd !== undefined ? { cwd } : {});
 }
 
 /** Whether the configured git binary is runnable at all. */
@@ -92,20 +65,12 @@ export async function gitAvailable(): Promise<boolean> {
  * here?" and "which git?" are answered the same way.
  */
 export async function gitVersion(): Promise<string | undefined> {
-  try {
-    const output = await new Deno.Command(gitBin(), {
-      args: ["--version"],
-      stdout: "piped",
-      stderr: "null",
-    }).output();
-    if (!output.success) {
-      return undefined;
-    }
-    const line = new TextDecoder().decode(output.stdout).trim();
-    return line === "" ? undefined : line;
-  } catch {
+  const r = await git(["--version"]);
+  if (!r.success) {
     return undefined;
   }
+  const line = r.stdout.trim();
+  return line === "" ? undefined : line;
 }
 
 /** Canonicalize a path; return it unchanged when it cannot be resolved. */

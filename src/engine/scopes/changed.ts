@@ -13,6 +13,7 @@ import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import type { DiscernResult } from "../../shared/result.ts";
 import type { ChangedScopesData } from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
+import { runGit } from "../../shared/subprocess.ts";
 import { pathMatchesPattern } from "./glob.ts";
 
 /**
@@ -36,23 +37,6 @@ export const [CODE_MARKER, PREVIEWABLE_MARKER] = SCOPE_MARKERS;
  * {@link SCOPE_MARKERS}, so a new marker is excluded from "scope names" for free. */
 export function isScopeMarker(name: string): name is ScopeMarker {
   return (SCOPE_MARKERS as readonly string[]).includes(name);
-}
-
-/** Run `git -C root <args>`, capturing stdout. `ok:false` on any failure. */
-async function git(
-  root: string,
-  args: string[],
-): Promise<{ ok: boolean; stdout: string }> {
-  try {
-    const out = await new Deno.Command("git", {
-      args: ["-C", root, ...args],
-      stdout: "piped",
-      stderr: "null",
-    }).output();
-    return { ok: out.success, stdout: new TextDecoder().decode(out.stdout) };
-  } catch {
-    return { ok: false, stdout: "" };
-  }
 }
 
 /**
@@ -89,20 +73,18 @@ async function collectPaths(
   root: string,
   mainBranch: string,
 ): Promise<string[] | null> {
-  const committed = await git(root, [
-    "diff",
-    "--name-only",
-    `${mainBranch}...HEAD`,
-  ]);
-  if (!committed.ok) {
+  const committed = await runGit(
+    ["diff", "--name-only", `${mainBranch}...HEAD`],
+    { cwd: root },
+  );
+  if (!committed.success) {
     return null;
   }
-  const pending = await git(root, [
-    "status",
-    "--porcelain=v1",
-    "--untracked-files=all",
-  ]);
-  if (!pending.ok) {
+  const pending = await runGit(
+    ["status", "--porcelain=v1", "--untracked-files=all"],
+    { cwd: root },
+  );
+  if (!pending.success) {
     return null;
   }
 

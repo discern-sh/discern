@@ -16,6 +16,8 @@
  */
 
 /** Whether a working tree is clean enough that an upgrade stays revertible. */
+import { runGit } from "../shared/subprocess.ts";
+
 export type WorktreeState =
   | { kind: "clean" }
   | { kind: "dirty"; changes: string[] }
@@ -28,22 +30,13 @@ export type WorktreeState =
  * never a throw — the caller decides what to do with each outcome.
  */
 export async function worktreeState(cwd: string): Promise<WorktreeState> {
-  let output: Deno.CommandOutput;
-  try {
-    output = await new Deno.Command("git", {
-      args: ["status", "--porcelain"],
-      cwd,
-      stdout: "piped",
-      stderr: "null",
-    }).output();
-  } catch {
-    return { kind: "not-a-repo" }; // git not installed or not runnable
+  // A failed run covers both "git not installed" and "not a git repository":
+  // either way the upgrade has no git safety net, which is `not-a-repo`.
+  const r = await runGit(["status", "--porcelain"], { cwd });
+  if (!r.success) {
+    return { kind: "not-a-repo" };
   }
-  if (!output.success) {
-    return { kind: "not-a-repo" }; // not a git repository
-  }
-  const changes = new TextDecoder()
-    .decode(output.stdout)
+  const changes = r.stdout
     .split("\n")
     .filter((line) => line.trim() !== "" && !line.startsWith("??"));
   return changes.length === 0 ? { kind: "clean" } : { kind: "dirty", changes };

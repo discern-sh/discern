@@ -18,6 +18,7 @@
 import { basename, dirname, isAbsolute, join, resolve } from "@std/path";
 import { cksumString } from "../../shared/crc.ts";
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
+import { runGit } from "../../shared/subprocess.ts";
 
 /** The dev-server port band: 13000–14999, clear of common local services. */
 const PORT_BASE = 13000;
@@ -238,21 +239,11 @@ async function gitOut(
   target: string,
   args: string[],
 ): Promise<string | undefined> {
-  const gitBin = Deno.env.get("GIT_BIN") ?? "git";
-  let output: Deno.CommandOutput;
-  try {
-    output = await new Deno.Command(gitBin, {
-      args: ["-C", target, ...args],
-      stdout: "piped",
-      stderr: "null",
-    }).output();
-  } catch {
-    return undefined; // git missing / not runnable
-  }
-  if (!output.success) {
+  const r = await runGit(args, { cwd: target });
+  if (!r.success) {
     return undefined;
   }
-  const text = new TextDecoder().decode(output.stdout).trim();
+  const text = r.stdout.trim();
   return text === "" ? undefined : text;
 }
 
