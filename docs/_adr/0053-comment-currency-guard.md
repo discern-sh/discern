@@ -52,12 +52,14 @@ a checkable predicate, not a plea.
   exact. It is tuned for **few false positives** so the guard stays trusted, at
   the cost of recall: a backward-looking comment that uses none of the markers
   slips through. The residual is stated in the test header, not hidden.
-- **Benign live-state words are NOT banned.** `legacy <path>`,
-  `no longer
-  exists`, `before the loop` overwhelmingly describe a
-  compatibility layer the code still reads, a runtime condition, or ordering —
-  current behaviour. Banning them would be chronic noise; the few
-  genuinely-historical members were reworded by hand instead.
+- **`no longer` is banned; `legacy` and `before` are not.** `no longer` nearly
+  always marks a change ("X no longer does Y"), so it is flagged — its handful
+  of live-state uses ("no longer exists") carry the escape hatch.
+  `legacy <path>` (a compatibility layer the code still reads) and
+  `before the loop` (ordering) stay unbanned: they are overwhelmingly
+  current-state or structural, so a ban would be chronic noise. The chosen line
+  is the leverage one — flag the words that usually narrate a change, leave the
+  words that usually describe live state.
 - **A reasoned escape hatch.** `discern-allow-retrospective: <reason>` on a
   comment exempts it; the reason is mandatory and lands in the diff, so every
   exception is visible and justified at review. The default is to reword — in
