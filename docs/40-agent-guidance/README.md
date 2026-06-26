@@ -34,11 +34,11 @@ is also **config-aware** — each built-in section is rendered through a small
 your real branch and omits content for anything you haven't configured (a
 ratchet, a worktree resource).
 
-The Skills are the bundled built-ins (`document-subsystem`, `fix-a-bug-class`,
-and `write-adr`) plus any you author under `[skills].dir` (default `./skills`,
-yours overriding a built-in by name). The `fix-a-bug-class` built-in pairs with
-an always-on norm in the built-in base — discern's first general working
-discipline shipped on by default
+The Skills are the bundled built-ins (`delegate-task`, `document-subsystem`,
+`fix-a-bug-class`, and `write-adr`) plus any you author under `[skills].dir`
+(default `./skills`, yours overriding a built-in by name). The `fix-a-bug-class`
+built-in pairs with an always-on norm in the built-in base — discern's first
+general working discipline shipped on by default
 ([ADR 0049](../_adr/0049-bug-class-discipline-built-in.md)). They materialize
 into each configured agent's skills directory
 ([`.claude/skills/`](../../.claude/skills/) for Claude Code, the cross-tool

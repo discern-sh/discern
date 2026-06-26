@@ -351,12 +351,12 @@ are emitted is set by `[guidance].agents` (`claude_code` → `CLAUDE.md`, `codex
 
 A focused agent capability shipped as a `SKILL.md`. The effective set is
 discern's **bundled** built-ins (in the binary,
-[`templates/skills/`](../../templates/skills/) — `document-subsystem`,
-`fix-a-bug-class`, and `write-adr`) plus any you **author** under `[skills].dir`
-(default `./skills`), where yours override a built-in of the same name.
-`discern refresh` (and `setup`/`upgrade`) materialize the set into
-`.claude/skills/` (gitignored, [the binary's](#the-binarys-files)): built-ins
-**copied**, authored skills **symlinked** so edits are live.
+[`templates/skills/`](../../templates/skills/) — `delegate-task`,
+`document-subsystem`, `fix-a-bug-class`, and `write-adr`) plus any you
+**author** under `[skills].dir` (default `./skills`), where yours override a
+built-in of the same name. `discern refresh` (and `setup`/`upgrade`) materialize
+the set into `.claude/skills/` (gitignored, [the binary's](#the-binarys-files)):
+built-ins **copied**, authored skills **symlinked** so edits are live.
 `discern skills
 list` shows the set; `discern skills eject <name>` copies a
 built-in into your dir to customize. The `skills` [Feature](#feature) governs
