@@ -48,16 +48,25 @@ function ratchetConfig(opts: {
   ].join("\n");
 }
 
-/** Write a tracked file with exactly `wordCount` whitespace-delimited tokens, so a
- * `per = { words = … }` extent has a known denominator. Creates parent dirs. */
-async function writeWordFile(
+/** Write a file under `dir`, creating parent dirs — a known-size corpus for a
+ * `per = { <extent> = … }` denominator (the file is committed by `gitInit`). */
+async function writeText(
+  dir: string,
+  rel: string,
+  content: string,
+): Promise<void> {
+  const path = `${dir}/${rel}`;
+  await Deno.mkdir(path.slice(0, path.lastIndexOf("/")), { recursive: true });
+  await Deno.writeTextFile(path, content);
+}
+
+/** A tracked file with exactly `wordCount` whitespace-delimited tokens. */
+function writeWordFile(
   dir: string,
   rel: string,
   wordCount: number,
 ): Promise<void> {
-  const path = `${dir}/${rel}`;
-  await Deno.mkdir(path.slice(0, path.lastIndexOf("/")), { recursive: true });
-  await Deno.writeTextFile(path, Array(wordCount).fill("w").join(" "));
+  return writeText(dir, rel, Array(wordCount).fill("w").join(" "));
 }
 
 Deno.test("ratchets: coverage passes when the emitted metric meets the floor", async () => {
@@ -455,5 +464,98 @@ Deno.test("ratchets: the same growth breaks a raw count, and the failure points 
     assertEquals(grown.code, 1, grown.output);
     assertStringIncludes(grown.stderr, "exceeds the ceiling");
     assertStringIncludes(grown.stderr, "ratchet a rate"); // the normalize hint
+  });
+});
+
+// ── Every built-in extent measures the right denominator ───────────────────────
+// `per = { words = … }` is exercised above; cover the other three measures so a
+// regression in any branch of the extent counter (not just words) fails. Each
+// emits a 0 numerator, so the rate is 0 regardless and the breakdown reveals the
+// measured denominator the assertion pins.
+
+Deno.test("ratchets: the `files` extent counts matching tracked files", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      ratchetConfig({
+        name: "r",
+        direction: "down",
+        limit: "1",
+        per: '{ files = "content/**" }',
+        run: "echo 'DISCERN_METRIC r 0'",
+      }),
+    );
+    await writeWordFile(dir, "content/a.txt", 1);
+    await writeWordFile(dir, "content/b.txt", 1);
+    await writeWordFile(dir, "content/c.txt", 1);
+    await gitInit(dir);
+    const r = await runAgent(dir, ["ratchets"]);
+    assertEquals(r.code, 0, r.output);
+    assertStringIncludes(r.stdout, "per 3 files");
+  });
+});
+
+Deno.test("ratchets: the `lines` extent sums newlines across matching files", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      ratchetConfig({
+        name: "r",
+        direction: "down",
+        limit: "1",
+        per: '{ lines = "content/**" }',
+        run: "echo 'DISCERN_METRIC r 0'",
+      }),
+    );
+    await writeText(dir, "content/x.txt", "a\nb\nc\nd\n"); // 4 newlines
+    await gitInit(dir);
+    const r = await runAgent(dir, ["ratchets"]);
+    assertEquals(r.code, 0, r.output);
+    assertStringIncludes(r.stdout, "per 4 lines");
+  });
+});
+
+Deno.test("ratchets: the `bytes` extent sums file sizes", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      ratchetConfig({
+        name: "r",
+        direction: "down",
+        limit: "1",
+        per: '{ bytes = "content/**" }',
+        run: "echo 'DISCERN_METRIC r 0'",
+      }),
+    );
+    await writeText(dir, "content/x.txt", "abcdefghij"); // 10 bytes
+    await gitInit(dir);
+    const r = await runAgent(dir, ["ratchets"]);
+    assertEquals(r.code, 0, r.output);
+    assertStringIncludes(r.stdout, "per 10 bytes");
+  });
+});
+
+Deno.test("ratchets: a `per` metric the run never emits errors clearly", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      ratchetConfig({
+        name: "warnings",
+        metric: "alerts",
+        direction: "down",
+        limit: "10",
+        per: '"words"', // but the run emits no `words` metric
+        scale: "1000",
+        run: "echo 'DISCERN_METRIC alerts 5'",
+      }),
+    );
+    await gitInit(dir);
+    const r = await runAgent(dir, ["ratchets"]);
+    assertEquals(r.code, 1, r.output);
+    assertStringIncludes(r.stderr, "could not read 'per' metric 'words'");
   });
 });
