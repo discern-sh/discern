@@ -17,7 +17,7 @@ import { type JobGroup, serializeJobSteps, stageGroup } from "./plan.ts";
 import { gateRunContext, runJobGroups } from "./execute.ts";
 import { renderFailureTail } from "./failure_tail.ts";
 import { emitResult } from "../../shared/emit.ts";
-import type { DiscernResult } from "../../shared/result.ts";
+import type { DiscernResult, FailedStage } from "../../shared/result.ts";
 import type { Out } from "../output.ts";
 
 /**
@@ -49,7 +49,7 @@ async function runPrepareGate(
 ): Promise<
   {
     result: DiscernResult;
-    failedStage: string | null;
+    failedStage: FailedStage | null;
     out: Out;
     cfg: DiscernConfig;
   }

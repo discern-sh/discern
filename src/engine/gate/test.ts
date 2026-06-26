@@ -16,7 +16,7 @@ import { serializeJobSteps, stageGroup } from "./plan.ts";
 import { gateRunContext, runJobGroups } from "./execute.ts";
 import { renderFailureTail } from "./failure_tail.ts";
 import { emitResult } from "../../shared/emit.ts";
-import type { DiscernResult } from "../../shared/result.ts";
+import type { DiscernResult, FailedStage } from "../../shared/result.ts";
 import type { Out } from "../output.ts";
 
 /** The line shown — as a human note and as an envelope hint — when no test
@@ -37,7 +37,7 @@ async function runTestGate(
 ): Promise<
   {
     result: DiscernResult;
-    failedStage: string | null;
+    failedStage: FailedStage | null;
     out: Out;
     configured: boolean;
     cfg: DiscernConfig;

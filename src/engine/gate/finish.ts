@@ -42,6 +42,7 @@ import {
   capText,
   type Diagnostic,
   type DiscernResult,
+  type FailedStage,
   previewResult,
   renderPlan,
 } from "../../shared/result.ts";
@@ -53,28 +54,33 @@ import {
 } from "../guidance_render.ts";
 import { checkSkillsCurrent, type SkillsDriftEntry } from "../../lib/skills.ts";
 
-/** The human die message for each failed stage (matches the shell fail_phase). */
-function failMessage(stage: string): string {
-  switch (stage) {
-    case "fix":
-      return "The fix stage failed.";
-    case "build":
-      return "The build stage failed.";
-    case "check/test":
-      return "The check/test stage failed.";
-    case "scope_gates":
-      return "One or more scope gates failed.";
-    case "fix_drift":
-      return "The fix stage left uncommitted changes — commit the formatter's output, then re-run.";
-    case "guidance":
-      return "Generated agent files are out of date — run `discern refresh` (edits belong in your [guidance].sources, not the generated file, which a refresh overwrites).";
-    case "skills":
-      return "Materialized skills are out of date — run `discern refresh` (edits belong in your [skills].dir source, not the materialized copy, which a refresh overwrites).";
-    case "merge":
-      return "Integrate main, then re-run finish.";
-    default:
-      return "A gate stage failed.";
-  }
+/**
+ * The human die message for each {@link FailedStage}. A TOTAL record (not a switch
+ * with a `default`), so a new failed-stage label is a COMPILE error here until it is
+ * given a message — it can never silently fall through to a generic "a stage failed".
+ * Only `finish` looks a message up (its `check`/`test` are fused into `check/test`);
+ * `prepare`/`test` print their own inline headline, so the `check`/`test` entries
+ * exist for vocabulary completeness rather than a current caller.
+ */
+const FAIL_MESSAGES: Record<FailedStage, string> = {
+  fix: "The fix stage failed.",
+  build: "The build stage failed.",
+  check: "The check stage failed.",
+  test: "The test stage failed.",
+  "check/test": "The check/test stage failed.",
+  scope_gates: "One or more scope gates failed.",
+  fix_drift:
+    "The fix stage left uncommitted changes — commit the formatter's output, then re-run.",
+  guidance:
+    "Generated agent files are out of date — run `discern refresh` (edits belong in your [guidance].sources, not the generated file, which a refresh overwrites).",
+  skills:
+    "Materialized skills are out of date — run `discern refresh` (edits belong in your [skills].dir source, not the materialized copy, which a refresh overwrites).",
+  merge: "Integrate main, then re-run finish.",
+};
+
+/** The human die message for a failed stage. */
+function failMessage(stage: FailedStage): string {
+  return FAIL_MESSAGES[stage];
 }
 
 /**
@@ -157,7 +163,7 @@ async function runGate(
 ): Promise<
   {
     result: DiscernResult;
-    failedStage: string | null;
+    failedStage: FailedStage | null;
     cfg: DiscernConfig;
     out: Out;
     changed: string[];
@@ -171,7 +177,7 @@ async function runGate(
   const { runOpts, out } = gateRunContext(cfg, json);
 
   const results = new Map<string, JobResult>();
-  let failedStage: string | null = null;
+  let failedStage: FailedStage | null = null;
 
   // 1. Merge precondition — checked FIRST and fail-fast (ADR 0050). The merge-base
   //    relationship is invariant across the gate (finish never fetches or commits, so
@@ -316,7 +322,7 @@ async function runGate(
 function buildGateHints(
   cfg: DiscernConfig,
   changed: string[],
-  failedStage: string | null,
+  failedStage: FailedStage | null,
 ): string[] {
   if (failedStage !== null) {
     const doc = cfg.project.gotchas_doc;

@@ -90,6 +90,48 @@ export interface StepResult {
   durationS?: number | undefined;
 }
 
+/**
+ * The gate's **failed-stage vocabulary** — every label `finish`/`prepare`/`test`
+ * can record as the stage that failed (the value carried in `GateData.failed_stage`
+ * and the key the human die message is looked up by). A CLOSED set: typing every hop
+ * to it, deriving the Zod `failed_stage` enum (`result_schemas.ts`) from it, and
+ * building the message table (`failMessage`, a total `Record<FailedStage, string>`)
+ * from it makes a new label a COMPILE error until every consumer handles it — it can
+ * never fall through to a generic "a stage failed".
+ *
+ * The members, by origin:
+ *  - `fix` / `build` / `check` / `test` — one capability stage's job group failed
+ *    (`prepare` runs `check` alone; `discern test` runs `test` alone);
+ *  - `check/test` — `finish` fuses the read-only checks and the tests into ONE group,
+ *    so their combined failure reports this label rather than `check` or `test`;
+ *  - `scope_gates` — a changed scope's self-contained gate failed;
+ *  - `fix_drift` — the fix stage left uncommitted changes (ADR 0047);
+ *  - `guidance` / `skills` — a generated agent file / materialized skills dir is stale
+ *    (the currency checks, ADR 0034);
+ *  - `merge` — the branch is behind the integration branch (the fail-fast
+ *    precondition, ADR 0050).
+ *
+ * Defined in this base vocabulary module (not the engine) because `result_schemas.ts`
+ * — a `shared/` module that must NOT import the engine — derives the `failed_stage`
+ * enum from it; placing it in the gate would invert that layer (and cycle with
+ * `plan.ts`, which already imports `GateData` from `result_schemas.ts`).
+ */
+export const FAILED_STAGES = [
+  "fix",
+  "build",
+  "check",
+  "test",
+  "check/test",
+  "scope_gates",
+  "fix_drift",
+  "guidance",
+  "skills",
+  "merge",
+] as const;
+
+/** One failed-stage label ({@link FAILED_STAGES}). */
+export type FailedStage = (typeof FAILED_STAGES)[number];
+
 // ── ring 2: the normalized diagnostic ───────────────────────────────────────
 
 /**

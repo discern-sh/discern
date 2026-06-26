@@ -25,6 +25,7 @@
 
 import { z } from "@zod/zod";
 import { type Feature, FEATURES } from "./features.ts";
+import { FAILED_STAGES } from "./result.ts";
 
 // ── ring 1+2 mirrors: the plan / step / diagnostic sub-shapes ────────────────
 // Zod mirrors of the `result.ts` interfaces `serializeResult` emits. They are
@@ -136,9 +137,11 @@ export const DatalessEnvelopeSchema = z.strictObject(ENVELOPE_BASE_FIELDS);
 
 // ── per-verb `data` schemas (the source; the core's `data` type infers from it) ──
 
-/** `finish` — the gate's own concerns ({@link import("../engine/gate/plan.ts").GateData}). */
+/** `finish` — the gate's own concerns ({@link import("../engine/gate/plan.ts").GateData}).
+ * `failed_stage` is the closed {@link FAILED_STAGES} vocabulary (derived here, not
+ * hand-listed), so the wire enum and the engine's `FailedStage` type can never drift. */
 export const GateDataSchema = z.strictObject({
-  failed_stage: z.string().nullable(),
+  failed_stage: z.enum(FAILED_STAGES).nullable(),
   scopes_changed: z.array(z.string()),
 });
 export type GateData = z.infer<typeof GateDataSchema>;

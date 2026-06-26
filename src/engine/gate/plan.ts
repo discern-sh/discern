@@ -24,6 +24,7 @@ import {
   type Diagnostic,
   type DiscernResult,
   type EnginePlan,
+  type FailedStage,
   type PlanStep,
   type StepKind,
   type StepOutcome,
@@ -50,8 +51,9 @@ export interface PlannedJob {
  * resolver produces these (topological layers) instead of the hand-unroll.
  */
 export interface JobGroup {
-  /** The failed-stage label for this group (fix | build | check/test | scope_gates). */
-  stage: string;
+  /** The {@link FailedStage} label this group reports when it fails (fix | build |
+   * check | test | check/test | scope_gates). */
+  stage: FailedStage;
   /** How the group's jobs are scheduled. */
   mode: "serial" | "parallel";
   /** The heading shown while the group runs (the current finish narration). */
@@ -356,7 +358,7 @@ export function serializeJobSteps(
 export function buildGateResult(
   plan: GatePlan,
   results: Map<string, JobResult>,
-  failedStage: string | null,
+  failedStage: FailedStage | null,
 ): DiscernResult {
   const { steps, diagnostics } = serializeJobSteps(plan.groups, results);
   const data: GateData = {

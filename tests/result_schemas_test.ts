@@ -22,7 +22,11 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
-import { type DiscernResult, serializeResult } from "../src/shared/result.ts";
+import {
+  type DiscernResult,
+  FAILED_STAGES,
+  serializeResult,
+} from "../src/shared/result.ts";
 import {
   AuditOutputSchema,
   ChangedScopesOutputSchema,
@@ -31,6 +35,7 @@ import {
   DoctorOutputSchema,
   EnvelopeSchema,
   FinishOutputSchema,
+  GateDataSchema,
   StatusDataSchema,
   StatusOutputSchema,
 } from "../src/shared/result_schemas.ts";
@@ -135,6 +140,33 @@ Deno.test("DatalessEnvelopeSchema forbids a data payload (the data-less SSOT gua
     !DatalessEnvelopeSchema.safeParse({ ...base, data: { x: 1 } }).success,
   );
   assert(EnvelopeSchema.safeParse({ ...base, data: { x: 1 } }).success);
+});
+
+Deno.test("GateDataSchema.failed_stage is the closed FAILED_STAGES vocabulary, not a free string", () => {
+  // failed_stage is the gate's failed-stage SSOT, derived as z.enum(FAILED_STAGES).
+  // Compile-time totality already forces every label through failMessage; this guards
+  // the WIRE side against silently re-opening the class — if the schema were ever
+  // weakened back to z.string(), the rejection assertion below fails.
+  for (const stage of FAILED_STAGES) {
+    assert(
+      GateDataSchema.safeParse({ failed_stage: stage, scopes_changed: [] })
+        .success,
+      `GateDataSchema should accept the failed_stage label "${stage}"`,
+    );
+  }
+  // null (a clean gate) validates.
+  assert(
+    GateDataSchema.safeParse({ failed_stage: null, scopes_changed: [] })
+      .success,
+  );
+  // Anything OUTSIDE the vocabulary is rejected — the closed-enum invariant.
+  assert(
+    !GateDataSchema.safeParse({
+      failed_stage: "not-a-real-stage",
+      scopes_changed: [],
+    }).success,
+    "GateDataSchema.failed_stage must be the closed FAILED_STAGES enum, not a free string",
+  );
 });
 
 Deno.test("finish result is faithful to FinishOutputSchema (preview, clean, failing)", async () => {

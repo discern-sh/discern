@@ -15,6 +15,7 @@ import type { DiscernConfig } from "../../shared/config_schema.ts";
 import type { Job, JobResult } from "../jobs/types.ts";
 import { type RunOptions, runParallel, runSerial } from "../jobs/runner.ts";
 import { byteWriter, colorEnabled, makeOut, type Out } from "../output.ts";
+import type { FailedStage } from "../../shared/result.ts";
 import type { JobGroup } from "./plan.ts";
 
 /**
@@ -51,7 +52,7 @@ export async function runGroup(
 export interface StagesRun {
   results: Map<string, JobResult>;
   /** The `stage` of the first group that failed, or null. */
-  failedStage: string | null;
+  failedStage: FailedStage | null;
 }
 
 /**
@@ -66,7 +67,7 @@ export async function runJobGroups(
   out: Out,
 ): Promise<StagesRun> {
   const results = new Map<string, JobResult>();
-  let failedStage: string | null = null;
+  let failedStage: FailedStage | null = null;
   for (const group of groups) {
     if (!(await runGroup(group, results, runOpts, out))) {
       failedStage = group.stage;
