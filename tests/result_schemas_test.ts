@@ -26,6 +26,9 @@ import {
   type DiscernResult,
   FAILED_STAGES,
   serializeResult,
+  STEP_DISPOSITIONS,
+  STEP_KINDS,
+  STEP_OUTCOMES,
 } from "../src/shared/result.ts";
 import {
   AuditOutputSchema,
@@ -38,6 +41,7 @@ import {
   GateDataSchema,
   StatusDataSchema,
   StatusOutputSchema,
+  StepResultJsonSchema,
 } from "../src/shared/result_schemas.ts";
 import { FEATURES } from "../src/shared/features.ts";
 import { finishResult } from "../src/engine/gate/finish.ts";
@@ -166,6 +170,50 @@ Deno.test("GateDataSchema.failed_stage is the closed FAILED_STAGES vocabulary, n
       scopes_changed: [],
     }).success,
     "GateDataSchema.failed_stage must be the closed FAILED_STAGES enum, not a free string",
+  );
+});
+
+Deno.test("the step vocabularies (kind/disposition/outcome) are closed enums derived from result.ts", () => {
+  // Each enum is z.enum(<SSOT const>), so it can't drift from the union. These loops
+  // confirm every member validates AND — the part with teeth — an unknown value is
+  // rejected, so a future weakening to z.string() (which would silently re-open the
+  // vocabulary) fails here. The minimal valid step is {kind,label,disposition,outcome}.
+  const step = (extra: Record<string, unknown>) => ({
+    kind: "job",
+    label: "l",
+    disposition: "run",
+    outcome: "ok",
+    ...extra,
+  });
+  for (const kind of STEP_KINDS) {
+    assert(
+      StepResultJsonSchema.safeParse(step({ kind })).success,
+      `step kind "${kind}" should validate`,
+    );
+  }
+  for (const disposition of STEP_DISPOSITIONS) {
+    assert(
+      StepResultJsonSchema.safeParse(step({ disposition })).success,
+      `disposition "${disposition}" should validate`,
+    );
+  }
+  for (const outcome of STEP_OUTCOMES) {
+    assert(
+      StepResultJsonSchema.safeParse(step({ outcome })).success,
+      `outcome "${outcome}" should validate`,
+    );
+  }
+  assert(
+    !StepResultJsonSchema.safeParse(step({ kind: "bogus-kind" })).success,
+    "step kind must be the closed STEP_KINDS enum, not a free string",
+  );
+  assert(
+    !StepResultJsonSchema.safeParse(step({ disposition: "nope" })).success,
+    "disposition must be the closed STEP_DISPOSITIONS enum",
+  );
+  assert(
+    !StepResultJsonSchema.safeParse(step({ outcome: "nope" })).success,
+    "outcome must be the closed STEP_OUTCOMES enum",
   );
 });
 

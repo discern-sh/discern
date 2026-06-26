@@ -25,34 +25,29 @@
 
 import { z } from "@zod/zod";
 import { type Feature, FEATURES } from "./features.ts";
-import { FAILED_STAGES } from "./result.ts";
+import {
+  FAILED_STAGES,
+  STEP_DISPOSITIONS,
+  STEP_KINDS,
+  STEP_OUTCOMES,
+} from "./result.ts";
 
 // ── ring 1+2 mirrors: the plan / step / diagnostic sub-shapes ────────────────
-// Zod mirrors of the `result.ts` interfaces `serializeResult` emits. They are
-// proven faithful by the result-schema test running real finish/graduate results
-// (whose steps, plans, and diagnostics exercise every field) through these.
+// Zod mirrors of the `result.ts` interfaces `serializeResult` emits. The closed
+// vocabularies (disposition / step-kind / outcome) are DERIVED from their result.ts
+// const tuples — not hand-listed — so the wire enum and the TS union are one source
+// and a new member enrolls in both from a single edit. The object shapes (which Zod
+// can't enumerate from an interface) stay proven faithful by the result-schema test
+// running real finish/graduate results through them.
 
-/** The disposition vocabulary ({@link import("./result.ts").StepDisposition}). */
-const dispositionEnum = z.enum(["run", "skip", "gate"]);
+/** The disposition vocabulary, derived from {@link STEP_DISPOSITIONS}. */
+const dispositionEnum = z.enum(STEP_DISPOSITIONS);
 
-/** The step-kind vocabulary ({@link import("./result.ts").StepKind}). */
-const stepKindEnum = z.enum([
-  "job",
-  "scope-gate",
-  "merge-check",
-  "guidance-check",
-  "skills-check",
-  "resource-create",
-  "resource-destroy",
-  "git",
-  "setup-step",
-  "env",
-  "refresh",
-  "ratchet",
-]);
+/** The step-kind vocabulary, derived from {@link STEP_KINDS}. */
+const stepKindEnum = z.enum(STEP_KINDS);
 
-/** The executed-step outcome ({@link import("./result.ts").StepOutcome}). */
-const outcomeEnum = z.enum(["ok", "failed", "skipped"]);
+/** The executed-step outcome, derived from {@link STEP_OUTCOMES}. */
+const outcomeEnum = z.enum(STEP_OUTCOMES);
 
 /** Mirror of {@link import("./result.ts").Diagnostic} — a normalized failure. */
 export const DiagnosticSchema = z.strictObject({

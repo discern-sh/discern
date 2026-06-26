@@ -30,26 +30,36 @@
  *             unchanged scope gate, a gc-opted-out resource). Listed for honesty.
  *  - `gate` — a read-only precondition that can BLOCK the plan but mutates nothing
  *             (the merge check). Rendered as "check".
+ *
+ * A const tuple so `result_schemas.ts` derives its Zod enum from it (rather than
+ * hand-mirroring), keeping the wire vocabulary tied to this one source.
  */
-export type StepDisposition = "run" | "skip" | "gate";
+export const STEP_DISPOSITIONS = ["run", "skip", "gate"] as const;
+/** One planned-step disposition ({@link STEP_DISPOSITIONS}). */
+export type StepDisposition = (typeof STEP_DISPOSITIONS)[number];
 
 /**
  * The engine's operation vocabulary — what a step DOES (never a filesystem write).
- * Deliberately coarse: the renderer groups by it and `--json` reports it.
+ * Deliberately coarse: the renderer groups by it and `--json` reports it. A const
+ * tuple so `result_schemas.ts` derives its Zod enum from it — a new kind extends the
+ * union AND the wire schema from one edit, never a hand-kept mirror that can lag.
  */
-export type StepKind =
-  | "job" // run a gate job (a capability or a check)
-  | "scope-gate" // run a scope's self-contained gate
-  | "merge-check" // assert the branch contains the integration branch
-  | "guidance-check" // assert the generated agent files match their sources
-  | "skills-check" // assert the materialized skills match the effective set
-  | "resource-create" // create a per-worktree external resource
-  | "resource-destroy" // destroy / reclaim a per-worktree external resource
-  | "git" // a git mutation (branch, wip-commit, remove, checkout, reset, sweep)
-  | "setup-step" // a [worktree.setup].steps command
-  | "env" // record port / inherit env / resource handles
-  | "refresh" // recompile agent guidance + skills
-  | "ratchet"; // measure a metric and compare it to its limit
+export const STEP_KINDS = [
+  "job", // run a gate job (a capability or a check)
+  "scope-gate", // run a scope's self-contained gate
+  "merge-check", // assert the branch contains the integration branch
+  "guidance-check", // assert the generated agent files match their sources
+  "skills-check", // assert the materialized skills match the effective set
+  "resource-create", // create a per-worktree external resource
+  "resource-destroy", // destroy / reclaim a per-worktree external resource
+  "git", // a git mutation (branch, wip-commit, remove, checkout, reset, sweep)
+  "setup-step", // a [worktree.setup].steps command
+  "env", // record port / inherit env / resource handles
+  "refresh", // recompile agent guidance + skills
+  "ratchet", // measure a metric and compare it to its limit
+] as const;
+/** One engine operation kind ({@link STEP_KINDS}). */
+export type StepKind = (typeof STEP_KINDS)[number];
 
 /**
  * One step in an engine plan — the unit the shared renderer prints and the generic
@@ -79,8 +89,11 @@ export interface EnginePlan {
   steps: PlanStep[];
 }
 
-/** A step's outcome after execution, for the generic results serialization. */
-export type StepOutcome = "ok" | "failed" | "skipped";
+/** A step's outcome after execution, for the generic results serialization. A const
+ * tuple so `result_schemas.ts` derives its Zod enum from it (not a hand mirror). */
+export const STEP_OUTCOMES = ["ok", "failed", "skipped"] as const;
+/** One executed-step outcome ({@link STEP_OUTCOMES}). */
+export type StepOutcome = (typeof STEP_OUTCOMES)[number];
 
 /** One executed step: the planned step plus how it turned out. */
 export interface StepResult {
