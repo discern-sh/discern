@@ -2,6 +2,11 @@
 
 **Status**: accepted
 
+> **Amended by [ADR 0048](0048-graduate-trunk-role-name.md):** 0048 renames the
+> trunk-landing value introduced here, `"main"` → `"trunk"`. The value always
+> named a role (`[project].main_branch`), and the literal-branch spelling misled
+> repos whose trunk is not `main`.
+
 ## Context
 
 `discern graduate` ([ADR 0023](0023-rename-workflow-commands.md) promoted it to
