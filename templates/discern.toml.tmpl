@@ -170,6 +170,16 @@ neutral = true
 [worktree]
 enabled = true
 
+# Where per-worktree checkouts are created (a <name> dir is made under it).
+#   ""  (the default) a SIBLING of the repo, "<repo>.worktrees/<name>" — visible
+#       and adjacent, never nested inside the checkout (a worktree nested in its
+#       own repo is an anti-pattern: recursive tools double-count it, and walking
+#       up to the repo root mis-resolves the worktree's .git file).
+#   a RELATIVE path resolves against the repo root (".claude/worktrees" restores
+#       the old nesting; "../wts" a custom sibling).
+#   an ABSOLUTE path is used as-is.
+root = ""
+
 # Environment values copied from the main checkout's .env into a new worktree's
 # .env (secrets a fresh worktree needs but that aren't in version control).
 inherit_env = []   # e.g. ["APP_KEY", "OPENAI_API_KEY"]

@@ -23,6 +23,8 @@ import { ensureDir } from "@std/fs";
 import { assembleInitPlan } from "../src/commands/setup.ts";
 import { applyPlan } from "../src/lib/fs_plan.ts";
 import { TomlEditor } from "../src/lib/toml_edit.ts";
+import { resolveWorktreeRoot } from "../src/lib/paths.ts";
+import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { REAL_TEMPLATES } from "./helpers.ts";
 
 /** The captured result of one `agent` invocation. */
@@ -288,16 +290,30 @@ export async function gitOut(dir: string, ...args: string[]): Promise<string> {
 }
 
 /**
- * Create a linked git worktree at `<mainDir>/.claude/worktrees/<name>` on a new
- * branch `agent/<name>` — the layout the worktree-* recipes expect. `mainDir`
+ * The DEFAULT worktree path for `name` under `mainDir` — what the create hook
+ * resolves with an unset `[worktree].root`: a sibling of the repo
+ * (`<mainDir>.worktrees/<name>`). Computed through the production
+ * {@link resolveWorktreeRoot}, so the tests' notion of "where a worktree lands"
+ * can never drift from the engine's. The single place that knows the default.
+ */
+export function worktreePath(mainDir: string, name: string): string {
+  return join(resolveWorktreeRoot(mainDir, parseConfigOrThrow("")), name);
+}
+
+/**
+ * Create a linked git worktree for `name` at the default placement
+ * ({@link worktreePath} — a SIBLING of `mainDir`, `<mainDir>.worktrees/<name>`)
+ * on a new branch `agent/<name>`. Placing it outside the repo keeps the main
+ * checkout clean (a nested checkout shows as untracked and would block
+ * graduation) with no reliance on any agent-specific gitignored path. `mainDir`
  * must already be a git repo (call `gitInit` first). Returns the worktree's
- * absolute path, ready to drive with `runAgent(worktreePath, …)`.
+ * absolute path, ready to drive with `runAgent(path, …)`.
  */
 export async function addWorktree(
   mainDir: string,
   name: string,
 ): Promise<string> {
-  const worktree = join(mainDir, ".claude", "worktrees", name);
+  const worktree = worktreePath(mainDir, name);
   await git(mainDir, "worktree", "add", worktree, "-b", `agent/${name}`);
   return worktree;
 }

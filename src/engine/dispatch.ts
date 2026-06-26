@@ -30,7 +30,11 @@ import {
   recipeEnvVars,
 } from "../shared/env.ts";
 import type { Feature } from "../shared/features.ts";
-import { resolveConfigPath, resolveRecipesDir } from "../lib/paths.ts";
+import {
+  resolveConfigPath,
+  resolveRecipesDir,
+  resolveWorktreeRoot,
+} from "../lib/paths.ts";
 import { ejectSkill, listSkills, materializeSkills } from "../lib/skills.ts";
 import { skillsDirsForAgents } from "../lib/providers.ts";
 import { TomlEditor } from "../lib/toml_edit.ts";
@@ -624,6 +628,10 @@ export function attachEngineCommands(
                   assumeYes: (o.yes ?? false) || !Deno.stdin.isTerminal(),
                   dryRun: o.dryRun ?? false,
                   json,
+                  // The engine sweeps git-derived worktree parents on its own; the
+                  // configured root (a location convention the engine doesn't know)
+                  // is passed so a FULLY-orphaned root is still reclaimed (ADR 0052).
+                  extraScanDirs: [resolveWorktreeRoot(ctx.root, ctx.config)],
                 }),
               { json, verb: "worktree:prune" },
             ),

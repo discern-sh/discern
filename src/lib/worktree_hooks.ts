@@ -3,10 +3,13 @@
  * `./skills.ts`, which owns the `.claude/skills` materialization). It is the ONE
  * place coupled to Claude Code's `WorktreeCreate` / `WorktreeRemove` hook
  * contract: the JSON payload it pushes on stdin (`{name, cwd}` /
- * `{worktree_path}`) and the `.claude/worktrees/` directory convention. It lives
- * here, NOT in the stack-neutral engine (`src/engine/**`, which builds no
- * `.claude` path and discovers worktree locations from git's own registry — see
- * the agent-agnosticism guard in `tests/agent_agnostic_test.ts`).
+ * `{worktree_path}`) and the worktree path it reads back on stdout. WHERE the
+ * worktree is placed is not decided here — the shared `resolveWorktreeRoot`
+ * resolver (`./paths.ts`) computes it from `[worktree].root` (a sibling of the
+ * repo by default; ADR 0052). This adapter lives here, NOT in the stack-neutral
+ * engine (`src/engine/**`, which builds no agent-specific path and discovers
+ * worktree locations from git's own registry — see the agent-agnosticism guard
+ * in `tests/agent_agnostic_test.ts`).
  *
  * These verbs replace the old jq + git shell one-liners that lived inside
  * `.claude/settings.json`: instead of the hook parsing the payload with `jq` and
@@ -24,6 +27,7 @@
 
 import { join } from "@std/path";
 import { Logger } from "./log.ts";
+import { resolveWorktreeRoot } from "./paths.ts";
 import { loadConfig } from "../shared/config_schema.ts";
 import {
   lifecycleContext,
@@ -31,14 +35,6 @@ import {
   worktreeTeardown,
 } from "../engine/worktree/lifecycle.ts";
 import { addWorktree, WorktreeGitError } from "../engine/worktree/git.ts";
-
-/**
- * The directory, relative to the project root, under which Claude Code worktrees
- * are materialized. This is Claude Code's own convention (`name` + this base →
- * the worktree path the hook returns); it lives here, in the Claude-Code adapter,
- * and nowhere in the agent-agnostic git layer.
- */
-const CLAUDE_WORKTREES_SUBDIR = ".claude/worktrees";
 
 /** A logger whose human output is on stderr, so stdout stays the hook's result. */
 function hookLogger(): Logger {
@@ -70,7 +66,8 @@ function stringField(
 /**
  * `discern worktree:create` — the `WorktreeCreate` hook entry point. Reads
  * `{name, cwd}` from stdin, creates a linked worktree at
- * `<cwd>/.claude/worktrees/<name>` on branch `<branch_prefix><name>`, runs the
+ * `<resolveWorktreeRoot(cwd, config)>/<name>` (a sibling of the repo by default —
+ * `[worktree].root` overrides) on branch `<branch_prefix><name>`, runs the
  * per-worktree setup inside it, and prints the worktree's path on stdout for
  * Claude Code to read. Idempotent end to end — a re-fired hook leaves an existing
  * worktree in place and re-readies it (resources via `ensure`, setup steps
@@ -105,11 +102,22 @@ export async function worktreeCreateHook(): Promise<number> {
     return 1;
   }
 
-  const dir = join(cwd, CLAUDE_WORKTREES_SUBDIR, name);
+  // The config is the MAIN checkout's — the worktree it will spawn does not exist
+  // yet. It supplies both the placement root (`[worktree].root`, via the shared
+  // resolver) and the branch name (`<branch_prefix><name>`, matching the old hook).
+  let config: Awaited<ReturnType<typeof loadConfig>>;
   try {
-    // The branch name is read from the MAIN checkout's config — the worktree it
-    // names does not exist yet. (`<branch_prefix><name>`, matching the old hook.)
-    const config = await loadConfig(cwd);
+    config = await loadConfig(cwd);
+  } catch (e) {
+    log.error(
+      `Could not read discern.toml under ${cwd}: ${
+        e instanceof Error ? e.message : String(e)
+      }`,
+    );
+    return 1;
+  }
+  const dir = join(resolveWorktreeRoot(cwd, config), name);
+  try {
     const branch = `${config.project.branch_prefix}${name}`;
     await addWorktree(cwd, dir, branch);
 

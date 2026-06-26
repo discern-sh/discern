@@ -898,6 +898,14 @@ export interface WorktreePruneOptions {
   dryRun?: boolean;
   /** Emit a machine-readable (plan, results) object on stdout. */
   json?: boolean;
+  /**
+   * Extra directories the orphan sweep should scan beyond the git-derived
+   * parents of registered worktrees — the configured worktree root, so a
+   * FULLY-orphaned root (no registered worktree left to derive its parent from)
+   * is still reclaimed. The engine knows no placement convention; the dispatch
+   * layer resolves `[worktree].root` and passes it (ADR 0052).
+   */
+  extraScanDirs?: string[];
 }
 
 /**
@@ -908,7 +916,10 @@ export interface WorktreePruneOptions {
  * decision over the ledger. The deliverable a `--dry-run` renders and the apply
  * path reports.
  */
-async function buildPrunePlan(ctx: LifecycleContext): Promise<PrunePlan> {
+async function buildPrunePlan(
+  ctx: LifecycleContext,
+  extraScanDirs?: string[],
+): Promise<PrunePlan> {
   const quiet = new Logger({ json: true, noColor: true });
   const prune = await pruneGitWorktrees({
     dryRun: true,
@@ -916,7 +927,11 @@ async function buildPrunePlan(ctx: LifecycleContext): Promise<PrunePlan> {
     mainBranch: ctx.config.project.main_branch,
     log: quiet,
   });
-  const sweep = await sweepOrphanWorktrees({ dryRun: true, log: quiet });
+  const sweep = await sweepOrphanWorktrees({
+    dryRun: true,
+    log: quiet,
+    ...(extraScanDirs !== undefined ? { extraDirs: extraScanDirs } : {}),
+  });
   return {
     worktreesToRemove: prune.removed,
     branchesToDelete: prune.branchesDeleted,
@@ -971,7 +986,7 @@ export async function worktreePrune(
     emitDryRun(
       ctx,
       "worktree:prune",
-      prunePlanToEngine(await buildPrunePlan(ctx)),
+      prunePlanToEngine(await buildPrunePlan(ctx, opts.extraScanDirs)),
       json,
     );
     return;
@@ -987,7 +1002,13 @@ export async function worktreePrune(
   });
 
   ctx.log.heading("Reclaiming orphaned worktree directories…");
-  const sweep = await sweepOrphanWorktrees({ dryRun: false, log: ctx.log });
+  const sweep = await sweepOrphanWorktrees({
+    dryRun: false,
+    log: ctx.log,
+    ...(opts.extraScanDirs !== undefined
+      ? { extraDirs: opts.extraScanDirs }
+      : {}),
+  });
 
   ctx.log.heading("Reclaiming orphaned worktree resources…");
   const gc = await gcWorktreeResources(ctx, false);

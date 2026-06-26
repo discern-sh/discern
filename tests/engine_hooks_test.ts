@@ -14,7 +14,12 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { exists } from "@std/fs";
 import { withTempDir } from "./helpers.ts";
-import { engineEnv, gitInit, scaffoldEngine } from "./engine_helpers.ts";
+import {
+  engineEnv,
+  gitInit,
+  scaffoldEngine,
+  worktreePath,
+} from "./engine_helpers.ts";
 
 const DECODER = new TextDecoder();
 
@@ -90,7 +95,7 @@ Deno.test("hook WorktreeCreate: creates the worktree, runs setup, prints its pat
     });
     assertEquals(r.code, 0, r.stderr);
 
-    const wt = join(dir, ".claude/worktrees/hooked");
+    const wt = worktreePath(dir, "hooked");
     // The hook prints ONLY the new worktree's path on stdout (no trailing
     // newline) — Claude Code reads it as the worktree location.
     assertEquals(r.stdout, wt);
@@ -126,7 +131,7 @@ Deno.test("hook WorktreeCreate: a setup step that writes to stdout never pollute
     });
     assertEquals(r.code, 0, r.stderr);
 
-    const wt = join(dir, ".claude/worktrees/noisy");
+    const wt = worktreePath(dir, "noisy");
     // The path on stdout is EXACTLY the worktree path — no setup output, and so no
     // embedded newline. (A regression here is the "path contains control
     // characters" failure Claude Code reports.)
@@ -148,7 +153,7 @@ Deno.test("hook WorktreeCreate: re-firing on an existing worktree is idempotent"
     // worktree — it re-runs setup and re-prints the same path.
     const second = await runHook(dir, create, payload);
     assertEquals(second.code, 0, second.stderr);
-    assertEquals(second.stdout, join(dir, ".claude/worktrees/again"));
+    assertEquals(second.stdout, worktreePath(dir, "again"));
   });
 });
 
@@ -173,7 +178,7 @@ Deno.test("hook WorktreeRemove: tears down a worktree and never fails the event"
       name: "doomed",
       cwd: dir,
     });
-    const wt = join(dir, ".claude/worktrees/doomed");
+    const wt = worktreePath(dir, "doomed");
     const r = await runHook(dir, await hookCommand(dir, "WorktreeRemove"), {
       worktree_path: wt,
     });
