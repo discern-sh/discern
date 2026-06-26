@@ -338,9 +338,14 @@ const worktreeSection = z.strictObject({
     ),
   setup: z.strictObject({
     steps: z.array(z.string()).default([]).describe(
-      "Commands run once after a worktree's resources are created (install deps, run migrations, warm caches). Run in order; skipped once the worktree is configured. Author each idempotent so a recovered partial setup re-runs safely.",
+      "Commands run ONCE at worktree creation (one-shot scaffolding — create a database, seed fixtures). Run in order after the resources are created; not re-run.",
     ),
-  }).prefault({}).describe("Post-create setup steps."),
+    ensure: z.array(z.string()).default([]).describe(
+      "Commands run on EVERY setup pass — at creation, on session-start re-entry, and on `discern integrate` — to converge the worktree on the current tree (install dependencies, build). Run in order. Author them idempotent: they re-run routinely.",
+    ),
+  }).prefault({}).describe(
+    "Worktree setup commands: one-shot `steps` (creation only) and convergent `ensure` (re-run every pass).",
+  ),
 }).prefault({}).describe(
   "The isolated-worktree workflow. The git mechanics are generic; everything project-specific is a RESOURCE you declare. Inert when [features].worktrees = false.",
 );

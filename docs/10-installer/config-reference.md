@@ -118,11 +118,12 @@ The isolated-worktree workflow. The git mechanics are generic; everything projec
 
 ### `[worktree.setup]`
 
-Post-create setup steps.
+Worktree setup commands: one-shot `steps` (creation only) and convergent `ensure` (re-run every pass).
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `steps` | string[] | `[]` | Commands run once after a worktree's resources are created (install deps, run migrations, warm caches). Run in order; skipped once the worktree is configured. Author each idempotent so a recovered partial setup re-runs safely. |
+| `steps` | string[] | `[]` | Commands run ONCE at worktree creation (one-shot scaffolding — create a database, seed fixtures). Run in order after the resources are created; not re-run. |
+| `ensure` | string[] | `[]` | Commands run on EVERY setup pass — at creation, on session-start re-entry, and on `discern integrate` — to converge the worktree on the current tree (install dependencies, build). Run in order. Author them idempotent: they re-run routinely. |
 
 ## `[ratchets.<name>]`
 
