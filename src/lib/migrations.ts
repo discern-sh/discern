@@ -755,7 +755,7 @@ export const MIGRATIONS: Migration[] = [
   {
     from: 12,
     describe:
-      'add the documented [worktree].root key (empty ⇒ a sibling of the repo; relative/absolute overrides) so worktrees adopt the non-nested placement (ADR 0052)',
+      "add the documented [worktree].root key (empty ⇒ a sibling of the repo; relative/absolute overrides) so worktrees adopt the non-nested placement (ADR 0052)",
     apply: async (ctx) => {
       const text = await ctx.readConfig();
       if (text === undefined) {

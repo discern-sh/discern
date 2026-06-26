@@ -23,7 +23,9 @@ import { REAL_TEMPLATES, withTempDir } from "./helpers.ts";
 
 /** A fully-defaulted config carrying the given `[worktree].root` (empty ⇒ default). */
 function configWithRoot(root: string): ReturnType<typeof parseConfigOrThrow> {
-  return parseConfigOrThrow(root === "" ? "" : `[worktree]\nroot = "${root}"\n`);
+  return parseConfigOrThrow(
+    root === "" ? "" : `[worktree]\nroot = "${root}"\n`,
+  );
 }
 
 const OVERRIDE = "DISCERN_TEMPLATES_DIR";

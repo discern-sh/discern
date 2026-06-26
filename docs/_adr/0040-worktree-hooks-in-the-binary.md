@@ -4,9 +4,9 @@
 
 > **Update ([ADR 0052](0052-worktree-sibling-placement.md)):** the
 > `<cwd>/.claude/worktrees/<name>` placement this ADR encodes was later replaced
-> by a configurable sibling default (`[worktree].root`). The layering split below
-> — adapter in the feature layer, engine location-agnostic — is exactly what kept
-> that change contained to one resolver.
+> by a configurable sibling default (`[worktree].root`). The layering split
+> below — adapter in the feature layer, engine location-agnostic — is exactly
+> what kept that change contained to one resolver.
 
 ## Context
 

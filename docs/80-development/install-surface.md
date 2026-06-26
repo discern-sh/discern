@@ -192,7 +192,7 @@ install surface. This page lives in the `80-development/` tree that
 
 The linked worktree checkouts appear only at run time, never from `setup`. By
 default they live in a **sibling** directory (`<repo>.worktrees/`), outside the
-repo entirely, so nothing in the tree needs to ignore them. A project that points
-`[worktree].root` at a path _inside_ the repo (e.g. `.claude/worktrees`, the old
-default) keeps them out of git via the `/.claude/*` rule
+repo entirely, so nothing in the tree needs to ignore them. A project that
+points `[worktree].root` at a path _inside_ the repo (e.g. `.claude/worktrees`,
+the old default) keeps them out of git via the `/.claude/*` rule
 ([ADR 0052](../_adr/0052-worktree-sibling-placement.md)).

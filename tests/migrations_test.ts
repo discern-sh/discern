@@ -419,7 +419,10 @@ Deno.test("migration 12→13 never invents a second root, and no-ops without a [
     );
 
     // No [worktree] table → nothing inserted (the schema default governs at read).
-    await Deno.writeTextFile(join(dir, "discern.toml"), '[project]\nslug = "x"\n');
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      '[project]\nslug = "x"\n',
+    );
     await applyMigrations({ destDir: dir, from: 12, to: 13, onNote: () => {} });
     assert(
       !/root = /.test(await Deno.readTextFile(join(dir, "discern.toml"))),

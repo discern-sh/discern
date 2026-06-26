@@ -164,7 +164,10 @@ async function setWorktreeRoot(dir: string, value: string): Promise<void> {
   const cfgPath = join(dir, "discern.toml");
   const cfg = await Deno.readTextFile(cfgPath);
   assertStringIncludes(cfg, 'root = ""'); // the template default we override
-  await Deno.writeTextFile(cfgPath, cfg.replace('root = ""', `root = "${value}"`));
+  await Deno.writeTextFile(
+    cfgPath,
+    cfg.replace('root = ""', `root = "${value}"`),
+  );
 }
 
 Deno.test("hook WorktreeCreate: a RELATIVE [worktree].root resolves against the repo (restores nesting)", async () => {
