@@ -18,6 +18,7 @@ import {
   sectionBlockFromTemplate,
 } from "../src/lib/config_template.ts";
 import { REAL_TEMPLATES } from "./helpers.ts";
+import { FEATURES } from "../src/shared/features.ts";
 
 /** The real committed config template text. */
 async function realTemplate(): Promise<string> {
@@ -31,9 +32,16 @@ Deno.test("extracts a ruled-doc section (features) with its doc block, header, a
   assertStringIncludes(block, "# [features] — toggle whole discern subsystems");
   // ...then the header...
   assertStringIncludes(block, "\n[features]\n");
-  // ...then the body of defaults.
-  assertStringIncludes(block, "worktrees = true");
-  assertStringIncludes(block, "docs      = true");
+  // ...then the body of defaults — a `<feature> = true` line for EVERY feature. The
+  // template is hand-authored (ADR 0005), so this ties it to the FEATURES SSOT by
+  // test: a new feature must be seeded here or this fails (the `\s*` absorbs the
+  // alignment padding, which varies by name length).
+  for (const f of FEATURES) {
+    assert(
+      new RegExp(`(^|\\n)${f}\\s*= true\\b`).test(block),
+      `[features] template is missing a "${f} = true" line for the FEATURES member "${f}"`,
+    );
+  }
   // No surrounding blank lines, and exactly one blank between doc and header.
   assert(!block.startsWith("\n") && !block.endsWith("\n"));
   assertStringIncludes(block, "─\n\n[features]");
