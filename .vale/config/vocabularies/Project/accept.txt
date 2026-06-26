@@ -25,6 +25,7 @@ CI
 classmap
 claude_code
 CLIs?
+codebase('s)?
 codemod
 composable
 concat
@@ -39,6 +40,7 @@ DBs?
 declaratively
 dedup(e|es|ed|ing)?
 deduplicat(e|ed|es|ing|ion)?
+denylist
 Deno
 deps
 dev
@@ -56,6 +58,7 @@ effectful
 else
 enum
 env
+escapable
 eval
 exec'd
 fail_fast
@@ -154,6 +157,7 @@ subpath
 subprocess(es)?
 subshell
 subtrees?
+suppressions?
 symlink
 teardown
 templated
