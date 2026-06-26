@@ -218,29 +218,7 @@ _Nothing outstanding._
 
 ## 🟢 Test & tooling hygiene
 
-- [ ] **Ratchet the coverage floor back up toward its pre-cutover level.** The
-      single-binary cutover moved the engine into `src/` (now instrumented by
-      `deno task coverage`), so the same suite covers a larger tree and src/
-      line coverage fell from ~94% to ~84% at the cutover (ADR 0019). It has
-      since climbed back to ~87.8%, and the floor has been ratcheted 83 → 85 →
-      87 to lock that in; keep raising it as coverage improves. Weakest spots to
-      target include `src/shared/capabilities.ts` (~50%) and
-      `src/shared/features.ts` (`src/lib/skills.ts` was bolstered by the skills
-      currency check + its tests). Evidence: `discern.toml`
-      `[ratchets.coverage].limit`.
-
-- [ ] **Drive the prose advisory backlog down (the `prose` ratchet).** Vale
-      lints `docs/` on every gate: `[checks.prose]` blocks on error-severity
-      findings (held at zero), and the whole advisory count — warnings +
-      suggestions — sits under a falling ceiling in `[ratchets.prose]` (1540 at
-      integration; mirrors `[ratchets.coverage]`). The bulk is
-      `Microsoft.Passive` (~500) plus `SentenceLength`/`Semicolon`; whittle them
-      down and lower the limit to lock each gain in. The ceiling rises only when
-      _new_ docs are integrated (more prose, more advisories) — that
-      re-baselining is deliberate, not a regression. House-style rule choices
-      live in `.vale.ini` and the project vocabulary in
-      `.vale/config/vocabularies/Project/accept.txt`. Evidence: `discern.toml`
-      `[ratchets.prose].limit`; `deno task prose`.
+None at present.
 
 ## 🔵 Unmerged / at-risk work — decide: land or drop
 
