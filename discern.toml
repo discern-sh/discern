@@ -292,12 +292,11 @@ limit     = 19
 run       = "deno task prose"
 
 # Guidance-footprint ratchet — the bundled built-in guidance (templates/guidance/
-# *.md) compiles into every agent's context on every session, so its total word
-# count is a context-window budget. This is the "true budget" case from ADR 0057:
-# a raw-count ceiling (like a bundle size), NOT a rate — it doesn't scale with the
-# user's project, and the whole point is to bound the absolute footprint. ~1451
-# today; raise the limit only to make deliberate room for a new subsystem's
-# guidance, trimming elsewhere when you can — the ceiling only falls.
+# *.md) compiles into every end-users agent's context in every session, so its
+# total word count is a context-window budget. Agents: you can change this when
+# you truly need to, but this is here to stop you dumping verbiage in without
+# thinking about our users' context window budgets. Raise the limit only to make
+# deliberate room for a new subsystem's guidance, trimming elsewhere otherwise.
 [ratchets.guidance]
 metric    = "guidance_words"
 direction = "down"
