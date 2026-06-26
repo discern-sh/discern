@@ -38,6 +38,7 @@ import {
   DocsOutputSchema,
   DoctorOutputSchema,
   FinishOutputSchema,
+  StartOutputSchema,
   StatusOutputSchema,
 } from "../../shared/result_schemas.ts";
 import {
@@ -69,8 +70,11 @@ import {
   graduateResult,
   integrateResult,
   lifecycleContext,
+  startResult,
   worktreeErrorResult,
 } from "../worktree/lifecycle.ts";
+import { worktreeGitKey } from "../worktree/git.ts";
+import { resolveWorktreeRoot } from "../../lib/paths.ts";
 
 const SERVER_NAME = "discern";
 const SERVER_VERSION = "1.0.0";
@@ -146,6 +150,11 @@ interface McpTool {
   /** When set, the tool is registered (listed and callable) only if this feature is
    * enabled — the MCP mirror of the CLI's per-feature verb gating. */
   feature?: Feature;
+  /** When true, the tool is registered ONLY when the server is rooted in the main
+   * checkout — hidden from a worktree-rooted session. `discern_start` uses this:
+   * spawning a worktree only makes sense from the trunk, and an agent already inside
+   * a worktree must not be tempted to create a pointless sibling. */
+  mainCheckoutOnly?: boolean;
   /** Run the verb in `root` with the call's arguments → the result to render. */
   run(root: string, args: Record<string, unknown>): Promise<DiscernResult>;
 }
@@ -260,8 +269,9 @@ export const TOOLS: McpTool[] = [
       "this call is rooted in — every other row is a separate line of work, not a " +
       "workspace to claim, and a clean tree never means one is free); set all=true " +
       "to include the fleet from a worktree, or local=true to suppress it. hints[] are " +
-      "advisory next-steps (e.g. run discern_finish, ready to graduate) — never an " +
-      "unverified pass/fail.",
+      "advisory next-steps (e.g. run discern_finish, ready to graduate, or — when on " +
+      "the trunk — run discern_start to begin in your own isolated worktree) — never " +
+      "an unverified pass/fail.",
     inputSchema: {
       all: z.boolean().optional().describe(
         "Include the fleet survey even from a worktree (default false).",
@@ -414,6 +424,35 @@ export const TOOLS: McpTool[] = [
     run: (root, args) =>
       integrateToolResult(root, { dryRun: args.dry_run === true }),
   },
+  {
+    name: "discern_start",
+    title: "Start a worktree",
+    outputSchema: StartOutputSchema.shape,
+    annotations: MUTATING,
+    description:
+      "Create a fresh ISOLATED worktree from the main checkout — your own line of " +
+      "work — on its own branch, set it up, and return where it landed. Use this when " +
+      "you are on the trunk (the main checkout) and about to start work: it is the " +
+      "first-class way to get your own workspace, so you NEVER adopt an existing idle " +
+      "worktree (each belongs to another agent's line of work; a clean working tree " +
+      "doesn't mean it's free). CRITICAL: this server is rooted in one checkout and " +
+      "CANNOT relocate your session — it returns the new worktree's absolute path in " +
+      "data.path, and you MUST re-root yourself: start a session rooted there (or cd " +
+      "into it) and continue from inside it, never back in the main checkout. Each " +
+      "call mints a NEW worktree (not idempotent) — call it once per line of work. " +
+      "If you are already inside a worktree, do NOT call this (you'd create a " +
+      'pointless sibling): it is hidden there, and refuses (error:"precondition_failed") ' +
+      "if invoked anyway. Set dry_run to preview the plan without creating anything.",
+    feature: "worktrees",
+    mainCheckoutOnly: true,
+    inputSchema: {
+      dry_run: z.boolean().optional().describe(
+        "Preview the start plan and touch nothing (default false).",
+      ),
+    },
+    run: (root, args) =>
+      startToolResult(root, { dryRun: args.dry_run === true }),
+  },
 ];
 
 /**
@@ -462,6 +501,37 @@ async function integrateToolResult(
     return await integrateResult(ctx, opts);
   } catch (e) {
     const mapped = worktreeErrorResult("integrate", e);
+    if (mapped !== undefined) {
+      return mapped;
+    }
+    throw e;
+  }
+}
+
+/**
+ * The `discern_start` tool core: build a lifecycle context with a quiet logger
+ * (start narrates through its logger as it creates + sets up the worktree — silence
+ * it so the stdio channel carries only protocol messages), mint + create the new
+ * worktree, and map a precondition refusal (called from inside a worktree) to the
+ * same error envelope the CLI returns. The placement root is resolved HERE (the
+ * feature-layer convention) and passed into the engine core, mirroring the
+ * dispatcher. Unexpected errors propagate to {@link runTool}'s catch-all.
+ */
+async function startToolResult(
+  root: string,
+  opts: { dryRun?: boolean },
+): Promise<DiscernResult> {
+  const ctx = await lifecycleContext(
+    root,
+    new Logger({ json: true, noColor: true }),
+  );
+  try {
+    return await startResult(ctx, {
+      dryRun: opts.dryRun ?? false,
+      worktreeRoot: resolveWorktreeRoot(ctx.root, ctx.config),
+    });
+  } catch (e) {
+    const mapped = worktreeErrorResult("start", e);
     if (mapped !== undefined) {
       return mapped;
     }
@@ -751,9 +821,14 @@ function registerResources(
  * operating model in a few imperative lines, carrying the strong MCP-first stance:
  * these tools are the primary surface, not the CLI. Feature-aware, mirroring the
  * tool gating — the docs, ratchets, and graduate lines appear only when their
- * feature is on.
+ * feature is on. Location-aware too: the discern_start line is included only when
+ * the server is rooted in the main checkout (where discern_start is registered),
+ * not from a worktree-rooted session.
  */
-function buildInstructions(enabled: ReadonlySet<Feature>): string {
+function buildInstructions(
+  enabled: ReadonlySet<Feature>,
+  rootIsWorktree: boolean,
+): string {
   const lines = [
     "discern is this project's quality harness, and these tools are the primary " +
     "surface for working in it — prefer them over shelling out to the `discern` " +
@@ -782,6 +857,16 @@ function buildInstructions(enabled: ReadonlySet<Feature>): string {
     );
   }
   if (enabled.has("worktrees")) {
+    if (!rootIsWorktree) {
+      lines.push(
+        "- On the trunk (the main checkout) and about to work? Run discern_start to " +
+          "create your own isolated worktree and move into it: it returns the new " +
+          "worktree's path, and you re-root there (start a session / cd in) and " +
+          "continue from inside it — the server can't relocate your session for you. " +
+          "NEVER adopt an existing idle worktree; each is another line of work, and a " +
+          "clean working tree doesn't mean it's free.",
+      );
+    }
     lines.push(
       "- When the branch is behind main (the gate's merge check points here), bring " +
         "main in with discern_integrate: it merges main into this worktree's branch " +
@@ -818,13 +903,21 @@ function buildInstructions(enabled: ReadonlySet<Feature>): string {
 export async function runMcpServer(): Promise<number> {
   const root = await findRoot();
   const enabled = await resolveEnabledFeatures(root);
+  // Location gate (resolved once, like the feature set): a server rooted in a linked
+  // worktree hides the main-checkout-only tools (discern_start) and drops their
+  // instruction lines — an agent already in a worktree must not spawn a sibling.
+  const rootIsWorktree = root !== undefined &&
+    (await worktreeGitKey(root)) !== undefined;
   const server = new McpServer(
     { name: SERVER_NAME, version: SERVER_VERSION },
-    { instructions: buildInstructions(enabled) },
+    { instructions: buildInstructions(enabled, rootIsWorktree) },
   );
 
   for (const tool of TOOLS) {
     if (tool.feature !== undefined && !enabled.has(tool.feature)) {
+      continue;
+    }
+    if (tool.mainCheckoutOnly === true && rootIsWorktree) {
       continue;
     }
     // The shared config: description plus the honest metadata (title, the per-verb

@@ -55,6 +55,7 @@ import {
   integrate,
   type LifecycleContext,
   lifecycleContext,
+  start,
   worktreeEnsure,
   worktreeErrorResult,
   WorktreeGitError,
@@ -88,6 +89,7 @@ export const KNOWN_ENGINE_VERBS: ReadonlySet<string> = new Set([
   "status",
   "graduate",
   "integrate",
+  "start",
   "worktree",
   "worktree-name",
   "skills",
@@ -111,6 +113,7 @@ export const ENGINE_RECIPE_NAMES: readonly string[] = [
   "status",
   "graduate",
   "integrate",
+  "start",
   "worktree",
   "worktree-name",
   "worktree-create",
@@ -438,6 +441,34 @@ export function attachEngineCommands(
   if (!enabled.has("worktrees")) {
     return;
   }
+
+  root
+    .command("start")
+    .description(
+      "From the main checkout: create a fresh isolated worktree (its own agent/ branch) and tell you where to move into it.",
+    )
+    .option(
+      "--json",
+      "Emit a machine-readable (plan, result) object on stdout (data.path is the new worktree).",
+    )
+    .option("--dry-run", "Show the start plan; touch nothing.")
+    .action(async (o) => {
+      const json = o.json ?? false;
+      Deno.exit(
+        await runWorktreeOp(
+          (ctx) =>
+            start(ctx, {
+              json,
+              dryRun: o.dryRun ?? false,
+              // WHERE the worktree lands is the feature-layer placement convention,
+              // resolved here and passed in — the engine core bakes in none (ADR 0052),
+              // exactly as the worktree:prune wiring below does.
+              worktreeRoot: resolveWorktreeRoot(ctx.root, ctx.config),
+            }),
+          { json, verb: "start" },
+        ),
+      );
+    });
 
   root
     .command("graduate")
