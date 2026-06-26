@@ -17,10 +17,10 @@ import { join } from "@std/path";
 
 /**
  * Upsert `KEY=value` into `.env` text: replace the first existing `KEY=` line
- * (value only), else append. Appending mirrors the shell `printf … >> .env`:
- * when the text ends with a newline (or is empty) the new line slots before the
- * trailing blank so the file keeps exactly one terminating newline; otherwise it
- * is pushed onto the unterminated last line. Pure — the caller owns the I/O.
+ * (value only), else append. When the text ends with a newline (or is empty) the
+ * new line slots before the trailing blank so the file keeps exactly one
+ * terminating newline; otherwise it is pushed onto the unterminated last line.
+ * Pure — the caller owns the I/O.
  */
 export function upsertEnvLine(
   envText: string,

@@ -1,8 +1,7 @@
 /**
- * Resolve a linked git worktree's stable, agent-agnostic identity — the TS port
- * of the shell `engine/worktree-name`. Every derived value (id / site / branch /
- * port / db) comes from structured state, not filesystem shape, so it survives
- * wherever an agent keeps the checkout.
+ * Resolve a linked git worktree's stable, agent-agnostic identity. Every derived
+ * value (id / site / branch / port / db) comes from structured state, not
+ * filesystem shape, so it survives wherever an agent keeps the checkout.
  *
  * Identity sources, in order:
  *   1. `DISCERN_WORKTREE_ID` from the environment, when valid.
@@ -11,9 +10,9 @@
  *      checkout, where `--absolute-git-dir` == `--git-common-dir`).
  *
  * LOAD-BEARING (Risk R1): a worktree's port, site tail hash, and db name derive
- * from the POSIX `cksum` of the id (see `shared/crc.ts`). These values MUST match
- * the shell engine exactly — pinned against
- * `tests/fixtures/parity/worktree-identity.json`.
+ * from the POSIX `cksum` of the id (see `shared/crc.ts`). The derivation is
+ * frozen — any change shifts every existing worktree's identity — and is pinned
+ * against `tests/fixtures/parity/worktree-identity.json`.
  */
 
 import { basename, dirname, isAbsolute, join, resolve } from "@std/path";
@@ -89,8 +88,7 @@ export class IdentityError extends Error {
 
 /**
  * Lowercase, collapse every run of non-`[a-z0-9]` to a single dash, and trim
- * leading/trailing dashes. Mirrors the shell `sanitize_slug`
- * (`sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//; s/-+/-/g'`).
+ * leading/trailing dashes.
  */
 export function sanitizeSlug(raw: string): string {
   return raw
@@ -102,9 +100,9 @@ export function sanitizeSlug(raw: string): string {
 
 /**
  * Build the database-name-safe identity: `<slug>_<id>` lowercased with every run
- * of non-alphanumerics collapsed to a single underscore (and trimmed). Mirrors
- * the shell `db_name_for_id` — db mode uses underscores where site uses dashes,
- * because many engines disallow dashes/dots in unquoted database names.
+ * of non-alphanumerics collapsed to a single underscore (and trimmed). Db mode
+ * uses underscores where site uses dashes, because many engines disallow
+ * dashes/dots in unquoted database names.
  */
 export function dbNameForId(slug: string, id: string): string {
   return `${slug}_${id}`
@@ -117,7 +115,7 @@ export function dbNameForId(slug: string, id: string): string {
 /**
  * Derive the deterministic dev-server port from the id: `13000 + cksum(id) %
  * 2000`. Hashing the id into a fixed band gives every worktree its own port with
- * no shared registry. Mirrors the shell `port_for_id`.
+ * no shared registry.
  */
 export function portForId(id: string): number {
   return PORT_BASE + (cksumString(id) % PORT_SPAN);
@@ -125,11 +123,10 @@ export function portForId(id: string): number {
 
 /**
  * Fit the id into a site/host tail within the 63-char DNS label limit, hashing
- * the tail when `slug-id` would exceed it. Mirrors the shell `fit_site_id`:
- * `maxIdLen = 63 - slug.length - 1`; under the limit the id is used whole, else
- * `keep = max(1, maxIdLen - hash.length - 1)` and the result is
- * `id[0:keep] + "-" + cksum(id)` (so a `keep` landing on a dash boundary yields
- * the documented double dash).
+ * the tail when `slug-id` would exceed it: `maxIdLen = 63 - slug.length - 1`;
+ * under the limit the id is used whole, else `keep = max(1, maxIdLen -
+ * hash.length - 1)` and the result is `id[0:keep] + "-" + cksum(id)` (so a
+ * `keep` landing on a dash boundary yields the documented double dash).
  */
 export function fitSiteId(slug: string, id: string): string {
   const maxIdLen = DNS_LABEL_LIMIT - slug.length - 1;
@@ -172,8 +169,7 @@ export function resourceForId(slug: string, id: string, name: string): string {
 
 /**
  * Validate an explicit id override against the override pattern, then normalise
- * it to a slug. Mirrors the shell `validate_override_id`. Throws an
- * `IdentityError` (exit 1) on an invalid value.
+ * it to a slug. Throws an `IdentityError` (exit 1) on an invalid value.
  */
 export function validateOverrideId(raw: string): string {
   if (!OVERRIDE_ID_RE.test(raw)) {
@@ -205,8 +201,7 @@ export function deriveIdentity(
 /**
  * Resolve the project slug and branch prefix from config, with env overrides
  * (`DISCERN_PROJECT_SLUG` / `DISCERN_WORKTREE_BRANCH_PREFIX`) winning. The slug
- * is sanitized and must be non-empty. Mirrors the shell `worktree-name`
- * settings block.
+ * is sanitized and must be non-empty.
  */
 export async function loadIdentitySettings(
   root: string,
@@ -263,8 +258,7 @@ async function gitOut(
 
 /**
  * Canonicalize a target path, tolerating one that no longer exists by
- * canonicalizing its parent and re-appending the basename. Mirrors the shell
- * `canonicalize_target`.
+ * canonicalizing its parent and re-appending the basename.
  */
 async function canonicalizeTarget(path: string): Promise<string> {
   try {
@@ -330,9 +324,8 @@ async function normalizeCommonGitDir(
 /**
  * Derive the id from git's linked-worktree admin directory name. Refuses the
  * main checkout (where the absolute and common git dirs are the same path).
- * Falls back to reading a `.git` gitlink file directly. Mirrors the shell
- * `metadata_id_from_git`. Throws an `IdentityError` when no linked-worktree
- * metadata can be resolved.
+ * Falls back to reading a `.git` gitlink file directly. Throws an
+ * `IdentityError` when no linked-worktree metadata can be resolved.
  */
 async function metadataIdFromGit(path: string): Promise<string> {
   let isDir = false;

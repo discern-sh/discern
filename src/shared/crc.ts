@@ -8,8 +8,7 @@
  * LOAD-BEARING (Risk R1): a worktree's dev-server port, site tail hash, and db
  * name all derive from this exact checksum (see engine/worktree/identity.ts). A
  * mismatch silently shifts every existing worktree's identity. Pinned against
- * vectors captured from the shell engine in
- * tests/fixtures/parity/worktree-identity.json.
+ * the golden vectors in tests/fixtures/parity/worktree-identity.json.
  */
 
 /** The 256-entry lookup table for polynomial 0x04C11DB7 (un-reflected). */

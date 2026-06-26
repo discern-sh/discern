@@ -44,9 +44,8 @@ export type WorktreeToken = (typeof WORKTREE_TOKENS)[number];
 
 /**
  * Lazily resolves a token to its string value. Called at most once per token per
- * expansion, and only for tokens actually present in the command — mirroring the
- * shell's lazy `wt_token_value`. A resolver may return a Promise (db/site/port
- * shell out to identity resolution).
+ * expansion, and only for tokens actually present in the command. A resolver may
+ * return a Promise (db/site/port shell out to identity resolution).
  */
 export type TokenResolver = (
   token: WorktreeToken,
@@ -55,8 +54,7 @@ export type TokenResolver = (
 /**
  * Replace every literal occurrence of `find` in `input` with `repl`. Pure
  * string scanning (no regex) so `repl` is inserted verbatim, and a `repl` that
- * contains `find` is not re-scanned (no infinite loop). Mirrors the shell
- * `wt_replace_all`.
+ * contains `find` is not re-scanned (no infinite loop).
  */
 export function replaceAll(input: string, find: string, repl: string): string {
   if (find === "") {
@@ -78,7 +76,7 @@ export function replaceAll(input: string, find: string, repl: string): string {
  * Substitute every adapter token present in `command` and return the result. An
  * empty command is a clean no-op (returns `""`). For each token, its value is
  * resolved (via `resolve`) only if the `@token@` placeholder appears, then all
- * occurrences are replaced. Mirrors the shell `wt_expand_tokens`.
+ * occurrences are replaced.
  */
 export async function expandTokens(
   command: string,
