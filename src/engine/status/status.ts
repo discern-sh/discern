@@ -45,7 +45,7 @@ import {
   findSkeletonMarkers,
   setupUnfinishedHint,
 } from "../../shared/setup_state.ts";
-import { changedScopes } from "../scopes/changed.ts";
+import { changedScopes, isScopeMarker } from "../scopes/changed.ts";
 import { planScopeGates } from "../gate/plan.ts";
 import {
   checkGuidanceCurrent,
@@ -438,9 +438,7 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
 
   if (ctx.location === "worktree" && ctx.git !== null) {
     const g = ctx.git;
-    const firedScopes = (ctx.changed ?? []).filter(
-      (s) => s !== "code" && s !== "previewable",
-    );
+    const firedScopes = (ctx.changed ?? []).filter((s) => !isScopeMarker(s));
     if (!g.clean) {
       hints.push(
         firedScopes.length > 0

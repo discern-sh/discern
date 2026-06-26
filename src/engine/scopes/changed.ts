@@ -15,6 +15,29 @@ import type { ChangedScopesData } from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { pathMatchesPattern } from "./glob.ts";
 
+/**
+ * The two derived markers a classification emits ALONGSIDE the scope names: `code`
+ * (any non-neutral path changed — the fail-open default) and `previewable` (a
+ * previewable-flagged scope changed). The SINGLE source the producer (below) emits
+ * and every consumer tests against — the gate's preview hint (`finish.ts`) and
+ * status's scope-name filter (`status.ts`) — so a renamed/added marker propagates in
+ * one edit instead of leaving a consumer matching a string nobody emits, and
+ * {@link isScopeMarker} stays exhaustive automatically.
+ */
+export const SCOPE_MARKERS = ["code", "previewable"] as const;
+
+/** One derived changed-scopes marker ({@link SCOPE_MARKERS}). */
+export type ScopeMarker = (typeof SCOPE_MARKERS)[number];
+
+/** Named accessors for the markers — positional, so they never re-list the literals. */
+export const [CODE_MARKER, PREVIEWABLE_MARKER] = SCOPE_MARKERS;
+
+/** Whether `name` is a derived marker (vs. a configured scope name). Derived from
+ * {@link SCOPE_MARKERS}, so a new marker is excluded from "scope names" for free. */
+export function isScopeMarker(name: string): name is ScopeMarker {
+  return (SCOPE_MARKERS as readonly string[]).includes(name);
+}
+
 /** Run `git -C root <args>`, capturing stdout. `ok:false` on any failure. */
 async function git(
   root: string,
@@ -120,7 +143,7 @@ export async function changedScopes(
   const paths = await collectPaths(root, mainBranch);
   if (paths === null) {
     // Fail open: cannot tell what changed → report every scope/marker.
-    return ["code", "previewable", ...fireScopes];
+    return [...SCOPE_MARKERS, ...fireScopes];
   }
 
   // A path is neutral if it matches a neutral scope, or is a root-level *.md.
@@ -157,10 +180,10 @@ export async function changedScopes(
 
   const out: string[] = [];
   if (code) {
-    out.push("code");
+    out.push(CODE_MARKER);
   }
   if (previewable) {
-    out.push("previewable");
+    out.push(PREVIEWABLE_MARKER);
   }
   for (const s of fireScopes) {
     if (fired.includes(s)) {

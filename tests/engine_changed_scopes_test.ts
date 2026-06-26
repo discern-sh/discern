@@ -14,6 +14,13 @@ import {
   writeConfig,
   writeExecutable,
 } from "./engine_helpers.ts";
+import {
+  changedScopes,
+  CODE_MARKER,
+  isScopeMarker,
+  PREVIEWABLE_MARKER,
+} from "../src/engine/scopes/changed.ts";
+import { loadConfig } from "../src/shared/config_schema.ts";
 
 async function scaffoldWithWidget(dir: string): Promise<void> {
   await scaffoldEngine(dir);
@@ -44,6 +51,50 @@ Deno.test("changed-scopes --json: emits the DiscernResult envelope, not a bare a
     assertEquals(obj.verb, "changed-scopes");
     assert(Array.isArray(obj.data.scopes), r.stdout);
     assert(obj.data.scopes.includes("widget"), r.stdout);
+  });
+});
+
+Deno.test("changedScopes emits ONLY declared SCOPE_MARKERS alongside the configured scope names", async () => {
+  // The producer's marker pushes go through the SCOPE_MARKERS SSOT; this pins that
+  // behaviourally. A previewable scope change fires both derived markers, and EVERY
+  // emitted entry must be either a configured scope name or a declared marker — so a
+  // future bare-literal `out.push("...")` outside SCOPE_MARKERS red-lights here.
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        'main_branch = "main"',
+        "",
+        "[scopes.web]",
+        'paths = ["web/**"]',
+        "previewable = true",
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+    await writeExecutable(join(dir, "web/x.txt"), "x"); // a previewable change
+
+    const result = await changedScopes(dir);
+    // Both derived markers fire for a previewable, non-neutral change (behaviour).
+    assert(
+      result.includes(CODE_MARKER),
+      `expected ${CODE_MARKER} in ${result}`,
+    );
+    assert(
+      result.includes(PREVIEWABLE_MARKER),
+      `expected ${PREVIEWABLE_MARKER} in ${result}`,
+    );
+    // Every non-scope-name entry is a DECLARED marker (the producer-side tie).
+    const scopeNames = new Set(Object.keys((await loadConfig(dir)).scopes));
+    for (const entry of result) {
+      assert(
+        scopeNames.has(entry) || isScopeMarker(entry),
+        `changedScopes emitted "${entry}", neither a configured scope nor a declared marker`,
+      );
+    }
   });
 });
 

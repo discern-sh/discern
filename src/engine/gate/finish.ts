@@ -35,7 +35,7 @@ import {
   worktreeDirtyPaths,
 } from "./fix_drift.ts";
 import { renderFailureTail } from "./failure_tail.ts";
-import { changedScopes } from "../scopes/changed.ts";
+import { changedScopes, PREVIEWABLE_MARKER } from "../scopes/changed.ts";
 import { colorEnabled, makeOut, type Out, outSink } from "../output.ts";
 import { assertMainMerged } from "../worktree/git.ts";
 import {
@@ -342,7 +342,7 @@ function buildGateHints(
   }
   if (
     (cfg.worktree.resources.dev_server?.create ?? "") !== "" &&
-    changed.includes("previewable")
+    changed.includes(PREVIEWABLE_MARKER)
   ) {
     hints.push(
       "A previewable change landed — start this worktree's dev server to view it.",
