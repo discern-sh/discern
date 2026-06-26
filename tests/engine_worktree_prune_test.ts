@@ -17,7 +17,7 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { join } from "@std/path";
+import { dirname, join } from "@std/path";
 import { exists } from "@std/fs";
 import { withTempDir } from "./helpers.ts";
 import {
@@ -239,6 +239,41 @@ Deno.test("worktree:prune --dry-run lists what the real run removes, and acts on
     assert(
       !(await branchList(dir)).includes("agent/victim"),
       "the merged branch should be deleted by the real run",
+    );
+  });
+});
+
+// ── worktree:prune — orphan-directory sweep at the configured root ───────────
+//
+// A worktree dir whose git metadata was lost (a hard kill, a failed remove hook)
+// is reclaimed by the orphan sweep. The sweep discovers locations from git's
+// registry — the parents of registered worktrees — so when NO registered
+// worktree remains to derive the worktree root from, it would miss that root
+// entirely. The dispatch layer therefore passes the resolved [worktree].root as
+// extraDirs (ADR 0052). This pins that wiring: a FULLY-orphaned dir at the
+// (sibling) default root is still reclaimed.
+
+Deno.test("worktree:prune reclaims a fully-orphaned dir at the configured worktree root", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "orphan"); // <dir>.worktrees/orphan
+    const root = dirname(wt); // the sibling worktree root
+    const orphan = join(root, "orphan-moved");
+
+    // Sever git's registration while leaving the checkout on disk: move it so the
+    // registered path goes missing (prune drops the stale admin entry), while the
+    // moved dir keeps its `.git` gitlink into this repo's worktrees admin area —
+    // exactly the orphan a hard kill leaves behind.
+    await Deno.rename(wt, orphan);
+
+    // No registered linked worktree now points anywhere under `root`, so the
+    // git-derived parent scan cannot reach it; only the extraDirs the dispatch
+    // layer passes (the resolved [worktree].root) does.
+    const r = await runAgent(dir, ["worktree:prune", "--yes"]);
+    assertEquals(r.code, 0, r.output);
+    assertEquals(
+      await exists(orphan),
+      false,
+      `the orphaned dir at the worktree root should be reclaimed via extraDirs\n${r.output}`,
     );
   });
 });

@@ -157,6 +157,52 @@ Deno.test("hook WorktreeCreate: re-firing on an existing worktree is idempotent"
   });
 });
 
+/** Point `[worktree].root` at `value` in a scaffolded config (the template seeds
+ * `root = ""`), so the create hook resolves placement there instead of the
+ * sibling default. */
+async function setWorktreeRoot(dir: string, value: string): Promise<void> {
+  const cfgPath = join(dir, "discern.toml");
+  const cfg = await Deno.readTextFile(cfgPath);
+  assertStringIncludes(cfg, 'root = ""'); // the template default we override
+  await Deno.writeTextFile(cfgPath, cfg.replace('root = ""', `root = "${value}"`));
+}
+
+Deno.test("hook WorktreeCreate: a RELATIVE [worktree].root resolves against the repo (restores nesting)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await setWorktreeRoot(dir, ".claude/worktrees"); // the documented old-nesting opt-in
+    await gitInit(dir);
+
+    const r = await runHook(dir, await hookCommand(dir, "WorktreeCreate"), {
+      name: "rel",
+      cwd: dir,
+    });
+    assertEquals(r.code, 0, r.stderr);
+    const wt = join(dir, ".claude/worktrees/rel");
+    assertEquals(r.stdout, wt);
+    assert(await exists(join(wt, ".git")), `not a worktree\n${r.stderr}`);
+  });
+});
+
+Deno.test("hook WorktreeCreate: an ABSOLUTE [worktree].root is used as-is", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    // An absolute path (here under dir, so withTempDir reclaims it) is honoured verbatim.
+    const absRoot = join(dir, "external-wts");
+    await setWorktreeRoot(dir, absRoot);
+    await gitInit(dir);
+
+    const r = await runHook(dir, await hookCommand(dir, "WorktreeCreate"), {
+      name: "abs",
+      cwd: dir,
+    });
+    assertEquals(r.code, 0, r.stderr);
+    const wt = join(absRoot, "abs");
+    assertEquals(r.stdout, wt);
+    assert(await exists(join(wt, ".git")), `not a worktree\n${r.stderr}`);
+  });
+});
+
 Deno.test("hook WorktreeCreate: a payload missing name/cwd fails loudly", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
