@@ -15,10 +15,11 @@ workflow is the `worktrees` feature, which can be turned off in `[features]`
 
 The lifecycle is driven by hooks in `.claude/settings.json`: `SessionStart` →
 [`worktree:ensure`](../../src/engine/worktree/lifecycle.ts) (idempotent setup +
-resource `ensure`), `WorktreeCreate` →
+resource `ensure` + `[worktree.setup].ensure`), `WorktreeCreate` →
 [`worktree:create`](../../src/lib/worktree_hooks.ts) (reads the hook's JSON
 payload, adds the worktree, then runs first-time setup — which creates the
-resources), `WorktreeRemove` →
+resources and runs `[worktree.setup]`: the one-shot `steps`, then the convergent
+`ensure`), `WorktreeRemove` →
 [`worktree:remove`](../../src/lib/worktree_hooks.ts) (tears it down). Those two
 hook entries parse their payload in the binary itself — no `jq`
 ([ADR 0040](../_adr/0040-worktree-hooks-in-the-binary.md)). An agent on the
@@ -31,11 +32,13 @@ line of work's Worktree
 ([ADR 0058](../_adr/0058-start-verb-spawn-worktree-from-trunk.md)). It only ever
 _creates_ a Worktree to inhabit; it never adopts or prunes an existing one. When
 `main` advances under a long-running Worktree,
-[`integrate`](../../src/engine/worktree/lifecycle.ts) brings it into the branch
-and re-materializes the agent files + skills in one step. It is the
-deterministic inverse of graduate, and what the gate's merge check
-([ADR 0050](../_adr/0050-merge-check-fail-fast.md)) points a behind branch at
-([ADR 0055](../_adr/0055-integrate-verb.md)). When a change is done,
+[`integrate`](../../src/engine/worktree/lifecycle.ts) brings it into the branch,
+re-materializes the agent files + skills, and re-runs `[worktree.setup].ensure`
+so a merge that changed a lockfile leaves the worktree's dependencies current —
+all in one step. It is the deterministic inverse of graduate, and what the
+gate's merge check ([ADR 0050](../_adr/0050-merge-check-fail-fast.md)) points a
+behind branch at ([ADR 0055](../_adr/0055-integrate-verb.md),
+[ADR 0059](../_adr/0059-worktree-setup-ensure.md)). When a change is done,
 [`graduate`](../../src/engine/worktree/lifecycle.ts) graduates the branch into
 the main repo and removes the Worktree — by default onto its own branch for
 review, or with `--to trunk` (the `[worktree].graduate_to` default)
@@ -92,3 +95,6 @@ inspectable before they act.
 - [ADR 0058](../_adr/0058-start-verb-spawn-worktree-from-trunk.md) — `start`,
   the verb that spawns a Worktree from the main checkout, and the
   `discern status` guardrail that points an agent on the trunk at it.
+- [ADR 0059](../_adr/0059-worktree-setup-ensure.md) — `[worktree.setup].ensure`,
+  the convergent bucket that re-runs every pass (creation, session start,
+  integrate) to keep the worktree's environment current with the tree.
