@@ -16,7 +16,7 @@
  */
 
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
-import { STAGES } from "../../shared/capabilities.ts";
+import { capabilityList, STAGES } from "../../shared/capabilities.ts";
 import type { JobResult } from "../jobs/types.ts";
 import {
   buildGatePlan,
@@ -365,7 +365,7 @@ function printSuccessTail(cfg: DiscernConfig, out: Out, hints: string[]): void {
       "Gate passed — but no capability or check is wired, so nothing was actually checked (a no-op gate).",
     );
     out.warn(
-      "Add [capabilities] (format/lint/typecheck/test/build) to discern.toml so the gate has something to run.",
+      `Add [capabilities] (${capabilityList()}) to discern.toml so the gate has something to run.`,
     );
   } else {
     out.ok("Everything built and all checks passed.");

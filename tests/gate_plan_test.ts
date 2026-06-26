@@ -9,6 +9,7 @@
 
 import { assert, assertEquals } from "@std/assert";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
+import { KNOWN_CAPABILITIES } from "../src/shared/capabilities.ts";
 import {
   buildGatePlan,
   buildGateResult,
@@ -45,6 +46,19 @@ gate = "echo widget"
 paths = ["gadget/**"]
 gate = "echo gadget"
 `);
+
+Deno.test("the FULL fixture wires EVERY known capability (so the gate-shape tests cover the whole vocabulary)", () => {
+  // The plan/shape assertions below hard-code capability labels off FULL's
+  // [capabilities]. Tie that fixture to the SSOT: a capability added to
+  // KNOWN_CAPABILITIES must be wired into FULL (and its gate shape asserted) rather
+  // than silently escaping this fast unit coverage.
+  assertEquals(
+    Object.keys(FULL.capabilities).sort(),
+    Object.keys(KNOWN_CAPABILITIES).sort(),
+    "the FULL fixture has drifted from KNOWN_CAPABILITIES — add the new capability to " +
+      "the [capabilities] block above and assert its gate-stage shape",
+  );
+});
 
 Deno.test("planStageJobs: derived stage, array expansion, willRun always true", () => {
   const check = planStageJobs(FULL, "check");

@@ -5,6 +5,7 @@ import {
   renderConfigReferenceDoc,
 } from "../src/shared/config_codegen.ts";
 import { parseConfig } from "../src/shared/config_schema.ts";
+import { KNOWN_CAPABILITIES } from "../src/shared/capabilities.ts";
 import { SCHEMA_VERSION } from "../src/lib/version.ts";
 
 // These prove the committed, shipped artifacts stay in lockstep with the canonical
@@ -48,9 +49,12 @@ Deno.test("the generated capabilities object is closed and not all-required", ()
   assertEquals(caps.additionalProperties, false);
   // … but every entry is optional — a doc may fill just one capability.
   assertEquals(caps.required, undefined);
+  // The generated object closes over EXACTLY the known capability vocabulary —
+  // derived from KNOWN_CAPABILITIES, not a hand-copied list, so a new capability
+  // enrolls here automatically.
   assertEquals(
     Object.keys(caps.properties as Record<string, unknown>).sort(),
-    ["build", "format", "lint", "test", "typecheck"],
+    Object.keys(KNOWN_CAPABILITIES).sort(),
   );
 });
 

@@ -16,6 +16,7 @@ import {
   loadConfig,
 } from "./shared/config_schema.ts";
 import { findRoot } from "./shared/env.ts";
+import { capabilityList } from "./shared/capabilities.ts";
 import {
   NOT_SET_UP_MESSAGE,
   verbNeedsBootstrap,
@@ -367,7 +368,7 @@ function buildCli(
   // `.command(name, instance)` (the reliable Cliffy form for a command group).
   const setCapability = new Command()
     .description(
-      "Set a [capabilities] entry (format|build|lint|typecheck|test).",
+      `Set a [capabilities] entry (${capabilityList()}).`,
     )
     .arguments("<name:string> <command:string>")
     .option("--dry-run", "Print the edit and write nothing.")
