@@ -34,6 +34,7 @@ export const BOOTSTRAP_GATED_VERBS: ReadonlySet<string> = new Set<string>([
   "test",
   "ratchets",
   "graduate",
+  "integrate",
   "docs",
 ]);
 

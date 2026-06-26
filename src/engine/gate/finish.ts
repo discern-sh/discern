@@ -75,7 +75,8 @@ const FAIL_MESSAGES: Record<FailedStage, string> = {
     "Generated agent files are out of date — run `discern refresh` (edits belong in your [guidance].sources, not the generated file, which a refresh overwrites).",
   skills:
     "Materialized skills are out of date — run `discern refresh` (edits belong in your [skills].dir source, not the materialized copy, which a refresh overwrites).",
-  merge: "Integrate main, then re-run finish.",
+  merge:
+    "Run `discern integrate` to bring main in and re-materialize, then re-run finish.",
 };
 
 /** The human die message for a failed stage. */

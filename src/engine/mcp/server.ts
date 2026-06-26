@@ -67,6 +67,7 @@ import { doctorResult } from "../../commands/doctor.ts";
 import { docsResult, helpResult } from "../../commands/docs.ts";
 import {
   graduateResult,
+  integrateResult,
   lifecycleContext,
   worktreeErrorResult,
 } from "../worktree/lifecycle.ts";
@@ -114,6 +115,14 @@ const MUTATING: ToolAnnotations = {
 const DESTRUCTIVE: ToolAnnotations = {
   readOnlyHint: false,
   destructiveHint: true,
+};
+/** Merges the integration branch in and re-materializes — mutates, but is not
+ * destructive (it only adds a merge + regenerates build artifacts) and is safe to
+ * re-run: a no-op once the branch already contains main, hence `idempotentHint`. */
+const INTEGRATE: ToolAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: false,
+  idempotentHint: true,
 };
 
 /** A tool: its advertised schema + metadata plus the handler that runs the verb.
@@ -356,7 +365,7 @@ export const TOOLS: McpTool[] = [
       "run it rather than reproducing the steps with git; commit the work with a real " +
       "message first so it lands as a proper review commit, then relay the result. " +
       "Requires the latest main is already integrated and the main checkout is clean " +
-      '— refuses (error:"precondition_failed") otherwise, pointing at discern_finish ' +
+      '— refuses (error:"precondition_failed") otherwise, pointing at discern_integrate ' +
       "to integrate first. Set dry_run to preview the plan without touching anything. " +
       "Operates only on the worktree the server runs in; it cannot reach another.",
     feature: "worktrees",
@@ -376,6 +385,34 @@ export const TOOLS: McpTool[] = [
         dryRun: args.dry_run === true,
         to: args.to as GraduateTarget | undefined,
       }),
+  },
+  {
+    name: "discern_integrate",
+    title: "Integrate main",
+    outputSchema: DatalessEnvelopeSchema.shape,
+    annotations: INTEGRATE,
+    description:
+      "Bring the latest main into THIS worktree's branch and re-materialize the " +
+      "generated agent files + skills, in one deterministic step — the inverse of " +
+      "discern_graduate, and the action that resolves discern_finish's merge check " +
+      "(which refuses a branch behind main). Run it whenever the branch is behind. " +
+      "Just call it: you do NOT need to run git to check first — it performs every " +
+      "precondition itself and returns exactly what to do next. It is idempotent and " +
+      "safe to call anytime: a no-op success when the branch already contains main " +
+      "(reported, nothing merged, no refresh); it merges into a clean tree only, so " +
+      'it refuses (error:"precondition_failed") on uncommitted changes; and on a merge ' +
+      "conflict it aborts cleanly (leaving the tree untouched) and refuses, naming the " +
+      "conflicted files and the manual path to resolve them. Set dry_run to preview the " +
+      "plan without touching anything. Never touches the main checkout; operates only " +
+      "on the worktree the server runs in.",
+    feature: "worktrees",
+    inputSchema: {
+      dry_run: z.boolean().optional().describe(
+        "Preview the integration plan and touch nothing (default false).",
+      ),
+    },
+    run: (root, args) =>
+      integrateToolResult(root, { dryRun: args.dry_run === true }),
   },
 ];
 
@@ -398,6 +435,33 @@ async function graduateToolResult(
     return await graduateResult(ctx, opts);
   } catch (e) {
     const mapped = worktreeErrorResult("graduate", e);
+    if (mapped !== undefined) {
+      return mapped;
+    }
+    throw e;
+  }
+}
+
+/**
+ * The `discern_integrate` tool core: build a lifecycle context with a quiet logger
+ * (integrate narrates through its logger as it merges + re-materializes — silence
+ * it so the stdio channel carries only protocol messages), perform the
+ * integration, and map a precondition refusal (main checkout, dirty tree, merge
+ * conflict) to the same error envelope the CLI returns. Unexpected errors
+ * propagate to {@link runTool}'s catch-all.
+ */
+async function integrateToolResult(
+  root: string,
+  opts: { dryRun?: boolean },
+): Promise<DiscernResult> {
+  const ctx = await lifecycleContext(
+    root,
+    new Logger({ json: true, noColor: true }),
+  );
+  try {
+    return await integrateResult(ctx, opts);
+  } catch (e) {
+    const mapped = worktreeErrorResult("integrate", e);
     if (mapped !== undefined) {
       return mapped;
     }
@@ -719,11 +783,23 @@ function buildInstructions(enabled: ReadonlySet<Feature>): string {
   }
   if (enabled.has("worktrees")) {
     lines.push(
+      "- When the branch is behind main (the gate's merge check points here), bring " +
+        "main in with discern_integrate: it merges main into this worktree's branch " +
+        "and re-materializes the agent files + skills in one step. Just call it — you " +
+        "don't need to run git to check first. It is idempotent (a no-op when already " +
+        "up to date), never touches the main checkout, and performs every precondition " +
+        "itself, refusing cleanly with the exact next step (e.g. a dirty tree or a " +
+        "merge conflict). Reproducing its steps by hand is slower and usually " +
+        "unnecessary.",
+    );
+    lines.push(
       "- When a branch is finished and integrated — or the user signals a handoff " +
         '("graduate this", "I\'ll take it from here", "move this back to main") — ' +
         "graduate it with discern_graduate. Commit the work with a real message " +
-        "first, then run the tool (it is the single deterministic implementation — " +
-        "don't reproduce its git steps by hand) and relay the result. Pass " +
+        "first, then just call the tool (the single deterministic implementation — " +
+        "don't reproduce its git steps, and don't pre-flight preconditions with git: " +
+        "it refuses cleanly with the exact next step, e.g. run discern_integrate " +
+        "first) and relay its structured result. Pass " +
         'to:"trunk" to fast-forward the trunk and delete the branch, to:"branch" to ' +
         "leave it checked out for review, or omit it to use the project default.",
     );

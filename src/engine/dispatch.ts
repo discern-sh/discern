@@ -52,6 +52,7 @@ import { guidanceAgents } from "./guidance_render.ts";
 import {
   graduate,
   IdentityError,
+  integrate,
   type LifecycleContext,
   lifecycleContext,
   worktreeEnsure,
@@ -86,6 +87,7 @@ export const KNOWN_ENGINE_VERBS: ReadonlySet<string> = new Set([
   "changed-scopes",
   "status",
   "graduate",
+  "integrate",
   "worktree",
   "worktree-name",
   "skills",
@@ -108,6 +110,7 @@ export const ENGINE_RECIPE_NAMES: readonly string[] = [
   "changed-scopes",
   "status",
   "graduate",
+  "integrate",
   "worktree",
   "worktree-name",
   "worktree-create",
@@ -473,6 +476,26 @@ export function attachEngineCommands(
               to: to as GraduateTarget | undefined,
             }),
           { json, verb: "graduate" },
+        ),
+      );
+    });
+
+  root
+    .command("integrate")
+    .description(
+      "Bring the latest main into this worktree's branch and re-materialize the agent files + skills, in one step.",
+    )
+    .option(
+      "--json",
+      "Emit a machine-readable (plan, results) object on stdout.",
+    )
+    .option("--dry-run", "Show the integration plan; touch nothing.")
+    .action(async (o) => {
+      const json = o.json ?? false;
+      Deno.exit(
+        await runWorktreeOp(
+          (ctx) => integrate(ctx, { json, dryRun: o.dryRun ?? false }),
+          { json, verb: "integrate" },
         ),
       );
     });
