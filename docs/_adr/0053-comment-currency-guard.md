@@ -35,9 +35,9 @@ instance reads plausibly on its own.
 ## Decision
 
 Enforce the convention with a tree-walking architectural test,
-`tests/comment_currency_test.ts`, that **fails the gate** when a comment under
-`src/` narrates the codebase's past. The class is a checkable predicate, not a
-plea.
+`tests/comment_currency_test.ts`, that **fails the gate** when a comment in
+discern's code or its shipped config narrates the codebase's past. The class is
+a checkable predicate, not a plea.
 
 - **Predicate.** A curated set of _retrospective markers_ — general tense/aspect
   phrases (`used to`, `previously`, `formerly`, `the old`, `originally`, …) plus
@@ -45,8 +45,8 @@ plea.
   `single-binary
   refactor`, …) — matched **only inside comments**. A marker in
   a string literal, an identifier, or running code is left alone.
-- **Source of truth = the live tree.** The test walks `src/`, so a new file
-  auto-enrols with nothing to remember. The marker list is the _rule
+- **Source of truth = the live tree.** The test walks the scanned trees, so a
+  new file auto-enrols with nothing to remember. The marker list is the _rule
   definition_, not a member list to keep in sync.
 - **Precision over recall, deliberately.** A predicate over prose cannot be
   exact. It is tuned for **few false positives** so the guard stays trusted, at
@@ -62,9 +62,16 @@ plea.
   comment exempts it; the reason is mandatory and lands in the diff, so every
   exception is visible and justified at review. The default is to reword — in
   the end the cleanup needed **zero** suppressions.
-- **Scope = `src/` only.** `tests/` legitimately narrate the past they guard
-  against, `templates/` is the generic shipped surface, and `docs/` is where
-  history is supposed to live.
+- **Scope = the places a stale reference reaches a reader cold.** The TypeScript
+  under `src/` and `scripts/`, plus the `#`-comment surface of the shipped
+  config (`templates/discern.toml.tmpl`, the gitignore fragment) and this repo's
+  own root `discern.toml` — the config a prospective user reads first. Out of
+  scope by design, because narrating the past is correct there: `tests/` (they
+  narrate the past they guard against), `docs/` prose and `templates/`
+  guidance/skills (documenting history, ADR lifecycle, and troubleshooting
+  symptoms), and ADRs. The config surface was added after main's
+  worktree-placement change leaked "restores the old nesting" into the shipped
+  template — a regression the `src/`-only guard could not see.
 
 ### Reconciling with ADR 0051's "no denylist"
 
@@ -79,7 +86,7 @@ head-on. It is the **legitimate exception**, for three reasons:
    satellites should auto-enrol. English tense has no registry. The defect here
    is a _prose pattern_, and the only structural expression of a prose pattern
    is a predicate over the prose. The part that _can_ be derived — the set of
-   files scanned — **is** derived (the `src/` walk).
+   files scanned — **is** derived (the tree walks plus the listed config files).
 2. **The list is the rule, not relocated content.** ADR 0051's worry is that
    banning _domain words_ shoves the vocabulary you want to keep generic into
    test history, achieving nothing structural. Here the markers are not content
@@ -99,12 +106,12 @@ precision-tuned, and escapable with a reason).
 
 A **`deno lint` plugin** would run in the existing check stage and get
 AST-attached comments directly. Rejected in favour of an architectural test:
-self-contained, trivially self-tested (six cases pin the detector's own contract
-— string skipping, block- and `//`-run wrap detection, both suppression cases),
-and consistent with the house pattern (`dev_vocab_guard_test.ts`,
-`agent_agnostic_test.ts`). The comment extractor is a ~40-line scanner that
-skips string and template bodies so a `//` inside a URL is never read as a
-comment.
+self-contained, trivially self-tested (nine cases pin the detector's own
+contract — string skipping, `#` and `//` extraction, wrap detection, both
+suppression cases), and consistent with the house pattern
+(`dev_vocab_guard_test.ts`, `agent_agnostic_test.ts`). The comment extractor is
+a ~40-line scanner that skips string and template bodies so a `//` inside a URL
+is never read as a comment.
 
 ## Consequences
 
