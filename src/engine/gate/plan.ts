@@ -74,7 +74,8 @@ export interface GatePlan {
   /** The materialized-skills currency check (ADR 0034, extended to skills); true
    * when the `skills` feature is on. Blocks on a STALE skills dir, like guidance. */
   skillsCheck: boolean;
-  /** The merge check runs last (it self-skips in the main checkout). */
+  /** The merge check runs FIRST, as a fail-fast precondition (ADR 0050); it self-skips
+   * in the main checkout. Always true (the field gates its plan-listing, not its run). */
   mergeCheck: boolean;
   scopesChanged: string[];
 }
@@ -255,10 +256,10 @@ export function composeGatePlan(
  * Build the full gate plan from the typed config and the changed scopes (already
  * classified by the caller — the only read-only I/O). Pure given those inputs, so
  * the whole "what would the gate run" decision is unit-testable without a
- * subprocess. Mirrors the gate's order: fix (serial) → build → check∥test →
- * scope-gates, then a trailing merge check. Used by `--dry-run` (which classifies
- * scopes once, read-only); the apply path classifies scopes AFTER the stage groups
- * run and {@link composeGatePlan}s the same shape.
+ * subprocess. Mirrors the gate's order: a leading merge precondition (ADR 0050), then
+ * fix (serial) → build → check∥test → scope-gates → currency checks. Used by
+ * `--dry-run` (which classifies scopes once, read-only); the apply path classifies
+ * scopes AFTER the stage groups run and {@link composeGatePlan}s the same shape.
  */
 export function buildGatePlan(cfg: DiscernConfig, changed: string[]): GatePlan {
   return composeGatePlan(
@@ -375,13 +376,23 @@ export function buildGateResult(
 
 /**
  * Project a gate plan onto the common {@link EnginePlan} the shared renderer
- * prints. Each job becomes a step grouped by its stage; a firing job is `run`, an
- * unchanged scope gate is `skip`. A trailing `gate` step stands for the merge
- * check. Honest by construction: capabilities/checks render as "run" — fail-fast
- * may still skip some, which a plan cannot predict.
+ * prints. A leading `gate` step stands for the merge check (a fail-fast precondition
+ * — ADR 0050); each job then becomes a step grouped by its stage, a firing job `run`,
+ * an unchanged scope gate `skip`; the trailing currency `gate` steps follow. Honest
+ * by construction: capabilities/checks render as "run" — fail-fast may still skip
+ * some, which a plan cannot predict.
  */
 export function gatePlanToEngine(plan: GatePlan): EnginePlan {
   const steps: PlanStep[] = [];
+  if (plan.mergeCheck) {
+    steps.push({
+      kind: "merge-check",
+      label: "merge-check",
+      disposition: "gate",
+      note:
+        "verify this branch contains the integration branch before running the gate (no-op in main)",
+    });
+  }
   for (const group of plan.groups) {
     for (const j of group.jobs) {
       steps.push({
@@ -409,15 +420,6 @@ export function gatePlanToEngine(plan: GatePlan): EnginePlan {
       disposition: "gate",
       note:
         "verify the materialized skills match the effective set (`discern refresh` if stale)",
-    });
-  }
-  if (plan.mergeCheck) {
-    steps.push({
-      kind: "merge-check",
-      label: "merge-check",
-      disposition: "gate",
-      note:
-        "verify this branch contains the integration branch (no-op in main)",
     });
   }
   const changed = plan.scopesChanged.length > 0

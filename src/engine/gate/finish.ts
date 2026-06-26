@@ -173,17 +173,36 @@ async function runGate(
   const results = new Map<string, JobResult>();
   let failedStage: string | null = null;
 
-  // 1. Run the capability/check stage groups (fix → build → check∥test). These do
-  //    not depend on the changed scopes, so they run first. The fix stage MUTATES the
-  //    tree; snapshot the working-tree dirty set immediately before and after it so the
-  //    tail (step 4c) can flag a fixer that reformatted a committed-clean file — the
-  //    uncommitted fixer output a green gate would otherwise hide until graduate
-  //    (ADR 0047). Skip the snapshots entirely when no fix stage is wired.
+  // 1. Merge precondition — checked FIRST and fail-fast (ADR 0050). The merge-base
+  //    relationship is invariant across the gate (finish never fetches or commits, so
+  //    neither HEAD nor main moves), so checking here gives the SAME answer as checking
+  //    last would — but a branch behind main must integrate and re-run regardless,
+  //    which discards whatever the gate computed against the pre-integration tree.
+  //    Front-loading it skips the expensive fix/build/check/test in exactly that case.
+  //    No-op in the main checkout / outside a worktree (assertMainMerged self-skips),
+  //    so the happy path pays one extra `merge-base --is-ancestor` and nothing more.
+  const mainBranch = Deno.env.get("MAIN_BRANCH") || cfg.project.main_branch;
+  if ((await assertMainMerged(root, mainBranch)).kind === "behind") {
+    failedStage = "merge";
+  }
+
+  // 2. Run the capability/check stage groups (fix → build → check∥test). These do
+  //    not depend on the changed scopes, so they run before scope classification. The
+  //    fix stage MUTATES the tree; snapshot the working-tree dirty set immediately
+  //    before and after it so the tail (step 6c) can flag a fixer that reformatted a
+  //    committed-clean file — the uncommitted fixer output a green gate would otherwise
+  //    hide until graduate (ADR 0047). Skip the snapshots when no fix stage is wired, or
+  //    when the merge precondition already failed (nothing downstream runs).
   const stageGroups = buildStageGroups(cfg);
   const hasFix = stageGroups.some((g) => g.stage === "fix");
-  const dirtyBeforeFix = hasFix ? await worktreeDirtyPaths(root) : null;
+  const dirtyBeforeFix = hasFix && failedStage === null
+    ? await worktreeDirtyPaths(root)
+    : null;
   let dirtyAfterFix: Set<string> | null = null;
   for (const group of stageGroups) {
+    if (failedStage !== null) {
+      break;
+    }
     if (!(await runGroup(group, results, runOpts, out))) {
       failedStage = group.stage;
       break;
@@ -193,20 +212,22 @@ async function runGate(
     }
   }
 
-  // 2. Classify the changed scopes AFTER the stage groups — preserving the gate's
+  // 3. Classify the changed scopes AFTER the stage groups — preserving the gate's
   //    original timing, so a fix-stage edit is reflected and scope selection keeps
   //    its fail-open bias (it never runs FEWER gates than the post-fix tree warrants).
+  //    Computed even when the merge precondition failed, so the result still lists the
+  //    scopes (their gates serialize as skipped, like every other downstream step).
   const changed = await changedScopes(root, cfg);
   const sgGroup = scopeGatesGroup(planScopeGates(cfg, changed));
 
-  // 3. Scope gates (only when the stage groups passed).
+  // 4. Scope gates (only when the stage groups passed).
   if (failedStage === null && sgGroup !== undefined) {
     if (!(await runGroup(sgGroup, results, runOpts, out))) {
       failedStage = "scope_gates";
     }
   }
 
-  // 4. Generated-artifacts currency (ADR 0034): block a STALE agent file — one
+  // 5. Generated-artifacts currency (ADR 0034): block a STALE agent file — one
   //    present but no longer matching what `discern refresh` would write (a
   //    hand-edit, or an un-refreshed source/config change). A MISSING file is not a
   //    failure here: an untracked artifact is legitimately absent on a fresh
@@ -222,7 +243,7 @@ async function runGate(
     }
   }
 
-  // 4b. Materialized-skills currency (ADR 0034, extended to skills): block a STALE
+  // 5b. Materialized-skills currency (ADR 0034, extended to skills): block a STALE
   //     skills dir — one drifted from the effective set (a hand-edited copy, a
   //     lingering managed entry, an un-refreshed change). MISSING (the whole dir
   //     absent on a fresh checkout) and FOREIGN (an unmanaged drop-in) do NOT block,
@@ -238,14 +259,13 @@ async function runGate(
     }
   }
 
-  // 4c. Fix-stage strand detection (ADR 0034's sibling, ADR 0047): the fix stage may
+  // 5c. Fix-stage strand detection (ADR 0034's sibling, ADR 0047): the fix stage may
   //     MUTATE the tree (that's its job), but a clean gate must not hide uncommitted
   //     fixer output. Flag only files that were CLEAN at finish-start and the fix stage
   //     dirtied (D1 \ D0) — so a fixer reworking the agent's own uncommitted edits (the
   //     inner loop) never trips, only one reformatting an already-COMMITTED file does.
   //     That stranded set is exactly what graduate would otherwise scoop up staged-but-
-  //     uncommitted in the main checkout. Runs before the merge check: commit the fixer
-  //     output before integrating main.
+  //     uncommitted in the main checkout — commit the fixer output before you finish.
   let fixDriftDiag: Diagnostic | undefined;
   if (
     failedStage === null && dirtyBeforeFix !== null && dirtyAfterFix !== null
@@ -254,14 +274,6 @@ async function runGate(
     if (stranded.length > 0) {
       failedStage = "fix_drift";
       fixDriftDiag = await fixDriftDiagnostic(root, stranded);
-    }
-  }
-
-  // 5. Merge check (no-op in the main checkout / outside a worktree).
-  if (failedStage === null) {
-    const mainBranch = Deno.env.get("MAIN_BRANCH") || cfg.project.main_branch;
-    if ((await assertMainMerged(root, mainBranch)).kind === "behind") {
-      failedStage = "merge";
     }
   }
 
@@ -363,9 +375,9 @@ function printSuccessTail(cfg: DiscernConfig, out: Out, hints: string[]): void {
 }
 
 /**
- * Print the gate plan without running it (`--dry-run`): the wired job groups, the
- * scope-gates selected for the changed scopes, and the trailing merge check. Honest
- * — it lists "what would run"; it cannot predict which jobs fail-fast would skip.
+ * Print the gate plan without running it (`--dry-run`): the leading merge check, the
+ * wired job groups, and the scope-gates selected for the changed scopes. Honest —
+ * it lists "what would run"; it cannot predict which jobs fail-fast would skip.
  */
 async function dryRunGate(
   root: string,
