@@ -2,14 +2,13 @@
  * Measure `src/` line coverage and emit it as a discern ratchet metric.
  *
  * This is the measurement command behind `[ratchets.coverage]` (see ADR 0003 and
- * `.discern/config.toml`). The harness runs it on demand via `discern ratchets`,
+ * `discern.toml`). The harness runs it on demand via `discern ratchets`,
  * scans the output for the LAST `DISCERN_METRIC coverage <number>` line, and holds
  * it at or above the configured floor.
  *
  * It runs the full suite under Deno coverage, then computes line coverage over
- * `src/` — both the installer AND the TypeScript engine (`src/engine/**`), which
- * the single-binary cutover (ADR 0019) moved into `src/`, so both are now
- * instrumented by the same number. (`runCli` subprocesses count too: Deno
+ * `src/` — both the installer AND the TypeScript engine (`src/engine/**`), all
+ * one tree, instrumented by the same number. (`runCli` subprocesses count too: Deno
  * propagates the coverage dir to child `deno` processes via the environment.)
  *
  * Usage: `deno task coverage` (the `[ratchets.coverage]` run command). Prints the

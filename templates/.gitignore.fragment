@@ -12,7 +12,7 @@
 # Everything under .claude/ is generated or ephemeral — chiefly the materialized
 # skills (.claude/skills/, copied/symlinked by `discern refresh`) — EXCEPT your
 # settings, which are tracked. (Worktree checkouts default to a sibling dir
-# OUTSIDE the repo now, so they no longer need fencing here; a project that points
+# OUTSIDE the repo, so they need no fencing here; a project that points
 # [worktree].root back inside the repo at .claude/worktrees keeps them ignored by
 # this rule.)
 /.claude/*

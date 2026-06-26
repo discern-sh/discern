@@ -27,10 +27,14 @@
  * diff, so every exception is visible and justified at review — the opposite of
  * a silent denylist. Reach for it sparingly; the default is to reword.
  *
- * Scope: `src/` only (the shipped engine + installer). `tests/` legitimately
- * narrate the past they guard against, `templates/` is generic shipped guidance,
- * and `docs/` is where history is supposed to live — all out of scope by design.
- * The file set is the live tree under `src/`, walked here, so a new source file
+ * Scope: the TypeScript under `src/` and `scripts/`, plus the `#`-comment surface
+ * of the shipped config (`templates/discern.toml.tmpl`, the gitignore fragment)
+ * and this repo's own root `discern.toml` — the places a stale reference reaches
+ * a reader with no context for discern's internal history. Out of scope by
+ * design: `tests/` (they legitimately narrate the past they guard), and `docs/`
+ * prose plus `templates/` guidance/skills (where documenting history, ADR
+ * lifecycle, and troubleshooting symptoms is the correct thing to do), and ADRs.
+ * The trees are walked and the config files listed here, so a new source file
  * auto-enrols with nothing to remember.
  */
 
@@ -39,7 +43,20 @@ import { walk } from "@std/fs";
 import { dirname, fromFileUrl, join, relative } from "@std/path";
 
 const REPO_ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
-const SRC = join(REPO_ROOT, "src");
+
+/** TypeScript trees scanned for backward-looking `//` and block comments. */
+const TS_ROOTS = [join(REPO_ROOT, "src"), join(REPO_ROOT, "scripts")];
+
+/**
+ * `#`-commented files scanned the same way — the shipped config surface every
+ * install receives, plus this repo's own config: the places a stale reference
+ * reaches a reader with no context for discern's internal history.
+ */
+const HASH_FILES = [
+  "templates/discern.toml.tmpl",
+  "templates/.gitignore.fragment",
+  "discern.toml",
+];
 
 /** The inline annotation that exempts one comment, with a mandatory reason. */
 const SUPPRESS = "discern-allow-retrospective:";
@@ -243,14 +260,62 @@ function undecorate(line: string): string {
 }
 
 /**
- * Every backward-looking, un-suppressed comment line in one source file. A
- * marker is caught whether it sits on one line or wraps across a line break
- * (`Mirrors\n * the shell …`), and is reported at the line where it begins.
+ * Pull `#`-style comments out of a TOML / gitignore file, skipping a `#` that
+ * sits inside a quoted string so `key = "a#b"` is not read as a comment. A run
+ * of consecutive comment lines becomes one unit, so a marker that wraps across
+ * the break is still caught — the same contract as the TypeScript extractor.
  */
-export function scanSource(src: string): CommentViolation[] {
+export function extractHashComments(src: string): CommentUnit[] {
+  const out: CommentUnit[] = [];
+  const rows = src.split("\n");
+  let lines: string[] | null = null;
+  let startLine = 0;
+  for (let idx = 0; idx < rows.length; idx++) {
+    const comment = hashCommentText(rows[idx] ?? "");
+    if (comment === null) {
+      if (lines) {
+        out.push({ startLine: startLine + 1, lines });
+        lines = null;
+      }
+      continue;
+    }
+    if (lines === null) {
+      lines = [];
+      startLine = idx;
+    }
+    lines.push(comment);
+  }
+  if (lines !== null) out.push({ startLine: startLine + 1, lines });
+  return out;
+}
+
+/** The text after the first unquoted `#` on a line, or null when there is none. */
+function hashCommentText(line: string): string | null {
+  let quote: '"' | "'" | null = null;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (quote !== null) {
+      if (c === quote) quote = null;
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      quote = c;
+      continue;
+    }
+    if (c === "#") return line.slice(i + 1);
+  }
+  return null;
+}
+
+/**
+ * Every backward-looking, un-suppressed comment line across a set of comment
+ * units. A marker is caught whether it sits on one line or wraps across a line
+ * break (`Mirrors\n * the shell …`), and is reported where it begins.
+ */
+export function scanUnits(units: CommentUnit[]): CommentViolation[] {
   const out: CommentViolation[] = [];
   const seen = new Set<string>();
-  for (const unit of extractComments(src)) {
+  for (const unit of units) {
     if (isSuppressed(unit)) continue;
     const lines = unit.lines.map(undecorate);
     for (let i = 0; i < lines.length; i++) {
@@ -278,21 +343,40 @@ export function scanSource(src: string): CommentViolation[] {
   return out;
 }
 
-Deno.test("src/ comments describe current behaviour, not the codebase's past", async () => {
+/** Backward-looking comments in TypeScript source (`//` and block comments). */
+export function scanSource(src: string): CommentViolation[] {
+  return scanUnits(extractComments(src));
+}
+
+/** Backward-looking comments in a `#`-commented config file. */
+export function scanHashSource(src: string): CommentViolation[] {
+  return scanUnits(extractHashComments(src));
+}
+
+Deno.test("comments describe current behaviour, not the codebase's past", async () => {
   const offenders: string[] = [];
-  for await (const entry of walk(SRC, { includeDirs: false, exts: [".ts"] })) {
-    const src = await Deno.readTextFile(entry.path);
-    const rel = relative(REPO_ROOT, entry.path);
-    for (const v of scanSource(src)) {
+  for (const root of TS_ROOTS) {
+    for await (
+      const entry of walk(root, { includeDirs: false, exts: [".ts"] })
+    ) {
+      const rel = relative(REPO_ROOT, entry.path);
+      for (const v of scanSource(await Deno.readTextFile(entry.path))) {
+        offenders.push(`${rel}:${v.line}  [${v.marker}]  ${v.text}`);
+      }
+    }
+  }
+  for (const rel of HASH_FILES) {
+    const src = await Deno.readTextFile(join(REPO_ROOT, rel));
+    for (const v of scanHashSource(src)) {
       offenders.push(`${rel}:${v.line}  [${v.marker}]  ${v.text}`);
     }
   }
   assertEquals(
     offenders,
     [],
-    `backward-looking comment(s) in src/ — describe what the code does now, ` +
-      `move history to docs/ADRs, or annotate "${SUPPRESS} <reason>" if the ` +
-      `reference is genuinely load-bearing:\n  ${offenders.join("\n  ")}`,
+    `backward-looking comment(s) — describe what the code does now, move history ` +
+      `to docs/ADRs, or annotate "${SUPPRESS} <reason>" if the reference is ` +
+      `genuinely load-bearing:\n  ${offenders.join("\n  ")}`,
   );
 });
 
@@ -334,4 +418,18 @@ Deno.test("a run of // lines reads as one comment, catching a wrapped marker", (
   const src =
     `// an install carried a committed shell\n// engine tree no fresh one has\nconst x = 1;\n`;
   assertEquals(scanSource(src).length, 1);
+});
+
+Deno.test("hash scan flags a backward-looking config comment", () => {
+  assertEquals(scanHashSource(`root = ""  # the old default\n`).length, 1);
+});
+
+Deno.test("hash scan reads the comment, not the quoted value", () => {
+  // "the old" sits in the value and the # inside it is not a comment opener.
+  assertEquals(scanHashSource(`name = "the old value"  # current\n`), []);
+});
+
+Deno.test("hash scan reads a run of # lines as one comment (wrap)", () => {
+  const src = `# the worktree used\n# to live nested in the repo\n`;
+  assertEquals(scanHashSource(src).length, 1);
 });

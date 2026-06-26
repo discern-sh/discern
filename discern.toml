@@ -168,8 +168,8 @@ neutral = true
 #       and adjacent, never nested inside the checkout (a worktree nested in its
 #       own repo is an anti-pattern: recursive tools double-count it, and walking
 #       up to the repo root mis-resolves the worktree's .git file).
-#   a RELATIVE path resolves against the repo root (".claude/worktrees" restores
-#       the old nesting; "../wts" a custom sibling).
+#   a RELATIVE path resolves against the repo root (".claude/worktrees" nests
+#       them inside the repo; "../wts" a custom sibling).
 #   an ABSOLUTE path is used as-is.
 root = ""
 enabled = true
@@ -268,11 +268,10 @@ steps = ["vale sync"]   # e.g. ["npm ci", "npm run build"]
 
 # Coverage ratchet — hold src/ line coverage at or above a rising floor. The run
 # executes the suite under Deno coverage and emits DISCERN_METRIC coverage <pct>
-# for src/ (the installer AND the TS engine — both instrumented now). Held by
-# `discern ratchets`, enforced on every PR in CI. NOTE: the floor was re-baselined
-# downward at the single-binary cutover (ADR 0019) — the engine moved into src/ and
-# became instrumented, so the same suite now covers a larger tree. Ratchet it back
-# up as coverage improves (see TODO.md).
+# for src/ (the installer AND the TS engine — both instrumented). Held by
+# `discern ratchets`, enforced on every PR in CI. The floor spans the whole src/
+# tree, so it covers a large surface; ratchet it back up as coverage improves
+# (see TODO.md).
 [ratchets.coverage]
 direction = "up"
 limit     = 87
