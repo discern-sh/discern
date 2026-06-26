@@ -28,7 +28,7 @@ the Worktree on its own `agent/` branch at the sibling location, sets it up, and
 reports the path to move into — the agent-initiated counterpart to the
 `WorktreeCreate` hook, and the first-class alternative to squatting in another
 line of work's Worktree
-([ADR 0057](../_adr/0057-start-verb-spawn-worktree-from-trunk.md)). It only ever
+([ADR 0058](../_adr/0058-start-verb-spawn-worktree-from-trunk.md)). It only ever
 _creates_ a Worktree to inhabit; it never adopts or prunes an existing one. When
 `main` advances under a long-running Worktree,
 [`integrate`](../../src/engine/worktree/lifecycle.ts) brings it into the branch
@@ -89,6 +89,6 @@ inspectable before they act.
 - [ADR 0055](../_adr/0055-integrate-verb.md) — `integrate`, the third verb in
   the worktree lifecycle: bring `main` into the branch and re-materialize in one
   deterministic step.
-- [ADR 0057](../_adr/0057-start-verb-spawn-worktree-from-trunk.md) — `start`,
+- [ADR 0058](../_adr/0058-start-verb-spawn-worktree-from-trunk.md) — `start`,
   the verb that spawns a Worktree from the main checkout, and the
   `discern status` guardrail that points an agent on the trunk at it.

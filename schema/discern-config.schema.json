@@ -279,6 +279,77 @@
               }
             ],
             "description": "The command whose output emits the metric line: DISCERN_METRIC <metric> <number>."
+          },
+          "per": {
+            "description": "Divide the metric by this to ratchet a *rate*, not a raw count — so the number doesn't rise just because the project grew. Either a second metric the run emits, or a built-in extent discern measures itself: per = { words = \"docs/**\" } (files | lines | words | bytes over a git pathspec).",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "files": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    ]
+                  },
+                  "lines": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    ]
+                  },
+                  "words": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    ]
+                  },
+                  "bytes": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            ]
+          },
+          "scale": {
+            "default": 1,
+            "description": "Multiply the rate by this so the limit reads in human units, e.g. scale = 1000 for \"per 1,000 words\".",
+            "type": "number"
           }
         },
         "required": [

@@ -1,4 +1,4 @@
-# ADR 0057: `discern start` — spawn a worktree from the main checkout, and a status guardrail that points at it
+# ADR 0058: `discern start` — spawn a worktree from the main checkout, and a status guardrail that points at it
 
 **Status**: accepted. Completes the entry of the worktree lifecycle alongside
 [ADR 0011](0011-adopt-worktree-workflow.md) (the workflow), respects the

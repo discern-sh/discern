@@ -13,11 +13,12 @@
  * (plan, results) through the shared renderer.
  */
 
-import { loadConfig } from "../../shared/config_schema.ts";
+import { type Extent, loadConfig } from "../../shared/config_schema.ts";
 import { RawConfig } from "../../shared/config_read.ts";
 import { colorEnabled, makeOut, type Out, outSink } from "../output.ts";
 import {
   buildRatchetPlan,
+  perNote,
   type PlannedRatchet,
   type RatchetPlan,
   ratchetPlanToEngine,
@@ -96,6 +97,58 @@ async function measure(command: string): Promise<string> {
   return dec.decode(r.stdout) + dec.decode(r.stderr);
 }
 
+/** The last emitted `DISCERN_METRIC <name>` value as a number, or undefined when
+ * absent or non-numeric — reads a `per` denominator the run emits. */
+function readEmittedNumber(output: string, name: string): number | undefined {
+  const s = extractMetric(output, name);
+  return s !== undefined && isNumber(s) ? Number(s) : undefined;
+}
+
+/**
+ * Measure a built-in extent — a universal, stack-neutral text size over the
+ * project's TRACKED files (`git ls-files`, so .gitignore is honored and the count
+ * is deterministic). This is the denominator behind `per = { <measure> = <glob> }`,
+ * letting the `run` emit only the numerator. Returns 0 when the pathspec matches
+ * nothing (the caller reports that as a config error, not a divide-by-zero).
+ */
+async function measureExtent(
+  root: string,
+  measure: Extent,
+  globs: string[],
+): Promise<number> {
+  const res = await runGit(["ls-files", "-z", "--", ...globs], { cwd: root });
+  if (!res.success) {
+    return 0;
+  }
+  const files = res.stdout.split("\0").filter((p) => p !== "");
+  if (measure === "files") {
+    return files.length;
+  }
+  let total = 0;
+  for (const rel of files) {
+    const path = `${root}/${rel}`;
+    if (measure === "bytes") {
+      const st = await Deno.stat(path).catch(() => undefined);
+      if (st) total += st.size;
+      continue;
+    }
+    const text = await Deno.readTextFile(path).catch(() => undefined);
+    if (text === undefined) {
+      continue;
+    }
+    total += measure === "lines"
+      ? (text.match(/\n/g) ?? []).length
+      : text.split(/\s+/).filter((t) => t !== "").length;
+  }
+  return total;
+}
+
+/** Format a ratcheted value compactly: integers bare, otherwise up to two decimals
+ * with trailing zeros trimmed (18.699… → "18.7", 18 → "18"). */
+function fmtRate(n: number): string {
+  return Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/\.?0+$/, "");
+}
+
 /** Check one planned ratchet. Prints its own pass/fail line; returns held/failed.
  * The ratchet is already schema-validated (direction ∈ up|down, limit a number,
  * run present), so its structural checks are folded into the schema. */
@@ -105,7 +158,7 @@ async function ratchetCheck(
   mainBranch: string,
   out: Out,
 ): Promise<boolean> {
-  const { name, metric, direction, limit, command, limitKey } = r;
+  const { name, metric, direction, limit, command, limitKey, per, scale } = r;
 
   // never loosened vs main
   const main = await ratchetMainValue(root, mainBranch, limitKey);
@@ -131,7 +184,11 @@ async function ratchetCheck(
     );
     return false;
   }
-  out.heading(`Measuring ${metric} (${direction}, limit ${limit})...`);
+  out.heading(
+    `Measuring ${metric} (${direction}, limit ${limit}${
+      perNote(per, scale)
+    })...`,
+  );
   const output = await measure(command);
   out.raw(output.endsWith("\n") || output === "" ? output : `${output}\n`);
 
@@ -150,26 +207,66 @@ async function ratchetCheck(
   }
   const measured = Number(measuredStr);
 
-  // compare measured vs limit (epsilon tolerance)
-  if (direction === "up") {
-    if (measured + 1e-9 < limit) {
+  // Normalize to a rate when `per` is set: value = metric / denominator * scale, so
+  // a growing tree never breaches the limit on its own. `breakdown` shows the raw
+  // numbers behind the rate; for a plain count it is empty and `value` is `measured`.
+  let value = measured;
+  let breakdown = "";
+  if (per !== undefined) {
+    let denom: number;
+    if (per.kind === "metric") {
+      const d = readEmittedNumber(output, per.metric);
+      if (d === undefined) {
+        out.error(
+          `ratchet '${name}': could not read 'per' metric '${per.metric}'. Emit a line: DISCERN_METRIC ${per.metric} <number>.`,
+        );
+        return false;
+      }
+      denom = d;
+    } else {
+      denom = await measureExtent(root, per.measure, per.globs);
+    }
+    if (denom <= 0) {
+      const what = per.kind === "metric"
+        ? `'per' metric '${per.metric}' is ${denom}`
+        : `${per.measure} over ${per.globs.join(", ")} measured 0`;
       out.error(
-        `ratchet '${name}': ${metric} ${measuredStr} is below the floor ${limit}. Improve it; never lower the floor.`,
+        `ratchet '${name}': cannot ratchet a rate — ${what} (nothing to divide by). Check the 'per' pathspec/metric.`,
+      );
+      return false;
+    }
+    value = (measured / denom) * scale;
+    breakdown = ` (${measuredStr} per ${denom}${
+      per.kind === "extent" ? ` ${per.measure}` : ""
+    }${scale === 1 ? "" : ` ×${scale}`})`;
+  }
+  const shown = per !== undefined ? fmtRate(value) : measuredStr;
+
+  // compare the value (rate or count) vs limit (epsilon tolerance)
+  if (direction === "up") {
+    if (value + 1e-9 < limit) {
+      out.error(
+        `ratchet '${name}': ${metric} ${shown} is below the floor ${limit}${breakdown}. Improve it; never lower the floor.`,
       );
       return false;
     }
     out.ok(
-      `ratchet '${name}': ${metric} ${measuredStr} meets the floor ${limit}.`,
+      `ratchet '${name}': ${metric} ${shown} meets the floor ${limit}${breakdown}.`,
     );
   } else {
-    if (measured - 1e-9 > limit) {
+    if (value - 1e-9 > limit) {
+      // A raw-count ceiling that a growing tree can breach on its own is the classic
+      // trap — point at the fix the moment it bites.
+      const growHint = per === undefined
+        ? " If this counts items over a tree you grow, it rises with size — ratchet a rate instead (add `per`)."
+        : "";
       out.error(
-        `ratchet '${name}': ${metric} ${measuredStr} exceeds the ceiling ${limit}. Bring it down; never raise the ceiling.`,
+        `ratchet '${name}': ${metric} ${shown} exceeds the ceiling ${limit}${breakdown}. Bring it down; never raise the ceiling.${growHint}`,
       );
       return false;
     }
     out.ok(
-      `ratchet '${name}': ${metric} ${measuredStr} within the ceiling ${limit}.`,
+      `ratchet '${name}': ${metric} ${shown} within the ceiling ${limit}${breakdown}.`,
     );
   }
   return true;

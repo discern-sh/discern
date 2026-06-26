@@ -1,7 +1,8 @@
 # ADR 0003: Named metric ratchets, with an explicit metric-emission convention
 
 **Status**: accepted; **amended by the 1.0 redesign** — see _Update (1.0)_
-below.
+below. **Extended by [ADR 0057](0057-rate-ratchets.md)** — an optional `per`
+denominator so a ratchet can hold a rate, not just a raw count.
 
 ## Update (1.0)
 

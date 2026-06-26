@@ -13,16 +13,26 @@
 
 import {
   type DiscernConfig,
+  type Extent,
+  EXTENTS,
   type RatchetConfig,
   toCommand,
 } from "../../shared/config_schema.ts";
 import type { EnginePlan, PlanStep } from "../../shared/result.ts";
 
+/** The denominator that turns a raw count into a rate, resolved to the shape the
+ * executor acts on: either a second emitted metric, or a built-in extent discern
+ * measures itself over a set of git pathspecs. */
+export type PerSpec =
+  | { kind: "metric"; metric: string }
+  | { kind: "extent"; measure: Extent; globs: string[] };
+
 /**
  * One ratchet as planned: the resolved fields the executor reads, lifted out of
  * the schema-validated spec. `metric` defaults to the ratchet name; `command` is
  * the spec's `run` flattened; `limitKey` is the dotted key read from main's config
- * for the never-loosen baseline.
+ * for the never-loosen baseline. `per`/`scale` make the measured value a rate
+ * (`metric / per * scale`) so a growing tree never breaches the limit on its own.
  */
 export interface PlannedRatchet {
   name: string;
@@ -34,6 +44,29 @@ export interface PlannedRatchet {
   command: string;
   /** The dotted config key compared to main (`ratchets.<name>.limit`). */
   limitKey: string;
+  /** The denominator, when ratcheting a rate rather than a raw count. */
+  per?: PerSpec;
+  /** Multiplier applied to the rate so the limit reads in human units (default 1). */
+  scale: number;
+}
+
+/** Normalize a schema-validated `per` into the executor's {@link PerSpec}. A string
+ * names a second emitted metric; an object names exactly one built-in extent (the
+ * schema guarantees exactly one), whose value is one or more git pathspecs. */
+function resolvePer(per: RatchetConfig["per"]): PerSpec | undefined {
+  if (per === undefined) return undefined;
+  if (typeof per === "string") return { kind: "metric", metric: per };
+  for (const measure of EXTENTS) {
+    const globs = per[measure];
+    if (globs !== undefined) {
+      return {
+        kind: "extent",
+        measure,
+        globs: typeof globs === "string" ? [globs] : globs,
+      };
+    }
+  }
+  return undefined; // unreachable: the schema requires exactly one extent
 }
 
 /**
@@ -53,16 +86,31 @@ export interface RatchetPlan {
  */
 export function buildRatchetPlan(cfg: DiscernConfig): RatchetPlan {
   const ratchets: PlannedRatchet[] = Object.entries(cfg.ratchets).map(
-    ([name, spec]: [string, RatchetConfig]) => ({
-      name,
-      metric: spec.metric ?? name,
-      direction: spec.direction,
-      limit: spec.limit,
-      command: toCommand(spec.run),
-      limitKey: `ratchets.${name}.limit`,
-    }),
+    ([name, spec]: [string, RatchetConfig]) => {
+      const per = resolvePer(spec.per);
+      return {
+        name,
+        metric: spec.metric ?? name,
+        direction: spec.direction,
+        limit: spec.limit,
+        command: toCommand(spec.run),
+        limitKey: `ratchets.${name}.limit`,
+        scale: spec.scale,
+        ...(per !== undefined ? { per } : {}),
+      };
+    },
   );
   return { ratchets };
+}
+
+/** A human suffix for a ratchet's denominator, e.g. " per 1000 words in docs/**"
+ * or " per <metric>". Empty when the ratchet is a raw count. */
+export function perNote(per: PerSpec | undefined, scale: number): string {
+  if (per === undefined) return "";
+  const factor = scale === 1 ? "" : `${scale} `;
+  return per.kind === "metric"
+    ? ` per ${factor}${per.metric}`
+    : ` per ${factor}${per.measure} in ${per.globs.join(", ")}`;
 }
 
 /**
@@ -77,7 +125,7 @@ export function ratchetPlanToEngine(plan: RatchetPlan): EnginePlan {
     kind: "ratchet",
     label: r.name,
     disposition: "run",
-    note: `${r.direction}, limit ${r.limit}`,
+    note: `${r.direction}, limit ${r.limit}${perNote(r.per, r.scale)}`,
   }));
   return {
     title: "Ratchets plan",

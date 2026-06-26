@@ -528,6 +528,32 @@ const RATCHETS: Category = {
         };
       },
     },
+    {
+      kind: "subjective",
+      id: "ratchets.normalize",
+      title: "No raw count ratcheted over a growing tree",
+      ask:
+        "Do any ceiling ratchets count items over a tree that grows over time — lint " +
+        "alerts, TODOs, type errors, doc nits? A raw count rises with the project, so it " +
+        "fails on growth, not regressions, and the only way to pass is to loosen it. Ratchet " +
+        "a rate instead: add `per` to divide by a built-in extent (files|lines|words|bytes).",
+      teach:
+        "A count is safe to ratchet only when it doesn't scale with project size (a true " +
+        "budget, like shipped bytes). If it grows as you add code or docs, normalize it: " +
+        '`per = { words = "docs/**" }` ratchets alerts-per-word, so growth alone never ' +
+        "breaches the ceiling — only a real quality regression does.",
+      against: (ctx): { source: string; excerpt: string } | undefined => {
+        const raw = Object.entries(ctx.config.ratchets)
+          .filter(([, r]) => r.direction === "down" && r.per === undefined)
+          .map(([name]) => name);
+        return {
+          source: "[ratchets]",
+          excerpt: raw.length === 0
+            ? "no un-normalized ceiling counts"
+            : `raw ceiling counts (candidates for \`per\`): ${raw.join(", ")}`,
+        };
+      },
+    },
   ],
 };
 

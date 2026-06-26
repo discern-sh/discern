@@ -93,6 +93,36 @@ const commandOrList = z.union([z.string(), z.array(z.string())]).describe(
   "A single command, or a list of commands run in order.",
 );
 
+/** A git pathspec, or a list of them — the extent a built-in `per` measures over. */
+const globOrList = z.union([z.string(), z.array(z.string())]);
+
+/** The built-in extents a ratchet's `per` can divide by — universal, stack-neutral
+ * text measures over a git pathspec. discern counts these itself, so the `run`
+ * emits only the numerator. The single source of truth for the set; the plan and
+ * executor import {@link Extent} from here so a new measure enrolls in one place. */
+export const EXTENTS = ["files", "lines", "words", "bytes"] as const;
+export type Extent = (typeof EXTENTS)[number];
+// `satisfies Record<Extent, …>` pins the object's keys to EXTENTS at compile time:
+// a measure added to EXTENTS with no key here (or a key here not in EXTENTS) fails
+// `deno check`, so the set and its schema shape can never drift. Exactly one key
+// may be set — the refine enforces that, iterating the same EXTENTS list.
+const perExtent = z.strictObject(
+  {
+    files: globOrList.optional(),
+    lines: globOrList.optional(),
+    words: globOrList.optional(),
+    bytes: globOrList.optional(),
+  } satisfies Record<Extent, z.ZodType>,
+).refine(
+  (o) => EXTENTS.filter((k) => o[k] !== undefined).length === 1,
+  { message: `per must name exactly one extent: ${EXTENTS.join(" | ")}.` },
+);
+
+/** A ratchet's denominator. Turn a raw count into a *rate* so the number doesn't
+ * rise just because the project grew. Either the name of a second metric the `run`
+ * emits, or a built-in extent discern measures itself, e.g. `per = { words = "docs/**" }`. */
+const perValue = z.union([z.string(), perExtent]);
+
 /** The gate stages a `[checks.<name>].stage` may name. */
 const stageEnum = z.enum(STAGES);
 
@@ -132,6 +162,15 @@ const ratchetValue = z.strictObject({
   limit: z.number().describe("The floor (up) or ceiling (down)."),
   run: commandOrList.describe(
     "The command whose output emits the metric line: DISCERN_METRIC <metric> <number>.",
+  ),
+  per: perValue.optional().describe(
+    "Divide the metric by this to ratchet a *rate*, not a raw count — so the number " +
+      "doesn't rise just because the project grew. Either a second metric the run emits, " +
+      'or a built-in extent discern measures itself: per = { words = "docs/**" } ' +
+      "(files | lines | words | bytes over a git pathspec).",
+  ),
+  scale: z.number().default(1).describe(
+    'Multiply the rate by this so the limit reads in human units, e.g. scale = 1000 for "per 1,000 words".',
   ),
 });
 
@@ -310,7 +349,7 @@ const ratchetsSection = z.record(z.string().regex(NAME_RE), ratchetValue)
   .default(
     {},
   ).describe(
-    "[ratchets.<name>] — never-loosen quality floors, enforced on demand by `discern ratchets` (slow, so NOT part of `discern finish`). A ratchet is a number you only ever want to improve.",
+    "[ratchets.<name>] — never-loosen quality floors, enforced on demand by `discern ratchets` (slow, so NOT part of `discern finish`). A ratchet is a number you only ever want to improve. If the number grows just because the project grew (alerts, TODOs, type errors over a growing tree), ratchet a rate, not the raw count: add `per` so growth alone never breaches it.",
   );
 
 const gateSection = z.strictObject({
