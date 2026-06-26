@@ -61,8 +61,11 @@ tracked file**, detected by a before/after snapshot around the fix stage.
 - **It is a final gate check, not a plan stage.** Like the guidance/skills
   currency checks and the merge check, it sets `failed_stage = "fix_drift"` and
   attaches a diagnostic rather than appearing as a job step. It runs **only when
-  the gate is otherwise green** (every real stage passed) and **before** the
-  merge check — commit the fixer output before integrating `main`.
+  the gate is otherwise green** (every real stage passed); commit the fixer
+  output before integrating `main`. (At the time of this ADR it ran just before
+  the merge check; [ADR 0050](0050-merge-check-fail-fast.md) later moved that
+  check to the front of the gate as a fail-fast precondition, so it now precedes
+  this one.)
 - **The diagnostic carries the rescue.** It lists the stranded files, embeds a
   capped `git diff` of them (so the agent sees the change is the fixer's own,
   usually trivial), and says to commit and re-run; `git diff` is its reproduce

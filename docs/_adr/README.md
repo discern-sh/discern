@@ -68,3 +68,4 @@ decision is hard to reverse, surprising without context, and a real trade-off.
 - [0046 — A configurable graduation destination, and removing the handoff-worktree skill](0046-graduate-destination-and-skill-removal.md)
 - [0047 — Finish blocks a fix stage that strands uncommitted changes](0047-fix-stage-strand-detection.md)
 - [0048 — Rename the graduation landing-role `main` → `trunk`](0048-graduate-trunk-role-name.md)
+- [0050 — Run the merge check first, as a fail-fast precondition](0050-merge-check-fail-fast.md)
