@@ -70,6 +70,7 @@ generalizability
 git
 git_key
 gitignored?
+gitlinks?
 globbing
 hardcod(e|es|ed|ing)
 Hono

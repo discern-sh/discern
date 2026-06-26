@@ -97,8 +97,9 @@ main checkout ──discern worktree──► Worktree  (branch + own db + own p
   ([`command.ts`](../../src/engine/jobs/command.ts)).
 - **Persistent state lives in the repo.** `discern.toml` (the hand-edited
   config, which also carries `[meta].schema_version`) and the git repo itself
-  (branches and linked Worktrees under `.claude/worktrees/`). No manifest, no
-  database, no external state.
+  (branches, and linked Worktrees in a sibling `<repo>.worktrees/` by default —
+  configurable via `[worktree].root`). No manifest, no database, no external
+  state.
 - **The only hard external dependency is `git`.** A project's own stack tools
   (the formatter, linter, test runner named as Capabilities) are invoked by
   those Capabilities, not bundled — the Engine shells out to whatever the
