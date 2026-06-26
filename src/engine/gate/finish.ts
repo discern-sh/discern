@@ -360,7 +360,7 @@ function printSuccessTail(cfg: DiscernConfig, out: Out, hints: string[]): void {
       unfilled++;
     }
   }
-  if (unfilled === 4) {
+  if (unfilled === STAGES.length) {
     out.ok(
       "Gate passed — but no capability or check is wired, so nothing was actually checked (a no-op gate).",
     );
@@ -371,7 +371,7 @@ function printSuccessTail(cfg: DiscernConfig, out: Out, hints: string[]): void {
     out.ok("Everything built and all checks passed.");
     if (unfilled > 0) {
       out.info(
-        `${out.c.dim}note: ${unfilled} of 4 gate stages have no command yet.${out.c.reset}`,
+        `${out.c.dim}note: ${unfilled} of ${STAGES.length} gate stages have no command yet.${out.c.reset}`,
       );
     }
   }
