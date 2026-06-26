@@ -44,17 +44,22 @@ function isNumber(s: string): boolean {
 }
 
 /**
- * The last `DISCERN_METRIC <metric> <value>` token-triple in `output`, scanned
- * per line. Returns undefined when absent.
+ * The value of the last `DISCERN_METRIC <metric> <value>` marker in `output`. The
+ * marker may sit anywhere on a line — a command can prefix it with its own text —
+ * and the LAST occurrence wins, so a later emission overrides an earlier one.
+ * Matched with an anchored pattern (the marker must be a whole token, the value the
+ * token after the name) rather than positional word-splitting. Returns undefined
+ * when absent.
  */
-function extractMetric(output: string, metric: string): string | undefined {
+export function extractMetric(
+  output: string,
+  metric: string,
+): string | undefined {
+  const marker = /(?:^|\s)DISCERN_METRIC\s+(\S+)\s+(\S+)/g;
   let value: string | undefined;
-  for (const line of output.split("\n")) {
-    const t = line.split(/\s+/).filter((x) => x !== "");
-    for (let i = 0; i + 2 < t.length; i++) {
-      if (t[i] === "DISCERN_METRIC" && t[i + 1] === metric) {
-        value = t[i + 2];
-      }
+  for (const m of output.matchAll(marker)) {
+    if (m[1] === metric) {
+      value = m[2];
     }
   }
   return value;
