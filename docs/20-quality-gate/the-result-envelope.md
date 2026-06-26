@@ -97,7 +97,7 @@ A tool is **gated like its verb**: a feature-disabled tool is not registered
 (absent from `tools/list`), and the bootstrap-gated verbs (the gate verbs and
 `discern_docs`) refuse with `not_set_up` until the project is set up.
 `discern_ratchets` is **slow and on-demand** — it runs the metric commands, so
-it is not part of `discern_finish`; hold it explicitly.
+it is not part of `discern_finish`; check it explicitly.
 
 The worktree lifecycle verbs (`worktree`, `worktree:*`) are **deliberately not
 exposed** — they are hook-driven and an agent must never hop between or prune

@@ -188,15 +188,15 @@ export const TOOLS: McpTool[] = [
   },
   {
     name: "discern_ratchets",
-    title: "Hold the ratchets",
+    title: "Check the ratchets",
     outputSchema: DatalessEnvelopeSchema.shape,
     annotations: MUTATING,
     description:
-      "Hold every configured quality ratchet (a never-loosen metric floor/ceiling): " +
+      "Check every configured quality ratchet (a never-loosen metric floor/ceiling): " +
       "run each ratchet's measurement command, compare it to its limit, and assert " +
       "the limit was not loosened versus main. Returns the per-ratchet steps[]. SLOW " +
       "and ON DEMAND — it runs the metric commands, so it is NOT part of " +
-      "discern_finish; hold it explicitly before pushing. Set dry_run to preview " +
+      "discern_finish; check it explicitly before pushing. Set dry_run to preview " +
       "which ratchets would run without measuring anything.",
     feature: "ratchets",
     inputSchema: {
@@ -713,7 +713,7 @@ function buildInstructions(enabled: ReadonlySet<Feature>): string {
   lines.push("- Find concrete setup improvements with discern_audit.");
   if (enabled.has("ratchets")) {
     lines.push(
-      "- Before pushing, hold the quality ratchets with discern_ratchets — slow " +
+      "- Before pushing, check the quality ratchets with discern_ratchets — slow " +
         "and on-demand, so NOT part of discern_finish.",
     );
   }

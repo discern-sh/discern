@@ -226,7 +226,7 @@ export interface DiscernResult {
   data?: unknown;
   /**
    * Agent-facing "what next" advice (ADR 0030): the next-step nudges a human run
-   * prints (hold the ratchets, start the dev server, update the docs; on a failed
+   * prints (check the ratchets, start the dev server, update the docs; on a failed
    * gate, where the gotchas are documented), promoted into the envelope so a quiet
    * `--json` run loses none of it. Purely advisory — NOT errors (those are `error`
    * / `diagnostics`).

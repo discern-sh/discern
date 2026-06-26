@@ -6,7 +6,7 @@ bundle-size budget, a lint/type-error count. Each `[ratchets.<name>]` in
 (`up` = a floor that may only rise, `down` = a ceiling that may only fall), and a
 `limit` compared against `{{main_branch}}` so a branch can never loosen it.
 
-Ratchets are **slow and on-demand** — they are NOT part of `discern finish`. Hold
+Ratchets are **slow and on-demand** — they are NOT part of `discern finish`. Check
 them explicitly before pushing:
 
 - **`discern ratchets`** — run every configured ratchet and fail if any regressed.

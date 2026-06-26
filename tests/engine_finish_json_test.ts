@@ -326,7 +326,7 @@ Deno.test("finish --json: a passing gate carries next-step hints, and the human 
     assert(Array.isArray(obj.hints), `expected hints[], got ${r.stdout}`);
     const hints = obj.hints.join("\n");
     assertStringIncludes(hints, "docs"); // update-the-docs nudge
-    assertStringIncludes(hints, "discern ratchets"); // ratchets configured → hold them
+    assertStringIncludes(hints, "discern ratchets"); // ratchets configured → check them
 
     // Human mode renders the exact same hint strings (one source of truth).
     const human = await runAgent(dir, ["finish"]);

@@ -82,7 +82,7 @@ When the work returns, review it as its adversary, not its author — assume it 
 
 - **Read the diff, not the summary** — the branch's diff against the trunk (`git diff <trunk>...<branch>`) and the changed files (find the branch via `discern_status` if you need to). Review **read-only**: never start working inside a worktree you didn't create.
 - **Hold it to the prompt** — walk every deliverable and the definition of done, the semantic bar included. Was each one actually done, or only reported done? What was skipped, half-finished, or quietly added beyond scope?
-- **Verify green, don't trust it** — confirm the gate actually passes against the branch (from its own worktree, or a checkout of it), and hold the ratchets (`discern_ratchets`) if the change touches them.
+- **Verify green, don't trust it** — confirm the gate actually passes against the branch (from its own worktree, or a checkout of it), and check the ratchets (`discern_ratchets`) if the change touches them.
 - **Hunt the known failure modes** — the instance fixed but not the class; a test loosened to pass; a generated file hand-edited; a decision made silently that warranted an ADR; scope creep past what you asked for.
 - **Credit what exceeded the brief** — adversarial isn't ungenerous. If the agent caught something you hadn't anticipated, or improved on the spec in a way that genuinely helps, name it — real initiative is a finding too.
 

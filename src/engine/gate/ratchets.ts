@@ -1,5 +1,5 @@
 /**
- * `ratchets` — hold every metric ratchet (ADR 0003). Each `[ratchets.<name>]`
+ * `ratchets` — check every metric ratchet (ADR 0003). Each `[ratchets.<name>]`
  * enforces two
  * halves: NEVER LOOSENED vs main (the limit compared to main's value — a floor
  * may only rise, a ceiling only fall) and MEASURED vs limit (run the command,

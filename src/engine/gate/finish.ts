@@ -317,7 +317,7 @@ async function runGate(
  * The agent-facing "what next" hints for a finished gate — the SINGLE source of
  * the advice that rides in the `--json` envelope (`hints`) and is printed by the
  * human success tail. On a failure: where the project documents its known gate
- * failures (when a `gotchas_doc` is set). On success: update the docs, hold the
+ * failures (when a `gotchas_doc` is set). On success: update the docs, check the
  * ratchets, view a previewable change.
  */
 function buildGateHints(
@@ -338,7 +338,7 @@ function buildGateHints(
   ];
   if (Object.keys(cfg.ratchets).length > 0) {
     hints.push(
-      "Before pushing, hold the ratchets with `discern ratchets` (slow, so not part of finish).",
+      "Before pushing, check the ratchets with `discern ratchets` (slow, so not part of finish).",
     );
   }
   if (

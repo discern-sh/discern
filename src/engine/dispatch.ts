@@ -316,7 +316,7 @@ export function attachEngineCommands(
     root
       .command("ratchets")
       .description(
-        "Hold every metric ratchet (slow; on demand, not part of finish).",
+        "Check every metric ratchet (slow; on demand, not part of finish).",
       )
       .option(
         "--json",

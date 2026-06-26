@@ -79,7 +79,7 @@ toward the number, so installer and engine share one coverage figure.
 
 That metric feeds a ratchet — `[ratchets.coverage]` in
 [discern.toml](../../discern.toml) — a floor that only ever rises. The
-`ratchets` verb holds it (in this repo, `deno task dev ratchets`); it is slow,
+`ratchets` verb checks it (in this repo, `deno task dev ratchets`); it is slow,
 so it is **not** part of the `finish` gate, and CI enforces it on every pull
 request. To raise the floor: add tests, then bump `limit` to just below the
 newly measured value.
