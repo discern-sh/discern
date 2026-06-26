@@ -27,6 +27,7 @@ import {
 } from "../../shared/config_schema.ts";
 import type { DiscernResult } from "../../shared/result.ts";
 import type {
+  Location,
   StatusData,
   StatusFeatures,
   StatusFleetEntry,
@@ -114,9 +115,7 @@ export async function statusResult(
   // Location: a linked worktree has its own git admin dir (worktreeGitKey defined);
   // the main checkout (or no git repo) does not.
   const gitKey = await worktreeGitKey(root);
-  const location: "main" | "worktree" = gitKey !== undefined
-    ? "worktree"
-    : "main";
+  const location: Location = gitKey !== undefined ? "worktree" : "main";
   const snap = await gitSnapshot(root, mainBranch);
 
   // The git block — read-only; null when this isn't a git repo (degrade, don't throw).
@@ -377,7 +376,7 @@ export const FLEET_OWNERSHIP_HINT =
  * the reported data. */
 interface HintContext {
   root: string;
-  location: "main" | "worktree";
+  location: Location;
   mainBranch: string;
   git: StatusGit | null;
   changed: string[] | undefined;

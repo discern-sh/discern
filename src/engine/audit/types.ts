@@ -60,8 +60,12 @@ export interface AuditContext {
 
 // ── the rule catalog shapes ─────────────────────────────────────────────────
 
-/** How a deterministic rule turned out: fully met, partially met, or not met. */
-export type RuleStatus = "pass" | "partial" | "fail";
+/** How a deterministic rule turned out: fully met, partially met, or not met. A const
+ * tuple so it is enumerable: the audit wire schema's `status` enum (`result_schemas.ts`,
+ * a shared module that can't import this engine type) is tied back to it by a guard in
+ * `audit_catalog_test.ts`, so the two can't drift. */
+export const RULE_STATUSES = ["pass", "partial", "fail"] as const;
+export type RuleStatus = (typeof RULE_STATUSES)[number];
 
 /** A deterministic rule's verdict: a status and the finding behind it. */
 export interface Verdict {

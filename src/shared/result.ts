@@ -161,11 +161,18 @@ export type FailedStage = (typeof FAILED_STAGES)[number];
  *    discern parses `output` into `file`/`line`/`col`/`rule`/`message`.
  *  - **Tier 2 (derived):** `fix_available` — a fixer is wired that may resolve it.
  */
+
+/** A diagnostic's severity. A const tuple so `result_schemas.ts` derives its Zod
+ * enum from it (not a hand mirror), keeping the wire vocabulary tied to this source. */
+export const DIAGNOSTIC_SEVERITIES = ["error", "warning"] as const;
+/** One diagnostic severity ({@link DIAGNOSTIC_SEVERITIES}). */
+export type DiagnosticSeverity = (typeof DIAGNOSTIC_SEVERITIES)[number];
+
 export interface Diagnostic {
   /** The job/capability/check label that produced this failure (e.g. "lint", "scope:web"). */
   tool: string;
   /** Tier-0 failures are always "error"; Tier-1 parsing may surface "warning". */
-  severity: "error" | "warning";
+  severity: DiagnosticSeverity;
   /** One-line summary (Tier 0: "<tool> failed (exit N)"; Tier 1: the parsed message). */
   message: string;
   /** The exact command to reproduce this failure — the job's own command string. */

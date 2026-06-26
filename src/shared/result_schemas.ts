@@ -26,6 +26,7 @@
 import { z } from "@zod/zod";
 import { type Feature, FEATURES } from "./features.ts";
 import {
+  DIAGNOSTIC_SEVERITIES,
   FAILED_STAGES,
   STEP_DISPOSITIONS,
   STEP_KINDS,
@@ -52,7 +53,7 @@ const outcomeEnum = z.enum(STEP_OUTCOMES);
 /** Mirror of {@link import("./result.ts").Diagnostic} — a normalized failure. */
 export const DiagnosticSchema = z.strictObject({
   tool: z.string(),
-  severity: z.enum(["error", "warning"]),
+  severity: z.enum(DIAGNOSTIC_SEVERITIES),
   message: z.string(),
   reproduce_cmd: z.string(),
   output: z.string().optional(),
@@ -149,6 +150,14 @@ export type ChangedScopesData = z.infer<typeof ChangedScopesDataSchema>;
 
 // status ──────────────────────────────────────────────────────────────────────
 
+/** Where a `status` call is rooted: the main checkout or a linked worktree. The SSOT
+ * for the location vocabulary — the schema enum below derives from it and `status.ts`
+ * types its `location` value + context field as {@link Location}, so the wire enum and
+ * the engine never re-list "main"/"worktree" out of step. */
+export const LOCATIONS = ["main", "worktree"] as const;
+/** One status location ({@link LOCATIONS}). */
+export type Location = (typeof LOCATIONS)[number];
+
 /** This worktree's derived identity + the resources recorded in its `.env`. */
 const statusWorktreeSchema = z.strictObject({
   id: z.string(),
@@ -213,7 +222,7 @@ export type StatusFeatures = z.infer<typeof statusFeaturesSchema>;
  * (`changed_scopes`/`gate`) are present in the local view and omitted when leading
  * with the fleet from main; `fleet` is present only when the survey is included. */
 export const StatusDataSchema = z.strictObject({
-  location: z.enum(["main", "worktree"]),
+  location: z.enum(LOCATIONS),
   root: z.string(),
   worktree: statusWorktreeSchema.nullable(),
   git: statusGitSchema.nullable(),
@@ -265,8 +274,10 @@ const auditEvidenceSchema = z.strictObject({
   excerpt: z.string(),
 });
 
-/** One deterministic rule's evaluated result. */
-const ruleResultSchema = z.strictObject({
+/** One deterministic rule's evaluated result. Exported so the audit `RuleStatus`
+ * SSOT (an engine type this shared module can't import) is tied to `status` here by a
+ * guard in `audit_catalog_test.ts`. */
+export const ruleResultSchema = z.strictObject({
   id: z.string(),
   title: z.string(),
   status: z.enum(["pass", "partial", "fail"]),

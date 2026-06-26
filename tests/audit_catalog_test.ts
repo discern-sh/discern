@@ -16,7 +16,8 @@ import { assert, assertEquals } from "@std/assert";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { CATEGORIES, CATEGORY_NAMES } from "../src/engine/audit/rules.ts";
 import { evaluateReport } from "../src/engine/audit/audit.ts";
-import type { AuditContext } from "../src/engine/audit/types.ts";
+import { type AuditContext, RULE_STATUSES } from "../src/engine/audit/types.ts";
+import { ruleResultSchema } from "../src/shared/result_schemas.ts";
 
 /** Build a full {@link AuditContext} from a config TOML plus fact overrides. */
 function ctx(toml: string, facts: Partial<AuditContext> = {}): AuditContext {
@@ -68,6 +69,17 @@ run = "echo"
     },
   );
 }
+
+Deno.test("audit wire schema's rule status enum equals the RuleStatus SSOT", () => {
+  // ruleResultSchema lives in shared/result_schemas.ts, which can't import the engine
+  // RuleStatus type — so this is a tie-by-test (not a compile-time derive): the wire
+  // enum must list EXACTLY RULE_STATUSES. A status added to one but not the other (or
+  // the enum weakened to z.string()) red-lights here.
+  assertEquals(
+    [...ruleResultSchema.shape.status.options].sort(),
+    [...RULE_STATUSES].sort(),
+  );
+});
 
 Deno.test("audit catalog: CATEGORY_NAMES is derived from the catalog, in order (SSOT)", () => {
   // The CLI help and the MCP tool's --category description interpolate this list,
