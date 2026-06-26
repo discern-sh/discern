@@ -11,15 +11,25 @@ handle, call **`discern_help`**.{{/if}}
   resources,{{/if}} records a deterministic
   dev-server port{{#if has_worktree_resources}} + the resource handles{{/if}} into `.env`, inherits env vars, runs the
   configured setup steps, and freshly materializes skills + guidance.
+- **`discern integrate`** is the deterministic inverse of graduate: it brings
+  `{{main_branch}}` into the worktree branch and re-materializes the agent files +
+  skills in one step. Run it whenever the branch is behind `{{main_branch}}` (the
+  gate's merge check points here). It is safe and idempotent — a no-op when already
+  up to date — and never touches the main checkout. Just call it — you don't need
+  to run `git` to check first: the tool performs every precondition itself and
+  returns exactly what to do next (a dirty tree, a merge conflict), so reproducing
+  its steps by hand is slower and usually unnecessary.
 - **`discern graduate`** hands the current worktree's branch back to the main
-  checkout. It is the single deterministic implementation of that handoff — run it
-  rather than moving the branch by hand, and relay its result. Commit your work
+  checkout. It is the single deterministic implementation of that handoff — just
+  call it rather than moving the branch by hand, and relay its result; you don't
+  need to pre-flight the preconditions with `git`, since it refuses cleanly with
+  the exact next step. Commit your work
   with a real message first, so it lands as a proper review commit. By default it
   lands on its own branch for review; pass **`--to trunk`** to fast-forward
   `{{main_branch}}` to the branch tip and delete the now-merged branch instead (set
   the per-project default with `[worktree].graduate_to`). It refuses if the branch
-  is behind `{{main_branch}}` — integrate it (`git merge {{main_branch}}`) and
-  re-run — or if the main checkout is dirty.
+  is behind `{{main_branch}}` — run `discern integrate` and re-run — or if the main
+  checkout is dirty.
 - **`discern worktree:prune`** sweeps stale worktrees and fully-merged branches{{#if has_worktree_resources}} (reclaiming the resources of any that vanished without a clean teardown){{/if}}. `--dry-run` reports without acting.
 
 Resolve a worktree's stable identity with **`discern worktree-name`**
