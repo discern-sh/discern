@@ -18,8 +18,11 @@
 
 import type { DiscernConfig } from "./config_schema.ts";
 
-/** The toggleable subsystems, in display order. Must match the keys of the
- * schema's `[features]` section (a guard test pins this). */
+/** The toggleable subsystems, in display order. The single source of truth for the
+ * feature vocabulary: the schema's `[features]` section keys are pinned to it at
+ * compile time (a `satisfies Record<Feature, …>` in `config_schema.ts`), and the
+ * status snapshot's feature shape derives from it (`result_schemas.ts`), so neither
+ * can drift from this list. */
 export const FEATURES = [
   "worktrees",
   "ratchets",

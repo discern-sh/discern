@@ -28,6 +28,7 @@ import { parse as parseToml } from "@std/toml";
 import { join } from "@std/path";
 import { CONFIG_REL, installedConfigRel } from "./env.ts";
 import { KNOWN_CAPABILITIES, STAGES } from "./capabilities.ts";
+import type { Feature } from "./features.ts";
 
 // ── TOML syntax diagnostics (kept here so config_read/toml_render share them) ──
 
@@ -165,23 +166,29 @@ const projectSection = z.strictObject({
   ),
 }).prefault({}).describe("Project identity and integration settings.");
 
-const featuresSection = z.strictObject({
-  worktrees: z.boolean().default(true).describe(
-    "The isolated git-worktree workflow (worktree / worktree:* verbs).",
-  ),
-  ratchets: z.boolean().default(true).describe(
-    "Never-loosen metric floors (the `ratchets` verb).",
-  ),
-  guidance: z.boolean().default(true).describe(
-    "Compile agent files from built-in + your sources.",
-  ),
-  skills: z.boolean().default(true).describe(
-    "Bundled + authored skills, materialized into .claude/skills/.",
-  ),
-  docs: z.boolean().default(true).describe(
-    "The `docs` browser over your docs/ tree.",
-  ),
-}).prefault({}).describe(
+// `satisfies Record<Feature, z.ZodType>` pins this section's keys to the FEATURES
+// SSOT at COMPILE time: a feature added to FEATURES with no key here (or a key here
+// that is not a feature) fails `deno check`, so the [features] schema and the toggle
+// vocabulary can never drift — the bidirectional tie features.ts promises.
+const featuresSection = z.strictObject(
+  {
+    worktrees: z.boolean().default(true).describe(
+      "The isolated git-worktree workflow (worktree / worktree:* verbs).",
+    ),
+    ratchets: z.boolean().default(true).describe(
+      "Never-loosen metric floors (the `ratchets` verb).",
+    ),
+    guidance: z.boolean().default(true).describe(
+      "Compile agent files from built-in + your sources.",
+    ),
+    skills: z.boolean().default(true).describe(
+      "Bundled + authored skills, materialized into .claude/skills/.",
+    ),
+    docs: z.boolean().default(true).describe(
+      "The `docs` browser over your docs/ tree.",
+    ),
+  } satisfies Record<Feature, z.ZodType>,
+).prefault({}).describe(
   "Toggle whole discern subsystems on/off. Every feature defaults to ON; set one to false to remove it coherently. NOTE: a *feature* is NOT a *capability* — [capabilities] is the gate's command table; [features] toggles subsystems.",
 );
 
