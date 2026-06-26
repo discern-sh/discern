@@ -10,7 +10,8 @@
  * create is fatal — a broken setup must be loud), destroyed once at teardown
  * (best-effort — a hiccup must never strand a worktree; a later prune is the
  * backstop), and reclaimed by prune when a worktree vanishes without a clean
- * teardown. [worktree.setup].steps run in order, stopping at the first failure.
+ * teardown. [worktree.setup].steps run once at creation, stopping at the first
+ * failure; [worktree.setup].ensure re-runs on every pass to converge the worktree.
  */
 
 import { join } from "@std/path";
@@ -276,6 +277,9 @@ async function buildSetupPlan(ctx: LifecycleContext): Promise<SetupPlan> {
   for (const step of ctx.config.worktree.setup.steps) {
     steps.push({ kind: "setup-step", label: step });
   }
+  for (const step of ctx.config.worktree.setup.ensure) {
+    steps.push({ kind: "setup-ensure", label: step });
+  }
   steps.push({ kind: "refresh", label: "refresh agent files" });
   return { branch, steps };
 }
@@ -283,20 +287,23 @@ async function buildSetupPlan(ctx: LifecycleContext): Promise<SetupPlan> {
 /**
  * Map the EXECUTED setup plan to `--json` results — recording what actually
  * happened, not a synthesized all-`ok`. A fatal step (a required resource, a
- * `setup.steps` non-zero exit) throws before this is reached; the steps that
- * warn-and-continue are reported honestly: a non-required resource whose create
- * failed, or an agent-file refresh that threw, is `failed`, not `ok`. The plan is
- * the one built before execution (never re-derived), so the reported steps can't
- * drift from what the dry-run previewed.
+ * `setup.steps` non-zero exit, a fresh-creation `setup.ensure` failure) throws
+ * before this is reached; the steps that warn-and-continue are reported honestly: a
+ * non-required resource whose create failed, an agent-file refresh that threw, or a
+ * re-entry `setup.ensure` command that exited non-zero, is `failed`, not `ok`. The
+ * plan is the one built before execution (never re-derived), so the reported steps
+ * can't drift from what the dry-run previewed.
  */
 function setupResults(
   plan: SetupPlan,
   failedResources: string[],
   refreshOk: boolean,
+  failedEnsure: string[],
 ): StepResult[] {
   return plan.steps.map((s) => {
     const failed = (s.kind === "resource-create" &&
       failedResources.includes(s.label)) ||
+      (s.kind === "setup-ensure" && failedEnsure.includes(s.label)) ||
       (s.kind === "refresh" && !refreshOk);
     return {
       step: { kind: s.kind, label: s.label, disposition: "run", note: s.note },
@@ -306,17 +313,52 @@ function setupResults(
 }
 
 /**
+ * Run the convergent `[worktree.setup].ensure` commands in order — the steps that
+ * re-run on EVERY setup pass (creation, session-start re-entry, and `discern
+ * integrate`) to converge the worktree on the current tree. The direct parallel to
+ * a resource's `ensure`, sharing the one setup-step shell runner with the one-shot
+ * `steps`. `fatal` selects the failure contract: at a fresh creation a non-zero exit
+ * is fatal (a worktree that cannot ready its environment is broken — abort loudly,
+ * exactly like a `steps` failure); on a re-entry or integrate it is recorded and the
+ * run continues (never undo a completed merge or break session start over a
+ * convergence hiccup — the gate is the backstop). Returns the commands that failed
+ * (always empty when `fatal`, since the first failure throws). A no-op when none are
+ * declared.
+ */
+async function runEnsureSteps(
+  ctx: LifecycleContext,
+  opts: { fatal: boolean },
+): Promise<{ failed: string[] }> {
+  const failed: string[] = [];
+  for (const step of ctx.config.worktree.setup.ensure) {
+    ctx.log.info(`Ensure step: ${step}`);
+    const code = await runShellRouted(step, { cwd: ctx.cwd, log: ctx.log });
+    if (code !== 0) {
+      if (opts.fatal) {
+        throw new WorktreeGitError(`Ensure step failed: ${step}`);
+      }
+      ctx.log.warn(`Ensure step failed (continuing): ${step}`);
+      failed.push(step);
+    }
+  }
+  return { failed };
+}
+
+/**
  * Set up a linked worktree — the `worktree` recipe. Asserts the worktree
  * precondition, ensures a named branch, provisions the per-worktree resources (a
  * `required` create is fatal), inherits env vars, records the port + resource
- * handles into `.env`, runs `[worktree.setup].steps` in order, refreshes the agent
- * files, and drops the ready sentinel. Throws on a fatal step. `--dry-run` shows
- * the plan and touches nothing.
+ * handles into `.env`, runs the one-shot `[worktree.setup].steps` then the
+ * convergent `[worktree.setup].ensure` in order, refreshes the agent files, and
+ * drops the ready sentinel. Throws on a fatal step. `--dry-run` shows the plan and
+ * touches nothing.
  *
  * Idempotent: when the worktree is already configured (the sentinel is present),
  * the non-idempotent phases are not repeated — resources are re-readied via
- * `ensure` rather than re-created, and the setup steps are skipped — so a re-fired
- * `worktree:create` hook or a re-run `discern worktree` is safe.
+ * `ensure` rather than re-created, and the one-shot `steps` are skipped. The
+ * convergent `setup.ensure` runs on EVERY pass (re-install deps, rebuild) so a
+ * re-fired `worktree:create` hook or a re-run `discern worktree` re-converges the
+ * worktree on the current tree.
  */
 export async function worktreeSetup(
   ctx: LifecycleContext,
@@ -385,13 +427,18 @@ export async function worktreeSetup(
   // 5. record the deterministic port
   await recordPort(ctx, identity);
 
-  // 6. post-create setup steps (stop on first failure). Skipped once the worktree
-  // is configured — they ran at first setup and are not re-run (author them
-  // idempotent so a recovered partial setup can re-run them safely).
+  // 6. one-shot `steps`, then convergent `ensure`. `steps` are scaffolding: they run
+  // only on a FRESH worktree and are skipped once configured (a one-shot `createdb`
+  // must not re-run). `ensure` converges the worktree on the current tree (install
+  // deps, build) and runs on EVERY pass — after `steps` at a fresh creation, alone on
+  // a re-entry. A fresh `ensure` failure is FATAL (a worktree that cannot ready its
+  // environment is broken); a re-entry `ensure` failure is recorded and non-fatal.
+  let ensureFailed: string[] = [];
   if (configured) {
     if (ctx.config.worktree.setup.steps.length > 0) {
       ctx.log.info("Worktree already configured — skipping setup steps.");
     }
+    ensureFailed = (await runEnsureSteps(ctx, { fatal: false })).failed;
   } else {
     for (const step of ctx.config.worktree.setup.steps) {
       ctx.log.info(`Setup step: ${step}`);
@@ -400,6 +447,7 @@ export async function worktreeSetup(
         throw new WorktreeGitError(`Setup step failed: ${step}`);
       }
     }
+    await runEnsureSteps(ctx, { fatal: true });
   }
 
   // 7. refresh the agent files, which also materializes skills into THIS
@@ -428,7 +476,10 @@ export async function worktreeSetup(
   ctx.log.ok("Worktree setup complete.");
 
   if (opts.json ?? false) {
-    emitResults("worktree", setupResults(plan, createdFailed, refreshOk));
+    emitResults(
+      "worktree",
+      setupResults(plan, createdFailed, refreshOk, ensureFailed),
+    );
   }
 }
 
@@ -483,11 +534,14 @@ export async function worktreeEnsure(
     return { kind: "skipped" };
   }
   if (await sentinelPresent(ctx.cwd)) {
-    // Already set up — reconcile any resource that declares an `ensure` (re-ready a
-    // resource that died out-of-band, e.g. a host reboot). Cheap and silent when
-    // nothing declares `ensure`.
+    // Already set up — converge the worktree: reconcile any resource that declares an
+    // `ensure` (re-ready one that died out-of-band, e.g. a host reboot) and re-run the
+    // `[worktree.setup].ensure` commands (re-install deps, rebuild). Both are
+    // best-effort here — a convergence hiccup must never break session start. Cheap
+    // and silent when neither is declared.
     const { identity, settings } = await resolveContextIdentity(ctx);
     await ensureResources(ctx, identity, settings);
+    await runEnsureSteps(ctx, { fatal: false });
     return { kind: "already" };
   }
   ctx.log.warn(
@@ -875,6 +929,7 @@ async function buildIntegratePlan(
     worktreeBranch: current !== "" ? current : "(detached)",
     behind: merged.kind === "behind" ? Number(merged.behind) || 0 : 0,
     alreadyIntegrated: merged.kind !== "behind",
+    ensureSteps: ctx.config.worktree.setup.ensure,
   };
 }
 
@@ -890,11 +945,15 @@ function integrateConflictMessage(
 }
 
 /**
- * Apply an integration: merge the integration branch in, then re-materialize the
- * agent files + skills. A no-op (`already`/`skipped`) when the branch already
- * contains main — nothing merged, so nothing refreshed. A dirty tree or a merge
- * conflict throws `WorktreeGitError` (the conflict steps aside via `git merge
- * --abort` first, so the tree is left clean). Narrates through `ctx.log`; returns
+ * Apply an integration: merge the integration branch in, re-materialize the agent
+ * files + skills, then re-run the convergent `[worktree.setup].ensure` to converge
+ * the worktree's environment on the merged tree (the motivating case — a merge that
+ * changed a lockfile leaves dependencies stale). A no-op (`already`/`skipped`) when
+ * the branch already contains main — nothing merged, so nothing refreshed and no
+ * convergence needed. A dirty tree or a merge conflict throws `WorktreeGitError`
+ * (the conflict steps aside via `git merge --abort` first, so the tree is left
+ * clean). The post-merge `ensure` is non-fatal: a convergence hiccup is recorded as
+ * a failed step, never undoing the landed merge. Narrates through `ctx.log`; returns
  * the per-step results for `--json`.
  */
 async function executeIntegratePlan(
@@ -905,11 +964,11 @@ async function executeIntegratePlan(
   const outcome = await integrateMain(ctx.cwd, ctx.config.project.main_branch);
   switch (outcome.kind) {
     case "skipped":
-    case "already":
+    case "already": {
       ctx.log.ok(
         `Already up to date with ${mainBranch} — nothing to integrate.`,
       );
-      return appliedResult("integrate", [
+      const steps: StepResult[] = [
         {
           step: {
             kind: "git",
@@ -928,7 +987,22 @@ async function executeIntegratePlan(
           },
           outcome: "skipped",
         },
-      ]);
+      ];
+      // Nothing merged → no staleness → the convergent ensure steps are skipped too,
+      // listed for parity with the dry-run plan (a no-op when none are declared).
+      for (const step of plan.ensureSteps) {
+        steps.push({
+          step: {
+            kind: "setup-ensure",
+            label: step,
+            disposition: "skip",
+            note: "nothing merged — no convergence needed",
+          },
+          outcome: "skipped",
+        });
+      }
+      return appliedResult("integrate", steps);
+    }
     case "dirty":
       throw new WorktreeGitError(
         "Commit or stash your changes first, then re-run — integrate merges into a clean tree.",
@@ -976,6 +1050,22 @@ async function executeIntegratePlan(
         },
         outcome: refreshOk ? "ok" : "failed",
       });
+      // Converge the worktree's environment on the merged tree: re-run the
+      // `[worktree.setup].ensure` commands (the motivating case — a merge that
+      // changed a lockfile leaves dependencies stale). Non-fatal — the merge already
+      // landed, so a convergence failure is recorded as a failed step, never raised.
+      const ensure = await runEnsureSteps(ctx, { fatal: false });
+      for (const step of plan.ensureSteps) {
+        steps.push({
+          step: {
+            kind: "setup-ensure",
+            label: step,
+            disposition: "run",
+            note: "converge the worktree on the merged tree",
+          },
+          outcome: ensure.failed.includes(step) ? "failed" : "ok",
+        });
+      }
       ctx.log.ok("Integration complete.");
       const result = appliedResult("integrate", steps);
       result.hints = [

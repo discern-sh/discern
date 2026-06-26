@@ -149,15 +149,48 @@ export interface IntegratePlan {
   behind: number;
   /** Whether the branch already contains main (→ a no-op: merge + refresh both skip). */
   alreadyIntegrated: boolean;
+  /** The `[worktree.setup].ensure` commands run after a successful merge + refresh,
+   * to converge the worktree on the merged tree (empty when none are declared). */
+  ensureSteps: string[];
 }
 
 /**
  * Project an integration onto the shared renderer: merge the integration branch,
- * then re-materialize the agent files + skills. When the branch already contains
- * main both steps are `skip`ped (nothing to merge, so nothing to refresh).
+ * re-materialize the agent files + skills, then re-run the convergent
+ * `[worktree.setup].ensure` to converge the worktree on the merged tree. When the
+ * branch already contains main every step is `skip`ped (nothing to merge, so nothing
+ * to refresh and no convergence needed).
  */
 export function integratePlanToEngine(plan: IntegratePlan): EnginePlan {
   const act = !plan.alreadyIntegrated;
+  const steps: PlanStep[] = [
+    {
+      kind: "git",
+      label: "merge",
+      disposition: act ? "run" : "skip",
+      note: act
+        ? `merge ${plan.mainBranch} into ${plan.worktreeBranch}`
+        : `already up to date with ${plan.mainBranch}`,
+    },
+    {
+      kind: "refresh",
+      label: "refresh agent files",
+      disposition: act ? "run" : "skip",
+      note: act
+        ? "re-materialize the generated agent files + skills"
+        : "nothing merged — no refresh needed",
+    },
+  ];
+  for (const step of plan.ensureSteps) {
+    steps.push({
+      kind: "setup-ensure",
+      label: step,
+      disposition: act ? "run" : "skip",
+      note: act
+        ? "converge the worktree on the merged tree"
+        : "nothing merged — no convergence needed",
+    });
+  }
   return {
     title: "Integration plan",
     details: [
@@ -167,24 +200,7 @@ export function integratePlanToEngine(plan: IntegratePlan): EnginePlan {
         ? "Status:    already up to date"
         : `Behind by: ${plan.behind} commit(s)`,
     ],
-    steps: [
-      {
-        kind: "git",
-        label: "merge",
-        disposition: act ? "run" : "skip",
-        note: act
-          ? `merge ${plan.mainBranch} into ${plan.worktreeBranch}`
-          : `already up to date with ${plan.mainBranch}`,
-      },
-      {
-        kind: "refresh",
-        label: "refresh agent files",
-        disposition: act ? "run" : "skip",
-        note: act
-          ? "re-materialize the generated agent files + skills"
-          : "nothing merged — no refresh needed",
-      },
-    ],
+    steps,
   };
 }
 
