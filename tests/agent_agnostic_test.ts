@@ -56,20 +56,25 @@ Deno.test("the stack-neutral engine builds no agent-specific (.claude) path", as
   );
 });
 
-Deno.test("the generic resource tests build no agent-specific path", async () => {
+Deno.test("the generic resource tests and the shared engine harness build no agent-specific path", async () => {
   for (
     const rel of [
       "tests/worktree_resources_test.ts",
       "tests/engine_worktree_resources_test.ts",
+      // The shared engine-test harness: `addWorktree` once placed test worktrees
+      // under `.claude/worktrees`; it now resolves the default sibling through the
+      // production `resolveWorktreeRoot`, so this guard keeps it agent-neutral.
+      "tests/engine_helpers.ts",
     ]
   ) {
     const code = codeOnly(await Deno.readTextFile(join(REPO, rel)));
     const hit = FORBIDDEN_AGENT_PATHS.find((p) => code.includes(p));
     assert(
       hit === undefined,
-      `${rel} must not build an agent-specific path (found \`${hit}\`) — a resource ` +
-        `test's markers/scratch belong in an external temp dir (a nested withTempDir), ` +
-        `never an agent-specific path that merely happens to be gitignored.`,
+      `${rel} must not build an agent-specific path (found \`${hit}\`) — a worktree/` +
+        `resource test's checkouts and markers belong in a neutral location (a sibling ` +
+        `or external temp dir), never an agent-specific path that merely happens to be ` +
+        `gitignored.`,
     );
   }
 });

@@ -1,22 +1,32 @@
 /**
- * Unit tests for {@link resolveTemplatesDir} — the auto-discovery of the
- * scaffold `templates/` tree.
+ * Unit tests for the path resolvers in `src/lib/paths.ts`:
+ *   - {@link resolveTemplatesDir} — auto-discovery of the scaffold `templates/`
+ *     tree, via the `DISCERN_TEMPLATES_DIR` override (validated to be a real
+ *     directory, else a clear throw) and a walk-up from the module's location.
+ *   - {@link resolveWorktreeRoot} — the placement convention for new worktrees:
+ *     the sibling default and the relative/absolute `[worktree].root` overrides.
  *
- * Two resolution paths exist: an `DISCERN_TEMPLATES_DIR` override (validated to
- * be a real directory, else a clear throw) and a walk-up from the module's own
- * location. We drive the override branch in both directions — a valid dir is
- * returned verbatim, a non-directory is rejected with a message that names the
- * escape hatch — and confirm the walk-up finds the repo's real `templates/` when
- * no override is present.
- *
- * Each test owns its env: the override is saved and restored so the suite's
- * parallel tests do not leak state into one another.
+ * Each env-touching test owns its env: the override is saved and restored so the
+ * suite's parallel tests do not leak state into one another.
  */
 
-import { assert, assertRejects, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertRejects,
+  assertStringIncludes,
+} from "@std/assert";
 import { join } from "@std/path";
-import { resolveTemplatesDir } from "../src/lib/paths.ts";
+import { resolveTemplatesDir, resolveWorktreeRoot } from "../src/lib/paths.ts";
+import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { REAL_TEMPLATES, withTempDir } from "./helpers.ts";
+
+/** A fully-defaulted config carrying the given `[worktree].root` (empty ⇒ default). */
+function configWithRoot(root: string): ReturnType<typeof parseConfigOrThrow> {
+  return parseConfigOrThrow(
+    root === "" ? "" : `[worktree]\nroot = "${root}"\n`,
+  );
+}
 
 const OVERRIDE = "DISCERN_TEMPLATES_DIR";
 
@@ -92,4 +102,33 @@ Deno.test("with no override, the walk-up discovers the repo's real templates/", 
       `expected ${REAL_TEMPLATES}, got ${resolved}`,
     );
   });
+});
+
+Deno.test("resolveWorktreeRoot: an empty [worktree].root ⇒ a sibling of the repo", () => {
+  // The default places worktrees in "<repo>.worktrees" — adjacent, NOT nested
+  // inside the checkout (the anti-pattern this convention exists to avoid).
+  assertEquals(
+    resolveWorktreeRoot("/a/b/myrepo", configWithRoot("")),
+    "/a/b/myrepo.worktrees",
+  );
+});
+
+Deno.test("resolveWorktreeRoot: a relative root resolves against the repo root", () => {
+  // The escape hatch that restores the old nested placement.
+  assertEquals(
+    resolveWorktreeRoot("/a/b/myrepo", configWithRoot(".claude/worktrees")),
+    "/a/b/myrepo/.claude/worktrees",
+  );
+  // A custom sibling via `..` — join() normalises the traversal.
+  assertEquals(
+    resolveWorktreeRoot("/a/b/myrepo", configWithRoot("../wts")),
+    "/a/b/wts",
+  );
+});
+
+Deno.test("resolveWorktreeRoot: an absolute root is used as-is", () => {
+  assertEquals(
+    resolveWorktreeRoot("/a/b/myrepo", configWithRoot("/srv/worktrees")),
+    "/srv/worktrees",
+  );
 });

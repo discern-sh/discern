@@ -46,8 +46,8 @@ Deno.test("the production chain is contiguous up to the current schema", () => {
   // 4→5 (prune the pre-existing on-disk shell engine), 5→6 (dissolve .discern/
   // into the single-file footprint), 6→7 (bootstrap skill → command),
   // 7→8 (db/dev_server → [worktree.resources.*]), 8→9 (untrack AGENTS.md),
-  // 9→10 (ignore .agents/skills/), 10→11 (drop [features].mcp), and 11→12
-  // (rename [worktree].graduate_to "main" → "trunk").
+  // 9→10 (ignore .agents/skills/), 10→11 (drop [features].mcp), 11→12 (rename
+  // [worktree].graduate_to "main" → "trunk"), and 12→13 (add [worktree].root).
   assertEquals(MIGRATIONS.map((m) => m.from), [
     1,
     2,
@@ -60,6 +60,7 @@ Deno.test("the production chain is contiguous up to the current schema", () => {
     9,
     10,
     11,
+    12,
   ]);
   assert(isChainContiguous(MIGRATIONS, SCHEMA_VERSION));
 });
@@ -372,6 +373,60 @@ Deno.test('migration 11→12 leaves graduate_to = "branch" and an absent key unt
     assert(
       !/graduate_to/.test(await Deno.readTextFile(join(dir, "discern.toml"))),
       "an absent graduate_to must stay absent",
+    );
+  });
+});
+
+Deno.test("migration 12→13 adds a documented [worktree].root key as the first [worktree] key", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      "[worktree]\nenabled = true\nport = true\n",
+    );
+    await applyMigrations({ destDir: dir, from: 12, to: 13, onNote: () => {} });
+    const toml = await Deno.readTextFile(join(dir, "discern.toml"));
+    // The key is added (empty = the sibling default) with its documentation…
+    assertStringIncludes(toml, 'root = ""');
+    assertStringIncludes(toml, "a SIBLING of the repo");
+    // …as the FIRST key of the table (right after the header), siblings intact.
+    assert(
+      /\[worktree\]\n(?:#[^\n]*\n)*root = ""\n/.test(toml),
+      `root must lead the [worktree] table:\n${toml}`,
+    );
+    assertStringIncludes(toml, "enabled = true");
+    assertStringIncludes(toml, "port = true");
+
+    // Idempotent: re-running on a config that already has root changes nothing.
+    const after = await Deno.readTextFile(join(dir, "discern.toml"));
+    await applyMigrations({ destDir: dir, from: 12, to: 13, onNote: () => {} });
+    assertEquals(await Deno.readTextFile(join(dir, "discern.toml")), after);
+  });
+});
+
+Deno.test("migration 12→13 never invents a second root, and no-ops without a [worktree] table", async () => {
+  await withTempDir(async (dir) => {
+    // A hand-set root is preserved verbatim (only-if-absent).
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      '[worktree]\nroot = "../custom-wts"\n',
+    );
+    await applyMigrations({ destDir: dir, from: 12, to: 13, onNote: () => {} });
+    const toml = await Deno.readTextFile(join(dir, "discern.toml"));
+    assertStringIncludes(toml, 'root = "../custom-wts"');
+    assert(
+      (toml.match(/^root = /gm) ?? []).length === 1,
+      `exactly one root key:\n${toml}`,
+    );
+
+    // No [worktree] table → nothing inserted (the schema default governs at read).
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      '[project]\nslug = "x"\n',
+    );
+    await applyMigrations({ destDir: dir, from: 12, to: 13, onNote: () => {} });
+    assert(
+      !/root = /.test(await Deno.readTextFile(join(dir, "discern.toml"))),
+      "must not add [worktree].root when there is no [worktree] table",
     );
   });
 });

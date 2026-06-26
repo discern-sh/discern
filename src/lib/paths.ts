@@ -8,7 +8,7 @@
  * plus the install-config locator and the `templates/` discovery.
  */
 
-import { dirname, fromFileUrl, join } from "@std/path";
+import { basename, dirname, fromFileUrl, join } from "@std/path";
 import { expandGlob } from "@std/fs";
 import {
   CONFIG_REL,
@@ -80,6 +80,37 @@ export function resolveRecipesDir(
   config: DiscernConfig,
 ): ResolvedDir {
   return resolveDir(root, config.recipes.dir);
+}
+
+/**
+ * The directory under which per-worktree `<name>` checkouts are created — the ONE
+ * resolver every spawn path (the `WorktreeCreate` hook) and the orphan-sweep
+ * wiring (`worktree:prune`'s `extraDirs`) share, so the placement convention lives
+ * in exactly one place. It lives HERE, in the feature layer, never in the
+ * stack-neutral engine: the engine discovers existing worktrees from git's own
+ * registry and knows nothing of *where* new ones go (ADR 0040, ADR 0052).
+ *
+ * Resolves `[worktree].root` against the main checkout `repoRoot`:
+ *   - empty / unset (the default) ⇒ a SIBLING of the repo,
+ *     `<parent>/<repo-basename>.worktrees` — visible, adjacent, and crucially NOT
+ *     nested inside the repo (a worktree nested in its own checkout is a known
+ *     anti-pattern: recursive globs double-count it, and a tool walking up to the
+ *     repo root mis-resolves the worktree's `.git` file);
+ *   - a RELATIVE path ⇒ resolved against `repoRoot` (e.g. `.claude/worktrees`
+ *     nests them inside the repo; `../wts` a custom sibling);
+ *   - an ABSOLUTE path ⇒ used as-is.
+ *
+ * Per-worktree `<name>` directories are created under the returned path.
+ */
+export function resolveWorktreeRoot(
+  repoRoot: string,
+  config: DiscernConfig,
+): string {
+  const configured = config.worktree.root;
+  if (configured === "") {
+    return join(dirname(repoRoot), `${basename(repoRoot)}.worktrees`);
+  }
+  return resolveDir(repoRoot, configured).abs;
 }
 
 /**

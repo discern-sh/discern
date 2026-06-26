@@ -50,8 +50,10 @@ Stack-specific setup (installing project dependencies, running the app) lives in
 
 ### JetBrains (IntelliJ / PHPStorm)
 
-- **Worktrees** — recent versions detect git worktrees and hide
-  `.claude/worktrees/` for you; no action needed.
+- **Worktrees** — agent worktrees default to a sibling directory
+  (`<repo>.worktrees/`) outside the project, so the IDE never indexes them; no
+  action needed. (If you point `[worktree].root` back inside the repo, recent
+  versions detect and hide git worktrees for you.)
 - **Colours** — the scopes are committed in
   [`.idea/scopes/`](../../.idea/scopes/). Assign colours once in **Settings →
   Editor → File Colors**, ticking _Share_ so they travel with the repo: `Tests`
@@ -79,8 +81,9 @@ discern's built-in guidance plus your [`guidance.md`](../../guidance.md) by
 
 ## Working alongside the agents
 
-- Agent sessions run in linked git worktrees under `.claude/worktrees/<name>/`,
-  each with its own checkout.
+- Agent sessions run in linked git worktrees — by default a sibling of the repo,
+  `<repo>.worktrees/<name>/` (configurable via `[worktree].root`), each with its
+  own checkout.
 - To take over an agent's branch and continue in the main checkout, run
   [`discern graduate`](../30-worktrees/README.md). It commits the work as
   needed, tears the worktree down, and checks the branch out in the main repo —

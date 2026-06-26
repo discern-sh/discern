@@ -752,7 +752,67 @@ export const MIGRATIONS: Migration[] = [
       ctx.note('renamed [worktree].graduate_to = "main" → "trunk"');
     },
   },
+  {
+    from: 12,
+    describe:
+      "add the documented [worktree].root key (empty ⇒ a sibling of the repo; relative/absolute overrides) so worktrees adopt the non-nested placement (ADR 0052)",
+    apply: async (ctx) => {
+      const text = await ctx.readConfig();
+      if (text === undefined) {
+        return; // no config to evolve.
+      }
+      let raw: Record<string, unknown>;
+      try {
+        raw = parseDiscernToml(text).raw;
+      } catch {
+        return; // unparseable — upgrade validates the config first; belt-and-braces.
+      }
+      const worktree = isRecord(raw.worktree) ? raw.worktree : {};
+      // Idempotent: add the key only when absent. An empty `root` IS the new
+      // sibling default, so this changes no behaviour for an existing worktree —
+      // it surfaces the option (and lets a user pin a custom or nested location).
+      // Existing nested worktrees keep working: the engine finds them via git, so
+      // the flip is forward-only.
+      if (worktree.root !== undefined) {
+        return;
+      }
+      await ctx.rewrite("discern.toml", (t) => insertWorktreeRootKey(t));
+      ctx.note(
+        'added [worktree].root = "" — worktrees now default to a sibling of the repo, not nested .claude/worktrees',
+      );
+    },
+  },
 ];
+
+/**
+ * Insert the documented `[worktree].root` key as the first key of the existing
+ * `[worktree]` table (right after its header), preserving everything else. A
+ * no-op when there is no `[worktree]` header (the schema default — a sibling —
+ * then governs at read time regardless). Kept in sync with the `[worktree]`
+ * region of templates/discern.toml.tmpl.
+ */
+function insertWorktreeRootKey(text: string): string {
+  const lines = text.split("\n");
+  const hdr = lines.findIndex((l) => l.trim() === "[worktree]");
+  if (hdr === -1) {
+    return text;
+  }
+  lines.splice(hdr + 1, 0, ...WORKTREE_ROOT_BLOCK.split("\n"));
+  return lines.join("\n");
+}
+
+/** The documented `[worktree].root` block a fresh init / this migration lays
+ * down. Kept in sync with the `[worktree]` region of templates/discern.toml.tmpl. */
+const WORKTREE_ROOT_BLOCK =
+  `# Where per-worktree checkouts are created (a <name> dir is made under it).
+#   ""  (the default) a SIBLING of the repo, "<repo>.worktrees/<name>" — visible
+#       and adjacent, never nested inside the checkout (a worktree nested in its
+#       own repo is an anti-pattern: recursive tools double-count it, and walking
+#       up to the repo root mis-resolves the worktree's .git file).
+#   a RELATIVE path resolves against the repo root (".claude/worktrees" restores
+#       the old nesting; "../wts" a custom sibling).
+#   an ABSOLUTE path is used as-is.
+root = ""`;
 
 /** Render a live `[worktree.resources.<name>]` table (only the non-empty keys). */
 function liveResourceBlock(

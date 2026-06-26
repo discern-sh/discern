@@ -281,6 +281,9 @@ const worktreeSection = z.strictObject({
   enabled: z.boolean().default(false).describe(
     "Run the idempotent worktree setup automatically at session start.",
   ),
+  root: z.string().default("").describe(
+    'Where per-worktree checkouts are created (a <name> dir is made under it). Empty (the default) ⇒ a sibling of the repo, "<repo>.worktrees" — visible and adjacent, never nested inside the checkout. A relative path resolves against the repo root (".claude/worktrees" restores the old nesting); an absolute path is used as-is.',
+  ),
   port: z.boolean().default(false).describe(
     "Give each worktree a deterministic dev-server port (hashed from its id) so concurrent worktrees never collide. Derived identity, not a resource — it provisions nothing.",
   ),

@@ -10,7 +10,7 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { join } from "@std/path";
+import { basename, join } from "@std/path";
 import { exists } from "@std/fs";
 import { withTempDir } from "./helpers.ts";
 import {
@@ -43,6 +43,38 @@ Deno.test("worktree setup: refreshes agent files and links skills inside the wor
       `bundled skills not linked in the worktree\n${r.output}`,
     );
     assertStringIncludes(r.output, "Worktree setup complete");
+  });
+});
+
+Deno.test("worktree lands in a sibling dir (never nested), and status + worktree-name work there", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "theta");
+
+    // The checkout is a SIBLING of the repo — adjacent to it, never nested under
+    // it (the nested-worktree anti-pattern this placement exists to avoid: a
+    // recursive glob would otherwise double-count it, and a walk-up to the repo
+    // root would mis-resolve the worktree's .git file).
+    assert(
+      !wt.startsWith(`${dir}/`),
+      `worktree must not be nested inside the repo: ${wt}`,
+    );
+    assertStringIncludes(wt, `${basename(dir)}.worktrees`);
+
+    // worktree-name resolves identity from the sibling checkout…
+    const name = await runAgent(wt, ["worktree-name", "--id"]);
+    assertEquals(name.code, 0, name.output);
+    assertStringIncludes(name.stdout, "theta");
+
+    // …and status from the main checkout surveys the sibling as a line of work.
+    const status = await runAgent(dir, ["status", "--json"]);
+    assertEquals(status.code, 0, status.output);
+    const fleet = JSON.parse(status.stdout).data.fleet as Array<
+      { branch: string }
+    >;
+    assert(
+      fleet.some((row) => row.branch === "agent/theta"),
+      `the sibling worktree should appear in the fleet: ${status.stdout}`,
+    );
   });
 });
 

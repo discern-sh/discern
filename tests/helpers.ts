@@ -110,6 +110,10 @@ export async function withTempDir(
     await fn(dir);
   } finally {
     await Deno.remove(dir, { recursive: true });
+    // Worktrees land in a SIBLING dir by default (`<dir>.worktrees`, the new
+    // placement) — sweep it too so sibling-placed test worktrees never leak into
+    // the system temp root. Best-effort: absent on the many tests that make none.
+    await Deno.remove(`${dir}.worktrees`, { recursive: true }).catch(() => {});
   }
 }
 

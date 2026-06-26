@@ -9,11 +9,12 @@
 /AGENTS.md
 /CLAUDE.md
 /GEMINI.md
-# Everything under .claude/ is generated or ephemeral — the materialized skills
-# (.claude/skills/, copied/symlinked by `discern refresh`) and the linked
-# worktree checkouts created by the worktree hooks — EXCEPT your settings, which
-# are tracked. (Leaving the worktree checkouts tracked would make the main
-# checkout read "dirty" the moment a worktree is created, blocking graduation.)
+# Everything under .claude/ is generated or ephemeral — chiefly the materialized
+# skills (.claude/skills/, copied/symlinked by `discern refresh`) — EXCEPT your
+# settings, which are tracked. (Worktree checkouts default to a sibling dir
+# OUTSIDE the repo now, so they no longer need fencing here; a project that points
+# [worktree].root back inside the repo at .claude/worktrees keeps them ignored by
+# this rule.)
 /.claude/*
 !/.claude/settings.json
 !/.claude/settings.local.json
