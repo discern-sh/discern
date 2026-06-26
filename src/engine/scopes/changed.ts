@@ -1,7 +1,7 @@
 /**
  * `changed-scopes`: classify which scopes the branch + working tree touch, so the
  * gate fires only the scope gates whose scope actually changed (and decides the
- * preview line). The TS port of the shell `changed-scopes` recipe.
+ * preview line).
  *
  * Classification FAILS OPEN: when git cannot answer, every scope/marker is
  * reported, so consumers run MORE gates, never fewer. Two derived markers ride

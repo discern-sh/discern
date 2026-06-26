@@ -335,6 +335,7 @@ export async function materializeSkills(
  * removal). A genuinely foreign entry — a name discern never materialized — is left
  * untouched and warned about, so a stray drop-in is never clobbered. `skillsRel` is
  * the project-relative path (for logs); `skillsAbs` is where the work happens.
+ * discern-allow-retrospective: "no longer effective" is the current effective set.
  */
 async function materializeSkillsDir(
   skillsRel: string,
@@ -348,6 +349,7 @@ async function materializeSkillsDir(
   // under one of these names that is no longer effective is a stale copy discern
   // placed (e.g. a bundled skill dropped from a newer binary) — safe to prune.
   // Without this record such an orphan is indistinguishable from a user drop-in.
+  // discern-allow-retrospective: "no longer effective" is the current effective set.
   const ownedBefore = await readMaterializedNames(skillsAbs);
 
   let pruned = 0;
@@ -357,6 +359,7 @@ async function materializeSkillsDir(
   // that are now stale — a dangling symlink (a removed authored skill) or a real
   // directory whose name discern materialized before but no longer ships. Anything
   // else is a foreign drop-in: leave it, and warn (never clobber it).
+  // discern-allow-retrospective: "no longer ships" is the current bundled set.
   try {
     for await (const entry of Deno.readDir(skillsAbs)) {
       if (entry.name === MATERIALIZED_MANIFEST) {
@@ -529,6 +532,7 @@ export interface SkillsDriftEntry {
    * hand-edit or an un-refreshed change; this is what blocks `finish`).
    * `foreign` — an unmanaged entry discern never placed (reported, never clobbered —
    * mirrors materialization's never-touch-a-drop-in contract; non-blocking).
+   * discern-allow-retrospective: "no longer effective" is the current effective set.
    */
   reason: "missing" | "stale" | "foreign";
   /** The skill name involved (`""` for a whole-dir `missing`). */

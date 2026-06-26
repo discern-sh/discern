@@ -1,6 +1,6 @@
 /**
- * Colour-aware human output for the gate recipes, matching the shell `output.sh`
- * helpers exactly: `info` (cyan →), `ok` (green ✓), `warn` (yellow !), and a
+ * Colour-aware human output for the gate: `info` (cyan →), `ok` (green ✓), `warn`
+ * (yellow !), and a
  * bold `heading`. All output goes to **stderr**, so `finish --json` keeps stdout
  * clean for the single JSON object (ADR 0004).
  */
@@ -77,8 +77,7 @@ export function palette(color: boolean): Palette {
 
 /**
  * Whether colour is on (stdout is a TTY and NO_COLOR is unset). The engine routes
- * human output to stdout (matching the shell `output.sh`, which checks `[ -t 1 ]`),
- * so the TTY check is on stdout.
+ * human output to stdout, so the TTY check is on stdout.
  */
 export function colorEnabled(): boolean {
   const nc = Deno.env.get("NO_COLOR");
@@ -95,7 +94,7 @@ export interface Out {
   info(m: string): void;
   ok(m: string): void;
   warn(m: string): void;
-  /** Failure line (red ✗) to stderr, like the shell `die` without exiting. */
+  /** Failure line (red ✗) to stderr, without exiting. */
   error(m: string): void;
   heading(m: string): void;
   raw(s: string): void;
@@ -103,7 +102,7 @@ export interface Out {
 
 /**
  * Build the output surface. In human mode info/ok/heading/raw go to stdout
- * (matching the shell `output.sh`) and warn/error to stderr. In `quiet` mode —
+ * and warn/error to stderr. In `quiet` mode —
  * used under `--json`, where the result envelope is the ENTIRE program output
  * (ADR 0030) — every method is a no-op, so nothing a verb narrates reaches
  * stdout OR stderr. This mirrors the installer `Logger`, which already silences

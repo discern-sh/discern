@@ -1,7 +1,7 @@
 /**
  * The scope-glob matcher: does a changed path match one `[scopes.<name>].paths`
- * entry? Four pattern kinds, tested in the SAME branch order as the shell
- * `path_matches_pattern` — a segment pattern (`/ui/`) both starts and ends with a
+ * entry? Four pattern kinds, tested in a fixed branch order: a segment pattern
+ * (`/ui/`) both starts and ends with a
  * slash, so it must be tested BEFORE the trailing-slash prefix kind (`src/`),
  * which would otherwise swallow it.
  */

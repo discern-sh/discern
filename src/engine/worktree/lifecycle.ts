@@ -1146,7 +1146,7 @@ async function liveResourceIdentitySet(
  * Resolve a single identity field for the `worktree-name` command surface. Kept
  * here so the dispatcher can map `discern worktree-name --<field>` to one call
  * without reaching into the identity internals. Throws `IdentityError` (carrying
- * an exit code) on a resolution failure, exactly as the shell did.
+ * an exit code) on a resolution failure.
  */
 export async function worktreeNameField(
   root: string,

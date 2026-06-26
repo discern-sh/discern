@@ -181,6 +181,7 @@ function internalAdmits(
  * for `help --adr`, which reveals the ADRs without ever exposing `_internal` /
  * `_private`). Point `--dir` at one (`--dir docs/_adr`) to browse it directly,
  * where it is no longer nested under an underscore.
+ * discern-allow-retrospective: describes the live layout under `--dir`.
  */
 export async function discoverDocs(opts: {
   cwd: string;

@@ -15,7 +15,7 @@ import { basename } from "@std/path";
  * `{{name}}`. This is the contract: no token outside this set is invented; an
  * unknown `{{token}}` is left verbatim and reported as drift. The worktree
  * engine's *runtime* tokens use a DIFFERENT delimiter — `@db@`, `@site@`, … (see
- * `lib/worktree.sh`) — so they never collide with these and need no special
+ * `engine/worktree/tokens.ts`) — so they never collide with these and need no special
  * pass-through here.
  */
 export type ContentTokenName =

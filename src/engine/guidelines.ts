@@ -61,7 +61,7 @@ export async function compileGuidelines(
   root: string,
   logger?: Logger,
 ): Promise<GuidelinesResult> {
-  // info/ok → stdout (matching the shell `output.sh`), UNLESS the caller passes
+  // info/ok → stdout, UNLESS the caller passes
   // its own logger to control the stream — e.g. `upgrade --json` passes its
   // json-mode logger so this narration is suppressed and the JSON object stays
   // the only thing on stdout.

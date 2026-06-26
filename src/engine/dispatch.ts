@@ -1,8 +1,7 @@
 /**
- * The engine-verb dispatcher: attaches the project task-runner verbs (the former
- * shell `agent` recipes) to the `discern` CLI, and falls through to project-owned
- * executable recipes under `[recipes].dir` (default `./recipes`) for an unknown
- * verb. The TS replacement for the shell `agent` dispatcher.
+ * The engine-verb dispatcher: attaches the project task-runner verbs to the
+ * `discern` CLI, and falls through to project-owned executable recipes under
+ * `[recipes].dir` (default `./recipes`) for an unknown verb.
  *
  * Engine verbs operate on the project (found by walking up to `discern.toml`), so
  * each requires a project root. `worktree:<sub>` is normalised to the Cliffy
@@ -132,8 +131,8 @@ function displayName(name: string): string {
   return name;
 }
 
-/** Logger for engine human output — info/ok/heading → stdout (matching the shell
- * recipes); NO_COLOR / non-TTY honoured by Logger. */
+/** Logger for engine human output — info/ok/heading → stdout; NO_COLOR /
+ * non-TTY honoured by Logger. */
 function makeLogger(): Logger {
   return new Logger({ json: false, noColor: false, humanStream: "stdout" });
 }
@@ -141,7 +140,7 @@ function makeLogger(): Logger {
 const NO_PROJECT =
   "not inside a discern project (no discern.toml in this directory or any parent).";
 
-/** Resolve the project root, or print the shell-`agent`-style error and exit 1. */
+/** Resolve the project root, or print a not-found error and exit 1. */
 async function requireRoot(): Promise<string> {
   const root = await findRoot();
   if (root === undefined) {
@@ -760,7 +759,7 @@ function commonSuffixLen(a: string, b: string): number {
   return n;
 }
 
-/** Whether `name` is a plausible near-match for the folded typo (shell match_candidate). */
+/** Whether `name` is a plausible near-match for the folded typo. */
 function matchCandidate(typo: string, name: string): boolean {
   if (name.includes(typo) || typo.includes(name)) {
     return true;
@@ -826,7 +825,7 @@ async function isExecutable(path: string): Promise<boolean> {
 }
 
 /** Internal helper verbs — callable for scripts/tests, but collapsed out of the
- * main help listing (like the shell's `# helper:` recipes). The SSOT for the helper
+ * main help listing. The SSOT for the helper
  * vocabulary: {@link HELPER_HANDLERS} is a total `Record<HelperVerb, …>` keyed by it,
  * so a helper added here without a handler (or vice versa) fails `deno check` — the
  * membership test ({@link isHelperVerb}) and the dispatch can never disagree on which

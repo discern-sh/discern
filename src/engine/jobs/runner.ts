@@ -1,12 +1,12 @@
 /**
  * The gate's concurrency core: run labelled jobs concurrently (runParallel) or
  * one at a time (runSerial), buffered-and-grouped or streamed live, with
- * optional fail-fast cancellation. The TS port of the shell `lib/jobs.sh` —
- * results are returned in memory (no temp-file side channel); `finish` builds its
+ * optional fail-fast cancellation. Results are returned in memory (no temp-file
+ * side channel); `finish` builds its
  * `--json` report from the returned `JobResult[]`.
  *
- * The per-job status line format is preserved exactly (the shell tests assert
- * it): `── <label> ─ ok` / `── <label> ─ FAILED (exit N)`, with the stream-mode
+ * The per-job status line format is `── <label> ─ ok` /
+ * `── <label> ─ FAILED (exit N)`, with the stream-mode
  * line prefix `── <label> │ …`. Human output goes to the sink (stderr by
  * default), keeping `--json` stdout clean for the report.
  */
@@ -72,8 +72,8 @@ function banner(result: JobResult, color: boolean): Uint8Array {
 
 /**
  * Run labelled jobs concurrently. With fail-fast, the moment one job fails the
- * rest are cancelled (tree-killed) and reported as failures — matching the shell,
- * which aggregates every job (a killed sibling defaults to exit 1). Banners and
+ * rest are cancelled (tree-killed) and reported as failures (a killed sibling
+ * defaults to exit 1). Banners and
  * buffered output print in declaration order once every job has settled.
  */
 export async function runParallel(

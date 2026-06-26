@@ -170,7 +170,7 @@ async function runGate(
   }
 > {
   const cfg = await loadConfig(root);
-  // Human: gate narration + job output → stdout (matching the shell). --json:
+  // Human: gate narration + job output → stdout. --json:
   // quiet — the result envelope is the entire output (ADR 0030), so the runner
   // and the Out are silenced and nothing streams to any fd. The shared run context
   // (job RunOptions + the narration Out) is the one `prepare`/`test` use too.
@@ -238,6 +238,7 @@ async function runGate(
   //    hand-edit, or an un-refreshed source/config change). A MISSING file is not a
   //    failure here: an untracked artifact is legitimately absent on a fresh
   //    checkout, so blocking it would red-light first-run CI. Gated on `guidance`.
+  //    discern-allow-retrospective: "no longer matching" is the live drift this detects.
   const guidanceOn = isFeatureEnabled(cfg, "guidance");
   let guidanceDiag: Diagnostic | undefined;
   if (failedStage === null && guidanceOn) {

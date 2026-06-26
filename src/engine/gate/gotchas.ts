@@ -1,6 +1,5 @@
 /**
- * The "a gate step failed" failure pointer — the TS port of the shell
- * `lib/gotchas.sh`. ALWAYS written to stderr (like the shell's `>&2`), so it
+ * The "a gate step failed" failure pointer. ALWAYS written to stderr, so it
  * never pollutes the gate's stdout. Aims an agent at the project's gotchas doc
  * (`[project].gotchas_doc`); an empty gotchas_doc disables the doc line.
  */

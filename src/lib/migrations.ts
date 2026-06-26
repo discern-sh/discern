@@ -583,6 +583,8 @@ export const MIGRATIONS: Migration[] = [
       // would leave it forever. Idempotent (a no-op once gone). An AUTHORED skill
       // the user named "bootstrap" is a symlink, not a tree we ship — removing the
       // link is harmless, the next refresh re-links it from [skills].dir.
+      // discern-allow-retrospective: "no longer in the bundled set" is the live
+      // bundled set this prune acts on, not a past state.
       await ctx.removeAll(".claude/skills/bootstrap");
 
       const text = await ctx.readConfig();

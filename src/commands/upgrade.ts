@@ -1,8 +1,8 @@
 /**
  * `discern upgrade` — bring an install forward to the current kit.
  *
- * The managed-file/hash machinery is gone (there is no committed engine to keep
- * in sync — the engine lives in the binary). What remains is narrow and additive:
+ * discern keeps no managed copy of the engine — it lives in the binary, with
+ * nothing committed to keep in sync — so upgrade is narrow and additive:
  *
  *   1. run any pending config-schema migrations (ADR 0014/0020);
  *   2. recompile the guidelines — which re-materializes the bundled skills into

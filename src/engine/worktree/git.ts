@@ -1,13 +1,12 @@
 /**
- * The git mechanics of the worktree lifecycle — the TS port of the pure git/
- * filesystem helpers under `engine/` (assert-in-worktree, assert-not-in-worktree,
- * assert-main-merged, ensure-worktree-branch, remove-worktree-safely,
- * prune-git-worktrees, sweep-orphan-worktrees, inherit-main-env-vars, plus
- * `main_repo_path` from lib/worktree.sh).
+ * The git mechanics of the worktree lifecycle: assert a path is (or isn't) a
+ * worktree, assert main is merged, ensure a worktree branch, safely remove a
+ * worktree, prune stale git worktrees, sweep orphans, inherit main's env, and
+ * resolve the main repo path.
  *
  * These are internal functions (no CLI parsing): they take explicit inputs and a
  * `Logger` for human output, and signal fatal conditions by throwing
- * `WorktreeGitError` (the analogue of the shell `die`) rather than calling
+ * `WorktreeGitError` rather than calling
  * `Deno.exit`. The lifecycle layer drives them; the dispatcher decides the
  * process exit code.
  *
@@ -19,7 +18,7 @@
 import { basename, dirname, isAbsolute, join, resolve } from "@std/path";
 import type { Logger } from "../../lib/log.ts";
 
-/** A fatal worktree-git condition (the analogue of the shell `die`). */
+/** A fatal worktree-git condition. */
 export class WorktreeGitError extends Error {
   constructor(message: string) {
     super(message);
@@ -58,7 +57,7 @@ interface GitRun {
 
 /**
  * Run a git command, capturing stdout+stderr. `cwd` runs git there (used instead
- * of `-C` where the shell `cd`'d). A missing/unrunnable git resolves to a failed
+ * of `-C`). A missing/unrunnable git resolves to a failed
  * run with an explanatory stderr rather than throwing.
  */
 async function git(args: string[], cwd?: string): Promise<GitRun> {
@@ -928,10 +927,10 @@ export interface PruneResult {
 
 /**
  * Remove stale git worktrees and fully-merged branches while keeping work worth
- * reviewing. The TS port of `prune-git-worktrees`. Unlike the shell, the
+ * reviewing. The
  * interactive confirmation is the caller's job (the lifecycle layer prompts and
  * passes results through); this runs the scan + removals and narrates via `log`.
- * Throws `WorktreeGitError` for the setup failures the shell `exit 1`'d on.
+ * Throws `WorktreeGitError` on a setup failure.
  */
 export async function pruneGitWorktrees(
   opts: PruneOptions,
@@ -1180,8 +1179,9 @@ export interface SweepResult {
 
 /**
  * Reclaim orphaned worktree directories — directories git no longer tracks but
- * which still carry a `.git` gitlink into this repo's worktrees admin area. The
- * TS port of `sweep-orphan-worktrees`. Scans the parent of every registered
+ * which still carry a `.git` gitlink into this repo's worktrees admin area.
+ * discern-allow-retrospective: runtime — these are orphans git has dropped.
+ * Scans the parent of every registered
  * worktree (git-derived, so it makes no assumption about WHERE worktrees live)
  * plus any `extraDirs`. Removal goes through {@link removeWorktreeSafely}, which
  * re-checks the boundary. Throws `WorktreeGitError` when not in a git repo.
@@ -1352,8 +1352,8 @@ export interface InheritEnvOptions {
 
 /**
  * Copy selected env vars from the main checkout's `.env` into the current
- * worktree's `.env`, so the worktree's app can boot with the same secrets. The
- * TS port of `inherit-main-env-vars`. Per-var safe-copy policy: skip when main is
+ * worktree's `.env`, so the worktree's app can boot with the same secrets.
+ * Per-var safe-copy policy: skip when main is
  * blank; replace when the worktree value is empty or equals `.env.example`'s
  * default; otherwise leave a customised value alone. Idempotent. An empty `vars`
  * list, or no worktree `.env`, is a clean no-op. Throws `WorktreeGitError` only

@@ -19,8 +19,8 @@ export interface LogOptions {
   noColor: boolean;
   /**
    * Which stream info/ok/heading/detail go to. "stderr" (the default) suits the
-   * installer (machine JSON on stdout); the engine recipes pass "stdout" to match
-   * the shell `output.sh` (info/ok/heading → stdout, warn/error → stderr).
+   * installer (machine JSON on stdout); the engine passes "stdout" (info/ok/
+   * heading → stdout, warn/error → stderr).
    */
   humanStream?: "stdout" | "stderr";
 }

@@ -57,8 +57,8 @@ export function killTree(pid: number, sig: Deno.Signal): void {
 
 /**
  * The exit code a finished job reports. A job terminated by a signal — i.e. the
- * one fail-fast tree-killed mid-run — defaults to 1, matching the shell runner
- * whose killed siblings recorded exit 1. A job that exited on its own keeps its
+ * one fail-fast tree-killed mid-run — defaults to 1. A job that exited on its
+ * own keeps its
  * real code, even when a *sibling's* failure aborted the stage only after this
  * job had already finished cleanly: the abort fires on every sibling, so keying
  * the code off the abort flag would mis-report an already-passed job as failed.
@@ -83,7 +83,7 @@ function concat(chunks: Uint8Array[]): Uint8Array {
 }
 
 /**
- * Stream a child stream live, prefixing each line `── <label> │ …` (per the shell).
+ * Stream a child stream live, prefixing each line `── <label> │ …`.
  * `onChunk` (optional) receives each raw chunk so the caller can retain a capped
  * copy for the failure diagnostic without giving up live streaming.
  */
@@ -112,8 +112,8 @@ async function streamPrefixed(
 }
 
 /**
- * Run one job to completion. An empty command becomes the `:` no-op (exit 0),
- * exactly as the shell runner did. A command that calls `exit N` exits its own
+ * Run one job to completion. An empty command becomes the `:` no-op (exit 0).
+ * A command that calls `exit N` exits its own
  * `sh -c` shell, so the recorded code is N — not a runner failure.
  */
 export async function spawnJob(

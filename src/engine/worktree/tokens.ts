@@ -1,6 +1,6 @@
 /**
- * The adapter-token convention — the TS port of `wt_expand_tokens` /
- * `wt_replace_all` from the shell `lib/worktree.sh`.
+ * The adapter-token convention: runtime tokens substituted into a worktree's
+ * resource commands.
  *
  * Project-supplied resource commands in `[worktree.resources.<name>]`
  * (`create`/`destroy`/`ensure`) carry RUNTIME tokens that are substituted with
@@ -28,7 +28,7 @@
  * never loops.
  */
 
-/** The adapter tokens, in resolution order (db/site/port preserve the shell's). */
+/** The adapter tokens, in resolution order. */
 export const WORKTREE_TOKENS = [
   "db",
   "site",

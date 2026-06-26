@@ -526,8 +526,8 @@ function buildCli(
 
   root.command("config", config);
 
-  // The project task-runner verbs (finish, prepare, graduate, worktree:*, …) — the former
-  // shell `agent` recipes, now first-class `discern` subcommands. The cast drops
+  // The project task-runner verbs (finish, prepare, graduate, worktree:*, …) are
+  // first-class `discern` subcommands. The cast drops
   // the threaded global-option generics (which the engine actions don't read) —
   // Cliffy's generic Command type is impractical to spell at this boundary.
   attachEngineCommands(root as unknown as Command, enabled);

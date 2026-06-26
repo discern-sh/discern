@@ -1,6 +1,6 @@
 /**
- * `ratchets` — hold every metric ratchet. The TS port of the shell `ratchets`
- * recipe + `lib/ratchets.sh` (ADR 0003). Each `[ratchets.<name>]` enforces two
+ * `ratchets` — hold every metric ratchet (ADR 0003). Each `[ratchets.<name>]`
+ * enforces two
  * halves: NEVER LOOSENED vs main (the limit compared to main's value — a floor
  * may only rise, a ceiling only fall) and MEASURED vs limit (run the command,
  * read the `DISCERN_METRIC <name> <number>` line — last wins). Slow, so on demand,
@@ -32,7 +32,7 @@ import {
 } from "../../shared/result.ts";
 import { emitResult } from "../../shared/emit.ts";
 
-/** True when `s` is a non-negative decimal number (matches the shell predicate). */
+/** True when `s` is a non-negative decimal number. */
 function isNumber(s: string): boolean {
   if (s === "" || s === ".") {
     return false;
@@ -45,7 +45,7 @@ function isNumber(s: string): boolean {
 
 /**
  * The last `DISCERN_METRIC <metric> <value>` token-triple in `output`, scanned
- * per line (matching the shell awk). Returns undefined when absent.
+ * per line. Returns undefined when absent.
  */
 function extractMetric(output: string, metric: string): string | undefined {
   let value: string | undefined;
@@ -90,8 +90,8 @@ async function ratchetMainValue(
 }
 
 /** Run one ratchet's measurement command, returning its combined output. The
- * run's exit code is deliberately NOT consulted (the shell masks it via `| tee`);
- * only the emitted DISCERN_METRIC line decides pass/fail. */
+ * run's exit code is deliberately NOT consulted; only the emitted
+ * DISCERN_METRIC line decides pass/fail. */
 async function measure(command: string): Promise<string> {
   const out = await new Deno.Command("sh", {
     args: ["-c", command],
@@ -105,8 +105,7 @@ async function measure(command: string): Promise<string> {
 
 /** Check one planned ratchet. Prints its own pass/fail line; returns held/failed.
  * The ratchet is already schema-validated (direction ∈ up|down, limit a number,
- * run present), so the structural checks the shell did are gone — folded into the
- * schema. */
+ * run present), so its structural checks are folded into the schema. */
 async function ratchetCheck(
   r: PlannedRatchet,
   root: string,
@@ -158,7 +157,7 @@ async function ratchetCheck(
   }
   const measured = Number(measuredStr);
 
-  // compare measured vs limit (epsilon tolerance, matching the shell awk)
+  // compare measured vs limit (epsilon tolerance)
   if (direction === "up") {
     if (measured + 1e-9 < limit) {
       out.error(

@@ -77,7 +77,7 @@ export interface IdentitySettings {
 
 /** An error in identity resolution, carrying a process-style exit code. */
 export class IdentityError extends Error {
-  /** The exit code the shell `worktree-name` would have used (1 or 2). */
+  /** The process-style exit code for this failure (1 or 2). */
   readonly code: number;
   constructor(message: string, code = 1) {
     super(message);
@@ -259,6 +259,7 @@ async function gitOut(
 /**
  * Canonicalize a target path, tolerating one that no longer exists by
  * canonicalizing its parent and re-appending the basename.
+ * discern-allow-retrospective: runtime — the target path may be absent.
  */
 async function canonicalizeTarget(path: string): Promise<string> {
   try {
@@ -375,8 +376,8 @@ async function metadataIdFromGit(path: string): Promise<string> {
 
 /**
  * Resolve only the worktree id (the basis for every derived value), applying the
- * three-source precedence and the slug-collision `wt-` prefix. Mirrors the id
- * resolution block of the shell `worktree-name`. `target` defaults to the cwd.
+ * three-source precedence and the slug-collision `wt-` prefix. `target` defaults
+ * to the cwd.
  */
 export async function resolveWorktreeId(
   settings: IdentitySettings,

@@ -80,7 +80,7 @@ export async function runJobGroups(
 /**
  * The run context every gate verb shares: the {@link RunOptions} for the job runner
  * and the {@link Out} for its narration, derived once from the config and the JSON
- * flag. Human runs stream banners + job output to stdout (matching the shell);
+ * flag. Human runs stream banners + job output to stdout;
  * `--json`/MCP runs go quiet — the result envelope is the entire output (ADR 0030),
  * so the runner and the Out are silenced while jobs still run and a failure's output
  * is still captured for its diagnostic.

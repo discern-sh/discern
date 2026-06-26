@@ -1,8 +1,8 @@
 /**
  * `discern setup` — the one-time, zero-config harness setup.
  *
- * Unifies the former `init` (mechanical scaffold) and `bootstrap` (agent-driven
- * authoring) into a single command (ADR 0036). The user installs the binary and
+ * Combines mechanical scaffolding and agent-driven authoring in a single command
+ * (ADR 0036). The user installs the binary and
  * tells their coding agent to "run discern"; bare `discern` (pre-setup) and the
  * explicit `discern setup` both land here. There are no wizard prompts and no
  * decisions for the user to make at the CLI — setup is always non-interactive:

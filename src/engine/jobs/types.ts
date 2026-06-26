@@ -1,4 +1,4 @@
-/** Shared types for the gate's job runner (the TS port of the shell jobs.sh). */
+/** Shared types for the gate's job runner. */
 
 /** A unit of gate work: a labelled shell command. */
 export interface Job {
@@ -17,7 +17,7 @@ export interface JobResult {
   status: JobStatus;
   /** Process exit code. A cancelled/killed sibling reports a non-zero code (1). */
   code: number;
-  /** Whole-second wall-clock duration (integer, matching the shell's date math). */
+  /** Whole-second wall-clock duration (integer). */
   durationS: number;
   /**
    * The job's FULL captured combined stdout+stderr (uncapped — stream mode keeps a
