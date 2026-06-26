@@ -314,8 +314,8 @@ project-namespaced handle is read with `worktree-name --resource <name>` or the
 What `discern integrate` does: bring the latest integration branch
 (`[project].main_branch`) into the current worktree's branch and re-materialize
 the generated agent files + [Skills](#skill), in one deterministic step — the
-inverse of [Graduate](#graduate). A no-op when the branch already contains main;
-it merges into a clean tree only, and on a conflict it aborts the merge and
+inverse of [Graduate](#graduate). A no-op when the branch already contains main.
+It merges into a clean tree only, and on a conflict it aborts the merge and
 reports the conflicting files. The action the [Gate](#gate)'s fail-fast merge
 check points a behind branch at ([ADR 0055](../_adr/0055-integrate-verb.md)).
 

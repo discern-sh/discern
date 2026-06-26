@@ -24,8 +24,8 @@ hook entries parse their payload in the binary itself — no `jq`
 ([ADR 0040](../_adr/0040-worktree-hooks-in-the-binary.md)). When `main` advances
 under a long-running Worktree,
 [`integrate`](../../src/engine/worktree/lifecycle.ts) brings it into the branch
-and re-materializes the agent files + skills in one step — the deterministic
-inverse of graduate, and what the gate's merge check
+and re-materializes the agent files + skills in one step. It is the
+deterministic inverse of graduate, and what the gate's merge check
 ([ADR 0050](../_adr/0050-merge-check-fail-fast.md)) points a behind branch at
 ([ADR 0055](../_adr/0055-integrate-verb.md)). When a change is done,
 [`graduate`](../../src/engine/worktree/lifecycle.ts) graduates the branch into

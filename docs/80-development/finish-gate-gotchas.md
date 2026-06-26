@@ -38,10 +38,10 @@ fix/build/check/test on a result you are about to throw away.
 
 **Fix.** Commit your work, then run `deno task dev integrate` — it brings `main`
 in and re-materializes the agent files + skills in one step. (On a conflict it
-aborts cleanly and names the files; resolve them with `git merge main`, commit
-the merge, then carry on.) Then run `deno task dev finish` again to verify
-against the correct, merged tree. (In the main checkout, not a worktree, this
-check is a no-op — there is nothing to integrate into.)
+aborts cleanly and names the files. Resolve them with `git merge main`, commit
+the merge, then carry on.) Then run `deno task dev finish` again to verify the
+correct, merged tree. (In the main checkout, not a worktree, this check is a
+no-op — there is nothing to integrate into.)
 
 ### The fix stage reformatted a file you already committed
 
