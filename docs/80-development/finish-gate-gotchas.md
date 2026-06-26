@@ -36,11 +36,12 @@ changes the tree and discards whatever the gate computed against the
 pre-integration tree — the gate refuses up front rather than spending the slow
 fix/build/check/test on a result you are about to throw away.
 
-**Fix.** Commit your work, run `git merge main`, resolve any conflicts and
-commit the merge, then run `deno task dev finish` again to verify the merged
-result (the re-run surfaces any real failures against the correct, merged tree).
-(In the main checkout, not a worktree, this check is a no-op — there is nothing
-to integrate into.)
+**Fix.** Commit your work, then run `deno task dev integrate` — it brings `main`
+in and re-materializes the agent files + skills in one step. (On a conflict it
+aborts cleanly and names the files; resolve them with `git merge main`, commit
+the merge, then carry on.) Then run `deno task dev finish` again to verify
+against the correct, merged tree. (In the main checkout, not a worktree, this
+check is a no-op — there is nothing to integrate into.)
 
 ### The fix stage reformatted a file you already committed
 

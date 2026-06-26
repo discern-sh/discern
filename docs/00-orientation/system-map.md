@@ -70,9 +70,9 @@ Capability or Check:
 The Worktree workflow brackets a change, keeping the main checkout untouched:
 
 ```
-main checkout ──discern worktree──► Worktree  (branch + own db + own port)
-      ▲                                  │
-      └─────────────── discern graduate ─┘   graduate branch + tear down
+main checkout ──discern worktree──► Worktree ⟲ discern integrate
+      ▲                                  │     (pull main in + re-materialize)
+      └─────────────── discern graduate ─┘     graduate branch + tear down
 ```
 
 ---

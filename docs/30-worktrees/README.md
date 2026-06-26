@@ -21,9 +21,15 @@ payload, adds the worktree, then runs first-time setup — which creates the
 resources), `WorktreeRemove` →
 [`worktree:remove`](../../src/lib/worktree_hooks.ts) (tears it down). Those two
 hook entries parse their payload in the binary itself — no `jq`
-([ADR 0040](../_adr/0040-worktree-hooks-in-the-binary.md)). When a change is
-done, [`graduate`](../../src/engine/worktree/lifecycle.ts) graduates the branch
-into the main repo and removes the Worktree — by default onto its own branch for
+([ADR 0040](../_adr/0040-worktree-hooks-in-the-binary.md)). When `main` advances
+under a long-running Worktree,
+[`integrate`](../../src/engine/worktree/lifecycle.ts) brings it into the branch
+and re-materializes the agent files + skills in one step — the deterministic
+inverse of graduate, and what the gate's merge check
+([ADR 0050](../_adr/0050-merge-check-fail-fast.md)) points a behind branch at
+([ADR 0055](../_adr/0055-integrate-verb.md)). When a change is done,
+[`graduate`](../../src/engine/worktree/lifecycle.ts) graduates the branch into
+the main repo and removes the Worktree — by default onto its own branch for
 review, or with `--to trunk` (the `[worktree].graduate_to` default)
 fast-forwarding the trunk to it and deleting the merged branch;
 [`worktree:prune`](../../src/engine/worktree/lifecycle.ts) sweeps stale
@@ -43,10 +49,10 @@ discovers existing Worktrees from git's own registry, never a hardcoded path —
 so only the create hook and `worktree:prune`'s orphan sweep know the convention
 ([ADR 0052](../_adr/0052-worktree-sibling-placement.md)).
 
-Each effectful lifecycle verb — `worktree` (setup), `worktree:teardown`,
-`worktree:prune`, and `graduate` — takes a `--dry-run` that prints the plan
-(what it _would_ create, destroy, reclaim, or move) and touches nothing, plus a
-`--json` serialization of plan + results
+Each effectful lifecycle verb — `worktree` (setup), `integrate`,
+`worktree:teardown`, `worktree:prune`, and `graduate` — takes a `--dry-run` that
+prints the plan (what it _would_ create, destroy, reclaim, move, or merge) and
+touches nothing, plus a `--json` serialization of plan + results
 ([ADR 0027](../_adr/0027-plan-apply-engine-execution.md)). The destructive ones
 — prune's GC and graduation's WIP-commit / remove / checkout dance — are
 inspectable before they act.
@@ -72,3 +78,6 @@ inspectable before they act.
   db/dev-server adapters into per-worktree resources with orphan GC.
 - [ADR 0052](../_adr/0052-worktree-sibling-placement.md) — placing Worktrees in
   a configurable sibling directory instead of nested `.claude/worktrees`.
+- [ADR 0055](../_adr/0055-integrate-verb.md) — `integrate`, the third verb in
+  the worktree lifecycle: bring `main` into the branch and re-materialize in one
+  deterministic step.
