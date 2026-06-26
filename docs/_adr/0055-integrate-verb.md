@@ -78,9 +78,11 @@ currency check stays the gate's authority on stale artifacts. integrate just
 keeps them current across the one operation that most reliably staled them.
 
 **Scope held to v1.** Two follow-ups stay **out of scope** here, each a separate
-later change. One re-runs the worktree's idempotent `[worktree.setup].steps`
-after a merge. The other moves `finish`'s currency checks to a fail-fast
-precondition. The merge + refresh bundling is the irreducible core.
+later change. One re-runs the worktree's setup after a merge — realized by
+[ADR 0059](0059-worktree-setup-ensure.md) as the convergent
+`[worktree.setup].ensure` bucket (not a blind re-run of the one-shot `steps`).
+The other moves `finish`'s currency checks to a fail-fast precondition. Bundling
+the merge with the refresh is the irreducible core.
 
 Adding the verb followed the canonical-set discipline of
 [ADR 0051](0051-canonical-set-parity.md). Every satellite of the verb vocabulary

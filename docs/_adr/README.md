@@ -78,3 +78,4 @@ decision is hard to reverse, surprising without context, and a real trade-off.
 - [0056 — Run the generated-artifact currency checks as fail-fast preconditions too](0056-currency-checks-fail-fast.md)
 - [0057 — Ratchet a rate, not a raw count, via an optional `per` denominator](0057-rate-ratchets.md)
 - [0058 — `discern start` spawns a worktree from the main checkout, and a status guardrail points at it](0058-start-verb-spawn-worktree-from-trunk.md)
+- [0059 — `[worktree.setup].ensure`, a convergent setup bucket that re-runs every pass](0059-worktree-setup-ensure.md)
