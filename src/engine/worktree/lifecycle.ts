@@ -69,6 +69,7 @@ import {
 } from "../../shared/result.ts";
 import { emitResult } from "../../shared/emit.ts";
 import {
+  addWorktree,
   assertInWorktree,
   assertMainMerged,
   assertNotInWorktree,
@@ -426,6 +427,29 @@ export async function worktreeSetup(
   if (opts.json ?? false) {
     emitResults("worktree", setupResults(plan, createdFailed, refreshOk));
   }
+}
+
+/**
+ * Create a linked worktree at `dir` on `branch` from the main checkout `mainRepo`,
+ * then run its first-time setup — the shared "mint + ready a worktree at a resolved
+ * location" core. Both `discern start` (which mints its own worktree from the main
+ * checkout) and the Claude Code worktree-create hook call this, so the create-then-
+ * setup sequence lives in exactly one place. It bakes in NO placement convention:
+ * the caller resolves WHERE the worktree lands (`resolveWorktreeRoot`, the feature
+ * layer) and passes the final `dir` — keeping this engine core agent-agnostic.
+ * Idempotent end to end: `addWorktree` no-ops on an existing worktree and
+ * `worktreeSetup` re-readies (never re-creates) an already-configured one. Setup
+ * runs with the new worktree as both root and cwd — a linked worktree is its own
+ * checkout, with its own discern.toml and gitignored materialized skills to build.
+ */
+export async function createAndSetupWorktree(
+  mainRepo: string,
+  dir: string,
+  branch: string,
+  log: Logger,
+): Promise<void> {
+  await addWorktree(mainRepo, dir, branch);
+  await worktreeSetup(await lifecycleContext(dir, log, dir));
 }
 
 /** The outcome of the idempotent session-start ensure check. */

@@ -28,11 +28,11 @@ import { Logger } from "./log.ts";
 import { resolveWorktreeRoot } from "./paths.ts";
 import { loadConfig } from "../shared/config_schema.ts";
 import {
+  createAndSetupWorktree,
   lifecycleContext,
-  worktreeSetup,
   worktreeTeardown,
 } from "../engine/worktree/lifecycle.ts";
-import { addWorktree, WorktreeGitError } from "../engine/worktree/git.ts";
+import { WorktreeGitError } from "../engine/worktree/git.ts";
 
 /** A logger whose human output is on stderr, so stdout stays the hook's result. */
 function hookLogger(): Logger {
@@ -117,12 +117,9 @@ export async function worktreeCreateHook(): Promise<number> {
   const dir = join(resolveWorktreeRoot(cwd, config), name);
   try {
     const branch = `${config.project.branch_prefix}${name}`;
-    await addWorktree(cwd, dir, branch);
-
-    // Run setup with the new worktree as BOTH root and cwd: a linked worktree is
-    // its own checkout, with its own discern.toml and gitignored .claude/skills
-    // to build.
-    await worktreeSetup(await lifecycleContext(dir, log, dir));
+    // The shared create-then-setup core (also used by `discern start`); WHERE the
+    // worktree lands is decided above by `resolveWorktreeRoot`, not in the engine.
+    await createAndSetupWorktree(cwd, dir, branch, log);
   } catch (e) {
     if (e instanceof WorktreeGitError) {
       log.error(e.message);
