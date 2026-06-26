@@ -79,6 +79,74 @@ export async function bundledSkillNames(): Promise<string[]> {
   return await dirNames(await resolveBundledSkillsDir());
 }
 
+/** The identity a `SKILL.md` declares in its frontmatter. Only the fields every
+ * skill must carry are surfaced; any other key in the block is ignored. */
+export interface SkillFrontmatter {
+  /** The `name:` value — the skill's canonical name (must equal its directory). */
+  name: string;
+  /** The `description:` value — what it does and when to reach for it. */
+  description: string;
+}
+
+/** Strip one layer of matching surrounding single or double quotes, if present. */
+function unquote(value: string): string {
+  if (value.length >= 2) {
+    const first = value[0];
+    if ((first === '"' || first === "'") && value[value.length - 1] === first) {
+      return value.slice(1, -1);
+    }
+  }
+  return value;
+}
+
+/**
+ * Parse the leading frontmatter of a `SKILL.md` into its declared `name` and
+ * `description`. A SKILL.md opens with a `---`-fenced block of flat `key: value`
+ * lines — the shape every bundled and authored skill carries — and this is the ONE
+ * place that block is read, so a guard and any future consumer agree by construction
+ * (single source of truth). Deliberately tiny and dependency-free: keys match up to
+ * the first colon; a value is the rest of its line, trimmed, with one layer of
+ * surrounding quotes removed (single-line scalars only — the format skills use).
+ *
+ * Throws when the opening `---` fence is missing or unterminated — a structurally
+ * broken file is a loud failure, never a silent empty parse. A well-fenced block that
+ * merely omits `name`/`description` yields an empty string for the absent field, which
+ * the well-formedness guard then rejects with a precise, per-skill message.
+ */
+export function parseSkillFrontmatter(text: string): SkillFrontmatter {
+  const lines = text.split(/\r?\n/);
+  if (lines[0]?.trim() !== "---") {
+    throw new Error("missing opening '---' frontmatter fence");
+  }
+  let end = -1;
+  for (let i = 1; i < lines.length; i++) {
+    if (lines[i]?.trim() === "---") {
+      end = i;
+      break;
+    }
+  }
+  if (end === -1) {
+    throw new Error("unterminated frontmatter fence (no closing '---')");
+  }
+  let name = "";
+  let description = "";
+  for (let i = 1; i < end; i++) {
+    const line = lines[i] ?? "";
+    const colon = line.indexOf(":");
+    if (colon === -1) {
+      continue;
+    }
+    const key = line.slice(0, colon).trim();
+    const value = unquote(line.slice(colon + 1).trim());
+    if (key === "name") {
+      name = value;
+    } else if (key === "description") {
+      description = value;
+    }
+  }
+  return { name, description };
+}
+
 /**
  * Resolve the effective skill set: every bundled built-in plus every authored
  * skill under `[skills].dir`, keyed by name, with an authored skill overriding a

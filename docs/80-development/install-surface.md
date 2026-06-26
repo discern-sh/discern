@@ -147,10 +147,11 @@ set and which of yours override which; `discern skills eject <name>` copies a
 built-in into `./skills/` so you can customise it. Each is a `SKILL.md` under
 its own directory:
 
-| Skill                                                                      | What it does                                                      |
-| -------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| [`document-subsystem`](../../templates/skills/document-subsystem/SKILL.md) | Write or refresh a `docs/` subtree per the documenter brief.      |
-| [`write-adr`](../../templates/skills/write-adr/SKILL.md)                   | Record a significant decision as an Architecture Decision Record. |
+| Skill                                                                      | What it does                                                                  |
+| -------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| [`document-subsystem`](../../templates/skills/document-subsystem/SKILL.md) | Write or refresh a `docs/` subtree per the documenter brief.                  |
+| [`fix-a-bug-class`](../../templates/skills/fix-a-bug-class/SKILL.md)       | Fix a whole class of defect — not one instance — behind a permanent detector. |
+| [`write-adr`](../../templates/skills/write-adr/SKILL.md)                   | Record a significant decision as an Architecture Decision Record.             |
 
 (Seeding a fresh install is **not** a skill — it is the `discern setup` command;
 see below and [ADR 0024](../_adr/0024-bootstrap-as-command.md), amended by
