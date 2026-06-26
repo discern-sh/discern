@@ -43,7 +43,10 @@ Deno.test("config set-capability fills a capability and preserves comments", asy
     const toml = await readToml(dir);
     assertStringIncludes(toml, 'test = "vitest run"');
     // A section comment from the template survives the edit.
-    assertStringIncludes(toml, "# discern.toml");
+    assertStringIncludes(
+      toml,
+      "# discern | https://discern.sh | project configuration file",
+    );
   });
 });
 

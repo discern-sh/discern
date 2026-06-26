@@ -69,7 +69,10 @@ Deno.test("add-preset overlays the example preset's files and config fills", asy
     assertStringIncludes(toml, 'paths = ["example/**"]'); // scope paths
     assertStringIncludes(toml, 'gate = "echo example side gate"'); // scope gate
     assertStringIncludes(toml, "[ratchets.examplesize]"); // ratchet
-    assertStringIncludes(toml, "# discern.toml"); // template comment survived
+    assertStringIncludes(
+      toml,
+      "# discern | https://discern.sh | project configuration file",
+    ); // comment survived
   });
 });
 
