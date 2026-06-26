@@ -13,7 +13,7 @@
  * (plan, results) through the shared renderer.
  */
 
-import { loadConfig } from "../../shared/config_schema.ts";
+import { type Extent, loadConfig } from "../../shared/config_schema.ts";
 import { RawConfig } from "../../shared/config_read.ts";
 import { colorEnabled, makeOut, type Out, outSink } from "../output.ts";
 import {
@@ -113,7 +113,7 @@ function readEmittedNumber(output: string, name: string): number | undefined {
  */
 async function measureExtent(
   root: string,
-  measure: "files" | "lines" | "words" | "bytes",
+  measure: Extent,
   globs: string[],
 ): Promise<number> {
   const res = await runGit(["ls-files", "-z", "--", ...globs], { cwd: root });

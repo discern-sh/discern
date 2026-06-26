@@ -13,6 +13,8 @@
 
 import {
   type DiscernConfig,
+  type Extent,
+  EXTENTS,
   type RatchetConfig,
   toCommand,
 } from "../../shared/config_schema.ts";
@@ -23,11 +25,7 @@ import type { EnginePlan, PlanStep } from "../../shared/result.ts";
  * measures itself over a set of git pathspecs. */
 export type PerSpec =
   | { kind: "metric"; metric: string }
-  | {
-    kind: "extent";
-    measure: "files" | "lines" | "words" | "bytes";
-    globs: string[];
-  };
+  | { kind: "extent"; measure: Extent; globs: string[] };
 
 /**
  * One ratchet as planned: the resolved fields the executor reads, lifted out of
@@ -51,9 +49,6 @@ export interface PlannedRatchet {
   /** Multiplier applied to the rate so the limit reads in human units (default 1). */
   scale: number;
 }
-
-/** The built-in extents `per` can divide by, in declaration order. */
-const EXTENTS = ["files", "lines", "words", "bytes"] as const;
 
 /** Normalize a schema-validated `per` into the executor's {@link PerSpec}. A string
  * names a second emitted metric; an object names exactly one built-in extent (the

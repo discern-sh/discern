@@ -98,14 +98,22 @@ const globOrList = z.union([z.string(), z.array(z.string())]);
 
 /** The built-in extents a ratchet's `per` can divide by — universal, stack-neutral
  * text measures over a git pathspec. discern counts these itself, so the `run`
- * emits only the numerator. Exactly one may be named. */
-const EXTENTS = ["files", "lines", "words", "bytes"] as const;
-const perExtent = z.strictObject({
-  files: globOrList.optional(),
-  lines: globOrList.optional(),
-  words: globOrList.optional(),
-  bytes: globOrList.optional(),
-}).refine(
+ * emits only the numerator. The single source of truth for the set; the plan and
+ * executor import {@link Extent} from here so a new measure enrolls in one place. */
+export const EXTENTS = ["files", "lines", "words", "bytes"] as const;
+export type Extent = (typeof EXTENTS)[number];
+// `satisfies Record<Extent, …>` pins the object's keys to EXTENTS at compile time:
+// a measure added to EXTENTS with no key here (or a key here not in EXTENTS) fails
+// `deno check`, so the set and its schema shape can never drift. Exactly one key
+// may be set — the refine enforces that, iterating the same EXTENTS list.
+const perExtent = z.strictObject(
+  {
+    files: globOrList.optional(),
+    lines: globOrList.optional(),
+    words: globOrList.optional(),
+    bytes: globOrList.optional(),
+  } satisfies Record<Extent, z.ZodType>,
+).refine(
   (o) => EXTENTS.filter((k) => o[k] !== undefined).length === 1,
   { message: `per must name exactly one extent: ${EXTENTS.join(" | ")}.` },
 );
