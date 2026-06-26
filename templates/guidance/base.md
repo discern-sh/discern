@@ -49,3 +49,16 @@ build artifacts (so the reviewable diff is your source), and `discern_status` /
 `discern_finish` recompile in memory and flag any agent file *or* materialized
 skill that has drifted from its source (ADR 0034) — a stale or hand-edited one
 fails the gate instead of slipping through.
+
+## Fix the class, not the instance
+
+A bug is rarely alone. Before fixing one, name the *class* of defect as a
+checkable predicate, then write an executable check that fails on **every**
+member of it — a parameterized test, a structural-search or lint rule, an
+architectural test that iterates the canonical set. Fix until it is green, and
+leave the check in the gate as a permanent guard so the class can't silently
+return — including in code written later by someone who never saw the original
+bug. "Done" is a green class-detector, not a claim that you caught every case.
+Drive the check off the single source of truth — a registry, enum, or type —
+never a hand-copied list, so a new member auto-enrolls. The
+**`fix-a-bug-class`** skill walks the full procedure.
