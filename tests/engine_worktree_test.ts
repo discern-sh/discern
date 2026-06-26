@@ -523,6 +523,20 @@ Deno.test("start: mints a fresh, unique id on each call (never re-mints a live w
   });
 });
 
+Deno.test("start (human): announces the new worktree and how to cd into it", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+
+    const r = await runAgent(dir, ["start"]); // human mode (no --json)
+    assertEquals(r.code, 0, r.output);
+    // Setup narrated, then the path + the "cd into it" deliverable.
+    assertStringIncludes(r.output, "is ready at");
+    assertStringIncludes(r.output, "cd ");
+    assertStringIncludes(r.output, `${basename(dir)}.worktrees`);
+  });
+});
+
 Deno.test("start --dry-run: previews creating a worktree and touches nothing", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
