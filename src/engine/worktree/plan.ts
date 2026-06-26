@@ -45,13 +45,13 @@ export function teardownPlanToEngine(plan: TeardownPlan): EnginePlan {
  * graduation that may proceed. */
 export interface GraduatePlan {
   /** Where the branch lands: `"branch"` (review-first, branch preserved) or
-   * `"main"` (fast-forward the trunk and delete the now-merged branch). */
+   * `"trunk"` (fast-forward the trunk and delete the now-merged branch). */
   to: GraduateTarget;
   worktreeBranch: string;
   worktreePath: string;
   mainRepo: string;
   mainBranch: string;
-  /** The trunk a `--to main` graduation fast-forwards (`[project].main_branch`). */
+  /** The trunk a `--to trunk` graduation fast-forwards (`[project].main_branch`). */
   trunk: string;
   /** Whether the worktree has uncommitted changes (→ a WIP-commit/unstage dance). */
   worktreeDirty: boolean;
@@ -88,7 +88,7 @@ export function graduatePlanToEngine(plan: GraduatePlan): EnginePlan {
     disposition: "run",
     note: plan.worktreePath,
   });
-  if (plan.to === "main") {
+  if (plan.to === "trunk") {
     // Land on the trunk: fast-forward it to the branch tip (always clean — the
     // gate guarantees the branch contains the trunk), then delete the merged branch.
     steps.push({
@@ -119,7 +119,7 @@ export function graduatePlanToEngine(plan: GraduatePlan): EnginePlan {
       note: "soft-reset so the changes land staged-but-uncommitted",
     });
   }
-  const landing = plan.to === "main"
+  const landing = plan.to === "trunk"
     ? `Into trunk:    ${plan.mainRepo} (fast-forward ${plan.trunk}, delete ${plan.worktreeBranch})`
     : `Into main:     ${plan.mainRepo} (on ${plan.mainBranch})`;
   return {

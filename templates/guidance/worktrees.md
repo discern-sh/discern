@@ -15,7 +15,7 @@ handle, call **`discern_help`**.{{/if}}
   checkout. It is the single deterministic implementation of that handoff — run it
   rather than moving the branch by hand, and relay its result. Commit your work
   with a real message first, so it lands as a proper review commit. By default it
-  lands on its own branch for review; pass **`--to main`** to fast-forward
+  lands on its own branch for review; pass **`--to trunk`** to fast-forward
   `{{main_branch}}` to the branch tip and delete the now-merged branch instead (set
   the per-project default with `[worktree].graduate_to`). It refuses if the branch
   is behind `{{main_branch}}` — integrate it (`git merge {{main_branch}}`) and

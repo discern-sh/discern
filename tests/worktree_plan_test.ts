@@ -162,9 +162,9 @@ Deno.test("graduatePlanToEngine: dirty worktree adds WIP-commit/unstage; resourc
   assert(clean.details.some((d) => d.includes("Into main:")));
 });
 
-Deno.test("graduatePlanToEngine: to=main fast-forwards the trunk and deletes the branch instead of a checkout", () => {
+Deno.test("graduatePlanToEngine: to=trunk fast-forwards the trunk and deletes the branch instead of a checkout", () => {
   const base = {
-    to: "main" as const,
+    to: "trunk" as const,
     worktreeBranch: "agent/x",
     worktreePath: "/repo/.wt/x",
     mainRepo: "/repo",

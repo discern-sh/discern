@@ -39,7 +39,7 @@ and `write-adr`) plus any you author under `[skills].dir` (default `./skills`,
 yours overriding a built-in by name). The `fix-a-bug-class` built-in pairs with
 an always-on norm in the built-in base — discern's first general working
 discipline shipped on by default
-([ADR 0048](../_adr/0048-bug-class-discipline-built-in.md)). They materialize
+([ADR 0049](../_adr/0049-bug-class-discipline-built-in.md)). They materialize
 into each configured agent's skills directory
 ([`.claude/skills/`](../../.claude/skills/) for Claude Code, the cross-tool
 `.agents/skills/` for Codex and Gemini — Claude Code does not read the shared

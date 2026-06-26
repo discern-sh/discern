@@ -12,7 +12,7 @@
 [meta]
 # The install schema version — managed by discern (bumped by `discern upgrade`).
 # Don't edit this by hand.
-schema_version = 11
+schema_version = 12
 
 
 [project]
@@ -177,9 +177,11 @@ port = true
 # Where `discern graduate` lands by default (override per-run with `--to`):
 #   "branch"  leave the work on its own branch, checked out in the main repo for
 #             review — the worktree branch is preserved (the safe default).
-#   "main"    fast-forward the trunk to the branch tip, check the trunk out, and
-#             delete the now-merged branch. The gate already guarantees the branch
-#             contains the trunk, so this is always a clean fast-forward.
+#   "trunk"   fast-forward the trunk to the branch tip, check the trunk out, and
+#             delete the now-merged branch. "trunk" is a role — it resolves to
+#             [project].main_branch (main, master, …), not a branch literally
+#             named "main". The gate guarantees the branch contains the trunk, so
+#             this is always a clean fast-forward.
 graduate_to = "branch"
 
 # ─────────────────────────────────────────────────────────────────────────────

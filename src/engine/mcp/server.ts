@@ -347,7 +347,7 @@ const TOOLS: McpTool[] = [
       "Graduate THIS worktree's branch into the main checkout: tear down the " +
       "worktree's resources, commit any leftover changes, remove the worktree, then " +
       'land the branch per `to`. `to:"branch"` checks it out in the main repo for ' +
-      'review (branch preserved); `to:"main"` fast-forwards the trunk to the branch ' +
+      'review (branch preserved); `to:"trunk"` fast-forwards the trunk to the branch ' +
       "tip and deletes the now-merged branch. Omit `to` to use the project default " +
       "([worktree].graduate_to). This is the single deterministic implementation — " +
       "run it rather than reproducing the steps with git; commit the work with a real " +
@@ -360,8 +360,9 @@ const TOOLS: McpTool[] = [
     inputSchema: {
       to: z.enum(GRADUATE_TARGETS).optional().describe(
         'Where the branch lands. "branch": check it out in the main repo for review, ' +
-          'branch preserved. "main": fast-forward the trunk to the branch tip and ' +
-          "delete the merged branch. Omit to use [worktree].graduate_to.",
+          'branch preserved. "trunk" (a role → [project].main_branch): fast-forward ' +
+          "the trunk to the branch tip and delete the merged branch. Omit to use " +
+          "[worktree].graduate_to.",
       ),
       dry_run: z.boolean().optional().describe(
         "Preview the graduation plan and touch nothing (default false).",
@@ -719,7 +720,7 @@ function buildInstructions(enabled: ReadonlySet<Feature>): string {
         "graduate it with discern_graduate. Commit the work with a real message " +
         "first, then run the tool (it is the single deterministic implementation — " +
         "don't reproduce its git steps by hand) and relay the result. Pass " +
-        'to:"main" to fast-forward the trunk and delete the branch, to:"branch" to ' +
+        'to:"trunk" to fast-forward the trunk and delete the branch, to:"branch" to ' +
         "leave it checked out for review, or omit it to use the project default.",
     );
   }

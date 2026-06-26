@@ -1,4 +1,4 @@
-# ADR 0048: Ship the fix-the-class discipline as built-in guidance and a bundled skill
+# ADR 0049: Ship the fix-the-class discipline as built-in guidance and a bundled skill
 
 **Status**: accepted
 

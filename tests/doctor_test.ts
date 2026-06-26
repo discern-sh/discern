@@ -163,7 +163,7 @@ Deno.test("doctor: human (non-json) output reports a clean bill on stderr, exit 
     // The environment header gives at-a-glance triage context.
     assertStringIncludes(stderr, "discern 1.0.0 ·");
     assertStringIncludes(stderr, "discern.toml: present and valid TOML");
-    assertStringIncludes(stderr, "schema 11 (current)");
+    assertStringIncludes(stderr, "schema 12 (current)");
     assertStringIncludes(stderr, "git: ");
     assertStringIncludes(stderr, "All checks passed.");
   });
@@ -216,7 +216,7 @@ Deno.test("doctor: a stale schema is flagged with an upgrade fix", async () => {
     const schema = check(payload, "schema version");
     assertEquals(schema.ok, false);
     assertStringIncludes(schema.detail, "v1");
-    assertStringIncludes(schema.detail, "v11");
+    assertStringIncludes(schema.detail, "v12");
     assertStringIncludes(schema.fix ?? "", "discern upgrade");
   });
 });

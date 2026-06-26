@@ -99,10 +99,10 @@ from.
 A plain monotonic integer — the anchor the [Migration](#migration) chain steps
 from, stamped into `[meta].schema_version` in `discern.toml`. It bumps **only**
 when an installed project needs a migration to stay correct, so most releases
-leave it untouched. The current shape is schema **9** — the `8 → 9` step
-untracks the generated `AGENTS.md`, adding `/AGENTS.md` to `.gitignore` so it
-joins the other compiled mirrors as a build artifact
-([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md)).
+leave it untouched. The current shape is schema **12** — the `11 → 12` step
+renames the `[worktree].graduate_to` value `"main"` to `"trunk"`, so the
+graduation landing-role no longer reads as a branch literally named main
+([ADR 0048](../_adr/0048-graduate-trunk-role-name.md)).
 
 ### Migration
 
@@ -314,10 +314,11 @@ project-namespaced handle is read with `worktree-name --resource <name>` or the
 
 What `discern graduate` does: integrate the worktree's branch into the main repo
 and tear the worktree down (its resources destroyed, directory pruned). Requires
-the branch to already carry `main`. The landing is configurable
+the branch to already carry the trunk. The landing is configurable
 (`[worktree].graduate_to`, or `--to` per run): `branch` checks the branch out in
-the main repo for review (the default); `main` fast-forwards the trunk to the
-branch tip and deletes the now-merged branch.
+the main repo for review (the default); `trunk` (a role →
+`[project].main_branch`, whether that is `main`, `master`, …) fast-forwards the
+trunk to the branch tip and deletes the now-merged branch.
 
 ---
 
