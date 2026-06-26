@@ -119,10 +119,11 @@ verbs:
   declares through the **Worktree settings** — none until wired.
 - `discern prepare` is the fast inner loop: the fix-stage Capabilities, then the
   check-stage ones.
-- `discern finish` is the full **Gate**: fix and build, then check and test in
-  parallel, then any **Scope** `gate`s that fired, then the main-merged check.
-  Each Capability and **Check** runs as its own labelled job, so failure points
-  at the exact one; `--json` makes that machine-readable.
+- `discern finish` is the full **Gate**: the main-merged check first (in a
+  Worktree) as a fail-fast precondition, then fix and build, then check and test
+  in parallel, then any **Scope** `gate`s that fired. Each Capability and
+  **Check** runs as its own labelled job, so failure points at the exact one;
+  `--json` makes that machine-readable.
 - `discern graduate` **graduates** the branch into the main repo and tears the
   Worktree down.
 

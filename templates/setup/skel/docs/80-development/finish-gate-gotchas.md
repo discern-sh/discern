@@ -14,9 +14,9 @@ These arise from how the harness works (git worktrees, parallel stages, build ar
 
 ### `main` advanced during your session
 
-**Symptom.** Every stage passes, then `discern finish` stops at the very end with a message that your branch does not contain the latest `main`. It does **not** merge for you.
+**Symptom.** `discern finish` stops almost immediately — before the fixers, build, checks, or tests run — with a message that your branch does not contain the latest `main`. It does **not** merge for you.
 
-**Cause.** The merge check is the gate's **final** step, deliberately — so you fix all the real failures first and integrate `main` once, cleanly, at the end. While you were working, `main` moved.
+**Cause.** The merge check is the gate's **first** step, fail-fast. While you were working, `main` moved, so your branch is behind it. A branch behind `main` has to integrate and re-run regardless — the integration changes the tree and discards whatever the gate computed against the old one — so the gate refuses up front rather than spending the slow fix/build/check/test on a result you are about to throw away.
 
 **Fix.** Commit your work, run `git merge main`, resolve any conflicts and commit the merge, then run `discern finish` again to verify the merged result. (In the main checkout, not a worktree, this check is a no-op — there is nothing to integrate into.)
 

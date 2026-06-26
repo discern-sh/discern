@@ -18,9 +18,10 @@ These work the same regardless of language or framework (shown here as
   the worktree note in the project guidelines).
 - **`deno task dev prepare`** is the fast inner loop — applies the fix-stage
   work, then the check-stage work; no build, no tests.
-- **`deno task dev finish`** is the full gate — fixers and build, then checks
-  and tests in parallel, then any scope `gate`s whose scope changed, then (in a
-  worktree) the merge check. Run it before declaring a change done.
+- **`deno task dev finish`** is the full gate — (in a worktree) a fail-fast
+  merge check first, then fixers and build, then checks and tests in parallel,
+  then any scope `gate`s whose scope changed. Run it before declaring a change
+  done.
 - **`deno task dev doctor`** verifies the install is sound (hooks present, every
   configured capability and check resolvable, git worktree support, required
   tools on PATH).

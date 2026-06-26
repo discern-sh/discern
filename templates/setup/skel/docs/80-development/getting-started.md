@@ -12,7 +12,7 @@ These work the same regardless of language or framework:
 
 - **`discern worktree`** sets up an isolated checkout for a change (see the worktree note in the project guidelines).
 - **`discern prepare`** is the fast inner loop — applies the fix-stage capabilities, then the check-stage capabilities; no build, no tests.
-- **`discern finish`** is the full gate — fixers and build, then checks and tests in parallel, then any scope `gate`s that fired, then (in a worktree) the merge check. Run it before declaring a change done.
+- **`discern finish`** is the full gate — (in a worktree) a fail-fast merge check first, then fixers and build, then checks and tests in parallel, then any scope `gate`s that fired. Run it before declaring a change done.
 - **`discern doctor`** verifies the install is sound (dispatcher executable, hooks present, every configured capability resolvable, git worktree support, required tools on PATH).
 
 ## Setting up

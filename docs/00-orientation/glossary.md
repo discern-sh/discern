@@ -245,12 +245,12 @@ no longer a user-facing word.
 
 ### Gate
 
-`discern finish` — the compound quality gate: the Capability and Check
+`discern finish` — the compound quality gate: (in a worktree) the main-merged
+check first, as a fail-fast precondition, then the Capability and Check
 [Stages](#stage) in order (`fix ∥ build`, then `check ∥ test`), then any
-[Scope](#scope) `gate`s that fired, then (in a worktree) the main-merged check.
-Each Capability and Check runs as its own labelled job, so a failure is
-attributed to the precise one. `discern prepare` is the fast inner loop — the
-fix-stage then check-stage work, no build or test.
+[Scope](#scope) `gate`s that fired. Each Capability and Check runs as its own
+labelled job, so a failure is attributed to the precise one. `discern prepare`
+is the fast inner loop — the fix-stage then check-stage work, no build or test.
 
 ### Scope
 
