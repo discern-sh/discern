@@ -32,6 +32,7 @@ import { KNOWN_VERBS } from "../src/main.ts";
 import { TOOLS, verbOf } from "../src/engine/mcp/server.ts";
 import { FEATURES, isFeature, VERB_FEATURE } from "../src/shared/features.ts";
 import { BOOTSTRAP_GATED_VERBS } from "../src/shared/setup_state.ts";
+import { WORKTREE_FIELDS } from "../src/engine/worktree/identity.ts";
 
 const sorted = (xs: Iterable<string>): string[] => [...xs].sort();
 
@@ -135,6 +136,43 @@ Deno.test("VERB_FEATURE keys are real verbs and values are real features", () =>
       `VERB_FEATURE maps "${verb}" to "${feature}", which is not a known feature`,
     );
   }
+});
+
+Deno.test("the worktree-name CLI exposes a flag for EXACTLY the identity-field SSOT", () => {
+  // The --<field> flags re-list WORKTREE_FIELDS by hand (each carries its own help
+  // text, so they can't be a derived list) — tie them by test. The resolver's switch
+  // and the action's field selection already derive from the SSOT; this catches a
+  // flag that drifts from it (a renamed/removed field, or a new one with no flag).
+  const root = new Command();
+  attachEngineCommands(root as unknown as Command, new Set(FEATURES));
+  const wtName = root.getCommands().find((c) =>
+    c.getName() === "worktree-name"
+  );
+  assert(wtName !== undefined, "the worktree-name command is not registered");
+  const optionNames = wtName.getOptions().map((o) => o.name);
+
+  for (const f of WORKTREE_FIELDS) {
+    assert(
+      optionNames.includes(f),
+      `worktree-name has no --${f} flag for the WORKTREE_FIELDS member "${f}"`,
+    );
+  }
+  // The only NON-field options are the resource queries (explicit, named exceptions).
+  const NON_FIELD_OPTIONS = new Set(["resource", "resources"]);
+  for (const n of NON_FIELD_OPTIONS) {
+    assert(
+      optionNames.includes(n) &&
+        !(WORKTREE_FIELDS as readonly string[]).includes(n),
+      `NON_FIELD_OPTIONS lists "${n}", but it is not a non-field worktree-name option`,
+    );
+  }
+  const fieldOptions = optionNames.filter((n) => !NON_FIELD_OPTIONS.has(n));
+  assertEquals(
+    sorted(fieldOptions),
+    sorted(WORKTREE_FIELDS),
+    "worktree-name's identity flags have drifted from WORKTREE_FIELDS — add the flag " +
+      "for the new field, or record a new non-field option in NON_FIELD_OPTIONS",
+  );
 });
 
 Deno.test("ENGINE_RECIPE_NAMES is the engine verbs minus the command groups, plus the worktree sub-recipes", () => {

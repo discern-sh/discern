@@ -43,6 +43,31 @@ export interface WorktreeIdentity {
   db: string;
 }
 
+/**
+ * The identity fields the `worktree-name` command can resolve — the
+ * {@link WorktreeIdentity} keys plus `worktree` (the base resource handle, derived
+ * via `worktreeBase` rather than stored on the identity). The SINGLE source the
+ * resolver's parameter union and exhaustive switch (`worktreeNameField`) and the
+ * CLI's `--<field>` flags (`dispatch.ts`) derive from, so a new field can't be added
+ * to one satellite without the others: the union+switch is compile-total (a missing
+ * case fails `deno check`), and the flags are tied by `engine_verb_parity_test.ts`.
+ *
+ * This is a DISTINCT set from the adapter `WORKTREE_TOKENS` (`tokens.ts`): those are
+ * the `@…@` placeholders a resource command expands (db/site/port/project_slug/dir/
+ * worktree/resource), not the identity fields a user queries.
+ */
+export const WORKTREE_FIELDS = [
+  "id",
+  "site",
+  "branch",
+  "port",
+  "db",
+  "worktree",
+] as const;
+
+/** One resolvable identity field ({@link WORKTREE_FIELDS}). */
+export type WorktreeField = (typeof WORKTREE_FIELDS)[number];
+
 /** The project-level inputs identity derivation needs (slug + branch prefix). */
 export interface IdentitySettings {
   /** The sanitized project slug (site/db/id prefix). Never empty. */

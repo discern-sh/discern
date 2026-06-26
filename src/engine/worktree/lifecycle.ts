@@ -28,6 +28,7 @@ import {
   resolveWorktreeId,
   resourceForId,
   worktreeBase,
+  type WorktreeField,
   type WorktreeIdentity,
 } from "./identity.ts";
 import { writeEnvVar } from "./env_file.ts";
@@ -1128,12 +1129,15 @@ async function liveResourceIdentitySet(
  */
 export async function worktreeNameField(
   root: string,
-  field: "id" | "site" | "branch" | "port" | "db" | "worktree",
+  field: WorktreeField,
   target: string = Deno.cwd(),
 ): Promise<string> {
   const settings = await loadIdentitySettings(root);
   const id = await resolveWorktreeId(settings, target);
   const identity = deriveIdentity(id, settings);
+  // No `default`: the switch is total over WorktreeField, so a field added to
+  // WORKTREE_FIELDS makes this fail `deno check` ("not all code paths return") until
+  // it is handled here — the compile-time tie back to the SSOT.
   switch (field) {
     case "id":
       return identity.id;

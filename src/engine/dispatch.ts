@@ -62,6 +62,7 @@ import {
   worktreeTeardown,
 } from "./worktree/lifecycle.ts";
 import { inheritMainEnvVars, removeWorktreeSafely } from "./worktree/git.ts";
+import { WORKTREE_FIELDS } from "./worktree/identity.ts";
 import {
   worktreeCreateHook,
   worktreeRemoveHook,
@@ -507,17 +508,13 @@ export function attachEngineCommands(
             console.log(line);
           }
         } else {
-          const field = o.site
-            ? "site"
-            : o.branch
-            ? "branch"
-            : o.port
-            ? "port"
-            : o.db
-            ? "db"
-            : o.worktree
-            ? "worktree"
-            : "id";
+          // Derive the selected field from the WORKTREE_FIELDS SSOT (id is the
+          // default), so a new identity field is selectable here without editing this
+          // branch — the CLI flags themselves are tied to the SSOT by a parity test.
+          const field = WORKTREE_FIELDS.find((f) =>
+            f !== "id" && o[f] === true
+          ) ??
+            "id";
           console.log(await worktreeNameField(root, field, target));
         }
         Deno.exit(0);
