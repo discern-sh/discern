@@ -818,17 +818,37 @@ async function isExecutable(path: string): Promise<boolean> {
 }
 
 /** Internal helper verbs — callable for scripts/tests, but collapsed out of the
- * main help listing (like the shell's `# helper:` recipes). */
-const HELPER_VERBS: ReadonlySet<string> = new Set([
+ * main help listing (like the shell's `# helper:` recipes). The SSOT for the helper
+ * vocabulary: {@link HELPER_HANDLERS} is a total `Record<HelperVerb, …>` keyed by it,
+ * so a helper added here without a handler (or vice versa) fails `deno check` — the
+ * membership test ({@link isHelperVerb}) and the dispatch can never disagree on which
+ * verbs are helpers. */
+const HELPER_VERBS = [
   "remove-worktree-safely",
   "inherit-main-env-vars",
   "with-gotchas",
-]);
+] as const;
+/** One internal helper verb ({@link HELPER_VERBS}). */
+type HelperVerb = (typeof HELPER_VERBS)[number];
 
-/** Whether `verb` is an internal helper verb. */
-export function isHelperVerb(verb: string): boolean {
-  return HELPER_VERBS.has(verb);
+const HELPER_VERB_SET: ReadonlySet<string> = new Set(HELPER_VERBS);
+
+/** Whether `verb` is an internal helper verb (narrows it to {@link HelperVerb}). */
+export function isHelperVerb(verb: string): verb is HelperVerb {
+  return HELPER_VERB_SET.has(verb);
 }
+
+/** The handler for each helper verb — a TOTAL record, so a new {@link HELPER_VERBS}
+ * member is a COMPILE error here until it is wired (and a handler for a non-helper
+ * can't slip in). The dispatch derives from this, never a parallel switch. */
+const HELPER_HANDLERS: Record<
+  HelperVerb,
+  (args: string[]) => Promise<number>
+> = {
+  "remove-worktree-safely": helperRemoveWorktree,
+  "inherit-main-env-vars": helperInheritEnv,
+  "with-gotchas": helperWithGotchas,
+};
 
 /**
  * Dispatch an internal helper verb, or return null if `verb` is not one. Handled
@@ -838,16 +858,7 @@ export async function dispatchHelper(
   verb: string,
   args: string[],
 ): Promise<number | null> {
-  switch (verb) {
-    case "remove-worktree-safely":
-      return await helperRemoveWorktree(args);
-    case "inherit-main-env-vars":
-      return await helperInheritEnv();
-    case "with-gotchas":
-      return await helperWithGotchas(args);
-    default:
-      return null;
-  }
+  return isHelperVerb(verb) ? await HELPER_HANDLERS[verb](args) : null;
 }
 
 /** `remove-worktree-safely <path>` — robustly remove a worktree of this repo. */
