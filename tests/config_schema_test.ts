@@ -217,3 +217,25 @@ Deno.test("the document agent enum matches the installer's known agents", () => 
   // and includes gemini — the historical staleness bug in the JSON Schema.
   assert((AGENT_NAMES as readonly string[]).includes("gemini"));
 });
+
+Deno.test("[worktree.setup].ensure parses and defaults to [] (additive, backward-compatible)", () => {
+  // Absent → both buckets default to empty, so a config with only `steps` (or
+  // neither) behaves exactly as before the key existed.
+  const { config } = parseConfig("");
+  assertEquals(config?.worktree.setup.steps, []);
+  assertEquals(config?.worktree.setup.ensure, []);
+  // A config carrying only the old `steps` key still validates and leaves `ensure`
+  // at its default.
+  const { config: legacy, issues: legacyIssues } = parseConfig(
+    '[worktree.setup]\nsteps = ["a"]\n',
+  );
+  assertEquals(legacyIssues, []);
+  assertEquals(legacy?.worktree.setup.ensure, []);
+  // Both buckets parse, in order.
+  const { config: both, issues } = parseConfig(
+    '[worktree.setup]\nsteps = ["a"]\nensure = ["b", "c"]\n',
+  );
+  assertEquals(issues, []);
+  assertEquals(both?.worktree.setup.steps, ["a"]);
+  assertEquals(both?.worktree.setup.ensure, ["b", "c"]);
+});

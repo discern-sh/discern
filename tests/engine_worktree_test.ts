@@ -567,3 +567,219 @@ Deno.test("start --dry-run: previews creating a worktree and touches nothing", a
     );
   });
 });
+
+// ── [worktree.setup]: one-shot `steps` vs convergent `ensure` (ADR 0059) ───────
+
+/** Scaffold a main repo whose `[worktree.setup]` carries `steps`/`ensure`, commit
+ * it, and add a linked worktree that inherits it on a CLEAN tree (so integrate,
+ * which refuses a dirty tree, still applies). The commands are baked into the
+ * committed config — the worktree carries them like a real checkout. */
+async function mainWithSetup(
+  dir: string,
+  name: string,
+  setup: { steps?: string[]; ensure?: string[] },
+): Promise<string> {
+  await scaffoldEngine(dir);
+  const cfgPath = join(dir, "discern.toml");
+  let cfg = await Deno.readTextFile(cfgPath);
+  const toToml = (xs: string[]) =>
+    `[${xs.map((s) => JSON.stringify(s)).join(", ")}]`;
+  if (setup.steps !== undefined) {
+    cfg = cfg.replace("steps = []", `steps = ${toToml(setup.steps)}`);
+  }
+  if (setup.ensure !== undefined) {
+    cfg = cfg.replace("ensure = []", `ensure = ${toToml(setup.ensure)}`);
+  }
+  await Deno.writeTextFile(cfgPath, cfg);
+  await gitInit(dir);
+  return await addWorktree(dir, name);
+}
+
+/** Run `fn` with a fresh marker directory OUTSIDE any repo (so a `git add -A` in
+ * the main checkout never stages it). A setup command appends a line here per run;
+ * the line count proves how many times that bucket ran. Cleaned up after. */
+async function withMarkers(
+  fn: (markers: string) => Promise<void>,
+): Promise<void> {
+  const markers = await Deno.makeTempDir({ prefix: "discern-markers-" });
+  try {
+    await fn(markers);
+  } finally {
+    await Deno.remove(markers, { recursive: true });
+  }
+}
+
+/** How many times a marker command ran (non-empty lines appended); 0 when the file
+ * was never created (the command never ran). */
+async function markerCount(path: string): Promise<number> {
+  try {
+    return (await Deno.readTextFile(path)).split("\n").filter((l) => l !== "")
+      .length;
+  } catch {
+    return 0;
+  }
+}
+
+Deno.test("worktree setup: runs the one-shot steps then the convergent ensure", async () => {
+  await withTempDir(async (dir) => {
+    await withMarkers(async (markers) => {
+      const steps = join(markers, "steps");
+      const ensure = join(markers, "ensure");
+      const wt = await mainWithSetup(dir, "setup-both", {
+        steps: [`echo x >> ${steps}`],
+        ensure: [`echo x >> ${ensure}`],
+      });
+      const r = await runAgent(wt, ["worktree"]);
+      assertEquals(r.code, 0, r.output);
+      assertEquals(await markerCount(steps), 1, `steps ran once\n${r.output}`);
+      assertEquals(await markerCount(ensure), 1, `ensure ran\n${r.output}`);
+    });
+  });
+});
+
+Deno.test("worktree setup re-entry: skips the one-shot steps, re-runs ensure", async () => {
+  await withTempDir(async (dir) => {
+    await withMarkers(async (markers) => {
+      const steps = join(markers, "steps");
+      const ensure = join(markers, "ensure");
+      const wt = await mainWithSetup(dir, "reentry", {
+        steps: [`echo x >> ${steps}`],
+        ensure: [`echo x >> ${ensure}`],
+      });
+      await runAgent(wt, ["worktree"]); // creation: steps 1, ensure 1
+      const again = await runAgent(wt, ["worktree"]); // re-entry
+      assertEquals(again.code, 0, again.output);
+      assertStringIncludes(again.output, "skipping setup steps");
+      assertEquals(
+        await markerCount(steps),
+        1,
+        "the one-shot steps must not re-run on re-entry",
+      );
+      assertEquals(
+        await markerCount(ensure),
+        2,
+        "the convergent ensure must re-run on re-entry",
+      );
+    });
+  });
+});
+
+Deno.test("worktree:ensure converges via [worktree.setup].ensure on every session start", async () => {
+  await withTempDir(async (dir) => {
+    await withMarkers(async (markers) => {
+      const ensure = join(markers, "ensure");
+      const wt = await mainWithSetup(dir, "wt-ensure", {
+        ensure: [`echo x >> ${ensure}`],
+      });
+      await runAgent(wt, ["worktree:ensure"]); // first: fresh setup → ensure 1
+      await runAgent(wt, ["worktree:ensure"]); // already configured → ensure 2
+      assertEquals(
+        await markerCount(ensure),
+        2,
+        "session-start ensure must converge the worktree each time",
+      );
+    });
+  });
+});
+
+Deno.test("worktree --dry-run: lists the ensure commands it would run", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithSetup(dir, "dry", {
+      steps: ["echo once-only"],
+      ensure: ["echo converge-me"],
+    });
+    const r = await runAgent(wt, ["worktree", "--dry-run"]);
+    assertEquals(r.code, 0, r.output);
+    assertStringIncludes(r.output, "echo once-only");
+    assertStringIncludes(r.output, "echo converge-me");
+  });
+});
+
+Deno.test("worktree setup: a failing ensure at creation is fatal (aborts setup)", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithSetup(dir, "fatal-ensure", { ensure: ["exit 7"] });
+    const r = await runAgent(wt, ["worktree"]);
+    assertEquals(r.code, 1, r.output);
+    assertStringIncludes(r.output, "Ensure step failed");
+    // Aborted before the agent-file refresh + sentinel — setup never completed.
+    assertEquals(
+      r.output.includes("Worktree setup complete"),
+      false,
+      `a fatal ensure must abort setup\n${r.output}`,
+    );
+    assertEquals(
+      await exists(join(wt, "CLAUDE.md")),
+      false,
+      "the agent-file refresh must not run after a fatal ensure",
+    );
+  });
+});
+
+Deno.test("integrate: re-runs [worktree.setup].ensure after the merge", async () => {
+  await withTempDir(async (dir) => {
+    await withMarkers(async (markers) => {
+      const ensure = join(markers, "ensure");
+      const wt = await mainWithSetup(dir, "integ-ensure", {
+        ensure: [`echo x >> ${ensure}`],
+      });
+      // Advance main so the branch is behind by one. (No prior `worktree` setup —
+      // that would record the port into an untracked .env and dirty the tree, which
+      // integrate refuses; the ensure here runs purely as part of integrate.)
+      await Deno.writeTextFile(join(dir, "upstream.txt"), "from main\n");
+      await git(dir, "add", "-A");
+      await git(dir, "commit", "-q", "-m", "upstream", "--no-gpg-sign");
+
+      const r = await runAgent(wt, ["integrate"]);
+      assertEquals(r.code, 0, r.output);
+      assertStringIncludes(r.output, "Integration complete");
+      assert(
+        await exists(join(wt, "upstream.txt")),
+        `merge landed\n${r.output}`,
+      );
+      assertEquals(
+        await markerCount(ensure),
+        1,
+        `integrate must run ensure after the merge\n${r.output}`,
+      );
+    });
+  });
+});
+
+Deno.test("integrate: a failing ensure is recorded but never undoes the merge", async () => {
+  await withTempDir(async (dir) => {
+    // The ensure fails once the merge brings upstream.txt in. (No prior `worktree`
+    // setup — it would dirty the tree via .env and integrate would refuse; the
+    // ensure here runs only as integrate's post-merge convergence step.)
+    const wt = await mainWithSetup(dir, "integ-fail", {
+      ensure: ["test ! -f upstream.txt"],
+    });
+    await Deno.writeTextFile(join(dir, "upstream.txt"), "from main\n");
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "upstream", "--no-gpg-sign");
+
+    const r = await runAgent(wt, ["integrate", "--json"]);
+    // Non-fatal: the failed ensure does not abort or undo the landed merge.
+    assertEquals(r.code, 0, r.output);
+    assert(await exists(join(wt, "upstream.txt")), "the merge must be kept");
+    const result = JSON.parse(r.stdout) as {
+      ok: boolean;
+      steps: Array<{ kind: string; label: string; outcome: string }>;
+    };
+    const mergeStep = result.steps.find((s) =>
+      s.kind === "git" && s.label === "merge"
+    );
+    assert(mergeStep?.outcome === "ok", `merge recorded ok\n${r.stdout}`);
+    const ensureStep = result.steps.find((s) => s.kind === "setup-ensure");
+    assertEquals(
+      ensureStep?.outcome,
+      "failed",
+      `the failing ensure is recorded as a failed step\n${r.stdout}`,
+    );
+    // A failed sub-step makes the result not-ok, mirroring a failed refresh.
+    assertEquals(
+      result.ok,
+      false,
+      `result.ok reflects the failed ensure\n${r.stdout}`,
+    );
+  });
+});
