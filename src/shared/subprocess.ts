@@ -1,13 +1,19 @@
 /**
- * The single home for spawning the external processes the engine drives.
+ * The single home for spawning the external processes the engine drives: git and
+ * operator-supplied shell commands.
  *
- * Every git invocation funnels through {@link runGit}, so the GIT_BIN override,
- * the captured-output decoding, and the "could not spawn" fallback are each
- * defined once rather than re-derived at each call site. With a single resolver
- * the GIT_BIN override is honored uniformly — at every git call site, not just
- * some. An architectural guard (tests/engine_subprocess_ssot_test.ts) holds
- * the line: a raw `new Deno.Command(gitBin()|"git", …)` anywhere else fails the
- * gate, pointing the author back here.
+ * Every git invocation funnels through {@link runGit} and every buffered shell
+ * command through {@link runShell}, so the GIT_BIN override, the `sh -c`
+ * invocation, the empty-command `:` no-op ({@link shellCommand}), output decoding,
+ * and the "could not spawn" fallback ({@link SPAWN_FAILED}) are each defined once.
+ * With a single git resolver the GIT_BIN override is honored at every call site.
+ *
+ * Two specialised shell spawners live outside this module by necessity and are
+ * named in the guard: the gate's streaming, cancellable job runner
+ * (engine/jobs/command.ts) and the logger-routed setup-step runner
+ * (engine/worktree/shell.ts), which reserves its parent's stdout for a machine
+ * result. An architectural guard (tests/engine_subprocess_ssot_test.ts) fails the
+ * gate on a raw git or `sh -c` spawn anywhere else, pointing the author back here.
  */
 
 /** The configured git binary (`GIT_BIN`, default `git`) — the one resolver. */
@@ -62,4 +68,74 @@ export async function runGit(
     stdout: dec.decode(output.stdout),
     stderr: dec.decode(output.stderr),
   };
+}
+
+/**
+ * Normalize an operator command for `sh -c`: an empty or whitespace-only command
+ * becomes the POSIX `:` no-op (exit 0). The single definition of the engine's "no
+ * command" convention, shared by every shell spawner.
+ */
+export function shellCommand(command: string): string {
+  return command.trim() === "" ? ":" : command;
+}
+
+/** A finished buffered shell run: success flag, exit code, captured stdout/stderr. */
+export interface ShellResult {
+  success: boolean;
+  code: number;
+  stdout: Uint8Array;
+  stderr: Uint8Array;
+}
+
+const EMPTY = new Uint8Array();
+
+/**
+ * Run an operator command string through `sh -c` to completion, capturing its
+ * stdout and stderr. `sh -c` preserves shell features (`&&`, pipes, globs,
+ * `$(…)`) that parsing to argv would break; an empty command is the `:` no-op; a
+ * spawn failure resolves to {@link SPAWN_FAILED} rather than throwing. For live
+ * streaming with cancellation use the gate job runner (engine/jobs/command.ts);
+ * for logger-routed setup steps use runShellRouted (engine/worktree/shell.ts).
+ */
+export async function runShell(
+  command: string,
+  opts: { cwd?: string; env?: Record<string, string> } = {},
+): Promise<ShellResult> {
+  try {
+    const output = await new Deno.Command("sh", {
+      args: ["-c", shellCommand(command)],
+      ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
+      ...(opts.env !== undefined ? { env: opts.env } : {}),
+      stdin: "null",
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    return {
+      success: output.success,
+      code: output.code,
+      stdout: output.stdout,
+      stderr: output.stderr,
+    };
+  } catch {
+    return { success: false, code: SPAWN_FAILED, stdout: EMPTY, stderr: EMPTY };
+  }
+}
+
+/**
+ * Whether `word` resolves as a runnable command — on PATH, a shell builtin, or a
+ * path — via the shell's own `command -v`. `word` is passed as a positional
+ * argument, not interpolated into the script, so a surprising value cannot break
+ * out of the probe.
+ */
+export async function commandExists(word: string): Promise<boolean> {
+  try {
+    const out = await new Deno.Command("sh", {
+      args: ["-c", 'command -v "$1" >/dev/null 2>&1', "sh", word],
+      stdout: "null",
+      stderr: "null",
+    }).output();
+    return out.success;
+  } catch {
+    return false;
+  }
 }

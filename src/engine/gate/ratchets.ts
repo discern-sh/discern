@@ -31,7 +31,7 @@ import {
   type StepResult,
 } from "../../shared/result.ts";
 import { emitResult } from "../../shared/emit.ts";
-import { runGit } from "../../shared/subprocess.ts";
+import { runGit, runShell } from "../../shared/subprocess.ts";
 
 /** True when `s` is a non-negative decimal number. */
 function isNumber(s: string): boolean {
@@ -91,14 +91,9 @@ async function ratchetMainValue(
  * run's exit code is deliberately NOT consulted; only the emitted
  * DISCERN_METRIC line decides pass/fail. */
 async function measure(command: string): Promise<string> {
-  const out = await new Deno.Command("sh", {
-    args: ["-c", command],
-    stdin: "null",
-    stdout: "piped",
-    stderr: "piped",
-  }).output();
+  const r = await runShell(command);
   const dec = new TextDecoder();
-  return dec.decode(out.stdout) + dec.decode(out.stderr);
+  return dec.decode(r.stdout) + dec.decode(r.stderr);
 }
 
 /** Check one planned ratchet. Prints its own pass/fail line; returns held/failed.

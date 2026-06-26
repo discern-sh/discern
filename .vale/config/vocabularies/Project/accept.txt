@@ -145,6 +145,7 @@ semver
 setext
 shellcheck
 snake_case
+spawners?
 stderr
 stdin
 stdout

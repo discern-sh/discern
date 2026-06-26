@@ -11,6 +11,7 @@
  */
 
 import type { Job, JobResult } from "./types.ts";
+import { shellCommand } from "../../shared/subprocess.ts";
 
 /** Options for spawning a single job. */
 export interface SpawnOptions {
@@ -120,7 +121,7 @@ export async function spawnJob(
   job: Job,
   opts: SpawnOptions,
 ): Promise<SpawnedJob> {
-  const command = job.command.length > 0 ? job.command : ":";
+  const command = shellCommand(job.command);
   const start = performance.now();
 
   const child = new Deno.Command("sh", {

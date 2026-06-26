@@ -17,6 +17,7 @@ import {
   toCommandList,
 } from "../../shared/config_schema.ts";
 import { capStage, type Stage } from "../../shared/capabilities.ts";
+import { shellCommand } from "../../shared/subprocess.ts";
 
 /** One gate job with the metadata `finish --json` reports. */
 export interface StageJob {
@@ -69,5 +70,5 @@ export function cmdsInStage(config: DiscernConfig, stage: Stage): string {
   const cmds = jobsInStage(config, stage).map((j) => j.command).filter((c) =>
     c.length > 0
   );
-  return cmds.length > 0 ? cmds.join(" && ") : ":";
+  return shellCommand(cmds.join(" && "));
 }

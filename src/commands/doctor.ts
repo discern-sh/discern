@@ -32,6 +32,7 @@ import {
   isFeatureEnabled,
 } from "../shared/features.ts";
 import { capStage, isKnownCapability } from "../shared/capabilities.ts";
+import { commandExists } from "../shared/subprocess.ts";
 import { gitVersion } from "../engine/worktree/git.ts";
 import type { DiscernResult } from "../shared/result.ts";
 import type {
@@ -84,20 +85,6 @@ function firstWord(command: string): string | undefined {
 async function fileExists(path: string): Promise<boolean> {
   try {
     return (await Deno.stat(path)).isFile;
-  } catch {
-    return false;
-  }
-}
-
-/** Whether `word` resolves as a command (on PATH, a shell builtin, or a path). */
-async function commandResolves(word: string): Promise<boolean> {
-  try {
-    const out = await new Deno.Command("sh", {
-      args: ["-c", 'command -v "$1" >/dev/null 2>&1', "sh", word],
-      stdout: "null",
-      stderr: "null",
-    }).output();
-    return out.success;
   } catch {
     return false;
   }
@@ -224,7 +211,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
     }
     const missing: string[] = [];
     for (const { label, word } of commands) {
-      if (!(await commandResolves(word))) {
+      if (!(await commandExists(word))) {
         missing.push(`${label} → ${word}`);
       }
     }
@@ -298,7 +285,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
 
   // 7. `sh` resolves — the job runner and the recipe fallthrough both exec via
   // `sh -c`, so a missing `sh` would break the gate and every project recipe.
-  if (await commandResolves("sh")) {
+  if (await commandExists("sh")) {
     checks.push({ name: "sh", ok: true, detail: "present on PATH" });
   } else {
     checks.push({
@@ -531,7 +518,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
     for (const [name, r] of Object.entries(config.worktree.resources)) {
       for (const cmd of [r.create, r.destroy, r.ensure]) {
         const word = firstWord(cmd);
-        if (word !== undefined && !(await commandResolves(word))) {
+        if (word !== undefined && !(await commandExists(word))) {
           missing.push(`${name} → ${word}`);
         }
       }

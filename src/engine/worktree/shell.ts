@@ -16,6 +16,7 @@
 
 import { byteWriter } from "../output.ts";
 import type { Logger } from "../../lib/log.ts";
+import { SPAWN_FAILED } from "../../shared/subprocess.ts";
 
 /**
  * Run `command` via `sh -c` in `cwd`, routing its stdio the same way `log` routes
@@ -62,6 +63,6 @@ export async function runShellRouted(
     }
     return (await child.status).code;
   } catch {
-    return 127; // could not spawn — treat as a failed (retryable) command
+    return SPAWN_FAILED; // could not spawn — treat as a failed (retryable) command
   }
 }
