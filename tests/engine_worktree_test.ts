@@ -338,6 +338,35 @@ Deno.test("integrate --dry-run: previews the merge + refresh and touches nothing
   });
 });
 
+Deno.test("integrate end-to-end: a behind finish points at integrate, which then unblocks a passing finish", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "omicron");
+    // Advance main → the worktree branch is behind by one.
+    await Deno.writeTextFile(join(dir, "upstream.txt"), "from main\n");
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "advance main", "--no-gpg-sign");
+
+    // 1. finish fails fast on the merge check and names the remedy — the verb, not a
+    //    bare `git merge` (the rest of the gate never runs).
+    const behind = await runAgent(wt, ["finish"]);
+    assertEquals(behind.code, 1, behind.output);
+    assertStringIncludes(behind.output, "discern integrate");
+
+    // 2. integrate brings main in AND re-materializes in one step.
+    const integ = await runAgent(wt, ["integrate"]);
+    assertEquals(integ.code, 0, integ.output);
+    assert(
+      await exists(join(wt, "upstream.txt")),
+      `integrate did not merge main\n${integ.output}`,
+    );
+
+    // 3. finish now passes against the merged, re-materialized tree — with no
+    //    intervening `discern refresh` (the bundled refresh already made it current).
+    const after = await runAgent(wt, ["finish"]);
+    assertEquals(after.code, 0, after.output);
+  });
+});
+
 Deno.test("worktree-name resolves the worktree identity (id + branch)", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "epsilon");
