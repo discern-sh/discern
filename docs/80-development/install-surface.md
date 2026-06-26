@@ -149,6 +149,7 @@ its own directory:
 
 | Skill                                                                      | What it does                                                                  |
 | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| [`delegate-task`](../../templates/skills/delegate-task/SKILL.md)           | Brief a fresh agent to carry out a discussed task, then review the result.    |
 | [`document-subsystem`](../../templates/skills/document-subsystem/SKILL.md) | Write or refresh a `docs/` subtree per the documenter brief.                  |
 | [`fix-a-bug-class`](../../templates/skills/fix-a-bug-class/SKILL.md)       | Fix a whole class of defect — not one instance — behind a permanent detector. |
 | [`write-adr`](../../templates/skills/write-adr/SKILL.md)                   | Record a significant decision as an Architecture Decision Record.             |
