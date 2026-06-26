@@ -113,6 +113,7 @@ overridable
 papercut
 params
 passthrough
+pathspecs?
 perf
 PHPStorm
 prefixer
@@ -163,6 +164,7 @@ symlink
 teardown
 templated
 templater
+TODOs?
 toggleable
 toolchain
 touchpoints?
