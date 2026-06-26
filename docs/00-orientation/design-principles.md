@@ -69,7 +69,13 @@ source set; [`version.ts`](../../src/lib/version.ts) is the only home for the
 binary and schema versions; the [Generated file](glossary.md#generated-file) and
 [The binary's files](glossary.md#the-binarys-files) dispositions in the
 [glossary](glossary.md) carry the rule that a re-published copy is reproduced,
-never edited.
+never edited. And where a closed vocabulary must be re-used (the CLI verbs, the
+capabilities, the features, the result kinds, the agent providers, …), every
+satellite is **mechanically tied** to its one source — a compile-time total or a
+forcing-function test, so a new member auto-enrolls or fails the gate rather
+than drifting silently ([ADR 0051](../_adr/0051-canonical-set-parity.md),
+generalizing the agent-registry parity of
+[ADR 0043](../_adr/0043-registry-derived-agent-parity.md)).
 
 ---
 

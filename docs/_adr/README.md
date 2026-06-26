@@ -70,3 +70,4 @@ decision is hard to reverse, surprising without context, and a real trade-off.
 - [0048 — Rename the graduation landing-role `main` → `trunk`](0048-graduate-trunk-role-name.md)
 - [0049 — Ship the fix-the-class discipline as built-in guidance and a bundled skill](0049-bug-class-discipline-built-in.md)
 - [0050 — Run the merge check first, as a fail-fast precondition](0050-merge-check-fail-fast.md)
+- [0051 — Every internal canonical set is tied to its satellites by a forcing function](0051-canonical-set-parity.md)
