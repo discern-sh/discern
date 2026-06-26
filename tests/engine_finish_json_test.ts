@@ -417,6 +417,59 @@ Deno.test("finish --json: a STALE generated agent file fails the guidance check;
   });
 });
 
+Deno.test("finish --json: a stale generated file fails FAST — the currency check precedes the slow stage, so the capability is skipped (ADR 0056)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    // Wire one observable capability so its step outcome proves whether it ran.
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        'main_branch = "main"',
+        "",
+        "[guidance]",
+        'agents = ["claude_code"]',
+        "",
+        "[capabilities]",
+        'test = "true"',
+        "",
+      ].join("\n"),
+    );
+    await runAgent(dir, ["refresh"]); // materialize the agent files + skills (current)
+
+    // Baseline: current artifacts → the currency checks pass and the capability runs.
+    const ok = parseJson((await runAgent(dir, ["finish", "--json"])).stdout);
+    assertEquals(ok.data.failed_stage, null);
+    assert(
+      ok.steps.some((s: { kind: string; outcome: string }) =>
+        s.kind === "job" && s.outcome === "ok"
+      ),
+      `baseline: the capability should run and pass: ${JSON.stringify(ok.steps)}`,
+    );
+
+    // Stale a generated agent file → the guidance currency precondition fails FIRST.
+    const claudePath = join(dir, "CLAUDE.md");
+    await Deno.writeTextFile(
+      claudePath,
+      `${await Deno.readTextFile(claudePath)}\nstray hand edit\n`,
+    );
+    const r = await runAgent(dir, ["finish", "--json"]);
+    assertEquals(r.code, 1, r.output);
+    const obj = parseJson(r.stdout);
+    assertEquals(obj.data.failed_stage, "guidance");
+    // Fail-fast (ADR 0056): the expensive stage never ran — every planned step is
+    // skipped, exactly as for the merge precondition (ADR 0050). Were the currency
+    // check still last, the capability would have run first (its step would be `ok`).
+    assert(obj.steps.length >= 1, `expected a planned capability step: ${r.stdout}`);
+    assert(
+      obj.steps.every((s: { outcome: string }) => s.outcome === "skipped"),
+      `the capability must not run when the currency check fails first: ${r.stdout}`,
+    );
+  });
+});
+
 Deno.test("finish --json: a MISSING generated agent file does NOT block (untracked artifact absent)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
