@@ -11,14 +11,15 @@
  * plea, so a backward-looking comment fails the gate the moment it lands —
  * including in code written later by someone who never read the guidance.
  *
- * The detector is a predicate over PROSE, so it is tuned for precision: it flags
- * a curated set of retrospective markers that, inside a comment, almost always
- * signal narration of the past, and it deliberately does NOT ban the high-noise
- * words that usually describe LIVE state ("legacy <path>" a compat layer still
- * reads, "no longer exists" about a runtime condition, "before the loop" about
- * ordering). The cost of that choice is recall: a backward-looking comment using
- * none of these markers slips through. That residual is the price of a guard
- * with few enough false positives to stay trusted.
+ * The detector is a predicate over PROSE, tuned for precision: it flags a curated
+ * set of retrospective markers that, inside a comment, usually narrate the past.
+ * It leans strict — `no longer` is banned because it nearly always marks a change
+ * ("X no longer does Y"), even though a few uses describe live state; those carry
+ * the escape hatch below. It deliberately does NOT ban the words that are
+ * overwhelmingly live-state or structural — "legacy <path>" (a compat layer the
+ * code still reads) or "before the loop" (ordering) — where a ban would be pure
+ * noise. The cost is recall: a backward-looking comment using none of the markers
+ * slips through; that residual buys a guard trusted enough to stay.
  *
  * Escape hatch — when a reference to the past is genuinely load-bearing and
  * current (rare), annotate the comment with
@@ -76,6 +77,7 @@ const RETROSPECTIVE_MARKERS: RegExp[] = [
   /\bhistorical(ly)?\b/i,
   /\bback when\b/i,
   /\boriginally\b/i,
+  /\bno longer\b/i,
   /\bthe old\b/i,
   /\bonce (lived|did|was|were|had)\b/i,
   /\b(replaces?|replacing|replaced|mirrors?|mirroring) the (old|shell|former|previous)\b/i,
@@ -95,6 +97,14 @@ const RETIRED_ARCHITECTURE: RegExp[] = [
   /\bpre-(refactor|cutover)\b/i,
   /\bthe cutover\b/i,
   /\bmanaged-file machinery\b/i,
+  /\bts port\b/i,
+  // "the shell `output.sh`" / "shell `worktree-name`" — the dead shell engine
+  // named via a file or recipe. The backtick keeps runtime senses ("shell
+  // command", "via `sh -c`") out.
+  /\bshell [`]/i,
+  // "matching the shell" / "like the shell's date math" — parity-with-the-dead-
+  // shell provenance. The verbs keep the runtime shell ("a shell command") out.
+  /\b(matching|matches|mirror\w*|like|unlike|preserv\w*|per|as) the shell\b/i,
 ];
 
 const MARKERS: ReadonlyArray<RegExp> = [
@@ -374,9 +384,14 @@ Deno.test("comments describe current behaviour, not the codebase's past", async 
   assertEquals(
     offenders,
     [],
-    `backward-looking comment(s) — describe what the code does now, move history ` +
-      `to docs/ADRs, or annotate "${SUPPRESS} <reason>" if the reference is ` +
-      `genuinely load-bearing:\n  ${offenders.join("\n  ")}`,
+    `backward-looking comment(s) found — describe what the code does now, move ` +
+      `history to docs/ADRs, or annotate "${SUPPRESS} <reason>" if the ` +
+      `reference is genuinely load-bearing.\n\n` +
+      `This guard scans src/, scripts/, and the shipped config (discern.toml*, ` +
+      `the gitignore fragment) — NOT docs/, tests/, or templates/ prose. If this ` +
+      `change wrote the same backward-looking phrasing into one of those, the ` +
+      `guard can't see it: fix those by hand in the same sweep.\n\n  ` +
+      `${offenders.join("\n  ")}`,
   );
 });
 
@@ -394,8 +409,14 @@ Deno.test("detector ignores markers inside string literals", () => {
   assertEquals(scanSource(`const url = "https://x/the old/y";\n`), []);
 });
 
-Deno.test("detector does not ban benign live-state words", () => {
-  assertEquals(scanSource(`// reclaim dirs git no longer tracks\n`), []);
+Deno.test("detector flags `no longer` — it usually marks a change", () => {
+  assertEquals(
+    scanSource(`// the nudge no longer fires from main\n`).length,
+    1,
+  );
+});
+
+Deno.test("detector does not ban genuinely live-state / structural words", () => {
   assertEquals(
     scanSource(`// fall back to a legacy .discern/config.toml\n`),
     [],
