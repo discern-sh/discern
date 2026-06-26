@@ -75,7 +75,8 @@ const FAIL_MESSAGES: Record<FailedStage, string> = {
     "Generated agent files are out of date — run `discern refresh` (edits belong in your [guidance].sources, not the generated file, which a refresh overwrites).",
   skills:
     "Materialized skills are out of date — run `discern refresh` (edits belong in your [skills].dir source, not the materialized copy, which a refresh overwrites).",
-  merge: "Integrate main, then re-run finish.",
+  merge:
+    "Run `discern integrate` to bring main in and re-materialize, then re-run finish.",
 };
 
 /** The human die message for a failed stage. */
@@ -192,13 +193,49 @@ async function runGate(
     failedStage = "merge";
   }
 
+  // 1b. Generated-artifacts currency — guidance (ADR 0034) — also runs FIRST, as a
+  //     fail-fast precondition beside the merge check (ADR 0056). Its verdict is
+  //     invariant across the gate for the same reason the merge check's is: the gate
+  //     never runs `discern refresh`, and its fix stage formats SOURCE code, never the
+  //     guidance sources or the gitignored generated agent files those checks read —
+  //     so checking here gives the same answer as checking last, while skipping the
+  //     slow build/check∥test/scope-gate sweep when the only problem is stale drift the
+  //     agent must `discern refresh` and re-run to clear regardless. Block a STALE agent
+  //     file only (a MISSING one is the legitimate fresh-checkout state — see ADR 0034).
+  //     discern-allow-retrospective: "no longer matching" is the live drift this detects.
+  const guidanceOn = isFeatureEnabled(cfg, "guidance");
+  let guidanceDiag: Diagnostic | undefined;
+  if (failedStage === null && guidanceOn) {
+    const stale = (await checkGuidanceCurrent(root, cfg))
+      .filter((d) => d.reason === "stale");
+    if (stale.length > 0) {
+      failedStage = "guidance";
+      guidanceDiag = guidanceDiagnostic(stale);
+    }
+  }
+
+  // 1c. Materialized-skills currency (ADR 0034, extended to skills) — the same
+  //     fail-fast precondition for the skills dirs. STALE blocks; MISSING (the whole
+  //     dir absent on a fresh checkout) and FOREIGN (an unmanaged drop-in) do not.
+  const skillsOn = isFeatureEnabled(cfg, "skills");
+  let skillsDiag: Diagnostic | undefined;
+  if (failedStage === null && skillsOn) {
+    const stale = (await checkSkillsCurrent(root, cfg))
+      .filter((d) => d.reason === "stale");
+    if (stale.length > 0) {
+      failedStage = "skills";
+      skillsDiag = skillsDiagnostic(stale);
+    }
+  }
+
   // 2. Run the capability/check stage groups (fix → build → check∥test). These do
   //    not depend on the changed scopes, so they run before scope classification. The
   //    fix stage MUTATES the tree; snapshot the working-tree dirty set immediately
-  //    before and after it so the tail (step 6c) can flag a fixer that reformatted a
-  //    committed-clean file — the uncommitted fixer output a green gate would otherwise
+  //    before and after it so the strand check (step 5) can flag a fixer that reformatted
+  //    a committed-clean file — the uncommitted fixer output a green gate would otherwise
   //    hide until graduate (ADR 0047). Skip the snapshots when no fix stage is wired, or
-  //    when the merge precondition already failed (nothing downstream runs).
+  //    when a fail-fast precondition (the merge or a currency check) already failed
+  //    (nothing downstream runs).
   const stageGroups = buildStageGroups(cfg);
   const hasFix = stageGroups.some((g) => g.stage === "fix");
   const dirtyBeforeFix = hasFix && failedStage === null
@@ -233,40 +270,7 @@ async function runGate(
     }
   }
 
-  // 5. Generated-artifacts currency (ADR 0034): block a STALE agent file — one
-  //    present but no longer matching what `discern refresh` would write (a
-  //    hand-edit, or an un-refreshed source/config change). A MISSING file is not a
-  //    failure here: an untracked artifact is legitimately absent on a fresh
-  //    checkout, so blocking it would red-light first-run CI. Gated on `guidance`.
-  //    discern-allow-retrospective: "no longer matching" is the live drift this detects.
-  const guidanceOn = isFeatureEnabled(cfg, "guidance");
-  let guidanceDiag: Diagnostic | undefined;
-  if (failedStage === null && guidanceOn) {
-    const stale = (await checkGuidanceCurrent(root, cfg))
-      .filter((d) => d.reason === "stale");
-    if (stale.length > 0) {
-      failedStage = "guidance";
-      guidanceDiag = guidanceDiagnostic(stale);
-    }
-  }
-
-  // 5b. Materialized-skills currency (ADR 0034, extended to skills): block a STALE
-  //     skills dir — one drifted from the effective set (a hand-edited copy, a
-  //     lingering managed entry, an un-refreshed change). MISSING (the whole dir
-  //     absent on a fresh checkout) and FOREIGN (an unmanaged drop-in) do NOT block,
-  //     exactly as for guidance. Gated on `skills`.
-  const skillsOn = isFeatureEnabled(cfg, "skills");
-  let skillsDiag: Diagnostic | undefined;
-  if (failedStage === null && skillsOn) {
-    const stale = (await checkSkillsCurrent(root, cfg))
-      .filter((d) => d.reason === "stale");
-    if (stale.length > 0) {
-      failedStage = "skills";
-      skillsDiag = skillsDiagnostic(stale);
-    }
-  }
-
-  // 5c. Fix-stage strand detection (ADR 0034's sibling, ADR 0047): the fix stage may
+  // 5. Fix-stage strand detection (ADR 0034's sibling, ADR 0047): the fix stage may
   //     MUTATE the tree (that's its job), but a clean gate must not hide uncommitted
   //     fixer output. Flag only files that were CLEAN at finish-start and the fix stage
   //     dirtied (D1 \ D0) — so a fixer reworking the agent's own uncommitted edits (the
@@ -382,7 +386,8 @@ function printSuccessTail(cfg: DiscernConfig, out: Out, hints: string[]): void {
 }
 
 /**
- * Print the gate plan without running it (`--dry-run`): the leading merge check, the
+ * Print the gate plan without running it (`--dry-run`): the leading fail-fast
+ * preconditions (the merge check, then the guidance/skills currency checks), the
  * wired job groups, and the scope-gates selected for the changed scopes. Honest —
  * it lists "what would run"; it cannot predict which jobs fail-fast would skip.
  */

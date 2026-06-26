@@ -266,6 +266,91 @@ export async function assertMainMerged(
   return { kind: "behind", behind: behind === "" ? "?" : behind, branch };
 }
 
+/** The outcome of integrating the integration branch into the current worktree. */
+export type IntegrateOutcome =
+  /** Not applicable here (main checkout, no repo, or no local main): nothing to do. */
+  | { kind: "skipped" }
+  /** The branch already contains the latest main — no merge, no refresh. */
+  | { kind: "already" }
+  /** The worktree has uncommitted changes: integrate merges into a clean tree only. */
+  | { kind: "dirty" }
+  /** Main was merged in: `behind` commit(s) brought in, `fastForward` when no merge commit. */
+  | { kind: "integrated"; behind: number; fastForward: boolean }
+  /** The merge conflicts in `files`; the merge is aborted, leaving a clean tree. */
+  | { kind: "conflict"; files: string[] };
+
+/**
+ * Merge the latest integration branch into the current worktree's branch — the
+ * mutating counterpart to {@link assertMainMerged}'s read-only check. Refuses
+ * (`dirty`) when the tree has uncommitted changes; no-ops (`already`) when the
+ * branch already contains main; and outside a linked worktree or with no local
+ * main it is a `skipped` no-op. On a clean run it `git merge`s main, reporting
+ * `fastForward` when HEAD was a strict ancestor (no merge commit) and how many
+ * commits it was `behind`. A conflicting merge collects the conflicted paths and
+ * aborts (`git merge --abort`), restoring the pre-merge tree so the caller can
+ * refuse without leaving a half-merge behind. Pure git mechanics — re-materializing
+ * the agent files after a successful merge is the lifecycle layer's job, not this.
+ */
+export async function integrateMain(
+  cwd: string = Deno.cwd(),
+  mainBranchFallback?: string,
+): Promise<IntegrateOutcome> {
+  const { absoluteGitDir, commonGitDir } = await resolveGitDirs(cwd);
+  // Outside a repo, or in the main checkout → nothing to integrate into.
+  if (
+    absoluteGitDir === undefined || commonGitDir === undefined ||
+    absoluteGitDir === commonGitDir
+  ) {
+    return { kind: "skipped" };
+  }
+  const mainBranch = integrationBranch(mainBranchFallback);
+  const hasMain = await git(
+    ["show-ref", "--verify", "--quiet", `refs/heads/${mainBranch}`],
+    cwd,
+  );
+  if (!hasMain.success) {
+    return { kind: "skipped" }; // no local main branch to integrate
+  }
+  // Already contains main? Then there is nothing to merge, so never refresh.
+  if (
+    (await git(["merge-base", "--is-ancestor", mainBranch, "HEAD"], cwd))
+      .success
+  ) {
+    return { kind: "already" };
+  }
+  // Merge into a clean tree only — a dirty tree is the caller's to resolve first.
+  // `--porcelain` lists untracked entries too, so a stray file blocks the merge here
+  // rather than surfacing as a confusing mid-merge git error.
+  const status = await git(["status", "--porcelain"], cwd);
+  if (status.success && status.stdout.trim() !== "") {
+    return { kind: "dirty" };
+  }
+  // How far behind, for the report; and whether HEAD is a strict ancestor of main
+  // (a pure fast-forward, no merge commit) — both read before the merge moves HEAD.
+  const behindRun = await git(
+    ["rev-list", "--count", `HEAD..${mainBranch}`],
+    cwd,
+  );
+  const behind = behindRun.success ? Number(behindRun.stdout.trim()) || 0 : 0;
+  const fastForward =
+    (await git(["merge-base", "--is-ancestor", "HEAD", mainBranch], cwd))
+      .success;
+  // `--no-edit` accepts git's default merge-commit message without opening an
+  // editor, so a divergent merge stays non-interactive.
+  const merge = await git(["merge", "--no-edit", mainBranch], cwd);
+  if (merge.success) {
+    return { kind: "integrated", behind, fastForward };
+  }
+  // The merge stopped — collect the conflicted paths, then step aside cleanly so the
+  // worktree is left exactly as it was before the merge.
+  const conflicted = await git(["diff", "--name-only", "--diff-filter=U"], cwd);
+  const files = conflicted.success
+    ? conflicted.stdout.split("\n").map((l) => l.trim()).filter((l) => l !== "")
+    : [];
+  await git(["merge", "--abort"], cwd);
+  return { kind: "conflict", files };
+}
+
 /**
  * Ensure the current linked worktree is on a named branch (agents may start
  * detached). Creates a deterministic branch from the supplied base name (the

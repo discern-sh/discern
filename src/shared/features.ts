@@ -68,6 +68,7 @@ export const VERB_FEATURE: Readonly<Record<string, Feature>> = {
   ratchets: "ratchets",
   refresh: "guidance",
   graduate: "worktrees",
+  integrate: "worktrees",
   skills: "skills",
   docs: "docs",
 };

@@ -46,9 +46,9 @@ of the install; they are written on demand after install by the bundled Skills.)
 ### Engine
 
 The stack-neutral logic behind the `discern` run-time verbs (`finish`,
-`prepare`, `audit`, `status`, `worktree`/`worktree:*`, `graduate`, `ratchets`,
-`refresh`, `changed-scopes`, …), written in **TypeScript and compiled into the
-binary** under [`src/engine/`](../../src/engine/) (sharing
+`prepare`, `audit`, `status`, `worktree`/`worktree:*`, `integrate`, `graduate`,
+`ratchets`, `refresh`, `changed-scopes`, …), written in **TypeScript and
+compiled into the binary** under [`src/engine/`](../../src/engine/) (sharing
 [`src/shared/`](../../src/shared/) with the Installer). The Engine knows nothing
 stack-specific — it runs the [Capabilities](#capability), [Checks](#check),
 [Scopes](#scope), and [worktree settings](#worktree-settings) a project declares
@@ -309,11 +309,21 @@ project-namespaced handle is read with `worktree-name --resource <name>` or the
 `DISCERN_RESOURCE_<NAME>` env var
 ([ADR 0025](../_adr/0025-worktree-resources.md)).
 
+### Integrate
+
+What `discern integrate` does: bring the latest integration branch
+(`[project].main_branch`) into the current worktree's branch and re-materialize
+the generated agent files + [Skills](#skill), in one deterministic step — the
+inverse of [Graduate](#graduate). A no-op when the branch already contains main.
+It merges into a clean tree only, and on a conflict it aborts the merge and
+reports the conflicting files. The action the [Gate](#gate)'s fail-fast merge
+check points a behind branch at ([ADR 0055](../_adr/0055-integrate-verb.md)).
+
 ### Graduate
 
-What `discern graduate` does: integrate the worktree's branch into the main repo
-and tear the worktree down (its resources destroyed, directory pruned). Requires
-the branch to already carry the trunk. The landing is configurable
+What `discern graduate` does: land the worktree's branch in the main repo and
+tear the worktree down (its resources destroyed, directory pruned). Requires the
+branch to already carry the trunk. The landing is configurable
 (`[worktree].graduate_to`, or `--to` per run): `branch` checks the branch out in
 the main repo for review (the default); `trunk` (a role →
 `[project].main_branch`, whether that is `main`, `master`, …) fast-forwards the

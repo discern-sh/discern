@@ -569,6 +569,67 @@ Deno.test("discern mcp: discern_graduate previews from a worktree and refuses fr
   });
 });
 
+Deno.test("discern mcp: discern_integrate refuses from the main checkout and is an idempotent no-op from an up-to-date worktree", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+
+    // From the MAIN checkout: integrate refuses with a clean error envelope (the
+    // precondition throw, mapped to the same slug the CLI uses) — not a server crash.
+    const main = await spawnMcp(dir);
+    await main.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await main.recv();
+    await main.send({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "discern_integrate", arguments: {} },
+    });
+    const refused = await main.recv();
+    assertEquals(refused.result.isError, true);
+    assertEquals(refused.result.structuredContent.verb, "integrate");
+    assertEquals(
+      refused.result.structuredContent.error,
+      "precondition_failed",
+    );
+    assertEquals(await main.close(), 0);
+
+    // From inside a WORKTREE whose branch already contains main: a real (non-dry-run)
+    // call is an idempotent no-op success — nothing merged, so nothing refreshed.
+    const wt = await addWorktree(dir, "intg");
+    const wtMcp = await spawnMcp(wt);
+    await wtMcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await wtMcp.recv();
+    await wtMcp.send({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "discern_integrate", arguments: {} },
+    });
+    const noop = await wtMcp.recv();
+    assertEquals(noop.result.isError, false);
+    assertEquals(noop.result.structuredContent.verb, "integrate");
+    assert(
+      (noop.result.structuredContent.steps as Array<{ outcome: string }>)
+        .every((s) => s.outcome === "skipped"),
+      `an up-to-date integrate reports only skipped steps: ${
+        JSON.stringify(noop.result.structuredContent)
+      }`,
+    );
+    assertEquals(await wtMcp.close(), 0);
+  });
+});
+
 Deno.test("discern mcp: a disabled feature hides its tool and refuses the call", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
@@ -598,6 +659,7 @@ Deno.test("discern mcp: a disabled feature hides its tool and refuses the call",
     const list = await mcp.recv();
     const names = list.result.tools.map((t: { name: string }) => t.name);
     assert(!names.includes("discern_graduate"), JSON.stringify(names));
+    assert(!names.includes("discern_integrate"), JSON.stringify(names));
     assert(names.includes("discern_docs"), JSON.stringify(names));
     assert(names.includes("discern_finish"), JSON.stringify(names));
 
@@ -631,6 +693,7 @@ interface ListedTool {
   annotations?: {
     readOnlyHint?: boolean;
     destructiveHint?: boolean;
+    idempotentHint?: boolean;
     openWorldHint?: boolean;
   };
 }
@@ -668,6 +731,7 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
         "discern_docs",
         "discern_help",
         "discern_graduate",
+        "discern_integrate",
       ]
     ) {
       const t = byName.get(name);
@@ -696,6 +760,20 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
     assertEquals(byName.get("discern_test")?.annotations?.readOnlyHint, false);
     assertEquals(
       byName.get("discern_graduate")?.annotations?.destructiveHint,
+      true,
+    );
+    // integrate mutates but is non-destructive and idempotent (a no-op once already
+    // integrated) — so it advertises that, distinct from graduate's destructive hint.
+    assertEquals(
+      byName.get("discern_integrate")?.annotations?.readOnlyHint,
+      false,
+    );
+    assertEquals(
+      byName.get("discern_integrate")?.annotations?.destructiveHint,
+      false,
+    );
+    assertEquals(
+      byName.get("discern_integrate")?.annotations?.idempotentHint,
       true,
     );
 

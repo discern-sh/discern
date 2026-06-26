@@ -124,6 +124,10 @@ verbs:
   in parallel, then any **Scope** `gate`s that fired. Each Capability and
   **Check** runs as its own labelled job, so failure points at the exact one;
   `--json` makes that machine-readable.
+- `discern integrate` brings the latest **main** into the Worktree's branch and
+  re-materializes the agent files + Skills in one step — what the Gate's
+  fail-fast merge check points a behind branch at, and the deterministic inverse
+  of graduate.
 - `discern graduate` **graduates** the branch into the main repo and tears the
   Worktree down.
 

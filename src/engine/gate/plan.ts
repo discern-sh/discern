@@ -70,11 +70,13 @@ export interface JobGroup {
  */
 export interface GatePlan {
   groups: JobGroup[];
-  /** The generated-artifacts currency check runs after the scope gates (ADR 0034);
-   * true when the `guidance` feature is on. Blocks on a STALE agent file. */
+  /** The generated-artifacts currency check runs as a fail-fast precondition, beside
+   * the merge check (ADR 0034, front-loaded by ADR 0056); true when the `guidance`
+   * feature is on. Blocks on a STALE agent file. */
   guidanceCheck: boolean;
   /** The materialized-skills currency check (ADR 0034, extended to skills); true
-   * when the `skills` feature is on. Blocks on a STALE skills dir, like guidance. */
+   * when the `skills` feature is on. A fail-fast precondition like guidance; blocks
+   * on a STALE skills dir. */
   skillsCheck: boolean;
   /** The merge check runs FIRST, as a fail-fast precondition (ADR 0050); it self-skips
    * in the main checkout. Always true (the field gates its plan-listing, not its run). */
@@ -258,10 +260,11 @@ export function composeGatePlan(
  * Build the full gate plan from the typed config and the changed scopes (already
  * classified by the caller — the only read-only I/O). Pure given those inputs, so
  * the whole "what would the gate run" decision is unit-testable without a
- * subprocess. Mirrors the gate's order: a leading merge precondition (ADR 0050), then
- * fix (serial) → build → check∥test → scope-gates → currency checks. Used by
- * `--dry-run` (which classifies scopes once, read-only); the apply path classifies
- * scopes AFTER the stage groups run and {@link composeGatePlan}s the same shape.
+ * subprocess. Mirrors the gate's order: the leading fail-fast preconditions — the
+ * merge check (ADR 0050) then the guidance/skills currency checks (ADR 0056) — then
+ * fix (serial) → build → check∥test → scope-gates. Used by `--dry-run` (which
+ * classifies scopes once, read-only); the apply path classifies scopes AFTER the
+ * stage groups run and {@link composeGatePlan}s the same shape.
  */
 export function buildGatePlan(cfg: DiscernConfig, changed: string[]): GatePlan {
   return composeGatePlan(
@@ -378,11 +381,11 @@ export function buildGateResult(
 
 /**
  * Project a gate plan onto the common {@link EnginePlan} the shared renderer
- * prints. A leading `gate` step stands for the merge check (a fail-fast precondition
- * — ADR 0050); each job then becomes a step grouped by its stage, a firing job `run`,
- * an unchanged scope gate `skip`; the trailing currency `gate` steps follow. Honest
- * by construction: capabilities/checks render as "run" — fail-fast may still skip
- * some, which a plan cannot predict.
+ * prints. Leading `gate` steps stand for the fail-fast preconditions — the merge
+ * check (ADR 0050) then the guidance/skills currency checks (ADR 0056) — followed by
+ * each job grouped under its stage, a firing job `run`, an unchanged scope gate
+ * `skip`. Honest by construction: capabilities/checks render as "run" — fail-fast may
+ * still skip some, which a plan cannot predict.
  */
 export function gatePlanToEngine(plan: GatePlan): EnginePlan {
   const steps: PlanStep[] = [];
@@ -394,17 +397,6 @@ export function gatePlanToEngine(plan: GatePlan): EnginePlan {
       note:
         "verify this branch contains the integration branch before running the gate (no-op in main)",
     });
-  }
-  for (const group of plan.groups) {
-    for (const j of group.jobs) {
-      steps.push({
-        kind: j.kind === "scope-gate" ? "scope-gate" : "job",
-        label: j.label,
-        disposition: j.willRun ? "run" : "skip",
-        note: j.willRun ? j.command : "scope unchanged",
-        group: group.display,
-      });
-    }
   }
   if (plan.guidanceCheck) {
     steps.push({
@@ -423,6 +415,17 @@ export function gatePlanToEngine(plan: GatePlan): EnginePlan {
       note:
         "verify the materialized skills match the effective set (`discern refresh` if stale)",
     });
+  }
+  for (const group of plan.groups) {
+    for (const j of group.jobs) {
+      steps.push({
+        kind: j.kind === "scope-gate" ? "scope-gate" : "job",
+        label: j.label,
+        disposition: j.willRun ? "run" : "skip",
+        note: j.willRun ? j.command : "scope unchanged",
+        group: group.display,
+      });
+    }
   }
   const changed = plan.scopesChanged.length > 0
     ? plan.scopesChanged.join(", ")

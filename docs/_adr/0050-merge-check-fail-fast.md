@@ -1,6 +1,7 @@
 # ADR 0050: Run the merge check first, as a fail-fast precondition
 
-**Status**: accepted
+**Status**: accepted. [ADR 0056](0056-currency-checks-fail-fast.md) extends this
+pattern to the generated-artifact currency checks.
 
 ## Context
 
