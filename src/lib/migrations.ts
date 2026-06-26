@@ -10,8 +10,8 @@
  * The chain's first step is the schema-1→2 `main_branch` backfill (the bespoke
  * 0.x→1.0 `migrate` ADR 0014 retired was not ported — the current shape was
  * declared schema 1 and the chain grows from there). Later steps append as
- * further bumps; the final one prunes a pre-existing on-disk shell engine left
- * by an install made before the TS-native engine.
+ * further bumps; the final one prunes the on-disk `.discern/engine/` tree a
+ * schema-4 install carried.
  *
  * A step transforms an install through a {@link MigrationContext}: it can edit
  * the install config comment-preserving, move/remove/rewrite seed files, and
@@ -133,13 +133,13 @@ export const MIGRATIONS: Migration[] = [
       // passes through cleanly.
       await ctx.rename("discern.toml", ".discern/config.toml");
       await ctx.rename(".ai/guidelines", ".discern/guidelines");
-      // The old shell dispatcher (bin/agent) and skills (.ai/skills) are not
-      // moved: skills are re-materialized at the new path by the upgrade, and the
-      // pre-existing shell engine — dispatcher included — is pruned by the final
-      // chain step. Repoint the worktree hooks at the root dispatcher path the
-      // historical layout used; the dispatcher still exists at this schema, so
-      // `./agent` is correct here. The final prune step then removes the
-      // dispatcher and repoints the hook at the on-PATH `discern` binary.
+      // The `bin/agent` dispatcher and `.ai/skills` are not moved: skills are
+      // re-materialized at the new path by the upgrade, and the `.discern/engine/`
+      // tree — dispatcher included — is pruned by the final chain step. Repoint
+      // the worktree hooks at the root `./agent` dispatcher, which still exists at
+      // this schema, so `./agent` is correct here. The final prune step then
+      // removes the dispatcher and repoints the hook at the on-PATH `discern`
+      // binary.
       await ctx.rewrite(
         ".claude/settings.json",
         (t) => t.replaceAll("./bin/agent", "./agent"),
@@ -184,9 +184,9 @@ export const MIGRATIONS: Migration[] = [
         ([k, v]) => k !== "side_gates" && Array.isArray(v),
       );
 
-      // Idempotency: the old shape is detectable by [slots.*], array-valued
+      // Idempotency: an unmigrated config is detectable by [slots.*], array-valued
       // [scopes] keys, [scopes.side_gates], or [evidence]. Once migrated, none of
-      // those remain, so a re-run (or an already-new config) returns early.
+      // those remain, so a re-run (or an already-migrated config) returns early.
       const hasOldShape = Object.keys(slots).length > 0 ||
         Object.keys(sideGates).length > 0 || hasArrayScope ||
         raw.evidence !== undefined;
@@ -289,7 +289,7 @@ export const MIGRATIONS: Migration[] = [
 
         // Delete the legacy structure (read fully above before any deletion).
         for (const name of Object.keys(slots)) e.deleteSection(`slots.${name}`);
-        e.deleteSection("scopes"); // the old array-keyed bare table
+        e.deleteSection("scopes"); // the array-keyed bare [scopes] table
         e.deleteSection("scopes.side_gates");
         e.deleteSection("evidence");
       });
@@ -304,15 +304,15 @@ export const MIGRATIONS: Migration[] = [
     describe:
       "prune the pre-existing on-disk shell engine (.discern/engine/, the root agent, .discern/manifest.json)",
     apply: async (ctx) => {
-      // An install made before the TS-native engine carried a committed shell
-      // engine: the generic engine tree, a root `agent` dispatcher, and a
-      // hash-tracking manifest. None of those exist on a fresh install anymore —
-      // the engine is in the binary — so an upgrading install must shed them.
-      // All three removals are idempotent (a no-op when already gone), so this is
-      // safe on a fresh install too. The skill symlinks under `.claude/skills/`
-      // that the old dispatcher's `guidelines` step created still point at the
-      // re-materialized `.discern/skills/`, so they need no surgery here; the
-      // next `discern refresh` reconciles them.
+      // A schema-4 install carried a committed engine on disk: the generic engine
+      // tree, a root `agent` dispatcher, and a hash-tracking manifest. None of
+      // those exist on a fresh install — the engine is in the binary — so an
+      // upgrading install must shed them. All three removals are idempotent (a
+      // no-op when already gone), so this is safe on a fresh install too. The
+      // skill symlinks under `.claude/skills/` that the `agent` dispatcher's
+      // `guidelines` step created still point at the re-materialized
+      // `.discern/skills/`, so they need no surgery here; the next `discern
+      // refresh` reconciles them.
       const had = await ctx.exists(".discern/engine") ||
         await ctx.exists("agent") ||
         await ctx.exists(".discern/manifest.json");
@@ -325,13 +325,13 @@ export const MIGRATIONS: Migration[] = [
       // branch prefix has no `./`), so this literal swap is safe and idempotent
       // — a no-op once already repointed, or when there is no settings file.
       // `upgrade` never re-merges the settings seed, so this step is what
-      // carries the hooks across the cutover.
+      // carries the hooks across the upgrade.
       await ctx.rewrite(
         ".claude/settings.json",
         (t) => t.replaceAll("./agent", "discern"),
       );
-      // A pre-cutover install committed its skills (they were managed) and may not
-      // ignore the now-materialized/compiled artifacts. Ensure `.gitignore` ignores
+      // A schema-4 install committed its skills (managed at that schema) and may
+      // not ignore the now-materialized/compiled artifacts. Ensure `.gitignore` ignores
       // them — append only what is missing (idempotent), never clobbering the
       // user's file. Untracking already-committed copies (`git rm --cached`) is a
       // git-index operation left to the operator; a migration only edits files.
@@ -512,8 +512,8 @@ export const MIGRATIONS: Migration[] = [
         }
       }
 
-      // 4. Move recipes → ./recipes/ (the old README is documentation; dropped
-      // with .discern/ below).
+      // 4. Move recipes → ./recipes/ (the `.discern/recipes` README is
+      // documentation; dropped with .discern/ below).
       if (await ctx.exists(".discern/recipes")) {
         for await (
           const entry of Deno.readDir(join(ctx.destDir, ".discern/recipes"))
@@ -578,7 +578,7 @@ export const MIGRATIONS: Migration[] = [
       "retire the bootstrap skill for the `discern bootstrap` command: prune the stale .claude/skills/bootstrap/ copy and back-fill [meta].bootstrapped for an already-configured install (ADR 0024)",
     apply: async (ctx) => {
       // Bootstrap is now a CLI command, not a materialized skill. Remove the
-      // pristine copy the old layout left under .claude/skills/: it is no longer
+      // pristine copy a schema-6 install left under .claude/skills/: it is no longer
       // in the bundled set, so `materializeSkills` treats it as a foreign dir and
       // would leave it forever. Idempotent (a no-op once gone). An AUTHORED skill
       // the user named "bootstrap" is a symlink, not a tree we ship — removing the
