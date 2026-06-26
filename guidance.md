@@ -3,7 +3,7 @@
 discern is a portable, stack-neutral **agentic-development harness**: one command scaffolds a quality gate, an isolated git-worktree workflow, an author-once→compile-everywhere agent-instruction pipeline, and a docs/ADR discipline into any project. **This repo is both the tool and a user of it — it runs on its own harness.**
 
 ## What's in the repo
-discern is **one self-contained Deno binary** — there is no separate shell engine, no `agent` dispatcher, no committed/managed copies.
+discern is **one self-contained Deno binary** — the installer verbs and the engine are the same program, with no second copy committed alongside it to keep in sync.
 - **`src/`** — the whole binary. Installer verbs (`init`, `upgrade`, `doctor`, `migrate`, `config`, `add-preset`) **and** the TypeScript engine: `src/engine/**` (the gate, the parallel/serial job runner, scope classification, ratchets, the worktree lifecycle + identity, the guideline compiler, the dispatcher), sharing `src/shared/**` (config reader, capability constants, feature toggles, POSIX `cksum`, root discovery). Compiled to a single binary via `deno task build`.
 - **`templates/`** — the **distribution surface** the binary lays down or materializes into a project: the config template (`discern.toml.tmpl`), the settings template, the gitignore fragment, the **bundled built-in guidance** (`templates/guidance/*.md`), and the **bundled skills** (`templates/skills/**`). It is *not* an engine; there is no installed shell harness.
 
@@ -11,7 +11,7 @@ discern is **one self-contained Deno binary** — there is no separate shell eng
 A project's entire discern footprint is a single root file, **`discern.toml`** (ADR 0020 dissolved the old hidden `.discern/` directory). Everything else is bundled in the binary, a **config-pointed** location the user chooses (with discoverable defaults — `guidance.md`, `./skills`, `./recipes`), or a generated **output** (`AGENTS.md`/`CLAUDE.md`/`GEMINI.md` are gitignored build artifacts — ADR 0034; `.claude/skills/` materialized). `[features]` toggles whole subsystems on/off — do not confuse it with `[capabilities]` (the gate's command table).
 
 ## ⚠️ Edit in place — there is no managed copy to sync
-The old two-program era kept a committed shell engine byte-identical to `templates/` via a manifest, `.new` files, and a `selfcheck`/`selfsync` gate. **All of that is gone.** The rules now:
+discern keeps **no managed copy** of the engine: nothing is held byte-identical to `templates/`, so there is no second copy or sync gate to satisfy. The rules:
 - **The engine and installer are TypeScript under `src/**` — edit them in place.** There is no second copy, no hash tracking, no drift to detect. The gate (`deno task dev finish`) type-checks and tests them.
 - **`templates/**` is the distribution surface** — edit the seed/skill/guidance *source* here (keep it generic; see below). To reflect a bundled-skill or built-in-guidance edit in this repo's own `.claude/skills/` and `AGENTS.md`, re-run `deno task dev refresh` (or `upgrade`).
 - **`CLAUDE.md` / `AGENTS.md` are generated** from discern's built-in guidance (`templates/guidance/*`) plus this repo's `guidance.md` — never hand-edit them. Edit `guidance.md` and recompile.

@@ -36,7 +36,7 @@ The subsystems are numbered subtrees, in the order a newcomer should read them â
 | Path | What's in it |
 |---|---|
 | [_adr/](_adr/) | Architecture Decision Records â€” significant design decisions and their rationale, under continuous numbering. [`_adr/README.md`](_adr/README.md) is the canonical format. |
-| [_internal/](_internal/) | The documenter brief and per-subtree scope manifests used to write and refresh this tree. Not part of the user-facing docs; kept for reproducibility. |
+| [_internal/](_internal/) | The documenter brief and per-subtree scope manifests for writing and refreshing this tree. Not part of the user-facing docs; kept for reproducibility. |
 
 ---
 

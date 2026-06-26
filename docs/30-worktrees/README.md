@@ -37,8 +37,8 @@ stable identity (id / site / branch / port / db / worktree / resource).
 (`<repo>.worktrees/<name>`), visible and adjacent rather than nested inside it
 (a nested worktree is an anti-pattern — recursive tools double-count it, and a
 walk-up to the repo root mis-resolves the worktree's `.git` file). A relative
-`root` resolves against the repo root (`.claude/worktrees` restores the old
-nesting); an absolute one is used as-is. The engine stays location-agnostic — it
+`root` resolves against the repo root (`.claude/worktrees` nests them inside the
+repo); an absolute one is used as-is. The engine stays location-agnostic — it
 discovers existing Worktrees from git's own registry, never a hardcoded path —
 so only the create hook and `worktree:prune`'s orphan sweep know the convention
 ([ADR 0052](../_adr/0052-worktree-sibling-placement.md)).

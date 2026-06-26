@@ -192,8 +192,8 @@ TODO.md                    # the shared backlog discipline
 
 The engine, the built-in harness guidance, and the built-in skills all live
 **inside the `discern` binary** on your `PATH` — none of them land on disk.
-There is no longer a hidden `.discern/` directory: the whole footprint is the
-single `discern.toml` plus the files above.
+There is no hidden `.discern/` directory: the whole footprint is the single
+`discern.toml` plus the files above.
 
 ---
 
@@ -768,10 +768,10 @@ that failed (or is `null`).
   list.
 - **One binary, no runtime in the project.** The engine is TypeScript compiled
   into the `discern` binary (`src/engine/**`), so the project carries only the
-  root `discern.toml` — no Node, no Deno, no shell engine on disk. The runtime
-  config reader is `@std/toml`; recipes that need a value call
-  `discern config
-  get` rather than parsing TOML themselves.
+  root `discern.toml` — no Node, no Deno, no engine on disk. The runtime config
+  reader is `@std/toml`; recipes that need a value call `discern config
+  get`
+  rather than parsing TOML themselves.
 - **Bundled built-ins ⊕ yours.** Guidance, skills, and recipes follow one rule:
   the binary ships a built-in set, and you extend or override it at a
   config-pointed path (`[guidance].sources`, `[skills].dir`, `[recipes].dir`),

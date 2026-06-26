@@ -36,8 +36,8 @@ A third category is **bundled**: the engine, the built-in skills
 guidance ([`templates/guidance/`](../../templates/guidance/)) ship _inside_ the
 binary and are never committed to a project at all — the limit case of the
 binary's bucket ([ADR 0019](../_adr/0019-single-binary-ts-engine.md)). There is
-**no** "managed copy kept byte-identical by a gate": with the shell engine
-retired there is nothing committed to sync. The same buckets are defined in the
+**no** "managed copy kept byte-identical by a gate": with the engine in the
+binary there is nothing committed to sync. The same buckets are defined in the
 [glossary](../00-orientation/glossary.md#file-dispositions).
 
 Two seed files are special-cased at `setup` so an existing project keeps what it
@@ -171,9 +171,9 @@ skeletons ship **with whatever creates them** — the `discern setup` command
 | [`document-subsystem`](../../templates/skills/document-subsystem/SKILL.md) | `skel/docs/_internal/{documenter-agent-brief.md, scopes/_template.md}`                       | `docs/_internal/`, the documenter brief and per-subtree scope-manifest template.                                                                  |
 
 So `docs/`, `TODO.md`, `guidance.md`, and the compiled agent files appear
-**after** install, with real content — they are no longer a static part of the
-install surface. This page lives in the `80-development/` tree that
-`discern setup` materialises.
+**after** install, with real content — they are not a static part of the install
+surface. This page lives in the `80-development/` tree that `discern setup`
+materialises.
 
 ## Bookkeeping & integration
 
@@ -193,6 +193,6 @@ install surface. This page lives in the `80-development/` tree that
 The linked worktree checkouts appear only at run time, never from `setup`. By
 default they live in a **sibling** directory (`<repo>.worktrees/`), outside the
 repo entirely, so nothing in the tree needs to ignore them. A project that
-points `[worktree].root` at a path _inside_ the repo (e.g. `.claude/worktrees`,
-the old default) keeps them out of git via the `/.claude/*` rule
+points `[worktree].root` at a path _inside_ the repo (e.g. `.claude/worktrees`)
+keeps them out of git via the `/.claude/*` rule
 ([ADR 0052](../_adr/0052-worktree-sibling-placement.md)).

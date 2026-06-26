@@ -22,12 +22,11 @@ run `discern prepare` (in this repo, `deno task dev prepare`).
 | `lint`      | capability | check | `deno lint`              | The Deno linter over `src/`, `scripts/`, `tests/`, with the repo's strict rule set. Fix the finding, or justify it with an inline `deno-lint-ignore` and a reason.                                              |
 | `typecheck` | capability | check | `deno check src/main.ts` | Type-checks the whole graph reachable from the entrypoint under strict TS (`deno.json` `compilerOptions`). Keep types sound; no `any` slipped through a cast.                                                   |
 
-The committed shell engine retired with the single-binary cutover
-([ADR 0019](../_adr/0019-single-binary-ts-engine.md)), so the `selfcheck` and
-`shellcheck` checks are gone — there is no second copy to drift and no portable
-shell to lint. There is no `build` capability (`deno task build` is
-release-only, so it is simply omitted), and the `test` capability
-(`deno task test`) is covered in [testing.md](testing.md).
+There is no `selfcheck` or `shellcheck` check: with the engine compiled into the
+binary there is no second copy to drift and no portable shell to lint
+([ADR 0019](../_adr/0019-single-binary-ts-engine.md)). There is no `build`
+capability (`deno task build` is release-only, so it is simply omitted), and the
+`test` capability (`deno task test`) is covered in [testing.md](testing.md).
 
 ## Conventions to follow
 

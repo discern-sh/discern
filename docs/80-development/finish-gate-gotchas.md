@@ -32,9 +32,9 @@ contain the latest `main`. It does **not** merge for you.
 **Cause.** The merge check is the gate's **first** step, fail-fast (ADR 0049).
 While you were working, `main` moved, so your branch is behind it. Because a
 branch behind `main` has to integrate and re-run regardless — the integration
-changes the tree and discards whatever the gate computed against the old one —
-the gate refuses up front rather than spending the slow fix/build/check/test on
-a result you are about to throw away.
+changes the tree and discards whatever the gate computed against the
+pre-integration tree — the gate refuses up front rather than spending the slow
+fix/build/check/test on a result you are about to throw away.
 
 **Fix.** Commit your work, run `git merge main`, resolve any conflicts and
 commit the merge, then run `deno task dev finish` again to verify the merged
@@ -53,9 +53,9 @@ committed and done.
 and mutates in place. If you committed a file that was not yet in the
 formatter's canonical form — the everyday case for hand-written prose, where
 editing a paragraph leaves a wrap the formatter will not accept — the next
-`finish` reformats it and leaves the result uncommitted. A green gate used to
-hide that. Now `finish` blocks, so the change cannot ride along uncommitted into
-`graduate`, which would otherwise strand it staged in the main checkout.
+`finish` reformats it and leaves the result uncommitted. `finish` blocks on
+this, so the change cannot ride along uncommitted into `graduate`, which would
+otherwise strand it staged in the main checkout.
 
 **Fix.** The diff is the formatter's own output: review it (`git diff`), commit
 it (`git add -A && git commit`), then re-run `finish`. To skip the round trip,

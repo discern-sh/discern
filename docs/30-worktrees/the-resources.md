@@ -9,9 +9,9 @@ discern provides the orchestration and the garbage collection; the project
 provides the `create`/`destroy` commands. The engine never learns what the
 resource actually is — the seam is fully generic.
 
-Resources replace the old hard-coded `[worktree.db]` and `[worktree.dev_server]`
-adapters (see [ADR 0025](../_adr/0025-worktree-resources.md)); those are now
-just two commented examples of this one mechanism. The deterministic port
+`[worktree.db]` and `[worktree.dev_server]` are just two commented examples of
+this one generic mechanism (the generalization is recorded in
+[ADR 0025](../_adr/0025-worktree-resources.md)). The deterministic port
 (`[worktree].port`) is **not** a resource — it is derived identity and
 provisions nothing.
 

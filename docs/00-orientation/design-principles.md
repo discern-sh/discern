@@ -175,8 +175,8 @@ could diverge from what users get.
 its own author to the same discipline. Self-hosting collapses the gap between
 "what we ship" and "what we use" to zero — a regression in the shipped engine
 breaks our own build the same day, not a user's repo months later. Collapsing
-the engine to a single home goes one better: the old drift the previous
-self-host model had to _detect_ is now impossible by construction.
+the engine to a single home goes one better: a whole class of drift becomes
+impossible by construction, rather than something a gate must _detect_.
 
 **How it shows up.** The `deno.json` `gate` task is `deno task dev finish`, so
 the repo gates itself with the same engine it ships; there is no `selfcheck` or

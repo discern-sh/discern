@@ -256,11 +256,10 @@ is the fast inner loop — the fix-stage then check-stage work, no build or test
 
 A named region of the repo a change can touch, declared as a `[scopes.<name>]`
 table: `paths` (the defining globs) plus optional `neutral` / `previewable`
-booleans and a `gate` command (the former "side gate") run only when that Scope
-changed. Used to skip irrelevant work and to fire a sub-component's own gate.
-Classification **fails open**: a path matching no Scope counts as a real code
-change, so it runs more gates, never fewer
-([ADR 0018](../_adr/0018-vocabulary-consolidation.md)).
+booleans and a `gate` command run only when that Scope changed — it skips
+irrelevant work and fires a sub-component's own gate. Classification **fails
+open**: a path matching no Scope counts as a real code change, so it runs more
+gates, never fewer ([ADR 0018](../_adr/0018-vocabulary-consolidation.md)).
 
 ### Ratchet
 
