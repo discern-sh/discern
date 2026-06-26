@@ -22,7 +22,10 @@ import {
   writeConfig,
   writeExecutable,
 } from "./engine_helpers.ts";
-import { FLEET_OWNERSHIP_HINT } from "../src/engine/status/status.ts";
+import {
+  FLEET_OWNERSHIP_HINT,
+  START_HERE_HINT,
+} from "../src/engine/status/status.ts";
 
 /** A config with a project slug and one gated scope (so changed-scopes/gate have
  * something to classify), written before gitInit so a worktree inherits it. */
@@ -200,6 +203,66 @@ Deno.test("status fleet: the ownership rule rides in hints[] under --all from a 
     assert(
       (obj.hints ?? []).includes(FLEET_OWNERSHIP_HINT),
       `--all hints must carry the ownership rule: ${JSON.stringify(obj.hints)}`,
+    );
+  });
+});
+
+Deno.test("status: on the trunk, the discern start guardrail rides in hints[] for an agent", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+
+    // No worktrees yet — the agent is on the trunk with nowhere isolated to work.
+    const obj = parseStatus((await runAgent(dir, ["status", "--json"])).stdout);
+    assertEquals(obj.data.location, "main");
+    assert(
+      (obj.hints ?? []).includes(START_HERE_HINT),
+      `the trunk guardrail must point at discern start: ${
+        JSON.stringify(obj.hints)
+      }`,
+    );
+    // It leads the next-steps relative to the fleet-ownership caveat (constructive
+    // action before the don't-squat warning), when both are present.
+    const start = (obj.hints ?? []).indexOf(START_HERE_HINT);
+    const own = (obj.hints ?? []).indexOf(FLEET_OWNERSHIP_HINT);
+    if (own >= 0) {
+      assert(
+        start < own,
+        `discern start hint should precede the ownership rule`,
+      );
+    }
+  });
+});
+
+Deno.test("status: the discern start guardrail is agent-only — the human CLI is not nagged", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+
+    const r = await runAgent(dir, ["status"]); // human mode (no --json)
+    assertEquals(r.code, 0, r.output);
+    assert(
+      !r.output.includes(START_HERE_HINT),
+      `the start guardrail must not appear as a human line: ${r.output}`,
+    );
+  });
+});
+
+Deno.test("status: the discern start guardrail does NOT fire from a worktree (it's main-only)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "alpha");
+
+    const obj = parseStatus(
+      (await runAgent(wt, ["status", "--json"])).stdout,
+    );
+    assertEquals(obj.data.location, "worktree");
+    assert(
+      !(obj.hints ?? []).includes(START_HERE_HINT),
+      `an agent already in a worktree must not be told to start one: ${
+        JSON.stringify(obj.hints)
+      }`,
     );
   });
 });

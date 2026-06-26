@@ -20,6 +20,7 @@ import {
   gitOut,
   runAgent,
   scaffoldEngine,
+  worktreePath,
 } from "./engine_helpers.ts";
 
 /** A scaffolded, committed main repo with one linked worktree ready to drive. */
@@ -421,6 +422,122 @@ Deno.test("worktree:prune keeps a sibling worktree that still has unmerged work"
       await exists(live),
       true,
       `a live, unmerged worktree must NOT be pruned\n${r.output}`,
+    );
+  });
+});
+
+/** Parse a `discern start --json` apply result. */
+interface StartResult {
+  ok: boolean;
+  verb: string;
+  data: { id: string; branch: string; path: string };
+  hints: string[];
+}
+
+Deno.test("start: from the main checkout creates a set-up sibling worktree and returns its path", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+
+    const r = await runAgent(dir, ["start", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    const result = JSON.parse(r.stdout) as StartResult;
+    assertEquals(result.ok, true);
+    assertEquals(result.verb, "start");
+
+    const { id, branch, path } = result.data;
+    // The branch is the fresh agent/<id> the worktree was created on.
+    assertEquals(branch, `agent/${id}`);
+    // It lands in the SIBLING placement (never nested inside the repo), exactly where
+    // the production resolver puts it — so a minted id round-trips through worktreePath.
+    // (The verb resolves its root via findRoot, which canonicalizes /var → /private/var
+    // on macOS, so compare against the canonicalized repo dir.)
+    const realDir = await Deno.realPath(dir);
+    assert(
+      !path.startsWith(`${realDir}/`),
+      `must not nest inside the repo: ${path}`,
+    );
+    assertStringIncludes(path, `${basename(dir)}.worktrees`);
+    assertEquals(path, worktreePath(realDir, id));
+    // It is genuinely set up: setup materialized the agent files inside the worktree.
+    assert(
+      await exists(join(path, "CLAUDE.md")),
+      `setup didn't run in ${path}`,
+    );
+    // …and it is checked out on its own branch.
+    assertEquals(await gitOut(path, "branch", "--show-current"), `agent/${id}`);
+    // The result carries the re-root instruction (the agent must move into the path).
+    assert(
+      result.hints.some((h) =>
+        h.includes(path) && /session rooted|cd /.test(h)
+      ),
+      `expected a re-root hint naming ${path}: ${JSON.stringify(result.hints)}`,
+    );
+  });
+});
+
+Deno.test("start: refuses from inside a worktree (main-checkout-only)", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "alpha");
+    const r = await runAgent(wt, ["start", "--json"]);
+    assertEquals(r.code, 1, r.output);
+    const result = JSON.parse(r.stdout);
+    assertEquals(result.ok, false);
+    assertEquals(result.verb, "start");
+    // Mapped to the same precondition slug graduate/integrate use from the main checkout.
+    assertEquals(result.error, "precondition_failed");
+    // It must NOT have created a nested worktree of its own.
+    assertEquals(
+      await exists(`${wt}.worktrees`),
+      false,
+      "refusal must touch nothing",
+    );
+  });
+});
+
+Deno.test("start: mints a fresh, unique id on each call (never re-mints a live worktree)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+
+    const first = JSON.parse((await runAgent(dir, ["start", "--json"])).stdout)
+      .data as StartResult["data"];
+    const second = JSON.parse((await runAgent(dir, ["start", "--json"])).stdout)
+      .data as StartResult["data"];
+
+    assert(first.id !== second.id, `ids must differ across calls: ${first.id}`);
+    assert(first.path !== second.path, "each start lands in its own directory");
+    // Both worktrees exist, fully set up, on distinct branches.
+    assert(
+      await exists(join(first.path, "CLAUDE.md")),
+      "first worktree set up",
+    );
+    assert(
+      await exists(join(second.path, "CLAUDE.md")),
+      "second worktree set up",
+    );
+    assertEquals(
+      await gitOut(second.path, "branch", "--show-current"),
+      second.branch,
+    );
+  });
+});
+
+Deno.test("start --dry-run: previews creating a worktree and touches nothing", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+
+    const r = await runAgent(dir, ["start", "--json", "--dry-run"]);
+    assertEquals(r.code, 0, r.output);
+    const result = JSON.parse(r.stdout);
+    assertEquals(result.dry_run, true);
+    assertEquals(result.plan.title, "Start plan");
+    // A dry-run mints an id for the preview but creates no worktree at all.
+    assertEquals(
+      await exists(`${dir}.worktrees`),
+      false,
+      `dry-run must not create the sibling worktree root\n${r.output}`,
     );
   });
 });

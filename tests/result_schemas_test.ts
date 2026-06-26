@@ -39,6 +39,7 @@ import {
   EnvelopeSchema,
   FinishOutputSchema,
   GateDataSchema,
+  StartOutputSchema,
   StatusDataSchema,
   StatusOutputSchema,
   StepResultJsonSchema,
@@ -56,7 +57,9 @@ import { docsResult, helpResult } from "../src/commands/docs.ts";
 import {
   graduateResult,
   lifecycleContext,
+  startResult,
 } from "../src/engine/worktree/lifecycle.ts";
+import { resolveWorktreeRoot } from "../src/lib/paths.ts";
 import { Logger } from "../src/lib/log.ts";
 
 /** Validate a real verb result's serialized form against its declared schema, with a
@@ -482,5 +485,27 @@ Deno.test("graduate result is faithful (dry-run plan from a worktree)", async ()
     const preview = await graduateResult(ctx, { dryRun: true });
     assertEquals(preview.dry_run, true);
     expectValid(DatalessEnvelopeSchema, preview, "graduate dry-run");
+  });
+});
+
+Deno.test("start result is faithful (dry-run preview and applied worktree)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const ctx = await lifecycleContext(
+      dir,
+      new Logger({ json: true, noColor: true }),
+    );
+    const worktreeRoot = resolveWorktreeRoot(ctx.root, ctx.config);
+
+    // dry-run: a preview plan, no data.
+    const preview = await startResult(ctx, { dryRun: true, worktreeRoot });
+    assertEquals(preview.dry_run, true);
+    expectValid(StartOutputSchema, preview, "start dry-run");
+
+    // applied: steps + data (the new worktree) + the re-root hint.
+    const applied = await startResult(ctx, { worktreeRoot });
+    assertEquals(applied.ok, true);
+    expectValid(StartOutputSchema, applied, "start applied");
   });
 });

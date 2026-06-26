@@ -6,6 +6,7 @@
  */
 
 import { assert, assertEquals } from "@std/assert";
+import { exists } from "@std/fs";
 import { join } from "@std/path";
 import {
   DoctorOutputSchema,
@@ -626,6 +627,91 @@ Deno.test("discern mcp: discern_integrate refuses from the main checkout and is 
         JSON.stringify(noop.result.structuredContent)
       }`,
     );
+    assertEquals(await wtMcp.close(), 0);
+  });
+});
+
+Deno.test("discern mcp: discern_start lists + creates from main (returning a path to re-root into), and is hidden from a worktree", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+
+    // From the MAIN checkout: discern_start is listed and named in the instructions.
+    const main = await spawnMcp(dir);
+    await main.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    const init = await main.recv();
+    assert(
+      (init.result.instructions as string).includes("discern_start"),
+      init.result.instructions,
+    );
+    await main.send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
+    const list = await main.recv();
+    const names = list.result.tools.map((t: { name: string }) => t.name);
+    assert(names.includes("discern_start"), JSON.stringify(names));
+
+    // A real call creates the worktree and returns its path — the MCP wrinkle: the
+    // server can't relocate the session, so the result carries the path + a re-root
+    // hint rather than pretending it moved.
+    await main.send({
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: { name: "discern_start", arguments: {} },
+    });
+    const started = await main.recv();
+    assertEquals(started.result.isError, false);
+    const sc = started.result.structuredContent;
+    assertEquals(sc.verb, "start");
+    assertEquals(sc.data.branch, `agent/${sc.data.id}`);
+    assert(
+      typeof sc.data.path === "string" && sc.data.path.length > 0,
+      JSON.stringify(sc),
+    );
+    assert(
+      await exists(join(sc.data.path, "CLAUDE.md")),
+      "the created worktree is set up (agent files materialized)",
+    );
+    assert(
+      (sc.hints as string[]).some((h) => h.includes(sc.data.path)),
+      `a re-root hint must name the new path: ${JSON.stringify(sc.hints)}`,
+    );
+    assertEquals(await main.close(), 0);
+
+    // From inside a WORKTREE: discern_start is hidden (an agent already in a worktree
+    // must not spawn a pointless sibling) — absent from tools/list and the instructions.
+    const wt = await addWorktree(dir, "alpha");
+    const wtMcp = await spawnMcp(wt);
+    await wtMcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    const wtInit = await wtMcp.recv();
+    assert(
+      !(wtInit.result.instructions as string).includes("discern_start"),
+      `no discern_start line from a worktree: ${wtInit.result.instructions}`,
+    );
+    await wtMcp.send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
+    const wtList = await wtMcp.recv();
+    const wtNames = wtList.result.tools.map((t: { name: string }) => t.name);
+    assert(!wtNames.includes("discern_start"), JSON.stringify(wtNames));
+
+    // Calling it anyway → an error result (the SDK answers an unregistered name as
+    // not found) — the defense-in-depth backstop behind hiding it.
+    await wtMcp.send({
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: { name: "discern_start", arguments: {} },
+    });
+    const refused = await wtMcp.recv();
+    assertEquals(refused.result.isError, true);
     assertEquals(await wtMcp.close(), 0);
   });
 });
