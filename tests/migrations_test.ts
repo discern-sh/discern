@@ -46,8 +46,21 @@ Deno.test("the production chain is contiguous up to the current schema", () => {
   // 4→5 (prune the pre-existing on-disk shell engine), 5→6 (dissolve .discern/
   // into the single-file footprint), 6→7 (bootstrap skill → command),
   // 7→8 (db/dev_server → [worktree.resources.*]), 8→9 (untrack AGENTS.md),
-  // 9→10 (ignore .agents/skills/), and 10→11 (drop [features].mcp).
-  assertEquals(MIGRATIONS.map((m) => m.from), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  // 9→10 (ignore .agents/skills/), 10→11 (drop [features].mcp), and 11→12
+  // (rename [worktree].graduate_to "main" → "trunk").
+  assertEquals(MIGRATIONS.map((m) => m.from), [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+  ]);
   assert(isChainContiguous(MIGRATIONS, SCHEMA_VERSION));
 });
 
@@ -312,6 +325,54 @@ Deno.test("migration 10→11 drops [features].mcp, preserving the rest of [featu
     const after = await Deno.readTextFile(join(dir, "discern.toml"));
     await applyMigrations({ destDir: dir, from: 10, to: 11, onNote: () => {} });
     assertEquals(await Deno.readTextFile(join(dir, "discern.toml")), after);
+  });
+});
+
+Deno.test('migration 11→12 renames [worktree].graduate_to "main" → "trunk"', async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      '[worktree]\nport = true\ngraduate_to = "main"\n',
+    );
+    await applyMigrations({ destDir: dir, from: 11, to: 12, onNote: () => {} });
+    const toml = await Deno.readTextFile(join(dir, "discern.toml"));
+    assertStringIncludes(toml, 'graduate_to = "trunk"');
+    assert(
+      !/graduate_to\s*=\s*"main"/.test(toml),
+      `value must be carried:\n${toml}`,
+    );
+    assertStringIncludes(toml, "port = true"); // siblings untouched
+
+    // Idempotent: re-running on the now-"trunk" config changes nothing.
+    const after = await Deno.readTextFile(join(dir, "discern.toml"));
+    await applyMigrations({ destDir: dir, from: 11, to: 12, onNote: () => {} });
+    assertEquals(await Deno.readTextFile(join(dir, "discern.toml")), after);
+  });
+});
+
+Deno.test('migration 11→12 leaves graduate_to = "branch" and an absent key untouched', async () => {
+  await withTempDir(async (dir) => {
+    // The default value is never rewritten (it is not the renamed legacy value).
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      '[worktree]\ngraduate_to = "branch"\n',
+    );
+    await applyMigrations({ destDir: dir, from: 11, to: 12, onNote: () => {} });
+    assertStringIncludes(
+      await Deno.readTextFile(join(dir, "discern.toml")),
+      'graduate_to = "branch"',
+    );
+
+    // An absent key is not invented — the schema default still applies.
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      "[worktree]\nport = true\n",
+    );
+    await applyMigrations({ destDir: dir, from: 11, to: 12, onNote: () => {} });
+    assert(
+      !/graduate_to/.test(await Deno.readTextFile(join(dir, "discern.toml"))),
+      "an absent graduate_to must stay absent",
+    );
   });
 });
 

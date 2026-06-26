@@ -439,7 +439,7 @@ export function attachEngineCommands(
     .option("--dry-run", "Show the graduation plan; touch nothing.")
     .option(
       "--to <target:string>",
-      "Where the branch lands: 'branch' (review-first, branch preserved) or 'main' (fast-forward the trunk, then delete the merged branch). Default: [worktree].graduate_to.",
+      "Where the branch lands: 'branch' (review-first, branch preserved) or 'trunk' (fast-forward the trunk, then delete the merged branch). Default: [worktree].graduate_to.",
     )
     .action(async (o) => {
       const json = o.json ?? false;

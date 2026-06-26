@@ -681,7 +681,7 @@ async function executeGraduatePlan(
   ctx.log.detail(`Branch:        ${worktreeBranch}`);
   ctx.log.detail(`From worktree: ${worktreePath}`);
   ctx.log.detail(
-    to === "main"
+    to === "trunk"
       ? `Into trunk:    ${mainRepo} (fast-forward ${trunk}, delete ${worktreeBranch})`
       : `Into main:     ${mainRepo} (on ${mainBranch})`,
   );
@@ -731,7 +731,7 @@ async function executeGraduatePlan(
   done("git", "remove-worktree");
 
   // land the branch where the plan says
-  if (to === "main") {
+  if (to === "trunk") {
     // Fast-forward the trunk to the branch tip and land there. The graduation gate
     // already proved the branch contains the trunk, so this is always a clean
     // fast-forward — never a merge commit, never a conflict.
@@ -794,7 +794,7 @@ async function executeGraduatePlan(
     done("git", "unstage-wip");
   }
 
-  const landedOn = to === "main" ? trunk : worktreeBranch;
+  const landedOn = to === "trunk" ? trunk : worktreeBranch;
   ctx.log.heading("Graduation complete.");
   ctx.log.line(`  You are on ${landedOn} in ${mainRepo}.`);
   return results;
@@ -806,7 +806,7 @@ async function executeGraduatePlan(
  * external resources, WIP-commits any uncommitted changes, removes the worktree
  * directory, then lands the branch per the destination (`opts.to`, falling back
  * to `[worktree].graduate_to`): `"branch"` checks it out in main for review;
- * `"main"` fast-forwards the trunk to the branch tip and deletes the merged
+ * `"trunk"` fast-forwards the trunk to the branch tip and deletes the merged
  * branch. Any WIP commit is soft-reset last, so those changes land staged.
  * Refuses to touch a dirty main checkout. `--dry-run` shows the plan (after the
  * read-only preconditions pass) and touches nothing. Throws `WorktreeGitError`

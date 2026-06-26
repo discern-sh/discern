@@ -85,14 +85,14 @@ Deno.test("graduate: moves the branch into main and removes the worktree", async
   });
 });
 
-Deno.test("graduate --to main: fast-forwards the trunk, lands on it, and deletes the merged branch", async () => {
+Deno.test("graduate --to trunk: fast-forwards the trunk, lands on it, and deletes the merged branch", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "epsilon");
     await Deno.writeTextFile(join(wt, "feature.txt"), "work\n");
     await git(wt, "add", "-A");
     await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
 
-    const r = await runAgent(wt, ["graduate", "--to", "main"]);
+    const r = await runAgent(wt, ["graduate", "--to", "trunk"]);
     assertEquals(r.code, 0, r.output);
     assertEquals(
       await exists(wt),
@@ -119,7 +119,7 @@ Deno.test("graduate --to main: fast-forwards the trunk, lands on it, and deletes
   });
 });
 
-Deno.test("graduate honours [worktree].graduate_to = main as the default destination", async () => {
+Deno.test("graduate honours [worktree].graduate_to = trunk as the default destination", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "zeta");
     // Flip the project default to land on the trunk; the call passes no --to. Edit
@@ -129,7 +129,7 @@ Deno.test("graduate honours [worktree].graduate_to = main as the default destina
       toml,
       (await Deno.readTextFile(toml)).replace(
         'graduate_to = "branch"',
-        'graduate_to = "main"',
+        'graduate_to = "trunk"',
       ),
     );
     await Deno.writeTextFile(join(wt, "feature.txt"), "work\n");

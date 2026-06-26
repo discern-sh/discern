@@ -726,6 +726,32 @@ export const MIGRATIONS: Migration[] = [
       await ctx.editToml((e) => e.deleteKey("features.mcp"));
     },
   },
+  {
+    from: 11,
+    describe:
+      'rename the [worktree].graduate_to value "main" → "trunk" so the landing role is branch-name-agnostic, not read as a branch literally named main (ADR 0048)',
+    apply: async (ctx) => {
+      const text = await ctx.readConfig();
+      if (text === undefined) {
+        return; // no config to evolve.
+      }
+      let raw: Record<string, unknown>;
+      try {
+        raw = parseDiscernToml(text).raw;
+      } catch {
+        return; // unparseable — upgrade validates the config first; belt-and-braces.
+      }
+      const worktree = isRecord(raw.worktree) ? raw.worktree : {};
+      // Only the renamed legacy value needs carrying. "branch" (the default),
+      // an already-migrated "trunk", or an absent key are all left untouched —
+      // so this is idempotent and never invents a key the user didn't set.
+      if (worktree.graduate_to !== "main") {
+        return;
+      }
+      await ctx.editToml((e) => e.setString("worktree.graduate_to", "trunk"));
+      ctx.note('renamed [worktree].graduate_to = "main" → "trunk"');
+    },
+  },
 ];
 
 /** Render a live `[worktree.resources.<name>]` table (only the non-empty keys). */

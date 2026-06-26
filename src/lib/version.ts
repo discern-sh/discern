@@ -44,8 +44,10 @@ export const KIT_VERSION: string = denoJson.version;
  * one-time `git rm --cached AGENTS.md` (ADR 0034); schema-9→10 ignores
  * `/.agents/skills/`, the cross-tool dir skills now materialize into for
  * Codex/Gemini (ADR 0042); schema-10→11 drops `[features].mcp` — the MCP server
- * is core infrastructure now, not a toggle (ADR 0045). See `MIGRATIONS`. A config
- * with no `[meta].schema_version` is read as schema 1 (or a legacy manifest's
- * recorded version), then migrated forward.
+ * is core infrastructure now, not a toggle (ADR 0045); schema-11→12 renames the
+ * `[worktree].graduate_to` value `"main"` → `"trunk"` so the landing role is
+ * branch-name-agnostic rather than reading as a branch literally named main
+ * (ADR 0048). See `MIGRATIONS`. A config with no `[meta].schema_version` is read
+ * as schema 1 (or a legacy manifest's recorded version), then migrated forward.
  */
-export const SCHEMA_VERSION = 11;
+export const SCHEMA_VERSION = 12;

@@ -262,12 +262,12 @@ const resourceValue = z.strictObject({
   ),
 });
 
-/** Where `discern graduate` lands the branch. A role, not a literal name —
- * `"main"` means whatever `[project].main_branch` is. `"branch"`: leave the work
- * on its own branch checked out in the main repo for review (the worktree branch
- * is preserved). `"main"`: fast-forward the trunk to the branch tip, check the
- * trunk out, and delete the now-merged branch. */
-export const GRADUATE_TARGETS = ["branch", "main"] as const;
+/** Where `discern graduate` lands the branch. A role, not a literal branch name —
+ * `"trunk"` means whatever `[project].main_branch` is (`main`, `master`, …).
+ * `"branch"`: leave the work on its own branch checked out in the main repo for
+ * review (the worktree branch is preserved). `"trunk"`: fast-forward the trunk to
+ * the branch tip, check the trunk out, and delete the now-merged branch. */
+export const GRADUATE_TARGETS = ["branch", "trunk"] as const;
 export type GraduateTarget = (typeof GRADUATE_TARGETS)[number];
 
 const worktreeSection = z.strictObject({
@@ -278,7 +278,7 @@ const worktreeSection = z.strictObject({
     "Give each worktree a deterministic dev-server port (hashed from its id) so concurrent worktrees never collide. Derived identity, not a resource — it provisions nothing.",
   ),
   graduate_to: z.enum(GRADUATE_TARGETS).default("branch").describe(
-    'Where `discern graduate` lands by default. "branch" (the safe default) leaves the work on its own branch, checked out in the main repo for review — the branch is preserved. "main" fast-forwards the trunk to the branch tip, checks the trunk out, and deletes the now-merged branch (the gate already guarantees the branch contains the trunk, so this is always a clean fast-forward). Override per-run with `--to branch|main`.',
+    'Where `discern graduate` lands by default. "branch" (the safe default) leaves the work on its own branch, checked out in the main repo for review — the branch is preserved. "trunk" fast-forwards the trunk to the branch tip, checks the trunk out, and deletes the now-merged branch (the gate already guarantees the branch contains the trunk, so this is always a clean fast-forward). "trunk" is a role: it resolves to `[project].main_branch` (`main`, `master`, …) — not a literal branch named "main". Override per-run with `--to branch|trunk`.',
   ),
   inherit_env: z.array(z.string()).default([]).describe(
     "Environment values copied from the main checkout's .env into a new worktree's .env (secrets a fresh worktree needs but that aren't in version control).",
