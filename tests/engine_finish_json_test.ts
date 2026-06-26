@@ -446,7 +446,9 @@ Deno.test("finish --json: a stale generated file fails FAST — the currency che
       ok.steps.some((s: { kind: string; outcome: string }) =>
         s.kind === "job" && s.outcome === "ok"
       ),
-      `baseline: the capability should run and pass: ${JSON.stringify(ok.steps)}`,
+      `baseline: the capability should run and pass: ${
+        JSON.stringify(ok.steps)
+      }`,
     );
 
     // Stale a generated agent file → the guidance currency precondition fails FIRST.
@@ -462,7 +464,10 @@ Deno.test("finish --json: a stale generated file fails FAST — the currency che
     // Fail-fast (ADR 0056): the expensive stage never ran — every planned step is
     // skipped, exactly as for the merge precondition (ADR 0050). Were the currency
     // check still last, the capability would have run first (its step would be `ok`).
-    assert(obj.steps.length >= 1, `expected a planned capability step: ${r.stdout}`);
+    assert(
+      obj.steps.length >= 1,
+      `expected a planned capability step: ${r.stdout}`,
+    );
     assert(
       obj.steps.every((s: { outcome: string }) => s.outcome === "skipped"),
       `the capability must not run when the currency check fails first: ${r.stdout}`,
