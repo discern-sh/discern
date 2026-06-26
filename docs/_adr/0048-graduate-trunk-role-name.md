@@ -4,9 +4,9 @@
 
 ## Context
 
-[ADR 0046](0046-graduate-destination-and-skill-removal.md) gave `discern
-graduate` a configurable destination through `[worktree].graduate_to` (and
-`--to` per run). It took two values: `"branch"` (leave the work on its own
+[ADR 0046](0046-graduate-destination-and-skill-removal.md) gave
+`discern graduate` a configurable destination through `[worktree].graduate_to`
+(and `--to` per run). It took two values: `"branch"` (leave the work on its own
 branch for review) and `"main"` (fast-forward the trunk to the branch tip, then
 delete the merged branch).
 
@@ -19,8 +19,8 @@ default branch's name.
 That borrowing is a footgun on any repo whose trunk is not `main`:
 
 - A `master`-trunk user reads `graduate_to = "main"` as a literal branch that
-  does not match their trunk, then instinctively writes `graduate_to =
-  "master"`.
+  does not match their trunk, then instinctively writes
+  `graduate_to = "master"`.
 - The schema rejects it — `Invalid option: expected one of "branch"|"main"` —
   and never hints that `"main"` is the role that already means their trunk.
 
@@ -34,7 +34,7 @@ on its own branch) and `"trunk"` (land it on the integration branch) — two
 roles, not a role beside a literal branch. `"trunk"` resolves to
 `[project].main_branch` exactly as `"main"` did. Only the spelling changes.
 
-The rename *removes* a vocabulary split rather than adding one. "trunk" is
+The rename _removes_ a vocabulary split rather than adding one. "trunk" is
 already the word the engine, the plan steps, and the docs use. It also reads as
 a role, so a `master` (or `develop`) repo never types its own trunk name. The
 shipped `discern.toml` comment now spells out that `"trunk"` resolves to
