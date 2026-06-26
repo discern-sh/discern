@@ -200,6 +200,102 @@ export function deriveIdentity(
 }
 
 /**
+ * Word lists for a freshly-minted worktree id (`<adjective>-<noun>-<hex>`). Kept
+ * deliberately generic — discern is stack- and domain-neutral, so these stand-ins
+ * must read correctly for a project in any field. The pair is for legibility; the
+ * hex tail (not the words) is what makes a minted id unique.
+ */
+const ID_ADJECTIVES = [
+  "amber",
+  "brave",
+  "brisk",
+  "calm",
+  "clever",
+  "eager",
+  "fond",
+  "gentle",
+  "jolly",
+  "keen",
+  "lively",
+  "lucky",
+  "mellow",
+  "merry",
+  "nimble",
+  "plucky",
+  "proud",
+  "quiet",
+  "rapid",
+  "snug",
+  "spry",
+  "sunny",
+  "tidy",
+  "witty",
+] as const;
+const ID_NOUNS = [
+  "beacon",
+  "brook",
+  "cedar",
+  "comet",
+  "cove",
+  "ember",
+  "falcon",
+  "finch",
+  "glade",
+  "harbor",
+  "heron",
+  "juniper",
+  "lantern",
+  "maple",
+  "marsh",
+  "meadow",
+  "otter",
+  "pebble",
+  "ridge",
+  "river",
+  "sparrow",
+  "summit",
+  "thicket",
+  "willow",
+] as const;
+
+/** A uniformly-random element of a non-empty word list, from the Web Crypto RNG. */
+function randomChoice(items: readonly string[]): string {
+  const buf = new Uint32Array(1);
+  crypto.getRandomValues(buf);
+  const choice = items[(buf[0] ?? 0) % items.length];
+  if (choice === undefined) {
+    throw new Error("randomChoice: empty word list");
+  }
+  return choice;
+}
+
+/** A short random hex tail (6 chars / 3 bytes) — the uniqueness in a minted id. */
+function randomHexTail(): string {
+  const buf = new Uint8Array(3);
+  crypto.getRandomValues(buf);
+  return Array.from(buf, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * Mint a fresh, readable worktree id in the spirit of the existing worktree names
+ * (`<adjective>-<noun>-<hex>`, e.g. `brisk-otter-a3f9c1`), sanitized to the same
+ * rules a `DISCERN_WORKTREE_ID` override obeys ({@link sanitizeSlug} /
+ * {@link OVERRIDE_ID_RE}). The hex tail makes it unique across calls; the word
+ * pair keeps it legible. discern has no id generator otherwise — Claude Code's
+ * worktree-create hook supplies the name — so `discern start` (which mints its own
+ * worktree from the main checkout) needs this. Callers verify the derived branch /
+ * directory is actually free before using it; a collision is astronomically
+ * unlikely but never assumed.
+ */
+export function generateWorktreeId(): string {
+  return sanitizeSlug(
+    `${randomChoice(ID_ADJECTIVES)}-${
+      randomChoice(ID_NOUNS)
+    }-${randomHexTail()}`,
+  );
+}
+
+/**
  * Resolve the project slug and branch prefix from config, with env overrides
  * (`DISCERN_PROJECT_SLUG` / `DISCERN_WORKTREE_BRANCH_PREFIX`) winning. The slug
  * is sanitized and must be non-empty.

@@ -8,16 +8,18 @@
  * on) and the full identity cases (id/site/branch/port/db for slug `discern`).
  */
 
-import { assertEquals } from "@std/assert";
+import { assert, assertEquals, assertMatch } from "@std/assert";
 import { cksumString } from "../src/shared/crc.ts";
 import {
   dbNameForId,
   deriveIdentity,
   fitSiteId,
+  generateWorktreeId,
   type IdentitySettings,
   portForId,
   resolveWorktreeId,
   siteForId,
+  validateOverrideId,
 } from "../src/engine/worktree/identity.ts";
 
 interface CksumVector {
@@ -84,6 +86,35 @@ Deno.test("the pure derivation helpers match the vectors", () => {
     assertEquals(siteForId(slug, c.id), c.site, `siteForId('${c.id}')`);
     assertEquals(dbNameForId(slug, c.id), c.db, `dbNameForId('${c.id}')`);
   }
+});
+
+Deno.test("generateWorktreeId mints a readable, valid, unique id (the discern start basis)", () => {
+  // Shape: <adjective>-<noun>-<hex tail>, all slug-safe — readable like the names
+  // Claude Code's hook supplies, but minted by discern for `discern start`.
+  const id = generateWorktreeId();
+  assertMatch(id, /^[a-z]+-[a-z]+-[0-9a-f]{6}$/);
+
+  // It is a valid identity id: the override validator accepts it unchanged, and the
+  // derived branch is the clean `agent/<id>` `discern start` puts the worktree on.
+  assertEquals(
+    validateOverrideId(id),
+    id,
+    `minted id '${id}' must be slug-valid`,
+  );
+  assertEquals(
+    deriveIdentity(id, { slug: "discern", branchPrefix: "agent/" }).branch,
+    `agent/${id}`,
+  );
+
+  // Fresh across calls: the hex tail makes a repeated call collide only by
+  // astronomical chance, so a batch must be all-distinct (the property `discern
+  // start` relies on to never re-mint a live worktree's id).
+  const batch = Array.from({ length: 500 }, () => generateWorktreeId());
+  assertEquals(new Set(batch).size, batch.length, "minted ids must be unique");
+  assert(
+    new Set(batch.map((i) => i.split("-").slice(0, 2).join("-"))).size > 1,
+    "the word pair should vary across a large batch (not a constant prefix)",
+  );
 });
 
 Deno.test("the long-id case triggers the fit_site_id tail hash (documented double dash)", () => {
