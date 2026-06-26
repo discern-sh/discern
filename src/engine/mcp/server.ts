@@ -141,8 +141,11 @@ interface McpTool {
   run(root: string, args: Record<string, unknown>): Promise<DiscernResult>;
 }
 
-/** The exposed tool set — each a thin adapter over a verb's result-returning core. */
-const TOOLS: McpTool[] = [
+/** The exposed tool set — each a thin adapter over a verb's result-returning core.
+ * Exported so the verb-parity guard (`tests/engine_verb_parity_test.ts`) can
+ * reconcile the tool slugs against the CLI verb SSOT via {@link verbOf} — every
+ * MCP tool is a real verb, no dead slugs. */
+export const TOOLS: McpTool[] = [
   {
     name: "discern_finish",
     title: "Run the quality gate",
@@ -403,8 +406,9 @@ async function graduateToolResult(
 }
 
 /** The verb slug behind a tool name (`discern_changed_scopes` → `changed-scopes`),
- * for the envelope every failure path renders. */
-function verbOf(toolName: string): string {
+ * for the envelope every failure path renders. Exported as the tool→verb bridge the
+ * verb-parity guard uses to tie {@link TOOLS} back to the CLI verb SSOT. */
+export function verbOf(toolName: string): string {
   return toolName.replace(/^discern_/, "").replace(/_/g, "-");
 }
 

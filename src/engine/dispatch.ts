@@ -88,8 +88,13 @@ export const KNOWN_ENGINE_VERBS: ReadonlySet<string> = new Set([
   "mcp",
 ]);
 
-/** Hyphenated engine recipe names + their displayed (colon) form, for the suggester. */
-const ENGINE_RECIPE_NAMES: readonly string[] = [
+/** Hyphenated engine recipe names + their displayed (colon) form, for the suggester.
+ * Intentionally NOT equal to {@link KNOWN_ENGINE_VERBS}: it drops the command-group
+ * verbs that have no recipe form (skills, mcp) and adds the worktree sub-recipes
+ * (worktree-create/remove/ensure/teardown/prune). That deliberate relationship is
+ * tied to the verb SSOT by `tests/engine_verb_parity_test.ts`, so a new engine verb
+ * forces a conscious choice here rather than silently drifting. */
+export const ENGINE_RECIPE_NAMES: readonly string[] = [
   "finish",
   "prepare",
   "test",

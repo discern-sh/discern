@@ -617,9 +617,11 @@ async function isGitWorkTree(dir: string): Promise<boolean> {
 /**
  * Installer verbs Cliffy owns; combined with the engine verbs to decide which
  * unknown first tokens fall through to a project recipe. (`init`/`bootstrap` are
- * rewritten to `setup` before this check — ADR 0036.)
+ * rewritten to `setup` before this check — ADR 0036.) Exported as the universe of
+ * known verbs the parity guard ties the feature-gating / bootstrap / MCP satellites
+ * to (`tests/engine_verb_parity_test.ts`).
  */
-const KNOWN_VERBS: ReadonlySet<string> = new Set<string>([
+export const KNOWN_VERBS: ReadonlySet<string> = new Set<string>([
   "setup",
   "upgrade",
   "doctor",

@@ -59,7 +59,7 @@ export function enabledFeatures(config: DiscernConfig): Feature[] {
  * Used by the CLI router to give a clear "feature disabled" error instead of an
  * "unknown recipe" fallthrough.
  */
-const VERB_FEATURE: Readonly<Record<string, Feature>> = {
+export const VERB_FEATURE: Readonly<Record<string, Feature>> = {
   worktree: "worktrees",
   "worktree-name": "worktrees",
   ratchets: "ratchets",
