@@ -31,9 +31,9 @@ Two further problems compound it:
    at four-plus sites. Behaviour could (and did) diverge per verb.
 
 2. **Useful information lived only in the human renderer.** The gotchas-doc
-   pointer (on failure) and the success nudges (check the ratchets, start the dev
-   server, update the docs) were emitted as stderr prose and appear nowhere in
-   the envelope — so going quiet would lose them.
+   pointer (on failure) and the success nudges (check the ratchets, start the
+   dev server, update the docs) were emitted as stderr prose and appear nowhere
+   in the envelope — so going quiet would lose them.
 
 ## Decision
 

@@ -67,7 +67,7 @@ subcommands:
 | `discern finish`         | The full gate — (in a worktree) a fail-fast main-merged check first, then `fix`+`build`, then `check`+`test` in parallel, then scope-matched scope gates. | [`src/engine/gate/finish.ts`](../../src/engine/gate/finish.ts)       |
 | `discern prepare`        | The fast inner loop — fixers then read-only checks; no build or test.                                                                                     | [`src/engine/gate/prepare.ts`](../../src/engine/gate/prepare.ts)     |
 | `discern test`           | The `test` capability on its own.                                                                                                                         | [`src/engine/gate/test.ts`](../../src/engine/gate/test.ts)           |
-| `discern ratchets`       | Checks never-loosen metric floors/ceilings against `main` (on demand; not part of `finish`).                                                               | [`src/engine/gate/ratchets.ts`](../../src/engine/gate/ratchets.ts)   |
+| `discern ratchets`       | Checks never-loosen metric floors/ceilings against `main` (on demand; not part of `finish`).                                                              | [`src/engine/gate/ratchets.ts`](../../src/engine/gate/ratchets.ts)   |
 | `discern changed-scopes` | Classifies which scopes the branch touches; fails **open** (an unknown path runs more gates, never fewer).                                                | [`src/engine/scopes/changed.ts`](../../src/engine/scopes/changed.ts) |
 
 The gate, `config`, and `doctor` are **core** — always on. The other subsystems
