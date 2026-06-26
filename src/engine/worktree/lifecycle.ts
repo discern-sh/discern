@@ -49,6 +49,8 @@ import {
 import {
   type GraduatePlan,
   graduatePlanToEngine,
+  type IntegratePlan,
+  integratePlanToEngine,
   type PrunePlan,
   prunePlanToEngine,
   type SetupPlan,
@@ -72,6 +74,8 @@ import {
   assertNotInWorktree,
   ensureWorktreeBranch,
   inheritMainEnvVars,
+  integrateMain,
+  integrationBranch,
   liveWorktreeGitKeys,
   liveWorktreePaths,
   mainRepoPath,
@@ -582,7 +586,7 @@ async function buildGraduatePlan(
   );
   if (merged.kind === "behind") {
     throw new WorktreeGitError(
-      "Branch is behind main. Integrate the latest main into it (commit your work, then `git merge main`) and re-run — `discern finish` gates on this same check.",
+      "Branch is behind main. Run `discern integrate` to bring main in and re-materialize, then re-run — `discern finish` gates on this same check.",
     );
   }
   ctx.log.ok("Branch contains the latest main.");
@@ -820,6 +824,182 @@ export async function graduateResult(
     return previewResult("graduate", graduatePlanToEngine(plan));
   }
   return appliedResult("graduate", await executeGraduatePlan(ctx, run, plan));
+}
+
+/**
+ * The read-only diagnosis an integration acts on — the worktree precondition plus
+ * how far behind main the branch is. Asserts it is run from inside a linked
+ * worktree (throwing the same `WorktreeGitError` graduate does, so a plan only
+ * exists for an integration that may proceed) and resolves the branch name + main
+ * gap read-only, so building a plan — and `--dry-run` — never mutates.
+ */
+async function buildIntegratePlan(
+  ctx: LifecycleContext,
+): Promise<IntegratePlan> {
+  await assertInWorktree("discern integrate", ctx.cwd);
+  const run = makeGitRunner(ctx);
+  const current = (await run(["branch", "--show-current"])).stdout.trim();
+  const merged = await assertMainMerged(
+    ctx.cwd,
+    ctx.config.project.main_branch,
+  );
+  return {
+    mainBranch: integrationBranch(ctx.config.project.main_branch),
+    worktreeBranch: current !== "" ? current : "(detached)",
+    behind: merged.kind === "behind" ? Number(merged.behind) || 0 : 0,
+    alreadyIntegrated: merged.kind !== "behind",
+  };
+}
+
+/** The refusal shown when integrating `mainBranch` conflicts — names the conflicted
+ * files (the merge is already aborted) and the manual path to resolve them. */
+function integrateConflictMessage(
+  mainBranch: string,
+  files: string[],
+): string {
+  const where = files.length > 0 ? ` in: ${files.join(", ")}` : "";
+  return `Integrating ${mainBranch} conflicts${where}. Resolve by merging manually ` +
+    `(\`git merge ${mainBranch}\`), commit the result, then re-run \`discern finish\`.`;
+}
+
+/**
+ * Apply an integration: merge the integration branch in, then re-materialize the
+ * agent files + skills. A no-op (`already`/`skipped`) when the branch already
+ * contains main — nothing merged, so nothing refreshed. A dirty tree or a merge
+ * conflict throws `WorktreeGitError` (the conflict steps aside via `git merge
+ * --abort` first, so the tree is left clean). Narrates through `ctx.log`; returns
+ * the per-step results for `--json`.
+ */
+async function executeIntegratePlan(
+  ctx: LifecycleContext,
+  plan: IntegratePlan,
+): Promise<DiscernResult> {
+  const { mainBranch } = plan;
+  const outcome = await integrateMain(ctx.cwd, ctx.config.project.main_branch);
+  switch (outcome.kind) {
+    case "skipped":
+    case "already":
+      ctx.log.ok(
+        `Already up to date with ${mainBranch} — nothing to integrate.`,
+      );
+      return appliedResult("integrate", [
+        {
+          step: {
+            kind: "git",
+            label: "merge",
+            disposition: "skip",
+            note: `already up to date with ${mainBranch}`,
+          },
+          outcome: "skipped",
+        },
+        {
+          step: {
+            kind: "refresh",
+            label: "refresh agent files",
+            disposition: "skip",
+            note: "nothing merged — no refresh needed",
+          },
+          outcome: "skipped",
+        },
+      ]);
+    case "dirty":
+      throw new WorktreeGitError(
+        "Commit or stash your changes first, then re-run — integrate merges into a clean tree.",
+      );
+    case "conflict":
+      throw new WorktreeGitError(
+        integrateConflictMessage(mainBranch, outcome.files),
+      );
+    case "integrated": {
+      ctx.log.heading(`Integrating ${mainBranch}…`);
+      ctx.log.ok(
+        outcome.fastForward
+          ? `Fast-forwarded to ${mainBranch} (+${outcome.behind} commit(s)).`
+          : `Merged ${mainBranch} (was behind by ${outcome.behind} commit(s)).`,
+      );
+      const steps: StepResult[] = [{
+        step: {
+          kind: "git",
+          label: "merge",
+          disposition: "run",
+          note: outcome.fastForward
+            ? `fast-forwarded ${mainBranch}`
+            : `merged ${mainBranch}`,
+        },
+        outcome: "ok",
+      }];
+      // Re-materialize the generated agent files + skills: a merge can bring in
+      // another line of work's guidance/skill source edits, which would otherwise
+      // leave the generated files stale until the next finish. Non-fatal — the merge
+      // already landed, so a refresh hiccup is recorded, not raised.
+      ctx.log.info("Re-materializing agent files + skills…");
+      let refreshOk = true;
+      try {
+        await compileGuidelines(ctx.root, ctx.log);
+      } catch {
+        refreshOk = false;
+        ctx.log.warn("Agent-file refresh reported an error — continuing.");
+      }
+      steps.push({
+        step: {
+          kind: "refresh",
+          label: "refresh agent files",
+          disposition: "run",
+          note: "re-materialized the generated agent files + skills",
+        },
+        outcome: refreshOk ? "ok" : "failed",
+      });
+      ctx.log.ok("Integration complete.");
+      const result = appliedResult("integrate", steps);
+      result.hints = [
+        `Integrated ${mainBranch} and re-materialized the agent files — run \`discern finish\` to verify against the merged tree.`,
+      ];
+      return result;
+    }
+  }
+}
+
+/**
+ * Bring the latest integration branch into this worktree's branch and
+ * re-materialize the agent files + skills — the `discern integrate` command, the
+ * deterministic inverse of `graduate` and the action that resolves `finish`'s
+ * fail-fast merge check. Runs from inside a linked worktree only; merges into a
+ * clean tree only. A no-op when the branch already contains main; on a conflict it
+ * aborts the merge and refuses, leaving a clean tree. `--dry-run` shows the plan
+ * (after the worktree precondition passes) and touches nothing. Throws
+ * `WorktreeGitError` on a refusal (the caller maps it to an error envelope).
+ */
+export async function integrate(
+  ctx: LifecycleContext,
+  opts: WorktreeOpOptions = {},
+): Promise<void> {
+  const result = await integrateResult(ctx, { dryRun: opts.dryRun ?? false });
+  if (opts.json ?? false) {
+    emitResult(result);
+  } else if (result.dry_run === true && result.plan !== undefined) {
+    // Human dry-run: render the plan (an apply already narrated through ctx.log).
+    renderPlan(loggerSink(ctx.log), result.plan);
+  }
+}
+
+/**
+ * Perform the integration and return its {@link DiscernResult} — the plan (dry-run)
+ * or the executed steps — without emitting or exiting. The single source the CLI's
+ * `--json` ({@link integrate}) and the MCP server both render. NOT pure on an apply:
+ * it runs the real `git merge` + re-materialize (narrating through `ctx.log`, which
+ * the MCP server silences with a quiet logger). The worktree precondition throws
+ * `WorktreeGitError`, as does a refusal on a dirty tree or a conflict — the caller
+ * maps that to an error envelope via {@link worktreeErrorResult}.
+ */
+export async function integrateResult(
+  ctx: LifecycleContext,
+  opts: { dryRun?: boolean } = {},
+): Promise<DiscernResult> {
+  const plan = await buildIntegratePlan(ctx);
+  if (opts.dryRun ?? false) {
+    return previewResult("integrate", integratePlanToEngine(plan));
+  }
+  return await executeIntegratePlan(ctx, plan);
 }
 
 /**

@@ -133,6 +133,61 @@ export function graduatePlanToEngine(plan: GraduatePlan): EnginePlan {
   };
 }
 
+// ── integrate ───────────────────────────────────────────────────────────────
+
+/** The read-only diagnosis an integration acts on: which integration branch is
+ * coming in, how far behind the worktree branch is, and whether it already
+ * contains main (→ a no-op: merge + refresh both skip). The worktree precondition
+ * is checked while BUILDING this — a plan only exists for an integration that may
+ * proceed. */
+export interface IntegratePlan {
+  /** The integration branch being merged in (`[project].main_branch` / `MAIN_BRANCH`). */
+  mainBranch: string;
+  /** The worktree's current branch (display only). */
+  worktreeBranch: string;
+  /** Commits the branch is behind main (0 when already up to date). */
+  behind: number;
+  /** Whether the branch already contains main (→ a no-op: merge + refresh both skip). */
+  alreadyIntegrated: boolean;
+}
+
+/**
+ * Project an integration onto the shared renderer: merge the integration branch,
+ * then re-materialize the agent files + skills. When the branch already contains
+ * main both steps are `skip`ped (nothing to merge, so nothing to refresh).
+ */
+export function integratePlanToEngine(plan: IntegratePlan): EnginePlan {
+  const act = !plan.alreadyIntegrated;
+  return {
+    title: "Integration plan",
+    details: [
+      `Branch:    ${plan.worktreeBranch}`,
+      `Integrate: ${plan.mainBranch}`,
+      plan.alreadyIntegrated
+        ? "Status:    already up to date"
+        : `Behind by: ${plan.behind} commit(s)`,
+    ],
+    steps: [
+      {
+        kind: "git",
+        label: "merge",
+        disposition: act ? "run" : "skip",
+        note: act
+          ? `merge ${plan.mainBranch} into ${plan.worktreeBranch}`
+          : `already up to date with ${plan.mainBranch}`,
+      },
+      {
+        kind: "refresh",
+        label: "refresh agent files",
+        disposition: act ? "run" : "skip",
+        note: act
+          ? "re-materialize the generated agent files + skills"
+          : "nothing merged — no refresh needed",
+      },
+    ],
+  };
+}
+
 // ── setup ─────────────────────────────────────────────────────────────────────
 
 /** One step a worktree setup would perform — precomputed from the config so the
