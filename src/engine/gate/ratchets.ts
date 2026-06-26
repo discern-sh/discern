@@ -98,7 +98,7 @@ async function measure(command: string): Promise<string> {
 }
 
 /** The last emitted `DISCERN_METRIC <name>` value as a number, or undefined when
- * absent or non-numeric — used to read a `per` denominator the run emits. */
+ * absent or non-numeric — reads a `per` denominator the run emits. */
 function readEmittedNumber(output: string, name: string): number | undefined {
   const s = extractMetric(output, name);
   return s !== undefined && isNumber(s) ? Number(s) : undefined;
