@@ -22,6 +22,7 @@ import {
 } from "../../shared/config_schema.ts";
 import {
   deriveIdentity,
+  generateWorktreeId,
   IdentityError,
   type IdentitySettings,
   loadIdentitySettings,
@@ -56,6 +57,7 @@ import {
   type SetupPlan,
   setupPlanToEngine,
   type SetupStepDesc,
+  startPlanToEngine,
   type TeardownPlan,
   teardownPlanToEngine,
 } from "./plan.ts";
@@ -67,6 +69,7 @@ import {
   renderPlan,
   type StepResult,
 } from "../../shared/result.ts";
+import type { StartData } from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
 import {
   addWorktree,
@@ -1024,6 +1027,151 @@ export async function integrateResult(
     return previewResult("integrate", integratePlanToEngine(plan));
   }
   return await executeIntegratePlan(ctx, plan);
+}
+
+// ── start (create a fresh worktree to inhabit, from the main checkout) ──────────
+
+/** Whether a path exists on disk (any type) — the collision check `discern start`
+ * uses so a minted id never lands on an existing directory. */
+async function pathPresent(p: string): Promise<boolean> {
+  try {
+    await Deno.lstat(p);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Mint a fresh worktree id whose `<branch_prefix><id>` branch AND `<root>/<id>`
+ * directory are both free, so `discern start` always *creates* a new worktree and
+ * never adopts an existing one. The random hex tail in {@link generateWorktreeId}
+ * makes a collision astronomically unlikely; this still verifies and retries a
+ * bounded number of times before giving up loudly rather than ever reusing a live
+ * worktree's id.
+ */
+async function mintFreeWorktree(
+  ctx: LifecycleContext,
+  settings: IdentitySettings,
+  worktreeRoot: string,
+): Promise<{ id: string; branch: string; dir: string }> {
+  const run = makeGitRunner(ctx);
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const id = generateWorktreeId();
+    const { branch } = deriveIdentity(id, settings);
+    const dir = join(worktreeRoot, id);
+    const branchTaken =
+      (await run(["show-ref", "--verify", "--quiet", `refs/heads/${branch}`]))
+        .success;
+    if (!branchTaken && !(await pathPresent(dir))) {
+      return { id, branch, dir };
+    }
+  }
+  throw new WorktreeGitError(
+    "discern start: could not mint a unique worktree id after many attempts.",
+  );
+}
+
+/**
+ * Perform `discern start` and return its {@link DiscernResult} — the plan (dry-run)
+ * or the created worktree — without emitting or exiting. The single source the CLI's
+ * `--json` ({@link start}) and the MCP server both render. Runs from the MAIN
+ * checkout only ({@link assertNotInWorktree}); an agent already inside a worktree
+ * must not spin up a pointless sibling, so it refuses there (mapped to
+ * `precondition_failed` by {@link worktreeErrorResult}). It MINTS a fresh, unique id
+ * (collision-checked against existing branches/dirs), creates the linked worktree at
+ * `<worktreeRoot>/<id>` on `<branch_prefix><id>`, and runs its first-time setup via
+ * the shared {@link createAndSetupWorktree}. `worktreeRoot` is supplied by the caller
+ * (the dispatcher / MCP server resolve it via `resolveWorktreeRoot`), keeping this
+ * engine core free of the placement convention. The result carries the new worktree's
+ * `data.path` and a hint to re-root: nothing relocates the caller's session for it.
+ */
+export async function startResult(
+  ctx: LifecycleContext,
+  opts: { dryRun?: boolean; worktreeRoot: string },
+): Promise<DiscernResult> {
+  await assertNotInWorktree("discern start", ctx.cwd);
+
+  const settings = await loadIdentitySettings(ctx.root);
+  const { id, branch, dir } = await mintFreeWorktree(
+    ctx,
+    settings,
+    opts.worktreeRoot,
+  );
+
+  if (opts.dryRun ?? false) {
+    return previewResult(
+      "start",
+      startPlanToEngine({ id, branch, worktreePath: dir }),
+    );
+  }
+
+  ctx.log.heading(`Starting a new worktree (${id})…`);
+  await createAndSetupWorktree(ctx.root, dir, branch, ctx.log);
+  ctx.log.ok(`Worktree '${id}' is ready at ${dir}.`);
+
+  const data: StartData = { id, branch, path: dir };
+  const result = appliedResult("start", [
+    {
+      step: {
+        kind: "git",
+        label: "add-worktree",
+        disposition: "run",
+        note: `${dir} on ${branch}`,
+      },
+      outcome: "ok",
+    },
+    {
+      step: {
+        kind: "setup-step",
+        label: "setup",
+        disposition: "run",
+        note: "readied the new worktree",
+      },
+      outcome: "ok",
+    },
+  ]);
+  result.data = data;
+  result.hints = [
+    `Created worktree '${id}' at ${dir} (branch ${branch}). Nothing was relocated ` +
+    `for you — start a session rooted at ${dir} (or cd there) to continue, and do ` +
+    `not keep working in the main checkout.`,
+  ];
+  return result;
+}
+
+/**
+ * Create a fresh isolated worktree from the main checkout and re-root into it — the
+ * `discern start` command, the first-class way an agent on the trunk gets its own
+ * workspace instead of squatting in another line of work's worktree. Mints a unique
+ * id, creates the worktree on its own `<branch_prefix><id>` branch at the configured
+ * sibling location, sets it up, and prints the new path plus how to enter it.
+ * `--dry-run` shows the plan (after the main-checkout precondition passes) and
+ * touches nothing. Throws `WorktreeGitError` when run from inside a worktree (the
+ * caller maps it to an error envelope).
+ */
+export async function start(
+  ctx: LifecycleContext,
+  opts: { dryRun?: boolean; json?: boolean; worktreeRoot: string },
+): Promise<void> {
+  const result = await startResult(ctx, {
+    dryRun: opts.dryRun ?? false,
+    worktreeRoot: opts.worktreeRoot,
+  });
+  if (opts.json ?? false) {
+    emitResult(result);
+    return;
+  }
+  if (result.dry_run === true && result.plan !== undefined) {
+    // Human dry-run: render the plan (an apply already narrated through ctx.log).
+    renderPlan(loggerSink(ctx.log), result.plan);
+    return;
+  }
+  // Human apply: the new worktree's path is the deliverable — say how to enter it.
+  const data = result.data as StartData | undefined;
+  if (data !== undefined) {
+    ctx.log.info(`cd into it to continue: cd ${data.path}`);
+  }
 }
 
 /**

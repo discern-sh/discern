@@ -148,6 +148,16 @@ export const ChangedScopesDataSchema = z.strictObject({
 });
 export type ChangedScopesData = z.infer<typeof ChangedScopesDataSchema>;
 
+/** `start` — the worktree it just created (or, in a dry-run, would create). `path`
+ * is the load-bearing field: the new worktree's absolute location, which the caller
+ * must re-root into (the MCP server cannot relocate the session for the agent). */
+export const StartDataSchema = z.strictObject({
+  id: z.string(),
+  branch: z.string(),
+  path: z.string(),
+});
+export type StartData = z.infer<typeof StartDataSchema>;
+
 // status ──────────────────────────────────────────────────────────────────────
 
 /** Where a `status` call is rooted: the main checkout or a linked worktree. The SSOT
@@ -369,6 +379,12 @@ export const DoctorOutputSchema = z.strictObject({
 export const ChangedScopesOutputSchema = z.strictObject({
   ...ENVELOPE_BASE_FIELDS,
   data: ChangedScopesDataSchema.optional(),
+});
+
+/** `start` output: envelope + the new-worktree `data`. */
+export const StartOutputSchema = z.strictObject({
+  ...ENVELOPE_BASE_FIELDS,
+  data: StartDataSchema.optional(),
 });
 
 /** `audit` output: envelope + the scored `data`. */

@@ -188,6 +188,48 @@ export function integratePlanToEngine(plan: IntegratePlan): EnginePlan {
   };
 }
 
+// ── start ─────────────────────────────────────────────────────────────────────
+
+/** The plan a `discern start` would carry out: create a fresh linked worktree at a
+ * resolved sibling location on its own branch, then run its first-time setup. The
+ * id/branch are minted while building this (a fresh id each run), so the preview
+ * shows concrete, representative values. */
+export interface StartPlan {
+  /** The freshly-minted worktree id. */
+  id: string;
+  /** The branch the new worktree is created on (`<branch_prefix><id>`). */
+  branch: string;
+  /** Where the new checkout lands (`<worktree_root>/<id>`). */
+  worktreePath: string;
+}
+
+/** Project a start onto the shared renderer: create the worktree, then set it up. */
+export function startPlanToEngine(plan: StartPlan): EnginePlan {
+  return {
+    title: "Start plan",
+    details: [
+      `New worktree: ${plan.id}`,
+      `Branch:       ${plan.branch}`,
+      `Path:         ${plan.worktreePath}`,
+    ],
+    steps: [
+      {
+        kind: "git",
+        label: "add-worktree",
+        disposition: "run",
+        note: `${plan.worktreePath} on ${plan.branch}`,
+      },
+      {
+        kind: "setup-step",
+        label: "setup",
+        disposition: "run",
+        note:
+          "ready the new worktree (branch, resources, env, port, agent files)",
+      },
+    ],
+  };
+}
+
 // ── setup ─────────────────────────────────────────────────────────────────────
 
 /** One step a worktree setup would perform — precomputed from the config so the
