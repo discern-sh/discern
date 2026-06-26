@@ -372,6 +372,20 @@ function buildGateBlock(cfg: DiscernConfig, changed: string[]): StatusGate {
 export const FLEET_OWNERSHIP_HINT =
   "Worktrees in the fleet belong to separate lines of work — never start work in one you didn't create; a clean working tree doesn't mean it's free.";
 
+/**
+ * The on-the-trunk guardrail, agent-facing. An agent that finds itself on the main
+ * checkout has no isolated workspace yet — point it LOUDLY at `discern start` (its
+ * first-class way into its own worktree) so it never improvises into another agent's.
+ * Pushed into `hints[]` (the `--json` / MCP channel, ADR 0030) whenever status is
+ * rooted in the main checkout with worktrees enabled — never into interactive human
+ * output, where a person running `discern status` is monitoring their fleet and the
+ * renderer filters it out (exactly like {@link FLEET_OWNERSHIP_HINT}). Exported as a
+ * named constant so the human renderer (which drops it) and the test (which asserts
+ * it) reference one string, not a brittle inline literal.
+ */
+export const START_HERE_HINT =
+  "You're on the trunk (the main checkout), not an isolated worktree — don't start work here. Run `discern start` to create your own worktree and move into it; never adopt an existing idle worktree (each belongs to another line of work, and a clean tree doesn't mean it's free).";
+
 /** Everything the hint builder reads — assembled once so the hints can't drift from
  * the reported data. */
 interface HintContext {
@@ -433,6 +447,16 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
         ? `Skills aren't materialized yet (${dirs}); run \`discern refresh\`.`
         : `Materialized skills are out of date (${dirs}); run \`discern refresh\` — edits belong in your [skills].dir source, not the materialized copy.`,
     );
+  }
+
+  // On the trunk (the main checkout) with worktrees on, the agent has no isolated
+  // workspace yet — lead the next-steps with the loud `discern start` guardrail so it
+  // never squats in another line of work's worktree. Agent channel only: the human
+  // renderer filters this out (a person here is supervising their fleet, not starting
+  // work), so it never nags the CLI. Placed before the fleet-ownership rule — the
+  // constructive action first, the don't-squat caveat after.
+  if (ctx.location === "main" && ctx.worktreesOn) {
+    hints.push(START_HERE_HINT);
   }
 
   if (ctx.location === "worktree" && ctx.git !== null) {
@@ -712,9 +736,11 @@ function renderStatusHuman(result: DiscernResult): void {
   }
 
   for (const hint of result.hints ?? []) {
-    // The fleet ownership rule is agent-only (json/MCP); humans get the caption
-    // beneath the fleet table instead.
-    if (hint === FLEET_OWNERSHIP_HINT) continue;
+    // The fleet ownership rule and the on-the-trunk `discern start` guardrail are
+    // agent-only (json/MCP). A human running `discern status` from the main checkout
+    // is monitoring their fleet, not starting work — so neither is rendered here
+    // (the fleet table's caption carries the ownership framing for humans).
+    if (hint === FLEET_OWNERSHIP_HINT || hint === START_HERE_HINT) continue;
     out.info(hint);
   }
 }
