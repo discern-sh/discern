@@ -21,8 +21,16 @@ payload, adds the worktree, then runs first-time setup — which creates the
 resources), `WorktreeRemove` →
 [`worktree:remove`](../../src/lib/worktree_hooks.ts) (tears it down). Those two
 hook entries parse their payload in the binary itself — no `jq`
-([ADR 0040](../_adr/0040-worktree-hooks-in-the-binary.md)). When `main` advances
-under a long-running Worktree,
+([ADR 0040](../_adr/0040-worktree-hooks-in-the-binary.md)). An agent on the
+**main checkout** that needs its own Worktree runs
+[`start`](../../src/engine/worktree/lifecycle.ts): it mints a fresh id, creates
+the Worktree on its own `agent/` branch at the sibling location, sets it up, and
+reports the path to move into — the agent-initiated counterpart to the
+`WorktreeCreate` hook, and the first-class alternative to squatting in another
+line of work's Worktree
+([ADR 0057](../_adr/0057-start-verb-spawn-worktree-from-trunk.md)). It only ever
+_creates_ a Worktree to inhabit; it never adopts or prunes an existing one. When
+`main` advances under a long-running Worktree,
 [`integrate`](../../src/engine/worktree/lifecycle.ts) brings it into the branch
 and re-materializes the agent files + skills in one step. It is the
 deterministic inverse of graduate, and what the gate's merge check
@@ -49,7 +57,7 @@ discovers existing Worktrees from git's own registry, never a hardcoded path —
 so only the create hook and `worktree:prune`'s orphan sweep know the convention
 ([ADR 0052](../_adr/0052-worktree-sibling-placement.md)).
 
-Each effectful lifecycle verb — `worktree` (setup), `integrate`,
+Each effectful lifecycle verb — `start`, `worktree` (setup), `integrate`,
 `worktree:teardown`, `worktree:prune`, and `graduate` — takes a `--dry-run` that
 prints the plan (what it _would_ create, destroy, reclaim, move, or merge) and
 touches nothing, plus a `--json` serialization of plan + results
@@ -81,3 +89,6 @@ inspectable before they act.
 - [ADR 0055](../_adr/0055-integrate-verb.md) — `integrate`, the third verb in
   the worktree lifecycle: bring `main` into the branch and re-materialize in one
   deterministic step.
+- [ADR 0057](../_adr/0057-start-verb-spawn-worktree-from-trunk.md) — `start`,
+  the verb that spawns a Worktree from the main checkout, and the
+  `discern status` guardrail that points an agent on the trunk at it.

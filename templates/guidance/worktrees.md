@@ -11,6 +11,14 @@ handle, call **`discern_help`**.{{/if}}
   resources,{{/if}} records a deterministic
   dev-server port{{#if has_worktree_resources}} + the resource handles{{/if}} into `.env`, inherits env vars, runs the
   configured setup steps, and freshly materializes skills + guidance.
+- **`discern start`** — run from the main checkout — is how an agent that finds
+  itself on the trunk gets its own workspace: it creates a fresh isolated worktree
+  on its own `{{branch_prefix}}<id>` branch, sets it up, and reports the new path.
+  Then **move into that path** (start a session rooted there, or `cd` in) and
+  continue from inside it — it reports where to go; nothing relocates you
+  automatically, so don't keep working in the main checkout. It only ever
+  *creates* a worktree to inhabit — never adopts or prunes an existing one — and
+  refuses if you run it from inside a worktree (you already have one).
 - **`discern integrate`** is the deterministic inverse of graduate: it brings
   `{{main_branch}}` into the worktree branch and re-materializes the agent files +
   skills in one step. Run it whenever the branch is behind `{{main_branch}}` (the
@@ -42,5 +50,5 @@ may be planning, reading, or discussing in it without having written anything ye
 Operate only in the worktree you were launched into (or the main checkout). The
 worktrees `discern status` lists are a *survey of other efforts in flight*, not a
 pool to claim from — if you're on the main checkout and the task needs its own
-isolated workspace, a fresh worktree must be *created* for it (the orchestrator's
-or worktree-create hook's job), never repurposed from an existing one.
+isolated workspace, run **`discern start`** to *create* your own (an orchestrator
+or the worktree-create hook may also make one), never repurposing an existing one.
