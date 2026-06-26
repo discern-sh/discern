@@ -151,7 +151,12 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     // The feature-gated tools are listed too (the default scaffold has every
     // feature on).
     assert(names.includes("discern_docs"), JSON.stringify(names));
-    assert(names.includes("discern_graduate"), JSON.stringify(names));
+    // Location-gated: this server is rooted in the MAIN checkout, so it offers
+    // discern_start and hides the worktree-only graduate/integrate (covered in
+    // depth by the location-aware listing test below).
+    assert(names.includes("discern_start"), JSON.stringify(names));
+    assert(!names.includes("discern_graduate"), JSON.stringify(names));
+    assert(!names.includes("discern_integrate"), JSON.stringify(names));
 
     // tools/call discern_finish {dry_run:true} → the preview DiscernResult.
     await mcp.send({
@@ -511,38 +516,14 @@ Deno.test("discern mcp: pre-setup gates docs and the gate verbs, but not help", 
   });
 });
 
-Deno.test("discern mcp: discern_graduate previews from a worktree and refuses from the main checkout", async () => {
+Deno.test("discern mcp: discern_graduate previews a graduation from inside a worktree", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
 
-    // From the MAIN checkout: graduate refuses with a clean error envelope (not a
-    // server crash) — the precondition throw, mapped to the same slug the CLI uses.
-    const main = await spawnMcp(dir);
-    await main.send({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-      params: initParams(),
-    });
-    await main.recv();
-    await main.send({
-      jsonrpc: "2.0",
-      id: 2,
-      method: "tools/call",
-      params: { name: "discern_graduate", arguments: { dry_run: true } },
-    });
-    const refused = await main.recv();
-    assertEquals(refused.result.isError, true);
-    assertEquals(refused.result.structuredContent.verb, "graduate");
-    assertEquals(
-      refused.result.structuredContent.error,
-      "precondition_failed",
-    );
-    assertEquals(await main.close(), 0);
-
     // From inside a WORKTREE (its branch already contains main): a dry-run returns
-    // the graduation plan and touches nothing.
+    // the graduation plan and touches nothing. (graduate is worktree-only, so it is
+    // hidden from a main-rooted server — see the location-aware listing test.)
     const wt = await addWorktree(dir, "grad");
     const wtMcp = await spawnMcp(wt);
     await wtMcp.send({
@@ -570,38 +551,15 @@ Deno.test("discern mcp: discern_graduate previews from a worktree and refuses fr
   });
 });
 
-Deno.test("discern mcp: discern_integrate refuses from the main checkout and is an idempotent no-op from an up-to-date worktree", async () => {
+Deno.test("discern mcp: discern_integrate is an idempotent no-op from an up-to-date worktree", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
 
-    // From the MAIN checkout: integrate refuses with a clean error envelope (the
-    // precondition throw, mapped to the same slug the CLI uses) — not a server crash.
-    const main = await spawnMcp(dir);
-    await main.send({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-      params: initParams(),
-    });
-    await main.recv();
-    await main.send({
-      jsonrpc: "2.0",
-      id: 2,
-      method: "tools/call",
-      params: { name: "discern_integrate", arguments: {} },
-    });
-    const refused = await main.recv();
-    assertEquals(refused.result.isError, true);
-    assertEquals(refused.result.structuredContent.verb, "integrate");
-    assertEquals(
-      refused.result.structuredContent.error,
-      "precondition_failed",
-    );
-    assertEquals(await main.close(), 0);
-
     // From inside a WORKTREE whose branch already contains main: a real (non-dry-run)
     // call is an idempotent no-op success — nothing merged, so nothing refreshed.
+    // (integrate is worktree-only — hidden from a main-rooted server, per the
+    // location-aware listing test.)
     const wt = await addWorktree(dir, "intg");
     const wtMcp = await spawnMcp(wt);
     await wtMcp.send({
@@ -631,12 +589,14 @@ Deno.test("discern mcp: discern_integrate refuses from the main checkout and is 
   });
 });
 
-Deno.test("discern mcp: discern_start lists + creates from main (returning a path to re-root into), and is hidden from a worktree", async () => {
+Deno.test("discern mcp: the tool list + instructions are location-aware (start on main; graduate/integrate in a worktree)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
 
-    // From the MAIN checkout: discern_start is listed and named in the instructions.
+    // From the MAIN checkout: discern_start is listed and named in the instructions,
+    // while the worktree-only graduate/integrate are hidden (you can't graduate the
+    // trunk) — the list is tailored to what is runnable from here.
     const main = await spawnMcp(dir);
     await main.send({
       jsonrpc: "2.0",
@@ -645,14 +605,19 @@ Deno.test("discern mcp: discern_start lists + creates from main (returning a pat
       params: initParams(),
     });
     const init = await main.recv();
+    const mainInstructions = init.result.instructions as string;
+    assert(mainInstructions.includes("discern_start"), mainInstructions);
     assert(
-      (init.result.instructions as string).includes("discern_start"),
-      init.result.instructions,
+      !mainInstructions.includes("discern_graduate") &&
+        !mainInstructions.includes("discern_integrate"),
+      `main instructions must not name the worktree-only verbs: ${mainInstructions}`,
     );
     await main.send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
     const list = await main.recv();
     const names = list.result.tools.map((t: { name: string }) => t.name);
     assert(names.includes("discern_start"), JSON.stringify(names));
+    assert(!names.includes("discern_graduate"), JSON.stringify(names));
+    assert(!names.includes("discern_integrate"), JSON.stringify(names));
 
     // A real call creates the worktree and returns its path — the MCP wrinkle: the
     // server can't relocate the session, so the result carries the path + a re-root
@@ -682,8 +647,9 @@ Deno.test("discern mcp: discern_start lists + creates from main (returning a pat
     );
     assertEquals(await main.close(), 0);
 
-    // From inside a WORKTREE: discern_start is hidden (an agent already in a worktree
-    // must not spawn a pointless sibling) — absent from tools/list and the instructions.
+    // From inside a WORKTREE the listing flips: discern_start is hidden (an agent
+    // already in a worktree must not spawn a pointless sibling), and the worktree-only
+    // graduate/integrate are now offered — absent ⇄ present, symmetric with main.
     const wt = await addWorktree(dir, "alpha");
     const wtMcp = await spawnMcp(wt);
     await wtMcp.send({
@@ -693,14 +659,22 @@ Deno.test("discern mcp: discern_start lists + creates from main (returning a pat
       params: initParams(),
     });
     const wtInit = await wtMcp.recv();
+    const wtInstructions = wtInit.result.instructions as string;
     assert(
-      !(wtInit.result.instructions as string).includes("discern_start"),
-      `no discern_start line from a worktree: ${wtInit.result.instructions}`,
+      !wtInstructions.includes("discern_start"),
+      `no discern_start line from a worktree: ${wtInstructions}`,
+    );
+    assert(
+      wtInstructions.includes("discern_integrate") &&
+        wtInstructions.includes("discern_graduate"),
+      `worktree instructions must name the worktree verbs: ${wtInstructions}`,
     );
     await wtMcp.send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
     const wtList = await wtMcp.recv();
     const wtNames = wtList.result.tools.map((t: { name: string }) => t.name);
     assert(!wtNames.includes("discern_start"), JSON.stringify(wtNames));
+    assert(wtNames.includes("discern_graduate"), JSON.stringify(wtNames));
+    assert(wtNames.includes("discern_integrate"), JSON.stringify(wtNames));
 
     // Calling it anyway → an error result (the SDK answers an unregistered name as
     // not found) — the defense-in-depth backstop behind hiding it.
@@ -788,7 +762,11 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    const mcp = await spawnMcp(dir);
+    // Spawn from a WORKTREE so the worktree-only graduate/integrate are visible here
+    // (their honest annotations are the point); the always-on tools list from either
+    // location. discern_start (main-only) is checked from a main server at the end.
+    const wt = await addWorktree(dir, "adv");
+    const mcp = await spawnMcp(wt);
     await mcp.send({
       jsonrpc: "2.0",
       id: 1,
@@ -891,6 +869,39 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
     assert(finishProps?.data !== undefined, "finish outputSchema narrows data");
 
     assertEquals(await mcp.close(), 0);
+
+    // discern_start is main-only (hidden from the worktree server above), so verify
+    // its self-describing surface from a main-rooted server: a title, an object
+    // outputSchema, and a mutating (not read-only) annotation.
+    const mainMcp = await spawnMcp(dir);
+    await mainMcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await mainMcp.recv();
+    await mainMcp.send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
+    const mainList = await mainMcp.recv();
+    const start = (mainList.result.tools as ListedTool[]).find((t) =>
+      t.name === "discern_start"
+    );
+    assert(start !== undefined, "discern_start should be listed from main");
+    assert(
+      typeof start.title === "string" && start.title.length > 0,
+      "discern_start has no title",
+    );
+    assertEquals(
+      start.outputSchema?.type,
+      "object",
+      "discern_start outputSchema",
+    );
+    assertEquals(
+      start.annotations?.readOnlyHint,
+      false,
+      "discern_start mutates (creates a worktree)",
+    );
+    assertEquals(await mainMcp.close(), 0);
   });
 });
 
@@ -1086,8 +1097,10 @@ Deno.test("discern mcp: the server advertises a non-empty, MCP-first instruction
     // which tool" block.
     assert(instructions.includes("discern_status"), instructions);
     assert(instructions.includes("discern_finish"), instructions);
-    // Worktrees are on in the default scaffold → the graduate line is present.
-    assert(instructions.includes("discern_graduate"), instructions);
+    // Worktrees are on and this server is rooted in the MAIN checkout → the location-
+    // aware worktrees line is the discern_start nudge (graduate/integrate, being
+    // worktree-only, are named only from a worktree-rooted server).
+    assert(instructions.includes("discern_start"), instructions);
     // Always-on diagnostics, plus the feature-gated ratchets line (on by default).
     assert(instructions.includes("discern_doctor"), instructions);
     assert(instructions.includes("discern_ratchets"), instructions);

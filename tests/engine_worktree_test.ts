@@ -215,6 +215,18 @@ Deno.test("integrate: refuses from the main checkout", async () => {
   });
 });
 
+Deno.test("graduate: refuses from the main checkout (worktree-only, the CLI mirror of hiding)", async () => {
+  await withTempDir(async (dir) => {
+    await mainWithWorktree(dir, "iota2");
+    // The CLI can't pre-hide per location (it runs at the user's cwd), so its
+    // equivalent of the MCP hiding graduate from a main-rooted server is a clean
+    // refusal: run from the main checkout, graduate has no current worktree to move.
+    const r = await runAgent(dir, ["graduate"]);
+    assertEquals(r.code, 1, r.output);
+    assertStringIncludes(r.output, "not a worktree");
+  });
+});
+
 Deno.test("integrate: no-op when the branch already contains main", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "kappa");

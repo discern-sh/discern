@@ -68,12 +68,21 @@ and its description tells the agent it **must re-root** — start a session root
 there (or `cd` in) and continue from inside it, never back in the main checkout.
 
 The inverse risk is an agent _already_ inside a worktree calling `discern_start`
-and creating a pointless sibling. Two guards: the tool is
-**`mainCheckoutOnly`**, so a server rooted in a worktree does not register it
-(it is absent from `tools/list` and from the instructions); and `startResult`
-refuses defensively via `assertNotInWorktree`, mapping to the same
+and creating a pointless sibling. Two guards: the tool sets
+**`requiresLocation: "main"`**, so a server rooted in a worktree does not
+register it (it is absent from `tools/list` and from the instructions); and
+`startResult` refuses defensively via `assertNotInWorktree`, mapping to the same
 `precondition_failed` envelope `graduate` / `integrate` use, in case it is ever
 invoked anyway.
+
+The same field gates the mirror image. `discern_graduate` and
+`discern_integrate` act on the _current_ worktree and can't run on the trunk, so
+they take **`requiresLocation: "worktree"`** and are hidden from a main-rooted
+server. The listing is therefore symmetric: a main-rooted server offers
+`discern_start` (and not graduate/integrate); a worktree-rooted one offers
+graduate/integrate (and not start). The CLI has no fixed root to tailor against
+— it is invoked fresh at the user's cwd — so its equivalent is the same verbs
+_refusing_ in the wrong location with a clear message, which they already do.
 
 ### 3. A status guardrail on the trunk
 
@@ -105,9 +114,11 @@ the CLI.
   other path still derives identity from an externally supplied name, so the
   frozen identity derivation
   ([identity.ts](../../src/engine/worktree/identity.ts)) stands unchanged.
-- The MCP surface gains its first **location-gated** tool. The precedent — hide
-  a tool whose precondition the server's own root already fails — is reusable
-  for any future main-checkout-only or worktree-only verb.
+- The MCP surface is now **location-aware**: a single `requiresLocation` field
+  hides any tool whose precondition the server's own root already fails, so the
+  list is tailored to where the server runs (`discern_start` on the trunk;
+  `discern_graduate` / `discern_integrate` in a worktree). The mechanism is
+  reusable for any future location-specific verb.
 
 ## See also
 
