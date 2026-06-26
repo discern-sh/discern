@@ -401,8 +401,8 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
   const main = ctx.mainBranch;
 
   // Setup not finished — the most fundamental "what now", so it leads every other
-  // hint, in every location (the old nudge only fired from the main checkout). The
-  // structured evidence is `data.setup_unfinished`; this is its advisory voice.
+  // hint, in every location. The structured evidence is `data.setup_unfinished`;
+  // this is its advisory voice.
   if (ctx.setupPending !== undefined) {
     hints.push(setupUnfinishedHint(ctx.setupPending));
   }
@@ -471,8 +471,8 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
   }
 
   if (ctx.location === "main") {
-    // (Setup-incomplete now leads the hints in every location — see the top of
-    // this builder — so it is no longer a main-only nudge here.)
+    // (Setup-incomplete leads the hints in every location — see the top of this
+    // builder — so there is no separate main-only setup nudge here.)
     if (!ctx.worktreesOn) {
       hints.push(
         "The worktrees workflow is off; work happens directly in this checkout.",

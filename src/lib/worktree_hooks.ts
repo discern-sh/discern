@@ -8,18 +8,16 @@
  * `.claude` path and discovers worktree locations from git's own registry — see
  * the agent-agnosticism guard in `tests/agent_agnostic_test.ts`).
  *
- * These verbs replace the old jq + git shell one-liners that lived inside
- * `.claude/settings.json`: instead of the hook parsing the payload with `jq` and
- * running `git worktree add` itself, the hook is now a thin `discern
- * worktree:create` / `discern worktree:remove`, and the binary — already invoked
- * by the hook, and already a JSON-native program — reads its own stdin. That
- * removes `jq` as an end-user dependency and moves the logic into the tested
- * engine (see ADR 0040).
+ * Each verb is a thin `discern worktree:create` / `discern worktree:remove`: the
+ * binary — already invoked by the hook, and already a JSON-native program —
+ * parses the `{name, cwd}` / `{worktree_path}` payload from its own stdin and
+ * runs the git plumbing itself. Keeping that logic in the binary rather than in
+ * `.claude/settings.json` keeps `jq` off the end user's dependency list and puts
+ * the worktree lifecycle under the engine's tests (see ADR 0040).
  *
- * Stream discipline mirrors the old hook's `… 1>&2; printf %s "$dir"`: all setup
- * narration goes to stderr (the logger's `humanStream`), and `create` writes ONLY
- * the worktree path to stdout, with no trailing newline, because Claude Code reads
- * that path as the hook's result.
+ * Stream discipline: all setup narration goes to stderr (the logger's
+ * `humanStream`), and `create` writes ONLY the worktree path to stdout, with no
+ * trailing newline, because Claude Code reads that path as the hook's result.
  */
 
 import { join } from "@std/path";
@@ -108,14 +106,14 @@ export async function worktreeCreateHook(): Promise<number> {
   const dir = join(cwd, CLAUDE_WORKTREES_SUBDIR, name);
   try {
     // The branch name is read from the MAIN checkout's config — the worktree it
-    // names does not exist yet. (`<branch_prefix><name>`, matching the old hook.)
+    // names does not exist yet (`<branch_prefix><name>`).
     const config = await loadConfig(cwd);
     const branch = `${config.project.branch_prefix}${name}`;
     await addWorktree(cwd, dir, branch);
 
-    // Run setup with the new worktree as BOTH root and cwd — exactly what the old
-    // `cd "$dir" && discern worktree` resolved (a linked worktree is its own
-    // checkout, with its own discern.toml and gitignored .claude/skills to build).
+    // Run setup with the new worktree as BOTH root and cwd: a linked worktree is
+    // its own checkout, with its own discern.toml and gitignored .claude/skills
+    // to build.
     await worktreeSetup(await lifecycleContext(dir, log, dir));
   } catch (e) {
     if (e instanceof WorktreeGitError) {
@@ -125,8 +123,8 @@ export async function worktreeCreateHook(): Promise<number> {
     throw e;
   }
 
-  // Claude Code reads the worktree path from stdout — only this, no newline (the
-  // old hook ended in `printf %s "$dir"`).
+  // Claude Code reads the worktree path from stdout — only this, with no trailing
+  // newline.
   await Deno.stdout.write(new TextEncoder().encode(dir));
   return 0;
 }
@@ -134,8 +132,8 @@ export async function worktreeCreateHook(): Promise<number> {
 /**
  * `discern worktree:remove` — the `WorktreeRemove` hook entry point. Reads
  * `{worktree_path}` from stdin and tears down that worktree's resources.
- * Best-effort: like the old hook's trailing `|| true`, a teardown problem (or a
- * worktree already gone) never fails the event, so it always returns 0.
+ * Best-effort: a teardown problem (or a worktree already gone) never fails the
+ * event, so it always returns 0.
  */
 export async function worktreeRemoveHook(): Promise<number> {
   const log = hookLogger();

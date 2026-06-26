@@ -30,9 +30,9 @@ function isObject(v: unknown): v is Record<string, unknown> {
  * Build the editor JSON Schema for the config *document* from {@link
  * configDocSchema}. Uses the `input` view (defaults/optionals are NOT required,
  * matching what a human writes) and prepends the published `$id` + `title` that
- * Zod doesn't emit. Because it is generated, the historical staleness bugs — the
- * `.discern/config.toml` path text and the gemini-less `agents` enum — cannot
- * recur: both now follow from the schema.
+ * Zod doesn't emit. Generating it from the schema keeps it from drifting from the
+ * live config shape: every path and enum (the `agents` list, the config path
+ * text) follows from the one source.
  */
 export function buildConfigDocJsonSchema(): Record<string, unknown> {
   const generated = z.toJSONSchema(configDocSchema, { io: "input" }) as Record<

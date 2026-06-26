@@ -2,10 +2,9 @@
  * `discern doctor` — verify the install. Every check returns an actionable
  * diagnostic: not just pass/fail, but the exact fix when something is wrong.
  *
- * With the engine in the binary (no committed shell engine, no `agent`
- * dispatcher, no manifest) the checks are in-process and few: the config parses,
- * the recorded schema is current, and the capabilities resolve through the
- * engine's own config reader.
+ * With the engine compiled into the binary, the checks are in-process and few:
+ * the config parses, the recorded schema is current, and the capabilities
+ * resolve through the engine's own config reader.
  */
 
 import { join } from "@std/path";
@@ -157,7 +156,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
   }
 
   // 3. config schema — validate the WHOLE config against the typed schema, in ONE
-  // parse. This folds in every structural check doctor used to re-implement (an
+  // parse. The one schema pass covers every structural check (an
   // unknown capability key, a dead [worktree.db]/[worktree.dev_server] adapter, a
   // bad check stage, an unknown section…): each surfaces as a path-qualified issue
   // straight from the schema's own validator. The syntax was already verified
@@ -250,12 +249,11 @@ export async function runChecks(destDir: string): Promise<Check[]> {
     );
   }
 
-  // 6. recipe contract — no project recipe still sources the retired shell
-  // library. The pre-binary engine exported `DISCERN_LIB`, and a recipe could
-  // `. "$DISCERN_LIB/bootstrap.sh"` for config/output helpers. That library is
-  // gone (the engine is in the binary), so such a recipe now breaks at runtime;
-  // flag it and point at the new contract. README.md is documentation, not a
-  // recipe, so it is skipped.
+  // 6. recipe contract — a recipe reads config via `discern config get`, not by
+  // sourcing a helper library: `DISCERN_LIB` is not part of the recipe
+  // environment, so a recipe that does `. "$DISCERN_LIB/bootstrap.sh"` for
+  // config/output helpers breaks at runtime. Flag it and point at the contract.
+  // README.md is documentation, not a recipe, so it is skipped.
   {
     const { abs: recipesDir } = resolveRecipesDir(destDir, config);
     const offenders: string[] = [];

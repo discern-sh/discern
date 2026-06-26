@@ -80,9 +80,9 @@ export function reconcileAgentIgnores(
 }
 
 /** Which of `files` git already TRACKS under `destDir` (best-effort; empty set when
- * git is unavailable or the query fails). Used to RESPECT a project's deliberate
- * choice to track a guidance file — ADR 0034 makes tracking a per-project `.gitignore`
- * decision, so the reconciler must not re-ignore a file the user committed on purpose. */
+ * git is unavailable or the query fails). Lets the reconciler RESPECT a project's
+ * deliberate choice to track a guidance file — ADR 0034 makes tracking a per-project
+ * `.gitignore` decision, so it must not re-ignore a file the user committed on purpose. */
 async function gitTrackedFiles(
   destDir: string,
   files: string[],

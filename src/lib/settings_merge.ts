@@ -32,8 +32,8 @@ const PERMISSION_ARRAY_KEYS = ["allow", "deny", "ask"];
 
 /**
  * Extract every command string nested inside a hook group, e.g.
- * `{ hooks: [{ type: "command", command: "..." }] }`. Used to dedup groups by
- * the commands they contain so an identical hook is never appended twice.
+ * `{ hooks: [{ type: "command", command: "..." }] }`, to dedup groups by the
+ * commands they contain so an identical hook is never appended twice.
  */
 function commandsInGroup(group: unknown): string[] {
   if (!isObject(group) || !Array.isArray(group.hooks)) {

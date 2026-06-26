@@ -1,10 +1,8 @@
 /**
  * The capability vocabulary and gate-stage machinery — the SINGLE source of
  * truth shared by the installer (validation, doctor, config migrations) and the
- * TS-native engine (the gate). Before the single-binary refactor this was
- * duplicated across `src/lib/config.ts` and the shell `lib/capabilities.sh` +
- * `lib/validate.sh`; with the shell engine gone there is one copy, so the
- * installer's validation and the engine's gate cannot drift.
+ * engine (the gate). One copy feeds both, so the installer's validation and the
+ * engine's gate cannot drift.
  */
 
 /**

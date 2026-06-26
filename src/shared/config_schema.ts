@@ -72,8 +72,8 @@ const NAME_RE = /^[A-Za-z0-9_-]+$/;
 
 /** The agent/provider files discern knows how to emit — the single source for
  * the document's `agents` enum, the generated editor JSON Schema (so it can never
- * again miss one — the historical gemini-shaped staleness bug), AND the
- * installer's `KNOWN_AGENTS` (re-exported from `lib/config.ts`). */
+ * miss one), AND the installer's `KNOWN_AGENTS` (re-exported from
+ * `lib/config.ts`). */
 export const AGENT_NAMES = ["claude_code", "codex", "gemini"] as const;
 
 /**

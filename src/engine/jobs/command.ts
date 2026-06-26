@@ -7,8 +7,7 @@
  * Tree-kill uses the mechanism verified in the Phase-0a spike: a `detached`
  * child leads its own process group, so `Deno.kill(-pid, sig)` reaches the
  * grandchildren a shell command may fork. If the group signal is unavailable it
- * falls back to killing the direct child — the shell engine's best-effort
- * behaviour, so no regression.
+ * falls back to killing the direct child.
  */
 
 import type { Job, JobResult } from "./types.ts";

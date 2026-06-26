@@ -60,7 +60,7 @@ function osc8(url: string, text: string): string {
   return `${ESC}]8;;${url}${ESC}\\${text}${ESC}]8;;${ESC}\\`;
 }
 
-/** True for an ASCII alphanumeric — used to keep `_` out of `snake_case`. */
+/** True for an ASCII alphanumeric — `snake_case` uses it to keep `_` out. */
 function isAlnum(ch: string | undefined): boolean {
   return ch !== undefined && /[A-Za-z0-9]/.test(ch);
 }

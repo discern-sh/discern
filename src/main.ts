@@ -473,8 +473,8 @@ function buildCli(
       );
     });
 
-  // Read-side config surface — what a project recipe uses to read
-  // discern.toml (replacing the shell config_* helpers).
+  // Read-side config surface — what a project recipe uses to read scalar,
+  // array, and membership values out of discern.toml.
   const configGet = new Command()
     .description("Print a scalar config value.")
     .arguments("<key:string>")

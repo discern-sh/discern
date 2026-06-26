@@ -26,9 +26,9 @@ export const KIT_VERSION: string = denoJson.version;
  * `.discern/` (config + guidance seeds); schema-3→4 converts
  * `[slots]`→`[capabilities]`/`[checks]`, inlines ratchet runs, folds side-gates
  * into `[scopes.<name>].gate`, and drops `[evidence]` (ADR 0017/0018);
- * schema-4→5 prunes the pre-existing on-disk shell engine (`.discern/engine/`,
- * the root `agent`, `.discern/manifest.json`) left by an install made before the
- * TS-native engine; schema-5→6 **dissolves `.discern/`** into the single-file
+ * schema-4→5 prunes the pre-existing on-disk engine tree (`.discern/engine/`,
+ * the root `agent`, `.discern/manifest.json`) a schema-4 install carried;
+ * schema-5→6 **dissolves `.discern/`** into the single-file
  * footprint — config to a root `discern.toml`, guidance/recipes/authored-skills
  * moved out, bundled skills pruned, `[features]`/`[guidance]`/`[skills]` sections
  * added (ADR 0020); schema-6→7 turns bootstrap from a materialized skill into the

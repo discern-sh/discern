@@ -924,9 +924,8 @@ async function helperWithGotchas(args: string[]): Promise<number> {
 
 /**
  * `discern config <get|array|has|subsections|keys> <key>` — the READ side of the
- * config surface. This is what a project recipe uses to read `discern.toml`
- * (replacing the shell `config_get`/`config_array` it used to source). `has`
- * answers via the exit code; the rest print to stdout.
+ * config surface. This is what a project recipe uses to read `discern.toml`:
+ * `has` answers via the exit code; the rest print to stdout.
  */
 export async function runConfigRead(
   op: "get" | "array" | "has" | "subsections" | "keys",

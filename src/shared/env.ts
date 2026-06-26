@@ -9,10 +9,10 @@
  * recognised as a legacy marker so a not-yet-upgraded install is found and
  * carried forward by `upgrade`/`migrate`.
  *
- * The recipe env replaces what the old shell dispatcher exported, minus the
- * engine paths that no longer exist on disk (`DISCERN_ENGINE`/`DISCERN_LIB`) — a
- * recipe now reads config via `discern config get`, not by sourcing a shell
- * library.
+ * A recipe is handed the `DISCERN_*` variables and reads config via `discern
+ * config get` rather than sourcing shell helpers; no engine paths
+ * (`DISCERN_ENGINE`/`DISCERN_LIB`) are exported, because the engine lives in the
+ * binary, not on disk.
  */
 
 import { dirname, join } from "@std/path";
@@ -99,7 +99,6 @@ export interface RecipeEnv {
 
 /**
  * Build the `DISCERN_*` environment variables a project recipe is exec'd with.
- * Mirrors the subset the shell dispatcher exported that survives the refactor.
  */
 export function recipeEnvVars(e: RecipeEnv): Record<string, string> {
   return {

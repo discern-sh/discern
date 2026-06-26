@@ -3,9 +3,8 @@
  *
  * The schema version (ADR 0014) is the anchor the migration chain steps from: a
  * plain monotonic integer, distinct from the kit's display version, that bumps
- * only when an installed project needs a migration to stay correct. It used to
- * live in a separate `.discern/manifest.json`; with the managed-file machinery
- * gone, it moves into the config the user already owns.
+ * only when an installed project needs a migration to stay correct. It lives in
+ * the config the user already owns, recorded under `[meta].schema_version`.
  *
  * `init` stamps the current value via {@link stampSchemaVersion}; `upgrade` reads
  * the recorded value with {@link resolveRecordedSchema}, runs the pending chain,

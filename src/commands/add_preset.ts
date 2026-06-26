@@ -12,8 +12,8 @@
  * editor. So a preset overlays both files (recipes, skills, guideline fragments,
  * docs) and config (capabilities, checks, scopes).
  *
- * This ships the *mechanism* only: no preset is bundled (the example used to
- * exercise the contract lives under tests/fixtures/presets/).
+ * This ships the *mechanism* only: no preset is bundled (the example that
+ * exercises the contract lives under tests/fixtures/presets/).
  */
 
 import { dirname, fromFileUrl, join } from "@std/path";

@@ -200,7 +200,7 @@ export class TomlEditor {
   /**
    * Insert a section block at the top of the file — after any leading comment
    * preamble, before the first section header — with a blank-line gap before the
-   * first section. Used to place a freshly-added, documented `[meta]` first, the
+   * first section, placing a freshly-added, documented `[meta]` first, the
    * way a fresh init has it. Falls back to an EOF append when there is no section
    * header yet.
    */
