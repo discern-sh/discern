@@ -449,7 +449,7 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
     }
     if (g.behind_integration !== null && g.behind_integration > 0) {
       hints.push(
-        `Branch is ${g.behind_integration} behind ${main}; run \`discern finish\` to integrate before \`discern graduate\`.`,
+        `Branch is ${g.behind_integration} behind ${main}; run \`discern integrate\` → \`discern finish\`, before \`discern graduate\`.`,
       );
     }
     if (g.clean && g.behind_integration === 0 && g.ahead_integration > 0) {
