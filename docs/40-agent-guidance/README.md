@@ -36,11 +36,14 @@ ratchet, a worktree resource).
 
 The Skills are the bundled built-ins (`document-subsystem`, `fix-a-bug-class`,
 and `write-adr`) plus any you author under `[skills].dir` (default `./skills`,
-yours overriding a built-in by name). They materialize into each configured
-agent's skills directory ([`.claude/skills/`](../../.claude/skills/) for Claude
-Code, the cross-tool `.agents/skills/` for Codex and Gemini — Claude Code does
-not read the shared dir;
-[ADR 0042](../_adr/0042-per-agent-skills-materialization.md)) — gitignored
+yours overriding a built-in by name). The `fix-a-bug-class` built-in pairs with
+an always-on norm in the built-in base — discern's first general working
+discipline shipped on by default
+([ADR 0048](../_adr/0048-bug-class-discipline-built-in.md)). They materialize
+into each configured agent's skills directory
+([`.claude/skills/`](../../.claude/skills/) for Claude Code, the cross-tool
+`.agents/skills/` for Codex and Gemini — Claude Code does not read the shared
+dir; [ADR 0042](../_adr/0042-per-agent-skills-materialization.md)) — gitignored
 artifacts the binary re-publishes: built-ins **copied**, authored skills
 **symlinked**. The materialized skills are guarded by the **same currency
 check** as the compiled files: `discern status` / `discern finish` flag a skills
