@@ -39,8 +39,9 @@ The supporting ideas: **Capabilities** are the five known commands (`format` /
 with an explicit Stage (ADR 0017); **Scopes** classify which part of the repo a
 change touches and **fail open** (an unknown path runs more gates, never fewer),
 and a Scope can carry its own `gate` so a sub-component plugs in (ADR 0018);
-**Ratchets** hold never-loosen metric floors on demand, outside `finish` because
-they are slow (ADR 0003).
+**Ratchets** hold never-loosen metric floors and ceilings — a raw value or, via
+`per`, a rate that doesn't rise just because the project grew — on demand, outside
+`finish` because they are slow (ADR 0003, ADR 0057).
 
 Alongside the gate sits the **[best-practices audit](audit.md)**: where `finish`
 asks _did this change pass?_, [`audit`](../../src/engine/audit/rules.ts) asks
@@ -64,7 +65,7 @@ for the agent to judge against the cited material
 | `the-finish-stages.md`                                         | The Stage order, serial-vs-parallel rules, fail-fast, and the gotchas pointer on fail.                                                                            |
 | `capabilities-and-checks.md`                                   | The five known Capabilities, the derived Stage, custom Checks, and how the Engine finds them.                                                                     |
 | `scopes-and-gates.md`                                          | Scope globs, fail-open classification, and wiring a Scope `gate` (ADR 0018).                                                                                      |
-| `ratchets.md`                                                  | Never-loosen floors/ceilings, the `DISCERN_METRIC` protocol, holding against `main`.                                                                              |
+| `ratchets.md`                                                  | Never-loosen floors/ceilings, raw counts vs `per` rates, the `DISCERN_METRIC` protocol, holding against `main`.                                                   |
 | [`the-result-envelope.md`](the-result-envelope.md) _(written)_ | The `DiscernResult` envelope every verb returns, its `diagnostics[]`, the typed result schemas, and `discern mcp`'s self-describing surface (ADR 0028, ADR 0041). |
 
 ## See also

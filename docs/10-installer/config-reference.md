@@ -126,7 +126,7 @@ Post-create setup steps.
 
 ## `[ratchets.<name>]`
 
-[ratchets.<name>] — never-loosen quality floors, enforced on demand by `discern ratchets` (slow, so NOT part of `discern finish`). A ratchet is a number you only ever want to improve.
+[ratchets.<name>] — never-loosen quality floors, enforced on demand by `discern ratchets` (slow, so NOT part of `discern finish`). A ratchet is a number you only ever want to improve. If the number grows just because the project grew (alerts, TODOs, type errors over a growing tree), ratchet a rate, not the raw count: add `per` so growth alone never breaches it.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -134,6 +134,8 @@ Post-create setup steps.
 | `direction` | `up` \| `down` | `"up"` | "up": limit is a floor; "down": limit is a ceiling. |
 | `limit` | number | — | The floor (up) or ceiling (down). |
 | `run` | string \| string[] | — | The command whose output emits the metric line: DISCERN_METRIC <metric> <number>. |
+| `per` | string \| object | — | Divide the metric by this to ratchet a *rate*, not a raw count — so the number doesn't rise just because the project grew. Either a second metric the run emits, or a built-in extent discern measures itself: per = { words = "docs/**" } (files \| lines \| words \| bytes over a git pathspec). |
+| `scale` | number | `1` | Multiply the rate by this so the limit reads in human units, e.g. scale = 1000 for "per 1,000 words". |
 
 ## `[gate]`
 

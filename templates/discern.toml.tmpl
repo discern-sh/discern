@@ -267,6 +267,11 @@ steps = []   # e.g. ["npm ci", "npm run build"]
 #              a ceiling may only fall (you can't loosen the gate on a branch)
 #   run        the command that measures it — its output emits the metric line
 #              (run on demand by `discern ratchets`, never by the gate)
+#   per        divide the metric to ratchet a RATE, not a raw count — so the number
+#              doesn't rise just because the project grew. Either a second metric the
+#              run emits, or a built-in extent discern measures itself:
+#              per = { words = "docs/**" }  (files | lines | words | bytes over a pathspec)
+#   scale      multiply the rate so the limit reads in human units (e.g. 1000)
 #
 # A ratchet's `run` reports its number by printing a line:
 #   DISCERN_METRIC <name> <number>
@@ -280,12 +285,23 @@ steps = []   # e.g. ["npm ci", "npm run build"]
 # limit     = 80
 # run       = "your-coverage-tool"   # must emit: DISCERN_METRIC coverage <percent>
 #
-# Bundle size — keep an artifact under a falling ceiling:
+# Bundle size — a raw count is right here: shipped bytes are a true budget, they
+# don't grow just because the repo does. Keep the artifact under a falling ceiling:
 # [ratchets.bundle]
 # metric    = "bundle_bytes"
 # direction = "down"
 # limit     = 500000
 # run       = "printf 'DISCERN_METRIC bundle_bytes %s\\n' \"$(wc -c < dist/app.js)\""
+#
+# Lint density — a RATE, for a count that WOULD grow with the project. Divide by a
+# built-in extent so adding clean code never breaches it, only nittier code does:
+# [ratchets.lint_density]
+# metric    = "warnings"
+# direction = "down"
+# per       = { lines = "src/**" }   # discern counts the lines itself
+# scale     = 1000                   # ratchet "warnings per 1,000 lines"
+# limit     = 5
+# run       = "your-linter --count"  # must emit: DISCERN_METRIC warnings <count>
 # ─────────────────────────────────────────────────────────────────────────────
 
 
