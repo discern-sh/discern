@@ -11,6 +11,7 @@ import { Command } from "@cliffy/command";
 import { KIT_VERSION } from "./lib/version.ts";
 import { emitResult } from "./shared/emit.ts";
 import {
+  AGENT_NAMES,
   ConfigParseError,
   ConfigValidationError,
   loadConfig,
@@ -141,7 +142,7 @@ function buildCli(
     )
     .option(
       "--agents <agents:string>",
-      "Comma-separated agent files to emit: claude_code, codex.",
+      `Comma-separated agent files to emit: ${AGENT_NAMES.join(", ")}.`,
     )
     .option(
       "--config <file:string>",
