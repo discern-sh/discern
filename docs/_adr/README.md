@@ -75,3 +75,4 @@ decision is hard to reverse, surprising without context, and a real trade-off.
 - [0053 — A gate guard keeps comments in the present tense, not narrating the codebase's past](0053-comment-currency-guard.md)
 - [0054 — One module owns process spawning](0054-subprocess-single-source.md)
 - [0055 — `discern integrate`, the third verb in the worktree lifecycle (merge + re-materialize)](0055-integrate-verb.md)
+- [0056 — Run the generated-artifact currency checks as fail-fast preconditions too](0056-currency-checks-fail-fast.md)
