@@ -158,6 +158,56 @@ export const StartDataSchema = z.strictObject({
 });
 export type StartData = z.infer<typeof StartDataSchema>;
 
+// integrate ─────────────────────────────────────────────────────────────────────
+
+/** One commit an integration brought in (short sha + subject). */
+const integrateCommitSchema = z.strictObject({
+  sha: z.string(),
+  subject: z.string(),
+});
+
+/** One file an integration changed beneath the branch. `added`/`removed` are null
+ * for a binary file; `status` is git's single-letter code (`A`/`M`/`D`/`T`). */
+const integrateFileSchema = z.strictObject({
+  path: z.string(),
+  status: z.string(),
+  added: z.number().nullable(),
+  removed: z.number().nullable(),
+});
+
+/** The SHA anchors bounding an integration — an agent diffs/logs against these to
+ * pull the FULL set in one call when a list is capped. `after` (the merged HEAD) is
+ * absent in a `--dry-run` preview (no merge happened); the predicted ranges use
+ * `before...main` (three-dot) instead of `before..after`. */
+const integrateRangeSchema = z.strictObject({
+  base: z.string(),
+  before: z.string(),
+  main: z.string(),
+  after: z.string().optional(),
+});
+
+/** `integrate` — what the merge brought in BENEATH the branch: the `commits` and
+ * `files` it landed (each capped, with the pre-cap `*_total` and a `*_truncated`
+ * flag), which of the branch's own files `overlap` them (re-read these for semantic
+ * conflicts a clean merge can't catch), the fire-scopes the incoming change touches
+ * (`scopes_incoming`), and the `range` anchors for drilling in. Present only when
+ * something was — or, in a preview, would be — integrated (omitted on a no-op). */
+export const IntegrateDataSchema = z.strictObject({
+  behind: z.number(),
+  fast_forward: z.boolean(),
+  commits: z.array(integrateCommitSchema),
+  commits_total: z.number(),
+  commits_truncated: z.boolean(),
+  files: z.array(integrateFileSchema),
+  files_total: z.number(),
+  files_truncated: z.boolean(),
+  overlap: z.array(z.string()),
+  overlap_total: z.number(),
+  scopes_incoming: z.array(z.string()),
+  range: integrateRangeSchema,
+});
+export type IntegrateData = z.infer<typeof IntegrateDataSchema>;
+
 // status ──────────────────────────────────────────────────────────────────────
 
 /** Where a `status` call is rooted: the main checkout or a linked worktree. The SSOT
@@ -385,6 +435,12 @@ export const ChangedScopesOutputSchema = z.strictObject({
 export const StartOutputSchema = z.strictObject({
   ...ENVELOPE_BASE_FIELDS,
   data: StartDataSchema.optional(),
+});
+
+/** `integrate` output: envelope + the "what landed beneath the branch" `data`. */
+export const IntegrateOutputSchema = z.strictObject({
+  ...ENVELOPE_BASE_FIELDS,
+  data: IntegrateDataSchema.optional(),
 });
 
 /** `audit` output: envelope + the scored `data`. */
