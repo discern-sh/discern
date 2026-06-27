@@ -43,6 +43,15 @@ Always `deno task dev <cmd>` (or `deno run -A src/main.ts <cmd>`). Note: do **no
 ## Testing
 `deno task test` is the authority on correctness, engine included: the `tests/engine_*` suite scaffolds the seed surface into temp dirs and drives the TS engine via `deno task dev <verb>` (with a `discern` PATH shim so recipes and hooks resolve the binary like a real install). It is the behavioral parity oracle for the engine. If a bad engine change ever breaks `deno task dev finish` itself, run `deno task test` directly. Add engine coverage to `tests/engine_*_test.ts`; installer coverage to the other `tests/*_test.ts`.
 
+## Fix the class, not the instance
+A bug is rarely alone. Before fixing one, name the *class* of defect as a checkable
+predicate, then write a check that fails on **every** member — a parameterized test,
+a lint or structural-search rule, an architectural test that iterates the canonical
+set — and leave it in the gate as a permanent guard so the class can't silently
+return. Drive the check off the single source of truth (a registry, enum, or type),
+never a hand-copied list, so a new member auto-enrols. The **`fix-a-bug-class`**
+skill walks the full procedure.
+
 ## Generated files — never hand-edit
 `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` (all gitignored build artifacts — ADR 0034) are compiled from discern's built-in guidance plus `guidance.md` by `deno task dev refresh`. Edit `guidance.md` and recompile; `deno task dev finish` fails if a generated file drifts from its source. The repo drives multiple agents from one source (`claude_code`, `codex`), so guidance stays provider-agnostic.
 
