@@ -144,9 +144,15 @@ Deno.test("execution model: actor matches the user-configured vs built-in split"
 
 Deno.test("execution model: a resource teardown is flagged destructive and shows the user's command", () => {
   const model = buildExecutionModel(parseConfigOrThrow(RICH_TOML));
-  // The motivating case ("why did graduate wipe my database?!"): the user's destroy
+  // The motivating case ("why did graduate tear down my database?"): the user's destroy
   // command is surfaced as a DESTRUCTIVE [you] step in both graduate forms and prune.
-  for (const verb of ["graduate (--to branch)", "graduate (--to trunk)", "worktree:prune"]) {
+  for (
+    const verb of [
+      "graduate (--to branch)",
+      "graduate (--to trunk)",
+      "worktree:prune",
+    ]
+  ) {
     const vp = model.find((v) => v.verb === verb);
     assert(vp !== undefined, `expected a '${verb}' verb`);
     const destroy = vp.steps.find(

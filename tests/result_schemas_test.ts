@@ -354,7 +354,8 @@ Deno.test("doctor execution_model is faithful across a rich config (resources, r
     const model =
       (result.data as { execution_model?: { verb: string }[] }).execution_model;
     assert(
-      model !== undefined && model.some((v) => v.verb === "graduate (--to trunk)"),
+      model !== undefined &&
+        model.some((v) => v.verb === "graduate (--to trunk)"),
       "the rich model should cover the worktree verbs",
     );
   });

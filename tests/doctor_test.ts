@@ -81,7 +81,10 @@ function modelVerb(payload: DoctorPayload, verb: string): ExecVerb {
   const model = payload.data.execution_model;
   assert(model !== undefined, "expected an execution_model in the payload");
   const found = model.find((v) => v.verb === verb);
-  assert(found !== undefined, `expected a '${verb}' verb in the execution model`);
+  assert(
+    found !== undefined,
+    `expected a '${verb}' verb in the execution model`,
+  );
   return found;
 }
 
@@ -540,7 +543,7 @@ Deno.test("doctor --json: a per-worktree resource shows a destructive teardown s
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 0);
     // The user's destroy command is surfaced as a DESTRUCTIVE [you] step — the
-    // motivating "why did graduate wipe my database?!" answered up front.
+    // motivating "why did graduate tear down my database?" answered up front.
     const grad = modelVerb(payload, "graduate (--to trunk)");
     const destroy = grad.steps.find((s) => s.kind === "resource-destroy");
     assert(destroy !== undefined, "graduate should tear the resource down");
