@@ -186,6 +186,23 @@ function defineTool<TShape extends z.ZodRawShape>(
   return tool;
 }
 
+/**
+ * The optional `path` override every root-operating tool carries (ADR 0062 §2): an
+ * explicit project to act on instead of the server's current working root, resolved
+ * through `findRoot(path)` in {@link runTool} (so any directory inside a worktree
+ * resolves to its root, and a non-project path falls through to `not_initialized`).
+ * `path` wins over the working root for that one call. Spread into each root-operating
+ * tool's `inputSchema`; NOT on `discern_help` (discern's own bundled docs are
+ * root-independent) or `discern_start` (its root is the creation source, a separate
+ * concern). The describe text carries no `{{var}}`, so it is not interpolated. */
+const PATH_PARAM = {
+  path: z.string().optional().describe(
+    "operate on the discern project containing this absolute path instead of the " +
+      "server's current working root; rarely needed — discern_start re-aims " +
+      "automatically",
+  ),
+};
+
 /** The exposed tool set — each a thin adapter over a verb's result-returning core.
  * Exported so the verb-parity guard (`tests/engine_verb_parity_test.ts`) can
  * reconcile the tool slugs against the CLI verb SSOT via {@link verbOf} — every
@@ -205,6 +222,7 @@ export const TOOLS: McpTool[] = [
       dry_run: z.boolean().optional().describe(
         "Preview the gate plan and touch nothing (default false).",
       ),
+      ...PATH_PARAM,
     },
     run: (root, args) => finishResult(root, { dryRun: args.dry_run === true }),
   }),
@@ -218,6 +236,7 @@ export const TOOLS: McpTool[] = [
       "check-stage jobs (no build, no tests) — and return the result envelope. The " +
       "quick check to run while iterating, before the full discern_finish. NOTE: the " +
       "fixers MUTATE the working tree (e.g. a formatter rewrites files).",
+    inputSchema: { ...PATH_PARAM },
     run: (root) => prepareResult(root),
   }),
   defineTool({
@@ -229,6 +248,7 @@ export const TOOLS: McpTool[] = [
       "Run the project's test capability on its own (the `test` stage, outside the " +
       "full gate) and return the result envelope. When no test command is configured " +
       "it is a trivial pass carrying a hint that says so.",
+    inputSchema: { ...PATH_PARAM },
     run: (root) => testResult(root),
   }),
   defineTool({
@@ -249,6 +269,7 @@ export const TOOLS: McpTool[] = [
       dry_run: z.boolean().optional().describe(
         "Preview the ratchets that would run and measure nothing (default false).",
       ),
+      ...PATH_PARAM,
     },
     run: (root, args) =>
       ratchetsResult(root, { dryRun: args.dry_run === true }),
@@ -263,6 +284,7 @@ export const TOOLS: McpTool[] = [
       "config validity, schema currency, whether the declared capability commands " +
       "resolve on PATH, and advisories. data.checks lists every check with its detail " +
       "and — on failure — the exact fix.",
+    inputSchema: { ...PATH_PARAM },
     run: (root) => doctorResult(root),
   }),
   defineTool({
@@ -273,6 +295,7 @@ export const TOOLS: McpTool[] = [
     description:
       "List which project scopes the current branch and working tree changed — the " +
       "classification that decides which scope gates the quality gate fires.",
+    inputSchema: { ...PATH_PARAM },
     run: (root) => changedScopesResult(root),
   }),
   defineTool({
@@ -307,6 +330,7 @@ export const TOOLS: McpTool[] = [
       local: z.boolean().optional().describe(
         "Local view only — suppress the fleet survey even in the main checkout (default false).",
       ),
+      ...PATH_PARAM,
     },
     run: (root, args) =>
       statusResult(root, {
@@ -332,6 +356,7 @@ export const TOOLS: McpTool[] = [
       min_score: z.number().optional().describe(
         "Mark the result failed (isError) when the overall score is below this floor.",
       ),
+      ...PATH_PARAM,
     },
     run: (root, args) =>
       auditResult(root, {
@@ -355,6 +380,7 @@ export const TOOLS: McpTool[] = [
       target: z.string().optional().describe(
         "A specific doc to fetch (slug, section/slug, or path). Omit for the index.",
       ),
+      ...PATH_PARAM,
     },
     run: (root, args) =>
       docsResult(root, {
@@ -416,6 +442,7 @@ export const TOOLS: McpTool[] = [
       dry_run: z.boolean().optional().describe(
         "Preview the graduation plan and touch nothing (default false).",
       ),
+      ...PATH_PARAM,
     },
     // A successful graduation removes the worktree the server pointed at — reset the
     // working root to the spawn root (the trunk it was launched from) so subsequent
@@ -454,6 +481,7 @@ export const TOOLS: McpTool[] = [
       dry_run: z.boolean().optional().describe(
         "Preview the integration plan and touch nothing (default false).",
       ),
+      ...PATH_PARAM,
     },
     run: (root, args) =>
       integrateToolResult(root, { dryRun: args.dry_run === true }),
@@ -626,14 +654,16 @@ export class WorkingRoot {
 }
 
 /**
- * Run one tool call and render its DiscernResult. The per-call root is the server's
- * current working root (ADR 0062) — re-pointed by `discern_start` / reset by
- * `discern_graduate` via {@link McpTool.reaimOnSuccess}, applied here after a
- * successful, non-preview call. Every refusal is rendered as a normal (error)
- * {@link DiscernResult} — a missing project, or an unexpected throw from the verb
- * (caught here so a single tool error can never take the whole stdio server down). A
- * disabled feature is handled earlier, by simply not registering its tool — so it is
- * absent from `tools/list` and the SDK rejects a call to it.
+ * Run one tool call and render its DiscernResult. The per-call root is the explicit
+ * `path` argument when given (ADR 0062 §2 — resolved through `findRoot`, so any
+ * directory inside a worktree resolves to its root and a non-project path falls
+ * through to `not_initialized`), else the server's current working root — re-pointed
+ * by `discern_start` / reset by `discern_graduate` via {@link McpTool.reaimOnSuccess},
+ * applied here after a successful, non-preview call. Every refusal is rendered as a
+ * normal (error) {@link DiscernResult} — a missing project, or an unexpected throw
+ * from the verb (caught here so a single tool error can never take the whole stdio
+ * server down). A disabled feature is handled earlier, by simply not registering its
+ * tool — so it is absent from `tools/list` and the SDK rejects a call to it.
  */
 async function runTool(
   tool: McpTool,
@@ -641,7 +671,10 @@ async function runTool(
   spawnRoot: string | undefined,
   args: Record<string, unknown>,
 ): Promise<ToolResult> {
-  const root = working.get();
+  // The explicit `path` override wins over the working root for this one call; any dir
+  // inside a worktree resolves to its root, a non-project path → undefined → refusal.
+  const pathArg = typeof args.path === "string" ? args.path : undefined;
+  const root = pathArg ? await findRoot(pathArg) : working.get();
   if (root === undefined) {
     return renderResult({
       ok: false,
@@ -679,9 +712,12 @@ async function runTool(
   }
   // Data-driven re-aim (ADR 0062): on a successful, non-preview lifecycle call, move
   // the working root per the tool's own hook (start → the new worktree; graduate →
-  // the spawn root). A dry-run never moves it — it changed nothing on disk.
+  // the spawn root). Gated on no `path` override — an explicit `path` wins "for that
+  // one call" only (§2), so it steers the call without mutating the held working root.
+  // A dry-run never moves it either — it changed nothing on disk.
   if (
-    result.ok && result.dry_run !== true && tool.reaimOnSuccess !== undefined
+    pathArg === undefined && result.ok && result.dry_run !== true &&
+    tool.reaimOnSuccess !== undefined
   ) {
     const next = tool.reaimOnSuccess(result, spawnRoot);
     if (next !== undefined) {

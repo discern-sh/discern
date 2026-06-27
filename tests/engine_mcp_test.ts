@@ -182,7 +182,7 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
       jsonrpc: "2.0",
       id: 4,
       method: "tools/call",
-      params: { name: "discern_changed_scopes" },
+      params: { name: "discern_changed_scopes", arguments: {} },
     });
     const cs = await mcp.recv();
     assertEquals(cs.result.structuredContent.verb, "changed-scopes");
@@ -227,7 +227,7 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
       jsonrpc: "2.0",
       id: 7,
       method: "tools/call",
-      params: { name: "discern_doctor" },
+      params: { name: "discern_doctor", arguments: {} },
     });
     const doctor = await mcp.recv();
     assertEquals(doctor.id, 7);
@@ -247,7 +247,7 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
       jsonrpc: "2.0",
       id: 8,
       method: "tools/call",
-      params: { name: "discern_prepare" },
+      params: { name: "discern_prepare", arguments: {} },
     });
     const prep = await mcp.recv();
     assertEquals(prep.id, 8);
@@ -261,7 +261,7 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
       jsonrpc: "2.0",
       id: 9,
       method: "tools/call",
-      params: { name: "discern_test" },
+      params: { name: "discern_test", arguments: {} },
     });
     const test = await mcp.recv();
     assertEquals(test.id, 9);
@@ -806,6 +806,115 @@ Deno.test("discern mcp: discern_graduate with no prior discern_start refuses cle
   });
 });
 
+Deno.test("discern mcp: an explicit `path` wins over the working root (ADR 0062 §2)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+
+    const mcp = await spawnMcp(dir);
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await mcp.recv();
+
+    // Re-aim the working root at a fresh worktree via discern_start, so the working
+    // root and the spawn root genuinely differ — the precedence has something to win.
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "discern_start", arguments: {} },
+    });
+    const started = await mcp.recv();
+    assertEquals(started.result.isError, false, JSON.stringify(started.result));
+    const wtPath = started.result.structuredContent.data.path as string;
+
+    // No `path` → status follows the (re-aimed) working root: the worktree.
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: { name: "discern_status", arguments: {} },
+    });
+    const fromWorking = await mcp.recv();
+    assertEquals(fromWorking.result.structuredContent.data.location, "worktree");
+
+    // An explicit `path` pointing at the trunk WINS over the working root for that one
+    // call: status reports the main checkout, not the worktree the working root holds.
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 4,
+      method: "tools/call",
+      params: { name: "discern_status", arguments: { path: dir } },
+    });
+    const fromPath = await mcp.recv();
+    assertEquals(fromPath.result.structuredContent.data.location, "main");
+
+    // …and the override is scoped to that one call — the held working root is unchanged
+    // (a subsequent no-`path` call still sees the worktree).
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 5,
+      method: "tools/call",
+      params: { name: "discern_status", arguments: {} },
+    });
+    const afterOverride = await mcp.recv();
+    assertEquals(
+      afterOverride.result.structuredContent.data.location,
+      "worktree",
+    );
+    // A `path` inside the worktree resolves to the worktree's root (findRoot walks up).
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 6,
+      method: "tools/call",
+      params: { name: "discern_status", arguments: { path: wtPath } },
+    });
+    const fromWtPath = await mcp.recv();
+    assertEquals(fromWtPath.result.structuredContent.data.location, "worktree");
+
+    assertEquals(await mcp.close(), 0);
+  });
+});
+
+Deno.test("discern mcp: a `path` outside any discern project falls through to not_initialized", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    // A path with no discern.toml in it or any ancestor (the system temp, outside the
+    // project tree) → findRoot returns undefined → the uniform not_initialized refusal.
+    const outside = await Deno.makeTempDir({ prefix: "discern-not-a-project-" });
+    try {
+      const mcp = await spawnMcp(dir);
+      await mcp.send({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: initParams(),
+      });
+      await mcp.recv();
+      await mcp.send({
+        jsonrpc: "2.0",
+        id: 2,
+        method: "tools/call",
+        params: { name: "discern_status", arguments: { path: outside } },
+      });
+      const refused = await mcp.recv();
+      assertEquals(refused.result.isError, true);
+      assertEquals(
+        refused.result.structuredContent.error,
+        "not_initialized",
+      );
+      assertEquals(await mcp.close(), 0);
+    } finally {
+      await Deno.remove(outside, { recursive: true });
+    }
+  });
+});
+
 Deno.test("discern mcp: a disabled feature hides its tool and refuses the call", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
@@ -1072,7 +1181,7 @@ Deno.test("discern mcp: a tool call's structuredContent validates against its ad
       jsonrpc: "2.0",
       id: 3,
       method: "tools/call",
-      params: { name: "discern_doctor" },
+      params: { name: "discern_doctor", arguments: {} },
     });
     const doctor = await mcp.recv();
     const dParsed = DoctorOutputSchema.safeParse(
