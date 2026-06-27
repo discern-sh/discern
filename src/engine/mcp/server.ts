@@ -290,7 +290,10 @@ export const TOOLS: McpTool[] = [
       "Report what is true right now and what to do next — pure observation, never " +
       "runs the gate, tests, ratchets, or touches anything. Call it at the start of a " +
       'session to orient. data.location is "worktree" or "main"; data.git carries ' +
-      "branch/clean/changed-files and ahead/behind the integration branch; data.gate " +
+      "branch/clean/changed-files and ahead/behind the integration branch — and, when " +
+      "behind, data.git.incoming_overlap names the files YOU changed that the incoming " +
+      "main also changed (the hot zone to re-read on integrating, since a clean merge " +
+      "can still break them); data.gate " +
       "lists what the gate WOULD fire (wired capabilities, checks, triggered scope " +
       "gates); data.worktree carries this worktree's id/port/db and provisioned " +
       "resources; data.features and data.ratchets list the configured set. " +

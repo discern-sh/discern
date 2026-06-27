@@ -238,6 +238,10 @@ const statusGitSchema = z.strictObject({
   changed_files: z.number(),
   behind_integration: z.number().nullable(),
   ahead_integration: z.number(),
+  /** When behind: the files THIS branch changed that the incoming integration branch
+   * also changed — the hot zone to re-check on integrating (capped; present only in a
+   * worktree that is behind and has overlap). The same intersection `integrate` reports. */
+  incoming_overlap: z.array(z.string()).optional(),
 });
 export type StatusGit = z.infer<typeof statusGitSchema>;
 

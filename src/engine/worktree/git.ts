@@ -504,6 +504,67 @@ async function diffFiles(
   return { files, filesTotal: theirsPaths.length, theirsPaths };
 }
 
+/** `git diff --name-only --no-renames <a> <b>` → the changed paths, `[]` on error.
+ * The one name-only diff both the integration delta and the overlap reads share. */
+async function diffNames(
+  cwd: string,
+  a: string,
+  b: string,
+): Promise<string[]> {
+  const r = await git(["diff", "--name-only", "--no-renames", a, b], cwd);
+  return r.success
+    ? r.stdout.split("\n").map((l) => l.trim()).filter((l) => l !== "")
+    : [];
+}
+
+/**
+ * The overlap of two changed-path sets — the paths in BOTH, in `incoming` order,
+ * deduped and capped to `cap`, with the pre-cap `total`. The single definition of
+ * the "hot zone" intersection, shared by integrate's summary and status's behind
+ * report so the two can never compute it differently.
+ */
+export function overlapPaths(
+  own: string[],
+  incoming: string[],
+  cap: number,
+): { overlap: string[]; total: number } {
+  const ownSet = new Set(own);
+  const seen = new Set<string>();
+  const all: string[] = [];
+  for (const p of incoming) {
+    if (ownSet.has(p) && !seen.has(p)) {
+      seen.add(p);
+      all.push(p);
+    }
+  }
+  return { overlap: all.slice(0, cap), total: all.length };
+}
+
+/**
+ * The files the current branch changed that the integration branch ALSO changed
+ * since their fork — the "hot zone" status surfaces when the branch is behind, so an
+ * agent sees which of its own work `mainBranch` is about to touch BEFORE it
+ * integrates. Read-only and predictive (never merges): own = `base..HEAD`, incoming
+ * = `base..main`, intersected by {@link overlapPaths}. Matches what `integrate
+ * --dry-run` reports. Fails open to empty (a git hiccup, or no fork point).
+ */
+export async function incomingOverlap(
+  cwd: string,
+  mainBranch: string,
+  cap: number,
+): Promise<{ overlap: string[]; total: number }> {
+  const { base, before, main } = await resolveIntegrationAnchors(
+    cwd,
+    mainBranch,
+  );
+  if (base === "" || before === "" || main === "") {
+    return { overlap: [], total: 0 };
+  }
+  const own = await diffNames(cwd, base, before);
+  const incoming = await diffNames(cwd, base, main);
+  return overlapPaths(own, incoming, cap);
+}
+
 /**
  * Compute an integration's content summary from its {@link IntegrationAnchors} (plus
  * `after` on an apply). Commits are those main authored since the fork (`before..main`
@@ -550,18 +611,9 @@ export async function integrationDelta(
   );
 
   // the branch's own changed paths since the fork (for the overlap intersection).
-  let ownPaths: string[] = [];
-  if (base !== "" && before !== "") {
-    const ownRun = await git(
-      ["diff", "--name-only", "--no-renames", base, before],
-      cwd,
-    );
-    if (ownRun.success) {
-      ownPaths = ownRun.stdout.split("\n").map((l) => l.trim()).filter((l) =>
-        l !== ""
-      );
-    }
-  }
+  const ownPaths = base !== "" && before !== ""
+    ? await diffNames(cwd, base, before)
+    : [];
 
   return {
     commits,

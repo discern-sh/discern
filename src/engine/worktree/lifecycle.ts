@@ -85,6 +85,7 @@ import {
   liveWorktreeGitKeys,
   liveWorktreePaths,
   mainRepoPath,
+  overlapPaths,
   pruneGitWorktrees,
   removeWorktreeSafely,
   resolveCommonGitDir,
@@ -1015,17 +1016,13 @@ async function summarizeIntegration(
       fileCap: INTEGRATE_FILE_CAP,
     });
 
-    // Overlap = the branch's own files ∩ the files that changed beneath it, in the
-    // order they appear in the incoming change. The hot zone a clean merge can't vet.
-    const own = new Set(delta.ownPaths);
-    const seen = new Set<string>();
-    const overlapAll: string[] = [];
-    for (const p of delta.theirsPaths) {
-      if (own.has(p) && !seen.has(p)) {
-        seen.add(p);
-        overlapAll.push(p);
-      }
-    }
+    // Overlap = the branch's own files ∩ the files that changed beneath it — the hot
+    // zone a clean merge can't vet. Shared with status's behind report via overlapPaths.
+    const { overlap, total: overlapTotal } = overlapPaths(
+      delta.ownPaths,
+      delta.theirsPaths,
+      INTEGRATE_OVERLAP_CAP,
+    );
 
     const data: IntegrateData = {
       // A pure fast-forward iff the branch tip was already an ancestor of main
@@ -1038,8 +1035,8 @@ async function summarizeIntegration(
       files: delta.files,
       files_total: delta.filesTotal,
       files_truncated: delta.filesTruncated,
-      overlap: overlapAll.slice(0, INTEGRATE_OVERLAP_CAP),
-      overlap_total: overlapAll.length,
+      overlap,
+      overlap_total: overlapTotal,
       scopes_incoming: scopesForPaths(delta.theirsPaths, ctx.config),
       range: buildRange(anchors),
     };
