@@ -63,6 +63,18 @@ export const STEP_KINDS = [
 export type StepKind = (typeof STEP_KINDS)[number];
 
 /**
+ * Who a step's command belongs to — the two-way split `discern doctor`'s execution
+ * model marks every step with: `"you"` is a command from the project's own config (a
+ * capability/check, a scope or ratchet command, a resource `create`/`destroy`, a
+ * `[worktree.setup]` step), `"discern"` is a built-in operation the harness performs
+ * itself (a precondition check, a git mutation, an env/refresh step). A const tuple so
+ * `result_schemas.ts` derives its Zod enum from it rather than hand-mirroring.
+ */
+export const ACTORS = ["you", "discern"] as const;
+/** One step actor ({@link ACTORS}). */
+export type Actor = (typeof ACTORS)[number];
+
+/**
  * One step in an engine plan — the unit the shared renderer prints and the generic
  * `--json` serializes. Pure data: it carries no closures, so a plan is inspectable
  * and serializable before anything runs.

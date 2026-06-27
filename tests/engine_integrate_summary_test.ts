@@ -1,5 +1,5 @@
 /**
- * Engine coverage for `integrate`'s "what landed beneath you" summary (ADR 0062):
+ * Engine coverage for `integrate`'s "what landed beneath you" summary (ADR 0064):
  * the `IntegrateData` payload (commits/files/overlap/scopes/range), the overlap hot
  * zone, the capping + git escape-hatch hints, and predicted `--dry-run` parity.
  * Each test drives a REAL linked worktree in a hermetic git repo and reads the
@@ -31,7 +31,12 @@ interface IntegrateJson {
     commits_total: number;
     commits_truncated: boolean;
     files: Array<
-      { path: string; status: string; added: number | null; removed: number | null }
+      {
+        path: string;
+        status: string;
+        added: number | null;
+        removed: number | null;
+      }
     >;
     files_total: number;
     files_truncated: boolean;
@@ -122,7 +127,8 @@ Deno.test("integrate: overlap names the files you AND main both changed (clean m
     await gitInit(dir);
     // A baseline file present at the fork point so both sides edit DIFFERENT regions
     // of it and git still merges cleanly — exactly the case a textual merge can't vet.
-    const base = Array.from({ length: 12 }, (_, i) => `line ${i + 1}`).join("\n") +
+    const base = Array.from({ length: 12 }, (_, i) =>
+      `line ${i + 1}`).join("\n") +
       "\n";
     await commitOnMain(dir, "add shared", { "shared.txt": base });
     const wt = await addWorktree(dir, "overlap");
@@ -133,7 +139,14 @@ Deno.test("integrate: overlap names the files you AND main both changed (clean m
       base.replace("line 1\n", "line 1 — worktree edit\n"),
     );
     await git(wt, "add", "-A");
-    await git(wt, "commit", "-q", "-m", "worktree edits shared", "--no-gpg-sign");
+    await git(
+      wt,
+      "commit",
+      "-q",
+      "-m",
+      "worktree edits shared",
+      "--no-gpg-sign",
+    );
 
     // main edits the BOTTOM of shared.txt and adds an unrelated file.
     await commitOnMain(dir, "main edits shared + adds upstream", {
@@ -199,15 +212,20 @@ Deno.test("integrate: a large merge caps the lists and hands back a git escape-h
 
     // The escape hatch: the FULL list in one call, anchors pre-substituted — no
     // guessing the range. (Apply → two-dot before..after; full-list log → before..main.)
-    const filesCmd = `git diff --stat ${data.range.before}..${data.range.after}`;
+    const filesCmd =
+      `git diff --stat ${data.range.before}..${data.range.after}`;
     assert(
       hints.some((h) => h.includes(filesCmd)),
-      `files escape-hatch (${filesCmd}) missing:\n${JSON.stringify(hints, null, 2)}`,
+      `files escape-hatch (${filesCmd}) missing:\n${
+        JSON.stringify(hints, null, 2)
+      }`,
     );
     const logCmd = `git log --oneline ${data.range.before}..${data.range.main}`;
     assert(
       hints.some((h) => h.includes(logCmd)),
-      `commits escape-hatch (${logCmd}) missing:\n${JSON.stringify(hints, null, 2)}`,
+      `commits escape-hatch (${logCmd}) missing:\n${
+        JSON.stringify(hints, null, 2)
+      }`,
     );
   });
 });
@@ -259,7 +277,10 @@ Deno.test("integrate --dry-run --json: predicts the same summary read-only — n
     const obj = parse(r.stdout);
 
     assertEquals(obj.dry_run, true);
-    assert(obj.data !== undefined, `dry-run must carry predicted data\n${r.stdout}`);
+    assert(
+      obj.data !== undefined,
+      `dry-run must carry predicted data\n${r.stdout}`,
+    );
     assertEquals(obj.data.behind, 1);
     assertEquals(obj.data.files.map((f) => f.path), ["upstream.txt"]);
     // No merge happened → no `after` anchor (the escape hatch falls back to the

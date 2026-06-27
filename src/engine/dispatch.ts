@@ -261,7 +261,9 @@ export function attachEngineCommands(
 
   root
     .command("test")
-    .description("Run the test capability.")
+    .description(
+      "Run the project's tests (the test stage) on their own, outside the full gate.",
+    )
     .option(
       "--json",
       "Emit the result as a JSON DiscernResult on stdout (output → stderr).",

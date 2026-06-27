@@ -26,6 +26,7 @@
 import { z } from "@zod/zod";
 import { type Feature, FEATURES } from "./features.ts";
 import {
+  ACTORS,
   DIAGNOSTIC_SEVERITIES,
   FAILED_STAGES,
   STEP_DISPOSITIONS,
@@ -318,11 +319,45 @@ export const DoctorEnvironmentSchema = z.strictObject({
 });
 export type DoctorEnvironment = z.infer<typeof DoctorEnvironmentSchema>;
 
-/** `doctor` — the install-verification payload. */
+/**
+ * One annotated step in a verb's execution model — what `discern doctor` prints so a
+ * user (or their agent) can see exactly what runs, in order, when they call a verb.
+ * `kind` is the engine's own {@link STEP_KINDS} vocabulary (derived, not re-listed);
+ * `actor` marks whose command it is ({@link ACTORS}); `note` is the command or detail;
+ * `hint` is the class-level expectation (idempotent / fast / built-in / …); `condition`
+ * is when the step actually fires (a dirty worktree, a changed scope); `destructive`
+ * flags a step that can lose data. discern renders the facts and the expectations — it
+ * does NOT judge them; a consuming agent draws the conclusions (ADR 0063).
+ */
+export const ExecutionStepSchema = z.strictObject({
+  kind: stepKindEnum,
+  label: z.string(),
+  actor: z.enum(ACTORS),
+  note: z.string().optional(),
+  hint: z.string().optional(),
+  destructive: z.boolean().optional(),
+  condition: z.string().optional(),
+});
+export type ExecutionStep = z.infer<typeof ExecutionStepSchema>;
+
+/** One configurable verb's execution model: its trigger (`when`) and its ordered,
+ * annotated {@link ExecutionStep}s. The gate verbs' steps are derived from the real
+ * plan builders; the worktree verbs' from an authored conditional model + live config
+ * (their plans need runtime worktree state), so neither can drift from reality. */
+export const VerbPlanSchema = z.strictObject({
+  verb: z.string(),
+  when: z.string(),
+  steps: z.array(ExecutionStepSchema),
+});
+export type VerbPlan = z.infer<typeof VerbPlanSchema>;
+
+/** `doctor` — the install-verification payload. `execution_model` is the per-verb
+ * ordered step list (optional: omitted only when no config can be read at all). */
 export const DoctorDataSchema = z.strictObject({
   kit_version: z.string(),
   environment: DoctorEnvironmentSchema,
   checks: z.array(CheckSchema),
+  execution_model: z.array(VerbPlanSchema).optional(),
 });
 export type DoctorData = z.infer<typeof DoctorDataSchema>;
 

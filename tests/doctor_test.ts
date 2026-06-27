@@ -25,6 +25,24 @@ interface DoctorCheck {
   warn?: boolean;
 }
 
+/** One annotated step in a verb's execution model. */
+interface ExecStep {
+  kind: string;
+  label: string;
+  actor: "you" | "discern";
+  note?: string;
+  hint?: string;
+  destructive?: boolean;
+  condition?: string;
+}
+
+/** One verb's execution model. */
+interface ExecVerb {
+  verb: string;
+  when: string;
+  steps: ExecStep[];
+}
+
 /** The `doctor --json` payload shape we assert against. */
 interface DoctorPayload {
   ok: boolean;
@@ -33,6 +51,7 @@ interface DoctorPayload {
     kit_version: string;
     environment: { discern: string; platform: string; git?: string };
     checks: DoctorCheck[];
+    execution_model?: ExecVerb[];
   };
 }
 
@@ -55,6 +74,24 @@ function check(payload: DoctorPayload, name: string): DoctorCheck {
   const found = payload.data.checks.find((c) => c.name === name);
   assert(found !== undefined, `expected a '${name}' check`);
   return found;
+}
+
+/** Find a verb in the execution model, asserting it (and the model) is present. */
+function modelVerb(payload: DoctorPayload, verb: string): ExecVerb {
+  const model = payload.data.execution_model;
+  assert(model !== undefined, "expected an execution_model in the payload");
+  const found = model.find((v) => v.verb === verb);
+  assert(
+    found !== undefined,
+    `expected a '${verb}' verb in the execution model`,
+  );
+  return found;
+}
+
+/** Append a TOML fragment to the scaffold's config (e.g. a worktree resource). */
+async function appendConfig(dir: string, toml: string): Promise<void> {
+  const p = join(dir, "discern.toml");
+  await Deno.writeTextFile(p, `${await Deno.readTextFile(p)}\n${toml}`);
 }
 
 /** Rewrite an install's recorded `[meta].schema_version`. */
@@ -456,5 +493,84 @@ Deno.test("doctor: surfaces per-agent integration coverage (MCP/hooks Claude-onl
     assertEquals(codex.ok, true);
     assertStringIncludes(codex.detail, "guidance AGENTS.md");
     assertStringIncludes(codex.detail, "not wired");
+  });
+});
+
+Deno.test("doctor --json: carries the execution model, each step marked you/discern with a hint", async () => {
+  await withTempDir(async (dir) => {
+    await initInstall(dir);
+    await addCapability(dir, "lint", "echo lint"); // a real [you] gate command
+    const { code, payload } = await runDoctorJson(dir);
+    assertEquals(code, 0);
+    // Every configurable verb the issue-template goal needs is covered.
+    for (
+      const v of [
+        "finish",
+        "prepare",
+        "test",
+        "ratchets",
+        "start (worktree:create)",
+        "worktree:ensure",
+        "integrate",
+        "graduate (--to branch)",
+        "graduate (--to trunk)",
+        "worktree:prune",
+      ]
+    ) {
+      modelVerb(payload, v);
+    }
+    const finish = modelVerb(payload, "finish");
+    // A built-in precondition is discern's, and every step carries a hint.
+    const merge = finish.steps.find((s) => s.label === "merge-check");
+    assert(merge !== undefined, "finish should run the merge-check");
+    assertEquals(merge.actor, "discern");
+    assert((merge.hint ?? "").length > 0, "every step should carry a hint");
+    // The lint capability we wired is the user's own command.
+    const lint = finish.steps.find((s) => s.label === "lint");
+    assert(lint !== undefined, "finish should run the lint capability");
+    assertEquals(lint.actor, "you");
+    assertEquals(lint.note, "echo lint");
+  });
+});
+
+Deno.test("doctor --json: a per-worktree resource shows a destructive teardown step", async () => {
+  await withTempDir(async (dir) => {
+    await initInstall(dir);
+    await appendConfig(
+      dir,
+      '[worktree.resources.db]\ncreate = "createdb x"\ndestroy = "dropdb x"\n',
+    );
+    const { code, payload } = await runDoctorJson(dir);
+    assertEquals(code, 0);
+    // The user's destroy command is surfaced as a DESTRUCTIVE [you] step — the
+    // motivating "why did graduate tear down my database?" answered up front.
+    const grad = modelVerb(payload, "graduate (--to trunk)");
+    const destroy = grad.steps.find((s) => s.kind === "resource-destroy");
+    assert(destroy !== undefined, "graduate should tear the resource down");
+    assertEquals(destroy.actor, "you");
+    assertEquals(destroy.destructive, true);
+    assertEquals(destroy.note, "dropdb x");
+  });
+});
+
+Deno.test("doctor: human output prints the execution-model section on stderr", async () => {
+  await withTempDir(async (dir) => {
+    await initInstall(dir);
+    // The human render goes to stderr like the rest of doctor's narration.
+    const { code, stderr } = await runCli(["doctor"], dir);
+    assertEquals(code, 0);
+    assertStringIncludes(stderr, "Execution model");
+    assertStringIncludes(stderr, "[discern] merge-check");
+    assertStringIncludes(stderr, "graduate (--to trunk)");
+  });
+});
+
+Deno.test("doctor --json: omits the execution model when there is no readable config", async () => {
+  await withTempDir(async (dir) => {
+    // No init — no discern.toml to derive a model from, so the field is omitted
+    // (the failing checks are the actionable report; a defaults-derived model would
+    // only add noise to a broken install).
+    const { payload } = await runDoctorJson(dir);
+    assertEquals(payload.data.execution_model, undefined);
   });
 });

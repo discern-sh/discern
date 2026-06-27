@@ -102,7 +102,7 @@ import { compileGuidelines } from "../guidelines.ts";
 // tree an agent committed without `finish` cannot fast-forward onto the trunk.
 import { detectFixStageStrand } from "../gate/execute.ts";
 // integrate classifies the merge's incoming files into the project's scopes for its
-// "what landed beneath you" summary (ADR 0062), via the same matcher the gate uses.
+// "what landed beneath you" summary (ADR 0064), via the same matcher the gate uses.
 import { scopesForPaths } from "../scopes/changed.ts";
 
 /** Context shared by every lifecycle operation. */
@@ -959,7 +959,7 @@ export async function graduateResult(
 }
 
 // How much integration detail rides inline before an agent is pointed at git for
-// the rest (ADR 0062). Caps protect the agent's context; the `range` anchors + the
+// the rest (ADR 0064). Caps protect the agent's context; the `range` anchors + the
 // escape-hatch hint make the overflow a single deliberate `git` call, not a dead end.
 // `overlap` — the priority signal — is capped loosely; it is already a narrow set.
 const INTEGRATE_COMMIT_CAP = 10;
@@ -983,7 +983,7 @@ function buildRange(
 }
 
 /**
- * Summarize what an integration brought in BENEATH the branch (ADR 0062) — the core
+ * Summarize what an integration brought in BENEATH the branch (ADR 0064) — the core
  * DX of the verb. From the merge's SHA anchors it computes the commits + files landed
  * (capped), the OVERLAP with the branch's own changes (the hot zone — files git merged
  * cleanly that may still conflict semantically), and the fire-scopes the incoming change
@@ -1265,7 +1265,7 @@ async function executeIntegratePlan(
           ? `Fast-forwarded to ${mainBranch} (+${outcome.behind} commit(s)).`
           : `Merged ${mainBranch} (was behind by ${outcome.behind} commit(s)).`,
       );
-      // Summarize what landed beneath the branch (ADR 0062) — commits, files, the
+      // Summarize what landed beneath the branch (ADR 0064) — commits, files, the
       // overlap hot zone, scopes — for the result `data` + hints, narrated here for
       // humans. Fail-open, so it can never undo or fail the merge that just landed.
       const summary = await summarizeIntegration(ctx, outcome, {
@@ -1381,7 +1381,7 @@ export async function integrateResult(
       "integrate",
       integratePlanToEngine(plan),
     );
-    // Predict what the merge WOULD bring in (ADR 0062) — the same summary as an
+    // Predict what the merge WOULD bring in (ADR 0064) — the same summary as an
     // apply, computed read-only from the fork point (no `after`; the file delta is
     // the three-dot `before...main`). Skipped on a no-op (nothing to integrate).
     if (!plan.alreadyIntegrated) {

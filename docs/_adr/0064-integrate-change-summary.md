@@ -1,11 +1,11 @@
-# ADR 0062: `integrate` reports what changed beneath the branch
+# ADR 0064: `integrate` reports what changed beneath the branch
 
 **Status**: accepted. Extends the integrate verb
 ([ADR 0055](0055-integrate-verb.md)) with a structured result payload, built on
 the result envelope + advisory hints of
 [ADR 0028](0028-result-envelope-and-diagnostics.md) /
-[ADR 0030](0030-agent-facing-hints.md), and reusing the scope-classification SSOT
-of the changed-scopes verb.
+[ADR 0030](0030-agent-facing-hints.md), and reusing the scope-classification
+SSOT of the changed-scopes verb.
 
 ## Context
 
@@ -28,7 +28,8 @@ only "merged main, run finish," sails straight into the semantic break.
 The raw material to fix this is already in hand at merge time. `integrateMain`
 computes how far `behind` the branch was and whether the merge was a
 fast-forward, then discards everything richer — the commits, the files, and
-crucially the **overlap** between what the agent changed and what `main` changed.
+crucially the **overlap** between what the agent changed and what `main`
+changed.
 
 ## Decision
 
@@ -42,9 +43,9 @@ never disagree on what happened.
 
 The payload, from highest-value signal down:
 
-- **`overlap`** — the files the branch **and** `main` both changed (the
-  branch's own diff since the fork ∩ the merge's incoming files). This is the hot
-  zone: the places a clean merge most likely hides a semantic conflict. It is the
+- **`overlap`** — the files the branch **and** `main` both changed (the branch's
+  own diff since the fork ∩ the files the merge brings in). This is the hot zone:
+  the places a clean merge most likely hides a semantic conflict. It is the
   headline of the agent-facing hint ("⚠ … N file(s) you've changed are also
   changed by main: … — re-read them for semantic conflicts a clean merge can't
   catch") and the one list capped loosely, because it is already narrow and is
@@ -60,11 +61,13 @@ The payload, from highest-value signal down:
   point), `before` (the branch tip / the agent's own work), `main` (the tip
   merged), `after` (the merged HEAD). These make a capped list a single
   deliberate `git` call instead of a dead end: when a list truncates, a hint
-  hands back the exact command with the anchors **pre-substituted** (`git diff
-  --stat <before>..<after>`, `git log --oneline <before>..<main>`), so even a weak
-  agent pulls the full set in one round-trip rather than inferring the range.
+  hands back the exact command with the anchors **pre-substituted**
+  (`git diff
+  --stat <before>..<after>`, `git log --oneline <before>..<main>`),
+  so even a weak agent pulls the full set in one round-trip rather than
+  inferring the range.
 
-**It works the same in `--dry-run`, predictively.** A preview can't merge, so
+**It works the same in `--dry-run`, as a prediction.** A preview can't merge, so
 there is no `after` and the file delta is the three-dot `before...main`
 prediction (changes on `main` since the fork) rather than the apply's two-dot
 `before..after` (the real post-merge tree change, reflecting conflict
@@ -96,11 +99,11 @@ merge" extended to the summary). Renames are decomposed to delete + add
   `integrate`; a path-glob change moves both together.
 - **`integrate`'s tool advertises a data-bearing `outputSchema`.** It joined the
   data verbs (`finish`/`status`/`start`/…) — `IntegrateOutputSchema` narrows the
-  envelope's `data` to `IntegrateData`; the no-op (already-integrated) path simply
-  omits `data`, which the optional field allows.
-- **One more payload to keep faithful.** The wire schema, the engine type, and the
-  human narration are three renderings of one object; the schema is derived, and
-  the engine tests pin the overlap math, the capping/escape-hatch, the scope
+  envelope's `data` to `IntegrateData`; the no-op (already-integrated) path
+  simply omits `data`, which the optional field allows.
+- **One more payload to keep faithful.** The wire schema, the engine type, and
+  the human narration are three renderings of one object; the schema is derived,
+  and the engine tests pin the overlap math, the capping/escape-hatch, the scope
   classification, and dry-run/apply parity.
 
 ## Alternatives considered
@@ -108,13 +111,13 @@ merge" extended to the summary). Renames are decomposed to delete + add
 - **Dump the full commit + file lists.** Rejected — it floods the agent's
   context on exactly the busy-repo merges where the summary matters most. Caps +
   the `range` escape hatch give the full picture on demand without the flood.
-- **Report counts only ("+7 commits, 41 files").** Rejected — the count is noise;
-  the agent needs _which_ files, and specifically the overlap. A bare count
-  doesn't change what the agent does next.
+- **Report counts only ("+7 commits, 41 files").** Rejected — the count is
+  noise; the agent needs _which_ files, and specifically the overlap. A bare
+  count doesn't change what the agent does next.
 - **Compute overlap as a git command the agent runs.** Rejected — git has no
   single command for the intersection of two diffs, and offloading the set logic
   is exactly what a weaker agent gets wrong. discern computes it and hands back
-  the answer; the `range` anchors remain for any deeper drill-down.
+  the answer; the `range` anchors remain for any deeper inspection.
 - **Predict conflicts in `--dry-run` via `git merge-tree`.** Deferred, not
   rejected — a natural follow-up (git ≥2.38 can merge in the object store and
   report conflicts without touching the tree), kept out of this change so the

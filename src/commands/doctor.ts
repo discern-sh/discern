@@ -21,10 +21,13 @@ import { resolveRecordedSchema } from "../lib/schema.ts";
 import { KIT_VERSION, SCHEMA_VERSION } from "../lib/version.ts";
 import {
   AGENT_NAMES,
+  type DiscernConfig,
+  loadConfig,
   parseConfig,
   resolveConfiguredAgents,
   toCommandList,
 } from "../shared/config_schema.ts";
+import { buildExecutionModel } from "../engine/doctor/execution_model.ts";
 import { providerFor, providersWithHooks } from "../lib/providers.ts";
 import {
   enabledFeatures,
@@ -40,6 +43,7 @@ import type {
   Check,
   DoctorData,
   DoctorEnvironment,
+  VerbPlan,
 } from "../shared/result_schemas.ts";
 
 /** Options accepted by the `doctor` command. */
@@ -556,16 +560,32 @@ export async function runChecks(destDir: string): Promise<Check[]> {
   return checks;
 }
 
+/** Load the typed config for the execution model, or `undefined` when none can be
+ * read (a missing or invalid discern.toml). The model is omitted in that case — the
+ * failing checks above are the actionable report; a model derived from defaults would
+ * only add noise to a broken install. */
+async function loadModelConfig(
+  destDir: string,
+): Promise<DiscernConfig | undefined> {
+  try {
+    return await loadConfig(destDir);
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Compute the `doctor` {@link DiscernResult} without printing — the entry point the
  * MCP server renders, and the source the CLI's `--json` serializes. Runs the
  * install checks and folds them into the envelope (`ok` = every check passed; the
- * per-check detail + fix ride in `data.checks`).
+ * per-check detail + fix ride in `data.checks`, the per-verb execution model in
+ * `data.execution_model`).
  */
 export async function doctorResult(
   destDir: string,
 ): Promise<DiscernResult<DoctorData>> {
   const checks = await runChecks(destDir);
+  const cfg = await loadModelConfig(destDir);
   return {
     ok: checks.every((c) => c.ok),
     verb: "doctor",
@@ -573,8 +593,117 @@ export async function doctorResult(
       kit_version: KIT_VERSION,
       environment: await doctorEnvironment(),
       checks,
+      ...(cfg !== undefined
+        ? { execution_model: buildExecutionModel(cfg) }
+        : {}),
     } satisfies DoctorData,
   };
+}
+
+/** The width to wrap the execution model to: the terminal's, or a sane default when
+ * output is piped/redirected (not a TTY). Capped so lines stay readable on a very wide
+ * terminal, and floored so the hanging indents still leave room for text. */
+function modelWidth(): number {
+  let cols = 100;
+  try {
+    cols = Deno.consoleSize().columns;
+  } catch {
+    // Not a TTY (piped) — keep the default.
+  }
+  return Math.max(56, Math.min(cols, 110));
+}
+
+/** Greedy word-wrap `text` into lines no wider than `width`. A single word longer
+ * than `width` overflows on its own line rather than being split mid-token. */
+function wrapText(text: string, width: number): string[] {
+  const words = text.split(/\s+/).filter((w) => w !== "");
+  if (words.length === 0) {
+    return [""];
+  }
+  const lines: string[] = [];
+  let line = words[0] ?? "";
+  for (const word of words.slice(1)) {
+    if (line.length + 1 + word.length <= width) {
+      line += ` ${word}`;
+    } else {
+      lines.push(line);
+      line = word;
+    }
+  }
+  lines.push(line);
+  return lines;
+}
+
+/**
+ * Render the execution-model section for the human (non-`--json`) path — what runs,
+ * in order, when each verb is called. Wraps to the terminal width with hanging indents
+ * (so a long hint never collapses to column 0 and the actor column stays legible) and
+ * colours each step's actor tag — green `[you]` (your configured command) vs cyan
+ * `[discern]` (a built-in step) — with destructive steps flagged in red. Routed through
+ * the narration stream (stderr for the installer), like the rest of doctor's human
+ * output. discern shows the facts and the expectations; the reader draws conclusions.
+ */
+function renderExecutionModel(log: Logger, model: VerbPlan[]): void {
+  const width = modelWidth();
+  const LABEL_COL = 12; // 2 (indent) + 9 (padded actor tag) + 1 (space)
+  const HINT_COL = 14; // hints nest one notch under the label column
+  const labelIndent = " ".repeat(LABEL_COL);
+  const hintIndent = " ".repeat(HINT_COL);
+
+  log.heading("Execution model");
+  // An aligned legend, rather than one long sentence that would itself wrap.
+  log.humanLine(`  ${log.dim("What runs when you call each verb:")}`);
+  log.humanLine(
+    `    ${log.green("[you]".padEnd(9))} ${log.dim("your configured command")}`,
+  );
+  log.humanLine(
+    `    ${log.cyan("[discern]".padEnd(9))} ${log.dim("a built-in step")}`,
+  );
+  log.humanLine(
+    `    ${log.red("⚠".padEnd(9))} ${log.dim("destructive — may delete data")}`,
+  );
+
+  for (const vp of model) {
+    log.heading(vp.verb);
+    for (const line of wrapText(vp.when, width - 2)) {
+      log.humanLine(`  ${log.dim(line)}`);
+    }
+    if (vp.steps.length === 0) {
+      log.humanLine(`  ${log.dim("(nothing configured)")}`);
+      continue;
+    }
+    for (const s of vp.steps) {
+      const tag = (s.actor === "you" ? "[you]" : "[discern]").padEnd(9);
+      const tagColored = s.actor === "you" ? log.green(tag) : log.cyan(tag);
+      const note = s.note !== undefined ? ` — ${s.note}` : "";
+      const cond = s.condition !== undefined ? ` (${s.condition})` : "";
+      // Wrap the headline body (label + note + condition) to the room right of the
+      // label column; bold the label portion of line 1, dim the remainder.
+      const bodyLines = wrapText(`${s.label}${note}${cond}`, width - LABEL_COL);
+      bodyLines.forEach((bl, i) => {
+        if (i === 0) {
+          const boldLen = Math.min(s.label.length, bl.length);
+          log.humanLine(
+            `  ${tagColored} ${log.bold(bl.slice(0, boldLen))}${
+              log.dim(bl.slice(boldLen))
+            }`,
+          );
+        } else {
+          log.humanLine(`${labelIndent}${log.dim(bl)}`);
+        }
+      });
+      if (s.destructive === true) {
+        log.humanLine(
+          `${labelIndent}${log.red("⚠ DESTRUCTIVE — may delete data")}`,
+        );
+      }
+      if (s.hint !== undefined) {
+        for (const hl of wrapText(s.hint, width - HINT_COL)) {
+          log.humanLine(`${hintIndent}${log.dim(hl)}`);
+        }
+      }
+    }
+  }
 }
 
 /** Run `discern doctor`. Returns a process exit code (0 = healthy). */
@@ -625,6 +754,10 @@ export async function runDoctor(options: DoctorOptions): Promise<number> {
     log.error(
       `${failed} check${failed === 1 ? "" : "s"} failed — see the fixes above.`,
     );
+  }
+  const cfg = await loadModelConfig(destDir);
+  if (cfg !== undefined) {
+    renderExecutionModel(log, buildExecutionModel(cfg));
   }
   return healthy ? 0 : 1;
 }

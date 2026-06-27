@@ -1,0 +1,467 @@
+/**
+ * `discern doctor`'s **execution model** — the honest, annotated answer to "what
+ * runs when I call verb X, in what order, which steps are mine vs discern's, and what
+ * must be idempotent, fast, or could destroy data" (ADR 0063).
+ *
+ * The golden rule is DERIVE-FROM-SSOT, never hand-write the sequence:
+ *  - the gate verbs (`finish` / `prepare` / `test` / `ratchets`) are pure functions
+ *    of config, so their step lists are built by walking the REAL plan builders
+ *    ({@link buildGatePlan}, {@link preparePlanGroups}, {@link stageGroup},
+ *    {@link buildRatchetPlan}) — a test asserts they are byte-derived, so they can
+ *    never drift from what the gate actually runs;
+ *  - the worktree verbs' plans need live runtime state (a resolved worktree identity,
+ *    the ledger), so they can't render statically here. For those we author a small
+ *    CONDITIONAL model that mirrors the lifecycle executor, pulling the *user*
+ *    commands (resource `create`/`destroy`/`ensure`, `[worktree.setup]` steps) LIVE
+ *    from the config so the command text can't go stale.
+ *
+ * Two closed vocabularies pin the annotations so a new engine concept can't slip in
+ * undocumented: {@link STEP_KIND_ANNOTATIONS} is TOTAL over `StepKind` (a new step
+ * kind is a compile error until annotated), and {@link STAGE_HINTS} is total over
+ * `Stage` (a new gate stage likewise). Both are the forcing functions the
+ * fix-the-class discipline asks for, mirroring the gate's own total
+ * `Record<FailedStage, string>` fail-message table.
+ *
+ * discern renders the facts and the expectations; it does NOT judge them. "Your slow
+ * integration linter is wired into the fast inner loop" is a conclusion for the
+ * *consuming* agent to draw from this model — not a verdict discern hands down.
+ */
+
+import type {
+  DiscernConfig,
+  GraduateTarget,
+} from "../../shared/config_schema.ts";
+import { isFeatureEnabled } from "../../shared/features.ts";
+import type { Stage } from "../../shared/capabilities.ts";
+import type { Actor, StepKind } from "../../shared/result.ts";
+import type { ExecutionStep, VerbPlan } from "../../shared/result_schemas.ts";
+import {
+  buildGatePlan,
+  type PlannedJob,
+  preparePlanGroups,
+  stageGroup,
+} from "../gate/plan.ts";
+import { buildRatchetPlan, perNote } from "../gate/ratchet_plan.ts";
+
+// ── the annotation registries (the forcing functions) ───────────────────────
+
+/** The per-kind annotation: who the command belongs to, the class-level expectation
+ * the user reads, and whether the kind is destructive (can lose data). */
+interface StepKindAnnotation {
+  actor: Actor;
+  hint: string;
+  destructive?: boolean;
+}
+
+/**
+ * The hint registry — TOTAL over {@link StepKind}, so a newly-added engine step kind
+ * is a COMPILE error here until it is given an actor + hint (the fix-the-class guard,
+ * mirroring `finish.ts`'s total `FAIL_MESSAGES`). The hint *text* is sourced from the
+ * canonical prose (the `discern.toml` template comments, `docs/30-worktrees/`, the
+ * ADRs) and kept domain-neutral — this ships to every project, in every field. The
+ * `job` kind's hint is the generic fallback; a real gate job is annotated with its
+ * STAGE's hint ({@link STAGE_HINTS}) instead, which is the more specific truth.
+ */
+const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
+  job: {
+    actor: "you",
+    hint:
+      "A configured gate command (a capability or a check); its stage decides when it runs and what is expected of it.",
+  },
+  "scope-gate": {
+    actor: "you",
+    hint:
+      "A scope's own gate command. Runs only when that scope's paths changed (classification fails open: an unknown path runs more gates, never fewer).",
+  },
+  "merge-check": {
+    actor: "discern",
+    hint:
+      "Built-in fail-fast precondition: the branch must already contain the latest integration branch before the gate spends time. A no-op in the main checkout.",
+  },
+  "guidance-check": {
+    actor: "discern",
+    hint:
+      "Built-in fail-fast precondition: the generated agent files must match their sources — run `discern refresh` if stale.",
+  },
+  "skills-check": {
+    actor: "discern",
+    hint:
+      "Built-in fail-fast precondition: the materialized skills must match the effective set — run `discern refresh` if stale.",
+  },
+  "resource-create": {
+    actor: "you",
+    hint:
+      "Your `create` command for a per-worktree external resource. Runs once at setup (skipped when already provisioned) and is reconciled by its `ensure` command on re-entry. Author it idempotent and cwd-independent.",
+  },
+  "resource-destroy": {
+    actor: "you",
+    destructive: true,
+    hint:
+      "Your `destroy` command for a per-worktree external resource — DESTRUCTIVE. Runs at graduate/teardown AND at orphan GC (`worktree:prune`); author it idempotent and cwd-independent, and set `gc = false` for a data-loss-sensitive resource you only want torn down explicitly.",
+  },
+  git: {
+    actor: "discern",
+    hint:
+      "A built-in git mutation discern performs (branch, WIP-commit, worktree removal, checkout, reset, sweep); the note says which.",
+  },
+  "setup-step": {
+    actor: "you",
+    hint:
+      "A one-shot `[worktree.setup].steps` command. Runs once at worktree creation, after the resources; a failure aborts setup. Skipped on re-entry.",
+  },
+  "setup-ensure": {
+    actor: "you",
+    hint:
+      "A convergent `[worktree.setup].ensure` command. Re-runs on EVERY pass (create, session start, integrate) — MUST be idempotent; prefer fast-when-current. Fatal at creation, non-fatal on re-entry.",
+  },
+  env: {
+    actor: "discern",
+    hint:
+      "Built-in: record the deterministic port, inherit env vars from the main checkout, and write resource handles into the worktree's `.env`.",
+  },
+  refresh: {
+    actor: "discern",
+    hint:
+      "Built-in: recompile the generated agent files and re-materialize the skills.",
+  },
+  ratchet: {
+    actor: "you",
+    hint:
+      "Your measurement command for a never-loosen metric. On demand only (`discern ratchets`), never part of the gate; the result is compared to its limit versus the integration branch.",
+  },
+};
+
+/**
+ * The per-stage hint for a real gate job — TOTAL over {@link Stage}, so a new gate
+ * stage is a compile error until annotated. A `job` step renders THIS hint (keyed by
+ * its stage) rather than the generic `job` entry above, because the stage is what
+ * tells a user the load-bearing expectation: the fix stage mutates and must be
+ * committed; the check stage is the fast inner loop; tests are slow. Sourced from the
+ * `[capabilities]` comments in the config template and ADR 0047 (the strand check).
+ */
+const STAGE_HINTS: Record<Stage, string> = {
+  fix:
+    "Mutating; runs first, serially (a later fixer may build on an earlier one's edits). Commit its output — the fix-stage strand check refuses to land a run that left fixer output uncommitted.",
+  build: "Produces the artifacts that later stages read.",
+  check:
+    "Read-only; keep it fast — this is the inner loop you run constantly (`discern prepare`).",
+  test: "The suite; slow — deliberately kept out of `discern prepare`.",
+};
+
+// ── step construction ────────────────────────────────────────────────────────
+
+/** Overrides a caller can layer on a step's registry defaults. */
+interface StepOverrides {
+  note?: string;
+  hint?: string;
+  condition?: string;
+  destructive?: boolean;
+}
+
+/** Build one {@link ExecutionStep}, taking its actor + default hint + destructive flag
+ * from the {@link STEP_KIND_ANNOTATIONS} registry and applying any overrides. Optional
+ * keys are spread conditionally so an absent field is omitted, not set to `undefined`
+ * (exactOptionalPropertyTypes). */
+function step(
+  kind: StepKind,
+  label: string,
+  o: StepOverrides = {},
+): ExecutionStep {
+  const ann = STEP_KIND_ANNOTATIONS[kind];
+  const destructive = o.destructive ?? ann.destructive ?? false;
+  return {
+    kind,
+    label,
+    actor: ann.actor,
+    hint: o.hint ?? ann.hint,
+    ...(o.note !== undefined ? { note: o.note } : {}),
+    ...(destructive ? { destructive: true } : {}),
+    ...(o.condition !== undefined ? { condition: o.condition } : {}),
+  };
+}
+
+/** Annotate one planned gate job (capability/check/scope-gate) — the shared
+ * projection the `finish`/`prepare`/`test` derivations all funnel through, so a job's
+ * label, command (the note), and stage-specific hint come from the real plan. */
+function annotateJob(job: PlannedJob): ExecutionStep {
+  if (job.kind === "scope-gate") {
+    const scope = job.label.replace(/^scope:/, "");
+    return step("scope-gate", job.label, {
+      note: job.command,
+      condition: `when scope '${scope}' changed`,
+    });
+  }
+  // A capability/check job's reportStage is always a real Stage (never "scope_gates").
+  return step("job", job.label, {
+    note: job.command,
+    hint: STAGE_HINTS[job.reportStage as Stage],
+  });
+}
+
+// ── gate verbs (byte-derived from the real plan builders) ───────────────────
+
+/** `finish` — the full gate. Walks the REAL {@link buildGatePlan}: the fail-fast
+ * preconditions, then the fix → build → check∥test → scope-gate jobs. All scopes are
+ * passed as "changed" so every scope gate renders (as conditional, not skipped). */
+function finishVerb(cfg: DiscernConfig): VerbPlan {
+  const plan = buildGatePlan(cfg, Object.keys(cfg.scopes));
+  const steps: ExecutionStep[] = [];
+  if (plan.mergeCheck) {
+    steps.push(step("merge-check", "merge-check"));
+  }
+  if (plan.guidanceCheck) {
+    steps.push(step("guidance-check", "guidance-check"));
+  }
+  if (plan.skillsCheck) {
+    steps.push(step("skills-check", "skills-check"));
+  }
+  for (const group of plan.groups) {
+    for (const job of group.jobs) {
+      steps.push(annotateJob(job));
+    }
+  }
+  return {
+    verb: "finish",
+    when: "Before you call a change done — the full gate.",
+    steps,
+  };
+}
+
+/** `prepare` — the fast inner loop, from the real {@link preparePlanGroups} (fix then
+ * check; no build, no tests). */
+function prepareVerb(cfg: DiscernConfig): VerbPlan {
+  const steps = preparePlanGroups(cfg).flatMap((g) => g.jobs.map(annotateJob));
+  return {
+    verb: "prepare",
+    when:
+      "The fast inner loop while you iterate (fix, then check; no build, no tests).",
+    steps,
+  };
+}
+
+/** `test` — just the test stage, from the real {@link stageGroup}. */
+function testVerb(cfg: DiscernConfig): VerbPlan {
+  const group = stageGroup(cfg, "test");
+  return {
+    verb: "test",
+    when: "The test suite on its own, outside the full gate.",
+    steps: group === undefined ? [] : group.jobs.map(annotateJob),
+  };
+}
+
+/** `ratchets` — each configured ratchet, from the real {@link buildRatchetPlan}. */
+function ratchetsVerb(cfg: DiscernConfig): VerbPlan {
+  const steps = buildRatchetPlan(cfg).ratchets.map((r) =>
+    step("ratchet", r.name, {
+      note: r.command !== "" ? r.command : "(no command configured)",
+      condition: `${r.direction}, limit ${r.limit}${perNote(r.per, r.scale)}`,
+    })
+  );
+  return {
+    verb: "ratchets",
+    when: "On demand before pushing — slow, so never part of `discern finish`.",
+    steps,
+  };
+}
+
+// ── worktree verbs (authored conditional model; user commands pulled live) ──
+
+/** This project's declared resources, in document order. */
+function resourceEntries(
+  cfg: DiscernConfig,
+): [string, DiscernConfig["worktree"]["resources"][string]][] {
+  return Object.entries(cfg.worktree.resources);
+}
+
+/** `start` / `worktree:create` — mint a fresh worktree and run its first-time setup.
+ * Mirrors `createAndSetupWorktree` → `buildSetupPlan` (lifecycle.ts), reading the
+ * resource / setup commands live from the config. */
+function startVerb(cfg: DiscernConfig): VerbPlan {
+  const steps: ExecutionStep[] = [
+    step("git", "add-worktree", {
+      note: "create the linked worktree on its agent/ branch",
+    }),
+    step("git", "ensure-branch", {
+      note: "put the worktree on a named branch",
+    }),
+  ];
+  for (const [name, r] of resourceEntries(cfg)) {
+    if (r.create !== "" || r.destroy !== "") {
+      steps.push(step("resource-create", name, {
+        note: r.create !== "" ? r.create : "(no create command)",
+        condition: "first setup only — re-entry runs `ensure` instead",
+      }));
+    }
+  }
+  if (cfg.worktree.inherit_env.length > 0) {
+    steps.push(step("env", "inherit-env", {
+      note: cfg.worktree.inherit_env.join(", "),
+    }));
+  }
+  if (cfg.worktree.port) {
+    steps.push(step("env", "record-port", {
+      note: "deterministic dev-server port → .env",
+    }));
+  }
+  for (const s of cfg.worktree.setup.steps) {
+    steps.push(step("setup-step", s, { condition: "first setup only" }));
+  }
+  for (const s of cfg.worktree.setup.ensure) {
+    steps.push(step("setup-ensure", s));
+  }
+  steps.push(step("refresh", "refresh agent files", {
+    note: "recompile agent files + materialize skills",
+  }));
+  return {
+    verb: "start (worktree:create)",
+    when:
+      "When you begin a new line of work — create a fresh isolated worktree and set it up (also the WorktreeCreate hook's path).",
+    steps,
+  };
+}
+
+/** `worktree:ensure` — the idempotent session-start convergence (lifecycle.ts
+ * `worktreeEnsure`): reconcile resources declaring an `ensure`, then re-run the
+ * convergent `[worktree.setup].ensure`. A no-op once the worktree is ready. */
+function ensureVerb(cfg: DiscernConfig): VerbPlan {
+  const steps = cfg.worktree.setup.ensure.map((s) =>
+    step("setup-ensure", s, { condition: "converge the worktree on the tree" })
+  );
+  return {
+    verb: "worktree:ensure",
+    when:
+      "On every session start — reconcile any resource declaring an `ensure`, then re-run the convergent setup commands. Idempotent: a no-op once the worktree is ready.",
+    steps,
+  };
+}
+
+/** `integrate` — bring the integration branch in and re-materialize (lifecycle.ts
+ * `executeIntegratePlan`), then converge the worktree on the merged tree. */
+function integrateVerb(cfg: DiscernConfig): VerbPlan {
+  const steps: ExecutionStep[] = [
+    step("git", "merge", {
+      note: "merge the integration branch into this branch",
+    }),
+    step("refresh", "refresh agent files", {
+      note: "re-materialize agent files + skills",
+    }),
+  ];
+  for (const s of cfg.worktree.setup.ensure) {
+    steps.push(
+      step("setup-ensure", s, { condition: "converge on the merged tree" }),
+    );
+  }
+  return {
+    verb: "integrate",
+    when:
+      "When the branch is behind the integration branch (the gate's merge check points here). A no-op when already up to date.",
+    steps,
+  };
+}
+
+/** `graduate` — hand the branch back to the main checkout (lifecycle.ts
+ * `executeGraduatePlan`). Authored per landing target (`--to branch` / `--to trunk`),
+ * with the resource teardown expanded per declared `destroy` (reverse order) so the
+ * DESTRUCTIVE command a user wired is shown, not hidden behind a generic step. */
+function graduateVerb(cfg: DiscernConfig, to: GraduateTarget): VerbPlan {
+  const steps: ExecutionStep[] = [];
+  const destroyable = resourceEntries(cfg).filter(([, r]) => r.destroy !== "");
+  for (const [name, r] of destroyable.reverse()) {
+    steps.push(step("resource-destroy", name, {
+      note: r.destroy,
+      condition: "if the resource was provisioned (reverse-creation order)",
+    }));
+  }
+  steps.push(step("git", "wip-commit", {
+    condition: "only if the worktree is dirty",
+    note: "commit leftover uncommitted changes as WIP",
+  }));
+  steps.push(step("git", "remove-worktree", {
+    note: "remove the worktree directory",
+  }));
+  if (to === "trunk") {
+    steps.push(step("git", "fast-forward-trunk", {
+      note: "fast-forward the trunk to the branch tip",
+    }));
+    steps.push(step("git", "delete-branch", {
+      note: "delete the now-merged branch",
+    }));
+  } else {
+    steps.push(step("git", "checkout", {
+      note: "check the branch out in the main repo for review",
+    }));
+  }
+  steps.push(step("git", "unstage-wip", {
+    condition: "only if a WIP commit was made",
+    note: "soft-reset so the changes land staged-but-uncommitted",
+  }));
+  const landing = to === "trunk"
+    ? "fast-forward the trunk to the branch and delete the now-merged branch"
+    : "hand the branch back to the main checkout for review (the branch is preserved)";
+  return {
+    verb: `graduate (--to ${to})`,
+    when:
+      `When the work is done and integrated — ${landing}. First re-runs the fix stage as a fixed-point guard (ADR 0061).`,
+    steps,
+  };
+}
+
+/** `worktree:prune` — the garbage-collection sweep (lifecycle.ts `worktreePrune`):
+ * remove stale worktrees / dangling branches / orphan dirs, then reclaim the
+ * resources of any worktree that vanished without a clean teardown. */
+function pruneVerb(cfg: DiscernConfig): VerbPlan {
+  const steps: ExecutionStep[] = [
+    step("git", "remove-worktree", {
+      condition: "for each stale worktree git no longer tracks",
+    }),
+    step("git", "delete-branch", {
+      condition: "for each fully-merged dangling branch",
+    }),
+    step("git", "reclaim-orphan-dir", {
+      condition: "for each orphan gitlinked directory",
+    }),
+  ];
+  for (const [name, r] of resourceEntries(cfg)) {
+    if (r.destroy !== "") {
+      steps.push(step("resource-destroy", name, {
+        note: r.destroy,
+        condition: r.gc === false
+          ? "never — gc = false (teardown-only; reclaimed only by an explicit graduate/teardown)"
+          : "if orphaned (its worktree vanished without a clean teardown)",
+      }));
+    }
+  }
+  return {
+    verb: "worktree:prune",
+    when:
+      "Housekeeping — sweep stale worktrees and reclaim resources orphaned by a worktree that vanished without a clean teardown.",
+    steps,
+  };
+}
+
+// ── assembly ─────────────────────────────────────────────────────────────────
+
+/**
+ * Build the full execution model from the typed config — one {@link VerbPlan} per
+ * configurable verb, gated by the same feature toggles as the real CLI/MCP verb
+ * surface (the worktree verbs only when `worktrees` is on, `ratchets` only when on).
+ * Pure: a function of config alone, so `discern doctor` and the MCP `discern_doctor`
+ * tool both serve exactly this.
+ */
+export function buildExecutionModel(cfg: DiscernConfig): VerbPlan[] {
+  const model: VerbPlan[] = [finishVerb(cfg), prepareVerb(cfg), testVerb(cfg)];
+  if (isFeatureEnabled(cfg, "ratchets")) {
+    model.push(ratchetsVerb(cfg));
+  }
+  if (isFeatureEnabled(cfg, "worktrees")) {
+    model.push(
+      startVerb(cfg),
+      ensureVerb(cfg),
+      integrateVerb(cfg),
+      graduateVerb(cfg, "branch"),
+      graduateVerb(cfg, "trunk"),
+      pruneVerb(cfg),
+    );
+  }
+  return model;
+}
