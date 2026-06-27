@@ -1,4 +1,4 @@
-# ADR 0062: `discern doctor` prints the execution model — facts, not judgments
+# ADR 0063: `discern doctor` prints the execution model — facts, not judgments
 
 **Status**: accepted. Adds an `execution_model` section to `doctor` (human + the
 `--json` `data.execution_model`), derived from the same plan builders the gate

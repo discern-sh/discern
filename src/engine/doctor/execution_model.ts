@@ -1,7 +1,7 @@
 /**
  * `discern doctor`'s **execution model** — the honest, annotated answer to "what
  * runs when I call verb X, in what order, which steps are mine vs discern's, and what
- * must be idempotent, fast, or could destroy data" (ADR 0062).
+ * must be idempotent, fast, or could destroy data" (ADR 0063).
  *
  * The golden rule is DERIVE-FROM-SSOT, never hand-write the sequence:
  *  - the gate verbs (`finish` / `prepare` / `test` / `ratchets`) are pure functions

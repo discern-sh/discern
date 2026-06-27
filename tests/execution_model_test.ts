@@ -1,5 +1,5 @@
 /**
- * The execution-model forcing functions (ADR 0062) — the guards that keep
+ * The execution-model forcing functions (ADR 0063) — the guards that keep
  * `discern doctor`'s "what runs when" model honest and complete.
  *
  *  - COVERAGE: every engine `STEP_KIND` is documented by at least one verb, so a new

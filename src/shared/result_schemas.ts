@@ -277,7 +277,7 @@ export type DoctorEnvironment = z.infer<typeof DoctorEnvironmentSchema>;
  * `hint` is the class-level expectation (idempotent / fast / built-in / …); `condition`
  * is when the step actually fires (a dirty worktree, a changed scope); `destructive`
  * flags a step that can lose data. discern renders the facts and the expectations — it
- * does NOT judge them; a consuming agent draws the conclusions (ADR 0062).
+ * does NOT judge them; a consuming agent draws the conclusions (ADR 0063).
  */
 export const ExecutionStepSchema = z.strictObject({
   kind: stepKindEnum,
