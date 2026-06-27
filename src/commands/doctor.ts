@@ -639,9 +639,9 @@ function wrapText(text: string, width: number): string[] {
  * in order, when each verb is called. Wraps to the terminal width with hanging indents
  * (so a long hint never collapses to column 0 and the actor column stays legible) and
  * colours each step's actor tag — green `[project]` (your configured command) vs cyan
- * `[discern]` (a built-in step) — with destructive steps flagged in red. Routed through
- * the narration stream (stderr for the installer), like the rest of doctor's human
- * output. discern shows the facts and the expectations; the reader draws conclusions.
+ * `[discern]` (a built-in step). Routed through the narration stream (stderr for the
+ * installer), like the rest of doctor's human output. discern shows the facts and the
+ * expectations; the reader draws conclusions.
  */
 function renderExecutionModel(log: Logger, model: VerbPlan[]): void {
   const width = modelWidth();
@@ -660,9 +660,6 @@ function renderExecutionModel(log: Logger, model: VerbPlan[]): void {
   );
   log.humanLine(
     `    ${log.cyan("[discern]".padEnd(9))} ${log.dim("a built-in step")}`,
-  );
-  log.humanLine(
-    `    ${log.red("⚠".padEnd(9))} ${log.dim("destructive — may delete data")}`,
   );
 
   for (const vp of model) {
@@ -694,11 +691,6 @@ function renderExecutionModel(log: Logger, model: VerbPlan[]): void {
           log.humanLine(`${labelIndent}${log.dim(bl)}`);
         }
       });
-      if (s.destructive === true) {
-        log.humanLine(
-          `${labelIndent}${log.red("⚠ DESTRUCTIVE — may delete data")}`,
-        );
-      }
       if (s.hint !== undefined) {
         for (const hl of wrapText(s.hint, width - HINT_COL)) {
           log.humanLine(`${hintIndent}${log.dim(hl)}`);

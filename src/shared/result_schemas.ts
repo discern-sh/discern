@@ -275,9 +275,9 @@ export type DoctorEnvironment = z.infer<typeof DoctorEnvironmentSchema>;
  * `kind` is the engine's own {@link STEP_KINDS} vocabulary (derived, not re-listed);
  * `actor` marks whose command it is ({@link ACTORS}); `note` is the command or detail;
  * `hint` is the class-level expectation (idempotent / fast / built-in / …); `condition`
- * is when the step actually fires (a dirty worktree, a changed scope); `destructive`
- * flags a step that can lose data. discern renders the facts and the expectations — it
- * does NOT judge them; a consuming agent draws the conclusions (ADR 0063).
+ * is when the step actually fires (a dirty worktree, a changed scope). discern renders
+ * the facts and the expectations — it does NOT judge them; a consuming agent draws the
+ * conclusions (ADR 0063).
  */
 export const ExecutionStepSchema = z.strictObject({
   kind: stepKindEnum,
@@ -285,7 +285,6 @@ export const ExecutionStepSchema = z.strictObject({
   actor: z.enum(ACTORS),
   note: z.string().optional(),
   hint: z.string().optional(),
-  destructive: z.boolean().optional(),
   condition: z.string().optional(),
 });
 export type ExecutionStep = z.infer<typeof ExecutionStepSchema>;

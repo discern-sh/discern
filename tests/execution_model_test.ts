@@ -142,10 +142,10 @@ Deno.test("execution model: actor matches the user-configured vs built-in split"
   }
 });
 
-Deno.test("execution model: a resource teardown is flagged destructive and shows the user's command", () => {
+Deno.test("execution model: a resource teardown shows the user's command in every verb that runs it", () => {
   const model = buildExecutionModel(parseConfigOrThrow(RICH_TOML));
   // The motivating case ("why did graduate tear down my database?"): the user's destroy
-  // command is surfaced as a DESTRUCTIVE [you] step in both graduate forms and prune.
+  // command is surfaced verbatim as a [project] step in both graduate forms and prune.
   for (
     const verb of [
       "graduate (--to branch)",
@@ -160,7 +160,6 @@ Deno.test("execution model: a resource teardown is flagged destructive and shows
     );
     assert(destroy !== undefined, `${verb} should tear down the db resource`);
     assertEquals(destroy.actor, "project");
-    assertEquals(destroy.destructive, true);
     assertEquals(destroy.note, "dropdb @db@");
   }
 });

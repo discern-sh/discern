@@ -265,8 +265,8 @@ export const TOOLS: McpTool[] = [
       "resolve on PATH, and advisories. data.checks lists every check with its detail " +
       "and — on failure — the exact fix. data.execution_model lists, per configurable " +
       "verb, the ordered steps it runs — each marked project (your configured command) " +
-      "or discern (a built-in step), with its expectation and any destructive flag — so " +
-      "you can see what runs when, and catch a real config mistake (e.g. a slow command " +
+      "or discern (a built-in step), with its expectation — so you can see what runs " +
+      "when, and catch a real config mistake (e.g. a slow command " +
       "in the fast inner loop).",
     run: (root) => doctorResult(root),
   }),

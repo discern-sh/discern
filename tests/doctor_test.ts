@@ -32,7 +32,6 @@ interface ExecStep {
   actor: "project" | "discern";
   note?: string;
   hint?: string;
-  destructive?: boolean;
   condition?: string;
 }
 
@@ -533,7 +532,7 @@ Deno.test("doctor --json: carries the execution model, each step marked project/
   });
 });
 
-Deno.test("doctor --json: a per-worktree resource shows a destructive teardown step", async () => {
+Deno.test("doctor --json: a per-worktree resource shows its teardown step with the user's command", async () => {
   await withTempDir(async (dir) => {
     await initInstall(dir);
     await appendConfig(
@@ -542,13 +541,12 @@ Deno.test("doctor --json: a per-worktree resource shows a destructive teardown s
     );
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 0);
-    // The user's destroy command is surfaced as a DESTRUCTIVE [you] step — the
+    // The user's destroy command is surfaced verbatim as a [project] teardown step — the
     // motivating "why did graduate tear down my database?" answered up front.
     const grad = modelVerb(payload, "graduate (--to trunk)");
     const destroy = grad.steps.find((s) => s.kind === "resource-destroy");
     assert(destroy !== undefined, "graduate should tear the resource down");
     assertEquals(destroy.actor, "project");
-    assertEquals(destroy.destructive, true);
     assertEquals(destroy.note, "dropdb x");
   });
 });

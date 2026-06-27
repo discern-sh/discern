@@ -1,7 +1,7 @@
 /**
  * `discern doctor`'s **execution model** — the honest, annotated answer to "what
  * runs when I call verb X, in what order, which steps are mine vs discern's, and what
- * must be idempotent, fast, or could destroy data" (ADR 0063).
+ * must be idempotent or fast" (ADR 0063).
  *
  * The golden rule is DERIVE-FROM-SSOT, never hand-write the sequence:
  *  - the gate verbs (`finish` / `prepare` / `test` / `ratchets`) are pure functions
@@ -45,12 +45,11 @@ import { buildRatchetPlan, perNote } from "../gate/ratchet_plan.ts";
 
 // ── the annotation registries (the forcing functions) ───────────────────────
 
-/** The per-kind annotation: who the command belongs to, the class-level expectation
- * the user reads, and whether the kind is destructive (can lose data). */
+/** The per-kind annotation: who the command belongs to and the class-level
+ * expectation the user reads. */
 interface StepKindAnnotation {
   actor: Actor;
   hint: string;
-  destructive?: boolean;
 }
 
 /**
@@ -95,9 +94,8 @@ const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
   },
   "resource-destroy": {
     actor: "project",
-    destructive: true,
     hint:
-      "Your `destroy` command for a per-worktree external resource — DESTRUCTIVE. Runs at graduate/teardown AND at orphan GC (`worktree:prune`); author it idempotent and cwd-independent, and set `gc = false` for a data-loss-sensitive resource you only want torn down explicitly.",
+      "Your `destroy` command for a per-worktree external resource. Runs at graduate/teardown AND at orphan GC (`worktree:prune`); author it idempotent and cwd-independent, and set `gc = false` for a data-loss-sensitive resource you only want torn down explicitly.",
   },
   git: {
     actor: "discern",
@@ -155,12 +153,11 @@ interface StepOverrides {
   note?: string;
   hint?: string;
   condition?: string;
-  destructive?: boolean;
 }
 
-/** Build one {@link ExecutionStep}, taking its actor + default hint + destructive flag
- * from the {@link STEP_KIND_ANNOTATIONS} registry and applying any overrides. Optional
- * keys are spread conditionally so an absent field is omitted, not set to `undefined`
+/** Build one {@link ExecutionStep}, taking its actor + default hint from the
+ * {@link STEP_KIND_ANNOTATIONS} registry and applying any overrides. Optional keys are
+ * spread conditionally so an absent field is omitted, not set to `undefined`
  * (exactOptionalPropertyTypes). */
 function step(
   kind: StepKind,
@@ -168,14 +165,12 @@ function step(
   o: StepOverrides = {},
 ): ExecutionStep {
   const ann = STEP_KIND_ANNOTATIONS[kind];
-  const destructive = o.destructive ?? ann.destructive ?? false;
   return {
     kind,
     label,
     actor: ann.actor,
     hint: o.hint ?? ann.hint,
     ...(o.note !== undefined ? { note: o.note } : {}),
-    ...(destructive ? { destructive: true } : {}),
     ...(o.condition !== undefined ? { condition: o.condition } : {}),
   };
 }
@@ -362,7 +357,7 @@ function integrateVerb(cfg: DiscernConfig): VerbPlan {
 /** `graduate` — hand the branch back to the main checkout (lifecycle.ts
  * `executeGraduatePlan`). Authored per landing target (`--to branch` / `--to trunk`),
  * with the resource teardown expanded per declared `destroy` (reverse order) so the
- * DESTRUCTIVE command a user wired is shown, not hidden behind a generic step. */
+ * `destroy` command a user wired is shown, not hidden behind a generic step. */
 function graduateVerb(cfg: DiscernConfig, to: GraduateTarget): VerbPlan {
   const steps: ExecutionStep[] = [];
   const destroyable = resourceEntries(cfg).filter(([, r]) => r.destroy !== "");
