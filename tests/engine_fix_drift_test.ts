@@ -11,8 +11,11 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
+import { exists } from "@std/fs";
 import { withTempDir } from "./helpers.ts";
 import {
+  addWorktree,
+  git,
   gitInit,
   runAgent,
   scaffoldEngine,
@@ -142,5 +145,69 @@ Deno.test("finish: a fixer reworking the agent's OWN uncommitted edit does NOT t
     // The fixer DID reformat the WIP file (so this isn't a vacuous pass) — it was
     // already dirty at finish-start, so it is the agent's to commit, not a strand.
     assertEquals(await Deno.readTextFile(join(dir, "doc.md")), "world\n");
+  });
+});
+
+// ── wired: the graduate boundary (ADR 0061) ─────────────────────────────────────
+// The same fixed-point property `finish` enforces, brought to `graduate` — so a branch an
+// agent committed WITHOUT a clean `finish` (e.g. running only a scope gate on a docs edit,
+// never the formatter) cannot fast-forward unformatted Markdown onto the trunk LOCALLY,
+// where CI's trailing `git diff --exit-code` never runs.
+
+Deno.test("graduate: refuses (non-destructively) when the fix stage would reformat a committed file", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, CONFIG);
+    await writeExecutable(join(dir, "fixer.sh"), FIXER);
+    await gitInit(dir); // main: config + fixer committed, fix-stage clean
+    const wt = await addWorktree(dir, "gamma");
+
+    // The agent skips `finish` and commits an unformatted doc straight onto the branch.
+    await Deno.writeTextFile(join(wt, "doc.md"), "hello   \n");
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "docs: add note", "--no-gpg-sign");
+
+    const r = await runAgent(wt, ["graduate", "--to", "trunk"]);
+    assertEquals(r.code, 1, r.output);
+    assertStringIncludes(r.output, "doc.md");
+    assertStringIncludes(r.output, "fix stage");
+    // Non-destructive: the worktree survives and the unformatted doc never reached main.
+    assertEquals(
+      await exists(wt),
+      true,
+      `worktree must survive the refusal\n${r.output}`,
+    );
+    assertEquals(
+      await exists(join(dir, "doc.md")),
+      false,
+      "the unformatted doc must not reach main",
+    );
+    // The fixer's reformat is left applied in the worktree, ready for the agent to commit.
+    assertEquals(await Deno.readTextFile(join(wt, "doc.md")), "hello\n");
+  });
+});
+
+Deno.test("graduate: a fix-stage-clean branch lands normally", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, CONFIG);
+    await writeExecutable(join(dir, "fixer.sh"), FIXER);
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "epsilon");
+
+    // doc.md is already canonical → the guard's fixer is a no-op, nothing stranded.
+    await Deno.writeTextFile(join(wt, "doc.md"), "hello\n");
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "docs: add note", "--no-gpg-sign");
+
+    const r = await runAgent(wt, ["graduate", "--to", "trunk"]);
+    assertEquals(r.code, 0, r.output);
+    assertEquals(
+      await exists(wt),
+      false,
+      `a clean branch should graduate\n${r.output}`,
+    );
+    // The work landed on the trunk in the main checkout, formatted.
+    assertEquals(await Deno.readTextFile(join(dir, "doc.md")), "hello\n");
   });
 });
