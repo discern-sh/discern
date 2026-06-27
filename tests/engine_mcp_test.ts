@@ -6,11 +6,13 @@
  */
 
 import { assert, assertEquals } from "@std/assert";
+import { exists } from "@std/fs";
 import { join } from "@std/path";
 import {
   DoctorOutputSchema,
   StatusOutputSchema,
 } from "../src/shared/result_schemas.ts";
+import { WorkingRoot } from "../src/engine/mcp/server.ts";
 import { withTempDir } from "./helpers.ts";
 import {
   addWorktree,
@@ -677,6 +679,130 @@ Deno.test("discern mcp: the lifecycle tools list + instructions from both roots 
       "precondition_failed",
     );
     assertEquals(await wtMcp.close(), 0);
+  });
+});
+
+Deno.test("WorkingRoot: seeds from the spawn root and re-points on set", () => {
+  // The one mutable value the server holds (ADR 0062): seeded from the spawn root,
+  // moved by discern_start (→ the new worktree) and discern_graduate (→ back to spawn).
+  const w = new WorkingRoot("/repo");
+  assertEquals(w.get(), "/repo");
+  w.set("/repo.worktrees/alpha"); // start re-aims at the new worktree
+  assertEquals(w.get(), "/repo.worktrees/alpha");
+  w.set("/repo"); // graduate resets to the spawn root
+  assertEquals(w.get(), "/repo");
+});
+
+Deno.test("WorkingRoot: an undefined spawn root (outside a project) stays undefined until set", () => {
+  // Spawned outside a discern project → undefined, which runTool's not_initialized
+  // guard turns into the uniform refusal envelope.
+  const w = new WorkingRoot(undefined);
+  assertEquals(w.get(), undefined);
+  w.set("/now/a/project");
+  assertEquals(w.get(), "/now/a/project");
+});
+
+Deno.test("discern mcp: start then graduate over ONE main-rooted session — the working root re-aims (ADR 0062)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+
+    // The motivating flow this whole record exists to fix: an agent on the trunk opens
+    // ONE MCP connection, starts a worktree, and graduates it — without ever re-rooting
+    // the connection. Before ADR 0062 this was impossible (graduate was hidden from a
+    // main-rooted server, and even revealed it gated the trunk); now discern_start
+    // re-aims the server's working root at the new worktree, so graduate lands it.
+    const mcp = await spawnMcp(dir);
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await mcp.recv();
+
+    // discern_start from the trunk → creates the worktree and re-aims the working root.
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "discern_start", arguments: {} },
+    });
+    const started = await mcp.recv();
+    assertEquals(started.result.isError, false, JSON.stringify(started.result));
+    const wtPath = started.result.structuredContent.data.path as string;
+    assert(
+      typeof wtPath === "string" && wtPath.length > 0,
+      JSON.stringify(started.result.structuredContent),
+    );
+    assert(
+      await exists(join(wtPath, "CLAUDE.md")),
+      "the created worktree is set up",
+    );
+
+    // discern_graduate over the SAME connection now operates on the re-aimed working
+    // root (the new worktree), not the trunk — and SUCCEEDS. This is the headline
+    // guard: it fails against today's main, where graduate is hidden (→ "not found").
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: { name: "discern_graduate", arguments: {} },
+    });
+    const graduated = await mcp.recv();
+    assertEquals(
+      graduated.result.isError,
+      false,
+      JSON.stringify(graduated.result),
+    );
+    assertEquals(graduated.result.structuredContent.verb, "graduate");
+    assertEquals(graduated.result.structuredContent.ok, true);
+    // graduate removed the worktree it landed — proof it acted on the worktree, not the
+    // (still-present) trunk.
+    assertEquals(
+      await exists(wtPath),
+      false,
+      "graduate removed the worktree directory",
+    );
+
+    assertEquals(await mcp.close(), 0);
+  });
+});
+
+Deno.test("discern mcp: discern_graduate with no prior discern_start refuses cleanly (working root = trunk)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const mcp = await spawnMcp(dir);
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await mcp.recv();
+
+    // No discern_start has moved the working root, so it is still the spawn root (the
+    // trunk). graduate is visible now (ADR 0062 retired the hiding) but its core
+    // refuses — there is no worktree to graduate. A clean precondition_failed, not a
+    // silent false green gating the trunk (the very failure §2 of the ADR guards).
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "discern_graduate", arguments: {} },
+    });
+    const refused = await mcp.recv();
+    assertEquals(refused.result.isError, true);
+    assertEquals(
+      refused.result.structuredContent.verb,
+      "graduate",
+    );
+    assertEquals(
+      refused.result.structuredContent.error,
+      "precondition_failed",
+    );
+    assertEquals(await mcp.close(), 0);
   });
 });
 

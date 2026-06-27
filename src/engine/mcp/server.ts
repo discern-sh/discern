@@ -38,6 +38,7 @@ import {
   DocsOutputSchema,
   DoctorOutputSchema,
   FinishOutputSchema,
+  type StartData,
   StartOutputSchema,
   StatusOutputSchema,
 } from "../../shared/result_schemas.ts";
@@ -160,6 +161,16 @@ interface McpTool<TShape extends z.ZodRawShape = z.ZodRawShape> {
   /** When set, the tool is registered (listed and callable) only if this feature is
    * enabled — the MCP mirror of the CLI's per-feature verb gating. */
   feature?: Feature;
+  /** After a SUCCESSFUL, non-preview call, compute the server's new working root —
+   * the data-driven re-aim (ADR 0062), so {@link runTool} needs no per-tool name
+   * switch. `discern_start` points it at the worktree it just created
+   * (`result.data.path`); `discern_graduate` resets it to the spawn root (the worktree
+   * it pointed at is gone). Return undefined to leave the working root unchanged — the
+   * default for every other tool, which never moves it. */
+  reaimOnSuccess?(
+    result: DiscernResult,
+    spawnRoot: string | undefined,
+  ): string | undefined;
   /** Run the verb in `root` with the call's arguments → the result to render. */
   run(root: string, args: ToolArgs<TShape>): Promise<DiscernResult>;
 }
@@ -406,6 +417,10 @@ export const TOOLS: McpTool[] = [
         "Preview the graduation plan and touch nothing (default false).",
       ),
     },
+    // A successful graduation removes the worktree the server pointed at — reset the
+    // working root to the spawn root (the trunk it was launched from) so subsequent
+    // calls don't operate on a path that no longer exists.
+    reaimOnSuccess: (_result, spawnRoot) => spawnRoot,
     run: (root, args) =>
       graduateToolResult(root, {
         dryRun: args.dry_run === true,
@@ -468,6 +483,9 @@ export const TOOLS: McpTool[] = [
         "Preview the start plan and touch nothing (default false).",
       ),
     },
+    // A successful start re-aims the working root at the worktree it just created, so
+    // the subsequent finish/integrate/graduate operate on it with nothing to thread.
+    reaimOnSuccess: (result) => (result.data as StartData | undefined)?.path,
     run: (root, args) =>
       startToolResult(root, { dryRun: args.dry_run === true }),
   }),
@@ -583,17 +601,47 @@ function renderResult(result: DiscernResult): ToolResult {
 }
 
 /**
- * Run one tool call and render its DiscernResult. Every refusal is rendered as a
- * normal (error) {@link DiscernResult} — a missing project, or an unexpected throw
- * from the verb (caught here so a single tool error can never take the whole stdio
- * server down). A disabled feature is handled earlier, by simply not registering
- * its tool — so it is absent from `tools/list` and the SDK rejects a call to it.
+ * The MCP server's **working root** — the directory its verbs operate on, held as one
+ * mutable value because the OS process cwd is frozen at spawn and unusable for this
+ * (ADR 0062). Initialized to the spawn root (`findRoot()`), and re-pointed on exactly
+ * two lifecycle transitions: `discern_start` aims it at the worktree it just created,
+ * `discern_graduate` resets it to the spawn root. `undefined` when the server spawned
+ * outside a discern project — {@link runTool}'s `not_initialized` guard handles that.
+ * The verb cores stay pure functions of an explicit `root`; this is only the
+ * server-layer default they receive, resolved per call in {@link runTool}.
+ */
+export class WorkingRoot {
+  #root: string | undefined;
+  constructor(spawnRoot: string | undefined) {
+    this.#root = spawnRoot;
+  }
+  /** The current working root — the directory the next verb call operates on. */
+  get(): string | undefined {
+    return this.#root;
+  }
+  /** Re-point the working root (a lifecycle re-aim). */
+  set(root: string): void {
+    this.#root = root;
+  }
+}
+
+/**
+ * Run one tool call and render its DiscernResult. The per-call root is the server's
+ * current working root (ADR 0062) — re-pointed by `discern_start` / reset by
+ * `discern_graduate` via {@link McpTool.reaimOnSuccess}, applied here after a
+ * successful, non-preview call. Every refusal is rendered as a normal (error)
+ * {@link DiscernResult} — a missing project, or an unexpected throw from the verb
+ * (caught here so a single tool error can never take the whole stdio server down). A
+ * disabled feature is handled earlier, by simply not registering its tool — so it is
+ * absent from `tools/list` and the SDK rejects a call to it.
  */
 async function runTool(
   tool: McpTool,
-  root: string | undefined,
+  working: WorkingRoot,
+  spawnRoot: string | undefined,
   args: Record<string, unknown>,
 ): Promise<ToolResult> {
+  const root = working.get();
   if (root === undefined) {
     return renderResult({
       ok: false,
@@ -628,6 +676,17 @@ async function runTool(
       error: "internal_error",
       message: e instanceof Error ? e.message : String(e),
     };
+  }
+  // Data-driven re-aim (ADR 0062): on a successful, non-preview lifecycle call, move
+  // the working root per the tool's own hook (start → the new worktree; graduate →
+  // the spawn root). A dry-run never moves it — it changed nothing on disk.
+  if (
+    result.ok && result.dry_run !== true && tool.reaimOnSuccess !== undefined
+  ) {
+    const next = tool.reaimOnSuccess(result, spawnRoot);
+    if (next !== undefined) {
+      working.set(next);
+    }
   }
   return renderResult(result);
 }
@@ -947,17 +1006,22 @@ export function buildInstructions(
 }
 
 /**
- * Run the MCP server over stdio via the official SDK. The project root and its
- * enabled features are resolved once at startup; every enabled tool is registered
- * (feature-disabled tools are omitted, the MCP mirror of the CLI listing only the
- * active verbs), and each operates on that root. `connect` starts the transport;
- * the server then runs until stdin closes (the transport's `onclose`), at which
- * point this resolves and the process exits.
+ * Run the MCP server over stdio via the official SDK. The spawn root and the enabled
+ * features are resolved once at startup; the spawn root seeds the mutable
+ * {@link WorkingRoot} the verbs actually operate on (re-aimed by `discern_start` /
+ * `discern_graduate`, ADR 0062). Every enabled tool is registered (feature-disabled
+ * tools are omitted, the MCP mirror of the CLI listing only the active verbs).
+ * `connect` starts the transport; the server then runs until stdin closes (the
+ * transport's `onclose`), at which point this resolves and the process exits.
  */
 export async function runMcpServer(): Promise<number> {
-  const root = await findRoot();
-  const cfg = await resolveServerConfig(root);
+  const spawnRoot = await findRoot();
+  const cfg = await resolveServerConfig(spawnRoot);
   const enabled = new Set(enabledFeatures(cfg));
+  // The server's logical cwd, made explicit: seeded from the spawn root, then
+  // re-pointed on discern_start / discern_graduate. Resources and config below stay on
+  // the spawn root (resolved once at startup); only the per-verb working root moves.
+  const working = new WorkingRoot(spawnRoot);
   const server = new McpServer(
     { name: SERVER_NAME, version: SERVER_VERSION },
     {
@@ -989,7 +1053,8 @@ export async function runMcpServer(): Promise<number> {
       server.registerTool(
         tool.name,
         { ...config, inputSchema: tool.inputSchema },
-        (args: Record<string, unknown>) => runTool(tool, root, args),
+        (args: Record<string, unknown>) =>
+          runTool(tool, working, spawnRoot, args),
       );
     } else {
       // An argument-less verb registers no input schema, so the SDK skips
@@ -999,15 +1064,17 @@ export async function runMcpServer(): Promise<number> {
       server.registerTool(
         tool.name,
         config,
-        () => runTool(tool, root, {}),
+        () => runTool(tool, working, spawnRoot, {}),
       );
     }
   }
 
   // Resources — readable context paired with the tools (ADR 0041). Registered only
-  // inside a project (root resolved at startup); each read recomputes fresh.
-  if (root !== undefined) {
-    registerResources(server, root, enabled);
+  // inside a project, against the spawn root resolved at startup; each read recomputes
+  // fresh. (Resources are a secondary read surface and are not re-aimed with the
+  // working root — the tools are the reliable, re-aimed path; ADR 0062.)
+  if (spawnRoot !== undefined) {
+    registerResources(server, spawnRoot, enabled);
   }
 
   const transport = new StdioServerTransport();
