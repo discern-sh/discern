@@ -38,7 +38,6 @@ import {
   DocsOutputSchema,
   DoctorOutputSchema,
   FinishOutputSchema,
-  type Location,
   StartOutputSchema,
   StatusOutputSchema,
 } from "../../shared/result_schemas.ts";
@@ -76,7 +75,6 @@ import {
   startResult,
   worktreeErrorResult,
 } from "../worktree/lifecycle.ts";
-import { worktreeGitKey } from "../worktree/git.ts";
 import { resolveWorktreeRoot } from "../../lib/paths.ts";
 
 const SERVER_NAME = "discern";
@@ -162,16 +160,6 @@ interface McpTool<TShape extends z.ZodRawShape = z.ZodRawShape> {
   /** When set, the tool is registered (listed and callable) only if this feature is
    * enabled — the MCP mirror of the CLI's per-feature verb gating. */
   feature?: Feature;
-  /** When set, the tool is registered ONLY when the server is rooted in this location
-   * — the MCP mirror of a verb's own location precondition, so the tool list is tailored
-   * to where the server actually runs (a single enum, not two booleans that could
-   * contradict). `"main"` hides the tool from a worktree-rooted session (`discern_start`:
-   * spawning a worktree only makes sense from the trunk, and an agent already in one must
-   * not create a pointless sibling); `"worktree"` hides it from a main-rooted session
-   * (`discern_graduate` / `discern_integrate`: they act on the current worktree and can't
-   * run on the trunk). The verb core still refuses defensively if invoked anyway, so
-   * hiding is UX, not the safety boundary. */
-  requiresLocation?: Location;
   /** Run the verb in `root` with the call's arguments → the result to render. */
   run(root: string, args: ToolArgs<TShape>): Promise<DiscernResult>;
 }
@@ -407,7 +395,6 @@ export const TOOLS: McpTool[] = [
       "to integrate first. Set dry_run to preview the plan without touching anything. " +
       "Operates only on the worktree the server runs in; it cannot reach another.",
     feature: "worktrees",
-    requiresLocation: "worktree",
     inputSchema: {
       to: z.enum(GRADUATE_TARGETS).optional().describe(
         'Where the branch lands. "branch": check it out in the main repo for review, ' +
@@ -448,7 +435,6 @@ export const TOOLS: McpTool[] = [
       "plan without touching anything. Never touches the main checkout; operates only " +
       "on the worktree the server runs in.",
     feature: "worktrees",
-    requiresLocation: "worktree",
     inputSchema: {
       dry_run: z.boolean().optional().describe(
         "Preview the integration plan and touch nothing (default false).",
@@ -474,10 +460,9 @@ export const TOOLS: McpTool[] = [
       "into it) and continue from inside it, never back in the main checkout. Each " +
       "call mints a NEW worktree (not idempotent) — call it once per line of work. " +
       "If you are already inside a worktree, do NOT call this (you'd create a " +
-      'pointless sibling): it is hidden there, and refuses (error:"precondition_failed") ' +
-      "if invoked anyway. Set dry_run to preview the plan without creating anything.",
+      'pointless sibling): it refuses (error:"precondition_failed") if invoked ' +
+      "anyway. Set dry_run to preview the plan without creating anything.",
     feature: "worktrees",
-    requiresLocation: "main",
     inputSchema: {
       dry_run: z.boolean().optional().describe(
         "Preview the start plan and touch nothing (default false).",
@@ -888,13 +873,14 @@ function registerResources(
  * operating model in a few imperative lines, carrying the strong MCP-first stance:
  * these tools are the primary surface, not the CLI. Feature-aware, mirroring the
  * tool gating — the docs and ratchets lines appear only when their feature is on.
- * Location-aware too, matching which tools are registered here: a main-rooted server
- * shows the discern_start line (and not graduate/integrate); a worktree-rooted one
- * shows the integrate/graduate lines (and not start).
+ * The worktree lifecycle is listed LINEARLY — start, then integrate, then graduate —
+ * not branched on the server's location: every lifecycle tool is always registered
+ * (ADR 0062 retired the location-based hiding), and the server re-aims its working
+ * root on `discern_start`, so an agent that starts on the trunk can drive the whole
+ * lifecycle through this one connection.
  */
 export function buildInstructions(
   enabled: ReadonlySet<Feature>,
-  location: Location,
 ): string {
   const lines = [
     "discern is this project's quality harness, and these tools are the primary " +
@@ -924,39 +910,38 @@ export function buildInstructions(
     );
   }
   if (enabled.has("worktrees")) {
-    if (location === "main") {
-      lines.push(
-        "- On the trunk (the main checkout) and about to work? Run discern_start to " +
-          "create your own isolated worktree and move into it: it returns the new " +
-          "worktree's path, and you re-root there (start a session / cd in) and " +
-          "continue from inside it — the server can't relocate your session for you. " +
-          "NEVER adopt an existing idle worktree; each is another line of work, and a " +
-          "clean working tree doesn't mean it's free.",
-      );
-    } else {
-      lines.push(
-        "- When the branch is behind `{{main_branch}}` (the gate's merge check " +
-          "points here), bring `{{main_branch}}` in with discern_integrate: it " +
-          "merges `{{main_branch}}` into this worktree's branch " +
-          "and re-materializes the agent files + skills in one step. Just call it — you " +
-          "don't need to run git to check first. It is idempotent (a no-op when already " +
-          "up to date), never touches the main checkout, and performs every precondition " +
-          "itself, refusing cleanly with the exact next step (e.g. a dirty tree or a " +
-          "merge conflict). Reproducing its steps by hand is slower and usually " +
-          "unnecessary.",
-      );
-      lines.push(
-        "- When a branch is finished and integrated — or the user signals a handoff " +
-          '("graduate this", "I\'ll take it from here", "move this back to {{main_branch}}") — ' +
-          "graduate it with discern_graduate. Commit the work with a real message " +
-          "first, then just call the tool (the single deterministic implementation — " +
-          "don't reproduce its git steps, and don't pre-flight preconditions with git: " +
-          "it refuses cleanly with the exact next step, e.g. run discern_integrate " +
-          "first) and relay its structured result. Pass " +
-          'to:"trunk" to fast-forward the trunk and delete the branch, to:"branch" to ' +
-          "leave it checked out for review, or omit it to use the project default.",
-      );
-    }
+    lines.push(
+      "- Starting work from the trunk (the main checkout)? Run discern_start to " +
+        "create your own isolated worktree: it returns the new worktree's path and " +
+        "re-aims these tools at it, so your later finish/integrate/graduate operate " +
+        "on the new worktree automatically. You must still move your OWN file " +
+        "operations into that path (your environment's worktree-entering capability, " +
+        "a fresh session rooted there, or cd) so edits land in the worktree, not the " +
+        "trunk. NEVER adopt an existing idle worktree; each is another line of work, " +
+        "and a clean working tree doesn't mean it's free.",
+    );
+    lines.push(
+      "- When the branch is behind `{{main_branch}}` (the gate's merge check " +
+        "points here), bring `{{main_branch}}` in with discern_integrate: it " +
+        "merges `{{main_branch}}` into this worktree's branch " +
+        "and re-materializes the agent files + skills in one step. Just call it — you " +
+        "don't need to run git to check first. It is idempotent (a no-op when already " +
+        "up to date), never touches the main checkout, and performs every precondition " +
+        "itself, refusing cleanly with the exact next step (e.g. a dirty tree or a " +
+        "merge conflict). Reproducing its steps by hand is slower and usually " +
+        "unnecessary.",
+    );
+    lines.push(
+      "- When a branch is finished and integrated — or the user signals a handoff " +
+        '("graduate this", "I\'ll take it from here", "move this back to {{main_branch}}") — ' +
+        "graduate it with discern_graduate. Commit the work with a real message " +
+        "first, then just call the tool (the single deterministic implementation — " +
+        "don't reproduce its git steps, and don't pre-flight preconditions with git: " +
+        "it refuses cleanly with the exact next step, e.g. run discern_integrate " +
+        "first) and relay its structured result. Pass " +
+        'to:"trunk" to fast-forward the trunk and delete the branch, to:"branch" to ' +
+        "leave it checked out for review, or omit it to use the project default.",
+    );
   }
   return lines.join("\n");
 }
@@ -973,34 +958,15 @@ export async function runMcpServer(): Promise<number> {
   const root = await findRoot();
   const cfg = await resolveServerConfig(root);
   const enabled = new Set(enabledFeatures(cfg));
-  // Location gate (resolved once, like the feature set): the server's tool list is
-  // tailored to where it is rooted. A worktree-rooted server hides the main-only tool
-  // (discern_start — don't spawn a sibling from inside a worktree); a main-rooted one
-  // hides the worktree-only tools (discern_graduate/discern_integrate — nothing to
-  // graduate/integrate on the trunk). Each tool's `requiresLocation` mirrors its own
-  // precondition, and the instructions drop the lines that don't apply here.
-  const serverLocation: Location =
-    root !== undefined && (await worktreeGitKey(root)) !== undefined
-      ? "worktree"
-      : "main";
   const server = new McpServer(
     { name: SERVER_NAME, version: SERVER_VERSION },
     {
-      instructions: renderMcpText(
-        buildInstructions(enabled, serverLocation),
-        cfg,
-      ),
+      instructions: renderMcpText(buildInstructions(enabled), cfg),
     },
   );
 
   for (const tool of TOOLS) {
     if (tool.feature !== undefined && !enabled.has(tool.feature)) {
-      continue;
-    }
-    if (
-      tool.requiresLocation !== undefined &&
-      tool.requiresLocation !== serverLocation
-    ) {
       continue;
     }
     // The shared config: description plus the honest metadata (title, the per-verb

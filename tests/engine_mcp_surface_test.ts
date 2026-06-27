@@ -27,7 +27,6 @@ import {
   type DiscernConfig,
 } from "../src/shared/config_schema.ts";
 import { FEATURES } from "../src/shared/features.ts";
-import { LOCATIONS } from "../src/shared/result_schemas.ts";
 
 /** The schema defaults with `patch` merged in — the metamorphic lever ("changing
  * this value changes the rendered surface"). `configSchema.parse({})` is the
@@ -40,8 +39,8 @@ function configWith(patch: Record<string, unknown>): DiscernConfig {
  * Every agent-facing string the server renders for `config`: each tool's
  * description + title (interpolated through the production `renderMcpText`), each
  * input schema's `.describe()` text (static — not interpolated, but scanned so a
- * stray literal there is caught too), and the instructions for BOTH locations with
- * all features on (the fullest text). Joined into one blob for scanning.
+ * stray literal there is caught too), and the instructions with all features on
+ * (the fullest text). Joined into one blob for scanning.
  */
 function mcpSurface(config: DiscernConfig): string {
   const parts: string[] = [];
@@ -55,11 +54,7 @@ function mcpSurface(config: DiscernConfig): string {
       parts.push(JSON.stringify(z.toJSONSchema(z.object(tool.inputSchema))));
     }
   }
-  for (const location of LOCATIONS) {
-    parts.push(
-      renderMcpText(buildInstructions(new Set(FEATURES), location), config),
-    );
-  }
+  parts.push(renderMcpText(buildInstructions(new Set(FEATURES)), config));
   return parts.join("\n\n");
 }
 
