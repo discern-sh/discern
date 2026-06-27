@@ -40,9 +40,9 @@ gate's merge check ([ADR 0050](../_adr/0050-merge-check-fail-fast.md)) points a
 behind branch at ([ADR 0055](../_adr/0055-integrate-verb.md),
 [ADR 0059](../_adr/0059-worktree-setup-ensure.md)). When a change is done,
 [`graduate`](../../src/engine/worktree/lifecycle.ts) graduates the branch into
-the main repo and removes the Worktree — by default onto its own branch for
-review, or with `--to trunk` (the `[worktree].graduate_to` default)
-fast-forwarding the trunk to it and deleting the merged branch;
+the main repo and removes the Worktree — landing per `[worktree].graduate_to`
+(or `--to` per run): onto its own branch for review, or fast-forwarding the
+trunk to it and deleting the merged branch;
 [`worktree:prune`](../../src/engine/worktree/lifecycle.ts) sweeps stale
 Worktrees and **reclaims the resources of any Worktree that vanished without a
 clean teardown** (the garbage-collection safety net).
