@@ -44,9 +44,9 @@ never disagree on what happened.
 The payload, from highest-value signal down:
 
 - **`overlap`** — the files the branch **and** `main` both changed (the branch's
-  own diff since the fork ∩ the files the merge brings in). This is the hot zone:
-  the places a clean merge most likely hides a semantic conflict. It is the
-  headline of the agent-facing hint ("⚠ … N file(s) you've changed are also
+  own diff since the fork ∩ the files the merge brings in). This is the hot
+  zone: the places a clean merge most likely hides a semantic conflict. It is
+  the headline of the agent-facing hint ("⚠ … N file(s) you've changed are also
   changed by main: … — re-read them for semantic conflicts a clean merge can't
   catch") and the one list capped loosely, because it is already narrow and is
   what the agent must act on.
