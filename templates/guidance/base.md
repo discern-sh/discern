@@ -28,8 +28,8 @@ need to parse the output.
 
 ## Generated files — don't hand-edit
 
-discern compiles your guidance sources (`[guidance].sources`, default `guidance.md`)
-into the agent files ({{generated_agent_files}}) and materializes skills into their
-directories ({{materialized_skills_dirs}}). To change what you read, edit the source
-and run **`discern refresh`** — edits to a generated file are overwritten on the
-next compile.
+discern compiles your guidance sources ({{guidance_sources}}) into the agent files
+({{generated_agent_files}}) and materializes skills into their directories
+({{materialized_skills_dirs}}). To change what you read, edit the source and run
+**`discern refresh`** — edits to a generated file are overwritten on the next
+compile.

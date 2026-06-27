@@ -67,7 +67,7 @@ export const guidanceAgents = resolveConfiguredAgents;
  * loaded config this reads. Keep it minimal: add a variable or predicate only when
  * a template actually uses it.
  */
-function guidanceContext(config: DiscernConfig): GuidanceContext {
+export function guidanceContext(config: DiscernConfig): GuidanceContext {
   // The agent files and skills dirs THIS project actually generates, named from the
   // SAME registry source renderAgentFiles / materializeSkills write to (config
   // agents → provider guidance-file paths / skills dirs), so the list base.md prints
@@ -84,6 +84,7 @@ function guidanceContext(config: DiscernConfig): GuidanceContext {
       branch_prefix: config.project.branch_prefix,
       main_branch: config.project.main_branch,
       graduate_to: config.worktree.graduate_to,
+      guidance_sources: codeList(config.guidance.sources),
       generated_agent_files: codeList(agentFiles),
       materialized_skills_dirs: codeList(skillsDirsForAgents(agents)),
     },

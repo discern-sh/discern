@@ -10,9 +10,10 @@ import { join } from "@std/path";
 import { compileGuidelines } from "../src/engine/guidelines.ts";
 import {
   checkGuidanceCurrent,
+  guidanceContext,
   renderAgentFiles,
 } from "../src/engine/guidance_render.ts";
-import { GRADUATE_TARGETS } from "../src/shared/config_schema.ts";
+import { loadConfig } from "../src/shared/config_schema.ts";
 
 /** A temp project emitting both providers, with one user guidance source. */
 async function scaffold(
@@ -180,8 +181,9 @@ Deno.test("renderAgentFiles: the never-edit sentence names the project's real ge
     const multiBody = (await renderAgentFiles(multi)).get("AGENTS.md");
     assert(soloBody !== undefined && multiBody !== undefined);
 
-    // Solo: codex alone → only its file and skills dir are named.
-    assert(soloBody.includes("agent files (`AGENTS.md`"), soloBody);
+    // Solo: codex alone → only its file and skills dir are named. (Anchored on the
+    // parenthesised list, not the preceding prose, so a line-wrap can't break it.)
+    assert(soloBody.includes("(`AGENTS.md`"), soloBody);
     assert(soloBody.includes("(`.agents/skills`)"), soloBody);
     assert(!soloBody.includes("CLAUDE.md"), "no agent it doesn't generate");
 
@@ -271,41 +273,90 @@ Deno.test("checkGuidanceCurrent: guidance feature off → nothing to render or c
   }
 });
 
-Deno.test("renderAgentFiles: graduate guidance names the project's configured default, not a hardcoded target", async () => {
-  // Class guard, driven off GRADUATE_TARGETS (the SSOT): the worktree guidance must
-  // state THIS project's [worktree].graduate_to as the default — like branch_prefix
-  // and main_branch, the default is config, not a constant. The regression this
-  // catches: a trunk-default project whose always-loaded guidance hardcoded "by
-  // default it lands the branch for review", contradicting its own config. A new
-  // target auto-enrols here.
-  for (const target of GRADUATE_TARGETS) {
-    const dir = await Deno.makeTempDir({ prefix: `discern-grad-${target}-` });
+Deno.test("renderAgentFiles: every guidance variable is config-driven — no hardcoded value can creep in", async () => {
+  // Class guard for "built-in guidance states a discern.toml-configurable value but
+  // hardcodes one literal instead of interpolating it" — the bug behind both the
+  // graduate_to default and the guidance.sources filename. Driven off the SSOT,
+  // guidanceContext's own variable set: every exposed {{var}} MUST have a case here
+  // proving its value flows from config into the compiled guidance. A newly exposed
+  // var fails until its case is added, and replacing any {{var}} with a hardcoded
+  // literal makes that case's render stop tracking config.
+  //
+  // `expect` is a sentinel that must reach the output. graduate_to carries none —
+  // both of its enum members already appear in the prose as options — so it is
+  // proven by the universal "changing the config changes the output" check instead.
+  const cases: Record<string, { toml: string; expect?: string }> = {
+    branch_prefix: {
+      toml:
+        '[project]\nbranch_prefix = "zz-wt/"\n[guidance]\nagents = ["codex"]\n',
+      expect: "zz-wt/",
+    },
+    main_branch: {
+      toml:
+        '[project]\nmain_branch = "zztrunk"\n[guidance]\nagents = ["codex"]\n',
+      expect: "zztrunk",
+    },
+    graduate_to: {
+      toml:
+        '[guidance]\nagents = ["codex"]\n[worktree]\ngraduate_to = "trunk"\n',
+    },
+    guidance_sources: {
+      toml: '[guidance]\nagents = ["codex"]\nsources = ["zz-rules.md"]\n',
+      expect: "zz-rules.md",
+    },
+    generated_agent_files: {
+      toml: '[guidance]\nagents = ["codex", "gemini"]\n',
+      expect: "GEMINI.md",
+    },
+    materialized_skills_dirs: {
+      toml: '[guidance]\nagents = ["codex", "claude_code"]\n',
+      expect: ".claude/skills",
+    },
+  };
+
+  const renderBody = async (toml: string): Promise<string> => {
+    const dir = await Deno.makeTempDir({ prefix: "discern-var-case-" });
     try {
-      await Deno.writeTextFile(
-        join(dir, "discern.toml"),
-        [
-          "[guidance]",
-          'agents = ["codex"]',
-          "[worktree]",
-          `graduate_to = "${target}"`,
-          "",
-        ].join("\n"),
-      );
+      await Deno.writeTextFile(join(dir, "discern.toml"), toml);
+      await Deno.writeTextFile(join(dir, "zz-rules.md"), "# sentinel source\n");
       const body = (await renderAgentFiles(dir)).get("AGENTS.md");
-      assert(body !== undefined);
-      assert(
-        body.includes(`here \`${target}\``),
-        `guidance must name ${target} as the configured graduate default`,
-      );
-      for (const other of GRADUATE_TARGETS) {
-        if (other === target) continue;
-        assert(
-          !body.includes(`here \`${other}\``),
-          `guidance must not name ${other} as the default when it is ${target}`,
-        );
-      }
+      assert(body !== undefined, `no AGENTS.md rendered for:\n${toml}`);
+      return body;
     } finally {
       await Deno.remove(dir, { recursive: true });
+    }
+  };
+
+  // SSOT coverage: the cases must name EXACTLY the context's variables — a new var
+  // can't ship without a guard, and a removed one can't leave a dead case behind.
+  const probe = await Deno.makeTempDir({ prefix: "discern-var-probe-" });
+  try {
+    await Deno.writeTextFile(
+      join(probe, "discern.toml"),
+      '[guidance]\nagents = ["codex"]\n',
+    );
+    const ctx = guidanceContext(await loadConfig(probe));
+    assertEquals(
+      Object.keys(cases).sort(),
+      Object.keys(ctx.vars).sort(),
+      "every guidance {{var}} needs a config-driven case here (and vice versa)",
+    );
+  } finally {
+    await Deno.remove(probe, { recursive: true });
+  }
+
+  const baseline = await renderBody('[guidance]\nagents = ["codex"]\n');
+  for (const [name, c] of Object.entries(cases)) {
+    const body = await renderBody(c.toml);
+    assert(
+      body !== baseline,
+      `${name}: changing its config must change the compiled guidance`,
+    );
+    if (c.expect !== undefined) {
+      assert(
+        body.includes(c.expect),
+        `${name}: the configured value "${c.expect}" must appear in the guidance`,
+      );
     }
   }
 });
