@@ -95,8 +95,10 @@ Deno.test("integrate --json: reports the commits, files, and range anchors broug
     assertEquals(data.commits_total, 2);
     assertEquals(data.commits.length, 2);
     // git log order is newest-first.
-    assertEquals(data.commits[0].subject, "upstream two");
-    assert(isSha(data.commits[0].sha), data.commits[0].sha);
+    const [newest] = data.commits;
+    assert(newest !== undefined, "expected a commit");
+    assertEquals(newest.subject, "upstream two");
+    assert(isSha(newest.sha), newest.sha);
 
     const paths = data.files.map((f) => f.path).sort();
     assertEquals(paths, ["a.txt", "b.txt"]);
