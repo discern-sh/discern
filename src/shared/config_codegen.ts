@@ -201,3 +201,36 @@ export function configSectionNames(): string[] {
   >;
   return isObject(root.properties) ? Object.keys(root.properties) : [];
 }
+
+/**
+ * The dotted paths of the schema's open `<name>` tables — the `z.record` sections
+ * (`checks`, `scopes`, `ratchets`, `worktree.resources`) whose entries are
+ * user-population, not fixed keys. A node is one when it has a value shape under
+ * `additionalProperties` but no fixed `properties`. Derived from the live schema so
+ * a new record section auto-enrolls; the template↔config parity guard uses this to
+ * treat those sub-trees as the customizable "extras" zone (a project's own checks /
+ * scopes / ratchets / resources are never required to match the template's).
+ */
+export function recordConfigPaths(): string[] {
+  const root = z.toJSONSchema(configSchema, { io: "input" }) as Record<
+    string,
+    unknown
+  >;
+  const out: string[] = [];
+  const walk = (node: Record<string, unknown>, prefix: string): void => {
+    const props = isObject(node.properties) ? node.properties : {};
+    for (const [key, child] of Object.entries(props)) {
+      if (!isObject(child)) {
+        continue;
+      }
+      const path = prefix === "" ? key : `${prefix}.${key}`;
+      if (isObject(child.additionalProperties) && !isObject(child.properties)) {
+        out.push(path); // an open <name> table — its entries are user-defined
+        continue;
+      }
+      walk(child, path);
+    }
+  };
+  walk(root, "");
+  return out;
+}

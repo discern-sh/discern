@@ -1,6 +1,9 @@
 import { assert, assertEquals } from "@std/assert";
+import { parse as parseToml } from "@std/toml";
 import {
   configSectionNames,
+  isJsonObject,
+  recordConfigPaths,
   renderConfigDocSchemaJson,
   renderConfigReferenceDoc,
 } from "../src/shared/config_codegen.ts";
@@ -138,4 +141,71 @@ Deno.test("every schema section appears in discern.toml.tmpl (no silent section 
       `discern.toml.tmpl should document the [${section}] section`,
     );
   }
+});
+
+// ── root discern.toml ↔ template parity ───────────────────────────────────────
+// The repo runs on its own harness, so its root `discern.toml` doubles as a LIVE
+// EXAMPLE of the shipped template — the first config a visitor reads on GitHub. It
+// must therefore carry every FIXED key the template ships (its own values and
+// comments, plus extras like the project's real capabilities). Only the record
+// sections (checks / scopes / ratchets / worktree.resources) may diverge — those
+// are the per-project customization zone.
+
+/** The dotted paths of every FIXED scalar/array/table key literally written in a
+ * parsed config `obj`, skipping the record sub-trees (the customizable "extras"
+ * zone). Raw-parsed, NOT schema-defaulted: it reflects the keys a file actually
+ * writes, so the comparison is template-shape ⊆ root-shape, not schema ⊆ root. */
+function fixedKeyPaths(obj: unknown): string[] {
+  const records = recordConfigPaths();
+  const underRecord = (p: string): boolean =>
+    records.some((r) => p === r || p.startsWith(`${r}.`));
+  const walk = (node: unknown, prefix: string): string[] => {
+    if (!isJsonObject(node)) {
+      return [];
+    }
+    const out: string[] = [];
+    for (const [key, val] of Object.entries(node)) {
+      const path = prefix === "" ? key : `${prefix}.${key}`;
+      if (underRecord(path)) {
+        continue;
+      }
+      out.push(path, ...walk(val, path));
+    }
+    return out;
+  };
+  return walk(obj, "");
+}
+
+/** Whether a dotted path resolves to a present key in a parsed config object. */
+function hasConfigPath(obj: unknown, path: string): boolean {
+  let node: unknown = obj;
+  for (const seg of path.split(".")) {
+    if (!isJsonObject(node) || !Object.hasOwn(node, seg)) {
+      return false;
+    }
+    node = node[seg];
+  }
+  return true;
+}
+
+// Makes the "a new template key (like [worktree.setup].ensure) is forgotten in the
+// repo's own config" class of drift impossible: it walks the keys the template
+// actually ships and fails on any the root omits. Driven off the live template +
+// schema, so a future fixed key auto-enrolls — no hand-kept list to maintain.
+Deno.test("the repo's own discern.toml carries every fixed key the template ships (no drift)", async () => {
+  const template = parseToml(await renderedTemplate());
+  const root = parseToml(
+    await Deno.readTextFile(new URL("../discern.toml", import.meta.url)),
+  );
+  const missing = fixedKeyPaths(template).filter((p) =>
+    !hasConfigPath(root, p)
+  );
+  assertEquals(
+    missing,
+    [],
+    `discern.toml has drifted from the template — missing key(s): ${
+      missing.join(", ")
+    }. Keep the root config at parity with templates/discern.toml.tmpl ` +
+      `(own values/comments fine; extra checks/scopes/ratchets/resources allowed).`,
+  );
 });
