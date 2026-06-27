@@ -1143,6 +1143,58 @@ Deno.test("discern mcp: instructions are feature-aware (no graduate line when wo
   });
 });
 
+Deno.test("discern mcp: the rendered surface names the project's configured integration branch", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    // Customise the integration branch — the value the graduate_to / guidance.sources
+    // fixes proved the agent files must reflect. The MCP surface must reflect it too:
+    // a description that names the branch shows the REAL one, never a baked-in "main".
+    const set = await runAgent(dir, [
+      "config",
+      "set",
+      "project.main_branch",
+      "trunkline",
+    ]);
+    assertEquals(set.code, 0, set.output);
+
+    const mcp = await spawnMcp(dir);
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    const init = await mcp.recv();
+    // No template token ever escapes to the wire — every {{var}} is rendered.
+    const instructions = init.result.instructions as string;
+    assert(
+      !instructions.includes("{{"),
+      `an unrendered template token reached the wire:\n${instructions}`,
+    );
+
+    await mcp.send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
+    const list = await mcp.recv();
+    // discern_ratchets names the branch ("loosened versus `<main_branch>`") and is
+    // visible from the main checkout, so it is the end-to-end witness here.
+    const ratchets =
+      (list.result.tools as { name: string; description: string }[])
+        .find((t) => t.name === "discern_ratchets");
+    assert(ratchets !== undefined, "discern_ratchets should be listed");
+    assert(
+      ratchets.description.includes("trunkline"),
+      `the description must name the configured branch; got:\n${ratchets.description}`,
+    );
+    assert(
+      !ratchets.description.includes("versus main"),
+      `the hardcoded default must be gone; got:\n${ratchets.description}`,
+    );
+    assert(!ratchets.description.includes("{{"), ratchets.description);
+
+    assertEquals(await mcp.close(), 0);
+  });
+});
+
 Deno.test("discern mcp: resources list, template, and read fresh content", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

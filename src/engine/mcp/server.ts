@@ -43,15 +43,17 @@ import {
   StatusOutputSchema,
 } from "../../shared/result_schemas.ts";
 import {
+  configSchema,
+  type DiscernConfig,
   GRADUATE_TARGETS,
   type GraduateTarget,
   loadConfig,
 } from "../../shared/config_schema.ts";
 import {
-  enabledFeatures,
-  type Feature,
-  FEATURES,
-} from "../../shared/features.ts";
+  type GuidanceContext,
+  renderGuidanceTemplate,
+} from "../guidance_template.ts";
+import { enabledFeatures, type Feature } from "../../shared/features.ts";
 import {
   NOT_SET_UP_MESSAGE,
   verbNeedsBootstrap,
@@ -238,7 +240,8 @@ export const TOOLS: McpTool[] = [
     description:
       "Check every configured quality ratchet (a never-loosen metric floor/ceiling): " +
       "run each ratchet's measurement command, compare it to its limit, and assert " +
-      "the limit was not loosened versus main. Returns the per-ratchet steps[]. SLOW " +
+      "the limit was not loosened versus `{{main_branch}}`. Returns the per-ratchet " +
+      "steps[]. SLOW " +
       "and ON DEMAND — it runs the metric commands, so it is NOT part of " +
       "discern_finish; check it explicitly before pushing. Set dry_run to preview " +
       "which ratchets would run without measuring anything.",
@@ -398,7 +401,8 @@ export const TOOLS: McpTool[] = [
       "([worktree].graduate_to). This is the single deterministic implementation — " +
       "run it rather than reproducing the steps with git; commit the work with a real " +
       "message first so it lands as a proper review commit, then relay the result. " +
-      "Requires the latest main is already integrated and the main checkout is clean " +
+      "Requires the latest `{{main_branch}}` is already integrated and the main " +
+      "checkout is clean " +
       '— refuses (error:"precondition_failed") otherwise, pointing at discern_integrate ' +
       "to integrate first. Set dry_run to preview the plan without touching anything. " +
       "Operates only on the worktree the server runs in; it cannot reach another.",
@@ -423,17 +427,20 @@ export const TOOLS: McpTool[] = [
   }),
   defineTool({
     name: "discern_integrate",
-    title: "Integrate main",
+    title: "Integrate {{main_branch}}",
     outputSchema: DatalessEnvelopeSchema.shape,
     annotations: INTEGRATE,
     description:
-      "Bring the latest main into THIS worktree's branch and re-materialize the " +
+      "Bring the latest `{{main_branch}}` into THIS worktree's branch and " +
+      "re-materialize the " +
       "generated agent files + skills, in one deterministic step — the inverse of " +
       "discern_graduate, and the action that resolves discern_finish's merge check " +
-      "(which refuses a branch behind main). Run it whenever the branch is behind. " +
+      "(which refuses a branch behind `{{main_branch}}`). Run it whenever the branch " +
+      "is behind. " +
       "Just call it: you do NOT need to run git to check first — it performs every " +
       "precondition itself and returns exactly what to do next. It is idempotent and " +
-      "safe to call anytime: a no-op success when the branch already contains main " +
+      "safe to call anytime: a no-op success when the branch already contains " +
+      "`{{main_branch}}` " +
       "(reported, nothing merged, no refresh); it merges into a clean tree only, so " +
       'it refuses (error:"precondition_failed") on uncommitted changes; and on a merge ' +
       "conflict it aborts cleanly (leaving the tree untouched) and refuses, naming the " +
@@ -657,23 +664,57 @@ async function bootstrapGatePasses(root: string): Promise<boolean> {
 }
 
 /**
- * Resolve which features this project has enabled — the gate for the feature-bound
- * tools (`discern_docs`, `discern_graduate`). Mirrors the CLI's resolution: outside
- * a project, or when the config can't be parsed, report every feature on (the
- * per-call config read surfaces the real error), so the tool surface never silently
- * shrinks because of a config the user is mid-edit on.
+ * Resolve the config the server renders + gates against: the project's real
+ * `discern.toml`, or — outside a project, or when the config can't be parsed — the
+ * fully-defaulted config (`configSchema.parse({})`). Resolved ONCE at startup and
+ * shared by the feature gate and the text rendering below. The defaulted fallback
+ * keeps the prior "every feature on when the config is unreadable" behaviour (every
+ * feature defaults to true), so the tool surface never silently shrinks because of a
+ * config the user is mid-edit on; it also gives {@link mcpContext} a sane fallback
+ * `main_branch` ("main") instead of leaving a raw `{{main_branch}}` token on the wire.
  */
-async function resolveEnabledFeatures(
+async function resolveServerConfig(
   root: string | undefined,
-): Promise<ReadonlySet<Feature>> {
-  if (root === undefined) {
-    return new Set(FEATURES);
+): Promise<DiscernConfig> {
+  if (root !== undefined) {
+    try {
+      return await loadConfig(root);
+    } catch {
+      // A missing / mid-edit / invalid config falls through to the defaults below;
+      // the verb cores still surface the real config error when actually invoked.
+    }
   }
-  try {
-    return new Set(enabledFeatures(await loadConfig(root)));
-  } catch {
-    return new Set(FEATURES);
-  }
+  return configSchema.parse({});
+}
+
+/**
+ * The template context the MCP agent-facing text renders against — the
+ * `discern.toml`-configurable values its tool descriptions, titles, and instructions
+ * may name, so a project that customised one reads its real value rather than
+ * discern's default. The MCP sibling of `guidanceContext` (`guidance_render.ts`):
+ * the SAME `{{var}}` engine, a different surface. PURE function of config. Keep it
+ * minimal — add a var only when a description/instruction actually interpolates it;
+ * every exposed var is held to that by the surface guard (`engine_mcp_surface_test`).
+ */
+export function mcpContext(config: DiscernConfig): GuidanceContext {
+  return {
+    vars: {
+      main_branch: config.project.main_branch,
+    },
+    preds: {},
+  };
+}
+
+/**
+ * Render one piece of MCP agent-facing text (a tool description/title, or the
+ * instructions block) against the project's config via {@link mcpContext}. The
+ * SINGLE interpolation shared by {@link runMcpServer}'s tool registration and the
+ * surface guard, so the guard can never test a different render than ships. Text
+ * with no `{{var}}` passes through untouched; an unknown `{{var}}` throws (the
+ * engine's strictness — a typo'd token fails loudly, never reaches the wire blank).
+ */
+export function renderMcpText(text: string, config: DiscernConfig): string {
+  return renderGuidanceTemplate(text, mcpContext(config));
 }
 
 // ── resources (readable context, paired with the tools; ADR 0041) ────────────
@@ -851,7 +892,7 @@ function registerResources(
  * shows the discern_start line (and not graduate/integrate); a worktree-rooted one
  * shows the integrate/graduate lines (and not start).
  */
-function buildInstructions(
+export function buildInstructions(
   enabled: ReadonlySet<Feature>,
   location: Location,
 ): string {
@@ -894,8 +935,9 @@ function buildInstructions(
       );
     } else {
       lines.push(
-        "- When the branch is behind main (the gate's merge check points here), bring " +
-          "main in with discern_integrate: it merges main into this worktree's branch " +
+        "- When the branch is behind `{{main_branch}}` (the gate's merge check " +
+          "points here), bring `{{main_branch}}` in with discern_integrate: it " +
+          "merges `{{main_branch}}` into this worktree's branch " +
           "and re-materializes the agent files + skills in one step. Just call it — you " +
           "don't need to run git to check first. It is idempotent (a no-op when already " +
           "up to date), never touches the main checkout, and performs every precondition " +
@@ -905,7 +947,7 @@ function buildInstructions(
       );
       lines.push(
         "- When a branch is finished and integrated — or the user signals a handoff " +
-          '("graduate this", "I\'ll take it from here", "move this back to main") — ' +
+          '("graduate this", "I\'ll take it from here", "move this back to {{main_branch}}") — ' +
           "graduate it with discern_graduate. Commit the work with a real message " +
           "first, then just call the tool (the single deterministic implementation — " +
           "don't reproduce its git steps, and don't pre-flight preconditions with git: " +
@@ -929,7 +971,8 @@ function buildInstructions(
  */
 export async function runMcpServer(): Promise<number> {
   const root = await findRoot();
-  const enabled = await resolveEnabledFeatures(root);
+  const cfg = await resolveServerConfig(root);
+  const enabled = new Set(enabledFeatures(cfg));
   // Location gate (resolved once, like the feature set): the server's tool list is
   // tailored to where it is rooted. A worktree-rooted server hides the main-only tool
   // (discern_start — don't spawn a sibling from inside a worktree); a main-rooted one
@@ -942,7 +985,12 @@ export async function runMcpServer(): Promise<number> {
       : "main";
   const server = new McpServer(
     { name: SERVER_NAME, version: SERVER_VERSION },
-    { instructions: buildInstructions(enabled, serverLocation) },
+    {
+      instructions: renderMcpText(
+        buildInstructions(enabled, serverLocation),
+        cfg,
+      ),
+    },
   );
 
   for (const tool of TOOLS) {
@@ -960,8 +1008,10 @@ export async function runMcpServer(): Promise<number> {
     // annotations). Built with conditional keys so an absent field is omitted rather
     // than set to `undefined` (exactOptionalPropertyTypes).
     const config = {
-      description: tool.description,
-      ...(tool.title !== undefined ? { title: tool.title } : {}),
+      description: renderMcpText(tool.description, cfg),
+      ...(tool.title !== undefined
+        ? { title: renderMcpText(tool.title, cfg) }
+        : {}),
       ...(tool.outputSchema !== undefined
         ? { outputSchema: tool.outputSchema }
         : {}),
