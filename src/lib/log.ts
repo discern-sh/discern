@@ -43,11 +43,12 @@ export class Logger {
   readonly json: boolean;
   private readonly colour: boolean;
   /**
-   * Which stream human (non-JSON) narration goes to. Public so a helper that runs
-   * a subprocess can route the child's stdout to the SAME channel — keeping the
-   * parent's stdout clean for a caller that reserves it for a machine result (the
-   * `worktree:create` hook returns the worktree path on stdout; see
-   * `engine/worktree/shell.ts`).
+   * Which stream human (non-JSON) narration (info/ok/heading/detail) goes to:
+   * `"stdout"` for an interactive verb, `"stderr"` when the parent reserves its
+   * stdout for a machine result (the `worktree:create` hook returns the worktree
+   * path there). Project-supplied commands route independently of this — they are
+   * captured and surfaced only on failure (`engine/worktree/shell.ts`), so a chatty
+   * command never lands on either narration channel regardless of this setting.
    */
   readonly humanStream: "stdout" | "stderr";
 
