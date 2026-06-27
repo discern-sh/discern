@@ -108,20 +108,25 @@ Deno.test("hook WorktreeCreate: creates the worktree, runs setup, prints its pat
   });
 });
 
-Deno.test("hook WorktreeCreate: a setup step that writes to stdout never pollutes the path", async () => {
+Deno.test("hook WorktreeCreate: a successful setup step is silent and never pollutes the path", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     // A `[worktree.setup]` step that prints to stdout — exactly what `vale sync`,
-    // `npm ci`, etc. do. Its output must be routed to stderr, NOT prepended to the
-    // worktree path the hook returns on stdout. Committed (HEAD) so the freshly
-    // checked-out worktree carries it and setup actually runs it.
-    const noise = "DISCERN-SETUP-STDOUT-NOISE";
+    // `npm ci`, etc. do. The engine CAPTURES it: a successful step's output reaches
+    // neither the worktree path on stdout (the "path contains control characters"
+    // bug) NOR stderr (quiet on success, like a gate job). The marker `RAN_42_OUT`
+    // appears only when the command RUNS — it is absent from the command text, so the
+    // `→ Setup step: …` narration (which echoes the command) can't false-match it. The
+    // `touch` proves the step ran.
     const cfgPath = join(dir, "discern.toml");
     const cfg = await Deno.readTextFile(cfgPath);
     assertStringIncludes(cfg, "steps = []"); // template default we override
     await Deno.writeTextFile(
       cfgPath,
-      cfg.replace("steps = []", `steps = ["echo ${noise}"]`),
+      cfg.replace(
+        "steps = []",
+        `steps = ["echo RAN_$((6*7))_OUT; touch ran.marker"]`,
+      ),
     );
     await gitInit(dir);
 
@@ -136,8 +141,46 @@ Deno.test("hook WorktreeCreate: a setup step that writes to stdout never pollute
     // embedded newline. (A regression here is the "path contains control
     // characters" failure Claude Code reports.)
     assertEquals(r.stdout, wt);
-    // The step still ran and its output is visible — rerouted to stderr, not lost.
-    assertStringIncludes(r.stderr, noise);
+    // The step ran…
+    assert(
+      await exists(join(wt, "ran.marker")),
+      `the setup step did not run\n${r.stderr}`,
+    );
+    // …but a SUCCESSFUL step is silent: its OUTPUT leaks to NEITHER channel.
+    assertEquals(
+      `${r.stdout}${r.stderr}`.includes("RAN_42_OUT"),
+      false,
+      `a successful setup step's output must be captured, not surfaced\n${r.stdout}\n${r.stderr}`,
+    );
+  });
+});
+
+Deno.test("hook WorktreeCreate: a FAILING setup step surfaces its output for debugging", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    // The mirror of the silent-on-success case: when a setup step FAILS, its captured
+    // output is surfaced on stderr (the diagnostic channel) so the failure is
+    // debuggable — never on stdout, which carries only the worktree path. The marker
+    // `FAIL_42_Z` appears only in the command's OUTPUT (not its text), so asserting it
+    // proves the captured output was surfaced, not merely the command-echo narration.
+    const cfgPath = join(dir, "discern.toml");
+    const cfg = await Deno.readTextFile(cfgPath);
+    await Deno.writeTextFile(
+      cfgPath,
+      cfg.replace("steps = []", `steps = ["echo FAIL_$((6*7))_Z; exit 3"]`),
+    );
+    await gitInit(dir);
+
+    const r = await runHook(dir, await hookCommand(dir, "WorktreeCreate"), {
+      name: "failing",
+      cwd: dir,
+    });
+    // The failed step aborts creation; the hook returns no path.
+    assertEquals(r.code, 1);
+    assertEquals(r.stdout, "");
+    // The step's own OUTPUT is surfaced on stderr, beside the failure narration.
+    assertStringIncludes(r.stderr, "FAIL_42_Z");
+    assertStringIncludes(r.stderr, "Setup step failed");
   });
 });
 

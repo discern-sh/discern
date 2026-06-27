@@ -682,6 +682,26 @@ Deno.test("worktree:ensure converges via [worktree.setup].ensure on every sessio
   });
 });
 
+Deno.test("worktree:ensure: a successful ensure command's output never leaks into session-start stdout", async () => {
+  await withTempDir(async (dir) => {
+    // The SessionStart hook runs `worktree:ensure` and Claude Code injects its STDOUT
+    // as agent context, so a chatty ensure command (a `vale sync` progress bar) must
+    // not surface there. The command prints `OUT42END` only when it RUNS — the marker
+    // is absent from the command text, so the "Ensure step: …" narration can't
+    // false-match; it appears in the captured output alone.
+    const wt = await mainWithSetup(dir, "quiet-ensure", {
+      ensure: ["echo OUT$((6*7))END"],
+    });
+    const r = await runAgent(wt, ["worktree:ensure"]);
+    assertEquals(r.code, 0, r.output);
+    assertEquals(
+      r.output.includes("OUT42END"),
+      false,
+      `a successful ensure command must be captured, not leaked to the session\n${r.output}`,
+    );
+  });
+});
+
 Deno.test("worktree --dry-run: lists the ensure commands it would run", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithSetup(dir, "dry", {
