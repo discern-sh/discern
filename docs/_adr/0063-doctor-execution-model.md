@@ -1,11 +1,29 @@
 # ADR 0063: `discern doctor` prints the execution model — facts, not judgments
 
-**Status**: accepted. Adds an `execution_model` section to `doctor` (human + the
-`--json` `data.execution_model`), derived from the same plan builders the gate
-runs ([ADR 0027](0027-plan-apply-engine-execution.md)) and the engine's
-`STEP_KINDS` vocabulary ([ADR 0028](0028-result-envelope-and-diagnostics.md)),
-pinned by forcing functions in the spirit of
-[ADR 0051](0051-canonical-set-parity.md).
+**Status**: accepted; **amended** — see _Update (destructive labelling removed)_
+below. Adds an `execution_model` section to `doctor` (human + the `--json`
+`data.execution_model`), derived from the same plan builders the gate runs
+([ADR 0027](0027-plan-apply-engine-execution.md)) and the engine's `STEP_KINDS`
+vocabulary ([ADR 0028](0028-result-envelope-and-diagnostics.md)), pinned by
+forcing functions in the spirit of [ADR 0051](0051-canonical-set-parity.md).
+
+## Update (destructive labelling removed)
+
+This ADR shipped a per-step `destructive` flag: a ⚠ on a resource `destroy`,
+with "what could destroy data?" among the questions the model answered. That
+flag is gone. discern cannot know whether a project-configured command is
+destructive — a `check` stage wired to `rm -rf build/` runs without a warning,
+while only a declared resource `destroy` ever carried one. Flagging some steps
+and not others is worse than flagging none: it invites the reader to treat a
+step that carries no warning as safe.
+
+Dropping it is truer to this ADR's own thesis. The title is "facts, not
+judgments", and whether a step is destructive is exactly a judgment — one
+discern is not positioned to make for an arbitrary user command. The model still
+answers the motivating "why did `graduate` tear down my database?", but by
+showing the `destroy` command verbatim as a `[project]` step rather than
+labelling it. The reader draws the destructive conclusion from the command, as
+they already do for every other judgment the model leaves to them.
 
 ## Context
 
