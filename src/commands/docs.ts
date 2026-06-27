@@ -480,7 +480,7 @@ async function treeResult(
     dir?: string | undefined;
     internal?: boolean | readonly string[] | undefined;
   } = {},
-): Promise<DiscernResult> {
+): Promise<DiscernResult<DocsData>> {
   const resolved = await desc.resolveDir(opts);
   const tree = resolved.kind === "missing" ? undefined : await discoverDocs({
     cwd,
@@ -556,7 +556,7 @@ async function treeResult(
 export function docsResult(
   cwd: string,
   opts: { target?: string | undefined; dir?: string | undefined } = {},
-): Promise<DiscernResult> {
+): Promise<DiscernResult<DocsData>> {
   return treeResult(DOCS_VERB, cwd, opts);
 }
 
@@ -568,7 +568,7 @@ export function docsResult(
 export function helpResult(
   cwd: string,
   opts: { target?: string | undefined } = {},
-): Promise<DiscernResult> {
+): Promise<DiscernResult<DocsData>> {
   return treeResult(HELP_VERB, cwd, opts);
 }
 

@@ -97,7 +97,7 @@ export interface StatusOptions {
 export async function statusResult(
   root: string,
   opts: StatusOptions = {},
-): Promise<DiscernResult> {
+): Promise<DiscernResult<StatusData>> {
   const all = opts.all ?? false;
   const local = opts.local ?? false;
   if (all && local) {
@@ -639,13 +639,13 @@ function relativeAge(iso: string | undefined): string {
 
 /** Render the status result as a compact human summary on stdout (quiet under
  * `--json`, which never calls this). */
-function renderStatusHuman(result: DiscernResult): void {
+function renderStatusHuman(result: DiscernResult<StatusData>): void {
   const out = makeOut(colorEnabled());
-  if (!result.ok) {
+  if (!result.ok || result.data === undefined) {
     out.error(result.message ?? "status failed.");
     return;
   }
-  const data = result.data as StatusData;
+  const data = result.data;
   const c = out.c;
   const dot = `  ${c.dim}·${c.reset} `;
 

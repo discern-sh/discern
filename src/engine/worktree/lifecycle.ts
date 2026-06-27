@@ -1179,7 +1179,7 @@ async function mintFreeWorktree(
 export async function startResult(
   ctx: LifecycleContext,
   opts: { dryRun?: boolean; worktreeRoot: string },
-): Promise<DiscernResult> {
+): Promise<DiscernResult<StartData>> {
   await assertNotInWorktree("discern start", ctx.cwd);
 
   const settings = await loadIdentitySettings(ctx.root);
@@ -1201,7 +1201,7 @@ export async function startResult(
   ctx.log.ok(`Worktree '${id}' is ready at ${dir}.`);
 
   const data: StartData = { id, branch, path: dir };
-  const result = appliedResult("start", [
+  const result: DiscernResult<StartData> = appliedResult("start", [
     {
       step: {
         kind: "git",
@@ -1258,7 +1258,7 @@ export async function start(
     return;
   }
   // Human apply: the new worktree's path is the deliverable — say how to enter it.
-  const data = result.data as StartData | undefined;
+  const data = result.data;
   if (data !== undefined) {
     ctx.log.info(`cd into it to continue: cd ${data.path}`);
   }

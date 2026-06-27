@@ -205,8 +205,16 @@ export interface Diagnostic {
  *
  * `serializeResult` renders it to `--json`; the human path renders the same fields
  * (so the two can never disagree on WHAT happened) and may add verb-specific advice.
+ *
+ * Generic over its `data` payload (`TData`, default `unknown`): a verb core narrows
+ * it to its own schema-backed type (`DiscernResult<StatusData>`, `<GateData>`, …) so
+ * a core that builds the wrong `data` shape is a COMPILE error and a consumer reads
+ * `result.data` already typed — no `as` cast back from `unknown`. The dataless verbs
+ * and the generic renderers keep the `unknown` default; `serializeResult` and the
+ * other sinks accept any specialization (every `DiscernResult<T>` widens to
+ * `DiscernResult<unknown>`).
  */
-export interface DiscernResult {
+export interface DiscernResult<TData = unknown> {
   /** Did the verb succeed? The one field every consumer can rely on. */
   ok: boolean;
   /** The verb that produced this result ("finish", "graduate", "doctor", …). */
@@ -224,7 +232,7 @@ export interface DiscernResult {
   /** Normalized failures — the structured "why" for an agent's act→fix loop. */
   diagnostics?: Diagnostic[] | undefined;
   /** Verb-specific payload that doesn't fit steps (checks, schema versions, file lists). */
-  data?: unknown;
+  data?: TData | undefined;
   /**
    * Agent-facing "what next" advice (ADR 0030): the next-step nudges a human run
    * prints (check the ratchets, start the dev server, update the docs; on a failed
@@ -404,7 +412,10 @@ export function resultsToJson(results: StepResult[]): {
  * A preview (dry-run) result: the plan that WOULD run, nothing executed. Carries
  * `plan` and no `steps`, the structural signal that nothing acted.
  */
-export function previewResult(verb: string, plan: EnginePlan): DiscernResult {
+export function previewResult(
+  verb: string,
+  plan: EnginePlan,
+): DiscernResult<never> {
   return { ok: true, verb, dry_run: true, plan };
 }
 
@@ -417,7 +428,7 @@ export function appliedResult(
   verb: string,
   results: StepResult[],
   diagnostics?: Diagnostic[],
-): DiscernResult {
+): DiscernResult<never> {
   return {
     ok: results.every((r) => r.outcome !== "failed"),
     verb,

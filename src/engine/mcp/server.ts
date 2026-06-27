@@ -702,8 +702,8 @@ function registerDocTree(
   server: McpServer,
   scheme: "docs" | "help",
   label: string,
-  index: () => Promise<DiscernResult>,
-  single: (target: string) => Promise<DiscernResult>,
+  index: () => Promise<DiscernResult<DocsData>>,
+  single: (target: string) => Promise<DiscernResult<DocsData>>,
 ): void {
   server.registerResource(
     `discern-${scheme}-index`,
@@ -733,7 +733,7 @@ function registerDocTree(
       const raw = variables.target;
       const target = Array.isArray(raw) ? (raw[0] ?? "") : (raw ?? "");
       const result = await single(target);
-      const data = result.data as DocsData | undefined;
+      const data = result.data;
       if (!result.ok || data?.doc === undefined) {
         throw new Error(result.message ?? `no doc matches "${target}".`);
       }
