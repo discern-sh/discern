@@ -12,6 +12,7 @@ import {
   checkGuidanceCurrent,
   renderAgentFiles,
 } from "../src/engine/guidance_render.ts";
+import { GRADUATE_TARGETS } from "../src/shared/config_schema.ts";
 
 /** A temp project emitting both providers, with one user guidance source. */
 async function scaffold(
@@ -267,5 +268,44 @@ Deno.test("checkGuidanceCurrent: guidance feature off → nothing to render or c
     assertEquals(await checkGuidanceCurrent(dir), []);
   } finally {
     await Deno.remove(dir, { recursive: true });
+  }
+});
+
+Deno.test("renderAgentFiles: graduate guidance names the project's configured default, not a hardcoded target", async () => {
+  // Class guard, driven off GRADUATE_TARGETS (the SSOT): the worktree guidance must
+  // state THIS project's [worktree].graduate_to as the default — like branch_prefix
+  // and main_branch, the default is config, not a constant. The regression this
+  // catches: a trunk-default project whose always-loaded guidance hardcoded "by
+  // default it lands the branch for review", contradicting its own config. A new
+  // target auto-enrols here.
+  for (const target of GRADUATE_TARGETS) {
+    const dir = await Deno.makeTempDir({ prefix: `discern-grad-${target}-` });
+    try {
+      await Deno.writeTextFile(
+        join(dir, "discern.toml"),
+        [
+          "[guidance]",
+          'agents = ["codex"]',
+          "[worktree]",
+          `graduate_to = "${target}"`,
+          "",
+        ].join("\n"),
+      );
+      const body = (await renderAgentFiles(dir)).get("AGENTS.md");
+      assert(body !== undefined);
+      assert(
+        body.includes(`here \`${target}\``),
+        `guidance must name ${target} as the configured graduate default`,
+      );
+      for (const other of GRADUATE_TARGETS) {
+        if (other === target) continue;
+        assert(
+          !body.includes(`here \`${other}\``),
+          `guidance must not name ${other} as the default when it is ${target}`,
+        );
+      }
+    } finally {
+      await Deno.remove(dir, { recursive: true });
+    }
   }
 });

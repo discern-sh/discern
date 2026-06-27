@@ -83,6 +83,7 @@ function guidanceContext(config: DiscernConfig): GuidanceContext {
     vars: {
       branch_prefix: config.project.branch_prefix,
       main_branch: config.project.main_branch,
+      graduate_to: config.worktree.graduate_to,
       generated_agent_files: codeList(agentFiles),
       materialized_skills_dirs: codeList(skillsDirsForAgents(agents)),
     },
