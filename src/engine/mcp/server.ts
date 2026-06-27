@@ -38,6 +38,7 @@ import {
   DocsOutputSchema,
   DoctorOutputSchema,
   FinishOutputSchema,
+  IntegrateOutputSchema,
   type Location,
   StartOutputSchema,
   StatusOutputSchema,
@@ -428,7 +429,7 @@ export const TOOLS: McpTool[] = [
   defineTool({
     name: "discern_integrate",
     title: "Integrate {{main_branch}}",
-    outputSchema: DatalessEnvelopeSchema.shape,
+    outputSchema: IntegrateOutputSchema.shape,
     annotations: INTEGRATE,
     description:
       "Bring the latest `{{main_branch}}` into THIS worktree's branch and " +
@@ -444,8 +445,17 @@ export const TOOLS: McpTool[] = [
       "(reported, nothing merged, no refresh); it merges into a clean tree only, so " +
       'it refuses (error:"precondition_failed") on uncommitted changes; and on a merge ' +
       "conflict it aborts cleanly (leaving the tree untouched) and refuses, naming the " +
-      "conflicted files and the manual path to resolve them. Set dry_run to preview the " +
-      "plan without touching anything. Never touches the main checkout; operates only " +
+      "conflicted files and the manual path to resolve them. " +
+      "On a merge it returns `data` summarizing what landed BENEATH your work: the " +
+      "commits and files brought in (each capped, with a `*_total` and `*_truncated`), " +
+      "which of your own files `overlap` them (RE-READ those — a clean merge can still " +
+      "conflict semantically), the `scopes_incoming` touched, and a `range` of commit " +
+      "SHAs. When a list is capped, pull the full set in ONE git call from the range " +
+      "rather than guessing it — e.g. `git diff --stat <range.before>..<range.after>`, " +
+      "or `git diff <range.before>..<range.after> -- <path>` for one file; the hints " +
+      "carry the exact command. Set dry_run to preview the " +
+      "plan (and the SAME predicted `data`, computed read-only without merging) without " +
+      "touching anything. Never touches the main checkout; operates only " +
       "on the worktree the server runs in.",
     feature: "worktrees",
     requiresLocation: "worktree",
