@@ -118,7 +118,7 @@ Deno.test("execution model: gate verbs are byte-derived from the real plan build
 
 Deno.test("execution model: actor matches the user-configured vs built-in split", () => {
   const model = buildExecutionModel(parseConfigOrThrow(RICH_TOML));
-  // The two-way split must be consistent: a `you` step is a config-authored command;
+  // The two-way split must be consistent: a `project` step is a config-authored command;
   // a `discern` step is a built-in operation. (The job/check/scope/ratchet/resource/
   // setup kinds are the user's; the precondition/git/env/refresh kinds are discern's.)
   const userKinds = new Set([
@@ -132,7 +132,7 @@ Deno.test("execution model: actor matches the user-configured vs built-in split"
   ]);
   for (const vp of model) {
     for (const s of vp.steps) {
-      const expected = userKinds.has(s.kind) ? "you" : "discern";
+      const expected = userKinds.has(s.kind) ? "project" : "discern";
       assertEquals(
         s.actor,
         expected,
@@ -159,7 +159,7 @@ Deno.test("execution model: a resource teardown is flagged destructive and shows
       (s) => s.kind === "resource-destroy" && s.label === "db",
     );
     assert(destroy !== undefined, `${verb} should tear down the db resource`);
-    assertEquals(destroy.actor, "you");
+    assertEquals(destroy.actor, "project");
     assertEquals(destroy.destructive, true);
     assertEquals(destroy.note, "dropdb @db@");
   }

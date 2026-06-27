@@ -638,7 +638,7 @@ function wrapText(text: string, width: number): string[] {
  * Render the execution-model section for the human (non-`--json`) path — what runs,
  * in order, when each verb is called. Wraps to the terminal width with hanging indents
  * (so a long hint never collapses to column 0 and the actor column stays legible) and
- * colours each step's actor tag — green `[you]` (your configured command) vs cyan
+ * colours each step's actor tag — green `[project]` (your configured command) vs cyan
  * `[discern]` (a built-in step) — with destructive steps flagged in red. Routed through
  * the narration stream (stderr for the installer), like the rest of doctor's human
  * output. discern shows the facts and the expectations; the reader draws conclusions.
@@ -654,7 +654,9 @@ function renderExecutionModel(log: Logger, model: VerbPlan[]): void {
   // An aligned legend, rather than one long sentence that would itself wrap.
   log.humanLine(`  ${log.dim("What runs when you call each verb:")}`);
   log.humanLine(
-    `    ${log.green("[you]".padEnd(9))} ${log.dim("your configured command")}`,
+    `    ${log.green("[project]".padEnd(9))} ${
+      log.dim("your configured command")
+    }`,
   );
   log.humanLine(
     `    ${log.cyan("[discern]".padEnd(9))} ${log.dim("a built-in step")}`,
@@ -673,8 +675,8 @@ function renderExecutionModel(log: Logger, model: VerbPlan[]): void {
       continue;
     }
     for (const s of vp.steps) {
-      const tag = (s.actor === "you" ? "[you]" : "[discern]").padEnd(9);
-      const tagColored = s.actor === "you" ? log.green(tag) : log.cyan(tag);
+      const tag = (s.actor === "project" ? "[project]" : "[discern]").padEnd(9);
+      const tagColored = s.actor === "project" ? log.green(tag) : log.cyan(tag);
       const note = s.note !== undefined ? ` — ${s.note}` : "";
       const cond = s.condition !== undefined ? ` (${s.condition})` : "";
       // Wrap the headline body (label + note + condition) to the room right of the

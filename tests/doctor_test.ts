@@ -29,7 +29,7 @@ interface DoctorCheck {
 interface ExecStep {
   kind: string;
   label: string;
-  actor: "you" | "discern";
+  actor: "project" | "discern";
   note?: string;
   hint?: string;
   destructive?: boolean;
@@ -496,10 +496,10 @@ Deno.test("doctor: surfaces per-agent integration coverage (MCP/hooks Claude-onl
   });
 });
 
-Deno.test("doctor --json: carries the execution model, each step marked you/discern with a hint", async () => {
+Deno.test("doctor --json: carries the execution model, each step marked project/discern with a hint", async () => {
   await withTempDir(async (dir) => {
     await initInstall(dir);
-    await addCapability(dir, "lint", "echo lint"); // a real [you] gate command
+    await addCapability(dir, "lint", "echo lint"); // a real [project] gate command
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 0);
     // Every configurable verb the issue-template goal needs is covered.
@@ -528,7 +528,7 @@ Deno.test("doctor --json: carries the execution model, each step marked you/disc
     // The lint capability we wired is the user's own command.
     const lint = finish.steps.find((s) => s.label === "lint");
     assert(lint !== undefined, "finish should run the lint capability");
-    assertEquals(lint.actor, "you");
+    assertEquals(lint.actor, "project");
     assertEquals(lint.note, "echo lint");
   });
 });
@@ -547,7 +547,7 @@ Deno.test("doctor --json: a per-worktree resource shows a destructive teardown s
     const grad = modelVerb(payload, "graduate (--to trunk)");
     const destroy = grad.steps.find((s) => s.kind === "resource-destroy");
     assert(destroy !== undefined, "graduate should tear the resource down");
-    assertEquals(destroy.actor, "you");
+    assertEquals(destroy.actor, "project");
     assertEquals(destroy.destructive, true);
     assertEquals(destroy.note, "dropdb x");
   });

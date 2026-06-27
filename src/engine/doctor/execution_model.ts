@@ -64,12 +64,12 @@ interface StepKindAnnotation {
  */
 const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
   job: {
-    actor: "you",
+    actor: "project",
     hint:
       "A configured gate command (a capability or a check); its stage decides when it runs and what is expected of it.",
   },
   "scope-gate": {
-    actor: "you",
+    actor: "project",
     hint:
       "A scope's own gate command. Runs only when that scope's paths changed (classification fails open: an unknown path runs more gates, never fewer).",
   },
@@ -89,12 +89,12 @@ const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
       "Built-in fail-fast precondition: the materialized skills must match the effective set — run `discern refresh` if stale.",
   },
   "resource-create": {
-    actor: "you",
+    actor: "project",
     hint:
       "Your `create` command for a per-worktree external resource. Runs once at setup (skipped when already provisioned) and is reconciled by its `ensure` command on re-entry. Author it idempotent and cwd-independent.",
   },
   "resource-destroy": {
-    actor: "you",
+    actor: "project",
     destructive: true,
     hint:
       "Your `destroy` command for a per-worktree external resource — DESTRUCTIVE. Runs at graduate/teardown AND at orphan GC (`worktree:prune`); author it idempotent and cwd-independent, and set `gc = false` for a data-loss-sensitive resource you only want torn down explicitly.",
@@ -105,12 +105,12 @@ const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
       "A built-in git mutation discern performs (branch, WIP-commit, worktree removal, checkout, reset, sweep); the note says which.",
   },
   "setup-step": {
-    actor: "you",
+    actor: "project",
     hint:
       "A one-shot `[worktree.setup].steps` command. Runs once at worktree creation, after the resources; a failure aborts setup. Skipped on re-entry.",
   },
   "setup-ensure": {
-    actor: "you",
+    actor: "project",
     hint:
       "A convergent `[worktree.setup].ensure` command. Re-runs on EVERY pass (create, session start, integrate) — MUST be idempotent; prefer fast-when-current. Fatal at creation, non-fatal on re-entry.",
   },
@@ -125,7 +125,7 @@ const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
       "Built-in: recompile the generated agent files and re-materialize the skills.",
   },
   ratchet: {
-    actor: "you",
+    actor: "project",
     hint:
       "Your measurement command for a never-loosen metric. On demand only (`discern ratchets`), never part of the gate; the result is compared to its limit versus the integration branch.",
   },
