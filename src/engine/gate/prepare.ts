@@ -13,29 +13,12 @@
  */
 
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
-import { type JobGroup, serializeJobSteps, stageGroup } from "./plan.ts";
+import { preparePlanGroups, serializeJobSteps } from "./plan.ts";
 import { gateRunContext, runJobGroups } from "./execute.ts";
 import { renderFailureTail } from "./failure_tail.ts";
 import { emitResult } from "../../shared/emit.ts";
 import type { DiscernResult, FailedStage } from "../../shared/result.ts";
 import type { Out } from "../output.ts";
-
-/**
- * The prepare job groups: the fix stage (serial), then the check stage — no build,
- * no tests (those belong to the full `discern finish`).
- */
-function preparePlanGroups(cfg: DiscernConfig): JobGroup[] {
-  const groups: JobGroup[] = [];
-  const fix = stageGroup(cfg, "fix");
-  if (fix !== undefined) {
-    groups.push(fix);
-  }
-  const check = stageGroup(cfg, "check");
-  if (check !== undefined) {
-    groups.push(check);
-  }
-  return groups;
-}
 
 /**
  * Run the prepare gate once: build the groups, run them through the shared job

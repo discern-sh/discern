@@ -213,6 +213,25 @@ export function buildStageGroups(cfg: DiscernConfig): JobGroup[] {
 }
 
 /**
+ * The prepare job groups — the fast inner loop: the fix stage (serial), then the
+ * check stage. No build, no tests (those belong to the full `discern finish`). Pure:
+ * derived from the typed config alone, so `discern prepare` and `discern doctor`'s
+ * execution model both read this ONE composition rather than re-listing it.
+ */
+export function preparePlanGroups(cfg: DiscernConfig): JobGroup[] {
+  const groups: JobGroup[] = [];
+  const fix = stageGroup(cfg, "fix");
+  if (fix !== undefined) {
+    groups.push(fix);
+  }
+  const check = stageGroup(cfg, "check");
+  if (check !== undefined) {
+    groups.push(check);
+  }
+  return groups;
+}
+
+/**
  * The scope-gates group for the changed scopes, or undefined when no scope
  * declares a gate. The group holds EVERY configured gate (firing ones `willRun`,
  * unchanged ones not) so the report and the dry-run listing see them all; the

@@ -283,7 +283,11 @@ export const TOOLS: McpTool[] = [
       "Verify the discern install and return each check as an actionable result: " +
       "config validity, schema currency, whether the declared capability commands " +
       "resolve on PATH, and advisories. data.checks lists every check with its detail " +
-      "and — on failure — the exact fix.",
+      "and — on failure — the exact fix. data.execution_model lists, per configurable " +
+      "verb, the ordered steps it runs — each marked you (your configured command) or " +
+      "discern (a built-in step), with its expectation and any destructive flag — so " +
+      "you can see what runs when, and catch a real config mistake (e.g. a slow command " +
+      "in the fast inner loop).",
     inputSchema: { ...PATH_PARAM },
     run: (root) => doctorResult(root),
   }),

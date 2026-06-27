@@ -310,6 +310,57 @@ Deno.test("doctor result is faithful (healthy and failing)", async () => {
   });
 });
 
+Deno.test("doctor execution_model is faithful across a rich config (resources, ratchets, scopes)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    // A config exercising every corner of the execution-model schema: jobs, a scope
+    // gate, a ratchet, and a per-worktree resource (the destructive teardown).
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[capabilities]",
+        'format = "fmt ."',
+        'lint = "lint ."',
+        'test = "run-tests"',
+        "",
+        "[scopes.web]",
+        'paths = ["web/**"]',
+        'gate = "web-gate"',
+        "",
+        "[ratchets.coverage]",
+        'run = "measure-coverage"',
+        'direction = "up"',
+        "limit = 80",
+        "",
+        "[worktree]",
+        "enabled = true",
+        "port = true",
+        "",
+        "[worktree.resources.db]",
+        'create = "createdb @db@"',
+        'destroy = "dropdb @db@"',
+        "",
+      ].join("\n"),
+    );
+    const result = await doctorResult(dir);
+    // The whole envelope — execution_model included — validates against the schema the
+    // MCP server advertises as discern_doctor's outputSchema (a strict object, so a
+    // destructive/conditional step that didn't fit would be rejected here).
+    expectValid(DoctorOutputSchema, result, "doctor rich execution_model");
+    const model =
+      (result.data as { execution_model?: { verb: string }[] }).execution_model;
+    assert(
+      model !== undefined &&
+        model.some((v) => v.verb === "graduate (--to trunk)"),
+      "the rich model should cover the worktree verbs",
+    );
+  });
+});
+
 Deno.test("changed-scopes result is faithful", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

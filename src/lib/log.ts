@@ -175,6 +175,36 @@ export class Logger {
   dim(text: string): string {
     return this.paint(colors.dim, text);
   }
+
+  /** Cyan a fragment of text inline (no-op without colour). */
+  cyan(text: string): string {
+    return this.paint(colors.cyan, text);
+  }
+
+  /** Green a fragment of text inline (no-op without colour). */
+  green(text: string): string {
+    return this.paint(colors.green, text);
+  }
+
+  /** Red a fragment of text inline (no-op without colour). */
+  red(text: string): string {
+    return this.paint(colors.red, text);
+  }
+
+  /**
+   * Emit a pre-composed line to the human (narration) stream verbatim — the
+   * fully-controlled counterpart to {@link detail}, which forces its own indent and
+   * dim. A caller that builds a line out of inline colour fragments
+   * ({@link bold}/{@link dim}/{@link cyan}/…) and owns its own wrapping/indentation
+   * uses this. Follows `humanStream` (stderr for the installer) and is suppressed in
+   * JSON mode, like the rest of the narration.
+   */
+  humanLine(text: string): void {
+    if (this.json) {
+      return;
+    }
+    this.writeHuman(text);
+  }
 }
 
 /** Adapt the installer's `Logger` to a {@link RenderSink} for the shared plan renderer. */

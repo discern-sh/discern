@@ -228,7 +228,9 @@ function buildCli(
 
   root
     .command("doctor")
-    .description("Verify the install and fold in the harness's own self-check.")
+    .description(
+      "Check the install (config, schema, commands on PATH) and print each verb's execution model.",
+    )
     .action(async (options) => {
       const code = await runDoctor({
         json: options.json ?? false,
