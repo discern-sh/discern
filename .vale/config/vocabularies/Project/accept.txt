@@ -173,6 +173,7 @@ typo'd
 unclamped
 unconfigured
 unextendable
+unformatted
 ungated
 unmanaged
 unmarketed
