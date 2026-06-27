@@ -639,9 +639,11 @@ function wrapText(text: string, width: number): string[] {
  * in order, when each verb is called. Wraps to the terminal width with hanging indents
  * (so a long hint never collapses to column 0 and the actor column stays legible) and
  * colours each step's actor tag — green `[project]` (your configured command) vs cyan
- * `[discern]` (a built-in step). Routed through the narration stream (stderr for the
- * installer), like the rest of doctor's human output. discern shows the facts and the
- * expectations; the reader draws conclusions.
+ * `[discern]` (a built-in step). A hint is a class-level expectation, so it prints once
+ * per verb — the first step carrying it shows it and later repeats stay clean (the
+ * `--json` model keeps every step's hint for machine consumers). Routed through the
+ * narration stream (stderr for the installer), like the rest of doctor's human output.
+ * discern shows the facts and the expectations; the reader draws conclusions.
  */
 function renderExecutionModel(log: Logger, model: VerbPlan[]): void {
   const width = modelWidth();
@@ -664,6 +666,9 @@ function renderExecutionModel(log: Logger, model: VerbPlan[]): void {
 
   for (const vp of model) {
     log.heading(vp.verb);
+    // A hint states a per-kind/stage expectation, not a per-step fact, so show it once
+    // per verb; a repeat within the same verb would add only vertical noise.
+    const shownHints = new Set<string>();
     for (const line of wrapText(vp.when, width - 2)) {
       log.humanLine(`  ${log.dim(line)}`);
     }
@@ -692,7 +697,8 @@ function renderExecutionModel(log: Logger, model: VerbPlan[]): void {
           log.humanLine(`${labelIndent}${bl}`);
         }
       });
-      if (s.hint !== undefined) {
+      if (s.hint !== undefined && !shownHints.has(s.hint)) {
+        shownHints.add(s.hint);
         for (const hl of wrapText(s.hint, width - HINT_COL)) {
           log.humanLine(`${hintIndent}${log.dim(hl)}`);
         }
