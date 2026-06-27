@@ -21,10 +21,13 @@ import { resolveRecordedSchema } from "../lib/schema.ts";
 import { KIT_VERSION, SCHEMA_VERSION } from "../lib/version.ts";
 import {
   AGENT_NAMES,
+  type DiscernConfig,
+  loadConfig,
   parseConfig,
   resolveConfiguredAgents,
   toCommandList,
 } from "../shared/config_schema.ts";
+import { buildExecutionModel } from "../engine/doctor/execution_model.ts";
 import { providerFor, providersWithHooks } from "../lib/providers.ts";
 import {
   enabledFeatures,
@@ -40,6 +43,7 @@ import type {
   Check,
   DoctorData,
   DoctorEnvironment,
+  VerbPlan,
 } from "../shared/result_schemas.ts";
 
 /** Options accepted by the `doctor` command. */
@@ -556,16 +560,32 @@ export async function runChecks(destDir: string): Promise<Check[]> {
   return checks;
 }
 
+/** Load the typed config for the execution model, or `undefined` when none can be
+ * read (a missing or invalid discern.toml). The model is omitted in that case — the
+ * failing checks above are the actionable report; a model derived from defaults would
+ * only add noise to a broken install. */
+async function loadModelConfig(
+  destDir: string,
+): Promise<DiscernConfig | undefined> {
+  try {
+    return await loadConfig(destDir);
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Compute the `doctor` {@link DiscernResult} without printing — the entry point the
  * MCP server renders, and the source the CLI's `--json` serializes. Runs the
  * install checks and folds them into the envelope (`ok` = every check passed; the
- * per-check detail + fix ride in `data.checks`).
+ * per-check detail + fix ride in `data.checks`, the per-verb execution model in
+ * `data.execution_model`).
  */
 export async function doctorResult(
   destDir: string,
 ): Promise<DiscernResult<DoctorData>> {
   const checks = await runChecks(destDir);
+  const cfg = await loadModelConfig(destDir);
   return {
     ok: checks.every((c) => c.ok),
     verb: "doctor",
@@ -573,8 +593,51 @@ export async function doctorResult(
       kit_version: KIT_VERSION,
       environment: await doctorEnvironment(),
       checks,
+      ...(cfg !== undefined
+        ? { execution_model: buildExecutionModel(cfg) }
+        : {}),
     } satisfies DoctorData,
   };
+}
+
+/**
+ * Render the execution-model section for the human (non-`--json`) path — what runs,
+ * in order, when each verb is called, with every step marked `[you]` (a command from
+ * your config) or `[discern]` (a built-in step), its class-level expectation, and a
+ * visual flag on a destructive step. Routed through the narration stream (stderr for
+ * the installer), like the rest of doctor's human output. discern shows the facts and
+ * the expectations; the reader draws the conclusions.
+ */
+function renderExecutionModel(log: Logger, model: VerbPlan[]): void {
+  log.heading("Execution model");
+  log.detail(
+    "What runs when you call each verb. [you] = your configured command; " +
+      "[discern] = a built-in step. ⚠ marks a destructive step (may delete data).",
+  );
+  for (const vp of model) {
+    log.heading(vp.verb);
+    log.detail(vp.when);
+    if (vp.steps.length === 0) {
+      log.detail("(nothing configured)");
+      continue;
+    }
+    for (const s of vp.steps) {
+      const actor = (s.actor === "you" ? "[you]" : "[discern]").padEnd(9);
+      const note = s.note !== undefined ? ` — ${s.note}` : "";
+      const cond = s.condition !== undefined ? ` (${s.condition})` : "";
+      const headline = `${actor} ${s.label}${note}${cond}`;
+      // A destructive step is surfaced as a warning so it visibly stands out rather
+      // than being dimmed like the rest; everything else is a dim detail line.
+      if (s.destructive === true) {
+        log.warn(`${headline}  ⚠ DESTRUCTIVE`);
+      } else {
+        log.detail(headline);
+      }
+      if (s.hint !== undefined) {
+        log.detail(`            ${s.hint}`);
+      }
+    }
+  }
 }
 
 /** Run `discern doctor`. Returns a process exit code (0 = healthy). */
@@ -625,6 +688,10 @@ export async function runDoctor(options: DoctorOptions): Promise<number> {
     log.error(
       `${failed} check${failed === 1 ? "" : "s"} failed — see the fixes above.`,
     );
+  }
+  const cfg = await loadModelConfig(destDir);
+  if (cfg !== undefined) {
+    renderExecutionModel(log, buildExecutionModel(cfg));
   }
   return healthy ? 0 : 1;
 }
