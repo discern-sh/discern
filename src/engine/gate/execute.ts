@@ -16,7 +16,8 @@ import type { Job, JobResult } from "../jobs/types.ts";
 import { type RunOptions, runParallel, runSerial } from "../jobs/runner.ts";
 import { byteWriter, colorEnabled, makeOut, type Out } from "../output.ts";
 import type { FailedStage } from "../../shared/result.ts";
-import type { JobGroup } from "./plan.ts";
+import { buildStageGroups, type JobGroup } from "./plan.ts";
+import { fixDriftPaths, worktreeDirtyPaths } from "./fix_drift.ts";
 
 /**
  * Run one job group — the thin per-group executor. Runs the group's firing jobs
@@ -100,4 +101,46 @@ export function gateRunContext(
     },
     out: makeOut(color, { quiet: json }),
   };
+}
+
+/**
+ * Run the configured fix-stage fixers and report any STRANDED output — committed-clean
+ * files the fixers dirtied (`D1 \ D0`), the same signal {@link fixDriftPaths} defines for
+ * `finish`. This is the guard behind `discern graduate` (ADR 0061): a branch that is NOT at
+ * the fixers' fixed point must not land on `main`. `finish` already enforces this — but an
+ * agent that skips `finish` on a "trivial" docs edit (running only a scope gate, e.g. a prose
+ * LINTER like Vale, which lints but never FORMATS) commits unformatted Markdown, and
+ * `graduate --to trunk` fast-forwards it onto `main` LOCALLY, where CI's trailing
+ * `git diff --exit-code` never runs. Re-running the fixers at the landing boundary brings
+ * that property local.
+ *
+ * Runs in `root` — the worktree, the process cwd, exactly as `finish`'s fix stage does — and
+ * QUIET (graduate narrates through its own logger, not the job banners). Snapshots use
+ * {@link worktreeDirtyPaths} (tracked-only); a snapshot git cannot take fails OPEN to
+ * `stranded: []` (a missing snapshot must never fabricate a refusal). `fixFailed` is true when
+ * a fixer command itself exits non-zero, so the caller can refuse a broken fixer too. A
+ * project with no fix stage is a clean no-op.
+ */
+export async function detectFixStageStrand(
+  cfg: DiscernConfig,
+  root: string,
+): Promise<{ fixFailed: boolean; stranded: string[] }> {
+  const fixGroups = buildStageGroups(cfg).filter((g) => g.stage === "fix");
+  if (fixGroups.length === 0) {
+    return { fixFailed: false, stranded: [] };
+  }
+  const before = await worktreeDirtyPaths(root);
+  // Quiet (json=true): the fixer banners would be noise beside graduate's own narration.
+  const { runOpts, out } = gateRunContext(cfg, true);
+  const results = new Map<string, JobResult>();
+  for (const group of fixGroups) {
+    if (!(await runGroup(group, results, runOpts, out))) {
+      return { fixFailed: true, stranded: [] };
+    }
+  }
+  const after = await worktreeDirtyPaths(root);
+  const stranded = before !== null && after !== null
+    ? fixDriftPaths(before, after)
+    : [];
+  return { fixFailed: false, stranded };
 }

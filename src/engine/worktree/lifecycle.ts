@@ -96,6 +96,9 @@ import {
 // materializes skills into .claude/skills/ inside the freshly created worktree (a
 // linked worktree does not inherit that gitignored directory from the main checkout).
 import { compileGuidelines } from "../guidelines.ts";
+// graduate re-runs the fix stage at the landing boundary (ADR 0061), so an unformatted
+// tree an agent committed without `finish` cannot fast-forward onto the trunk.
+import { detectFixStageStrand } from "../gate/execute.ts";
 
 /** Context shared by every lifecycle operation. */
 export interface LifecycleContext {
@@ -704,12 +707,31 @@ async function buildGraduatePlan(
 }
 
 /**
+ * The graduate refusal when the fix stage reformatted committed files the branch would
+ * otherwise land unformatted (ADR 0061). Names the stranded files (capped) and the recovery:
+ * the reformat is already applied in the worktree, so the agent reviews it, commits it, and
+ * re-runs — `discern finish` runs the same fix stage. The branch keeps all its commits.
+ */
+function fixStrandRefusal(branch: string, stranded: string[]): string {
+  const shown = stranded.slice(0, 10).join(", ");
+  const more = stranded.length > 10
+    ? `, … (+${stranded.length - 10} more)`
+    : "";
+  return `Branch '${branch}' is not fix-stage clean: the fix stage reformatted ` +
+    `${stranded.length} committed file(s) that graduation would otherwise land ` +
+    `unformatted — ${shown}${more}. This is the fixer's own output (already applied ` +
+    `in your worktree): review it with \`git diff\`, commit it, then re-run ` +
+    `\`discern graduate\`. \`discern finish\` runs this same fix stage. Your branch ` +
+    `keeps all its commits.`;
+}
+
+/**
  * Apply a graduation plan — the mutation dance. Ensures the named branch
- * (creating one if the worktree is detached), tears down the resources, WIP-commits
- * any uncommitted changes, removes the worktree, checks the branch out in main, then
- * soft-resets the WIP commit so those changes land staged. Narrates exactly as
- * before; throws `WorktreeGitError` on any unrecoverable error (the branch keeps
- * its commits). Returns the per-step results for `--json`.
+ * (creating one if the worktree is detached), runs the fix-stage fixed-point guard (ADR
+ * 0061), tears down the resources, WIP-commits any uncommitted changes, removes the
+ * worktree, checks the branch out in main, then soft-resets the WIP commit so those changes
+ * land staged. Narrates exactly as before; throws `WorktreeGitError` on any unrecoverable
+ * error (the branch keeps its commits). Returns the per-step results for `--json`.
  */
 async function executeGraduatePlan(
   ctx: LifecycleContext,
@@ -727,6 +749,30 @@ async function executeGraduatePlan(
     );
   }
   const { to, worktreePath, mainRepo, mainBranch, trunk, worktreeDirty } = plan;
+
+  // Fix-stage fixed-point guard (ADR 0061) — refuse to land a branch that is NOT at the fix
+  // stage's fixed point. `finish` enforces this, but an agent that skips `finish` on a docs
+  // edit (running only a scope gate — a prose linter never formats) can commit unformatted
+  // Markdown; graduating it fast-forwards the trunk onto that commit LOCALLY, where CI's
+  // trailing `git diff --exit-code` never runs. Re-run the fixers and refuse on any stranded
+  // output — BEFORE the teardown/removal below, so the branch stays intact and the reformat
+  // is left applied for the agent to commit.
+  ctx.log.info("Checking the branch is at the fix stage's fixed point…");
+  const fixStrand = await detectFixStageStrand(ctx.config, ctx.cwd);
+  if (fixStrand.fixFailed) {
+    throw new WorktreeGitError(
+      `The fix stage failed while verifying '${worktreeBranch}' is graduation-ready. ` +
+        `Run \`discern finish\`, resolve the failure, then re-run \`discern graduate\` — ` +
+        `your branch keeps all its commits.`,
+    );
+  }
+  if (fixStrand.stranded.length > 0) {
+    throw new WorktreeGitError(
+      fixStrandRefusal(worktreeBranch, fixStrand.stranded),
+    );
+  }
+  ctx.log.ok("Branch is at the fix stage's fixed point.");
+
   const results: StepResult[] = [];
   const done = (kind: StepResult["step"]["kind"], label: string): void => {
     results.push({ step: { kind, label, disposition: "run" }, outcome: "ok" });
