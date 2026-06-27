@@ -449,8 +449,8 @@ export const TOOLS: McpTool[] = [
       ...PATH_PARAM,
     },
     // A successful graduation removes the worktree the server pointed at — reset the
-    // working root to the spawn root (the trunk it was launched from) so subsequent
-    // calls don't operate on a path that no longer exists.
+    // working root to the spawn root (the trunk it was launched from), the path
+    // subsequent calls should operate on.
     reaimOnSuccess: (_result, spawnRoot) => spawnRoot,
     run: (root, args) =>
       graduateToolResult(root, {
