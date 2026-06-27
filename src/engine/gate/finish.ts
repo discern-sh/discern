@@ -46,6 +46,7 @@ import {
   previewResult,
   renderPlan,
 } from "../../shared/result.ts";
+import type { GateData } from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { isFeatureEnabled } from "../../shared/features.ts";
 import {
@@ -163,7 +164,7 @@ async function runGate(
   json: boolean,
 ): Promise<
   {
-    result: DiscernResult;
+    result: DiscernResult<GateData>;
     failedStage: FailedStage | null;
     cfg: DiscernConfig;
     out: Out;
@@ -418,7 +419,7 @@ async function dryRunGate(
 export async function finishResult(
   root: string,
   opts: { dryRun?: boolean } = {},
-): Promise<DiscernResult> {
+): Promise<DiscernResult<GateData>> {
   if (opts.dryRun ?? false) {
     const cfg = await loadConfig(root);
     const changed = await changedScopes(root, cfg);

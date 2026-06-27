@@ -544,7 +544,9 @@ export async function runChecks(destDir: string): Promise<Check[]> {
  * install checks and folds them into the envelope (`ok` = every check passed; the
  * per-check detail + fix ride in `data.checks`).
  */
-export async function doctorResult(destDir: string): Promise<DiscernResult> {
+export async function doctorResult(
+  destDir: string,
+): Promise<DiscernResult<DoctorData>> {
   const checks = await runChecks(destDir);
   return {
     ok: checks.every((c) => c.ok),

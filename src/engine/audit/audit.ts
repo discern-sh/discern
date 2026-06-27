@@ -175,7 +175,7 @@ export interface AuditOptions {
 async function buildReport(
   root: string,
   opts: AuditOptions,
-): Promise<{ report: AuditReport } | { error: DiscernResult }> {
+): Promise<{ report: AuditReport } | { error: DiscernResult<never> }> {
   const config = await loadConfig(root);
   if (opts.category !== undefined) {
     const status = categoryStatus(opts.category, config);
@@ -228,7 +228,7 @@ function reportData(report: AuditReport): AuditData {
 export async function auditResult(
   root: string,
   opts: AuditOptions = {},
-): Promise<DiscernResult> {
+): Promise<DiscernResult<AuditData>> {
   const built = await buildReport(root, opts);
   if ("error" in built) {
     return built.error;

@@ -184,7 +184,9 @@ export interface ChangedScopesOptions {
 
 /** The `changed-scopes` envelope for a classified scope list — the one shape both
  * the CLI `--json` and the MCP tool render. */
-function changedScopesEnvelope(scopes: string[]): DiscernResult {
+function changedScopesEnvelope(
+  scopes: string[],
+): DiscernResult<ChangedScopesData> {
   return {
     ok: true,
     verb: "changed-scopes",
@@ -198,7 +200,7 @@ function changedScopesEnvelope(scopes: string[]): DiscernResult {
  */
 export async function changedScopesResult(
   root: string,
-): Promise<DiscernResult> {
+): Promise<DiscernResult<ChangedScopesData>> {
   return changedScopesEnvelope(await changedScopes(root));
 }
 

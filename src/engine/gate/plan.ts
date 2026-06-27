@@ -362,7 +362,7 @@ export function buildGateResult(
   plan: GatePlan,
   results: Map<string, JobResult>,
   failedStage: FailedStage | null,
-): DiscernResult {
+): DiscernResult<GateData> {
   const { steps, diagnostics } = serializeJobSteps(plan.groups, results);
   const data: GateData = {
     failed_stage: failedStage,
