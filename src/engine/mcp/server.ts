@@ -130,18 +130,27 @@ const INTEGRATE: ToolAnnotations = {
   idempotentHint: true,
 };
 
+/** A tool handler's `args`: the object the SDK validates each call against and hands
+ * the handler, inferred from the tool's own Zod input shape. An argument-less tool
+ * keeps the empty default shape, so its handler simply ignores the parameter. */
+type ToolArgs<TShape extends z.ZodRawShape> = z.infer<z.ZodObject<TShape>>;
+
 /** A tool: its advertised schema + metadata plus the handler that runs the verb.
  * The SDK converts {@link inputSchema}/{@link outputSchema} (Zod raw shapes, the
  * latter the per-verb schema from result_schemas.ts) to the JSON Schemas it
  * advertises in `tools/list`, and validates a call's `structuredContent` against the
- * output schema. */
-interface McpTool {
+ * output schema. Generic over its input shape (`TShape`) so {@link defineTool} types
+ * each handler's `args` from that tool's own `inputSchema` — the SDK has already
+ * validated the call against it, so the handler reads typed fields instead of
+ * re-checking an untyped `Record`. The heterogeneous {@link TOOLS} table holds the
+ * widened default. */
+interface McpTool<TShape extends z.ZodRawShape = z.ZodRawShape> {
   name: string;
   /** A short human label shown by clients alongside the tool. */
   title?: string;
   description: string;
   /** The verb's arguments as a Zod raw shape; absent for an argument-less verb. */
-  inputSchema?: z.ZodRawShape;
+  inputSchema?: TShape;
   /** The result shape this tool advertises (a Zod raw shape — a per-verb output
    * schema's `.shape`). The SDK validates every call's `structuredContent` against
    * it, so it MUST match what the verb actually returns (ADR 0041). */
@@ -162,7 +171,18 @@ interface McpTool {
    * hiding is UX, not the safety boundary. */
   requiresLocation?: Location;
   /** Run the verb in `root` with the call's arguments → the result to render. */
-  run(root: string, args: Record<string, unknown>): Promise<DiscernResult>;
+  run(root: string, args: ToolArgs<TShape>): Promise<DiscernResult>;
+}
+
+/** Collect one tool with its handler's `args` typed from its own `inputSchema`
+ * (`TShape` inferred per call), then stored in the heterogeneous {@link TOOLS} table
+ * widened to the default shape. An identity at runtime; its only job is to carry the
+ * per-tool shape into the handler's signature so a field typo or a drift from the
+ * declared schema is a compile error. */
+function defineTool<TShape extends z.ZodRawShape>(
+  tool: McpTool<TShape>,
+): McpTool<TShape> {
+  return tool;
 }
 
 /** The exposed tool set — each a thin adapter over a verb's result-returning core.
@@ -170,7 +190,7 @@ interface McpTool {
  * reconcile the tool slugs against the CLI verb SSOT via {@link verbOf} — every
  * MCP tool is a real verb, no dead slugs. */
 export const TOOLS: McpTool[] = [
-  {
+  defineTool({
     name: "discern_finish",
     title: "Run the quality gate",
     outputSchema: FinishOutputSchema.shape,
@@ -186,8 +206,8 @@ export const TOOLS: McpTool[] = [
       ),
     },
     run: (root, args) => finishResult(root, { dryRun: args.dry_run === true }),
-  },
-  {
+  }),
+  defineTool({
     name: "discern_prepare",
     title: "Run the fast gate",
     outputSchema: DatalessEnvelopeSchema.shape,
@@ -198,8 +218,8 @@ export const TOOLS: McpTool[] = [
       "quick check to run while iterating, before the full discern_finish. NOTE: the " +
       "fixers MUTATE the working tree (e.g. a formatter rewrites files).",
     run: (root) => prepareResult(root),
-  },
-  {
+  }),
+  defineTool({
     name: "discern_test",
     title: "Run the tests",
     outputSchema: DatalessEnvelopeSchema.shape,
@@ -209,8 +229,8 @@ export const TOOLS: McpTool[] = [
       "full gate) and return the result envelope. When no test command is configured " +
       "it is a trivial pass carrying a hint that says so.",
     run: (root) => testResult(root),
-  },
-  {
+  }),
+  defineTool({
     name: "discern_ratchets",
     title: "Check the ratchets",
     outputSchema: DatalessEnvelopeSchema.shape,
@@ -230,8 +250,8 @@ export const TOOLS: McpTool[] = [
     },
     run: (root, args) =>
       ratchetsResult(root, { dryRun: args.dry_run === true }),
-  },
-  {
+  }),
+  defineTool({
     name: "discern_doctor",
     title: "Check the install",
     outputSchema: DoctorOutputSchema.shape,
@@ -242,8 +262,8 @@ export const TOOLS: McpTool[] = [
       "resolve on PATH, and advisories. data.checks lists every check with its detail " +
       "and — on failure — the exact fix.",
     run: (root) => doctorResult(root),
-  },
-  {
+  }),
+  defineTool({
     name: "discern_changed_scopes",
     title: "List changed scopes",
     outputSchema: ChangedScopesOutputSchema.shape,
@@ -252,8 +272,8 @@ export const TOOLS: McpTool[] = [
       "List which project scopes the current branch and working tree changed — the " +
       "classification that decides which scope gates the quality gate fires.",
     run: (root) => changedScopesResult(root),
-  },
-  {
+  }),
+  defineTool({
     name: "discern_status",
     title: "Project status",
     outputSchema: StatusOutputSchema.shape,
@@ -291,8 +311,8 @@ export const TOOLS: McpTool[] = [
         all: args.all === true,
         local: args.local === true,
       }),
-  },
-  {
+  }),
+  defineTool({
     name: "discern_audit",
     title: "Audit the setup",
     outputSchema: AuditOutputSchema.shape,
@@ -313,13 +333,11 @@ export const TOOLS: McpTool[] = [
     },
     run: (root, args) =>
       auditResult(root, {
-        category: typeof args.category === "string" ? args.category : undefined,
-        minScore: typeof args.min_score === "number"
-          ? args.min_score
-          : undefined,
+        category: args.category,
+        minScore: args.min_score,
       }),
-  },
-  {
+  }),
+  defineTool({
     name: "discern_docs",
     title: "Read project docs",
     outputSchema: DocsOutputSchema.shape,
@@ -338,10 +356,10 @@ export const TOOLS: McpTool[] = [
     },
     run: (root, args) =>
       docsResult(root, {
-        target: typeof args.target === "string" ? args.target : undefined,
+        target: args.target,
       }),
-  },
-  {
+  }),
+  defineTool({
     name: "discern_help",
     title: "Read discern's docs",
     outputSchema: DocsOutputSchema.shape,
@@ -363,10 +381,10 @@ export const TOOLS: McpTool[] = [
     },
     run: (root, args) =>
       helpResult(root, {
-        target: typeof args.target === "string" ? args.target : undefined,
+        target: args.target,
       }),
-  },
-  {
+  }),
+  defineTool({
     name: "discern_graduate",
     title: "Graduate the worktree",
     outputSchema: DatalessEnvelopeSchema.shape,
@@ -400,10 +418,10 @@ export const TOOLS: McpTool[] = [
     run: (root, args) =>
       graduateToolResult(root, {
         dryRun: args.dry_run === true,
-        to: args.to as GraduateTarget | undefined,
+        to: args.to,
       }),
-  },
-  {
+  }),
+  defineTool({
     name: "discern_integrate",
     title: "Integrate main",
     outputSchema: DatalessEnvelopeSchema.shape,
@@ -431,8 +449,8 @@ export const TOOLS: McpTool[] = [
     },
     run: (root, args) =>
       integrateToolResult(root, { dryRun: args.dry_run === true }),
-  },
-  {
+  }),
+  defineTool({
     name: "discern_start",
     title: "Start a worktree",
     outputSchema: StartOutputSchema.shape,
@@ -460,7 +478,7 @@ export const TOOLS: McpTool[] = [
     },
     run: (root, args) =>
       startToolResult(root, { dryRun: args.dry_run === true }),
-  },
+  }),
 ];
 
 /**
