@@ -274,10 +274,52 @@ export type IntegrateOutcome =
   | { kind: "already" }
   /** The worktree has uncommitted changes: integrate merges into a clean tree only. */
   | { kind: "dirty" }
-  /** Main was merged in: `behind` commit(s) brought in, `fastForward` when no merge commit. */
-  | { kind: "integrated"; behind: number; fastForward: boolean }
+  /**
+   * Main was merged in: `behind` commit(s) brought in, `fastForward` when no merge
+   * commit. The four SHA anchors bound the integration so the summary layer (and an
+   * agent) can diff/log exactly what landed: `base` (the fork point), `before` (the
+   * branch tip pre-merge — the agent's own work), `main` (the tip merged in), and
+   * `after` (the merged HEAD). Any anchor is `""` when its read failed — the summary
+   * degrades, never the merge.
+   */
+  | {
+    kind: "integrated";
+    behind: number;
+    fastForward: boolean;
+    base: string;
+    before: string;
+    main: string;
+    after: string;
+  }
   /** The merge conflicts in `files`; the merge is aborted, leaving a clean tree. */
   | { kind: "conflict"; files: string[] };
+
+/** The three pre-merge SHA anchors of an integration (the fourth, `after`, is only
+ * known post-merge): `base` (the fork point), `before` (the branch tip), `main`
+ * (the tip being merged). Any field is `""` when its git read failed. */
+export interface IntegrationAnchors {
+  base: string;
+  before: string;
+  main: string;
+}
+
+/**
+ * Resolve the pre-merge anchors of integrating `mainBranch` into HEAD — read-only,
+ * so the apply ({@link integrateMain}, before it merges) and a `--dry-run` preview
+ * compute them identically. `main` is the integration branch's current tip,
+ * `before` is HEAD (the branch's own work), `base` their merge-base. A failed read
+ * yields `""` for that field; the summary layer degrades rather than the merge.
+ */
+export async function resolveIntegrationAnchors(
+  cwd: string,
+  mainBranch: string,
+): Promise<IntegrationAnchors> {
+  const before = (await git(["rev-parse", "HEAD"], cwd)).stdout.trim();
+  const main = (await git(["rev-parse", mainBranch], cwd)).stdout.trim();
+  const baseRun = await git(["merge-base", "HEAD", mainBranch], cwd);
+  const base = baseRun.success ? baseRun.stdout.trim() : "";
+  return { base, before, main };
+}
 
 /**
  * Merge the latest integration branch into the current worktree's branch — the
@@ -335,11 +377,17 @@ export async function integrateMain(
   const fastForward =
     (await git(["merge-base", "--is-ancestor", "HEAD", mainBranch], cwd))
       .success;
+  // The integration's SHA anchors, read BEFORE the merge moves HEAD: `before` (the
+  // branch tip / the agent's own work), `main` (the tip being merged), `base` (their
+  // fork point). `after` is read post-merge below. They let the summary layer report
+  // exactly what landed — and an agent diff the full set in one call when capped.
+  const anchors = await resolveIntegrationAnchors(cwd, mainBranch);
   // `--no-edit` accepts git's default merge-commit message without opening an
   // editor, so a divergent merge stays non-interactive.
   const merge = await git(["merge", "--no-edit", mainBranch], cwd);
   if (merge.success) {
-    return { kind: "integrated", behind, fastForward };
+    const after = (await git(["rev-parse", "HEAD"], cwd)).stdout.trim();
+    return { kind: "integrated", behind, fastForward, ...anchors, after };
   }
   // The merge stopped — collect the conflicted paths, then step aside cleanly so the
   // worktree is left exactly as it was before the merge.
@@ -349,6 +397,182 @@ export async function integrateMain(
     : [];
   await git(["merge", "--abort"], cwd);
   return { kind: "conflict", files };
+}
+
+/** One commit an integration brought in (short sha + subject line). */
+export interface IntegrationCommit {
+  sha: string;
+  subject: string;
+}
+
+/**
+ * One file an integration changed beneath the branch. `added`/`removed` are `null`
+ * for a binary file (git prints `-`). `status` is git's single-letter code
+ * (`A`/`M`/`D`/`T`); renames are decomposed to a delete + add (via `--no-renames`)
+ * so every entry is one matchable path, regardless of the user's `diff.renames`.
+ */
+export interface IntegrationFile {
+  path: string;
+  status: string;
+  added: number | null;
+  removed: number | null;
+}
+
+/**
+ * An integration's content summary: the commits and files it brought in (each
+ * capped, with the pre-cap `*Total` and a `*Truncated` flag), plus the FULL,
+ * uncapped path sets the summary layer needs — `theirsPaths` (what changed beneath
+ * the branch) and `ownPaths` (the branch's own changes since the fork). Pure git
+ * mechanics: the overlap intersection and the scope classification (which need the
+ * project config) are the lifecycle layer's to compute from these.
+ */
+export interface IntegrationDelta {
+  commits: IntegrationCommit[];
+  commitsTotal: number;
+  commitsTruncated: boolean;
+  files: IntegrationFile[];
+  filesTotal: number;
+  filesTruncated: boolean;
+  theirsPaths: string[];
+  ownPaths: string[];
+}
+
+/**
+ * Read a diff range's changed files — status (`A`/`M`/`D`, renames decomposed via
+ * `--no-renames`) merged with line counts — capped to `cap`, returned with the
+ * pre-cap total and the full ordered path set. The status list is authoritative for
+ * order and membership; numstat only supplies the `+`/`-` counts. Fails open to an
+ * empty result.
+ */
+async function diffFiles(
+  cwd: string,
+  range: string,
+  cap: number,
+): Promise<
+  { files: IntegrationFile[]; filesTotal: number; theirsPaths: string[] }
+> {
+  // line counts, keyed by path: "<added>\t<removed>\t<path>", "-" for a binary.
+  const counts = new Map<
+    string,
+    { added: number | null; removed: number | null }
+  >();
+  const numstat = await git(["diff", "--numstat", "--no-renames", range], cwd);
+  if (numstat.success) {
+    for (const line of numstat.stdout.split("\n")) {
+      if (line === "") {
+        continue;
+      }
+      const [a, r, ...rest] = line.split("\t");
+      const path = rest.join("\t");
+      if (path === "") {
+        continue;
+      }
+      counts.set(path, {
+        added: a === "-" ? null : Number(a) || 0,
+        removed: r === "-" ? null : Number(r) || 0,
+      });
+    }
+  }
+  // status letters: "<X>\t<path>" — the ordered, authoritative path list.
+  const files: IntegrationFile[] = [];
+  const theirsPaths: string[] = [];
+  const nameStatus = await git(
+    ["diff", "--name-status", "--no-renames", range],
+    cwd,
+  );
+  if (nameStatus.success) {
+    for (const line of nameStatus.stdout.split("\n")) {
+      if (line === "") {
+        continue;
+      }
+      const tab = line.indexOf("\t");
+      if (tab < 0) {
+        continue;
+      }
+      const status = line.slice(0, tab);
+      const path = line.slice(tab + 1);
+      if (path === "") {
+        continue;
+      }
+      theirsPaths.push(path);
+      if (files.length < cap) {
+        const c = counts.get(path) ?? { added: null, removed: null };
+        files.push({ path, status, added: c.added, removed: c.removed });
+      }
+    }
+  }
+  return { files, filesTotal: theirsPaths.length, theirsPaths };
+}
+
+/**
+ * Compute an integration's content summary from its {@link IntegrationAnchors} (plus
+ * `after` on an apply). Commits are those main authored since the fork (`before..main`
+ * — our own merge node is unreachable from main, so the count matches `behind`). The
+ * file delta is the real post-merge tree change on an apply (`before..after`,
+ * reflecting any conflict resolution) or the predicted incoming change on a
+ * `--dry-run` (`before...main`, the three-dot diff from the fork point) — selected by
+ * `opts.predicted`. Every git read fails open to an empty result and never throws:
+ * on an apply the merge has already landed, so a summary hiccup must not raise.
+ */
+export async function integrationDelta(
+  cwd: string,
+  anchors: { base: string; before: string; main: string; after?: string },
+  opts: { predicted: boolean; commitCap: number; fileCap: number },
+): Promise<IntegrationDelta> {
+  const { base, before, main, after } = anchors;
+  const fileRange = opts.predicted
+    ? `${before}...${main}`
+    : `${before}..${after}`;
+
+  // commits main authored since the fork: "%h<TAB>%s" → short sha + subject.
+  const commits: IntegrationCommit[] = [];
+  let commitsTotal = 0;
+  const logRun = await git(
+    ["log", "--pretty=format:%h%x09%s", `${before}..${main}`],
+    cwd,
+  );
+  if (logRun.success) {
+    const lines = logRun.stdout.split("\n").filter((l) => l !== "");
+    commitsTotal = lines.length;
+    for (const line of lines.slice(0, opts.commitCap)) {
+      const tab = line.indexOf("\t");
+      commits.push({
+        sha: tab >= 0 ? line.slice(0, tab) : line,
+        subject: tab >= 0 ? line.slice(tab + 1) : "",
+      });
+    }
+  }
+
+  const { files, filesTotal, theirsPaths } = await diffFiles(
+    cwd,
+    fileRange,
+    opts.fileCap,
+  );
+
+  // the branch's own changed paths since the fork (for the overlap intersection).
+  let ownPaths: string[] = [];
+  if (base !== "" && before !== "") {
+    const ownRun = await git(
+      ["diff", "--name-only", "--no-renames", base, before],
+      cwd,
+    );
+    if (ownRun.success) {
+      ownPaths = ownRun.stdout.split("\n").map((l) => l.trim()).filter((l) =>
+        l !== ""
+      );
+    }
+  }
+
+  return {
+    commits,
+    commitsTotal,
+    commitsTruncated: commitsTotal > commits.length,
+    files,
+    filesTotal,
+    filesTruncated: filesTotal > files.length,
+    theirsPaths,
+    ownPaths,
+  };
 }
 
 /**
