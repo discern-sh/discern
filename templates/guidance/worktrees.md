@@ -13,9 +13,10 @@ database, a container) that discern provisions and tears down per worktree; call
   fallen behind (the gate's merge check points here). It's safe and idempotent —
   just call it; on a conflict it reports the exact next step.
 - **`discern graduate`** hands your branch back to the main checkout when the work
-  is done — commit it first. By default it lands the branch for review; pass
-  **`--to trunk`** to fast-forward `{{main_branch}}` and delete the merged branch
-  instead. It refuses if the branch is behind `{{main_branch}}` (run
+  is done — commit it first. By default it lands per `[worktree].graduate_to`
+  (here `{{graduate_to}}`): `branch` leaves it checked out for review, `trunk`
+  fast-forwards `{{main_branch}}` and deletes the merged branch. Override per-run
+  with `--to`. It refuses if the branch is behind `{{main_branch}}` (run
   `discern integrate`) or the main checkout is dirty.
 
 Resolve a worktree's identity (its port, branch, {{#if has_worktree_resources}}`--resource <name>`, {{/if}}…) with the
