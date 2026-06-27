@@ -80,3 +80,5 @@ decision is hard to reverse, surprising without context, and a real trade-off.
 - [0058 — `discern start` spawns a worktree from the main checkout, and a status guardrail points at it](0058-start-verb-spawn-worktree-from-trunk.md)
 - [0059 — `[worktree.setup].ensure`, a convergent setup bucket that re-runs every pass](0059-worktree-setup-ensure.md)
 - [0060 — Worktree shell commands adopt the gate's capture-on-failure output convention](0060-worktree-command-output-capture.md)
+- [0061 — Graduate enforces the fix stage's fixed point before landing](0061-graduate-fix-stage-fixed-point.md)
+- [0062 — The MCP server tracks its own working root, retiring location-based tool visibility](0062-mcp-server-working-root.md)

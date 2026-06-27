@@ -4,7 +4,10 @@
 [ADR 0011](0011-adopt-worktree-workflow.md) (the workflow), respects the
 sibling-placement convention of [ADR 0052](0052-worktree-sibling-placement.md),
 and extends the location-aware status verb of
-[ADR 0033](0033-status-verb-and-location-aware-scope.md).
+[ADR 0033](0033-status-verb-and-location-aware-scope.md). The location-based
+tool _visibility_ of §2 (the `requiresLocation` hiding) is later retired by
+[ADR 0062](0062-mcp-server-working-root.md) — the defensive refusals it
+describes remain; only the hiding from `tools/list` goes.
 
 ## Context
 
