@@ -31,6 +31,7 @@ import {
   entriesForWorktree,
   gcOrphanResources,
   listEntries,
+  readEntry,
   readResourceSpecs,
   type ResourceContext,
   resourceEnvName,
@@ -640,6 +641,75 @@ Deno.test("GC refuses a frozen destroy command that still carries a token", asyn
       (await listEntries(common)).length,
       1,
       "the suspicious entry was kept",
+    );
+  });
+});
+
+// ── ledger validation: a file is trusted only if it is a well-formed entry ─────
+
+/** A complete, well-formed ledger entry — the baseline the validation tests mutate. */
+const VALID_ENTRY = {
+  schema: 1,
+  seq: 0,
+  project_slug: "proj",
+  git_key: "gone",
+  worktree_id: "gone",
+  worktree_path: "/tmp/gone",
+  resource_name: "thing",
+  resource_identity: "proj-gone-thing",
+  destroy_command: "destroy-thing proj-gone-thing",
+  token_map: {},
+  retries: 0,
+  gc: true,
+  created_at: "2020-01-01T00:00:00.000Z",
+};
+
+Deno.test("readEntry validates the entry shape: a well-formed file loads", async () => {
+  await withTempDir(async (dir) => {
+    const path = join(dir, "ok.json");
+    await Deno.writeTextFile(path, JSON.stringify(VALID_ENTRY));
+    const entry = await readEntry(path);
+    assertExists(entry);
+    assertEquals(entry.resource_name, "thing");
+  });
+});
+
+Deno.test("readEntry skips a malformed, incomplete, foreign-major, or non-JSON file", async () => {
+  await withTempDir(async (dir) => {
+    const write = async (name: string, value: unknown): Promise<string> => {
+      const path = join(dir, name);
+      await Deno.writeTextFile(
+        path,
+        typeof value === "string" ? value : JSON.stringify(value),
+      );
+      return path;
+    };
+    // Right `schema` marker but a wrong-typed field — the old cast trusted this;
+    // the schema rejects it rather than handing GC a half-formed entry.
+    assertEquals(
+      await readEntry(
+        await write("badtype.json", { ...VALID_ENTRY, retries: "lots" }),
+      ),
+      undefined,
+    );
+    // A required field missing.
+    const withoutKey = { ...VALID_ENTRY } as Record<string, unknown>;
+    delete withoutKey.git_key;
+    assertEquals(
+      await readEntry(await write("missing.json", withoutKey)),
+      undefined,
+    );
+    // A future format major — skipped (forward-compat), as before.
+    assertEquals(
+      await readEntry(
+        await write("future.json", { ...VALID_ENTRY, schema: 2 }),
+      ),
+      undefined,
+    );
+    // Not even JSON.
+    assertEquals(
+      await readEntry(await write("corrupt.json", "{not json")),
+      undefined,
     );
   });
 });

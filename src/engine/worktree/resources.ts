@@ -28,6 +28,7 @@
 
 import { join } from "@std/path";
 import { ensureDir } from "@std/fs";
+import { z } from "@zod/zod";
 import type { Logger } from "../../lib/log.ts";
 import type { DiscernConfig } from "../../shared/config_schema.ts";
 import {
@@ -75,32 +76,40 @@ export interface ResourceSpec {
   gc: boolean;
 }
 
-/** One ledger entry — the ownership proof + everything GC needs once the worktree
- * is gone. */
-export interface ResourceEntry {
-  schema: number;
+/** The ledger entry shape AND its read-time validator — one source for both. A
+ * file under the ledger dir is trusted only if it parses to this exact shape with a
+ * recognised `schema` major; anything else (a corrupt write, a hand-edit, a future
+ * format) is skipped, never half-read. */
+const resourceEntrySchema = z.object({
+  /** Entry-format major; a foreign/newer value fails validation and is skipped. */
+  schema: z.literal(LEDGER_SCHEMA),
   /** Document-order index at creation — destroy runs in reverse. */
-  seq: number;
-  project_slug: string;
+  seq: z.number(),
+  project_slug: z.string(),
   /** PRIMARY key: the `<common>/worktrees/<git_key>` admin-dir basename. */
-  git_key: string;
+  git_key: z.string(),
   /** The resolved worktree id (diagnostic; may differ from git_key via overrides). */
-  worktree_id: string;
+  worktree_id: z.string(),
   /** Canonical worktree path at write time (secondary GC guard + label). */
-  worktree_path: string;
-  resource_name: string;
+  worktree_path: z.string(),
+  resource_name: z.string(),
   /** The resource's handle (e.g. the db/container name) — the recycling-guard key. */
-  resource_identity: string;
+  resource_identity: z.string(),
   /** The `destroy` command FULLY EXPANDED at create time (authoritative for GC). */
-  destroy_command: string;
+  destroy_command: z.string(),
   /** Every `@token@` the create/destroy templates named, resolved (diagnostic). */
-  token_map: Record<string, string>;
+  token_map: z.record(z.string(), z.string()),
   /** Retries to honour when running destroy. */
-  retries: number;
+  retries: z.number(),
   /** Whether orphan GC may reclaim this resource. */
-  gc: boolean;
-  created_at: string;
-}
+  gc: z.boolean(),
+  created_at: z.string(),
+});
+
+/** One ledger entry — the ownership proof + everything GC needs once the worktree
+ * is gone. Inferred from {@link resourceEntrySchema}, so the entry shape and the
+ * read-time validation can never drift apart. */
+export type ResourceEntry = z.infer<typeof resourceEntrySchema>;
 
 /** Read the declared resources in document order (the create/destroy order). */
 export function readResourceSpecs(config: DiscernConfig): ResourceSpec[] {
@@ -200,7 +209,9 @@ export async function writeEntry(
   await Deno.rename(tmp, path);
 }
 
-/** Read one entry, tolerating a missing/corrupt/unknown-schema file (→ undefined). */
+/** Read one entry, tolerating a missing/corrupt/unknown-schema/malformed file
+ * (→ undefined). The shape is validated against {@link resourceEntrySchema}, so a
+ * file that parses as JSON but isn't a well-formed entry is skipped, not trusted. */
 export async function readEntry(
   path: string,
 ): Promise<ResourceEntry | undefined> {
@@ -210,12 +221,14 @@ export async function readEntry(
   } catch {
     return undefined;
   }
+  let parsed: unknown;
   try {
-    const parsed = JSON.parse(text) as ResourceEntry;
-    return parsed?.schema === LEDGER_SCHEMA ? parsed : undefined;
+    parsed = JSON.parse(text);
   } catch {
     return undefined;
   }
+  const result = resourceEntrySchema.safeParse(parsed);
+  return result.success ? result.data : undefined;
 }
 
 /** Every ledger entry for this repo (skipping unreadable/foreign files). */
