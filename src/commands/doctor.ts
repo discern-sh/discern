@@ -677,18 +677,19 @@ function renderExecutionModel(log: Logger, model: VerbPlan[]): void {
       const note = s.note !== undefined ? ` — ${s.note}` : "";
       const cond = s.condition !== undefined ? ` (${s.condition})` : "";
       // Wrap the headline body (label + note + condition) to the room right of the
-      // label column; bold the label portion of line 1, dim the remainder.
+      // label column; bold the label portion of line 1 and keep the command + any
+      // condition at normal weight (legible) — only the hint below it is dimmed.
       const bodyLines = wrapText(`${s.label}${note}${cond}`, width - LABEL_COL);
       bodyLines.forEach((bl, i) => {
         if (i === 0) {
           const boldLen = Math.min(s.label.length, bl.length);
           log.humanLine(
             `  ${tagColored} ${log.bold(bl.slice(0, boldLen))}${
-              log.dim(bl.slice(boldLen))
+              bl.slice(boldLen)
             }`,
           );
         } else {
-          log.humanLine(`${labelIndent}${log.dim(bl)}`);
+          log.humanLine(`${labelIndent}${bl}`);
         }
       });
       if (s.hint !== undefined) {
