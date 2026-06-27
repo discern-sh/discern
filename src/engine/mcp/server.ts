@@ -493,18 +493,21 @@ export const TOOLS: McpTool[] = [
     annotations: MUTATING,
     description:
       "Create a fresh ISOLATED worktree from the main checkout — your own line of " +
-      "work — on its own branch, set it up, and return where it landed. Use this when " +
-      "you are on the trunk (the main checkout) and about to start work: it is the " +
-      "first-class way to get your own workspace, so you NEVER adopt an existing idle " +
-      "worktree (each belongs to another agent's line of work; a clean working tree " +
-      "doesn't mean it's free). CRITICAL: this server is rooted in one checkout and " +
-      "CANNOT relocate your session — it returns the new worktree's absolute path in " +
-      "data.path, and you MUST re-root yourself: start a session rooted there (or cd " +
-      "into it) and continue from inside it, never back in the main checkout. Each " +
-      "call mints a NEW worktree (not idempotent) — call it once per line of work. " +
-      "If you are already inside a worktree, do NOT call this (you'd create a " +
-      'pointless sibling): it refuses (error:"precondition_failed") if invoked ' +
-      "anyway. Set dry_run to preview the plan without creating anything.",
+      "work — on its own branch, set it up, and return where it landed (data.path). " +
+      "Use this when you are on the trunk (the main checkout) and about to start work: " +
+      "it is the first-class way to get your own workspace, so you NEVER adopt an " +
+      "existing idle worktree (each belongs to another line of work; a clean working " +
+      "tree doesn't mean it's free). On success it RE-AIMS these discern tools at the " +
+      "new worktree automatically — your later discern_finish / discern_integrate / " +
+      "discern_graduate operate on it with nothing for you to thread. But that moves " +
+      "only the discern tools: you MUST still move your OWN file operations into " +
+      "data.path — via your environment's worktree-entering capability, a fresh " +
+      "session rooted there, or changing directory — so your edits land in the " +
+      "worktree, not the trunk; otherwise your edits and the gate diverge. Each call " +
+      "mints a NEW worktree (not idempotent) — call it once per line of work. If you " +
+      "are already inside a worktree, do NOT call this (you'd create a pointless " +
+      'sibling): it refuses (error:"precondition_failed") if invoked anyway. Set ' +
+      "dry_run to preview the plan without creating anything.",
     feature: "worktrees",
     inputSchema: {
       dry_run: z.boolean().optional().describe(
@@ -579,7 +582,9 @@ async function integrateToolResult(
  * worktree, and map a precondition refusal (called from inside a worktree) to the
  * same error envelope the CLI returns. The placement root is resolved HERE (the
  * feature-layer convention) and passed into the engine core, mirroring the
- * dispatcher. Unexpected errors propagate to {@link runTool}'s catch-all.
+ * dispatcher. On a real apply it overrides the shared engine hint with the
+ * MCP-specific re-aim story (see {@link mcpStartHint}). Unexpected errors propagate
+ * to {@link runTool}'s catch-all.
  */
 async function startToolResult(
   root: string,
@@ -590,10 +595,21 @@ async function startToolResult(
     new Logger({ json: true, noColor: true }),
   );
   try {
-    return await startResult(ctx, {
+    const result = await startResult(ctx, {
       dryRun: opts.dryRun ?? false,
       worktreeRoot: resolveWorktreeRoot(ctx.root, ctx.config),
     });
+    // Over MCP, start ALSO re-aims the live server's working root at the new worktree
+    // (runTool applies the re-aim once this returns) — the CLI can't, having no
+    // persistent server, so the shared engine hint ("nothing relocated — cd there")
+    // is wrong here. Replace it with the MCP story: the discern tools follow
+    // automatically, but the agent must still move its OWN file context in. Only on a
+    // real apply (a dry-run created nothing and moves nothing).
+    const data = result.data;
+    if (result.ok && result.dry_run !== true && data !== undefined) {
+      result.hints = [mcpStartHint(data.path)];
+    }
+    return result;
   } catch (e) {
     const mapped = worktreeErrorResult("start", e);
     if (mapped !== undefined) {
@@ -601,6 +617,25 @@ async function startToolResult(
     }
     throw e;
   }
+}
+
+/**
+ * The result hint `discern_start` surfaces over MCP (ADR 0062 §4): the two
+ * load-bearing halves the server cannot enforce on its own. (1) The discern tools are
+ * now aimed at the new worktree automatically — finish/integrate/graduate follow.
+ * (2) The agent must STILL move its own file operations into `path`, because the
+ * server cannot relocate the client's session — and if it doesn't, its edits land on
+ * the trunk while the gate runs in the worktree, so the two diverge. Vendor-neutral
+ * by design (the server is agent-agnostic): it alludes to the capability rather than
+ * naming any one client's worktree-entering command.
+ */
+function mcpStartHint(path: string): string {
+  return `discern's tools are now aimed at the new worktree at ${path} — your ` +
+    `discern_finish / discern_integrate / discern_graduate calls operate on it ` +
+    `automatically from here. You must STILL move your own file operations into ` +
+    `${path} (your environment's worktree-entering capability, a fresh session ` +
+    `rooted there, or changing directory) so your edits land in the worktree, not ` +
+    `the trunk — otherwise your edits and the gate will diverge.`;
 }
 
 /** The verb slug behind a tool name (`discern_changed_scopes` → `changed-scopes`),

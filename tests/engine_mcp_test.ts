@@ -840,7 +840,10 @@ Deno.test("discern mcp: an explicit `path` wins over the working root (ADR 0062 
       params: { name: "discern_status", arguments: {} },
     });
     const fromWorking = await mcp.recv();
-    assertEquals(fromWorking.result.structuredContent.data.location, "worktree");
+    assertEquals(
+      fromWorking.result.structuredContent.data.location,
+      "worktree",
+    );
 
     // An explicit `path` pointing at the trunk WINS over the working root for that one
     // call: status reports the main checkout, not the worktree the working root holds.
@@ -886,7 +889,9 @@ Deno.test("discern mcp: a `path` outside any discern project falls through to no
     await gitInit(dir);
     // A path with no discern.toml in it or any ancestor (the system temp, outside the
     // project tree) → findRoot returns undefined → the uniform not_initialized refusal.
-    const outside = await Deno.makeTempDir({ prefix: "discern-not-a-project-" });
+    const outside = await Deno.makeTempDir({
+      prefix: "discern-not-a-project-",
+    });
     try {
       const mcp = await spawnMcp(dir);
       await mcp.send({
@@ -912,6 +917,81 @@ Deno.test("discern mcp: a `path` outside any discern project falls through to no
     } finally {
       await Deno.remove(outside, { recursive: true });
     }
+  });
+});
+
+Deno.test("discern mcp: after discern_start, discern_status follows the re-aimed working root, and the start hint spells out the agent's own move (ADR 0062 §4)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const mcp = await spawnMcp(dir);
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await mcp.recv();
+
+    // Before start: status is rooted in the main checkout (the spawn root).
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "discern_status", arguments: {} },
+    });
+    const before = await mcp.recv();
+    assertEquals(before.result.structuredContent.data.location, "main");
+
+    // discern_start re-aims the working root at the new worktree…
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: { name: "discern_start", arguments: {} },
+    });
+    const started = await mcp.recv();
+    assertEquals(started.result.isError, false, JSON.stringify(started.result));
+    const wtPath = started.result.structuredContent.data.path as string;
+
+    // …and its result hint spells out BOTH load-bearing halves (§4): the discern tools
+    // now follow the new worktree automatically, AND the agent must still move its own
+    // file context there (alluded to, not a vendor tool name) or its edits and the gate
+    // diverge. The hint names the new path so the agent knows where to go.
+    const hint = (started.result.structuredContent.hints as string[]).join(
+      "\n",
+    );
+    assert(
+      hint.includes(wtPath),
+      `the start hint must name the new path: ${hint}`,
+    );
+    assert(
+      /aimed|operate on it/i.test(hint),
+      `the hint must say the discern tools now follow the worktree: ${hint}`,
+    );
+    assert(
+      /move your own|your own file/i.test(hint) && /diverge/i.test(hint),
+      `the hint must say to move the agent's own file context, or edits/gate diverge: ${hint}`,
+    );
+    // Vendor-neutral: the agent-agnostic server alludes to the capability, never names
+    // one client's command.
+    assert(
+      !/EnterWorktree|\/worktree/.test(hint),
+      `the hint must stay vendor-neutral: ${hint}`,
+    );
+
+    // …so a plain discern_status (no path) now reports the worktree and its exact root.
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 4,
+      method: "tools/call",
+      params: { name: "discern_status", arguments: {} },
+    });
+    const after = await mcp.recv();
+    assertEquals(after.result.structuredContent.data.location, "worktree");
+    assertEquals(after.result.structuredContent.data.root, wtPath);
+
+    assertEquals(await mcp.close(), 0);
   });
 });
 
