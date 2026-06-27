@@ -76,7 +76,10 @@ reworded to drop its idempotency over-claim, and no per-step machinery is added.
 exact parity with resource `ensure`. The cost lever is the author's: a
 fast-when-current command (`<install> check || <install>`) over an always-clean
 one (`<install> --clean`). The deliberate trade is one cheap reconcile per
-session for a worktree that is never silently stale.
+session for a worktree that is never silently stale. (Running at session start
+also surfaced that a chatty `ensure` command leaked its output into the
+agent-context channel; [ADR 0060](0060-worktree-command-output-capture.md) makes
+every worktree command quiet on success in response.)
 
 Adding the key is backward-compatible: it is optional and defaults to `[]`, so a
 config with only `steps` behaves exactly as before. No `SCHEMA_VERSION` bump or

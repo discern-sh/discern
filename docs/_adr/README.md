@@ -79,3 +79,4 @@ decision is hard to reverse, surprising without context, and a real trade-off.
 - [0057 — Ratchet a rate, not a raw count, via an optional `per` denominator](0057-rate-ratchets.md)
 - [0058 — `discern start` spawns a worktree from the main checkout, and a status guardrail points at it](0058-start-verb-spawn-worktree-from-trunk.md)
 - [0059 — `[worktree.setup].ensure`, a convergent setup bucket that re-runs every pass](0059-worktree-setup-ensure.md)
+- [0060 — Worktree shell commands adopt the gate's capture-on-failure output convention](0060-worktree-command-output-capture.md)
