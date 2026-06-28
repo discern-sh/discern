@@ -19,6 +19,7 @@ import { basename, dirname, isAbsolute, join, resolve } from "@std/path";
 import { cksumString } from "../../shared/crc.ts";
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import { runGit } from "../../shared/subprocess.ts";
+import type { EnvReader } from "../../shared/env.ts";
 
 /** The dev-server port band: 13000–14999, clear of common local services. */
 const PORT_BASE = 13000;
@@ -302,9 +303,10 @@ export function generateWorktreeId(): string {
  */
 export async function loadIdentitySettings(
   root: string,
+  env: EnvReader = Deno.env,
 ): Promise<IdentitySettings> {
-  let rawSlug = Deno.env.get("DISCERN_PROJECT_SLUG") ?? "";
-  let branchPrefix = Deno.env.get("DISCERN_WORKTREE_BRANCH_PREFIX");
+  let rawSlug = env.get("DISCERN_PROJECT_SLUG") ?? "";
+  let branchPrefix = env.get("DISCERN_WORKTREE_BRANCH_PREFIX");
   if (rawSlug === "" || branchPrefix === undefined) {
     // Tolerant config read: a missing or invalid toml just leaves the defaults in
     // place (worktree naming must work even when the config is mid-edit).
@@ -469,10 +471,11 @@ async function metadataIdFromGit(path: string): Promise<string> {
 export async function resolveWorktreeId(
   settings: IdentitySettings,
   target: string = Deno.cwd(),
+  env: EnvReader = Deno.env,
 ): Promise<string> {
   const canonical = await canonicalizeTarget(target);
 
-  const envOverride = Deno.env.get("DISCERN_WORKTREE_ID");
+  const envOverride = env.get("DISCERN_WORKTREE_ID");
   if (envOverride !== undefined && envOverride !== "") {
     return validateOverrideId(envOverride);
   }

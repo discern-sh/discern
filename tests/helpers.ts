@@ -5,6 +5,7 @@
 
 import { dirname, fromFileUrl, join } from "@std/path";
 import type { TokenMap } from "../src/lib/template.ts";
+import type { EnvReader } from "../src/shared/env.ts";
 
 /** Absolute path to the synthetic fixture templates tree. */
 export const FIXTURE_TEMPLATES = join(
@@ -144,4 +145,18 @@ export async function targetExists(dir: string, rel: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/**
+ * An {@link EnvReader} backed by a plain map — the parallel-safe way for a test to
+ * hand env overrides to a function under test (resolveTemplatesDir, colourEnabled,
+ * resolveWorktreeId, …) WITHOUT mutating the real process env. A process-env
+ * mutation is global and leaks across test files running concurrently under
+ * `deno test --parallel`; an injected reader stays local to the call. An unlisted
+ * key reads as absent.
+ */
+export function fakeEnv(
+  vars: Record<string, string | undefined> = {},
+): EnvReader {
+  return { get: (key: string): string | undefined => vars[key] };
 }

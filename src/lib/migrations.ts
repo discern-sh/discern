@@ -28,6 +28,7 @@ import {
   readConfigTemplate,
   sectionBlockFromTemplate,
 } from "./config_template.ts";
+import type { EnvReader } from "../shared/env.ts";
 import { KNOWN_CAPABILITIES } from "./config.ts";
 import { bundledSkillNames } from "./skills.ts";
 import { resolveBundledSkillsDir } from "./paths.ts";
@@ -43,6 +44,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export interface MigrationContext {
   /** Absolute destination root of the install being migrated. */
   readonly destDir: string;
+  /**
+   * Env reader for any env-sourced override a step consults (e.g. the templates
+   * dir behind {@link readConfigTemplate}). Injectable so a migration test never
+   * mutates the process env, which would race across parallel test files.
+   * Defaults to `Deno.env`.
+   */
+  readonly env: EnvReader;
   /** True if a target-relative path exists. */
   exists(rel: string): Promise<boolean>;
   /** Read a target file as text, or undefined if absent. */
@@ -413,7 +421,7 @@ export const MIGRATIONS: Migration[] = [
       const agents = legacyAgents.length > 0
         ? legacyAgents
         : [...DEFAULT_AGENTS];
-      const tmpl = await readConfigTemplate();
+      const tmpl = await readConfigTemplate(ctx.env);
       // A section's canonical block from the template, with content tokens filled
       // (only [guidance] carries one, `{{agents_array}}`). Undefined when the
       // template is unavailable or the section is not in it.
@@ -1112,6 +1120,7 @@ async function ignoreAgentsSkills(ctx: MigrationContext): Promise<void> {
 export function createMigrationContext(
   destDir: string,
   onNote: (message: string) => void = () => {},
+  env: EnvReader = Deno.env,
 ): MigrationContext {
   const abs = (rel: string) => join(destDir, rel);
 
@@ -1230,6 +1239,7 @@ export function createMigrationContext(
     editToml,
     mergeSettings: mergeSettingsInto,
     note: onNote,
+    env,
   };
 }
 
@@ -1259,6 +1269,9 @@ export async function applyMigrations(params: {
   to: number;
   registry?: Migration[] | undefined;
   onNote?: ((message: string) => void) | undefined;
+  /** Env reader threaded to the migration context (defaults to `Deno.env`);
+   * a test injects a fake instead of mutating the process env. */
+  env?: EnvReader | undefined;
 }): Promise<Migration[]> {
   const { destDir, from, to } = params;
   const registry = params.registry ?? MIGRATIONS;
@@ -1279,7 +1292,7 @@ export async function applyMigrations(params: {
     );
   }
 
-  const ctx = createMigrationContext(destDir, params.onNote);
+  const ctx = createMigrationContext(destDir, params.onNote, params.env);
   for (const m of pending) {
     await m.apply(ctx);
   }

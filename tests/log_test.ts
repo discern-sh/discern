@@ -16,6 +16,7 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { colourEnabled, Logger } from "../src/lib/log.ts";
+import { fakeEnv } from "./helpers.ts";
 
 /** Capture everything written to console.error / console.log while `fn` runs. */
 async function capture(
@@ -38,34 +39,6 @@ async function capture(
     console.log = origOut;
   }
   return { err, out };
-}
-
-/** Set an env var for the duration of `fn`, restoring the prior state after. */
-function withEnv(key: string, value: string, fn: () => void): void {
-  const had = Deno.env.get(key);
-  Deno.env.set(key, value);
-  try {
-    fn();
-  } finally {
-    if (had === undefined) {
-      Deno.env.delete(key);
-    } else {
-      Deno.env.set(key, had);
-    }
-  }
-}
-
-/** Ensure an env var is absent for the duration of `fn`, restoring it after. */
-function withoutEnv(key: string, fn: () => void): void {
-  const had = Deno.env.get(key);
-  Deno.env.delete(key);
-  try {
-    fn();
-  } finally {
-    if (had !== undefined) {
-      Deno.env.set(key, had);
-    }
-  }
 }
 
 Deno.test("human methods write to stderr with their prefix glyphs (no colour)", async () => {
@@ -157,23 +130,20 @@ Deno.test("colourEnabled(true) is always false (forced off)", () => {
 });
 
 Deno.test("colourEnabled(false) is false when NO_COLOR is set and non-empty", () => {
-  withEnv("NO_COLOR", "1", () => {
-    assertEquals(colourEnabled(false), false);
-  });
+  assertEquals(colourEnabled(false, fakeEnv({ NO_COLOR: "1" })), false);
 });
 
 Deno.test("colourEnabled(false) ignores an empty NO_COLOR and falls back to the TTY check", () => {
-  withEnv("NO_COLOR", "", () => {
-    // Empty NO_COLOR is not "set"; without a TTY (the test runner) this is false.
-    assertEquals(colourEnabled(false), Deno.stdout.isTerminal());
-  });
+  // Empty NO_COLOR is not "set"; without a TTY (the test runner) this is false.
+  assertEquals(
+    colourEnabled(false, fakeEnv({ NO_COLOR: "" })),
+    Deno.stdout.isTerminal(),
+  );
 });
 
 Deno.test("colourEnabled(false) defers to the TTY check when NO_COLOR is unset", () => {
-  withoutEnv("NO_COLOR", () => {
-    // Under `deno test` stdout is not a terminal, so this resolves false; the
-    // assertion is written against the live TTY state to stay correct anywhere.
-    assertEquals(colourEnabled(false), Deno.stdout.isTerminal());
-    assert(typeof Deno.stdout.isTerminal() === "boolean");
-  });
+  // Under `deno test` stdout is not a terminal, so this resolves false; the
+  // assertion is written against the live TTY state to stay correct anywhere.
+  assertEquals(colourEnabled(false, fakeEnv()), Deno.stdout.isTerminal());
+  assert(typeof Deno.stdout.isTerminal() === "boolean");
 });

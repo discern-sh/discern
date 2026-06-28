@@ -24,7 +24,12 @@ import {
   MIGRATIONS,
   pendingMigrations,
 } from "../src/lib/migrations.ts";
-import { REAL_TEMPLATES, targetExists, withTempDir } from "./helpers.ts";
+import {
+  fakeEnv,
+  REAL_TEMPLATES,
+  targetExists,
+  withTempDir,
+} from "./helpers.ts";
 
 /** A synthetic step that records its `from` when applied. */
 function recordingStep(from: number, log: number[]): Migration {
@@ -849,35 +854,37 @@ Deno.test("migration 5→6 still adds the sections (bare) when the template can'
   // Graceful degradation: if the bundled template can't be resolved, the
   // migration must still produce a functionally complete config — just without
   // the doc blocks — rather than dropping the new sections.
-  const saved = Deno.env.get("DISCERN_TEMPLATES_DIR");
-  Deno.env.set(
-    "DISCERN_TEMPLATES_DIR",
-    join(saved ?? "/tmp", "no-such-dir-xyz"),
-  );
-  try {
-    await withTempDir(async (dir) => {
-      await Deno.mkdir(join(dir, ".discern"), { recursive: true });
-      await Deno.writeTextFile(
-        join(dir, ".discern/config.toml"),
-        '[meta]\nschema_version = 5\n[project]\nslug = "demo"\n',
-      );
-
-      await applyMigrations({ destDir: dir, from: 5, to: 6, onNote: () => {} });
-
-      const toml = await Deno.readTextFile(join(dir, "discern.toml"));
-      assertStringIncludes(toml, "[features]");
-      assertStringIncludes(toml, "[guidance]");
-      assertStringIncludes(toml, "[skills]");
-      // Functional, but undocumented — the fallback path took over.
-      assert(
-        !toml.includes("# [features] — toggle"),
-        "no doc block in fallback",
-      );
+  await withTempDir(async (dir) => {
+    // A templates dir that doesn't exist forces readConfigTemplate's fallback.
+    // It is injected via a fake env, not set on the process env, so this test
+    // never leaks state into other files under `deno test --parallel`.
+    const env = fakeEnv({
+      DISCERN_TEMPLATES_DIR: join(dir, "no-such-dir-xyz"),
     });
-  } finally {
-    if (saved === undefined) Deno.env.delete("DISCERN_TEMPLATES_DIR");
-    else Deno.env.set("DISCERN_TEMPLATES_DIR", saved);
-  }
+    await Deno.mkdir(join(dir, ".discern"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, ".discern/config.toml"),
+      '[meta]\nschema_version = 5\n[project]\nslug = "demo"\n',
+    );
+
+    await applyMigrations({
+      destDir: dir,
+      from: 5,
+      to: 6,
+      onNote: () => {},
+      env,
+    });
+
+    const toml = await Deno.readTextFile(join(dir, "discern.toml"));
+    assertStringIncludes(toml, "[features]");
+    assertStringIncludes(toml, "[guidance]");
+    assertStringIncludes(toml, "[skills]");
+    // Functional, but undocumented — the fallback path took over.
+    assert(
+      !toml.includes("# [features] — toggle"),
+      "no doc block in fallback",
+    );
+  });
 });
 
 Deno.test("migration 5→6 preserves a CUSTOMIZED bundled skill that differs only in a non-SKILL.md file (R1)", async () => {

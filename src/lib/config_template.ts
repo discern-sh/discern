@@ -18,6 +18,7 @@
 
 import { join } from "@std/path";
 import { resolveTemplatesDir } from "./paths.ts";
+import type { EnvReader } from "../shared/env.ts";
 
 /** The template file name inside the resolved `templates/` tree. */
 const CONFIG_TEMPLATE_NAME = "discern.toml.tmpl";
@@ -115,9 +116,11 @@ export function sectionBlockFromTemplate(
  * "fall back to a plain key edit" rather than failing — a missing template must
  * never break an upgrade.
  */
-export async function readConfigTemplate(): Promise<string | undefined> {
+export async function readConfigTemplate(
+  env: EnvReader = Deno.env,
+): Promise<string | undefined> {
   try {
-    const dir = await resolveTemplatesDir();
+    const dir = await resolveTemplatesDir(env);
     return await Deno.readTextFile(join(dir, CONFIG_TEMPLATE_NAME));
   } catch {
     return undefined;

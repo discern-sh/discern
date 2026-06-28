@@ -21,6 +21,7 @@ import {
   siteForId,
   validateOverrideId,
 } from "../src/engine/worktree/identity.ts";
+import { fakeEnv } from "./helpers.ts";
 
 interface CksumVector {
   input: string;
@@ -139,33 +140,22 @@ Deno.test("resolveWorktreeId honours the DISCERN_WORKTREE_ID env override (parit
     slug: fixture.identity.slug,
     branchPrefix: fixture.identity.branch_prefix,
   };
-  const prevId = Deno.env.get("DISCERN_WORKTREE_ID");
-  const prevSlug = Deno.env.get("DISCERN_PROJECT_SLUG");
-  Deno.env.set("DISCERN_PROJECT_SLUG", "discern");
-  try {
-    for (const c of fixture.identity.cases) {
-      Deno.env.set("DISCERN_WORKTREE_ID", c.id);
-      // The override path validates + sanitizes; every fixture id is already a
-      // clean slug, so it round-trips to the same value the derivation expects.
-      const id = await resolveWorktreeId(settings);
-      assertEquals(id, c.id, `resolveWorktreeId override for '${c.id}'`);
-      const identity = deriveIdentity(id, settings);
-      assertEquals(identity.port, c.port);
-      assertEquals(identity.site, c.site);
-      assertEquals(identity.db, c.db);
-      assertEquals(identity.branch, c.branch);
-    }
-  } finally {
-    if (prevId === undefined) {
-      Deno.env.delete("DISCERN_WORKTREE_ID");
-    } else {
-      Deno.env.set("DISCERN_WORKTREE_ID", prevId);
-    }
-    if (prevSlug === undefined) {
-      Deno.env.delete("DISCERN_PROJECT_SLUG");
-    } else {
-      Deno.env.set("DISCERN_PROJECT_SLUG", prevSlug);
-    }
+  for (const c of fixture.identity.cases) {
+    // The override path validates + sanitizes; every fixture id is already a
+    // clean slug, so it round-trips to the same value the derivation expects.
+    // The override is injected, not set on the process env, so the case loop is
+    // safe to interleave with other files under `deno test --parallel`.
+    const id = await resolveWorktreeId(
+      settings,
+      undefined,
+      fakeEnv({ DISCERN_WORKTREE_ID: c.id }),
+    );
+    assertEquals(id, c.id, `resolveWorktreeId override for '${c.id}'`);
+    const identity = deriveIdentity(id, settings);
+    assertEquals(identity.port, c.port);
+    assertEquals(identity.site, c.site);
+    assertEquals(identity.db, c.db);
+    assertEquals(identity.branch, c.branch);
   }
 });
 
@@ -174,28 +164,22 @@ Deno.test("an invalid DISCERN_WORKTREE_ID override is rejected", async () => {
     slug: "discern",
     branchPrefix: "agent/",
   };
-  const prev = Deno.env.get("DISCERN_WORKTREE_ID");
-  Deno.env.set("DISCERN_WORKTREE_ID", "has spaces/and!bad");
+  let threw = false;
   try {
-    let threw = false;
-    try {
-      await resolveWorktreeId(settings);
-    } catch (e) {
-      threw = true;
-      assertEquals((e as Error).name, "IdentityError");
-    }
-    assertEquals(
-      threw,
-      true,
-      "an invalid override id should throw IdentityError",
+    await resolveWorktreeId(
+      settings,
+      undefined,
+      fakeEnv({ DISCERN_WORKTREE_ID: "has spaces/and!bad" }),
     );
-  } finally {
-    if (prev === undefined) {
-      Deno.env.delete("DISCERN_WORKTREE_ID");
-    } else {
-      Deno.env.set("DISCERN_WORKTREE_ID", prev);
-    }
+  } catch (e) {
+    threw = true;
+    assertEquals((e as Error).name, "IdentityError");
   }
+  assertEquals(
+    threw,
+    true,
+    "an invalid override id should throw IdentityError",
+  );
 });
 
 Deno.test("sanitization: an override id is lowercased and dash-normalised", () => {

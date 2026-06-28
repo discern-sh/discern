@@ -12,6 +12,7 @@ import { basename, dirname, fromFileUrl, join } from "@std/path";
 import { expandGlob } from "@std/fs";
 import {
   CONFIG_REL,
+  type EnvReader,
   installedConfigRel,
   LEGACY_CONFIG_REL,
 } from "../shared/env.ts";
@@ -201,8 +202,10 @@ export async function resolveSetupDir(): Promise<string> {
  *      (works under `deno run` from a checkout, and under a `deno compile`
  *      binary built with `--include templates/`).
  */
-export async function resolveTemplatesDir(): Promise<string> {
-  const override = Deno.env.get("DISCERN_TEMPLATES_DIR");
+export async function resolveTemplatesDir(
+  env: EnvReader = Deno.env,
+): Promise<string> {
+  const override = env.get("DISCERN_TEMPLATES_DIR");
   if (override) {
     if (await isDir(override)) {
       return override;

@@ -10,6 +10,7 @@
 import { colors } from "@cliffy/ansi/colors";
 import type { DiscernResult, RenderSink } from "../shared/result.ts";
 import { emitResult } from "../shared/emit.ts";
+import type { EnvReader } from "../shared/env.ts";
 
 /** How a command should present its results. */
 export interface LogOptions {
@@ -26,12 +27,15 @@ export interface LogOptions {
 }
 
 /** Resolve whether colour should be used for this run. */
-export function colourEnabled(noColor: boolean): boolean {
+export function colourEnabled(
+  noColor: boolean,
+  env: EnvReader = Deno.env,
+): boolean {
   if (noColor) {
     return false;
   }
   if (
-    Deno.env.get("NO_COLOR") !== undefined && Deno.env.get("NO_COLOR") !== ""
+    env.get("NO_COLOR") !== undefined && env.get("NO_COLOR") !== ""
   ) {
     return false;
   }

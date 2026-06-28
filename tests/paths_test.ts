@@ -6,8 +6,9 @@
  *   - {@link resolveWorktreeRoot} — the placement convention for new worktrees:
  *     the sibling default and the relative/absolute `[worktree].root` overrides.
  *
- * Each env-touching test owns its env: the override is saved and restored so the
- * suite's parallel tests do not leak state into one another.
+ * Each override test injects a fake env reader, supplying `DISCERN_TEMPLATES_DIR`
+ * to the resolver directly rather than mutating the process env — so the tests
+ * carry no shared state and stay safe to run in parallel.
  */
 
 import {
@@ -19,7 +20,7 @@ import {
 import { join } from "@std/path";
 import { resolveTemplatesDir, resolveWorktreeRoot } from "../src/lib/paths.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
-import { REAL_TEMPLATES, withTempDir } from "./helpers.ts";
+import { fakeEnv, REAL_TEMPLATES, withTempDir } from "./helpers.ts";
 
 /** A fully-defaulted config carrying the given `[worktree].root` (empty ⇒ default). */
 function configWithRoot(root: string): ReturnType<typeof parseConfigOrThrow> {
@@ -30,52 +31,22 @@ function configWithRoot(root: string): ReturnType<typeof parseConfigOrThrow> {
 
 const OVERRIDE = "DISCERN_TEMPLATES_DIR";
 
-/** Run `fn` with `DISCERN_TEMPLATES_DIR` set to `value`, restoring it after. */
-async function withOverride(
-  value: string,
-  fn: () => Promise<void>,
-): Promise<void> {
-  const had = Deno.env.get(OVERRIDE);
-  Deno.env.set(OVERRIDE, value);
-  try {
-    await fn();
-  } finally {
-    if (had === undefined) Deno.env.delete(OVERRIDE);
-    else Deno.env.set(OVERRIDE, had);
-  }
-}
-
-/** Run `fn` with `DISCERN_TEMPLATES_DIR` removed, restoring it after. */
-async function withoutOverride(fn: () => Promise<void>): Promise<void> {
-  const had = Deno.env.get(OVERRIDE);
-  Deno.env.delete(OVERRIDE);
-  try {
-    await fn();
-  } finally {
-    if (had !== undefined) Deno.env.set(OVERRIDE, had);
-  }
-}
-
 Deno.test("override pointing at a real directory is returned verbatim", async () => {
   await withTempDir(async (dir) => {
-    await withOverride(dir, async () => {
-      assert((await resolveTemplatesDir()) === dir);
-    });
+    assert((await resolveTemplatesDir(fakeEnv({ [OVERRIDE]: dir }))) === dir);
   });
 });
 
 Deno.test("override pointing at a non-existent path throws a clear, named error", async () => {
   await withTempDir(async (dir) => {
     const missing = join(dir, "does-not-exist");
-    await withOverride(missing, async () => {
-      const err = await assertRejects(
-        () => resolveTemplatesDir(),
-        Error,
-      );
-      assertStringIncludes(err.message, OVERRIDE);
-      assertStringIncludes(err.message, missing);
-      assertStringIncludes(err.message, "not a directory");
-    });
+    const err = await assertRejects(
+      () => resolveTemplatesDir(fakeEnv({ [OVERRIDE]: missing })),
+      Error,
+    );
+    assertStringIncludes(err.message, OVERRIDE);
+    assertStringIncludes(err.message, missing);
+    assertStringIncludes(err.message, "not a directory");
   });
 });
 
@@ -83,25 +54,24 @@ Deno.test("override pointing at a regular file (not a dir) is rejected", async (
   await withTempDir(async (dir) => {
     const file = join(dir, "a-file");
     await Deno.writeTextFile(file, "not a directory");
-    await withOverride(file, async () => {
-      const err = await assertRejects(() => resolveTemplatesDir(), Error);
-      assertStringIncludes(err.message, "not a directory");
-      assertStringIncludes(err.message, file);
-    });
+    const err = await assertRejects(
+      () => resolveTemplatesDir(fakeEnv({ [OVERRIDE]: file })),
+      Error,
+    );
+    assertStringIncludes(err.message, "not a directory");
+    assertStringIncludes(err.message, file);
   });
 });
 
 Deno.test("with no override, the walk-up discovers the repo's real templates/", async () => {
-  await withoutOverride(async () => {
-    const resolved = await resolveTemplatesDir();
-    // Walking up from src/lib/paths.ts lands on the repo's own templates/.
-    // Compare via realPath so a symlinked tmp/checkout root can't cause a
-    // spurious string mismatch.
-    assert(
-      (await Deno.realPath(resolved)) === (await Deno.realPath(REAL_TEMPLATES)),
-      `expected ${REAL_TEMPLATES}, got ${resolved}`,
-    );
-  });
+  // An empty fake env carries no override, so the walk-up path is taken: walking
+  // up from src/lib/paths.ts lands on the repo's own templates/. Compare via
+  // realPath so a symlinked tmp/checkout root can't cause a spurious mismatch.
+  const resolved = await resolveTemplatesDir(fakeEnv());
+  assert(
+    (await Deno.realPath(resolved)) === (await Deno.realPath(REAL_TEMPLATES)),
+    `expected ${REAL_TEMPLATES}, got ${resolved}`,
+  );
 });
 
 Deno.test("resolveWorktreeRoot: an empty [worktree].root ⇒ a sibling of the repo", () => {

@@ -17,6 +17,18 @@
 
 import { dirname, join } from "@std/path";
 
+/**
+ * A read-only view over environment variables — the seam a caller passes so it
+ * can supply env values explicitly instead of reading the real process env.
+ * Mutating `Deno.env` is process-global and leaks across test files running
+ * concurrently under `deno test --parallel`; every function that consults an env
+ * override therefore accepts one of these, defaulting to `Deno.env` (which
+ * satisfies the shape), so a test injects a fake and never touches the process.
+ */
+export interface EnvReader {
+  get(key: string): string | undefined;
+}
+
 /** Relative path of the install marker the root walk looks for (the dissolved
  * single-file footprint). */
 export const CONFIG_REL = "discern.toml";

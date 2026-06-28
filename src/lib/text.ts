@@ -4,6 +4,8 @@
  * `discern --help`'s grouped command list wrap identically.
  */
 
+import type { EnvReader } from "../shared/env.ts";
+
 /**
  * The terminal's usable column count, or `undefined` when output is not a TTY and
  * `$COLUMNS` is unset (piped/redirected). The single place the CLI reads the
@@ -11,7 +13,7 @@
  * {@link wrapText} in one module and can never drift into a second ad-hoc reader
  * that wraps differently — or not at all. Callers apply their own default + clamp.
  */
-export function terminalWidth(): number | undefined {
+export function terminalWidth(env: EnvReader = Deno.env): number | undefined {
   let cols: number | undefined;
   try {
     cols = Deno.consoleSize().columns;
@@ -19,8 +21,8 @@ export function terminalWidth(): number | undefined {
     cols = undefined;
   }
   if (cols === undefined || cols <= 0) {
-    const env = Number(Deno.env.get("COLUMNS"));
-    cols = Number.isFinite(env) && env > 0 ? env : undefined;
+    const parsed = Number(env.get("COLUMNS"));
+    cols = Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
   }
   return cols;
 }
