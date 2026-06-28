@@ -47,6 +47,12 @@ export interface UpgradeOptions {
    * `SCHEMA_VERSION` bump.
    */
   registry?: Migration[] | undefined;
+  /**
+   * Project root to operate on; defaults to `Deno.cwd()`. Tests pass it directly
+   * so they never chdir the process — a process-global change that races across
+   * test files running concurrently under `deno test --parallel`.
+   */
+  cwd?: string | undefined;
 }
 
 /** Read a text file, or undefined if absent. */
@@ -64,7 +70,7 @@ async function readTextIfExists(path: string): Promise<string | undefined> {
 /** Run `discern upgrade`. Returns a process exit code. */
 export async function runUpgrade(options: UpgradeOptions): Promise<number> {
   const log = new Logger(options);
-  const destDir = Deno.cwd();
+  const destDir = options.cwd ?? Deno.cwd();
 
   // Must be inside an initialized project. Detect either layout so a
   // pre-6 install (legacy `.discern/config.toml`) is recognised and carried

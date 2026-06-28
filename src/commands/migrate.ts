@@ -32,12 +32,18 @@ export interface MigrateOptions {
    * (`MIGRATIONS`); overridable so tests can report against synthetic steps.
    */
   registry?: Migration[];
+  /**
+   * Project root to operate on; defaults to `Deno.cwd()`. Tests pass it directly
+   * so they never chdir the process — a process-global change that races across
+   * test files running concurrently under `deno test --parallel`.
+   */
+  cwd?: string;
 }
 
 /** Run `discern migrate`. Returns a process exit code. */
 export async function runMigrate(options: MigrateOptions): Promise<number> {
   const log = new Logger(options);
-  const destDir = Deno.cwd();
+  const destDir = options.cwd ?? Deno.cwd();
 
   const configPath = await resolveConfigPath(destDir);
   if (configPath === undefined) {

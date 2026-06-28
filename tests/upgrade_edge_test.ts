@@ -288,24 +288,20 @@ Deno.test("upgrade truncates the dirty-change list past ten entries", async () =
 
 /**
  * Run `runUpgrade` in-process against `dir` with a synthetic chain and human
- * (non-JSON) output, capturing what it writes to stderr. The command resolves
- * the project from `Deno.cwd()`, so we chdir for the call and restore after
- * (the suite runs sequentially, so the global cwd is safe to borrow), and we
- * swap `console.error` to capture the human summary lines. `--allow-dirty`
- * skips the clean-tree guard for the throwaway install.
+ * (non-JSON) output, capturing what it writes to stderr. `dir` is passed as the
+ * command's `cwd`, and we swap `console.error` to capture the human summary
+ * lines. `--allow-dirty` skips the clean-tree guard for the throwaway install.
  */
 async function upgradeHumanIn(
   dir: string,
   registry?: Migration[],
 ): Promise<{ code: number; err: string }> {
-  const cwd = Deno.cwd();
   const originalError = console.error;
   let err = "";
   console.error = (...args: unknown[]) => {
     err += args.map((a) => String(a)).join(" ") + "\n";
   };
   try {
-    Deno.chdir(dir);
     const code = await runUpgrade({
       json: false,
       noColor: true,
@@ -313,11 +309,11 @@ async function upgradeHumanIn(
       check: false,
       allowDirty: true,
       registry,
+      cwd: dir,
     });
     return { code, err };
   } finally {
     console.error = originalError;
-    Deno.chdir(cwd);
   }
 }
 

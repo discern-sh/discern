@@ -41,26 +41,20 @@ async function recordedSchema(dir: string): Promise<number> {
 }
 
 /**
- * Run `runUpgrade` in-process against `dir`. It resolves the project from
- * `Deno.cwd()`, so we chdir for the call and restore after (the test suite runs
- * sequentially, so the global cwd is safe to borrow). `json` keeps output to one
- * line; `--allow-dirty` skips the clean-tree guard for the throwaway install.
+ * Run `runUpgrade` in-process against `dir`, passed as the command's `cwd` so the
+ * call needs no process chdir. `json` keeps output to one line; `--allow-dirty`
+ * skips the clean-tree guard for the throwaway install.
  */
 async function upgradeIn(dir: string, registry?: Migration[]): Promise<number> {
-  const cwd = Deno.cwd();
-  try {
-    Deno.chdir(dir);
-    return await runUpgrade({
-      json: true,
-      noColor: true,
-      dryRun: false,
-      check: false,
-      allowDirty: true,
-      registry,
-    });
-  } finally {
-    Deno.chdir(cwd);
-  }
+  return await runUpgrade({
+    json: true,
+    noColor: true,
+    dryRun: false,
+    check: false,
+    allowDirty: true,
+    registry,
+    cwd: dir,
+  });
 }
 
 Deno.test("a current install has nothing pending and applies no migrations", async () => {

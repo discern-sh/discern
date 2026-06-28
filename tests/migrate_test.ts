@@ -28,19 +28,19 @@ async function setSchema(dir: string, version: number): Promise<void> {
   );
 }
 
-/** Run `runMigrate` in-process against `dir` (resolves from Deno.cwd()). */
+/** Run `runMigrate` in-process against `dir`, passed as `cwd` (no process chdir). */
 async function migrateIn(
   dir: string,
   registry: Migration[],
   check: boolean,
 ): Promise<number> {
-  const cwd = Deno.cwd();
-  try {
-    Deno.chdir(dir);
-    return await runMigrate({ json: true, noColor: true, check, registry });
-  } finally {
-    Deno.chdir(cwd);
-  }
+  return await runMigrate({
+    json: true,
+    noColor: true,
+    check,
+    registry,
+    cwd: dir,
+  });
 }
 
 Deno.test("migrate reports up to date on a current install", async () => {
