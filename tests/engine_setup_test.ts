@@ -94,10 +94,11 @@ Deno.test("the setup redirect and the command retire once setup is recorded", as
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
 
-    // Before: a work verb hard-redirects (exit≠0, on stderr), and setup shows in help.
-    const preFinish = await runAgent(dir, ["finish"]);
-    assertEquals(preFinish.code, 1, preFinish.output);
-    assertStringIncludes(preFinish.stderr, "isn't set up yet");
+    // Before: a still-gated work verb (`docs`) hard-redirects (exit≠0, on stderr),
+    // and setup shows in help. (`finish` is no longer gated — ADR 0065.)
+    const preDocs = await runAgent(dir, ["docs"]);
+    assertEquals(preDocs.code, 1, preDocs.output);
+    assertStringIncludes(preDocs.stderr, "isn't set up yet");
     const preHelp = await runAgent(dir, ["--help"]);
     assertStringIncludes(preHelp.stdout, HELP_DESC);
 
@@ -110,9 +111,8 @@ Deno.test("the setup redirect and the command retire once setup is recorded", as
     assertEquals(done.code, 0, done.output);
 
     // After: the same verb runs (no redirect), and setup is hidden from help.
-    const postFinish = await runAgent(dir, ["finish"]);
-    assertEquals(postFinish.code, 0, postFinish.output);
-    assert(!postFinish.stderr.includes("isn't set up yet"));
+    const postDocs = await runAgent(dir, ["docs"]);
+    assert(!postDocs.stderr.includes("isn't set up yet"), postDocs.output);
     const postHelp = await runAgent(dir, ["--help"]);
     assert(
       !postHelp.stdout.includes(HELP_DESC),
@@ -121,17 +121,26 @@ Deno.test("the setup redirect and the command retire once setup is recorded", as
   });
 });
 
-Deno.test("the redirect fires on work verbs but not on plumbing verbs", async () => {
+Deno.test("the redirect fires on still-gated work verbs but not on plumbing or proof verbs", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false }); // un-set-up
-    const finish = await runAgent(dir, ["finish"]);
-    assertEquals(finish.code, 1, finish.output);
-    assertStringIncludes(finish.stderr, "isn't set up yet");
+    // `docs` browses the project's own tree — empty until setup fills it — so it
+    // stays gated.
+    const docs = await runAgent(dir, ["docs"]);
+    assertEquals(docs.code, 1, docs.output);
+    assertStringIncludes(docs.stderr, "isn't set up yet");
     // `refresh` is machinery (and `discern setup` itself runs it) — no redirect,
     // so it never leaks into the regen/hook path.
     const refresh = await runAgent(dir, ["refresh"]);
     assert(!refresh.stderr.includes("isn't set up yet"));
     assertEquals(refresh.code, 0, refresh.output);
+    // `finish` is a gate PROOF verb — ADR 0065 un-gates it so the agent can
+    // iterate while wiring capabilities during setup; it must NOT redirect.
+    const finish = await runAgent(dir, ["finish"]);
+    assert(
+      !finish.stderr.includes("isn't set up yet"),
+      `finish must run during setup: ${finish.output}`,
+    );
   });
 });
 
@@ -154,15 +163,37 @@ Deno.test("docs is gated pre-setup but help is not", async () => {
   });
 });
 
-Deno.test("the pre-setup redirect is a structured not_set_up result under --json", async () => {
+Deno.test("the docs redirect is a structured not_set_up result under --json", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
-    const r = await runAgent(dir, ["finish", "--json"]);
+    const r = await runAgent(dir, ["docs", "--json"]);
     assertEquals(r.code, 1, r.output);
     const res = JSON.parse(r.stdout);
     assertEquals(res.ok, false);
-    assertEquals(res.verb, "finish");
+    assertEquals(res.verb, "docs");
     assertEquals(res.error, "not_set_up");
+  });
+});
+
+Deno.test("finish/prepare/test run before setup is recorded, carrying the in-progress hint (ADR 0065)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { bootstrapped: false });
+    // The gate proof verbs are usable during setup so the agent can iterate while
+    // wiring capabilities — but each leads with the "setup unfinished" advisory so
+    // a green run can't be mistaken for a finished project.
+    for (const verb of ["finish", "prepare", "test"]) {
+      const r = await runAgent(dir, [verb, "--json"]);
+      const res = JSON.parse(r.stdout);
+      assertEquals(res.verb, verb, r.output);
+      assert(
+        res.error !== "not_set_up",
+        `${verb} must not redirect to setup pre-bootstrap: ${r.output}`,
+      );
+      assert(
+        (res.hints ?? []).some((h: string) => h.includes("Setup is not finished")),
+        `${verb} must carry the setup-in-progress hint: ${r.stdout}`,
+      );
+    }
   });
 });
 

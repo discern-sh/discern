@@ -13,6 +13,7 @@
  */
 
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
+import { setupInProgressHint } from "../../shared/setup_state.ts";
 import { preparePlanGroups, serializeJobSteps } from "./plan.ts";
 import { gateRunContext, runJobGroups } from "./execute.ts";
 import { renderFailureTail } from "./failure_tail.ts";
@@ -42,11 +43,14 @@ async function runPrepareGate(
   const { runOpts, out } = gateRunContext(cfg, json);
   const { results, failedStage } = await runJobGroups(groups, runOpts, out);
   const { steps, diagnostics } = serializeJobSteps(groups, results);
+  const inProgress = setupInProgressHint(cfg.meta.bootstrapped);
   const result: DiscernResult = {
     ok: failedStage === null,
     verb: "prepare",
     steps,
     diagnostics: diagnostics.length > 0 ? diagnostics : undefined,
+    // Pre-setup, this output is indicative — prepare is un-gated during setup (ADR 0065).
+    ...(inProgress !== undefined ? { hints: [inProgress] } : {}),
   };
   return { result, failedStage, out, cfg };
 }

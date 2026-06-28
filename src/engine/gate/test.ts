@@ -12,6 +12,7 @@
  */
 
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
+import { setupInProgressHint } from "../../shared/setup_state.ts";
 import { serializeJobSteps, stageGroup } from "./plan.ts";
 import { gateRunContext, runJobGroups } from "./execute.ts";
 import { renderFailureTail } from "./failure_tail.ts";
@@ -46,9 +47,18 @@ async function runTestGate(
   const cfg = await loadConfig(root);
   const group = stageGroup(cfg, "test");
   const { runOpts, out } = gateRunContext(cfg, json);
+  // Pre-setup, lead with the "setup unfinished" advisory (ADR 0065): test is
+  // un-gated during setup, so a pass here must not read as "done".
+  const inProgress = setupInProgressHint(cfg.meta.bootstrapped);
   if (group === undefined) {
     return {
-      result: { ok: true, verb: "test", hints: [NO_TEST_CONFIGURED] },
+      result: {
+        ok: true,
+        verb: "test",
+        hints: inProgress !== undefined
+          ? [inProgress, NO_TEST_CONFIGURED]
+          : [NO_TEST_CONFIGURED],
+      },
       failedStage: null,
       out,
       configured: false,
@@ -63,6 +73,7 @@ async function runTestGate(
       verb: "test",
       steps,
       diagnostics: diagnostics.length > 0 ? diagnostics : undefined,
+      ...(inProgress !== undefined ? { hints: [inProgress] } : {}),
     },
     failedStage,
     out,
