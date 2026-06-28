@@ -34,6 +34,7 @@ import {
 } from "@std/path";
 import { colourEnabled, Logger } from "../lib/log.ts";
 import { renderMarkdown } from "../lib/markdown.ts";
+import { terminalWidth } from "../lib/text.ts";
 import {
   discoverDocs,
   type DocEntry,
@@ -220,15 +221,6 @@ function invalidOptions(log: Logger, verb: string, message: string): number {
   return 1;
 }
 
-/** The terminal's column count, or undefined when stdout is not a TTY. */
-function terminalColumns(): number | undefined {
-  try {
-    return Deno.consoleSize().columns;
-  } catch {
-    return undefined;
-  }
-}
-
 /**
  * Resolve the wrap width: an explicit `--width` wins; otherwise the terminal
  * width (or `$COLUMNS`), capped to a readable maximum with a small margin, and
@@ -236,8 +228,7 @@ function terminalColumns(): number | undefined {
  */
 function resolveWidth(explicit: number | undefined): number {
   if (explicit && explicit > 0) return Math.floor(explicit);
-  const env = Number(Deno.env.get("COLUMNS"));
-  const cols = Number.isFinite(env) && env > 0 ? env : terminalColumns();
+  const cols = terminalWidth();
   if (!cols) return 80;
   return Math.max(40, Math.min(cols - 2, 100));
 }

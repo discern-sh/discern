@@ -16,7 +16,7 @@ import {
 } from "../lib/paths.ts";
 import { CONFIG_REL } from "../shared/env.ts";
 import { Logger } from "../lib/log.ts";
-import { wrapText } from "../lib/text.ts";
+import { terminalWidth, wrapText } from "../lib/text.ts";
 import { parseDiscernToml } from "../lib/toml_render.ts";
 import { resolveRecordedSchema } from "../lib/schema.ts";
 import { KIT_VERSION, SCHEMA_VERSION } from "../lib/version.ts";
@@ -608,13 +608,7 @@ export async function doctorResult(
  * output is piped/redirected (not a TTY). Capped so lines stay readable on a very wide
  * terminal, and floored so the hanging indents still leave room for text. */
 function modelWidth(): number {
-  let cols = 100;
-  try {
-    cols = Deno.consoleSize().columns;
-  } catch {
-    // Not a TTY (piped) — keep the default.
-  }
-  return Math.max(56, Math.min(cols, 110));
+  return Math.max(56, Math.min(terminalWidth() ?? 100, 110));
 }
 
 /** The opt-in pointer shown at the top and foot of the human execution-model section

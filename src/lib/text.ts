@@ -5,6 +5,27 @@
  */
 
 /**
+ * The terminal's usable column count, or `undefined` when output is not a TTY and
+ * `$COLUMNS` is unset (piped/redirected). The single place the CLI reads the
+ * console width: width-aware human rendering funnels through here, so it pairs with
+ * {@link wrapText} in one module and can never drift into a second ad-hoc reader
+ * that wraps differently — or not at all. Callers apply their own default + clamp.
+ */
+export function terminalWidth(): number | undefined {
+  let cols: number | undefined;
+  try {
+    cols = Deno.consoleSize().columns;
+  } catch {
+    cols = undefined;
+  }
+  if (cols === undefined || cols <= 0) {
+    const env = Number(Deno.env.get("COLUMNS"));
+    cols = Number.isFinite(env) && env > 0 ? env : undefined;
+  }
+  return cols;
+}
+
+/**
  * Greedy word-wrap `text` into lines no wider than `width`. A single word longer
  * than `width` overflows on its own line rather than being split mid-token (so a
  * long path or a `colon:sub-verb` is never broken across a line).

@@ -15,7 +15,7 @@
 
 import type { Command } from "@cliffy/command";
 import { colors } from "@cliffy/ansi/colors";
-import { wrapText } from "./lib/text.ts";
+import { terminalWidth, wrapText } from "./lib/text.ts";
 
 /** A named, ordered bucket of top-level commands for the help listing. */
 export interface CommandGroup {
@@ -106,12 +106,7 @@ function isHeading(line: string, label: string): boolean {
  * narrow terminal sane; there is no cap, so a wide terminal stays consistent.
  */
 function helpWidth(): number {
-  try {
-    return Deno.consoleSize().columns;
-  } catch {
-    const env = Number(Deno.env.get("COLUMNS"));
-    return Number.isFinite(env) && env > 0 ? env : 150;
-  }
+  return terminalWidth() ?? 150;
 }
 
 /**
