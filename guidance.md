@@ -108,23 +108,33 @@ applied while editing, is the safeguard.
 
 ## Running discern from source
 
-Always `deno task dev <cmd> --json` (or `deno run -A src/main.ts <cmd>`). Note:
-do **not** insert `--` before the subcommand (`deno task dev -- upgrade` makes
-the CLI parser see `--` and print help). **Never** use the `dist/` binaries
-while developing — they bundle a frozen snapshot of `templates/` and the engine
-compiled at build time. The bare `discern` on your PATH — and the MCP
-`discern_*` tools it backs — is **not** your worktree's source either: on this
-setup it resolves to the **main** checkout (`discern-next` tracks the current
-worktree instead), so the MCP tools can report false drift/staleness for
-branch-only changes (e.g. a bundled skill or guidance edit not yet on `main`).
-Trust `deno task dev finish` from source over the MCP `discern_*` tools whenever
-they disagree.
+Two equivalent ways to run the engine from source, both aimed at your worktree's
+own code:
 
-**All `deno task dev <cmd>` commands support discern's own `--json` flag**.
-Always use this to ensure you receive optimised machine-readable output. The
-flag is passed to the underlying `discern <cmd>` just like any end-user would
-call it, so the full range of discern's capabilities are fully available to you
-too.
+- **`discern <cmd> --json`** — the local-dev wrapper (`scripts/discern`). It
+  walks up from your cwd and runs the engine of whichever checkout you're in, so
+  from a worktree it runs _that worktree's_ in-progress engine. It's the closest
+  thing to what an end user runs, so the generic `discern` guidance above applies
+  verbatim. Install or refresh it with `deno task install-dev-cli`; outside any
+  checkout it falls back to `$DISCERN_HOME`.
+- **`deno task dev <cmd> --json`** (or `deno run -A src/main.ts <cmd>`) — the
+  zero-setup equivalent: no wrapper needed, works from any clone. Note: do
+  **not** insert `--` before the subcommand (`deno task dev -- upgrade` makes the
+  CLI parser print help) — a `deno task` quirk the wrapper doesn't share.
+
+**Never** use the `dist/` binaries while developing — they bundle a frozen
+snapshot of `templates/` and the engine compiled at build time.
+
+The MCP `discern_*` tools are a separately-spawned, long-lived server that can
+still be running the **main** checkout's engine, not your worktree's — so for
+branch-only changes (a bundled skill, guidance, or engine edit not yet on
+`main`) they can report false drift/staleness. Trust the engine run from source
+— `discern finish` / `deno task dev finish` — over the MCP `discern_*` tools
+whenever they disagree.
+
+Everything supports discern's own **`--json`** flag; always pass it for optimised
+machine-readable output. It reaches the underlying `discern <cmd>` exactly as an
+end user would, so discern's full range is open to you too.
 
 ## Testing
 

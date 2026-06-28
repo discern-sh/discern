@@ -48,6 +48,14 @@ deno task dev init                # scaffold into the current dir (try a scratch
 deno task build                   # compile per-platform binaries → dist/ (release only)
 ```
 
+**Optional: a `discern` you can call by name.** `deno task install-dev-cli`
+installs a thin `discern` wrapper (`scripts/discern`) onto your `PATH` that runs
+the engine of whichever checkout you are inside — so from a worktree,
+`discern <verb>` runs that worktree's in-progress engine, mirroring what an end
+user runs. It is pure convenience (never part of `setup`/`upgrade`);
+`deno task dev <verb>` is the always-works equivalent. Outside any checkout it
+falls back to `$DISCERN_HOME`.
+
 discern has no long-running app to start — it is one CLI binary with the engine
 compiled in. To _see it work_, either scaffold it into a temp directory with
 `deno task dev init` and drive `discern` (or `deno task dev`) there, or just run
