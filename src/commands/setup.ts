@@ -541,7 +541,12 @@ export async function runSetup(opts: SetupOptions): Promise<number> {
   } catch {
     cfg = undefined;
   }
-  const name = cfg ? displayNameFromSlug(cfg.project.slug) : "the project";
+  // Prefer the fresh scaffold's project name — its casing is preserved from the
+  // directory ("ListOfListsOfLists"). Reconstructing from the persisted slug loses
+  // it (the slug is lowercase → "Listoflistsoflists"), so fall back to that only on
+  // a resume where the fresh InitConfig isn't in hand (ADR 0065).
+  const name = scaffold?.config.projectName ??
+    (cfg ? displayNameFromSlug(cfg.project.slug) : "the project");
   const { laid, skipped } = await laySkeletons(destDir, name);
 
   // --- Phase 3: print the setup instructions for the agent to act on ---

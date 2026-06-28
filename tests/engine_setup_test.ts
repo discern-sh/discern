@@ -317,6 +317,25 @@ Deno.test("discern setup lays a marked guidance.md stub that setup done enforces
   });
 });
 
+Deno.test("discern setup preserves the project name's casing in the scaffolded files (ADR 0065)", async () => {
+  await withTempDir(async (parent) => {
+    // A directory whose name carries deliberate camelCase the lowercase slug loses.
+    const dir = join(parent, "ListOfListsOfLists");
+    await Deno.mkdir(dir);
+    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+    await gitInit(dir);
+
+    const r = await runAgent(dir, ["setup"]);
+    assertEquals(r.code, 0, r.output);
+
+    // TODO.md carries the original casing, not the slug-reconstructed
+    // "Listoflistsoflists".
+    const todo = await Deno.readTextFile(join(dir, "TODO.md"));
+    assertStringIncludes(todo, "ListOfListsOfLists");
+    assert(!todo.includes("Listoflistsoflists"), todo);
+  });
+});
+
 Deno.test("an unparseable config surfaces its TOML error without the setup redirect", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
