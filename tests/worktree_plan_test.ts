@@ -158,8 +158,8 @@ Deno.test("graduatePlanToEngine: dirty worktree adds WIP-commit/unstage; resourc
     clean.steps.find((s) => s.label === "teardown resources")?.disposition,
     "skip",
   );
-  // `branch` mode lands on the worktree branch in the main repo.
-  assert(clean.details.some((d) => d.includes("Into main:")));
+  // `branch` mode lands the worktree branch in the main checkout for review.
+  assert(clean.details.some((d) => d.includes("Into main checkout:")));
 });
 
 Deno.test("graduatePlanToEngine: to=trunk fast-forwards the trunk and deletes the branch instead of a checkout", () => {

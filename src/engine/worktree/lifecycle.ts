@@ -668,18 +668,19 @@ async function buildGraduatePlan(
     );
   }
 
-  // require main is integrated
-  ctx.log.info("Checking the branch contains the latest main…");
+  // require the integration branch is integrated
+  const trunkBranch = integrationBranch(ctx.config.project.main_branch);
+  ctx.log.info(`Checking the branch contains the latest ${trunkBranch}…`);
   const merged = await assertMainMerged(
     ctx.cwd,
     ctx.config.project.main_branch,
   );
   if (merged.kind === "behind") {
     throw new WorktreeGitError(
-      "Branch is behind main. Run `discern integrate` to bring main in and re-materialize, then re-run — `discern finish` gates on this same check.",
+      `Branch is behind ${trunkBranch}. Run \`discern integrate\` to bring ${trunkBranch} in and re-materialize, then re-run — \`discern finish\` gates on this same check.`,
     );
   }
-  ctx.log.ok("Branch contains the latest main.");
+  ctx.log.ok(`Branch contains the latest ${trunkBranch}.`);
 
   // capture worktree state
   const worktreeDirty =
@@ -789,8 +790,8 @@ async function executeGraduatePlan(
   ctx.log.detail(`From worktree: ${worktreePath}`);
   ctx.log.detail(
     to === "trunk"
-      ? `Into trunk:    ${mainRepo} (fast-forward ${trunk}, delete ${worktreeBranch})`
-      : `Into main:     ${mainRepo} (on ${mainBranch})`,
+      ? `Into trunk:         ${mainRepo} (fast-forward ${trunk}, delete ${worktreeBranch})`
+      : `Into main checkout: ${mainRepo} (on ${mainBranch})`,
   );
   if (worktreeDirty) {
     ctx.log.detail(

@@ -77,7 +77,7 @@ const FAIL_MESSAGES: Record<FailedStage, string> = {
   skills:
     "Materialized skills are out of date — run `discern refresh` (edits belong in your [skills].dir source, not the materialized copy, which a refresh overwrites).",
   merge:
-    "Run `discern integrate` to bring main in and re-materialize, then re-run finish.",
+    "Run `discern integrate` to bring the trunk in and re-materialize, then re-run finish.",
 };
 
 /** The human die message for a failed stage. */

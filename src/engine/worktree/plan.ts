@@ -120,8 +120,8 @@ export function graduatePlanToEngine(plan: GraduatePlan): EnginePlan {
     });
   }
   const landing = plan.to === "trunk"
-    ? `Into trunk:    ${plan.mainRepo} (fast-forward ${plan.trunk}, delete ${plan.worktreeBranch})`
-    : `Into main:     ${plan.mainRepo} (on ${plan.mainBranch})`;
+    ? `Into trunk:         ${plan.mainRepo} (fast-forward ${plan.trunk}, delete ${plan.worktreeBranch})`
+    : `Into main checkout: ${plan.mainRepo} (on ${plan.mainBranch})`;
   return {
     title: "Graduation plan",
     details: [

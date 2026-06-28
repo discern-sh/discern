@@ -516,7 +516,7 @@ export function attachEngineCommands(
   root
     .command("integrate")
     .description(
-      "Bring the latest main into this branch and re-materialize the agent files + skills.",
+      "Bring the latest trunk into this branch and re-materialize the agent files + skills.",
     )
     .option(
       "--json",
