@@ -1,0 +1,120 @@
+# ADR 0067: Graduate validates the exact tree it lands, fast-pathed by a gate-pass receipt
+
+**Status**: accepted. Supersedes
+[ADR 0061](0061-graduate-fix-stage-fixed-point.md) (graduate's fix-stage-only
+fixed-point guard) and overturns its "run the whole gate in graduate" rejection
+— the gate-pass receipt removes the cost that rejection rested on. Reuses the
+merge precondition ([ADR 0050](0050-merge-check-fail-fast.md)) and the one
+result envelope ([ADR 0028](0028-result-envelope-and-diagnostics.md)).
+
+## Context
+
+`graduate` lands a branch onto the trunk — locally, via `graduate --to trunk`,
+with no PR and no CI. Its only quality guards were the merge precondition (the
+branch contains the latest trunk) and the fix-stage fixed-point check
+([ADR 0061](0061-graduate-fix-stage-fixed-point.md), which re-ran **only the fix
+stage**). Neither runs the build, the checks, the tests, or the scope gates. So
+the property "what lands passed the gate" held only because an agent was trusted
+to have run a clean `finish` — and that trust breaks on a routine sequence:
+
+1. An agent finishes its work; `finish` is green. It then waits for review.
+2. While it waits, the trunk advances beneath it (other branches graduate).
+3. On approval it runs `graduate`, which refuses: the branch is now behind the
+   trunk.
+4. It runs `integrate` (a **clean** merge of the new trunk into its branch) and,
+   seeing it succeed, immediately re-runs `graduate` — which now lands.
+
+The merge in step 4 creates a **new tree** the green `finish` from step 1 never
+saw. A clean textual merge can still be a _semantic_ conflict — the trunk
+renamed a function the branch calls, changed a type, tightened a check, added a
+test the branch breaks. `graduate` re-ran only the fix stage, so none of that
+was caught, and the broken merge fast-forwarded onto the trunk. discern's own
+gate already encodes the invalidation: `finish` front-loads the merge check
+precisely because a branch that integrates "discards whatever the gate computed
+against the pre-integration tree" ([ADR 0050](0050-merge-check-fail-fast.md)) —
+but nothing re-asserted the gate at the one boundary that writes to the trunk.
+
+[ADR 0061](0061-graduate-fix-stage-fixed-point.md) considered running the whole
+gate in graduate and rejected it: "it runs the test suite on every graduation,
+slow across many parallel worktrees." True — _if graduate re-runs the gate
+unconditionally._ But in the common case nothing changed since the agent's own
+`finish`, and a re-run is pure waste. The cost objection is really an objection
+to _redundant_ runs, not to checking.
+
+## Decision
+
+**`graduate` refuses to land a tree that does not pass the whole gate — but
+skips the re-run when a gate-pass receipt proves the current tree already
+passed.**
+
+- **A gate-pass receipt.** On a GREEN run over a CLEAN tree, `finish` stamps the
+  validated HEAD SHA into a per-worktree marker —
+  `git rev-parse --git-path
+  discern-gate-pass`
+  (`.git/worktrees/<name>/discern-gate-pass`), the same mechanism as the
+  worktree-ready sentinel. It is worktree-local (never shared across branches),
+  never tracked or committed (it sits inside `.git`), and self-cleaning (it
+  vanishes with the worktree). A FAILED run clears it (fail-closed); a
+  green-but-dirty run leaves a prior clean vouch intact (it can't vouch for
+  clean HEAD, but the old vouch is still truthful at its own SHA).
+- **Honored only when it still describes the tree.** The receipt is trusted by
+  `graduate` only while it names exactly the current HEAD **and** the tree is
+  clean (`git status --porcelain` empty — graduate's `git add -A` would sweep
+  untracked files too). Any new commit (the merge `integrate` creates), amend,
+  or uncommitted edit makes it stale, and graduate falls back to the gate. It is
+  a fast-path cache for "this tree already passed", never a substitute for the
+  gate.
+- **Fast path / slow path, in the apply phase.** Like the guard it replaces, the
+  check sits in `executeGraduatePlan`, before any teardown/removal, so a refusal
+  leaves the branch and worktree intact and `--dry-run` never reaches it. Valid
+  receipt → land without re-running. No/stale receipt → run the full gate via
+  the one `finishResult` core; on any failure, refuse with the gate's own
+  failed-stage message and a capped list of its diagnostics, then
+  `discern finish` for the rest. The branch keeps all its commits.
+- **One definition of "good enough to land".** Graduate no longer enforces a
+  _weaker subset_ (the fix stage) than `finish`; it asks `finish` itself. The
+  merge precondition it already checked is the same one `finish` front-loads, so
+  the two never diverge.
+
+## Consequences
+
+- **The stale-finish hole is closed.** A clean-merging but gate-breaking
+  `integrate` cannot fast-forward onto the trunk: the merge commit invalidates
+  the receipt, graduate re-runs the gate against the merged tree, and refuses.
+  The same now covers lint, type, test, and scope-gate failures — not just the
+  fix stage (ADR 0061) — and any tree that reached graduate without a clean
+  `finish` at all.
+- **No redundant gate runs in the common case.** When the agent finished and
+  nothing moved, the receipt is valid and graduate lands immediately — no second
+  gate run, so the cost ADR 0061 feared never materializes. The gate runs at
+  graduate exactly when the tree is genuinely new (post-integrate, a stray
+  commit, a dirty tree) — which is precisely when it must.
+- **A sliver of persistent state, kept out of the repo.** discern's footprint
+  stays one tracked file (`discern.toml`); the receipt lives inside `.git`, is
+  worktree-scoped, and is keyed to git state so it self-invalidates. It is an
+  optimization — best-effort to write, fail-closed to honor.
+- **Residual: environment drift at a constant tree.** A receipt vouches that a
+  clean HEAD passed; if the environment later changes so the _same_ tree would
+  now fail (a dependency or clock-dependent test), the fast path would skip a
+  run that would catch it. Vanishingly rare, unavoidable in any caching scheme,
+  and narrowed by clearing the receipt on every failed run. The always-run
+  alternative avoids it only at the redundant cost this ADR exists to remove.
+
+## Alternatives considered
+
+- **Auto-run `finish` after a non-no-op `integrate`.** Validates the merge at
+  integrate time, which closes the common path — but it checks the wrong moment:
+  anything committed between integrate and graduate (fixing the conflict the
+  auto-run surfaced) lands without re-validation, graduate stays
+  unsafe-by-construction, and it couples `integrate` to the heavy gate.
+  Rejected: the invariant belongs at the land boundary, and a wait with repeated
+  integrates can make it run the gate _more_ often than the lazy receipt-gated
+  graduate.
+- **Run the whole gate in graduate unconditionally** (ADR 0061's rejected
+  option, no receipt). Correct but pays the redundant-run cost on every
+  graduation — the objection that motivated ADR 0061's narrower guard. The
+  receipt keeps the correctness and removes the cost.
+- **Keep only the fix-stage guard (ADR 0061).** It catches unformatted output
+  but nothing else; the observed hole is broader than formatting. The validation
+  gate subsumes it (a fix-stage strand is a `fix_drift` gate failure), so the
+  targeted guard is retired, not kept alongside.
