@@ -126,10 +126,11 @@ Deno.test("upgrade with an unparseable discern.toml fails as invalid_toml (human
 Deno.test("upgrade survives an absent templates dir: guidelines just don't compile (--json)", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
-    // Point resolution at a path that does not exist; the guideline compile
-    // (which materializes skills + writes agent files) throws. That failure is
-    // non-fatal to the upgrade — the schema is still stamped — so the command
-    // succeeds but reports the compile was skipped.
+    // Point resolution at a path that does not exist; each guideline-compile job
+    // (materialize skills, write agent files) fails. The failures are ISOLATED and
+    // non-fatal to the upgrade (ADR 0065) — the schema is still stamped — so the
+    // command succeeds but reports the compile as incomplete, enumerating the
+    // per-artifact errors.
     const r = await runCli(["upgrade", "--json"], dir, {
       DISCERN_TEMPLATES_DIR: join(dir, "no", "such", "templates"),
     });
@@ -137,8 +138,9 @@ Deno.test("upgrade survives an absent templates dir: guidelines just don't compi
     const res = JSON.parse(r.stdout);
     assertEquals(res.ok, true);
     assertEquals(res.data.guidelines_compiled, false);
-    assertEquals(res.data.skills, null);
+    assertEquals(res.data.skills, { copied: 0, linked: 0, pruned: 0 });
     assertEquals(res.data.agents_written, []);
+    assert(res.data.guidelines_errors.length > 0, r.stdout);
   });
 });
 
@@ -149,8 +151,9 @@ Deno.test("upgrade survives an absent templates dir: warns and exits zero (human
       DISCERN_TEMPLATES_DIR: join(dir, "no", "such", "templates"),
     });
     assertEquals(r.code, 0, r.stderr);
-    // The compile failure surfaces as a non-fatal warning on stderr.
-    assertStringIncludes(r.stderr, "could not recompile guidelines");
+    // The isolated compile failures surface as non-fatal warnings on stderr,
+    // capped by an aggregate (ADR 0065).
+    assertStringIncludes(r.stderr, "guideline refresh did not fully complete");
   });
 });
 

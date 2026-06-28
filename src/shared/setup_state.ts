@@ -60,10 +60,10 @@ export const NOT_SET_UP_MESSAGE =
 
 /**
  * The advisory a `finish` / `prepare` / `test` result carries while setup is still
- * outstanding (ADR 0065). Those verbs are no longer gated pre-setup — the agent
- * needs them to iterate while wiring capabilities — but their output must not read
- * as a finished project, so each prepends this line until `[meta].bootstrapped` is
- * recorded by `discern setup done`.
+ * outstanding (ADR 0065). Those verbs run pre-setup so the agent can iterate while
+ * wiring capabilities — but their output must not read as a finished project, so
+ * each prepends this line until `[meta].bootstrapped` is recorded by
+ * `discern setup done`.
  */
 export const SETUP_IN_PROGRESS_HINT =
   "Setup is not finished — this gate output is indicative while you complete setup. " +

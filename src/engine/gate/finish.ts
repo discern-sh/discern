@@ -312,8 +312,8 @@ async function runGate(
   if (fixDriftDiag !== undefined) {
     result.diagnostics = [...(result.diagnostics ?? []), fixDriftDiag];
   }
-  // Pre-setup, lead with the "setup unfinished" advisory (ADR 0065): finish is no
-  // longer gated during setup, so a green gate here must not read as "done".
+  // Pre-setup, lead with the "setup unfinished" advisory (ADR 0065): finish runs
+  // during setup, so a green gate here must not read as "done".
   const inProgress = setupInProgressHint(cfg.meta.bootstrapped);
   const hints = [
     ...(inProgress !== undefined ? [inProgress] : []),
