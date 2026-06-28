@@ -57,6 +57,7 @@
       "CLAUDE.md",
       "GEMINI.md",
       ".idea/",
+      "docs/_private/",
       "schema/discern-config.schema.json",
       "docs/10-installer/config-reference.md"
     ]
