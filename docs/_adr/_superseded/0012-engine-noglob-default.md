@@ -1,16 +1,21 @@
 # ADR 0012: Run the engine under `set -f` (noglob) by default
 
-**Status**: accepted; **retired by [ADR 0019](0019-single-binary-ts-engine.md)**
-— see _Update (single-binary cutover)_ below.
+> **Retired — retired by [ADR 0019](../0019-single-binary-ts-engine.md).** The
+> shell engine and `set -f` no longer exist; glob classification is in-memory
+> TS. Kept for history; not current architecture.
+
+**Status**: accepted; **retired by
+[ADR 0019](../0019-single-binary-ts-engine.md)** — see _Update (single-binary
+cutover)_ below.
 
 ## Update (single-binary cutover)
 
-The single-binary cutover ([ADR 0019](0019-single-binary-ts-engine.md)) makes
+The single-binary cutover ([ADR 0019](../0019-single-binary-ts-engine.md)) makes
 the engine TypeScript, not shell. Scope glob classification is in-memory in
-[`src/engine/scopes/glob.ts`](../../src/engine/scopes/glob.ts), so there is no
-unquoted shell word-splitting to guard. `set -f` and the `DISCERN_ENGINE_RECIPE`
-marker are gone; a project recipe is just an executable with normal shell
-globbing.
+[`src/engine/scopes/glob.ts`](../../../src/engine/scopes/glob.ts), so there is
+no unquoted shell word-splitting to guard. `set -f` and the
+`DISCERN_ENGINE_RECIPE` marker are gone; a project recipe is just an executable
+with normal shell globbing.
 
 ## Context
 

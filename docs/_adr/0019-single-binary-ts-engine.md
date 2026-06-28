@@ -20,18 +20,19 @@ charged three rents:
 2. **Self-imposed overhead.** A large slice of the installer existed _only_ to
    ship-and-sync the committed shell engine: manifest content-hashing, `.new`
    preservation, orphan reconciliation, `selfcheck`/`selfsync` drift detection,
-   the [ADR 0013](0013-product-vocabulary-in-user-output.md) vocabulary
-   renderer, the dash/bash CI matrix, the `set -f` noglob policy
-   ([ADR 0012](0012-engine-noglob-default.md)), shellcheck — plus _two_
-   committed copies of the engine (the `templates/` source and the self-host
-   root install) kept identical by a gate.
+   the [ADR 0013](_superseded/0013-product-vocabulary-in-user-output.md)
+   vocabulary renderer, the dash/bash CI matrix, the `set -f` noglob policy
+   ([ADR 0012](_superseded/0012-engine-noglob-default.md)), shellcheck — plus
+   _two_ committed copies of the engine (the `templates/` source and the
+   self-host root install) kept identical by a gate.
 3. **The portable-shell tax.** Concurrency, fail-fast cancellation, signal
    handling, and TOML parsing are all painful in portable `sh`. A meaningful
    fraction of the ADRs (0002, 0004, 0006, 0012) are shell-portability pain. And
    a tool that _preaches_ typechecking shipped an un-typechecked engine.
 
 The window to change this is now: only a couple of internal installs exist, the
-same window [ADR 0016](0016-consolidate-install-surface.md)/0017/0018 leaned on.
+same window
+[ADR 0016](_superseded/0016-consolidate-install-surface.md)/0017/0018 leaned on.
 
 ## Decision
 
@@ -44,10 +45,10 @@ delete the committed-engine sync machinery with it.
    runner, scope-glob classification, ratchets, the worktree lifecycle +
    identity (POSIX-`cksum`-faithful), the guideline compiler, and the dispatcher
    are all TS. The `--json` gate contract
-   ([ADR 0004](0004-structured-finish-json.md)) is reproduced byte-for-shape.
-   The concurrency core uses Deno's process-group tree-kill (`detached` +
-   `Deno.kill(-pid)`) for fail-fast cancellation — genuinely _better_ than
-   portable `sh`'s best-effort sibling kill, not just different.
+   ([ADR 0004](_superseded/0004-structured-finish-json.md)) is reproduced
+   byte-for-shape. The concurrency core uses Deno's process-group tree-kill
+   (`detached` + `Deno.kill(-pid)`) for fail-fast cancellation — genuinely
+   _better_ than portable `sh`'s best-effort sibling kill, not just different.
 
 2. **`discern` is the one command; `agent` is dropped.** The former engine
    recipes are first-class `discern` subcommands (`finish`, `tidy`, `test`,
@@ -85,21 +86,21 @@ dual-vocabulary renderer.
 ## Consequences
 
 - **Self-host inverts (this supersedes
-  [ADR 0010](0010-self-host-the-harness.md)).** The repo no longer commits a
-  second engine copy to gate for drift — there _is_ no second copy and no drift
-  to detect. It runs its own engine via the binary (`deno task dev finish`). The
-  regression class ADR 0010's `selfcheck` guarded is made structurally
-  impossible: there is nothing that can drift.
-- **[ADR 0012](0012-engine-noglob-default.md) (engine noglob) retires.** Glob
-  classification is in-memory TS (`engine/scopes/glob.ts`); `set -f` and the
-  `DISCERN_ENGINE_RECIPE` marker are gone. A project recipe is just an
-  executable with normal shell globbing.
-- **[ADR 0013](0013-product-vocabulary-in-user-output.md) (vocabulary renderer)
-  retires.** With no committed copy there is no `selfsync`/`selfcheck`, so the
-  dual-audience command-name problem evaporates; `selfCmd` and its gate guard
-  are deleted.
-- **[ADR 0008](0008-declarative-managed-set.md) is moot.** `managed.json` and
-  the managed-set classifier are deleted.
+  [ADR 0010](_superseded/0010-self-host-the-harness.md)).** The repo no longer
+  commits a second engine copy to gate for drift — there _is_ no second copy and
+  no drift to detect. It runs its own engine via the binary
+  (`deno task dev finish`). The regression class ADR 0010's `selfcheck` guarded
+  is made structurally impossible: there is nothing that can drift.
+- **[ADR 0012](_superseded/0012-engine-noglob-default.md) (engine noglob)
+  retires.** Glob classification is in-memory TS (`engine/scopes/glob.ts`);
+  `set -f` and the `DISCERN_ENGINE_RECIPE` marker are gone. A project recipe is
+  just an executable with normal shell globbing.
+- **[ADR 0013](_superseded/0013-product-vocabulary-in-user-output.md)
+  (vocabulary renderer) retires.** With no committed copy there is no
+  `selfsync`/`selfcheck`, so the dual-audience command-name problem evaporates;
+  `selfCmd` and its gate guard are deleted.
+- **[ADR 0008](_superseded/0008-declarative-managed-set.md) is moot.**
+  `managed.json` and the managed-set classifier are deleted.
 - **[ADR 0001](0001-project-owned-recipes.md) is amended.** Recipes read config
   via `discern config get`, not by sourcing the engine library; the
   engine-always-wins shadow rule survives.
@@ -113,8 +114,8 @@ dual-vocabulary renderer.
 - **Config is held to strict TOML.** The runtime reader is now `@std/toml`,
   stricter than the retired `toml.awk`; a malformed config throws, surfaced by
   `doctor`/`migrate` rather than read leniently. (Amends
-  [ADR 0004](0004-structured-finish-json.md) only in that `duration_s` stays an
-  integer for output-compat.)
+  [ADR 0004](_superseded/0004-structured-finish-json.md) only in that
+  `duration_s` stays an integer for output-compat.)
 - **One binary, one PATH command.** ~60–90 MB (V8 was always baked in), startup
   in the low tens of ms — fine for git hooks and an all-day gate. arm64 macOS
   binaries are ad-hoc signed by `deno compile` on a macOS host (release CI

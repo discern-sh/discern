@@ -110,7 +110,8 @@ resolve a `needs`/`provides` DAG by topological sort and **produce the same
 
 ### `finish --json` is preserved byte-for-shape
 
-The published report contract ([ADR 0004](0004-structured-finish-json.md)) —
+The published report contract
+([ADR 0004](_superseded/0004-structured-finish-json.md)) —
 `{ ok, jobs:[{name,kind,stage,status,duration_s}], scope_gates:[…],
 scopes_changed:[…], failed_stage }`
 — is now built by `buildGateReport`, which **serializes the plan it executed
@@ -186,6 +187,7 @@ existing `finish --json` tests stay green unchanged.
   for no test or clarity gain.
 
 This generalizes the installer's [`fs_plan`](../../src/lib/fs_plan.ts) pattern
-across the engine seam, preserves [ADR 0004](0004-structured-finish-json.md)'s
-structured-output contract, and deliberately shapes the gate plan so a future
-job-graph resolver can produce it.
+across the engine seam, preserves
+[ADR 0004](_superseded/0004-structured-finish-json.md)'s structured-output
+contract, and deliberately shapes the gate plan so a future job-graph resolver
+can produce it.

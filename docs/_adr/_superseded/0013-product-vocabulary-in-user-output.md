@@ -1,14 +1,19 @@
 # ADR 0013: User-facing output speaks the product's command vocabulary
 
-**Status**: accepted; **retired by [ADR 0019](0019-single-binary-ts-engine.md)**
-— see _Update (single-binary cutover)_ below.
+> **Retired — retired by [ADR 0019](../0019-single-binary-ts-engine.md).** The
+> committed shell engine and the `selfCmd` vocabulary renderer are gone. Kept
+> for history; not current architecture.
+
+**Status**: accepted; **retired by
+[ADR 0019](../0019-single-binary-ts-engine.md)** — see _Update (single-binary
+cutover)_ below.
 
 ## Update (single-binary cutover)
 
-The single-binary cutover ([ADR 0019](0019-single-binary-ts-engine.md)) deletes
-the committed shell engine, so there is no `selfsync`/`selfcheck` and no second
-copy to keep in sync. The dual-audience command-name problem this ADR solved
-evaporates; `selfCmd` and its gate guard are deleted.
+The single-binary cutover ([ADR 0019](../0019-single-binary-ts-engine.md))
+deletes the committed shell engine, so there is no `selfsync`/`selfcheck` and no
+second copy to keep in sync. The dual-audience command-name problem this ADR
+solved evaporates; `selfCmd` and its gate guard are deleted.
 
 ## Context
 

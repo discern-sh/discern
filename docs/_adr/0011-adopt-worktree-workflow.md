@@ -4,11 +4,11 @@
 
 ## Context
 
-[ADR 0010](0010-self-host-the-harness.md) installed the harness into this repo
-and made `agent finish` the gate, but it deliberately **deferred** one piece:
-whether to develop discern inside the harness's own isolated git worktrees. The
-`SessionStart`/`WorktreeCreate`/`WorktreeRemove` hooks shipped scaffolded but
-dormant, and the open question was parked in `TODO.md`.
+[ADR 0010](_superseded/0010-self-host-the-harness.md) installed the harness into
+this repo and made `agent finish` the gate, but it deliberately **deferred** one
+piece: whether to develop discern inside the harness's own isolated git
+worktrees. The `SessionStart`/`WorktreeCreate`/`WorktreeRemove` hooks shipped
+scaffolded but dormant, and the open question was parked in `TODO.md`.
 
 Two things make the call easy now. First, the configuration is already in place:
 `[worktree] enabled = true`, with both adapter seams (`db`, `dev_server`) empty

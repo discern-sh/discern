@@ -1,10 +1,16 @@
 # ADR 0032: The Claude Code mirror imports AGENTS.md instead of duplicating it
 
-**Status**: accepted; extends [ADR 0031](0031-typed-provider-integration.md)
+> **Consolidated into
+> [ADR 0034](../0034-agents-md-untracked-currency-check.md).** Its tracking
+> premise was superseded there; the surviving `@AGENTS.md` pointer mechanism is
+> described there. Kept for history.
+
+**Status**: accepted; extends [ADR 0031](../0031-typed-provider-integration.md)
 (the provider registry this adds a capability to). The _tracking_ premise here
 ("`AGENTS.md` is the one tracked file") is superseded by
-[ADR 0034](0034-agents-md-untracked-currency-check.md), which makes `AGENTS.md`
-an untracked artifact; the pointer mechanism this ADR introduces is unchanged.
+[ADR 0034](../0034-agents-md-untracked-currency-check.md), which makes
+`AGENTS.md` an untracked artifact; the pointer mechanism this ADR introduces is
+unchanged.
 
 ## Context
 

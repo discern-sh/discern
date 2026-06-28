@@ -1,7 +1,8 @@
 # ADR 0028: One result envelope per verb, with normalized failure diagnostics
 
-**Status**: accepted; **supersedes [ADR 0004](0004-structured-finish-json.md)**;
-extends [ADR 0027](0027-plan-apply-engine-execution.md)
+**Status**: accepted; **supersedes
+[ADR 0004](_superseded/0004-structured-finish-json.md)**; extends
+[ADR 0027](0027-plan-apply-engine-execution.md)
 
 ## Context
 
@@ -149,7 +150,7 @@ verbs is `serializeResult` over stdio — a third rendering of the same spine.
   payloads without distorting them; the envelope unifies what's genuinely
   common.
 
-## Update — quiet `--json` (consolidates [ADR 0030](0030-quiet-json-output.md))
+## Update — quiet `--json` (consolidates [ADR 0030](_superseded/0030-quiet-json-output.md))
 
 ADR 0030 extended this envelope and is folded in here. The refinement: **in
 `--json` mode the `DiscernResult` envelope is the _entire_ program output.** All

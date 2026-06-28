@@ -1,7 +1,10 @@
 # ADR 0030: `--json` is quiet — the envelope is the entire machine output
 
+> **Consolidated into [ADR 0028](../0028-result-envelope-and-diagnostics.md).**
+> Quiet `--json` is folded into the result-envelope ADR. Kept for history.
+
 **Status**: accepted; **extends
-[ADR 0028](0028-result-envelope-and-diagnostics.md)**; refines
+[ADR 0028](../0028-result-envelope-and-diagnostics.md)**; refines
 [ADR 0004](0004-structured-finish-json.md)
 
 ## Context

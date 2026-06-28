@@ -1,7 +1,7 @@
 # ADR 0050: Run the merge check first, as a fail-fast precondition
 
-**Status**: accepted. [ADR 0056](0056-currency-checks-fail-fast.md) extends this
-pattern to the generated-artifact currency checks.
+**Status**: accepted. [ADR 0056](_superseded/0056-currency-checks-fail-fast.md)
+extends this pattern to the generated-artifact currency checks.
 
 ## Context
 
@@ -86,7 +86,7 @@ step first to match the executed order.
   stages against a tree that is about to be replaced is the precise waste this
   removes.
 
-## Update — currency checks are preconditions too (consolidates [ADR 0056](0056-currency-checks-fail-fast.md))
+## Update — currency checks are preconditions too (consolidates [ADR 0056](_superseded/0056-currency-checks-fail-fast.md))
 
 ADR 0056 applied this same fail-fast-precondition pattern to the
 generated-artifact currency checks

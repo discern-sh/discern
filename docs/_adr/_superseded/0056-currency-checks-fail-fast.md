@@ -1,24 +1,28 @@
 # ADR 0056: Run the generated-artifact currency checks as fail-fast preconditions too
 
-**Status**: accepted. Extends [ADR 0050](0050-merge-check-fail-fast.md) (the
+> **Consolidated into [ADR 0050](../0050-merge-check-fail-fast.md).** The
+> guidance/skills currency checks join the merge check as fail-fast
+> preconditions. Kept for history.
+
+**Status**: accepted. Extends [ADR 0050](../0050-merge-check-fail-fast.md) (the
 front-loaded merge check) to the currency checks of
-[ADR 0034](0034-agents-md-untracked-currency-check.md).
+[ADR 0034](../0034-agents-md-untracked-currency-check.md).
 
 ## Context
 
-[ADR 0050](0050-merge-check-fail-fast.md) moved the merge check to the front of
-`finish`, fail-fast. The gate rejects a branch behind main before the slow
+[ADR 0050](../0050-merge-check-fail-fast.md) moved the merge check to the front
+of `finish`, fail-fast. The gate rejects a branch behind main before the slow
 fix/build/check∥test sweep, because the forced re-run discards that work anyway.
 The argument turned on one fact: the merge verdict is invariant across a gate
 run, so checking first gives the same answer as checking last.
 
 The generated-artifact currency checks
-([ADR 0034](0034-agents-md-untracked-currency-check.md)) sat in the other place:
-**last**, after the scope gates. A stale `CLAUDE.md` or a drifted
+([ADR 0034](../0034-agents-md-untracked-currency-check.md)) sat in the other
+place: **last**, after the scope gates. A stale `CLAUDE.md` or a drifted
 `.claude/skills/` blocked the gate only at the end — so an agent paid the full
 fix/build/check∥test cost, then read "run `discern refresh` and re-run." That
 re-run discards the gate's whole result, exactly the waste ADR 0050 removed for
-the merge check. `discern integrate` ([ADR 0055](0055-integrate-verb.md)) now
+the merge check. `discern integrate` ([ADR 0055](../0055-integrate-verb.md)) now
 bundles the refresh into a merge, but a hand-edit or a forgotten refresh still
 strands drift, and the gate still surfaced it last.
 
@@ -41,10 +45,10 @@ checking last. discern's own formatter config excludes those paths. The
 convention — a project's formatter leaves its gitignored build artifacts alone —
 makes the same hold elsewhere. The lone exception — a project whose formatter
 rewrites its own guidance source — is already covered downstream. The fix-stage
-strand check ([ADR 0047](0047-fix-stage-strand-detection.md)) flags fixer output
-left on a committed-clean file. That strand check **stays** after the fix stage.
-Unlike the currency checks, it reads a snapshot the fix stage produces, so it
-cannot move earlier.
+strand check ([ADR 0047](../0047-fix-stage-strand-detection.md)) flags fixer
+output left on a committed-clean file. That strand check **stays** after the fix
+stage. Unlike the currency checks, it reads a snapshot the fix stage produces,
+so it cannot move earlier.
 
 ## Consequences
 

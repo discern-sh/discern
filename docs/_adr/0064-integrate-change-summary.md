@@ -4,8 +4,8 @@
 ([ADR 0055](0055-integrate-verb.md)) with a structured result payload, built on
 the result envelope + advisory hints of
 [ADR 0028](0028-result-envelope-and-diagnostics.md) /
-[ADR 0030](0030-agent-facing-hints.md), and reusing the scope-classification
-SSOT of the changed-scopes verb.
+[ADR 0030](_superseded/0030-quiet-json-output.md), and reusing the
+scope-classification SSOT of the changed-scopes verb.
 
 ## Context
 
@@ -36,7 +36,7 @@ changed.
 **`integrate` returns an `IntegrateData` payload summarizing what the merge
 brought in beneath the branch — overlap-first — and surfaces it identically on
 the CLI, in `--json`, and through the MCP tool.** The result spine of
-[ADR 0027](0027-typed-plan-projections.md) /
+[ADR 0027](0027-plan-apply-engine-execution.md) /
 [ADR 0028](0028-result-envelope-and-diagnostics.md) means one computed object
 renders to every surface; the human narration and the structured `data` can
 never disagree on what happened.

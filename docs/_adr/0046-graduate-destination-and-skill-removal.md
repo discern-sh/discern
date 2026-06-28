@@ -2,7 +2,7 @@
 
 **Status**: accepted
 
-> **Consolidates [ADR 0048](0048-graduate-trunk-role-name.md).** The
+> **Consolidates [ADR 0048](_superseded/0048-graduate-trunk-role-name.md).** The
 > trunk-landing value introduced below as `"main"` was renamed to `"trunk"`
 > (0048, folded in here). **Current values: `graduate_to = "branch" | "trunk"`**
 > — read every `"main"` destination in the text below as the role now spelled
@@ -63,9 +63,9 @@ its worthwhile parts onto discern's own surfaces.**
   - the natural-language handoff triggers ("graduate this", "I'll take it from
     here", "move this back to main") → the MCP server `instructions` block.
 
-  This follows the precedent of [ADR 0024](0024-bootstrap-as-command.md), which
-  retired the bootstrap _skill_ for a command: a single deterministic action is
-  not a skill.
+  This follows the precedent of
+  [ADR 0024](_superseded/0024-bootstrap-as-command.md), which retired the
+  bootstrap _skill_ for a command: a single deterministic action is not a skill.
 
 ## Consequences
 

@@ -29,7 +29,7 @@ never re-derived in parallel
 undefined fields, so a clean refusal serializes to just
 `{ok, verb, error,
 message}`. Under `--json` the envelope is the **entire**
-output ([ADR 0030](../_adr/0030-quiet-json-output.md)).
+output ([ADR 0030](../_adr/_superseded/0030-quiet-json-output.md)).
 
 ## `diagnostics[]` — the structured "why"
 

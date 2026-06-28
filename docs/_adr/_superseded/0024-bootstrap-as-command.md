@@ -1,8 +1,12 @@
 # ADR 0024: Bootstrap is a command, not a skill
 
+> **Consolidated into [ADR 0036](../0036-unify-setup.md)** (unify init +
+> bootstrap into `discern setup`). The command-not-a-skill decision and the
+> `[meta].bootstrapped` marker live on there. Kept for history.
+
 **Status**: accepted
 
-> **Amended by [ADR 0036](0036-unify-setup.md):** the `bootstrap` command was
+> **Amended by [ADR 0036](../0036-unify-setup.md):** the `bootstrap` command was
 > folded into a single `discern setup` (with `init`), and the pre-setup "nudge,
 > not gate" below became a **hard redirect** for the work verbs. The
 > command-not-a-skill decision and the `[meta].bootstrapped` marker recorded
@@ -111,6 +115,6 @@ by a `[meta].bootstrapped` marker.**
   honours the rule that discern never disturbs what the user already has.
 
 This builds on the materialized-skills model from
-[ADR 0020](0020-dissolve-discern-dir.md): bootstrap simply stops being one of
+[ADR 0020](../0020-dissolve-discern-dir.md): bootstrap simply stops being one of
 those skills and becomes a first-class command, which also frees it from the
 `[features].skills` toggle (setup should work even with skills off).

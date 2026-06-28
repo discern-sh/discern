@@ -28,9 +28,10 @@ tool call in the field, not a failed build.
 Two correctness gaps also sat under the surface we were about to formalize.
 `discern prepare` and `discern test` returned a bare `{ok:false}` on failure —
 their joined stage command ran through `runShellInherit`, which discards output
-under the quiet `--json` rule ([ADR 0030](0030-quiet-json-output.md)) — so the
-result an agent reads carried no `steps[]` and no `diagnostics[]`, unlike
-`finish`. Baking a schema over that hole would have enshrined it.
+under the quiet `--json` rule
+([ADR 0030](_superseded/0030-quiet-json-output.md)) — so the result an agent
+reads carried no `steps[]` and no `diagnostics[]`, unlike `finish`. Baking a
+schema over that hole would have enshrined it.
 
 ## Decision
 

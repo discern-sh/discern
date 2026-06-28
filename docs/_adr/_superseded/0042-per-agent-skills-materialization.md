@@ -1,6 +1,10 @@
 # ADR 0042: Per-agent skills materialization
 
-**Status**: accepted; extends [ADR 0031](0031-typed-provider-integration.md)
+> **Consolidated into [ADR 0043](../0043-registry-derived-agent-parity.md)**
+> (the provider registry as the enforced single source for every agent surface,
+> skills included). Kept for history.
+
+**Status**: accepted; extends [ADR 0031](../0031-typed-provider-integration.md)
 
 ## Context
 
@@ -31,7 +35,7 @@ The consequence was a real defect, on the **default** configuration. discern's
 default agent set is `["claude_code", "codex"]` (`src/lib/config.ts`), yet
 skills went only to `.claude/skills/` — so a Codex user's skills were
 materialized into a directory Codex never reads. Worse, the fix was already
-designed for: [ADR 0031](0031-typed-provider-integration.md) built the typed
+designed for: [ADR 0031](../0031-typed-provider-integration.md) built the typed
 provider registry to be the single source of everything agent-specific and
 **explicitly named "a per-agent skills dir" as the intended extension point** —
 but skills were the one agent-specific behaviour still living outside it.

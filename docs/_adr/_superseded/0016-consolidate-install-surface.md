@@ -1,8 +1,12 @@
 # ADR 0016: Consolidate the install surface under `.discern/`
 
-**Status**: accepted; **superseded by [ADR 0020](0020-dissolve-discern-dir.md)**
-(the `.discern/` namespace this introduced is dissolved into a single root
-`discern.toml`).
+> **Retired — superseded by [ADR 0020](../0020-dissolve-discern-dir.md).** The
+> `.discern/` namespace it introduced is dissolved into a single root
+> `discern.toml`. Kept for history; not current architecture.
+
+**Status**: accepted; **superseded by
+[ADR 0020](../0020-dissolve-discern-dir.md)** (the `.discern/` namespace this
+introduced is dissolved into a single root `discern.toml`).
 
 ## Context
 

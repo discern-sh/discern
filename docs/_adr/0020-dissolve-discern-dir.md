@@ -1,19 +1,19 @@
 # ADR 0020: Dissolve `.discern/` — one root config file, config-driven point-and-override, feature toggles
 
 **Status**: accepted; **supersedes
-[ADR 0016](0016-consolidate-install-surface.md)**; the single-root-file
-**config** footprint is narrowed for _runtime_ per-worktree state by
-[ADR 0025](0025-worktree-resources.md) (the resource ledger under `.git/`); the
-`[features]` set introduced here is later revised by
+[ADR 0016](_superseded/0016-consolidate-install-surface.md)**; the
+single-root-file **config** footprint is narrowed for _runtime_ per-worktree
+state by [ADR 0025](0025-worktree-resources.md) (the resource ledger under
+`.git/`); the `[features]` set introduced here is later revised by
 [ADR 0045](0045-mcp-is-core-infrastructure.md) (which drops `mcp` — the MCP
 server became core infrastructure, not a toggle)
 
 ## Context
 
-[ADR 0016](0016-consolidate-install-surface.md) consolidated everything the kit
-owned under a hidden `.discern/` namespace: `config.toml`, `guidelines/`,
-`brief.md`, `recipes/`, and `skills/`. That answered "the harness is all over
-the place" — but the single-binary cutover
+[ADR 0016](_superseded/0016-consolidate-install-surface.md) consolidated
+everything the kit owned under a hidden `.discern/` namespace: `config.toml`,
+`guidelines/`, `brief.md`, `recipes/`, and `skills/`. That answered "the harness
+is all over the place" — but the single-binary cutover
 ([ADR 0019](0019-single-binary-ts-engine.md)) changed the calculus, and three DX
 problems remained, all about the _install footprint_ rather than the tool:
 

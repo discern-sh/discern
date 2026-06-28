@@ -158,7 +158,7 @@ scope actually changed ([ADR 0018](../_adr/0018-vocabulary-consolidation.md));
 siblings via Deno's process-group kill
 ([command.ts](../../src/engine/jobs/command.ts)) — and the structured report
 attributes failure to a single capability or check
-([ADR 0004](../_adr/0004-structured-finish-json.md)).
+([ADR 0004](../_adr/_superseded/0004-structured-finish-json.md)).
 
 ---
 
@@ -182,9 +182,9 @@ impossible by construction, rather than something a gate must _detect_.
 the repo gates itself with the same engine it ships; there is no `selfcheck` or
 `shellcheck` Check, because there is no installed copy to compare against
 ([ADR 0019](../_adr/0019-single-binary-ts-engine.md), superseding
-[ADR 0010](../_adr/0010-self-host-the-harness.md)). The `tests/engine_*` suites
-scaffold a project into temp dirs and run the engine against them; CI runs the
-same gate.
+[ADR 0010](../_adr/_superseded/0010-self-host-the-harness.md)). The
+`tests/engine_*` suites scaffold a project into temp dirs and run the engine
+against them; CI runs the same gate.
 
 ---
 

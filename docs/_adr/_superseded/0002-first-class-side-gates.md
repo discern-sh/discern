@@ -1,5 +1,10 @@
 # ADR 0002: Side-gates run with the slot phase model; path-scoped suppression deferred
 
+> **Retired.** The slot/phase side-gate model described here was replaced by the
+> capabilities/checks model ([ADR 0017](../0017-capabilities-model.md)) and the
+> scope `gate` key ([ADR 0018](../0018-vocabulary-consolidation.md)). Kept for
+> history; not current architecture.
+
 **Status**: accepted; **amended by the 1.0 redesign** — see _Update (1.0)_
 below.
 

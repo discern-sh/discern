@@ -1,7 +1,8 @@
 # ADR 0031: One typed provider registry for every agent-specific integration
 
-**Status**: accepted; relates to [ADR 0030](0030-quiet-json-output.md) (which
-adds the MCP-server steering this wires up)
+**Status**: accepted; relates to
+[ADR 0030](_superseded/0030-quiet-json-output.md) (which adds the MCP-server
+steering this wires up)
 
 ## Context
 
@@ -50,7 +51,8 @@ instead of its own table:
   drives hook-stripping from `provider.hooks`;
 - future provider-specific behaviour (e.g. a per-agent skills dir) extends the
   same record rather than adding a new scattered conditional. (The per-agent
-  skills dir was added in [ADR 0042](0042-per-agent-skills-materialization.md).)
+  skills dir was added in
+  [ADR 0042](_superseded/0042-per-agent-skills-materialization.md).)
 
 **Claude Code is implemented end-to-end**: guidance `CLAUDE.md`; MCP via a stdio
 `discern mcp` server in `.mcp.json`, pre-approved with `enabledMcpjsonServers`

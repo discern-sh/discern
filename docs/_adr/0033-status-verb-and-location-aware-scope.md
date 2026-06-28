@@ -2,7 +2,7 @@
 
 **Status**: accepted; builds on
 [ADR 0028](0028-result-envelope-and-diagnostics.md) (the result envelope) and
-[ADR 0030](0030-quiet-json-output.md) (quiet `--json`); relates to
+[ADR 0030](_superseded/0030-quiet-json-output.md) (quiet `--json`); relates to
 [ADR 0029](0029-best-practices-audit.md) (the audit) and
 [ADR 0025](0025-worktree-resources.md) (per-worktree resources)
 
@@ -59,8 +59,9 @@ tree byte-for-byte unchanged and provisions no resource.
 It is the same one-`DiscernResult`-rendered-three-ways spine as every other verb
 ([ADR 0028](0028-result-envelope-and-diagnostics.md)): a single `statusResult`
 core feeds the CLI, the `--json` envelope, and the `discern_status` MCP tool,
-and goes quiet under `--json` ([ADR 0030](0030-quiet-json-output.md)). `status`
-is **always on** (like `doctor`), behind no feature toggle.
+and goes quiet under `--json`
+([ADR 0030](_superseded/0030-quiet-json-output.md)). `status` is **always on**
+(like `doctor`), behind no feature toggle.
 
 ### The default scope is location-aware
 

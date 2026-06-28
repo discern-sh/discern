@@ -3,11 +3,13 @@
 **Status**: accepted; completes [ADR 0031](0031-typed-provider-integration.md),
 extends the currency check of
 [ADR 0034](0034-agents-md-untracked-currency-check.md) to skills, and **builds
-on and consolidates** [ADR 0042](0042-per-agent-skills-materialization.md).
+on and consolidates**
+[ADR 0042](_superseded/0042-per-agent-skills-materialization.md).
 
-> **Consolidates [ADR 0042](0042-per-agent-skills-materialization.md)**
-> (per-agent skills materialization): a `Provider.skillsDir` field directs the
-> effective skill set into every configured agent's directory —
+> **Consolidates
+> [ADR 0042](_superseded/0042-per-agent-skills-materialization.md)** (per-agent
+> skills materialization): a `Provider.skillsDir` field directs the effective
+> skill set into every configured agent's directory —
 > `claude_code → .claude/skills`, and `codex`/`gemini →` the shared
 > `.agents/skills` (deduped onto one target), gated on `features.skills`. That
 > decision is folded in here; this ADR makes the provider registry the enforced
@@ -30,8 +32,8 @@ registry grew:
 - The seed `.gitignore` fragment listed the agent files/dirs as **static
   literals**.
 - `DEFAULTS.scopesNeutral` hardcoded `.claude/` and **omitted `.agents/`** —
-  added by [ADR 0042](0042-per-agent-skills-materialization.md) but never
-  reflected here.
+  added by [ADR 0042](_superseded/0042-per-agent-skills-materialization.md) but
+  never reflected here.
 - The audit's `anyAgentFile()` hardcoded the three filenames; `plan_view`
   grouped `.claude/` only; `skills.ts` kept a `CLAUDE_SKILLS_REL` duplicate of
   the registry value; the default agent set was encoded three times.

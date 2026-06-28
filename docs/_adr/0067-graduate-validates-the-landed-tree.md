@@ -1,21 +1,23 @@
 # ADR 0067: Graduate validates the exact tree it lands, fast-pathed by a gate-pass receipt
 
 **Status**: accepted. Supersedes
-[ADR 0061](0061-graduate-fix-stage-fixed-point.md) (graduate's fix-stage-only
-fixed-point guard) and overturns its "run the whole gate in graduate" rejection
-— the gate-pass receipt removes the cost that rejection rested on. Reuses the
-merge precondition ([ADR 0050](0050-merge-check-fail-fast.md)) and the one
-result envelope ([ADR 0028](0028-result-envelope-and-diagnostics.md)).
+[ADR 0061](_superseded/0061-graduate-fix-stage-fixed-point.md) (graduate's
+fix-stage-only fixed-point guard) and overturns its "run the whole gate in
+graduate" rejection — the gate-pass receipt removes the cost that rejection
+rested on. Reuses the merge precondition
+([ADR 0050](0050-merge-check-fail-fast.md)) and the one result envelope
+([ADR 0028](0028-result-envelope-and-diagnostics.md)).
 
 ## Context
 
 `graduate` lands a branch onto the trunk — locally, via `graduate --to trunk`,
 with no PR and no CI. Its only quality guards were the merge precondition (the
 branch contains the latest trunk) and the fix-stage fixed-point check
-([ADR 0061](0061-graduate-fix-stage-fixed-point.md), which re-ran **only the fix
-stage**). Neither runs the build, the checks, the tests, or the scope gates. So
-the property "what lands passed the gate" held only because an agent was trusted
-to have run a clean `finish` — and that trust breaks on a routine sequence:
+([ADR 0061](_superseded/0061-graduate-fix-stage-fixed-point.md), which re-ran
+**only the fix stage**). Neither runs the build, the checks, the tests, or the
+scope gates. So the property "what lands passed the gate" held only because an
+agent was trusted to have run a clean `finish` — and that trust breaks on a
+routine sequence:
 
 1. An agent finishes its work; `finish` is green. It then waits for review.
 2. While it waits, the trunk advances beneath it (other branches graduate).
@@ -34,12 +36,12 @@ precisely because a branch that integrates "discards whatever the gate computed
 against the pre-integration tree" ([ADR 0050](0050-merge-check-fail-fast.md)) —
 but nothing re-asserted the gate at the one boundary that writes to the trunk.
 
-[ADR 0061](0061-graduate-fix-stage-fixed-point.md) considered running the whole
-gate in graduate and rejected it: "it runs the test suite on every graduation,
-slow across many parallel worktrees." True — _if graduate re-runs the gate
-unconditionally._ But in the common case nothing changed since the agent's own
-`finish`, and a re-run is pure waste. The cost objection is really an objection
-to _redundant_ runs, not to checking.
+[ADR 0061](_superseded/0061-graduate-fix-stage-fixed-point.md) considered
+running the whole gate in graduate and rejected it: "it runs the test suite on
+every graduation, slow across many parallel worktrees." True — _if graduate
+re-runs the gate unconditionally._ But in the common case nothing changed since
+the agent's own `finish`, and a re-run is pure waste. The cost objection is
+really an objection to _redundant_ runs, not to checking.
 
 ## Decision
 

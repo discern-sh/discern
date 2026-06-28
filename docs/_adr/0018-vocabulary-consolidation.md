@@ -34,9 +34,9 @@ a home:
   to look up to learn it means the opposite of "managed."
 
 Pre-launch is the moment to consolidate (the
-[ADR 0016](0016-consolidate-install-surface.md) window), and doing it alongside
-[ADR 0017](0017-capabilities-model.md) means one coherent vocabulary lands at
-once rather than in drips.
+[ADR 0016](_superseded/0016-consolidate-install-surface.md) window), and doing
+it alongside [ADR 0017](0017-capabilities-model.md) means one coherent
+vocabulary lands at once rather than in drips.
 
 ## Decision
 
@@ -126,16 +126,17 @@ first-class gate.
   deletes `[evidence]`; the "upgrade ≡ fresh init" test and an idempotent re-run
   keep it honest.
 - **Amends earlier records.** Supersedes
-  [ADR 0002](0002-first-class-side-gates.md) (side-gate execution is unchanged;
-  its config _home_ moves onto the scope) and
+  [ADR 0002](_superseded/0002-first-class-side-gates.md) (side-gate execution is
+  unchanged; its config _home_ moves onto the scope) and
   [ADR 0007](0007-adapter-contract.md) (the overlay contract is unchanged; the
   name is now preset / `preset.json`); amends
   [ADR 0003](0003-named-metric-ratchets.md) (inline `run`),
-  [ADR 0004](0004-structured-finish-json.md) (gate results are per-scope,
-  labelled `scope:<name>`), and [ADR 0005](0005-declarative-config.md) (the
-  `config` sub-verbs and config-document fields rename). It does not change the
-  managed-vs-yours model of [ADR 0008](0008-declarative-managed-set.md) — only
-  the word "seed."
+  [ADR 0004](_superseded/0004-structured-finish-json.md) (gate results are
+  per-scope, labelled `scope:<name>`), and
+  [ADR 0005](0005-declarative-config.md) (the `config` sub-verbs and
+  config-document fields rename). It does not change the managed-vs-yours model
+  of [ADR 0008](_superseded/0008-declarative-managed-set.md) — only the word
+  "seed."
 
 ## Alternatives considered
 

@@ -42,7 +42,7 @@ project. Two frictions followed:
 This is pre-launch (only two internal installs exist), so the model can still
 change cleanly — the cheapest this will ever be, the window
 [ADR 0009](0009-one-point-zero-drop-backward-compat.md) and
-[ADR 0016](0016-consolidate-install-surface.md) leaned on.
+[ADR 0016](_superseded/0016-consolidate-install-surface.md) leaned on.
 
 ## Decision
 
@@ -128,16 +128,17 @@ that moves to the ratchet's inline `run`, see
 - **The `--json` report changes shape.** Per-result reporting is now keyed by
   job (capability or check), not slot —
   `{name, kind, stage, status, duration_s}`, amending
-  [ADR 0004](0004-structured-finish-json.md). A no-op gate reports an empty
-  `jobs` array rather than a list of `noop` rows; "what ran" replaces "what
-  could run."
+  [ADR 0004](_superseded/0004-structured-finish-json.md). A no-op gate reports
+  an empty `jobs` array rather than a list of `noop` rows; "what ran" replaces
+  "what could run."
 - **Amends earlier records.** This supersedes the slot/phase _surface_ of
   [ADR 0006](0006-long-slot-ergonomics.md) (the `[gate]` stream/fail_fast
   ergonomics survive untouched); amends
-  [ADR 0004](0004-structured-finish-json.md) (per-job, not per-slot); amends
-  [ADR 0003](0003-named-metric-ratchets.md) (the measurement slot it relied on
-  becomes the ratchet's inline `run`). Design principle #1 ("push every stack
-  fact behind a named slot") is reworded to "a named capability" and links here.
+  [ADR 0004](_superseded/0004-structured-finish-json.md) (per-job, not
+  per-slot); amends [ADR 0003](0003-named-metric-ratchets.md) (the measurement
+  slot it relied on becomes the ratchet's inline `run`). Design principle #1
+  ("push every stack fact behind a named slot") is reworded to "a named
+  capability" and links here.
 
 ## Alternatives considered
 

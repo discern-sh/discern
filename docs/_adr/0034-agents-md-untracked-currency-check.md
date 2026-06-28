@@ -1,9 +1,9 @@
 # ADR 0034: AGENTS.md is an untracked build artifact, guarded by a currency check
 
 **Status**: accepted; supersedes the _tracking_ decision in — and
-**consolidates** — [ADR 0032](0032-claude-md-imports-agents-md.md) (whose
-surviving contribution, the `@AGENTS.md` pointer, is described in §1–2 below),
-and revises the `tracked` flag from
+**consolidates** — [ADR 0032](_superseded/0032-claude-md-imports-agents-md.md)
+(whose surviving contribution, the `@AGENTS.md` pointer, is described in §1–2
+below), and revises the `tracked` flag from
 [ADR 0031](0031-typed-provider-integration.md). Builds on the orientation verb
 from [ADR 0033](0033-status-verb-and-location-aware-scope.md).
 

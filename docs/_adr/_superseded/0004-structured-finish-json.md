@@ -1,9 +1,15 @@
 # ADR 0004: `agent finish --json` — structured gate output
 
+> **Retired — superseded by
+> [ADR 0028](../0028-result-envelope-and-diagnostics.md)** (and the per-job gate
+> surface of [ADR 0017](../0017-capabilities-model.md)). Kept for history; not
+> current architecture.
+
 **Status**: **superseded by
-[ADR 0028](0028-result-envelope-and-diagnostics.md)** (the bespoke `GateReport`
-shape is replaced by the universal `DiscernResult` envelope + normalized
-diagnostics); previously amended by the 1.0 redesign — see _Update (1.0)_ below.
+[ADR 0028](../0028-result-envelope-and-diagnostics.md)** (the bespoke
+`GateReport` shape is replaced by the universal `DiscernResult` envelope +
+normalized diagnostics); previously amended by the 1.0 redesign — see _Update
+(1.0)_ below.
 
 ## Update (1.0)
 

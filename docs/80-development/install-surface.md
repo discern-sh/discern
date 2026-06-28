@@ -155,8 +155,8 @@ its own directory:
 | [`write-adr`](../../templates/skills/write-adr/SKILL.md)                   | Record a significant decision as an Architecture Decision Record.             |
 
 (Seeding a fresh install is **not** a skill — it is the `discern setup` command;
-see below and [ADR 0024](../_adr/0024-bootstrap-as-command.md), amended by
-[ADR 0036](../_adr/0036-unify-setup.md).)
+see below and [ADR 0024](../_adr/_superseded/0024-bootstrap-as-command.md),
+amended by [ADR 0036](../_adr/0036-unify-setup.md).)
 
 ## Documentation & ADR scaffold (lazy — not part of the install surface)
 

@@ -1,7 +1,12 @@
 # ADR 0061: Graduate enforces the fix stage's fixed point before landing
 
+> **Retired — superseded by
+> [ADR 0067](../0067-graduate-validates-the-landed-tree.md).** Graduate now
+> validates the whole gate at the landing boundary (fast-pathed by a gate-pass
+> receipt), subsuming this fix-stage-only guard. Kept for history.
+
 **Status**: superseded by
-[ADR 0067](0067-graduate-validates-the-landed-tree.md), which runs the WHOLE
+[ADR 0067](../0067-graduate-validates-the-landed-tree.md), which runs the WHOLE
 gate at the graduate landing boundary (fast-pathed by a gate-pass receipt),
 subsuming this fix-stage-only guard — a fix-stage strand is now caught as a
 `fix_drift` gate failure. The context below records why graduate gained a
@@ -9,9 +14,9 @@ landing-boundary guard at all; ADR 0067 broadens it from the fix stage to the
 full gate.
 
 Originally accepted as: extends the fix-stage strand check
-([ADR 0047](0047-fix-stage-strand-detection.md)) from `finish` to the `graduate`
-landing boundary, reusing the same `D1 \ D0` signal (`fixDriftPaths`) and
-tracked-only snapshot (`worktreeDirtyPaths`).
+([ADR 0047](../0047-fix-stage-strand-detection.md)) from `finish` to the
+`graduate` landing boundary, reusing the same `D1 \ D0` signal (`fixDriftPaths`)
+and tracked-only snapshot (`worktreeDirtyPaths`).
 
 ## Context
 
@@ -22,8 +27,8 @@ stage would reflow a doc the merge brought in, and it had to commit a pure
 that triggered one such round was itself **not** `deno fmt`-clean on `main` — so
 the leak was upstream, at the moment the doc was graduated.
 
-[ADR 0047](0047-fix-stage-strand-detection.md) made `finish` block when the fix
-stage strands a reformat on a committed-clean file. It works — but it lives
+[ADR 0047](../0047-fix-stage-strand-detection.md) made `finish` block when the
+fix stage strands a reformat on a committed-clean file. It works — but it lives
 **inside `finish`**, and its reasoning leaned on one external guard: _"CI
 already guards this, with a `git diff --exit-code` after finish."_ That
 assumption does not hold for this repo's local workflow:
@@ -53,7 +58,7 @@ asserts, brought to the local landing boundary.
 - **One signal, defined once.** `detectFixStageStrand` runs the configured
   fix-stage fixers and reports the stranded set `D1 \ D0` via the same
   `worktreeDirtyPaths` (tracked-only) + `fixDriftPaths` primitives `finish` uses
-  ([ADR 0047](0047-fix-stage-strand-detection.md)). "Not at the fixed point"
+  ([ADR 0047](../0047-fix-stage-strand-detection.md)). "Not at the fixed point"
   means exactly the same thing in both verbs; neither re-defines it.
 - **In the apply phase, not the diagnosis.** The guard runs the fixers (a
   mutation), so it sits in `executeGraduatePlan`, after the read-only
@@ -61,8 +66,8 @@ asserts, brought to the local landing boundary.
   plan from the read-only diagnosis and never reaches it — a preview still
   touches nothing.
 - **It refuses; it does not commit.** A gate is not a committer
-  ([ADR 0047](0047-fix-stage-strand-detection.md)). The reformat is left applied
-  in the worktree; the refusal names the files and says to review with
+  ([ADR 0047](../0047-fix-stage-strand-detection.md)). The reformat is left
+  applied in the worktree; the refusal names the files and says to review with
   `git diff`, commit, and re-run. The branch keeps all its commits, and the
   worktree is intact (the refusal precedes every destructive step).
 - **A broken fixer refuses too.** A fixer command that exits non-zero yields
