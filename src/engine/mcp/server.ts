@@ -939,13 +939,29 @@ function registerDocTree(
  * are always available; `discern://help` (+ a `{target}` template) is too; and
  * `discern://docs` (+ template) is registered only with the `docs` feature on and
  * refuses per read until the project is bootstrapped — exactly as the matching tools
- * do. Every read recomputes from the verb core.
+ * do. Every read recomputes from the verb core against the server's CURRENT working
+ * root (resolved per read via {@link WorkingRoot}, ADR 0062), so the resources follow
+ * `discern_start` / `discern_graduate` exactly as the tools do — never a spawn root
+ * frozen at registration.
  */
 function registerResources(
   server: McpServer,
-  root: string,
+  working: WorkingRoot,
   enabled: ReadonlySet<Feature>,
 ): void {
+  // Resolve the working root AT READ TIME (not captured), so a resource read reflects
+  // the latest re-aim. Defensive throw only: resources are registered solely when the
+  // spawn root was defined, and the working root never moves to undefined, so a read
+  // always sees a real project root.
+  const currentRoot = (): string => {
+    const root = working.get();
+    if (root === undefined) {
+      throw new Error(
+        "not inside a discern project (no discern.toml in this directory or any parent).",
+      );
+    }
+    return root;
+  };
   server.registerResource(
     "discern-status",
     "discern://status",
@@ -955,7 +971,11 @@ function registerResources(
       mimeType: JSON_MIME,
     },
     async (uri: URL) =>
-      resourceText(uri, JSON_MIME, asJson((await statusResult(root)).data)),
+      resourceText(
+        uri,
+        JSON_MIME,
+        asJson((await statusResult(currentRoot())).data),
+      ),
   );
 
   server.registerResource(
@@ -970,7 +990,7 @@ function registerResources(
       resourceText(
         uri,
         JSON_MIME,
-        asJson((await changedScopesResult(root)).data),
+        asJson((await changedScopesResult(currentRoot())).data),
       ),
   );
 
@@ -983,7 +1003,7 @@ function registerResources(
       mimeType: JSON_MIME,
     },
     async (uri: URL) =>
-      resourceText(uri, JSON_MIME, asJson(await loadConfig(root))),
+      resourceText(uri, JSON_MIME, asJson(await loadConfig(currentRoot()))),
   );
 
   // help — discern's OWN documentation, always available (the pre-setup surface).
@@ -991,8 +1011,8 @@ function registerResources(
     server,
     "help",
     "discern's own documentation",
-    () => helpResult(root),
-    (target) => helpResult(root, { target }),
+    () => helpResult(currentRoot()),
+    (target) => helpResult(currentRoot(), { target }),
   );
 
   // docs — the project's documentation, gated on the `docs` feature and (per read)
@@ -1003,10 +1023,12 @@ function registerResources(
       "docs",
       "the project's documentation",
       async () => {
+        const root = currentRoot();
         await assertResourceBootstrapped(root);
         return docsResult(root);
       },
       async (target) => {
+        const root = currentRoot();
         await assertResourceBootstrapped(root);
         return docsResult(root, { target });
       },
@@ -1107,8 +1129,8 @@ export async function runMcpServer(): Promise<number> {
   const cfg = await resolveServerConfig(spawnRoot);
   const enabled = new Set(enabledFeatures(cfg));
   // The server's logical cwd, made explicit: seeded from the spawn root, then
-  // re-pointed on discern_start / discern_graduate. Resources and config below stay on
-  // the spawn root (resolved once at startup); only the per-verb working root moves.
+  // re-pointed on discern_start / discern_graduate. Both the tools and the readable
+  // resources resolve it per call/read, so the whole surface follows the re-aim.
   const working = new WorkingRoot(spawnRoot);
   const server = new McpServer(
     { name: SERVER_NAME, version: SERVER_VERSION },
@@ -1158,11 +1180,11 @@ export async function runMcpServer(): Promise<number> {
   }
 
   // Resources — readable context paired with the tools (ADR 0041). Registered only
-  // inside a project, against the spawn root resolved at startup; each read recomputes
-  // fresh. (Resources are a secondary read surface and are not re-aimed with the
-  // working root — the tools are the reliable, re-aimed path; ADR 0062.)
+  // when the server spawned inside a project; each read recomputes fresh against the
+  // CURRENT working root (so the resources follow discern_start / discern_graduate
+  // exactly as the tools do — ADR 0062).
   if (spawnRoot !== undefined) {
-    registerResources(server, spawnRoot, enabled);
+    registerResources(server, working, enabled);
   }
 
   const transport = new StdioServerTransport();

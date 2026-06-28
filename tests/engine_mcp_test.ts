@@ -1615,6 +1615,61 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
   });
 });
 
+Deno.test("discern mcp: the resources follow the re-aimed working root after discern_start (ADR 0062)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const mcp = await spawnMcp(dir);
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await mcp.recv();
+
+    // Baseline: the discern://status resource reads the main checkout (the spawn root).
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "resources/read",
+      params: { uri: "discern://status" },
+    });
+    const before = await mcp.recv();
+    assertEquals(
+      JSON.parse(before.result.contents[0].text).location,
+      "main",
+    );
+
+    // discern_start re-aims the server's working root at the new worktree…
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: { name: "discern_start", arguments: {} },
+    });
+    const started = await mcp.recv();
+    assertEquals(started.result.isError, false, JSON.stringify(started.result));
+    const wtPath = started.result.structuredContent.data.path as string;
+
+    // …and the resources follow it: a fresh read of discern://status (resolved per
+    // read, not bound to the spawn root) now reports the worktree and its exact root —
+    // the readable surface aligned with the tools, not lagging on the trunk.
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 4,
+      method: "resources/read",
+      params: { uri: "discern://status" },
+    });
+    const after = await mcp.recv();
+    const afterData = JSON.parse(after.result.contents[0].text);
+    assertEquals(afterData.location, "worktree");
+    assertEquals(afterData.root, wtPath);
+
+    assertEquals(await mcp.close(), 0);
+  });
+});
+
 Deno.test("discern mcp: the docs resource is gated on the docs feature; help and status stay", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
