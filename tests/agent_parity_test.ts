@@ -131,6 +131,40 @@ Deno.test("guidance modelling stays sound: exactly one canonical, reuse-canonica
   );
 });
 
+Deno.test("MCP coverage is accounted for every known agent (wired, or explicitly pending with a target)", () => {
+  // The typed MCP-status forcing function (ADR 0051, deliverable 4): every provider
+  // accounts for its MCP wiring — a live integration, an explicit `pending` marker
+  // naming the committable file discern will write into, or `none`. Never the old
+  // silent `mcp?` gap. The union + the required `Provider.mcp` field make a missing
+  // declaration a COMPILE error; this asserts the runtime half (a pending status
+  // names a real target). It TIGHTENS automatically: a later plan flipping a pending
+  // to wired keeps this green with no edit.
+  for (const name of AGENT_NAMES) {
+    const p = providerFor(name);
+    assert(p !== undefined, `no provider for ${name}`);
+    const mcp = p.mcp;
+    switch (mcp.kind) {
+      case "wired":
+        assert(
+          mcp.integration.configFile.length > 0,
+          `${name}: a wired MCP must name its config file`,
+        );
+        break;
+      case "pending":
+        assert(
+          mcp.targetFile.length > 0 && mcp.targetFile.includes("."),
+          `${name}: a pending MCP must name the committable target file discern will write into (got "${mcp.targetFile}")`,
+        );
+        break;
+      case "none":
+        break; // an agent with no committable project-scoped MCP mechanism
+    }
+  }
+  // The reference implementation stays wired — a regression here is a real break,
+  // not a pending flip.
+  assertEquals(providerFor("claude_code")?.mcp.kind, "wired");
+});
+
 Deno.test("the seed .gitignore fragment ignores EVERY known agent's compiled guidance file", () => {
   for (const path of allGuidanceFilePaths()) {
     assert(

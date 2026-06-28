@@ -69,6 +69,30 @@ export interface McpIntegration {
   register(root: string, server: McpServerSpec): Promise<McpWireResult>;
 }
 
+/**
+ * A provider's MCP-wiring STATUS — the typed, explicit replacement for the old
+ * silent `mcp?` TODO (ADR 0051's forcing-function discipline). Every provider
+ * declares one, so a new agent cannot join `AGENT_NAMES` without accounting for its
+ * MCP wiring: a live `integration`, an explicit `pending` marker naming the
+ * committable file discern WILL write the server into once the integration is
+ * authored, or `none` (the agent has no committable project-scoped MCP mechanism to
+ * target). A discriminated union + the required `Provider.mcp` field make a missing
+ * declaration a COMPILE error; a parity guard asserts a `pending` status names a real
+ * target file. The set TIGHTENS automatically: flipping a `pending` to `wired` in a
+ * later plan keeps the guard green with no edit.
+ */
+export type McpStatus =
+  | { readonly kind: "wired"; readonly integration: McpIntegration }
+  | { readonly kind: "pending"; readonly targetFile: string }
+  | { readonly kind: "none" };
+
+/** The live MCP integration for a provider, or `undefined` when its status is
+ * pending/none — the ONE place "is this provider's MCP wired?" is decided, so the
+ * wirer and any other consumer agree. */
+export function wiredMcp(provider: Provider): McpIntegration | undefined {
+  return provider.mcp.kind === "wired" ? provider.mcp.integration : undefined;
+}
+
 /** A provider's worktree-automation surface: where its lifecycle hooks live and
  * the hook-event vocabulary it uses. Drives `init`'s hook-stripping. */
 export interface HooksIntegration {
@@ -189,8 +213,12 @@ export interface Provider {
   readonly binaries: readonly string[];
   /** The compiled agent-instruction file: project-relative path + git-tracked. */
   readonly guidanceFile: GuidanceFile;
-  /** MCP registration. Absent → not yet supported for this agent (a TODO). */
-  readonly mcp?: McpIntegration;
+  /**
+   * MCP-wiring status: a live integration, an explicit `pending` marker (with the
+   * committable target file), or `none`. REQUIRED — a new agent must account for its
+   * MCP wiring rather than leave a silent gap (ADR 0051). See {@link McpStatus}.
+   */
+  readonly mcp: McpStatus;
   /** Worktree-hook surface. Absent → not yet supported for this agent. */
   readonly hooks?: HooksIntegration;
   /**
@@ -338,8 +366,11 @@ export const PROVIDERS: Record<AgentName, Provider> = {
       pointer: atImportPointer,
     },
     mcp: {
-      configFile: CLAUDE_MCP_FILE,
-      register: registerClaudeCodeMcp,
+      kind: "wired",
+      integration: {
+        configFile: CLAUDE_MCP_FILE,
+        register: registerClaudeCodeMcp,
+      },
     },
     hooks: {
       settingsFile: CLAUDE_SETTINGS_FILE,
@@ -354,11 +385,13 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     binaries: ["codex"],
     guidanceFile: { path: "AGENTS.md", canonical: true },
     skillsDir: AGENTS_SKILLS_DIR,
-    // TODO(provider:codex): wire MCP registration — author an McpIntegration
-    // against Codex's own MCP-server config mechanism (it is NOT Claude Code's
-    // .mcp.json). Until then `discern mcp` must be added by hand for Codex.
-    // TODO(provider:codex): declare the worktree-hook surface (HooksIntegration)
-    // once Codex's hook mechanism is supported, mirroring claude_code.
+    // MCP is committable but not yet authored: Codex reads `[mcp_servers.<name>]`
+    // from project-local `.codex/config.toml` (its own format, NOT Claude's
+    // .mcp.json), gated by a one-time directory trust. Wiring it is Plan B; the
+    // typed `pending` marker keeps the gap accounted (ADR 0051) instead of a silent
+    // TODO. Hooks (a SessionStart surface in the same `.codex/` config) are likewise
+    // a later plan; an absent `hooks` skips it.
+    mcp: { kind: "pending", targetFile: ".codex/config.toml" },
   },
   gemini: {
     name: "gemini",
@@ -375,9 +408,11 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     // Gemini reads .gemini/skills/ AND the .agents/skills/ alias (which takes
     // precedence) — use the shared alias so Codex + Gemini dedupe to one dir.
     skillsDir: AGENTS_SKILLS_DIR,
-    // TODO(provider:gemini): wire MCP registration — author an McpIntegration
-    // against the Gemini CLI's own MCP-server config (it is NOT .mcp.json).
-    // TODO(provider:gemini): declare the worktree-hook surface once supported.
+    // MCP is committable but not yet authored: Gemini reads `mcpServers` from
+    // project-committable `.gemini/settings.json` (its own format, NOT .mcp.json),
+    // inert in safe mode until the folder is trusted. Wiring it (and a hooks surface
+    // in the same file) is Plan B; the typed `pending` marker accounts the gap.
+    mcp: { kind: "pending", targetFile: ".gemini/settings.json" },
   },
 };
 
@@ -482,10 +517,11 @@ export function agentArtifactPaths(): {
 }
 
 /**
- * Wire discern's MCP server into the project for each configured agent that
- * supports it (idempotent). Agents without an `mcp` integration are skipped
- * (their setup is a typed TODO). Returns the files written across all providers
- * plus whether any provider added the server for the first time.
+ * Wire discern's MCP server into the project for each configured agent whose MCP is
+ * WIRED (idempotent). An agent whose status is `pending`/`none` is skipped — its
+ * server is added by hand (pending) or it has no committable target (none). Returns
+ * the files written across all providers plus whether any provider added the server
+ * for the first time.
  */
 export async function wireProviderMcp(
   root: string,
@@ -495,7 +531,8 @@ export async function wireProviderMcp(
   const written: string[] = [];
   let firstInstall = false;
   for (const agent of agents) {
-    const mcp = providerFor(agent)?.mcp;
+    const provider = providerFor(agent);
+    const mcp = provider !== undefined ? wiredMcp(provider) : undefined;
     if (mcp !== undefined) {
       const r = await mcp.register(root, server);
       written.push(...r.written);

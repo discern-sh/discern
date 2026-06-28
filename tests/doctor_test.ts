@@ -486,12 +486,13 @@ Deno.test("doctor: surfaces per-agent integration coverage (MCP/hooks Claude-onl
     assertStringIncludes(claude.detail, "mcp");
     assertStringIncludes(claude.detail, "hooks");
 
-    // Codex's MCP/hooks use their own mechanism — surfaced explicitly, not a silent
-    // gap (the EXPECTED divergence made visible).
+    // Codex's MCP is committable but pending — surfaced explicitly with the target
+    // file it will be wired into, not a silent gap (the typed McpStatus made visible).
     const codex = check(payload, "agent: Codex");
     assertEquals(codex.ok, true);
     assertStringIncludes(codex.detail, "guidance AGENTS.md");
     assertStringIncludes(codex.detail, "not wired");
+    assertStringIncludes(codex.detail, ".codex/config.toml");
   });
 });
 
