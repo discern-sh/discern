@@ -28,11 +28,12 @@ instead of re-running and scraping stderr. `hints[]` carries the next-step
 advice the human tail prints. Under `--json` the envelope is the **entire**
 output: all narration and command output is suppressed (not rerouted), so the
 combined stdout+stderr is exactly that one object — safe for an agent to capture
-([ADR 0030](../_adr/_superseded/0030-quiet-json-output.md)). `finish --dry-run`
-prints the plan (the jobs and Scope gates that _would_ run) without running
-anything ([ADR 0027](../_adr/0027-plan-apply-engine-execution.md)); it is honest
-that it cannot predict which jobs fail-fast would skip. The same envelope is
-served to agents natively over MCP by `discern mcp`.
+([ADR 0028](../_adr/0028-result-envelope-and-diagnostics.md)).
+`finish --dry-run` prints the plan (the jobs and Scope gates that _would_ run)
+without running anything
+([ADR 0027](../_adr/0027-plan-apply-engine-execution.md)); it is honest that it
+cannot predict which jobs fail-fast would skip. The same envelope is served to
+agents natively over MCP by `discern mcp`.
 
 The supporting ideas: **Capabilities** are the five known commands (`format` /
 `build` / `lint` / `typecheck` / `test`) and a **Check** is custom gate work

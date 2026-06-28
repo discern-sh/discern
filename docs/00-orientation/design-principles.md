@@ -158,7 +158,7 @@ scope actually changed ([ADR 0018](../_adr/0018-vocabulary-consolidation.md));
 siblings via Deno's process-group kill
 ([command.ts](../../src/engine/jobs/command.ts)) — and the structured report
 attributes failure to a single capability or check
-([ADR 0004](../_adr/_superseded/0004-structured-finish-json.md)).
+([ADR 0028](../_adr/0028-result-envelope-and-diagnostics.md)).
 
 ---
 

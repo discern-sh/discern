@@ -43,9 +43,9 @@ general working discipline shipped on by default
 into each configured agent's skills directory
 ([`.claude/skills/`](../../.claude/skills/) for Claude Code, the cross-tool
 `.agents/skills/` for Codex and Gemini — Claude Code does not read the shared
-dir; [ADR 0042](../_adr/_superseded/0042-per-agent-skills-materialization.md)) —
-gitignored artifacts the binary re-publishes: built-ins **copied**, authored
-skills **symlinked**. The materialized skills are guarded by the **same currency
+dir; [ADR 0043](../_adr/0043-registry-derived-agent-parity.md)) — gitignored
+artifacts the binary re-publishes: built-ins **copied**, authored skills
+**symlinked**. The materialized skills are guarded by the **same currency
 check** as the compiled files: `discern status` / `discern finish` flag a skills
 dir that has drifted from the effective set, so a hand-edited or stale copy is
 caught, not silent

@@ -102,7 +102,7 @@ when an installed project needs a migration to stay correct, so most releases
 leave it untouched. The current shape is schema **12** — the `11 → 12` step
 renames the `[worktree].graduate_to` value `"main"` to `"trunk"`, so the
 graduation landing-role no longer reads as a branch literally named main
-([ADR 0048](../_adr/_superseded/0048-graduate-trunk-role-name.md)).
+([ADR 0046](../_adr/0046-graduate-destination-and-skill-removal.md)).
 
 ### Migration
 
