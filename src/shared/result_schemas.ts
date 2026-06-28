@@ -159,6 +159,56 @@ export const StartDataSchema = z.strictObject({
 });
 export type StartData = z.infer<typeof StartDataSchema>;
 
+// integrate ─────────────────────────────────────────────────────────────────────
+
+/** One commit an integration brought in (short sha + subject). */
+const integrateCommitSchema = z.strictObject({
+  sha: z.string(),
+  subject: z.string(),
+});
+
+/** One file an integration changed beneath the branch. `added`/`removed` are null
+ * for a binary file; `status` is git's single-letter code (`A`/`M`/`D`/`T`). */
+const integrateFileSchema = z.strictObject({
+  path: z.string(),
+  status: z.string(),
+  added: z.number().nullable(),
+  removed: z.number().nullable(),
+});
+
+/** The SHA anchors bounding an integration — an agent diffs/logs against these to
+ * pull the FULL set in one call when a list is capped. `after` (the merged HEAD) is
+ * absent in a `--dry-run` preview (no merge happened); the predicted ranges use
+ * `before...main` (three-dot) instead of `before..after`. */
+const integrateRangeSchema = z.strictObject({
+  base: z.string(),
+  before: z.string(),
+  main: z.string(),
+  after: z.string().optional(),
+});
+
+/** `integrate` — what the merge brought in BENEATH the branch: the `commits` and
+ * `files` it landed (each capped, with the pre-cap `*_total` and a `*_truncated`
+ * flag), which of the branch's own files `overlap` them (re-read these for semantic
+ * conflicts a clean merge can't catch), the fire-scopes the incoming change touches
+ * (`scopes_incoming`), and the `range` anchors for drilling in. Present only when
+ * something was — or, in a preview, would be — integrated (omitted on a no-op). */
+export const IntegrateDataSchema = z.strictObject({
+  behind: z.number(),
+  fast_forward: z.boolean(),
+  commits: z.array(integrateCommitSchema),
+  commits_total: z.number(),
+  commits_truncated: z.boolean(),
+  files: z.array(integrateFileSchema),
+  files_total: z.number(),
+  files_truncated: z.boolean(),
+  overlap: z.array(z.string()),
+  overlap_total: z.number(),
+  scopes_incoming: z.array(z.string()),
+  range: integrateRangeSchema,
+});
+export type IntegrateData = z.infer<typeof IntegrateDataSchema>;
+
 // status ──────────────────────────────────────────────────────────────────────
 
 /** Where a `status` call is rooted: the main checkout or a linked worktree. The SSOT
@@ -188,6 +238,10 @@ const statusGitSchema = z.strictObject({
   changed_files: z.number(),
   behind_integration: z.number().nullable(),
   ahead_integration: z.number(),
+  /** When behind: the files THIS branch changed that the incoming integration branch
+   * also changed — the hot zone to re-check on integrating (capped; present only in a
+   * worktree that is behind and has overlap). The same intersection `integrate` reports. */
+  incoming_overlap: z.array(z.string()).optional(),
 });
 export type StatusGit = z.infer<typeof statusGitSchema>;
 
@@ -275,9 +329,9 @@ export type DoctorEnvironment = z.infer<typeof DoctorEnvironmentSchema>;
  * `kind` is the engine's own {@link STEP_KINDS} vocabulary (derived, not re-listed);
  * `actor` marks whose command it is ({@link ACTORS}); `note` is the command or detail;
  * `hint` is the class-level expectation (idempotent / fast / built-in / …); `condition`
- * is when the step actually fires (a dirty worktree, a changed scope); `destructive`
- * flags a step that can lose data. discern renders the facts and the expectations — it
- * does NOT judge them; a consuming agent draws the conclusions (ADR 0063).
+ * is when the step actually fires (a dirty worktree, a changed scope). discern renders
+ * the facts and the expectations — it does NOT judge them; a consuming agent draws the
+ * conclusions (ADR 0063).
  */
 export const ExecutionStepSchema = z.strictObject({
   kind: stepKindEnum,
@@ -285,7 +339,6 @@ export const ExecutionStepSchema = z.strictObject({
   actor: z.enum(ACTORS),
   note: z.string().optional(),
   hint: z.string().optional(),
-  destructive: z.boolean().optional(),
   condition: z.string().optional(),
 });
 export type ExecutionStep = z.infer<typeof ExecutionStepSchema>;
@@ -420,6 +473,12 @@ export const ChangedScopesOutputSchema = z.strictObject({
 export const StartOutputSchema = z.strictObject({
   ...ENVELOPE_BASE_FIELDS,
   data: StartDataSchema.optional(),
+});
+
+/** `integrate` output: envelope + the "what landed beneath the branch" `data`. */
+export const IntegrateOutputSchema = z.strictObject({
+  ...ENVELOPE_BASE_FIELDS,
+  data: IntegrateDataSchema.optional(),
 });
 
 /** `audit` output: envelope + the scored `data`. */

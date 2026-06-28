@@ -57,6 +57,7 @@ import {
   assertMainMerged,
   type FleetWorktree,
   gitSnapshot,
+  incomingOverlap,
   listWorktreeFleet,
   mainRepoPath,
   worktreeGitKey,
@@ -69,6 +70,10 @@ import { colorEnabled, makeOut, type Out } from "../output.ts";
 /** The not-inside-a-project message (matches the dispatcher / MCP server slug). */
 const NO_PROJECT =
   "not inside a discern project (no discern.toml in this directory or any parent).";
+
+/** How many overlapping paths the behind-report lists inline (a sample; the hint
+ * carries the true count). The intersection is usually small, so this rarely caps. */
+const STATUS_OVERLAP_CAP = 20;
 
 /** Flags accepted by `status` on both surfaces. */
 export interface StatusOptions {
@@ -120,6 +125,9 @@ export async function statusResult(
 
   // The git block — read-only; null when this isn't a git repo (degrade, don't throw).
   let git: StatusGit | null = null;
+  // The hot zone, when this worktree is behind: the files it changed that the incoming
+  // main also changed. Captured for both the git block and the behind hint.
+  let overlapInfo: { overlap: string[]; total: number } | undefined;
   if (snap !== undefined) {
     // Reuse the canonical main-merged check for the behind/null distinction: it
     // self-skips (→ null) in the main checkout or with no local integration branch.
@@ -129,6 +137,14 @@ export async function statusResult(
       : merged.kind === "merged"
       ? 0
       : Number(merged.behind) || 0;
+    // Compute the overlap only when behind in a worktree — the agent sees which of its
+    // own work main is about to touch BEFORE integrating. Read-only; never merges.
+    if (location === "worktree" && behind !== null && behind > 0) {
+      const o = await incomingOverlap(root, mainBranch, STATUS_OVERLAP_CAP);
+      if (o.total > 0) {
+        overlapInfo = o;
+      }
+    }
     git = {
       branch: snap.branch,
       integration_branch: mainBranch,
@@ -136,6 +152,9 @@ export async function statusResult(
       changed_files: snap.changedFiles,
       behind_integration: behind,
       ahead_integration: snap.ahead,
+      ...(overlapInfo !== undefined
+        ? { incoming_overlap: overlapInfo.overlap }
+        : {}),
     };
   }
 
@@ -243,6 +262,7 @@ export async function statusResult(
     mainBranch,
     git,
     changed,
+    incomingOverlap: overlapInfo,
     fleet,
     worktreesOn: features.worktrees,
     liveCount,
@@ -394,6 +414,9 @@ interface HintContext {
   mainBranch: string;
   git: StatusGit | null;
   changed: string[] | undefined;
+  /** The hot zone when behind: the branch's own files the incoming main also changed
+   * (capped list + true total). Drives the overlap clause on the behind hint. */
+  incomingOverlap: { overlap: string[]; total: number } | undefined;
   fleet: StatusFleetEntry[] | undefined;
   worktreesOn: boolean;
   liveCount: number;
@@ -472,8 +495,14 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
       );
     }
     if (g.behind_integration !== null && g.behind_integration > 0) {
+      const ov = ctx.incomingOverlap;
+      const overlapNote = ov !== undefined && ov.total > 0
+        ? ` ${ov.total} of your changed file(s) also changed upstream (${
+          ov.overlap.slice(0, 3).join(", ")
+        }${ov.total > 3 ? ", …" : ""}) — re-check those after integrating.`
+        : "";
       hints.push(
-        `Branch is ${g.behind_integration} behind ${main}; run \`discern integrate\` → \`discern finish\`, before \`discern graduate\`.`,
+        `Branch is ${g.behind_integration} behind ${main}; run \`discern integrate\` → \`discern finish\`, before \`discern graduate\`.${overlapNote}`,
       );
     }
     if (g.clean && g.behind_integration === 0 && g.ahead_integration > 0) {
@@ -686,6 +715,15 @@ function renderStatusHuman(result: DiscernResult<StatusData>): void {
         g.branch || "(detached)"
       }${dot}${state}${dot}${g.ahead_integration} ahead${behind} ${g.integration_branch}\n`,
     );
+    // When behind, the hot zone: the files you changed that the incoming main also
+    // changed — re-check these on integrating (a clean merge can still break them).
+    if (g.incoming_overlap !== undefined && g.incoming_overlap.length > 0) {
+      out.raw(
+        `  ${label("overlap")}${c.yellow}${
+          g.incoming_overlap.join(", ")
+        }${c.reset}${c.dim} (your files ${g.integration_branch} also changed)${c.reset}\n`,
+      );
+    }
   } else {
     out.raw(
       `  ${label("git")}${c.dim}unavailable (not a git repository)${c.reset}\n`,

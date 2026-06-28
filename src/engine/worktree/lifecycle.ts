@@ -70,7 +70,7 @@ import {
   renderPlan,
   type StepResult,
 } from "../../shared/result.ts";
-import type { StartData } from "../../shared/result_schemas.ts";
+import type { IntegrateData, StartData } from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
 import {
   addWorktree,
@@ -81,12 +81,15 @@ import {
   inheritMainEnvVars,
   integrateMain,
   integrationBranch,
+  integrationDelta,
   liveWorktreeGitKeys,
   liveWorktreePaths,
   mainRepoPath,
+  overlapPaths,
   pruneGitWorktrees,
   removeWorktreeSafely,
   resolveCommonGitDir,
+  resolveIntegrationAnchors,
   sweepOrphanWorktrees,
   WorktreeGitError,
   worktreeGitKey,
@@ -99,6 +102,9 @@ import { compileGuidelines } from "../guidelines.ts";
 // graduate re-runs the fix stage at the landing boundary (ADR 0061), so an unformatted
 // tree an agent committed without `finish` cannot fast-forward onto the trunk.
 import { detectFixStageStrand } from "../gate/execute.ts";
+// integrate classifies the merge's incoming files into the project's scopes for its
+// "what landed beneath you" summary (ADR 0064), via the same matcher the gate uses.
+import { scopesForPaths } from "../scopes/changed.ts";
 
 /** Context shared by every lifecycle operation. */
 export interface LifecycleContext {
@@ -953,6 +959,198 @@ export async function graduateResult(
   return appliedResult("graduate", await executeGraduatePlan(ctx, run, plan));
 }
 
+// How much integration detail rides inline before an agent is pointed at git for
+// the rest (ADR 0064). Caps protect the agent's context; the `range` anchors + the
+// escape-hatch hint make the overflow a single deliberate `git` call, not a dead end.
+// `overlap` — the priority signal — is capped loosely; it is already a narrow set.
+const INTEGRATE_COMMIT_CAP = 10;
+const INTEGRATE_FILE_CAP = 20;
+const INTEGRATE_OVERLAP_CAP = 50;
+
+/** Build the {@link IntegrateData} `range` from the anchors, carrying `after` only
+ * when it exists (an apply; a `--dry-run` preview has no merged HEAD). */
+function buildRange(
+  anchors: { base: string; before: string; main: string; after?: string },
+): IntegrateData["range"] {
+  const range: IntegrateData["range"] = {
+    base: anchors.base,
+    before: anchors.before,
+    main: anchors.main,
+  };
+  if (anchors.after !== undefined) {
+    range.after = anchors.after;
+  }
+  return range;
+}
+
+/**
+ * Summarize what an integration brought in BENEATH the branch (ADR 0064) — the core
+ * DX of the verb. From the merge's SHA anchors it computes the commits + files landed
+ * (capped), the OVERLAP with the branch's own changes (the hot zone — files git merged
+ * cleanly that may still conflict semantically), and the fire-scopes the incoming change
+ * touches; then it builds the structured {@link IntegrateData} and the agent-facing
+ * hints. `predicted` distinguishes a `--dry-run` (no `after`; the file delta is the
+ * three-dot `before...main` prediction) from an apply (the real `before..after` tree
+ * change). Fails open: any error — or a missing load-bearing anchor — yields
+ * `{ data: undefined, hints: [<plain fallback>] }` and never throws, so on an apply a
+ * summary hiccup can never undo or fail the landed merge.
+ */
+async function summarizeIntegration(
+  ctx: LifecycleContext,
+  anchors: { base: string; before: string; main: string; after?: string },
+  opts: { predicted: boolean; mainBranch: string },
+): Promise<{ data: IntegrateData | undefined; hints: string[] }> {
+  const { mainBranch, predicted } = opts;
+  const fallback = [
+    `Integrated ${mainBranch} and re-materialized the agent files — run ` +
+    `\`discern finish\` to verify against the merged tree.`,
+  ];
+  // Nothing to diff against without the two load-bearing anchors.
+  if (anchors.before === "" || anchors.main === "") {
+    return { data: undefined, hints: fallback };
+  }
+  try {
+    const delta = await integrationDelta(ctx.cwd, anchors, {
+      predicted,
+      commitCap: INTEGRATE_COMMIT_CAP,
+      fileCap: INTEGRATE_FILE_CAP,
+    });
+
+    // Overlap = the branch's own files ∩ the files that changed beneath it — the hot
+    // zone a clean merge can't vet. Shared with status's behind report via overlapPaths.
+    const { overlap, total: overlapTotal } = overlapPaths(
+      delta.ownPaths,
+      delta.theirsPaths,
+      INTEGRATE_OVERLAP_CAP,
+    );
+
+    const data: IntegrateData = {
+      // A pure fast-forward iff the branch tip was already an ancestor of main
+      // (base === before) — derivable in both the apply and the predicted paths.
+      behind: delta.commitsTotal,
+      fast_forward: anchors.base !== "" && anchors.base === anchors.before,
+      commits: delta.commits,
+      commits_total: delta.commitsTotal,
+      commits_truncated: delta.commitsTruncated,
+      files: delta.files,
+      files_total: delta.filesTotal,
+      files_truncated: delta.filesTruncated,
+      overlap,
+      overlap_total: overlapTotal,
+      scopes_incoming: scopesForPaths(delta.theirsPaths, ctx.config),
+      range: buildRange(anchors),
+    };
+    return {
+      data,
+      hints: integrateHints(data, mainBranch, delta.ownPaths.length, predicted),
+    };
+  } catch {
+    return { data: undefined, hints: fallback };
+  }
+}
+
+/**
+ * The agent-facing hints for an integration — overlap-first. The headline either
+ * flags the files the branch and main BOTH changed (re-read these; a clean merge
+ * can't catch a semantic conflict) or reassures that none overlap. When a list was
+ * capped, a follow-up hint carries the exact `git` command — anchors pre-substituted
+ * — that pulls the full set in one call (two-dot `before..after` on an apply,
+ * three-dot `before...main` on a preview), so an overflow is never a dead end.
+ */
+function integrateHints(
+  data: IntegrateData,
+  mainBranch: string,
+  ownTotal: number,
+  predicted: boolean,
+): string[] {
+  const verb = predicted ? "Would integrate" : "Integrated";
+  const next = predicted
+    ? "run `discern integrate` to apply, then `discern finish`."
+    : "run `discern finish` to verify against the merged tree.";
+  const hints: string[] = [];
+
+  if (data.overlap.length > 0) {
+    const shown = data.overlap.slice(0, 5).join(", ");
+    const more = data.overlap_total > 5
+      ? `, … (+${data.overlap_total - 5} more)`
+      : "";
+    const caveat = predicted
+      ? "git would merge these cleanly, but they may still conflict semantically — " +
+        "re-read them after integrating, then "
+      : "git merged these cleanly, but re-read them for semantic conflicts a clean " +
+        "merge can't catch, then ";
+    hints.push(
+      `⚠ ${verb} ${mainBranch}: +${data.behind} commit(s) beneath your work. ` +
+        `${data.overlap_total} file(s) you've changed are also changed by ` +
+        `${mainBranch}: ${shown}${more} — ${caveat}${next}`,
+    );
+  } else {
+    hints.push(
+      `${verb} ${mainBranch}: +${data.behind} commit(s), ${data.files_total} ` +
+        `file(s) changed beneath your work. None overlap the ${ownTotal} file(s) ` +
+        `you've changed — ${next}`,
+    );
+  }
+
+  const { before, main, after } = data.range;
+  const diffRange = after === undefined
+    ? `${before}...${main}`
+    : `${before}..${after}`;
+  if (data.files_truncated) {
+    hints.push(
+      `Showing ${data.files.length} of ${data.files_total} changed files. Full ` +
+        `list: \`git diff --stat ${diffRange}\`. Inspect one: ` +
+        `\`git diff ${diffRange} -- <path>\`.`,
+    );
+  }
+  if (data.commits_truncated) {
+    hints.push(
+      `Showing ${data.commits.length} of ${data.commits_total} commits. Full ` +
+        `log: \`git log --oneline ${before}..${main}\`.`,
+    );
+  }
+  return hints;
+}
+
+/**
+ * Narrate an integration's summary for a human (apply or `--dry-run`), through
+ * `ctx.log` — silenced behind the MCP server's quiet logger, printed on the CLI. The
+ * human echo of the {@link IntegrateData} the `--json`/tool result carries: the
+ * commits + files landed, then the overlap hot zone (or the all-clear).
+ */
+function narrateIntegration(
+  ctx: LifecycleContext,
+  data: IntegrateData,
+  predicted: boolean,
+): void {
+  ctx.log.info(
+    `${
+      predicted ? "Would bring in" : "Brought in"
+    } ${data.behind} commit(s), ` +
+      `${data.files_total} file(s) changed beneath your work.`,
+  );
+  for (const c of data.commits) {
+    ctx.log.detail(`  ${c.sha}  ${c.subject}`);
+  }
+  if (data.commits_truncated) {
+    ctx.log.detail(`  … (+${data.commits_total - data.commits.length} more)`);
+  }
+  if (data.overlap.length > 0) {
+    ctx.log.warn(
+      `${data.overlap_total} file(s) you've changed were also changed — re-check ` +
+        `for semantic conflicts:`,
+    );
+    for (const p of data.overlap) {
+      ctx.log.detail(`  ${p}`);
+    }
+    if (data.overlap_total > data.overlap.length) {
+      ctx.log.detail(`  … (+${data.overlap_total - data.overlap.length} more)`);
+    }
+  } else {
+    ctx.log.ok("None of the files you've changed were touched by the merge.");
+  }
+}
+
 /**
  * The read-only diagnosis an integration acts on — the worktree precondition plus
  * how far behind main the branch is. Asserts it is run from inside a linked
@@ -1005,7 +1203,7 @@ function integrateConflictMessage(
 async function executeIntegratePlan(
   ctx: LifecycleContext,
   plan: IntegratePlan,
-): Promise<DiscernResult> {
+): Promise<DiscernResult<IntegrateData>> {
   const { mainBranch } = plan;
   const outcome = await integrateMain(ctx.cwd, ctx.config.project.main_branch);
   switch (outcome.kind) {
@@ -1064,6 +1262,16 @@ async function executeIntegratePlan(
           ? `Fast-forwarded to ${mainBranch} (+${outcome.behind} commit(s)).`
           : `Merged ${mainBranch} (was behind by ${outcome.behind} commit(s)).`,
       );
+      // Summarize what landed beneath the branch (ADR 0064) — commits, files, the
+      // overlap hot zone, scopes — for the result `data` + hints, narrated here for
+      // humans. Fail-open, so it can never undo or fail the merge that just landed.
+      const summary = await summarizeIntegration(ctx, outcome, {
+        predicted: false,
+        mainBranch,
+      });
+      if (summary.data !== undefined) {
+        narrateIntegration(ctx, summary.data, false);
+      }
       const steps: StepResult[] = [{
         step: {
           kind: "git",
@@ -1113,10 +1321,12 @@ async function executeIntegratePlan(
         });
       }
       ctx.log.ok("Integration complete.");
-      const result = appliedResult("integrate", steps);
-      result.hints = [
-        `Integrated ${mainBranch} and re-materialized the agent files — run \`discern finish\` to verify against the merged tree.`,
-      ];
+      const result: DiscernResult<IntegrateData> = appliedResult(
+        "integrate",
+        steps,
+      );
+      result.data = summary.data;
+      result.hints = summary.hints;
       return result;
     }
   }
@@ -1140,8 +1350,12 @@ export async function integrate(
   if (opts.json ?? false) {
     emitResult(result);
   } else if (result.dry_run === true && result.plan !== undefined) {
-    // Human dry-run: render the plan (an apply already narrated through ctx.log).
+    // Human dry-run: render the plan, then the predicted "what would land" summary
+    // (an apply already narrated through ctx.log). Both read the one result object.
     renderPlan(loggerSink(ctx.log), result.plan);
+    if (result.data !== undefined) {
+      narrateIntegration(ctx, result.data, true);
+    }
   }
 }
 
@@ -1157,10 +1371,26 @@ export async function integrate(
 export async function integrateResult(
   ctx: LifecycleContext,
   opts: { dryRun?: boolean } = {},
-): Promise<DiscernResult> {
+): Promise<DiscernResult<IntegrateData>> {
   const plan = await buildIntegratePlan(ctx);
   if (opts.dryRun ?? false) {
-    return previewResult("integrate", integratePlanToEngine(plan));
+    const preview: DiscernResult<IntegrateData> = previewResult(
+      "integrate",
+      integratePlanToEngine(plan),
+    );
+    // Predict what the merge WOULD bring in (ADR 0064) — the same summary as an
+    // apply, computed read-only from the fork point (no `after`; the file delta is
+    // the three-dot `before...main`). Skipped on a no-op (nothing to integrate).
+    if (!plan.alreadyIntegrated) {
+      const anchors = await resolveIntegrationAnchors(ctx.cwd, plan.mainBranch);
+      const summary = await summarizeIntegration(ctx, anchors, {
+        predicted: true,
+        mainBranch: plan.mainBranch,
+      });
+      preview.data = summary.data;
+      preview.hints = summary.hints;
+    }
+    return preview;
   }
   return await executeIntegratePlan(ctx, plan);
 }

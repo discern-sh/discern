@@ -186,11 +186,6 @@ export class Logger {
     return this.paint(colors.green, text);
   }
 
-  /** Red a fragment of text inline (no-op without colour). */
-  red(text: string): string {
-    return this.paint(colors.red, text);
-  }
-
   /**
    * Emit a pre-composed line to the human (narration) stream verbatim — the
    * fully-controlled counterpart to {@link detail}, which forces its own indent and

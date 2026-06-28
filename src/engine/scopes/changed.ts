@@ -107,6 +107,36 @@ function pathMatchesGlobs(paths: string[], path: string): boolean {
 }
 
 /**
+ * The fire-scopes an explicit list of changed paths touches, in declaration order —
+ * the scope-matching half of {@link changedScopes}, factored out so any verb that
+ * already has a path list in hand (integrate's incoming files) classifies it through
+ * the SAME matcher rather than a parallel copy. It answers only "which gated scopes
+ * do these paths fall in?"; neutral scopes and the derived markers are not its
+ * concern (a path is normalized — trimmed, leading slash stripped — but not
+ * neutral-filtered here).
+ */
+export function scopesForPaths(
+  paths: string[],
+  config: DiscernConfig,
+): string[] {
+  const scopes = config.scopes;
+  const fireScopes = Object.keys(scopes).filter((s) => !scopes[s]?.neutral);
+  const fired = new Set<string>();
+  for (const raw of paths) {
+    const path = raw.trim().replace(/^\//, "");
+    if (path === "") {
+      continue;
+    }
+    for (const s of fireScopes) {
+      if (!fired.has(s) && pathMatchesGlobs(scopes[s]?.paths ?? [], path)) {
+        fired.add(s);
+      }
+    }
+  }
+  return fireScopes.filter((s) => fired.has(s));
+}
+
+/**
  * The classified scopes/markers for the current branch, in stable order: the
  * `code` marker, the `previewable` marker, then the firing scopes that matched
  * (in declaration order). Pass a pre-loaded config to avoid re-parsing.
@@ -138,40 +168,21 @@ export async function changedScopes(
     return !path.includes("/") && path.endsWith(".md");
   };
 
-  let code = false;
-  let previewable = false;
-  const fired: string[] = [];
-  for (const raw of paths) {
-    const path = raw.trim().replace(/^\//, "");
-    if (path === "" || isNeutral(path)) {
-      continue;
-    }
-    code = true; // any non-neutral path is a real, gated change
-    for (const s of fireScopes) {
-      if (fired.includes(s)) {
-        continue;
-      }
-      if (pathMatchesGlobs(scopes[s]?.paths ?? [], path)) {
-        fired.push(s);
-        if (scopes[s]?.previewable) {
-          previewable = true;
-        }
-      }
-    }
-  }
+  // The real (non-neutral) changed paths: any one is a gated `code` change, and the
+  // fire-scopes they fall in (via the shared matcher) decide the `previewable` marker.
+  const realPaths = paths
+    .map((raw) => raw.trim().replace(/^\//, ""))
+    .filter((path) => path !== "" && !isNeutral(path));
+  const fired = scopesForPaths(realPaths, config);
 
   const out: string[] = [];
-  if (code) {
+  if (realPaths.length > 0) {
     out.push(CODE_MARKER);
   }
-  if (previewable) {
+  if (fired.some((s) => scopes[s]?.previewable)) {
     out.push(PREVIEWABLE_MARKER);
   }
-  for (const s of fireScopes) {
-    if (fired.includes(s)) {
-      out.push(s);
-    }
-  }
+  out.push(...fired);
   return out;
 }
 
