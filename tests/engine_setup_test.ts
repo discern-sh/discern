@@ -13,7 +13,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join, relative } from "@std/path";
 import { exists, walk } from "@std/fs";
 import { REAL_TEMPLATES, withTempDir } from "./helpers.ts";
-import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
+import { gitInit, gitOut, runAgent, scaffoldEngine } from "./engine_helpers.ts";
 
 /** The H1 of the printed setup instructions (templates/setup/instructions.md). */
 const INSTRUCTIONS_H1 = "# Set up the harness";
@@ -400,6 +400,59 @@ Deno.test("scaffolded docs contain no dead relative links — setup ships what i
       [],
       `dead links in scaffolded docs:\n${dead.join("\n")}`,
     );
+  });
+});
+
+Deno.test("discern setup isolates a fresh install on the discern-setup branch (ADR 0065)", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+    await gitInit(dir); // commits everything → a clean tree on `main`
+    assertEquals(
+      await gitOut(dir, "rev-parse", "--abbrev-ref", "HEAD"),
+      "main",
+    );
+
+    const r = await runAgent(dir, ["setup", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    // Setup created and checked out a dedicated branch, off the user's `main`, so
+    // the scaffold's commits never land on it.
+    assertEquals(
+      await gitOut(dir, "rev-parse", "--abbrev-ref", "HEAD"),
+      "discern-setup",
+    );
+    assertEquals(JSON.parse(r.stdout).data.branch, "discern-setup");
+    assert(await exists(join(dir, "discern.toml")));
+  });
+});
+
+Deno.test("discern setup refuses on a dirty tree, writing nothing; --allow-dirty overrides (ADR 0065)", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "app.ts"), "export const v = 1;\n");
+    await gitInit(dir);
+    // An uncommitted change to a TRACKED file makes the tree dirty.
+    await Deno.writeTextFile(join(dir, "app.ts"), "export const v = 2;\n");
+
+    const blocked = await runAgent(dir, ["setup", "--json"]);
+    assertEquals(blocked.code, 1, blocked.output);
+    assertEquals(JSON.parse(blocked.stdout).error, "dirty_worktree");
+    assert(
+      !(await exists(join(dir, "discern.toml"))),
+      "nothing must be written when setup refuses a dirty tree",
+    );
+    // No branch was created — still on the original branch.
+    assertEquals(
+      await gitOut(dir, "rev-parse", "--abbrev-ref", "HEAD"),
+      "main",
+    );
+
+    // --allow-dirty proceeds in place: no branch, scaffolds onto the current branch.
+    const forced = await runAgent(dir, ["setup", "--allow-dirty"]);
+    assertEquals(forced.code, 0, forced.output);
+    assertEquals(
+      await gitOut(dir, "rev-parse", "--abbrev-ref", "HEAD"),
+      "main",
+    );
+    assert(await exists(join(dir, "discern.toml")));
   });
 });
 

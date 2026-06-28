@@ -158,6 +158,10 @@ function buildCli(
     )
     .option("--dry-run", "Print the plan and write nothing.")
     .option("--force", "Re-run even if already set up (re-scaffold + re-seed).")
+    .option(
+      "--allow-dirty",
+      "Set up on the current branch even if it is dirty (skips the auto-created discern-setup branch).",
+    )
     .action(async (options) => {
       const { json, noColor } = globalFlags(options);
       Deno.exit(
@@ -166,6 +170,7 @@ function buildCli(
           noColor,
           dryRun: options.dryRun ?? false,
           force: options.force ?? false,
+          allowDirty: options.allowDirty ?? false,
           name: options.name,
           slug: options.slug,
           branchPrefix: options.branchPrefix,
@@ -684,6 +689,7 @@ export async function main(args: string[]): Promise<void> {
             noColor: noColorFrom(undefined),
             dryRun: false,
             force: false,
+            allowDirty: false,
           }),
         );
       }

@@ -58,6 +58,8 @@ import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { CONFIG_REL, findRoot } from "../shared/env.ts";
 import { emitResult } from "../shared/emit.ts";
 import { findSkeletonMarkers } from "../shared/setup_state.ts";
+import { worktreeState } from "../lib/git.ts";
+import { runGit } from "../shared/subprocess.ts";
 
 /** Options accepted by `discern setup` (global flags + declarative passthrough). */
 export interface SetupOptions extends InitFlags {
@@ -65,6 +67,9 @@ export interface SetupOptions extends InitFlags {
   noColor: boolean;
   dryRun: boolean;
   force: boolean;
+  /** Set up on the current branch even if it is dirty — skips the clean-tree check
+   * AND the auto-created `discern-setup` branch (the user manages git themselves). */
+  allowDirty: boolean;
   /** Path to a JSON answers file (or `-` for stdin) for a declarative scaffold. */
   config?: string | undefined;
 }
@@ -530,6 +535,20 @@ export async function runSetup(opts: SetupOptions): Promise<number> {
     }
   }
 
+  // --- Pre-scaffold: isolate a fresh install on its own branch (ADR 0065) ---
+  // A fresh setup makes several commits; keep them off the user's current branch and
+  // trivially revertible. Require a clean tree (fail if dirty), then create + check
+  // out `discern-setup`. Skipped on --dry-run (writes nothing), --allow-dirty (the
+  // user manages git), a re-run/--force, or outside a git repo.
+  let setupBranch: string | undefined;
+  if (freshInstall && !opts.dryRun && !opts.allowDirty) {
+    const { branch, stop } = await ensureSetupBranch(destDir, opts, log);
+    if (stop !== undefined) {
+      return stop; // dirty tree — error already emitted, nothing written
+    }
+    setupBranch = branch;
+  }
+
   // --- Phase 1: scaffold the machinery (fresh install, or --force refresh) ---
   let scaffold: ScaffoldOutcome | undefined;
   if (freshInstall || opts.force) {
@@ -579,6 +598,7 @@ export async function runSetup(opts: SetupOptions): Promise<number> {
         // read `ok: true` / exit 0 as "task complete" (the failure this guards).
         complete: false,
         bootstrapped: false,
+        branch: setupBranch ?? null,
         next_action:
           "Work through `data.instructions`, then run `discern setup done` to finish.",
         project: {
@@ -614,6 +634,11 @@ export async function runSetup(opts: SetupOptions): Promise<number> {
   console.log("  result to summarise back to the user as already done.");
   console.log(heavyRule);
   console.log("");
+  if (setupBranch !== undefined) {
+    console.log(
+      `On branch \`${setupBranch}\` — created from your clean tree so this setup is isolated and easy to roll back (or merge when you're happy).`,
+    );
+  }
   if (scaffold) {
     console.log(
       `Harness files written: ${scaffold.written.length} into ${destDir}.`,
@@ -653,6 +678,78 @@ export async function runSetup(opts: SetupOptions): Promise<number> {
   console.log("    `discern setup done` passes.");
   console.log(heavyRule);
   return 0;
+}
+
+/** The branch `discern setup` creates so a fresh install never lands on — or commits
+ * to — the user's current branch. */
+const SETUP_BRANCH = "discern-setup";
+
+/**
+ * Before a FRESH scaffold writes anything, isolate the work on its own branch
+ * (ADR 0065). `discern setup` makes several commits; landing them on the user's
+ * current branch pollutes it before they're ready and complicates rollback. So:
+ * require a clean working tree (fail on uncommitted *tracked* changes — untracked
+ * scratch files are fine), then create and check out `discern-setup`. A no-op
+ * outside a git repo (nothing to isolate). Returns the branch it put you on
+ * (`undefined` when not in a repo, or the branch couldn't be created), or a `stop`
+ * code when the tree is dirty (the error is already emitted). The caller gates this
+ * on `freshInstall && !dryRun && !allowDirty`.
+ */
+async function ensureSetupBranch(
+  destDir: string,
+  opts: SetupOptions,
+  log: Logger,
+): Promise<{ branch?: string; stop?: number }> {
+  const state = await worktreeState(destDir);
+  if (state.kind === "not-a-repo") {
+    return {}; // no git here → nothing to isolate; setup proceeds in place
+  }
+  if (state.kind === "dirty") {
+    const message =
+      "your working tree has uncommitted changes, and `discern setup` makes several " +
+      "commits. Commit or stash your work first, or re-run with --allow-dirty to set " +
+      "up on the current branch as-is.";
+    if (opts.json) {
+      log.result({
+        ok: false,
+        verb: "setup",
+        error: "dirty_worktree",
+        message,
+        data: { changes: state.changes },
+      });
+    } else {
+      log.error(message);
+      for (const c of state.changes.slice(0, 10)) {
+        log.detail(c);
+      }
+      if (state.changes.length > 10) {
+        log.detail(`… and ${state.changes.length - 10} more`);
+      }
+    }
+    return { stop: 1 };
+  }
+  // Clean tree: create or check out the dedicated setup branch.
+  const current =
+    (await runGit(["rev-parse", "--abbrev-ref", "HEAD"], { cwd: destDir }))
+      .stdout.trim();
+  if (current === SETUP_BRANCH) {
+    return { branch: SETUP_BRANCH }; // already on it (a resume that stayed here)
+  }
+  const exists =
+    (await runGit(["rev-parse", "--verify", "--quiet", SETUP_BRANCH], {
+      cwd: destDir,
+    })).success;
+  const checkout = exists
+    ? await runGit(["checkout", SETUP_BRANCH], { cwd: destDir })
+    : await runGit(["checkout", "-b", SETUP_BRANCH], { cwd: destDir });
+  if (!checkout.success) {
+    // Non-fatal: if branching fails, don't block setup — proceed in place.
+    log.warn(
+      `could not create the \`${SETUP_BRANCH}\` branch; setting up on the current branch.`,
+    );
+    return {};
+  }
+  return { branch: SETUP_BRANCH };
 }
 
 /**
