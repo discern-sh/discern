@@ -9,6 +9,7 @@
 
 import { Command } from "@cliffy/command";
 import { KIT_VERSION } from "./lib/version.ts";
+import { operatorHelp } from "./cli_help.ts";
 import { emitResult } from "./shared/emit.ts";
 import { runGit } from "./shared/subprocess.ts";
 import {
@@ -95,15 +96,22 @@ type RootCommand = ReturnType<typeof rootShape>;
  * discern's own bundled docs) is attached UNCONDITIONALLY — it is discern's own
  * help, not a project feature. `setup` is hidden from help once the project records
  * `[meta].bootstrapped` (it stays callable with `--force`). */
-function buildCli(
+export function buildCli(
   enabled: ReadonlySet<Feature>,
   hideSetup: boolean,
 ): RootCommand {
   const root = new Command()
     .name("discern")
     .version(KIT_VERSION)
+    .usage("<command> [options]")
     .description(
-      "Scaffold a stack-neutral agentic development harness into any project.",
+      "Operate your project's quality gate and isolated git-worktree workflow " +
+        "— the stack-neutral agentic-development harness (`discern setup` " +
+        "scaffolds it the first time).",
+    )
+    .example(
+      "Golden path",
+      "discern start  →  cd into the printed worktree  →  discern finish  →  discern graduate",
     )
     .globalOption(
       "--json",
@@ -114,8 +122,8 @@ function buildCli(
       "Disable colour (also honours NO_COLOR and non-TTY output).",
     )
     .action(function (): void {
-      // No subcommand: show help.
-      this.showHelp();
+      // No subcommand: show the grouped, operator-oriented help.
+      console.log(operatorHelp(this as unknown as Command));
     });
 
   // `setup` — the one-time, zero-config harness setup (ADR 0036): it scaffolds the
@@ -687,14 +695,18 @@ export async function main(args: string[]): Promise<void> {
           }),
         );
       }
-      console.log(buildCli(enabled, hideSetup).getHelp());
+      console.log(
+        operatorHelp(buildCli(enabled, hideSetup) as unknown as Command),
+      );
       await printProjectRecipes();
       Deno.exit(0);
     }
 
     // Explicit help: Cliffy's help plus the project-recipe listing.
     if (verb === "-h" || verb === "--help") {
-      console.log(buildCli(enabled, hideSetup).getHelp());
+      console.log(
+        operatorHelp(buildCli(enabled, hideSetup) as unknown as Command),
+      );
       await printProjectRecipes();
       Deno.exit(0);
     }
