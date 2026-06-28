@@ -235,6 +235,29 @@ const GATE: Category = {
           ? { status: "pass", detail: "a fix-stage command is wired" }
           : { status: "fail", detail: "no formatter is configured" },
     },
+    {
+      kind: "subjective",
+      id: "gate.fast-feedback",
+      title: "The gate stays fast enough to run every time",
+      ask:
+        "Given the test command below, and that `discern finish` runs it on every " +
+        "graduation and whenever a change is called done — does the gate stay fast " +
+        "as the suite grows, and is the runner using the parallelism it offers? " +
+        "Parallel execution depends on isolated tests: each owning its own temp dir, " +
+        "environment, ports, and fixtures, mutating no process-global state another " +
+        "test could observe. A slow or order-flaky gate trains people to skip it or " +
+        "rerun until green.",
+      teach:
+        "Isolated, order-independent tests are the precondition for parallel " +
+        "execution and a trustworthy green. Give each test its own temp dir / env / " +
+        "fixtures, avoid shared global state, then enable your runner's parallel mode.",
+      against: (ctx): { source: string; excerpt: string } | undefined => {
+        const cmd = toCommandList(ctx.config.capabilities.test).join(" && ");
+        return cmd.trim().length > 0
+          ? { source: "the configured test command", excerpt: cmd }
+          : undefined;
+      },
+    },
   ],
 };
 
