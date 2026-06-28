@@ -123,7 +123,9 @@ Deno.test("the grouped command list word-wraps to the width with hanging indents
       const breakable = l.trimStart().includes(" ");
       assert(
         l.length <= WIDTH || !breakable,
-        `a wrappable command line overflowed ${WIDTH} cols: ${JSON.stringify(l)}`,
+        `a wrappable command line overflowed ${WIDTH} cols: ${
+          JSON.stringify(l)
+        }`,
       );
     }
 
