@@ -16,10 +16,9 @@ import { join, relative } from "@std/path";
 /**
  * Work verbs that refuse until the project records `[meta].bootstrapped`
  * (ADR 0036, revised by ADR 0065): running them before setup would mislead — an
- * unconfigured doc tree is empty, and there is no branch work to hand off or
- * compare against yet. Both the CLI router (`main.ts`) and the MCP server
- * (`engine/mcp/server.ts`) gate on this ONE set so the two surfaces can never
- * disagree on what is reachable pre-setup.
+ * unconfigured doc tree is empty, and there is no branch work to hand off yet. Both
+ * the CLI router (`main.ts`) and the MCP server (`engine/mcp/server.ts`) gate on
+ * this ONE set so the two surfaces can never disagree on what is reachable pre-setup.
  *
  * Deliberately EXCLUDES, besides the knowledge/orientation verbs (`help` —
  * discern's own documentation, the thing you consult at exactly this moment;
@@ -27,18 +26,18 @@ import { join, relative } from "@std/path";
  * hooks and `setup` itself drive (`refresh`, `worktree`, `changed-scopes`,
  * `config`, …):
  *
- *   - the GATE PROOF verbs `finish` / `prepare` / `test`. The agent needs them to
- *     iterate while wiring capabilities during setup, so ADR 0065 un-gates them.
- *     Pre-setup they carry {@link SETUP_IN_PROGRESS_HINT}, so their output can't be
- *     mistaken for a finished project — the "false all-green" ADR 0036 feared is
- *     now covered by ADR 0037's incompleteness signaling, and `discern setup done`
- *     runs the gate itself as the structural completion proof.
+ *   - the GATE PROOF verbs `finish` / `prepare` / `test` / `ratchets`. The agent
+ *     needs them to iterate while wiring capabilities — and to test a ratchet it
+ *     wires — during setup, so ADR 0065 un-gates them. Pre-setup they carry
+ *     {@link SETUP_IN_PROGRESS_HINT}, so their output can't be mistaken for a
+ *     finished project — the "false all-green" ADR 0036 feared is now covered by
+ *     ADR 0037's incompleteness signaling, and `discern setup done` runs the gate
+ *     itself as the structural completion proof.
  *
  * `docs` IS gated: it browses the project's own tree, which has nothing in it
  * until setup seeds and fills it (`help` is the pre-setup documentation surface).
  */
 export const BOOTSTRAP_GATED_VERBS: ReadonlySet<string> = new Set<string>([
-  "ratchets",
   "graduate",
   "integrate",
   "docs",
@@ -59,10 +58,10 @@ export const NOT_SET_UP_MESSAGE =
   "up — your coding agent does it for you.";
 
 /**
- * The advisory a `finish` / `prepare` / `test` result carries while setup is still
- * outstanding (ADR 0065). Those verbs run pre-setup so the agent can iterate while
- * wiring capabilities — but their output must not read as a finished project, so
- * each prepends this line until `[meta].bootstrapped` is recorded by
+ * The advisory a `finish` / `prepare` / `test` / `ratchets` result carries while
+ * setup is still outstanding (ADR 0065). Those verbs run pre-setup so the agent can
+ * iterate while wiring capabilities — but their output must not read as a finished
+ * project, so each prepends this line until `[meta].bootstrapped` is recorded by
  * `discern setup done`.
  */
 export const SETUP_IN_PROGRESS_HINT =

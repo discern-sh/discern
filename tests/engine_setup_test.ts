@@ -175,13 +175,13 @@ Deno.test("the docs redirect is a structured not_set_up result under --json", as
   });
 });
 
-Deno.test("finish/prepare/test run before setup is recorded, carrying the in-progress hint (ADR 0065)", async () => {
+Deno.test("finish/prepare/test/ratchets run before setup is recorded, carrying the in-progress hint (ADR 0065)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
     // The gate proof verbs are usable during setup so the agent can iterate while
-    // wiring capabilities — but each leads with the "setup unfinished" advisory so
-    // a green run can't be mistaken for a finished project.
-    for (const verb of ["finish", "prepare", "test"]) {
+    // wiring capabilities (and test a ratchet it wires) — but each leads with the
+    // "setup unfinished" advisory so a green run can't be mistaken for done.
+    for (const verb of ["finish", "prepare", "test", "ratchets"]) {
       const r = await runAgent(dir, [verb, "--json"]);
       const res = JSON.parse(r.stdout);
       assertEquals(res.verb, verb, r.output);
