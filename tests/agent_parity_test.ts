@@ -165,6 +165,22 @@ Deno.test("MCP coverage is accounted for every known agent (wired, or explicitly
   assertEquals(providerFor("claude_code")?.mcp.kind, "wired");
 });
 
+Deno.test("every known agent declares trust metadata, naming the action when trust is required", () => {
+  // Trust-gate coverage (deliverable 5): `Provider.trust` is compile-required, so a
+  // new agent must declare it; this asserts the runtime half — a REQUIRED trust must
+  // name the action/bypass, or doctor would report "trust needed" with no "how".
+  for (const name of AGENT_NAMES) {
+    const p = providerFor(name);
+    assert(p !== undefined, `no provider for ${name}`);
+    if (p.trust.required) {
+      assert(
+        p.trust.hint.trim().length > 0,
+        `${name}: a required trust must name the user-facing action/bypass`,
+      );
+    }
+  }
+});
+
 Deno.test("the seed .gitignore fragment ignores EVERY known agent's compiled guidance file", () => {
   for (const path of allGuidanceFilePaths()) {
     assert(

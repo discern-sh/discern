@@ -412,6 +412,19 @@ export async function runChecks(destDir: string): Promise<Check[]> {
     if (notWired.length > 0) {
       detail += `; not wired: ${notWired.join(", ")}`;
     }
+    // One-time trust: discern can wire everything into the repo, but several agents
+    // gate committed MCP/hooks behind trusting the folder — so the tools won't appear
+    // until then. Surface it for an agent with a committable surface (wired/pending
+    // MCP, or hooks), naming the exact action, so the gap between "wired" and "active"
+    // is visible (deliverable 5). An agent with no committable surface has nothing to
+    // trust, so the clause is omitted.
+    const hasCommittableSurface = mcp.kind !== "none" ||
+      provider.hooks !== undefined;
+    if (hasCommittableSurface) {
+      detail += provider.trust.required
+        ? `; trust: one-time — ${provider.trust.hint}`
+        : `; trust: not required — ${provider.trust.hint}`;
+    }
     checks.push({ name: `agent: ${provider.label}`, ok: true, detail });
   }
 

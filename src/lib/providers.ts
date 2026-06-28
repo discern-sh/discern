@@ -93,6 +93,22 @@ export function wiredMcp(provider: Provider): McpIntegration | undefined {
   return provider.mcp.kind === "wired" ? provider.mcp.integration : undefined;
 }
 
+/**
+ * Whether a provider's COMMITTED MCP/hooks config is inert until a one-time
+ * trust/approval, and the exact user-facing action. discern can wire everything into
+ * the repo, but several agents gate committed config behind trusting the folder — so
+ * the tools still won't appear until the user trusts it. `doctor` surfaces this per
+ * agent: the gap between "discern wired it" and "it actually fires".
+ */
+export interface TrustGate {
+  /** True ⇒ committed MCP/hooks need a one-time trust/approval before they take
+   * effect; false ⇒ active as soon as discern writes them. */
+  readonly required: boolean;
+  /** The user-facing action that grants trust (when `required`), or the reason none
+   * is needed (when not). Shown verbatim by the per-agent diagnostic; always present. */
+  readonly hint: string;
+}
+
 /** A provider's worktree-automation surface: where its lifecycle hooks live and
  * the hook-event vocabulary it uses. Drives `init`'s hook-stripping. */
 export interface HooksIntegration {
@@ -221,6 +237,13 @@ export interface Provider {
   readonly mcp: McpStatus;
   /** Worktree-hook surface. Absent → not yet supported for this agent. */
   readonly hooks?: HooksIntegration;
+  /**
+   * Whether this agent's COMMITTED MCP/hooks config needs a one-time trust before it
+   * fires, and the exact action. REQUIRED — surfaced per agent by `doctor` so the gap
+   * between "discern wired it" and "the tools appear" is never a silent surprise (the
+   * four non-Claude vendors gate committed config behind a trust). See {@link TrustGate}.
+   */
+  readonly trust: TrustGate;
   /**
    * Project-relative directory this agent discovers SKILL.md skills in; discern
    * materializes the effective skill set into it. Absent → no skills target for
@@ -377,6 +400,13 @@ export const PROVIDERS: Record<AgentName, Provider> = {
       worktreeEventKeys: ["WorktreeCreate", "WorktreeRemove"],
       sessionHookNeedle: "worktree",
     },
+    // discern pre-approves the MCP server by name in .claude/settings.json
+    // (enabledMcpjsonServers), so no separate trust/approval prompt gates it.
+    trust: {
+      required: false,
+      hint:
+        "discern pre-approves its MCP server (enabledMcpjsonServers in .claude/settings.json) — no separate trust prompt.",
+    },
     skillsDir: CLAUDE_SKILLS_DIR,
   },
   codex: {
@@ -392,6 +422,13 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     // TODO. Hooks (a SessionStart surface in the same `.codex/` config) are likewise
     // a later plan; an absent `hooks` skips it.
     mcp: { kind: "pending", targetFile: ".codex/config.toml" },
+    // Committed .codex/ config is inert until the directory is trusted, and a
+    // committed hook won't run until its hash is approved.
+    trust: {
+      required: true,
+      hint:
+        'one-time directory trust for .codex/ config (set trust_level = "trusted"), plus per-hook hash approval before a committed hook runs (bypass: --dangerously-bypass-hook-trust).',
+    },
   },
   gemini: {
     name: "gemini",
@@ -413,6 +450,13 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     // inert in safe mode until the folder is trusted. Wiring it (and a hooks surface
     // in the same file) is Plan B; the typed `pending` marker accounts the gap.
     mcp: { kind: "pending", targetFile: ".gemini/settings.json" },
+    // Committed .gemini/settings.json is inert in safe mode until the folder is
+    // trusted; its hooks additionally require hooks.enabled = true to fire.
+    trust: {
+      required: true,
+      hint:
+        "trust the workspace so committed .gemini/settings.json loads in safe mode (bypass: --skip-trust or GEMINI_CLI_TRUST_WORKSPACE=true); hooks also require hooks.enabled = true to fire.",
+    },
   },
 };
 
