@@ -82,6 +82,7 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0066 — `discern --help` groups commands by post-processing Cliffy's help](0066-grouped-cli-help.md)
 - [0067 — Graduate validates the exact tree it lands, fast-pathed by a gate-pass receipt](0067-graduate-validates-the-landed-tree.md)
 - [0068 — Tests inject env/cwd seams so the suite can run `--parallel`](0068-parallel-safe-tests-env-cwd-injection.md)
+- [0069 — Co-change coupling detection is a non-blocking advisory, recomputed on demand](0069-co-change-coupling-advisory.md)
 
 ## Superseded and consolidated ADRs
 

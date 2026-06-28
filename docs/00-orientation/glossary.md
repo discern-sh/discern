@@ -47,8 +47,8 @@ of the install; they are written on demand after install by the bundled Skills.)
 
 The stack-neutral logic behind the `discern` run-time verbs (`finish`,
 `prepare`, `audit`, `status`, `worktree`/`worktree:*`, `integrate`, `graduate`,
-`ratchets`, `refresh`, `changed-scopes`, …), written in **TypeScript and
-compiled into the binary** under [`src/engine/`](../../src/engine/) (sharing
+`ratchets`, `refresh`, `changed-scopes`, `coupling`, …), written in **TypeScript
+and compiled into the binary** under [`src/engine/`](../../src/engine/) (sharing
 [`src/shared/`](../../src/shared/) with the Installer). The Engine knows nothing
 stack-specific — it runs the [Capabilities](#capability), [Checks](#check),
 [Scopes](#scope), and [worktree settings](#worktree-settings) a project declares
@@ -194,13 +194,13 @@ Terms for `discern finish` and what it runs. Covered in depth under
 ### Feature
 
 One of the toggleable subsystems listed under `[features]` in `discern.toml` —
-`worktrees`, `ratchets`, `guidance`, `skills`, `docs` — each defaulting **on**.
-Setting one to `false` removes it coherently: its verbs hide from `--help` (and
-error if invoked), its hooks are left out of `settings.json`, its guidance
-section is dropped, and its [`doctor`](#installer) checks skip. A Feature is
-**distinct from a [Capability](#capability)**: `[features]` toggles whole
-subsystems, `[capabilities]` is the gate's command table. The gate, `config`,
-and `doctor` are core and not listed
+`worktrees`, `ratchets`, `guidance`, `skills`, `docs`, `coupling` — each
+defaulting **on**. Setting one to `false` removes it coherently: its verbs hide
+from `--help` (and error if invoked), its hooks are left out of `settings.json`,
+its guidance section is dropped, and its [`doctor`](#installer) checks skip. A
+Feature is **distinct from a [Capability](#capability)**: `[features]` toggles
+whole subsystems, `[capabilities]` is the gate's command table. The gate,
+`config`, and `doctor` are core and not listed
 ([ADR 0020](../_adr/0020-dissolve-discern-dir.md),
 [`features.ts`](../../src/shared/features.ts)).
 
@@ -271,6 +271,23 @@ lint-error count), declared under `[ratchets]` and held against `main`. It
 `discern ratchets`, not as part of `finish`
 ([ADR 0003](../_adr/0003-named-metric-ratchets.md),
 [ADR 0018](../_adr/0018-vocabulary-consolidation.md)).
+
+### Co-change advisory
+
+What `discern coupling` produces: from git history, the files that change
+**together**, so a change is nudged toward the sibling it is likely missing. It
+is purely **advisory** — surfaced through `hints[]`, it points at where to look
+and **never blocks**. A directional pair A→B is kept only when its
+recency-decayed, `1/size`-weighted `support`, its `confidence`, and its
+`lift > 1` all clear the `[coupling]` floors, so incidental churn doesn't
+surface. Available on demand in two modes (the diff-aware change-set view and a
+one-file `coupling <path>` query) and, behind `[coupling].in_gate`, at the tail
+of the [Gate](#gate). It is the **discovery** end of the
+[canonical-set](#feature) discipline that the parity tests **enforce** — the two
+stay deliberately separate
+([ADR 0069](../_adr/0069-co-change-coupling-advisory.md),
+[ADR 0051](../_adr/0051-canonical-set-parity.md)). Covered in
+[coupling.md](../20-quality-gate/coupling.md).
 
 ---
 

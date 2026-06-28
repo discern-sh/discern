@@ -53,6 +53,15 @@ ranking the weakest areas, and teaching how to improve them. It splits
 for the agent to judge against the cited material
 ([ADR 0029](../_adr/0029-best-practices-audit.md)).
 
+Alongside it sits the **[co-change advisory](coupling.md)**: where `audit` asks
+_is this setup any good?_, [`coupling`](../../src/engine/coupling/coupling.ts)
+asks _what tends to change with what?_ — mining git history for the files that
+move together and naming the sibling a change is likely missing. It is purely
+advisory and **never blocks** (it only ever adds `hints[]`), surfacing on demand
+or, behind `[coupling].in_gate`, at the tail of `finish`. It is the discovery
+end of the canonical-set discipline (ADR 0051) that the gate's parity tests
+enforce ([ADR 0069](../_adr/0069-co-change-coupling-advisory.md)).
+
 > **Status: stub.** This README orients the subtree; the leaves below are not
 > written yet (except the written [`audit.md`](audit.md) and
 > [`the-result-envelope.md`](the-result-envelope.md)). Fill the rest with the
@@ -61,13 +70,14 @@ for the agent to judge against the cited material
 
 ## Planned leaves
 
-| File _(to be written)_                                         | What it will cover                                                                                                                                                |
-| -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `the-finish-stages.md`                                         | The Stage order, serial-vs-parallel rules, fail-fast, and the gotchas pointer on fail.                                                                            |
-| `capabilities-and-checks.md`                                   | The five known Capabilities, the derived Stage, custom Checks, and how the Engine finds them.                                                                     |
-| `scopes-and-gates.md`                                          | Scope globs, fail-open classification, and wiring a Scope `gate` (ADR 0018).                                                                                      |
-| `ratchets.md`                                                  | Never-loosen floors/ceilings, raw counts vs `per` rates, the `DISCERN_METRIC` protocol, holding against `main`.                                                   |
-| [`the-result-envelope.md`](the-result-envelope.md) _(written)_ | The `DiscernResult` envelope every verb returns, its `diagnostics[]`, the typed result schemas, and `discern mcp`'s self-describing surface (ADR 0028, ADR 0041). |
+| File _(to be written)_                                         | What it will cover                                                                                                                                                         |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `the-finish-stages.md`                                         | The Stage order, serial-vs-parallel rules, fail-fast, and the gotchas pointer on fail.                                                                                     |
+| `capabilities-and-checks.md`                                   | The five known Capabilities, the derived Stage, custom Checks, and how the Engine finds them.                                                                              |
+| `scopes-and-gates.md`                                          | Scope globs, fail-open classification, and wiring a Scope `gate` (ADR 0018).                                                                                               |
+| `ratchets.md`                                                  | Never-loosen floors/ceilings, raw counts vs `per` rates, the `DISCERN_METRIC` protocol, holding against `main`.                                                            |
+| [`the-result-envelope.md`](the-result-envelope.md) _(written)_ | The `DiscernResult` envelope every verb returns, its `diagnostics[]`, the typed result schemas, and `discern mcp`'s self-describing surface (ADR 0028, ADR 0041).          |
+| [`coupling.md`](coupling.md) _(written)_                       | The co-change advisory: the metric (`1/size` weighting, recency decay, support/confidence/lift), the diff-aware and query modes, and the default-off gate hint (ADR 0069). |
 
 ## See also
 
