@@ -10,8 +10,8 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { join } from "@std/path";
-import { exists } from "@std/fs";
+import { dirname, join, relative } from "@std/path";
+import { exists, walk } from "@std/fs";
 import { REAL_TEMPLATES, withTempDir } from "./helpers.ts";
 import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
 
@@ -333,6 +333,61 @@ Deno.test("discern setup preserves the project name's casing in the scaffolded f
     const todo = await Deno.readTextFile(join(dir, "TODO.md"));
     assertStringIncludes(todo, "ListOfListsOfLists");
     assert(!todo.includes("Listoflistsoflists"), todo);
+  });
+});
+
+Deno.test("setup's _adr skel is byte-identical to the write-adr skill's (single source)", async () => {
+  for (const f of ["README.md", "0000-template.md"]) {
+    const setupCopy = await Deno.readTextFile(
+      join(REAL_TEMPLATES, "setup", "skel", "docs", "_adr", f),
+    );
+    const skillCopy = await Deno.readTextFile(
+      join(REAL_TEMPLATES, "skills", "write-adr", "skel", "docs", "_adr", f),
+    );
+    assertEquals(
+      setupCopy,
+      skillCopy,
+      `templates/setup/skel/docs/_adr/${f} must stay identical to the write-adr skill's copy`,
+    );
+  }
+});
+
+Deno.test("scaffolded docs contain no dead relative links — setup ships what it references (ADR 0065)", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+    await gitInit(dir);
+    const r = await runAgent(dir, ["setup"]);
+    assertEquals(r.code, 0, r.output);
+
+    const linkRe = /\[[^\]]*\]\(([^)]+)\)/g;
+    const dead: string[] = [];
+    for await (
+      const entry of walk(join(dir, "docs"), {
+        exts: [".md"],
+        includeDirs: false,
+      })
+    ) {
+      // Strip code (fenced + inline) first, so an illustrative link inside a code
+      // example — `[some module](../src/path/Thing.ext)` — isn't read as a real link.
+      const text = (await Deno.readTextFile(entry.path))
+        .replace(/```[\s\S]*?```/g, "")
+        .replace(/`[^`]*`/g, "");
+      for (const m of text.matchAll(linkRe)) {
+        const raw = m[1];
+        if (raw === undefined) continue;
+        // The bare URL: drop any "title" suffix and trailing #anchor.
+        const target = (raw.trim().split(/\s+/)[0] ?? "").split("#")[0] ?? "";
+        if (target === "" || /^(https?:|mailto:)/.test(target)) continue;
+        // A leading "/" is repo-root-relative; otherwise relative to the file.
+        const resolved = target.startsWith("/")
+          ? join(dir, target.slice(1))
+          : join(dirname(entry.path), target);
+        if (!(await exists(resolved))) {
+          dead.push(`${relative(dir, entry.path)} → ${raw}`);
+        }
+      }
+    }
+    assertEquals(dead, [], `dead links in scaffolded docs:\n${dead.join("\n")}`);
   });
 });
 
