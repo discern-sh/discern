@@ -108,6 +108,16 @@ export interface GuidanceFile {
 export interface Provider {
   readonly name: AgentName;
   readonly label: string;
+  /**
+   * The CLI executable name(s) this agent ships as, for PATH auto-detection at
+   * setup (see {@link detectAgentsOnPath}). Semantics are **match-any**: the agent
+   * is "present" when ANY listed binary resolves on PATH — a vendor that ships
+   * under several names (e.g. `cursor-agent` AND `agent`) lists them all, which is
+   * why this is a list. Non-empty for every provider (the parity guard enforces it);
+   * detection iterates `AGENT_NAMES` × these, so a new vendor extends auto-detect for
+   * free.
+   */
+  readonly binaries: readonly string[];
   /** The compiled agent-instruction file: project-relative path + git-tracked. */
   readonly guidanceFile: GuidanceFile;
   /** MCP registration. Absent → not yet supported for this agent (a TODO). */
@@ -252,6 +262,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
   claude_code: {
     name: "claude_code",
     label: "Claude Code",
+    binaries: ["claude"],
     guidanceFile: {
       path: "CLAUDE.md",
       canonical: false,
@@ -271,6 +282,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
   codex: {
     name: "codex",
     label: "Codex",
+    binaries: ["codex"],
     guidanceFile: { path: "AGENTS.md", canonical: true },
     skillsDir: AGENTS_SKILLS_DIR,
     // TODO(provider:codex): wire MCP registration — author an McpIntegration
@@ -282,6 +294,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
   gemini: {
     name: "gemini",
     label: "Gemini",
+    binaries: ["gemini"],
     // GEMINI.md points at the canonical AGENTS.md via Gemini's `@path` Memory Import
     // (verified vendor support — `.md`-only, which `@AGENTS.md` satisfies), exactly
     // like Claude Code, so the body lives in one file and the mirror can't drift.

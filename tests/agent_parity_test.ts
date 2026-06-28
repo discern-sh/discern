@@ -50,6 +50,20 @@ const fragmentIgnoresFile = (path: string) =>
 const fragmentIgnoresDir = (dir: string) =>
   ignoreCovers(FRAGMENT_LINES, dir, true);
 
+Deno.test("every known agent declares at least one detection binary (match-any)", () => {
+  // PATH auto-detect (src/lib/detect_agents.ts) iterates AGENT_NAMES × each
+  // provider's `binaries`, so a provider with an empty list silently never
+  // detects — a new agent must name its CLI executable(s) or red-light here.
+  for (const name of AGENT_NAMES) {
+    const p = providerFor(name);
+    assert(p !== undefined, `no provider for ${name}`);
+    assert(
+      p.binaries.length > 0 && p.binaries.every((b) => b.length > 0),
+      `${name}: empty binaries — declare the agent's CLI executable name(s) so PATH auto-detect can find it`,
+    );
+  }
+});
+
 Deno.test("registry aggregators stay total: one guidance file + a skills dir per known agent", () => {
   const guidanceFiles = allGuidanceFilePaths();
   const skillsDirs = allSkillsDirs();
