@@ -110,8 +110,16 @@ export function buildCli(
         "scaffolds it the first time).",
     )
     .example(
-      "Golden path",
-      "discern start  →  cd into the printed worktree  →  discern finish  →  discern graduate",
+      "Orient yourself",
+      "discern status",
+    )
+    .example(
+      "Agent on the trunk?",
+      "discern start  →  (move into provided worktree...)  →  discern status  →  (write code...)  →  discern finish  →  discern graduate",
+    )
+    .example(
+      "Agent in a worktree?",
+      "(write code...)  →  discern finish  →  discern graduate  →  discern status",
     )
     .globalOption(
       "--json",
