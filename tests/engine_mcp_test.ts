@@ -473,7 +473,7 @@ Deno.test("discern mcp: discern_help returns discern's OWN docs, not the project
   });
 });
 
-Deno.test("discern mcp: pre-setup gates docs and the gate verbs, but not help", async () => {
+Deno.test("discern mcp: pre-setup gates docs but not the gate proof verbs or help", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false }); // un-set-up
     await gitInit(dir);
@@ -486,20 +486,36 @@ Deno.test("discern mcp: pre-setup gates docs and the gate verbs, but not help", 
     });
     await mcp.recv();
 
-    // A bootstrap-gated tool refuses with the structured not_set_up envelope.
-    for (
-      const [id, name] of [[2, "discern_docs"], [3, "discern_finish"]] as const
-    ) {
-      await mcp.send({
-        jsonrpc: "2.0",
-        id,
-        method: "tools/call",
-        params: { name, arguments: {} },
-      });
-      const refused = await mcp.recv();
-      assertEquals(refused.result.isError, true, name);
-      assertEquals(refused.result.structuredContent.error, "not_set_up", name);
-    }
+    // `discern_docs` still refuses with the structured not_set_up envelope — its
+    // tree is empty until setup fills it.
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "discern_docs", arguments: {} },
+    });
+    const refused = await mcp.recv();
+    assertEquals(refused.result.isError, true);
+    assertEquals(refused.result.structuredContent.error, "not_set_up");
+
+    // `discern_finish` is a gate PROOF verb — un-gated during setup (ADR 0065) so
+    // the agent can iterate while wiring capabilities — but it carries the
+    // setup-in-progress hint so a green run can't be mistaken for "done".
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: { name: "discern_finish", arguments: {} },
+    });
+    const finish = await mcp.recv();
+    assertEquals(finish.result.structuredContent.verb, "finish");
+    assert(finish.result.structuredContent.error !== "not_set_up");
+    assert(
+      (finish.result.structuredContent.hints ?? []).some((h: string) =>
+        h.includes("Setup is not finished")
+      ),
+      "finish must carry the setup-in-progress hint pre-bootstrap",
+    );
 
     // `discern_help` stays open pre-setup — discern's own docs are what you need now.
     await mcp.send({

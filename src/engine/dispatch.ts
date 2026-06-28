@@ -356,17 +356,28 @@ export function attachEngineCommands(
       )
       .action(async (o) => {
         const root = await requireRoot();
-        if (o.json ?? false) {
-          // --json: narration → stderr, the result envelope → stdout.
-          const log = new Logger({
-            json: true,
-            noColor: false,
-            humanStream: "stderr",
-          });
-          const res = await compileGuidelines(root, log);
+        const json = o.json ?? false;
+        // --json: narration → stderr, the result envelope → stdout. Human: narrate
+        // to stdout via the default logger.
+        const log = json
+          ? new Logger({ json: true, noColor: false, humanStream: "stderr" })
+          : undefined;
+        const res = await compileGuidelines(root, log);
+        // A per-artifact failure is isolated (ADR 0065): the rest still refreshed,
+        // but the verb reports partial success and exits non-zero so it isn't read
+        // as fully done.
+        const failed = res.errors.length > 0;
+        if (json) {
           emitResult({
-            ok: true,
+            ok: !failed,
             verb: "refresh",
+            ...(failed
+              ? {
+                error: "partial_refresh",
+                message:
+                  `${res.errors.length} artifact(s) failed to refresh; see data.errors.`,
+              }
+              : {}),
             hints: res.hints,
             data: {
               agents_written: res.agentsWritten,
@@ -376,13 +387,11 @@ export function attachEngineCommands(
                 linked: res.skillsLinked,
                 pruned: res.skillsPruned,
               },
+              errors: res.errors,
             },
           });
-        } else {
-          // compileGuidelines narrates to stdout via its default logger.
-          await compileGuidelines(root);
         }
-        Deno.exit(0);
+        Deno.exit(failed ? 1 : 0);
       });
   }
 

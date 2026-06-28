@@ -49,6 +49,15 @@ export interface GuidelinesResult {
   skillsLinked: number;
   /** Stale managed skill entries pruned, summed across every agent's skills dir. */
   skillsPruned: number;
+  /** Per-artifact failures isolated during the compile — a skills dir, the MCP
+   * wiring, or one agent file — so a single failure can't abort the rest (ADR 0065).
+   * Empty on a fully clean compile. */
+  errors: string[];
+}
+
+/** Normalise an unknown thrown value into a message string. */
+function errText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 /**
@@ -71,15 +80,28 @@ export async function compileGuidelines(
   const config = await loadConfig(root);
   const agents = guidanceAgents(config);
 
+  // Per-artifact failures collected across all three jobs, so one (e.g. a sandbox
+  // denial writing a skills dir) is isolated and reported rather than aborting the
+  // rest (ADR 0065).
+  const errors: string[] = [];
+
   // --- job 1: materialize skills into each configured agent's skills dir (gated) --
   let skills = { copied: 0, linked: 0, pruned: 0 };
   if (isFeatureEnabled(config, "skills")) {
-    skills = await materializeSkills(
-      root,
-      config,
-      skillsDirsForAgents(agents),
-      log,
-    );
+    try {
+      const r = await materializeSkills(
+        root,
+        config,
+        skillsDirsForAgents(agents),
+        log,
+      );
+      skills = { copied: r.copied, linked: r.linked, pruned: r.pruned };
+      errors.push(...r.errors);
+    } catch (error) {
+      const msg = `could not materialize skills: ${errText(error)}`;
+      log.warn(msg);
+      errors.push(msg);
+    }
   }
 
   // --- job 2: MCP integration (always; ADR 0045) ------------------------------
@@ -103,25 +125,31 @@ export async function compileGuidelines(
       log.info(MCP_RESTART_HINT);
     }
   } catch (error) {
-    log.warn(
-      `could not update the MCP integration: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-    );
+    const msg = `could not update the MCP integration: ${errText(error)}`;
+    log.warn(msg);
+    errors.push(msg);
   }
 
   // --- job 3: compile the agent files (gated) --------------------------------
   const agentsWritten: string[] = [];
   if (!isFeatureEnabled(config, "guidance")) {
     log.info("guidance feature is off — no agent files compiled.");
-    return summarize(agentsWritten, mcpWired, hints, skills);
+    return summarize(agentsWritten, mcpWired, hints, skills, errors);
   }
 
   // Render the expected content for every configured provider — the SINGLE source
   // of the compiled-file content, shared with the `status`/`finish` currency check
   // (ADR 0034) — then write each. A provider that declares an import (Claude Code)
   // already gets a pointer to the canonical file here, not a duplicate body.
-  const rendered = await renderAgentFiles(root, config);
+  let rendered: Map<string, string>;
+  try {
+    rendered = await renderAgentFiles(root, config);
+  } catch (error) {
+    const msg = `could not compute the agent files: ${errText(error)}`;
+    log.warn(msg);
+    errors.push(msg);
+    return summarize(agentsWritten, mcpWired, hints, skills, errors);
+  }
   for (const agent of agents) {
     const gf = providerFor(agent)?.guidanceFile;
     if (gf === undefined) {
@@ -134,12 +162,20 @@ export async function compileGuidelines(
     if (fileBody === undefined) {
       continue; // guidance off (already returned above) — defensive.
     }
-    const out = join(root, gf.path);
-    await ensureDir(dirname(out));
-    await Deno.writeTextFile(out, fileBody);
-    // A generated file should be readable like any other source (mode 0644).
-    await Deno.chmod(out, 0o644);
-    agentsWritten.push(gf.path);
+    // Isolate per agent file: a denied write to one provider's file doesn't abort
+    // the others (ADR 0065).
+    try {
+      const out = join(root, gf.path);
+      await ensureDir(dirname(out));
+      await Deno.writeTextFile(out, fileBody);
+      // A generated file should be readable like any other source (mode 0644).
+      await Deno.chmod(out, 0o644);
+      agentsWritten.push(gf.path);
+    } catch (error) {
+      const msg = `could not write ${gf.path}: ${errText(error)}`;
+      log.warn(msg);
+      errors.push(msg);
+    }
   }
 
   if (agentsWritten.length === 0) {
@@ -154,7 +190,7 @@ export async function compileGuidelines(
       }`,
     );
   }
-  return summarize(agentsWritten, mcpWired, hints, skills);
+  return summarize(agentsWritten, mcpWired, hints, skills, errors);
 }
 
 /** Build the result. The skills narration is emitted once by `materializeSkills`,
@@ -164,6 +200,7 @@ function summarize(
   mcpWired: string[],
   hints: string[],
   skills: { copied: number; linked: number; pruned: number },
+  errors: string[],
 ): GuidelinesResult {
   return {
     agentsWritten,
@@ -172,5 +209,6 @@ function summarize(
     skillsCopied: skills.copied,
     skillsLinked: skills.linked,
     skillsPruned: skills.pruned,
+    errors,
   };
 }

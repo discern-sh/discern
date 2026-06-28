@@ -162,14 +162,14 @@ see below and [ADR 0024](../_adr/0024-bootstrap-as-command.md), amended by
 
 `setup` writes **no** `docs/` tree and **no** `TODO.md`. The doc, ADR, and TODO
 skeletons ship **with whatever creates them** — the `discern setup` command
-(under `templates/setup/skel/`) and two skills (under
-`templates/skills/<skill>/skel/`) — and are materialised on demand:
+(under `templates/setup/skeleton/`) and two skills (under
+`templates/skills/<skill>/skeleton/`) — and are materialised on demand:
 
-| Materialised by                                                            | Skeleton it carries                                                                          | What lands in the project                                                                                                                         |
-| -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `discern setup` (the command)                                              | `templates/setup/skel/docs/{README.md, 00-orientation/*, 80-development/*}` + `skel/TODO.md` | The orientation tree, the `80-development/` tree (incl. `finish-gate-gotchas`), and `TODO.md` — laid only when the project has none, then filled. |
-| [`write-adr`](../../templates/skills/write-adr/SKILL.md)                   | `skel/docs/_adr/{0000-template.md, README.md}`                                               | `docs/_adr/`, created on first use.                                                                                                               |
-| [`document-subsystem`](../../templates/skills/document-subsystem/SKILL.md) | `skel/docs/_internal/{documenter-agent-brief.md, scopes/_template.md}`                       | `docs/_internal/`, the documenter brief and per-subtree scope-manifest template.                                                                  |
+| Materialised by                                                            | Skeleton it carries                                                                                  | What lands in the project                                                                                                                         |
+| -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `discern setup` (the command)                                              | `templates/setup/skeleton/docs/{README.md, 00-orientation/*, 80-development/*}` + `skeleton/TODO.md` | The orientation tree, the `80-development/` tree (incl. `finish-gate-gotchas`), and `TODO.md` — laid only when the project has none, then filled. |
+| [`write-adr`](../../templates/skills/write-adr/SKILL.md)                   | `skeleton/docs/_adr/{0000-template.md, README.md}`                                                   | `docs/_adr/`, created on first use.                                                                                                               |
+| [`document-subsystem`](../../templates/skills/document-subsystem/SKILL.md) | `skeleton/docs/_internal/{documenter-agent-brief.md, scopes/_template.md}`                           | `docs/_internal/`, the documenter brief and per-subtree scope-manifest template.                                                                  |
 
 So `docs/`, `TODO.md`, `guidance.md`, and the compiled agent files appear
 **after** install, with real content — they are not a static part of the install

@@ -10,10 +10,10 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { join } from "@std/path";
-import { exists } from "@std/fs";
+import { dirname, join, relative } from "@std/path";
+import { exists, walk } from "@std/fs";
 import { REAL_TEMPLATES, withTempDir } from "./helpers.ts";
-import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
+import { gitInit, gitOut, runAgent, scaffoldEngine } from "./engine_helpers.ts";
 
 /** The H1 of the printed setup instructions (templates/setup/instructions.md). */
 const INSTRUCTIONS_H1 = "# Set up the harness";
@@ -33,7 +33,7 @@ Deno.test("discern setup lays the doc skeletons when absent and prints the instr
     assertEquals(r.code, 0, r.output);
     // The instructions are printed for the agent in the loop to act on.
     assertStringIncludes(r.stdout, INSTRUCTIONS_H1);
-    assertStringIncludes(r.stdout, "Scaffolded docs/");
+    assertStringIncludes(r.stdout, "Project skeletons laid: docs/");
     // The skeleton tree is laid, with `{{project_name}}` substituted from the slug.
     assert(await exists(join(dir, "docs/00-orientation/design-principles.md")));
     const readme = await Deno.readTextFile(join(dir, "docs/README.md"));
@@ -94,10 +94,11 @@ Deno.test("the setup redirect and the command retire once setup is recorded", as
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
 
-    // Before: a work verb hard-redirects (exit≠0, on stderr), and setup shows in help.
-    const preFinish = await runAgent(dir, ["finish"]);
-    assertEquals(preFinish.code, 1, preFinish.output);
-    assertStringIncludes(preFinish.stderr, "isn't set up yet");
+    // Before: a still-gated work verb (`docs`) hard-redirects (exit≠0, on stderr),
+    // and setup shows in help. (`finish` is no longer gated — ADR 0065.)
+    const preDocs = await runAgent(dir, ["docs"]);
+    assertEquals(preDocs.code, 1, preDocs.output);
+    assertStringIncludes(preDocs.stderr, "isn't set up yet");
     const preHelp = await runAgent(dir, ["--help"]);
     assertStringIncludes(preHelp.stdout, HELP_DESC);
 
@@ -110,9 +111,8 @@ Deno.test("the setup redirect and the command retire once setup is recorded", as
     assertEquals(done.code, 0, done.output);
 
     // After: the same verb runs (no redirect), and setup is hidden from help.
-    const postFinish = await runAgent(dir, ["finish"]);
-    assertEquals(postFinish.code, 0, postFinish.output);
-    assert(!postFinish.stderr.includes("isn't set up yet"));
+    const postDocs = await runAgent(dir, ["docs"]);
+    assert(!postDocs.stderr.includes("isn't set up yet"), postDocs.output);
     const postHelp = await runAgent(dir, ["--help"]);
     assert(
       !postHelp.stdout.includes(HELP_DESC),
@@ -121,17 +121,26 @@ Deno.test("the setup redirect and the command retire once setup is recorded", as
   });
 });
 
-Deno.test("the redirect fires on work verbs but not on plumbing verbs", async () => {
+Deno.test("the redirect fires on still-gated work verbs but not on plumbing or proof verbs", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false }); // un-set-up
-    const finish = await runAgent(dir, ["finish"]);
-    assertEquals(finish.code, 1, finish.output);
-    assertStringIncludes(finish.stderr, "isn't set up yet");
+    // `docs` browses the project's own tree — empty until setup fills it — so it
+    // stays gated.
+    const docs = await runAgent(dir, ["docs"]);
+    assertEquals(docs.code, 1, docs.output);
+    assertStringIncludes(docs.stderr, "isn't set up yet");
     // `refresh` is machinery (and `discern setup` itself runs it) — no redirect,
     // so it never leaks into the regen/hook path.
     const refresh = await runAgent(dir, ["refresh"]);
     assert(!refresh.stderr.includes("isn't set up yet"));
     assertEquals(refresh.code, 0, refresh.output);
+    // `finish` is a gate PROOF verb — ADR 0065 un-gates it so the agent can
+    // iterate while wiring capabilities during setup; it must NOT redirect.
+    const finish = await runAgent(dir, ["finish"]);
+    assert(
+      !finish.stderr.includes("isn't set up yet"),
+      `finish must run during setup: ${finish.output}`,
+    );
   });
 });
 
@@ -154,15 +163,296 @@ Deno.test("docs is gated pre-setup but help is not", async () => {
   });
 });
 
-Deno.test("the pre-setup redirect is a structured not_set_up result under --json", async () => {
+Deno.test("the docs redirect is a structured not_set_up result under --json", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
-    const r = await runAgent(dir, ["finish", "--json"]);
+    const r = await runAgent(dir, ["docs", "--json"]);
     assertEquals(r.code, 1, r.output);
     const res = JSON.parse(r.stdout);
     assertEquals(res.ok, false);
-    assertEquals(res.verb, "finish");
+    assertEquals(res.verb, "docs");
     assertEquals(res.error, "not_set_up");
+  });
+});
+
+Deno.test("finish/prepare/test/ratchets run before setup is recorded, carrying the in-progress hint (ADR 0065)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { bootstrapped: false });
+    // The gate proof verbs are usable during setup so the agent can iterate while
+    // wiring capabilities (and test a ratchet it wires) — but each leads with the
+    // "setup unfinished" advisory so a green run can't be mistaken for done.
+    for (const verb of ["finish", "prepare", "test", "ratchets"]) {
+      const r = await runAgent(dir, [verb, "--json"]);
+      const res = JSON.parse(r.stdout);
+      assertEquals(res.verb, verb, r.output);
+      assert(
+        res.error !== "not_set_up",
+        `${verb} must not redirect to setup pre-bootstrap: ${r.output}`,
+      );
+      assert(
+        (res.hints ?? []).some((h: string) =>
+          h.includes("Setup is not finished")
+        ),
+        `${verb} must carry the setup-in-progress hint: ${r.stdout}`,
+      );
+    }
+  });
+});
+
+/** Lay a clean, marker-free project state so `setup done`'s marker check passes and
+ * only the GATE decides the outcome: real docs, a real guidance.md, and `test` wired
+ * to `cmd` (a shell command whose exit status is the gate's verdict). */
+async function readyForDone(dir: string, cmd: string): Promise<void> {
+  await scaffoldEngine(dir, { bootstrapped: false });
+  await gitInit(dir);
+  await runAgent(dir, ["setup"]); // lay the skeletons
+  // Replace the marker-carrying skeletons with real, marker-free content.
+  await Deno.remove(join(dir, "docs"), { recursive: true });
+  await Deno.mkdir(join(dir, "docs"));
+  await Deno.writeTextFile(join(dir, "docs/README.md"), "# Real docs\n");
+  await Deno.writeTextFile(
+    join(dir, "guidance.md"),
+    "# Project guidance\n\nReal conventions.\n",
+  );
+  const wired = await runAgent(dir, ["config", "set-capability", "test", cmd]);
+  assertEquals(wired.code, 0, wired.output);
+}
+
+Deno.test("setup done runs the gate and records bootstrapped only when green (ADR 0065)", async () => {
+  await withTempDir(async (dir) => {
+    await readyForDone(dir, "true"); // a passing gate
+
+    const done = await runAgent(dir, ["setup", "done", "--json"]);
+    assertEquals(done.code, 0, done.output);
+    const res = JSON.parse(done.stdout);
+    assertEquals(res.ok, true);
+    assertEquals(res.data.bootstrapped, true);
+    assertEquals(
+      res.data.gate_proven,
+      true,
+      "the gate was the completion proof",
+    );
+    assertStringIncludes(
+      await Deno.readTextFile(join(dir, "discern.toml")),
+      "bootstrapped = true",
+    );
+  });
+});
+
+Deno.test("setup done refuses when the gate is red, recording nothing; --force overrides (ADR 0065)", async () => {
+  await withTempDir(async (dir) => {
+    await readyForDone(dir, "false"); // a failing gate
+
+    const done = await runAgent(dir, ["setup", "done", "--json"]);
+    assertEquals(done.code, 1, done.output);
+    const res = JSON.parse(done.stdout);
+    assertEquals(res.error, "gate_failed");
+    assertEquals(res.data.stage, "finish");
+    assert(
+      !(await Deno.readTextFile(join(dir, "discern.toml"))).includes(
+        "bootstrapped = true",
+      ),
+      "a red gate must NOT record completion",
+    );
+
+    // --force is the escape hatch: it skips the proof and records anyway.
+    const forced = await runAgent(dir, ["setup", "done", "--force"]);
+    assertEquals(forced.code, 0, forced.output);
+    assertStringIncludes(forced.stdout, "gate not proven");
+    assertStringIncludes(
+      await Deno.readTextFile(join(dir, "discern.toml")),
+      "bootstrapped = true",
+    );
+  });
+});
+
+Deno.test("discern setup migrates a pre-existing agent file into guidance.md, never destroying it (ADR 0065)", async () => {
+  await withTempDir(async (dir) => {
+    // A project with its own hand-written CLAUDE.md, harnessed by discern for the
+    // first time (a true fresh install — no discern.toml).
+    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+    await gitInit(dir);
+    const rule = "ALWAYS RUN THE LINTER FIRST — this is my own house rule.";
+    await Deno.writeTextFile(
+      join(dir, "CLAUDE.md"),
+      `# My project\n\n${rule}\n`,
+    );
+
+    const r = await runAgent(dir, ["setup"]);
+    assertEquals(r.code, 0, r.output);
+
+    // The user's instruction survives in the tracked source...
+    const guidance = await Deno.readTextFile(join(dir, "guidance.md"));
+    assertStringIncludes(guidance, rule);
+    assertStringIncludes(guidance, "Imported from CLAUDE.md");
+
+    // ...and is re-emitted into the compiled agent files (the compile folds
+    // guidance.md into the canonical AGENTS.md, which CLAUDE.md then points at), so
+    // reading the agent guidance still shows it — nothing was lost.
+    const compiled = (await Promise.all(
+      ["AGENTS.md", "CLAUDE.md", "GEMINI.md"].map((f) =>
+        Deno.readTextFile(join(dir, f)).catch(() => "")
+      ),
+    )).join("\n");
+    assertStringIncludes(compiled, rule);
+  });
+});
+
+Deno.test("discern setup lays a marked guidance.md stub that setup done enforces (ADR 0065)", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+    await gitInit(dir);
+    const r = await runAgent(dir, ["setup"]);
+    assertEquals(r.code, 0, r.output);
+
+    // The stub exists and carries the marker, so it is a real "flesh out the stub".
+    const guidance = await Deno.readTextFile(join(dir, "guidance.md"));
+    assertStringIncludes(guidance, "setup fills this");
+
+    // setup done refuses while the guidance stub is unfilled — the existing marker
+    // check now enforces guidance.md, with no second code path.
+    const blocked = await runAgent(dir, ["setup", "done"]);
+    assertEquals(blocked.code, 1, blocked.output);
+    assertStringIncludes(blocked.stderr, "guidance.md");
+  });
+});
+
+Deno.test("discern setup preserves the project name's casing in the scaffolded files (ADR 0065)", async () => {
+  await withTempDir(async (parent) => {
+    // A directory whose name carries deliberate camelCase the lowercase slug loses.
+    const dir = join(parent, "ListOfListsOfLists");
+    await Deno.mkdir(dir);
+    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+    await gitInit(dir);
+
+    const r = await runAgent(dir, ["setup"]);
+    assertEquals(r.code, 0, r.output);
+
+    // TODO.md carries the original casing, not the slug-reconstructed
+    // "Listoflistsoflists".
+    const todo = await Deno.readTextFile(join(dir, "TODO.md"));
+    assertStringIncludes(todo, "ListOfListsOfLists");
+    assert(!todo.includes("Listoflistsoflists"), todo);
+  });
+});
+
+Deno.test("setup's _adr skeleton is byte-identical to the write-adr skill's (single source)", async () => {
+  for (const f of ["README.md", "0000-template.md"]) {
+    const setupCopy = await Deno.readTextFile(
+      join(REAL_TEMPLATES, "setup", "skeleton", "docs", "_adr", f),
+    );
+    const skillCopy = await Deno.readTextFile(
+      join(
+        REAL_TEMPLATES,
+        "skills",
+        "write-adr",
+        "skeleton",
+        "docs",
+        "_adr",
+        f,
+      ),
+    );
+    assertEquals(
+      setupCopy,
+      skillCopy,
+      `templates/setup/skeleton/docs/_adr/${f} must stay identical to the write-adr skill's copy`,
+    );
+  }
+});
+
+Deno.test("scaffolded docs contain no dead relative links — setup ships what it references (ADR 0065)", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+    await gitInit(dir);
+    const r = await runAgent(dir, ["setup"]);
+    assertEquals(r.code, 0, r.output);
+
+    const linkRe = /\[[^\]]*\]\(([^)]+)\)/g;
+    const dead: string[] = [];
+    for await (
+      const entry of walk(join(dir, "docs"), {
+        exts: [".md"],
+        includeDirs: false,
+      })
+    ) {
+      // Strip code (fenced + inline) first, so an illustrative link inside a code
+      // example — `[some module](../src/path/Thing.ext)` — isn't read as a real link.
+      const text = (await Deno.readTextFile(entry.path))
+        .replace(/```[\s\S]*?```/g, "")
+        .replace(/`[^`]*`/g, "");
+      for (const m of text.matchAll(linkRe)) {
+        const raw = m[1];
+        if (raw === undefined) continue;
+        // The bare URL: drop any "title" suffix and trailing #anchor.
+        const target = (raw.trim().split(/\s+/)[0] ?? "").split("#")[0] ?? "";
+        if (target === "" || /^(https?:|mailto:)/.test(target)) continue;
+        // A leading "/" is repo-root-relative; otherwise relative to the file.
+        const resolved = target.startsWith("/")
+          ? join(dir, target.slice(1))
+          : join(dirname(entry.path), target);
+        if (!(await exists(resolved))) {
+          dead.push(`${relative(dir, entry.path)} → ${raw}`);
+        }
+      }
+    }
+    assertEquals(
+      dead,
+      [],
+      `dead links in scaffolded docs:\n${dead.join("\n")}`,
+    );
+  });
+});
+
+Deno.test("discern setup isolates a fresh install on the discern-setup branch (ADR 0065)", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+    await gitInit(dir); // commits everything → a clean tree on `main`
+    assertEquals(
+      await gitOut(dir, "rev-parse", "--abbrev-ref", "HEAD"),
+      "main",
+    );
+
+    const r = await runAgent(dir, ["setup", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    // Setup created and checked out a dedicated branch, off the user's `main`, so
+    // the scaffold's commits never land on it.
+    assertEquals(
+      await gitOut(dir, "rev-parse", "--abbrev-ref", "HEAD"),
+      "discern-setup",
+    );
+    assertEquals(JSON.parse(r.stdout).data.branch, "discern-setup");
+    assert(await exists(join(dir, "discern.toml")));
+  });
+});
+
+Deno.test("discern setup refuses on a dirty tree, writing nothing; --allow-dirty overrides (ADR 0065)", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "app.ts"), "export const v = 1;\n");
+    await gitInit(dir);
+    // An uncommitted change to a TRACKED file makes the tree dirty.
+    await Deno.writeTextFile(join(dir, "app.ts"), "export const v = 2;\n");
+
+    const blocked = await runAgent(dir, ["setup", "--json"]);
+    assertEquals(blocked.code, 1, blocked.output);
+    assertEquals(JSON.parse(blocked.stdout).error, "dirty_worktree");
+    assert(
+      !(await exists(join(dir, "discern.toml"))),
+      "nothing must be written when setup refuses a dirty tree",
+    );
+    // No branch was created — still on the original branch.
+    assertEquals(
+      await gitOut(dir, "rev-parse", "--abbrev-ref", "HEAD"),
+      "main",
+    );
+
+    // --allow-dirty proceeds in place: no branch, scaffolds onto the current branch.
+    const forced = await runAgent(dir, ["setup", "--allow-dirty"]);
+    assertEquals(forced.code, 0, forced.output);
+    assertEquals(
+      await gitOut(dir, "rev-parse", "--abbrev-ref", "HEAD"),
+      "main",
+    );
+    assert(await exists(join(dir, "discern.toml")));
   });
 });
 

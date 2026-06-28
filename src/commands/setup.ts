@@ -47,11 +47,19 @@ import { KIT_VERSION, SCHEMA_VERSION } from "../lib/version.ts";
 import { applyPlan, buildPlan, type Plan, planBrief } from "../lib/fs_plan.ts";
 import { planToJson, renderPlan } from "../lib/plan_view.ts";
 import { compileGuidelines } from "../engine/guidelines.ts";
-import { type HooksIntegration, providersWithHooks } from "../lib/providers.ts";
+import { doctorResult } from "./doctor.ts";
+import { finishResult } from "../engine/gate/finish.ts";
+import {
+  type HooksIntegration,
+  providerFor,
+  providersWithHooks,
+} from "../lib/providers.ts";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { CONFIG_REL, findRoot } from "../shared/env.ts";
 import { emitResult } from "../shared/emit.ts";
 import { findSkeletonMarkers } from "../shared/setup_state.ts";
+import { worktreeState } from "../lib/git.ts";
+import { runGit } from "../shared/subprocess.ts";
 
 /** Options accepted by `discern setup` (global flags + declarative passthrough). */
 export interface SetupOptions extends InitFlags {
@@ -59,6 +67,9 @@ export interface SetupOptions extends InitFlags {
   noColor: boolean;
   dryRun: boolean;
   force: boolean;
+  /** Set up on the current branch even if it is dirty — skips the clean-tree check
+   * AND the auto-created `discern-setup` branch (the user manages git themselves). */
+  allowDirty: boolean;
   /** Path to a JSON answers file (or `-` for stdin) for a declarative scaffold. */
   config?: string | undefined;
 }
@@ -253,6 +264,7 @@ async function scaffoldHarness(
   destDir: string,
   opts: SetupOptions,
   log: Logger,
+  freshInstall: boolean,
 ): Promise<{ outcome?: ScaffoldOutcome; stop?: number }> {
   let templatesDir: string;
   try {
@@ -327,6 +339,11 @@ async function scaffoldHarness(
 
   const changed = await applyPlan(plan);
 
+  // Seed guidance.md (the default [guidance].sources) BEFORE the first compile, and
+  // migrate any pre-existing, hand-authored agent file into it so the compile that
+  // follows can't destroy the user's instructions (ADR 0065).
+  const seeded = await seedGuidance(destDir, config, freshInstall);
+
   // Compile guidance, materialize skills, and wire each agent's MCP server — all
   // via the one refresh core (compileGuidelines). Pass setup's logger so the
   // narration follows its stream discipline (suppressed in --json). Non-fatal: a
@@ -339,19 +356,112 @@ async function scaffoldHarness(
     compiled = g.agentsWritten;
     mcpWired = g.mcpWired;
     hints = g.hints;
+    // A per-artifact refresh failure is isolated (ADR 0065) — surface it so the
+    // user knows a skills dir / agent file / the MCP wiring didn't complete.
+    if (g.errors.length > 0) {
+      hints = [
+        ...g.errors.map((e) =>
+          `setup could not complete a refresh artifact: ${e}`
+        ),
+        ...hints,
+      ];
+    }
   } catch (error) {
     log.warn(`could not compile agent guidance: ${errMsg(error)}`);
   }
+  if (seeded.migrated.length > 0) {
+    hints = [
+      `Preserved your existing ${
+        seeded.migrated.join(", ")
+      } by migrating it into guidance.md — fold it into the conventions and delete the import note.`,
+      ...hints,
+    ];
+  }
 
+  const written = changed.map((op) => op.targetRel);
+  if (seeded.guidanceLaid) {
+    written.push("guidance.md");
+  }
   return {
-    outcome: {
-      config,
-      written: changed.map((op) => op.targetRel),
-      compiled,
-      mcpWired,
-      hints,
-    },
+    outcome: { config, written, compiled, mcpWired, hints },
   };
+}
+
+/**
+ * Seed `guidance.md` (the default `[guidance].sources`) before the first compile,
+ * and — critically — migrate any pre-existing, hand-authored agent file into it so
+ * the compile that follows can't destroy the user's instructions (ADR 0065).
+ *
+ * On a FRESH install no discern-generated agent file can exist (discern writes them
+ * only via a compile, which needs a config), so every `CLAUDE.md`/`AGENTS.md`/
+ * `GEMINI.md` already on disk is the USER's — its body is folded into `guidance.md`
+ * under a labelled heading, deduped by content so identical mirrors migrate once.
+ * The stub is laid only when `guidance.md` is absent, so a re-run never clobbers the
+ * agent's work; on a `--force` re-run the user's content is already in `guidance.md`
+ * from the first run, so migration is skipped.
+ */
+async function seedGuidance(
+  root: string,
+  config: InitConfig,
+  freshInstall: boolean,
+): Promise<{ guidanceLaid: boolean; migrated: string[] }> {
+  const guidancePath = join(root, "guidance.md");
+
+  // Capture pre-existing user agent files (fresh install only — see above).
+  const migrated: { file: string; body: string }[] = [];
+  if (freshInstall) {
+    const seen = new Set<string>();
+    for (const agent of config.agents) {
+      const rel = providerFor(agent)?.guidanceFile.path;
+      if (rel === undefined) {
+        continue;
+      }
+      let body: string;
+      try {
+        body = (await Deno.readTextFile(join(root, rel))).trim();
+      } catch {
+        continue; // absent — nothing to preserve
+      }
+      if (body.length === 0 || seen.has(body)) {
+        continue; // empty, or an identical mirror already captured
+      }
+      seen.add(body);
+      migrated.push({ file: rel, body });
+    }
+  }
+
+  // Lay the stub when guidance.md is absent (write-once: a re-run keeps the agent's).
+  let content: string;
+  let guidanceLaid = false;
+  try {
+    content = await Deno.readTextFile(guidancePath);
+  } catch {
+    const stub = join(await resolveSetupDir(), "skeleton", "guidance.md");
+    content = (await Deno.readTextFile(stub)).replaceAll(
+      "{{project_name}}",
+      config.projectName,
+    );
+    guidanceLaid = true;
+  }
+
+  // Append each migrated body under a labelled heading, skipping any already present
+  // (idempotent if setup is re-run).
+  let appended = "";
+  for (const m of migrated) {
+    const heading = `## Imported from ${m.file}`;
+    if (content.includes(heading) || content.includes(m.body)) {
+      continue;
+    }
+    appended += `\n${heading}\n\n` +
+      `<!-- discern migrated your existing ${m.file} here during setup so it wouldn't ` +
+      `be lost. Fold it into the conventions above, then delete this note. -->\n\n` +
+      `${m.body}\n`;
+  }
+
+  if (guidanceLaid || appended.length > 0) {
+    await Deno.writeTextFile(guidancePath, content + appended);
+  }
+  return { guidanceLaid, migrated: migrated.map((m) => m.file) };
 }
 
 /**
@@ -364,22 +474,26 @@ async function laySkeletons(
   root: string,
   name: string,
 ): Promise<{ laid: string[]; skipped: string[] }> {
-  const skelDir = join(await resolveSetupDir(), "skel");
+  const skeletonDir = join(await resolveSetupDir(), "skeleton");
   const laid: string[] = [];
   const skipped: string[] = [];
 
   if (await pathExists(join(root, "docs"))) {
     skipped.push("docs/");
-  } else if (await pathExists(join(skelDir, "docs"))) {
-    await copyTreeSubstituting(join(skelDir, "docs"), join(root, "docs"), name);
+  } else if (await pathExists(join(skeletonDir, "docs"))) {
+    await copyTreeSubstituting(
+      join(skeletonDir, "docs"),
+      join(root, "docs"),
+      name,
+    );
     laid.push("docs/");
   }
 
-  const todoSkel = join(skelDir, "TODO.md");
+  const todoSkeleton = join(skeletonDir, "TODO.md");
   if (await pathExists(join(root, "TODO.md"))) {
     skipped.push("TODO.md");
-  } else if (await pathExists(todoSkel)) {
-    await copyTextSubstituting(todoSkel, join(root, "TODO.md"), name);
+  } else if (await pathExists(todoSkeleton)) {
+    await copyTextSubstituting(todoSkeleton, join(root, "TODO.md"), name);
     laid.push("TODO.md");
   }
 
@@ -421,10 +535,29 @@ export async function runSetup(opts: SetupOptions): Promise<number> {
     }
   }
 
+  // --- Pre-scaffold: isolate a fresh install on its own branch (ADR 0065) ---
+  // A fresh setup makes several commits; keep them off the user's current branch and
+  // trivially revertible. Require a clean tree (fail if dirty), then create + check
+  // out `discern-setup`. Skipped on --dry-run (writes nothing), --allow-dirty (the
+  // user manages git), a re-run/--force, or outside a git repo.
+  let setupBranch: string | undefined;
+  if (freshInstall && !opts.dryRun && !opts.allowDirty) {
+    const { branch, stop } = await ensureSetupBranch(destDir, opts, log);
+    if (stop !== undefined) {
+      return stop; // dirty tree — error already emitted, nothing written
+    }
+    setupBranch = branch;
+  }
+
   // --- Phase 1: scaffold the machinery (fresh install, or --force refresh) ---
   let scaffold: ScaffoldOutcome | undefined;
   if (freshInstall || opts.force) {
-    const { outcome, stop } = await scaffoldHarness(destDir, opts, log);
+    const { outcome, stop } = await scaffoldHarness(
+      destDir,
+      opts,
+      log,
+      freshInstall,
+    );
     if (stop !== undefined) {
       return stop; // error emitted, or --dry-run already printed the plan
     }
@@ -441,7 +574,12 @@ export async function runSetup(opts: SetupOptions): Promise<number> {
   } catch {
     cfg = undefined;
   }
-  const name = cfg ? displayNameFromSlug(cfg.project.slug) : "the project";
+  // Prefer the fresh scaffold's project name — its casing is preserved from the
+  // directory ("ListOfListsOfLists"). Reconstructing from the persisted slug loses
+  // it (the slug is lowercase → "Listoflistsoflists"), so fall back to that only on
+  // a resume where the fresh InitConfig isn't in hand (ADR 0065).
+  const name = scaffold?.config.projectName ??
+    (cfg ? displayNameFromSlug(cfg.project.slug) : "the project");
   const { laid, skipped } = await laySkeletons(destDir, name);
 
   // --- Phase 3: print the setup instructions for the agent to act on ---
@@ -460,6 +598,7 @@ export async function runSetup(opts: SetupOptions): Promise<number> {
         // read `ok: true` / exit 0 as "task complete" (the failure this guards).
         complete: false,
         bootstrapped: false,
+        branch: setupBranch ?? null,
         next_action:
           "Work through `data.instructions`, then run `discern setup done` to finish.",
         project: {
@@ -495,12 +634,19 @@ export async function runSetup(opts: SetupOptions): Promise<number> {
   console.log("  result to summarise back to the user as already done.");
   console.log(heavyRule);
   console.log("");
+  if (setupBranch !== undefined) {
+    console.log(
+      `On branch \`${setupBranch}\` — created from your clean tree so this setup is isolated and easy to roll back (or merge when you're happy).`,
+    );
+  }
   if (scaffold) {
-    console.log(`Scaffolded ${scaffold.written.length} files into ${destDir}.`);
+    console.log(
+      `Harness files written: ${scaffold.written.length} into ${destDir}.`,
+    );
   }
   if (laid.length > 0) {
     console.log(
-      `Scaffolded ${
+      `Project skeletons laid: ${
         laid.join(", ")
       } (filled with the project name; complete them below).`,
     );
@@ -534,11 +680,86 @@ export async function runSetup(opts: SetupOptions): Promise<number> {
   return 0;
 }
 
+/** The branch `discern setup` creates so a fresh install never lands on — or commits
+ * to — the user's current branch. */
+const SETUP_BRANCH = "discern-setup";
+
 /**
- * `discern setup done` — validate that no skeleton markers remain, then record
- * `[meta].bootstrapped = true` so the setup redirect retires and the command hides
- * itself. Also the escape hatch for a manual setup: run it after wiring the config
- * by hand to silence the redirect. `--force` records completion despite leftovers.
+ * Before a FRESH scaffold writes anything, isolate the work on its own branch
+ * (ADR 0065). `discern setup` makes several commits; landing them on the user's
+ * current branch pollutes it before they're ready and complicates rollback. So:
+ * require a clean working tree (fail on uncommitted *tracked* changes — untracked
+ * scratch files are fine), then create and check out `discern-setup`. A no-op
+ * outside a git repo (nothing to isolate). Returns the branch it put you on
+ * (`undefined` when not in a repo, or the branch couldn't be created), or a `stop`
+ * code when the tree is dirty (the error is already emitted). The caller gates this
+ * on `freshInstall && !dryRun && !allowDirty`.
+ */
+async function ensureSetupBranch(
+  destDir: string,
+  opts: SetupOptions,
+  log: Logger,
+): Promise<{ branch?: string; stop?: number }> {
+  const state = await worktreeState(destDir);
+  if (state.kind === "not-a-repo") {
+    return {}; // no git here → nothing to isolate; setup proceeds in place
+  }
+  if (state.kind === "dirty") {
+    const message =
+      "your working tree has uncommitted changes, and `discern setup` makes several " +
+      "commits. Commit or stash your work first, or re-run with --allow-dirty to set " +
+      "up on the current branch as-is.";
+    if (opts.json) {
+      log.result({
+        ok: false,
+        verb: "setup",
+        error: "dirty_worktree",
+        message,
+        data: { changes: state.changes },
+      });
+    } else {
+      log.error(message);
+      for (const c of state.changes.slice(0, 10)) {
+        log.detail(c);
+      }
+      if (state.changes.length > 10) {
+        log.detail(`… and ${state.changes.length - 10} more`);
+      }
+    }
+    return { stop: 1 };
+  }
+  // Clean tree: create or check out the dedicated setup branch.
+  const current =
+    (await runGit(["rev-parse", "--abbrev-ref", "HEAD"], { cwd: destDir }))
+      .stdout.trim();
+  if (current === SETUP_BRANCH) {
+    return { branch: SETUP_BRANCH }; // already on it (a resume that stayed here)
+  }
+  const exists =
+    (await runGit(["rev-parse", "--verify", "--quiet", SETUP_BRANCH], {
+      cwd: destDir,
+    })).success;
+  const checkout = exists
+    ? await runGit(["checkout", SETUP_BRANCH], { cwd: destDir })
+    : await runGit(["checkout", "-b", SETUP_BRANCH], { cwd: destDir });
+  if (!checkout.success) {
+    // Non-fatal: if branching fails, don't block setup — proceed in place.
+    log.warn(
+      `could not create the \`${SETUP_BRANCH}\` branch; setting up on the current branch.`,
+    );
+    return {};
+  }
+  return { branch: SETUP_BRANCH };
+}
+
+/**
+ * `discern setup done` — validate that no skeleton markers remain AND prove the
+ * gate green (ADR 0065), then record `[meta].bootstrapped = true` so the setup
+ * redirect retires and the command hides itself. The proof — `refresh` → `doctor`
+ * → `finish` — makes the brief's definition-of-done structural: completion can't be
+ * recorded unless the install is healthy and the gate actually passes. Also the
+ * escape hatch for a manual setup: `--force` records completion despite leftover
+ * markers AND skips the proof.
  */
 export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
   const root = await rootOrError(opts.json, "setup:done");
@@ -573,6 +794,16 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
     return 1;
   }
 
+  // The structural completion proof (ADR 0065): refresh → doctor → finish must pass
+  // before completion is recorded, so "the gate is real" can't be reported without
+  // being true. `--force` is the escape hatch — it skips the proof entirely.
+  if (!opts.force) {
+    const failed = await proveGateGreen(root, opts.json);
+    if (failed !== undefined) {
+      return failed; // already emitted; [meta].bootstrapped is NOT recorded
+    }
+  }
+
   // Record the marker, comment-preserving (mirrors `discern config set --bool`).
   const path = (await resolveConfigPath(root)) ?? join(root, CONFIG_REL);
   const editor = new TomlEditor(await Deno.readTextFile(path));
@@ -584,12 +815,14 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
     emitResult({
       ok: true,
       verb: "setup:done",
-      data: { bootstrapped: true, forced, leftover },
+      data: { bootstrapped: true, forced, gate_proven: !opts.force, leftover },
     });
     return 0;
   }
   console.log(
-    "Setup complete — recorded [meta].bootstrapped = true in discern.toml.",
+    opts.force
+      ? "Setup complete — recorded [meta].bootstrapped = true in discern.toml (--force; gate not proven)."
+      : "Setup complete — gate is green; recorded [meta].bootstrapped = true in discern.toml.",
   );
   console.log(
     "The one-time setup redirect is now retired and `discern setup` is hidden from the command list.",
@@ -600,6 +833,87 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
     );
   }
   return 0;
+}
+
+/**
+ * Run the completion proof `discern setup done` requires before recording
+ * `[meta].bootstrapped` (ADR 0065): `refresh` (so the generated agent files are
+ * current), then `doctor` (the install is healthy), then `finish` (the gate is
+ * green with whatever capabilities were just wired). The cores run BELOW the
+ * router/MCP bootstrap gate, so they execute even though setup isn't recorded yet —
+ * the "bootstrap bypass" is automatic. Returns `undefined` when the proof passed
+ * (the caller records completion), or exit 1 (already emitted) when a step failed.
+ */
+async function proveGateGreen(
+  root: string,
+  json: boolean,
+): Promise<number | undefined> {
+  // 1. refresh — recompile the agent files + skills so finish's currency check sees
+  //    a current tree (the agent likely edited guidance.md and the docs just now).
+  try {
+    await compileGuidelines(
+      root,
+      new Logger({ json, noColor: false, humanStream: "stdout" }),
+    );
+  } catch (error) {
+    return emitDoneGateFailure(
+      json,
+      "refresh",
+      `could not compile the agent guidance: ${errMsg(error)}`,
+    );
+  }
+
+  // 2. doctor — the install must be healthy (capability commands resolvable, the
+  //    configured agents known, the gotchas doc resolving, …).
+  if (!(await doctorResult(root)).ok) {
+    return emitDoneGateFailure(
+      json,
+      "doctor",
+      "the install has problems; run `discern doctor` and fix what it flags",
+    );
+  }
+
+  // 3. finish — the gate must be green with the capabilities the agent wired.
+  if (!(await finishResult(root)).ok) {
+    return emitDoneGateFailure(
+      json,
+      "finish",
+      "the quality gate is not green; run `discern finish`, fix the failures, then re-run",
+    );
+  }
+
+  return undefined;
+}
+
+/**
+ * Emit a `setup done` completion-proof failure (naming the gate step that failed)
+ * and return exit 1. `[meta].bootstrapped` is left unrecorded, so `status` keeps
+ * reporting setup as unfinished until the proof passes (or `--force` overrides it).
+ */
+function emitDoneGateFailure(
+  json: boolean,
+  stage: "refresh" | "doctor" | "finish",
+  detail: string,
+): number {
+  const message = `setup is not finished — ${detail}.`;
+  if (json) {
+    emitResult({
+      ok: false,
+      verb: "setup:done",
+      error: "gate_failed",
+      message,
+      data: { stage },
+    });
+  } else {
+    console.error(`discern: ${message}`);
+    console.error(
+      `       (\`discern setup done\` runs refresh → doctor → finish as its completion proof; the ${stage} step failed.)`,
+    );
+    console.error(
+      "       Fix it and re-run, or pass --force to record completion without the proof.",
+    );
+  }
+  return 1;
 }
 
 /** Emit a setup-phase error in both human and `--json` modes. */
@@ -671,7 +985,7 @@ async function copyTextSubstituting(
   await Deno.writeTextFile(dest, text);
 }
 
-/** Recursively copy a skel subtree into the project, substituting tokens per file. */
+/** Recursively copy a skeleton subtree into the project, substituting tokens per file. */
 async function copyTreeSubstituting(
   srcDir: string,
   destDir: string,

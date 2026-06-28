@@ -32,6 +32,7 @@ import {
   type StepResult,
 } from "../../shared/result.ts";
 import { emitResult } from "../../shared/emit.ts";
+import { setupInProgressHint } from "../../shared/setup_state.ts";
 import { runGit, runShell } from "../../shared/subprocess.ts";
 
 /** True when `s` is a non-negative decimal number. */
@@ -325,16 +326,24 @@ export async function ratchetsResult(
 ): Promise<DiscernResult> {
   const cfg = await loadConfig(root);
   const plan = buildRatchetPlan(cfg);
+  let result: DiscernResult;
   if (opts.dryRun ?? false) {
-    return previewResult("ratchets", ratchetPlanToEngine(plan));
+    result = previewResult("ratchets", ratchetPlanToEngine(plan));
+  } else if (plan.ratchets.length === 0) {
+    result = appliedResult("ratchets", []);
+  } else {
+    const mainBranch = Deno.env.get("MAIN_BRANCH") || cfg.project.main_branch;
+    const out = makeOut(colorEnabled(), { quiet: true });
+    const { results } = await executeRatchetPlan(plan, root, mainBranch, out);
+    result = appliedResult("ratchets", results);
   }
-  if (plan.ratchets.length === 0) {
-    return appliedResult("ratchets", []);
+  // Pre-setup, lead with the "setup unfinished" advisory (ADR 0065): ratchets is
+  // un-gated during setup, so its output must not read as a finished project.
+  const inProgress = setupInProgressHint(cfg.meta.bootstrapped);
+  if (inProgress !== undefined) {
+    result.hints = [inProgress, ...(result.hints ?? [])];
   }
-  const mainBranch = Deno.env.get("MAIN_BRANCH") || cfg.project.main_branch;
-  const out = makeOut(colorEnabled(), { quiet: true });
-  const { results } = await executeRatchetPlan(plan, root, mainBranch, out);
-  return appliedResult("ratchets", results);
+  return result;
 }
 
 /** Run `ratchets`. Returns a process exit code (non-zero if any ratchet failed). */

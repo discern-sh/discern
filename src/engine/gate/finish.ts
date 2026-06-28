@@ -49,6 +49,7 @@ import {
 import type { GateData } from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { isFeatureEnabled } from "../../shared/features.ts";
+import { setupInProgressHint } from "../../shared/setup_state.ts";
 import {
   checkGuidanceCurrent,
   type GuidanceDriftEntry,
@@ -311,7 +312,13 @@ async function runGate(
   if (fixDriftDiag !== undefined) {
     result.diagnostics = [...(result.diagnostics ?? []), fixDriftDiag];
   }
-  const hints = buildGateHints(cfg, changed, failedStage);
+  // Pre-setup, lead with the "setup unfinished" advisory (ADR 0065): finish runs
+  // during setup, so a green gate here must not read as "done".
+  const inProgress = setupInProgressHint(cfg.meta.bootstrapped);
+  const hints = [
+    ...(inProgress !== undefined ? [inProgress] : []),
+    ...buildGateHints(cfg, changed, failedStage),
+  ];
   if (hints.length > 0) {
     result.hints = hints;
   }

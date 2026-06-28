@@ -255,6 +255,17 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
       }`,
     );
   }
+  // A per-artifact failure inside the compile is isolated, not thrown (ADR 0065):
+  // the per-job detail was already warned by compileGuidelines, so surface only an
+  // aggregate here and treat the compile as incomplete.
+  const guidelinesErrors = guidelines?.errors ?? [];
+  if (guidelinesErrors.length > 0) {
+    log.warn(
+      `guideline refresh did not fully complete: ${guidelinesErrors.length} artifact(s) failed.`,
+    );
+  }
+  const fullyCompiled = guidelines !== undefined &&
+    guidelinesErrors.length === 0;
 
   // 3. Stamp the new schema version into the config (now at its migrated path).
   // Re-resolve in case the migration moved it, falling back to the original path.
@@ -286,7 +297,8 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
         },
         agents_written: guidelines?.agentsWritten ?? [],
         mcp_wired: guidelines?.mcpWired ?? [],
-        guidelines_compiled: guidelines !== undefined,
+        guidelines_compiled: fullyCompiled,
+        guidelines_errors: guidelinesErrors,
       },
     });
     return 0;
