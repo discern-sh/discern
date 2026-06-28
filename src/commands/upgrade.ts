@@ -264,7 +264,8 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
       `guideline refresh did not fully complete: ${guidelinesErrors.length} artifact(s) failed.`,
     );
   }
-  const fullyCompiled = guidelines !== undefined && guidelinesErrors.length === 0;
+  const fullyCompiled = guidelines !== undefined &&
+    guidelinesErrors.length === 0;
 
   // 3. Stamp the new schema version into the config (now at its migrated path).
   // Re-resolve in case the migration moved it, falling back to the original path.

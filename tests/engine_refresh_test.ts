@@ -40,8 +40,14 @@ Deno.test("engine refresh: a skills-dir failure is isolated — agent files and 
     // agent-file compile or the MCP wiring (the bug Codex reported).
     assert(res.data.agents_written.includes("CLAUDE.md"), r.output);
     assert(res.data.mcp_wired.length > 0, r.output);
-    assert(await exists(join(dir, "CLAUDE.md")), "CLAUDE.md must still be written");
-    assert(await exists(join(dir, ".mcp.json")), ".mcp.json must still be wired");
+    assert(
+      await exists(join(dir, "CLAUDE.md")),
+      "CLAUDE.md must still be written",
+    );
+    assert(
+      await exists(join(dir, ".mcp.json")),
+      ".mcp.json must still be wired",
+    );
   });
 });
 
