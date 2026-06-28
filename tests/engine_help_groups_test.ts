@@ -25,7 +25,7 @@ import {
   groupedCommandNames,
   operatorHelp,
 } from "../src/cli_help.ts";
-import { FEATURES } from "../src/shared/features.ts";
+import { type Feature, FEATURES } from "../src/shared/features.ts";
 
 const sorted = (xs: Iterable<string>): string[] => [...xs].sort();
 
@@ -97,5 +97,28 @@ Deno.test("operator help renders the groups in order, daily loop first", () => {
   assert(
     help.includes("discern <command> --help"),
     "the per-command --help footer is missing",
+  );
+});
+
+Deno.test("a disabled feature drops its whole group, never an empty heading", () => {
+  // worktrees off → start/integrate/graduate/worktree(-name) are never registered,
+  // so the "Worktree lifecycle" group must vanish entirely rather than render an
+  // empty heading, and no command may fall into the defensive "Other" bucket.
+  const enabled = new Set<Feature>(["ratchets", "guidance", "skills", "docs"]);
+  const help = plain(
+    operatorHelp(buildCli(enabled, false) as unknown as Command),
+  );
+  assert(
+    !help.includes("Worktree lifecycle"),
+    "an empty group heading leaked into the help when its feature was off",
+  );
+  assert(
+    !help.includes("Other"),
+    "a command fell into the defensive Other bucket",
+  );
+  // The groups whose features are on still render.
+  assert(
+    help.includes("Daily loop") && help.includes("Setup & maintenance"),
+    "an active group went missing",
   );
 });
