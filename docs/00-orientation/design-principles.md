@@ -165,11 +165,12 @@ attributes failure to a single capability or check
 ## 6. Self-host the harness — the repo runs on the engine it ships
 
 discern runs on itself. This repo's gate _is_ the binary's own engine, invoked
-straight from source via `deno task dev finish`. Because the engine lives in one
-place — compiled into the binary, never copied into a project — there is no
-second committed copy that could drift, and so nothing to keep in sync. The gate
-that ships is the gate the maintainer runs; there is no separate "dev" path that
-could diverge from what users get.
+straight from source via `discern finish` (where `discern` runs the engine of
+the checkout you are in). Because the engine lives in one place — compiled into
+the binary, never copied into a project — there is no second committed copy that
+could drift, and so nothing to keep in sync. The gate that ships is the gate the
+maintainer runs; there is no separate "dev" path that could diverge from what
+users get.
 
 **Why it matters.** The strongest test of a portable harness is that it holds
 its own author to the same discipline. Self-hosting collapses the gap between
@@ -178,8 +179,8 @@ breaks our own build the same day, not a user's repo months later. Collapsing
 the engine to a single home goes one better: a whole class of drift becomes
 impossible by construction, rather than something a gate must _detect_.
 
-**How it shows up.** The `deno.json` `gate` task is `deno task dev finish`, so
-the repo gates itself with the same engine it ships; there is no `selfcheck` or
+**How it shows up.** The `deno.json` `gate` task runs `discern finish`, so the
+repo gates itself with the same engine it ships; there is no `selfcheck` or
 `shellcheck` Check, because there is no installed copy to compare against
 ([ADR 0019](../_adr/0019-single-binary-ts-engine.md), superseding
 [ADR 0010](../_adr/0010-self-host-the-harness.md)). The `tests/engine_*` suites

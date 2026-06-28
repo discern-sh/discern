@@ -79,10 +79,9 @@ toward the number, so installer and engine share one coverage figure.
 
 That metric feeds a ratchet — `[ratchets.coverage]` in
 [discern.toml](../../discern.toml) — a floor that only ever rises. The
-`ratchets` verb checks it (in this repo, `deno task dev ratchets`); it is slow,
-so it is **not** part of the `finish` gate, and CI enforces it on every pull
-request. To raise the floor: add tests, then bump `limit` to just below the
-newly measured value.
+`discern ratchets` verb checks it; it is slow, so it is **not** part of the
+`finish` gate, and CI enforces it on every pull request. To raise the floor: add
+tests, then bump `limit` to just below the newly measured value.
 
 Some code is **intentionally** uncovered: the interactive TTY paths — the prompt
 helpers ([src/lib/prompts.ts](../../src/lib/prompts.ts), e.g. `add-preset`'s

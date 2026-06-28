@@ -12,8 +12,8 @@ worktree workflow, ratchets, the guideline compiler) compiled in as TypeScript
 under [`src/engine/`](../../src/engine/). A project never has a committed copy
 of the engine — it lives in the binary
 ([ADR 0019](../_adr/0019-single-binary-ts-engine.md)). This repo self-hosts by
-running its own engine from source (`deno task dev finish`), so there is **no**
-second copy to keep in sync and nothing that can drift.
+running its own engine from source (`discern finish`), so there is **no** second
+copy to keep in sync and nothing that can drift.
 
 What an install does lay down is anchored by **one root file, `discern.toml`**
 ([ADR 0020](../_adr/0020-dissolve-discern-dir.md)). Files split into **two
@@ -76,8 +76,7 @@ out of search. There is no simple built-in equivalent for the colour-coding.
 Don't hand-edit the generated agent files: `AGENTS.md`, `CLAUDE.md`, and
 `GEMINI.md` (all gitignored build artifacts — ADR 0034) are compiled from
 discern's built-in guidance plus your [`guidance.md`](../../guidance.md) by
-`discern refresh`. Edit your guidance source and recompile — in this repo, with
-`deno task dev refresh`.
+`discern refresh`. Edit your guidance source and recompile.
 
 ## Working alongside the agents
 
@@ -89,11 +88,10 @@ discern's built-in guidance plus your [`guidance.md`](../../guidance.md) by
   needed, tears the worktree down, and checks the branch out in the main repo —
   or, with `--to trunk`, fast-forwards your trunk to it and deletes the merged
   branch.
-- Drive the gate yourself any time. In this repo (self-hosting from source):
-  `deno task dev finish` (the full gate, also `deno task gate`),
-  `deno task dev prepare` (fast: fixers + checks), and `deno task dev doctor`
-  (health check). In a project with the binary on `PATH`, these are
-  `discern finish` / `discern prepare` / `discern doctor`.
+- Drive the gate yourself any time: `discern finish` (the full gate, also
+  `deno task gate`), `discern prepare` (fast: fixers + checks), and
+  `discern doctor` (health check). In this repo the dev wrapper runs them
+  against the current checkout's own engine.
 
 ## Inspecting the MCP server
 

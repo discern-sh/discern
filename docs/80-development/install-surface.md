@@ -185,9 +185,10 @@ materialises.
 | [`.claude/settings.json`](../../templates/.claude/settings.json.tmpl) | yours (merged) | Adds a `Read(./.env)` deny and three hooks — `SessionStart` → `discern worktree:ensure`, `WorktreeCreate` → `discern worktree:create`, `WorktreeRemove` → `discern worktree:remove` — preserving existing settings. (The worktree hooks are omitted when `[features].worktrees = false`.) |
 | [`.gitignore`](../../templates/.gitignore.fragment)                   | yours (merged) | Idempotently ignores the compiled agent files `/AGENTS.md`, `/CLAUDE.md`, `/GEMINI.md` (all build artifacts — ADR 0034) and `/.claude/*` (except the tracked settings files).                                                                                                             |
 
-> In this repo (which self-hosts from source), the same `.claude/settings.json`
-> hooks call `deno task dev worktree:*` instead of `discern worktree:*` — the
-> distributed
+> In this repo (which self-hosts from source), these hooks call
+> `deno task dev worktree:*` rather than `discern worktree:*`: they run
+> automatically with no setup, so they go through Deno directly instead of the
+> optional local-dev `discern` wrapper. The distributed
 > [`templates/.claude/settings.json.tmpl`](../../templates/.claude/settings.json.tmpl)
 > uses the on-`PATH` `discern` binary.
 

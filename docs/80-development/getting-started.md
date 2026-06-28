@@ -5,24 +5,23 @@ _Cloning, setting up, and running the project locally for the first time._
 This is the path from a fresh clone to a running project and a first green gate.
 The harness commands are the same on every stack; the stack-specific steps for
 discern itself (one self-contained Deno binary — installer and TypeScript engine
-in one) are below. This repo self-hosts from source, so the harness verbs run as
-`deno task dev <verb>`; a project with the binary on `PATH` runs
-`discern <verb>` instead.
+in one) are below. This repo self-hosts from source: the harness verbs run as
+`discern <verb>` — the same command an end user runs, except here the local-dev
+wrapper (`scripts/discern`) points it at the current checkout's own engine.
 
 ## The harness loop
 
 These work the same regardless of language or framework (shown here as
-`deno task dev …`, the from-source form this repo uses):
+`discern <verb>`):
 
-- **`deno task dev worktree`** sets up an isolated checkout for a change (see
-  the worktree note in the project guidelines).
-- **`deno task dev prepare`** is the fast inner loop — applies the fix-stage
-  work, then the check-stage work; no build, no tests.
-- **`deno task dev finish`** is the full gate — (in a worktree) a fail-fast
-  merge check first, then fixers and build, then checks and tests in parallel,
-  then any scope `gate`s whose scope changed. Run it before declaring a change
-  done.
-- **`deno task dev doctor`** verifies the install is sound (hooks present, every
+- **`discern worktree`** sets up an isolated checkout for a change (see the
+  worktree note in the project guidelines).
+- **`discern prepare`** is the fast inner loop — applies the fix-stage work,
+  then the check-stage work; no build, no tests.
+- **`discern finish`** is the full gate — (in a worktree) a fail-fast merge
+  check first, then fixers and build, then checks and tests in parallel, then
+  any scope `gate`s whose scope changed. Run it before declaring a change done.
+- **`discern doctor`** verifies the install is sound (hooks present, every
   configured capability and check resolvable, git worktree support, required
   tools on PATH).
 
@@ -37,48 +36,44 @@ These work the same regardless of language or framework (shown here as
 - **`git`** — the engine's one hard runtime dependency (worktrees, the merge
   check, scope classification all shell out to it).
 
-**Run the tool from source.** Always go through `deno task dev` — never the
-`dist/` binaries while developing (they bundle a frozen `templates/` snapshot),
-and never put `--` before the subcommand (the parser would treat it as the end
-of flags and print help):
+**Run the tool from source.** Install the dev wrapper once with
+`deno task install-dev-cli`: it puts a `discern` on your `PATH` that runs the
+engine of whichever checkout you're in — a worktree runs its own in-progress
+engine — mirroring what an end user runs. Then drive everything with
+`discern <verb>`. Never use the `dist/` binaries while developing; they bundle a
+frozen `templates/` snapshot. (No wrapper yet? `deno task dev <verb>` runs the
+same thing straight from the clone — just don't put `--` before the subcommand,
+or the parser prints help.)
 
 ```sh
-deno task dev --help              # the command surface (installer + engine verbs)
-deno task dev init                # scaffold into the current dir (try a scratch dir)
+deno task install-dev-cli         # put `discern` on your PATH (once)
+discern --help                    # the command surface (installer + engine verbs)
+discern init                      # scaffold into the current dir (try a scratch dir)
 deno task build                   # compile per-platform binaries → dist/ (release only)
 ```
 
-**Optional: a `discern` you can call by name.** `deno task install-dev-cli`
-installs a thin `discern` wrapper (`scripts/discern`) onto your `PATH` that runs
-the engine of whichever checkout you are inside — so from a worktree,
-`discern <verb>` runs that worktree's in-progress engine, mirroring what an end
-user runs. It is pure convenience (never part of `setup`/`upgrade`);
-`deno task dev <verb>` is the always-works equivalent. Outside any checkout it
-falls back to `$DISCERN_HOME`.
-
 discern has no long-running app to start — it is one CLI binary with the engine
 compiled in. To _see it work_, either scaffold it into a temp directory with
-`deno task dev init` and drive `discern` (or `deno task dev`) there, or just run
-the gate in this repo.
+`discern init` and drive `discern` there, or just run the gate in this repo.
 
 **Your first green gate.** From the repo root:
 
 ```sh
-deno task dev finish     # or: deno task gate
+discern finish     # or: deno task gate
 ```
 
 That runs `deno fmt` (fix), then `deno lint` + `deno check src/main.ts` (check
 stage) in parallel with `deno task test` (test). There is no `build` capability
 (the release build is not part of the gate). A clean checkout should pass; if it
-does not, `deno task dev doctor` and the
-[finish-gate gotchas](finish-gate-gotchas.md) explain what to fix.
+does not, `discern doctor` and the [finish-gate gotchas](finish-gate-gotchas.md)
+explain what to fix.
 
 **Working in this repo.** discern self-hosts the worktree workflow
 ([ADR 0011](../_adr/0011-adopt-worktree-workflow.md), as amended by
 [ADR 0019](../_adr/0019-single-binary-ts-engine.md)): the
 `.claude/settings.json` hooks provision an isolated worktree per session and
 tear it down afterward (here they call `deno task dev worktree:*`), and
-`deno task dev graduate` graduates a finished branch back into the main
-checkout. Editing rules (yours vs the binary's) live in
+`discern graduate` graduates a finished branch back into the main checkout.
+Editing rules (yours vs the binary's) live in
 [code-conventions.md](code-conventions.md); IDE colour/exclude setup is in
 [for-humans.md](for-humans.md).

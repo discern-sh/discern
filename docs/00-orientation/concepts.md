@@ -140,9 +140,9 @@ they are the binary's), recompiles the guidance, and re-stamps the **Schema
 version** in `discern.toml`. Your seed files are left untouched. There is
 nothing to hash and nothing to drift: the engine is in the binary, not on disk.
 This repo proves the loop by running its _own_ engine straight from source —
-`deno task dev
-finish` — so the gate the maintainer runs is the gate that ships,
-with no second copy to keep in sync.
+`discern finish`, where `discern` runs the engine of the checkout you are in —
+so the gate the maintainer runs is the gate that ships, with no second copy to
+keep in sync.
 
 Alongside the runtime path, guidance flows author-once → compile-everywhere:
 discern's built-in harness guidance plus your **Guidance source** (`guidance.md`

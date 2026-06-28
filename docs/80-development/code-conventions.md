@@ -14,7 +14,7 @@ the written rule and the enforced rule must never disagree.
 The fix- and check-stage work in [`discern.toml`](../../discern.toml) is the
 mechanical rules: `format`, `lint`, and `typecheck` are known **Capabilities**
 (the engine derives their Stage from the name). To satisfy all of them at once,
-run `discern prepare` (in this repo, `deno task dev prepare`).
+run `discern prepare`.
 
 | Name        | Kind       | Stage | Command                  | What it checks / how to satisfy                                                                                                                                                                                 |
 | ----------- | ---------- | ----- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -47,13 +47,13 @@ The conventions the tooling cannot fully enforce, but the project still holds:
 - **Never hand-edit the generated agent files.** `AGENTS.md`, `CLAUDE.md`, and
   `GEMINI.md` (all gitignored build artifacts — ADR 0034) are compiled from
   discern's built-in guidance plus your `[guidance].sources` by
-  `discern refresh` (in this repo, `deno task dev refresh`); edit the guidance
-  source and recompile. They carry no banner — `deno task dev finish` fails if
-  one drifts from its source, so a stale or hand-edited file is caught, not
-  silently overwritten.
-- **Run from source, never `dist/`.** Use `deno task dev <cmd>`; the `dist/`
-  binaries bundle a frozen `templates/` snapshot. Don't put `--` before a
-  subcommand.
+  `discern refresh`; edit the guidance source and recompile. They carry no
+  banner — `discern finish` fails if one drifts from its source, so a stale or
+  hand-edited file is caught, not silently overwritten.
+- **Run from source, never `dist/`.** `discern <cmd>` runs the engine of
+  whichever checkout you are in (`deno task dev <cmd>` is the zero-setup
+  equivalent); the `dist/` binaries bundle a frozen `templates/` snapshot. Don't
+  put `--` before a subcommand.
 - **TypeScript module shape.** Every module opens with a JSDoc block stating its
   role (see any file under `src/`). [`main.ts`](../../src/main.ts) is routing
   only; command logic lives in `src/commands/`, the engine in `src/engine/`,
