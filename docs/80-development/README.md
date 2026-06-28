@@ -6,9 +6,10 @@ This subtree documents the developer experience: getting set up locally, the
 testing approach, the conventions the tooling enforces, and where to look when
 the quality gate fails in a way the message did not explain.
 
-The end-to-end loop is short and the same on every stack the harness runs on. In
-this repo it runs from source as `deno task dev <verb>`; a project with the
-`discern` binary on `PATH` runs `discern <verb>`:
+The end-to-end loop is short and the same on every stack the harness runs on.
+You drive it with `discern <verb>` — in this repo the local-dev wrapper runs
+that against the current checkout's own engine (the same command an end user
+runs):
 
 - `worktree` provisions an isolated checkout for a change (see the worktree note
   in the project guidelines).

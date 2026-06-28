@@ -48,11 +48,11 @@ The rules:
 
 - **The engine and installer are TypeScript under `src/**` — edit them in
   place.** There is no second copy, no hash tracking, no drift to detect. The
-  gate (`deno task dev finish`) type-checks and tests them.
+  gate (`discern finish`) type-checks and tests them.
 - **`templates/**` is the distribution surface** — edit the seed/skill/guidance
   _source_ here (keep it generic; see below). To reflect a bundled-skill or
   built-in-guidance edit in this repo's own `.claude/skills/` and `AGENTS.md`,
-  re-run `deno task dev refresh` (or `upgrade`).
+  re-run `discern refresh` (or `upgrade`).
 - **`CLAUDE.md` / `AGENTS.md` are generated** from discern's built-in guidance
   (`templates/guidance/*`) plus this repo's `guidance.md` — never hand-edit
   them. Edit `guidance.md` and recompile.
@@ -62,21 +62,21 @@ The rules:
 
 **Agent guidance is yours.** Customise it by editing `guidance.md` (this file) —
 never `templates/`, which only holds the generic built-in guidance _other_
-projects receive. Then run `deno task dev refresh` to recompile the agent files
+projects receive. Then run `discern refresh` to recompile the agent files
 (`AGENTS.md`/`CLAUDE.md`/`GEMINI.md`) — gitignored build artifacts you never
-hand-edit (ADR 0034); `deno task dev finish` fails if one drifts from its
+hand-edit (ADR 0034); `discern finish` fails if one drifts from its
 source. Keep the prose provider-agnostic: one source compiles to every agent.
 Nothing overwrites your `guidance.md`.
 
-| To change…                                      | Edit…                                     | Then run                                 |
-| ----------------------------------------------- | ----------------------------------------- | ---------------------------------------- |
-| the gate / the engine / the dispatcher / a verb | `src/engine/**`, `src/main.ts` (in place) | `deno task dev finish`                   |
-| an installer command                            | `src/commands/**` (in place)              | `deno task dev finish`                   |
-| a bundled skill                                 | `templates/skills/…`                      | `deno task dev refresh` (re-materialize) |
-| the built-in harness guidance                   | `templates/guidance/*.md`                 | `deno task dev refresh`                  |
-| a seed file users receive                       | `templates/…`                             | —                                        |
-| this guidance (yours)                           | `guidance.md`                             | `deno task dev refresh`                  |
-| project config (yours)                          | `discern.toml`, `deno.json`               | —                                        |
+| To change…                                      | Edit…                                     | Then run                           |
+| ----------------------------------------------- | ----------------------------------------- | ---------------------------------- |
+| the gate / the engine / the dispatcher / a verb | `src/engine/**`, `src/main.ts` (in place) | `discern finish`                   |
+| an installer command                            | `src/commands/**` (in place)              | `discern finish`                   |
+| a bundled skill                                 | `templates/skills/…`                      | `discern refresh` (re-materialize) |
+| the built-in harness guidance                   | `templates/guidance/*.md`                 | `discern refresh`                  |
+| a seed file users receive                       | `templates/…`                             | —                                  |
+| this guidance (yours)                           | `guidance.md`                             | `discern refresh`                  |
+| project config (yours)                          | `discern.toml`, `deno.json`               | —                                  |
 
 ## Keep the shipped surface generic
 
@@ -96,11 +96,11 @@ applied while editing, is the safeguard.
 
 ## The gate
 
-- `deno task dev finish` — full gate (run from the repo root): `deno fmt` (fix)
+- `discern finish` — full gate (run from the repo root): `deno fmt` (fix)
   → `deno lint` + `deno check src/main.ts` (check) ∥ `deno task test` (test).
-  This is the repo running its **own** TS engine (`deno.json`'s `gate` task), so
-  a regression in the engine surfaces here.
-- `deno task dev prepare` — fast inner loop: fix + check, no tests.
+  This is the repo running its **own** TS engine, so a regression in the engine
+  surfaces here.
+- `discern prepare` — fast inner loop: fix + check, no tests.
 - There is no `selfcheck`/`selfsync`: with no committed engine copy there is
   nothing to drift. The generated agent files (`AGENTS.md` included) are
   gitignored build artifacts (ADR 0034); `finish`'s own guidance-currency check
@@ -108,23 +108,29 @@ applied while editing, is the safeguard.
 
 ## Running discern from source
 
-Always `deno task dev <cmd> --json` (or `deno run -A src/main.ts <cmd>`). Note:
-do **not** insert `--` before the subcommand (`deno task dev -- upgrade` makes
-the CLI parser see `--` and print help). **Never** use the `dist/` binaries
-while developing — they bundle a frozen snapshot of `templates/` and the engine
-compiled at build time. The bare `discern` on your PATH — and the MCP
-`discern_*` tools it backs — is **not** your worktree's source either: on this
-setup it resolves to the **main** checkout (`discern-next` tracks the current
-worktree instead), so the MCP tools can report false drift/staleness for
-branch-only changes (e.g. a bundled skill or guidance edit not yet on `main`).
-Trust `deno task dev finish` from source over the MCP `discern_*` tools whenever
-they disagree.
+Use **`discern <cmd> --json`** — the local-dev wrapper (`scripts/discern`). It
+walks up from your cwd and runs the engine of whichever checkout you're in, so
+from a worktree it runs _that worktree's_ in-progress engine. It's the closest
+thing to what an end user runs, so the generic `discern` guidance above applies
+verbatim; outside any checkout it falls back to `$DISCERN_HOME`.
 
-**All `deno task dev <cmd>` commands support discern's own `--json` flag**.
-Always use this to ensure you receive optimised machine-readable output. The
-flag is passed to the underlying `discern <cmd>` just like any end-user would
-call it, so the full range of discern's capabilities are fully available to you
-too.
+`deno task dev <cmd> --json` is a fallback — reach for it only if you
+specifically need to. (If you do: don't put `--` before the subcommand —
+`deno task dev -- upgrade` makes the CLI parser print help, a `deno task` quirk
+the wrapper doesn't share.)
+
+**Never** use the `dist/` binaries while developing — they bundle a frozen
+snapshot of `templates/` and the engine compiled at build time.
+
+The MCP `discern_*` tools are a separately-spawned, long-lived server that can
+still be running the **main** checkout's engine, not your worktree's — so for
+branch-only changes (a bundled skill, guidance, or engine edit not yet on
+`main`) they can report false drift/staleness. Trust the engine run from source
+— `discern finish` — over the MCP `discern_*` tools whenever they disagree.
+
+Everything supports discern's own **`--json`** flag; always pass it for optimised
+machine-readable output. It reaches the underlying `discern <cmd>` exactly as an
+end user would, so discern's full range is open to you too.
 
 ## Testing
 
@@ -132,7 +138,7 @@ too.
 `tests/engine_*` suite scaffolds the seed surface into temp dirs and drives the
 TS engine via `deno task dev <verb>` (with a `discern` PATH shim so recipes and
 hooks resolve the binary like a real install). It is the behavioral parity
-oracle for the engine. If a bad engine change ever breaks `deno task dev finish`
+oracle for the engine. If a bad engine change ever breaks `discern finish`
 itself, run `deno task test` directly. Add engine coverage to
 `tests/engine_*_test.ts`; installer coverage to the other `tests/*_test.ts`.
 Iterate on one suite with `deno task test tests/<name>_test.ts` (or

@@ -25,9 +25,9 @@ gate has something useful to point at on day one.
 
 ### `main` advanced during your session
 
-**Symptom.** `deno task dev finish` stops almost immediately — before the
-fixers, build, checks, or tests run — with a message that your branch does not
-contain the latest `main`. It does **not** merge for you.
+**Symptom.** `discern finish` stops almost immediately — before the fixers,
+build, checks, or tests run — with a message that your branch does not contain
+the latest `main`. It does **not** merge for you.
 
 **Cause.** The merge check is the gate's **first** step, fail-fast (ADR 0049).
 While you were working, `main` moved, so your branch is behind it. Because a
@@ -36,10 +36,10 @@ changes the tree and discards whatever the gate computed against the
 pre-integration tree — the gate refuses up front rather than spending the slow
 fix/build/check/test on a result you are about to throw away.
 
-**Fix.** Commit your work, then run `deno task dev integrate` — it brings `main`
-in and re-materializes the agent files + skills in one step. (On a conflict it
+**Fix.** Commit your work, then run `discern integrate` — it brings `main` in
+and re-materializes the agent files + skills in one step. (On a conflict it
 aborts cleanly and names the files. Resolve them with `git merge main`, commit
-the merge, then carry on.) Then run `deno task dev finish` again to verify the
+the merge, then carry on.) Then run `discern finish` again to verify the
 correct, merged tree. (In the main checkout, not a worktree, this check is a
 no-op — there is nothing to integrate into.)
 
@@ -68,7 +68,7 @@ already-committed file does.
 ### A check passes alone but fails in the full run
 
 **Symptom.** You run one test (or linter) over the files you changed and it is
-green, but the same step goes red inside `deno task dev finish`.
+green, but the same step goes red inside `discern finish`.
 
 **Cause.** Shared state or ordering. The gate runs the full suite — often in
 parallel — so tests that lean on a shared resource (a file, a database row, a
@@ -93,8 +93,8 @@ half-written while something read them).
 **Fix.** Rebuild from clean and re-run. The gate already orders `build` (and
 `fix`) **before** `check`/`test` so artifacts are complete before anything reads
 them — so if you are hitting this, you likely ran a step by hand out of order,
-or a partial build was left behind. Let `deno task dev finish` run the stages in
-order rather than invoking a check directly against stale output.
+or a partial build was left behind. Let `discern finish` run the stages in order
+rather than invoking a check directly against stale output.
 
 ### A merge pulled in a new dependency
 
@@ -115,15 +115,15 @@ non-zero exit) rather than a clear "not found".
 
 ### A failure shows up as exit 0
 
-**Symptom.** You pipe `deno task dev finish` into `tee`, `tail`, or another
-command to capture its output, and it appears to succeed even though a stage
-clearly failed.
+**Symptom.** You pipe `discern finish` into `tee`, `tail`, or another command to
+capture its output, and it appears to succeed even though a stage clearly
+failed.
 
 **Cause.** A pipeline reports the **last** command's exit code, not the gate's.
 The real non-zero status is masked by the pipe.
 
-**Fix.** Run `deno task dev finish` bare so its true exit code surfaces. If you
-must capture output, use a method that preserves the original exit status (for
+**Fix.** Run `discern finish` bare so its true exit code surfaces. If you must
+capture output, use a method that preserves the original exit status (for
 example, redirect to a file rather than piping, or set your shell's `pipefail`
 option).
 
