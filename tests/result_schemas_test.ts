@@ -18,6 +18,7 @@ import type { z } from "@zod/zod";
 import { withTempDir } from "./helpers.ts";
 import {
   addWorktree,
+  git,
   gitInit,
   scaffoldEngine,
   writeConfig,
@@ -33,6 +34,8 @@ import {
 import {
   AuditOutputSchema,
   ChangedScopesOutputSchema,
+  type CouplingData,
+  CouplingOutputSchema,
   DatalessEnvelopeSchema,
   DocsOutputSchema,
   DoctorOutputSchema,
@@ -51,6 +54,7 @@ import { testResult } from "../src/engine/gate/test.ts";
 import { ratchetsResult } from "../src/engine/gate/ratchets.ts";
 import { doctorResult } from "../src/commands/doctor.ts";
 import { changedScopesResult } from "../src/engine/scopes/changed.ts";
+import { couplingResult } from "../src/engine/coupling/coupling.ts";
 import { statusResult } from "../src/engine/status/status.ts";
 import { auditResult } from "../src/engine/audit/audit.ts";
 import { docsResult, helpResult } from "../src/commands/docs.ts";
@@ -369,6 +373,64 @@ Deno.test("changed-scopes result is faithful", async () => {
       ChangedScopesOutputSchema,
       await changedScopesResult(dir),
       "changed-scopes",
+    );
+  });
+});
+
+Deno.test("coupling result is faithful (diff-aware, query, and a real partner edge)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    // Low thresholds so a small deliberate history surfaces a partner — exercising the
+    // partner sub-schema, not just the empty-list envelope.
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[coupling]",
+        "min_support = 0.1",
+        "min_confidence = 0.1",
+        "",
+      ].join("\n"),
+    );
+    // Absorb the config edit so the coupling commits below are clean 2-file baskets.
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "config", "--no-gpg-sign");
+    const commit = async (
+      files: Record<string, string>,
+      msg: string,
+    ): Promise<void> => {
+      for (const [f, c] of Object.entries(files)) {
+        await Deno.writeTextFile(join(dir, f), c);
+      }
+      await git(dir, "add", "-A");
+      await git(dir, "commit", "-q", "-m", msg, "--no-gpg-sign");
+    };
+    // a.ts ↔ b.ts couple repeatedly, against a little variety so their lift exceeds 1.
+    await commit({ "a.ts": "1", "b.ts": "1" }, "ab1");
+    await commit({ "a.ts": "2", "b.ts": "2" }, "ab2");
+    await commit({ "a.ts": "3", "b.ts": "3" }, "ab3");
+    await commit({ "a.ts": "4", "c.ts": "1" }, "ac");
+    await commit({ "b.ts": "4", "d.ts": "1" }, "bd");
+    await commit({ "c.ts": "2", "d.ts": "2" }, "cd");
+
+    // query mode names b.ts as a partner of a.ts — a non-empty partner list.
+    const query = await couplingResult(dir, { path: "a.ts" });
+    expectValid(CouplingOutputSchema, query, "coupling query");
+    assert(
+      (query.data as CouplingData).partners.some((p) => p.path === "b.ts"),
+      "query mode should surface b.ts as a partner of a.ts",
+    );
+
+    // diff-aware mode: stage a.ts only → b.ts surfaces as a missing partner.
+    await Deno.writeTextFile(join(dir, "a.ts"), "5");
+    const diff = await couplingResult(dir);
+    expectValid(CouplingOutputSchema, diff, "coupling diff");
+    assert(
+      (diff.data as CouplingData).mode === "diff",
+      "no-path mode is diff-aware",
     );
   });
 });

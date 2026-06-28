@@ -37,6 +37,7 @@ import {
 } from "./fix_drift.ts";
 import { renderFailureTail } from "./failure_tail.ts";
 import { changedScopes, PREVIEWABLE_MARKER } from "../scopes/changed.ts";
+import { couplingGateHints } from "../coupling/coupling.ts";
 import { colorEnabled, makeOut, type Out, outSink } from "../output.ts";
 import { assertMainMerged } from "../worktree/git.ts";
 import {
@@ -317,9 +318,20 @@ async function runGate(
   // Pre-setup, lead with the "setup unfinished" advisory (ADR 0065): finish runs
   // during setup, so a green gate here must not read as "done".
   const inProgress = setupInProgressHint(cfg.meta.bootstrapped);
+  // The co-change advisory (ADR 0069), behind [coupling].in_gate (default off) — at the
+  // TAIL, with strand detection, because it READS THE DIFF (dependency-bearing), never a
+  // fail-fast precondition. Only on a GREEN, bootstrapped run: a half-set-up install
+  // behaves as if coupling were off (its in-session setup must stay uncluttered), and a
+  // failed gate is not the moment for an advisory. Best-effort and never blocking — it
+  // touches only `hints`, so it can't move `ok` / the exit code / `failed_stage`.
+  const couplingHints = failedStage === null && cfg.meta.bootstrapped &&
+      isFeatureEnabled(cfg, "coupling") && cfg.coupling.in_gate
+    ? await couplingGateHints(root)
+    : [];
   const hints = [
     ...(inProgress !== undefined ? [inProgress] : []),
     ...buildGateHints(cfg, changed, failedStage),
+    ...couplingHints,
   ];
   if (hints.length > 0) {
     result.hints = hints;

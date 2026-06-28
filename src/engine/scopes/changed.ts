@@ -67,9 +67,11 @@ export function parsePorcelainPaths(stdout: string): string[] {
 /**
  * Collect the branch's changed paths (committed since the merge-base with main,
  * plus the working tree). Returns null to signal fail-open (git unavailable or
- * no diff base).
+ * no diff base). Exported so the co-change advisory ({@link
+ * import("../coupling/coupling.ts").couplingResult}) reads the SAME current change
+ * set the scope classifier does, rather than a parallel git query.
  */
-async function collectPaths(
+export async function collectPaths(
   root: string,
   mainBranch: string,
 ): Promise<string[] | null> {
@@ -104,6 +106,25 @@ async function collectPaths(
 /** Does `path` match any glob in `paths`? */
 function pathMatchesGlobs(paths: string[], path: string): boolean {
   return paths.some((pat) => pathMatchesPattern(path, pat));
+}
+
+/**
+ * Whether `path` is a NEUTRAL path — one a change to needs no gate, and that must
+ * not register as evidence: it matches a `neutral`-flagged scope (docs, agent
+ * guidance, generated/materialized artifacts), or it is a root-level `*.md`. The
+ * single definition of "neutral path", shared by {@link changedScopes} (which drops
+ * these before classifying) and the co-change miner (which drops them before
+ * building baskets, so `AGENTS.md`, `dist/`, lockfiles, and materialized skills
+ * never create coupling edges).
+ */
+export function isNeutralPath(config: DiscernConfig, path: string): boolean {
+  const scopes = config.scopes;
+  for (const s of Object.keys(scopes)) {
+    if (scopes[s]?.neutral && pathMatchesGlobs(scopes[s]?.paths ?? [], path)) {
+      return true;
+    }
+  }
+  return !path.includes("/") && path.endsWith(".md");
 }
 
 /**
@@ -148,7 +169,6 @@ export async function changedScopes(
   const config = cfg ?? await loadConfig(root);
   const scopes = config.scopes;
   const names = Object.keys(scopes);
-  const neutralScopes = names.filter((s) => scopes[s]?.neutral);
   const fireScopes = names.filter((s) => !scopes[s]?.neutral);
 
   const mainBranch = Deno.env.get("MAIN_BRANCH") || config.project.main_branch;
@@ -158,21 +178,11 @@ export async function changedScopes(
     return [...SCOPE_MARKERS, ...fireScopes];
   }
 
-  // A path is neutral if it matches a neutral scope, or is a root-level *.md.
-  const isNeutral = (path: string): boolean => {
-    for (const s of neutralScopes) {
-      if (pathMatchesGlobs(scopes[s]?.paths ?? [], path)) {
-        return true;
-      }
-    }
-    return !path.includes("/") && path.endsWith(".md");
-  };
-
   // The real (non-neutral) changed paths: any one is a gated `code` change, and the
   // fire-scopes they fall in (via the shared matcher) decide the `previewable` marker.
   const realPaths = paths
     .map((raw) => raw.trim().replace(/^\//, ""))
-    .filter((path) => path !== "" && !isNeutral(path));
+    .filter((path) => path !== "" && !isNeutralPath(config, path));
   const fired = scopesForPaths(realPaths, config);
 
   const out: string[] = [];

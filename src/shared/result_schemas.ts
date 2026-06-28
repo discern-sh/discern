@@ -149,6 +149,41 @@ export const ChangedScopesDataSchema = z.strictObject({
 });
 export type ChangedScopesData = z.infer<typeof ChangedScopesDataSchema>;
 
+/** How a `coupling` query is rooted: `diff` (surface what co-changes with the current
+ * change set but is missing from it) or `query` (one file's top co-change partners).
+ * The SSOT for the mode vocabulary — the schema enum below derives from it and the
+ * engine core types its `mode` value as {@link CouplingMode}, so the wire enum and the
+ * engine never re-list the two modes out of step. Defined here (not the engine) because
+ * this `shared/` module must not import `src/engine/**`. */
+export const COUPLING_MODES = ["diff", "query"] as const;
+/** One `coupling` mode ({@link COUPLING_MODES}). */
+export type CouplingMode = (typeof COUPLING_MODES)[number];
+
+/** One co-change partner: the file `path` that co-changed with `from` across the mined
+ * git history, carried with the evidence behind the edge — `support` (the recency-decayed, size-
+ * weighted co-occurrence the `min_support` floor is tested against), `confidence` (the
+ * fraction of `from`'s weighted history that also touched `path`, 0–1), and `lift` (how
+ * much more than chance the two co-occur, always > 1 for a kept edge). */
+const couplingPartnerSchema = z.strictObject({
+  path: z.string(),
+  from: z.string(),
+  support: z.number(),
+  confidence: z.number(),
+  lift: z.number(),
+});
+
+/** `coupling` — the co-change partners mined from git history. `mode` picks the shape:
+ * `diff` carries the `changed` set considered and the partners MISSING from it; `query`
+ * carries the queried `target` and its partners. `partners` is the (capped) ranked list,
+ * each entry an edge with its evidence. The list is advisory and NOT exhaustive. */
+export const CouplingDataSchema = z.strictObject({
+  mode: z.enum(COUPLING_MODES),
+  changed: z.array(z.string()).optional(),
+  target: z.string().optional(),
+  partners: z.array(couplingPartnerSchema),
+});
+export type CouplingData = z.infer<typeof CouplingDataSchema>;
+
 /** `start` — the worktree it just created (or, in a dry-run, would create). `path`
  * is the load-bearing field: the new worktree's absolute location, which the caller
  * must re-root into (the MCP server cannot relocate the session for the agent). */
@@ -467,6 +502,12 @@ export const DoctorOutputSchema = z.strictObject({
 export const ChangedScopesOutputSchema = z.strictObject({
   ...ENVELOPE_BASE_FIELDS,
   data: ChangedScopesDataSchema.optional(),
+});
+
+/** `coupling` output: envelope + the co-change `data`. */
+export const CouplingOutputSchema = z.strictObject({
+  ...ENVELOPE_BASE_FIELDS,
+  data: CouplingDataSchema.optional(),
 });
 
 /** `start` output: envelope + the new-worktree `data`. */

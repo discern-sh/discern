@@ -46,6 +46,7 @@ import { runPrepare } from "./gate/prepare.ts";
 import { runTestCapability } from "./gate/test.ts";
 import { runRatchets } from "./gate/ratchets.ts";
 import { runChangedScopes } from "./scopes/changed.ts";
+import { runCoupling } from "./coupling/coupling.ts";
 import { runStatus } from "./status/status.ts";
 import { compileGuidelines } from "./guidelines.ts";
 import { guidanceAgents } from "./guidance_render.ts";
@@ -86,6 +87,7 @@ export const KNOWN_ENGINE_VERBS: ReadonlySet<string> = new Set([
   "ratchets",
   "refresh",
   "changed-scopes",
+  "coupling",
   "status",
   "graduate",
   "integrate",
@@ -110,6 +112,7 @@ export const ENGINE_RECIPE_NAMES: readonly string[] = [
   "ratchets",
   "refresh",
   "changed-scopes",
+  "coupling",
   "status",
   "graduate",
   "integrate",
@@ -418,6 +421,27 @@ export function attachEngineCommands(
         }),
       );
     });
+
+  if (enabled.has("coupling")) {
+    root
+      .command("coupling")
+      .description(
+        "Surface files that historically change together (advisory; never blocks).",
+      )
+      .option(
+        "--json",
+        "Emit a JSON DiscernResult (data.partners lists the co-change partners).",
+      )
+      .arguments("[path:string]")
+      .action(async (o, path) => {
+        Deno.exit(
+          await runCoupling(await requireRoot(), {
+            json: o.json ?? false,
+            ...(path !== undefined ? { path } : {}),
+          }),
+        );
+      });
+  }
 
   // `status` — read-only situation/orientation: what's true right now and what to
   // do next. Always on (like doctor); it resolves the root itself so the

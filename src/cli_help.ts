@@ -73,6 +73,7 @@ export const COMMAND_GROUPS: readonly CommandGroup[] = [
       "ratchets",
       "skills",
       "changed-scopes",
+      "coupling",
       "docs",
       "help",
       "mcp",

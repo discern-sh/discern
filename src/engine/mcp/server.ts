@@ -33,6 +33,7 @@ import { type DiscernResult, serializeResult } from "../../shared/result.ts";
 import {
   AuditOutputSchema,
   ChangedScopesOutputSchema,
+  CouplingOutputSchema,
   DatalessEnvelopeSchema,
   type DocsData,
   DocsOutputSchema,
@@ -67,6 +68,7 @@ import { ratchetsResult } from "../gate/ratchets.ts";
 import { auditResult } from "../audit/audit.ts";
 import { CATEGORY_NAMES } from "../audit/rules.ts";
 import { changedScopesResult } from "../scopes/changed.ts";
+import { couplingResult } from "../coupling/coupling.ts";
 import { statusResult } from "../status/status.ts";
 import { doctorResult } from "../../commands/doctor.ts";
 import { docsResult, helpResult } from "../../commands/docs.ts";
@@ -302,6 +304,32 @@ export const TOOLS: McpTool[] = [
       "classification that decides which scope gates the quality gate fires.",
     inputSchema: { ...PATH_PARAM },
     run: (root) => changedScopesResult(root),
+  }),
+  defineTool({
+    name: "discern_coupling",
+    title: "Co-change partners",
+    outputSchema: CouplingOutputSchema.shape,
+    annotations: READ_ONLY,
+    feature: "coupling",
+    description:
+      "Surface the files that historically change TOGETHER — a co-change advisory mined " +
+      "from git history — so a touched file's habitual sibling isn't forgotten. With no " +
+      "`file` it is DIFF-AWARE: it reports the files that co-change with your current " +
+      "change set but are MISSING from it (the primary surface). Pass `file` to query ONE " +
+      "file's top co-change partners (its blast radius). Each partner carries its evidence " +
+      "(confidence, support, lift) in data.partners, and the human-readable advisory rides " +
+      "in hints[]. Strictly ADVISORY: it points at where to look and NEVER blocks — you " +
+      "decide whether a strong coupling is an essential invariant to lock with a " +
+      "forcing-function, or incidental and ignorable. The list is not exhaustive.",
+    inputSchema: {
+      file: z.string().optional().describe(
+        "Query ONE file's co-change partners (its blast radius). Omit for the diff-aware " +
+          "view: what co-changes with your current change set but is missing from it.",
+      ),
+      ...PATH_PARAM,
+    },
+    run: (root, args) =>
+      couplingResult(root, args.file !== undefined ? { path: args.file } : {}),
   }),
   defineTool({
     name: "discern_status",

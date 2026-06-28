@@ -54,6 +54,7 @@ ratchets  = true   # never-loosen metric floors (the `ratchets` verb)
 guidance  = true   # compile agent files from built-in + your sources
 skills    = true   # bundled + authored skills, materialized into .claude/skills/
 docs      = true   # the `docs` browser over your docs/ tree
+coupling  = true   # the co-change advisory (the `coupling` verb)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -331,6 +332,46 @@ stream = false
 # tree-kills a cancelled job's whole process group, so its grandchildren don't
 # linger.
 fail_fast = true
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# [coupling] — co-change detection: a read-only advisory that mines git history
+# for files that change TOGETHER, so a touched file's habitual sibling isn't
+# forgotten. Read it on demand with `discern coupling` (no argument → what
+# co-changes with your current change set but is MISSING from it; `discern
+# coupling <path>` → one file's top partners — its blast radius). Purely
+# ADVISORY: it points at where to look and never blocks. You decide whether a
+# strong coupling is an essential invariant to lock with a forcing-function, or
+# incidental. (Inert when [features].coupling = false.)
+# ─────────────────────────────────────────────────────────────────────────────
+
+[coupling]
+# How many recent non-merge commits to mine for co-change evidence.
+window = 500
+
+# Keep a pair only when its recency-decayed, size-weighted co-occurrence reaches
+# this floor — a score, not a raw count (a focused 2-file commit contributes
+# ~0.5). The bar that stops a one-off pairing from surfacing as coupling.
+min_support = 1.0
+
+# Keep a directional pair A->B only when A's changes also touched B at least this
+# fraction of the time (0-1). lift > 1 is the real discriminator, so this is a
+# modest floor.
+min_confidence = 0.3
+
+# Skip a commit that touches more than this many (non-neutral) files: a sweeping
+# change (a mass format, a dependency bump) is near-zero evidence per pair, and
+# the 1/size weighting plus this hard cap keep it from manufacturing coupling.
+max_commit_size = 25
+
+# Recency half-life in days: a co-change this old counts half as much, so a
+# coupling a refactor already dissolved fades out of the advisory.
+half_life_days = 90
+
+# Append the diff-aware advisory to `discern finish` as hints — at the tail, and
+# it never affects the gate's pass/fail. Off by default; opt in to get the nudge
+# in the gate as well as on demand.
+in_gate = false
 
 
 # ─────────────────────────────────────────────────────────────────────────────
