@@ -300,7 +300,7 @@ run       = "deno task prose"
 
 # Guidance-footprint ratchet — the bundled built-in guidance (templates/guidance/
 # *.md) compiles into every end-user agent's context in every session, so its total
-# word count is a context-window budget we spend on their behalf. ~615 words today.
+# word count is a context-window budget we spend on their behalf. ~640 words today.
 # This ceiling exists to stop verbiage piling in without a thought for that budget:
 # the guidance is for steering the discern harness, NOT for explaining discern's
 # internals (those belong in this repo's guidance.md), nor mechanics an agent can
