@@ -150,12 +150,12 @@ is worse than silence.
 
 - **Keep tunable thresholds and auto-tune them per repo.** Rejected in favour of
   re-expressing the metric in scale-free units. Auto-tuning accepts the knobs
-  that were the problem; a self-normalizing metric — raw counts,
-  a unit-free significance test, a size fence derived from the repo's own
-  distribution — has nothing to tune, needs no calibration pass or stored state,
-  and is computed inline from the same single git-log mine, so it preserves
-  recompute-on-demand. The higher-leverage move was to delete the knobs, not to
-  set them automatically.
+  that were the problem; a self-normalizing metric — raw counts, a unit-free
+  significance test, a size fence derived from the repo's own distribution — has
+  nothing to tune, needs no calibration pass or stored state, and is computed
+  inline from the same single git-log mine, so it preserves recompute-on-demand.
+  The higher-leverage move was to delete the knobs, not to set them
+  automatically.
 - **Block the gate on a missing sibling.** Rejected: a heuristic false positive
   that fails the gate is intolerable and trains the agent to ignore the surface.
   The human/agent must judge essential-vs-incidental, which only an advisory
