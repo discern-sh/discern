@@ -1,5 +1,13 @@
 # ADR 0007: The adapter contract — a file overlay plus config fills
 
+> **Current-state note.** The "adapter" is now the **preset** — `add-preset`,
+> `preset.json`, `presets/` (renamed by
+> [ADR 0018](0018-vocabulary-consolidation.md)); read every "adapter" below as
+> "preset". The managed/`.new` overlay it builds on was removed with the single
+> binary ([ADR 0019](0019-single-binary-ts-engine.md)) — seed files are now
+> create-or-skip — but the mechanism (a directory overlay plus config fills
+> through the shared editor) still ships.
+
 **Status**: accepted; **amended by the 1.0 redesign** — see _Update (1.0)_
 below.
 

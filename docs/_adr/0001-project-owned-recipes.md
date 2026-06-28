@@ -1,5 +1,12 @@
 # ADR 0001: Project-owned recipes live in an unmanaged `.discern/recipes/`
 
+> **Current-state note.** Recipes now live at the config-pointed `[recipes].dir`
+> (default `recipes/`), not `.discern/recipes/`
+> ([ADR 0020](0020-dissolve-discern-dir.md)), and read config via
+> `discern config get` rather than sourcing a shell library
+> ([ADR 0019](0019-single-binary-ts-engine.md)). The
+> engine-wins-on-name-collision rule still stands.
+
 **Status**: accepted; **amended by [ADR 0019](0019-single-binary-ts-engine.md)**
 — see _Update (single-binary cutover)_ below.
 

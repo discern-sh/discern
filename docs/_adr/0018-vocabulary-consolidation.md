@@ -1,5 +1,9 @@
 # ADR 0018: Consolidate the harness vocabulary into four layers
 
+> **Current-state note.** Lands together with its sibling
+> [ADR 0017](0017-capabilities-model.md) (declare capabilities, derive the gate)
+> — one 3→4 schema migration, best read as a pair.
+
 **Status**: accepted
 
 ## Context

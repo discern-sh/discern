@@ -1,5 +1,13 @@
 # ADR 0027: Plan/apply as the engine's execution model
 
+> **Current-state note.** The plan vocabulary (`StepKind`, `EnginePlan`,
+> `renderPlan`, `planToJson`) was consolidated into `src/shared/result.ts`
+> alongside the result envelope
+> ([ADR 0028](0028-result-envelope-and-diagnostics.md)); the per-verb plan
+> builders live in `src/engine/gate/plan.ts`, `src/engine/gate/ratchet_plan.ts`,
+> and the worktree lifecycle. The decision stands; only the file locations moved
+> (the cited `engine/plan/*` paths below are updated to match).
+
 **Status**: accepted
 
 ## Context
@@ -51,12 +59,12 @@ We did **not** force-fit `fs_plan.ts`'s `PlanOp` (whose `kind` is
 `write`/`merge`/`append`). We modelled the _shape_ — a pure data description
 with a disposition + note, separate from both the executor and the renderer —
 but gave the engine its own op vocabulary in
-[`engine/plan/types.ts`](../../src/engine/plan/types.ts): a `StepKind` of `job`
-/ `scope-gate` / `merge-check` / `resource-create` / `resource-destroy` / `git`
-/ `setup-step` / `env` / `refresh` / `ratchet`, with a `StepDisposition` of
-`run` (will act) / `skip` (in the plan but won't act — a
-configured-but-unchanged scope gate) / `gate` (a read-only precondition that can
-_block_ but mutates nothing — the merge check).
+[`src/shared/result.ts`](../../src/shared/result.ts): a `StepKind` of `job` /
+`scope-gate` / `merge-check` / `resource-create` / `resource-destroy` / `git` /
+`setup-step` / `env` / `refresh` / `ratchet`, with a `StepDisposition` of `run`
+(will act) / `skip` (in the plan but won't act — a configured-but-unchanged
+scope gate) / `gate` (a read-only precondition that can _block_ but mutates
+nothing — the merge check).
 
 Each verb keeps its **own typed plan** (a `GatePlan` carries job groups with
 commands; a `GraduatePlan` carries the diagnosed git state) so its executor
@@ -90,7 +98,7 @@ out.
 
 ### One renderer
 
-[`engine/plan/view.ts`](../../src/engine/plan/view.ts) is the engine mirror of
+[`src/shared/result.ts`](../../src/shared/result.ts) is the engine mirror of
 `plan_view.ts`: `renderPlan` (→ human listing) and `planToJson` /
 `resultsToJson` (→ JSON). Every converted verb routes its `--dry-run` and
 `--json` through it. It writes through a minimal `RenderSink` that **both** the

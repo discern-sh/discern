@@ -1,5 +1,11 @@
 # ADR 0033: `status` — a read-only orientation verb with a location-aware default
 
+> **Current-state note.** The `discern start` follow-up referenced here as a
+> TODO has shipped ([ADR 0058](0058-start-verb-spawn-worktree-from-trunk.md)).
+> The location-based tool _visibility_ mentioned here was later retired
+> ([ADR 0062](0062-mcp-server-working-root.md)), though the defensive refusals
+> remain.
+
 **Status**: accepted; builds on
 [ADR 0028](0028-result-envelope-and-diagnostics.md) (the result envelope) and
 [ADR 0030](_superseded/0030-quiet-json-output.md) (quiet `--json`); relates to

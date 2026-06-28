@@ -1,5 +1,11 @@
 # ADR 0006: Opt-in streamed output and fail-fast cancellation for the parallel runner
 
+> **Current-state note.** The `[gate].stream` and `fail_fast` config flags
+> defined here still ship (`fail_fast` defaults on since 1.0). The POSIX-shell
+> runner and its `set -f`/signal machinery were replaced by the TypeScript job
+> runner ([ADR 0019](0019-single-binary-ts-engine.md)), and the slot/phase
+> framing by capabilities/checks ([ADR 0017](0017-capabilities-model.md)).
+
 **Status**: accepted; **amended by the 1.0 redesign** — see _Update (1.0)_
 below.
 

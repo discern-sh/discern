@@ -1,5 +1,14 @@
 # ADR 0011: Adopt the isolated-worktree workflow for discern's own development
 
+> **Current-state note.** The worktree workflow is still dogfooded, but the
+> mechanics moved on: the hooks parse their payload inside the binary rather
+> than shelling out to `bin/agent worktree*`
+> ([ADR 0040](0040-worktree-hooks-in-the-binary.md)), the `db`/`dev_server`
+> seams became per-worktree resources ([ADR 0025](0025-worktree-resources.md)),
+> placement is the configurable sibling default
+> ([ADR 0052](0052-worktree-sibling-placement.md)), and `.discern/` is dissolved
+> ([ADR 0020](0020-dissolve-discern-dir.md)).
+
 **Status**: accepted
 
 ## Context
