@@ -49,7 +49,11 @@ import { planToJson, renderPlan } from "../lib/plan_view.ts";
 import { compileGuidelines } from "../engine/guidelines.ts";
 import { doctorResult } from "./doctor.ts";
 import { finishResult } from "../engine/gate/finish.ts";
-import { type HooksIntegration, providersWithHooks } from "../lib/providers.ts";
+import {
+  type HooksIntegration,
+  providerFor,
+  providersWithHooks,
+} from "../lib/providers.ts";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { CONFIG_REL, findRoot } from "../shared/env.ts";
 import { emitResult } from "../shared/emit.ts";
@@ -255,6 +259,7 @@ async function scaffoldHarness(
   destDir: string,
   opts: SetupOptions,
   log: Logger,
+  freshInstall: boolean,
 ): Promise<{ outcome?: ScaffoldOutcome; stop?: number }> {
   let templatesDir: string;
   try {
@@ -329,6 +334,11 @@ async function scaffoldHarness(
 
   const changed = await applyPlan(plan);
 
+  // Seed guidance.md (the default [guidance].sources) BEFORE the first compile, and
+  // migrate any pre-existing, hand-authored agent file into it so the compile that
+  // follows can't destroy the user's instructions (ADR 0065).
+  const seeded = await seedGuidance(destDir, config, freshInstall);
+
   // Compile guidance, materialize skills, and wire each agent's MCP server — all
   // via the one refresh core (compileGuidelines). Pass setup's logger so the
   // narration follows its stream discipline (suppressed in --json). Non-fatal: a
@@ -344,16 +354,99 @@ async function scaffoldHarness(
   } catch (error) {
     log.warn(`could not compile agent guidance: ${errMsg(error)}`);
   }
+  if (seeded.migrated.length > 0) {
+    hints = [
+      `Preserved your existing ${
+        seeded.migrated.join(", ")
+      } by migrating it into guidance.md — fold it into the conventions and delete the import note.`,
+      ...hints,
+    ];
+  }
 
+  const written = changed.map((op) => op.targetRel);
+  if (seeded.guidanceLaid) {
+    written.push("guidance.md");
+  }
   return {
-    outcome: {
-      config,
-      written: changed.map((op) => op.targetRel),
-      compiled,
-      mcpWired,
-      hints,
-    },
+    outcome: { config, written, compiled, mcpWired, hints },
   };
+}
+
+/**
+ * Seed `guidance.md` (the default `[guidance].sources`) before the first compile,
+ * and — critically — migrate any pre-existing, hand-authored agent file into it so
+ * the compile that follows can't destroy the user's instructions (ADR 0065).
+ *
+ * On a FRESH install no discern-generated agent file can exist (discern writes them
+ * only via a compile, which needs a config), so every `CLAUDE.md`/`AGENTS.md`/
+ * `GEMINI.md` already on disk is the USER's — its body is folded into `guidance.md`
+ * under a labelled heading, deduped by content so identical mirrors migrate once.
+ * The stub is laid only when `guidance.md` is absent, so a re-run never clobbers the
+ * agent's work; on a `--force` re-run the user's content is already in `guidance.md`
+ * from the first run, so migration is skipped.
+ */
+async function seedGuidance(
+  root: string,
+  config: InitConfig,
+  freshInstall: boolean,
+): Promise<{ guidanceLaid: boolean; migrated: string[] }> {
+  const guidancePath = join(root, "guidance.md");
+
+  // Capture pre-existing user agent files (fresh install only — see above).
+  const migrated: { file: string; body: string }[] = [];
+  if (freshInstall) {
+    const seen = new Set<string>();
+    for (const agent of config.agents) {
+      const rel = providerFor(agent)?.guidanceFile.path;
+      if (rel === undefined) {
+        continue;
+      }
+      let body: string;
+      try {
+        body = (await Deno.readTextFile(join(root, rel))).trim();
+      } catch {
+        continue; // absent — nothing to preserve
+      }
+      if (body.length === 0 || seen.has(body)) {
+        continue; // empty, or an identical mirror already captured
+      }
+      seen.add(body);
+      migrated.push({ file: rel, body });
+    }
+  }
+
+  // Lay the stub when guidance.md is absent (write-once: a re-run keeps the agent's).
+  let content: string;
+  let guidanceLaid = false;
+  try {
+    content = await Deno.readTextFile(guidancePath);
+  } catch {
+    const stub = join(await resolveSetupDir(), "skel", "guidance.md");
+    content = (await Deno.readTextFile(stub)).replaceAll(
+      "{{project_name}}",
+      config.projectName,
+    );
+    guidanceLaid = true;
+  }
+
+  // Append each migrated body under a labelled heading, skipping any already present
+  // (idempotent if setup is re-run).
+  let appended = "";
+  for (const m of migrated) {
+    const heading = `## Imported from ${m.file}`;
+    if (content.includes(heading) || content.includes(m.body)) {
+      continue;
+    }
+    appended += `\n${heading}\n\n` +
+      `<!-- discern migrated your existing ${m.file} here during setup so it wouldn't ` +
+      `be lost. Fold it into the conventions above, then delete this note. -->\n\n` +
+      `${m.body}\n`;
+  }
+
+  if (guidanceLaid || appended.length > 0) {
+    await Deno.writeTextFile(guidancePath, content + appended);
+  }
+  return { guidanceLaid, migrated: migrated.map((m) => m.file) };
 }
 
 /**
@@ -426,7 +519,12 @@ export async function runSetup(opts: SetupOptions): Promise<number> {
   // --- Phase 1: scaffold the machinery (fresh install, or --force refresh) ---
   let scaffold: ScaffoldOutcome | undefined;
   if (freshInstall || opts.force) {
-    const { outcome, stop } = await scaffoldHarness(destDir, opts, log);
+    const { outcome, stop } = await scaffoldHarness(
+      destDir,
+      opts,
+      log,
+      freshInstall,
+    );
     if (stop !== undefined) {
       return stop; // error emitted, or --dry-run already printed the plan
     }

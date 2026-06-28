@@ -95,6 +95,7 @@ Open **`guidance.md`** (at the repo root — the default `[guidance].sources`). 
 
 - The one-line pitch at the top — what the project is and who it's for.
 - The **Conventions** section — language idioms, style, structure, naming, error handling, anything the tooling enforces. Keep it aligned with the capabilities you'll propose in Step 7, so the written rule and the enforced rule agree.
+- **If `discern setup` imported your existing instructions:** when the project already had a hand-written `CLAUDE.md`/`AGENTS.md`, setup migrated its content into `guidance.md` under an _"Imported from …"_ heading so nothing was lost. Fold it into the pitch and Conventions above, then delete that heading and its import note.
 
 **Do not touch the generated copies** (`CLAUDE.md`, `AGENTS.md`, …). This source file is authoritative; those are compiled from the built-in guidance plus `guidance.md` in Step 8.
 

@@ -266,6 +266,57 @@ Deno.test("setup done refuses when the gate is red, recording nothing; --force o
   });
 });
 
+Deno.test("discern setup migrates a pre-existing agent file into guidance.md, never destroying it (ADR 0065)", async () => {
+  await withTempDir(async (dir) => {
+    // A project with its own hand-written CLAUDE.md, harnessed by discern for the
+    // first time (a true fresh install — no discern.toml).
+    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+    await gitInit(dir);
+    const rule = "ALWAYS RUN THE LINTER FIRST — this is my own house rule.";
+    await Deno.writeTextFile(
+      join(dir, "CLAUDE.md"),
+      `# My project\n\n${rule}\n`,
+    );
+
+    const r = await runAgent(dir, ["setup"]);
+    assertEquals(r.code, 0, r.output);
+
+    // The user's instruction survives in the tracked source...
+    const guidance = await Deno.readTextFile(join(dir, "guidance.md"));
+    assertStringIncludes(guidance, rule);
+    assertStringIncludes(guidance, "Imported from CLAUDE.md");
+
+    // ...and is re-emitted into the compiled agent files (the compile folds
+    // guidance.md into the canonical AGENTS.md, which CLAUDE.md then points at), so
+    // reading the agent guidance still shows it — nothing was lost.
+    const compiled = (await Promise.all(
+      ["AGENTS.md", "CLAUDE.md", "GEMINI.md"].map((f) =>
+        Deno.readTextFile(join(dir, f)).catch(() => "")
+      ),
+    )).join("\n");
+    assertStringIncludes(compiled, rule);
+  });
+});
+
+Deno.test("discern setup lays a marked guidance.md stub that setup done enforces (ADR 0065)", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+    await gitInit(dir);
+    const r = await runAgent(dir, ["setup"]);
+    assertEquals(r.code, 0, r.output);
+
+    // The stub exists and carries the marker, so it is a real "flesh out the stub".
+    const guidance = await Deno.readTextFile(join(dir, "guidance.md"));
+    assertStringIncludes(guidance, "setup fills this");
+
+    // setup done refuses while the guidance stub is unfilled — the existing marker
+    // check now enforces guidance.md, with no second code path.
+    const blocked = await runAgent(dir, ["setup", "done"]);
+    assertEquals(blocked.code, 1, blocked.output);
+    assertStringIncludes(blocked.stderr, "guidance.md");
+  });
+});
+
 Deno.test("an unparseable config surfaces its TOML error without the setup redirect", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
