@@ -1,6 +1,14 @@
 # ADR 0061: Graduate enforces the fix stage's fixed point before landing
 
-**Status**: accepted. Extends the fix-stage strand check
+**Status**: superseded by
+[ADR 0067](0067-graduate-validates-the-landed-tree.md), which runs the WHOLE
+gate at the graduate landing boundary (fast-pathed by a gate-pass receipt),
+subsuming this fix-stage-only guard — a fix-stage strand is now caught as a
+`fix_drift` gate failure. The context below records why graduate gained a
+landing-boundary guard at all; ADR 0067 broadens it from the fix stage to the
+full gate.
+
+Originally accepted as: extends the fix-stage strand check
 ([ADR 0047](0047-fix-stage-strand-detection.md)) from `finish` to the `graduate`
 landing boundary, reusing the same `D1 \ D0` signal (`fixDriftPaths`) and
 tracked-only snapshot (`worktreeDirtyPaths`).

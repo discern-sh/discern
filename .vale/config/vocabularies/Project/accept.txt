@@ -146,6 +146,7 @@ SDK
 selfcheck
 semver
 setext
+SHA
 shellcheck
 snake_case
 spawners?

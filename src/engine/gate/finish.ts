@@ -28,6 +28,7 @@ import {
   scopeGatesGroup,
 } from "./plan.ts";
 import { gateRunContext, runGroup } from "./execute.ts";
+import { recordGateOutcome } from "./receipt.ts";
 import { cmdsInStage } from "./stages.ts";
 import {
   fixDriftDiagnostic,
@@ -81,8 +82,9 @@ const FAIL_MESSAGES: Record<FailedStage, string> = {
     "Run `discern integrate` to bring the trunk in and re-materialize, then re-run finish.",
 };
 
-/** The human die message for a failed stage. */
-function failMessage(stage: FailedStage): string {
+/** The human die message for a failed stage. Exported so `graduate` names the stage
+ * the same way when it refuses to land a branch the gate rejected (ADR 0067). */
+export function failMessage(stage: FailedStage): string {
   return FAIL_MESSAGES[stage];
 }
 
@@ -322,6 +324,10 @@ async function runGate(
   if (hints.length > 0) {
     result.hints = hints;
   }
+  // Record the gate-pass receipt (ADR 0067): a GREEN run over a CLEAN tree stamps the
+  // validated HEAD so `graduate` can prove THIS tree already passed without re-running
+  // the gate; a FAILED run clears any stale vouch. Best-effort — never fails the gate.
+  await recordGateOutcome(root, failedStage === null);
   return { result, failedStage, cfg, out, changed };
 }
 

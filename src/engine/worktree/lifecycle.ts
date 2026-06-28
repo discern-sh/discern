@@ -70,7 +70,11 @@ import {
   renderPlan,
   type StepResult,
 } from "../../shared/result.ts";
-import type { IntegrateData, StartData } from "../../shared/result_schemas.ts";
+import type {
+  GateData,
+  IntegrateData,
+  StartData,
+} from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
 import {
   addWorktree,
@@ -99,9 +103,12 @@ import {
 // materializes skills into .claude/skills/ inside the freshly created worktree (a
 // linked worktree does not inherit that gitignored directory from the main checkout).
 import { compileGuidelines } from "../guidelines.ts";
-// graduate re-runs the fix stage at the landing boundary (ADR 0061), so an unformatted
-// tree an agent committed without `finish` cannot fast-forward onto the trunk.
-import { detectFixStageStrand } from "../gate/execute.ts";
+// graduate validates the exact tree it lands by running the full gate at the landing
+// boundary (ADR 0067) — fast-pathed by a gate-pass receipt when nothing changed since
+// the agent's own `finish`, so a clean-merging but gate-breaking `integrate` (or any
+// tree never run through `finish`) cannot fast-forward onto the trunk unvalidated.
+import { failMessage, finishResult } from "../gate/finish.ts";
+import { gateReceiptHonored } from "../gate/receipt.ts";
 // integrate classifies the merge's incoming files into the project's scopes for its
 // "what landed beneath you" summary (ADR 0064), via the same matcher the gate uses.
 import { scopesForPaths } from "../scopes/changed.ts";
@@ -713,23 +720,35 @@ async function buildGraduatePlan(
   };
 }
 
+// How many of the gate's diagnostics ride inline in a graduate refusal before the agent
+// is pointed at `discern finish` for the rest — a cap so a gate that failed with many
+// findings can't flood graduate's refusal message.
+const GRADUATE_DIAG_CAP = 10;
+
 /**
- * The graduate refusal when the fix stage reformatted committed files the branch would
- * otherwise land unformatted (ADR 0061). Names the stranded files (capped) and the recovery:
- * the reformat is already applied in the worktree, so the agent reviews it, commits it, and
- * re-runs — `discern finish` runs the same fix stage. The branch keeps all its commits.
+ * The graduate refusal when the branch does NOT pass `finish` at the tree it would land
+ * (ADR 0067). Leads with the gate's own failed-stage message (the same {@link failMessage}
+ * SSOT `finish` prints), then a capped list of the surfaced diagnostics, then the recovery:
+ * run `discern finish` to see the full output and fix it. The branch keeps all its commits
+ * and the worktree is intact (this precedes every teardown/removal).
  */
-function fixStrandRefusal(branch: string, stranded: string[]): string {
-  const shown = stranded.slice(0, 10).join(", ");
-  const more = stranded.length > 10
-    ? `, … (+${stranded.length - 10} more)`
-    : "";
-  return `Branch '${branch}' is not fix-stage clean: the fix stage reformatted ` +
-    `${stranded.length} committed file(s) that graduation would otherwise land ` +
-    `unformatted — ${shown}${more}. This is the fixer's own output (already applied ` +
-    `in your worktree): review it with \`git diff\`, commit it, then re-run ` +
-    `\`discern graduate\`. \`discern finish\` runs this same fix stage. Your branch ` +
-    `keeps all its commits.`;
+function graduateGateRefusal(
+  branch: string,
+  gate: DiscernResult<GateData>,
+): string {
+  const stage = gate.data?.failed_stage ?? null;
+  const headline = stage !== null ? failMessage(stage) : "The gate failed.";
+  const diags = gate.diagnostics ?? [];
+  const shown = diags
+    .slice(0, GRADUATE_DIAG_CAP)
+    .map((d) => `  • ${d.message} (reproduce: ${d.reproduce_cmd})`);
+  if (diags.length > shown.length) {
+    shown.push(`  … (+${diags.length - shown.length} more)`);
+  }
+  return `Branch '${branch}' does not pass \`discern finish\`, so it cannot land. ` +
+    `${headline} Run \`discern finish\` to see the full output and fix it, then commit ` +
+    `and re-run \`discern graduate\` — your branch keeps all its commits.` +
+    (shown.length > 0 ? `\n\nWhat failed:\n${shown.join("\n")}` : "");
 }
 
 /**
@@ -757,28 +776,27 @@ async function executeGraduatePlan(
   }
   const { to, worktreePath, mainRepo, mainBranch, trunk, worktreeDirty } = plan;
 
-  // Fix-stage fixed-point guard (ADR 0061) — refuse to land a branch that is NOT at the fix
-  // stage's fixed point. `finish` enforces this, but an agent that skips `finish` on a docs
-  // edit (running only a scope gate — a prose linter never formats) can commit unformatted
-  // Markdown; graduating it fast-forwards the trunk onto that commit LOCALLY, where CI's
-  // trailing `git diff --exit-code` never runs. Re-run the fixers and refuse on any stranded
-  // output — BEFORE the teardown/removal below, so the branch stays intact and the reformat
-  // is left applied for the agent to commit.
-  ctx.log.info("Checking the branch is at the fix stage's fixed point…");
-  const fixStrand = await detectFixStageStrand(ctx.config, ctx.cwd);
-  if (fixStrand.fixFailed) {
-    throw new WorktreeGitError(
-      `The fix stage failed while verifying '${worktreeBranch}' is graduation-ready. ` +
-        `Run \`discern finish\`, resolve the failure, then re-run \`discern graduate\` — ` +
-        `your branch keeps all its commits.`,
+  // Validation gate (ADR 0067) — the exact tree we are about to land must pass the WHOLE
+  // gate, so a clean-merging but gate-breaking `integrate` (or any tree never run through
+  // `finish` — e.g. a docs edit gated only by a prose linter) cannot fast-forward onto the
+  // trunk LOCALLY, where CI's checks never run. This precedes every teardown/removal below,
+  // so a refusal leaves the branch and worktree intact.
+  //   FAST PATH: a gate-pass receipt proves the current clean HEAD already passed `finish`
+  //   (the common case — nothing changed since the agent finished), so skip the re-run.
+  //   SLOW PATH: run the full gate now and refuse to land on any failure. A merge `integrate`
+  //   created, a new commit, or a dirty tree invalidates the receipt, landing us here.
+  if (await gateReceiptHonored(ctx.cwd)) {
+    ctx.log.ok(
+      "Branch already passed the gate at this commit — skipping the re-run.",
     );
+  } else {
+    ctx.log.info("Validating the branch against the full gate before landing…");
+    const gate = await finishResult(ctx.cwd);
+    if (!gate.ok) {
+      throw new WorktreeGitError(graduateGateRefusal(worktreeBranch, gate));
+    }
+    ctx.log.ok("Gate passed against the tree to be landed.");
   }
-  if (fixStrand.stranded.length > 0) {
-    throw new WorktreeGitError(
-      fixStrandRefusal(worktreeBranch, fixStrand.stranded),
-    );
-  }
-  ctx.log.ok("Branch is at the fix stage's fixed point.");
 
   const results: StepResult[] = [];
   const done = (kind: StepResult["step"]["kind"], label: string): void => {
