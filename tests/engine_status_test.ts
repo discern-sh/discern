@@ -574,3 +574,67 @@ Deno.test("status: a missing generated agent file hints it isn't built yet", asy
     );
   });
 });
+
+Deno.test("status: when behind, incoming_overlap names the files you AND main both changed", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    // A baseline file present at the fork point, so both sides edit different regions
+    // (a real intersection, not a both-added conflict).
+    const base = Array.from({ length: 12 }, (_, i) =>
+      `line ${i + 1}`).join("\n") +
+      "\n";
+    await Deno.writeTextFile(join(dir, "shared.txt"), base);
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "alpha");
+
+    // The worktree changes the TOP of shared.txt (its own work).
+    await Deno.writeTextFile(
+      join(wt, "shared.txt"),
+      base.replace("line 1\n", "line 1 — wt\n"),
+    );
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "wt edits shared", "--no-gpg-sign");
+
+    // main changes the BOTTOM of shared.txt and adds an unrelated file → wt is behind.
+    await Deno.writeTextFile(
+      join(dir, "shared.txt"),
+      base.replace("line 12\n", "line 12 — main\n"),
+    );
+    await Deno.writeTextFile(join(dir, "upstream.txt"), "u\n");
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "main edits shared", "--no-gpg-sign");
+
+    const obj = parseStatus((await runAgent(wt, ["status", "--json"])).stdout);
+    assert(obj.data.git.behind_integration >= 1, JSON.stringify(obj.data.git));
+    // The hot zone is shared.txt; upstream.txt is incoming but not yours, so excluded.
+    assertEquals(obj.data.git.incoming_overlap, ["shared.txt"]);
+    assert(
+      (obj.hints ?? []).some((h: string) =>
+        h.includes("also changed upstream") && h.includes("shared.txt")
+      ),
+      `expected the behind hint to carry the overlap: ${
+        JSON.stringify(obj.hints)
+      }`,
+    );
+  });
+});
+
+Deno.test("status: incoming_overlap is absent when behind but none of your files overlap", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "alpha");
+    // The worktree changes its OWN file; main changes a DIFFERENT one → behind, no overlap.
+    await Deno.writeTextFile(join(wt, "mine.txt"), "mine\n");
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "wt work", "--no-gpg-sign");
+    await Deno.writeTextFile(join(dir, "theirs.txt"), "theirs\n");
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "main work", "--no-gpg-sign");
+
+    const obj = parseStatus((await runAgent(wt, ["status", "--json"])).stdout);
+    assert(obj.data.git.behind_integration >= 1, JSON.stringify(obj.data.git));
+    // Behind, but the field is honestly absent (no intersection) — not an empty array.
+    assertEquals(obj.data.git.incoming_overlap, undefined);
+  });
+});

@@ -315,7 +315,7 @@ Deno.test("doctor execution_model is faithful across a rich config (resources, r
     await scaffoldEngine(dir);
     await gitInit(dir);
     // A config exercising every corner of the execution-model schema: jobs, a scope
-    // gate, a ratchet, and a per-worktree resource (the destructive teardown).
+    // gate, a ratchet, and a per-worktree resource (its teardown).
     await writeConfig(
       dir,
       [
@@ -349,7 +349,7 @@ Deno.test("doctor execution_model is faithful across a rich config (resources, r
     const result = await doctorResult(dir);
     // The whole envelope — execution_model included — validates against the schema the
     // MCP server advertises as discern_doctor's outputSchema (a strict object, so a
-    // destructive/conditional step that didn't fit would be rejected here).
+    // conditional step that didn't fit would be rejected here).
     expectValid(DoctorOutputSchema, result, "doctor rich execution_model");
     const model =
       (result.data as { execution_model?: { verb: string }[] }).execution_model;

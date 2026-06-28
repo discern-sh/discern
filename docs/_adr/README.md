@@ -83,3 +83,4 @@ decision is hard to reverse, surprising without context, and a real trade-off.
 - [0061 — Graduate enforces the fix stage's fixed point before landing](0061-graduate-fix-stage-fixed-point.md)
 - [0062 — The MCP server tracks its own working root, retiring location-based tool visibility](0062-mcp-server-working-root.md)
 - [0063 — `discern doctor` prints the execution model — facts, not judgments](0063-doctor-execution-model.md)
+- [0064 — `integrate` reports what changed beneath the branch](0064-integrate-change-summary.md)

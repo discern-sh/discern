@@ -38,6 +38,7 @@ import {
   DocsOutputSchema,
   DoctorOutputSchema,
   FinishOutputSchema,
+  IntegrateOutputSchema,
   type StartData,
   StartOutputSchema,
   StatusOutputSchema,
@@ -284,9 +285,9 @@ export const TOOLS: McpTool[] = [
       "config validity, schema currency, whether the declared capability commands " +
       "resolve on PATH, and advisories. data.checks lists every check with its detail " +
       "and — on failure — the exact fix. data.execution_model lists, per configurable " +
-      "verb, the ordered steps it runs — each marked you (your configured command) or " +
-      "discern (a built-in step), with its expectation and any destructive flag — so " +
-      "you can see what runs when, and catch a real config mistake (e.g. a slow command " +
+      "verb, the ordered steps it runs — each marked project (your configured command) " +
+      "or discern (a built-in step), with its expectation — so you can see what runs " +
+      "when, and catch a real config mistake (e.g. a slow command " +
       "in the fast inner loop).",
     inputSchema: { ...PATH_PARAM },
     run: (root) => doctorResult(root),
@@ -311,7 +312,10 @@ export const TOOLS: McpTool[] = [
       "Report what is true right now and what to do next — pure observation, never " +
       "runs the gate, tests, ratchets, or touches anything. Call it at the start of a " +
       'session to orient. data.location is "worktree" or "main"; data.git carries ' +
-      "branch/clean/changed-files and ahead/behind the integration branch; data.gate " +
+      "branch/clean/changed-files and ahead/behind the integration branch — and, when " +
+      "behind, data.git.incoming_overlap names the files YOU changed that the incoming " +
+      "`{{main_branch}}` also changed (the hot zone to re-read on integrating, since a " +
+      "clean merge can still break them); data.gate " +
       "lists what the gate WOULD fire (wired capabilities, checks, triggered scope " +
       "gates); data.worktree carries this worktree's id/port/db and provisioned " +
       "resources; data.features and data.ratchets list the configured set. " +
@@ -461,7 +465,7 @@ export const TOOLS: McpTool[] = [
   defineTool({
     name: "discern_integrate",
     title: "Integrate {{main_branch}}",
-    outputSchema: DatalessEnvelopeSchema.shape,
+    outputSchema: IntegrateOutputSchema.shape,
     annotations: INTEGRATE,
     description:
       "Bring the latest `{{main_branch}}` into THIS worktree's branch and " +
@@ -477,8 +481,17 @@ export const TOOLS: McpTool[] = [
       "(reported, nothing merged, no refresh); it merges into a clean tree only, so " +
       'it refuses (error:"precondition_failed") on uncommitted changes; and on a merge ' +
       "conflict it aborts cleanly (leaving the tree untouched) and refuses, naming the " +
-      "conflicted files and the manual path to resolve them. Set dry_run to preview the " +
-      "plan without touching anything. Never touches the main checkout; operates only " +
+      "conflicted files and the manual path to resolve them. " +
+      "On a merge it returns `data` summarizing what landed BENEATH your work: the " +
+      "commits and files brought in (each capped, with a `*_total` and `*_truncated`), " +
+      "which of your own files `overlap` them (RE-READ those — a clean merge can still " +
+      "conflict semantically), the `scopes_incoming` touched, and a `range` of commit " +
+      "SHAs. When a list is capped, pull the full set in ONE git call from the range " +
+      "rather than guessing it — e.g. `git diff --stat <range.before>..<range.after>`, " +
+      "or `git diff <range.before>..<range.after> -- <path>` for one file; the hints " +
+      "carry the exact command. Set dry_run to preview the " +
+      "plan (and the SAME predicted `data`, computed read-only without merging) without " +
+      "touching anything. Never touches the main checkout; operates only " +
       "on the worktree the server runs in.",
     feature: "worktrees",
     inputSchema: {
