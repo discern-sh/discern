@@ -1,7 +1,7 @@
 # ADR 0063: `discern doctor` prints the execution model — facts, not judgments
 
-**Status**: accepted; **amended** — see _Update (destructive labelling removed)_
-below. Adds an `execution_model` section to `doctor` (human + the `--json`
+**Status**: accepted; **amended** — see the _Update_ sections below. Adds an
+`execution_model` section to `doctor` (human + the `--json`
 `data.execution_model`), derived from the same plan builders the gate runs
 ([ADR 0027](0027-plan-apply-engine-execution.md)) and the engine's `STEP_KINDS`
 vocabulary ([ADR 0028](0028-result-envelope-and-diagnostics.md)), pinned by
@@ -24,6 +24,18 @@ answers the motivating "why did `graduate` tear down my database?", but by
 showing the `destroy` command verbatim as a `[project]` step rather than
 labelling it. The reader draws the destructive conclusion from the command, as
 they already do for every other judgment the model leaves to them.
+
+## Update (hints are opt-in in the human render)
+
+The per-step hints proved long enough to bury the checks above the model on a
+normal terminal, and inline between the step lines they broke a quick read of
+the sequence. The human render now hides them by default and shows a pointer —
+at the top and the foot of the section — to `discern doctor --verbose`, which
+prints the hint on every step it applies to, repeats included. The structured
+`--json` `execution_model` is unchanged: it always carries every step's hint, so
+an agent reading the model is unaffected. The steps themselves (their order and
+actors) still render by default; only the explanatory hints moved behind the
+flag.
 
 ## Context
 
