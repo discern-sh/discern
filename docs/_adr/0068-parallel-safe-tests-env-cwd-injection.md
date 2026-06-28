@@ -2,8 +2,8 @@
 
 **Status**: accepted. The test suite runs under `deno test --parallel`. To make
 that safe, every function that consults ambient process state — an env override
-or the working directory — takes an injectable seam (an `EnvReader` defaulting to
-`Deno.env`, or an explicit `cwd`/`env` argument), so a unit test supplies the
+or the working directory — takes an injectable seam (an `EnvReader` defaulting
+to `Deno.env`, or an explicit `cwd`/`env` argument), so a unit test supplies the
 value directly instead of mutating the process. A forcing-function guard (in the
 lineage of [ADR 0051](0051-canonical-set-parity.md)) fails the gate if any test
 reintroduces a process-global mutation.
@@ -19,29 +19,30 @@ idle cores (measured ~6× here: 150s → ~25s).
 The hazard is in how that parallelism works. Deno's `--parallel` runs the worker
 threads inside **one OS process** — verified empirically: an env var set in one
 file is read back _changed_ by another file running concurrently, while a serial
-run is unaffected. So `Deno.chdir` and `Deno.env.set`/`delete` are process-global
-and leak across any files running at the same instant. Worse, `Deno.Command`
-inherits the parent environment by default (no `clearEnv`), so a leaked variable
-is also inherited by every subprocess the tests spawn through `runAgent`/`runCli`.
-The failure actually observed in a parallel run: `git_test` set an empty `PATH`
-for its "unrunnable git" case, and a concurrent `engine_ratchets_test` spawned
-`deno` against that empty PATH — `NotFound: Failed to spawn 'deno'`. The victim
-varies with scheduling, and the rate was ~10% of parallel runs: green often
-enough that flipping the flag on and seeing one pass looks safe.
+run is unaffected. So `Deno.chdir` and `Deno.env.set`/`delete` are
+process-global and leak across any files running at the same instant. Worse,
+`Deno.Command` inherits the parent environment by default (no `clearEnv`), so a
+leaked variable is also inherited by every subprocess the tests spawn through
+`runAgent`/`runCli`. The failure actually observed in a parallel run: `git_test`
+set an empty `PATH` for its "unrunnable git" case, and a concurrent
+`engine_ratchets_test` spawned `deno` against that empty PATH —
+`NotFound: Failed to spawn 'deno'`. The victim varies with scheduling, and the
+rate was ~10% of parallel runs: green often enough that flipping the flag on and
+seeing one pass looks safe.
 
 Nine files mutated process state this way, each saving and restoring around the
-call. That save/restore is only correct under serial execution — the restore runs
-after an `await`, and other files' tests execute during that window.
+call. That save/restore is only correct under serial execution — the restore
+runs after an `await`, and other files' tests execute during that window.
 
 ## Decision
 
 Convert the nine files to **inject** the value rather than mutate the process.
 
 - **Env reads** take an `EnvReader` (`{ get(key): string | undefined }`,
-  [`src/shared/env.ts`](../../src/shared/env.ts)) defaulting to `Deno.env`, which
-  satisfies the shape. Production call sites are unchanged; a test passes
-  `fakeEnv({…})` ([`tests/helpers.ts`](../../tests/helpers.ts)) and still exercises
-  the real read logic, against an injected map. Covered readers:
+  [`src/shared/env.ts`](../../src/shared/env.ts)) defaulting to `Deno.env`,
+  which satisfies the shape. Production call sites are unchanged; a test passes
+  `fakeEnv({…})` ([`tests/helpers.ts`](../../tests/helpers.ts)) and still
+  exercises the real read logic, against an injected map. Covered readers:
   `resolveTemplatesDir`, `readConfigTemplate` (threaded through the
   `MigrationContext`), `loadIdentitySettings`, `resolveWorktreeId`,
   `terminalWidth`/`helpWidth`/`operatorHelp`, and `colourEnabled`.
