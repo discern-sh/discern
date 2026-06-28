@@ -74,10 +74,11 @@ rather than vanished.
 
 ## Consequences
 
-- **The help reads as an operator's map.** Daily-loop verbs lead; the worktree
-  lifecycle reads start → integrate → graduate; setup/maintenance and
+- **The help reads as an operator's map.** The agentic-loop verbs lead; the
+  worktree lifecycle reads start → integrate → graduate; setup/maintenance and
   inspect/explore sink. A first-time reader sees the 3–4 commands that matter
-  without parsing all 22.
+  without parsing all 22, and the group notes signal that the loop and worktree
+  verbs are the agent's to run, not the human's.
 - **No stylistic drift.** Because the surrounding help is the framework's own
   output untouched, the root help's header, options, and examples stay
   byte-identical to every subcommand's `--help`. Only the command block is ours.

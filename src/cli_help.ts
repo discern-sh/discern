@@ -21,28 +21,39 @@ import { wrapText } from "./lib/text.ts";
 export interface CommandGroup {
   /** The heading shown above the bucket. */
   readonly name: string;
+  /** A short dim annotation after the heading — chiefly WHO drives this group, so
+   * a first-time reader sees that the loop and worktree verbs are the ones their
+   * coding agent runs, not chores for them. */
+  readonly note: string;
   /** The command names, in the order they should read under the heading. */
   readonly commands: readonly string[];
 }
 
 /**
- * The command → group map, ordered so the daily loop leads and the
- * once-in-a-while verbs sink. This is the SSOT for `discern --help` grouping:
- * the guard test (`tests/engine_help_groups_test.ts`) asserts every visible
- * top-level command is covered here, so a verb registered without a home fails
- * the gate rather than landing silently ungrouped.
+ * The command → group map, ordered so the verbs an agent runs every iteration
+ * lead and the once-in-a-while human chores sink. This is the SSOT for
+ * `discern --help` grouping: the guard test (`tests/engine_help_groups_test.ts`)
+ * asserts every visible top-level command is covered here, so a verb registered
+ * without a home fails the gate rather than landing silently ungrouped.
+ *
+ * The notes allude to WHO runs each group: discern is driven mainly by the
+ * human's coding agent, and the loop + worktree verbs are almost always the
+ * agent's, not the human's — so a novice doesn't read them as their own chores.
  */
 export const COMMAND_GROUPS: readonly CommandGroup[] = [
   {
-    name: "Daily loop",
+    name: "Agentic loop",
+    note: "your coding agent runs these as it works",
     commands: ["status", "prepare", "finish", "test"],
   },
   {
     name: "Worktree lifecycle",
+    note: "isolated workspaces your agent drives",
     commands: ["start", "integrate", "graduate", "worktree", "worktree-name"],
   },
   {
     name: "Setup & maintenance",
+    note: "you tend the install (usually once)",
     commands: [
       "setup",
       "upgrade",
@@ -55,6 +66,7 @@ export const COMMAND_GROUPS: readonly CommandGroup[] = [
   },
   {
     name: "Inspect & explore",
+    note: "read-only views for you or your agent",
     commands: [
       "audit",
       "ratchets",
@@ -148,7 +160,7 @@ function renderGroupedCommands(
     if (members.length === 0) {
       continue;
     }
-    out.push(`  ${heading(group.name)}`);
+    out.push(`  ${heading(group.name)} ${desc(`— ${group.note}`)}`);
     for (const c of members) {
       out.push(...rowLines(c));
       seen.add(c.getName());

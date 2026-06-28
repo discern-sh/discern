@@ -71,7 +71,7 @@ Deno.test("every visible top-level command belongs to exactly one help group", (
   );
 });
 
-Deno.test("operator help renders the groups in order, daily loop first", () => {
+Deno.test("operator help renders the groups in order, agentic loop first", () => {
   const help = plain(operatorHelp(fullRoot()));
 
   // Every group heading appears, in COMMAND_GROUPS order (strictly increasing
@@ -88,7 +88,7 @@ Deno.test("operator help renders the groups in order, daily loop first", () => {
 
   // The daily loop must lead the setup/maintenance verbs (the operator-first promise).
   assert(
-    help.indexOf("Daily loop") < help.indexOf("Setup & maintenance"),
+    help.indexOf("Agentic loop") < help.indexOf("Setup & maintenance"),
     "the daily-loop group must precede setup/maintenance in the help",
   );
 
@@ -160,7 +160,7 @@ Deno.test("a disabled feature drops its whole group, never an empty heading", ()
   );
   // The groups whose features are on still render.
   assert(
-    help.includes("Daily loop") && help.includes("Setup & maintenance"),
+    help.includes("Agentic loop") && help.includes("Setup & maintenance"),
     "an active group went missing",
   );
 });
