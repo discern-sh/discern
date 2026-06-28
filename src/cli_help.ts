@@ -53,7 +53,7 @@ export const COMMAND_GROUPS: readonly CommandGroup[] = [
   },
   {
     name: "Setup & maintenance",
-    note: "you tend the install (usually once)",
+    note: "you or your agent tend the installation",
     commands: [
       "setup",
       "upgrade",

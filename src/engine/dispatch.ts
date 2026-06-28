@@ -312,7 +312,7 @@ export function attachEngineCommands(
   root
     .command("mcp")
     .description(
-      "Run an MCP server (stdio) exposing the verbs to an agent as tools.",
+      "The stdio MCP server, exposing the verbs to an agent as tools. You don't usually need to run this; agents should connect automatically.",
     )
     .action(async () => {
       // The server resolves the project root itself and reports a missing one
