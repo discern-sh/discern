@@ -152,9 +152,9 @@ export type SettingsSeedMerge = (
 /**
  * The default seed-merge strategy: the JSON deep-merge ({@link mergeSettings})
  * lifted to text. Parses both sides as JSON, merges, and re-serializes to 2-space
- * JSON with a trailing newline — byte-for-byte what the Claude settings seed
- * produced before this seam was generalized. The strategy every JSON-settings hooks
- * provider uses (an absent `mergeSeed` on its `HooksIntegration` ⇒ this).
+ * JSON with a trailing newline — the exact bytes the Claude settings seed writes.
+ * The strategy every JSON-settings hooks provider uses (an absent `mergeSeed` on its
+ * `HooksIntegration` ⇒ this).
  */
 export function mergeJsonSettingsText(
   existingText: string | undefined,

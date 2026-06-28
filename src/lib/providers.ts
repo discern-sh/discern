@@ -70,10 +70,10 @@ export interface McpIntegration {
 }
 
 /**
- * A provider's MCP-wiring STATUS — the typed, explicit replacement for the old
- * silent `mcp?` TODO (ADR 0051's forcing-function discipline). Every provider
- * declares one, so a new agent cannot join `AGENT_NAMES` without accounting for its
- * MCP wiring: a live `integration`, an explicit `pending` marker naming the
+ * A provider's MCP-wiring STATUS — a typed, explicit account of how discern wires
+ * its MCP server for this agent (ADR 0051's forcing-function discipline). Every
+ * provider declares one, so a new agent cannot join `AGENT_NAMES` without accounting
+ * for its MCP wiring: a live `integration`, an explicit `pending` marker naming the
  * committable file discern WILL write the server into once the integration is
  * authored, or `none` (the agent has no committable project-scoped MCP mechanism to
  * target). A discriminated union + the required `Provider.mcp` field make a missing
@@ -417,10 +417,9 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     skillsDir: AGENTS_SKILLS_DIR,
     // MCP is committable but not yet authored: Codex reads `[mcp_servers.<name>]`
     // from project-local `.codex/config.toml` (its own format, NOT Claude's
-    // .mcp.json), gated by a one-time directory trust. Wiring it is Plan B; the
-    // typed `pending` marker keeps the gap accounted (ADR 0051) instead of a silent
-    // TODO. Hooks (a SessionStart surface in the same `.codex/` config) are likewise
-    // a later plan; an absent `hooks` skips it.
+    // .mcp.json), gated by a one-time directory trust. Wiring it is Plan B; the typed
+    // `pending` marker accounts the gap (ADR 0051). Hooks (a SessionStart surface in
+    // the same `.codex/` config) are likewise a later plan; an absent `hooks` skips it.
     mcp: { kind: "pending", targetFile: ".codex/config.toml" },
     // Committed .codex/ config is inert until the directory is trusted, and a
     // committed hook won't run until its hash is approved.
