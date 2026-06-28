@@ -19,6 +19,32 @@ import { ensureDir, exists } from "@std/fs";
 import { withTempDir } from "./helpers.ts";
 import { runAgent, scaffoldEngine, writeExecutable } from "./engine_helpers.ts";
 
+Deno.test("engine refresh: a skills-dir failure is isolated — agent files and MCP still refresh (ADR 0065)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    // Force skills materialization to fail: put a FILE where the skills dir must be
+    // a directory, so writing into .claude/skills/ throws (a stand-in for the sandbox
+    // denial Codex hit writing .agents/skills).
+    await ensureDir(join(dir, ".claude"));
+    await Deno.writeTextFile(join(dir, ".claude/skills"), "not a directory\n");
+
+    const r = await runAgent(dir, ["refresh", "--json"]);
+    // Partial success: a non-zero exit and a structured partial_refresh result...
+    assertEquals(r.code, 1, r.output);
+    const res = JSON.parse(r.stdout);
+    assertEquals(res.ok, false);
+    assertEquals(res.error, "partial_refresh");
+    assert(res.data.errors.length > 0, r.output);
+
+    // ...but the OTHER jobs still completed — a skills failure no longer aborts the
+    // agent-file compile or the MCP wiring (the bug Codex reported).
+    assert(res.data.agents_written.includes("CLAUDE.md"), r.output);
+    assert(res.data.mcp_wired.length > 0, r.output);
+    assert(await exists(join(dir, "CLAUDE.md")), "CLAUDE.md must still be written");
+    assert(await exists(join(dir, ".mcp.json")), ".mcp.json must still be wired");
+  });
+});
+
 Deno.test("engine refresh: compiles agent files and materializes bundled skills", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

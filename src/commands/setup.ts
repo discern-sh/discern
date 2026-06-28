@@ -351,6 +351,16 @@ async function scaffoldHarness(
     compiled = g.agentsWritten;
     mcpWired = g.mcpWired;
     hints = g.hints;
+    // A per-artifact refresh failure is isolated (ADR 0065) — surface it so the
+    // user knows a skills dir / agent file / the MCP wiring didn't complete.
+    if (g.errors.length > 0) {
+      hints = [
+        ...g.errors.map((e) =>
+          `setup could not complete a refresh artifact: ${e}`
+        ),
+        ...hints,
+      ];
+    }
   } catch (error) {
     log.warn(`could not compile agent guidance: ${errMsg(error)}`);
   }

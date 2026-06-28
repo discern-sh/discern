@@ -214,6 +214,10 @@ export interface MaterializeResult {
   linked: number;
   /** Stale managed entries pruned from `.claude/skills/`. */
   pruned: number;
+  /** Per-directory failures, isolated so one agent's skills dir failing (e.g. a
+   * sandbox denial writing `.agents/skills`) can't abort the others (ADR 0065).
+   * Empty on a clean run. */
+  errors: string[];
 }
 
 /** Stat without following symlinks; undefined when the path does not exist. */
@@ -315,12 +319,32 @@ export async function materializeSkills(
   log?: Logger,
 ): Promise<MaterializeResult> {
   const effective = await resolveEffectiveSkills(root, config);
-  const total: MaterializeResult = { copied: 0, linked: 0, pruned: 0 };
+  const total: MaterializeResult = {
+    copied: 0,
+    linked: 0,
+    pruned: 0,
+    errors: [],
+  };
   for (const rel of dirs) {
-    const r = await materializeSkillsDir(rel, join(root, rel), effective, log);
-    total.copied += r.copied;
-    total.linked += r.linked;
-    total.pruned += r.pruned;
+    try {
+      const r = await materializeSkillsDir(
+        rel,
+        join(root, rel),
+        effective,
+        log,
+      );
+      total.copied += r.copied;
+      total.linked += r.linked;
+      total.pruned += r.pruned;
+    } catch (error) {
+      // Isolate per directory: a denied/failed write into one agent's skills dir
+      // is recorded and the rest still materialize (ADR 0065).
+      const msg = `could not materialize skills into ${rel}: ${
+        error instanceof Error ? error.message : String(error)
+      }`;
+      log?.warn(msg);
+      total.errors.push(msg);
+    }
   }
   return total;
 }
@@ -342,7 +366,7 @@ async function materializeSkillsDir(
   skillsAbs: string,
   effective: SkillEntry[],
   log?: Logger,
-): Promise<MaterializeResult> {
+): Promise<Omit<MaterializeResult, "errors">> {
   const managed = new Map(effective.map((e) => [e.name, e]));
 
   // The names discern materialized on the LAST run, in THIS directory. A real dir
