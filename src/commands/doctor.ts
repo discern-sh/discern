@@ -16,6 +16,7 @@ import {
 } from "../lib/paths.ts";
 import { CONFIG_REL } from "../shared/env.ts";
 import { Logger } from "../lib/log.ts";
+import { wrapText } from "../lib/text.ts";
 import { parseDiscernToml } from "../lib/toml_render.ts";
 import { resolveRecordedSchema } from "../lib/schema.ts";
 import { KIT_VERSION, SCHEMA_VERSION } from "../lib/version.ts";
@@ -614,27 +615,6 @@ function modelWidth(): number {
     // Not a TTY (piped) — keep the default.
   }
   return Math.max(56, Math.min(cols, 110));
-}
-
-/** Greedy word-wrap `text` into lines no wider than `width`. A single word longer
- * than `width` overflows on its own line rather than being split mid-token. */
-function wrapText(text: string, width: number): string[] {
-  const words = text.split(/\s+/).filter((w) => w !== "");
-  if (words.length === 0) {
-    return [""];
-  }
-  const lines: string[] = [];
-  let line = words[0] ?? "";
-  for (const word of words.slice(1)) {
-    if (line.length + 1 + word.length <= width) {
-      line += ` ${word}`;
-    } else {
-      lines.push(line);
-      line = word;
-    }
-  }
-  lines.push(line);
-  return lines;
 }
 
 /** The opt-in pointer shown at the top and foot of the human execution-model section
