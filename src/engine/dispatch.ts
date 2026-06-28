@@ -277,7 +277,7 @@ export function attachEngineCommands(
   root
     .command("audit")
     .description(
-      "Score the project's setup against the best-practices checklist; rank the weakest areas and teach how to improve them.",
+      "Score the project's setup against the best-practices checklist and rank the weakest areas.",
     )
     .option(
       "--json",
@@ -447,7 +447,7 @@ export function attachEngineCommands(
   root
     .command("start")
     .description(
-      "From the main checkout: create a fresh isolated worktree (its own agent/ branch) and tell you where to move into it.",
+      "Create a fresh isolated worktree from the main checkout and print where to move into it.",
     )
     .option(
       "--json",
@@ -516,7 +516,7 @@ export function attachEngineCommands(
   root
     .command("integrate")
     .description(
-      "Bring the latest main into this worktree's branch and re-materialize the agent files + skills, in one step.",
+      "Bring the latest main into this branch and re-materialize the agent files + skills.",
     )
     .option(
       "--json",
@@ -588,7 +588,7 @@ export function attachEngineCommands(
 
   const worktree = new Command()
     .description(
-      "Per-worktree workflow. Bare: set up the current worktree (run by the create hook). Sub-verbs are typed with a colon: worktree:ensure, worktree:teardown, worktree:prune. (Graduating a branch is the top-level `discern graduate`.)",
+      "Set up the current worktree; manage it with the colon sub-verbs worktree:ensure, worktree:teardown, worktree:prune.",
     )
     .option(
       "--json",

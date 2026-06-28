@@ -209,7 +209,7 @@ export function buildCli(
   root
     .command("upgrade")
     .description(
-      "Refresh the project's config schema, materialized skills, and compiled guidance to match the installed binary.",
+      "Refresh config schema, skills, and guidance to match the installed binary.",
     )
     .option(
       "--dry-run",
