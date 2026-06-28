@@ -10,7 +10,7 @@
  * examples, all byte-identical to every subcommand's own `--help` — then rewrite
  * just its "Commands:" section into named, ordered groups read from
  * {@link COMMAND_GROUPS}. No internal Cliffy imports, no custom help handler, and
- * the rest of the help stays exactly as the framework renders it. (ADR 0065.)
+ * the rest of the help stays exactly as the framework renders it. (ADR 0066.)
  */
 
 import type { Command } from "@cliffy/command";

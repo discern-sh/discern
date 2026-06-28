@@ -1,4 +1,4 @@
-# ADR 0065: `discern --help` groups commands by post-processing Cliffy's help
+# ADR 0066: `discern --help` groups commands by post-processing Cliffy's help
 
 **Status**: accepted. Restructures the root `--help` from a flat,
 registration-ordered command dump into named, ordered groups read from a
