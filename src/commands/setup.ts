@@ -611,11 +611,13 @@ export async function runSetup(opts: SetupOptions): Promise<number> {
   console.log(heavyRule);
   console.log("");
   if (scaffold) {
-    console.log(`Scaffolded ${scaffold.written.length} files into ${destDir}.`);
+    console.log(
+      `Harness files written: ${scaffold.written.length} into ${destDir}.`,
+    );
   }
   if (laid.length > 0) {
     console.log(
-      `Scaffolded ${
+      `Project skeletons laid: ${
         laid.join(", ")
       } (filled with the project name; complete them below).`,
     );

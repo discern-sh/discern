@@ -33,7 +33,7 @@ Deno.test("discern setup lays the doc skeletons when absent and prints the instr
     assertEquals(r.code, 0, r.output);
     // The instructions are printed for the agent in the loop to act on.
     assertStringIncludes(r.stdout, INSTRUCTIONS_H1);
-    assertStringIncludes(r.stdout, "Scaffolded docs/");
+    assertStringIncludes(r.stdout, "Project skeletons laid: docs/");
     // The skeleton tree is laid, with `{{project_name}}` substituted from the slug.
     assert(await exists(join(dir, "docs/00-orientation/design-principles.md")));
     const readme = await Deno.readTextFile(join(dir, "docs/README.md"));
@@ -387,7 +387,11 @@ Deno.test("scaffolded docs contain no dead relative links — setup ships what i
         }
       }
     }
-    assertEquals(dead, [], `dead links in scaffolded docs:\n${dead.join("\n")}`);
+    assertEquals(
+      dead,
+      [],
+      `dead links in scaffolded docs:\n${dead.join("\n")}`,
+    );
   });
 });
 

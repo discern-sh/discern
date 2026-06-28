@@ -28,7 +28,7 @@ You are setting up a project for someone who may be newer to shipping reliable s
 
 Beat 4's promise is true *because of* beat 5: each recommendation lands as its own atomic commit, so "we can revert later" is literal — the commit **is** the undo. That linkage is the whole safety model; don't break it by batching unrelated changes into one commit.
 
-**Commit atomically, stage by stage.** Each stage that produces a coherent change — the design principles, the guidance, the orientation docs, the subsystem stubs, each capability you wire — gets its own focused, atomic commit with a clear, plain-language message. Say you're doing it ("I'm committing this on its own, so you can undo just this piece if you ever want to"). This is what makes proceeding-without-asking safe: every step is independently reviewable and revertible.
+**Commit atomically, stage by stage.** Each stage that produces a coherent change — the design principles, the guidance, the orientation docs, the subsystem stubs, each capability you wire — gets its own focused, atomic commit with a clear, plain-language message. Say you're doing it ("I'm committing this on its own, so you can undo just this piece if you ever want to"). Flag it **up front**, too, before the first commit: setup will land as several small, focused commits on the current branch, each revertible — so the burst isn't a surprise. This is what makes proceeding-without-asking safe: every step is independently reviewable and revertible.
 
 **Pause for genuine decisions.** Default to acting — with narration — on anything reversible, low-stakes, and with a single obvious answer. **Stop and genuinely ask the user** only when a decision is:
 
@@ -49,7 +49,7 @@ The discovery questions in Step 1 are not a gate — that is you learning the pr
 
 This setup is a one-time event, and it determines how well the project is harnessed for *every* future agent session. The principles, docs, and capability fills you produce here are the foundation everything else is judged against — so do it with the strongest model you can.
 
-1. **Confirm you are running the user's most capable model.** If you are on a fast, small, or cheap model, **stop and tell the user** to switch you to their most capable frontier model — the top-tier Claude, GPT, or Gemini model they have access to — *before* you continue, then resume from here. Don't quietly press on: a weaker model produces weaker principles and shakier capability guesses, and every later session inherits them. Say so plainly and let the user decide.
+1. **Use a capable model — this is a one-time foundation.** You can't see the user's account, so don't try to confirm you're literally their *most* capable model. But if you *know* you're running as a fast, small, lightweight, or cheap model, **stop and recommend the user switch you to their most capable frontier model** — the top-tier Claude, GPT, or Gemini they have — *before* you continue, then resume from here. Otherwise, proceed. Don't quietly press on as a lightweight model: weaker principles and shakier capability guesses get inherited by every later session. Say so plainly and let the user decide.
 2. **Confirm the harness is healthy.** Run **`discern status`** to orient (it also smoke-tests that the `discern` binary is on your PATH — you will lean on it constantly), and **`discern doctor`** if anything looks off. Fix what `doctor` flags before authoring; it returns the exact remedy.
 
 ---
@@ -168,6 +168,7 @@ Notes that keep the proposal honest:
 - **Monorepo / polyglot:** several stacks can coexist. Chain tools in one capability with `&&`, or add a `[scopes.<name>]` for a sub-app with its own `gate`.
 - **Wire the obvious scopes and worktree resources too** while you're here: point `[scopes]` globs at where this project's code actually lives, and if the project needs a per-worktree external resource (a database, an emulator, a container), note a `[worktree.resources.<name>]` table with `create`/`destroy` for the user to fill — an external resource carries cost and data implications, so it is a genuine decision to leave with them, not something to wire silently.
 - **Point the gate at its gotchas doc.** Step 2 created `docs/80-development/finish-gate-gotchas.md`; set `[project].gotchas_doc = "docs/80-development/finish-gate-gotchas.md"` so a non-obvious gate failure points agents at it.
+- **Commit the formatter's first sweep on its own.** A `format` capability reformats the whole tree the first time the gate runs it; run `discern prepare` right after wiring it and commit that normalization as its own step, so the mechanical reflow never muddies a content commit.
 - **Leave a capability unset** if the stack has no standard tool for it. A green gate you grow into beats a red gate on day one.
 
 ---
@@ -188,7 +189,7 @@ You wired and verified the capabilities in Step 7 — **`discern finish`** (the 
 
 These are stop-conditions to **verify for yourself before you finish** — not a summary to read back. **Do not paraphrase this list to the user as completed work; actually do each one, then prove it by running `discern setup done`** (it fails while any skeleton marker remains, so it is the check, not your word for it).
 
-- You're on a capable model and `discern doctor` is green.
+- You did Step 0's model check — proceeding on a capable model, or having recommended a switch if you knew you were a lightweight one — and `discern doctor` is green.
 - `design-principles.md` holds real, project-specific principles (no EXAMPLE block, no `<!-- setup fills this -->` markers left).
 - `guidance.md` has a real pitch and Conventions section.
 - The orientation docs (concepts, glossary, system-map) are seeded, the `80-development/` leaves are filled, and the numbered subsystem subtrees are named with stub READMEs.
