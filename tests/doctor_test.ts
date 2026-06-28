@@ -29,10 +29,9 @@ interface DoctorCheck {
 interface ExecStep {
   kind: string;
   label: string;
-  actor: "you" | "discern";
+  actor: "project" | "discern";
   note?: string;
   hint?: string;
-  destructive?: boolean;
   condition?: string;
 }
 
@@ -496,10 +495,10 @@ Deno.test("doctor: surfaces per-agent integration coverage (MCP/hooks Claude-onl
   });
 });
 
-Deno.test("doctor --json: carries the execution model, each step marked you/discern with a hint", async () => {
+Deno.test("doctor --json: carries the execution model, each step marked project/discern with a hint", async () => {
   await withTempDir(async (dir) => {
     await initInstall(dir);
-    await addCapability(dir, "lint", "echo lint"); // a real [you] gate command
+    await addCapability(dir, "lint", "echo lint"); // a real [project] gate command
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 0);
     // Every configurable verb the issue-template goal needs is covered.
@@ -528,12 +527,12 @@ Deno.test("doctor --json: carries the execution model, each step marked you/disc
     // The lint capability we wired is the user's own command.
     const lint = finish.steps.find((s) => s.label === "lint");
     assert(lint !== undefined, "finish should run the lint capability");
-    assertEquals(lint.actor, "you");
+    assertEquals(lint.actor, "project");
     assertEquals(lint.note, "echo lint");
   });
 });
 
-Deno.test("doctor --json: a per-worktree resource shows a destructive teardown step", async () => {
+Deno.test("doctor --json: a per-worktree resource shows its teardown step with the user's command", async () => {
   await withTempDir(async (dir) => {
     await initInstall(dir);
     await appendConfig(
@@ -542,13 +541,12 @@ Deno.test("doctor --json: a per-worktree resource shows a destructive teardown s
     );
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 0);
-    // The user's destroy command is surfaced as a DESTRUCTIVE [you] step — the
+    // The user's destroy command is surfaced verbatim as a [project] teardown step — the
     // motivating "why did graduate tear down my database?" answered up front.
     const grad = modelVerb(payload, "graduate (--to trunk)");
     const destroy = grad.steps.find((s) => s.kind === "resource-destroy");
     assert(destroy !== undefined, "graduate should tear the resource down");
-    assertEquals(destroy.actor, "you");
-    assertEquals(destroy.destructive, true);
+    assertEquals(destroy.actor, "project");
     assertEquals(destroy.note, "dropdb x");
   });
 });
@@ -562,6 +560,56 @@ Deno.test("doctor: human output prints the execution-model section on stderr", a
     assertStringIncludes(stderr, "Execution model");
     assertStringIncludes(stderr, "[discern] merge-check");
     assertStringIncludes(stderr, "graduate (--to trunk)");
+  });
+});
+
+Deno.test("doctor: human output hides step hints by default and points to --verbose (top and foot)", async () => {
+  await withTempDir(async (dir) => {
+    await initInstall(dir);
+    const { code, stderr } = await runCli(["doctor"], dir);
+    assertEquals(code, 0);
+    // Step lines are present; their explanatory hints are not — the default render stays
+    // a scannable sequence so the checks above it aren't buried under a long scroll.
+    assertStringIncludes(stderr, "[discern] merge-check");
+    assert(
+      !stderr.includes("A built-in git mutation"),
+      "a step hint must not appear in the default (non-verbose) render",
+    );
+    // The opt-in pointer is shown twice: at the top of the section and at its foot (the
+    // model is long enough to scroll past the first).
+    const pointers =
+      stderr.split("to show hints explaining each execution step").length - 1;
+    assertEquals(
+      pointers,
+      2,
+      "the --verbose pointer should appear at the top and the foot",
+    );
+  });
+});
+
+Deno.test("doctor --verbose: shows every step's hint, undeduplicated, and drops the pointer", async () => {
+  await withTempDir(async (dir) => {
+    await initInstall(dir);
+    const { code, stderr } = await runCli(["doctor", "--verbose"], dir);
+    assertEquals(code, 0);
+    // Hints are shown and never deduplicated: the git hint recurs on every git step
+    // within a single verb (graduate --to trunk runs several), so it appears more than
+    // once in that one section — the ambiguity a per-verb dedup would introduce.
+    const start = stderr.indexOf("graduate (--to trunk)");
+    const section = stderr.slice(
+      start,
+      stderr.indexOf("worktree:prune", start),
+    );
+    const gitHints = section.split("A built-in git mutation").length - 1;
+    assert(
+      gitHints > 1,
+      `the git hint should repeat within a verb (no dedup); saw ${gitHints}`,
+    );
+    // The pointer is for the default render only — with hints shown it would be noise.
+    assert(
+      !stderr.includes("to show hints explaining each execution step"),
+      "the --verbose pointer should not appear when hints are already shown",
+    );
   });
 });
 

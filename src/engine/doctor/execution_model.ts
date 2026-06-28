@@ -1,7 +1,7 @@
 /**
  * `discern doctor`'s **execution model** — the honest, annotated answer to "what
  * runs when I call verb X, in what order, which steps are mine vs discern's, and what
- * must be idempotent, fast, or could destroy data" (ADR 0063).
+ * must be idempotent or fast" (ADR 0063).
  *
  * The golden rule is DERIVE-FROM-SSOT, never hand-write the sequence:
  *  - the gate verbs (`finish` / `prepare` / `test` / `ratchets`) are pure functions
@@ -45,12 +45,11 @@ import { buildRatchetPlan, perNote } from "../gate/ratchet_plan.ts";
 
 // ── the annotation registries (the forcing functions) ───────────────────────
 
-/** The per-kind annotation: who the command belongs to, the class-level expectation
- * the user reads, and whether the kind is destructive (can lose data). */
+/** The per-kind annotation: who the command belongs to and the class-level
+ * expectation the user reads. */
 interface StepKindAnnotation {
   actor: Actor;
   hint: string;
-  destructive?: boolean;
 }
 
 /**
@@ -64,12 +63,12 @@ interface StepKindAnnotation {
  */
 const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
   job: {
-    actor: "you",
+    actor: "project",
     hint:
       "A configured gate command (a capability or a check); its stage decides when it runs and what is expected of it.",
   },
   "scope-gate": {
-    actor: "you",
+    actor: "project",
     hint:
       "A scope's own gate command. Runs only when that scope's paths changed (classification fails open: an unknown path runs more gates, never fewer).",
   },
@@ -89,15 +88,14 @@ const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
       "Built-in fail-fast precondition: the materialized skills must match the effective set — run `discern refresh` if stale.",
   },
   "resource-create": {
-    actor: "you",
+    actor: "project",
     hint:
       "Your `create` command for a per-worktree external resource. Runs once at setup (skipped when already provisioned) and is reconciled by its `ensure` command on re-entry. Author it idempotent and cwd-independent.",
   },
   "resource-destroy": {
-    actor: "you",
-    destructive: true,
+    actor: "project",
     hint:
-      "Your `destroy` command for a per-worktree external resource — DESTRUCTIVE. Runs at graduate/teardown AND at orphan GC (`worktree:prune`); author it idempotent and cwd-independent, and set `gc = false` for a data-loss-sensitive resource you only want torn down explicitly.",
+      "Your `destroy` command for a per-worktree external resource. Runs at graduate/teardown AND at orphan GC (`worktree:prune`); author it idempotent and cwd-independent, and set `gc = false` for a data-loss-sensitive resource you only want torn down explicitly.",
   },
   git: {
     actor: "discern",
@@ -105,12 +103,12 @@ const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
       "A built-in git mutation discern performs (branch, WIP-commit, worktree removal, checkout, reset, sweep); the note says which.",
   },
   "setup-step": {
-    actor: "you",
+    actor: "project",
     hint:
       "A one-shot `[worktree.setup].steps` command. Runs once at worktree creation, after the resources; a failure aborts setup. Skipped on re-entry.",
   },
   "setup-ensure": {
-    actor: "you",
+    actor: "project",
     hint:
       "A convergent `[worktree.setup].ensure` command. Re-runs on EVERY pass (create, session start, integrate) — MUST be idempotent; prefer fast-when-current. Fatal at creation, non-fatal on re-entry.",
   },
@@ -125,7 +123,7 @@ const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
       "Built-in: recompile the generated agent files and re-materialize the skills.",
   },
   ratchet: {
-    actor: "you",
+    actor: "project",
     hint:
       "Your measurement command for a never-loosen metric. On demand only (`discern ratchets`), never part of the gate; the result is compared to its limit versus the integration branch.",
   },
@@ -155,12 +153,11 @@ interface StepOverrides {
   note?: string;
   hint?: string;
   condition?: string;
-  destructive?: boolean;
 }
 
-/** Build one {@link ExecutionStep}, taking its actor + default hint + destructive flag
- * from the {@link STEP_KIND_ANNOTATIONS} registry and applying any overrides. Optional
- * keys are spread conditionally so an absent field is omitted, not set to `undefined`
+/** Build one {@link ExecutionStep}, taking its actor + default hint from the
+ * {@link STEP_KIND_ANNOTATIONS} registry and applying any overrides. Optional keys are
+ * spread conditionally so an absent field is omitted, not set to `undefined`
  * (exactOptionalPropertyTypes). */
 function step(
   kind: StepKind,
@@ -168,14 +165,12 @@ function step(
   o: StepOverrides = {},
 ): ExecutionStep {
   const ann = STEP_KIND_ANNOTATIONS[kind];
-  const destructive = o.destructive ?? ann.destructive ?? false;
   return {
     kind,
     label,
     actor: ann.actor,
     hint: o.hint ?? ann.hint,
     ...(o.note !== undefined ? { note: o.note } : {}),
-    ...(destructive ? { destructive: true } : {}),
     ...(o.condition !== undefined ? { condition: o.condition } : {}),
   };
 }
@@ -362,7 +357,7 @@ function integrateVerb(cfg: DiscernConfig): VerbPlan {
 /** `graduate` — hand the branch back to the main checkout (lifecycle.ts
  * `executeGraduatePlan`). Authored per landing target (`--to branch` / `--to trunk`),
  * with the resource teardown expanded per declared `destroy` (reverse order) so the
- * DESTRUCTIVE command a user wired is shown, not hidden behind a generic step. */
+ * `destroy` command a user wired is shown, not hidden behind a generic step. */
 function graduateVerb(cfg: DiscernConfig, to: GraduateTarget): VerbPlan {
   const steps: ExecutionStep[] = [];
   const destroyable = resourceEntries(cfg).filter(([, r]) => r.destroy !== "");

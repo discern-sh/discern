@@ -50,6 +50,9 @@ import type {
 export interface DoctorOptions {
   json: boolean;
   noColor: boolean;
+  /** Show the per-step execution-model hints (the human render hides them by default,
+   * pointing at `--verbose`; the `--json` model always carries them). */
+  verbose: boolean;
 }
 
 /** The slice of an agent's settings file the worktree-automation check reads: the
@@ -634,34 +637,56 @@ function wrapText(text: string, width: number): string[] {
   return lines;
 }
 
+/** The opt-in pointer shown at the top and foot of the human execution-model section
+ * when `--verbose` is off: the step list stays scannable, and the reader is told —
+ * twice, because the model is long — how to surface the per-step hints. */
+const VERBOSE_HINT_POINTER =
+  "Run `discern doctor --verbose` to show hints explaining each execution step.";
+
 /**
  * Render the execution-model section for the human (non-`--json`) path — what runs,
  * in order, when each verb is called. Wraps to the terminal width with hanging indents
- * (so a long hint never collapses to column 0 and the actor column stays legible) and
- * colours each step's actor tag — green `[you]` (your configured command) vs cyan
- * `[discern]` (a built-in step) — with destructive steps flagged in red. Routed through
- * the narration stream (stderr for the installer), like the rest of doctor's human
- * output. discern shows the facts and the expectations; the reader draws conclusions.
+ * (so the actor column stays legible) and colours each step's actor tag — green
+ * `[project]` (your configured command) vs cyan `[discern]` (a built-in step).
+ *
+ * Hints (the class-level expectation behind each step) are VERBOSE-ONLY. By default the
+ * section is a clean, scannable step list with {@link VERBOSE_HINT_POINTER} at its top
+ * and foot to opt in; with `--verbose` every step's hint is shown, undeduplicated, so
+ * each line carries its own explanation. The `--json` model always carries every hint,
+ * for machine consumers. Routed through the narration stream (stderr for the installer),
+ * like the rest of doctor's human output. discern shows the facts and the expectations;
+ * the reader draws conclusions.
  */
-function renderExecutionModel(log: Logger, model: VerbPlan[]): void {
+function renderExecutionModel(
+  log: Logger,
+  model: VerbPlan[],
+  verbose: boolean,
+): void {
   const width = modelWidth();
   const LABEL_COL = 12; // 2 (indent) + 9 (padded actor tag) + 1 (space)
   const HINT_COL = 14; // hints nest one notch under the label column
   const labelIndent = " ".repeat(LABEL_COL);
   const hintIndent = " ".repeat(HINT_COL);
+  // The opt-in pointer, emitted at the top and foot of the section when hints are off.
+  const showPointer = (): void => {
+    log.humanLine("");
+    log.humanLine(`  ${log.cyan("→")} ${log.bold(VERBOSE_HINT_POINTER)}`);
+  };
 
   log.heading("Execution model");
   // An aligned legend, rather than one long sentence that would itself wrap.
   log.humanLine(`  ${log.dim("What runs when you call each verb:")}`);
   log.humanLine(
-    `    ${log.green("[you]".padEnd(9))} ${log.dim("your configured command")}`,
+    `    ${log.green("[project]".padEnd(9))} ${
+      log.dim("your configured command")
+    }`,
   );
   log.humanLine(
     `    ${log.cyan("[discern]".padEnd(9))} ${log.dim("a built-in step")}`,
   );
-  log.humanLine(
-    `    ${log.red("⚠".padEnd(9))} ${log.dim("destructive — may delete data")}`,
-  );
+  if (!verbose) {
+    showPointer();
+  }
 
   for (const vp of model) {
     log.heading(vp.verb);
@@ -673,36 +698,40 @@ function renderExecutionModel(log: Logger, model: VerbPlan[]): void {
       continue;
     }
     for (const s of vp.steps) {
-      const tag = (s.actor === "you" ? "[you]" : "[discern]").padEnd(9);
-      const tagColored = s.actor === "you" ? log.green(tag) : log.cyan(tag);
+      const tag = (s.actor === "project" ? "[project]" : "[discern]").padEnd(9);
+      const tagColored = s.actor === "project" ? log.green(tag) : log.cyan(tag);
       const note = s.note !== undefined ? ` — ${s.note}` : "";
       const cond = s.condition !== undefined ? ` (${s.condition})` : "";
       // Wrap the headline body (label + note + condition) to the room right of the
-      // label column; bold the label portion of line 1, dim the remainder.
+      // label column; bold the label portion of line 1 and keep the command + any
+      // condition at normal weight (legible) — only the hint below it is dimmed.
       const bodyLines = wrapText(`${s.label}${note}${cond}`, width - LABEL_COL);
       bodyLines.forEach((bl, i) => {
         if (i === 0) {
           const boldLen = Math.min(s.label.length, bl.length);
           log.humanLine(
             `  ${tagColored} ${log.bold(bl.slice(0, boldLen))}${
-              log.dim(bl.slice(boldLen))
+              bl.slice(boldLen)
             }`,
           );
         } else {
-          log.humanLine(`${labelIndent}${log.dim(bl)}`);
+          log.humanLine(`${labelIndent}${bl}`);
         }
       });
-      if (s.destructive === true) {
-        log.humanLine(
-          `${labelIndent}${log.red("⚠ DESTRUCTIVE — may delete data")}`,
-        );
-      }
-      if (s.hint !== undefined) {
+      // Hints are verbose-only and never deduplicated there — every step carries its
+      // own explanation, so the meaning of a line is never deferred to an earlier one.
+      if (verbose && s.hint !== undefined) {
         for (const hl of wrapText(s.hint, width - HINT_COL)) {
           log.humanLine(`${hintIndent}${log.dim(hl)}`);
         }
       }
     }
+  }
+
+  // The model is long; repeat the pointer at the foot so a reader who scrolled past the
+  // top one still sees how to surface the explanations.
+  if (!verbose) {
+    showPointer();
   }
 }
 
@@ -757,7 +786,7 @@ export async function runDoctor(options: DoctorOptions): Promise<number> {
   }
   const cfg = await loadModelConfig(destDir);
   if (cfg !== undefined) {
-    renderExecutionModel(log, buildExecutionModel(cfg));
+    renderExecutionModel(log, buildExecutionModel(cfg), options.verbose);
   }
   return healthy ? 0 : 1;
 }
