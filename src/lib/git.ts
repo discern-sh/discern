@@ -29,10 +29,16 @@ export type WorktreeState =
  * binary that is missing or errors (e.g. not a repository) yields `not-a-repo`,
  * never a throw — the caller decides what to do with each outcome.
  */
-export async function worktreeState(cwd: string): Promise<WorktreeState> {
+export async function worktreeState(
+  cwd: string,
+  opts: { env?: Record<string, string> } = {},
+): Promise<WorktreeState> {
   // A failed run covers both "git not installed" and "not a git repository":
   // either way the upgrade has no git safety net, which is `not-a-repo`.
-  const r = await runGit(["status", "--porcelain"], { cwd });
+  const r = await runGit(["status", "--porcelain"], {
+    cwd,
+    ...(opts.env !== undefined ? { env: opts.env } : {}),
+  });
   if (!r.success) {
     return { kind: "not-a-repo" };
   }

@@ -10,10 +10,11 @@
  *                    non-zero), and a `git` binary that cannot be spawned at all
  *                    (the catch), neither of which may throw.
  *
- * `worktreeState` inherits the process environment, so to keep the real repos
- * hermetic we set `GIT_CONFIG_GLOBAL`/`GIT_CONFIG_SYSTEM` (and disable signing via
- * repo-local config) for the duration of each call and restore them after — the
- * developer's global git settings can neither leak in nor be mutated.
+ * To keep the real repos hermetic, each call forwards `GIT_CONFIG_GLOBAL`/
+ * `GIT_CONFIG_SYSTEM` (and disables signing via repo-local config) straight to
+ * the git subprocess through worktreeState's `env` — so the developer's global
+ * git settings can't leak in, and the test never mutates the process env (which
+ * would race across files under `deno test --parallel`).
  */
 
 import { assert, assertEquals, assertExists } from "@std/assert";
@@ -23,16 +24,20 @@ import { withTempDir } from "./helpers.ts";
 
 const DEVNULL = "/dev/null";
 
+/** Git-isolation env, forwarded to every git spawn so the developer's global/
+ * system git config can't leak in — set on the child, never on the process. */
+const GIT_ISOLATION: Record<string, string> = {
+  GIT_CONFIG_GLOBAL: DEVNULL,
+  GIT_CONFIG_SYSTEM: DEVNULL,
+  GIT_TERMINAL_PROMPT: "0",
+};
+
 /** Run a hermetic git command in `dir`; throw on failure. */
 async function git(dir: string, ...args: string[]): Promise<void> {
   const c = new Deno.Command("git", {
     args,
     cwd: dir,
-    env: {
-      GIT_CONFIG_GLOBAL: DEVNULL,
-      GIT_CONFIG_SYSTEM: DEVNULL,
-      GIT_TERMINAL_PROMPT: "0",
-    },
+    env: GIT_ISOLATION,
     stdout: "null",
     stderr: "piped",
   });
@@ -57,28 +62,12 @@ async function initRepo(dir: string): Promise<void> {
 }
 
 /**
- * Call `worktreeState(dir)` with the git-isolation env vars temporarily set in
- * the process environment (so the inherited-env subprocess stays hermetic),
- * restoring the prior values afterwards.
+ * Call `worktreeState(dir)` with the git-isolation env forwarded to its git
+ * subprocess, so the inherited-env spawn stays hermetic without touching the
+ * process env.
  */
 async function isolatedState(dir: string): Promise<WorktreeState> {
-  const keys = [
-    "GIT_CONFIG_GLOBAL",
-    "GIT_CONFIG_SYSTEM",
-    "GIT_TERMINAL_PROMPT",
-  ];
-  const saved = new Map(keys.map((k) => [k, Deno.env.get(k)]));
-  Deno.env.set("GIT_CONFIG_GLOBAL", DEVNULL);
-  Deno.env.set("GIT_CONFIG_SYSTEM", DEVNULL);
-  Deno.env.set("GIT_TERMINAL_PROMPT", "0");
-  try {
-    return await worktreeState(dir);
-  } finally {
-    for (const [k, v] of saved) {
-      if (v === undefined) Deno.env.delete(k);
-      else Deno.env.set(k, v);
-    }
-  }
+  return await worktreeState(dir, { env: GIT_ISOLATION });
 }
 
 Deno.test("a freshly-committed repo reports clean", async () => {
@@ -141,16 +130,13 @@ Deno.test("a non-repository directory reports not-a-repo (git exits non-zero)", 
 Deno.test("an unrunnable git binary reports not-a-repo, never throwing (catch branch)", async () => {
   await withTempDir(async (dir) => {
     await withTempDir(async (emptyBin) => {
-      // Point PATH at an empty directory so spawning `git` raises NotFound,
-      // which worktreeState must swallow into not-a-repo rather than rethrow.
-      const savedPath = Deno.env.get("PATH");
-      Deno.env.set("PATH", emptyBin);
-      try {
-        assertEquals(await worktreeState(dir), { kind: "not-a-repo" });
-      } finally {
-        if (savedPath === undefined) Deno.env.delete("PATH");
-        else Deno.env.set("PATH", savedPath);
-      }
+      // An empty PATH for the child makes spawning `git` raise NotFound, which
+      // worktreeState must swallow into not-a-repo rather than rethrow. Injected
+      // as the git spawn's env so the process PATH is never mutated (parallel-safe).
+      assertEquals(
+        await worktreeState(dir, { env: { PATH: emptyBin } }),
+        { kind: "not-a-repo" },
+      );
     });
   });
 });
