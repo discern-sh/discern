@@ -190,10 +190,79 @@ Deno.test("finish/prepare/test run before setup is recorded, carrying the in-pro
         `${verb} must not redirect to setup pre-bootstrap: ${r.output}`,
       );
       assert(
-        (res.hints ?? []).some((h: string) => h.includes("Setup is not finished")),
+        (res.hints ?? []).some((h: string) =>
+          h.includes("Setup is not finished")
+        ),
         `${verb} must carry the setup-in-progress hint: ${r.stdout}`,
       );
     }
+  });
+});
+
+/** Lay a clean, marker-free project state so `setup done`'s marker check passes and
+ * only the GATE decides the outcome: real docs, a real guidance.md, and `test` wired
+ * to `cmd` (a shell command whose exit status is the gate's verdict). */
+async function readyForDone(dir: string, cmd: string): Promise<void> {
+  await scaffoldEngine(dir, { bootstrapped: false });
+  await gitInit(dir);
+  await runAgent(dir, ["setup"]); // lay the skeletons
+  // Replace the marker-carrying skeletons with real, marker-free content.
+  await Deno.remove(join(dir, "docs"), { recursive: true });
+  await Deno.mkdir(join(dir, "docs"));
+  await Deno.writeTextFile(join(dir, "docs/README.md"), "# Real docs\n");
+  await Deno.writeTextFile(
+    join(dir, "guidance.md"),
+    "# Project guidance\n\nReal conventions.\n",
+  );
+  const wired = await runAgent(dir, ["config", "set-capability", "test", cmd]);
+  assertEquals(wired.code, 0, wired.output);
+}
+
+Deno.test("setup done runs the gate and records bootstrapped only when green (ADR 0065)", async () => {
+  await withTempDir(async (dir) => {
+    await readyForDone(dir, "true"); // a passing gate
+
+    const done = await runAgent(dir, ["setup", "done", "--json"]);
+    assertEquals(done.code, 0, done.output);
+    const res = JSON.parse(done.stdout);
+    assertEquals(res.ok, true);
+    assertEquals(res.data.bootstrapped, true);
+    assertEquals(
+      res.data.gate_proven,
+      true,
+      "the gate was the completion proof",
+    );
+    assertStringIncludes(
+      await Deno.readTextFile(join(dir, "discern.toml")),
+      "bootstrapped = true",
+    );
+  });
+});
+
+Deno.test("setup done refuses when the gate is red, recording nothing; --force overrides (ADR 0065)", async () => {
+  await withTempDir(async (dir) => {
+    await readyForDone(dir, "false"); // a failing gate
+
+    const done = await runAgent(dir, ["setup", "done", "--json"]);
+    assertEquals(done.code, 1, done.output);
+    const res = JSON.parse(done.stdout);
+    assertEquals(res.error, "gate_failed");
+    assertEquals(res.data.stage, "finish");
+    assert(
+      !(await Deno.readTextFile(join(dir, "discern.toml"))).includes(
+        "bootstrapped = true",
+      ),
+      "a red gate must NOT record completion",
+    );
+
+    // --force is the escape hatch: it skips the proof and records anyway.
+    const forced = await runAgent(dir, ["setup", "done", "--force"]);
+    assertEquals(forced.code, 0, forced.output);
+    assertStringIncludes(forced.stdout, "gate not proven");
+    assertStringIncludes(
+      await Deno.readTextFile(join(dir, "discern.toml")),
+      "bootstrapped = true",
+    );
   });
 });
 

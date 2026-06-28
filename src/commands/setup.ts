@@ -47,6 +47,8 @@ import { KIT_VERSION, SCHEMA_VERSION } from "../lib/version.ts";
 import { applyPlan, buildPlan, type Plan, planBrief } from "../lib/fs_plan.ts";
 import { planToJson, renderPlan } from "../lib/plan_view.ts";
 import { compileGuidelines } from "../engine/guidelines.ts";
+import { doctorResult } from "./doctor.ts";
+import { finishResult } from "../engine/gate/finish.ts";
 import { type HooksIntegration, providersWithHooks } from "../lib/providers.ts";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { CONFIG_REL, findRoot } from "../shared/env.ts";
@@ -535,10 +537,13 @@ export async function runSetup(opts: SetupOptions): Promise<number> {
 }
 
 /**
- * `discern setup done` — validate that no skeleton markers remain, then record
- * `[meta].bootstrapped = true` so the setup redirect retires and the command hides
- * itself. Also the escape hatch for a manual setup: run it after wiring the config
- * by hand to silence the redirect. `--force` records completion despite leftovers.
+ * `discern setup done` — validate that no skeleton markers remain AND prove the
+ * gate green (ADR 0065), then record `[meta].bootstrapped = true` so the setup
+ * redirect retires and the command hides itself. The proof — `refresh` → `doctor`
+ * → `finish` — makes the brief's definition-of-done structural: completion can't be
+ * recorded unless the install is healthy and the gate actually passes. Also the
+ * escape hatch for a manual setup: `--force` records completion despite leftover
+ * markers AND skips the proof.
  */
 export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
   const root = await rootOrError(opts.json, "setup:done");
@@ -573,6 +578,16 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
     return 1;
   }
 
+  // The structural completion proof (ADR 0065): refresh → doctor → finish must pass
+  // before completion is recorded, so "the gate is real" can't be reported without
+  // being true. `--force` is the escape hatch — it skips the proof entirely.
+  if (!opts.force) {
+    const failed = await proveGateGreen(root, opts.json);
+    if (failed !== undefined) {
+      return failed; // already emitted; [meta].bootstrapped is NOT recorded
+    }
+  }
+
   // Record the marker, comment-preserving (mirrors `discern config set --bool`).
   const path = (await resolveConfigPath(root)) ?? join(root, CONFIG_REL);
   const editor = new TomlEditor(await Deno.readTextFile(path));
@@ -584,12 +599,14 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
     emitResult({
       ok: true,
       verb: "setup:done",
-      data: { bootstrapped: true, forced, leftover },
+      data: { bootstrapped: true, forced, gate_proven: !opts.force, leftover },
     });
     return 0;
   }
   console.log(
-    "Setup complete — recorded [meta].bootstrapped = true in discern.toml.",
+    opts.force
+      ? "Setup complete — recorded [meta].bootstrapped = true in discern.toml (--force; gate not proven)."
+      : "Setup complete — gate is green; recorded [meta].bootstrapped = true in discern.toml.",
   );
   console.log(
     "The one-time setup redirect is now retired and `discern setup` is hidden from the command list.",
@@ -600,6 +617,87 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
     );
   }
   return 0;
+}
+
+/**
+ * Run the completion proof `discern setup done` requires before recording
+ * `[meta].bootstrapped` (ADR 0065): `refresh` (so the generated agent files are
+ * current), then `doctor` (the install is healthy), then `finish` (the gate is
+ * green with whatever capabilities were just wired). The cores run BELOW the
+ * router/MCP bootstrap gate, so they execute even though setup isn't recorded yet —
+ * the "bootstrap bypass" is automatic. Returns `undefined` when the proof passed
+ * (the caller records completion), or exit 1 (already emitted) when a step failed.
+ */
+async function proveGateGreen(
+  root: string,
+  json: boolean,
+): Promise<number | undefined> {
+  // 1. refresh — recompile the agent files + skills so finish's currency check sees
+  //    a current tree (the agent likely edited guidance.md and the docs just now).
+  try {
+    await compileGuidelines(
+      root,
+      new Logger({ json, noColor: false, humanStream: "stdout" }),
+    );
+  } catch (error) {
+    return emitDoneGateFailure(
+      json,
+      "refresh",
+      `could not compile the agent guidance: ${errMsg(error)}`,
+    );
+  }
+
+  // 2. doctor — the install must be healthy (capability commands resolvable, the
+  //    configured agents known, the gotchas doc resolving, …).
+  if (!(await doctorResult(root)).ok) {
+    return emitDoneGateFailure(
+      json,
+      "doctor",
+      "the install has problems; run `discern doctor` and fix what it flags",
+    );
+  }
+
+  // 3. finish — the gate must be green with the capabilities the agent wired.
+  if (!(await finishResult(root)).ok) {
+    return emitDoneGateFailure(
+      json,
+      "finish",
+      "the quality gate is not green; run `discern finish`, fix the failures, then re-run",
+    );
+  }
+
+  return undefined;
+}
+
+/**
+ * Emit a `setup done` completion-proof failure (naming the gate step that failed)
+ * and return exit 1. `[meta].bootstrapped` is left unrecorded, so `status` keeps
+ * reporting setup as unfinished until the proof passes (or `--force` overrides it).
+ */
+function emitDoneGateFailure(
+  json: boolean,
+  stage: "refresh" | "doctor" | "finish",
+  detail: string,
+): number {
+  const message = `setup is not finished — ${detail}.`;
+  if (json) {
+    emitResult({
+      ok: false,
+      verb: "setup:done",
+      error: "gate_failed",
+      message,
+      data: { stage },
+    });
+  } else {
+    console.error(`discern: ${message}`);
+    console.error(
+      `       (\`discern setup done\` runs refresh → doctor → finish as its completion proof; the ${stage} step failed.)`,
+    );
+    console.error(
+      "       Fix it and re-run, or pass --force to record completion without the proof.",
+    );
+  }
+  return 1;
 }
 
 /** Emit a setup-phase error in both human and `--json` modes. */
