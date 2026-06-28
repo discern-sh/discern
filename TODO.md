@@ -278,4 +278,3 @@ periodically in maintenance batches._
       Noteworthy inconsistencies currently (non-exhaustive list):
       `discern <verb>` where <verb> is a single word, but `worktree:prune` etc.
       is two words; etc...
-- [ ] 'skel' - just no. TitleCase... maybe?

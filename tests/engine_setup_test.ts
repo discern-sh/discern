@@ -336,18 +336,26 @@ Deno.test("discern setup preserves the project name's casing in the scaffolded f
   });
 });
 
-Deno.test("setup's _adr skel is byte-identical to the write-adr skill's (single source)", async () => {
+Deno.test("setup's _adr skeleton is byte-identical to the write-adr skill's (single source)", async () => {
   for (const f of ["README.md", "0000-template.md"]) {
     const setupCopy = await Deno.readTextFile(
-      join(REAL_TEMPLATES, "setup", "skel", "docs", "_adr", f),
+      join(REAL_TEMPLATES, "setup", "skeleton", "docs", "_adr", f),
     );
     const skillCopy = await Deno.readTextFile(
-      join(REAL_TEMPLATES, "skills", "write-adr", "skel", "docs", "_adr", f),
+      join(
+        REAL_TEMPLATES,
+        "skills",
+        "write-adr",
+        "skeleton",
+        "docs",
+        "_adr",
+        f,
+      ),
     );
     assertEquals(
       setupCopy,
       skillCopy,
-      `templates/setup/skel/docs/_adr/${f} must stay identical to the write-adr skill's copy`,
+      `templates/setup/skeleton/docs/_adr/${f} must stay identical to the write-adr skill's copy`,
     );
   }
 });

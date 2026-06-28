@@ -6,14 +6,14 @@ that forced it, and the reasoning behind it.
 
 discern _ships_ the ADR discipline to the projects it scaffolds via its bundled
 `write-adr` skill, which creates `docs/_adr/` on demand from its skeleton at
-[`templates/skills/write-adr/skel/docs/_adr/`](../../templates/skills/write-adr/skel/docs/_adr/).
+[`templates/skills/write-adr/skeleton/docs/_adr/`](../../templates/skills/write-adr/skeleton/docs/_adr/).
 This directory is discern applying that discipline to itself — recording the
 decisions behind the engine and installer here, in the same format.
 
 **The canonical ADR format is the one discern ships:**
-[`templates/skills/write-adr/skel/docs/_adr/README.md`](../../templates/skills/write-adr/skel/docs/_adr/README.md),
+[`templates/skills/write-adr/skeleton/docs/_adr/README.md`](../../templates/skills/write-adr/skeleton/docs/_adr/README.md),
 with the copy-paste template at
-[`templates/skills/write-adr/skel/docs/_adr/0000-template.md`](../../templates/skills/write-adr/skel/docs/_adr/0000-template.md).
+[`templates/skills/write-adr/skeleton/docs/_adr/0000-template.md`](../../templates/skills/write-adr/skeleton/docs/_adr/0000-template.md).
 Read it before drafting. In brief: number continuously (`NNNN-slug.md`, first
 real ADR is `0001`); state the decision in the title; write one only when the
 decision is hard to reverse, surprising without context, and a real trade-off.

@@ -431,7 +431,7 @@ async function seedGuidance(
   try {
     content = await Deno.readTextFile(guidancePath);
   } catch {
-    const stub = join(await resolveSetupDir(), "skel", "guidance.md");
+    const stub = join(await resolveSetupDir(), "skeleton", "guidance.md");
     content = (await Deno.readTextFile(stub)).replaceAll(
       "{{project_name}}",
       config.projectName,
@@ -469,22 +469,26 @@ async function laySkeletons(
   root: string,
   name: string,
 ): Promise<{ laid: string[]; skipped: string[] }> {
-  const skelDir = join(await resolveSetupDir(), "skel");
+  const skeletonDir = join(await resolveSetupDir(), "skeleton");
   const laid: string[] = [];
   const skipped: string[] = [];
 
   if (await pathExists(join(root, "docs"))) {
     skipped.push("docs/");
-  } else if (await pathExists(join(skelDir, "docs"))) {
-    await copyTreeSubstituting(join(skelDir, "docs"), join(root, "docs"), name);
+  } else if (await pathExists(join(skeletonDir, "docs"))) {
+    await copyTreeSubstituting(
+      join(skeletonDir, "docs"),
+      join(root, "docs"),
+      name,
+    );
     laid.push("docs/");
   }
 
-  const todoSkel = join(skelDir, "TODO.md");
+  const todoSkeleton = join(skeletonDir, "TODO.md");
   if (await pathExists(join(root, "TODO.md"))) {
     skipped.push("TODO.md");
-  } else if (await pathExists(todoSkel)) {
-    await copyTextSubstituting(todoSkel, join(root, "TODO.md"), name);
+  } else if (await pathExists(todoSkeleton)) {
+    await copyTextSubstituting(todoSkeleton, join(root, "TODO.md"), name);
     laid.push("TODO.md");
   }
 
@@ -884,7 +888,7 @@ async function copyTextSubstituting(
   await Deno.writeTextFile(dest, text);
 }
 
-/** Recursively copy a skel subtree into the project, substituting tokens per file. */
+/** Recursively copy a skeleton subtree into the project, substituting tokens per file. */
 async function copyTreeSubstituting(
   srcDir: string,
   destDir: string,
