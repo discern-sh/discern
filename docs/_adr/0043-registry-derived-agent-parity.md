@@ -2,8 +2,16 @@
 
 **Status**: accepted; completes [ADR 0031](0031-typed-provider-integration.md),
 extends the currency check of
-[ADR 0034](0034-agents-md-untracked-currency-check.md) to skills, and builds on
-[ADR 0042](0042-per-agent-skills-materialization.md).
+[ADR 0034](0034-agents-md-untracked-currency-check.md) to skills, and **builds
+on and consolidates** [ADR 0042](0042-per-agent-skills-materialization.md).
+
+> **Consolidates [ADR 0042](0042-per-agent-skills-materialization.md)**
+> (per-agent skills materialization): a `Provider.skillsDir` field directs the
+> effective skill set into every configured agent's directory —
+> `claude_code → .claude/skills`, and `codex`/`gemini →` the shared
+> `.agents/skills` (deduped onto one target), gated on `features.skills`. That
+> decision is folded in here; this ADR makes the provider registry the enforced
+> single source for it, guarded by the parity test below.
 
 ## Context
 

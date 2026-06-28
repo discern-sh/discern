@@ -69,7 +69,8 @@ read the same run, a convention rather than a structural invariant (there is no
 shared `steps[]` renderer yet; unifying that is future work). A verb may add
 bespoke human _advice_ (finish's success tail, doctor's per-check fix hints) on
 top, and **live streamed job output stays a side-channel** (you cannot render
-post-hoc bytes from a settled object).
+post-hoc bytes from a settled object) — though under `--json` that side-channel
+is itself silenced (see the _Update_ below).
 
 We deliberately did **not** force every verb's payload into one shape: a doctor
 check is not a gate job, a pending migration is not a step. Per-verb data rides
@@ -147,3 +148,34 @@ verbs is `serializeResult` over stdio — a third rendering of the same spine.
   schema-version delta isn't a step that ran. `data` carries verb-specific
   payloads without distorting them; the envelope unifies what's genuinely
   common.
+
+## Update — quiet `--json` (consolidates [ADR 0030](0030-quiet-json-output.md))
+
+ADR 0030 extended this envelope and is folded in here. The refinement: **in
+`--json` mode the `DiscernResult` envelope is the _entire_ program output.** All
+discern-authored narration _and_ all captured/streamed subprocess output are
+**suppressed, not rerouted** — combined `stdout`+`stderr` of any `<verb> --json`
+is exactly one JSON object (only an uncaught crash may still reach `stderr`).
+This silences the live-output side-channel the Decision above left on `stderr`,
+so the 16k diagnostic cap is no longer defeated by an uncapped parallel stream —
+the agent loop _act → read-error → fix_ now works through a tool that captures
+the two streams combined.
+
+It rests on three structural commitments:
+
+- **One silence rule.** In JSON mode every human output method is a no-op and
+  the job runner withholds its sink (the child is always piped, so nothing
+  reaches an fd), while `result.output` still feeds the failure diagnostic.
+- **One emission chokepoint.** A single `emitResult` is the only code that
+  serializes an envelope to `stdout`; every hand-rolled `console.log` emission
+  is removed (`serializeResult` stays the one wire-shape definition).
+- **A `hints?: string[]` field** promotes advice that was human-only — the
+  gotchas-doc pointer on a failed gate, the ratchets / dev-server / docs nudges
+  on a clean one — into the envelope, so going quiet loses nothing.
+
+Agents are steered to `--json` through the **compiled guidance**, never
+environment-variable detection (rejected as rot-prone, non-deterministic under
+test, and a generic-surface violation; any default-on must be an explicit
+`DISCERN_JSON` / `[output]` knob, not a sniff). An architectural test asserts,
+for every `--json` verb, that combined output parses to exactly the envelope,
+and a source guard pins the single emission chokepoint.

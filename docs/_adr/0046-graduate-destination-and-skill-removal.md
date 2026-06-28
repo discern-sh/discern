@@ -2,10 +2,12 @@
 
 **Status**: accepted
 
-> **Amended by [ADR 0048](0048-graduate-trunk-role-name.md):** 0048 renames the
-> trunk-landing value introduced here, `"main"` → `"trunk"`. The value always
-> named a role (`[project].main_branch`), and the literal-branch spelling misled
-> repos whose trunk is not `main`.
+> **Consolidates [ADR 0048](0048-graduate-trunk-role-name.md).** The
+> trunk-landing value introduced below as `"main"` was renamed to `"trunk"`
+> (0048, folded in here). **Current values: `graduate_to = "branch" | "trunk"`**
+> — read every `"main"` destination in the text below as the role now spelled
+> `"trunk"`, which resolves to `[project].main_branch` (whatever a repo calls
+> its trunk). A schema 11→12 migration carries a legacy `"main"` value forward.
 
 ## Context
 

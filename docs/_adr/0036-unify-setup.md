@@ -2,9 +2,12 @@
 
 **Status**: accepted
 
-Amends [ADR 0024](0024-bootstrap-as-command.md) (which made bootstrap a command,
-not a skill) and builds on [ADR 0016](0016-consolidate-install-surface.md).
-Hardened by [ADR 0037](0037-setup-incompleteness-observable.md), which makes the
+Amends and **consolidates** [ADR 0024](0024-bootstrap-as-command.md) (which made
+bootstrap a command, not a skill — a decision that lives on here:
+`discern setup` is a command that prints instructions, recorded by the
+`[meta].bootstrapped` marker) and builds on
+[ADR 0016](0016-consolidate-install-surface.md). Hardened by
+[ADR 0037](0037-setup-incompleteness-observable.md), which makes the
 unfinished-setup state observable so the handoff can't be mistaken for
 completion. The setup-brief interaction model it established —
 propose-and-confirm — is later revised to _involve, don't gate_ by

@@ -85,3 +85,25 @@ step first to match the executed order.
   behind `main` is not "done", so the gate must stay red; and running the slow
   stages against a tree that is about to be replaced is the precise waste this
   removes.
+
+## Update — currency checks are preconditions too (consolidates [ADR 0056](0056-currency-checks-fail-fast.md))
+
+ADR 0056 applied this same fail-fast-precondition pattern to the
+generated-artifact currency checks
+([ADR 0034](0034-agents-md-untracked-currency-check.md)) and is folded in here.
+The **guidance and skills currency checks also run first**, beside the merge
+check, before fix/build/check∥test/scope-gates: when a generated file is stale
+the gate sets `failed_stage` to `guidance` or `skills` and skips every
+downstream stage (which serialize as `skipped`). The `--dry-run` plan lists the
+currency gates right after the merge check, matching the run.
+
+The verdict is invariant across a gate run for the same reason the merge check's
+is: the gate never runs `discern refresh`, and its fix stage formats _source_ —
+never the guidance sources, the config, or the gitignored generated artifacts
+the checks read — so checking first returns the same answer as checking last.
+`MISSING` still does not block (only `STALE` does, per ADR 0034). The one check
+that **stays** after the fix stage is the fix-stage strand check
+([ADR 0047](0047-fix-stage-strand-detection.md)): unlike the currency checks it
+reads a snapshot the fix stage produces, so it cannot move earlier. A regression
+test stales a generated file and asserts `failed_stage = "guidance"` with every
+step `skipped`.
