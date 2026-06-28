@@ -21,6 +21,10 @@ const TEST_ARGS = [
   "--allow-write",
   "--allow-env",
   "--allow-run",
+  // Collect coverage across worker threads. V8 writes a profile per isolate into
+  // the shared --coverage dir, so the aggregated number is identical to a serial
+  // run (verified) while finishing in a fraction of the wall time.
+  "--parallel",
 ];
 
 /** Run a `deno` subcommand, returning its captured stdout (throws on failure). */
