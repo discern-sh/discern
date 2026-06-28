@@ -1,16 +1,17 @@
 {
   "files.exclude": {
+    ".agents/skills": true,
     ".claude/worktrees": true,
     ".claude/skills": true,
     "dist": true,
-    ".discern/evidence": true,
     "coverage": true,
     ".scratch": true
   },
   "search.exclude": {
-    ".discern/skills": true,
+    ".agents/skills": true,
     ".claude/skills": true,
     "AGENTS.md": true,
-    "CLAUDE.md": true
+    "CLAUDE.md": true,
+    "GEMINI.md": true
   }
 }
