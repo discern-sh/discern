@@ -22,9 +22,17 @@ Everything discern knows about this project lives in one root file,
 - **`discern_help`** explains how discern works; **`discern_doctor`** diagnoses a
   misconfigured install.
 
-If the MCP server isn't reachable, say so, and meanwhile run any verb from the
-**`discern` CLI** (`discern status`, `discern finish`, …); pass `--json` when you
-need to parse the output.
+If the MCP server is **unreachable**:
+
+1. **Tell the user.** It's important they know they have a misconfiguration.
+   `discern` is optimised for MCP use, and this should be the default way you 
+   interact with it. Make them aware, then continue working.
+2. Meanwhile, run any verb from the **`discern` CLI** (`discern status`,
+   `discern finish`, …), passing `--json` to get structured machine-readable
+   output. Don't `tail` the CLI — you will miss important information. `discern`
+   is carefully optimised for agents, and is considerate of its output length.
+3. When you finish working, **offer to help the user** fix the unreachable
+   MCP connection. `discern help` and `discern doctor` can assist you.
 
 ## Generated files — don't hand-edit
 
