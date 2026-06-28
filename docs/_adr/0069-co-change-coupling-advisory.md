@@ -36,6 +36,13 @@ Three forces bound the design:
 - **It must be cheap and add no infrastructure.** discern's whole footprint is
   one `discern.toml` and a binary; a co-change feature must not drag in a data
   store.
+- **It must work out of the box on any repo.** discern installs into repos of
+  every size, age, and shape, and a novice user will never tune a threshold. So
+  the metric cannot rely on per-repo configuration — and a first attempt proved
+  why: absolute thresholds (a raw co-occurrence "support" floor) do not
+  transfer. A value tuned on one repo's commit cadence and sizes surfaced
+  nothing on another; the offending quantity was denominated in synthetic,
+  scale-dependent units. The metric has to be **self-calibrating**.
 
 ## Decision
 
@@ -67,20 +74,35 @@ The advisory:
   suppressed entirely until the install is bootstrapped, so the in-session setup
   an agent runs stays uncluttered.
 
-**The metric** treats each non-merge commit as a basket of the files it changed:
-neutral paths are dropped (the same `isNeutralPath` the scope classifier uses,
-so generated artifacts and docs create no edges); each commit is weighted by
-`1 / basket_size` and **skipped** above `max_commit_size`, so a sweeping change
-is near-zero evidence per pair; co-occurrence is decayed by recency
-(`half_life_days`), anchored to the newest commit in the window; and a
-directional edge A→B is kept only when `support ≥ min_support` AND
-`confidence ≥ min_confidence` AND **`lift > 1`** — lift being the discriminator
-that drops a high-churn file co-occurring with everything.
+**The metric is zero-config and self-calibrating.** Each non-merge commit is a
+basket of the files it changed; neutral paths are dropped (the same
+`isNeutralPath` the scope classifier uses, so generated artifacts and docs
+create no edges). Every remaining gate is expressed in units that transfer
+across repo scale:
+
+- a **sweeping commit is skipped**, where "sweeping" is derived per-repo as the
+  upper-outlier fence (Q3 + 1.5·IQR) of _this_ repo's own basket-size
+  distribution — so a repo of tiny commits and a repo of habitually larger ones
+  each judge a sweep against their own normal;
+- an edge A→B is kept only when the two co-changed in at least a small fixed
+  COUNT of commits (a fluke guard — a count means the same thing in any repo,
+  unlike a weighted score), the partner follows the source often enough to be
+  worth mentioning (a confidence RATIO, scale-free), and the association is
+  statistically **significant** — a **log-likelihood ratio** (a G-test) over raw
+  commit counts, which is unit-free and so transfers where an absolute support
+  threshold cannot. This is the standard tool for "do these co-occur more than
+  chance" in collocation and basket-analysis work, and is robust at the low
+  counts a young repo has.
+
+The only constants are a SIGNIFICANCE level and a fluke count — not per-repo
+tuning knobs — so there are no thresholds in `[coupling]` to set. Evidence is
+reported in **plain counts** ("B changed in N of the M recent commits that
+touched A"), not an abstract score, so the advisory reads to a non-expert.
 
 **It recomputes on demand, bounded by `window` — there is NO cache in v1.** Each
 call re-mines the history. The explicit *no*s: no persisted co-change graph, no
-blocking, no auto-promotion of a coupling to an enforced rule, no function- or
-hunk-level granularity (file-level only).
+per-repo tuning, no blocking, no auto-promotion of a coupling to an enforced
+rule, no function- or hunk-level granularity (file-level only).
 
 **It fails _silent_, not open.** When it cannot compute a change set (a git
 hiccup, no diff base) it advises nothing — the deliberate opposite of the scope
@@ -105,12 +127,19 @@ is worse than silence.
   architectural step (invalidation, staleness, where it lives relative to the
   one-file footprint) that deserves its own ADR, written when the recompute cost
   is actually felt, not pre-emptively.
-- **The thresholds are tuning, and ship as starting points.** The `1/size`
-  weighting compresses `support` into a small score (this repo's strongest
-  coupling sits near 1.3, not an integer count), so `min_support` reads as a
-  weighted score, not a raw count, and the shipped defaults are calibrated
-  against real history rather than the brief's first-guess integers. A project
-  tunes them in `[coupling]`.
+- **Zero-config: there is nothing to tune.** `[coupling]` carries a single
+  preference — `in_gate` — and no scale knobs, because the metric
+  self-calibrates (the size fence from the repo's own distribution; significance
+  from a unit-free test). The same install works on a 50-commit toy and a large
+  monorepo with no configuration, which is the product bar — most users never
+  learn what a log-likelihood ratio is, and they don't have to. The cost is that
+  the engine carries a little statistics rather than a config table; the win is
+  that the config table can't be set wrong.
+- **The constants are significance levels, not magic numbers.** The one real
+  dial — the LLR cutoff — is a χ² significance level chosen for precision (a
+  false nudge erodes trust faster than a missed one helps), validated against
+  real history to sit at the genuine-versus-incidental boundary. It is a
+  property of "what counts as a real association," not of any one repo.
 - **Discovery and enforcement stay cleanly separated.** This tool answers _where
   do couplings exist?_; ADR 0051's forcing functions answer _which couplings are
   invariants?_. Conflating them — auto-locking a strong pair — would manufacture
@@ -119,6 +148,14 @@ is worse than silence.
 
 ## Alternatives considered
 
+- **Keep tunable thresholds and auto-tune them per repo.** Rejected in favour of
+  re-expressing the metric in scale-free units. Auto-tuning accepts the knobs
+  that were the problem; a self-normalizing metric — raw counts,
+  a unit-free significance test, a size fence derived from the repo's own
+  distribution — has nothing to tune, needs no calibration pass or stored state,
+  and is computed inline from the same single git-log mine, so it preserves
+  recompute-on-demand. The higher-leverage move was to delete the knobs, not to
+  set them automatically.
 - **Block the gate on a missing sibling.** Rejected: a heuristic false positive
   that fails the gate is intolerable and trains the agent to ignore the surface.
   The human/agent must judge essential-vs-incidental, which only an advisory

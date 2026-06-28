@@ -277,14 +277,16 @@ lint-error count), declared under `[ratchets]` and held against `main`. It
 What `discern coupling` produces: from git history, the files that change
 **together**, so a change is nudged toward the sibling it is likely missing. It
 is purely **advisory** — surfaced through `hints[]`, it points at where to look
-and **never blocks**. A directional pair A→B is kept only when its
-recency-decayed, `1/size`-weighted `support`, its `confidence`, and its
-`lift > 1` all clear the `[coupling]` floors, so incidental churn doesn't
-surface. Available on demand in two modes (the diff-aware change-set view and a
-one-file `coupling <path>` query) and, behind `[coupling].in_gate`, at the tail
-of the [Gate](#gate). It is the **discovery** end of the
-[canonical-set](#feature) discipline that the parity tests **enforce** — the two
-stay deliberately separate
+and **never blocks**, reporting evidence in plain counts ("B changed in N of the
+M recent commits that touched A"). It is **zero-config**: it self-calibrates to
+the repo (a sweeping commit is fenced out by the repo's own commit-size
+distribution; a pair is kept only when their co-occurrence is statistically
+significant by a log-likelihood-ratio test), so incidental churn doesn't surface
+and there are no thresholds to tune. Available on demand in two modes (the
+diff-aware change-set view and a one-file `coupling <path>` query) and, behind
+`[coupling].in_gate`, at the tail of the [Gate](#gate). It is the **discovery**
+end of the [canonical-set](#feature) discipline that the parity tests
+**enforce** — the two stay deliberately separate
 ([ADR 0069](../_adr/0069-co-change-coupling-advisory.md),
 [ADR 0051](../_adr/0051-canonical-set-parity.md)). Covered in
 [coupling.md](../20-quality-gate/coupling.md).

@@ -33,11 +33,17 @@ and the list stated to be **not exhaustive**.
   blast radius. Useful before a change: _what tends to move when I touch this?_
 
 Both render the advisory as `hints[]`; `--json` adds `data.partners`, the ranked
-list, each entry an edge `{ path, from, support, confidence, lift }`. The MCP
-tool `discern_coupling` takes an optional `file` argument for query mode (the
-working-root override keeps the name `path`).
+list, each entry an edge `{ path, from, cochanges, of, confidence, lift }` — the
+evidence in plain counts (`cochanges` of the `of` commits that touched `from`).
+The MCP tool `discern_coupling` takes an optional `file` argument for query mode
+(the working-root override keeps the name `path`).
 
 ## The metric
+
+`coupling` is **zero-config**: it self-calibrates to your repo, so there are no
+thresholds to tune. Absolute thresholds don't transfer — a "support" floor tuned
+on one repo's commit cadence surfaces nothing on another — so every gate is
+expressed in units that mean the same thing at any scale.
 
 Each non-merge commit is a **basket** of the files it changed. From a bounded
 window of recent commits:
@@ -45,43 +51,40 @@ window of recent commits:
 - **neutral paths are dropped** (the same classification
   `[scopes.<name>].neutral` drives), so docs, generated agent files, and
   materialized skills never create edges;
-- **each commit is weighted by `1 / basket_size`**, and **skipped** when the
-  basket exceeds `max_commit_size` — a focused two-file commit is strong
-  evidence of coupling; a sweeping "format everything" or dependency bump is
-  near-zero evidence per pair, and this is the single most important filter
-  against O(n²) noise;
-- **co-occurrence is decayed by recency** (`half_life_days`), so a coupling a
-  refactor already dissolved fades out;
-- for a directional pair A→B the model accumulates weighted `support`
-  (co-occurrence), `confidence(A→B) = w(A∧B) / w(A)`, and
-  `lift = P(A∧B) / (P(A)·P(B))`, and keeps the edge only when
-  `support ≥ min_support` **and** `confidence ≥ min_confidence` **and**
-  `lift > 1`. Lift is the discriminator that drops a high-churn file which
-  co-occurs with everything.
+- a **sweeping commit is skipped** — `max_commit_size` is derived per-repo as
+  the upper-outlier fence (Q3 + 1.5·IQR) of _your_ repo's own commit-size
+  distribution, so a "format everything" or dependency bump can't manufacture
+  coupling, and a repo of small commits and one of larger commits each judge a
+  sweep against their own normal;
+- a directional edge A→B is kept only when the two co-changed in at least a
+  couple of commits (a fluke guard — a plain count, scale-free), A's changes
+  include B often enough to be worth mentioning (a confidence ratio,
+  scale-free), and the association is statistically **significant** — a
+  log-likelihood-ratio test (a G-test over raw commit counts) that is unit-free
+  and robust at the low counts a young repo has. This is the standard tool for
+  "do these co-occur more than chance," and it's what lets one significance
+  level transfer across repos where a raw support floor cannot.
 
-The model is **recomputed on demand**, bounded by `window` — there is no cache
-in v1 (see [ADR 0069](../_adr/0069-co-change-coupling-advisory.md) for why a
-persisted store is deferred). When git can't answer, the advisory stays
-**silent** rather than failing into noise.
+Survivors are ranked strongest-first and **capped** (top-k), so the advisory
+never floods. The model is **recomputed on demand**, bounded by the window —
+there is no cache in v1 (see
+[ADR 0069](../_adr/0069-co-change-coupling-advisory.md) for why a persisted
+store is deferred). When git can't answer, the advisory stays **silent** rather
+than failing into noise.
 
 ## Configuration
 
-The `[coupling]` section tunes the metric; every key has a default, so a fresh
-install needs no configuration. The full reference is in
-[config-reference.md](../10-installer/config-reference.md#coupling).
+There is nothing to tune — the metric self-calibrates. The only setting is
+whether the advisory also rides along with the gate:
 
-| Key               | Default | Meaning                                                                                        |
-| ----------------- | ------- | ---------------------------------------------------------------------------------------------- |
-| `window`          | `500`   | How many recent non-merge commits to mine.                                                     |
-| `min_support`     | `1.0`   | The weighted co-occurrence floor (a score, not a raw count — a focused two-file commit ≈ 0.5). |
-| `min_confidence`  | `0.3`   | The directional floor: A→B is kept only when A's changes also touched B this often.            |
-| `max_commit_size` | `25`    | Skip a commit touching more than this many (non-neutral) files.                                |
-| `half_life_days`  | `90`    | Recency half-life: a co-change this old counts half as much.                                   |
-| `in_gate`         | `false` | Append the diff-aware advisory to `discern finish` (see below).                                |
+| Key       | Default | Meaning                                                                              |
+| --------- | ------- | ------------------------------------------------------------------------------------ |
+| `in_gate` | `false` | Surface the diff-aware advisory during `discern finish` too (as hints, at the tail). |
 
 The whole subsystem is the `coupling`
 [Feature](../00-orientation/glossary.md#feature), inert when
-`[features].coupling = false`.
+`[features].coupling = false`. The full config reference is in
+[config-reference.md](../10-installer/config-reference.md#coupling).
 
 ## In the gate
 
