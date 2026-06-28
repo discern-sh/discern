@@ -6,6 +6,7 @@ agentic
 ajv
 allowlist
 Anthropic
+APIs?
 apply
 arXiv
 autograde
@@ -24,6 +25,7 @@ chokepoint
 CI
 classmap
 claude_code
+Cliffy('s)?
 CLIs?
 codebase('s)?
 codemod
