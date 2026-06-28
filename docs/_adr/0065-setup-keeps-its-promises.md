@@ -1,4 +1,4 @@
-# ADR 0065: `discern setup` proves its own completion and never destroys existing guidance
+# ADR 0065: `discern setup` keeps its promises
 
 **Status**: accepted
 
@@ -26,12 +26,11 @@ them.** The brief is prose; the files and state behind it didn't match.
   test harness scaffolds with `bootstrapped = true` by default, so every gate
   test runs in the one state where the contradiction is invisible.
 
-- **A pre-existing `CLAUDE.md`/`AGENTS.md` is silently destroyed.**
-  `compileGuidelines` writes each agent file unconditionally. A project that
-  already had a hand-authored `CLAUDE.md` (its real instructions) has it
-  overwritten on the first `setup`/`refresh` — and because ADR 0034 makes those
-  files gitignored, the original may not even be in version control to recover.
-  This is the most serious defect: setup must never delete a user's work.
+- **An existing agent file wasn't carried into the tracked source.**
+  `compileGuidelines` regenerates each agent file from the compiled guidance, so
+  a project that already had a hand-authored `CLAUDE.md`/`AGENTS.md` saw it
+  replaced without its content first being folded into the tracked `guidance.md`
+  the pipeline reads from.
 
 - **The brief says "flesh out the stub" of a `guidance.md` that was never
   laid.** `laySkeletons` seeds `docs/` and `TODO.md` only. The agent had to
@@ -66,7 +65,8 @@ asserted without backing.
 ## Decision
 
 **Every promise `discern setup` prints is backed by structure that exists when
-it prints it, and setup never destroys existing user guidance.** Concretely:
+it prints it; existing guidance is adopted rather than replaced; and a fresh
+setup runs isolated on its own branch.** Concretely:
 
 1. **`discern setup done` proves completion structurally.** It runs, in order,
    `refresh` → `doctor` → `finish` (calling the result cores directly, which sit
@@ -78,29 +78,29 @@ it prints it, and setup never destroys existing user guidance.** Concretely:
    pre-`done` step — `setup done` _is_ the green-gate proof, so "the gate is
    real" can no longer be reported without being true.
 
-2. **The gate's proof verbs are usable during setup.** `finish`, `prepare`, and
-   `test` are removed from `BOOTSTRAP_GATED_VERBS` so the agent can iterate
-   while wiring capabilities (Step 7). They are **not** silent: while
-   `!bootstrapped` each carries a `hints[]` entry stating setup is unfinished
-   and this output is indicative until `discern setup done` passes. `docs`,
-   `graduate`, `integrate`, and `ratchets` stay gated — pre-setup they browse an
-   empty tree or act on work that doesn't exist yet. This **revises ADR 0036's**
-   uniform redirect: the "empty gate reads as a false all-green" risk it guarded
-   against is now covered by ADR 0037's incompleteness signaling (the `status`
-   banner, the session reminder, and the `setup done` gate), so gating the proof
-   verbs only blocked their legitimate use.
+2. **The gate's proof verbs are usable during setup.** `finish`, `prepare`,
+   `test`, and `ratchets` are removed from `BOOTSTRAP_GATED_VERBS` so the agent
+   can iterate while wiring capabilities — and test a ratchet it wires — during
+   Step 7. They are **not** silent: while `!bootstrapped` each carries a
+   `hints[]` entry stating setup is unfinished and this output is indicative
+   until `discern setup
+   done` passes. `docs`, `graduate`, and `integrate`
+   stay gated — pre-setup they browse an empty tree or act on branch work that
+   doesn't exist yet. This **revises ADR 0036's** uniform redirect: the "empty
+   gate reads as a false all-green" risk it guarded against is now covered by
+   ADR 0037's incompleteness signaling (the `status` banner, the session
+   reminder, and the `setup done` gate), so gating the proof verbs only blocked
+   their legitimate use.
 
-3. **Setup preserves a pre-existing agent file by migrating it into
-   `guidance.md`.** Before the first compile, any agent file that already exists
-   and is **not** discern-generated (detected by the absence of the base
-   guidance's "Generated files — don't hand-edit" sentinel) has its content
-   folded into `guidance.md` — the tracked source — under a labelled heading.
-   The compile then re-emits it as part of the generated body, so the user's
-   instructions survive in both the reviewable source and the generated file.
-   Identical files (a `CLAUDE.md` and `AGENTS.md` with the same bytes) migrate
-   once. The bias is explicit: **over-preserve rather than ever lose** — a
-   duplicated paragraph the agent reconciles in Step 4 is recoverable; a deleted
-   file is not.
+3. **A fresh setup adopts any existing agent file into `guidance.md`.** Before
+   the first compile, on a fresh install (no `discern.toml` yet — so any agent
+   file on disk is the user's, never one discern generated), each pre-existing
+   `CLAUDE.md`/`AGENTS.md`/`GEMINI.md` has its content folded into the tracked
+   `guidance.md` source under a labelled heading, deduped by content. The
+   compile then re-emits it as part of the generated body, so existing
+   instructions flow into the author-once → compile-everywhere pipeline rather
+   than being replaced by it. Duplicate content is harmless — the agent
+   reconciles it in Step 4.
 
 4. **Setup ships what it references.** `laySkeletons` lays a marked
    `guidance.md` stub (so "flesh out the stub" is literally true, and the
@@ -128,6 +128,16 @@ it prints it, and setup never destroys existing user guidance.** Concretely:
    `CLAUDE.md`, and `GEMINI.md` are all generated, all gitignored; the tracked,
    reviewable source is `guidance.md`.
 
+8. **A fresh setup runs on its own branch.** In a git repo, a fresh
+   `discern
+   setup` requires a clean working tree (it refuses uncommitted
+   _tracked_ changes, pointing at `--allow-dirty`) and creates + checks out a
+   dedicated `discern-setup` branch before writing anything — so the several
+   commits setup makes never land on the user's current branch, and the whole
+   effort is trivial to roll back (delete the branch) or land (merge it) when
+   they're ready. `--allow-dirty` opts out of both the check and the branch;
+   `--dry-run`, a re-run/`--force`, and a non-git directory are no-ops.
+
 The explicit **no**s:
 
 - **Incompleteness signaling is untouched (ADR 0037).** The loud "SETUP STARTED
@@ -145,16 +155,19 @@ The explicit **no**s:
 - The brief's prescribed flow is executable end-to-end, and a regression test
   drives it from the **un-bootstrapped** state — the state the prior suite never
   exercised — so the contradiction cannot silently return.
-- Setup is safe to run over an existing project with its own agent instructions:
-  the worst case is content duplicated into `guidance.md` for the agent to tidy,
-  never content lost. A guard test scaffolds a pre-existing `CLAUDE.md` and
-  asserts its content survives in both `guidance.md` and the recompiled file.
+- Setup can run over a project that already has its own agent instructions:
+  their content is folded into `guidance.md` and re-emitted, with any duplicates
+  the agent tidies in Step 4. A guard test asserts a pre-existing `CLAUDE.md`'s
+  content reaches both `guidance.md` and the recompiled file.
+- A fresh setup is isolated on its own branch, so experimenting is low-stakes
+  and rollback is one `git branch -D`. The cost is a little friction: a dirty
+  repo must commit/stash (or pass `--allow-dirty`) before setup will run.
 - `setup done` is slower — it runs the full gate, including tests — but that
   cost buys a real definition-of-done, and it is a one-time event that already
   asked the agent to run `finish` by hand.
-- Un-gating the proof verbs leans on ADR 0037's signaling to carry the "not done
-  yet" message; the per-command hint makes that explicit at each call site
-  rather than relying only on `status`.
+- Un-gating the proof verbs (`finish`/`prepare`/`test`/`ratchets`) leans on ADR
+  0037's signaling to carry the "not done yet" message; the per-command hint
+  makes that explicit at each call site rather than relying only on `status`.
 - The single-source discipline holds: the `_adr/` skeleton is shared with the
   `write-adr` skill via a byte-identity guard, so the canonical format lives in
   one place even though it is laid from two.
@@ -172,11 +185,15 @@ The explicit **no**s:
   insufficient: the agent still needs `finish`/`prepare`/`test` to iterate while
   wiring capabilities in Step 7, and blocking them there is the exact footgun
   that surfaced. Un-gating with a hint serves both.
-- **Detect a pre-existing agent file by "fresh install ⇒ any agent file is the
-  user's".** Rejected in favour of the generated-file sentinel: the sentinel is
-  uniform across fresh installs and `--force` re-runs (it never re-migrates
-  discern's own output) and degrades safely — an unrecognised file is treated as
-  the user's and preserved.
+- **Detect a pre-existing agent file by a generated-file sentinel rather than
+  the fresh-install gate.** Rejected: the canonical agent file is full-bodied,
+  but its mirrors are bare `@AGENTS.md` pointers carrying no sentinel, so a
+  generated pointer would be misread as the user's content. "No `discern.toml`
+  yet ⇒ nothing discern generated" is unambiguous and needs no content sniffing.
+- **Isolate setup in a worktree instead of a branch.** Rejected: setup runs at
+  the bootstrap moment, before discern's worktree workflow is configured (there
+  is no `discern.toml` yet), and a plain branch needs no per-worktree resources
+  or config — it is the lighter, always-available isolation here.
 - **Soften the `_adr/` reference too, like `_internal/`.** Rejected: the design
   principles name "write an ADR" as their override mechanism, so the ADR format
   and template should exist from the first commit, not only after the
