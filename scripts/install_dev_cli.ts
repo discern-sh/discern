@@ -1,6 +1,5 @@
 /**
- * Install (or refresh) the local-development `discern` wrapper onto PATH, and
- * remove the retired `discern-next`.
+ * Install (or refresh) the local-development `discern` wrapper onto PATH.
  *
  * The wrapper (`scripts/discern`) runs the engine from whichever checkout you are
  * inside — a worktree runs its own in-progress engine — falling back to
@@ -75,18 +74,6 @@ async function main(): Promise<number> {
     return 1;
   }
   console.error(`installed: ${dest}`);
-
-  // Retire discern-next — the unified wrapper supersedes it.
-  const next = await which("discern-next");
-  if (next !== null) {
-    try {
-      await Deno.remove(next);
-      console.error(`removed:   ${next} (superseded by the unified discern)`);
-    } catch (e) {
-      const reason = e instanceof Error ? e.message : String(e);
-      console.error(`install-dev-cli: could not remove ${next}: ${reason}`);
-    }
-  }
 
   console.error("");
   console.error(

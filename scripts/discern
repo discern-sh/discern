@@ -8,7 +8,7 @@
 #
 # This is purely a convenience for developing discern itself; it is NOT part of
 # user-facing setup and discern's installer never lays it down. Install or update
-# it (and remove the old discern-next) with `deno task install-dev-cli`.
+# it with `deno task install-dev-cli`.
 
 dir=$PWD
 while [ "$dir" != "/" ]; do
