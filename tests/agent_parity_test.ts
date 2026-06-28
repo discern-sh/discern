@@ -226,12 +226,16 @@ Deno.test("the seed neutral scopes neutralize EVERY known agent's generated dir"
 
 Deno.test("KEYSTONE: every known agent is covered by every cross-cutting satellite", () => {
   // One agent × every satellite. This is the single assertion a new agent must
-  // satisfy: extend each named surface until it passes — never relax the check.
+  // satisfy: extend each named surface until it passes — never relax the check. The
+  // six-vendor foundation (Phase A) added seams 3-6 below, so a future Cursor/Copilot/
+  // Antigravity red-lights here on EACH one it hasn't yet learned.
   for (const name of AGENT_NAMES) {
     const p = providerFor(name);
     assert(p !== undefined, `no provider for ${name}`);
 
-    // 1. Compiled guidance file: gitignored.
+    // 1. Compiled guidance file: gitignored. (A reuse-canonical provider's `path` is
+    // the canonical it reads, which the canonical provider already covers — so this
+    // holds for emitting AND reuse-canonical agents alike.)
     assert(
       fragmentIgnoresFile(p.guidanceFile.path),
       `${name}: guidance file ${p.guidanceFile.path} not gitignored by the seed fragment`,
@@ -249,6 +253,39 @@ Deno.test("KEYSTONE: every known agent is covered by every cross-cutting satelli
         `${name}: generated region ${top} not in the seed neutral scopes`,
       );
     }
+
+    // 3. PATH auto-detect: at least one detection binary, match-any (deliverable 1).
+    assert(
+      p.binaries.length > 0 && p.binaries.every((b) => b.length > 0),
+      `${name}: empty binaries — PATH auto-detect can't find it`,
+    );
+
+    // 4. Guidance modelling: a reuse-canonical provider emits nothing and reads the
+    // canonical; an emitting provider's path is in the deduped aggregator exactly
+    // once (deliverable 2).
+    if (emitsGuidanceFile(p.guidanceFile)) {
+      assert(
+        allGuidanceFilePaths().filter((x) => x === p.guidanceFile.path)
+          .length === 1,
+        `${name}: emitted guidance ${p.guidanceFile.path} must appear once in allGuidanceFilePaths()`,
+      );
+    }
+
+    // 5. MCP status accounted: wired, pending-with-a-named-target, or none — never a
+    // silent gap (deliverable 4).
+    assert(
+      p.mcp.kind === "wired" ||
+        (p.mcp.kind === "pending" && p.mcp.targetFile.length > 0) ||
+        p.mcp.kind === "none",
+      `${name}: MCP status not accounted (wired | pending+target | none)`,
+    );
+
+    // 6. Trust metadata: present, and naming the action when trust is required
+    // (deliverable 5).
+    assert(
+      !p.trust.required || p.trust.hint.trim().length > 0,
+      `${name}: a required trust must name the user-facing action`,
+    );
   }
 });
 
