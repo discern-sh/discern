@@ -9,6 +9,7 @@ Anthropic
 APIs?
 apply
 arXiv
+async
 autograde
 autoloader
 backfill(s|ed|ing)?
@@ -83,6 +84,7 @@ idempotency
 idempotently
 Infracost
 init
+injectable
 inlines?
 inspectable
 install
@@ -104,6 +106,8 @@ metacharacters
 migrator
 monorepo
 mtime
+mutators?
+mutex
 namespac(e|ed|es|ing)
 noglob
 npm
@@ -180,6 +184,7 @@ unformatted
 ungated
 unmanaged
 unmarketed
+unrunnable
 untrack(ed|ing|s)
 untrusted
 uppercased
