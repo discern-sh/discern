@@ -54,23 +54,28 @@ async function fileExists(path: string): Promise<boolean> {
   }
 }
 
-/** Count real ADRs under `docs/_adr`: files named `NNNN-*.md`, excluding the
- * `0000-template` seed. Zero when the directory is absent. */
-async function countAdrs(root: string): Promise<number> {
-  const dir = join(root, "docs", "_adr");
+/** Count real ADRs under `docs/_adr`, recursing into subdirectories so retired
+ * ADRs relocated under `_superseded/` still count: files named `NNNN-*.md`,
+ * excluding the `0000-template` seed. Zero when the directory is absent. */
+export async function countAdrs(root: string): Promise<number> {
   let count = 0;
-  try {
-    for await (const entry of Deno.readDir(dir)) {
-      if (
-        entry.isFile && /^\d{4}-.*\.md$/.test(entry.name) &&
-        !entry.name.startsWith("0000-")
-      ) {
-        count++;
+  async function scan(dir: string): Promise<void> {
+    try {
+      for await (const entry of Deno.readDir(dir)) {
+        if (entry.isDirectory) {
+          await scan(join(dir, entry.name));
+        } else if (
+          entry.isFile && /^\d{4}-.*\.md$/.test(entry.name) &&
+          !entry.name.startsWith("0000-")
+        ) {
+          count++;
+        }
       }
+    } catch {
+      // directory absent — contributes zero
     }
-  } catch {
-    // no _adr directory — zero ADRs
   }
+  await scan(join(root, "docs", "_adr"));
   return count;
 }
 

@@ -396,7 +396,7 @@ function graduateVerb(cfg: DiscernConfig, to: GraduateTarget): VerbPlan {
   return {
     verb: `graduate (--to ${to})`,
     when:
-      `When the work is done and integrated — ${landing}. First re-runs the fix stage as a fixed-point guard (ADR 0061).`,
+      `When the work is done and integrated — ${landing}. First validates the exact tree against the whole gate, skipped when a gate-pass receipt proves the current HEAD already passed (ADR 0067).`,
     steps,
   };
 }

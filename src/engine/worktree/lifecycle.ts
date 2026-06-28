@@ -753,8 +753,9 @@ function graduateGateRefusal(
 
 /**
  * Apply a graduation plan — the mutation dance. Ensures the named branch
- * (creating one if the worktree is detached), runs the fix-stage fixed-point guard (ADR
- * 0061), tears down the resources, WIP-commits any uncommitted changes, removes the
+ * (creating one if the worktree is detached), validates the exact tree against the whole
+ * gate before landing (ADR 0067, fast-pathed by a gate-pass receipt), tears down the
+ * resources, WIP-commits any uncommitted changes, removes the
  * worktree, checks the branch out in main, then soft-resets the WIP commit so those changes
  * land staged. Narrates exactly as before; throws `WorktreeGitError` on any unrecoverable
  * error (the branch keeps its commits). Returns the per-step results for `--json`.
