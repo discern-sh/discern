@@ -137,6 +137,37 @@ function mergeValue(existing: unknown, incoming: unknown): unknown {
 }
 
 /**
+ * A settings seed-merge strategy at the TEXT level: given the existing target
+ * file's text (`undefined` when absent) and the token-substituted seed template
+ * text, return the merged file's text to write. Text-level rather than
+ * JSON-object-level on purpose — a hooks provider whose settings file is NOT JSON
+ * (e.g. Codex's TOML, wired in a later plan) supplies its own strategy without the
+ * scaffolding core assuming a format.
+ */
+export type SettingsSeedMerge = (
+  existingText: string | undefined,
+  incomingText: string,
+) => string;
+
+/**
+ * The default seed-merge strategy: the JSON deep-merge ({@link mergeSettings})
+ * lifted to text. Parses both sides as JSON, merges, and re-serializes to 2-space
+ * JSON with a trailing newline — byte-for-byte what the Claude settings seed
+ * produced before this seam was generalized. The strategy every JSON-settings hooks
+ * provider uses (an absent `mergeSeed` on its `HooksIntegration` ⇒ this).
+ */
+export function mergeJsonSettingsText(
+  existingText: string | undefined,
+  incomingText: string,
+): string {
+  const existing: unknown = existingText === undefined
+    ? {}
+    : JSON.parse(existingText);
+  const incoming: unknown = JSON.parse(incomingText);
+  return `${JSON.stringify(mergeSettings(existing, incoming), null, 2)}\n`;
+}
+
+/**
  * Deep-merge the kit's settings (`incoming`) into the user's (`existing`),
  * applying the hooks and permissions rules. Returns a new object; inputs are
  * not mutated. A missing/invalid `existing` is treated as an empty object.

@@ -17,6 +17,10 @@ import { dirname, join } from "@std/path";
 import { ensureDir } from "@std/fs";
 import type { AgentName } from "./config.ts";
 import { AGENT_NAMES } from "../shared/config_schema.ts";
+import {
+  mergeJsonSettingsText,
+  type SettingsSeedMerge,
+} from "./settings_merge.ts";
 
 // ── the MCP server discern registers ────────────────────────────────────────
 
@@ -70,10 +74,34 @@ export interface McpIntegration {
 export interface HooksIntegration {
   /** The project-relative settings file this provider's hooks live in. */
   readonly settingsFile: string;
-  /** The create/remove worktree-lifecycle hook-event keys this provider uses. */
+  /**
+   * The create/remove worktree-lifecycle hook-event keys this provider uses. MAY be
+   * empty: an agent with no worktree create/remove events (the non-Claude agents)
+   * declares a SessionStart-only hooks surface — `worktreeEventKeys = []` and just a
+   * `sessionHookNeedle`. The hook-stripper and the parity guard both handle an empty
+   * list cleanly (they iterate it).
+   */
   readonly worktreeEventKeys: readonly string[];
   /** A substring identifying a SessionStart hook that drives the worktree flow. */
   readonly sessionHookNeedle: string;
+  /**
+   * How this provider's seed template merges into an existing settings file. Absent
+   * ⇒ the default JSON deep-merge ({@link mergeJsonSettingsText}), which every
+   * JSON-settings agent uses. A provider whose settings file is another format (e.g.
+   * Codex's TOML, a later plan) supplies its own strategy here — so the seed/merge
+   * plumbing never bakes in "JSON, at `.claude/settings.json`" as the only shape.
+   */
+  readonly mergeSeed?: SettingsSeedMerge;
+}
+
+/**
+ * One hooks provider's settings SEED: the project-relative target file its seed
+ * template writes to, plus the strategy that merges the seed into an existing file.
+ * The unit the scaffolder routes settings templates by — see {@link settingsSeeds}.
+ */
+export interface SettingsSeed {
+  readonly targetRel: string;
+  readonly merge: SettingsSeedMerge;
 }
 
 /** The compiled agent-instruction file for one provider. */
@@ -363,6 +391,25 @@ export function providerFor(agent: string): Provider | undefined {
 /** Every provider that declares a worktree-hook surface. */
 export function providersWithHooks(): Provider[] {
   return Object.values(PROVIDERS).filter((p) => p.hooks !== undefined);
+}
+
+/**
+ * The settings SEED for every hooks provider — its settings file plus the merge
+ * strategy (the provider's own `mergeSeed`, or the default JSON deep-merge). The
+ * single registry-derived source the scaffolder routes settings templates by
+ * ({@link import("./fs_plan.ts").buildPlan}), so a new hooks provider seeds purely
+ * from its registry declaration: declare a `HooksIntegration` and drop a
+ * `${settingsFile}.tmpl` template — no edit to the seed/merge plumbing.
+ */
+export function settingsSeeds(): SettingsSeed[] {
+  return providersWithHooks().flatMap((p) =>
+    p.hooks !== undefined
+      ? [{
+        targetRel: p.hooks.settingsFile,
+        merge: p.hooks.mergeSeed ?? mergeJsonSettingsText,
+      }]
+      : []
+  );
 }
 
 /**

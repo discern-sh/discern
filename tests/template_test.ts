@@ -11,7 +11,6 @@
 import { assertEquals } from "@std/assert";
 import {
   isGitignoreFragment,
-  isSettingsTemplate,
   isTemplateFile,
   resolveTargetPath,
   substituteTokens,
@@ -100,6 +99,7 @@ Deno.test("file-kind predicates classify the special paths", () => {
   assertEquals(isTemplateFile("brief.md"), false);
   assertEquals(isGitignoreFragment(".gitignore.fragment"), true);
   assertEquals(isGitignoreFragment(".gitignore"), false);
-  assertEquals(isSettingsTemplate(".claude/settings.json.tmpl"), true);
-  assertEquals(isSettingsTemplate(".claude/settings.json"), false);
+  // Settings-template routing is no longer a hardcoded predicate here — it is
+  // registry-driven in fs_plan (a template whose TARGET is a hooks provider's
+  // settings file). See fs_plan_test.ts / the synthetic hooks-provider test.
 });
