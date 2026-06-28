@@ -563,6 +563,56 @@ Deno.test("doctor: human output prints the execution-model section on stderr", a
   });
 });
 
+Deno.test("doctor: human output hides step hints by default and points to --verbose (top and foot)", async () => {
+  await withTempDir(async (dir) => {
+    await initInstall(dir);
+    const { code, stderr } = await runCli(["doctor"], dir);
+    assertEquals(code, 0);
+    // Step lines are present; their explanatory hints are not — the default render stays
+    // a scannable sequence so the checks above it aren't buried under a long scroll.
+    assertStringIncludes(stderr, "[discern] merge-check");
+    assert(
+      !stderr.includes("A built-in git mutation"),
+      "a step hint must not appear in the default (non-verbose) render",
+    );
+    // The opt-in pointer is shown twice: at the top of the section and at its foot (the
+    // model is long enough to scroll past the first).
+    const pointers =
+      stderr.split("to show hints explaining each execution step").length - 1;
+    assertEquals(
+      pointers,
+      2,
+      "the --verbose pointer should appear at the top and the foot",
+    );
+  });
+});
+
+Deno.test("doctor --verbose: shows every step's hint, undeduplicated, and drops the pointer", async () => {
+  await withTempDir(async (dir) => {
+    await initInstall(dir);
+    const { code, stderr } = await runCli(["doctor", "--verbose"], dir);
+    assertEquals(code, 0);
+    // Hints are shown and never deduplicated: the git hint recurs on every git step
+    // within a single verb (graduate --to trunk runs several), so it appears more than
+    // once in that one section — the ambiguity a per-verb dedup would introduce.
+    const start = stderr.indexOf("graduate (--to trunk)");
+    const section = stderr.slice(
+      start,
+      stderr.indexOf("worktree:prune", start),
+    );
+    const gitHints = section.split("A built-in git mutation").length - 1;
+    assert(
+      gitHints > 1,
+      `the git hint should repeat within a verb (no dedup); saw ${gitHints}`,
+    );
+    // The pointer is for the default render only — with hints shown it would be noise.
+    assert(
+      !stderr.includes("to show hints explaining each execution step"),
+      "the --verbose pointer should not appear when hints are already shown",
+    );
+  });
+});
+
 Deno.test("doctor --json: omits the execution model when there is no readable config", async () => {
   await withTempDir(async (dir) => {
     // No init — no discern.toml to derive a model from, so the field is omitted

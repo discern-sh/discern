@@ -231,10 +231,15 @@ function buildCli(
     .description(
       "Check the install (config, schema, commands on PATH) and print each verb's execution model.",
     )
+    .option(
+      "-v, --verbose",
+      "Show the hint explaining each execution-model step (hidden by default).",
+    )
     .action(async (options) => {
       const code = await runDoctor({
         json: options.json ?? false,
         noColor: noColorFrom(options.color),
+        verbose: options.verbose ?? false,
       });
       Deno.exit(code);
     });

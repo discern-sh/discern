@@ -50,6 +50,9 @@ import type {
 export interface DoctorOptions {
   json: boolean;
   noColor: boolean;
+  /** Show the per-step execution-model hints (the human render hides them by default,
+   * pointing at `--verbose`; the `--json` model always carries them). */
+  verbose: boolean;
 }
 
 /** The slice of an agent's settings file the worktree-automation check reads: the
@@ -634,23 +637,41 @@ function wrapText(text: string, width: number): string[] {
   return lines;
 }
 
+/** The opt-in pointer shown at the top and foot of the human execution-model section
+ * when `--verbose` is off: the step list stays scannable, and the reader is told —
+ * twice, because the model is long — how to surface the per-step hints. */
+const VERBOSE_HINT_POINTER =
+  "Run `discern doctor --verbose` to show hints explaining each execution step.";
+
 /**
  * Render the execution-model section for the human (non-`--json`) path — what runs,
  * in order, when each verb is called. Wraps to the terminal width with hanging indents
- * (so a long hint never collapses to column 0 and the actor column stays legible) and
- * colours each step's actor tag — green `[project]` (your configured command) vs cyan
- * `[discern]` (a built-in step). A hint is a class-level expectation, so it prints once
- * per verb — the first step carrying it shows it and later repeats stay clean (the
- * `--json` model keeps every step's hint for machine consumers). Routed through the
- * narration stream (stderr for the installer), like the rest of doctor's human output.
- * discern shows the facts and the expectations; the reader draws conclusions.
+ * (so the actor column stays legible) and colours each step's actor tag — green
+ * `[project]` (your configured command) vs cyan `[discern]` (a built-in step).
+ *
+ * Hints (the class-level expectation behind each step) are VERBOSE-ONLY. By default the
+ * section is a clean, scannable step list with {@link VERBOSE_HINT_POINTER} at its top
+ * and foot to opt in; with `--verbose` every step's hint is shown, undeduplicated, so
+ * each line carries its own explanation. The `--json` model always carries every hint,
+ * for machine consumers. Routed through the narration stream (stderr for the installer),
+ * like the rest of doctor's human output. discern shows the facts and the expectations;
+ * the reader draws conclusions.
  */
-function renderExecutionModel(log: Logger, model: VerbPlan[]): void {
+function renderExecutionModel(
+  log: Logger,
+  model: VerbPlan[],
+  verbose: boolean,
+): void {
   const width = modelWidth();
   const LABEL_COL = 12; // 2 (indent) + 9 (padded actor tag) + 1 (space)
   const HINT_COL = 14; // hints nest one notch under the label column
   const labelIndent = " ".repeat(LABEL_COL);
   const hintIndent = " ".repeat(HINT_COL);
+  // The opt-in pointer, emitted at the top and foot of the section when hints are off.
+  const showPointer = (): void => {
+    log.humanLine("");
+    log.humanLine(`  ${log.cyan("→")} ${log.bold(VERBOSE_HINT_POINTER)}`);
+  };
 
   log.heading("Execution model");
   // An aligned legend, rather than one long sentence that would itself wrap.
@@ -663,12 +684,12 @@ function renderExecutionModel(log: Logger, model: VerbPlan[]): void {
   log.humanLine(
     `    ${log.cyan("[discern]".padEnd(9))} ${log.dim("a built-in step")}`,
   );
+  if (!verbose) {
+    showPointer();
+  }
 
   for (const vp of model) {
     log.heading(vp.verb);
-    // A hint states a per-kind/stage expectation, not a per-step fact, so show it once
-    // per verb; a repeat within the same verb would add only vertical noise.
-    const shownHints = new Set<string>();
     for (const line of wrapText(vp.when, width - 2)) {
       log.humanLine(`  ${log.dim(line)}`);
     }
@@ -697,13 +718,20 @@ function renderExecutionModel(log: Logger, model: VerbPlan[]): void {
           log.humanLine(`${labelIndent}${bl}`);
         }
       });
-      if (s.hint !== undefined && !shownHints.has(s.hint)) {
-        shownHints.add(s.hint);
+      // Hints are verbose-only and never deduplicated there — every step carries its
+      // own explanation, so the meaning of a line is never deferred to an earlier one.
+      if (verbose && s.hint !== undefined) {
         for (const hl of wrapText(s.hint, width - HINT_COL)) {
           log.humanLine(`${hintIndent}${log.dim(hl)}`);
         }
       }
     }
+  }
+
+  // The model is long; repeat the pointer at the foot so a reader who scrolled past the
+  // top one still sees how to surface the explanations.
+  if (!verbose) {
+    showPointer();
   }
 }
 
@@ -758,7 +786,7 @@ export async function runDoctor(options: DoctorOptions): Promise<number> {
   }
   const cfg = await loadModelConfig(destDir);
   if (cfg !== undefined) {
-    renderExecutionModel(log, buildExecutionModel(cfg));
+    renderExecutionModel(log, buildExecutionModel(cfg), options.verbose);
   }
   return healthy ? 0 : 1;
 }
