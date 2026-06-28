@@ -64,10 +64,10 @@ The explicit *no*s:
   user without Codex doesn't get an `AGENTS.md` they won't read. The guess
   becomes an observation.
 - **Adding a vendor extends auto-detect with no new wiring.** Because detection
-  iterates the registry, the next agent's `binaries` entry enrols it in detection
-  with no edit to the setup flow — the ADR 0031/0043 payoff, applied to one more
-  seam. A parity guard fails the build if any provider declares an empty
-  `binaries`.
+  iterates the registry, the next agent's `binaries` entry enrols it in
+  detection with no edit to the setup flow — the ADR 0031/0043 payoff, applied
+  to one more seam. A parity guard fails the build if any provider declares an
+  empty `binaries`.
 - **The result is deterministic and testable.** Detection takes an injected
   `EnvReader`, so a test drives it over a temp `PATH` with fake executables
   without touching the process env (ADR 0068).

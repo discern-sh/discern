@@ -31,7 +31,10 @@ import { readTarget, testTokens, withTempDir } from "./helpers.ts";
 Deno.test("settingsSeeds(): the registry yields Claude's settings file with the default JSON strategy", () => {
   const seeds = settingsSeeds();
   const claude = seeds.find((s) => s.targetRel === ".claude/settings.json");
-  assert(claude !== undefined, "Claude's settings seed must come from the registry");
+  assert(
+    claude !== undefined,
+    "Claude's settings seed must come from the registry",
+  );
   // Claude declares no custom mergeSeed, so it gets the default JSON deep-merge —
   // the strategy that keeps its seeded output byte-identical.
   assertEquals(claude.merge, mergeJsonSettingsText);
@@ -106,11 +109,16 @@ Deno.test("a synthetic SessionStart-only hooks provider seeds purely from its de
       // The template was ROUTED to a settings-merge op at the provider's target —
       // not written verbatim — purely because its target matched the injected seed.
       const op = plan.ops.find((o) => o.targetRel === ".acme/settings.json");
-      assert(op !== undefined, "the synthetic settings template must be planned");
+      assert(
+        op !== undefined,
+        "the synthetic settings template must be planned",
+      );
       assertEquals(op.kind, "merge-settings");
 
       await applyPlan(plan);
-      const settings = JSON.parse(await readTarget(dest, ".acme/settings.json"));
+      const settings = JSON.parse(
+        await readTarget(dest, ".acme/settings.json"),
+      );
       assertEquals(
         settings.hooks.SessionStart[0].hooks[0].command,
         "discern worktree:ensure",
@@ -143,10 +151,15 @@ Deno.test("the synthetic provider's seed deep-merges into an existing settings f
         seeds: [ACME_SEED],
       });
       await applyPlan(plan);
-      const settings = JSON.parse(await readTarget(dest, ".acme/settings.json"));
+      const settings = JSON.parse(
+        await readTarget(dest, ".acme/settings.json"),
+      );
       // User scalar preserved; deny unioned; SessionStart carries both hooks.
       assertEquals(settings.model, "custom");
-      assertEquals(settings.permissions.deny, ["Read(./secret)", "Read(./.env)"]);
+      assertEquals(settings.permissions.deny, [
+        "Read(./secret)",
+        "Read(./.env)",
+      ]);
       assertEquals(settings.hooks.SessionStart.length, 2);
     });
   });

@@ -15,8 +15,8 @@ import {
   PROVIDERS,
   providersWithHooks,
   skillsDirsForAgents,
-  wireProviderMcp,
   wiredMcp,
+  wireProviderMcp,
 } from "../src/lib/providers.ts";
 
 Deno.test("the registry is total: every known agent has a complete provider", () => {
