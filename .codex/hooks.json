@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "deno task dev worktree:ensure",
+            "timeout": 600
+          }
+        ]
+      }
+    ]
+  }
+}
