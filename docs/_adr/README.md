@@ -86,3 +86,4 @@ decision is hard to reverse, surprising without context, and a real trade-off.
 - [0064 — `integrate` reports what changed beneath the branch](0064-integrate-change-summary.md)
 - [0065 — `discern setup` keeps its promises](0065-setup-keeps-its-promises.md)
 - [0066 — `discern --help` groups commands by post-processing Cliffy's help](0066-grouped-cli-help.md)
+- [0067 — Tests inject env/cwd seams so the suite can run `--parallel`](0067-parallel-safe-tests-env-cwd-injection.md)
