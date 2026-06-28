@@ -19,13 +19,14 @@
  * which one and how).
  */
 
-import { assert } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
 import { AGENT_NAMES } from "../src/shared/config_schema.ts";
 import {
   agentArtifactPaths,
   allGuidanceFilePaths,
   allSkillsDirs,
+  emitsGuidanceFile,
   neutralAgentScopePaths,
   providerFor,
   providersWithHooks,
@@ -87,6 +88,46 @@ Deno.test("registry aggregators stay total: one guidance file + a skills dir per
     artifacts.guidanceFiles.length === guidanceFiles.length &&
       artifacts.skillsDirs.length === skillsDirs.length,
     "agentArtifactPaths() must be the union of the two aggregators",
+  );
+});
+
+Deno.test("guidance modelling stays sound: exactly one canonical, reuse-canonical reads it and emits nothing", () => {
+  // The invariant the reuse-canonical model rests on (deliverable 2): one provider
+  // holds the canonical full body; a reuse-canonical provider reads THAT file and
+  // discern emits nothing of its own for it — so it can never leak a duplicate.
+  const canonicals = AGENT_NAMES
+    .map((n) => providerFor(n)?.guidanceFile)
+    .filter((g) => g !== undefined && g.canonical)
+    .map((g) => g?.path);
+  assertEquals(
+    canonicals.length,
+    1,
+    `expected exactly one canonical agent file, got: ${canonicals.join(", ")}`,
+  );
+  const canonicalPath = canonicals[0];
+  for (const name of AGENT_NAMES) {
+    const gf = providerFor(name)?.guidanceFile;
+    if (gf === undefined || emitsGuidanceFile(gf)) {
+      continue; // only inspect reuse-canonical providers (emit nothing)
+    }
+    assertEquals(
+      gf.path,
+      canonicalPath,
+      `${name}: a reuse-canonical provider must read the canonical ${canonicalPath}, not ${gf.path}`,
+    );
+    assertEquals(
+      gf.canonical,
+      false,
+      `${name}: reuseCanonical and canonical are mutually exclusive`,
+    );
+  }
+  // The emitted set never carries a path twice — a reuse-canonical provider's path
+  // collapses into the canonical's, so the aggregator stays free of duplicates.
+  const emitted = allGuidanceFilePaths();
+  assertEquals(
+    emitted.length,
+    new Set(emitted).size,
+    `allGuidanceFilePaths() must be duplicate-free, got: ${emitted.join(", ")}`,
   );
 });
 

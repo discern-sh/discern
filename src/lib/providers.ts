@@ -101,6 +101,47 @@ export interface GuidanceFile {
    * imports it, so the two can never drift.
    */
   readonly pointer?: (canonicalPath: string) => string;
+  /**
+   * When true, this provider reads the CANONICAL agent file (`AGENTS.md`) natively
+   * and discern emits **nothing** of its own for it — neither a duplicate body nor a
+   * pointer. `path` names that canonical file (the one it reads), but every emit
+   * site skips it ({@link emitsGuidanceFile}) and every aggregator collapses it, so
+   * the file is written and counted exactly once — by the canonical provider, never
+   * 3× by repointing a second provider's `path` at it. The reuse-canonical state for
+   * agents (Cursor, Copilot, Antigravity) that consume `AGENTS.md` directly; a
+   * provider that needs its own file leaves this unset and uses `pointer` (a mirror)
+   * or nothing (the canonical itself). Mutually exclusive with `canonical` and
+   * `pointer`.
+   */
+  readonly reuseCanonical?: boolean;
+}
+
+/**
+ * Whether discern EMITS a file for this guidance entry. False only for a
+ * reuse-canonical provider — it reads the canonical file another provider writes,
+ * so discern produces nothing for it. The single predicate every emit site and
+ * aggregator gates on, so "emits nothing" is decided in one place.
+ */
+export function emitsGuidanceFile(gf: GuidanceFile): boolean {
+  return gf.reuseCanonical !== true;
+}
+
+/**
+ * The distinct guidance-file paths discern emits for the given entries, in
+ * first-seen order: reuse-canonical entries contribute nothing (their content is
+ * the canonical file another provider emits), and a repeated path collapses to one.
+ * The shared core behind {@link allGuidanceFilePaths} and the renderer's file map,
+ * so a reuse-canonical provider can never leak a duplicate `AGENTS.md` into the
+ * aggregators.
+ */
+export function emittedGuidancePaths(files: readonly GuidanceFile[]): string[] {
+  const out: string[] = [];
+  for (const gf of files) {
+    if (emitsGuidanceFile(gf) && !out.includes(gf.path)) {
+      out.push(gf.path);
+    }
+  }
+  return out;
 }
 
 /** Everything provider-specific for one agent, in one typed record. The single
@@ -348,10 +389,14 @@ export function skillsDirsForAgents(agents: readonly string[]): string[] {
 // from `PROVIDERS`, so adding an agent to `AGENT_NAMES` extends them for free — no
 // hand-maintained second list to fall out of sync (the ADR 0031/0042 contract).
 
-/** Every compiled guidance-file path across all known agents (CLAUDE.md, AGENTS.md,
- * GEMINI.md, …), in registry order. */
+/** Every compiled guidance-file path discern EMITS across all known agents
+ * (CLAUDE.md, AGENTS.md, GEMINI.md, …), in registry order. Reuse-canonical
+ * providers contribute nothing (they read the canonical file another provider
+ * writes), and duplicates collapse — so the set never carries `AGENTS.md` twice. */
 export function allGuidanceFilePaths(): string[] {
-  return AGENT_NAMES.map((a) => PROVIDERS[a].guidanceFile.path);
+  return emittedGuidancePaths(
+    AGENT_NAMES.map((a) => PROVIDERS[a].guidanceFile),
+  );
 }
 
 /** Every distinct skills directory discern materializes into across all known

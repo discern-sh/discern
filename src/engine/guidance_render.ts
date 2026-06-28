@@ -29,7 +29,13 @@ import {
 } from "../shared/config_schema.ts";
 import { type Feature, isFeatureEnabled } from "../shared/features.ts";
 import { resolveGuidanceSources, resolveTemplatesDir } from "../lib/paths.ts";
-import { providerFor, skillsDirsForAgents } from "../lib/providers.ts";
+import {
+  emitsGuidanceFile,
+  emittedGuidancePaths,
+  type GuidanceFile,
+  providerFor,
+  skillsDirsForAgents,
+} from "../lib/providers.ts";
 import {
   type GuidanceContext,
   renderGuidanceTemplate,
@@ -76,9 +82,10 @@ export function guidanceContext(config: DiscernConfig): GuidanceContext {
   const agents = resolveConfiguredAgents(config);
   const codeList = (items: readonly string[]): string =>
     items.map((i) => `\`${i}\``).join(", ");
-  const agentFiles = agents
-    .map((a) => providerFor(a)?.guidanceFile.path)
-    .filter((p): p is string => p !== undefined);
+  // The files discern actually EMITS for the configured agents: reuse-canonical
+  // providers (which read AGENTS.md natively) contribute nothing, and a repeated
+  // path collapses — so the never-edit sentence names each generated file once.
+  const agentFiles = emittedGuidancePaths(guidanceFilesFor(agents));
   return {
     vars: {
       branch_prefix: config.project.branch_prefix,
@@ -154,33 +161,36 @@ export async function composeGuidanceBody(
   return body;
 }
 
+/** The guidance-file entries for the configured agents, in order, dropping unknown
+ * names (no provider). The input to {@link agentFileContents} and the emitted-paths
+ * aggregator, so both read the same registry-resolved list. */
+function guidanceFilesFor(agents: readonly string[]): GuidanceFile[] {
+  return agents
+    .map((a) => providerFor(a)?.guidanceFile)
+    .filter((g): g is GuidanceFile => g !== undefined);
+}
+
 /**
- * The expected content of every agent file `discern refresh` would write, keyed by
- * project-relative path. Empty when the `guidance` feature is off (nothing is
- * generated). Each configured provider gets the full body, or — when it declares a
- * `pointer` and a different canonical file is also emitted — that pointer. Unknown
- * agent names are skipped (the writer warns about them). PURE: reads only.
+ * The agent-file content map for the given guidance entries and composed body —
+ * PURE, keyed by project-relative path. Each entry gets the full body, or — when it
+ * declares a `pointer` and a DIFFERENT canonical file is also emitted — that
+ * pointer; a reuse-canonical entry is skipped entirely ({@link emitsGuidanceFile}),
+ * so it adds no key (its content is the canonical file another entry emits). A Map
+ * keyed by path means a duplicate path collapses to one, never written twice. The
+ * core {@link renderAgentFiles} computes content with, factored out so a synthetic
+ * provider set can be exercised in tests without an install.
  */
-export async function renderAgentFiles(
-  root: string,
-  config?: DiscernConfig,
-): Promise<Map<string, string>> {
-  const cfg = config ?? await loadConfig(root);
-  const out = new Map<string, string>();
-  if (!isFeatureEnabled(cfg, "guidance")) {
-    return out;
-  }
-  const agents = guidanceAgents(cfg);
-  const body = await composeGuidanceBody(root, cfg);
+export function agentFileContents(
+  files: readonly GuidanceFile[],
+  body: string,
+): Map<string, string> {
   // The canonical agent file the pointer mirrors import (codex → AGENTS.md). When
   // none is emitted there is nothing to point at, so every file gets the full body.
-  const canonicalRel = agents
-    .map((a) => providerFor(a)?.guidanceFile)
-    .find((g) => g !== undefined && g.canonical)?.path;
-  for (const agent of agents) {
-    const gf = providerFor(agent)?.guidanceFile;
-    if (gf === undefined) {
-      continue;
+  const canonicalRel = files.find((g) => g.canonical)?.path;
+  const out = new Map<string, string>();
+  for (const gf of files) {
+    if (!emitsGuidanceFile(gf)) {
+      continue; // reuse-canonical: reads AGENTS.md natively — emit nothing.
     }
     let fileBody = body;
     if (
@@ -192,6 +202,26 @@ export async function renderAgentFiles(
     out.set(gf.path, fileBody);
   }
   return out;
+}
+
+/**
+ * The expected content of every agent file `discern refresh` would write, keyed by
+ * project-relative path. Empty when the `guidance` feature is off (nothing is
+ * generated). Each configured provider gets the full body, or — when it declares a
+ * `pointer` and a different canonical file is also emitted — that pointer; a
+ * reuse-canonical provider adds nothing (it reads the canonical file directly).
+ * Unknown agent names are skipped (the writer warns about them). PURE: reads only.
+ */
+export async function renderAgentFiles(
+  root: string,
+  config?: DiscernConfig,
+): Promise<Map<string, string>> {
+  const cfg = config ?? await loadConfig(root);
+  if (!isFeatureEnabled(cfg, "guidance")) {
+    return new Map();
+  }
+  const body = await composeGuidanceBody(root, cfg);
+  return agentFileContents(guidanceFilesFor(guidanceAgents(cfg)), body);
 }
 
 /** One generated agent file that does not match what `refresh` would write. */
