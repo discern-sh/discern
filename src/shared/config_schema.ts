@@ -372,26 +372,11 @@ const gateSection = z.strictObject({
 );
 
 const couplingSection = z.strictObject({
-  window: z.number().int().default(500).describe(
-    "How many recent non-merge commits to mine for co-change evidence.",
-  ),
-  min_support: z.number().default(1).describe(
-    "Keep a pair only when its recency-decayed, size-weighted co-occurrence (a score, not a raw count — a focused 2-file commit contributes ~0.5) reaches this floor. The bar that stops a one-off pairing from surfacing.",
-  ),
-  min_confidence: z.number().default(0.3).describe(
-    "Keep a directional pair A->B only when A's changes also touched B at least this fraction of the time (0-1). With lift > 1 as the real discriminator, this stays a modest floor.",
-  ),
-  max_commit_size: z.number().int().default(25).describe(
-    "Skip a commit that touches more than this many (non-neutral) files — a sweeping change is near-zero evidence of coupling per pair.",
-  ),
-  half_life_days: z.number().default(90).describe(
-    "Recency half-life in days: a co-change this old counts half as much, so a coupling a refactor already dissolved fades out.",
-  ),
   in_gate: z.boolean().default(false).describe(
-    "Append the diff-aware co-change advisory to `discern finish` as hints. Off by default; purely advisory, it never affects the gate's pass/fail.",
+    "Surface the co-change advisory during `discern finish` too (as hints, at the tail). Off by default; purely advisory, it never affects the gate's pass/fail.",
   ),
 }).prefault({}).describe(
-  "Co-change coupling detection — a read-only advisory that mines git history for files that change together, so a touched file's habitual sibling isn't forgotten. Read on demand by `discern coupling`, and (with `in_gate`) surfaced by the gate. Purely advisory: it points at where to look and never blocks. (Inert when [features].coupling = false.)",
+  "Co-change coupling detection — a zero-config, read-only advisory that mines git history for files that change together, so a touched file's habitual sibling isn't forgotten. It self-calibrates to your repo, so there are no thresholds to tune; the only setting is whether it also rides along with the gate. Read it on demand with `discern coupling`. Purely advisory: it points at where to look and never blocks. (Inert when [features].coupling = false.)",
 );
 
 const recipesSection = z.strictObject({

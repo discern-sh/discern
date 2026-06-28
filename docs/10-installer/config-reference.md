@@ -150,16 +150,11 @@ Ergonomics for the parallel gate stages (and scope gates). These affect how `dis
 
 ## `[coupling]`
 
-Co-change coupling detection — a read-only advisory that mines git history for files that change together, so a touched file's habitual sibling isn't forgotten. Read on demand by `discern coupling`, and (with `in_gate`) surfaced by the gate. Purely advisory: it points at where to look and never blocks. (Inert when [features].coupling = false.)
+Co-change coupling detection — a zero-config, read-only advisory that mines git history for files that change together, so a touched file's habitual sibling isn't forgotten. It self-calibrates to your repo, so there are no thresholds to tune; the only setting is whether it also rides along with the gate. Read it on demand with `discern coupling`. Purely advisory: it points at where to look and never blocks. (Inert when [features].coupling = false.)
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `window` | number | `500` | How many recent non-merge commits to mine for co-change evidence. |
-| `min_support` | number | `1` | Keep a pair only when its recency-decayed, size-weighted co-occurrence (a score, not a raw count — a focused 2-file commit contributes ~0.5) reaches this floor. The bar that stops a one-off pairing from surfacing. |
-| `min_confidence` | number | `0.3` | Keep a directional pair A->B only when A's changes also touched B at least this fraction of the time (0-1). With lift > 1 as the real discriminator, this stays a modest floor. |
-| `max_commit_size` | number | `25` | Skip a commit that touches more than this many (non-neutral) files — a sweeping change is near-zero evidence of coupling per pair. |
-| `half_life_days` | number | `90` | Recency half-life in days: a co-change this old counts half as much, so a coupling a refactor already dissolved fades out. |
-| `in_gate` | boolean | `false` | Append the diff-aware co-change advisory to `discern finish` as hints. Off by default; purely advisory, it never affects the gate's pass/fail. |
+| `in_gate` | boolean | `false` | Surface the co-change advisory during `discern finish` too (as hints, at the tail). Off by default; purely advisory, it never affects the gate's pass/fail. |
 
 ## `[recipes]`
 

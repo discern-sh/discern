@@ -160,14 +160,17 @@ export const COUPLING_MODES = ["diff", "query"] as const;
 export type CouplingMode = (typeof COUPLING_MODES)[number];
 
 /** One co-change partner: the file `path` that co-changed with `from` across the mined
- * git history, carried with the evidence behind the edge — `support` (the recency-decayed, size-
- * weighted co-occurrence the `min_support` floor is tested against), `confidence` (the
- * fraction of `from`'s weighted history that also touched `path`, 0–1), and `lift` (how
- * much more than chance the two co-occur, always > 1 for a kept edge). */
+ * git history, carried with the evidence behind the edge in PLAIN COUNTS — `cochanges`
+ * (the number of recent commits that touched both), `of` (the number that touched
+ * `from`, so the evidence reads "`cochanges` of `of` commits"), `confidence`
+ * (`cochanges / of`, 0–1), and `lift` (how much more than chance the two co-occur,
+ * always > 1 for a kept edge). The edge also cleared a log-likelihood-ratio
+ * significance test, not surfaced here. */
 const couplingPartnerSchema = z.strictObject({
   path: z.string(),
   from: z.string(),
-  support: z.number(),
+  cochanges: z.number().int(),
+  of: z.number().int(),
   confidence: z.number(),
   lift: z.number(),
 });

@@ -381,23 +381,6 @@ Deno.test("coupling result is faithful (diff-aware, query, and a real partner ed
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    // Low thresholds so a small deliberate history surfaces a partner — exercising the
-    // partner sub-schema, not just the empty-list envelope.
-    await writeConfig(
-      dir,
-      [
-        "[project]",
-        'slug = "engine-test"',
-        "",
-        "[coupling]",
-        "min_support = 0.1",
-        "min_confidence = 0.1",
-        "",
-      ].join("\n"),
-    );
-    // Absorb the config edit so the coupling commits below are clean 2-file baskets.
-    await git(dir, "add", "-A");
-    await git(dir, "commit", "-q", "-m", "config", "--no-gpg-sign");
     const commit = async (
       files: Record<string, string>,
       msg: string,
@@ -408,13 +391,15 @@ Deno.test("coupling result is faithful (diff-aware, query, and a real partner ed
       await git(dir, "add", "-A");
       await git(dir, "commit", "-q", "-m", msg, "--no-gpg-sign");
     };
-    // a.ts ↔ b.ts couple repeatedly, against a little variety so their lift exceeds 1.
-    await commit({ "a.ts": "1", "b.ts": "1" }, "ab1");
-    await commit({ "a.ts": "2", "b.ts": "2" }, "ab2");
-    await commit({ "a.ts": "3", "b.ts": "3" }, "ab3");
-    await commit({ "a.ts": "4", "c.ts": "1" }, "ac");
-    await commit({ "b.ts": "4", "d.ts": "1" }, "bd");
-    await commit({ "c.ts": "2", "d.ts": "2" }, "cd");
+    // a.ts ↔ b.ts couple in 4 of a.ts's commits, against unrelated noise so the
+    // association is statistically significant — surfacing the partner sub-schema, not
+    // just the empty-list envelope. Zero-config: no thresholds to set.
+    for (let i = 0; i < 4; i++) {
+      await commit({ "a.ts": `${i}`, "b.ts": `${i}` }, `ab${i}`);
+    }
+    for (let i = 0; i < 5; i++) {
+      await commit({ [`n${i}.ts`]: "1", [`m${i}.ts`]: "1" }, `noise${i}`);
+    }
 
     // query mode names b.ts as a partner of a.ts — a non-empty partner list.
     const query = await couplingResult(dir, { path: "a.ts" });
@@ -425,7 +410,7 @@ Deno.test("coupling result is faithful (diff-aware, query, and a real partner ed
     );
 
     // diff-aware mode: stage a.ts only → b.ts surfaces as a missing partner.
-    await Deno.writeTextFile(join(dir, "a.ts"), "5");
+    await Deno.writeTextFile(join(dir, "a.ts"), "staged");
     const diff = await couplingResult(dir);
     expectValid(CouplingOutputSchema, diff, "coupling diff");
     assert(

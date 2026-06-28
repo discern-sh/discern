@@ -271,34 +271,6 @@ export async function git(dir: string, ...args: string[]): Promise<void> {
 }
 
 /**
- * Like {@link git}, but stamps `GIT_AUTHOR_DATE`/`GIT_COMMITTER_DATE` so a test can
- * build a history with controlled commit times (e.g. to exercise recency decay).
- * `isoDate` is any value git accepts (`"2020-01-01T00:00:00"`, `"2026-06-01"`). The
- * hermetic isolation env is preserved, so the repo stays insulated from global config.
- */
-export async function gitAt(
-  dir: string,
-  isoDate: string,
-  ...args: string[]
-): Promise<void> {
-  const c = new Deno.Command("git", {
-    args,
-    cwd: dir,
-    env: {
-      ...GIT_ISOLATION,
-      GIT_AUTHOR_DATE: isoDate,
-      GIT_COMMITTER_DATE: isoDate,
-    },
-    stdout: "null",
-    stderr: "piped",
-  });
-  const { success, stderr } = await c.output();
-  if (!success) {
-    throw new Error(`git ${args.join(" ")} failed: ${DECODER.decode(stderr)}`);
-  }
-}
-
-/**
  * Like {@link git}, but captures and returns trimmed stdout — for tests that read
  * git state (the current branch, whether a ref still exists). Throws on failure.
  */
