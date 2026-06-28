@@ -287,8 +287,27 @@ function optionLabel(e: DocEntry, color: boolean): string {
   return `${colors.cyan(e.relToDocs)}  ${colors.dim("· " + e.title)}`;
 }
 
+/** The one-line corpus header both the static TOC and the interactive picker
+ * show: `discern <verb> — N documents in <dir>`. The single source for "which
+ * tree am I in, and how big is it" so the two surfaces can never disagree. */
+function docsHeader(
+  verb: string,
+  tree: DocsTree,
+  cwd: string,
+  color: boolean,
+): string {
+  const paint = (fn: (s: string) => string, s: string) => color ? fn(s) : s;
+  return `${paint(colors.bold, `discern ${verb}`)} — ${tree.entries.length} ` +
+    `documents in ${display(tree.docsDir, cwd)}`;
+}
+
 /** The interactive browse loop: pick a doc, view it, repeat until quit. */
-async function browse(tree: DocsTree, options: DocsOptions): Promise<number> {
+async function browse(
+  verb: string,
+  tree: DocsTree,
+  options: DocsOptions,
+  cwd: string,
+): Promise<number> {
   const color = colourEnabled(options.noColor);
   const width = resolveWidth(options.width);
   const QUIT = "\x00quit";
@@ -296,13 +315,17 @@ async function browse(tree: DocsTree, options: DocsOptions): Promise<number> {
     name: optionLabel(e, color),
     value: e.path,
   }));
+  // Keep the corpus context visible across every re-render of the picker (it
+  // redraws each iteration), so the reader always knows which tree they are
+  // filtering and how large it is — the same line the static `--list` TOC leads with.
+  const message = `${docsHeader(verb, tree, cwd, color)}  ·  type to filter`;
   let last: string | undefined;
 
   while (true) {
     let choice: string;
     try {
       choice = await Select.prompt({
-        message: "Search docs (type to filter)",
+        message,
         options: [
           ...choices,
           Select.separator(color ? colors.dim("─────") : "─────"),
@@ -341,10 +364,7 @@ function printToc(
     Math.max(...tree.entries.map((e) => labelOf(e).length)),
   );
 
-  const lines: string[] = [
-    `${paint(colors.bold, `discern ${verb}`)} — ${tree.entries.length} ` +
-    `documents in ${display(tree.docsDir, cwd)}`,
-  ];
+  const lines: string[] = [docsHeader(verb, tree, cwd, color)];
   let section: string | null = null;
   for (const e of tree.entries) {
     if (e.section !== section) {
@@ -715,7 +735,7 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
   const interactive = !options.list &&
     Deno.stdin.isTerminal() && Deno.stdout.isTerminal();
   if (interactive) {
-    return await browse(tree, options);
+    return await browse(desc.verb, tree, options, cwd);
   }
 
   // 3. Otherwise (piped, redirected, or `--list`) → a plain table of contents.
