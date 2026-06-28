@@ -1,4 +1,4 @@
-# ADR 0067: Tests inject env/cwd seams so the suite can run `--parallel`
+# ADR 0068: Tests inject env/cwd seams so the suite can run `--parallel`
 
 **Status**: accepted. The test suite runs under `deno test --parallel`. To make
 that safe, every function that consults ambient process state — an env override
