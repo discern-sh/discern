@@ -15,6 +15,7 @@
 
 import type { Command } from "@cliffy/command";
 import { colors } from "@cliffy/ansi/colors";
+import { wrapText } from "./lib/text.ts";
 
 /** A named, ordered bucket of top-level commands for the help listing. */
 export interface CommandGroup {
@@ -86,24 +87,57 @@ function isHeading(line: string, label: string): boolean {
 }
 
 /**
+ * The width to lay the command list out to. Mirrors how Cliffy wraps the rest of
+ * the help (its `getColumns() ?? 150`) so the grouped commands and the framework's
+ * own sections wrap to the SAME width: the terminal's when attached to one, else
+ * `$COLUMNS`, else 150 (Cliffy's piped default). The per-row floor below keeps a
+ * narrow terminal sane; there is no cap, so a wide terminal stays consistent.
+ */
+function helpWidth(): number {
+  try {
+    return Deno.consoleSize().columns;
+  } catch {
+    const env = Number(Deno.env.get("COLUMNS"));
+    return Number.isFinite(env) && env > 0 ? env : 150;
+  }
+}
+
+/**
  * Render the grouped "Commands:" section from the live command tree. Reads the
  * authoritative name + one-line description straight off each visible command
  * (so it can never disagree with what Cliffy would have listed), laid out under
- * {@link COMMAND_GROUPS} headings with a uniform name column.
+ * {@link COMMAND_GROUPS} headings with a uniform name column and the description
+ * word-wrapped to `width` with a hanging indent (so a long line never wraps back
+ * to column 0 and shreds the alignment in a narrow terminal).
  */
-function renderGroupedCommands(root: Command, color: boolean): string {
+function renderGroupedCommands(
+  root: Command,
+  color: boolean,
+  width: number,
+): string {
   const visible = root.getCommands(false);
   const byName = new Map(visible.map((c) => [c.getName(), c]));
-  const width = Math.min(
+  const nameCol = Math.min(
     Math.max(0, ...visible.map((c) => c.getName().length)),
-    24,
+    20,
   );
+  // The description column begins after `    <name padded>  `; its continuation
+  // lines hang-indent to the same column. A floor keeps the wrap sane if the
+  // terminal is unusually narrow.
+  const descStart = 4 + nameCol + 2;
+  const descWidth = Math.max(24, width - descStart);
+  const descIndent = " ".repeat(descStart);
 
   const heading = (s: string): string => (color ? colors.bold.cyan(s) : s);
   const name = (s: string): string => (color ? colors.brightBlue(s) : s);
   const desc = (s: string): string => (color ? colors.dim(s) : s);
-  const row = (c: Command): string =>
-    `    ${name(c.getName().padEnd(width))}  ${desc(c.getShortDescription())}`;
+  const rowLines = (c: Command): string[] => {
+    const wrapped = wrapText(c.getShortDescription(), descWidth);
+    const first = `    ${name(c.getName().padEnd(nameCol))}  ${
+      desc(wrapped[0] ?? "")
+    }`;
+    return [first, ...wrapped.slice(1).map((l) => `${descIndent}${desc(l)}`)];
+  };
 
   const out: string[] = ["Commands:", ""];
   const seen = new Set<string>();
@@ -116,7 +150,7 @@ function renderGroupedCommands(root: Command, color: boolean): string {
     }
     out.push(`  ${heading(group.name)}`);
     for (const c of members) {
-      out.push(row(c));
+      out.push(...rowLines(c));
       seen.add(c.getName());
     }
     out.push("");
@@ -129,7 +163,7 @@ function renderGroupedCommands(root: Command, color: boolean): string {
   if (ungrouped.length > 0) {
     out.push(`  ${heading("Other")}`);
     for (const c of ungrouped) {
-      out.push(row(c));
+      out.push(...rowLines(c));
     }
     out.push("");
   }
@@ -172,7 +206,7 @@ export function operatorHelp(root: Command): string {
   }
   const before = lines.slice(0, ci);
   const after = lines.slice(end);
-  const grouped = renderGroupedCommands(root, color).split("\n");
+  const grouped = renderGroupedCommands(root, color, helpWidth()).split("\n");
   const rebuilt = [...before, ...grouped, "", ...after].join("\n");
   return appendFooter(rebuilt, color);
 }

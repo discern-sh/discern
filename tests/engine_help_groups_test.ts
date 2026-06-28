@@ -100,6 +100,46 @@ Deno.test("operator help renders the groups in order, daily loop first", () => {
   );
 });
 
+Deno.test("the grouped command list word-wraps to the width with hanging indents", () => {
+  // Force a narrow width: under `deno test` stdout is not a TTY, so helpWidth()
+  // falls back to $COLUMNS. 80 is wide enough that no single description token
+  // overflows on its own, so every command line should fit exactly.
+  const WIDTH = 80;
+  const prev = Deno.env.get("COLUMNS");
+  Deno.env.set("COLUMNS", String(WIDTH));
+  try {
+    const lines = plain(operatorHelp(fullRoot())).split("\n");
+    // Scope to the command list — Cliffy's own sections wrap on their own width.
+    const start = lines.findIndex((l) => l.trimEnd() === "Commands:");
+    const endRaw = lines.findIndex((l, i) =>
+      i > start && l.trimEnd() === "Examples:"
+    );
+    const body = lines.slice(start + 1, endRaw === -1 ? undefined : endRaw);
+
+    // No command line overflows the width — UNLESS it is a single unbreakable
+    // token (a long `a/b/c` path with no spaces), which wrapText leaves whole by
+    // design rather than splitting mid-token. That is exactly wrapText's contract.
+    for (const l of body) {
+      const breakable = l.trimStart().includes(" ");
+      assert(
+        l.length <= WIDTH || !breakable,
+        `a wrappable command line overflowed ${WIDTH} cols: ${JSON.stringify(l)}`,
+      );
+    }
+
+    // A long description wrapped onto a continuation line that hang-indents to the
+    // description column (≥10 leading spaces), rather than wrapping back to col 0
+    // and shredding the alignment — the regression this guards.
+    assert(
+      body.some((l) => /^ {10,}\S/.test(l)),
+      "no hang-indented continuation line — descriptions did not wrap cleanly",
+    );
+  } finally {
+    if (prev === undefined) Deno.env.delete("COLUMNS");
+    else Deno.env.set("COLUMNS", prev);
+  }
+});
+
 Deno.test("a disabled feature drops its whole group, never an empty heading", () => {
   // worktrees off → start/integrate/graduate/worktree(-name) are never registered,
   // so the "Worktree lifecycle" group must vanish entirely rather than render an
