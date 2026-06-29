@@ -23,12 +23,15 @@ and the list stated to be **not exhaustive**.
 
 `coupling` is one verb with two modes, mirroring `changed-scopes`:
 
-- **diff-aware** (no argument) — the primary surface. It reads the current
-  change set (committed since the merge-base, plus the working tree — the same
-  set the scope classifier uses) and names the files that co-change with what
-  you touched but are **missing** from the change. _"You changed `result.ts`,
-  but not `result_schemas.ts` — which co-changed with it in 39% of `result.ts`'s
-  recent history. Intentional, or a sibling worth updating too?"_
+- **diff-aware** (no argument) — the primary surface. The "change set" is your
+  **branch's work** — everything committed since the fork from the integration
+  branch, plus any uncommitted edits (the same set `changed-scopes` and the gate
+  use). So it is non-empty even on a clean working tree when the branch is
+  ahead; it is the unit that would graduate, not just the latest commit. It
+  names the files that co-change with that set but are **missing** from it.
+  _"You changed `result.ts`, but not `result_schemas.ts` — which changed in 5 of
+  the 14 recent commits that touched `result.ts` (36%). Worth a look, or
+  intentional?"_
 - **query** (`discern coupling <path>`) — one file's top co-change partners, its
   blast radius. Useful before a change: _what tends to move when I touch this?_
 

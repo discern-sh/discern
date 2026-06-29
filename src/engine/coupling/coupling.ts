@@ -412,7 +412,8 @@ function couplingHints(data: CouplingData): string[] {
   if (data.mode === "diff") {
     hints.push(
       "Co-change advisory (from git history; advisory only, never blocks, and NOT " +
-        "exhaustive) — files that usually change with what you touched but aren't in this change:",
+        "exhaustive) — files that usually change with what you've changed on this branch " +
+        "(vs the integration branch) but aren't among those changes:",
     );
     for (const p of shown) {
       hints.push(
@@ -521,11 +522,23 @@ function partnerRow(
  */
 function renderCouplingHuman(data: CouplingData, out: Out): void {
   const { c } = out;
+  // The diff-aware change set is "what this branch changed" — committed since the fork
+  // from the integration branch, PLUS any uncommitted edits — so it is non-empty even
+  // on a clean tree if the branch is ahead. Name it precisely so "this change" can't be
+  // mistaken for the latest commit or a single uncommitted edit.
+  const n = data.changed?.length ?? 0;
+  const changedPhrase = `the ${
+    n === 1 ? "file" : `${n} files`
+  } you've changed on this branch`;
+
   if (data.partners.length === 0) {
-    const subject = data.mode === "query" && data.target !== undefined
-      ? `\`${data.target}\``
-      : "your current change set";
-    out.raw(`No co-change partners found for ${subject}.\n`);
+    if (data.mode === "query") {
+      out.raw(`No co-change partners found for \`${data.target ?? ""}\`.\n`);
+    } else if (n === 0) {
+      out.raw("Nothing changed on this branch — no co-change advisory.\n");
+    } else {
+      out.raw(`No co-change partners found for ${changedPhrase}.\n`);
+    }
     return;
   }
   const countWidth = Math.max(
@@ -543,8 +556,8 @@ function renderCouplingHuman(data: CouplingData, out: Out): void {
   } else {
     out.heading("Co-change advisory");
     out.raw(
-      `  ${c.dim}Files that usually change with what you touched, but aren't ` +
-        `in this change.${c.reset}\n  ${subtitle}\n`,
+      `  ${c.dim}Files that usually change with ${changedPhrase} (vs ` +
+        `the integration branch), but aren't among them.${c.reset}\n  ${subtitle}\n`,
     );
     // Group partners under the file that drew them, in ranked order (the Map keeps
     // first-seen order, and data.partners is already ranked strongest-first).
