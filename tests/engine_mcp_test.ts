@@ -22,6 +22,7 @@ import {
   MAIN_TS,
   runAgent,
   scaffoldEngine,
+  writeConfig,
 } from "./engine_helpers.ts";
 
 const ENCODER = new TextEncoder();
@@ -716,6 +717,75 @@ Deno.test("WorkingRoot: an undefined spawn root (outside a project) stays undefi
   assertEquals(w.get(), undefined);
   w.set("/now/a/project");
   assertEquals(w.get(), "/now/a/project");
+});
+
+Deno.test("discern mcp: project commands execute in the path-resolved worktree, not the server cwd", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        'main_branch = "main"',
+        "",
+        "[features]",
+        "guidance = false",
+        "skills = false",
+        "",
+        "[checks.cwd]",
+        'stage = "check"',
+        'run = "pwd > command.cwd"',
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+    const worktree = await addWorktree(dir, "command-cwd");
+
+    // The server process stays rooted in `dir` (the stable main checkout), while
+    // this one call explicitly targets `worktree`. The command must follow the
+    // resolved logical root; inheriting the server cwd produces a false-green gate.
+    const mcp = await spawnMcp(dir);
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await mcp.recv();
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: {
+        name: "discern_finish",
+        arguments: { path: worktree },
+      },
+    });
+    const finished = await mcp.recv();
+    assertEquals(
+      finished.result.isError,
+      false,
+      JSON.stringify(finished.result),
+    );
+    assertEquals(finished.result.structuredContent.ok, true);
+
+    const marker = join(worktree, "command.cwd");
+    assert(
+      await exists(marker),
+      "the gate passed but its project command ran outside the targeted worktree",
+    );
+    assertEquals(
+      (await Deno.readTextFile(marker)).trim(),
+      await Deno.realPath(worktree),
+    );
+    assertEquals(
+      await exists(join(dir, "command.cwd")),
+      false,
+      "the worktree-targeted command leaked into the MCP server's main cwd",
+    );
+    assertEquals(await mcp.close(), 0);
+  });
 });
 
 Deno.test("discern mcp: start then graduate over ONE main-rooted session — the working root re-aims (ADR 0062)", async () => {

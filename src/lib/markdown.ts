@@ -550,9 +550,7 @@ function renderList(
     }
 
     const paintedBullet = color
-      ? (task
-        ? (bullet === "☑" ? green(bullet) : dim(bullet))
-        : cyan(bullet))
+      ? (task ? (bullet === "☑" ? green(bullet) : dim(bullet)) : cyan(bullet))
       : bullet;
     const prefix = `${pad}${paintedBullet} `;
     // The hanging indent aligns continuation lines under the text, not the

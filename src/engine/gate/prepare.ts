@@ -40,7 +40,7 @@ async function runPrepareGate(
 > {
   const cfg = await loadConfig(root);
   const groups = preparePlanGroups(cfg);
-  const { runOpts, out } = gateRunContext(cfg, json);
+  const { runOpts, out } = gateRunContext(root, cfg, json);
   const { results, failedStage } = await runJobGroups(groups, runOpts, out);
   const { steps, diagnostics } = serializeJobSteps(groups, results);
   const inProgress = setupInProgressHint(cfg.meta.bootstrapped);

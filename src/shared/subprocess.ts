@@ -102,12 +102,12 @@ const EMPTY = new Uint8Array();
  */
 export async function runShell(
   command: string,
-  opts: { cwd?: string; env?: Record<string, string> } = {},
+  opts: { cwd: string; env?: Record<string, string> },
 ): Promise<ShellResult> {
   try {
     const output = await new Deno.Command("sh", {
       args: ["-c", shellCommand(command)],
-      ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
+      cwd: opts.cwd,
       ...(opts.env !== undefined ? { env: opts.env } : {}),
       stdin: "null",
       stdout: "piped",
@@ -128,12 +128,17 @@ export async function runShell(
  * Whether `word` resolves as a runnable command — on PATH, a shell builtin, or a
  * path — via the shell's own `command -v`. `word` is passed as a positional
  * argument, not interpolated into the script, so a surprising value cannot break
- * out of the probe.
+ * out of the probe. Pass `cwd` when validating a project-relative command so the
+ * probe uses the same resolved root as its eventual execution.
  */
-export async function commandExists(word: string): Promise<boolean> {
+export async function commandExists(
+  word: string,
+  opts: { cwd?: string } = {},
+): Promise<boolean> {
   try {
     const out = await new Deno.Command("sh", {
       args: ["-c", 'command -v "$1" >/dev/null 2>&1', "sh", word],
+      ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
       stdout: "null",
       stderr: "null",
     }).output();

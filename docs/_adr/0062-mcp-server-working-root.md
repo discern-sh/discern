@@ -79,7 +79,14 @@ root (`findRoot()`), and re-pointed on exactly two lifecycle transitions:
 Resolution per call is `args.path ?? workingRoot`. The verb **cores stay pure**
 — they remain functions of an explicit `root`; the working root is a thin,
 server-layer default resolved in `runTool`, never state pushed down into the
-engine.
+engine. That explicit root is also the **working directory of every configured
+project command** the core launches. Resolving configuration, scopes, and git
+state against one root while allowing `format`/`test`/scope-gate commands to
+inherit the MCP process cwd would certify a different checkout from the one the
+commands actually checked. The gate runner therefore requires `cwd = root`;
+ratchet measurements and command-resolution probes use the same rule. This also
+applies to a short-lived CLI invoked below the project root: root discovery, not
+the caller's subdirectory, defines project-command execution.
 
 ### 2. An explicit `path` override — escape hatch and the safety default's partner
 
@@ -156,7 +163,10 @@ server cannot detect this, two things are load-bearing, not optional:
 - **Two working directories to keep aligned** — the server's working root
   (discern verbs) and the agent's own file cwd (edits). They point at the same
   path the agent already holds from `start`, but they are two things; this is
-  inherent to the agent/server split, not removable.
+  inherent to the agent/server split, not removable. Discern's configured
+  project commands follow the former explicitly; they never inherit the MCP
+  process cwd. The alignment requirement remains because the agent's own edits
+  still follow the latter.
 - The `tools/list` is slightly noisier — an agent on the trunk now sees
   `graduate` / `integrate` (which refuse cleanly). Traded for never-stuck.
 - Adjacent and out of scope: a sandboxed agent (Codex defaults its sandbox on)

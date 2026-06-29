@@ -218,7 +218,8 @@ export async function runChecks(destDir: string): Promise<Check[]> {
   });
 
   // 5. capability/check commands resolve — the first word of each declared
-  // command is on PATH, so the gate will not die with "command not found".
+  // command resolves from the project root, so the gate will not die with
+  // "command not found" (including a relative `./tool`).
   {
     const commands: { label: string; word: string }[] = [];
     for (const [cap, value] of Object.entries(config.capabilities)) {
@@ -239,7 +240,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
     }
     const missing: string[] = [];
     for (const { label, word } of commands) {
-      if (!(await commandExists(word))) {
+      if (!(await commandExists(word, { cwd: destDir }))) {
         missing.push(`${label} → ${word}`);
       }
     }
@@ -552,14 +553,17 @@ export async function runChecks(destDir: string): Promise<Check[]> {
   }
 
   // 13. worktree-resource commands resolve (advisory). The first word of each
-  // declared create/destroy/ensure should be on PATH, so a worktree round won't
-  // die with "command not found".
+  // declared create/destroy/ensure should resolve from the project root, so a
+  // worktree round won't die with "command not found".
   {
     const missing: string[] = [];
     for (const [name, r] of Object.entries(config.worktree.resources)) {
       for (const cmd of [r.create, r.destroy, r.ensure]) {
         const word = firstWord(cmd);
-        if (word !== undefined && !(await commandExists(word))) {
+        if (
+          word !== undefined &&
+          !(await commandExists(word, { cwd: destDir }))
+        ) {
           missing.push(`${name} → ${word}`);
         }
       }
