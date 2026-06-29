@@ -239,8 +239,8 @@ function buildConfirmations(worktreePath: string): Confirmation[] {
 
 const RULE = "─".repeat(72);
 
-/** Render the human preflight: the grounded findings, then the consent checklist, then
- * the funnel into `begin`. */
+/** Render the human preflight as lines, printed in one go (the layout is then easy to
+ * edit): the grounded findings, the consent checklist, then the funnel into `begin`. */
 function printPreflight(p: {
   git: Awaited<ReturnType<typeof worktreeState>>;
   docsExists: boolean;
@@ -251,61 +251,51 @@ function printPreflight(p: {
   conflicts: Conflict[];
   confirmations: Confirmation[];
 }): void {
-  console.log(
+  const docs = p.docsExists
+    ? "existing docs/ tree — begin leaves it untouched (see below)"
+    : "no docs/ tree yet — begin will scaffold one";
+  const instructions = p.existingInstructions.length > 0
+    ? `found ${
+      p.existingInstructions.join(", ")
+    } — begin preserves it (folded into guidance.md)`
+    : "none yet — begin seeds guidance.md";
+  const agents = p.detected.length > 0
+    ? `detected on PATH: ${p.detected.join(", ")}`
+    : `none detected on PATH — begin will default to ${
+      p.effectiveAgents.join(", ")
+    }`;
+
+  const lines: string[] = [
     "discern setup — preflight (read-only; nothing is written until `begin`)",
-  );
-  console.log("");
-  console.log("What's in this project right now:");
-  console.log(`  • Git ........... ${gitSummary(p.git)}`);
-  console.log(
-    `  • Docs .......... ${
-      p.docsExists
-        ? "existing docs/ tree — begin leaves it untouched (see below)"
-        : "no docs/ tree yet — begin will scaffold one"
-    }`,
-  );
-  console.log(
-    `  • Instructions .. ${
-      p.existingInstructions.length > 0
-        ? `found ${
-          p.existingInstructions.join(", ")
-        } — begin preserves it (folded into guidance.md)`
-        : "none yet — begin seeds guidance.md"
-    }`,
-  );
-  console.log(
-    `  • Agents ........ ${
-      p.detected.length > 0
-        ? `detected on PATH: ${p.detected.join(", ")}`
-        : `none detected on PATH — begin will default to ${
-          p.effectiveAgents.join(", ")
-        }`
-    }`,
-  );
-  console.log("  • Worktrees ..... will live beside this repo at:");
-  console.log(`                    ${p.worktreePath}`);
+    "",
+    "What's in this project right now:",
+    `  • Git ........... ${gitSummary(p.git)}`,
+    `  • Docs .......... ${docs}`,
+    `  • Instructions .. ${instructions}`,
+    `  • Agents ........ ${agents}`,
+    "  • Worktrees ..... will live beside this repo at:",
+    `                    ${p.worktreePath}`,
+  ];
 
   if (p.conflicts.length > 0) {
-    console.log("");
+    lines.push("");
     for (const c of p.conflicts) {
-      console.log(`  ⚠ ${c.detail}`);
+      lines.push(`  ⚠ ${c.detail}`);
     }
   }
 
-  console.log("");
-  console.log(RULE);
-  console.log("Confirm these with your human before beginning:");
-  console.log("");
-  let n = 1;
-  for (const c of p.confirmations) {
-    console.log(`  ${n}. ${c.prompt}`);
-    console.log("");
-    n++;
-  }
-  console.log(RULE);
-  console.log("When your human has confirmed, run:");
-  console.log("");
-  console.log("    discern setup begin");
+  lines.push("", RULE, "Confirm these with your human before beginning:", "");
+  p.confirmations.forEach((c, i) => {
+    lines.push(`  ${i + 1}. ${c.prompt}`, "");
+  });
+  lines.push(
+    RULE,
+    "When your human has confirmed, run:",
+    "",
+    "    discern setup begin",
+  );
+
+  console.log(lines.join("\n"));
 }
 
 /** A one-line git-state summary for the human findings list. */

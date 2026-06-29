@@ -88,10 +88,10 @@ export async function runSetupWelcome(opts: WelcomeOptions): Promise<number> {
 
   switch (phase) {
     case "fresh":
-      printFreshWelcome();
+      console.log(FRESH_WELCOME.join("\n"));
       break;
     case "in_progress":
-      printInProgressWelcome(progress);
+      console.log(inProgressWelcome(progress).join("\n"));
       break;
     case "done":
       console.log(
@@ -102,97 +102,62 @@ export async function runSetupWelcome(opts: WelcomeOptions): Promise<number> {
   return 0;
 }
 
-const RULE = "─".repeat(72);
+const RULE = `  ${"─".repeat(72)}`;
 
-/** The fresh-install welcome: a short orientation block for the human, then the
- * agent's funnel into `verify`. Deliberately compact — the full agent preflight is
- * `verify`'s job, not the welcome's. */
-function printFreshWelcome(): void {
-  console.log(
-    "discern — a stack-neutral quality harness for coding agents and the humans who run them.",
-  );
-  console.log("");
-  console.log("This project isn't set up yet.");
-  console.log("");
-  console.log("  FOR HUMANS");
-  console.log("  " + RULE);
-  console.log(
-    "  Welcome! discern adds a quality gate, isolated git worktrees, and shared",
-  );
-  console.log(
-    "  agent instructions to this repo — tailored to YOUR codebase by your own",
-  );
-  console.log("  coding agent. To get started, tell your coding agent:");
-  console.log("");
-  console.log('      "Run discern setup"');
-  console.log("");
-  console.log(
-    "  It's safe. Setup only touches this folder, never anything outside it. Your",
-  );
-  console.log(
-    "  agent works on a dedicated `discern-setup` branch in small, clearly-explained",
-  );
-  console.log(
-    "  commits, so you can follow along — and undo everything with one command if",
-  );
-  console.log("  you change your mind. No API key, no lock-in.");
-  console.log("");
-  console.log(
-    "  Point your MOST CAPABLE model at it: setup is a one-time, high-leverage step,",
-  );
-  console.log(
-    "  and discern is only as good as the model that configured it.",
-  );
-  console.log("");
-  console.log("  FOR CODING AGENTS");
-  console.log("  " + RULE);
-  console.log(
-    "  Did your human just ask you to set discern up? You drive it — discern only",
-  );
-  console.log(
-    "  guides you, and NOTHING is written until you explicitly run `begin`. Start by",
-  );
-  console.log(
-    "  previewing what setup will do and confirming a few things with your human:",
-  );
-  console.log("");
-  console.log(
-    "      discern setup verify        (read-only; add --json for machine output)",
-  );
-  console.log("");
-  console.log(
-    "  It will tell you what to confirm, then point you at `discern setup begin`.",
-  );
-}
+/**
+ * The fresh-install welcome, authored as lines and printed in one go — so the text is
+ * WYSIWYG and easy to edit (the indentation here IS the output; no escaping). A short
+ * orientation block for the human, then the agent's funnel into `verify`. Deliberately
+ * compact — the full agent preflight is `verify`'s job, not the welcome's.
+ */
+const FRESH_WELCOME: readonly string[] = [
+  "discern — a stack-neutral quality harness for coding agents and the humans who run them.",
+  "",
+  "This project isn't set up yet.",
+  "",
+  "  FOR HUMANS",
+  RULE,
+  "  Welcome! discern adds a quality gate, isolated git worktrees, and shared",
+  "  agent instructions to this repo — tailored to YOUR codebase by your own",
+  "  coding agent. To get started, tell your coding agent:",
+  "",
+  '      "Run discern setup"',
+  "",
+  "  It's safe. Setup only touches this folder, never anything outside it. Your",
+  "  agent works on a dedicated `discern-setup` branch in small, clearly-explained",
+  "  commits, so you can follow along — and undo everything with one command if",
+  "  you change your mind. No API key, no lock-in.",
+  "",
+  "  Point your MOST CAPABLE model at it: setup is a one-time, high-leverage step,",
+  "  and discern is only as good as the model that configured it.",
+  "",
+  "  FOR CODING AGENTS",
+  RULE,
+  "  Did your human just ask you to set discern up? You drive it — discern only",
+  "  guides you, and NOTHING is written until you explicitly run `begin`. Start by",
+  "  previewing what setup will do and confirming a few things with your human:",
+  "",
+  "      discern setup verify        (read-only; add --json for machine output)",
+  "",
+  "  It will tell you what to confirm, then point you at `discern setup begin`.",
+];
 
-/** The in-progress welcome: the resume view. Lead with DERIVED progress (what's left,
- * unfakeable), then the agent's path to finish and the human's reassurance. */
-function printInProgressWelcome(progress: SetupProgress | undefined): void {
-  console.log("discern setup is IN PROGRESS here — not yet finished.");
-  console.log("");
-  if (progress !== undefined) {
-    for (const line of renderProgressLines(progress)) {
-      console.log(line);
-    }
-    console.log("");
-  }
-  console.log(
+/** The in-progress welcome, as lines: the resume view. Lead with DERIVED progress
+ * (what's left, unfakeable), then the agent's path to finish and the human's
+ * reassurance. */
+function inProgressWelcome(progress: SetupProgress | undefined): string[] {
+  return [
+    "discern setup is IN PROGRESS here — not yet finished.",
+    "",
+    ...(progress !== undefined ? [...renderProgressLines(progress), ""] : []),
     "Agents: this is YOUR job to finish, not a status to report back. Continue the",
-  );
-  console.log(
     "setup brief, then run `discern setup done` to validate and record completion.",
-  );
-  console.log(
     "Reprint the full brief any time with `discern setup begin` (idempotent — it",
-  );
-  console.log(
     "won't touch your work). Don't tell the user setup is done until `done` passes.",
-  );
-  console.log("");
-  console.log(
+    "",
     "Humans: your coding agent is mid-setup on the `discern-setup` branch. Follow",
-  );
-  console.log("along — you can roll it all back by deleting that branch.");
+    "along — you can roll it all back by deleting that branch.",
+  ];
 }
 
 /**
