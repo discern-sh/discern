@@ -14,27 +14,16 @@ import { assert, assertEquals } from "@std/assert";
 import { join } from "@std/path";
 import { parse as parseToml } from "@std/toml";
 import { exists } from "@std/fs";
-import { withTempDir } from "./helpers.ts";
+import { REAL_TEMPLATES, withTempDir } from "./helpers.ts";
 import { runAgent, scaffoldEngine } from "./engine_helpers.ts";
-
-/** Point a scaffolded `discern.toml` at the given agent set (comment-preserving enough
- * for the test — a single-line `agents = [...]` rewrite, matching the seed shape). */
-async function setAgents(dir: string, agents: string[]): Promise<void> {
-  const path = join(dir, "discern.toml");
-  const cfg = await Deno.readTextFile(path);
-  const list = agents.map((a) => `"${a}"`).join(", ");
-  await Deno.writeTextFile(
-    path,
-    cfg.replace(/agents = \[[^\]]*\]/, `agents = [${list}]`),
-  );
-}
+import { assembleInitPlan } from "../src/commands/setup.ts";
+import { providersWithHooks } from "../src/lib/providers.ts";
+import type { AgentName } from "../src/lib/config.ts";
 
 Deno.test("Gemini: the seed (hooks.enabled + SessionStart) and the MCP register() compose in one .gemini/settings.json", async () => {
   await withTempDir(async (dir) => {
-    // The scaffold seeds .gemini/settings.json from the template (every install gets
-    // the settings templates; buildPlan walks them all).
-    await scaffoldEngine(dir);
-    await setAgents(dir, ["claude_code", "gemini"]);
+    // Gemini is configured, so its per-agent seed (.gemini/settings.json) is laid.
+    await scaffoldEngine(dir, { agents: ["claude_code", "gemini"] });
 
     // The seed landed: hooks.enabled + the SessionStart → worktree:ensure hook.
     const seeded = JSON.parse(
@@ -89,8 +78,7 @@ Deno.test("Gemini: the seed (hooks.enabled + SessionStart) and the MCP register(
 
 Deno.test("Codex: refresh wires .codex/config.toml (MCP) and co-manages environment.toml ([setup]/[cleanup]), idempotently", async () => {
   await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await setAgents(dir, ["claude_code", "codex"]);
+    await scaffoldEngine(dir, { agents: ["claude_code", "codex"] });
 
     // The scaffold seeded the SessionStart hook into .codex/hooks.json.
     const hooks = JSON.parse(
@@ -146,8 +134,7 @@ Deno.test("Codex: refresh wires .codex/config.toml (MCP) and co-manages environm
 
 Deno.test("Cursor + Copilot: scaffold seeds each SessionStart hook; refresh wires .cursor/mcp.json and the co-owned .mcp.json", async () => {
   await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await setAgents(dir, ["cursor", "copilot"]);
+    await scaffoldEngine(dir, { agents: ["cursor", "copilot"] });
 
     // The scaffold seeded each vendor's SessionStart hook in its own shape — Cursor's
     // flat `{ command }`, Copilot's `{ type, bash }` — both running worktree:ensure.
@@ -196,13 +183,12 @@ Deno.test("Cursor + Copilot: scaffold seeds each SessionStart hook; refresh wire
       command: "discern",
       args: ["mcp"],
     });
-    // .claude/settings.json is seeded by the scaffold, but neither Cursor nor Copilot
-    // pre-approves via enabledMcpjsonServers — that key is Claude's, written only by
-    // registerClaudeCodeMcp, and Claude is not a configured agent here. They gate on trust.
-    const claudeSettings = JSON.parse(
-      await Deno.readTextFile(join(dir, ".claude/settings.json")),
+    // Claude is not a configured agent here, so no Claude file is seeded at all — an
+    // unconfigured agent leaves no inert dotfiles behind (the per-agent seed filter).
+    assert(
+      !(await exists(join(dir, ".claude/settings.json"))),
+      "an unconfigured agent (claude) must not get a seeded settings file",
     );
-    assertEquals(claudeSettings.enabledMcpjsonServers, undefined);
 
     // Idempotent: a second refresh re-wires neither file.
     const r2 = await runAgent(dir, ["refresh", "--json"]);
@@ -222,5 +208,40 @@ Deno.test("a default (Claude-only) refresh declares no worktree-app file — the
       !(await exists(join(dir, ".codex/environments/environment.toml"))),
       "no codex agent configured → no environment.toml co-managed",
     );
+  });
+});
+
+Deno.test("setup seeds per-agent hook files ONLY for configured agents (no inert dotfiles)", async () => {
+  // The leak a cold run hit: a claude+codex project still got committed .cursor/,
+  // .gemini/, and .github/ hook files for agents it doesn't use. assembleInitPlan must
+  // seed a hooks provider's settings file only when that agent is configured. Driven
+  // off the provider registry, so a new hooks provider auto-enrols in this guard.
+  await withTempDir(async (dir) => {
+    const configured: AgentName[] = ["claude_code", "codex"];
+    const plan = await assembleInitPlan({
+      templatesDir: REAL_TEMPLATES,
+      destDir: dir,
+      config: {
+        projectName: "Seed Filter",
+        slug: "seed-filter",
+        branchPrefix: "agent/",
+        sourceGlobs: ["src/**"],
+        brief: "",
+        agents: configured,
+      },
+    });
+    const targets = new Set(plan.ops.map((o) => o.targetRel));
+    for (const p of providersWithHooks()) {
+      if (p.hooks === undefined) continue;
+      const seeded = targets.has(p.hooks.settingsFile);
+      if (configured.includes(p.name)) {
+        assert(seeded, `configured ${p.name} should seed ${p.hooks.settingsFile}`);
+      } else {
+        assert(
+          !seeded,
+          `unconfigured ${p.name} must NOT seed ${p.hooks.settingsFile} (inert dotfile leak)`,
+        );
+      }
+    }
   });
 });

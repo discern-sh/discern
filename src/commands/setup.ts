@@ -189,6 +189,9 @@ export async function assembleInitPlan(params: {
     destDir,
     tokens,
     excludeNonSeed: true,
+    // Only the configured agents get their per-agent seed files (hooks/settings);
+    // an unconfigured agent leaves no inert dotfiles behind.
+    configuredAgents: config.agents,
   });
 
   // The brief is the user's authored intent, captured at setup for the agent.
