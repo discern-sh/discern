@@ -48,10 +48,14 @@ shell call site routes through it.
 
 Both still take the `:` no-op and `127` conventions from the shared module, so
 the only thing they hold privately is the spawn mechanism their job demands.
-Every project-command runner requires an explicit `cwd`: the buffered runner,
-the streaming gate runner, and the setup/resource runner cannot silently inherit
-the engine process directory. The resolved project/worktree root is therefore
-part of the command-execution contract, not ambient process state.
+Every runner requires an explicit `cwd` — the git runner (`runGit`) alongside
+the three project-command runners (the buffered `runShell`, the streaming gate
+runner, and the setup/resource runner): none can silently inherit the engine
+process directory. The resolved project/worktree root is therefore part of the
+execution contract uniformly across `sh -c` and git spawns, not ambient process
+state — and a caller that genuinely intends the process directory passes
+`Deno.cwd()` explicitly, so the choice is visible at the spawn site rather than
+defaulted.
 
 **A guard makes it stick.** `tests/engine_subprocess_ssot_test.ts` walks `src/`
 and fails the gate on a raw git or `sh -c` spawn outside the sanctioned set.
@@ -70,7 +74,8 @@ different concern and out of scope by design; the guard matches the literal
 - **`GIT_BIN` is honored everywhere.** Routing every git call through one
   resolver fixes the inconsistency as a side effect of the consolidation.
 - **Each convention has one definition.** The `:` no-op, the `127` code, the
-  no-git fallback, output decoding, and required command cwd live once.
+  no-git fallback, output decoding, and the required `cwd` on every runner live
+  once.
 - **Dead code is gone.** `runShellInherit` and its file were removed.
 - **A new spawn is a conscious act.** Adding a raw git/sh spawn fails the gate;
   the author either uses the shared runner or extends the sanctioned set in the
