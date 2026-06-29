@@ -43,7 +43,7 @@
       "type": "string"
     },
     "agents": {
-      "description": "Which agent integrations to enable (claude_code, codex, gemini, cursor, copilot). cursor and copilot read AGENTS.md natively, so no instruction file is compiled for them.",
+      "description": "Which agent integrations to enable: claude_code -> CLAUDE.md, gemini -> GEMINI.md, codex / cursor / copilot -> AGENTS.md.",
       "type": "array",
       "items": {
         "type": "string",

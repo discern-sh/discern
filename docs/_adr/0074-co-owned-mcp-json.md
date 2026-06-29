@@ -1,4 +1,4 @@
-# ADR 0074: GitHub Copilot co-owns Claude Code's `.mcp.json`, through one shared stdio writer
+# ADR 0074: Claude Code and GitHub Copilot co-own the shared `.mcp.json`, through one stdio writer
 
 **Status**: accepted; extends [ADR 0031](0031-typed-provider-integration.md)
 (one typed provider registry), [ADR 0045](0045-mcp-is-core-infrastructure.md)

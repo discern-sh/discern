@@ -48,7 +48,7 @@ The author-once → compile-everywhere agent-instruction pipeline. `discern refr
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `sources` | string[] | `["guidance.md"]` | Your guideline source file(s), relative to the project root. Globs allowed. Read only if present; the built-in harness guidance is always prepended. |
-| `agents` | string[] | `[]` | Which agent integrations to enable: "claude_code" -> CLAUDE.md, "codex" -> AGENTS.md, "gemini" -> GEMINI.md; "cursor" and "copilot" read AGENTS.md natively, so no file is emitted for them. |
+| `agents` | string[] | `[]` | Which agent integrations to enable: claude_code -> CLAUDE.md, gemini -> GEMINI.md, codex / cursor / copilot -> AGENTS.md. |
 
 ## `[skills]`
 
