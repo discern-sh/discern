@@ -179,7 +179,7 @@ async function runGate(
   // quiet — the result envelope is the entire output (ADR 0030), so the runner
   // and the Out are silenced and nothing streams to any fd. The shared run context
   // (job RunOptions + the narration Out) is the one `prepare`/`test` use too.
-  const { runOpts, out } = gateRunContext(cfg, json);
+  const { runOpts, out } = gateRunContext(root, cfg, json);
 
   const results = new Map<string, JobResult>();
   let failedStage: FailedStage | null = null;

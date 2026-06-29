@@ -16,6 +16,8 @@ import { spawnJob } from "./command.ts";
 
 /** How a stage run presents and schedules its jobs. */
 export interface RunOptions {
+  /** Resolved project root in which every configured job executes. */
+  cwd: string;
   /** Stream each job's output live (line-prefixed) instead of buffering it. */
   stream: boolean;
   /** Cancel in-flight siblings the moment one job fails (on by default in finish). */
@@ -91,6 +93,7 @@ export async function runParallel(
   const controller = new AbortController();
   const settled = await Promise.all(jobs.map((job) =>
     spawnJob(job, {
+      cwd: opts.cwd,
       signal: controller.signal,
       stream,
       write,
@@ -129,7 +132,7 @@ export async function runSerial(
   const results: JobResult[] = [];
   let ok = true;
   for (const job of jobs) {
-    const s = await spawnJob(job, { stream, write });
+    const s = await spawnJob(job, { cwd: opts.cwd, stream, write });
     if (!quiet) {
       write(banner(s.result, opts.color));
       if (!stream && s.output.length > 0) {

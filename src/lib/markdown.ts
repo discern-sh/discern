@@ -23,7 +23,6 @@
  * The single entry point is {@link renderMarkdown}. Everything else is private.
  */
 
-import { colors } from "@cliffy/ansi/colors";
 import { Table } from "@cliffy/table";
 
 /** How to render: wrap width and whether to emit ANSI styling. */
@@ -53,6 +52,30 @@ interface SChar {
   ch: string;
   style: Style;
 }
+
+/**
+ * Apply one SGR style unconditionally. `RenderOptions.color` is already the
+ * caller's explicit policy, so inheriting @std/fmt's process-global NO_COLOR
+ * switch here would make `{ color: true }` lie. Production callers resolve
+ * NO_COLOR before invoking the renderer; this layer only obeys its argument.
+ */
+function sgr(text: string, open: number, close: number): string {
+  const start = `\x1b[${open}m`;
+  const end = `\x1b[${close}m`;
+  return `${start}${text.replaceAll(end, start)}${end}`;
+}
+
+const bold = (text: string): string => sgr(text, 1, 22);
+const dim = (text: string): string => sgr(text, 2, 22);
+const italic = (text: string): string => sgr(text, 3, 23);
+const underline = (text: string): string => sgr(text, 4, 24);
+const strikethrough = (text: string): string => sgr(text, 9, 29);
+const green = (text: string): string => sgr(text, 32, 39);
+const yellow = (text: string): string => sgr(text, 33, 39);
+const blue = (text: string): string => sgr(text, 34, 39);
+const cyan = (text: string): string => sgr(text, 36, 39);
+const brightBlack = (text: string): string => sgr(text, 90, 39);
+const brightCyan = (text: string): string => sgr(text, 96, 39);
 
 /** OSC-8 terminal hyperlink: clickable in modern terminals, inert elsewhere. */
 function osc8(url: string, text: string): string {
@@ -272,15 +295,14 @@ function styleRun(text: string, style: Style, color: boolean): string {
     if (style.code) return `\`${text}\``;
     return text;
   }
-  if (style.code) return colors.yellow(text);
-  // Compose styles as successive string wrappers — chaining `colors.x.y` off a
-  // root-typed variable doesn't type-check, but each `colors.x` is itself a
-  // `(s: string) => string`, so nesting them is both typed and correct ANSI.
+  if (style.code) return yellow(text);
+  // Compose styles as successive wrappers so combinations remain properly
+  // nested and each style closes independently.
   let painted = text;
-  if (style.strike) painted = colors.strikethrough(painted);
-  if (style.italic) painted = colors.italic(painted);
-  if (style.bold) painted = colors.bold(painted);
-  if (style.href) painted = osc8(style.href, colors.blue.underline(painted));
+  if (style.strike) painted = strikethrough(painted);
+  if (style.italic) painted = italic(painted);
+  if (style.bold) painted = bold(painted);
+  if (style.href) painted = osc8(style.href, blue(underline(painted)));
   return painted;
 }
 
@@ -469,13 +491,13 @@ function renderHeading(
   const segs = parseInline(text);
   const chars = toChars(segs);
   if (level === 1) {
-    const painted = colors.bold.brightCyan(emitCharsPlainText(chars));
-    return [painted, colors.brightCyan("─".repeat(Math.min(width, plainLen)))];
+    const painted = brightCyan(bold(emitCharsPlainText(chars)));
+    return [painted, brightCyan("─".repeat(Math.min(width, plainLen)))];
   }
-  let fn = colors.bold;
-  if (level === 2) fn = colors.bold.cyan;
-  else if (level >= 4) fn = colors.bold.brightBlack;
-  return [fn(emitCharsPlainText(chars))];
+  const plain = emitCharsPlainText(chars);
+  if (level === 2) return [cyan(bold(plain))];
+  if (level >= 4) return [brightBlack(bold(plain))];
+  return [bold(plain)];
 }
 
 /** A heading's text, flattened (headings get one uniform style, not per-run). */
@@ -488,12 +510,12 @@ function renderCode(lang: string, lines: string[], color: boolean): string[] {
   if (!color) {
     return ["```" + lang, ...lines, "```"];
   }
-  const bar = colors.brightBlack("│ ");
+  const bar = brightBlack("│ ");
   const out: string[] = [];
-  if (lang) out.push(colors.brightBlack("┌─ ") + colors.dim(lang));
-  else out.push(colors.brightBlack("┌─"));
+  if (lang) out.push(brightBlack("┌─ ") + dim(lang));
+  else out.push(brightBlack("┌─"));
   for (const ln of lines) out.push(bar + ln);
-  out.push(colors.brightBlack("└─"));
+  out.push(brightBlack("└─"));
   return out;
 }
 
@@ -528,9 +550,7 @@ function renderList(
     }
 
     const paintedBullet = color
-      ? (task
-        ? (bullet === "☑" ? colors.green(bullet) : colors.dim(bullet))
-        : colors.cyan(bullet))
+      ? (task ? (bullet === "☑" ? green(bullet) : dim(bullet)) : cyan(bullet))
       : bullet;
     const prefix = `${pad}${paintedBullet} `;
     // The hanging indent aligns continuation lines under the text, not the
@@ -637,7 +657,7 @@ export function renderMarkdown(
     // Horizontal rule.
     if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(line)) {
       pushBlock([
-        color ? colors.brightBlack("─".repeat(width)) : "─".repeat(width),
+        color ? brightBlack("─".repeat(width)) : "─".repeat(width),
       ]);
       i++;
       continue;
@@ -656,7 +676,7 @@ export function renderMarkdown(
         width: Math.max(20, width - 2),
         color,
       }).split("\n");
-      const bar = color ? colors.brightBlack("│ ") : "│ ";
+      const bar = color ? brightBlack("│ ") : "│ ";
       pushBlock(rendered.map((ln) => bar + ln));
       continue;
     }

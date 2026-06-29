@@ -22,6 +22,7 @@ import {
   MAIN_TS,
   runAgent,
   scaffoldEngine,
+  writeConfig,
 } from "./engine_helpers.ts";
 
 const ENCODER = new TextEncoder();
@@ -718,6 +719,75 @@ Deno.test("WorkingRoot: an undefined spawn root (outside a project) stays undefi
   assertEquals(w.get(), "/now/a/project");
 });
 
+Deno.test("discern mcp: project commands execute in the path-resolved worktree, not the server cwd", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        'main_branch = "main"',
+        "",
+        "[features]",
+        "guidance = false",
+        "skills = false",
+        "",
+        "[checks.cwd]",
+        'stage = "check"',
+        'run = "pwd > command.cwd"',
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+    const worktree = await addWorktree(dir, "command-cwd");
+
+    // The server process stays rooted in `dir` (the stable main checkout), while
+    // this one call explicitly targets `worktree`. The command must follow the
+    // resolved logical root; inheriting the server cwd produces a false-green gate.
+    const mcp = await spawnMcp(dir);
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await mcp.recv();
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: {
+        name: "discern_finish",
+        arguments: { path: worktree },
+      },
+    });
+    const finished = await mcp.recv();
+    assertEquals(
+      finished.result.isError,
+      false,
+      JSON.stringify(finished.result),
+    );
+    assertEquals(finished.result.structuredContent.ok, true);
+
+    const marker = join(worktree, "command.cwd");
+    assert(
+      await exists(marker),
+      "the gate passed but its project command ran outside the targeted worktree",
+    );
+    assertEquals(
+      (await Deno.readTextFile(marker)).trim(),
+      await Deno.realPath(worktree),
+    );
+    assertEquals(
+      await exists(join(dir, "command.cwd")),
+      false,
+      "the worktree-targeted command leaked into the MCP server's main cwd",
+    );
+    assertEquals(await mcp.close(), 0);
+  });
+});
+
 Deno.test("discern mcp: start then graduate over ONE main-rooted session — the working root re-aims (ADR 0062)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
@@ -785,7 +855,7 @@ Deno.test("discern mcp: start then graduate over ONE main-rooted session — the
   });
 });
 
-Deno.test("discern mcp: a server SPAWNED INSIDE a worktree re-aims to the main checkout on graduate, not the removed spawn root (ADR 0062)", async () => {
+Deno.test("discern mcp: a worktree-spawned server re-aims to main on graduate even with an explicit `path`, since graduate removed its held root (ADR 0062)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -823,13 +893,18 @@ Deno.test("discern mcp: a server SPAWNED INSIDE a worktree re-aims to the main c
     });
     await inWt.recv();
 
-    // graduate (no prior start, no `path`) operates on the spawn-root worktree and
-    // removes it. The result reports the main checkout it landed in.
+    // graduate with an EXPLICIT `path` (the worktree) — Codex's exact call — removes
+    // the spawn-root worktree. A `path` override normally leaves the held root alone
+    // (§2), but graduate just deleted the directory that root points at, so it must
+    // re-root anyway. The result reports the main checkout it landed in.
     await inWt.send({
       jsonrpc: "2.0",
       id: 2,
       method: "tools/call",
-      params: { name: "discern_graduate", arguments: {} },
+      params: {
+        name: "discern_graduate",
+        arguments: { path: wtPath, to: "trunk" },
+      },
     });
     const graduated = await inWt.recv();
     assertEquals(
@@ -845,9 +920,9 @@ Deno.test("discern mcp: a server SPAWNED INSIDE a worktree re-aims to the main c
     assertEquals(await exists(wtPath), false, "graduate removed the worktree");
 
     // The headline: a subsequent call with NO `path` must follow the re-aimed working
-    // root to the MAIN CHECKOUT — not the spawn root, which is the now-deleted worktree.
-    // Before the fix, the re-aim returned spawnRoot (= the worktree), so this `status`
-    // would operate on a removed directory and error; now it reports the main checkout.
+    // root to the MAIN CHECKOUT — not the removed worktree. Without the held-root-missing
+    // re-aim, the explicit `path` on graduate would skip re-aiming, leaving this `status`
+    // to resolve the deleted worktree's discern.toml and error.
     await inWt.send({
       jsonrpc: "2.0",
       id: 3,
@@ -861,6 +936,83 @@ Deno.test("discern mcp: a server SPAWNED INSIDE a worktree re-aims to the main c
     assertEquals(status.result.structuredContent.data.root, landedRoot);
 
     assertEquals(await inWt.close(), 0);
+  });
+});
+
+Deno.test("discern mcp: graduating a DIFFERENT worktree by `path` leaves the held root alone (ADR 0062 §2 preserved)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+
+    // The other side of the held-root-removed rule: re-aiming on a `path` override must
+    // fire ONLY when graduate removed the root you're HOLDING — never when you graduate
+    // some OTHER worktree by path while still working in your own. Make two worktrees,
+    // hold one, graduate the other. (Each `start` runs from a fresh main-rooted server,
+    // because a server re-aims into the worktree it just started and `start` then refuses
+    // from inside one.)
+    const startFromMain = async (): Promise<string> => {
+      const m = await spawnMcp(dir);
+      await m.send({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: initParams(),
+      });
+      await m.recv();
+      await m.send({
+        jsonrpc: "2.0",
+        id: 2,
+        method: "tools/call",
+        params: { name: "discern_start", arguments: {} },
+      });
+      const path = (await m.recv()).result.structuredContent.data
+        .path as string;
+      assertEquals(await m.close(), 0);
+      return path;
+    };
+    const held = await startFromMain(); // the worktree we keep working in
+    const other = await startFromMain(); // the worktree we graduate by path
+
+    // A server rooted in `held`, graduating `other` by explicit path.
+    const inHeld = await spawnMcp(held);
+    await inHeld.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await inHeld.recv();
+    await inHeld.send({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: {
+        name: "discern_graduate",
+        arguments: { path: other, to: "trunk" },
+      },
+    });
+    const graduated = await inHeld.recv();
+    assertEquals(
+      graduated.result.isError,
+      false,
+      JSON.stringify(graduated.result),
+    );
+    assertEquals(await exists(other), false, "the OTHER worktree was removed");
+    assert(await exists(held), "the held worktree is untouched");
+
+    // The held root survived — a no-path call still operates on it, NOT the main checkout
+    // (it wasn't the one removed, so §2's one-call-override rule holds).
+    await inHeld.send({
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: { name: "discern_status", arguments: {} },
+    });
+    const status = await inHeld.recv();
+    assertEquals(status.result.isError, false, JSON.stringify(status.result));
+    assertEquals(status.result.structuredContent.data.location, "worktree");
+
+    assertEquals(await inHeld.close(), 0);
   });
 });
 

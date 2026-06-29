@@ -1,8 +1,11 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { join } from "@std/path";
 import { runParallel, runSerial } from "../src/engine/jobs/runner.ts";
 import { finalCode } from "../src/engine/jobs/command.ts";
 import { capText } from "../src/shared/result.ts";
 import type { Job } from "../src/engine/jobs/types.ts";
+
+const CWD = Deno.cwd();
 
 /** A capturing output sink for assertions on banners + job output. */
 function makeSink(): { write: (c: Uint8Array) => void; text: () => string } {
@@ -24,6 +27,7 @@ Deno.test("runParallel: all jobs succeed; empty command is a no-op", async () =>
     { label: "c", command: "" }, // empty → `:` no-op
   ];
   const r = await runParallel(jobs, {
+    cwd: CWD,
     stream: false,
     failFast: true,
     color: false,
@@ -34,6 +38,29 @@ Deno.test("runParallel: all jobs succeed; empty command is a no-op", async () =>
   assert(s.text().includes("── a ─ ok"), s.text());
 });
 
+Deno.test("runParallel: every job executes in its required cwd", async () => {
+  const dir = await Deno.makeTempDir({ prefix: "discern-job-cwd-" });
+  try {
+    const sink = makeSink();
+    const result = await runParallel([
+      { label: "where", command: "pwd > observed.cwd" },
+    ], {
+      cwd: dir,
+      stream: false,
+      failFast: true,
+      color: false,
+      write: sink.write,
+    });
+    assertEquals(result.ok, true);
+    assertEquals(
+      (await Deno.readTextFile(join(dir, "observed.cwd"))).trim(),
+      await Deno.realPath(dir),
+    );
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
 Deno.test("runParallel: fail-fast cancels the slow sibling promptly", async () => {
   const s = makeSink();
   const start = performance.now();
@@ -42,6 +69,7 @@ Deno.test("runParallel: fail-fast cancels the slow sibling promptly", async () =
     { label: "slow", command: "sleep 30" },
   ];
   const r = await runParallel(jobs, {
+    cwd: CWD,
     stream: false,
     failFast: true,
     color: false,
@@ -58,7 +86,13 @@ Deno.test("runParallel: without fail-fast every job runs to completion", async (
   const r = await runParallel([
     { label: "fail", command: "exit 1" },
     { label: "ok", command: "true" },
-  ], { stream: false, failFast: false, color: false, write: s.write });
+  ], {
+    cwd: CWD,
+    stream: false,
+    failFast: false,
+    color: false,
+    write: s.write,
+  });
   assertEquals(r.ok, false);
   assertEquals(r.results.find((x) => x.label === "ok")?.code, 0);
 });
@@ -71,6 +105,7 @@ Deno.test("runSerial: stops at the first failure; later jobs never run", async (
     { label: "never", command: "true" },
   ];
   const r = await runSerial(jobs, {
+    cwd: CWD,
     stream: false,
     failFast: true,
     color: false,
@@ -88,7 +123,13 @@ Deno.test("buffered mode captures combined stdout+stderr after the banner", asyn
       label: "noisy",
       command: "echo hello-stdout; echo oops-stderr >&2; exit 1",
     },
-  ], { stream: false, failFast: true, color: false, write: s.write });
+  ], {
+    cwd: CWD,
+    stream: false,
+    failFast: true,
+    color: false,
+    write: s.write,
+  });
   assertEquals(r.ok, false);
   assert(s.text().includes("── noisy ─ FAILED (exit 1)"), s.text());
   assert(s.text().includes("hello-stdout"), s.text());
@@ -100,7 +141,13 @@ Deno.test("a genuinely failed job carries its captured output for the diagnostic
   const r = await runParallel([
     { label: "fail", command: "echo why-it-failed >&2; exit 1" },
     { label: "pass", command: "echo all-good; true" },
-  ], { stream: false, failFast: false, color: false, write: s.write });
+  ], {
+    cwd: CWD,
+    stream: false,
+    failFast: false,
+    color: false,
+    write: s.write,
+  });
   const fail = r.results.find((x) => x.label === "fail");
   const pass = r.results.find((x) => x.label === "pass");
   // The failure's result carries the captured output (the Tier-0 diagnostic payload).
@@ -116,7 +163,13 @@ Deno.test("a fail-fast-cancelled sibling is flagged cancelled and carries no out
   const r = await runParallel([
     { label: "boom", command: "exit 1" },
     { label: "victim", command: "echo partial; sleep 30" },
-  ], { stream: false, failFast: true, color: false, write: s.write });
+  ], {
+    cwd: CWD,
+    stream: false,
+    failFast: true,
+    color: false,
+    write: s.write,
+  });
   const victim = r.results.find((x) => x.label === "victim");
   // The killed sibling is not a real failure: flagged cancelled, no diagnostic output.
   assertEquals(victim?.cancelled, true);
@@ -134,7 +187,13 @@ Deno.test("a sibling that TRAPS SIGTERM and exits non-zero is still cancelled, n
   const r = await runParallel([
     { label: "boom", command: "exit 2" },
     { label: "trapper", command: "trap 'exit 7' TERM; sleep 30" },
-  ], { stream: false, failFast: true, color: false, write: s.write });
+  ], {
+    cwd: CWD,
+    stream: false,
+    failFast: true,
+    color: false,
+    write: s.write,
+  });
   const trapper = r.results.find((x) => x.label === "trapper");
   assertEquals(trapper?.cancelled, true, JSON.stringify(trapper));
   assertEquals(
@@ -181,6 +240,7 @@ Deno.test("finalCode: a self-exited job keeps its real code; a signal-killed job
 Deno.test("stream mode prefixes each output line", async () => {
   const s = makeSink();
   await runParallel([{ label: "j", command: "printf 'one\\ntwo\\n'" }], {
+    cwd: CWD,
     stream: true,
     failFast: true,
     color: false,

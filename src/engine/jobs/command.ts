@@ -15,6 +15,8 @@ import { shellCommand } from "../../shared/subprocess.ts";
 
 /** Options for spawning a single job. */
 export interface SpawnOptions {
+  /** Project root in which the configured command must execute. */
+  cwd: string;
   /** Abort to cancel the job: it is tree-killed and resolves as a failure. */
   signal?: AbortSignal;
   /** Stream output live (line-prefixed) instead of buffering it. */
@@ -126,6 +128,7 @@ export async function spawnJob(
 
   const child = new Deno.Command("sh", {
     args: ["-c", command],
+    cwd: opts.cwd,
     stdin: "null",
     stdout: "piped",
     stderr: "piped",

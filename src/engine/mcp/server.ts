@@ -139,6 +139,14 @@ const INTEGRATE: ToolAnnotations = {
  * keeps the empty default shape, so its handler simply ignores the parameter. */
 type ToolArgs<TShape extends z.ZodRawShape> = z.infer<z.ZodObject<TShape>>;
 
+/** What a {@link McpTool.reaimOnSuccess} hook decides the re-aim from. `heldRootMissing`
+ * is true when the server's held working root does not exist after the call — the signal
+ * that a destructive verb (graduate) removed the directory it pointed at, so the held
+ * root is dangling and must move even though `path` was passed. */
+interface ReaimContext {
+  readonly heldRootMissing: boolean;
+}
+
 /** A tool: its advertised schema + metadata plus the handler that runs the verb.
  * The SDK converts {@link inputSchema}/{@link outputSchema} (Zod raw shapes, the
  * latter the per-verb schema from result_schemas.ts) to the JSON Schemas it
@@ -168,13 +176,15 @@ interface McpTool<TShape extends z.ZodRawShape = z.ZodRawShape> {
    * the data-driven re-aim (ADR 0062), so {@link runTool} needs no per-tool name
    * switch. `discern_start` points it at the worktree it just created
    * (`result.data.path`); `discern_graduate` points it at the main checkout the branch
-   * landed in (`result.data.root`), since the worktree it operated on is gone. Both read
-   * the path from the result rather than `spawnRoot`, which is the trunk only when the
-   * server was launched there. Return undefined to leave the working root unchanged — the
-   * default for every other tool, which never moves it. */
+   * landed in (`result.data.root`) — but ONLY when its own held root is now gone
+   * (`ctx.heldRootMissing`), i.e. graduate removed the worktree the root pointed at.
+   * That guard is what lets the re-aim run even on a `path` override (graduate can
+   * delete the held root, unlike a one-call read) without disturbing a held root that
+   * points at a DIFFERENT, still-live worktree (§2). Return undefined to leave the
+   * working root unchanged — the default for every other tool, which never moves it. */
   reaimOnSuccess?(
     result: DiscernResult,
-    spawnRoot: string | undefined,
+    ctx: ReaimContext,
   ): string | undefined;
   /** Run the verb in `root` with the call's arguments → the result to render. */
   run(root: string, args: ToolArgs<TShape>): Promise<DiscernResult>;
@@ -462,7 +472,10 @@ export const TOOLS: McpTool[] = [
     // only when the server was launched from the trunk (Claude Code) — a server launched
     // INSIDE a worktree (Codex's app-managed worktree) has the just-removed worktree as
     // its spawn root, and re-aiming there would strand it in a grave (ADR 0062).
-    reaimOnSuccess: (result) => (result.data as GraduateData | undefined)?.root,
+    reaimOnSuccess: (result, ctx) =>
+      ctx.heldRootMissing
+        ? (result.data as GraduateData | undefined)?.root
+        : undefined,
     run: (root, args) =>
       graduateToolResult(root, {
         dryRun: args.dry_run === true,
@@ -727,7 +740,6 @@ export class WorkingRoot {
 async function runTool(
   tool: McpTool,
   working: WorkingRoot,
-  spawnRoot: string | undefined,
   args: Record<string, unknown>,
 ): Promise<ToolResult> {
   // The explicit `path` override wins over the working root for this one call; any dir
@@ -770,20 +782,35 @@ async function runTool(
     };
   }
   // Data-driven re-aim (ADR 0062): on a successful, non-preview lifecycle call, move
-  // the working root per the tool's own hook (start → the new worktree; graduate →
-  // the main checkout it landed in). Gated on no `path` override — an explicit `path`
-  // wins "for that one call" only (§2), so it steers the call without mutating the held
-  // working root. A dry-run never moves it either — it changed nothing on disk.
+  // the working root per the tool's own hook (start → the new worktree it created;
+  // graduate → the main checkout it landed in). A `path` override is normally a
+  // one-call steer that does NOT move the held root (§2) — but graduate can REMOVE the
+  // directory the held root points at, so the hook re-roots when that root is now gone
+  // (`heldRootMissing`), even on a path override; otherwise the next no-path call would
+  // resolve a deleted worktree (the Codex failure mode). A dry-run never moves it.
   if (
-    pathArg === undefined && result.ok && result.dry_run !== true &&
-    tool.reaimOnSuccess !== undefined
+    result.ok && result.dry_run !== true && tool.reaimOnSuccess !== undefined
   ) {
-    const next = tool.reaimOnSuccess(result, spawnRoot);
+    const heldRoot = working.get();
+    const heldRootMissing = heldRoot !== undefined &&
+      !(await pathExists(heldRoot));
+    const next = tool.reaimOnSuccess(result, { heldRootMissing });
     if (next !== undefined) {
       working.set(next);
     }
   }
   return renderResult(result);
+}
+
+/** True when `path` exists on disk — the held-working-root liveness check the re-aim
+ * reads to tell "graduate removed my root" from a still-live root (ADR 0062 §2). */
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await Deno.stat(path);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -1170,8 +1197,7 @@ export async function runMcpServer(): Promise<number> {
       server.registerTool(
         tool.name,
         { ...config, inputSchema: tool.inputSchema },
-        (args: Record<string, unknown>) =>
-          runTool(tool, working, spawnRoot, args),
+        (args: Record<string, unknown>) => runTool(tool, working, args),
       );
     } else {
       // An argument-less verb registers no input schema, so the SDK skips
@@ -1181,7 +1207,7 @@ export async function runMcpServer(): Promise<number> {
       server.registerTool(
         tool.name,
         config,
-        () => runTool(tool, working, spawnRoot, {}),
+        () => runTool(tool, working, {}),
       );
     }
   }

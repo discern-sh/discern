@@ -89,11 +89,11 @@ async function ratchetMainValue(
   return undefined;
 }
 
-/** Run one ratchet's measurement command, returning its combined output. The
- * run's exit code is deliberately NOT consulted; only the emitted
- * DISCERN_METRIC line decides pass/fail. */
-async function measure(command: string): Promise<string> {
-  const r = await runShell(command);
+/** Run one ratchet's measurement command at the resolved project root, returning
+ * its combined output. The run's exit code is deliberately NOT consulted; only
+ * the emitted DISCERN_METRIC line decides pass/fail. */
+async function measure(command: string, root: string): Promise<string> {
+  const r = await runShell(command, { cwd: root });
   const dec = new TextDecoder();
   return dec.decode(r.stdout) + dec.decode(r.stderr);
 }
@@ -190,7 +190,7 @@ async function ratchetCheck(
       perNote(per, scale)
     })...`,
   );
-  const output = await measure(command);
+  const output = await measure(command, root);
   out.raw(output.endsWith("\n") || output === "" ? output : `${output}\n`);
 
   const measuredStr = extractMetric(output, metric);
