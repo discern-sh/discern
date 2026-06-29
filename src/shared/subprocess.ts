@@ -36,22 +36,24 @@ export interface GitResult {
 }
 
 /**
- * Run a git subcommand, capturing stdout+stderr. `cwd` runs git there (the
- * equivalent of `-C`); `env` is forwarded to the spawn (merged over the parent
- * environment) so a caller can pin git's config resolution hermetically without
- * mutating the process. A missing or unrunnable git resolves to a failed run
- * (code {@link SPAWN_FAILED}) with an explanatory stderr rather than throwing, so
- * every caller handles "no git" as data. Honors GIT_BIN uniformly.
+ * Run a git subcommand, capturing stdout+stderr. `cwd` is the required directory
+ * git runs in (the equivalent of `-C`), so the checkout a git call targets is part
+ * of the contract, never inherited from ambient process state; `env` is forwarded
+ * to the spawn (merged over the parent environment) so a caller can pin git's config
+ * resolution hermetically without mutating the process. A missing or unrunnable git
+ * resolves to a failed run (code {@link SPAWN_FAILED}) with an explanatory stderr
+ * rather than throwing, so every caller handles "no git" as data. Honors GIT_BIN
+ * uniformly.
  */
 export async function runGit(
   args: string[],
-  opts: { cwd?: string; env?: Record<string, string> } = {},
+  opts: { cwd: string; env?: Record<string, string> },
 ): Promise<GitResult> {
   let output: Deno.CommandOutput;
   try {
     output = await new Deno.Command(gitBin(), {
       args,
-      ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
+      cwd: opts.cwd,
       ...(opts.env !== undefined ? { env: opts.env } : {}),
       stdout: "piped",
       stderr: "piped",

@@ -46,11 +46,14 @@ export function integrationBranch(fallback?: string): string {
 
 /**
  * Thin binding to the shared git runner, preserving this module's positional
- * `(args, cwd?)` call shape used throughout the worktree git mechanics. The spawn
- * itself — GIT_BIN, decoding, the no-git fallback — lives once in {@link runGit}.
+ * `(args, cwd?)` call shape used throughout the worktree git mechanics. An omitted
+ * `cwd` means "run in the process directory" — resolved to {@link Deno.cwd} here so
+ * the choice is explicit at the runGit boundary, which requires the execution root
+ * rather than inheriting it. The spawn itself — GIT_BIN, decoding, the no-git
+ * fallback — lives once in {@link runGit}.
  */
 function git(args: string[], cwd?: string): Promise<GitResult> {
-  return runGit(args, cwd !== undefined ? { cwd } : {});
+  return runGit(args, { cwd: cwd ?? Deno.cwd() });
 }
 
 /** Whether the configured git binary is runnable at all. */
