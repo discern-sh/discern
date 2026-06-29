@@ -10,8 +10,8 @@ discipline into any project.
 All the instructions you've already seen (the ones _above_ "Working in the
 discern repo") are _the same instructions_ discern bundles and ships to other
 coding agents, working in _their_ user's projects, to help them navigate their
-own way around the discern harness. All the instructions from _here onwards_
-are for **you**: an agent working on discern _itself_.   
+own way around the discern harness. All the instructions from _here onwards_ are
+for **you**: an agent working on discern _itself_.
 
 ## What's in the repo
 
@@ -38,9 +38,9 @@ A project's entire discern footprint is a single root file, **`discern.toml`**.
 Everything else is bundled in the binary, a **config-pointed** location the user
 chooses (with discoverable defaults — `guidance.md`, `./skills`, `./recipes`),
 or a generated **output** (`AGENTS.md`/`CLAUDE.md`/`GEMINI.md` are gitignored
-build artifacts — ADR 0034; `.claude/skills/` materialized). `[features]`
-toggles whole subsystems on/off — do not confuse it with `[capabilities]` (the
-gate's command table).
+build artifacts; as vendor-specific files and paths are materialized).
+`[features]` toggles whole subsystems on/off — do not confuse it with
+`[capabilities]` (the gate's command table).
 
 ## ⚠️ Edit in place — there is no managed copy to sync
 
@@ -51,8 +51,8 @@ The rules:
   gate (`discern finish`) type-checks and tests them.
 - **`templates/**` is the distribution surface** — edit the seed/skill/guidance
   _source_ here (keep it generic; see below). To reflect a bundled-skill or
-  built-in-guidance edit in this repo's own `.claude/skills/` and `AGENTS.md`,
-  re-run `discern refresh` (or `upgrade`).
+  built-in-guidance edit in this repo's own skills and guidelines, run
+  `discern refresh` (or `upgrade`).
 - **`CLAUDE.md` / `AGENTS.md` are generated** from discern's built-in guidance
   (`templates/guidance/*`) plus this repo's `guidance.md` — never hand-edit
   them. Edit `guidance.md` and recompile.
@@ -63,8 +63,8 @@ The rules:
 **Agent guidance is yours.** Customise it by editing `guidance.md` (this file) —
 never `templates/`, which only holds the generic built-in guidance _other_
 projects receive. Then run `discern refresh` to recompile the agent files
-(`AGENTS.md`/`CLAUDE.md`/`GEMINI.md`) — gitignored build artifacts you never
-hand-edit (ADR 0034); `discern finish` fails if one drifts from its
+(`AGENTS.md`/`CLAUDE.md`/`GEMINI.md`/etc.) — gitignored build artifacts you
+never hand-edit (ADR 0034); `discern finish` fails if one drifts from its
 source. Keep the prose provider-agnostic: one source compiles to every agent.
 Nothing overwrites your `guidance.md`.
 
@@ -96,27 +96,18 @@ applied while editing, is the safeguard.
 
 ## The gate
 
-- `discern finish` — full gate (run from the repo root): `deno fmt` (fix)
-  → `deno lint` + `deno check src/main.ts` (check) ∥ `deno task test` (test).
-  This is the repo running its **own** TS engine, so a regression in the engine
-  surfaces here.
 - `discern prepare` — fast inner loop: fix + check, no tests.
-- There is no `selfcheck`/`selfsync`: with no committed engine copy there is
-  nothing to drift. The generated agent files (`AGENTS.md` included) are
-  gitignored build artifacts (ADR 0034); `finish`'s own guidance-currency check
-  guards them against drifting from `templates/guidance/*` + `guidance.md`.
+- `discern finish` — full gate (run from the repo root): `deno fmt` (fix) →
+  `deno lint` + `deno check` (check) ∥ `deno task test` (test). This is the repo
+  running its **own** TS engine, so a regression in the engine surfaces here.
 
 ## Running discern from source
 
-Use **`discern <cmd> --json`** — the local-dev wrapper (`scripts/discern`). It
-walks up from your cwd and runs the engine of whichever discern checkout you're
-in (recognised by its `deno.json` identity, so a same-shaped but unrelated Deno
-project is never mistaken for one), so from a worktree it runs _that worktree's_
-in-progress engine. It's the closest thing to what an end user runs, so the
-generic `discern` guidance above applies verbatim; outside any discern checkout
-it falls back to `$DISCERN_HOME`. (One exception:
-`discern mcp` runs from the **main** checkout, since a long-lived server can't run
-an ephemeral worktree's engine — see the comment in `scripts/discern`.)
+Use **`discern <cmd> --json`** — here, it points to a local-dev wrapper, not a
+binary, and runs the nearest discern engine it finds. So from a worktree it will
+run _that worktree's_ in-progress engine. It's the closest thing to what an end
+user runs, so the generic `discern` guidance above applies verbatim. (One
+exception: `discern mcp` always runs from the **main** checkout only.)
 
 `deno task dev <cmd> --json` is a fallback — reach for it only if you
 specifically need to. (If you do: don't put `--` before the subcommand —
@@ -126,15 +117,15 @@ the wrapper doesn't share.)
 **Never** use the `dist/` binaries while developing — they bundle a frozen
 snapshot of `templates/` and the engine compiled at build time.
 
-The MCP `discern_*` tools are a separately-spawned, long-lived server running the
-**main** checkout's engine, not your worktree's — so for branch-only changes (a
-bundled skill, guidance, or engine edit not yet on `main`) they can report stale
-results against main, not your branch. Trust the engine run from source —
+The MCP `discern_*` tools are a separately-spawned, long-lived server running
+the **main** checkout's engine, not your worktree's — so for branch-only changes
+(a bundled skill, guidance, or engine edit not yet on `main`) they can report
+stale results against main, not your branch. Trust the engine run from source —
 `discern finish` — over the MCP `discern_*` tools whenever they disagree.
 
-Everything supports discern's own **`--json`** flag; always pass it for optimised
-machine-readable output. It reaches the underlying `discern <cmd>` exactly as an
-end user would, so discern's full range is open to you too.
+Everything supports discern's own **`--json`** flag; always pass it for
+optimised machine-readable output. It reaches the underlying `discern <cmd>`
+exactly as an end user would, so discern's full range is open to you too.
 
 ## Testing
 
@@ -181,8 +172,8 @@ Iterate on one suite with `deno task test tests/<name>_test.ts` (or
   [`src/engine/mcp/server.ts`](src/engine/mcp/server.ts) is backed by a
   `*Result(root, …)` core the CLI shares; the verb-parity guard
   (`tests/engine_verb_parity_test.ts`) ties the `TOOLS` table back to the CLI
-  verb list. Exposing a read/run verb means extracting that core first; humans
-  can inspect the live surface with `deno task inspect-mcp` (ADR 0045/0041).
+  verb list. Exposing a read/run verb means extracting that core first (ADR
+  0045/0041).
 
 ## Fix the class, not the instance
 
@@ -198,14 +189,12 @@ providers, MCP tools, the config schema — by forcing-function guards
 (`engine_verb_parity_test.ts`, `agent_parity_test.ts`,
 `engine_mcp_surface_test.ts`, `config_codegen_test.ts`): add a member to its
 single source and the satellites must match or the gate fails (ADR 0051).
+Maintain this practice with new development going forward.
 
 ## Decisions
 
 Architecture decisions live in `docs/_adr/` (0001+, several dozen and counting)
 — browse them with `discern help --adr --json`. Add one for any notable or
-hard-to-reverse change. Two foundations are worth knowing up front: the
-single-binary TS engine ([ADR 0019](docs/_adr/0019-single-binary-ts-engine.md))
-and the dissolution of `.discern/` into the root `discern.toml`
-([ADR 0020](docs/_adr/0020-dissolve-discern-dir.md)). The series moves fast, so
-skim the most recent few before a significant change — a current ADR usually
-explains why something is the way it is.
+hard-to-reverse change. ADRs move fast, so skim the most recent few before a
+significant change — a current ADR usually explains why something is the way it
+is.

@@ -55,7 +55,6 @@
       "dist/",
       "docs/10-installer/config-reference.md",
       "GEMINI.md",
-      "guidance.md",
       "PLAN.md",
       "schema/discern-config.schema.json",
       "templates/",
