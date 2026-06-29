@@ -785,6 +785,85 @@ Deno.test("discern mcp: start then graduate over ONE main-rooted session — the
   });
 });
 
+Deno.test("discern mcp: a server SPAWNED INSIDE a worktree re-aims to the main checkout on graduate, not the removed spawn root (ADR 0062)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+
+    // Codex's app-managed-worktree flow (Phase B) spawns the MCP server INSIDE the
+    // worktree, so its spawn root IS the worktree — unlike Claude Code, launched from
+    // the trunk. A main-rooted server creates + sets up the worktree (start refuses from
+    // inside one), then we hand it to a server rooted THERE, the way Codex does.
+    const maker = await spawnMcp(dir);
+    await maker.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await maker.recv();
+    await maker.send({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "discern_start", arguments: {} },
+    });
+    const started = await maker.recv();
+    const wtPath = started.result.structuredContent.data.path as string;
+    assert(await exists(join(wtPath, "CLAUDE.md")), "worktree is set up");
+    assertEquals(await maker.close(), 0);
+
+    // The graduating server is rooted IN the worktree (spawn root = the worktree).
+    const inWt = await spawnMcp(wtPath);
+    await inWt.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await inWt.recv();
+
+    // graduate (no prior start, no `path`) operates on the spawn-root worktree and
+    // removes it. The result reports the main checkout it landed in.
+    await inWt.send({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "discern_graduate", arguments: {} },
+    });
+    const graduated = await inWt.recv();
+    assertEquals(
+      graduated.result.isError,
+      false,
+      JSON.stringify(graduated.result),
+    );
+    const landedRoot = graduated.result.structuredContent.data.root as string;
+    assert(
+      typeof landedRoot === "string" && landedRoot.length > 0,
+      JSON.stringify(graduated.result.structuredContent),
+    );
+    assertEquals(await exists(wtPath), false, "graduate removed the worktree");
+
+    // The headline: a subsequent call with NO `path` must follow the re-aimed working
+    // root to the MAIN CHECKOUT — not the spawn root, which is the now-deleted worktree.
+    // Before the fix, the re-aim returned spawnRoot (= the worktree), so this `status`
+    // would operate on a removed directory and error; now it reports the main checkout.
+    await inWt.send({
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: { name: "discern_status", arguments: {} },
+    });
+    const status = await inWt.recv();
+    assertEquals(status.result.isError, false, JSON.stringify(status.result));
+    assertEquals(status.result.structuredContent.data.location, "main");
+    // The status root is exactly the root graduate re-aimed to (the main checkout).
+    assertEquals(status.result.structuredContent.data.root, landedRoot);
+
+    assertEquals(await inWt.close(), 0);
+  });
+});
+
 Deno.test("discern mcp: discern_graduate with no prior discern_start refuses cleanly (working root = trunk)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

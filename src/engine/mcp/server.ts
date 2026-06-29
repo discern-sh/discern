@@ -38,6 +38,8 @@ import {
   DocsOutputSchema,
   DoctorOutputSchema,
   FinishOutputSchema,
+  type GraduateData,
+  GraduateOutputSchema,
   IntegrateOutputSchema,
   type StartData,
   StartOutputSchema,
@@ -165,8 +167,10 @@ interface McpTool<TShape extends z.ZodRawShape = z.ZodRawShape> {
   /** After a SUCCESSFUL, non-preview call, compute the server's new working root —
    * the data-driven re-aim (ADR 0062), so {@link runTool} needs no per-tool name
    * switch. `discern_start` points it at the worktree it just created
-   * (`result.data.path`); `discern_graduate` resets it to the spawn root (the worktree
-   * it pointed at is gone). Return undefined to leave the working root unchanged — the
+   * (`result.data.path`); `discern_graduate` points it at the main checkout the branch
+   * landed in (`result.data.root`), since the worktree it operated on is gone. Both read
+   * the path from the result rather than `spawnRoot`, which is the trunk only when the
+   * server was launched there. Return undefined to leave the working root unchanged — the
    * default for every other tool, which never moves it. */
   reaimOnSuccess?(
     result: DiscernResult,
@@ -423,7 +427,7 @@ export const TOOLS: McpTool[] = [
   defineTool({
     name: "discern_graduate",
     title: "Graduate the worktree",
-    outputSchema: DatalessEnvelopeSchema.shape,
+    outputSchema: GraduateOutputSchema.shape,
     annotations: DESTRUCTIVE,
     description:
       "Graduate THIS worktree's branch into the main checkout: tear down the " +
@@ -452,10 +456,13 @@ export const TOOLS: McpTool[] = [
       ),
       ...PATH_PARAM,
     },
-    // A successful graduation removes the worktree the server pointed at — reset the
-    // working root to the spawn root (the trunk it was launched from), the path
-    // subsequent calls should operate on.
-    reaimOnSuccess: (_result, spawnRoot) => spawnRoot,
+    // A successful graduation removes the worktree the server operated on — re-aim the
+    // working root to the MAIN CHECKOUT the branch landed in (`result.data.root`), the
+    // path subsequent calls should operate on. NOT the spawn root: that is the trunk
+    // only when the server was launched from the trunk (Claude Code) — a server launched
+    // INSIDE a worktree (Codex's app-managed worktree) has the just-removed worktree as
+    // its spawn root, and re-aiming there would strand it in a grave (ADR 0062).
+    reaimOnSuccess: (result) => (result.data as GraduateData | undefined)?.root,
     run: (root, args) =>
       graduateToolResult(root, {
         dryRun: args.dry_run === true,
@@ -764,9 +771,9 @@ async function runTool(
   }
   // Data-driven re-aim (ADR 0062): on a successful, non-preview lifecycle call, move
   // the working root per the tool's own hook (start → the new worktree; graduate →
-  // the spawn root). Gated on no `path` override — an explicit `path` wins "for that
-  // one call" only (§2), so it steers the call without mutating the held working root.
-  // A dry-run never moves it either — it changed nothing on disk.
+  // the main checkout it landed in). Gated on no `path` override — an explicit `path`
+  // wins "for that one call" only (§2), so it steers the call without mutating the held
+  // working root. A dry-run never moves it either — it changed nothing on disk.
   if (
     pathArg === undefined && result.ok && result.dry_run !== true &&
     tool.reaimOnSuccess !== undefined

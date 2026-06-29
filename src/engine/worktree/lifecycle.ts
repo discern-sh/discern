@@ -72,6 +72,7 @@ import {
 } from "../../shared/result.ts";
 import type {
   GateData,
+  GraduateData,
   IntegrateData,
   StartData,
 } from "../../shared/result_schemas.ts";
@@ -969,14 +970,22 @@ export async function graduate(
 export async function graduateResult(
   ctx: LifecycleContext,
   opts: { dryRun?: boolean; to?: GraduateTarget | undefined } = {},
-): Promise<DiscernResult> {
+): Promise<DiscernResult<GraduateData>> {
   const run = makeGitRunner(ctx);
   const to = opts.to ?? ctx.config.worktree.graduate_to;
   const plan = await buildGraduatePlan(ctx, run, to);
   if (opts.dryRun ?? false) {
     return previewResult("graduate", graduatePlanToEngine(plan));
   }
-  return appliedResult("graduate", await executeGraduatePlan(ctx, run, plan));
+  const result: DiscernResult<GraduateData> = appliedResult(
+    "graduate",
+    await executeGraduatePlan(ctx, run, plan),
+  );
+  // The branch landed in the main checkout; report it so the MCP server can re-aim its
+  // working root there now the worktree it operated on is gone (ADR 0062). The plan
+  // resolved `mainRepo` before the removal, so it is valid after.
+  result.data = { root: plan.mainRepo };
+  return result;
 }
 
 // How much integration detail rides inline before an agent is pointed at git for

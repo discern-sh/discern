@@ -60,8 +60,19 @@ root (`findRoot()`), and re-pointed on exactly two lifecycle transitions:
   relocate the client's session, but it _can_ re-aim the live server, so
   subsequent `finish` / `integrate` / `graduate` calls operate on the new
   worktree with nothing for the agent to thread.
-- **`discern_graduate`** resets it to the spawn root (the worktree it pointed at
-  is gone).
+- **`discern_graduate`** re-aims it to the **main checkout the branch landed
+  in** — carried in the result's `data.root` ([ADR 0072](0072-typed-mcp-status-forcing-function.md)-style
+  typed data) — since the worktree it operated on is removed.
+
+  > **Refined (Phase B).** This originally reset to the **spawn root**, on the
+  > assumption — made throughout this record — that the server is launched from
+  > the trunk (true for Claude Code). Phase B's Codex `environment.toml` wiring
+  > ([ADR 0073](0073-codex-worktree-lifecycle-comanagement.md)) made the Codex
+  > _app_ spawn the server **inside its worktree** for the first time, so the
+  > spawn root IS the worktree being graduated — re-aiming there would strand the
+  > server in the grave of the directory it just removed. Re-aiming to the
+  > landing main checkout is correct for a server launched anywhere; it equals
+  > the spawn root in the trunk-launched case, so nothing changed for Claude Code.
 
 Resolution per call is `args.path ?? workingRoot`. The verb **cores stay pure**
 — they remain functions of an explicit `root`; the working root is a thin,

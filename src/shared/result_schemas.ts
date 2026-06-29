@@ -124,11 +124,13 @@ export const EnvelopeSchema = z.strictObject({
 });
 
 /**
- * The envelope for the data-LESS verbs (`prepare`, `test`, `ratchets`, `graduate`):
- * strict and WITHOUT a `data` field. They carry no `data` today, and this makes that
- * a checked invariant — a result that grows a `data` payload fails its faithfulness
- * test (and the SDK's output validation) until the payload is modelled, the SSOT
- * guard the bare `EnvelopeSchema` (`data: unknown`) can't give.
+ * The envelope for the data-LESS verbs (`prepare`, `test`, `ratchets`): strict and
+ * WITHOUT a `data` field. They carry no `data` today, and this makes that a checked
+ * invariant — a result that grows a `data` payload fails its faithfulness test (and the
+ * SDK's output validation) until the payload is modelled, the SSOT guard the bare
+ * {@link EnvelopeSchema} (`data: unknown`) can't give. (`graduate` graduated out of this
+ * set — it carries a {@link GraduateDataSchema} landing root on an apply; its dry-run
+ * preview is still data-less.)
  */
 export const DatalessEnvelopeSchema = z.strictObject(ENVELOPE_BASE_FIELDS);
 
@@ -158,6 +160,18 @@ export const StartDataSchema = z.strictObject({
   path: z.string(),
 });
 export type StartData = z.infer<typeof StartDataSchema>;
+
+/** `graduate` — where the branch landed: `root` is the main checkout the worktree's
+ * branch was graduated into. The load-bearing field for the MCP working-root re-aim
+ * (ADR 0062): graduate removes the worktree the server operated on, and the server
+ * re-aims its working root to THIS path — so a server launched inside a worktree (e.g.
+ * Codex's app-managed worktree) lands back on the live main checkout, not the grave of
+ * the worktree it just graduated, instead of the spawn root (which is the trunk only
+ * when the server was launched from the trunk). */
+export const GraduateDataSchema = z.strictObject({
+  root: z.string(),
+});
+export type GraduateData = z.infer<typeof GraduateDataSchema>;
 
 // integrate ─────────────────────────────────────────────────────────────────────
 
@@ -473,6 +487,13 @@ export const ChangedScopesOutputSchema = z.strictObject({
 export const StartOutputSchema = z.strictObject({
   ...ENVELOPE_BASE_FIELDS,
   data: StartDataSchema.optional(),
+});
+
+/** `graduate` output: envelope + the landing-root `data` (present on an apply; a
+ * dry-run preview carries none). */
+export const GraduateOutputSchema = z.strictObject({
+  ...ENVELOPE_BASE_FIELDS,
+  data: GraduateDataSchema.optional(),
 });
 
 /** `integrate` output: envelope + the "what landed beneath the branch" `data`. */
