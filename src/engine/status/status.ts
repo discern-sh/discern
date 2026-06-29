@@ -43,7 +43,7 @@ import {
   KNOWN_CAPABILITIES,
 } from "../../shared/capabilities.ts";
 import {
-  findSkeletonMarkers,
+  setupProgress,
   setupUnfinishedHint,
 } from "../../shared/setup_state.ts";
 import { changedScopes, isScopeMarker } from "../scopes/changed.ts";
@@ -242,8 +242,15 @@ export async function statusResult(
   // only while outstanding, mirroring `stale_generated`.
   let setupPending: string[] | undefined;
   if (!cfg.meta.bootstrapped) {
-    setupPending = await findSkeletonMarkers(root);
-    data.setup_unfinished = { pending_markers: setupPending };
+    // Derived progress (ADR 0075): the markers still pending PLUS which capabilities
+    // are wired — both read from the tree, unfakeable, so a half-done setup shows
+    // what's left rather than relying on a self-reported step.
+    const progress = await setupProgress(root, cfg);
+    setupPending = progress.pendingMarkers;
+    data.setup_unfinished = {
+      pending_markers: progress.pendingMarkers,
+      capabilities: progress.capabilities,
+    };
   }
 
   // The fleet survey, each row augmented with its best-effort id/port from `.env`.
@@ -689,17 +696,29 @@ function renderStatusHuman(result: DiscernResult<StatusData>): void {
   // evidence is in data.setup_unfinished; this is its human face.)
   if (data.setup_unfinished !== undefined) {
     const pending = data.setup_unfinished.pending_markers;
+    const caps = data.setup_unfinished.capabilities;
     out.raw(
       `\n  ${c.yellow}${c.bold}⚠ SETUP NOT FINISHED${c.reset}${c.yellow} — this project is half-configured; completing it is your job, not a report to hand back.${c.reset}\n`,
     );
     out.raw(
-      `  ${c.dim}Work the brief \`discern setup\` prints (re-run it to reprint), then run \`discern setup done\` to finish.${c.reset}\n`,
+      `  ${c.dim}Work the brief \`discern setup begin\` prints (re-run it to reprint), then run \`discern setup done\` to finish.${c.reset}\n`,
     );
     if (pending.length > 0) {
       const shown = pending.slice(0, 6).join(", ");
       const more = pending.length > 6 ? `, +${pending.length - 6} more` : "";
       out.raw(
         `  ${c.dim}Still carrying skeleton markers: ${shown}${more}.${c.reset}\n`,
+      );
+    }
+    {
+      const wired = caps.filter((cap) => cap.wired).map((cap) => cap.name);
+      const unset = caps.filter((cap) => !cap.wired).map((cap) => cap.name);
+      out.raw(
+        `  ${c.dim}Capabilities wired: ${
+          wired.length > 0 ? wired.join(", ") : "none yet"
+        }${
+          unset.length > 0 ? ` · unset: ${unset.join(", ")}` : ""
+        }.${c.reset}\n`,
       );
     }
   }

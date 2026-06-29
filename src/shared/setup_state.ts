@@ -12,6 +12,8 @@
 
 import { walk } from "@std/fs";
 import { join, relative } from "@std/path";
+import { KNOWN_CAPABILITIES } from "./capabilities.ts";
+import type { DiscernConfig } from "./config_schema.ts";
 
 /**
  * Work verbs that refuse until the project records `[meta].bootstrapped`
@@ -46,6 +48,50 @@ export const BOOTSTRAP_GATED_VERBS: ReadonlySet<string> = new Set<string>([
 /** True when `verb` refuses until the project is set up (see {@link BOOTSTRAP_GATED_VERBS}). */
 export function verbNeedsBootstrap(verb: string): boolean {
   return BOOTSTRAP_GATED_VERBS.has(verb);
+}
+
+/**
+ * The staged-setup sub-verbs (ADR 0075), in lifecycle order — the single source the
+ * CLI router registers under `setup` and the welcome's `next_action` walks. `verify`
+ * and `begin` are the handshake; `done` is the terminal proof; `step` is the
+ * read-only re-serve of one brief step (off to the side, tracks nothing). The
+ * `engine_setup_phase_parity` test ties the registered command tree back to this set
+ * (ADR 0051), so a sub-verb can't be added to one without the other.
+ */
+export const SETUP_SUBVERBS = ["verify", "begin", "step", "done"] as const;
+/** One staged-setup sub-verb ({@link SETUP_SUBVERBS}). */
+export type SetupSubverb = (typeof SETUP_SUBVERBS)[number];
+
+/**
+ * The setup lifecycle state the welcome renders and `--json` reports: `fresh` (no
+ * `discern.toml` yet — nothing written), `in_progress` (`begin` scaffolded, but
+ * `[meta].bootstrapped` is still unset), and `done` (bootstrapped). The read-only
+ * welcome shows the first two; `done` falls through to normal help.
+ */
+export type SetupPhase = "fresh" | "in_progress" | "done";
+
+/** Derive the lifecycle {@link SetupPhase} from config presence + the bootstrap mark,
+ * in ONE place so the welcome, the router, and `status` can't classify it differently. */
+export function setupPhaseOf(
+  opts: { hasConfig: boolean; bootstrapped: boolean },
+): SetupPhase {
+  if (!opts.hasConfig) {
+    return "fresh";
+  }
+  return opts.bootstrapped ? "done" : "in_progress";
+}
+
+/** The single next command to run from a given {@link SetupPhase} — the funnel the
+ * welcome prints and `--json` carries as `next_action`. Soft (advisory), per ADR 0075. */
+export function setupNextAction(phase: SetupPhase): string {
+  switch (phase) {
+    case "fresh":
+      return "discern setup verify";
+    case "in_progress":
+      return "discern setup done";
+    case "done":
+      return "discern status";
+  }
 }
 
 /**
@@ -142,6 +188,58 @@ export async function findSkeletonMarkers(root: string): Promise<string[]> {
   return leftover;
 }
 
+/** One known capability and whether a command is wired for it in `discern.toml`. */
+export interface CapabilityProgress {
+  name: string;
+  wired: boolean;
+}
+
+/**
+ * Setup progress, DERIVED from the tree rather than self-reported (ADR 0075): which
+ * scaffolded files still carry a skeleton marker (the doc/guidance authoring left to
+ * do — the same predicate `setup done` gates on), and which known capabilities have a
+ * command wired versus left unset. Unfakeable — a file either still carries its marker
+ * or it doesn't — and free of any "mark step N done" round-trip. Rendered by the
+ * welcome's in-progress state and by `status`.
+ */
+export interface SetupProgress {
+  /** Scaffolded files still carrying a `<!-- setup fills this -->` / EXAMPLE marker. */
+  pendingMarkers: string[];
+  /** Each known capability, in {@link KNOWN_CAPABILITIES} order, and whether it is wired. */
+  capabilities: CapabilityProgress[];
+  /** True once every skeleton marker is cleared (the authoring is structurally done). */
+  markersCleared: boolean;
+  /** True once `[meta].bootstrapped` is recorded (`setup done` passed). */
+  bootstrapped: boolean;
+}
+
+/**
+ * Compute {@link SetupProgress} for `root`. Takes the already-loaded `config` (the
+ * caller has it) so this stays a pure derivation — markers from the filesystem,
+ * capability-wiring from the config, both read-only. The `wired` predicate mirrors
+ * `doctor`'s (`value !== undefined`), so the two surfaces agree on what "wired" means.
+ */
+export async function setupProgress(
+  root: string,
+  config: DiscernConfig,
+): Promise<SetupProgress> {
+  const pendingMarkers = await findSkeletonMarkers(root);
+  const capabilities: CapabilityProgress[] = Object.keys(KNOWN_CAPABILITIES)
+    .map(
+      (name) => ({
+        name,
+        wired: config.capabilities[name as keyof typeof config.capabilities] !==
+          undefined,
+      }),
+    );
+  return {
+    pendingMarkers,
+    capabilities,
+    markersCleared: pendingMarkers.length === 0,
+    bootstrapped: config.meta.bootstrapped,
+  };
+}
+
 /**
  * The canonical one-line advisory shown when setup is still outstanding — the
  * `status` lead hint and the session-start reminder both render this, so the
@@ -155,8 +253,8 @@ export function setupUnfinishedHint(pending: readonly string[]): string {
     : "";
   return (
     "Setup is NOT finished — completing it is your job as the agent in this " +
-    "session, not a report to hand back. Work the brief `discern setup` prints " +
-    "(re-run `discern setup` to reprint it — it won't touch your work), then run " +
+    "session, not a report to hand back. Work the brief `discern setup begin` prints " +
+    "(re-run `discern setup begin` to reprint it — it won't touch your work), then run " +
     "`discern setup done`; don't tell the user setup is complete until it passes." +
     tail
   );

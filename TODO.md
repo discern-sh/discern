@@ -43,6 +43,19 @@ _Nothing outstanding._
 
 ## 🟡 Smaller fixes & polish
 
+- [ ] **A configurable docs root (`[docs].dir`) so `setup begin --docs=<path>`
+      can nest discern's tree beside existing docs.** `discern setup verify`
+      (ADR 0075) now detects a pre-existing `docs/` tree and prompts the human,
+      but setup can still only scaffold to the hardcoded `docs/`. To act on the
+      conflict — e.g. nest under `docs/discern/` — the docs root must become a
+      persisted config field threaded through the scaffolder, the `docs` browser
+      (`--dir` default), and the prose extent/scope globs that currently name
+      `docs/**` literally. Deferred from ADR 0075 as its own change because of
+      that plumbing. Complements the pre-existing-docs folding tracked in
+      Explorations below. Evidence: `src/commands/setup.ts` (`laySkeletons`
+      hardcodes `docs/`); `src/shared/config_schema.ts` (no `[docs].dir`);
+      `discern.toml` prose ratchet `per = { words = "docs/**" }`.
+
 - [ ] **The v3→v4 config migration leaves stale comment blocks behind.** It is
       comment-preserving, so it rewrites the tables (`[slots]`→`[capabilities]`/
       `[checks]`, `[scopes]` arrays→tables, drops `[evidence]`) but leaves the

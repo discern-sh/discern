@@ -189,6 +189,12 @@ const metaSection = z.strictObject({
   bootstrapped: z.boolean().default(false).describe(
     "Whether `discern setup` has completed — retires the one-time setup redirect.",
   ),
+  setup_model: z.string().default("").describe(
+    "The model the agent self-declared at `discern setup begin --model=…`. Recorded for support triage; advisory only (discern can't verify it).",
+  ),
+  setup_version: z.string().default("").describe(
+    "The discern version that ran setup (observed at `begin`). Recorded for support triage.",
+  ),
 }).prefault({}).describe(
   "Installer bookkeeping. `schema_version` is the migration anchor; edit by hand only to force a re-migration.",
 );

@@ -30,7 +30,15 @@ import {
   featureForVerb,
   FEATURES,
 } from "./shared/features.ts";
-import { runSetup, runSetupDone } from "./commands/setup.ts";
+import {
+  beginOptsFrom,
+  hasScaffoldIntent,
+  runSetupBegin,
+  runSetupDone,
+  runSetupStep,
+} from "./commands/setup.ts";
+import { runSetupWelcome } from "./commands/setup_welcome.ts";
+import { runSetupVerify } from "./commands/setup_verify.ts";
 import { runUpgrade } from "./commands/upgrade.ts";
 import { runDoctor } from "./commands/doctor.ts";
 import { runMigrate } from "./commands/migrate.ts";
@@ -134,12 +142,90 @@ export function buildCli(
       console.log(operatorHelp(this as unknown as Command));
     });
 
-  // `setup` — the one-time, zero-config harness setup (ADR 0036): it scaffolds the
-  // machinery, lays the doc skeletons, and prints the instructions for the agent in
-  // the loop, which authors the docs + guidance and proposes the capability fills,
-  // then runs `setup done` to validate and record completion. Bare `discern`
-  // (pre-setup) routes here too. The flags drive a declarative scaffold (CI /
-  // presets); the default run takes them all from defaults — no decisions at the CLI.
+  // `setup` — the staged, zero-config harness setup (ADR 0036, staged by ADR 0075).
+  // A bare `discern setup` (no scaffold input) prints the read-only WELCOME; the
+  // sub-verbs drive the handshake — `begin` (the first mutating step: scaffold +
+  // brief) and `done` (prove + record). The declarative `--config`/flag path scaffolds
+  // straight through `begin`, skipping the welcome (CI / presets). Bare `discern`
+  // (pre-setup) routes to the welcome too (below). `begin` is canonical; the parent
+  // mirrors its scaffold options so `discern setup --config …` still works, and both
+  // map them through `beginOptsFrom`.
+  const setupBegin = new Command()
+    .description(
+      "Scaffold the harness, record provenance, and print the setup brief (the first mutating step).",
+    )
+    .option("--name <name:string>", "Project name (free text).")
+    .option("--slug <slug:string>", "Project slug (^[a-z0-9][a-z0-9-]*$).")
+    .option("--branch-prefix <prefix:string>", "Branch prefix for worktrees.", {
+      default: undefined,
+    })
+    .option(
+      "--source-globs <globs:string>",
+      "Comma-separated primary source globs (e.g. 'src/**,app/**').",
+    )
+    .option(
+      "--brief <brief:string>",
+      "Free-text project description, or @path to read it from a file.",
+    )
+    .option(
+      "--agents <agents:string>",
+      `Comma-separated agent files to emit: ${AGENT_NAMES.join(", ")}.`,
+    )
+    .option(
+      "--config <file:string>",
+      "JSON answers file (or - for stdin) to scaffold declaratively.",
+    )
+    .option(
+      "--model <model:string>",
+      "The model you, the agent, are running as — recorded as setup provenance for support triage.",
+    )
+    .option(
+      "-y, --yes",
+      "Accepted for back-compat; setup is always non-interactive.",
+      { hidden: true },
+    )
+    .option("--dry-run", "Print the plan and write nothing.")
+    .option("--force", "Re-run even if already set up (re-scaffold + re-seed).")
+    .option(
+      "--allow-dirty",
+      "Set up on the current branch even if it is dirty (skips the auto-created discern-setup branch).",
+    )
+    .action(async (options) => {
+      const { json, noColor } = globalFlags(options);
+      Deno.exit(await runSetupBegin(beginOptsFrom(options, json, noColor)));
+    });
+
+  const setupVerify = new Command()
+    .description(
+      "Preview what setup will do and the consent checklist to confirm with your human (read-only).",
+    )
+    .action(async (options) => {
+      const { json, noColor } = globalFlags(options);
+      Deno.exit(await runSetupVerify({ json, noColor }));
+    });
+
+  const setupStep = new Command()
+    .description(
+      "Re-serve one numbered step of the setup brief (read-only; for a mid-setup re-focus).",
+    )
+    .arguments("<n:number>")
+    .action(async (options, n: number) => {
+      const { json, noColor } = globalFlags(options);
+      Deno.exit(await runSetupStep(n, { json, noColor }));
+    });
+
+  const setupDone = new Command()
+    .description("Validate setup and record [meta].bootstrapped.")
+    .option("--force", "Record completion even if skeleton markers remain.")
+    .action(async (options) => {
+      Deno.exit(
+        await runSetupDone({
+          json: globalFlags(options).json,
+          force: options.force ?? false,
+        }),
+      );
+    });
+
   const setup = new Command()
     .description(
       "Set up the harness here (run once; your coding agent does it for you).",
@@ -166,11 +252,13 @@ export function buildCli(
       "JSON answers file (or - for stdin) to scaffold declaratively.",
     )
     .option(
+      "--model <model:string>",
+      "The model you, the agent, are running as — recorded as setup provenance for support triage.",
+    )
+    .option(
       "-y, --yes",
       "Accepted for back-compat; setup is always non-interactive.",
-      {
-        hidden: true,
-      },
+      { hidden: true },
     )
     .option("--dry-run", "Print the plan and write nothing.")
     .option("--force", "Re-run even if already set up (re-scaffold + re-seed).")
@@ -180,37 +268,18 @@ export function buildCli(
     )
     .action(async (options) => {
       const { json, noColor } = globalFlags(options);
+      // Bare `discern setup` → the read-only welcome; any scaffold/declarative input
+      // (the CI/preset path) scaffolds straight through `begin` (ADR 0075).
       Deno.exit(
-        await runSetup({
-          json,
-          noColor,
-          dryRun: options.dryRun ?? false,
-          force: options.force ?? false,
-          allowDirty: options.allowDirty ?? false,
-          name: options.name,
-          slug: options.slug,
-          branchPrefix: options.branchPrefix,
-          sourceGlobs: options.sourceGlobs,
-          brief: options.brief,
-          agents: options.agents,
-          config: options.config,
-        }),
+        hasScaffoldIntent(options)
+          ? await runSetupBegin(beginOptsFrom(options, json, noColor))
+          : await runSetupWelcome({ json, noColor }),
       );
     })
-    .command(
-      "done",
-      new Command()
-        .description("Validate setup and record [meta].bootstrapped.")
-        .option("--force", "Record completion even if skeleton markers remain.")
-        .action(async (options) => {
-          Deno.exit(
-            await runSetupDone({
-              json: globalFlags(options).json,
-              force: options.force ?? false,
-            }),
-          );
-        }),
-    );
+    .command("verify", setupVerify)
+    .command("begin", setupBegin)
+    .command("step", setupStep)
+    .command("done", setupDone);
   // Hide on the REGISTERED command, not the pre-registration instance: the
   // instance form of `.command()` re-parents, so `setup.hidden()` wouldn't take.
   // `setup` stays reachable (and `--force`-able) when hidden.
@@ -614,13 +683,14 @@ async function resolveProjectState(): Promise<ProjectState> {
 }
 
 /**
- * Whether a bare `discern` (no verb) should run setup rather than print help.
- * In a project: run it whenever setup is still outstanding (the resume path). Not
- * in a project: only when the cwd is a git work tree — the freshly-installed
- * "tell your agent to run discern" path — so a bare `discern` in a stray directory
- * never scaffolds it (the explicit `discern setup` always does). ADR 0036.
+ * Whether a bare `discern` (no verb) should print the setup WELCOME rather than help.
+ * In a project: whenever setup is still outstanding (the resume path). Not in a
+ * project: only when the cwd is a git work tree — the freshly-installed "tell your
+ * agent to run discern" path — so a bare `discern` in a stray directory shows help,
+ * not a welcome for a project that will never exist there (the explicit `discern
+ * setup` always welcomes). The welcome itself writes nothing (ADR 0036/0075).
  */
-async function shouldRunSetupBare(
+async function shouldWelcomeBare(
   inProject: boolean,
   bootstrapped: boolean,
 ): Promise<boolean> {
@@ -693,19 +763,17 @@ export async function main(args: string[]): Promise<void> {
       await resolveProjectState();
     const hideSetup = inProject && bootstrapped;
 
-    // Bare `discern`: pre-setup, this IS the setup trigger — the install message
-    // tells the user to "tell your coding agent to run discern" (ADR 0036). Once the
-    // project is set up (or outside a git repo, to avoid scaffolding a stray dir),
-    // it falls through to help.
+    // Bare `discern`: pre-setup, this prints the read-only WELCOME — the install
+    // message tells the user to "tell your coding agent to run discern" (ADR 0036),
+    // and the welcome dual-addresses both readers and funnels the agent into the
+    // staged handshake (ADR 0075). It writes nothing. Once the project is set up (or
+    // outside a git repo, to avoid touching a stray dir), it falls through to help.
     if (verb === undefined) {
-      if (await shouldRunSetupBare(inProject, bootstrapped)) {
+      if (await shouldWelcomeBare(inProject, bootstrapped)) {
         Deno.exit(
-          await runSetup({
+          await runSetupWelcome({
             json: false,
             noColor: noColorFrom(undefined),
-            dryRun: false,
-            force: false,
-            allowDirty: false,
           }),
         );
       }

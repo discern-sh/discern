@@ -1,8 +1,10 @@
 /**
- * Regression guard: `discern setup` hands work to the agent and exits 0, and an
+ * Regression guard: `discern setup begin` hands work to the agent and exits 0, and an
  * agent once read that exit 0 + the brief's closing checklist as "setup done",
- * echoing the checklist back as completed work. These tests lock in the structural
- * defences that make that misread fail loudly rather than slip through:
+ * echoing the checklist back as completed work. (Under ADR 0075 the brief is printed
+ * by the `begin` sub-verb; bare `discern setup` is the read-only welcome, covered in
+ * the welcome tests.) These tests lock in the structural defences that make that
+ * misread fail loudly rather than slip through:
  *
  *  1. the command output leads with a non-success "NOT FINISHED" banner and ends
  *     with a tail-survivable footer (so a truncated tail still says "not done" +
@@ -31,7 +33,7 @@ const INSTRUCTIONS_H1 = "# Set up the harness";
 Deno.test("setup output can't be mistaken for completion: banner leads, footer survives truncation", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
-    const r = await runAgent(dir, ["setup"]);
+    const r = await runAgent(dir, ["setup", "begin"]);
     assertEquals(r.code, 0, r.output);
 
     // A loud, non-success banner LEADS — the scaffold succeeding is not the task
@@ -45,7 +47,7 @@ Deno.test("setup output can't be mistaken for completion: banner leads, footer s
     // finish. Assert all three, and that they land AFTER the brief's H1.
     assertStringIncludes(r.stdout, "You are NOT done");
     assertStringIncludes(r.stdout, "discern setup done");
-    assertStringIncludes(r.stdout, "Re-run `discern setup` to reprint");
+    assertStringIncludes(r.stdout, "Re-run `discern setup begin` to reprint");
     const h1At = r.stdout.indexOf(INSTRUCTIONS_H1);
     const footerAt = r.stdout.indexOf("You are NOT done");
     assert(
@@ -58,7 +60,7 @@ Deno.test("setup output can't be mistaken for completion: banner leads, footer s
 Deno.test("setup --json carries an explicit incomplete signal", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
-    const r = await runAgent(dir, ["setup", "--json"]);
+    const r = await runAgent(dir, ["setup", "begin", "--json"]);
     assertEquals(r.code, 0, r.output);
     const obj = JSON.parse(r.stdout);
     assertEquals(obj.ok, true);
@@ -75,7 +77,7 @@ Deno.test("setup --json carries an explicit incomplete signal", async () => {
 Deno.test("status flags unfinished setup loudly, with evidence, then goes silent once recorded", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
-    await runAgent(dir, ["setup"]); // lays the marker-carrying skeletons
+    await runAgent(dir, ["setup", "begin"]); // lays the marker-carrying skeletons
 
     // Human view: a loud banner under the heading, not a buried hint.
     const human = await runAgent(dir, ["status"]);
@@ -133,7 +135,7 @@ Deno.test("status surfaces unfinished setup from a worktree too, not just the ma
 Deno.test("worktree:ensure reminds on session start while setup is unfinished, then stops", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
-    await runAgent(dir, ["setup"]);
+    await runAgent(dir, ["setup", "begin"]);
 
     const before = await runAgent(dir, ["worktree:ensure"]);
     assertEquals(before.code, 0, before.output);

@@ -1,9 +1,10 @@
 /**
- * Engine coverage for the unified `discern setup` / `setup done` command pair
- * (ADR 0036) — driven through the real CLI so Cliffy parsing, the skeleton
- * scaffolding, the `done` validator, the `[meta].bootstrapped` marker, the pre-setup
- * hard redirect, the bare-`discern` setup trigger, the `init`/`bootstrap` back-compat
- * redirect, and the self-hiding from help are all exercised end-to-end.
+ * Engine coverage for the staged `discern setup` handshake (ADR 0036/0075) — driven
+ * through the real CLI so Cliffy parsing, the `begin` skeleton scaffolding, the `done`
+ * validator, the `[meta].bootstrapped` marker, the pre-setup hard redirect, the
+ * bare-`discern` welcome, the `init`/`bootstrap` back-compat redirect, and the
+ * self-hiding from help are all exercised end-to-end. The read-only welcome surface
+ * itself (the three states, the dual-address) is covered in engine_setup_welcome_test.
  *
  * `scaffoldEngine` marks the install set up by default, so these tests pass
  * `{ bootstrapped: false }` whenever they need the un-set-up state.
@@ -30,7 +31,7 @@ Deno.test("discern setup lays the doc skeletons when absent and prints the instr
     assertEquals(await exists(join(dir, "setup")), false);
     assertEquals(await exists(join(dir, "bootstrap")), false);
 
-    const r = await runAgent(dir, ["setup"]);
+    const r = await runAgent(dir, ["setup", "begin"]);
     assertEquals(r.code, 0, r.output);
     // The instructions are printed for the agent in the loop to act on.
     assertStringIncludes(r.stdout, INSTRUCTIONS_H1);
@@ -42,7 +43,7 @@ Deno.test("discern setup lays the doc skeletons when absent and prints the instr
     assert(!readme.includes("{{project_name}}"));
 
     // Re-running is non-destructive: docs/ now exists, so it is left untouched.
-    const again = await runAgent(dir, ["setup"]);
+    const again = await runAgent(dir, ["setup", "begin"]);
     assertStringIncludes(again.stdout, "Left your existing docs/");
   });
 });
@@ -53,7 +54,7 @@ Deno.test("discern setup never overwrites an existing docs/ tree (seamless DX)",
     await Deno.mkdir(join(dir, "docs"));
     await Deno.writeTextFile(join(dir, "docs/README.md"), "MY OWN DOCS\n");
 
-    const r = await runAgent(dir, ["setup"]);
+    const r = await runAgent(dir, ["setup", "begin"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "Left your existing docs/");
     // The user's file is intact and no skeleton was laid over it.
@@ -68,7 +69,7 @@ Deno.test("discern setup never overwrites an existing docs/ tree (seamless DX)",
 Deno.test("discern setup done refuses while skeleton markers remain; --force overrides", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
-    await runAgent(dir, ["setup"]); // lay the skeletons (markers present)
+    await runAgent(dir, ["setup", "begin"]); // lay the skeletons (markers present)
 
     const blocked = await runAgent(dir, ["setup", "done"]);
     assertEquals(blocked.code, 1, blocked.output);
@@ -104,7 +105,7 @@ Deno.test("the setup redirect and the command retire once setup is recorded", as
     assertStringIncludes(preHelp.stdout, HELP_DESC);
 
     // Set up, then clear the skeleton markers so `done` validates cleanly.
-    await runAgent(dir, ["setup"]);
+    await runAgent(dir, ["setup", "begin"]);
     await Deno.remove(join(dir, "docs"), { recursive: true });
     await Deno.mkdir(join(dir, "docs"));
     await Deno.writeTextFile(join(dir, "docs/README.md"), "# Real docs\n");
@@ -206,7 +207,7 @@ Deno.test("finish/prepare/test/ratchets run before setup is recorded, carrying t
 async function readyForDone(dir: string, cmd: string): Promise<void> {
   await scaffoldEngine(dir, { bootstrapped: false });
   await gitInit(dir);
-  await runAgent(dir, ["setup"]); // lay the skeletons
+  await runAgent(dir, ["setup", "begin"]); // lay the skeletons
   // Replace the marker-carrying skeletons with real, marker-free content.
   await Deno.remove(join(dir, "docs"), { recursive: true });
   await Deno.mkdir(join(dir, "docs"));
@@ -279,7 +280,7 @@ Deno.test("discern setup migrates a pre-existing agent file into guidance.md, ne
       `# My project\n\n${rule}\n`,
     );
 
-    const r = await runAgent(dir, ["setup"]);
+    const r = await runAgent(dir, ["setup", "begin"]);
     assertEquals(r.code, 0, r.output);
 
     // The user's instruction survives in the tracked source...
@@ -328,7 +329,7 @@ Deno.test("discern setup persists the PATH-detected agent set into [guidance].ag
 
     const { path, bin } = await pathWithFakeAgent("gemini");
     try {
-      const r = await runAgent(dir, ["setup", "--json"], {
+      const r = await runAgent(dir, ["setup", "begin", "--json"], {
         env: { PATH: path },
       });
       assertEquals(r.code, 0, r.output);
@@ -387,7 +388,7 @@ Deno.test("discern setup lays a marked guidance.md stub that setup done enforces
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
     await gitInit(dir);
-    const r = await runAgent(dir, ["setup"]);
+    const r = await runAgent(dir, ["setup", "begin"]);
     assertEquals(r.code, 0, r.output);
 
     // The stub exists and carries the marker, so it is a real "flesh out the stub".
@@ -410,7 +411,7 @@ Deno.test("discern setup preserves the project name's casing in the scaffolded f
     await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
     await gitInit(dir);
 
-    const r = await runAgent(dir, ["setup"]);
+    const r = await runAgent(dir, ["setup", "begin"]);
     assertEquals(r.code, 0, r.output);
 
     // TODO.md carries the original casing, not the slug-reconstructed
@@ -449,7 +450,7 @@ Deno.test("scaffolded docs contain no dead relative links — setup ships what i
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
     await gitInit(dir);
-    const r = await runAgent(dir, ["setup"]);
+    const r = await runAgent(dir, ["setup", "begin"]);
     assertEquals(r.code, 0, r.output);
 
     const linkRe = /\[[^\]]*\]\(([^)]+)\)/g;
@@ -497,7 +498,7 @@ Deno.test("discern setup isolates a fresh install on the discern-setup branch (A
       "main",
     );
 
-    const r = await runAgent(dir, ["setup", "--json"]);
+    const r = await runAgent(dir, ["setup", "begin", "--json"]);
     assertEquals(r.code, 0, r.output);
     // Setup created and checked out a dedicated branch, off the user's `main`, so
     // the scaffold's commits never land on it.
@@ -517,7 +518,7 @@ Deno.test("discern setup refuses on a dirty tree, writing nothing; --allow-dirty
     // An uncommitted change to a TRACKED file makes the tree dirty.
     await Deno.writeTextFile(join(dir, "app.ts"), "export const v = 2;\n");
 
-    const blocked = await runAgent(dir, ["setup", "--json"]);
+    const blocked = await runAgent(dir, ["setup", "begin", "--json"]);
     assertEquals(blocked.code, 1, blocked.output);
     assertEquals(JSON.parse(blocked.stdout).error, "dirty_worktree");
     assert(
@@ -557,41 +558,45 @@ Deno.test("an unparseable config surfaces its TOML error without the setup redir
   });
 });
 
-Deno.test("bare `discern` runs setup in an un-set-up project, but shows help once set up", async () => {
+Deno.test("bare `discern` shows the setup welcome in an un-set-up project, but help once set up", async () => {
   await withTempDir(async (dir) => {
-    // Un-set-up project: bare `discern` is the setup trigger.
+    // Un-set-up project (config present, not bootstrapped): bare `discern` shows the
+    // read-only welcome (in-progress), NOT the brief and NOT a scaffold (ADR 0075).
     await scaffoldEngine(dir, { bootstrapped: false });
     const bare = await runAgent(dir, []);
     assertEquals(bare.code, 0, bare.output);
-    assertStringIncludes(bare.stdout, INSTRUCTIONS_H1);
+    assertStringIncludes(bare.stdout, "IN PROGRESS");
+    assert(
+      !bare.stdout.includes(INSTRUCTIONS_H1),
+      "the welcome is not the brief — bare `discern` must not print the brief",
+    );
   });
 
   await withTempDir(async (dir) => {
-    // Set-up project: bare `discern` shows help, not setup.
+    // Set-up project: bare `discern` shows help, not the welcome.
     await scaffoldEngine(dir); // bootstrapped by default
     const bare = await runAgent(dir, []);
     assertEquals(bare.code, 0, bare.output);
     assert(
       !bare.stdout.includes(INSTRUCTIONS_H1),
-      "a set-up project should show help, not re-run setup",
+      "a set-up project should show help, not the welcome",
     );
     assertStringIncludes(bare.stdout, "Usage:");
   });
 });
 
-Deno.test("bare `discern` outside a project runs setup only inside a git work tree", async () => {
-  // No discern.toml, but a git repo → bare `discern` scaffolds (the fresh-install
-  // path). A repo with a file (so the initial commit has content) and no discern
-  // project up the tree.
+Deno.test("bare `discern` shows the fresh welcome inside a git work tree, writing nothing", async () => {
+  // No discern.toml, but a git repo → bare `discern` shows the FRESH welcome (the
+  // first-contact path). It is READ-ONLY: nothing is scaffolded until `setup begin`.
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "main.py"), "print('hi')\n");
     await gitInit(dir);
     const bare = await runAgent(dir, []);
     assertEquals(bare.code, 0, bare.output);
-    assertStringIncludes(bare.stdout, INSTRUCTIONS_H1);
+    assertStringIncludes(bare.stdout, "isn't set up yet");
     assert(
-      await exists(join(dir, "discern.toml")),
-      "setup scaffolds the config",
+      !(await exists(join(dir, "discern.toml"))),
+      "the welcome is read-only — bare `discern` must not scaffold",
     );
   });
 });
@@ -603,7 +608,9 @@ Deno.test("`discern init` and `discern bootstrap` redirect to setup with a note"
     const init = await runAgent(dir, ["init"]);
     assertEquals(init.code, 0, init.output);
     assertStringIncludes(init.stderr, "is now `discern setup`");
-    assertStringIncludes(init.stdout, INSTRUCTIONS_H1);
+    // init/bootstrap now land on the staged `setup` welcome (in-progress here), not
+    // the brief — they redirect to `setup`, which is the read-only welcome (ADR 0075).
+    assertStringIncludes(init.stdout, "IN PROGRESS");
 
     const bootstrap = await runAgent(dir, ["bootstrap"]);
     assertEquals(bootstrap.code, 0, bootstrap.output);
@@ -615,7 +622,7 @@ Deno.test("discern setup is still callable with --force after it is recorded", a
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir); // bootstrapped by default
 
-    // Bare invocation now reports it is already done...
+    // Bare `discern setup` (the welcome) now reports it is already done...
     const bare = await runAgent(dir, ["setup"]);
     assertEquals(bare.code, 0, bare.output);
     assertStringIncludes(bare.stdout, "already set up");
@@ -650,7 +657,7 @@ Deno.test("discern setup done ignores a real doc that merely mentions EXAMPLE", 
 Deno.test("discern setup --json emits the DiscernResult envelope", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
-    const r = await runAgent(dir, ["setup", "--json"]);
+    const r = await runAgent(dir, ["setup", "begin", "--json"]);
     assertEquals(r.code, 0, r.output);
     const res = JSON.parse(r.stdout);
     assertEquals(res.ok, true);

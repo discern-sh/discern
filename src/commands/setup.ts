@@ -53,6 +53,7 @@ import {
   type HooksIntegration,
   providerFor,
   providersWithHooks,
+  reactivationHandoff,
 } from "../lib/providers.ts";
 import { resolveDefaultAgents } from "../lib/detect_agents.ts";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
@@ -61,6 +62,7 @@ import { emitResult } from "../shared/emit.ts";
 import { findSkeletonMarkers } from "../shared/setup_state.ts";
 import { worktreeState } from "../lib/git.ts";
 import { runGit } from "../shared/subprocess.ts";
+import { RawConfig } from "../shared/config_read.ts";
 
 /** Options accepted by `discern setup` (global flags + declarative passthrough). */
 export interface SetupOptions extends InitFlags {
@@ -73,12 +75,85 @@ export interface SetupOptions extends InitFlags {
   allowDirty: boolean;
   /** Path to a JSON answers file (or `-` for stdin) for a declarative scaffold. */
   config?: string | undefined;
+  /** The agent's self-declared model id (`--model`), recorded as setup provenance. */
+  model?: string | undefined;
 }
 
 /** Options for `discern setup done`. */
 export interface SetupDoneOptions {
   json: boolean;
   force: boolean;
+}
+
+/**
+ * The raw Cliffy options the scaffold entry points parse — the `setup` parent (the
+ * back-compat/declarative alias) and the canonical `setup begin` sub-verb declare the
+ * same set, and both map it through {@link beginOptsFrom}, so the two routes can't
+ * drift. Every field is optional (and explicitly `| undefined` for
+ * `exactOptionalPropertyTypes`), matching Cliffy's parsed shape structurally.
+ */
+export interface RawScaffoldCliOptions {
+  name?: string | undefined;
+  slug?: string | undefined;
+  branchPrefix?: string | undefined;
+  sourceGlobs?: string | undefined;
+  brief?: string | undefined;
+  agents?: string | undefined;
+  config?: string | undefined;
+  model?: string | undefined;
+  dryRun?: boolean | undefined;
+  force?: boolean | undefined;
+  allowDirty?: boolean | undefined;
+}
+
+/** Build {@link SetupOptions} for {@link runSetupBegin} from parsed Cliffy options
+ * plus the resolved global flags — the one mapping shared by both scaffold routes.
+ * Takes `unknown` and narrows (mirroring `globalFlags`), so the shared option-applier
+ * can feed it whatever concrete option type Cliffy infers for each command. */
+export function beginOptsFrom(
+  options: unknown,
+  json: boolean,
+  noColor: boolean,
+): SetupOptions {
+  const o = options as RawScaffoldCliOptions;
+  return {
+    json,
+    noColor,
+    dryRun: o.dryRun ?? false,
+    force: o.force ?? false,
+    allowDirty: o.allowDirty ?? false,
+    name: o.name,
+    slug: o.slug,
+    branchPrefix: o.branchPrefix,
+    sourceGlobs: o.sourceGlobs,
+    brief: o.brief,
+    agents: o.agents,
+    config: o.config,
+    model: o.model,
+  };
+}
+
+/**
+ * True when the user handed `setup` any scaffold or declarative input — so a bare
+ * `discern setup` shows the read-only welcome, while `discern setup --config …` (CI,
+ * presets), `--force`, `--dry-run`, or any explicit fill scaffolds straight through to
+ * `begin` (ADR 0075). The bare-welcome path is exactly the no-input case.
+ */
+export function hasScaffoldIntent(options: unknown): boolean {
+  const o = options as RawScaffoldCliOptions;
+  return (
+    o.config !== undefined ||
+    o.force === true ||
+    o.allowDirty === true ||
+    o.dryRun === true ||
+    o.name !== undefined ||
+    o.slug !== undefined ||
+    o.branchPrefix !== undefined ||
+    o.sourceGlobs !== undefined ||
+    o.brief !== undefined ||
+    o.agents !== undefined ||
+    o.model !== undefined
+  );
 }
 
 const TEXT_DECODER = new TextDecoder();
@@ -350,6 +425,15 @@ async function scaffoldHarness(
 
   const changed = await applyPlan(plan);
 
+  // Record setup provenance into the freshly-scaffolded config — the discern version
+  // that ran begin, and any agent-declared --model — for support triage (ADR 0075).
+  // FRESH-INSTALL ONLY: a `--force` re-run over a user's pre-existing config seed must
+  // leave it byte-for-byte untouched, so provenance is never stamped into a file
+  // discern didn't write. After applyPlan, so the fresh config exists to edit.
+  if (freshInstall) {
+    await recordProvenance(destDir, opts.model);
+  }
+
   // Seed guidance.md (the default [guidance].sources) BEFORE the first compile, and
   // migrate any pre-existing, hand-authored agent file into it so the compile that
   // follows can't destroy the user's instructions (ADR 0065).
@@ -476,6 +560,46 @@ async function seedGuidance(
 }
 
 /**
+ * Record setup provenance into the freshly-scaffolded `discern.toml` (ADR 0075):
+ * `[meta].setup_version` (the discern version that ran `begin`) and, when the agent
+ * declared one via `--model`, `[meta].setup_model`. For the support triage `doctor`
+ * surfaces; advisory only — discern can't verify a self-declared model. Comment-
+ * preserving (mirrors how `setup done` records `bootstrapped`). The caller gates this
+ * on `freshInstall`, so a pre-existing config seed is never edited; the per-key
+ * `has()` guard is belt-and-suspenders, keeping it write-once even if that changes.
+ */
+async function recordProvenance(
+  root: string,
+  model: string | undefined,
+): Promise<void> {
+  const path = (await resolveConfigPath(root)) ?? join(root, CONFIG_REL);
+  let raw: string;
+  try {
+    raw = await Deno.readTextFile(path);
+  } catch {
+    return; // no config to stamp (shouldn't happen post-scaffold)
+  }
+  const existing = new RawConfig(raw);
+  const editor = new TomlEditor(raw);
+  let changed = false;
+  if (!existing.has("meta.setup_version")) {
+    editor.setString("meta.setup_version", KIT_VERSION);
+    changed = true;
+  }
+  const declared = model?.trim();
+  if (
+    declared !== undefined && declared.length > 0 &&
+    !existing.has("meta.setup_model")
+  ) {
+    editor.setString("meta.setup_model", declared);
+    changed = true;
+  }
+  if (changed) {
+    await Deno.writeTextFile(path, editor.toString());
+  }
+}
+
+/**
  * Phase 2 — lay the doc skeletons under `root`, non-destructively. The docs tree
  * is all-or-nothing: skipped entirely when any `docs/` already exists, so an
  * existing tree is never mixed with the skeleton shape. `TODO.md` is an
@@ -512,10 +636,14 @@ async function laySkeletons(
 }
 
 /**
- * `discern setup` — scaffold (when fresh, or `--force`), lay the doc skeletons,
- * and print the setup instructions for the agent in the loop. Returns an exit code.
+ * `discern setup begin` — the first mutating phase of the staged handshake (ADR 0075):
+ * scaffold (when fresh, or `--force`), lay the doc skeletons, record setup provenance,
+ * and print the setup brief for the agent in the loop. Reached by the explicit `begin`
+ * sub-verb, by the declarative `--config`/flag path (CI/presets skip the welcome), and
+ * idempotently again to reprint the brief while setup is in progress. Returns an exit
+ * code.
  */
-export async function runSetup(opts: SetupOptions): Promise<number> {
+export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   const log = new Logger(opts);
   const destDir = Deno.cwd();
   const existingConfig = await resolveConfigPath(destDir);
@@ -680,9 +808,9 @@ export async function runSetup(opts: SetupOptions): Promise<number> {
   );
   console.log("  that gate is the only thing that completes setup.");
   console.log(
-    "  • Brief truncated or scrolled off? Re-run `discern setup` to reprint it in",
+    "  • Brief truncated or scrolled off? Re-run `discern setup begin` to reprint",
   );
-  console.log("    full — it is idempotent and won't touch your work.");
+  console.log("    it in full — it is idempotent and won't touch your work.");
   console.log(
     "  • `discern status` will keep reporting setup as unfinished until",
   );
@@ -763,6 +891,79 @@ async function ensureSetupBranch(
   return { branch: SETUP_BRANCH };
 }
 
+/** Options for `discern setup step <n>` (just the global flags). */
+export interface SetupStepOptions {
+  json: boolean;
+  noColor: boolean;
+}
+
+/**
+ * `discern setup step <n>` — re-serve ONE numbered step of the setup brief, read-only
+ * (ADR 0075). A convenience for an agent that lost the thread mid-setup; it tracks
+ * nothing and records nothing — derived progress (`status`, the welcome) is the
+ * progress signal, never a self-reported step marker.
+ */
+export async function runSetupStep(
+  n: number,
+  opts: SetupStepOptions,
+): Promise<number> {
+  const instructions = await Deno.readTextFile(
+    join(await resolveSetupDir(), "instructions.md"),
+  );
+  const section = extractStep(instructions, n);
+  if (section === undefined) {
+    const message =
+      `no Step ${n} in the setup brief. Run \`discern setup begin\` to reprint the whole brief.`;
+    if (opts.json) {
+      emitResult({
+        ok: false,
+        verb: "setup:step",
+        error: "no_such_step",
+        message,
+      });
+    } else {
+      console.error(`discern: ${message}`);
+    }
+    return 1;
+  }
+  if (opts.json) {
+    emitResult({
+      ok: true,
+      verb: "setup:step",
+      data: { step: n, text: section },
+    });
+  } else {
+    console.log(section);
+  }
+  return 0;
+}
+
+/** Slice the `## Step <n> — …` section out of the brief, up to the next `## ` heading
+ * or a `---` rule. Returns undefined when there is no such step. */
+function extractStep(brief: string, n: number): string | undefined {
+  const lines = brief.split("\n");
+  const startRe = new RegExp(`^## Step ${n}\\b`);
+  let start = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (startRe.test(lines[i] ?? "")) {
+      start = i;
+      break;
+    }
+  }
+  if (start === -1) {
+    return undefined;
+  }
+  let end = lines.length;
+  for (let i = start + 1; i < lines.length; i++) {
+    const line = lines[i] ?? "";
+    if (line.startsWith("## ") || line.trim() === "---") {
+      end = i;
+      break;
+    }
+  }
+  return lines.slice(start, end).join("\n").trimEnd();
+}
+
 /**
  * `discern setup done` — validate that no skeleton markers remain AND prove the
  * gate green (ADR 0065), then record `[meta].bootstrapped = true` so the setup
@@ -822,11 +1023,22 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
   await Deno.writeTextFile(path, editor.toString());
 
   const forced = leftover.length > 0;
+  // The reactivation handoff (ADR 0075): the agent files, MCP servers, and session
+  // hooks were wired at `begin`, but coding agents load MCP + hooks at SESSION START —
+  // so this session can't see them. Tell the agent, per configured agent, to reactivate.
+  const reactivation = reactivationHandoff(await loadConfig(root));
   if (opts.json) {
     emitResult({
       ok: true,
       verb: "setup:done",
-      data: { bootstrapped: true, forced, gate_proven: !opts.force, leftover },
+      hints: [reactivation.summary],
+      data: {
+        bootstrapped: true,
+        forced,
+        gate_proven: !opts.force,
+        leftover,
+        reactivation,
+      },
     });
     return 0;
   }
@@ -842,6 +1054,11 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
     console.log(
       `(Marked complete with --force despite ${leftover.length} file(s) still carrying skeleton markers.)`,
     );
+  }
+  console.log("");
+  console.log(reactivation.summary);
+  for (const a of reactivation.per_agent) {
+    console.log(`  • ${a.label}: ${a.step}`);
   }
   return 0;
 }
