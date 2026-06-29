@@ -21,7 +21,7 @@
  *    is suppressed pre-bootstrap.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import {
@@ -322,6 +322,38 @@ Deno.test("coupling --json works black-box in both modes (query and diff-aware)"
     assert(
       dObj.data.partners.some((p: { path: string }) => p.path === "b.ts"),
       d.stdout,
+    );
+  });
+});
+
+Deno.test("the human CLI renders the FULL list (not the truncated gate hints) and never points back at itself", async () => {
+  await withTempDir(async (dir) => {
+    await setup(dir);
+    // a.ts couples with SIX partners (b0..b5) — more than the terse gate hint shows — so
+    // a 6th partner exists that only the full render includes.
+    for (let i = 0; i < 4; i++) {
+      const files: Record<string, string> = { "a.ts": `${i}` };
+      for (let b = 0; b < 6; b++) {
+        files[`b${b}.ts`] = `${i}`;
+      }
+      await commit(dir, files, `hub${i}`);
+    }
+    await noise(dir, 6);
+    await Deno.writeTextFile(join(dir, "a.ts"), "staged");
+
+    // diff-aware, HUMAN mode (no --json) — exactly what a user runs.
+    const r = await runAgent(dir, ["coupling"]);
+    assertEquals(r.code, 0, r.output);
+    assertStringIncludes(r.stdout, "You changed"); // grouped by the file you changed
+    assertStringIncludes(r.stdout, "commits"); // plain-count evidence
+    // The full ranked list is shown — including the partner the 5-line gate hint would
+    // have truncated to "… and 1 more" (b5.ts sorts last among the six tied partners).
+    assertStringIncludes(r.stdout, "b5.ts");
+    // The bug: a standalone run must not tell you to run the thing you just ran, nor
+    // claim "N more" when it already showed everything.
+    assert(
+      !r.stdout.includes("lists them all") && !/and \d+ more/.test(r.stdout),
+      `the standalone command shows everything — no re-run pointer: ${r.stdout}`,
     );
   });
 });

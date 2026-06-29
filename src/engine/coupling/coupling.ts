@@ -39,6 +39,7 @@ import type { EnvReader } from "../../shared/env.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import { collectPaths, isNeutralPath } from "../scopes/changed.ts";
+import { colorEnabled, makeOut, type Out } from "../output.ts";
 
 /** How many recent non-merge commits to mine — a bounded window, the one resource
  * bound. A name-only log over this many commits is cheap even on a large repo. */
@@ -87,18 +88,10 @@ const RECORD_SEP = "\x1e";
  * beside RECORD_SEP so the emit directive and the split byte stay the same code point. */
 const RECORD_SEP_DIRECTIVE = "%x1e";
 
-/** One co-change partner edge with the evidence behind it — the {@link CouplingData}
- * partner shape ({@link Partner}) plus the internal `llr` used only to rank it. */
-interface ScoredPartner {
-  path: string;
-  from: string;
-  cochanges: number;
-  of: number;
-  confidence: number;
-  lift: number;
-  /** The log-likelihood ratio — the ranking key; not part of the wire shape. */
-  llr: number;
-}
+/** One co-change partner edge with its evidence — the {@link CouplingData} partner wire
+ * shape. The log-likelihood ratio is computed and tested for inclusion, but not stored:
+ * ranking is by the displayed confidence, so the order matches what a reader sees. */
+type Partner = CouplingData["partners"][number];
 
 /** The raw co-occurrence model over the mined window: `commits` is each file's count of
  * commits it appears in, `cooc` holds the pair counts ONLY for the sources of interest
@@ -284,20 +277,20 @@ function buildModel(
  * {@link MIN_COCHANGES} commits, MORE than chance, and significantly so
  * ({@link logLikelihoodRatio} ≥ {@link LLR_CUTOFF}), excluding anything in `exclude`
  * (the source itself, and — in diff mode — the rest of the change set). Each carries the
- * plain-count evidence; `llr` rides along internally for ranking.
+ * plain-count evidence; the significance test gates inclusion but is not stored.
  */
 function partnersOf(
   model: CouplingModel,
   from: string,
   exclude: ReadonlySet<string>,
-): ScoredPartner[] {
+): Partner[] {
   const row = model.cooc.get(from);
   const nFrom = model.commits.get(from) ?? 0;
   const n = model.total;
   if (row === undefined || nFrom === 0 || n === 0) {
     return [];
   }
-  const out: ScoredPartner[] = [];
+  const out: Partner[] = [];
   for (const [to, k11] of row) {
     if (exclude.has(to) || k11 < MIN_COCHANGES) {
       continue;
@@ -331,25 +324,24 @@ function partnersOf(
       of: nFrom,
       confidence: round(confidence, 3),
       lift: round(k11 * n / (nFrom * nTo), 2),
-      llr,
     });
   }
   return out;
 }
 
-/** Rank partners strongest-first by significance (the log-likelihood ratio, which
- * rewards both a high co-change rate AND ample evidence), then by confidence and raw
- * co-change count, with the path as a stable final tiebreak. Drops the internal `llr`. */
-function rank(partners: ScoredPartner[]): CouplingData["partners"] {
+/** Rank partners strongest-first by the displayed confidence (so the order matches the
+ * percentages a reader sees), breaking ties by the raw co-change count (more evidence),
+ * then lift, then the path as a stable final tiebreak. Every survivor already cleared the
+ * significance gate, so this orders among genuine couplings. Capped to {@link MAX_PARTNERS}. */
+function rank(partners: Partner[]): Partner[] {
   return [...partners]
     .sort((a, b) =>
-      b.llr - a.llr ||
       b.confidence - a.confidence ||
       b.cochanges - a.cochanges ||
+      b.lift - a.lift ||
       a.path.localeCompare(b.path)
     )
-    .slice(0, MAX_PARTNERS)
-    .map(({ llr: _llr, ...p }) => p);
+    .slice(0, MAX_PARTNERS);
 }
 
 /** Query mode: the top co-change partners of one `target` file (its blast radius). */
@@ -390,7 +382,7 @@ async function diffCoupling(
   }
   const changedSet = new Set(changed);
   const model = buildModel(await mineCommits(root), config, changedSet);
-  const best = new Map<string, ScoredPartner>();
+  const best = new Map<string, Partner>();
   for (const from of changed) {
     for (const partner of partnersOf(model, from, changedSet)) {
       const prev = best.get(partner.path);
@@ -449,8 +441,10 @@ function couplingHints(data: CouplingData): string[] {
     const arg = data.mode === "query" && data.target !== undefined
       ? ` ${data.target}`
       : "";
+    // The gate is the consumer that benefits from this pointer (it surfaces only the
+    // terse hints, not the full data); the standalone verb renders every partner itself.
     hints.push(
-      `… and ${remaining} more — run \`discern coupling${arg}\` for the full list.`,
+      `… and ${remaining} more — \`discern coupling${arg}\` lists them all.`,
     );
   }
   const strongest = data.partners[0];
@@ -497,10 +491,91 @@ export interface CouplingOptions {
   path?: string;
 }
 
+/** One rendered partner row: `<confidence>  <N of M commits>  <file>`, the confidence
+ * colour-cued by strength and the count column aligned to `countWidth` so the trailing
+ * file paths line up across every row and group. */
+function partnerRow(
+  p: Partner,
+  indent: string,
+  countWidth: number,
+  c: Out["c"],
+): string {
+  const strength = p.confidence >= 0.5
+    ? c.green
+    : p.confidence >= 0.3
+    ? c.cyan
+    : c.dim;
+  const pctStr = `${Math.round(p.confidence * 100)}%`.padStart(4);
+  const count = `${p.cochanges} of ${p.of}`.padStart(countWidth);
+  return `${indent}${c.bold}${strength}${pctStr}${c.reset}  ` +
+    `${c.dim}${count} commits${c.reset}  ${p.path}\n`;
+}
+
 /**
- * The `coupling` subcommand: print the advisory (one hint per line), or the JSON
- * DiscernResult (`--json`). With nothing to advise it prints a single "nothing found"
- * line and still exits 0 — the advisory never fails.
+ * Render a co-change result as first-class human output: a heading, a dim "advisory"
+ * subtitle, and every partner in `data.partners` (the FULL ranked list — NOT the terse
+ * gate hints, so a direct `discern coupling` shows everything it found) as an aligned,
+ * strength-coloured row, strongest first. The diff-aware view groups partners under the
+ * file you changed. A near-invariant pair earns the discovery→enforcement tip. The gate
+ * surfaces the terse {@link couplingHints} instead; this is the standalone verb's view.
+ */
+function renderCouplingHuman(data: CouplingData, out: Out): void {
+  const { c } = out;
+  if (data.partners.length === 0) {
+    const subject = data.mode === "query" && data.target !== undefined
+      ? `\`${data.target}\``
+      : "your current change set";
+    out.raw(`No co-change partners found for ${subject}.\n`);
+    return;
+  }
+  const countWidth = Math.max(
+    ...data.partners.map((p) => `${p.cochanges} of ${p.of}`.length),
+  );
+  const subtitle =
+    `${c.dim}advisory — from git history; never blocks, not exhaustive${c.reset}`;
+
+  if (data.mode === "query") {
+    out.heading(`Files that usually change with ${data.target ?? ""}`);
+    out.raw(`  ${subtitle}\n\n`);
+    for (const p of data.partners) {
+      out.raw(partnerRow(p, "  ", countWidth, c));
+    }
+  } else {
+    out.heading("Co-change advisory");
+    out.raw(
+      `  ${c.dim}Files that usually change with what you touched, but aren't ` +
+        `in this change.${c.reset}\n  ${subtitle}\n`,
+    );
+    // Group partners under the file that drew them, in ranked order (the Map keeps
+    // first-seen order, and data.partners is already ranked strongest-first).
+    const groups = new Map<string, CouplingData["partners"]>();
+    for (const p of data.partners) {
+      const arr = groups.get(p.from) ?? [];
+      arr.push(p);
+      groups.set(p.from, arr);
+    }
+    for (const [from, partners] of groups) {
+      out.raw(`\n  You changed ${c.bold}${from}${c.reset}, but not:\n`);
+      for (const p of partners) {
+        out.raw(partnerRow(p, "     ", countWidth, c));
+      }
+    }
+  }
+
+  const strongest = data.partners[0];
+  if (strongest !== undefined && strongest.confidence >= STRONG_CONFIDENCE) {
+    out.raw(
+      `\n  ${c.dim}\`${strongest.from}\` and \`${strongest.path}\` change together ` +
+        `almost every time — if that's an essential invariant, lock it with a ` +
+        `forcing-function (the fix-a-bug-class skill / ADR 0051).${c.reset}\n`,
+    );
+  }
+}
+
+/**
+ * The `coupling` subcommand: render the full advisory as formatted human output, or the
+ * JSON DiscernResult (`--json`). With nothing to advise it prints a single "nothing
+ * found" line and still exits 0 — the advisory never fails.
  */
 export async function runCoupling(
   root: string,
@@ -516,17 +591,9 @@ export async function runCoupling(
     emitResult(result);
     return 0;
   }
-  const hints = result.hints ?? [];
-  if (hints.length === 0) {
-    const data = result.data;
-    const subject = data?.mode === "query" && data.target !== undefined
-      ? `\`${data.target}\``
-      : "your current change set";
-    console.log(`No strong co-change partners found for ${subject}.`);
-    return 0;
-  }
-  for (const hint of hints) {
-    console.log(hint);
+  const data = result.data;
+  if (data !== undefined) {
+    renderCouplingHuman(data, makeOut(colorEnabled()));
   }
   return 0;
 }
