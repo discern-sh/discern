@@ -71,7 +71,16 @@ export async function runSetupWelcome(opts: WelcomeOptions): Promise<number> {
         phase,
         complete: phase === "done",
         next_action: next,
-        ...(progress !== undefined ? { progress } : {}),
+        // Same snake_case shape as status's `setup_unfinished`, so the two derived-
+        // progress surfaces read identically.
+        ...(progress !== undefined
+          ? {
+            progress: {
+              pending_markers: progress.pendingMarkers,
+              capabilities: progress.capabilities,
+            },
+          }
+          : {}),
       },
     });
     return 0;
