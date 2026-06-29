@@ -42,6 +42,10 @@ Point the check at the canonical registry, enum, or type that *defines* the set 
 
 Find instances by their shape, not their spelling. A textual `grep` matches tokens, so it silently misses members that share no literal substring — a renamed variable, an alias, a wrapper. Use structural / AST-aware search to locate every instance regardless of identifiers, and treat a text search as a starting hint, never the enumeration itself.
 
+Structural search still has a blind spot: it finds members that share a *shape*, but a class can have siblings that share neither a name nor a shape — a value and the separate validator that must move with it, a constant and its mirror in another language, a registry and the switch over it. No textual or structural query reaches those, because the link is *behavioural, not syntactic*.
+
+The project's own history closes that gap. Ask for the files that have historically changed *together* with the affected one — the `discern_coupling` MCP tool, or `discern coupling <file>` on the CLI. A habitual co-change partner that shares no token and no shape with the buggy file is exactly the sibling grep and AST search both miss. Treat the partners as **candidates to check**, not confirmed members: the signal is advisory and drawn from history, so weigh each against the class predicate from step 1 and keep only the ones that are genuinely the same defect.
+
 ---
 
 ## 5. Fix to green
