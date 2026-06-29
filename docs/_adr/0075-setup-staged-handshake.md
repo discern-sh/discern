@@ -90,9 +90,9 @@ hard invariant is that nothing is written until `begin`.** Four phases:
 3. **`discern setup begin` → the first mutation.** This is today's scaffold
    (`runSetup`'s clean-tree check, the `discern-setup` branch, the seed plan,
    the compile, the skeletons) plus the brief, now reached only here. It records
-   **provenance** (`--meta` self-declared model, alongside the agent(s) discern
-   observed, the kit version, and the date). The declarative `--config`/flag
-   path (CI, presets) lands here too and skips the handshake.
+   **provenance** (a `--model` self-declared model id, alongside the discern
+   version it observed). The declarative `--config`/flag path (CI, presets)
+   lands here too and skips the handshake.
 
 4. **`discern setup done` → unchanged proof.** `refresh → doctor → finish`, then
    `[meta].bootstrapped` (ADR 0065). It now also emits the **provider-aware
