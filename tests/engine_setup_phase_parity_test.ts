@@ -14,7 +14,7 @@
  */
 
 import { assert, assertEquals } from "@std/assert";
-import { Command } from "@cliffy/command";
+import type { Command } from "@cliffy/command";
 import { buildCli } from "../src/main.ts";
 import { FEATURES } from "../src/shared/features.ts";
 import { SETUP_SUBVERBS } from "../src/shared/setup_state.ts";
