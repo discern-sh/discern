@@ -17,7 +17,9 @@ import {
   skillsDirsForAgents,
   wiredMcp,
   wireProviderMcp,
+  wireProviderWorktreeApp,
 } from "../src/lib/providers.ts";
+import { parse as parseToml } from "@std/toml";
 
 Deno.test("the registry is total: every known agent has a complete provider", () => {
   for (const name of AGENT_NAMES) {
@@ -120,31 +122,35 @@ Deno.test("the discern MCP server spec is `discern mcp`", () => {
   });
 });
 
-Deno.test("MCP status is typed and explicit: claude wired, codex/gemini pending with a named target", () => {
-  // The old silent `mcp?` TODO is now an explicit, typed McpStatus (ADR 0051): every
-  // provider accounts for its MCP wiring — wired, or pending with the committable
-  // file discern will write into. No `undefined` gap.
+Deno.test("MCP status is typed and explicit: all three agents wired to their own config file", () => {
+  // The typed McpStatus (ADR 0051) tightens as plans flip pending → wired: Phase B
+  // wired Codex (.codex/config.toml, TOML) and Gemini (.gemini/settings.json, JSON)
+  // alongside Claude (.mcp.json). Every provider now carries a live integration naming
+  // the committable file it writes into — no `pending`/`undefined` gap left.
   assertEquals(providerFor("claude_code")?.mcp.kind, "wired");
   assertEquals(wiredMcp(PROVIDERS.claude_code)?.configFile, ".mcp.json");
+  assertEquals(providerFor("codex")?.mcp.kind, "wired");
+  assertEquals(wiredMcp(PROVIDERS.codex)?.configFile, ".codex/config.toml");
+  assertEquals(providerFor("gemini")?.mcp.kind, "wired");
+  assertEquals(wiredMcp(PROVIDERS.gemini)?.configFile, ".gemini/settings.json");
 
-  const codexMcp = providerFor("codex")?.mcp;
-  assertEquals(codexMcp?.kind, "pending");
-  assertEquals(
-    codexMcp?.kind === "pending" ? codexMcp.targetFile : undefined,
-    ".codex/config.toml",
-  );
-  const geminiMcp = providerFor("gemini")?.mcp;
-  assertEquals(geminiMcp?.kind, "pending");
-  assertEquals(
-    geminiMcp?.kind === "pending" ? geminiMcp.targetFile : undefined,
-    ".gemini/settings.json",
-  );
-  // wiredMcp is the one place "is this provider's MCP wired?" is decided.
-  assertEquals(wiredMcp(PROVIDERS.codex), undefined);
-  assertEquals(wiredMcp(PROVIDERS.gemini), undefined);
+  // hook-stripping / the settings seam iterate exactly the providers that declare a
+  // hook surface — now all three (Codex + Gemini gained a SessionStart hook), in
+  // registry order.
+  assertEquals(providersWithHooks().map((p) => p.name), [
+    "claude_code",
+    "codex",
+    "gemini",
+  ]);
 
-  // hook-stripping iterates exactly the providers that declare a hook surface.
-  assertEquals(providersWithHooks().map((p) => p.name), ["claude_code"]);
+  // Only Codex co-manages an app-managed worktree-lifecycle file (environment.toml);
+  // the others declare no worktreeApp (skipped, never guessed).
+  assertEquals(
+    providerFor("codex")?.worktreeApp?.configFile,
+    ".codex/environments/environment.toml",
+  );
+  assertEquals(providerFor("claude_code")?.worktreeApp, undefined);
+  assertEquals(providerFor("gemini")?.worktreeApp, undefined);
 });
 
 Deno.test("wireProviderMcp writes .mcp.json + approval for Claude Code, idempotently", async () => {
@@ -227,17 +233,154 @@ Deno.test("wireProviderMcp preserves existing settings and unions the approval l
   });
 });
 
-Deno.test("wireProviderMcp skips agents whose MCP is pending (committable, not yet wired)", async () => {
+Deno.test("wireProviderMcp wires Gemini: mcpServers.discern into .gemini/settings.json (no type, no .mcp.json)", async () => {
   await withTempDir(async (dir) => {
-    const r = await wireProviderMcp(dir, ["codex", "gemini"]);
-    assertEquals(r.written, []);
-    assertEquals(r.firstInstall, false);
-    let created = true;
-    try {
-      await Deno.stat(join(dir, ".mcp.json"));
-    } catch {
-      created = false;
-    }
-    assert(!created, ".mcp.json must not be created for non-MCP agents");
+    const first = await wireProviderMcp(dir, ["gemini"]);
+    assertEquals(first.written, [".gemini/settings.json"]);
+    assert(first.firstInstall, "a fresh Gemini wire must report firstInstall");
+
+    const settings = JSON.parse(
+      await Deno.readTextFile(join(dir, ".gemini/settings.json")),
+    );
+    // Gemini infers stdio from `command` — no `type` field (unlike Claude's .mcp.json).
+    assertEquals(settings.mcpServers.discern, {
+      command: "discern",
+      args: ["mcp"],
+    });
+    // Gemini wires only its own file — never Claude's .mcp.json.
+    await assertAbsent(join(dir, ".mcp.json"));
+
+    // Idempotent: a second wire writes nothing and is not a first install.
+    const second = await wireProviderMcp(dir, ["gemini"]);
+    assertEquals(second.written, []);
+    assertEquals(second.firstInstall, false);
   });
 });
+
+Deno.test("wireProviderMcp Gemini DEEP-MERGES, preserving the seeded hooks block and user servers", async () => {
+  await withTempDir(async (dir) => {
+    // A project whose .gemini/settings.json already carries the seeded SessionStart
+    // hook (hooks.enabled) AND a server the user added — both must survive.
+    await Deno.mkdir(join(dir, ".gemini"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, ".gemini/settings.json"),
+      JSON.stringify({
+        hooks: {
+          enabled: true,
+          SessionStart: [{
+            matcher: "startup",
+            hooks: [{ type: "command", command: "discern worktree:ensure" }],
+          }],
+        },
+        mcpServers: { other: { command: "other-tool" } },
+      }),
+    );
+    const r = await wireProviderMcp(dir, ["gemini"]);
+    assert(r.firstInstall, "discern was absent → firstInstall");
+    const settings = JSON.parse(
+      await Deno.readTextFile(join(dir, ".gemini/settings.json")),
+    );
+    assertEquals(settings.hooks.enabled, true); // seeded hook preserved
+    assertEquals(settings.hooks.SessionStart.length, 1);
+    assertEquals(settings.mcpServers.other, { command: "other-tool" }); // preserved
+    assertEquals(settings.mcpServers.discern.command, "discern"); // added
+  });
+});
+
+Deno.test("wireProviderMcp wires Codex: [mcp_servers.discern] into .codex/config.toml via TOML, preserving comments + other servers", async () => {
+  await withTempDir(async (dir) => {
+    // An existing config.toml with a comment AND another server — both must survive a
+    // comment-preserving TOML merge (NOT a JSON rewrite).
+    await Deno.mkdir(join(dir, ".codex"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, ".codex/config.toml"),
+      '# my codex config\n[mcp_servers.other]\ncommand = "other-tool"\n',
+    );
+    const first = await wireProviderMcp(dir, ["codex"]);
+    assertEquals(first.written, [".codex/config.toml"]);
+    assert(first.firstInstall, "discern's table was absent → firstInstall");
+
+    const text = await Deno.readTextFile(join(dir, ".codex/config.toml"));
+    assertStringIncludes(text, "# my codex config"); // comment preserved
+    const parsed = parseToml(text) as {
+      mcp_servers: {
+        other?: { command?: string };
+        discern?: { command?: string; args?: string[] };
+      };
+    };
+    assertEquals(parsed.mcp_servers.other?.command, "other-tool"); // preserved
+    assertEquals(parsed.mcp_servers.discern?.command, "discern"); // added
+    assertEquals(parsed.mcp_servers.discern?.args, ["mcp"]);
+
+    // Idempotent: a second wire is a clean no-op (byte-identical TOML).
+    const second = await wireProviderMcp(dir, ["codex"]);
+    assertEquals(second.written, []);
+    assertEquals(second.firstInstall, false);
+  });
+});
+
+Deno.test("wireProviderWorktreeApp co-manages Codex environment.toml, preserving app keys, idempotently", async () => {
+  await withTempDir(async (dir) => {
+    // The Codex app autogenerates this file with its own keys — version/name and an
+    // [[actions]] array-of-tables — which discern must preserve while owning only the
+    // two `script` keys.
+    await Deno.mkdir(join(dir, ".codex/environments"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, ".codex/environments/environment.toml"),
+      'version = 1\nname = "default"\n\n[[actions]]\nlabel = "lint"\n',
+    );
+    const first = await wireProviderWorktreeApp(dir, ["codex"]);
+    assertEquals(first, [".codex/environments/environment.toml"]);
+
+    const text = await Deno.readTextFile(
+      join(dir, ".codex/environments/environment.toml"),
+    );
+    const parsed = parseToml(text) as {
+      version: number;
+      name: string;
+      actions: { label: string }[];
+      setup: { script: string };
+      cleanup: { script: string };
+    };
+    assertEquals(parsed.version, 1); // app key preserved
+    assertEquals(parsed.name, "default"); // app key preserved
+    assertEquals(parsed.actions, [{ label: "lint" }]); // app [[actions]] preserved
+    assertEquals(parsed.setup.script, "discern worktree:ensure");
+    assertEquals(parsed.cleanup.script, "discern worktree:teardown");
+
+    // Idempotent: a second pass writes nothing.
+    assertEquals(await wireProviderWorktreeApp(dir, ["codex"]), []);
+  });
+});
+
+Deno.test("wireProviderWorktreeApp creates environment.toml when absent, and skips agents without one", async () => {
+  await withTempDir(async (dir) => {
+    // Absent file → created with just discern's setup/cleanup.
+    const wrote = await wireProviderWorktreeApp(dir, ["codex"]);
+    assertEquals(wrote, [".codex/environments/environment.toml"]);
+    const parsed = parseToml(
+      await Deno.readTextFile(
+        join(dir, ".codex/environments/environment.toml"),
+      ),
+    ) as { setup: { script: string }; cleanup: { script: string } };
+    assertEquals(parsed.setup.script, "discern worktree:ensure");
+    assertEquals(parsed.cleanup.script, "discern worktree:teardown");
+
+    // Claude/Gemini declare no worktreeApp → nothing written, no file created.
+    assertEquals(
+      await wireProviderWorktreeApp(dir, ["claude_code", "gemini"]),
+      [],
+    );
+  });
+});
+
+/** Assert a path does not exist on disk. */
+async function assertAbsent(path: string): Promise<void> {
+  let present = true;
+  try {
+    await Deno.stat(path);
+  } catch {
+    present = false;
+  }
+  assert(!present, `expected ${path} to be absent`);
+}

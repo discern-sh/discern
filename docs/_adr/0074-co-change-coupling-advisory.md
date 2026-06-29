@@ -1,4 +1,4 @@
-# ADR 0069: Co-change coupling detection is a non-blocking advisory, recomputed on demand
+# ADR 0074: Co-change coupling detection is a non-blocking advisory, recomputed on demand
 
 **Status**: accepted
 

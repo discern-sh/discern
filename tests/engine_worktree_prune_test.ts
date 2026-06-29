@@ -19,6 +19,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join } from "@std/path";
 import { exists } from "@std/fs";
+import { parse as parseToml } from "@std/toml";
 import { withTempDir } from "./helpers.ts";
 import {
   addWorktree,
@@ -28,6 +29,7 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
+import { wireProviderWorktreeApp } from "../src/lib/providers.ts";
 
 /** A scaffolded, committed main repo with one linked worktree ready to drive. */
 async function mainWithWorktree(dir: string, name: string): Promise<string> {
@@ -361,6 +363,51 @@ Deno.test("worktree:teardown refuses to run from the main checkout", async () =>
     const r = await runAgent(dir, ["worktree:teardown"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "worktree");
+  });
+});
+
+// ── Codex [cleanup] contract: the written cleanup.script is the cwd-based teardown ──
+//
+// Codex's environment.toml `[cleanup].script` runs as a BARE command in the worktree
+// cwd with no stdin (unlike Claude's `worktree:remove`, which reads a {worktree_path}
+// payload). This binds the two halves of that contract: the exact script string
+// discern writes into the app's environment.toml IS a dispatchable verb that tears the
+// worktree down by cwd — so a rename of the verb (or the written script) that broke
+// Codex teardown would red-light here rather than silently ship.
+
+Deno.test("worktree:teardown by cwd is the verb discern writes as Codex's environment.toml [cleanup].script", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "codexcleanup");
+    const markers = join(dir, "markers");
+    const cfg = await Deno.readTextFile(join(wt, "discern.toml"));
+    await Deno.writeTextFile(
+      join(wt, "discern.toml"),
+      `${cfg}\n[worktree.resources.thing]\n` +
+        `create  = "mkdir -p ${markers} && touch ${markers}/@resource@.live"\n` +
+        `destroy = "mkdir -p ${markers} && rm -f ${markers}/@resource@.live && touch ${markers}/@resource@.gone"\n`,
+    );
+    // Setup creates the resource + the ledger entry teardown acts on.
+    await runAgent(wt, ["worktree"]);
+    const handle =
+      (await runAgent(wt, ["worktree-name", "--resource", "thing"])).stdout
+        .trim();
+
+    // discern writes the cleanup script into the app's environment.toml…
+    await wireProviderWorktreeApp(wt, ["codex"]);
+    const env = parseToml(
+      await Deno.readTextFile(join(wt, ".codex/environments/environment.toml")),
+    ) as { cleanup: { script: string } };
+
+    // …and running THAT script verbatim as a bare command in the worktree cwd (no
+    // stdin — the Codex [cleanup] invocation shape) tears the worktree down by cwd.
+    const [bin, ...verbArgs] = env.cleanup.script.split(" ");
+    assertEquals(bin, "discern"); // the local-dev shim invokes the engine for us
+    const r = await runAgent(wt, verbArgs);
+    assertEquals(r.code, 0, r.output);
+    assert(
+      await exists(join(markers, `${handle}.gone`)),
+      `the [cleanup].script did not tear the worktree down by cwd\n${r.output}`,
+    );
   });
 });
 

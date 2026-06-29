@@ -270,11 +270,11 @@ outstanding._
       huge monorepos, and a formal multiple-testing correction (today bounded
       only by the top-k output cap). Evidence: `src/engine/coupling/coupling.ts`
       (the constants), `[coupling]` in `discern.toml`
-      ([ADR 0069](docs/_adr/0069-co-change-coupling-advisory.md)).
+      ([ADR 0074](docs/_adr/0074-co-change-coupling-advisory.md)).
 
 - [ ] **`discern audit` candidates + a `// discern-coupled-to:` declaration
       marker — the discovery→enforcement bridge as a deliberate review, with
-      state.** `coupling` (ADR 0069) _discovers_ co-change pairs and nudges
+      state.** `coupling` (ADR 0074) _discovers_ co-change pairs and nudges
       per-change; ADR 0051's forcing functions _enforce_ the ones that are
       essential invariants. Nothing today bridges the two as a periodic,
       considered review — and nothing remembers which couplings a human has
@@ -339,13 +339,13 @@ outstanding._
     - **A declared coupling _could_ justify optional gating** — it is asserted,
       not guessed, so failing on it is defensible in a way a discovered nudge
       never is — **but it must still default to advisory** to honour the
-      never-block discipline (ADR 0069); any blocking is opt-in, like
+      never-block discipline (ADR 0074); any blocking is opt-in, like
       `[coupling].in_gate`.
 
     Evidence: `src/engine/coupling/coupling.ts` (the discovered graph);
     `src/engine/audit/rules.ts` (where a candidate `review` would land);
     `tests/comment_currency_test.ts` (the marker-currency machinery to reuse);
-    [ADR 0069](docs/_adr/0069-co-change-coupling-advisory.md) (discovery) →
+    [ADR 0074](docs/_adr/0074-co-change-coupling-advisory.md) (discovery) →
     [ADR 0051](docs/_adr/0051-canonical-set-parity.md) (enforcement).
 
 ## 👨‍💻 Jack's Odds and Ends

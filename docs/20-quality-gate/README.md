@@ -60,7 +60,7 @@ move together and naming the sibling a change is likely missing. It is purely
 advisory and **never blocks** (it only ever adds `hints[]`), surfacing on demand
 or, behind `[coupling].in_gate`, at the tail of `finish`. It is the discovery
 end of the canonical-set discipline (ADR 0051) that the gate's parity tests
-enforce ([ADR 0069](../_adr/0069-co-change-coupling-advisory.md)).
+enforce ([ADR 0074](../_adr/0074-co-change-coupling-advisory.md)).
 
 > **Status: stub.** This README orients the subtree; the leaves below are not
 > written yet (except the written [`audit.md`](audit.md) and
@@ -77,7 +77,7 @@ enforce ([ADR 0069](../_adr/0069-co-change-coupling-advisory.md)).
 | `scopes-and-gates.md`                                          | Scope globs, fail-open classification, and wiring a Scope `gate` (ADR 0018).                                                                                               |
 | `ratchets.md`                                                  | Never-loosen floors/ceilings, raw counts vs `per` rates, the `DISCERN_METRIC` protocol, holding against `main`.                                                            |
 | [`the-result-envelope.md`](the-result-envelope.md) _(written)_ | The `DiscernResult` envelope every verb returns, its `diagnostics[]`, the typed result schemas, and `discern mcp`'s self-describing surface (ADR 0028, ADR 0041).          |
-| [`coupling.md`](coupling.md) _(written)_                       | The co-change advisory: the metric (`1/size` weighting, recency decay, support/confidence/lift), the diff-aware and query modes, and the default-off gate hint (ADR 0069). |
+| [`coupling.md`](coupling.md) _(written)_                       | The co-change advisory: the metric (`1/size` weighting, recency decay, support/confidence/lift), the diff-aware and query modes, and the default-off gate hint (ADR 0074). |
 
 ## See also
 

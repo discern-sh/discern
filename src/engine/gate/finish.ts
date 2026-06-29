@@ -318,7 +318,7 @@ async function runGate(
   // Pre-setup, lead with the "setup unfinished" advisory (ADR 0065): finish runs
   // during setup, so a green gate here must not read as "done".
   const inProgress = setupInProgressHint(cfg.meta.bootstrapped);
-  // The co-change advisory (ADR 0069), behind [coupling].in_gate (default off) — at the
+  // The co-change advisory (ADR 0074), behind [coupling].in_gate (default off) — at the
   // TAIL, with strand detection, because it READS THE DIFF (dependency-bearing), never a
   // fail-fast precondition. Only on a GREEN, bootstrapped run: a half-set-up install
   // behaves as if coupling were off (its in-session setup must stay uncluttered), and a

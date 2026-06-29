@@ -11,7 +11,7 @@ one" instinct from data: it mines git history for files that change in the same
 commits and reports the ones a change is likely missing. It is the **discovery**
 layer that pairs with the **enforcement** discipline of
 [ADR 0051](../_adr/0051-canonical-set-parity.md) — and the two are kept
-deliberately apart ([ADR 0069](../_adr/0069-co-change-coupling-advisory.md)).
+deliberately apart ([ADR 0074](../_adr/0074-co-change-coupling-advisory.md)).
 
 It is **purely advisory**. It points at where to look and **never blocks** —
 never touches a gate's pass/fail, exit code, or `failed_stage`. The whole output
@@ -35,8 +35,8 @@ mode (mirroring `changed-scopes`):
   intentional?"_
 - **query** (`discern coupling <path>`) — one file's top co-change partners, its
   blast radius. Useful before a change: _what tends to move when I touch this?_
-- **evidence** (`discern coupling <a> <b>`) — the shared co-change history of two
-  files: the commits where **both** changed, with their hashes, dates, and
+- **evidence** (`discern coupling <a> <b>`) — the shared co-change history of
+  two files: the commits where **both** changed, with their hashes, dates, and
   subjects, plus each file's own commit count (the "of N" denominators). The raw
   material to judge a coupling — _one deliberate decision, or a few incidental
   rides-along?_ — before you act on it. It reads the same window the other modes
@@ -44,12 +44,14 @@ mode (mirroring `changed-scopes`):
 
 All three render the advisory as `hints[]`. `--json` adds `data`: `partners` for
 diff/query (the ranked list, each entry an edge
-`{ path, from, cochanges, of, confidence, lift }` — the evidence in plain counts,
-`cochanges` of the `of` commits that touched `from`), and for evidence the pair
-`a`/`b`, the `together`/`of_a`/`of_b` counts, and `commits` (`{ sha, date,
-subject }`, reusing `integrate`'s change-summary convention). The MCP tool
-`discern_coupling` takes an optional `file` (query) and a second optional `with`
-(evidence) argument; the working-root override keeps the name `path`.
+`{ path, from, cochanges, of, confidence, lift }` — the evidence in plain
+counts, `cochanges` of the `of` commits that touched `from`), and for evidence
+the pair `a`/`b`, the `together`/`of_a`/`of_b` counts, and `commits`
+(`{ sha, date,
+subject }`, reusing `integrate`'s change-summary convention). The
+MCP tool `discern_coupling` takes an optional `file` (query) and a second
+optional `with` (evidence) argument; the working-root override keeps the name
+`path`.
 
 ## The metric
 
@@ -81,7 +83,7 @@ window of recent commits:
 Survivors are ranked strongest-first and **capped** (top-k), so the advisory
 never floods. The model is **recomputed on demand**, bounded by the window —
 there is no cache in v1 (see
-[ADR 0069](../_adr/0069-co-change-coupling-advisory.md) for why a persisted
+[ADR 0074](../_adr/0074-co-change-coupling-advisory.md) for why a persisted
 store is deferred). When git can't answer, the advisory stays **silent** rather
 than failing into noise.
 
@@ -118,11 +120,11 @@ function (the
 0051)"_ — but the decision is yours: an **essential** invariant earns a forcing
 function, an **incidental** co-change earns nothing. Promoting a coupling to an
 enforced rule is always a separate, deliberate step
-([ADR 0069](../_adr/0069-co-change-coupling-advisory.md)).
+([ADR 0074](../_adr/0074-co-change-coupling-advisory.md)).
 
 ## See also
 
-- [ADR 0069](../_adr/0069-co-change-coupling-advisory.md) — why the advisory is
+- [ADR 0074](../_adr/0074-co-change-coupling-advisory.md) — why the advisory is
   non-blocking and recomputed on demand.
 - [ADR 0051](../_adr/0051-canonical-set-parity.md) — the enforcement discipline
   this feeds.
