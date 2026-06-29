@@ -112,7 +112,9 @@ Use **`discern <cmd> --json`** — the local-dev wrapper (`scripts/discern`). It
 walks up from your cwd and runs the engine of whichever checkout you're in, so
 from a worktree it runs _that worktree's_ in-progress engine. It's the closest
 thing to what an end user runs, so the generic `discern` guidance above applies
-verbatim; outside any checkout it falls back to `$DISCERN_HOME`.
+verbatim; outside any checkout it falls back to `$DISCERN_HOME`. (One exception:
+`discern mcp` runs from the **main** checkout, since a long-lived server can't run
+an ephemeral worktree's engine — see the comment in `scripts/discern`.)
 
 `deno task dev <cmd> --json` is a fallback — reach for it only if you
 specifically need to. (If you do: don't put `--` before the subcommand —
@@ -122,11 +124,11 @@ the wrapper doesn't share.)
 **Never** use the `dist/` binaries while developing — they bundle a frozen
 snapshot of `templates/` and the engine compiled at build time.
 
-The MCP `discern_*` tools are a separately-spawned, long-lived server that can
-still be running the **main** checkout's engine, not your worktree's — so for
-branch-only changes (a bundled skill, guidance, or engine edit not yet on
-`main`) they can report false drift/staleness. Trust the engine run from source
-— `discern finish` — over the MCP `discern_*` tools whenever they disagree.
+The MCP `discern_*` tools are a separately-spawned, long-lived server running the
+**main** checkout's engine, not your worktree's — so for branch-only changes (a
+bundled skill, guidance, or engine edit not yet on `main`) they can report stale
+results against main, not your branch. Trust the engine run from source —
+`discern finish` — over the MCP `discern_*` tools whenever they disagree.
 
 Everything supports discern's own **`--json`** flag; always pass it for optimised
 machine-readable output. It reaches the underlying `discern <cmd>` exactly as an
