@@ -219,7 +219,9 @@ export async function runChecks(destDir: string): Promise<Check[]> {
       checks.push({
         name: "setup provenance",
         ok: true,
-        detail: `set up by ${parts.join(", ")} (self-declared; for support triage)`,
+        detail: `set up by ${
+          parts.join(", ")
+        } (self-declared; for support triage)`,
       });
     }
   }

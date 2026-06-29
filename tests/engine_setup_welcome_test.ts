@@ -67,7 +67,8 @@ Deno.test("the in-progress welcome shows derived progress and funnels to done", 
     assertStringIncludes(human.stdout, "IN PROGRESS");
     assertStringIncludes(human.stdout, "discern setup done");
 
-    const d = JSON.parse((await runAgent(dir, ["setup", "--json"])).stdout).data;
+    const d =
+      JSON.parse((await runAgent(dir, ["setup", "--json"])).stdout).data;
     assertEquals(d.phase, "in_progress");
     // Derived progress: the docs markers still pending and the (all-unset) capabilities.
     assert(
@@ -86,7 +87,8 @@ Deno.test("the in-progress welcome shows derived progress and funnels to done", 
 Deno.test("bare `discern setup` reports already-set-up once recorded (phase done)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir); // bootstrapped by default
-    const d = JSON.parse((await runAgent(dir, ["setup", "--json"])).stdout).data;
+    const d =
+      JSON.parse((await runAgent(dir, ["setup", "--json"])).stdout).data;
     assertEquals(d.phase, "done");
     assertEquals(d.complete, true);
   });
@@ -97,8 +99,10 @@ Deno.test("bare `discern setup` reports already-set-up once recorded (phase done
 Deno.test("verify reports grounded findings and the consent checklist, writing nothing", async () => {
   await withTempDir(async (dir) => {
     await freshRepo(dir);
-    const d = JSON.parse((await runAgent(dir, ["setup", "verify", "--json"]))
-      .stdout).data;
+    const d = JSON.parse(
+      (await runAgent(dir, ["setup", "verify", "--json"]))
+        .stdout,
+    ).data;
     assertEquals(d.phase, "fresh");
     assertEquals(d.findings.git.repo, true);
     assertEquals(d.findings.docs.exists, false);
@@ -122,8 +126,10 @@ Deno.test("verify surfaces existing docs/ and agent instructions as conflicts", 
     await Deno.writeTextFile(join(dir, "docs/README.md"), "# mine\n");
     await Deno.writeTextFile(join(dir, "CLAUDE.md"), "# my rules\n");
 
-    const d = JSON.parse((await runAgent(dir, ["setup", "verify", "--json"]))
-      .stdout).data;
+    const d = JSON.parse(
+      (await runAgent(dir, ["setup", "verify", "--json"]))
+        .stdout,
+    ).data;
     const kinds = d.conflicts.map((c: { kind: string }) => c.kind);
     assert(
       kinds.includes("existing_docs"),
@@ -140,8 +146,10 @@ Deno.test("verify surfaces existing docs/ and agent instructions as conflicts", 
 Deno.test("verify redirects once setup is recorded (the preflight is moot)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir); // bootstrapped
-    const d = JSON.parse((await runAgent(dir, ["setup", "verify", "--json"]))
-      .stdout).data;
+    const d = JSON.parse(
+      (await runAgent(dir, ["setup", "verify", "--json"]))
+        .stdout,
+    ).data;
     assertEquals(d.phase, "done");
   });
 });
