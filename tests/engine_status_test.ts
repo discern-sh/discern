@@ -267,6 +267,39 @@ Deno.test("status: the discern start guardrail does NOT fire from a worktree (it
   });
 });
 
+Deno.test("status: while setup is unfinished, the main-checkout worktree next-steps are suppressed (no contradiction)", async () => {
+  // Setup runs in the main checkout (on the `discern-setup` branch). Until it is
+  // recorded, the only correct "what now" is "finish setup here" — so the
+  // `discern start` guardrail and the "no active worktrees" nudge must NOT fire,
+  // or the agent is told to abandon setup and start a worktree (the contradiction a
+  // real cold run hit). The class: NO "start work elsewhere" hint while
+  // `setup_unfinished` is present.
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { bootstrapped: false }); // un-set-up
+    await gitInit(dir);
+
+    const obj = parseStatus((await runAgent(dir, ["status", "--json"])).stdout);
+    assertEquals(obj.data.location, "main");
+    assert(
+      obj.data.setup_unfinished !== undefined,
+      "an un-bootstrapped project must report setup_unfinished",
+    );
+    const hints: string[] = obj.hints ?? [];
+    assert(
+      !hints.includes(START_HERE_HINT),
+      `the discern start guardrail must not fire mid-setup: ${
+        JSON.stringify(hints)
+      }`,
+    );
+    assert(
+      !hints.some((h) => h.includes("No active worktrees")),
+      `the "start a worktree" nudge must not fire mid-setup: ${
+        JSON.stringify(hints)
+      }`,
+    );
+  });
+});
+
 Deno.test("status fleet: the ownership rule is agent-only — humans get the caption, not the hint", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
