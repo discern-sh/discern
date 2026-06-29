@@ -82,6 +82,11 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0066 — `discern --help` groups commands by post-processing Cliffy's help](0066-grouped-cli-help.md)
 - [0067 — Graduate validates the exact tree it lands, fast-pathed by a gate-pass receipt](0067-graduate-validates-the-landed-tree.md)
 - [0068 — Tests inject env/cwd seams so the suite can run `--parallel`](0068-parallel-safe-tests-env-cwd-injection.md)
+- [0069 — A fresh install resolves its default agent set by PATH auto-detection](0069-agent-auto-detect-at-setup.md)
+- [0070 — An agent that reads the canonical `AGENTS.md` is modelled as "reuse-canonical", emitting nothing](0070-reuse-canonical-guidance.md)
+- [0071 — The settings seed/merge seam is provider-driven, not a Claude special-case](0071-provider-driven-settings-seed.md)
+- [0072 — A provider's MCP wiring is a typed status, accounted by a forcing function](0072-typed-mcp-status-forcing-function.md)
+- [0073 — discern co-manages Codex's auto-generated `environment.toml`, and reuses the cwd-based teardown verb for its cleanup](0073-codex-worktree-lifecycle-comanagement.md)
 
 ## Superseded and consolidated ADRs
 
