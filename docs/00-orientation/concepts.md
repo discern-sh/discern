@@ -78,21 +78,28 @@ skills, docs) on or off — distinct from the Capabilities that wire the gate.
 
 ## How it works, end to end
 
-**1. Set up.** `discern setup` is non-interactive — it asks the user nothing at
-the CLI. It lays down only _your_ seed files with zero-config defaults: a
-`discern.toml` with no Capabilities wired yet (a green gate you grow into — an
-omitted capability is simply skipped), a merged `.claude/settings.json`, and an
-appended `.gitignore` fragment. It then **materializes** the bundled Skills into
-each configured agent's skills dir (gitignored) and compiles the agent guidance.
-There is no engine and no manifest to write — the Engine is in the binary. Files
-split by **disposition**: [yours](glossary.md#your-files--yours) (the committed
-seeds, written once then kept), [the binary's](glossary.md#the-binarys-files)
-(gitignored artifacts it re-publishes, like the materialized Skills), plus the
-Merged `settings.json`/`.gitignore`. The same command then lays the docs-tree
-and `TODO.md` skeletons (only when the project has none) and prints the
-authoring instructions for the agent.
+**1. Set up.** Setup is a short, staged handshake
+([ADR 0075](../_adr/0075-setup-staged-handshake.md)) — never a wizard, and the
+user makes no decisions at the CLI. Bare `discern` (or `discern setup`) prints a
+read-only **welcome**: reassurance for the human, a funnel for their coding
+agent. The agent then runs `discern setup verify` — a read-only preflight that
+inspects the repo (git state, an existing `docs/` tree, existing agent
+instructions, the agents on PATH, the worktree location) and turns it into a
+short consent checklist to confirm with the human. **Nothing is written until
+`discern setup begin`**, the first mutating step: it lays down only _your_ seed
+files with zero-config defaults — a `discern.toml` with no Capabilities wired yet
+(a green gate you grow into — an omitted capability is simply skipped), a merged
+`.claude/settings.json`, and an appended `.gitignore` fragment. It then
+**materializes** the bundled Skills into each configured agent's skills dir
+(gitignored) and compiles the agent guidance. There is no engine and no manifest
+to write — the Engine is in the binary. Files split by **disposition**:
+[yours](glossary.md#your-files--yours) (the committed seeds, written once then
+kept), [the binary's](glossary.md#the-binarys-files) (gitignored artifacts it
+re-publishes, like the materialized Skills), plus the Merged
+`settings.json`/`.gitignore`. `begin` then lays the docs-tree and `TODO.md`
+skeletons (only when the project has none) and prints the authoring brief.
 
-**2. Fill in the stack.** The same `discern setup` run prints instructions the
+**2. Fill in the stack.** The brief `discern setup begin` prints is what the
 coding agent already in the loop works through: it sniffs the repo, asks the
 user a few clarifying questions, and _proposes_ Capability fills (formatter,
 linter, type-checker, tests), seeds a starter `guidance.md`, and fills the docs
@@ -101,7 +108,10 @@ throughout: recommending each change, saying why it helps and that `discern` is
 what will enforce it, committing each stage on its own so the user can review or
 revert, and pausing only for genuine decisions rather than gating every step
 ([ADR 0044](../_adr/0044-setup-involve-not-gate.md)). The Engine stays generic;
-only `discern.toml` learns the stack.
+only `discern.toml` learns the stack. Setup finishes with `discern setup done`,
+which proves the gate green (refresh → doctor → finish) before recording
+completion — then reminds the agent to start a fresh session, since the wired
+MCP tools and session hooks load only at session start.
 
 **3. Work behind the gate.** Day to day, everything is driven through `discern`
 verbs:

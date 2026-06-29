@@ -147,7 +147,7 @@ down is `discern.toml` (the entire discern footprint); it also seeds the project
 config-pointed locations (your [Guidance source](#guidance-source)
 `guidance.md`, authored [Skills](#skill) under `[skills].dir`,
 [Recipes](#recipe) under `[recipes].dir`) or are created on demand after install
-by `discern setup` (the `docs/` tree and `TODO.md`).
+by `discern setup begin` (the `docs/` tree and `TODO.md`).
 
 ### The binary's files
 
