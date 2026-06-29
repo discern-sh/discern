@@ -204,7 +204,10 @@ Deno.test("root keys: setRoot* insert before the first section, then replace in 
 Deno.test("root keys are scoped to the pre-section region (a same-named section key is not a root key)", () => {
   // `name` lives inside [project], not at the root — hasRootKey must not see it.
   const editor = new TomlEditor('[project]\nname = "x"\n');
-  assert(!editor.hasRootKey("name"), "a key inside a section is not a root key");
+  assert(
+    !editor.hasRootKey("name"),
+    "a key inside a section is not a root key",
+  );
   // Setting it as a root key inserts a NEW root line before the section.
   editor.setRootString("name", "root");
   assertStringIncludes(editor.toString(), 'name = "root"\n[project]');
