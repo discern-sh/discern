@@ -210,14 +210,7 @@ _Nothing outstanding._
 
 ## 🟢 Test & tooling hygiene
 
-- [ ] **Markdown colour tests fail when the caller exports `NO_COLOR`.** The
-      tests explicitly render with `{ color: true }`, but Cliffy's global colour
-      switch still honours the inherited environment. With `NO_COLOR=1`, the
-      full gate fails seven ANSI assertions; unsetting it makes the same suite
-      pass. Isolate forced-colour tests from the process environment so the gate
-      is invariant across agent shells. Evidence: `tests/markdown_test.ts`
-      (colour assertions from line 87); `src/lib/markdown.ts` (Cliffy `colors`
-      import).
+_Nothing outstanding._
 
 ## 🔵 Unmerged / at-risk work — decide: land or drop
 

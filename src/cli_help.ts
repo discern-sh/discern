@@ -18,6 +18,14 @@ import { colors } from "@cliffy/ansi/colors";
 import { terminalWidth, wrapText } from "./lib/text.ts";
 import type { EnvReader } from "./shared/env.ts";
 
+/** Ambient inputs that callers may pin for deterministic help rendering. */
+export interface OperatorHelpOptions {
+  /** Lay out the grouped command list to this width, bypassing the terminal. */
+  readonly width?: number;
+  /** Environment source used by terminal-width fallback (chiefly `$COLUMNS`). */
+  readonly env?: EnvReader;
+}
+
 /** A named, ordered bucket of top-level commands for the help listing. */
 export interface CommandGroup {
   /** The heading shown above the bucket. */
@@ -106,8 +114,11 @@ function isHeading(line: string, label: string): boolean {
  * `$COLUMNS`, else 150 (Cliffy's piped default). The per-row floor below keeps a
  * narrow terminal sane; there is no cap, so a wide terminal stays consistent.
  */
-function helpWidth(env: EnvReader = Deno.env): number {
-  return terminalWidth(env) ?? 150;
+function helpWidth(options: OperatorHelpOptions): number {
+  if (options.width !== undefined) {
+    return Math.max(1, Math.floor(options.width));
+  }
+  return terminalWidth(options.env ?? Deno.env) ?? 150;
 }
 
 /**
@@ -198,7 +209,7 @@ function dropVersionRow(lines: string[]): string[] {
  */
 export function operatorHelp(
   root: Command,
-  env: EnvReader = Deno.env,
+  options: OperatorHelpOptions = {},
 ): string {
   const base = root.getHelp();
   const color = base.includes(ESC);
@@ -217,7 +228,7 @@ export function operatorHelp(
   }
   const before = lines.slice(0, ci);
   const after = lines.slice(end);
-  const grouped = renderGroupedCommands(root, color, helpWidth(env)).split(
+  const grouped = renderGroupedCommands(root, color, helpWidth(options)).split(
     "\n",
   );
   const rebuilt = [...before, ...grouped, "", ...after].join("\n");

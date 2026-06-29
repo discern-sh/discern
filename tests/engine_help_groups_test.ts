@@ -26,7 +26,6 @@ import {
   operatorHelp,
 } from "../src/cli_help.ts";
 import { type Feature, FEATURES } from "../src/shared/features.ts";
-import { fakeEnv } from "./helpers.ts";
 
 const sorted = (xs: Iterable<string>): string[] => [...xs].sort();
 
@@ -102,12 +101,13 @@ Deno.test("operator help renders the groups in order, agentic loop first", () =>
 });
 
 Deno.test("the grouped command list word-wraps to the width with hanging indents", () => {
-  // Inject $COLUMNS to force a narrow width: under `deno test` stdout is not a
-  // TTY, so helpWidth() falls back to it. 80 is wide enough that no single
-  // description token overflows on its own, so every command line should fit.
+  // Inject the layout width directly: tests can run under a real PTY, so the
+  // physical terminal and its inherited $COLUMNS must not affect this contract.
+  // 80 is wide enough that no single description token overflows on its own, so
+  // every command line should fit.
   const WIDTH = 80;
   const lines = plain(
-    operatorHelp(fullRoot(), fakeEnv({ COLUMNS: String(WIDTH) })),
+    operatorHelp(fullRoot(), { width: WIDTH }),
   ).split("\n");
   // Scope to the command list — Cliffy's own sections wrap on their own width.
   const start = lines.findIndex((l) => l.trimEnd() === "Commands:");

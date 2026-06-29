@@ -91,6 +91,23 @@ Deno.test("colour mode emits ANSI and a heading underline rule", () => {
   assertStringIncludes(out, "─────"); // the H1 underline row
 });
 
+Deno.test("explicit colour is independent of inherited NO_COLOR", async () => {
+  const module = new URL("../src/lib/markdown.ts", import.meta.url).href;
+  const probe = [
+    `import { renderMarkdown } from ${JSON.stringify(module)};`,
+    `console.log(renderMarkdown("# Title", { color: true, width: 40 }));`,
+  ].join("");
+  const result = await new Deno.Command(Deno.execPath(), {
+    args: ["eval", probe],
+    env: { NO_COLOR: "1" },
+    stdout: "piped",
+    stderr: "piped",
+  }).output();
+  const stderr = new TextDecoder().decode(result.stderr);
+  assertEquals(result.code, 0, stderr);
+  assertStringIncludes(new TextDecoder().decode(result.stdout), "\x1b[");
+});
+
 Deno.test("colour mode makes links clickable via OSC-8", () => {
   const out = renderMarkdown("[t](https://example.com)", { color: true });
   assertStringIncludes(out, "\x1b]8;;https://example.com");
