@@ -16,6 +16,8 @@
  *    (`deriveMaxBasket`);
  *  - diff-aware mode names a MISSING partner for a staged change, and stays silent when
  *    nothing is missing;
+ *  - evidence mode (two files) lists EXACTLY the commits where both changed, with the
+ *    "of N" denominators, excludes a solo commit, and reports "no shared history" as zero;
  *  - the partner list is capped (top-k), so the advisory never floods;
  *  - finish surfaces it only behind `[coupling].in_gate`, never changing pass/fail, and
  *    is suppressed pre-bootstrap.
@@ -107,7 +109,7 @@ Deno.test("a repeated significant coupling surfaces; a one-off co-change does no
     await commit(dir, { "p.ts": "1", "q.ts": "1" }, "pq-once");
     await noise(dir, 6);
 
-    const data = (await couplingResult(dir, { path: "a.ts" }))
+    const data = (await couplingResult(dir, { paths: ["a.ts"] }))
       .data as CouplingData;
     const paths = partnerPaths(data);
     assert(
@@ -127,7 +129,7 @@ Deno.test("a repeated significant coupling surfaces; a one-off co-change does no
 
     // The rare one-off pair forms no edge — the count floor, isolated.
     assertEquals(
-      ((await couplingResult(dir, { path: "p.ts" })).data as CouplingData)
+      ((await couplingResult(dir, { paths: ["p.ts"] })).data as CouplingData)
         .partners,
       [],
       "a single co-occurrence of two rare files is not a coupling",
@@ -150,7 +152,7 @@ Deno.test("a frequent co-occurrence at the chance rate is not flagged (significa
     await commit(dir, { "busy.ts": "5", "k2.ts": "1" }, "k2");
     await noise(dir, 3, "f");
 
-    const data = (await couplingResult(dir, { path: "hot.ts" }))
+    const data = (await couplingResult(dir, { paths: ["hot.ts"] }))
       .data as CouplingData;
     assert(
       !partnerPaths(data).includes("busy.ts"),
@@ -209,12 +211,12 @@ Deno.test("the size fence skips sweeping commits, so files coupled only inside t
 
     assert(
       partnerPaths(
-        (await couplingResult(dir, { path: "a.ts" })).data as CouplingData,
+        (await couplingResult(dir, { paths: ["a.ts"] })).data as CouplingData,
       ).includes("b.ts"),
       "the genuine small coupling still surfaces",
     );
     assertEquals(
-      ((await couplingResult(dir, { path: "c.ts" })).data as CouplingData)
+      ((await couplingResult(dir, { paths: ["c.ts"] })).data as CouplingData)
         .partners,
       [],
       "a pair seen only inside sweeping commits is fenced out, not coupled",
@@ -277,7 +279,7 @@ Deno.test("the partner list is capped at MAX_PARTNERS (top-k, so it never floods
     }
     await noise(dir, 12);
 
-    const data = (await couplingResult(dir, { path: "a.ts" }))
+    const data = (await couplingResult(dir, { paths: ["a.ts"] }))
       .data as CouplingData;
     assert(
       data.partners.length > 0 && data.partners.length <= MAX_PARTNERS,
@@ -476,5 +478,86 @@ Deno.test("finish suppresses the coupling advisory until the install is bootstra
       !(result.hints ?? []).some((h) => h.includes("Co-change advisory")),
       `no advisory before bootstrap: ${JSON.stringify(result.hints)}`,
     );
+  });
+});
+
+Deno.test("evidence mode lists exactly the commits where both files changed, with the of-N denominators", async () => {
+  await withTempDir(async (dir) => {
+    await setup(dir);
+    // a.ts & b.ts change TOGETHER in three commits, each with a distinct subject…
+    await commit(dir, { "a.ts": "1", "b.ts": "1" }, "ab-first");
+    await commit(dir, { "a.ts": "2", "b.ts": "2" }, "ab-second");
+    await commit(dir, { "a.ts": "3", "b.ts": "3" }, "ab-third");
+    // …a.ts changes alone once (must NOT appear in the shared history; lifts of_a)…
+    await commit(dir, { "a.ts": "4", "x.ts": "1" }, "a-alone");
+    // …and b.ts changes alone twice (must NOT appear; lifts of_b).
+    await commit(dir, { "b.ts": "5", "y.ts": "1" }, "b-alone-1");
+    await commit(dir, { "b.ts": "6", "z.ts": "1" }, "b-alone-2");
+    await noise(dir, 6);
+
+    const data = (await couplingResult(dir, { paths: ["a.ts", "b.ts"] }))
+      .data as CouplingData;
+    assertEquals(data.mode, "evidence");
+    assertEquals(data.a, "a.ts");
+    assertEquals(data.b, "b.ts");
+    assertEquals(data.together, 3, "three commits changed both files");
+    assertEquals(data.of_a, 4, "a.ts changed in 4 commits (3 shared + 1 solo)");
+    assertEquals(data.of_b, 5, "b.ts changed in 5 commits (3 shared + 2 solo)");
+    // EXACTLY the three co-change commits, most-recent first — the teeth: a solo commit
+    // (which touched only one of the pair) is excluded, and nothing else sneaks in.
+    assertEquals(
+      (data.commits ?? []).map((c) => c.subject),
+      ["ab-third", "ab-second", "ab-first"],
+      `shared history must be exactly the three co-change commits: ${
+        JSON.stringify(data.commits)
+      }`,
+    );
+    // Each commit carries a short sha and an ISO date for the human to judge by.
+    for (const c of data.commits ?? []) {
+      assert(/^[0-9a-f]{7,}$/.test(c.sha), `a short sha: ${c.sha}`);
+      assert(/^\d{4}-\d{2}-\d{2}$/.test(c.date), `an ISO date: ${c.date}`);
+    }
+
+    // Two files that never share a commit → a zero-history answer, not silence: x.ts (only
+    // in a-alone) and y.ts (only in b-alone-1) have no commit in common.
+    const none = (await couplingResult(dir, { paths: ["x.ts", "y.ts"] }))
+      .data as CouplingData;
+    assertEquals(none.mode, "evidence");
+    assertEquals(none.together, 0, "x.ts and y.ts never changed together");
+    assertEquals(none.commits ?? [], [], "no shared commits to list");
+    assertEquals(none.of_a, 1);
+    assertEquals(none.of_b, 1);
+  });
+});
+
+Deno.test("coupling A B works black-box on the CLI (evidence mode, --json and human)", async () => {
+  await withTempDir(async (dir) => {
+    await setup(dir);
+    await commit(dir, { "a.ts": "1", "b.ts": "1" }, "ab-decision");
+    await commit(dir, { "a.ts": "2", "b.ts": "2" }, "ab-again");
+    await noise(dir, 6);
+
+    // --json: the evidence payload reaches the wire intact.
+    const j = await runAgent(dir, ["coupling", "a.ts", "b.ts", "--json"]);
+    assertEquals(j.code, 0, j.output);
+    const obj = JSON.parse(j.stdout.trim());
+    assertEquals(obj.data.mode, "evidence");
+    assertEquals(obj.data.together, 2);
+    assertEquals(
+      (obj.data.commits as { subject: string }[]).map((c) => c.subject),
+      ["ab-again", "ab-decision"],
+    );
+    assert(
+      Array.isArray(obj.hints) && obj.hints.length > 0,
+      "evidence mode carries advisory hints",
+    );
+
+    // human: the rendered view names the pair and lists the shared commit subjects.
+    const h = await runAgent(dir, ["coupling", "a.ts", "b.ts"]);
+    assertEquals(h.code, 0, h.output);
+    assertStringIncludes(h.stdout, "Shared history of a.ts and b.ts");
+    assertStringIncludes(h.stdout, "Changed together in 2");
+    assertStringIncludes(h.stdout, "ab-decision");
+    assertStringIncludes(h.stdout, "ab-again");
   });
 });

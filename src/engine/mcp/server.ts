@@ -313,23 +313,35 @@ export const TOOLS: McpTool[] = [
     feature: "coupling",
     description:
       "Surface the files that historically change TOGETHER — a co-change advisory mined " +
-      "from git history — so a touched file's habitual sibling isn't forgotten. With no " +
-      "`file` it is DIFF-AWARE: it reports the files that co-change with your current " +
-      "change set but are MISSING from it (the primary surface). Pass `file` to query ONE " +
-      "file's top co-change partners (its blast radius). Each partner carries its evidence " +
-      "(confidence, support, lift) in data.partners, and the human-readable advisory rides " +
-      "in hints[]. Strictly ADVISORY: it points at where to look and NEVER blocks — you " +
-      "decide whether a strong coupling is an essential invariant to lock with a " +
-      "forcing-function, or incidental and ignorable. The list is not exhaustive.",
+      "from git history — so a touched file's habitual sibling isn't forgotten. Three " +
+      "forms: with NO file it is DIFF-AWARE, reporting the files that co-change with your " +
+      "current change set but are MISSING from it (the primary surface); pass `file` to " +
+      "query ONE file's top co-change partners (its blast radius); pass `file` AND `with` " +
+      "to drill into the shared history of TWO files — the commits where both changed, " +
+      "with dates and subjects, to judge a coupling essential vs incidental. The partners " +
+      "(data.partners) and the shared commits (data.commits) carry their evidence in plain " +
+      "counts, and the human-readable advisory rides in hints[]. Strictly ADVISORY: it " +
+      "points at where to look and NEVER blocks — you decide whether a strong coupling is " +
+      "an essential invariant to lock with a forcing-function, or incidental and " +
+      "ignorable. The list is not exhaustive.",
     inputSchema: {
       file: z.string().optional().describe(
         "Query ONE file's co-change partners (its blast radius). Omit for the diff-aware " +
           "view: what co-changes with your current change set but is missing from it.",
       ),
+      with: z.string().optional().describe(
+        "A SECOND file to compare with `file`: returns their shared co-change history — " +
+          "the commits where BOTH changed (dates + subjects), plus each file's own commit " +
+          "count, to weigh a coupling as one decision or incidental. Requires `file`.",
+      ),
       ...PATH_PARAM,
     },
     run: (root, args) =>
-      couplingResult(root, args.file !== undefined ? { path: args.file } : {}),
+      couplingResult(root, {
+        paths: [args.file, args.with].filter((p): p is string =>
+          p !== undefined
+        ),
+      }),
   }),
   defineTool({
     name: "discern_status",

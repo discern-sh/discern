@@ -402,7 +402,7 @@ Deno.test("coupling result is faithful (diff-aware, query, and a real partner ed
     }
 
     // query mode names b.ts as a partner of a.ts — a non-empty partner list.
-    const query = await couplingResult(dir, { path: "a.ts" });
+    const query = await couplingResult(dir, { paths: ["a.ts"] });
     expectValid(CouplingOutputSchema, query, "coupling query");
     assert(
       (query.data as CouplingData).partners.some((p) => p.path === "b.ts"),
@@ -416,6 +416,17 @@ Deno.test("coupling result is faithful (diff-aware, query, and a real partner ed
     assert(
       (diff.data as CouplingData).mode === "diff",
       "no-path mode is diff-aware",
+    );
+
+    // evidence mode (two paths): the shared-history payload — its commit sub-schema and
+    // the of-N denominators — validates too, not just the empty-list envelope.
+    const evidence = await couplingResult(dir, { paths: ["a.ts", "b.ts"] });
+    expectValid(CouplingOutputSchema, evidence, "coupling evidence");
+    const ev = evidence.data as CouplingData;
+    assert(
+      ev.mode === "evidence" && (ev.together ?? 0) >= 1 &&
+        (ev.commits ?? []).length >= 1,
+      "evidence mode reports the commits a.ts and b.ts shared",
     );
   });
 });

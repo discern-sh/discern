@@ -9,10 +9,12 @@
  *
  * Strictly ADVISORY (ADR 0069): it points at where to look and the human/agent decides
  * essential (lock it with a forcing-function — ADR 0051) or incidental (ignore). It
- * never blocks. Two modes, one verb (modelled on `changed-scopes`):
+ * never blocks. Three modes, one verb (modelled on `changed-scopes`):
  *  - **diff-aware** (no path) — the current change set's partners that are MISSING from
  *    it (the primary surface, and what the gate appends when `[coupling].in_gate`);
- *  - **query** (`coupling <path>`) — one file's top co-change partners (its blast radius).
+ *  - **query** (`coupling <path>`) — one file's top co-change partners (its blast radius);
+ *  - **evidence** (`coupling <a> <b>`) — the shared co-change history of TWO files: the
+ *    commits in which both changed, the raw material to judge a coupling essential or not.
  *
  * It is **zero-config and self-calibrating** — there are no thresholds to tune, because
  * absolute thresholds don't transfer across repos of wildly different size and shape.
@@ -74,6 +76,10 @@ export const MAX_PARTNERS = 10;
 /** Cap on the per-partner hint LINES — the advisory text stays tight (the full ranked
  * set lives in `data.partners` / a direct `discern coupling` call). */
 const HINT_PARTNERS = 5;
+/** Cap on the evidence-mode commit list — a coupled pair's shared history is usually
+ * short, but a hub pair can run long; show the most recent this many and report the full
+ * `together` count alongside, so the list never floods a caller's context. */
+const EVIDENCE_COMMIT_CAP = 25;
 /** Confidence at or above which a pair is treated as a near-invariant, triggering the
  * single discovery→enforcement pointer. */
 const STRONG_CONFIDENCE = 0.85;
@@ -93,16 +99,25 @@ const RECORD_SEP_DIRECTIVE = "%x1e";
  * ranking is by the displayed confidence, so the order matches what a reader sees. */
 type Partner = CouplingData["partners"][number];
 
+/** One mined commit: its identity (for the evidence view) and the paths it changed (the
+ * basket the model and the evidence view both read). `sha`/`date`/`subject` come from the
+ * `%h`/`%ad`/`%s` pretty-format; `files` from `--name-only`. */
+interface Commit {
+  sha: string;
+  date: string;
+  subject: string;
+  files: string[];
+}
+
 /** The raw co-occurrence model over the mined window: `commits` is each file's count of
  * commits it appears in, `cooc` holds the pair counts ONLY for the sources of interest
- * (the query target / the change set), `total` is the commit count, and `maxBasket` the
- * per-repo size fence applied. All RAW integer counts — the significance test is over a
- * contingency table of commits, which only counts make sense for. */
+ * (the query target / the change set), and `total` is the commit count. All RAW integer
+ * counts — the significance test is over a contingency table of commits, which only
+ * counts make sense for. */
 interface CouplingModel {
   commits: Map<string, number>;
   cooc: Map<string, Map<string, number>>;
   total: number;
-  maxBasket: number;
 }
 
 /** Round `n` to `dp` decimal places — keeps the wire numbers legible, not 17-digit floats. */
@@ -188,21 +203,24 @@ export function deriveMaxBasket(sizesAsc: number[]): number {
 }
 
 /**
- * Mine the last {@link WINDOW} non-merge commits into baskets of the paths each
- * changed. `-M` follows renames to the new path (so a renamed file's history stays
- * continuous); `--name-only` lists one path per change; the `%x1e` record format
- * prefixes each commit with a Record-Separator byte so splitting the output delimits
- * commits without colliding with a path. A git failure yields an empty mine — the
- * advisory simply stays silent (it never fails open into noise).
+ * Mine the last {@link WINDOW} non-merge commits into {@link Commit}s — each commit's
+ * identity (short sha, short date, subject) and the paths it changed. `-M` follows
+ * renames to the new path (so a renamed file's history stays continuous); `--name-only`
+ * lists one path per change; the `%x1e` record format prefixes each commit with a
+ * Record-Separator byte so splitting the output delimits commits without colliding with a
+ * path, and the `%h<TAB>%ad<TAB>%s` header carries the identity the evidence view shows
+ * (the same `git log` pretty-format `integrate` mines — ADR 0064). A git failure yields an
+ * empty mine — the advisory simply stays silent (it never fails open into noise).
  */
-async function mineCommits(root: string): Promise<string[][]> {
+async function mineCommits(root: string): Promise<Commit[]> {
   const r = await runGit(
     [
       "log",
       "--no-merges",
       "-M",
       "--name-only",
-      `--format=${RECORD_SEP_DIRECTIVE}`,
+      `--format=${RECORD_SEP_DIRECTIVE}%h%x09%ad%x09%s`,
+      "--date=short",
       `--max-count=${WINDOW}`,
     ],
     { cwd: root },
@@ -210,49 +228,76 @@ async function mineCommits(root: string): Promise<string[][]> {
   if (!r.success) {
     return [];
   }
-  const baskets: string[][] = [];
+  const commits: Commit[] = [];
   for (const chunk of r.stdout.split(RECORD_SEP)) {
     if (chunk === "") {
       continue;
     }
-    const files = chunk.split("\n").map((l) => l.trim()).filter((l) =>
-      l !== ""
-    );
-    if (files.length > 0) {
-      baskets.push(files);
+    // First line is the `%h<TAB>%ad<TAB>%s` header; the rest are the changed paths (git
+    // sets a blank line between the two). A subject can in principle carry a tab, so keep
+    // everything past the first two fields as the subject.
+    const [header = "", ...rest] = chunk.split("\n");
+    const meta = header.split("\t");
+    const files = rest.map((l) => l.trim()).filter((l) => l !== "");
+    if (files.length === 0) {
+      continue;
     }
+    commits.push({
+      sha: meta[0] ?? "",
+      date: meta[1] ?? "",
+      subject: meta.slice(2).join("\t"),
+      files,
+    });
   }
-  return baskets;
+  return commits;
+}
+
+/** One surviving basket: a commit and its pairable file set (neutral paths dropped, paths
+ * de-duplicated). */
+interface SurvivingBasket {
+  commit: Commit;
+  files: Set<string>;
 }
 
 /**
- * Build the raw co-occurrence model. Each basket is neutral-filtered and de-duplicated;
- * a basket smaller than 2 (no pair) is dropped, and the per-repo size fence
- * ({@link deriveMaxBasket}) skips a sweeping commit. Over what survives, count each
- * file's commits and — for the sources in `interest` — each directional pair's
- * co-occurrence. All counts are raw integers (the significance test is over commits).
+ * The commits that survive basket construction — the ONE definition of "which commits
+ * count", shared by {@link buildModel} (which counts) and the evidence view (which keeps
+ * each surviving commit's identity). Neutral paths are dropped (so generated artifacts and
+ * docs create no edges), paths de-duplicated, a no-pair commit (<2 files) skipped, and a
+ * sweeping commit (> the per-repo size fence {@link deriveMaxBasket}) skipped so a "format
+ * everything" change can't manufacture coupling.
+ */
+function survivingBaskets(
+  commits: Commit[],
+  config: DiscernConfig,
+): SurvivingBasket[] {
+  const pairable = commits
+    .map((commit) => ({
+      commit,
+      files: new Set(commit.files.filter((f) => !isNeutralPath(config, f))),
+    }))
+    .filter((b) => b.files.size >= 2);
+  const maxBasket = deriveMaxBasket(
+    pairable.map((b) => b.files.size).sort((a, b) => a - b),
+  );
+  return pairable.filter((b) => b.files.size <= maxBasket);
+}
+
+/**
+ * Build the raw co-occurrence model over the {@link survivingBaskets}: count each file's
+ * commits and — for the sources in `interest` — each directional pair's co-occurrence.
+ * All counts are raw integers (the significance test is over commits).
  */
 function buildModel(
-  baskets: string[][],
-  config: DiscernConfig,
+  baskets: SurvivingBasket[],
   interest: ReadonlySet<string>,
 ): CouplingModel {
-  const pairable = baskets
-    .map((b) => [...new Set(b.filter((f) => !isNeutralPath(config, f)))])
-    .filter((b) => b.length >= 2);
-  const maxBasket = deriveMaxBasket(
-    pairable.map((b) => b.length).sort((a, b) => a - b),
-  );
-
   const commits = new Map<string, number>();
   const cooc = new Map<string, Map<string, number>>();
   let total = 0;
-  for (const basket of pairable) {
-    if (basket.length > maxBasket) {
-      continue;
-    }
+  for (const { files } of baskets) {
     total += 1;
-    for (const a of basket) {
+    for (const a of files) {
       commits.set(a, (commits.get(a) ?? 0) + 1);
       if (!interest.has(a)) {
         continue;
@@ -262,14 +307,14 @@ function buildModel(
         row = new Map<string, number>();
         cooc.set(a, row);
       }
-      for (const b of basket) {
+      for (const b of files) {
         if (b !== a) {
           row.set(b, (row.get(b) ?? 0) + 1);
         }
       }
     }
   }
-  return { commits, cooc, total, maxBasket };
+  return { commits, cooc, total };
 }
 
 /**
@@ -350,7 +395,8 @@ async function queryCoupling(
   config: DiscernConfig,
   target: string,
 ): Promise<CouplingData> {
-  const model = buildModel(await mineCommits(root), config, new Set([target]));
+  const baskets = survivingBaskets(await mineCommits(root), config);
+  const model = buildModel(baskets, new Set([target]));
   const partners = rank(partnersOf(model, target, new Set([target])));
   return { mode: "query", target, partners };
 }
@@ -381,7 +427,10 @@ async function diffCoupling(
     return { mode: "diff", changed, partners: [] };
   }
   const changedSet = new Set(changed);
-  const model = buildModel(await mineCommits(root), config, changedSet);
+  const model = buildModel(
+    survivingBaskets(await mineCommits(root), config),
+    changedSet,
+  );
   const best = new Map<string, Partner>();
   for (const from of changed) {
     for (const partner of partnersOf(model, from, changedSet)) {
@@ -395,15 +444,109 @@ async function diffCoupling(
 }
 
 /**
+ * Evidence mode: the shared co-change history of two files — the commits in which BOTH
+ * `a` and `b` changed (most-recent first, {@link EVIDENCE_COMMIT_CAP}), with each file's
+ * own commit count in the window (the "of N" denominators). It reads the SAME
+ * {@link survivingBaskets} the model counts, so the numbers corroborate what
+ * `coupling <a>` reports for the pair: a sweeping commit or a neutral path is excluded
+ * here too. This is the raw material to judge a coupling — one deliberate decision, or a
+ * few incidental rides-along — so it lists actual commits, not a score. Fails silent (an
+ * empty mine yields a zero-history result; the verb never throws).
+ */
+async function evidenceCoupling(
+  root: string,
+  config: DiscernConfig,
+  a: string,
+  b: string,
+): Promise<CouplingData> {
+  const baskets = survivingBaskets(await mineCommits(root), config);
+  let ofA = 0;
+  let ofB = 0;
+  const shared: Commit[] = [];
+  for (const { commit, files } of baskets) {
+    const hasA = files.has(a);
+    const hasB = files.has(b);
+    if (hasA) {
+      ofA += 1;
+    }
+    if (hasB) {
+      ofB += 1;
+    }
+    if (hasA && hasB) {
+      shared.push(commit);
+    }
+  }
+  return {
+    mode: "evidence",
+    a,
+    b,
+    of_a: ofA,
+    of_b: ofB,
+    together: shared.length,
+    commits: shared.slice(0, EVIDENCE_COMMIT_CAP).map((c) => ({
+      sha: c.sha,
+      date: c.date,
+      subject: c.subject,
+    })),
+    partners: [],
+  };
+}
+
+/** `together` as a share of `of` — a whole-percent string, or "" when `of` is 0 (a file
+ * with no history in the window). */
+function share(together: number, of: number): string {
+  return of > 0 ? ` (${pct(together / of)})` : "";
+}
+
+/**
+ * Evidence-mode hint lines: the shared history of two files in plain counts, then the
+ * actual commits (sha, date, subject) where both changed. No verdict — the reader judges
+ * one decision vs incidental from the dates and subjects. When the two never co-changed
+ * it still reports each file's own count, so "no shared history" is an answer, not silence.
+ */
+function evidenceHints(data: CouplingData): string[] {
+  const a = data.a ?? "";
+  const b = data.b ?? "";
+  const together = data.together ?? 0;
+  const ofA = data.of_a ?? 0;
+  const ofB = data.of_b ?? 0;
+  if (together === 0) {
+    return [
+      `\`${a}\` and \`${b}\` have not changed together in recent history ` +
+      `(from git history; \`${a}\`: ${ofA} commit(s), \`${b}\`: ${ofB} commit(s)).`,
+    ];
+  }
+  const hints = [
+    `\`${a}\` and \`${b}\` changed together in ${together} commit(s) — ${together} of ` +
+    `\`${a}\`'s ${ofA}${
+      share(together, ofA)
+    } and ${together} of \`${b}\`'s ${ofB}` +
+    `${share(together, ofB)} recent commits (from git history):`,
+  ];
+  const commits = data.commits ?? [];
+  for (const c of commits) {
+    hints.push(`  ${c.sha}  ${c.date}  ${c.subject}`);
+  }
+  const more = together - commits.length;
+  if (more > 0) {
+    hints.push(`… and ${more} more shared commit(s).`);
+  }
+  return hints;
+}
+
+/**
  * The advisory hint lines for a co-change result — the ONE human-facing surface
  * (rendered to human text, `--json`, and MCP alike). Flat, no severity tiers (ADR
  * 0063): each partner is shown with its evidence in plain counts ("N of the M recent
  * commits"), the framing states the list is NOT exhaustive, and every line is
  * observation-plus-suggestion, never a verdict. A single discovery→enforcement pointer
  * is appended when the strongest pair is a near-invariant. Empty when there are no
- * partners (the advisory stays quiet).
+ * partners (the advisory stays quiet). Evidence mode delegates to {@link evidenceHints}.
  */
 function couplingHints(data: CouplingData): string[] {
+  if (data.mode === "evidence") {
+    return evidenceHints(data);
+  }
   if (data.partners.length === 0) {
     return [];
   }
@@ -461,20 +604,27 @@ function couplingHints(data: CouplingData): string[] {
 
 /**
  * Compute the `coupling` {@link DiscernResult} without printing — the entry point the
- * MCP server renders and the CLI's `--json` serializes. Query mode when `opts.path` is
- * a non-empty file; diff-aware otherwise. `env` is injected (defaulting to the process
- * env) so the integration branch resolves without touching process-global state.
- * Always `ok: true`: an advisory has no failure mode — at worst it advises nothing.
+ * MCP server renders and the CLI's `--json` serializes. The path count selects the mode:
+ * none → diff-aware; one → query that file's partners; two (distinct) → the evidence view
+ * of the pair. `env` is injected (defaulting to the process env) so the integration branch
+ * resolves without touching process-global state. Always `ok: true`: an advisory has no
+ * failure mode — at worst it advises nothing.
  */
 export async function couplingResult(
   root: string,
-  opts: { path?: string } = {},
+  opts: { paths?: string[] } = {},
   env: EnvReader = Deno.env,
 ): Promise<DiscernResult<CouplingData>> {
   const config = await loadConfig(root);
-  const path = opts.path?.trim();
-  const data = path !== undefined && path !== ""
-    ? await queryCoupling(root, config, normalizePath(path))
+  const paths = (opts.paths ?? [])
+    .map((p) => normalizePath(p))
+    .filter((p) => p !== "");
+  const a = paths[0];
+  const b = paths[1];
+  const data = a !== undefined && b !== undefined && a !== b
+    ? await evidenceCoupling(root, config, a, b)
+    : a !== undefined
+    ? await queryCoupling(root, config, a)
     : await diffCoupling(root, config, env);
   const hints = couplingHints(data);
   return {
@@ -485,11 +635,11 @@ export async function couplingResult(
   };
 }
 
-/** Options for the `coupling` subcommand surface. */
+/** Options for the `coupling` subcommand surface. The positional `paths` select the mode:
+ * none → diff-aware; one → query; two → the pair's evidence view. */
 export interface CouplingOptions {
   json?: boolean;
-  /** Query a single file's partners; absent → the diff-aware change-set view. */
-  path?: string;
+  paths?: string[];
 }
 
 /** One rendered partner row: `<confidence>  <N of M commits>  <file>`, the confidence
@@ -512,16 +662,67 @@ function partnerRow(
     `${c.dim}${count} commits${c.reset}  ${p.path}\n`;
 }
 
+/** One evidence commit row: `<sha>  <date>  <subject>` — the same `  sha  subject` shape
+ * `integrate` narrates (ADR 0064), plus the date, the sha cyan and the date dim. */
+function evidenceRow(
+  commit: NonNullable<CouplingData["commits"]>[number],
+  c: Out["c"],
+): string {
+  return `  ${c.cyan}${commit.sha}${c.reset}  ${c.dim}${commit.date}${c.reset}  ` +
+    `${commit.subject}\n`;
+}
+
+/**
+ * Evidence mode's human view: the two files' shared-history headline in plain counts, then
+ * the actual commits (sha, date, subject) where both changed — strongest signal a reader
+ * can weigh for "one decision vs incidental". When the two never co-changed it still
+ * reports each file's own count, so "no shared history" is the answer, not a blank.
+ */
+function renderEvidenceHuman(data: CouplingData, out: Out): void {
+  const { c } = out;
+  const a = data.a ?? "";
+  const b = data.b ?? "";
+  const together = data.together ?? 0;
+  const ofA = data.of_a ?? 0;
+  const ofB = data.of_b ?? 0;
+  if (together === 0) {
+    out.raw(
+      `${a} and ${b} have not changed together in recent history.\n` +
+        `  ${c.dim}${a}: ${ofA} commit(s) · ${b}: ${ofB} commit(s)${c.reset}\n`,
+    );
+    return;
+  }
+  out.heading(`Shared history of ${a} and ${b}`);
+  out.raw(
+    `  ${c.dim}advisory — from git history; recent window${c.reset}\n` +
+      `  Changed together in ${c.bold}${together}${c.reset} commit(s) — ` +
+      `${together} of ${ofA}${share(together, ofA)} touching ${a}, ` +
+      `${together} of ${ofB}${share(together, ofB)} touching ${b}.\n\n`,
+  );
+  for (const commit of data.commits ?? []) {
+    out.raw(evidenceRow(commit, c));
+  }
+  const more = together - (data.commits?.length ?? 0);
+  if (more > 0) {
+    out.raw(`  ${c.dim}… and ${more} more shared commit(s).${c.reset}\n`);
+  }
+}
+
 /**
  * Render a co-change result as first-class human output: a heading, a dim "advisory"
  * subtitle, and every partner in `data.partners` (the FULL ranked list — NOT the terse
  * gate hints, so a direct `discern coupling` shows everything it found) as an aligned,
  * strength-coloured row, strongest first. The diff-aware view groups partners under the
- * file you changed. A near-invariant pair earns the discovery→enforcement tip. The gate
- * surfaces the terse {@link couplingHints} instead; this is the standalone verb's view.
+ * file you changed. A near-invariant pair earns the discovery→enforcement tip. Evidence
+ * mode delegates to {@link renderEvidenceHuman}. The gate surfaces the terse
+ * {@link couplingHints} instead; this is the standalone verb's view.
  */
 function renderCouplingHuman(data: CouplingData, out: Out): void {
   const { c } = out;
+  if (data.mode === "evidence") {
+    renderEvidenceHuman(data, out);
+    return;
+  }
   // The diff-aware change set is "what this branch changed" — committed since the fork
   // from the integration branch, PLUS any uncommitted edits — so it is non-empty even
   // on a clean tree if the branch is ahead. Name it precisely so "this change" can't be
@@ -597,7 +798,7 @@ export async function runCoupling(
 ): Promise<number> {
   const result = await couplingResult(
     root,
-    opts.path !== undefined ? { path: opts.path } : {},
+    opts.paths !== undefined ? { paths: opts.paths } : {},
     env,
   );
   if (opts.json) {

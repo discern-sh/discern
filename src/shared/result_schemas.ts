@@ -150,12 +150,13 @@ export const ChangedScopesDataSchema = z.strictObject({
 export type ChangedScopesData = z.infer<typeof ChangedScopesDataSchema>;
 
 /** How a `coupling` query is rooted: `diff` (surface what co-changes with the current
- * change set but is missing from it) or `query` (one file's top co-change partners).
- * The SSOT for the mode vocabulary — the schema enum below derives from it and the
- * engine core types its `mode` value as {@link CouplingMode}, so the wire enum and the
- * engine never re-list the two modes out of step. Defined here (not the engine) because
- * this `shared/` module must not import `src/engine/**`. */
-export const COUPLING_MODES = ["diff", "query"] as const;
+ * change set but is missing from it), `query` (one file's top co-change partners), or
+ * `evidence` (the shared co-change history of TWO files — the commits where both changed).
+ * The SSOT for the mode vocabulary — the schema enum below derives from it and the engine
+ * core types its `mode` value as {@link CouplingMode}, so the wire enum and the engine
+ * never re-list the modes out of step. Defined here (not the engine) because this
+ * `shared/` module must not import `src/engine/**`. */
+export const COUPLING_MODES = ["diff", "query", "evidence"] as const;
 /** One `coupling` mode ({@link COUPLING_MODES}). */
 export type CouplingMode = (typeof COUPLING_MODES)[number];
 
@@ -175,15 +176,34 @@ const couplingPartnerSchema = z.strictObject({
   lift: z.number(),
 });
 
-/** `coupling` — the co-change partners mined from git history. `mode` picks the shape:
- * `diff` carries the `changed` set considered and the partners MISSING from it; `query`
- * carries the queried `target` and its partners. `partners` is the (capped) ranked list,
- * each entry an edge with its evidence. The list is advisory and NOT exhaustive. */
+/** One commit in the `evidence`-mode shared history: its short `sha`, `date` (YYYY-MM-DD),
+ * and `subject` — the same identity `integrate` reports for a landed commit (ADR 0064),
+ * enough to judge whether two files moved as one decision or merely rode along. */
+const couplingEvidenceCommitSchema = z.strictObject({
+  sha: z.string(),
+  date: z.string(),
+  subject: z.string(),
+});
+
+/** `coupling` — the co-change view mined from git history; `mode` picks the shape:
+ * - `diff` carries the `changed` set considered and the `partners` MISSING from it;
+ * - `query` carries the queried `target` and its `partners` (the capped ranked list, each
+ *   entry an edge with its evidence — advisory and NOT exhaustive);
+ * - `evidence` compares two files `a` and `b`: `together` commits changed both (of `of_a`
+ *   that touched `a` and `of_b` that touched `b`), the most recent listed in `commits`.
+ * `partners` is always present (empty in `evidence` mode); the mode-specific fields are
+ * optional so one object models every shape. */
 export const CouplingDataSchema = z.strictObject({
   mode: z.enum(COUPLING_MODES),
   changed: z.array(z.string()).optional(),
   target: z.string().optional(),
   partners: z.array(couplingPartnerSchema),
+  a: z.string().optional(),
+  b: z.string().optional(),
+  together: z.number().int().optional(),
+  of_a: z.number().int().optional(),
+  of_b: z.number().int().optional(),
+  commits: z.array(couplingEvidenceCommitSchema).optional(),
 });
 export type CouplingData = z.infer<typeof CouplingDataSchema>;
 

@@ -426,18 +426,23 @@ export function attachEngineCommands(
     root
       .command("coupling")
       .description(
-        "Surface files that historically change together (advisory; never blocks).",
+        "Surface files that historically change together (advisory; never blocks). " +
+          "No args: what co-changes with your branch's changes but is missing. One file: " +
+          "its top partners. Two files: the commits where both changed.",
       )
       .option(
         "--json",
-        "Emit a JSON DiscernResult (data.partners lists the co-change partners).",
+        "Emit a JSON DiscernResult.",
       )
-      .arguments("[path:string]")
-      .action(async (o, path) => {
+      .arguments("[file:string] [with:string]")
+      .action(async (o, file, withFile) => {
+        const paths = [file, withFile].filter((p): p is string =>
+          p !== undefined
+        );
         Deno.exit(
           await runCoupling(await requireRoot(), {
             json: o.json ?? false,
-            ...(path !== undefined ? { path } : {}),
+            ...(paths.length > 0 ? { paths } : {}),
           }),
         );
       });

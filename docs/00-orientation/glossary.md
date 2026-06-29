@@ -282,9 +282,10 @@ M recent commits that touched A"). It is **zero-config**: it self-calibrates to
 the repo (a sweeping commit is fenced out by the repo's own commit-size
 distribution; a pair is kept only when their co-occurrence is statistically
 significant by a log-likelihood-ratio test), so incidental churn doesn't surface
-and there are no thresholds to tune. Available on demand in two modes (the
-diff-aware change-set view and a one-file `coupling <path>` query) and, behind
-`[coupling].in_gate`, at the tail of the [Gate](#gate). It is the **discovery**
+and there are no thresholds to tune. Available on demand in three modes (the
+diff-aware change-set view, a one-file `coupling <path>` query, and a two-file
+`coupling <a> <b>` evidence view that lists the commits where both changed) and,
+behind `[coupling].in_gate`, at the tail of the [Gate](#gate). It is the **discovery**
 end of the [canonical-set](#feature) discipline that the parity tests
 **enforce** — the two stay deliberately separate
 ([ADR 0069](../_adr/0069-co-change-coupling-advisory.md),

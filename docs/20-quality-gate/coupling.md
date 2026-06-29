@@ -19,9 +19,10 @@ rides in the `DiscernResult` `hints[]` (the one advisory channel — human,
 `--json`, and MCP alike), with each partner's evidence shown for transparency
 and the list stated to be **not exhaustive**.
 
-## Two modes
+## Three modes
 
-`coupling` is one verb with two modes, mirroring `changed-scopes`:
+`coupling` is one verb, and the number of file paths you give it selects the
+mode (mirroring `changed-scopes`):
 
 - **diff-aware** (no argument) — the primary surface. The "change set" is your
   **branch's work** — everything committed since the fork from the integration
@@ -34,12 +35,21 @@ and the list stated to be **not exhaustive**.
   intentional?"_
 - **query** (`discern coupling <path>`) — one file's top co-change partners, its
   blast radius. Useful before a change: _what tends to move when I touch this?_
+- **evidence** (`discern coupling <a> <b>`) — the shared co-change history of two
+  files: the commits where **both** changed, with their hashes, dates, and
+  subjects, plus each file's own commit count (the "of N" denominators). The raw
+  material to judge a coupling — _one deliberate decision, or a few incidental
+  rides-along?_ — before you act on it. It reads the same window the other modes
+  do, so its counts corroborate what `query` reports for the pair.
 
-Both render the advisory as `hints[]`; `--json` adds `data.partners`, the ranked
-list, each entry an edge `{ path, from, cochanges, of, confidence, lift }` — the
-evidence in plain counts (`cochanges` of the `of` commits that touched `from`).
-The MCP tool `discern_coupling` takes an optional `file` argument for query mode
-(the working-root override keeps the name `path`).
+All three render the advisory as `hints[]`. `--json` adds `data`: `partners` for
+diff/query (the ranked list, each entry an edge
+`{ path, from, cochanges, of, confidence, lift }` — the evidence in plain counts,
+`cochanges` of the `of` commits that touched `from`), and for evidence the pair
+`a`/`b`, the `together`/`of_a`/`of_b` counts, and `commits` (`{ sha, date,
+subject }`, reusing `integrate`'s change-summary convention). The MCP tool
+`discern_coupling` takes an optional `file` (query) and a second optional `with`
+(evidence) argument; the working-root override keeps the name `path`.
 
 ## The metric
 
