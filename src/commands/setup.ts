@@ -53,6 +53,7 @@ import {
   type HooksIntegration,
   providerFor,
   providersWithHooks,
+  reactivationHandoff,
 } from "../lib/providers.ts";
 import { resolveDefaultAgents } from "../lib/detect_agents.ts";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
@@ -1022,11 +1023,22 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
   await Deno.writeTextFile(path, editor.toString());
 
   const forced = leftover.length > 0;
+  // The reactivation handoff (ADR 0075): the agent files, MCP servers, and session
+  // hooks were wired at `begin`, but coding agents load MCP + hooks at SESSION START —
+  // so this session can't see them. Tell the agent, per configured agent, to reactivate.
+  const reactivation = reactivationHandoff(await loadConfig(root));
   if (opts.json) {
     emitResult({
       ok: true,
       verb: "setup:done",
-      data: { bootstrapped: true, forced, gate_proven: !opts.force, leftover },
+      hints: [reactivation.summary],
+      data: {
+        bootstrapped: true,
+        forced,
+        gate_proven: !opts.force,
+        leftover,
+        reactivation,
+      },
     });
     return 0;
   }
@@ -1042,6 +1054,11 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
     console.log(
       `(Marked complete with --force despite ${leftover.length} file(s) still carrying skeleton markers.)`,
     );
+  }
+  console.log("");
+  console.log(reactivation.summary);
+  for (const a of reactivation.per_agent) {
+    console.log(`  • ${a.label}: ${a.step}`);
   }
   return 0;
 }

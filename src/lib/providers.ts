@@ -16,7 +16,11 @@
 import { dirname, join } from "@std/path";
 import { ensureDir } from "@std/fs";
 import type { AgentName } from "./config.ts";
-import { AGENT_NAMES } from "../shared/config_schema.ts";
+import {
+  AGENT_NAMES,
+  type DiscernConfig,
+  resolveConfiguredAgents,
+} from "../shared/config_schema.ts";
 import {
   mergeJsonSettingsDedupingGroups,
   mergeJsonSettingsText,
@@ -46,6 +50,45 @@ export const DISCERN_MCP_SERVER: McpServerSpec = {
  * is typically not detected until the coding agent restarts; it persists after. */
 export const MCP_RESTART_HINT =
   "A discern MCP server was registered for the first time — restart your coding agent (or reload its MCP servers) for the discern tools to become available.";
+
+/** One configured agent's reactivation step in the post-setup handoff. */
+export interface AgentReactivation {
+  readonly agent: string;
+  readonly label: string;
+  readonly step: string;
+}
+
+/**
+ * The post-setup reactivation handoff (ADR 0075). `begin` wires each configured agent's
+ * MCP server and session hooks, but coding agents load BOTH at session start — so the
+ * session that ran setup can't see them. At `setup done` the agent is told, per
+ * configured agent, how to reactivate: a fresh session always, plus the one-time trust a
+ * vendor gates committed config behind (the SAME `trust.hint` doctor surfaces). Lives in
+ * the registry so the per-agent wording is single-sourced (ADR 0031/0072), built on the
+ * existing first-install restart signal rather than a parallel string.
+ */
+export function reactivationHandoff(
+  config: DiscernConfig,
+): { summary: string; per_agent: AgentReactivation[] } {
+  const base = "start a fresh session (or reload its MCP servers)";
+  const per_agent: AgentReactivation[] = resolveConfiguredAgents(config).map(
+    (name) => {
+      const provider = providerFor(name);
+      return {
+        agent: name,
+        label: provider?.label ?? name,
+        step: provider?.trust.required
+          ? `${base}, then ${provider.trust.hint}`
+          : base,
+      };
+    },
+  );
+  return {
+    summary:
+      "discern's MCP tools (discern_*) and session hooks are now wired — but coding agents load them at session start, so this session can't see them yet. Reactivate to use them:",
+    per_agent,
+  };
+}
 
 // ── the per-agent integration surfaces ──────────────────────────────────────
 
