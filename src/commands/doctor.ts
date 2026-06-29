@@ -205,6 +205,25 @@ export async function runChecks(destDir: string): Promise<Check[]> {
     return checks;
   }
 
+  // Setup provenance (ADR 0075) — informational, shown only when recorded: which model
+  // and discern version ran setup, for support triage. Advisory; discern can't verify a
+  // self-declared model, so this is evidence for a maintainer, never a health verdict.
+  {
+    const model = config.meta.setup_model;
+    const version = config.meta.setup_version;
+    const parts = [
+      model !== "" ? `model ${model}` : undefined,
+      version !== "" ? `discern ${version}` : undefined,
+    ].filter((s): s is string => s !== undefined);
+    if (parts.length > 0) {
+      checks.push({
+        name: "setup provenance",
+        ok: true,
+        detail: `set up by ${parts.join(", ")} (self-declared; for support triage)`,
+      });
+    }
+  }
+
   // 4. capabilities — informational: which are wired (the unknown-key case is now
   // a schema issue above, so a valid config only ever lists known capabilities).
   const wiredCaps = Object.entries(config.capabilities)
