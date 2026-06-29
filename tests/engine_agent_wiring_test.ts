@@ -119,12 +119,20 @@ Deno.test("Codex: refresh wires .codex/config.toml (MCP) and co-manages environm
     ) as { mcp_servers: { discern?: { command?: string } } };
     assertEquals(cfg.mcp_servers.discern?.command, "discern");
 
-    // The app's environment.toml carries discern's setup + cleanup scripts.
+    // The app's environment.toml carries discern's setup + cleanup scripts AND the
+    // top-level version/name Codex's schema requires (so a from-scratch file validates).
     const env = parseToml(
       await Deno.readTextFile(
         join(dir, ".codex/environments/environment.toml"),
       ),
-    ) as { setup: { script: string }; cleanup: { script: string } };
+    ) as {
+      version: number;
+      name: string;
+      setup: { script: string };
+      cleanup: { script: string };
+    };
+    assertEquals(env.version, 1);
+    assertEquals(env.name, "Discern");
     assertEquals(env.setup.script, "discern worktree:ensure");
     assertEquals(env.cleanup.script, "discern worktree:teardown");
 

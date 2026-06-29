@@ -8,9 +8,11 @@
  * key, its `=` alignment, and every comment elsewhere.
  *
  * It targets exactly the shape `toml.awk` reads (see ADR 0005): `[section]` and
- * `[section.sub]` headers, and single-line `key = scalar|array` assignments. It
- * is NOT a general TOML writer — multi-line arrays and inline tables are out of
- * scope (the kit doesn't use them).
+ * `[section.sub]` headers, and single-line `key = scalar|array` assignments — plus
+ * ROOT-level keys (a `key = value` before any header), which `discern.toml` itself
+ * has none of but a co-managed foreign file does (Codex's `environment.toml`
+ * `version` / `name` — see {@link TomlEditor.setRootLiteral}). It is NOT a general
+ * TOML writer — multi-line arrays and inline tables are out of scope.
  */
 
 import { renderTomlStringList } from "./toml_render.ts";
@@ -246,6 +248,68 @@ export class TomlEditor {
   /** Set a string-array-valued key. */
   setStringArray(dottedKey: string, items: string[]): this {
     return this.setLiteral(dottedKey, tomlStringArray(items));
+  }
+
+  /**
+   * The exclusive end of the document's ROOT region — the index of the first
+   * `[section]` header, or EOF when the file has none. A TOML `key = value` written
+   * before any header (a "root key", e.g. Codex's `environment.toml` `version` /
+   * `name`) lives in `[0, rootEnd)`. The `discern.toml` subset has no root keys, but
+   * a co-managed foreign file does, so the editor handles them too.
+   */
+  private rootEnd(): number {
+    const idx = this.lines.findIndex((l) => HEADER_RE.test(l));
+    return idx === -1 ? this.lines.length : idx;
+  }
+
+  /** True when a ROOT-level (pre-section) `key = …` assignment is present — the
+   * root-region analogue of {@link hasSection}, so a caller can set-if-absent. */
+  hasRootKey(key: string): boolean {
+    const keyRe = new RegExp(`^(\\s*)${escapeRegExp(key)}(\\s*=\\s*).*$`);
+    const end = this.rootEnd();
+    for (let i = 0; i < end; i++) {
+      const line = this.lines[i];
+      if (line !== undefined && keyRe.test(line)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Set a ROOT-level (pre-section) key to a pre-rendered TOML value literal —
+   * replacing an existing root key's value (preserving its `=` alignment, dropping
+   * only that line's inline comment), or inserting it at the end of the root region
+   * (just before the first section header, or at EOF). The root-region counterpart
+   * to {@link setLiteral}; the key must be a bare name, not dotted.
+   */
+  setRootLiteral(key: string, literal: string): this {
+    if (key.includes(".")) {
+      throw new Error(`root key must be a bare name (got "${key}")`);
+    }
+    const keyRe = new RegExp(`^(\\s*)${escapeRegExp(key)}(\\s*=\\s*).*$`);
+    const end = this.rootEnd();
+    for (let i = 0; i < end; i++) {
+      const line = this.lines[i];
+      if (line === undefined) continue;
+      const m = line.match(keyRe);
+      if (m) {
+        this.lines[i] = `${m[1] ?? ""}${key}${m[2] ?? ""}${literal}`;
+        return this;
+      }
+    }
+    this.lines.splice(end, 0, `${key} = ${literal}`);
+    return this;
+  }
+
+  /** Set a root-level string key. */
+  setRootString(key: string, value: string): this {
+    return this.setRootLiteral(key, tomlString(value));
+  }
+
+  /** Set a root-level number key (a string preserves its written form). */
+  setRootNumber(key: string, value: number | string): this {
+    return this.setRootLiteral(key, tomlNumber(value));
   }
 
   /** The edited text, with the original trailing-newline convention restored. */

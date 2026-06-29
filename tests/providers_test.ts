@@ -342,8 +342,10 @@ Deno.test("wireProviderWorktreeApp co-manages Codex environment.toml, preserving
       setup: { script: string };
       cleanup: { script: string };
     };
+    // set-if-absent: discern seeds version/name only when ABSENT, so the app's own
+    // values survive untouched (name stays "default", NOT clobbered to "Discern").
     assertEquals(parsed.version, 1); // app key preserved
-    assertEquals(parsed.name, "default"); // app key preserved
+    assertEquals(parsed.name, "default"); // app key preserved, not "Discern"
     assertEquals(parsed.actions, [{ label: "lint" }]); // app [[actions]] preserved
     assertEquals(parsed.setup.script, "discern worktree:ensure");
     assertEquals(parsed.cleanup.script, "discern worktree:teardown");
@@ -353,16 +355,26 @@ Deno.test("wireProviderWorktreeApp co-manages Codex environment.toml, preserving
   });
 });
 
-Deno.test("wireProviderWorktreeApp creates environment.toml when absent, and skips agents without one", async () => {
+Deno.test("wireProviderWorktreeApp creates a SCHEMA-VALID environment.toml when absent (version + name), and skips agents without one", async () => {
   await withTempDir(async (dir) => {
-    // Absent file → created with just discern's setup/cleanup.
+    // Absent file → created with discern's setup/cleanup AND the top-level keys
+    // Codex's schema REQUIRES (version: number, name: string). Without these, Codex
+    // rejects the file ("expected string, received undefined" at `name`), so seeding
+    // them is the guard against that regression — a from-scratch file must validate.
     const wrote = await wireProviderWorktreeApp(dir, ["codex"]);
     assertEquals(wrote, [".codex/environments/environment.toml"]);
     const parsed = parseToml(
       await Deno.readTextFile(
         join(dir, ".codex/environments/environment.toml"),
       ),
-    ) as { setup: { script: string }; cleanup: { script: string } };
+    ) as {
+      version: number;
+      name: string;
+      setup: { script: string };
+      cleanup: { script: string };
+    };
+    assertEquals(parsed.version, 1);
+    assertEquals(parsed.name, "Discern");
     assertEquals(parsed.setup.script, "discern worktree:ensure");
     assertEquals(parsed.cleanup.script, "discern worktree:teardown");
 

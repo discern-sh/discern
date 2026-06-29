@@ -180,6 +180,46 @@ Deno.test("editor rejects a non-section key", () => {
   assert(threw, "a key with no section should be rejected");
 });
 
+Deno.test("root keys: setRoot* insert before the first section, then replace in place", () => {
+  // A foreign file (Codex's environment.toml) carries root-level keys before any
+  // section header — the discern.toml subset never does, but the editor handles them.
+  const editor = new TomlEditor("");
+  assert(!editor.hasRootKey("version"), "an empty file has no root key");
+  editor.setRootNumber("version", 1);
+  editor.setRootString("name", "Discern");
+  editor.setString("setup.script", "run");
+  assertEquals(
+    editor.toString(),
+    'version = 1\nname = "Discern"\n\n[setup]\nscript = "run"',
+  );
+  // Both root keys are now present…
+  const e2 = new TomlEditor(editor.toString());
+  assert(e2.hasRootKey("version") && e2.hasRootKey("name"));
+  // …and re-setting one replaces it in place (no duplicate line).
+  e2.setRootString("name", "Other");
+  assertStringIncludes(e2.toString(), 'name = "Other"');
+  assertEquals(e2.toString().match(/^name =/gm)?.length, 1);
+});
+
+Deno.test("root keys are scoped to the pre-section region (a same-named section key is not a root key)", () => {
+  // `name` lives inside [project], not at the root — hasRootKey must not see it.
+  const editor = new TomlEditor('[project]\nname = "x"\n');
+  assert(!editor.hasRootKey("name"), "a key inside a section is not a root key");
+  // Setting it as a root key inserts a NEW root line before the section.
+  editor.setRootString("name", "root");
+  assertStringIncludes(editor.toString(), 'name = "root"\n[project]');
+});
+
+Deno.test("setRootLiteral rejects a dotted key", () => {
+  let threw = false;
+  try {
+    new TomlEditor("").setRootLiteral("a.b", "1");
+  } catch {
+    threw = true;
+  }
+  assert(threw, "a dotted key is not a root key");
+});
+
 Deno.test("tomlNumber rejects a non-finite number", () => {
   let threw = false;
   try {
