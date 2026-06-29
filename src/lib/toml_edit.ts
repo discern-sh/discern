@@ -27,6 +27,61 @@ function isBlankLine(line: string): boolean {
   return line.trim() === "";
 }
 
+/**
+ * Return a line's trailing inline comment, including the whitespace before `#`.
+ * Hashes inside single- or double-quoted TOML strings are value content.
+ */
+function inlineCommentSuffix(line: string, valueStart: number): string {
+  let quote: "'" | '"' | null = null;
+  let escaped = false;
+
+  for (let i = valueStart; i < line.length; i++) {
+    const char = line[i];
+    if (quote === '"') {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === '"') {
+        quote = null;
+      }
+      continue;
+    }
+    if (quote === "'") {
+      if (char === "'") {
+        quote = null;
+      }
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      quote = char;
+      continue;
+    }
+    if (char === "#") {
+      let suffixStart = i;
+      while (
+        suffixStart > valueStart &&
+        /\s/.test(line[suffixStart - 1] ?? "")
+      ) {
+        suffixStart--;
+      }
+      return line.slice(suffixStart);
+    }
+  }
+  return "";
+}
+
+/** Replace one matched assignment's value while retaining its layout and comment. */
+function replaceLiteralValue(
+  line: string,
+  key: string,
+  match: RegExpMatchArray,
+  literal: string,
+): string {
+  const prefix = `${match[1] ?? ""}${key}${match[2] ?? ""}`;
+  return `${prefix}${literal}${inlineCommentSuffix(line, prefix.length)}`;
+}
+
 /** Render a string as a double-quoted TOML value (escaping `\` and `"`). */
 export function tomlString(value: string): string {
   if (value.includes("\n")) {
@@ -82,7 +137,7 @@ export class TomlEditor {
   /**
    * Set a dotted key (`section[.sub].key`) to a pre-rendered TOML value literal.
    * Replaces the value of an existing key (preserving its `=` alignment and
-   * dropping only that line's inline comment), inserts the key after its section
+   * inline comment), inserts the key after its section
    * header if the key is absent, or appends a new section at EOF if the section
    * is absent.
    */
@@ -116,7 +171,7 @@ export class TomlEditor {
       if (lineText === undefined) continue;
       const m = lineText.match(keyRe);
       if (m) {
-        this.lines[i] = `${m[1] ?? ""}${key}${m[2] ?? ""}${literal}`;
+        this.lines[i] = replaceLiteralValue(lineText, key, m, literal);
         return this;
       }
     }
@@ -278,8 +333,8 @@ export class TomlEditor {
 
   /**
    * Set a ROOT-level (pre-section) key to a pre-rendered TOML value literal —
-   * replacing an existing root key's value (preserving its `=` alignment, dropping
-   * only that line's inline comment), or inserting it at the end of the root region
+   * replacing an existing root key's value (preserving its `=` alignment and
+   * inline comment), or inserting it at the end of the root region
    * (just before the first section header, or at EOF). The root-region counterpart
    * to {@link setLiteral}; the key must be a bare name, not dotted.
    */
@@ -294,7 +349,7 @@ export class TomlEditor {
       if (line === undefined) continue;
       const m = line.match(keyRe);
       if (m) {
-        this.lines[i] = `${m[1] ?? ""}${key}${m[2] ?? ""}${literal}`;
+        this.lines[i] = replaceLiteralValue(line, key, m, literal);
         return this;
       }
     }

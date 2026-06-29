@@ -39,6 +39,32 @@ Deno.test("editor replaces a value, preserving alignment and other comments", ()
   assertStringIncludes(out, "[scopes.side_gates]");
 });
 
+Deno.test("value replacement preserves its own inline comment", async (t) => {
+  const cases = [
+    {
+      name: "section key",
+      input: '[project]\nslug = "old # value"   # keep this annotation\n',
+      replace: (editor: TomlEditor) =>
+        editor.setString("project.slug", "new value"),
+      expected: 'slug = "new value"   # keep this annotation',
+    },
+    {
+      name: "root key",
+      input: 'name = "old # value"   # keep this annotation\n[project]\n',
+      replace: (editor: TomlEditor) =>
+        editor.setRootString("name", "new value"),
+      expected: 'name = "new value"   # keep this annotation',
+    },
+  ];
+
+  for (const testCase of cases) {
+    await t.step(testCase.name, () => {
+      const out = testCase.replace(new TomlEditor(testCase.input)).toString();
+      assertStringIncludes(out, testCase.expected);
+    });
+  }
+});
+
 Deno.test("editor inserts a missing key into an existing section", () => {
   const out = new TomlEditor(SAMPLE).setString("project.main_branch", "trunk")
     .toString();

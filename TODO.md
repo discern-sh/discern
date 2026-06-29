@@ -75,14 +75,6 @@ _Nothing outstanding._
       `src/lib/migrations.ts` (`from: 5`); `src/commands/doctor.ts` (the new
       "gotchas doc" check surfaces it).
 
-- [ ] **`config set <key> <value>` strips the edited line's inline comment.**
-      The comment-preserving `TomlEditor.setLiteral` rewrites the whole
-      `key = …` line, dropping any trailing `# …` annotation, so editing the
-      self-documenting `discern.toml` via the CLI quietly degrades it one line
-      at a time (e.g. `config set features.worktrees false` drops that line's
-      trailing `# …` annotation). Preserve a trailing inline comment when
-      rewriting a value. Evidence: `src/lib/toml_edit.ts` (`setLiteral`).
-
 - [ ] **`worktree:prune` apply re-scans instead of consuming its plan (footgun,
       gate-guarded).** `pruneGitWorktrees`/`sweepOrphanWorktrees` still take a
       `dryRun` flag whose two return paths must stay in lock-step (the original
@@ -218,7 +210,14 @@ _Nothing outstanding._
 
 ## 🟢 Test & tooling hygiene
 
-None at present.
+- [ ] **Markdown colour tests fail when the caller exports `NO_COLOR`.** The
+      tests explicitly render with `{ color: true }`, but Cliffy's global colour
+      switch still honours the inherited environment. With `NO_COLOR=1`, the
+      full gate fails seven ANSI assertions; unsetting it makes the same suite
+      pass. Isolate forced-colour tests from the process environment so the gate
+      is invariant across agent shells. Evidence: `tests/markdown_test.ts`
+      (colour assertions from line 87); `src/lib/markdown.ts` (Cliffy `colors`
+      import).
 
 ## 🔵 Unmerged / at-risk work — decide: land or drop
 
