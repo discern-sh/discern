@@ -6,9 +6,32 @@
 # own in-progress engine and the main checkout runs main's. Outside any checkout
 # — e.g. running discern against another project — it falls back to $DISCERN_HOME.
 #
+# EXCEPTION — `discern mcp`: the MCP server is the one LONG-LIVED process here, and a
+# coding agent (Codex's app-managed-worktree flow) spawns it from INSIDE a worktree.
+# Running an ephemeral worktree's engine in a long-lived server is fragile: graduating
+# that worktree removes its src/ + templates/ out from under the still-running server
+# (the source-relative `resolveTemplatesDir` then can't find templates/). So `mcp`
+# alone runs from the MAIN checkout — the worktree's own main repo, found via
+# `git worktree list` (the main worktree is its first entry) — which is stable and
+# always current (you graduate fixes into it). The gate it then orchestrates still runs
+# the WORKTREE's code (its `deno task test`/`fmt` execute at the working root), so
+# nothing is lost for dogfooding; only live testing of MCP-server changes themselves
+# needs the explicit `deno task dev mcp`. Every other verb stays cwd-aware below.
+#
 # This is purely a convenience for developing discern itself; it is NOT part of
 # user-facing setup and discern's installer never lays it down. Install or update
 # it with `deno task install-dev-cli`.
+
+if [ "$1" = "mcp" ]; then
+  main=$(git -C "$PWD" worktree list --porcelain 2>/dev/null |
+    sed -n 's/^worktree //p' | head -1)
+  if [ -n "$main" ] && [ -f "$main/src/main.ts" ] && [ -f "$main/deno.json" ]; then
+    exec deno run --allow-read --allow-write --allow-env --allow-run \
+      --config "$main/deno.json" "$main/src/main.ts" "$@"
+  fi
+  # Not inside a discern checkout (e.g. an external project's MCP from source): fall
+  # through to the cwd-walk / $DISCERN_HOME resolution below.
+fi
 
 dir=$PWD
 while [ "$dir" != "/" ]; do
