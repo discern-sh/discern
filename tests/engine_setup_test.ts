@@ -328,7 +328,9 @@ Deno.test("discern setup persists the PATH-detected agent set into [guidance].ag
 
     const { path, bin } = await pathWithFakeAgent("gemini");
     try {
-      const r = await runAgent(dir, ["setup", "--json"], { env: { PATH: path } });
+      const r = await runAgent(dir, ["setup", "--json"], {
+        env: { PATH: path },
+      });
       assertEquals(r.code, 0, r.output);
 
       // gemini ∉ DEFAULT_AGENTS, so it is in the WRITTEN config only via detection.
