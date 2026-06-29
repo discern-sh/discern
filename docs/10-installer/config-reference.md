@@ -154,7 +154,7 @@ Co-change coupling detection — a zero-config, read-only advisory that mines gi
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `in_gate` | boolean | `false` | Surface the co-change advisory during `discern finish` too (as hints, at the tail). Off by default; purely advisory, it never affects the gate's pass/fail. |
+| `in_gate` | boolean | `false` | Surface the co-change advisory during the gate too — both `discern finish` and the fast inner loop `discern prepare` (as hints, at the tail), so the nudge meets a change while it is hot. Off by default; purely advisory, it never affects pass/fail. |
 
 ## `[recipes]`
 

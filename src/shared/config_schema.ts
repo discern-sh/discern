@@ -373,7 +373,7 @@ const gateSection = z.strictObject({
 
 const couplingSection = z.strictObject({
   in_gate: z.boolean().default(false).describe(
-    "Surface the co-change advisory during `discern finish` too (as hints, at the tail). Off by default; purely advisory, it never affects the gate's pass/fail.",
+    "Surface the co-change advisory during the gate too — both `discern finish` and the fast inner loop `discern prepare` (as hints, at the tail), so the nudge meets a change while it is hot. Off by default; purely advisory, it never affects pass/fail.",
   ),
 }).prefault({}).describe(
   "Co-change coupling detection — a zero-config, read-only advisory that mines git history for files that change together, so a touched file's habitual sibling isn't forgotten. It self-calibrates to your repo, so there are no thresholds to tune; the only setting is whether it also rides along with the gate. Read it on demand with `discern coupling`. Purely advisory: it points at where to look and never blocks. (Inert when [features].coupling = false.)",

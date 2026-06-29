@@ -19,8 +19,8 @@
  *  - evidence mode (two files) lists EXACTLY the commits where both changed, with the
  *    "of N" denominators, excludes a solo commit, and reports "no shared history" as zero;
  *  - the partner list is capped (top-k), so the advisory never floods;
- *  - finish surfaces it only behind `[coupling].in_gate`, never changing pass/fail, and
- *    is suppressed pre-bootstrap.
+ *  - finish AND the fast inner loop prepare surface it only behind `[coupling].in_gate`,
+ *    never changing pass/fail, and it is suppressed pre-bootstrap.
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
@@ -39,6 +39,7 @@ import {
   MAX_PARTNERS,
 } from "../src/engine/coupling/coupling.ts";
 import { finishResult } from "../src/engine/gate/finish.ts";
+import { prepareResult } from "../src/engine/gate/prepare.ts";
 import type { CouplingData } from "../src/shared/result_schemas.ts";
 
 /** A bare set-up project (no capabilities; guidance/skills off so the gate is a clean
@@ -559,5 +560,98 @@ Deno.test("coupling A B works black-box on the CLI (evidence mode, --json and hu
     assertStringIncludes(h.stdout, "Changed together in 2");
     assertStringIncludes(h.stdout, "ab-decision");
     assertStringIncludes(h.stdout, "ab-again");
+  });
+});
+
+Deno.test("prepare appends the coupling advisory only when [coupling].in_gate is on, and never changes pass/fail", async () => {
+  await withTempDir(async (dir) => {
+    await setup(dir, false); // in_gate off
+    for (let i = 0; i < 4; i++) {
+      await commit(dir, { "a.ts": `${i}`, "b.ts": `${i}` }, `ab${i}`);
+    }
+    await noise(dir, 6);
+    await Deno.writeTextFile(join(dir, "a.ts"), "staged");
+
+    // in_gate off (the default): the fast loop is green and carries NO coupling advisory.
+    const off = await prepareResult(dir);
+    assertEquals(off.ok, true);
+    assert(
+      !(off.hints ?? []).some((h) => h.includes("Co-change advisory")),
+      `no advisory when in_gate is off: ${JSON.stringify(off.hints)}`,
+    );
+
+    // Flip it on — the SAME flag finish honours.
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[features]",
+        "guidance = false",
+        "skills = false",
+        "",
+        "[coupling]",
+        "in_gate = true",
+        "",
+      ].join("\n"),
+    );
+    const on = await prepareResult(dir);
+    assertEquals(
+      on.ok,
+      true,
+      "the advisory must not change prepare's pass/fail",
+    );
+    const hints = on.hints ?? [];
+    assert(
+      hints.some((h) => h.includes("b.ts")),
+      `expected a coupling advisory naming b.ts: ${JSON.stringify(hints)}`,
+    );
+    // It rides at the TAIL, as in finish — the same diff-aware advisory, in the hot loop.
+    const idx = hints.findIndex((h) => h.includes("Co-change advisory"));
+    assert(
+      idx >= 0 && idx >= hints.length - 6,
+      `coupling hints should sit at the tail: ${JSON.stringify(hints)}`,
+    );
+  });
+});
+
+Deno.test("prepare suppresses the coupling advisory until the install is bootstrapped", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { bootstrapped: false });
+    await gitInit(dir);
+    // in_gate on, but not bootstrapped → coupling behaves as if disabled (the in-session
+    // setup loop stays uncluttered), exactly as finish does.
+    await writeConfig(
+      dir,
+      [
+        "[meta]",
+        "bootstrapped = false",
+        "",
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[features]",
+        "guidance = false",
+        "skills = false",
+        "",
+        "[coupling]",
+        "in_gate = true",
+        "",
+      ].join("\n"),
+    );
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "config", "--no-gpg-sign");
+    for (let i = 0; i < 4; i++) {
+      await commit(dir, { "a.ts": `${i}`, "b.ts": `${i}` }, `ab${i}`);
+    }
+    await noise(dir, 6);
+    await Deno.writeTextFile(join(dir, "a.ts"), "staged");
+
+    const result = await prepareResult(dir);
+    assert(
+      !(result.hints ?? []).some((h) => h.includes("Co-change advisory")),
+      `no advisory before bootstrap: ${JSON.stringify(result.hints)}`,
+    );
   });
 });

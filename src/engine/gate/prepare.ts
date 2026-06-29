@@ -10,6 +10,11 @@
  * (and the CLI's `--json`) render, while {@link runPrepare} narrates the same run and
  * prints a human tail. `--json` is quiet — the envelope is the entire stdout (ADR
  * 0030), with a failure's output captured into its diagnostic rather than streamed.
+ *
+ * On a GREEN, bootstrapped run it appends the diff-aware co-change advisory (ADR 0074)
+ * at the tail — behind the same `[coupling].in_gate` flag `finish` honours — so the
+ * nudge meets the change while it is hot in the inner loop. Best-effort and advisory:
+ * it touches only `hints`, never prepare's pass/fail, and is skipped on a failed run.
  */
 
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
@@ -18,6 +23,8 @@ import { preparePlanGroups, serializeJobSteps } from "./plan.ts";
 import { gateRunContext, runJobGroups } from "./execute.ts";
 import { renderFailureTail } from "./failure_tail.ts";
 import { emitResult } from "../../shared/emit.ts";
+import { couplingGateHints } from "../coupling/coupling.ts";
+import { isFeatureEnabled } from "../../shared/features.ts";
 import type { DiscernResult, FailedStage } from "../../shared/result.ts";
 import type { Out } from "../output.ts";
 
@@ -44,13 +51,26 @@ async function runPrepareGate(
   const { results, failedStage } = await runJobGroups(groups, runOpts, out);
   const { steps, diagnostics } = serializeJobSteps(groups, results);
   const inProgress = setupInProgressHint(cfg.meta.bootstrapped);
+  // The co-change advisory (ADR 0074) rides the fast inner loop too, behind the SAME
+  // [coupling].in_gate preference, so the nudge meets the change while it is hot — not
+  // only at finish. Mirrors finish's discipline exactly: only on a GREEN, bootstrapped
+  // run with the feature on, best-effort, and touching ONLY `hints`, so it can never move
+  // prepare's `ok` / exit code / failed stage, nor slow a failed loop (it is skipped then).
+  const couplingHints = failedStage === null && cfg.meta.bootstrapped &&
+      isFeatureEnabled(cfg, "coupling") && cfg.coupling.in_gate
+    ? await couplingGateHints(root)
+    : [];
+  const hints = [
+    // Pre-setup, this output is indicative — prepare is un-gated during setup (ADR 0065).
+    ...(inProgress !== undefined ? [inProgress] : []),
+    ...couplingHints,
+  ];
   const result: DiscernResult = {
     ok: failedStage === null,
     verb: "prepare",
     steps,
     diagnostics: diagnostics.length > 0 ? diagnostics : undefined,
-    // Pre-setup, this output is indicative — prepare is un-gated during setup (ADR 0065).
-    ...(inProgress !== undefined ? { hints: [inProgress] } : {}),
+    ...(hints.length > 0 ? { hints } : {}),
   };
   return { result, failedStage, out, cfg };
 }
@@ -88,5 +108,9 @@ export async function runPrepare(
     return 1;
   }
   out.ok("Prepare complete — fixers applied and checks passed.");
+  // The advisory tail (the co-change nudge / the setup-in-progress note) — same as finish.
+  for (const hint of result.hints ?? []) {
+    out.info(hint);
+  }
   return 0;
 }

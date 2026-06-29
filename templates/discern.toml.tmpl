@@ -339,16 +339,18 @@ fail_fast = true
 # for files that change TOGETHER, so a touched file's habitual sibling isn't
 # forgotten. Read it on demand with `discern coupling` (no argument → what
 # co-changes with your current change set but is MISSING from it; `discern
-# coupling <path>` → one file's top partners — its blast radius). It is
+# coupling <path>` → one file's top partners, its blast radius; `discern coupling
+# <a> <b>` → the commits where both changed, to judge a coupling). It is
 # ZERO-CONFIG: it self-calibrates to your repo (commit size, cadence, scale), so
 # there are no thresholds to tune. Purely ADVISORY: it points at where to look
 # and never blocks. (Inert when [features].coupling = false.)
 # ─────────────────────────────────────────────────────────────────────────────
 
 [coupling]
-# Surface the advisory during `discern finish` too (as hints, at the tail — it
-# never affects the gate's pass/fail). Off by default; opt in to get the nudge in
-# the gate as well as on demand.
+# Surface the advisory during the gate too — `discern finish` AND the fast inner
+# loop `discern prepare` (as hints, at the tail — it never affects pass/fail), so
+# the nudge meets a change while it is hot. Off by default; opt in to get the
+# nudge in the gate as well as on demand.
 in_gate = false
 
 

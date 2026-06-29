@@ -92,9 +92,9 @@ than failing into noise.
 There is nothing to tune — the metric self-calibrates. The only setting is
 whether the advisory also rides along with the gate:
 
-| Key       | Default | Meaning                                                                              |
-| --------- | ------- | ------------------------------------------------------------------------------------ |
-| `in_gate` | `false` | Surface the diff-aware advisory during `discern finish` too (as hints, at the tail). |
+| Key       | Default | Meaning                                                                                                                                       |
+| --------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `in_gate` | `false` | Surface the diff-aware advisory during the gate too — `discern finish` **and** the fast inner loop `discern prepare` (as hints, at the tail). |
 
 The whole subsystem is the `coupling`
 [Feature](../00-orientation/glossary.md#feature), inert when
@@ -103,13 +103,17 @@ The whole subsystem is the `coupling`
 
 ## In the gate
 
-With `[coupling].in_gate = true`, `discern finish` appends the diff-aware
-advisory to its result as `hints[]`, at the **tail** of the run — alongside
-strand detection, because it reads the diff and is therefore dependency-bearing,
-never a fail-fast precondition. It is suppressed entirely until the install is
-bootstrapped, so an agent's in-session setup stays uncluttered. It **never**
-changes the gate's verdict — only adds advice. The flag is off by default: opt
-in when you want the nudge in the gate as well as on demand.
+With `[coupling].in_gate = true`, **both** `discern finish` and the fast inner
+loop `discern prepare` append the diff-aware advisory to their result as
+`hints[]`, at the **tail** of the run — alongside strand detection, because it
+reads the diff and is therefore dependency-bearing, never a fail-fast
+precondition. Wiring it into `prepare` too means the nudge meets the change
+while it is still hot, not as a surprise at the finish line. The 500-commit
+name-only mine is cheap, so it never slows the loop. It is suppressed entirely
+until the install is bootstrapped, so an agent's in-session setup stays
+uncluttered, and is skipped on a failed run. It **never** changes pass/fail —
+only adds advice. The flag is off by default: opt in when you want the nudge in
+the gate as well as on demand.
 
 ## Discovery, not enforcement
 
