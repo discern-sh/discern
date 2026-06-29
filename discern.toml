@@ -72,7 +72,7 @@ sources = ["guidance.md"]
 
 # Which provider files to emit. Known targets:
 #   "claude_code" -> CLAUDE.md   "codex" -> AGENTS.md   "gemini" -> GEMINI.md
-agents = ["claude_code", "codex", "gemini"]
+agents = ["claude_code", "gemini"]
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [skills] — focused, reusable task playbooks. The effective set is discern's
