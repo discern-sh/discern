@@ -60,34 +60,63 @@ export interface AgentReactivation {
 
 /**
  * The post-setup reactivation handoff (ADR 0075). `begin` wires each configured agent's
- * MCP server and session hooks, but coding agents load BOTH at session start — so the
- * session that ran setup can't see them. At `setup done` the agent is told, per
- * configured agent, how to reactivate: a fresh session always, plus the one-time trust a
- * vendor gates committed config behind (the SAME `trust.hint` doctor surfaces). Lives in
- * the registry so the per-agent wording is single-sourced (ADR 0031/0072), built on the
- * existing first-install restart signal rather than a parallel string.
+ * MCP server and session hooks, but coding agents load them at session start — so the
+ * session that ran setup can't see them. At `setup done`, each configured agent that
+ * wired something loading at session start gets its {@link reactivationStep}; an agent
+ * that wired nothing (a reuse-canonical agent) is omitted, never told to restart for
+ * nothing. Lives in the registry so the per-agent wording is single-sourced (ADR
+ * 0031/0072) and DERIVED from the provider's own fields, not a parallel list.
  */
 export function reactivationHandoff(
   config: DiscernConfig,
 ): { summary: string; per_agent: AgentReactivation[] } {
-  const base = "start a fresh session (or reload its MCP servers)";
-  const per_agent: AgentReactivation[] = resolveConfiguredAgents(config).map(
-    (name) => {
-      const provider = providerFor(name);
-      return {
-        agent: name,
-        label: provider?.label ?? name,
-        step: provider?.trust.required
-          ? `${base}, then ${provider.trust.hint}`
-          : base,
-      };
-    },
-  );
+  const per_agent: AgentReactivation[] = [];
+  for (const name of resolveConfiguredAgents(config)) {
+    const provider = providerFor(name);
+    if (provider === undefined) {
+      continue;
+    }
+    const step = reactivationStep(provider);
+    if (step === undefined) {
+      continue; // nothing discern wired for this agent loads at session start
+    }
+    per_agent.push({ agent: name, label: provider.label, step });
+  }
   return {
     summary:
       "discern's MCP tools (discern_*) and session hooks are now wired — but coding agents load them at session start, so this session can't see them yet. Reactivate to use them:",
     per_agent,
   };
+}
+
+/**
+ * The reactivation step for ONE provider, DERIVED from its wiring — or `undefined` when
+ * nothing discern wired for it loads at session start (a reuse-canonical agent with no
+ * MCP and no hooks needs no restart, so it is never told to). The step names exactly
+ * what was wired (the live `mcp` server and/or the session `hooks`) and appends the
+ * one-time `trust` action when the vendor gates committed config behind one — all three
+ * being REQUIRED {@link Provider} fields, so a NEW vendor's reactivation follows from
+ * its declaration automatically, with no hand-maintained list. `engine_setup_reactivation`
+ * ties this to the PROVIDERS registry (ADR 0051/0075): a vendor whose reactivation does
+ * not follow from its wiring red-lights there.
+ */
+export function reactivationStep(provider: Provider): string | undefined {
+  const loads: string[] = [];
+  if (provider.mcp.kind === "wired") {
+    loads.push("MCP server");
+  }
+  if (provider.hooks !== undefined) {
+    loads.push("session hooks");
+  }
+  if (loads.length === 0) {
+    return undefined;
+  }
+  const base = `start a fresh session to load the discern ${
+    loads.join(" and ")
+  }`;
+  return provider.trust.required
+    ? `${base}, then ${provider.trust.hint}`
+    : base;
 }
 
 // ── the per-agent integration surfaces ──────────────────────────────────────

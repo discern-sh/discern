@@ -98,7 +98,13 @@ hard invariant is that nothing is written until `begin`.** Four phases:
    `[meta].bootstrapped` (ADR 0065). It now also emits the **provider-aware
    reactivation handoff**: the `discern_*` MCP tools and session hooks are wired
    but load at session start, so each configured agent is told its specific
-   reactivation step (new session; for some, a full restart).
+   reactivation step (new session; for some, a one-time trust). Each step is
+   DERIVED from that agent's required wiring (its live `mcp` server, its
+   `hooks`, its `trust` gate) — not a hand-listed table — so a reuse-canonical
+   agent that wired nothing is never told to restart, and a parity test ties the
+   derivation to the `PROVIDERS` registry (ADR 0051): a new vendor's
+   setup-completion handoff follows from its declaration and cannot be silently
+   forgotten.
 
 The read-only→destructive boundary sits exactly at `verify | begin`.
 
