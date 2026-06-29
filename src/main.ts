@@ -35,6 +35,7 @@ import {
   hasScaffoldIntent,
   runSetupBegin,
   runSetupDone,
+  runSetupStep,
 } from "./commands/setup.ts";
 import { runSetupWelcome } from "./commands/setup_welcome.ts";
 import { runSetupVerify } from "./commands/setup_verify.ts";
@@ -203,6 +204,16 @@ export function buildCli(
       Deno.exit(await runSetupVerify({ json, noColor }));
     });
 
+  const setupStep = new Command()
+    .description(
+      "Re-serve one numbered step of the setup brief (read-only; for a mid-setup re-focus).",
+    )
+    .arguments("<n:number>")
+    .action(async (options, n: number) => {
+      const { json, noColor } = globalFlags(options);
+      Deno.exit(await runSetupStep(n, { json, noColor }));
+    });
+
   const setupDone = new Command()
     .description("Validate setup and record [meta].bootstrapped.")
     .option("--force", "Record completion even if skeleton markers remain.")
@@ -267,6 +278,7 @@ export function buildCli(
     })
     .command("verify", setupVerify)
     .command("begin", setupBegin)
+    .command("step", setupStep)
     .command("done", setupDone);
   // Hide on the REGISTERED command, not the pre-registration instance: the
   // instance form of `.command()` re-parents, so `setup.hidden()` wouldn't take.

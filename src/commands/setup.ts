@@ -890,6 +890,79 @@ async function ensureSetupBranch(
   return { branch: SETUP_BRANCH };
 }
 
+/** Options for `discern setup step <n>` (just the global flags). */
+export interface SetupStepOptions {
+  json: boolean;
+  noColor: boolean;
+}
+
+/**
+ * `discern setup step <n>` — re-serve ONE numbered step of the setup brief, read-only
+ * (ADR 0075). A convenience for an agent that lost the thread mid-setup; it tracks
+ * nothing and records nothing — derived progress (`status`, the welcome) is the
+ * progress signal, never a self-reported step marker.
+ */
+export async function runSetupStep(
+  n: number,
+  opts: SetupStepOptions,
+): Promise<number> {
+  const instructions = await Deno.readTextFile(
+    join(await resolveSetupDir(), "instructions.md"),
+  );
+  const section = extractStep(instructions, n);
+  if (section === undefined) {
+    const message =
+      `no Step ${n} in the setup brief. Run \`discern setup begin\` to reprint the whole brief.`;
+    if (opts.json) {
+      emitResult({
+        ok: false,
+        verb: "setup:step",
+        error: "no_such_step",
+        message,
+      });
+    } else {
+      console.error(`discern: ${message}`);
+    }
+    return 1;
+  }
+  if (opts.json) {
+    emitResult({
+      ok: true,
+      verb: "setup:step",
+      data: { step: n, text: section },
+    });
+  } else {
+    console.log(section);
+  }
+  return 0;
+}
+
+/** Slice the `## Step <n> — …` section out of the brief, up to the next `## ` heading
+ * or a `---` rule. Returns undefined when there is no such step. */
+function extractStep(brief: string, n: number): string | undefined {
+  const lines = brief.split("\n");
+  const startRe = new RegExp(`^## Step ${n}\\b`);
+  let start = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (startRe.test(lines[i] ?? "")) {
+      start = i;
+      break;
+    }
+  }
+  if (start === -1) {
+    return undefined;
+  }
+  let end = lines.length;
+  for (let i = start + 1; i < lines.length; i++) {
+    const line = lines[i] ?? "";
+    if (line.startsWith("## ") || line.trim() === "---") {
+      end = i;
+      break;
+    }
+  }
+  return lines.slice(start, end).join("\n").trimEnd();
+}
+
 /**
  * `discern setup done` — validate that no skeleton markers remain AND prove the
  * gate green (ADR 0065), then record `[meta].bootstrapped = true` so the setup
