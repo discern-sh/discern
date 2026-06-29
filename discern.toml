@@ -108,7 +108,7 @@ dir = "skills"
 [capabilities]
 format    = "deno fmt"
 lint      = "deno lint"
-typecheck = "deno check src/main.ts"
+typecheck = "deno check"
 test      = "deno task test"
 # build is intentionally omitted — it is release-only here, not part of the gate.
 
