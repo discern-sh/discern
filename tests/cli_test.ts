@@ -108,7 +108,9 @@ Deno.test("setup re-run over a set-up install reports already_set_up (idempotent
     await runCli(["setup", "--slug", "first"], dir);
     // Mark setup complete (--force: the laid skeletons still carry markers).
     await runCli(["setup", "done", "--force"], dir);
-    const { code, stdout } = await runCli(["setup", "--json"], dir);
+    // `begin` on a recorded install is idempotent — it reports already_set_up rather
+    // than re-scaffolding (the welcome's `phase: done` is the parent's equivalent).
+    const { code, stdout } = await runCli(["setup", "begin", "--json"], dir);
     assertEquals(code, 0);
     const result = JSON.parse(stdout);
     assertEquals(result.ok, true);

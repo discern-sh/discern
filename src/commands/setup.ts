@@ -424,10 +424,14 @@ async function scaffoldHarness(
 
   const changed = await applyPlan(plan);
 
-  // Record setup provenance (write-once) into the scaffolded config — the discern
-  // version that ran begin, and any agent-declared --model — for support triage (ADR
-  // 0075). After applyPlan, so the config file exists to edit.
-  await recordProvenance(destDir, opts.model);
+  // Record setup provenance into the freshly-scaffolded config — the discern version
+  // that ran begin, and any agent-declared --model — for support triage (ADR 0075).
+  // FRESH-INSTALL ONLY: a `--force` re-run over a user's pre-existing config seed must
+  // leave it byte-for-byte untouched, so provenance is never stamped into a file
+  // discern didn't write. After applyPlan, so the fresh config exists to edit.
+  if (freshInstall) {
+    await recordProvenance(destDir, opts.model);
+  }
 
   // Seed guidance.md (the default [guidance].sources) BEFORE the first compile, and
   // migrate any pre-existing, hand-authored agent file into it so the compile that
@@ -555,12 +559,13 @@ async function seedGuidance(
 }
 
 /**
- * Record setup provenance into the scaffolded `discern.toml`, write-once (ADR 0075):
+ * Record setup provenance into the freshly-scaffolded `discern.toml` (ADR 0075):
  * `[meta].setup_version` (the discern version that ran `begin`) and, when the agent
  * declared one via `--model`, `[meta].setup_model`. For the support triage `doctor`
  * surfaces; advisory only — discern can't verify a self-declared model. Comment-
- * preserving (mirrors how `setup done` records `bootstrapped`), and a no-op on a
- * resume where a key is already present, so the FIRST `begin` is what's recorded.
+ * preserving (mirrors how `setup done` records `bootstrapped`). The caller gates this
+ * on `freshInstall`, so a pre-existing config seed is never edited; the per-key
+ * `has()` guard is belt-and-suspenders, keeping it write-once even if that changes.
  */
 async function recordProvenance(
   root: string,
