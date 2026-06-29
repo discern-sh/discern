@@ -144,6 +144,74 @@ Deno.test("Codex: refresh wires .codex/config.toml (MCP) and co-manages environm
   });
 });
 
+Deno.test("Cursor + Copilot: scaffold seeds each SessionStart hook; refresh wires .cursor/mcp.json and the co-owned .mcp.json", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await setAgents(dir, ["cursor", "copilot"]);
+
+    // The scaffold seeded each vendor's SessionStart hook in its own shape — Cursor's
+    // flat `{ command }`, Copilot's `{ type, bash }` — both running worktree:ensure.
+    const cursorHooks = JSON.parse(
+      await Deno.readTextFile(join(dir, ".cursor/hooks.json")),
+    );
+    assertEquals(
+      cursorHooks.hooks.sessionStart[0].command,
+      "discern worktree:ensure",
+    );
+    const copilotHooks = JSON.parse(
+      await Deno.readTextFile(join(dir, ".github/hooks/discern.json")),
+    );
+    assertEquals(
+      copilotHooks.hooks.sessionStart[0].bash,
+      "discern worktree:ensure",
+    );
+
+    // refresh wires Cursor's own .cursor/mcp.json and Copilot's co-owned .mcp.json.
+    const r = await runAgent(dir, ["refresh", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    const data = JSON.parse(r.stdout).data;
+    assert(
+      data.mcp_wired.includes(".cursor/mcp.json"),
+      `expected .cursor/mcp.json in mcp_wired: ${r.stdout}`,
+    );
+    assert(
+      data.mcp_wired.includes(".mcp.json"),
+      `expected .mcp.json in mcp_wired: ${r.stdout}`,
+    );
+
+    // Both carry the byte-identical stdio entry (Cursor requires the explicit type).
+    const cursorMcp = JSON.parse(
+      await Deno.readTextFile(join(dir, ".cursor/mcp.json")),
+    );
+    assertEquals(cursorMcp.mcpServers.discern, {
+      type: "stdio",
+      command: "discern",
+      args: ["mcp"],
+    });
+    const sharedMcp = JSON.parse(
+      await Deno.readTextFile(join(dir, ".mcp.json")),
+    );
+    assertEquals(sharedMcp.mcpServers.discern, {
+      type: "stdio",
+      command: "discern",
+      args: ["mcp"],
+    });
+    // .claude/settings.json is seeded by the scaffold, but neither Cursor nor Copilot
+    // pre-approves via enabledMcpjsonServers — that key is Claude's, written only by
+    // registerClaudeCodeMcp, and Claude is not a configured agent here. They gate on trust.
+    const claudeSettings = JSON.parse(
+      await Deno.readTextFile(join(dir, ".claude/settings.json")),
+    );
+    assertEquals(claudeSettings.enabledMcpjsonServers, undefined);
+
+    // Idempotent: a second refresh re-wires neither file.
+    const r2 = await runAgent(dir, ["refresh", "--json"]);
+    const data2 = JSON.parse(r2.stdout).data;
+    assertEquals(data2.mcp_wired.includes(".cursor/mcp.json"), false);
+    assertEquals(data2.mcp_wired.includes(".mcp.json"), false);
+  });
+});
+
 Deno.test("a default (Claude-only) refresh declares no worktree-app file — the seam is registry-driven, skipped when unused", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir); // agents = ["claude_code"]

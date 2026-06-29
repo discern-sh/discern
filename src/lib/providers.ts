@@ -18,6 +18,7 @@ import { ensureDir } from "@std/fs";
 import type { AgentName } from "./config.ts";
 import { AGENT_NAMES } from "../shared/config_schema.ts";
 import {
+  mergeJsonSettingsDedupingGroups,
   mergeJsonSettingsText,
   type SettingsSeedMerge,
 } from "./settings_merge.ts";
@@ -338,7 +339,12 @@ async function writeJsonObject(path: string, value: unknown): Promise<void> {
 
 // ── Claude Code ─────────────────────────────────────────────────────────────
 
-const CLAUDE_MCP_FILE = ".mcp.json";
+/** The project-scoped, committed MCP-servers file `discern mcp` rides in. The
+ * cross-tool `.mcp.json` standard: Claude Code reads it, and the GitHub Copilot CLI
+ * reads the SAME file — so the two CO-OWN it. discern writes a byte-identical
+ * `mcpServers.discern` entry for both via {@link registerStdioMcpJson}, so whichever
+ * provider wires second is a clean no-op and the file can only ever carry one entry. */
+const MCP_JSON_FILE = ".mcp.json";
 const CLAUDE_SETTINGS_FILE = ".claude/settings.json";
 
 /** Claude Code's own project skills directory. Claude Code does NOT read the
@@ -359,6 +365,53 @@ const CODEX_MCP_FILE = ".codex/config.toml";
 const CODEX_HOOKS_FILE = ".codex/hooks.json";
 const CODEX_ENV_FILE = ".codex/environments/environment.toml";
 
+/** Cursor reads its project MCP servers from a committable `.cursor/mcp.json` (its
+ * own file, requiring an explicit `type: "stdio"`) and its SessionStart hook from a
+ * separate committable `.cursor/hooks.json`. */
+const CURSOR_MCP_FILE = ".cursor/mcp.json";
+const CURSOR_HOOKS_FILE = ".cursor/hooks.json";
+
+/** The GitHub Copilot CLI reads its project MCP servers from the SAME committable
+ * `.mcp.json` Claude uses ({@link MCP_JSON_FILE}, co-owned) and loads every
+ * `.github/hooks/*.json`, so discern keeps its SessionStart hook in a discern-owned
+ * `.github/hooks/discern.json`. */
+const COPILOT_HOOKS_FILE = ".github/hooks/discern.json";
+
+/**
+ * Register a stdio MCP server into a JSON file's `mcpServers.<name>` map, writing
+ * `{ type: "stdio", command, args }` — the `.mcp.json`/`.cursor/mcp.json` shape Claude
+ * Code, Cursor, and the Copilot CLI all read. MERGE, never clobber: an existing file's
+ * other servers and top-level keys are preserved; only this server's entry is
+ * added/updated. `firstInstall` is whether the server name was absent before — the
+ * restart-needed signal. Idempotent: a re-run that finds the entry already correct writes
+ * nothing. The ONE writer the stdio-`mcpServers`-JSON providers share, so a file co-owned
+ * by two of them (Claude + Copilot's `.mcp.json`) can only ever carry one byte-identical
+ * entry, and the second provider to wire it is a no-op regardless of order. (Gemini's
+ * `.gemini/settings.json` is NOT one of these — it omits `type`, inferring stdio from
+ * `command`, so it keeps its own {@link registerGeminiMcp}.)
+ */
+async function registerStdioMcpJson(
+  root: string,
+  configFile: string,
+  server: McpServerSpec,
+): Promise<McpWireResult> {
+  const path = join(root, configFile);
+  const doc = await readJsonObject(path);
+  const servers = isObject(doc.mcpServers) ? doc.mcpServers : {};
+  const firstInstall = !(server.name in servers);
+  const desired = {
+    type: "stdio",
+    command: server.command,
+    args: [...server.args],
+  };
+  if (JSON.stringify(servers[server.name]) === JSON.stringify(desired)) {
+    return { written: [], firstInstall };
+  }
+  doc.mcpServers = { ...servers, [server.name]: desired };
+  await writeJsonObject(path, doc);
+  return { written: [configFile], firstInstall };
+}
+
 /**
  * Register discern's MCP server for Claude Code: write the server into the
  * project-scoped `.mcp.json` (committed, shared with everyone who opens the repo),
@@ -370,26 +423,10 @@ async function registerClaudeCodeMcp(
   root: string,
   server: McpServerSpec,
 ): Promise<McpWireResult> {
-  const written: string[] = [];
-
-  // 1. .mcp.json — the project-scoped server definition (a local stdio command).
-  //    MERGE, never clobber: an existing file's other servers and top-level keys
-  //    are preserved; only this server's entry is added/updated.
-  const mcpPath = join(root, CLAUDE_MCP_FILE);
-  const mcpDoc = await readJsonObject(mcpPath);
-  const servers = isObject(mcpDoc.mcpServers) ? mcpDoc.mcpServers : {};
-  // First install = the server name was absent before — the restart-needed signal.
-  const firstInstall = !(server.name in servers);
-  const desired = {
-    type: "stdio",
-    command: server.command,
-    args: [...server.args],
-  };
-  if (JSON.stringify(servers[server.name]) !== JSON.stringify(desired)) {
-    mcpDoc.mcpServers = { ...servers, [server.name]: desired };
-    await writeJsonObject(mcpPath, mcpDoc);
-    written.push(CLAUDE_MCP_FILE);
-  }
+  // 1. .mcp.json — the project-scoped server definition (a local stdio command),
+  //    via the shared writer (the file Copilot co-owns).
+  const mcp = await registerStdioMcpJson(root, MCP_JSON_FILE, server);
+  const written = [...mcp.written];
 
   // 2. .claude/settings.json — pre-approve the project-scoped server by name,
   //    preserving every other setting (hooks, permissions) already written.
@@ -402,7 +439,7 @@ async function registerClaudeCodeMcp(
     written.push(CLAUDE_SETTINGS_FILE);
   }
 
-  return { written, firstInstall };
+  return { written, firstInstall: mcp.firstInstall };
 }
 
 // ── Gemini CLI ──────────────────────────────────────────────────────────────
@@ -528,6 +565,40 @@ async function registerCodexEnvironment(root: string): Promise<string[]> {
   return wrote !== undefined ? [wrote] : [];
 }
 
+// ── Cursor & GitHub Copilot (reuse-canonical guidance + skills) ──────────────
+
+/**
+ * Register discern's MCP server for Cursor: write the stdio server into the
+ * project-committable `.cursor/mcp.json` under `mcpServers` (Cursor's own file,
+ * requiring the explicit `type: "stdio"` the shared writer emits), preserving any
+ * other servers/keys. No pre-approval list — Cursor gates committed servers behind
+ * workspace trust + per-tool approval (the trust hint), not a settings key.
+ * Idempotent via {@link registerStdioMcpJson}.
+ */
+async function registerCursorMcp(
+  root: string,
+  server: McpServerSpec,
+): Promise<McpWireResult> {
+  return await registerStdioMcpJson(root, CURSOR_MCP_FILE, server);
+}
+
+/**
+ * Register discern's MCP server for the GitHub Copilot CLI: write the stdio server
+ * into the SAME project-committable `.mcp.json` Claude uses ({@link MCP_JSON_FILE},
+ * co-owned), preserving any other servers/keys. NO `enabledMcpjsonServers`
+ * pre-approval (that is Claude's key) — Copilot gates committed config behind a
+ * one-time folder trust (the trust hint), not a per-server list. Because it writes
+ * the byte-identical entry through the shared writer, a project that also configures
+ * Claude has the two register into one file with the second run a clean no-op,
+ * either order. Idempotent via {@link registerStdioMcpJson}.
+ */
+async function registerCopilotMcp(
+  root: string,
+  server: McpServerSpec,
+): Promise<McpWireResult> {
+  return await registerStdioMcpJson(root, MCP_JSON_FILE, server);
+}
+
 // ── the registry ────────────────────────────────────────────────────────────
 
 /**
@@ -551,7 +622,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     mcp: {
       kind: "wired",
       integration: {
-        configFile: CLAUDE_MCP_FILE,
+        configFile: MCP_JSON_FILE,
         register: registerClaudeCodeMcp,
       },
     },
@@ -647,6 +718,85 @@ export const PROVIDERS: Record<AgentName, Provider> = {
       required: true,
       hint:
         "trust the workspace so committed .gemini/settings.json loads in safe mode (bypass: --skip-trust or GEMINI_CLI_TRUST_WORKSPACE=true); hooks also require hooks.enabled = true to fire.",
+    },
+  },
+  cursor: {
+    name: "cursor",
+    label: "Cursor",
+    // `cursor-agent` is the high-confidence CLI signal; `agent` is the generic
+    // alias the same binary also installs as. Match-any: either resolving means present.
+    binaries: ["cursor-agent", "agent"],
+    // Cursor reads the canonical AGENTS.md natively at the repo root, so discern emits
+    // NOTHING of its own for it (reuse-canonical: no duplicate body, no pointer).
+    guidanceFile: { path: "AGENTS.md", canonical: false, reuseCanonical: true },
+    // Cursor reads the cross-tool .agents/skills/ — the shared alias, so it dedupes
+    // onto Codex's/Gemini's target rather than adding a dir of its own.
+    skillsDir: AGENTS_SKILLS_DIR,
+    // MCP is wired: discern writes the stdio `discern mcp` server into the
+    // project-committable `.cursor/mcp.json` (Cursor's own file, with type: "stdio"),
+    // preserving other servers/keys; idempotent; gated by workspace trust + per-tool
+    // approval (see trust), not a pre-approval list.
+    mcp: {
+      kind: "wired",
+      integration: { configFile: CURSOR_MCP_FILE, register: registerCursorMcp },
+    },
+    // SessionStart-only hooks surface in the committable `.cursor/hooks.json`: the
+    // per-session `discern worktree:ensure` re-ready step. No worktree create/remove
+    // event (empty worktreeEventKeys), so discern's own worktrees stay CLI/MCP-driven.
+    // Cursor's hook groups carry the command at the group level (`{ command }`), which
+    // the default merge can't dedup — so it uses the group-dedup seed strategy to stay
+    // idempotent across re-seeds.
+    hooks: {
+      settingsFile: CURSOR_HOOKS_FILE,
+      worktreeEventKeys: [],
+      sessionHookNeedle: "discern worktree:ensure",
+      mergeSeed: mergeJsonSettingsDedupingGroups,
+    },
+    // Committed .cursor/ MCP is inert until the workspace is trusted, and tool use is
+    // approval-gated by default.
+    trust: {
+      required: true,
+      hint:
+        "trust the workspace, then approve the discern MCP server's tools on first use (bypass for headless: --approve-mcps).",
+    },
+  },
+  copilot: {
+    name: "copilot",
+    label: "GitHub Copilot",
+    // The Copilot CLI ships as `copilot` — NOT `gh copilot` (the deprecated extension).
+    binaries: ["copilot"],
+    // The Copilot CLI reads the canonical AGENTS.md natively as its primary
+    // instructions (it has no @import directive), so discern emits nothing of its own
+    // (reuse-canonical).
+    guidanceFile: { path: "AGENTS.md", canonical: false, reuseCanonical: true },
+    // Copilot reads the cross-tool .agents/skills/ — the shared alias, deduped onto the
+    // existing target.
+    skillsDir: AGENTS_SKILLS_DIR,
+    // MCP is wired: discern writes the stdio `discern mcp` server into the SAME
+    // committable `.mcp.json` Claude uses (co-owned, byte-identical) — NO
+    // enabledMcpjsonServers pre-approval (Copilot gates via folder trust, not that key).
+    // Idempotent and order-independent with Claude's wiring (the shared writer).
+    mcp: {
+      kind: "wired",
+      integration: { configFile: MCP_JSON_FILE, register: registerCopilotMcp },
+    },
+    // SessionStart-only hooks surface in a discern-owned `.github/hooks/discern.json`
+    // (Copilot loads every `.github/hooks/*.json`). sessionStart fires per-prompt in
+    // interactive mode, so the seeded `discern worktree:ensure` must stay idempotent —
+    // it is. No worktree create/remove event (empty worktreeEventKeys). Copilot's hook
+    // groups carry the command at the group level (`{ bash }`), so this uses the
+    // group-dedup seed strategy to re-seed idempotently.
+    hooks: {
+      settingsFile: COPILOT_HOOKS_FILE,
+      worktreeEventKeys: [],
+      sessionHookNeedle: "discern worktree:ensure",
+      mergeSeed: mergeJsonSettingsDedupingGroups,
+    },
+    // Committed .mcp.json / .github/hooks config is inert until the folder is trusted.
+    trust: {
+      required: true,
+      hint:
+        "add the folder to trustedFolders in ~/.copilot/config.json (bypass for headless: --allow-all-tools --allow-all-paths).",
     },
   },
 };

@@ -168,6 +168,48 @@ export function mergeJsonSettingsText(
 }
 
 /**
+ * Like {@link mergeJsonSettingsText}, but additionally collapses hook-event groups
+ * that are equal by canonical JSON — the strategy for a provider whose hook groups
+ * carry the command at the GROUP level rather than nested under `hooks[].command`
+ * (Cursor's `{ command }`, Copilot's `{ bash }`). The default
+ * {@link mergeHookEvent} dedups only on a nested command string ({@link commandsInGroup}),
+ * which such a group has none of — so a plain re-merge under `discern setup --force`
+ * would append it again every time. Deferring to {@link mergeSettings} for the deep-merge
+ * (so user keys, permission unions, and nested-command dedup all behave identically) and
+ * then dropping any structurally-duplicate group makes the re-seed a stable no-op. The
+ * dedup is shape-agnostic — it matches whole groups, so it bakes in no vendor key name
+ * and only ever removes an EXACT repeat (the harmless case).
+ */
+export function mergeJsonSettingsDedupingGroups(
+  existingText: string | undefined,
+  incomingText: string,
+): string {
+  const existing: unknown = existingText === undefined
+    ? {}
+    : JSON.parse(existingText);
+  const incoming: unknown = JSON.parse(incomingText);
+  const merged = mergeSettings(existing, incoming);
+  const hooks = merged[HOOK_EVENTS_KEY];
+  if (isObject(hooks)) {
+    for (const [event, groups] of Object.entries(hooks)) {
+      if (!Array.isArray(groups)) {
+        continue;
+      }
+      const seen = new Set<string>();
+      hooks[event] = groups.filter((group) => {
+        const key = JSON.stringify(group);
+        if (seen.has(key)) {
+          return false;
+        }
+        seen.add(key);
+        return true;
+      });
+    }
+  }
+  return `${JSON.stringify(merged, null, 2)}\n`;
+}
+
+/**
  * Deep-merge the kit's settings (`incoming`) into the user's (`existing`),
  * applying the hooks and permissions rules. Returns a new object; inputs are
  * not mutated. A missing/invalid `existing` is treated as an empty object.

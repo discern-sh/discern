@@ -74,7 +74,13 @@ const NAME_RE = /^[A-Za-z0-9_-]+$/;
  * the document's `agents` enum, the generated editor JSON Schema (so it can never
  * miss one), AND the installer's `KNOWN_AGENTS` (re-exported from
  * `lib/config.ts`). */
-export const AGENT_NAMES = ["claude_code", "codex", "gemini"] as const;
+export const AGENT_NAMES = [
+  "claude_code",
+  "codex",
+  "gemini",
+  "cursor",
+  "copilot",
+] as const;
 
 /**
  * The providers a fresh install emits when neither `[guidance].agents` nor the
@@ -236,7 +242,7 @@ const guidanceSection = z.strictObject({
     "Your guideline source file(s), relative to the project root. Globs allowed. Read only if present; the built-in harness guidance is always prepended.",
   ),
   agents: z.array(z.string()).default([]).describe(
-    'Which provider files to emit: "claude_code" -> CLAUDE.md, "codex" -> AGENTS.md, "gemini" -> GEMINI.md.',
+    'Which agent integrations to enable: "claude_code" -> CLAUDE.md, "codex" -> AGENTS.md, "gemini" -> GEMINI.md; "cursor" and "copilot" read AGENTS.md natively, so no file is emitted for them.',
   ),
 }).prefault({}).describe(
   "The author-once → compile-everywhere agent-instruction pipeline. `discern refresh` compiles discern's built-in guidance plus your sources into one generated file per provider.",
@@ -463,7 +469,7 @@ export const configDocSchema = z.strictObject({
     "Free-text description of what the project is.",
   ),
   agents: z.array(z.enum(AGENT_NAMES)).optional().describe(
-    "Which agent instruction files to compile (claude_code, codex, gemini).",
+    "Which agent integrations to enable (claude_code, codex, gemini, cursor, copilot). cursor and copilot read AGENTS.md natively, so no instruction file is compiled for them.",
   ),
   description: z.string().optional().describe(
     "Preset metadata, shown when listing presets; ignored by `init --config`.",

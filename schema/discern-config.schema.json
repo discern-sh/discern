@@ -43,14 +43,16 @@
       "type": "string"
     },
     "agents": {
-      "description": "Which agent instruction files to compile (claude_code, codex, gemini).",
+      "description": "Which agent integrations to enable (claude_code, codex, gemini, cursor, copilot). cursor and copilot read AGENTS.md natively, so no instruction file is compiled for them.",
       "type": "array",
       "items": {
         "type": "string",
         "enum": [
           "claude_code",
           "codex",
-          "gemini"
+          "gemini",
+          "cursor",
+          "copilot"
         ]
       }
     },

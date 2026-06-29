@@ -9,6 +9,7 @@ import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import { AGENT_NAMES } from "../src/shared/config_schema.ts";
 import {
+  allGuidanceFilePaths,
   DISCERN_MCP_SERVER,
   MCP_RESTART_HINT,
   providerFor,
@@ -37,10 +38,12 @@ Deno.test("every known agent declares a skills directory (all SKILL.md-format)",
     const dir = providerFor(name)?.skillsDir;
     assert(dir !== undefined && dir.length > 0, `${name}: no skills dir`);
   }
-  // Claude keeps its own; Codex + Gemini share the cross-tool standard.
+  // Claude keeps its own; Codex, Gemini, Cursor, and Copilot share the cross-tool standard.
   assertEquals(providerFor("claude_code")?.skillsDir, ".claude/skills");
   assertEquals(providerFor("codex")?.skillsDir, ".agents/skills");
   assertEquals(providerFor("gemini")?.skillsDir, ".agents/skills");
+  assertEquals(providerFor("cursor")?.skillsDir, ".agents/skills");
+  assertEquals(providerFor("copilot")?.skillsDir, ".agents/skills");
 });
 
 Deno.test("skillsDirsForAgents: dedupes Codex+Gemini onto the shared .agents/skills", () => {
@@ -122,35 +125,71 @@ Deno.test("the discern MCP server spec is `discern mcp`", () => {
   });
 });
 
-Deno.test("MCP status is typed and explicit: all three agents wired to their own config file", () => {
+Deno.test("MCP status is typed and explicit: all five agents wired to their own config file", () => {
   // The typed McpStatus (ADR 0051) tightens as plans flip pending → wired: Phase B
   // wired Codex (.codex/config.toml, TOML) and Gemini (.gemini/settings.json, JSON)
-  // alongside Claude (.mcp.json). Every provider now carries a live integration naming
-  // the committable file it writes into — no `pending`/`undefined` gap left.
+  // alongside Claude (.mcp.json); Phase C wires Cursor (.cursor/mcp.json) and Copilot
+  // (the SAME .mcp.json Claude uses — co-owned). Every provider carries a live
+  // integration naming the committable file it writes into — no pending/undefined gap.
   assertEquals(providerFor("claude_code")?.mcp.kind, "wired");
   assertEquals(wiredMcp(PROVIDERS.claude_code)?.configFile, ".mcp.json");
   assertEquals(providerFor("codex")?.mcp.kind, "wired");
   assertEquals(wiredMcp(PROVIDERS.codex)?.configFile, ".codex/config.toml");
   assertEquals(providerFor("gemini")?.mcp.kind, "wired");
   assertEquals(wiredMcp(PROVIDERS.gemini)?.configFile, ".gemini/settings.json");
+  assertEquals(providerFor("cursor")?.mcp.kind, "wired");
+  assertEquals(wiredMcp(PROVIDERS.cursor)?.configFile, ".cursor/mcp.json");
+  assertEquals(providerFor("copilot")?.mcp.kind, "wired");
+  // Copilot co-owns Claude's .mcp.json — same file, byte-identical entry (ADR 0074).
+  assertEquals(wiredMcp(PROVIDERS.copilot)?.configFile, ".mcp.json");
 
   // hook-stripping / the settings seam iterate exactly the providers that declare a
-  // hook surface — now all three (Codex + Gemini gained a SessionStart hook), in
+  // hook surface — now all five (Cursor + Copilot gained a SessionStart hook), in
   // registry order.
   assertEquals(providersWithHooks().map((p) => p.name), [
     "claude_code",
     "codex",
     "gemini",
+    "cursor",
+    "copilot",
   ]);
 
   // Only Codex co-manages an app-managed worktree-lifecycle file (environment.toml);
-  // the others declare no worktreeApp (skipped, never guessed).
+  // every other agent declares no worktreeApp (skipped, never guessed).
   assertEquals(
     providerFor("codex")?.worktreeApp?.configFile,
     ".codex/environments/environment.toml",
   );
   assertEquals(providerFor("claude_code")?.worktreeApp, undefined);
   assertEquals(providerFor("gemini")?.worktreeApp, undefined);
+  assertEquals(providerFor("cursor")?.worktreeApp, undefined);
+  assertEquals(providerFor("copilot")?.worktreeApp, undefined);
+});
+
+Deno.test("Cursor & Copilot are reuse-canonical: read AGENTS.md natively, emit nothing, share .agents/skills", () => {
+  // Phase C's two cheap agents: guidance and skills reuse artifacts discern already
+  // produces, so each is a registry declaration, not new machinery (ADR 0070).
+  for (const name of ["cursor", "copilot"] as const) {
+    const p = providerFor(name);
+    assert(p !== undefined, `no provider for ${name}`);
+    // Reuse-canonical: path names the canonical AGENTS.md it READS; discern emits
+    // nothing of its own (no duplicate body, no pointer).
+    assertEquals(p.guidanceFile.path, "AGENTS.md");
+    assertEquals(p.guidanceFile.canonical, false);
+    assertEquals(p.guidanceFile.reuseCanonical, true);
+    assertEquals(p.guidanceFile.pointer, undefined);
+    // The shared cross-tool skills dir — deduped onto Codex's/Gemini's target.
+    assertEquals(p.skillsDir, ".agents/skills");
+    // Committed MCP/hooks are inert until a one-time trust, and the action is named.
+    assertEquals(p.trust.required, true);
+    assert(
+      p.trust.hint.trim().length > 0,
+      `${name}: trust hint must name the action`,
+    );
+  }
+  // A reuse-canonical provider leaks no duplicate AGENTS.md into the emitted set.
+  const emitted = allGuidanceFilePaths();
+  assertEquals(emitted.filter((p) => p === "AGENTS.md").length, 1);
 });
 
 Deno.test("wireProviderMcp writes .mcp.json + approval for Claude Code, idempotently", async () => {
@@ -384,6 +423,120 @@ Deno.test("wireProviderWorktreeApp creates a SCHEMA-VALID environment.toml when 
       [],
     );
   });
+});
+
+Deno.test("wireProviderMcp wires Cursor: type:stdio mcpServers.discern into .cursor/mcp.json only", async () => {
+  await withTempDir(async (dir) => {
+    const first = await wireProviderMcp(dir, ["cursor"]);
+    assertEquals(first.written, [".cursor/mcp.json"]);
+    assert(first.firstInstall, "a fresh Cursor wire must report firstInstall");
+
+    const mcp = JSON.parse(
+      await Deno.readTextFile(join(dir, ".cursor/mcp.json")),
+    );
+    // Cursor requires an explicit type: "stdio" (unlike Gemini, which infers it).
+    assertEquals(mcp.mcpServers.discern, {
+      type: "stdio",
+      command: "discern",
+      args: ["mcp"],
+    });
+    // Cursor wires only its own file — never Claude's .mcp.json or settings.
+    await assertAbsent(join(dir, ".mcp.json"));
+    await assertAbsent(join(dir, ".claude/settings.json"));
+
+    // Idempotent: a second wire writes nothing and is not a first install.
+    const second = await wireProviderMcp(dir, ["cursor"]);
+    assertEquals(second.written, []);
+    assertEquals(second.firstInstall, false);
+  });
+});
+
+Deno.test("wireProviderMcp Cursor MERGES into an existing .cursor/mcp.json, preserving servers + keys", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.mkdir(join(dir, ".cursor"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, ".cursor/mcp.json"),
+      JSON.stringify(
+        {
+          mcpServers: { other: { type: "stdio", command: "other-tool" } },
+          someTopLevelKey: true,
+        },
+        null,
+        2,
+      ),
+    );
+    const r = await wireProviderMcp(dir, ["cursor"]);
+    assert(r.firstInstall, "discern was absent → firstInstall");
+    const mcp = JSON.parse(
+      await Deno.readTextFile(join(dir, ".cursor/mcp.json")),
+    );
+    assertEquals(mcp.mcpServers.other, {
+      type: "stdio",
+      command: "other-tool",
+    }); // preserved
+    assertEquals(mcp.someTopLevelKey, true); // preserved
+    assertEquals(mcp.mcpServers.discern.command, "discern"); // added
+  });
+});
+
+Deno.test("wireProviderMcp wires Copilot: into .mcp.json with NO enabledMcpjsonServers (folder-trust gated)", async () => {
+  await withTempDir(async (dir) => {
+    const first = await wireProviderMcp(dir, ["copilot"]);
+    assertEquals(first.written, [".mcp.json"]);
+    assert(first.firstInstall, "a fresh Copilot wire must report firstInstall");
+
+    const mcp = JSON.parse(await Deno.readTextFile(join(dir, ".mcp.json")));
+    assertEquals(mcp.mcpServers.discern, {
+      type: "stdio",
+      command: "discern",
+      args: ["mcp"],
+    });
+    // Copilot gates via folder trust, NOT enabledMcpjsonServers — so it never writes
+    // Claude's settings file (unlike registerClaudeCodeMcp).
+    await assertAbsent(join(dir, ".claude/settings.json"));
+
+    // Idempotent: a second wire writes nothing and is not a first install.
+    const second = await wireProviderMcp(dir, ["copilot"]);
+    assertEquals(second.written, []);
+    assertEquals(second.firstInstall, false);
+  });
+});
+
+Deno.test("Copilot co-owns Claude's .mcp.json: one byte-identical entry, order-independent, re-wire a no-op", async () => {
+  // Both write the discern stdio entry into the SAME .mcp.json via the shared writer
+  // (ADR 0074), so whichever runs second finds it already correct and writes nothing —
+  // and the file carries exactly one entry regardless of order.
+  for (
+    const order of [
+      ["claude_code", "copilot"],
+      ["copilot", "claude_code"],
+    ] as const
+  ) {
+    await withTempDir(async (dir) => {
+      const r = await wireProviderMcp(dir, order);
+      assert(r.firstInstall, "the server was newly added → firstInstall");
+
+      const mcp = JSON.parse(await Deno.readTextFile(join(dir, ".mcp.json")));
+      // Exactly one discern entry, byte-identical to the shared shape.
+      assertEquals(Object.keys(mcp.mcpServers), ["discern"]);
+      assertEquals(mcp.mcpServers.discern, {
+        type: "stdio",
+        command: "discern",
+        args: ["mcp"],
+      });
+      // Claude (in either order) still pre-approves the server; Copilot adds no
+      // second registration.
+      const settings = JSON.parse(
+        await Deno.readTextFile(join(dir, ".claude/settings.json")),
+      );
+      assertEquals(settings.enabledMcpjsonServers, ["discern"]);
+
+      // A full re-wire of both providers is a clean no-op.
+      const again = await wireProviderMcp(dir, order);
+      assertEquals(again.written, []);
+      assertEquals(again.firstInstall, false);
+    });
+  }
 });
 
 /** Assert a path does not exist on disk. */

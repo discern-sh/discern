@@ -9,7 +9,10 @@
  */
 
 import { assertEquals, assertExists, assertNotStrictEquals } from "@std/assert";
-import { mergeSettings } from "../src/lib/settings_merge.ts";
+import {
+  mergeJsonSettingsDedupingGroups,
+  mergeSettings,
+} from "../src/lib/settings_merge.ts";
 
 /** The kit's incoming settings, shaped like the real template. */
 function incoming(): unknown {
@@ -168,6 +171,66 @@ Deno.test("a non-array permissions value falls through to set-if-absent merge", 
   assertEquals(result.permissions.defaultMode, "ask");
   assertEquals(result.permissions.allow, "mine");
   assertEquals(result.permissions.additionalDirectories, ["/tmp"]);
+});
+
+Deno.test("mergeJsonSettingsDedupingGroups: flat group-level command/bash hooks re-seed idempotently", () => {
+  // Cursor's `{ command }` and Copilot's `{ type, bash }` carry the command at the
+  // GROUP level, which the default nested-command dedup (commandsInGroup) can't see —
+  // so a plain re-merge under `setup --force` would append the group again. This
+  // strategy collapses structurally-equal groups, so re-seeding is byte-stable.
+  const cursor = JSON.stringify({
+    version: 1,
+    hooks: { sessionStart: [{ command: "discern worktree:ensure" }] },
+  });
+  const once = mergeJsonSettingsDedupingGroups(undefined, cursor);
+  const twice = mergeJsonSettingsDedupingGroups(once, cursor);
+  assertEquals(twice, once); // byte-stable across a re-seed
+  assertEquals(
+    (JSON.parse(twice) as { hooks: { sessionStart: unknown[] } }).hooks
+      .sessionStart
+      .length,
+    1,
+  );
+
+  // Copilot's `bash`-keyed group dedups the same way (shape-agnostic, no baked-in key).
+  const copilot = JSON.stringify({
+    version: 1,
+    hooks: {
+      sessionStart: [{
+        type: "command",
+        bash: "discern worktree:ensure",
+        timeoutSec: 30,
+      }],
+    },
+  });
+  const c1 = mergeJsonSettingsDedupingGroups(undefined, copilot);
+  const c2 = mergeJsonSettingsDedupingGroups(c1, copilot);
+  assertEquals(c2, c1);
+  assertEquals(
+    (JSON.parse(c2) as { hooks: { sessionStart: unknown[] } }).hooks
+      .sessionStart.length,
+    1,
+  );
+});
+
+Deno.test("mergeJsonSettingsDedupingGroups: a user's distinct hook group is preserved (only exact repeats collapse)", () => {
+  const existing = JSON.stringify({
+    hooks: { sessionStart: [{ command: "my-own-hook" }] },
+  });
+  const incoming = JSON.stringify({
+    version: 1,
+    hooks: { sessionStart: [{ command: "discern worktree:ensure" }] },
+  });
+  const merged = JSON.parse(
+    mergeJsonSettingsDedupingGroups(existing, incoming),
+  ) as { hooks: { sessionStart: Array<{ command: string }> } };
+  // Both kept — dedup only collapses an EXACT structural repeat, never a distinct group.
+  assertEquals(merged.hooks.sessionStart.length, 2);
+  assertEquals(merged.hooks.sessionStart[0]?.command, "my-own-hook");
+  assertEquals(
+    merged.hooks.sessionStart[1]?.command,
+    "discern worktree:ensure",
+  );
 });
 
 Deno.test("permissions.allow unions and a non-permission key recurses as an object", () => {
