@@ -311,8 +311,12 @@ export const StatusDataSchema = z.strictObject({
   ratchets: z.array(z.string()),
   stale_generated: z.array(z.string()).optional(),
   stale_materialized: z.array(z.string()).optional(),
-  setup_unfinished: z.strictObject({ pending_markers: z.array(z.string()) })
-    .optional(),
+  setup_unfinished: z.strictObject({
+    pending_markers: z.array(z.string()),
+    capabilities: z.array(
+      z.strictObject({ name: z.string(), wired: z.boolean() }),
+    ),
+  }).optional(),
   fleet: z.array(statusFleetEntrySchema).optional(),
 });
 export type StatusData = z.infer<typeof StatusDataSchema>;

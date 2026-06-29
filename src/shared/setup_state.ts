@@ -253,8 +253,8 @@ export function setupUnfinishedHint(pending: readonly string[]): string {
     : "";
   return (
     "Setup is NOT finished — completing it is your job as the agent in this " +
-    "session, not a report to hand back. Work the brief `discern setup` prints " +
-    "(re-run `discern setup` to reprint it — it won't touch your work), then run " +
+    "session, not a report to hand back. Work the brief `discern setup begin` prints " +
+    "(re-run `discern setup begin` to reprint it — it won't touch your work), then run " +
     "`discern setup done`; don't tell the user setup is complete until it passes." +
     tail
   );
