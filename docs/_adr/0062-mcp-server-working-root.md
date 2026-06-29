@@ -88,6 +88,17 @@ Every root-operating tool gains an optional `path` argument, resolved through
 non-project path falls through the existing `not_initialized` envelope). `path`
 wins over the working root for that one call.
 
+> **Refined (Phase B).** "For that one call" has one exception: a
+> `path`-override `discern_graduate` that **removes the directory the held root
+> points at**. A launch-pinned agent (Codex) spawns the server inside its
+> worktree and graduates it _by `path`_, then issues a follow-up call with no
+> `path` — which would resolve the now-deleted worktree. So the re-aim runs even
+> on a `path` override, but **only when the held root no longer exists**
+> (`heldRootMissing` in `runTool`): graduate that removed _your_ root re-roots
+> you to where it landed; graduating some _other_ worktree by path leaves your
+> live held root untouched, preserving the one-call rule for every
+> non-destructive case.
+
 The held working root is not mere convenience over a bare `path` parameter — it
 is a **safety default**. Path-only and stateless has a sharp edge: an agent that
 forgets `path` on `discern_finish` silently gates the _spawn_ root, the
