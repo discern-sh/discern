@@ -371,8 +371,8 @@ const CODEX_ENV_FILE = ".codex/environments/environment.toml";
 const CURSOR_MCP_FILE = ".cursor/mcp.json";
 const CURSOR_HOOKS_FILE = ".cursor/hooks.json";
 
-/** The GitHub Copilot CLI reads its project MCP servers from the SAME committable
- * `.mcp.json` Claude uses ({@link MCP_JSON_FILE}, co-owned) and loads every
+/** The GitHub Copilot CLI reads its project MCP servers from the shared committable
+ * `.mcp.json` ({@link MCP_JSON_FILE}, co-owned with Claude Code) and loads every
  * `.github/hooks/*.json`, so discern keeps its SessionStart hook in a discern-owned
  * `.github/hooks/discern.json`. */
 const COPILOT_HOOKS_FILE = ".github/hooks/discern.json";
@@ -584,8 +584,8 @@ async function registerCursorMcp(
 
 /**
  * Register discern's MCP server for the GitHub Copilot CLI: write the stdio server
- * into the SAME project-committable `.mcp.json` Claude uses ({@link MCP_JSON_FILE},
- * co-owned), preserving any other servers/keys. NO `enabledMcpjsonServers`
+ * into the shared project-committable `.mcp.json` ({@link MCP_JSON_FILE}, co-owned
+ * with Claude Code), preserving any other servers/keys. NO `enabledMcpjsonServers`
  * pre-approval (that is Claude's key) — Copilot gates committed config behind a
  * one-time folder trust (the trust hint), not a per-server list. Because it writes
  * the byte-identical entry through the shared writer, a project that also configures
@@ -772,8 +772,8 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     // Copilot reads the cross-tool .agents/skills/ — the shared alias, deduped onto the
     // existing target.
     skillsDir: AGENTS_SKILLS_DIR,
-    // MCP is wired: discern writes the stdio `discern mcp` server into the SAME
-    // committable `.mcp.json` Claude uses (co-owned, byte-identical) — NO
+    // MCP is wired: discern writes the stdio `discern mcp` server into the shared
+    // committable `.mcp.json` (co-owned with Claude Code, byte-identical) — NO
     // enabledMcpjsonServers pre-approval (Copilot gates via folder trust, not that key).
     // Idempotent and order-independent with Claude's wiring (the shared writer).
     mcp: {
