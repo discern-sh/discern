@@ -382,6 +382,7 @@ export function attachEngineCommands(
             data: {
               agents_written: res.agentsWritten,
               mcp_wired: res.mcpWired,
+              worktree_app_wired: res.worktreeAppWired,
               skills: {
                 copied: res.skillsCopied,
                 linked: res.skillsLinked,

@@ -473,7 +473,7 @@ Deno.test("doctor: reports resolved guidance sources and authored skills when pr
   });
 });
 
-Deno.test("doctor: surfaces per-agent integration coverage (MCP/hooks Claude-only, by design)", async () => {
+Deno.test("doctor: surfaces per-agent integration coverage (MCP + hooks wired for all three)", async () => {
   await withTempDir(async (dir) => {
     await initInstall(dir); // default agents: claude_code + codex
     const { code, payload } = await runDoctorJson(dir);
@@ -489,14 +489,19 @@ Deno.test("doctor: surfaces per-agent integration coverage (MCP/hooks Claude-onl
     assertStringIncludes(claude.detail, "hooks");
     assertStringIncludes(claude.detail, "trust: not required");
 
-    // Codex's MCP is committable but pending — surfaced explicitly with the target
-    // file it will be wired into, plus the one-time directory/hook trust it needs once
-    // wired (not a silent gap: the typed McpStatus + TrustGate made visible).
+    // Codex's MCP + SessionStart hooks are now WIRED (Phase B) — reported as wired, no
+    // longer a pending gap — plus the one-time directory/hook trust it still needs for
+    // the committed config to fire (the typed McpStatus + TrustGate made visible).
     const codex = check(payload, "agent: Codex");
     assertEquals(codex.ok, true);
     assertStringIncludes(codex.detail, "guidance AGENTS.md");
-    assertStringIncludes(codex.detail, "not wired");
-    assertStringIncludes(codex.detail, ".codex/config.toml");
+    assertStringIncludes(codex.detail, "mcp");
+    assertStringIncludes(codex.detail, "hooks");
+    assertEquals(
+      codex.detail.includes("not wired"),
+      false,
+      `Codex MCP + hooks are wired now; detail should carry no "not wired" clause: ${codex.detail}`,
+    );
     assertStringIncludes(codex.detail, "trust: one-time");
     assertStringIncludes(codex.detail, "--dangerously-bypass-hook-trust");
   });
