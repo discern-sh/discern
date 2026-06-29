@@ -27,6 +27,7 @@ import { isFeatureEnabled } from "../shared/features.ts";
 import { resolveGuidanceSources } from "../lib/paths.ts";
 import { materializeSkills } from "../lib/skills.ts";
 import {
+  emitsGuidanceFile,
   MCP_RESTART_HINT,
   providerFor,
   skillsDirsForAgents,
@@ -150,6 +151,7 @@ export async function compileGuidelines(
     errors.push(msg);
     return summarize(agentsWritten, mcpWired, hints, skills, errors);
   }
+  const writtenPaths = new Set<string>();
   for (const agent of agents) {
     const gf = providerFor(agent)?.guidanceFile;
     if (gf === undefined) {
@@ -158,10 +160,18 @@ export async function compileGuidelines(
       );
       continue;
     }
+    // A reuse-canonical provider reads the canonical file (emitted by another
+    // provider) — discern writes nothing of its own for it. And two agents can map
+    // to the same emitted path; write it once. Both guards mirror renderAgentFiles,
+    // so the writer and the rendered map agree on exactly which files exist.
+    if (!emitsGuidanceFile(gf) || writtenPaths.has(gf.path)) {
+      continue;
+    }
     const fileBody = rendered.get(gf.path);
     if (fileBody === undefined) {
       continue; // guidance off (already returned above) — defensive.
     }
+    writtenPaths.add(gf.path);
     // Isolate per agent file: a denied write to one provider's file doesn't abort
     // the others (ADR 0065).
     try {

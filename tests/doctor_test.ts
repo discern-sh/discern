@@ -479,19 +479,47 @@ Deno.test("doctor: surfaces per-agent integration coverage (MCP/hooks Claude-onl
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 0); // a registry-described divergence is healthy, just reported
 
-    // Claude Code wires every surface.
+    // Claude Code wires every surface, and needs no separate trust step (discern
+    // pre-approves its MCP server) — surfaced so the gap between "wired" and "active"
+    // is visible (deliverable 5).
     const claude = check(payload, "agent: Claude Code");
     assertEquals(claude.ok, true);
     assertStringIncludes(claude.detail, "guidance CLAUDE.md");
     assertStringIncludes(claude.detail, "mcp");
     assertStringIncludes(claude.detail, "hooks");
+    assertStringIncludes(claude.detail, "trust: not required");
 
-    // Codex's MCP/hooks use their own mechanism — surfaced explicitly, not a silent
-    // gap (the EXPECTED divergence made visible).
+    // Codex's MCP is committable but pending — surfaced explicitly with the target
+    // file it will be wired into, plus the one-time directory/hook trust it needs once
+    // wired (not a silent gap: the typed McpStatus + TrustGate made visible).
     const codex = check(payload, "agent: Codex");
     assertEquals(codex.ok, true);
     assertStringIncludes(codex.detail, "guidance AGENTS.md");
     assertStringIncludes(codex.detail, "not wired");
+    assertStringIncludes(codex.detail, ".codex/config.toml");
+    assertStringIncludes(codex.detail, "trust: one-time");
+    assertStringIncludes(codex.detail, "--dangerously-bypass-hook-trust");
+  });
+});
+
+Deno.test("doctor: surfaces Gemini's one-time trust step and the bypass action", async () => {
+  await withTempDir(async (dir) => {
+    await initInstall(dir);
+    // Configure Gemini so its per-agent coverage row appears, then re-run doctor.
+    const cfgPath = join(dir, "discern.toml");
+    const cfg = await Deno.readTextFile(cfgPath);
+    await Deno.writeTextFile(
+      cfgPath,
+      cfg.replace(/agents = \[[^\]]*\]/, 'agents = ["gemini"]'),
+    );
+    const { payload } = await runDoctorJson(dir);
+    const gemini = check(payload, "agent: Gemini");
+    assertEquals(gemini.ok, true);
+    // The committable target, the one-time trust, and the exact bypass action.
+    assertStringIncludes(gemini.detail, ".gemini/settings.json");
+    assertStringIncludes(gemini.detail, "trust: one-time");
+    assertStringIncludes(gemini.detail, "GEMINI_CLI_TRUST_WORKSPACE=true");
+    assertStringIncludes(gemini.detail, "hooks.enabled = true");
   });
 });
 

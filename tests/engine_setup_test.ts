@@ -14,6 +14,7 @@ import { dirname, join, relative } from "@std/path";
 import { exists, walk } from "@std/fs";
 import { REAL_TEMPLATES, withTempDir } from "./helpers.ts";
 import { gitInit, gitOut, runAgent, scaffoldEngine } from "./engine_helpers.ts";
+import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 
 /** The H1 of the printed setup instructions (templates/setup/instructions.md). */
 const INSTRUCTIONS_H1 = "# Set up the harness";
@@ -295,6 +296,88 @@ Deno.test("discern setup migrates a pre-existing agent file into guidance.md, ne
       ),
     )).join("\n");
     assertStringIncludes(compiled, rule);
+  });
+});
+
+/**
+ * Plant a fake, executable agent binary named `name` in a fresh temp "bin" dir and
+ * return a PATH with that dir prepended to the real one — so PATH auto-detect finds
+ * an agent this machine may not actually have installed. `gemini` is the natural
+ * choice: it is NOT in `DEFAULT_AGENTS`, so its presence in a written config can
+ * ONLY have come from detection, whatever real agents the CI host has. The caller
+ * removes `bin` when done.
+ */
+async function pathWithFakeAgent(
+  name: string,
+): Promise<{ path: string; bin: string }> {
+  const bin = await Deno.makeTempDir({ prefix: "discern-fakebin-" });
+  const exe = join(bin, name);
+  await Deno.writeTextFile(exe, "#!/bin/sh\n");
+  await Deno.chmod(exe, 0o755);
+  return { path: `${bin}:${Deno.env.get("PATH") ?? ""}`, bin };
+}
+
+Deno.test("discern setup persists the PATH-detected agent set into [guidance].agents (auto-detect, end-to-end)", async () => {
+  // The resolver is unit-tested; this proves the SETUP WIRING — freshInstall &&
+  // no --agents → write the detected set into discern.toml — actually lands, so a
+  // future setup refactor can't silently drop the auto-detect feature (the
+  // regression this is cheap insurance against).
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+    await gitInit(dir); // a clean repo → setup runs its normal fresh-install path
+
+    const { path, bin } = await pathWithFakeAgent("gemini");
+    try {
+      const r = await runAgent(dir, ["setup", "--json"], { env: { PATH: path } });
+      assertEquals(r.code, 0, r.output);
+
+      // gemini ∉ DEFAULT_AGENTS, so it is in the WRITTEN config only via detection.
+      const agents = parseConfigOrThrow(
+        await Deno.readTextFile(join(dir, "discern.toml")),
+      ).guidance.agents;
+      assert(
+        agents.includes("gemini"),
+        `the PATH-detected gemini must be persisted to [guidance].agents — a setup ` +
+          `refactor dropping the auto-detect wiring fails here. Got: ${
+            JSON.stringify(agents)
+          }`,
+      );
+    } finally {
+      await Deno.remove(bin, { recursive: true });
+    }
+  });
+});
+
+Deno.test("discern setup honours an explicit --agents over PATH detection (the agents-unset guard)", async () => {
+  // The other half of the condition: when the user NAMES agents, detection is
+  // skipped (`effectiveFlags.agents === undefined` is false), so a detected-but-
+  // unrequested agent never sneaks into the config.
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+    await gitInit(dir);
+
+    const { path, bin } = await pathWithFakeAgent("gemini"); // present on PATH…
+    try {
+      const r = await runAgent(
+        dir,
+        ["setup", "--json", "--agents", "claude_code"], // …but the user named agents
+        { env: { PATH: path } },
+      );
+      assertEquals(r.code, 0, r.output);
+
+      const agents = parseConfigOrThrow(
+        await Deno.readTextFile(join(dir, "discern.toml")),
+      ).guidance.agents;
+      assertEquals(
+        agents,
+        ["claude_code"],
+        `an explicit --agents must win over detection (gemini is on PATH but unrequested); got: ${
+          JSON.stringify(agents)
+        }`,
+      );
+    } finally {
+      await Deno.remove(bin, { recursive: true });
+    }
   });
 });
 

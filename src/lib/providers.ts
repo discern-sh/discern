@@ -17,6 +17,10 @@ import { dirname, join } from "@std/path";
 import { ensureDir } from "@std/fs";
 import type { AgentName } from "./config.ts";
 import { AGENT_NAMES } from "../shared/config_schema.ts";
+import {
+  mergeJsonSettingsText,
+  type SettingsSeedMerge,
+} from "./settings_merge.ts";
 
 // ── the MCP server discern registers ────────────────────────────────────────
 
@@ -65,15 +69,79 @@ export interface McpIntegration {
   register(root: string, server: McpServerSpec): Promise<McpWireResult>;
 }
 
+/**
+ * A provider's MCP-wiring STATUS — a typed, explicit account of how discern wires
+ * its MCP server for this agent (ADR 0051's forcing-function discipline). Every
+ * provider declares one, so a new agent cannot join `AGENT_NAMES` without accounting
+ * for its MCP wiring: a live `integration`, an explicit `pending` marker naming the
+ * committable file discern WILL write the server into once the integration is
+ * authored, or `none` (the agent has no committable project-scoped MCP mechanism to
+ * target). A discriminated union + the required `Provider.mcp` field make a missing
+ * declaration a COMPILE error; a parity guard asserts a `pending` status names a real
+ * target file. The set TIGHTENS automatically: flipping a `pending` to `wired` in a
+ * later plan keeps the guard green with no edit.
+ */
+export type McpStatus =
+  | { readonly kind: "wired"; readonly integration: McpIntegration }
+  | { readonly kind: "pending"; readonly targetFile: string }
+  | { readonly kind: "none" };
+
+/** The live MCP integration for a provider, or `undefined` when its status is
+ * pending/none — the ONE place "is this provider's MCP wired?" is decided, so the
+ * wirer and any other consumer agree. */
+export function wiredMcp(provider: Provider): McpIntegration | undefined {
+  return provider.mcp.kind === "wired" ? provider.mcp.integration : undefined;
+}
+
+/**
+ * Whether a provider's COMMITTED MCP/hooks config is inert until a one-time
+ * trust/approval, and the exact user-facing action. discern can wire everything into
+ * the repo, but several agents gate committed config behind trusting the folder — so
+ * the tools still won't appear until the user trusts it. `doctor` surfaces this per
+ * agent: the gap between "discern wired it" and "it actually fires".
+ */
+export interface TrustGate {
+  /** True ⇒ committed MCP/hooks need a one-time trust/approval before they take
+   * effect; false ⇒ active as soon as discern writes them. */
+  readonly required: boolean;
+  /** The user-facing action that grants trust (when `required`), or the reason none
+   * is needed (when not). Shown verbatim by the per-agent diagnostic; always present. */
+  readonly hint: string;
+}
+
 /** A provider's worktree-automation surface: where its lifecycle hooks live and
  * the hook-event vocabulary it uses. Drives `init`'s hook-stripping. */
 export interface HooksIntegration {
   /** The project-relative settings file this provider's hooks live in. */
   readonly settingsFile: string;
-  /** The create/remove worktree-lifecycle hook-event keys this provider uses. */
+  /**
+   * The create/remove worktree-lifecycle hook-event keys this provider uses. MAY be
+   * empty: an agent with no worktree create/remove events (the non-Claude agents)
+   * declares a SessionStart-only hooks surface — `worktreeEventKeys = []` and just a
+   * `sessionHookNeedle`. The hook-stripper and the parity guard both handle an empty
+   * list cleanly (they iterate it).
+   */
   readonly worktreeEventKeys: readonly string[];
   /** A substring identifying a SessionStart hook that drives the worktree flow. */
   readonly sessionHookNeedle: string;
+  /**
+   * How this provider's seed template merges into an existing settings file. Absent
+   * ⇒ the default JSON deep-merge ({@link mergeJsonSettingsText}), which every
+   * JSON-settings agent uses. A provider whose settings file is another format (e.g.
+   * Codex's TOML, a later plan) supplies its own strategy here — so the seed/merge
+   * plumbing never bakes in "JSON, at `.claude/settings.json`" as the only shape.
+   */
+  readonly mergeSeed?: SettingsSeedMerge;
+}
+
+/**
+ * One hooks provider's settings SEED: the project-relative target file its seed
+ * template writes to, plus the strategy that merges the seed into an existing file.
+ * The unit the scaffolder routes settings templates by — see {@link settingsSeeds}.
+ */
+export interface SettingsSeed {
+  readonly targetRel: string;
+  readonly merge: SettingsSeedMerge;
 }
 
 /** The compiled agent-instruction file for one provider. */
@@ -101,6 +169,47 @@ export interface GuidanceFile {
    * imports it, so the two can never drift.
    */
   readonly pointer?: (canonicalPath: string) => string;
+  /**
+   * When true, this provider reads the CANONICAL agent file (`AGENTS.md`) natively
+   * and discern emits **nothing** of its own for it — neither a duplicate body nor a
+   * pointer. `path` names that canonical file (the one it reads), but every emit
+   * site skips it ({@link emitsGuidanceFile}) and every aggregator collapses it, so
+   * the file is written and counted exactly once — by the canonical provider, never
+   * 3× by repointing a second provider's `path` at it. The reuse-canonical state for
+   * agents (Cursor, Copilot, Antigravity) that consume `AGENTS.md` directly; a
+   * provider that needs its own file leaves this unset and uses `pointer` (a mirror)
+   * or nothing (the canonical itself). Mutually exclusive with `canonical` and
+   * `pointer`.
+   */
+  readonly reuseCanonical?: boolean;
+}
+
+/**
+ * Whether discern EMITS a file for this guidance entry. False only for a
+ * reuse-canonical provider — it reads the canonical file another provider writes,
+ * so discern produces nothing for it. The single predicate every emit site and
+ * aggregator gates on, so "emits nothing" is decided in one place.
+ */
+export function emitsGuidanceFile(gf: GuidanceFile): boolean {
+  return gf.reuseCanonical !== true;
+}
+
+/**
+ * The distinct guidance-file paths discern emits for the given entries, in
+ * first-seen order: reuse-canonical entries contribute nothing (their content is
+ * the canonical file another provider emits), and a repeated path collapses to one.
+ * The shared core behind {@link allGuidanceFilePaths} and the renderer's file map,
+ * so a reuse-canonical provider can never leak a duplicate `AGENTS.md` into the
+ * aggregators.
+ */
+export function emittedGuidancePaths(files: readonly GuidanceFile[]): string[] {
+  const out: string[] = [];
+  for (const gf of files) {
+    if (emitsGuidanceFile(gf) && !out.includes(gf.path)) {
+      out.push(gf.path);
+    }
+  }
+  return out;
 }
 
 /** Everything provider-specific for one agent, in one typed record. The single
@@ -108,12 +217,33 @@ export interface GuidanceFile {
 export interface Provider {
   readonly name: AgentName;
   readonly label: string;
+  /**
+   * The CLI executable name(s) this agent ships as, for PATH auto-detection at
+   * setup (see {@link detectAgentsOnPath}). Semantics are **match-any**: the agent
+   * is "present" when ANY listed binary resolves on PATH — a vendor that ships
+   * under several names (e.g. `cursor-agent` AND `agent`) lists them all, which is
+   * why this is a list. Non-empty for every provider (the parity guard enforces it);
+   * detection iterates `AGENT_NAMES` × these, so a new vendor extends auto-detect for
+   * free.
+   */
+  readonly binaries: readonly string[];
   /** The compiled agent-instruction file: project-relative path + git-tracked. */
   readonly guidanceFile: GuidanceFile;
-  /** MCP registration. Absent → not yet supported for this agent (a TODO). */
-  readonly mcp?: McpIntegration;
+  /**
+   * MCP-wiring status: a live integration, an explicit `pending` marker (with the
+   * committable target file), or `none`. REQUIRED — a new agent must account for its
+   * MCP wiring rather than leave a silent gap (ADR 0051). See {@link McpStatus}.
+   */
+  readonly mcp: McpStatus;
   /** Worktree-hook surface. Absent → not yet supported for this agent. */
   readonly hooks?: HooksIntegration;
+  /**
+   * Whether this agent's COMMITTED MCP/hooks config needs a one-time trust before it
+   * fires, and the exact action. REQUIRED — surfaced per agent by `doctor` so the gap
+   * between "discern wired it" and "the tools appear" is never a silent surprise (the
+   * four non-Claude vendors gate committed config behind a trust). See {@link TrustGate}.
+   */
+  readonly trust: TrustGate;
   /**
    * Project-relative directory this agent discovers SKILL.md skills in; discern
    * materializes the effective skill set into it. Absent → no skills target for
@@ -252,36 +382,57 @@ export const PROVIDERS: Record<AgentName, Provider> = {
   claude_code: {
     name: "claude_code",
     label: "Claude Code",
+    binaries: ["claude"],
     guidanceFile: {
       path: "CLAUDE.md",
       canonical: false,
       pointer: atImportPointer,
     },
     mcp: {
-      configFile: CLAUDE_MCP_FILE,
-      register: registerClaudeCodeMcp,
+      kind: "wired",
+      integration: {
+        configFile: CLAUDE_MCP_FILE,
+        register: registerClaudeCodeMcp,
+      },
     },
     hooks: {
       settingsFile: CLAUDE_SETTINGS_FILE,
       worktreeEventKeys: ["WorktreeCreate", "WorktreeRemove"],
       sessionHookNeedle: "worktree",
     },
+    // discern pre-approves the MCP server by name in .claude/settings.json
+    // (enabledMcpjsonServers), so no separate trust/approval prompt gates it.
+    trust: {
+      required: false,
+      hint:
+        "discern pre-approves its MCP server (enabledMcpjsonServers in .claude/settings.json) — no separate trust prompt.",
+    },
     skillsDir: CLAUDE_SKILLS_DIR,
   },
   codex: {
     name: "codex",
     label: "Codex",
+    binaries: ["codex"],
     guidanceFile: { path: "AGENTS.md", canonical: true },
     skillsDir: AGENTS_SKILLS_DIR,
-    // TODO(provider:codex): wire MCP registration — author an McpIntegration
-    // against Codex's own MCP-server config mechanism (it is NOT Claude Code's
-    // .mcp.json). Until then `discern mcp` must be added by hand for Codex.
-    // TODO(provider:codex): declare the worktree-hook surface (HooksIntegration)
-    // once Codex's hook mechanism is supported, mirroring claude_code.
+    // MCP is committable but not yet authored: Codex reads `[mcp_servers.<name>]`
+    // from project-local `.codex/config.toml` (its own format, NOT Claude's
+    // .mcp.json), gated by a one-time directory trust. Wiring it is Plan B; the typed
+    // `pending` marker accounts the gap (ADR 0051). Hooks (a SessionStart surface in
+    // the same `.codex/` config) are likewise a later plan; an absent `hooks` skips it.
+    mcp: { kind: "pending", targetFile: ".codex/config.toml" },
+    // Committed .codex/ config is inert until the directory is trusted, and a
+    // committed hook won't run until its hash is approved.
+    trust: {
+      required: true,
+      hint:
+        'one-time directory trust for .codex/ config (set trust_level = "trusted"), plus per-hook hash approval before a committed hook runs (bypass: --dangerously-bypass-hook-trust).',
+    },
   },
   gemini: {
     name: "gemini",
     label: "Gemini",
+    binaries: ["gemini"],
     // GEMINI.md points at the canonical AGENTS.md via Gemini's `@path` Memory Import
     // (verified vendor support — `.md`-only, which `@AGENTS.md` satisfies), exactly
     // like Claude Code, so the body lives in one file and the mirror can't drift.
@@ -293,9 +444,18 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     // Gemini reads .gemini/skills/ AND the .agents/skills/ alias (which takes
     // precedence) — use the shared alias so Codex + Gemini dedupe to one dir.
     skillsDir: AGENTS_SKILLS_DIR,
-    // TODO(provider:gemini): wire MCP registration — author an McpIntegration
-    // against the Gemini CLI's own MCP-server config (it is NOT .mcp.json).
-    // TODO(provider:gemini): declare the worktree-hook surface once supported.
+    // MCP is committable but not yet authored: Gemini reads `mcpServers` from
+    // project-committable `.gemini/settings.json` (its own format, NOT .mcp.json),
+    // inert in safe mode until the folder is trusted. Wiring it (and a hooks surface
+    // in the same file) is Plan B; the typed `pending` marker accounts the gap.
+    mcp: { kind: "pending", targetFile: ".gemini/settings.json" },
+    // Committed .gemini/settings.json is inert in safe mode until the folder is
+    // trusted; its hooks additionally require hooks.enabled = true to fire.
+    trust: {
+      required: true,
+      hint:
+        "trust the workspace so committed .gemini/settings.json loads in safe mode (bypass: --skip-trust or GEMINI_CLI_TRUST_WORKSPACE=true); hooks also require hooks.enabled = true to fire.",
+    },
   },
 };
 
@@ -309,6 +469,25 @@ export function providerFor(agent: string): Provider | undefined {
 /** Every provider that declares a worktree-hook surface. */
 export function providersWithHooks(): Provider[] {
   return Object.values(PROVIDERS).filter((p) => p.hooks !== undefined);
+}
+
+/**
+ * The settings SEED for every hooks provider — its settings file plus the merge
+ * strategy (the provider's own `mergeSeed`, or the default JSON deep-merge). The
+ * single registry-derived source the scaffolder routes settings templates by
+ * ({@link import("./fs_plan.ts").buildPlan}), so a new hooks provider seeds purely
+ * from its registry declaration: declare a `HooksIntegration` and drop a
+ * `${settingsFile}.tmpl` template — no edit to the seed/merge plumbing.
+ */
+export function settingsSeeds(): SettingsSeed[] {
+  return providersWithHooks().flatMap((p) =>
+    p.hooks !== undefined
+      ? [{
+        targetRel: p.hooks.settingsFile,
+        merge: p.hooks.mergeSeed ?? mergeJsonSettingsText,
+      }]
+      : []
+  );
 }
 
 /**
@@ -335,10 +514,14 @@ export function skillsDirsForAgents(agents: readonly string[]): string[] {
 // from `PROVIDERS`, so adding an agent to `AGENT_NAMES` extends them for free — no
 // hand-maintained second list to fall out of sync (the ADR 0031/0042 contract).
 
-/** Every compiled guidance-file path across all known agents (CLAUDE.md, AGENTS.md,
- * GEMINI.md, …), in registry order. */
+/** Every compiled guidance-file path discern EMITS across all known agents
+ * (CLAUDE.md, AGENTS.md, GEMINI.md, …), in registry order. Reuse-canonical
+ * providers contribute nothing (they read the canonical file another provider
+ * writes), and duplicates collapse — so the set never carries `AGENTS.md` twice. */
 export function allGuidanceFilePaths(): string[] {
-  return AGENT_NAMES.map((a) => PROVIDERS[a].guidanceFile.path);
+  return emittedGuidancePaths(
+    AGENT_NAMES.map((a) => PROVIDERS[a].guidanceFile),
+  );
 }
 
 /** Every distinct skills directory discern materializes into across all known
@@ -377,10 +560,11 @@ export function agentArtifactPaths(): {
 }
 
 /**
- * Wire discern's MCP server into the project for each configured agent that
- * supports it (idempotent). Agents without an `mcp` integration are skipped
- * (their setup is a typed TODO). Returns the files written across all providers
- * plus whether any provider added the server for the first time.
+ * Wire discern's MCP server into the project for each configured agent whose MCP is
+ * WIRED (idempotent). An agent whose status is `pending`/`none` is skipped — its
+ * server is added by hand (pending) or it has no committable target (none). Returns
+ * the files written across all providers plus whether any provider added the server
+ * for the first time.
  */
 export async function wireProviderMcp(
   root: string,
@@ -390,7 +574,8 @@ export async function wireProviderMcp(
   const written: string[] = [];
   let firstInstall = false;
   for (const agent of agents) {
-    const mcp = providerFor(agent)?.mcp;
+    const provider = providerFor(agent);
+    const mcp = provider !== undefined ? wiredMcp(provider) : undefined;
     if (mcp !== undefined) {
       const r = await mcp.register(root, server);
       written.push(...r.written);

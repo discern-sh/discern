@@ -15,6 +15,7 @@ import {
   PROVIDERS,
   providersWithHooks,
   skillsDirsForAgents,
+  wiredMcp,
   wireProviderMcp,
 } from "../src/lib/providers.ts";
 
@@ -119,11 +120,29 @@ Deno.test("the discern MCP server spec is `discern mcp`", () => {
   });
 });
 
-Deno.test("today only Claude Code wires MCP + hooks; the others are typed TODOs", () => {
-  assert(providerFor("claude_code")?.mcp, "claude_code should wire MCP");
-  assert(providerFor("claude_code")?.hooks, "claude_code should declare hooks");
-  assertEquals(providerFor("codex")?.mcp, undefined);
-  assertEquals(providerFor("gemini")?.mcp, undefined);
+Deno.test("MCP status is typed and explicit: claude wired, codex/gemini pending with a named target", () => {
+  // The old silent `mcp?` TODO is now an explicit, typed McpStatus (ADR 0051): every
+  // provider accounts for its MCP wiring — wired, or pending with the committable
+  // file discern will write into. No `undefined` gap.
+  assertEquals(providerFor("claude_code")?.mcp.kind, "wired");
+  assertEquals(wiredMcp(PROVIDERS.claude_code)?.configFile, ".mcp.json");
+
+  const codexMcp = providerFor("codex")?.mcp;
+  assertEquals(codexMcp?.kind, "pending");
+  assertEquals(
+    codexMcp?.kind === "pending" ? codexMcp.targetFile : undefined,
+    ".codex/config.toml",
+  );
+  const geminiMcp = providerFor("gemini")?.mcp;
+  assertEquals(geminiMcp?.kind, "pending");
+  assertEquals(
+    geminiMcp?.kind === "pending" ? geminiMcp.targetFile : undefined,
+    ".gemini/settings.json",
+  );
+  // wiredMcp is the one place "is this provider's MCP wired?" is decided.
+  assertEquals(wiredMcp(PROVIDERS.codex), undefined);
+  assertEquals(wiredMcp(PROVIDERS.gemini), undefined);
+
   // hook-stripping iterates exactly the providers that declare a hook surface.
   assertEquals(providersWithHooks().map((p) => p.name), ["claude_code"]);
 });
@@ -208,7 +227,7 @@ Deno.test("wireProviderMcp preserves existing settings and unions the approval l
   });
 });
 
-Deno.test("wireProviderMcp skips agents without an MCP integration (a typed TODO)", async () => {
+Deno.test("wireProviderMcp skips agents whose MCP is pending (committable, not yet wired)", async () => {
   await withTempDir(async (dir) => {
     const r = await wireProviderMcp(dir, ["codex", "gemini"]);
     assertEquals(r.written, []);

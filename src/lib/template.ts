@@ -77,12 +77,6 @@ export function isGitignoreFragment(path: string): boolean {
   return basename(path) === ".gitignore.fragment";
 }
 
-/** True when the path is the special, deep-merged Claude settings template. */
-export function isSettingsTemplate(path: string): boolean {
-  return path.endsWith(".claude/settings.json.tmpl") ||
-    path === ".claude/settings.json.tmpl";
-}
-
 /**
  * Turn a template-relative path into its scaffolded target path: substitute the
  * single path token (`{{project_slug}}`) and strip a trailing `.tmpl`.

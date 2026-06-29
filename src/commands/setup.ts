@@ -54,6 +54,7 @@ import {
   providerFor,
   providersWithHooks,
 } from "../lib/providers.ts";
+import { resolveDefaultAgents } from "../lib/detect_agents.ts";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { CONFIG_REL, findRoot } from "../shared/env.ts";
 import { emitResult } from "../shared/emit.ts";
@@ -289,6 +290,16 @@ async function scaffoldHarness(
   // defaults, never prompting. The user makes no decisions at the CLI.
   const effectiveFlags = mergeDocIntoFlags(opts, fileAnswers);
   effectiveFlags.yes = true;
+
+  // Auto-detect the agent set for a FRESH install when the user named none (no
+  // --agents, no --config agents): seed [guidance].agents from what is actually on
+  // PATH, else DEFAULT_AGENTS. Detection runs once here and is persisted to config;
+  // resolveConfiguredAgents stays a pure runtime reader (never re-detects). Gated on
+  // freshInstall because the config is write-once — a --force re-run leaves an
+  // existing [guidance].agents untouched, so re-detecting would be inert anyway.
+  if (freshInstall && effectiveFlags.agents === undefined) {
+    effectiveFlags.agents = (await resolveDefaultAgents()).join(",");
+  }
   let config: InitConfig;
   try {
     config = await resolveInitConfig(effectiveFlags, log);

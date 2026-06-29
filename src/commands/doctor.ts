@@ -392,25 +392,40 @@ export async function runChecks(destDir: string): Promise<Check[]> {
       });
       continue;
     }
+    const mcp = provider.mcp;
     const wired = [
       `guidance ${provider.guidanceFile.path}`,
       provider.skillsDir ? `skills ${provider.skillsDir}` : undefined,
-      provider.mcp ? "mcp" : undefined,
+      mcp.kind === "wired" ? "mcp" : undefined,
       provider.hooks ? "hooks" : undefined,
     ].filter((s): s is string => s !== undefined);
-    const todo = [
-      provider.mcp ? undefined : "mcp",
-      provider.hooks ? undefined : "hooks",
+    // Surfaces NOT wired, each stated explicitly so a gap is visible, not silent:
+    // a `pending` MCP is committable and names the file discern will write into once
+    // authored; an absent hooks surface uses the agent's own mechanism.
+    const notWired = [
+      mcp.kind === "pending"
+        ? `mcp → ${mcp.targetFile} (committable; not yet wired)`
+        : undefined,
+      provider.hooks ? undefined : "hooks (own mechanism)",
     ].filter((s): s is string => s !== undefined);
-    checks.push({
-      name: `agent: ${provider.label}`,
-      ok: true,
-      detail: todo.length === 0
-        ? `wired: ${wired.join(", ")}`
-        : `wired: ${wired.join(", ")}; uses its own mechanism (not wired): ${
-          todo.join(", ")
-        }`,
-    });
+    let detail = `wired: ${wired.join(", ")}`;
+    if (notWired.length > 0) {
+      detail += `; not wired: ${notWired.join(", ")}`;
+    }
+    // One-time trust: discern can wire everything into the repo, but several agents
+    // gate committed MCP/hooks behind trusting the folder — so the tools won't appear
+    // until then. Surface it for an agent with a committable surface (wired/pending
+    // MCP, or hooks), naming the exact action, so the gap between "wired" and "active"
+    // is visible (deliverable 5). An agent with no committable surface has nothing to
+    // trust, so the clause is omitted.
+    const hasCommittableSurface = mcp.kind !== "none" ||
+      provider.hooks !== undefined;
+    if (hasCommittableSurface) {
+      detail += provider.trust.required
+        ? `; trust: one-time — ${provider.trust.hint}`
+        : `; trust: not required — ${provider.trust.hint}`;
+    }
+    checks.push({ name: `agent: ${provider.label}`, ok: true, detail });
   }
 
   // 9. features — surface the [features] toggle state, so a user can SEE which

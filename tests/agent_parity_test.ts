@@ -19,13 +19,14 @@
  * which one and how).
  */
 
-import { assert } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
 import { AGENT_NAMES } from "../src/shared/config_schema.ts";
 import {
   agentArtifactPaths,
   allGuidanceFilePaths,
   allSkillsDirs,
+  emitsGuidanceFile,
   neutralAgentScopePaths,
   providerFor,
   providersWithHooks,
@@ -49,6 +50,20 @@ const fragmentIgnoresFile = (path: string) =>
   ignoreCovers(FRAGMENT_LINES, path, false);
 const fragmentIgnoresDir = (dir: string) =>
   ignoreCovers(FRAGMENT_LINES, dir, true);
+
+Deno.test("every known agent declares at least one detection binary (match-any)", () => {
+  // PATH auto-detect (src/lib/detect_agents.ts) iterates AGENT_NAMES × each
+  // provider's `binaries`, so a provider with an empty list silently never
+  // detects — a new agent must name its CLI executable(s) or red-light here.
+  for (const name of AGENT_NAMES) {
+    const p = providerFor(name);
+    assert(p !== undefined, `no provider for ${name}`);
+    assert(
+      p.binaries.length > 0 && p.binaries.every((b) => b.length > 0),
+      `${name}: empty binaries — declare the agent's CLI executable name(s) so PATH auto-detect can find it`,
+    );
+  }
+});
 
 Deno.test("registry aggregators stay total: one guidance file + a skills dir per known agent", () => {
   const guidanceFiles = allGuidanceFilePaths();
@@ -74,6 +89,96 @@ Deno.test("registry aggregators stay total: one guidance file + a skills dir per
       artifacts.skillsDirs.length === skillsDirs.length,
     "agentArtifactPaths() must be the union of the two aggregators",
   );
+});
+
+Deno.test("guidance modelling stays sound: exactly one canonical, reuse-canonical reads it and emits nothing", () => {
+  // The invariant the reuse-canonical model rests on (deliverable 2): one provider
+  // holds the canonical full body; a reuse-canonical provider reads THAT file and
+  // discern emits nothing of its own for it — so it can never leak a duplicate.
+  const canonicals = AGENT_NAMES
+    .map((n) => providerFor(n)?.guidanceFile)
+    .filter((g) => g !== undefined && g.canonical)
+    .map((g) => g?.path);
+  assertEquals(
+    canonicals.length,
+    1,
+    `expected exactly one canonical agent file, got: ${canonicals.join(", ")}`,
+  );
+  const canonicalPath = canonicals[0];
+  for (const name of AGENT_NAMES) {
+    const gf = providerFor(name)?.guidanceFile;
+    if (gf === undefined || emitsGuidanceFile(gf)) {
+      continue; // only inspect reuse-canonical providers (emit nothing)
+    }
+    assertEquals(
+      gf.path,
+      canonicalPath,
+      `${name}: a reuse-canonical provider must read the canonical ${canonicalPath}, not ${gf.path}`,
+    );
+    assertEquals(
+      gf.canonical,
+      false,
+      `${name}: reuseCanonical and canonical are mutually exclusive`,
+    );
+  }
+  // The emitted set never carries a path twice — a reuse-canonical provider's path
+  // collapses into the canonical's, so the aggregator stays free of duplicates.
+  const emitted = allGuidanceFilePaths();
+  assertEquals(
+    emitted.length,
+    new Set(emitted).size,
+    `allGuidanceFilePaths() must be duplicate-free, got: ${emitted.join(", ")}`,
+  );
+});
+
+Deno.test("MCP coverage is accounted for every known agent (wired, or explicitly pending with a target)", () => {
+  // The typed MCP-status forcing function (ADR 0051, deliverable 4): every provider
+  // accounts for its MCP wiring — a live integration, an explicit `pending` marker
+  // naming the committable file discern will write into, or `none`. Never the old
+  // silent `mcp?` gap. The union + the required `Provider.mcp` field make a missing
+  // declaration a COMPILE error; this asserts the runtime half (a pending status
+  // names a real target). It TIGHTENS automatically: a later plan flipping a pending
+  // to wired keeps this green with no edit.
+  for (const name of AGENT_NAMES) {
+    const p = providerFor(name);
+    assert(p !== undefined, `no provider for ${name}`);
+    const mcp = p.mcp;
+    switch (mcp.kind) {
+      case "wired":
+        assert(
+          mcp.integration.configFile.length > 0,
+          `${name}: a wired MCP must name its config file`,
+        );
+        break;
+      case "pending":
+        assert(
+          mcp.targetFile.length > 0 && mcp.targetFile.includes("."),
+          `${name}: a pending MCP must name the committable target file discern will write into (got "${mcp.targetFile}")`,
+        );
+        break;
+      case "none":
+        break; // an agent with no committable project-scoped MCP mechanism
+    }
+  }
+  // The reference implementation stays wired — a regression here is a real break,
+  // not a pending flip.
+  assertEquals(providerFor("claude_code")?.mcp.kind, "wired");
+});
+
+Deno.test("every known agent declares trust metadata, naming the action when trust is required", () => {
+  // Trust-gate coverage (deliverable 5): `Provider.trust` is compile-required, so a
+  // new agent must declare it; this asserts the runtime half — a REQUIRED trust must
+  // name the action/bypass, or doctor would report "trust needed" with no "how".
+  for (const name of AGENT_NAMES) {
+    const p = providerFor(name);
+    assert(p !== undefined, `no provider for ${name}`);
+    if (p.trust.required) {
+      assert(
+        p.trust.hint.trim().length > 0,
+        `${name}: a required trust must name the user-facing action/bypass`,
+      );
+    }
+  }
 });
 
 Deno.test("the seed .gitignore fragment ignores EVERY known agent's compiled guidance file", () => {
@@ -121,12 +226,16 @@ Deno.test("the seed neutral scopes neutralize EVERY known agent's generated dir"
 
 Deno.test("KEYSTONE: every known agent is covered by every cross-cutting satellite", () => {
   // One agent × every satellite. This is the single assertion a new agent must
-  // satisfy: extend each named surface until it passes — never relax the check.
+  // satisfy: extend each named surface until it passes — never relax the check. The
+  // six-vendor foundation (Phase A) added seams 3-6 below, so a future Cursor/Copilot/
+  // Antigravity red-lights here on EACH one it hasn't yet learned.
   for (const name of AGENT_NAMES) {
     const p = providerFor(name);
     assert(p !== undefined, `no provider for ${name}`);
 
-    // 1. Compiled guidance file: gitignored.
+    // 1. Compiled guidance file: gitignored. (A reuse-canonical provider's `path` is
+    // the canonical it reads, which the canonical provider already covers — so this
+    // holds for emitting AND reuse-canonical agents alike.)
     assert(
       fragmentIgnoresFile(p.guidanceFile.path),
       `${name}: guidance file ${p.guidanceFile.path} not gitignored by the seed fragment`,
@@ -144,6 +253,39 @@ Deno.test("KEYSTONE: every known agent is covered by every cross-cutting satelli
         `${name}: generated region ${top} not in the seed neutral scopes`,
       );
     }
+
+    // 3. PATH auto-detect: at least one detection binary, match-any (deliverable 1).
+    assert(
+      p.binaries.length > 0 && p.binaries.every((b) => b.length > 0),
+      `${name}: empty binaries — PATH auto-detect can't find it`,
+    );
+
+    // 4. Guidance modelling: a reuse-canonical provider emits nothing and reads the
+    // canonical; an emitting provider's path is in the deduped aggregator exactly
+    // once (deliverable 2).
+    if (emitsGuidanceFile(p.guidanceFile)) {
+      assert(
+        allGuidanceFilePaths().filter((x) => x === p.guidanceFile.path)
+          .length === 1,
+        `${name}: emitted guidance ${p.guidanceFile.path} must appear once in allGuidanceFilePaths()`,
+      );
+    }
+
+    // 5. MCP status accounted: wired, pending-with-a-named-target, or none — never a
+    // silent gap (deliverable 4).
+    assert(
+      p.mcp.kind === "wired" ||
+        (p.mcp.kind === "pending" && p.mcp.targetFile.length > 0) ||
+        p.mcp.kind === "none",
+      `${name}: MCP status not accounted (wired | pending+target | none)`,
+    );
+
+    // 6. Trust metadata: present, and naming the action when trust is required
+    // (deliverable 5).
+    assert(
+      !p.trust.required || p.trust.hint.trim().length > 0,
+      `${name}: a required trust must name the user-facing action`,
+    );
   }
 });
 

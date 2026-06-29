@@ -23,13 +23,13 @@ import { ensureDir, walk } from "@std/fs";
 import { dirname, join, relative, SEPARATOR } from "@std/path";
 import {
   isGitignoreFragment,
-  isSettingsTemplate,
   isTemplateFile,
   resolveTargetPath,
   substituteTokens,
   type TokenMap,
 } from "./template.ts";
-import { mergeSettings } from "./settings_merge.ts";
+import type { SettingsSeedMerge } from "./settings_merge.ts";
+import { type SettingsSeed, settingsSeeds } from "./providers.ts";
 
 /** How an op relates to whatever is already on disk at its target. */
 export type OpDisposition =
@@ -117,15 +117,28 @@ const GITIGNORE_MARKER = "# --- discern harness ---";
  *   Set when scaffolding from the BINARY's templates (`init`), where those are
  *   materialized/read from the binary rather than seeded. Left false for a preset
  *   overlay, whose `skills/` IS an intended authored-skill overlay.
+ * @param seeds          the settings seeds to deep-merge (rather than write
+ *   verbatim), each `{ targetRel, merge }`. Defaults to the registry's
+ *   {@link settingsSeeds} — every hooks provider's settings file + its merge
+ *   strategy — so routing is provider-driven, not a hardcoded `.claude/settings.json`
+ *   special-case. A test injects a synthetic provider's seed to exercise the seam.
  */
 export async function buildPlan(params: {
   templatesDir: string;
   destDir: string;
   tokens: TokenMap;
   excludeNonSeed?: boolean;
+  seeds?: readonly SettingsSeed[];
 }): Promise<Plan> {
   const { templatesDir, destDir, tokens } = params;
   const excludeNonSeed = params.excludeNonSeed ?? false;
+  // A settings template is one whose TARGET path a hooks provider claims as its
+  // settings file — derived from the registry, so a new hooks provider's template is
+  // routed (and merged with its own strategy) the moment it declares a
+  // HooksIntegration. No `.claude/settings.json` literal in the core.
+  const settingsByTarget = new Map<string, SettingsSeedMerge>(
+    (params.seeds ?? settingsSeeds()).map((s) => [s.targetRel, s.merge]),
+  );
   const ops: PlanOp[] = [];
   const unknownTokens = new Map<string, string[]>();
 
@@ -146,18 +159,21 @@ export async function buildPlan(params: {
       continue;
     }
 
-    if (isSettingsTemplate(templateRel)) {
+    const targetRel = resolveTargetPath(templateRel, tokens.project_slug);
+    const merge = settingsByTarget.get(targetRel);
+    if (merge !== undefined) {
       const op = await planSettingsMerge(
         entry.path,
         destDir,
+        targetRel,
         tokens,
+        merge,
         unknownTokens,
       );
       ops.push(op);
       continue;
     }
 
-    const targetRel = resolveTargetPath(templateRel, tokens.project_slug);
     const op = await planFileWrite({
       sourceAbs: entry.path,
       templateRel,
@@ -222,29 +238,31 @@ async function planFileWrite(params: {
   };
 }
 
-/** Plan the deep-merge of the settings template into the project's settings. */
+/** Plan the deep-merge of a settings seed template into the project's settings file
+ * at `targetRel`, using the provider's `merge` strategy. Provider-driven: the target
+ * path and the strategy come from the registry's {@link settingsSeeds}, so this
+ * carries no `.claude/settings.json` literal and no baked-in JSON assumption. */
 async function planSettingsMerge(
   sourceAbs: string,
   destDir: string,
+  targetRel: string,
   tokens: TokenMap,
+  merge: SettingsSeedMerge,
   unknownTokens: Map<string, string[]>,
 ): Promise<PlanOp> {
   const raw = TEXT_DECODER.decode(await Deno.readFile(sourceAbs));
   const { text, unknown } = substituteTokens(raw, tokens);
-  const targetRel = ".claude/settings.json";
   if (unknown.length > 0) {
     unknownTokens.set(targetRel, unknown);
   }
-  const incoming: unknown = JSON.parse(text);
 
   const targetAbs = join(destDir, targetRel);
   const existingRaw = await readBytesIfExists(targetAbs);
-  const existing: unknown = existingRaw === undefined
-    ? {}
-    : JSON.parse(TEXT_DECODER.decode(existingRaw));
+  const existingText = existingRaw === undefined
+    ? undefined
+    : TEXT_DECODER.decode(existingRaw);
 
-  const merged = mergeSettings(existing, incoming);
-  const bytes = TEXT_ENCODER.encode(`${JSON.stringify(merged, null, 2)}\n`);
+  const bytes = TEXT_ENCODER.encode(merge(existingText, text));
 
   const present = existingRaw !== undefined;
   return {
