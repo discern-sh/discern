@@ -87,7 +87,7 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0071 — The settings seed/merge seam is provider-driven, not a Claude special-case](0071-provider-driven-settings-seed.md)
 - [0072 — A provider's MCP wiring is a typed status, accounted by a forcing function](0072-typed-mcp-status-forcing-function.md)
 - [0073 — discern co-manages Codex's auto-generated `environment.toml`, and reuses the cwd-based teardown verb for its cleanup](0073-codex-worktree-lifecycle-comanagement.md)
-- [0074 — GitHub Copilot co-owns Claude Code's `.mcp.json`, through one shared stdio writer](0074-copilot-co-owns-mcp-json.md)
+- [0074 — Claude Code and GitHub Copilot co-own the shared `.mcp.json`, through one stdio writer](0074-co-owned-mcp-json.md)
 - [0075 — `discern setup` is a staged, consent-driven handshake](0075-setup-staged-handshake.md)
 
 ## Superseded and consolidated ADRs
