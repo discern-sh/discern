@@ -57,9 +57,9 @@ The advisory:
 
 - is **flat, with no severity tiers**
   ([ADR 0063](0063-doctor-execution-model.md): discern renders the facts and the
-  evidence, it does not judge them) — each partner carries its confidence,
-  support, and lift as transparency, and the framing states plainly that the
-  list is **not exhaustive**;
+  evidence, it does not judge them) — each partner carries its plain-count
+  evidence (the co-change counts), confidence, and lift as transparency, and the
+  framing states plainly that the list is **not exhaustive**;
 - is **observation-plus-suggestion, never a verdict** — "you changed X; Y moved
   with it in N% of X's recent history but isn't in your change — intentional?",
   never "you forgot Y" or "you MUST";
@@ -94,14 +94,23 @@ across repo scale:
   chance" in collocation and basket-analysis work, and is robust at the low
   counts a young repo has.
 
-The only constants are a SIGNIFICANCE level and a fluke count — not per-repo
-tuning knobs — so there are no thresholds in `[coupling]` to set. Evidence is
-reported in **plain counts** ("B changed in N of the M recent commits that
-touched A"), not an abstract score, so the advisory reads to a non-expert.
+The constants are a SIGNIFICANCE level, a RELEVANCE floor (how often a partner
+must follow the source to be worth mentioning — a confidence ratio), and a fluke
+count — three fixed judgment values, not per-repo tuning knobs, so there are no
+thresholds in `[coupling]` to set. They are deliberately scale-free units, but
+they are still _judgment_: the product claim is that this calibration
+generalizes across repo cultures, and deleting the knobs also deletes the
+recourse if an unusual repo reads too noisy or too quiet (see TODO — review
+across repos before considering on-by-default). Evidence is reported in **plain
+counts** ("B changed in N of the M recent commits that touched A"), not an
+abstract score, so the advisory reads to a non-expert.
 
 **It recomputes on demand, bounded by `window` — there is NO cache in v1.** Each
-call re-mines the history. The explicit *no*s: no persisted co-change graph, no
-per-repo tuning, no blocking, no auto-promotion of a coupling to an enforced
+call re-mines the history. The window is a fixed COMMIT COUNT, not a time span,
+so a fast-moving repo mines a shorter stretch of calendar history than a slow
+one — a deliberate simplification (it bounds cost and recency in one number),
+worth revisiting if it bites. The explicit *no*s: no persisted co-change graph,
+no per-repo tuning, no blocking, no auto-promotion of a coupling to an enforced
 rule, no function- or hunk-level granularity (file-level only).
 
 **It fails _silent_, not open.** When it cannot compute a change set (a git
@@ -135,11 +144,18 @@ is worse than silence.
   learn what a log-likelihood ratio is, and they don't have to. The cost is that
   the engine carries a little statistics rather than a config table; the win is
   that the config table can't be set wrong.
-- **The constants are significance levels, not magic numbers.** The one real
-  dial — the LLR cutoff — is a χ² significance level chosen for precision (a
-  false nudge erodes trust faster than a missed one helps), validated against
-  real history to sit at the genuine-versus-incidental boundary. It is a
-  property of "what counts as a real association," not of any one repo.
+- **The constants are judgment, expressed in scale-free units.** Three values
+  are fixed in the engine: the LLR cutoff (a χ² significance level, chosen for
+  precision — a false nudge erodes trust faster than a missed one helps), the
+  confidence floor (the relevance threshold), and the co-change count floor (the
+  fluke guard). Each is unit-free, so none depends on repo scale — but the
+  cutoff was validated against real history to sit at the
+  genuine-versus-incidental boundary, and that boundary's exact place is the one
+  thing the zero-config bet rests on. The honest cost of deleting the knobs: a
+  repo where the calibration is wrong has no in-config recourse. The mitigation
+  is that the advisory is opt-in and never blocks (a miss costs a glance), and
+  the constants are flagged for review across repos before any move to
+  on-by-default.
 - **Discovery and enforcement stay cleanly separated.** This tool answers _where
   do couplings exist?_; ADR 0051's forcing functions answer _which couplings are
   invariants?_. Conflating them — auto-locking a strong pair — would manufacture

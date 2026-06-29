@@ -253,6 +253,24 @@ outstanding._
       the `passapp` control case; that staging area will be discarded and
       re-run, so re-confirm against a fresh run. Worth an ADR when designed.)
 
+- [ ] **Review the coupling advisory's judgment constants across diverse repos,
+      then consider on-by-default.** `coupling` is zero-config, but its three
+      fixed constants — `LLR_CUTOFF` (6.63, p<0.01 significance), `MIN_CONFIDENCE`
+      (0.2, the relevance floor), and `MIN_COCHANGES` (2, the fluke floor) —
+      carry the product claim that the calibration generalizes across repo
+      cultures. They are principled and were validated against _this_ repo's
+      history, but deleting every knob also deleted any recourse if a very
+      different repo (a huge monorepo, or one with very different commit habits)
+      reads too noisy or too quiet. Experiment with these across several repos of
+      different size/age/commit-style; confirm the genuine-vs-incidental boundary
+      holds (or learn where it doesn't). Once they are trusted, consider flipping
+      `[coupling].in_gate` to default **on** so the diff-aware nudge rides with
+      `finish` out of the box. Also worth weighing then: localising the mined
+      window to the change-set files for huge monorepos, and a formal
+      multiple-testing correction (today bounded only by the top-k output cap).
+      Evidence: `src/engine/coupling/coupling.ts` (the constants), `[coupling]`
+      in `discern.toml` ([ADR 0069](docs/_adr/0069-co-change-coupling-advisory.md)).
+
 ## 👨‍💻 Jack's Odds and Ends
 
 _Small things Jack finds whilst reviewing code and documentation; cleaned up
