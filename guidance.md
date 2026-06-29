@@ -109,10 +109,12 @@ applied while editing, is the safeguard.
 ## Running discern from source
 
 Use **`discern <cmd> --json`** — the local-dev wrapper (`scripts/discern`). It
-walks up from your cwd and runs the engine of whichever checkout you're in, so
-from a worktree it runs _that worktree's_ in-progress engine. It's the closest
-thing to what an end user runs, so the generic `discern` guidance above applies
-verbatim; outside any checkout it falls back to `$DISCERN_HOME`. (One exception:
+walks up from your cwd and runs the engine of whichever discern checkout you're
+in (recognised by its `deno.json` identity, so a same-shaped but unrelated Deno
+project is never mistaken for one), so from a worktree it runs _that worktree's_
+in-progress engine. It's the closest thing to what an end user runs, so the
+generic `discern` guidance above applies verbatim; outside any discern checkout
+it falls back to `$DISCERN_HOME`. (One exception:
 `discern mcp` runs from the **main** checkout, since a long-lived server can't run
 an ephemeral worktree's engine — see the comment in `scripts/discern`.)
 
