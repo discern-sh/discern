@@ -560,7 +560,7 @@ async function registerCodexEnvironment(root: string): Promise<string[]> {
       editor.setRootString("name", "Discern");
     }
     editor.setString("setup.script", "discern worktree:ensure");
-    // editor.setString("cleanup.script", "discern worktree:teardown");
+    editor.setString("cleanup.script", "discern worktree:teardown");
   });
   return wrote !== undefined ? [wrote] : [];
 }
