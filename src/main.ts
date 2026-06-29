@@ -37,6 +37,7 @@ import {
   runSetupDone,
 } from "./commands/setup.ts";
 import { runSetupWelcome } from "./commands/setup_welcome.ts";
+import { runSetupVerify } from "./commands/setup_verify.ts";
 import { runUpgrade } from "./commands/upgrade.ts";
 import { runDoctor } from "./commands/doctor.ts";
 import { runMigrate } from "./commands/migrate.ts";
@@ -193,6 +194,15 @@ export function buildCli(
       Deno.exit(await runSetupBegin(beginOptsFrom(options, json, noColor)));
     });
 
+  const setupVerify = new Command()
+    .description(
+      "Preview what setup will do and the consent checklist to confirm with your human (read-only).",
+    )
+    .action(async (options) => {
+      const { json, noColor } = globalFlags(options);
+      Deno.exit(await runSetupVerify({ json, noColor }));
+    });
+
   const setupDone = new Command()
     .description("Validate setup and record [meta].bootstrapped.")
     .option("--force", "Record completion even if skeleton markers remain.")
@@ -255,6 +265,7 @@ export function buildCli(
           : await runSetupWelcome({ json, noColor }),
       );
     })
+    .command("verify", setupVerify)
     .command("begin", setupBegin)
     .command("done", setupDone);
   // Hide on the REGISTERED command, not the pre-registration instance: the
