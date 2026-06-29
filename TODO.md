@@ -272,6 +272,82 @@ outstanding._
       (the constants), `[coupling]` in `discern.toml`
       ([ADR 0069](docs/_adr/0069-co-change-coupling-advisory.md)).
 
+- [ ] **`discern audit` candidates + a `// discern-coupled-to:` declaration
+      marker — the discovery→enforcement bridge as a deliberate review, with
+      state.** `coupling` (ADR 0069) _discovers_ co-change pairs and nudges
+      per-change; ADR 0051's forcing functions _enforce_ the ones that are
+      essential invariants. Nothing today bridges the two as a periodic,
+      considered review — and nothing remembers which couplings a human has
+      already judged, so any standing surface re-serves the same advice forever.
+      This item is the design for both halves. **Deferred — design only here; do
+      not implement without confirmation.**
+
+  - **Audit candidates.** Extend `discern audit` (the subjective-review surface)
+    with the top-N strongest co-change pairs that are _not yet protected_ by a
+    forcing function — "candidates to lock with a parity test, or to
+    deliberately decouple." It is the discovery→enforcement bridge made a
+    deliberate, on-demand review item rather than a per-change nudge: the
+    agent/human looks at the strongest couplings periodically and _decides_,
+    instead of being prompted mid-change. Lands as a `review` (not a
+    deterministic `rule`) — discern surfaces the pair and its evidence and
+    leaves the judgement to the consumer (ADR 0063).
+
+  - **The re-advice problem, and the fix.** A standing candidate list with no
+    state re-serves the same pairs every run, including the ones already judged
+    — noise that trains the reader to ignore it. The fix is an inline,
+    stack-agnostic **declaration marker**, `// discern-coupled-to: <path>`,
+    which gives a coupling three states:
+    - **Discovered** — present only in the heuristic co-change graph. Always
+      advisory; what `coupling` surfaces today.
+    - **Declared** — a `// discern-coupled-to: B` comment on a line in file `A`:
+      the user/agent has _asserted_ the coupling is real. This (a) drops the
+      pair out of the discovered-candidate list, so the audit **self-cleans**
+      and only genuinely-new pairs surface on later runs; and (b) becomes its
+      own _precise_ check — "you changed `A`, which declares it's coupled to
+      `B`, but `B` isn't in your change" — decidable **from the diff alone, in
+      any language, with no static analysis**. This is the key insight: a
+      declared coupling is the stack-agnostic forcing function discern otherwise
+      can't offer a non-TS repo (ADR 0051's parity tests need a test runner and
+      a canonical set; this needs only a grep over the diff).
+    - **Enforced** — a real ADR-0051 parity/architectural test, for the stacks
+      that can write one. The strongest, but TS/test-runner-bound.
+
+  - **Design notes (record so an implementer needs no further context):**
+    - **Directional, not symmetric.** `discern-coupled-to: B` on `A` asserts A→B
+      only; to bind both ways, add the reverse marker on `B`. (Mirrors the
+      directional co-change edges — `coupling` already reports A→B and B→A
+      separately.)
+    - **Needs a currency check.** A marker pointing at a path that no longer
+      exists is a silent decay, exactly the failure ADR 0053 guards. Reuse the
+      ADR-0053 comment-scanning machinery (`tests/comment_currency_test.ts`'s
+      extractor, which already skips string/template bodies and resolves path
+      references against the live tree) to fail the gate when a
+      `discern-coupled-to:` target is missing.
+    - **A separate ignore marker is YAGNI for now.** The "this strong co-change
+      is genuinely incidental — stop suggesting it" case would want its own
+      `// discern-coupling-ignore: <path>` marker (suppress the candidate
+      without asserting a checkable coupling). Don't build it until the audit
+      candidate list actually annoys — declaring the coupling already removes it
+      from the list, which covers the common case.
+    - **Inline comment, not config — deliberate.** Keeping the declaration in a
+      code comment (not a `discern.toml` key) preserves zero-_config_: it is
+      declarative _intent that travels with the code_, not a tuning knob, and it
+      sits beside the coupled line where a reader meets it. It matches discern's
+      existing inline-marker vocabulary (`# desc:` on a recipe,
+      `discern-allow-retrospective`), so it is not a new mechanism, just a new
+      marker.
+    - **A declared coupling _could_ justify optional gating** — it is asserted,
+      not guessed, so failing on it is defensible in a way a discovered nudge
+      never is — **but it must still default to advisory** to honour the
+      never-block discipline (ADR 0069); any blocking is opt-in, like
+      `[coupling].in_gate`.
+
+    Evidence: `src/engine/coupling/coupling.ts` (the discovered graph);
+    `src/engine/audit/rules.ts` (where a candidate `review` would land);
+    `tests/comment_currency_test.ts` (the marker-currency machinery to reuse);
+    [ADR 0069](docs/_adr/0069-co-change-coupling-advisory.md) (discovery) →
+    [ADR 0051](docs/_adr/0051-canonical-set-parity.md) (enforcement).
+
 ## 👨‍💻 Jack's Odds and Ends
 
 _Small things Jack finds whilst reviewing code and documentation; cleaned up
