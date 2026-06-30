@@ -15,6 +15,7 @@ import { exists } from "@std/fs";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
+import { SetupVerifyOutputSchema } from "../src/shared/result_schemas.ts";
 
 /** A git work tree with a file but NO discern.toml — the fresh-install entry point. */
 async function freshRepo(dir: string): Promise<void> {
@@ -172,25 +173,54 @@ Deno.test("verify funnels begin with --model so the configuring model is recorde
   });
 });
 
-Deno.test("verify --json carries the open-warmly framing and a relayed model question with best-effort --model", async () => {
+Deno.test("verify's consent guidance is identical and faithful across the human render and --json (the A9 parity guard)", async () => {
+  // Running `verify --json` once led an agent to summarize and weaken the consent
+  // conversation — it dropped "open warmly", reworded the model question, and guessed a
+  // model id — while the SAME verify in human-readable form was followed faithfully.
+  // The consent now rides ONE prose `guidance` lane; this pins the two surfaces to the
+  // same text and asserts every load-bearing instruction survives in both, so they can
+  // never silently diverge again (ADR 0078, the two-lane rule).
   await withTempDir(async (dir) => {
     await freshRepo(dir);
-    const d = JSON.parse(
-      (await runAgent(dir, ["setup", "verify", "--json"])).stdout,
-    ).data;
-
-    // The "open warmly, explain discern" framing rides the JSON path, not only the
-    // human render — and both actually carry it.
-    assertStringIncludes(d.guidance, "explain what discern is");
     const human = (await runAgent(dir, ["setup", "verify"])).stdout;
-    assertStringIncludes(human, "explain what discern is");
+    const res = JSON.parse(
+      (await runAgent(dir, ["setup", "verify", "--json"])).stdout,
+    );
+    const d = res.data;
 
-    // The model question is one the agent RELAYS to its human ("Am I your most
-    // capable model?"), not a self-assessment it ticks.
-    assertStringIncludes(d.guidance, "Am I your most capable model");
-    // --model is best-effort — an agent that doesn't know its id omits it rather than
-    // guessing or stalling.
-    assertStringIncludes(d.guidance, "omit `--model` rather than guessing");
+    // One source, two renderings: the human preflight embeds the --json prose lane
+    // verbatim, so the consent conversation cannot drift between the surfaces.
+    assert(
+      typeof d.guidance === "string" && d.guidance.length > 200,
+      `expected a substantial consent guidance string: ${d.guidance}`,
+    );
+    assertStringIncludes(human, d.guidance);
+
+    // Every load-bearing consent instruction is present in BOTH surfaces: the exact
+    // model question put verbatim, the open-warmly framing, the omit-rather-than-guess
+    // rule for --model, and the worktree-location choice — the four the JSON path
+    // weakened before.
+    for (
+      const needle of [
+        "Am I your most capable model?",
+        "Everything I configure here is inherited by every future session.",
+        "Open warmly",
+        "explain what discern is",
+        "omit `--model` rather than guessing",
+        "Worktree location",
+      ]
+    ) {
+      assertStringIncludes(
+        d.guidance,
+        needle,
+        `--json guidance missing: ${needle}`,
+      );
+      assertStringIncludes(human, needle, `human render missing: ${needle}`);
+    }
+
+    // Faithfulness (ADR 0041): the real serialized envelope — guidance and all —
+    // validates against the schema the data is typed from.
+    SetupVerifyOutputSchema.parse(res);
   });
 });
 
