@@ -104,21 +104,28 @@ re-publishes, like the materialized Skills), plus the Merged
 agent never has to commit discern's own permission-widening config (its safety
 classifier would refuse). `begin` then lays the docs-tree and `TODO.md`
 skeletons (only when the project has none) — left uncommitted for the agent to
-fill — and prints the authoring brief.
+fill — and prints the operating principles plus the first **page** of the
+authoring brief; the agent pulls each subsequent page with
+`discern setup step
+<n>`
+([ADR 0078](../_adr/0078-setup-pages-and-per-step-proof.md)).
 
-**2. Fill in the stack.** The brief `discern setup begin` prints is what the
-coding agent already in the loop works through: it sniffs the repo, asks the
-user a few clarifying questions, and _proposes_ Capability fills (formatter,
-linter, type-checker, tests), seeds a starter `guidance.md`, and fills the docs
-tree and `TODO.md` from the repo and those answers — working transparently
-throughout: recommending each change, saying why it helps and that `discern` is
-what will enforce it, committing each stage on its own so the user can review or
-revert, and pausing only for genuine decisions rather than gating every step
-([ADR 0044](../_adr/0044-setup-involve-not-gate.md)). The Engine stays generic;
-only `discern.toml` learns the stack. Setup finishes with `discern setup done`,
-which proves the gate green (refresh → doctor → finish) before recording
-completion — then reminds the agent to start a fresh session, since the wired
-MCP tools and session hooks load only at session start.
+**2. Fill in the stack.** That brief — a structured page per step, served one at
+a time — is what the coding agent already in the loop works through: it sniffs
+the repo, asks the user a few clarifying questions, and _proposes_ Capability
+fills (formatter, linter, type-checker, tests), seeds a starter `guidance.md`,
+and fills the docs tree and `TODO.md` from the repo and those answers — working
+transparently throughout: recommending each change, saying why it helps and that
+`discern` is what will enforce it, committing each stage on its own so the user
+can review or revert, and pausing only for genuine decisions rather than gating
+every step ([ADR 0044](../_adr/0044-setup-involve-not-gate.md)). The Engine
+stays generic; only `discern.toml` learns the stack. Setup finishes with
+`discern setup done`, which proves the gate green (refresh → doctor → finish)
+AND re-derives from repo state that each step's authoring actually landed — so a
+skipped step can't pass
+([ADR 0078](../_adr/0078-setup-pages-and-per-step-proof.md)) — before recording
+completion, then reminds the agent to start a fresh session, since the wired MCP
+tools and session hooks load only at session start.
 
 **3. Work behind the gate.** Day to day, everything is driven through `discern`
 verbs:
