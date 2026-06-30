@@ -21,7 +21,11 @@ import {
   runAgent,
   scaffoldEngine,
 } from "./engine_helpers.ts";
-import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
+import {
+  AGENT_NAMES,
+  parseConfigOrThrow,
+} from "../src/shared/config_schema.ts";
+import { providerFor } from "../src/lib/providers.ts";
 
 /** The H1 of the printed setup instructions (templates/setup/instructions.md). */
 const INSTRUCTIONS_H1 = "# Set up the harness";
@@ -693,6 +697,64 @@ Deno.test("discern setup begin commits the scaffolded machinery, leaving docs/gu
     const untracked = await gitOut(dir, "status", "--porcelain");
     for (const seed of ["guidance.md", "TODO.md", "docs/"]) {
       assertStringIncludes(untracked, seed);
+    }
+  });
+});
+
+Deno.test("discern setup begin commits EVERY registry-listed agent's scaffoldable config file (B10)", async () => {
+  // Structural guard, in the spirit of agent_parity_test.ts: derive each agent's
+  // expected machinery files from PROVIDERS itself — never a hand-copied list — so
+  // a provider whose config file doesn't make it into the machinery commit fails
+  // HERE automatically. This is the regression for Codex's environment.toml (the
+  // worktreeApp co-managed file) being silently excluded: the committed set was
+  // built from a couple of named ScaffoldOutcome fields rather than the full union
+  // of what discern actually scaffolds, so a category like worktreeApp could be
+  // dropped without any test noticing. Configuring every known agent at once means
+  // a FUTURE provider — or a future wiring category, the same way worktreeApp once
+  // joined mcp/hooks — red-lights this test the moment it isn't folded into the
+  // commit, with no edit needed here to cover it.
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+    await gitInit(dir);
+
+    const r = await runAgent(dir, [
+      "setup",
+      "begin",
+      "--json",
+      "--agents",
+      AGENT_NAMES.join(","),
+    ]);
+    assertEquals(r.code, 0, r.output);
+    assertEquals(JSON.parse(r.stdout).data.machinery_committed, true);
+
+    const committed = new Set(
+      (await gitOut(dir, "show", "--name-only", "--format=", "HEAD"))
+        .split("\n").map((s) => s.trim()).filter(Boolean),
+    );
+
+    for (const name of AGENT_NAMES) {
+      const p = providerFor(name);
+      assert(p !== undefined, `no provider for ${name}`);
+      const expected: string[] = [];
+      if (p.mcp.kind === "wired") {
+        expected.push(p.mcp.integration.configFile);
+      }
+      if (p.hooks !== undefined) {
+        expected.push(p.hooks.settingsFile);
+      }
+      if (p.worktreeApp !== undefined) {
+        expected.push(p.worktreeApp.configFile);
+      }
+      for (const file of expected) {
+        assert(
+          committed.has(file),
+          `${name}'s scaffolded config file ${file} was not committed by ` +
+            `setup begin — committed: ${
+              [...committed].sort().join(", ")
+            }. A new wiring category must flow into ScaffoldOutcome and ` +
+            `commitScaffoldedMachinery's path union, not just get written to disk.`,
+        );
+      }
     }
   });
 });

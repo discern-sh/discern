@@ -60,9 +60,13 @@ through a TOML AST:
   key, the `=` alignment, and every comment elsewhere). A dropped inline
   `# e.g.` hint on the replaced line is the only loss, which is correct once the
   slot is filled.
-- A missing key is inserted after its section header; a missing section is
-  appended at EOF (`[section]` then the key). Commented-out hint lines
-  (`# native = …`) never match, so a real key is added alongside them.
+- A missing key is inserted after its section header. A missing section is
+  created beside the last existing member of its dotted family when one exists
+  (`[scopes.assets]` lands next to `[scopes.docs]`, not scattered away from it —
+  see [ADR 0021](0021-migrations-insert-documented-sections.md) for the sibling
+  problem this complements), otherwise appended at EOF (`[section]` then the
+  key). Commented-out hint lines (`# native = …`) never match, so a real key is
+  added alongside them.
 - Typed helpers — `setString`, `setNumber`, `setBool`, `setStringArray` — render
   values via the existing TOML renderers and call `setLiteral`.
 
