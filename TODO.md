@@ -258,6 +258,33 @@ outstanding._
       the `passapp` control case; that staging area will be discarded and
       re-run, so re-confirm against a fresh run. Worth an ADR when designed.)
 
+- [ ] **Surface the per-verb execution model beyond `doctor`.** The execution
+      model (ADR 0063, `VerbPlan`) is only reachable by running `discern doctor`
+      and scrolling past the health checks. Make it independently addressable
+      (e.g. `doctor --section execution-model`, or expose via `help`/`status`)
+      and front-load `doctor`'s envelope with a crisp
+      `{ok, problems,
+      next_action}` verdict so a consumer can early-out.
+      Keep one envelope per verb (ADR 0028) — don't split `doctor` into several
+      commands. Evidence: `src/engine/doctor/execution_model.ts`,
+      `src/engine/doctor/doctor.ts`. (Deferred from onboarding triage — useful,
+      not urgent.)
+
+## 📣 Marketing & positioning
+
+_Product positioning, messaging, and launch/content tasks._
+
+- [ ] **Make "author once → compile everywhere" + per-agent wiring a first-class
+      message.** discern compiles one `guidance.md` into every vendor's agent
+      files and wires each agent's exact guidance file, skills dir, MCP, and
+      hooks — most tools just say "supports Claude, Codex, Gemini". Elevate this
+      from a buried detail to a headline principle in external docs and landing
+      copy.
+- [ ] **Use self-hosting as launch credibility.** "discern is developed under
+      its own gate" proves the flow is real, the docs discipline is tolerable,
+      and the gate isn't theoretical — the best possible demo. Put it in launch
+      material.
+
 ## 👨‍💻 Jack's Odds and Ends
 
 _Small things Jack finds whilst reviewing code and documentation; cleaned up
