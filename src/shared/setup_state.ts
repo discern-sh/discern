@@ -54,11 +54,19 @@ export function verbNeedsBootstrap(verb: string): boolean {
  * The staged-setup sub-verbs (ADR 0075), in lifecycle order — the single source the
  * CLI router registers under `setup` and the welcome's `next_action` walks. `verify`
  * and `begin` are the handshake; `done` is the terminal proof; `step` is the
- * read-only re-serve of one brief step (off to the side, tracks nothing). The
- * `engine_setup_phase_parity` test ties the registered command tree back to this set
- * (ADR 0051), so a sub-verb can't be added to one without the other.
+ * read-only re-serve of one brief step (off to the side, tracks nothing); `land`
+ * hands the finished setup branch onto the integration branch (off to the side of the
+ * handshake, run after `done`). The `engine_setup_phase_parity` test ties the
+ * registered command tree back to this set (ADR 0051), so a sub-verb can't be added to
+ * one without the other.
  */
-export const SETUP_SUBVERBS = ["verify", "begin", "step", "done"] as const;
+export const SETUP_SUBVERBS = [
+  "verify",
+  "begin",
+  "step",
+  "done",
+  "land",
+] as const;
 /** One staged-setup sub-verb ({@link SETUP_SUBVERBS}). */
 export type SetupSubverb = (typeof SETUP_SUBVERBS)[number];
 
