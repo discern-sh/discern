@@ -234,7 +234,7 @@ function buildConfirmations(worktreePath: string): Confirmation[] {
     {
       id: "model",
       prompt:
-        "Model & session — this is the project's single highest-leverage moment, and its quality is bounded by the model that runs it. Put the question to your human rather than self-assessing: \"Am I your most capable model? Everything I configure here is inherited by every future session.\" If they switch you, return to a FRESH session on the stronger model (discern's tools and session hooks load only at session start). When you run begin, pass `--model \"<your-model-id>\"` if you know your model identifier — it records which model configured the project for support triage; if you don't know it, omit the flag rather than guessing.",
+        'Model & session — this is the project\'s single highest-leverage moment, and its quality is bounded by the model that runs it. Put the question to your human rather than self-assessing: "Am I your most capable model? Everything I configure here is inherited by every future session." If they switch you, return to a FRESH session on the stronger model (discern\'s tools and session hooks load only at session start). When you run begin, pass `--model "<your-model-id>"` if you know your model identifier — it records which model configured the project for support triage; if you don\'t know it, omit the flag rather than guessing.',
     },
     {
       id: "worktree",

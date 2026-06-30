@@ -101,7 +101,8 @@ Deno.test("the fresh welcome --json carries the same instructional substance as 
   await withTempDir(async (dir) => {
     await freshRepo(dir);
     const human = (await runAgent(dir, ["setup"])).stdout;
-    const d = JSON.parse((await runAgent(dir, ["setup", "--json"])).stdout).data;
+    const d =
+      JSON.parse((await runAgent(dir, ["setup", "--json"])).stdout).data;
 
     // The agent guidance carries the role + the consent framing the human prose has.
     assertStringIncludes(d.agent_guidance, "nothing is written until");
@@ -118,7 +119,8 @@ Deno.test("the in-progress welcome --json carries the 'your job, not a status' a
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
     await runAgent(dir, ["setup", "begin"]);
-    const d = JSON.parse((await runAgent(dir, ["setup", "--json"])).stdout).data;
+    const d =
+      JSON.parse((await runAgent(dir, ["setup", "--json"])).stdout).data;
     assertEquals(d.phase, "in_progress");
     // The resume framing the human text carries ("this is YOUR job ... not a status
     // to report back") must ride the JSON path too, not just the human one.

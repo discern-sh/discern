@@ -866,5 +866,5 @@ Deno.test("the brief sequences a refresh before the first gate run and a format 
   // The format capability is recommended first (before authoring), so its whole-tree
   // reflow lands on the empty scaffold and later content commits stay clean.
   assertStringIncludes(brief, "ordering tip");
-  assertStringIncludes(brief, 'set-capability format');
+  assertStringIncludes(brief, "set-capability format");
 });
