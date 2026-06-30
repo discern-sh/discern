@@ -134,6 +134,16 @@ Deno.test("improve catalog: every rule carries the fields its kind needs", () =>
   }
 });
 
+Deno.test("improve catalog: every category teaches beyond mechanically checked presence", () => {
+  for (const category of CATEGORIES) {
+    const reviews = category.rules.filter((rule) => rule.kind === "subjective");
+    assert(
+      reviews.length > 0,
+      `${category.name} needs a qualitative review that teaches what good looks like`,
+    );
+  }
+});
+
 Deno.test("improve scoring: 100 baseline still prioritizes an open review", () => {
   const report = evaluateReport(perfect());
   assertEquals(report.score, 100);

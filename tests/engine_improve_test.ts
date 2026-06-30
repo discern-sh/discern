@@ -255,6 +255,21 @@ Deno.test("improve --json: reviews carry the cited material", async () => {
       (review.against?.excerpt ?? "").length > 0,
       "the review should quote the guidance to judge",
     );
+
+    for (
+      const [category, id] of [
+        ["gate", "gate.test-depth"],
+        ["setup", "setup.failure-memory"],
+        ["docs", "docs.navigation"],
+        ["ratchets", "ratchets.normalize"],
+        ["skills", "skills.executable"],
+      ] as const
+    ) {
+      assert(
+        cat(payload, category).reviews.some((item) => item.id === id),
+        `expected the ${id} teaching review`,
+      );
+    }
   });
 });
 

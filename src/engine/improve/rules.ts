@@ -263,6 +263,30 @@ const GATE: Category = {
           : undefined;
       },
     },
+    {
+      kind: "subjective",
+      id: "gate.test-depth",
+      title: "Tests protect behaviour, boundaries, and failure paths",
+      ask:
+        "Inspect representative tests behind the configured command. Do they protect " +
+        "observable behaviour at important boundaries — including failure paths and " +
+        "edge cases — or mostly mirror implementation details and prove that happy-path " +
+        "code runs? Would a plausible regression fail for a useful reason?",
+      teach:
+        "A strong suite buys confidence, not just test count. Prefer externally visible " +
+        "outcomes, boundary conditions, and past failure modes; keep assertions specific " +
+        "enough that a red test explains the broken promise without coupling every test " +
+        "to internal structure.",
+      against: (ctx): { source: string; excerpt: string } | undefined => {
+        const cmd = toCommandList(ctx.config.capabilities.test).join(" && ");
+        return cmd.trim().length > 0
+          ? {
+            source: "the test suite behind the configured command",
+            excerpt: cmd,
+          }
+          : undefined;
+      },
+    },
   ],
 };
 
@@ -315,6 +339,30 @@ const SETUP: Category = {
             status: "partial",
             detail: `[project].gotchas_doc points at ${doc}, which is missing`,
           };
+      },
+    },
+    {
+      kind: "subjective",
+      id: "setup.failure-memory",
+      title: "The gotchas doc is an actionable failure playbook",
+      ask:
+        "Read the configured gotchas document. Does each entry capture a recurring, " +
+        "non-obvious failure with the symptom, likely cause, and proven recovery — or " +
+        "is it generic advice, stale history, or a list that still makes the next agent " +
+        "rediscover the diagnosis?",
+      teach:
+        "Good failure memory shortens the next incident. Record only traps the code and " +
+        "ordinary tool output do not make obvious; make each entry searchable from the " +
+        "observed symptom and concrete enough to verify the fix, then remove it when " +
+        "the underlying trap is eliminated.",
+      against: (ctx): { source: string; excerpt: string } | undefined => {
+        const doc = ctx.config.project.gotchas_doc.trim();
+        return doc === "" ? undefined : {
+          source: doc,
+          excerpt: ctx.gotchasDocExists
+            ? "configured failure-pointer document"
+            : "configured path is currently missing",
+        };
       },
     },
   ],
@@ -454,6 +502,28 @@ const DOCS: Category = {
       against: (ctx): { source: string; excerpt: string } | undefined =>
         ctx.docsTree
           ? { source: "docs/", excerpt: "browse with `discern docs --list`" }
+          : undefined,
+    },
+    {
+      kind: "subjective",
+      id: "docs.navigation",
+      title: "The docs tree is navigable from overview to detail",
+      ask:
+        "Starting at docs/README.md, can a new contributor find the system overview, " +
+        "the relevant subsystem, and its detailed pages without already knowing their " +
+        "filenames? Do subtree READMEs explain scope and link their leaves, or is the " +
+        "tree merely a collection of documents?",
+      teach:
+        "Good documentation has a map as well as accurate pages. Keep the root index " +
+        "small and oriented around reader journeys, give each subsystem an overview, " +
+        "and link detail from the nearest useful context so discoverability does not " +
+        "depend on repository archaeology.",
+      against: (ctx): { source: string; excerpt: string } | undefined =>
+        ctx.docsTree
+          ? {
+            source: "docs/README.md and subtree README files",
+            excerpt: "follow the links as a first-time reader",
+          }
           : undefined,
     },
   ],
@@ -608,6 +678,26 @@ const SKILLS: Category = {
         excerpt: ctx.authoredSkills === 0
           ? "no authored skills yet (built-ins still apply)"
           : `${ctx.authoredSkills} authored skill(s)`,
+      }),
+    },
+    {
+      kind: "subjective",
+      id: "skills.executable",
+      title: "Skills are executable, verifiable playbooks",
+      ask:
+        "Inspect the authored skills. Does each say when to use it, what context or " +
+        "preconditions it needs, the concrete sequence to follow, how to verify success, " +
+        "and how to recover or clean up when the workflow can fail? Could a fresh agent " +
+        "execute it without inventing the missing half?",
+      teach:
+        "A good skill packages judgement, not just reminders. Give it a sharp trigger, " +
+        "progressively disclose only the needed references, make effects and stop " +
+        "conditions explicit, and end with observable proof that the task succeeded.",
+      against: (ctx): { source: string; excerpt: string } | undefined => ({
+        source: resolveSkillsDir(ctx.root, ctx.config).rel,
+        excerpt: ctx.authoredSkills === 0
+          ? "no authored skills to inspect yet"
+          : `${ctx.authoredSkills} authored skill(s) to sample`,
       }),
     },
   ],
