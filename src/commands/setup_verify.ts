@@ -135,7 +135,9 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
         },
         conflicts,
         confirm_with_human: confirmations,
-        next_action: "discern setup begin",
+        // Carry the --model flag in the funnel so the model that runs setup is recorded
+        // as provenance — substitute your own id for the placeholder.
+        next_action: 'discern setup begin --model "<your-model-id>"',
       },
     });
     return 0;
@@ -222,7 +224,7 @@ function buildConfirmations(worktreePath: string): Confirmation[] {
     {
       id: "model",
       prompt:
-        "Model & session — setup is one-time and high-leverage; discern is only as good as the model that runs it. Confirm you're on the most capable model available, and plan to return to a FRESH session once setup completes (discern's tools and session hooks load only at session start).",
+        'Model & session — setup is one-time and high-leverage; discern is only as good as the model that runs it. Confirm you\'re on the most capable model available, and plan to return to a FRESH session once setup completes (discern\'s tools and session hooks load only at session start). When you run begin, pass `--model "<your-model-id>"` (your own model identifier, substituted) so discern records which model configured the project — support triage relies on it.',
     },
     {
       id: "worktree",
@@ -292,7 +294,8 @@ function printPreflight(p: {
     RULE,
     "When your human has confirmed, run:",
     "",
-    "    discern setup begin",
+    '    discern setup begin --model "<your-model-id>"',
+    "    (substitute your own model id — discern records it for support triage)",
   );
 
   console.log(lines.join("\n"));

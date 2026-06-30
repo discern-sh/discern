@@ -590,8 +590,12 @@ async function recordProvenance(
     changed = true;
   }
   const declared = model?.trim();
+  // Ignore the literal placeholder (`--model "<your-model-id>"`) the verify funnel
+  // shows: an agent that copies it verbatim instead of substituting must not record a
+  // bogus `<your-model-id>` as the provenance.
+  const isPlaceholder = declared !== undefined && declared.includes("<");
   if (
-    declared !== undefined && declared.length > 0 &&
+    declared !== undefined && declared.length > 0 && !isPlaceholder &&
     !existing.has("meta.setup_model")
   ) {
     editor.setString("meta.setup_model", declared);
