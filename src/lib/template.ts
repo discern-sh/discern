@@ -23,6 +23,7 @@ export type ContentTokenName =
   | "project_slug"
   | "branch_prefix"
   | "agents_array"
+  | "docs_dir"
   | "gotchas_doc"
   | "scopes_neutral"
   | "scopes_web"

@@ -38,7 +38,7 @@ export interface VerifyOptions {
 /** A single thing the agent must confirm WITH THE HUMAN before `begin` — surfaced in
  * `--json` so an agent can present them, and rendered as the human checklist. */
 interface Confirmation {
-  id: "model" | "worktree" | "ready";
+  id: "model" | "docs" | "worktree" | "ready";
   prompt: string;
 }
 
@@ -54,6 +54,7 @@ interface Conflict {
  * before the checklist" framing, not a colder one (ADR 0075 dual-addressing). */
 const CHECKLIST_FRAMING =
   "Before the checklist: open warmly and explain what discern is — your human may be meeting it for the first time, so the consent conversation should start with reassurance, not a quiz.";
+const SUGGESTED_DOCS_DIR = "docs/discern/";
 
 /**
  * Run the preflight for the cwd's project. Read-only and always exits 0. For a project
@@ -118,7 +119,10 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
   );
 
   const conflicts = buildConflicts(git, docsExists, existingInstructions);
-  const confirmations = buildConfirmations(worktreePath);
+  const confirmations = buildConfirmations(worktreePath, docsExists);
+  const nextAction = docsExists
+    ? 'discern setup begin --docs "<chosen-docs-dir>" --model "<your-model-id>"'
+    : 'discern setup begin --model "<your-model-id>"';
 
   if (opts.json) {
     log.result({
@@ -133,7 +137,10 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
             clean: git.kind === "clean",
             uncommitted: git.kind === "dirty" ? git.changes.length : 0,
           },
-          docs: { exists: docsExists },
+          docs: {
+            exists: docsExists,
+            suggested_discern_dir: docsExists ? SUGGESTED_DOCS_DIR : null,
+          },
           existing_instructions: existingInstructions,
           agents_detected: detected,
           agents_effective: effectiveAgents,
@@ -147,7 +154,7 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
         // Carry the --model flag in the funnel so the model that runs setup is recorded
         // as provenance — substitute your own id, or omit it if you don't know it (the
         // engine ignores the placeholder, so a verbatim copy records nothing).
-        next_action: 'discern setup begin --model "<your-model-id>"',
+        next_action: nextAction,
       },
     });
     return 0;
@@ -213,7 +220,7 @@ function buildConflicts(
     conflicts.push({
       kind: "existing_docs",
       detail:
-        "You already have a docs/ tree. discern's docs describe what's inferable from the code — conceptually distinct from docs you've hand-curated. begin won't touch yours; discuss whether to keep both side by side or nest discern's under docs/discern/.",
+        `You already have a docs/ tree. discern's docs describe what's inferable from the code — conceptually distinct from docs you've hand-curated. Choose a separate home such as ${SUGGESTED_DOCS_DIR}, then pass it to begin with --docs so the choice is persisted as [docs].dir.`,
     });
   }
   if (existingInstructions.length > 0) {
@@ -229,13 +236,25 @@ function buildConflicts(
 
 /** The fixed consent checklist the agent walks the human through. Worktree placement
  * offers KEEP or RELOCATE only — turning worktrees off is not surfaced (ADR 0075). */
-function buildConfirmations(worktreePath: string): Confirmation[] {
-  return [
+function buildConfirmations(
+  worktreePath: string,
+  docsExists: boolean,
+): Confirmation[] {
+  const confirmations: Confirmation[] = [
     {
       id: "model",
       prompt:
         'Model & session — this is the project\'s single highest-leverage moment, and its quality is bounded by the model that runs it. Put the question to your human rather than self-assessing: "Am I your most capable model? Everything I configure here is inherited by every future session." If they switch you, return to a FRESH session on the stronger model (discern\'s tools and session hooks load only at session start). When you run begin, pass `--model "<your-model-id>"` if you know your model identifier — it records which model configured the project for support triage; if you don\'t know it, omit the flag rather than guessing.',
     },
+  ];
+  if (docsExists) {
+    confirmations.push({
+      id: "docs",
+      prompt:
+        `Documentation location — keep the existing human-written docs/ untouched and choose a home for discern's agent documentation tree (recommended: ${SUGGESTED_DOCS_DIR}). Pass the agreed project-relative path to \`discern setup begin --docs "<path>"\`; begin records it as [docs].dir and every docs-aware surface follows it.`,
+    });
+  }
+  confirmations.push(
     {
       id: "worktree",
       prompt:
@@ -246,7 +265,8 @@ function buildConfirmations(worktreePath: string): Confirmation[] {
       prompt:
         "Ready to begin — `discern setup begin` checks out a dedicated discern-setup branch and scaffolds the harness, landing everything there in small, revertible commits.",
     },
-  ];
+  );
+  return confirmations;
 }
 
 const RULE = "─".repeat(72);
@@ -311,7 +331,9 @@ function printPreflight(p: {
     RULE,
     "When your human has confirmed, run:",
     "",
-    '    discern setup begin --model "<your-model-id>"',
+    p.docsExists
+      ? '    discern setup begin --docs "<chosen-docs-dir>" --model "<your-model-id>"'
+      : '    discern setup begin --model "<your-model-id>"',
     "    (substitute your model id if you know it; omit --model otherwise — it is",
     "     recorded for support triage, never required)",
   );

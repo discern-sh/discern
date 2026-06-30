@@ -1,13 +1,13 @@
 # Scope: NN-subsystem
 
 <!--
-  Copy this file to `docs/_internal/scopes/<NN-subsystem>.md` — one per subtree —
+  Copy this file beside the template as `<NN-subsystem>.md` — one per subtree —
   and fill each section. It is the per-subtree complement to the constant
   documenter brief: it names exactly what THIS agent reads, owns, and produces.
   Delete these comments as you go.
 -->
 
-Read [`docs/_internal/documenter-agent-brief.md`](../documenter-agent-brief.md) first.
+Read [`_internal/documenter-agent-brief.md`](../documenter-agent-brief.md) first.
 
 ## What this subtree documents
 

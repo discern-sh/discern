@@ -40,6 +40,7 @@ import {
   type GuidanceContext,
   renderGuidanceTemplate,
 } from "./guidance_template.ts";
+import { normalizeDocsDir } from "../shared/docs_path.ts";
 
 /**
  * The built-in guidance sections, in compile order. The base section is always
@@ -89,6 +90,7 @@ export function guidanceContext(config: DiscernConfig): GuidanceContext {
   return {
     vars: {
       branch_prefix: config.project.branch_prefix,
+      docs_dir: normalizeDocsDir(config.docs.dir),
       main_branch: config.project.main_branch,
       graduate_to: config.worktree.graduate_to,
       guidance_sources: codeList(config.guidance.sources),

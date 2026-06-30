@@ -83,7 +83,7 @@ interface DocsVerb {
 
 /**
  * The outcome of a verb's directory resolution. `ok` with an `undefined` dir is
- * meaningful for `docs` (discovery falls back to `<project root>/docs`); `missing`
+ * meaningful for `docs` (discovery resolves `[docs].dir`); `missing`
  * means the tree cannot be located at all and the shared core must not probe a
  * project root in its place.
  */
@@ -99,7 +99,7 @@ const DOCS_VERB: DocsVerb = {
   missingTree: (opts) =>
     opts.dir
       ? `no documentation directory at "${opts.dir}".`
-      : "no docs/ directory here — run `discern setup` to seed one, or pass --dir <path>.",
+      : "no docs/ directory here at the configured [docs].dir — run `discern setup` to seed it, or pass --dir <path>.",
   exportScopes: ["public", "all", "select"],
 };
 
@@ -147,7 +147,7 @@ export interface DocsOptions {
   list: boolean;
   /** Never page rendered output through `$PAGER`. */
   noPager: boolean;
-  /** Override the docs directory (default `<project root>/docs`). */
+  /** Override the docs directory (default: the project's `[docs].dir`). */
   dir?: string | undefined;
   /** Override the wrap width (default: the terminal width, capped). */
   width?: number | undefined;

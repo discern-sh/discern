@@ -47,9 +47,11 @@ export interface ImprovementContext {
   gotchasDocSet: boolean;
   /** Whether the configured `[project].gotchas_doc` resolves to a real file. */
   gotchasDocExists: boolean;
-  /** Whether a `docs/` tree with a `README.md` exists. */
+  /** Whether the configured docs tree has a `README.md`. */
   docsTree: boolean;
-  /** Count of real ADRs under `docs/_adr` (a `NNNN-*.md`, excluding `0000-template`). */
+  /** Configured project-relative documentation root. */
+  docsDir: string;
+  /** Count of real ADRs under the configured docs root's `_adr`. */
   adrCount: number;
   /** Whether at least one compiled agent file (any configured provider's) exists. */
   agentFilePresent: boolean;

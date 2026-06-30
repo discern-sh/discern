@@ -25,6 +25,8 @@ import {
   SEPARATOR,
 } from "@std/path";
 import { inlineToPlain } from "./markdown.ts";
+import { RawConfig } from "../shared/config_read.ts";
+import { DEFAULT_DOCS_DIR, normalizeDocsDir } from "../shared/docs_path.ts";
 import { resolveConfigPath } from "./paths.ts";
 
 /** One indexed documentation file. */
@@ -146,14 +148,26 @@ function sortKey(relPath: string): string {
 async function resolveDocsDir(
   cwd: string,
   dir: string | undefined,
-): Promise<string | undefined> {
+): Promise<{ docsDir: string; root: string } | undefined> {
   if (dir) {
     const abs = isAbsolute(dir) ? dir : resolve(cwd, dir);
-    return (await isDir(abs)) ? abs : undefined;
+    return (await isDir(abs))
+      ? { docsDir: abs, root: dirname(abs) }
+      : undefined;
   }
   const root = await findProjectRoot(cwd);
-  const candidate = join(root ?? cwd, "docs");
-  return (await isDir(candidate)) ? candidate : undefined;
+  if (root === undefined) {
+    const candidate = join(cwd, "docs");
+    return (await isDir(candidate))
+      ? { docsDir: candidate, root: dirname(candidate) }
+      : undefined;
+  }
+  const raw = await RawConfig.load(root);
+  const candidate = join(
+    root,
+    normalizeDocsDir(raw.get("docs.dir", DEFAULT_DOCS_DIR)),
+  );
+  return (await isDir(candidate)) ? { docsDir: candidate, root } : undefined;
 }
 
 /** Whether a doc buried under one or more `_`-prefixed segments is admitted, given
@@ -172,7 +186,7 @@ function internalAdmits(
 /**
  * Index the project's docs tree. Returns undefined when no docs directory
  * exists (the caller turns that into a friendly "nothing to browse" message).
- * `dir` overrides the default `<project root>/docs` location.
+ * `dir` overrides the default `[docs].dir` location.
  *
  * Internal/reference subtrees in `_`-prefixed directories (`_adr`, `_internal`)
  * are excluded by default — the browser shows only the user-facing tree.
@@ -188,10 +202,9 @@ export async function discoverDocs(opts: {
   dir?: string | undefined;
   includeInternal?: boolean | readonly string[] | undefined;
 }): Promise<DocsTree | undefined> {
-  const docsDir = await resolveDocsDir(opts.cwd, opts.dir);
-  if (!docsDir) return undefined;
-
-  const root = dirname(docsDir);
+  const resolved = await resolveDocsDir(opts.cwd, opts.dir);
+  if (!resolved) return undefined;
+  const { docsDir, root } = resolved;
   const entries: DocEntry[] = [];
 
   for await (

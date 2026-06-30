@@ -223,6 +223,17 @@ Deno.test("verify surfaces existing docs/ and agent instructions as conflicts", 
       `expected an existing_instructions conflict: ${JSON.stringify(kinds)}`,
     );
     assert(d.findings.existing_instructions.includes("CLAUDE.md"));
+    const docs = d.confirm_with_human.find((c: { id: string }) =>
+      c.id === "docs"
+    );
+    assert(
+      docs !== undefined,
+      "existing docs must add a location confirmation",
+    );
+    assertStringIncludes(docs.prompt, "--docs");
+    assertStringIncludes(docs.prompt, "[docs].dir");
+    assertEquals(d.findings.docs.suggested_discern_dir, "docs/discern/");
+    assertStringIncludes(d.next_action, "--docs");
   });
 });
 

@@ -58,6 +58,49 @@ Deno.test("discern setup lays the doc skeletons when absent and prints the instr
   });
 });
 
+Deno.test("setup begin --docs persists and scaffolds a separate agent docs tree", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.mkdir(join(dir, "docs"));
+    await Deno.writeTextFile(join(dir, "docs/README.md"), "# Human docs\n");
+
+    const r = await runAgent(dir, [
+      "setup",
+      "begin",
+      "--docs",
+      "docs/discern/",
+      "--agents",
+      "claude_code",
+    ]);
+    assertEquals(r.code, 0, r.output);
+    assertStringIncludes(r.stdout, "Project skeletons laid: docs/discern/");
+    const step = await runAgent(dir, ["setup", "step", "3"]);
+    assertStringIncludes(
+      step.stdout,
+      "docs/discern/00-orientation/design-principles.md",
+    );
+
+    const config = parseConfigOrThrow(
+      await Deno.readTextFile(join(dir, "discern.toml")),
+    );
+    assertEquals(config.docs.dir, "docs/discern/");
+    assert(
+      await exists(
+        join(dir, "docs/discern/00-orientation/design-principles.md"),
+      ),
+    );
+    assertEquals(
+      await Deno.readTextFile(join(dir, "docs/README.md")),
+      "# Human docs\n",
+    );
+    const blocked = await runAgent(dir, ["setup", "done"]);
+    assertEquals(blocked.code, 1, blocked.output);
+    assertStringIncludes(
+      blocked.stderr,
+      "docs/discern/00-orientation/design-principles.md",
+    );
+  });
+});
+
 Deno.test("the scaffolded dev-loop docs name the canonical worktree verb (discern start, not bare discern worktree)", async () => {
   // `discern start` (from the main checkout) is how you begin a new line of work;
   // `discern worktree` is the in-worktree convergence command. The skeleton dev-loop
