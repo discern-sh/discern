@@ -131,7 +131,7 @@ Deno.test("the in-progress welcome --json carries the 'your job, not a status' a
 
 // ── the verify preflight ─────────────────────────────────────────────────────
 
-Deno.test("verify reports grounded findings and the consent checklist, writing nothing", async () => {
+Deno.test("verify reports grounded findings and the consent conversation, writing nothing", async () => {
   await withTempDir(async (dir) => {
     await freshRepo(dir);
     const d = JSON.parse(
@@ -142,9 +142,12 @@ Deno.test("verify reports grounded findings and the consent checklist, writing n
     assertEquals(d.findings.git.repo, true);
     assertEquals(d.findings.docs.exists, false);
     assert(typeof d.findings.worktree_path === "string");
-    // The fixed three-item consent checklist, and the funnel to begin.
-    const ids = d.confirm_with_human.map((c: { id: string }) => c.id);
-    assertEquals(sortedStr(ids), ["model", "ready", "worktree"]);
+    // The consent conversation rides the prose `guidance` lane (not structured
+    // fields the agent summarizes), and covers the three topics to settle with the
+    // human — model, worktree, ready — plus the funnel to begin.
+    assertStringIncludes(d.guidance, "Am I your most capable model");
+    assertStringIncludes(d.guidance, "Worktree location");
+    assertStringIncludes(d.guidance, "Ready to begin");
     assertStringIncludes(d.next_action, "begin");
     // Read-only: verify scaffolds nothing.
     assert(
@@ -164,15 +167,8 @@ Deno.test("verify funnels begin with --model so the configuring model is recorde
       (await runAgent(dir, ["setup", "verify", "--json"])).stdout,
     ).data;
     assertStringIncludes(d.next_action, "--model");
-    const model = d.confirm_with_human.find((c: { id: string }) =>
-      c.id === "model"
-    );
-    assert(
-      model !== undefined && model.prompt.includes("--model"),
-      `the model confirmation must instruct passing --model: ${
-        JSON.stringify(model)
-      }`,
-    );
+    // The consent guidance instructs passing --model for best-effort provenance.
+    assertStringIncludes(d.guidance, "--model");
   });
 });
 
@@ -183,22 +179,18 @@ Deno.test("verify --json carries the open-warmly framing and a relayed model que
       (await runAgent(dir, ["setup", "verify", "--json"])).stdout,
     ).data;
 
-    // Deliverable 7: the "open warmly, explain discern before the checklist" framing
-    // rides the JSON path, not only the human render — and both actually carry it.
-    assertStringIncludes(d.presentation, "explain what discern is");
+    // The "open warmly, explain discern" framing rides the JSON path, not only the
+    // human render — and both actually carry it.
+    assertStringIncludes(d.guidance, "explain what discern is");
     const human = (await runAgent(dir, ["setup", "verify"])).stdout;
     assertStringIncludes(human, "explain what discern is");
 
-    // Deliverable 1: the model confirmation is a question the agent RELAYS to its
-    // human ("Am I your most capable model?"), not a self-assessment it ticks.
-    const model = d.confirm_with_human.find((c: { id: string }) =>
-      c.id === "model"
-    );
-    assert(model !== undefined, "expected a model confirmation");
-    assertStringIncludes(model.prompt, "Am I your most capable model");
-    // Deliverable 8: --model is best-effort — an agent that doesn't know its id omits
-    // it rather than guessing or stalling.
-    assertStringIncludes(model.prompt, "omit the flag rather than guessing");
+    // The model question is one the agent RELAYS to its human ("Am I your most
+    // capable model?"), not a self-assessment it ticks.
+    assertStringIncludes(d.guidance, "Am I your most capable model");
+    // --model is best-effort — an agent that doesn't know its id omits it rather than
+    // guessing or stalling.
+    assertStringIncludes(d.guidance, "omit `--model` rather than guessing");
   });
 });
 
@@ -300,8 +292,3 @@ Deno.test("begin ignores a literal model placeholder, recording no bogus provena
     );
   });
 });
-
-/** Sort a string array (local helper — the tests compare small id sets). */
-function sortedStr(xs: string[]): string[] {
-  return [...xs].sort();
-}
