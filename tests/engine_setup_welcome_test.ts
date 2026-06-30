@@ -15,6 +15,7 @@ import { exists } from "@std/fs";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
+import { SetupVerifyOutputSchema } from "../src/shared/result_schemas.ts";
 
 /** A git work tree with a file but NO discern.toml — the fresh-install entry point. */
 async function freshRepo(dir: string): Promise<void> {
@@ -131,20 +132,24 @@ Deno.test("the in-progress welcome --json carries the 'your job, not a status' a
 
 // ── the verify preflight ─────────────────────────────────────────────────────
 
-Deno.test("verify reports grounded findings and the consent checklist, writing nothing", async () => {
+Deno.test("verify reports grounded findings and the consent conversation, writing nothing", async () => {
   await withTempDir(async (dir) => {
     await freshRepo(dir);
-    const d = JSON.parse(
+    const res = JSON.parse(
       (await runAgent(dir, ["setup", "verify", "--json"]))
         .stdout,
-    ).data;
+    );
+    const d = res.data;
     assertEquals(d.phase, "fresh");
     assertEquals(d.findings.git.repo, true);
     assertEquals(d.findings.docs.exists, false);
     assert(typeof d.findings.worktree_path === "string");
-    // The fixed three-item consent checklist, and the funnel to begin.
-    const ids = d.confirm_with_human.map((c: { id: string }) => c.id);
-    assertEquals(sortedStr(ids), ["model", "ready", "worktree"]);
+    // The consent conversation rides the prose `guidance` lane (not structured
+    // fields the agent summarizes), and covers the three topics to settle with the
+    // human — model, worktree, ready — plus the funnel to begin.
+    assertStringIncludes(d.guidance, "Am I your most capable model");
+    assertStringIncludes(d.guidance, "Worktree location");
+    assertStringIncludes(d.guidance, "Ready to begin");
     assertStringIncludes(d.next_action, "begin");
     // Read-only: verify scaffolds nothing.
     assert(
@@ -164,41 +169,59 @@ Deno.test("verify funnels begin with --model so the configuring model is recorde
       (await runAgent(dir, ["setup", "verify", "--json"])).stdout,
     ).data;
     assertStringIncludes(d.next_action, "--model");
-    const model = d.confirm_with_human.find((c: { id: string }) =>
-      c.id === "model"
-    );
-    assert(
-      model !== undefined && model.prompt.includes("--model"),
-      `the model confirmation must instruct passing --model: ${
-        JSON.stringify(model)
-      }`,
-    );
+    // The consent guidance instructs passing --model for best-effort provenance.
+    assertStringIncludes(d.guidance, "--model");
   });
 });
 
-Deno.test("verify --json carries the open-warmly framing and a relayed model question with best-effort --model", async () => {
+Deno.test("verify's consent guidance is identical and faithful across the human render and --json (the A9 parity guard)", async () => {
+  // Running `verify --json` once led an agent to summarize and weaken the consent
+  // conversation — it dropped "open warmly", reworded the model question, and guessed a
+  // model id — while the SAME verify in human-readable form was followed faithfully.
+  // The consent now rides ONE prose `guidance` lane; this pins the two surfaces to the
+  // same text and asserts every load-bearing instruction survives in both, so they can
+  // never silently diverge again (ADR 0078, the two-lane rule).
   await withTempDir(async (dir) => {
     await freshRepo(dir);
-    const d = JSON.parse(
-      (await runAgent(dir, ["setup", "verify", "--json"])).stdout,
-    ).data;
-
-    // Deliverable 7: the "open warmly, explain discern before the checklist" framing
-    // rides the JSON path, not only the human render — and both actually carry it.
-    assertStringIncludes(d.presentation, "explain what discern is");
     const human = (await runAgent(dir, ["setup", "verify"])).stdout;
-    assertStringIncludes(human, "explain what discern is");
-
-    // Deliverable 1: the model confirmation is a question the agent RELAYS to its
-    // human ("Am I your most capable model?"), not a self-assessment it ticks.
-    const model = d.confirm_with_human.find((c: { id: string }) =>
-      c.id === "model"
+    const res = JSON.parse(
+      (await runAgent(dir, ["setup", "verify", "--json"])).stdout,
     );
-    assert(model !== undefined, "expected a model confirmation");
-    assertStringIncludes(model.prompt, "Am I your most capable model");
-    // Deliverable 8: --model is best-effort — an agent that doesn't know its id omits
-    // it rather than guessing or stalling.
-    assertStringIncludes(model.prompt, "omit the flag rather than guessing");
+    const d = res.data;
+
+    // One source, two renderings: the human preflight embeds the --json prose lane
+    // verbatim, so the consent conversation cannot drift between the surfaces.
+    assert(
+      typeof d.guidance === "string" && d.guidance.length > 200,
+      `expected a substantial consent guidance string: ${d.guidance}`,
+    );
+    assertStringIncludes(human, d.guidance);
+
+    // Every load-bearing consent instruction is present in BOTH surfaces: the exact
+    // model question put verbatim, the open-warmly framing, the omit-rather-than-guess
+    // rule for --model, and the worktree-location choice — the four the JSON path
+    // weakened before.
+    for (
+      const needle of [
+        "Am I your most capable model?",
+        "Everything I configure here is inherited by every future session.",
+        "Open warmly",
+        "explain what discern is",
+        "omit `--model` rather than guessing",
+        "Worktree location",
+      ]
+    ) {
+      assertStringIncludes(
+        d.guidance,
+        needle,
+        `--json guidance missing: ${needle}`,
+      );
+      assertStringIncludes(human, needle, `human render missing: ${needle}`);
+    }
+
+    // Faithfulness (ADR 0041): the real serialized envelope — guidance and all —
+    // validates against the schema the data is typed from.
+    SetupVerifyOutputSchema.parse(res);
   });
 });
 
@@ -209,10 +232,11 @@ Deno.test("verify surfaces existing docs/ and agent instructions as conflicts", 
     await Deno.writeTextFile(join(dir, "docs/README.md"), "# mine\n");
     await Deno.writeTextFile(join(dir, "CLAUDE.md"), "# my rules\n");
 
-    const d = JSON.parse(
+    const res = JSON.parse(
       (await runAgent(dir, ["setup", "verify", "--json"]))
         .stdout,
-    ).data;
+    );
+    const d = res.data;
     const kinds = d.conflicts.map((c: { kind: string }) => c.kind);
     assert(
       kinds.includes("existing_docs"),
@@ -223,17 +247,12 @@ Deno.test("verify surfaces existing docs/ and agent instructions as conflicts", 
       `expected an existing_instructions conflict: ${JSON.stringify(kinds)}`,
     );
     assert(d.findings.existing_instructions.includes("CLAUDE.md"));
-    const docs = d.confirm_with_human.find((c: { id: string }) =>
-      c.id === "docs"
-    );
-    assert(
-      docs !== undefined,
-      "existing docs must add a location confirmation",
-    );
-    assertStringIncludes(docs.prompt, "--docs");
-    assertStringIncludes(docs.prompt, "[docs].dir");
+    assertStringIncludes(d.guidance, "Documentation location");
+    assertStringIncludes(d.guidance, "--docs");
+    assertStringIncludes(d.guidance, "[docs].dir");
     assertEquals(d.findings.docs.suggested_discern_dir, "docs/discern/");
     assertStringIncludes(d.next_action, "--docs");
+    SetupVerifyOutputSchema.parse(res);
   });
 });
 
@@ -311,8 +330,3 @@ Deno.test("begin ignores a literal model placeholder, recording no bogus provena
     );
   });
 });
-
-/** Sort a string array (local helper — the tests compare small id sets). */
-function sortedStr(xs: string[]): string[] {
-  return [...xs].sort();
-}

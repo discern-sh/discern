@@ -39,10 +39,10 @@ export interface WelcomeOptions {
  * the machine-readable mirror, kept in step with them by the welcome JSON tests.
  */
 const FRESH_AGENT_GUIDANCE =
-  "You drive setup — discern only guides you, and nothing is written until you run `discern setup begin`. Before any consent checklist, open warmly and explain what discern is to your human (they may be meeting it for the first time): a quality gate, isolated git worktrees, and shared agent instructions, tailored to their codebase by you. Reassure them it is safe and reversible — setup touches only this folder, runs on a dedicated `discern-setup` branch in small revertible commits, needs no API key, and undoes by deleting the branch. Then preview the plan with `discern setup verify`.";
+  "You are discern's configuration engine for this project — the capable agent already in the loop, here to set discern up for your human. This is a short workflow you DRIVE end to end (verify → begin → author → done), not a status to relay back and stop on; discern only guides you, and nothing is written until you run `discern setup begin`. Your next action now: run `discern setup verify` yourself to preview the plan and open the consent conversation — don't hand the welcome back as a report. Before any consent checklist, open warmly and explain what discern is to your human (they may be meeting it for the first time): a quality gate, isolated git worktrees, and shared agent instructions, tailored to their codebase by you. Reassure them it is isolated and reversible — setup touches only this folder, runs on a dedicated `discern-setup` branch in small revertible commits, needs no API key, and undoes by deleting the branch.";
 
 const FRESH_HUMAN_FRAMING =
-  "discern adds a quality gate, isolated git worktrees, and shared agent instructions to this repo, tailored to your codebase by your own coding agent — safe, reversible, and with no API key. Point your most capable model at it: setup is one-time and high-leverage.";
+  "discern adds a quality gate, isolated git worktrees, and shared agent instructions to this repo, tailored to your codebase by your own coding agent — isolated, reversible, and with no API key. Point your most capable model at it: setup is one-time and high-leverage.";
 
 const IN_PROGRESS_AGENT_GUIDANCE =
   "Finishing setup is YOUR job, not a status to report back. Continue the setup brief, then run `discern setup done` to validate and record completion — and don't tell the user setup is done until it passes. Reprint the brief any time with `discern setup begin` (idempotent; it won't touch your work).";
@@ -160,13 +160,18 @@ const FRESH_WELCOME: readonly string[] = [
   "",
   "  FOR CODING AGENTS",
   RULE,
-  "  Did your human just ask you to set discern up? You drive it — discern only",
-  "  guides you, and NOTHING is written until you explicitly run `begin`. Start by",
-  "  previewing what setup will do and confirming a few things with your human:",
+  "  You are discern's configuration engine here: the capable agent already in",
+  "  the loop, set to configure discern for your human. This is a short workflow",
+  "  you DRIVE end to end (verify → begin → author → done) — not a status to",
+  "  relay back and stop on. discern guides each step; NOTHING is written until",
+  "  you explicitly run `begin`.",
+  "",
+  "  Your next action, now — preview the plan and open the consent conversation:",
   "",
   "      discern setup verify        (read-only; add --json for machine output)",
   "",
-  "  It will tell you what to confirm, then point you at the next step.",
+  "  Run it yourself: it tells you what to confirm with your human, then points",
+  "  you at the next step. Don't hand this back as a report — carry it through.",
 ];
 
 /** The in-progress welcome, as lines: the resume view. Lead with DERIVED progress

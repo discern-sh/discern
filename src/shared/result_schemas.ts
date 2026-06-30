@@ -503,6 +503,68 @@ export const SetupStepDataSchema = z.strictObject({
 });
 export type SetupStepData = z.infer<typeof SetupStepDataSchema>;
 
+// setup:verify ──────────────────────────────────────────────────────────────────
+
+/**
+ * One pre-existing thing `begin` must work around — a heads-up for the human to weigh
+ * before scaffolding, never a blocker (`verify` only ever observes). The `kind` is the
+ * machine lane; the human-facing reason rides `detail`.
+ */
+export const SetupVerifyConflictSchema = z.strictObject({
+  kind: z.enum([
+    "existing_docs",
+    "existing_instructions",
+    "dirty_tree",
+    "not_a_repo",
+  ]),
+  detail: z.string(),
+});
+export type SetupVerifyConflict = z.infer<typeof SetupVerifyConflictSchema>;
+
+/**
+ * The grounded, read-only findings `verify` reports about THIS repo — the machine lane
+ * of the preflight. The consent conversation itself never rides these fields; it stays
+ * in the `guidance` prose. A new finding (e.g. a docs-tree-under-another-name
+ * detection) enrolls HERE, so the schema and the real output can't drift (ADR 0041).
+ */
+export const SetupVerifyFindingsSchema = z.strictObject({
+  git: z.strictObject({
+    repo: z.boolean(),
+    clean: z.boolean(),
+    uncommitted: z.number(),
+  }),
+  docs: z.strictObject({
+    exists: z.boolean(),
+    suggested_discern_dir: z.string().nullable().optional(),
+  }),
+  existing_instructions: z.array(z.string()),
+  agents_detected: z.array(z.string()),
+  agents_effective: z.array(z.string()),
+  worktree_path: z.string(),
+});
+export type SetupVerifyFindings = z.infer<typeof SetupVerifyFindingsSchema>;
+
+/**
+ * `setup:verify` — the read-only preflight payload (ADR 0075), two shapes under one
+ * schema:
+ *   - the FRESH preflight: the structured machine lane (`findings`/`conflicts`/`ready`)
+ *     plus the consent `guidance` — the warm prose the agent relays VERBATIM and never
+ *     summarizes — and the `next_action` funnel into `begin`;
+ *   - the redirect (phase ≠ fresh): just `phase` + `next_action`.
+ * The two-lane split mirrors `setup:step` (ADR 0078): consent/behavioral instructions
+ * stay prose, because agents summarize and weaken the same content when it arrives as
+ * structured fields. `phase` mirrors `SetupPhase` (shared/setup_state.ts).
+ */
+export const SetupVerifyDataSchema = z.strictObject({
+  phase: z.enum(["fresh", "in_progress", "done"]),
+  next_action: z.string(),
+  ready: z.boolean().optional(),
+  findings: SetupVerifyFindingsSchema.optional(),
+  conflicts: z.array(SetupVerifyConflictSchema).optional(),
+  guidance: z.string().optional(),
+});
+export type SetupVerifyData = z.infer<typeof SetupVerifyDataSchema>;
+
 // ── per-verb output schemas (the envelope with `data` narrowed) ──────────────
 // Advertised by the MCP server as each tool's `outputSchema`; the SDK validates a
 // call's `structuredContent` against `<schema>.shape`. The data-less verbs use the
@@ -569,4 +631,12 @@ export const DocsOutputSchema = z.strictObject({
 export const SetupStepOutputSchema = z.strictObject({
   ...ENVELOPE_BASE_FIELDS,
   data: SetupStepDataSchema.optional(),
+});
+
+/** `setup:verify` output: envelope + the preflight `data` (fresh or redirect). CLI-only
+ * (setup is not an MCP tool), modeled here so a faithfulness test can pin the real
+ * serialized output — including the consent `guidance` — to one source (ADR 0041). */
+export const SetupVerifyOutputSchema = z.strictObject({
+  ...ENVELOPE_BASE_FIELDS,
+  data: SetupVerifyDataSchema.optional(),
 });

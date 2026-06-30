@@ -85,8 +85,8 @@ read-only **welcome**: reassurance for the human, a funnel for their coding
 agent. The agent then runs `discern setup verify` — a read-only preflight that
 inspects the repo (git state, an existing `docs/` tree, existing agent
 instructions, the agents on PATH, the worktree location) and turns it into a
-short consent checklist to confirm with the human. When human-written docs
-already occupy `docs/`, the checklist asks for a separate home for discern's
+warm consent conversation to hold with the human. When human-written docs
+already occupy `docs/`, that conversation chooses a separate home for discern's
 agent documentation tree and passes it to `begin` with `--docs`; the persisted
 `[docs].dir` then drives every docs-aware surface
 ([ADR 0080](../_adr/0080-configured-agent-docs-root.md)). **Nothing is written

@@ -192,7 +192,7 @@ export function buildCli(
     .option("--force", "Re-run even if already set up (re-scaffold + re-seed).")
     .option(
       "--allow-dirty",
-      "Set up on the current branch even if it is dirty (skips the auto-created discern-setup branch).",
+      "Advanced/CI: set up on the current branch as-is, skipping the clean-tree check and the isolated discern-setup branch.",
     )
     .action(async (options) => {
       const { json, noColor } = globalFlags(options);
@@ -272,7 +272,7 @@ export function buildCli(
     .option("--force", "Re-run even if already set up (re-scaffold + re-seed).")
     .option(
       "--allow-dirty",
-      "Set up on the current branch even if it is dirty (skips the auto-created discern-setup branch).",
+      "Advanced/CI: set up on the current branch as-is, skipping the clean-tree check and the isolated discern-setup branch.",
     )
     .action(async (options) => {
       const { json, noColor } = globalFlags(options);
