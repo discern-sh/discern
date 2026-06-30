@@ -22,13 +22,16 @@ result shape every verb returns
 `{ok, verb, steps, diagnostics?, hints?, data}`, a serialization of the plan
 `finish` executed, not a re-derivation. Each Capability/Check/Scope gate is a
 `steps[]` entry; a genuine failure also yields a `diagnostics[]` entry carrying
-the command to reproduce it and its captured output (normalized to
-file/line/rule when the tool emits SARIF) — so an agent loops act→read-error→fix
-instead of re-running and scraping stderr. `hints[]` carries the next-step
-advice the human tail prints. Under `--json` the envelope is the **entire**
-output: all narration and command output is suppressed (not rerouted), so the
-combined stdout+stderr is exactly that one object — safe for an agent to capture
-([ADR 0028](../_adr/0028-result-envelope-and-diagnostics.md)).
+the command to reproduce it and its captured output: either a clean, capped
+Tier-0 excerpt with `output_path` for the full normalized capture when
+truncated, or file/line/rule findings when the tool emits SARIF. This lets an
+agent loop act→read-error→fix instead of re-running and scraping stderr.
+`hints[]` carries the next-step advice the human tail prints. Under `--json` the
+envelope is the **entire** output: all narration and command output is
+suppressed (not rerouted), so the combined stdout+stderr is exactly that one
+object — safe for an agent to capture
+([ADR 0028](../_adr/0028-result-envelope-and-diagnostics.md),
+[ADR 0083](../_adr/0083-normalize-and-offload-diagnostic-output.md)).
 `finish --dry-run` prints the plan (the jobs and Scope gates that _would_ run)
 without running anything
 ([ADR 0027](../_adr/0027-plan-apply-engine-execution.md)); it is honest that it

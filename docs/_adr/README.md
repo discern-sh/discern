@@ -96,6 +96,7 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0080 — The agent documentation tree has one configured root](0080-configured-agent-docs-root.md)
 - [0081 — `discern setup land`, a main-checkout landing command for the finished setup](0081-setup-land-command.md)
 - [0082 — Codex project config grants the discern worktree root, not broader sandbox control](0082-codex-project-config-writable-root.md)
+- [0083 — Captured diagnostic output is normalized and offloaded when truncated](0083-normalize-and-offload-diagnostic-output.md)
 
 ## Superseded and consolidated ADRs
 

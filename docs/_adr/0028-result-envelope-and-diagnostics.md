@@ -82,16 +82,18 @@ plus the shared `plan`/`steps` machinery — not a single Procrustean record.
 
 A `Diagnostic` is
 `{tool, severity, message, reproduce_cmd, output?, truncated?,
-file?, line?, col?, rule?, fix_available?}`.
+output_path?, file?, line?, col?, rule?, fix_available?}`.
 It is layered by how much discern knows about a tool — and most of it needs no
 per-tool knowledge:
 
-- **Tier 0 — capture (this ADR; stack-neutral, no parsing).** Each failed gate
-  command attaches its captured combined output (tail-capped) and
-  `reproduce_cmd` — which is just the command's own string, already in hand.
-  This alone flips the loop to act → read-error → fix, for every tool in every
-  stack. A fail-fast- _cancelled_ sibling is excluded (it isn't a failure to
-  fix).
+- **Tier 0 — capture (this ADR; stack-neutral, no parsing; refined by
+  [ADR 0083](0083-normalize-and-offload-diagnostic-output.md)).** Each failed
+  gate command attaches its captured combined output (terminal-normalized and
+  capped) and `reproduce_cmd` — which is just the command's own string, already
+  in hand. When the normalized capture is truncated, `output_path` points at a
+  best-effort temp file containing the full normalized capture. This alone flips
+  the loop to act → read-error → fix, for every tool in every stack. A
+  fail-fast- _cancelled_ sibling is excluded (it isn't a failure to fix).
 - **Tier 1 — normalize.** discern parses recognized machine formats into
   `file`/`line`/`col`/`rule` — one diagnostic per finding. The first format is
   **SARIF**, _auto-detected_: a project opts in simply by making its command
@@ -131,9 +133,9 @@ verbs is `serializeResult` over stdio — a third rendering of the same spine.
   output; stream mode now also retains a byte-capped copy so a failed streamed
   job still carries its diagnostic. Bounded by a hard cap.
 - **Tier 0 is honest about its limits.** Without a declared `format`, a
-  diagnostic carries raw output, not `file`/`line`. That's the stack-neutral
-  floor; Tier 1 is the opt-in ceiling. We do not ship a per-tool parser library
-  in the neutral core.
+  diagnostic carries normalized output, not `file`/`line`. That's the
+  stack-neutral floor; Tier 1 is the opt-in ceiling. We do not ship a per-tool
+  parser library in the neutral core.
 
 ## Alternatives considered
 

@@ -38,8 +38,11 @@ A failed gate command yields a normalized {@link Diagnostic} so an agent loops
 how much discern knows about the tool:
 
 - **Tier 0 (always):** `tool`, `severity`, `message`, `reproduce_cmd` (the exact
-  command to re-run the failure in isolation), and `output` (the captured
-  combined stdout+stderr, tail-capped).
+  command to re-run the failure in isolation), and `output` (captured
+  stdout+stderr, terminal-normalized and capped). When the normalized capture is
+  truncated, `output_path` points at a best-effort OS-temp file containing the
+  full normalized capture
+  ([ADR 0083](../_adr/0083-normalize-and-offload-diagnostic-output.md)).
 - **Tier 1 (opt-in):** when a capability/check declares a diagnostics `format`,
   discern parses the output into `file` / `line` / `col` / `rule`.
 - **Tier 2 (derived):** `fix_available` when a wired fixer may resolve it.
