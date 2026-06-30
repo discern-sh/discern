@@ -39,6 +39,7 @@ import {
 } from "./commands/setup.ts";
 import { runSetupWelcome } from "./commands/setup_welcome.ts";
 import { runSetupVerify } from "./commands/setup_verify.ts";
+import { runSetupLand } from "./commands/setup_land.ts";
 import { runUpgrade } from "./commands/upgrade.ts";
 import { runDoctor } from "./commands/doctor.ts";
 import { runMigrate } from "./commands/migrate.ts";
@@ -230,6 +231,18 @@ export function buildCli(
       );
     });
 
+  const setupLand = new Command()
+    .description(
+      "Land the finished setup branch onto the integration branch (fast-forward or merge).",
+    )
+    .option("--dry-run", "Print the plan and change nothing.")
+    .action(async (options) => {
+      const { json, noColor } = globalFlags(options);
+      Deno.exit(
+        await runSetupLand({ json, noColor, dryRun: options.dryRun ?? false }),
+      );
+    });
+
   const setup = new Command()
     .description(
       "Set up the harness here (run once; your coding agent does it for you).",
@@ -287,7 +300,8 @@ export function buildCli(
     .command("verify", setupVerify)
     .command("begin", setupBegin)
     .command("step", setupStep)
-    .command("done", setupDone);
+    .command("done", setupDone)
+    .command("land", setupLand);
   // Hide on the REGISTERED command, not the pre-registration instance: the
   // instance form of `.command()` re-parents, so `setup.hidden()` wouldn't take.
   // `setup` stays reachable (and `--force`-able) when hidden.

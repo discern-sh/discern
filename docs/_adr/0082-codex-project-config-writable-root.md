@@ -1,4 +1,4 @@
-# ADR 0081: Codex project config grants the discern worktree root, not broader sandbox control
+# ADR 0082: Codex project config grants the discern worktree root, not broader sandbox control
 
 **Status**: accepted; extends [ADR 0031](0031-typed-provider-integration.md)
 (one provider registry), [ADR 0045](0045-mcp-is-core-infrastructure.md) (MCP is

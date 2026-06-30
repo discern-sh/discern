@@ -424,7 +424,7 @@ Deno.test("setup done refuses when the gate is red, recording nothing; --force o
     // --force is the escape hatch: it skips the proof and records anyway.
     const forced = await runAgent(dir, ["setup", "done", "--force"]);
     assertEquals(forced.code, 0, forced.output);
-    assertStringIncludes(forced.stdout, "gate not proven");
+    assertStringIncludes(forced.stdout, "the gate was not proven");
     assertStringIncludes(
       await Deno.readTextFile(join(dir, "discern.toml")),
       "bootstrapped = true",
