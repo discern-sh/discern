@@ -66,6 +66,10 @@ import {
   renderSetupPage,
   type SetupPage,
 } from "../shared/setup_pages.ts";
+import {
+  evaluateSetupCompletion,
+  type SetupCheckResult,
+} from "../shared/setup_checks.ts";
 import { worktreeState } from "../lib/git.ts";
 import { runGit } from "../shared/subprocess.ts";
 import { RawConfig } from "../shared/config_read.ts";
@@ -1117,13 +1121,74 @@ async function commitCompletionMarker(
 }
 
 /**
- * `discern setup done` — validate that no skeleton markers remain AND prove the
- * gate green (ADR 0065), then record `[meta].bootstrapped = true` so the setup
- * redirect retires and the command hides itself. The proof — `refresh` → `doctor`
- * → `finish` — makes the brief's definition-of-done structural: completion can't be
- * recorded unless the install is healthy and the gate actually passes. Also the
- * escape hatch for a manual setup: `--force` records completion despite leftover
- * markers AND skips the proof.
+ * Evaluate the derived per-step completion checks (ADR 0078), returning only the
+ * UNMET ones. A config that won't load yields none — the gate proof (doctor /
+ * finish) surfaces a broken config instead, so a parse error never masquerades as
+ * an incomplete step.
+ */
+async function unmetSetupChecks(root: string): Promise<SetupCheckResult[]> {
+  let config: DiscernConfig;
+  try {
+    config = await loadConfig(root);
+  } catch {
+    return [];
+  }
+  const results = await evaluateSetupCompletion({ root, config });
+  return results.filter((r) => !r.passed);
+}
+
+/**
+ * Emit the combined "setup is not finished" failure — the leftover skeleton markers
+ * AND the unmet per-step checks, each named — in both human and `--json` modes.
+ * `[meta].bootstrapped` stays unrecorded, so `status` keeps reporting setup as
+ * unfinished until every one passes (or `--force` overrides it).
+ */
+function emitSetupIncomplete(
+  json: boolean,
+  leftover: string[],
+  unmet: SetupCheckResult[],
+): void {
+  const parts: string[] = [];
+  if (leftover.length > 0) {
+    parts.push(`${leftover.length} file(s) still carry skeleton markers`);
+  }
+  if (unmet.length > 0) {
+    parts.push(`${unmet.length} step check(s) are not satisfied`);
+  }
+  const message = `setup is not finished — ${parts.join(" and ")}.`;
+  if (json) {
+    emitResult({
+      ok: false,
+      verb: "setup:done",
+      error: "incomplete",
+      message,
+      data: { leftover, unmet },
+    });
+    return;
+  }
+  console.error(`discern: ${message}`);
+  for (const f of leftover) {
+    console.error(`         • ${f} (skeleton marker remains)`);
+  }
+  for (const u of unmet) {
+    console.error(`         • Step ${u.step} — ${u.describe}`);
+  }
+  console.error(
+    "       Fill them and re-run, or pass --force to mark complete anyway.",
+  );
+}
+
+/**
+ * `discern setup done` — validate structural completeness AND prove the gate green
+ * (ADR 0065/0078), then record `[meta].bootstrapped = true` so the setup redirect
+ * retires and the command hides itself. Completeness is two layers: no skeleton
+ * marker may remain, AND every derived per-step completion check must pass (ADR
+ * 0078) — the latter catches a skeleton whose marker was deleted without the file
+ * being meaningfully filled (the shallow-compliance failure). The proof — `refresh`
+ * → `doctor` → `finish` — then makes the gate's definition-of-done structural:
+ * completion can't be recorded unless the install is healthy and the gate actually
+ * passes. `--force` is the manual-setup escape hatch: it skips the completeness
+ * checks AND the proof.
  */
 export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
   const root = await rootOrError(opts.json, "setup:done");
@@ -1131,30 +1196,15 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
     return 1;
   }
 
-  // Validate: no scaffolded doc (or the guidance source) may still carry a marker.
+  // Structural completeness: no scaffolded doc (or the guidance source) may still
+  // carry a marker, AND every derived per-step check must pass (ADR 0078). The
+  // checks SUPPLEMENT the marker walk — they catch a skeleton whose marker was
+  // cleared without the file being filled. `--force` skips both.
   const leftover = await findSkeletonMarkers(root);
+  const unmet = opts.force ? [] : await unmetSetupChecks(root);
 
-  if (leftover.length > 0 && !opts.force) {
-    const message =
-      `setup is not finished — ${leftover.length} file(s) still carry skeleton markers ` +
-      "(a `<!-- setup fills this -->` sentinel or the EXAMPLE principle).";
-    if (opts.json) {
-      emitResult({
-        ok: false,
-        verb: "setup:done",
-        error: "incomplete",
-        message,
-        data: { leftover },
-      });
-    } else {
-      console.error(`discern: ${message}`);
-      for (const f of leftover) {
-        console.error(`         • ${f}`);
-      }
-      console.error(
-        "       Fill them and re-run, or pass --force to mark complete anyway.",
-      );
-    }
+  if (!opts.force && (leftover.length > 0 || unmet.length > 0)) {
+    emitSetupIncomplete(opts.json, leftover, unmet);
     return 1;
   }
 
