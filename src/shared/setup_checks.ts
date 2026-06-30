@@ -24,6 +24,7 @@
 import { join } from "@std/path";
 import { KNOWN_CAPABILITIES } from "./capabilities.ts";
 import type { DiscernConfig } from "./config_schema.ts";
+import { normalizeDocsDir } from "./docs_path.ts";
 
 /** What a completion predicate reads: the project root and its loaded config. */
 export interface SetupCheckContext {
@@ -52,8 +53,6 @@ export interface SetupCheckResult {
   passed: boolean;
 }
 
-/** The design-principles doc the skeleton lays (Step 3's subject). */
-const DESIGN_PRINCIPLES_REL = "docs/00-orientation/design-principles.md";
 /** The guidance source the skeleton lays (Step 4's subject). */
 const GUIDANCE_REL = "guidance.md";
 
@@ -81,8 +80,13 @@ export const SETUP_COMPLETION_CHECKS: readonly SetupCompletionCheck[] = [
     name: "design_principles",
     describe:
       "design-principles.md holds at least 3 real principles (the EXAMPLE block replaced).",
-    async evaluate({ root }): Promise<boolean> {
-      const text = await readFileOr(root, DESIGN_PRINCIPLES_REL);
+    async evaluate({ root, config }): Promise<boolean> {
+      const text = await readFileOr(
+        root,
+        `${
+          normalizeDocsDir(config.docs.dir)
+        }00-orientation/design-principles.md`,
+      );
       if (text === undefined) {
         return true; // not laid here (existing-docs project) → N/A
       }

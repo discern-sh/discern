@@ -40,8 +40,9 @@ any config-pointed content you author (your [Guidance source](#guidance-source),
 [Skills](#skill), [Recipes](#recipe)) and the generated files. The seed and
 Skill files an install starts from originate under
 [`templates/`](../../templates/) and are **bundled into the binary**, which
-writes them out at `setup`/`upgrade`. (The docs tree and `TODO.md` are not part
-of the install; they are written on demand after install by the bundled Skills.)
+writes them out at `setup`/`upgrade`. (The agent documentation tree at
+`[docs].dir` and `TODO.md` are not fixed install paths; setup and the bundled
+Skills create them on demand.)
 
 ### Engine
 
@@ -147,7 +148,8 @@ down is `discern.toml` (the entire discern footprint); it also seeds the project
 config-pointed locations (your [Guidance source](#guidance-source)
 `guidance.md`, authored [Skills](#skill) under `[skills].dir`,
 [Recipes](#recipe) under `[recipes].dir`) or are created on demand after install
-by `discern setup begin` (the `docs/` tree and `TODO.md`).
+by `discern setup begin` (the agent documentation tree under `[docs].dir` and
+`TODO.md`).
 
 ### The binary's files
 

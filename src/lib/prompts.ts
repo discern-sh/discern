@@ -19,6 +19,7 @@ import {
 } from "./config.ts";
 import { PROVIDERS } from "./providers.ts";
 import type { Logger } from "./log.ts";
+import { normalizeDocsDir } from "../shared/docs_path.ts";
 
 /** Raw flag values passed to `init` (all optional; undefined → ask/default). */
 export interface InitFlags {
@@ -28,6 +29,7 @@ export interface InitFlags {
   sourceGlobs?: string | undefined;
   brief?: string | undefined;
   agents?: string | undefined;
+  docs?: string | undefined;
   yes?: boolean | undefined;
 }
 
@@ -157,7 +159,17 @@ export async function resolveInitConfig(
     agents = [...DEFAULTS.agents];
   }
 
-  return { projectName, slug, branchPrefix, sourceGlobs, brief, agents };
+  const docsDir = normalizeDocsDir(flags.docs ?? DEFAULTS.docsDir);
+
+  return {
+    projectName,
+    slug,
+    branchPrefix,
+    sourceGlobs,
+    brief,
+    agents,
+    docsDir,
+  };
 }
 
 /** A friendly confirmation prompt; auto-yes when non-interactive. */

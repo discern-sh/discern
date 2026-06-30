@@ -19,6 +19,7 @@ import { jobsInStage } from "./stages.ts";
 import { normalizeDiagnostics } from "./diagnostics.ts";
 import type { GateData } from "../../shared/result_schemas.ts";
 import type { JobResult } from "../jobs/types.ts";
+import { expandDocsDirReference } from "../../shared/docs_path.ts";
 import {
   capText,
   type Diagnostic,
@@ -110,7 +111,10 @@ export function planScopeGates(
 ): PlannedJob[] {
   const out: PlannedJob[] = [];
   for (const [scope, spec] of Object.entries(cfg.scopes)) {
-    const command = toCommand(spec.gate);
+    const command = expandDocsDirReference(
+      toCommand(spec.gate),
+      cfg.docs.dir,
+    );
     if (command === "") {
       continue;
     }

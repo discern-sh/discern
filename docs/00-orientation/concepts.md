@@ -85,27 +85,31 @@ read-only **welcome**: reassurance for the human, a funnel for their coding
 agent. The agent then runs `discern setup verify` — a read-only preflight that
 inspects the repo (git state, an existing `docs/` tree, existing agent
 instructions, the agents on PATH, the worktree location) and turns it into a
-warm consent conversation to hold with the human. **Nothing is written until
-`discern setup begin`**, the first mutating step: it lays down only _your_ seed
-files with zero-config defaults — a `discern.toml` with no Capabilities wired
-yet (a green gate you grow into — an omitted capability is simply skipped), a
-merged `.claude/settings.json`, and an appended `.gitignore` fragment. It then
-**materializes** the bundled Skills into each configured agent's skills dir
-(gitignored) and compiles the agent guidance. There is no engine and no manifest
-to write — the Engine is in the binary. Files split by **disposition**:
-[yours](glossary.md#your-files--yours) (the committed seeds, written once then
-kept), [the binary's](glossary.md#the-binarys-files) (gitignored artifacts it
-re-publishes, like the materialized Skills), plus the Merged
-`settings.json`/`.gitignore`. On a fresh install in a clean repo, `begin` then
-**commits** the harness wiring it just wrote — the `discern.toml`, the
+warm consent conversation to hold with the human. When human-written docs
+already occupy `docs/`, that conversation chooses a separate home for discern's
+agent documentation tree and passes it to `begin` with `--docs`; the persisted
+`[docs].dir` then drives every docs-aware surface
+([ADR 0080](../_adr/0080-configured-agent-docs-root.md)). **Nothing is written
+until `discern setup begin`**, the first mutating step: it lays down only _your_
+seed files with zero-config defaults — a `discern.toml` with no Capabilities
+wired yet (a green gate you grow into — an omitted capability is simply
+skipped), a merged `.claude/settings.json`, and an appended `.gitignore`
+fragment. It then **materializes** the bundled Skills into each configured
+agent's skills dir (gitignored) and compiles the agent guidance. There is no
+engine and no manifest to write — the Engine is in the binary. Files split by
+**disposition**: [yours](glossary.md#your-files--yours) (the committed seeds,
+written once then kept), [the binary's](glossary.md#the-binarys-files)
+(gitignored artifacts it re-publishes, like the materialized Skills), plus the
+Merged `settings.json`/`.gitignore`. On a fresh install in a clean repo, `begin`
+then **commits** the harness wiring it just wrote — the `discern.toml`, the
 `.gitignore` fragment, and the per-agent MCP + hooks files — as one
 `discern: scaffold harness` commit
 ([ADR 0076](../_adr/0076-engine-commits-scaffolded-machinery.md)), so the coding
 agent never has to commit discern's own permission-widening config (its safety
 classifier would refuse). `begin` then lays the docs-tree and `TODO.md`
-skeletons (only when the project has none) — left uncommitted for the agent to
-fill — and prints the operating principles plus the first **page** of the
-authoring brief; the agent pulls each subsequent page with
+skeletons at the configured root (only when the project has none) — left
+uncommitted for the agent to fill — and prints the operating principles plus the
+first **page** of the authoring brief; the agent pulls each subsequent page with
 `discern setup step
 <n>`
 ([ADR 0078](../_adr/0078-setup-pages-and-per-step-proof.md)).
@@ -130,7 +134,7 @@ _absent_, plus an overall verdict — so "the gate is proven" never reads as
 "every protection runs" when, say, no test suite is wired; it names **where the
 work lives** (on the `discern-setup` branch, not yet on `main`) and the one
 command to land it, `discern setup land`
-([ADR 0080](../_adr/0080-setup-land-command.md)); and it reminds the agent to
+([ADR 0081](../_adr/0081-setup-land-command.md)); and it reminds the agent to
 start a fresh session (the wired MCP tools and session hooks load only at
 session start) and to deepen the setup with `discern improve`.
 

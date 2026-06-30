@@ -144,9 +144,10 @@ Deno.test("loadConfigDoc rejects a non-object top-level JSON value", async () =>
 
 // ---- applyConfigDoc: happy path --------------------------------------------
 
-Deno.test("applyConfigDoc writes capabilities, checks, scopes and ratchets", () => {
+Deno.test("applyConfigDoc writes docs, capabilities, checks, scopes and ratchets", () => {
   const ed = editor();
   applyConfigDoc(ed, {
+    docs: { dir: "docs/discern/" },
     capabilities: {
       lint: "deno lint",
       test: ["deno test", "deno bench"], // array form: two commands
@@ -168,6 +169,7 @@ Deno.test("applyConfigDoc writes capabilities, checks, scopes and ratchets", () 
     },
   });
   const out = ed.toString();
+  assert(out.includes('[docs]\ndir = "docs/discern/"'));
   // A scalar capability and an array capability.
   assert(out.includes('lint = "deno lint"'));
   assert(out.includes('["deno test", "deno bench"]'));

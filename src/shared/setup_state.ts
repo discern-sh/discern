@@ -13,7 +13,8 @@
 import { walk } from "@std/fs";
 import { join, relative } from "@std/path";
 import { KNOWN_CAPABILITIES } from "./capabilities.ts";
-import type { DiscernConfig } from "./config_schema.ts";
+import { type DiscernConfig, loadConfig } from "./config_schema.ts";
+import { DEFAULT_DOCS_DIR, normalizeDocsDir } from "./docs_path.ts";
 
 /**
  * Work verbs that refuse until the project records `[meta].bootstrapped`
@@ -162,10 +163,23 @@ async function pathExists(path: string): Promise<boolean> {
  * never carries an EXAMPLE principle), matching what `setup done` has always
  * asserted.
  */
-export async function findSkeletonMarkers(root: string): Promise<string[]> {
+export async function findSkeletonMarkers(
+  root: string,
+  config?: DiscernConfig,
+): Promise<string[]> {
   const leftover: string[] = [];
 
-  const docsDir = join(root, "docs");
+  let docsRel = DEFAULT_DOCS_DIR;
+  if (config !== undefined) {
+    docsRel = normalizeDocsDir(config.docs.dir);
+  } else {
+    try {
+      docsRel = normalizeDocsDir((await loadConfig(root)).docs.dir);
+    } catch {
+      // A missing/broken config is diagnosed elsewhere; inspect the default tree.
+    }
+  }
+  const docsDir = join(root, docsRel);
   if (await pathExists(docsDir)) {
     for await (
       const entry of walk(docsDir, { includeDirs: false, exts: [".md"] })
@@ -231,7 +245,7 @@ export async function setupProgress(
   root: string,
   config: DiscernConfig,
 ): Promise<SetupProgress> {
-  const pendingMarkers = await findSkeletonMarkers(root);
+  const pendingMarkers = await findSkeletonMarkers(root, config);
   const capabilities: CapabilityProgress[] = Object.keys(KNOWN_CAPABILITIES)
     .map(
       (name) => ({

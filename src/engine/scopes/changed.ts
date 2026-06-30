@@ -15,6 +15,7 @@ import type { ChangedScopesData } from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import { pathMatchesPattern } from "./glob.ts";
+import { expandDocsDirReference } from "../../shared/docs_path.ts";
 
 /**
  * The two derived markers a classification emits ALONGSIDE the scope names: `code`
@@ -106,6 +107,16 @@ function pathMatchesGlobs(paths: string[], path: string): boolean {
   return paths.some((pat) => pathMatchesPattern(path, pat));
 }
 
+/** Resolve live config references in one scope's path list. */
+function resolvedScopePaths(
+  config: DiscernConfig,
+  scope: string,
+): string[] {
+  return (config.scopes[scope]?.paths ?? []).map((path) =>
+    expandDocsDirReference(path, config.docs.dir)
+  );
+}
+
 /**
  * The fire-scopes an explicit list of changed paths touches, in declaration order —
  * the scope-matching half of {@link changedScopes}, factored out so any verb that
@@ -128,7 +139,9 @@ export function scopesForPaths(
       continue;
     }
     for (const s of fireScopes) {
-      if (!fired.has(s) && pathMatchesGlobs(scopes[s]?.paths ?? [], path)) {
+      if (
+        !fired.has(s) && pathMatchesGlobs(resolvedScopePaths(config, s), path)
+      ) {
         fired.add(s);
       }
     }
@@ -161,7 +174,7 @@ export async function changedScopes(
   // A path is neutral if it matches a neutral scope, or is a root-level *.md.
   const isNeutral = (path: string): boolean => {
     for (const s of neutralScopes) {
-      if (pathMatchesGlobs(scopes[s]?.paths ?? [], path)) {
+      if (pathMatchesGlobs(resolvedScopePaths(config, s), path)) {
         return true;
       }
     }

@@ -1,8 +1,8 @@
 # ADR NNNN: <short statement of the decision>
 
 <!--
-  Copy this file to docs/_adr/NNNN-short-slug.md, where NNNN is one higher than
-  the highest existing ADR number (the first real ADR is 0001).
+  Copy this file beside the template as NNNN-short-slug.md, where NNNN is one
+  higher than the highest existing ADR number (the first real ADR is 0001).
   See README.md in this directory for the format and when to write one.
   State the DECISION in the title, not the problem. Delete these comments.
 -->

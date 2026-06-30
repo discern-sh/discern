@@ -60,6 +60,14 @@ Focused, reusable task playbooks. The effective set is discern's bundled built-i
 | --- | --- | --- | --- |
 | `dir` | string | `"skills"` | Where your authored skills live, relative to the project root. Read only if present, so a project with no skills/ dir simply uses the built-ins. |
 
+## `[docs]`
+
+The project documentation tree discern scaffolds, validates, and browses.
+
+| Key | Type | Default | Description |
+| --- | --- | --- | --- |
+| `dir` | string | `"docs/"` | Where discern's agent documentation tree lives, relative to the project root. `discern setup` scaffolds it here and `discern docs` browses it by default. |
+
 ## `[capabilities]`
 
 The core commands the gate runs, one per known capability; each maps to a gate stage automatically. The set is CLOSED — for custom work use a [checks.<name>] table with an explicit stage. OMIT a capability you don't have.
@@ -137,7 +145,7 @@ Worktree setup commands: one-shot `steps` (creation only) and convergent `ensure
 | `direction` | `up` \| `down` | `"up"` | "up": limit is a floor; "down": limit is a ceiling. |
 | `limit` | number | — | The floor (up) or ceiling (down). |
 | `run` | string \| string[] | — | The command whose output emits the metric line: DISCERN_METRIC <metric> <number>. |
-| `per` | string \| object | — | Divide the metric by this to ratchet a *rate*, not a raw count — so the number doesn't rise just because the project grew. Either a second metric the run emits, or a built-in extent discern measures itself: per = { words = "docs/**" } (files \| lines \| words \| bytes over a git pathspec). |
+| `per` | string \| object | — | Divide the metric by this to ratchet a *rate*, not a raw count — so the number doesn't rise just because the project grew. Either a second metric the run emits, or a built-in extent discern measures itself: per = { words = "${docs.dir}**" } (files \| lines \| words \| bytes over a git pathspec). |
 | `scale` | number | `1` | Multiply the rate by this so the limit reads in human units, e.g. scale = 1000 for "per 1,000 words". |
 
 ## `[gate]`

@@ -83,6 +83,7 @@ import {
   landingSummary,
 } from "./setup_land.ts";
 import { KNOWN_ENGINE_VERBS } from "../engine/dispatch.ts";
+import { DEFAULT_DOCS_DIR, normalizeDocsDir } from "../shared/docs_path.ts";
 
 /** Options accepted by `discern setup` (global flags + declarative passthrough). */
 export interface SetupOptions extends InitFlags {
@@ -119,6 +120,7 @@ export interface RawScaffoldCliOptions {
   sourceGlobs?: string | undefined;
   brief?: string | undefined;
   agents?: string | undefined;
+  docs?: string | undefined;
   config?: string | undefined;
   model?: string | undefined;
   dryRun?: boolean | undefined;
@@ -148,6 +150,7 @@ export function beginOptsFrom(
     sourceGlobs: o.sourceGlobs,
     brief: o.brief,
     agents: o.agents,
+    docs: o.docs,
     config: o.config,
     model: o.model,
   };
@@ -172,6 +175,7 @@ export function hasScaffoldIntent(options: unknown): boolean {
     o.sourceGlobs !== undefined ||
     o.brief !== undefined ||
     o.agents !== undefined ||
+    o.docs !== undefined ||
     o.model !== undefined
   );
 }
@@ -643,20 +647,23 @@ async function recordProvenance(
 async function laySkeletons(
   root: string,
   name: string,
+  docsDir: string,
 ): Promise<{ laid: string[]; skipped: string[] }> {
   const skeletonDir = join(await resolveSetupDir(), "skeleton");
   const laid: string[] = [];
   const skipped: string[] = [];
+  const docsRel = normalizeDocsDir(docsDir);
+  const docsAbs = join(root, docsRel);
 
-  if (await pathExists(join(root, "docs"))) {
-    skipped.push("docs/");
+  if (await pathExists(docsAbs)) {
+    skipped.push(docsRel);
   } else if (await pathExists(join(skeletonDir, "docs"))) {
     await copyTreeSubstituting(
       join(skeletonDir, "docs"),
-      join(root, "docs"),
+      docsAbs,
       name,
     );
-    laid.push("docs/");
+    laid.push(docsRel);
   }
 
   const todoSkeleton = join(skeletonDir, "TODO.md");
@@ -668,6 +675,11 @@ async function laySkeletons(
   }
 
   return { laid, skipped };
+}
+
+/** Render the configured docs root into setup's agent-facing path references. */
+function renderDocsDir(instructions: string, docsDir: string): string {
+  return instructions.replaceAll("{{docs_dir}}", normalizeDocsDir(docsDir));
 }
 
 /**
@@ -768,7 +780,8 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   // a resume where the fresh InitConfig isn't in hand (ADR 0065).
   const name = scaffold?.config.projectName ??
     (cfg ? displayNameFromSlug(cfg.project.slug) : "the project");
-  const { laid, skipped } = await laySkeletons(destDir, name);
+  const docsDir = cfg?.docs.dir ?? scaffold?.config.docsDir ?? DEFAULT_DOCS_DIR;
+  const { laid, skipped } = await laySkeletons(destDir, name, docsDir);
 
   // --- Phase 3: print the operating principles + the FIRST page (ADR 0078) ---
   // `begin` emits the principles and page 0 only (A10); the agent pulls each
@@ -778,14 +791,14 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   const rawInstructions = await Deno.readTextFile(
     join(await resolveSetupDir(), "instructions.md"),
   );
-  let instructions = rawInstructions;
+  let instructions = renderDocsDir(rawInstructions, docsDir);
   let firstPage: SetupPage | undefined;
   try {
-    const rendered = renderSetupBegin(rawInstructions);
+    const rendered = renderSetupBegin(instructions);
     instructions = rendered.text;
     firstPage = rendered.firstPage;
   } catch {
-    // Keep `instructions` as the raw brief — the agent still gets the full text.
+    // Keep `instructions` as the rendered brief — the agent still gets the full text.
   }
 
   if (opts.json) {
@@ -1047,9 +1060,19 @@ export async function runSetupStep(
   n: number,
   opts: SetupStepOptions,
 ): Promise<number> {
-  const instructions = await Deno.readTextFile(
+  const rawInstructions = await Deno.readTextFile(
     join(await resolveSetupDir(), "instructions.md"),
   );
+  let docsDir = DEFAULT_DOCS_DIR;
+  const root = await findRoot();
+  if (root !== undefined) {
+    try {
+      docsDir = (await loadConfig(root)).docs.dir;
+    } catch {
+      // A broken config is diagnosed by strict verbs; keep the default path here.
+    }
+  }
+  const instructions = renderDocsDir(rawInstructions, docsDir);
   let page: SetupPage | undefined;
   try {
     page = getSetupPage(instructions, n);

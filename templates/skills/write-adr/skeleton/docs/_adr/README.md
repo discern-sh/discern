@@ -10,12 +10,16 @@ To start a new ADR, copy [`0000-template.md`](0000-template.md).
 
 ## Location and naming
 
-- ADRs live in **`docs/_adr/`** (this directory). That is the single, settled location — not `docs/adr/`, not anywhere else.
+- ADRs live in **`_adr/` under the configured documentation root** (this
+  directory). That is the single, settled location within the tree.
 - Files are named `NNNN-short-slug.md`: a four-digit, zero-padded number, then a dash, then a short kebab-case slug, e.g. `0007-event-sourced-write-model.md`.
 
 ## Numbering
 
-Scan `docs/_adr/` for the highest existing number and add one. Numbers are **continuous and never reused** — even a superseded ADR keeps its number and stays in the directory (it is marked superseded, not deleted). The number is a stable identifier other docs and commit messages can cite.
+Scan this directory for the highest existing number and add one. Numbers are
+**continuous and never reused** — even a superseded ADR keeps its number and
+stays in the directory (it is marked superseded, not deleted). The number is a
+stable identifier other docs and commit messages can cite.
 
 `0000-template.md` is the copy-paste template and is not itself a decision; the first real ADR is `0001`.
 

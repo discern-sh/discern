@@ -173,6 +173,10 @@ export function buildCli(
       `Comma-separated agent files to emit: ${AGENT_NAMES.join(", ")}.`,
     )
     .option(
+      "--docs <path:string>",
+      "Project-relative directory for discern's agent documentation tree.",
+    )
+    .option(
       "--config <file:string>",
       "JSON answers file (or - for stdin) to scaffold declaratively.",
     )
@@ -259,6 +263,10 @@ export function buildCli(
     .option(
       "--agents <agents:string>",
       `Comma-separated agent files to emit: ${AGENT_NAMES.join(", ")}.`,
+    )
+    .option(
+      "--docs <path:string>",
+      "Project-relative directory for discern's agent documentation tree.",
     )
     .option(
       "--config <file:string>",
@@ -398,7 +406,7 @@ export function buildCli(
       .option("--no-pager", "Don't page rendered output through $PAGER.")
       .option(
         "--dir <path:string>",
-        "Docs directory to browse (default: <project root>/docs).",
+        "Docs directory to browse (default: the project's [docs].dir).",
       )
       .option("--width <cols:number>", "Wrap width for rendered output.")
       .option(

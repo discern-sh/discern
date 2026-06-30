@@ -18,6 +18,7 @@ import { toCommandList } from "../../shared/config_schema.ts";
 import type { DiscernConfig } from "../../shared/config_schema.ts";
 import { resolveGuidanceSources, resolveSkillsDir } from "../../lib/paths.ts";
 import { allGuidanceFilePaths } from "../../lib/providers.ts";
+import { DEFAULT_DOCS_DIR, normalizeDocsDir } from "../../shared/docs_path.ts";
 import type {
   Category,
   DeterministicRule,
@@ -54,10 +55,14 @@ async function fileExists(path: string): Promise<boolean> {
   }
 }
 
-/** Count real ADRs under `docs/_adr`, recursing into subdirectories so retired
+/** Count real ADRs under the configured docs root's `_adr`, recursing into
+ * subdirectories so retired
  * ADRs relocated under `_superseded/` still count: files named `NNNN-*.md`,
  * excluding the `0000-template` seed. Zero when the directory is absent. */
-export async function countAdrs(root: string): Promise<number> {
+export async function countAdrs(
+  root: string,
+  docsDir = DEFAULT_DOCS_DIR,
+): Promise<number> {
   let count = 0;
   async function scan(dir: string): Promise<void> {
     try {
@@ -75,7 +80,7 @@ export async function countAdrs(root: string): Promise<number> {
       // directory absent — contributes zero
     }
   }
-  await scan(join(root, "docs", "_adr"));
+  await scan(join(root, normalizeDocsDir(docsDir), "_adr"));
   return count;
 }
 
@@ -139,6 +144,7 @@ export async function buildContext(
     ? gotchasDoc
     : join(root, gotchasDoc);
 
+  const docsDir = normalizeDocsDir(config.docs.dir);
   return {
     root,
     config,
@@ -148,9 +154,10 @@ export async function buildContext(
     guidancePlaceholder: guidanceText.includes(GUIDANCE_PLACEHOLDER_MARK),
     gotchasDocSet: gotchasDoc !== "",
     gotchasDocExists: gotchasAbs !== "" && (await fileExists(gotchasAbs)),
-    docsTree: (await pathExists(join(root, "docs"))) &&
-      (await fileExists(join(root, "docs", "README.md"))),
-    adrCount: await countAdrs(root),
+    docsDir,
+    docsTree: (await pathExists(join(root, docsDir))) &&
+      (await fileExists(join(root, docsDir, "README.md"))),
+    adrCount: await countAdrs(root, docsDir),
     agentFilePresent: await anyAgentFile(root),
     authoredSkills: await countAuthoredSkills(root, config),
   };
@@ -461,15 +468,22 @@ const DOCS: Category = {
       id: "docs.tree",
       title: "Documentation tree present",
       weight: 2,
-      fix: "discern setup (seeds the docs/ skeleton), then fill it in",
+      fix:
+        "discern setup (seeds the configured docs skeleton), then fill it in",
       teach:
-        "A browsable docs/ tree (with a README at its root) is where the project's " +
+        "A browsable documentation tree (with a README at its root) is where the project's " +
         "shape lives for future-you and the agents grounding work in it. `discern docs` " +
         "browses it; `discern setup` seeds the skeleton.",
       evaluate: (ctx): { status: "pass" | "fail"; detail: string } =>
         ctx.docsTree
-          ? { status: "pass", detail: "docs/ with a README.md exists" }
-          : { status: "fail", detail: "no docs/ tree with a README.md" },
+          ? {
+            status: "pass",
+            detail: `${ctx.docsDir} with a README.md exists`,
+          }
+          : {
+            status: "fail",
+            detail: `no ${ctx.docsDir} tree with a README.md`,
+          },
     },
     {
       kind: "deterministic",
@@ -477,15 +491,18 @@ const DOCS: Category = {
       title: "Architecture decisions recorded",
       weight: 1,
       fix:
-        "record significant decisions as ADRs under docs/_adr/ (the write-adr skill helps)",
+        "record significant decisions under the configured docs root's _adr/ directory (the write-adr skill helps)",
       teach:
         "ADRs capture WHY a hard-to-reverse or surprising decision was made, so it " +
         "isn't silently re-litigated later. A project with none is losing that memory. " +
-        "Record the next notable decision under docs/_adr/.",
+        "Record the next notable decision under the configured docs root's _adr/ directory.",
       evaluate: (ctx): { status: "pass" | "fail"; detail: string } =>
         ctx.adrCount > 0
           ? { status: "pass", detail: `${ctx.adrCount} ADR(s) recorded` }
-          : { status: "fail", detail: "no ADRs under docs/_adr/" },
+          : {
+            status: "fail",
+            detail: `no ADRs under ${ctx.docsDir}_adr/`,
+          },
     },
     {
       kind: "subjective",
@@ -501,7 +518,10 @@ const DOCS: Category = {
         "skill refreshes a subtree; `discern docs --list` shows the tree.",
       against: (ctx): { source: string; excerpt: string } | undefined =>
         ctx.docsTree
-          ? { source: "docs/", excerpt: "browse with `discern docs --list`" }
+          ? {
+            source: ctx.docsDir,
+            excerpt: "browse with `discern docs --list`",
+          }
           : undefined,
     },
     {
@@ -509,7 +529,7 @@ const DOCS: Category = {
       id: "docs.navigation",
       title: "The docs tree is navigable from overview to detail",
       ask:
-        "Starting at docs/README.md, can a new contributor find the system overview, " +
+        "Starting at the configured docs root's README.md, can a new contributor find the system overview, " +
         "the relevant subsystem, and its detailed pages without already knowing their " +
         "filenames? Do subtree READMEs explain scope and link their leaves, or is the " +
         "tree merely a collection of documents?",
@@ -521,7 +541,7 @@ const DOCS: Category = {
       against: (ctx): { source: string; excerpt: string } | undefined =>
         ctx.docsTree
           ? {
-            source: "docs/README.md and subtree README files",
+            source: `${ctx.docsDir}README.md and subtree README files`,
             excerpt: "follow the links as a first-time reader",
           }
           : undefined,
@@ -638,7 +658,7 @@ const RATCHETS: Category = {
       teach:
         "A count is safe to ratchet only when it doesn't scale with project size (a true " +
         "budget, like shipped bytes). If it grows as you add code or docs, normalize it: " +
-        '`per = { words = "docs/**" }` ratchets alerts-per-word, so growth alone never ' +
+        '`per = { words = "${docs.dir}**" }` ratchets docs alerts-per-word, so growth alone never ' +
         "breaches the ceiling — only a real quality regression does.",
       against: (ctx): { source: string; excerpt: string } | undefined => {
         const raw = Object.entries(ctx.config.ratchets)
