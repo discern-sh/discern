@@ -51,9 +51,9 @@ Reserve the full five beats for genuine additions and forks. The obvious capabil
 
 > **"Before I configure anything: am I your most capable model? Everything I set up here — the principles, the docs, the capabilities — is inherited by every future session in this project, so it's worth your strongest model."**
 
-Do **not** quietly assume you're the best model available and press on — a capable-looking model is exactly the one that rationalizes past this question. You can't see the user's account, so you aren't self-certifying; you're handing them the one decision only they can make.
+Do **not** quietly assume you're the best model available and press on — a capable-looking model is exactly the one that rationalizes past this question. You can't see the other models the user has access to, and you don't know about models released after your training cutoff, so you cannot reliably self-certify — you're handing them the one decision only they can make.
 
-- If they switch you to a stronger model, **resume setup from a fresh session** on it (discern's tools and session hooks load only at session start).
+- If a stronger model is available, **ask the user to restart setup in a fresh session running that model** — don't carry on in this one. A clean session is the only reliable switch: providers differ (some can't change model mid-session at all), discern's tools and session hooks load only at session start, and even where a mid-session switch is allowed, the weaker model's reasoning already sitting in this context window would bias the stronger one.
 - If they confirm, proceed — you'll already have passed `--model` to `begin`, so discern has recorded which model configured the project.
 
 Then **confirm the harness is healthy**: run **`discern status --json`** to orient (it also smoke-tests that `discern` is on your PATH — you lean on it constantly), and **`discern doctor --json`** if anything looks off. Fix what `doctor` flags before authoring; it returns the exact remedy.
