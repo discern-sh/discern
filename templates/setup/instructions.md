@@ -49,6 +49,22 @@ You can use your own words when narrating progress, just make sure your narratio
 
 ## Step 0 — Confirm the model with your human (do this first)
 
+```toml
+intent = "Confirm with your human that you are their most capable model before you configure anything — everything you set up here is inherited by every future session."
+files_to_read = []
+must_do = [
+  "Relay the model question to your human, verbatim, before you read the repo or touch a file.",
+  "If a stronger model is available, ask the user to restart setup in a fresh session running it.",
+  "Run `discern status --json` to orient, and `discern doctor --json` if anything looks off.",
+]
+what_not_to_do = [
+  "Do not assume you are the best model and press on — you cannot reliably self-certify.",
+  "Do not skip the question because you look capable; it is the user's call, not yours.",
+]
+completion_check = "You have put the model question to your human, and `discern doctor` is green."
+next_action = "Once the model is confirmed and the harness is healthy, pull the next page: `discern setup step 1`."
+```
+
 `verify` asked you to confirm this with your human; if you haven't actually put the question to them, do it now — before you read the repo or touch a file. It is the single highest-leverage moment in the project's life with discern, because **you are the engine of this setup, and its quality is bounded by the model that does it** — everything you configure here is inherited by every future session. So relay it plainly, then let the user decide:
 
 > **"Before I configure anything: am I your most capable model? Everything I set up here — the principles, the docs, the capabilities — is inherited by every future session in this project, so it's worth your strongest model."**
@@ -64,6 +80,26 @@ Then **confirm the harness is healthy**: run **`discern status --json`** to orie
 
 ## Step 1 — Learn the project, then ask
 
+```toml
+intent = "Build your mental model from the repository, then ask the user one sharp batch of only what the code can't tell you."
+files_to_read = [
+  "the top-level layout, the README, and the manifests/lockfiles",
+  "the actual code — models, config, tests",
+  "brief.md at the root, if a user or CI supplied one",
+]
+must_do = [
+  "Read the repository first — it is your primary source for the principles, concepts, and conventions you will write.",
+  "Ask a short, high-signal batch of questions together, then proceed.",
+  "Mine the repo for what the system actually is — a thin answer is no licence for a shallow result.",
+]
+what_not_to_do = [
+  "Do not pepper the user with questions one at a time.",
+  "Do not invent a domain — derive it from what you find.",
+]
+completion_check = "You have read the repository and asked your one discovery batch."
+next_action = "When you have your bearings, pull the next page: `discern setup step 2`."
+```
+
 1. **Read the repository — it is your primary source.** The top-level layout, the README, the manifests/lockfiles, and the actual code (models, config, tests) are where the principles, concepts, and conventions you'll write are *evidenced*. Start forming the real mental model now; you inventory the stack properly in Step 7.
 2. **Ask the user a short, sharp batch of questions** — only what the code can't tell you: what the project is *for* and who it serves, its non-negotiable rules, anything in flight or deliberately unusual. Keep it to a handful of high-signal questions asked together, then proceed. (If a `brief.md` exists at the root — a user or CI may have supplied one via `--brief`/`--config` — read it first and let it narrow what you ask.)
 
@@ -72,6 +108,23 @@ Then **confirm the harness is healthy**: run **`discern status --json`** to orie
 ---
 
 ## Step 2 — Check the doc skeletons
+
+```toml
+intent = "Take stock of what `setup begin` scaffolded versus left untouched — and, if you will wire a formatter, do it now so its sweep lands before you author."
+files_to_read = [
+  "the `setup begin` output (what it laid versus left untouched)",
+  "the scaffolded docs/ tree, if one was laid",
+]
+must_do = [
+  "Note whether docs/ and TODO.md were scaffolded or already existed, and adapt to what is there.",
+  "If a formatter applies, wire it now, run `discern prepare`, and commit its whole-tree reflow on its own.",
+]
+what_not_to_do = [
+  "Do not impose the skeleton shape on an existing docs/ tree.",
+]
+completion_check = "You know what was scaffolded, and any formatter sweep is committed on its own."
+next_action = "With the lay of the land clear, pull the next page: `discern setup step 3`."
+```
 
 `discern setup` has already laid the skeletons for you — **but only when the project had none**, so existing docs are never disturbed:
 
@@ -86,6 +139,24 @@ The command's output told you which of these happened. The scaffolded files alre
 ---
 
 ## Step 3 — Draft the design principles
+
+```toml
+intent = "Write the 3–7 principles that actually govern decisions here — the load-bearing foundation every future session reads."
+files_to_read = [
+  "docs/00-orientation/design-principles.md (the template shape plus the EXAMPLE principle)",
+]
+must_do = [
+  "Write 3–7 project-specific, falsifiable principles, each with a name, the rule, a Why it matters, and a How it shows up.",
+  "Replace the EXAMPLE principle entirely and delete the guidance comments as you go.",
+  "Fill the \"What these add up to\" section.",
+]
+what_not_to_do = [
+  "Do not write a wish list — keep the smallest set that actually governs decisions.",
+  "Do not leave the EXAMPLE block or any generic, unfalsifiable principle.",
+]
+completion_check = "design-principles.md holds at least 3 real principles (the EXAMPLE block replaced)."
+next_action = "Once the principles are real, pull the next page: `discern setup step 4`."
+```
 
 Steps 3–6 are the authoring core, and before you write a word, say *why* it matters to the user: the principles, docs, and guidance you're about to write are the **single source of truth** every future agent session — and discern itself — reads to work in this project. This is the load-bearing part of setup, the foundation the project's reliability is built on, not prose for human readers. So author it with that weight, and don't let the user mistake the lengthy step for busywork.
 
@@ -103,6 +174,23 @@ Good principles are specific to this project and falsifiable: you can point at a
 
 ## Step 4 — Fill the project guidance
 
+```toml
+intent = "Fill guidance.md with this project's own conventions — the source every compiled agent file (and discern) is built from."
+files_to_read = [
+  "guidance.md at the repo root (the default [guidance].sources)",
+]
+must_do = [
+  "Write the one-line pitch at the top and the Conventions section, aligned with the capabilities you will wire.",
+  "If `begin` imported an existing CLAUDE.md/AGENTS.md, fold it in and note any conflict with discern's disciplines for Step 8.",
+]
+what_not_to_do = [
+  "Do not repeat discern's built-in harness disciplines — they are bundled and auto-prepended.",
+  "Do not edit the generated CLAUDE.md/AGENTS.md; guidance.md is the authoritative source.",
+]
+completion_check = "guidance.md has a real one-line pitch and a filled-in Conventions section."
+next_action = "With the guidance written, pull the next page: `discern setup step 5`."
+```
+
 Open **`guidance.md`** (at the repo root — the default `[guidance].sources`). This file holds **only this project's own conventions**: discern's built-in harness guidance (docs, TODO, worktree, finish gate) is bundled and auto-prepended at compile time, so you don't repeat the standing disciplines here. Flesh out the stub:
 
 - The one-line pitch at the top — what the project is and who it's for.
@@ -114,6 +202,24 @@ Open **`guidance.md`** (at the repo root — the default `[guidance].sources`). 
 ---
 
 ## Step 5 — Seed the orientation docs
+
+```toml
+intent = "Seed the three orientation docs from what you learned, using one consistent set of canonical nouns."
+files_to_read = [
+  "docs/00-orientation/concepts.md",
+  "docs/00-orientation/glossary.md",
+  "docs/00-orientation/system-map.md",
+]
+must_do = [
+  "Fill concepts (the narrative tour), glossary (each canonical noun defined once), and system-map (an ASCII diagram).",
+  "Clear the stale \"starts as a skeleton\" notes once each doc is real.",
+]
+what_not_to_do = [
+  "Do not introduce synonyms for the canonical nouns — use the same capitalised terms everywhere.",
+]
+completion_check = "concepts, glossary, and system-map are seeded, and their skeleton notes are cleared."
+next_action = "Once the orientation docs read true, pull the next page: `discern setup step 6`."
+```
 
 Fill the three orientation skeletons from what you learned in Step 1, removing the `<!-- setup fills this -->` markers as you complete each section:
 
@@ -129,6 +235,23 @@ Then clear the stale "starts as a skeleton" notes so the filled tree doesn't sti
 
 ## Step 6 — Propose the subsystem subtrees
 
+```toml
+intent = "Decide the numbered subsystem subtrees, stub their READMEs, and fill the stack-level 80-development leaves now."
+files_to_read = [
+  "docs/README.md (the Subsystems table)",
+  "docs/80-development/ (getting-started, testing, code-conventions)",
+]
+must_do = [
+  "Update the Subsystems table and the orientation cross-references with the proposed subtrees, clearing the placeholder rows.",
+  "Create each numbered subtree directory with a stub README, and fill the 80-development/ leaves now.",
+]
+what_not_to_do = [
+  "Do not write the numbered subtree leaves now — that is the document-subsystem skill's job, run per subsystem later.",
+]
+completion_check = "The subsystem subtrees are named with stub READMEs, and the 80-development leaves are filled."
+next_action = "With the tree mapped out, pull the next page: `discern setup step 7`."
+```
+
 Decide the numbered subsystem subtrees this project needs (`10-…`, `20-…`, … `80-development/` already exists). Then:
 
 - Update the **Subsystems** table in **`docs/README.md`** with the proposed names and a one-liner each, removing the placeholder rows. Also clear the "this tree starts as a skeleton" blockquote above the table: once the subtrees are real, that note is stale.
@@ -142,6 +265,25 @@ Run the subtree set past the user as a quick sanity check — the numbering is a
 ---
 
 ## Step 7 — Sniff the stack and recommend the capabilities
+
+```toml
+intent = "Detect the stack and wire the [capabilities] that turn the gate from a no-op into a real definition-of-done — raising the floor where a standard tool is missing."
+files_to_read = [
+  "the manifests/lockfiles and the scripts they actually declare",
+  "discern.toml ([capabilities])",
+]
+must_do = [
+  "Inventory the stack signals and wire format/lint/typecheck/test/build via `discern config set-capability`, committing each (the formatter first, its sweep on its own).",
+  "Run `discern refresh`, then `discern finish` (or `discern prepare`), and watch the gate go green as you wire each capability.",
+  "Where the stack is missing a standard tool, propose adding it through the five beats.",
+]
+what_not_to_do = [
+  "Do not wire a command you can't pin down — leave it as a comment beside the unset key.",
+  "Do not leave a capability unset merely because the project hadn't adopted the obvious tool yet.",
+]
+completion_check = "at least one capability is wired in discern.toml."
+next_action = "Once the gate is green with what you wired, pull the final page: `discern setup step 8`."
+```
 
 This is the one step where naming concrete ecosystems is right: you're detecting which one this is.
 
@@ -190,6 +332,25 @@ Notes that keep the proposal honest:
 ---
 
 ## Step 8 — Record, summarise, and prove it with `discern setup done`
+
+```toml
+intent = "Reconcile imported instructions, record deferred wiring in TODO.md, summarise for the user, and prove completion with `discern setup done`."
+files_to_read = [
+  "guidance.md (the reconciled result, if begin imported instructions)",
+  "TODO.md",
+]
+must_do = [
+  "Reconcile any imported instructions in discern's favour, telling the user what you changed and why.",
+  "Record every proposed-but-not-activated item (a deferred capability, a worktree resource, a tool worth adding) in TODO.md.",
+  "Summarise the principles, subtrees, capabilities, and TODOs — and say what the docs are for.",
+]
+what_not_to_do = [
+  "Do not reach for --force to paper over a real gate failure.",
+  "Do not tell the user setup is complete until `discern setup done` passes.",
+]
+completion_check = "`discern setup done` passes — it re-runs refresh → doctor → finish and checks every step."
+next_action = "When every page above is done, run `discern setup done` — the one command that proves and finishes setup."
+```
 
 You wired and verified the capabilities in Step 7 — **`discern finish`** (the full gate) and **`discern prepare`** (the fast fix-then-check loop) both run *during* setup, so you have already watched the gate go green as you wired each one. This step records the outcome and locks it in.
 

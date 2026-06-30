@@ -60,6 +60,12 @@ import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { CONFIG_REL, findRoot } from "../shared/env.ts";
 import { emitResult } from "../shared/emit.ts";
 import { findSkeletonMarkers } from "../shared/setup_state.ts";
+import {
+  getSetupPage,
+  renderSetupBegin,
+  renderSetupPage,
+  type SetupPage,
+} from "../shared/setup_pages.ts";
 import { worktreeState } from "../lib/git.ts";
 import { runGit } from "../shared/subprocess.ts";
 import { RawConfig } from "../shared/config_read.ts";
@@ -742,10 +748,23 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
     (cfg ? displayNameFromSlug(cfg.project.slug) : "the project");
   const { laid, skipped } = await laySkeletons(destDir, name);
 
-  // --- Phase 3: print the setup instructions for the agent to act on ---
-  const instructions = await Deno.readTextFile(
+  // --- Phase 3: print the operating principles + the FIRST page (ADR 0078) ---
+  // `begin` no longer dumps the whole brief (A10): it emits the principles and page
+  // 0, and the agent pulls each subsequent page with `discern setup step <n>`. Fall
+  // back to the raw brief only if it can't be parsed into pages (a malformed spine —
+  // a discern bug the test suite catches, never a user's input).
+  const rawInstructions = await Deno.readTextFile(
     join(await resolveSetupDir(), "instructions.md"),
   );
+  let instructions = rawInstructions;
+  let firstPage: SetupPage | undefined;
+  try {
+    const rendered = renderSetupBegin(rawInstructions);
+    instructions = rendered.text;
+    firstPage = rendered.firstPage;
+  } catch {
+    // Keep `instructions` as the raw brief — the agent still gets the full text.
+  }
 
   if (opts.json) {
     log.result({
@@ -761,7 +780,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
         branch: setupBranch ?? null,
         machinery_committed: machineryCommitted,
         next_action:
-          "Work through `data.instructions`, then run `discern setup done` to finish.",
+          "Work through `data.instructions` (the principles + page 0), pull each next page with `discern setup step <n>`, then run `discern setup done` to finish.",
         project: {
           slug: cfg?.project.slug ?? scaffold?.config.slug ?? "",
           agents: cfg?.guidance.agents ?? [],
@@ -773,6 +792,8 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
         skeletons: laid,
         skipped,
         instructions,
+        // The structured first page (ADR 0078); the rest are pulled via `setup step`.
+        page: firstPage ?? null,
       },
     });
     return 0;
@@ -790,7 +811,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   console.log(heavyRule);
   console.log("  SETUP STARTED — NOT FINISHED.");
   console.log(
-    "  The steps below are a task for you, the agent, to perform now — not a",
+    "  What follows is a task for you, the agent, to perform now — not a",
   );
   console.log("  result to summarise back to the user as already done.");
   console.log(heavyRule);
@@ -831,13 +852,21 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   console.log("");
   console.log(heavyRule);
   console.log(
-    "  You are NOT done. Work the steps above, then run `discern setup done` —",
+    "  You are NOT done. Above are the operating principles and the first page",
   );
-  console.log("  that gate is the only thing that completes setup.");
   console.log(
-    "  • Brief truncated or scrolled off? Re-run `discern setup begin` to reprint",
+    "  (Step 0). Pull each following page with `discern setup step <n>` — every",
   );
-  console.log("    it in full — it is idempotent and won't touch your work.");
+  console.log(
+    '  page\'s "Next" line chains you onward — do the work it asks, then run',
+  );
+  console.log(
+    "  `discern setup done`: that gate is the only thing that completes setup.",
+  );
+  console.log(
+    "  • Lost the principles or this page? Re-run `discern setup begin` to reprint",
+  );
+  console.log("    them — it is idempotent and won't touch your work.");
   console.log(
     "  • `discern status` will keep reporting setup as unfinished until",
   );
@@ -986,10 +1015,28 @@ export async function runSetupStep(
   const instructions = await Deno.readTextFile(
     join(await resolveSetupDir(), "instructions.md"),
   );
-  const section = extractStep(instructions, n);
-  if (section === undefined) {
+  let page: SetupPage | undefined;
+  try {
+    page = getSetupPage(instructions, n);
+  } catch (error) {
+    // A malformed spine in the shipped brief — surface it rather than serve half a
+    // page. The test suite parses the real brief, so this can't reach a user.
+    const message = `the setup brief could not be parsed: ${errMsg(error)}`;
+    if (opts.json) {
+      emitResult({
+        ok: false,
+        verb: "setup:step",
+        error: "brief_unparseable",
+        message,
+      });
+    } else {
+      console.error(`discern: ${message}`);
+    }
+    return 1;
+  }
+  if (page === undefined) {
     const message =
-      `no Step ${n} in the setup brief. Run \`discern setup begin\` to reprint the whole brief.`;
+      `no Step ${n} in the setup brief. Run \`discern setup begin\` to reprint the operating principles and the first page.`;
     if (opts.json) {
       emitResult({
         ok: false,
@@ -1003,41 +1050,13 @@ export async function runSetupStep(
     return 1;
   }
   if (opts.json) {
-    emitResult({
-      ok: true,
-      verb: "setup:step",
-      data: { step: n, text: section },
-    });
+    // Both lanes: the machine `spine` AND the prose `guidance` (ADR 0078).
+    emitResult({ ok: true, verb: "setup:step", data: page });
   } else {
-    console.log(section);
+    // Human: the prose leads; the spine's rails bracket it (renderSetupPage).
+    console.log(renderSetupPage(page));
   }
   return 0;
-}
-
-/** Slice the `## Step <n> — …` section out of the brief, up to the next `## ` heading
- * or a `---` rule. Returns undefined when there is no such step. */
-function extractStep(brief: string, n: number): string | undefined {
-  const lines = brief.split("\n");
-  const startRe = new RegExp(`^## Step ${n}\\b`);
-  let start = -1;
-  for (let i = 0; i < lines.length; i++) {
-    if (startRe.test(lines[i] ?? "")) {
-      start = i;
-      break;
-    }
-  }
-  if (start === -1) {
-    return undefined;
-  }
-  let end = lines.length;
-  for (let i = start + 1; i < lines.length; i++) {
-    const line = lines[i] ?? "";
-    if (line.startsWith("## ") || line.trim() === "---") {
-      end = i;
-      break;
-    }
-  }
-  return lines.slice(start, end).join("\n").trimEnd();
 }
 
 /**
