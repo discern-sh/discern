@@ -137,9 +137,11 @@ export class TomlEditor {
   /**
    * Set a dotted key (`section[.sub].key`) to a pre-rendered TOML value literal.
    * Replaces the value of an existing key (preserving its `=` alignment and
-   * inline comment), inserts the key after its section
-   * header if the key is absent, or appends a new section at EOF if the section
-   * is absent.
+   * inline comment), inserts the key after its section header if the key is
+   * absent, or — if the section itself is absent — creates it: right after the
+   * last sibling in its dotted family if one exists (e.g. a new
+   * `[scopes.assets]` lands beside an existing `[scopes.docs]`), otherwise
+   * appended at EOF.
    */
   setLiteral(dottedKey: string, literal: string): this {
     const segments = dottedKey.split(".");
@@ -155,11 +157,29 @@ export class TomlEditor {
     const keyLine = `${key} = ${literal}`;
 
     if (span === null) {
-      // No such section: append it at EOF, with a blank-line separator.
-      if (this.lines.length > 0 && this.lines[this.lines.length - 1] !== "") {
-        this.lines.push("");
+      // No such section. If a sibling already exists in this section's dotted
+      // family (e.g. [scopes.docs] when we're creating [scopes.assets]),
+      // insert right after the LAST such sibling — keeping the family
+      // contiguous instead of scattering a new [scopes.*] far from the rest
+      // of [scopes.*]. Only with no family member at all do we fall back to
+      // an EOF append, with a blank-line separator.
+      const sibling = this.lastSiblingSection(section);
+      if (sibling === null) {
+        if (
+          this.lines.length > 0 && this.lines[this.lines.length - 1] !== ""
+        ) {
+          this.lines.push("");
+        }
+        this.lines.push(`[${section}]`, keyLine);
+        return this;
       }
-      this.lines.push(`[${section}]`, keyLine);
+      this.lines.splice(
+        this.bodyInsertionPoint(sibling),
+        0,
+        "",
+        `[${section}]`,
+        keyLine,
+      );
       return this;
     }
 
@@ -242,15 +262,7 @@ export class TomlEditor {
     if (span === null) {
       return this.appendSectionBlock(blockLines);
     }
-    // Insert right after the anchor's last content line: step back over the
-    // blank lines trailing its body so our own gap controls the spacing.
-    let at = span.bodyEnd;
-    while (at - 1 > span.headerIdx) {
-      const prev = this.lines[at - 1];
-      if (prev === undefined || !isBlankLine(prev)) break;
-      at--;
-    }
-    this.lines.splice(at, 0, "", "", ...blockLines);
+    this.lines.splice(this.bodyInsertionPoint(span), 0, "", "", ...blockLines);
     return this;
   }
 
@@ -395,5 +407,60 @@ export class TomlEditor {
       }
     }
     return null;
+  }
+
+  /**
+   * The line index right after `span`'s last real content line — its
+   * `bodyEnd`, stepped back over any blank lines trailing the body, so a
+   * caller's own gap controls the spacing instead of compounding with one
+   * already there.
+   */
+  private bodyInsertionPoint(
+    span: { headerIdx: number; bodyEnd: number },
+  ): number {
+    let at = span.bodyEnd;
+    while (at - 1 > span.headerIdx) {
+      const prev = this.lines[at - 1];
+      if (prev === undefined || !isBlankLine(prev)) break;
+      at--;
+    }
+    return at;
+  }
+
+  /**
+   * The LAST existing section sharing `section`'s dotted family — its parent
+   * group, i.e. the path with its final segment dropped (`scopes.assets`'s
+   * group is `scopes`, so an existing `[scopes.docs]` is a sibling). Returns
+   * null when `section` has no parent group (a single bare segment, e.g.
+   * `recipes`) or no family member exists yet, so callers can fall back to an
+   * EOF append exactly as before this method existed.
+   */
+  private lastSiblingSection(
+    section: string,
+  ): { headerIdx: number; bodyEnd: number } | null {
+    const lastDot = section.lastIndexOf(".");
+    if (lastDot === -1) {
+      return null;
+    }
+    const group = section.slice(0, lastDot);
+    let found: { headerIdx: number; bodyEnd: number } | null = null;
+    for (let i = 0; i < this.lines.length; i++) {
+      const lineText = this.lines[i];
+      const path = lineText?.match(HEADER_RE)?.[1]?.trim();
+      if (
+        path === undefined || (path !== group && !path.startsWith(`${group}.`))
+      ) {
+        continue;
+      }
+      let end = i + 1;
+      for (; end < this.lines.length; end++) {
+        const endLine = this.lines[end];
+        if (endLine !== undefined && HEADER_RE.test(endLine)) {
+          break;
+        }
+      }
+      found = { headerIdx: i, bodyEnd: end };
+    }
+    return found;
   }
 }
