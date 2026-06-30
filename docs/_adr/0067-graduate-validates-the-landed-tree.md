@@ -95,6 +95,12 @@ passed.**
   stays one tracked file (`discern.toml`); the receipt lives inside `.git`, is
   worktree-scoped, and is keyed to git state so it self-invalidates. It is an
   optimization — best-effort to write, fail-closed to honor.
+- **Receipt decisions are visible in the agent envelope.** The receipt remains
+  best-effort, but not silent: `finish --json` reports the stamp/clear outcome
+  in `data.gate_receipt`, and `graduate --json` reports whether it used the
+  receipt fast path or re-ran the gate in `data.gate_validation`. A suppressed
+  human logger, failed receipt write, or stale marker should never leave an
+  agent guessing why graduation ran the gate.
 - **Residual: environment drift at a constant tree.** A receipt vouches that a
   clean HEAD passed; if the environment later changes so the _same_ tree would
   now fail (a dependency or clock-dependent test), the fast path would skip a

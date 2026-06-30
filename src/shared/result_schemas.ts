@@ -143,8 +143,42 @@ export const DatalessEnvelopeSchema = z.strictObject(ENVELOPE_BASE_FIELDS);
 export const GateDataSchema = z.strictObject({
   failed_stage: z.enum(FAILED_STAGES).nullable(),
   scopes_changed: z.array(z.string()),
+  gate_receipt: z.strictObject({
+    status: z.enum([
+      "recorded",
+      "skipped_dirty",
+      "unavailable",
+      "record_failed",
+      "cleared",
+      "clear_failed",
+    ]),
+    path: z.string().optional(),
+    reason: z.string().optional(),
+  }).optional(),
 });
 export type GateData = z.infer<typeof GateDataSchema>;
+
+export const GateReceiptCheckSchema = z.strictObject({
+  status: z.enum([
+    "honored",
+    "missing",
+    "stale",
+    "dirty",
+    "unavailable",
+    "read_failed",
+  ]),
+  path: z.string().optional(),
+  recorded: z.string().optional(),
+  head: z.string().optional(),
+  reason: z.string().optional(),
+});
+export type GateReceiptCheckData = z.infer<typeof GateReceiptCheckSchema>;
+
+const GateValidationSchema = z.strictObject({
+  mode: z.enum(["receipt", "rerun"]),
+  receipt: GateReceiptCheckSchema,
+});
+export type GateValidationData = z.infer<typeof GateValidationSchema>;
 
 /** `changed-scopes` — the classified scope/marker list. */
 export const ChangedScopesDataSchema = z.strictObject({
@@ -171,6 +205,7 @@ export type StartData = z.infer<typeof StartDataSchema>;
  * when the server was launched from the trunk). */
 export const GraduateDataSchema = z.strictObject({
   root: z.string(),
+  gate_validation: GateValidationSchema.optional(),
 });
 export type GraduateData = z.infer<typeof GraduateDataSchema>;
 

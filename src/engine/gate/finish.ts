@@ -316,21 +316,53 @@ async function runGate(
   if (fixDriftDiag !== undefined) {
     result.diagnostics = [...(result.diagnostics ?? []), fixDriftDiag];
   }
+  // Record the gate-pass receipt (ADR 0067): a GREEN run over a CLEAN tree stamps the
+  // validated HEAD so `graduate` can prove THIS tree already passed without re-running
+  // the gate; a FAILED run clears any stale vouch. Best-effort — never fails the gate,
+  // but the outcome rides in `data` so suppressed logs still expose receipt trouble.
+  const gateReceipt = await recordGateOutcome(root, failedStage === null);
+  if (result.data !== undefined) {
+    result.data.gate_receipt = gateReceipt;
+  }
   // Pre-setup, lead with the "setup unfinished" advisory (ADR 0065): finish runs
   // during setup, so a green gate here must not read as "done".
   const inProgress = setupInProgressHint(cfg.meta.bootstrapped);
+  const receiptHint = gateReceiptHint(gateReceipt, failedStage);
   const hints = [
     ...(inProgress !== undefined ? [inProgress] : []),
     ...buildGateHints(cfg, changed, failedStage),
+    ...(receiptHint !== undefined ? [receiptHint] : []),
   ];
   if (hints.length > 0) {
     result.hints = hints;
   }
-  // Record the gate-pass receipt (ADR 0067): a GREEN run over a CLEAN tree stamps the
-  // validated HEAD so `graduate` can prove THIS tree already passed without re-running
-  // the gate; a FAILED run clears any stale vouch. Best-effort — never fails the gate.
-  await recordGateOutcome(root, failedStage === null);
   return { result, failedStage, cfg, out, changed };
+}
+
+function gateReceiptHint(
+  receipt: NonNullable<GateData["gate_receipt"]>,
+  failedStage: FailedStage | null,
+): string | undefined {
+  const reason = receipt.reason !== undefined ? ` (${receipt.reason})` : "";
+  if (failedStage === null) {
+    switch (receipt.status) {
+      case "recorded":
+        return undefined;
+      case "skipped_dirty":
+        return "Gate passed, but no gate-pass receipt was recorded because the worktree is dirty; `discern graduate` will re-run the gate until a clean finish records one.";
+      case "record_failed":
+        return `Gate passed, but discern could not record the gate-pass receipt${reason}; \`discern graduate\` will re-run the gate unless a later finish records one.`;
+      case "unavailable":
+        return `Gate passed, but discern could not prepare the gate-pass receipt${reason}; \`discern graduate\` may need to re-run the gate.`;
+      case "cleared":
+      case "clear_failed":
+        return undefined;
+    }
+  }
+  if (receipt.status === "clear_failed") {
+    return `The gate failed, and discern could not clear the previous gate-pass receipt${reason}; re-run \`discern finish\` after fixing the failure.`;
+  }
+  return undefined;
 }
 
 /**

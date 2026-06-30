@@ -52,6 +52,12 @@ Deno.test("finish --json: a no-op gate emits ok:true, verb, and no job steps", a
     assertEquals(obj.ok, true);
     assertEquals(obj.verb, "finish");
     assertEquals(obj.data.failed_stage, null);
+    assertEquals(obj.data.gate_receipt.status, "recorded");
+    assert(
+      typeof obj.data.gate_receipt.path === "string" &&
+        obj.data.gate_receipt.path.length > 0,
+      `expected a receipt path, got ${JSON.stringify(obj.data.gate_receipt)}`,
+    );
     // The default install wires no capability/check, so no JOB-kind step ran.
     const jobs = obj.steps.filter((s: { kind: string }) => s.kind === "job");
     assertEquals(
