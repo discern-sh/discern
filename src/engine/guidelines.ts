@@ -27,6 +27,7 @@ import { isFeatureEnabled } from "../shared/features.ts";
 import { resolveGuidanceSources } from "../lib/paths.ts";
 import { materializeSkills } from "../lib/skills.ts";
 import {
+  DISCERN_MCP_SERVER,
   emitsGuidanceFile,
   MCP_RESTART_HINT,
   providerFor,
@@ -119,7 +120,7 @@ export async function compileGuidelines(
   let mcpWired: string[] = [];
   const hints: string[] = [];
   try {
-    const r = await wireProviderMcp(root, agents);
+    const r = await wireProviderMcp(root, agents, DISCERN_MCP_SERVER, config);
     mcpWired = r.written;
     if (r.written.length > 0) {
       log.info(

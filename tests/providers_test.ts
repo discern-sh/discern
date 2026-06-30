@@ -5,8 +5,9 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { join } from "@std/path";
+import { basename, join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
+import { addWorktree, gitInit } from "./engine_helpers.ts";
 import { AGENT_NAMES } from "../src/shared/config_schema.ts";
 import {
   allGuidanceFilePaths,
@@ -21,6 +22,7 @@ import {
   wireProviderWorktreeApp,
 } from "../src/lib/providers.ts";
 import { parse as parseToml } from "@std/toml";
+import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 
 Deno.test("the registry is total: every known agent has a complete provider", () => {
   for (const name of AGENT_NAMES) {
@@ -326,7 +328,7 @@ Deno.test("wireProviderMcp Gemini DEEP-MERGES, preserving the seeded hooks block
   });
 });
 
-Deno.test("wireProviderMcp wires Codex: [mcp_servers.discern] into .codex/config.toml via TOML, preserving comments + other servers", async () => {
+Deno.test("wireProviderMcp wires Codex project config: MCP, headroom, and sibling-worktree writable root", async () => {
   await withTempDir(async (dir) => {
     // An existing config.toml with a comment AND another server — both must survive a
     // comment-preserving TOML merge (NOT a JSON rewrite).
@@ -342,19 +344,114 @@ Deno.test("wireProviderMcp wires Codex: [mcp_servers.discern] into .codex/config
     const text = await Deno.readTextFile(join(dir, ".codex/config.toml"));
     assertStringIncludes(text, "# my codex config"); // comment preserved
     const parsed = parseToml(text) as {
+      project_doc_max_bytes?: number;
+      sandbox_workspace_write?: { writable_roots?: string[] };
       mcp_servers: {
         other?: { command?: string };
-        discern?: { command?: string; args?: string[] };
+        discern?: {
+          command?: string;
+          args?: string[];
+          cwd?: string;
+          startup_timeout_sec?: number;
+          tool_timeout_sec?: number;
+        };
       };
     };
+    assertEquals(parsed.project_doc_max_bytes, 65536);
+    assertEquals(parsed.sandbox_workspace_write?.writable_roots, [
+      `../../${basename(dir)}.worktrees`,
+    ]);
     assertEquals(parsed.mcp_servers.other?.command, "other-tool"); // preserved
     assertEquals(parsed.mcp_servers.discern?.command, "discern"); // added
     assertEquals(parsed.mcp_servers.discern?.args, ["mcp"]);
+    assertEquals(parsed.mcp_servers.discern?.cwd, "..");
+    assertEquals(parsed.mcp_servers.discern?.startup_timeout_sec, 30);
+    assertEquals(parsed.mcp_servers.discern?.tool_timeout_sec, 3600);
 
     // Idempotent: a second wire is a clean no-op (byte-identical TOML).
     const second = await wireProviderMcp(dir, ["codex"]);
     assertEquals(second.written, []);
     assertEquals(second.firstInstall, false);
+  });
+});
+
+Deno.test("wireProviderMcp Codex preserves existing project-doc limit and merges writable roots", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.mkdir(join(dir, ".codex"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, ".codex/config.toml"),
+      [
+        "project_doc_max_bytes = 131072",
+        "",
+        "[sandbox_workspace_write]",
+        "writable_roots = [",
+        '  "../manual-worktrees",',
+        "]",
+        "",
+        "[mcp_servers.other]",
+        'command = "other-tool"',
+        "",
+      ].join("\n"),
+    );
+
+    const first = await wireProviderMcp(dir, ["codex"]);
+    assertEquals(first.written, [".codex/config.toml"]);
+
+    const parsed = parseToml(
+      await Deno.readTextFile(join(dir, ".codex/config.toml")),
+    ) as {
+      project_doc_max_bytes?: number;
+      sandbox_workspace_write?: { writable_roots?: string[] };
+      mcp_servers: {
+        other?: { command?: string };
+        discern?: { command?: string };
+      };
+    };
+    assertEquals(parsed.project_doc_max_bytes, 131072);
+    assertEquals(parsed.sandbox_workspace_write?.writable_roots, [
+      "../manual-worktrees",
+      `../../${basename(dir)}.worktrees`,
+    ]);
+    assertEquals(parsed.mcp_servers.other?.command, "other-tool");
+    assertEquals(parsed.mcp_servers.discern?.command, "discern");
+  });
+});
+
+Deno.test("wireProviderMcp Codex derives writable roots from explicit relative and absolute [worktree].root", async () => {
+  await withTempDir(async (relativeDir) => {
+    const config = parseConfigOrThrow('[worktree]\nroot = "../wts"\n');
+    await wireProviderMcp(relativeDir, ["codex"], DISCERN_MCP_SERVER, config);
+    const parsed = parseToml(
+      await Deno.readTextFile(join(relativeDir, ".codex/config.toml")),
+    ) as { sandbox_workspace_write?: { writable_roots?: string[] } };
+    assertEquals(parsed.sandbox_workspace_write?.writable_roots, ["../../wts"]);
+  });
+
+  await withTempDir(async (absoluteDir) => {
+    const config = parseConfigOrThrow('[worktree]\nroot = "/srv/worktrees"\n');
+    await wireProviderMcp(absoluteDir, ["codex"], DISCERN_MCP_SERVER, config);
+    const parsed = parseToml(
+      await Deno.readTextFile(join(absoluteDir, ".codex/config.toml")),
+    ) as { sandbox_workspace_write?: { writable_roots?: string[] } };
+    assertEquals(parsed.sandbox_workspace_write?.writable_roots, [
+      "/srv/worktrees",
+    ]);
+  });
+});
+
+Deno.test("wireProviderMcp Codex uses the main checkout when refreshed from a linked worktree", async () => {
+  await withTempDir(async (mainDir) => {
+    await Deno.writeTextFile(join(mainDir, "discern.toml"), "");
+    await gitInit(mainDir);
+    const worktree = await addWorktree(mainDir, "codex-config");
+
+    await wireProviderMcp(worktree, ["codex"]);
+    const parsed = parseToml(
+      await Deno.readTextFile(join(worktree, ".codex/config.toml")),
+    ) as { sandbox_workspace_write?: { writable_roots?: string[] } };
+    assertEquals(parsed.sandbox_workspace_write?.writable_roots, [
+      `../../${basename(mainDir)}.worktrees`,
+    ]);
   });
 });
 

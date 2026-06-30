@@ -11,7 +11,7 @@
  */
 
 import { assert, assertEquals } from "@std/assert";
-import { join } from "@std/path";
+import { basename, join } from "@std/path";
 import { parse as parseToml } from "@std/toml";
 import { exists } from "@std/fs";
 import { REAL_TEMPLATES, withTempDir } from "./helpers.ts";
@@ -84,6 +84,7 @@ Deno.test("Codex: refresh wires .codex/config.toml (MCP) and co-manages environm
     const hooks = JSON.parse(
       await Deno.readTextFile(join(dir, ".codex/hooks.json")),
     );
+    assertEquals(hooks.hooks.SessionStart[0].matcher, "startup|resume");
     assertEquals(
       hooks.hooks.SessionStart[0].hooks[0].command,
       "discern worktree:ensure",
@@ -101,11 +102,32 @@ Deno.test("Codex: refresh wires .codex/config.toml (MCP) and co-manages environm
       ".codex/environments/environment.toml",
     ]);
 
-    // The MCP server table is present in the TOML config.
+    // The Codex project config carries discern's MCP server, instruction headroom,
+    // and the writable root for the sibling worktree directory.
     const cfg = parseToml(
       await Deno.readTextFile(join(dir, ".codex/config.toml")),
-    ) as { mcp_servers: { discern?: { command?: string } } };
+    ) as {
+      project_doc_max_bytes?: number;
+      sandbox_workspace_write?: { writable_roots?: string[] };
+      mcp_servers: {
+        discern?: {
+          command?: string;
+          args?: string[];
+          cwd?: string;
+          startup_timeout_sec?: number;
+          tool_timeout_sec?: number;
+        };
+      };
+    };
+    assertEquals(cfg.project_doc_max_bytes, 65536);
+    assertEquals(cfg.sandbox_workspace_write?.writable_roots, [
+      `../../${basename(dir)}.worktrees`,
+    ]);
     assertEquals(cfg.mcp_servers.discern?.command, "discern");
+    assertEquals(cfg.mcp_servers.discern?.args, ["mcp"]);
+    assertEquals(cfg.mcp_servers.discern?.cwd, "..");
+    assertEquals(cfg.mcp_servers.discern?.startup_timeout_sec, 30);
+    assertEquals(cfg.mcp_servers.discern?.tool_timeout_sec, 3600);
 
     // The app's environment.toml carries discern's setup + cleanup scripts AND the
     // top-level version/name Codex's schema requires (so a from-scratch file validates).

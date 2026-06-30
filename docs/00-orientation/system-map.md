@@ -116,4 +116,5 @@ main checkout ──discern worktree──► Worktree ⟲ discern integrate
 | The Worktree bracket and its per-worktree resources        | [`../30-worktrees/`](../30-worktrees/)                     |
 | Guidance source → Compiled agent files, bundled Skills     | [`../40-agent-guidance/`](../40-agent-guidance/)           |
 | Verb dispatch and the TypeScript engine                    | [`../50-engine-internals/`](../50-engine-internals/)       |
+| Provider-specific coding-agent config                      | [`../60-agent-integrations/`](../60-agent-integrations/)   |
 | The install surface — yours vs the binary's                | [install-surface.md](../80-development/install-surface.md) |

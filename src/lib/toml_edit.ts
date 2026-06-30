@@ -82,6 +82,53 @@ function replaceLiteralValue(
   return `${prefix}${literal}${inlineCommentSuffix(line, prefix.length)}`;
 }
 
+/** Whether a line's TOML array value is closed on that same line. */
+function arrayClosedOnLine(line: string, valueStart: number): boolean {
+  let quote: "'" | '"' | null = null;
+  let escaped = false;
+  let depth = 0;
+  let sawArray = false;
+  let sawClose = false;
+
+  for (let i = valueStart; i < line.length; i++) {
+    const char = line[i];
+    if (quote === '"') {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === '"') {
+        quote = null;
+      }
+      continue;
+    }
+    if (quote === "'") {
+      if (char === "'") {
+        quote = null;
+      }
+      continue;
+    }
+    if (char === "#") {
+      break;
+    }
+    if (char === '"' || char === "'") {
+      quote = char;
+      continue;
+    }
+    if (char === "[") {
+      depth++;
+      sawArray = true;
+    } else if (char === "]") {
+      sawClose = true;
+      depth--;
+      if (depth <= 0) {
+        return true;
+      }
+    }
+  }
+  return sawArray ? depth <= 0 : sawClose;
+}
+
 /** Render a string as a double-quoted TOML value (escaping `\` and `"`). */
 export function tomlString(value: string): string {
   if (value.includes("\n")) {
@@ -191,7 +238,12 @@ export class TomlEditor {
       if (lineText === undefined) continue;
       const m = lineText.match(keyRe);
       if (m) {
+        const prefix = `${m[1] ?? ""}${key}${m[2] ?? ""}`;
+        const end = this.valueEnd(i, prefix.length);
         this.lines[i] = replaceLiteralValue(lineText, key, m, literal);
+        if (end > i + 1) {
+          this.lines.splice(i + 1, end - i - 1);
+        }
         return this;
       }
     }
@@ -219,7 +271,10 @@ export class TomlEditor {
     for (let i = span.headerIdx + 1; i < span.bodyEnd; i++) {
       const lineText = this.lines[i];
       if (lineText !== undefined && keyRe.test(lineText)) {
-        this.lines.splice(i, 1);
+        const m = lineText.match(keyRe);
+        const prefix = m === null ? "" : `${m[1] ?? ""}${key}${m[2] ?? ""}`;
+        const end = this.valueEnd(i, prefix.length);
+        this.lines.splice(i, end - i);
         return true;
       }
     }
@@ -425,6 +480,25 @@ export class TomlEditor {
       at--;
     }
     return at;
+  }
+
+  /** The exclusive end line for a key's value, spanning a multi-line array. */
+  private valueEnd(lineIdx: number, valueStart: number): number {
+    const first = this.lines[lineIdx];
+    if (first === undefined || first.slice(valueStart).trimStart()[0] !== "[") {
+      return lineIdx + 1;
+    }
+    if (arrayClosedOnLine(first, valueStart)) {
+      return lineIdx + 1;
+    }
+    for (let i = lineIdx + 1; i < this.lines.length; i++) {
+      const line = this.lines[i];
+      if (line === undefined) continue;
+      if (arrayClosedOnLine(line, 0)) {
+        return i + 1;
+      }
+    }
+    return lineIdx + 1;
   }
 
   /**

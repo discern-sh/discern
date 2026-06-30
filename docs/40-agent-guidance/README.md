@@ -42,8 +42,9 @@ general working discipline shipped on by default
 ([ADR 0049](../_adr/0049-bug-class-discipline-built-in.md)). They materialize
 into each configured agent's skills directory
 ([`.claude/skills/`](../../.claude/skills/) for Claude Code, the cross-tool
-`.agents/skills/` for Codex and Gemini — Claude Code does not read the shared
-dir; [ADR 0043](../_adr/0043-registry-derived-agent-parity.md)) — gitignored
+`.agents/skills/` for Codex, Gemini, Cursor, and GitHub Copilot — Claude Code
+does not read the shared dir;
+[ADR 0043](../_adr/0043-registry-derived-agent-parity.md)) — gitignored
 artifacts the binary re-publishes: built-ins **copied**, authored skills
 **symlinked**. The materialized skills are guarded by the **same currency
 check** as the compiled files: `discern status` / `discern finish` flag a skills
@@ -85,5 +86,7 @@ cannot drift as agents are added
 
 - [concepts.md](../00-orientation/concepts.md) — guidance alongside the runtime
   path.
+- [agent integrations](../60-agent-integrations/) — provider-specific config
+  files, trust gates, and gotchas.
 - [install-surface.md](../80-development/install-surface.md) — the guidance
   files and their dispositions.
