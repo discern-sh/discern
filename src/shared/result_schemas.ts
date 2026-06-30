@@ -59,6 +59,7 @@ export const DiagnosticSchema = z.strictObject({
   reproduce_cmd: z.string(),
   output: z.string().optional(),
   truncated: z.boolean().optional(),
+  output_path: z.string().optional(),
   file: z.string().optional(),
   line: z.number().optional(),
   col: z.number().optional(),

@@ -22,7 +22,8 @@
  * scope gate that validates it) is unaffected.
  */
 
-import { capText, type Diagnostic } from "../../shared/result.ts";
+import type { Diagnostic } from "../../shared/result.ts";
+import { diagnosticOutputFields } from "./diagnostic_output.ts";
 import { parsePorcelainPaths } from "../scopes/changed.ts";
 import { runGit } from "../../shared/subprocess.ts";
 
@@ -70,7 +71,7 @@ export async function fixDriftDiagnostic(
   const shown = paths.slice(0, 10).join(", ");
   const more = paths.length > 10 ? `, … (+${paths.length - 10} more)` : "";
   const diff = await runGit(["diff", "--", ...paths], { cwd: root });
-  const body = capText(
+  const outputFields = await diagnosticOutputFields(
     `The fix stage reformatted ${paths.length} file(s) that were committed-clean at ` +
       `the start of this run, leaving uncommitted changes:\n` +
       paths.map((p) => `  • ${p}`).join("\n") +
@@ -86,7 +87,6 @@ export async function fixDriftDiagnostic(
     message:
       `fix stage left ${paths.length} file(s) uncommitted: ${shown}${more}`,
     reproduce_cmd: "git diff",
-    output: body.text,
-    truncated: body.truncated === true ? true : undefined,
+    ...outputFields,
   };
 }

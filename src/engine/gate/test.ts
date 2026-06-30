@@ -66,7 +66,7 @@ async function runTestGate(
     };
   }
   const { results, failedStage } = await runJobGroups([group], runOpts, out);
-  const { steps, diagnostics } = serializeJobSteps([group], results);
+  const { steps, diagnostics } = await serializeJobSteps([group], results);
   return {
     result: {
       ok: failedStage === null,

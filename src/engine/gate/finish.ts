@@ -36,11 +36,11 @@ import {
   worktreeDirtyPaths,
 } from "./fix_drift.ts";
 import { renderFailureTail } from "./failure_tail.ts";
+import { diagnosticOutputFields } from "./diagnostic_output.ts";
 import { changedScopes, PREVIEWABLE_MARKER } from "../scopes/changed.ts";
 import { colorEnabled, makeOut, type Out, outSink } from "../output.ts";
 import { assertMainMerged } from "../worktree/git.ts";
 import {
-  capText,
   type Diagnostic,
   type DiscernResult,
   type FailedStage,
@@ -117,9 +117,11 @@ function driftDiff(entry: GuidanceDriftEntry): string {
  * not the generated file), and a capped diff of what a refresh would change — the
  * rescue, since the untracked file has no `git diff` to fall back on.
  */
-function guidanceDiagnostic(stale: GuidanceDriftEntry[]): Diagnostic {
+async function guidanceDiagnostic(
+  stale: GuidanceDriftEntry[],
+): Promise<Diagnostic> {
   const files = stale.map((d) => d.path).join(", ");
-  const capped = capText(
+  const outputFields = await diagnosticOutputFields(
     `Generated agent files are out of date: ${files}.\n` +
       "Run `discern refresh` to regenerate them. If you meant to change the " +
       "guidance, edit your [guidance].sources (e.g. guidance.md) instead — a direct " +
@@ -131,8 +133,7 @@ function guidanceDiagnostic(stale: GuidanceDriftEntry[]): Diagnostic {
     severity: "error",
     message: `generated agent file(s) out of date: ${files}`,
     reproduce_cmd: "discern refresh",
-    output: capped.text,
-    truncated: capped.truncated === true ? true : undefined,
+    ...outputFields,
   };
 }
 
@@ -142,9 +143,11 @@ function guidanceDiagnostic(stale: GuidanceDriftEntry[]): Diagnostic {
  * analog of {@link guidanceDiagnostic} — same redirect (edit the source, not the
  * generated copy), so the two generated-artifact failures read identically.
  */
-function skillsDiagnostic(stale: SkillsDriftEntry[]): Diagnostic {
+async function skillsDiagnostic(
+  stale: SkillsDriftEntry[],
+): Promise<Diagnostic> {
   const dirs = [...new Set(stale.map((d) => d.dir))].join(", ");
-  const capped = capText(
+  const outputFields = await diagnosticOutputFields(
     `Materialized skills are out of date in: ${dirs}.\n` +
       "Run `discern refresh` to re-materialize them. If you meant to change a skill, " +
       "edit its source under [skills].dir (or `discern skills eject` a bundled one) — a " +
@@ -156,8 +159,7 @@ function skillsDiagnostic(stale: SkillsDriftEntry[]): Diagnostic {
     severity: "error",
     message: `materialized skills out of date: ${dirs}`,
     reproduce_cmd: "discern refresh",
-    output: capped.text,
-    truncated: capped.truncated === true ? true : undefined,
+    ...outputFields,
   };
 }
 
@@ -214,7 +216,7 @@ async function runGate(
       .filter((d) => d.reason === "stale");
     if (stale.length > 0) {
       failedStage = "guidance";
-      guidanceDiag = guidanceDiagnostic(stale);
+      guidanceDiag = await guidanceDiagnostic(stale);
     }
   }
 
@@ -228,7 +230,7 @@ async function runGate(
       .filter((d) => d.reason === "stale");
     if (stale.length > 0) {
       failedStage = "skills";
-      skillsDiag = skillsDiagnostic(stale);
+      skillsDiag = await skillsDiagnostic(stale);
     }
   }
 
@@ -301,7 +303,7 @@ async function runGate(
     guidanceOn,
     skillsOn,
   );
-  const result = buildGateResult(plan, results, failedStage);
+  const result = await buildGateResult(plan, results, failedStage);
   // The currency checks aren't plan-group jobs, so their diagnostics (the diff / the
   // drift list + the `discern refresh` reproduce command) are attached here, like the
   // merge stage's failed_stage rides in `data` without a job entry.

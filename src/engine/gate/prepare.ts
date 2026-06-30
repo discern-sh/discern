@@ -42,7 +42,7 @@ async function runPrepareGate(
   const groups = preparePlanGroups(cfg);
   const { runOpts, out } = gateRunContext(root, cfg, json);
   const { results, failedStage } = await runJobGroups(groups, runOpts, out);
-  const { steps, diagnostics } = serializeJobSteps(groups, results);
+  const { steps, diagnostics } = await serializeJobSteps(groups, results);
   const inProgress = setupInProgressHint(cfg.meta.bootstrapped);
   const result: DiscernResult = {
     ok: failedStage === null,
