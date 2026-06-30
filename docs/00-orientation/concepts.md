@@ -124,8 +124,15 @@ stays generic; only `discern.toml` learns the stack. Setup finishes with
 AND re-derives from repo state that each step's authoring actually landed — so a
 skipped step can't pass
 ([ADR 0078](../_adr/0078-setup-pages-and-per-step-proof.md)) — before recording
-completion, then reminds the agent to start a fresh session, since the wired MCP
-tools and session hooks load only at session start.
+completion. Its completion output then does three things: it reports an **honest
+coverage summary** — each standard capability marked _enforced_, _deferred_, or
+_absent_, plus an overall verdict — so "the gate is proven" never reads as
+"every protection runs" when, say, no test suite is wired; it names **where the
+work lives** (on the `discern-setup` branch, not yet on `main`) and the one
+command to land it, `discern setup land`
+([ADR 0080](../_adr/0080-setup-land-command.md)); and it reminds the agent to
+start a fresh session (the wired MCP tools and session hooks load only at
+session start) and to deepen the setup with `discern improve`.
 
 **3. Work behind the gate.** Day to day, everything is driven through `discern`
 verbs:
