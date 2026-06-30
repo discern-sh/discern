@@ -1,4 +1,4 @@
-# ADR 0076: The setup agent is the configuration engine — transparency over interrogation
+# ADR 0077: The setup agent is the configuration engine — transparency over interrogation
 
 **Status**: accepted; revises the _emphasis_ of
 [ADR 0044](0044-setup-involve-not-gate.md) (involve, don't gate) and preserves

@@ -9,7 +9,7 @@ and preserves the incompleteness signaling hardened by
 agent to _propose and wait for confirmation_, this shifts to _recommend,
 narrate, proceed on reversible changes, and commit atomically_ — pausing only
 for genuine decisions.
-[ADR 0076](0076-setup-agent-is-the-configuration-engine.md) later revises the
+[ADR 0077](0077-setup-agent-is-the-configuration-engine.md) later revises the
 _emphasis_ of this stance — the agent is the configuration engine; transparency
 over interrogation — after cold runs showed "don't gate" degrading into "don't
 involve."

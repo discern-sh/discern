@@ -782,7 +782,7 @@ Deno.test("discern setup --json emits the DiscernResult envelope", async () => {
   });
 });
 
-Deno.test("the brief teaches transparency-not-interrogation (narrate + atomic commits), not a per-step confirm gate (ADR 0044/0076)", async () => {
+Deno.test("the brief teaches transparency-not-interrogation (narrate + atomic commits), not a per-step confirm gate (ADR 0044/0077)", async () => {
   // Read the printed brief directly — `templates/` is excluded from `deno fmt`,
   // so these anchors stay on one line and won't be reflowed out from under us.
   const brief = await Deno.readTextFile(
@@ -790,7 +790,7 @@ Deno.test("the brief teaches transparency-not-interrogation (narrate + atomic co
   );
 
   // The interaction model is taught: the agent is the configuration engine and the
-  // stance is transparency-not-interrogation (ADR 0076's revision of 0044), the
+  // stance is transparency-not-interrogation (ADR 0077's revision of 0044), the
   // five-beat narration pattern, discern named as the source of the recommendation,
   // per-stage atomic commits, and the explicit carve-out for a genuine decision.
   assertStringIncludes(brief, "configuration engine");
@@ -826,7 +826,7 @@ Deno.test("the brief teaches transparency-not-interrogation (narrate + atomic co
   assertStringIncludes(brief, "You are not done until all of these are true");
 });
 
-Deno.test("the brief reframes Step 0 as a relayed model question, states WHY docs, and resolves five-beats vs volume to one rule (ADR 0076)", async () => {
+Deno.test("the brief reframes Step 0 as a relayed model question, states WHY docs, and resolves five-beats vs volume to one rule (ADR 0077)", async () => {
   const brief = await Deno.readTextFile(
     join(REAL_TEMPLATES, "setup", "instructions.md"),
   );
@@ -852,7 +852,7 @@ Deno.test("the brief reframes Step 0 as a relayed model question, states WHY doc
   assertStringIncludes(brief, "concise recommendation");
 });
 
-Deno.test("the brief sequences a refresh before the first gate run and a format sweep before authoring (ADR 0076)", async () => {
+Deno.test("the brief sequences a refresh before the first gate run and a format sweep before authoring (ADR 0077)", async () => {
   const brief = await Deno.readTextFile(
     join(REAL_TEMPLATES, "setup", "instructions.md"),
   );
