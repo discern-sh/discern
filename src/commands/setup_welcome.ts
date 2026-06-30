@@ -39,10 +39,10 @@ export interface WelcomeOptions {
  * the machine-readable mirror, kept in step with them by the welcome JSON tests.
  */
 const FRESH_AGENT_GUIDANCE =
-  "You drive setup — discern only guides you, and nothing is written until you run `discern setup begin`. Before any consent checklist, open warmly and explain what discern is to your human (they may be meeting it for the first time): a quality gate, isolated git worktrees, and shared agent instructions, tailored to their codebase by you. Reassure them it is safe and reversible — setup touches only this folder, runs on a dedicated `discern-setup` branch in small revertible commits, needs no API key, and undoes by deleting the branch. Then preview the plan with `discern setup verify`.";
+  "You drive setup — discern only guides you, and nothing is written until you run `discern setup begin`. Before any consent checklist, open warmly and explain what discern is to your human (they may be meeting it for the first time): a quality gate, isolated git worktrees, and shared agent instructions, tailored to their codebase by you. Reassure them it is isolated and reversible — setup touches only this folder, runs on a dedicated `discern-setup` branch in small revertible commits, needs no API key, and undoes by deleting the branch. Then preview the plan with `discern setup verify`.";
 
 const FRESH_HUMAN_FRAMING =
-  "discern adds a quality gate, isolated git worktrees, and shared agent instructions to this repo, tailored to your codebase by your own coding agent — safe, reversible, and with no API key. Point your most capable model at it: setup is one-time and high-leverage.";
+  "discern adds a quality gate, isolated git worktrees, and shared agent instructions to this repo, tailored to your codebase by your own coding agent — isolated, reversible, and with no API key. Point your most capable model at it: setup is one-time and high-leverage.";
 
 const IN_PROGRESS_AGENT_GUIDANCE =
   "Finishing setup is YOUR job, not a status to report back. Continue the setup brief, then run `discern setup done` to validate and record completion — and don't tell the user setup is done until it passes. Reprint the brief any time with `discern setup begin` (idempotent; it won't touch your work).";
