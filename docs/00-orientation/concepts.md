@@ -96,8 +96,15 @@ to write — the Engine is in the binary. Files split by **disposition**:
 [yours](glossary.md#your-files--yours) (the committed seeds, written once then
 kept), [the binary's](glossary.md#the-binarys-files) (gitignored artifacts it
 re-publishes, like the materialized Skills), plus the Merged
-`settings.json`/`.gitignore`. `begin` then lays the docs-tree and `TODO.md`
-skeletons (only when the project has none) and prints the authoring brief.
+`settings.json`/`.gitignore`. On a fresh install in a clean repo, `begin` then
+**commits** the harness wiring it just wrote — the `discern.toml`, the
+`.gitignore` fragment, and the per-agent MCP + hooks files — as one
+`discern: scaffold harness` commit
+([ADR 0076](../_adr/0076-engine-commits-scaffolded-machinery.md)), so the coding
+agent never has to commit discern's own permission-widening config (its safety
+classifier would refuse). `begin` then lays the docs-tree and `TODO.md`
+skeletons (only when the project has none) — left uncommitted for the agent to
+fill — and prints the authoring brief.
 
 **2. Fill in the stack.** The brief `discern setup begin` prints is what the
 coding agent already in the loop works through: it sniffs the repo, asks the
