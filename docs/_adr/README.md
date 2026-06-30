@@ -93,7 +93,8 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0077 — The setup agent is the configuration engine — transparency over interrogation](0077-setup-agent-is-the-configuration-engine.md)
 - [0078 — Setup steps are stateless machine-readable pages with derived per-step proof](0078-setup-pages-and-per-step-proof.md)
 - [0079 — `improve` is a coach, not an audit](0079-improve-is-a-coach-not-an-audit.md)
-- [0080 — Codex project config grants the discern worktree root, not broader sandbox control](0080-codex-project-config-writable-root.md)
+- [0080 — The agent documentation tree has one configured root](0080-configured-agent-docs-root.md)
+- [0081 — Codex project config grants the discern worktree root, not broader sandbox control](0081-codex-project-config-writable-root.md)
 
 ## Superseded and consolidated ADRs
 

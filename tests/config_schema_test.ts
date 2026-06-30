@@ -22,6 +22,7 @@ Deno.test("an empty config validates to a fully-defaulted object", () => {
   assertEquals(c.project.slug, "");
   assertEquals(c.project.gotchas_doc, "");
   assertEquals(c.skills.dir, "skills");
+  assertEquals(c.docs.dir, "docs/");
   assertEquals(c.recipes.dir, "recipes");
   assertEquals(c.guidance.sources, ["guidance.md"]);
   assertEquals(c.guidance.agents, []);
@@ -162,6 +163,7 @@ Deno.test("isSettableConfigPath: known leaf/record paths yes, typos no", () => {
   assert(isSettableConfigPath("project.slug"));
   assert(isSettableConfigPath("gate.fail_fast"));
   assert(isSettableConfigPath("features.docs"));
+  assert(isSettableConfigPath("docs.dir"));
   assert(isSettableConfigPath("ratchets.coverage.limit")); // valid-but-incomplete OK
   assert(isSettableConfigPath("checks.x.stage"));
   assert(isSettableConfigPath("worktree.resources.db.create"));
@@ -171,6 +173,24 @@ Deno.test("isSettableConfigPath: known leaf/record paths yes, typos no", () => {
   assert(!isSettableConfigPath("capabilities.deploy")); // closed vocabulary
   assert(!isSettableConfigPath("nope.at.all"));
   assert(!isSettableConfigPath("ratchets.coverage.bogus"));
+});
+
+Deno.test("[docs].dir round-trips and rejects paths outside the project", () => {
+  const custom = parseConfigOrThrow(
+    `[docs]\ndir = "docs/discern/"\n`,
+  );
+  assertEquals(custom.docs.dir, "docs/discern/");
+
+  const absolute = parseConfig(`[docs]\ndir = "/tmp/docs"\n`);
+  assert(
+    absolute.issues.some((issue) => issue.path === "docs.dir"),
+    JSON.stringify(absolute.issues),
+  );
+  const escaping = parseConfig(`[docs]\ndir = "../docs"\n`);
+  assert(
+    escaping.issues.some((issue) => issue.path === "docs.dir"),
+    JSON.stringify(escaping.issues),
+  );
 });
 
 Deno.test("a bad check stage and a bad ratchet direction are rejected", () => {

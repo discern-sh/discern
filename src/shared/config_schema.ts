@@ -29,6 +29,7 @@ import { join } from "@std/path";
 import { CONFIG_REL, installedConfigRel } from "./env.ts";
 import { KNOWN_CAPABILITIES, STAGES } from "./capabilities.ts";
 import type { Feature } from "./features.ts";
+import { DEFAULT_DOCS_DIR, isValidDocsDir } from "./docs_path.ts";
 
 // ── TOML syntax diagnostics (kept here so config_read/toml_render share them) ──
 
@@ -126,7 +127,8 @@ const perExtent = z.strictObject(
 
 /** A ratchet's denominator. Turn a raw count into a *rate* so the number doesn't
  * rise just because the project grew. Either the name of a second metric the `run`
- * emits, or a built-in extent discern measures itself, e.g. `per = { words = "docs/**" }`. */
+ * emits, or a built-in extent discern measures itself, e.g.
+ * `per = { words = "${docs.dir}**" }`. */
 const perValue = z.union([z.string(), perExtent]);
 
 /** The gate stages a `[checks.<name>].stage` may name. */
@@ -172,7 +174,7 @@ const ratchetValue = z.strictObject({
   per: perValue.optional().describe(
     "Divide the metric by this to ratchet a *rate*, not a raw count — so the number " +
       "doesn't rise just because the project grew. Either a second metric the run emits, " +
-      'or a built-in extent discern measures itself: per = { words = "docs/**" } ' +
+      'or a built-in extent discern measures itself: per = { words = "${docs.dir}**" } ' +
       "(files | lines | words | bytes over a git pathspec).",
   ),
   scale: z.number().default(1).describe(
@@ -260,6 +262,17 @@ const skillsSection = z.strictObject({
   ),
 }).prefault({}).describe(
   "Focused, reusable task playbooks. The effective set is discern's bundled built-ins plus your authored skills under the directory below, where yours override a built-in of the same name.",
+);
+
+const docsSection = z.strictObject({
+  dir: z.string().refine(isValidDocsDir, {
+    message:
+      "must be a project-relative directory that stays inside the repository",
+  }).default(DEFAULT_DOCS_DIR).describe(
+    "Where discern's agent documentation tree lives, relative to the project root. `discern setup` scaffolds it here and `discern docs` browses it by default.",
+  ),
+}).prefault({}).describe(
+  "The project documentation tree discern scaffolds, validates, and browses.",
 );
 
 /** The closed [capabilities] object: the five known names, each an optional
@@ -397,6 +410,7 @@ export const configSchema = z.strictObject({
   features: featuresSection,
   guidance: guidanceSection,
   skills: skillsSection,
+  docs: docsSection,
   capabilities: capabilitiesSection,
   checks: checksSection,
   scopes: scopesSection,
@@ -482,6 +496,9 @@ export const configDocSchema = z.strictObject({
   ),
   features: z.record(z.string(), z.boolean()).optional().describe(
     "[features] toggles — a feature name mapped to a boolean (default true).",
+  ),
+  docs: docsSection.optional().describe(
+    "[docs] settings — chiefly the project-relative directory holding discern's agent documentation tree.",
   ),
   capabilities: capabilitiesObject.optional().describe(
     "[capabilities] fills — a known capability name mapped to a command (or list). The gate stage is derived from the name; the set is closed.",

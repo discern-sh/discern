@@ -61,11 +61,13 @@ Deno.test("tokensFromConfig produces the full token contract", () => {
     sourceGlobs: ["src/**", "lib/**"],
     brief: "anything",
     agents: ["claude_code", "codex"],
+    docsDir: "docs/discern/",
   });
   assertEquals(map.project_name, "Demo App");
   assertEquals(map.project_slug, "demo-app");
   assertEquals(map.branch_prefix, "agent/");
   assertEquals(map.agents_array, '"claude_code", "codex"');
+  assertEquals(map.docs_dir, "docs/discern/");
   assertEquals(map.scopes_web, '"src/**", "lib/**"');
   // The neutral/previewable/gotchas defaults are fixed. Neutral names docs, the
   // authored-skills source, and EVERY known agent's generated dir, derived from the
@@ -73,7 +75,7 @@ Deno.test("tokensFromConfig produces the full token contract", () => {
   // new agent is neutralized without editing this list.
   assertEquals(
     map.scopes_neutral,
-    '"docs/", "skills/", ".claude/", ".agents/"',
+    '"${docs.dir}", "skills/", ".claude/", ".agents/"',
   );
   assertEquals(map.scopes_previewable, '"public/**"');
 });

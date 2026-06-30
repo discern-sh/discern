@@ -37,6 +37,7 @@ function ctx(
     gotchasDocSet: false,
     gotchasDocExists: false,
     docsTree: false,
+    docsDir: "docs/",
     adrCount: 0,
     agentFilePresent: false,
     authoredSkills: 0,

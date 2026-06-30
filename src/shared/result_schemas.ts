@@ -533,7 +533,10 @@ export const SetupVerifyFindingsSchema = z.strictObject({
     clean: z.boolean(),
     uncommitted: z.number(),
   }),
-  docs: z.strictObject({ exists: z.boolean() }),
+  docs: z.strictObject({
+    exists: z.boolean(),
+    suggested_discern_dir: z.string().nullable().optional(),
+  }),
   existing_instructions: z.array(z.string()),
   agents_detected: z.array(z.string()),
   agents_effective: z.array(z.string()),

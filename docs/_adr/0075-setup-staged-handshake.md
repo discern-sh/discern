@@ -175,6 +175,9 @@ The explicit *no*s:
   the precise path that will appear beside your checkout — which is both better
   UX and the natural home for the teaching moment that discern's docs tree is
   "what is inferable from the code," distinct from a hand-curated one.
+  [ADR 0080](0080-configured-agent-docs-root.md) makes the chosen location
+  persistent: `verify` remains read-only and passes it to `begin`, which records
+  `[docs].dir`.
 
 - **Provenance makes triage possible.** `doctor` surfaces who set the project
   up; a broken-install report can be read against the model that produced it.

@@ -135,10 +135,11 @@ Deno.test("the in-progress welcome --json carries the 'your job, not a status' a
 Deno.test("verify reports grounded findings and the consent conversation, writing nothing", async () => {
   await withTempDir(async (dir) => {
     await freshRepo(dir);
-    const d = JSON.parse(
+    const res = JSON.parse(
       (await runAgent(dir, ["setup", "verify", "--json"]))
         .stdout,
-    ).data;
+    );
+    const d = res.data;
     assertEquals(d.phase, "fresh");
     assertEquals(d.findings.git.repo, true);
     assertEquals(d.findings.docs.exists, false);
@@ -231,10 +232,11 @@ Deno.test("verify surfaces existing docs/ and agent instructions as conflicts", 
     await Deno.writeTextFile(join(dir, "docs/README.md"), "# mine\n");
     await Deno.writeTextFile(join(dir, "CLAUDE.md"), "# my rules\n");
 
-    const d = JSON.parse(
+    const res = JSON.parse(
       (await runAgent(dir, ["setup", "verify", "--json"]))
         .stdout,
-    ).data;
+    );
+    const d = res.data;
     const kinds = d.conflicts.map((c: { kind: string }) => c.kind);
     assert(
       kinds.includes("existing_docs"),
@@ -245,6 +247,12 @@ Deno.test("verify surfaces existing docs/ and agent instructions as conflicts", 
       `expected an existing_instructions conflict: ${JSON.stringify(kinds)}`,
     );
     assert(d.findings.existing_instructions.includes("CLAUDE.md"));
+    assertStringIncludes(d.guidance, "Documentation location");
+    assertStringIncludes(d.guidance, "--docs");
+    assertStringIncludes(d.guidance, "[docs].dir");
+    assertEquals(d.findings.docs.suggested_discern_dir, "docs/discern/");
+    assertStringIncludes(d.next_action, "--docs");
+    SetupVerifyOutputSchema.parse(res);
   });
 });
 

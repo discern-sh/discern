@@ -15,7 +15,8 @@
  * advisory backlog (every severity) so the number shrinks over time rather than
  * merely not regressing past zero.
  *
- * Usage: `deno task prose` (the `[ratchets.prose]` run command). Prints a human
+ * Usage: `deno task prose <docs-dir>` (the `[ratchets.prose]` run command).
+ * Prints a human
  * breakdown to stderr for context, then the metric line to stdout.
  */
 
@@ -26,8 +27,9 @@ interface Alert {
 // Vale exits non-zero when it finds error-severity alerts; that is not a failure
 // of the MEASUREMENT (the count is the point), so its JSON is read regardless of
 // the exit code — mirroring how the ratchet runner ignores the run's exit status.
+const docsDir = Deno.args[0] ?? "docs/";
 const run = await new Deno.Command("vale", {
-  args: ["--output=JSON", "docs/"],
+  args: ["--output=JSON", docsDir],
   stdout: "piped",
   stderr: "piped",
 }).output();
@@ -60,6 +62,6 @@ for (const alerts of Object.values(report)) {
 const total = errors + warnings + suggestions;
 
 console.error(
-  `docs/ prose alerts: ${total} (${errors} error, ${warnings} warning, ${suggestions} suggestion)`,
+  `${docsDir} prose alerts: ${total} (${errors} error, ${warnings} warning, ${suggestions} suggestion)`,
 );
 console.log(`DISCERN_METRIC prose ${total}`);

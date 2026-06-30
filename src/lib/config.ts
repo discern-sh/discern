@@ -13,6 +13,7 @@ import { KIT_VERSION } from "./version.ts";
 // re-exported here under the installer's long-standing name, so the wizard, the
 // config document, and the generated editor JSON Schema share one list.
 import { AGENT_NAMES, DEFAULT_AGENTS } from "../shared/config_schema.ts";
+import { DEFAULT_DOCS_DIR, DOCS_DIR_REFERENCE } from "../shared/docs_path.ts";
 import { neutralAgentScopePaths } from "./providers.ts";
 
 /** The agent/provider files the kit knows how to emit. */
@@ -41,6 +42,7 @@ export const DEFAULTS = {
   sourceGlobs: ["src/**", "app/**"],
   // Default to the two committed-standard providers; gemini is opt-in.
   agents: [...DEFAULT_AGENTS] as AgentName[],
+  docsDir: DEFAULT_DOCS_DIR,
   gotchasDoc: "",
   scopesPreviewable: ['"public/**"'],
 } as const;
@@ -55,7 +57,7 @@ export const DEFAULTS = {
  */
 export function defaultNeutralScopes(): string[] {
   return [
-    '"docs/"',
+    `"${DOCS_DIR_REFERENCE}"`,
     '"skills/"',
     ...neutralAgentScopePaths().map((p) => `"${p}"`),
   ];
@@ -71,6 +73,8 @@ export interface InitConfig {
   /** The verbatim "what are you building?" answer, written to brief.md. */
   brief: string;
   agents: AgentName[];
+  /** Project-relative home for discern's agent documentation tree. */
+  docsDir?: string | undefined;
 }
 
 /**
@@ -121,6 +125,7 @@ export function tokensFromConfig(config: InitConfig): TokenMap {
     project_slug: config.slug,
     branch_prefix: config.branchPrefix,
     agents_array: renderTomlStringList(config.agents),
+    docs_dir: config.docsDir ?? DEFAULTS.docsDir,
     gotchas_doc: DEFAULTS.gotchasDoc,
     scopes_neutral: defaultNeutralScopes().join(", "),
     scopes_web: renderTomlStringList(config.sourceGlobs),
