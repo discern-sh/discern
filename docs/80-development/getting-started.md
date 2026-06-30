@@ -52,6 +52,14 @@ discern init                      # scaffold into the current dir (try a scratch
 deno task build                   # compile per-platform binaries → dist/ (release only)
 ```
 
+**Test the real compiled binary, briefly.** Occasionally you need the shipped
+artifact on your `PATH` instead of the source shim — an opaque binary with no
+trace of this checkout (say, to rule the shim out as the cause of a client-side
+quirk). `deno task use-compiled-build` builds the host binary, swaps it in, then
+holds it there only while the command runs; press Ctrl+C and it restores the dev
+shim automatically, so the unusual state can't outlive the terminal that reminds
+you of it. (Killed with `-9`? Restore by hand with `install-dev-cli`.)
+
 discern has no long-running app to start — it is one CLI binary with the engine
 compiled in. To _see it work_, either scaffold it into a temp directory with
 `discern init` and drive `discern` there, or just run the gate in this repo.
