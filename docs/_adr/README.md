@@ -89,6 +89,7 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0073 — discern co-manages Codex's auto-generated `environment.toml`, and reuses the cwd-based teardown verb for its cleanup](0073-codex-worktree-lifecycle-comanagement.md)
 - [0074 — Claude Code and GitHub Copilot co-own the shared `.mcp.json`, through one stdio writer](0074-co-owned-mcp-json.md)
 - [0075 — `discern setup` is a staged, consent-driven handshake](0075-setup-staged-handshake.md)
+- [0076 — The engine commits the harness machinery it scaffolds](0076-engine-commits-scaffolded-machinery.md)
 - [0077 — The setup agent is the configuration engine — transparency over interrogation](0077-setup-agent-is-the-configuration-engine.md)
 
 ## Superseded and consolidated ADRs

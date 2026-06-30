@@ -7,6 +7,9 @@
  * PATH (or `~/.local/bin`), so the installed copy survives worktree churn, and
  * prints the $DISCERN_HOME to export for the out-of-checkout fallback.
  *
+ * Its inverse is `use-compiled-build`, which temporarily runs the real
+ * compiled binary instead; this is the command that puts the dev shim back.
+ *
  * It is a MAINTAINER helper, not a shipped feature: it lives in `scripts/`
  * (outside `templates/`), is never bundled into the binary, and is deliberately
  * kept OUT of discern's own `setup`/`upgrade` verbs — those are user-facing.
@@ -15,33 +18,15 @@
  *   deno task install-dev-cli
  */
 
-import { dirname, fromFileUrl, join } from "@std/path";
-
-/** Run a command and capture its trimmed stdout/stderr plus exit code. */
-async function capture(
-  cmd: string,
-  args: string[],
-  cwd?: string,
-): Promise<{ code: number; stdout: string; stderr: string }> {
-  const opts: Deno.CommandOptions = { args, stdout: "piped", stderr: "piped" };
-  if (cwd !== undefined) opts.cwd = cwd;
-  const { code, stdout, stderr } = await new Deno.Command(cmd, opts).output();
-  const dec = new TextDecoder();
-  return {
-    code,
-    stdout: dec.decode(stdout).trim(),
-    stderr: dec.decode(stderr).trim(),
-  };
-}
-
-/** Resolve the first `name` on PATH, or null if absent. */
-async function which(name: string): Promise<string | null> {
-  const found = await capture("/bin/sh", ["-c", `command -v ${name}`]);
-  return found.code === 0 && found.stdout.length > 0 ? found.stdout : null;
-}
+import { dirname, fromFileUrl } from "@std/path";
+import {
+  capture,
+  installExecutable,
+  resolveCliDest,
+  shimSource,
+} from "./cli_install.ts";
 
 async function main(): Promise<number> {
-  const wrapperSrc = fromFileUrl(new URL("./discern", import.meta.url));
   const repoRoot = fromFileUrl(new URL("..", import.meta.url));
 
   // The durable fallback checkout: the *main* working tree, found via the shared
@@ -55,19 +40,9 @@ async function main(): Promise<number> {
     ? dirname(common.stdout)
     : repoRoot;
 
-  // Install beside the `discern` already on PATH (replace it in place); otherwise
-  // fall back to ~/.local/bin.
-  const existing = await which("discern");
-  const home = Deno.env.get("HOME") ?? "";
-  const targetDir = existing !== null
-    ? dirname(existing)
-    : join(home, ".local", "bin");
-
-  const dest = join(targetDir, "discern");
+  const { dest, targetDir, onPath } = await resolveCliDest();
   try {
-    await Deno.mkdir(targetDir, { recursive: true });
-    await Deno.copyFile(wrapperSrc, dest);
-    await Deno.chmod(dest, 0o755);
+    await installExecutable(shimSource(), dest);
   } catch (e) {
     const reason = e instanceof Error ? e.message : String(e);
     console.error(`install-dev-cli: could not write ${dest}: ${reason}`);
@@ -82,8 +57,7 @@ async function main(): Promise<number> {
   console.error("export this in your shell profile:");
   console.error(`    export DISCERN_HOME=${discernHome}`);
 
-  const pathDirs = (Deno.env.get("PATH") ?? "").split(":");
-  if (!pathDirs.includes(targetDir)) {
+  if (!onPath) {
     console.error("");
     console.error(
       `Note: ${targetDir} is not on your PATH — add it to use \`discern\`.`,
