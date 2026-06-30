@@ -308,7 +308,7 @@ function startVerb(cfg: DiscernConfig): VerbPlan {
     note: "recompile agent files + materialize skills",
   }));
   return {
-    verb: "start (worktree:create)",
+    verb: "start",
     when:
       "When you begin a new line of work — create a fresh isolated worktree and set it up (also the WorktreeCreate hook's path).",
     steps,

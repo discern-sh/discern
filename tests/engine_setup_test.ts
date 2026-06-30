@@ -48,6 +48,31 @@ Deno.test("discern setup lays the doc skeletons when absent and prints the instr
   });
 });
 
+Deno.test("the scaffolded dev-loop docs name the canonical worktree verb (discern start, not bare discern worktree)", async () => {
+  // `discern start` (from the main checkout) is how you begin a new line of work;
+  // `discern worktree` is the in-worktree convergence command. The skeleton dev-loop
+  // docs used the latter for "set up a checkout for a change", which a cold run read as
+  // an inconsistency with the `discern start` that status/doctor surface. Guard that
+  // the shipped skeletons point at `discern start` and never bare `discern worktree`.
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { bootstrapped: false });
+    await runAgent(dir, ["setup", "begin"]); // lays the docs skeletons
+    for (
+      const rel of [
+        "docs/80-development/getting-started.md",
+        "docs/80-development/README.md",
+      ]
+    ) {
+      const body = await Deno.readTextFile(join(dir, rel));
+      assertStringIncludes(body, "discern start");
+      assert(
+        !body.includes("discern worktree"),
+        `${rel} must use 'discern start' for beginning work, not bare 'discern worktree':\n${body}`,
+      );
+    }
+  });
+});
+
 Deno.test("discern setup never overwrites an existing docs/ tree (seamless DX)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
