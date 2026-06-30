@@ -401,17 +401,39 @@ export const FLEET_OWNERSHIP_HINT =
 
 /**
  * The on-the-trunk guardrail, agent-facing. An agent that finds itself on the main
- * checkout has no isolated workspace yet — point it LOUDLY at `discern start` (its
- * first-class way into its own worktree) so it never improvises into another agent's.
- * Pushed into `hints[]` (the `--json` / MCP channel, ADR 0030) whenever status is
- * rooted in the main checkout with worktrees enabled — never into interactive human
- * output, where a person running `discern status` is monitoring their fleet and the
- * renderer filters it out (exactly like {@link FLEET_OWNERSHIP_HINT}). Exported as a
- * named constant so the human renderer (which drops it) and the test (which asserts
- * it) reference one string, not a brittle inline literal.
+ * checkout, ACTUALLY on the trunk branch, has no isolated workspace yet — point it
+ * LOUDLY at `discern start` (its first-class way into its own worktree) so it never
+ * improvises into another agent's. Pushed into `hints[]` (the `--json` / MCP
+ * channel, ADR 0030) whenever status is rooted in the main checkout, on the trunk
+ * branch, with worktrees enabled — never into interactive human output, where a
+ * person running `discern status` is monitoring their fleet and the renderer
+ * filters it out (exactly like {@link FLEET_OWNERSHIP_HINT}). Exported as a named
+ * constant so the human renderer (which drops it) and the test (which asserts it)
+ * reference one string, not a brittle inline literal.
+ *
+ * The main checkout (a working-copy LOCATION) and the trunk branch are independent
+ * axes — you can be in the main checkout on a non-trunk branch (a leftover
+ * `discern-setup` branch, a PR checked out directly instead of through a worktree).
+ * This hint fires ONLY when both hold; {@link offTrunkStartHereHint} is the sibling
+ * for the main checkout on some other branch, so neither ever claims a branch
+ * identity `status` didn't verify against `git.branch`.
  */
 export const START_HERE_HINT =
   "You're on the trunk (the main checkout), not an isolated worktree — don't start work here. Run `discern start` to create your own worktree and move into it; never adopt an existing idle worktree (each belongs to another line of work, and a clean tree doesn't mean it's free).";
+
+/**
+ * The {@link START_HERE_HINT} sibling for when the main checkout is — unusually —
+ * NOT on its configured trunk branch. Same underlying advice (no isolated
+ * workspace yet; get one with `discern start`), but never claims "you're on the
+ * trunk" when `branch` says otherwise. A function, not a constant, because the
+ * branch name is data the hint must report accurately rather than hard-code; the
+ * human renderer reconstructs the exact same string (from `data.git`) to filter it
+ * by equality, the same way it filters {@link START_HERE_HINT}.
+ */
+export function offTrunkStartHereHint(branch: string, trunk: string): string {
+  const label = branch === "" ? "(detached)" : `'${branch}'`;
+  return `You're in the main checkout, but on branch ${label} — not '${trunk}' (the trunk) — and still not an isolated worktree. Run \`discern start\` to create your own worktree and move into it; never adopt an existing idle worktree (each belongs to another line of work, and a clean tree doesn't mean it's free).`;
+}
 
 /** Everything the hint builder reads — assembled once so the hints can't drift from
  * the reported data. */
@@ -479,19 +501,30 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
     );
   }
 
-  // On the trunk (the main checkout) with worktrees on, the agent has no isolated
-  // workspace yet — lead the next-steps with the loud `discern start` guardrail so it
-  // never squats in another line of work's worktree. Agent channel only: the human
+  // In the main checkout with worktrees on, the agent has no isolated workspace
+  // yet — lead the next-steps with the loud `discern start` guardrail so it never
+  // squats in another line of work's worktree. Agent channel only: the human
   // renderer filters this out (a person here is supervising their fleet, not starting
   // work), so it never nags the CLI. Placed before the fleet-ownership rule — the
   // constructive action first, the don't-squat caveat after. Suppressed while setup is
   // unfinished: setup runs in the main checkout (on the `discern-setup` branch), so
   // "go start a worktree" would contradict the lead "finish setup here" hint.
+  //
+  // Location (main checkout) and branch identity (trunk vs not) are independent
+  // axes — the main checkout can sit on a non-trunk branch (a leftover
+  // `discern-setup` branch, a PR checked out directly). Only claim "you're on the
+  // trunk" when `git.branch` actually says so; otherwise use the off-trunk sibling,
+  // which gives the same advice without the false claim. With no git block to check
+  // against (no repo), keep the original wording — unverifiable, not contradicted.
   if (
     ctx.location === "main" && ctx.worktreesOn &&
     ctx.setupPending === undefined
   ) {
-    hints.push(START_HERE_HINT);
+    hints.push(
+      ctx.git !== null && ctx.git.branch !== main
+        ? offTrunkStartHereHint(ctx.git.branch, main)
+        : START_HERE_HINT,
+    );
   }
 
   if (ctx.location === "worktree" && ctx.git !== null) {
@@ -799,12 +832,23 @@ function renderStatusHuman(result: DiscernResult<StatusData>): void {
     renderFleetTable(out, data.fleet);
   }
 
+  // The exact off-trunk hint `buildStatusHints` would have pushed for this result's
+  // own `git` block, so it can be filtered by equality below — same trick as the
+  // fixed-string hints, just reconstructed since this one carries the branch name.
+  const offTrunkHint = data.git !== null
+    ? offTrunkStartHereHint(data.git.branch, data.git.integration_branch)
+    : undefined;
+
   for (const hint of result.hints ?? []) {
-    // The fleet ownership rule and the on-the-trunk `discern start` guardrail are
-    // agent-only (json/MCP). A human running `discern status` from the main checkout
-    // is monitoring their fleet, not starting work — so neither is rendered here
-    // (the fleet table's caption carries the ownership framing for humans).
-    if (hint === FLEET_OWNERSHIP_HINT || hint === START_HERE_HINT) continue;
+    // The fleet ownership rule and the on-the-trunk `discern start` guardrail (both
+    // its on-trunk and off-trunk wording) are agent-only (json/MCP). A human running
+    // `discern status` from the main checkout is monitoring their fleet, not starting
+    // work — so none of these are rendered here (the fleet table's caption carries
+    // the ownership framing for humans, and the branch line already shows the truth).
+    if (
+      hint === FLEET_OWNERSHIP_HINT || hint === START_HERE_HINT ||
+      hint === offTrunkHint
+    ) continue;
     out.info(hint);
   }
 }

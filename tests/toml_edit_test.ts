@@ -85,6 +85,63 @@ Deno.test("editor appends a brand-new section at EOF", () => {
   assert(out.indexOf("[recipes]") > out.indexOf("[scopes.side_gates]"));
 });
 
+const FAMILY_SAMPLE = `[project]
+slug = "demo"
+
+[scopes.docs]
+paths   = ["docs/"]
+neutral = true
+
+[gate]
+stream = false
+`;
+
+Deno.test("editor inserts a brand-new section beside its existing dotted-family siblings, not at EOF", () => {
+  // [scopes.assets] doesn't exist yet, but [scopes.docs] does — the new
+  // section must land next to it, not scattered after unrelated [gate].
+  const out = new TomlEditor(FAMILY_SAMPLE)
+    .setStringArray("scopes.assets.paths", ["assets/**"])
+    .toString();
+  const lines = out.split("\n");
+  const docsIdx = lines.indexOf("[scopes.docs]");
+  const assetsIdx = lines.indexOf("[scopes.assets]");
+  const gateIdx = lines.indexOf("[gate]");
+  assert(
+    docsIdx >= 0 && docsIdx < assetsIdx && assetsIdx < gateIdx,
+    `expected [scopes.assets] between [scopes.docs] and [gate], got order: ${
+      JSON.stringify({ docsIdx, assetsIdx, gateIdx })
+    }`,
+  );
+  // A single blank-line gap, matching this file's established section spacing
+  // (not the double-blank gap insertSectionBlockAfter uses for documented
+  // blocks).
+  assertStringIncludes(
+    out,
+    'neutral = true\n\n[scopes.assets]\npaths = ["assets/**"]',
+  );
+});
+
+Deno.test("editor anchors a new section on the LAST matching sibling when several exist", () => {
+  const sample = `[scopes.docs]
+paths = ["docs/"]
+
+[scopes.native]
+paths = ["native/**"]
+
+[gate]
+stream = false
+`;
+  const out = new TomlEditor(sample)
+    .setStringArray("scopes.assets.paths", ["assets/**"])
+    .toString();
+  const lines = out.split("\n");
+  assert(
+    lines.indexOf("[scopes.native]") < lines.indexOf("[scopes.assets]") &&
+      lines.indexOf("[scopes.assets]") < lines.indexOf("[gate]"),
+    "a new sibling should land after the LAST existing family member",
+  );
+});
+
 Deno.test("hasSection reports presence of a section header", () => {
   const e = new TomlEditor(SAMPLE);
   assert(e.hasSection("project"));

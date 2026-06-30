@@ -85,7 +85,7 @@ read-only **welcome**: reassurance for the human, a funnel for their coding
 agent. The agent then runs `discern setup verify` — a read-only preflight that
 inspects the repo (git state, an existing `docs/` tree, existing agent
 instructions, the agents on PATH, the worktree location) and turns it into a
-short consent checklist to confirm with the human. **Nothing is written until
+warm consent conversation to hold with the human. **Nothing is written until
 `discern setup begin`**, the first mutating step: it lays down only _your_ seed
 files with zero-config defaults — a `discern.toml` with no Capabilities wired
 yet (a green gate you grow into — an omitted capability is simply skipped), a
