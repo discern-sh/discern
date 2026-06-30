@@ -24,6 +24,7 @@ import {
 } from "./engine_helpers.ts";
 import {
   FLEET_OWNERSHIP_HINT,
+  offTrunkStartHereHint,
   START_HERE_HINT,
 } from "../src/engine/status/status.ts";
 
@@ -231,6 +232,44 @@ Deno.test("status: on the trunk, the discern start guardrail rides in hints[] fo
         `discern start hint should precede the ownership rule`,
       );
     }
+  });
+});
+
+Deno.test("status: main checkout on a non-trunk branch never claims 'you're on the trunk' (B9)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    // The main checkout (a working-copy LOCATION) and the trunk branch are
+    // independent axes — simulate a stray branch checked out directly there (a
+    // leftover `discern-setup` branch, a PR checked out without a worktree), the
+    // exact shape a real cold run hit: location "main", branch != trunk.
+    await git(dir, "checkout", "-b", "discern-setup");
+
+    const obj = parseStatus((await runAgent(dir, ["status", "--json"])).stdout);
+    assertEquals(obj.data.location, "main");
+    assertEquals(obj.data.git.branch, "discern-setup");
+    const hints: string[] = obj.hints ?? [];
+    assert(
+      !hints.includes(START_HERE_HINT),
+      `must never claim "you're on the trunk" while on a non-trunk branch: ${
+        JSON.stringify(hints)
+      }`,
+    );
+    assert(
+      hints.includes(offTrunkStartHereHint("discern-setup", "main")),
+      `expected the off-trunk variant naming the actual branch and trunk: ${
+        JSON.stringify(hints)
+      }`,
+    );
+
+    // Still agent-only — a human running the CLI here isn't nagged with either
+    // wording (exactly like the on-trunk guardrail).
+    const human = await runAgent(dir, ["status"]);
+    assertEquals(human.code, 0, human.output);
+    assert(
+      !human.output.includes("isolated worktree"),
+      `neither start-here variant should appear as a human line: ${human.output}`,
+    );
   });
 });
 

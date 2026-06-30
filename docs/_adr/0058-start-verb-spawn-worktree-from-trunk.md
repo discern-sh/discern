@@ -91,10 +91,18 @@ _refusing_ in the wrong location with a clear message, which they already do.
 
 `discern status` ([ADR 0033](0033-status-verb-and-location-aware-scope.md)),
 when rooted in the main checkout with worktrees enabled, now **leads its
-next-steps** with a loud `START_HERE_HINT`: this is the trunk, not an isolated
-worktree — run `discern start` and move into your own, never adopt an existing
-idle one. It rides in `hints[]` (the `--json` / MCP channel), placed before the
+next-steps** with a loud guardrail: not an isolated worktree — run
+`discern start` and move into your own, never adopt an existing idle one. It
+rides in `hints[]` (the `--json` / MCP channel), placed before the
 fleet-ownership rule so the constructive action comes first.
+
+The main checkout (a working-copy location) and the trunk branch are
+independent axes — you can be in the main checkout on a non-trunk branch (a
+leftover `discern-setup` branch, a PR checked out directly instead of through a
+worktree). The literal `START_HERE_HINT` ("you're on the trunk") fires only
+when the checked-out branch actually IS the trunk; `offTrunkStartHereHint`
+gives the same advice, naming the real branch, otherwise — so the hint never
+claims a branch identity `status` didn't verify.
 
 It is **agent-facing only**. A human running `discern status` from the main
 checkout is supervising their fleet, not starting work — so the interactive
