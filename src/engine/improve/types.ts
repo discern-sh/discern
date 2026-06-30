@@ -1,24 +1,23 @@
 /**
- * The **audit vocabulary** — the types `discern audit` is built on. An audit is a
- * checklist of best-practice **rules** grouped into **categories**, scored and
- * ranked weakest-first so a project can see where it is thinnest and an agent can
- * act on it.
+ * The **improvement vocabulary** — the types `discern improve` is built on. An
+ * improvement report combines a scored baseline of best-practice **rules** with
+ * qualitative **reviews**, then points at the single highest-value next action.
  *
  * Two rule kinds, mirroring discern's split of labour (the binary is deterministic;
  * the agent is the intelligence):
  *   - a **deterministic** rule is decided in-process now — it reads the gathered
- *     {@link AuditContext} and returns a {@link RuleStatus}, a finding, a fix, and a
- *     teach. discern owns it end to end.
+ *     {@link ImprovementContext} and returns a {@link RuleStatus}, a finding, a fix,
+ *     and a teach. discern owns it end to end.
  *   - a **subjective** rule cannot be mechanically decided (does the guidance
  *     actually capture what an agent couldn't infer? do the docs still match the
  *     code?). discern can't run a model, so it does the next best thing: it surfaces
  *     the *question* plus the project material to judge it **against** ({@link
- *     AuditEvidence}), and the agent in the loop renders the verdict. This is how a
+ *     ReviewEvidence}), and the agent in the loop renders the verdict. This is how a
  *     deterministic binary "analyses subjective rules against guidance".
  *
  * The catalog (categories + rules) lives in `rules.ts`; the runner that evaluates
- * it into a {@link AuditReport} and the renderings live in `audit.ts`. This module
- * is pure data + interfaces, so both depend on it without a cycle.
+ * it into an {@link ImprovementReport} and the renderings live in `improve.ts`.
+ * This module is pure data + interfaces, so both depend on it without a cycle.
  */
 
 import type { DiscernConfig } from "../../shared/config_schema.ts";
@@ -27,11 +26,11 @@ import type { Feature } from "../../shared/features.ts";
 // ── the gathered facts a rule reads ─────────────────────────────────────────
 
 /**
- * The project facts an audit rule reasons over, gathered ONCE (config + a handful
+ * The project facts an improvement rule reasons over, gathered ONCE (config + a handful
  * of filesystem probes) so every rule's `evaluate`/`against` stays a pure, sync
  * function of this context. Built by `buildContext` in `rules.ts`.
  */
-export interface AuditContext {
+export interface ImprovementContext {
   /** The project root (the directory holding discern.toml). */
   root: string;
   /** The fully-typed, fully-defaulted config. */
@@ -61,9 +60,9 @@ export interface AuditContext {
 // ── the rule catalog shapes ─────────────────────────────────────────────────
 
 /** How a deterministic rule turned out: fully met, partially met, or not met. A const
- * tuple so it is enumerable: the audit wire schema's `status` enum (`result_schemas.ts`,
+ * tuple so it is enumerable: the improve wire schema's `status` enum (`result_schemas.ts`,
  * a shared module that can't import this engine type) is tied back to it by a guard in
- * `audit_catalog_test.ts`, so the two can't drift. */
+ * `improve_catalog_test.ts`, so the two can't drift. */
 export const RULE_STATUSES = ["pass", "partial", "fail"] as const;
 export type RuleStatus = (typeof RULE_STATUSES)[number];
 
@@ -88,12 +87,12 @@ export interface DeterministicRule {
   fix: string;
   teach: string;
   /** Decide the verdict from the gathered facts. Pure and synchronous. */
-  evaluate(ctx: AuditContext): Verdict;
+  evaluate(ctx: ImprovementContext): Verdict;
 }
 
 /** A pointer to the project material a subjective rule is judged against — what
  * the agent should actually read before answering. */
-export interface AuditEvidence {
+export interface ReviewEvidence {
   /** The file or config section to read (e.g. `guidance.md`, `[worktree.resources]`). */
   source: string;
   /** A short excerpt of it, or a note that it is absent/empty. */
@@ -112,7 +111,7 @@ export interface SubjectiveRule {
   ask: string;
   teach: string;
   /** Resolve the evidence to judge against, or undefined when there is none to cite. */
-  against(ctx: AuditContext): AuditEvidence | undefined;
+  against(ctx: ImprovementContext): ReviewEvidence | undefined;
 }
 
 /** A best-practice rule — decided by discern, or surfaced for the agent. */
@@ -128,7 +127,7 @@ export interface Category {
   /** Stable slug, used by `--category` (e.g. `gate`, `guidance`). */
   name: string;
   title: string;
-  /** Gate the whole category on a feature; omit for a core (always-audited) area. */
+  /** Gate the whole category on a feature; omit for a core (always-reviewed) area. */
   feature?: Feature;
   rules: Rule[];
 }
@@ -153,7 +152,7 @@ export interface ReviewResult {
   title: string;
   ask: string;
   teach: string;
-  against?: AuditEvidence;
+  against?: ReviewEvidence;
 }
 
 /** A category's evaluated result. */
@@ -170,14 +169,29 @@ export interface CategoryResult {
   reviews: ReviewResult[];
 }
 
-/** The whole audit, ranked weakest-first. */
-export interface AuditReport {
+/** The coach's one prioritized action. */
+export interface NextAction {
+  /** Fix an objective baseline gap, or perform a qualitative review. */
+  kind: "fix" | "review";
+  category: string;
+  id: string;
+  title: string;
+  /** The concrete fix or question to act on now. */
+  action: string;
+  /** Why this practice matters and what good looks like. */
+  why: string;
+}
+
+/** The whole improvement report, ranked weakest-first. */
+export interface ImprovementReport {
   /** 0–100, weighted over every applicable deterministic rule (100 when none apply). */
   score: number;
   /** Total deterministic rules that did not fully pass. */
   weak: number;
   /** Total open subjective review items. */
   reviews: number;
+  /** The highest-value improvement to make now. */
+  nextAction: NextAction;
   /** Categories, weakest score first. */
   categories: CategoryResult[];
 }

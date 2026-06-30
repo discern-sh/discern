@@ -126,7 +126,7 @@ export async function scaffoldEngine(
   await applyPlan(plan);
   // Engine tests exercise a *configured* harness — a project past its one-time
   // setup. Mark it set up by default so the work verbs (finish/test/…) run rather
-  // than hard-redirecting to setup (ADR 0036); setup/audit tests that need the
+  // than hard-redirecting to setup (ADR 0036); setup/improve tests that need the
   // un-set-up state pass `{ bootstrapped: false }`.
   if (opts.bootstrapped !== false) {
     await markBootstrapped(join(dir, "discern.toml"));

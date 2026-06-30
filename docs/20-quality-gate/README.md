@@ -44,17 +44,17 @@ and a Scope can carry its own `gate` so a sub-component plugs in (ADR 0018);
 `per`, a rate that doesn't rise just because the project grew — on demand,
 outside `finish` because they are slow (ADR 0003, ADR 0057).
 
-Alongside the gate sits the **[best-practices audit](audit.md)**: where `finish`
-asks _did this change pass?_, [`audit`](../../src/engine/audit/rules.ts) asks
-_is this setup any good?_ — scoring the project against a checklist (tests
-wired, substantive guidance, docs and ADRs, a ratchet, per-worktree resources),
-ranking the weakest areas, and teaching how to improve them. It splits
-**deterministic** rules it scores itself from **subjective** rules it surfaces
-for the agent to judge against the cited material
-([ADR 0029](../_adr/0029-best-practices-audit.md)).
+Alongside the gate sits the **[continuous-improvement coach](improve.md)**:
+where `finish` asks _did this change pass?_,
+[`improve`](../../src/engine/improve/rules.ts) asks _what should get better
+next?_ It reports objective baseline health, keeps qualitative reviews visible,
+and prioritizes one action. Deterministic rules remain distinct from subjective
+reviews the agent judges against cited material
+([ADR 0029](../_adr/0029-best-practices-audit.md),
+[ADR 0079](../_adr/0079-improve-is-a-coach-not-an-audit.md)).
 
 > **Status: stub.** This README orients the subtree; the leaves below are not
-> written yet (except the written [`audit.md`](audit.md) and
+> written yet (except the written [`improve.md`](improve.md) and
 > [`the-result-envelope.md`](the-result-envelope.md)). Fill the rest with the
 > [`document-subsystem`](../../templates/skills/document-subsystem/SKILL.md)
 > skill.

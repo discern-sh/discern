@@ -923,7 +923,7 @@ export function skillsDirsForAgents(agents: readonly string[]): string[] {
 
 // ── registry-derived agent-path aggregators ─────────────────────────────────
 // The SINGLE place every cross-cutting consumer (the seed `.gitignore`, the
-// neutral-scope defaults, the audit's agent-file probe, the gitignore-convergence
+// neutral-scope defaults, improve's agent-file probe, the gitignore-convergence
 // migration, and the parity guard) reads agent-specific paths FROM. Each derives
 // from `PROVIDERS`, so adding an agent to `AGENT_NAMES` extends them for free — no
 // hand-maintained second list to fall out of sync (the ADR 0031/0042 contract).

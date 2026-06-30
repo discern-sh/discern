@@ -31,7 +31,6 @@ import {
   STEP_OUTCOMES,
 } from "../src/shared/result.ts";
 import {
-  AuditOutputSchema,
   ChangedScopesOutputSchema,
   DatalessEnvelopeSchema,
   DocsOutputSchema,
@@ -39,6 +38,7 @@ import {
   EnvelopeSchema,
   FinishOutputSchema,
   GateDataSchema,
+  ImproveOutputSchema,
   StartOutputSchema,
   StatusDataSchema,
   StatusOutputSchema,
@@ -52,7 +52,7 @@ import { ratchetsResult } from "../src/engine/gate/ratchets.ts";
 import { doctorResult } from "../src/commands/doctor.ts";
 import { changedScopesResult } from "../src/engine/scopes/changed.ts";
 import { statusResult } from "../src/engine/status/status.ts";
-import { auditResult } from "../src/engine/audit/audit.ts";
+import { improveResult } from "../src/engine/improve/improve.ts";
 import { docsResult, helpResult } from "../src/commands/docs.ts";
 import {
   graduateResult,
@@ -433,22 +433,24 @@ Deno.test("status result is faithful across modes (main, fleet, worktree, unset-
   });
 });
 
-Deno.test("audit result is faithful (full, category, below-min, unknown category)", async () => {
+Deno.test("improve result is faithful (full, category, below-min, unknown)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    expectValid(AuditOutputSchema, await auditResult(dir), "audit full");
+    expectValid(ImproveOutputSchema, await improveResult(dir), "improve full");
     expectValid(
-      AuditOutputSchema,
-      await auditResult(dir, { category: "gate" }),
-      "audit one category",
+      ImproveOutputSchema,
+      await improveResult(dir, { category: "gate" }),
+      "improve one category",
     );
-    const belowMin = await auditResult(dir, { minScore: 200 });
+    const belowMin = await improveResult(dir, { minScore: 200 });
     assertEquals(belowMin.ok, false);
-    expectValid(AuditOutputSchema, belowMin, "audit below-min");
-    const unknown = await auditResult(dir, { category: "no-such-category" });
+    expectValid(ImproveOutputSchema, belowMin, "improve below-min");
+    const unknown = await improveResult(dir, {
+      category: "no-such-category",
+    });
     assertEquals(unknown.ok, false);
-    expectValid(AuditOutputSchema, unknown, "audit unknown category");
+    expectValid(ImproveOutputSchema, unknown, "improve unknown category");
   });
 });
 
