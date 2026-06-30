@@ -851,3 +851,20 @@ Deno.test("the brief reframes Step 0 as a relayed model question, states WHY doc
   assertStringIncludes(brief, "Reserve the full five beats");
   assertStringIncludes(brief, "concise recommendation");
 });
+
+Deno.test("the brief sequences a refresh before the first gate run and a format sweep before authoring (ADR 0076)", async () => {
+  const brief = await Deno.readTextFile(
+    join(REAL_TEMPLATES, "setup", "instructions.md"),
+  );
+
+  // Editing guidance.md leaves the generated agent files stale, so the brief must
+  // sequence `discern refresh` before the first finish/prepare in the wiring step —
+  // otherwise finish's currency check is a guaranteed first-gate failure.
+  assertStringIncludes(brief, "run `discern refresh`");
+  assertStringIncludes(brief, "currency check");
+
+  // The format capability is recommended first (before authoring), so its whole-tree
+  // reflow lands on the empty scaffold and later content commits stay clean.
+  assertStringIncludes(brief, "ordering tip");
+  assertStringIncludes(brief, 'set-capability format');
+});
