@@ -45,7 +45,6 @@ writable_roots = ["../../<repo>.worktrees"]
 [mcp_servers.discern]
 command = "discern"
 args = ["mcp"]
-cwd = ".."
 startup_timeout_sec = 30
 tool_timeout_sec = 3600
 ```
@@ -61,8 +60,8 @@ worktree-local refresh from committing a transient
 `../../<worktree-id>.worktrees` path.
 
 `project_doc_max_bytes` is set only if absent. The MCP server table is
-discern-owned, so refresh rewrites its command, arguments, cwd, and timeout
-keys.
+discern-owned, so refresh rewrites its command, arguments, and timeout keys, and
+removes any stale `cwd` override.
 
 The explicit *no*s:
 

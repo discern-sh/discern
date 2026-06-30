@@ -113,7 +113,6 @@ Deno.test("Codex: refresh wires .codex/config.toml (MCP) and co-manages environm
         discern?: {
           command?: string;
           args?: string[];
-          cwd?: string;
           startup_timeout_sec?: number;
           tool_timeout_sec?: number;
         };
@@ -125,7 +124,7 @@ Deno.test("Codex: refresh wires .codex/config.toml (MCP) and co-manages environm
     ]);
     assertEquals(cfg.mcp_servers.discern?.command, "discern");
     assertEquals(cfg.mcp_servers.discern?.args, ["mcp"]);
-    assertEquals(cfg.mcp_servers.discern?.cwd, "..");
+    assertEquals("cwd" in (cfg.mcp_servers.discern ?? {}), false);
     assertEquals(cfg.mcp_servers.discern?.startup_timeout_sec, 30);
     assertEquals(cfg.mcp_servers.discern?.tool_timeout_sec, 3600);
 

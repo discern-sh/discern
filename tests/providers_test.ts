@@ -351,7 +351,6 @@ Deno.test("wireProviderMcp wires Codex project config: MCP, headroom, and siblin
         discern?: {
           command?: string;
           args?: string[];
-          cwd?: string;
           startup_timeout_sec?: number;
           tool_timeout_sec?: number;
         };
@@ -364,7 +363,7 @@ Deno.test("wireProviderMcp wires Codex project config: MCP, headroom, and siblin
     assertEquals(parsed.mcp_servers.other?.command, "other-tool"); // preserved
     assertEquals(parsed.mcp_servers.discern?.command, "discern"); // added
     assertEquals(parsed.mcp_servers.discern?.args, ["mcp"]);
-    assertEquals(parsed.mcp_servers.discern?.cwd, "..");
+    assertEquals("cwd" in (parsed.mcp_servers.discern ?? {}), false);
     assertEquals(parsed.mcp_servers.discern?.startup_timeout_sec, 30);
     assertEquals(parsed.mcp_servers.discern?.tool_timeout_sec, 3600);
 
@@ -372,6 +371,36 @@ Deno.test("wireProviderMcp wires Codex project config: MCP, headroom, and siblin
     const second = await wireProviderMcp(dir, ["codex"]);
     assertEquals(second.written, []);
     assertEquals(second.firstInstall, false);
+  });
+});
+
+Deno.test("wireProviderMcp Codex removes a stale MCP cwd override", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.mkdir(join(dir, ".codex"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, ".codex/config.toml"),
+      [
+        "[mcp_servers.discern]",
+        'cwd = ".."',
+        'command = "discern"',
+        'args = ["mcp"]',
+        "",
+      ].join("\n"),
+    );
+
+    const first = await wireProviderMcp(dir, ["codex"]);
+    assertEquals(first.written, [".codex/config.toml"]);
+
+    const parsed = parseToml(
+      await Deno.readTextFile(join(dir, ".codex/config.toml")),
+    ) as {
+      mcp_servers: {
+        discern?: Record<string, unknown>;
+      };
+    };
+    assertEquals(parsed.mcp_servers.discern?.command, "discern");
+    assertEquals(parsed.mcp_servers.discern?.args, ["mcp"]);
+    assertEquals("cwd" in (parsed.mcp_servers.discern ?? {}), false);
   });
 });
 

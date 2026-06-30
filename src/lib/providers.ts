@@ -715,9 +715,9 @@ async function registerCodexProjectConfig(
         `${section}.startup_timeout_sec`,
         CODEX_MCP_STARTUP_TIMEOUT_SEC,
       );
-      editor.setString(`${section}.cwd`, "..");
       editor.setStringArray(`${section}.args`, [...server.args]);
       editor.setString(`${section}.command`, server.command);
+      editor.deleteKey(`${section}.cwd`);
     },
   );
   return { written: wrote !== undefined ? [wrote] : [], firstInstall };

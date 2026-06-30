@@ -38,7 +38,6 @@ writable_roots = ["../../<repo>.worktrees"]
 [mcp_servers.discern]
 command = "discern"
 args = ["mcp"]
-cwd = ".."
 startup_timeout_sec = 30
 tool_timeout_sec = 3600
 ```
@@ -62,10 +61,11 @@ checkout instead of from the transient worktree directory. This keeps a
 worktree-local refresh from rewriting the tracked config to
 `../../<worktree-id>.worktrees`.
 
-`mcp_servers.discern.cwd = ".."` starts `discern mcp` at the repository root
-because Codex resolves relative project-config paths from `.codex/`. The startup
-timeout gives slower local starts a little room, and the tool timeout is long
-enough for `discern_finish`, `discern_test`, and ratchets.
+discern does not set an MCP `cwd`; Codex starts the project-scoped server from
+the project root by default, and overriding that can detach the server from the
+project's `discern.toml`. The startup timeout gives slower local starts a little
+room, and the tool timeout is long enough for `discern_finish`, `discern_test`,
+and ratchets.
 
 discern does not set `sandbox_mode`, `approval_policy`, `approvals_reviewer`,
 model settings, network access, `required = true`, MCP tool lists, or tool
