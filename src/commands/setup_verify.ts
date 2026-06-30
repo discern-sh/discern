@@ -189,7 +189,7 @@ function buildConflicts(
     conflicts.push({
       kind: "dirty_tree",
       detail:
-        "Uncommitted changes to tracked files — begin will ask you to commit or stash first (or pass --allow-dirty to set up on the current branch as-is).",
+        "Uncommitted changes to tracked files — begin will ask you to commit or stash first. (Advanced: --allow-dirty sets up on the current branch as-is, skipping the isolated discern-setup branch — for CI or automated setups.)",
     });
   }
   if (docsExists) {

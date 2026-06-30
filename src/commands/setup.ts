@@ -906,8 +906,9 @@ async function ensureSetupBranch(
   if (state.kind === "dirty") {
     const message =
       "your working tree has uncommitted changes, and `discern setup` makes several " +
-      "commits. Commit or stash your work first, or re-run with --allow-dirty to set " +
-      "up on the current branch as-is.";
+      "commits. Commit or stash your work first. (Advanced: --allow-dirty sets up on " +
+      "the current branch as-is, skipping the isolated discern-setup branch — for CI " +
+      "or automated setups.)";
     if (opts.json) {
       log.result({
         ok: false,
