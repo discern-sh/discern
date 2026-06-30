@@ -49,6 +49,12 @@ interface Conflict {
   detail: string;
 }
 
+/** How to present the consent checklist — carried in BOTH the human render and the
+ * `--json` so a JSON-consuming agent gets the same "open warmly, explain discern
+ * before the checklist" framing, not a colder one (ADR 0075 dual-addressing). */
+const CHECKLIST_FRAMING =
+  "Before the checklist: open warmly and explain what discern is — your human may be meeting it for the first time, so the consent conversation should start with reassurance, not a quiz.";
+
 /**
  * Run the preflight for the cwd's project. Read-only and always exits 0. For a project
  * that is already set up (or mid-setup) the preflight is moot — `begin` has run or is
@@ -134,9 +140,13 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
           worktree_path: worktreePath,
         },
         conflicts,
+        // Tell the agent HOW to present the checklist before the items themselves,
+        // so the JSON path opens as warmly as the human render.
+        presentation: CHECKLIST_FRAMING,
         confirm_with_human: confirmations,
         // Carry the --model flag in the funnel so the model that runs setup is recorded
-        // as provenance — substitute your own id for the placeholder.
+        // as provenance — substitute your own id, or omit it if you don't know it (the
+        // engine ignores the placeholder, so a verbatim copy records nothing).
         next_action: 'discern setup begin --model "<your-model-id>"',
       },
     });
@@ -224,7 +234,7 @@ function buildConfirmations(worktreePath: string): Confirmation[] {
     {
       id: "model",
       prompt:
-        "Model & session — setup is one-time and high-leverage; discern is only as good as the model that runs it. Confirm you're on the most capable model available, and plan to return to a FRESH session once setup completes (discern's tools and session hooks load only at session start). When you run begin, pass `--model \"<your-model-id>\"` (your own model identifier, substituted) so discern records which model configured the project — support triage relies on it.",
+        "Model & session — this is the project's single highest-leverage moment, and its quality is bounded by the model that runs it. Put the question to your human rather than self-assessing: \"Am I your most capable model? Everything I configure here is inherited by every future session.\" If they switch you, return to a FRESH session on the stronger model (discern's tools and session hooks load only at session start). When you run begin, pass `--model \"<your-model-id>\"` if you know your model identifier — it records which model configured the project for support triage; if you don't know it, omit the flag rather than guessing.",
     },
     {
       id: "worktree",
@@ -286,7 +296,14 @@ function printPreflight(p: {
     }
   }
 
-  lines.push("", RULE, "Confirm these with your human before beginning:", "");
+  lines.push(
+    "",
+    RULE,
+    CHECKLIST_FRAMING,
+    "",
+    "Confirm these with your human before beginning:",
+    "",
+  );
   p.confirmations.forEach((c, i) => {
     lines.push(`  ${i + 1}. ${c.prompt}`, "");
   });
@@ -295,7 +312,8 @@ function printPreflight(p: {
     "When your human has confirmed, run:",
     "",
     '    discern setup begin --model "<your-model-id>"',
-    "    (substitute your own model id — discern records it for support triage)",
+    "    (substitute your model id if you know it; omit --model otherwise — it is",
+    "     recorded for support triage, never required)",
   );
 
   console.log(lines.join("\n"));

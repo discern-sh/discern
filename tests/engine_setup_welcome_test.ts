@@ -94,6 +94,39 @@ Deno.test("bare `discern setup` reports already-set-up once recorded (phase done
   });
 });
 
+Deno.test("the fresh welcome --json carries the same instructional substance as the human render (parity)", async () => {
+  // A JSON-consuming agent must not get a colder, thinner welcome than one reading
+  // the dual-addressed human text (ADR 0075): the "you drive this; nothing until
+  // begin; open warmly and explain what discern is" framing rides on both paths.
+  await withTempDir(async (dir) => {
+    await freshRepo(dir);
+    const human = (await runAgent(dir, ["setup"])).stdout;
+    const d = JSON.parse((await runAgent(dir, ["setup", "--json"])).stdout).data;
+
+    // The agent guidance carries the role + the consent framing the human prose has.
+    assertStringIncludes(d.agent_guidance, "nothing is written until");
+    assertStringIncludes(d.agent_guidance, "explain what discern is");
+    assertStringIncludes(d.agent_guidance, "discern setup verify");
+    // The human framing carries the most-capable-model nudge the human block makes.
+    assertStringIncludes(d.human_framing, "most capable model");
+    // Both surfaces actually say it, so neither path is the thinner one.
+    assertStringIncludes(human, "MOST CAPABLE");
+  });
+});
+
+Deno.test("the in-progress welcome --json carries the 'your job, not a status' agent guidance", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { bootstrapped: false });
+    await runAgent(dir, ["setup", "begin"]);
+    const d = JSON.parse((await runAgent(dir, ["setup", "--json"])).stdout).data;
+    assertEquals(d.phase, "in_progress");
+    // The resume framing the human text carries ("this is YOUR job ... not a status
+    // to report back") must ride the JSON path too, not just the human one.
+    assertStringIncludes(d.agent_guidance, "YOUR job");
+    assertStringIncludes(d.agent_guidance, "discern setup done");
+  });
+});
+
 // ── the verify preflight ─────────────────────────────────────────────────────
 
 Deno.test("verify reports grounded findings and the consent checklist, writing nothing", async () => {
@@ -138,6 +171,32 @@ Deno.test("verify funnels begin with --model so the configuring model is recorde
         JSON.stringify(model)
       }`,
     );
+  });
+});
+
+Deno.test("verify --json carries the open-warmly framing and a relayed model question with best-effort --model", async () => {
+  await withTempDir(async (dir) => {
+    await freshRepo(dir);
+    const d = JSON.parse(
+      (await runAgent(dir, ["setup", "verify", "--json"])).stdout,
+    ).data;
+
+    // Deliverable 7: the "open warmly, explain discern before the checklist" framing
+    // rides the JSON path, not only the human render — and both actually carry it.
+    assertStringIncludes(d.presentation, "explain what discern is");
+    const human = (await runAgent(dir, ["setup", "verify"])).stdout;
+    assertStringIncludes(human, "explain what discern is");
+
+    // Deliverable 1: the model confirmation is a question the agent RELAYS to its
+    // human ("Am I your most capable model?"), not a self-assessment it ticks.
+    const model = d.confirm_with_human.find((c: { id: string }) =>
+      c.id === "model"
+    );
+    assert(model !== undefined, "expected a model confirmation");
+    assertStringIncludes(model.prompt, "Am I your most capable model");
+    // Deliverable 8: --model is best-effort — an agent that doesn't know its id omits
+    // it rather than guessing or stalling.
+    assertStringIncludes(model.prompt, "omit the flag rather than guessing");
   });
 });
 
