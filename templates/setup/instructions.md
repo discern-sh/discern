@@ -1,57 +1,64 @@
 # Set up the harness
 
-> You are reading this because **`discern setup begin` printed it** — the third step of the staged setup handshake (`discern setup verify` previewed what would happen and you confirmed the essentials with your human; `begin` then scaffolded and printed this brief). These are instructions for *you, the coding agent in this session* — **work to do now, not a summary to hand back**. Work through them top to bottom, then run `discern setup done` to finish. **Do not report these steps as done until you have actually done them and `discern setup done` passes** — paraphrasing this brief's checklist back to the user as completed work is the one failure this setup must avoid. (There is no skill file and no second program — discern just hands you this brief over stdout.)
+> **`discern setup begin` printed this** — the third step of the staged handshake (`verify` previewed the plan and you confirmed the essentials with your human; `begin` scaffolded and printed this brief). These are instructions for *you, the coding agent in this session* — **work to do now, not a summary to hand back**: paraphrasing this checklist back as completed work, without doing it, is the one failure this setup exists to avoid. Work top to bottom, then run `discern setup done` to finish. (There is no skill file and no second program — discern just hands you this brief over stdout.)
 
 `discern setup begin` has just laid down the harness machinery — a `discern.toml` whose capabilities are all unset, the compiled agent files, the merged settings, the MCP wiring — plus empty doc skeletons (only where the project had none). **Nothing about *this project* is filled in yet, and that is your job:** author the docs, the guidance, and the design principles from the project's own context, and propose the `[capabilities]` that turn the gate from a no-op into a real definition-of-done. There is no API key and no external service — the whole point is that the agent already in the loop sets the project up.
 
 ## Operating principles — read these first
 
-- **Use the most capable model available** (Step 0). This is a one-time setup whose output every future session inherits — it is worth your best model.
-- **Ask, don't guess.** There is no brief file. Derive intent from the repository, and ask the user for what the code can't tell you — **once, early, in a single batch**, not peppered across every step. (Pausing later for a genuine decision is different — that's a real fork, not peppering.)
-- **Involve, don't gate.** Recommend each change, explain it, and proceed on anything reversible while narrating — committing it as its own revertible step — instead of stopping for permission before every action. Pause only for genuine decisions. Everything you write is still a first draft the user can refine or revert; the per-stage commit is what makes that literally true. The next section, *How to work with the user*, is the heart of how this setup should feel — read it.
-- **Stay this-project-specific.** Principles, concepts, and conventions describe *this* project, not the harness and not any example. The stack-detection table in Step 7 is the one place where naming many ecosystems is correct — that step's whole job is to recognise them.
-- **Read discern with `--json`.** Every discern verb that reports or checks something — `status`, `doctor`, `finish`, `prepare`, `test`, `ratchets`, `setup verify`, `setup done` — accepts `--json` and returns a structured result envelope. Pass it whenever you run one to read state, and parse that, rather than scraping the human-formatted text: it is the cleanest, most reliable signal for you (the human text is for the user).
-- **It is safe to re-run.** `discern setup begin` is idempotent and non-destructive: it never overwrites your work or an existing `docs/` tree. If this session is interrupted, run `discern setup begin` again to reprint this brief (it won't touch your work), or `discern` / `discern status` for a derived progress summary, and pick up where you left off. Need just one step's text again? Re-serve it with `discern setup step <n>`.
+- **You are the configuration engine.** discern's pitch is zero configuration: the human points you at the repo and *you* — the capable agent already in the loop — set it up. They watch and trust; they don't field a stream of questions. Earn that trust by narrating what you do and why, and asking only the genuine decisions. The next section, *How to work with the user*, is the heart of how this should feel — read it.
+- **What you author is the product.** The docs, guidance, and principles you write here are the **single source of truth** every future agent session — and discern itself — reads to work in this project. They are load-bearing infrastructure, not prose for human readers; that is why authoring them is the bulk of the job.
+- **Confirm the model first (Step 0).** This one-time setup is inherited by every future session, so it is worth the user's strongest model. That is a question you put to *them*, not a box you tick for yourself.
+- **Learn the project, then ask once (Step 1).** Derive intent from the repository; ask the user — in a single early batch — only what the code can't tell you. Pausing later for a genuine fork is different; that's not peppering.
+- **Stay this-project-specific.** Principles, concepts, and conventions describe *this* project, not the harness and not any example. The Step 7 stack-detection table is the one place where naming many ecosystems is correct.
+- **Read discern with `--json`.** Every discern verb that reports or checks — `status`, `doctor`, `finish`, `prepare`, `test`, `ratchets`, `setup verify`, `setup done` — accepts `--json` and returns a structured envelope. Parse that, not the human-formatted text (which is for the user).
+- **It is safe to re-run.** `discern setup begin` is idempotent and non-destructive — it never overwrites your work or an existing `docs/` tree. Interrupted? Re-run `begin` to reprint this brief, `discern status` for a derived progress summary, or `discern setup step <n>` for one step's text.
 
 ---
 
-## How to work with the user — involve, don't gate
+## How to work with the user — you are the engine; transparency, not interrogation
 
-You are setting up a project for someone who may be newer to shipping reliable software — building through coding agents, but without the background that keeps a codebase holding together over time. They can be unsettled by an agent that changes things silently or pulls in outside tools without explanation. Your job is to keep them **informed and in control without making them approve every routine step**. The stance is **involve, don't gate**: recommend, explain, proceed with the reversible change while narrating it, and commit it on its own so they can always undo it — rather than stopping to ask "may I?" before each action.
+This is the heart of how setup should feel — read it before you start.
 
-**Narrate each meaningful recommendation in five beats.** When you add a tool, dependency, or piece of config the project is missing, walk the user through it:
+You are configuring a project for someone who may be newer to shipping reliable software: building through coding agents, but without the background that keeps a codebase holding together. They can be unsettled by an agent that changes things silently. The instinct that follows — ask permission at every step — is the wrong fix: a novice asked to approve a dozen changes they don't yet understand has no basis to decide, so a wall of "may I?" prompts is its own kind of black box. **Zero configuration means *you* do the work; their job is to watch and trust.** So the contract is **transparency, not interrogation**: do the reversible work, narrate it clearly — above all *why* — and commit it in small revertible steps. The user stays informed and in control without answering for each one.
+
+**Ask a real question only at a genuine decision** — one that is yours to escalate, not yours to make:
+
+- the model check (Step 0) and the discovery batch (Step 1) — two expected, collaborative touchpoints, not gates;
+- a change that is hard or costly to reverse;
+- a real fork between legitimate alternatives only the user can choose;
+- anything with cost, security, privacy, or data implications, or that depends on intent you can't infer from the repository.
+
+Everything else you do, narrating as you go — the reversible, low-stakes, single-obvious-answer changes are yours to make. The Step 1 discovery questions are not a gate; that is you learning the project.
+
+**Commit atomically, stage by stage.** Each coherent stage — the principles, the guidance, the orientation docs, each capability — lands as its own focused, atomic commit with a plain-language message, and you say so ("I'm committing this on its own, so you can undo just this piece"). Reassure the user **up front**: `discern setup` already put you on a dedicated **`discern-setup`** branch off their clean tree, so the whole burst of commits is isolated — none of it touches their main branch until they merge it, and it all rolls back by deleting the branch. The per-stage commit is what makes "you can revert this" literally true: the commit **is** the undo, so never batch unrelated changes into one.
+
+**Narrate generously, but at the level of stages and decisions** — warm and clear, never a wall of text. When you introduce something the project is *missing*, or hit a genuine fork, walk the user through it in **five beats**:
 
 1. **Recommend it as a shared step** — "I'm recommending we add ‹the missing capability›…".
-2. **Say why it helps** — tie it to something they care about: that the code keeps holding up as it grows, that mistakes get caught before they ship, that the project stays reliable.
-3. **Name `discern` as the source** — "…so `discern` can ‹check this for you / hold the line on it for you›." They should learn that the suggestion came from `discern`, and that `discern` is the thing watching their back.
-4. **Preserve their authority and name the risk of skipping** — "If you change your mind we can revert this commit later — but skipping it risks ‹quality slipping, or subtle bugs that are hard to track down later›."
-5. **Proceed and say what you're doing** — "I'm adding it now and wiring it into `discern` for you" — then do it, and commit it as its own focused step.
+2. **Say why it helps** — tie it to what they care about: the code keeps holding up as it grows, mistakes get caught before they ship.
+3. **Name `discern` as the source** — "…so `discern` can hold the line on it for you," so they learn the tool is watching their back.
+4. **Preserve their authority and name the risk of skipping** — "we can revert this commit later — but skipping it risks quality slipping, or subtle bugs that are hard to track down."
+5. **Proceed and say what you did** — then commit it on its own.
 
-Beat 4's promise is true *because of* beat 5: each recommendation lands as its own atomic commit, so "we can revert later" is literal — the commit **is** the undo. That linkage is the whole safety model; don't break it by batching unrelated changes into one commit.
+Reserve the full five beats for genuine additions and forks. The obvious capabilities a stack plainly already has — formatter, linter, type-checker, tests — you batch into **one** concise recommendation, not five beats apiece (Step 7).
 
-**Commit atomically, stage by stage.** Each stage that produces a coherent change — the design principles, the guidance, the orientation docs, the subsystem stubs, each capability you wire — gets its own focused, atomic commit with a clear, plain-language message. Say you're doing it ("I'm committing this on its own, so you can undo just this piece if you ever want to"). And reassure the user **up front**: `discern setup` has already put you on a dedicated **`discern-setup`** branch (created from their clean tree), so setup lands as several small, focused commits *there* — none of it touches their main branch until they choose to merge, and the whole thing is trivial to roll back (delete the branch) or land (merge it) when they're happy. So the burst of commits is isolated and safe, not a surprise. This is what makes proceeding-without-asking safe: every step is independently reviewable and revertible.
-
-**Pause for genuine decisions.** Default to acting — with narration — on anything reversible, low-stakes, and with a single obvious answer. **Stop and genuinely ask the user** only when a decision is:
-
-- hard or costly to reverse, or
-- a real fork between legitimate alternatives that only the user can choose, or
-- one that carries cost, security, privacy, or data implications, or
-- one that depends on intent or context you can't infer from the repository.
-
-The discovery questions in Step 1 are not a gate — that is you learning the project, and it stays. What goes away is the reflexive "may I?" before every routine, reversible action.
-
-**Keep the volume right.** Narrate at the level of meaningful stages and decisions, not every file you touch — warm and clear, never a wall of text. Bias toward fewer, well-placed explanations: the user should come away feeling informed and in control, not buried in commentary.
-
-**Narration is not completion.** Proceeding and committing as you go is about transparency *during* setup — it is **not** licence to tell the user setup is finished. Completion is still only the stop-conditions at the foot of this brief plus a passing `discern setup done`; never paraphrase your per-stage commits back as "setup complete." (And note: the `discern setup` *command* doesn't prompt you for anything — but you should still converse, narrate, and occasionally ask. A non-interactive command and a transparent conversation with the user are different things.)
+**Narration is not completion.** Proceeding and committing as you go is transparency *during* setup — never licence to tell the user setup is done. Completion is only the stop-conditions at the foot of this brief plus a green `discern setup done`. (The `discern setup` *command* never prompts you for anything — but a non-interactive command and a silent agent are different things: converse, narrate, and ask the genuine questions anyway.)
 
 ---
 
-## Step 0 — Make sure you're the right tool for this job
+## Step 0 — Confirm the model with your human (do this first)
 
-This setup is a one-time event, and it determines how well the project is harnessed for *every* future agent session. The principles, docs, and capability fills you produce here are the foundation everything else is judged against — so do it with the strongest model you can.
+`verify` asked you to confirm this with your human; if you haven't actually put the question to them, do it now — before you read the repo or touch a file. It is the single highest-leverage moment in the project's life with discern, because **you are the engine of this setup, and its quality is bounded by the model that does it** — everything you configure here is inherited by every future session. So relay it plainly, then let the user decide:
 
-1. **Use a capable model — this is a one-time foundation.** You can't see the user's account, so don't try to confirm you're literally their *most* capable model. But if you *know* you're running as a fast, small, lightweight, or cheap model, **stop and recommend the user switch you to their most capable frontier model** — the top-tier Claude, GPT, or Gemini they have — *before* you continue, then resume from here. Otherwise, proceed. Don't quietly press on as a lightweight model: weaker principles and shakier capability guesses get inherited by every later session. Say so plainly and let the user decide.
-2. **Confirm the harness is healthy.** Run **`discern status --json`** to orient (it also smoke-tests that the `discern` binary is on your PATH — you will lean on it constantly), and **`discern doctor --json`** if anything looks off. Fix what `doctor` flags before authoring; it returns the exact remedy. (As above, prefer `--json` on these read/check commands.)
+> **"Before I configure anything: am I your most capable model? Everything I set up here — the principles, the docs, the capabilities — is inherited by every future session in this project, so it's worth your strongest model."**
+
+Do **not** quietly assume you're the best model available and press on — a capable-looking model is exactly the one that rationalizes past this question. You can't see the user's account, so you aren't self-certifying; you're handing them the one decision only they can make.
+
+- If they switch you to a stronger model, **resume setup from a fresh session** on it (discern's tools and session hooks load only at session start).
+- If they confirm, proceed — you'll already have passed `--model` to `begin`, so discern has recorded which model configured the project.
+
+Then **confirm the harness is healthy**: run **`discern status --json`** to orient (it also smoke-tests that `discern` is on your PATH — you lean on it constantly), and **`discern doctor --json`** if anything looks off. Fix what `doctor` flags before authoring; it returns the exact remedy.
 
 ---
 

@@ -782,17 +782,19 @@ Deno.test("discern setup --json emits the DiscernResult envelope", async () => {
   });
 });
 
-Deno.test("the brief teaches involve-don't-gate (narrate + atomic commits), not a per-step confirm gate (ADR 0044)", async () => {
+Deno.test("the brief teaches transparency-not-interrogation (narrate + atomic commits), not a per-step confirm gate (ADR 0044/0076)", async () => {
   // Read the printed brief directly — `templates/` is excluded from `deno fmt`,
   // so these anchors stay on one line and won't be reflowed out from under us.
   const brief = await Deno.readTextFile(
     join(REAL_TEMPLATES, "setup", "instructions.md"),
   );
 
-  // The interaction model is taught: a named stance, the five-beat narration
-  // pattern, discern named as the source of the recommendation, per-stage atomic
-  // commits, and the explicit carve-out for decisions that DO warrant a pause.
-  assertStringIncludes(brief, "involve, don't gate");
+  // The interaction model is taught: the agent is the configuration engine and the
+  // stance is transparency-not-interrogation (ADR 0076's revision of 0044), the
+  // five-beat narration pattern, discern named as the source of the recommendation,
+  // per-stage atomic commits, and the explicit carve-out for a genuine decision.
+  assertStringIncludes(brief, "configuration engine");
+  assertStringIncludes(brief, "transparency, not interrogation");
   assertStringIncludes(brief, "five beats");
   assertStringIncludes(brief, "Name `discern` as the source");
   assertStringIncludes(brief, "atomic commit");
@@ -822,4 +824,30 @@ Deno.test("the brief teaches involve-don't-gate (narrate + atomic commits), not 
   // per-stage commits are transparency during setup, not "setup complete".
   assertStringIncludes(brief, "Narration is not completion");
   assertStringIncludes(brief, "You are not done until all of these are true");
+});
+
+Deno.test("the brief reframes Step 0 as a relayed model question, states WHY docs, and resolves five-beats vs volume to one rule (ADR 0076)", async () => {
+  const brief = await Deno.readTextFile(
+    join(REAL_TEMPLATES, "setup", "instructions.md"),
+  );
+
+  // Step 0 is reframed from a self-assessment the agent can rationalize past
+  // ("are you capable?") into a REQUIRED question it RELAYS to its human — setup
+  // quality is bounded by the model, so the choice is the user's to make.
+  assertStringIncludes(brief, "am I your most capable model");
+  assert(
+    !brief.includes("right tool for this job"),
+    "Step 0's self-assessment framing must not return — it is now a relayed question",
+  );
+
+  // WHY documentation: the docs/guidance are the single source of truth that every
+  // future agent session and discern itself read from — load-bearing infrastructure,
+  // not prose for human readers. Stated before authoring AND in the closing summary.
+  assertStringIncludes(brief, "single source of truth");
+  assertStringIncludes(brief, "not prose for human readers");
+
+  // The five-beats/volume tension resolves to ONE rule: the full five beats only for
+  // genuine additions/forks; the obvious capabilities batch into one recommendation.
+  assertStringIncludes(brief, "Reserve the full five beats");
+  assertStringIncludes(brief, "concise recommendation");
 });
