@@ -382,17 +382,17 @@ export const DoctorDataSchema = z.strictObject({
 });
 export type DoctorData = z.infer<typeof DoctorDataSchema>;
 
-// audit ─────────────────────────────────────────────────────────────────────
+// improve ───────────────────────────────────────────────────────────────────
 
 /** A pointer to the project material a subjective review item is judged against. */
-const auditEvidenceSchema = z.strictObject({
+const reviewEvidenceSchema = z.strictObject({
   source: z.string(),
   excerpt: z.string(),
 });
 
-/** One deterministic rule's evaluated result. Exported so the audit `RuleStatus`
+/** One deterministic rule's evaluated result. Exported so the improve `RuleStatus`
  * SSOT (an engine type this shared module can't import) is tied to `status` here by a
- * guard in `audit_catalog_test.ts`. */
+ * guard in `improve_catalog_test.ts`. */
 export const ruleResultSchema = z.strictObject({
   id: z.string(),
   title: z.string(),
@@ -409,11 +409,11 @@ const reviewResultSchema = z.strictObject({
   title: z.string(),
   ask: z.string(),
   teach: z.string(),
-  against: auditEvidenceSchema.optional(),
+  against: reviewEvidenceSchema.optional(),
 });
 
-/** One audited category's evaluated result. */
-const auditCategorySchema = z.strictObject({
+/** One reviewed category's evaluated result. */
+const improveCategorySchema = z.strictObject({
   name: z.string(),
   title: z.string(),
   score: z.number(),
@@ -423,14 +423,25 @@ const auditCategorySchema = z.strictObject({
   reviews: z.array(reviewResultSchema),
 });
 
-/** `audit` — the scored, weakest-first best-practices payload. */
-export const AuditDataSchema = z.strictObject({
+/** The coach's single prioritized next action. */
+const nextActionSchema = z.strictObject({
+  kind: z.enum(["fix", "review"]),
+  category: z.string(),
+  id: z.string(),
+  title: z.string(),
+  action: z.string(),
+  why: z.string(),
+});
+
+/** `improve` — baseline health, open reviews, and the prioritized next action. */
+export const ImproveDataSchema = z.strictObject({
   score: z.number(),
   weak: z.number(),
   open_reviews: z.number(),
-  categories: z.array(auditCategorySchema),
+  next_action: nextActionSchema,
+  categories: z.array(improveCategorySchema),
 });
-export type AuditData = z.infer<typeof AuditDataSchema>;
+export type ImproveData = z.infer<typeof ImproveDataSchema>;
 
 // docs / help ──────────────────────────────────────────────────────────────
 
@@ -506,10 +517,10 @@ export const IntegrateOutputSchema = z.strictObject({
   data: IntegrateDataSchema.optional(),
 });
 
-/** `audit` output: envelope + the scored `data`. */
-export const AuditOutputSchema = z.strictObject({
+/** `improve` output: envelope + the coaching `data`. */
+export const ImproveOutputSchema = z.strictObject({
   ...ENVELOPE_BASE_FIELDS,
-  data: AuditDataSchema.optional(),
+  data: ImproveDataSchema.optional(),
 });
 
 /** `docs`/`help` output: envelope + the documentation `data`. */

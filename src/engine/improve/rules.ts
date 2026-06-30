@@ -1,16 +1,16 @@
 /**
- * The audit **catalog** — the project facts gathered once ({@link buildContext})
+ * The improvement **catalog** — the project facts gathered once ({@link buildContext})
  * and the best-practice {@link CATEGORIES} evaluated against them.
  *
  * Each category groups related rules and may be gated on a feature (a disabled
  * subsystem's practices don't apply). Each rule is either deterministic (discern
  * decides it) or subjective (discern surfaces it for the agent to judge against the
- * cited material). The catalog is data, not control flow: the runner in `audit.ts`
+ * cited material). The catalog is data, not control flow: the runner in `improve.ts`
  * walks it. To add a best practice, add a rule here — nothing else changes.
  *
  * The bar for a deterministic rule: its verdict must be *certain* from the gathered
  * facts (no guessing). Anything that needs judgement is a subjective rule instead,
- * so the audit never reports a confident pass/fail it can't actually stand behind.
+ * so improve never reports a confident pass/fail it can't actually stand behind.
  */
 
 import { join } from "@std/path";
@@ -19,9 +19,9 @@ import type { DiscernConfig } from "../../shared/config_schema.ts";
 import { resolveGuidanceSources, resolveSkillsDir } from "../../lib/paths.ts";
 import { allGuidanceFilePaths } from "../../lib/providers.ts";
 import type {
-  AuditContext,
   Category,
   DeterministicRule,
+  ImprovementContext,
   SubjectiveRule,
 } from "./types.ts";
 
@@ -112,14 +112,14 @@ async function anyAgentFile(root: string): Promise<boolean> {
 }
 
 /**
- * Gather the project facts the audit rules read — ONE pass of config access and
+ * Gather the project facts the improvement rules read — ONE pass of config access and
  * filesystem probing, so each rule stays a pure, synchronous function of the
  * returned context.
  */
 export async function buildContext(
   root: string,
   config: DiscernConfig,
-): Promise<AuditContext> {
+): Promise<ImprovementContext> {
   const sources = await resolveGuidanceSources(root, config);
   let guidanceText = "";
   for (const src of sources) {
@@ -160,14 +160,14 @@ export async function buildContext(
 
 /** Whether a capability is wired (a non-empty command after no-op filtering). */
 function capWired(
-  ctx: AuditContext,
+  ctx: ImprovementContext,
   name: keyof DiscernConfig["capabilities"],
 ): boolean {
   return toCommandList(ctx.config.capabilities[name]).length > 0;
 }
 
 /** Whether any wired `[checks.<name>]` runs in the given stage. */
-function checkInStage(ctx: AuditContext, stage: string): boolean {
+function checkInStage(ctx: ImprovementContext, stage: string): boolean {
   return Object.values(ctx.config.checks).some(
     (c) => c.stage === stage && toCommandList(c.run).length > 0,
   );
@@ -613,7 +613,7 @@ const SKILLS: Category = {
   ],
 };
 
-/** The full audit catalog, in display order. The runner skips a category whose
+/** The full improvement catalog, in display order. The runner skips a category whose
  * `feature` is disabled, and ranks the rest weakest-first. */
 export const CATEGORIES: readonly Category[] = [
   GATE,
@@ -625,7 +625,7 @@ export const CATEGORIES: readonly Category[] = [
   SKILLS,
 ];
 
-/** The audit category slugs, in catalog order — the SSOT for every human/agent-
+/** The improvement category slugs, in catalog order — the SSOT for every human/agent-
  * facing list of `--category` values. The CLI help and the MCP tool's `category`
  * description interpolate this, so they cannot drift from the catalog. */
 export const CATEGORY_NAMES: readonly string[] = CATEGORIES.map((c) => c.name);

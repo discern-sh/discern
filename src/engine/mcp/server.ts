@@ -31,7 +31,6 @@ import { z } from "@zod/zod";
 import { findRoot } from "../../shared/env.ts";
 import { type DiscernResult, serializeResult } from "../../shared/result.ts";
 import {
-  AuditOutputSchema,
   ChangedScopesOutputSchema,
   DatalessEnvelopeSchema,
   type DocsData,
@@ -40,6 +39,7 @@ import {
   FinishOutputSchema,
   type GraduateData,
   GraduateOutputSchema,
+  ImproveOutputSchema,
   IntegrateOutputSchema,
   type StartData,
   StartOutputSchema,
@@ -66,8 +66,8 @@ import { finishResult } from "../gate/finish.ts";
 import { prepareResult } from "../gate/prepare.ts";
 import { testResult } from "../gate/test.ts";
 import { ratchetsResult } from "../gate/ratchets.ts";
-import { auditResult } from "../audit/audit.ts";
-import { CATEGORY_NAMES } from "../audit/rules.ts";
+import { improveResult } from "../improve/improve.ts";
+import { CATEGORY_NAMES } from "../improve/rules.ts";
 import { changedScopesResult } from "../scopes/changed.ts";
 import { statusResult } from "../status/status.ts";
 import { doctorResult } from "../../commands/doctor.ts";
@@ -361,16 +361,16 @@ export const TOOLS: McpTool[] = [
       }),
   }),
   defineTool({
-    name: "discern_audit",
-    title: "Audit the setup",
-    outputSchema: AuditOutputSchema.shape,
+    name: "discern_improve",
+    title: "Find the next improvement",
+    outputSchema: ImproveOutputSchema.shape,
     annotations: READ_ONLY,
     description:
-      "Audit the project against the best-practices checklist and return the scored, " +
-      "weakest-first result. Each category lists deterministic rules (status, the finding, " +
-      "the exact fix, and why it matters) plus subjective review items — questions the " +
-      "agent should judge against the cited material (e.g. the guidance text) and act on. " +
-      "Use it to surface concrete setup improvements; pass a category to focus one area.",
+      "Coach the project's continuous improvement. Returns baseline health from " +
+      "deterministic rules, qualitative reviews that teach what good looks like, and " +
+      "data.next_action — the single highest-value improvement to make now. A 100 " +
+      "baseline means nothing objectively weak, not that the project is done. Pass a " +
+      "category to focus one area.",
     inputSchema: {
       category: z.string().optional().describe(
         `Restrict to one area: ${CATEGORY_NAMES.join(", ")}.`,
@@ -381,7 +381,7 @@ export const TOOLS: McpTool[] = [
       ...PATH_PARAM,
     },
     run: (root, args) =>
-      auditResult(root, {
+      improveResult(root, {
         category: args.category,
         minScore: args.min_score,
       }),
@@ -758,7 +758,7 @@ async function runTool(
   // Pre-setup gate — the MCP mirror of the CLI redirect: a bootstrap-gated verb
   // (the gate verbs and `discern_docs`) refuses until the project records
   // `[meta].bootstrapped`, so an agent never reads a false all-green or an empty
-  // doc tree. `discern_help`/`discern_status`/`discern_doctor`/`discern_audit` are
+  // doc tree. `discern_help`/`discern_status`/`discern_doctor`/`discern_improve` are
   // not gated — they are exactly what you reach for before setup is done.
   if (
     verbNeedsBootstrap(verbOf(tool.name)) && !(await bootstrapGatePasses(root))
@@ -1105,7 +1105,9 @@ export function buildInstructions(
   if (enabled.has("docs")) {
     lines.push("- Read THIS project's own documentation with discern_docs.");
   }
-  lines.push("- Find concrete setup improvements with discern_audit.");
+  lines.push(
+    "- Ask discern_improve for the single highest-value project improvement.",
+  );
   if (enabled.has("ratchets")) {
     lines.push(
       "- Before pushing, check the quality ratchets with discern_ratchets — slow " +

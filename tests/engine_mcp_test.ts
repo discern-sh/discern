@@ -147,7 +147,7 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     assert(names.includes("discern_doctor"), JSON.stringify(names));
     assert(names.includes("discern_changed_scopes"), JSON.stringify(names));
     assert(names.includes("discern_status"), JSON.stringify(names));
-    assert(names.includes("discern_audit"), JSON.stringify(names));
+    assert(names.includes("discern_improve"), JSON.stringify(names));
     // `discern_help` (discern's own docs) is always listed — not a project feature.
     assert(names.includes("discern_help"), JSON.stringify(names));
     // The feature-gated tools are listed too (the default scaffold has every
@@ -207,20 +207,24 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
       "status data carries the feature toggles",
     );
 
-    // tools/call discern_audit → the scored best-practices DiscernResult.
+    // tools/call discern_improve → the continuous-improvement DiscernResult.
     await mcp.send({
       jsonrpc: "2.0",
       id: 6,
       method: "tools/call",
-      params: { name: "discern_audit", arguments: {} },
+      params: { name: "discern_improve", arguments: {} },
     });
-    const audit = await mcp.recv();
-    assertEquals(audit.id, 6);
-    assertEquals(audit.result.structuredContent.verb, "audit");
-    assertEquals(typeof audit.result.structuredContent.data.score, "number");
+    const improve = await mcp.recv();
+    assertEquals(improve.id, 6);
+    assertEquals(improve.result.structuredContent.verb, "improve");
+    assertEquals(typeof improve.result.structuredContent.data.score, "number");
     assert(
-      Array.isArray(audit.result.structuredContent.data.categories),
-      "audit data carries the scored categories",
+      Array.isArray(improve.result.structuredContent.data.categories),
+      "improve data carries the scored categories",
+    );
+    assertEquals(
+      typeof improve.result.structuredContent.data.next_action.action,
+      "string",
     );
 
     // tools/call discern_doctor → the install-verification DiscernResult.
@@ -1343,7 +1347,7 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
         "discern_doctor",
         "discern_changed_scopes",
         "discern_status",
-        "discern_audit",
+        "discern_improve",
         "discern_docs",
         "discern_help",
         "discern_start",
@@ -1365,7 +1369,10 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
     // mutate (a fixer rewrites files / commands run); graduate is destructive.
     assertEquals(byName.get("discern_status")?.annotations?.readOnlyHint, true);
     assertEquals(byName.get("discern_doctor")?.annotations?.readOnlyHint, true);
-    assertEquals(byName.get("discern_audit")?.annotations?.readOnlyHint, true);
+    assertEquals(
+      byName.get("discern_improve")?.annotations?.readOnlyHint,
+      true,
+    );
     assertEquals(
       byName.get("discern_finish")?.annotations?.readOnlyHint,
       false,

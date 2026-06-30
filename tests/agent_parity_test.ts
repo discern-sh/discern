@@ -7,7 +7,7 @@
  * adding a name to `AGENT_NAMES` already forces a complete `PROVIDERS` entry (a
  * compile error otherwise). That coupling protects the runtime engine — but the
  * SATELLITE surfaces that re-encode agent paths (the seed `.gitignore`, the
- * neutral-scope defaults, the audit's agent-file probe) have no compile-time tie to
+ * neutral-scope defaults, improve's agent-file probe) have no compile-time tie to
  * the registry. This test is that tie: for EVERY known agent it asserts every
  * satellite covers it, so a new agent red-lights the gate until each surface is
  * updated — divergence becomes a failing test, never a silent gap (the trajectory
