@@ -534,6 +534,21 @@ Deno.test("discern setup preserves the project name's casing in the scaffolded f
   });
 });
 
+Deno.test("the laid TODO.md records the deferred document-subsystem work (so the doc subtrees get filled)", async () => {
+  // The numbered doc subtrees ship as stubs from setup; cold runs kept mentioning the
+  // deferral in passing and losing it. The skeleton now bakes it in structurally, so a
+  // freshly-laid TODO always points the next session at the `document-subsystem` skill.
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+    await gitInit(dir);
+    const r = await runAgent(dir, ["setup", "begin"]);
+    assertEquals(r.code, 0, r.output);
+
+    const todo = await Deno.readTextFile(join(dir, "TODO.md"));
+    assertStringIncludes(todo, "document-subsystem");
+  });
+});
+
 Deno.test("setup's _adr skeleton is byte-identical to the write-adr skill's (single source)", async () => {
   for (const f of ["README.md", "0000-template.md"]) {
     const setupCopy = await Deno.readTextFile(
