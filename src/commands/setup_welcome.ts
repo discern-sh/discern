@@ -164,7 +164,7 @@ const FRESH_WELCOME: readonly string[] = [
   "  guides you, and NOTHING is written until you explicitly run `begin`. Start by",
   "  previewing what setup will do and confirming a few things with your human:",
   "",
-  "      discern setup verify        (read-only; prints instructions to stdout)",
+  "      discern setup verify        (read-only; add --json for machine output)",
   "",
   "  It will tell you what to confirm, then point you at the next step.",
 ];
