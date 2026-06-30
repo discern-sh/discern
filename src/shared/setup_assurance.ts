@@ -80,9 +80,9 @@ export function classifyCapability(
 /**
  * Extract the inline `#` comment on a capability's line in the raw `discern.toml`, or
  * undefined when there is none. Scans only within the `[capabilities]` table so an
- * identically-named key elsewhere can't match. Used to surface a `deferred`
- * capability's recorded reason ("with reason if known"); a no-op value (`:`/`""`)
- * never itself contains a `#`, so the match is unambiguous.
+ * identically-named key elsewhere can't match. Surfaces a `deferred` capability's
+ * recorded reason ("with reason if known"); a no-op value (`:`/`""`) never itself
+ * contains a `#`, so the match is unambiguous.
  */
 export function deferralReason(
   rawToml: string,
