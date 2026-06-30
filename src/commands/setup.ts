@@ -753,10 +753,10 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   const { laid, skipped } = await laySkeletons(destDir, name);
 
   // --- Phase 3: print the operating principles + the FIRST page (ADR 0078) ---
-  // `begin` no longer dumps the whole brief (A10): it emits the principles and page
-  // 0, and the agent pulls each subsequent page with `discern setup step <n>`. Fall
-  // back to the raw brief only if it can't be parsed into pages (a malformed spine —
-  // a discern bug the test suite catches, never a user's input).
+  // `begin` emits the principles and page 0 only (A10); the agent pulls each
+  // subsequent page with `discern setup step <n>`. Fall back to the raw brief only
+  // if it can't be parsed into pages (a malformed spine — a discern bug the test
+  // suite catches, never a user's input).
   const rawInstructions = await Deno.readTextFile(
     join(await resolveSetupDir(), "instructions.md"),
   );
