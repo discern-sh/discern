@@ -96,13 +96,13 @@ next-steps** with a loud guardrail: not an isolated worktree — run
 rides in `hints[]` (the `--json` / MCP channel), placed before the
 fleet-ownership rule so the constructive action comes first.
 
-The main checkout (a working-copy location) and the trunk branch are
-independent axes — you can be in the main checkout on a non-trunk branch (a
-leftover `discern-setup` branch, a PR checked out directly instead of through a
-worktree). The literal `START_HERE_HINT` ("you're on the trunk") fires only
-when the checked-out branch actually IS the trunk; `offTrunkStartHereHint`
-gives the same advice, naming the real branch, otherwise — so the hint never
-claims a branch identity `status` didn't verify.
+The main checkout (a working-copy location) and the trunk branch are independent
+axes — you can be in the main checkout on a non-trunk branch (a leftover
+`discern-setup` branch, a PR checked out directly instead of through a
+worktree). The literal `START_HERE_HINT` ("you're on the trunk") fires only when
+the checked-out branch actually IS the trunk; `offTrunkStartHereHint` gives the
+same advice, naming the real branch, otherwise — so the hint never claims a
+branch identity `status` didn't verify.
 
 It is **agent-facing only**. A human running `discern status` from the main
 checkout is supervising their fleet, not starting work — so the interactive
