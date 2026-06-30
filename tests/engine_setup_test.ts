@@ -743,6 +743,40 @@ Deno.test("discern setup begin fails open (commits nothing, no error) when there
   });
 });
 
+Deno.test("discern setup begin fails open (no error) when the machinery commit itself fails", async () => {
+  // The auto-commit is best-effort: if the commit can't be made (e.g. commit signing,
+  // simulated here by a failing pre-commit hook), `begin` must NOT error — it falls back
+  // to today's behaviour, leaving the machinery for the agent to commit by hand.
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+    await gitInit(dir);
+    // A pre-commit hook that always fails, so the machinery commit cannot be created.
+    const hook = join(dir, ".git", "hooks", "pre-commit");
+    await Deno.writeTextFile(hook, "#!/bin/sh\nexit 1\n");
+    await Deno.chmod(hook, 0o755);
+
+    const r = await runAgent(dir, [
+      "setup",
+      "begin",
+      "--json",
+      "--agents",
+      "claude_code",
+    ]);
+    assertEquals(r.code, 0, r.output); // begin did not error
+    const res = JSON.parse(r.stdout);
+    assertEquals(res.data.branch, "discern-setup"); // the branch was still created
+    assertEquals(res.data.machinery_committed, false); // but the commit fell open
+
+    // No `discern: scaffold harness` commit was authored (only the gitInit baseline),
+    // and the machinery is left in the working tree for the agent to commit by hand.
+    assertEquals(await gitOut(dir, "rev-list", "--count", "HEAD"), "1");
+    assertStringIncludes(
+      await gitOut(dir, "status", "--porcelain"),
+      "discern.toml",
+    );
+  });
+});
+
 Deno.test("discern setup refuses on a dirty tree, writing nothing; --allow-dirty overrides (ADR 0065)", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "app.ts"), "export const v = 1;\n");
