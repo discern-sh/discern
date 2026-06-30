@@ -51,7 +51,7 @@ next?_ It reports objective baseline health, keeps qualitative reviews visible,
 and prioritizes one action. Deterministic rules remain distinct from subjective
 reviews the agent judges against cited material
 ([ADR 0029](../_adr/0029-best-practices-audit.md),
-[ADR 0078](../_adr/0078-improve-is-a-coach-not-an-audit.md)).
+[ADR 0079](../_adr/0079-improve-is-a-coach-not-an-audit.md)).
 
 > **Status: stub.** This README orients the subtree; the leaves below are not
 > written yet (except the written [`improve.md`](improve.md) and

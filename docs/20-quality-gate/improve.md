@@ -81,7 +81,7 @@ discern improve --min-score 70      # fail below a baseline-health floor
 ```
 
 The command is a hard rename from `audit`; there is no `audit` alias. See
-[ADR 0078](../_adr/0078-improve-is-a-coach-not-an-audit.md) for the trade-off.
+[ADR 0079](../_adr/0079-improve-is-a-coach-not-an-audit.md) for the trade-off.
 
 ## Result envelope
 
@@ -129,7 +129,7 @@ apply the action, rerun the coach, and continue the improvement loop.
 
 ## See also
 
-- [ADR 0078](../_adr/0078-improve-is-a-coach-not-an-audit.md) — why the verb is
+- [ADR 0079](../_adr/0079-improve-is-a-coach-not-an-audit.md) — why the verb is
   a hard rename and how next-action priority works.
 - [ADR 0029](../_adr/0029-best-practices-audit.md) — why deterministic and
   subjective rules remain distinct.

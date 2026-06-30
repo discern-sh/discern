@@ -1,4 +1,4 @@
-# ADR 0078: `improve` is a coach, not an audit
+# ADR 0079: `improve` is a coach, not an audit
 
 **Status**: accepted. Extends [ADR 0029](0029-best-practices-audit.md): its
 deterministic-rule and qualitative-review split remains; this decision changes
