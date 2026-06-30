@@ -73,6 +73,16 @@ import {
 import { worktreeState } from "../lib/git.ts";
 import { runGit } from "../shared/subprocess.ts";
 import { RawConfig } from "../shared/config_read.ts";
+import {
+  assessSetupAssurance,
+  type SetupAssurance,
+} from "../shared/setup_assurance.ts";
+import {
+  LAND_COMMAND,
+  type LandingSummary,
+  landingSummary,
+} from "./setup_land.ts";
+import { KNOWN_ENGINE_VERBS } from "../engine/dispatch.ts";
 
 /** Options accepted by `discern setup` (global flags + declarative passthrough). */
 export interface SetupOptions extends InitFlags {
@@ -1178,6 +1188,170 @@ function emitSetupIncomplete(
   );
 }
 
+/** The view `printDoneSuccess` renders — the celebrate/assure/land/onboard pieces of a
+ * completed `setup done`, computed once and shared with the `--json` envelope. */
+interface DoneSuccessView {
+  opts: SetupDoneOptions;
+  forced: boolean;
+  leftover: string[];
+  markerCommit: "committed" | "skipped" | "no-git";
+  assurance: SetupAssurance;
+  landing: LandingSummary;
+  reactivation: ReturnType<typeof reactivationHandoff>;
+  coachVerb: string;
+}
+
+/** The ordered next-action hints `setup done --json` carries for an agent (A11): land
+ * the work, reactivate the tools, then deepen the setup with the coach. */
+function doneHints(
+  landing: LandingSummary,
+  reactivation: ReturnType<typeof reactivationHandoff>,
+  coachVerb: string,
+): string[] {
+  const hints: string[] = [];
+  if (landing.inRepo && !landing.onTarget && landing.branch !== "") {
+    hints.push(
+      `Your setup is on branch \`${landing.branch}\`, not yet on \`${landing.target}\` — land it with \`${LAND_COMMAND}\` (or leave it for review).`,
+    );
+  }
+  hints.push(reactivation.summary);
+  hints.push(
+    `Deepen your setup: run \`discern ${coachVerb} --json\` (the project coach), review the findings with your human, do the quick wins now, and record larger ones in TODO.md.`,
+  );
+  return hints;
+}
+
+/** The one-line coverage verdict (A12), distinguishing "setup complete" from "the full
+ * recommended gate is active". */
+function verdictSentence(a: SetupAssurance): string {
+  switch (a.verdict) {
+    case "full":
+      return "Quality coverage: full — every standard check is enforced, so `discern finish` runs the complete recommended gate.";
+    case "minimal":
+      return "Quality coverage: minimal — setup is complete, but no standard checks are enforced yet, so `discern finish` can't catch regressions on its own. Wiring tests is the highest-leverage next step.";
+    case "partial":
+      return `Quality coverage: partial — ${a.enforced} of ${a.total} standard checks enforced. Setup is complete, but not every recommended protection is active yet.`;
+  }
+}
+
+/** The aligned per-capability assurance lines (A12) — each capability and its honest
+ * state (enforced / deferred [+reason] / absent). */
+function assuranceLines(a: SetupAssurance): string[] {
+  const width = Math.max(...a.capabilities.map((c) => c.name.length));
+  return a.capabilities.map((c) => {
+    const name = c.name.padEnd(width);
+    const mark = c.state === "enforced"
+      ? "✓"
+      : c.state === "deferred"
+      ? "•"
+      : "·";
+    const label = c.state === "enforced"
+      ? "enforced — runs on every `discern finish`"
+      : c.state === "deferred"
+      ? (c.reason !== undefined
+        ? `deferred — ${c.reason}`
+        : "deferred — present but set to a no-op")
+      : "absent — no command configured";
+    return `  ${mark} ${name}  ${label}`;
+  });
+}
+
+/** The "land your setup" follow-up (A11), as a numbered step `n` plus continuation
+ * lines — naming where the work lives and the exact command, adapted to the git state. */
+function landStep(landing: LandingSummary, n: number): string[] {
+  if (!landing.inRepo) {
+    return [
+      `  ${n}. Land your setup — this project isn't a git repository, so there's nothing to land; your setup is in place as-is.`,
+    ];
+  }
+  if (landing.onTarget) {
+    return [
+      `  ${n}. Land your setup — it already lives on \`${landing.target}\`, so there's nothing to land.`,
+    ];
+  }
+  if (landing.branch === "") {
+    return [
+      `  ${n}. Land your setup onto \`${landing.target}\` — you're on a detached HEAD; check out your setup branch, then run \`${LAND_COMMAND}\`.`,
+    ];
+  }
+  return [
+    `  ${n}. Land your setup onto \`${landing.target}\`. Your work is on branch \`${landing.branch}\`,`,
+    `     not yet on \`${landing.target}\` — switching to \`${landing.target}\` now would look like`,
+    `     discern vanished. Land it:  ${LAND_COMMAND}`,
+    `     Prefer to review first? Leave \`${landing.branch}\` as-is and land it when ready —`,
+    "     doing nothing is safe; the branch keeps every commit.",
+  ];
+}
+
+/** Render the warm, honest completion output (A11/A12): celebrate the achievement,
+ * report what coverage is actually active, and lay out the ordered follow-ups (land →
+ * reactivate → deepen). The `--json` envelope is rendered from the SAME computed
+ * pieces, so the two surfaces can't drift (ADR 0028). */
+function printDoneSuccess(view: DoneSuccessView): void {
+  const {
+    opts,
+    forced,
+    leftover,
+    markerCommit,
+    assurance,
+    landing,
+    reactivation,
+    coachVerb,
+  } = view;
+
+  console.log(
+    opts.force
+      ? "Setup complete — discern is set up here (recorded with --force; the gate was not proven)."
+      : "Setup complete — nice work! discern is now wired into this project and your quality gate is green.",
+  );
+  console.log(
+    "The one-time setup is finished, so `discern setup` retires and hides itself from here on.",
+  );
+  if (forced) {
+    console.log(
+      `(Marked complete with --force despite ${leftover.length} file(s) still carrying skeleton markers.)`,
+    );
+  }
+  if (markerCommit === "committed") {
+    console.log("Committed the completion marker (discern.toml).");
+  } else if (markerCommit === "skipped") {
+    console.log(
+      "Commit the updated discern.toml — it carries the completion marker, but the working tree had other changes, so it wasn't auto-committed.",
+    );
+  }
+
+  // The honest coverage summary (A12) — so "gate proven" can't read as "every
+  // protection runs".
+  console.log("");
+  console.log(verdictSentence(assurance));
+  for (const line of assuranceLines(assurance)) {
+    console.log(line);
+  }
+  if (assurance.verdict !== "full") {
+    console.log(
+      '  (absent = no such command wired; deferred = deliberately off. Wire one with `discern config set-capability <name> "<command>"`.)',
+    );
+  }
+
+  // The ordered follow-ups (A11): land → reactivate → deepen.
+  console.log("");
+  console.log("What's next:");
+  for (const line of landStep(landing, 1)) {
+    console.log(line);
+  }
+  console.log(`  2. Reactivate discern's tools — ${reactivation.summary}`);
+  for (const a of reactivation.per_agent) {
+    console.log(`       • ${a.label}: ${a.step}`);
+  }
+  console.log(
+    `  3. Deepen your setup: run \`discern ${coachVerb} --json\` (the project coach),`,
+  );
+  console.log(
+    "     review the findings with your human, do the quick wins now, and defer larger",
+  );
+  console.log("     initiatives to TODO.md.");
+}
+
 /**
  * `discern setup done` — validate structural completeness AND prove the gate green
  * (ADR 0065/0078), then record `[meta].bootstrapped = true` so the setup redirect
@@ -1230,51 +1404,58 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
   const markerCommit = await commitCompletionMarker(root, path);
 
   const forced = leftover.length > 0;
-  // The reactivation handoff (ADR 0075): the agent files, MCP servers, and session
-  // hooks were wired at `begin`, but coding agents load MCP + hooks at SESSION START —
-  // so this session can't see them. Tell the agent, per configured agent, to reactivate.
-  const reactivation = reactivationHandoff(await loadConfig(root));
+
+  // Celebrate, assure, and steer (A11/A12). The agent files, MCP servers, and session
+  // hooks were wired at `begin` but coding agents load them at SESSION START, so this
+  // session can't see them yet — hence the reactivation handoff (ADR 0075). Alongside
+  // it: an honest per-capability coverage summary (so "gate proven" can't read as "every
+  // protection runs"), where the just-finished work lives + how to land it on the
+  // integration branch, and a steer into ongoing use via the project coach.
+  const cfg = await loadConfig(root);
+  const rawToml = await Deno.readTextFile(path);
+  const assurance = assessSetupAssurance(cfg, rawToml);
+  const landing = await landingSummary(root, cfg);
+  const reactivation = reactivationHandoff(cfg);
+  // Resolve the coach verb from the live engine-verb SSOT (improve, or audit before the
+  // rename) rather than hardcoding, so the steer survives the audit→improve rename.
+  const coachVerb = KNOWN_ENGINE_VERBS.has("improve") ? "improve" : "audit";
+
   if (opts.json) {
     emitResult({
       ok: true,
       verb: "setup:done",
-      hints: [reactivation.summary],
+      hints: doneHints(landing, reactivation, coachVerb),
       data: {
         bootstrapped: true,
         forced,
         gate_proven: !opts.force,
         marker_committed: markerCommit === "committed",
         leftover,
+        assurance,
+        landing: {
+          in_repo: landing.inRepo,
+          branch: landing.branch,
+          target: landing.target,
+          on_target: landing.onTarget,
+          command: LAND_COMMAND,
+        },
         reactivation,
+        coach: { verb: coachVerb, command: `discern ${coachVerb} --json` },
       },
     });
     return 0;
   }
-  console.log(
-    opts.force
-      ? "Setup complete — recorded [meta].bootstrapped = true in discern.toml (--force; gate not proven)."
-      : "Setup complete — gate is green; recorded [meta].bootstrapped = true in discern.toml.",
-  );
-  console.log(
-    "The one-time setup redirect is now retired and `discern setup` is hidden from the command list.",
-  );
-  if (forced) {
-    console.log(
-      `(Marked complete with --force despite ${leftover.length} file(s) still carrying skeleton markers.)`,
-    );
-  }
-  if (markerCommit === "committed") {
-    console.log("Committed the completion marker (discern.toml).");
-  } else if (markerCommit === "skipped") {
-    console.log(
-      "Commit the updated discern.toml — it carries the completion marker, but the working tree had other changes, so it wasn't auto-committed.",
-    );
-  }
-  console.log("");
-  console.log(reactivation.summary);
-  for (const a of reactivation.per_agent) {
-    console.log(`  • ${a.label}: ${a.step}`);
-  }
+
+  printDoneSuccess({
+    opts,
+    forced,
+    leftover,
+    markerCommit,
+    assurance,
+    landing,
+    reactivation,
+    coachVerb,
+  });
   return 0;
 }
 
