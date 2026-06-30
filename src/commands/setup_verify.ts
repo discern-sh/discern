@@ -224,7 +224,7 @@ function buildConfirmations(worktreePath: string): Confirmation[] {
     {
       id: "model",
       prompt:
-        'Model & session — setup is one-time and high-leverage; discern is only as good as the model that runs it. Confirm you\'re on the most capable model available, and plan to return to a FRESH session once setup completes (discern\'s tools and session hooks load only at session start). When you run begin, pass `--model "<your-model-id>"` (your own model identifier, substituted) so discern records which model configured the project — support triage relies on it.',
+        "Model & session — setup is one-time and high-leverage; discern is only as good as the model that runs it. Confirm you're on the most capable model available, and plan to return to a FRESH session once setup completes (discern's tools and session hooks load only at session start). When you run begin, pass `--model \"<your-model-id>\"` (your own model identifier, substituted) so discern records which model configured the project — support triage relies on it.",
     },
     {
       id: "worktree",

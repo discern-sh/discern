@@ -235,7 +235,10 @@ Deno.test("setup seeds per-agent hook files ONLY for configured agents (no inert
       if (p.hooks === undefined) continue;
       const seeded = targets.has(p.hooks.settingsFile);
       if (configured.includes(p.name)) {
-        assert(seeded, `configured ${p.name} should seed ${p.hooks.settingsFile}`);
+        assert(
+          seeded,
+          `configured ${p.name} should seed ${p.hooks.settingsFile}`,
+        );
       } else {
         assert(
           !seeded,

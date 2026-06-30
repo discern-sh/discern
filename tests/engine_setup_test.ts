@@ -336,7 +336,10 @@ Deno.test("setup done fails open when discern.toml carries an extra uncommitted 
     await git(dir, "commit", "-m", "setup work");
     // A stray uncommitted edit to discern.toml itself (a comment), beyond the marker.
     const toml = await Deno.readTextFile(join(dir, "discern.toml"));
-    await Deno.writeTextFile(join(dir, "discern.toml"), `${toml}\n# stray edit\n`);
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      `${toml}\n# stray edit\n`,
+    );
 
     const done = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(done.code, 0, done.output);
