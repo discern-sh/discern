@@ -30,12 +30,14 @@ Two commands read a documentation tree, and they read **different** ones:
   ([ADR 0039](_adr/0039-bundled-help-docs.md)). The ADRs are hidden by default
   but can be browsed with `discern help --adr` (CLI only — the MCP tool never
   exposes them).
-- **`discern docs`** browses **the host project's own `docs/`** (resolved from
-  the project root). Inside the discern repo it surfaces this tree — because
-  here the project's docs _are_ discern's docs — but in any other install it
-  reads that project's documentation. It is gated on the `docs` feature, takes a
-  `--dir` override, and (unlike `help`) is refused before setup, since the
-  project's tree is empty until setup seeds and fills it.
+- **`discern docs`** browses **the host project's agent documentation tree** at
+  `[docs].dir` (default `docs/`, resolved from the project root). Inside the
+  discern repo it surfaces this tree — because here the project's docs _are_
+  discern's docs — but another project can keep the tree at a location such as
+  `docs/discern/`, separate from human-curated docs. It is gated on the `docs`
+  feature, takes a one-call `--dir` override, and (unlike `help`) is refused
+  before setup, since the project's tree is empty until setup seeds and fills it
+  ([ADR 0080](_adr/0080-configured-agent-docs-root.md)).
 
 Both share one implementation and the same surfaces: an interactive picker on a
 TTY, and `--list` / `--json` / `--raw` / `--export` off one.
@@ -88,9 +90,10 @@ guard test pins this — `tests/docs_curation_test.ts`).
 
 ## How this tree is produced and kept current
 
-The tree is seeded once by `discern setup`, then grown subtree-by-subtree with
-the [`document-subsystem`](../templates/skills/document-subsystem/SKILL.md)
-skill, which follows the brief in
+The tree is seeded once by `discern setup` at `[docs].dir`, then grown
+subtree-by-subtree with the
+[`document-subsystem`](../templates/skills/document-subsystem/SKILL.md) skill,
+which resolves the same configured root and follows the brief in
 [_internal/documenter-agent-brief.md](_internal/documenter-agent-brief.md). A
 single skeleton-and-orientation pass establishes the shared terminology and
 shape before any subtree is filled in.
