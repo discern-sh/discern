@@ -108,8 +108,8 @@ The explicit *no*s:
 - **Shallow compliance is structurally blocked.** Clearing a marker no longer
   passes `done` on its own; the derived predicate re-checks the substance. This
   is the anti-shallow-compliance core, and it cannot be faked for the same
-  reason ADR 0075's progress view cannot — it reads what is on disk, not what the
-  agent says.
+  reason ADR 0075's progress view cannot — it reads what is on disk, not what
+  the agent says.
 
 - **The warm tone survives the structuring.** Because the behavioral guidance
   stays in the prose lane, the non-CI-bot voice the brief is careful about is
