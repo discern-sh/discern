@@ -14,7 +14,13 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join, relative } from "@std/path";
 import { exists, walk } from "@std/fs";
 import { REAL_TEMPLATES, withTempDir } from "./helpers.ts";
-import { gitInit, gitOut, runAgent, scaffoldEngine } from "./engine_helpers.ts";
+import {
+  git,
+  gitInit,
+  gitOut,
+  runAgent,
+  scaffoldEngine,
+} from "./engine_helpers.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 
 /** The H1 of the printed setup instructions (templates/setup/instructions.md). */
@@ -262,6 +268,84 @@ Deno.test("setup done runs the gate and records bootstrapped only when green (AD
     assertStringIncludes(
       await Deno.readTextFile(join(dir, "discern.toml")),
       "bootstrapped = true",
+    );
+  });
+});
+
+Deno.test("setup done commits the completion marker when discern.toml is the only change", async () => {
+  // The completion marker [meta].bootstrapped was written but never committed, so a
+  // diligent atomic-commit setup still ended with a dirty tree. When discern.toml is
+  // the lone change, `done` commits it on the agent's behalf.
+  await withTempDir(async (dir) => {
+    await readyForDone(dir, "true"); // gitInits + lays a passing, marker-free project
+    // Simulate the agent's atomic commits: wire the harness (MCP etc.) and commit
+    // everything, so the marker is the only change `done` introduces.
+    await runAgent(dir, ["refresh"]);
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-m", "setup work");
+
+    const done = await runAgent(dir, ["setup", "done", "--json"]);
+    assertEquals(done.code, 0, done.output);
+    const res = JSON.parse(done.stdout);
+    assertEquals(res.data.bootstrapped, true);
+    assertEquals(res.data.marker_committed, true);
+    // The marker landed in its own commit and the tree is clean.
+    assertEquals(await gitOut(dir, "status", "--porcelain"), "");
+    assertStringIncludes(
+      await gitOut(dir, "log", "-1", "--format=%s"),
+      "Mark discern setup complete",
+    );
+    assertStringIncludes(
+      await Deno.readTextFile(join(dir, "discern.toml")),
+      "bootstrapped = true",
+    );
+  });
+});
+
+Deno.test("setup done leaves the marker uncommitted (fail open) when the tree has other changes", async () => {
+  // Anything beyond discern.toml is unexpected, so `done` must not sweep it into the
+  // marker commit — it records completion, leaves the marker dirty, and says to commit.
+  await withTempDir(async (dir) => {
+    await readyForDone(dir, "true");
+    await runAgent(dir, ["refresh"]);
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-m", "setup work");
+    // An unrelated uncommitted change present at `done` time.
+    await Deno.writeTextFile(join(dir, "docs/README.md"), "# changed again\n");
+
+    const done = await runAgent(dir, ["setup", "done", "--json"]);
+    assertEquals(done.code, 0, done.output);
+    const res = JSON.parse(done.stdout);
+    assertEquals(res.data.bootstrapped, true); // completion still recorded
+    assertEquals(res.data.marker_committed, false); // but not auto-committed
+    // The marker is left in the working tree for the agent to commit deliberately.
+    assert(
+      (await gitOut(dir, "status", "--porcelain")).includes("discern.toml"),
+      "the marker should be left dirty when other changes are present",
+    );
+  });
+});
+
+Deno.test("setup done fails open when discern.toml carries an extra uncommitted edit beyond the marker", async () => {
+  // discern.toml is the lone changed file, but it has more than the marker line dirty
+  // (config the agent didn't commit). Only "that one dirty line" earns the auto-commit.
+  await withTempDir(async (dir) => {
+    await readyForDone(dir, "true");
+    await runAgent(dir, ["refresh"]);
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-m", "setup work");
+    // A stray uncommitted edit to discern.toml itself (a comment), beyond the marker.
+    const toml = await Deno.readTextFile(join(dir, "discern.toml"));
+    await Deno.writeTextFile(join(dir, "discern.toml"), `${toml}\n# stray edit\n`);
+
+    const done = await runAgent(dir, ["setup", "done", "--json"]);
+    assertEquals(done.code, 0, done.output);
+    const res = JSON.parse(done.stdout);
+    assertEquals(res.data.bootstrapped, true);
+    assertEquals(res.data.marker_committed, false);
+    assert(
+      (await gitOut(dir, "status", "--porcelain")).includes("discern.toml"),
+      "discern.toml should stay dirty when more than the marker line changed",
     );
   });
 });

@@ -972,6 +972,63 @@ function extractStep(brief: string, n: number): string | undefined {
 }
 
 /**
+ * Commit the `[meta].bootstrapped` marker `setup done` just wrote — but ONLY when
+ * `discern.toml` is the SOLE change in the working tree, so an unrelated uncommitted
+ * change is never swept into a "setup complete" commit. Anything else is unexpected, so
+ * fail open: leave the marker for the agent to commit (the output tells it to). A no-op
+ * outside a git repo. Best-effort throughout — a git failure never fails `done`, since
+ * completion is already recorded by the time this runs.
+ */
+async function commitCompletionMarker(
+  root: string,
+  configPath: string,
+): Promise<"committed" | "skipped" | "no-git"> {
+  if ((await worktreeState(root)).kind === "not-a-repo") {
+    return "no-git";
+  }
+  const status = await runGit(["status", "--porcelain"], { cwd: root });
+  if (!status.success) {
+    return "skipped";
+  }
+  const changedPaths = status.stdout
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line !== "")
+    // porcelain v1 is "XY <path>" (renames "XY <old> -> <new>"); the path is the last
+    // token, so a quoted/renamed/extra entry simply won't match the lone-config check.
+    .map((line) => line.split(/\s+/).pop() ?? "");
+  const configRel = relative(root, configPath);
+  if (changedPaths.length !== 1 || changedPaths[0] !== configRel) {
+    return "skipped"; // a second changed file → don't author a mixed commit
+  }
+  // discern.toml is the lone changed file — but the change must be EXACTLY the marker
+  // line we just wrote, nothing else (e.g. capabilities the agent left uncommitted).
+  // "Anything else is unexpected", so fail open.
+  const diff = await runGit(["diff", "--", configRel], { cwd: root });
+  if (!diff.success) {
+    return "skipped";
+  }
+  const body = diff.stdout.split("\n");
+  const added = body.filter((l) => l.startsWith("+") && !l.startsWith("+++"));
+  const removed = body.filter((l) => l.startsWith("-") && !l.startsWith("---"));
+  const markerKey = BOOTSTRAPPED_KEY.split(".").pop();
+  const onlyMarker = removed.length === 0 && added.length === 1 &&
+    added[0]?.slice(1).trim() === `${markerKey} = true`;
+  if (!onlyMarker) {
+    return "skipped"; // more than the marker line changed → leave it for the agent
+  }
+  const add = await runGit(["add", "--", configRel], { cwd: root });
+  if (!add.success) {
+    return "skipped";
+  }
+  const commit = await runGit(
+    ["commit", "-m", "Mark discern setup complete"],
+    { cwd: root },
+  );
+  return commit.success ? "committed" : "skipped";
+}
+
+/**
  * `discern setup done` — validate that no skeleton markers remain AND prove the
  * gate green (ADR 0065), then record `[meta].bootstrapped = true` so the setup
  * redirect retires and the command hides itself. The proof — `refresh` → `doctor`
@@ -1029,6 +1086,11 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
   editor.setBool(BOOTSTRAPPED_KEY, true);
   await Deno.writeTextFile(path, editor.toString());
 
+  // Commit the marker on the agent's behalf when discern.toml is the only change, so
+  // setup doesn't end with the completion marker left uncommitted (fail open if the
+  // tree has other changes — see commitCompletionMarker).
+  const markerCommit = await commitCompletionMarker(root, path);
+
   const forced = leftover.length > 0;
   // The reactivation handoff (ADR 0075): the agent files, MCP servers, and session
   // hooks were wired at `begin`, but coding agents load MCP + hooks at SESSION START —
@@ -1043,6 +1105,7 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
         bootstrapped: true,
         forced,
         gate_proven: !opts.force,
+        marker_committed: markerCommit === "committed",
         leftover,
         reactivation,
       },
@@ -1060,6 +1123,13 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
   if (forced) {
     console.log(
       `(Marked complete with --force despite ${leftover.length} file(s) still carrying skeleton markers.)`,
+    );
+  }
+  if (markerCommit === "committed") {
+    console.log("Committed the completion marker (discern.toml).");
+  } else if (markerCommit === "skipped") {
+    console.log(
+      "Commit the updated discern.toml — it carries the completion marker, but the working tree had other changes, so it wasn't auto-committed.",
     );
   }
   console.log("");
