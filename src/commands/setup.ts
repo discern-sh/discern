@@ -329,6 +329,12 @@ interface ScaffoldOutcome {
   written: string[];
   compiled: string[];
   mcpWired: string[];
+  /** Project files written co-managing an agent app's worktree-lifecycle config
+   * (Codex's `environment.toml`) — `compileGuidelines`'s `worktreeAppWired`
+   * passed through. Folded into {@link commitScaffoldedMachinery}'s commit
+   * alongside `mcpWired`: it is the same kind of discern-owned wiring a coding
+   * agent's safety classifier won't commit, just a different per-agent file. */
+  worktreeAppWired: string[];
   hints: string[];
 }
 
@@ -448,11 +454,13 @@ async function scaffoldHarness(
   // broken templates tree shouldn't fail the scaffold.
   let compiled: string[] = [];
   let mcpWired: string[] = [];
+  let worktreeAppWired: string[] = [];
   let hints: string[] = [];
   try {
     const g = await compileGuidelines(destDir, log);
     compiled = g.agentsWritten;
     mcpWired = g.mcpWired;
+    worktreeAppWired = g.worktreeAppWired;
     hints = g.hints;
     // A per-artifact refresh failure is isolated (ADR 0065) — surface it so the
     // user knows a skills dir / agent file / the MCP wiring didn't complete.
@@ -481,7 +489,7 @@ async function scaffoldHarness(
     written.push("guidance.md");
   }
   return {
-    outcome: { config, written, compiled, mcpWired, hints },
+    outcome: { config, written, compiled, mcpWired, worktreeAppWired, hints },
   };
 }
 
@@ -932,25 +940,37 @@ const AUTHORED_CONTENT_SEEDS: ReadonlySet<string> = new Set([
 
 /**
  * Commit the harness machinery `setup begin` just scaffolded — discern's OWN wiring: the
- * config, the `.gitignore` fragment, and the per-agent MCP + hooks files (derived from
- * {@link ScaffoldOutcome.written} ∪ `.mcpWired`, minus the {@link AUTHORED_CONTENT_SEEDS}
- * the agent fills) — as one `discern: scaffold harness` commit on the `discern-setup`
- * branch. discern OWNS this commit because the files are exactly the ones a coding agent's
- * safety classifier refuses to commit (pre-approving an MCP server widens permissions),
- * which otherwise strands discern's essential wiring on a dirty tree. Extends the
- * {@link commitCompletionMarker} precedent — the engine commits its own output — and
- * mirrors its shape: best-effort and fail-open, so a commit failure (e.g. commit signing)
- * never fails `begin`; the agent can still commit by hand. Commits ONLY the derived
- * machinery paths (never `git add -A`), so the authored-content seeds (guidance.md, the
- * docs skeletons, TODO.md) stay uncommitted for the agent. The caller gates this on being
- * on the `discern-setup` branch (a fresh install in a git repo), so it never runs when
- * setup proceeds in place.
+ * config, the `.gitignore` fragment, the per-agent MCP + hooks files, and any app-managed
+ * worktree-lifecycle config an agent declares (derived from {@link ScaffoldOutcome.written}
+ * ∪ `.mcpWired` ∪ `.worktreeAppWired`, minus the {@link AUTHORED_CONTENT_SEEDS} the agent
+ * fills) — as one `discern: scaffold harness` commit on the `discern-setup` branch. discern
+ * OWNS this commit because the files are exactly the ones a coding agent's safety classifier
+ * refuses to commit (pre-approving an MCP server widens permissions), which otherwise strands
+ * discern's essential wiring on a dirty tree. Extends the {@link commitCompletionMarker}
+ * precedent — the engine commits its own output — and mirrors its shape: best-effort and
+ * fail-open, so a commit failure (e.g. commit signing) never fails `begin`; the agent can
+ * still commit by hand. Commits ONLY the derived machinery paths (never `git add -A`), so the
+ * authored-content seeds (guidance.md, the docs skeletons, TODO.md) stay uncommitted for the
+ * agent. The caller gates this on being on the `discern-setup` branch (a fresh install in a
+ * git repo), so it never runs when setup proceeds in place.
+ *
+ * The committed set is the union of every {@link ScaffoldOutcome} array discern itself wrote
+ * — never a hand-copied per-agent file list — so a new wiring category (the way
+ * `worktreeAppWired` joined `mcpWired` here) only has to flow into `ScaffoldOutcome` once to
+ * be committed for every provider that declares it; `tests/agent_parity_test.ts`-style
+ * coverage holds the registry and this set in sync.
  */
 async function commitScaffoldedMachinery(
   root: string,
   scaffold: ScaffoldOutcome,
 ): Promise<"committed" | "skipped"> {
-  const paths = [...new Set([...scaffold.written, ...scaffold.mcpWired])]
+  const paths = [
+    ...new Set([
+      ...scaffold.written,
+      ...scaffold.mcpWired,
+      ...scaffold.worktreeAppWired,
+    ]),
+  ]
     .filter((p) => !AUTHORED_CONTENT_SEEDS.has(p))
     .sort();
   if (paths.length === 0) {

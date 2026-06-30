@@ -35,10 +35,14 @@ ownership backward to `begin`.
 
 The engine commits the harness machinery it scaffolds. After `begin` scaffolds
 and records provenance, and before it prints the brief, it commits **exactly**
-the machinery — the config, the `.gitignore` fragment, and the per-agent MCP +
-hooks files — as one `discern: scaffold harness` commit on the `discern-setup`
-branch. The committed set is derived from the scaffold outcome (the written seed
-paths ∪ the MCP-wired paths), minus the authored-content seeds.
+the machinery — the config, the `.gitignore` fragment, the per-agent MCP +
+hooks files, and any app-managed worktree-lifecycle config an agent declares
+(Codex's `environment.toml`) — as one `discern: scaffold harness` commit on the
+`discern-setup` branch. The committed set is derived from the scaffold outcome
+(the written seed paths ∪ the MCP-wired paths ∪ the worktree-app-wired paths),
+minus the authored-content seeds — the union of every category discern itself
+scaffolds, so a category that ships later (the way worktree-app wiring joined
+MCP wiring) only has to flow into that outcome once to be covered here.
 
 The explicit **no**s:
 
