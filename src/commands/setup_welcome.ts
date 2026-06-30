@@ -148,12 +148,12 @@ const FRESH_WELCOME: readonly string[] = [
   "  agent instructions to this repo — tailored to YOUR codebase by your own",
   "  coding agent. To get started, tell your coding agent:",
   "",
-  '      "Run discern setup"',
+  '      "Run `discern setup` in this project."',
   "",
-  "  It's safe. Setup only touches this folder, never anything outside it. Your",
-  "  agent works on a dedicated `discern-setup` branch in small, clearly-explained",
+  "  Setup is isolated and reversible. It only touches this project – nothing else.",
+  "  Your agent works on a dedicated `discern-setup` branch in small step-by-step",
   "  commits, so you can follow along — and undo everything with one command if",
-  "  you change your mind. No API key, no lock-in.",
+  "  you change your mind. There's no lock-in, no API key, and no surprises.",
   "",
   "  Point your MOST CAPABLE model at it: setup is a one-time, high-leverage step,",
   "  and discern is only as good as the model that configured it.",
@@ -166,7 +166,7 @@ const FRESH_WELCOME: readonly string[] = [
   "",
   "      discern setup verify        (read-only; add --json for machine output)",
   "",
-  "  It will tell you what to confirm, then point you at `discern setup begin`.",
+  "  It will tell you what to confirm, then point you at the next step.",
 ];
 
 /** The in-progress welcome, as lines: the resume view. Lead with DERIVED progress
