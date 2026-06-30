@@ -25,6 +25,7 @@ import { applyPlan } from "../src/lib/fs_plan.ts";
 import { TomlEditor } from "../src/lib/toml_edit.ts";
 import { resolveWorktreeRoot } from "../src/lib/paths.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
+import type { AgentName } from "../src/lib/config.ts";
 import { REAL_TEMPLATES } from "./helpers.ts";
 
 /** The captured result of one `agent` invocation. */
@@ -106,7 +107,7 @@ export async function engineEnv(
  */
 export async function scaffoldEngine(
   dir: string,
-  opts: { bootstrapped?: boolean } = {},
+  opts: { bootstrapped?: boolean; agents?: AgentName[] } = {},
 ): Promise<void> {
   const plan = await assembleInitPlan({
     templatesDir: REAL_TEMPLATES,
@@ -117,7 +118,9 @@ export async function scaffoldEngine(
       branchPrefix: "agent/",
       sourceGlobs: ["src/**"],
       brief: "",
-      agents: ["claude_code"],
+      // Per-agent seeds are config-driven, so a test that exercises a specific
+      // agent's wiring scaffolds with that agent in the set (default: Claude only).
+      agents: opts.agents ?? ["claude_code"],
     },
   });
   await applyPlan(plan);

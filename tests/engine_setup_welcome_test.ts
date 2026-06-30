@@ -119,6 +119,28 @@ Deno.test("verify reports grounded findings and the consent checklist, writing n
   });
 });
 
+Deno.test("verify funnels begin with --model so the configuring model is recorded as provenance", async () => {
+  // A cold run never recorded setup_model because nothing told the agent to pass
+  // --model. The funnel into begin now carries it, in both the next_action and the
+  // model confirmation the agent presents to its human.
+  await withTempDir(async (dir) => {
+    await freshRepo(dir);
+    const d = JSON.parse(
+      (await runAgent(dir, ["setup", "verify", "--json"])).stdout,
+    ).data;
+    assertStringIncludes(d.next_action, "--model");
+    const model = d.confirm_with_human.find((c: { id: string }) =>
+      c.id === "model"
+    );
+    assert(
+      model !== undefined && model.prompt.includes("--model"),
+      `the model confirmation must instruct passing --model: ${
+        JSON.stringify(model)
+      }`,
+    );
+  });
+});
+
 Deno.test("verify surfaces existing docs/ and agent instructions as conflicts", async () => {
   await withTempDir(async (dir) => {
     await freshRepo(dir);
@@ -194,6 +216,26 @@ Deno.test("begin records the agent's self-declared model + discern version as pr
     assert(
       /setup_version = "[^"]+"/.test(toml),
       `expected a recorded setup_version: ${toml}`,
+    );
+  });
+});
+
+Deno.test("begin ignores a literal model placeholder, recording no bogus provenance", async () => {
+  // The verify funnel shows `--model "<your-model-id>"`; an agent that copies it
+  // verbatim instead of substituting must not record `<your-model-id>` as the model.
+  await withTempDir(async (dir) => {
+    await freshRepo(dir);
+    const r = await runAgent(dir, [
+      "setup",
+      "begin",
+      "--model",
+      "<your-model-id>",
+    ]);
+    assertEquals(r.code, 0, r.output);
+    const toml = await Deno.readTextFile(join(dir, "discern.toml"));
+    assert(
+      !toml.includes("setup_model"),
+      `a placeholder model must not be recorded: ${toml}`,
     );
   });
 });

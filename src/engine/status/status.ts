@@ -484,8 +484,13 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
   // never squats in another line of work's worktree. Agent channel only: the human
   // renderer filters this out (a person here is supervising their fleet, not starting
   // work), so it never nags the CLI. Placed before the fleet-ownership rule — the
-  // constructive action first, the don't-squat caveat after.
-  if (ctx.location === "main" && ctx.worktreesOn) {
+  // constructive action first, the don't-squat caveat after. Suppressed while setup is
+  // unfinished: setup runs in the main checkout (on the `discern-setup` branch), so
+  // "go start a worktree" would contradict the lead "finish setup here" hint.
+  if (
+    ctx.location === "main" && ctx.worktreesOn &&
+    ctx.setupPending === undefined
+  ) {
     hints.push(START_HERE_HINT);
   }
 
@@ -530,9 +535,11 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
     hints.push(FLEET_OWNERSHIP_HINT);
   }
 
-  if (ctx.location === "main") {
-    // (Setup-incomplete leads the hints in every location — see the top of this
-    // builder — so there is no separate main-only setup nudge here.)
+  // Main-checkout worktree-activity next-steps assume a configured, set-up project.
+  // While setup is unfinished these are premature and contradict the lead "finish
+  // setup here" hint, so suppress the whole block until `[meta].bootstrapped` is
+  // recorded — the setup-unfinished hint at the top is the only "what now" that fits.
+  if (ctx.location === "main" && ctx.setupPending === undefined) {
     if (!ctx.worktreesOn) {
       hints.push(
         "The worktrees workflow is off; work happens directly in this checkout.",

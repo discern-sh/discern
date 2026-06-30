@@ -29,7 +29,11 @@ import {
   type TokenMap,
 } from "./template.ts";
 import type { SettingsSeedMerge } from "./settings_merge.ts";
-import { type SettingsSeed, settingsSeeds } from "./providers.ts";
+import {
+  providersWithHooks,
+  type SettingsSeed,
+  settingsSeeds,
+} from "./providers.ts";
 
 /** How an op relates to whatever is already on disk at its target. */
 export type OpDisposition =
@@ -129,9 +133,23 @@ export async function buildPlan(params: {
   tokens: TokenMap;
   excludeNonSeed?: boolean;
   seeds?: readonly SettingsSeed[];
+  /** The agents this project configured. When set, a per-agent seed (a hooks
+   * provider's settings file) is laid only for an agent in this list — so an
+   * unconfigured agent leaves no inert hooks/settings behind. Omitted (e.g. by
+   * add-preset) means no agent filtering. */
+  configuredAgents?: readonly string[];
 }): Promise<Plan> {
   const { templatesDir, destDir, tokens } = params;
   const excludeNonSeed = params.excludeNonSeed ?? false;
+  // Registry-derived map of a per-agent seed's target path → the agent that owns it,
+  // so a seed for an unconfigured agent is skipped below. Driven off the provider
+  // registry, so a new hooks provider auto-enrols in the filter (and its guard).
+  const agentByPerAgentTarget = new Map<string, string>();
+  for (const p of providersWithHooks()) {
+    if (p.hooks !== undefined) {
+      agentByPerAgentTarget.set(p.hooks.settingsFile, p.name);
+    }
+  }
   // A settings template is one whose TARGET path a hooks provider claims as its
   // settings file — derived from the registry, so a new hooks provider's template is
   // routed (and merged with its own strategy) the moment it declares a
@@ -160,6 +178,16 @@ export async function buildPlan(params: {
     }
 
     const targetRel = resolveTargetPath(templateRel, tokens.project_slug);
+
+    // Skip a per-agent seed whose agent this project didn't configure — so a
+    // claude+codex install never gets .cursor/.gemini/.github hook files it won't use.
+    if (params.configuredAgents !== undefined) {
+      const owner = agentByPerAgentTarget.get(targetRel);
+      if (owner !== undefined && !params.configuredAgents.includes(owner)) {
+        continue;
+      }
+    }
+
     const merge = settingsByTarget.get(targetRel);
     if (merge !== undefined) {
       const op = await planSettingsMerge(
