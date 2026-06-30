@@ -42,7 +42,7 @@ reliably; everything merely advised degraded.**
   (the agent **is** the magic of zero-config), so the fix is not more questions;
   it is meaningful transparency plus a few genuine touchpoints.
 
-- **The brief firehosed.** At ~200 lines it truncated on a first read (agents
+- **The brief overwhelmed on first read.** At ~200 lines it truncated (agents
   `head`/`tail` it across passes) and restated the "this is work, not a summary"
   warning ~5×. The weaker models Step 0 worries about are the ones most likely
   to lose the thread in the volume.
@@ -89,12 +89,11 @@ behaviour, gating logic, or handshake phase changes.
    tests) are batched into one concise recommendation, not five beats apiece —
    restoring ADR 0044's intent that the beats were for adding _new_ things.
 
-5. **The firehose is tamed.** The loud header frame and the tail-survivable
-   footer stay (the deliberate weak-model guards of ADR 0037/0065), but the
-   mid-body restatements of the "this is work" warning are cut, and each
-   `## Step N` block is made self-contained so `discern setup step <n>` serves
-   it cleanly. The goal is a brief that survives a single read without losing
-   the thread.
+5. **The volume is tamed.** The loud header frame and the tail-survivable footer
+   stay (the deliberate weak-model guards of ADR 0037/0065), but the mid-body
+   restatements of the "this is work" warning are cut, and each `## Step N`
+   block is made self-contained so `discern setup step <n>` serves it cleanly.
+   The goal is a brief that survives a single read without losing the thread.
 
 The explicit **no**s:
 
