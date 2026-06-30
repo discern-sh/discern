@@ -79,7 +79,7 @@ Then **confirm the harness is healthy**: run **`discern status --json`** to orie
 
 The command's output told you which of these happened. The scaffolded files already carry the project name; the remaining placeholders are the `<!-- setup fills this -->` markers and the EXAMPLE principle, which you replace as you go.
 
-**One ordering tip before you author (Steps 3–6).** If this project has a code formatter, wire that single capability now and commit its first whole-tree sweep on its own — `discern config set-capability format "<the formatter>"`, then `discern prepare` to run it, then commit just the reflow (Step 7 has the detail). Doing it first lands the mechanical reformat on the empty scaffold, so every docs and guidance commit you make afterwards stays a clean content diff instead of being tangled with formatting noise.
+**One ordering tip before you author (Steps 3–6).** If this project has a code formatter — or you intend to add one (a missing formatter is exactly the kind of well-established tool worth proposing; see Step 7) — wire that single capability now and commit its first whole-tree sweep on its own — `discern config set-capability format "<the formatter>"`, then `discern prepare` to run it, then commit just the reflow (Step 7 has the detail). Doing it first lands the mechanical reformat on the empty scaffold, so every docs and guidance commit you make afterwards stays a clean content diff instead of being tangled with formatting noise.
 
 ---
 
@@ -157,6 +157,8 @@ discern config set-ratchet coverage --direction up --limit 80 --run "<coverage t
 
 Prefer these over hand-editing TOML. The format/lint/typecheck/test/build a stack plainly already has are not a fork to deliberate — so **batch them into one concise recommendation**, not a five-beat pitch apiece: tell the user which tools you found, that wiring them lets `discern` check those parts of the project for them, and that each lands as its own revertible commit. Then activate the ones you're confident in and commit them (the formatter on its own — see below). Reserve a genuine, individual pause for a **real decision**: two legitimate commands where the choice matters, or a command that would do more than check — touch real data, hit a paid or networked service, or run long.
 
+**Setup is a chance to raise the project's floor, not just record it.** Where a stack is *missing* a standard tool — no formatter, no linter, no type-checker — proposing a well-established one (the conventional, well-regarded choice for the ecosystem, like those in the table below) is a real improvement, not overreach. Walk the user through *adding* it in the five beats — recommend, say why, name `discern`, preserve their authority and the revert, then proceed — because installing a standard dev tool and committing it on its own is low-stakes and reversible, a narrate-and-proceed rather than a gate. Keep the genuine pause for the real decisions above (a paid, networked, or long-running command, or a true fork between legitimate alternatives).
+
 Before you run the gate here for the first time, **run `discern refresh`**: you edited `guidance.md` in Step 4, which leaves the generated agent files stale, and `discern finish`'s currency check fails on stale files until `refresh` recompiles them. Then **`discern finish`** (or the faster **`discern prepare`**) confirms each fill passes — both run during setup, and `discern setup done` proves the whole gate green before completion — so a confident fill is exactly the low-stakes, reversible change to proceed on. A capability you can't pin down waits as a comment beside the unset key: an omitted capability is "knowably absent", so a wrong guess never breaks the gate.
 
 Detection lookup (signal file → ecosystem → the usual tools to suggest):
@@ -181,7 +183,7 @@ Notes that keep the proposal honest:
 - **Wire the obvious scopes and worktree resources too** while you're here: point `[scopes]` globs at where this project's code actually lives, and if the project needs a per-worktree external resource (a database, an emulator, a container), note a `[worktree.resources.<name>]` table with `create`/`destroy` for the user to fill — an external resource carries cost and data implications, so it is a genuine decision to leave with them, not something to wire silently.
 - **Point the gate at its gotchas doc.** Step 2 created `docs/80-development/finish-gate-gotchas.md`; set `[project].gotchas_doc = "docs/80-development/finish-gate-gotchas.md"` so a non-obvious gate failure points agents at it.
 - **Wire `format` first, and commit its sweep on its own.** A `format` capability reformats the whole tree the first time it runs — so ideally you wired it before authoring the docs (Step 2's ordering tip), landing the reflow on the empty scaffold. Either way: run `discern prepare` right after wiring it and commit that normalization as its own step, so the mechanical reflow never muddies a content commit.
-- **Leave a capability unset** if the stack has no standard tool for it. A green gate you grow into beats a red gate on day one.
+- **Leave a capability unset** only when the ecosystem genuinely has no standard tool for that slot — not merely because the project hadn't adopted the obvious one yet (recommend adding that; see above). A green gate you grow into beats a red gate on day one.
 
 ---
 

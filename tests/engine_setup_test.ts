@@ -868,3 +868,16 @@ Deno.test("the brief sequences a refresh before the first gate run and a format 
   assertStringIncludes(brief, "ordering tip");
   assertStringIncludes(brief, "set-capability format");
 });
+
+Deno.test("the brief frames setup as a chance to add missing well-established tooling, not just wire existing tools", async () => {
+  // Setup should raise the project's quality floor: a standard tool the stack is
+  // MISSING is a proactive recommendation (walked through the five beats), not a
+  // slot left blank. Guards against the brief drifting back to detection-only.
+  const brief = await Deno.readTextFile(
+    join(REAL_TEMPLATES, "setup", "instructions.md"),
+  );
+  assertStringIncludes(brief, "raise the project's floor");
+  assertStringIncludes(brief, "intend to add one");
+  // The "leave unset" guidance is scoped to genuine absence, not un-adopted tools.
+  assertStringIncludes(brief, "genuinely has no standard tool");
+});
