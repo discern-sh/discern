@@ -49,7 +49,7 @@ It is **one self-contained binary** with two faces:
   check it. This face is build-time work: it writes a project's files, then
   steps out of the way.
 - The **Engine** — the stack-neutral logic behind `discern finish` / `prepare` /
-  `audit` / `worktree` / … . It is **TypeScript compiled into the binary**
+  `improve` / `worktree` / … . It is **TypeScript compiled into the binary**
   ([`src/engine/`](../../src/engine/), sharing
   [`src/shared/`](../../src/shared/) with the Installer), not files installed
   into the project.
@@ -128,8 +128,8 @@ verbs:
   branch, what changed, and what the gate _would_ fire (it never runs anything).
   From a **Worktree** it shows that Worktree's own state; from the main checkout
   it surveys the whole fleet of Worktrees in flight. It rounds out the trio with
-  `discern doctor` (_is it correctly installed?_) and `discern audit` (_is the
-  setup any good?_).
+  `discern doctor` (_is it correctly installed?_) and `discern improve` (_what
+  should get better next?_).
 - `discern worktree` carves an isolated **Worktree** (and branch) for a change,
   so the main checkout is never touched. Each Worktree gets its own dev-server
   port and any per-worktree **resources** (a database, an emulator, …) a project
