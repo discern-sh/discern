@@ -715,7 +715,10 @@ Deno.test("discern setup begin fails open (commits nothing, no error) when there
 
     // Still on `main`, and `begin` authored no commit — only the gitInit baseline exists,
     // so the scaffolded machinery sits uncommitted in the working tree for the agent.
-    assertEquals(await gitOut(dir, "rev-parse", "--abbrev-ref", "HEAD"), "main");
+    assertEquals(
+      await gitOut(dir, "rev-parse", "--abbrev-ref", "HEAD"),
+      "main",
+    );
     assertEquals(await gitOut(dir, "rev-list", "--count", "HEAD"), "1");
     assertStringIncludes(
       await gitOut(dir, "status", "--porcelain"),
