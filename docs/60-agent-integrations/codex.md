@@ -139,6 +139,15 @@ Codex protects `.git` paths inside writable roots, including a linked worktree's
 committing from the linked worktree can still need approval or a session whose
 workspace is already the worktree.
 
+If a Codex session starts inside a worktree and that worktree is later removed,
+Codex can block the next user message with "Current working directory missing".
+This is a Codex runtime limitation, not a discern MCP failure:
+`discern_graduate` can successfully tear down the worktree and re-aim the
+long-lived MCP server at the main checkout, but the Codex chat process can still
+remember the deleted directory it originally opened. There is no in-chat
+recovery once Codex blocks the conversation; start a new Codex session from the
+main checkout instead.
+
 The default writable-root path includes the main checkout directory name. If a
 developer clones the same repository under a different folder name, run
 `discern refresh`; it updates `.codex/config.toml` to the local path convention.
