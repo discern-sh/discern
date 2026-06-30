@@ -2,10 +2,21 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { runParallel, runSerial } from "../src/engine/jobs/runner.ts";
 import { finalCode } from "../src/engine/jobs/command.ts";
-import { capText } from "../src/shared/result.ts";
+import {
+  capText,
+  CAPTURE_CAP,
+  normalizeCapturedOutput,
+} from "../src/shared/result.ts";
 import type { Job } from "../src/engine/jobs/types.ts";
 
 const CWD = Deno.cwd();
+
+function hasDroppedC0Control(s: string): boolean {
+  return s.split("").some((ch) => {
+    const code = ch.charCodeAt(0);
+    return code < 0x20 && code !== 0x0a && code !== 0x09;
+  });
+}
 
 /** A capturing output sink for assertions on banners + job output. */
 function makeSink(): { write: (c: Uint8Array) => void; text: () => string } {
@@ -55,6 +66,38 @@ Deno.test("runParallel: every job executes in its required cwd", async () => {
     assertEquals(
       (await Deno.readTextFile(join(dir, "observed.cwd"))).trim(),
       await Deno.realPath(dir),
+    );
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+Deno.test("spawnJob tells captured commands they are not running in a terminal", async () => {
+  const dir = await Deno.makeTempDir({ prefix: "discern-job-env-" });
+  try {
+    const sink = makeSink();
+    const result = await runParallel([
+      {
+        label: "env",
+        command: 'printf \'%s:%s\' "$NO_COLOR" "$TERM" > observed.env',
+      },
+      {
+        label: "override",
+        command:
+          'NO_COLOR=custom TERM=xterm sh -c \'printf "%s:%s" "$NO_COLOR" "$TERM" > observed-override.env\'',
+      },
+    ], {
+      cwd: dir,
+      stream: false,
+      failFast: true,
+      color: false,
+      write: sink.write,
+    });
+    assertEquals(result.ok, true);
+    assertEquals(await Deno.readTextFile(join(dir, "observed.env")), "1:dumb");
+    assertEquals(
+      await Deno.readTextFile(join(dir, "observed-override.env")),
+      "custom:xterm",
     );
   } finally {
     await Deno.remove(dir, { recursive: true });
@@ -215,12 +258,35 @@ Deno.test("capText: returns short text unchanged, head+tail caps an overflow", (
   const big = capText("A".repeat(10_000) + "B".repeat(10_000));
   assert(big.truncated, "expected the 20k string to be truncated");
   assert(
-    big.text.length < 20_000,
-    "capped text should be shorter than the input",
+    big.text.length <= CAPTURE_CAP,
+    "capped text should stay within the inline bound",
   );
   assertStringIncludes(big.text, "chars elided"); // the middle marker
   assert(big.text.startsWith("A"), "head retained");
   assert(big.text.endsWith("B"), "tail retained");
+});
+
+Deno.test("normalizeCapturedOutput: strips terminal controls and keeps visible progress state", () => {
+  const input = [
+    "\x1b[32mCheck\x1b[0m src/main.ts",
+    "progress 10%\rprogress 50%\rprogress done",
+    "\x1b]8;;https://example.test\x1b\\click here\x1b]8;;\x1b\\",
+    "bell\x07back\bspace\tkeeps-tab",
+  ].join("\n");
+  const normalized = normalizeCapturedOutput(input);
+
+  assertEquals(
+    normalized,
+    [
+      "Check src/main.ts",
+      "progress done",
+      "click here",
+      "bellbackspace\tkeeps-tab",
+    ].join("\n"),
+  );
+  assert(!normalized.includes("\x1b"), normalized);
+  assert(!normalized.includes("\r"), normalized);
+  assert(!hasDroppedC0Control(normalized), normalized);
 });
 
 Deno.test("finalCode: a self-exited job keeps its real code; a signal-killed job reports 1", () => {

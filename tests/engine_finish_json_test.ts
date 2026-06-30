@@ -13,6 +13,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
+import { CAPTURE_CAP } from "../src/shared/result.ts";
 import {
   gitInit,
   runAgent,
@@ -32,6 +33,13 @@ const stepFor = (obj: any, label: string) =>
 // deno-lint-ignore no-explicit-any
 const diagFor = (obj: any, tool: string) =>
   (obj.diagnostics ?? []).find((d: { tool: string }) => d.tool === tool);
+
+function hasDroppedC0Control(s: string): boolean {
+  return s.split("").some((ch) => {
+    const code = ch.charCodeAt(0);
+    return code < 0x20 && code !== 0x0a && code !== 0x09;
+  });
+}
 
 Deno.test("finish --json: a no-op gate emits ok:true, verb, and no job steps", async () => {
   await withTempDir(async (dir) => {
@@ -98,6 +106,76 @@ Deno.test("finish --json: a failing check reports ok:false, a failed step, and a
     assertEquals(diag.severity, "error");
     assertEquals(diag.reproduce_cmd, "echo boom-on-stderr >&2; exit 1");
     assertStringIncludes(diag.output, "boom-on-stderr");
+  });
+});
+
+Deno.test("finish --json: Tier-0 diagnostic output is normalized, bounded, and offloaded when long", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeExecutable(
+      join(dir, "noisy-check.sh"),
+      [
+        "#!/usr/bin/env sh",
+        "printf '\\033[32mCheck\\033[0m src/main.ts\\n'",
+        "printf '\\033]8;;https://example.test\\033\\\\click here\\033]8;;\\033\\\\\\n'",
+        "printf 'progress 10%%\\rprogress 50%%\\rprogress done\\n'",
+        "printf 'bell\\007back\\010space\\n'",
+        "i=0",
+        'while [ "$i" -lt 20000 ]; do',
+        "  printf X",
+        "  i=$((i + 1))",
+        "done",
+        "printf '\\nTAIL-SIGNAL\\n'",
+        "exit 1",
+        "",
+      ].join("\n"),
+    );
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        'main_branch = "main"',
+        "",
+        "[capabilities]",
+        'lint = "./noisy-check.sh"',
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+
+    const r = await runAgent(dir, ["finish", "--json"]);
+    assertEquals(r.code, 1, r.output);
+    const obj = parseJson(r.stdout);
+    const diag = diagFor(obj, "lint");
+    assert(diag !== undefined, `expected a lint diagnostic: ${r.stdout}`);
+
+    assert(!diag.output.includes("\x1b"), diag.output);
+    assert(!diag.output.includes("\r"), diag.output);
+    assert(!hasDroppedC0Control(diag.output), diag.output);
+    assertStringIncludes(diag.output, "progress done");
+    assert(!diag.output.includes("progress 10%"), diag.output);
+    assert(
+      diag.output.length <= CAPTURE_CAP,
+      `diagnostic output should stay within ${CAPTURE_CAP} chars; got ${diag.output.length}`,
+    );
+    assertEquals(diag.truncated, true);
+    assertEquals(typeof diag.output_path, "string");
+
+    const info = await Deno.stat(diag.output_path);
+    assert(info.isFile, `expected a readable file at ${diag.output_path}`);
+    const full = await Deno.readTextFile(diag.output_path);
+    assert(
+      full.length > CAPTURE_CAP,
+      "full capture should exceed the inline cap",
+    );
+    assert(!full.includes("\x1b"), full);
+    assert(!full.includes("\r"), full);
+    assert(!hasDroppedC0Control(full), full);
+    assertStringIncludes(full, "Check src/main.ts");
+    assertStringIncludes(full, "click here");
+    assertStringIncludes(full, "progress done");
+    assertStringIncludes(full, "TAIL-SIGNAL");
   });
 });
 
