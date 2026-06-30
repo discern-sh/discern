@@ -623,6 +623,108 @@ Deno.test("discern setup isolates a fresh install on the discern-setup branch (A
   });
 });
 
+Deno.test("discern setup begin commits the scaffolded machinery, leaving docs/guidance/TODO for the agent", async () => {
+  // The cold-setup failure this fixes: a coding agent's safety classifier refuses to
+  // commit discern's own permission-widening wiring (.mcp.json / .claude/settings.json
+  // pre-approve an MCP server), so setup ended on a dirty tree with discern's essentials
+  // uncommitted. `begin` now OWNS that commit — extending the `setup done` marker-commit
+  // precedent — committing exactly the machinery and nothing the agent authors.
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+    await gitInit(dir); // clean tree on `main`
+
+    // Pin the agent set so the machinery footprint is deterministic (claude_code →
+    // .mcp.json + .claude/settings.json), not whatever the CI host has on PATH.
+    const r = await runAgent(dir, [
+      "setup",
+      "begin",
+      "--json",
+      "--agents",
+      "claude_code",
+    ]);
+    assertEquals(r.code, 0, r.output);
+    assertEquals(JSON.parse(r.stdout).data.machinery_committed, true);
+
+    // One commit, on the isolated branch, with the agreed message.
+    assertEquals(
+      await gitOut(dir, "rev-parse", "--abbrev-ref", "HEAD"),
+      "discern-setup",
+    );
+    assertStringIncludes(
+      await gitOut(dir, "log", "-1", "--format=%s"),
+      "discern: scaffold harness",
+    );
+
+    // The commit holds EXACTLY discern's machinery — the config, the gitignore fragment,
+    // and the per-agent MCP + hooks files — so an exact match proves both that the
+    // wiring is committed AND that no authored content was swept in.
+    const committed =
+      (await gitOut(dir, "show", "--name-only", "--format=", "HEAD"))
+        .split("\n").map((s) => s.trim()).filter(Boolean).sort();
+    assertEquals(committed, [
+      ".claude/settings.json",
+      ".gitignore",
+      ".mcp.json",
+      "discern.toml",
+    ]);
+
+    // The authored-content seeds the agent fills are deliberately left UNCOMMITTED
+    // (untracked) — discern committed its wiring, not the agent's canvas.
+    const untracked = await gitOut(dir, "status", "--porcelain");
+    for (const seed of ["guidance.md", "TODO.md", "docs/"]) {
+      assertStringIncludes(untracked, seed);
+    }
+  });
+});
+
+Deno.test("discern setup begin fails open (commits nothing, no error) when there is no setup branch", async () => {
+  // The machinery auto-commit only runs when `begin` created the `discern-setup` branch.
+  // With --allow-dirty (setup proceeds in place, no branch) it must NOT commit — and must
+  // NOT error: the agent commits as before. Mirrors commitCompletionMarker's fail-open.
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+    await gitInit(dir);
+
+    const r = await runAgent(dir, [
+      "setup",
+      "begin",
+      "--json",
+      "--allow-dirty",
+      "--agents",
+      "claude_code",
+    ]);
+    assertEquals(r.code, 0, r.output);
+    const res = JSON.parse(r.stdout);
+    assertEquals(res.data.branch, null); // no isolated branch was created
+    assertEquals(res.data.machinery_committed, false);
+
+    // Still on `main`, and `begin` authored no commit — only the gitInit baseline exists,
+    // so the scaffolded machinery sits uncommitted in the working tree for the agent.
+    assertEquals(await gitOut(dir, "rev-parse", "--abbrev-ref", "HEAD"), "main");
+    assertEquals(await gitOut(dir, "rev-list", "--count", "HEAD"), "1");
+    assertStringIncludes(
+      await gitOut(dir, "status", "--porcelain"),
+      "discern.toml",
+    );
+  });
+
+  // No git repo at all — also no branch — `begin` still succeeds, committing nothing.
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+    const r = await runAgent(dir, [
+      "setup",
+      "begin",
+      "--json",
+      "--agents",
+      "claude_code",
+    ]);
+    assertEquals(r.code, 0, r.output);
+    const res = JSON.parse(r.stdout);
+    assertEquals(res.data.branch, null);
+    assertEquals(res.data.machinery_committed, false);
+  });
+});
+
 Deno.test("discern setup refuses on a dirty tree, writing nothing; --allow-dirty overrides (ADR 0065)", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "app.ts"), "export const v = 1;\n");
