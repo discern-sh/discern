@@ -469,6 +469,40 @@ export const DocsDataSchema = z.strictObject({
 });
 export type DocsData = z.infer<typeof DocsDataSchema>;
 
+// setup:step ──────────────────────────────────────────────────────────────────
+
+/**
+ * The machine-readable **spine** of one setup page (ADR 0078) — navigation and
+ * completion-proof rails ONLY. The warm behavioral/consent guidance stays in the
+ * prose `guidance` field, never flattened into these terse fields (the two-lane
+ * rule: structured fields get summarized and weakened; prose gets followed). The
+ * page parser ({@link import("./setup_pages.ts")}) validates each step's authored
+ * TOML block against this, so a malformed spine fails loudly rather than serving
+ * half a page.
+ */
+export const SetupPageSpineSchema = z.strictObject({
+  intent: z.string(),
+  files_to_read: z.array(z.string()),
+  must_do: z.array(z.string()),
+  what_not_to_do: z.array(z.string()),
+  completion_check: z.string(),
+  next_action: z.string(),
+});
+export type SetupPageSpine = z.infer<typeof SetupPageSpineSchema>;
+
+/**
+ * `setup:step` — one numbered setup page: the machine `spine` plus the warm prose
+ * `guidance` the agent follows verbatim. `setup step <n> --json` carries BOTH
+ * lanes; the human rendering leads with the prose (ADR 0078).
+ */
+export const SetupStepDataSchema = z.strictObject({
+  step: z.number(),
+  title: z.string(),
+  spine: SetupPageSpineSchema,
+  guidance: z.string(),
+});
+export type SetupStepData = z.infer<typeof SetupStepDataSchema>;
+
 // ── per-verb output schemas (the envelope with `data` narrowed) ──────────────
 // Advertised by the MCP server as each tool's `outputSchema`; the SDK validates a
 // call's `structuredContent` against `<schema>.shape`. The data-less verbs use the
@@ -527,4 +561,12 @@ export const ImproveOutputSchema = z.strictObject({
 export const DocsOutputSchema = z.strictObject({
   ...ENVELOPE_BASE_FIELDS,
   data: DocsDataSchema.optional(),
+});
+
+/** `setup:step` output: envelope + the structured page `data`. CLI-only (setup is
+ * not an MCP tool), but modeled here so the page parser validates against one
+ * source and a faithfulness test can pin the real serialized output to it. */
+export const SetupStepOutputSchema = z.strictObject({
+  ...ENVELOPE_BASE_FIELDS,
+  data: SetupStepDataSchema.optional(),
 });

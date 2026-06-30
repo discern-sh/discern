@@ -140,6 +140,8 @@ Deno.test("the setup redirect and the command retire once setup is recorded", as
     await Deno.remove(join(dir, "docs"), { recursive: true });
     await Deno.mkdir(join(dir, "docs"));
     await Deno.writeTextFile(join(dir, "docs/README.md"), "# Real docs\n");
+    // ADR 0078: `done` also requires ≥1 wired capability (a derived per-step check).
+    await runAgent(dir, ["config", "set-capability", "test", "true"]);
     const done = await runAgent(dir, ["setup", "done"]);
     assertEquals(done.code, 0, done.output);
 
@@ -232,20 +234,23 @@ Deno.test("finish/prepare/test/ratchets run before setup is recorded, carrying t
   });
 });
 
-/** Lay a clean, marker-free project state so `setup done`'s marker check passes and
- * only the GATE decides the outcome: real docs, a real guidance.md, and `test` wired
- * to `cmd` (a shell command whose exit status is the gate's verdict). */
+/** Lay a clean project state so `setup done`'s marker check AND its derived per-step
+ * checks (ADR 0078) pass, leaving only the GATE to decide the outcome: real docs, a
+ * guidance.md with a pitch + a Conventions section, and `test` wired to `cmd` (a
+ * shell command whose exit status is the gate's verdict). */
 async function readyForDone(dir: string, cmd: string): Promise<void> {
   await scaffoldEngine(dir, { bootstrapped: false });
   await gitInit(dir);
   await runAgent(dir, ["setup", "begin"]); // lay the skeletons
-  // Replace the marker-carrying skeletons with real, marker-free content.
+  // Replace the marker-carrying skeletons with real, marker-free content. The
+  // guidance.md carries a real pitch and a Conventions section so the per-step
+  // guidance check (ADR 0078) passes; design-principles is left absent (N/A).
   await Deno.remove(join(dir, "docs"), { recursive: true });
   await Deno.mkdir(join(dir, "docs"));
   await Deno.writeTextFile(join(dir, "docs/README.md"), "# Real docs\n");
   await Deno.writeTextFile(
     join(dir, "guidance.md"),
-    "# Project guidance\n\nReal conventions.\n",
+    "# Project guidance\n\nA real pitch describing the project and who it serves.\n\n## Conventions\n\nReal, project-specific conventions.\n",
   );
   const wired = await runAgent(dir, ["config", "set-capability", "test", cmd]);
   assertEquals(wired.code, 0, wired.output);
@@ -911,6 +916,8 @@ Deno.test("discern setup done ignores a real doc that merely mentions EXAMPLE", 
       join(dir, "docs/README.md"),
       "# Docs\n\nSee the sample config (EXAMPLE) in the appendix.\n",
     );
+    // ADR 0078: `done` also requires ≥1 wired capability (a derived per-step check).
+    await runAgent(dir, ["config", "set-capability", "test", "true"]);
     const done = await runAgent(dir, ["setup", "done"]);
     assertEquals(done.code, 0, done.output);
     assertStringIncludes(
