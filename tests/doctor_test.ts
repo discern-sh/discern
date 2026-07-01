@@ -541,7 +541,7 @@ Deno.test("doctor --json: carries the execution model, each step marked project/
         "prepare",
         "test",
         "ratchets",
-        "start (worktree:create)",
+        "start",
         "worktree:ensure",
         "integrate",
         "graduate (--to branch)",

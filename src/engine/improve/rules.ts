@@ -1,16 +1,16 @@
 /**
- * The audit **catalog** — the project facts gathered once ({@link buildContext})
+ * The improvement **catalog** — the project facts gathered once ({@link buildContext})
  * and the best-practice {@link CATEGORIES} evaluated against them.
  *
  * Each category groups related rules and may be gated on a feature (a disabled
  * subsystem's practices don't apply). Each rule is either deterministic (discern
  * decides it) or subjective (discern surfaces it for the agent to judge against the
- * cited material). The catalog is data, not control flow: the runner in `audit.ts`
+ * cited material). The catalog is data, not control flow: the runner in `improve.ts`
  * walks it. To add a best practice, add a rule here — nothing else changes.
  *
  * The bar for a deterministic rule: its verdict must be *certain* from the gathered
  * facts (no guessing). Anything that needs judgement is a subjective rule instead,
- * so the audit never reports a confident pass/fail it can't actually stand behind.
+ * so improve never reports a confident pass/fail it can't actually stand behind.
  */
 
 import { join } from "@std/path";
@@ -18,10 +18,11 @@ import { toCommandList } from "../../shared/config_schema.ts";
 import type { DiscernConfig } from "../../shared/config_schema.ts";
 import { resolveGuidanceSources, resolveSkillsDir } from "../../lib/paths.ts";
 import { allGuidanceFilePaths } from "../../lib/providers.ts";
+import { DEFAULT_DOCS_DIR, normalizeDocsDir } from "../../shared/docs_path.ts";
 import type {
-  AuditContext,
   Category,
   DeterministicRule,
+  ImprovementContext,
   SubjectiveRule,
 } from "./types.ts";
 
@@ -54,10 +55,14 @@ async function fileExists(path: string): Promise<boolean> {
   }
 }
 
-/** Count real ADRs under `docs/_adr`, recursing into subdirectories so retired
+/** Count real ADRs under the configured docs root's `_adr`, recursing into
+ * subdirectories so retired
  * ADRs relocated under `_superseded/` still count: files named `NNNN-*.md`,
  * excluding the `0000-template` seed. Zero when the directory is absent. */
-export async function countAdrs(root: string): Promise<number> {
+export async function countAdrs(
+  root: string,
+  docsDir = DEFAULT_DOCS_DIR,
+): Promise<number> {
   let count = 0;
   async function scan(dir: string): Promise<void> {
     try {
@@ -75,7 +80,7 @@ export async function countAdrs(root: string): Promise<number> {
       // directory absent — contributes zero
     }
   }
-  await scan(join(root, "docs", "_adr"));
+  await scan(join(root, normalizeDocsDir(docsDir), "_adr"));
   return count;
 }
 
@@ -112,14 +117,14 @@ async function anyAgentFile(root: string): Promise<boolean> {
 }
 
 /**
- * Gather the project facts the audit rules read — ONE pass of config access and
+ * Gather the project facts the improvement rules read — ONE pass of config access and
  * filesystem probing, so each rule stays a pure, synchronous function of the
  * returned context.
  */
 export async function buildContext(
   root: string,
   config: DiscernConfig,
-): Promise<AuditContext> {
+): Promise<ImprovementContext> {
   const sources = await resolveGuidanceSources(root, config);
   let guidanceText = "";
   for (const src of sources) {
@@ -139,6 +144,7 @@ export async function buildContext(
     ? gotchasDoc
     : join(root, gotchasDoc);
 
+  const docsDir = normalizeDocsDir(config.docs.dir);
   return {
     root,
     config,
@@ -148,9 +154,10 @@ export async function buildContext(
     guidancePlaceholder: guidanceText.includes(GUIDANCE_PLACEHOLDER_MARK),
     gotchasDocSet: gotchasDoc !== "",
     gotchasDocExists: gotchasAbs !== "" && (await fileExists(gotchasAbs)),
-    docsTree: (await pathExists(join(root, "docs"))) &&
-      (await fileExists(join(root, "docs", "README.md"))),
-    adrCount: await countAdrs(root),
+    docsDir,
+    docsTree: (await pathExists(join(root, docsDir))) &&
+      (await fileExists(join(root, docsDir, "README.md"))),
+    adrCount: await countAdrs(root, docsDir),
     agentFilePresent: await anyAgentFile(root),
     authoredSkills: await countAuthoredSkills(root, config),
   };
@@ -160,14 +167,14 @@ export async function buildContext(
 
 /** Whether a capability is wired (a non-empty command after no-op filtering). */
 function capWired(
-  ctx: AuditContext,
+  ctx: ImprovementContext,
   name: keyof DiscernConfig["capabilities"],
 ): boolean {
   return toCommandList(ctx.config.capabilities[name]).length > 0;
 }
 
 /** Whether any wired `[checks.<name>]` runs in the given stage. */
-function checkInStage(ctx: AuditContext, stage: string): boolean {
+function checkInStage(ctx: ImprovementContext, stage: string): boolean {
   return Object.values(ctx.config.checks).some(
     (c) => c.stage === stage && toCommandList(c.run).length > 0,
   );
@@ -263,6 +270,30 @@ const GATE: Category = {
           : undefined;
       },
     },
+    {
+      kind: "subjective",
+      id: "gate.test-depth",
+      title: "Tests protect behaviour, boundaries, and failure paths",
+      ask:
+        "Inspect representative tests behind the configured command. Do they protect " +
+        "observable behaviour at important boundaries — including failure paths and " +
+        "edge cases — or mostly mirror implementation details and prove that happy-path " +
+        "code runs? Would a plausible regression fail for a useful reason?",
+      teach:
+        "A strong suite buys confidence, not just test count. Prefer externally visible " +
+        "outcomes, boundary conditions, and past failure modes; keep assertions specific " +
+        "enough that a red test explains the broken promise without coupling every test " +
+        "to internal structure.",
+      against: (ctx): { source: string; excerpt: string } | undefined => {
+        const cmd = toCommandList(ctx.config.capabilities.test).join(" && ");
+        return cmd.trim().length > 0
+          ? {
+            source: "the test suite behind the configured command",
+            excerpt: cmd,
+          }
+          : undefined;
+      },
+    },
   ],
 };
 
@@ -315,6 +346,30 @@ const SETUP: Category = {
             status: "partial",
             detail: `[project].gotchas_doc points at ${doc}, which is missing`,
           };
+      },
+    },
+    {
+      kind: "subjective",
+      id: "setup.failure-memory",
+      title: "The gotchas doc is an actionable failure playbook",
+      ask:
+        "Read the configured gotchas document. Does each entry capture a recurring, " +
+        "non-obvious failure with the symptom, likely cause, and proven recovery — or " +
+        "is it generic advice, stale history, or a list that still makes the next agent " +
+        "rediscover the diagnosis?",
+      teach:
+        "Good failure memory shortens the next incident. Record only traps the code and " +
+        "ordinary tool output do not make obvious; make each entry searchable from the " +
+        "observed symptom and concrete enough to verify the fix, then remove it when " +
+        "the underlying trap is eliminated.",
+      against: (ctx): { source: string; excerpt: string } | undefined => {
+        const doc = ctx.config.project.gotchas_doc.trim();
+        return doc === "" ? undefined : {
+          source: doc,
+          excerpt: ctx.gotchasDocExists
+            ? "configured failure-pointer document"
+            : "configured path is currently missing",
+        };
       },
     },
   ],
@@ -413,15 +468,22 @@ const DOCS: Category = {
       id: "docs.tree",
       title: "Documentation tree present",
       weight: 2,
-      fix: "discern setup (seeds the docs/ skeleton), then fill it in",
+      fix:
+        "discern setup (seeds the configured docs skeleton), then fill it in",
       teach:
-        "A browsable docs/ tree (with a README at its root) is where the project's " +
+        "A browsable documentation tree (with a README at its root) is where the project's " +
         "shape lives for future-you and the agents grounding work in it. `discern docs` " +
         "browses it; `discern setup` seeds the skeleton.",
       evaluate: (ctx): { status: "pass" | "fail"; detail: string } =>
         ctx.docsTree
-          ? { status: "pass", detail: "docs/ with a README.md exists" }
-          : { status: "fail", detail: "no docs/ tree with a README.md" },
+          ? {
+            status: "pass",
+            detail: `${ctx.docsDir} with a README.md exists`,
+          }
+          : {
+            status: "fail",
+            detail: `no ${ctx.docsDir} tree with a README.md`,
+          },
     },
     {
       kind: "deterministic",
@@ -429,15 +491,18 @@ const DOCS: Category = {
       title: "Architecture decisions recorded",
       weight: 1,
       fix:
-        "record significant decisions as ADRs under docs/_adr/ (the write-adr skill helps)",
+        "record significant decisions under the configured docs root's _adr/ directory (the write-adr skill helps)",
       teach:
         "ADRs capture WHY a hard-to-reverse or surprising decision was made, so it " +
         "isn't silently re-litigated later. A project with none is losing that memory. " +
-        "Record the next notable decision under docs/_adr/.",
+        "Record the next notable decision under the configured docs root's _adr/ directory.",
       evaluate: (ctx): { status: "pass" | "fail"; detail: string } =>
         ctx.adrCount > 0
           ? { status: "pass", detail: `${ctx.adrCount} ADR(s) recorded` }
-          : { status: "fail", detail: "no ADRs under docs/_adr/" },
+          : {
+            status: "fail",
+            detail: `no ADRs under ${ctx.docsDir}_adr/`,
+          },
     },
     {
       kind: "subjective",
@@ -453,7 +518,32 @@ const DOCS: Category = {
         "skill refreshes a subtree; `discern docs --list` shows the tree.",
       against: (ctx): { source: string; excerpt: string } | undefined =>
         ctx.docsTree
-          ? { source: "docs/", excerpt: "browse with `discern docs --list`" }
+          ? {
+            source: ctx.docsDir,
+            excerpt: "browse with `discern docs --list`",
+          }
+          : undefined,
+    },
+    {
+      kind: "subjective",
+      id: "docs.navigation",
+      title: "The docs tree is navigable from overview to detail",
+      ask:
+        "Starting at the configured docs root's README.md, can a new contributor find the system overview, " +
+        "the relevant subsystem, and its detailed pages without already knowing their " +
+        "filenames? Do subtree READMEs explain scope and link their leaves, or is the " +
+        "tree merely a collection of documents?",
+      teach:
+        "Good documentation has a map as well as accurate pages. Keep the root index " +
+        "small and oriented around reader journeys, give each subsystem an overview, " +
+        "and link detail from the nearest useful context so discoverability does not " +
+        "depend on repository archaeology.",
+      against: (ctx): { source: string; excerpt: string } | undefined =>
+        ctx.docsTree
+          ? {
+            source: `${ctx.docsDir}README.md and subtree README files`,
+            excerpt: "follow the links as a first-time reader",
+          }
           : undefined,
     },
   ],
@@ -568,7 +658,7 @@ const RATCHETS: Category = {
       teach:
         "A count is safe to ratchet only when it doesn't scale with project size (a true " +
         "budget, like shipped bytes). If it grows as you add code or docs, normalize it: " +
-        '`per = { words = "docs/**" }` ratchets alerts-per-word, so growth alone never ' +
+        '`per = { words = "${docs.dir}**" }` ratchets docs alerts-per-word, so growth alone never ' +
         "breaches the ceiling — only a real quality regression does.",
       against: (ctx): { source: string; excerpt: string } | undefined => {
         const raw = Object.entries(ctx.config.ratchets)
@@ -610,10 +700,30 @@ const SKILLS: Category = {
           : `${ctx.authoredSkills} authored skill(s)`,
       }),
     },
+    {
+      kind: "subjective",
+      id: "skills.executable",
+      title: "Skills are executable, verifiable playbooks",
+      ask:
+        "Inspect the authored skills. Does each say when to use it, what context or " +
+        "preconditions it needs, the concrete sequence to follow, how to verify success, " +
+        "and how to recover or clean up when the workflow can fail? Could a fresh agent " +
+        "execute it without inventing the missing half?",
+      teach:
+        "A good skill packages judgement, not just reminders. Give it a sharp trigger, " +
+        "progressively disclose only the needed references, make effects and stop " +
+        "conditions explicit, and end with observable proof that the task succeeded.",
+      against: (ctx): { source: string; excerpt: string } | undefined => ({
+        source: resolveSkillsDir(ctx.root, ctx.config).rel,
+        excerpt: ctx.authoredSkills === 0
+          ? "no authored skills to inspect yet"
+          : `${ctx.authoredSkills} authored skill(s) to sample`,
+      }),
+    },
   ],
 };
 
-/** The full audit catalog, in display order. The runner skips a category whose
+/** The full improvement catalog, in display order. The runner skips a category whose
  * `feature` is disabled, and ranks the rest weakest-first. */
 export const CATEGORIES: readonly Category[] = [
   GATE,
@@ -625,7 +735,7 @@ export const CATEGORIES: readonly Category[] = [
   SKILLS,
 ];
 
-/** The audit category slugs, in catalog order — the SSOT for every human/agent-
+/** The improvement category slugs, in catalog order — the SSOT for every human/agent-
  * facing list of `--category` values. The CLI help and the MCP tool's `category`
  * description interpolate this, so they cannot drift from the catalog. */
 export const CATEGORY_NAMES: readonly string[] = CATEGORIES.map((c) => c.name);

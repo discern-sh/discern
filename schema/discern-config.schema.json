@@ -43,14 +43,16 @@
       "type": "string"
     },
     "agents": {
-      "description": "Which agent instruction files to compile (claude_code, codex, gemini).",
+      "description": "Which agent integrations to enable: claude_code -> CLAUDE.md, gemini -> GEMINI.md, codex / cursor / copilot -> AGENTS.md.",
       "type": "array",
       "items": {
         "type": "string",
         "enum": [
           "claude_code",
           "codex",
-          "gemini"
+          "gemini",
+          "cursor",
+          "copilot"
         ]
       }
     },
@@ -67,6 +69,19 @@
       "additionalProperties": {
         "type": "boolean"
       }
+    },
+    "docs": {
+      "description": "[docs] settings — chiefly the project-relative directory holding discern's agent documentation tree.",
+      "default": {},
+      "type": "object",
+      "properties": {
+        "dir": {
+          "default": "docs/",
+          "description": "Where discern's agent documentation tree lives, relative to the project root. `discern setup` scaffolds it here and `discern docs` browses it by default.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
     },
     "capabilities": {
       "description": "[capabilities] fills — a known capability name mapped to a command (or list). The gate stage is derived from the name; the set is closed.",
@@ -281,7 +296,7 @@
             "description": "The command whose output emits the metric line: DISCERN_METRIC <metric> <number>."
           },
           "per": {
-            "description": "Divide the metric by this to ratchet a *rate*, not a raw count — so the number doesn't rise just because the project grew. Either a second metric the run emits, or a built-in extent discern measures itself: per = { words = \"docs/**\" } (files | lines | words | bytes over a git pathspec).",
+            "description": "Divide the metric by this to ratchet a *rate*, not a raw count — so the number doesn't rise just because the project grew. Either a second metric the run emits, or a built-in extent discern measures itself: per = { words = \"${docs.dir}**\" } (files | lines | words | bytes over a git pathspec).",
             "anyOf": [
               {
                 "type": "string"

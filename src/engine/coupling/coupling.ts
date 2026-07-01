@@ -7,7 +7,7 @@
  * almost always moves with it. This reconstructs that "I bet there's another one"
  * instinct from data — a directional co-change graph over a bounded commit window.
  *
- * Strictly ADVISORY (ADR 0074): it points at where to look and the human/agent decides
+ * Strictly ADVISORY (ADR 0084): it points at where to look and the human/agent decides
  * essential (lock it with a forcing-function — ADR 0051) or incidental (ignore). It
  * never blocks. Three modes, one verb (modelled on `changed-scopes`):
  *  - **diff-aware** (no path) — the current change set's partners that are MISSING from
@@ -31,7 +31,7 @@
  *
  * Evidence is reported in plain counts — "B changed in N of the M recent commits that
  * touched A" — not an abstract score. Recompute on demand, bounded by the window — no
- * cache in v1 (ADR 0074).
+ * cache in v1 (ADR 0084).
  */
 
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
@@ -815,7 +815,7 @@ export async function runCoupling(
 /**
  * The diff-aware co-change advisory as gate hints, or `[]`. The gate appends these at
  * its TAIL (with strand detection — it reads the diff, so it is dependency-bearing,
- * never a fail-fast precondition; ADR 0074). Gated by the caller on `[features].coupling`,
+ * never a fail-fast precondition; ADR 0084). Gated by the caller on `[features].coupling`,
  * `[coupling].in_gate`, and a bootstrapped install. Best-effort: any failure yields
  * `[]`, so the advisory can NEVER affect the gate's `ok` / exit / `failed_stage`.
  */

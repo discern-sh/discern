@@ -39,6 +39,32 @@ Deno.test("editor replaces a value, preserving alignment and other comments", ()
   assertStringIncludes(out, "[scopes.side_gates]");
 });
 
+Deno.test("value replacement preserves its own inline comment", async (t) => {
+  const cases = [
+    {
+      name: "section key",
+      input: '[project]\nslug = "old # value"   # keep this annotation\n',
+      replace: (editor: TomlEditor) =>
+        editor.setString("project.slug", "new value"),
+      expected: 'slug = "new value"   # keep this annotation',
+    },
+    {
+      name: "root key",
+      input: 'name = "old # value"   # keep this annotation\n[project]\n',
+      replace: (editor: TomlEditor) =>
+        editor.setRootString("name", "new value"),
+      expected: 'name = "new value"   # keep this annotation',
+    },
+  ];
+
+  for (const testCase of cases) {
+    await t.step(testCase.name, () => {
+      const out = testCase.replace(new TomlEditor(testCase.input)).toString();
+      assertStringIncludes(out, testCase.expected);
+    });
+  }
+});
+
 Deno.test("editor inserts a missing key into an existing section", () => {
   const out = new TomlEditor(SAMPLE).setString("project.main_branch", "trunk")
     .toString();
@@ -57,6 +83,63 @@ Deno.test("editor appends a brand-new section at EOF", () => {
   assertStringIncludes(out, 'dir = ".tools"');
   // The new section comes after the original content.
   assert(out.indexOf("[recipes]") > out.indexOf("[scopes.side_gates]"));
+});
+
+const FAMILY_SAMPLE = `[project]
+slug = "demo"
+
+[scopes.docs]
+paths   = ["docs/"]
+neutral = true
+
+[gate]
+stream = false
+`;
+
+Deno.test("editor inserts a brand-new section beside its existing dotted-family siblings, not at EOF", () => {
+  // [scopes.assets] doesn't exist yet, but [scopes.docs] does — the new
+  // section must land next to it, not scattered after unrelated [gate].
+  const out = new TomlEditor(FAMILY_SAMPLE)
+    .setStringArray("scopes.assets.paths", ["assets/**"])
+    .toString();
+  const lines = out.split("\n");
+  const docsIdx = lines.indexOf("[scopes.docs]");
+  const assetsIdx = lines.indexOf("[scopes.assets]");
+  const gateIdx = lines.indexOf("[gate]");
+  assert(
+    docsIdx >= 0 && docsIdx < assetsIdx && assetsIdx < gateIdx,
+    `expected [scopes.assets] between [scopes.docs] and [gate], got order: ${
+      JSON.stringify({ docsIdx, assetsIdx, gateIdx })
+    }`,
+  );
+  // A single blank-line gap, matching this file's established section spacing
+  // (not the double-blank gap insertSectionBlockAfter uses for documented
+  // blocks).
+  assertStringIncludes(
+    out,
+    'neutral = true\n\n[scopes.assets]\npaths = ["assets/**"]',
+  );
+});
+
+Deno.test("editor anchors a new section on the LAST matching sibling when several exist", () => {
+  const sample = `[scopes.docs]
+paths = ["docs/"]
+
+[scopes.native]
+paths = ["native/**"]
+
+[gate]
+stream = false
+`;
+  const out = new TomlEditor(sample)
+    .setStringArray("scopes.assets.paths", ["assets/**"])
+    .toString();
+  const lines = out.split("\n");
+  assert(
+    lines.indexOf("[scopes.native]") < lines.indexOf("[scopes.assets]") &&
+      lines.indexOf("[scopes.assets]") < lines.indexOf("[gate]"),
+    "a new sibling should land after the LAST existing family member",
+  );
 });
 
 Deno.test("hasSection reports presence of a section header", () => {
@@ -178,6 +261,49 @@ Deno.test("editor rejects a non-section key", () => {
     threw = true;
   }
   assert(threw, "a key with no section should be rejected");
+});
+
+Deno.test("root keys: setRoot* insert before the first section, then replace in place", () => {
+  // A foreign file (Codex's environment.toml) carries root-level keys before any
+  // section header — the discern.toml subset never does, but the editor handles them.
+  const editor = new TomlEditor("");
+  assert(!editor.hasRootKey("version"), "an empty file has no root key");
+  editor.setRootNumber("version", 1);
+  editor.setRootString("name", "Discern");
+  editor.setString("setup.script", "run");
+  assertEquals(
+    editor.toString(),
+    'version = 1\nname = "Discern"\n\n[setup]\nscript = "run"',
+  );
+  // Both root keys are now present…
+  const e2 = new TomlEditor(editor.toString());
+  assert(e2.hasRootKey("version") && e2.hasRootKey("name"));
+  // …and re-setting one replaces it in place (no duplicate line).
+  e2.setRootString("name", "Other");
+  assertStringIncludes(e2.toString(), 'name = "Other"');
+  assertEquals(e2.toString().match(/^name =/gm)?.length, 1);
+});
+
+Deno.test("root keys are scoped to the pre-section region (a same-named section key is not a root key)", () => {
+  // `name` lives inside [project], not at the root — hasRootKey must not see it.
+  const editor = new TomlEditor('[project]\nname = "x"\n');
+  assert(
+    !editor.hasRootKey("name"),
+    "a key inside a section is not a root key",
+  );
+  // Setting it as a root key inserts a NEW root line before the section.
+  editor.setRootString("name", "root");
+  assertStringIncludes(editor.toString(), 'name = "root"\n[project]');
+});
+
+Deno.test("setRootLiteral rejects a dotted key", () => {
+  let threw = false;
+  try {
+    new TomlEditor("").setRootLiteral("a.b", "1");
+  } catch {
+    threw = true;
+  }
+  assert(threw, "a dotted key is not a root key");
 });
 
 Deno.test("tomlNumber rejects a non-finite number", () => {

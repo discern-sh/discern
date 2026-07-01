@@ -36,12 +36,12 @@ import {
   worktreeDirtyPaths,
 } from "./fix_drift.ts";
 import { renderFailureTail } from "./failure_tail.ts";
+import { diagnosticOutputFields } from "./diagnostic_output.ts";
 import { changedScopes, PREVIEWABLE_MARKER } from "../scopes/changed.ts";
 import { couplingGateHints } from "../coupling/coupling.ts";
 import { colorEnabled, makeOut, type Out, outSink } from "../output.ts";
 import { assertMainMerged } from "../worktree/git.ts";
 import {
-  capText,
   type Diagnostic,
   type DiscernResult,
   type FailedStage,
@@ -118,9 +118,11 @@ function driftDiff(entry: GuidanceDriftEntry): string {
  * not the generated file), and a capped diff of what a refresh would change — the
  * rescue, since the untracked file has no `git diff` to fall back on.
  */
-function guidanceDiagnostic(stale: GuidanceDriftEntry[]): Diagnostic {
+async function guidanceDiagnostic(
+  stale: GuidanceDriftEntry[],
+): Promise<Diagnostic> {
   const files = stale.map((d) => d.path).join(", ");
-  const capped = capText(
+  const outputFields = await diagnosticOutputFields(
     `Generated agent files are out of date: ${files}.\n` +
       "Run `discern refresh` to regenerate them. If you meant to change the " +
       "guidance, edit your [guidance].sources (e.g. guidance.md) instead — a direct " +
@@ -132,8 +134,7 @@ function guidanceDiagnostic(stale: GuidanceDriftEntry[]): Diagnostic {
     severity: "error",
     message: `generated agent file(s) out of date: ${files}`,
     reproduce_cmd: "discern refresh",
-    output: capped.text,
-    truncated: capped.truncated === true ? true : undefined,
+    ...outputFields,
   };
 }
 
@@ -143,9 +144,11 @@ function guidanceDiagnostic(stale: GuidanceDriftEntry[]): Diagnostic {
  * analog of {@link guidanceDiagnostic} — same redirect (edit the source, not the
  * generated copy), so the two generated-artifact failures read identically.
  */
-function skillsDiagnostic(stale: SkillsDriftEntry[]): Diagnostic {
+async function skillsDiagnostic(
+  stale: SkillsDriftEntry[],
+): Promise<Diagnostic> {
   const dirs = [...new Set(stale.map((d) => d.dir))].join(", ");
-  const capped = capText(
+  const outputFields = await diagnosticOutputFields(
     `Materialized skills are out of date in: ${dirs}.\n` +
       "Run `discern refresh` to re-materialize them. If you meant to change a skill, " +
       "edit its source under [skills].dir (or `discern skills eject` a bundled one) — a " +
@@ -157,8 +160,7 @@ function skillsDiagnostic(stale: SkillsDriftEntry[]): Diagnostic {
     severity: "error",
     message: `materialized skills out of date: ${dirs}`,
     reproduce_cmd: "discern refresh",
-    output: capped.text,
-    truncated: capped.truncated === true ? true : undefined,
+    ...outputFields,
   };
 }
 
@@ -180,7 +182,7 @@ async function runGate(
   // quiet — the result envelope is the entire output (ADR 0030), so the runner
   // and the Out are silenced and nothing streams to any fd. The shared run context
   // (job RunOptions + the narration Out) is the one `prepare`/`test` use too.
-  const { runOpts, out } = gateRunContext(cfg, json);
+  const { runOpts, out } = gateRunContext(root, cfg, json);
 
   const results = new Map<string, JobResult>();
   let failedStage: FailedStage | null = null;
@@ -215,7 +217,7 @@ async function runGate(
       .filter((d) => d.reason === "stale");
     if (stale.length > 0) {
       failedStage = "guidance";
-      guidanceDiag = guidanceDiagnostic(stale);
+      guidanceDiag = await guidanceDiagnostic(stale);
     }
   }
 
@@ -229,7 +231,7 @@ async function runGate(
       .filter((d) => d.reason === "stale");
     if (stale.length > 0) {
       failedStage = "skills";
-      skillsDiag = skillsDiagnostic(stale);
+      skillsDiag = await skillsDiagnostic(stale);
     }
   }
 
@@ -302,7 +304,7 @@ async function runGate(
     guidanceOn,
     skillsOn,
   );
-  const result = buildGateResult(plan, results, failedStage);
+  const result = await buildGateResult(plan, results, failedStage);
   // The currency checks aren't plan-group jobs, so their diagnostics (the diff / the
   // drift list + the `discern refresh` reproduce command) are attached here, like the
   // merge stage's failed_stage rides in `data` without a job entry.
@@ -315,10 +317,18 @@ async function runGate(
   if (fixDriftDiag !== undefined) {
     result.diagnostics = [...(result.diagnostics ?? []), fixDriftDiag];
   }
+  // Record the gate-pass receipt (ADR 0067): a GREEN run over a CLEAN tree stamps the
+  // validated HEAD so `graduate` can prove THIS tree already passed without re-running
+  // the gate; a FAILED run clears any stale vouch. Best-effort — never fails the gate,
+  // but the outcome rides in `data` so suppressed logs still expose receipt trouble.
+  const gateReceipt = await recordGateOutcome(root, failedStage === null);
+  if (result.data !== undefined) {
+    result.data.gate_receipt = gateReceipt;
+  }
   // Pre-setup, lead with the "setup unfinished" advisory (ADR 0065): finish runs
   // during setup, so a green gate here must not read as "done".
   const inProgress = setupInProgressHint(cfg.meta.bootstrapped);
-  // The co-change advisory (ADR 0074), behind [coupling].in_gate (default off) — at the
+  // The co-change advisory (ADR 0084), behind [coupling].in_gate (default off) — at the
   // TAIL, with strand detection, because it READS THE DIFF (dependency-bearing), never a
   // fail-fast precondition. Only on a GREEN, bootstrapped run: a half-set-up install
   // behaves as if coupling were off (its in-session setup must stay uncluttered), and a
@@ -328,19 +338,43 @@ async function runGate(
       isFeatureEnabled(cfg, "coupling") && cfg.coupling.in_gate
     ? await couplingGateHints(root)
     : [];
+  const receiptHint = gateReceiptHint(gateReceipt, failedStage);
   const hints = [
     ...(inProgress !== undefined ? [inProgress] : []),
     ...buildGateHints(cfg, changed, failedStage),
+    ...(receiptHint !== undefined ? [receiptHint] : []),
     ...couplingHints,
   ];
   if (hints.length > 0) {
     result.hints = hints;
   }
-  // Record the gate-pass receipt (ADR 0067): a GREEN run over a CLEAN tree stamps the
-  // validated HEAD so `graduate` can prove THIS tree already passed without re-running
-  // the gate; a FAILED run clears any stale vouch. Best-effort — never fails the gate.
-  await recordGateOutcome(root, failedStage === null);
   return { result, failedStage, cfg, out, changed };
+}
+
+function gateReceiptHint(
+  receipt: NonNullable<GateData["gate_receipt"]>,
+  failedStage: FailedStage | null,
+): string | undefined {
+  const reason = receipt.reason !== undefined ? ` (${receipt.reason})` : "";
+  if (failedStage === null) {
+    switch (receipt.status) {
+      case "recorded":
+        return undefined;
+      case "skipped_dirty":
+        return "Gate passed, but no gate-pass receipt was recorded because the worktree is dirty; `discern graduate` will re-run the gate until a clean finish records one.";
+      case "record_failed":
+        return `Gate passed, but discern could not record the gate-pass receipt${reason}; \`discern graduate\` will re-run the gate unless a later finish records one.`;
+      case "unavailable":
+        return `Gate passed, but discern could not prepare the gate-pass receipt${reason}; \`discern graduate\` may need to re-run the gate.`;
+      case "cleared":
+      case "clear_failed":
+        return undefined;
+    }
+  }
+  if (receipt.status === "clear_failed") {
+    return `The gate failed, and discern could not clear the previous gate-pass receipt${reason}; re-run \`discern finish\` after fixing the failure.`;
+  }
+  return undefined;
 }
 
 /**

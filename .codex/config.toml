@@ -1,3 +1,10 @@
+project_doc_max_bytes = 65536
+
+[sandbox_workspace_write]
+writable_roots = ["../../discern.worktrees"]
+
 [mcp_servers.discern]
 command = "discern"
 args = ["mcp"]
+startup_timeout_sec = 30
+tool_timeout_sec = 3600

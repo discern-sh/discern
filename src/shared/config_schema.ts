@@ -29,6 +29,7 @@ import { join } from "@std/path";
 import { CONFIG_REL, installedConfigRel } from "./env.ts";
 import { KNOWN_CAPABILITIES, STAGES } from "./capabilities.ts";
 import type { Feature } from "./features.ts";
+import { DEFAULT_DOCS_DIR, isValidDocsDir } from "./docs_path.ts";
 
 // ── TOML syntax diagnostics (kept here so config_read/toml_render share them) ──
 
@@ -74,7 +75,13 @@ const NAME_RE = /^[A-Za-z0-9_-]+$/;
  * the document's `agents` enum, the generated editor JSON Schema (so it can never
  * miss one), AND the installer's `KNOWN_AGENTS` (re-exported from
  * `lib/config.ts`). */
-export const AGENT_NAMES = ["claude_code", "codex", "gemini"] as const;
+export const AGENT_NAMES = [
+  "claude_code",
+  "codex",
+  "gemini",
+  "cursor",
+  "copilot",
+] as const;
 
 /**
  * The providers a fresh install emits when neither `[guidance].agents` nor the
@@ -120,7 +127,8 @@ const perExtent = z.strictObject(
 
 /** A ratchet's denominator. Turn a raw count into a *rate* so the number doesn't
  * rise just because the project grew. Either the name of a second metric the `run`
- * emits, or a built-in extent discern measures itself, e.g. `per = { words = "docs/**" }`. */
+ * emits, or a built-in extent discern measures itself, e.g.
+ * `per = { words = "${docs.dir}**" }`. */
 const perValue = z.union([z.string(), perExtent]);
 
 /** The gate stages a `[checks.<name>].stage` may name. */
@@ -166,7 +174,7 @@ const ratchetValue = z.strictObject({
   per: perValue.optional().describe(
     "Divide the metric by this to ratchet a *rate*, not a raw count — so the number " +
       "doesn't rise just because the project grew. Either a second metric the run emits, " +
-      'or a built-in extent discern measures itself: per = { words = "docs/**" } ' +
+      'or a built-in extent discern measures itself: per = { words = "${docs.dir}**" } ' +
       "(files | lines | words | bytes over a git pathspec).",
   ),
   scale: z.number().default(1).describe(
@@ -182,6 +190,12 @@ const metaSection = z.strictObject({
   ),
   bootstrapped: z.boolean().default(false).describe(
     "Whether `discern setup` has completed — retires the one-time setup redirect.",
+  ),
+  setup_model: z.string().default("").describe(
+    "The model the agent self-declared at `discern setup begin --model=…`. Recorded for support triage; advisory only (discern can't verify it).",
+  ),
+  setup_version: z.string().default("").describe(
+    "The discern version that ran setup (observed at `begin`). Recorded for support triage.",
   ),
 }).prefault({}).describe(
   "Installer bookkeeping. `schema_version` is the migration anchor; edit by hand only to force a re-migration.",
@@ -239,7 +253,7 @@ const guidanceSection = z.strictObject({
     "Your guideline source file(s), relative to the project root. Globs allowed. Read only if present; the built-in harness guidance is always prepended.",
   ),
   agents: z.array(z.string()).default([]).describe(
-    'Which provider files to emit: "claude_code" -> CLAUDE.md, "codex" -> AGENTS.md, "gemini" -> GEMINI.md.',
+    "Which agent integrations to enable: claude_code -> CLAUDE.md, gemini -> GEMINI.md, codex / cursor / copilot -> AGENTS.md.",
   ),
 }).prefault({}).describe(
   "The author-once → compile-everywhere agent-instruction pipeline. `discern refresh` compiles discern's built-in guidance plus your sources into one generated file per provider.",
@@ -251,6 +265,17 @@ const skillsSection = z.strictObject({
   ),
 }).prefault({}).describe(
   "Focused, reusable task playbooks. The effective set is discern's bundled built-ins plus your authored skills under the directory below, where yours override a built-in of the same name.",
+);
+
+const docsSection = z.strictObject({
+  dir: z.string().refine(isValidDocsDir, {
+    message:
+      "must be a project-relative directory that stays inside the repository",
+  }).default(DEFAULT_DOCS_DIR).describe(
+    "Where discern's agent documentation tree lives, relative to the project root. `discern setup` scaffolds it here and `discern docs` browses it by default.",
+  ),
+}).prefault({}).describe(
+  "The project documentation tree discern scaffolds, validates, and browses.",
 );
 
 /** The closed [capabilities] object: the five known names, each an optional
@@ -396,6 +421,7 @@ export const configSchema = z.strictObject({
   features: featuresSection,
   guidance: guidanceSection,
   skills: skillsSection,
+  docs: docsSection,
   capabilities: capabilitiesSection,
   checks: checksSection,
   scopes: scopesSection,
@@ -475,13 +501,16 @@ export const configDocSchema = z.strictObject({
     "Free-text description of what the project is.",
   ),
   agents: z.array(z.enum(AGENT_NAMES)).optional().describe(
-    "Which agent instruction files to compile (claude_code, codex, gemini).",
+    "Which agent integrations to enable: claude_code -> CLAUDE.md, gemini -> GEMINI.md, codex / cursor / copilot -> AGENTS.md.",
   ),
   description: z.string().optional().describe(
     "Preset metadata, shown when listing presets; ignored by `init --config`.",
   ),
   features: z.record(z.string(), z.boolean()).optional().describe(
     "[features] toggles — a feature name mapped to a boolean (default true).",
+  ),
+  docs: docsSection.optional().describe(
+    "[docs] settings — chiefly the project-relative directory holding discern's agent documentation tree.",
   ),
   capabilities: capabilitiesObject.optional().describe(
     "[capabilities] fills — a known capability name mapped to a command (or list). The gate stage is derived from the name; the set is closed.",

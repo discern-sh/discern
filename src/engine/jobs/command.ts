@@ -15,6 +15,8 @@ import { shellCommand } from "../../shared/subprocess.ts";
 
 /** Options for spawning a single job. */
 export interface SpawnOptions {
+  /** Project root in which the configured command must execute. */
+  cwd: string;
   /** Abort to cancel the job: it is tree-killed and resolves as a failure. */
   signal?: AbortSignal;
   /** Stream output live (line-prefixed) instead of buffering it. */
@@ -42,6 +44,7 @@ const DECODER = new TextDecoder();
 const STREAM_CAP_BYTES = 1_000_000;
 const HEAD_CAP = STREAM_CAP_BYTES / 2;
 const TAIL_CAP = STREAM_CAP_BYTES - HEAD_CAP;
+const CAPTURE_ENV: Record<string, string> = { NO_COLOR: "1", TERM: "dumb" };
 
 /** Signal an entire process group, falling back to the direct child. */
 export function killTree(pid: number, sig: Deno.Signal): void {
@@ -126,6 +129,8 @@ export async function spawnJob(
 
   const child = new Deno.Command("sh", {
     args: ["-c", command],
+    cwd: opts.cwd,
+    env: CAPTURE_ENV,
     stdin: "null",
     stdout: "piped",
     stderr: "piped",

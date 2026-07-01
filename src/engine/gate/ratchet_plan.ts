@@ -19,6 +19,7 @@ import {
   toCommand,
 } from "../../shared/config_schema.ts";
 import type { EnginePlan, PlanStep } from "../../shared/result.ts";
+import { expandDocsDirReference } from "../../shared/docs_path.ts";
 
 /** The denominator that turns a raw count into a rate, resolved to the shape the
  * executor acts on: either a second emitted metric, or a built-in extent discern
@@ -53,7 +54,10 @@ export interface PlannedRatchet {
 /** Normalize a schema-validated `per` into the executor's {@link PerSpec}. A string
  * names a second emitted metric; an object names exactly one built-in extent (the
  * schema guarantees exactly one), whose value is one or more git pathspecs. */
-function resolvePer(per: RatchetConfig["per"]): PerSpec | undefined {
+function resolvePer(
+  per: RatchetConfig["per"],
+  docsDir: string,
+): PerSpec | undefined {
   if (per === undefined) return undefined;
   if (typeof per === "string") return { kind: "metric", metric: per };
   for (const measure of EXTENTS) {
@@ -62,7 +66,9 @@ function resolvePer(per: RatchetConfig["per"]): PerSpec | undefined {
       return {
         kind: "extent",
         measure,
-        globs: typeof globs === "string" ? [globs] : globs,
+        globs: (typeof globs === "string" ? [globs] : globs).map((glob) =>
+          expandDocsDirReference(glob, docsDir)
+        ),
       };
     }
   }
@@ -87,13 +93,13 @@ export interface RatchetPlan {
 export function buildRatchetPlan(cfg: DiscernConfig): RatchetPlan {
   const ratchets: PlannedRatchet[] = Object.entries(cfg.ratchets).map(
     ([name, spec]: [string, RatchetConfig]) => {
-      const per = resolvePer(spec.per);
+      const per = resolvePer(spec.per, cfg.docs.dir);
       return {
         name,
         metric: spec.metric ?? name,
         direction: spec.direction,
         limit: spec.limit,
-        command: toCommand(spec.run),
+        command: expandDocsDirReference(toCommand(spec.run), cfg.docs.dir),
         limitKey: `ratchets.${name}.limit`,
         scale: spec.scale,
         ...(per !== undefined ? { per } : {}),
@@ -103,7 +109,7 @@ export function buildRatchetPlan(cfg: DiscernConfig): RatchetPlan {
   return { ratchets };
 }
 
-/** A human suffix for a ratchet's denominator, e.g. " per 1000 words in docs/**"
+/** A human suffix for a ratchet's denominator, e.g. " per 1000 words in <docs-dir>**"
  * or " per <metric>". Empty when the ratchet is a raw count. */
 export function perNote(per: PerSpec | undefined, scale: number): string {
   if (per === undefined) return "";

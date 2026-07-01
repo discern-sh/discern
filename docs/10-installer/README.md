@@ -13,12 +13,13 @@ refreshes it over time **without clobbering** the files you own. It compiles to
 standalone binaries in `dist/` via `deno task build`; an installed project never
 needs Deno.
 
-The command surface is six verbs: `init` (scaffold), `upgrade` (run pending
-migrations, re-materialize Skills, recompile guidance), `doctor` (verify an
-install), `migrate` (report pending Schema steps), `config` (comment-preserving
-`discern.toml` edits), and `add-preset` (overlay a reusable preset). Routing
-lives in [`main.ts`](../../src/main.ts); each verb's logic is in
-`src/commands/`.
+The command surface is six verbs: `setup` (the staged, zero-config scaffold
+handshake — welcome → verify → begin → done; the retired `init`/`bootstrap`
+names redirect to it), `upgrade` (run pending migrations, re-materialize Skills,
+recompile guidance), `doctor` (verify an install), `migrate` (report pending
+Schema steps), `config` (comment-preserving `discern.toml` edits), and
+`add-preset` (overlay a reusable preset). Routing lives in
+[`main.ts`](../../src/main.ts); each verb's logic is in `src/commands/`.
 
 The ideas worth understanding here: the **disposition**-driven scaffold, with
 ownership in two buckets —
@@ -30,6 +31,12 @@ files but never touches yours; and the **Schema-version**
 install's shape, stamped into `[meta].schema_version` in `discern.toml` (the
 `5 → 6` step dissolved the old `.discern/` namespace into this one root file —
 [ADR 0020](../_adr/0020-dissolve-discern-dir.md)).
+
+Setup's documentation skeleton is also config-pointed. `[docs].dir` defaults to
+`docs/`; `setup verify` asks for a separate location when that path already
+holds human-written docs, and `setup begin --docs <path>` persists and scaffolds
+the chosen root. The docs browser and quality-gate declarations resolve the same
+field ([ADR 0080](../_adr/0080-configured-agent-docs-root.md)).
 
 ## Config reference
 
@@ -61,4 +68,4 @@ Edit the schema, not the generated files.
 - [concepts.md](../00-orientation/concepts.md) — where the Installer sits in the
   whole system.
 - [install-surface.md](../80-development/install-surface.md) — the exact map of
-  what `init` lays down, by disposition.
+  what `setup begin` lays down, by disposition.

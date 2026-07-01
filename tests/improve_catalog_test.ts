@@ -1,5 +1,5 @@
 /**
- * Pure unit guards for the audit catalog and its scoring — fast, no subprocess.
+ * Pure unit guards for the improve catalog and its scoring — fast, no subprocess.
  * Two jobs:
  *   1. catalog integrity: rule ids are unique and namespaced by their category,
  *      deterministic rules carry a fix + teach, subjective rules carry an ask +
@@ -9,18 +9,24 @@
  *      behaviours are pinned independent of any real project's files.
  *
  * The behavioural surface (the CLI, `--json`, the human report) is covered by
- * `engine_audit_test.ts`; this file pins the maths and the catalog shape.
+ * `engine_improve_test.ts`; this file pins the maths and the catalog shape.
  */
 
 import { assert, assertEquals } from "@std/assert";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
-import { CATEGORIES, CATEGORY_NAMES } from "../src/engine/audit/rules.ts";
-import { evaluateReport } from "../src/engine/audit/audit.ts";
-import { type AuditContext, RULE_STATUSES } from "../src/engine/audit/types.ts";
+import { CATEGORIES, CATEGORY_NAMES } from "../src/engine/improve/rules.ts";
+import { evaluateReport } from "../src/engine/improve/improve.ts";
+import {
+  type ImprovementContext,
+  RULE_STATUSES,
+} from "../src/engine/improve/types.ts";
 import { ruleResultSchema } from "../src/shared/result_schemas.ts";
 
-/** Build a full {@link AuditContext} from a config TOML plus fact overrides. */
-function ctx(toml: string, facts: Partial<AuditContext> = {}): AuditContext {
+/** Build a full {@link ImprovementContext} from config TOML plus fact overrides. */
+function ctx(
+  toml: string,
+  facts: Partial<ImprovementContext> = {},
+): ImprovementContext {
   return {
     root: "/tmp/demo",
     config: parseConfigOrThrow(toml),
@@ -31,6 +37,7 @@ function ctx(toml: string, facts: Partial<AuditContext> = {}): AuditContext {
     gotchasDocSet: false,
     gotchasDocExists: false,
     docsTree: false,
+    docsDir: "docs/",
     adrCount: 0,
     agentFilePresent: false,
     authoredSkills: 0,
@@ -39,7 +46,7 @@ function ctx(toml: string, facts: Partial<AuditContext> = {}): AuditContext {
 }
 
 /** A config + facts where every deterministic rule passes. */
-function perfect(): AuditContext {
+function perfect(): ImprovementContext {
   return ctx(
     `
 [meta]
@@ -70,7 +77,7 @@ run = "echo"
   );
 }
 
-Deno.test("audit wire schema's rule status enum equals the RuleStatus SSOT", () => {
+Deno.test("improve wire schema's rule status enum equals the RuleStatus SSOT", () => {
   // ruleResultSchema lives in shared/result_schemas.ts, which can't import the engine
   // RuleStatus type — so this is a tie-by-test (not a compile-time derive): the wire
   // enum must list EXACTLY RULE_STATUSES. A status added to one but not the other (or
@@ -81,14 +88,14 @@ Deno.test("audit wire schema's rule status enum equals the RuleStatus SSOT", () 
   );
 });
 
-Deno.test("audit catalog: CATEGORY_NAMES is derived from the catalog, in order (SSOT)", () => {
+Deno.test("improve catalog: CATEGORY_NAMES is derived from the catalog, in order (SSOT)", () => {
   // The CLI help and the MCP tool's --category description interpolate this list,
   // so it must stay derived from CATEGORIES rather than hand-listed.
   assertEquals(CATEGORY_NAMES, CATEGORIES.map((c) => c.name));
   assert(CATEGORY_NAMES.length > 0);
 });
 
-Deno.test("audit catalog: rule ids are unique and namespaced by their category", () => {
+Deno.test("improve catalog: rule ids are unique and namespaced by their category", () => {
   const seen = new Set<string>();
   const catNames = new Set<string>();
   for (const category of CATEGORIES) {
@@ -114,7 +121,7 @@ Deno.test("audit catalog: rule ids are unique and namespaced by their category",
   }
 });
 
-Deno.test("audit catalog: every rule carries the fields its kind needs", () => {
+Deno.test("improve catalog: every rule carries the fields its kind needs", () => {
   for (const category of CATEGORIES) {
     for (const rule of category.rules) {
       assert(rule.teach.trim().length > 0, `${rule.id} needs a teach`);
@@ -128,7 +135,17 @@ Deno.test("audit catalog: every rule carries the fields its kind needs", () => {
   }
 });
 
-Deno.test("audit scoring: a fully-wired project scores 100 with no weak rules", () => {
+Deno.test("improve catalog: every category teaches beyond mechanically checked presence", () => {
+  for (const category of CATEGORIES) {
+    const reviews = category.rules.filter((rule) => rule.kind === "subjective");
+    assert(
+      reviews.length > 0,
+      `${category.name} needs a qualitative review that teaches what good looks like`,
+    );
+  }
+});
+
+Deno.test("improve scoring: 100 baseline still prioritizes an open review", () => {
   const report = evaluateReport(perfect());
   assertEquals(report.score, 100);
   assertEquals(report.weak, 0);
@@ -137,12 +154,16 @@ Deno.test("audit scoring: a fully-wired project scores 100 with no weak rules", 
     report.reviews > 0,
     "subjective rules are reviews regardless of score",
   );
+  assertEquals(report.nextAction.kind, "review");
+  assertEquals(report.nextAction.id, "gate.fast-feedback");
 });
 
-Deno.test("audit scoring: a bare project scores low and ranks the worst category first", () => {
+Deno.test("improve scoring: a bare project leads with the largest weighted gap", () => {
   const report = evaluateReport(ctx("")); // all defaults, all facts falsy
   assert(report.score < 25, `expected a low score, got ${report.score}`);
   assert(report.weak > 0);
+  assertEquals(report.nextAction.kind, "fix");
+  assertEquals(report.nextAction.id, "gate.test");
   // Weakest-first: the worst category leads. The gate (3 failing rules at score 0)
   // outranks the other score-0 categories on the weak-count tiebreak.
   assertEquals(report.categories[0]?.name, "gate");
@@ -156,7 +177,7 @@ Deno.test("audit scoring: a bare project scores low and ranks the worst category
   }
 });
 
-Deno.test("audit scoring: partial credit moves the score between fail and pass", () => {
+Deno.test("improve scoring: partial credit moves the score between fail and pass", () => {
   // Only the gotchas doc differs: unset (fail) vs set-but-missing (partial) vs
   // set-and-present (pass). Restrict to `setup` to isolate the effect.
   const base = `[meta]\nbootstrapped = true\n[project]\n`;
@@ -178,7 +199,7 @@ Deno.test("audit scoring: partial credit moves the score between fail and pass",
   );
 });
 
-Deno.test("audit scoring: a disabled feature drops its whole category", () => {
+Deno.test("improve scoring: a disabled feature drops its whole category", () => {
   const report = evaluateReport(
     ctx(`[features]\nratchets = false\nskills = false\n`),
   );
@@ -189,7 +210,7 @@ Deno.test("audit scoring: a disabled feature drops its whole category", () => {
   assert(names.includes("gate") && names.includes("setup"));
 });
 
-Deno.test("audit scoring: `only` restricts evaluation to one category", () => {
+Deno.test("improve scoring: `only` restricts evaluation to one category", () => {
   const report = evaluateReport(perfect(), "guidance");
   assertEquals(report.categories.length, 1);
   assertEquals(report.categories[0]?.name, "guidance");

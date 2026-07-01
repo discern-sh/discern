@@ -21,6 +21,7 @@ import {
   addWorktree,
   git,
   gitInit,
+  gitOut,
   runAgent,
   scaffoldEngine,
   writeConfig,
@@ -54,6 +55,15 @@ const CHECK_NO_TABOO = [
   "",
 ].join("\n");
 
+// deno-lint-ignore no-explicit-any
+function parseJson(stdout: string): any {
+  return JSON.parse(stdout.trim());
+}
+
+function absoluteGitPath(cwd: string, raw: string): string {
+  return raw.startsWith("/") ? raw : join(cwd, raw);
+}
+
 /** Scaffold a main repo wired with the taboo check, committed clean (gate green). */
 async function mainWithCheck(dir: string): Promise<void> {
   await scaffoldEngine(dir);
@@ -83,8 +93,32 @@ Deno.test("receipt: a green+clean finish stamps HEAD, and gateReceiptHonored con
     await scaffoldEngine(dir);
     await gitInit(dir);
     assertEquals(await gateReceiptHonored(dir), false); // nothing stamped yet
-    await recordGateOutcome(dir, true);
+    assertEquals((await recordGateOutcome(dir, true)).status, "recorded");
     assertEquals(await gateReceiptHonored(dir), true);
+  });
+});
+
+Deno.test("receipt: a failed stamp is visible to the caller", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const raw = await gitOut(
+      dir,
+      "rev-parse",
+      "--git-path",
+      "discern-gate-pass",
+    );
+    const receiptPath = absoluteGitPath(dir, raw);
+    await Deno.mkdir(receiptPath);
+
+    const receipt = await recordGateOutcome(dir, true);
+    assertEquals(receipt.status, "record_failed");
+    assertEquals(receipt.path, receiptPath);
+    assert(
+      receipt.reason !== undefined && receipt.reason.length > 0,
+      `expected a useful failure reason: ${JSON.stringify(receipt)}`,
+    );
+    assertEquals(await gateReceiptHonored(dir), false);
   });
 });
 
@@ -214,9 +248,16 @@ Deno.test("graduate: a fresh `finish` lets graduate skip the gate re-run (receip
     assertEquals((await runAgent(wt, ["finish", "--json"])).code, 0);
 
     // …so graduate trusts it and does NOT re-run the gate (the no-double-run guarantee).
-    const grad = await runAgent(wt, ["graduate", "--to", "trunk"]);
+    const grad = await runAgent(wt, [
+      "graduate",
+      "--to",
+      "trunk",
+      "--json",
+    ]);
     assertEquals(grad.code, 0, grad.output);
-    assertStringIncludes(grad.output, "already passed the gate at this commit");
+    const obj = parseJson(grad.stdout);
+    assertEquals(obj.data.gate_validation.mode, "receipt");
+    assertEquals(obj.data.gate_validation.receipt.status, "honored");
     assertEquals(
       grad.output.includes("Validating the branch against the full gate"),
       false,
@@ -232,12 +273,16 @@ Deno.test("graduate: with no prior `finish`, graduate runs the gate itself befor
     const wt = await addWorktree(dir, "zeta");
     await commitBranchWork(wt); // committed, but the agent never ran `finish` → no receipt
 
-    const grad = await runAgent(wt, ["graduate", "--to", "trunk"]);
+    const grad = await runAgent(wt, [
+      "graduate",
+      "--to",
+      "trunk",
+      "--json",
+    ]);
     assertEquals(grad.code, 0, grad.output);
-    assertStringIncludes(
-      grad.output,
-      "Validating the branch against the full gate",
-    );
+    const obj = parseJson(grad.stdout);
+    assertEquals(obj.data.gate_validation.mode, "rerun");
+    assertEquals(obj.data.gate_validation.receipt.status, "missing");
     assertEquals(await exists(wt), false, `should have landed\n${grad.output}`);
   });
 });

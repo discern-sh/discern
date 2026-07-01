@@ -22,6 +22,7 @@ import {
   MAIN_TS,
   runAgent,
   scaffoldEngine,
+  writeConfig,
 } from "./engine_helpers.ts";
 
 const ENCODER = new TextEncoder();
@@ -146,7 +147,7 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     assert(names.includes("discern_doctor"), JSON.stringify(names));
     assert(names.includes("discern_changed_scopes"), JSON.stringify(names));
     assert(names.includes("discern_status"), JSON.stringify(names));
-    assert(names.includes("discern_audit"), JSON.stringify(names));
+    assert(names.includes("discern_improve"), JSON.stringify(names));
     // `discern_help` (discern's own docs) is always listed — not a project feature.
     assert(names.includes("discern_help"), JSON.stringify(names));
     // The feature-gated tools are listed too (the default scaffold has every
@@ -206,20 +207,24 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
       "status data carries the feature toggles",
     );
 
-    // tools/call discern_audit → the scored best-practices DiscernResult.
+    // tools/call discern_improve → the continuous-improvement DiscernResult.
     await mcp.send({
       jsonrpc: "2.0",
       id: 6,
       method: "tools/call",
-      params: { name: "discern_audit", arguments: {} },
+      params: { name: "discern_improve", arguments: {} },
     });
-    const audit = await mcp.recv();
-    assertEquals(audit.id, 6);
-    assertEquals(audit.result.structuredContent.verb, "audit");
-    assertEquals(typeof audit.result.structuredContent.data.score, "number");
+    const improve = await mcp.recv();
+    assertEquals(improve.id, 6);
+    assertEquals(improve.result.structuredContent.verb, "improve");
+    assertEquals(typeof improve.result.structuredContent.data.score, "number");
     assert(
-      Array.isArray(audit.result.structuredContent.data.categories),
-      "audit data carries the scored categories",
+      Array.isArray(improve.result.structuredContent.data.categories),
+      "improve data carries the scored categories",
+    );
+    assertEquals(
+      typeof improve.result.structuredContent.data.next_action.action,
+      "string",
     );
 
     // tools/call discern_doctor → the install-verification DiscernResult.
@@ -718,6 +723,75 @@ Deno.test("WorkingRoot: an undefined spawn root (outside a project) stays undefi
   assertEquals(w.get(), "/now/a/project");
 });
 
+Deno.test("discern mcp: project commands execute in the path-resolved worktree, not the server cwd", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        'main_branch = "main"',
+        "",
+        "[features]",
+        "guidance = false",
+        "skills = false",
+        "",
+        "[checks.cwd]",
+        'stage = "check"',
+        'run = "pwd > command.cwd"',
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+    const worktree = await addWorktree(dir, "command-cwd");
+
+    // The server process stays rooted in `dir` (the stable main checkout), while
+    // this one call explicitly targets `worktree`. The command must follow the
+    // resolved logical root; inheriting the server cwd produces a false-green gate.
+    const mcp = await spawnMcp(dir);
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await mcp.recv();
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: {
+        name: "discern_finish",
+        arguments: { path: worktree },
+      },
+    });
+    const finished = await mcp.recv();
+    assertEquals(
+      finished.result.isError,
+      false,
+      JSON.stringify(finished.result),
+    );
+    assertEquals(finished.result.structuredContent.ok, true);
+
+    const marker = join(worktree, "command.cwd");
+    assert(
+      await exists(marker),
+      "the gate passed but its project command ran outside the targeted worktree",
+    );
+    assertEquals(
+      (await Deno.readTextFile(marker)).trim(),
+      await Deno.realPath(worktree),
+    );
+    assertEquals(
+      await exists(join(dir, "command.cwd")),
+      false,
+      "the worktree-targeted command leaked into the MCP server's main cwd",
+    );
+    assertEquals(await mcp.close(), 0);
+  });
+});
+
 Deno.test("discern mcp: start then graduate over ONE main-rooted session — the working root re-aims (ADR 0062)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
@@ -782,6 +856,167 @@ Deno.test("discern mcp: start then graduate over ONE main-rooted session — the
     );
 
     assertEquals(await mcp.close(), 0);
+  });
+});
+
+Deno.test("discern mcp: a worktree-spawned server re-aims to main on graduate even with an explicit `path`, since graduate removed its held root (ADR 0062)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+
+    // Codex's app-managed-worktree flow (Phase B) spawns the MCP server INSIDE the
+    // worktree, so its spawn root IS the worktree — unlike Claude Code, launched from
+    // the trunk. A main-rooted server creates + sets up the worktree (start refuses from
+    // inside one), then we hand it to a server rooted THERE, the way Codex does.
+    const maker = await spawnMcp(dir);
+    await maker.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await maker.recv();
+    await maker.send({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "discern_start", arguments: {} },
+    });
+    const started = await maker.recv();
+    const wtPath = started.result.structuredContent.data.path as string;
+    assert(await exists(join(wtPath, "CLAUDE.md")), "worktree is set up");
+    assertEquals(await maker.close(), 0);
+
+    // The graduating server is rooted IN the worktree (spawn root = the worktree).
+    const inWt = await spawnMcp(wtPath);
+    await inWt.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await inWt.recv();
+
+    // graduate with an EXPLICIT `path` (the worktree) — Codex's exact call — removes
+    // the spawn-root worktree. A `path` override normally leaves the held root alone
+    // (§2), but graduate just deleted the directory that root points at, so it must
+    // re-root anyway. The result reports the main checkout it landed in.
+    await inWt.send({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: {
+        name: "discern_graduate",
+        arguments: { path: wtPath, to: "trunk" },
+      },
+    });
+    const graduated = await inWt.recv();
+    assertEquals(
+      graduated.result.isError,
+      false,
+      JSON.stringify(graduated.result),
+    );
+    const landedRoot = graduated.result.structuredContent.data.root as string;
+    assert(
+      typeof landedRoot === "string" && landedRoot.length > 0,
+      JSON.stringify(graduated.result.structuredContent),
+    );
+    assertEquals(await exists(wtPath), false, "graduate removed the worktree");
+
+    // The headline: a subsequent call with NO `path` must follow the re-aimed working
+    // root to the MAIN CHECKOUT — not the removed worktree. Without the held-root-missing
+    // re-aim, the explicit `path` on graduate would skip re-aiming, leaving this `status`
+    // to resolve the deleted worktree's discern.toml and error.
+    await inWt.send({
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: { name: "discern_status", arguments: {} },
+    });
+    const status = await inWt.recv();
+    assertEquals(status.result.isError, false, JSON.stringify(status.result));
+    assertEquals(status.result.structuredContent.data.location, "main");
+    // The status root is exactly the root graduate re-aimed to (the main checkout).
+    assertEquals(status.result.structuredContent.data.root, landedRoot);
+
+    assertEquals(await inWt.close(), 0);
+  });
+});
+
+Deno.test("discern mcp: graduating a DIFFERENT worktree by `path` leaves the held root alone (ADR 0062 §2 preserved)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+
+    // The other side of the held-root-removed rule: re-aiming on a `path` override must
+    // fire ONLY when graduate removed the root you're HOLDING — never when you graduate
+    // some OTHER worktree by path while still working in your own. Make two worktrees,
+    // hold one, graduate the other. (Each `start` runs from a fresh main-rooted server,
+    // because a server re-aims into the worktree it just started and `start` then refuses
+    // from inside one.)
+    const startFromMain = async (): Promise<string> => {
+      const m = await spawnMcp(dir);
+      await m.send({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: initParams(),
+      });
+      await m.recv();
+      await m.send({
+        jsonrpc: "2.0",
+        id: 2,
+        method: "tools/call",
+        params: { name: "discern_start", arguments: {} },
+      });
+      const path = (await m.recv()).result.structuredContent.data
+        .path as string;
+      assertEquals(await m.close(), 0);
+      return path;
+    };
+    const held = await startFromMain(); // the worktree we keep working in
+    const other = await startFromMain(); // the worktree we graduate by path
+
+    // A server rooted in `held`, graduating `other` by explicit path.
+    const inHeld = await spawnMcp(held);
+    await inHeld.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await inHeld.recv();
+    await inHeld.send({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: {
+        name: "discern_graduate",
+        arguments: { path: other, to: "trunk" },
+      },
+    });
+    const graduated = await inHeld.recv();
+    assertEquals(
+      graduated.result.isError,
+      false,
+      JSON.stringify(graduated.result),
+    );
+    assertEquals(await exists(other), false, "the OTHER worktree was removed");
+    assert(await exists(held), "the held worktree is untouched");
+
+    // The held root survived — a no-path call still operates on it, NOT the main checkout
+    // (it wasn't the one removed, so §2's one-call-override rule holds).
+    await inHeld.send({
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: { name: "discern_status", arguments: {} },
+    });
+    const status = await inHeld.recv();
+    assertEquals(status.result.isError, false, JSON.stringify(status.result));
+    assertEquals(status.result.structuredContent.data.location, "worktree");
+
+    assertEquals(await inHeld.close(), 0);
   });
 });
 
@@ -1112,7 +1347,7 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
         "discern_doctor",
         "discern_changed_scopes",
         "discern_status",
-        "discern_audit",
+        "discern_improve",
         "discern_docs",
         "discern_help",
         "discern_start",
@@ -1134,7 +1369,10 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
     // mutate (a fixer rewrites files / commands run); graduate is destructive.
     assertEquals(byName.get("discern_status")?.annotations?.readOnlyHint, true);
     assertEquals(byName.get("discern_doctor")?.annotations?.readOnlyHint, true);
-    assertEquals(byName.get("discern_audit")?.annotations?.readOnlyHint, true);
+    assertEquals(
+      byName.get("discern_improve")?.annotations?.readOnlyHint,
+      true,
+    );
     assertEquals(
       byName.get("discern_finish")?.annotations?.readOnlyHint,
       false,

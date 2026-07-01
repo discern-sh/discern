@@ -30,12 +30,14 @@ Two commands read a documentation tree, and they read **different** ones:
   ([ADR 0039](_adr/0039-bundled-help-docs.md)). The ADRs are hidden by default
   but can be browsed with `discern help --adr` (CLI only — the MCP tool never
   exposes them).
-- **`discern docs`** browses **the host project's own `docs/`** (resolved from
-  the project root). Inside the discern repo it surfaces this tree — because
-  here the project's docs _are_ discern's docs — but in any other install it
-  reads that project's documentation. It is gated on the `docs` feature, takes a
-  `--dir` override, and (unlike `help`) is refused before setup, since the
-  project's tree is empty until setup seeds and fills it.
+- **`discern docs`** browses **the host project's agent documentation tree** at
+  `[docs].dir` (default `docs/`, resolved from the project root). Inside the
+  discern repo it surfaces this tree — because here the project's docs _are_
+  discern's docs — but another project can keep the tree at a location such as
+  `docs/discern/`, separate from human-curated docs. It is gated on the `docs`
+  feature, takes a one-call `--dir` override, and (unlike `help`) is refused
+  before setup, since the project's tree is empty until setup seeds and fills it
+  ([ADR 0080](_adr/0080-configured-agent-docs-root.md)).
 
 Both share one implementation and the same surfaces: an interactive picker on a
 TTY, and `--list` / `--json` / `--raw` / `--export` off one.
@@ -58,14 +60,15 @@ subtree-by-subtree with the
 [`document-subsystem`](../templates/skills/document-subsystem/SKILL.md) skill.
 The numbers are a reading order, not a contract — rename and renumber freely.
 
-| Path                                         | What's in it                                                                                                                                                                                                                                                                                                                                                                                                              |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [10-installer/](10-installer/)               | The Deno/TypeScript **Installer**: `init`, `upgrade`, `doctor`, `migrate`, `config`, `add-preset`, the seed scaffolding (`templates/` → your files) and materialized skills, and the Schema-version Migration chain.                                                                                                                                                                                                      |
-| [20-quality-gate/](20-quality-gate/)         | `discern finish` and the Capability/Check execution model — fix · build · check · test — plus Scope classification (and Scope gates), Ratchets, and the [`audit`](20-quality-gate/audit.md) best-practices checklist.                                                                                                                                                                                                     |
-| [30-worktrees/](30-worktrees/)               | The isolated-Worktree workflow: lifecycle (create · ensure · graduate · teardown · prune), per-Worktree identity (name · port · site · db · resource), and per-Worktree resources (create/destroy + orphan GC).                                                                                                                                                                                                           |
-| [40-agent-guidance/](40-agent-guidance/)     | Author-once → compile-everywhere: the Guidance source, the `discern refresh` compiler, the Compiled agent files, and the bundled Skills.                                                                                                                                                                                                                                                                                  |
-| [50-engine-internals/](50-engine-internals/) | The TypeScript **engine** compiled into the binary — the verb dispatcher, the job runner, scope classification, config access, output, and the failure-pointer wording.                                                                                                                                                                                                                                                   |
-| [80-development/](80-development/)           | Working on discern: getting set up, the [notes for humans](80-development/for-humans.md) (IDE setup and local prerequisites), the testing approach, code conventions, the [install surface](80-development/install-surface.md) (what an install contains, yours vs the binary's), and the [finish-gate gotchas](80-development/finish-gate-gotchas.md) the quality gate points at when a step fails in a non-obvious way. |
+| Path                                             | What's in it                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [10-installer/](10-installer/)                   | The Deno/TypeScript **Installer**: `init`, `upgrade`, `doctor`, `migrate`, `config`, `add-preset`, the seed scaffolding (`templates/` → your files) and materialized skills, and the Schema-version Migration chain.                                                                                                                                                                                                      |
+| [20-quality-gate/](20-quality-gate/)             | `discern finish` and the Capability/Check execution model — fix · build · check · test — plus Scope classification (and Scope gates), Ratchets, and the [`improve`](20-quality-gate/improve.md) continuous-improvement coach.                                                                                                                                                                                             |
+| [30-worktrees/](30-worktrees/)                   | The isolated-Worktree workflow: lifecycle (create · ensure · graduate · teardown · prune), per-Worktree identity (name · port · site · db · resource), and per-Worktree resources (create/destroy + orphan GC).                                                                                                                                                                                                           |
+| [40-agent-guidance/](40-agent-guidance/)         | Author-once → compile-everywhere: the Guidance source, the `discern refresh` compiler, the Compiled agent files, and the bundled Skills.                                                                                                                                                                                                                                                                                  |
+| [50-engine-internals/](50-engine-internals/)     | The TypeScript **engine** compiled into the binary — the verb dispatcher, the job runner, scope classification, config access, output, and the failure-pointer wording.                                                                                                                                                                                                                                                   |
+| [60-agent-integrations/](60-agent-integrations/) | Provider-specific integration guides: the files discern writes for each supported coding agent, their trust gates, and their daily-use gotchas.                                                                                                                                                                                                                                                                           |
+| [80-development/](80-development/)               | Working on discern: getting set up, the [notes for humans](80-development/for-humans.md) (IDE setup and local prerequisites), the testing approach, code conventions, the [install surface](80-development/install-surface.md) (what an install contains, yours vs the binary's), and the [finish-gate gotchas](80-development/finish-gate-gotchas.md) the quality gate points at when a step fails in a non-obvious way. |
 
 ### Reference material
 
@@ -88,9 +91,10 @@ guard test pins this — `tests/docs_curation_test.ts`).
 
 ## How this tree is produced and kept current
 
-The tree is seeded once by `discern setup`, then grown subtree-by-subtree with
-the [`document-subsystem`](../templates/skills/document-subsystem/SKILL.md)
-skill, which follows the brief in
+The tree is seeded once by `discern setup` at `[docs].dir`, then grown
+subtree-by-subtree with the
+[`document-subsystem`](../templates/skills/document-subsystem/SKILL.md) skill,
+which resolves the same configured root and follows the brief in
 [_internal/documenter-agent-brief.md](_internal/documenter-agent-brief.md). A
 single skeleton-and-orientation pass establishes the shared terminology and
 shape before any subtree is filled in.

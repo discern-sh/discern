@@ -19,9 +19,14 @@
 
 import { join } from "@std/path";
 import { runGit } from "../../shared/subprocess.ts";
+import type {
+  GateData,
+  GateReceiptCheckData,
+} from "../../shared/result_schemas.ts";
 
 /** The receipt's filename inside the per-worktree git admin dir. */
 const RECEIPT_FILE = "discern-gate-pass";
+type GateReceiptRecordData = NonNullable<GateData["gate_receipt"]>;
 
 /**
  * Resolve this worktree's receipt path (`git rev-parse --git-path discern-gate-pass`),
@@ -60,6 +65,17 @@ async function isClean(cwd: string): Promise<boolean> {
   return r.success && r.stdout.trim() === "";
 }
 
+function failureReason(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function receiptRecord(
+  status: GateReceiptRecordData["status"],
+  fields: Omit<GateReceiptRecordData, "status"> = {},
+): GateReceiptRecordData {
+  return { status, ...fields };
+}
+
 /**
  * Record the outcome of a `finish` run into the receipt:
  *
@@ -77,24 +93,97 @@ async function isClean(cwd: string): Promise<boolean> {
 export async function recordGateOutcome(
   cwd: string,
   passed: boolean,
-): Promise<void> {
+): Promise<GateReceiptRecordData> {
   const path = await receiptPath(cwd);
   if (path === undefined) {
-    return;
+    return receiptRecord("unavailable", {
+      reason: "could not resolve the gate-pass receipt path",
+    });
   }
-  try {
-    if (passed && await isClean(cwd)) {
-      const head = await headSha(cwd);
-      if (head !== undefined) {
-        await Deno.writeTextFile(path, `${head}\n`);
-      }
-    } else if (!passed) {
-      await Deno.remove(path);
+
+  if (passed) {
+    if (!(await isClean(cwd))) {
+      return receiptRecord("skipped_dirty", {
+        path,
+        reason: "the worktree is not clean",
+      });
     }
-  } catch {
-    // best-effort — the receipt is an optimization; never fail finish over it
-    // (a missing receipt to clear is the common, expected case here)
+    const head = await headSha(cwd);
+    if (head === undefined) {
+      return receiptRecord("unavailable", {
+        path,
+        reason: "could not read HEAD",
+      });
+    }
+    try {
+      await Deno.writeTextFile(path, `${head}\n`);
+      return receiptRecord("recorded", { path });
+    } catch (error) {
+      return receiptRecord("record_failed", {
+        path,
+        reason: failureReason(error),
+      });
+    }
   }
+
+  try {
+    await Deno.remove(path);
+    return receiptRecord("cleared", { path });
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      return receiptRecord("cleared", { path });
+    }
+    return receiptRecord("clear_failed", {
+      path,
+      reason: failureReason(error),
+    });
+  }
+}
+
+/**
+ * Inspect why the current worktree's gate-pass receipt can or cannot be honored.
+ * This is the verbose sibling of {@link gateReceiptHonored}: graduate includes the
+ * result in its JSON/MCP envelope so a skipped vs re-run validation decision is
+ * visible even when the human logger is suppressed.
+ */
+export async function inspectGateReceipt(
+  cwd: string,
+): Promise<GateReceiptCheckData> {
+  const path = await receiptPath(cwd);
+  if (path === undefined) {
+    return {
+      status: "unavailable",
+      reason: "could not resolve the gate-pass receipt path",
+    };
+  }
+  let recorded: string;
+  try {
+    recorded = (await Deno.readTextFile(path)).trim();
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      return { status: "missing", path };
+    }
+    return { status: "read_failed", path, reason: failureReason(error) };
+  }
+  if (recorded === "") {
+    return { status: "missing", path, reason: "receipt file was empty" };
+  }
+  const head = await headSha(cwd);
+  if (head === undefined) {
+    return {
+      status: "unavailable",
+      path,
+      recorded,
+      reason: "could not read HEAD",
+    };
+  }
+  if (head !== recorded) {
+    return { status: "stale", path, recorded, head };
+  }
+  if (!(await isClean(cwd))) {
+    return { status: "dirty", path, recorded, head };
+  }
+  return { status: "honored", path, recorded, head };
 }
 
 /**
@@ -104,22 +193,5 @@ export async function recordGateOutcome(
  * makes this false, so graduate falls back to running the gate. Never throws.
  */
 export async function gateReceiptHonored(cwd: string): Promise<boolean> {
-  const path = await receiptPath(cwd);
-  if (path === undefined) {
-    return false;
-  }
-  let recorded: string;
-  try {
-    recorded = (await Deno.readTextFile(path)).trim();
-  } catch {
-    return false; // no receipt recorded
-  }
-  if (recorded === "") {
-    return false;
-  }
-  const head = await headSha(cwd);
-  if (head === undefined || head !== recorded) {
-    return false;
-  }
-  return await isClean(cwd);
+  return (await inspectGateReceipt(cwd)).status === "honored";
 }

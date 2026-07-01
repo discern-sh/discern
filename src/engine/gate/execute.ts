@@ -79,19 +79,23 @@ export async function runJobGroups(
 
 /**
  * The run context every gate verb shares: the {@link RunOptions} for the job runner
- * and the {@link Out} for its narration, derived once from the config and the JSON
- * flag. Human runs stream banners + job output to stdout;
+ * and the {@link Out} for its narration, derived once from the resolved project root,
+ * config, and JSON flag. The root is carried as the runner's required cwd: a nested
+ * CLI invocation or long-lived MCP server must never leak its process cwd into the
+ * project's commands. Human runs stream banners + job output to stdout;
  * `--json`/MCP runs go quiet — the result envelope is the entire output (ADR 0030),
  * so the runner and the Out are silenced while jobs still run and a failure's output
  * is still captured for its diagnostic.
  */
 export function gateRunContext(
+  root: string,
   cfg: DiscernConfig,
   json: boolean,
 ): { runOpts: RunOptions; out: Out } {
   const color = colorEnabled();
   return {
     runOpts: {
+      cwd: root,
       stream: cfg.gate.stream,
       failFast: cfg.gate.fail_fast,
       color,

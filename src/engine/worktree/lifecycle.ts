@@ -72,6 +72,7 @@ import {
 } from "../../shared/result.ts";
 import type {
   GateData,
+  GraduateData,
   IntegrateData,
   StartData,
 } from "../../shared/result_schemas.ts";
@@ -108,7 +109,7 @@ import { compileGuidelines } from "../guidelines.ts";
 // the agent's own `finish`, so a clean-merging but gate-breaking `integrate` (or any
 // tree never run through `finish`) cannot fast-forward onto the trunk unvalidated.
 import { failMessage, finishResult } from "../gate/finish.ts";
-import { gateReceiptHonored } from "../gate/receipt.ts";
+import { inspectGateReceipt } from "../gate/receipt.ts";
 // integrate classifies the merge's incoming files into the project's scopes for its
 // "what landed beneath you" summary (ADR 0064), via the same matcher the gate uses.
 import { scopesForPaths } from "../scopes/changed.ts";
@@ -764,7 +765,10 @@ async function executeGraduatePlan(
   ctx: LifecycleContext,
   run: GitRunner,
   plan: GraduatePlan,
-): Promise<StepResult[]> {
+): Promise<{
+  steps: StepResult[];
+  gateValidation: NonNullable<GraduateData["gate_validation"]>;
+}> {
   // ensure a named branch (the one mutating step the read-only diagnosis deferred)
   const settings = await loadIdentitySettings(ctx.root);
   const id = await resolveWorktreeId(settings, ctx.cwd);
@@ -786,7 +790,12 @@ async function executeGraduatePlan(
   //   (the common case — nothing changed since the agent finished), so skip the re-run.
   //   SLOW PATH: run the full gate now and refuse to land on any failure. A merge `integrate`
   //   created, a new commit, or a dirty tree invalidates the receipt, landing us here.
-  if (await gateReceiptHonored(ctx.cwd)) {
+  const receipt = await inspectGateReceipt(ctx.cwd);
+  const gateValidation: NonNullable<GraduateData["gate_validation"]> =
+    receipt.status === "honored"
+      ? { mode: "receipt", receipt }
+      : { mode: "rerun", receipt };
+  if (gateValidation.mode === "receipt") {
     ctx.log.ok(
       "Branch already passed the gate at this commit — skipping the re-run.",
     );
@@ -924,7 +933,7 @@ async function executeGraduatePlan(
   const landedOn = to === "trunk" ? trunk : worktreeBranch;
   ctx.log.heading("Graduation complete.");
   ctx.log.line(`  You are on ${landedOn} in ${mainRepo}.`);
-  return results;
+  return { steps: results, gateValidation };
 }
 
 /**
@@ -969,14 +978,26 @@ export async function graduate(
 export async function graduateResult(
   ctx: LifecycleContext,
   opts: { dryRun?: boolean; to?: GraduateTarget | undefined } = {},
-): Promise<DiscernResult> {
+): Promise<DiscernResult<GraduateData>> {
   const run = makeGitRunner(ctx);
   const to = opts.to ?? ctx.config.worktree.graduate_to;
   const plan = await buildGraduatePlan(ctx, run, to);
   if (opts.dryRun ?? false) {
     return previewResult("graduate", graduatePlanToEngine(plan));
   }
-  return appliedResult("graduate", await executeGraduatePlan(ctx, run, plan));
+  const executed = await executeGraduatePlan(ctx, run, plan);
+  const result: DiscernResult<GraduateData> = appliedResult(
+    "graduate",
+    executed.steps,
+  );
+  // The branch landed in the main checkout; report it so the MCP server can re-aim its
+  // working root there now the worktree it operated on is gone (ADR 0062). The plan
+  // resolved `mainRepo` before the removal, so it is valid after.
+  result.data = {
+    root: plan.mainRepo,
+    gate_validation: executed.gateValidation,
+  };
+  return result;
 }
 
 // How much integration detail rides inline before an agent is pointed at git for

@@ -87,7 +87,17 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0071 — The settings seed/merge seam is provider-driven, not a Claude special-case](0071-provider-driven-settings-seed.md)
 - [0072 — A provider's MCP wiring is a typed status, accounted by a forcing function](0072-typed-mcp-status-forcing-function.md)
 - [0073 — discern co-manages Codex's auto-generated `environment.toml`, and reuses the cwd-based teardown verb for its cleanup](0073-codex-worktree-lifecycle-comanagement.md)
-- [0074 — Co-change coupling detection is a non-blocking advisory, recomputed on demand](0074-co-change-coupling-advisory.md)
+- [0074 — Claude Code and GitHub Copilot co-own the shared `.mcp.json`, through one stdio writer](0074-co-owned-mcp-json.md)
+- [0075 — `discern setup` is a staged, consent-driven handshake](0075-setup-staged-handshake.md)
+- [0076 — The engine commits the harness machinery it scaffolds](0076-engine-commits-scaffolded-machinery.md)
+- [0077 — The setup agent is the configuration engine — transparency over interrogation](0077-setup-agent-is-the-configuration-engine.md)
+- [0078 — Setup steps are stateless machine-readable pages with derived per-step proof](0078-setup-pages-and-per-step-proof.md)
+- [0079 — `improve` is a coach, not an audit](0079-improve-is-a-coach-not-an-audit.md)
+- [0080 — The agent documentation tree has one configured root](0080-configured-agent-docs-root.md)
+- [0081 — `discern setup land`, a main-checkout landing command for the finished setup](0081-setup-land-command.md)
+- [0082 — Codex project config grants the discern worktree root, not broader sandbox control](0082-codex-project-config-writable-root.md)
+- [0083 — Captured diagnostic output is normalized and offloaded when truncated](0083-normalize-and-offload-diagnostic-output.md)
+- [0084 — Co-change coupling detection is a non-blocking advisory, recomputed on demand](0084-co-change-coupling-advisory.md)
 
 ## Superseded and consolidated ADRs
 

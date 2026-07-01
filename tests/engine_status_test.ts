@@ -24,6 +24,7 @@ import {
 } from "./engine_helpers.ts";
 import {
   FLEET_OWNERSHIP_HINT,
+  offTrunkStartHereHint,
   START_HERE_HINT,
 } from "../src/engine/status/status.ts";
 
@@ -234,6 +235,44 @@ Deno.test("status: on the trunk, the discern start guardrail rides in hints[] fo
   });
 });
 
+Deno.test("status: main checkout on a non-trunk branch never claims 'you're on the trunk' (B9)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    // The main checkout (a working-copy LOCATION) and the trunk branch are
+    // independent axes — simulate a stray branch checked out directly there (a
+    // leftover `discern-setup` branch, a PR checked out without a worktree), the
+    // exact shape a real cold run hit: location "main", branch != trunk.
+    await git(dir, "checkout", "-b", "discern-setup");
+
+    const obj = parseStatus((await runAgent(dir, ["status", "--json"])).stdout);
+    assertEquals(obj.data.location, "main");
+    assertEquals(obj.data.git.branch, "discern-setup");
+    const hints: string[] = obj.hints ?? [];
+    assert(
+      !hints.includes(START_HERE_HINT),
+      `must never claim "you're on the trunk" while on a non-trunk branch: ${
+        JSON.stringify(hints)
+      }`,
+    );
+    assert(
+      hints.includes(offTrunkStartHereHint("discern-setup", "main")),
+      `expected the off-trunk variant naming the actual branch and trunk: ${
+        JSON.stringify(hints)
+      }`,
+    );
+
+    // Still agent-only — a human running the CLI here isn't nagged with either
+    // wording (exactly like the on-trunk guardrail).
+    const human = await runAgent(dir, ["status"]);
+    assertEquals(human.code, 0, human.output);
+    assert(
+      !human.output.includes("isolated worktree"),
+      `neither start-here variant should appear as a human line: ${human.output}`,
+    );
+  });
+});
+
 Deno.test("status: the discern start guardrail is agent-only — the human CLI is not nagged", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
@@ -262,6 +301,39 @@ Deno.test("status: the discern start guardrail does NOT fire from a worktree (it
       !(obj.hints ?? []).includes(START_HERE_HINT),
       `an agent already in a worktree must not be told to start one: ${
         JSON.stringify(obj.hints)
+      }`,
+    );
+  });
+});
+
+Deno.test("status: while setup is unfinished, the main-checkout worktree next-steps are suppressed (no contradiction)", async () => {
+  // Setup runs in the main checkout (on the `discern-setup` branch). Until it is
+  // recorded, the only correct "what now" is "finish setup here" — so the
+  // `discern start` guardrail and the "no active worktrees" nudge must NOT fire,
+  // or the agent is told to abandon setup and start a worktree (the contradiction a
+  // real cold run hit). The class: NO "start work elsewhere" hint while
+  // `setup_unfinished` is present.
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { bootstrapped: false }); // un-set-up
+    await gitInit(dir);
+
+    const obj = parseStatus((await runAgent(dir, ["status", "--json"])).stdout);
+    assertEquals(obj.data.location, "main");
+    assert(
+      obj.data.setup_unfinished !== undefined,
+      "an un-bootstrapped project must report setup_unfinished",
+    );
+    const hints: string[] = obj.hints ?? [];
+    assert(
+      !hints.includes(START_HERE_HINT),
+      `the discern start guardrail must not fire mid-setup: ${
+        JSON.stringify(hints)
+      }`,
+    );
+    assert(
+      !hints.some((h) => h.includes("No active worktrees")),
+      `the "start a worktree" nudge must not fire mid-setup: ${
+        JSON.stringify(hints)
       }`,
     );
   });

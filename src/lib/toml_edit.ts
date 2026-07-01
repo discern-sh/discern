@@ -8,9 +8,11 @@
  * key, its `=` alignment, and every comment elsewhere.
  *
  * It targets exactly the shape `toml.awk` reads (see ADR 0005): `[section]` and
- * `[section.sub]` headers, and single-line `key = scalar|array` assignments. It
- * is NOT a general TOML writer — multi-line arrays and inline tables are out of
- * scope (the kit doesn't use them).
+ * `[section.sub]` headers, and single-line `key = scalar|array` assignments — plus
+ * ROOT-level keys (a `key = value` before any header), which `discern.toml` itself
+ * has none of but a co-managed foreign file does (Codex's `environment.toml`
+ * `version` / `name` — see {@link TomlEditor.setRootLiteral}). It is NOT a general
+ * TOML writer — multi-line arrays and inline tables are out of scope.
  */
 
 import { renderTomlStringList } from "./toml_render.ts";
@@ -23,6 +25,108 @@ function escapeRegExp(s: string): string {
 /** True for a blank (whitespace-only) line. */
 function isBlankLine(line: string): boolean {
   return line.trim() === "";
+}
+
+/**
+ * Return a line's trailing inline comment, including the whitespace before `#`.
+ * Hashes inside single- or double-quoted TOML strings are value content.
+ */
+function inlineCommentSuffix(line: string, valueStart: number): string {
+  let quote: "'" | '"' | null = null;
+  let escaped = false;
+
+  for (let i = valueStart; i < line.length; i++) {
+    const char = line[i];
+    if (quote === '"') {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === '"') {
+        quote = null;
+      }
+      continue;
+    }
+    if (quote === "'") {
+      if (char === "'") {
+        quote = null;
+      }
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      quote = char;
+      continue;
+    }
+    if (char === "#") {
+      let suffixStart = i;
+      while (
+        suffixStart > valueStart &&
+        /\s/.test(line[suffixStart - 1] ?? "")
+      ) {
+        suffixStart--;
+      }
+      return line.slice(suffixStart);
+    }
+  }
+  return "";
+}
+
+/** Replace one matched assignment's value while retaining its layout and comment. */
+function replaceLiteralValue(
+  line: string,
+  key: string,
+  match: RegExpMatchArray,
+  literal: string,
+): string {
+  const prefix = `${match[1] ?? ""}${key}${match[2] ?? ""}`;
+  return `${prefix}${literal}${inlineCommentSuffix(line, prefix.length)}`;
+}
+
+/** Whether a line's TOML array value is closed on that same line. */
+function arrayClosedOnLine(line: string, valueStart: number): boolean {
+  let quote: "'" | '"' | null = null;
+  let escaped = false;
+  let depth = 0;
+  let sawArray = false;
+  let sawClose = false;
+
+  for (let i = valueStart; i < line.length; i++) {
+    const char = line[i];
+    if (quote === '"') {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === '"') {
+        quote = null;
+      }
+      continue;
+    }
+    if (quote === "'") {
+      if (char === "'") {
+        quote = null;
+      }
+      continue;
+    }
+    if (char === "#") {
+      break;
+    }
+    if (char === '"' || char === "'") {
+      quote = char;
+      continue;
+    }
+    if (char === "[") {
+      depth++;
+      sawArray = true;
+    } else if (char === "]") {
+      sawClose = true;
+      depth--;
+      if (depth <= 0) {
+        return true;
+      }
+    }
+  }
+  return sawArray ? depth <= 0 : sawClose;
 }
 
 /** Render a string as a double-quoted TOML value (escaping `\` and `"`). */
@@ -80,9 +184,11 @@ export class TomlEditor {
   /**
    * Set a dotted key (`section[.sub].key`) to a pre-rendered TOML value literal.
    * Replaces the value of an existing key (preserving its `=` alignment and
-   * dropping only that line's inline comment), inserts the key after its section
-   * header if the key is absent, or appends a new section at EOF if the section
-   * is absent.
+   * inline comment), inserts the key after its section header if the key is
+   * absent, or — if the section itself is absent — creates it: right after the
+   * last sibling in its dotted family if one exists (e.g. a new
+   * `[scopes.assets]` lands beside an existing `[scopes.docs]`), otherwise
+   * appended at EOF.
    */
   setLiteral(dottedKey: string, literal: string): this {
     const segments = dottedKey.split(".");
@@ -98,11 +204,29 @@ export class TomlEditor {
     const keyLine = `${key} = ${literal}`;
 
     if (span === null) {
-      // No such section: append it at EOF, with a blank-line separator.
-      if (this.lines.length > 0 && this.lines[this.lines.length - 1] !== "") {
-        this.lines.push("");
+      // No such section. If a sibling already exists in this section's dotted
+      // family (e.g. [scopes.docs] when we're creating [scopes.assets]),
+      // insert right after the LAST such sibling — keeping the family
+      // contiguous instead of scattering a new [scopes.*] far from the rest
+      // of [scopes.*]. Only with no family member at all do we fall back to
+      // an EOF append, with a blank-line separator.
+      const sibling = this.lastSiblingSection(section);
+      if (sibling === null) {
+        if (
+          this.lines.length > 0 && this.lines[this.lines.length - 1] !== ""
+        ) {
+          this.lines.push("");
+        }
+        this.lines.push(`[${section}]`, keyLine);
+        return this;
       }
-      this.lines.push(`[${section}]`, keyLine);
+      this.lines.splice(
+        this.bodyInsertionPoint(sibling),
+        0,
+        "",
+        `[${section}]`,
+        keyLine,
+      );
       return this;
     }
 
@@ -114,7 +238,12 @@ export class TomlEditor {
       if (lineText === undefined) continue;
       const m = lineText.match(keyRe);
       if (m) {
-        this.lines[i] = `${m[1] ?? ""}${key}${m[2] ?? ""}${literal}`;
+        const prefix = `${m[1] ?? ""}${key}${m[2] ?? ""}`;
+        const end = this.valueEnd(i, prefix.length);
+        this.lines[i] = replaceLiteralValue(lineText, key, m, literal);
+        if (end > i + 1) {
+          this.lines.splice(i + 1, end - i - 1);
+        }
         return this;
       }
     }
@@ -142,7 +271,10 @@ export class TomlEditor {
     for (let i = span.headerIdx + 1; i < span.bodyEnd; i++) {
       const lineText = this.lines[i];
       if (lineText !== undefined && keyRe.test(lineText)) {
-        this.lines.splice(i, 1);
+        const m = lineText.match(keyRe);
+        const prefix = m === null ? "" : `${m[1] ?? ""}${key}${m[2] ?? ""}`;
+        const end = this.valueEnd(i, prefix.length);
+        this.lines.splice(i, end - i);
         return true;
       }
     }
@@ -185,15 +317,7 @@ export class TomlEditor {
     if (span === null) {
       return this.appendSectionBlock(blockLines);
     }
-    // Insert right after the anchor's last content line: step back over the
-    // blank lines trailing its body so our own gap controls the spacing.
-    let at = span.bodyEnd;
-    while (at - 1 > span.headerIdx) {
-      const prev = this.lines[at - 1];
-      if (prev === undefined || !isBlankLine(prev)) break;
-      at--;
-    }
-    this.lines.splice(at, 0, "", "", ...blockLines);
+    this.lines.splice(this.bodyInsertionPoint(span), 0, "", "", ...blockLines);
     return this;
   }
 
@@ -248,6 +372,68 @@ export class TomlEditor {
     return this.setLiteral(dottedKey, tomlStringArray(items));
   }
 
+  /**
+   * The exclusive end of the document's ROOT region — the index of the first
+   * `[section]` header, or EOF when the file has none. A TOML `key = value` written
+   * before any header (a "root key", e.g. Codex's `environment.toml` `version` /
+   * `name`) lives in `[0, rootEnd)`. The `discern.toml` subset has no root keys, but
+   * a co-managed foreign file does, so the editor handles them too.
+   */
+  private rootEnd(): number {
+    const idx = this.lines.findIndex((l) => HEADER_RE.test(l));
+    return idx === -1 ? this.lines.length : idx;
+  }
+
+  /** True when a ROOT-level (pre-section) `key = …` assignment is present — the
+   * root-region analogue of {@link hasSection}, so a caller can set-if-absent. */
+  hasRootKey(key: string): boolean {
+    const keyRe = new RegExp(`^(\\s*)${escapeRegExp(key)}(\\s*=\\s*).*$`);
+    const end = this.rootEnd();
+    for (let i = 0; i < end; i++) {
+      const line = this.lines[i];
+      if (line !== undefined && keyRe.test(line)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Set a ROOT-level (pre-section) key to a pre-rendered TOML value literal —
+   * replacing an existing root key's value (preserving its `=` alignment and
+   * inline comment), or inserting it at the end of the root region
+   * (just before the first section header, or at EOF). The root-region counterpart
+   * to {@link setLiteral}; the key must be a bare name, not dotted.
+   */
+  setRootLiteral(key: string, literal: string): this {
+    if (key.includes(".")) {
+      throw new Error(`root key must be a bare name (got "${key}")`);
+    }
+    const keyRe = new RegExp(`^(\\s*)${escapeRegExp(key)}(\\s*=\\s*).*$`);
+    const end = this.rootEnd();
+    for (let i = 0; i < end; i++) {
+      const line = this.lines[i];
+      if (line === undefined) continue;
+      const m = line.match(keyRe);
+      if (m) {
+        this.lines[i] = replaceLiteralValue(line, key, m, literal);
+        return this;
+      }
+    }
+    this.lines.splice(end, 0, `${key} = ${literal}`);
+    return this;
+  }
+
+  /** Set a root-level string key. */
+  setRootString(key: string, value: string): this {
+    return this.setRootLiteral(key, tomlString(value));
+  }
+
+  /** Set a root-level number key (a string preserves its written form). */
+  setRootNumber(key: string, value: number | string): this {
+    return this.setRootLiteral(key, tomlNumber(value));
+  }
+
   /** The edited text, with the original trailing-newline convention restored. */
   toString(): string {
     const body = this.lines.join("\n");
@@ -276,5 +462,79 @@ export class TomlEditor {
       }
     }
     return null;
+  }
+
+  /**
+   * The line index right after `span`'s last real content line — its
+   * `bodyEnd`, stepped back over any blank lines trailing the body, so a
+   * caller's own gap controls the spacing instead of compounding with one
+   * already there.
+   */
+  private bodyInsertionPoint(
+    span: { headerIdx: number; bodyEnd: number },
+  ): number {
+    let at = span.bodyEnd;
+    while (at - 1 > span.headerIdx) {
+      const prev = this.lines[at - 1];
+      if (prev === undefined || !isBlankLine(prev)) break;
+      at--;
+    }
+    return at;
+  }
+
+  /** The exclusive end line for a key's value, spanning a multi-line array. */
+  private valueEnd(lineIdx: number, valueStart: number): number {
+    const first = this.lines[lineIdx];
+    if (first === undefined || first.slice(valueStart).trimStart()[0] !== "[") {
+      return lineIdx + 1;
+    }
+    if (arrayClosedOnLine(first, valueStart)) {
+      return lineIdx + 1;
+    }
+    for (let i = lineIdx + 1; i < this.lines.length; i++) {
+      const line = this.lines[i];
+      if (line === undefined) continue;
+      if (arrayClosedOnLine(line, 0)) {
+        return i + 1;
+      }
+    }
+    return lineIdx + 1;
+  }
+
+  /**
+   * The LAST existing section sharing `section`'s dotted family — its parent
+   * group, i.e. the path with its final segment dropped (`scopes.assets`'s
+   * group is `scopes`, so an existing `[scopes.docs]` is a sibling). Returns
+   * null when `section` has no parent group (a single bare segment, e.g.
+   * `recipes`) or no family member exists yet, so callers can fall back to an
+   * EOF append exactly as before this method existed.
+   */
+  private lastSiblingSection(
+    section: string,
+  ): { headerIdx: number; bodyEnd: number } | null {
+    const lastDot = section.lastIndexOf(".");
+    if (lastDot === -1) {
+      return null;
+    }
+    const group = section.slice(0, lastDot);
+    let found: { headerIdx: number; bodyEnd: number } | null = null;
+    for (let i = 0; i < this.lines.length; i++) {
+      const lineText = this.lines[i];
+      const path = lineText?.match(HEADER_RE)?.[1]?.trim();
+      if (
+        path === undefined || (path !== group && !path.startsWith(`${group}.`))
+      ) {
+        continue;
+      }
+      let end = i + 1;
+      for (; end < this.lines.length; end++) {
+        const endLine = this.lines[end];
+        if (endLine !== undefined && HEADER_RE.test(endLine)) {
+          break;
+        }
+      }
+      found = { headerIdx: i, bodyEnd: end };
+    }
+    return found;
   }
 }

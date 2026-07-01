@@ -58,6 +58,17 @@ coupling  = true   # the co-change advisory (the `coupling` verb)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# [docs] — discern's agent documentation tree. This is conceptually distinct
+# from human-curated project docs: setup scaffolds it here, `discern docs`
+# browses it, and `${docs.dir}` keeps checks/scopes/ratchets tied to this path.
+# ─────────────────────────────────────────────────────────────────────────────
+
+[docs]
+# Project-relative, and kept inside the repository.
+dir = "{{docs_dir}}"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # [guidance] — the author-once → compile-everywhere agent-instruction pipeline.
 # `discern refresh` compiles discern's built-in harness guidance (always
 # prepended, feature-aware) plus YOUR sources below into one generated file per
@@ -280,7 +291,7 @@ ensure = []  # converge, e.g. ["<install deps>"]
 #   per        divide the metric to ratchet a RATE, not a raw count — so the number
 #              doesn't rise just because the project grew. Either a second metric the
 #              run emits, or a built-in extent discern measures itself:
-#              per = { words = "docs/**" }  (files | lines | words | bytes over a pathspec)
+#              per = { words = "${docs.dir}**" }  (files | lines | words | bytes over a pathspec)
 #   scale      multiply the rate so the limit reads in human units (e.g. 1000)
 #
 # A ratchet's `run` reports its number by printing a line:

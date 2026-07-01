@@ -16,6 +16,8 @@ Installer bookkeeping. `schema_version` is the migration anchor; edit by hand on
 | --- | --- | --- | --- |
 | `schema_version` | number | — | The install schema version — managed by discern (bumped by `discern upgrade`). Don't edit by hand. |
 | `bootstrapped` | boolean | `false` | Whether `discern setup` has completed — retires the one-time setup redirect. |
+| `setup_model` | string | `""` | The model the agent self-declared at `discern setup begin --model=…`. Recorded for support triage; advisory only (discern can't verify it). |
+| `setup_version` | string | `""` | The discern version that ran setup (observed at `begin`). Recorded for support triage. |
 
 ## `[project]`
 
@@ -49,7 +51,7 @@ The author-once → compile-everywhere agent-instruction pipeline. `discern refr
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `sources` | string[] | `["guidance.md"]` | Your guideline source file(s), relative to the project root. Globs allowed. Read only if present; the built-in harness guidance is always prepended. |
-| `agents` | string[] | `[]` | Which provider files to emit: "claude_code" -> CLAUDE.md, "codex" -> AGENTS.md, "gemini" -> GEMINI.md. |
+| `agents` | string[] | `[]` | Which agent integrations to enable: claude_code -> CLAUDE.md, gemini -> GEMINI.md, codex / cursor / copilot -> AGENTS.md. |
 
 ## `[skills]`
 
@@ -58,6 +60,14 @@ Focused, reusable task playbooks. The effective set is discern's bundled built-i
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `dir` | string | `"skills"` | Where your authored skills live, relative to the project root. Read only if present, so a project with no skills/ dir simply uses the built-ins. |
+
+## `[docs]`
+
+The project documentation tree discern scaffolds, validates, and browses.
+
+| Key | Type | Default | Description |
+| --- | --- | --- | --- |
+| `dir` | string | `"docs/"` | Where discern's agent documentation tree lives, relative to the project root. `discern setup` scaffolds it here and `discern docs` browses it by default. |
 
 ## `[capabilities]`
 
@@ -136,7 +146,7 @@ Worktree setup commands: one-shot `steps` (creation only) and convergent `ensure
 | `direction` | `up` \| `down` | `"up"` | "up": limit is a floor; "down": limit is a ceiling. |
 | `limit` | number | — | The floor (up) or ceiling (down). |
 | `run` | string \| string[] | — | The command whose output emits the metric line: DISCERN_METRIC <metric> <number>. |
-| `per` | string \| object | — | Divide the metric by this to ratchet a *rate*, not a raw count — so the number doesn't rise just because the project grew. Either a second metric the run emits, or a built-in extent discern measures itself: per = { words = "docs/**" } (files \| lines \| words \| bytes over a git pathspec). |
+| `per` | string \| object | — | Divide the metric by this to ratchet a *rate*, not a raw count — so the number doesn't rise just because the project grew. Either a second metric the run emits, or a built-in extent discern measures itself: per = { words = "${docs.dir}**" } (files \| lines \| words \| bytes over a git pathspec). |
 | `scale` | number | `1` | Multiply the rate by this so the limit reads in human units, e.g. scale = 1000 for "per 1,000 words". |
 
 ## `[gate]`

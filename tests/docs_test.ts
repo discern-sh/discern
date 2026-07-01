@@ -520,6 +520,29 @@ Deno.test("docs --dir can target an internal subtree directly", async () => {
   });
 });
 
+Deno.test("docs defaults to the configured [docs].dir", async () => {
+  await withTempDir(async (dir) => {
+    await seedConfig(
+      dir,
+      '[meta]\nbootstrapped = true\n[project]\nslug = "demo"\n[docs]\ndir = "docs/discern/"\n',
+    );
+    await Deno.mkdir(join(dir, "docs/discern"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, "docs/discern/README.md"),
+      "# Agent docs\n",
+    );
+    await Deno.writeTextFile(join(dir, "docs/README.md"), "# Human docs\n");
+
+    const { code, stdout } = await runCli(["docs", "--json"], dir);
+    assertEquals(code, 0);
+    const res = JSON.parse(stdout);
+    assertEquals(res.data.docs_dir, "docs/discern");
+    assertEquals(res.data.docs.map((doc: { path: string }) => doc.path), [
+      "docs/discern/README.md",
+    ]);
+  });
+});
+
 Deno.test("docs <unknown> --json reports not_found, exit 1", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);

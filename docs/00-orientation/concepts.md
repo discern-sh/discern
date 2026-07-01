@@ -49,7 +49,7 @@ It is **one self-contained binary** with two faces:
   check it. This face is build-time work: it writes a project's files, then
   steps out of the way.
 - The **Engine** — the stack-neutral logic behind `discern finish` / `prepare` /
-  `audit` / `worktree` / … . It is **TypeScript compiled into the binary**
+  `improve` / `worktree` / … . It is **TypeScript compiled into the binary**
   ([`src/engine/`](../../src/engine/), sharing
   [`src/shared/`](../../src/shared/) with the Installer), not files installed
   into the project.
@@ -78,30 +78,65 @@ skills, docs) on or off — distinct from the Capabilities that wire the gate.
 
 ## How it works, end to end
 
-**1. Set up.** `discern setup` is non-interactive — it asks the user nothing at
-the CLI. It lays down only _your_ seed files with zero-config defaults: a
-`discern.toml` with no Capabilities wired yet (a green gate you grow into — an
-omitted capability is simply skipped), a merged `.claude/settings.json`, and an
-appended `.gitignore` fragment. It then **materializes** the bundled Skills into
-each configured agent's skills dir (gitignored) and compiles the agent guidance.
-There is no engine and no manifest to write — the Engine is in the binary. Files
-split by **disposition**: [yours](glossary.md#your-files--yours) (the committed
-seeds, written once then kept), [the binary's](glossary.md#the-binarys-files)
+**1. Set up.** Setup is a short, staged handshake
+([ADR 0075](../_adr/0075-setup-staged-handshake.md)) — never a wizard, and the
+user makes no decisions at the CLI. Bare `discern` (or `discern setup`) prints a
+read-only **welcome**: reassurance for the human, a funnel for their coding
+agent. The agent then runs `discern setup verify` — a read-only preflight that
+inspects the repo (git state, an existing `docs/` tree, existing agent
+instructions, the agents on PATH, the worktree location) and turns it into a
+warm consent conversation to hold with the human. When human-written docs
+already occupy `docs/`, that conversation chooses a separate home for discern's
+agent documentation tree and passes it to `begin` with `--docs`; the persisted
+`[docs].dir` then drives every docs-aware surface
+([ADR 0080](../_adr/0080-configured-agent-docs-root.md)). **Nothing is written
+until `discern setup begin`**, the first mutating step: it lays down only _your_
+seed files with zero-config defaults — a `discern.toml` with no Capabilities
+wired yet (a green gate you grow into — an omitted capability is simply
+skipped), a merged `.claude/settings.json`, and an appended `.gitignore`
+fragment. It then **materializes** the bundled Skills into each configured
+agent's skills dir (gitignored) and compiles the agent guidance. There is no
+engine and no manifest to write — the Engine is in the binary. Files split by
+**disposition**: [yours](glossary.md#your-files--yours) (the committed seeds,
+written once then kept), [the binary's](glossary.md#the-binarys-files)
 (gitignored artifacts it re-publishes, like the materialized Skills), plus the
-Merged `settings.json`/`.gitignore`. The same command then lays the docs-tree
-and `TODO.md` skeletons (only when the project has none) and prints the
-authoring instructions for the agent.
+Merged `settings.json`/`.gitignore`. On a fresh install in a clean repo, `begin`
+then **commits** the harness wiring it just wrote — the `discern.toml`, the
+`.gitignore` fragment, and the per-agent MCP + hooks files — as one
+`discern: scaffold harness` commit
+([ADR 0076](../_adr/0076-engine-commits-scaffolded-machinery.md)), so the coding
+agent never has to commit discern's own permission-widening config (its safety
+classifier would refuse). `begin` then lays the docs-tree and `TODO.md`
+skeletons at the configured root (only when the project has none) — left
+uncommitted for the agent to fill — and prints the operating principles plus the
+first **page** of the authoring brief; the agent pulls each subsequent page with
+`discern setup step
+<n>`
+([ADR 0078](../_adr/0078-setup-pages-and-per-step-proof.md)).
 
-**2. Fill in the stack.** The same `discern setup` run prints instructions the
-coding agent already in the loop works through: it sniffs the repo, asks the
-user a few clarifying questions, and _proposes_ Capability fills (formatter,
-linter, type-checker, tests), seeds a starter `guidance.md`, and fills the docs
-tree and `TODO.md` from the repo and those answers — working transparently
-throughout: recommending each change, saying why it helps and that `discern` is
-what will enforce it, committing each stage on its own so the user can review or
-revert, and pausing only for genuine decisions rather than gating every step
-([ADR 0044](../_adr/0044-setup-involve-not-gate.md)). The Engine stays generic;
-only `discern.toml` learns the stack.
+**2. Fill in the stack.** That brief — a structured page per step, served one at
+a time — is what the coding agent already in the loop works through: it sniffs
+the repo, asks the user a few clarifying questions, and _proposes_ Capability
+fills (formatter, linter, type-checker, tests), seeds a starter `guidance.md`,
+and fills the docs tree and `TODO.md` from the repo and those answers — working
+transparently throughout: recommending each change, saying why it helps and that
+`discern` is what will enforce it, committing each stage on its own so the user
+can review or revert, and pausing only for genuine decisions rather than gating
+every step ([ADR 0044](../_adr/0044-setup-involve-not-gate.md)). The Engine
+stays generic; only `discern.toml` learns the stack. Setup finishes with
+`discern setup done`, which proves the gate green (refresh → doctor → finish)
+AND re-derives from repo state that each step's authoring actually landed — so a
+skipped step can't pass
+([ADR 0078](../_adr/0078-setup-pages-and-per-step-proof.md)) — before recording
+completion. Its completion output then does three things: it reports an **honest
+coverage summary** — each standard capability marked _enforced_, _deferred_, or
+_absent_, plus an overall verdict — so "the gate is proven" never reads as
+"every protection runs" when, say, no test suite is wired; it names **where the
+work lives** (on the `discern-setup` branch, not yet on `main`) and the one
+command to land it, `discern setup land`
+([ADR 0081](../_adr/0081-setup-land-command.md)); and it reminds the agent to
+start a fresh session (the wired MCP tools and session hooks load only at
+session start) and to deepen the setup with `discern improve`.
 
 **3. Work behind the gate.** Day to day, everything is driven through `discern`
 verbs:
@@ -111,8 +146,8 @@ verbs:
   branch, what changed, and what the gate _would_ fire (it never runs anything).
   From a **Worktree** it shows that Worktree's own state; from the main checkout
   it surveys the whole fleet of Worktrees in flight. It rounds out the trio with
-  `discern doctor` (_is it correctly installed?_) and `discern audit` (_is the
-  setup any good?_).
+  `discern doctor` (_is it correctly installed?_) and `discern improve` (_what
+  should get better next?_).
 - `discern worktree` carves an isolated **Worktree** (and branch) for a change,
   so the main checkout is never touched. Each Worktree gets its own dev-server
   port and any per-worktree **resources** (a database, an emulator, …) a project

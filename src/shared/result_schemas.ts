@@ -59,6 +59,7 @@ export const DiagnosticSchema = z.strictObject({
   reproduce_cmd: z.string(),
   output: z.string().optional(),
   truncated: z.boolean().optional(),
+  output_path: z.string().optional(),
   file: z.string().optional(),
   line: z.number().optional(),
   col: z.number().optional(),
@@ -124,11 +125,13 @@ export const EnvelopeSchema = z.strictObject({
 });
 
 /**
- * The envelope for the data-LESS verbs (`prepare`, `test`, `ratchets`, `graduate`):
- * strict and WITHOUT a `data` field. They carry no `data` today, and this makes that
- * a checked invariant — a result that grows a `data` payload fails its faithfulness
- * test (and the SDK's output validation) until the payload is modelled, the SSOT
- * guard the bare `EnvelopeSchema` (`data: unknown`) can't give.
+ * The envelope for the data-LESS verbs (`prepare`, `test`, `ratchets`): strict and
+ * WITHOUT a `data` field. They carry no `data` today, and this makes that a checked
+ * invariant — a result that grows a `data` payload fails its faithfulness test (and the
+ * SDK's output validation) until the payload is modelled, the SSOT guard the bare
+ * {@link EnvelopeSchema} (`data: unknown`) can't give. (`graduate` graduated out of this
+ * set — it carries a {@link GraduateDataSchema} landing root on an apply; its dry-run
+ * preview is still data-less.)
  */
 export const DatalessEnvelopeSchema = z.strictObject(ENVELOPE_BASE_FIELDS);
 
@@ -140,8 +143,42 @@ export const DatalessEnvelopeSchema = z.strictObject(ENVELOPE_BASE_FIELDS);
 export const GateDataSchema = z.strictObject({
   failed_stage: z.enum(FAILED_STAGES).nullable(),
   scopes_changed: z.array(z.string()),
+  gate_receipt: z.strictObject({
+    status: z.enum([
+      "recorded",
+      "skipped_dirty",
+      "unavailable",
+      "record_failed",
+      "cleared",
+      "clear_failed",
+    ]),
+    path: z.string().optional(),
+    reason: z.string().optional(),
+  }).optional(),
 });
 export type GateData = z.infer<typeof GateDataSchema>;
+
+export const GateReceiptCheckSchema = z.strictObject({
+  status: z.enum([
+    "honored",
+    "missing",
+    "stale",
+    "dirty",
+    "unavailable",
+    "read_failed",
+  ]),
+  path: z.string().optional(),
+  recorded: z.string().optional(),
+  head: z.string().optional(),
+  reason: z.string().optional(),
+});
+export type GateReceiptCheckData = z.infer<typeof GateReceiptCheckSchema>;
+
+const GateValidationSchema = z.strictObject({
+  mode: z.enum(["receipt", "rerun"]),
+  receipt: GateReceiptCheckSchema,
+});
+export type GateValidationData = z.infer<typeof GateValidationSchema>;
 
 /** `changed-scopes` — the classified scope/marker list. */
 export const ChangedScopesDataSchema = z.strictObject({
@@ -216,6 +253,19 @@ export const StartDataSchema = z.strictObject({
   path: z.string(),
 });
 export type StartData = z.infer<typeof StartDataSchema>;
+
+/** `graduate` — where the branch landed: `root` is the main checkout the worktree's
+ * branch was graduated into. The load-bearing field for the MCP working-root re-aim
+ * (ADR 0062): graduate removes the worktree the server operated on, and the server
+ * re-aims its working root to THIS path — so a server launched inside a worktree (e.g.
+ * Codex's app-managed worktree) lands back on the live main checkout, not the grave of
+ * the worktree it just graduated, instead of the spawn root (which is the trunk only
+ * when the server was launched from the trunk). */
+export const GraduateDataSchema = z.strictObject({
+  root: z.string(),
+  gate_validation: GateValidationSchema.optional(),
+});
+export type GraduateData = z.infer<typeof GraduateDataSchema>;
 
 // integrate ─────────────────────────────────────────────────────────────────────
 
@@ -355,8 +405,12 @@ export const StatusDataSchema = z.strictObject({
   ratchets: z.array(z.string()),
   stale_generated: z.array(z.string()).optional(),
   stale_materialized: z.array(z.string()).optional(),
-  setup_unfinished: z.strictObject({ pending_markers: z.array(z.string()) })
-    .optional(),
+  setup_unfinished: z.strictObject({
+    pending_markers: z.array(z.string()),
+    capabilities: z.array(
+      z.strictObject({ name: z.string(), wired: z.boolean() }),
+    ),
+  }).optional(),
   fleet: z.array(statusFleetEntrySchema).optional(),
 });
 export type StatusData = z.infer<typeof StatusDataSchema>;
@@ -422,17 +476,17 @@ export const DoctorDataSchema = z.strictObject({
 });
 export type DoctorData = z.infer<typeof DoctorDataSchema>;
 
-// audit ─────────────────────────────────────────────────────────────────────
+// improve ───────────────────────────────────────────────────────────────────
 
 /** A pointer to the project material a subjective review item is judged against. */
-const auditEvidenceSchema = z.strictObject({
+const reviewEvidenceSchema = z.strictObject({
   source: z.string(),
   excerpt: z.string(),
 });
 
-/** One deterministic rule's evaluated result. Exported so the audit `RuleStatus`
+/** One deterministic rule's evaluated result. Exported so the improve `RuleStatus`
  * SSOT (an engine type this shared module can't import) is tied to `status` here by a
- * guard in `audit_catalog_test.ts`. */
+ * guard in `improve_catalog_test.ts`. */
 export const ruleResultSchema = z.strictObject({
   id: z.string(),
   title: z.string(),
@@ -449,11 +503,11 @@ const reviewResultSchema = z.strictObject({
   title: z.string(),
   ask: z.string(),
   teach: z.string(),
-  against: auditEvidenceSchema.optional(),
+  against: reviewEvidenceSchema.optional(),
 });
 
-/** One audited category's evaluated result. */
-const auditCategorySchema = z.strictObject({
+/** One reviewed category's evaluated result. */
+const improveCategorySchema = z.strictObject({
   name: z.string(),
   title: z.string(),
   score: z.number(),
@@ -463,14 +517,25 @@ const auditCategorySchema = z.strictObject({
   reviews: z.array(reviewResultSchema),
 });
 
-/** `audit` — the scored, weakest-first best-practices payload. */
-export const AuditDataSchema = z.strictObject({
+/** The coach's single prioritized next action. */
+const nextActionSchema = z.strictObject({
+  kind: z.enum(["fix", "review"]),
+  category: z.string(),
+  id: z.string(),
+  title: z.string(),
+  action: z.string(),
+  why: z.string(),
+});
+
+/** `improve` — baseline health, open reviews, and the prioritized next action. */
+export const ImproveDataSchema = z.strictObject({
   score: z.number(),
   weak: z.number(),
   open_reviews: z.number(),
-  categories: z.array(auditCategorySchema),
+  next_action: nextActionSchema,
+  categories: z.array(improveCategorySchema),
 });
-export type AuditData = z.infer<typeof AuditDataSchema>;
+export type ImproveData = z.infer<typeof ImproveDataSchema>;
 
 // docs / help ──────────────────────────────────────────────────────────────
 
@@ -497,6 +562,102 @@ export const DocsDataSchema = z.strictObject({
   candidates: z.array(z.string()).optional(),
 });
 export type DocsData = z.infer<typeof DocsDataSchema>;
+
+// setup:step ──────────────────────────────────────────────────────────────────
+
+/**
+ * The machine-readable **spine** of one setup page (ADR 0078) — navigation and
+ * completion-proof rails ONLY. The warm behavioral/consent guidance stays in the
+ * prose `guidance` field, never flattened into these terse fields (the two-lane
+ * rule: structured fields get summarized and weakened; prose gets followed). The
+ * page parser ({@link import("./setup_pages.ts")}) validates each step's authored
+ * TOML block against this, so a malformed spine fails loudly rather than serving
+ * half a page.
+ */
+export const SetupPageSpineSchema = z.strictObject({
+  intent: z.string(),
+  files_to_read: z.array(z.string()),
+  must_do: z.array(z.string()),
+  what_not_to_do: z.array(z.string()),
+  completion_check: z.string(),
+  next_action: z.string(),
+});
+export type SetupPageSpine = z.infer<typeof SetupPageSpineSchema>;
+
+/**
+ * `setup:step` — one numbered setup page: the machine `spine` plus the warm prose
+ * `guidance` the agent follows verbatim. `setup step <n> --json` carries BOTH
+ * lanes; the human rendering leads with the prose (ADR 0078).
+ */
+export const SetupStepDataSchema = z.strictObject({
+  step: z.number(),
+  title: z.string(),
+  spine: SetupPageSpineSchema,
+  guidance: z.string(),
+});
+export type SetupStepData = z.infer<typeof SetupStepDataSchema>;
+
+// setup:verify ──────────────────────────────────────────────────────────────────
+
+/**
+ * One pre-existing thing `begin` must work around — a heads-up for the human to weigh
+ * before scaffolding, never a blocker (`verify` only ever observes). The `kind` is the
+ * machine lane; the human-facing reason rides `detail`.
+ */
+export const SetupVerifyConflictSchema = z.strictObject({
+  kind: z.enum([
+    "existing_docs",
+    "existing_instructions",
+    "dirty_tree",
+    "not_a_repo",
+  ]),
+  detail: z.string(),
+});
+export type SetupVerifyConflict = z.infer<typeof SetupVerifyConflictSchema>;
+
+/**
+ * The grounded, read-only findings `verify` reports about THIS repo — the machine lane
+ * of the preflight. The consent conversation itself never rides these fields; it stays
+ * in the `guidance` prose. A new finding (e.g. a docs-tree-under-another-name
+ * detection) enrolls HERE, so the schema and the real output can't drift (ADR 0041).
+ */
+export const SetupVerifyFindingsSchema = z.strictObject({
+  git: z.strictObject({
+    repo: z.boolean(),
+    clean: z.boolean(),
+    uncommitted: z.number(),
+  }),
+  docs: z.strictObject({
+    exists: z.boolean(),
+    suggested_discern_dir: z.string().nullable().optional(),
+  }),
+  existing_instructions: z.array(z.string()),
+  agents_detected: z.array(z.string()),
+  agents_effective: z.array(z.string()),
+  worktree_path: z.string(),
+});
+export type SetupVerifyFindings = z.infer<typeof SetupVerifyFindingsSchema>;
+
+/**
+ * `setup:verify` — the read-only preflight payload (ADR 0075), two shapes under one
+ * schema:
+ *   - the FRESH preflight: the structured machine lane (`findings`/`conflicts`/`ready`)
+ *     plus the consent `guidance` — the warm prose the agent relays VERBATIM and never
+ *     summarizes — and the `next_action` funnel into `begin`;
+ *   - the redirect (phase ≠ fresh): just `phase` + `next_action`.
+ * The two-lane split mirrors `setup:step` (ADR 0078): consent/behavioral instructions
+ * stay prose, because agents summarize and weaken the same content when it arrives as
+ * structured fields. `phase` mirrors `SetupPhase` (shared/setup_state.ts).
+ */
+export const SetupVerifyDataSchema = z.strictObject({
+  phase: z.enum(["fresh", "in_progress", "done"]),
+  next_action: z.string(),
+  ready: z.boolean().optional(),
+  findings: SetupVerifyFindingsSchema.optional(),
+  conflicts: z.array(SetupVerifyConflictSchema).optional(),
+  guidance: z.string().optional(),
+});
+export type SetupVerifyData = z.infer<typeof SetupVerifyDataSchema>;
 
 // ── per-verb output schemas (the envelope with `data` narrowed) ──────────────
 // Advertised by the MCP server as each tool's `outputSchema`; the SDK validates a
@@ -539,20 +700,43 @@ export const StartOutputSchema = z.strictObject({
   data: StartDataSchema.optional(),
 });
 
+/** `graduate` output: envelope + the landing-root `data` (present on an apply; a
+ * dry-run preview carries none). */
+export const GraduateOutputSchema = z.strictObject({
+  ...ENVELOPE_BASE_FIELDS,
+  data: GraduateDataSchema.optional(),
+});
+
 /** `integrate` output: envelope + the "what landed beneath the branch" `data`. */
 export const IntegrateOutputSchema = z.strictObject({
   ...ENVELOPE_BASE_FIELDS,
   data: IntegrateDataSchema.optional(),
 });
 
-/** `audit` output: envelope + the scored `data`. */
-export const AuditOutputSchema = z.strictObject({
+/** `improve` output: envelope + the coaching `data`. */
+export const ImproveOutputSchema = z.strictObject({
   ...ENVELOPE_BASE_FIELDS,
-  data: AuditDataSchema.optional(),
+  data: ImproveDataSchema.optional(),
 });
 
 /** `docs`/`help` output: envelope + the documentation `data`. */
 export const DocsOutputSchema = z.strictObject({
   ...ENVELOPE_BASE_FIELDS,
   data: DocsDataSchema.optional(),
+});
+
+/** `setup:step` output: envelope + the structured page `data`. CLI-only (setup is
+ * not an MCP tool), but modeled here so the page parser validates against one
+ * source and a faithfulness test can pin the real serialized output to it. */
+export const SetupStepOutputSchema = z.strictObject({
+  ...ENVELOPE_BASE_FIELDS,
+  data: SetupStepDataSchema.optional(),
+});
+
+/** `setup:verify` output: envelope + the preflight `data` (fresh or redirect). CLI-only
+ * (setup is not an MCP tool), modeled here so a faithfulness test can pin the real
+ * serialized output — including the consent `guidance` — to one source (ADR 0041). */
+export const SetupVerifyOutputSchema = z.strictObject({
+  ...ENVELOPE_BASE_FIELDS,
+  data: SetupVerifyDataSchema.optional(),
 });

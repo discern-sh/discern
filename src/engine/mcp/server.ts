@@ -31,7 +31,6 @@ import { z } from "@zod/zod";
 import { findRoot } from "../../shared/env.ts";
 import { type DiscernResult, serializeResult } from "../../shared/result.ts";
 import {
-  AuditOutputSchema,
   ChangedScopesOutputSchema,
   CouplingOutputSchema,
   DatalessEnvelopeSchema,
@@ -39,6 +38,9 @@ import {
   DocsOutputSchema,
   DoctorOutputSchema,
   FinishOutputSchema,
+  type GraduateData,
+  GraduateOutputSchema,
+  ImproveOutputSchema,
   IntegrateOutputSchema,
   type StartData,
   StartOutputSchema,
@@ -65,8 +67,8 @@ import { finishResult } from "../gate/finish.ts";
 import { prepareResult } from "../gate/prepare.ts";
 import { testResult } from "../gate/test.ts";
 import { ratchetsResult } from "../gate/ratchets.ts";
-import { auditResult } from "../audit/audit.ts";
-import { CATEGORY_NAMES } from "../audit/rules.ts";
+import { improveResult } from "../improve/improve.ts";
+import { CATEGORY_NAMES } from "../improve/rules.ts";
 import { changedScopesResult } from "../scopes/changed.ts";
 import { couplingResult } from "../coupling/coupling.ts";
 import { statusResult } from "../status/status.ts";
@@ -139,6 +141,14 @@ const INTEGRATE: ToolAnnotations = {
  * keeps the empty default shape, so its handler simply ignores the parameter. */
 type ToolArgs<TShape extends z.ZodRawShape> = z.infer<z.ZodObject<TShape>>;
 
+/** What a {@link McpTool.reaimOnSuccess} hook decides the re-aim from. `heldRootMissing`
+ * is true when the server's held working root does not exist after the call — the signal
+ * that a destructive verb (graduate) removed the directory it pointed at, so the held
+ * root is dangling and must move even though `path` was passed. */
+interface ReaimContext {
+  readonly heldRootMissing: boolean;
+}
+
 /** A tool: its advertised schema + metadata plus the handler that runs the verb.
  * The SDK converts {@link inputSchema}/{@link outputSchema} (Zod raw shapes, the
  * latter the per-verb schema from result_schemas.ts) to the JSON Schemas it
@@ -167,12 +177,16 @@ interface McpTool<TShape extends z.ZodRawShape = z.ZodRawShape> {
   /** After a SUCCESSFUL, non-preview call, compute the server's new working root —
    * the data-driven re-aim (ADR 0062), so {@link runTool} needs no per-tool name
    * switch. `discern_start` points it at the worktree it just created
-   * (`result.data.path`); `discern_graduate` resets it to the spawn root (the worktree
-   * it pointed at is gone). Return undefined to leave the working root unchanged — the
-   * default for every other tool, which never moves it. */
+   * (`result.data.path`); `discern_graduate` points it at the main checkout the branch
+   * landed in (`result.data.root`) — but ONLY when its own held root is now gone
+   * (`ctx.heldRootMissing`), i.e. graduate removed the worktree the root pointed at.
+   * That guard is what lets the re-aim run even on a `path` override (graduate can
+   * delete the held root, unlike a one-call read) without disturbing a held root that
+   * points at a DIFFERENT, still-live worktree (§2). Return undefined to leave the
+   * working root unchanged — the default for every other tool, which never moves it. */
   reaimOnSuccess?(
     result: DiscernResult,
-    spawnRoot: string | undefined,
+    ctx: ReaimContext,
   ): string | undefined;
   /** Run the verb in `root` with the call's arguments → the result to render. */
   run(root: string, args: ToolArgs<TShape>): Promise<DiscernResult>;
@@ -387,16 +401,16 @@ export const TOOLS: McpTool[] = [
       }),
   }),
   defineTool({
-    name: "discern_audit",
-    title: "Audit the setup",
-    outputSchema: AuditOutputSchema.shape,
+    name: "discern_improve",
+    title: "Find the next improvement",
+    outputSchema: ImproveOutputSchema.shape,
     annotations: READ_ONLY,
     description:
-      "Audit the project against the best-practices checklist and return the scored, " +
-      "weakest-first result. Each category lists deterministic rules (status, the finding, " +
-      "the exact fix, and why it matters) plus subjective review items — questions the " +
-      "agent should judge against the cited material (e.g. the guidance text) and act on. " +
-      "Use it to surface concrete setup improvements; pass a category to focus one area.",
+      "Coach the project's continuous improvement. Returns baseline health from " +
+      "deterministic rules, qualitative reviews that teach what good looks like, and " +
+      "data.next_action — the single highest-value improvement to make now. A 100 " +
+      "baseline means nothing objectively weak, not that the project is done. Pass a " +
+      "category to focus one area.",
     inputSchema: {
       category: z.string().optional().describe(
         `Restrict to one area: ${CATEGORY_NAMES.join(", ")}.`,
@@ -407,7 +421,7 @@ export const TOOLS: McpTool[] = [
       ...PATH_PARAM,
     },
     run: (root, args) =>
-      auditResult(root, {
+      improveResult(root, {
         category: args.category,
         minScore: args.min_score,
       }),
@@ -463,7 +477,7 @@ export const TOOLS: McpTool[] = [
   defineTool({
     name: "discern_graduate",
     title: "Graduate the worktree",
-    outputSchema: DatalessEnvelopeSchema.shape,
+    outputSchema: GraduateOutputSchema.shape,
     annotations: DESTRUCTIVE,
     description:
       "Graduate THIS worktree's branch into the main checkout: tear down the " +
@@ -492,10 +506,16 @@ export const TOOLS: McpTool[] = [
       ),
       ...PATH_PARAM,
     },
-    // A successful graduation removes the worktree the server pointed at — reset the
-    // working root to the spawn root (the trunk it was launched from), the path
-    // subsequent calls should operate on.
-    reaimOnSuccess: (_result, spawnRoot) => spawnRoot,
+    // A successful graduation removes the worktree the server operated on — re-aim the
+    // working root to the MAIN CHECKOUT the branch landed in (`result.data.root`), the
+    // path subsequent calls should operate on. NOT the spawn root: that is the trunk
+    // only when the server was launched from the trunk (Claude Code) — a server launched
+    // INSIDE a worktree (Codex's app-managed worktree) has the just-removed worktree as
+    // its spawn root, and re-aiming there would strand it in a grave (ADR 0062).
+    reaimOnSuccess: (result, ctx) =>
+      ctx.heldRootMissing
+        ? (result.data as GraduateData | undefined)?.root
+        : undefined,
     run: (root, args) =>
       graduateToolResult(root, {
         dryRun: args.dry_run === true,
@@ -760,7 +780,6 @@ export class WorkingRoot {
 async function runTool(
   tool: McpTool,
   working: WorkingRoot,
-  spawnRoot: string | undefined,
   args: Record<string, unknown>,
 ): Promise<ToolResult> {
   // The explicit `path` override wins over the working root for this one call; any dir
@@ -779,7 +798,7 @@ async function runTool(
   // Pre-setup gate — the MCP mirror of the CLI redirect: a bootstrap-gated verb
   // (the gate verbs and `discern_docs`) refuses until the project records
   // `[meta].bootstrapped`, so an agent never reads a false all-green or an empty
-  // doc tree. `discern_help`/`discern_status`/`discern_doctor`/`discern_audit` are
+  // doc tree. `discern_help`/`discern_status`/`discern_doctor`/`discern_improve` are
   // not gated — they are exactly what you reach for before setup is done.
   if (
     verbNeedsBootstrap(verbOf(tool.name)) && !(await bootstrapGatePasses(root))
@@ -803,20 +822,35 @@ async function runTool(
     };
   }
   // Data-driven re-aim (ADR 0062): on a successful, non-preview lifecycle call, move
-  // the working root per the tool's own hook (start → the new worktree; graduate →
-  // the spawn root). Gated on no `path` override — an explicit `path` wins "for that
-  // one call" only (§2), so it steers the call without mutating the held working root.
-  // A dry-run never moves it either — it changed nothing on disk.
+  // the working root per the tool's own hook (start → the new worktree it created;
+  // graduate → the main checkout it landed in). A `path` override is normally a
+  // one-call steer that does NOT move the held root (§2) — but graduate can REMOVE the
+  // directory the held root points at, so the hook re-roots when that root is now gone
+  // (`heldRootMissing`), even on a path override; otherwise the next no-path call would
+  // resolve a deleted worktree (the Codex failure mode). A dry-run never moves it.
   if (
-    pathArg === undefined && result.ok && result.dry_run !== true &&
-    tool.reaimOnSuccess !== undefined
+    result.ok && result.dry_run !== true && tool.reaimOnSuccess !== undefined
   ) {
-    const next = tool.reaimOnSuccess(result, spawnRoot);
+    const heldRoot = working.get();
+    const heldRootMissing = heldRoot !== undefined &&
+      !(await pathExists(heldRoot));
+    const next = tool.reaimOnSuccess(result, { heldRootMissing });
     if (next !== undefined) {
       working.set(next);
     }
   }
   return renderResult(result);
+}
+
+/** True when `path` exists on disk — the held-working-root liveness check the re-aim
+ * reads to tell "graduate removed my root" from a still-live root (ADR 0062 §2). */
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await Deno.stat(path);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -1111,7 +1145,9 @@ export function buildInstructions(
   if (enabled.has("docs")) {
     lines.push("- Read THIS project's own documentation with discern_docs.");
   }
-  lines.push("- Find concrete setup improvements with discern_audit.");
+  lines.push(
+    "- Ask discern_improve for the single highest-value project improvement.",
+  );
   if (enabled.has("ratchets")) {
     lines.push(
       "- Before pushing, check the quality ratchets with discern_ratchets — slow " +
@@ -1203,8 +1239,7 @@ export async function runMcpServer(): Promise<number> {
       server.registerTool(
         tool.name,
         { ...config, inputSchema: tool.inputSchema },
-        (args: Record<string, unknown>) =>
-          runTool(tool, working, spawnRoot, args),
+        (args: Record<string, unknown>) => runTool(tool, working, args),
       );
     } else {
       // An argument-less verb registers no input schema, so the SDK skips
@@ -1214,7 +1249,7 @@ export async function runMcpServer(): Promise<number> {
       server.registerTool(
         tool.name,
         config,
-        () => runTool(tool, working, spawnRoot, {}),
+        () => runTool(tool, working, {}),
       );
     }
   }

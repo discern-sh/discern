@@ -13,11 +13,20 @@
  * skipped, never guessed.
  */
 
-import { dirname, join } from "@std/path";
+import { dirname, join, relative } from "@std/path";
 import { ensureDir } from "@std/fs";
+import { parse as parseToml } from "@std/toml";
 import type { AgentName } from "./config.ts";
-import { AGENT_NAMES } from "../shared/config_schema.ts";
 import {
+  AGENT_NAMES,
+  type DiscernConfig,
+  parseConfigOrThrow,
+  resolveConfiguredAgents,
+} from "../shared/config_schema.ts";
+import { runGit } from "../shared/subprocess.ts";
+import { resolveWorktreeRoot } from "./paths.ts";
+import {
+  mergeJsonSettingsDedupingGroups,
   mergeJsonSettingsText,
   type SettingsSeedMerge,
 } from "./settings_merge.ts";
@@ -46,6 +55,74 @@ export const DISCERN_MCP_SERVER: McpServerSpec = {
 export const MCP_RESTART_HINT =
   "A discern MCP server was registered for the first time — restart your coding agent (or reload its MCP servers) for the discern tools to become available.";
 
+/** One configured agent's reactivation step in the post-setup handoff. */
+export interface AgentReactivation {
+  readonly agent: string;
+  readonly label: string;
+  readonly step: string;
+}
+
+/**
+ * The post-setup reactivation handoff (ADR 0075). `begin` wires each configured agent's
+ * MCP server and session hooks, but coding agents load them at session start — so the
+ * session that ran setup can't see them. At `setup done`, each configured agent that
+ * wired something loading at session start gets its {@link reactivationStep}; an agent
+ * that wired nothing (a reuse-canonical agent) is omitted, never told to restart for
+ * nothing. Lives in the registry so the per-agent wording is single-sourced (ADR
+ * 0031/0072) and DERIVED from the provider's own fields, not a parallel list.
+ */
+export function reactivationHandoff(
+  config: DiscernConfig,
+): { summary: string; per_agent: AgentReactivation[] } {
+  const per_agent: AgentReactivation[] = [];
+  for (const name of resolveConfiguredAgents(config)) {
+    const provider = providerFor(name);
+    if (provider === undefined) {
+      continue;
+    }
+    const step = reactivationStep(provider);
+    if (step === undefined) {
+      continue; // nothing discern wired for this agent loads at session start
+    }
+    per_agent.push({ agent: name, label: provider.label, step });
+  }
+  return {
+    summary:
+      "discern's MCP tools (discern_*) and session hooks are now wired — but coding agents load them at session start, so this session can't see them yet. Reactivate to use them:",
+    per_agent,
+  };
+}
+
+/**
+ * The reactivation step for ONE provider, DERIVED from its wiring — or `undefined` when
+ * nothing discern wired for it loads at session start (a reuse-canonical agent with no
+ * MCP and no hooks needs no restart, so it is never told to). The step names exactly
+ * what was wired (the live `mcp` server and/or the session `hooks`) and appends the
+ * one-time `trust` action when the vendor gates committed config behind one — all three
+ * being REQUIRED {@link Provider} fields, so a NEW vendor's reactivation follows from
+ * its declaration automatically, with no hand-maintained list. `engine_setup_reactivation`
+ * ties this to the PROVIDERS registry (ADR 0051/0075): a vendor whose reactivation does
+ * not follow from its wiring red-lights there.
+ */
+export function reactivationStep(provider: Provider): string | undefined {
+  const loads: string[] = [];
+  if (provider.mcp.kind === "wired") {
+    loads.push("MCP server");
+  }
+  if (provider.hooks !== undefined) {
+    loads.push("session hooks");
+  }
+  if (loads.length === 0) {
+    return undefined;
+  }
+  const base = `start a fresh session to load the discern ${
+    loads.join(" and ")
+  }`;
+  return provider.trust.required
+    ? `${base}, then ${provider.trust.hint}`
+    : base;
+}
+
 // ── the per-agent integration surfaces ──────────────────────────────────────
 
 /** The outcome of wiring a provider's MCP server. */
@@ -67,7 +144,11 @@ export interface McpIntegration {
   /** The project-relative config file this provider keeps its servers in. */
   readonly configFile: string;
   /** Register `server` for this provider under `root`, idempotently. */
-  register(root: string, server: McpServerSpec): Promise<McpWireResult>;
+  register(
+    root: string,
+    server: McpServerSpec,
+    config: DiscernConfig,
+  ): Promise<McpWireResult>;
 }
 
 /**
@@ -314,6 +395,43 @@ function asStringArray(v: unknown): string[] {
     : [];
 }
 
+function parseTomlObject(text: string | undefined): Record<string, unknown> {
+  if (text === undefined || text.trim() === "") {
+    return {};
+  }
+  try {
+    const parsed: unknown = parseToml(text);
+    return isObject(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function objectPath(
+  root: Record<string, unknown>,
+  path: readonly string[],
+): unknown {
+  let current: unknown = root;
+  for (const segment of path) {
+    if (!isObject(current)) {
+      return undefined;
+    }
+    current = current[segment];
+  }
+  return current;
+}
+
+function stringArrayAt(
+  root: Record<string, unknown>,
+  path: readonly string[],
+): string[] {
+  return asStringArray(objectPath(root, path));
+}
+
+function appendUnique(base: readonly string[], addition: string): string[] {
+  return base.includes(addition) ? [...base] : [...base, addition];
+}
+
 /** Read a JSON object file, or `{}` when it is absent / unreadable / non-object. */
 async function readJsonObject(path: string): Promise<Record<string, unknown>> {
   let text: string;
@@ -338,7 +456,12 @@ async function writeJsonObject(path: string, value: unknown): Promise<void> {
 
 // ── Claude Code ─────────────────────────────────────────────────────────────
 
-const CLAUDE_MCP_FILE = ".mcp.json";
+/** The project-scoped, committed MCP-servers file `discern mcp` rides in. The
+ * cross-tool `.mcp.json` standard: Claude Code reads it, and the GitHub Copilot CLI
+ * reads the SAME file — so the two CO-OWN it. discern writes a byte-identical
+ * `mcpServers.discern` entry for both via {@link registerStdioMcpJson}, so whichever
+ * provider wires second is a clean no-op and the file can only ever carry one entry. */
+const MCP_JSON_FILE = ".mcp.json";
 const CLAUDE_SETTINGS_FILE = ".claude/settings.json";
 
 /** Claude Code's own project skills directory. Claude Code does NOT read the
@@ -352,12 +475,64 @@ const AGENTS_SKILLS_DIR = ".agents/skills";
 /** Gemini CLI reads its project MCP servers AND its hooks from one committable file. */
 const GEMINI_SETTINGS_FILE = ".gemini/settings.json";
 
-/** Codex reads its project MCP servers from a committable TOML file (its own format,
- * NOT Claude's `.mcp.json`), its SessionStart hook from a separate JSON file, and the
- * Codex *app*'s worktree setup/cleanup from an autogenerated `environment.toml`. */
-const CODEX_MCP_FILE = ".codex/config.toml";
+/** Codex reads project config from a committable TOML file (its own format, NOT
+ * Claude's `.mcp.json`): MCP servers, project-doc sizing, and the extra writable
+ * root discern grants for sibling worktrees live here. Its SessionStart hook lives
+ * in a separate JSON file, and the Codex *app*'s worktree setup/cleanup lives in an
+ * autogenerated `environment.toml`. */
+const CODEX_CONFIG_FILE = ".codex/config.toml";
 const CODEX_HOOKS_FILE = ".codex/hooks.json";
 const CODEX_ENV_FILE = ".codex/environments/environment.toml";
+const CODEX_PROJECT_DOC_MAX_BYTES = 65536;
+const CODEX_MCP_STARTUP_TIMEOUT_SEC = 30;
+const CODEX_MCP_TOOL_TIMEOUT_SEC = 3600;
+
+/** Cursor reads its project MCP servers from a committable `.cursor/mcp.json` (its
+ * own file, requiring an explicit `type: "stdio"`) and its SessionStart hook from a
+ * separate committable `.cursor/hooks.json`. */
+const CURSOR_MCP_FILE = ".cursor/mcp.json";
+const CURSOR_HOOKS_FILE = ".cursor/hooks.json";
+
+/** The GitHub Copilot CLI reads its project MCP servers from the shared committable
+ * `.mcp.json` ({@link MCP_JSON_FILE}, co-owned with Claude Code) and loads every
+ * `.github/hooks/*.json`, so discern keeps its SessionStart hook in a discern-owned
+ * `.github/hooks/discern.json`. */
+const COPILOT_HOOKS_FILE = ".github/hooks/discern.json";
+
+/**
+ * Register a stdio MCP server into a JSON file's `mcpServers.<name>` map, writing
+ * `{ type: "stdio", command, args }` — the `.mcp.json`/`.cursor/mcp.json` shape Claude
+ * Code, Cursor, and the Copilot CLI all read. MERGE, never clobber: an existing file's
+ * other servers and top-level keys are preserved; only this server's entry is
+ * added/updated. `firstInstall` is whether the server name was absent before — the
+ * restart-needed signal. Idempotent: a re-run that finds the entry already correct writes
+ * nothing. The ONE writer the stdio-`mcpServers`-JSON providers share, so a file co-owned
+ * by two of them (Claude + Copilot's `.mcp.json`) can only ever carry one byte-identical
+ * entry, and the second provider to wire it is a no-op regardless of order. (Gemini's
+ * `.gemini/settings.json` is NOT one of these — it omits `type`, inferring stdio from
+ * `command`, so it keeps its own {@link registerGeminiMcp}.)
+ */
+async function registerStdioMcpJson(
+  root: string,
+  configFile: string,
+  server: McpServerSpec,
+): Promise<McpWireResult> {
+  const path = join(root, configFile);
+  const doc = await readJsonObject(path);
+  const servers = isObject(doc.mcpServers) ? doc.mcpServers : {};
+  const firstInstall = !(server.name in servers);
+  const desired = {
+    type: "stdio",
+    command: server.command,
+    args: [...server.args],
+  };
+  if (JSON.stringify(servers[server.name]) === JSON.stringify(desired)) {
+    return { written: [], firstInstall };
+  }
+  doc.mcpServers = { ...servers, [server.name]: desired };
+  await writeJsonObject(path, doc);
+  return { written: [configFile], firstInstall };
+}
 
 /**
  * Register discern's MCP server for Claude Code: write the server into the
@@ -370,26 +545,10 @@ async function registerClaudeCodeMcp(
   root: string,
   server: McpServerSpec,
 ): Promise<McpWireResult> {
-  const written: string[] = [];
-
-  // 1. .mcp.json — the project-scoped server definition (a local stdio command).
-  //    MERGE, never clobber: an existing file's other servers and top-level keys
-  //    are preserved; only this server's entry is added/updated.
-  const mcpPath = join(root, CLAUDE_MCP_FILE);
-  const mcpDoc = await readJsonObject(mcpPath);
-  const servers = isObject(mcpDoc.mcpServers) ? mcpDoc.mcpServers : {};
-  // First install = the server name was absent before — the restart-needed signal.
-  const firstInstall = !(server.name in servers);
-  const desired = {
-    type: "stdio",
-    command: server.command,
-    args: [...server.args],
-  };
-  if (JSON.stringify(servers[server.name]) !== JSON.stringify(desired)) {
-    mcpDoc.mcpServers = { ...servers, [server.name]: desired };
-    await writeJsonObject(mcpPath, mcpDoc);
-    written.push(CLAUDE_MCP_FILE);
-  }
+  // 1. .mcp.json — the project-scoped server definition (a local stdio command),
+  //    via the shared writer (the file Copilot co-owns).
+  const mcp = await registerStdioMcpJson(root, MCP_JSON_FILE, server);
+  const written = [...mcp.written];
 
   // 2. .claude/settings.json — pre-approve the project-scoped server by name,
   //    preserving every other setting (hooks, permissions) already written.
@@ -402,7 +561,7 @@ async function registerClaudeCodeMcp(
     written.push(CLAUDE_SETTINGS_FILE);
   }
 
-  return { written, firstInstall };
+  return { written, firstInstall: mcp.firstInstall };
 }
 
 // ── Gemini CLI ──────────────────────────────────────────────────────────────
@@ -439,16 +598,17 @@ async function registerGeminiMcp(
 /**
  * Apply a comment-preserving {@link TomlEditor} edit to a project-relative TOML file
  * and write it back ONLY when the bytes change — the shared idempotent-merge core for
- * Codex's two TOML surfaces (the MCP `config.toml`, the app's `environment.toml`). An
- * absent file starts from empty and is created (normalized to end with a newline); an
- * unchanged file is left untouched, so re-running writes nothing. The edit only ever
- * rewrites the keys it targets, so every other table, key, and comment is preserved.
- * Returns the project-relative path when it wrote, else undefined.
+ * Codex's two TOML surfaces (project `config.toml`, and the app's
+ * `environment.toml`). An absent file starts from empty and is created (normalized
+ * to end with a newline); an unchanged file is left untouched, so re-running writes
+ * nothing. The edit only ever rewrites the keys it targets, so every other table,
+ * key, and comment is preserved. Returns the project-relative path when it wrote,
+ * else undefined.
  */
 async function editTomlFile(
   root: string,
   rel: string,
-  edit: (editor: TomlEditor) => void,
+  edit: (editor: TomlEditor, existing: string | undefined) => void,
 ): Promise<string | undefined> {
   const path = join(root, rel);
   let existing: string | undefined;
@@ -458,7 +618,7 @@ async function editTomlFile(
     existing = undefined;
   }
   const editor = new TomlEditor(existing ?? "");
-  edit(editor);
+  edit(editor, existing);
   let out = editor.toString();
   if (!out.endsWith("\n")) {
     out += "\n";
@@ -472,26 +632,94 @@ async function editTomlFile(
 }
 
 /**
- * Register discern's MCP server for Codex: merge `[mcp_servers.<name>]` (stdio:
- * `command` + `args`) into the project-committable `.codex/config.toml` via the
- * comment/structure-preserving {@link TomlEditor} — NOT the JSON helpers, since Codex's
- * config is TOML. Any other servers, keys, and comments are preserved (only this
- * server's two keys are written). `args` is set before `command` so the rendered block
- * reads `command` then `args` (a freshly-inserted key lands right after the header).
- * `firstInstall` is whether the server's table was absent before — the restart signal.
- * Idempotent: a re-run that finds the table already correct writes nothing.
+ * The writable root Codex should add for discern's linked-worktree directory. Codex
+ * resolves project-config relative paths from the containing `.codex/` directory,
+ * so a default sibling worktree root becomes `../../<repo>.worktrees`. An absolute
+ * `[worktree].root` stays absolute because the user already opted into a
+ * machine-local path in `discern.toml`.
  */
-async function registerCodexMcp(
+function codexWritableWorktreeRoot(
+  root: string,
+  config: DiscernConfig,
+): string {
+  const worktreeRoot = resolveWorktreeRoot(root, config);
+  if (config.worktree.root.startsWith("/")) {
+    return worktreeRoot;
+  }
+  return relative(join(root, dirname(CODEX_CONFIG_FILE)), worktreeRoot);
+}
+
+async function codexWorktreePlacementBaseRoot(root: string): Promise<string> {
+  const run = await runGit(["worktree", "list", "--porcelain"], { cwd: root });
+  if (!run.success) {
+    return root;
+  }
+  for (const line of run.stdout.split("\n")) {
+    if (!line.startsWith("worktree ")) {
+      continue;
+    }
+    const mainRoot = line.slice("worktree ".length);
+    if (mainRoot === "") {
+      return root;
+    }
+    try {
+      const stat = await Deno.stat(mainRoot);
+      return stat.isDirectory ? await Deno.realPath(mainRoot) : root;
+    } catch {
+      return root;
+    }
+  }
+  return root;
+}
+
+/**
+ * Register discern's Codex project configuration: merge `[mcp_servers.<name>]`
+ * (stdio: `command`, `args`, `cwd`, and safe timeouts), a set-if-absent
+ * `project_doc_max_bytes`, and the extra sibling-worktree writable root into the
+ * project-committable `.codex/config.toml` via the comment/structure-preserving
+ * {@link TomlEditor}. Other servers, keys, comments, and user-provided
+ * `sandbox_workspace_write.writable_roots` entries are preserved. `firstInstall`
+ * is whether the server's table was absent before — the restart signal.
+ * Idempotent: a re-run that finds the config already correct writes nothing.
+ */
+async function registerCodexProjectConfig(
   root: string,
   server: McpServerSpec,
+  config: DiscernConfig,
 ): Promise<McpWireResult> {
   const section = `mcp_servers.${server.name}`;
   let firstInstall = false;
-  const wrote = await editTomlFile(root, CODEX_MCP_FILE, (editor) => {
-    firstInstall = !editor.hasSection(section);
-    editor.setStringArray(`${section}.args`, [...server.args]);
-    editor.setString(`${section}.command`, server.command);
-  });
+  const placementRoot = await codexWorktreePlacementBaseRoot(root);
+  const wrote = await editTomlFile(
+    root,
+    CODEX_CONFIG_FILE,
+    (editor, existing) => {
+      const parsed = parseTomlObject(existing);
+      const roots = appendUnique(
+        stringArrayAt(parsed, ["sandbox_workspace_write", "writable_roots"]),
+        codexWritableWorktreeRoot(placementRoot, config),
+      );
+      editor.setStringArray("sandbox_workspace_write.writable_roots", roots);
+      if (!editor.hasRootKey("project_doc_max_bytes")) {
+        editor.setRootNumber(
+          "project_doc_max_bytes",
+          CODEX_PROJECT_DOC_MAX_BYTES,
+        );
+      }
+      firstInstall = !editor.hasSection(section);
+      editor.setNumber(
+        `${section}.tool_timeout_sec`,
+        CODEX_MCP_TOOL_TIMEOUT_SEC,
+      );
+      editor.setNumber(
+        `${section}.startup_timeout_sec`,
+        CODEX_MCP_STARTUP_TIMEOUT_SEC,
+      );
+      editor.setStringArray(`${section}.args`, [...server.args]);
+      editor.setString(`${section}.command`, server.command);
+      editor.deleteKey(`${section}.cwd`);
+    },
+  );
   return { written: wrote !== undefined ? [wrote] : [], firstInstall };
 }
 
@@ -499,21 +727,67 @@ async function registerCodexMcp(
  * Co-manage the Codex *app*'s autogenerated `environment.toml`: merge
  * `[setup].script = "discern worktree:ensure"` and
  * `[cleanup].script = "discern worktree:teardown"` into it via {@link TomlEditor},
- * preserving the app's own autogenerated keys (`version`, `name`, `[[actions]]`, …) and
- * comments — discern owns only the two `script` keys. Those scripts run as bare commands
- * in the worktree cwd with no stdin when the Codex app creates/tears down one of ITS OWN
- * worktrees (under `$CODEX_HOME/worktrees`); discern's own sibling worktrees stay driven
- * by its CLI/MCP verbs + the SessionStart hook. Safe when the file is absent (created),
- * and re-emitted on every refresh so it self-heals if the app regenerates the file.
- * Idempotent: a re-run that finds both scripts already set writes nothing. Returns the
- * project-relative files written.
+ * preserving the app's own autogenerated keys (`[[actions]]`, … and any comments) —
+ * discern owns only the two `script` keys. Codex's schema REQUIRES top-level
+ * `version` (number) and `name` (string): discern seeds `version = 1` and
+ * `name = "Discern"` when ABSENT — so a from-scratch file (one discern wrote before
+ * the user configured a Codex environment) validates and gives immediate access to
+ * Codex environments — but preserves the app's own `version`/`name` when it created
+ * the file (set-if-absent). Those scripts run as bare commands in the worktree cwd
+ * with no stdin when the Codex app creates/tears down one of ITS OWN worktrees (under
+ * `$CODEX_HOME/worktrees`); discern's own sibling worktrees stay driven by its CLI/MCP
+ * verbs + the SessionStart hook. Safe when the file is absent (created), and re-emitted
+ * on every refresh so it self-heals if the app regenerates the file. Idempotent: a
+ * re-run that finds everything already set writes nothing. Returns the files written.
  */
 async function registerCodexEnvironment(root: string): Promise<string[]> {
   const wrote = await editTomlFile(root, CODEX_ENV_FILE, (editor) => {
+    // Codex rejects the file unless top-level `version`/`name` are present; seed
+    // defaults when absent, but never clobber the app's own values on a merge.
+    if (!editor.hasRootKey("version")) {
+      editor.setRootNumber("version", 1);
+    }
+    if (!editor.hasRootKey("name")) {
+      editor.setRootString("name", "Discern");
+    }
     editor.setString("setup.script", "discern worktree:ensure");
     editor.setString("cleanup.script", "discern worktree:teardown");
   });
   return wrote !== undefined ? [wrote] : [];
+}
+
+// ── Cursor & GitHub Copilot (reuse-canonical guidance + skills) ──────────────
+
+/**
+ * Register discern's MCP server for Cursor: write the stdio server into the
+ * project-committable `.cursor/mcp.json` under `mcpServers` (Cursor's own file,
+ * requiring the explicit `type: "stdio"` the shared writer emits), preserving any
+ * other servers/keys. No pre-approval list — Cursor gates committed servers behind
+ * workspace trust + per-tool approval (the trust hint), not a settings key.
+ * Idempotent via {@link registerStdioMcpJson}.
+ */
+async function registerCursorMcp(
+  root: string,
+  server: McpServerSpec,
+): Promise<McpWireResult> {
+  return await registerStdioMcpJson(root, CURSOR_MCP_FILE, server);
+}
+
+/**
+ * Register discern's MCP server for the GitHub Copilot CLI: write the stdio server
+ * into the shared project-committable `.mcp.json` ({@link MCP_JSON_FILE}, co-owned
+ * with Claude Code), preserving any other servers/keys. NO `enabledMcpjsonServers`
+ * pre-approval (that is Claude's key) — Copilot gates committed config behind a
+ * one-time folder trust (the trust hint), not a per-server list. Because it writes
+ * the byte-identical entry through the shared writer, a project that also configures
+ * Claude has the two register into one file with the second run a clean no-op,
+ * either order. Idempotent via {@link registerStdioMcpJson}.
+ */
+async function registerCopilotMcp(
+  root: string,
+  server: McpServerSpec,
+): Promise<McpWireResult> {
+  return await registerStdioMcpJson(root, MCP_JSON_FILE, server);
 }
 
 // ── the registry ────────────────────────────────────────────────────────────
@@ -539,7 +813,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     mcp: {
       kind: "wired",
       integration: {
-        configFile: CLAUDE_MCP_FILE,
+        configFile: MCP_JSON_FILE,
         register: registerClaudeCodeMcp,
       },
     },
@@ -568,7 +842,10 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     // Claude's .mcp.json), gated by a one-time directory trust (see trust).
     mcp: {
       kind: "wired",
-      integration: { configFile: CODEX_MCP_FILE, register: registerCodexMcp },
+      integration: {
+        configFile: CODEX_CONFIG_FILE,
+        register: registerCodexProjectConfig,
+      },
     },
     // SessionStart-only hooks surface in the committable `.codex/hooks.json` (JSON, so
     // the default deep-merge): the per-session `discern worktree:ensure` re-ready step.
@@ -637,6 +914,85 @@ export const PROVIDERS: Record<AgentName, Provider> = {
         "trust the workspace so committed .gemini/settings.json loads in safe mode (bypass: --skip-trust or GEMINI_CLI_TRUST_WORKSPACE=true); hooks also require hooks.enabled = true to fire.",
     },
   },
+  cursor: {
+    name: "cursor",
+    label: "Cursor",
+    // `cursor-agent` is the high-confidence CLI signal; `agent` is the generic
+    // alias the same binary also installs as. Match-any: either resolving means present.
+    binaries: ["cursor-agent", "agent"],
+    // Cursor reads the canonical AGENTS.md natively at the repo root, so discern emits
+    // NOTHING of its own for it (reuse-canonical: no duplicate body, no pointer).
+    guidanceFile: { path: "AGENTS.md", canonical: false, reuseCanonical: true },
+    // Cursor reads the cross-tool .agents/skills/ — the shared alias, so it dedupes
+    // onto Codex's/Gemini's target rather than adding a dir of its own.
+    skillsDir: AGENTS_SKILLS_DIR,
+    // MCP is wired: discern writes the stdio `discern mcp` server into the
+    // project-committable `.cursor/mcp.json` (Cursor's own file, with type: "stdio"),
+    // preserving other servers/keys; idempotent; gated by workspace trust + per-tool
+    // approval (see trust), not a pre-approval list.
+    mcp: {
+      kind: "wired",
+      integration: { configFile: CURSOR_MCP_FILE, register: registerCursorMcp },
+    },
+    // SessionStart-only hooks surface in the committable `.cursor/hooks.json`: the
+    // per-session `discern worktree:ensure` re-ready step. No worktree create/remove
+    // event (empty worktreeEventKeys), so discern's own worktrees stay CLI/MCP-driven.
+    // Cursor's hook groups carry the command at the group level (`{ command }`), which
+    // the default merge can't dedup — so it uses the group-dedup seed strategy to stay
+    // idempotent across re-seeds.
+    hooks: {
+      settingsFile: CURSOR_HOOKS_FILE,
+      worktreeEventKeys: [],
+      sessionHookNeedle: "discern worktree:ensure",
+      mergeSeed: mergeJsonSettingsDedupingGroups,
+    },
+    // Committed .cursor/ MCP is inert until the workspace is trusted, and tool use is
+    // approval-gated by default.
+    trust: {
+      required: true,
+      hint:
+        "trust the workspace, then approve the discern MCP server's tools on first use (bypass for headless: --approve-mcps).",
+    },
+  },
+  copilot: {
+    name: "copilot",
+    label: "GitHub Copilot",
+    // The Copilot CLI ships as `copilot` — NOT `gh copilot` (the deprecated extension).
+    binaries: ["copilot"],
+    // The Copilot CLI reads the canonical AGENTS.md natively as its primary
+    // instructions (it has no @import directive), so discern emits nothing of its own
+    // (reuse-canonical).
+    guidanceFile: { path: "AGENTS.md", canonical: false, reuseCanonical: true },
+    // Copilot reads the cross-tool .agents/skills/ — the shared alias, deduped onto the
+    // existing target.
+    skillsDir: AGENTS_SKILLS_DIR,
+    // MCP is wired: discern writes the stdio `discern mcp` server into the shared
+    // committable `.mcp.json` (co-owned with Claude Code, byte-identical) — NO
+    // enabledMcpjsonServers pre-approval (Copilot gates via folder trust, not that key).
+    // Idempotent and order-independent with Claude's wiring (the shared writer).
+    mcp: {
+      kind: "wired",
+      integration: { configFile: MCP_JSON_FILE, register: registerCopilotMcp },
+    },
+    // SessionStart-only hooks surface in a discern-owned `.github/hooks/discern.json`
+    // (Copilot loads every `.github/hooks/*.json`). sessionStart fires per-prompt in
+    // interactive mode, so the seeded `discern worktree:ensure` must stay idempotent —
+    // it is. No worktree create/remove event (empty worktreeEventKeys). Copilot's hook
+    // groups carry the command at the group level (`{ bash }`), so this uses the
+    // group-dedup seed strategy to re-seed idempotently.
+    hooks: {
+      settingsFile: COPILOT_HOOKS_FILE,
+      worktreeEventKeys: [],
+      sessionHookNeedle: "discern worktree:ensure",
+      mergeSeed: mergeJsonSettingsDedupingGroups,
+    },
+    // Committed .mcp.json / .github/hooks config is inert until the folder is trusted.
+    trust: {
+      required: true,
+      hint:
+        "add the folder to trustedFolders in ~/.copilot/config.json (bypass for headless: --allow-all-tools --allow-all-paths).",
+    },
+  },
 };
 
 /** The provider for an agent name, or undefined for an unknown name. */
@@ -689,7 +1045,7 @@ export function skillsDirsForAgents(agents: readonly string[]): string[] {
 
 // ── registry-derived agent-path aggregators ─────────────────────────────────
 // The SINGLE place every cross-cutting consumer (the seed `.gitignore`, the
-// neutral-scope defaults, the audit's agent-file probe, the gitignore-convergence
+// neutral-scope defaults, improve's agent-file probe, the gitignore-convergence
 // migration, and the parity guard) reads agent-specific paths FROM. Each derives
 // from `PROVIDERS`, so adding an agent to `AGENT_NAMES` extends them for free — no
 // hand-maintained second list to fall out of sync (the ADR 0031/0042 contract).
@@ -750,6 +1106,7 @@ export async function wireProviderMcp(
   root: string,
   agents: readonly string[],
   server: McpServerSpec = DISCERN_MCP_SERVER,
+  config: DiscernConfig = parseConfigOrThrow(""),
 ): Promise<McpWireResult> {
   const written: string[] = [];
   let firstInstall = false;
@@ -757,7 +1114,7 @@ export async function wireProviderMcp(
     const provider = providerFor(agent);
     const mcp = provider !== undefined ? wiredMcp(provider) : undefined;
     if (mcp !== undefined) {
-      const r = await mcp.register(root, server);
+      const r = await mcp.register(root, server, config);
       written.push(...r.written);
       firstInstall = firstInstall || r.firstInstall;
     }

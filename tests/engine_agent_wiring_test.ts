@@ -11,30 +11,19 @@
  */
 
 import { assert, assertEquals } from "@std/assert";
-import { join } from "@std/path";
+import { basename, join } from "@std/path";
 import { parse as parseToml } from "@std/toml";
 import { exists } from "@std/fs";
-import { withTempDir } from "./helpers.ts";
+import { REAL_TEMPLATES, withTempDir } from "./helpers.ts";
 import { runAgent, scaffoldEngine } from "./engine_helpers.ts";
-
-/** Point a scaffolded `discern.toml` at the given agent set (comment-preserving enough
- * for the test — a single-line `agents = [...]` rewrite, matching the seed shape). */
-async function setAgents(dir: string, agents: string[]): Promise<void> {
-  const path = join(dir, "discern.toml");
-  const cfg = await Deno.readTextFile(path);
-  const list = agents.map((a) => `"${a}"`).join(", ");
-  await Deno.writeTextFile(
-    path,
-    cfg.replace(/agents = \[[^\]]*\]/, `agents = [${list}]`),
-  );
-}
+import { assembleInitPlan } from "../src/commands/setup.ts";
+import { providersWithHooks } from "../src/lib/providers.ts";
+import type { AgentName } from "../src/lib/config.ts";
 
 Deno.test("Gemini: the seed (hooks.enabled + SessionStart) and the MCP register() compose in one .gemini/settings.json", async () => {
   await withTempDir(async (dir) => {
-    // The scaffold seeds .gemini/settings.json from the template (every install gets
-    // the settings templates; buildPlan walks them all).
-    await scaffoldEngine(dir);
-    await setAgents(dir, ["claude_code", "gemini"]);
+    // Gemini is configured, so its per-agent seed (.gemini/settings.json) is laid.
+    await scaffoldEngine(dir, { agents: ["claude_code", "gemini"] });
 
     // The seed landed: hooks.enabled + the SessionStart → worktree:ensure hook.
     const seeded = JSON.parse(
@@ -89,13 +78,13 @@ Deno.test("Gemini: the seed (hooks.enabled + SessionStart) and the MCP register(
 
 Deno.test("Codex: refresh wires .codex/config.toml (MCP) and co-manages environment.toml ([setup]/[cleanup]), idempotently", async () => {
   await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await setAgents(dir, ["claude_code", "codex"]);
+    await scaffoldEngine(dir, { agents: ["claude_code", "codex"] });
 
     // The scaffold seeded the SessionStart hook into .codex/hooks.json.
     const hooks = JSON.parse(
       await Deno.readTextFile(join(dir, ".codex/hooks.json")),
     );
+    assertEquals(hooks.hooks.SessionStart[0].matcher, "startup|resume");
     assertEquals(
       hooks.hooks.SessionStart[0].hooks[0].command,
       "discern worktree:ensure",
@@ -113,18 +102,46 @@ Deno.test("Codex: refresh wires .codex/config.toml (MCP) and co-manages environm
       ".codex/environments/environment.toml",
     ]);
 
-    // The MCP server table is present in the TOML config.
+    // The Codex project config carries discern's MCP server, instruction headroom,
+    // and the writable root for the sibling worktree directory.
     const cfg = parseToml(
       await Deno.readTextFile(join(dir, ".codex/config.toml")),
-    ) as { mcp_servers: { discern?: { command?: string } } };
+    ) as {
+      project_doc_max_bytes?: number;
+      sandbox_workspace_write?: { writable_roots?: string[] };
+      mcp_servers: {
+        discern?: {
+          command?: string;
+          args?: string[];
+          startup_timeout_sec?: number;
+          tool_timeout_sec?: number;
+        };
+      };
+    };
+    assertEquals(cfg.project_doc_max_bytes, 65536);
+    assertEquals(cfg.sandbox_workspace_write?.writable_roots, [
+      `../../${basename(dir)}.worktrees`,
+    ]);
     assertEquals(cfg.mcp_servers.discern?.command, "discern");
+    assertEquals(cfg.mcp_servers.discern?.args, ["mcp"]);
+    assertEquals("cwd" in (cfg.mcp_servers.discern ?? {}), false);
+    assertEquals(cfg.mcp_servers.discern?.startup_timeout_sec, 30);
+    assertEquals(cfg.mcp_servers.discern?.tool_timeout_sec, 3600);
 
-    // The app's environment.toml carries discern's setup + cleanup scripts.
+    // The app's environment.toml carries discern's setup + cleanup scripts AND the
+    // top-level version/name Codex's schema requires (so a from-scratch file validates).
     const env = parseToml(
       await Deno.readTextFile(
         join(dir, ".codex/environments/environment.toml"),
       ),
-    ) as { setup: { script: string }; cleanup: { script: string } };
+    ) as {
+      version: number;
+      name: string;
+      setup: { script: string };
+      cleanup: { script: string };
+    };
+    assertEquals(env.version, 1);
+    assertEquals(env.name, "Discern");
     assertEquals(env.setup.script, "discern worktree:ensure");
     assertEquals(env.cleanup.script, "discern worktree:teardown");
 
@@ -133,6 +150,72 @@ Deno.test("Codex: refresh wires .codex/config.toml (MCP) and co-manages environm
     const data2 = JSON.parse(r2.stdout).data;
     assertEquals(data2.mcp_wired.includes(".codex/config.toml"), false);
     assertEquals(data2.worktree_app_wired, []);
+  });
+});
+
+Deno.test("Cursor + Copilot: scaffold seeds each SessionStart hook; refresh wires .cursor/mcp.json and the co-owned .mcp.json", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { agents: ["cursor", "copilot"] });
+
+    // The scaffold seeded each vendor's SessionStart hook in its own shape — Cursor's
+    // flat `{ command }`, Copilot's `{ type, bash }` — both running worktree:ensure.
+    const cursorHooks = JSON.parse(
+      await Deno.readTextFile(join(dir, ".cursor/hooks.json")),
+    );
+    assertEquals(
+      cursorHooks.hooks.sessionStart[0].command,
+      "discern worktree:ensure",
+    );
+    const copilotHooks = JSON.parse(
+      await Deno.readTextFile(join(dir, ".github/hooks/discern.json")),
+    );
+    assertEquals(
+      copilotHooks.hooks.sessionStart[0].bash,
+      "discern worktree:ensure",
+    );
+
+    // refresh wires Cursor's own .cursor/mcp.json and Copilot's co-owned .mcp.json.
+    const r = await runAgent(dir, ["refresh", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    const data = JSON.parse(r.stdout).data;
+    assert(
+      data.mcp_wired.includes(".cursor/mcp.json"),
+      `expected .cursor/mcp.json in mcp_wired: ${r.stdout}`,
+    );
+    assert(
+      data.mcp_wired.includes(".mcp.json"),
+      `expected .mcp.json in mcp_wired: ${r.stdout}`,
+    );
+
+    // Both carry the byte-identical stdio entry (Cursor requires the explicit type).
+    const cursorMcp = JSON.parse(
+      await Deno.readTextFile(join(dir, ".cursor/mcp.json")),
+    );
+    assertEquals(cursorMcp.mcpServers.discern, {
+      type: "stdio",
+      command: "discern",
+      args: ["mcp"],
+    });
+    const sharedMcp = JSON.parse(
+      await Deno.readTextFile(join(dir, ".mcp.json")),
+    );
+    assertEquals(sharedMcp.mcpServers.discern, {
+      type: "stdio",
+      command: "discern",
+      args: ["mcp"],
+    });
+    // Claude is not a configured agent here, so no Claude file is seeded at all — an
+    // unconfigured agent leaves no inert dotfiles behind (the per-agent seed filter).
+    assert(
+      !(await exists(join(dir, ".claude/settings.json"))),
+      "an unconfigured agent (claude) must not get a seeded settings file",
+    );
+
+    // Idempotent: a second refresh re-wires neither file.
+    const r2 = await runAgent(dir, ["refresh", "--json"]);
+    const data2 = JSON.parse(r2.stdout).data;
+    assertEquals(data2.mcp_wired.includes(".cursor/mcp.json"), false);
+    assertEquals(data2.mcp_wired.includes(".mcp.json"), false);
   });
 });
 
@@ -146,5 +229,43 @@ Deno.test("a default (Claude-only) refresh declares no worktree-app file — the
       !(await exists(join(dir, ".codex/environments/environment.toml"))),
       "no codex agent configured → no environment.toml co-managed",
     );
+  });
+});
+
+Deno.test("setup seeds per-agent hook files ONLY for configured agents (no inert dotfiles)", async () => {
+  // The leak a cold run hit: a claude+codex project still got committed .cursor/,
+  // .gemini/, and .github/ hook files for agents it doesn't use. assembleInitPlan must
+  // seed a hooks provider's settings file only when that agent is configured. Driven
+  // off the provider registry, so a new hooks provider auto-enrols in this guard.
+  await withTempDir(async (dir) => {
+    const configured: AgentName[] = ["claude_code", "codex"];
+    const plan = await assembleInitPlan({
+      templatesDir: REAL_TEMPLATES,
+      destDir: dir,
+      config: {
+        projectName: "Seed Filter",
+        slug: "seed-filter",
+        branchPrefix: "agent/",
+        sourceGlobs: ["src/**"],
+        brief: "",
+        agents: configured,
+      },
+    });
+    const targets = new Set(plan.ops.map((o) => o.targetRel));
+    for (const p of providersWithHooks()) {
+      if (p.hooks === undefined) continue;
+      const seeded = targets.has(p.hooks.settingsFile);
+      if (configured.includes(p.name)) {
+        assert(
+          seeded,
+          `configured ${p.name} should seed ${p.hooks.settingsFile}`,
+        );
+      } else {
+        assert(
+          !seeded,
+          `unconfigured ${p.name} must NOT seed ${p.hooks.settingsFile} (inert dotfile leak)`,
+        );
+      }
+    }
   });
 });

@@ -169,7 +169,9 @@ export type FailedStage = (typeof FAILED_STAGES)[number];
  * Layered by how much discern knows about the tool (ADR 0028):
  *  - **Tier 0 (always, stack-neutral):** `tool`, `severity`, `message`,
  *    `reproduce_cmd` (the command's own string — free), and `output` (the captured
- *    combined stdout+stderr, tail-capped). No per-tool parsing; works everywhere.
+ *    combined stdout+stderr, terminal-normalized and capped) plus `output_path`
+ *    when the full normalized capture was offloaded. No per-tool parsing; works
+ *    everywhere.
  *  - **Tier 1 (opt-in):** when a capability/check declares a diagnostics `format`,
  *    discern parses `output` into `file`/`line`/`col`/`rule`/`message`.
  *  - **Tier 2 (derived):** `fix_available` — a fixer is wired that may resolve it.
@@ -190,10 +192,12 @@ export interface Diagnostic {
   message: string;
   /** The exact command to reproduce this failure — the job's own command string. */
   reproduce_cmd: string;
-  /** Captured combined stdout+stderr from the failing command (Tier 0), tail-capped. */
+  /** Captured combined stdout+stderr from the failing command (Tier 0), normalized and capped. */
   output?: string | undefined;
   /** True when `output` was truncated to the capture cap (head + tail kept). */
   truncated?: boolean | undefined;
+  /** Absolute path to the full normalized capture when `output` was truncated. */
+  output_path?: string | undefined;
   /** Tier 1: the source file the diagnostic points at. */
   file?: string | undefined;
   /** Tier 1: 1-based line number. */
@@ -265,36 +269,129 @@ export interface DiscernResult<TData = unknown> {
  * Chars retained in a failed command's captured `output` — large enough for a
  * tool's error block + summary, bounded so it never floods an agent's context.
  */
-const CAPTURE_CAP = 16_000;
+export const CAPTURE_CAP = 16_000;
 
 const isHighSurrogate = (c: number): boolean => c >= 0xd800 && c <= 0xdbff;
 const isLowSurrogate = (c: number): boolean => c >= 0xdc00 && c <= 0xdfff;
 
+export interface CappedText {
+  text: string;
+  truncated: boolean;
+  /** The full normalized text before capping. Equal to `text` when untruncated. */
+  fullText: string;
+}
+
+function collapseCarriageReturns(s: string): string {
+  return s.replaceAll("\r\n", "\n").split("\n")
+    .map((line) => {
+      const lastReturn = line.lastIndexOf("\r");
+      return lastReturn === -1 ? line : line.slice(lastReturn + 1);
+    })
+    .join("\n");
+}
+
+function stripTerminalEscapes(s: string): string {
+  let out = "";
+  for (let i = 0; i < s.length; i += 1) {
+    if (s.charCodeAt(i) !== 0x1b) {
+      out += s.charAt(i);
+      continue;
+    }
+    const kind = s.charAt(i + 1);
+    if (kind === "[") {
+      i += 2;
+      while (i < s.length) {
+        const code = s.charCodeAt(i);
+        if (code >= 0x40 && code <= 0x7e) {
+          break;
+        }
+        i += 1;
+      }
+      continue;
+    }
+    if (kind === "]") {
+      i += 2;
+      while (i < s.length) {
+        const code = s.charCodeAt(i);
+        if (code === 0x07) {
+          break;
+        }
+        if (code === 0x1b && s.charAt(i + 1) === "\\") {
+          i += 1;
+          break;
+        }
+        i += 1;
+      }
+      continue;
+    }
+    const nextCode = s.charCodeAt(i + 1);
+    if (
+      (nextCode >= 0x40 && nextCode <= 0x5a) ||
+      (nextCode >= 0x5c && nextCode <= 0x5f)
+    ) {
+      i += 1;
+    }
+  }
+  return out;
+}
+
 /**
- * Cap a captured string to {@link CAPTURE_CAP}, keeping the head AND tail when it
- * overflows (a compiler lists the first error early; a runner prints its summary at
- * the end). Applied at the diagnostic boundary, not at capture, so structured
- * normalization (SARIF) still sees the full output. Cuts are snapped off UTF-16
- * surrogate boundaries so a multi-byte char is never split into a lone surrogate.
+ * Normalize captured terminal output without learning anything about the tool that
+ * produced it: keep the visible end state of carriage-return rewrites, remove
+ * terminal escape controls, and drop non-text C0 controls while preserving newlines
+ * and tabs.
  */
-export function capText(s: string): { text: string; truncated: boolean } {
-  if (s.length <= CAPTURE_CAP) {
-    return { text: s, truncated: false };
+export function normalizeCapturedOutput(s: string): string {
+  return stripTerminalEscapes(collapseCarriageReturns(s))
+    .split("")
+    .filter((ch) => {
+      const code = ch.charCodeAt(0);
+      return code >= 0x20 || code === 0x0a || code === 0x09;
+    })
+    .join("");
+}
+
+/**
+ * Normalize then cap a captured string to {@link CAPTURE_CAP}, keeping the head AND
+ * tail when it overflows (a compiler lists the first error early; a runner prints
+ * its summary at the end). Applied at the diagnostic boundary, not at capture, so
+ * structured normalization (SARIF) still sees the full output. Cuts are snapped off
+ * UTF-16 surrogate boundaries so a multi-byte char is never split into a lone
+ * surrogate.
+ */
+export function capText(s: string): CappedText {
+  const normalized = normalizeCapturedOutput(s);
+  if (normalized.length <= CAPTURE_CAP) {
+    return { text: normalized, truncated: false, fullText: normalized };
   }
-  let head = Math.floor(CAPTURE_CAP * 0.6);
-  if (isHighSurrogate(s.charCodeAt(head - 1))) {
-    head -= 1; // don't split a surrogate pair at the head cut
+
+  let marker = "";
+  let head = 0;
+  let tailStart = normalized.length;
+  for (let i = 0; i < 4; i += 1) {
+    const budget = CAPTURE_CAP - marker.length;
+    head = Math.max(0, Math.floor(budget * 0.6));
+    if (head > 0 && isHighSurrogate(normalized.charCodeAt(head - 1))) {
+      head -= 1; // don't split a surrogate pair at the head cut
+    }
+    const tailChars = Math.max(0, budget - head);
+    tailStart = Math.max(head, normalized.length - tailChars);
+    if (
+      tailStart < normalized.length &&
+      isLowSurrogate(normalized.charCodeAt(tailStart))
+    ) {
+      tailStart += 1; // …nor at the tail cut
+    }
+    const nextMarker = `\n… ${tailStart - head} chars elided …\n`;
+    if (nextMarker === marker) {
+      break;
+    }
+    marker = nextMarker;
   }
-  let tailStart = s.length - (CAPTURE_CAP - head);
-  if (isLowSurrogate(s.charCodeAt(tailStart))) {
-    tailStart += 1; // …nor at the tail cut
-  }
-  const elided = tailStart - head;
   return {
-    text: `${s.slice(0, head)}\n… ${elided} chars elided …\n${
-      s.slice(tailStart)
-    }`,
+    text: `${normalized.slice(0, head)}${marker}${normalized.slice(tailStart)}`,
     truncated: true,
+    fullText: normalized,
   };
 }
 

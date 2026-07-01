@@ -25,7 +25,8 @@
     "codegen": "deno run --allow-read --allow-write scripts/codegen.ts",
     "inspect-mcp": "deno run --allow-read --allow-run scripts/inspect_mcp.ts",
     "install-dev-cli": "deno run --allow-read --allow-write --allow-env --allow-run scripts/install_dev_cli.ts",
-    "check": "deno check src/main.ts",
+    "use-compiled-build": "deno run --allow-read --allow-write --allow-env --allow-run scripts/use_compiled_build.ts",
+    "check": "deno check",
     "gate": "deno task dev finish"
   },
   "imports": {
@@ -55,7 +56,6 @@
       "dist/",
       "docs/10-installer/config-reference.md",
       "GEMINI.md",
-      "guidance.md",
       "PLAN.md",
       "schema/discern-config.schema.json",
       "templates/",

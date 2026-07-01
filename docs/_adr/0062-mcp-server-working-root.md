@@ -60,13 +60,33 @@ root (`findRoot()`), and re-pointed on exactly two lifecycle transitions:
   relocate the client's session, but it _can_ re-aim the live server, so
   subsequent `finish` / `integrate` / `graduate` calls operate on the new
   worktree with nothing for the agent to thread.
-- **`discern_graduate`** resets it to the spawn root (the worktree it pointed at
-  is gone).
+- **`discern_graduate`** re-aims it to the **main checkout the branch landed
+  in** — carried in the result's `data.root`
+  ([ADR 0072](0072-typed-mcp-status-forcing-function.md)-style typed data) —
+  since the worktree it operated on is removed.
+
+  > **Refined (Phase B).** This originally reset to the **spawn root**, on the
+  > assumption — made throughout this record — that the server is launched from
+  > the trunk (true for Claude Code). Phase B's Codex `environment.toml` wiring
+  > ([ADR 0073](0073-codex-worktree-lifecycle-comanagement.md)) made the Codex
+  > _app_ spawn the server **inside its worktree** for the first time, so the
+  > spawn root IS the worktree being graduated — re-aiming there would strand
+  > the server in the grave of the directory it just removed. Re-aiming to the
+  > landing main checkout is correct for a server launched anywhere; it equals
+  > the spawn root in the trunk-launched case, so nothing changed for Claude
+  > Code.
 
 Resolution per call is `args.path ?? workingRoot`. The verb **cores stay pure**
 — they remain functions of an explicit `root`; the working root is a thin,
 server-layer default resolved in `runTool`, never state pushed down into the
-engine.
+engine. That explicit root is also the **working directory of every configured
+project command** the core launches. Resolving configuration, scopes, and git
+state against one root while allowing `format`/`test`/scope-gate commands to
+inherit the MCP process cwd would certify a different checkout from the one the
+commands actually checked. The gate runner therefore requires `cwd = root`;
+ratchet measurements and command-resolution probes use the same rule. This also
+applies to a short-lived CLI invoked below the project root: root discovery, not
+the caller's subdirectory, defines project-command execution.
 
 ### 2. An explicit `path` override — escape hatch and the safety default's partner
 
@@ -74,6 +94,17 @@ Every root-operating tool gains an optional `path` argument, resolved through
 `findRoot(path)` (so any directory inside a worktree resolves to its root, and a
 non-project path falls through the existing `not_initialized` envelope). `path`
 wins over the working root for that one call.
+
+> **Refined (Phase B).** "For that one call" has one exception: a
+> `path`-override `discern_graduate` that **removes the directory the held root
+> points at**. A launch-pinned agent (Codex) spawns the server inside its
+> worktree and graduates it _by `path`_, then issues a follow-up call with no
+> `path` — which would resolve the now-deleted worktree. So the re-aim runs even
+> on a `path` override, but **only when the held root no longer exists**
+> (`heldRootMissing` in `runTool`): graduate that removed _your_ root re-roots
+> you to where it landed; graduating some _other_ worktree by path leaves your
+> live held root untouched, preserving the one-call rule for every
+> non-destructive case.
 
 The held working root is not mere convenience over a bare `path` parameter — it
 is a **safety default**. Path-only and stateless has a sharp edge: an agent that
@@ -132,7 +163,10 @@ server cannot detect this, two things are load-bearing, not optional:
 - **Two working directories to keep aligned** — the server's working root
   (discern verbs) and the agent's own file cwd (edits). They point at the same
   path the agent already holds from `start`, but they are two things; this is
-  inherent to the agent/server split, not removable.
+  inherent to the agent/server split, not removable. Discern's configured
+  project commands follow the former explicitly; they never inherit the MCP
+  process cwd. The alignment requirement remains because the agent's own edits
+  still follow the latter.
 - The `tools/list` is slightly noisier — an agent on the trunk now sees
   `graduate` / `integrate` (which refuse cleanly). Traded for never-stuck.
 - Adjacent and out of scope: a sandboxed agent (Codex defaults its sandbox on)

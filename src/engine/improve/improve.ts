@@ -1,14 +1,13 @@
 /**
- * `discern audit` — the best-practices checklist auditor. It scores a project's
- * setup against the {@link CATEGORIES} catalog and ranks the categories
- * weakest-first, so a human sees where to invest and an agent gets a structured,
- * actionable list of what to improve.
+ * `discern improve` — the continuous-improvement coach. It scores a project's
+ * objective baseline against the {@link CATEGORIES} catalog, keeps qualitative
+ * reviews visibly open, and identifies the single highest-value next action.
  *
  * Like every verb it computes one {@link DiscernResult} (ADR 0028); its human
  * report, its `--json`, and the MCP tool are three renderings of the same evaluated
- * {@link AuditReport}. {@link auditResult} is the unrendered core the MCP server
- * calls; {@link runAudit} is the CLI, which adds a human report and — on a TTY — an
- * interactive drill-down into each weak area.
+ * {@link ImprovementReport}. {@link improveResult} is the unrendered core the MCP
+ * server calls; {@link runImprove} is the CLI, which adds a human report and — on a
+ * TTY — an interactive drill-down into each weak area.
  *
  * Deterministic rules are scored now; subjective rules are surfaced as review items
  * the agent judges against the cited material. The score is therefore an honest
@@ -20,15 +19,16 @@ import { Select } from "@cliffy/prompt";
 import { loadConfig } from "../../shared/config_schema.ts";
 import { isFeatureEnabled } from "../../shared/features.ts";
 import type { DiscernResult } from "../../shared/result.ts";
-import type { AuditData } from "../../shared/result_schemas.ts";
+import type { ImproveData } from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { colorEnabled, makeOut, type Out, type Palette } from "../output.ts";
 import { buildContext, CATEGORIES, isDeterministic } from "./rules.ts";
 import type {
-  AuditContext,
-  AuditReport,
   Category,
   CategoryResult,
+  ImprovementContext,
+  ImprovementReport,
+  NextAction,
   ReviewResult,
   RuleResult,
   RuleStatus,
@@ -42,7 +42,10 @@ function credit(status: RuleStatus): number {
 }
 
 /** Evaluate one category's rules against the gathered context. */
-function evaluateCategory(cat: Category, ctx: AuditContext): CategoryResult {
+function evaluateCategory(
+  cat: Category,
+  ctx: ImprovementContext,
+): CategoryResult {
   const rules: RuleResult[] = [];
   const reviews: ReviewResult[] = [];
   let passWeight = 0;
@@ -96,7 +99,10 @@ function evaluateCategory(cat: Category, ctx: AuditContext): CategoryResult {
  * overall score is weighted over EVERY evaluated deterministic rule, and the
  * categories are sorted weakest-first (then by most weak rules, then most reviews).
  */
-export function evaluateReport(ctx: AuditContext, only?: string): AuditReport {
+export function evaluateReport(
+  ctx: ImprovementContext,
+  only?: string,
+): ImprovementReport {
   const categories: CategoryResult[] = [];
   for (const cat of CATEGORIES) {
     if (cat.feature && !isFeatureEnabled(ctx.config, cat.feature)) {
@@ -124,13 +130,72 @@ export function evaluateReport(ctx: AuditContext, only?: string): AuditReport {
     ? 100
     : Math.round((passWeight / totalWeight) * 100);
 
+  const nextAction = selectNextAction(categories);
   categories.sort((a, b) =>
     a.score - b.score ||
     b.weak - a.weak ||
     b.reviews.length - a.reviews.length ||
     a.title.localeCompare(b.title)
   );
-  return { score, weak, reviews, categories };
+  return { score, weak, reviews, nextAction, categories };
+}
+
+/**
+ * Choose one action before display sorting mutates catalog order. Objective gaps
+ * lead, ranked by recoverable weighted credit; ties keep the catalog's deliberate
+ * coaching order. Once the baseline is clear, the first qualitative review leads.
+ */
+function selectNextAction(categories: readonly CategoryResult[]): NextAction {
+  let best:
+    | { action: NextAction; recoverableWeight: number }
+    | undefined;
+  for (const category of categories) {
+    for (const rule of category.rules) {
+      if (rule.status === "pass") {
+        continue;
+      }
+      const recoverableWeight = rule.weight * (1 - credit(rule.status));
+      if (best === undefined || recoverableWeight > best.recoverableWeight) {
+        best = {
+          recoverableWeight,
+          action: {
+            kind: "fix",
+            category: category.name,
+            id: rule.id,
+            title: rule.title,
+            action: rule.fix ?? rule.title,
+            why: rule.teach,
+          },
+        };
+      }
+    }
+  }
+  if (best !== undefined) {
+    return best.action;
+  }
+  for (const category of categories) {
+    const review = category.reviews[0];
+    if (review !== undefined) {
+      return {
+        kind: "review",
+        category: category.name,
+        id: review.id,
+        title: review.title,
+        action: review.ask,
+        why: review.teach,
+      };
+    }
+  }
+  return {
+    kind: "review",
+    category: "all",
+    id: "improve.qualitative-review",
+    title: "Review the practices qualitatively",
+    action:
+      "Review whether the configured practices are effective, not merely present.",
+    why:
+      "Baseline health covers only facts discern can prove mechanically; a clear baseline is not the same as being done.",
+  };
 }
 
 // ── the category filter (shared validation) ─────────────────────────────────
@@ -159,8 +224,8 @@ function auditableCategoryNames(
     .map((c) => c.name);
 }
 
-/** Options accepted by the audit core and CLI. */
-export interface AuditOptions {
+/** Options accepted by the improve core and CLI. */
+export interface ImproveOptions {
   /** Restrict to one category slug. */
   category?: string | undefined;
   /** Fail (exit 1 / `ok:false`) when the overall score is below this floor. */
@@ -174,8 +239,8 @@ export interface AuditOptions {
  */
 async function buildReport(
   root: string,
-  opts: AuditOptions,
-): Promise<{ report: AuditReport } | { error: DiscernResult<never> }> {
+  opts: ImproveOptions,
+): Promise<{ report: ImprovementReport } | { error: DiscernResult<never> }> {
   const config = await loadConfig(root);
   if (opts.category !== undefined) {
     const status = categoryStatus(opts.category, config);
@@ -184,7 +249,7 @@ async function buildReport(
       return {
         error: {
           ok: false,
-          verb: "audit",
+          verb: "improve",
           error: status === "unknown"
             ? "unknown_category"
             : "category_disabled",
@@ -199,14 +264,22 @@ async function buildReport(
   return { report: evaluateReport(ctx, opts.category) };
 }
 
-/** Reduce an {@link AuditReport} to the verb's `data` payload. Typed as the
- * schema-inferred {@link AuditData} (the SSOT in `result_schemas.ts`), so a drift
+/** Reduce an {@link ImprovementReport} to the verb's `data` payload. Typed as the
+ * schema-inferred {@link ImproveData} (the SSOT in `result_schemas.ts`), so a drift
  * between this mapping and the advertised MCP `outputSchema` is a compile error. */
-function reportData(report: AuditReport): AuditData {
+function reportData(report: ImprovementReport): ImproveData {
   return {
     score: report.score,
     weak: report.weak,
     open_reviews: report.reviews,
+    next_action: {
+      kind: report.nextAction.kind,
+      category: report.nextAction.category,
+      id: report.nextAction.id,
+      title: report.nextAction.title,
+      action: report.nextAction.action,
+      why: report.nextAction.why,
+    },
     categories: report.categories.map((c) => ({
       name: c.name,
       title: c.title,
@@ -220,15 +293,16 @@ function reportData(report: AuditReport): AuditData {
 }
 
 /**
- * Compute the `audit` {@link DiscernResult} without printing or exiting — the entry
- * point the MCP server renders. `ok` is true for a completed audit; when `minScore`
+ * Compute the `improve` {@link DiscernResult} without printing or exiting — the
+ * entry point the MCP server renders. `ok` is true for a completed review; when
+ * `minScore`
  * is set and the overall score is below it, `ok` flips to false with a
  * `below_min_score` error (the CI/agent enforcement signal).
  */
-export async function auditResult(
+export async function improveResult(
   root: string,
-  opts: AuditOptions = {},
-): Promise<DiscernResult<AuditData>> {
+  opts: ImproveOptions = {},
+): Promise<DiscernResult<ImproveData>> {
   const built = await buildReport(root, opts);
   if ("error" in built) {
     return built.error;
@@ -237,13 +311,13 @@ export async function auditResult(
   const belowMin = opts.minScore !== undefined && report.score < opts.minScore;
   return {
     ok: !belowMin,
-    verb: "audit",
+    verb: "improve",
     data: reportData(report),
     ...(belowMin
       ? {
         error: "below_min_score",
         message:
-          `audit score ${report.score}/100 is below the required minimum of ${opts.minScore}.`,
+          `baseline health ${report.score}/100 is below the required minimum score of ${opts.minScore}.`,
       }
       : {}),
   };
@@ -304,15 +378,29 @@ function wrapLabelled(label: string, text: string, indent: string): string {
 }
 
 /** Render the top summary: overall score then a weakest-first one-line-per-category list. */
-function renderSummary(out: Out, report: AuditReport, slug: string): void {
+function renderSummary(
+  out: Out,
+  report: ImprovementReport,
+  slug: string,
+): void {
   const c = out.c;
-  out.heading(`discern audit${slug ? ` · ${slug}` : ""}`);
-  const tally = `${report.weak} weak · ${report.reviews} to review`;
+  out.heading(`discern improve${slug ? ` · ${slug}` : ""}`);
   out.raw(
-    `  Overall  ${
+    `  Baseline health  ${
       bar(report.score, c, out.color)
-    }  ${c.bold}${report.score}/100${c.reset}  ${c.dim}(${tally})${c.reset}\n`,
+    }  ${c.bold}${report.score}/100${c.reset}\n`,
   );
+  out.raw(`  ${report.weak} objectively weak\n`);
+  out.raw(`  ${c.cyan}${report.reviews} improvement reviews open${c.reset}\n`);
+  out.raw("\n");
+  out.raw(
+    wrapLabelled(
+      "Next action: ",
+      `${report.nextAction.title} — ${report.nextAction.action}`,
+      "  ",
+    ),
+  );
+  out.raw(wrapLabelled("Why:        ", report.nextAction.why, "  "));
   out.raw("\n");
   out.raw(`  ${c.dim}weakest first${c.reset}\n`);
   const widest = Math.max(...report.categories.map((x) => x.title.length), 0);
@@ -373,7 +461,7 @@ function canInteract(): boolean {
 /** Drive the interactive drill-down: pick a category to expand, repeat until done. */
 async function interactiveDrilldown(
   out: Out,
-  report: AuditReport,
+  report: ImprovementReport,
 ): Promise<void> {
   const ALL = " all";
   const DONE = " done";
@@ -408,37 +496,41 @@ async function interactiveDrilldown(
   }
 }
 
-/** Print the closing hints after a human audit. */
-function renderFooter(out: Out, report: AuditReport, filtered: boolean): void {
+/** Print the closing hints after a human improvement review. */
+function renderFooter(
+  out: Out,
+  report: ImprovementReport,
+  filtered: boolean,
+): void {
   const c = out.c;
   out.raw("\n");
   if (report.reviews > 0) {
     out.raw(
-      `  ${c.dim}? items need judgement — an agent can evaluate them against the cited material via${c.reset} discern audit --json${c.dim}.${c.reset}\n`,
+      `  ${c.dim}? items need judgement — an agent can evaluate them against the cited material via${c.reset} discern improve --json${c.dim}.${c.reset}\n`,
     );
   }
   if (!filtered) {
     out.raw(
-      `  ${c.dim}Focus one area:${c.reset} discern audit --category <name>${c.dim} · gate a build:${c.reset} discern audit --min-score <n>\n`,
+      `  ${c.dim}Focus one area:${c.reset} discern improve --category <name>${c.dim} · gate a build:${c.reset} discern improve --min-score <n>\n`,
     );
   }
 }
 
-/** Options accepted by the audit CLI. */
-export interface RunAuditOptions extends AuditOptions {
+/** Options accepted by the improve CLI. */
+export interface RunImproveOptions extends ImproveOptions {
   json: boolean;
   /** Force the static report even on a TTY (set by `--no-interactive`). */
   interactive?: boolean | undefined;
 }
 
-/** Run `discern audit`. Returns a process exit code (0 = ok / above the floor). */
-export async function runAudit(
+/** Run `discern improve`. Returns a process exit code (0 = ok / above the floor). */
+export async function runImprove(
   root: string,
-  opts: RunAuditOptions,
+  opts: RunImproveOptions,
 ): Promise<number> {
   // --json: the single envelope, computed by the shared core.
   if (opts.json) {
-    const result = await auditResult(root, opts);
+    const result = await improveResult(root, opts);
     emitResult(result);
     return result.ok ? 0 : 1;
   }
@@ -447,7 +539,7 @@ export async function runAudit(
   const color = colorEnabled();
   const out = makeOut(color);
   if ("error" in built) {
-    out.error(built.error.message ?? "audit failed.");
+    out.error(built.error.message ?? "improve failed.");
     return 1;
   }
   const { report } = built;
@@ -477,7 +569,7 @@ export async function runAudit(
   const belowMin = opts.minScore !== undefined && report.score < opts.minScore;
   if (belowMin) {
     out.error(
-      `audit score ${report.score}/100 is below the required minimum of ${opts.minScore}.`,
+      `baseline health ${report.score}/100 is below the required minimum score of ${opts.minScore}.`,
     );
     return 1;
   }

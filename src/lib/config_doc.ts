@@ -114,6 +114,7 @@ export function mergeDocIntoFlags(
     sourceGlobs: flags.sourceGlobs ?? doc.source_globs?.join(","),
     brief: flags.brief ?? doc.brief,
     agents: flags.agents ?? doc.agents?.join(","),
+    docs: flags.docs ?? doc.docs?.dir,
   };
 }
 
@@ -127,6 +128,10 @@ export function applyConfigDoc(
   editor: TomlEditor,
   doc: DiscernConfigDoc,
 ): void {
+  if (doc.docs?.dir !== undefined) {
+    editor.setString("docs.dir", doc.docs.dir);
+  }
+
   // Features: a known toggle name mapped to a boolean. An unknown name is a typo
   // worth catching rather than silently ignoring.
   for (const [name, value] of Object.entries(doc.features ?? {})) {

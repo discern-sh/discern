@@ -15,6 +15,7 @@ import type { ChangedScopesData } from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import { pathMatchesPattern } from "./glob.ts";
+import { expandDocsDirReference } from "../../shared/docs_path.ts";
 
 /**
  * The two derived markers a classification emits ALONGSIDE the scope names: `code`
@@ -108,6 +109,16 @@ function pathMatchesGlobs(paths: string[], path: string): boolean {
   return paths.some((pat) => pathMatchesPattern(path, pat));
 }
 
+/** Resolve live config references in one scope's path list. */
+function resolvedScopePaths(
+  config: DiscernConfig,
+  scope: string,
+): string[] {
+  return (config.scopes[scope]?.paths ?? []).map((path) =>
+    expandDocsDirReference(path, config.docs.dir)
+  );
+}
+
 /**
  * Whether `path` is a NEUTRAL path — one a change to needs no gate, and that must
  * not register as evidence: it matches a `neutral`-flagged scope (docs, agent
@@ -120,7 +131,10 @@ function pathMatchesGlobs(paths: string[], path: string): boolean {
 export function isNeutralPath(config: DiscernConfig, path: string): boolean {
   const scopes = config.scopes;
   for (const s of Object.keys(scopes)) {
-    if (scopes[s]?.neutral && pathMatchesGlobs(scopes[s]?.paths ?? [], path)) {
+    if (
+      scopes[s]?.neutral &&
+      pathMatchesGlobs(resolvedScopePaths(config, s), path)
+    ) {
       return true;
     }
   }
@@ -149,7 +163,9 @@ export function scopesForPaths(
       continue;
     }
     for (const s of fireScopes) {
-      if (!fired.has(s) && pathMatchesGlobs(scopes[s]?.paths ?? [], path)) {
+      if (
+        !fired.has(s) && pathMatchesGlobs(resolvedScopePaths(config, s), path)
+      ) {
         fired.add(s);
       }
     }

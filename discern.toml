@@ -56,6 +56,15 @@ docs      = true   # the `docs` browser over your docs/ tree
 coupling  = true   # the co-change advisory (the `coupling` verb)
 
 # ─────────────────────────────────────────────────────────────────────────────
+# [docs] — discern's agent documentation tree. This is conceptually distinct
+# from human-curated project docs: setup scaffolds it here, `discern docs`
+# browses it, and `${docs.dir}` keeps checks/scopes/ratchets tied to this path.
+# ─────────────────────────────────────────────────────────────────────────────
+
+[docs]
+dir = "docs/"
+
+# ─────────────────────────────────────────────────────────────────────────────
 # [guidance] — the author-once → compile-everywhere agent-instruction pipeline.
 # `discern refresh` compiles discern's built-in harness guidance (always
 # prepended, feature-aware) plus YOUR sources below into one generated file per
@@ -109,7 +118,7 @@ dir = "skills"
 [capabilities]
 format    = "deno fmt"
 lint      = "deno lint"
-typecheck = "deno check src/main.ts"
+typecheck = "deno check"
 test      = "deno task test"
 # build is intentionally omitted — it is release-only here, not part of the gate.
 
@@ -125,7 +134,7 @@ test      = "deno task test"
 # [ratchets.prose] ceiling instead.
 [checks.prose]
 stage    = "check"
-run      = "vale --minAlertLevel error docs/"
+run      = "vale --minAlertLevel error \"${docs.dir}\""
 provides = "docs prose lint (Vale; error-severity findings block the gate)"
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -143,7 +152,7 @@ provides = "docs prose lint (Vale; error-severity findings block the gate)"
 # guidance outputs are refreshed by the gate itself; editing the source changes
 # no behaviour.) Root-level *.md is always treated as neutral.
 [scopes.docs]
-paths   = ["docs/", ".claude/", "skills/"]
+paths   = ["${docs.dir}", ".claude/", "skills/"]
 neutral = true
 
 # The subset of changes a person could see — worth a preview link.
@@ -294,10 +303,10 @@ run       = "deno task coverage"
 # as the density improves — the ceiling only falls.
 [ratchets.prose]
 direction = "down"
-per       = { words = "docs/**" }
+per       = { words = "${docs.dir}**" }
 scale     = 1000
 limit     = 19
-run       = "deno task prose"
+run       = "deno task prose \"${docs.dir}\""
 
 # Guidance-footprint ratchet — the bundled built-in guidance (templates/guidance/
 # *.md) compiles into every end-user agent's context in every session, so its total
@@ -339,7 +348,7 @@ fail_fast = true
 # coupling <path>` → one file's top partners, its blast radius; `discern coupling
 # <a> <b>` → the commits where both changed, to judge a coupling). It is
 # zero-config: it self-calibrates to your repo, so there are no thresholds to
-# tune. Purely ADVISORY: it points at where to look and never blocks. (ADR 0074.)
+# tune. Purely ADVISORY: it points at where to look and never blocks. (ADR 0084.)
 # ─────────────────────────────────────────────────────────────────────────────
 
 [coupling]

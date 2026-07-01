@@ -17,6 +17,7 @@ import {
   LEGACY_CONFIG_REL,
 } from "../shared/env.ts";
 import type { DiscernConfig } from "../shared/config_schema.ts";
+import { normalizeDocsDir } from "../shared/docs_path.ts";
 
 // Re-export the install markers so installer-side callers can import them from
 // the lib layer (the canonical definitions live in the shared env module).
@@ -70,6 +71,14 @@ export function resolveSkillsDir(
   config: DiscernConfig,
 ): ResolvedDir {
   return resolveDir(root, config.skills.dir);
+}
+
+/** The configured agent-documentation tree: `[docs].dir`, default `docs/`. */
+export function resolveDocsDir(
+  root: string,
+  config: DiscernConfig,
+): ResolvedDir {
+  return resolveDir(root, normalizeDocsDir(config.docs.dir));
 }
 
 /**

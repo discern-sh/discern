@@ -39,8 +39,8 @@ import { skillsDirsForAgents } from "../lib/providers.ts";
 import { TomlEditor } from "../lib/toml_edit.ts";
 import { Logger } from "../lib/log.ts";
 import { runFinish } from "./gate/finish.ts";
-import { runAudit } from "./audit/audit.ts";
-import { CATEGORY_NAMES } from "./audit/rules.ts";
+import { runImprove } from "./improve/improve.ts";
+import { CATEGORY_NAMES } from "./improve/rules.ts";
 import { runMcpServer } from "./mcp/server.ts";
 import { runPrepare } from "./gate/prepare.ts";
 import { runTestCapability } from "./gate/test.ts";
@@ -83,7 +83,7 @@ export const KNOWN_ENGINE_VERBS: ReadonlySet<string> = new Set([
   "finish",
   "prepare",
   "test",
-  "audit",
+  "improve",
   "ratchets",
   "refresh",
   "changed-scopes",
@@ -108,7 +108,7 @@ export const ENGINE_RECIPE_NAMES: readonly string[] = [
   "finish",
   "prepare",
   "test",
-  "audit",
+  "improve",
   "ratchets",
   "refresh",
   "changed-scopes",
@@ -278,17 +278,17 @@ export function attachEngineCommands(
     });
 
   root
-    .command("audit")
+    .command("improve")
     .description(
-      "Score the project's setup against the best-practices checklist and rank the weakest areas.",
+      "Find the highest-value next improvement from baseline health and qualitative reviews.",
     )
     .option(
       "--json",
-      "Emit the audit as a JSON DiscernResult (data.score + data.categories with rules and review items).",
+      "Emit the coaching result as JSON (baseline score, open reviews, and data.next_action).",
     )
     .option(
       "--category <name:string>",
-      `Audit a single area (${CATEGORY_NAMES.join(", ")}).`,
+      `Review a single area (${CATEGORY_NAMES.join(", ")}).`,
     )
     .option(
       "--min-score <n:number>",
@@ -300,7 +300,7 @@ export function attachEngineCommands(
     )
     .action(async (o) => {
       Deno.exit(
-        await runAudit(await requireRoot(), {
+        await runImprove(await requireRoot(), {
           json: o.json ?? false,
           category: o.category,
           minScore: o.minScore,

@@ -265,6 +265,21 @@ Deno.test("config set infers types (number / bool / string)", async () => {
   });
 });
 
+Deno.test("config set preserves the edited line's inline comment", async () => {
+  await withTempDir(async (dir) => {
+    await init(dir);
+    const r = await runCli(
+      ["config", "set", "features.worktrees", "false"],
+      dir,
+    );
+    assertEquals(r.code, 0, r.stderr);
+    assertStringIncludes(
+      await readToml(dir),
+      "worktrees = false   # the isolated git-worktree workflow",
+    );
+  });
+});
+
 Deno.test("config set --string forces a numeric-looking value to a string", async () => {
   await withTempDir(async (dir) => {
     await init(dir);

@@ -16,19 +16,20 @@ import { type DiscernConfig, toCommand } from "../../shared/config_schema.ts";
 import { isFeatureEnabled } from "../../shared/features.ts";
 import type { Stage } from "../../shared/capabilities.ts";
 import { jobsInStage } from "./stages.ts";
+import { diagnosticOutputFields } from "./diagnostic_output.ts";
 import { normalizeDiagnostics } from "./diagnostics.ts";
 import type { GateData } from "../../shared/result_schemas.ts";
 import type { JobResult } from "../jobs/types.ts";
-import {
-  capText,
-  type Diagnostic,
-  type DiscernResult,
-  type EnginePlan,
-  type FailedStage,
-  type PlanStep,
-  type StepKind,
-  type StepOutcome,
-  type StepResult,
+import { expandDocsDirReference } from "../../shared/docs_path.ts";
+import type {
+  Diagnostic,
+  DiscernResult,
+  EnginePlan,
+  FailedStage,
+  PlanStep,
+  StepKind,
+  StepOutcome,
+  StepResult,
 } from "../../shared/result.ts";
 
 /**
@@ -110,7 +111,10 @@ export function planScopeGates(
 ): PlannedJob[] {
   const out: PlannedJob[] = [];
   for (const [scope, spec] of Object.entries(cfg.scopes)) {
-    const command = toCommand(spec.gate);
+    const command = expandDocsDirReference(
+      toCommand(spec.gate),
+      cfg.docs.dir,
+    );
     if (command === "") {
       continue;
     }
@@ -326,10 +330,10 @@ function stepOutcome(r: JobResult | undefined): StepOutcome {
  * (file/line/rule). A fail-fast-cancelled sibling is neither failed nor diagnosed
  * (it wasn't a real failure, just killed mid-run).
  */
-export function serializeJobSteps(
+export async function serializeJobSteps(
   groups: JobGroup[],
   results: Map<string, JobResult>,
-): { steps: StepResult[]; diagnostics: Diagnostic[] } {
+): Promise<{ steps: StepResult[]; diagnostics: Diagnostic[] }> {
   const steps: StepResult[] = [];
   const diagnostics: Diagnostic[] = [];
   for (const group of groups) {
@@ -354,14 +358,15 @@ export function serializeJobSteps(
         if (normalized !== undefined) {
           diagnostics.push(...normalized);
         } else {
-          const capped = r.output !== undefined ? capText(r.output) : undefined;
+          const outputFields = r.output !== undefined
+            ? await diagnosticOutputFields(r.output)
+            : undefined;
           diagnostics.push({
             tool: j.label,
             severity: "error",
             message: `${j.label} failed (exit ${r.code})`,
             reproduce_cmd: j.command,
-            output: capped?.text,
-            truncated: capped?.truncated === true ? true : undefined,
+            ...outputFields,
           });
         }
       }
@@ -377,12 +382,12 @@ export function serializeJobSteps(
  * executed result agree); the gate's own concerns (which stage failed, which scopes
  * changed) ride in `data`.
  */
-export function buildGateResult(
+export async function buildGateResult(
   plan: GatePlan,
   results: Map<string, JobResult>,
   failedStage: FailedStage | null,
-): DiscernResult<GateData> {
-  const { steps, diagnostics } = serializeJobSteps(plan.groups, results);
+): Promise<DiscernResult<GateData>> {
+  const { steps, diagnostics } = await serializeJobSteps(plan.groups, results);
   const data: GateData = {
     failed_stage: failedStage,
     scopes_changed: plan.scopesChanged,

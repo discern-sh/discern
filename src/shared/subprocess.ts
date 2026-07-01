@@ -36,22 +36,24 @@ export interface GitResult {
 }
 
 /**
- * Run a git subcommand, capturing stdout+stderr. `cwd` runs git there (the
- * equivalent of `-C`); `env` is forwarded to the spawn (merged over the parent
- * environment) so a caller can pin git's config resolution hermetically without
- * mutating the process. A missing or unrunnable git resolves to a failed run
- * (code {@link SPAWN_FAILED}) with an explanatory stderr rather than throwing, so
- * every caller handles "no git" as data. Honors GIT_BIN uniformly.
+ * Run a git subcommand, capturing stdout+stderr. `cwd` is the required directory
+ * git runs in (the equivalent of `-C`), so the checkout a git call targets is part
+ * of the contract, never inherited from ambient process state; `env` is forwarded
+ * to the spawn (merged over the parent environment) so a caller can pin git's config
+ * resolution hermetically without mutating the process. A missing or unrunnable git
+ * resolves to a failed run (code {@link SPAWN_FAILED}) with an explanatory stderr
+ * rather than throwing, so every caller handles "no git" as data. Honors GIT_BIN
+ * uniformly.
  */
 export async function runGit(
   args: string[],
-  opts: { cwd?: string; env?: Record<string, string> } = {},
+  opts: { cwd: string; env?: Record<string, string> },
 ): Promise<GitResult> {
   let output: Deno.CommandOutput;
   try {
     output = await new Deno.Command(gitBin(), {
       args,
-      ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
+      cwd: opts.cwd,
       ...(opts.env !== undefined ? { env: opts.env } : {}),
       stdout: "piped",
       stderr: "piped",
@@ -102,12 +104,12 @@ const EMPTY = new Uint8Array();
  */
 export async function runShell(
   command: string,
-  opts: { cwd?: string; env?: Record<string, string> } = {},
+  opts: { cwd: string; env?: Record<string, string> },
 ): Promise<ShellResult> {
   try {
     const output = await new Deno.Command("sh", {
       args: ["-c", shellCommand(command)],
-      ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
+      cwd: opts.cwd,
       ...(opts.env !== undefined ? { env: opts.env } : {}),
       stdin: "null",
       stdout: "piped",
@@ -128,12 +130,17 @@ export async function runShell(
  * Whether `word` resolves as a runnable command — on PATH, a shell builtin, or a
  * path — via the shell's own `command -v`. `word` is passed as a positional
  * argument, not interpolated into the script, so a surprising value cannot break
- * out of the probe.
+ * out of the probe. Pass `cwd` when validating a project-relative command so the
+ * probe uses the same resolved root as its eventual execution.
  */
-export async function commandExists(word: string): Promise<boolean> {
+export async function commandExists(
+  word: string,
+  opts: { cwd?: string } = {},
+): Promise<boolean> {
   try {
     const out = await new Deno.Command("sh", {
       args: ["-c", 'command -v "$1" >/dev/null 2>&1', "sh", word],
+      ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
       stdout: "null",
       stderr: "null",
     }).output();

@@ -20,6 +20,7 @@ import {
 } from "../src/engine/gate/plan.ts";
 import type { JobResult } from "../src/engine/jobs/types.ts";
 import {
+  CAPTURE_CAP,
   type EnginePlan,
   planToJson,
   renderPlan,
@@ -108,7 +109,7 @@ Deno.test("buildGatePlan: empty stages produce no group (a no-op gate has no gro
   assert(plan.mergeCheck);
 });
 
-Deno.test("buildGateResult: serializes plan+results into the DiscernResult envelope", () => {
+Deno.test("buildGateResult: serializes plan+results into the DiscernResult envelope", async () => {
   const plan = buildGatePlan(FULL, ["widget"]);
   // Simulate: fix+build+check/test all passed; widget gate passed; gadget skipped.
   const results = new Map<string, JobResult>();
@@ -121,7 +122,7 @@ Deno.test("buildGateResult: serializes plan+results into the DiscernResult envel
     ok(l);
   }
   ok("scope:widget");
-  const result = buildGateResult(plan, results, null);
+  const result = await buildGateResult(plan, results, null);
   const steps = result.steps ?? [];
 
   assertEquals(result.ok, true);
@@ -142,7 +143,7 @@ Deno.test("buildGateResult: serializes plan+results into the DiscernResult envel
   assertEquals(result.diagnostics, undefined);
 });
 
-Deno.test("buildGateResult: an aborted stage leaves later jobs skipped; the failure is a diagnostic", () => {
+Deno.test("buildGateResult: an aborted stage leaves later jobs skipped; the failure is a diagnostic", async () => {
   const plan = buildGatePlan(FULL, []);
   // Only the fix job ran and failed (with captured output); nothing else has a result.
   const results = new Map<string, JobResult>([
@@ -157,7 +158,7 @@ Deno.test("buildGateResult: an aborted stage leaves later jobs skipped; the fail
       },
     ],
   ]);
-  const result = buildGateResult(plan, results, "fix");
+  const result = await buildGateResult(plan, results, "fix");
   const steps = result.steps ?? [];
   const step = (label: string) => steps.find((s) => s.step.label === label);
 
@@ -173,7 +174,7 @@ Deno.test("buildGateResult: an aborted stage leaves later jobs skipped; the fail
   assertEquals(diag.reproduce_cmd, "deno fmt");
 });
 
-Deno.test("buildGateResult: a cancelled sibling is reported skipped, not failed, and earns no diagnostic", () => {
+Deno.test("buildGateResult: a cancelled sibling is reported skipped, not failed, and earns no diagnostic", async () => {
   const plan = buildGatePlan(FULL, []);
   const results = new Map<string, JobResult>([
     // lint genuinely failed (carries output); typecheck was fail-fast-cancelled.
@@ -195,7 +196,7 @@ Deno.test("buildGateResult: a cancelled sibling is reported skipped, not failed,
       },
     ],
   ]);
-  const result = buildGateResult(plan, results, "check/test");
+  const result = await buildGateResult(plan, results, "check/test");
   const steps = result.steps ?? [];
   const step = (l: string) => steps.find((s) => s.step.label === l);
   assertEquals(step("lint")?.outcome, "failed");
@@ -206,7 +207,7 @@ Deno.test("buildGateResult: a cancelled sibling is reported skipped, not failed,
   assert(!diags.some((d) => d.tool === "typecheck"));
 });
 
-Deno.test("buildGateResult: a LARGE SARIF output is normalized to one diagnostic per finding (not a truncated Tier-0 blob)", () => {
+Deno.test("buildGateResult: a LARGE SARIF output is normalized to one diagnostic per finding (not a truncated Tier-0 blob)", async () => {
   // Exceed the Tier-0 cap, to prove normalization runs on the FULL captured output —
   // not the capped string (which would be invalid JSON and collapse to one blob).
   const findings = Array.from({ length: 300 }, (_, i) => ({
@@ -225,7 +226,7 @@ Deno.test("buildGateResult: a LARGE SARIF output is normalized to one diagnostic
     runs: [{ results: findings }],
   });
   assert(
-    sarif.length > 16_000,
+    sarif.length > CAPTURE_CAP,
     "fixture must exceed the Tier-0 cap to be a real test",
   );
 
@@ -238,7 +239,7 @@ Deno.test("buildGateResult: a LARGE SARIF output is normalized to one diagnostic
       output: sarif,
     }],
   ]);
-  const result = buildGateResult(
+  const result = await buildGateResult(
     buildGatePlan(FULL, []),
     results,
     "check/test",

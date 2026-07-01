@@ -49,9 +49,16 @@ no new verb is introduced.**
    Only Codex declares one. `registerCodexEnvironment` merges
    `[setup].script = "discern worktree:ensure"` and
    `[cleanup].script = "discern worktree:teardown"` via the comment-preserving
-   `TomlEditor`, rewriting **only those two keys** so the app's
-   `version`/`name`/ `[[actions]]` survive untouched. It is safe when the file
-   is absent (created).
+   `TomlEditor`, rewriting **only those two keys** so the app's `[[actions]]`
+   and comments survive untouched. Codex's schema additionally REQUIRES
+   top-level `version` (number) and `name` (string) — a file missing them is
+   rejected with `expected string, received undefined` at `name` — so discern
+   seeds `version = 1` and `name = "Discern"` **set-if-absent**: a file discern
+   writes from scratch validates (giving immediate Codex-environments access),
+   while a file the app already created keeps its own `version`/`name`. Writing
+   those root-level keys is why `TomlEditor` gained `hasRootKey` /
+   `setRootLiteral` (the `discern.toml` subset has no pre-section keys; a
+   co-managed foreign file does). It is safe when the file is absent (created).
 
 2. **It re-emits on every refresh, not as a one-shot seed.**
    `wireProviderWorktreeApp` runs inside `compileGuidelines` right after the MCP

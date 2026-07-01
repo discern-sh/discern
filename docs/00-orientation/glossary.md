@@ -40,20 +40,22 @@ any config-pointed content you author (your [Guidance source](#guidance-source),
 [Skills](#skill), [Recipes](#recipe)) and the generated files. The seed and
 Skill files an install starts from originate under
 [`templates/`](../../templates/) and are **bundled into the binary**, which
-writes them out at `setup`/`upgrade`. (The docs tree and `TODO.md` are not part
-of the install; they are written on demand after install by the bundled Skills.)
+writes them out at `setup`/`upgrade`. (The agent documentation tree at
+`[docs].dir` and `TODO.md` are not fixed install paths; setup and the bundled
+Skills create them on demand.)
 
 ### Engine
 
 The stack-neutral logic behind the `discern` run-time verbs (`finish`,
-`prepare`, `audit`, `status`, `worktree`/`worktree:*`, `integrate`, `graduate`,
-`ratchets`, `refresh`, `changed-scopes`, `coupling`, …), written in **TypeScript
-and compiled into the binary** under [`src/engine/`](../../src/engine/) (sharing
-[`src/shared/`](../../src/shared/) with the Installer). The Engine knows nothing
-stack-specific — it runs the [Capabilities](#capability), [Checks](#check),
-[Scopes](#scope), and [worktree settings](#worktree-settings) a project declares
-in `discern.toml`. It is the limit case of [the binary's](#the-binarys-files)
-files: not installed into a project at all.
+`prepare`, `improve`, `status`, `worktree`/`worktree:*`, `integrate`,
+`graduate`, `ratchets`, `refresh`, `changed-scopes`, `coupling`, …), written in
+**TypeScript and compiled into the binary** under
+[`src/engine/`](../../src/engine/) (sharing [`src/shared/`](../../src/shared/)
+with the Installer). The Engine knows nothing stack-specific — it runs the
+[Capabilities](#capability), [Checks](#check), [Scopes](#scope), and
+[worktree settings](#worktree-settings) a project declares in `discern.toml`. It
+is the limit case of [the binary's](#the-binarys-files) files: not installed
+into a project at all.
 
 ### Dispatcher
 
@@ -147,7 +149,8 @@ down is `discern.toml` (the entire discern footprint); it also seeds the project
 config-pointed locations (your [Guidance source](#guidance-source)
 `guidance.md`, authored [Skills](#skill) under `[skills].dir`,
 [Recipes](#recipe) under `[recipes].dir`) or are created on demand after install
-by `discern setup` (the `docs/` tree and `TODO.md`).
+by `discern setup begin` (the agent documentation tree under `[docs].dir` and
+`TODO.md`).
 
 ### The binary's files
 
@@ -288,7 +291,7 @@ diff-aware change-set view, a one-file `coupling <path>` query, and a two-file
 behind `[coupling].in_gate`, at the tail of the [Gate](#gate). It is the
 **discovery** end of the [canonical-set](#feature) discipline that the parity
 tests **enforce** — the two stay deliberately separate
-([ADR 0074](../_adr/0074-co-change-coupling-advisory.md),
+([ADR 0084](../_adr/0084-co-change-coupling-advisory.md),
 [ADR 0051](../_adr/0051-canonical-set-parity.md)). Covered in
 [coupling.md](../20-quality-gate/coupling.md).
 

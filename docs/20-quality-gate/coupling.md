@@ -11,7 +11,7 @@ one" instinct from data: it mines git history for files that change in the same
 commits and reports the ones a change is likely missing. It is the **discovery**
 layer that pairs with the **enforcement** discipline of
 [ADR 0051](../_adr/0051-canonical-set-parity.md) — and the two are kept
-deliberately apart ([ADR 0074](../_adr/0074-co-change-coupling-advisory.md)).
+deliberately apart ([ADR 0084](../_adr/0084-co-change-coupling-advisory.md)).
 
 It is **purely advisory**. It points at where to look and **never blocks** —
 never touches a gate's pass/fail, exit code, or `failed_stage`. The whole output
@@ -83,7 +83,7 @@ window of recent commits:
 Survivors are ranked strongest-first and **capped** (top-k), so the advisory
 never floods. The model is **recomputed on demand**, bounded by the window —
 there is no cache in v1 (see
-[ADR 0074](../_adr/0074-co-change-coupling-advisory.md) for why a persisted
+[ADR 0084](../_adr/0084-co-change-coupling-advisory.md) for why a persisted
 store is deferred). When git can't answer, the advisory stays **silent** rather
 than failing into noise.
 
@@ -124,11 +124,11 @@ function (the
 0051)"_ — but the decision is yours: an **essential** invariant earns a forcing
 function, an **incidental** co-change earns nothing. Promoting a coupling to an
 enforced rule is always a separate, deliberate step
-([ADR 0074](../_adr/0074-co-change-coupling-advisory.md)).
+([ADR 0084](../_adr/0084-co-change-coupling-advisory.md)).
 
 ## See also
 
-- [ADR 0074](../_adr/0074-co-change-coupling-advisory.md) — why the advisory is
+- [ADR 0084](../_adr/0084-co-change-coupling-advisory.md) — why the advisory is
   non-blocking and recomputed on demand.
 - [ADR 0051](../_adr/0051-canonical-set-parity.md) — the enforcement discipline
   this feeds.

@@ -75,14 +75,6 @@ _Nothing outstanding._
       `src/lib/migrations.ts` (`from: 5`); `src/commands/doctor.ts` (the new
       "gotchas doc" check surfaces it).
 
-- [ ] **`config set <key> <value>` strips the edited line's inline comment.**
-      The comment-preserving `TomlEditor.setLiteral` rewrites the whole
-      `key = …` line, dropping any trailing `# …` annotation, so editing the
-      self-documenting `discern.toml` via the CLI quietly degrades it one line
-      at a time (e.g. `config set features.worktrees false` drops that line's
-      trailing `# …` annotation). Preserve a trailing inline comment when
-      rewriting a value. Evidence: `src/lib/toml_edit.ts` (`setLiteral`).
-
 - [ ] **`worktree:prune` apply re-scans instead of consuming its plan (footgun,
       gate-guarded).** `pruneGitWorktrees`/`sweepOrphanWorktrees` still take a
       `dryRun` flag whose two return paths must stay in lock-step (the original
@@ -218,7 +210,7 @@ _Nothing outstanding._
 
 ## 🟢 Test & tooling hygiene
 
-None at present.
+_Nothing outstanding._
 
 ## 🔵 Unmerged / at-risk work — decide: land or drop
 
@@ -270,11 +262,11 @@ outstanding._
       huge monorepos, and a formal multiple-testing correction (today bounded
       only by the top-k output cap). Evidence: `src/engine/coupling/coupling.ts`
       (the constants), `[coupling]` in `discern.toml`
-      ([ADR 0074](docs/_adr/0074-co-change-coupling-advisory.md)).
+      ([ADR 0084](docs/_adr/0084-co-change-coupling-advisory.md)).
 
-- [ ] **`discern audit` candidates + a `// discern-coupled-to:` declaration
+- [ ] **`discern improve` candidates + a `// discern-coupled-to:` declaration
       marker — the discovery→enforcement bridge as a deliberate review, with
-      state.** `coupling` (ADR 0074) _discovers_ co-change pairs and nudges
+      state.** `coupling` (ADR 0084) _discovers_ co-change pairs and nudges
       per-change; ADR 0051's forcing functions _enforce_ the ones that are
       essential invariants. Nothing today bridges the two as a periodic,
       considered review — and nothing remembers which couplings a human has
@@ -282,15 +274,17 @@ outstanding._
       This item is the design for both halves. **Deferred — design only here; do
       not implement without confirmation.**
 
-  - **Audit candidates.** Extend `discern audit` (the subjective-review surface)
-    with the top-N strongest co-change pairs that are _not yet protected_ by a
-    forcing function — "candidates to lock with a parity test, or to
-    deliberately decouple." It is the discovery→enforcement bridge made a
-    deliberate, on-demand review item rather than a per-change nudge: the
-    agent/human looks at the strongest couplings periodically and _decides_,
-    instead of being prompted mid-change. Lands as a `review` (not a
-    deterministic `rule`) — discern surfaces the pair and its evidence and
-    leaves the judgement to the consumer (ADR 0063).
+  - **`improve` candidates.** Extend `discern improve` (the subjective-review
+    surface — formerly `audit`,
+    [ADR 0079](docs/_adr/0079-improve-is-a-coach-not-an-audit.md)) with the
+    top-N strongest co-change pairs that are _not yet protected_ by a forcing
+    function — "candidates to lock with a parity test, or to deliberately
+    decouple." It is the discovery→enforcement bridge made a deliberate,
+    on-demand review item rather than a per-change nudge: the agent/human looks
+    at the strongest couplings periodically and _decides_, instead of being
+    prompted mid-change. Lands as a `review` (not a deterministic `rule`) —
+    discern surfaces the pair and its evidence and leaves the judgement to the
+    consumer (ADR 0063).
 
   - **The re-advice problem, and the fix.** A standing candidate list with no
     state re-serves the same pairs every run, including the ones already judged
@@ -339,14 +333,41 @@ outstanding._
     - **A declared coupling _could_ justify optional gating** — it is asserted,
       not guessed, so failing on it is defensible in a way a discovered nudge
       never is — **but it must still default to advisory** to honour the
-      never-block discipline (ADR 0074); any blocking is opt-in, like
+      never-block discipline (ADR 0084); any blocking is opt-in, like
       `[coupling].in_gate`.
 
     Evidence: `src/engine/coupling/coupling.ts` (the discovered graph);
-    `src/engine/audit/rules.ts` (where a candidate `review` would land);
+    `src/engine/improve/rules.ts` (where a candidate `review` would land);
     `tests/comment_currency_test.ts` (the marker-currency machinery to reuse);
-    [ADR 0074](docs/_adr/0074-co-change-coupling-advisory.md) (discovery) →
+    [ADR 0084](docs/_adr/0084-co-change-coupling-advisory.md) (discovery) →
     [ADR 0051](docs/_adr/0051-canonical-set-parity.md) (enforcement).
+
+- [ ] **Surface the per-verb execution model beyond `doctor`.** The execution
+      model (ADR 0063, `VerbPlan`) is only reachable by running `discern doctor`
+      and scrolling past the health checks. Make it independently addressable
+      (e.g. `doctor --section execution-model`, or expose via `help`/`status`)
+      and front-load `doctor`'s envelope with a crisp
+      `{ok, problems,
+      next_action}` verdict so a consumer can early-out.
+      Keep one envelope per verb (ADR 0028) — don't split `doctor` into several
+      commands. Evidence: `src/engine/doctor/execution_model.ts`,
+      `src/engine/doctor/doctor.ts`. (Deferred from onboarding triage — useful,
+      not urgent.)
+
+## 📣 Marketing & positioning
+
+_Product positioning, messaging, and launch/content tasks._
+
+- [ ] **Make "author once → compile everywhere" + per-agent wiring a first-class
+      message.** discern compiles one `guidance.md` into every vendor's agent
+      files and wires each agent's exact guidance file, skills dir, MCP, and
+      hooks — most tools just say "supports Claude, Codex, Gemini". Elevate this
+      from a buried detail to a headline principle in external docs and landing
+      copy.
+- [ ] **Use self-hosting as launch credibility.** "discern is developed under
+      its own gate" proves the flow is real, the docs discipline is tolerable,
+      and the gate isn't theoretical — the best possible demo. Put it in launch
+      material.
 
 ## 👨‍💻 Jack's Odds and Ends
 

@@ -16,6 +16,11 @@ mechanical rules: `format`, `lint`, and `typecheck` are known **Capabilities**
 (the engine derives their Stage from the name). To satisfy all of them at once,
 run `discern prepare`.
 
+Every configured gate command executes from the resolved project root. This is
+true when the CLI is invoked from a nested directory and when a long-lived MCP
+server targets a worktree other than its own process directory; formatter,
+check, test, and scope selection must all describe the same checkout.
+
 | Name        | Kind       | Stage | Command                  | What it checks / how to satisfy                                                                                                                                                                                 |
 | ----------- | ---------- | ----- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `format`    | capability | fix   | `deno fmt`               | Formats TypeScript **and** Markdown (so `docs/` is reformatted on every gate). `templates/`, `dist/`, the compiled agent files, and your trees are excluded in `deno.json`. Just run it — it rewrites in place. |

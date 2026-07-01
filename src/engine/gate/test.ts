@@ -46,7 +46,7 @@ async function runTestGate(
 > {
   const cfg = await loadConfig(root);
   const group = stageGroup(cfg, "test");
-  const { runOpts, out } = gateRunContext(cfg, json);
+  const { runOpts, out } = gateRunContext(root, cfg, json);
   // Pre-setup, lead with the "setup unfinished" advisory (ADR 0065): test is
   // un-gated during setup, so a pass here must not read as "done".
   const inProgress = setupInProgressHint(cfg.meta.bootstrapped);
@@ -66,7 +66,7 @@ async function runTestGate(
     };
   }
   const { results, failedStage } = await runJobGroups([group], runOpts, out);
-  const { steps, diagnostics } = serializeJobSteps([group], results);
+  const { steps, diagnostics } = await serializeJobSteps([group], results);
   return {
     result: {
       ok: failedStage === null,
