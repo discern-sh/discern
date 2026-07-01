@@ -17,11 +17,11 @@ agents should expect from that provider.
 
 | Provider       | Page                                   | Status  |
 | -------------- | -------------------------------------- | ------- |
-| Claude Code    | [claude-code.md](claude-code.md)       | TODO    |
+| Claude Code    | [claude-code.md](claude-code.md)       | Current |
 | Codex          | [codex.md](codex.md)                   | Current |
-| Gemini         | [gemini.md](gemini.md)                 | TODO    |
-| Cursor         | [cursor.md](cursor.md)                 | TODO    |
-| GitHub Copilot | [github-copilot.md](github-copilot.md) | TODO    |
+| Gemini         | [gemini.md](gemini.md)                 | Current |
+| Cursor         | [cursor.md](cursor.md)                 | Current |
+| GitHub Copilot | [github-copilot.md](github-copilot.md) | Current |
 
 ## See also
 
