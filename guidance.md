@@ -158,6 +158,12 @@ Iterate on one suite with `deno task test tests/<name>_test.ts` (or
   truth and must not drift from code — update the affected docs in the same
   commit. `docs/` and root `*.md` fire no gate (a neutral scope); `docs/` alone
   is held to the Vale `prose` check and the `[ratchets.prose]` density ceiling.
+- Keep commits **atomic**: one logical change per commit, step by step.
+- **Commit messages** must start with a **subject** - one imperative line
+  summarizing the change (e.g. "Add retry to upload path"), no trailing period;
+  then follow with a **body** (when the change is non-trivial) explaining _why_
+  the change was made and any consequences or trade-offs, not a restatement of
+  the diff. Wrap at ~72 cols. Use bullets for multiple distinct points.
 
 ## Adding or changing a verb
 
