@@ -62,7 +62,7 @@ Deno.test("the fresh welcome --json carries phase=fresh and the verify funnel", 
 Deno.test("the in-progress welcome shows derived progress and funnels to done", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
-    await runAgent(dir, ["setup", "begin"]); // lay the marker-carrying skeletons
+    await runAgent(dir, ["setup", "begin", "--confirmed"]); // lay the marker-carrying skeletons
 
     const human = await runAgent(dir, ["setup"]);
     assertStringIncludes(human.stdout, "IN PROGRESS");
@@ -119,7 +119,7 @@ Deno.test("the fresh welcome --json carries the same instructional substance as 
 Deno.test("the in-progress welcome --json carries the 'your job, not a status' agent guidance", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
-    await runAgent(dir, ["setup", "begin"]);
+    await runAgent(dir, ["setup", "begin", "--confirmed"]);
     const d =
       JSON.parse((await runAgent(dir, ["setup", "--json"])).stdout).data;
     assertEquals(d.phase, "in_progress");
@@ -145,12 +145,20 @@ Deno.test("verify reports grounded findings and the consent conversation, writin
     assertEquals(d.findings.docs.exists, false);
     assert(typeof d.findings.worktree_path === "string");
     // The consent conversation rides the prose `guidance` lane (not structured
-    // fields the agent summarizes), and covers the three topics to settle with the
-    // human — model, worktree, ready — plus the funnel to begin.
+    // fields the agent summarizes) as a ready-to-relay message: the relay licence,
+    // then the points to settle with the human — model, worktree, ready — plus the
+    // funnel to begin (ADR 0086).
+    assertStringIncludes(d.guidance, "Relay the message below to your human");
     assertStringIncludes(d.guidance, "Am I your most capable model");
-    assertStringIncludes(d.guidance, "Worktree location");
-    assertStringIncludes(d.guidance, "Ready to begin");
+    assertStringIncludes(
+      d.guidance,
+      "Isolated working copies will live beside",
+    );
+    assertStringIncludes(d.guidance, "Ready for me to begin");
     assertStringIncludes(d.next_action, "begin");
+    // The command the agent runs after the conversation carries the consent
+    // attestation — a fresh begin refuses without it.
+    assertStringIncludes(d.next_action, "--confirmed");
     // Read-only: verify scaffolds nothing.
     assert(
       !(await exists(join(dir, "discern.toml"))),
@@ -197,18 +205,19 @@ Deno.test("verify's consent guidance is identical and faithful across the human 
     );
     assertStringIncludes(human, d.guidance);
 
-    // Every load-bearing consent instruction is present in BOTH surfaces: the exact
-    // model question put verbatim, the open-warmly framing, the omit-rather-than-guess
-    // rule for --model, and the worktree-location choice — the four the JSON path
-    // weakened before.
+    // Every load-bearing point is present in BOTH surfaces: the adaptive relay
+    // licence, the exact model question verbatim, the three-pillar explainer, the
+    // time+token expectation, the worktree location, and the confirmed command — the
+    // content a courier agent must carry unweakened (ADR 0086, the two-lane rule).
     for (
       const needle of [
+        "adapt the wording to your own voice if you like, but keep every point",
         "Am I your most capable model?",
         "Everything I configure here is inherited by every future session.",
-        "Open warmly",
-        "explain what discern is",
-        "omit `--model` rather than guessing",
-        "Worktree location",
+        "isolated working copies (git worktrees)",
+        "20–40 minutes",
+        "Isolated working copies will live beside",
+        "--confirmed",
       ]
     ) {
       assertStringIncludes(
@@ -247,9 +256,11 @@ Deno.test("verify surfaces existing docs/ and agent instructions as conflicts", 
       `expected an existing_instructions conflict: ${JSON.stringify(kinds)}`,
     );
     assert(d.findings.existing_instructions.includes("CLAUDE.md"));
-    assertStringIncludes(d.guidance, "Documentation location");
+    // With a docs/ tree present, the relay message asks where discern's own docs
+    // should live (recommending docs/discern/) and the command carries --docs.
+    assertStringIncludes(d.guidance, "You already have a docs/ folder");
+    assertStringIncludes(d.guidance, "docs/discern/");
     assertStringIncludes(d.guidance, "--docs");
-    assertStringIncludes(d.guidance, "[docs].dir");
     assertEquals(d.findings.docs.suggested_discern_dir, "docs/discern/");
     assertStringIncludes(d.next_action, "--docs");
     SetupVerifyOutputSchema.parse(res);
@@ -297,6 +308,7 @@ Deno.test("begin records the agent's self-declared model + discern version as pr
     const r = await runAgent(dir, [
       "setup",
       "begin",
+      "--confirmed",
       "--model",
       "test-model-x",
     ]);
@@ -319,6 +331,7 @@ Deno.test("begin ignores a literal model placeholder, recording no bogus provena
     const r = await runAgent(dir, [
       "setup",
       "begin",
+      "--confirmed",
       "--model",
       "<your-model-id>",
     ]);

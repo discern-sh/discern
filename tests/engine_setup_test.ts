@@ -41,7 +41,7 @@ Deno.test("setup begin from a subdirectory in a fresh git repo scaffolds at the 
 
     const r = await runAgent(
       dir,
-      ["setup", "begin", "--json", "--agents", "claude_code"],
+      ["setup", "begin", "--confirmed", "--json", "--agents", "claude_code"],
       { cwd: nested },
     );
     assertEquals(r.code, 0, r.output);
@@ -58,7 +58,7 @@ Deno.test("setup begin from a subdirectory in a mid-setup install reuses the ins
     const nested = join(dir, "packages", "app");
     await Deno.mkdir(nested, { recursive: true });
 
-    const r = await runAgent(dir, ["setup", "begin", "--json"], {
+    const r = await runAgent(dir, ["setup", "begin", "--confirmed", "--json"], {
       cwd: nested,
     });
     assertEquals(r.code, 0, r.output);
@@ -79,6 +79,7 @@ Deno.test("setup begin refuses malformed existing settings JSON and names the fi
     const r = await runAgent(dir, [
       "setup",
       "begin",
+      "--confirmed",
       "--json",
       "--agents",
       "claude_code",
@@ -110,6 +111,7 @@ Deno.test("setup begin reports apply failures cleanly and reruns from the partia
     const blocked = await runAgent(dir, [
       "setup",
       "begin",
+      "--confirmed",
       "--json",
       "--agents",
       AGENT_NAMES.join(","),
@@ -127,6 +129,7 @@ Deno.test("setup begin reports apply failures cleanly and reruns from the partia
     const recovered = await runAgent(dir, [
       "setup",
       "begin",
+      "--confirmed",
       "--json",
       "--agents",
       AGENT_NAMES.join(","),
@@ -164,6 +167,7 @@ Deno.test("real setup begin leaves no unresolved template tokens in seeded or sk
     const r = await runAgent(dir, [
       "setup",
       "begin",
+      "--confirmed",
       "--json",
       "--agents",
       AGENT_NAMES.join(","),
@@ -210,7 +214,7 @@ Deno.test("discern setup lays the doc skeletons when absent and prints the instr
     assertEquals(await exists(join(dir, "setup")), false);
     assertEquals(await exists(join(dir, "bootstrap")), false);
 
-    const r = await runAgent(dir, ["setup", "begin"]);
+    const r = await runAgent(dir, ["setup", "begin", "--confirmed"]);
     assertEquals(r.code, 0, r.output);
     // The instructions are printed for the agent in the loop to act on.
     assertStringIncludes(r.stdout, INSTRUCTIONS_H1);
@@ -222,7 +226,7 @@ Deno.test("discern setup lays the doc skeletons when absent and prints the instr
     assert(!readme.includes("{{project_name}}"));
 
     // Re-running is non-destructive: docs/ now exists, so it is left untouched.
-    const again = await runAgent(dir, ["setup", "begin"]);
+    const again = await runAgent(dir, ["setup", "begin", "--confirmed"]);
     assertStringIncludes(again.stdout, "Left your existing docs/");
   });
 });
@@ -235,6 +239,7 @@ Deno.test("setup begin --docs persists and scaffolds a separate agent docs tree"
     const r = await runAgent(dir, [
       "setup",
       "begin",
+      "--confirmed",
       "--docs",
       "docs/discern/",
       "--agents",
@@ -278,7 +283,7 @@ Deno.test("the scaffolded dev-loop docs name the canonical worktree verb (discer
   // the shipped skeletons point at `discern start` and never bare `discern worktree`.
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
-    await runAgent(dir, ["setup", "begin"]); // lays the docs skeletons
+    await runAgent(dir, ["setup", "begin", "--confirmed"]); // lays the docs skeletons
     for (
       const rel of [
         "docs/80-development/getting-started.md",
@@ -301,7 +306,7 @@ Deno.test("discern setup never overwrites an existing docs/ tree (seamless DX)",
     await Deno.mkdir(join(dir, "docs"));
     await Deno.writeTextFile(join(dir, "docs/README.md"), "MY OWN DOCS\n");
 
-    const r = await runAgent(dir, ["setup", "begin"]);
+    const r = await runAgent(dir, ["setup", "begin", "--confirmed"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "Left your existing docs/");
     // The user's file is intact and no skeleton was laid over it.
@@ -316,7 +321,7 @@ Deno.test("discern setup never overwrites an existing docs/ tree (seamless DX)",
 Deno.test("discern setup done refuses while skeleton markers remain; --force overrides", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
-    await runAgent(dir, ["setup", "begin"]); // lay the skeletons (markers present)
+    await runAgent(dir, ["setup", "begin", "--confirmed"]); // lay the skeletons (markers present)
 
     const blocked = await runAgent(dir, ["setup", "done"]);
     assertEquals(blocked.code, 1, blocked.output);
@@ -352,7 +357,7 @@ Deno.test("the setup redirect and the command retire once setup is recorded", as
     assertStringIncludes(preHelp.stdout, HELP_DESC);
 
     // Set up, then clear the skeleton markers so `done` validates cleanly.
-    await runAgent(dir, ["setup", "begin"]);
+    await runAgent(dir, ["setup", "begin", "--confirmed"]);
     await Deno.remove(join(dir, "docs"), { recursive: true });
     await Deno.mkdir(join(dir, "docs"));
     await Deno.writeTextFile(join(dir, "docs/README.md"), "# Real docs\n");
@@ -457,7 +462,7 @@ Deno.test("finish/prepare/test/ratchets run before setup is recorded, carrying t
 async function readyForDone(dir: string, cmd: string): Promise<void> {
   await scaffoldEngine(dir, { bootstrapped: false });
   await gitInit(dir);
-  await runAgent(dir, ["setup", "begin"]); // lay the skeletons
+  await runAgent(dir, ["setup", "begin", "--confirmed"]); // lay the skeletons
   // Replace the marker-carrying skeletons with real, marker-free content. The
   // guidance.md carries a real pitch and a Conventions section so the per-step
   // guidance check (ADR 0078) passes; design-principles is left absent (N/A).
@@ -613,7 +618,7 @@ Deno.test("discern setup migrates a pre-existing agent file into guidance.md, ne
       `# My project\n\n${rule}\n`,
     );
 
-    const r = await runAgent(dir, ["setup", "begin"]);
+    const r = await runAgent(dir, ["setup", "begin", "--confirmed"]);
     assertEquals(r.code, 0, r.output);
 
     // The user's instruction survives in the tracked source...
@@ -662,9 +667,13 @@ Deno.test("discern setup persists the PATH-detected agent set into [guidance].ag
 
     const { path, bin } = await pathWithFakeAgent("gemini");
     try {
-      const r = await runAgent(dir, ["setup", "begin", "--json"], {
-        env: { PATH: path },
-      });
+      const r = await runAgent(
+        dir,
+        ["setup", "begin", "--confirmed", "--json"],
+        {
+          env: { PATH: path },
+        },
+      );
       assertEquals(r.code, 0, r.output);
 
       // gemini ∉ DEFAULT_AGENTS, so it is in the WRITTEN config only via detection.
@@ -696,7 +705,7 @@ Deno.test("discern setup honours an explicit --agents over PATH detection (the a
     try {
       const r = await runAgent(
         dir,
-        ["setup", "--json", "--agents", "claude_code"], // …but the user named agents
+        ["setup", "--confirmed", "--json", "--agents", "claude_code"], // …but the user named agents
         { env: { PATH: path } },
       );
       assertEquals(r.code, 0, r.output);
@@ -721,7 +730,7 @@ Deno.test("discern setup lays a marked guidance.md stub that setup done enforces
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
     await gitInit(dir);
-    const r = await runAgent(dir, ["setup", "begin"]);
+    const r = await runAgent(dir, ["setup", "begin", "--confirmed"]);
     assertEquals(r.code, 0, r.output);
 
     // The stub exists and carries the marker, so it is a real "flesh out the stub".
@@ -744,7 +753,7 @@ Deno.test("discern setup preserves the project name's casing in the scaffolded f
     await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
     await gitInit(dir);
 
-    const r = await runAgent(dir, ["setup", "begin"]);
+    const r = await runAgent(dir, ["setup", "begin", "--confirmed"]);
     assertEquals(r.code, 0, r.output);
 
     // TODO.md carries the original casing, not the slug-reconstructed
@@ -762,7 +771,7 @@ Deno.test("the laid TODO.md records the deferred document-subsystem work (so the
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
     await gitInit(dir);
-    const r = await runAgent(dir, ["setup", "begin"]);
+    const r = await runAgent(dir, ["setup", "begin", "--confirmed"]);
     assertEquals(r.code, 0, r.output);
 
     const todo = await Deno.readTextFile(join(dir, "TODO.md"));
@@ -798,7 +807,7 @@ Deno.test("scaffolded docs contain no dead relative links — setup ships what i
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
     await gitInit(dir);
-    const r = await runAgent(dir, ["setup", "begin"]);
+    const r = await runAgent(dir, ["setup", "begin", "--confirmed"]);
     assertEquals(r.code, 0, r.output);
 
     const linkRe = /\[[^\]]*\]\(([^)]+)\)/g;
@@ -846,7 +855,7 @@ Deno.test("discern setup isolates a fresh install on the discern-setup branch (A
       "main",
     );
 
-    const r = await runAgent(dir, ["setup", "begin", "--json"]);
+    const r = await runAgent(dir, ["setup", "begin", "--confirmed", "--json"]);
     assertEquals(r.code, 0, r.output);
     // Setup created and checked out a dedicated branch, off the user's `main`, so
     // the scaffold's commits never land on it.
@@ -874,6 +883,7 @@ Deno.test("discern setup begin commits the scaffolded machinery, leaving docs/gu
     const r = await runAgent(dir, [
       "setup",
       "begin",
+      "--confirmed",
       "--json",
       "--agents",
       "claude_code",
@@ -932,6 +942,7 @@ Deno.test("discern setup begin commits EVERY registry-listed agent's scaffoldabl
     const r = await runAgent(dir, [
       "setup",
       "begin",
+      "--confirmed",
       "--json",
       "--agents",
       AGENT_NAMES.join(","),
@@ -982,6 +993,7 @@ Deno.test("discern setup begin fails open (commits nothing, no error) when there
     const r = await runAgent(dir, [
       "setup",
       "begin",
+      "--confirmed",
       "--json",
       "--allow-dirty",
       "--agents",
@@ -1011,6 +1023,7 @@ Deno.test("discern setup begin fails open (commits nothing, no error) when there
     const r = await runAgent(dir, [
       "setup",
       "begin",
+      "--confirmed",
       "--json",
       "--agents",
       "claude_code",
@@ -1037,6 +1050,7 @@ Deno.test("discern setup begin fails open (no error) when the machinery commit i
     const r = await runAgent(dir, [
       "setup",
       "begin",
+      "--confirmed",
       "--json",
       "--agents",
       "claude_code",
@@ -1063,7 +1077,12 @@ Deno.test("discern setup refuses on a dirty tree, writing nothing; --allow-dirty
     // An uncommitted change to a TRACKED file makes the tree dirty.
     await Deno.writeTextFile(join(dir, "app.ts"), "export const v = 2;\n");
 
-    const blocked = await runAgent(dir, ["setup", "begin", "--json"]);
+    const blocked = await runAgent(dir, [
+      "setup",
+      "begin",
+      "--confirmed",
+      "--json",
+    ]);
     assertEquals(blocked.code, 1, blocked.output);
     assertEquals(JSON.parse(blocked.stdout).error, "dirty_worktree");
     assert(
@@ -1204,7 +1223,7 @@ Deno.test("discern setup done ignores a real doc that merely mentions EXAMPLE", 
 Deno.test("discern setup --json emits the DiscernResult envelope", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
-    const r = await runAgent(dir, ["setup", "begin", "--json"]);
+    const r = await runAgent(dir, ["setup", "begin", "--confirmed", "--json"]);
     assertEquals(r.code, 0, r.output);
     const res = JSON.parse(r.stdout);
     assertEquals(res.ok, true);

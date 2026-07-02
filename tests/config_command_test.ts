@@ -12,7 +12,7 @@ import { runCli, withTempDir } from "./helpers.ts";
 /** Scaffold a fresh install in `dir`. */
 async function init(dir: string): Promise<void> {
   const r = await runCli(
-    ["init", "--yes", "--slug", "demo", "--name", "Demo"],
+    ["init", "--confirmed", "--yes", "--slug", "demo", "--name", "Demo"],
     dir,
   );
   assertEquals(r.code, 0, r.stderr);

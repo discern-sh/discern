@@ -128,7 +128,7 @@ Deno.test("setup step on a non-existent step is a structured no_such_step", asyn
 Deno.test("setup begin emits the operating principles + the first page only, never the later steps", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
-    const r = await runAgent(dir, ["setup", "begin"]);
+    const r = await runAgent(dir, ["setup", "begin", "--confirmed"]);
     assertEquals(r.code, 0, r.output);
 
     // The principles (preamble) and the first page (Step 0) are present...
@@ -151,7 +151,7 @@ Deno.test("setup begin emits the operating principles + the first page only, nev
   // The --json envelope carries the same first-page-only text plus the structured page.
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
-    const r = await runAgent(dir, ["setup", "begin", "--json"]);
+    const r = await runAgent(dir, ["setup", "begin", "--confirmed", "--json"]);
     assertEquals(r.code, 0, r.output);
     const d = JSON.parse(r.stdout).data;
     assertStringIncludes(d.instructions, "# Set up the harness");

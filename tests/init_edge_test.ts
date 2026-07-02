@@ -23,7 +23,7 @@ const ANSWERS = JSON.stringify({
 Deno.test("setup reports templates_not_found in JSON when the override dir is missing", async () => {
   await withTempDir(async (dir) => {
     const { code, stdout } = await runCli(
-      ["setup", "--json", "--slug", "demo"],
+      ["setup", "--confirmed", "--json", "--slug", "demo"],
       dir,
       { DISCERN_TEMPLATES_DIR: join(dir, "does-not-exist") },
     );
@@ -40,7 +40,7 @@ Deno.test("setup reports templates_not_found in JSON when the override dir is mi
 Deno.test("setup reports templates_not_found to stderr without --json", async () => {
   await withTempDir(async (dir) => {
     const { code, stdout, stderr } = await runCli(
-      ["setup", "--slug", "demo"],
+      ["setup", "--confirmed", "--slug", "demo"],
       dir,
       { DISCERN_TEMPLATES_DIR: join(dir, "nope") },
     );
@@ -56,14 +56,19 @@ Deno.test("setup reports templates_not_found to stderr without --json", async ()
 Deno.test("setup reports already-set-up to stdout once recorded, without --json", async () => {
   await withTempDir(async (dir) => {
     assertEquals(
-      (await runCli(["setup", "--slug", "first"], dir)).code,
+      (await runCli(["setup", "--confirmed", "--slug", "first"], dir)).code,
       0,
     );
     // Record completion (--force: the laid skeletons still carry markers).
     assertEquals((await runCli(["setup", "done", "--force"], dir)).code, 0);
 
     // A re-run is not a refusal — it reports it is already set up and exits 0.
-    const { code, stdout } = await runCli(["setup", "--slug", "again"], dir);
+    const { code, stdout } = await runCli([
+      "setup",
+      "--confirmed",
+      "--slug",
+      "again",
+    ], dir);
     assertEquals(code, 0);
     assertStringIncludes(stdout, "already set up");
   });
@@ -137,7 +142,7 @@ Deno.test("setup --force --config leaves an existing discern.toml untouched (fil
   await withTempDir(async (dir) => {
     // First, a plain install so a seed discern.toml exists on disk.
     assertEquals(
-      (await runCli(["setup", "--slug", "edge-app"], dir)).code,
+      (await runCli(["setup", "--confirmed", "--slug", "edge-app"], dir)).code,
       0,
     );
     const before = await Deno.readTextFile(join(dir, "discern.toml"));

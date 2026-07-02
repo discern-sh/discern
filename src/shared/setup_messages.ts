@@ -4,14 +4,14 @@
  * handshake, so a courier agent that only relays discern's words still delivers a
  * complete, warm, accurate first experience.
  *
- * The genre here is deliberate (ADR 0086, revising the emphasis of 0075/0077/0078).
- * The prose lane of setup used to carry *stage directions* — "open warmly and explain
- * what discern is… a conversation, not a checklist" — instructions ABOUT the message.
- * Clean-room runs showed a terse agent compresses those into a checklist while
- * following every command faithfully: composing warmth from instructions is exactly the
- * transformation that degrades under final-answer compression. So discern now ships the
- * *script* — the message itself — and asks the agent only to relay it. The relay licence
- * is adaptive, not verbatim-or-else: reword into your own voice, but keep every point.
+ * The genre is deliberate (ADR 0086): discern ships the *script* — the message itself —
+ * and asks the agent only to relay it, rather than *stage directions* (instructions
+ * ABOUT the message, like "open warmly and explain what discern is"). A terse agent
+ * compresses stage directions into a checklist while following every command faithfully;
+ * composing warmth from instructions is the transformation that degrades under
+ * final-answer compression, so the message is authored here, not delegated. The relay
+ * licence is adaptive, not verbatim-or-else: reword into your own voice, but keep every
+ * point.
  *
  * Each builder returns ONE plain prose string carried verbatim on every surface (the
  * human render, the `--json` `guidance` field, the `awaiting_consent` refusal). It is
@@ -52,6 +52,19 @@ export async function deriveConsentContext(
  * hand-authored `docs/` (kept in step with `verify`'s findings note). */
 const SUGGESTED_DOCS_DIR = "docs/discern/";
 
+/**
+ * The exact `begin` command a fresh, non-declarative setup runs AFTER the consent
+ * conversation — always carrying `--confirmed` (the attestation) and, when a docs tree
+ * already exists, the `--docs` placeholder. The single source for this string, shared by
+ * {@link consentMessage}, `verify`'s `next_action`, and `begin`'s `awaiting_consent`
+ * refusal, so the three never drift.
+ */
+export function confirmedBeginCommand(docsExists: boolean): string {
+  return docsExists
+    ? 'discern setup begin --model "<your-model-id>" --docs "<chosen-docs-dir>" --confirmed'
+    : 'discern setup begin --model "<your-model-id>" --confirmed';
+}
+
 /** A labelled rule that fences the relayable message off from the agent-facing framing
  * and command around it, so a courier agent can see exactly what to paste. */
 function fence(label: string): string {
@@ -88,9 +101,7 @@ export function consentMessage(ctx: ConsentContext): string {
   n += 1;
   confirmations.push(`${n}. Ready for me to begin?`);
 
-  const command = docsExists
-    ? 'discern setup begin --model "<your-model-id>" --docs "<chosen-docs-dir>" --confirmed'
-    : 'discern setup begin --model "<your-model-id>" --confirmed';
+  const command = confirmedBeginCommand(docsExists);
 
   return [
     "Relay the message below to your human as your next chat message — adapt the wording to your own voice if you like, but keep every point. Then wait for their answers.",

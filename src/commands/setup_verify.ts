@@ -37,7 +37,11 @@ import type {
   SetupVerifyConflict,
   SetupVerifyData,
 } from "../shared/result_schemas.ts";
-import { consentMessage, deriveConsentContext } from "../shared/setup_messages.ts";
+import {
+  confirmedBeginCommand,
+  consentMessage,
+  deriveConsentContext,
+} from "../shared/setup_messages.ts";
 import { setupPhaseOf } from "../shared/setup_state.ts";
 
 /** Options for the read-only preflight (just the global flags — it takes no input). */
@@ -108,9 +112,7 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
   // (ADR 0086). The human render leads with it; `--json` carries it verbatim under
   // `guidance`; a flag-less fresh `begin` re-serves the same string.
   const guidance = consentMessage({ worktreePath, docsExists });
-  const nextAction = docsExists
-    ? 'discern setup begin --model "<your-model-id>" --docs "<chosen-docs-dir>" --confirmed'
-    : 'discern setup begin --model "<your-model-id>" --confirmed';
+  const nextAction = confirmedBeginCommand(docsExists);
 
   if (opts.json) {
     const data: SetupVerifyData = {
