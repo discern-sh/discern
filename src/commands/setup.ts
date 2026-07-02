@@ -85,10 +85,12 @@ import {
   type SetupAssurance,
 } from "../shared/setup_assurance.ts";
 import {
+  completionMessage,
   confirmedBeginCommand,
   consentMessage,
   deriveConsentContext,
 } from "../shared/setup_messages.ts";
+import type { SetupDoneData } from "../shared/result_schemas.ts";
 import {
   LAND_COMMAND,
   type LandingSummary,
@@ -1320,6 +1322,9 @@ interface DoneSuccessView {
   landing: LandingSummary;
   reactivation: ReturnType<typeof reactivationHandoff>;
   coachVerb: string;
+  /** The ready-to-relay completion message — carried verbatim, identical to the
+   * `--json` `guidance` field (ADR 0086). */
+  guidance: string;
 }
 
 /** The ordered next-action hints `setup done --json` carries for an agent (A11): land
@@ -1418,6 +1423,7 @@ function printDoneSuccess(view: DoneSuccessView): void {
     landing,
     reactivation,
     coachVerb,
+    guidance,
   } = view;
 
   console.log(
@@ -1471,6 +1477,11 @@ function printDoneSuccess(view: DoneSuccessView): void {
     "     review the findings with your human, do the quick wins now, and defer larger",
   );
   console.log("     initiatives to TODO.md.");
+
+  // The ready-to-relay completion message, carried verbatim (identical to the `--json`
+  // `guidance` field) so a courier agent can hand the human a warm close (ADR 0086).
+  console.log("");
+  console.log(guidance);
 }
 
 /**
@@ -1540,29 +1551,35 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
   // Resolve the coach verb from the live engine-verb SSOT (improve, or audit before the
   // rename) rather than hardcoding, so the steer survives the audit→improve rename.
   const coachVerb = KNOWN_ENGINE_VERBS.has("improve") ? "improve" : "audit";
+  // The closing relay block — the ready-to-relay "message to your human" a courier agent
+  // hands over, composed from the same pieces the structured surface carries (ADR 0086),
+  // and rendered identically on both surfaces.
+  const guidance = completionMessage({ assurance, landing, reactivation });
 
   if (opts.json) {
+    const data: SetupDoneData = {
+      bootstrapped: true,
+      forced,
+      gate_proven: !opts.force,
+      marker_committed: markerCommit === "committed",
+      leftover,
+      assurance,
+      landing: {
+        in_repo: landing.inRepo,
+        branch: landing.branch,
+        target: landing.target,
+        on_target: landing.onTarget,
+        command: LAND_COMMAND,
+      },
+      reactivation,
+      coach: { verb: coachVerb, command: `discern ${coachVerb} --json` },
+      guidance,
+    };
     emitResult({
       ok: true,
       verb: "setup:done",
       hints: doneHints(landing, reactivation, coachVerb),
-      data: {
-        bootstrapped: true,
-        forced,
-        gate_proven: !opts.force,
-        marker_committed: markerCommit === "committed",
-        leftover,
-        assurance,
-        landing: {
-          in_repo: landing.inRepo,
-          branch: landing.branch,
-          target: landing.target,
-          on_target: landing.onTarget,
-          command: LAND_COMMAND,
-        },
-        reactivation,
-        coach: { verb: coachVerb, command: `discern ${coachVerb} --json` },
-      },
+      data,
     });
     return 0;
   }
@@ -1576,6 +1593,7 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
     landing,
     reactivation,
     coachVerb,
+    guidance,
   });
   return 0;
 }

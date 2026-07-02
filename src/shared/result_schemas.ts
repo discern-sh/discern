@@ -33,6 +33,7 @@ import {
   STEP_KINDS,
   STEP_OUTCOMES,
 } from "./result.ts";
+import { ASSURANCE_VERDICTS, CAPABILITY_STATES } from "./setup_assurance.ts";
 
 // ── ring 1+2 mirrors: the plan / step / diagnostic sub-shapes ────────────────
 // Zod mirrors of the `result.ts` interfaces `serializeResult` emits. The closed
@@ -659,6 +660,71 @@ export const SetupVerifyDataSchema = z.strictObject({
 });
 export type SetupVerifyData = z.infer<typeof SetupVerifyDataSchema>;
 
+// setup:done ──────────────────────────────────────────────────────────────────
+
+/** One capability's honest coverage state at completion — mirrors
+ * {@link import("./setup_assurance.ts").CapabilityAssurance}. The `state` enum is
+ * DERIVED from `CAPABILITY_STATES` (the SSOT), so a new state enrolls here from one edit. */
+export const CapabilityAssuranceSchema = z.strictObject({
+  name: z.string(),
+  state: z.enum(CAPABILITY_STATES),
+  reason: z.string().optional(),
+});
+
+/** The rolled-up per-capability coverage `setup done` reports — mirrors
+ * {@link import("./setup_assurance.ts").SetupAssurance}. */
+export const SetupAssuranceSchema = z.strictObject({
+  capabilities: z.array(CapabilityAssuranceSchema),
+  enforced: z.number(),
+  total: z.number(),
+  verdict: z.enum(ASSURANCE_VERDICTS),
+});
+
+/** The provider-aware reactivation handoff — mirrors `reactivationHandoff()`'s return
+ * (`src/lib/providers.ts`): the summary plus one derived step per configured agent that
+ * wired something loading at session start. */
+export const ReactivationSchema = z.strictObject({
+  summary: z.string(),
+  per_agent: z.array(
+    z.strictObject({
+      agent: z.string(),
+      label: z.string(),
+      step: z.string(),
+    }),
+  ),
+});
+
+/** Where the finished setup lives and how to land it (the snake_case wire shape of
+ * `LandingSummary` plus the exact land command). */
+export const SetupDoneLandingSchema = z.strictObject({
+  in_repo: z.boolean(),
+  branch: z.string(),
+  target: z.string(),
+  on_target: z.boolean(),
+  command: z.string(),
+});
+
+/**
+ * `setup:done` — the completion payload (ADR 0065/0078/0086). The structured pieces
+ * (assurance / landing / reactivation / coach) are the machine lane; the `guidance`
+ * prose is the ready-to-relay completion message a courier agent hands its human —
+ * carried verbatim and identical to the human render, never flattened into fields
+ * (ADR 0086, the two-lane rule).
+ */
+export const SetupDoneDataSchema = z.strictObject({
+  bootstrapped: z.literal(true),
+  forced: z.boolean(),
+  gate_proven: z.boolean(),
+  marker_committed: z.boolean(),
+  leftover: z.array(z.string()),
+  assurance: SetupAssuranceSchema,
+  landing: SetupDoneLandingSchema,
+  reactivation: ReactivationSchema,
+  coach: z.strictObject({ verb: z.string(), command: z.string() }),
+  guidance: z.string(),
+});
+export type SetupDoneData = z.infer<typeof SetupDoneDataSchema>;
+
 // ── per-verb output schemas (the envelope with `data` narrowed) ──────────────
 // Advertised by the MCP server as each tool's `outputSchema`; the SDK validates a
 // call's `structuredContent` against `<schema>.shape`. The data-less verbs use the
@@ -739,4 +805,12 @@ export const SetupStepOutputSchema = z.strictObject({
 export const SetupVerifyOutputSchema = z.strictObject({
   ...ENVELOPE_BASE_FIELDS,
   data: SetupVerifyDataSchema.optional(),
+});
+
+/** `setup:done` output: envelope + the completion `data`. CLI-only (setup is not an MCP
+ * tool), modeled here so a faithfulness test can pin the real serialized output —
+ * including the completion `guidance` — to one source (ADR 0041). */
+export const SetupDoneOutputSchema = z.strictObject({
+  ...ENVELOPE_BASE_FIELDS,
+  data: SetupDoneDataSchema.optional(),
 });

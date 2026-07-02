@@ -15,7 +15,10 @@ import { exists } from "@std/fs";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
-import { SetupVerifyOutputSchema } from "../src/shared/result_schemas.ts";
+import {
+  SetupDoneOutputSchema,
+  SetupVerifyOutputSchema,
+} from "../src/shared/result_schemas.ts";
 
 /** A git work tree with a file but NO discern.toml — the fresh-install entry point. */
 async function freshRepo(dir: string): Promise<void> {
@@ -303,6 +306,44 @@ Deno.test("setup done emits the provider-aware reactivation handoff", async () =
       ),
       `expected claude_code in the handoff: ${JSON.stringify(d.reactivation)}`,
     );
+  });
+});
+
+Deno.test("setup done serves the completion message at parity across the human render and --json (ADR 0086)", async () => {
+  // The bookend of the served-message handshake: an agent that only relays discern's
+  // words still gives the human a warm, accurate close. The message rides ONE prose
+  // `guidance` lane, carried verbatim by both surfaces so the relay can't drift.
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { bootstrapped: false }); // agents: [claude_code]
+    const human = (await runAgent(dir, ["setup", "done", "--force"])).stdout;
+    const res = JSON.parse(
+      (await runAgent(dir, ["setup", "done", "--force", "--json"])).stdout,
+    );
+    const d = res.data;
+
+    // One source, two renderings: the human output embeds the --json guidance verbatim.
+    assert(
+      typeof d.guidance === "string" && d.guidance.length > 100,
+      `expected a substantial completion guidance string: ${d.guidance}`,
+    );
+    assertStringIncludes(human, d.guidance);
+
+    // The close carries the relay licence, the honest coverage (minimal here — nothing
+    // wired), the reactivation step, and the landing account — in BOTH surfaces.
+    for (
+      const needle of [
+        "Relay the message below to your human",
+        "discern is set up",
+        "No quality checks are wired yet",
+        "Start a fresh session",
+      ]
+    ) {
+      assertStringIncludes(d.guidance, needle, `guidance missing: ${needle}`);
+      assertStringIncludes(human, needle, `human render missing: ${needle}`);
+    }
+
+    // Faithfulness (ADR 0041): the real serialized envelope validates against schema.
+    SetupDoneOutputSchema.parse(res);
   });
 });
 
