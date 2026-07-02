@@ -33,7 +33,7 @@ const INSTRUCTIONS_H1 = "# Set up the harness";
 Deno.test("setup output can't be mistaken for completion: banner leads, footer survives truncation", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
-    const r = await runAgent(dir, ["setup", "begin"]);
+    const r = await runAgent(dir, ["setup", "begin", "--confirmed"]);
     assertEquals(r.code, 0, r.output);
 
     // A loud, non-success banner LEADS — the scaffold succeeding is not the task
@@ -60,7 +60,7 @@ Deno.test("setup output can't be mistaken for completion: banner leads, footer s
 Deno.test("setup --json carries an explicit incomplete signal", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
-    const r = await runAgent(dir, ["setup", "begin", "--json"]);
+    const r = await runAgent(dir, ["setup", "begin", "--confirmed", "--json"]);
     assertEquals(r.code, 0, r.output);
     const obj = JSON.parse(r.stdout);
     assertEquals(obj.ok, true);
@@ -77,7 +77,7 @@ Deno.test("setup --json carries an explicit incomplete signal", async () => {
 Deno.test("status flags unfinished setup loudly, with evidence, then goes silent once recorded", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
-    await runAgent(dir, ["setup", "begin"]); // lays the marker-carrying skeletons
+    await runAgent(dir, ["setup", "begin", "--confirmed"]); // lays the marker-carrying skeletons
 
     // Human view: a loud banner under the heading, not a buried hint.
     const human = await runAgent(dir, ["status"]);
@@ -135,7 +135,7 @@ Deno.test("status surfaces unfinished setup from a worktree too, not just the ma
 Deno.test("worktree:ensure reminds on session start while setup is unfinished, then stops", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
-    await runAgent(dir, ["setup", "begin"]);
+    await runAgent(dir, ["setup", "begin", "--confirmed"]);
 
     const before = await runAgent(dir, ["worktree:ensure"]);
     assertEquals(before.code, 0, before.output);

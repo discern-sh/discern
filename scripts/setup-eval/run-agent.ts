@@ -19,6 +19,7 @@ interface Options {
   extraArgs: string[];
   fixture: string | undefined;
   help: boolean;
+  json: boolean;
   modelId: string | undefined;
   phase: Phase;
   resultDir: string | undefined;
@@ -70,10 +71,11 @@ Options:
   --phase <first|continue>       Run the first consent turn or the continuation (default: first)
   --result-dir <path>            Reuse a result directory; required for --phase continue
   --agent-model <model>          Pass a model flag to the agent CLI
-  --model-id <id>                Human answer for setup's --model question (required for continue)
+  --model-id <id>                Human answer for setup's --model question
   --docs-answer <path>           Human answer for the docs-home question (default: docs/discern/)
   --session-id <id>              Resume a specific agent session when supported
   --extra-agent-arg <arg>        Append one raw argument to the agent CLI; repeat as needed
+  --json                         Print the run record as JSON
   -h, --help                     Show this help
 `;
 }
@@ -111,6 +113,7 @@ function parseArgs(args: readonly string[]): Options {
   let docsAnswer = "docs/discern/";
   let fixture: string | undefined;
   let help = false;
+  let json = false;
   let modelId: string | undefined;
   let phase: Phase = "first";
   let resultDir: string | undefined;
@@ -159,6 +162,8 @@ function parseArgs(args: readonly string[]): Options {
       const parsed = valueAfter(args, index, arg);
       extraArgs.push(parsed.value);
       index = parsed.next;
+    } else if (arg === "--json") {
+      json = true;
     } else if (arg === "--") {
       continue;
     } else if (arg === "-h" || arg === "--help") {
@@ -176,6 +181,7 @@ function parseArgs(args: readonly string[]): Options {
     extraArgs,
     fixture,
     help,
+    json,
     modelId,
     phase,
     resultDir,
@@ -253,24 +259,36 @@ exec deno run --no-check --config ${shellQuote(denoJson)} -A ${
   return binDir;
 }
 
+/**
+ * The scripted user turns simulate a PLAUSIBLE NOVICE, nothing more. They must
+ * never name a behavior the rubric grades (explaining discern, relaying setup
+ * messages, narrating stages, atomic commits, running \`discern setup done\`,
+ * the closing summary) — coaching any of those turns the eval into an
+ * instruction-following test and erases the very deltas it exists to measure.
+ * The one deliberate exception is the first turn's "ask me and then stop"
+ * boundary, which headless runs need so phase one ends at the consent
+ * conversation; the rubric grades the Wait row as necessary-but-not-sufficient
+ * because of it.
+ */
 function firstPrompt(): string {
-  return `You are running a clean-room evaluation of the first-time \`discern setup\` experience in this disposable fixture repository.
+  return `Run \`discern setup\` in this project.
 
-The \`discern\` executable on PATH points to the checkout under evaluation. Start exactly as a real user would: run \`discern setup\`, follow the setup output, and relay any human-facing setup message in chat.
-
-Important eval boundary: when discern reaches the pre-\`begin\` consent conversation, ask the human for consent and stop. Do not run \`discern setup begin\` until a later user message confirms the model/session, docs location if asked, worktree location, and readiness to begin.`;
+If you need anything from me — a decision, a confirmation, an answer — ask me and then stop; I'll reply in my next message.`;
 }
 
-function continuePrompt(modelId: string, docsAnswer: string): string {
-  return `I confirm setup may begin.
+function continuePrompt(
+  modelId: string | undefined,
+  docsAnswer: string,
+): string {
+  const modelAnswer = modelId === undefined || modelId.trim() === ""
+    ? "I don't know my exact model id, so skip recording it rather than guessing."
+    : `if you need my model id, it is \`${modelId}\`.`;
+  return `Yes — here are my answers:
 
-My answers:
-- Model and session: use this exact model id for setup provenance: \`${modelId}\`.
-- Documentation location: if this repository already has a \`docs/\` tree, keep it untouched and use \`${docsAnswer}\` for discern's agent documentation tree.
-- Worktree location: keep the default worktree location printed by \`discern setup verify\`.
-- Ready to begin: yes, begin now.
-
-Continue the setup flow to completion. Narrate each stage with what you are doing, why, and how to revert it. Commit setup work atomically on the setup branch. Run \`discern setup done\` and do not claim setup is done until that command is green. Close by relaying what the project now has and how a fresh agent session reactivates discern.`;
+- You are the most capable model I have; ${modelAnswer}
+- If you asked where documentation should go: keep my existing docs untouched and use \`${docsAnswer}\` for discern's.
+- The default worktree location is fine.
+- I'm ready — go ahead and see the whole setup through.`;
 }
 
 function phaseStem(phase: Phase): string {
@@ -511,10 +529,6 @@ async function main(): Promise<void> {
   if (opts.phase === "continue" && opts.resultDir === undefined) {
     throw new Error("--result-dir is required for --phase continue");
   }
-  if (opts.phase === "continue" && opts.modelId === undefined) {
-    throw new Error("--model-id is required for --phase continue");
-  }
-
   const fixture = resolve(opts.fixture);
   const checkoutPath = resolve(opts.discernCheckout);
   await assertDirectory(fixture, "fixture");
@@ -542,7 +556,7 @@ async function main(): Promise<void> {
   const stem = phaseStem(opts.phase);
   const prompt = opts.phase === "first"
     ? firstPrompt()
-    : continuePrompt(opts.modelId ?? "", opts.docsAnswer);
+    : continuePrompt(opts.modelId, opts.docsAnswer);
   const promptFile = join(resultDir, `prompt-${stem}.md`);
   const stdoutFile = join(resultDir, `transcript-${stem}.stdout.jsonl`);
   const stderrFile = join(resultDir, `transcript-${stem}.stderr.log`);
@@ -610,6 +624,11 @@ ${commandLine(env, command)}
     `${JSON.stringify(record, null, 2)}\n`,
   );
   await writeIndex(resultDir, record);
+
+  if (opts.json) {
+    console.log(JSON.stringify(record, null, 2));
+    return;
+  }
 
   console.log(`Saved ${opts.agent} ${opts.phase} transcript:
   ${stdoutFile}

@@ -6,18 +6,20 @@
  * Grounded, not generic: it reports THIS repo's git state, an existing `docs/` tree, a
  * pre-existing agent-instructions file `begin` will fold into `guidance.md`, the agents
  * detected on PATH (ADR 0069), and the exact sibling path the worktrees will use
- * (ADR 0052) — then hands the agent the consent conversation to hold with the human
- * (model + fresh session, worktree location, readiness for the branch checkout) as a
- * `guidance` prose lane it relays VERBATIM, and points at `begin`. The consent prose is
- * kept out of structured fields on purpose: agents summarize and weaken the same
- * instructions when they arrive as JSON data, so the warm prose is the load-bearing
- * lane and the human render and `--json` carry it identically (ADR 0078, the two-lane
- * rule). The read-only→destructive boundary is exactly `verify | begin`: every finding
- * here is an observation, never a refusal — `begin` is where the dirty-tree check and
- * the branch checkout happen.
+ * (ADR 0052) — then serves the agent a ready-to-relay `guidance` block (the pre-composed
+ * "message to your human": what discern adds, what it will do and cost, the model
+ * question, the docs home, the worktree location) it relays and then runs `begin`. The
+ * message is the script, not stage directions (ADR 0086): a terse courier agent that
+ * only relays discern's words still delivers a complete first conversation. It is kept
+ * out of structured fields on purpose — agents summarize and weaken the same content
+ * when it arrives as JSON data — so the prose is the load-bearing lane and the human
+ * render and `--json` carry it identically (ADR 0078, the two-lane rule). The
+ * read-only→destructive boundary is exactly `verify | begin`: every finding here is an
+ * observation, never a refusal — `begin` is where the dirty-tree check and the branch
+ * checkout happen.
  */
 
-import { basename, dirname, join } from "@std/path";
+import { join } from "@std/path";
 import { Logger } from "../lib/log.ts";
 import { worktreeState } from "../lib/git.ts";
 import {
@@ -35,6 +37,11 @@ import type {
   SetupVerifyConflict,
   SetupVerifyData,
 } from "../shared/result_schemas.ts";
+import {
+  confirmedBeginCommand,
+  consentMessage,
+  deriveConsentContext,
+} from "../shared/setup_messages.ts";
 import { setupPhaseOf } from "../shared/setup_state.ts";
 
 /** Options for the read-only preflight (just the global flags — it takes no input). */
@@ -92,24 +99,20 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
   const effectiveAgents = detected.length > 0
     ? detected
     : await resolveDefaultAgents();
-  const docsExists = await pathExists(join(destDir, "docs"));
+  // The two grounded facts the consent message is built from — the exact sibling
+  // worktree path and whether a docs/ tree already exists — derived once in the shared
+  // module so `begin`'s `awaiting_consent` refusal re-serves the identical message.
+  const { worktreePath, docsExists } = await deriveConsentContext(destDir);
   const existingInstructions = await findExistingInstructions(destDir);
-  // No config yet (fresh), so the worktree location is the default sibling discern
-  // would compute: `<repo>.worktrees` beside the checkout (ADR 0052).
-  const worktreePath = join(
-    dirname(destDir),
-    `${basename(destDir)}.worktrees`,
-  );
 
   const conflicts = buildConflicts(git, docsExists, existingInstructions);
-  // The consent conversation as ONE warm prose lane, built once and rendered
+  // The consent conversation as ONE ready-to-relay prose block, built once and rendered
   // identically on both surfaces — never split into structured fields, which agents
-  // summarize and weaken (ADR 0078). The human render leads with it; `--json` carries
-  // it verbatim under `guidance`.
-  const guidance = buildConsentGuidance(worktreePath, docsExists);
-  const nextAction = docsExists
-    ? 'discern setup begin --docs "<chosen-docs-dir>" --model "<your-model-id>"'
-    : 'discern setup begin --model "<your-model-id>"';
+  // summarize and weaken (ADR 0078). discern ships the script, not stage directions
+  // (ADR 0086). The human render leads with it; `--json` carries it verbatim under
+  // `guidance`; a flag-less fresh `begin` re-serves the same string.
+  const guidance = consentMessage({ worktreePath, docsExists });
+  const nextAction = confirmedBeginCommand(docsExists);
 
   if (opts.json) {
     const data: SetupVerifyData = {
@@ -217,49 +220,6 @@ function buildConflicts(
   return conflicts;
 }
 
-/**
- * The consent conversation as ONE warm prose block the agent relays VERBATIM — the
- * load-bearing prose lane (ADR 0078). It opens with the agent's identity and where it
- * is in the handshake (so a no-context agent drives the conversation rather than
- * relaying it back), then the open-warmly framing, then the things to settle with
- * the human: the model question (put verbatim, the agent's to escalate not self-assess),
- * an optional docs-tree home when human docs already occupy `docs/`, the worktree
- * location (KEEP or RELOCATE only — turning worktrees off is not surfaced, ADR 0075),
- * and readiness for the branch checkout. Carried identically by the human render and
- * `--json`, so neither surface is the thinner one — the parity A9 restored.
- */
-function buildConsentGuidance(
-  worktreePath: string,
-  docsExists: boolean,
-): string {
-  const lines = [
-    "You are discern's configuration engine, mid-handshake: `verify` has previewed the plan; your next action is to hold this consent conversation with your human, then run `begin`. Drive it — don't relay this back and stop.",
-    "",
-    "Open warmly and explain what discern is (they may be meeting it for the first time): a quality gate, isolated git worktrees, and shared agent instructions, tailored to their codebase by you. Then settle these three together — a conversation, not a checklist to summarise back:",
-    "",
-    "1. Model & session — this is the project's single highest-leverage moment, and its quality is bounded by the model that runs it. Put the question to your human rather than self-assessing, verbatim:",
-    '   "Am I your most capable model? Everything I configure here is inherited by every future session."',
-    "   If they switch you, return to a FRESH session on the stronger model (discern's tools and session hooks load only at session start). When you run `begin`, pass `--model \"<your-model-id>\"` if you know your model identifier — it records which model configured the project for support triage; if you don't know it, omit `--model` rather than guessing.",
-    "",
-  ];
-  if (docsExists) {
-    lines.push(
-      `2. Documentation location — keep the existing human-written docs/ untouched and choose a home for discern's agent documentation tree (recommended: ${SUGGESTED_DOCS_DIR}). Pass the agreed project-relative path to \`discern setup begin --docs "<path>"\`; begin records it as \`[docs].dir\` and every docs-aware surface follows it.`,
-      "",
-      `3. Worktree location — discern keeps each task in its own linked git worktree, placed beside this repo at ${worktreePath} (never nested inside it, which would confuse git and tooling). Keep that, or relocate it with \`[worktree].root\`?`,
-      "",
-      "4. Ready to begin — `discern setup begin` checks out a dedicated `discern-setup` branch and scaffolds the harness, landing everything there in small, revertible commits. Confirm your human is ready, then run it.",
-    );
-  } else {
-    lines.push(
-      `2. Worktree location — discern keeps each task in its own linked git worktree, placed beside this repo at ${worktreePath} (never nested inside it, which would confuse git and tooling). Keep that, or relocate it with \`[worktree].root\`?`,
-      "",
-      "3. Ready to begin — `discern setup begin` checks out a dedicated `discern-setup` branch and scaffolds the harness, landing everything there in small, revertible commits. Confirm your human is ready, then run it.",
-    );
-  }
-  return lines.join("\n");
-}
-
 const RULE = "─".repeat(72);
 
 /** Render the human preflight as lines, printed in one go (the layout is then easy to
@@ -307,20 +267,13 @@ function printPreflight(p: {
     }
   }
 
+  // The consent block carries its own framing, the fenced message to relay, and the
+  // exact next command (including `--confirmed`) — so nothing more is appended here.
   lines.push(
     "",
     RULE,
     "",
     p.guidance,
-    "",
-    RULE,
-    "When your human has confirmed, run:",
-    "",
-    p.docsExists
-      ? '    discern setup begin --docs "<chosen-docs-dir>" --model "<your-model-id>"'
-      : '    discern setup begin --model "<your-model-id>"',
-    "    (substitute your model id if you know it; omit --model otherwise — it is",
-    "     recorded for support triage, never required)",
   );
 
   console.log(lines.join("\n"));

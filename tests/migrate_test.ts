@@ -15,7 +15,8 @@ import { runCli, withTempDir } from "./helpers.ts";
 
 async function init(dir: string): Promise<void> {
   assertEquals(
-    (await runCli(["init", "--yes", "--slug", "demo"], dir)).code,
+    (await runCli(["init", "--confirmed", "--yes", "--slug", "demo"], dir))
+      .code,
     0,
   );
 }

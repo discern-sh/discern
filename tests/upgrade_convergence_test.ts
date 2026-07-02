@@ -32,7 +32,15 @@ const STABLE_TARGETS = [
  * real in-place upgrade (which keeps the same directory). */
 async function init(dir: string): Promise<void> {
   assertEquals(
-    (await runCli(["init", "--yes", "--slug", "demo", "--name", "Demo"], dir))
+    (await runCli([
+      "init",
+      "--confirmed",
+      "--yes",
+      "--slug",
+      "demo",
+      "--name",
+      "Demo",
+    ], dir))
       .code,
     0,
   );

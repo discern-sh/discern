@@ -1,4 +1,4 @@
-# ADR 0086: Prefix the bundled skills with `discern-` and expand the set to nine
+# ADR 0087: Prefix the bundled skills with `discern-` and expand the set to nine
 
 **Status**: accepted
 

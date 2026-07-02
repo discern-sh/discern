@@ -84,13 +84,19 @@ user makes no decisions at the CLI. Bare `discern` (or `discern setup`) prints a
 read-only **welcome**: reassurance for the human, a funnel for their coding
 agent. The agent then runs `discern setup verify` — a read-only preflight that
 inspects the repo (git state, an existing `docs/` tree, existing agent
-instructions, the agents on PATH, the worktree location) and turns it into a
-warm consent conversation to hold with the human. When human-written docs
-already occupy `docs/`, that conversation chooses a separate home for discern's
-agent documentation tree and passes it to `begin` with `--docs`; the persisted
-`[docs].dir` then drives every docs-aware surface
-([ADR 0080](../_adr/0080-configured-agent-docs-root.md)). **Nothing is written
-until `discern setup begin`**, the first mutating step: it lays down only _your_
+instructions, the agents on PATH, the worktree location) and **serves a
+ready-to-relay _message to your human_** — the script, not stage directions
+([ADR 0086](../_adr/0086-setup-serves-relay-messages-and-a-consent-attestation.md)):
+what discern is, what it will do and cost, the model question, the docs home,
+and the worktree location, for the agent to relay (adapting the wording, never
+thinning the points). When human-written docs already occupy `docs/`, that
+message chooses a separate home for discern's agent documentation tree and
+passes it to `begin` with `--docs`; the persisted `[docs].dir` then drives every
+docs-aware surface ([ADR 0080](../_adr/0080-configured-agent-docs-root.md)).
+**Nothing is written until `discern setup begin`** — the first mutating step,
+which requires an explicit `--confirmed` attestation that the consent
+conversation happened, refusing and re-serving that message without it (outside
+the declarative `--config` / `--allow-dirty` paths). It lays down only _your_
 seed files with zero-config defaults — a `discern.toml` with no Capabilities
 wired yet (a green gate you grow into — an omitted capability is simply
 skipped), a merged `.claude/settings.json`, and an appended `.gitignore`

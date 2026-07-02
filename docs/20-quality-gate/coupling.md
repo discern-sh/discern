@@ -81,11 +81,19 @@ window of recent commits:
   level transfer across repos where a raw support floor cannot.
 
 Survivors are ranked strongest-first and **capped** (top-k), so the advisory
-never floods. The model is **recomputed on demand**, bounded by the window —
-there is no cache in v1 (see
-[ADR 0084](../_adr/0084-co-change-coupling-advisory.md) for why a persisted
-store is deferred). When git can't answer, the advisory stays **silent** rather
-than failing into noise.
+never floods. The broad survivor set feeds the direct `discern coupling` result:
+explicit discovery is allowed to be exploratory. Automatic gate hints apply one
+stricter presentation filter before speaking: a partner must either follow the
+source at a high rate (75%+ confidence), or have repeated evidence (3+
+co-changes) and a moderate follow-rate (40%+ confidence). Gate hints also show
+fewer partner lines than the direct result. That extra bar is not a config knob;
+it is the product boundary between _asked-for exploration_ and _unsolicited
+interruption_.
+
+The model is **recomputed on demand**, bounded by the window — there is no cache
+in v1 (see [ADR 0084](../_adr/0084-co-change-coupling-advisory.md) for why a
+persisted store is deferred). When git can't answer, the advisory stays
+**silent** rather than failing into noise.
 
 ## Configuration
 
@@ -108,9 +116,11 @@ loop `discern prepare` append the diff-aware advisory to their result as
 `hints[]`, at the **tail** of the run — alongside strand detection, because it
 reads the diff and is therefore dependency-bearing, never a fail-fast
 precondition. Wiring it into `prepare` too means the nudge meets the change
-while it is still hot, not as a surprise at the finish line. The 500-commit
-name-only mine is cheap, so it never slows the loop. It is suppressed entirely
-until the install is bootstrapped, so an agent's in-session setup stays
+while it is still hot, not as a surprise at the finish line. The gate path uses
+the stricter presentation filter above, so a weak but real pair can remain
+visible in `discern coupling` while staying out of automatic gate hints. The
+500-commit name-only mine is cheap, so it never slows the loop. It is suppressed
+entirely until the install is bootstrapped, so an agent's in-session setup stays
 uncluttered, and is skipped on a failed run. It **never** changes pass/fail —
 only adds advice. The flag is off by default: opt in when you want the nudge in
 the gate as well as on demand.

@@ -45,7 +45,15 @@ Deno.test("--version prints the kit version", async () => {
 Deno.test("setup --json scaffolds and reports JSON", async () => {
   await withTempDir(async (dir) => {
     const { code, stdout } = await runCli(
-      ["setup", "--json", "--name", "CLI Demo", "--slug", "cli-demo"],
+      [
+        "setup",
+        "--confirmed",
+        "--json",
+        "--name",
+        "CLI Demo",
+        "--slug",
+        "cli-demo",
+      ],
       dir,
     );
     assertEquals(code, 0);
@@ -87,7 +95,7 @@ Deno.test("setup --json scaffolds and reports JSON", async () => {
 Deno.test("setup --dry-run --json writes nothing", async () => {
   await withTempDir(async (dir) => {
     const { code, stdout } = await runCli(
-      ["setup", "--dry-run", "--json", "--slug", "dry-demo"],
+      ["setup", "--confirmed", "--dry-run", "--json", "--slug", "dry-demo"],
       dir,
     );
     assertEquals(code, 0);
@@ -105,7 +113,7 @@ Deno.test("setup --dry-run --json writes nothing", async () => {
 
 Deno.test("setup re-run over a set-up install reports already_set_up (idempotent)", async () => {
   await withTempDir(async (dir) => {
-    await runCli(["setup", "--slug", "first"], dir);
+    await runCli(["setup", "--confirmed", "--slug", "first"], dir);
     // Mark setup complete (--force: the laid skeletons still carry markers).
     await runCli(["setup", "done", "--force"], dir);
     // `begin` on a recorded install is idempotent — it reports already_set_up rather
@@ -120,9 +128,9 @@ Deno.test("setup re-run over a set-up install reports already_set_up (idempotent
 
 Deno.test("setup --force re-scaffolds an existing install without erroring", async () => {
   await withTempDir(async (dir) => {
-    await runCli(["setup", "--json", "--slug", "first"], dir);
+    await runCli(["setup", "--confirmed", "--json", "--slug", "first"], dir);
     const { code, stdout } = await runCli(
-      ["setup", "--force", "--json", "--slug", "first"],
+      ["setup", "--confirmed", "--force", "--json", "--slug", "first"],
       dir,
     );
     assertEquals(code, 0);
@@ -145,7 +153,7 @@ Deno.test("setup --force leaves a pre-existing seed file untouched (no overwrite
     await Deno.writeTextFile(join(dir, "discern.toml"), userBody);
 
     const { code } = await runCli(
-      ["setup", "--force", "--json", "--slug", "demo"],
+      ["setup", "--confirmed", "--force", "--json", "--slug", "demo"],
       dir,
     );
     assertEquals(code, 0);
@@ -161,7 +169,7 @@ Deno.test("setup --force leaves a pre-existing seed file untouched (no overwrite
 Deno.test("setup rejects an invalid --slug", async () => {
   await withTempDir(async (dir) => {
     const { code, stderr } = await runCli(
-      ["setup", "--slug", "Bad Slug"],
+      ["setup", "--confirmed", "--slug", "Bad Slug"],
       dir,
     );
     assert(code !== 0);
@@ -186,7 +194,7 @@ Deno.test("doctor --json reports invalid result when not initialized", async () 
 Deno.test("doctor flags a stale schema version and points at upgrade", async () => {
   await withTempDir(async (dir) => {
     assertEquals(
-      (await runCli(["setup", "--slug", "demo"], dir)).code,
+      (await runCli(["setup", "--confirmed", "--slug", "demo"], dir)).code,
       0,
     );
     // Model an install left a schema behind (a migration shipped since).
@@ -206,7 +214,7 @@ Deno.test("doctor flags a stale schema version and points at upgrade", async () 
 Deno.test("doctor reports the schema version is current on a fresh install", async () => {
   await withTempDir(async (dir) => {
     assertEquals(
-      (await runCli(["setup", "--slug", "demo"], dir)).code,
+      (await runCli(["setup", "--confirmed", "--slug", "demo"], dir)).code,
       0,
     );
     const { stdout } = await runCli(["doctor", "--json"], dir);
@@ -223,7 +231,7 @@ Deno.test("doctor reports the schema version is current on a fresh install", asy
 
 Deno.test("add-preset reports unknown preset with a friendly error", async () => {
   await withTempDir(async (dir) => {
-    await runCli(["setup", "--json", "--slug", "demo"], dir);
+    await runCli(["setup", "--confirmed", "--json", "--slug", "demo"], dir);
     const { code, stdout } = await runCli(
       ["add-preset", "node", "--json"],
       dir,

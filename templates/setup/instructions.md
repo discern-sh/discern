@@ -8,7 +8,7 @@
 
 - **You are the configuration engine.** discern's pitch is zero configuration: the human points you at the repo and *you* — the capable agent already in the loop — set it up. They watch and trust; they don't field a stream of questions. Earn that trust by narrating what you do and why, and asking only the genuine decisions. The next section, *How to work with the user*, is the heart of how this should feel — read it.
 - **What you author is the product.** The docs, guidance, and principles you write here are the **single source of truth** every future agent session — and discern itself — reads to work in this project. They are load-bearing infrastructure, not prose for human readers; that is why authoring them is the bulk of the job.
-- **Confirm the model first (Step 0).** This one-time setup is inherited by every future session, so it is worth the user's strongest model. That is a question you put to *them*, not a box you tick for yourself.
+- **Checkpoint the model first (Step 0).** `verify` already served the model question for you to relay; Step 0 is the checkpoint that it actually reached your human before you configure anything. This one-time setup is inherited by every future session, so it is worth the user's strongest model — a question you put to *them*, not a box you tick for yourself.
 - **Learn the project, then ask once (Step 1).** Derive intent from the repository; ask the user — in a single early batch — only what the code can't tell you. Pausing later for a genuine fork is different; that's not peppering.
 - **Stay this-project-specific.** Principles, concepts, and conventions describe *this* project, not the harness and not any example. The Step 7 stack-detection table is the one place where naming many ecosystems is correct.
 - **Read discern with `--json`.** Every discern verb that reports or checks — `status`, `doctor`, `finish`, `prepare`, `test`, `ratchets`, `setup verify`, `setup done` — accepts `--json` and returns a structured envelope. Parse that, not the human-formatted text (which is for the user).
@@ -47,32 +47,34 @@ You can use your own words when narrating progress, just make sure your narratio
 
 ---
 
-## Step 0 — Confirm the model with your human (do this first)
+## Step 0 — Checkpoint: the model question, then orient
 
 ```toml
-intent = "Confirm with your human that you are their most capable model before you configure anything — everything you set up here is inherited by every future session."
+intent = "Checkpoint before you configure anything: make sure the model question `verify` served actually reached your human, then orient with status and doctor."
 files_to_read = []
 must_do = [
-  "Relay the model question to your human, verbatim, before you read the repo or touch a file.",
+  "Confirm you actually put verify's model question to your human; if you skipped it, ask it now — before you read the repo or touch a file.",
   "If a stronger model is available, ask the user to restart setup in a fresh session running it.",
   "Run `discern status --json` to orient, and `discern doctor --json` if anything looks off.",
 ]
 what_not_to_do = [
   "Do not assume you are the best model and press on — you cannot reliably self-certify.",
-  "Do not skip the question because you look capable; it is the user's call, not yours.",
+  "Do not treat a skipped consent conversation as done; if it did not happen, hold it now.",
 ]
 completion_check = "You have put the model question to your human, and `discern doctor` is green."
 next_action = "Once the model is confirmed and the harness is healthy, pull the next page: `discern setup step 1`."
 ```
 
-`verify` asked you to confirm this with your human; if you haven't actually put the question to them, do it now — before you read the repo or touch a file. It is the single highest-leverage moment in the project's life with discern, because **you are the engine of this setup, and its quality is bounded by the model that does it** — everything you configure here is inherited by every future session. So relay it plainly, then let the user decide:
+`verify` served the model question inside the consent message you relayed. This step is the **checkpoint**: if you haven't actually put that question to your human, do it now — before anything else, before you read the repo or touch a file. It is the single highest-leverage moment in the project's life with discern, because **you are the engine of this setup, and its quality is bounded by the model that does it** — everything you configure here is inherited by every future session.
 
-> **"Before I configure anything: am I your most capable model? Everything I set up here — the principles, the docs, the capabilities — is inherited by every future session in this project, so it's worth your strongest model."**
+If the consent conversation didn't happen (you reprinted this brief, or landed here without running `verify`), ask it plainly now and wait:
 
-Do **not** quietly assume you're the best model available and press on — a capable-looking model is exactly the one that rationalizes past this question. You can't see the other models the user has access to, and you don't know about models released after your training cutoff, so you cannot reliably self-certify — you're handing them the one decision only they can make.
+> **"Before I configure anything: am I your most capable model? Everything I set up here — the principles, the docs, the capabilities — is inherited by every future session, so it's worth your strongest model."**
 
-- If a stronger model is available, **ask the user to restart setup in a fresh session running that model** — don't carry on in this one. A clean session is the only reliable switch: providers differ (some can't change model mid-session at all), discern's tools and session hooks load only at session start, and even where a mid-session switch is allowed, the weaker model's reasoning already sitting in this context window would bias the stronger one.
-- If they confirm, proceed — you'll already have passed `--model` to `begin`, so discern has recorded which model configured the project.
+You can't see the other models the user has access to, or ones released after your training cutoff, so you cannot self-certify — this is the one decision only they can make.
+
+- If a stronger model is available, **ask the user to restart setup in a fresh session running that model** — don't carry on in this one. A clean session is the only reliable switch: providers differ (some can't change model mid-session at all), discern's tools and session hooks load only at session start, and even where a mid-session switch is allowed, the weaker model's reasoning already in this context window would bias the stronger one.
+- If they confirm, proceed — you'll already have passed `--model` to `begin`, so discern recorded which model configured the project.
 
 Then **confirm the harness is healthy**: run **`discern status --json`** to orient (it also smoke-tests that `discern` is on your PATH — you lean on it constantly), and **`discern doctor --json`** if anything looks off. Fix what `doctor` flags before authoring; it returns the exact remedy.
 

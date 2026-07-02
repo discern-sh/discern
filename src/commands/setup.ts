@@ -85,6 +85,13 @@ import {
   type SetupAssurance,
 } from "../shared/setup_assurance.ts";
 import {
+  completionMessage,
+  confirmedBeginCommand,
+  consentMessage,
+  deriveConsentContext,
+} from "../shared/setup_messages.ts";
+import type { SetupDoneData } from "../shared/result_schemas.ts";
+import {
   LAND_COMMAND,
   type LandingSummary,
   landingSummary,
@@ -105,6 +112,10 @@ export interface SetupOptions extends InitFlags {
   config?: string | undefined;
   /** The agent's self-declared model id (`--model`), recorded as setup provenance. */
   model?: string | undefined;
+  /** The consent attestation (`--confirmed`): the agent affirms it held the setup
+   * consent conversation `verify` served. Required for a fresh, non-declarative
+   * `begin`; its absence re-serves the consent message (ADR 0086). */
+  confirmed: boolean;
 }
 
 /** Options for `discern setup done`. */
@@ -133,6 +144,7 @@ export interface RawScaffoldCliOptions {
   dryRun?: boolean | undefined;
   force?: boolean | undefined;
   allowDirty?: boolean | undefined;
+  confirmed?: boolean | undefined;
 }
 
 /** Build {@link SetupOptions} for {@link runSetupBegin} from parsed Cliffy options
@@ -151,6 +163,7 @@ export function beginOptsFrom(
     dryRun: o.dryRun ?? false,
     force: o.force ?? false,
     allowDirty: o.allowDirty ?? false,
+    confirmed: o.confirmed ?? false,
     name: o.name,
     slug: o.slug,
     branchPrefix: o.branchPrefix,
@@ -166,8 +179,10 @@ export function beginOptsFrom(
 /**
  * True when the user handed `setup` any scaffold or declarative input — so a bare
  * `discern setup` shows the read-only welcome, while `discern setup --config …` (CI,
- * presets), `--force`, `--dry-run`, or any explicit fill scaffolds straight through to
- * `begin` (ADR 0075). The bare-welcome path is exactly the no-input case.
+ * presets), `--force`, `--dry-run`, `--confirmed`, or any explicit fill scaffolds
+ * straight through to `begin` (ADR 0075). The bare-welcome path is exactly the no-input
+ * case; `--confirmed` counts as intent so an agent that already held the consent
+ * conversation can go straight to `begin` via `discern setup --confirmed` (ADR 0086).
  */
 export function hasScaffoldIntent(options: unknown): boolean {
   const o = options as RawScaffoldCliOptions;
@@ -176,6 +191,7 @@ export function hasScaffoldIntent(options: unknown): boolean {
     o.force === true ||
     o.allowDirty === true ||
     o.dryRun === true ||
+    o.confirmed === true ||
     o.name !== undefined ||
     o.slug !== undefined ||
     o.branchPrefix !== undefined ||
@@ -767,6 +783,23 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
     }
   }
 
+  // --- Consent attestation (ADR 0086) ---
+  // A fresh, non-declarative scaffold requires an explicit `--confirmed`: the agent
+  // attests it held the consent conversation `verify` served. Absent it, refuse BEFORE
+  // touching anything and RE-SERVE the identical consent message — an agent that skipped
+  // `verify` is handed the conversation to hold, not silently proceeded past it (the
+  // error path is the teaching path). The declarative paths (`--config`, `--allow-dirty`,
+  // the CI/automation surfaces) are consent-exempt; a `--force` re-run over an existing
+  // install is not `freshInstall`, so it is exempt too — but `--force` on a truly fresh
+  // tree still requires consent. Stateless: the attestation rides the invocation, so
+  // ADR 0075's no-sidecar-marker invariant holds.
+  if (
+    freshInstall && opts.config === undefined && !opts.allowDirty &&
+    !opts.confirmed
+  ) {
+    return emitAwaitingConsent(log, opts, destDir);
+  }
+
   // --- Pre-scaffold: isolate a fresh install on its own branch (ADR 0065) ---
   // A fresh setup makes several commits; keep them off the user's current branch and
   // trivially revertible. Require a clean tree (fail if dirty), then create + check
@@ -896,6 +929,15 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   );
   console.log("  result to summarise back to the user as already done.");
   console.log(heavyRule);
+  console.log("");
+  // The started moment — the third human touchpoint of the served-message handshake
+  // (ADR 0086): a one-line relay so the human hears setup has begun and what's next,
+  // even from an agent that only couriers discern's words.
+  console.log(
+    setupBranch !== undefined
+      ? `Tell your human: setup has started on the \`${setupBranch}\` branch — next I'll study the repo and come back with a few questions.`
+      : "Tell your human: setup has started — next I'll study the repo and come back with a few questions.",
+  );
   console.log("");
   if (setupBranch !== undefined) {
     console.log(
@@ -1289,6 +1331,9 @@ interface DoneSuccessView {
   landing: LandingSummary;
   reactivation: ReturnType<typeof reactivationHandoff>;
   coachVerb: string;
+  /** The ready-to-relay completion message — carried verbatim, identical to the
+   * `--json` `guidance` field (ADR 0086). */
+  guidance: string;
 }
 
 /** The ordered next-action hints `setup done --json` carries for an agent (A11): land
@@ -1387,6 +1432,7 @@ function printDoneSuccess(view: DoneSuccessView): void {
     landing,
     reactivation,
     coachVerb,
+    guidance,
   } = view;
 
   console.log(
@@ -1440,6 +1486,11 @@ function printDoneSuccess(view: DoneSuccessView): void {
     "     review the findings with your human, do the quick wins now, and defer larger",
   );
   console.log("     initiatives to TODO.md.");
+
+  // The ready-to-relay completion message, carried verbatim (identical to the `--json`
+  // `guidance` field) so a courier agent can hand the human a warm close (ADR 0086).
+  console.log("");
+  console.log(guidance);
 }
 
 /**
@@ -1509,29 +1560,35 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
   // Resolve the coach verb from the live engine-verb SSOT (improve, or audit before the
   // rename) rather than hardcoding, so the steer survives the audit→improve rename.
   const coachVerb = KNOWN_ENGINE_VERBS.has("improve") ? "improve" : "audit";
+  // The closing relay block — the ready-to-relay "message to your human" a courier agent
+  // hands over, composed from the same pieces the structured surface carries (ADR 0086),
+  // and rendered identically on both surfaces.
+  const guidance = completionMessage({ assurance, landing, reactivation });
 
   if (opts.json) {
+    const data: SetupDoneData = {
+      bootstrapped: true,
+      forced,
+      gate_proven: !opts.force,
+      marker_committed: markerCommit === "committed",
+      leftover,
+      assurance,
+      landing: {
+        in_repo: landing.inRepo,
+        branch: landing.branch,
+        target: landing.target,
+        on_target: landing.onTarget,
+        command: LAND_COMMAND,
+      },
+      reactivation,
+      coach: { verb: coachVerb, command: `discern ${coachVerb} --json` },
+      guidance,
+    };
     emitResult({
       ok: true,
       verb: "setup:done",
       hints: doneHints(landing, reactivation, coachVerb),
-      data: {
-        bootstrapped: true,
-        forced,
-        gate_proven: !opts.force,
-        marker_committed: markerCommit === "committed",
-        leftover,
-        assurance,
-        landing: {
-          in_repo: landing.inRepo,
-          branch: landing.branch,
-          target: landing.target,
-          on_target: landing.onTarget,
-          command: LAND_COMMAND,
-        },
-        reactivation,
-        coach: { verb: coachVerb, command: `discern ${coachVerb} --json` },
-      },
+      data,
     });
     return 0;
   }
@@ -1545,6 +1602,7 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
     landing,
     reactivation,
     coachVerb,
+    guidance,
   });
   return 0;
 }
@@ -1626,6 +1684,43 @@ function emitDoneGateFailure(
     console.error(
       "       Fix it and re-run, or pass --force to record completion without the proof.",
     );
+  }
+  return 1;
+}
+
+/**
+ * Refuse a fresh, non-declarative `begin` that arrived without `--confirmed`, re-serving
+ * the SAME consent message `verify` serves (single-sourced via {@link consentMessage})
+ * plus the exact command to run once the human has answered. The refusal is the teaching
+ * path (ADR 0086): rather than scaffold silently, discern hands an agent that skipped the
+ * handshake the conversation to hold. Exit 1; nothing is written. Both surfaces carry the
+ * identical `guidance` prose, so a courier agent gets the message to relay whichever it
+ * reads.
+ */
+async function emitAwaitingConsent(
+  log: Logger,
+  opts: SetupOptions,
+  destDir: string,
+): Promise<number> {
+  const { worktreePath, docsExists } = await deriveConsentContext(destDir);
+  const guidance = consentMessage({ worktreePath, docsExists });
+  const command = confirmedBeginCommand(docsExists);
+  const message =
+    "Setup needs your human's consent before it writes anything. Relay the message below, wait for their answers, then re-run `begin` with --confirmed.";
+  if (opts.json) {
+    log.result({
+      ok: false,
+      verb: "setup",
+      error: "awaiting_consent",
+      message,
+      data: { guidance, command },
+    });
+  } else {
+    // Everything on stdout — the channel the agent reads — so the served message it
+    // relays and the command it runs after both land where it is looking.
+    console.log(message);
+    console.log("");
+    console.log(guidance);
   }
   return 1;
 }
