@@ -9,6 +9,7 @@
 
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
+import { SCHEMA_VERSION } from "../src/lib/version.ts";
 import { runCli, withTempDir } from "./helpers.ts";
 
 /** Fresh install in `dir`. */
@@ -74,6 +75,23 @@ Deno.test("upgrade --check flags a stale schema and lists the pending steps", as
       res.data.pending_migrations.map((m: { from: number }) => m.from),
       [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
     );
+  });
+});
+
+Deno.test("upgrade --check refuses a config from a newer schema", async () => {
+  await withTempDir(async (dir) => {
+    await init(dir);
+    await setSchema(dir, SCHEMA_VERSION + 1);
+    const before = await Deno.readTextFile(join(dir, "discern.toml"));
+
+    const r = await runCli(["upgrade", "--check", "--json"], dir);
+    assertEquals(r.code, 1, r.stderr);
+    const res = JSON.parse(r.stdout);
+    assertEquals(res.ok, false);
+    assertEquals(res.error, "schema_version_too_new");
+    assertStringIncludes(res.message, "this project needs a newer discern");
+    assertStringIncludes(res.message, "re-run the installer");
+    assertEquals(await Deno.readTextFile(join(dir, "discern.toml")), before);
   });
 });
 

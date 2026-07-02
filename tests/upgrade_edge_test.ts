@@ -123,6 +123,23 @@ Deno.test("upgrade with an unparseable discern.toml fails as invalid_toml (human
   });
 });
 
+Deno.test("upgrade refuses a config from a newer schema (--json)", async () => {
+  await withTempDir(async (dir) => {
+    await init(dir);
+    await setSchema(dir, SCHEMA_VERSION + 1);
+    const before = await readTarget(dir, "discern.toml");
+
+    const r = await runCli(["upgrade", "--json"], dir);
+    assertEquals(r.code, 1);
+    const res = JSON.parse(r.stdout);
+    assertEquals(res.ok, false);
+    assertEquals(res.error, "schema_version_too_new");
+    assertStringIncludes(res.message, "this project needs a newer discern");
+    assertStringIncludes(res.message, "re-run the installer");
+    assertEquals(await readTarget(dir, "discern.toml"), before);
+  });
+});
+
 Deno.test("upgrade survives an absent templates dir: guidelines just don't compile (--json)", async () => {
   await withTempDir(async (dir) => {
     await init(dir);

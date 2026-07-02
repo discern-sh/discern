@@ -98,6 +98,7 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0082 — Codex project config grants the discern worktree root, not broader sandbox control](0082-codex-project-config-writable-root.md)
 - [0083 — Captured diagnostic output is normalized and offloaded when truncated](0083-normalize-and-offload-diagnostic-output.md)
 - [0084 — Co-change coupling detection is a non-blocking advisory, recomputed on demand](0084-co-change-coupling-advisory.md)
+- [0085 — Migrations validate before schema stamping and refuse newer configs](0085-validate-migrations-before-schema-stamping.md)
 
 ## Superseded and consolidated ADRs
 

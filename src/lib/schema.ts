@@ -61,6 +61,22 @@ export async function resolveRecordedSchema(
   return fromManifest ?? 1;
 }
 
+/** True when the project was written by a newer binary than this one. */
+export function isRecordedSchemaNewer(
+  recorded: number,
+  current: number,
+): boolean {
+  return recorded > current;
+}
+
+/** The refusal shown when this binary cannot safely read a newer config shape. */
+export function newerSchemaRefusalMessage(
+  recorded: number,
+  current: number,
+): string {
+  return `this project needs a newer discern — re-run the installer (project schema v${recorded}, this discern supports v${current}).`;
+}
+
 /**
  * Read `schema_version` from a legacy `.discern/manifest.json`, or undefined
  * when the manifest is absent, unreadable, or carries no integer version. The

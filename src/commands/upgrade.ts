@@ -5,10 +5,11 @@
  * nothing committed to keep in sync — so upgrade is narrow and additive:
  *
  *   1. run any pending config-schema migrations (ADR 0014/0020);
- *   2. recompile the guidelines — which re-materializes the bundled skills into
+ *   2. prove the migrated config still parses and validates;
+ *   3. recompile the guidelines — which re-materializes the bundled skills into
  *      `.claude/skills/` and writes the per-provider agent files (each gated on
  *      its feature);
- *   3. stamp the new `[meta].schema_version` into the config.
+ *   4. stamp the new `[meta].schema_version` into the config.
  *
  * Your files (`discern.toml`, guidance sources, authored skills, recipes) are
  * never touched. The clean-tree git guard keeps the upgrade revertible.
@@ -19,13 +20,23 @@ import { worktreeState } from "../lib/git.ts";
 import { resolveConfigPath } from "../lib/paths.ts";
 import { parseDiscernToml } from "../lib/toml_render.ts";
 import { KIT_VERSION, SCHEMA_VERSION } from "../lib/version.ts";
-import { resolveRecordedSchema, stampSchemaVersion } from "../lib/schema.ts";
+import {
+  isRecordedSchemaNewer,
+  newerSchemaRefusalMessage,
+  resolveRecordedSchema,
+  stampSchemaVersion,
+} from "../lib/schema.ts";
 import { TomlEditor } from "../lib/toml_edit.ts";
 import {
   applyMigrations,
   type Migration,
   pendingMigrations,
 } from "../lib/migrations.ts";
+import {
+  type ConfigIssue,
+  ConfigValidationError,
+  parseConfig,
+} from "../shared/config_schema.ts";
 import {
   compileGuidelines,
   type GuidelinesResult,
@@ -117,6 +128,9 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
   // (read from `[meta].schema_version`, falling back to a legacy manifest or
   // schema 1) up to this build's SCHEMA_VERSION.
   const migrateFrom = await resolveRecordedSchema(toml.raw, destDir);
+  if (isRecordedSchemaNewer(migrateFrom, SCHEMA_VERSION)) {
+    return refuseNewerSchema(log, migrateFrom);
+  }
   const pending = pendingMigrations(
     migrateFrom,
     SCHEMA_VERSION,
@@ -245,6 +259,32 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     );
   }
 
+  // 1c. Prove the migrated config parses and validates BEFORE any softer
+  // refresh work. Guideline compilation remains best-effort (ADR 0065), but a
+  // broken config would brick every later command if we stamped it as current.
+  const newConfigPath = (await resolveConfigPath(destDir)) ?? configPath;
+  if (newConfigPath === undefined) {
+    throw new Error("config path could not be resolved after migration");
+  }
+  const validity = await validateMigratedConfig(newConfigPath);
+  if (!validity.ok) {
+    if (options.json) {
+      log.result({
+        ok: false,
+        verb: "upgrade",
+        error: "invalid_migrated_config",
+        message: validity.message,
+        data: {
+          schema: { from: migrateFrom, current: SCHEMA_VERSION },
+          ...(validity.issues === undefined ? {} : { issues: validity.issues }),
+        },
+      });
+    } else {
+      log.error(validity.message);
+    }
+    return 1;
+  }
+
   // 2. Recompile the guidelines (re-materializes skills + writes agent files,
   // each gated on its feature). A failure here is non-fatal to the upgrade — the
   // schema is still stamped — but it is reported.
@@ -274,11 +314,6 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     guidelinesErrors.length === 0;
 
   // 3. Stamp the new schema version into the config (now at its migrated path).
-  // Re-resolve in case the migration moved it, falling back to the original path.
-  const newConfigPath = (await resolveConfigPath(destDir)) ?? configPath;
-  if (newConfigPath === undefined) {
-    throw new Error("config path could not be resolved after migration");
-  }
   await stampSchema(newConfigPath, SCHEMA_VERSION);
 
   if (options.json) {
@@ -318,6 +353,52 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
   }
   renderUpgradeSummary(log, guidelines, applied.length);
   return 0;
+}
+
+function refuseNewerSchema(log: Logger, recorded: number): number {
+  const message = newerSchemaRefusalMessage(recorded, SCHEMA_VERSION);
+  if (log.json) {
+    log.result({
+      ok: false,
+      verb: "upgrade",
+      error: "schema_version_too_new",
+      message,
+      data: { schema: { recorded, current: SCHEMA_VERSION } },
+    });
+  } else {
+    log.error(message);
+  }
+  return 1;
+}
+
+type ConfigValidity =
+  | { ok: true }
+  | { ok: false; message: string; issues?: ConfigIssue[] };
+
+async function validateMigratedConfig(
+  configPath: string,
+): Promise<ConfigValidity> {
+  const text = await Deno.readTextFile(configPath);
+  try {
+    const { issues } = parseConfig(text);
+    if (issues.length === 0) {
+      return { ok: true };
+    }
+    const error = new ConfigValidationError(issues);
+    return {
+      ok: false,
+      message:
+        `migrated discern.toml is invalid; schema was not stamped.\n${error.message}`,
+      issues,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message: `migrated discern.toml is invalid; schema was not stamped.\n${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    };
+  }
 }
 
 /**

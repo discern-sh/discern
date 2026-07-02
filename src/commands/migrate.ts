@@ -17,7 +17,11 @@
 import { Logger } from "../lib/log.ts";
 import { resolveConfigPath } from "../lib/paths.ts";
 import { parseDiscernToml } from "../lib/toml_render.ts";
-import { resolveRecordedSchema } from "../lib/schema.ts";
+import {
+  isRecordedSchemaNewer,
+  newerSchemaRefusalMessage,
+  resolveRecordedSchema,
+} from "../lib/schema.ts";
 import { SCHEMA_VERSION } from "../lib/version.ts";
 import { type Migration, pendingMigrations } from "../lib/migrations.ts";
 
@@ -72,6 +76,21 @@ export async function runMigrate(options: MigrateOptions): Promise<number> {
     // recorded schema, so the resolver falls back as it would for a fresh field.
   }
   const recorded = await resolveRecordedSchema(raw, destDir);
+  if (isRecordedSchemaNewer(recorded, SCHEMA_VERSION)) {
+    const message = newerSchemaRefusalMessage(recorded, SCHEMA_VERSION);
+    if (options.json) {
+      log.result({
+        ok: false,
+        verb: "migrate",
+        error: "schema_version_too_new",
+        message,
+        data: { schema: { recorded, current: SCHEMA_VERSION } },
+      });
+    } else {
+      log.error(message);
+    }
+    return 1;
+  }
   const pending = pendingMigrations(recorded, SCHEMA_VERSION, options.registry);
   const code = options.check && pending.length > 0 ? 1 : 0;
 

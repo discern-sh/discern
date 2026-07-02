@@ -101,7 +101,9 @@ makes the harness _upgradable_ rather than a one-shot scaffold.
 
 **How it shows up.** [upgrade.ts](../../src/commands/upgrade.ts) never rewrites
 a committed seed: it runs pending config-schema migrations, re-materializes the
-bundled skills, recompiles guidance, and re-stamps `[meta].schema_version` —
+bundled skills, recompiles guidance, and re-stamps `[meta].schema_version` only
+after the migrated config validates
+([ADR 0085](../_adr/0085-validate-migrations-before-schema-stamping.md)) —
 nothing else. There are no content hashes, no `.new` files, and no orphan
 reconciliation, because nothing the binary publishes is committed
 ([ADR 0019](../_adr/0019-single-binary-ts-engine.md)). The clean-tree guard

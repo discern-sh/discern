@@ -30,7 +30,10 @@ files but never touches yours; and the **Schema-version**
 [Migration](../00-orientation/glossary.md#migration) chain that evolves an
 install's shape, stamped into `[meta].schema_version` in `discern.toml` (the
 `5 → 6` step dissolved the old `.discern/` namespace into this one root file —
-[ADR 0020](../_adr/0020-dissolve-discern-dir.md)).
+[ADR 0020](../_adr/0020-dissolve-discern-dir.md)). `upgrade` validates the
+migrated config before stamping that schema, and `upgrade` / `migrate` refuse a
+config stamped by a newer binary rather than silently downgrading it
+([ADR 0085](../_adr/0085-validate-migrations-before-schema-stamping.md)).
 
 Setup's documentation skeleton is also config-pointed. `[docs].dir` defaults to
 `docs/`; `setup verify` asks for a separate location when that path already

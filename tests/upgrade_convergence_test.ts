@@ -11,8 +11,22 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { join } from "@std/path";
+import { copy } from "@std/fs";
+import { dirname, fromFileUrl, join } from "@std/path";
 import { readTarget, runCli, withTempDir } from "./helpers.ts";
+import { parseConfig } from "../src/shared/config_schema.ts";
+
+const HISTORICAL_FIXTURES = join(
+  dirname(fromFileUrl(import.meta.url)),
+  "fixtures",
+  "historical-installs",
+);
+
+const STABLE_TARGETS = [
+  "discern.toml",
+  ".gitignore",
+  ".claude/settings.json",
+] as const;
 
 /** Scaffold a fresh install into `dir`. `--name` is pinned for parity with a
  * real in-place upgrade (which keeps the same directory). */
@@ -29,7 +43,9 @@ async function init(dir: string): Promise<void> {
 async function upgrade(dir: string): Promise<any> {
   const r = await runCli(["upgrade", "--allow-dirty", "--json"], dir);
   assertEquals(r.code, 0, r.stderr);
-  return JSON.parse(r.stdout);
+  const res = JSON.parse(r.stdout);
+  await assertCurrentConfigValid(dir);
+  return res;
 }
 
 /** Layout-agnostic config path: the new root `discern.toml`, else the legacy
@@ -42,6 +58,30 @@ async function configPath(dir: string): Promise<string> {
   } catch {
     return join(dir, ".discern/config.toml");
   }
+}
+
+async function assertCurrentConfigValid(dir: string): Promise<void> {
+  const { issues } = parseConfig(
+    await Deno.readTextFile(await configPath(dir)),
+  );
+  assertEquals(issues, [], "upgraded discern.toml should validate cleanly");
+}
+
+async function readStableTargets(
+  dir: string,
+): Promise<Record<(typeof STABLE_TARGETS)[number], string>> {
+  const bytes = {} as Record<(typeof STABLE_TARGETS)[number], string>;
+  for (const rel of STABLE_TARGETS) {
+    bytes[rel] = await readTarget(dir, rel);
+  }
+  return bytes;
+}
+
+async function assertSecondUpgradeIsByteStable(dir: string): Promise<void> {
+  const before = await readStableTargets(dir);
+  const res = await upgrade(dir);
+  assertEquals(res.data.migrations_applied, []);
+  assertEquals(await readStableTargets(dir), before);
 }
 
 /** True when a path exists under an install dir. */
@@ -88,8 +128,7 @@ Deno.test("a second upgrade is a no-op (idempotent)", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
     await upgrade(dir);
-    const res = await upgrade(dir);
-    assertEquals(res.data.migrations_applied, []);
+    await assertSecondUpgradeIsByteStable(dir);
   });
 });
 
@@ -151,6 +190,7 @@ Deno.test("a schema-1 install missing main_branch upgrades to the current schema
         await readTarget(older, "discern.toml"),
         'main_branch = "main"',
       );
+      await assertSecondUpgradeIsByteStable(older);
     });
   });
 });
@@ -237,6 +277,7 @@ Deno.test("a schema-3 [slots] install upgrades to the capabilities shape and the
           at("[guidance]") < at("[skills]"),
         "new sections grouped, in order, after [project]",
       );
+      await assertSecondUpgradeIsByteStable(older);
     });
   });
 });
@@ -250,7 +291,10 @@ Deno.test("a legacy install whose schema lives only in a manifest upgrades, prun
     await Deno.mkdir(join(dir, ".discern"), { recursive: true });
     const stripped = (await Deno.readTextFile(join(dir, "discern.toml")))
       .split("\n")
-      .filter((l) => !/^\s*schema_version\s*=/.test(l) && l.trim() !== "[meta]")
+      .filter((l) =>
+        !/^\s*(bootstrapped|schema_version|setup_model|setup_version)\s*=/
+          .test(l) && l.trim() !== "[meta]"
+      )
       .join("\n");
     await Deno.writeTextFile(join(dir, ".discern/config.toml"), stripped);
     await Deno.remove(join(dir, "discern.toml"));
@@ -307,5 +351,30 @@ Deno.test("a legacy install whose schema lives only in a manifest upgrades, prun
       toml.indexOf("[meta]") < toml.indexOf("[project]"),
       "[meta] leads the file",
     );
+    await assertSecondUpgradeIsByteStable(dir);
   });
+});
+
+Deno.test("historical init fixtures upgrade to valid current configs and stay byte-stable", async () => {
+  const entries: string[] = [];
+  for await (const entry of Deno.readDir(HISTORICAL_FIXTURES)) {
+    if (entry.isDirectory) {
+      entries.push(entry.name);
+    }
+  }
+  entries.sort();
+  assert(entries.length > 0, "historical fixture corpus should not be empty");
+
+  for (const name of entries) {
+    await withTempDir(async (dir) => {
+      await copy(join(HISTORICAL_FIXTURES, name), dir, { overwrite: true });
+      const res = await upgrade(dir);
+      assertEquals(
+        await recordedSchema(dir),
+        res.data.schema.current,
+        `${name} should be stamped current after upgrade`,
+      );
+      await assertSecondUpgradeIsByteStable(dir);
+    });
+  }
 });

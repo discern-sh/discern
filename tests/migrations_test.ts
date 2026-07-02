@@ -16,14 +16,16 @@ import {
 import { join } from "@std/path";
 import { copy } from "@std/fs";
 import { SCHEMA_VERSION } from "../src/lib/version.ts";
+import { parseDiscernToml } from "../src/lib/toml_render.ts";
 import {
-  applyMigrations,
+  applyMigrations as applyMigrationsUnchecked,
   createMigrationContext,
   isChainContiguous,
   type Migration,
   MIGRATIONS,
   pendingMigrations,
 } from "../src/lib/migrations.ts";
+import { parseConfig } from "../src/shared/config_schema.ts";
 import {
   fakeEnv,
   REAL_TEMPLATES,
@@ -41,6 +43,36 @@ function recordingStep(from: number, log: number[]): Migration {
       return Promise.resolve();
     },
   };
+}
+
+async function assertConfigParses(
+  dir: string,
+  validateCurrentSchema: boolean,
+): Promise<void> {
+  for (const rel of ["discern.toml", ".discern/config.toml"]) {
+    const path = join(dir, rel);
+    try {
+      const text = await Deno.readTextFile(path);
+      parseDiscernToml(text);
+      if (validateCurrentSchema) {
+        const { issues } = parseConfig(text);
+        assertEquals(issues, [], `${rel} should validate with zero issues`);
+      }
+    } catch (error) {
+      if (error instanceof Deno.errors.NotFound) {
+        continue;
+      }
+      throw error;
+    }
+  }
+}
+
+async function applyMigrations(
+  params: Parameters<typeof applyMigrationsUnchecked>[0],
+): Promise<Migration[]> {
+  const applied = await applyMigrationsUnchecked(params);
+  await assertConfigParses(params.destDir, params.to === SCHEMA_VERSION);
+  return applied;
 }
 
 // ---- the production chain --------------------------------------------------
@@ -233,6 +265,39 @@ Deno.test("migration 8→9 is a no-op when there is no .gitignore to amend", asy
     // No .gitignore present — the step must neither throw nor create one.
     await applyMigrations({ destDir: dir, from: 8, to: 9, onNote: () => {} });
     assertEquals(await targetExists(dir, ".gitignore"), false);
+  });
+});
+
+Deno.test("migration 8→9 also cleans stale schema-8 worktree db/dev_server tables", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      [
+        "[meta]",
+        "schema_version = 8",
+        "",
+        "[project]",
+        'slug = "demo"',
+        "",
+        "[worktree]",
+        "enabled = true",
+        "",
+        "[worktree.db]",
+        'clone = ""',
+        'drop = ""',
+        "",
+        "[worktree.dev_server]",
+        'link = ""',
+        'unlink = ""',
+        "",
+      ].join("\n"),
+    );
+    await applyMigrations({ destDir: dir, from: 8, to: 9 });
+    const toml = await Deno.readTextFile(join(dir, "discern.toml"));
+    assert(!toml.includes("[worktree.db]"));
+    assert(!toml.includes("[worktree.dev_server]"));
+    assertStringIncludes(toml, "# [worktree.resources.db]");
+    assertEquals(parseConfig(toml).issues, []);
   });
 });
 

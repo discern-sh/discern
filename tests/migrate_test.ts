@@ -10,6 +10,7 @@ import { assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { runMigrate } from "../src/commands/migrate.ts";
 import type { Migration } from "../src/lib/migrations.ts";
+import { SCHEMA_VERSION } from "../src/lib/version.ts";
 import { runCli, withTempDir } from "./helpers.ts";
 
 async function init(dir: string): Promise<void> {
@@ -60,6 +61,25 @@ Deno.test("migrate --check exits 0 when nothing is pending", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
     assertEquals((await runCli(["migrate", "--check"], dir)).code, 0);
+  });
+});
+
+Deno.test("migrate refuses a config from a newer schema", async () => {
+  await withTempDir(async (dir) => {
+    await init(dir);
+    await setSchema(dir, SCHEMA_VERSION + 1);
+
+    const report = await runCli(["migrate", "--json"], dir);
+    assertEquals(report.code, 1, report.stderr);
+    const res = JSON.parse(report.stdout);
+    assertEquals(res.ok, false);
+    assertEquals(res.error, "schema_version_too_new");
+    assertStringIncludes(res.message, "this project needs a newer discern");
+    assertStringIncludes(res.message, "re-run the installer");
+
+    const check = await runCli(["migrate", "--check", "--json"], dir);
+    assertEquals(check.code, 1, check.stderr);
+    assertEquals(JSON.parse(check.stdout).error, "schema_version_too_new");
   });
 });
 

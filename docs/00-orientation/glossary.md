@@ -101,22 +101,25 @@ from.
 A plain monotonic integer — the anchor the [Migration](#migration) chain steps
 from, stamped into `[meta].schema_version` in `discern.toml`. It bumps **only**
 when an installed project needs a migration to stay correct, so most releases
-leave it untouched. The current shape is schema **12** — the `11 → 12` step
-renames the `[worktree].graduate_to` value `"main"` to `"trunk"`, so the
-graduation landing-role no longer reads as a branch literally named main
-([ADR 0046](../_adr/0046-graduate-destination-and-skill-removal.md)).
+leave it untouched. The current shape is schema **13** — the `12 → 13` step adds
+the documented `[worktree].root` key so worktree placement can be made explicit
+([ADR 0052](../_adr/0052-worktree-sibling-placement.md)).
 
 ### Migration
 
 One **idempotent** step that brings an install from Schema version `N` to `N+1`.
 `upgrade` reads `[meta].schema_version` (from `discern.toml`, or a legacy
 `.discern/config.toml` for a pre-6 install), runs every pending step in order up
-to the binary's, then re-stamps it. A step can edit the config
-comment-preserving, move/rewrite files, and deep-merge settings — the `5 → 6`
-step moves the config to the root, relocates guidance/recipes/authored skills
-out of `.discern/`, prunes the pristine bundled skills, and deletes `.discern/`
+to the binary's, validates the migrated config, then re-stamps it. If the
+project records a newer schema than the binary supports, `upgrade` and `migrate`
+refuse and point the user at reinstalling discern instead of stamping the config
+down. A step can edit the config comment-preserving, move/rewrite files, and
+deep-merge settings — the `5 → 6` step moves the config to the root, relocates
+guidance/recipes/authored skills out of `.discern/`, prunes the pristine bundled
+skills, and deletes `.discern/`
 ([ADR 0014](../_adr/0014-versioned-migration-system.md),
-[ADR 0020](../_adr/0020-dissolve-discern-dir.md)).
+[ADR 0020](../_adr/0020-dissolve-discern-dir.md),
+[ADR 0085](../_adr/0085-validate-migrations-before-schema-stamping.md)).
 
 ### Preset
 

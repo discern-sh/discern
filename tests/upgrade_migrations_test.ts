@@ -7,7 +7,7 @@
  * rename will rely on, without a real SCHEMA_VERSION bump.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { runUpgrade } from "../src/commands/upgrade.ts";
 import type { Migration } from "../src/lib/migrations.ts";
@@ -46,16 +46,98 @@ async function recordedSchema(dir: string): Promise<number> {
  * skips the clean-tree guard for the throwaway install.
  */
 async function upgradeIn(dir: string, registry?: Migration[]): Promise<number> {
-  return await runUpgrade({
-    json: true,
-    noColor: true,
-    dryRun: false,
-    check: false,
-    allowDirty: true,
-    registry,
-    cwd: dir,
-  });
+  return (await upgradeJsonIn(dir, registry)).code;
 }
+
+async function upgradeJsonIn(
+  dir: string,
+  registry?: Migration[],
+): Promise<{ code: number; stdout: string }> {
+  const originalLog = console.log;
+  let stdout = "";
+  console.log = (...args: unknown[]) => {
+    stdout += args.map((a) => String(a)).join(" ") + "\n";
+  };
+  try {
+    const code = await runUpgrade({
+      json: true,
+      noColor: true,
+      dryRun: false,
+      check: false,
+      allowDirty: true,
+      registry,
+      cwd: dir,
+    });
+    return { code, stdout };
+  } finally {
+    console.log = originalLog;
+  }
+}
+
+async function upgradeCheckJsonIn(dir: string): Promise<{
+  code: number;
+  stdout: string;
+}> {
+  const originalLog = console.log;
+  let stdout = "";
+  console.log = (...args: unknown[]) => {
+    stdout += args.map((a) => String(a)).join(" ") + "\n";
+  };
+  try {
+    const code = await runUpgrade({
+      json: true,
+      noColor: true,
+      dryRun: false,
+      check: true,
+      allowDirty: true,
+      cwd: dir,
+    });
+    return { code, stdout };
+  } finally {
+    console.log = originalLog;
+  }
+}
+
+Deno.test("upgrade refuses a config from a newer schema and does not stamp down", async () => {
+  await withTempDir(async (dir) => {
+    await init(dir);
+    await setSchema(dir, SCHEMA_VERSION + 1);
+    const before = await readTarget(dir, "discern.toml");
+
+    const run = await upgradeJsonIn(dir);
+    assertEquals(run.code, 1);
+    const res = JSON.parse(run.stdout);
+    assertEquals(res.error, "schema_version_too_new");
+    assertStringIncludes(res.message, "this project needs a newer discern");
+    assertStringIncludes(res.message, "re-run the installer");
+    assertEquals(await readTarget(dir, "discern.toml"), before);
+
+    const check = await upgradeCheckJsonIn(dir);
+    assertEquals(check.code, 1);
+    assertEquals(JSON.parse(check.stdout).error, "schema_version_too_new");
+  });
+});
+
+Deno.test("upgrade refuses to stamp when a migration leaves invalid TOML", async () => {
+  await withTempDir(async (dir) => {
+    await init(dir);
+    await setSchema(dir, SCHEMA_VERSION - 1);
+    const chain: Migration[] = [{
+      from: SCHEMA_VERSION - 1,
+      describe: "write invalid TOML",
+      apply: (ctx) =>
+        ctx.rewrite("discern.toml", (text) => `${text}\nbad = "\\q"\n`),
+    }];
+
+    const run = await upgradeJsonIn(dir, chain);
+    assertEquals(run.code, 1);
+    const res = JSON.parse(run.stdout);
+    assertEquals(res.error, "invalid_migrated_config");
+    assertStringIncludes(res.message, "schema was not stamped");
+    assertStringIncludes(await readTarget(dir, "discern.toml"), 'bad = "\\q"');
+    assertEquals(await recordedSchema(dir), SCHEMA_VERSION - 1);
+  });
+});
 
 Deno.test("a current install has nothing pending and applies no migrations", async () => {
   await withTempDir(async (dir) => {

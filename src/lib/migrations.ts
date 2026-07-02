@@ -634,86 +634,15 @@ export const MIGRATIONS: Migration[] = [
     describe:
       "generalize [worktree.db]/[worktree.dev_server] into [worktree.resources.<name>]; carry non-empty commands forward as create/destroy, then add the commented resource examples (ADR 0025)",
     apply: async (ctx) => {
-      const text = await ctx.readConfig();
-      if (text === undefined) {
-        return; // no config to evolve.
-      }
-      let raw: Record<string, unknown>;
-      try {
-        raw = parseDiscernToml(text).raw;
-      } catch {
-        return; // unparseable — upgrade validates the config first; belt-and-braces.
-      }
-      const worktree = isRecord(raw.worktree) ? raw.worktree : {};
-      const legacyDb = isRecord(worktree.db) ? worktree.db : undefined;
-      const legacyDev = isRecord(worktree.dev_server)
-        ? worktree.dev_server
-        : undefined;
-      // Idempotency: the legacy shape is exactly the presence of these tables; the
-      // step's final act removes both, so a re-run (or an already-new config) here
-      // returns immediately.
-      if (legacyDb === undefined && legacyDev === undefined) {
-        return;
-      }
-      const resources = isRecord(worktree.resources) ? worktree.resources : {};
-      const str = (v: unknown): string => (typeof v === "string" ? v : "");
-      const dbCreate = str(legacyDb?.clone);
-      const dbDestroy = str(legacyDb?.drop);
-      const devCreate = str(legacyDev?.link);
-      const devDestroy = str(legacyDev?.unlink);
-
-      // Convert a legacy table to a live resource only when its command is
-      // non-empty AND a hand-added resource of that name does not already exist
-      // (never clobber the user's own [worktree.resources.<name>]).
-      const blocks: string[] = [];
-      const converted: string[] = [];
-      if (
-        resources.db === undefined && (dbCreate !== "" || dbDestroy !== "")
-      ) {
-        blocks.push(liveResourceBlock("db", dbCreate, dbDestroy));
-        converted.push("db");
-      }
-      if (
-        resources.dev_server === undefined &&
-        (devCreate !== "" || devDestroy !== "")
-      ) {
-        blocks.push(liveResourceBlock("dev_server", devCreate, devDestroy));
-        converted.push("dev_server");
-      }
-      // What to insert where the legacy tables were: the user's converted live
-      // tables; else the commented examples (unless they already declare some
-      // resources, in which case add nothing).
-      const insertBlock = blocks.length > 0
-        ? blocks.join("\n\n")
-        : (Object.keys(resources).length > 0 ? "" : COMMENTED_RESOURCES_BLOCK);
-
-      await ctx.rewrite("discern.toml", (t) => {
-        let out = removeWorktreeTable(t, "[worktree.db]");
-        out = removeWorktreeTable(out, "[worktree.dev_server]");
-        if (insertBlock !== "") {
-          out = insertAfterWorktreeBase(out, insertBlock);
-        }
-        return out.replace(/\n{3,}/g, "\n\n");
-      });
-
-      if (converted.length > 0) {
-        ctx.note(
-          `converted ${
-            converted.map((n) => `[worktree.${n}]`).join(" + ")
-          } → [worktree.resources.*] (any inline comments on the old keys were not carried)`,
-        );
-      } else {
-        ctx.note(
-          "removed the empty [worktree.db]/[worktree.dev_server]; added commented [worktree.resources.*] examples",
-        );
-      }
+      await migrateLegacyWorktreeResources(ctx);
     },
   },
   {
     from: 8,
     describe:
-      "untrack the generated AGENTS.md: ignore /AGENTS.md so it joins CLAUDE.md/GEMINI.md as a build artifact, and note the one-time `git rm --cached` (ADR 0034)",
+      "untrack the generated AGENTS.md, and clean any stale [worktree.db]/[worktree.dev_server] tables left by early schema-8 templates",
     apply: async (ctx) => {
+      await migrateLegacyWorktreeResources(ctx);
       await ignoreAgentsMd(ctx);
     },
   },
@@ -838,6 +767,77 @@ function liveResourceBlock(
     lines.push(`destroy = ${tomlString(destroy)}`);
   }
   return lines.join("\n");
+}
+
+async function migrateLegacyWorktreeResources(
+  ctx: MigrationContext,
+): Promise<void> {
+  const text = await ctx.readConfig();
+  if (text === undefined) {
+    return; // no config to evolve.
+  }
+  let raw: Record<string, unknown>;
+  try {
+    raw = parseDiscernToml(text).raw;
+  } catch {
+    return; // unparseable — upgrade validates the config before stamping.
+  }
+  const worktree = isRecord(raw.worktree) ? raw.worktree : {};
+  const legacyDb = isRecord(worktree.db) ? worktree.db : undefined;
+  const legacyDev = isRecord(worktree.dev_server)
+    ? worktree.dev_server
+    : undefined;
+  // Idempotency: the legacy shape is exactly the presence of these tables; the
+  // final rewrite removes both, so a re-run (or an already-new config) returns.
+  if (legacyDb === undefined && legacyDev === undefined) {
+    return;
+  }
+  const resources = isRecord(worktree.resources) ? worktree.resources : {};
+  const str = (v: unknown): string => (typeof v === "string" ? v : "");
+  const dbCreate = str(legacyDb?.clone);
+  const dbDestroy = str(legacyDb?.drop);
+  const devCreate = str(legacyDev?.link);
+  const devDestroy = str(legacyDev?.unlink);
+
+  // Convert a legacy table to a live resource only when its command is non-empty
+  // and a hand-added resource of that name does not already exist.
+  const blocks: string[] = [];
+  const converted: string[] = [];
+  if (resources.db === undefined && (dbCreate !== "" || dbDestroy !== "")) {
+    blocks.push(liveResourceBlock("db", dbCreate, dbDestroy));
+    converted.push("db");
+  }
+  if (
+    resources.dev_server === undefined &&
+    (devCreate !== "" || devDestroy !== "")
+  ) {
+    blocks.push(liveResourceBlock("dev_server", devCreate, devDestroy));
+    converted.push("dev_server");
+  }
+  const insertBlock = blocks.length > 0
+    ? blocks.join("\n\n")
+    : (Object.keys(resources).length > 0 ? "" : COMMENTED_RESOURCES_BLOCK);
+
+  await ctx.rewrite("discern.toml", (t) => {
+    let out = removeWorktreeTable(t, "[worktree.db]");
+    out = removeWorktreeTable(out, "[worktree.dev_server]");
+    if (insertBlock !== "") {
+      out = insertAfterWorktreeBase(out, insertBlock);
+    }
+    return out.replace(/\n{3,}/g, "\n\n");
+  });
+
+  if (converted.length > 0) {
+    ctx.note(
+      `converted ${
+        converted.map((n) => `[worktree.${n}]`).join(" + ")
+      } → [worktree.resources.*] (any inline comments on the old keys were not carried)`,
+    );
+  } else {
+    ctx.note(
+      "removed the empty [worktree.db]/[worktree.dev_server]; added commented [worktree.resources.*] examples",
+    );
+  }
 }
 
 /**
