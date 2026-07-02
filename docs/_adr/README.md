@@ -99,6 +99,7 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0083 — Captured diagnostic output is normalized and offloaded when truncated](0083-normalize-and-offload-diagnostic-output.md)
 - [0084 — Co-change coupling detection is a non-blocking advisory, recomputed on demand](0084-co-change-coupling-advisory.md)
 - [0085 — Migrations validate before schema stamping and refuse newer configs](0085-validate-migrations-before-schema-stamping.md)
+- [0086 — Prefix the bundled skills with `discern-` and expand the set to nine](0086-prefix-and-expand-bundled-skills.md)
 
 ## Superseded and consolidated ADRs
 
