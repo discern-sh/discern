@@ -153,6 +153,7 @@ its own directory:
 | [`discern-document-subsystem`](../../templates/skills/discern-document-subsystem/SKILL.md) | Write or refresh a subtree under `[docs].dir` per the documenter brief.       |
 | [`discern-cure-a-bug`](../../templates/skills/discern-cure-a-bug/SKILL.md)       | Cure a whole class of defect — every instance, behind a permanent detector. |
 | [`discern-diagnose-a-bug`](../../templates/skills/discern-diagnose-a-bug/SKILL.md) | Prove a bug's cause — reproduce, falsify hypotheses — before any fix is written. |
+| [`discern-outlaw-a-pattern`](../../templates/skills/discern-outlaw-a-pattern/SKILL.md) | Make a legacy pattern illegal: detector, falling ratchet, permanent gate rule at zero. |
 | [`discern-ratchet-a-metric`](../../templates/skills/discern-ratchet-a-metric/SKILL.md) | Put a defendable quality metric behind a never-loosen ratchet, limit set at today's value. |
 | [`discern-write-adr`](../../templates/skills/discern-write-adr/SKILL.md)                   | Record a significant decision as an Architecture Decision Record.             |
 
