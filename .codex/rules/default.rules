@@ -1,0 +1,13 @@
+# .codex/rules/default.rules
+
+prefix_rule(
+    pattern = ["git", "add"],
+    decision = "allow",
+    justification = "Allow staging in trusted linked worktrees; Git writes the index under the main checkout .git/worktrees directory.",
+)
+
+prefix_rule(
+    pattern = ["git", "commit"],
+    decision = "allow",
+    justification = "Allow committing in trusted linked worktrees after review and tests.",
+)
