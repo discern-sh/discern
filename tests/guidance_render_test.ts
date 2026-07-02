@@ -13,7 +13,8 @@ import {
   guidanceContext,
   renderAgentFiles,
 } from "../src/engine/guidance_render.ts";
-import { loadConfig } from "../src/shared/config_schema.ts";
+import { providerFor } from "../src/lib/providers.ts";
+import { AGENT_NAMES, loadConfig } from "../src/shared/config_schema.ts";
 
 /** A temp project emitting both providers, with one user guidance source. */
 async function scaffold(
@@ -45,6 +46,39 @@ Deno.test("renderAgentFiles: AGENTS.md is the full body; CLAUDE.md is the @AGENT
     assertEquals(files.get("CLAUDE.md"), "@AGENTS.md\n");
   } finally {
     await Deno.remove(dir, { recursive: true });
+  }
+});
+
+Deno.test("renderAgentFiles: every reuse-canonical agent configured alone emits the canonical it reads", async () => {
+  const reuseAgents = AGENT_NAMES.filter((name) =>
+    providerFor(name)?.guidanceFile.reuseCanonical === true
+  );
+  assert(
+    reuseAgents.length > 0,
+    "expected at least one reuse-canonical provider",
+  );
+
+  for (const name of reuseAgents) {
+    const dir = await scaffold(`["${name}"]`);
+    try {
+      const provider = providerFor(name);
+      assert(provider !== undefined);
+      const gf = provider.guidanceFile;
+      const files = await renderAgentFiles(dir);
+      assertEquals(
+        [...files.keys()],
+        [gf.path],
+        `${name} must render the canonical guidance file it reads`,
+      );
+      const body = files.get(gf.path);
+      assert(body !== undefined);
+      assert(
+        body.includes("A rule."),
+        `${name} canonical guidance should carry the compiled body`,
+      );
+    } finally {
+      await Deno.remove(dir, { recursive: true });
+    }
   }
 });
 

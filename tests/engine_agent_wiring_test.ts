@@ -10,7 +10,7 @@
  * deep-merged — neither clobbers the other, and a user key survives both.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { basename, join } from "@std/path";
 import { parse as parseToml } from "@std/toml";
 import { exists } from "@std/fs";
@@ -216,6 +216,40 @@ Deno.test("Cursor + Copilot: scaffold seeds each SessionStart hook; refresh wire
     const data2 = JSON.parse(r2.stdout).data;
     assertEquals(data2.mcp_wired.includes(".cursor/mcp.json"), false);
     assertEquals(data2.mcp_wired.includes(".mcp.json"), false);
+  });
+});
+
+Deno.test("Cursor-only refresh emits AGENTS.md with the compiled guidance body", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { agents: ["cursor"] });
+
+    const r = await runAgent(dir, ["refresh", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    const data = JSON.parse(r.stdout).data;
+    assertEquals(data.agents_written, ["AGENTS.md"]);
+
+    const agents = await Deno.readTextFile(join(dir, "AGENTS.md"));
+    assertStringIncludes(agents, "# Working with the discern harness");
+    assertStringIncludes(agents, "discern_status");
+  });
+});
+
+Deno.test("Cursor + Claude refresh emits AGENTS.md and points CLAUDE.md at it", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { agents: ["cursor", "claude_code"] });
+
+    const r = await runAgent(dir, ["refresh", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    const data = JSON.parse(r.stdout).data;
+    assertEquals(data.agents_written, ["AGENTS.md", "CLAUDE.md"]);
+
+    const agents = await Deno.readTextFile(join(dir, "AGENTS.md"));
+    assertStringIncludes(agents, "# Working with the discern harness");
+    assertStringIncludes(agents, "discern_status");
+    assertEquals(
+      await Deno.readTextFile(join(dir, "CLAUDE.md")),
+      "@AGENTS.md\n",
+    );
   });
 });
 

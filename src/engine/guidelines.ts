@@ -28,7 +28,6 @@ import { resolveGuidanceSources } from "../lib/paths.ts";
 import { materializeSkills } from "../lib/skills.ts";
 import {
   DISCERN_MCP_SERVER,
-  emitsGuidanceFile,
   MCP_RESTART_HINT,
   providerFor,
   skillsDirsForAgents,
@@ -192,7 +191,6 @@ export async function compileGuidelines(
       errors,
     );
   }
-  const writtenPaths = new Set<string>();
   for (const agent of agents) {
     const gf = providerFor(agent)?.guidanceFile;
     if (gf === undefined) {
@@ -201,37 +199,35 @@ export async function compileGuidelines(
       );
       continue;
     }
-    // A reuse-canonical provider reads the canonical file (emitted by another
-    // provider) — discern writes nothing of its own for it. And two agents can map
-    // to the same emitted path; write it once. Both guards mirror renderAgentFiles,
-    // so the writer and the rendered map agree on exactly which files exist.
-    if (!emitsGuidanceFile(gf) || writtenPaths.has(gf.path)) {
-      continue;
-    }
-    const fileBody = rendered.get(gf.path);
-    if (fileBody === undefined) {
-      continue; // guidance off (already returned above) — defensive.
-    }
-    writtenPaths.add(gf.path);
+  }
+  for (const [rel, fileBody] of rendered) {
     // Isolate per agent file: a denied write to one provider's file doesn't abort
     // the others (ADR 0065).
     try {
-      const out = join(root, gf.path);
+      const out = join(root, rel);
       await ensureDir(dirname(out));
       await Deno.writeTextFile(out, fileBody);
       // A generated file should be readable like any other source (mode 0644).
       await Deno.chmod(out, 0o644);
-      agentsWritten.push(gf.path);
+      agentsWritten.push(rel);
     } catch (error) {
-      const msg = `could not write ${gf.path}: ${errText(error)}`;
+      const msg = `could not write ${rel}: ${errText(error)}`;
       log.warn(msg);
       errors.push(msg);
     }
   }
 
-  if (agentsWritten.length === 0) {
+  if (rendered.size === 0) {
+    const knownGuidanceAgents = agents.filter((agent) =>
+      providerFor(agent)?.guidanceFile !== undefined
+    );
+    const msg = knownGuidanceAgents.length === 0
+      ? 'refresh: no known providers in [guidance].agents — compiled nothing. Set agents = ["claude_code", …].'
+      : "refresh: configured guidance providers rendered no agent files — check [guidance].agents and provider guidance mappings.";
+    log.warn(msg);
+  } else if (agentsWritten.length === 0) {
     log.warn(
-      'refresh: no known providers in [guidance].agents — compiled nothing. Set agents = ["claude_code", …].',
+      `refresh: rendered ${rendered.size} agent file(s) but wrote none; see warnings above.`,
     );
   } else {
     const sourceCount = (await resolveGuidanceSources(root, config)).length;

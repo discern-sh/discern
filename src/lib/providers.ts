@@ -273,24 +273,23 @@ export interface GuidanceFile {
   readonly pointer?: (canonicalPath: string) => string;
   /**
    * When true, this provider reads the CANONICAL agent file (`AGENTS.md`) natively
-   * and discern emits **nothing** of its own for it — neither a duplicate body nor a
-   * pointer. `path` names that canonical file (the one it reads), but every emit
-   * site skips it ({@link emitsGuidanceFile}) and every aggregator collapses it, so
-   * the file is written and counted exactly once — by the canonical provider, never
-   * 3× by repointing a second provider's `path` at it. The reuse-canonical state for
-   * agents (Cursor, Copilot, Antigravity) that consume `AGENTS.md` directly; a
-   * provider that needs its own file leaves this unset and uses `pointer` (a mirror)
-   * or nothing (the canonical itself). Mutually exclusive with `canonical` and
-   * `pointer`.
+   * and discern emits no vendor-specific file for it — neither a duplicate body nor
+   * a pointer. `path` names that canonical file (the one it reads). If no canonical
+   * provider is configured in the current set, the renderer writes this path as the
+   * canonical full-body file; if the canonical provider is present, the
+   * reuse-canonical entry collapses into that existing write. The
+   * reuse-canonical state is for agents (Cursor, Copilot, Antigravity) that consume
+   * `AGENTS.md` directly; a provider that needs its own file leaves this unset and
+   * uses `pointer` (a mirror) or nothing (the canonical itself). Mutually exclusive
+   * with `canonical` and `pointer`.
    */
   readonly reuseCanonical?: boolean;
 }
 
 /**
- * Whether discern EMITS a file for this guidance entry. False only for a
- * reuse-canonical provider — it reads the canonical file another provider writes,
- * so discern produces nothing for it. The single predicate every emit site and
- * aggregator gates on, so "emits nothing" is decided in one place.
+ * Whether this guidance entry emits its own provider file. False only for a
+ * reuse-canonical provider — it reads the canonical file, and the configured set
+ * decides whether that canonical write is already covered or must be synthesized.
  */
 export function emitsGuidanceFile(gf: GuidanceFile): boolean {
   return gf.reuseCanonical !== true;
@@ -298,16 +297,20 @@ export function emitsGuidanceFile(gf: GuidanceFile): boolean {
 
 /**
  * The distinct guidance-file paths discern emits for the given entries, in
- * first-seen order: reuse-canonical entries contribute nothing (their content is
- * the canonical file another provider emits), and a repeated path collapses to one.
- * The shared core behind {@link allGuidanceFilePaths} and the renderer's file map,
- * so a reuse-canonical provider can never leak a duplicate `AGENTS.md` into the
- * aggregators.
+ * first-seen order: a reuse-canonical entry contributes the canonical path when no
+ * canonical provider is configured in this set, otherwise it contributes no
+ * duplicate, and repeated paths collapse to one. The shared core behind
+ * {@link allGuidanceFilePaths} and the renderer's file map, so a
+ * reuse-canonical provider can never leak a duplicate `AGENTS.md` into the
+ * aggregators while a reuse-canonical-only set still gets the file it reads.
  */
 export function emittedGuidancePaths(files: readonly GuidanceFile[]): string[] {
+  const hasCanonical = files.some((gf) => gf.canonical);
   const out: string[] = [];
   for (const gf of files) {
-    if (emitsGuidanceFile(gf) && !out.includes(gf.path)) {
+    const emitsForSet = emitsGuidanceFile(gf) ||
+      (gf.reuseCanonical === true && !hasCanonical);
+    if (emitsForSet && !out.includes(gf.path)) {
       out.push(gf.path);
     }
   }
@@ -930,7 +933,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     // alias the same binary also installs as. Match-any: either resolving means present.
     binaries: ["cursor-agent", "agent"],
     // Cursor reads the canonical AGENTS.md natively at the repo root, so discern emits
-    // NOTHING of its own for it (reuse-canonical: no duplicate body, no pointer).
+    // no Cursor-specific file (reuse-canonical: no duplicate body, no pointer).
     guidanceFile: { path: "AGENTS.md", canonical: false, reuseCanonical: true },
     // Cursor reads the cross-tool .agents/skills/ — the shared alias, so it dedupes
     // onto Codex's/Gemini's target rather than adding a dir of its own.
@@ -969,8 +972,8 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     // The Copilot CLI ships as `copilot` — NOT `gh copilot` (the deprecated extension).
     binaries: ["copilot"],
     // The Copilot CLI reads the canonical AGENTS.md natively as its primary
-    // instructions (it has no @import directive), so discern emits nothing of its own
-    // (reuse-canonical).
+    // instructions (it has no @import directive), so discern emits no
+    // Copilot-specific file (reuse-canonical).
     guidanceFile: { path: "AGENTS.md", canonical: false, reuseCanonical: true },
     // Copilot reads the cross-tool .agents/skills/ — the shared alias, deduped onto the
     // existing target.
@@ -1059,10 +1062,10 @@ export function skillsDirsForAgents(agents: readonly string[]): string[] {
 // from `PROVIDERS`, so adding an agent to `AGENT_NAMES` extends them for free — no
 // hand-maintained second list to fall out of sync (the ADR 0031/0042 contract).
 
-/** Every compiled guidance-file path discern EMITS across all known agents
+/** Every compiled guidance-file path discern emits across all known agents
  * (CLAUDE.md, AGENTS.md, GEMINI.md, …), in registry order. Reuse-canonical
- * providers contribute nothing (they read the canonical file another provider
- * writes), and duplicates collapse — so the set never carries `AGENTS.md` twice. */
+ * providers collapse into the canonical provider's path here, so the set never
+ * carries `AGENTS.md` twice. */
 export function allGuidanceFilePaths(): string[] {
   return emittedGuidancePaths(
     AGENT_NAMES.map((a) => PROVIDERS[a].guidanceFile),

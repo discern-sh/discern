@@ -91,10 +91,11 @@ Deno.test("registry aggregators stay total: one guidance file + a skills dir per
   );
 });
 
-Deno.test("guidance modelling stays sound: exactly one canonical, reuse-canonical reads it and emits nothing", () => {
+Deno.test("guidance modelling stays sound: exactly one canonical, reuse-canonical reads it without duplicates", () => {
   // The invariant the reuse-canonical model rests on (deliverable 2): one provider
   // holds the canonical full body; a reuse-canonical provider reads THAT file and
-  // discern emits nothing of its own for it — so it can never leak a duplicate.
+  // discern emits no provider-specific file for it — so it can never leak a
+  // duplicate.
   const canonicals = AGENT_NAMES
     .map((n) => providerFor(n)?.guidanceFile)
     .filter((g) => g !== undefined && g.canonical)
@@ -108,7 +109,7 @@ Deno.test("guidance modelling stays sound: exactly one canonical, reuse-canonica
   for (const name of AGENT_NAMES) {
     const gf = providerFor(name)?.guidanceFile;
     if (gf === undefined || emitsGuidanceFile(gf)) {
-      continue; // only inspect reuse-canonical providers (emit nothing)
+      continue; // only inspect reuse-canonical providers
     }
     assertEquals(
       gf.path,
@@ -260,9 +261,9 @@ Deno.test("KEYSTONE: every known agent is covered by every cross-cutting satelli
       `${name}: empty binaries — PATH auto-detect can't find it`,
     );
 
-    // 4. Guidance modelling: a reuse-canonical provider emits nothing and reads the
-    // canonical; an emitting provider's path is in the deduped aggregator exactly
-    // once (deliverable 2).
+    // 4. Guidance modelling: a reuse-canonical provider reads the canonical without
+    // a duplicate provider file; an emitting provider's path is in the deduped
+    // aggregator exactly once (deliverable 2).
     if (emitsGuidanceFile(p.guidanceFile)) {
       assert(
         allGuidanceFilePaths().filter((x) => x === p.guidanceFile.path)

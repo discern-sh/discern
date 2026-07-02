@@ -14,6 +14,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { runCli, withTempDir } from "./helpers.ts";
+import { renderAgentFiles } from "../src/engine/guidance_render.ts";
 import { FEATURES } from "../src/shared/features.ts";
 
 /** One check in the `doctor --json` payload. */
@@ -100,6 +101,16 @@ async function setSchema(dir: string, version: number): Promise<void> {
   await Deno.writeTextFile(
     p,
     text.replace(/schema_version\s*=\s*\d+/, `schema_version = ${version}`),
+  );
+}
+
+/** Replace the scaffold's configured agent set. */
+async function setAgents(dir: string, agents: string): Promise<void> {
+  const p = join(dir, "discern.toml");
+  const text = await Deno.readTextFile(p);
+  await Deno.writeTextFile(
+    p,
+    text.replace(/agents = \[[^\]]*\]/, `agents = ${agents}`),
   );
 }
 
@@ -507,16 +518,31 @@ Deno.test("doctor: surfaces per-agent integration coverage (MCP + hooks wired fo
   });
 });
 
+Deno.test("doctor: Cursor-only guidance report is backed by compiled AGENTS.md output", async () => {
+  await withTempDir(async (dir) => {
+    await initInstall(dir);
+    await setAgents(dir, '["cursor"]');
+
+    const { code, payload } = await runDoctorJson(dir);
+    assertEquals(code, 0);
+    const cursor = check(payload, "agent: Cursor");
+    assertEquals(cursor.ok, true);
+    assertStringIncludes(cursor.detail, "guidance AGENTS.md");
+
+    const rendered = await renderAgentFiles(dir);
+    assertEquals(
+      rendered.has("AGENTS.md"),
+      true,
+      "doctor must not report guidance wired for a file refresh would not render",
+    );
+  });
+});
+
 Deno.test("doctor: surfaces Gemini's one-time trust step and the bypass action", async () => {
   await withTempDir(async (dir) => {
     await initInstall(dir);
     // Configure Gemini so its per-agent coverage row appears, then re-run doctor.
-    const cfgPath = join(dir, "discern.toml");
-    const cfg = await Deno.readTextFile(cfgPath);
-    await Deno.writeTextFile(
-      cfgPath,
-      cfg.replace(/agents = \[[^\]]*\]/, 'agents = ["gemini"]'),
-    );
+    await setAgents(dir, '["gemini"]');
     const { payload } = await runDoctorJson(dir);
     const gemini = check(payload, "agent: Gemini");
     assertEquals(gemini.ok, true);
