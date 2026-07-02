@@ -149,7 +149,7 @@ its own directory:
 
 | Skill                                                                      | What it does                                                                  |
 | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| [`delegate-task`](../../templates/skills/delegate-task/SKILL.md)           | Brief a fresh agent to carry out a discussed task, then review the result.    |
+| [`discern-delegate-work`](../../templates/skills/discern-delegate-work/SKILL.md)           | Shape work into self-contained briefs — one handoff, a fan-out, or stages — then review what lands. |
 | [`discern-document-subsystem`](../../templates/skills/discern-document-subsystem/SKILL.md) | Write or refresh a subtree under `[docs].dir` per the documenter brief.       |
 | [`discern-cure-a-bug`](../../templates/skills/discern-cure-a-bug/SKILL.md)       | Cure a whole class of defect — every instance, behind a permanent detector. |
 | [`discern-diagnose-a-bug`](../../templates/skills/discern-diagnose-a-bug/SKILL.md) | Prove a bug's cause — reproduce, falsify hypotheses — before any fix is written. |

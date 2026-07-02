@@ -38,7 +38,7 @@ a small [templating engine](the-templating-engine.md) so the generic shipped
 prose names your real branch and omits content for anything you haven't
 configured (a ratchet, a worktree resource).
 
-The Skills are the bundled built-ins (`delegate-task`, `discern-document-subsystem`,
+The Skills are the bundled built-ins (`discern-delegate-work`, `discern-document-subsystem`,
 `discern-cure-a-bug`, and `discern-write-adr`) plus any you author under `[skills].dir`
 (default `./skills`, yours overriding a built-in by name). The `discern-cure-a-bug`
 built-in pairs with an always-on norm in the built-in base — discern's first
