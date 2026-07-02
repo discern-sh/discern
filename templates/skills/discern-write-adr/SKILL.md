@@ -19,7 +19,7 @@ restate the format — it walks you through *applying* it. There is one home for
 
 ADRs live in `<docs-dir>_adr/`. If that directory doesn't exist yet — a project
 that hasn't run `discern setup` — create it from this skill's skeleton before
-writing: copy `.claude/skills/discern-write-adr/skeleton/docs/_adr/` (the canonical
+writing: copy this skill's own `skeleton/docs/_adr/` directory (the canonical
 `README.md` format guide and `0000-template.md`) to `<docs-dir>_adr/`. If it
 already exists, skip this.
 

@@ -21,9 +21,8 @@ hard rules, deliverable.
 ## 1. Confirm the prerequisites
 
 **If `<docs-dir>_internal/documenter-agent-brief.md` doesn't exist yet**, create
-the `_internal` scaffolding from this skill's skeleton first: copy
-`.claude/skills/discern-document-subsystem/skeleton/docs/_internal/` to
-`<docs-dir>_internal/`.
+the `_internal` scaffolding from this skill's skeleton first: copy this skill's
+own `skeleton/docs/_internal/` directory to `<docs-dir>_internal/`.
 
 The brief assumes the orientation tier already exists under
 `<docs-dir>00-orientation/`. If those files are still skeletons, run

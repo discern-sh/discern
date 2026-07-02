@@ -4,7 +4,7 @@
 
 This subtree documents the developer experience: getting set up locally, the testing approach, the conventions the tooling enforces, and where to look when the quality gate fails in a way the message did not explain.
 
-> The leaves marked below are skeletons. `discern setup` and the [`discern-document-subsystem`](../../.claude/skills/discern-document-subsystem/SKILL.md) skill fill them once the project's stack is known. The [finish-gate gotchas](finish-gate-gotchas.md) leaf already carries the stack-independent traps and is ready to grow.
+> The leaves marked below are skeletons. `discern setup` and the `discern-document-subsystem` skill fill them once the project's stack is known. The [finish-gate gotchas](finish-gate-gotchas.md) leaf already carries the stack-independent traps and is ready to grow.
 
 The end-to-end loop is short and the same on every stack the harness runs on:
 

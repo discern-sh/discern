@@ -15,7 +15,8 @@ import {
   assertRejects,
   assertStringIncludes,
 } from "@std/assert";
-import { join } from "@std/path";
+import { dirname, join, relative } from "@std/path";
+import { walk } from "@std/fs";
 import {
   type DiscernConfig,
   parseConfigOrThrow,
@@ -30,7 +31,7 @@ import {
   resolveEffectiveSkills,
 } from "../src/lib/skills.ts";
 import { resolveBundledSkillsDir } from "../src/lib/paths.ts";
-import { skillsDirsForAgents } from "../src/lib/providers.ts";
+import { allSkillsDirs, skillsDirsForAgents } from "../src/lib/providers.ts";
 import { modeOf, withTempDir } from "./helpers.ts";
 
 /** The single Claude Code skills dir — pins the per-dir materialization mechanics
@@ -79,40 +80,67 @@ Deno.test("bundledSkillNames lists the shipped built-ins, sorted", async () => {
   assertEquals([...names], [...names].sort());
 });
 
-Deno.test("every materialized-path reference in a bundled SKILL.md resolves", async () => {
-  // A SKILL.md may point its reader at files the skill itself materializes
-  // (`.claude/skills/<name>/<path>`). Those prose paths have no compiler behind
-  // them: a renamed skill or a moved skeleton silently orphans the reference and
-  // the agent following it copies from a path that no longer exists. Enumerate
-  // every such reference across ALL bundled skills (a new skill auto-enrols) and
-  // assert the named skill is bundled and the sub-path exists in its source.
+Deno.test("shipped content names no vendor-specific skills dir (stays provider-neutral)", async () => {
+  // Content discern scaffolds or materializes onto an end user's machine — bundled
+  // skill bodies and their skeletons, the setup instructions and scaffolded doc
+  // skeletons, the built-in guidance — must not hardcode ONE provider's skills
+  // directory. A skill materializes into whichever provider dir(s) the user
+  // configured (`.claude/skills` for Claude Code, the shared `.agents/skills` for
+  // the rest), so a `.claude/skills/…` path is a dead reference for a Codex or
+  // Gemini user. Refer to a skill by its NAME instead — that's how it's invoked,
+  // and it needs no path. The banned prefixes come from the provider registry
+  // (`allSkillsDirs`), so a newly-added provider's dir auto-enrols: this is a
+  // forcing-function over discern's own closed set, not a hand-kept denylist of
+  // vendor words.
+  const bundledSkills = await resolveBundledSkillsDir(); // …/templates/skills
+  const templates = dirname(bundledSkills); // …/templates
+  const trees = [
+    bundledSkills,
+    join(templates, "setup"),
+    join(templates, "guidance"),
+  ];
+  const banned = allSkillsDirs();
+  const offenders: string[] = [];
+  for (const tree of trees) {
+    for await (const entry of walk(tree, { exts: [".md"], includeDirs: false })) {
+      const text = await Deno.readTextFile(entry.path);
+      for (const dir of banned) {
+        if (text.includes(dir)) {
+          offenders.push(`${relative(templates, entry.path)} names "${dir}"`);
+        }
+      }
+    }
+  }
+  assertEquals(
+    offenders,
+    [],
+    `shipped content must stay provider-neutral — reference a skill by name, not a vendor path:\n${offenders.join("\n")}`,
+  );
+});
+
+Deno.test("every skeleton path a bundled SKILL.md cites exists in that skill's source", async () => {
+  // A skill that scaffolds files tells its reader to copy from its own
+  // `skeleton/<path>` directory (vendor-neutral: relative to where the agent found
+  // the skill). That prose path has no compiler behind it, so a renamed or moved
+  // skeleton silently orphans it and the agent copies from nothing. Enumerate every
+  // backtick-wrapped `skeleton/…` reference across all bundled SKILL.md bodies (a
+  // new skill auto-enrols) and assert it resolves in the skill's source.
   const bundledDir = await resolveBundledSkillsDir();
-  const names = new Set(await bundledSkillNames());
-  const reference =
-    /\.claude\/skills\/([A-Za-z0-9_-]+)((?:\/[A-Za-z0-9._-]+)*)\/?/g;
+  const names = await bundledSkillNames();
+  const reference = /`(skeleton\/[A-Za-z0-9._/-]+?)\/?`/g;
   let checked = 0;
   for (const name of names) {
     const text = await Deno.readTextFile(join(bundledDir, name, "SKILL.md"));
     for (const match of text.matchAll(reference)) {
-      const referenced = match[1];
-      const subpath = (match[2] ?? "").replace(/^\//, "");
+      const rel = match[1];
       assert(
-        referenced !== undefined && names.has(referenced),
-        `${name}/SKILL.md references .claude/skills/${referenced}/ but no bundled skill has that name`,
+        rel !== undefined && await exists(join(bundledDir, name, rel)),
+        `${name}/SKILL.md cites \`${rel}\` but templates/skills/${name}/${rel} does not exist`,
       );
-      if (subpath !== "") {
-        assert(
-          await exists(join(bundledDir, referenced, subpath)),
-          `${name}/SKILL.md references .claude/skills/${referenced}/${subpath} but templates/skills/${referenced}/${subpath} does not exist`,
-        );
-      }
       checked++;
     }
   }
-  assert(
-    checked > 0,
-    "expected at least one materialized-path reference to check",
-  );
+  assert(checked > 0, "expected at least one skeleton reference to check");
 });
 
 Deno.test("resolveEffectiveSkills: bundled-only when no authored dir", async () => {
