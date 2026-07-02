@@ -149,6 +149,25 @@ codex exec resume --json --output-last-message "$LAST_MESSAGE" \
 
 Pass `--session-id <id>` to the runner if you do not want Codex to use `--last`.
 
+## Resume Turns
+
+An agent that pauses mid-setup to ask a question (the brief's discovery batch is
+the common case) ends its turn; send the generic keep-going nudge with either
+wrapper, bumping `--attempt` for each further nudge:
+
+```sh
+scripts/setup-eval/run-codex.sh \
+  --fixture "$FIXTURE" \
+  --discern-checkout "$DISCERN_CHECKOUT" \
+  --phase resume \
+  --attempt 1 \
+  --result-dir "$RESULT_DIR" \
+  --agent-model "$CODEX_MODEL"
+```
+
+The one-command runner does this automatically until the fixture's
+`discern.toml` records `bootstrapped = true`, capped at three nudges.
+
 ## Adding Another Agent
 
 Add one `Agent` branch in `run-agent.ts`, a thin `run-<agent>.sh` wrapper, and a

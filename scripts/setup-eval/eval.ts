@@ -14,6 +14,10 @@ const MAKE_FIXTURE = join(SCRIPT_DIR, "make-fixture.ts");
 const RUN_AGENT = join(SCRIPT_DIR, "run-agent.ts");
 const DEFAULT_BASELINE_SHA = "37ff892";
 const DEFAULT_DOCS_ANSWER = "docs/discern/";
+/** How many generic keep-going turns to send after the continuation before calling
+ * the run stalled. One is normal (the brief's discovery batch is a real pause);
+ * needing all of them is a finding worth grading, not retrying past. */
+const MAX_RESUME_TURNS = 3;
 
 const AGENTS = ["claude", "codex"] as const;
 const FLAVORS = ["deno", "node"] as const;
@@ -110,6 +114,9 @@ interface EvalTarget {
 
 interface EvalRun {
   agent: Agent;
+  /** True once the fixture's discern.toml records `bootstrapped = true` — setup
+   * genuinely completed, derived from repo state, never from transcript text. */
+  bootstrapped: boolean;
   checkout: string;
   checkoutLabel: string;
   continuation: RunRecord | null;
@@ -119,6 +126,10 @@ interface EvalRun {
   fixtureCleaned: boolean;
   flavor: Flavor;
   resultDir: string;
+  /** Generic keep-going turns sent after the continuation because the agent ended
+   * its turn mid-setup (e.g. waiting on the discovery batch). Data, not failure:
+   * the count shows how many human turns this agent's setup actually took. */
+  resumes: RunRecord[];
 }
 
 interface EvalSummary {
@@ -624,12 +635,13 @@ async function createFixture(
 async function runAgentPhase(params: {
   agent: Agent;
   agentModel: string | undefined;
+  attempt?: number;
   checkout: string;
   docsAnswer: string;
   extraArgs: string[];
   fixture: string;
   modelId: string | undefined;
-  phase: "first" | "continue";
+  phase: "first" | "continue" | "resume";
   resultDir: string;
   root: string;
 }): Promise<RunRecord> {
@@ -648,6 +660,9 @@ async function runAgentPhase(params: {
     "--docs-answer",
     params.docsAnswer,
   ];
+  if (params.phase === "resume" && params.attempt !== undefined) {
+    args.push("--attempt", String(params.attempt));
+  }
   if (params.agentModel !== undefined && params.agentModel !== "") {
     args.push("--agent-model", params.agentModel);
   }
@@ -670,6 +685,18 @@ async function runAgentPhase(params: {
     throw new Error(result.stderr || result.stdout);
   }
   return JSON.parse(result.stdout) as RunRecord;
+}
+
+/** True when the fixture's discern.toml records `bootstrapped = true` — the same
+ * unfakeable marker `discern setup done` writes on success, read as plain text so
+ * the harness needs no engine import. Absent file (pre-`begin` pause) reads false. */
+async function fixtureBootstrapped(fixturePath: string): Promise<boolean> {
+  try {
+    const toml = await Deno.readTextFile(join(fixturePath, "discern.toml"));
+    return /^\s*bootstrapped\s*=\s*true\s*$/m.test(toml);
+  } catch {
+    return false;
+  }
 }
 
 async function cleanupFixture(path: string): Promise<boolean> {
@@ -734,6 +761,7 @@ async function runOne(params: {
   );
   const run: EvalRun = {
     agent: params.agent,
+    bootstrapped: false,
     checkout: params.checkout.path,
     checkoutLabel: params.checkout.label,
     continuation: null,
@@ -743,6 +771,7 @@ async function runOne(params: {
     fixtureCleaned: false,
     flavor: params.flavor,
     resultDir,
+    resumes: [],
   };
 
   let fixture: FixtureResult | undefined;
@@ -796,6 +825,47 @@ async function runOne(params: {
     if ((run.continuation?.exitCode ?? 1) !== 0) {
       run.errors.push(
         `continuation phase exited ${run.continuation?.exitCode}`,
+      );
+      return run;
+    }
+
+    // The turn count is the agent's, not the harness's: an agent that honors the
+    // brief's discovery batch (or any genuine mid-setup question) ends its turn
+    // waiting for an answer. Nudge it with a generic keep-going turn until setup is
+    // genuinely complete — derived from the fixture's own discern.toml, never from
+    // transcript text — up to a small cap. The resume count is itself data.
+    run.bootstrapped = await fixtureBootstrapped(fixture.path);
+    for (
+      let attempt = 1;
+      !run.bootstrapped && attempt <= MAX_RESUME_TURNS;
+      attempt++
+    ) {
+      console.log(
+        `→ ${params.checkout.label}/${params.flavor}/${params.agent}: resume ${attempt} (setup not complete yet)`,
+      );
+      const resume = await runAgentPhase({
+        agent: params.agent,
+        agentModel: params.opts.agentModels[params.agent],
+        attempt,
+        checkout: params.checkout.path,
+        docsAnswer: params.opts.docsAnswer,
+        extraArgs: params.opts.extraArgs[params.agent],
+        fixture: fixture.path,
+        modelId: params.opts.modelIds[params.agent],
+        phase: "resume",
+        resultDir,
+        root: params.root,
+      });
+      run.resumes.push(resume);
+      if (resume.exitCode !== 0) {
+        run.errors.push(`resume ${attempt} exited ${resume.exitCode}`);
+        break;
+      }
+      run.bootstrapped = await fixtureBootstrapped(fixture.path);
+    }
+    if (!run.bootstrapped && run.errors.length === 0) {
+      run.errors.push(
+        `setup did not complete within ${MAX_RESUME_TURNS} resume turn(s) — grade the transcripts to see where it stalled`,
       );
     }
   } catch (error) {
@@ -892,11 +962,14 @@ async function writeSummary(
     "",
     "| Checkout | Flavor | Agent | Result | Notes |",
     "| --- | --- | --- | --- | --- |",
-    ...runs.map((run) =>
-      `| ${run.checkoutLabel} | ${run.flavor} | ${run.agent} | \`${run.resultDir}\` | ${
-        run.errors.length === 0 ? "ok" : run.errors.join("<br>")
-      } |`
-    ),
+    ...runs.map((run) => {
+      const note = run.errors.length > 0
+        ? run.errors.join("<br>")
+        : run.resumes.length > 0
+        ? `ok (${run.resumes.length} resume turn(s))`
+        : "ok";
+      return `| ${run.checkoutLabel} | ${run.flavor} | ${run.agent} | \`${run.resultDir}\` | ${note} |`;
+    }),
     "",
     `Grade the saved transcripts with \`${join(SCRIPT_DIR, "rubric.md")}\`.`,
     "",

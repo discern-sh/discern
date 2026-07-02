@@ -9,11 +9,13 @@
 import { dirname, fromFileUrl, join, resolve } from "@std/path";
 
 type Agent = "claude" | "codex";
-type Phase = "first" | "continue";
+type Phase = "first" | "continue" | "resume";
 
 interface Options {
   agent: Agent | undefined;
   agentModel: string | undefined;
+  /** Which resume turn this is (1-based); only meaningful for `--phase resume`. */
+  attempt: number;
   discernCheckout: string | undefined;
   docsAnswer: string;
   extraArgs: string[];
@@ -68,8 +70,11 @@ function usage(): string {
   deno run --allow-read --allow-write --allow-env --allow-run scripts/setup-eval/run-agent.ts --agent <claude|codex> --fixture <repo> --discern-checkout <checkout> [options]
 
 Options:
-  --phase <first|continue>       Run the first consent turn or the continuation (default: first)
-  --result-dir <path>            Reuse a result directory; required for --phase continue
+  --phase <first|continue|resume>  The first consent turn, the continuation, or a
+                                 generic keep-going nudge for a session that paused
+                                 mid-setup to ask a question (default: first)
+  --attempt <n>                  Which resume turn this is, 1-based (default: 1)
+  --result-dir <path>            Reuse a result directory; required for --phase continue/resume
   --agent-model <model>          Pass a model flag to the agent CLI
   --model-id <id>                Human answer for setup's --model question
   --docs-answer <path>           Human answer for the docs-home question (default: docs/discern/)
@@ -100,7 +105,7 @@ function parseAgent(value: string): Agent {
 }
 
 function parsePhase(value: string): Phase {
-  if (value === "first" || value === "continue") {
+  if (value === "first" || value === "continue" || value === "resume") {
     return value;
   }
   throw new Error(`unknown phase "${value}"`);
@@ -114,6 +119,7 @@ function parseArgs(args: readonly string[]): Options {
   let fixture: string | undefined;
   let help = false;
   let json = false;
+  let attempt = 1;
   let modelId: string | undefined;
   let phase: Phase = "first";
   let resultDir: string | undefined;
@@ -137,6 +143,15 @@ function parseArgs(args: readonly string[]): Options {
     } else if (arg === "--phase") {
       const parsed = valueAfter(args, index, arg);
       phase = parsePhase(parsed.value);
+      index = parsed.next;
+    } else if (arg === "--attempt") {
+      const parsed = valueAfter(args, index, arg);
+      attempt = Number.parseInt(parsed.value, 10);
+      if (!Number.isInteger(attempt) || attempt < 1) {
+        throw new Error(
+          `--attempt must be a positive integer, got "${parsed.value}"`,
+        );
+      }
       index = parsed.next;
     } else if (arg === "--result-dir") {
       const parsed = valueAfter(args, index, arg);
@@ -176,6 +191,7 @@ function parseArgs(args: readonly string[]): Options {
   return {
     agent,
     agentModel,
+    attempt,
     discernCheckout,
     docsAnswer,
     extraArgs,
@@ -269,11 +285,21 @@ exec deno run --no-check --config ${shellQuote(denoJson)} -A ${
  * boundary, which headless runs need so phase one ends at the consent
  * conversation; the rubric grades the Wait row as necessary-but-not-sufficient
  * because of it.
+ *
+ * The resume prompt exists because the turn count is the AGENT's, not the
+ * harness's: an agent that honors the brief's discovery batch (or any genuine
+ * mid-setup question) ends its turn waiting for answers. The nudge is what a
+ * permissive novice says to any such question — it decides nothing and coaches
+ * nothing, so needing one is gradeable data, never a harness failure.
  */
 function firstPrompt(): string {
   return `Run \`discern setup\` in this project.
 
 If you need anything from me — a decision, a confirmation, an answer — ask me and then stop; I'll reply in my next message.`;
+}
+
+function resumePrompt(): string {
+  return `Nothing more from me beyond what you've already seen — my earlier answers stand, and anything I didn't specify is your call. Please keep going.`;
 }
 
 function continuePrompt(
@@ -291,8 +317,15 @@ function continuePrompt(
 - I'm ready — go ahead and see the whole setup through.`;
 }
 
-function phaseStem(phase: Phase): string {
-  return phase === "first" ? "01-first" : "02-continue";
+function phaseStem(phase: Phase, attempt: number): string {
+  if (phase === "first") {
+    return "01-first";
+  }
+  if (phase === "continue") {
+    return "02-continue";
+  }
+  // Resume turns number onward from the continuation: 03-resume-1, 04-resume-2, …
+  return `${String(attempt + 2).padStart(2, "0")}-resume-${attempt}`;
 }
 
 async function sessionFromResultDir(
@@ -526,8 +559,8 @@ async function main(): Promise<void> {
   if (opts.discernCheckout === undefined) {
     throw new Error("--discern-checkout is required");
   }
-  if (opts.phase === "continue" && opts.resultDir === undefined) {
-    throw new Error("--result-dir is required for --phase continue");
+  if (opts.phase !== "first" && opts.resultDir === undefined) {
+    throw new Error(`--result-dir is required for --phase ${opts.phase}`);
   }
   const fixture = resolve(opts.fixture);
   const checkoutPath = resolve(opts.discernCheckout);
@@ -553,10 +586,12 @@ async function main(): Promise<void> {
     );
   }
 
-  const stem = phaseStem(opts.phase);
+  const stem = phaseStem(opts.phase, opts.attempt);
   const prompt = opts.phase === "first"
     ? firstPrompt()
-    : continuePrompt(opts.modelId, opts.docsAnswer);
+    : opts.phase === "continue"
+    ? continuePrompt(opts.modelId, opts.docsAnswer)
+    : resumePrompt();
   const promptFile = join(resultDir, `prompt-${stem}.md`);
   const stdoutFile = join(resultDir, `transcript-${stem}.stdout.jsonl`);
   const stderrFile = join(resultDir, `transcript-${stem}.stderr.log`);

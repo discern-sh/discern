@@ -30,8 +30,10 @@ deno task setup-eval -- --yes --baseline --baseline-sha 37ff892
 
 The command creates disposable fixture repos, creates and removes the managed
 baseline checkout when requested, runs the first consent turn and continuation
-turn for each selected agent, writes a summary, and cleans up temporary fixtures
-unless `--keep-fixtures` is set.
+turn for each selected agent, then keeps nudging with generic resume turns until
+the fixture's own `discern.toml` records `bootstrapped = true` (capped at three;
+the count appears in the summary), writes a summary, and cleans up temporary
+fixtures unless `--keep-fixtures` is set.
 
 ## What It Measures
 
@@ -61,6 +63,15 @@ Two known constants to keep in mind while grading:
 - The first turn's "ask me and then stop" line is a deliberate exception, needed
   so headless phase one ends at the consent conversation. Grade the
   Wait-boundary row as necessary-but-not-sufficient because of it.
+- The turn count is the agent's, not the harness's. An agent that honors the
+  brief's discovery batch ends its continuation turn waiting for answers, so the
+  runner sends a generic keep-going nudge ("my earlier answers stand, anything I
+  didn't specify is your call") until setup genuinely completes — checked from
+  the fixture's `discern.toml`, never from transcript text. The nudge is a
+  scripted user turn under the same novice-words rule: it decides nothing and
+  coaches nothing. One resume is normal and even good (a real collaborative
+  touchpoint); hitting the cap means the agent is stalling — grade it, don't
+  retry past it.
 
 One operational caution: the Codex continuation resumes the most recent session
 (`--last`). Do not run other Codex work while an eval is in flight, or pin the
@@ -106,7 +117,9 @@ Important files:
 
 - `<timestamp>-summary.json` and `<timestamp>-summary.md` — the top-level matrix
   summary from `deno task setup-eval`.
-- `prompt-01-first.md` and `prompt-02-continue.md` — the scripted user turns.
+- `prompt-01-first.md`, `prompt-02-continue.md`, and `prompt-03-resume-1.md`
+  onward — the scripted user turns (resume files exist only when the run needed
+  keep-going nudges).
 - `transcript-*.stdout.jsonl` — the agent event stream, including messages and
   tool output where the CLI exposes it.
 - `transcript-*.stderr.log` — CLI warnings or errors.
