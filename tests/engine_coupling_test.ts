@@ -34,6 +34,7 @@ import {
   writeConfig,
 } from "./engine_helpers.ts";
 import {
+  couplingGateHints,
   couplingResult,
   deriveMaxBasket,
   MAX_PARTNERS,
@@ -284,6 +285,41 @@ Deno.test("diff-aware mode names a missing partner, and stays silent when nothin
       ((await couplingResult(dir)).data as CouplingData).partners,
       [],
       "an uncoupled file surfaces no partners",
+    );
+  });
+});
+
+Deno.test("gate hints use a stricter relevance bar than direct coupling", async () => {
+  await withTempDir(async (dir) => {
+    await setup(dir, true);
+    // b.ts is a real broad-model partner for a.ts, but only 2 of 7 (29%). That remains
+    // useful when explicitly asked for coupling, but is too weak to interrupt the gate.
+    for (let i = 0; i < 2; i++) {
+      await commit(dir, { "a.ts": `ab-${i}`, "b.ts": `ab-${i}` }, `ab${i}`);
+    }
+    for (let i = 0; i < 5; i++) {
+      await commit(
+        dir,
+        { "a.ts": `a-${i}`, [`solo${i}.ts`]: `${i}` },
+        `a-solo${i}`,
+      );
+    }
+    await noise(dir, 30);
+
+    await Deno.writeTextFile(join(dir, "a.ts"), "staged");
+    const direct = (await couplingResult(dir)).data as CouplingData;
+    assert(
+      direct.partners.some((p) =>
+        p.path === "b.ts" && p.cochanges === 2 && p.of === 7
+      ),
+      `direct coupling should keep the broad discovery signal: ${
+        JSON.stringify(direct.partners)
+      }`,
+    );
+    assertEquals(
+      await couplingGateHints(dir),
+      [],
+      "the automatic gate advisory should suppress weak 2-of-7 partners",
     );
   });
 });
