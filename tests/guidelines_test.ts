@@ -77,7 +77,9 @@ Deno.test("compileGuidelines: built-in + sources (no banner); copies built-ins, 
       "expected the authored skill in the shared .agents/skills dir too",
     );
     // A bundled built-in is copied in as a real directory (not a symlink).
-    const builtin = await Deno.lstat(join(tmp, ".claude/skills/write-adr"));
+    const builtin = await Deno.lstat(
+      join(tmp, ".claude/skills/discern-write-adr"),
+    );
     assert(builtin.isDirectory && !builtin.isSymlink);
 
     // --- prune: remove the authored skill, re-run → the dangling link is gone --

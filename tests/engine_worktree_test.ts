@@ -86,7 +86,7 @@ Deno.test("worktree setup: refreshes agent files and links skills inside the wor
       `CLAUDE.md missing\n${r.output}`,
     );
     assert(
-      await exists(join(wt, ".claude/skills/write-adr/SKILL.md")),
+      await exists(join(wt, ".claude/skills/discern-write-adr/SKILL.md")),
       `bundled skills not linked in the worktree\n${r.output}`,
     );
     assertStringIncludes(r.output, "Worktree setup complete");
@@ -428,7 +428,7 @@ Deno.test("integrate: behind main fast-forwards and re-materializes the agent fi
     );
     // Skills are (re)materialized into the worktree by the same refresh.
     assert(
-      await exists(join(wt, ".claude/skills/write-adr/SKILL.md")),
+      await exists(join(wt, ".claude/skills/discern-write-adr/SKILL.md")),
       `skills not materialized by integrate\n${r.output}`,
     );
   });

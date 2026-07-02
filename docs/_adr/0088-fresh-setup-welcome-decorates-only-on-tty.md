@@ -1,4 +1,4 @@
-# ADR 0087: the fresh setup welcome decorates only on TTY
+# ADR 0088: the fresh setup welcome decorates only on TTY
 
 **Status**: accepted; narrows the TTY stance in
 [ADR 0075](0075-setup-staged-handshake.md) and builds on

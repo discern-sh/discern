@@ -608,7 +608,7 @@ function couplingHints(
     hints.push(
       `\`${strongest.from}\` and \`${strongest.path}\` change together almost every time. ` +
         "If that reflects an essential invariant, consider locking it with a forcing-function " +
-        "(see the `fix-a-bug-class` skill / ADR 0051) rather than relying on memory.",
+        "(see the `discern-cure-a-bug` skill / ADR 0051) rather than relying on memory.",
     );
   }
   return hints;
@@ -802,7 +802,7 @@ function renderCouplingHuman(data: CouplingData, out: Out): void {
     out.raw(
       `\n  ${c.dim}\`${strongest.from}\` and \`${strongest.path}\` change together ` +
         `almost every time — if that's an essential invariant, lock it with a ` +
-        `forcing-function (the fix-a-bug-class skill / ADR 0051).${c.reset}\n`,
+        `forcing-function (the discern-cure-a-bug skill / ADR 0051).${c.reset}\n`,
     );
   }
 }

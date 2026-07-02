@@ -15,7 +15,7 @@
  * terminal width is read in exactly ONE module, the same module that exports
  * `wrapText`. So any code that becomes width-aware is forced through `lib/text.ts`
  * and meets the wrap helper there — no second ad-hoc reader can quietly diverge.
- * This is the `fix-a-bug-class` move applied to a presentation concern: pin the
+ * This is the `discern-cure-a-bug` move applied to a presentation concern: pin the
  * single source of width, not every call site that should wrap.
  */
 

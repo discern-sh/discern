@@ -66,7 +66,9 @@ Deno.test("skills feature off → the check is a no-op", async () => {
     const config = cfg();
     await materializeClean(root, config);
     // Nuke a skill so a drift WOULD exist if the check ran.
-    await Deno.remove(join(root, SKILLS_REL, "write-adr"), { recursive: true });
+    await Deno.remove(join(root, SKILLS_REL, "discern-write-adr"), {
+      recursive: true,
+    });
     const off = cfg("\n[features]\nskills = false\n");
     assertEquals(await checkSkillsCurrent(root, off), []);
   });
@@ -91,11 +93,11 @@ Deno.test("a hand-edited bundled copy is `stale`", async () => {
     const config = cfg();
     await materializeClean(root, config);
     // Tamper with a copied bundled skill — content drift the manifest can't see.
-    const tampered = join(root, SKILLS_REL, "write-adr", "SKILL.md");
+    const tampered = join(root, SKILLS_REL, "discern-write-adr", "SKILL.md");
     await Deno.writeTextFile(tampered, "HAND EDITED\n", { append: true });
     const drift = await checkSkillsCurrent(root, config);
     const stale = drift.filter((d) => d.reason === "stale");
-    assertEquals(stale.map((d) => d.name), ["write-adr"]);
+    assertEquals(stale.map((d) => d.name), ["discern-write-adr"]);
   });
 });
 
@@ -103,10 +105,12 @@ Deno.test("an effective skill deleted from the dir is `stale`", async () => {
   await withTempDir(async (root) => {
     const config = cfg();
     await materializeClean(root, config);
-    await Deno.remove(join(root, SKILLS_REL, "write-adr"), { recursive: true });
+    await Deno.remove(join(root, SKILLS_REL, "discern-write-adr"), {
+      recursive: true,
+    });
     const drift = await checkSkillsCurrent(root, config);
     const stale = drift.filter((d) => d.reason === "stale");
-    assertEquals(stale.map((d) => d.name), ["write-adr"]);
+    assertEquals(stale.map((d) => d.name), ["discern-write-adr"]);
   });
 });
 

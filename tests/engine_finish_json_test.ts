@@ -750,7 +750,7 @@ Deno.test("finish --json: a hand-edited materialized skill blocks (skills); a fo
 
     // Hand-edit a copied bundled skill → stale → finish blocks with a skills diagnostic.
     await Deno.writeTextFile(
-      join(skillsDir, "write-adr", "SKILL.md"),
+      join(skillsDir, "discern-write-adr", "SKILL.md"),
       "\nHAND EDIT\n",
       { append: true },
     );

@@ -189,8 +189,8 @@ parameterized test, a lint or structural-search rule, an architectural test that
 iterates the canonical set — and leave it in the gate as a permanent guard so
 the class can't silently return. Drive the check off the single source of truth
 (a registry, enum, or type), never a hand-copied list, so a new member
-auto-enrols. The **`fix-a-bug-class`** skill walks the full procedure. This is
-already wired for discern's closed sets — CLI verbs, capabilities, agent
+auto-enrols. The **`discern-cure-a-bug`** skill walks the full procedure. This
+is already wired for discern's closed sets — CLI verbs, capabilities, agent
 providers, MCP tools, the config schema — by forcing-function guards
 (`engine_verb_parity_test.ts`, `agent_parity_test.ts`,
 `engine_mcp_surface_test.ts`, `config_codegen_test.ts`): add a member to its

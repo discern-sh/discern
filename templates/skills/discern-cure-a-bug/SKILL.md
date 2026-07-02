@@ -1,11 +1,16 @@
 ---
-name: fix-a-bug-class
-description: Fix a whole class of defect, not just the one instance reported. Use when fixing any bug, or when asked to fix something "properly", "at the root cause", "everywhere", or "for good" — any time a fix should eliminate a class of defect, not a single occurrence.
+name: discern-cure-a-bug
+description: Cure a bug — fix every instance of the underlying defect and leave a permanent guard so it can never return; patching only the instance you were shown is symptomatic relief. Use when fixing any bug, or when asked to fix something "properly", "at the root cause", "everywhere", or "for good" — any time a fix should eliminate a class of defect, not a single occurrence. Bundled with discern.
+metadata:
+  author: "discern | https://discern.sh"
+  version: "1.0"
 ---
 
-# Fix the class, not the instance
+# Cure the bug — don't treat the symptom
 
-A bug is rarely alone. The instance you were handed is one member of a *class* — every place the same mistake was made, or could be made. Fix only what you were shown and the siblings resurface later; "fixed at the root cause" becomes a claim nobody can check. This skill turns that claim into an executable one: characterize the class, ship a detector that fails on **every** member, fix to green, and leave the detector in the gate so the class can never silently return.
+A bug is rarely alone. The instance you were handed is one member of a *class* — every place the same mistake was made, or could be made. Patching only what you were shown is symptomatic relief: the siblings resurface later, and "fixed at the root cause" becomes a claim nobody can check. A **cure** is different, and this skill makes it an executable one: characterize the class, ship a detector that fails on **every** member, fix to green, and leave the detector in the gate so the defect can never silently return.
+
+A cure starts from a **proven cause**. If all you have is a symptom — the failure is reproducible but the mechanism behind it is still a guess — run the `discern-diagnose-a-bug` skill first; a cure prescribed before the diagnosis just treats the guess.
 
 ---
 
@@ -56,7 +61,7 @@ Fix every instance until the detector passes. The green detector is the definiti
 
 ## 6. Leave the detector in the gate, and report the residual
 
-Wire the detector into the project's gate as a permanent guard, so the class can't silently recur — including in code written later by someone who never saw the original bug. A fix without a guard has a half-life.
+Wire the detector into the project's gate as a permanent guard, so the class can't silently recur — including in code written later by someone who never saw the original bug. A fix without a guard is relief, not a cure; it has a half-life.
 
 Then make the completeness claim falsifiable. In your summary, state:
 
