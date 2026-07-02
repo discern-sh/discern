@@ -1,4 +1,9 @@
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertMatch,
+  assertStringIncludes,
+} from "@std/assert";
 import { join } from "@std/path";
 import { runParallel, runSerial } from "../src/engine/jobs/runner.ts";
 import { finalCode } from "../src/engine/jobs/command.ts";
@@ -201,6 +206,38 @@ Deno.test("a genuinely failed job carries its captured output for the diagnostic
   assertEquals(pass?.output, undefined);
 });
 
+Deno.test("stream-mode failed jobs retain a capped head and tail for diagnostics", async () => {
+  const command = [
+    "deno eval",
+    "'const enc = new TextEncoder();",
+    'await Deno.stdout.write(enc.encode("STREAM-HEAD\\n"));',
+    "await Deno.stdout.write(new Uint8Array(1_500_000).fill(88));",
+    'await Deno.stdout.write(enc.encode("\\nSTREAM-TAIL\\n"));',
+    "Deno.exit(1);'",
+  ].join(" ");
+  const r = await runParallel([
+    { label: "stream-fail", command },
+  ], {
+    cwd: CWD,
+    stream: true,
+    failFast: false,
+    color: false,
+    write: () => {},
+  });
+
+  const fail = r.results.find((x) => x.label === "stream-fail");
+  assertEquals(r.ok, false);
+  assert(fail?.output !== undefined, "streamed failure should carry output");
+  assertStringIncludes(fail.output, "STREAM-HEAD");
+  assertStringIncludes(fail.output, "STREAM-TAIL");
+  assertStringIncludes(fail.output, "bytes elided");
+  assertMatch(fail.output, /\d+ bytes elided/);
+  assert(
+    fail.output.length < 1_200_000,
+    `stream diagnostic capture should be capped, got ${fail.output.length} chars`,
+  );
+});
+
 Deno.test("a fail-fast-cancelled sibling is flagged cancelled and carries no output", async () => {
   const s = makeSink();
   const r = await runParallel([
@@ -248,6 +285,38 @@ Deno.test("a sibling that TRAPS SIGTERM and exits non-zero is still cancelled, n
   const boom = r.results.find((x) => x.label === "boom");
   assertEquals(boom?.cancelled, undefined);
   assertEquals(boom?.code, 2);
+});
+
+Deno.test("fail-fast escalates to SIGKILL when a sibling ignores SIGTERM", async () => {
+  const dir = await Deno.makeTempDir({ prefix: "discern-job-sigkill-" });
+  try {
+    const start = performance.now();
+    const r = await runParallel([
+      {
+        label: "boom",
+        command: "while [ ! -f stubborn.ready ]; do sleep 0.05; done; exit 2",
+      },
+      {
+        label: "stubborn",
+        command: 'trap "" TERM; : > stubborn.ready; sleep 30',
+      },
+    ], {
+      cwd: dir,
+      stream: false,
+      failFast: true,
+      color: false,
+      write: () => {},
+    });
+    const elapsed = performance.now() - start;
+
+    const stubborn = r.results.find((x) => x.label === "stubborn");
+    assertEquals(r.ok, false);
+    assertEquals(stubborn?.cancelled, true, JSON.stringify(stubborn));
+    assertEquals(stubborn?.output, undefined);
+    assert(elapsed < 10_000, `expected SIGKILL escalation, took ${elapsed}ms`);
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
 });
 
 Deno.test("capText: returns short text unchanged, head+tail caps an overflow", () => {

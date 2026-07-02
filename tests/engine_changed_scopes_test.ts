@@ -8,6 +8,7 @@ import { assert, assertEquals } from "@std/assert";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import {
+  git,
   gitInit,
   runAgent,
   scaffoldEngine,
@@ -95,6 +96,44 @@ Deno.test("changedScopes emits ONLY declared SCOPE_MARKERS alongside the configu
         `changedScopes emitted "${entry}", neither a configured scope nor a declared marker`,
       );
     }
+  });
+});
+
+Deno.test("changed-scopes fails open when git cannot diff against the main branch", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        'main_branch = "main"',
+        "",
+        "[scopes.docs]",
+        'paths = ["docs/**"]',
+        "neutral = true",
+        "",
+        "[scopes.widget]",
+        'paths = ["widget/**"]',
+        "previewable = true",
+        "",
+        "[scopes.api]",
+        'paths = ["api/**"]',
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+    await git(dir, "branch", "-M", "trunk");
+
+    const r = await runAgent(dir, ["changed-scopes", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    const obj = JSON.parse(r.stdout.trim());
+    assertEquals(obj.data.scopes, [
+      CODE_MARKER,
+      PREVIEWABLE_MARKER,
+      "widget",
+      "api",
+    ]);
   });
 });
 

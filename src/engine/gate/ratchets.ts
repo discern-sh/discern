@@ -26,6 +26,7 @@ import {
 import {
   appliedResult,
   type DiscernResult,
+  type PlanStep,
   previewResult,
   renderPlan,
   type StepOutcome,
@@ -279,6 +280,31 @@ interface RatchetExecution {
   results: StepResult[];
 }
 
+function ratchetPlanIntegrityResult(
+  plan: RatchetPlan,
+  steps: readonly PlanStep[],
+): StepResult {
+  return {
+    step: {
+      kind: "ratchet",
+      label: "plan-integrity",
+      disposition: "gate",
+      note:
+        `internal error: planned ${plan.ratchets.length} ratchet(s) but projected ${steps.length} step(s).`,
+    },
+    outcome: "failed",
+  };
+}
+
+export function ratchetPlanIntegrityFailure(
+  plan: RatchetPlan,
+  steps: readonly PlanStep[],
+): StepResult | undefined {
+  return steps.length === plan.ratchets.length
+    ? undefined
+    : ratchetPlanIntegrityResult(plan, steps);
+}
+
 /**
  * Apply a ratchet plan — the thin executor. Loops the planned ratchets, checking
  * each (the never-loosen read + the measurement + the comparison), and collects a
@@ -293,13 +319,22 @@ async function executeRatchetPlan(
   out: Out,
 ): Promise<RatchetExecution> {
   const steps = ratchetPlanToEngine(plan).steps;
+  const mismatch = ratchetPlanIntegrityFailure(plan, steps);
+  if (mismatch !== undefined) {
+    out.error(mismatch.step.note ?? "Ratchet plan integrity check failed.");
+    return { ok: false, results: [mismatch] };
+  }
   const results: StepResult[] = [];
   let ok = true;
   for (let i = 0; i < plan.ratchets.length; i++) {
     const r = plan.ratchets[i];
     const step = steps[i];
     if (r === undefined || step === undefined) {
-      continue; // unreachable: steps mirror ratchets 1:1
+      const failure = ratchetPlanIntegrityResult(plan, steps);
+      out.error(failure.step.note ?? "Ratchet plan integrity check failed.");
+      results.push(failure);
+      ok = false;
+      break;
     }
     const held = await ratchetCheck(r, root, mainBranch, out);
     const outcome: StepOutcome = held ? "ok" : "failed";
