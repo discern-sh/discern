@@ -2,6 +2,11 @@
 
 **Status**: accepted
 
+> **Renamed** — the `fix-a-bug-class` skill this ADR introduces ships as
+> `discern-cure-a-bug` since
+> [ADR 0086](0086-prefix-and-expand-bundled-skills.md), which prefixed and
+> expanded the bundled skill set. The discipline is unchanged.
+
 ## Context
 
 The dominant failure mode in agent-driven development is narrow. An agent fixes

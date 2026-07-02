@@ -39,8 +39,8 @@ prose names your real branch and omits content for anything you haven't
 configured (a ratchet, a worktree resource).
 
 The Skills are the bundled built-ins (`delegate-task`, `discern-document-subsystem`,
-`fix-a-bug-class`, and `discern-write-adr`) plus any you author under `[skills].dir`
-(default `./skills`, yours overriding a built-in by name). The `fix-a-bug-class`
+`discern-cure-a-bug`, and `discern-write-adr`) plus any you author under `[skills].dir`
+(default `./skills`, yours overriding a built-in by name). The `discern-cure-a-bug`
 built-in pairs with an always-on norm in the built-in base — discern's first
 general working discipline shipped on by default
 ([ADR 0049](../_adr/0049-bug-class-discipline-built-in.md)). They materialize
