@@ -143,6 +143,9 @@ The explicit *no*s:
   is robust where detecting them is not: an agent's shell can be a terminal and
   a human can pipe, so `isTerminal()` would address the wrong reader on a wrong
   guess. Each reader self-selects its block.
+  [ADR 0087](0087-fresh-setup-welcome-decorates-only-on-tty.md) later narrows
+  this stance: content remains dual-addressed, while decoration alone may branch
+  on TTY for the fresh welcome.
 
 - **`discern setup` keeps its declarative behaviour.** Given `--config` or the
   scaffold flags (the CI/preset path), `setup` proceeds as `begin`; only the

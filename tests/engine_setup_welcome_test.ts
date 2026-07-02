@@ -19,6 +19,50 @@ import {
   SetupDoneOutputSchema,
   SetupVerifyOutputSchema,
 } from "../src/shared/result_schemas.ts";
+import {
+  renderFreshWelcome,
+  resolveWelcomeStyle,
+} from "../src/commands/setup_welcome.ts";
+
+const ESC = String.fromCharCode(27);
+const ANSI_ESCAPE = new RegExp(`${ESC}\\[[0-9;]*m`);
+const ANSI_ESCAPES = new RegExp(`${ESC}\\[[0-9;]*m`, "g");
+
+const FRESH_WELCOME_FACTS: readonly string[] = [
+  "discern",
+  "stack-neutral quality harness",
+  "coding agents and the humans who run them",
+  "This project isn't set up yet.",
+  "FOR HUMANS",
+  "quality gate",
+  "isolated git worktrees",
+  "agent instructions",
+  '"Run `discern setup` in this project."',
+  "Setup is isolated and reversible",
+  "no API",
+  "key, and no surprises",
+  "MOST CAPABLE model",
+  "Expect roughly 20–40 minutes",
+  "FOR CODING AGENTS",
+  "verify → begin → author → done",
+  "NOTHING is written",
+  "discern setup verify",
+  "Don't hand this back as a report",
+];
+
+function stripAnsi(text: string): string {
+  return text.replace(ANSI_ESCAPES, "");
+}
+
+function assertNoAnsi(text: string, label: string): void {
+  assert(!ANSI_ESCAPE.test(text), `${label} must not contain ANSI escapes`);
+}
+
+function assertFreshWelcomeFacts(text: string, label: string): void {
+  for (const fact of FRESH_WELCOME_FACTS) {
+    assertStringIncludes(text, fact, `${label} missing ${fact}`);
+  }
+}
 
 /** A git work tree with a file but NO discern.toml — the fresh-install entry point. */
 async function freshRepo(dir: string): Promise<void> {
@@ -28,11 +72,54 @@ async function freshRepo(dir: string): Promise<void> {
 
 // ── the welcome ────────────────────────────────────────────────────────────────
 
+Deno.test("the fresh welcome renderer adds TTY decoration without losing content", () => {
+  const plain = renderFreshWelcome({ tty: false }).join("\n");
+  const styled = renderFreshWelcome({ tty: true }).join("\n");
+  const styledPlain = stripAnsi(styled);
+
+  assertNoAnsi(plain, "plain renderer");
+  assert(
+    ANSI_ESCAPE.test(styled),
+    "TTY renderer should apply ANSI styling",
+  );
+  assertStringIncludes(styledPlain, "╭");
+  assertStringIncludes(styledPlain, "╰");
+  for (const line of styledPlain.split("\n")) {
+    assert(
+      line.length <= 80,
+      `styled welcome line is wider than 80 columns (${line.length}): ${line}`,
+    );
+  }
+  assertFreshWelcomeFacts(plain, "plain welcome");
+  assertFreshWelcomeFacts(styledPlain, "styled welcome");
+});
+
+Deno.test("the fresh welcome style resolver keeps --no-color and NO_COLOR plain on a TTY", () => {
+  const plain = renderFreshWelcome({ tty: false });
+  // The CLI's existing noColor flag is shared by `--no-color` and NO_COLOR; when it
+  // is true, the welcome falls back to the plain render even if stdout is a TTY.
+  assertEquals(
+    renderFreshWelcome(resolveWelcomeStyle({
+      stdoutTty: true,
+      noColor: true,
+    })),
+    plain,
+  );
+  assertEquals(
+    renderFreshWelcome(resolveWelcomeStyle({
+      stdoutTty: false,
+      noColor: false,
+    })),
+    plain,
+  );
+});
+
 Deno.test("the fresh welcome dual-addresses both readers and writes nothing", async () => {
   await withTempDir(async (dir) => {
     await freshRepo(dir);
     const r = await runAgent(dir, ["setup"]);
     assertEquals(r.code, 0, r.output);
+    assertNoAnsi(r.stdout, "piped fresh welcome");
     // Both readers are addressed — robust where detecting them is not (ADR 0075).
     assertStringIncludes(r.stdout, "FOR HUMANS");
     assertStringIncludes(r.stdout, "FOR CODING AGENTS");
