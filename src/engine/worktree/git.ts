@@ -975,6 +975,8 @@ function delay(ms: number): Promise<void> {
 /** One worktree record parsed from `git worktree list --porcelain`. */
 interface WorktreeRecord {
   path: string;
+  /** The checked-out commit SHA, when `git worktree list --porcelain` reports it. */
+  head: string;
   /** The full `branch` ref (e.g. `refs/heads/foo`), or "" when detached. */
   branch: string;
   locked: boolean;
@@ -1000,12 +1002,15 @@ function parseWorktreeList(porcelain: string): WorktreeRecord[] {
       flush();
       cur = {
         path: line.slice("worktree ".length),
+        head: "",
         branch: "",
         locked: false,
         prunable: false,
       };
     } else if (cur) {
-      if (line.startsWith("branch ")) {
+      if (line.startsWith("HEAD ")) {
+        cur.head = line.slice("HEAD ".length);
+      } else if (line.startsWith("branch ")) {
         cur.branch = line.slice("branch ".length);
       } else if (line.startsWith("locked")) {
         cur.locked = true;
@@ -1236,7 +1241,7 @@ export async function listWorktreeFleet(
 export interface PruneOptions {
   /** Print what would happen without removing anything. */
   dryRun?: boolean;
-  /** Allow clean detached worktrees to be removed. */
+  /** Allow clean detached worktrees whose HEAD is already merged to be removed. */
   includeDetached?: boolean;
   /** Integration-branch fallback when `MAIN_BRANCH` is unset (`[project].main_branch`). */
   mainBranch?: string;
@@ -1295,6 +1300,14 @@ export async function pruneGitWorktrees(
       `refs/heads/${branch}`,
       `refs/heads/${mainBranch}`,
     ], repoRoot)).success;
+  const commitIsMerged = async (commit: string): Promise<boolean> =>
+    commit !== "" &&
+    (await git([
+      "merge-base",
+      "--is-ancestor",
+      commit,
+      `refs/heads/${mainBranch}`,
+    ], repoRoot)).success;
 
   const listRun = await git(["worktree", "list", "--porcelain"], repoRoot);
   const records = parseWorktreeList(listRun.stdout);
@@ -1337,6 +1350,8 @@ export async function pruneGitWorktrees(
       }
     } else if (!includeDetached) {
       keepReasons.push("detached HEAD");
+    } else if (!(await commitIsMerged(rec.head))) {
+      keepReasons.push("detached HEAD has unmerged commits");
     }
 
     const statusRun = await git(

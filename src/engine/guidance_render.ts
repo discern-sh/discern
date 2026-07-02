@@ -83,9 +83,10 @@ export function guidanceContext(config: DiscernConfig): GuidanceContext {
   const agents = resolveConfiguredAgents(config);
   const codeList = (items: readonly string[]): string =>
     items.map((i) => `\`${i}\``).join(", ");
-  // The files discern actually EMITS for the configured agents: reuse-canonical
-  // providers (which read AGENTS.md natively) contribute nothing, and a repeated
-  // path collapses — so the never-edit sentence names each generated file once.
+  // The files discern actually emits for the configured set: a reuse-canonical
+  // provider contributes the canonical file when no canonical provider is present,
+  // and repeated paths collapse — so the never-edit sentence names each generated
+  // file once.
   const agentFiles = emittedGuidancePaths(guidanceFilesFor(agents));
   return {
     vars: {
@@ -176,23 +177,29 @@ function guidanceFilesFor(agents: readonly string[]): GuidanceFile[] {
  * The agent-file content map for the given guidance entries and composed body —
  * PURE, keyed by project-relative path. Each entry gets the full body, or — when it
  * declares a `pointer` and a DIFFERENT canonical file is also emitted — that
- * pointer; a reuse-canonical entry is skipped entirely ({@link emitsGuidanceFile}),
- * so it adds no key (its content is the canonical file another entry emits). A Map
- * keyed by path means a duplicate path collapses to one, never written twice. The
- * core {@link renderAgentFiles} computes content with, factored out so a synthetic
- * provider set can be exercised in tests without an install.
+ * pointer. A reuse-canonical entry adds no vendor-specific file; when no canonical
+ * provider is configured in this set, it causes its canonical read path to carry
+ * the full body. A Map keyed by path means a duplicate path collapses to one, never
+ * written twice. The core {@link renderAgentFiles} computes content with, factored
+ * out so a synthetic provider set can be exercised in tests without an install.
  */
 export function agentFileContents(
   files: readonly GuidanceFile[],
   body: string,
 ): Map<string, string> {
-  // The canonical agent file the pointer mirrors import (codex → AGENTS.md). When
-  // none is emitted there is nothing to point at, so every file gets the full body.
-  const canonicalRel = files.find((g) => g.canonical)?.path;
+  // The canonical agent file the pointer mirrors import (codex → AGENTS.md). When a
+  // configured set has only reuse-canonical providers, their read path becomes the
+  // canonical file for that set.
+  const configuredCanonical = files.find((g) => g.canonical);
+  const canonicalRel = configuredCanonical?.path ??
+    files.find((g) => g.reuseCanonical === true)?.path;
   const out = new Map<string, string>();
   for (const gf of files) {
     if (!emitsGuidanceFile(gf)) {
-      continue; // reuse-canonical: reads AGENTS.md natively — emit nothing.
+      if (configuredCanonical === undefined && gf.path === canonicalRel) {
+        out.set(gf.path, body);
+      }
+      continue; // reuse-canonical: no vendor-specific file.
     }
     let fileBody = body;
     if (
@@ -210,9 +217,11 @@ export function agentFileContents(
  * The expected content of every agent file `discern refresh` would write, keyed by
  * project-relative path. Empty when the `guidance` feature is off (nothing is
  * generated). Each configured provider gets the full body, or — when it declares a
- * `pointer` and a different canonical file is also emitted — that pointer; a
- * reuse-canonical provider adds nothing (it reads the canonical file directly).
- * Unknown agent names are skipped (the writer warns about them). PURE: reads only.
+ * `pointer` and a different canonical file is also emitted — that pointer. A
+ * reuse-canonical provider adds no vendor-specific file; if no canonical provider
+ * is configured in the set, its read path is rendered as the canonical full-body
+ * file. Unknown agent names are skipped (the writer warns about them). PURE: reads
+ * only.
  */
 export async function renderAgentFiles(
   root: string,

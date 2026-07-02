@@ -3,13 +3,15 @@
  * parse-and-validate used by `doctor`.
  *
  * `renderTomlStringList` turns answers into the quoted, comma-joined array items
- * the template literal expects (with `"` escaped). `parseDiscernToml` surfaces a
- * minimally-typed view of `[project]`: present string/array fields are kept,
- * wrong-typed or missing fields collapse to `undefined`, and invalid TOML throws
- * a message that says so. Both sides of each branch are exercised.
+ * the template literal expects (with `\` and `"` escaped, and control characters
+ * rejected). `parseDiscernToml` surfaces a minimally-typed view of `[project]`:
+ * present string/array fields are kept, wrong-typed or missing fields collapse to
+ * `undefined`, and invalid TOML throws a message that says so. Both sides of each
+ * branch are exercised.
  */
 
 import { assert, assertEquals, assertThrows } from "@std/assert";
+import { parse as parseToml } from "@std/toml";
 import {
   parseDiscernToml,
   renderTomlStringList,
@@ -29,6 +31,30 @@ Deno.test("renderTomlStringList yields an empty string for an empty list", () =>
 
 Deno.test("renderTomlStringList escapes embedded double-quotes", () => {
   assertEquals(renderTomlStringList(['say "hi"']), '"say \\"hi\\""');
+});
+
+Deno.test("renderTomlStringList round-trips adversarial single-line strings", () => {
+  const items = [
+    "src\\win\\**",
+    "trailing\\",
+    'say "hi"',
+    "unicode/é/**",
+  ];
+
+  const rendered = `items = [${renderTomlStringList(items)}]`;
+  const parsed = parseToml(rendered) as { items?: unknown };
+
+  assertEquals(parsed.items, items);
+});
+
+Deno.test("renderTomlStringList rejects values that cannot be rendered on one TOML line", () => {
+  for (const item of ["line\nbreak", "carriage\rreturn", "nul\u0000byte"]) {
+    assertThrows(
+      () => renderTomlStringList([item]),
+      Error,
+      "control character",
+    );
+  }
 });
 
 Deno.test("parseDiscernToml reads a fully-populated [project] block", () => {
