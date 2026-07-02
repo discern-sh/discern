@@ -102,7 +102,9 @@ Deno.test("shipped content names no vendor-specific skills dir (stays provider-n
   const banned = allSkillsDirs();
   const offenders: string[] = [];
   for (const tree of trees) {
-    for await (const entry of walk(tree, { exts: [".md"], includeDirs: false })) {
+    for await (
+      const entry of walk(tree, { exts: [".md"], includeDirs: false })
+    ) {
       const text = await Deno.readTextFile(entry.path);
       for (const dir of banned) {
         if (text.includes(dir)) {
@@ -114,7 +116,9 @@ Deno.test("shipped content names no vendor-specific skills dir (stays provider-n
   assertEquals(
     offenders,
     [],
-    `shipped content must stay provider-neutral — reference a skill by name, not a vendor path:\n${offenders.join("\n")}`,
+    `shipped content must stay provider-neutral — reference a skill by name, not a vendor path:\n${
+      offenders.join("\n")
+    }`,
   );
 });
 

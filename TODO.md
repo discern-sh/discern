@@ -368,11 +368,11 @@ _Product positioning, messaging, and launch/content tasks._
       its own gate" proves the flow is real, the docs discipline is tolerable,
       and the gate isn't theoretical — the best possible demo. Put it in launch
       material.
-- [ ] **Coin: "the project gets smarter over time".** A candidate tagline for the
-      website/copy, capturing how the `discern-teach-the-project` skill routes each
-      session's lessons back into the harness (guidance, skills, recipes, docs, ADRs)
-      so every future agent — of any vendor — inherits them. Drop it in when the
-      messaging is ready.
+- [ ] **Coin: "the project gets smarter over time".** A candidate tagline for
+      the website/copy, capturing how the `discern-teach-the-project` skill
+      routes each session's lessons back into the harness (guidance, skills,
+      recipes, docs, ADRs) so every future agent — of any vendor — inherits
+      them. Drop it in when the messaging is ready.
 
 ## 👨‍💻 Jack's Odds and Ends
 
