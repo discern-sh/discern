@@ -9,7 +9,7 @@ overlaps.
 
 This brief is the constant; the scope manifest is the variable.
 
-The [`document-subsystem`](../../templates/skills/document-subsystem/SKILL.md)
+The [`discern-document-subsystem`](../../templates/skills/discern-document-subsystem/SKILL.md)
 skill dispatches this brief — invoke it to document or refresh a subtree rather
 than working freehand.
 

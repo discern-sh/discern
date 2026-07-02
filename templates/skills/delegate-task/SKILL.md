@@ -53,7 +53,7 @@ A handful of constraints hold for any task in any discern project. Fold them in 
 - **Commit atomically** — one logical step per commit, clear messages, so the result reviews cleanly step by step.
 - **Never hand-edit generated files** — change the source and re-run the producing command; the gate flags drift either way.
 - **Fix the class, not the instance** — a real fix leaves behind a check that fails on the whole class of defect (the `fix-a-bug-class` skill is the procedure).
-- **Record notable decisions** — a hard-to-reverse or surprising choice deserves an ADR (the `write-adr` skill).
+- **Record notable decisions** — a hard-to-reverse or surprising choice deserves an ADR (the `discern-write-adr` skill).
 
 Keep this to a few lines — the agent's own guidance file already states most of it, the project's own rules included. You are reinforcing the ones *this* task leans on, not re-teaching the project.
 

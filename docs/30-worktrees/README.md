@@ -79,7 +79,7 @@ inspectable before they act.
 
 > **Status: partial.** `the-resources.md` is written; the remaining lifecycle /
 > identity / integration leaves are still stubs — fill them with the
-> [`document-subsystem`](../../templates/skills/document-subsystem/SKILL.md)
+> [`discern-document-subsystem`](../../templates/skills/discern-document-subsystem/SKILL.md)
 > skill.
 
 ## See also

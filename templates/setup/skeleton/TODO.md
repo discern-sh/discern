@@ -18,7 +18,7 @@ The single source of truth for **outstanding work**: verified defects, deferred 
 subsystem subtrees (`10-…` onward) ship as stubs, still to be written from the
 code. Filling them is the one piece of work a fresh project starts out owing.
 
-- [ ] **Document each numbered doc subtree.** Use the `document-subsystem` skill — one run per subsystem — to write that subtree's `README.md` and its leaves from the real code, replacing the placeholder stubs setup laid. Delete each subtree's line as you fill it, and delete this whole section once the tree is complete.
+- [ ] **Document each numbered doc subtree.** Use the `discern-document-subsystem` skill — one run per subsystem — to write that subtree's `README.md` and its leaves from the real code, replacing the placeholder stubs setup laid. Delete each subtree's line as you fill it, and delete this whole section once the tree is complete.
 
 ---
 

@@ -1,6 +1,6 @@
 ---
-name: write-adr
-description: Guide writing an Architecture Decision Record (ADR) — a short doc capturing a significant decision and why. Use when the user says "write an ADR", "record this decision", "should this be an ADR?", when a decision overrides a design principle, or when a hard-to-reverse, surprising trade-off has just been made and deserves a written record.
+name: discern-write-adr
+description: Guide writing an Architecture Decision Record (ADR) — a short doc capturing a significant decision and why. Use when the user says "write an ADR", "record this decision", "should this be an ADR?", when a decision overrides a design principle, or when a hard-to-reverse, surprising trade-off has just been made and deserves a written record. Bundled with discern.
 ---
 
 # Write an ADR
@@ -19,7 +19,7 @@ restate the format — it walks you through *applying* it. There is one home for
 
 ADRs live in `<docs-dir>_adr/`. If that directory doesn't exist yet — a project
 that hasn't run `discern setup` — create it from this skill's skeleton before
-writing: copy `.claude/skills/write-adr/skeleton/docs/_adr/` (the canonical
+writing: copy `.claude/skills/discern-write-adr/skeleton/docs/_adr/` (the canonical
 `README.md` format guide and `0000-template.md`) to `<docs-dir>_adr/`. If it
 already exists, skip this.
 

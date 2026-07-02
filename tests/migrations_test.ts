@@ -804,8 +804,8 @@ Deno.test("migration 5→6 dissolves .discern/: moves config/guidance/recipes/au
     // just SKILL.md, so the fixture mirrors the full bundled directory.
     await Deno.mkdir(join(dir, ".discern/skills"), { recursive: true });
     await copy(
-      join(REAL_TEMPLATES, "skills/write-adr"),
-      join(dir, ".discern/skills/write-adr"),
+      join(REAL_TEMPLATES, "skills/discern-write-adr"),
+      join(dir, ".discern/skills/discern-write-adr"),
     );
     await Deno.mkdir(join(dir, ".discern/skills/kit-special"), {
       recursive: true,
@@ -870,7 +870,7 @@ Deno.test("migration 5→6 dissolves .discern/: moves config/guidance/recipes/au
     // R1: the AUTHORED skill is preserved (moved to ./skills/); the pristine
     // bundled one is pruned (the binary re-ships it).
     assertEquals(await targetExists(dir, "skills/kit-special/SKILL.md"), true);
-    assertEquals(await targetExists(dir, "skills/write-adr"), false);
+    assertEquals(await targetExists(dir, "skills/discern-write-adr"), false);
 
     // .gitignore: the dead .discern ignore is gone; the mirrors are ignored;
     // AGENTS.md is NOT ignored; the user's entry survives.
@@ -963,26 +963,26 @@ Deno.test("migration 5→6 preserves a CUSTOMIZED bundled skill that differs onl
     // a user-added file elsewhere in the tree. The SKILL.md-only check would have
     // judged this "pristine" and deleted the whole dir, losing the custom file.
     const shippedSkill = await Deno.readTextFile(
-      join(REAL_TEMPLATES, "skills/write-adr/SKILL.md"),
+      join(REAL_TEMPLATES, "skills/discern-write-adr/SKILL.md"),
     );
-    await Deno.mkdir(join(dir, ".discern/skills/write-adr/skel/docs/_adr"), {
+    await Deno.mkdir(join(dir, ".discern/skills/discern-write-adr/skel/docs/_adr"), {
       recursive: true,
     });
     await Deno.writeTextFile(
-      join(dir, ".discern/skills/write-adr/SKILL.md"),
+      join(dir, ".discern/skills/discern-write-adr/SKILL.md"),
       shippedSkill,
     );
     await Deno.writeTextFile(
-      join(dir, ".discern/skills/write-adr/skel/docs/_adr/MY-NOTE.md"),
+      join(dir, ".discern/skills/discern-write-adr/skel/docs/_adr/MY-NOTE.md"),
       "# my customization the migration must not delete\n",
     );
 
     await applyMigrations({ destDir: dir, from: 5, to: 6, onNote: () => {} });
 
     // The whole customized tree is preserved as an authored override, not pruned.
-    assertEquals(await targetExists(dir, "skills/write-adr/SKILL.md"), true);
+    assertEquals(await targetExists(dir, "skills/discern-write-adr/SKILL.md"), true);
     assertEquals(
-      await targetExists(dir, "skills/write-adr/skel/docs/_adr/MY-NOTE.md"),
+      await targetExists(dir, "skills/discern-write-adr/skel/docs/_adr/MY-NOTE.md"),
       true,
     );
     assertEquals(await targetExists(dir, ".discern"), false);

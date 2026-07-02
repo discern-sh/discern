@@ -102,7 +102,7 @@ Deno.test("hook WorktreeCreate: creates the worktree, runs setup, prints its pat
     // It is a real linked worktree, with `discern worktree` setup having run.
     assert(await exists(join(wt, ".git")), `not a worktree\n${r.stderr}`);
     assert(
-      await exists(join(wt, ".claude/skills/write-adr/SKILL.md")),
+      await exists(join(wt, ".claude/skills/discern-write-adr/SKILL.md")),
       `setup did not run inside the worktree\n${r.stderr}`,
     );
   });

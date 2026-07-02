@@ -57,7 +57,7 @@ TTY, and `--list` / `--json` / `--raw` / `--export` off one.
 The subsystems are numbered subtrees, in the order a newcomer should read them.
 Each currently holds a `README.md` tour; deeper leaves are filled
 subtree-by-subtree with the
-[`document-subsystem`](../templates/skills/document-subsystem/SKILL.md) skill.
+[`discern-document-subsystem`](../templates/skills/discern-document-subsystem/SKILL.md) skill.
 The numbers are a reading order, not a contract — rename and renumber freely.
 
 | Path                                             | What's in it                                                                                                                                                                                                                                                                                                                                                                                                              |
@@ -93,7 +93,7 @@ guard test pins this — `tests/docs_curation_test.ts`).
 
 The tree is seeded once by `discern setup` at `[docs].dir`, then grown
 subtree-by-subtree with the
-[`document-subsystem`](../templates/skills/document-subsystem/SKILL.md) skill,
+[`discern-document-subsystem`](../templates/skills/discern-document-subsystem/SKILL.md) skill,
 which resolves the same configured root and follows the brief in
 [_internal/documenter-agent-brief.md](_internal/documenter-agent-brief.md). A
 single skeleton-and-orientation pass establishes the shared terminology and

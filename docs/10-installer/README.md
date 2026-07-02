@@ -59,7 +59,7 @@ Edit the schema, not the generated files.
 
 > **Status: stub.** This README orients the subtree; the leaves below are not
 > written yet. Fill them with the
-> [`document-subsystem`](../../templates/skills/document-subsystem/SKILL.md)
+> [`discern-document-subsystem`](../../templates/skills/discern-document-subsystem/SKILL.md)
 > skill.
 
 ## Planned leaves

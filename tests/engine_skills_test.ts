@@ -17,7 +17,7 @@ Deno.test("discern skills list shows the built-ins, and --json emits structured 
     const human = await runAgent(dir, ["skills", "list"]);
     assertEquals(human.code, 0, human.output);
     assertStringIncludes(human.stdout, "Effective skills:");
-    assertStringIncludes(human.stdout, "write-adr");
+    assertStringIncludes(human.stdout, "discern-write-adr");
     assertStringIncludes(human.stdout, "built-in");
 
     const json = await runAgent(dir, ["skills", "list", "--json"]);
@@ -31,7 +31,7 @@ Deno.test("discern skills list shows the built-ins, and --json emits structured 
     assertEquals(obj.verb, "skills:list");
     assert(
       obj.data.skills.some((r) =>
-        r.name === "write-adr" && r.source === "bundled"
+        r.name === "discern-write-adr" && r.source === "bundled"
       ),
     );
   });
@@ -41,11 +41,11 @@ Deno.test("discern skills eject copies a built-in and the effective set then pre
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
 
-    const r = await runAgent(dir, ["skills", "eject", "write-adr"]);
+    const r = await runAgent(dir, ["skills", "eject", "discern-write-adr"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "Ejected");
     assert(
-      await exists(join(dir, "skills/write-adr/SKILL.md")),
+      await exists(join(dir, "skills/discern-write-adr/SKILL.md")),
       "ejected copy must land in ./skills/",
     );
     // The ejected copy now overrides the built-in in the listing.
@@ -53,7 +53,7 @@ Deno.test("discern skills eject copies a built-in and the effective set then pre
     assertStringIncludes(list.stdout, "yours (overrides built-in)");
     // And it materialized as a symlink under .claude/skills/.
     assert(
-      (await Deno.lstat(join(dir, ".claude/skills/write-adr"))).isSymlink,
+      (await Deno.lstat(join(dir, ".claude/skills/discern-write-adr"))).isSymlink,
       "the override should materialize as a symlink",
     );
   });

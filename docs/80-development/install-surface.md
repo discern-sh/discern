@@ -150,9 +150,9 @@ its own directory:
 | Skill                                                                      | What it does                                                                  |
 | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
 | [`delegate-task`](../../templates/skills/delegate-task/SKILL.md)           | Brief a fresh agent to carry out a discussed task, then review the result.    |
-| [`document-subsystem`](../../templates/skills/document-subsystem/SKILL.md) | Write or refresh a subtree under `[docs].dir` per the documenter brief.       |
+| [`discern-document-subsystem`](../../templates/skills/discern-document-subsystem/SKILL.md) | Write or refresh a subtree under `[docs].dir` per the documenter brief.       |
 | [`fix-a-bug-class`](../../templates/skills/fix-a-bug-class/SKILL.md)       | Fix a whole class of defect — not one instance — behind a permanent detector. |
-| [`write-adr`](../../templates/skills/write-adr/SKILL.md)                   | Record a significant decision as an Architecture Decision Record.             |
+| [`discern-write-adr`](../../templates/skills/discern-write-adr/SKILL.md)                   | Record a significant decision as an Architecture Decision Record.             |
 
 (Seeding a fresh install is **not** a skill — it is the `discern setup` command;
 see below and [ADR 0024](../_adr/_superseded/0024-bootstrap-as-command.md),
@@ -170,8 +170,8 @@ The skeleton sources ship **with whatever creates them** — the command under
 | Materialised by                                                            | Skeleton it carries                                                                                  | What lands in the project                                                                                                            |
 | -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | `discern setup` (the command)                                              | `templates/setup/skeleton/docs/{README.md, 00-orientation/*, 80-development/*}` + `skeleton/TODO.md` | The orientation tree and `80-development/` tree under `[docs].dir`, plus root `TODO.md`; each is laid only when absent, then filled. |
-| [`write-adr`](../../templates/skills/write-adr/SKILL.md)                   | `skeleton/docs/_adr/{0000-template.md, README.md}`                                                   | `<docs-dir>_adr/`, created on first use.                                                                                             |
-| [`document-subsystem`](../../templates/skills/document-subsystem/SKILL.md) | `skeleton/docs/_internal/{documenter-agent-brief.md, scopes/_template.md}`                           | `<docs-dir>_internal/`, the documenter brief and per-subtree scope-manifest template.                                                |
+| [`discern-write-adr`](../../templates/skills/discern-write-adr/SKILL.md)                   | `skeleton/docs/_adr/{0000-template.md, README.md}`                                                   | `<docs-dir>_adr/`, created on first use.                                                                                             |
+| [`discern-document-subsystem`](../../templates/skills/discern-document-subsystem/SKILL.md) | `skeleton/docs/_internal/{documenter-agent-brief.md, scopes/_template.md}`                           | `<docs-dir>_internal/`, the documenter brief and per-subtree scope-manifest template.                                                |
 
 So the configured documentation tree, `TODO.md`, `guidance.md`, and the compiled
 agent files appear **after** install, with real content — they are not a static
