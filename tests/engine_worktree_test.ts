@@ -21,6 +21,7 @@ import {
   runAgent,
   scaffoldEngine,
   worktreePath,
+  writeExecutable,
 } from "./engine_helpers.ts";
 
 /** A scaffolded, committed main repo with one linked worktree ready to drive. */
@@ -28,6 +29,51 @@ async function mainWithWorktree(dir: string, name: string): Promise<string> {
   await scaffoldEngine(dir);
   await gitInit(dir);
   return await addWorktree(dir, name);
+}
+
+async function leaveTrackedAndUntrackedWip(wt: string): Promise<void> {
+  await Deno.writeTextFile(join(wt, "tracked.txt"), "committed\n");
+  await git(wt, "add", "-A");
+  await git(wt, "commit", "-q", "-m", "add tracked file", "--no-gpg-sign");
+
+  await Deno.writeTextFile(join(wt, "tracked.txt"), "tracked wip\n");
+  await Deno.writeTextFile(join(wt, "untracked.txt"), "untracked wip\n");
+}
+
+async function assertWipLandedStaged(
+  dir: string,
+  wt: string,
+  output: string,
+): Promise<void> {
+  assertEquals(
+    await exists(wt),
+    false,
+    `worktree should be removed after preserving WIP\n${output}`,
+  );
+  assertEquals(
+    await Deno.readTextFile(join(dir, "tracked.txt")),
+    "tracked wip\n",
+  );
+  assertEquals(
+    await Deno.readTextFile(join(dir, "untracked.txt")),
+    "untracked wip\n",
+  );
+  const status = await gitOut(dir, "status", "--porcelain");
+  assertStringIncludes(
+    status,
+    "M  tracked.txt",
+    `tracked WIP must land staged\n${status}\n${output}`,
+  );
+  assertStringIncludes(
+    status,
+    "A  untracked.txt",
+    `untracked WIP must land staged\n${status}\n${output}`,
+  );
+  assertEquals(
+    status.includes("??"),
+    false,
+    `WIP must be staged, not left untracked\n${status}\n${output}`,
+  );
 }
 
 Deno.test("worktree setup: refreshes agent files and links skills inside the worktree", async () => {
@@ -152,6 +198,85 @@ Deno.test("graduate --to trunk: fast-forwards the trunk, lands on it, and delete
   });
 });
 
+for (const to of ["branch", "trunk"] as const) {
+  Deno.test(`graduate --to ${to}: preserves tracked and untracked WIP as staged main changes`, async () => {
+    await withTempDir(async (dir) => {
+      const name = `dirty-${to}`;
+      const wt = await mainWithWorktree(dir, name);
+      await leaveTrackedAndUntrackedWip(wt);
+
+      const r = await runAgent(wt, ["graduate", "--to", to]);
+      assertEquals(r.code, 0, r.output);
+      await assertWipLandedStaged(dir, wt, r.output);
+
+      assertEquals(
+        await gitOut(dir, "branch", "--show-current"),
+        to === "trunk" ? "main" : `agent/${name}`,
+        `main checkout should land on the requested destination\n${r.output}`,
+      );
+      if (to === "trunk") {
+        assertEquals(
+          await gitOut(dir, "branch", "--list", `agent/${name}`),
+          "",
+          `the merged branch should be deleted before the WIP soft reset\n${r.output}`,
+        );
+      }
+    });
+  });
+}
+
+Deno.test("graduate: reports a failed WIP soft reset and names where the WIP commit remains", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "reset-fail");
+    await leaveTrackedAndUntrackedWip(wt);
+
+    const tools = await Deno.makeTempDir({ prefix: "discern-reset-stub-" });
+    try {
+      const gitStub = join(tools, "git");
+      await writeExecutable(
+        gitStub,
+        [
+          "#!/usr/bin/env sh",
+          'if [ "$1" = "reset" ] && [ "$2" = "--soft" ] && [ "$3" = "HEAD~1" ]; then',
+          '  echo "simulated reset failure" >&2',
+          "  exit 42",
+          "fi",
+          'exec git "$@"',
+          "",
+        ].join("\n"),
+      );
+
+      const r = await runAgent(wt, ["graduate", "--to", "branch"], {
+        env: { GIT_BIN: gitStub },
+      });
+      assertEquals(r.code, 1, r.output);
+      assertStringIncludes(r.output, "reset --soft HEAD~1 failed");
+      assertStringIncludes(
+        r.output,
+        "WIP commit remains at HEAD of agent/reset-fail",
+      );
+      assertStringIncludes(r.output, dir);
+      assertEquals(
+        await gitOut(dir, "branch", "--show-current"),
+        "agent/reset-fail",
+        `main checkout should still be on the branch holding the WIP commit\n${r.output}`,
+      );
+      assertEquals(
+        await gitOut(dir, "log", "-1", "--format=%s"),
+        "WIP: graduate worktree (uncommitted changes)",
+        `the WIP commit should remain recoverable at HEAD\n${r.output}`,
+      );
+      assertEquals(
+        await exists(wt),
+        false,
+        "the reset failure happens after the worktree has been migrated",
+      );
+    } finally {
+      await Deno.remove(tools, { recursive: true });
+    }
+  });
+});
+
 Deno.test("graduate honours [worktree].graduate_to = trunk as the default destination", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "zeta");
@@ -201,6 +326,40 @@ Deno.test("graduate refuses (non-destructively) when the main checkout is dirty"
       await exists(wt),
       true,
       "worktree must be left intact on refusal",
+    );
+  });
+});
+
+Deno.test("graduate: refuses a branch behind main before WIP commit or removal", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "behind");
+    await leaveTrackedAndUntrackedWip(wt);
+    const branchHead = await gitOut(dir, "rev-parse", "agent/behind");
+
+    await Deno.writeTextFile(join(dir, "upstream.txt"), "from main\n");
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "advance main", "--no-gpg-sign");
+
+    const r = await runAgent(wt, ["graduate", "--to", "trunk"]);
+    assertEquals(r.code, 1, r.output);
+    assertStringIncludes(r.output, "Branch is behind main");
+    assertStringIncludes(r.output, "discern integrate");
+    assert(
+      await exists(wt),
+      `behind-main refusal must leave the worktree intact\n${r.output}`,
+    );
+    assertEquals(
+      await gitOut(dir, "rev-parse", "agent/behind"),
+      branchHead,
+      `behind-main refusal must not create a WIP commit or move the branch\n${r.output}`,
+    );
+    assertEquals(
+      await Deno.readTextFile(join(wt, "tracked.txt")),
+      "tracked wip\n",
+    );
+    assertEquals(
+      await Deno.readTextFile(join(wt, "untracked.txt")),
+      "untracked wip\n",
     );
   });
 });
@@ -434,6 +593,78 @@ Deno.test("worktree:prune keeps a sibling worktree that still has unmerged work"
       await exists(live),
       true,
       `a live, unmerged worktree must NOT be pruned\n${r.output}`,
+    );
+  });
+});
+
+Deno.test("worktree:prune --yes keeps a fully-merged worktree with uncommitted changes", async () => {
+  await withTempDir(async (dir) => {
+    const dirty = await mainWithWorktree(dir, "dirty-merged");
+    await Deno.writeTextFile(join(dirty, "tracked.txt"), "merged\n");
+    await git(dirty, "add", "-A");
+    await git(dirty, "commit", "-q", "-m", "merged work", "--no-gpg-sign");
+    await git(
+      dir,
+      "merge",
+      "--no-ff",
+      "-m",
+      "merge dirty",
+      "agent/dirty-merged",
+    );
+
+    await Deno.writeTextFile(join(dirty, "tracked.txt"), "dirty tracked\n");
+    await Deno.writeTextFile(join(dirty, "untracked.txt"), "dirty untracked\n");
+
+    const r = await runAgent(dir, ["worktree:prune", "--yes"]);
+    assertEquals(r.code, 0, r.output);
+    assert(
+      await exists(dirty),
+      `dirty merged worktree must not be pruned\n${r.output}`,
+    );
+    assertStringIncludes(r.output, "dirty 2 status entries");
+    assertEquals(
+      await Deno.readTextFile(join(dirty, "tracked.txt")),
+      "dirty tracked\n",
+    );
+    assertEquals(
+      await Deno.readTextFile(join(dirty, "untracked.txt")),
+      "dirty untracked\n",
+    );
+    assertStringIncludes(
+      await gitOut(dir, "branch", "--list", "agent/dirty-merged"),
+      "agent/dirty-merged",
+      `a kept worktree's checked-out branch must not be deleted\n${r.output}`,
+    );
+  });
+});
+
+Deno.test("worktree:prune --yes keeps a clean detached worktree whose HEAD is not merged", async () => {
+  await withTempDir(async (dir) => {
+    const detached = await mainWithWorktree(dir, "detached-unmerged");
+    await git(detached, "checkout", "--detach");
+    await Deno.writeTextFile(join(detached, "detached.txt"), "detached work\n");
+    await git(detached, "add", "-A");
+    await git(
+      detached,
+      "commit",
+      "-q",
+      "-m",
+      "detached work",
+      "--no-gpg-sign",
+    );
+    const detachedHead = await gitOut(detached, "rev-parse", "HEAD");
+
+    const r = await runAgent(dir, ["worktree:prune", "--yes"]);
+    assertEquals(r.code, 0, r.output);
+    assert(
+      await exists(detached),
+      `detached unmerged worktree must not be pruned\n${r.output}`,
+    );
+    assertStringIncludes(r.output, "detached HEAD has unmerged commits");
+    assertEquals(await gitOut(detached, "rev-parse", "HEAD"), detachedHead);
+    assertEquals(
+      await Deno.readTextFile(join(detached, "detached.txt")),
+      "detached work\n",
     );
   });
 });
