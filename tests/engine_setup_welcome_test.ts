@@ -98,16 +98,20 @@ Deno.test("bare `discern setup` reports already-set-up once recorded (phase done
 Deno.test("the fresh welcome --json carries the same instructional substance as the human render (parity)", async () => {
   // A JSON-consuming agent must not get a colder, thinner welcome than one reading
   // the dual-addressed human text (ADR 0075): the "you drive this; nothing until
-  // begin; open warmly and explain what discern is" framing rides on both paths.
+  // begin; verify hands you the message to relay" framing rides on both paths.
   await withTempDir(async (dir) => {
     await freshRepo(dir);
     const human = (await runAgent(dir, ["setup"])).stdout;
     const d =
       JSON.parse((await runAgent(dir, ["setup", "--json"])).stdout).data;
 
-    // The agent guidance carries the role + the consent framing the human prose has.
+    // The agent guidance carries the role + the verify funnel the human prose has,
+    // and points at verify as the source of the message to relay (ADR 0086).
     assertStringIncludes(d.agent_guidance, "nothing is written until");
-    assertStringIncludes(d.agent_guidance, "explain what discern is");
+    assertStringIncludes(
+      d.agent_guidance,
+      "hands you the exact message to relay",
+    );
     assertStringIncludes(d.agent_guidance, "discern setup verify");
     // The human framing carries the most-capable-model nudge the human block makes.
     assertStringIncludes(d.human_framing, "most capable model");

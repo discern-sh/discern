@@ -39,7 +39,7 @@ export interface WelcomeOptions {
  * the machine-readable mirror, kept in step with them by the welcome JSON tests.
  */
 const FRESH_AGENT_GUIDANCE =
-  "You are discern's configuration engine for this project — the capable agent already in the loop, here to set discern up for your human. This is a short workflow you DRIVE end to end (verify → begin → author → done), not a status to relay back and stop on; discern only guides you, and nothing is written until you run `discern setup begin`. Your next action now: run `discern setup verify` yourself to preview the plan and open the consent conversation — don't hand the welcome back as a report. Before any consent checklist, open warmly and explain what discern is to your human (they may be meeting it for the first time): a quality gate, isolated git worktrees, and shared agent instructions, tailored to their codebase by you. Reassure them it is isolated and reversible — setup touches only this folder, runs on a dedicated `discern-setup` branch in small revertible commits, needs no API key, and undoes by deleting the branch.";
+  "You are discern's configuration engine for this project — the capable agent already in the loop, here to set discern up for your human. This is a short workflow you DRIVE end to end (verify → begin → author → done), not a status to relay back and stop on; discern only guides you, and nothing is written until you run `discern setup begin`. Your next action now: run `discern setup verify` yourself to preview the plan and open the consent conversation — don't hand the welcome back as a report. It hands you the exact message to relay to your human (what discern is, what it will do and cost, and the points to confirm) — relay that, wait for their answers, then run `begin`.";
 
 const FRESH_HUMAN_FRAMING =
   "discern adds a quality gate, isolated git worktrees, and shared agent instructions to this repo, tailored to your codebase by your own coding agent — isolated, reversible, and with no API key. Point your most capable model at it: setup is one-time and high-leverage.";
@@ -170,8 +170,8 @@ const FRESH_WELCOME: readonly string[] = [
   "",
   "      discern setup verify        (read-only; add --json for machine output)",
   "",
-  "  Run it yourself: it tells you what to confirm with your human, then points",
-  "  you at the next step. Don't hand this back as a report — carry it through.",
+  "  Run it yourself: it hands you the exact message to relay to your human, then",
+  "  points you at the next step. Don't hand this back as a report — carry it through.",
 ];
 
 /** The in-progress welcome, as lines: the resume view. Lead with DERIVED progress
