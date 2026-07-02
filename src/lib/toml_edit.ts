@@ -12,10 +12,14 @@
  * ROOT-level keys (a `key = value` before any header), which `discern.toml` itself
  * has none of but a co-managed foreign file does (Codex's `environment.toml`
  * `version` / `name` — see {@link TomlEditor.setRootLiteral}). It is NOT a general
- * TOML writer — multi-line arrays and inline tables are out of scope.
+ * TOML writer — it renders scalar and single-line array assignments; multi-line
+ * arrays are only recognized as spans so replacements/deletions do not leave
+ * orphaned lines behind.
  */
 
-import { renderTomlStringList } from "./toml_render.ts";
+import { renderTomlString, renderTomlStringList } from "./toml_render.ts";
+
+type LineEnding = "\n" | "\r\n" | "\r";
 
 /** Escape a string for use inside a RegExp. */
 function escapeRegExp(s: string): string {
@@ -25,6 +29,32 @@ function escapeRegExp(s: string): string {
 /** True for a blank (whitespace-only) line. */
 function isBlankLine(line: string): boolean {
   return line.trim() === "";
+}
+
+/** The first newline sequence in a file, falling back to LF for new files. */
+function detectLineEnding(text: string): LineEnding {
+  return (text.match(/\r\n|\n|\r/u)?.[0] as LineEnding | undefined) ?? "\n";
+}
+
+/** Whether `text` ended with any newline sequence. */
+function hasTrailingLineEnding(text: string): boolean {
+  return /\r\n$|\n$|\r$/u.test(text);
+}
+
+/** Remove one final newline sequence before splitting into logical lines. */
+function withoutTrailingLineEnding(text: string): string {
+  if (text.endsWith("\r\n")) {
+    return text.slice(0, -2);
+  }
+  if (text.endsWith("\n") || text.endsWith("\r")) {
+    return text.slice(0, -1);
+  }
+  return text;
+}
+
+/** Split text into logical lines without carrying raw line-ending bytes. */
+function splitTomlLines(text: string): string[] {
+  return text.length === 0 ? [] : text.split(/\r\n|\n|\r/u);
 }
 
 /**
@@ -131,10 +161,7 @@ function arrayClosedOnLine(line: string, valueStart: number): boolean {
 
 /** Render a string as a double-quoted TOML value (escaping `\` and `"`). */
 export function tomlString(value: string): string {
-  if (value.includes("\n")) {
-    throw new Error("a TOML value cannot contain a newline");
-  }
-  return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+  return renderTomlString(value);
 }
 
 /** Render a number (or numeric string) as a TOML value, preserving its form. */
@@ -173,12 +200,15 @@ export class TomlEditor {
   private lines: string[];
   /** Whether the original text ended with a newline (so we restore it). */
   private trailingNewline: boolean;
+  /** The newline convention detected from the input, reused for inserted lines. */
+  private lineEnding: LineEnding;
 
   constructor(text: string) {
-    this.trailingNewline = text.endsWith("\n");
+    this.lineEnding = detectLineEnding(text);
+    this.trailingNewline = hasTrailingLineEnding(text);
     // Split into lines without a trailing empty element from the final newline.
-    const body = this.trailingNewline ? text.slice(0, -1) : text;
-    this.lines = body.length === 0 ? [] : body.split("\n");
+    const body = withoutTrailingLineEnding(text);
+    this.lines = splitTomlLines(body);
   }
 
   /**
@@ -312,7 +342,7 @@ export class TomlEditor {
    * — so a migration can give an evolving config the layout a fresh init has.
    */
   insertSectionBlockAfter(anchor: string, block: string): this {
-    const blockLines = block.split("\n");
+    const blockLines = splitTomlLines(block);
     const span = this.findSection(anchor);
     if (span === null) {
       return this.appendSectionBlock(blockLines);
@@ -329,7 +359,7 @@ export class TomlEditor {
    * header yet.
    */
   insertSectionBlockAtTop(block: string): this {
-    const blockLines = block.split("\n");
+    const blockLines = splitTomlLines(block);
     const firstHeader = this.lines.findIndex((l) => HEADER_RE.test(l));
     if (firstHeader === -1) {
       return this.appendSectionBlock(blockLines);
@@ -436,8 +466,8 @@ export class TomlEditor {
 
   /** The edited text, with the original trailing-newline convention restored. */
   toString(): string {
-    const body = this.lines.join("\n");
-    return this.trailingNewline ? `${body}\n` : body;
+    const body = this.lines.join(this.lineEnding);
+    return this.trailingNewline ? `${body}${this.lineEnding}` : body;
   }
 
   /**
