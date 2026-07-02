@@ -35,9 +35,12 @@ _creates_ a Worktree to inhabit; it never adopts or prunes an existing one. When
 [`integrate`](../../src/engine/worktree/lifecycle.ts) brings it into the branch,
 re-materializes the agent files + skills, and re-runs `[worktree.setup].ensure`
 so a merge that changed a lockfile leaves the worktree's dependencies current —
-all in one step. It is the deterministic inverse of graduate, and what the
-gate's merge check ([ADR 0050](../_adr/0050-merge-check-fail-fast.md)) points a
-behind branch at ([ADR 0055](../_adr/0055-integrate-verb.md),
+all in one step. It merges only into a tracked-clean tree: tracked edits that
+have not been committed must be committed or stashed first, while untracked
+local/session scratch files are left alone. It is the deterministic inverse of
+graduate, and what the gate's merge check
+([ADR 0050](../_adr/0050-merge-check-fail-fast.md)) points a behind branch at
+([ADR 0055](../_adr/0055-integrate-verb.md),
 [ADR 0059](../_adr/0059-worktree-setup-ensure.md)). When a change is done,
 [`graduate`](../../src/engine/worktree/lifecycle.ts) validates the exact tree it
 is about to land — running the whole gate, or skipping the re-run when a
@@ -45,10 +48,13 @@ gate-pass receipt proves the agent's own `finish` already passed this commit
 ([ADR 0067](../_adr/0067-graduate-validates-the-landed-tree.md)) — then
 graduates the branch into the main repo and removes the Worktree, landing per
 `[worktree].graduate_to` (or `--to` per run): onto its own branch for review, or
-fast-forwarding the trunk to it and deleting the merged branch;
-[`worktree:prune`](../../src/engine/worktree/lifecycle.ts) sweeps stale
-Worktrees and **reclaims the resources of any Worktree that vanished without a
-clean teardown** (the garbage-collection safety net).
+fast-forwarding the trunk to it and deleting the merged branch. Its
+main-checkout precondition also cares about tracked changes, not untracked local
+scratch; the worktree migration step remains stricter because it deliberately
+WIP-commits any leftover worktree changes (tracked or untracked) before removing
+the checkout; [`worktree:prune`](../../src/engine/worktree/lifecycle.ts) sweeps
+stale Worktrees and **reclaims the resources of any Worktree that vanished
+without a clean teardown** (the garbage-collection safety net).
 [`worktree-name`](../../src/engine/worktree/identity.ts) resolves a Worktree's
 stable identity (id / site / branch / port / db / worktree / resource).
 

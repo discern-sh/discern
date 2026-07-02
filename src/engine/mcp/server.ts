@@ -548,8 +548,8 @@ export const TOOLS: McpTool[] = [
       "precondition itself and returns exactly what to do next. It is idempotent and " +
       "safe to call anytime: a no-op success when the branch already contains " +
       "`{{main_branch}}` " +
-      "(reported, nothing merged, no refresh); it merges into a clean tree only, so " +
-      'it refuses (error:"precondition_failed") on uncommitted changes; and on a merge ' +
+      "(reported, nothing merged, no refresh); it merges into a tracked-clean tree only, so " +
+      'it refuses (error:"precondition_failed") on uncommitted tracked changes; and on a merge ' +
       "conflict it aborts cleanly (leaving the tree untouched) and refuses, naming the " +
       "conflicted files and the manual path to resolve them. " +
       "On a merge it returns `data` summarizing what landed BENEATH your work: the " +

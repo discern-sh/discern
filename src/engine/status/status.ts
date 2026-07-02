@@ -551,11 +551,12 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
       );
     }
     if (g.clean && g.behind_integration === 0 && g.ahead_integration > 0) {
-      // graduate would refuse against a dirty main checkout — say so if we can see it.
+      // graduate would refuse against tracked changes in the main checkout — say so
+      // if we can see them.
       const mainDirty = await isMainCheckoutDirty(ctx.root, main);
       hints.push(
         mainDirty
-          ? `Committed and up to date with ${main}, but the main checkout has uncommitted changes — commit or stash them there before \`discern graduate\`.`
+          ? `Committed and up to date with ${main}, but the main checkout has uncommitted tracked changes — commit or stash them there before \`discern graduate\`.`
           : `Committed and up to date with ${main}; \`discern graduate\` when ready.`,
       );
     }
@@ -587,7 +588,7 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
         hints.push(
           `${dirty.length} worktree${dirty.length === 1 ? "" : "s"} ${
             dirty.length === 1 ? "has" : "have"
-          } uncommitted changes: ${names}.`,
+          } uncommitted tracked changes: ${names}.`,
         );
       }
       for (const e of others) {
@@ -603,9 +604,9 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
   return hints;
 }
 
-/** Whether the main checkout has uncommitted changes — the cheap read that lets the
- * graduate-readiness hint warn that graduation would refuse. False when it can't be
- * resolved (no main repo, or we're already in it). */
+/** Whether the main checkout has uncommitted tracked changes — the cheap read that
+ * lets the graduate-readiness hint warn that graduation would refuse. False when it
+ * can't be resolved (no main repo, or we're already in it). */
 async function isMainCheckoutDirty(
   root: string,
   mainBranch: string,

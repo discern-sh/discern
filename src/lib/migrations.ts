@@ -721,6 +721,14 @@ export const MIGRATIONS: Migration[] = [
       );
     },
   },
+  {
+    from: 13,
+    describe:
+      "remove the .claude/settings.local.json gitignore exception so machine-local provider settings stay ignored (ADR 0089)",
+    apply: async (ctx) => {
+      await removeClaudeLocalSettingsGitignoreException(ctx);
+    },
+  },
 ];
 
 /**
@@ -752,6 +760,26 @@ const WORKTREE_ROOT_BLOCK =
 #       the old nesting; "../wts" a custom sibling).
 #   an ABSOLUTE path is used as-is.
 root = ""`;
+
+async function removeClaudeLocalSettingsGitignoreException(
+  ctx: MigrationContext,
+): Promise<void> {
+  const existing = await ctx.readText(".gitignore");
+  if (existing === undefined) {
+    return;
+  }
+  const lines = existing.split("\n");
+  const filtered = lines.filter((line) =>
+    !/^\s*!\/?\.claude\/settings\.local\.json\s*$/.test(line)
+  );
+  if (filtered.length === lines.length) {
+    return;
+  }
+  await ctx.writeText(".gitignore", filtered.join("\n"));
+  ctx.note(
+    "kept .claude/settings.local.json ignored as machine-local settings",
+  );
+}
 
 /** Render a live `[worktree.resources.<name>]` table (only the non-empty keys). */
 function liveResourceBlock(

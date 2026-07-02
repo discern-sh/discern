@@ -84,7 +84,8 @@ Deno.test("the production chain is contiguous up to the current schema", () => {
   // into the single-file footprint), 6→7 (bootstrap skill → command),
   // 7→8 (db/dev_server → [worktree.resources.*]), 8→9 (untrack AGENTS.md),
   // 9→10 (ignore .agents/skills/), 10→11 (drop [features].mcp), 11→12 (rename
-  // [worktree].graduate_to "main" → "trunk"), and 12→13 (add [worktree].root).
+  // [worktree].graduate_to "main" → "trunk"), 12→13 (add [worktree].root), and
+  // 13→14 (keep machine-local provider settings ignored).
   assertEquals(MIGRATIONS.map((m) => m.from), [
     1,
     2,
@@ -98,6 +99,7 @@ Deno.test("the production chain is contiguous up to the current schema", () => {
     10,
     11,
     12,
+    13,
   ]);
   assert(isChainContiguous(MIGRATIONS, SCHEMA_VERSION));
 });
@@ -498,6 +500,45 @@ Deno.test("migration 12→13 never invents a second root, and no-ops without a [
       !/root = /.test(await Deno.readTextFile(join(dir, "discern.toml"))),
       "must not add [worktree].root when there is no [worktree] table",
     );
+  });
+});
+
+Deno.test("migration 13→14 removes the .claude/settings.local.json un-ignore", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(
+      join(dir, ".gitignore"),
+      [
+        "/node_modules",
+        "",
+        "# --- discern harness ---",
+        "/AGENTS.md",
+        "/CLAUDE.md",
+        "/GEMINI.md",
+        "/.claude/*",
+        "!/.claude/settings.json",
+        "!/.claude/settings.local.json",
+        "/.agents/skills/",
+        "",
+      ].join("\n"),
+    );
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      '[meta]\nschema_version = 13\n[project]\nslug = "demo"\n',
+    );
+
+    await applyMigrations({ destDir: dir, from: 13, to: 14, onNote: () => {} });
+
+    const gitignore = await Deno.readTextFile(join(dir, ".gitignore"));
+    assertStringIncludes(gitignore, "/.claude/*");
+    assertStringIncludes(gitignore, "!/.claude/settings.json");
+    assert(
+      !/^\s*!\/?\.claude\/settings\.local\.json\s*$/m.test(gitignore),
+      `.claude/settings.local.json should stay ignored:\n${gitignore}`,
+    );
+    assertStringIncludes(gitignore, "/node_modules");
+
+    await applyMigrations({ destDir: dir, from: 13, to: 14, onNote: () => {} });
+    assertEquals(await Deno.readTextFile(join(dir, ".gitignore")), gitignore);
   });
 });
 

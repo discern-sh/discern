@@ -334,6 +334,6 @@ Deno.test("graduate --json reports a precondition failure as a JSON error", asyn
     assertEquals(obj.verb, "graduate");
     // error is a machine-stable slug; the human sentence rides in `message`.
     assertEquals(obj.error, "precondition_failed");
-    assertStringIncludes(obj.message, "uncommitted changes");
+    assertStringIncludes(obj.message, "uncommitted tracked changes");
   });
 });

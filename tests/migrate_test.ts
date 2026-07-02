@@ -171,8 +171,8 @@ Deno.test("migrate --json lists the pending step from a rewound schema", async (
     const res = JSON.parse(r.stdout);
     assertEquals(res.ok, false);
     assertEquals(res.data.schema.recorded, 1);
-    assertEquals(res.data.schema.current, 13);
-    assertEquals(res.data.pending_migrations.length, 12);
+    assertEquals(res.data.schema.current, SCHEMA_VERSION);
+    assertEquals(res.data.pending_migrations.length, SCHEMA_VERSION - 1);
     assertEquals(res.data.pending_migrations[0].from, 1);
     assertEquals(res.data.pending_migrations[0].to, 2);
     assertStringIncludes(

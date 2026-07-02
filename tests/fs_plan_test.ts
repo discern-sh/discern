@@ -265,6 +265,19 @@ Deno.test("the gitignore leaves .mcp.json trackable (project-scoped MCP is share
   });
 });
 
+Deno.test("the gitignore keeps machine-local provider settings ignored", async () => {
+  await withTempDir(async (dir) => {
+    await scaffold(dir);
+    const gitignore = await readTarget(dir, ".gitignore");
+    assertStringIncludes(gitignore, "/.claude/*");
+    assertStringIncludes(gitignore, "!/.claude/settings.json");
+    assert(
+      !/^\s*!\/?\.claude\/settings\.local\.json\s*$/m.test(gitignore),
+      `.claude/settings.local.json is a machine-local override and must stay ignored:\n${gitignore}`,
+    );
+  });
+});
+
 Deno.test("a seed file already present is skipped, never overwritten", async () => {
   await withTempDir(async (dir) => {
     await scaffold(dir);

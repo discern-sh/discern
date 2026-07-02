@@ -101,9 +101,10 @@ from.
 A plain monotonic integer — the anchor the [Migration](#migration) chain steps
 from, stamped into `[meta].schema_version` in `discern.toml`. It bumps **only**
 when an installed project needs a migration to stay correct, so most releases
-leave it untouched. The current shape is schema **13** — the `12 → 13` step adds
-the documented `[worktree].root` key so worktree placement can be made explicit
-([ADR 0052](../_adr/0052-worktree-sibling-placement.md)).
+leave it untouched. The current shape is schema **14** — the `13 → 14` step
+removes the `.claude/settings.local.json` gitignore exception so machine-local
+provider settings stay ignored
+([ADR 0089](../_adr/0089-machine-local-provider-settings-stay-ignored.md)).
 
 ### Migration
 

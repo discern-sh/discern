@@ -499,10 +499,11 @@ Deno.test("setup done runs the gate and records bootstrapped only when green (AD
   });
 });
 
-Deno.test("setup done commits the completion marker when discern.toml is the only change", async () => {
+Deno.test("setup done commits the completion marker when discern.toml is the only tracked change", async () => {
   // The completion marker [meta].bootstrapped was written but never committed, so a
-  // diligent atomic-commit setup still ended with a dirty tree. When discern.toml is
-  // the lone change, `done` commits it on the agent's behalf.
+  // diligent atomic-commit setup still ended with a dirty tree. Untracked local
+  // scratch files (for example an agent's permission/session file) must not block
+  // the marker commit: the commit is pathspec-limited to discern.toml.
   await withTempDir(async (dir) => {
     await readyForDone(dir, "true"); // gitInits + lays a passing, marker-free project
     // Simulate the agent's atomic commits: wire the harness (MCP etc.) and commit
@@ -510,14 +511,24 @@ Deno.test("setup done commits the completion marker when discern.toml is the onl
     await runAgent(dir, ["refresh"]);
     await git(dir, "add", "-A");
     await git(dir, "commit", "-m", "setup work");
+    await Deno.mkdir(join(dir, ".codex"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, ".codex/session.local.toml"),
+      "permission = 'local'\n",
+    );
 
     const done = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(done.code, 0, done.output);
     const res = JSON.parse(done.stdout);
     assertEquals(res.data.bootstrapped, true);
     assertEquals(res.data.marker_committed, true);
-    // The marker landed in its own commit and the tree is clean.
-    assertEquals(await gitOut(dir, "status", "--porcelain"), "");
+    // The marker landed in its own commit; the unrelated local scratch remains.
+    const status = await gitOut(dir, "status", "--porcelain");
+    assertEquals(
+      status.includes("discern.toml"),
+      false,
+      `the marker should be committed independently\n${status}`,
+    );
     assertStringIncludes(
       await gitOut(dir, "log", "-1", "--format=%s"),
       "Mark discern setup complete",
@@ -526,12 +537,16 @@ Deno.test("setup done commits the completion marker when discern.toml is the onl
       await Deno.readTextFile(join(dir, "discern.toml")),
       "bootstrapped = true",
     );
+    assertStringIncludes(
+      status,
+      "?? .codex/",
+    );
   });
 });
 
-Deno.test("setup done leaves the marker uncommitted (fail open) when the tree has other changes", async () => {
-  // Anything beyond discern.toml is unexpected, so `done` must not sweep it into the
-  // marker commit — it records completion, leaves the marker dirty, and says to commit.
+Deno.test("setup done commits only the marker when unrelated tracked changes are present", async () => {
+  // Unrelated tracked edits must not block the marker commit either. The safety
+  // invariant is narrower: the marker commit must include only discern.toml.
   await withTempDir(async (dir) => {
     await readyForDone(dir, "true");
     await runAgent(dir, ["refresh"]);
@@ -544,11 +559,21 @@ Deno.test("setup done leaves the marker uncommitted (fail open) when the tree ha
     assertEquals(done.code, 0, done.output);
     const res = JSON.parse(done.stdout);
     assertEquals(res.data.bootstrapped, true); // completion still recorded
-    assertEquals(res.data.marker_committed, false); // but not auto-committed
-    // The marker is left in the working tree for the agent to commit deliberately.
-    assert(
-      (await gitOut(dir, "status", "--porcelain")).includes("discern.toml"),
-      "the marker should be left dirty when other changes are present",
+    assertEquals(res.data.marker_committed, true);
+    assertStringIncludes(
+      await gitOut(dir, "log", "-1", "--format=%s"),
+      "Mark discern setup complete",
+    );
+    const status = await gitOut(dir, "status", "--porcelain");
+    assertEquals(
+      status.includes("discern.toml"),
+      false,
+      `the marker should be committed independently\n${status}`,
+    );
+    assertStringIncludes(
+      status,
+      "M docs/README.md",
+      "the unrelated edit must be left for the agent's own tidy commit",
     );
   });
 });

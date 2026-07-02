@@ -275,7 +275,7 @@ export type IntegrateOutcome =
   | { kind: "skipped" }
   /** The branch already contains the latest main — no merge, no refresh. */
   | { kind: "already" }
-  /** The worktree has uncommitted changes: integrate merges into a clean tree only. */
+  /** The worktree has uncommitted tracked changes: integrate merges into a clean tree only. */
   | { kind: "dirty" }
   /**
    * Main was merged in: `behind` commit(s) brought in, `fastForward` when no merge
@@ -327,8 +327,8 @@ export async function resolveIntegrationAnchors(
 /**
  * Merge the latest integration branch into the current worktree's branch — the
  * mutating counterpart to {@link assertMainMerged}'s read-only check. Refuses
- * (`dirty`) when the tree has uncommitted changes; no-ops (`already`) when the
- * branch already contains main; and outside a linked worktree or with no local
+ * (`dirty`) when the tree has uncommitted tracked changes; no-ops (`already`) when
+ * the branch already contains main; and outside a linked worktree or with no local
  * main it is a `skipped` no-op. On a clean run it `git merge`s main, reporting
  * `fastForward` when HEAD was a strict ancestor (no merge commit) and how many
  * commits it was `behind`. A conflicting merge collects the conflicted paths and
@@ -363,10 +363,13 @@ export async function integrateMain(
   ) {
     return { kind: "already" };
   }
-  // Merge into a clean tree only — a dirty tree is the caller's to resolve first.
-  // `--porcelain` lists untracked entries too, so a stray file blocks the merge here
-  // rather than surfacing as a confusing mid-merge git error.
-  const status = await git(["status", "--porcelain"], cwd);
+  // Merge into a tracked-clean tree only — tracked edits are the caller's to resolve
+  // first. Untracked local/session scratch files do not participate in a merge and
+  // should not block integrating main.
+  const status = await git(
+    ["status", "--porcelain", "--untracked-files=no"],
+    cwd,
+  );
   if (status.success && status.stdout.trim() !== "") {
     return { kind: "dirty" };
   }
@@ -1032,9 +1035,9 @@ function parseWorktreeList(porcelain: string): WorktreeRecord[] {
 export interface GitSnapshot {
   /** The current branch, or "" when detached. */
   branch: string;
-  /** No uncommitted changes (tracked or untracked) in the working tree. */
+  /** No uncommitted tracked changes in the working tree. */
   clean: boolean;
-  /** Count of `git status --porcelain` entries. */
+  /** Count of tracked `git status --porcelain` entries. */
   changedFiles: number;
   /** Commits on HEAD not yet in the integration branch. */
   ahead: number;
@@ -1072,9 +1075,9 @@ async function aheadBehind(
 /**
  * The read-only {@link GitSnapshot} for the checkout at `cwd`, compared to the
  * integration branch (`MAIN_BRANCH` / `mainBranchFallback` / `main`). Pure reads —
- * `rev-parse`, `branch`, `status --porcelain`, `rev-list` — so it never mutates the
- * working tree. Returns undefined when `cwd` is not inside a git repository, so a
- * caller can mark the git block unavailable rather than throw.
+ * `rev-parse`, `branch`, tracked-only `status --porcelain`, `rev-list` — so it
+ * never mutates the working tree. Returns undefined when `cwd` is not inside a git
+ * repository, so a caller can mark the git block unavailable rather than throw.
  */
 export async function gitSnapshot(
   cwd: string,
@@ -1086,7 +1089,10 @@ export async function gitSnapshot(
   }
   const branchRun = await git(["branch", "--show-current"], cwd);
   const branch = branchRun.success ? branchRun.stdout.trim() : "";
-  const statusRun = await git(["status", "--porcelain"], cwd);
+  const statusRun = await git(
+    ["status", "--porcelain", "--untracked-files=no"],
+    cwd,
+  );
   const dirtyLines = statusRun.success
     ? statusRun.stdout.split("\n").filter((l) => l !== "")
     : [];
@@ -1109,9 +1115,10 @@ export async function gitSnapshot(
  * The most recent activity timestamp (unix seconds) for the checkout at `cwd`: the
  * latest of the last HEAD movement (the reflog — which captures commits, checkouts,
  * AND the worktree's own creation) and the newest mtime among the uncommitted files
- * (`dirtyLines` from `git status --porcelain`). Pure reads. Undefined when nothing
- * can be determined. Including the reflog's creation entry is deliberate: it keeps a
- * freshly-spawned worktree from reading as old as the branch point it forked from.
+ * (`dirtyLines` from tracked-only `git status --porcelain`). Pure reads.
+ * Undefined when nothing can be determined. Including the reflog's creation entry
+ * is deliberate: it keeps a freshly-spawned worktree from reading as old as the
+ * branch point it forked from.
  */
 async function lastActivityAt(
   cwd: string,

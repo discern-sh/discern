@@ -321,11 +321,36 @@ Deno.test("graduate refuses (non-destructively) when the main checkout is dirty"
 
     const r = await runAgent(wt, ["graduate"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.output, "uncommitted changes");
+    assertStringIncludes(r.output, "uncommitted tracked changes");
     assertEquals(
       await exists(wt),
       true,
       "worktree must be left intact on refusal",
+    );
+  });
+});
+
+Deno.test("graduate ignores untracked local scratch in the main checkout clean precondition", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "delta-scratch");
+    await Deno.writeTextFile(join(wt, "feature.txt"), "work\n");
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
+    await Deno.mkdir(join(dir, ".codex"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, ".codex/session.local.toml"),
+      "permission = 'local'\n",
+    );
+
+    const r = await runAgent(wt, ["graduate"]);
+    assertEquals(r.code, 0, r.output);
+    assert(
+      await exists(join(dir, "feature.txt")),
+      `branch not graduated into main\n${r.output}`,
+    );
+    assert(
+      await exists(join(dir, ".codex/session.local.toml")),
+      "the main checkout's local scratch file should be left alone",
     );
   });
 });
@@ -434,6 +459,35 @@ Deno.test("integrate: behind main fast-forwards and re-materializes the agent fi
   });
 });
 
+Deno.test("integrate: ignores untracked local scratch when checking whether the worktree is dirty", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "lambda-scratch");
+    // Advance main after the worktree branched off it, so integrate has work to do.
+    await Deno.writeTextFile(join(dir, "upstream.txt"), "from main\n");
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "upstream work", "--no-gpg-sign");
+    // Simulate a vendor/session-local permission file. It is untracked and should not
+    // make the tracked-change precondition refuse the merge.
+    await Deno.mkdir(join(wt, ".codex"), { recursive: true });
+    await Deno.writeTextFile(
+      join(wt, ".codex/session.local.toml"),
+      "permission = 'local'\n",
+    );
+
+    const r = await runAgent(wt, ["integrate"]);
+    assertEquals(r.code, 0, r.output);
+    assertStringIncludes(r.output, "Fast-forwarded to main");
+    assert(
+      await exists(join(wt, "upstream.txt")),
+      `main was not merged into the worktree\n${r.output}`,
+    );
+    assert(
+      await exists(join(wt, ".codex/session.local.toml")),
+      "the local scratch file should be left alone",
+    );
+  });
+});
+
 Deno.test("integrate: refuses (non-destructively) when the worktree is dirty", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "mu");
@@ -441,8 +495,9 @@ Deno.test("integrate: refuses (non-destructively) when the worktree is dirty", a
     await Deno.writeTextFile(join(dir, "upstream.txt"), "from main\n");
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "upstream", "--no-gpg-sign");
-    // Leave an uncommitted change in the worktree.
+    // Leave an uncommitted tracked change in the worktree.
     await Deno.writeTextFile(join(wt, "wip.txt"), "uncommitted\n");
+    await git(wt, "add", "wip.txt");
 
     const r = await runAgent(wt, ["integrate"]);
     assertEquals(r.code, 1, r.output);

@@ -486,8 +486,9 @@ Deno.test("status: a dirty worktree hints to run the gate before finishing", asy
     await writeConfig(dir, SCOPE_CONFIG);
     await gitInit(dir);
     const wt = await addWorktree(dir, "alpha");
-    // An uncommitted change in the `web` scope.
+    // An uncommitted tracked change in the `web` scope.
     await writeExecutable(join(wt, "web/x.txt"), "x");
+    await git(wt, "add", "web/x.txt");
 
     const r = await runAgent(wt, ["status", "--json"]);
     assertEquals(r.code, 0, r.output);
@@ -501,6 +502,36 @@ Deno.test("status: a dirty worktree hints to run the gate before finishing", asy
       (obj.hints ?? []).some((h: string) => h.includes("discern finish")),
       `expected a 'run discern finish' hint: ${JSON.stringify(obj.hints)}`,
     );
+  });
+});
+
+Deno.test("status: untracked local scratch does not make a worktree read dirty", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, SCOPE_CONFIG);
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "scratch");
+    await Deno.mkdir(join(wt, ".codex"), { recursive: true });
+    await Deno.writeTextFile(
+      join(wt, ".codex/session.local.toml"),
+      "permission = 'local'\n",
+    );
+
+    const local = await runAgent(wt, ["status", "--json"]);
+    assertEquals(local.code, 0, local.output);
+    const localObj = parseStatus(local.stdout);
+    assertEquals(localObj.data.git.clean, true);
+    assertEquals(localObj.data.git.changed_files, 0);
+
+    const fleet = await runAgent(dir, ["status", "--json"]);
+    assertEquals(fleet.code, 0, fleet.output);
+    const fleetObj = parseStatus(fleet.stdout);
+    const row = fleetObj.data.fleet.find((e: { branch: string }) =>
+      e.branch === "agent/scratch"
+    );
+    assert(row, `expected agent/scratch in fleet: ${fleet.stdout}`);
+    assertEquals(row.clean, true);
+    assertEquals(row.changed_files, 0);
   });
 });
 

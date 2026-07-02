@@ -28,8 +28,10 @@ setup [ADR 0036](0036-unify-setup.md) and
 The root cause is that discern relied on the **agent** to commit discern's
 **own** output. There was already a precedent for the engine owning such a
 commit: `setup done` auto-commits the `[meta].bootstrapped` marker it writes
-(best-effort, fail-open, only its own file). The pressure was to extend that
-ownership backward to `begin`.
+(best-effort, fail-open, pathspec-limited to `discern.toml` after proving that
+file's HEAD diff is exactly the marker line). Unrelated tracked, staged, or
+untracked local work neither blocks that marker commit nor gets swept into it.
+The pressure was to extend that ownership backward to `begin`.
 
 ## Decision
 
@@ -76,8 +78,8 @@ authors.
   authored-content commits — clean history, easy rollback.
 - One consistent rule now spans the setup lifecycle: the engine commits its own
   output (`begin`'s machinery, `done`'s marker); the agent commits what it
-  authors. The two helpers share a shape (best-effort, fail-open, only-its-own
-  files).
+  authors. The two helpers share a shape (best-effort, fail-open,
+  pathspec-limited to only-its-own files).
 - discern now writes to the user's git history during `begin`. The cost is
   bounded: it is one commit, on a branch built for exactly this, gated on the
   clean-tree precondition that branch already requires, and trivially reverted.

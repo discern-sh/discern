@@ -693,8 +693,12 @@ async function buildGraduatePlan(
   // capture worktree state
   const worktreeDirty =
     (await run(["status", "--porcelain"])).stdout.trim() !== "";
+  // Refuse to move the main checkout only for tracked changes. Untracked local
+  // provider/session scratch does not participate in checkout/fast-forward and is
+  // left in place.
   const mainDirty =
-    (await run(["status", "--porcelain"], mainRepo)).stdout.trim() !== "";
+    (await run(["status", "--porcelain", "--untracked-files=no"], mainRepo))
+      .stdout.trim() !== "";
   const mainBranchRun = await run(["branch", "--show-current"], mainRepo);
   const mainBranch = mainBranchRun.stdout.trim() !== ""
     ? mainBranchRun.stdout.trim()
@@ -703,7 +707,7 @@ async function buildGraduatePlan(
   // gate: refuse to touch a dirty main checkout
   if (mainDirty) {
     throw new WorktreeGitError(
-      `Main checkout at ${mainRepo} has uncommitted changes on '${mainBranch}'. ` +
+      `Main checkout at ${mainRepo} has uncommitted tracked changes on '${mainBranch}'. ` +
         `Commit or stash them yourself, then re-run — graduation will not move your main-repo work for you. ` +
         `Your worktree branch '${worktreeBranch}' is untouched and still holds all its commits.`,
     );

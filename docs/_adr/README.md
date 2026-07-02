@@ -102,6 +102,7 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0086 — Setup serves ready-to-relay messages and gates a fresh scaffold on a `--confirmed` attestation](0086-setup-serves-relay-messages-and-a-consent-attestation.md)
 - [0087 — Prefix the bundled skills with `discern-` and expand the set to nine](0087-prefix-and-expand-bundled-skills.md)
 - [0088 — The fresh setup welcome decorates only on TTY](0088-fresh-setup-welcome-decorates-only-on-tty.md)
+- [0089 — Machine-local provider settings stay ignored](0089-machine-local-provider-settings-stay-ignored.md)
 
 ## Superseded and consolidated ADRs
 

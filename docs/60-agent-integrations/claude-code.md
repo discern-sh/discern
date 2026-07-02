@@ -11,6 +11,11 @@ writes or co-manages the files below when Claude Code is enabled in
 | `.mcp.json`             | Project MCP server entry                         | Co-managed, tracked   |
 | `.claude/settings.json` | Hooks, MCP pre-approval, and permission defaults | Seeded, tracked       |
 
+Claude Code may also create `.claude/settings.local.json` for machine-local
+permission grants and overrides. discern does not seed or track that file; the
+shipped `.gitignore` keeps it ignored so local approvals do not create permanent
+porcelain noise.
+
 ## Guidance and skills
 
 Claude Code reads `CLAUDE.md`, not `AGENTS.md`, so discern writes `CLAUDE.md` as

@@ -1222,12 +1222,12 @@ export async function runSetupStep(
 }
 
 /**
- * Commit the `[meta].bootstrapped` marker `setup done` just wrote — but ONLY when
- * `discern.toml` is the SOLE change in the working tree, so an unrelated uncommitted
- * change is never swept into a "setup complete" commit. Anything else is unexpected, so
- * fail open: leave the marker for the agent to commit (the output tells it to). A no-op
- * outside a git repo. Best-effort throughout — a git failure never fails `done`, since
- * completion is already recorded by the time this runs.
+ * Commit the `[meta].bootstrapped` marker `setup done` just wrote. The safety
+ * invariant is path-local: stage and commit ONLY `discern.toml`, and only when its
+ * HEAD diff is exactly the one marker line. Unrelated tracked, staged, or untracked
+ * work is left for the agent's own tidy commit. A no-op outside a git repo.
+ * Best-effort throughout — a git failure never fails `done`, since completion is
+ * already recorded by the time this runs.
  */
 async function commitCompletionMarker(
   root: string,
@@ -1236,25 +1236,12 @@ async function commitCompletionMarker(
   if ((await worktreeState(root)).kind === "not-a-repo") {
     return "no-git";
   }
-  const status = await runGit(["status", "--porcelain"], { cwd: root });
-  if (!status.success) {
-    return "skipped";
-  }
-  const changedPaths = status.stdout
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line !== "")
-    // porcelain v1 is "XY <path>" (renames "XY <old> -> <new>"); the path is the last
-    // token, so a quoted/renamed/extra entry simply won't match the lone-config check.
-    .map((line) => line.split(/\s+/).pop() ?? "");
   const configRel = relative(root, configPath);
-  if (changedPaths.length !== 1 || changedPaths[0] !== configRel) {
-    return "skipped"; // a second changed file → don't author a mixed commit
-  }
-  // discern.toml is the lone changed file — but the change must be EXACTLY the marker
-  // line we just wrote, nothing else (e.g. capabilities the agent left uncommitted).
+  // The config change must be EXACTLY the marker line we just wrote, nothing else
+  // (e.g. capabilities the agent left uncommitted). Diff against HEAD so staged
+  // config edits are included in the check instead of sneaking into the commit.
   // "Anything else is unexpected", so fail open.
-  const diff = await runGit(["diff", "--", configRel], { cwd: root });
+  const diff = await runGit(["diff", "HEAD", "--", configRel], { cwd: root });
   if (!diff.success) {
     return "skipped";
   }
@@ -1272,7 +1259,7 @@ async function commitCompletionMarker(
     return "skipped";
   }
   const commit = await runGit(
-    ["commit", "-m", "Mark discern setup complete"],
+    ["commit", "-m", "Mark discern setup complete", "--", configRel],
     { cwd: root },
   );
   return commit.success ? "committed" : "skipped";
@@ -1468,7 +1455,7 @@ function printDoneSuccess(view: DoneSuccessView): void {
     console.log("Committed the completion marker (discern.toml).");
   } else if (markerCommit === "skipped") {
     console.log(
-      "Commit the updated discern.toml — it carries the completion marker, but the working tree had other changes, so it wasn't auto-committed.",
+      "Commit the updated discern.toml — it carries the completion marker, but discern could not prove that was the only discern.toml change to auto-commit.",
     );
   }
 
@@ -1555,9 +1542,9 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
   editor.setBool(BOOTSTRAPPED_KEY, true);
   await Deno.writeTextFile(path, editor.toString());
 
-  // Commit the marker on the agent's behalf when discern.toml is the only change, so
-  // setup doesn't end with the completion marker left uncommitted (fail open if the
-  // tree has other changes — see commitCompletionMarker).
+  // Commit the marker on the agent's behalf when discern.toml's HEAD diff is exactly
+  // that marker, so setup doesn't end with the completion marker left uncommitted
+  // (fail open otherwise — see commitCompletionMarker).
   const markerCommit = await commitCompletionMarker(root, path);
 
   const forced = leftover.length > 0;

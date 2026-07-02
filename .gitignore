@@ -29,14 +29,14 @@
 /AGENTS.md
 /CLAUDE.md
 /GEMINI.md
-# Everything under .claude/ is generated or ephemeral — the materialized skills
-# (.claude/skills/, copied/symlinked by `discern refresh`) and the linked
-# worktree checkouts created by the worktree hooks — EXCEPT your settings, which
-# are tracked. (Leaving the worktree checkouts tracked would make the main
-# checkout read "dirty" the moment a worktree is created, blocking graduation.)
+# Everything under .claude/ is generated, ephemeral, or machine-local — the
+# materialized skills (.claude/skills/, copied/symlinked by `discern refresh`),
+# settings.local.json permission overrides, and the linked worktree checkouts
+# created by the worktree hooks — EXCEPT the shared settings.json, which is
+# tracked. (Leaving the worktree checkouts tracked would make the main checkout
+# read "dirty" the moment a worktree is created, blocking graduation.)
 /.claude/*
 !/.claude/settings.json
-!/.claude/settings.local.json
 /.agents/skills/
 
 # Local clean-room setup eval transcripts. They contain machine paths and agent
