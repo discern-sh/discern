@@ -5,7 +5,13 @@
  * behaviours and the value renderers.
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertStringIncludes,
+  assertThrows,
+} from "@std/assert";
+import { parse as parseToml } from "@std/toml";
 import {
   tomlBool,
   TomlEditor,
@@ -25,6 +31,29 @@ run   = ":"   # e.g. "vitest run"
 [scopes.side_gates]
 # native = "make -C native check"
 `;
+
+function parsedProjectSlug(text: string): unknown {
+  const parsed = parseToml(text) as { project?: { slug?: unknown } };
+  return parsed.project?.slug;
+}
+
+function countProjectSlugAssignments(text: string): number {
+  return text.split(/\r?\n/).filter((line) => /^\s*slug\s*=/.test(line)).length;
+}
+
+function assertOnlyLineEnding(text: string, lineEnding: "\n" | "\r\n"): void {
+  if (lineEnding === "\r\n") {
+    assert(
+      !/(^|[^\r])\n/.test(text),
+      `expected CRLF-only newlines, got ${JSON.stringify(text)}`,
+    );
+    return;
+  }
+  assert(
+    !text.includes("\r\n"),
+    `expected LF-only newlines, got ${JSON.stringify(text)}`,
+  );
+}
 
 Deno.test("editor replaces a value, preserving alignment and other comments", () => {
   const out = new TomlEditor(SAMPLE).setString("slots.test.run", "vitest run")
@@ -63,6 +92,45 @@ Deno.test("value replacement preserves its own inline comment", async (t) => {
       assertStringIncludes(out, testCase.expected);
     });
   }
+});
+
+Deno.test("editor replaces keys on LF and CRLF files without duplicate keys", async (t) => {
+  const cases = [
+    { name: "LF", lineEnding: "\n" as const },
+    { name: "CRLF", lineEnding: "\r\n" as const },
+  ];
+
+  for (const testCase of cases) {
+    await t.step(testCase.name, () => {
+      const input =
+        `[project]${testCase.lineEnding}slug = "demo"${testCase.lineEnding}`;
+      const out = new TomlEditor(input).setString("project.slug", "new")
+        .toString();
+
+      assertEquals(countProjectSlugAssignments(out), 1);
+      assertEquals(parsedProjectSlug(out), "new");
+      assertOnlyLineEnding(out, testCase.lineEnding);
+      assertEquals(
+        out,
+        `[project]${testCase.lineEnding}slug = "new"${testCase.lineEnding}`,
+      );
+    });
+  }
+});
+
+Deno.test("editor inserts and deletes keys on CRLF files while preserving CRLF", () => {
+  const input = `[project]\r\nslug = "demo"\r\nkeep = "yes"\r\n`;
+  const editor = new TomlEditor(input);
+
+  editor.setString("project.slug", "new");
+  editor.setString("project.main_branch", "main");
+  assert(editor.deleteKey("project.keep"));
+
+  const out = editor.toString();
+  assertOnlyLineEnding(out, "\r\n");
+  assertEquals(countProjectSlugAssignments(out), 1);
+  assertEquals(parsedProjectSlug(out), "new");
+  assertEquals(out, `[project]\r\nmain_branch = "main"\r\nslug = "new"\r\n`);
 });
 
 Deno.test("editor inserts a missing key into an existing section", () => {
@@ -213,6 +281,45 @@ Deno.test("editor sets array, number and bool values", () => {
   assertStringIncludes(out, "port = false");
 });
 
+Deno.test("editor replaces and deletes multiline array values as one value span", () => {
+  const input = `[scopes.docs]
+paths = [
+  "docs/**",
+  "literal ] inside the value",
+]
+neutral = true
+
+[gate]
+stream = false
+`;
+
+  const replaced = new TomlEditor(input)
+    .setStringArray("scopes.docs.paths", ["src/**", "unicode/é/**"])
+    .toString();
+  assertEquals(
+    replaced,
+    `[scopes.docs]
+paths = ["src/**", "unicode/é/**"]
+neutral = true
+
+[gate]
+stream = false
+`,
+  );
+
+  const editor = new TomlEditor(input);
+  assert(editor.deleteKey("scopes.docs.paths"));
+  assertEquals(
+    editor.toString(),
+    `[scopes.docs]
+neutral = true
+
+[gate]
+stream = false
+`,
+  );
+});
+
 Deno.test("editor preserves the trailing-newline convention", () => {
   assert(
     new TomlEditor(SAMPLE).setString("project.slug", "x").toString().endsWith(
@@ -236,21 +343,21 @@ Deno.test("value renderers escape and validate", () => {
 });
 
 Deno.test("value renderers reject bad input", () => {
-  let threw = false;
-  try {
-    tomlNumber("not-a-number");
-  } catch {
-    threw = true;
-  }
-  assert(threw, "tomlNumber should reject non-numeric strings");
-
-  threw = false;
-  try {
-    tomlString("has\nnewline");
-  } catch {
-    threw = true;
-  }
-  assert(threw, "tomlString should reject newlines");
+  assertThrows(
+    () => tomlNumber("not-a-number"),
+    Error,
+    "not a number",
+  );
+  assertThrows(
+    () => tomlString("has\nnewline"),
+    Error,
+    "control character",
+  );
+  assertThrows(
+    () => tomlString("has\rcarriage-return"),
+    Error,
+    "control character",
+  );
 });
 
 Deno.test("editor rejects a non-section key", () => {
@@ -381,4 +488,21 @@ Deno.test("deleteKey does not remove a commented-out key", () => {
     "a commented-out hint is not a real key",
   );
   assertStringIncludes(editor.toString(), '# native = "make -C native check"');
+});
+
+Deno.test("deleteSection removes an entire section and preserves CRLF style", () => {
+  const input =
+    `[project]\r\nslug = "demo"\r\n\r\n[features]\r\nworktrees = true\r\nratchets = false\r\n\r\n[gate]\r\nstream = false\r\n`;
+  const editor = new TomlEditor(input);
+
+  assert(editor.deleteSection("features"));
+  const out = editor.toString();
+
+  assertOnlyLineEnding(out, "\r\n");
+  assertEquals(
+    out,
+    `[project]\r\nslug = "demo"\r\n\r\n[gate]\r\nstream = false\r\n`,
+  );
+  assertEquals(parsedProjectSlug(out), "demo");
+  assert(!editor.deleteSection("features"));
 });
