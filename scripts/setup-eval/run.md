@@ -1,15 +1,23 @@
 # Setup Eval Runner
 
-These commands run coding-agent CLIs headlessly against a disposable fixture and
-save transcripts under `scripts/setup-eval/results/`. The result directory is
-gitignored because transcripts contain machine paths, model output, and
-sometimes local configuration details.
+These are the low-level runner commands behind `deno task setup-eval`. Prefer
+the guided one-command flow for normal evals:
+
+```sh
+deno task setup-eval
+```
+
+Use this file when you need to debug a single fixture, checkout, agent, or phase
+by hand. All runners save transcripts under `scripts/setup-eval/results/`. The
+result directory is gitignored because transcripts contain machine paths, model
+output, and sometimes local configuration details.
 
 ## Prerequisites
 
 - `deno`, `git`, and the chosen agent CLI are installed.
 - You are signed in to the agent CLI with your own subscription or API key.
-- You run only against a fixture repo made by `make-fixture.ts`.
+- You run only against a fixture repo made by `make-fixture.ts`, unless you are
+  using the one-command runner, which creates fixtures for you.
 - You choose the discern checkout under test. For the pre-enhancement baseline,
   use a checkout pinned to `37ff892`.
 

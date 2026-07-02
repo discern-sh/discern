@@ -19,6 +19,7 @@ interface Options {
   extraArgs: string[];
   fixture: string | undefined;
   help: boolean;
+  json: boolean;
   modelId: string | undefined;
   phase: Phase;
   resultDir: string | undefined;
@@ -70,10 +71,11 @@ Options:
   --phase <first|continue>       Run the first consent turn or the continuation (default: first)
   --result-dir <path>            Reuse a result directory; required for --phase continue
   --agent-model <model>          Pass a model flag to the agent CLI
-  --model-id <id>                Human answer for setup's --model question (required for continue)
+  --model-id <id>                Human answer for setup's --model question
   --docs-answer <path>           Human answer for the docs-home question (default: docs/discern/)
   --session-id <id>              Resume a specific agent session when supported
   --extra-agent-arg <arg>        Append one raw argument to the agent CLI; repeat as needed
+  --json                         Print the run record as JSON
   -h, --help                     Show this help
 `;
 }
@@ -111,6 +113,7 @@ function parseArgs(args: readonly string[]): Options {
   let docsAnswer = "docs/discern/";
   let fixture: string | undefined;
   let help = false;
+  let json = false;
   let modelId: string | undefined;
   let phase: Phase = "first";
   let resultDir: string | undefined;
@@ -159,6 +162,8 @@ function parseArgs(args: readonly string[]): Options {
       const parsed = valueAfter(args, index, arg);
       extraArgs.push(parsed.value);
       index = parsed.next;
+    } else if (arg === "--json") {
+      json = true;
     } else if (arg === "--") {
       continue;
     } else if (arg === "-h" || arg === "--help") {
@@ -176,6 +181,7 @@ function parseArgs(args: readonly string[]): Options {
     extraArgs,
     fixture,
     help,
+    json,
     modelId,
     phase,
     resultDir,
@@ -261,11 +267,17 @@ The \`discern\` executable on PATH points to the checkout under evaluation. Star
 Important eval boundary: when discern reaches the pre-\`begin\` consent conversation, ask the human for consent and stop. Do not run \`discern setup begin\` until a later user message confirms the model/session, docs location if asked, worktree location, and readiness to begin.`;
 }
 
-function continuePrompt(modelId: string, docsAnswer: string): string {
+function continuePrompt(
+  modelId: string | undefined,
+  docsAnswer: string,
+): string {
+  const modelAnswer = modelId === undefined || modelId.trim() === ""
+    ? "I do not know the exact model identifier; omit `--model` rather than guessing."
+    : `use this exact model id for setup provenance: \`${modelId}\`.`;
   return `I confirm setup may begin.
 
 My answers:
-- Model and session: use this exact model id for setup provenance: \`${modelId}\`.
+- Model and session: ${modelAnswer}
 - Documentation location: if this repository already has a \`docs/\` tree, keep it untouched and use \`${docsAnswer}\` for discern's agent documentation tree.
 - Worktree location: keep the default worktree location printed by \`discern setup verify\`.
 - Ready to begin: yes, begin now.
@@ -511,10 +523,6 @@ async function main(): Promise<void> {
   if (opts.phase === "continue" && opts.resultDir === undefined) {
     throw new Error("--result-dir is required for --phase continue");
   }
-  if (opts.phase === "continue" && opts.modelId === undefined) {
-    throw new Error("--model-id is required for --phase continue");
-  }
-
   const fixture = resolve(opts.fixture);
   const checkoutPath = resolve(opts.discernCheckout);
   await assertDirectory(fixture, "fixture");
@@ -542,7 +550,7 @@ async function main(): Promise<void> {
   const stem = phaseStem(opts.phase);
   const prompt = opts.phase === "first"
     ? firstPrompt()
-    : continuePrompt(opts.modelId ?? "", opts.docsAnswer);
+    : continuePrompt(opts.modelId, opts.docsAnswer);
   const promptFile = join(resultDir, `prompt-${stem}.md`);
   const stdoutFile = join(resultDir, `transcript-${stem}.stdout.jsonl`);
   const stderrFile = join(resultDir, `transcript-${stem}.stderr.log`);
@@ -610,6 +618,11 @@ ${commandLine(env, command)}
     `${JSON.stringify(record, null, 2)}\n`,
   );
   await writeIndex(resultDir, record);
+
+  if (opts.json) {
+    console.log(JSON.stringify(record, null, 2));
+    return;
+  }
 
   console.log(`Saved ${opts.agent} ${opts.phase} transcript:
   ${stdoutFile}
