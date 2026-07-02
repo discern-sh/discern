@@ -1,12 +1,13 @@
 /**
  * The guideline compiler (ADR 0020): the EFFECTFUL orchestrator that writes the
  * generated per-provider agent files (CLAUDE.md, AGENTS.md, GEMINI.md, …),
- * materializes skills, and wires the MCP server. The pure content — what each file
- * should contain — is computed by `renderAgentFiles` in `./guidance_render.ts`,
- * the single source this writer and the `status`/`finish` currency check both use,
- * so a generated file can never silently disagree with what a refresh produces
- * (ADR 0034). It writes each provider file named in `[guidance].agents` (falling
- * back to the pre-migration `[project].agents`).
+ * materializes skills, and wires provider integration artifacts (MCP, worktree app
+ * config, project rules). The pure content — what each file should contain — is
+ * computed by `renderAgentFiles` in `./guidance_render.ts`, the single source this
+ * writer and the `status`/`finish` currency check both use, so a generated file can
+ * never silently disagree with what a refresh produces (ADR 0034). It writes each
+ * provider file named in `[guidance].agents` (falling back to the pre-migration
+ * `[project].agents`).
  *
  * The files carry no banner — they open with the guidance itself; `base.md`'s
  * in-body "never hand-edit" section conveys their generated-ness to every agent,
@@ -32,6 +33,7 @@ import {
   providerFor,
   skillsDirsForAgents,
   wireProviderMcp,
+  wireProviderProjectRules,
   wireProviderWorktreeApp,
 } from "../lib/providers.ts";
 import { guidanceAgents, renderAgentFiles } from "./guidance_render.ts";
@@ -47,6 +49,8 @@ export interface GuidelinesResult {
    * (Codex's `environment.toml` [setup]/[cleanup]). Empty when no configured agent
    * declares one, or when all were already in place. */
   worktreeAppWired: string[];
+  /** Project-local provider policy/rules files written, such as Codex exec rules. */
+  projectRulesWired: string[];
   /** Agent/user-facing advice from this run (e.g. the MCP first-install restart hint). */
   hints: string[];
   /** Bundled skills copied, summed across every configured agent's skills dir. */
@@ -157,6 +161,26 @@ export async function compileGuidelines(
     errors.push(msg);
   }
 
+  // --- job 2c: project-local provider rules/policy files ----------------------
+  // These are neither MCP entries nor app worktree lifecycle files. Codex uses this
+  // surface for narrow project-local exec-policy rules that smooth trusted
+  // linked-worktree Git staging/commit operations.
+  let projectRulesWired: string[] = [];
+  try {
+    projectRulesWired = await wireProviderProjectRules(root, agents);
+    if (projectRulesWired.length > 0) {
+      log.info(
+        `co-managed project rules in: ${projectRulesWired.join(", ")}`,
+      );
+    }
+  } catch (error) {
+    const msg = `could not update the project-rules integration: ${
+      errText(error)
+    }`;
+    log.warn(msg);
+    errors.push(msg);
+  }
+
   // --- job 3: compile the agent files (gated) --------------------------------
   const agentsWritten: string[] = [];
   if (!isFeatureEnabled(config, "guidance")) {
@@ -165,6 +189,7 @@ export async function compileGuidelines(
       agentsWritten,
       mcpWired,
       worktreeAppWired,
+      projectRulesWired,
       hints,
       skills,
       errors,
@@ -186,6 +211,7 @@ export async function compileGuidelines(
       agentsWritten,
       mcpWired,
       worktreeAppWired,
+      projectRulesWired,
       hints,
       skills,
       errors,
@@ -241,6 +267,7 @@ export async function compileGuidelines(
     agentsWritten,
     mcpWired,
     worktreeAppWired,
+    projectRulesWired,
     hints,
     skills,
     errors,
@@ -253,6 +280,7 @@ function summarize(
   agentsWritten: string[],
   mcpWired: string[],
   worktreeAppWired: string[],
+  projectRulesWired: string[],
   hints: string[],
   skills: { copied: number; linked: number; pruned: number },
   errors: string[],
@@ -261,6 +289,7 @@ function summarize(
     agentsWritten,
     mcpWired,
     worktreeAppWired,
+    projectRulesWired,
     hints,
     skillsCopied: skills.copied,
     skillsLinked: skills.linked,

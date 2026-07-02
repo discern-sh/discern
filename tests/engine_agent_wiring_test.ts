@@ -101,6 +101,7 @@ Deno.test("Codex: refresh wires .codex/config.toml (MCP) and co-manages environm
     assertEquals(data.worktree_app_wired, [
       ".codex/environments/environment.toml",
     ]);
+    assertEquals(data.project_rules_wired, [".codex/rules/discern.rules"]);
 
     // The Codex project config carries discern's MCP server, instruction headroom,
     // and the writable root for the sibling worktree directory.
@@ -145,11 +146,21 @@ Deno.test("Codex: refresh wires .codex/config.toml (MCP) and co-manages environm
     assertEquals(env.setup.script, "discern worktree:ensure");
     assertEquals(env.cleanup.script, "discern worktree:teardown");
 
+    const rules = await Deno.readTextFile(
+      join(dir, ".codex/rules/discern.rules"),
+    );
+    assertStringIncludes(rules, 'pattern = ["git", "add"]');
+    assertStringIncludes(rules, 'pattern = ["git", "commit"]');
+    assertStringIncludes(rules, "trusted discern linked worktrees");
+    assertStringIncludes(rules, ".git/worktrees");
+    assertEquals((rules.match(/decision = "allow"/g) ?? []).length, 2);
+
     // Idempotent: a second refresh re-wires neither the MCP nor the env file.
     const r2 = await runAgent(dir, ["refresh", "--json"]);
     const data2 = JSON.parse(r2.stdout).data;
     assertEquals(data2.mcp_wired.includes(".codex/config.toml"), false);
     assertEquals(data2.worktree_app_wired, []);
+    assertEquals(data2.project_rules_wired, []);
   });
 });
 

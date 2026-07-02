@@ -180,6 +180,7 @@ Deno.test("real setup begin leaves no unresolved template tokens in seeded or sk
         ...data.written,
         ...data.mcp_wired,
         ...(data.worktree_app_wired ?? []),
+        ...(data.project_rules_wired ?? []),
       ] as string[]
     ) {
       rels.add(rel);
@@ -927,14 +928,10 @@ Deno.test("discern setup begin commits EVERY registry-listed agent's scaffoldabl
   // Structural guard, in the spirit of agent_parity_test.ts: derive each agent's
   // expected machinery files from PROVIDERS itself — never a hand-copied list — so
   // a provider whose config file doesn't make it into the machinery commit fails
-  // HERE automatically. This is the regression for Codex's environment.toml (the
-  // worktreeApp co-managed file) being silently excluded: the committed set was
-  // built from a couple of named ScaffoldOutcome fields rather than the full union
-  // of what discern actually scaffolds, so a category like worktreeApp could be
-  // dropped without any test noticing. Configuring every known agent at once means
-  // a FUTURE provider — or a future wiring category, the same way worktreeApp once
-  // joined mcp/hooks — red-lights this test the moment it isn't folded into the
-  // commit, with no edit needed here to cover it.
+  // HERE automatically. This is the regression class for provider wiring categories
+  // (Codex environment.toml, project rules, or a future surface) being silently
+  // excluded: the committed set must be the full union of what discern actually
+  // scaffolds, not a couple of named fields.
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
     await gitInit(dir);
@@ -967,6 +964,9 @@ Deno.test("discern setup begin commits EVERY registry-listed agent's scaffoldabl
       }
       if (p.worktreeApp !== undefined) {
         expected.push(p.worktreeApp.configFile);
+      }
+      if (p.projectRules !== undefined) {
+        expected.push(p.projectRules.rulesFile);
       }
       for (const file of expected) {
         assert(

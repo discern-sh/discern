@@ -10,6 +10,7 @@ co-manages the files below when Codex is enabled in `[guidance].agents`:
 | `.codex/config.toml`                   | Project Codex config and MCP server entry | Co-managed, tracked   |
 | `.codex/hooks.json`                    | Session-start hook                        | Seeded, tracked       |
 | `.codex/environments/environment.toml` | Codex app worktree setup/cleanup          | Co-managed, tracked   |
+| `.codex/rules/discern.rules`           | Narrow Git rules for discern worktrees    | Co-managed, tracked   |
 
 ## Guidance and skills
 
@@ -122,22 +123,47 @@ This file is for Codex-app-managed worktrees. discern's own sibling worktrees
 still come from `discern start` / `discern_start` and the worktree lifecycle
 verbs.
 
+## `.codex/rules/discern.rules`
+
+Codex project rules can grant narrow, project-local exec-policy decisions after
+the project is trusted. discern writes its own rules file rather than mutating
+user-owned files such as `.codex/rules/default.rules`.
+
+The generated rules file allows only these prefixes:
+
+```toml
+prefix_rule(
+    pattern = ["git", "add"],
+    decision = "allow",
+    justification = "Allow staging from trusted discern linked worktrees; Git writes linked-worktree indexes and locks under the main checkout .git/worktrees directory.",
+)
+
+prefix_rule(
+    pattern = ["git", "commit"],
+    decision = "allow",
+    justification = "Allow committing from trusted discern linked worktrees; Git writes linked-worktree metadata under the main checkout .git/worktrees directory.",
+)
+```
+
+This smooths the expected linked-worktree workflow after `discern_start`: normal
+file writes are covered by `.codex/config.toml`'s `writable_roots`, while
+staging and committing can write Git metadata under the main checkout's
+`.git/worktrees` directory. The rules do not allow broad `git`, `git push`,
+shell wrappers, destructive commands, network access, or full sandbox bypass.
+
 ## Runtime behavior and gotchas
 
 Project `.codex/` config is inert until Codex trusts the directory. That trust
 is outside the repository; discern can write the files, but it cannot self-trust
-a project for the user.
+a project for the user. Start a fresh session or restart Codex when needed so it
+loads newly written project config and rules.
 
 `discern_start` can re-aim the long-lived discern MCP server at the new
 worktree, but it cannot move Codex's shell workspace. The writable-root entry in
 `.codex/config.toml` reduces the resulting sandbox friction for normal file
-edits and commands.
-
-The writable-root entry does not make linked-worktree Git metadata writable.
-Codex protects `.git` paths inside writable roots, including a linked worktree's
-`.git` pointer and the resolved shared Git directory. Git operations such as
-committing from the linked worktree can still need approval or a session whose
-workspace is already the worktree.
+edits and commands; `.codex/rules/discern.rules` covers the expected
+`git add`/`git commit` prefixes that write linked-worktree Git metadata under
+the main checkout.
 
 If a Codex session starts inside a worktree and that worktree is later removed,
 Codex can block the next user message with "Current working directory missing".

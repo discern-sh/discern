@@ -338,6 +338,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
         },
         agents_written: guidelines?.agentsWritten ?? [],
         mcp_wired: guidelines?.mcpWired ?? [],
+        project_rules_wired: guidelines?.projectRulesWired ?? [],
         guidelines_compiled: fullyCompiled,
         guidelines_errors: guidelinesErrors,
       },

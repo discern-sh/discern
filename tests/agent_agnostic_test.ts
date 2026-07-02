@@ -61,6 +61,9 @@ function providerPathFragments(): string[] {
     if (provider.worktreeApp !== undefined) {
       paths.push(provider.worktreeApp.configFile);
     }
+    if (provider.projectRules !== undefined) {
+      paths.push(provider.projectRules.rulesFile);
+    }
     switch (provider.mcp.kind) {
       case "wired":
         paths.push(provider.mcp.integration.configFile);

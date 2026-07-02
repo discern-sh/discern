@@ -386,6 +386,7 @@ export function attachEngineCommands(
               agents_written: res.agentsWritten,
               mcp_wired: res.mcpWired,
               worktree_app_wired: res.worktreeAppWired,
+              project_rules_wired: res.projectRulesWired,
               skills: {
                 copied: res.skillsCopied,
                 linked: res.skillsLinked,

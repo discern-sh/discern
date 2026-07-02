@@ -1,16 +1,12 @@
 /**
  * The typed provider registry (ADR 0031): the single source of truth for
  * everything agent-specific — the compiled guidance file, the worktree-hook
- * surface, the MCP-server registration, and the skills directory. Keyed by
- * {@link AgentName} as a TOTAL Record, so the type checker forces a complete entry
- * for every known agent and provider-specific behaviour can never drift across the
- * codebase.
- *
- * Claude Code is implemented end-to-end. Other agents carry their guidance-file
- * mapping (the long-standing behaviour) and their skills directory, with
- * `mcp`/`hooks` left as typed TODOs — there is no universal setup, so each must be
- * authored against that agent's own mechanism. An absent integration is simply
- * skipped, never guessed.
+ * surface, the MCP-server registration, project rules, and the skills directory.
+ * Keyed by {@link AgentName} as a TOTAL Record, so the type checker forces a
+ * complete entry for every known agent and provider-specific behaviour can never
+ * drift across the codebase. There is no universal agent setup file, so each live
+ * integration is authored against that agent's own mechanism; an absent optional
+ * integration is simply skipped, never guessed.
  */
 
 import { dirname, join, relative } from "@std/path";
@@ -64,11 +60,11 @@ export interface AgentReactivation {
 
 /**
  * The post-setup reactivation handoff (ADR 0075). `begin` wires each configured agent's
- * MCP server and session hooks, but coding agents load them at session start — so the
- * session that ran setup can't see them. At `setup done`, each configured agent that
- * wired something loading at session start gets its {@link reactivationStep}; an agent
- * that wired nothing (a reuse-canonical agent) is omitted, never told to restart for
- * nothing. Lives in the registry so the per-agent wording is single-sourced (ADR
+ * MCP server, session hooks, and project rules, but coding agents load them at session
+ * start — so the session that ran setup can't see them. At `setup done`, each configured
+ * agent that wired something loading at session start gets its {@link reactivationStep};
+ * an agent that wired nothing (a reuse-canonical agent) is omitted, never told to restart
+ * for nothing. Lives in the registry so the per-agent wording is single-sourced (ADR
  * 0031/0072) and DERIVED from the provider's own fields, not a parallel list.
  */
 export function reactivationHandoff(
@@ -88,7 +84,7 @@ export function reactivationHandoff(
   }
   return {
     summary:
-      "discern's MCP tools (discern_*) and session hooks are now wired — but coding agents load them at session start, so this session can't see them yet. Reactivate to use them:",
+      "discern's MCP tools (discern_*), session hooks, and project rules are now wired — but coding agents load them at session start, so this session can't see them yet. Reactivate to use them:",
     per_agent,
   };
 }
@@ -96,11 +92,12 @@ export function reactivationHandoff(
 /**
  * The reactivation step for ONE provider, DERIVED from its wiring — or `undefined` when
  * nothing discern wired for it loads at session start (a reuse-canonical agent with no
- * MCP and no hooks needs no restart, so it is never told to). The step names exactly
- * what was wired (the live `mcp` server and/or the session `hooks`) and appends the
- * one-time `trust` action when the vendor gates committed config behind one — all three
- * being REQUIRED {@link Provider} fields, so a NEW vendor's reactivation follows from
- * its declaration automatically, with no hand-maintained list. `engine_setup_reactivation`
+ * MCP, hooks, or project rules needs no restart, so it is never told to). The step names
+ * exactly what was wired (the live `mcp` server, session `hooks`, and/or provider
+ * project rules) and appends the one-time `trust` action when the vendor gates committed
+ * config behind one — derived from {@link Provider}, so a NEW vendor's reactivation
+ * follows from its declaration automatically, with no hand-maintained list.
+ * `engine_setup_reactivation`
  * ties this to the PROVIDERS registry (ADR 0051/0075): a vendor whose reactivation does
  * not follow from its wiring red-lights there.
  */
@@ -111,6 +108,9 @@ export function reactivationStep(provider: Provider): string | undefined {
   }
   if (provider.hooks !== undefined) {
     loads.push("session hooks");
+  }
+  if (provider.projectRules !== undefined) {
+    loads.push("project rules");
   }
   if (loads.length === 0) {
     return undefined;
@@ -208,6 +208,18 @@ export interface WorktreeAppIntegration {
   /** Merge discern's worktree setup/teardown into `configFile` under `root`,
    * idempotently, preserving the app's own keys. Returns the project-relative files
    * written (empty when already in place). */
+  register(root: string): Promise<string[]>;
+}
+
+/**
+ * Project-local policy/rules files a provider loads from its own committed config
+ * directory. These are not MCP servers or app worktree lifecycle scripts, so they get
+ * their own result bucket instead of being reported as `mcp_wired`.
+ */
+export interface ProjectRulesIntegration {
+  /** The project-relative rules file discern owns and re-emits idempotently. */
+  readonly rulesFile: string;
+  /** Write the rules file under `root`, returning it when bytes changed. */
   register(root: string): Promise<string[]>;
 }
 
@@ -349,6 +361,13 @@ export interface Provider {
    */
   readonly worktreeApp?: WorktreeAppIntegration;
   /**
+   * Provider-owned project-local policy/rules file(s), if the agent has such a
+   * committed surface. Absent → skipped, never guessed. See
+   * {@link ProjectRulesIntegration}; wired on refresh by
+   * {@link wireProviderProjectRules}.
+   */
+  readonly projectRules?: ProjectRulesIntegration;
+  /**
    * Whether this agent's COMMITTED MCP/hooks config needs a one-time trust before it
    * fires, and the exact action. REQUIRED — surfaced per agent by `doctor` so the gap
    * between "discern wired it" and "the tools appear" is never a silent surprise (the
@@ -466,6 +485,30 @@ async function writeJsonObject(path: string, value: unknown): Promise<void> {
   await Deno.writeTextFile(path, `${JSON.stringify(value, null, 2)}\n`);
 }
 
+/** Write text only when bytes differ, creating the parent directory. */
+async function writeTextIfChanged(
+  root: string,
+  rel: string,
+  body: string,
+): Promise<string | undefined> {
+  const path = join(root, rel);
+  let existing: string | undefined;
+  try {
+    existing = await Deno.readTextFile(path);
+  } catch (error) {
+    if (!(error instanceof Deno.errors.NotFound)) {
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new Error(`could not read ${rel}: ${detail}`);
+    }
+  }
+  if (existing === body) {
+    return undefined;
+  }
+  await ensureDir(dirname(path));
+  await Deno.writeTextFile(path, body);
+  return rel;
+}
+
 // ── Claude Code ─────────────────────────────────────────────────────────────
 
 /** The project-scoped, committed MCP-servers file `discern mcp` rides in. The
@@ -495,9 +538,25 @@ const GEMINI_SETTINGS_FILE = ".gemini/settings.json";
 const CODEX_CONFIG_FILE = ".codex/config.toml";
 const CODEX_HOOKS_FILE = ".codex/hooks.json";
 const CODEX_ENV_FILE = ".codex/environments/environment.toml";
+const CODEX_RULES_FILE = ".codex/rules/discern.rules";
 const CODEX_PROJECT_DOC_MAX_BYTES = 65536;
 const CODEX_MCP_STARTUP_TIMEOUT_SEC = 30;
 const CODEX_MCP_TOOL_TIMEOUT_SEC = 3600;
+const CODEX_DISCERN_RULES =
+  `# Generated and co-managed by discern. Put user-owned Codex rules in a separate .codex/rules/*.rules file.
+
+prefix_rule(
+    pattern = ["git", "add"],
+    decision = "allow",
+    justification = "Allow staging from trusted discern linked worktrees; Git writes linked-worktree indexes and locks under the main checkout .git/worktrees directory.",
+)
+
+prefix_rule(
+    pattern = ["git", "commit"],
+    decision = "allow",
+    justification = "Allow committing from trusted discern linked worktrees; Git writes linked-worktree metadata under the main checkout .git/worktrees directory.",
+)
+`;
 
 /** Cursor reads its project MCP servers from a committable `.cursor/mcp.json` (its
  * own file, requiring an explicit `type: "stdio"`) and its SessionStart hook from a
@@ -768,6 +827,21 @@ async function registerCodexEnvironment(root: string): Promise<string[]> {
   return wrote !== undefined ? [wrote] : [];
 }
 
+/**
+ * Write discern's Codex project-local rules file. This is a discern-owned file
+ * separate from Codex's user-owned `.codex/rules/default.rules`; refresh may update
+ * this one to keep the linked-worktree Git allowances exact, but it never mutates a
+ * user's rules files.
+ */
+async function registerCodexRules(root: string): Promise<string[]> {
+  const wrote = await writeTextIfChanged(
+    root,
+    CODEX_RULES_FILE,
+    CODEX_DISCERN_RULES,
+  );
+  return wrote !== undefined ? [wrote] : [];
+}
+
 // ── Cursor & GitHub Copilot (reuse-canonical guidance + skills) ──────────────
 
 /**
@@ -875,12 +949,20 @@ export const PROVIDERS: Record<AgentName, Provider> = {
       configFile: CODEX_ENV_FILE,
       register: registerCodexEnvironment,
     },
+    // Narrow project-local exec-policy rules for the linked-worktree happy path:
+    // allow only the expected Git staging/commit prefixes, not broad git, push,
+    // shell wrappers, destructive commands, or sandbox bypass.
+    projectRules: {
+      rulesFile: CODEX_RULES_FILE,
+      register: registerCodexRules,
+    },
     // Committed .codex/ config is inert until the directory is trusted, and a
-    // committed hook won't run until its hash is approved.
+    // committed hook won't run until its hash is approved. Project-local rules are
+    // part of that trusted .codex/ layer and likewise require a fresh/trusted load.
     trust: {
       required: true,
       hint:
-        'one-time directory trust for .codex/ config (set trust_level = "trusted"), plus per-hook hash approval before a committed hook runs (bypass: --dangerously-bypass-hook-trust).',
+        'one-time directory trust for .codex/ project config and rules (set trust_level = "trusted"), plus per-hook hash approval before a committed hook runs (bypass: --dangerously-bypass-hook-trust).',
     },
   },
   gemini: {
@@ -1149,6 +1231,25 @@ export async function wireProviderWorktreeApp(
   const written: string[] = [];
   for (const agent of agents) {
     const integration = providerFor(agent)?.worktreeApp;
+    if (integration !== undefined) {
+      written.push(...(await integration.register(root)));
+    }
+  }
+  return [...new Set(written)];
+}
+
+/**
+ * Co-manage each configured agent's project-local rules/policy file(s), idempotently.
+ * These are distinct from MCP registration and app-managed worktree lifecycle files,
+ * so refresh reports them under `project_rules_wired`.
+ */
+export async function wireProviderProjectRules(
+  root: string,
+  agents: readonly string[],
+): Promise<string[]> {
+  const written: string[] = [];
+  for (const agent of agents) {
+    const integration = providerFor(agent)?.projectRules;
     if (integration !== undefined) {
       written.push(...(await integration.register(root)));
     }

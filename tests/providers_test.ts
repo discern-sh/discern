@@ -24,6 +24,7 @@ import {
   skillsDirsForAgents,
   wiredMcp,
   wireProviderMcp,
+  wireProviderProjectRules,
   wireProviderWorktreeApp,
 } from "../src/lib/providers.ts";
 import { parse as parseToml } from "@std/toml";
@@ -161,16 +162,24 @@ Deno.test("MCP status is typed and explicit: all five agents wired to their own 
     "copilot",
   ]);
 
-  // Only Codex co-manages an app-managed worktree-lifecycle file (environment.toml);
-  // every other agent declares no worktreeApp (skipped, never guessed).
+  // Only Codex co-manages app worktree lifecycle and project-rules files; every
+  // other agent declares neither surface (skipped, never guessed).
   assertEquals(
     providerFor("codex")?.worktreeApp?.configFile,
     ".codex/environments/environment.toml",
   );
+  assertEquals(
+    providerFor("codex")?.projectRules?.rulesFile,
+    ".codex/rules/discern.rules",
+  );
   assertEquals(providerFor("claude_code")?.worktreeApp, undefined);
+  assertEquals(providerFor("claude_code")?.projectRules, undefined);
   assertEquals(providerFor("gemini")?.worktreeApp, undefined);
+  assertEquals(providerFor("gemini")?.projectRules, undefined);
   assertEquals(providerFor("cursor")?.worktreeApp, undefined);
+  assertEquals(providerFor("cursor")?.projectRules, undefined);
   assertEquals(providerFor("copilot")?.worktreeApp, undefined);
+  assertEquals(providerFor("copilot")?.projectRules, undefined);
 });
 
 Deno.test("Cursor & Copilot are reuse-canonical: read AGENTS.md natively, no duplicate provider file, share .agents/skills", () => {
@@ -588,6 +597,52 @@ Deno.test("wireProviderWorktreeApp creates a SCHEMA-VALID environment.toml when 
   });
 });
 
+Deno.test("wireProviderProjectRules writes Codex discern.rules only, preserving user rules and staying idempotent", async () => {
+  await withTempDir(async (dir) => {
+    const userDefaultRules =
+      '# user-owned rules\nprefix_rule(pattern = ["example"], decision = "ask")\n';
+    await Deno.mkdir(join(dir, ".codex/rules"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, ".codex/rules/default.rules"),
+      userDefaultRules,
+    );
+
+    const first = await wireProviderProjectRules(dir, ["codex"]);
+    assertEquals(first, [".codex/rules/discern.rules"]);
+
+    const rules = await Deno.readTextFile(
+      join(dir, ".codex/rules/discern.rules"),
+    );
+    assertEquals(rules, expectedCodexDiscernRules());
+    // Structural exec-policy coverage without depending on the Codex CLI in unit tests:
+    // exactly the two narrow prefixes are allowed, and no broader git/shell rule appears.
+    assertEquals((rules.match(/prefix_rule/g) ?? []).length, 2);
+    assertStringIncludes(rules, 'pattern = ["git", "add"]');
+    assertStringIncludes(rules, 'pattern = ["git", "commit"]');
+    assertStringIncludes(rules, 'decision = "allow"');
+    assertStringIncludes(rules, "trusted discern linked worktrees");
+    assertStringIncludes(rules, ".git/worktrees");
+    assertEquals(
+      await Deno.readTextFile(join(dir, ".codex/rules/default.rules")),
+      userDefaultRules,
+    );
+
+    const second = await wireProviderProjectRules(dir, ["codex"]);
+    assertEquals(second, []);
+  });
+
+  await withTempDir(async (dir) => {
+    const wrote = await wireProviderProjectRules(dir, [
+      "claude_code",
+      "gemini",
+      "cursor",
+      "copilot",
+    ]);
+    assertEquals(wrote, []);
+    await assertAbsent(join(dir, ".codex/rules/discern.rules"));
+  });
+});
+
 Deno.test("wireProviderMcp wires Cursor: type:stdio mcpServers.discern into .cursor/mcp.json only", async () => {
   await withTempDir(async (dir) => {
     const first = await wireProviderMcp(dir, ["cursor"]);
@@ -711,4 +766,21 @@ async function assertAbsent(path: string): Promise<void> {
     present = false;
   }
   assert(!present, `expected ${path} to be absent`);
+}
+
+function expectedCodexDiscernRules(): string {
+  return `# Generated and co-managed by discern. Put user-owned Codex rules in a separate .codex/rules/*.rules file.
+
+prefix_rule(
+    pattern = ["git", "add"],
+    decision = "allow",
+    justification = "Allow staging from trusted discern linked worktrees; Git writes linked-worktree indexes and locks under the main checkout .git/worktrees directory.",
+)
+
+prefix_rule(
+    pattern = ["git", "commit"],
+    decision = "allow",
+    justification = "Allow committing from trusted discern linked worktrees; Git writes linked-worktree metadata under the main checkout .git/worktrees directory.",
+)
+`;
 }
