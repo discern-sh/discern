@@ -22,7 +22,7 @@ hard rules, deliverable.
 
 **If `<docs-dir>_internal/documenter-agent-brief.md` doesn't exist yet**, create
 the `_internal` scaffolding from this skill's skeleton first: copy
-`.claude/skills/document-subsystem/skel/docs/_internal/` to
+`.claude/skills/document-subsystem/skeleton/docs/_internal/` to
 `<docs-dir>_internal/`.
 
 The brief assumes the orientation tier already exists under

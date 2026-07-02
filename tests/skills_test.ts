@@ -29,6 +29,7 @@ import {
   materializeSkills,
   resolveEffectiveSkills,
 } from "../src/lib/skills.ts";
+import { resolveBundledSkillsDir } from "../src/lib/paths.ts";
 import { skillsDirsForAgents } from "../src/lib/providers.ts";
 import { modeOf, withTempDir } from "./helpers.ts";
 
@@ -76,6 +77,38 @@ Deno.test("bundledSkillNames lists the shipped built-ins, sorted", async () => {
     );
   }
   assertEquals([...names], [...names].sort());
+});
+
+Deno.test("every materialized-path reference in a bundled SKILL.md resolves", async () => {
+  // A SKILL.md may point its reader at files the skill itself materializes
+  // (`.claude/skills/<name>/<path>`). Those prose paths have no compiler behind
+  // them: a renamed skill or a moved skeleton silently orphans the reference and
+  // the agent following it copies from a path that no longer exists. Enumerate
+  // every such reference across ALL bundled skills (a new skill auto-enrols) and
+  // assert the named skill is bundled and the sub-path exists in its source.
+  const bundledDir = await resolveBundledSkillsDir();
+  const names = new Set(await bundledSkillNames());
+  const reference = /\.claude\/skills\/([A-Za-z0-9_-]+)((?:\/[A-Za-z0-9._-]+)*)\/?/g;
+  let checked = 0;
+  for (const name of names) {
+    const text = await Deno.readTextFile(join(bundledDir, name, "SKILL.md"));
+    for (const match of text.matchAll(reference)) {
+      const referenced = match[1];
+      const subpath = (match[2] ?? "").replace(/^\//, "");
+      assert(
+        referenced !== undefined && names.has(referenced),
+        `${name}/SKILL.md references .claude/skills/${referenced}/ but no bundled skill has that name`,
+      );
+      if (subpath !== "") {
+        assert(
+          await exists(join(bundledDir, referenced, subpath)),
+          `${name}/SKILL.md references .claude/skills/${referenced}/${subpath} but templates/skills/${referenced}/${subpath} does not exist`,
+        );
+      }
+      checked++;
+    }
+  }
+  assert(checked > 0, "expected at least one materialized-path reference to check");
 });
 
 Deno.test("resolveEffectiveSkills: bundled-only when no authored dir", async () => {
