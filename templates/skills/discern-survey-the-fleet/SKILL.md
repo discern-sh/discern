@@ -1,6 +1,9 @@
 ---
 name: discern-survey-the-fleet
 description: Survey every worktree in the repository and report what is actually going on in each — intent, progress, staleness, collisions — so the user can steer their parallel work without visiting each worktree by hand. Use when the user asks "what's going on in my worktrees?", "where did I leave things?", for a fleet status, overview, or roundup, wants to know what's ready to land or gone stale. Bundled with discern.
+metadata:
+  author: "discern | https://discern.sh"
+  version: "1.0"
 ---
 
 # Survey the fleet

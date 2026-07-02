@@ -1,6 +1,9 @@
 ---
 name: discern-delegate-work
 description: Turn the work you've been discussing into complete, self-contained prompts for fresh agents in their own worktrees — one handoff, a parallel fan-out, or staged briefs — then review what lands adversarially. Use when the user wants to delegate, hand off, or spin off work to a new, separate, or clean agent session, wants to parallelise a large effort, split work across agents or worktrees, asks you to "write a prompt for another agent", or to "kick this off in a fresh worktree". Bundled with discern.
+metadata:
+  author: "discern | https://discern.sh"
+  version: "1.0"
 ---
 
 # Delegate work to fresh agents

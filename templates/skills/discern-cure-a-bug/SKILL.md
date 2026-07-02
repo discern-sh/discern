@@ -1,6 +1,9 @@
 ---
 name: discern-cure-a-bug
 description: Cure a bug — fix every instance of the underlying defect and leave a permanent guard so it can never return; patching only the instance you were shown is symptomatic relief. Use when fixing any bug, or when asked to fix something "properly", "at the root cause", "everywhere", or "for good" — any time a fix should eliminate a class of defect, not a single occurrence. Bundled with discern.
+metadata:
+  author: "discern | https://discern.sh"
+  version: "1.0"
 ---
 
 # Cure the bug — don't treat the symptom

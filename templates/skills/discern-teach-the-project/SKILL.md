@@ -1,6 +1,9 @@
 ---
 name: discern-teach-the-project
 description: Route a lesson this session produced into the project's own surfaces — a guidance line, an authored skill, a recipe, a doc, or an ADR — so every future agent session inherits it. Use when the user says "remember this", "add this to the guidance", "capture this", or wants a rule or procedure to stick. Also offer it proactively, at a natural pause and never mid-task, after the user corrects your approach, after you derive a non-obvious procedure the hard way, or when a decision gets made that no file records. Bundled with discern.
+metadata:
+  author: "discern | https://discern.sh"
+  version: "1.0"
 ---
 
 # Teach the project

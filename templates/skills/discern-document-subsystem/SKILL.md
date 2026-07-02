@@ -1,6 +1,9 @@
 ---
 name: discern-document-subsystem
 description: Write or refresh a subtree of the configured documentation tree for one subsystem (its README plus leaves), following the project's documenter brief. Use when the user says "document the X subsystem", "write the docs for X", "refresh the X docs", "the docs for X are stale", or after a change that altered a subsystem's documented behaviour. Can fan out one documenter per subsystem to do several at once. Bundled with discern.
+metadata:
+  author: "discern | https://discern.sh"
+  version: "1.0"
 ---
 
 # Document a subsystem

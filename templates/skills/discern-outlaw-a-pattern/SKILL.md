@@ -1,6 +1,9 @@
 ---
 name: discern-outlaw-a-pattern
 description: Make a legacy pattern illegal in the codebase — detector, falling ratchet, removal as fast as the work allows, then a permanent gate rule at zero. Use when the user wants to migrate off, phase out, deprecate, ban, or eliminate a pattern, API, idiom, or dependency codebase-wide ("stop using X", "move everything to Y", "get rid of the old way"), or when a half-finished migration keeps regressing. Bundled with discern.
+metadata:
+  author: "discern | https://discern.sh"
+  version: "1.0"
 ---
 
 # Outlaw a pattern

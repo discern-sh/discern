@@ -39,6 +39,17 @@ Deno.test("bundled skills: every one is well-formed (frontmatter name === direct
         name,
         "frontmatter 'name' must equal the skill's directory name",
       );
+      // Every bundled skill carries the discern attribution in its frontmatter, so
+      // provenance travels with the file wherever it materializes. Checked over the
+      // canonical set, so a new skill added without it fails the gate. Asserted on
+      // the raw frontmatter text (the flat reader deliberately surfaces only
+      // name/description); the exact author string is the single source below.
+      const fence = text.indexOf("\n---", 3);
+      const front = fence === -1 ? text : text.slice(0, fence);
+      assert(
+        front.includes('author: "discern | https://discern.sh"'),
+        "frontmatter 'metadata.author' must be the discern attribution",
+      );
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       throw new Error(`bundled skill '${name}' is malformed: ${detail}`);

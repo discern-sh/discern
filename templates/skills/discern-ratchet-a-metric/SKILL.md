@@ -1,6 +1,9 @@
 ---
 name: discern-ratchet-a-metric
 description: Put a quality metric behind a never-loosen ratchet — choose a defendable number, wire it into [ratchets] in discern.toml, set the limit at today's value, and know what to do when it fires. Use when the user wants to ratchet, defend, or hold the line on a metric (coverage, bundle size, lint suppressions, TODO count, uses of a deprecated pattern), wants to stop a number regressing, or when a ratchet has fired and the way forward is unclear. Bundled with discern.
+metadata:
+  author: "discern | https://discern.sh"
+  version: "1.0"
 ---
 
 # Ratchet a metric

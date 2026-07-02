@@ -1,6 +1,9 @@
 ---
 name: discern-diagnose-a-bug
 description: Diagnose a bug before fixing it — reproduce the failure, run a falsifying hypothesis loop, and prove the cause instead of patching a plausible guess. Use when investigating any bug, failure, or odd behaviour whose cause isn't proven yet, when a previous fix didn't hold, or when asked "why is this happening?", "what's causing this?", or to "look into" a defect. Bundled with discern.
+metadata:
+  author: "discern | https://discern.sh"
+  version: "1.0"
 ---
 
 # Diagnose before you fix
