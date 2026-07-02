@@ -96,6 +96,30 @@ function partnerPaths(data: CouplingData): string[] {
   return data.partners.map((p) => p.path);
 }
 
+async function rankedHubHistory(dir: string): Promise<void> {
+  for (let i = 0; i < 20; i++) {
+    const files: Record<string, string> = { "hub.ts": `hub-${i}` };
+    if (i < 18) {
+      files["always.ts"] = `always-${i}`; // 18/20 = 0.9
+    } else {
+      files["tail.ts"] = `tail-${i}`; // keeps hub.ts pairable without qualifying
+    }
+    if (i < 12) {
+      files["often.ts"] = `often-${i}`; // 12/20 = 0.6
+    }
+    if (i < 8) {
+      files["sometimes.ts"] = `sometimes-${i}`; // 8/20 = 0.4
+    }
+    for (let j = 0; j < 11; j++) {
+      if (i >= j && i < j + 4) {
+        files[`weak${j}.ts`] = `${i}`; // 4/20 = 0.2, enough to qualify
+      }
+    }
+    await commit(dir, files, `hub-${i}`);
+  }
+  await noise(dir, 80, "rank-noise");
+}
+
 Deno.test("a repeated significant coupling surfaces; a one-off co-change does not", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);
@@ -290,6 +314,66 @@ Deno.test("the partner list is capped at MAX_PARTNERS (top-k, so it never floods
       data.partners.length,
       MAX_PARTNERS,
       "more than MAX_PARTNERS qualified, so it is capped",
+    );
+  });
+});
+
+Deno.test("coupling ranks strongest-first, keeps strongest under the cap, and tips near-invariants", async () => {
+  await withTempDir(async (dir) => {
+    await setup(dir);
+    await rankedHubHistory(dir);
+
+    const result = await couplingResult(dir, { paths: ["hub.ts"] });
+    const data = result.data as CouplingData;
+    assertEquals(
+      data.partners.length,
+      MAX_PARTNERS,
+      "more than MAX_PARTNERS qualify, so the data is capped",
+    );
+    assertEquals(partnerPaths(data).slice(0, 3), [
+      "always.ts",
+      "often.ts",
+      "sometimes.ts",
+    ]);
+    assertEquals(data.partners[0]?.confidence, 0.9);
+    assert(
+      partnerPaths(data).includes("always.ts"),
+      `the strongest partner must survive the top-k cap: ${
+        JSON.stringify(data.partners)
+      }`,
+    );
+    assert(
+      (result.hints ?? []).some((h) => h.includes("almost every time")),
+      `a >=0.85 confidence pair should trigger the invariant tip: ${
+        JSON.stringify(result.hints)
+      }`,
+    );
+  });
+});
+
+Deno.test("coupling near-invariant tip stays quiet below 0.85 confidence", async () => {
+  await withTempDir(async (dir) => {
+    await setup(dir);
+    for (let i = 0; i < 20; i++) {
+      const files: Record<string, string> = { "hub.ts": `${i}` };
+      if (i < 16) {
+        files["steady.ts"] = `${i}`; // 16/20 = 0.8
+      } else {
+        files["tail.ts"] = `${i}`;
+      }
+      await commit(dir, files, `steady-${i}`);
+    }
+    await noise(dir, 40, "below-threshold-noise");
+
+    const result = await couplingResult(dir, { paths: ["hub.ts"] });
+    const data = result.data as CouplingData;
+    assertEquals(data.partners[0]?.path, "steady.ts");
+    assertEquals(data.partners[0]?.confidence, 0.8);
+    assert(
+      !(result.hints ?? []).some((h) => h.includes("almost every time")),
+      `a <0.85 confidence pair must not trigger the invariant tip: ${
+        JSON.stringify(result.hints)
+      }`,
     );
   });
 });
