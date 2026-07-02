@@ -226,6 +226,49 @@ const PATH_PARAM = {
  * MCP tool is a real verb, no dead slugs. */
 export const TOOLS: McpTool[] = [
   defineTool({
+    name: "discern_status",
+    title: "Orient with discern_status",
+    outputSchema: StatusOutputSchema.shape,
+    annotations: READ_ONLY,
+    description:
+      "Start here: call discern_status to report what is true right now and what " +
+      "to do next — pure observation, never runs the gate, tests, ratchets, or " +
+      'touches anything. data.location is "worktree" or "main"; data.git carries ' +
+      "branch/clean/changed-files and ahead/behind the integration branch — and, when " +
+      "behind, data.git.incoming_overlap names the files YOU changed that the incoming " +
+      "`{{main_branch}}` also changed (the hot zone to re-read on integrating, since a " +
+      "clean merge can still break them); data.gate " +
+      "lists what the gate WOULD fire (wired capabilities, checks, triggered scope " +
+      "gates); data.worktree carries this worktree's id/port/db and provisioned " +
+      "resources; data.features and data.ratchets list the configured set. " +
+      "data.stale_generated flags generated agent files, and data.stale_materialized " +
+      "the materialized skills, that have drifted from their sources (run discern " +
+      "refresh for either); data.setup_unfinished is present while the project's " +
+      "one-time setup is still incomplete. From the " +
+      "main checkout it leads with data.fleet (a cheap row per worktree: branch, " +
+      "dirty/ahead/behind, a last_activity timestamp, and is_current marking the row " +
+      "this call is rooted in — every other row is a separate line of work, not a " +
+      "workspace to claim, and a clean tree never means one is free); set all=true " +
+      "to include the fleet from a worktree, or local=true to suppress it. hints[] are " +
+      "advisory next-steps (e.g. run discern_finish, ready to graduate, or — when on " +
+      "the trunk — run discern_start to begin in your own isolated worktree) — never " +
+      "an unverified pass/fail.",
+    inputSchema: {
+      all: z.boolean().optional().describe(
+        "Include the fleet survey even from a worktree (default false).",
+      ),
+      local: z.boolean().optional().describe(
+        "Local view only — suppress the fleet survey even in the main checkout (default false).",
+      ),
+      ...PATH_PARAM,
+    },
+    run: (root, args) =>
+      statusResult(root, {
+        all: args.all === true,
+        local: args.local === true,
+      }),
+  }),
+  defineTool({
     name: "discern_finish",
     title: "Run the quality gate",
     outputSchema: FinishOutputSchema.shape,
@@ -366,49 +409,6 @@ export const TOOLS: McpTool[] = [
         ),
       });
     },
-  }),
-  defineTool({
-    name: "discern_status",
-    title: "Project status",
-    outputSchema: StatusOutputSchema.shape,
-    annotations: READ_ONLY,
-    description:
-      "Report what is true right now and what to do next — pure observation, never " +
-      "runs the gate, tests, ratchets, or touches anything. Call it at the start of a " +
-      'session to orient. data.location is "worktree" or "main"; data.git carries ' +
-      "branch/clean/changed-files and ahead/behind the integration branch — and, when " +
-      "behind, data.git.incoming_overlap names the files YOU changed that the incoming " +
-      "`{{main_branch}}` also changed (the hot zone to re-read on integrating, since a " +
-      "clean merge can still break them); data.gate " +
-      "lists what the gate WOULD fire (wired capabilities, checks, triggered scope " +
-      "gates); data.worktree carries this worktree's id/port/db and provisioned " +
-      "resources; data.features and data.ratchets list the configured set. " +
-      "data.stale_generated flags generated agent files, and data.stale_materialized " +
-      "the materialized skills, that have drifted from their sources (run discern " +
-      "refresh for either); data.setup_unfinished is present while the project's " +
-      "one-time setup is still incomplete. From the " +
-      "main checkout it leads with data.fleet (a cheap row per worktree: branch, " +
-      "dirty/ahead/behind, a last_activity timestamp, and is_current marking the row " +
-      "this call is rooted in — every other row is a separate line of work, not a " +
-      "workspace to claim, and a clean tree never means one is free); set all=true " +
-      "to include the fleet from a worktree, or local=true to suppress it. hints[] are " +
-      "advisory next-steps (e.g. run discern_finish, ready to graduate, or — when on " +
-      "the trunk — run discern_start to begin in your own isolated worktree) — never " +
-      "an unverified pass/fail.",
-    inputSchema: {
-      all: z.boolean().optional().describe(
-        "Include the fleet survey even from a worktree (default false).",
-      ),
-      local: z.boolean().optional().describe(
-        "Local view only — suppress the fleet survey even in the main checkout (default false).",
-      ),
-      ...PATH_PARAM,
-    },
-    run: (root, args) =>
-      statusResult(root, {
-        all: args.all === true,
-        local: args.local === true,
-      }),
   }),
   defineTool({
     name: "discern_improve",
