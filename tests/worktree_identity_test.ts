@@ -9,6 +9,7 @@
  */
 
 import { assert, assertEquals, assertMatch } from "@std/assert";
+import { join } from "@std/path";
 import { cksumString } from "../src/shared/crc.ts";
 import {
   dbNameForId,
@@ -21,7 +22,8 @@ import {
   siteForId,
   validateOverrideId,
 } from "../src/engine/worktree/identity.ts";
-import { fakeEnv } from "./helpers.ts";
+import { fakeEnv, withTempDir } from "./helpers.ts";
+import { addWorktree, gitInit } from "./engine_helpers.ts";
 
 interface CksumVector {
   input: string;
@@ -182,15 +184,41 @@ Deno.test("an invalid DISCERN_WORKTREE_ID override is rejected", async () => {
   );
 });
 
-Deno.test("sanitization: an override id is lowercased and dash-normalised", () => {
-  // deriveIdentity is pure; the override path's sanitizeSlug is exercised via
-  // resolveWorktreeId above. Here, pin the slug-collision `wt-` rule's inputs by
-  // checking the derivation stays stable for an already-clean id.
+Deno.test("sanitization: an override id is lowercased and dash-normalised", async () => {
   const settings: IdentitySettings = {
     slug: "discern",
     branchPrefix: "agent/",
   };
-  const got = deriveIdentity("feature-x", settings);
-  assertEquals(got.branch, "agent/feature-x");
-  assertEquals(got.db, "discern_feature_x");
+  const id = await resolveWorktreeId(
+    settings,
+    undefined,
+    fakeEnv({ DISCERN_WORKTREE_ID: "Feat.X" }),
+  );
+  assertEquals(id, "feat-x");
+  const got = deriveIdentity(id, settings);
+  assertEquals(got.branch, "agent/feat-x");
+  assertEquals(got.db, "discern_feat_x");
+});
+
+Deno.test("metadata ids colliding with the project slug get a wt- prefix", async () => {
+  const settings: IdentitySettings = {
+    slug: "discern",
+    branchPrefix: "agent/",
+  };
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "README.md"), "scaffold\n");
+    await gitInit(dir);
+    for (
+      const [worktreeName, expected] of [
+        ["discern", "wt-discern"],
+        ["discern42", "wt-discern42"],
+      ] as const
+    ) {
+      const worktree = await addWorktree(dir, worktreeName);
+      assertEquals(
+        await resolveWorktreeId(settings, worktree, fakeEnv()),
+        expected,
+      );
+    }
+  });
 });
