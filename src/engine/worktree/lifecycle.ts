@@ -923,7 +923,19 @@ async function executeGraduatePlan(
     ctx.log.info(
       "Unstaging WIP commit so changes land staged-but-uncommitted…",
     );
-    await run(["reset", "--soft", "HEAD~1"], mainRepo);
+    const reset = await run(["reset", "--soft", "HEAD~1"], mainRepo);
+    if (!reset.success) {
+      const landedOn = to === "trunk" ? trunk : worktreeBranch;
+      const gitSaid = reset.stderr.trim() !== ""
+        ? reset.stderr.trim()
+        : reset.stdout.trim();
+      throw new WorktreeGitError(
+        `git reset --soft HEAD~1 failed in ${mainRepo}. ` +
+          `The WIP commit remains at HEAD of ${landedOn} in the main checkout; ` +
+          "previously uncommitted work is still in that commit. " +
+          (gitSaid !== "" ? `Git said:\n    ${gitSaid}` : ""),
+      );
+    }
     ctx.log.ok(
       "WIP commit unstaged; previously uncommitted changes are now staged here.",
     );
