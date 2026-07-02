@@ -21,6 +21,7 @@ import {
   loadConfigDoc,
 } from "../src/lib/config_doc.ts";
 import { TomlEditor } from "../src/lib/toml_edit.ts";
+import { parseConfig } from "../src/shared/config_schema.ts";
 import { withTempDir } from "./helpers.ts";
 
 /** A fresh editor over a minimal `[project]` config for apply-side tests. */
@@ -187,6 +188,54 @@ Deno.test("applyConfigDoc writes docs, capabilities, checks, scopes and ratchets
   assert(out.includes('run = "deno coverage"'));
 });
 
+Deno.test("applyConfigDoc writes TOML that re-parses to the intended config values", () => {
+  const ed = editor();
+  applyConfigDoc(ed, {
+    docs: { dir: "docs/discern/" },
+    capabilities: {
+      lint: "deno lint --rules=\\d+",
+      test: ["deno test", "echo trailing\\"],
+    },
+    checks: {
+      quoted: {
+        stage: "check",
+        run: 'grep "needle" src\\win\\**',
+        provides: "unicode-é",
+      },
+    },
+    scopes: {
+      windows: {
+        paths: ["src\\win\\**", 'quote"/**', "unicode/é/**"],
+        gate: ["echo \\d+", "echo trailing\\"],
+      },
+    },
+    ratchets: {
+      coverage: {
+        metric: "lines",
+        direction: "down",
+        limit: 80,
+        run: "deno coverage --filter=\\d+",
+      },
+    },
+  });
+
+  const { config, issues } = parseConfig(ed.toString());
+
+  assertEquals(issues, []);
+  assert(config !== undefined);
+  assertEquals(config.capabilities.lint, "deno lint --rules=\\d+");
+  assertEquals(config.capabilities.test, ["deno test", "echo trailing\\"]);
+  assertEquals(config.checks.quoted?.run, 'grep "needle" src\\win\\**');
+  assertEquals(config.checks.quoted?.provides, "unicode-é");
+  assertEquals(config.scopes.windows?.paths, [
+    "src\\win\\**",
+    'quote"/**',
+    "unicode/é/**",
+  ]);
+  assertEquals(config.scopes.windows?.gate, ["echo \\d+", "echo trailing\\"]);
+  assertEquals(config.ratchets.coverage?.run, "deno coverage --filter=\\d+");
+});
+
 Deno.test("applyConfigDoc defaults a ratchet's direction and metric", () => {
   const ed = editor();
   // No direction → "up"; no metric → the ratchet name.
@@ -286,6 +335,17 @@ Deno.test("applyConfigDoc rejects a ratchet with no run, and a bad direction", (
       ),
     Error,
     'ratchet "coverage": direction must be "up" or "down"',
+  );
+});
+
+Deno.test("applyConfigDoc rejects a ratchet with no limit using the ratchet error style", () => {
+  assertThrows(
+    () =>
+      applyConfigDoc(editor(), {
+        ratchets: { coverage: { run: "measure" } },
+      } as unknown as DiscernConfigDoc),
+    Error,
+    'ratchet "coverage": a limit is required',
   );
 });
 

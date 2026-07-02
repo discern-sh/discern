@@ -214,9 +214,16 @@ export function applyConfigDoc(
     if (run === undefined) {
       throw new Error(`ratchet "${name}": a run command is required`);
     }
+    const limit = spec.limit as unknown;
+    if (limit === undefined) {
+      throw new Error(`ratchet "${name}": a limit is required`);
+    }
+    if (typeof limit !== "number" && typeof limit !== "string") {
+      throw new Error(`ratchet "${name}": limit must be a number`);
+    }
     editor.setString(`ratchets.${name}.metric`, spec.metric ?? name);
     editor.setString(`ratchets.${name}.direction`, direction);
-    editor.setNumber(`ratchets.${name}.limit`, spec.limit);
+    editor.setNumber(`ratchets.${name}.limit`, limit);
     setCommand(editor, `ratchets.${name}.run`, run);
   }
 }

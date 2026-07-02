@@ -10,9 +10,30 @@
 import { parse as parseToml } from "@std/toml";
 import { tomlSyntaxHint } from "../shared/config_read.ts";
 
+function hasControlCharacter(value: string): boolean {
+  for (const char of value) {
+    const codePoint = char.codePointAt(0);
+    if (
+      codePoint !== undefined &&
+      (codePoint < 0x20 || codePoint === 0x7f)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** Render a string as a single-line, double-quoted TOML value. */
+export function renderTomlString(value: string): string {
+  if (hasControlCharacter(value)) {
+    throw new Error("a TOML value cannot contain a control character");
+  }
+  return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+}
+
 /** Render a list of strings as comma-joined, double-quoted TOML array items. */
 export function renderTomlStringList(items: string[]): string {
-  return items.map((item) => `"${item.replaceAll('"', '\\"')}"`).join(", ");
+  return items.map(renderTomlString).join(", ");
 }
 
 /** A minimally-validated view of a parsed `discern.toml`. */
