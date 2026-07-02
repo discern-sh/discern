@@ -1285,10 +1285,11 @@ Deno.test("the brief reframes Step 0 as a relayed model question, states WHY doc
     join(REAL_TEMPLATES, "setup", "instructions.md"),
   );
 
-  // Step 0 is reframed from a self-assessment the agent can rationalize past
-  // ("are you capable?") into a REQUIRED question it RELAYS to its human — setup
-  // quality is bounded by the model, so the choice is the user's to make.
+  // Step 0 is a CHECKPOINT: `verify` serves the model question in its consent message,
+  // and Step 0 confirms it actually reached the human (asking now if it was skipped) —
+  // not a self-assessment the agent can rationalize past (ADR 0086).
   assertStringIncludes(brief, "am I your most capable model");
+  assertStringIncludes(brief, "## Step 0 — Checkpoint");
   assert(
     !brief.includes("right tool for this job"),
     "Step 0's self-assessment framing must not return — it is now a relayed question",

@@ -135,7 +135,7 @@ Deno.test("setup begin emits the operating principles + the first page only, nev
     assertStringIncludes(r.stdout, "Operating principles");
     assertStringIncludes(
       r.stdout,
-      "## Step 0 — Confirm the model with your human",
+      "## Step 0 — Checkpoint: the model question, then orient",
     );
     assertStringIncludes(r.stdout, "am I your most capable model"); // Step 0's prose
 

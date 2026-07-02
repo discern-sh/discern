@@ -930,6 +930,15 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   console.log("  result to summarise back to the user as already done.");
   console.log(heavyRule);
   console.log("");
+  // The started moment — the third human touchpoint of the served-message handshake
+  // (ADR 0086): a one-line relay so the human hears setup has begun and what's next,
+  // even from an agent that only couriers discern's words.
+  console.log(
+    setupBranch !== undefined
+      ? `Tell your human: setup has started on the \`${setupBranch}\` branch — next I'll study the repo and come back with a few questions.`
+      : "Tell your human: setup has started — next I'll study the repo and come back with a few questions.",
+  );
+  console.log("");
   if (setupBranch !== undefined) {
     console.log(
       `On branch \`${setupBranch}\` — created from your clean tree so this setup is isolated and easy to roll back (or merge when you're happy).`,
