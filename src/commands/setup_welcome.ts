@@ -311,7 +311,7 @@ function styledFreshWelcome(): string[] {
     boxLine(
       "agent instructions to this repo — tailored to YOUR codebase by your own",
     ),
-    boxLine("coding agent. To get started, tell your coding agent:"),
+    boxLine("coding agent."),
     boxLine(""),
     boxLine(
       centerVisible(
@@ -321,6 +321,8 @@ function styledFreshWelcome(): string[] {
         TTY_BOX_INNER_WIDTH,
       ),
     ),
+    boxLine(""),
+    boxLine("To get started, tell your coding agent:"),
     boxLine(""),
     ...actionBox(),
     boxLine(""),
@@ -361,9 +363,10 @@ function styledFreshWelcome(): string[] {
     boxLine(""),
     boxLine(
       dim(
-        "Your next action, now — preview the plan and open the consent conversation:",
+        "Your next action, now — preview the plan and open the consent",
       ),
     ),
+    boxLine(dim("conversation:")),
     boxLine(""),
     boxLine(
       centerVisible(

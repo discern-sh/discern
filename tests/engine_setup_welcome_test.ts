@@ -84,14 +84,39 @@ Deno.test("the fresh welcome renderer adds TTY decoration without losing content
   );
   assertStringIncludes(styledPlain, "╭");
   assertStringIncludes(styledPlain, "╰");
+  const styledLines = styledPlain.split("\n");
+  const boxWidth = styledLines[0]?.length;
+  assertEquals(boxWidth, 78);
   for (const line of styledPlain.split("\n")) {
     assert(
-      line.length <= 80,
-      `styled welcome line is wider than 80 columns (${line.length}): ${line}`,
+      line.length === boxWidth,
+      `styled welcome line has width ${line.length}, expected ${boxWidth}: ${line}`,
     );
   }
   assertFreshWelcomeFacts(plain, "plain welcome");
   assertFreshWelcomeFacts(styledPlain, "styled welcome");
+});
+
+Deno.test("the fresh welcome keeps the human CTA contiguous", () => {
+  const styledPlain = stripAnsi(renderFreshWelcome({ tty: true }).join("\n"));
+  const lines = styledPlain.split("\n");
+  const tellIndex = lines.findIndex((line) =>
+    line.includes("tell your coding agent:")
+  );
+  const quoteIndex = lines.findIndex((line) =>
+    line.includes('"Run `discern setup` in this project."')
+  );
+
+  assert(tellIndex >= 0, "expected the human lead-in");
+  assert(
+    quoteIndex > tellIndex,
+    "expected the quoted command after the lead-in",
+  );
+  const intervening = lines.slice(tellIndex + 1, quoteIndex).join("\n");
+  assert(
+    !intervening.includes("quality gate"),
+    `the feature summary must not split the CTA:\n${intervening}`,
+  );
 });
 
 Deno.test("the fresh welcome style resolver keeps --no-color and NO_COLOR plain on a TTY", () => {
