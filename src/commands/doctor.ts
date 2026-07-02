@@ -29,6 +29,7 @@ import {
   toCommandList,
 } from "../shared/config_schema.ts";
 import { buildExecutionModel } from "../engine/doctor/execution_model.ts";
+import { renderAgentFiles } from "../engine/guidance_render.ts";
 import { providerFor, providersWithHooks } from "../lib/providers.ts";
 import {
   enabledFeatures,
@@ -397,6 +398,20 @@ export async function runChecks(destDir: string): Promise<Check[]> {
     });
   }
 
+  let renderedGuidanceFiles = new Set<string>();
+  let guidanceRenderError: string | undefined;
+  if (isFeatureEnabled(config, "guidance")) {
+    try {
+      renderedGuidanceFiles = new Set(
+        (await renderAgentFiles(destDir, config)).keys(),
+      );
+    } catch (error) {
+      guidanceRenderError = error instanceof Error
+        ? error.message
+        : String(error);
+    }
+  }
+
   // 8b. agent integrations — per CONFIGURED agent, the integration surfaces the
   // provider registry wires today (guidance file, skills dir, MCP, worktree hooks).
   // Makes per-agent coverage EXPLICIT rather than a silent gap: MCP/hooks are
@@ -415,8 +430,12 @@ export async function runChecks(destDir: string): Promise<Check[]> {
       continue;
     }
     const mcp = provider.mcp;
+    const guidancePath = provider.guidanceFile.path;
+    const guidanceWired = isFeatureEnabled(config, "guidance") &&
+      guidanceRenderError === undefined &&
+      renderedGuidanceFiles.has(guidancePath);
     const wired = [
-      `guidance ${provider.guidanceFile.path}`,
+      guidanceWired ? `guidance ${guidancePath}` : undefined,
       provider.skillsDir ? `skills ${provider.skillsDir}` : undefined,
       mcp.kind === "wired" ? "mcp" : undefined,
       provider.hooks ? "hooks" : undefined,
@@ -425,6 +444,13 @@ export async function runChecks(destDir: string): Promise<Check[]> {
     // a `pending` MCP is committable and names the file discern will write into once
     // authored; an absent hooks surface uses the agent's own mechanism.
     const notWired = [
+      !isFeatureEnabled(config, "guidance")
+        ? "guidance (feature off)"
+        : guidanceRenderError !== undefined
+        ? `guidance ${guidancePath} (render error)`
+        : !guidanceWired
+        ? `guidance ${guidancePath} (not rendered)`
+        : undefined,
       mcp.kind === "pending"
         ? `mcp → ${mcp.targetFile} (committable; not yet wired)`
         : undefined,

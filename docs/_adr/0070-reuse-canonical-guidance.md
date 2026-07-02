@@ -1,4 +1,4 @@
-# ADR 0070: An agent that reads the canonical AGENTS.md is modelled as "reuse-canonical", emitting nothing
+# ADR 0070: An agent that reads the canonical AGENTS.md is modelled as "reuse-canonical"
 
 **Status**: accepted; extends
 [ADR 0034](0034-agents-md-untracked-currency-check.md) (the one-canonical-file
@@ -12,12 +12,12 @@ full guidance body, and emits each other configured agent's file as a
 `@AGENTS.md` **pointer** (Claude Code's `CLAUDE.md`, Gemini's `GEMINI.md`), so
 the body lives in exactly one place and the mirrors can't drift (ADR 0034/0043).
 
-The next agents discern will model — Cursor, Copilot, Google Antigravity —
-change the shape of the problem: each reads the canonical `AGENTS.md`
-**natively**, with no file of its own. So for those agents discern should emit
-_nothing_: not a duplicate body, not even a pointer. The registry had no way to
-say that. Every `Provider` carried a `guidanceFile` discern _writes_; the only
-states were "canonical full body" and "pointer mirror".
+Agents such as Cursor and GitHub Copilot change the shape of the problem: each
+reads the canonical `AGENTS.md` **natively**, with no file of its own. So for
+those agents discern should emit no provider-specific guidance file: not a
+duplicate body, not even a pointer. The registry had no way to say that. Every
+`Provider` carried a `guidanceFile` discern _writes_; the only states were
+"canonical full body" and "pointer mirror".
 
 The naïve workaround — point a second provider's `guidanceFile.path` at
 `AGENTS.md` — is a trap. The aggregators (`allGuidanceFilePaths`,
@@ -35,17 +35,20 @@ on a single predicate so the file is produced and counted exactly once.**
 
 - `GuidanceFile` gains `reuseCanonical?: boolean`. Its `path` names the
   canonical file it _reads_ (`AGENTS.md`), but it is mutually exclusive with
-  `canonical` and `pointer`: discern writes nothing for it.
-- `emitsGuidanceFile(gf)` is the ONE predicate ("does discern write a file for
-  this entry?"), false only for a reuse-canonical entry. Every consumer gates on
-  it:
+  `canonical` and `pointer`: discern writes no provider-specific file for it. If
+  a configured set contains a reuse-canonical provider but no canonical
+  provider, the renderer emits that path once as the canonical full-body file.
+- `emitsGuidanceFile(gf)` is the ONE predicate ("does this entry write its own
+  provider file?"), false only for a reuse-canonical entry. Every consumer gates
+  on it:
   - `emittedGuidancePaths(files)` — the shared core behind
-    `allGuidanceFilePaths()` — skips reuse-canonical entries and collapses
-    duplicate paths, so `AGENTS.md` appears once;
-  - `renderAgentFiles`'s pure core `agentFileContents(files, body)` skips them,
-    so the content map has no entry for them (a Map keyed by path also can't
-    hold a path twice);
-  - the writer (`compileGuidelines`) skips them and deduplicates writes by path.
+    `allGuidanceFilePaths()` — collapses reuse-canonical entries into the
+    canonical path when a canonical provider is present, and emits that path
+    when no canonical provider is configured, so `AGENTS.md` appears once;
+  - `renderAgentFiles`'s pure core `agentFileContents(files, body)` gives that
+    synthesized canonical path the full body and points mirrors at it;
+  - the writer (`compileGuidelines`) writes the rendered map, so it cannot skip
+    a synthesized canonical file by re-checking provider rows.
 - The gitignore/neutral-scope satellites read the deduped aggregators, so a
   reuse-canonical provider's read path stays covered (the canonical provider
   contributes it) without a second rule.
@@ -57,9 +60,9 @@ The explicit *no*s:
 - **Exactly one provider stays `canonical`.** A parity guard asserts it, and
   that a reuse-canonical provider's `path` equals that one canonical path (it
   genuinely reuses the canonical, not an arbitrary file).
-- **No vendor is added here.** This phase builds the model and proves it with a
-  synthetic reuse-canonical provider in tests; Cursor/Copilot/Antigravity adopt
-  it in later plans by setting one flag.
+- **No provider-specific duplicate.** Cursor and Copilot can be configured
+  without Codex and still get `AGENTS.md`; they still do not get their own
+  separate guidance file.
 
 ## Consequences
 
@@ -75,11 +78,9 @@ The explicit *no*s:
   `agentFileContents` take the guidance entries as input, so a synthetic
   reuse-canonical set proves "no duplicate write, correct aggregator output,
   gitignore coverage" directly.
-- **A reuse-canonical agent depends on the canonical being configured.** If only
-  a reuse-canonical agent is configured and codex is not, no `AGENTS.md` is
-  emitted and it has nothing to read. Acceptable now (codex is in
-  `DEFAULT_AGENTS`, and the later vendor plans pair the two); a future plan may
-  emit the canonical whenever a reuse-canonical agent is present.
+- **A reuse-canonical-only set still gets guidance.** If only Cursor or Copilot
+  is configured, `AGENTS.md` is emitted with the full compiled body instead of
+  silently producing no guidance files.
 
 ## Alternatives considered
 

@@ -168,14 +168,14 @@ Deno.test("MCP status is typed and explicit: all five agents wired to their own 
   assertEquals(providerFor("copilot")?.worktreeApp, undefined);
 });
 
-Deno.test("Cursor & Copilot are reuse-canonical: read AGENTS.md natively, emit nothing, share .agents/skills", () => {
+Deno.test("Cursor & Copilot are reuse-canonical: read AGENTS.md natively, no duplicate provider file, share .agents/skills", () => {
   // Phase C's two cheap agents: guidance and skills reuse artifacts discern already
   // produces, so each is a registry declaration, not new machinery (ADR 0070).
   for (const name of ["cursor", "copilot"] as const) {
     const p = providerFor(name);
     assert(p !== undefined, `no provider for ${name}`);
-    // Reuse-canonical: path names the canonical AGENTS.md it READS; discern emits
-    // nothing of its own (no duplicate body, no pointer).
+    // Reuse-canonical: path names the canonical AGENTS.md it reads; discern emits
+    // no provider-specific file (no duplicate body, no pointer).
     assertEquals(p.guidanceFile.path, "AGENTS.md");
     assertEquals(p.guidanceFile.canonical, false);
     assertEquals(p.guidanceFile.reuseCanonical, true);
