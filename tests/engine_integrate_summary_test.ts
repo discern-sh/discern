@@ -9,6 +9,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { exists } from "@std/fs";
+import type { z } from "@zod/zod";
 import { withTempDir } from "./helpers.ts";
 import {
   addWorktree,
@@ -18,39 +19,21 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
+import { IntegrateOutputSchema } from "../src/shared/result_schemas.ts";
 
-/** The slice of the `integrate` `--json` envelope these tests assert against. */
-interface IntegrateJson {
-  ok: boolean;
-  verb: string;
-  dry_run?: boolean;
-  data?: {
-    behind: number;
-    fast_forward: boolean;
-    commits: Array<{ sha: string; subject: string }>;
-    commits_total: number;
-    commits_truncated: boolean;
-    files: Array<
-      {
-        path: string;
-        status: string;
-        added: number | null;
-        removed: number | null;
-      }
-    >;
-    files_total: number;
-    files_truncated: boolean;
-    overlap: string[];
-    overlap_total: number;
-    scopes_incoming: string[];
-    range: { base: string; before: string; main: string; after?: string };
-  };
-  hints?: string[];
-}
+type IntegrateJson = z.infer<typeof IntegrateOutputSchema>;
 
 /** Parse an `integrate --json` run's stdout. */
 function parse(stdout: string): IntegrateJson {
-  return JSON.parse(stdout) as IntegrateJson;
+  const raw = JSON.parse(stdout);
+  const parsed = IntegrateOutputSchema.safeParse(raw);
+  assert(
+    parsed.success,
+    `integrate --json drifted from IntegrateOutputSchema:\n${
+      JSON.stringify(parsed.success ? [] : parsed.error.issues, null, 2)
+    }\n${stdout}`,
+  );
+  return parsed.data;
 }
 
 /** Looks like an abbreviated-or-full git object id. */

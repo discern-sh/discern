@@ -41,7 +41,9 @@ import {
   EnvelopeSchema,
   FinishOutputSchema,
   GateDataSchema,
+  GraduateOutputSchema,
   ImproveOutputSchema,
+  IntegrateOutputSchema,
   StartOutputSchema,
   StatusDataSchema,
   StatusOutputSchema,
@@ -60,6 +62,7 @@ import { improveResult } from "../src/engine/improve/improve.ts";
 import { docsResult, helpResult } from "../src/commands/docs.ts";
 import {
   graduateResult,
+  integrateResult,
   lifecycleContext,
   startResult,
 } from "../src/engine/worktree/lifecycle.ts";
@@ -585,7 +588,48 @@ Deno.test("ratchets result is faithful (dry-run plan and applied steps)", async 
   });
 });
 
-Deno.test("graduate result is faithful (dry-run plan from a worktree)", async () => {
+async function commitFiles(
+  dir: string,
+  files: Record<string, string>,
+  message: string,
+): Promise<void> {
+  for (const [path, contents] of Object.entries(files)) {
+    await Deno.writeTextFile(join(dir, path), contents);
+  }
+  await git(dir, "add", "-A");
+  await git(dir, "commit", "-q", "-m", message, "--no-gpg-sign");
+}
+
+Deno.test("integrate result is faithful (dry-run prediction and applied data-bearing merge)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "int-schema");
+    await commitFiles(dir, { "upstream.txt": "landed\n" }, "upstream");
+    const ctx = await lifecycleContext(
+      wt,
+      new Logger({ json: true, noColor: true }),
+    );
+
+    const preview = await integrateResult(ctx, { dryRun: true });
+    assertEquals(preview.dry_run, true);
+    assert(preview.data !== undefined, "integrate dry-run predicts data");
+    assertEquals(preview.data.range.after, undefined);
+    expectValid(
+      IntegrateOutputSchema,
+      preview,
+      "integrate dry-run prediction",
+    );
+
+    const applied = await integrateResult(ctx);
+    assertEquals(applied.ok, true);
+    assert(applied.data !== undefined, "integrate apply carries data");
+    assert(typeof applied.data.range.after === "string");
+    expectValid(IntegrateOutputSchema, applied, "integrate applied");
+  });
+});
+
+Deno.test("graduate result is faithful (dry-run plan and applied gate-validation data)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -596,7 +640,41 @@ Deno.test("graduate result is faithful (dry-run plan from a worktree)", async ()
     );
     const preview = await graduateResult(ctx, { dryRun: true });
     assertEquals(preview.dry_run, true);
-    expectValid(DatalessEnvelopeSchema, preview, "graduate dry-run");
+    expectValid(GraduateOutputSchema, preview, "graduate dry-run");
+  });
+
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "grad-rerun");
+    await commitFiles(wt, { "feature.txt": "branch\n" }, "branch work");
+    const ctx = await lifecycleContext(
+      wt,
+      new Logger({ json: true, noColor: true }),
+    );
+
+    const applied = await graduateResult(ctx);
+    assertEquals(applied.ok, true);
+    assertEquals(applied.data?.gate_validation?.mode, "rerun");
+    expectValid(GraduateOutputSchema, applied, "graduate applied rerun");
+  });
+
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "grad-receipt");
+    await commitFiles(wt, { "feature.txt": "branch\n" }, "branch work");
+    const finish = await finishResult(wt);
+    assertEquals(finish.ok, true);
+    const ctx = await lifecycleContext(
+      wt,
+      new Logger({ json: true, noColor: true }),
+    );
+
+    const applied = await graduateResult(ctx);
+    assertEquals(applied.ok, true);
+    assertEquals(applied.data?.gate_validation?.mode, "receipt");
+    expectValid(GraduateOutputSchema, applied, "graduate applied receipt");
   });
 });
 

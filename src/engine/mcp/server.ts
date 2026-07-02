@@ -350,12 +350,22 @@ export const TOOLS: McpTool[] = [
       ),
       ...PATH_PARAM,
     },
-    run: (root, args) =>
-      couplingResult(root, {
+    run: (root, args) => {
+      if (args.with !== undefined && args.file === undefined) {
+        return Promise.resolve({
+          ok: false,
+          verb: "coupling",
+          error: "invalid_arguments",
+          message:
+            "`with` requires `file`; pass both for evidence mode, or omit both for diff mode.",
+        });
+      }
+      return couplingResult(root, {
         paths: [args.file, args.with].filter((p): p is string =>
           p !== undefined
         ),
-      }),
+      });
+    },
   }),
   defineTool({
     name: "discern_status",

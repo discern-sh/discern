@@ -28,7 +28,7 @@ import {
   ENGINE_RECIPE_NAMES,
   KNOWN_ENGINE_VERBS,
 } from "../src/engine/dispatch.ts";
-import { KNOWN_VERBS } from "../src/main.ts";
+import { buildCli, KNOWN_VERBS } from "../src/main.ts";
 import { TOOLS, verbOf } from "../src/engine/mcp/server.ts";
 import { FEATURES, isFeature, VERB_FEATURE } from "../src/shared/features.ts";
 import { BOOTSTRAP_GATED_VERBS } from "../src/shared/setup_state.ts";
@@ -49,6 +49,21 @@ Deno.test("Cliffy registrations cover EXACTLY the engine-verb SSOT (verb → han
     sorted(KNOWN_ENGINE_VERBS),
     "the Cliffy engine-command registrations have drifted from KNOWN_ENGINE_VERBS — " +
       "add/remove a `.command()` in attachEngineCommands (or update the SSOT)",
+  );
+});
+
+Deno.test("KNOWN_VERBS covers EXACTLY the registered top-level CLI commands", () => {
+  // The dispatcher consults KNOWN_VERBS before recipe fallthrough. If buildCli grows a
+  // top-level command but KNOWN_VERBS does not, that registered command appears in
+  // --help yet `main` treats it as an unknown recipe. Tie the installer+engine universe
+  // back to the actual Cliffy registrations, with every feature on for the fullest set.
+  const root = buildCli(new Set(FEATURES), false) as unknown as Command;
+  const registered = root.getCommands().map((c) => c.getName());
+  assertEquals(
+    sorted(registered),
+    sorted(KNOWN_VERBS),
+    "KNOWN_VERBS has drifted from buildCli's registered top-level commands — " +
+      "update KNOWN_VERBS when adding/removing a command, or make a named exception",
   );
 });
 

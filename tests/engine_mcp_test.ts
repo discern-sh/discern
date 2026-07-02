@@ -5,19 +5,23 @@
  * each verb's tool returns its DiscernResult as the tool's structuredContent.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { exists } from "@std/fs";
 import { join } from "@std/path";
 import {
+  CouplingOutputSchema,
+  DatalessEnvelopeSchema,
   DoctorOutputSchema,
+  IntegrateOutputSchema,
   StatusOutputSchema,
 } from "../src/shared/result_schemas.ts";
-import { WorkingRoot } from "../src/engine/mcp/server.ts";
+import { TOOLS, WorkingRoot } from "../src/engine/mcp/server.ts";
 import { withTempDir } from "./helpers.ts";
 import {
   addWorktree,
   DENO_JSON,
   engineEnv,
+  git,
   gitInit,
   MAIN_TS,
   runAgent,
@@ -44,9 +48,40 @@ class McpClient {
     await this.writer.write(ENCODER.encode(`${JSON.stringify(msg)}\n`));
   }
 
+  /** Send one raw line, for protocol-robustness tests below the JSON encoder. */
+  async sendRaw(line: string): Promise<void> {
+    await this.writer.write(ENCODER.encode(line));
+  }
+
   /** Read the next non-empty JSON line from the server. */
   // deno-lint-ignore no-explicit-any
-  async recv(): Promise<any> {
+  async recv(timeoutMs = 5000): Promise<any> {
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        this.recvLine(),
+        new Promise((_, reject) => {
+          timeout = setTimeout(
+            () =>
+              reject(
+                new Error(
+                  `timed out waiting for MCP response after ${timeoutMs}ms`,
+                ),
+              ),
+            timeoutMs,
+          );
+        }),
+      ]);
+    } finally {
+      if (timeout !== undefined) {
+        clearTimeout(timeout);
+      }
+    }
+  }
+
+  /** Read the next non-empty JSON line from the server, without a timeout wrapper. */
+  // deno-lint-ignore no-explicit-any
+  private async recvLine(): Promise<any> {
     while (true) {
       const nl = this.buffer.indexOf("\n");
       if (nl >= 0) {
@@ -330,6 +365,117 @@ Deno.test("discern mcp: protocol version, ping, and unknown method are handled c
   });
 });
 
+Deno.test("discern mcp: an unexpected core throw becomes internal_error and the server answers the next call", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const mcp = await spawnMcp(dir);
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await mcp.recv();
+
+    // Corrupt the config after startup: the server keeps its registered tool surface,
+    // but coupling's real core will throw while loading the project config.
+    await Deno.writeTextFile(join(dir, "discern.toml"), "[project]\nslug =\n");
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "discern_coupling", arguments: { file: "a.ts" } },
+    });
+    const failed = await mcp.recv();
+    assertEquals(failed.result.isError, true, JSON.stringify(failed.result));
+    assertEquals(failed.result.structuredContent.ok, false);
+    assertEquals(failed.result.structuredContent.verb, "coupling");
+    assertEquals(failed.result.structuredContent.error, "internal_error");
+
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: { name: "discern_help", arguments: {} },
+    });
+    const next = await mcp.recv();
+    assertEquals(next.result.isError, false, JSON.stringify(next.result));
+    assertEquals(next.result.structuredContent.verb, "help");
+
+    assertEquals(await mcp.close(), 0);
+  });
+});
+
+Deno.test("discern mcp: a malformed JSON line does not prevent the next valid call", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const mcp = await spawnMcp(dir);
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await mcp.recv();
+
+    await mcp.sendRaw("{ definitely not json\n");
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "discern_status", arguments: {} },
+    });
+    const first = await mcp.recv();
+    const status = first.error?.code === -32700 ? await mcp.recv() : first;
+    assertEquals(status.result.isError, false, JSON.stringify(status.result));
+    assertEquals(status.result.structuredContent.verb, "status");
+
+    assertEquals(await mcp.close(), 0);
+  });
+});
+
+Deno.test("discern mcp: wrong-typed arguments return a field-naming Zod validation error", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const mcp = await spawnMcp(dir);
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await mcp.recv();
+
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "discern_finish", arguments: { dry_run: "yes" } },
+    });
+    const rejected = await mcp.recv();
+    const text = JSON.stringify(rejected);
+    assertStringIncludes(text, "dry_run");
+    assert(
+      rejected.error !== undefined || rejected.result?.isError === true,
+      text,
+    );
+
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: { name: "discern_status", arguments: {} },
+    });
+    const status = await mcp.recv();
+    assertEquals(status.result.isError, false, JSON.stringify(status.result));
+
+    assertEquals(await mcp.close(), 0);
+  });
+});
+
 Deno.test("discern mcp: discern_docs returns the index, a single doc, and a not_found error", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
@@ -608,6 +754,172 @@ Deno.test("discern mcp: discern_integrate is an idempotent no-op from an up-to-d
       }`,
     );
     assertEquals(await wtMcp.close(), 0);
+  });
+});
+
+Deno.test("discern mcp: discern_integrate returns schema-valid data for a real merge", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "intg-data");
+
+    await Deno.writeTextFile(join(dir, "upstream.txt"), "landed\n");
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "upstream", "--no-gpg-sign");
+
+    const mcp = await spawnMcp(wt);
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await mcp.recv();
+
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "discern_integrate", arguments: {} },
+    });
+    const merged = await mcp.recv();
+    assertEquals(merged.result.isError, false, JSON.stringify(merged.result));
+    const payload = merged.result.structuredContent;
+    const parsed = IntegrateOutputSchema.safeParse(payload);
+    assert(
+      parsed.success,
+      `integrate MCP payload drifted from schema:\n${
+        JSON.stringify(parsed.success ? [] : parsed.error.issues, null, 2)
+      }\n${JSON.stringify(payload, null, 2)}`,
+    );
+    assertEquals(payload.verb, "integrate");
+    assertEquals(payload.data.behind, 1);
+    assertEquals(payload.data.files.map((f: { path: string }) => f.path), [
+      "upstream.txt",
+    ]);
+    assert(typeof payload.data.range.after === "string");
+
+    assertEquals(await mcp.close(), 0);
+  });
+});
+
+Deno.test("discern mcp: discern_coupling covers diff, query, evidence, and invalid paired args", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const commit = async (
+      files: Record<string, string>,
+      msg: string,
+    ): Promise<void> => {
+      for (const [path, contents] of Object.entries(files)) {
+        await Deno.writeTextFile(join(dir, path), contents);
+      }
+      await git(dir, "add", "-A");
+      await git(dir, "commit", "-q", "-m", msg, "--no-gpg-sign");
+    };
+
+    for (let i = 0; i < 4; i++) {
+      await commit({ "a.ts": `${i}`, "b.ts": `${i}` }, `ab${i}`);
+    }
+    for (let i = 0; i < 5; i++) {
+      await commit({ [`n${i}.ts`]: "1", [`m${i}.ts`]: "1" }, `noise${i}`);
+    }
+    await Deno.writeTextFile(join(dir, "a.ts"), "staged\n");
+
+    const mcp = await spawnMcp(dir);
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await mcp.recv();
+
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "discern_coupling", arguments: {} },
+    });
+    const diff = await mcp.recv();
+    assertEquals(diff.result.isError, false, JSON.stringify(diff.result));
+    assert(
+      CouplingOutputSchema.safeParse(diff.result.structuredContent).success,
+    );
+    assertEquals(diff.result.structuredContent.data.mode, "diff");
+    assertEquals(diff.result.structuredContent.data.changed, ["a.ts"]);
+    assert(
+      diff.result.structuredContent.data.partners.some((
+        p: { path: string },
+      ) => p.path === "b.ts"),
+      JSON.stringify(diff.result.structuredContent.data),
+    );
+
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: { name: "discern_coupling", arguments: { file: "a.ts" } },
+    });
+    const query = await mcp.recv();
+    assertEquals(query.result.isError, false, JSON.stringify(query.result));
+    assert(
+      CouplingOutputSchema.safeParse(query.result.structuredContent).success,
+    );
+    assertEquals(query.result.structuredContent.data.mode, "query");
+    assertEquals(query.result.structuredContent.data.target, "a.ts");
+    assert(
+      query.result.structuredContent.data.partners.some((
+        p: { path: string },
+      ) => p.path === "b.ts"),
+      JSON.stringify(query.result.structuredContent.data),
+    );
+
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 4,
+      method: "tools/call",
+      params: {
+        name: "discern_coupling",
+        arguments: { file: "a.ts", with: "b.ts" },
+      },
+    });
+    const evidence = await mcp.recv();
+    assertEquals(
+      evidence.result.isError,
+      false,
+      JSON.stringify(evidence.result),
+    );
+    assert(
+      CouplingOutputSchema.safeParse(evidence.result.structuredContent).success,
+    );
+    assertEquals(evidence.result.structuredContent.data.mode, "evidence");
+    assertEquals(evidence.result.structuredContent.data.a, "a.ts");
+    assertEquals(evidence.result.structuredContent.data.b, "b.ts");
+    assertEquals(evidence.result.structuredContent.data.together, 4);
+    assert(
+      evidence.result.structuredContent.data.commits.some((
+        c: { subject: string },
+      ) => c.subject === "ab3"),
+      JSON.stringify(evidence.result.structuredContent.data),
+    );
+
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 5,
+      method: "tools/call",
+      params: { name: "discern_coupling", arguments: { with: "b.ts" } },
+    });
+    const invalid = await mcp.recv();
+    assertEquals(invalid.result.isError, true, JSON.stringify(invalid.result));
+    assertEquals(
+      invalid.result.structuredContent.error,
+      "invalid_arguments",
+    );
+    assertStringIncludes(invalid.result.structuredContent.message, "with");
+    assertStringIncludes(invalid.result.structuredContent.message, "file");
+
+    assertEquals(await mcp.close(), 0);
   });
 });
 
@@ -1314,6 +1626,8 @@ interface ListedTool {
   };
 }
 
+const sorted = (xs: Iterable<string>): string[] => [...xs].sort();
+
 Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest annotations", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
@@ -1337,24 +1651,22 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
       (list.result.tools as ListedTool[]).map((t) => [t.name, t] as const),
     );
 
-    // Every tool advertises a non-empty title, an object outputSchema, and
-    // annotations — the self-describing surface this tranche adds.
-    for (
-      const name of [
-        "discern_finish",
-        "discern_prepare",
-        "discern_test",
-        "discern_doctor",
-        "discern_changed_scopes",
-        "discern_status",
-        "discern_improve",
-        "discern_docs",
-        "discern_help",
-        "discern_start",
-        "discern_graduate",
-        "discern_integrate",
-      ]
-    ) {
+    assertEquals(
+      sorted(byName.keys()),
+      sorted(TOOLS.map((t) => t.name)),
+      "tools/list must advertise exactly the TOOLS table when every feature is on",
+    );
+
+    // Every source entry and advertised tool carries the self-describing surface.
+    for (const tool of TOOLS) {
+      const name = tool.name;
+      assert(
+        typeof tool.title === "string" && tool.title.length > 0,
+        `${name} has no source title`,
+      );
+      assert(tool.outputSchema !== undefined, `${name} has no outputSchema`);
+      assert(tool.annotations !== undefined, `${name} has no annotations`);
+
       const t = byName.get(name);
       assert(t !== undefined, `missing tool ${name}`);
       assert(
@@ -1365,41 +1677,67 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
       assert(t.annotations !== undefined, `${name} has no annotations`);
     }
 
-    // Honest annotations: the pure-observation verbs are read-only; the gate verbs
-    // mutate (a fixer rewrites files / commands run); graduate is destructive.
-    assertEquals(byName.get("discern_status")?.annotations?.readOnlyHint, true);
-    assertEquals(byName.get("discern_doctor")?.annotations?.readOnlyHint, true);
+    const READ_ONLY_TOOLS = new Set([
+      "discern_doctor",
+      "discern_changed_scopes",
+      "discern_coupling",
+      "discern_status",
+      "discern_improve",
+      "discern_docs",
+      "discern_help",
+    ]);
+    const MUTATING_TOOLS = new Set([
+      "discern_finish",
+      "discern_prepare",
+      "discern_test",
+      "discern_ratchets",
+      "discern_start",
+      "discern_integrate",
+    ]);
+    const DESTRUCTIVE_TOOLS = new Set(["discern_graduate"]);
+    const IDEMPOTENT_MUTATING_TOOLS = new Set(["discern_integrate"]);
     assertEquals(
-      byName.get("discern_improve")?.annotations?.readOnlyHint,
-      true,
+      sorted([
+        ...READ_ONLY_TOOLS,
+        ...MUTATING_TOOLS,
+        ...DESTRUCTIVE_TOOLS,
+      ]),
+      sorted(TOOLS.map((t) => t.name)),
+      "every MCP tool must be classified as read-only, mutating, or destructive",
     );
+
+    // Honest annotations: the pure-observation verbs are read-only; the gate/lifecycle
+    // verbs mutate; graduate is destructive; integrate is the only mutating idempotent
+    // operation (a no-op once already integrated).
+    for (const tool of TOOLS) {
+      const annotations = byName.get(tool.name)?.annotations;
+      assert(annotations !== undefined, `${tool.name} has no annotations`);
+      assertEquals(
+        annotations.readOnlyHint,
+        READ_ONLY_TOOLS.has(tool.name),
+        `${tool.name} readOnlyHint`,
+      );
+      assertEquals(
+        annotations.destructiveHint ?? false,
+        DESTRUCTIVE_TOOLS.has(tool.name),
+        `${tool.name} destructiveHint`,
+      );
+      assertEquals(
+        annotations.idempotentHint ?? false,
+        READ_ONLY_TOOLS.has(tool.name) ||
+          IDEMPOTENT_MUTATING_TOOLS.has(tool.name),
+        `${tool.name} idempotentHint`,
+      );
+      assertEquals(
+        annotations.openWorldHint,
+        READ_ONLY_TOOLS.has(tool.name) ? false : undefined,
+        `${tool.name} openWorldHint`,
+      );
+    }
     assertEquals(
-      byName.get("discern_finish")?.annotations?.readOnlyHint,
-      false,
-    );
-    assertEquals(
-      byName.get("discern_prepare")?.annotations?.readOnlyHint,
-      false,
-    );
-    assertEquals(byName.get("discern_test")?.annotations?.readOnlyHint, false);
-    assertEquals(byName.get("discern_start")?.annotations?.readOnlyHint, false);
-    assertEquals(
-      byName.get("discern_graduate")?.annotations?.destructiveHint,
-      true,
-    );
-    // integrate mutates but is non-destructive and idempotent (a no-op once already
-    // integrated) — so it advertises that, distinct from graduate's destructive hint.
-    assertEquals(
-      byName.get("discern_integrate")?.annotations?.readOnlyHint,
-      false,
-    );
-    assertEquals(
-      byName.get("discern_integrate")?.annotations?.destructiveHint,
-      false,
-    );
-    assertEquals(
-      byName.get("discern_integrate")?.annotations?.idempotentHint,
-      true,
+      sorted(IDEMPOTENT_MUTATING_TOOLS),
+      ["discern_integrate"],
+      "record any additional mutating idempotent tool explicitly",
     );
 
     // openWorldHint honesty: the pure observers claim a closed world; the
@@ -1566,6 +1904,53 @@ Deno.test("discern mcp: discern_ratchets is listed (slow/on-demand), not read-on
     assertEquals(preview.result.isError, false);
     assertEquals(preview.result.structuredContent.verb, "ratchets");
     assertEquals(preview.result.structuredContent.dry_run, true);
+
+    assertEquals(await mcp.close(), 0);
+  });
+});
+
+Deno.test("discern mcp: a failing discern_ratchets apply returns an ok:false envelope", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[ratchets.coverage]",
+        'run = "echo DISCERN_METRIC coverage 10"',
+        'direction = "up"',
+        "limit = 80",
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+    const mcp = await spawnMcp(dir);
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await mcp.recv();
+
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "discern_ratchets", arguments: {} },
+    });
+    const failed = await mcp.recv();
+    assertEquals(failed.result.isError, true, JSON.stringify(failed.result));
+    const payload = failed.result.structuredContent;
+    assert(DatalessEnvelopeSchema.safeParse(payload).success);
+    assertEquals(payload.ok, false);
+    assertEquals(payload.verb, "ratchets");
+    assert(
+      payload.steps.some((s: { outcome: string }) => s.outcome === "failed"),
+      JSON.stringify(payload),
+    );
 
     assertEquals(await mcp.close(), 0);
   });
