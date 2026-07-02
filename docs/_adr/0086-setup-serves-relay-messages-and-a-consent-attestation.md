@@ -66,6 +66,16 @@ refusal re-serves the consent message.**
    an agent that does nothing but relay discern's served blocks still gives a
    novice a complete, accurate, warm-enough first experience.
 
+   _Refined after the first post-change cold run (2026-07-02):_ the licence
+   carries a **verbatim carve-out** — _"relay anything in quotation marks word
+   for word"_ — because the bare licence licensed trimming the model question's
+   second sentence. The same run showed **structure decides survival** under a
+   courier agent's compression: opening sentences and short list items are kept;
+   prose between lists and middle bullets are pruned. So every must-survive fact
+   rides its own list item or the headline (the time/token expectation moved
+   into the ready-to-begin confirmation; the fresh-session reactivation step
+   moved from a middle bullet into the completion headline), one thought apiece.
+
 3. **A `--confirmed` attestation gates a fresh scaffold.** `discern setup begin`
    requires `--confirmed` **exactly when** it would scaffold a fresh install
    outside the declarative paths — `freshInstall` **and** no `--config` **and**

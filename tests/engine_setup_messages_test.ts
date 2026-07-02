@@ -27,10 +27,16 @@ Deno.test("consentMessage carries the relay licence, the verbatim model question
     msg,
     "adapt the wording to your own voice if you like, but keep every point",
   );
-  // The model question, verbatim.
+  // The verbatim carve-out: quoted text is exempt from the adapt licence. A cold run
+  // showed the bare licence licenses trimming the question's second sentence.
   assertStringIncludes(
     msg,
-    "Am I your most capable model? Everything I configure here is inherited by every future session.",
+    "relay anything in quotation marks word for word",
+  );
+  // The model question, verbatim, inside quotation marks with the word-for-word cue.
+  assertStringIncludes(
+    msg,
+    'Ask them this, word for word: "Am I your most capable model? Everything I configure here is inherited by every future session."',
   );
   // The three plain-word pillars, jargon glossed once.
   assertStringIncludes(
@@ -180,7 +186,15 @@ Deno.test("completionMessage omits the reactivation step when nothing wired at s
     landing,
     reactivation: READY_REACTIVATION,
   });
-  assertStringIncludes(withAgents, "Start a fresh session");
+  assertStringIncludes(withAgents, "start a fresh session");
+  // Reactivation rides the headline, BEFORE the bullets: cold runs show a courier
+  // agent keeps the opening sentence and prunes middle bullets, and the fresh-session
+  // step is the one instruction a novice cannot recover on their own.
+  assert(
+    withAgents.indexOf("start a fresh session") <
+      withAgents.indexOf("all run on every change"),
+    "the reactivation step must precede the coverage bullet",
+  );
 
   const noAgents = completionMessage({
     assurance: assurance("full"),
@@ -188,7 +202,7 @@ Deno.test("completionMessage omits the reactivation step when nothing wired at s
     reactivation: { summary: "", per_agent: [] },
   });
   assert(
-    !noAgents.includes("Start a fresh session"),
+    !noAgents.includes("start a fresh session"),
     "an agent that wired nothing at session start is never told to restart",
   );
 });

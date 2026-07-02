@@ -11,7 +11,11 @@
  * composing warmth from instructions is the transformation that degrades under
  * final-answer compression, so the message is authored here, not delegated. The relay
  * licence is adaptive, not verbatim-or-else: reword into your own voice, but keep every
- * point.
+ * point — with one carve-out, that quoted text is relayed word for word (cold runs
+ * show the licence otherwise licenses trimming the model question's second sentence).
+ * Structure is load-bearing too: courier agents keep opening sentences and short list
+ * items and prune inter-list prose and middle bullets, so every must-survive fact gets
+ * its own list item (or the headline), one thought apiece.
  *
  * Each builder returns ONE plain prose string carried verbatim on every surface (the
  * human render, the `--json` `guidance` field, the `awaiting_consent` refusal). It is
@@ -86,7 +90,7 @@ export function consentMessage(ctx: ConsentContext): string {
   const { worktreePath, docsExists } = ctx;
 
   const confirmations: string[] = [
-    "1. Am I your most capable model? Everything I configure here is inherited by every future session.",
+    '1. Ask them this, word for word: "Am I your most capable model? Everything I configure here is inherited by every future session."',
   ];
   let n = 2;
   if (docsExists) {
@@ -99,12 +103,14 @@ export function consentMessage(ctx: ConsentContext): string {
     `${n}. Isolated working copies will live beside this project at ${worktreePath} — keep that location?`,
   );
   n += 1;
-  confirmations.push(`${n}. Ready for me to begin?`);
+  confirmations.push(
+    `${n}. Ready for me to begin? Expect roughly 20–40 minutes and a meaningful number of tokens.`,
+  );
 
   const command = confirmedBeginCommand(docsExists);
 
   return [
-    "Relay the message below to your human as your next chat message — adapt the wording to your own voice if you like, but keep every point. Then wait for their answers.",
+    "Relay the message below to your human as your next chat message — adapt the wording to your own voice if you like, but keep every point, and relay anything in quotation marks word for word. Then wait for their answers.",
     "",
     fence("message to your human"),
     "",
@@ -114,7 +120,7 @@ export function consentMessage(ctx: ConsentContext): string {
     "  • isolated working copies (git worktrees) — each task gets its own copy, so parallel work never collides;",
     "  • shared project instructions — one place that tells every future coding session how this project works.",
     "",
-    "The plan: I'll study the repo, come back with one short batch of questions, author the project's docs and guidance, wire up the quality checks, and prove it green. Expect roughly 20–40 minutes and a meaningful number of tokens.",
+    "The plan: I'll study the repo, come back with one short batch of questions, author the project's docs and guidance, wire up the quality checks, and prove it green.",
     "",
     "It's safe and reversible: I work on a dedicated `discern-setup` branch, so nothing touches your main branch until you merge, you can undo it all by deleting that branch, and there's no API key or outside service.",
     "",
@@ -200,23 +206,23 @@ function landingLine(l: CompletionLanding): string {
  */
 export function completionMessage(ctx: CompletionContext): string {
   const { assurance, reactivation, landing } = ctx;
-  // The reactivation bullet is genuinely derived: an agent that wired nothing loading
-  // at session start has an empty `per_agent`, so there is nothing to switch on and we
-  // never tell the human to restart for nothing.
-  const reactivationBullet = reactivation.per_agent.length > 0
-    ? [
-      "  • One more step to switch it on: discern's tools and automations load when a coding session starts, so this session can't use them yet. Start a fresh session to pick them up.",
-    ]
-    : [];
+  // Reactivation rides the HEADLINE, not a bullet: cold runs show a courier agent
+  // keeps a message's opening sentence and prunes middle bullets, and the
+  // fresh-session step is the one instruction a novice cannot recover on their own.
+  // It is also genuinely derived: an agent that wired nothing loading at session
+  // start has an empty `per_agent`, so there is nothing to switch on and we never
+  // tell the human to restart for nothing.
+  const headline = reactivation.per_agent.length > 0
+    ? "discern is set up — your project is configured and the quality gate is green. One step remains to switch it on: discern's tools and automations load when a coding session starts, so start a fresh session to pick them up."
+    : "discern is set up — your project is configured and the quality gate is green.";
   return [
     "Relay the message below to your human — adapt the wording to your own voice if you like, but keep every point.",
     "",
     fence("message to your human"),
     "",
-    "discern is set up — your project is configured and the quality gate is green.",
+    headline,
     "",
     `  • ${coverageLine(assurance)}`,
-    ...reactivationBullet,
     `  • ${landingLine(landing)}`,
     "",
     fence("end of message"),

@@ -447,7 +447,7 @@ Deno.test("setup done serves the completion message at parity across the human r
         "Relay the message below to your human",
         "discern is set up",
         "No quality checks are wired yet",
-        "Start a fresh session",
+        "start a fresh session",
       ]
     ) {
       assertStringIncludes(d.guidance, needle, `guidance missing: ${needle}`);
