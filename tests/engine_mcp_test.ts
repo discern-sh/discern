@@ -15,7 +15,12 @@ import {
   IntegrateOutputSchema,
   StatusOutputSchema,
 } from "../src/shared/result_schemas.ts";
-import { TOOLS, WorkingRoot } from "../src/engine/mcp/server.ts";
+import {
+  buildInstructions,
+  TOOLS,
+  WorkingRoot,
+} from "../src/engine/mcp/server.ts";
+import { FEATURES } from "../src/shared/features.ts";
 import { withTempDir } from "./helpers.ts";
 import {
   addWorktree,
@@ -1614,6 +1619,7 @@ Deno.test("discern mcp: a disabled feature hides its tool and refuses the call",
 interface ListedTool {
   name: string;
   title?: string;
+  description: string;
   outputSchema?: {
     type?: string;
     properties?: Record<string, unknown>;
@@ -1769,6 +1775,80 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
 
     assertEquals(await mcp.close(), 0);
   });
+});
+
+Deno.test("discern mcp: discern_status is the first advertised tool", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const mcp = await spawnMcp(dir);
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await mcp.recv();
+
+    await mcp.send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
+    const list = await mcp.recv();
+    const tools = list.result.tools as ListedTool[];
+    assertEquals(
+      tools[0]?.name,
+      "discern_status",
+      "the orientation tool should stay first for clients that truncate tools/list",
+    );
+
+    assertEquals(await mcp.close(), 0);
+  });
+});
+
+Deno.test("discern mcp: discern_status metadata is search-shaped for orientation", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const mcp = await spawnMcp(dir);
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await mcp.recv();
+
+    await mcp.send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
+    const list = await mcp.recv();
+    const status = (list.result.tools as ListedTool[])
+      .find((t) => t.name === "discern_status");
+    assert(status !== undefined, "discern_status should be listed");
+    assertEquals(status.title, "Orient with discern_status");
+    assert(
+      status.description.startsWith(
+        "Start here: call discern_status",
+      ),
+      `discern_status description should lead with its exact orientation role; got:\n${status.description}`,
+    );
+
+    assertEquals(await mcp.close(), 0);
+  });
+});
+
+Deno.test("discern mcp: initialization instructions prioritize discern_status", () => {
+  const instructions = buildInstructions(new Set(FEATURES));
+  const statusAt = instructions.indexOf("discern_status");
+  assert(statusAt >= 0, instructions);
+  assert(
+    statusAt < 512,
+    `discern_status must appear in the first 512 chars; found at ${statusAt}`,
+  );
+
+  const firstTool = [...instructions.matchAll(/\bdiscern_[a-z_]+\b/g)][0];
+  assert(firstTool !== undefined, instructions);
+  assertEquals(
+    firstTool[0],
+    "discern_status",
+    "the first tool named in MCP instructions should be the orientation tool",
+  );
 });
 
 Deno.test("discern mcp: discern_status documents its actionable data fields (incl. stale_materialized)", async () => {
