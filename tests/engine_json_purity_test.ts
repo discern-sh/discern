@@ -38,18 +38,22 @@ const SRC = join(REPO_ROOT, "src");
  * value (e.g. a diagnostic's captured output) — so a real newline in the combined
  * output means human narration or subprocess output leaked.
  */
-function assertEnvelopeOnly(r: RunResult, verb: string): void {
+function assertEnvelopeOnly(
+  r: RunResult,
+  verb: string,
+  context = verb,
+): void {
   const combined = r.output.trim();
   assert(
     combined.length > 0 && !combined.includes("\n"),
-    `${verb} --json must emit exactly one line (the envelope), nothing else on stdout OR stderr.\n--- got ---\n${r.output}\n-----------`,
+    `${context} --json must emit exactly one line (the envelope), nothing else on stdout OR stderr.\n--- got ---\n${r.output}\n-----------`,
   );
   let obj: { ok?: unknown; verb?: unknown };
   try {
     obj = JSON.parse(combined);
   } catch {
     throw new Error(
-      `${verb} --json combined output is not valid JSON:\n${r.output}`,
+      `${context} --json combined output is not valid JSON:\n${r.output}`,
     );
   }
   assertEquals(
@@ -79,29 +83,43 @@ const NOISY_CONFIG = [
   "",
 ].join("\n");
 
-Deno.test("every --json verb emits ONLY the envelope (no human or subprocess leak)", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await writeConfig(dir, NOISY_CONFIG);
-    await gitInit(dir);
+const NOISY_CONFIGS = [
+  { name: "buffered", toml: NOISY_CONFIG },
+  {
+    name: "streamed",
+    toml: `${NOISY_CONFIG}\n[gate]\nstream = true\n`,
+  },
+];
 
-    const cases: Array<{ args: string[]; verb: string }> = [
-      { args: ["finish", "--json"], verb: "finish" },
-      { args: ["prepare", "--json"], verb: "prepare" },
-      { args: ["test", "--json"], verb: "test" },
-      { args: ["ratchets", "--json"], verb: "ratchets" },
-      { args: ["improve", "--json"], verb: "improve" },
-      { args: ["changed-scopes", "--json"], verb: "changed-scopes" },
-      { args: ["status", "--json"], verb: "status" },
-      { args: ["refresh", "--json"], verb: "refresh" },
-      { args: ["skills", "list", "--json"], verb: "skills:list" },
-      // A dry-run preview is an envelope too (plan, no steps).
-      { args: ["finish", "--dry-run", "--json"], verb: "finish" },
-    ];
-    for (const c of cases) {
-      assertEnvelopeOnly(await runAgent(dir, c.args), c.verb);
-    }
-  });
+Deno.test("every --json verb emits ONLY the envelope (no human or subprocess leak)", async () => {
+  for (const config of NOISY_CONFIGS) {
+    await withTempDir(async (dir) => {
+      await scaffoldEngine(dir);
+      await writeConfig(dir, config.toml);
+      await gitInit(dir);
+
+      const cases: Array<{ args: string[]; verb: string }> = [
+        { args: ["finish", "--json"], verb: "finish" },
+        { args: ["prepare", "--json"], verb: "prepare" },
+        { args: ["test", "--json"], verb: "test" },
+        { args: ["ratchets", "--json"], verb: "ratchets" },
+        { args: ["improve", "--json"], verb: "improve" },
+        { args: ["changed-scopes", "--json"], verb: "changed-scopes" },
+        { args: ["status", "--json"], verb: "status" },
+        { args: ["refresh", "--json"], verb: "refresh" },
+        { args: ["skills", "list", "--json"], verb: "skills:list" },
+        // A dry-run preview is an envelope too (plan, no steps).
+        { args: ["finish", "--dry-run", "--json"], verb: "finish" },
+      ];
+      for (const c of cases) {
+        assertEnvelopeOnly(
+          await runAgent(dir, c.args),
+          c.verb,
+          `${c.verb} (${config.name})`,
+        );
+      }
+    });
+  }
 });
 
 Deno.test("finish --json: a FAILING gate captures output INTO the envelope, never leaks it", async () => {
