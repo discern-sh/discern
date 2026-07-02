@@ -40,6 +40,32 @@ harder thing: whether real coding agents relay those strings in chat, wait at
 the consent boundary, narrate the run, and close only after `discern setup done`
 passes.
 
+## Measurement Validity
+
+The scripted user turns in `run-agent.ts` simulate a plausible novice: "run
+`discern setup`", then plain answers to the consent questions. They must never
+instruct a behavior the rubric grades — explaining discern, relaying messages,
+narrating stages, atomic commits, running `discern setup done`, or the closing
+summary. Coaching any of those turns the eval into an instruction-following
+test, inflates the baseline, and erases the before/after delta the protocol
+exists to measure. If an agent stalls or abandons the run without that coaching,
+grade it as a finding — that is the experience a real novice gets.
+
+Two known constants to keep in mind while grading:
+
+- The agent CLIs load the operator's own global configuration (a global
+  `CLAUDE.md`, `~/.codex` instructions), which can push the agent's register —
+  for example toward terseness. This bias is constant across baseline and
+  change, so comparisons hold, but check what your global config says before
+  reading a transcript as the absolute novice experience.
+- The first turn's "ask me and then stop" line is a deliberate exception, needed
+  so headless phase one ends at the consent conversation. Grade the
+  Wait-boundary row as necessary-but-not-sufficient because of it.
+
+One operational caution: the Codex continuation resumes the most recent session
+(`--last`). Do not run other Codex work while an eval is in flight, or pin the
+session with `--session-id`.
+
 ## Baseline Then Change
 
 1. Run the baseline matrix:

@@ -26,3 +26,9 @@ fails.
 Use the raw JSONL/stdout files as the source of truth. The optional
 `last-message-*` files are convenience snapshots only; do not grade from them
 alone.
+
+Two grading caveats. The Wait-boundary row is necessary-but-not-sufficient: the
+scripted first turn ends with "ask me and then stop", so a pass proves little
+while a fail is damning. And the scripted turns must never name any behavior
+this rubric grades — if you edit the prompts in `run-agent.ts`, keep them a
+plausible novice's words (see the README's Measurement Validity section).

@@ -259,12 +259,21 @@ exec deno run --no-check --config ${shellQuote(denoJson)} -A ${
   return binDir;
 }
 
+/**
+ * The scripted user turns simulate a PLAUSIBLE NOVICE, nothing more. They must
+ * never name a behavior the rubric grades (explaining discern, relaying setup
+ * messages, narrating stages, atomic commits, running \`discern setup done\`,
+ * the closing summary) — coaching any of those turns the eval into an
+ * instruction-following test and erases the very deltas it exists to measure.
+ * The one deliberate exception is the first turn's "ask me and then stop"
+ * boundary, which headless runs need so phase one ends at the consent
+ * conversation; the rubric grades the Wait row as necessary-but-not-sufficient
+ * because of it.
+ */
 function firstPrompt(): string {
-  return `You are running a clean-room evaluation of the first-time \`discern setup\` experience in this disposable fixture repository.
+  return `Run \`discern setup\` in this project.
 
-The \`discern\` executable on PATH points to the checkout under evaluation. Start exactly as a real user would: run \`discern setup\`, follow the setup output, and relay any human-facing setup message in chat.
-
-Important eval boundary: when discern reaches the pre-\`begin\` consent conversation, ask the human for consent and stop. Do not run \`discern setup begin\` until a later user message confirms the model/session, docs location if asked, worktree location, and readiness to begin.`;
+If you need anything from me — a decision, a confirmation, an answer — ask me and then stop; I'll reply in my next message.`;
 }
 
 function continuePrompt(
@@ -272,17 +281,14 @@ function continuePrompt(
   docsAnswer: string,
 ): string {
   const modelAnswer = modelId === undefined || modelId.trim() === ""
-    ? "I do not know the exact model identifier; omit `--model` rather than guessing."
-    : `use this exact model id for setup provenance: \`${modelId}\`.`;
-  return `I confirm setup may begin.
+    ? "I don't know my exact model id, so skip recording it rather than guessing."
+    : `if you need my model id, it is \`${modelId}\`.`;
+  return `Yes — here are my answers:
 
-My answers:
-- Model and session: ${modelAnswer}
-- Documentation location: if this repository already has a \`docs/\` tree, keep it untouched and use \`${docsAnswer}\` for discern's agent documentation tree.
-- Worktree location: keep the default worktree location printed by \`discern setup verify\`.
-- Ready to begin: yes, begin now.
-
-Continue the setup flow to completion. Narrate each stage with what you are doing, why, and how to revert it. Commit setup work atomically on the setup branch. Run \`discern setup done\` and do not claim setup is done until that command is green. Close by relaying what the project now has and how a fresh agent session reactivates discern.`;
+- You are the most capable model I have; ${modelAnswer}
+- If you asked where documentation should go: keep my existing docs untouched and use \`${docsAnswer}\` for discern's.
+- The default worktree location is fine.
+- I'm ready — go ahead and see the whole setup through.`;
 }
 
 function phaseStem(phase: Phase): string {
