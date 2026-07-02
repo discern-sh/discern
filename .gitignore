@@ -38,3 +38,7 @@
 !/.claude/settings.json
 !/.claude/settings.local.json
 /.agents/skills/
+
+# Local clean-room setup eval transcripts. They contain machine paths and agent
+# output, so they must never be committed.
+/scripts/setup-eval/results/
