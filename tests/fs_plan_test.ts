@@ -10,22 +10,30 @@
  * agents fill the real tree.
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { join } from "@std/path";
+import {
+  assert,
+  assertEquals,
+  assertRejects,
+  assertStringIncludes,
+} from "@std/assert";
+import { dirname, join } from "@std/path";
 import {
   applyPlan,
   buildPlan,
   type Plan,
   planBrief,
+  type PlanOp,
 } from "../src/lib/fs_plan.ts";
 import {
   FIXTURE_TEMPLATES,
   modeOf,
   readTarget,
+  REAL_TEMPLATES,
   targetExists,
   testTokens,
   withTempDir,
 } from "./helpers.ts";
+import { settingsSeeds } from "../src/lib/providers.ts";
 
 /** Build and apply an init-style plan over the fixture tree into `dir` (the
  * binary's skills/ + guidance/ subtrees excluded, exactly as `init` does). */
@@ -179,6 +187,33 @@ Deno.test("init deep-merges settings into an existing file without clobbering", 
   });
 });
 
+Deno.test("init refuses malformed existing JSON settings for every JSON settings seed", async () => {
+  for (
+    const seed of settingsSeeds().filter((s) => s.targetRel.endsWith(".json"))
+  ) {
+    await withTempDir(async (dir) => {
+      const target = join(dir, seed.targetRel);
+      await Deno.mkdir(dirname(target), { recursive: true });
+      const malformed = '{ "user": true, }\n';
+      await Deno.writeTextFile(target, malformed);
+
+      const error = await assertRejects(
+        () =>
+          buildPlan({
+            templatesDir: REAL_TEMPLATES,
+            destDir: dir,
+            tokens: testTokens(),
+            excludeNonSeed: true,
+          }),
+        Error,
+        seed.targetRel,
+      );
+      assertStringIncludes(error.message, "malformed JSON");
+      assertEquals(await Deno.readTextFile(target), malformed);
+    });
+  }
+});
+
 Deno.test("settings merge is idempotent across a re-run (no dup hooks)", async () => {
   await withTempDir(async (dir) => {
     await scaffold(dir);
@@ -270,6 +305,53 @@ Deno.test("dry-run plan writes nothing to disk", async () => {
     const entries = await Array.fromAsync(Deno.readDir(dir));
     assertEquals(entries.length, 0);
   });
+});
+
+function writeOp(targetAbs: string, targetRel: string): PlanOp {
+  return {
+    kind: "write",
+    targetRel,
+    targetAbs,
+    disposition: "create",
+    bytes: new TextEncoder().encode(`${targetRel}\n`),
+    mode: 0o644,
+  };
+}
+
+Deno.test("applyPlan names the failed op and a fixed partial state reapplies cleanly", async () => {
+  for (const failFirst of [true, false]) {
+    await withTempDir(async (dir) => {
+      const blocker = join(dir, "blocked");
+      await Deno.writeTextFile(blocker, "not a directory\n");
+      const blocked = writeOp(join(blocker, "file.txt"), "blocked/file.txt");
+      const ok = writeOp(join(dir, "ok.txt"), "ok.txt");
+      const plan = {
+        ops: failFirst ? [blocked, ok] : [ok, blocked],
+        unknownTokens: new Map<string, string[]>(),
+      };
+
+      const error = await assertRejects(
+        () => applyPlan(plan),
+        Error,
+        "blocked/file.txt",
+      );
+      assertStringIncludes(error.message, "write");
+
+      await Deno.remove(blocker);
+      const changed = await applyPlan(plan);
+      assertEquals(
+        changed.map((op) => op.targetRel),
+        failFirst
+          ? ["blocked/file.txt", "ok.txt"]
+          : ["ok.txt", "blocked/file.txt"],
+      );
+      assertEquals(await Deno.readTextFile(join(dir, "ok.txt")), "ok.txt\n");
+      assertEquals(
+        await Deno.readTextFile(join(dir, "blocked/file.txt")),
+        "blocked/file.txt\n",
+      );
+    });
+  }
 });
 
 Deno.test("brief is a write-once seed at root brief.md", async () => {
