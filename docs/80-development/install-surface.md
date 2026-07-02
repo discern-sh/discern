@@ -155,6 +155,7 @@ its own directory:
 | [`discern-diagnose-a-bug`](../../templates/skills/discern-diagnose-a-bug/SKILL.md) | Prove a bug's cause — reproduce, falsify hypotheses — before any fix is written. |
 | [`discern-outlaw-a-pattern`](../../templates/skills/discern-outlaw-a-pattern/SKILL.md) | Make a legacy pattern illegal: detector, falling ratchet, permanent gate rule at zero. |
 | [`discern-ratchet-a-metric`](../../templates/skills/discern-ratchet-a-metric/SKILL.md) | Put a defendable quality metric behind a never-loosen ratchet, limit set at today's value. |
+| [`discern-teach-the-project`](../../templates/skills/discern-teach-the-project/SKILL.md) | Route a session's lesson into guidance, a skill, a recipe, a doc, or an ADR — so future sessions inherit it. |
 | [`discern-write-adr`](../../templates/skills/discern-write-adr/SKILL.md)                   | Record a significant decision as an Architecture Decision Record.             |
 
 (Seeding a fresh install is **not** a skill — it is the `discern setup` command;
