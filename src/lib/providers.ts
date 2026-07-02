@@ -994,18 +994,18 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     // SessionStart-only hooks surface: Gemini has no worktree create/remove event, so
     // discern's own worktrees stay CLI/MCP-driven and only the per-session
     // `discern worktree:ensure` re-ready step is seeded (empty worktreeEventKeys). The
-    // seed sets hooks.enabled = true so the hook actually fires (see trust).
+    // seed sets hooksConfig.enabled = true so the hook actually fires (see trust).
     hooks: {
       settingsFile: GEMINI_SETTINGS_FILE,
       worktreeEventKeys: [],
       sessionHookNeedle: "discern worktree:ensure",
     },
     // Committed .gemini/settings.json is inert in safe mode until the folder is
-    // trusted; its hooks additionally require hooks.enabled = true to fire.
+    // trusted; its hooks additionally require hooksConfig.enabled = true to fire.
     trust: {
       required: true,
       hint:
-        "trust the workspace so committed .gemini/settings.json loads in safe mode (bypass: --skip-trust or GEMINI_CLI_TRUST_WORKSPACE=true); hooks also require hooks.enabled = true to fire.",
+        "trust the workspace so committed .gemini/settings.json loads in safe mode (bypass: --skip-trust or GEMINI_CLI_TRUST_WORKSPACE=true); hooks also require hooksConfig.enabled = true to fire.",
     },
   },
   cursor: {

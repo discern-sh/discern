@@ -37,8 +37,10 @@ the session-start hook:
 
 ```json
 {
+  "hooksConfig": {
+    "enabled": true
+  },
   "hooks": {
-    "enabled": true,
     "SessionStart": [
       {
         "matcher": "startup",
@@ -61,8 +63,11 @@ the session-start hook:
 ```
 
 Gemini infers stdio from the presence of `command`, so discern does not write a
-`type` field for this server. The hook seed includes `hooks.enabled: true`;
-without it, Gemini keeps the hook block inert.
+`type` field for this server. The hook seed includes `hooksConfig.enabled:
+true`
+— the hooks system's canonical toggle, a separate section from the per-event
+`hooks` arrays (every key under `hooks` must be an event array; Gemini rejects a
+boolean there). Without the toggle, Gemini keeps the hook block inert.
 
 discern does not set Gemini sandbox options, model settings, custom commands,
 `.env` loading, approval defaults, or worktree flags. Those remain user or

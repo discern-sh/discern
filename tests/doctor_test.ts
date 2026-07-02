@@ -556,7 +556,7 @@ Deno.test("doctor: surfaces Gemini's one-time trust step and the bypass action",
     assertStringIncludes(gemini.detail, ".gemini/settings.json");
     assertStringIncludes(gemini.detail, "trust: one-time");
     assertStringIncludes(gemini.detail, "GEMINI_CLI_TRUST_WORKSPACE=true");
-    assertStringIncludes(gemini.detail, "hooks.enabled = true");
+    assertStringIncludes(gemini.detail, "hooksConfig.enabled = true");
   });
 });
 

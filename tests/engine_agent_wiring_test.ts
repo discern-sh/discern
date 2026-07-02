@@ -5,7 +5,7 @@
  * `providers_test.ts`; these prove the seam composes once routed through
  * `assembleInitPlan` (seeds) + `discern refresh` (MCP + worktree-app wiring).
  *
- * The decisive Gemini check: the SEED (hooks.enabled + SessionStart) and the
+ * The decisive Gemini check: the SEED (hooksConfig.enabled + SessionStart) and the
  * `register()` MCP entry (mcpServers.discern) land in the ONE `.gemini/settings.json`,
  * deep-merged — neither clobbers the other, and a user key survives both.
  */
@@ -20,16 +20,19 @@ import { assembleInitPlan } from "../src/commands/setup.ts";
 import { providersWithHooks } from "../src/lib/providers.ts";
 import type { AgentName } from "../src/lib/config.ts";
 
-Deno.test("Gemini: the seed (hooks.enabled + SessionStart) and the MCP register() compose in one .gemini/settings.json", async () => {
+Deno.test("Gemini: the seed (hooksConfig.enabled + SessionStart) and the MCP register() compose in one .gemini/settings.json", async () => {
   await withTempDir(async (dir) => {
     // Gemini is configured, so its per-agent seed (.gemini/settings.json) is laid.
     await scaffoldEngine(dir, { agents: ["claude_code", "gemini"] });
 
-    // The seed landed: hooks.enabled + the SessionStart → worktree:ensure hook.
+    // The seed landed: hooksConfig.enabled (the hooks system's canonical toggle —
+    // a SEPARATE section from the per-event arrays; Gemini rejects a boolean under
+    // `hooks`) + the SessionStart → worktree:ensure hook.
     const seeded = JSON.parse(
       await Deno.readTextFile(join(dir, ".gemini/settings.json")),
     );
-    assertEquals(seeded.hooks.enabled, true);
+    assertEquals(seeded.hooksConfig.enabled, true);
+    assertEquals(seeded.hooks.enabled, undefined); // never a boolean under hooks
     assertEquals(
       seeded.hooks.SessionStart[0].hooks[0].command,
       "discern worktree:ensure",
@@ -56,7 +59,7 @@ Deno.test("Gemini: the seed (hooks.enabled + SessionStart) and the MCP register(
       await Deno.readTextFile(join(dir, ".gemini/settings.json")),
     );
     // All three coexist: the seeded hooks, the MCP server, and the user key.
-    assertEquals(merged.hooks.enabled, true);
+    assertEquals(merged.hooksConfig.enabled, true);
     assertEquals(
       merged.hooks.SessionStart[0].hooks[0].command,
       "discern worktree:ensure",

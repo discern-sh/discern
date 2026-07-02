@@ -347,13 +347,13 @@ Deno.test("wireProviderMcp wires Gemini: mcpServers.discern into .gemini/setting
 Deno.test("wireProviderMcp Gemini DEEP-MERGES, preserving the seeded hooks block and user servers", async () => {
   await withTempDir(async (dir) => {
     // A project whose .gemini/settings.json already carries the seeded SessionStart
-    // hook (hooks.enabled) AND a server the user added — both must survive.
+    // hook (hooksConfig.enabled) AND a server the user added — both must survive.
     await Deno.mkdir(join(dir, ".gemini"), { recursive: true });
     await Deno.writeTextFile(
       join(dir, ".gemini/settings.json"),
       JSON.stringify({
+        hooksConfig: { enabled: true },
         hooks: {
-          enabled: true,
           SessionStart: [{
             matcher: "startup",
             hooks: [{ type: "command", command: "discern worktree:ensure" }],
@@ -367,7 +367,7 @@ Deno.test("wireProviderMcp Gemini DEEP-MERGES, preserving the seeded hooks block
     const settings = JSON.parse(
       await Deno.readTextFile(join(dir, ".gemini/settings.json")),
     );
-    assertEquals(settings.hooks.enabled, true); // seeded hook preserved
+    assertEquals(settings.hooksConfig.enabled, true); // seeded hook preserved
     assertEquals(settings.hooks.SessionStart.length, 1);
     assertEquals(settings.mcpServers.other, { command: "other-tool" }); // preserved
     assertEquals(settings.mcpServers.discern.command, "discern"); // added
