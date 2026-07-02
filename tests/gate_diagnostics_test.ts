@@ -100,3 +100,14 @@ Deno.test("normalizeDiagnostics: returns undefined for unrecognized output (Tier
     undefined,
   );
 });
+
+Deno.test("normalizeDiagnostics: empty SARIF returns undefined so Tier-0 fallback survives", () => {
+  const emptySarif = JSON.stringify({
+    version: "2.1.0",
+    runs: [{ results: [] }],
+  });
+  assertEquals(
+    normalizeDiagnostics(emptySarif, "lint", "eslint --format sarif ."),
+    undefined,
+  );
+});
