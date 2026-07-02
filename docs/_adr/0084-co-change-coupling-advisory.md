@@ -72,7 +72,9 @@ The advisory:
   **tail** of `discern finish`, with strand detection, because it reads the diff
   and is therefore dependency-bearing — never a fail-fast precondition. It is
   suppressed entirely until the install is bootstrapped, so the in-session setup
-  an agent runs stays uncluttered.
+  an agent runs stays uncluttered. The gate path uses a stricter presentation
+  filter than direct `discern coupling`, because asked-for exploration can be
+  broader than an unsolicited gate interruption.
 
 **The metric is zero-config and self-calibrating.** Each non-merge commit is a
 basket of the files it changed; neutral paths are dropped (the same
@@ -104,6 +106,11 @@ recourse if an unusual repo reads too noisy or too quiet (see TODO — review
 across repos before considering on-by-default). Evidence is reported in **plain
 counts** ("B changed in N of the M recent commits that touched A"), not an
 abstract score, so the advisory reads to a non-expert.
+
+Automatic gate hints add one more fixed presentation bar over that broad model:
+surface the pair only when confidence is high, or when repeated evidence meets a
+moderate confidence floor. This keeps `discern coupling` useful as a discovery
+tool while making `prepare`/`finish` nudges rarer and more relevant.
 
 **It recomputes on demand, bounded by `window` — there is NO cache in v1.** Each
 call re-mines the history. The window is a fixed COMMIT COUNT, not a time span,

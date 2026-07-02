@@ -491,7 +491,7 @@ const DOCS: Category = {
       title: "Architecture decisions recorded",
       weight: 1,
       fix:
-        "record significant decisions under the configured docs root's _adr/ directory (the write-adr skill helps)",
+        "record significant decisions under the configured docs root's _adr/ directory (the discern-write-adr skill helps)",
       teach:
         "ADRs capture WHY a hard-to-reverse or surprising decision was made, so it " +
         "isn't silently re-litigated later. A project with none is losing that memory. " +
@@ -514,7 +514,7 @@ const DOCS: Category = {
         "it describe a previous design? A stale doc is a bug.",
       teach:
         "Docs are only worth trusting if they track the code. When a change alters " +
-        "documented behaviour, update the page in the same change. The document-subsystem " +
+        "documented behaviour, update the page in the same change. The discern-document-subsystem " +
         "skill refreshes a subtree; `discern docs --list` shows the tree.",
       against: (ctx): { source: string; excerpt: string } | undefined =>
         ctx.docsTree

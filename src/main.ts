@@ -195,6 +195,10 @@ export function buildCli(
       "--allow-dirty",
       "Advanced/CI: set up on the current branch as-is, skipping the clean-tree check and the isolated discern-setup branch.",
     )
+    .option(
+      "--confirmed",
+      "Attest you have held the setup consent conversation with your human — required for a fresh, non-declarative begin; its absence re-serves that conversation.",
+    )
     .action(async (options) => {
       const { json, noColor } = globalFlags(options);
       Deno.exit(await runSetupBegin(beginOptsFrom(options, json, noColor)));
@@ -286,6 +290,10 @@ export function buildCli(
     .option(
       "--allow-dirty",
       "Advanced/CI: set up on the current branch as-is, skipping the clean-tree check and the isolated discern-setup branch.",
+    )
+    .option(
+      "--confirmed",
+      "Attest you have held the setup consent conversation with your human — required for a fresh, non-declarative begin; its absence re-serves that conversation.",
     )
     .action(async (options) => {
       const { json, noColor } = globalFlags(options);

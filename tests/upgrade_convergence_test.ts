@@ -32,7 +32,15 @@ const STABLE_TARGETS = [
  * real in-place upgrade (which keeps the same directory). */
 async function init(dir: string): Promise<void> {
   assertEquals(
-    (await runCli(["init", "--yes", "--slug", "demo", "--name", "Demo"], dir))
+    (await runCli([
+      "init",
+      "--confirmed",
+      "--yes",
+      "--slug",
+      "demo",
+      "--name",
+      "Demo",
+    ], dir))
       .code,
     0,
   );
@@ -137,14 +145,15 @@ Deno.test("upgrade re-materializes the bundled skills and stamps the current sch
     await init(dir);
     // init already materialized .claude/skills/; tamper a built-in copy — upgrade
     // must restore it from the binary.
-    const skill = join(dir, ".claude/skills/write-adr/SKILL.md");
+    const skill = join(dir, ".claude/skills/discern-write-adr/SKILL.md");
     await Deno.writeTextFile(skill, "tampered\n");
     const res = await upgrade(dir);
     assert(res.data.skills.copied >= 1, "bundled skills should be re-copied");
     assert(
-      !(await readTarget(dir, ".claude/skills/write-adr/SKILL.md")).includes(
-        "tampered",
-      ),
+      !(await readTarget(dir, ".claude/skills/discern-write-adr/SKILL.md"))
+        .includes(
+          "tampered",
+        ),
       "the kit's skill bytes should overwrite the tampered copy",
     );
     assertEquals(await recordedSchema(dir), res.data.schema.current);

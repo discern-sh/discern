@@ -69,7 +69,7 @@ canonical-set discipline (ADR 0051) that the gate's parity tests enforce
 > **Status: stub.** This README orients the subtree; the leaves below are not
 > written yet (except the written [`improve.md`](improve.md) and
 > [`the-result-envelope.md`](the-result-envelope.md)). Fill the rest with the
-> [`document-subsystem`](../../templates/skills/document-subsystem/SKILL.md)
+> [`discern-document-subsystem`](../../templates/skills/discern-document-subsystem/SKILL.md)
 > skill.
 
 ## Planned leaves

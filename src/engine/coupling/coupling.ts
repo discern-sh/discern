@@ -76,6 +76,9 @@ export const MAX_PARTNERS = 10;
 /** Cap on the per-partner hint LINES — the advisory text stays tight (the full ranked
  * set lives in `data.partners` / a direct `discern coupling` call). */
 const HINT_PARTNERS = 5;
+/** Cap on automatic gate hint partner lines. The gate is unsolicited context, so it is
+ * terser than the direct `coupling` result (which stays exploratory). */
+const GATE_HINT_PARTNERS = 3;
 /** Cap on the evidence-mode commit list — a coupled pair's shared history is usually
  * short, but a hub pair can run long; show the most recent this many and report the full
  * `together` count alongside, so the list never floods a caller's context. */
@@ -83,6 +86,12 @@ const EVIDENCE_COMMIT_CAP = 25;
 /** Confidence at or above which a pair is treated as a near-invariant, triggering the
  * single discovery→enforcement pointer. */
 const STRONG_CONFIDENCE = 0.85;
+/** Automatic gate hints must clear a stricter presentation bar than the underlying model:
+ * either the partner follows the source at a high rate, or it has repeated evidence and a
+ * moderate follow-rate. Direct `discern coupling` keeps the broader discovery set. */
+const GATE_HINT_STRONG_CONFIDENCE = 0.75;
+const GATE_HINT_REPEATED_COCHANGES = 3;
+const GATE_HINT_REPEATED_CONFIDENCE = 0.4;
 /** The ASCII Record-Separator byte (0x1E) git is told to emit between commit records,
  * via the `%x1e` pretty-format directive ({@link RECORD_SEP_DIRECTIVE}) — a control
  * char that can't occur in a path, so splitting the OUTPUT on it never collides with
@@ -543,7 +552,10 @@ function evidenceHints(data: CouplingData): string[] {
  * is appended when the strongest pair is a near-invariant. Empty when there are no
  * partners (the advisory stays quiet). Evidence mode delegates to {@link evidenceHints}.
  */
-function couplingHints(data: CouplingData): string[] {
+function couplingHints(
+  data: CouplingData,
+  maxPartners = HINT_PARTNERS,
+): string[] {
   if (data.mode === "evidence") {
     return evidenceHints(data);
   }
@@ -551,7 +563,7 @@ function couplingHints(data: CouplingData): string[] {
     return [];
   }
   const hints: string[] = [];
-  const shown = data.partners.slice(0, HINT_PARTNERS);
+  const shown = data.partners.slice(0, maxPartners);
   if (data.mode === "diff") {
     hints.push(
       "Co-change advisory (from git history; advisory only, never blocks, and NOT " +
@@ -596,10 +608,19 @@ function couplingHints(data: CouplingData): string[] {
     hints.push(
       `\`${strongest.from}\` and \`${strongest.path}\` change together almost every time. ` +
         "If that reflects an essential invariant, consider locking it with a forcing-function " +
-        "(see the `fix-a-bug-class` skill / ADR 0051) rather than relying on memory.",
+        "(see the `discern-cure-a-bug` skill / ADR 0051) rather than relying on memory.",
     );
   }
   return hints;
+}
+
+/** Whether a mined partner is strong enough to interrupt a green gate run. This is
+ * intentionally stricter than model inclusion: on-demand coupling is discovery; the gate
+ * should nudge only when the evidence is already pretty loud. */
+function isGateHintPartner(p: Partner): boolean {
+  return p.confidence >= GATE_HINT_STRONG_CONFIDENCE ||
+    (p.cochanges >= GATE_HINT_REPEATED_COCHANGES &&
+      p.confidence >= GATE_HINT_REPEATED_CONFIDENCE);
 }
 
 /**
@@ -781,7 +802,7 @@ function renderCouplingHuman(data: CouplingData, out: Out): void {
     out.raw(
       `\n  ${c.dim}\`${strongest.from}\` and \`${strongest.path}\` change together ` +
         `almost every time — if that's an essential invariant, lock it with a ` +
-        `forcing-function (the fix-a-bug-class skill / ADR 0051).${c.reset}\n`,
+        `forcing-function (the discern-cure-a-bug skill / ADR 0051).${c.reset}\n`,
     );
   }
 }
@@ -818,13 +839,22 @@ export async function runCoupling(
  * never a fail-fast precondition; ADR 0084). Gated by the caller on `[features].coupling`,
  * `[coupling].in_gate`, and a bootstrapped install. Best-effort: any failure yields
  * `[]`, so the advisory can NEVER affect the gate's `ok` / exit / `failed_stage`.
+ * Uses a stricter presentation filter than direct `discern coupling`: explicit queries
+ * are exploratory, while automatic gate hints should be rarer and higher-confidence.
  */
 export async function couplingGateHints(
   root: string,
   env: EnvReader = Deno.env,
 ): Promise<string[]> {
   try {
-    return (await couplingResult(root, {}, env)).hints ?? [];
+    const data = (await couplingResult(root, {}, env)).data;
+    if (data === undefined || data.mode !== "diff") {
+      return [];
+    }
+    return couplingHints({
+      ...data,
+      partners: data.partners.filter(isGateHintPartner),
+    }, GATE_HINT_PARTNERS);
   } catch {
     return [];
   }

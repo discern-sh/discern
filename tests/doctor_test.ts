@@ -57,7 +57,13 @@ interface DoctorPayload {
 
 /** Scaffold a healthy install in `dir`; assert it succeeded. */
 async function initInstall(dir: string, slug = "doc-demo"): Promise<void> {
-  const { code } = await runCli(["init", "--yes", "--slug", slug], dir);
+  const { code } = await runCli([
+    "init",
+    "--confirmed",
+    "--yes",
+    "--slug",
+    slug,
+  ], dir);
   assertEquals(code, 0, "init should scaffold a healthy install");
 }
 

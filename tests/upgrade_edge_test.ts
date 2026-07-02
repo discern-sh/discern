@@ -25,7 +25,15 @@ import { readTarget, runCli, targetExists, withTempDir } from "./helpers.ts";
 /** Fresh install in `dir` (the standard scaffold the other suites use). */
 async function init(dir: string): Promise<void> {
   assertEquals(
-    (await runCli(["init", "--yes", "--slug", "demo", "--name", "Demo"], dir))
+    (await runCli([
+      "init",
+      "--confirmed",
+      "--yes",
+      "--slug",
+      "demo",
+      "--name",
+      "Demo",
+    ], dir))
       .code,
     0,
   );

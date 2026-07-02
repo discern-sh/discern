@@ -227,7 +227,7 @@ Deno.test("planToJson maps each op to {path, action, note}", () => {
 Deno.test("setup --dry-run prints the full per-file plan via renderPlan", async () => {
   await withTempDir(async (dir) => {
     const { code, stdout } = await runCli(
-      ["setup", "--dry-run", "--slug", "demo"],
+      ["setup", "--confirmed", "--dry-run", "--slug", "demo"],
       dir,
     );
     assertEquals(code, 0);

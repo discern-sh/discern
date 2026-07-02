@@ -52,7 +52,7 @@ gotchas_doc = "{{gotchas_doc}}"
 worktrees = true   # the isolated git-worktree workflow (worktree / worktree:* verbs)
 ratchets  = true   # never-loosen metric floors (the `ratchets` verb)
 guidance  = true   # compile agent files from built-in + your sources
-skills    = true   # bundled + authored skills, materialized into .claude/skills/
+skills    = true   # bundled + authored skills, materialized into each agent's skills dir
 docs      = true   # the `docs` browser over your docs/ tree
 coupling  = true   # the co-change advisory (the `coupling` verb)
 
@@ -94,7 +94,7 @@ agents = [{{agents_array}}]
 # [skills] — focused, reusable task playbooks. The effective set is discern's
 # bundled built-ins plus YOUR authored skills under the directory below, where
 # yours override a built-in of the same name. discern materializes the set into
-# .claude/skills/ (gitignored): built-ins copied, yours symlinked (edits are live).
+# each agent's skills dir (gitignored): built-ins copied, yours symlinked (edits live).
 #   discern skills list           show the set + which of yours override which
 #   discern skills eject <name>   copy a built-in here so you can customize it
 # ─────────────────────────────────────────────────────────────────────────────

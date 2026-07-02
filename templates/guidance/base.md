@@ -24,15 +24,13 @@ Everything discern knows about this project lives in one root file,
 
 If the MCP server is **unreachable**:
 
-1. **Tell the user.** It's important they know they have a misconfiguration.
-   `discern` is optimised for MCP use, and this should be the default way you 
-   interact with it. Make them aware, then continue working.
-2. Meanwhile, run any verb from the **`discern` CLI** (`discern status`,
-   `discern finish`, …), passing `--json` to get structured machine-readable
-   output. Don't `tail` the CLI — you will miss important information. `discern`
-   is carefully optimised for agents, and is considerate of its output length.
-3. When you finish working, **offer to help the user** fix the unreachable
-   MCP connection. `discern help` and `discern doctor` can assist you.
+1. **Tell the user** — they should know about the misconfiguration; MCP is
+   discern's intended surface. Then continue working.
+2. Meanwhile, run any verb from the **`discern` CLI** (`discern status`, …)
+   with `--json` for structured output. Don't `tail` it — the output is
+   already agent-optimised, and you will miss information.
+3. When you finish working, **offer to help fix** the MCP connection —
+   `discern help` and `discern doctor` can assist.
 
 ## Generated files — don't hand-edit
 

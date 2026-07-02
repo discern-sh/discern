@@ -15,7 +15,54 @@ import { exists } from "@std/fs";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
-import { SetupVerifyOutputSchema } from "../src/shared/result_schemas.ts";
+import {
+  SetupDoneOutputSchema,
+  SetupVerifyOutputSchema,
+} from "../src/shared/result_schemas.ts";
+import {
+  renderFreshWelcome,
+  resolveWelcomeStyle,
+} from "../src/commands/setup_welcome.ts";
+
+const ESC = String.fromCharCode(27);
+const ANSI_ESCAPE = new RegExp(`${ESC}\\[[0-9;]*m`);
+const ANSI_ESCAPES = new RegExp(`${ESC}\\[[0-9;]*m`, "g");
+
+const FRESH_WELCOME_FACTS: readonly string[] = [
+  "discern",
+  "stack-neutral quality harness",
+  "coding agents and the humans who run them",
+  "This project isn't set up yet.",
+  "FOR HUMANS",
+  "quality gate",
+  "isolated git worktrees",
+  "agent instructions",
+  '"Run `discern setup` in this project."',
+  "Setup is isolated and reversible",
+  "no API",
+  "key, and no surprises",
+  "MOST CAPABLE model",
+  "Expect roughly 20–40 minutes",
+  "FOR CODING AGENTS",
+  "verify → begin → author → done",
+  "NOTHING is written",
+  "discern setup verify",
+  "Don't hand this back as a report",
+];
+
+function stripAnsi(text: string): string {
+  return text.replace(ANSI_ESCAPES, "");
+}
+
+function assertNoAnsi(text: string, label: string): void {
+  assert(!ANSI_ESCAPE.test(text), `${label} must not contain ANSI escapes`);
+}
+
+function assertFreshWelcomeFacts(text: string, label: string): void {
+  for (const fact of FRESH_WELCOME_FACTS) {
+    assertStringIncludes(text, fact, `${label} missing ${fact}`);
+  }
+}
 
 /** A git work tree with a file but NO discern.toml — the fresh-install entry point. */
 async function freshRepo(dir: string): Promise<void> {
@@ -25,11 +72,54 @@ async function freshRepo(dir: string): Promise<void> {
 
 // ── the welcome ────────────────────────────────────────────────────────────────
 
+Deno.test("the fresh welcome renderer adds TTY decoration without losing content", () => {
+  const plain = renderFreshWelcome({ tty: false }).join("\n");
+  const styled = renderFreshWelcome({ tty: true }).join("\n");
+  const styledPlain = stripAnsi(styled);
+
+  assertNoAnsi(plain, "plain renderer");
+  assert(
+    ANSI_ESCAPE.test(styled),
+    "TTY renderer should apply ANSI styling",
+  );
+  assertStringIncludes(styledPlain, "╭");
+  assertStringIncludes(styledPlain, "╰");
+  for (const line of styledPlain.split("\n")) {
+    assert(
+      line.length <= 80,
+      `styled welcome line is wider than 80 columns (${line.length}): ${line}`,
+    );
+  }
+  assertFreshWelcomeFacts(plain, "plain welcome");
+  assertFreshWelcomeFacts(styledPlain, "styled welcome");
+});
+
+Deno.test("the fresh welcome style resolver keeps --no-color and NO_COLOR plain on a TTY", () => {
+  const plain = renderFreshWelcome({ tty: false });
+  // The CLI's existing noColor flag is shared by `--no-color` and NO_COLOR; when it
+  // is true, the welcome falls back to the plain render even if stdout is a TTY.
+  assertEquals(
+    renderFreshWelcome(resolveWelcomeStyle({
+      stdoutTty: true,
+      noColor: true,
+    })),
+    plain,
+  );
+  assertEquals(
+    renderFreshWelcome(resolveWelcomeStyle({
+      stdoutTty: false,
+      noColor: false,
+    })),
+    plain,
+  );
+});
+
 Deno.test("the fresh welcome dual-addresses both readers and writes nothing", async () => {
   await withTempDir(async (dir) => {
     await freshRepo(dir);
     const r = await runAgent(dir, ["setup"]);
     assertEquals(r.code, 0, r.output);
+    assertNoAnsi(r.stdout, "piped fresh welcome");
     // Both readers are addressed — robust where detecting them is not (ADR 0075).
     assertStringIncludes(r.stdout, "FOR HUMANS");
     assertStringIncludes(r.stdout, "FOR CODING AGENTS");
@@ -62,7 +152,7 @@ Deno.test("the fresh welcome --json carries phase=fresh and the verify funnel", 
 Deno.test("the in-progress welcome shows derived progress and funnels to done", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
-    await runAgent(dir, ["setup", "begin"]); // lay the marker-carrying skeletons
+    await runAgent(dir, ["setup", "begin", "--confirmed"]); // lay the marker-carrying skeletons
 
     const human = await runAgent(dir, ["setup"]);
     assertStringIncludes(human.stdout, "IN PROGRESS");
@@ -98,16 +188,20 @@ Deno.test("bare `discern setup` reports already-set-up once recorded (phase done
 Deno.test("the fresh welcome --json carries the same instructional substance as the human render (parity)", async () => {
   // A JSON-consuming agent must not get a colder, thinner welcome than one reading
   // the dual-addressed human text (ADR 0075): the "you drive this; nothing until
-  // begin; open warmly and explain what discern is" framing rides on both paths.
+  // begin; verify hands you the message to relay" framing rides on both paths.
   await withTempDir(async (dir) => {
     await freshRepo(dir);
     const human = (await runAgent(dir, ["setup"])).stdout;
     const d =
       JSON.parse((await runAgent(dir, ["setup", "--json"])).stdout).data;
 
-    // The agent guidance carries the role + the consent framing the human prose has.
+    // The agent guidance carries the role + the verify funnel the human prose has,
+    // and points at verify as the source of the message to relay (ADR 0086).
     assertStringIncludes(d.agent_guidance, "nothing is written until");
-    assertStringIncludes(d.agent_guidance, "explain what discern is");
+    assertStringIncludes(
+      d.agent_guidance,
+      "hands you the exact message to relay",
+    );
     assertStringIncludes(d.agent_guidance, "discern setup verify");
     // The human framing carries the most-capable-model nudge the human block makes.
     assertStringIncludes(d.human_framing, "most capable model");
@@ -119,7 +213,7 @@ Deno.test("the fresh welcome --json carries the same instructional substance as 
 Deno.test("the in-progress welcome --json carries the 'your job, not a status' agent guidance", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
-    await runAgent(dir, ["setup", "begin"]);
+    await runAgent(dir, ["setup", "begin", "--confirmed"]);
     const d =
       JSON.parse((await runAgent(dir, ["setup", "--json"])).stdout).data;
     assertEquals(d.phase, "in_progress");
@@ -145,12 +239,20 @@ Deno.test("verify reports grounded findings and the consent conversation, writin
     assertEquals(d.findings.docs.exists, false);
     assert(typeof d.findings.worktree_path === "string");
     // The consent conversation rides the prose `guidance` lane (not structured
-    // fields the agent summarizes), and covers the three topics to settle with the
-    // human — model, worktree, ready — plus the funnel to begin.
+    // fields the agent summarizes) as a ready-to-relay message: the relay licence,
+    // then the points to settle with the human — model, worktree, ready — plus the
+    // funnel to begin (ADR 0086).
+    assertStringIncludes(d.guidance, "Relay the message below to your human");
     assertStringIncludes(d.guidance, "Am I your most capable model");
-    assertStringIncludes(d.guidance, "Worktree location");
-    assertStringIncludes(d.guidance, "Ready to begin");
+    assertStringIncludes(
+      d.guidance,
+      "Isolated working copies will live beside",
+    );
+    assertStringIncludes(d.guidance, "Ready for me to begin");
     assertStringIncludes(d.next_action, "begin");
+    // The command the agent runs after the conversation carries the consent
+    // attestation — a fresh begin refuses without it.
+    assertStringIncludes(d.next_action, "--confirmed");
     // Read-only: verify scaffolds nothing.
     assert(
       !(await exists(join(dir, "discern.toml"))),
@@ -197,18 +299,19 @@ Deno.test("verify's consent guidance is identical and faithful across the human 
     );
     assertStringIncludes(human, d.guidance);
 
-    // Every load-bearing consent instruction is present in BOTH surfaces: the exact
-    // model question put verbatim, the open-warmly framing, the omit-rather-than-guess
-    // rule for --model, and the worktree-location choice — the four the JSON path
-    // weakened before.
+    // Every load-bearing point is present in BOTH surfaces: the adaptive relay
+    // licence, the exact model question verbatim, the three-pillar explainer, the
+    // time+token expectation, the worktree location, and the confirmed command — the
+    // content a courier agent must carry unweakened (ADR 0086, the two-lane rule).
     for (
       const needle of [
+        "adapt the wording to your own voice if you like, but keep every point",
         "Am I your most capable model?",
         "Everything I configure here is inherited by every future session.",
-        "Open warmly",
-        "explain what discern is",
-        "omit `--model` rather than guessing",
-        "Worktree location",
+        "isolated working copies (git worktrees)",
+        "20–40 minutes",
+        "Isolated working copies will live beside",
+        "--confirmed",
       ]
     ) {
       assertStringIncludes(
@@ -247,9 +350,11 @@ Deno.test("verify surfaces existing docs/ and agent instructions as conflicts", 
       `expected an existing_instructions conflict: ${JSON.stringify(kinds)}`,
     );
     assert(d.findings.existing_instructions.includes("CLAUDE.md"));
-    assertStringIncludes(d.guidance, "Documentation location");
+    // With a docs/ tree present, the relay message asks where discern's own docs
+    // should live (recommending docs/discern/) and the command carries --docs.
+    assertStringIncludes(d.guidance, "You already have a docs/ folder");
+    assertStringIncludes(d.guidance, "docs/discern/");
     assertStringIncludes(d.guidance, "--docs");
-    assertStringIncludes(d.guidance, "[docs].dir");
     assertEquals(d.findings.docs.suggested_discern_dir, "docs/discern/");
     assertStringIncludes(d.next_action, "--docs");
     SetupVerifyOutputSchema.parse(res);
@@ -291,12 +396,51 @@ Deno.test("setup done emits the provider-aware reactivation handoff", async () =
   });
 });
 
+Deno.test("setup done serves the completion message at parity across the human render and --json (ADR 0086)", async () => {
+  // The bookend of the served-message handshake: an agent that only relays discern's
+  // words still gives the human a warm, accurate close. The message rides ONE prose
+  // `guidance` lane, carried verbatim by both surfaces so the relay can't drift.
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { bootstrapped: false }); // agents: [claude_code]
+    const human = (await runAgent(dir, ["setup", "done", "--force"])).stdout;
+    const res = JSON.parse(
+      (await runAgent(dir, ["setup", "done", "--force", "--json"])).stdout,
+    );
+    const d = res.data;
+
+    // One source, two renderings: the human output embeds the --json guidance verbatim.
+    assert(
+      typeof d.guidance === "string" && d.guidance.length > 100,
+      `expected a substantial completion guidance string: ${d.guidance}`,
+    );
+    assertStringIncludes(human, d.guidance);
+
+    // The close carries the relay licence, the honest coverage (minimal here — nothing
+    // wired), the reactivation step, and the landing account — in BOTH surfaces.
+    for (
+      const needle of [
+        "Relay the message below to your human",
+        "discern is set up",
+        "No quality checks are wired yet",
+        "Start a fresh session",
+      ]
+    ) {
+      assertStringIncludes(d.guidance, needle, `guidance missing: ${needle}`);
+      assertStringIncludes(human, needle, `human render missing: ${needle}`);
+    }
+
+    // Faithfulness (ADR 0041): the real serialized envelope validates against schema.
+    SetupDoneOutputSchema.parse(res);
+  });
+});
+
 Deno.test("begin records the agent's self-declared model + discern version as provenance", async () => {
   await withTempDir(async (dir) => {
     await freshRepo(dir);
     const r = await runAgent(dir, [
       "setup",
       "begin",
+      "--confirmed",
       "--model",
       "test-model-x",
     ]);
@@ -319,6 +463,7 @@ Deno.test("begin ignores a literal model placeholder, recording no bogus provena
     const r = await runAgent(dir, [
       "setup",
       "begin",
+      "--confirmed",
       "--model",
       "<your-model-id>",
     ]);

@@ -27,7 +27,8 @@ import { type DiscernConfig, toCommandList } from "./config_schema.ts";
  *    can travel (an inline `#` comment on the line).
  *  - `absent` — the capability is omitted entirely; the project has no such command.
  */
-export type CapabilityState = "enforced" | "deferred" | "absent";
+export const CAPABILITY_STATES = ["enforced", "deferred", "absent"] as const;
+export type CapabilityState = typeof CAPABILITY_STATES[number];
 
 /** One capability's assurance: its name, its {@link CapabilityState}, and — for a
  * `deferred` one — the reason recorded as an inline comment on its config line, when
@@ -46,7 +47,8 @@ export interface CapabilityAssurance {
  *  - `partial` — at least one is enforced, but not all;
  *  - `minimal` — none is enforced (setup is complete, but the gate guards nothing yet).
  */
-export type AssuranceVerdict = "full" | "partial" | "minimal";
+export const ASSURANCE_VERDICTS = ["full", "partial", "minimal"] as const;
+export type AssuranceVerdict = typeof ASSURANCE_VERDICTS[number];
 
 /** The complete assurance summary `setup done` reports. */
 export interface SetupAssurance {

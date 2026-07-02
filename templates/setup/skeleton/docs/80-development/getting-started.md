@@ -2,7 +2,7 @@
 
 *Cloning, setting up, and running the project locally for the first time.*
 
-> This doc is a skeleton. The `discern setup` command (and the [`document-subsystem`](../../.claude/skills/document-subsystem/SKILL.md) skill, when filling the `80-development` subtree) writes it from the project's actual stack. Look for the `<!-- setup fills this -->` marker.
+> This doc is a skeleton. The `discern setup` command (and the `discern-document-subsystem` skill, when filling the `80-development` subtree) writes it from the project's actual stack. Look for the `<!-- setup fills this -->` marker.
 
 This is the path from a fresh clone to a running project and a first green gate. The harness commands are the same on every stack; the stack-specific steps (installing dependencies, configuring the environment, running the app) are filled in below.
 

@@ -15,7 +15,8 @@ import {
   assertRejects,
   assertStringIncludes,
 } from "@std/assert";
-import { join } from "@std/path";
+import { dirname, join, relative } from "@std/path";
+import { walk } from "@std/fs";
 import {
   type DiscernConfig,
   parseConfigOrThrow,
@@ -29,7 +30,8 @@ import {
   materializeSkills,
   resolveEffectiveSkills,
 } from "../src/lib/skills.ts";
-import { skillsDirsForAgents } from "../src/lib/providers.ts";
+import { resolveBundledSkillsDir } from "../src/lib/paths.ts";
+import { allSkillsDirs, skillsDirsForAgents } from "../src/lib/providers.ts";
 import { modeOf, withTempDir } from "./helpers.ts";
 
 /** The single Claude Code skills dir — pins the per-dir materialization mechanics
@@ -66,8 +68,8 @@ Deno.test("bundledSkillNames lists the shipped built-ins, sorted", async () => {
   // set, so adding a built-in later doesn't break this test).
   for (
     const n of [
-      "document-subsystem",
-      "write-adr",
+      "discern-document-subsystem",
+      "discern-write-adr",
     ]
   ) {
     assert(
@@ -78,23 +80,90 @@ Deno.test("bundledSkillNames lists the shipped built-ins, sorted", async () => {
   assertEquals([...names], [...names].sort());
 });
 
+Deno.test("shipped content names no vendor-specific skills dir (stays provider-neutral)", async () => {
+  // Content discern scaffolds or materializes onto an end user's machine — bundled
+  // skill bodies and their skeletons, the setup instructions and scaffolded doc
+  // skeletons, the built-in guidance — must not hardcode ONE provider's skills
+  // directory. A skill materializes into whichever provider dir(s) the user
+  // configured (`.claude/skills` for Claude Code, the shared `.agents/skills` for
+  // the rest), so a `.claude/skills/…` path is a dead reference for a Codex or
+  // Gemini user. Refer to a skill by its NAME instead — that's how it's invoked,
+  // and it needs no path. The banned prefixes come from the provider registry
+  // (`allSkillsDirs`), so a newly-added provider's dir auto-enrols: this is a
+  // forcing-function over discern's own closed set, not a hand-kept denylist of
+  // vendor words.
+  const bundledSkills = await resolveBundledSkillsDir(); // …/templates/skills
+  const templates = dirname(bundledSkills); // …/templates
+  const trees = [
+    bundledSkills,
+    join(templates, "setup"),
+    join(templates, "guidance"),
+  ];
+  const banned = allSkillsDirs();
+  const offenders: string[] = [];
+  for (const tree of trees) {
+    for await (
+      const entry of walk(tree, { exts: [".md"], includeDirs: false })
+    ) {
+      const text = await Deno.readTextFile(entry.path);
+      for (const dir of banned) {
+        if (text.includes(dir)) {
+          offenders.push(`${relative(templates, entry.path)} names "${dir}"`);
+        }
+      }
+    }
+  }
+  assertEquals(
+    offenders,
+    [],
+    `shipped content must stay provider-neutral — reference a skill by name, not a vendor path:\n${
+      offenders.join("\n")
+    }`,
+  );
+});
+
+Deno.test("every skeleton path a bundled SKILL.md cites exists in that skill's source", async () => {
+  // A skill that scaffolds files tells its reader to copy from its own
+  // `skeleton/<path>` directory (vendor-neutral: relative to where the agent found
+  // the skill). That prose path has no compiler behind it, so a renamed or moved
+  // skeleton silently orphans it and the agent copies from nothing. Enumerate every
+  // backtick-wrapped `skeleton/…` reference across all bundled SKILL.md bodies (a
+  // new skill auto-enrols) and assert it resolves in the skill's source.
+  const bundledDir = await resolveBundledSkillsDir();
+  const names = await bundledSkillNames();
+  const reference = /`(skeleton\/[A-Za-z0-9._/-]+?)\/?`/g;
+  let checked = 0;
+  for (const name of names) {
+    const text = await Deno.readTextFile(join(bundledDir, name, "SKILL.md"));
+    for (const match of text.matchAll(reference)) {
+      const rel = match[1];
+      assert(
+        rel !== undefined && await exists(join(bundledDir, name, rel)),
+        `${name}/SKILL.md cites \`${rel}\` but templates/skills/${name}/${rel} does not exist`,
+      );
+      checked++;
+    }
+  }
+  assert(checked > 0, "expected at least one skeleton reference to check");
+});
+
 Deno.test("resolveEffectiveSkills: bundled-only when no authored dir", async () => {
   await withTempDir(async (root) => {
     const eff = await resolveEffectiveSkills(root, cfg());
     assert(eff.length >= 2);
     assert(eff.every((e) => e.source === "bundled" && !e.overridesBundled));
-    assert(eff.some((e) => e.name === "write-adr"));
+    assert(eff.some((e) => e.name === "discern-write-adr"));
   });
 });
 
 Deno.test("resolveEffectiveSkills: authored overrides a bundled name; unique authored stands alone", async () => {
   await withTempDir(async (root) => {
-    await authoredSkill(root, "document-subsystem"); // shadows a built-in
+    await authoredSkill(root, "discern-document-subsystem"); // shadows a built-in
     await authoredSkill(root, "my-skill"); // unique
     const eff = await resolveEffectiveSkills(root, cfg());
     const byName = new Map(eff.map((e) => [e.name, e]));
 
-    const overridden = byName.get("document-subsystem");
+    const overridden = byName.get("discern-document-subsystem");
     assertExists(overridden);
     assertEquals(overridden.source, "authored");
     assertEquals(overridden.overridesBundled, true);
@@ -105,7 +174,7 @@ Deno.test("resolveEffectiveSkills: authored overrides a bundled name; unique aut
     assertEquals(mine.overridesBundled, false);
 
     // A non-overridden built-in stays bundled.
-    const writeAdr = byName.get("write-adr");
+    const writeAdr = byName.get("discern-write-adr");
     assertExists(writeAdr);
     assertEquals(writeAdr.source, "bundled");
   });
@@ -113,14 +182,14 @@ Deno.test("resolveEffectiveSkills: authored overrides a bundled name; unique aut
 
 Deno.test("listSkills annotates source / override / hasBundled", async () => {
   await withTempDir(async (root) => {
-    await authoredSkill(root, "document-subsystem");
+    await authoredSkill(root, "discern-document-subsystem");
     await authoredSkill(root, "my-skill");
     const rows = new Map(
       (await listSkills(root, cfg())).map((r) => [r.name, r]),
     );
 
-    assertEquals(rows.get("document-subsystem"), {
-      name: "document-subsystem",
+    assertEquals(rows.get("discern-document-subsystem"), {
+      name: "discern-document-subsystem",
       source: "authored",
       overridesBundled: true,
       hasBundled: true,
@@ -131,7 +200,7 @@ Deno.test("listSkills annotates source / override / hasBundled", async () => {
       overridesBundled: false,
       hasBundled: false,
     });
-    const writeAdr = rows.get("write-adr");
+    const writeAdr = rows.get("discern-write-adr");
     assertExists(writeAdr);
     assertEquals(writeAdr.source, "bundled");
   });
@@ -140,15 +209,15 @@ Deno.test("listSkills annotates source / override / hasBundled", async () => {
 Deno.test("materializeSkills: bundled copied, authored symlinked", async () => {
   await withTempDir(async (root) => {
     await authoredSkill(root, "my-skill");
-    await authoredSkill(root, "document-subsystem"); // override → symlink, not copy
+    await authoredSkill(root, "discern-document-subsystem"); // override → symlink, not copy
     const res = await materializeSkills(root, cfg(), CLAUDE_SKILLS);
     assert(res.copied >= 1, `expected the non-overridden built-ins copied`);
-    assertEquals(res.linked, 2); // my-skill + the document-subsystem override
+    assertEquals(res.linked, 2); // my-skill + the discern-document-subsystem override
     assertEquals(res.pruned, 0);
 
     const sk = claudeSkillsDirOf(root);
     // A non-overridden built-in is a real directory (copy).
-    const wa = await Deno.lstat(join(sk, "write-adr"));
+    const wa = await Deno.lstat(join(sk, "discern-write-adr"));
     assert(wa.isDirectory && !wa.isSymlink);
     // An authored skill is a relative symlink into ./skills/.
     const mine = await Deno.lstat(join(sk, "my-skill"));
@@ -158,7 +227,9 @@ Deno.test("materializeSkills: bundled copied, authored symlinked", async () => {
       "../../skills/my-skill",
     );
     // The override is a symlink too (authored wins over the bundled copy).
-    assert((await Deno.lstat(join(sk, "document-subsystem"))).isSymlink);
+    assert(
+      (await Deno.lstat(join(sk, "discern-document-subsystem"))).isSymlink,
+    );
   });
 });
 
@@ -256,7 +327,7 @@ Deno.test("materializeSkills: writes into EVERY configured agent's dir (Claude +
     // The SAME effective set is reconciled into BOTH dirs.
     for (const rel of dirs) {
       assert(
-        await exists(join(root, rel, "write-adr", "SKILL.md")),
+        await exists(join(root, rel, "discern-write-adr", "SKILL.md")),
         `a bundled skill is missing from ${rel}`,
       );
       assert(
@@ -275,18 +346,18 @@ Deno.test("materializeSkills: writes into EVERY configured agent's dir (Claude +
 
 Deno.test("ejectSkill copies a built-in into [skills].dir, writable, then refuses to clobber", async () => {
   await withTempDir(async (root) => {
-    const res = await ejectSkill(root, cfg(), "write-adr");
-    assertEquals(res.destRel, join("skills", "write-adr"));
-    assert(await exists(join(root, "skills/write-adr/SKILL.md")));
+    const res = await ejectSkill(root, cfg(), "discern-write-adr");
+    assertEquals(res.destRel, join("skills", "discern-write-adr"));
+    assert(await exists(join(root, "skills/discern-write-adr/SKILL.md")));
     // Writable (the embedded FS reports read-only; eject must restore owner write).
     assertEquals(
-      (await modeOf(root, "skills/write-adr/SKILL.md")) & 0o600,
+      (await modeOf(root, "skills/discern-write-adr/SKILL.md")) & 0o600,
       0o600,
     );
 
     // Re-ejecting over an existing authored copy refuses (never clobbers edits).
     await assertRejects(
-      () => ejectSkill(root, cfg(), "write-adr"),
+      () => ejectSkill(root, cfg(), "discern-write-adr"),
       Error,
       "already exists",
     );
@@ -300,6 +371,6 @@ Deno.test("ejectSkill rejects an unknown skill, listing the available ones", asy
       Error,
       'no bundled skill named "nope"',
     );
-    assertStringIncludes((err as Error).message, "write-adr");
+    assertStringIncludes((err as Error).message, "discern-write-adr");
   });
 });

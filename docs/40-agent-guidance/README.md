@@ -38,11 +38,13 @@ a small [templating engine](the-templating-engine.md) so the generic shipped
 prose names your real branch and omits content for anything you haven't
 configured (a ratchet, a worktree resource).
 
-The Skills are the bundled built-ins (`delegate-task`, `document-subsystem`,
-`fix-a-bug-class`, and `write-adr`) plus any you author under `[skills].dir`
-(default `./skills`, yours overriding a built-in by name). The `fix-a-bug-class`
-built-in pairs with an always-on norm in the built-in base — discern's first
-general working discipline shipped on by default
+The Skills are the bundled built-ins (one directory per skill under
+[`templates/skills/`](../../templates/skills/), every name carrying the
+`discern-` prefix; the [install surface](../80-development/install-surface.md)
+tables them) plus any you author under `[skills].dir` (default `./skills`, yours
+overriding a built-in by name). The `discern-cure-a-bug` built-in pairs with an
+always-on norm in the built-in base — discern's first general working discipline
+shipped on by default
 ([ADR 0049](../_adr/0049-bug-class-discipline-built-in.md)). They materialize
 into each configured agent's skills directory
 ([`.claude/skills/`](../../.claude/skills/) for Claude Code, the cross-tool
@@ -69,7 +71,7 @@ cannot drift as agents are added
 
 > **Status: stub.** This README orients the subtree; the leaves below are not
 > written yet. Fill them with the
-> [`document-subsystem`](../../templates/skills/document-subsystem/SKILL.md)
+> [`discern-document-subsystem`](../../templates/skills/discern-document-subsystem/SKILL.md)
 > skill.
 
 ## Reference

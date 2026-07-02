@@ -74,8 +74,8 @@ Deno.test("engine refresh: compiles agent files and materializes bundled skills"
     // Job 2: a bundled built-in is COPIED into .claude/skills/ (a real SKILL.md,
     // not a dangling link) — exactly what the agent reads to discover a skill.
     assert(
-      await exists(join(dir, ".claude/skills/write-adr/SKILL.md")),
-      `.claude/skills/write-adr must hold a SKILL.md\n${r.output}`,
+      await exists(join(dir, ".claude/skills/discern-write-adr/SKILL.md")),
+      `.claude/skills/discern-write-adr must hold a SKILL.md\n${r.output}`,
     );
     assertStringIncludes(r.stdout, "skills materialized into .claude/skills/");
   });
@@ -158,7 +158,7 @@ Deno.test("engine refresh: materializes skills even with no guideline sources (j
     const r = await runAgent(dir, ["refresh"]);
     assertEquals(r.code, 0, r.output);
     assert(
-      await exists(join(dir, ".claude/skills/write-adr/SKILL.md")),
+      await exists(join(dir, ".claude/skills/discern-write-adr/SKILL.md")),
       `skills must materialize independently of guideline compilation\n${r.output}`,
     );
   });
@@ -208,7 +208,7 @@ Deno.test("engine refresh: prunes the link of an authored skill removed from the
     );
     // A bundled built-in keeps its materialized copy.
     assert(
-      await exists(join(dir, ".claude/skills/write-adr/SKILL.md")),
+      await exists(join(dir, ".claude/skills/discern-write-adr/SKILL.md")),
       `bundled skills must stay materialized\n${r.output}`,
     );
     assertStringIncludes(r.stdout, "pruned 1 stale");
