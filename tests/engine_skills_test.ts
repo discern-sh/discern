@@ -53,7 +53,8 @@ Deno.test("discern skills eject copies a built-in and the effective set then pre
     assertStringIncludes(list.stdout, "yours (overrides built-in)");
     // And it materialized as a symlink under .claude/skills/.
     assert(
-      (await Deno.lstat(join(dir, ".claude/skills/discern-write-adr"))).isSymlink,
+      (await Deno.lstat(join(dir, ".claude/skills/discern-write-adr")))
+        .isSymlink,
       "the override should materialize as a symlink",
     );
   });

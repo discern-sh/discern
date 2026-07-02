@@ -120,10 +120,10 @@ the gate as well as on demand.
 A strong coupling is a finding, not a verdict. The advisory names one path back
 to enforcement — _"if this is an essential invariant, lock it with a forcing
 function (the
-[`discern-cure-a-bug`](../../templates/skills/discern-cure-a-bug/SKILL.md) skill / ADR
-0051)"_ — but the decision is yours: an **essential** invariant earns a forcing
-function, an **incidental** co-change earns nothing. Promoting a coupling to an
-enforced rule is always a separate, deliberate step
+[`discern-cure-a-bug`](../../templates/skills/discern-cure-a-bug/SKILL.md) skill
+/ ADR 0051)"_ — but the decision is yours: an **essential** invariant earns a
+forcing function, an **incidental** co-change earns nothing. Promoting a
+coupling to an enforced rule is always a separate, deliberate step
 ([ADR 0084](../_adr/0084-co-change-coupling-advisory.md)).
 
 ## See also

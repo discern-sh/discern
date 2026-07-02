@@ -79,7 +79,10 @@ Deno.test("init scaffolds the real templates into a working harness", async () =
     const skillInfo = await Deno.stat(
       join(dir, ".claude/skills/discern-write-adr/SKILL.md"),
     );
-    assert(skillInfo.isFile, "the discern-write-adr skill should be materialized");
+    assert(
+      skillInfo.isFile,
+      "the discern-write-adr skill should be materialized",
+    );
 
     // 4. The brief was written verbatim under a header (at the root brief.md).
     assertStringIncludes(

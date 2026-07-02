@@ -965,9 +965,12 @@ Deno.test("migration 5→6 preserves a CUSTOMIZED bundled skill that differs onl
     const shippedSkill = await Deno.readTextFile(
       join(REAL_TEMPLATES, "skills/discern-write-adr/SKILL.md"),
     );
-    await Deno.mkdir(join(dir, ".discern/skills/discern-write-adr/skel/docs/_adr"), {
-      recursive: true,
-    });
+    await Deno.mkdir(
+      join(dir, ".discern/skills/discern-write-adr/skel/docs/_adr"),
+      {
+        recursive: true,
+      },
+    );
     await Deno.writeTextFile(
       join(dir, ".discern/skills/discern-write-adr/SKILL.md"),
       shippedSkill,
@@ -980,9 +983,15 @@ Deno.test("migration 5→6 preserves a CUSTOMIZED bundled skill that differs onl
     await applyMigrations({ destDir: dir, from: 5, to: 6, onNote: () => {} });
 
     // The whole customized tree is preserved as an authored override, not pruned.
-    assertEquals(await targetExists(dir, "skills/discern-write-adr/SKILL.md"), true);
     assertEquals(
-      await targetExists(dir, "skills/discern-write-adr/skel/docs/_adr/MY-NOTE.md"),
+      await targetExists(dir, "skills/discern-write-adr/SKILL.md"),
+      true,
+    );
+    assertEquals(
+      await targetExists(
+        dir,
+        "skills/discern-write-adr/skel/docs/_adr/MY-NOTE.md",
+      ),
       true,
     );
     assertEquals(await targetExists(dir, ".discern"), false);

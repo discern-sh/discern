@@ -142,9 +142,10 @@ Deno.test("upgrade re-materializes the bundled skills and stamps the current sch
     const res = await upgrade(dir);
     assert(res.data.skills.copied >= 1, "bundled skills should be re-copied");
     assert(
-      !(await readTarget(dir, ".claude/skills/discern-write-adr/SKILL.md")).includes(
-        "tampered",
-      ),
+      !(await readTarget(dir, ".claude/skills/discern-write-adr/SKILL.md"))
+        .includes(
+          "tampered",
+        ),
       "the kit's skill bytes should overwrite the tampered copy",
     );
     assertEquals(await recordedSchema(dir), res.data.schema.current);

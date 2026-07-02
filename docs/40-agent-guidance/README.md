@@ -40,12 +40,11 @@ configured (a ratchet, a worktree resource).
 
 The Skills are the bundled built-ins (one directory per skill under
 [`templates/skills/`](../../templates/skills/), every name carrying the
-`discern-` prefix; the
-[install surface](../80-development/install-surface.md) tables them) plus any
-you author under `[skills].dir`
-(default `./skills`, yours overriding a built-in by name). The `discern-cure-a-bug`
-built-in pairs with an always-on norm in the built-in base — discern's first
-general working discipline shipped on by default
+`discern-` prefix; the [install surface](../80-development/install-surface.md)
+tables them) plus any you author under `[skills].dir` (default `./skills`, yours
+overriding a built-in by name). The `discern-cure-a-bug` built-in pairs with an
+always-on norm in the built-in base — discern's first general working discipline
+shipped on by default
 ([ADR 0049](../_adr/0049-bug-class-discipline-built-in.md)). They materialize
 into each configured agent's skills directory
 ([`.claude/skills/`](../../.claude/skills/) for Claude Code, the cross-tool

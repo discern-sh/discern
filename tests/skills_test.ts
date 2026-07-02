@@ -88,7 +88,8 @@ Deno.test("every materialized-path reference in a bundled SKILL.md resolves", as
   // assert the named skill is bundled and the sub-path exists in its source.
   const bundledDir = await resolveBundledSkillsDir();
   const names = new Set(await bundledSkillNames());
-  const reference = /\.claude\/skills\/([A-Za-z0-9_-]+)((?:\/[A-Za-z0-9._-]+)*)\/?/g;
+  const reference =
+    /\.claude\/skills\/([A-Za-z0-9_-]+)((?:\/[A-Za-z0-9._-]+)*)\/?/g;
   let checked = 0;
   for (const name of names) {
     const text = await Deno.readTextFile(join(bundledDir, name, "SKILL.md"));
@@ -108,7 +109,10 @@ Deno.test("every materialized-path reference in a bundled SKILL.md resolves", as
       checked++;
     }
   }
-  assert(checked > 0, "expected at least one materialized-path reference to check");
+  assert(
+    checked > 0,
+    "expected at least one materialized-path reference to check",
+  );
 });
 
 Deno.test("resolveEffectiveSkills: bundled-only when no authored dir", async () => {
@@ -191,7 +195,9 @@ Deno.test("materializeSkills: bundled copied, authored symlinked", async () => {
       "../../skills/my-skill",
     );
     // The override is a symlink too (authored wins over the bundled copy).
-    assert((await Deno.lstat(join(sk, "discern-document-subsystem"))).isSymlink);
+    assert(
+      (await Deno.lstat(join(sk, "discern-document-subsystem"))).isSymlink,
+    );
   });
 });
 
