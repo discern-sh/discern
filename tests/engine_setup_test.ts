@@ -1070,6 +1070,42 @@ Deno.test("discern setup begin fails open (no error) when the machinery commit i
   });
 });
 
+Deno.test("a fresh begin without --confirmed refuses with awaiting_consent, re-serving verify's message (ADR 0086)", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "app.ts"), "export const v = 1;\n");
+    await gitInit(dir);
+
+    // The consent attestation is required for a fresh, non-declarative scaffold. Absent
+    // it, begin refuses BEFORE writing anything — the error path is the teaching path.
+    const blocked = await runAgent(dir, ["setup", "begin", "--json"]);
+    assertEquals(blocked.code, 1, blocked.output);
+    const res = JSON.parse(blocked.stdout);
+    assertEquals(res.ok, false);
+    assertEquals(res.error, "awaiting_consent");
+    assertStringIncludes(res.data.command, "--confirmed");
+    // Nothing was written — the read-only→destructive boundary held.
+    assert(
+      !(await exists(join(dir, "discern.toml"))),
+      "awaiting_consent must write nothing",
+    );
+
+    // Single source: the refusal's guidance is byte-identical to what `verify` serves,
+    // so an agent that skipped verify is handed the very same conversation (ADR 0086).
+    const verifyGuidance = JSON.parse(
+      (await runAgent(dir, ["setup", "verify", "--json"])).stdout,
+    ).data.guidance;
+    assertEquals(res.data.guidance, verifyGuidance);
+    assertStringIncludes(res.data.guidance, "Am I your most capable model");
+
+    // The human render carries the same message verbatim (dual-addressed, ADR 0078),
+    // and still writes nothing.
+    const human = await runAgent(dir, ["setup", "begin"]);
+    assertEquals(human.code, 1, human.output);
+    assertStringIncludes(human.stdout, res.data.guidance);
+    assert(!(await exists(join(dir, "discern.toml"))));
+  });
+});
+
 Deno.test("discern setup refuses on a dirty tree, writing nothing; --allow-dirty overrides (ADR 0065)", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "app.ts"), "export const v = 1;\n");

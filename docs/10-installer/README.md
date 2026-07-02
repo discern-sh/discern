@@ -21,6 +21,17 @@ Schema steps), `config` (comment-preserving `discern.toml` edits), and
 `add-preset` (overlay a reusable preset). Routing lives in
 [`main.ts`](../../src/main.ts); each verb's logic is in `src/commands/`.
 
+Each human touchpoint of the handshake **serves a pre-composed, first-person
+_message to your human_** the agent relays — the consent conversation at
+`verify`, the started moment at `begin`, and the completion summary at `done` —
+so a terse agent that only couriers discern's words still delivers a complete
+first experience (rewording into the agent's own voice is allowed; dropping a
+point is not). A fresh `setup begin` requires an explicit **`--confirmed`**
+attestation that the consent conversation happened; without it — and outside the
+declarative `--config` / `--allow-dirty` paths — `begin` refuses before writing
+anything and re-serves that same consent message
+([ADR 0086](../_adr/0086-setup-serves-relay-messages-and-a-consent-attestation.md)).
+
 The ideas worth understanding here: the **disposition**-driven scaffold, with
 ownership in two buckets —
 [yours](../00-orientation/glossary.md#your-files--yours) (committed seeds,
