@@ -4,8 +4,13 @@
  * the Claude Code MCP wiring is correct and idempotent.
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { basename, join } from "@std/path";
+import {
+  assert,
+  assertEquals,
+  assertRejects,
+  assertStringIncludes,
+} from "@std/assert";
+import { basename, dirname, join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import { addWorktree, gitInit } from "./engine_helpers.ts";
 import { AGENT_NAMES } from "../src/shared/config_schema.ts";
@@ -245,6 +250,38 @@ Deno.test("wireProviderMcp MERGES into an existing .mcp.json, preserving other s
     }); // preserved
     assertEquals(mcp.mcpServers.discern.command, "discern"); // added
   });
+});
+
+Deno.test("wireProviderMcp refuses malformed co-owned JSON without overwriting it", async () => {
+  const cases: Array<{ agent: typeof AGENT_NAMES[number]; rel: string }> = [];
+  for (const agent of AGENT_NAMES) {
+    const provider = PROVIDERS[agent];
+    const mcp = wiredMcp(provider);
+    if (mcp !== undefined && mcp.configFile.endsWith(".json")) {
+      cases.push({ agent, rel: mcp.configFile });
+    }
+  }
+  cases.push({
+    agent: "claude_code",
+    rel: PROVIDERS.claude_code.hooks?.settingsFile ?? ".claude/settings.json",
+  });
+
+  for (const { agent, rel } of cases) {
+    await withTempDir(async (dir) => {
+      const path = join(dir, rel);
+      await Deno.mkdir(dirname(path), { recursive: true });
+      const malformed = '{ "user": true, }\n';
+      await Deno.writeTextFile(path, malformed);
+
+      const error = await assertRejects(
+        () => wireProviderMcp(dir, [agent]),
+        Error,
+        rel,
+      );
+      assertStringIncludes(error.message, "malformed JSON");
+      assertEquals(await Deno.readTextFile(path), malformed);
+    });
+  }
 });
 
 Deno.test("the MCP restart hint names a restart and persists thereafter", () => {

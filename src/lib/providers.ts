@@ -432,20 +432,29 @@ function appendUnique(base: readonly string[], addition: string): string[] {
   return base.includes(addition) ? [...base] : [...base, addition];
 }
 
-/** Read a JSON object file, or `{}` when it is absent / unreadable / non-object. */
+/** Read a JSON object file. Absence starts empty; malformed existing JSON refuses. */
 async function readJsonObject(path: string): Promise<Record<string, unknown>> {
   let text: string;
   try {
     text = await Deno.readTextFile(path);
-  } catch {
-    return {};
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      return {};
+    }
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(`could not read JSON file ${path}: ${detail}`);
   }
+  let v: unknown;
   try {
-    const v: unknown = JSON.parse(text);
-    return isObject(v) ? v : {};
-  } catch {
-    return {};
+    v = JSON.parse(text);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(`malformed JSON in ${path}: ${detail}`);
   }
+  if (!isObject(v)) {
+    throw new Error(`JSON in ${path} must be an object`);
+  }
+  return v;
 }
 
 /** Write a pretty JSON object with a trailing newline (creating parent dirs). */

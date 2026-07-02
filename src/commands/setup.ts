@@ -44,7 +44,14 @@ import {
 import { TomlEditor } from "../lib/toml_edit.ts";
 import { stampSchemaVersion } from "../lib/schema.ts";
 import { KIT_VERSION, SCHEMA_VERSION } from "../lib/version.ts";
-import { applyPlan, buildPlan, type Plan, planBrief } from "../lib/fs_plan.ts";
+import {
+  applyPlan,
+  buildPlan,
+  type Plan,
+  PlanApplyError,
+  planBrief,
+  SettingsMergePlanError,
+} from "../lib/fs_plan.ts";
 import { planToJson, renderPlan } from "../lib/plan_view.ts";
 import { compileGuidelines } from "../engine/guidelines.ts";
 import { doctorResult } from "./doctor.ts";
@@ -427,12 +434,23 @@ async function scaffoldHarness(
       fills: fileAnswers,
     });
   } catch (error) {
-    emitSetupError(
-      log,
-      opts,
-      "invalid_config_file",
-      `invalid --config fills: ${errMsg(error)}`,
-    );
+    if (error instanceof SettingsMergePlanError) {
+      emitSetupError(log, opts, "invalid_settings_file", errMsg(error));
+    } else if (opts.config !== undefined) {
+      emitSetupError(
+        log,
+        opts,
+        "invalid_config_file",
+        `invalid --config fills: ${errMsg(error)}`,
+      );
+    } else {
+      emitSetupError(
+        log,
+        opts,
+        "setup_plan_failed",
+        `could not prepare setup plan: ${errMsg(error)}`,
+      );
+    }
     return { stop: 1 };
   }
 
@@ -456,7 +474,16 @@ async function scaffoldHarness(
     return { stop: 0 };
   }
 
-  const changed = await applyPlan(plan);
+  let changed: Awaited<ReturnType<typeof applyPlan>>;
+  try {
+    changed = await applyPlan(plan);
+  } catch (error) {
+    const message = error instanceof PlanApplyError
+      ? error.message
+      : `could not apply setup plan: ${errMsg(error)}`;
+    emitSetupError(log, opts, "apply_failed", message);
+    return { stop: 1 };
+  }
 
   // Record setup provenance into the freshly-scaffolded config — the discern version
   // that ran begin, and any agent-declared --model — for support triage (ADR 0075).
@@ -682,6 +709,25 @@ function renderDocsDir(instructions: string, docsDir: string): string {
   return instructions.replaceAll("{{docs_dir}}", normalizeDocsDir(docsDir));
 }
 
+async function gitTopLevel(start: string): Promise<string | undefined> {
+  const root = await runGit(["rev-parse", "--show-toplevel"], { cwd: start });
+  if (!root.success) {
+    return undefined;
+  }
+  const path = root.stdout.trim();
+  return path.length === 0 ? undefined : path;
+}
+
+/**
+ * Resolve where setup should operate from the caller's cwd. Existing installs use
+ * the same marker walk as status/done/step; fresh setup in a Git subdirectory uses
+ * the repository top-level so the scaffold and the setup branch describe one tree.
+ * Outside Git, there is no broader project root to infer, so setup stays in cwd.
+ */
+async function resolveSetupRoot(start: string): Promise<string> {
+  return (await findRoot(start)) ?? (await gitTopLevel(start)) ?? start;
+}
+
 /**
  * `discern setup begin` — the first mutating phase of the staged handshake (ADR 0075):
  * scaffold (when fresh, or `--force`), lay the doc skeletons, record setup provenance,
@@ -692,7 +738,7 @@ function renderDocsDir(instructions: string, docsDir: string): string {
  */
 export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   const log = new Logger(opts);
-  const destDir = Deno.cwd();
+  const destDir = await resolveSetupRoot(Deno.cwd());
   const existingConfig = await resolveConfigPath(destDir);
   const freshInstall = existingConfig === undefined;
 

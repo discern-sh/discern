@@ -149,6 +149,15 @@ export type SettingsSeedMerge = (
   incomingText: string,
 ) => string;
 
+function parseJsonSettingsText(text: string, label: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(`malformed JSON in ${label} settings: ${detail}`);
+  }
+}
+
 /**
  * The default seed-merge strategy: the JSON deep-merge ({@link mergeSettings})
  * lifted to text. Parses both sides as JSON, merges, and re-serializes to 2-space
@@ -162,8 +171,8 @@ export function mergeJsonSettingsText(
 ): string {
   const existing: unknown = existingText === undefined
     ? {}
-    : JSON.parse(existingText);
-  const incoming: unknown = JSON.parse(incomingText);
+    : parseJsonSettingsText(existingText, "existing");
+  const incoming: unknown = parseJsonSettingsText(incomingText, "incoming");
   return `${JSON.stringify(mergeSettings(existing, incoming), null, 2)}\n`;
 }
 
@@ -186,8 +195,8 @@ export function mergeJsonSettingsDedupingGroups(
 ): string {
   const existing: unknown = existingText === undefined
     ? {}
-    : JSON.parse(existingText);
-  const incoming: unknown = JSON.parse(incomingText);
+    : parseJsonSettingsText(existingText, "existing");
+  const incoming: unknown = parseJsonSettingsText(incomingText, "incoming");
   const merged = mergeSettings(existing, incoming);
   const hooks = merged[HOOK_EVENTS_KEY];
   if (isObject(hooks)) {

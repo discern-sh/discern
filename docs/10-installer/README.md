@@ -38,6 +38,11 @@ holds human-written docs, and `setup begin --docs <path>` persists and scaffolds
 the chosen root. The docs browser and quality-gate declarations resolve the same
 field ([ADR 0080](../_adr/0080-configured-agent-docs-root.md)).
 
+`setup begin` resolves its destination before writing: inside an existing
+install it walks to the nearest ancestor with `discern.toml`; before install, in
+a Git checkout, it uses the Git top-level; outside Git it stays in the current
+directory.
+
 ## Config reference
 
 [`config-reference.md`](config-reference.md) documents every `discern.toml`

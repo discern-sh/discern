@@ -106,6 +106,23 @@ Deno.test("engine refresh: backfills the discern MCP server for an install that 
   });
 });
 
+Deno.test("engine refresh refuses malformed co-owned MCP JSON without clobbering it", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    const malformed = '{ "mcpServers": { "other": true, }, }\n';
+    await Deno.writeTextFile(join(dir, ".mcp.json"), malformed);
+
+    const r = await runAgent(dir, ["refresh", "--json"]);
+    assertEquals(r.code, 1, r.output);
+    const res = JSON.parse(r.stdout);
+    assertEquals(res.ok, false);
+    assertEquals(res.error, "partial_refresh");
+    assertStringIncludes(res.data.errors.join("\n"), ".mcp.json");
+    assertStringIncludes(res.data.errors.join("\n"), "malformed JSON");
+    assertEquals(await Deno.readTextFile(join(dir, ".mcp.json")), malformed);
+  });
+});
+
 Deno.test("engine refresh: the FIRST MCP install surfaces a restart hint; a re-apply does not", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

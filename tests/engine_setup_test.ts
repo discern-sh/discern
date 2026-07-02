@@ -32,6 +32,175 @@ const INSTRUCTIONS_H1 = "# Set up the harness";
 /** The setup command's help description — present in `--help` only when shown. */
 const HELP_DESC = "Set up the harness here";
 
+Deno.test("setup begin from a subdirectory in a fresh git repo scaffolds at the repo root", async () => {
+  await withTempDir(async (dir) => {
+    const nested = join(dir, "packages", "app");
+    await Deno.mkdir(nested, { recursive: true });
+    await Deno.writeTextFile(join(nested, "main.ts"), "console.log('hi');\n");
+    await gitInit(dir);
+
+    const r = await runAgent(
+      dir,
+      ["setup", "begin", "--json", "--agents", "claude_code"],
+      { cwd: nested },
+    );
+    assertEquals(r.code, 0, r.output);
+    assert(await exists(join(dir, "discern.toml")));
+    assert(!(await exists(join(nested, "discern.toml"))));
+    assert(await exists(join(dir, "docs", "README.md")));
+    assert(!(await exists(join(nested, "docs"))));
+  });
+});
+
+Deno.test("setup begin from a subdirectory in a mid-setup install reuses the install root", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { bootstrapped: false });
+    const nested = join(dir, "packages", "app");
+    await Deno.mkdir(nested, { recursive: true });
+
+    const r = await runAgent(dir, ["setup", "begin", "--json"], {
+      cwd: nested,
+    });
+    assertEquals(r.code, 0, r.output);
+    assert(await exists(join(dir, "docs", "README.md")));
+    assert(!(await exists(join(nested, "discern.toml"))));
+    assert(!(await exists(join(nested, "docs"))));
+  });
+});
+
+Deno.test("setup begin refuses malformed existing settings JSON and names the file", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+    await Deno.mkdir(join(dir, ".claude"), { recursive: true });
+    const malformed = '{ "permissions": { "deny": [] }, }\n';
+    await Deno.writeTextFile(join(dir, ".claude/settings.json"), malformed);
+    await gitInit(dir);
+
+    const r = await runAgent(dir, [
+      "setup",
+      "begin",
+      "--json",
+      "--agents",
+      "claude_code",
+    ]);
+    assertEquals(r.code, 1, r.output);
+    const res = JSON.parse(r.stdout);
+    assertEquals(res.ok, false);
+    assertStringIncludes(res.message, ".claude/settings.json");
+    assertStringIncludes(res.message, "malformed JSON");
+    assert(!res.message.includes("--config"), res.message);
+    assertEquals(
+      await Deno.readTextFile(join(dir, ".claude/settings.json")),
+      malformed,
+    );
+    assert(!(await exists(join(dir, "discern.toml"))));
+  });
+});
+
+Deno.test("setup begin reports apply failures cleanly and reruns from the partial state", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+    await Deno.mkdir(join(dir, ".gemini"), { recursive: true });
+    const gemini = join(dir, ".gemini/settings.json");
+    const original = '{ "mcpServers": { "other": { "command": "other" } } }\n';
+    await Deno.writeTextFile(gemini, original);
+    await gitInit(dir);
+    await Deno.chmod(gemini, 0o444);
+
+    const blocked = await runAgent(dir, [
+      "setup",
+      "begin",
+      "--json",
+      "--agents",
+      AGENT_NAMES.join(","),
+    ]);
+    assertEquals(blocked.code, 1, blocked.output);
+    const failure = JSON.parse(blocked.stdout);
+    assertEquals(failure.ok, false);
+    assertStringIncludes(failure.message, ".gemini/settings.json");
+    assertStringIncludes(failure.message, "write");
+    assert(!blocked.output.includes("Uncaught"), blocked.output);
+    assert(!blocked.output.includes("\n    at "), blocked.output);
+    assertEquals(await Deno.readTextFile(gemini), original);
+
+    await Deno.chmod(gemini, 0o644);
+    const recovered = await runAgent(dir, [
+      "setup",
+      "begin",
+      "--json",
+      "--agents",
+      AGENT_NAMES.join(","),
+    ]);
+    assertEquals(recovered.code, 0, recovered.output);
+    assert(await exists(join(dir, "discern.toml")));
+    assert(await exists(join(dir, "docs", "README.md")));
+    const settings = JSON.parse(await Deno.readTextFile(gemini));
+    assertEquals(settings.mcpServers.other.command, "other");
+    assertEquals(settings.mcpServers.discern.command, "discern");
+  });
+});
+
+async function setupTextFilesUnder(
+  root: string,
+  rel: string,
+): Promise<string[]> {
+  const abs = join(root, rel);
+  const stat = await Deno.stat(abs);
+  if (stat.isFile) {
+    return [rel];
+  }
+  const files: string[] = [];
+  for await (const entry of walk(abs, { includeDirs: false })) {
+    files.push(relative(root, entry.path).replaceAll("\\", "/"));
+  }
+  return files.sort();
+}
+
+Deno.test("real setup begin leaves no unresolved template tokens in seeded or skeleton files", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+    await gitInit(dir);
+
+    const r = await runAgent(dir, [
+      "setup",
+      "begin",
+      "--json",
+      "--agents",
+      AGENT_NAMES.join(","),
+    ]);
+    assertEquals(r.code, 0, r.output);
+    const data = JSON.parse(r.stdout).data;
+    const rels = new Set<string>();
+    for (
+      const rel of [
+        ...data.written,
+        ...data.mcp_wired,
+        ...(data.worktree_app_wired ?? []),
+      ] as string[]
+    ) {
+      rels.add(rel);
+    }
+    for (const rel of data.skeletons as string[]) {
+      for (const file of await setupTextFilesUnder(dir, rel)) {
+        rels.add(file);
+      }
+    }
+
+    const leaked: string[] = [];
+    for (const rel of [...rels].sort()) {
+      const text = await Deno.readTextFile(join(dir, rel));
+      for (const match of text.matchAll(/\{\{[^}\n]+\}\}/g)) {
+        leaked.push(`${rel}: ${match[0]}`);
+      }
+    }
+    assertEquals(
+      leaked,
+      [],
+      `unresolved setup token(s):\n${leaked.join("\n")}`,
+    );
+  });
+});
+
 Deno.test("discern setup lays the doc skeletons when absent and prints the instructions", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });

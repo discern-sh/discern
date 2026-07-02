@@ -70,6 +70,42 @@ export interface Plan {
 const TEXT_DECODER = new TextDecoder();
 const TEXT_ENCODER = new TextEncoder();
 
+function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/** A settings seed could not be merged safely into its co-owned target file. */
+export class SettingsMergePlanError extends Error {
+  readonly targetRel: string;
+
+  constructor(targetRel: string, cause: unknown) {
+    super(`could not merge ${targetRel}: ${errorText(cause)}`);
+    this.name = "SettingsMergePlanError";
+    this.targetRel = targetRel;
+  }
+}
+
+/** A filesystem operation failed while applying an otherwise-valid plan. */
+export class PlanApplyError extends Error {
+  readonly op: PlanOp;
+  readonly action: "ensure-dir" | "write" | "chmod";
+
+  constructor(
+    op: PlanOp,
+    action: "ensure-dir" | "write" | "chmod",
+    cause: unknown,
+  ) {
+    super(
+      `could not ${action} for ${op.kind} ${op.disposition} op ${op.targetRel}: ${
+        errorText(cause)
+      }`,
+    );
+    this.name = "PlanApplyError";
+    this.op = op;
+    this.action = action;
+  }
+}
+
 /**
  * Top-level templates subtrees that are the binary's OWN artifacts, not seeds:
  * bundled skills (materialized into `.claude/skills/`), built-in guidance (read by
@@ -290,7 +326,13 @@ async function planSettingsMerge(
     ? undefined
     : TEXT_DECODER.decode(existingRaw);
 
-  const bytes = TEXT_ENCODER.encode(merge(existingText, text));
+  let merged: string;
+  try {
+    merged = merge(existingText, text);
+  } catch (error) {
+    throw new SettingsMergePlanError(targetRel, error);
+  }
+  const bytes = TEXT_ENCODER.encode(merged);
 
   const present = existingRaw !== undefined;
   return {
@@ -399,9 +441,21 @@ export async function applyPlan(plan: Plan): Promise<PlanOp[]> {
     if (op.disposition === "skip") {
       continue;
     }
-    await ensureDir(dirname(op.targetAbs));
-    await Deno.writeFile(op.targetAbs, op.bytes);
-    await Deno.chmod(op.targetAbs, op.mode);
+    try {
+      await ensureDir(dirname(op.targetAbs));
+    } catch (error) {
+      throw new PlanApplyError(op, "ensure-dir", error);
+    }
+    try {
+      await Deno.writeFile(op.targetAbs, op.bytes);
+    } catch (error) {
+      throw new PlanApplyError(op, "write", error);
+    }
+    try {
+      await Deno.chmod(op.targetAbs, op.mode);
+    } catch (error) {
+      throw new PlanApplyError(op, "chmod", error);
+    }
     changed.push(op);
   }
   return changed;
