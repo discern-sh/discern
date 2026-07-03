@@ -125,6 +125,12 @@ Deno.test("graduatePlanToEngine: dirty worktree adds WIP-commit/unstage; resourc
     mainRepo: "/repo",
     mainBranch: "main",
     trunk: "main",
+    ignoredFileChanges: {
+      status: "unchanged" as const,
+      changed_roots: [],
+      changed_total: 0,
+      truncated: false,
+    },
   };
   const dirty = graduatePlanToEngine({
     ...base,
@@ -170,6 +176,12 @@ Deno.test("graduatePlanToEngine: to=trunk fast-forwards the trunk and deletes th
     mainRepo: "/repo",
     mainBranch: "main",
     trunk: "main",
+    ignoredFileChanges: {
+      status: "unchanged" as const,
+      changed_roots: [],
+      changed_total: 0,
+      truncated: false,
+    },
   };
   const dirty = graduatePlanToEngine({
     ...base,
@@ -181,8 +193,8 @@ Deno.test("graduatePlanToEngine: to=trunk fast-forwards the trunk and deletes th
   assertEquals(dirty.steps.map((s) => s.label), [
     "teardown resources",
     "wip-commit",
-    "remove-worktree",
     "fast-forward-trunk",
+    "remove-worktree",
     "delete-branch",
     "unstage-wip",
   ]);
@@ -194,8 +206,8 @@ Deno.test("graduatePlanToEngine: to=trunk fast-forwards the trunk and deletes th
   });
   assertEquals(clean.steps.map((s) => s.label), [
     "teardown resources",
-    "remove-worktree",
     "fast-forward-trunk",
+    "remove-worktree",
     "delete-branch",
   ]);
   // The landing detail names the trunk fast-forward + branch deletion, not a checkout.
@@ -220,6 +232,7 @@ Deno.test("prunePlanToEngine + prunePlanIsEmpty: groups reclaims; empty is empty
     worktreesToRemove: [],
     branchesToDelete: [],
     orphanDirs: [],
+    orphanDirsKept: [],
     resourceReclaims: [],
   };
   assert(prunePlanIsEmpty(empty));
@@ -229,12 +242,22 @@ Deno.test("prunePlanToEngine + prunePlanIsEmpty: groups reclaims; empty is empty
     worktreesToRemove: ["/repo/.wt/stale"],
     branchesToDelete: ["agent/old"],
     orphanDirs: ["/repo/.wt/orphan"],
+    orphanDirsKept: [{
+      path: "/repo/.wt/dirty",
+      reason: "dirty 1 status entries",
+    }],
     resourceReclaims: ["app-z-db"],
   };
   assert(!prunePlanIsEmpty(full));
   const groups = new Set(prunePlanToEngine(full).steps.map((s) => s.group));
   assertEquals(
     groups,
-    new Set(["Worktrees", "Branches", "Orphan directories", "Resources"]),
+    new Set([
+      "Worktrees",
+      "Branches",
+      "Orphan directories",
+      "Kept orphan directories",
+      "Resources",
+    ]),
   );
 });

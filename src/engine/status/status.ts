@@ -61,6 +61,7 @@ import {
   incomingOverlap,
   listWorktreeFleet,
   mainRepoPath,
+  missingIntegrationBranchWarning,
   worktreeGitKey,
 } from "../worktree/git.ts";
 import { IdentityError, resolveIdentity } from "../worktree/identity.ts";
@@ -130,15 +131,21 @@ export async function statusResult(
   // The hot zone, when this worktree is behind: the files it changed that the incoming
   // main also changed. Captured for both the git block and the behind hint.
   let overlapInfo: { overlap: string[]; total: number } | undefined;
+  let mergeWarning: string | undefined;
   if (snap !== undefined) {
     // Reuse the canonical main-merged check for the behind/null distinction: it
     // self-skips (→ null) in the main checkout or with no local integration branch.
     const merged = await assertMainMerged(root, mainBranch);
     const behind = merged.kind === "skipped"
       ? null
+      : merged.kind === "missing"
+      ? null
       : merged.kind === "merged"
       ? 0
       : Number(merged.behind) || 0;
+    if (merged.kind === "missing") {
+      mergeWarning = missingIntegrationBranchWarning(merged.branch);
+    }
     // Compute the overlap only when behind in a worktree — the agent sees which of its
     // own work main is about to touch BEFORE integrating. Read-only; never merges.
     if (location === "worktree" && behind !== null && behind > 0) {
@@ -277,6 +284,7 @@ export async function statusResult(
     git,
     changed,
     incomingOverlap: overlapInfo,
+    mergeWarning,
     fleet,
     worktreesOn: features.worktrees,
     liveCount,
@@ -454,6 +462,8 @@ interface HintContext {
   /** The hot zone when behind: the branch's own files the incoming main also changed
    * (capped list + true total). Drives the overlap clause on the behind hint. */
   incomingOverlap: { overlap: string[]; total: number } | undefined;
+  /** Warning when the configured integration branch is absent locally. */
+  mergeWarning: string | undefined;
   fleet: StatusFleetEntry[] | undefined;
   worktreesOn: boolean;
   liveCount: number;
@@ -481,6 +491,9 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
   // this is its advisory voice.
   if (ctx.setupPending !== undefined) {
     hints.push(setupUnfinishedHint(ctx.setupPending));
+  }
+  if (ctx.mergeWarning !== undefined) {
+    hints.push(ctx.mergeWarning);
   }
 
   // Generated agent files drifted from their source — actionable anywhere, so lead

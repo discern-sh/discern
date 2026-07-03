@@ -216,6 +216,11 @@ port = true
 #             branch contains the trunk, so this is always a clean fast-forward.
 graduate_to = "branch"
 
+# Track ignored files at worktree setup and report top-level ignored paths that
+# changed before the worktree is removed. Turn this off for projects whose
+# ignored outputs churn too much to be useful.
+ignored_file_drift = true
+
 # ─────────────────────────────────────────────────────────────────────────────
 # [worktree.resources.<name>] — per-worktree external resources (a database, an
 # emulator, a container, a queue). Each declares a `create` command (run once at

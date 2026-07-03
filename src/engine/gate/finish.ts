@@ -40,7 +40,10 @@ import { diagnosticOutputFields } from "./diagnostic_output.ts";
 import { changedScopes, PREVIEWABLE_MARKER } from "../scopes/changed.ts";
 import { couplingGateHints } from "../coupling/coupling.ts";
 import { colorEnabled, makeOut, type Out, outSink } from "../output.ts";
-import { assertMainMerged } from "../worktree/git.ts";
+import {
+  assertMainMerged,
+  missingIntegrationBranchWarning,
+} from "../worktree/git.ts";
 import {
   type Diagnostic,
   type DiscernResult,
@@ -196,8 +199,13 @@ async function runGate(
   //    No-op in the main checkout / outside a worktree (assertMainMerged self-skips),
   //    so the happy path pays one extra `merge-base --is-ancestor` and nothing more.
   const mainBranch = Deno.env.get("MAIN_BRANCH") || cfg.project.main_branch;
-  if ((await assertMainMerged(root, mainBranch)).kind === "behind") {
+  let mergeWarning: string | undefined;
+  const merged = await assertMainMerged(root, mainBranch);
+  if (merged.kind === "behind") {
     failedStage = "merge";
+  } else if (merged.kind === "missing") {
+    mergeWarning = missingIntegrationBranchWarning(merged.branch);
+    out.warn(mergeWarning);
   }
 
   // 1b. Generated-artifacts currency — guidance (ADR 0034) — also runs FIRST, as a
@@ -341,6 +349,7 @@ async function runGate(
   const receiptHint = gateReceiptHint(gateReceipt, failedStage);
   const hints = [
     ...(inProgress !== undefined ? [inProgress] : []),
+    ...(mergeWarning !== undefined ? [mergeWarning] : []),
     ...buildGateHints(cfg, changed, failedStage),
     ...(receiptHint !== undefined ? [receiptHint] : []),
     ...couplingHints,

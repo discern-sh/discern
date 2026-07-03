@@ -35,6 +35,7 @@ Deno.test("an empty config validates to a fully-defaulted object", () => {
   assertEquals(c.worktree.resources, {});
   assertEquals(c.worktree.setup.steps, []);
   assertEquals(c.worktree.inherit_env, []);
+  assertEquals(c.worktree.ignored_file_drift, true);
 });
 
 Deno.test("features default ON; only a literal false disables one", () => {

@@ -254,7 +254,7 @@ Deno.test("worktree:prune reclaims a vanished worktree's resource (GC), and --dr
     );
 
     // Real run: reclaims it.
-    const prune = await runAgent(dir, ["worktree:prune"]);
+    const prune = await runAgent(dir, ["worktree:prune", "--yes"]);
     assertEquals(prune.code, 0, prune.output);
     assert(
       await exists(join(markers, `${handle}.gone`)),

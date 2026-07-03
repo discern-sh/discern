@@ -21,6 +21,7 @@ import {
   runAgent,
   scaffoldEngine,
   worktreePath,
+  writeConfig,
   writeExecutable,
 } from "./engine_helpers.ts";
 
@@ -385,6 +386,126 @@ Deno.test("graduate: refuses a branch behind main before WIP commit or removal",
     assertEquals(
       await Deno.readTextFile(join(wt, "untracked.txt")),
       "untracked wip\n",
+    );
+  });
+});
+
+Deno.test("graduate: refuses when main moves during the gate before teardown or removal", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        'main_branch = "main"',
+        "",
+        "[features]",
+        "guidance = false",
+        "skills = false",
+        "",
+        "[capabilities]",
+        `test = "git -C ${dir} commit --allow-empty -q -m race-main --no-gpg-sign"`,
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "race");
+    await Deno.writeTextFile(join(wt, "feature.txt"), "work\n");
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
+    const branchHead = await gitOut(wt, "rev-parse", "HEAD");
+
+    const r = await runAgent(wt, ["graduate", "--to", "trunk"]);
+
+    assertEquals(r.code, 1, r.output);
+    assertStringIncludes(r.output, "Branch is behind main");
+    assertStringIncludes(r.output, "discern integrate");
+    assert(
+      await exists(wt),
+      `post-gate trunk-race refusal must leave the worktree intact\n${r.output}`,
+    );
+    assertEquals(await gitOut(wt, "rev-parse", "HEAD"), branchHead);
+  });
+});
+
+Deno.test("graduate reports ignored files changed since worktree setup at the top level", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await Deno.writeTextFile(
+      join(dir, ".gitignore"),
+      `${await Deno.readTextFile(join(dir, ".gitignore"))}\nlocal-cache/\n`,
+    );
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "ignored-drift");
+    const setup = await runAgent(wt, ["worktree"]);
+    assertEquals(setup.code, 0, setup.output);
+
+    await Deno.mkdir(join(wt, "local-cache", "nested"), { recursive: true });
+    for (let i = 0; i < 12; i++) {
+      await Deno.writeTextFile(
+        join(wt, "local-cache", "nested", `generated-${i}.txt`),
+        `value ${i}\n`,
+      );
+    }
+
+    const reentry = await runAgent(wt, ["worktree"]);
+    assertEquals(reentry.code, 0, reentry.output);
+
+    const dry = await runAgent(wt, ["graduate", "--dry-run"]);
+    assertEquals(dry.code, 0, dry.output);
+    assertStringIncludes(dry.output, "Ignored files changed since setup");
+    assertStringIncludes(dry.output, "local-cache/");
+    assert(
+      !dry.output.includes("generated-0.txt"),
+      `ignored drift should collapse a changed directory to its top level\n${dry.output}`,
+    );
+
+    const applied = await runAgent(wt, [
+      "graduate",
+      "--to",
+      "branch",
+      "--json",
+    ]);
+    assertEquals(applied.code, 0, applied.output);
+    const obj = JSON.parse(applied.stdout);
+    assertEquals(obj.data.ignored_file_changes.changed_roots, ["local-cache/"]);
+    assertEquals(obj.data.ignored_file_changes.truncated, false);
+  });
+});
+
+Deno.test("graduate suppresses ignored-file drift detection when configured off", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        'main_branch = "main"',
+        "",
+        "[worktree]",
+        "ignored_file_drift = false",
+        "",
+      ].join("\n"),
+    );
+    await Deno.writeTextFile(
+      join(dir, ".gitignore"),
+      `${await Deno.readTextFile(join(dir, ".gitignore"))}\nlocal-cache/\n`,
+    );
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "ignored-off");
+    const setup = await runAgent(wt, ["worktree"]);
+    assertEquals(setup.code, 0, setup.output);
+    await Deno.mkdir(join(wt, "local-cache"), { recursive: true });
+    await Deno.writeTextFile(join(wt, "local-cache", "changed.txt"), "x\n");
+
+    const dry = await runAgent(wt, ["graduate", "--dry-run"]);
+
+    assertEquals(dry.code, 0, dry.output);
+    assert(
+      !dry.output.includes("Ignored files changed since setup"),
+      `disabled ignored drift detection should stay quiet\n${dry.output}`,
     );
   });
 });

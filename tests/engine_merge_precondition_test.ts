@@ -113,3 +113,33 @@ Deno.test("finish up to date: the merge precondition passes and the capability r
     assertStringIncludes(r.output, MARKER);
   });
 });
+
+Deno.test("finish warns when the configured integration branch is missing locally", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, CONFIG);
+    await gitInit(dir);
+    await git(dir, "branch", "-m", "trunk");
+    const wt = await addWorktree(dir, "missing-main");
+
+    const human = await runAgent(wt, ["finish"]);
+    assertEquals(human.code, 0, human.output);
+    assertStringIncludes(
+      human.output,
+      "local integration branch 'main' is missing",
+    );
+    assertStringIncludes(human.output, "[project].main_branch");
+    assertStringIncludes(human.output, MARKER);
+
+    const json = await runAgent(wt, ["finish", "--json"]);
+    assertEquals(json.code, 0, json.output);
+    const obj = JSON.parse(json.stdout);
+    assert(
+      (obj.hints ?? []).some((h: string) =>
+        h.includes("local integration branch 'main' is missing") &&
+        h.includes("[project].main_branch")
+      ),
+      `expected missing-main warning in hints\n${json.stdout}`,
+    );
+  });
+});

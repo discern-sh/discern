@@ -87,7 +87,7 @@ Deno.test("parity: worktree:prune apply removes nothing the dry-run didn't list"
 
     const dry = await runAgent(dir, ["worktree:prune", "--dry-run", "--json"]);
     assertEquals(dry.code, 0, dry.output);
-    const apply = await runAgent(dir, ["worktree:prune", "--json"]);
+    const apply = await runAgent(dir, ["worktree:prune", "--yes", "--json"]);
     assertEquals(apply.code, 0, apply.output);
 
     // The fixture has real work, so the applied set is non-empty — which, under the

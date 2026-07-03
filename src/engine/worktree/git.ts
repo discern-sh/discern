@@ -44,6 +44,12 @@ export function integrationBranch(fallback?: string): string {
   return "main";
 }
 
+/** One-line warning when the configured integration branch cannot be checked. */
+export function missingIntegrationBranchWarning(branch: string): string {
+  return `Merge check skipped: local integration branch '${branch}' is missing. ` +
+    `Create it locally, or set [project].main_branch to the branch this project uses.`;
+}
+
 /**
  * Thin binding to the shared git runner, preserving this module's positional
  * `(args, cwd?)` call shape used throughout the worktree git mechanics. An omitted
@@ -216,8 +222,10 @@ export async function assertNotInWorktree(
 
 /** The outcome of the main-merged check. */
 export type MainMergedResult =
-  /** Not applicable here (main checkout, no repo, or no local main): a no-op pass. */
+  /** Not applicable here (main checkout or no repo): a no-op pass. */
   | { kind: "skipped" }
+  /** The configured integration branch does not exist locally. */
+  | { kind: "missing"; branch: string }
   /** The branch already contains the latest main. */
   | { kind: "merged" }
   /** main has advanced: the branch is behind by `behind` commit(s) on `branch`. */
@@ -225,9 +233,10 @@ export type MainMergedResult =
 
 /**
  * Assert the current worktree's branch already contains the latest main. A
- * check, not a merge. No-op (`skipped`) outside a linked worktree or with no
- * local main branch. Mirrors `assert-main-merged` — note it never throws: the
- * caller turns `behind` into a fatal message at the lifecycle layer.
+ * check, not a merge. No-op (`skipped`) outside a linked worktree. Mirrors
+ * `assert-main-merged` — note it never throws: the caller turns `behind` into a
+ * fatal message at the lifecycle layer and surfaces `missing` as a warning or
+ * destructive-verb refusal.
  */
 export async function assertMainMerged(
   cwd: string = Deno.cwd(),
@@ -248,7 +257,7 @@ export async function assertMainMerged(
     cwd,
   );
   if (!hasMain.success) {
-    return { kind: "skipped" }; // no local main branch to compare against
+    return { kind: "missing", branch: mainBranch };
   }
   const ancestor = await git(
     ["merge-base", "--is-ancestor", mainBranch, "HEAD"],
@@ -887,6 +896,7 @@ export async function liveWorktreePaths(cwd?: string): Promise<Set<string>> {
 export async function removeWorktreeSafely(
   target: string,
   cwd: string = Deno.cwd(),
+  opts: { pruneMetadata?: boolean } = {},
 ): Promise<void> {
   const mainFirst = await firstWorktreePath(cwd);
   if (mainFirst === undefined || mainFirst === "") {
@@ -952,7 +962,9 @@ export async function removeWorktreeSafely(
     if (await pathExists(canonical)) {
       await Deno.remove(canonical, { recursive: true });
     }
-    await git(["worktree", "prune"], cwd);
+    if (opts.pruneMetadata ?? true) {
+      await git(["worktree", "prune"], cwd);
+    }
   }
 }
 
@@ -1282,8 +1294,37 @@ export interface PruneResult {
   removed: string[];
   /** Branches deleted (or that would be). */
   branchesDeleted: string[];
+  /** Stale worktree metadata entries found. */
+  staleMetadata: number;
   /** Whether any removal or branch deletion failed. */
   failed: boolean;
+}
+
+async function branchIsMerged(
+  repoRoot: string,
+  branch: string,
+  mainBranch: string,
+): Promise<boolean> {
+  return (await git([
+    "merge-base",
+    "--is-ancestor",
+    `refs/heads/${branch}`,
+    `refs/heads/${mainBranch}`,
+  ], repoRoot)).success;
+}
+
+async function commitIsMerged(
+  repoRoot: string,
+  commit: string,
+  mainBranch: string,
+): Promise<boolean> {
+  return commit !== "" &&
+    (await git([
+      "merge-base",
+      "--is-ancestor",
+      commit,
+      `refs/heads/${mainBranch}`,
+    ], repoRoot)).success;
 }
 
 /**
@@ -1319,22 +1360,6 @@ export async function pruneGitWorktrees(
       `Expected local '${mainBranch}' branch to exist; aborting.`,
     );
   }
-
-  const branchIsMerged = async (branch: string): Promise<boolean> =>
-    (await git([
-      "merge-base",
-      "--is-ancestor",
-      `refs/heads/${branch}`,
-      `refs/heads/${mainBranch}`,
-    ], repoRoot)).success;
-  const commitIsMerged = async (commit: string): Promise<boolean> =>
-    commit !== "" &&
-    (await git([
-      "merge-base",
-      "--is-ancestor",
-      commit,
-      `refs/heads/${mainBranch}`,
-    ], repoRoot)).success;
 
   const listRun = await git(["worktree", "list", "--porcelain"], repoRoot);
   const records = parseWorktreeList(listRun.stdout);
@@ -1372,12 +1397,12 @@ export async function pruneGitWorktrees(
       keepReasons.push("locked");
     }
     if (shortBranch !== "") {
-      if (!(await branchIsMerged(shortBranch))) {
+      if (!(await branchIsMerged(repoRoot, shortBranch, mainBranch))) {
         keepReasons.push(`branch ${shortBranch} has unmerged commits`);
       }
     } else if (!includeDetached) {
       keepReasons.push("detached HEAD");
-    } else if (!(await commitIsMerged(rec.head))) {
+    } else if (!(await commitIsMerged(repoRoot, rec.head, mainBranch))) {
       keepReasons.push("detached HEAD has unmerged commits");
     }
 
@@ -1444,7 +1469,7 @@ export async function pruneGitWorktrees(
     if (scheduledBranches.has(branchName)) {
       continue;
     }
-    if (await branchIsMerged(branchName)) {
+    if (await branchIsMerged(repoRoot, branchName, mainBranch)) {
       deleteBranches.push(branchName);
       scheduledBranches.add(branchName);
       log.line(`DELETE ${branchName} (fully merged into ${mainBranch})`);
@@ -1479,12 +1504,13 @@ export async function pruneGitWorktrees(
         ...removeCandidateBranches.filter((b) => b !== ""),
         ...deleteBranches,
       ],
+      staleMetadata,
       failed: false,
     };
   }
 
   const deleteBranchSafe = async (branch: string): Promise<boolean> => {
-    if (!(await branchIsMerged(branch))) {
+    if (!(await branchIsMerged(repoRoot, branch, mainBranch))) {
       log.error(
         `Refusing to delete ${branch}: not fully merged into ${mainBranch}`,
       );
@@ -1504,7 +1530,9 @@ export async function pruneGitWorktrees(
       const branchToDelete = removeCandidateBranches[i] ?? "";
       log.line(`Removing ${worktreePath}...`);
       try {
-        await removeWorktreeSafely(worktreePath, repoRoot);
+        await removeWorktreeSafely(worktreePath, repoRoot, {
+          pruneMetadata: false,
+        });
         removed.push(worktreePath);
         if (branchToDelete !== "") {
           if (await deleteBranchSafe(branchToDelete)) {
@@ -1526,8 +1554,14 @@ export async function pruneGitWorktrees(
     }
   }
 
-  await git(["worktree", "prune"], repoRoot);
-  return { removed, branchesDeleted, failed };
+  return { removed, branchesDeleted, staleMetadata, failed };
+}
+
+/** Prune stale git worktree metadata after orphan directories have been classified. */
+export async function pruneStaleWorktreeMetadata(
+  cwd: string = Deno.cwd(),
+): Promise<void> {
+  await git(["worktree", "prune"], cwd);
 }
 
 /** Options for {@link sweepOrphanWorktrees}. */
@@ -1536,6 +1570,8 @@ export interface SweepOptions {
   extraDirs?: string[];
   /** Print what would be reclaimed without removing anything. */
   dryRun?: boolean;
+  /** Integration-branch fallback when `MAIN_BRANCH` is unset (`[project].main_branch`). */
+  mainBranch?: string;
   /** The logger for the scan/removal narration. */
   log: Logger;
 }
@@ -1544,8 +1580,57 @@ export interface SweepOptions {
 export interface SweepResult {
   /** Orphan directories removed (or that would be, in a dry run). */
   removed: string[];
+  /** Orphan directories kept because they may contain local work. */
+  kept: { path: string; reason: string }[];
   /** Whether any removal failed. */
   failed: boolean;
+}
+
+async function inspectOrphanWorktree(
+  repoRoot: string,
+  dir: string,
+  mainBranch: string,
+): Promise<
+  { remove: true; reason: string } | { remove: false; reason: string }
+> {
+  const keepReasons: string[] = [];
+  const branchRun = await git(
+    ["-C", dir, "branch", "--show-current"],
+    repoRoot,
+  );
+  const branch = branchRun.success ? branchRun.stdout.trim() : "";
+  if (branch !== "") {
+    if (!(await branchIsMerged(repoRoot, branch, mainBranch))) {
+      keepReasons.push(`branch ${branch} has unmerged commits`);
+    }
+  } else {
+    const headRun = await git(["-C", dir, "rev-parse", "HEAD"], repoRoot);
+    const head = headRun.success ? headRun.stdout.trim() : "";
+    if (!(await commitIsMerged(repoRoot, head, mainBranch))) {
+      keepReasons.push("detached HEAD has unmerged commits");
+    }
+  }
+
+  const statusRun = await git(
+    ["-C", dir, "status", "--porcelain", "--untracked-files=normal"],
+    repoRoot,
+  );
+  if (!statusRun.success) {
+    keepReasons.push("status failed; skipped");
+  } else if (statusRun.stdout.trim() !== "") {
+    const count = statusRun.stdout.split("\n").filter((l) => l !== "").length;
+    keepReasons.push(`dirty ${count} status entries`);
+  }
+
+  if (keepReasons.length > 0) {
+    return { remove: false, reason: keepReasons.join(", ") };
+  }
+  return {
+    remove: true,
+    reason: branch !== ""
+      ? `clean branch ${branch}, fully merged`
+      : "clean detached, fully merged",
+  };
 }
 
 /**
@@ -1561,6 +1646,7 @@ export async function sweepOrphanWorktrees(
   opts: SweepOptions,
 ): Promise<SweepResult> {
   const { log } = opts;
+  const mainBranch = integrationBranch(opts.mainBranch);
   const mainFirst = await firstWorktreePath();
   if (mainFirst === undefined || mainFirst === "") {
     throw new WorktreeGitError(
@@ -1638,38 +1724,47 @@ export async function sweepOrphanWorktrees(
 
   if (orphans.length === 0) {
     log.line("No orphaned worktree directories found.");
-    return { removed: [], failed: false };
+    return { removed: [], kept: [], failed: false };
   }
 
   log.line(
     "Orphaned worktree directories (gitlinked to this repo, not tracked by git):",
   );
+  const removable: string[] = [];
+  const kept: { path: string; reason: string }[] = [];
   for (const dir of orphans) {
-    log.line(`  ${dir}`);
+    const decision = await inspectOrphanWorktree(mainRepo, dir, mainBranch);
+    if (decision.remove) {
+      removable.push(dir);
+      log.line(`REMOVE ${dir} (${decision.reason})`);
+    } else {
+      kept.push({ path: dir, reason: decision.reason });
+      log.line(`KEEP   ${dir} (${decision.reason})`);
+    }
   }
 
   if (opts.dryRun) {
     log.line(
-      `Would reclaim ${orphans.length} orphaned worktree director${
-        orphans.length === 1 ? "y" : "ies"
+      `Would reclaim ${removable.length} orphaned worktree director${
+        removable.length === 1 ? "y" : "ies"
       }.`,
     );
     // Return the candidates — dryRun gates the removal, not the reported plan.
-    return { removed: orphans, failed: false };
+    return { removed: removable, kept, failed: false };
   }
 
   const removed: string[] = [];
   let failed = false;
-  for (const dir of orphans) {
+  for (const dir of removable) {
     log.line(`Removing orphan ${dir}...`);
     try {
-      await removeWorktreeSafely(dir, mainRepo);
+      await removeWorktreeSafely(dir, mainRepo, { pruneMetadata: false });
       removed.push(dir);
     } catch {
       failed = true;
     }
   }
-  return { removed, failed };
+  return { removed, kept, failed };
 }
 
 /** Read the raw value (everything after the first `=`) for `key` in a `.env`-style file. */
