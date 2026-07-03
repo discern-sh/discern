@@ -1,0 +1,107 @@
+#!/usr/bin/env sh
+# desc: summarize this checkout against the discern harness
+
+exec deno run --allow-run=discern - <<'DISCERN_SELF_AUDIT'
+async function runJson(label, args) {
+  const command = new Deno.Command("discern", {
+    args,
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const output = await command.output();
+  const stdout = new TextDecoder().decode(output.stdout).trim();
+  const stderr = new TextDecoder().decode(output.stderr).trim();
+
+  if (!output.success) {
+    const detail = stderr || stdout || `exit code ${output.code}`;
+    throw new Error(`${label} failed: ${detail}`);
+  }
+
+  try {
+    const parsed = JSON.parse(stdout);
+    if (parsed.ok !== true) {
+      throw new Error(parsed.message || parsed.error || "result was not ok");
+    }
+    return parsed;
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new Error(`${label} did not return JSON`);
+    }
+    throw error;
+  }
+}
+
+function list(values, empty = "none") {
+  if (!Array.isArray(values) || values.length === 0) {
+    return empty;
+  }
+  return values.join(", ");
+}
+
+function featureList(features) {
+  if (features === null || typeof features !== "object") {
+    return "unknown";
+  }
+  return Object.entries(features)
+    .filter(([, enabled]) => enabled === true)
+    .map(([name]) => name)
+    .join(", ") || "none";
+}
+
+function gateReceipt(receipt) {
+  if (receipt === null || typeof receipt !== "object") {
+    return "unknown";
+  }
+  return receipt.status || "unknown";
+}
+
+function nextAction(improve) {
+  const action = improve?.data?.next_action;
+  if (action === null || typeof action !== "object") {
+    return "none";
+  }
+  const id = action.id ? ` (${action.id})` : "";
+  const title = action.title || "untitled";
+  return `${title}${id}`;
+}
+
+function plural(count, singular, pluralForm = `${singular}s`) {
+  return `${count} ${count === 1 ? singular : pluralForm}`;
+}
+
+try {
+  const [status, improve, changedScopes] = await Promise.all([
+    runJson("discern status --json", ["status", "--json"]),
+    runJson("discern improve --json", ["improve", "--json"]),
+    runJson("discern changed-scopes --json", ["changed-scopes", "--json"]),
+  ]);
+
+  const data = status.data || {};
+  const git = data.git || {};
+  const gate = data.gate || {};
+  const scopes = changedScopes.data?.scopes || data.changed_scopes || [];
+  const changedFiles = Number.isFinite(git.changed_files)
+    ? git.changed_files
+    : "unknown";
+  const behind = git.behind_integration ?? "unknown";
+  const ahead = git.ahead_integration ?? "unknown";
+
+  console.log("discern self-audit");
+  console.log(`Root: ${data.root || "(unknown)"}`);
+  console.log(`Location: ${data.location || "unknown"}`);
+  console.log(`Branch: ${git.branch || "unknown"} -> ${git.integration_branch || "main"}`);
+  console.log(`Git: ${git.clean ? "clean" : `${changedFiles} changed`} (${ahead} ahead, ${behind} behind)`);
+  console.log(`Gate receipt: ${gateReceipt(data.gate_receipt)}`);
+  console.log(`Changed scopes: ${list(scopes)}`);
+  console.log(`Gate wiring: ${list(gate.capabilities)}; checks: ${list(gate.checks)}`);
+  console.log(`Scope gates: ${list(gate.scope_gates)}`);
+  console.log(`Features: ${featureList(data.features)}`);
+  console.log(`Ratchets: ${list(data.ratchets)}`);
+  console.log(`Improve score: ${improve.data?.score ?? "unknown"} (${plural(improve.data?.open_reviews ?? 0, "open review")})`);
+  console.log(`Next audit: ${nextAction(improve)}`);
+} catch (error) {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(`self-audit: ${message}`);
+  Deno.exit(1);
+}
+DISCERN_SELF_AUDIT
