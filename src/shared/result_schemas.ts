@@ -181,6 +181,21 @@ const GateValidationSchema = z.strictObject({
 });
 export type GateValidationData = z.infer<typeof GateValidationSchema>;
 
+/** `refresh` — generated guidance, skills, and provider integration artifacts. */
+export const RefreshDataSchema = z.strictObject({
+  agents_written: z.array(z.string()),
+  mcp_wired: z.array(z.string()),
+  worktree_app_wired: z.array(z.string()),
+  project_rules_wired: z.array(z.string()),
+  skills: z.strictObject({
+    copied: z.number(),
+    linked: z.number(),
+    pruned: z.number(),
+  }),
+  errors: z.array(z.string()),
+});
+export type RefreshData = z.infer<typeof RefreshDataSchema>;
+
 /** `changed-scopes` — the classified scope/marker list. */
 export const ChangedScopesDataSchema = z.strictObject({
   scopes: z.array(z.string()),
@@ -741,6 +756,12 @@ export type SetupDoneData = z.infer<typeof SetupDoneDataSchema>;
 export const FinishOutputSchema = z.strictObject({
   ...ENVELOPE_BASE_FIELDS,
   data: GateDataSchema.optional(),
+});
+
+/** `refresh` output: envelope + the generated-artifact summary `data`. */
+export const RefreshOutputSchema = z.strictObject({
+  ...ENVELOPE_BASE_FIELDS,
+  data: RefreshDataSchema.optional(),
 });
 
 /** `status` output: envelope + the situation `data`. */

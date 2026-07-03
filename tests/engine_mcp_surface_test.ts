@@ -15,6 +15,7 @@
  */
 
 import { assert, assertEquals } from "@std/assert";
+import { fromFileUrl } from "@std/path";
 import { z } from "@zod/zod";
 import {
   buildInstructions,
@@ -27,6 +28,8 @@ import {
   type DiscernConfig,
 } from "../src/shared/config_schema.ts";
 import { FEATURES } from "../src/shared/features.ts";
+
+const REPO = fromFileUrl(new URL("../", import.meta.url));
 
 /** The schema defaults with `patch` merged in — the metamorphic lever ("changing
  * this value changes the rendered surface"). `configSchema.parse({})` is the
@@ -121,4 +124,18 @@ Deno.test("mcp surface: every config value it names flows from config — no har
         }`,
     );
   }
+});
+
+Deno.test("mcp server version imports KIT_VERSION instead of hardcoding semver", async () => {
+  const source = await Deno.readTextFile(
+    `${REPO}/src/engine/mcp/server.ts`,
+  );
+  assert(
+    source.includes("KIT_VERSION"),
+    "the MCP server should report the package version via KIT_VERSION",
+  );
+  assert(
+    !/["'`]\d+\.\d+\.\d+["'`]/.test(source),
+    "src/engine/mcp/server.ts must not contain a hardcoded semver literal; import KIT_VERSION instead",
+  );
 });

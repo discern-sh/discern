@@ -25,6 +25,8 @@ import { ensureDir } from "@std/fs";
 import { dirname, join } from "@std/path";
 import { loadConfig } from "../shared/config_schema.ts";
 import { isFeatureEnabled } from "../shared/features.ts";
+import type { DiscernResult } from "../shared/result.ts";
+import type { RefreshData } from "../shared/result_schemas.ts";
 import { resolveGuidanceSources } from "../lib/paths.ts";
 import { materializeSkills } from "../lib/skills.ts";
 import {
@@ -63,6 +65,48 @@ export interface GuidelinesResult {
    * wiring, or one agent file — so a single failure can't abort the rest (ADR 0065).
    * Empty on a fully clean compile. */
   errors: string[];
+}
+
+/** Render the compile summary as the stable `refresh` data payload. */
+function refreshData(result: GuidelinesResult): RefreshData {
+  return {
+    agents_written: result.agentsWritten,
+    mcp_wired: result.mcpWired,
+    worktree_app_wired: result.worktreeAppWired,
+    project_rules_wired: result.projectRulesWired,
+    skills: {
+      copied: result.skillsCopied,
+      linked: result.skillsLinked,
+      pruned: result.skillsPruned,
+    },
+    errors: result.errors,
+  };
+}
+
+/**
+ * The result-returning core behind `discern refresh` and `discern_refresh`.
+ * Narration is controlled by the caller's logger; by default it is suppressed, so
+ * tests and MCP never leak human text onto their machine channels.
+ */
+export async function refreshResult(
+  root: string,
+  logger = new Logger({ json: true, noColor: true }),
+): Promise<DiscernResult> {
+  const result = await compileGuidelines(root, logger);
+  const failed = result.errors.length > 0;
+  return {
+    ok: !failed,
+    verb: "refresh",
+    ...(failed
+      ? {
+        error: "partial_refresh",
+        message:
+          `${result.errors.length} artifact(s) failed to refresh; see data.errors.`,
+      }
+      : {}),
+    hints: result.hints,
+    data: refreshData(result),
+  };
 }
 
 /** Normalise an unknown thrown value into a message string. */

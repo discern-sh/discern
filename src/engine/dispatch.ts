@@ -48,7 +48,7 @@ import { runRatchets } from "./gate/ratchets.ts";
 import { runChangedScopes } from "./scopes/changed.ts";
 import { runCoupling } from "./coupling/coupling.ts";
 import { runStatus } from "./status/status.ts";
-import { compileGuidelines } from "./guidelines.ts";
+import { refreshResult } from "./guidelines.ts";
 import { guidanceAgents } from "./guidance_render.ts";
 import {
   graduate,
@@ -364,39 +364,12 @@ export function attachEngineCommands(
         // to stdout via the default logger.
         const log = json
           ? new Logger({ json: true, noColor: false, humanStream: "stderr" })
-          : undefined;
-        const res = await compileGuidelines(root, log);
-        // A per-artifact failure is isolated (ADR 0065): the rest still refreshed,
-        // but the verb reports partial success and exits non-zero so it isn't read
-        // as fully done.
-        const failed = res.errors.length > 0;
+          : new Logger({ json: false, noColor: false, humanStream: "stdout" });
+        const res = await refreshResult(root, log);
         if (json) {
-          emitResult({
-            ok: !failed,
-            verb: "refresh",
-            ...(failed
-              ? {
-                error: "partial_refresh",
-                message:
-                  `${res.errors.length} artifact(s) failed to refresh; see data.errors.`,
-              }
-              : {}),
-            hints: res.hints,
-            data: {
-              agents_written: res.agentsWritten,
-              mcp_wired: res.mcpWired,
-              worktree_app_wired: res.worktreeAppWired,
-              project_rules_wired: res.projectRulesWired,
-              skills: {
-                copied: res.skillsCopied,
-                linked: res.skillsLinked,
-                pruned: res.skillsPruned,
-              },
-              errors: res.errors,
-            },
-          });
+          emitResult(res);
         }
-        Deno.exit(failed ? 1 : 0);
+        Deno.exit(res.ok ? 0 : 1);
       });
   }
 

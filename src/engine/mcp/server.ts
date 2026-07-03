@@ -42,6 +42,7 @@ import {
   GraduateOutputSchema,
   ImproveOutputSchema,
   IntegrateOutputSchema,
+  RefreshOutputSchema,
   type StartData,
   StartOutputSchema,
   StatusOutputSchema,
@@ -72,6 +73,7 @@ import { CATEGORY_NAMES } from "../improve/rules.ts";
 import { changedScopesResult } from "../scopes/changed.ts";
 import { couplingResult } from "../coupling/coupling.ts";
 import { statusResult } from "../status/status.ts";
+import { refreshResult } from "../guidelines.ts";
 import { doctorResult } from "../../commands/doctor.ts";
 import { docsResult, helpResult } from "../../commands/docs.ts";
 import {
@@ -82,9 +84,9 @@ import {
   worktreeErrorResult,
 } from "../worktree/lifecycle.ts";
 import { resolveWorktreeRoot } from "../../lib/paths.ts";
+import { KIT_VERSION } from "../../lib/version.ts";
 
 const SERVER_NAME = "discern";
-const SERVER_VERSION = "1.0.0";
 
 /**
  * Honest behavioural hints for a tool — the MCP `ToolAnnotations`. Mirrors the
@@ -119,6 +121,14 @@ const READ_ONLY: ToolAnnotations = {
 const MUTATING: ToolAnnotations = {
   readOnlyHint: false,
   destructiveHint: false,
+};
+/** Rewrites discern-owned generated/co-managed artifacts only. It mutates the
+ * filesystem, but it is safe to re-run and does not execute project commands. */
+const REFRESH: ToolAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: false,
 };
 /** Tears down per-worktree resources (running their configured destroy commands)
  * and moves the branch — a one-way operation. Like {@link MUTATING}, those commands
@@ -203,6 +213,34 @@ function defineTool<TShape extends z.ZodRawShape>(
   return tool;
 }
 
+const TOOL_PRIORITY = [
+  "discern_status",
+  "discern_refresh",
+  "discern_start",
+  "discern_finish",
+  "discern_prepare",
+  "discern_test",
+  "discern_integrate",
+  "discern_ratchets",
+  "discern_graduate",
+  "discern_doctor",
+  "discern_changed_scopes",
+  "discern_coupling",
+  "discern_improve",
+  "discern_docs",
+  "discern_help",
+] as const;
+
+function orderTools(tools: McpTool[]): McpTool[] {
+  const priority = new Map<string, number>(
+    TOOL_PRIORITY.map((name, index) => [name, index]),
+  );
+  return [...tools].sort((a, b) =>
+    (priority.get(a.name) ?? Number.MAX_SAFE_INTEGER) -
+    (priority.get(b.name) ?? Number.MAX_SAFE_INTEGER)
+  );
+}
+
 /**
  * The optional `path` override every root-operating tool carries (ADR 0062 §2): an
  * explicit project to act on instead of the server's current working root, resolved
@@ -224,7 +262,7 @@ const PATH_PARAM = {
  * Exported so the verb-parity guard (`tests/engine_verb_parity_test.ts`) can
  * reconcile the tool slugs against the CLI verb SSOT via {@link verbOf} — every
  * MCP tool is a real verb, no dead slugs. */
-export const TOOLS: McpTool[] = [
+export const TOOLS: McpTool[] = orderTools([
   defineTool({
     name: "discern_status",
     title: "Orient with discern_status",
@@ -242,8 +280,8 @@ export const TOOLS: McpTool[] = [
       "gates); data.worktree carries this worktree's id/port/db and provisioned " +
       "resources; data.features and data.ratchets list the configured set. " +
       "data.stale_generated flags generated agent files, and data.stale_materialized " +
-      "the materialized skills, that have drifted from their sources (run discern " +
-      "refresh for either); data.setup_unfinished is present while the project's " +
+      "the materialized skills, that have drifted from their sources (call " +
+      "discern_refresh for either); data.setup_unfinished is present while the project's " +
       "one-time setup is still incomplete. From the " +
       "main checkout it leads with data.fleet (a cheap row per worktree: branch, " +
       "Git-clean state, ahead/behind, a last_activity timestamp, and is_current marking the row " +
@@ -267,6 +305,19 @@ export const TOOLS: McpTool[] = [
         all: args.all === true,
         local: args.local === true,
       }),
+  }),
+  defineTool({
+    name: "discern_refresh",
+    title: "Refresh generated artifacts",
+    outputSchema: RefreshOutputSchema.shape,
+    annotations: REFRESH,
+    description:
+      "Repair stale generated agent files, materialized skills, and provider " +
+      "integration artifacts. It rewrites discern-generated or co-managed artifacts " +
+      "only; edit guidance sources, skill sources, or explicit provider config for " +
+      "durable changes. Idempotent: a second call with the same inputs writes nothing.",
+    inputSchema: { ...PATH_PARAM },
+    run: (root) => refreshResult(root),
   }),
   defineTool({
     name: "discern_finish",
@@ -607,7 +658,7 @@ export const TOOLS: McpTool[] = [
     run: (root, args) =>
       startToolResult(root, { dryRun: args.dry_run === true }),
   }),
-];
+]);
 
 /**
  * The `discern_graduate` tool core: build a lifecycle context with a quiet logger
@@ -1142,6 +1193,8 @@ export function buildInstructions(
     "",
     "- Orient at the start of a session with discern_status: the branch's " +
     "situation, what the gate would fire, and advisory next steps.",
+    "- If generated agent files or materialized skills are missing/stale, call " +
+    "discern_refresh. It rewrites discern-generated and co-managed artifacts only.",
     "- Before calling any change done, run discern_finish (the full gate). While " +
     "iterating, use discern_prepare (the fast fix-then-check loop) and discern_test " +
     "(just the tests). On a failure, read the result's diagnostics[] — the tool, " +
@@ -1219,7 +1272,7 @@ export async function runMcpServer(): Promise<number> {
   // resources resolve it per call/read, so the whole surface follows the re-aim.
   const working = new WorkingRoot(spawnRoot);
   const server = new McpServer(
-    { name: SERVER_NAME, version: SERVER_VERSION },
+    { name: SERVER_NAME, version: KIT_VERSION },
     {
       instructions: renderMcpText(buildInstructions(enabled), cfg),
     },

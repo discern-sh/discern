@@ -13,6 +13,7 @@ import {
   DatalessEnvelopeSchema,
   DoctorOutputSchema,
   IntegrateOutputSchema,
+  RefreshOutputSchema,
   StatusOutputSchema,
 } from "../src/shared/result_schemas.ts";
 import {
@@ -21,6 +22,7 @@ import {
   WorkingRoot,
 } from "../src/engine/mcp/server.ts";
 import { FEATURES } from "../src/shared/features.ts";
+import { KIT_VERSION } from "../src/lib/version.ts";
 import { withTempDir } from "./helpers.ts";
 import {
   addWorktree,
@@ -170,6 +172,7 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     const init = await mcp.recv();
     assertEquals(init.id, 1);
     assertEquals(init.result.serverInfo.name, "discern");
+    assertEquals(init.result.serverInfo.version, KIT_VERSION);
     assertEquals(init.result.protocolVersion, "2025-06-18");
     assert(init.result.capabilities.tools, "should advertise tools capability");
 
@@ -182,6 +185,7 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     assertEquals(list.id, 2);
     const names = list.result.tools.map((t: { name: string }) => t.name);
     assert(names.includes("discern_finish"), JSON.stringify(names));
+    assert(names.includes("discern_refresh"), JSON.stringify(names));
     assert(names.includes("discern_prepare"), JSON.stringify(names));
     assert(names.includes("discern_test"), JSON.stringify(names));
     assert(names.includes("discern_doctor"), JSON.stringify(names));
@@ -1693,6 +1697,7 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
       "discern_help",
     ]);
     const MUTATING_TOOLS = new Set([
+      "discern_refresh",
       "discern_finish",
       "discern_prepare",
       "discern_test",
@@ -1701,7 +1706,10 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
       "discern_integrate",
     ]);
     const DESTRUCTIVE_TOOLS = new Set(["discern_graduate"]);
-    const IDEMPOTENT_MUTATING_TOOLS = new Set(["discern_integrate"]);
+    const IDEMPOTENT_MUTATING_TOOLS = new Set([
+      "discern_refresh",
+      "discern_integrate",
+    ]);
     assertEquals(
       sorted([
         ...READ_ONLY_TOOLS,
@@ -1734,15 +1742,16 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
           IDEMPOTENT_MUTATING_TOOLS.has(tool.name),
         `${tool.name} idempotentHint`,
       );
+      const closedWorldTools = new Set([...READ_ONLY_TOOLS, "discern_refresh"]);
       assertEquals(
         annotations.openWorldHint,
-        READ_ONLY_TOOLS.has(tool.name) ? false : undefined,
+        closedWorldTools.has(tool.name) ? false : undefined,
         `${tool.name} openWorldHint`,
       );
     }
     assertEquals(
       sorted(IDEMPOTENT_MUTATING_TOOLS),
-      ["discern_integrate"],
+      ["discern_integrate", "discern_refresh"],
       "record any additional mutating idempotent tool explicitly",
     );
 
@@ -1756,6 +1765,10 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
     assertEquals(
       byName.get("discern_finish")?.annotations?.openWorldHint,
       undefined,
+    );
+    assertEquals(
+      byName.get("discern_refresh")?.annotations?.openWorldHint,
+      false,
     );
     assertEquals(
       byName.get("discern_ratchets")?.annotations?.openWorldHint,
@@ -1777,7 +1790,7 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
   });
 });
 
-Deno.test("discern mcp: discern_status is the first advertised tool", async () => {
+Deno.test("discern mcp: tools/list advertises tools in workflow priority order", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -1794,9 +1807,68 @@ Deno.test("discern mcp: discern_status is the first advertised tool", async () =
     const list = await mcp.recv();
     const tools = list.result.tools as ListedTool[];
     assertEquals(
-      tools[0]?.name,
-      "discern_status",
-      "the orientation tool should stay first for clients that truncate tools/list",
+      tools.map((t) => t.name),
+      [
+        "discern_status",
+        "discern_refresh",
+        "discern_start",
+        "discern_finish",
+        "discern_prepare",
+        "discern_test",
+        "discern_integrate",
+        "discern_ratchets",
+        "discern_graduate",
+        "discern_doctor",
+        "discern_changed_scopes",
+        "discern_coupling",
+        "discern_improve",
+        "discern_docs",
+        "discern_help",
+      ],
+      "MCP tools should be listed in deliberate workflow priority order for clients that truncate tools/list",
+    );
+
+    assertEquals(await mcp.close(), 0);
+  });
+});
+
+Deno.test("discern mcp: discern_refresh repairs stale generated artifacts", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    await runAgent(dir, ["refresh"]);
+
+    const claude = join(dir, "CLAUDE.md");
+    await Deno.writeTextFile(
+      claude,
+      `${await Deno.readTextFile(claude)}\n<!-- stale edit -->\n`,
+    );
+
+    const mcp = await spawnMcp(dir);
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await mcp.recv();
+
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "discern_refresh", arguments: {} },
+    });
+    const refreshed = await mcp.recv();
+    assertEquals(refreshed.result.isError, false);
+    assert(
+      RefreshOutputSchema.safeParse(refreshed.result.structuredContent).success,
+      JSON.stringify(refreshed.result.structuredContent),
+    );
+    assertEquals(refreshed.result.structuredContent.verb, "refresh");
+    assert(
+      !(await Deno.readTextFile(claude)).includes("stale edit"),
+      "discern_refresh should rewrite generated guidance just like the CLI refresh",
     );
 
     assertEquals(await mcp.close(), 0);
@@ -1827,6 +1899,10 @@ Deno.test("discern mcp: discern_status metadata is search-shaped for orientation
         "Start here: call discern_status",
       ),
       `discern_status description should lead with its exact orientation role; got:\n${status.description}`,
+    );
+    assert(
+      status.description.includes("discern_refresh"),
+      `discern_status description should name the MCP repair tool; got:\n${status.description}`,
     );
 
     assertEquals(await mcp.close(), 0);

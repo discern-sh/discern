@@ -85,12 +85,11 @@ Deno.test("every MCP tool maps to a real verb, with explicit non-engine addition
   );
 
   // The MCP surface is an intentional subset+ of the verbs: it ADDS three
-  // non-engine verbs (core/installer verbs an agent reaches for) and OMITS five
+  // non-engine verbs (core/installer verbs an agent reaches for) and OMITS four
   // engine verbs that have no tool (command groups / plumbing). Both differences
   // are pinned here, so a new verb forces a choice rather than drifting.
   const NON_ENGINE_TOOL_VERBS = new Set(["doctor", "docs", "help"]);
   const ENGINE_VERBS_WITHOUT_TOOL = new Set([
-    "refresh", // re-materializes artifacts; not surfaced as an agent tool
     "worktree", // a command group (worktree:* subverbs), not a single tool
     "worktree-name", // identity-resolution plumbing
     "skills", // a command group (skills list/eject)

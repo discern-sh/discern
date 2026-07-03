@@ -44,6 +44,7 @@ import {
   GraduateOutputSchema,
   ImproveOutputSchema,
   IntegrateOutputSchema,
+  RefreshOutputSchema,
   StartOutputSchema,
   StatusDataSchema,
   StatusOutputSchema,
@@ -60,6 +61,7 @@ import { couplingResult } from "../src/engine/coupling/coupling.ts";
 import { statusResult } from "../src/engine/status/status.ts";
 import { improveResult } from "../src/engine/improve/improve.ts";
 import { docsResult, helpResult } from "../src/commands/docs.ts";
+import { refreshResult } from "../src/engine/guidelines.ts";
 import {
   graduateResult,
   integrateResult,
@@ -293,6 +295,31 @@ Deno.test("prepare/test results are faithful (clean and failing)", async () => {
     const test = await testResult(dir);
     assertEquals(test.ok, false);
     expectValid(DatalessEnvelopeSchema, test, "test failing");
+  });
+});
+
+Deno.test("refresh result is faithful to RefreshOutputSchema (clean and partial)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    expectValid(RefreshOutputSchema, await refreshResult(dir), "refresh clean");
+
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[skills]",
+        'dir = "missing-skills"',
+        "",
+      ].join("\n"),
+    );
+    await Deno.writeTextFile(join(dir, "missing-skills"), "not a dir\n");
+    const partial = await refreshResult(dir);
+    assertEquals(partial.ok, false);
+    assertEquals(partial.error, "partial_refresh");
+    expectValid(RefreshOutputSchema, partial, "refresh partial");
   });
 });
 
