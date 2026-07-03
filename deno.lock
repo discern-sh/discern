@@ -24,6 +24,7 @@
     "jsr:@std/path@^1.1.5": "1.1.5",
     "jsr:@std/semver@^1.0.8": "1.0.8",
     "jsr:@std/text@^1.0.19": "1.0.19",
+    "jsr:@std/toml@*": "1.0.11",
     "jsr:@std/toml@^1.0.2": "1.0.11",
     "jsr:@std/yaml@1": "1.1.1",
     "jsr:@zod/zod@4": "4.4.3",
