@@ -2173,6 +2173,14 @@ Deno.test("discern mcp: the server advertises a non-empty, MCP-first instruction
     assert(instructions.includes("discern_start"), instructions);
     assert(instructions.includes("discern_integrate"), instructions);
     assert(instructions.includes("discern_graduate"), instructions);
+    assert(
+      instructions.includes("user explicitly asks"),
+      instructions,
+    );
+    assert(
+      instructions.includes("Do not treat a green finish or status hint"),
+      instructions,
+    );
     // Always-on diagnostics, plus the feature-gated ratchets line (on by default).
     assert(instructions.includes("discern_doctor"), instructions);
     assert(instructions.includes("discern_ratchets"), instructions);

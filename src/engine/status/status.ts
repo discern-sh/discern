@@ -574,7 +574,7 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
         }${ov.total > 3 ? ", …" : ""}) — re-check those after integrating.`
         : "";
       hints.push(
-        `Branch is ${g.behind_integration} behind ${main}; run \`discern integrate\` → \`discern finish\`, before \`discern graduate\`.${overlapNote}`,
+        `Branch is ${g.behind_integration} behind ${main}; run \`discern integrate\` → \`discern finish\` before handing off or any user-requested graduation.${overlapNote}`,
       );
     }
     if (g.clean && g.behind_integration === 0 && g.ahead_integration > 0) {
@@ -583,8 +583,8 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
       const mainDirty = await isMainCheckoutDirty(ctx.root);
       hints.push(
         mainDirty
-          ? `Committed and up to date with ${main}, but the main checkout has uncommitted tracked changes — commit or stash them there before \`discern graduate\`.`
-          : `Committed and up to date with ${main}; \`discern graduate\` when ready.`,
+          ? `Committed and up to date with ${main}, but the main checkout has uncommitted tracked changes — commit or stash them there before any user-requested graduation can proceed.`
+          : `Committed and up to date with ${main}; report that the branch is ready for review. Only run \`discern graduate\` if the user explicitly asks.`,
       );
     }
   }
@@ -621,7 +621,9 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
       for (const e of others) {
         if (e.clean && e.behind === 0 && e.ahead > 0) {
           hints.push(
-            `Worktree ${e.id ?? e.branch} looks ready to graduate.`,
+            `Worktree ${
+              e.id ?? e.branch
+            } has committed work ready for owner review.`,
           );
         }
       }

@@ -566,7 +566,7 @@ Deno.test("status: ignored local scratch does not make a worktree read dirty", a
   });
 });
 
-Deno.test("status: a clean worktree ahead of main hints it is ready to graduate", async () => {
+Deno.test("status: a clean worktree ahead of main hints it is ready for owner review", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, SCOPE_CONFIG);
@@ -583,14 +583,25 @@ Deno.test("status: a clean worktree ahead of main hints it is ready to graduate"
     assertEquals(obj.data.git.clean, true);
     assertEquals(obj.data.git.ahead_integration, 1);
     assertEquals(obj.data.git.behind_integration, 0);
+    const hints = obj.hints ?? [];
     assert(
-      (obj.hints ?? []).some((h: string) => h.includes("graduate")),
-      `expected a 'ready to graduate' hint: ${JSON.stringify(obj.hints)}`,
+      hints.some((h: string) => h.includes("ready for review")),
+      `expected a ready-for-review hint: ${JSON.stringify(hints)}`,
+    );
+    assert(
+      hints.some((h: string) => h.includes("explicitly asks")),
+      `expected explicit-user-ask boundary: ${JSON.stringify(hints)}`,
+    );
+    assert(
+      !hints.some((h: string) => h.includes("when ready")),
+      `status must not imply graduation follows from readiness: ${
+        JSON.stringify(hints)
+      }`,
     );
   });
 });
 
-Deno.test("status: an ahead worktree with untracked work is not ready to graduate", async () => {
+Deno.test("status: an ahead worktree with untracked work is not ready for owner review", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, SCOPE_CONFIG);

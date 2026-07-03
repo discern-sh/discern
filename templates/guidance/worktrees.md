@@ -1,18 +1,17 @@
 ## Isolated worktree workflow
 
-discern keeps each line of work in its own **linked git worktree** so parallel efforts
-never collide.{{#if has_worktree_resources}} It provisions per-worktree external
-**resources** (e.g. a database); read one with `discern worktree-name --resource <name>`.{{/if}}
+discern keeps each task in its own **linked git worktree** so parallel work
+doesn't collide.{{#if has_worktree_resources}} It provisions per-worktree external
+**resources**; read one with `discern worktree-name --resource <name>`.{{/if}}
 
-- **`discern_start`** — on the main checkout and starting a new task? Create your own
-  worktree for it (on its own branch, prefixed `{{branch_prefix}}`) and re-root into the
-  path it returns (it can't move you there). Already in a worktree? That's your
-  workspace — don't start another.
-- **`discern_integrate`** brings `{{main_branch}}` into your branch when it falls
-  behind, and reports exactly what changed beneath your work. Idempotent — just call it
-  (no need to `git diff` first).
-- **`discern_graduate`** hands your branch back to the main checkout when the work is
-  done. It lands on `{{graduate_to}}` by default; options are `branch` (checked out for
+- **`discern_start`** — from main, create your isolated worktree (branch prefix
+  `{{branch_prefix}}`) and re-root into the returned path. Already in a worktree?
+  Stay there.
+- **`discern_integrate`** brings `{{main_branch}}` into your branch when behind
+  and reports upstream overlap. Idempotent — use it instead of hand-merging.
+- **`discern_graduate`** is only for an explicit user handoff/land request. A
+  green finish is not that request; otherwise stop and report ready for review.
+  It lands on `{{graduate_to}}` by default; options are `branch` (checked out for
   review) or `trunk` (fast-forwarded, the merged branch deleted).
 
 **Operate only in the worktree you were launched into, or the main checkout — never

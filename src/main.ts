@@ -124,11 +124,11 @@ export function buildCli(
     )
     .example(
       "Agent on the trunk?",
-      "discern start  →  (move into provided worktree...)  →  discern status  →  (write code...)  →  discern finish  →  discern graduate",
+      "discern start  →  (move into provided worktree...)  →  discern status  →  (write code...)  →  discern finish  →  report ready for review",
     )
     .example(
       "Agent in a worktree?",
-      "(write code...)  →  discern finish  →  discern graduate  →  discern status",
+      "(write code...)  →  discern finish  →  report ready for review",
     )
     .globalOption(
       "--json",

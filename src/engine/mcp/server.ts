@@ -290,7 +290,7 @@ export const TOOLS: McpTool[] = orderTools([
       "this call is rooted in — every other row is a separate line of work, not a " +
       "workspace to claim, and a clean tree never means one is free); set all=true " +
       "to include the fleet from a worktree, or local=true to suppress it. hints[] are " +
-      "advisory next-steps (e.g. run discern_finish, ready to graduate, or — when on " +
+      "advisory next-steps (e.g. run discern_finish, ready for owner review, or — when on " +
       "the trunk — run discern_start to begin in your own isolated worktree) — never " +
       "an unverified pass/fail.",
     inputSchema: {
@@ -543,6 +543,7 @@ export const TOOLS: McpTool[] = orderTools([
     outputSchema: GraduateOutputSchema.shape,
     annotations: DESTRUCTIVE,
     description:
+      "Use only when the user explicitly asks to hand off or land this branch. " +
       "Graduate THIS worktree's branch into the main checkout: tear down the " +
       "worktree's resources, commit any leftover changes, remove the worktree, then " +
       'land the branch per `to`. `to:"branch"` checks it out in the main repo for ' +
@@ -1242,9 +1243,11 @@ export function buildInstructions(
         "unnecessary.",
     );
     lines.push(
-      "- When a branch is finished and integrated — or the user signals a handoff " +
-        '("graduate this", "I\'ll take it from here", "move this back to {{main_branch}}") — ' +
-        "graduate it with discern_graduate. Commit the work with a real message " +
+      "- Only when the user explicitly asks to hand off or land a finished branch " +
+        '("graduate this", "I\'ll take it from here", "move this back to {{main_branch}}") ' +
+        "should you use discern_graduate. Do not treat a green finish or status hint as " +
+        "permission to graduate; if no handoff was requested, stop and report the " +
+        "branch ready for review. Commit the work with a real message " +
         "first, then just call the tool (the single deterministic implementation — " +
         "don't reproduce its git steps, and don't pre-flight preconditions with git: " +
         "it refuses cleanly with the exact next step, e.g. run discern_integrate " +
