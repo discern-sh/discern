@@ -13,6 +13,7 @@
 
 import type { EnginePlan, PlanStep } from "../../shared/result.ts";
 import type { GraduateTarget } from "../../shared/config_schema.ts";
+import type { IgnoredFileChangeSummary } from "./ignored.ts";
 import type { LedgerItem } from "./resources.ts";
 
 // ── teardown ────────────────────────────────────────────────────────────────
@@ -57,6 +58,8 @@ export interface GraduatePlan {
   worktreeDirty: boolean;
   /** Whether any external resource is declared (→ a teardown step). */
   hasResources: boolean;
+  /** Ignored-file drift detected against the setup-time baseline, when enabled. */
+  ignoredFileChanges: IgnoredFileChangeSummary;
 }
 
 /**
@@ -82,15 +85,10 @@ export function graduatePlanToEngine(plan: GraduatePlan): EnginePlan {
       note: "commit leftover uncommitted changes as WIP",
     });
   }
-  steps.push({
-    kind: "git",
-    label: "remove-worktree",
-    disposition: "run",
-    note: plan.worktreePath,
-  });
   if (plan.to === "trunk") {
     // Land on the trunk: fast-forward it to the branch tip (always clean — the
-    // gate guarantees the branch contains the trunk), then delete the merged branch.
+    // gate guarantees the branch contains the trunk), then remove the worktree and
+    // delete the merged branch.
     steps.push({
       kind: "git",
       label: "fast-forward-trunk",
@@ -99,11 +97,23 @@ export function graduatePlanToEngine(plan: GraduatePlan): EnginePlan {
     });
     steps.push({
       kind: "git",
+      label: "remove-worktree",
+      disposition: "run",
+      note: plan.worktreePath,
+    });
+    steps.push({
+      kind: "git",
       label: "delete-branch",
       disposition: "run",
       note: `${plan.worktreeBranch} (merged into ${plan.trunk})`,
     });
   } else {
+    steps.push({
+      kind: "git",
+      label: "remove-worktree",
+      disposition: "run",
+      note: plan.worktreePath,
+    });
     steps.push({
       kind: "git",
       label: "checkout",
@@ -122,15 +132,31 @@ export function graduatePlanToEngine(plan: GraduatePlan): EnginePlan {
   const landing = plan.to === "trunk"
     ? `Into trunk:         ${plan.mainRepo} (fast-forward ${plan.trunk}, delete ${plan.worktreeBranch})`
     : `Into main checkout: ${plan.mainRepo} (on ${plan.mainBranch})`;
+  const ignoredDetails = ignoredFileDetails(plan.ignoredFileChanges);
   return {
     title: "Graduation plan",
     details: [
       `Branch:        ${plan.worktreeBranch}`,
       `From worktree: ${plan.worktreePath}`,
       landing,
+      ...ignoredDetails,
     ],
     steps,
   };
+}
+
+function ignoredFileDetails(summary: IgnoredFileChangeSummary): string[] {
+  if (summary.status !== "changed" || summary.changed_total === 0) {
+    return [];
+  }
+  const more = summary.truncated
+    ? `, +${summary.changed_total - summary.changed_roots.length} more`
+    : "";
+  return [
+    `Ignored files changed since setup: ${
+      summary.changed_roots.join(", ")
+    }${more}`,
+  ];
 }
 
 // ── integrate ───────────────────────────────────────────────────────────────
@@ -292,6 +318,8 @@ export interface PrunePlan {
   branchesToDelete: string[];
   /** Orphan gitlinked directories that would be reclaimed. */
   orphanDirs: string[];
+  /** Orphan gitlinked directories kept because they still contain local work. */
+  orphanDirsKept: { path: string; reason: string }[];
   /** Orphaned worktree resources GC would reclaim (handle labels). */
   resourceReclaims: string[];
 }
@@ -324,6 +352,15 @@ export function prunePlanToEngine(plan: PrunePlan): EnginePlan {
       disposition: "run",
       note: "reclaim orphan directory",
       group: "Orphan directories",
+    });
+  }
+  for (const kept of plan.orphanDirsKept) {
+    steps.push({
+      kind: "git",
+      label: kept.path,
+      disposition: "skip",
+      note: kept.reason,
+      group: "Kept orphan directories",
     });
   }
   for (const r of plan.resourceReclaims) {

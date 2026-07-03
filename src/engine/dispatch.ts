@@ -693,7 +693,7 @@ export function attachEngineCommands(
             await runWorktreeOp(
               (ctx) =>
                 worktreePrune(ctx, {
-                  assumeYes: (o.yes ?? false) || !Deno.stdin.isTerminal(),
+                  assumeYes: o.yes ?? false,
                   dryRun: o.dryRun ?? false,
                   json,
                   // The engine sweeps git-derived worktree parents on its own; the

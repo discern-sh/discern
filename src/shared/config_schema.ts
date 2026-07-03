@@ -360,6 +360,9 @@ const worktreeSection = z.strictObject({
   graduate_to: z.enum(GRADUATE_TARGETS).default("branch").describe(
     'Where `discern graduate` lands by default. "branch" (the safe default) leaves the work on its own branch, checked out in the main repo for review — the branch is preserved. "trunk" fast-forwards the trunk to the branch tip, checks the trunk out, and deletes the now-merged branch (the gate already guarantees the branch contains the trunk, so this is always a clean fast-forward). "trunk" is a role: it resolves to `[project].main_branch` (`main`, `master`, …) — not a literal branch named "main". Override per-run with `--to branch|trunk`.',
   ),
+  ignored_file_drift: z.boolean().default(true).describe(
+    "Track ignored files at worktree setup and report top-level ignored paths that changed before the worktree is removed. Disable for projects whose ignored outputs churn too much to be useful.",
+  ),
   inherit_env: z.array(z.string()).default([]).describe(
     "Environment values copied from the main checkout's .env into a new worktree's .env (secrets a fresh worktree needs but that aren't in version control).",
   ),

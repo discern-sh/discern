@@ -16,6 +16,7 @@
 
 import { join } from "@std/path";
 import { Logger, loggerSink } from "../../lib/log.ts";
+import { canPrompt, confirmProceed } from "../../lib/prompts.ts";
 import {
   type DiscernConfig,
   type GraduateTarget,
@@ -34,6 +35,11 @@ import {
   type WorktreeIdentity,
 } from "./identity.ts";
 import { writeEnvVar } from "./env_file.ts";
+import {
+  hasIgnoredFileChanges,
+  inspectIgnoredFileChanges,
+  recordIgnoredFileBaseline,
+} from "./ignored.ts";
 import { runShellRouted } from "./shell.ts";
 import { type GitResult, runGit } from "../../shared/subprocess.ts";
 import {
@@ -54,6 +60,7 @@ import {
   type IntegratePlan,
   integratePlanToEngine,
   type PrunePlan,
+  prunePlanIsEmpty,
   prunePlanToEngine,
   type SetupPlan,
   setupPlanToEngine,
@@ -91,8 +98,10 @@ import {
   liveWorktreeGitKeys,
   liveWorktreePaths,
   mainRepoPath,
+  missingIntegrationBranchWarning,
   overlapPaths,
   pruneGitWorktrees,
+  pruneStaleWorktreeMetadata,
   removeWorktreeSafely,
   resolveCommonGitDir,
   resolveIntegrationAnchors,
@@ -482,6 +491,11 @@ export async function worktreeSetup(
     ctx.log.warn("Agent-file refresh reported an error — continuing.");
   }
 
+  await recordIgnoredFileBaseline(
+    ctx.cwd,
+    ctx.config.worktree.ignored_file_drift,
+  );
+
   // mark this worktree configured
   const marker = await readySentinelPath(ctx.cwd);
   if (marker !== undefined) {
@@ -690,11 +704,21 @@ async function buildGraduatePlan(
       `Branch is behind ${trunkBranch}. Run \`discern integrate\` to bring ${trunkBranch} in and re-materialize, then re-run — \`discern finish\` gates on this same check.`,
     );
   }
+  if (merged.kind === "missing") {
+    throw new WorktreeGitError(
+      `${missingIntegrationBranchWarning(merged.branch)} ` +
+        "Graduation will not remove this worktree until the merge check can run.",
+    );
+  }
   ctx.log.ok(`Branch contains the latest ${trunkBranch}.`);
 
   // capture worktree state
   const worktreeDirty =
     (await run(["status", "--porcelain"])).stdout.trim() !== "";
+  const ignoredFileChanges = await inspectIgnoredFileChanges(
+    ctx.cwd,
+    ctx.config.worktree.ignored_file_drift,
+  );
   // Refuse to move the main checkout only for tracked changes. Untracked local
   // provider/session scratch does not participate in checkout/fast-forward and is
   // left in place.
@@ -722,6 +746,7 @@ async function buildGraduatePlan(
     trunk: ctx.config.project.main_branch,
     worktreeDirty,
     hasResources: readResourceSpecs(ctx.config).length > 0,
+    ignoredFileChanges,
   };
 }
 
@@ -754,6 +779,26 @@ function graduateGateRefusal(
     `${headline} Run \`discern finish\` to see the full output and fix it, then commit ` +
     `and re-run \`discern graduate\` — your branch keeps all its commits.` +
     (shown.length > 0 ? `\n\nWhat failed:\n${shown.join("\n")}` : "");
+}
+
+async function assertGraduateBranchStillCurrent(
+  cwd: string,
+  trunkBranch: string,
+): Promise<void> {
+  const merged = await assertMainMerged(cwd, trunkBranch);
+  if (merged.kind === "behind") {
+    throw new WorktreeGitError(
+      `Branch is behind ${trunkBranch} after the gate finished. ` +
+        `Run \`discern integrate\` from this worktree, then \`discern finish\` and ` +
+        `\`discern graduate\` again. The worktree has not been removed.`,
+    );
+  }
+  if (merged.kind === "missing") {
+    throw new WorktreeGitError(
+      `${missingIntegrationBranchWarning(merged.branch)} ` +
+        "Graduation will not remove this worktree until the merge check can run.",
+    );
+  }
 }
 
 /**
@@ -812,6 +857,8 @@ async function executeGraduatePlan(
     ctx.log.ok("Gate passed against the tree to be landed.");
   }
 
+  await assertGraduateBranchStillCurrent(ctx.cwd, trunk);
+
   const results: StepResult[] = [];
   const done = (kind: StepResult["step"]["kind"], label: string): void => {
     results.push({ step: { kind, label, disposition: "run" }, outcome: "ok" });
@@ -829,6 +876,10 @@ async function executeGraduatePlan(
     ctx.log.detail(
       "Note: worktree has uncommitted changes — will WIP-commit then unstage after migration",
     );
+  }
+  const ignoredLine = ignoredFileChangeDetail(plan.ignoredFileChanges);
+  if (ignoredLine !== undefined) {
+    ctx.log.detail(ignoredLine);
   }
 
   // tear down external resources (non-fatal, while still in the worktree so
@@ -858,23 +909,12 @@ async function executeGraduatePlan(
     done("git", "wip-commit");
   }
 
-  // remove the worktree (from the main repo)
-  ctx.log.info(`Removing worktree: ${worktreePath}`);
-  try {
-    await removeWorktreeSafely(worktreePath, mainRepo);
-  } catch {
-    throw new WorktreeGitError(
-      `Worktree removal failed for ${worktreePath}. The branch ${worktreeBranch} holds your commits; run 'git worktree list' to investigate.`,
-    );
-  }
-  ctx.log.ok("Worktree directory removed.");
-  done("git", "remove-worktree");
-
   // land the branch where the plan says
   if (to === "trunk") {
     // Fast-forward the trunk to the branch tip and land there. The graduation gate
     // already proved the branch contains the trunk, so this is always a clean
     // fast-forward — never a merge commit, never a conflict.
+    await assertGraduateBranchStillCurrent(ctx.cwd, trunk);
     ctx.log.info(`Checking out ${trunk} in main repo…`);
     const checkout = await run(["checkout", "--quiet", trunk], mainRepo);
     if (!checkout.success) {
@@ -889,12 +929,29 @@ async function executeGraduatePlan(
     );
     if (!ff.success) {
       throw new WorktreeGitError(
-        `Fast-forwarding ${trunk} to ${worktreeBranch} failed. Your commits are safe on ${worktreeBranch}. Git said:\n    ${ff.stderr.trim()}`,
+        `Fast-forwarding ${trunk} to ${worktreeBranch} failed before the worktree was removed. ` +
+          `Your commits are safe on ${worktreeBranch} at ${worktreePath}. ` +
+          `Run \`discern integrate\` from that worktree, then \`discern finish\` and ` +
+          `\`discern graduate --to trunk\` again. Git said:\n    ${ff.stderr.trim()}`,
       );
     }
     ctx.log.ok(`${trunk} fast-forwarded to ${worktreeBranch} at ${mainRepo}.`);
     done("git", "fast-forward-trunk");
+  }
 
+  // remove the worktree (from the main repo)
+  ctx.log.info(`Removing worktree: ${worktreePath}`);
+  try {
+    await removeWorktreeSafely(worktreePath, mainRepo);
+  } catch {
+    throw new WorktreeGitError(
+      `Worktree removal failed for ${worktreePath}. The branch ${worktreeBranch} holds your commits; run 'git worktree list' to investigate.`,
+    );
+  }
+  ctx.log.ok("Worktree directory removed.");
+  done("git", "remove-worktree");
+
+  if (to === "trunk") {
     // Delete the now-merged branch. This must precede any WIP soft-reset below: the
     // reset moves the trunk back, which would leave the branch un-merged and make
     // `git branch -d` refuse it.
@@ -1012,8 +1069,25 @@ export async function graduateResult(
   result.data = {
     root: plan.mainRepo,
     gate_validation: executed.gateValidation,
+    ...(hasIgnoredFileChanges(plan.ignoredFileChanges)
+      ? { ignored_file_changes: plan.ignoredFileChanges }
+      : {}),
   };
   return result;
+}
+
+function ignoredFileChangeDetail(
+  summary: GraduatePlan["ignoredFileChanges"],
+): string | undefined {
+  if (!hasIgnoredFileChanges(summary)) {
+    return undefined;
+  }
+  const more = summary.truncated
+    ? `, +${summary.changed_total - summary.changed_roots.length} more`
+    : "";
+  return `Ignored files changed since setup: ${
+    summary.changed_roots.join(", ")
+  }${more}`;
 }
 
 // How much integration detail rides inline before an agent is pointed at git for
@@ -1714,6 +1788,9 @@ export function worktreeErrorResult(
   verb: string,
   e: unknown,
 ): DiscernResult | undefined {
+  if (e instanceof WorktreeResultError) {
+    return e.result;
+  }
   if (e instanceof WorktreeGitError || e instanceof IdentityError) {
     return {
       ok: false,
@@ -1725,6 +1802,16 @@ export function worktreeErrorResult(
     };
   }
   return undefined;
+}
+
+class WorktreeResultError extends WorktreeGitError {
+  readonly result: DiscernResult;
+
+  constructor(message: string, result: DiscernResult) {
+    super(message);
+    this.name = "WorktreeResultError";
+    this.result = result;
+  }
 }
 
 /** Resolve a possibly-relative git-common-dir against `cwd` and canonicalize it. */
@@ -1742,7 +1829,7 @@ async function realPathOrLifecycle(raw: string, cwd: string): Promise<string> {
 
 /** Options for {@link worktreePrune}. */
 export interface WorktreePruneOptions {
-  /** Run non-interactively (the dispatcher passes this when there is no TTY). */
+  /** Proceed without prompting for the destructive prune candidate list. */
   assumeYes?: boolean;
   /** Report what would be removed/reclaimed without acting. */
   dryRun?: boolean;
@@ -1780,12 +1867,14 @@ async function buildPrunePlan(
   const sweep = await sweepOrphanWorktrees({
     dryRun: true,
     log: quiet,
+    mainBranch: ctx.config.project.main_branch,
     ...(extraScanDirs !== undefined ? { extraDirs: extraScanDirs } : {}),
   });
   return {
     worktreesToRemove: prune.removed,
     branchesToDelete: prune.branchesDeleted,
     orphanDirs: sweep.removed,
+    orphanDirsKept: sweep.kept,
     resourceReclaims: await planResourceReclaims(ctx),
   };
 }
@@ -1830,16 +1919,39 @@ export async function worktreePrune(
     );
   }
   const json = opts.json ?? false;
+  const plan = await buildPrunePlan(ctx, opts.extraScanDirs);
+  const enginePlan = prunePlanToEngine(plan);
 
   // Dry-run: scan read-only and render the plan; touch nothing.
   if (opts.dryRun ?? false) {
     emitDryRun(
       ctx,
       "worktree:prune",
-      prunePlanToEngine(await buildPrunePlan(ctx, opts.extraScanDirs)),
+      enginePlan,
       json,
     );
     return;
+  }
+
+  if (!prunePlanIsEmpty(plan) && !(opts.assumeYes ?? false)) {
+    const message =
+      "Confirmation required for `discern worktree:prune`; review the candidates and re-run with `--yes`.";
+    if (!canPrompt(false)) {
+      if (!json) {
+        renderPlan(loggerSink(ctx.log), enginePlan);
+      }
+      throw new WorktreeResultError(message, {
+        ok: false,
+        verb: "worktree:prune",
+        error: "confirmation_required",
+        message,
+        plan: enginePlan,
+      });
+    }
+    renderPlan(loggerSink(ctx.log), enginePlan);
+    if (!(await confirmProceed("Remove the prune candidates above?", false))) {
+      throw new WorktreeGitError("Prune aborted; nothing was removed.");
+    }
   }
 
   // Apply: run the real removals, narrating exactly as before.
@@ -1855,6 +1967,7 @@ export async function worktreePrune(
   const sweep = await sweepOrphanWorktrees({
     dryRun: false,
     log: ctx.log,
+    mainBranch: ctx.config.project.main_branch,
     ...(opts.extraScanDirs !== undefined
       ? { extraDirs: opts.extraScanDirs }
       : {}),
@@ -1866,11 +1979,14 @@ export async function worktreePrune(
   if (prune.failed || sweep.failed || gc.failed) {
     throw new WorktreeGitError("One or more cleanups failed.");
   }
+  if (prune.staleMetadata > 0 && sweep.kept.length === 0) {
+    await pruneStaleWorktreeMetadata(ctx.root);
+  } else if (prune.staleMetadata > 0) {
+    ctx.log.warn(
+      "Skipped stale worktree metadata pruning because an orphaned worktree directory was kept.",
+    );
+  }
   ctx.log.ok("Prune complete.");
-  // `assumeYes` is accepted for dispatcher parity; the interactive confirmation
-  // belongs to the dispatcher (which owns the TTY), so prune runs the removals
-  // directly once invoked. See note in git.ts pruneGitWorktrees.
-  void opts.assumeYes;
 
   if (json) {
     emitResults("worktree:prune", pruneResults(prune, sweep, gc));

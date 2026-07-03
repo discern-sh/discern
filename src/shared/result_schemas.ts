@@ -281,6 +281,18 @@ export type StartData = z.infer<typeof StartDataSchema>;
 export const GraduateDataSchema = z.strictObject({
   root: z.string(),
   gate_validation: GateValidationSchema.optional(),
+  ignored_file_changes: z.strictObject({
+    status: z.enum([
+      "disabled",
+      "baseline_missing",
+      "unavailable",
+      "unchanged",
+      "changed",
+    ]),
+    changed_roots: z.array(z.string()),
+    changed_total: z.number(),
+    truncated: z.boolean(),
+  }).optional(),
 });
 export type GraduateData = z.infer<typeof GraduateDataSchema>;
 

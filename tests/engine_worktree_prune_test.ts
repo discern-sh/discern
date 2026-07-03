@@ -245,6 +245,27 @@ Deno.test("worktree:prune --dry-run lists what the real run removes, and acts on
   });
 });
 
+Deno.test("worktree:prune refuses off-TTY without --yes and shows the candidates", async () => {
+  await withTempDir(async (dir) => {
+    const mergedWt = await mainWithWorktree(dir, "confirm");
+    await Deno.writeTextFile(join(mergedWt, "m.txt"), "m\n");
+    await git(mergedWt, "add", "-A");
+    await git(mergedWt, "commit", "-q", "-m", "m", "--no-gpg-sign");
+    await git(dir, "merge", "--no-ff", "-m", "merge confirm", "agent/confirm");
+
+    const r = await runAgent(dir, ["worktree:prune"]);
+
+    assertEquals(r.code, 1, r.output);
+    assertStringIncludes(r.output, "Confirmation required");
+    assertStringIncludes(r.output, "re-run with `--yes`");
+    assertStringIncludes(r.output, "confirm");
+    assert(
+      await exists(mergedWt),
+      `refusing for missing --yes must not remove the candidate\n${r.output}`,
+    );
+  });
+});
+
 // ── worktree:prune — orphan-directory sweep at the configured root ───────────
 //
 // A worktree dir whose git metadata was lost (a hard kill, a failed remove hook)
@@ -255,11 +276,12 @@ Deno.test("worktree:prune --dry-run lists what the real run removes, and acts on
 // extraDirs (ADR 0052). This pins that wiring: a FULLY-orphaned dir at the
 // (sibling) default root is still reclaimed.
 
-Deno.test("worktree:prune reclaims a fully-orphaned dir at the configured worktree root", async () => {
+Deno.test("worktree:prune keeps a dirty orphaned dir at the configured worktree root", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "orphan"); // <dir>.worktrees/orphan
     const root = dirname(wt); // the sibling worktree root
     const orphan = join(root, "orphan-moved");
+    await Deno.writeTextFile(join(wt, "uncommitted.txt"), "save me\n");
 
     // Sever git's registration while leaving the checkout on disk: move it so the
     // registered path goes missing (prune drops the stale admin entry), while the
@@ -272,10 +294,42 @@ Deno.test("worktree:prune reclaims a fully-orphaned dir at the configured worktr
     // layer passes (the resolved [worktree].root) does.
     const r = await runAgent(dir, ["worktree:prune", "--yes"]);
     assertEquals(r.code, 0, r.output);
+    assert(
+      await exists(orphan),
+      `the dirty orphaned dir at the worktree root must be kept\n${r.output}`,
+    );
+    assertEquals(
+      await Deno.readTextFile(join(orphan, "uncommitted.txt")),
+      "save me\n",
+    );
+    assertStringIncludes(r.output, "dirty 1 status entries");
+  });
+});
+
+Deno.test("worktree:prune reclaims a clean fully-orphaned dir at the configured worktree root", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "clean-orphan");
+    const root = dirname(wt);
+    const orphan = join(root, "clean-orphan-moved");
+    await Deno.writeTextFile(join(wt, "merged.txt"), "merged\n");
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "merged orphan", "--no-gpg-sign");
+    await git(
+      dir,
+      "merge",
+      "--no-ff",
+      "-m",
+      "merge clean orphan",
+      "agent/clean-orphan",
+    );
+    await Deno.rename(wt, orphan);
+
+    const r = await runAgent(dir, ["worktree:prune", "--yes"]);
+    assertEquals(r.code, 0, r.output);
     assertEquals(
       await exists(orphan),
       false,
-      `the orphaned dir at the worktree root should be reclaimed via extraDirs\n${r.output}`,
+      `a clean orphaned dir at the worktree root should be reclaimed\n${r.output}`,
     );
   });
 });

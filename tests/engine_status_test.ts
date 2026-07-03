@@ -893,3 +893,33 @@ Deno.test("status: incoming_overlap is absent when behind but none of your files
     assertEquals(obj.data.git.incoming_overlap, undefined);
   });
 });
+
+Deno.test("status warns when the configured integration branch is missing locally", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, SCOPE_CONFIG);
+    await gitInit(dir);
+    await git(dir, "branch", "-m", "trunk");
+    const wt = await addWorktree(dir, "missing-main");
+
+    const json = await runAgent(wt, ["status", "--json"]);
+    assertEquals(json.code, 0, json.output);
+    const obj = parseStatus(json.stdout);
+    assertEquals(obj.data.git.behind_integration, null);
+    assert(
+      (obj.hints ?? []).some((h: string) =>
+        h.includes("local integration branch 'main' is missing") &&
+        h.includes("[project].main_branch")
+      ),
+      `expected missing-main warning in hints\n${json.stdout}`,
+    );
+
+    const human = await runAgent(wt, ["status"]);
+    assertEquals(human.code, 0, human.output);
+    assertStringIncludes(
+      human.output,
+      "local integration branch 'main' is missing",
+    );
+    assertStringIncludes(human.output, "[project].main_branch");
+  });
+});
