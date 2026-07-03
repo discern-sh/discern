@@ -55,6 +55,10 @@ WIP-commits any leftover worktree changes (tracked or untracked) before removing
 the checkout; [`worktree:prune`](../../src/engine/worktree/lifecycle.ts) sweeps
 stale Worktrees and **reclaims the resources of any Worktree that vanished
 without a clean teardown** (the garbage-collection safety net).
+[`status`](../../src/engine/status/status.ts) uses the same ordinary Git-clean
+boundary as prune for its local and fleet `clean` fields: tracked changes and
+untracked non-ignored files make a Worktree dirty, while ignored
+provider-local/generated files stay out of the signal.
 [`worktree-name`](../../src/engine/worktree/identity.ts) resolves a Worktree's
 stable identity (id / site / branch / port / db / worktree / resource).
 

@@ -652,7 +652,7 @@ Deno.test("worktree:prune keeps a sibling worktree that still has unmerged work"
   });
 });
 
-Deno.test("worktree:prune --yes keeps a fully-merged worktree with uncommitted changes", async () => {
+Deno.test("status and worktree:prune keep a fully-merged worktree with uncommitted changes", async () => {
   await withTempDir(async (dir) => {
     const dirty = await mainWithWorktree(dir, "dirty-merged");
     await Deno.writeTextFile(join(dirty, "tracked.txt"), "merged\n");
@@ -669,6 +669,23 @@ Deno.test("worktree:prune --yes keeps a fully-merged worktree with uncommitted c
 
     await Deno.writeTextFile(join(dirty, "tracked.txt"), "dirty tracked\n");
     await Deno.writeTextFile(join(dirty, "untracked.txt"), "dirty untracked\n");
+
+    const status = await runAgent(dir, ["status", "--json"]);
+    assertEquals(status.code, 0, status.output);
+    const row = JSON.parse(status.stdout).data.fleet.find(
+      (e: { branch: string }) => e.branch === "agent/dirty-merged",
+    );
+    assert(row, `expected agent/dirty-merged in fleet\n${status.stdout}`);
+    assertEquals(row.clean, false);
+    assertEquals(row.changed_files, 2);
+
+    const dry = await runAgent(dir, ["worktree:prune", "--dry-run"]);
+    assertEquals(dry.code, 0, dry.output);
+    assertStringIncludes(dry.output, "(nothing to do)");
+    assert(
+      await exists(dirty),
+      `dry-run prune must not remove the dirty worktree\n${dry.output}`,
+    );
 
     const r = await runAgent(dir, ["worktree:prune", "--yes"]);
     assertEquals(r.code, 0, r.output);

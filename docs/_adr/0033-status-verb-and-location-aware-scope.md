@@ -152,7 +152,10 @@ The cheap per-checkout snapshot (branch, cleanliness, changed-file count,
 ahead/behind) lives as **one** helper, `gitSnapshot`, in `worktree/git.ts`; the
 fleet survey is **one** helper, `listWorktreeFleet`, that reuses the existing
 `parseWorktreeList` and `gitSnapshot` so a fleet row and the local block can
-never disagree on how a worktree is measured. The behind-count / "contains the
+never disagree on how a worktree is measured. Its cleanliness is ordinary
+Git-clean — tracked changes and untracked non-ignored files count, ignored files
+do not — so a clean fleet row is safe to reason about for teardown/prune
+decisions without hiding untracked review work. The behind-count / "contains the
 latest main" distinction reuses the canonical `assertMainMerged`; worktree
 identity reuses `resolveIdentity`. `status` composes existing readers; it
 re-implements no git plumbing.

@@ -8,7 +8,7 @@
  * observation).
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { walk } from "@std/fs";
 import { join, relative } from "@std/path";
 import { withTempDir } from "./helpers.ts";
@@ -505,16 +505,47 @@ Deno.test("status: a dirty worktree hints to run the gate before finishing", asy
   });
 });
 
-Deno.test("status: untracked local scratch does not make a worktree read dirty", async () => {
+Deno.test("status: an untracked project file makes local and fleet status dirty", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, SCOPE_CONFIG);
     await gitInit(dir);
     const wt = await addWorktree(dir, "scratch");
-    await Deno.mkdir(join(wt, ".codex"), { recursive: true });
+    await writeExecutable(join(wt, "tests/engine_hint_rules_test.ts"), "x");
+
+    const local = await runAgent(wt, ["status", "--json"]);
+    assertEquals(local.code, 0, local.output);
+    const localObj = parseStatus(local.stdout);
+    assertEquals(localObj.data.git.clean, false);
+    assertEquals(localObj.data.git.changed_files, 1);
+
+    const fleet = await runAgent(dir, ["status", "--json"]);
+    assertEquals(fleet.code, 0, fleet.output);
+    const fleetObj = parseStatus(fleet.stdout);
+    const row = fleetObj.data.fleet.find((e: { branch: string }) =>
+      e.branch === "agent/scratch"
+    );
+    assert(row, `expected agent/scratch in fleet: ${fleet.stdout}`);
+    assertEquals(row.clean, false);
+    assertEquals(row.changed_files, 1);
+
+    const human = await runAgent(dir, ["status"]);
+    assertEquals(human.code, 0, human.output);
+    assertStringIncludes(human.output, "agent/scratch");
+    assertStringIncludes(human.output, "1 changed");
+  });
+});
+
+Deno.test("status: ignored local scratch does not make a worktree read dirty", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, SCOPE_CONFIG);
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "scratch");
+    await Deno.mkdir(join(wt, ".claude"), { recursive: true });
     await Deno.writeTextFile(
-      join(wt, ".codex/session.local.toml"),
-      "permission = 'local'\n",
+      join(wt, ".claude/settings.local.json"),
+      '{ "permissions": { "allow": ["local"] } }\n',
     );
 
     const local = await runAgent(wt, ["status", "--json"]);
@@ -555,6 +586,32 @@ Deno.test("status: a clean worktree ahead of main hints it is ready to graduate"
     assert(
       (obj.hints ?? []).some((h: string) => h.includes("graduate")),
       `expected a 'ready to graduate' hint: ${JSON.stringify(obj.hints)}`,
+    );
+  });
+});
+
+Deno.test("status: an ahead worktree with untracked work is not ready to graduate", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, SCOPE_CONFIG);
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "alpha");
+    await writeExecutable(join(wt, "web/feature.txt"), "feature");
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
+    await writeExecutable(join(wt, "tests/unreviewed_test.ts"), "x");
+
+    const r = await runAgent(wt, ["status", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    const obj = parseStatus(r.stdout);
+    assertEquals(obj.data.git.clean, false);
+    assertEquals(obj.data.git.ahead_integration, 1);
+    assertEquals(obj.data.git.behind_integration, 0);
+    assert(
+      !(obj.hints ?? []).some((h: string) => h.includes("graduate")),
+      `dirty worktree must not get a graduate hint: ${
+        JSON.stringify(obj.hints)
+      }`,
     );
   });
 });

@@ -83,6 +83,7 @@ import {
   assertMainMerged,
   assertNotInWorktree,
   ensureWorktreeBranch,
+  hasUncommittedTrackedChanges,
   inheritMainEnvVars,
   integrateMain,
   integrationBranch,
@@ -696,9 +697,7 @@ async function buildGraduatePlan(
   // Refuse to move the main checkout only for tracked changes. Untracked local
   // provider/session scratch does not participate in checkout/fast-forward and is
   // left in place.
-  const mainDirty =
-    (await run(["status", "--porcelain", "--untracked-files=no"], mainRepo))
-      .stdout.trim() !== "";
+  const mainDirty = await hasUncommittedTrackedChanges(mainRepo) ?? false;
   const mainBranchRun = await run(["branch", "--show-current"], mainRepo);
   const mainBranch = mainBranchRun.stdout.trim() !== ""
     ? mainBranchRun.stdout.trim()

@@ -19,15 +19,17 @@ local file untracked but visible in `git status`. In real setup and graduation
 runs, that porcelain noise was enough to defeat predicates that meant "no
 tracked work to protect": `setup done` skipped its marker auto-commit,
 `integrate` refused a merge, `graduate` refused because the main checkout looked
-dirty, and `discern status` reported a line of work as dirty.
+dirty.
 
 The same class is not Claude-specific. Codex and other agents can leave
 provider-local scratch or permission state around while discern is checking
 whether it is safe to stage one known file, merge into a worktree, or move the
 main checkout. Those checks need a tracked-clean predicate, not a pristine-tree
-predicate. Other places still need the stricter view: gate receipts vouch for
-the exact tree `graduate` may land, and worktree pruning must not delete a
-checkout that contains untracked user work.
+predicate. Other places need the ordinary Git-clean view: `discern status`
+answers whether a worktree has any tracked changes or untracked non-ignored
+files, and worktree pruning must not delete a checkout that contains untracked
+user work. Gate receipts stay stricter still because they vouch for the exact
+tree `graduate` may land.
 
 ## Decision
 
@@ -42,8 +44,13 @@ Cleanliness predicates are explicit about what they protect:
   diff against `HEAD`, staging only `discern.toml`, and committing only that
   path. Unrelated tracked, staged, or untracked changes neither block the marker
   commit nor get swept into it.
-- `integrate`, `graduate`'s main-checkout precondition, and `status`/fleet
-  cleanliness use tracked-only porcelain. Untracked local scratch is left alone.
+- `integrate` and `graduate`'s main-checkout precondition use tracked-only
+  porcelain. Untracked local scratch is left alone because those operations do
+  not stage or remove it.
+- `discern status` and its fleet survey use ordinary Git-clean porcelain:
+  tracked changes and untracked non-ignored files make a worktree dirty. Ignored
+  provider-local files stay invisible because `.gitignore` marks them
+  disposable, not because status hides all untracked files.
 - Scope classification still includes untracked files, because it answers "which
   paths changed?" for the gate.
 - Gate receipts, worktree WIP preservation, and `worktree:prune` stay stricter,
@@ -57,8 +64,8 @@ machine-local; shared project config remains tracked.
 
 - Claude Code permission grants in `.claude/settings.local.json` no longer
   create permanent porcelain noise or block setup/graduation.
-- The fix is vendor-neutral at the predicate level: an untracked local scratch
-  file from any agent no longer makes tracked-clean checks fail.
+- The fix is vendor-neutral at the predicate level: ignored provider-local
+  scratch does not make status dirty, while untracked project work still does.
 - Existing installs converge on upgrade through schema 14 instead of requiring
   users to hand-edit `.gitignore`.
 - Shared provider config remains reviewable. If a tracked provider file changes

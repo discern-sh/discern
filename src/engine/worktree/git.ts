@@ -366,11 +366,7 @@ export async function integrateMain(
   // Merge into a tracked-clean tree only — tracked edits are the caller's to resolve
   // first. Untracked local/session scratch files do not participate in a merge and
   // should not block integrating main.
-  const status = await git(
-    ["status", "--porcelain", "--untracked-files=no"],
-    cwd,
-  );
-  if (status.success && status.stdout.trim() !== "") {
+  if (await hasUncommittedTrackedChanges(cwd)) {
     return { kind: "dirty" };
   }
   // How far behind, for the report; and whether HEAD is a strict ancestor of main
@@ -1035,9 +1031,9 @@ function parseWorktreeList(porcelain: string): WorktreeRecord[] {
 export interface GitSnapshot {
   /** The current branch, or "" when detached. */
   branch: string;
-  /** No uncommitted tracked changes in the working tree. */
+  /** No tracked changes and no untracked non-ignored files in the working tree. */
   clean: boolean;
-  /** Count of tracked `git status --porcelain` entries. */
+  /** Count of `git status --porcelain --untracked-files=normal` entries. */
   changedFiles: number;
   /** Commits on HEAD not yet in the integration branch. */
   ahead: number;
@@ -1074,10 +1070,12 @@ async function aheadBehind(
 
 /**
  * The read-only {@link GitSnapshot} for the checkout at `cwd`, compared to the
- * integration branch (`MAIN_BRANCH` / `mainBranchFallback` / `main`). Pure reads —
- * `rev-parse`, `branch`, tracked-only `status --porcelain`, `rev-list` — so it
- * never mutates the working tree. Returns undefined when `cwd` is not inside a git
- * repository, so a caller can mark the git block unavailable rather than throw.
+ * integration branch (`MAIN_BRANCH` / `mainBranchFallback` / `main`). The `clean`
+ * predicate is the user-facing / removal-safety one: no tracked changes and no
+ * untracked non-ignored files. Pure reads — `rev-parse`, `branch`,
+ * `status --porcelain --untracked-files=normal`, `rev-list` — so it never mutates
+ * the working tree. Returns undefined when `cwd` is not inside a git repository, so
+ * a caller can mark the git block unavailable rather than throw.
  */
 export async function gitSnapshot(
   cwd: string,
@@ -1089,13 +1087,7 @@ export async function gitSnapshot(
   }
   const branchRun = await git(["branch", "--show-current"], cwd);
   const branch = branchRun.success ? branchRun.stdout.trim() : "";
-  const statusRun = await git(
-    ["status", "--porcelain", "--untracked-files=no"],
-    cwd,
-  );
-  const dirtyLines = statusRun.success
-    ? statusRun.stdout.split("\n").filter((l) => l !== "")
-    : [];
+  const dirtyLines = await statusLines(cwd, "normal") ?? [];
   const { ahead, behind } = await aheadBehind(
     cwd,
     integrationBranch(mainBranchFallback),
@@ -1112,10 +1104,38 @@ export async function gitSnapshot(
 }
 
 /**
+ * Whether the checkout has uncommitted tracked changes. This is deliberately NOT
+ * the user-facing `status` cleanliness predicate: it exists for operational
+ * preconditions where untracked scratch cannot be swept into the action, such as
+ * merging into a worktree or moving the main checkout.
+ */
+export async function hasUncommittedTrackedChanges(
+  cwd: string,
+): Promise<boolean | undefined> {
+  const lines = await statusLines(cwd, "no");
+  return lines === undefined ? undefined : lines.length > 0;
+}
+
+/** Non-empty porcelain status lines for one checkout, or undefined on git failure. */
+async function statusLines(
+  cwd: string,
+  untrackedFiles: "normal" | "no",
+): Promise<string[] | undefined> {
+  const statusRun = await git(
+    ["status", "--porcelain", `--untracked-files=${untrackedFiles}`],
+    cwd,
+  );
+  if (!statusRun.success) {
+    return undefined;
+  }
+  return statusRun.stdout.split("\n").filter((l) => l !== "");
+}
+
+/**
  * The most recent activity timestamp (unix seconds) for the checkout at `cwd`: the
  * latest of the last HEAD movement (the reflog — which captures commits, checkouts,
  * AND the worktree's own creation) and the newest mtime among the uncommitted files
- * (`dirtyLines` from tracked-only `git status --porcelain`). Pure reads.
+ * (`dirtyLines` from `git status --porcelain`). Pure reads.
  * Undefined when nothing can be determined. Including the reflog's creation entry
  * is deliberate: it keeps a freshly-spawned worktree from reading as old as the
  * branch point it forked from.

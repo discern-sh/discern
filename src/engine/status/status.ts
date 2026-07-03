@@ -57,6 +57,7 @@ import {
   assertMainMerged,
   type FleetWorktree,
   gitSnapshot,
+  hasUncommittedTrackedChanges,
   incomingOverlap,
   listWorktreeFleet,
   mainRepoPath,
@@ -553,7 +554,7 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
     if (g.clean && g.behind_integration === 0 && g.ahead_integration > 0) {
       // graduate would refuse against tracked changes in the main checkout — say so
       // if we can see them.
-      const mainDirty = await isMainCheckoutDirty(ctx.root, main);
+      const mainDirty = await isMainCheckoutDirty(ctx.root);
       hints.push(
         mainDirty
           ? `Committed and up to date with ${main}, but the main checkout has uncommitted tracked changes — commit or stash them there before \`discern graduate\`.`
@@ -588,7 +589,7 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
         hints.push(
           `${dirty.length} worktree${dirty.length === 1 ? "" : "s"} ${
             dirty.length === 1 ? "has" : "have"
-          } uncommitted tracked changes: ${names}.`,
+          } uncommitted changes: ${names}.`,
         );
       }
       for (const e of others) {
@@ -609,14 +610,12 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
  * can't be resolved (no main repo, or we're already in it). */
 async function isMainCheckoutDirty(
   root: string,
-  mainBranch: string,
 ): Promise<boolean> {
   const mainRepo = await mainRepoPath(root);
   if (mainRepo === undefined || mainRepo === root) {
     return false;
   }
-  const snap = await gitSnapshot(mainRepo, mainBranch);
-  return snap !== undefined && !snap.clean;
+  return await hasUncommittedTrackedChanges(mainRepo) ?? false;
 }
 
 /** Read a `KEY=value` from `.env` text (first match), stripping one layer of quotes. */

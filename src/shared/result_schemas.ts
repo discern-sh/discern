@@ -343,7 +343,9 @@ export type StatusWorktree = z.infer<typeof statusWorktreeSchema>;
 const statusGitSchema = z.strictObject({
   branch: z.string(),
   integration_branch: z.string(),
+  /** Ordinary Git-clean: no tracked changes and no untracked non-ignored files. */
   clean: z.boolean(),
+  /** Count of ordinary `git status --porcelain` entries. */
   changed_files: z.number(),
   behind_integration: z.number().nullable(),
   ahead_integration: z.number(),
@@ -370,7 +372,9 @@ const statusFleetEntrySchema = z.strictObject({
   is_main: z.boolean(),
   is_current: z.boolean(),
   branch: z.string(),
+  /** Ordinary Git-clean: no tracked changes and no untracked non-ignored files. */
   clean: z.boolean(),
+  /** Count of ordinary `git status --porcelain` entries. */
   changed_files: z.number(),
   ahead: z.number(),
   behind: z.number(),

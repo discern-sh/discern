@@ -234,7 +234,7 @@ export const TOOLS: McpTool[] = [
       "Start here: call discern_status to report what is true right now and what " +
       "to do next — pure observation, never runs the gate, tests, ratchets, or " +
       'touches anything. data.location is "worktree" or "main"; data.git carries ' +
-      "branch/clean/changed-files and ahead/behind the integration branch — and, when " +
+      "branch, Git-clean state, changed-files, and ahead/behind the integration branch — and, when " +
       "behind, data.git.incoming_overlap names the files YOU changed that the incoming " +
       "`{{main_branch}}` also changed (the hot zone to re-read on integrating, since a " +
       "clean merge can still break them); data.gate " +
@@ -246,7 +246,7 @@ export const TOOLS: McpTool[] = [
       "refresh for either); data.setup_unfinished is present while the project's " +
       "one-time setup is still incomplete. From the " +
       "main checkout it leads with data.fleet (a cheap row per worktree: branch, " +
-      "dirty/ahead/behind, a last_activity timestamp, and is_current marking the row " +
+      "Git-clean state, ahead/behind, a last_activity timestamp, and is_current marking the row " +
       "this call is rooted in — every other row is a separate line of work, not a " +
       "workspace to claim, and a clean tree never means one is free); set all=true " +
       "to include the fleet from a worktree, or local=true to suppress it. hints[] are " +
