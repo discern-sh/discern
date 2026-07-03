@@ -113,6 +113,17 @@ _Nothing outstanding._
       and apply it consistently across the installer verbs. Evidence:
       `src/commands/init.ts` (~306, ~319); `src/commands/upgrade.ts` (~209).
 
+- [ ] **The gate's `fix` stage rewrites uncommitted work with no snapshot.**
+      Pre-existing dirty files are excluded from ADR 0047's strand detection by
+      design (D1∖D0), so a misconfigured or buggy `[capabilities].format`
+      command run by `discern prepare`/`finish` can rewrite a user's
+      uncommitted changes with no backup and no warning. Benign for the common
+      formatters; the risk is the open-ended command table. Design question —
+      stash-before-fix, a dirty-tree warning, or a diff preview — deferred from
+      the launch-readiness review (finding C15) pending a decision. Evidence:
+      `src/engine/gate/fix_drift.ts` (the deliberate D0 exclusion);
+      [ADR 0047](docs/_adr/0047-fix-stage-strand-detection.md).
+
 - [ ] **`skills` `targetExists` treats an unreadable symlink target as
       missing.** A bare `catch {}` conflates "absent" with "couldn't stat", so a
       symlink whose target is merely unreadable (e.g. EACCES) could be pruned
