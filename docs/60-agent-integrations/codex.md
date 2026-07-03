@@ -116,8 +116,9 @@ script = "discern worktree:teardown"
 ```
 
 `version` and `name` are written only when absent, so an app-created file keeps
-the app's values. `[setup]` and `[cleanup]` are re-emitted on every refresh
-because the Codex app can regenerate this file.
+the app's values. Missing or still-default discern scripts are re-emitted on
+refresh because the Codex app can regenerate this file; user-customized script
+values are preserved.
 
 This file is for Codex-app-managed worktrees. discern's own sibling worktrees
 still come from `discern start` / `discern_start` and the worktree lifecycle

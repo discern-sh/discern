@@ -566,6 +566,54 @@ Deno.test("wireProviderWorktreeApp co-manages Codex environment.toml, preserving
   });
 });
 
+Deno.test("wireProviderWorktreeApp preserves user-customized Codex environment scripts", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.mkdir(join(dir, ".codex/environments"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, ".codex/environments/environment.toml"),
+      'version = 1\nname = "custom"\n\n[setup]\nscript = "bin/setup-codex-env"\n\n[cleanup]\nscript = "bin/cleanup-codex-env"\n',
+    );
+
+    assertEquals(await wireProviderWorktreeApp(dir, ["codex"]), []);
+
+    const parsed = parseToml(
+      await Deno.readTextFile(
+        join(dir, ".codex/environments/environment.toml"),
+      ),
+    ) as {
+      setup: { script: string };
+      cleanup: { script: string };
+    };
+    assertEquals(parsed.setup.script, "bin/setup-codex-env");
+    assertEquals(parsed.cleanup.script, "bin/cleanup-codex-env");
+  });
+});
+
+Deno.test("wireProviderWorktreeApp fills missing Codex scripts without clobbering customized siblings", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.mkdir(join(dir, ".codex/environments"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, ".codex/environments/environment.toml"),
+      'version = 1\nname = "custom"\n\n[setup]\nscript = "bin/setup-codex-env"\n',
+    );
+
+    assertEquals(await wireProviderWorktreeApp(dir, ["codex"]), [
+      ".codex/environments/environment.toml",
+    ]);
+
+    const parsed = parseToml(
+      await Deno.readTextFile(
+        join(dir, ".codex/environments/environment.toml"),
+      ),
+    ) as {
+      setup: { script: string };
+      cleanup: { script: string };
+    };
+    assertEquals(parsed.setup.script, "bin/setup-codex-env");
+    assertEquals(parsed.cleanup.script, "discern worktree:teardown");
+  });
+});
+
 Deno.test("wireProviderWorktreeApp creates a SCHEMA-VALID environment.toml when absent (version + name), and skips agents without one", async () => {
   await withTempDir(async (dir) => {
     // Absent file → created with discern's setup/cleanup AND the top-level keys

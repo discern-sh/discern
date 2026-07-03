@@ -49,25 +49,30 @@ no new verb is introduced.**
    Only Codex declares one. `registerCodexEnvironment` merges
    `[setup].script = "discern worktree:ensure"` and
    `[cleanup].script = "discern worktree:teardown"` via the comment-preserving
-   `TomlEditor`, rewriting **only those two keys** so the app's `[[actions]]`
-   and comments survive untouched. Codex's schema additionally REQUIRES
-   top-level `version` (number) and `name` (string) — a file missing them is
-   rejected with `expected string, received undefined` at `name` — so discern
-   seeds `version = 1` and `name = "Discern"` **set-if-absent**: a file discern
-   writes from scratch validates (giving immediate Codex-environments access),
-   while a file the app already created keeps its own `version`/`name`. Writing
-   those root-level keys is why `TomlEditor` gained `hasRootKey` /
-   `setRootLiteral` (the `discern.toml` subset has no pre-section keys; a
-   co-managed foreign file does). It is safe when the file is absent (created).
+   `TomlEditor`, rewriting a script key only when it is absent or still set to
+   discern's own default. A user-customized script value is preserved, while the
+   app's `[[actions]]` and comments survive untouched. Codex's schema
+   additionally REQUIRES top-level `version` (number) and `name` (string) — a
+   file missing them is rejected with `expected string, received undefined` at
+   `name` — so discern seeds `version = 1` and `name = "Discern"`
+   **set-if-absent**: a file discern writes from scratch validates (giving
+   immediate Codex-environments access), while a file the app already created
+   keeps its own `version`/`name`. Writing those root-level keys is why
+   `TomlEditor` gained `hasRootKey` / `setRootLiteral` (the `discern.toml`
+   subset has no pre-section keys; a co-managed foreign file does). It is safe
+   when the file is absent (created).
 
-2. **It re-emits on every refresh, not as a one-shot seed.**
+2. **It re-emits on every refresh, with ownership-aware script writes.**
    `wireProviderWorktreeApp` runs inside `compileGuidelines` right after the MCP
    wiring — the same timing as `wireProviderMcp` (ADR 0045). Because the app may
    regenerate the file at any time, a seed (write-once, then the user's) would
    be silently clobbered and never reapplied; re-emitting **self-heals** the two
-   `script` keys whenever the app rewrites the file. A shared idempotent-TOML
-   core writes back only when the bytes change, so a refresh that finds both
-   scripts present is a clean no-op.
+   `script` keys whenever the app rewrites the file and drops them. The
+   self-heal does not imply permanent ownership over the user's commands: once a
+   script value differs from discern's default, refresh treats it as user-owned
+   and leaves it alone. A shared idempotent-TOML core writes back only when the
+   bytes change, so a refresh that finds both scripts present or customized is a
+   clean no-op.
 
 3. **`[cleanup]` reuses the existing cwd-based `worktree:teardown` verb.** That
    verb already resolves the worktree from the process cwd (it walks up to
@@ -99,7 +104,7 @@ The explicit *no*s:
 
 - **A developer on Codex-app-managed worktrees gets discern setup/teardown** via
   `environment.toml`, kept in step with the app's regenerations, while the app's
-  own config is preserved.
+  own config and user-customized lifecycle scripts are preserved.
 - **The engine stays agent-agnostic.** Every `.codex` path lives in
   `src/lib/providers.ts` and is reached through the registry;
   `compileGuidelines` calls `wireProviderWorktreeApp(root, agents)` and
@@ -120,6 +125,11 @@ The explicit *no*s:
   Rejected: the app regenerates the file, so a one-shot seed is clobbered and
   never reapplied — the two `script` keys would silently vanish. Re-emitting on
   refresh is the only shape that survives the app owning the file.
+- **Unconditionally overwrite the two `script` keys on every refresh.** Rejected
+  after the launch review: it self-heals app regeneration, but it also destroys
+  a user's deliberate environment setup/cleanup commands. Ownership-aware writes
+  keep the self-heal for absent or discern-default values without treating user
+  customization as drift.
 - **A new `worktree:cleanup` (or `worktree:remove`-style) verb for
   `[cleanup]`.** Rejected: `worktree:teardown` already does cwd-based, no-stdin
   teardown through the shared core; a second verb would duplicate it and split
