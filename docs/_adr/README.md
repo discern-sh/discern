@@ -104,7 +104,6 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0088 — The fresh setup welcome decorates only on TTY](0088-fresh-setup-welcome-decorates-only-on-tty.md)
 - [0089 — Machine-local provider settings stay ignored](0089-machine-local-provider-settings-stay-ignored.md)
 - [0090 — Setup proves the project runs in a worktree, and `smoke` joins the known capabilities](0090-setup-proves-worktree-viability.md)
-- [0091 — Rescue generated content before overwrite](0091-rescue-generated-content-before-overwrite.md)
 - [0092 — `upgrade` reconciles the fixed `discern.toml` scaffold](0092-upgrade-reconciles-config-scaffold.md)
 
 ## Superseded and consolidated ADRs
@@ -142,3 +141,6 @@ without cluttering the active index above.
   — consolidated into the merge-check ADR (0050)
 - [0061 — Graduate enforces the fix stage's fixed point](_superseded/0061-graduate-fix-stage-fixed-point.md)
   — superseded by 0067
+- [0091 — Rescue generated content before overwrite](_superseded/0091-rescue-generated-content-before-overwrite.md)
+  — reverted because detecting user authorship inside ignored generated files
+  produced false rescues for old generated output

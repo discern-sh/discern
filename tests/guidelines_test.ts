@@ -1,10 +1,6 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { compileGuidelines } from "../src/engine/guidelines.ts";
-import {
-  GUIDANCE_BASELINES_REL,
-  listRescuedArtifacts,
-} from "../src/lib/rescue.ts";
 
 /** Scaffold a temp project with a discern.toml, a guidance source, and one
  * authored skill (under ./skills/). Built-in guidance + bundled skills come from
@@ -96,80 +92,6 @@ Deno.test("compileGuidelines: built-in + sources (no banner); copies built-ins, 
       await Deno.lstat(link).then(() => true).catch(() => false),
       false,
       "expected the dangling skill link to be pruned",
-    );
-  } finally {
-    await Deno.remove(tmp, { recursive: true });
-  }
-});
-
-Deno.test("compileGuidelines: rescues generated-file edits without source-edit noise", async () => {
-  const tmp = await scaffold();
-  try {
-    const first = await compileGuidelines(tmp);
-    assertEquals(first.rescuedArtifacts, []);
-
-    await Deno.writeTextFile(
-      join(tmp, "guidance.md"),
-      "# Project guidance\nMy own rule.\nSource-only change.\n",
-    );
-    const sourceOnly = await compileGuidelines(tmp);
-    assertEquals(sourceOnly.rescuedArtifacts, []);
-    assertEquals(await listRescuedArtifacts(tmp), []);
-
-    const claudePath = join(tmp, "CLAUDE.md");
-    await Deno.writeTextFile(
-      claudePath,
-      `${await Deno.readTextFile(
-        claudePath,
-      )}\n# Local memory\nRemember the launch checklist.\n`,
-    );
-    await Deno.writeTextFile(
-      join(tmp, "guidance.md"),
-      "# Project guidance\nMy own rule.\nSource-only change.\nSecond source change.\n",
-    );
-
-    const rescued = await compileGuidelines(tmp);
-    assertEquals(await Deno.readTextFile(claudePath), "@AGENTS.md\n");
-    assertEquals(rescued.rescuedArtifacts.length, 1);
-    const rescueRel = rescued.rescuedArtifacts[0];
-    assert(rescueRel !== undefined);
-    const rescueText = await Deno.readTextFile(join(tmp, rescueRel));
-    assertStringIncludes(rescueText, "Remember the launch checklist.");
-    assertStringIncludes(rescued.hints.join("\n"), "guidance.md");
-    assertEquals(await listRescuedArtifacts(tmp), rescued.rescuedArtifacts);
-  } finally {
-    await Deno.remove(tmp, { recursive: true });
-  }
-});
-
-Deno.test("compileGuidelines: rescues generated-file edits when no baseline exists yet", async () => {
-  const tmp = await scaffold();
-  try {
-    const first = await compileGuidelines(tmp);
-    assertEquals(first.rescuedArtifacts, []);
-    await Deno.remove(join(tmp, GUIDANCE_BASELINES_REL));
-
-    const claudePath = join(tmp, "CLAUDE.md");
-    await Deno.writeTextFile(
-      claudePath,
-      `${await Deno.readTextFile(
-        claudePath,
-      )}\n# Local memory\nTyped before this discern version shipped.\n`,
-    );
-    await Deno.writeTextFile(
-      join(tmp, "guidance.md"),
-      "# Project guidance\nMy own rule.\nSource-only change.\n",
-    );
-
-    const rescued = await compileGuidelines(tmp);
-    assertEquals(await Deno.readTextFile(claudePath), "@AGENTS.md\n");
-    assertEquals(rescued.rescuedArtifacts.length, 1);
-    const rescueRel = rescued.rescuedArtifacts[0];
-    assert(rescueRel !== undefined);
-    const rescueText = await Deno.readTextFile(join(tmp, rescueRel));
-    assertStringIncludes(
-      rescueText,
-      "Typed before this discern version shipped.",
     );
   } finally {
     await Deno.remove(tmp, { recursive: true });

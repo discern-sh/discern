@@ -16,7 +16,7 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { dirname, join, relative } from "@std/path";
-import { copy, walk } from "@std/fs";
+import { walk } from "@std/fs";
 import {
   type DiscernConfig,
   parseConfigOrThrow,
@@ -26,7 +26,6 @@ import {
   claudeSkillsDirOf,
   ejectSkill,
   listSkills,
-  MATERIALIZED_BASELINES,
   MATERIALIZED_MANIFEST,
   materializeSkills,
   resolveEffectiveSkills,
@@ -277,42 +276,6 @@ Deno.test("materializeSkills: leaves a foreign entry (unmanaged name, live targe
   });
 });
 
-Deno.test("materializeSkills: moves a colliding managed-name drop-in aside once", async () => {
-  await withTempDir(async (root) => {
-    const sk = claudeSkillsDirOf(root);
-    await Deno.mkdir(join(sk, "discern-write-adr"), { recursive: true });
-    await Deno.writeTextFile(
-      join(sk, "discern-write-adr/SKILL.md"),
-      "# user authored collision\nkeep me\n",
-    );
-
-    const first = await materializeSkills(root, cfg(), CLAUDE_SKILLS);
-    assertEquals(first.rescued.length, 1);
-    const rescueRel = first.rescued[0];
-    assert(rescueRel !== undefined);
-    assert(
-      await exists(join(root, rescueRel, "SKILL.md")),
-      "the colliding drop-in must be moved aside, not deleted",
-    );
-    assertStringIncludes(
-      await Deno.readTextFile(join(root, rescueRel, "SKILL.md")),
-      "keep me",
-    );
-    assertStringIncludes(
-      await Deno.readTextFile(join(sk, "discern-write-adr/SKILL.md")),
-      "name: discern-write-adr",
-    );
-
-    const second = await materializeSkills(root, cfg(), CLAUDE_SKILLS);
-    assertEquals(second.rescued, []);
-    assertEquals(
-      first.rescued,
-      [rescueRel],
-      "the rescue path should remain stable instead of stacking copies",
-    );
-  });
-});
-
 Deno.test("materializeSkills: prunes a real-dir copy of a bundled skill it no longer ships, but never a drop-in", async () => {
   await withTempDir(async (root) => {
     const sk = claudeSkillsDirOf(root);
@@ -321,24 +284,17 @@ Deno.test("materializeSkills: prunes a real-dir copy of a bundled skill it no lo
 
     // Simulate a bundled skill a newer binary stopped shipping: a real copied dir
     // whose name discern recorded as materialized, now absent from the effective set.
-    await copy(join(sk, "discern-write-adr"), join(sk, "gone-skill"));
+    await Deno.mkdir(join(sk, "gone-skill"));
+    await Deno.writeTextFile(
+      join(sk, "gone-skill/SKILL.md"),
+      "stale bundled copy",
+    );
     const manifestPath = join(sk, MATERIALIZED_MANIFEST);
     const owned = JSON.parse(await Deno.readTextFile(manifestPath)) as string[];
     await Deno.writeTextFile(
       manifestPath,
       JSON.stringify([...owned, "gone-skill"], null, 2),
     );
-    const baselinesPath = join(sk, MATERIALIZED_BASELINES);
-    const baselines = JSON.parse(
-      await Deno.readTextFile(baselinesPath),
-    ) as Record<string, string>;
-    const writeAdrFingerprint = baselines["discern-write-adr"];
-    assert(
-      writeAdrFingerprint !== undefined,
-      "precondition: bundled skill baseline recorded",
-    );
-    baselines["gone-skill"] = writeAdrFingerprint;
-    await Deno.writeTextFile(baselinesPath, JSON.stringify(baselines, null, 2));
 
     // A genuine user drop-in (a name discern never materialized) must survive — even
     // though it is also a real dir with a SKILL.md.

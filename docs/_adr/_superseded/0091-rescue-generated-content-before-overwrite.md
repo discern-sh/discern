@@ -1,13 +1,20 @@
 # ADR 0091: Rescue generated content before overwrite
 
+> **Superseded without replacement.** The implementation was reverted because
+> detecting user authorship inside ignored generated files proved
+> product-hostile: a first refresh after shipped guidance changed could rescue
+> discern's own old render as if it were user content. Revisit only with a
+> design that does not try to infer meaningful user edits from ignored generated
+> artifacts.
+
 **Status**: accepted
 
-Builds on [ADR 0034](0034-agents-md-untracked-currency-check.md), which makes
+Builds on [ADR 0034](../0034-agents-md-untracked-currency-check.md), which makes
 the agent files untracked build artifacts;
-[ADR 0065](0065-setup-keeps-its-promises.md), which adopts pre-existing
+[ADR 0065](../0065-setup-keeps-its-promises.md), which adopts pre-existing
 setup-time guidance before the first compile; and
-[ADR 0087](0087-prefix-and-expand-bundled-skills.md), which shrinks but cannot
-eliminate skill-name collisions.
+[ADR 0087](../0087-prefix-and-expand-bundled-skills.md), which shrinks but
+cannot eliminate skill-name collisions.
 
 ## Context
 

@@ -43,6 +43,18 @@ _Nothing outstanding._
 
 ## 🟡 Smaller fixes & polish
 
+- [ ] **Revisit generated-artifact user-content preservation only with a
+      non-inference design.** A previous attempt rescued edits from ignored
+      generated agent files and materialized skill dirs by diffing on-disk
+      content against local ignored baselines. That was reverted: ignored files
+      have no reliable authorship signal, and the first refresh after discern's
+      own shipped guidance changed could rescue stale generated prose as if it
+      were user-authored content. Revisit only if the design avoids inferring
+      meaningful user edits from ignored generated artifacts, or if real user
+      incidents make the trade-off worth re-opening. Evidence:
+      `docs/_adr/_superseded/0091-rescue-generated-content-before-overwrite.md`;
+      `src/engine/guidelines.ts`; `src/lib/skills.ts`.
+
 - [ ] **The v3→v4 config migration leaves stale comment blocks behind.** It is
       comment-preserving, so it rewrites the tables (`[slots]`→`[capabilities]`/
       `[checks]`, `[scopes]` arrays→tables, drops `[evidence]`) but leaves the
