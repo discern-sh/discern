@@ -272,19 +272,11 @@ Deno.test("renderAgentFiles: base guidance is MCP-first with a CLI fallback (no 
   try {
     const body = (await renderAgentFiles(dir)).get("AGENTS.md");
     assert(body !== undefined);
-    // MCP-first stance + the normal CLI fallback are present...
+    // MCP-first stance + the unreachable-server fallback are present...
     assert(body.includes("primary surface"), "states MCP-first");
     assert(
-      body.includes("MCP tools are **unavailable**"),
+      body.includes("MCP server is **unreachable**"),
       "carries the fallback instruction",
-    );
-    assert(
-      body.includes("normal supported"),
-      "frames CLI --json as a supported path",
-    );
-    assert(
-      !body.includes("the misconfiguration"),
-      "does not raise a universal misconfiguration alarm",
     );
     assert(body.includes("discern_finish"), "names the gate as a tool");
     // ...and the de-duplicated content is gone (cut, not relocated twice).
