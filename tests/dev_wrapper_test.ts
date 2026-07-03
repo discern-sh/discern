@@ -13,6 +13,7 @@
 import { dirname, fromFileUrl, join } from "@std/path";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { withTempDir } from "./helpers.ts";
+import { renderShim } from "../scripts/cli_install.ts";
 
 /** Absolute path to the wrapper under test. */
 const WRAPPER = join(
@@ -46,6 +47,20 @@ async function writeStub(
   await Deno.chmod(path, 0o755);
 }
 
+/**
+ * Write an installed-shim copy into `dir` with `checkout` baked in as its
+ * out-of-checkout fallback — exactly what `install-dev-cli` stamps onto PATH.
+ */
+async function writeRenderedShim(
+  dir: string,
+  checkout: string,
+): Promise<string> {
+  const path = join(dir, "discern-installed");
+  await Deno.writeTextFile(path, renderShim(checkout));
+  await Deno.chmod(path, 0o755);
+  return path;
+}
+
 /** A `deno` stub that echoes its argv so the test can see the chosen engine. */
 const DENO_STUB = '#!/bin/sh\nprintf "%s\\n" "$@"\n';
 
@@ -70,13 +85,16 @@ async function runWrapper(opts: {
   cwd: string;
   stubDir: string;
   discernHome?: string;
+  /** Which shim to run — defaults to the source wrapper; pass a rendered one to
+   * exercise the baked-in install fallback. */
+  wrapper?: string;
 }): Promise<WrapperRun> {
   const env: Record<string, string> = {
     PATH: `${opts.stubDir}:${Deno.env.get("PATH") ?? ""}`,
   };
   if (opts.discernHome !== undefined) env.DISCERN_HOME = opts.discernHome;
   const { code, stdout, stderr } = await new Deno.Command("/bin/sh", {
-    args: [WRAPPER, ...opts.args],
+    args: [opts.wrapper ?? WRAPPER, ...opts.args],
     cwd: opts.cwd,
     clearEnv: true,
     env,
@@ -212,6 +230,61 @@ Deno.test("wrapper: `mcp` does not run a look-alike main checkout", async () => 
     assert(
       !run.stdout.includes(f.lookalikeMain),
       "mcp must not exec the look-alike project's src/main.ts",
+    );
+  });
+});
+
+Deno.test("wrapper: the committed source shim keeps an empty bake placeholder", async () => {
+  const source = await Deno.readTextFile(WRAPPER);
+  assertStringIncludes(
+    source,
+    'DISCERN_BAKED_CHECKOUT=""',
+    "the tracked shim must stay unbaked — only install-dev-cli stamps a path in",
+  );
+});
+
+Deno.test("renderShim: stamps the checkout and escapes single quotes", () => {
+  const out = renderShim("/tmp/a'b/discern");
+  assertStringIncludes(out, "DISCERN_BAKED_CHECKOUT='/tmp/a'\\''b/discern'");
+  assert(
+    !out.includes('DISCERN_BAKED_CHECKOUT=""'),
+    "the empty placeholder must be gone after stamping",
+  );
+});
+
+Deno.test("wrapper: a baked-in checkout resolves with no DISCERN_HOME in the env", async () => {
+  await withFixture(async (f) => {
+    const shim = await writeRenderedShim(f.stubDir, f.discern);
+    const run = await runWrapper({
+      args: ["status"],
+      cwd: f.lookalike, // outside any checkout: the walk-up finds nothing
+      stubDir: f.stubDir,
+      wrapper: shim,
+      // No DISCERN_HOME: the baked-in fallback alone must resolve the engine —
+      // this is the launchd/GUI-launched-hook case the bake-in exists for.
+    });
+    assertEquals(run.code, 0);
+    assertStringIncludes(run.stdout, f.discernMain);
+  });
+});
+
+Deno.test("wrapper: an explicit DISCERN_HOME overrides the baked-in checkout", async () => {
+  await withFixture(async (f) => {
+    const other = join(dirname(f.discern), "other-checkout");
+    await scaffoldProject(other, "discern");
+    const shim = await writeRenderedShim(f.stubDir, other);
+    const run = await runWrapper({
+      args: ["status"],
+      cwd: f.lookalike,
+      stubDir: f.stubDir,
+      wrapper: shim,
+      discernHome: f.discern,
+    });
+    assertEquals(run.code, 0);
+    assertStringIncludes(run.stdout, f.discernMain);
+    assert(
+      !run.stdout.includes(join(other, "src", "main.ts")),
+      "explicit DISCERN_HOME must win over the baked-in checkout",
     );
   });
 });

@@ -31,6 +31,15 @@
 # user-facing setup and discern's installer never lays it down. Install or update
 # it with `deno task install-dev-cli`.
 
+# --- stamped at install time -------------------------------------------------
+# install-dev-cli rewrites the next assignment to the main checkout's absolute
+# path, giving the INSTALLED shim a durable fallback for when no DISCERN_HOME is
+# in the environment — e.g. a GUI-launched agent whose hooks run via /bin/sh and
+# never source your shell profile, or cron/CI. It stays empty in the source tree,
+# where the cwd walk-up below already covers in-checkout use.
+DISCERN_BAKED_CHECKOUT=""
+# -----------------------------------------------------------------------------
+
 # True when $1 is the root of a discern engine checkout — not merely a Deno
 # project of the same shape. Confirms discern's identity declaration in deno.json
 # so an unrelated `src/main.ts` + `deno.json` project is never mistaken for it.
@@ -68,6 +77,13 @@ done
 
 if [ -n "${DISCERN_HOME:-}" ] && is_discern_checkout "$DISCERN_HOME"; then
   run_engine "$DISCERN_HOME" "$@"
+fi
+
+# Last resort: the checkout baked in at install time (empty in the source tree).
+# An explicit $DISCERN_HOME above still wins, so you can repoint without
+# reinstalling; this only catches the no-env case the fallback exists for.
+if [ -n "$DISCERN_BAKED_CHECKOUT" ] && is_discern_checkout "$DISCERN_BAKED_CHECKOUT"; then
+  run_engine "$DISCERN_BAKED_CHECKOUT" "$@"
 fi
 
 echo "discern: no discern checkout found at or above $PWD, and \$DISCERN_HOME is unset or invalid." >&2

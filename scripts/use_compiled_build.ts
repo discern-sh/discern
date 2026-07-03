@@ -27,9 +27,10 @@
 import { fromFileUrl, join } from "@std/path";
 import {
   installExecutable,
-  installExecutableSync,
+  renderShim,
+  resolveBakedCheckout,
   resolveCliDest,
-  shimSource,
+  writeExecutableSync,
 } from "./cli_install.ts";
 
 /** Apply an ANSI code only when stderr is a real terminal. */
@@ -97,7 +98,7 @@ function printLiveBanner(dest: string, triple: string): void {
  */
 export function holdCompiledLease(opts: {
   dest: string;
-  shimSrc: string;
+  bakedCheckout: string;
   triple: string;
 }): Promise<never> {
   let restored = false;
@@ -105,7 +106,7 @@ export function holdCompiledLease(opts: {
     if (!restored) {
       restored = true;
       try {
-        installExecutableSync(opts.shimSrc, opts.dest);
+        writeExecutableSync(renderShim(opts.bakedCheckout), opts.dest);
         console.error("");
         console.error(
           `  ↩  ${sig} — dev shim restored on PATH. Back to normal.`,
@@ -152,7 +153,7 @@ async function main(): Promise<number> {
   const repoRoot = fromFileUrl(new URL("..", import.meta.url));
   const triple = Deno.build.target;
   const { dest } = await resolveCliDest();
-  const shimSrc = shimSource();
+  const bakedCheckout = await resolveBakedCheckout(repoRoot);
 
   // 1) Build first — nothing is swapped yet, so Ctrl+C here just aborts cleanly.
   if (!(await buildHostBinary(repoRoot, triple))) {
@@ -171,7 +172,7 @@ async function main(): Promise<number> {
   }
 
   // 3) Hold it until you let go; the shim is restored on the way out.
-  return holdCompiledLease({ dest, shimSrc, triple });
+  return holdCompiledLease({ dest, bakedCheckout, triple });
 }
 
 if (import.meta.main) {

@@ -2,10 +2,13 @@
  * Install (or refresh) the local-development `discern` wrapper onto PATH.
  *
  * The wrapper (`scripts/discern`) runs the engine from whichever checkout you are
- * inside — a worktree runs its own in-progress engine — falling back to
- * $DISCERN_HOME elsewhere. This script copies it next to the `discern` already on
- * PATH (or `~/.local/bin`), so the installed copy survives worktree churn, and
- * prints the $DISCERN_HOME to export for the out-of-checkout fallback.
+ * inside — a worktree runs its own in-progress engine — falling back elsewhere to
+ * $DISCERN_HOME, then to the main checkout baked in here. This script writes it
+ * next to the `discern` already on PATH (or `~/.local/bin`), so the installed
+ * copy survives worktree churn, and stamps that main-checkout path into the copy
+ * so the installed shim resolves the engine even with no $DISCERN_HOME in the
+ * environment (a GUI-launched agent's hooks, cron, CI). $DISCERN_HOME still
+ * overrides when set.
  *
  * Its inverse is `use-compiled-build`, which temporarily runs the real
  * compiled binary instead; this is the command that puts the dev shim back.
@@ -18,44 +21,35 @@
  *   deno task install-dev-cli
  */
 
-import { dirname, fromFileUrl } from "@std/path";
+import { fromFileUrl } from "@std/path";
 import {
-  capture,
-  installExecutable,
+  renderShim,
+  resolveBakedCheckout,
   resolveCliDest,
-  shimSource,
+  writeExecutable,
 } from "./cli_install.ts";
 
 async function main(): Promise<number> {
   const repoRoot = fromFileUrl(new URL("..", import.meta.url));
-
-  // The durable fallback checkout: the *main* working tree, found via the shared
-  // git dir so it resolves to main even when this runs from a linked worktree.
-  const common = await capture(
-    "git",
-    ["rev-parse", "--path-format=absolute", "--git-common-dir"],
-    repoRoot,
-  );
-  const discernHome = common.code === 0 && common.stdout.length > 0
-    ? dirname(common.stdout)
-    : repoRoot;
+  const bakedCheckout = await resolveBakedCheckout(repoRoot);
 
   const { dest, targetDir, onPath } = await resolveCliDest();
   try {
-    await installExecutable(shimSource(), dest);
+    await writeExecutable(renderShim(bakedCheckout), dest);
   } catch (e) {
     const reason = e instanceof Error ? e.message : String(e);
     console.error(`install-dev-cli: could not write ${dest}: ${reason}`);
     return 1;
   }
   console.error(`installed: ${dest}`);
-
+  console.error(`  baked-in fallback checkout: ${bakedCheckout}`);
+  console.error(
+    "  → resolves the engine from any project with no DISCERN_HOME needed.",
+  );
   console.error("");
   console.error(
-    "For the out-of-checkout fallback (running discern against other projects),",
+    `Optional: export DISCERN_HOME=<path> to override the baked-in checkout.`,
   );
-  console.error("export this in your shell profile:");
-  console.error(`    export DISCERN_HOME=${discernHome}`);
 
   if (!onPath) {
     console.error("");

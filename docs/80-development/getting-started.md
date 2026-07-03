@@ -39,7 +39,10 @@ These work the same regardless of language or framework (shown here as
 **Run the tool from source.** Install the dev wrapper once with
 `deno task install-dev-cli`: it puts a `discern` on your `PATH` that runs the
 engine of whichever checkout you're in — a worktree runs its own in-progress
-engine — mirroring what an end user runs. Then drive everything with
+engine — mirroring what an end user runs. Outside any checkout (driving discern
+against another project, or from a GUI-launched agent's hooks that carry no
+shell env), it falls back to the main checkout baked into the wrapper at install
+time, which `$DISCERN_HOME` overrides when set. Then drive everything with
 `discern <verb>`. Never use the `dist/` binaries while developing; they bundle a
 frozen `templates/` snapshot. (No wrapper yet? `deno task dev <verb>` runs the
 same thing straight from the clone — just don't put `--` before the subcommand,
