@@ -75,7 +75,7 @@ Deno.test("detectAgentsOnPath: a non-executable file does not count (POSIX)", as
 Deno.test("detectAgentsOnPath: match-any — any one of a provider's binaries suffices", async () => {
   // Drive the match-any semantics off the registry: for each agent, dropping ANY
   // ONE of its declared binaries on PATH must detect it. Guards the future
-  // multi-binary vendors (e.g. cursor-agent / agent) without naming one here.
+  // multi-binary vendors without naming one here.
   for (const name of AGENT_NAMES) {
     for (const binary of PROVIDERS[name].binaries) {
       await withTempDir(async (bin) => {
@@ -89,6 +89,17 @@ Deno.test("detectAgentsOnPath: match-any — any one of a provider's binaries su
       });
     }
   }
+});
+
+Deno.test("detectAgentsOnPath: generic `agent` binary does not detect Cursor", async () => {
+  await withTempDir(async (bin) => {
+    await fakeBinary(bin, "agent");
+    assertEquals(
+      await detectAgentsOnPath(fakeEnv({ PATH: bin })),
+      [],
+      "a project may have an unrelated `agent` executable on PATH; Cursor detection must require Cursor's own CLI name",
+    );
+  });
 });
 
 Deno.test("resolveDefaultAgents: detected set when non-empty, else DEFAULT_AGENTS", async () => {

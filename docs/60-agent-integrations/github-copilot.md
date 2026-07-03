@@ -14,6 +14,21 @@ in `[guidance].agents`:
 GitHub Copilot is not in `DEFAULT_AGENTS`; add `"copilot"` to
 `[guidance].agents` to wire its provider-specific config.
 
+## Using the IDE, not the CLI?
+
+Setup auto-detection sees PATH binaries, so a GitHub Copilot IDE user without
+the Copilot CLI on PATH is intentionally invisible to it. Add `copilot`
+explicitly under `[guidance].agents`, then run `discern refresh`:
+
+```toml
+[guidance]
+agents = ["copilot"]
+```
+
+If the project already lists other agents, include `copilot` in that same array.
+IDE marker detection is a future option; explicit config is the reliable path
+today.
+
 ## Guidance and skills
 
 The Copilot CLI reads `AGENTS.md` natively as its primary instruction file, so

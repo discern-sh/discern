@@ -1011,9 +1011,9 @@ export const PROVIDERS: Record<AgentName, Provider> = {
   cursor: {
     name: "cursor",
     label: "Cursor",
-    // `cursor-agent` is the high-confidence CLI signal; `agent` is the generic
-    // alias the same binary also installs as. Match-any: either resolving means present.
-    binaries: ["cursor-agent", "agent"],
+    // `cursor-agent` is the high-confidence CLI signal. The generic `agent` alias is
+    // deliberately NOT a setup-detection signal: unrelated tools commonly use it.
+    binaries: ["cursor-agent"],
     // Cursor reads the canonical AGENTS.md natively at the repo root, so discern emits
     // no Cursor-specific file (reuse-canonical: no duplicate body, no pointer).
     guidanceFile: { path: "AGENTS.md", canonical: false, reuseCanonical: true },

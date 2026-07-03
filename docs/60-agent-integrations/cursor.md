@@ -14,6 +14,21 @@ co-manages, or relies on the files below when Cursor is enabled in
 Cursor is not in `DEFAULT_AGENTS`; add `"cursor"` to `[guidance].agents` to wire
 its provider-specific config.
 
+## Using the IDE, not the CLI?
+
+Setup auto-detection sees PATH binaries, so a Cursor IDE user without
+`cursor-agent` on PATH is intentionally invisible to it. Add `cursor` explicitly
+under `[guidance].agents`, then run `discern refresh`:
+
+```toml
+[guidance]
+agents = ["cursor"]
+```
+
+If the project already lists other agents, include `cursor` in that same array.
+IDE marker detection is a future option; explicit config is the reliable path
+today.
+
 ## Guidance and skills
 
 Cursor reads `AGENTS.md` natively at the repository root, so discern models it
