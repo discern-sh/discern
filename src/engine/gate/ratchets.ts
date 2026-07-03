@@ -351,13 +351,14 @@ async function executeRatchetPlan(
  * entry point the MCP server renders, and the source the CLI's `--json` serializes.
  * Slow and ON DEMAND: it runs every ratchet's measurement command (and a git read
  * of main's baseline), so it is NOT part of `finish`. `dryRun` returns the plan
- * (no git, no measurement); an empty config is a clean pass; otherwise it applies
+ * (no git, no measurement); an empty config is a clean pass. Non-dry-run checks
+ * require a clean tree unless forced for ratchet authoring. Otherwise it applies
  * the plan QUIET — the measurement output flows through a silent Out so a caller
  * owning stdout (the MCP stdio channel) stays uncontaminated.
  */
 export async function ratchetsResult(
   root: string,
-  opts: { dryRun?: boolean } = {},
+  opts: { dryRun?: boolean; force?: boolean } = {},
 ): Promise<DiscernResult> {
   const cfg = await loadConfig(root);
   const plan = buildRatchetPlan(cfg);
@@ -367,10 +368,22 @@ export async function ratchetsResult(
   } else if (plan.ratchets.length === 0) {
     result = appliedResult("ratchets", []);
   } else {
-    const mainBranch = Deno.env.get("MAIN_BRANCH") || cfg.project.main_branch;
-    const out = makeOut(colorEnabled(), { quiet: true });
-    const { results } = await executeRatchetPlan(plan, root, mainBranch, out);
-    result = appliedResult("ratchets", results);
+    const dirtyMessage = (opts.force ?? false)
+      ? undefined
+      : await ratchetsCleanTreeMessage(root);
+    if (dirtyMessage !== undefined) {
+      result = {
+        ok: false,
+        verb: "ratchets",
+        error: "dirty_worktree",
+        message: dirtyMessage,
+      };
+    } else {
+      const mainBranch = Deno.env.get("MAIN_BRANCH") || cfg.project.main_branch;
+      const out = makeOut(colorEnabled(), { quiet: true });
+      const { results } = await executeRatchetPlan(plan, root, mainBranch, out);
+      result = appliedResult("ratchets", results);
+    }
   }
   // Pre-setup, lead with the "setup unfinished" advisory (ADR 0065): ratchets is
   // un-gated during setup, so its output must not read as a finished project.
@@ -384,15 +397,16 @@ export async function ratchetsResult(
 /** Run `ratchets`. Returns a process exit code (non-zero if any ratchet failed). */
 export async function runRatchets(
   root: string,
-  opts: { json?: boolean; dryRun?: boolean } = {},
+  opts: { json?: boolean; dryRun?: boolean; force?: boolean } = {},
 ): Promise<number> {
   const json = opts.json ?? false;
   const dryRun = opts.dryRun ?? false;
+  const force = opts.force ?? false;
 
   // --json/MCP: the result envelope is the entire output (ADR 0030) — compute it
   // through the shared core and emit it.
   if (json) {
-    const result = await ratchetsResult(root, { dryRun });
+    const result = await ratchetsResult(root, { dryRun, force });
     emitResult(result);
     return result.ok ? 0 : 1;
   }
@@ -416,6 +430,14 @@ export async function runRatchets(
     return 0;
   }
 
+  if (!force) {
+    const dirtyMessage = await ratchetsCleanTreeMessage(root);
+    if (dirtyMessage !== undefined) {
+      out.error(dirtyMessage);
+      return 1;
+    }
+  }
+
   const { ok } = await executeRatchetPlan(plan, root, mainBranch, out);
   if (!ok) {
     out.error("One or more ratchets failed.");
@@ -423,4 +445,17 @@ export async function runRatchets(
   }
   out.ok(`All ${plan.ratchets.length} ratchet(s) held.`);
   return 0;
+}
+
+async function ratchetsCleanTreeMessage(
+  root: string,
+): Promise<string | undefined> {
+  const status = await runGit(["status", "--porcelain"], { cwd: root });
+  if (!status.success) {
+    return "Ratchets require a clean worktree, but discern could not read git status. Fix the git status check and re-run `discern ratchets`; use `--force` only while authoring or debugging ratchets.";
+  }
+  if (status.stdout.trim() === "") {
+    return undefined;
+  }
+  return "Ratchets require a clean worktree because they are slow final checks. Commit or stash changes, then re-run `discern ratchets`; use `--force` only while authoring or debugging ratchets.";
 }

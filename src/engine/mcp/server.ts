@@ -277,7 +277,8 @@ export const TOOLS: McpTool[] = orderTools([
       "`{{main_branch}}` also changed (the hot zone to re-read on integrating, since a " +
       "clean merge can still break them); data.gate " +
       "lists what the gate WOULD fire (wired capabilities, checks, triggered scope " +
-      "gates); data.worktree carries this worktree's id/port/db and provisioned " +
+      "gates); data.gate_receipt explains whether the current clean HEAD already " +
+      "has a recorded discern_finish pass; data.worktree carries this worktree's id/port/db and provisioned " +
       "resources; data.features and data.ratchets list the configured set. " +
       "data.stale_generated flags generated agent files, and data.stale_materialized " +
       "the materialized skills, that have drifted from their sources (call " +
@@ -373,17 +374,24 @@ export const TOOLS: McpTool[] = orderTools([
       "the limit was not loosened versus `{{main_branch}}`. Returns the per-ratchet " +
       "steps[]. SLOW " +
       "and ON DEMAND — it runs the metric commands, so it is NOT part of " +
-      "discern_finish; check it explicitly before pushing. Set dry_run to preview " +
-      "which ratchets would run without measuring anything.",
+      "discern_finish; run it as needed. Non-dry-run calls require a clean worktree " +
+      "unless force is set while authoring or debugging ratchets. Set dry_run to " +
+      "preview which ratchets would run without measuring anything.",
     feature: "ratchets",
     inputSchema: {
       dry_run: z.boolean().optional().describe(
         "Preview the ratchets that would run and measure nothing (default false).",
       ),
+      force: z.boolean().optional().describe(
+        "Override the clean-worktree guard while authoring or debugging ratchets (default false).",
+      ),
       ...PATH_PARAM,
     },
     run: (root, args) =>
-      ratchetsResult(root, { dryRun: args.dry_run === true }),
+      ratchetsResult(root, {
+        dryRun: args.dry_run === true,
+        force: args.force === true,
+      }),
   }),
   defineTool({
     name: "discern_doctor",
@@ -543,15 +551,15 @@ export const TOOLS: McpTool[] = orderTools([
     description:
       "Use only when the user explicitly asks to hand off or land this branch. " +
       "Graduate THIS worktree's branch into the main checkout: tear down the " +
-      "worktree's resources, commit any leftover changes, remove the worktree, then " +
+      "worktree's resources, remove the clean worktree, then " +
       'land the branch per `to`. `to:"branch"` checks it out in the main repo for ' +
       'review (branch preserved); `to:"trunk"` fast-forwards the trunk to the branch ' +
       "tip and deletes the now-merged branch. Omit `to` to use the project default " +
       "([worktree].graduate_to). This is the single deterministic implementation — " +
       "run it rather than reproducing the steps with git; commit the work with a real " +
       "message first so it lands as a proper review commit, then relay the result. " +
-      "Requires the latest `{{main_branch}}` is already integrated and the main " +
-      "checkout is clean " +
+      "Requires the latest `{{main_branch}}` is already integrated, this worktree " +
+      "is clean, and the main checkout is clean " +
       '— refuses (error:"precondition_failed") otherwise, pointing at discern_integrate ' +
       "to integrate first. Set dry_run to preview the plan without touching anything. " +
       "Operates only on the worktree the server runs in; it cannot reach another.",
@@ -1196,7 +1204,7 @@ export function buildInstructions(
     "situation, what the gate would fire, and advisory next steps.",
     "- If generated agent files or materialized skills are missing/stale, call " +
     "discern_refresh. It rewrites discern-generated and co-managed artifacts only.",
-    "- Before calling any change done, run discern_finish (the full gate). While " +
+    "- Before calling any change done, run discern_finish on the final tree (the full gate). While " +
     "iterating, use discern_prepare (the fast fix-then-check loop) and discern_test " +
     "(just the tests). On a failure, read the result's diagnostics[] — the tool, " +
     "the command to reproduce it, the captured output — and fix from those rather " +
@@ -1214,8 +1222,9 @@ export function buildInstructions(
   );
   if (enabled.has("ratchets")) {
     lines.push(
-      "- Before pushing, check the quality ratchets with discern_ratchets — slow " +
-        "and on-demand, so NOT part of discern_finish.",
+      "- Run quality ratchets with discern_ratchets as needed — slow and " +
+        "on-demand, so NOT part of discern_finish. Non-dry-run ratchets require a " +
+        "clean worktree unless force=true while authoring ratchets.",
     );
   }
   if (enabled.has("worktrees")) {
@@ -1245,8 +1254,8 @@ export function buildInstructions(
         '("graduate this", "I\'ll take it from here", "move this back to {{main_branch}}") ' +
         "should you use discern_graduate. Do not treat a green finish or status hint as " +
         "permission to graduate; if no handoff was requested, stop and report the " +
-        "branch ready for review. Commit the work with a real message " +
-        "first, then just call the tool (the single deterministic implementation — " +
+        "branch ready for review. Commit the work with a real message, run the final " +
+        "clean discern_finish for that commit, then just call the tool (the single deterministic implementation — " +
         "don't reproduce its git steps, and don't pre-flight preconditions with git: " +
         "it refuses cleanly with the exact next step, e.g. run discern_integrate " +
         "first) and relay its structured result. Pass " +

@@ -32,7 +32,7 @@ Make the detector runnable as one repo command — it's about to become the ratc
 
 ## 3. Pass the law: ratchet the count down
 
-Wire the detector's count as a `direction = "down"` ratchet — the `discern-ratchet-a-metric` skill has the full procedure and the config shape; the short of it is a `[ratchets.<name>]` table whose `run` prints `DISCERN_METRIC <name> <count>`, with `limit` set to **today's census**, and `discern ratchets` checked before pushing.
+Wire the detector's count as a `direction = "down"` ratchet — the `discern-ratchet-a-metric` skill has the full procedure and the config shape; the short of it is a `[ratchets.<name>]` table whose `run` prints `DISCERN_METRIC <name> <count>`, with `limit` set to **today's census**, and `discern ratchets` run as needed on a clean tree.
 
 This is the moment the pattern becomes illegal: any branch that *adds* an instance now fails the ratchet, whoever writes it, however unrelated their task. Announce the law where the next writer will look — the project guidance or conventions doc names the outlawed pattern and its replacement, so the ratchet is the enforcement and not the documentation.
 

@@ -138,6 +138,22 @@ async function spawnMcp(dir: string): Promise<McpClient> {
   return new McpClient(child);
 }
 
+async function commitWorktreeForGraduation(
+  dir: string,
+  message = "prepare graduation",
+): Promise<void> {
+  await git(dir, "add", "-A");
+  await git(
+    dir,
+    "commit",
+    "-q",
+    "--allow-empty",
+    "-m",
+    message,
+    "--no-gpg-sign",
+  );
+}
+
 /** A complete, valid `initialize` params object — the handshake a conformant
  * client sends. The SDK validates `protocolVersion`/`capabilities`/`clientInfo`
  * and errors the request if any is missing, so tests that don't assert on the
@@ -1150,6 +1166,7 @@ Deno.test("discern mcp: start then graduate over ONE main-rooted session — the
       await exists(join(wtPath, "CLAUDE.md")),
       "the created worktree is set up",
     );
+    await commitWorktreeForGraduation(wtPath);
 
     // discern_graduate over the SAME connection now operates on the re-aimed working
     // root (the new worktree), not the trunk — and SUCCEEDS. This is the headline
@@ -1206,6 +1223,7 @@ Deno.test("discern mcp: a worktree-spawned server re-aims to main on graduate ev
     const started = await maker.recv();
     const wtPath = started.result.structuredContent.data.path as string;
     assert(await exists(join(wtPath, "CLAUDE.md")), "worktree is set up");
+    await commitWorktreeForGraduation(wtPath);
     assertEquals(await maker.close(), 0);
 
     // The graduating server is rooted IN the worktree (spawn root = the worktree).
@@ -1297,6 +1315,7 @@ Deno.test("discern mcp: graduating a DIFFERENT worktree by `path` leaves the hel
     };
     const held = await startFromMain(); // the worktree we keep working in
     const other = await startFromMain(); // the worktree we graduate by path
+    await commitWorktreeForGraduation(other);
 
     // A server rooted in `held`, graduating `other` by explicit path.
     const inHeld = await spawnMcp(held);
@@ -1625,6 +1644,10 @@ interface ListedTool {
   title?: string;
   description: string;
   outputSchema?: {
+    type?: string;
+    properties?: Record<string, unknown>;
+  };
+  inputSchema?: {
     type?: string;
     properties?: Record<string, unknown>;
   };
@@ -2048,6 +2071,16 @@ Deno.test("discern mcp: discern_ratchets is listed (slow/on-demand), not read-on
     assert(rt !== undefined, "discern_ratchets should be listed");
     // It runs the metric commands, so it is NOT read-only.
     assertEquals(rt.annotations?.readOnlyHint, false);
+    assertStringIncludes(rt.description, "clean worktree");
+    assertStringIncludes(rt.description, "force");
+    assert(
+      !rt.description.includes("before pushing"),
+      `ratchets description should not mention pushing:\n${rt.description}`,
+    );
+    assert(
+      Object.hasOwn(rt.inputSchema?.properties ?? {}, "force"),
+      "discern_ratchets input schema should expose force",
+    );
 
     // A dry-run preview returns the plan and measures nothing.
     await mcp.send({
@@ -2267,6 +2300,10 @@ Deno.test("discern mcp: the rendered surface names the project's configured inte
     assert(
       !ratchets.description.includes("versus main"),
       `the hardcoded default must be gone; got:\n${ratchets.description}`,
+    );
+    assert(
+      !ratchets.description.includes("before pushing"),
+      `ratchets should not assume a remote-push workflow; got:\n${ratchets.description}`,
     );
     assert(!ratchets.description.includes("{{"), ratchets.description);
 

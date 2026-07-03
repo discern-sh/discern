@@ -31,8 +31,8 @@ executed in a single imperative pass:
   than serializing what it actually ran.
 - `graduate`, `worktreeSetup`, `worktreeTeardown`, `worktreePrune`
   (`worktree/lifecycle.ts`) were imperative effect-chains. The scary, stateful
-  ones (prune's GC; graduate's WIP-commit / teardown / checkout / reset dance)
-  fired with no inspectable preview — only `prune` had an ad-hoc `--dry-run`.
+  ones (prune's GC; graduate's teardown / checkout or fast-forward dance) fired
+  with no inspectable preview — only `prune` had an ad-hoc `--dry-run`.
 
 The costs of that asymmetry:
 

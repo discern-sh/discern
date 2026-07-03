@@ -22,6 +22,8 @@ import type { PlannedRatchet } from "../src/engine/gate/ratchet_plan.ts";
 interface RatchetsJson {
   ok: boolean;
   verb: string;
+  error?: string;
+  message?: string;
   steps?: Array<{
     kind: string;
     label: string;
@@ -105,6 +107,43 @@ Deno.test("ratchets: coverage passes when the emitted metric meets the floor", a
     const r = await runAgent(dir, ["ratchets"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "meets the floor");
+  });
+});
+
+Deno.test("ratchets: non-dry-run refuses a dirty tree unless forced", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      ratchetConfig({
+        name: "coverage",
+        direction: "up",
+        limit: "80",
+        run: "echo 'DISCERN_METRIC coverage 85'",
+      }),
+    );
+    await gitInit(dir);
+    await Deno.writeTextFile(`${dir}/dirty.txt`, "dirty\n");
+
+    const dry = await runAgent(dir, ["ratchets", "--dry-run"]);
+    assertEquals(dry.code, 0, dry.output);
+    assertStringIncludes(dry.stdout, "coverage");
+
+    const blocked = await runAgent(dir, ["ratchets"]);
+    assertEquals(blocked.code, 1, blocked.output);
+    assertStringIncludes(blocked.stderr, "clean worktree");
+    assertStringIncludes(blocked.stderr, "--force");
+
+    const blockedJson = await runAgent(dir, ["ratchets", "--json"]);
+    assertEquals(blockedJson.code, 1, blockedJson.output);
+    const obj = parseRatchetsJson(blockedJson.stdout);
+    assertEquals(obj.ok, false);
+    assertEquals(obj.error, "dirty_worktree");
+    assertStringIncludes(obj.message ?? "", "clean worktree");
+
+    const forced = await runAgent(dir, ["ratchets", "--force"]);
+    assertEquals(forced.code, 0, forced.output);
+    assertStringIncludes(forced.stdout, "meets the floor");
   });
 });
 
@@ -633,7 +672,7 @@ Deno.test("ratchets: a rate is invariant under proportional growth (the fix)", a
         run: "echo 'DISCERN_METRIC prose 6'", // 6 / 300 * 1000 = 20.0
       }),
     );
-    const grown = await runAgent(dir, ["ratchets"]);
+    const grown = await runAgent(dir, ["ratchets", "--force"]);
     assertEquals(grown.code, 0, grown.output);
     assertStringIncludes(grown.stdout, "within the ceiling");
   });
@@ -667,7 +706,7 @@ Deno.test("ratchets: the same growth breaks a raw count, and the failure points 
         run: "echo 'DISCERN_METRIC prose 6'",
       }),
     );
-    const grown = await runAgent(dir, ["ratchets"]);
+    const grown = await runAgent(dir, ["ratchets", "--force"]);
     assertEquals(grown.code, 1, grown.output);
     assertStringIncludes(grown.stderr, "exceeds the ceiling");
     assertStringIncludes(grown.stderr, "ratchet a rate"); // the normalize hint

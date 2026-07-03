@@ -52,7 +52,7 @@ export const STEP_KINDS = [
   "skills-check", // assert the materialized skills match the effective set
   "resource-create", // create a per-worktree external resource
   "resource-destroy", // destroy / reclaim a per-worktree external resource
-  "git", // a git mutation (branch, wip-commit, remove, checkout, reset, sweep)
+  "git", // a git mutation (branch, remove, checkout, fast-forward, sweep)
   "setup-step", // a [worktree.setup].steps command (one-shot, at creation)
   "setup-ensure", // a [worktree.setup].ensure command (convergent, every pass)
   "env", // record port / inherit env / resource handles

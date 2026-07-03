@@ -50,9 +50,9 @@ graduates the branch into the main repo and removes the Worktree, landing per
 `[worktree].graduate_to` (or `--to` per run): onto its own branch for review, or
 fast-forwarding the trunk to it and deleting the merged branch. Its
 main-checkout precondition also cares about tracked changes, not untracked local
-scratch; the worktree migration step remains stricter because it deliberately
-WIP-commits any leftover worktree changes (tracked or untracked) before removing
-the checkout; [`worktree:prune`](../../src/engine/worktree/lifecycle.ts) sweeps
+scratch; the worktree precondition is stricter because graduation refuses any
+tracked, not staged, staged, or untracked worktree change before it removes the
+checkout; [`worktree:prune`](../../src/engine/worktree/lifecycle.ts) sweeps
 stale Worktrees and **reclaims the resources of any Worktree that vanished
 without a clean teardown** (the garbage-collection safety net).
 [`status`](../../src/engine/status/status.ts) uses the same ordinary Git-clean
@@ -94,7 +94,7 @@ Each effectful lifecycle verb — `start`, `worktree` (setup), `integrate`,
 prints the plan (what it _would_ create, destroy, reclaim, move, or merge) and
 touches nothing, plus a `--json` serialization of plan + results
 ([ADR 0027](../_adr/0027-plan-apply-engine-execution.md)). The destructive ones
-— prune's GC and graduation's WIP-commit / remove / checkout dance — are
+— prune's GC and graduation's remove / checkout or fast-forward dance — are
 inspectable before they act.
 
 ## Leaves

@@ -715,6 +715,11 @@ async function buildGraduatePlan(
   // capture worktree state
   const worktreeDirty =
     (await run(["status", "--porcelain"])).stdout.trim() !== "";
+  if (worktreeDirty) {
+    throw new WorktreeGitError(
+      "Worktree has uncommitted changes. Commit or stash them yourself, then re-run — graduation only lands clean branches and will not create WIP commits.",
+    );
+  }
   const ignoredFileChanges = await inspectIgnoredFileChanges(
     ctx.cwd,
     ctx.config.worktree.ignored_file_drift,
@@ -744,7 +749,6 @@ async function buildGraduatePlan(
     mainRepo,
     mainBranch,
     trunk: ctx.config.project.main_branch,
-    worktreeDirty,
     hasResources: readResourceSpecs(ctx.config).length > 0,
     ignoredFileChanges,
   };
@@ -805,9 +809,8 @@ async function assertGraduateBranchStillCurrent(
  * Apply a graduation plan — the mutation dance. Ensures the named branch
  * (creating one if the worktree is detached), validates the exact tree against the whole
  * gate before landing (ADR 0067, fast-pathed by a gate-pass receipt), tears down the
- * resources, WIP-commits any uncommitted changes, removes the
- * worktree, checks the branch out in main, then soft-resets the WIP commit so those changes
- * land staged. Narrates exactly as before; throws `WorktreeGitError` on any unrecoverable
+ * resources, removes the worktree, and lands the branch in main. Narrates exactly
+ * as before; throws `WorktreeGitError` on any unrecoverable
  * error (the branch keeps its commits). Returns the per-step results for `--json`.
  */
 async function executeGraduatePlan(
@@ -828,7 +831,7 @@ async function executeGraduatePlan(
       "Worktree is in detached HEAD state and ensure-worktree-branch could not create a named branch.",
     );
   }
-  const { to, worktreePath, mainRepo, mainBranch, trunk, worktreeDirty } = plan;
+  const { to, worktreePath, mainRepo, mainBranch, trunk } = plan;
 
   // Validation gate (ADR 0067) — the exact tree we are about to land must pass the WHOLE
   // gate, so a clean-merging but gate-breaking `integrate` (or any tree never run through
@@ -872,11 +875,6 @@ async function executeGraduatePlan(
       ? `Into trunk:         ${mainRepo} (fast-forward ${trunk}, delete ${worktreeBranch})`
       : `Into main checkout: ${mainRepo} (on ${mainBranch})`,
   );
-  if (worktreeDirty) {
-    ctx.log.detail(
-      "Note: worktree has uncommitted changes — will WIP-commit then unstage after migration",
-    );
-  }
   const ignoredLine = ignoredFileChangeDetail(plan.ignoredFileChanges);
   if (ignoredLine !== undefined) {
     ctx.log.detail(ignoredLine);
@@ -887,27 +885,6 @@ async function executeGraduatePlan(
   ctx.log.info("Tearing down the worktree's resources…");
   await teardownResources(ctx);
   done("resource-destroy", "teardown resources");
-
-  // WIP commit if needed
-  let madeWipCommit = false;
-  if (worktreeDirty) {
-    ctx.log.info("Committing leftover uncommitted worktree changes as WIP…");
-    await run(["add", "-A"]);
-    const commit = await run([
-      "commit",
-      "--quiet",
-      "-m",
-      "WIP: graduate worktree (uncommitted changes)",
-    ]);
-    if (!commit.success) {
-      throw new WorktreeGitError(
-        `Failed to create WIP commit: ${commit.stderr.trim()}`,
-      );
-    }
-    madeWipCommit = true;
-    ctx.log.ok("WIP commit created.");
-    done("git", "wip-commit");
-  }
 
   // land the branch where the plan says
   if (to === "trunk") {
@@ -952,9 +929,7 @@ async function executeGraduatePlan(
   done("git", "remove-worktree");
 
   if (to === "trunk") {
-    // Delete the now-merged branch. This must precede any WIP soft-reset below: the
-    // reset moves the trunk back, which would leave the branch un-merged and make
-    // `git branch -d` refuse it.
+    // Delete the now-merged branch.
     const del = await run(["branch", "-d", worktreeBranch], mainRepo);
     if (!del.success) {
       throw new WorktreeGitError(
@@ -979,30 +954,6 @@ async function executeGraduatePlan(
     done("git", "checkout");
   }
 
-  // soft-reset the WIP commit if we made one
-  if (madeWipCommit) {
-    ctx.log.info(
-      "Unstaging WIP commit so changes land staged-but-uncommitted…",
-    );
-    const reset = await run(["reset", "--soft", "HEAD~1"], mainRepo);
-    if (!reset.success) {
-      const landedOn = to === "trunk" ? trunk : worktreeBranch;
-      const gitSaid = reset.stderr.trim() !== ""
-        ? reset.stderr.trim()
-        : reset.stdout.trim();
-      throw new WorktreeGitError(
-        `git reset --soft HEAD~1 failed in ${mainRepo}. ` +
-          `The WIP commit remains at HEAD of ${landedOn} in the main checkout; ` +
-          "previously uncommitted work is still in that commit. " +
-          (gitSaid !== "" ? `Git said:\n    ${gitSaid}` : ""),
-      );
-    }
-    ctx.log.ok(
-      "WIP commit unstaged; previously uncommitted changes are now staged here.",
-    );
-    done("git", "unstage-wip");
-  }
-
   const landedOn = to === "trunk" ? trunk : worktreeBranch;
   ctx.log.heading("Graduation complete.");
   ctx.log.line(`  You are on ${landedOn} in ${mainRepo}.`);
@@ -1012,14 +963,12 @@ async function executeGraduatePlan(
 /**
  * Graduate this worktree's branch into the main repo — the `discern graduate`
  * command. Requires the latest main is integrated, tears down the worktree's
- * external resources, WIP-commits any uncommitted changes, removes the worktree
- * directory, then lands the branch per the destination (`opts.to`, falling back
+ * external resources, removes the clean worktree directory, then lands the branch per the destination (`opts.to`, falling back
  * to `[worktree].graduate_to`): `"branch"` checks it out in main for review;
  * `"trunk"` fast-forwards the trunk to the branch tip and deletes the merged
- * branch. Any WIP commit is soft-reset last, so those changes land staged.
- * Refuses to touch a dirty main checkout. `--dry-run` shows the plan (after the
- * read-only preconditions pass) and touches nothing. Throws `WorktreeGitError`
- * on any unrecoverable error (the branch keeps its commits).
+ * branch. Refuses dirty worktrees and dirty main checkouts. `--dry-run` shows the
+ * plan (after the read-only preconditions pass) and touches nothing. Throws
+ * `WorktreeGitError` on any unrecoverable error (the branch keeps its commits).
  */
 export async function graduate(
   ctx: LifecycleContext,

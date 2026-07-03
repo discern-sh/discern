@@ -43,6 +43,15 @@ _Nothing outstanding._
 
 ## 🟡 Smaller fixes & polish
 
+- [ ] **Revisit when agents should run ratchets in the lifecycle.** The current
+      guidance intentionally says to run ratchets "as needed" and keeps them
+      slow/on-demand, with non-dry-run checks requiring a clean tree. Revisit
+      after observing real agent sessions: we may want sharper timing language
+      than "as needed" without reintroducing remote-push assumptions or causing
+      repeated slow runs during iteration. Evidence:
+      `templates/guidance/ratchets.md`; `src/engine/mcp/server.ts`;
+      `src/engine/gate/ratchets.ts`.
+
 - [ ] **Revisit generated-artifact user-content preservation only with a
       non-inference design.** A previous attempt rescued edits from ignored
       generated agent files and materialized skill dirs by diffing on-disk

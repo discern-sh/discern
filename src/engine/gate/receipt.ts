@@ -55,10 +55,10 @@ async function headSha(cwd: string): Promise<string | undefined> {
 
 /**
  * Whether the worktree at `cwd` is FULLY clean — `git status --porcelain` empty (no
- * staged, unstaged, OR untracked changes). This is the strict notion graduate lands
- * against (its `git add -A` WIP-commit sweeps untracked files too), so the receipt
- * vouches for exactly what would land. A failed status reads as NOT clean, so an
- * unreadable tree never earns a receipt or a fast-path skip (fail-closed).
+ * staged, unstaged, OR untracked changes). This is the strict notion graduate
+ * requires before landing, so the receipt vouches for exactly what would land. A
+ * failed status reads as NOT clean, so an unreadable tree never earns a receipt or a
+ * fast-path skip (fail-closed).
  */
 async function isClean(cwd: string): Promise<boolean> {
   const r = await runGit(["status", "--porcelain"], { cwd });

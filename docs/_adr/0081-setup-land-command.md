@@ -39,14 +39,14 @@ the user on the integration branch with the harness in place. It supports
 result envelope (verb `setup:land`).
 
 It is **not** a reuse of `graduate`: the two share a land-onto-trunk _shape_ but
-differ in preconditions. `graduate` removes the worktree it ran in and
-WIP-commits a dirty tree to carry it across; `setup land` has no worktree to
-tear down and **refuses** a dirty tree rather than sweeping changes into the
-merge. "Dirty" is the same notion setup itself uses to gate branch creation
-(`worktreeState` — uncommitted _tracked_ changes; untracked scratch files are
-ignored). On a merge conflict it steps the conflict aside (`git merge --abort`)
-and refuses, leaving the branch intact. It is a clean no-op when already on the
-integration branch or outside a git repo.
+differ in scope. `graduate` removes the clean worktree it ran in and tears down
+that worktree's resources; `setup land` has no worktree to tear down and refuses
+a dirty setup branch rather than sweeping changes into the merge. "Dirty" is the
+same notion setup itself uses to gate branch creation (`worktreeState` —
+uncommitted _tracked_ changes; untracked scratch files are ignored). On a merge
+conflict it steps the conflict aside (`git merge --abort`) and refuses, leaving
+the branch intact. It is a clean no-op when already on the integration branch or
+outside a git repo.
 
 The three choices a user has — **merge into `main`**, **leave the branch for
 review**, or **abort** — are not three flags. The command _is_ the merge action;
@@ -70,8 +70,8 @@ registration by the setup-phase parity forcing function (ADR 0051).
 - A little of `graduate`'s land shape is duplicated (checkout +
   fast-forward-or-merge + delete). We accept that over contorting `graduate`'s
   worktree-scoped flow to also serve the main checkout: the preconditions
-  diverge (teardown vs none, WIP-commit vs refuse-on-dirty), so a shared
-  abstraction would be mostly conditionals.
+  diverge (worktree teardown/resources vs none, different dirty-tree scopes), so
+  a shared abstraction would be mostly conditionals.
 - The command mutates the user's integration branch locally. The risk is
   bounded: it refuses on a dirty tree or a conflict, fast-forwards where
   possible (no merge commit), and on any refusal the branch keeps all its

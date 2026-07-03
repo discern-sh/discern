@@ -604,6 +604,8 @@ Deno.test("ratchets result is faithful (dry-run plan and applied steps)", async 
         "",
       ].join("\n"),
     );
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "add ratchet", "--no-gpg-sign");
     expectValid(
       DatalessEnvelopeSchema,
       await ratchetsResult(dir, { dryRun: true }),

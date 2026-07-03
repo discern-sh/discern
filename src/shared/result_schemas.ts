@@ -435,6 +435,7 @@ export const StatusDataSchema = z.strictObject({
   gate: statusGateSchema.optional(),
   features: statusFeaturesSchema,
   ratchets: z.array(z.string()),
+  gate_receipt: GateReceiptCheckSchema.optional(),
   stale_generated: z.array(z.string()).optional(),
   stale_materialized: z.array(z.string()).optional(),
   setup_unfinished: z.strictObject({

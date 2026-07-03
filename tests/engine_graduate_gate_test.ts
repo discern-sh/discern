@@ -79,6 +79,22 @@ async function commitBranchWork(wt: string): Promise<void> {
   await git(wt, "commit", "-q", "-m", "feat: work", "--no-gpg-sign");
 }
 
+async function commitCurrentWorktree(
+  wt: string,
+  message = "chore: clean integrated tree",
+): Promise<void> {
+  await git(wt, "add", "-A");
+  await git(
+    wt,
+    "commit",
+    "-q",
+    "--allow-empty",
+    "-m",
+    message,
+    "--no-gpg-sign",
+  );
+}
+
 /** Commit a file onto `main` directly — another line of work landing beneath the branch. */
 async function advanceMain(dir: string, file: string): Promise<void> {
   await Deno.writeTextFile(join(dir, file), "landed elsewhere\n");
@@ -190,6 +206,7 @@ Deno.test("graduate: refuses an integrate that merges cleanly but breaks the gat
     // The agent integrates: a clean merge, but the receipt is now stale (new merge commit).
     const integ = await runAgent(wt, ["integrate"]);
     assertEquals(integ.code, 0, integ.output);
+    await commitCurrentWorktree(wt);
 
     // Graduating MUST refuse — the merged tree was never validated, and it fails the gate.
     const grad = await runAgent(wt, ["graduate", "--to", "trunk"]);
@@ -219,6 +236,7 @@ Deno.test("graduate: an integrate that still passes the gate lands normally", as
     // Main advances with a BENIGN file — the merged tree still passes the gate.
     await advanceMain(dir, "notes.txt");
     assertEquals((await runAgent(wt, ["integrate"])).code, 0);
+    await commitCurrentWorktree(wt);
 
     const grad = await runAgent(wt, ["graduate", "--to", "trunk"]);
     assertEquals(grad.code, 0, grad.output);

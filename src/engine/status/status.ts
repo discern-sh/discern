@@ -27,6 +27,7 @@ import {
 } from "../../shared/config_schema.ts";
 import type { DiscernResult } from "../../shared/result.ts";
 import type {
+  GateReceiptCheckData,
   Location,
   StatusData,
   StatusFeatures,
@@ -68,6 +69,7 @@ import { IdentityError, resolveIdentity } from "../worktree/identity.ts";
 import { readResourceSpecs, resourceEnvName } from "../worktree/resources.ts";
 import { readEnvFile } from "../worktree/env_file.ts";
 import { colorEnabled, makeOut, type Out } from "../output.ts";
+import { inspectGateReceipt } from "../gate/receipt.ts";
 
 /** The not-inside-a-project message (matches the dispatcher / MCP server slug). */
 const NO_PROJECT =
@@ -202,6 +204,12 @@ export async function statusResult(
     features,
     ratchets: Object.keys(cfg.ratchets),
   };
+  const gateReceipt = location === "worktree"
+    ? await inspectGateReceipt(root)
+    : undefined;
+  if (gateReceipt !== undefined) {
+    data.gate_receipt = gateReceipt;
+  }
 
   // Local-only heavy blocks: the changed scopes and what the gate would fire.
   let changed: string[] | undefined;
@@ -285,6 +293,7 @@ export async function statusResult(
     guidanceDrift,
     skillsDrift,
     setupPending,
+    gateReceipt,
   });
 
   return {
@@ -467,6 +476,8 @@ interface HintContext {
   /** Scaffolded files still carrying skeleton markers while setup is unfinished;
    * undefined once `[meta].bootstrapped` is recorded. Drives the lead setup hint. */
   setupPending: string[] | undefined;
+  /** Whether the current clean HEAD already has a recorded `discern finish` pass. */
+  gateReceipt: GateReceiptCheckData | undefined;
 }
 
 /**
@@ -549,8 +560,8 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
         firedScopes.length > 0
           ? `Changes in ${
             firedScopes.join(", ")
-          }; run \`discern finish\` before calling work done.`
-          : "Uncommitted changes; run `discern finish` before calling work done.",
+          }; use \`discern prepare\` or targeted tests while iterating, then commit the intended final tree and run \`discern finish\` on the clean HEAD before calling work done.`
+          : "Uncommitted changes; use `discern prepare` or targeted tests while iterating, then commit the intended final tree and run `discern finish` on the clean HEAD before calling work done.",
       );
     }
     if (g.behind_integration !== null && g.behind_integration > 0) {
@@ -561,18 +572,26 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
         }${ov.total > 3 ? ", …" : ""}) — re-check those after integrating.`
         : "";
       hints.push(
-        `Branch is ${g.behind_integration} behind ${main}; run \`discern integrate\` → \`discern finish\` before handing off or any user-requested graduation.${overlapNote}`,
+        `Branch is ${g.behind_integration} behind ${main}; call \`discern integrate\` directly — it is idempotent and performs its own git preconditions — then run \`discern finish\` before handing off or any user-requested graduation.${overlapNote}`,
       );
     }
     if (g.clean && g.behind_integration === 0 && g.ahead_integration > 0) {
       // graduate would refuse against tracked changes in the main checkout — say so
       // if we can see them.
       const mainDirty = await isMainCheckoutDirty(ctx.root);
-      hints.push(
-        mainDirty
-          ? `Committed and up to date with ${main}, but the main checkout has uncommitted tracked changes — commit or stash them there before any user-requested graduation can proceed.`
-          : `Committed and up to date with ${main}; report that the branch is ready for review. Only run \`discern graduate\` if the user explicitly asks.`,
-      );
+      if (mainDirty) {
+        hints.push(
+          `Committed and up to date with ${main}, but the main checkout has uncommitted tracked changes — commit or stash them there before any user-requested graduation can proceed.`,
+        );
+      } else if (ctx.gateReceipt?.status === "honored") {
+        hints.push(
+          `Committed, up to date with ${main}, and this clean HEAD has a recorded \`discern finish\` pass; report that the branch is ready for review. Only run \`discern graduate\` if the user explicitly asks.`,
+        );
+      } else {
+        hints.push(
+          `Committed and up to date with ${main}, but this clean HEAD has no recorded \`discern finish\` pass; run \`discern finish\` before reporting the branch ready for review or any user-requested graduation.`,
+        );
+      }
     }
   }
 
@@ -696,6 +715,31 @@ export async function runStatus(
 /** Left-pad a field label to a fixed gutter so the summary lines align. */
 function label(text: string): string {
   return text.padEnd(11);
+}
+
+function gateReceiptSummary(receipt: GateReceiptCheckData): string {
+  switch (receipt.status) {
+    case "honored":
+      return "clean HEAD has a recorded pass";
+    case "missing":
+      return "no recorded clean finish pass";
+    case "stale":
+      return receipt.recorded !== undefined && receipt.head !== undefined
+        ? `stale pass at ${receipt.recorded.slice(0, 12)}; HEAD is ${
+          receipt.head.slice(0, 12)
+        }`
+        : "stale pass";
+    case "dirty":
+      return "worktree dirty, so no current clean-HEAD pass";
+    case "unavailable":
+      return receipt.reason !== undefined
+        ? `receipt unavailable (${receipt.reason})`
+        : "receipt unavailable";
+    case "read_failed":
+      return receipt.reason !== undefined
+        ? `could not read receipt (${receipt.reason})`
+        : "could not read receipt";
+  }
 }
 
 /** Truncate `s` to `n` chars with an ellipsis, for fixed-width table columns. */
@@ -837,6 +881,12 @@ function renderStatusHuman(result: DiscernResult<StatusData>): void {
       ? `${dot}scope gates: ${g.scope_gates.join(", ")}`
       : "";
     out.raw(`  ${label("gate")}${caps}${checks}${sg}\n`);
+  }
+
+  if (data.gate_receipt !== undefined) {
+    out.raw(
+      `  ${label("finish")}${gateReceiptSummary(data.gate_receipt)}\n`,
+    );
   }
 
   if (data.ratchets.length > 0) {

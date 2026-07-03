@@ -17,7 +17,7 @@ A ratchet is a one-way door for a number: a **floor that may only rise** or a **
 A ratchet blocks pushes, so the number behind it must be *defendable*:
 
 - **Deterministic** — the same tree always yields the same number. Timing, network, and anything sampling-based will fire false alarms until the ratchet gets deleted, which is worse than never adding it.
-- **Cheap to measure** — it runs before every push (`discern ratchets` is on-demand, not part of the gate); a number that takes ten minutes to compute won't get checked.
+- **Cheap to measure** — `discern ratchets` is on-demand and not part of the gate; a number that takes ten minutes to compute won't get checked often enough.
 - **Meaningful** — it moves when the quality it stands for moves, and is hard to satisfy by gaming. "Count of `TODO` markers" is honest; "count of files containing the word test" is theatre.
 - **Owned** — the user is willing to be *blocked* on this number. Confirm that before wiring; an unwanted ratchet teaches people to bypass ratchets.
 

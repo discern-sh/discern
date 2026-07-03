@@ -3,8 +3,9 @@
 A **ratchet** is a metric held at a `limit` that may only improve versus
 `{{main_branch}}` — a floor that may only rise (`up`), or a ceiling that may only
 fall (`down`) — so a branch can never loosen it. Ratchets are **slow and
-on-demand**, NOT part of `discern_finish`: check them before pushing with
-**`discern_ratchets`**.
+on-demand**, NOT part of `discern_finish`: run **`discern_ratchets`** as needed.
+Non-dry-run ratchets require a clean worktree, with a force override reserved for
+ratchet authoring or debugging.
 
 **Never loosen one to pass.** A limit loosened versus `{{main_branch}}` is the
 regression a ratchet exists to catch — move the *metric* the right way, never the

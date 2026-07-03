@@ -480,7 +480,7 @@ Deno.test("status: outside a discern project, the envelope is not_initialized", 
   });
 });
 
-Deno.test("status: a dirty worktree hints to run the gate before finishing", async () => {
+Deno.test("status: a dirty worktree hints to prepare while iterating and finish clean", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, SCOPE_CONFIG);
@@ -499,9 +499,12 @@ Deno.test("status: a dirty worktree hints to run the gate before finishing", asy
       `expected 'web' among changed scopes: ${JSON.stringify(obj.data)}`,
     );
     assert(
-      (obj.hints ?? []).some((h: string) => h.includes("discern finish")),
-      `expected a 'run discern finish' hint: ${JSON.stringify(obj.hints)}`,
+      (obj.hints ?? []).some((h: string) =>
+        h.includes("discern prepare") && h.includes("clean HEAD")
+      ),
+      `expected a prepare-then-clean-finish hint: ${JSON.stringify(obj.hints)}`,
     );
+    assertEquals(obj.data.gate_receipt.status, "missing");
   });
 });
 
@@ -566,7 +569,7 @@ Deno.test("status: ignored local scratch does not make a worktree read dirty", a
   });
 });
 
-Deno.test("status: a clean worktree ahead of main hints it is ready for owner review", async () => {
+Deno.test("status: a clean worktree ahead of main without a receipt asks for final finish", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, SCOPE_CONFIG);
@@ -583,6 +586,43 @@ Deno.test("status: a clean worktree ahead of main hints it is ready for owner re
     assertEquals(obj.data.git.clean, true);
     assertEquals(obj.data.git.ahead_integration, 1);
     assertEquals(obj.data.git.behind_integration, 0);
+    assertEquals(obj.data.gate_receipt.status, "missing");
+    const hints = obj.hints ?? [];
+    assert(
+      hints.some((h: string) =>
+        h.includes("no recorded `discern finish` pass") &&
+        h.includes("before reporting the branch ready for review")
+      ),
+      `expected a final-finish hint: ${JSON.stringify(hints)}`,
+    );
+    assert(
+      !hints.some((h: string) => h.includes("report that the branch is ready")),
+      `missing receipt must not get a ready-for-review hint: ${
+        JSON.stringify(hints)
+      }`,
+    );
+  });
+});
+
+Deno.test("status: a clean worktree ahead of main with a finish receipt is ready for owner review", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, SCOPE_CONFIG);
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "alpha");
+    await writeExecutable(join(wt, "web/feature.txt"), "feature");
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
+    const finish = await runAgent(wt, ["finish", "--json"]);
+    assertEquals(finish.code, 0, finish.output);
+
+    const r = await runAgent(wt, ["status", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    const obj = parseStatus(r.stdout);
+    assertEquals(obj.data.git.clean, true);
+    assertEquals(obj.data.git.ahead_integration, 1);
+    assertEquals(obj.data.git.behind_integration, 0);
+    assertEquals(obj.data.gate_receipt.status, "honored");
     const hints = obj.hints ?? [];
     assert(
       hints.some((h: string) => h.includes("ready for review")),

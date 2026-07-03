@@ -13,6 +13,7 @@ import { exists } from "@std/fs";
 import { withTempDir } from "./helpers.ts";
 import {
   addWorktree,
+  git,
   gitInit,
   runAgent,
   scaffoldEngine,
@@ -23,6 +24,22 @@ async function mainWithWorktree(dir: string, name: string): Promise<string> {
   await scaffoldEngine(dir);
   await gitInit(dir);
   return await addWorktree(dir, name);
+}
+
+async function commitCurrentWorktree(
+  wt: string,
+  message = "commit worktree state",
+): Promise<void> {
+  await git(wt, "add", "-A");
+  await git(
+    wt,
+    "commit",
+    "-q",
+    "--allow-empty",
+    "-m",
+    message,
+    "--no-gpg-sign",
+  );
 }
 
 /** Append a `[worktree.resources.<name>]` table to a worktree's scaffolded config
@@ -119,6 +136,7 @@ Deno.test("graduate destroys the worktree's resources before removing it", async
         ].join("\n"),
       );
       assertEquals((await runAgent(wt, ["worktree"])).code, 0);
+      await commitCurrentWorktree(wt);
       const handle =
         (await runAgent(wt, ["worktree-name", "--resource", "thing"])).stdout
           .trim();

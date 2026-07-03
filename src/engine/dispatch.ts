@@ -337,11 +337,16 @@ export function attachEngineCommands(
         "--dry-run",
         "Show the ratchets that would be measured; touch nothing.",
       )
+      .option(
+        "--force",
+        "Run ratchets on a dirty worktree; intended only while authoring ratchets.",
+      )
       .action(async (o) => {
         Deno.exit(
           await runRatchets(await requireRoot(), {
             json: o.json ?? false,
             dryRun: o.dryRun ?? false,
+            force: o.force ?? false,
           }),
         );
       });

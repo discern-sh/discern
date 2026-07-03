@@ -22,7 +22,6 @@ import {
   scaffoldEngine,
   worktreePath,
   writeConfig,
-  writeExecutable,
 } from "./engine_helpers.ts";
 
 /** A scaffolded, committed main repo with one linked worktree ready to drive. */
@@ -41,39 +40,19 @@ async function leaveTrackedAndUntrackedWip(wt: string): Promise<void> {
   await Deno.writeTextFile(join(wt, "untracked.txt"), "untracked wip\n");
 }
 
-async function assertWipLandedStaged(
-  dir: string,
+async function commitCurrentWorktree(
   wt: string,
-  output: string,
+  message = "commit worktree state",
 ): Promise<void> {
-  assertEquals(
-    await exists(wt),
-    false,
-    `worktree should be removed after preserving WIP\n${output}`,
-  );
-  assertEquals(
-    await Deno.readTextFile(join(dir, "tracked.txt")),
-    "tracked wip\n",
-  );
-  assertEquals(
-    await Deno.readTextFile(join(dir, "untracked.txt")),
-    "untracked wip\n",
-  );
-  const status = await gitOut(dir, "status", "--porcelain");
-  assertStringIncludes(
-    status,
-    "M  tracked.txt",
-    `tracked WIP must land staged\n${status}\n${output}`,
-  );
-  assertStringIncludes(
-    status,
-    "A  untracked.txt",
-    `untracked WIP must land staged\n${status}\n${output}`,
-  );
-  assertEquals(
-    status.includes("??"),
-    false,
-    `WIP must be staged, not left untracked\n${status}\n${output}`,
+  await git(wt, "add", "-A");
+  await git(
+    wt,
+    "commit",
+    "-q",
+    "--allow-empty",
+    "-m",
+    message,
+    "--no-gpg-sign",
   );
 }
 
@@ -200,83 +179,44 @@ Deno.test("graduate --to trunk: fast-forwards the trunk, lands on it, and delete
 });
 
 for (const to of ["branch", "trunk"] as const) {
-  Deno.test(`graduate --to ${to}: preserves tracked and untracked WIP as staged main changes`, async () => {
+  Deno.test(`graduate --to ${to}: refuses a dirty worktree without moving anything`, async () => {
     await withTempDir(async (dir) => {
       const name = `dirty-${to}`;
       const wt = await mainWithWorktree(dir, name);
       await leaveTrackedAndUntrackedWip(wt);
+      const headBefore = await gitOut(wt, "rev-parse", "HEAD");
 
       const r = await runAgent(wt, ["graduate", "--to", to]);
-      assertEquals(r.code, 0, r.output);
-      await assertWipLandedStaged(dir, wt, r.output);
-
+      assertEquals(r.code, 1, r.output);
+      assertStringIncludes(r.output, "Worktree has uncommitted changes");
+      assertStringIncludes(r.output, "will not create WIP commits");
+      assertEquals(
+        await exists(wt),
+        true,
+        `dirty worktree must stay in place\n${r.output}`,
+      );
+      assertEquals(await gitOut(wt, "rev-parse", "HEAD"), headBefore);
+      assertEquals(
+        await Deno.readTextFile(join(wt, "tracked.txt")),
+        "tracked wip\n",
+      );
+      assertEquals(
+        await Deno.readTextFile(join(wt, "untracked.txt")),
+        "untracked wip\n",
+      );
       assertEquals(
         await gitOut(dir, "branch", "--show-current"),
-        to === "trunk" ? "main" : `agent/${name}`,
-        `main checkout should land on the requested destination\n${r.output}`,
+        "main",
+        `main checkout should not move\n${r.output}`,
       );
-      if (to === "trunk") {
-        assertEquals(
-          await gitOut(dir, "branch", "--list", `agent/${name}`),
-          "",
-          `the merged branch should be deleted before the WIP soft reset\n${r.output}`,
-        );
-      }
+      assertStringIncludes(
+        await gitOut(dir, "branch", "--list", `agent/${name}`),
+        `agent/${name}`,
+        `the branch should not be deleted\n${r.output}`,
+      );
     });
   });
 }
-
-Deno.test("graduate: reports a failed WIP soft reset and names where the WIP commit remains", async () => {
-  await withTempDir(async (dir) => {
-    const wt = await mainWithWorktree(dir, "reset-fail");
-    await leaveTrackedAndUntrackedWip(wt);
-
-    const tools = await Deno.makeTempDir({ prefix: "discern-reset-stub-" });
-    try {
-      const gitStub = join(tools, "git");
-      await writeExecutable(
-        gitStub,
-        [
-          "#!/usr/bin/env sh",
-          'if [ "$1" = "reset" ] && [ "$2" = "--soft" ] && [ "$3" = "HEAD~1" ]; then',
-          '  echo "simulated reset failure" >&2',
-          "  exit 42",
-          "fi",
-          'exec git "$@"',
-          "",
-        ].join("\n"),
-      );
-
-      const r = await runAgent(wt, ["graduate", "--to", "branch"], {
-        env: { GIT_BIN: gitStub },
-      });
-      assertEquals(r.code, 1, r.output);
-      assertStringIncludes(r.output, "reset --soft HEAD~1 failed");
-      assertStringIncludes(
-        r.output,
-        "WIP commit remains at HEAD of agent/reset-fail",
-      );
-      assertStringIncludes(r.output, dir);
-      assertEquals(
-        await gitOut(dir, "branch", "--show-current"),
-        "agent/reset-fail",
-        `main checkout should still be on the branch holding the WIP commit\n${r.output}`,
-      );
-      assertEquals(
-        await gitOut(dir, "log", "-1", "--format=%s"),
-        "WIP: graduate worktree (uncommitted changes)",
-        `the WIP commit should remain recoverable at HEAD\n${r.output}`,
-      );
-      assertEquals(
-        await exists(wt),
-        false,
-        "the reset failure happens after the worktree has been migrated",
-      );
-    } finally {
-      await Deno.remove(tools, { recursive: true });
-    }
-  });
-});
 
 Deno.test("graduate honours [worktree].graduate_to = trunk as the default destination", async () => {
   await withTempDir(async (dir) => {
@@ -356,7 +296,7 @@ Deno.test("graduate ignores untracked local scratch in the main checkout clean p
   });
 });
 
-Deno.test("graduate: refuses a branch behind main before WIP commit or removal", async () => {
+Deno.test("graduate: refuses a branch behind main before dirty-tree handling or removal", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "behind");
     await leaveTrackedAndUntrackedWip(wt);
@@ -377,7 +317,7 @@ Deno.test("graduate: refuses a branch behind main before WIP commit or removal",
     assertEquals(
       await gitOut(dir, "rev-parse", "agent/behind"),
       branchHead,
-      `behind-main refusal must not create a WIP commit or move the branch\n${r.output}`,
+      `behind-main refusal must not move the branch\n${r.output}`,
     );
     assertEquals(
       await Deno.readTextFile(join(wt, "tracked.txt")),
@@ -451,6 +391,7 @@ Deno.test("graduate reports ignored files changed since worktree setup at the to
 
     const reentry = await runAgent(wt, ["worktree"]);
     assertEquals(reentry.code, 0, reentry.output);
+    await commitCurrentWorktree(wt);
 
     const dry = await runAgent(wt, ["graduate", "--dry-run"]);
     assertEquals(dry.code, 0, dry.output);
@@ -499,6 +440,7 @@ Deno.test("graduate suppresses ignored-file drift detection when configured off"
     assertEquals(setup.code, 0, setup.output);
     await Deno.mkdir(join(wt, "local-cache"), { recursive: true });
     await Deno.writeTextFile(join(wt, "local-cache", "changed.txt"), "x\n");
+    await commitCurrentWorktree(wt);
 
     const dry = await runAgent(wt, ["graduate", "--dry-run"]);
 

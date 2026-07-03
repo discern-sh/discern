@@ -100,7 +100,7 @@ const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
   git: {
     actor: "discern",
     hint:
-      "A built-in git mutation discern performs (branch, WIP-commit, worktree removal, checkout, reset, sweep); the note says which.",
+      "A built-in git mutation discern performs (branch, worktree removal, checkout, fast-forward, sweep); the note says which.",
   },
   "setup-step": {
     actor: "project",
@@ -254,7 +254,8 @@ function ratchetsVerb(cfg: DiscernConfig): VerbPlan {
   );
   return {
     verb: "ratchets",
-    when: "On demand before pushing — slow, so never part of `discern finish`.",
+    when:
+      "On demand — slow and clean-tree-only by default, so never part of `discern finish`.",
     steps,
   };
 }
@@ -367,29 +368,24 @@ function graduateVerb(cfg: DiscernConfig, to: GraduateTarget): VerbPlan {
       condition: "if the resource was provisioned (reverse-creation order)",
     }));
   }
-  steps.push(step("git", "wip-commit", {
-    condition: "only if the worktree is dirty",
-    note: "commit leftover uncommitted changes as WIP",
-  }));
-  steps.push(step("git", "remove-worktree", {
-    note: "remove the worktree directory",
-  }));
   if (to === "trunk") {
     steps.push(step("git", "fast-forward-trunk", {
       note: "fast-forward the trunk to the branch tip",
+    }));
+    steps.push(step("git", "remove-worktree", {
+      note: "remove the worktree directory",
     }));
     steps.push(step("git", "delete-branch", {
       note: "delete the now-merged branch",
     }));
   } else {
+    steps.push(step("git", "remove-worktree", {
+      note: "remove the worktree directory",
+    }));
     steps.push(step("git", "checkout", {
       note: "check the branch out in the main repo for review",
     }));
   }
-  steps.push(step("git", "unstage-wip", {
-    condition: "only if a WIP commit was made",
-    note: "soft-reset so the changes land staged-but-uncommitted",
-  }));
   const landing = to === "trunk"
     ? "fast-forward the trunk to the branch and delete the now-merged branch"
     : "hand the branch back to the main checkout for review (the branch is preserved)";

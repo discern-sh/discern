@@ -117,7 +117,7 @@ Deno.test("teardownPlanToEngine: one destroy step per ledger entry", () => {
   assert(plan.steps.every((s) => s.kind === "resource-destroy"));
 });
 
-Deno.test("graduatePlanToEngine: dirty worktree adds WIP-commit/unstage; resources gate the teardown step", () => {
+Deno.test("graduatePlanToEngine: resources gate the teardown step for branch graduations", () => {
   const base = {
     to: "branch" as const,
     worktreeBranch: "agent/x",
@@ -134,15 +134,12 @@ Deno.test("graduatePlanToEngine: dirty worktree adds WIP-commit/unstage; resourc
   };
   const dirty = graduatePlanToEngine({
     ...base,
-    worktreeDirty: true,
     hasResources: true,
   });
   assertEquals(dirty.steps.map((s) => s.label), [
     "teardown resources",
-    "wip-commit",
     "remove-worktree",
     "checkout",
-    "unstage-wip",
   ]);
   assertEquals(
     dirty.steps.find((s) => s.label === "teardown resources")?.disposition,
@@ -151,7 +148,6 @@ Deno.test("graduatePlanToEngine: dirty worktree adds WIP-commit/unstage; resourc
 
   const clean = graduatePlanToEngine({
     ...base,
-    worktreeDirty: false,
     hasResources: false,
   });
   assertEquals(clean.steps.map((s) => s.label), [
@@ -185,23 +181,18 @@ Deno.test("graduatePlanToEngine: to=trunk fast-forwards the trunk and deletes th
   };
   const dirty = graduatePlanToEngine({
     ...base,
-    worktreeDirty: true,
     hasResources: true,
   });
-  // The checkout step is replaced by fast-forward-trunk + delete-branch, and the
-  // unstage still trails (soft-reset runs after the branch is deleted).
+  // The checkout step is replaced by fast-forward-trunk + delete-branch.
   assertEquals(dirty.steps.map((s) => s.label), [
     "teardown resources",
-    "wip-commit",
     "fast-forward-trunk",
     "remove-worktree",
     "delete-branch",
-    "unstage-wip",
   ]);
 
   const clean = graduatePlanToEngine({
     ...base,
-    worktreeDirty: false,
     hasResources: false,
   });
   assertEquals(clean.steps.map((s) => s.label), [

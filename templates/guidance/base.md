@@ -15,7 +15,7 @@ Everything discern knows about this project lives in one root file,
   or start a session there) and work from inside it. Never work on the trunk, or in
   a worktree you didn't create. (See *Isolated worktree workflow* below.)
 - **`discern_finish` is the bar for "done".** It runs the project's whole quality
-  gate; don't call a change finished until it passes. Iterate with
+  gate; don't call a change finished until the final tree passes. Iterate with
   **`discern_prepare`** (the fast fix-then-check loop) or **`discern_test`** (just
   the tests); on a failure read the result's `diagnostics[]` — the failing command
   and its captured output — and fix from there.

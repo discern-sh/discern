@@ -42,7 +42,7 @@ export function teardownPlanToEngine(plan: TeardownPlan): EnginePlan {
 // ── graduate ──────────────────────────────────────────────────────────────────
 
 /** The read-only diagnosis a graduation acts on. The preconditions (behind main,
- * dirty main) are checked while BUILDING this — a plan only exists for a
+ * dirty worktree, dirty main) are checked while BUILDING this — a plan only exists for a
  * graduation that may proceed. */
 export interface GraduatePlan {
   /** Where the branch lands: `"branch"` (review-first, branch preserved) or
@@ -54,8 +54,6 @@ export interface GraduatePlan {
   mainBranch: string;
   /** The trunk a `--to trunk` graduation fast-forwards (`[project].main_branch`). */
   trunk: string;
-  /** Whether the worktree has uncommitted changes (→ a WIP-commit/unstage dance). */
-  worktreeDirty: boolean;
   /** Whether any external resource is declared (→ a teardown step). */
   hasResources: boolean;
   /** Ignored-file drift detected against the setup-time baseline, when enabled. */
@@ -64,8 +62,8 @@ export interface GraduatePlan {
 
 /**
  * Project a graduation onto the shared renderer: the ordered mutations it will
- * perform. The dirty-worktree WIP-commit/unstage steps appear only when the
- * worktree is dirty, mirroring the executor.
+ * perform. Dirty worktrees are refused before a plan exists, so every graduation
+ * plan lands committed history only.
  */
 export function graduatePlanToEngine(plan: GraduatePlan): EnginePlan {
   const steps: PlanStep[] = [];
@@ -77,14 +75,6 @@ export function graduatePlanToEngine(plan: GraduatePlan): EnginePlan {
       ? "destroy this worktree's external resources"
       : "no resources declared",
   });
-  if (plan.worktreeDirty) {
-    steps.push({
-      kind: "git",
-      label: "wip-commit",
-      disposition: "run",
-      note: "commit leftover uncommitted changes as WIP",
-    });
-  }
   if (plan.to === "trunk") {
     // Land on the trunk: fast-forward it to the branch tip (always clean — the
     // gate guarantees the branch contains the trunk), then remove the worktree and
@@ -119,14 +109,6 @@ export function graduatePlanToEngine(plan: GraduatePlan): EnginePlan {
       label: "checkout",
       disposition: "run",
       note: `${plan.worktreeBranch} in ${plan.mainRepo}`,
-    });
-  }
-  if (plan.worktreeDirty) {
-    steps.push({
-      kind: "git",
-      label: "unstage-wip",
-      disposition: "run",
-      note: "soft-reset so the changes land staged-but-uncommitted",
     });
   }
   const landing = plan.to === "trunk"

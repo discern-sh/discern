@@ -248,7 +248,7 @@ async function runGate(
   //    fix stage MUTATES the tree; snapshot the working-tree dirty set immediately
   //    before and after it so the strand check (step 5) can flag a fixer that reformatted
   //    a committed-clean file — the uncommitted fixer output a green gate would otherwise
-  //    hide until graduate (ADR 0047). Skip the snapshots when no fix stage is wired, or
+  //    hide behind a green result (ADR 0047). Skip the snapshots when no fix stage is wired, or
   //    when a fail-fast precondition (the merge or a currency check) already failed
   //    (nothing downstream runs).
   const stageGroups = buildStageGroups(cfg);
@@ -290,8 +290,8 @@ async function runGate(
   //     fixer output. Flag only files that were CLEAN at finish-start and the fix stage
   //     dirtied (D1 \ D0) — so a fixer reworking the agent's own uncommitted edits (the
   //     inner loop) never trips, only one reformatting an already-COMMITTED file does.
-  //     That stranded set is exactly what graduate would otherwise scoop up staged-but-
-  //     uncommitted in the main checkout — commit the fixer output before you finish.
+  //     That stranded set is exactly what a final clean check must surface early —
+  //     commit the fixer output before you finish.
   let fixDriftDiag: Diagnostic | undefined;
   if (
     failedStage === null && dirtyBeforeFix !== null && dirtyAfterFix !== null
@@ -350,8 +350,13 @@ async function runGate(
   const hints = [
     ...(inProgress !== undefined ? [inProgress] : []),
     ...(mergeWarning !== undefined ? [mergeWarning] : []),
-    ...buildGateHints(cfg, changed, failedStage),
     ...(receiptHint !== undefined ? [receiptHint] : []),
+    ...buildGateHints(
+      cfg,
+      changed,
+      failedStage,
+      gateReceipt.status === "recorded",
+    ),
     ...couplingHints,
   ];
   if (hints.length > 0) {
@@ -370,7 +375,7 @@ function gateReceiptHint(
       case "recorded":
         return undefined;
       case "skipped_dirty":
-        return "Gate passed, but no gate-pass receipt was recorded because the worktree is dirty; `discern graduate` will re-run the gate until a clean finish records one.";
+        return "Gate passed, but no gate-pass receipt was recorded because the worktree is dirty. Use `discern prepare` or `discern test` while iterating, then commit the intended final tree and re-run `discern finish` on the clean HEAD before handoff or graduation.";
       case "record_failed":
         return `Gate passed, but discern could not record the gate-pass receipt${reason}; \`discern graduate\` will re-run the gate unless a later finish records one.`;
       case "unavailable":
@@ -397,6 +402,7 @@ function buildGateHints(
   cfg: DiscernConfig,
   changed: string[],
   failedStage: FailedStage | null,
+  cleanFinishRecorded: boolean,
 ): string[] {
   if (failedStage !== null) {
     const doc = cfg.project.gotchas_doc;
@@ -409,9 +415,9 @@ function buildGateHints(
   const hints = [
     "If you changed documented behaviour, update the docs to match before you finish.",
   ];
-  if (Object.keys(cfg.ratchets).length > 0) {
+  if (cleanFinishRecorded && Object.keys(cfg.ratchets).length > 0) {
     hints.push(
-      "Before pushing, check the ratchets with `discern ratchets` (slow, so not part of finish).",
+      "Run ratchets as needed with `discern ratchets` (slow and outside `discern finish`; non-dry-run ratchets require a clean worktree unless forced for ratchet authoring).",
     );
   }
   if (
