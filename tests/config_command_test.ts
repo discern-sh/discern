@@ -50,6 +50,33 @@ Deno.test("config set-capability fills a capability and preserves comments", asy
   });
 });
 
+Deno.test("config set-capability round-trips the smoke capability (ADR 0090)", async () => {
+  // `smoke` is a first-class known capability (stage: test), so set-capability accepts
+  // it and the written line re-parses cleanly — the same path every capability takes.
+  await withTempDir(async (dir) => {
+    await init(dir);
+    const r = await runCli(
+      // `true` is a real, PATH-resolvable stand-in for a boot check (so doctor stays
+      // green); the point is that `smoke` takes the same accept→write→load path as any
+      // known capability.
+      ["config", "set-capability", "smoke", "true", "--json"],
+      dir,
+    );
+    assertEquals(r.code, 0, r.stderr);
+    const result = JSON.parse(r.stdout);
+    assertEquals(result.ok, true);
+    assert(
+      result.data.edits.some((e: { key: string }) =>
+        e.key === "capabilities.smoke"
+      ),
+    );
+    assertStringIncludes(await readToml(dir), 'smoke = "true"');
+    // The install still loads cleanly with smoke wired.
+    const doctor = await runCli(["doctor", "--json"], dir);
+    assertEquals(JSON.parse(doctor.stdout).ok, true);
+  });
+});
+
 Deno.test("config set refuses an unknown key at write time (no bricked config)", async () => {
   await withTempDir(async (dir) => {
     await init(dir);

@@ -8,7 +8,7 @@
  * keep the page format honest:
  *
  *  1. `setup step <n>` returns the structured spine + the prose guidance;
- *  2. `setup begin` emits the principles + the FIRST page only (never steps 1–8);
+ *  2. `setup begin` emits the principles + the FIRST page only (never steps 1–9);
  *  3. `setup done` FAILS (naming the unmet check) when a step was skipped and
  *     PASSES when every check is satisfied — the anti-shallow-compliance guard;
  *  4. every completion check's `describe` matches its page's `completion_check`
@@ -34,7 +34,18 @@ Deno.test("the shipped brief parses into the nine numbered pages, each with a fu
   const text = await Deno.readTextFile(BRIEF);
   const brief = parseSetupBrief(text);
 
-  assertEquals(brief.pages.map((p) => p.step), [0, 1, 2, 3, 4, 5, 6, 7, 8]);
+  assertEquals(brief.pages.map((p) => p.step), [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+  ]);
   assertStringIncludes(brief.preamble, "# Set up the harness");
   assertStringIncludes(brief.preamble, "Operating principles");
   assertStringIncludes(
@@ -140,7 +151,7 @@ Deno.test("setup begin emits the operating principles + the first page only, nev
     assertStringIncludes(r.stdout, "am I your most capable model"); // Step 0's prose
 
     // ...but no later page is dumped — the agent pulls each with `setup step <n>`.
-    for (const n of [1, 2, 3, 4, 5, 6, 7, 8]) {
+    for (const n of [1, 2, 3, 4, 5, 6, 7, 8, 9]) {
       assert(
         !r.stdout.includes(`## Step ${n} —`),
         `begin must not print the Step ${n} heading (A10):\n${r.stdout}`,

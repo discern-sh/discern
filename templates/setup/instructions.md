@@ -183,7 +183,7 @@ files_to_read = [
 ]
 must_do = [
   "Write the one-line pitch at the top and the Conventions section, aligned with the capabilities you will wire.",
-  "If `begin` imported an existing CLAUDE.md/AGENTS.md, fold it in and note any conflict with discern's disciplines for Step 8.",
+  "If `begin` imported an existing CLAUDE.md/AGENTS.md, fold it in and note any conflict with discern's disciplines for Step 9.",
 ]
 what_not_to_do = [
   "Do not repeat discern's built-in harness disciplines — they are bundled and auto-prepended.",
@@ -197,9 +197,9 @@ Open **`guidance.md`** (at the repo root — the default `[guidance].sources`). 
 
 - The one-line pitch at the top — what the project is and who it's for.
 - The **Conventions** section — language idioms, style, structure, naming, error handling, anything the tooling enforces. Keep it aligned with the capabilities you'll propose in Step 7, so the written rule and the enforced rule agree.
-- **If `discern setup begin` imported your existing instructions:** when the project already had a hand-written `CLAUDE.md`/`AGENTS.md`, `begin` migrated its content into `guidance.md` under an _"Imported from …"_ heading so nothing was lost (the `verify` preflight flagged this). Fold it into the pitch and Conventions above, then delete that heading and its import note. **Watch for instructions that contradict discern's standing disciplines** — a pre-existing rule like "never use worktrees" fights discern's worktree workflow, and silently appending it would leave the compiled guidance self-contradictory. Note any such conflict now; you resolve it in discern's favour at the end (Step 8), once the whole guidance is in view.
+- **If `discern setup begin` imported your existing instructions:** when the project already had a hand-written `CLAUDE.md`/`AGENTS.md`, `begin` migrated its content into `guidance.md` under an _"Imported from …"_ heading so nothing was lost (the `verify` preflight flagged this). Fold it into the pitch and Conventions above, then delete that heading and its import note. **Watch for instructions that contradict discern's standing disciplines** — a pre-existing rule like "never use worktrees" fights discern's worktree workflow, and silently appending it would leave the compiled guidance self-contradictory. Note any such conflict now; you resolve it in discern's favour at the end (Step 9), once the whole guidance is in view.
 
-**Do not touch the generated copies** (`CLAUDE.md`, `AGENTS.md`, …). This source file is authoritative; those are compiled from the built-in guidance plus `guidance.md` in Step 8.
+**Do not touch the generated copies** (`CLAUDE.md`, `AGENTS.md`, …). This source file is authoritative; those are compiled from the built-in guidance plus `guidance.md` in Step 9.
 
 ---
 
@@ -275,7 +275,7 @@ files_to_read = [
   "discern.toml ([capabilities])",
 ]
 must_do = [
-  "Inventory the stack signals and wire format/lint/typecheck/test/build via `discern config set-capability`, committing each (the formatter first, its sweep on its own).",
+  "Inventory the stack signals and wire format/lint/typecheck/test/build/smoke via `discern config set-capability`, committing each (the formatter first, its sweep on its own).",
   "Run `discern refresh`, then `discern finish` (or `discern prepare`), and watch the gate go green as you wire each capability.",
   "Where the stack is missing a standard tool, propose adding it through the five beats.",
 ]
@@ -284,7 +284,7 @@ what_not_to_do = [
   "Do not leave a capability unset merely because the project hadn't adopted the obvious tool yet.",
 ]
 completion_check = "at least one capability is wired in discern.toml."
-next_action = "Once the gate is green with what you wired, pull the final page: `discern setup step 8`."
+next_action = "Once the gate is green with what you wired, pull the next page: `discern setup step 8`."
 ```
 
 This is the one step where naming concrete ecosystems is right: you're detecting which one this is.
@@ -324,7 +324,8 @@ Detection lookup (signal file → ecosystem → the usual tools to suggest):
 Notes that keep the proposal honest:
 
 - **Verify before suggesting.** Read the manifest's actual scripts/dependencies — propose the command the project really has, not the textbook one. If a stack declares a custom test script, suggest that.
-- **A known tool maps to a capability by name.** Formatter → `format`, linter → `lint`, type-checker → `typecheck`, the test suite → `test`, a build/bundle step → `build`. Anything outside those five (a coverage threshold, a schema validator, a license check) is a `[checks.<name>]` with an explicit `stage` (`fix` | `build` | `check` | `test`).
+- **A known tool maps to a capability by name.** Formatter → `format`, linter → `lint`, type-checker → `typecheck`, the test suite → `test`, a build/bundle step → `build`, a fast does-it-boot check → `smoke`. Anything outside those six (a coverage threshold, a schema validator, a license check) is a `[checks.<name>]` with an explicit `stage` (`fix` | `build` | `check` | `test`).
+- **`smoke` proves the app boots, not that it passes.** It rides the `test` stage and should be FAST and side-effect-light — a framework's inspire/about, a CLI `--version`, a script that loads config and exits — not an e2e suite (that's a `[checks.<name>]`). Because `discern finish` runs it wherever the gate runs, it re-proves the app boots inside a worktree too — which Step 8 leans on.
 - **Monorepo / polyglot:** several stacks can coexist. Chain tools in one capability with `&&`, or add a `[scopes.<name>]` for a sub-app with its own `gate`.
 - **Wire the obvious scopes and worktree resources too** while you're here: point `[scopes]` globs at where this project's code actually lives, and if the project needs a per-worktree external resource (a database, an emulator, a container), note a `[worktree.resources.<name>]` table with `create`/`destroy` for the user to fill — an external resource carries cost and data implications, so it is a genuine decision to leave with them, not something to wire silently.
 - **Point the gate at its gotchas doc.** Step 2 created `{{docs_dir}}80-development/finish-gate-gotchas.md`; set `[project].gotchas_doc = "{{docs_dir}}80-development/finish-gate-gotchas.md"` so a non-obvious gate failure points agents at it.
@@ -333,7 +334,68 @@ Notes that keep the proposal honest:
 
 ---
 
-## Step 8 — Record, summarise, and prove it with `discern setup done`
+## Step 8 — Prove the project runs in a worktree
+
+```toml
+intent = "Prove the project actually runs where every future task will — inside a git worktree — and wire [worktree] for whatever a fresh copy is missing, so `setup done`'s worktree probe passes and the first real task is never the moment the app breaks in a copy."
+files_to_read = [
+  "discern.toml ([worktree] — steps, ensure, resources, inherit_env)",
+  "the main checkout's untracked runtime state a copy would start without (an env file with secrets/keys, a dependency dir like vendor/ or node_modules/, a local database)",
+]
+must_do = [
+  "Create a probe worktree with `discern start`, enter it, and run `discern finish` there — it runs your `smoke` check too, so a green finish means the app boots in the copy.",
+  "Fix whatever the copy is missing by wiring [worktree]: copy env files and generate keys in `steps` (one-shot), install dependencies in `ensure` (every pass), declare a database/container as `[worktree.resources.<name>]`, list plain env vars in `inherit_env`.",
+  "Iterate until the probe's `discern finish` is green, commit your [worktree] wiring, then remove the probe; record anything you cannot resolve now in TODO.md.",
+]
+what_not_to_do = [
+  "Do not leave the probe worktree behind — remove it once the copy works, or once you have recorded what is blocking it.",
+  "Do not silently wire a resource with cost or data implications (a real database, a paid service, a container) — that is a genuine decision to leave with the user in TODO.md.",
+]
+completion_check = "A probe worktree's `discern finish` is green (or the gaps are recorded in TODO.md), and the probe is removed."
+next_action = "Once the project is provably viable in a worktree, pull the final page: `discern setup step 9`."
+```
+
+Every future task in this project happens in a **git worktree** — an isolated copy on its own branch (that is discern's whole workflow). The main checkout you configured setup in is the one place agents are told *never* to work. So the gate being green *here* is not enough: it has to be green *there* too — and a surprising number of projects pass here and break in a copy, because a fresh worktree starts without whatever is not tracked in git.
+
+Name your stack's version of the usual culprits, and wire it:
+
+| Stack | What a fresh worktree is missing → how to wire it | Prove it boots (`smoke`) |
+|---|---|---|
+| **Laravel / PHP** | untracked `.env` + `APP_KEY`, `vendor/`, the storage symlink → `steps`: copy the `.env`, `php artisan key:generate`, `php artisan storage:link`; `ensure`: `composer install` | `php artisan inspire` |
+| **Node / JS / TS** | `node_modules/` → `ensure`: `npm ci` (or `pnpm i --frozen-lockfile`) | `node -e "require('./')"` (or the package's `--version`) |
+| **Python** | the virtualenv + installed deps → `steps`: create the venv; `ensure`: `pip install -r requirements.txt` | `python -c "import <your_package>"` |
+| **Rust / Go** | usually nothing — the toolchain fetches and caches deps → often no wiring at all | `cargo run -- --version` / `go run . --version` |
+| **a local database / service** | a per-worktree database or emulator → `[worktree.resources.<name>]` with `create`/`destroy` | your app's boot/health command |
+
+The wiring lives in `discern.toml`:
+
+- **`[worktree].steps`** — run ONCE at creation (copy the `.env`, generate a key, seed fixtures).
+- **`[worktree].ensure`** — run on EVERY pass (install dependencies, build) — author them idempotent.
+- **`[worktree.resources.<name>]`** — an external resource with `create`/`destroy` (a database, a container, an emulator). Anything with cost or data implications is a genuine decision — leave it for the user in `TODO.md` rather than wiring it silently.
+- **`[worktree].inherit_env`** — plain env-var names copied from the main checkout's `.env` into the copy's `.env`.
+
+**Prove it, don't guess.** You have been committing each stage, so a fresh probe will see your work. From the main checkout:
+
+```sh
+discern start            # creates a throwaway worktree from your setup branch — note the path it prints
+cd <that path>
+discern finish           # runs the gate — and your smoke check — in the copy
+```
+
+Whatever fails is exactly what did not travel. Fix it in `[worktree]` back in the main checkout, commit, and re-probe. When `discern finish` is green in the copy, discard the throwaway — from the main checkout:
+
+```sh
+git worktree remove <that path> --force
+git branch -D <its agent/… branch>
+```
+
+It holds no work you need; the fix lives in `[worktree]`, committed on your setup branch.
+
+You do not have to catch everything by hand: **`discern setup done` runs this same probe structurally** — it creates a worktree, runs the gate inside it, and tears it down — and it will *refuse to finish* if the app cannot run in a copy, naming what broke. This step is your chance to get the wiring right first, so `done` is a confirmation, not a surprise. Record anything you genuinely cannot resolve now (a database the user must provision, a secret only they hold) in `TODO.md`, so the gap is visible rather than a landmine on the first real task.
+
+---
+
+## Step 9 — Record, summarise, and prove it with `discern setup done`
 
 ```toml
 intent = "Reconcile imported instructions, record deferred wiring in TODO.md, summarise for the user, and prove completion with `discern setup done`."
@@ -354,20 +416,21 @@ completion_check = "`discern setup done` passes — it re-runs refresh → docto
 next_action = "When every page above is done, run `discern setup done` — the one command that proves and finishes setup."
 ```
 
-You wired and verified the capabilities in Step 7 — **`discern finish`** (the full gate) and **`discern prepare`** (the fast fix-then-check loop) both run *during* setup, so you have already watched the gate go green as you wired each one. This step records the outcome and locks it in.
+You wired the capabilities in Step 7 and proved the project runs in a worktree in Step 8 — **`discern finish`** (the full gate) and **`discern prepare`** (the fast fix-then-check loop) both run *during* setup, so you have already watched the gate go green. This step records the outcome and locks it in.
 
 1. **Reconcile any imported instructions against discern's guidelines.** If `begin` folded a pre-existing `CLAUDE.md`/`AGENTS.md` into `guidance.md` (Step 4), review it now — with the full guidance and discern's built-in disciplines both in view — for anything that **contradicts how discern works**: a "never use worktrees", a "don't run a quality gate", a commit convention that clashes with the atomic-commit workflow. Resolve each conflict **in discern's favour** — edit or drop the offending line, and tell the user plainly why ("your earlier note said to avoid worktrees, but discern's workflow depends on them, so I've removed it; here's what that changes for you"). An unreconciled contradiction compiles into every agent file and quietly works against the harness. (No imported instructions? Skip this.)
 2. **Record the deferred wiring in `TODO.md`.** Everything you *proposed but did not activate* is outstanding work, and a comment in `discern.toml` or a line in chat is not where the next agent will look. Add a terse item (bold title + one line, in the right bucket) for each open decision: any capability you deliberately left for the user to decide (a genuine fork you paused on), any `[worktree.resources.<name>]` / `[worktree]` inherit_env / setup steps left to wire, any tool worth adding, any test database or service the suite needs.
 3. **Summarise for the user — and say what the docs are *for*.** Recap the principles you drafted, the subtrees you proposed, the capabilities you wired and committed (plus any genuine fork you left for them to decide), and the `TODO.md` items you recorded. Then remind them why it mattered: the docs and guidance you wrote are the single source of truth every future agent session — and discern — reads to work in this project, the foundation its reliability is built on, not documentation for its own sake. Point them at the `discern-document-subsystem` skill as the next step for filling in each subtree's leaves.
-4. **Run `discern setup done` — it proves completion for you.** This is the one command that finishes setup, and it does the proving: it re-runs **`discern refresh` → `discern doctor` → `discern finish`** and records `[meta].bootstrapped` **only when the install is healthy and the gate is green**. Then the one-time setup redirect retires and `discern setup` hides from the command list. (`discern refresh` compiles the built-in harness guidance + `guidance.md` into the per-provider agent files — `AGENTS.md`, `CLAUDE.md`, … — all gitignored build artifacts, with `guidance.md` as the tracked, reviewable source — and materializes the skills into each agent's skills directory.) If it reports:
+4. **Run `discern setup done` — it proves completion for you.** This is the one command that finishes setup, and it does the proving: it re-runs **`discern refresh` → `discern doctor` → `discern finish`**, then **probes a throwaway worktree** (proving the app runs in a copy, not just in the main checkout — Step 8), and records `[meta].bootstrapped` **only when all of them pass**. Then the one-time setup redirect retires and `discern setup` hides from the command list. (`discern refresh` compiles the built-in harness guidance + `guidance.md` into the per-provider agent files — `AGENTS.md`, `CLAUDE.md`, … — all gitignored build artifacts, with `guidance.md` as the tracked, reviewable source — and materializes the skills into each agent's skills directory.) If it reports:
    - **leftover markers** — a `<!-- setup fills this -->` sentinel or the EXAMPLE principle is still in a file: fill it and re-run (or pass `--force` if a flagged file is a deliberate exception);
    - **a red `doctor` or `finish`** — fix what it names (run `discern doctor` / `discern finish` to see the detail), then re-run. **Don't leave a red gate or a wrong command behind**, and don't reach for `--force` to paper over a real failure — a green `setup done` with real capabilities is the proof setup worked, not just that the config parses.
+   - **a red worktree probe** — the gate is green here but the app can't run in a fresh worktree (an untracked env file or a dependency dir didn't travel): wire `[worktree].steps` / `ensure` / `resources` (Step 8), commit, then re-run — or, if it's a decision only the user can make (a database they must provision), record it in `TODO.md`.
 
 ---
 
 ## You are not done until all of these are true
 
-These are stop-conditions to **verify for yourself before you finish** — not a summary to read back. **Do not paraphrase this list to the user as completed work; actually do each one, then prove it by running `discern setup done`** (it fails while any skeleton marker remains, so it is the check, not your word for it).
+These are stop-conditions to **verify for yourself before you finish** — not a summary to read back. **Do not paraphrase this list to the user as completed work; actually do each one, then prove it by running `discern setup done`** (it fails while any skeleton marker remains, or the app can't run in a worktree, so it is the check, not your word for it).
 
 - You relayed Step 0's model question to your human — proceeding on the model they confirmed, or resuming on the stronger one they chose — and `discern doctor` is green.
 - `design-principles.md` holds real, project-specific principles (no EXAMPLE block, no `<!-- setup fills this -->` markers left).
@@ -376,7 +439,8 @@ These are stop-conditions to **verify for yourself before you finish** — not a
 - The orientation docs (concepts, glossary, system-map) are seeded, the `80-development/` leaves are filled, and the numbered subsystem subtrees are named with stub READMEs.
 - No stale "starts as a skeleton / run `discern setup`" notes remain — the `{{docs_dir}}README.md` and `{{docs_dir}}00-orientation/README.md` intros describe the filled tree, not an empty one.
 - `discern.toml` capability fills are **recommended, narrated, and committed** for every detected stack you were confident in — each its own revertible commit — with any genuine fork left for the user to decide and recorded in `TODO.md`; and `discern finish` is **green** with whatever was activated.
+- The project **runs in a worktree** — you wired `[worktree]` for whatever a fresh copy needs (env files, dependencies, resources), and a probe worktree's `discern finish` is green — or the unresolved gap is recorded in `TODO.md` (Step 8).
 - `TODO.md` records the deferred wiring so no open decision lives only in a comment or the chat.
-- `discern setup done` reports success — it re-runs `discern refresh` → `discern doctor` → `discern finish` and records `[meta].bootstrapped` only when all three pass, so a green `setup done` *is* the proof the gate is real (not merely that the config parses).
+- `discern setup done` reports success — it re-runs `discern refresh` → `discern doctor` → `discern finish` **and probes a throwaway worktree**, recording `[meta].bootstrapped` only when all pass, so a green `setup done` *is* the proof the gate is real and the app runs in a copy (not merely that the config parses).
 
 If any line above is not yet true, you are still mid-setup: keep going, don't report back as if finished. Lost the top of this brief? Re-run `discern setup begin` to reprint it in full (or `discern setup step <n>` for just one step).

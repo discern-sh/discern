@@ -19,6 +19,15 @@ export type Stage = (typeof STAGES)[number];
  * work and belongs in `[checks.<name>]` with an explicit stage. A known
  * capability omitted from a config is "knowably absent" (the readiness signal
  * `doctor` reports).
+ *
+ * `smoke` is the odd one out: not "run tool X" but "prove the app boots in THIS
+ * checkout" — a FAST, side-effect-light command (a framework's inspire/about, a
+ * CLI `--version`, a script that loads config and exits), NOT an e2e suite
+ * (anything heavier belongs in `[checks.<name>]`). It rides the `test` stage so
+ * every `discern finish` re-proves the app boots wherever the gate runs —
+ * including inside a worktree, where every future task lives (ADR 0090). Anything
+ * env-anchored (an untracked `.env`, an uninstalled dependency dir) that doesn't
+ * survive into a fresh worktree makes it fail there, which is the point.
  */
 export const KNOWN_CAPABILITIES = {
   format: "fix",
@@ -26,6 +35,7 @@ export const KNOWN_CAPABILITIES = {
   lint: "check",
   typecheck: "check",
   test: "test",
+  smoke: "test",
 } as const satisfies Record<string, Stage>;
 export type Capability = keyof typeof KNOWN_CAPABILITIES;
 

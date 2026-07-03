@@ -499,6 +499,143 @@ Deno.test("setup done runs the gate and records bootstrapped only when green (AD
   });
 });
 
+// ── the worktree-viability probe (ADR 0090) ──────────────────────────────────────
+// `setup done` proves the gate in the main checkout AND in a throwaway worktree — the
+// copy every future task runs in — so an env-anchored app can't pass setup and then
+// break on the first real task. The probe branches from the current (unlanded) HEAD, so
+// the agent's setup work must be committed for it to travel — the atomic-commit
+// discipline the brief already asks for.
+
+Deno.test("setup done proves the project viable in a worktree and reports it, then tears the probe down (ADR 0090)", async () => {
+  await withTempDir(async (dir) => {
+    await readyForDone(dir, "true"); // a marker-free project with a passing gate
+    // Commit the setup work so the probe worktree (branched from HEAD) sees the wired
+    // config — the atomic-commit discipline the brief asks of the agent.
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "setup work", "--no-gpg-sign");
+
+    const done = await runAgent(dir, ["setup", "done", "--json"]);
+    assertEquals(done.code, 0, done.output);
+    const res = JSON.parse(done.stdout);
+    assertEquals(res.data.bootstrapped, true);
+    assertEquals(
+      res.data.worktree_proven,
+      true,
+      "the probe proved the gate green in a worktree",
+    );
+    // The throwaway probe left nothing behind — no worktree, no `agent/` branch.
+    const worktrees = await gitOut(dir, "worktree", "list", "--porcelain");
+    assert(
+      !worktrees.includes(".worktrees"),
+      `the probe worktree leaked:\n${worktrees}`,
+    );
+    assertEquals(
+      (await gitOut(dir, "branch", "--list", "agent/*")).trim(),
+      "",
+      "the probe branch leaked",
+    );
+  });
+
+  // The human render claims the coverage it earned.
+  await withTempDir(async (dir) => {
+    await readyForDone(dir, "true");
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "setup work", "--no-gpg-sign");
+    const done = await runAgent(dir, ["setup", "done"]);
+    assertEquals(done.code, 0, done.output);
+    assertStringIncludes(done.stdout, "runs inside a worktree");
+  });
+});
+
+Deno.test("setup done blocks when the gate is green here but red in a worktree — the env-anchored app (ADR 0090)", async () => {
+  await withTempDir(async (dir) => {
+    await readyForDone(dir, "true");
+    // A smoke check that needs a file present only in the main checkout — the shape of an
+    // env-anchored app (an untracked `.env`, an uninstalled dependency dir): it passes
+    // here, but the file never travels into a fresh worktree.
+    const wired = await runAgent(dir, [
+      "config",
+      "set-capability",
+      "smoke",
+      "test -f PROBE_ANCHOR",
+    ]);
+    assertEquals(wired.code, 0, wired.output);
+    // Commit the config so `smoke` travels to the probe, but create the anchor AFTER the
+    // commit so it stays untracked — present here, absent in the copy.
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "setup work", "--no-gpg-sign");
+    await Deno.writeTextFile(join(dir, "PROBE_ANCHOR"), "present only here\n");
+
+    const done = await runAgent(dir, ["setup", "done", "--json"]);
+    assertEquals(done.code, 1, done.output);
+    const res = JSON.parse(done.stdout);
+    assertEquals(res.ok, false);
+    assertEquals(res.error, "gate_failed");
+    assertEquals(
+      res.data.stage,
+      "worktree_probe",
+      "the failure names the probe stage, not the main-checkout gate",
+    );
+    // The proof failed, so completion is NOT recorded — status keeps reporting unfinished.
+    assert(
+      !(await Deno.readTextFile(join(dir, "discern.toml"))).includes(
+        "bootstrapped = true",
+      ),
+      "bootstrapped must not be recorded when the probe is red",
+    );
+    // And the probe was still torn down (a red probe must not strand its worktree).
+    assert(
+      !(await gitOut(dir, "worktree", "list", "--porcelain")).includes(
+        ".worktrees",
+      ),
+      "the red probe leaked its worktree",
+    );
+  });
+});
+
+Deno.test("setup done skips the worktree probe when worktrees are off, and never claims the coverage (ADR 0090)", async () => {
+  await withTempDir(async (dir) => {
+    await readyForDone(dir, "true");
+    // Turn the worktree workflow off — there is nothing to prove, so the probe must not run.
+    const off = await runAgent(dir, [
+      "config",
+      "set",
+      "features.worktrees",
+      "false",
+      "--bool",
+    ]);
+    assertEquals(off.code, 0, off.output);
+
+    const done = await runAgent(dir, ["setup", "done", "--json"]);
+    assertEquals(done.code, 0, done.output);
+    const res = JSON.parse(done.stdout);
+    assertEquals(res.data.bootstrapped, true);
+    assertEquals(
+      res.data.worktree_proven,
+      false,
+      "a worktrees-off install proves no worktree",
+    );
+  });
+
+  // The human render must not claim worktree coverage it never proved.
+  await withTempDir(async (dir) => {
+    await readyForDone(dir, "true");
+    await runAgent(dir, [
+      "config",
+      "set",
+      "features.worktrees",
+      "false",
+      "--bool",
+    ]);
+    const done = await runAgent(dir, ["setup", "done"]);
+    assertEquals(done.code, 0, done.output);
+    assert(
+      !done.stdout.includes("runs inside a worktree"),
+      "worktrees-off setup must not claim worktree coverage",
+    );
+  });
+});
+
 Deno.test("setup done commits the completion marker when discern.toml is the only tracked change", async () => {
   // The completion marker [meta].bootstrapped was written but never committed, so a
   // diligent atomic-commit setup still ended with a dirty tree. Untracked local

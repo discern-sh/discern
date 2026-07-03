@@ -92,15 +92,22 @@ Deno.test("confirmedBeginCommand always carries --confirmed, and --docs only wit
 
 /** Build a {@link SetupAssurance} at a chosen verdict for the coverage-line branches. */
 function assurance(verdict: SetupAssurance["verdict"]): SetupAssurance {
-  const caps = ["format", "lint", "typecheck", "test", "build"] as const;
-  const enforcedCount = verdict === "full" ? 5 : verdict === "partial" ? 2 : 0;
+  const caps = [
+    "format",
+    "lint",
+    "typecheck",
+    "test",
+    "build",
+    "smoke",
+  ] as const;
+  const enforcedCount = verdict === "full" ? 6 : verdict === "partial" ? 2 : 0;
   return {
     capabilities: caps.map((name, i) => ({
       name,
       state: i < enforcedCount ? "enforced" : "absent",
     })),
     enforced: enforcedCount,
-    total: 5,
+    total: 6,
     verdict,
   };
 }
@@ -129,8 +136,11 @@ Deno.test("completionMessage renders honest coverage for each verdict", () => {
     landing,
     reactivation: READY_REACTIVATION,
   });
-  assertStringIncludes(partial, "2 of 5 are wired");
-  assertStringIncludes(partial, "Not running yet: typecheck, test, build");
+  assertStringIncludes(partial, "2 of 6 are wired");
+  assertStringIncludes(
+    partial,
+    "Not running yet: typecheck, test, build, smoke",
+  );
 
   const minimal = completionMessage({
     assurance: assurance("minimal"),

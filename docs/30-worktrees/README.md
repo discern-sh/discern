@@ -58,6 +58,22 @@ without a clean teardown** (the garbage-collection safety net).
 [`worktree-name`](../../src/engine/worktree/identity.ts) resolves a Worktree's
 stable identity (id / site / branch / port / db / worktree / resource).
 
+**Proving a copy works.** The same create → setup → removal cores back a further
+use: `setup done`'s **worktree-viability probe**
+([ADR 0090](../_adr/0090-setup-proves-worktree-viability.md)). Setup proves the
+gate in the main checkout — the one place an agent never works — so before it
+records completion it also creates a THROWAWAY Worktree from the current branch
+(via [`probeWorktreeViability`](../../src/engine/worktree/lifecycle.ts)), runs
+the gate inside it, and tears it down win or lose. A project that passes in the
+main checkout but breaks in a copy — an env-anchored app whose untracked `.env`,
+dependency dir, or absolute-path assumption never travels — fails setup with a
+named `worktree_probe` stage, so the wiring that makes a copy viable
+(`[worktree].steps` / `ensure` / `resources` / `inherit_env`) is fixed while a
+capable agent is present, not discovered on the first real task. `smoke` — a
+fast "does it boot?" [Capability](../00-orientation/glossary.md#capability) —
+makes that probe sharp: because `discern finish` runs it wherever the gate runs,
+every finish re-proves the app boots in a Worktree too.
+
 **Where they land.** `WorktreeCreate` places each checkout under
 `[worktree].root`: by default a **sibling** of the repo
 (`<repo>.worktrees/<name>`), visible and adjacent rather than nested inside it

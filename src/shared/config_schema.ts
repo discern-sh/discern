@@ -278,7 +278,7 @@ const docsSection = z.strictObject({
   "The project documentation tree discern scaffolds, validates, and browses.",
 );
 
-/** The closed [capabilities] object: the five known names, each an optional
+/** The closed [capabilities] object: the six known names, each an optional
  * command-or-list. Shared by the live config (prefaulted) AND the document
  * (optional), so both — and the generated JSON Schema — derive from one shape. */
 const capabilitiesObject = z.strictObject({
@@ -295,6 +295,9 @@ const capabilitiesObject = z.strictObject({
     "check stage — read-only type checking.",
   ),
   test: commandOrList.optional().describe("test stage — the test suite."),
+  smoke: commandOrList.optional().describe(
+    "test stage — a fast, side-effect-light check that the app boots in THIS checkout (a framework's inspire/about, a CLI --version, a config-load-and-exit); proves viability wherever the gate runs, including inside a worktree. Not an e2e suite.",
+  ),
 });
 
 const capabilitiesSection = capabilitiesObject.prefault({}).describe(

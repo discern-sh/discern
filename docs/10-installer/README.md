@@ -31,6 +31,13 @@ attestation that the consent conversation happened; without it — and outside t
 declarative `--config` / `--allow-dirty` paths — `begin` refuses before writing
 anything and re-serves that same consent message
 ([ADR 0086](../_adr/0086-setup-serves-relay-messages-and-a-consent-attestation.md)).
+`setup done` then closes the handshake by proving the gate —
+`refresh → doctor →
+finish` in the main checkout, then a **throwaway worktree
+probe** that runs the gate in a copy, so a project that passes here but breaks
+in a worktree (an env-anchored app whose untracked `.env` or dependency dir
+never travels) cannot complete setup silently
+([ADR 0090](../_adr/0090-setup-proves-worktree-viability.md)).
 
 The ideas worth understanding here: the **disposition**-driven scaffold, with
 ownership in two buckets —

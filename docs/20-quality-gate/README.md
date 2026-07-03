@@ -38,14 +38,14 @@ without running anything
 cannot predict which jobs fail-fast would skip. The same envelope is served to
 agents natively over MCP by `discern mcp`.
 
-The supporting ideas: **Capabilities** are the five known commands (`format` /
-`build` / `lint` / `typecheck` / `test`) and a **Check** is custom gate work
-with an explicit Stage (ADR 0017); **Scopes** classify which part of the repo a
-change touches and **fail open** (an unknown path runs more gates, never fewer),
-and a Scope can carry its own `gate` so a sub-component plugs in (ADR 0018);
-**Ratchets** hold never-loosen metric floors and ceilings — a raw value or, via
-`per`, a rate that doesn't rise just because the project grew — on demand,
-outside `finish` because they are slow (ADR 0003, ADR 0057).
+The supporting ideas: **Capabilities** are the six known commands (`format` /
+`build` / `lint` / `typecheck` / `test` / `smoke`) and a **Check** is custom
+gate work with an explicit Stage (ADR 0017); **Scopes** classify which part of
+the repo a change touches and **fail open** (an unknown path runs more gates,
+never fewer), and a Scope can carry its own `gate` so a sub-component plugs in
+(ADR 0018); **Ratchets** hold never-loosen metric floors and ceilings — a raw
+value or, via `per`, a rate that doesn't rise just because the project grew — on
+demand, outside `finish` because they are slow (ADR 0003, ADR 0057).
 
 Alongside the gate sits the **[continuous-improvement coach](improve.md)**:
 where `finish` asks _did this change pass?_,

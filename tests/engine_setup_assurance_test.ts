@@ -76,10 +76,11 @@ Deno.test("the verdict rolls up enforced coverage: full / partial / minimal", ()
       'lint = "lint"',
       'typecheck = "tc"',
       'test = "test"',
+      'smoke = "smoke"',
     ].join("\n"),
   );
   assertEquals(assessSetupAssurance(full).verdict, "full");
-  assertEquals(assessSetupAssurance(full).enforced, 5);
+  assertEquals(assessSetupAssurance(full).enforced, 6);
 
   const partial = parseConfigOrThrow('[capabilities]\ntest = "test"\n');
   assertEquals(assessSetupAssurance(partial).verdict, "partial");
@@ -157,7 +158,7 @@ Deno.test("setup done --json carries the per-capability assurance block + verdic
     const a = res.data.assurance;
     assertEquals(a.verdict, "partial");
     assertEquals(a.enforced, 2);
-    assertEquals(a.total, 5);
+    assertEquals(a.total, 6);
     const cap = (name: string): { state: string; reason?: string } => {
       const c = a.capabilities.find((x: { name: string }) => x.name === name);
       assert(c !== undefined, `assurance is missing capability "${name}"`);

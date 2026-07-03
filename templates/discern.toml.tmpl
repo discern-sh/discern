@@ -114,6 +114,8 @@ dir = "skills"
 #   lint       check  read-only static analysis
 #   typecheck  check  read-only type checking
 #   test       test   the test suite
+#   smoke      test   a fast check that the app boots in this checkout (proves it
+#                     runs wherever the gate runs — including inside a worktree)
 # A value is one command, or a list run in order: lint = ["eslint .", "stylelint ."].
 # OMIT a capability you don't have — an absent capability is "knowably absent", so
 # a fresh install is a green gate you grow into. `discern setup` has your coding agent
@@ -129,13 +131,15 @@ dir = "skills"
 # lint      = "eslint ."             # or "ruff check ." or "golangci-lint run"
 # typecheck = "tsc --noEmit"         # or "mypy ."
 # test      = "npm test"             # or "pytest" or "go test ./..."
+# smoke     = "node -e 'require(\"./\")'"  # a fast "does it boot?" — a CLI --version,
+#                                    # a framework's inspire/about, a config-load-and-exit
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [checks.<name>] — custom, non-standard gate work that isn't a known capability.
 # `stage` (REQUIRED) is one of fix|build|check|test; `run` the command (or a
 # list); `provides` an optional free-text label. Use this for anything outside
-# the five capabilities above.
+# the six capabilities above.
 # ─────────────────────────────────────────────────────────────────────────────
 
 # [checks.licenses]
