@@ -4,8 +4,6 @@ import { join, relative } from "@std/path";
 const AGENT_FACING_SURFACES = [
   "templates/guidance",
   "templates/skills",
-  "docs/_private/planning/discern-setup-enhancement-plan.md",
-  "docs/_private/planning/launch-workstreams",
   "src/main.ts",
   "src/engine/status/status.ts",
   "src/engine/mcp/server.ts",

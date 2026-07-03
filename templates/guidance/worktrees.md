@@ -4,13 +4,14 @@ discern keeps each task in its own **linked git worktree** so parallel work
 doesn't collide.{{#if has_worktree_resources}} It provisions per-worktree external
 **resources**; read one with `discern worktree-name --resource <name>`.{{/if}}
 
-- **`discern_start`** — from main, create your isolated worktree (branch prefix
-  `{{branch_prefix}}`) and re-root into the returned path. Already in a worktree?
-  Stay there.
+- **`discern_start`** — from the main checkout (`{{main_branch}}`), create your
+  isolated worktree (branch prefix `{{branch_prefix}}`) and re-root into the
+  returned path. Already in a worktree? Stay there.
 - **`discern_integrate`** brings `{{main_branch}}` into your branch when behind
   and reports upstream overlap. Idempotent — use it instead of hand-merging.
-- **`discern_graduate`** is only for an explicit user handoff/land request. A
-  green finish is not that request; otherwise stop and report ready for review.
+- **`discern_graduate`** is only for an explicit user handoff/land request. After
+  a green finish, unless the user specifically asked you to graduate without
+  review, stop and wait for their confirmation.
   It lands on `{{graduate_to}}` by default; options are `branch` (checked out for
   review) or `trunk` (fast-forwarded, the merged branch deleted).
 

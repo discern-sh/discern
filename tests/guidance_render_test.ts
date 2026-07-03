@@ -165,11 +165,8 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
     assert(bareBody !== richBody, "config must change the rendered guidance");
 
     // {{var}} interpolates the committed values.
-    assert(
-      bareBody.includes("branch prefix\n  `agent/`"),
-      "bare branch prefix",
-    );
-    assert(richBody.includes("branch prefix\n  `wt/`"), "rich branch prefix");
+    assert(bareBody.includes("branch prefix `agent/`"), "bare branch prefix");
+    assert(richBody.includes("branch prefix `wt/`"), "rich branch prefix");
     // The integration branch interpolates too (asserted on the backticked token,
     // since prose line-wrapping may separate it from neighbouring words).
     assert(bareBody.includes("`main`"), "bare integration branch");
@@ -199,7 +196,7 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
       "graduation requires an explicit user ask",
     );
     assert(
-      bareBody.includes("green finish is not that request"),
+      bareBody.includes("stop and wait for their confirmation"),
       "green finish is not treated as permission to graduate",
     );
   } finally {
