@@ -81,6 +81,45 @@ Deno.test("engine refresh: compiles agent files and materializes bundled skills"
   });
 });
 
+Deno.test("engine refresh: rescues generated-file edits and reports the rescue", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await Deno.writeTextFile(join(dir, "guidance.md"), "# Guidance\nOne.\n");
+
+    const first = await runAgent(dir, ["refresh", "--json"]);
+    assertEquals(first.code, 0, first.output);
+
+    const claudePath = join(dir, "CLAUDE.md");
+    await Deno.writeTextFile(
+      claudePath,
+      `${await Deno.readTextFile(
+        claudePath,
+      )}\n# Memory\nKeep this local note.\n`,
+    );
+    await Deno.writeTextFile(
+      join(dir, "guidance.md"),
+      "# Guidance\nOne.\nTwo.\n",
+    );
+
+    const r = await runAgent(dir, ["refresh", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    const res = JSON.parse(r.stdout);
+    const rescued: string[] = res.data.rescued_artifacts ?? [];
+    assertEquals(rescued.length, 1, r.stdout);
+    const rescueRel = rescued[0];
+    assert(rescueRel !== undefined, r.stdout);
+    assertStringIncludes((res.hints ?? []).join("\n"), "guidance.md");
+    assertStringIncludes(
+      await Deno.readTextFile(join(dir, rescueRel)),
+      "Keep this local note.",
+    );
+    assert(
+      !(await Deno.readTextFile(claudePath)).includes("Keep this local note."),
+      "the generated file should be recompiled after the edit is rescued",
+    );
+  });
+});
+
 Deno.test("engine refresh: backfills the discern MCP server for an install that lacks it (idempotent)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

@@ -392,6 +392,7 @@ export function attachEngineCommands(
                 linked: res.skillsLinked,
                 pruned: res.skillsPruned,
               },
+              rescued_artifacts: res.rescuedArtifacts,
               errors: res.errors,
             },
           });

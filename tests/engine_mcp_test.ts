@@ -1881,6 +1881,7 @@ Deno.test("discern mcp: discern_status documents its actionable data fields (inc
       const field of [
         "stale_generated",
         "stale_materialized",
+        "rescued_artifacts",
         "setup_unfinished",
         "incoming_overlap",
       ]

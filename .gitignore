@@ -29,6 +29,10 @@
 /AGENTS.md
 /CLAUDE.md
 /GEMINI.md
+# Local rescue metadata/content written before discern overwrites a generated
+# artifact that contains user edits. `discern status` points at these files; move
+# durable guidance into guidance.md and durable skills into [skills].dir.
+/.discern-rescue/
 # Everything under .claude/ is generated, ephemeral, or machine-local — the
 # materialized skills (.claude/skills/, copied/symlinked by `discern refresh`),
 # settings.local.json permission overrides, and the linked worktree checkouts

@@ -104,6 +104,7 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0088 — The fresh setup welcome decorates only on TTY](0088-fresh-setup-welcome-decorates-only-on-tty.md)
 - [0089 — Machine-local provider settings stay ignored](0089-machine-local-provider-settings-stay-ignored.md)
 - [0090 — Setup proves the project runs in a worktree, and `smoke` joins the known capabilities](0090-setup-proves-worktree-viability.md)
+- [0091 — Rescue generated content before overwrite](0091-rescue-generated-content-before-overwrite.md)
 
 ## Superseded and consolidated ADRs
 

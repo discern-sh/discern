@@ -38,6 +38,13 @@ import {
 } from "../lib/providers.ts";
 import { guidanceAgents, renderAgentFiles } from "./guidance_render.ts";
 import { Logger } from "../lib/log.ts";
+import {
+  type GuidanceBaselines,
+  readGuidanceBaselines,
+  rescueHint,
+  writeGuidanceBaselines,
+  writeGuidanceRescue,
+} from "../lib/rescue.ts";
 
 /** What a single `compileGuidelines` run accomplished. */
 export interface GuidelinesResult {
@@ -53,6 +60,8 @@ export interface GuidelinesResult {
   projectRulesWired: string[];
   /** Agent/user-facing advice from this run (e.g. the MCP first-install restart hint). */
   hints: string[];
+  /** Ignored rescue artifacts written before overwriting user-edited generated content. */
+  rescuedArtifacts: string[];
   /** Bundled skills copied, summed across every configured agent's skills dir. */
   skillsCopied: number;
   /** Authored skills symlinked, summed across every configured agent's skills dir. */
@@ -97,6 +106,7 @@ export async function compileGuidelines(
 
   // --- job 1: materialize skills into each configured agent's skills dir (gated) --
   let skills = { copied: 0, linked: 0, pruned: 0 };
+  const rescuedArtifacts: string[] = [];
   if (isFeatureEnabled(config, "skills")) {
     try {
       const r = await materializeSkills(
@@ -106,6 +116,7 @@ export async function compileGuidelines(
         log,
       );
       skills = { copied: r.copied, linked: r.linked, pruned: r.pruned };
+      rescuedArtifacts.push(...r.rescued);
       errors.push(...r.errors);
     } catch (error) {
       const msg = `could not materialize skills: ${errText(error)}`;
@@ -191,6 +202,7 @@ export async function compileGuidelines(
       worktreeAppWired,
       projectRulesWired,
       hints,
+      rescuedArtifacts,
       skills,
       errors,
     );
@@ -213,6 +225,7 @@ export async function compileGuidelines(
       worktreeAppWired,
       projectRulesWired,
       hints,
+      rescuedArtifacts,
       skills,
       errors,
     );
@@ -226,21 +239,59 @@ export async function compileGuidelines(
       continue;
     }
   }
+  const baselines = await readGuidanceBaselines(root);
+  const nextBaselines: GuidanceBaselines = { ...baselines };
+  let baselineDirty = false;
   for (const [rel, fileBody] of rendered) {
     // Isolate per agent file: a denied write to one provider's file doesn't abort
     // the others (ADR 0065).
     try {
       const out = join(root, rel);
       await ensureDir(dirname(out));
+      const actual = await readExistingText(out);
+      if (actual !== undefined && actual !== fileBody) {
+        const previous = baselines[rel]?.content;
+        if (previous === undefined || actual !== previous) {
+          const rescueBody = rescueBodyForGeneratedFile(
+            previous,
+            actual,
+            fileBody,
+          );
+          const rescued = await writeGuidanceRescue(root, rel, rescueBody);
+          if (rescued !== undefined) {
+            rescuedArtifacts.push(rescued);
+            log.warn(
+              `${rel} had generated-file edits; rescued them to ${rescued}. Move durable guidance into guidance.md.`,
+            );
+          }
+        }
+      }
       await Deno.writeTextFile(out, fileBody);
       // A generated file should be readable like any other source (mode 0644).
       await Deno.chmod(out, 0o644);
+      nextBaselines[rel] = { content: fileBody };
+      baselineDirty = true;
       agentsWritten.push(rel);
     } catch (error) {
       const msg = `could not write ${rel}: ${errText(error)}`;
       log.warn(msg);
       errors.push(msg);
     }
+  }
+  if (baselineDirty) {
+    try {
+      await writeGuidanceBaselines(root, nextBaselines);
+    } catch (error) {
+      const msg = `could not record generated-file baselines: ${
+        errText(error)
+      }`;
+      log.warn(msg);
+      errors.push(msg);
+    }
+  }
+
+  if (rescuedArtifacts.length > 0) {
+    hints.push(rescueHint(rescuedArtifacts));
   }
 
   if (rendered.size === 0) {
@@ -269,9 +320,124 @@ export async function compileGuidelines(
     worktreeAppWired,
     projectRulesWired,
     hints,
+    rescuedArtifacts,
     skills,
     errors,
   );
+}
+
+async function readExistingText(path: string): Promise<string | undefined> {
+  try {
+    return await Deno.readTextFile(path);
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      return undefined;
+    }
+    throw error;
+  }
+}
+
+function lines(text: string): string[] {
+  const out = text.split("\n");
+  if (out.length > 0 && out[out.length - 1] === "") {
+    out.pop();
+  }
+  return out;
+}
+
+function cell(table: Uint32Array[], i: number, j: number): number {
+  return table[i]?.[j] ?? 0;
+}
+
+function setCell(
+  table: Uint32Array[],
+  i: number,
+  j: number,
+  value: number,
+): void {
+  const row = table[i];
+  if (row === undefined) {
+    throw new Error("internal diff table row missing");
+  }
+  row[j] = value;
+}
+
+function addedHunks(previous: string, actual: string): string[] {
+  const a = lines(previous);
+  const b = lines(actual);
+  const dp: Uint32Array[] = Array.from(
+    { length: a.length + 1 },
+    () => new Uint32Array(b.length + 1),
+  );
+  for (let i = a.length - 1; i >= 0; i--) {
+    for (let j = b.length - 1; j >= 0; j--) {
+      setCell(
+        dp,
+        i,
+        j,
+        a[i] === b[j]
+          ? cell(dp, i + 1, j + 1) + 1
+          : Math.max(cell(dp, i + 1, j), cell(dp, i, j + 1)),
+      );
+    }
+  }
+
+  const hunks: string[] = [];
+  let current: string[] = [];
+  const flush = (): void => {
+    if (current.some((line) => line.trim() !== "")) {
+      hunks.push(current.join("\n"));
+    }
+    current = [];
+  };
+
+  let i = 0;
+  let j = 0;
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) {
+      flush();
+      i++;
+      j++;
+    } else if (cell(dp, i + 1, j) >= cell(dp, i, j + 1)) {
+      i++;
+    } else {
+      const line = b[j];
+      if (line !== undefined) {
+        current.push(line);
+      }
+      j++;
+    }
+  }
+  while (j < b.length) {
+    const line = b[j];
+    if (line !== undefined) {
+      current.push(line);
+    }
+    j++;
+  }
+  flush();
+  return hunks;
+}
+
+function renderCarriesHunk(rendered: string, hunk: string): boolean {
+  if (rendered.includes(hunk)) {
+    return true;
+  }
+  const meaningful = lines(hunk).filter((line) => line.trim() !== "");
+  return meaningful.length > 0 &&
+    meaningful.every((line) => rendered.includes(line));
+}
+
+function rescueBodyForGeneratedFile(
+  previous: string | undefined,
+  actual: string,
+  nextRender: string,
+): string {
+  const base = previous ?? nextRender;
+  return addedHunks(base, actual)
+    .filter((hunk) => !renderCarriesHunk(nextRender, hunk))
+    .join("\n\n")
+    .trimEnd();
 }
 
 /** Build the result. The skills narration is emitted once by `materializeSkills`,
@@ -282,6 +448,7 @@ function summarize(
   worktreeAppWired: string[],
   projectRulesWired: string[],
   hints: string[],
+  rescuedArtifacts: string[],
   skills: { copied: number; linked: number; pruned: number },
   errors: string[],
 ): GuidelinesResult {
@@ -291,6 +458,7 @@ function summarize(
     worktreeAppWired,
     projectRulesWired,
     hints,
+    rescuedArtifacts,
     skillsCopied: skills.copied,
     skillsLinked: skills.linked,
     skillsPruned: skills.pruned,
