@@ -113,6 +113,17 @@ _Nothing outstanding._
       and apply it consistently across the installer verbs. Evidence:
       `src/commands/init.ts` (~306, ~319); `src/commands/upgrade.ts` (~209).
 
+- [ ] **The gate's `fix` stage rewrites uncommitted work with no snapshot.**
+      Pre-existing dirty files are excluded from ADR 0047's strand detection by
+      design (D1∖D0), so a misconfigured or buggy `[capabilities].format`
+      command run by `discern prepare`/`finish` can rewrite a user's uncommitted
+      changes with no backup and no warning. Benign for the common formatters;
+      the risk is the open-ended command table. Design question —
+      stash-before-fix, a dirty-tree warning, or a diff preview — deferred from
+      the launch-readiness review (finding C15) pending a decision. Evidence:
+      `src/engine/gate/fix_drift.ts` (the deliberate D0 exclusion);
+      [ADR 0047](docs/_adr/0047-fix-stage-strand-detection.md).
+
 - [ ] **`skills` `targetExists` treats an unreadable symlink target as
       missing.** A bare `catch {}` conflates "absent" with "couldn't stat", so a
       symlink whose target is merely unreadable (e.g. EACCES) could be pruned
@@ -373,6 +384,41 @@ _Product positioning, messaging, and launch/content tasks._
       routes each session's lessons back into the harness (guidance, skills,
       recipes, docs, ADRs) so every future agent — of any vendor — inherits
       them. Drop it in when the messaging is ready.
+- [ ] **Rename `ratchets` → `baselines` throughout (decided).** Vocabulary
+      decision recorded in the product-strategy doc: "ratchet" carries bad
+      associations (Nurse Ratched, the US slang for "trashy") and doesn't read
+      as an improvement mechanism; "baseline" parses instantly ("a baseline that
+      may only improve") and reinforces the messy-repo message ("your baseline
+      is wherever you are today — it only rises"). Rename the `[ratchets]`
+      config table, the `ratchets` feature toggle, the `discern ratchets` verb +
+      `discern_ratchets` MCP tool, docs, guidance, and tests; ship a schema
+      migration and keep `ratchets` as a verb alias. Keep the one-way-mechanism
+      explanation as the universal gloss ("numbers that can never get worse").
+      Worth a short vocabulary ADR (precedent: ADR 0018, ADR 0022). Evidence:
+      `templates/discern.toml.tmpl` (`[ratchets]`), `src/engine/mcp/server.ts`
+      (`discern_ratchets`), `docs/_private/planning/discern-product-strategy.md`
+      (vocabulary canon).
+- [ ] **Rename the gate artifact `receipt` → `pass` (decided).** Standardize on
+      "pass" for the artifact the gate issues: the finish envelope's
+      `gate_receipt` field vs the `discern-gate-pass` file it points at — both
+      words are already in the code; keep "pass". "Receipt" connotes spending
+      money and paper clutter; a pass is what a gate issues, and "proof" is the
+      marketing register ("Proof, not promises"). Pre-1.0 field rename is cheap.
+      Evidence: the `finish` result envelope (`gate_receipt`), the
+      `discern-gate-pass` marker file,
+      `docs/_private/planning/discern-product-strategy.md` (vocabulary canon).
+- [ ] **Proposed: rename `finish` → `done` (awaiting maintainer sign-off).**
+      Recommendation is yes: `discern done` makes the verb the positioning
+      ("done isn't something you say — it's something you run"), the lifecycle
+      reads `start → prepare → done → graduate`, and `discern setup done`
+      already established done-as-completion-verb in the product. Keep `finish`
+      as a permanent alias. One honest caveat to weigh: `done` sounds read-only,
+      while the gate's fix stage mutates (formats) — document "done runs your
+      finishing steps, then verifies the rest". If confirmed, rename the verb,
+      `discern_finish` MCP tool, docs, guidance, and templates, with the same
+      alias + migration care as the baselines rename. Evidence:
+      `docs/_private/planning/discern-product-strategy.md` (vocabulary canon,
+      pending item).
 
 ## 👨‍💻 Jack's Odds and Ends
 
