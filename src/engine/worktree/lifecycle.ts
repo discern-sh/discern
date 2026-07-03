@@ -475,7 +475,8 @@ export async function worktreeSetup(
   ctx.log.info("Refreshing agent files…");
   let refreshOk = true;
   try {
-    await compileGuidelines(ctx.root, ctx.log);
+    const refreshed = await compileGuidelines(ctx.root, ctx.log);
+    refreshOk = refreshed.errors.length === 0;
   } catch {
     refreshOk = false;
     ctx.log.warn("Agent-file refresh reported an error — continuing.");
@@ -1345,8 +1346,11 @@ async function executeIntegratePlan(
       // already landed, so a refresh hiccup is recorded, not raised.
       ctx.log.info("Re-materializing agent files + skills…");
       let refreshOk = true;
+      let refreshHints: string[] = [];
       try {
-        await compileGuidelines(ctx.root, ctx.log);
+        const refreshed = await compileGuidelines(ctx.root, ctx.log);
+        refreshOk = refreshed.errors.length === 0;
+        refreshHints = refreshed.hints;
       } catch {
         refreshOk = false;
         ctx.log.warn("Agent-file refresh reported an error — continuing.");
@@ -1382,7 +1386,7 @@ async function executeIntegratePlan(
         steps,
       );
       result.data = summary.data;
-      result.hints = summary.hints;
+      result.hints = [...summary.hints, ...refreshHints];
       return result;
     }
   }

@@ -31,6 +31,7 @@ import { isFeatureEnabled } from "../shared/features.ts";
 import type { Logger } from "./log.ts";
 import { resolveBundledSkillsDir, resolveSkillsDir } from "./paths.ts";
 import { providerFor, skillsDirsForAgents } from "./providers.ts";
+import { moveAsideToRescue, skillRescueRel } from "./rescue.ts";
 
 /** Where a skill in the effective set comes from. */
 export type SkillSource = "authored" | "bundled";
@@ -55,6 +56,7 @@ export interface SkillEntry {
  * real directories. A dotfile, so the provider's skill discovery ignores it.
  */
 export const MATERIALIZED_MANIFEST = ".discern-materialized.json";
+export const MATERIALIZED_BASELINES = ".discern-materialized-baselines.json";
 
 /** Directory names directly under `dir` (sorted), or `[]` if `dir` is absent. */
 async function dirNames(dir: string): Promise<string[]> {
@@ -214,6 +216,8 @@ export interface MaterializeResult {
   linked: number;
   /** Stale managed entries pruned from `.claude/skills/`. */
   pruned: number;
+  /** Ignored rescue artifacts written before replacing colliding managed names. */
+  rescued: string[];
   /** Per-directory failures, isolated so one agent's skills dir failing (e.g. a
    * sandbox denial writing `.agents/skills`) can't abort the others (ADR 0065).
    * Empty on a clean run. */
@@ -273,6 +277,31 @@ async function readMaterializedNames(
   return new Set();
 }
 
+async function readMaterializedFingerprints(
+  skillsDir: string,
+): Promise<Map<string, string>> {
+  try {
+    const text = await Deno.readTextFile(
+      join(skillsDir, MATERIALIZED_BASELINES),
+    );
+    const parsed = JSON.parse(text);
+    if (
+      parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)
+    ) {
+      const out = new Map<string, string>();
+      for (const [name, fingerprint] of Object.entries(parsed)) {
+        if (typeof fingerprint === "string") {
+          out.set(name, fingerprint);
+        }
+      }
+      return out;
+    }
+  } catch {
+    // absent or corrupt — conservatively rescue mismatches this run.
+  }
+  return new Map();
+}
+
 /** Record the skill names discern now owns, sorted so the file is byte-stable run
  * to run (it is never diffed today, but determinism here costs nothing). */
 async function writeMaterializedNames(
@@ -283,6 +312,65 @@ async function writeMaterializedNames(
     join(claudeSkillsDir, MATERIALIZED_MANIFEST),
     `${JSON.stringify([...names].sort(), null, 2)}\n`,
   );
+}
+
+async function writeMaterializedFingerprints(
+  skillsDir: string,
+  fingerprints: Map<string, string>,
+): Promise<void> {
+  const ordered: Record<string, string> = {};
+  for (const name of [...fingerprints.keys()].sort()) {
+    const fingerprint = fingerprints.get(name);
+    if (fingerprint !== undefined) {
+      ordered[name] = fingerprint;
+    }
+  }
+  await Deno.writeTextFile(
+    join(skillsDir, MATERIALIZED_BASELINES),
+    `${JSON.stringify(ordered, null, 2)}\n`,
+  );
+}
+
+async function sha256Hex(bytes: BufferSource): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(digest)]
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function textDigest(text: string): Promise<string> {
+  return await sha256Hex(new TextEncoder().encode(text));
+}
+
+async function entryFingerprint(path: string): Promise<string> {
+  const info = await Deno.lstat(path);
+  if (info.isSymlink) {
+    return await textDigest(`symlink\0${await Deno.readLink(path)}`);
+  }
+  if (info.isFile) {
+    return await sha256Hex(await Deno.readFile(path));
+  }
+  if (!info.isDirectory) {
+    return await textDigest("other");
+  }
+
+  const parts: string[] = [];
+  for await (const entry of walk(path, { includeDirs: true })) {
+    if (entry.path === path) {
+      continue;
+    }
+    const rel = relative(path, entry.path);
+    if (entry.isSymlink) {
+      parts.push(`symlink\0${rel}\0${await Deno.readLink(entry.path)}`);
+    } else if (entry.isDirectory) {
+      parts.push(`dir\0${rel}`);
+    } else {
+      parts.push(
+        `file\0${rel}\0${await sha256Hex(await Deno.readFile(entry.path))}`,
+      );
+    }
+  }
+  return await textDigest(parts.sort().join("\n"));
 }
 
 /** Surface foreign entries left untouched in `.claude/skills/` (a user drop-in under
@@ -323,11 +411,13 @@ export async function materializeSkills(
     copied: 0,
     linked: 0,
     pruned: 0,
+    rescued: [],
     errors: [],
   };
   for (const rel of dirs) {
     try {
       const r = await materializeSkillsDir(
+        root,
         rel,
         join(root, rel),
         effective,
@@ -336,6 +426,7 @@ export async function materializeSkills(
       total.copied += r.copied;
       total.linked += r.linked;
       total.pruned += r.pruned;
+      total.rescued.push(...r.rescued);
     } catch (error) {
       // Isolate per directory: a denied/failed write into one agent's skills dir
       // is recorded and the rest still materialize (ADR 0065).
@@ -362,6 +453,7 @@ export async function materializeSkills(
  * discern-allow-retrospective: "no longer effective" is the current effective set.
  */
 async function materializeSkillsDir(
+  root: string,
   skillsRel: string,
   skillsAbs: string,
   effective: SkillEntry[],
@@ -375,8 +467,10 @@ async function materializeSkillsDir(
   // Without this record such an orphan is indistinguishable from a user drop-in.
   // discern-allow-retrospective: "no longer effective" is the current effective set.
   const ownedBefore = await readMaterializedNames(skillsAbs);
+  const fingerprintsBefore = await readMaterializedFingerprints(skillsAbs);
 
   let pruned = 0;
+  const rescued: string[] = [];
   const foreign: string[] = [];
 
   // Prune pass: remove entries we manage (recreated below) and entries discern owns
@@ -386,21 +480,76 @@ async function materializeSkillsDir(
   // discern-allow-retrospective: "no longer ships" is the current bundled set.
   try {
     for await (const entry of Deno.readDir(skillsAbs)) {
-      if (entry.name === MATERIALIZED_MANIFEST) {
+      if (
+        entry.name === MATERIALIZED_MANIFEST ||
+        entry.name === MATERIALIZED_BASELINES
+      ) {
         continue; // discern's own ownership record, not a skill
       }
       const path = join(skillsAbs, entry.name);
       const realDir = entry.isDirectory && !entry.isSymlink;
-      if (managed.has(entry.name)) {
-        await removeAny(path, realDir);
+      const managedSkill = managed.get(entry.name);
+      if (managedSkill !== undefined) {
+        const mismatch = await skillMismatch(
+          skillsAbs,
+          path,
+          entry,
+          managedSkill,
+        );
+        if (mismatch === undefined) {
+          continue;
+        }
+        const previousFingerprint = fingerprintsBefore.get(entry.name);
+        if (
+          previousFingerprint !== undefined &&
+          await entryFingerprint(path) === previousFingerprint
+        ) {
+          await removeAny(path, realDir);
+        } else {
+          const rescueRel = await moveAsideToRescue(
+            root,
+            path,
+            skillRescueRel(skillsRel, entry.name),
+          );
+          rescued.push(rescueRel);
+          log?.warn(
+            `${skillsRel}/${entry.name} collides with a managed skill; moved it aside to ${rescueRel}. Move durable skill changes into [skills].dir.`,
+          );
+        }
         continue;
       }
       if (entry.isSymlink && !(await targetExists(path))) {
         await removeAny(path, false);
         pruned++;
       } else if (realDir && ownedBefore.has(entry.name)) {
-        await removeAny(path, true);
-        pruned++;
+        const previousFingerprint = fingerprintsBefore.get(entry.name);
+        if (
+          previousFingerprint !== undefined &&
+          await entryFingerprint(path) !== previousFingerprint
+        ) {
+          const rescueRel = await moveAsideToRescue(
+            root,
+            path,
+            skillRescueRel(skillsRel, entry.name),
+          );
+          rescued.push(rescueRel);
+          log?.warn(
+            `${skillsRel}/${entry.name} was previously managed but now contains edits; moved it aside to ${rescueRel}.`,
+          );
+        } else if (previousFingerprint === undefined) {
+          const rescueRel = await moveAsideToRescue(
+            root,
+            path,
+            skillRescueRel(skillsRel, entry.name),
+          );
+          rescued.push(rescueRel);
+          log?.warn(
+            `${skillsRel}/${entry.name} was previously managed but has no ownership baseline; moved it aside to ${rescueRel}.`,
+          );
+        } else {
+          await removeAny(path, true);
+          pruned++;
+        }
       } else {
         foreign.push(entry.name);
       }
@@ -419,8 +568,9 @@ async function materializeSkillsDir(
     // exists, so a later run can tell a future orphan from a foreign drop-in.
     if (await targetExists(skillsAbs)) {
       await writeMaterializedNames(skillsAbs, []);
+      await writeMaterializedFingerprints(skillsAbs, new Map());
     }
-    return { copied: 0, linked: 0, pruned };
+    return { copied: 0, linked: 0, pruned, rescued };
   }
 
   await ensureDir(skillsAbs);
@@ -428,14 +578,9 @@ async function materializeSkillsDir(
   let linked = 0;
   for (const skill of effective) {
     const target = join(skillsAbs, skill.name);
-    // A foreign real directory left over (name not managed) can't reach here —
-    // every effective name was removed in the prune pass. But a real non-symlink
-    // a user dropped under a managed name would have been removed above; that is
-    // acceptable since the agent skills dir is discern-generated.
     const existing = await lstat(target);
     if (existing !== undefined) {
-      // Should be gone (prune handles managed names); guard defensively.
-      await removeAny(target, existing.isDirectory && !existing.isSymlink);
+      continue;
     }
     if (skill.source === "bundled") {
       await copy(skill.srcAbs, target);
@@ -449,13 +594,21 @@ async function materializeSkillsDir(
   // Record what discern now owns in THIS dir, so the next run can prune any of these
   // names a future binary stops shipping — the self-healing the manifest exists for.
   await writeMaterializedNames(skillsAbs, effective.map((e) => e.name));
+  const nextFingerprints = new Map<string, string>();
+  for (const skill of effective) {
+    const target = join(skillsAbs, skill.name);
+    if (await lstat(target) !== undefined) {
+      nextFingerprints.set(skill.name, await entryFingerprint(target));
+    }
+  }
+  await writeMaterializedFingerprints(skillsAbs, nextFingerprints);
 
   log?.info(
     pruned > 0
       ? `skills materialized into ${skillsRel}/: ${copied} bundled, ${linked} authored (pruned ${pruned} stale)`
       : `skills materialized into ${skillsRel}/: ${copied} bundled, ${linked} authored`,
   );
-  return { copied, linked, pruned };
+  return { copied, linked, pruned, rescued };
 }
 
 /** The outcome of an {@link ejectSkill} call. */
@@ -682,7 +835,10 @@ async function checkSkillsDir(
   const ownedBefore = await readMaterializedNames(abs);
   const seen = new Set<string>();
   for await (const entry of Deno.readDir(abs)) {
-    if (entry.name === MATERIALIZED_MANIFEST) {
+    if (
+      entry.name === MATERIALIZED_MANIFEST ||
+      entry.name === MATERIALIZED_BASELINES
+    ) {
       continue; // discern's ownership record, not a skill
     }
     seen.add(entry.name);

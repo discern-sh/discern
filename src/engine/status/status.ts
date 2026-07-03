@@ -67,6 +67,7 @@ import { IdentityError, resolveIdentity } from "../worktree/identity.ts";
 import { readResourceSpecs, resourceEnvName } from "../worktree/resources.ts";
 import { readEnvFile } from "../worktree/env_file.ts";
 import { colorEnabled, makeOut, type Out } from "../output.ts";
+import { listRescuedArtifacts, rescueHint } from "../../lib/rescue.ts";
 
 /** The not-inside-a-project message (matches the dispatcher / MCP server slug). */
 const NO_PROJECT =
@@ -235,6 +236,11 @@ export async function statusResult(
     }
   }
 
+  const rescuedArtifacts = await listRescuedArtifacts(root);
+  if (rescuedArtifacts.length > 0) {
+    data.rescued_artifacts = rescuedArtifacts;
+  }
+
   // One-time setup state (ADR 0036). Until `[meta].bootstrapped` is recorded the
   // project is mid-setup and the agent must finish it — surfaced loudly (a banner,
   // a lead hint) so a half-done setup isn't mistaken for a finished one. Walk for
@@ -276,6 +282,7 @@ export async function statusResult(
     liveCount,
     guidanceDrift,
     skillsDrift,
+    rescuedArtifacts,
     setupPending,
   });
 
@@ -454,6 +461,8 @@ interface HintContext {
   guidanceDrift: GuidanceDriftEntry[];
   /** Materialized skills that don't match the effective set a refresh would place. */
   skillsDrift: SkillsDriftEntry[];
+  /** Ignored rescue artifacts preserving generated-location user content. */
+  rescuedArtifacts: string[];
   /** Scaffolded files still carrying skeleton markers while setup is unfinished;
    * undefined once `[meta].bootstrapped` is recorded. Drives the lead setup hint. */
   setupPending: string[] | undefined;
@@ -500,6 +509,10 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
         ? `Skills aren't materialized yet (${dirs}); run \`discern refresh\`.`
         : `Materialized skills are out of date (${dirs}); run \`discern refresh\` — edits belong in your [skills].dir source, not the materialized copy.`,
     );
+  }
+
+  if (ctx.rescuedArtifacts.length > 0) {
+    hints.push(rescueHint(ctx.rescuedArtifacts));
   }
 
   // In the main checkout with worktrees on, the agent has no isolated workspace

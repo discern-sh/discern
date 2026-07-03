@@ -794,6 +794,42 @@ Deno.test("status: a missing generated agent file hints it isn't built yet", asy
   });
 });
 
+Deno.test("status: rescued generated-artifact content is listed and hinted", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    await Deno.writeTextFile(join(dir, "guidance.md"), "# Guidance\nOne.\n");
+    await runAgent(dir, ["refresh"]);
+
+    const claudePath = join(dir, "CLAUDE.md");
+    await Deno.writeTextFile(
+      claudePath,
+      `${await Deno.readTextFile(
+        claudePath,
+      )}\n# Memory\nKeep the rescued hint visible.\n`,
+    );
+    await runAgent(dir, ["refresh"]);
+
+    const r = await runAgent(dir, ["status", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    const obj = parseStatus(r.stdout);
+    const rescued: string[] = obj.data.rescued_artifacts ?? [];
+    assertEquals(rescued.length, 1, r.stdout);
+    const rescueRel = rescued[0];
+    assert(rescueRel !== undefined, r.stdout);
+    assertStringIncludes(
+      await Deno.readTextFile(join(dir, rescueRel)),
+      "Keep the rescued hint visible.",
+    );
+    assert(
+      (obj.hints ?? []).some((h: string) =>
+        h.includes(".discern-rescue/") && h.includes("guidance.md")
+      ),
+      `expected a rescue hint: ${JSON.stringify(obj.hints)}`,
+    );
+  });
+});
+
 Deno.test("status: when behind, incoming_overlap names the files you AND main both changed", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

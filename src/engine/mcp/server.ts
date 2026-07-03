@@ -281,7 +281,9 @@ export const TOOLS: McpTool[] = orderTools([
       "resources; data.features and data.ratchets list the configured set. " +
       "data.stale_generated flags generated agent files, and data.stale_materialized " +
       "the materialized skills, that have drifted from their sources (call " +
-      "discern_refresh for either); data.setup_unfinished is present while the project's " +
+      "discern_refresh for either); data.rescued_artifacts lists ignored rescue files " +
+      "preserving content moved aside from generated locations; " +
+      "data.setup_unfinished is present while the project's " +
       "one-time setup is still incomplete. From the " +
       "main checkout it leads with data.fleet (a cheap row per worktree: branch, " +
       "Git-clean state, ahead/behind, a last_activity timestamp, and is_current marking the row " +
