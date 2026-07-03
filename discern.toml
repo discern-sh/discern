@@ -341,6 +341,29 @@ direction = "down"
 limit     = 803
 run       = "echo DISCERN_METRIC guidance_words $(cat templates/guidance/*.md | wc -w)"
 
+# Binary-size ratchet — hold one representative release artifact at or below a
+# falling ceiling. The measurement builds x86_64-unknown-linux-gnu and stats the
+# resulting dist/discern-* binary, avoiding macOS codesigning noise while still
+# protecting the shipped single-file executable from silent growth. Re-baseline
+# only for deliberate release-surface changes or Deno compiler/runtime shifts.
+[ratchets.binary_size]
+metric    = "binary_size_bytes"
+direction = "down"
+limit     = 110822031
+run       = "deno run --allow-read --allow-write --allow-env --allow-run scripts/binary_size.ts x86_64-unknown-linux-gnu"
+
+# Public-docs leaf-density ratchet — hold the public docs tree at or above a
+# rising floor of non-README Markdown leaves per 10,000 public-doc words. The
+# metric excludes underscore-prefixed docs trees (_private, _internal, _adr) so
+# private notes and ADR churn cannot satisfy or breach the public-docs budget.
+[ratchets.public_doc_leaf_density]
+metric    = "public_doc_leaves"
+direction = "up"
+per       = "public_doc_words"
+scale     = 10000
+limit     = 7.244706424737379
+run       = "deno run --allow-read scripts/public_doc_density.ts \"${docs.dir}\""
+
 # ─────────────────────────────────────────────────────────────────────────────
 # [gate] — ergonomics for the parallel gate stages (and scope gates). These
 # affect how `discern finish` runs its concurrent jobs.
