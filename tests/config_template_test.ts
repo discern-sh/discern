@@ -17,12 +17,32 @@ import {
   readConfigTemplate,
   sectionBlockFromTemplate,
 } from "../src/lib/config_template.ts";
+import { PROVIDERS } from "../src/lib/providers.ts";
 import { REAL_TEMPLATES } from "./helpers.ts";
+import { AGENT_NAMES } from "../src/shared/config_schema.ts";
 import { FEATURES } from "../src/shared/features.ts";
 
 /** The real committed config template text. */
 async function realTemplate(): Promise<string> {
   return await Deno.readTextFile(join(REAL_TEMPLATES, "discern.toml.tmpl"));
+}
+
+function agentTargetPairs(
+  comment: string,
+): Array<{ name: string; target: string }> {
+  const pairs: Array<{ name: string; target: string }> = [];
+  for (
+    const match of comment.matchAll(
+      /"([^"]+)"\s*->\s*([A-Za-z0-9_.-]+\.md)\b/g,
+    )
+  ) {
+    const name = match[1];
+    const target = match[2];
+    assertExists(name);
+    assertExists(target);
+    pairs.push({ name, target });
+  }
+  return pairs;
 }
 
 Deno.test("extracts a ruled-doc section (features) with its doc block, header, and body", async () => {
@@ -53,6 +73,36 @@ Deno.test("extracts [guidance] including its {{agents_array}} token (for the cal
   assertStringIncludes(block, "[guidance]");
   assertStringIncludes(block, 'sources = ["guidance.md"]');
   assertStringIncludes(block, "agents = [{{agents_array}}]");
+});
+
+Deno.test("[guidance] template comment names every known agent and guidance target", async () => {
+  const block = sectionBlockFromTemplate(await realTemplate(), "guidance");
+  assertExists(block);
+  const comment = block.split("\n")
+    .filter((line) => line.trimStart().startsWith("#"))
+    .join("\n");
+  const pairs = agentTargetPairs(comment);
+  const listedAgents = pairs.map(({ name }) => name);
+
+  assertEquals(
+    new Set(listedAgents).size,
+    listedAgents.length,
+    "[guidance] template comment must not list an agent twice",
+  );
+  assertEquals(
+    [...listedAgents].sort(),
+    [...AGENT_NAMES].sort(),
+    "[guidance] template comment must list exactly the AGENT_NAMES members",
+  );
+  for (const agent of AGENT_NAMES) {
+    const pair = pairs.find(({ name }) => name === agent);
+    assertExists(pair);
+    assertEquals(
+      pair.target,
+      PROVIDERS[agent].guidanceFile.path,
+      `[guidance] template comment has the wrong target for "${agent}"`,
+    );
+  }
 });
 
 Deno.test("extracts the last section ([recipes]) up to EOF, trailing blanks trimmed", async () => {
