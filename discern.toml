@@ -84,7 +84,7 @@ sources = ["guidance.md"]
 # Which agent integrations to enable. Guidance targets:
 #   "claude_code" -> CLAUDE.md   "codex" -> AGENTS.md   "gemini" -> GEMINI.md
 #   "cursor" -> AGENTS.md        "copilot" -> AGENTS.md
-agents = ["claude_code", "codex", "gemini"]
+agents = ["claude_code", "codex", "gemini", "cursor", "copilot"]
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [skills] — focused, reusable task playbooks. The effective set is discern's
@@ -122,10 +122,11 @@ dir = "skills"
 
 [capabilities]
 format    = "deno fmt"
+build     = "deno task build"
 lint      = "deno lint"
 typecheck = "deno check"
 test      = "deno task test"
-# build is intentionally omitted — it is release-only here, not part of the gate.
+smoke     = "deno task dev --version"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [checks.<name>] — custom, non-standard gate work that isn't a known capability.
@@ -258,6 +259,14 @@ ignored_file_drift = true
 # retries  = 0                             # optional: retry create/destroy N times
 # gc       = true                          # optional: false = never orphan-prune it
 #                                          #   (teardown-only; for data-loss-sensitive ones)
+
+# A harmless temp-dir probe so this repo dogfoods the full resource lifecycle
+# without depending on an external service. It exercises token expansion, the
+# resource ledger, ensure, teardown, and orphan-prune reclamation.
+[worktree.resources.lifecycle_probe]
+create  = "mkdir -p /tmp/discern-worktree-resources/@resource@ && printf 'worktree=%s\\nresource=%s\\ndir=%s\\nport=%s\\n' '@worktree@' '@resource@' '@dir@' '@port@' > /tmp/discern-worktree-resources/@resource@/marker"
+ensure  = "mkdir -p /tmp/discern-worktree-resources/@resource@ && printf 'worktree=%s\\nresource=%s\\ndir=%s\\nport=%s\\n' '@worktree@' '@resource@' '@dir@' '@port@' > /tmp/discern-worktree-resources/@resource@/marker"
+destroy = "rm -rf /tmp/discern-worktree-resources/@resource@"
 
 # Worktree setup commands, run after the resources are provisioned — two buckets,
 # the same split as a resource's create/ensure:
