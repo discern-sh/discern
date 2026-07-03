@@ -85,8 +85,9 @@ dir = "{{docs_dir}}"
 # pre-existing CLAUDE.md/AGENTS.md into it) for your coding agent to fill.
 sources = ["guidance.md"]
 
-# Which provider files to emit. Known targets:
+# Which agent integrations to enable. Guidance targets:
 #   "claude_code" -> CLAUDE.md   "codex" -> AGENTS.md   "gemini" -> GEMINI.md
+#   "cursor" -> AGENTS.md        "copilot" -> AGENTS.md
 agents = [{{agents_array}}]
 
 
