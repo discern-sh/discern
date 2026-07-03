@@ -12,8 +12,8 @@ For where each piece lives in code, follow the subsystem subtree READMEs.
 
 ## The one idea
 
-**You declare what your project can do — format, lint, typecheck, test, build —
-once.** discern turns those declarations into the rails — a gate, isolated
+**You declare what your project can do — format, lint, typecheck, test, build,
+smoke — once.** discern turns those declarations into the rails — a gate, isolated
 worktrees, agent guidance — that every agent works within. The Engine never
 learns your stack; it only runs your [Capabilities](glossary.md#capability).
 
@@ -66,9 +66,9 @@ else you keep lives at open, config-pointed paths you choose.
 The Engine is deliberately **ignorant of your stack**. It runs "the test
 Capability," "the fix-stage work," "the `gate` for this Scope" — names it
 discovers from `discern.toml`, never commands it knows. A **Capability** is one
-of five known things a project can do (`format` / `build` / `lint` / `typecheck`
-/ `test`); the Engine **derives the [Stage](glossary.md#stage)** each runs in
-from its name, so you never write a scheduling keyword. Anything outside those
+of six known things a project can do (`format` / `build` / `lint` / `typecheck`
+/ `test` / `smoke`); the Engine **derives the [Stage](glossary.md#stage)** each
+runs in from its name, so you never write a scheduling keyword. Anything outside those
 five is a **[Check](glossary.md#check)** with an explicit Stage. Fill the
 Capabilities once and the generic Engine becomes your project's gate. A separate
 `[features]` table toggles whole subsystems (worktrees, ratchets, guidance,
