@@ -215,7 +215,6 @@ function defineTool<TShape extends z.ZodRawShape>(
 
 const TOOL_PRIORITY = [
   "discern_status",
-  "discern_refresh",
   "discern_start",
   "discern_finish",
   "discern_prepare",
@@ -223,12 +222,13 @@ const TOOL_PRIORITY = [
   "discern_integrate",
   "discern_ratchets",
   "discern_graduate",
-  "discern_doctor",
   "discern_changed_scopes",
   "discern_coupling",
-  "discern_improve",
+  "discern_refresh",
   "discern_docs",
   "discern_help",
+  "discern_doctor",
+  "discern_improve",
 ] as const;
 
 function orderTools(tools: McpTool[]): McpTool[] {
