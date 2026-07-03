@@ -80,6 +80,7 @@ The core commands the gate runs, one per known capability; each maps to a gate s
 | `lint` | string \| string[] | — | check stage — read-only static analysis. |
 | `typecheck` | string \| string[] | — | check stage — read-only type checking. |
 | `test` | string \| string[] | — | test stage — the test suite. |
+| `smoke` | string \| string[] | — | test stage — a fast, side-effect-light check that the app boots in THIS checkout (a framework's inspire/about, a CLI --version, a config-load-and-exit); proves viability wherever the gate runs, including inside a worktree. Not an e2e suite. |
 
 ## `[checks.<name>]`
 

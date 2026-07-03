@@ -7,7 +7,7 @@
  * are skipped.
  *
  * ⚠️ Do NOT confuse a *feature* with a *capability*. `[capabilities]` is the
- * gate's command table (format/lint/typecheck/test/build). `[features]` toggles
+ * gate's command table (format/lint/typecheck/test/build/smoke). `[features]` toggles
  * subsystems. They are different sections with different jobs.
  *
  * Every feature defaults to ON. Only an explicit `[features].<name> = false`

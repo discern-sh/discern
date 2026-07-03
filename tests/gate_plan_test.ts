@@ -34,6 +34,7 @@ build = "deno task build"
 lint = ["eslint .", "stylelint ."]
 typecheck = "tsc --noEmit"
 test = "vitest run"
+smoke = "node -e 0"
 
 [scopes.docs]
 paths = ["docs/"]
@@ -91,13 +92,15 @@ Deno.test("buildGatePlan: groups in fix→build→check/test→scope_gates order
     "parallel",
     "parallel",
   ]);
-  // The check/test group fuses check then test jobs, in that order.
+  // The check/test group fuses check then test jobs, in that order. `smoke` rides the
+  // test stage (ADR 0090), so it follows `test` in the fused group.
   const ct = plan.groups.find((g) => g.stage === "check/test");
   assertEquals(ct?.jobs.map((j) => j.label), [
     "lint",
     "lint#2",
     "typecheck",
     "test",
+    "smoke",
   ]);
   assert(plan.mergeCheck);
 });
@@ -117,7 +120,15 @@ Deno.test("buildGateResult: serializes plan+results into the DiscernResult envel
     results.set(label, { label, status: "ok", code: 0, durationS: 1 });
   };
   for (
-    const l of ["format", "build", "lint", "lint#2", "typecheck", "test"]
+    const l of [
+      "format",
+      "build",
+      "lint",
+      "lint#2",
+      "typecheck",
+      "test",
+      "smoke",
+    ]
   ) {
     ok(l);
   }
@@ -131,7 +142,7 @@ Deno.test("buildGateResult: serializes plan+results into the DiscernResult envel
   // The job-kind steps are the non-scope jobs in fix→build→check→test order.
   assertEquals(
     steps.filter((s) => s.step.kind === "job").map((s) => s.step.label),
-    ["format", "build", "lint", "lint#2", "typecheck", "test"],
+    ["format", "build", "lint", "lint#2", "typecheck", "test", "smoke"],
   );
   // scope-gate steps list every configured gate; the unchanged one is skipped.
   const sg = (scope: string) =>

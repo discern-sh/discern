@@ -128,8 +128,8 @@ async function applyEdits(
 /**
  * `config set-capability <name> <command>`
  *
- * `<name>` must be a known capability (format/build/lint/typecheck/test); the
- * gate stage is derived by the engine. The CLI sets one command; the array
+ * `<name>` must be a known capability (format/build/lint/typecheck/test/smoke);
+ * the gate stage is derived by the engine. The CLI sets one command; the array
  * (multi-command) form is reachable via a config document.
  */
 export async function runConfigSetCapability(

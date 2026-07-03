@@ -192,7 +192,7 @@ Deno.test("the in-progress welcome shows derived progress and funnels to done", 
         d.progress.pending_markers.length > 0,
       `expected pending markers: ${JSON.stringify(d.progress)}`,
     );
-    assertEquals(d.progress.capabilities.length, 5);
+    assertEquals(d.progress.capabilities.length, 6);
     assert(
       d.progress.capabilities.every((c: { wired: boolean }) => !c.wired),
       "no capability is wired yet on a fresh scaffold",
