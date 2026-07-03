@@ -100,16 +100,16 @@ conversation happened, refusing and re-serving that message without it (outside
 the declarative `--config` / `--allow-dirty` paths). It lays down only _your_
 seed files with zero-config defaults — a `discern.toml` with no Capabilities
 wired yet (a green gate you grow into — an omitted capability is simply
-skipped), a merged `.claude/settings.json`, and an appended `.gitignore`
-fragment. It then **materializes** the bundled Skills into each configured
-agent's skills dir (gitignored) and compiles the agent guidance. There is no
-engine and no manifest to write — the Engine is in the binary. Files split by
-**disposition**: [yours](glossary.md#your-files--yours) (the committed seeds,
-written once then kept), [the binary's](glossary.md#the-binarys-files)
-(gitignored artifacts it re-publishes, like the materialized Skills), plus the
-Merged `settings.json`/`.gitignore`. On a fresh install in a clean repo, `begin`
-then **commits** the harness wiring it just wrote — the `discern.toml`, the
-`.gitignore` fragment, and the per-agent MCP + hooks files — as one
+skipped), a merged `.claude/settings.json`, and a co-managed `.gitignore` block.
+It then **materializes** the bundled Skills into each configured agent's skills
+dir (gitignored) and compiles the agent guidance. There is no engine and no
+manifest to write — the Engine is in the binary. Files split by **disposition**:
+[yours](glossary.md#your-files--yours) (the committed seeds, written once then
+kept), [the binary's](glossary.md#the-binarys-files) (gitignored artifacts it
+re-publishes, like the materialized Skills), plus the merged `settings.json` and
+co-managed `.gitignore` block. On a fresh install in a clean repo, `begin` then
+**commits** the harness wiring it just wrote — the `discern.toml`, the
+`.gitignore` block, and the per-agent MCP + hooks files — as one
 `discern: scaffold harness` commit
 ([ADR 0076](../_adr/0076-engine-commits-scaffolded-machinery.md)), so the coding
 agent never has to commit discern's own permission-widening config (its safety

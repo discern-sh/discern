@@ -159,7 +159,10 @@ Deno.test("renderReview groups config, your content, and integration", async () 
   // Integration files grouped by how they land.
   assertStringIncludes(text, "Git & agent settings");
   assertStringIncludes(text, "merged into your existing settings");
-  assertStringIncludes(text, "the harness section appended to your .gitignore");
+  assertStringIncludes(
+    text,
+    "the harness section reconciled in your .gitignore",
+  );
   // The closing hint to see every file.
   assertStringIncludes(text, "re-running with --dry-run");
 });

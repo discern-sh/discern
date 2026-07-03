@@ -2,7 +2,7 @@
  * The seed-only scaffolding engine against the synthetic fixture tree. These
  * tests own the behaviours the spec calls out: content + path token
  * substitution, `.tmpl` stripping, exec-bit preservation, settings deep-merge
- * into an existing file, `.gitignore` append idempotency, write-once seed
+ * into an existing file, `.gitignore` block idempotency, write-once seed
  * skipping, the `excludeNonSeed` skip of the binary's `skills/`/`guidance/`
  * subtrees, and dry-run-writes-nothing.
  *
@@ -224,7 +224,7 @@ Deno.test("settings merge is idempotent across a re-run (no dup hooks)", async (
   });
 });
 
-Deno.test("gitignore append is idempotent via the marker line", async () => {
+Deno.test("gitignore block reconciliation is idempotent via the markers", async () => {
   await withTempDir(async (dir) => {
     await scaffold(dir);
     const first = await readTarget(dir, ".gitignore");
@@ -237,7 +237,7 @@ Deno.test("gitignore append is idempotent via the marker line", async () => {
   });
 });
 
-Deno.test("gitignore append preserves pre-existing content", async () => {
+Deno.test("gitignore block reconciliation preserves pre-existing content", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, ".gitignore"), "node_modules/\n");
     await scaffold(dir);

@@ -9,10 +9,12 @@
  *   3. reconcile the fixed `discern.toml` scaffold against the current
  *      template, adding missing documented sections/keys without rewriting
  *      existing values;
- *   4. recompile the guidelines — which re-materializes the bundled skills into
+ *   4. reconcile the discern-owned `.gitignore` block against the current
+ *      fragment, preserving project ignore rules outside it;
+ *   5. recompile the guidelines — which re-materializes the bundled skills into
  *      `.claude/skills/` and writes the per-provider agent files (each gated on
  *      its feature);
- *   5. stamp the new `[meta].schema_version` into the config.
+ *   6. stamp the new `[meta].schema_version` into the config.
  *
  * Your config values, guidance sources, authored skills, and recipes are never
  * rewritten. The clean-tree git guard keeps the upgrade revertible.
@@ -48,7 +50,11 @@ import {
   compileGuidelines,
   type GuidelinesResult,
 } from "../engine/guidelines.ts";
-import { ensureAgentArtifactsIgnored } from "../lib/agent_gitignore.ts";
+import {
+  ensureDiscernGitignoreBlock,
+  type GitignoreReconcileOperation,
+  planDiscernGitignoreBlock,
+} from "../lib/agent_gitignore.ts";
 
 /** Options accepted by the `upgrade` command. */
 export interface UpgradeOptions {
@@ -154,14 +160,22 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
   const pendingReconciliationJson = currentReconciliation.operations.map(
     operationToJson,
   );
+  const currentGitignoreReconciliation = await planDiscernGitignoreBlock(
+    destDir,
+  );
+  const pendingGitignoreReconciliationJson = currentGitignoreReconciliation
+    .operations.map(gitignoreOperationToJson);
 
   // --check: report whether config migrations are pending. There is no managed
   // scaffold drift once the schema is current — an install is current iff both
-  // its schema and its fixed config scaffold match this build.
+  // its schema, its fixed config scaffold, and its discern-owned .gitignore block
+  // match this build.
   if (options.check) {
     const ok = pending.length === 0 &&
       currentReconciliation.operations.length === 0 &&
-      currentReconciliation.templateAvailable;
+      currentReconciliation.templateAvailable &&
+      currentGitignoreReconciliation.operations.length === 0 &&
+      currentGitignoreReconciliation.templateAvailable;
     if (options.json) {
       log.result({
         ok,
@@ -172,6 +186,9 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
           pending_migrations: pendingJson,
           pending_reconciliation: pendingReconciliationJson,
           config_template_available: currentReconciliation.templateAvailable,
+          pending_gitignore_reconciliation: pendingGitignoreReconciliationJson,
+          gitignore_template_available:
+            currentGitignoreReconciliation.templateAvailable,
         },
       });
     } else if (ok) {
@@ -198,6 +215,17 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
           "Could not resolve the config template to check scaffold drift.",
         );
       }
+      if (currentGitignoreReconciliation.operations.length > 0) {
+        log.error("Install .gitignore is missing the current discern block.");
+        for (const op of currentGitignoreReconciliation.operations) {
+          log.detail(gitignoreOperationLabel(op));
+        }
+      }
+      if (!currentGitignoreReconciliation.templateAvailable) {
+        log.error(
+          "Could not resolve the .gitignore fragment to check scaffold drift.",
+        );
+      }
       log.line();
       log.info("Apply it: run `discern upgrade`.");
     }
@@ -214,6 +242,9 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
           pending_migrations: pendingJson,
           pending_reconciliation: pendingReconciliationJson,
           config_template_available: currentReconciliation.templateAvailable,
+          pending_gitignore_reconciliation: pendingGitignoreReconciliationJson,
+          gitignore_template_available:
+            currentGitignoreReconciliation.templateAvailable,
         },
       });
     } else {
@@ -230,6 +261,13 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
         );
         for (const op of currentReconciliation.operations) {
           log.detail(operationLabel(op));
+        }
+        log.line();
+      }
+      if (currentGitignoreReconciliation.operations.length > 0) {
+        log.info("Would reconcile the discern .gitignore block:");
+        for (const op of currentGitignoreReconciliation.operations) {
+          log.detail(gitignoreOperationLabel(op));
         }
         log.line();
       }
@@ -288,24 +326,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     onNote: (m) => log.detail(m),
   });
 
-  // 1b. Reconcile .gitignore against the CURRENT registry's agent artifacts —
-  // idempotent and registry-derived, so a future agent's generated files are ignored
-  // on the next upgrade with no bespoke per-agent migration (ADR 0043). A no-op for an
-  // install whose .gitignore already covers every artifact (today's normal case).
-  try {
-    const added = await ensureAgentArtifactsIgnored(destDir);
-    if (added.length > 0) {
-      log.detail(`gitignored new agent build artifacts: ${added.join(", ")}`);
-    }
-  } catch (error) {
-    log.warn(
-      `could not reconcile .gitignore for agent artifacts: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-    );
-  }
-
-  // 1c. Prove the migrated config parses and validates BEFORE any softer
+  // 1b. Prove the migrated config parses and validates BEFORE any softer
   // refresh work. Guideline compilation remains best-effort (ADR 0065), but a
   // broken config would brick every later command if we stamped it as current.
   const newConfigPath = (await resolveConfigPath(destDir)) ?? configPath;
@@ -373,6 +394,34 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     return 1;
   }
 
+  // 1c. Reconcile the discern-owned .gitignore block to the CURRENT shipped
+  // fragment (with registry-derived agent artifacts), absorbing old one-off
+  // `# discern:` sections into one canonical block. It runs after config
+  // scaffold reconciliation so a missing templates dir still reports the
+  // config-template failure first, but before the schema stamp so an install is
+  // not marked current until this co-managed block is current too.
+  const gitignoreReconciliation = await ensureDiscernGitignoreBlock(destDir);
+  if (!gitignoreReconciliation.templateAvailable) {
+    const message =
+      "could not resolve the .gitignore fragment; schema was not stamped because .gitignore reconciliation could not run.";
+    if (options.json) {
+      log.result({
+        ok: false,
+        verb: "upgrade",
+        error: "gitignore_template_unavailable",
+        message,
+        data: {
+          schema: { from: migrateFrom, current: SCHEMA_VERSION },
+          config_reconciled: reconciliation.operations.map(operationToJson),
+          gitignore_reconciled: [],
+        },
+      });
+    } else {
+      log.error(message);
+    }
+    return 1;
+  }
+
   // 2. Recompile the guidelines (re-materializes skills + writes agent files,
   // each gated on its feature). A failure here is non-fatal to the upgrade — the
   // schema is still stamped — but it is reported.
@@ -421,6 +470,10 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
         })),
         config_reconciled: reconciliation.operations.map(operationToJson),
         config_template_available: reconciliation.templateAvailable,
+        gitignore_reconciled: gitignoreReconciliation.operations.map(
+          gitignoreOperationToJson,
+        ),
+        gitignore_template_available: gitignoreReconciliation.templateAvailable,
         skills: guidelines === undefined ? null : {
           copied: guidelines.skillsCopied,
           linked: guidelines.skillsLinked,
@@ -447,6 +500,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     guidelines,
     applied.length,
     reconciliation.operations,
+    gitignoreReconciliation.operations,
   );
   return 0;
 }
@@ -506,6 +560,7 @@ function renderUpgradeSummary(
   guidelines: GuidelinesResult | undefined,
   migrationCount: number,
   reconciliation: ConfigReconcileOperation[],
+  gitignoreReconciliation: GitignoreReconcileOperation[],
 ): void {
   log.heading("Upgrade summary");
   if (migrationCount > 0) {
@@ -515,6 +570,12 @@ function renderUpgradeSummary(
     log.ok(`config scaffold reconciled: ${reconciliation.length}`);
     for (const op of reconciliation) {
       log.detail(operationLabel(op));
+    }
+  }
+  if (gitignoreReconciliation.length > 0) {
+    log.ok("gitignore block reconciled");
+    for (const op of gitignoreReconciliation) {
+      log.detail(gitignoreOperationLabel(op));
     }
   }
   if (guidelines !== undefined) {
@@ -555,8 +616,21 @@ function operationToJson(op: ConfigReconcileOperation): {
   return { kind: op.kind, path: op.path };
 }
 
+function gitignoreOperationToJson(op: GitignoreReconcileOperation): {
+  kind: GitignoreReconcileOperation["kind"];
+  path: string;
+} {
+  return { kind: op.kind, path: op.path };
+}
+
 function operationLabel(op: ConfigReconcileOperation): string {
   return op.kind === "section" ? `add [${op.path}]` : `add ${op.path}`;
+}
+
+function gitignoreOperationLabel(op: GitignoreReconcileOperation): string {
+  return op.kind === "create-block"
+    ? "create .gitignore discern block"
+    : "replace .gitignore discern block";
 }
 
 async function reconcileConfigFile(

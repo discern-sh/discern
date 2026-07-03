@@ -138,9 +138,9 @@ binary bundles none ([ADR 0018](../_adr/0018-vocabulary-consolidation.md)).
 Every path an install touches has a **disposition** — how `discern` treats it on
 `upgrade`, and where it is edited. Ownership is **three buckets**:
 [yours](#your-files--yours) (committed seeds, write-once),
-[co-managed seed](#co-managed-seed) (`discern.toml`'s fixed scaffold plus
-project-owned values), and [the binary's](#the-binarys-files) (gitignored,
-re-published artifacts). The [Merged](#merged-file) seeds and
+[co-managed seed](#co-managed-seed) (`discern.toml`'s fixed scaffold and the
+discern block in `.gitignore`), and [the binary's](#the-binarys-files)
+(gitignored, re-published artifacts). The [Merged](#merged-file) seeds and
 [Generated](#generated-file) artifacts are named refinements within them. The
 full surface is mapped in
 [install-surface.md](../80-development/install-surface.md).
@@ -150,8 +150,9 @@ full surface is mapped in
 A file written once — then owned by the project, **committed**, never refreshed
 or flagged by `upgrade`, and edited in place. `setup` may seed the project
 `brief.md` when non-empty, plus the [Merged](#merged-file)
-`.claude/settings.json` and `.gitignore`. The rest are content you author at
-config-pointed locations (your [Guidance source](#guidance-source)
+`.claude/settings.json` and the project-owned rules outside the
+[co-managed](#co-managed-seed) `.gitignore` block. The rest are content you
+author at config-pointed locations (your [Guidance source](#guidance-source)
 `guidance.md`, authored [Skills](#skill) under `[skills].dir`,
 [Recipes](#recipe) under `[recipes].dir`) or are created on demand after install
 by `discern setup begin` (the agent documentation tree under `[docs].dir` and
@@ -159,13 +160,20 @@ by `discern setup begin` (the agent documentation tree under `[docs].dir` and
 
 ### Co-managed seed
 
-`discern.toml`, the single root config file. The project owns its values and
-named record tables (`[checks.<name>]`, `[scopes.<name>]`, `[ratchets.<name>]`,
+`discern.toml`, the single root config file, and the discern-owned block inside
+`.gitignore`. The project owns config values and named record tables
+(`[checks.<name>]`, `[scopes.<name>]`, `[ratchets.<name>]`,
 `[worktree.resources.<name>]`), but `discern upgrade` owns the fixed scaffold:
 it runs versioned migrations and restores missing non-record sections/keys from
 the current template, with comments and canonical placement. Existing values are
 never rewritten by scaffold reconciliation
 ([ADR 0092](../_adr/0092-upgrade-reconciles-config-scaffold.md)).
+
+For `.gitignore`, the project owns everything outside the
+`# --- discern harness ---` / `# --- /discern harness ---` block. `upgrade`
+reconciles only that block to the current fragment and absorbs known legacy
+discern-owned fragments
+([ADR 0093](../_adr/0093-upgrade-reconciles-gitignore-block.md)).
 
 ### The binary's files
 
@@ -187,9 +195,10 @@ caught by `discern finish`'s currency check instead.)
 
 A [yours](#your-files--yours) seed folded into whatever the project already has
 rather than written whole, so an existing project keeps its own content. It is
-produced only at `setup` and left untouched by `upgrade`, in one of two forms: a
-structured merge (`.claude/settings.json`) or an idempotent append
-(`.gitignore`).
+produced only at `setup` and left untouched by `upgrade`: today that is the
+structured merge of `.claude/settings.json`. `.gitignore` used to be described
+as a merged file; its project-owned rules are still preserved, but the discern
+block is now a [co-managed seed](#co-managed-seed).
 
 ### Generated file
 

@@ -26,3 +26,4 @@
 # config that discern MERGES into (preserving your own servers) — like
 # .claude/settings.json, not a wholesale-regenerated derivative like CLAUDE.md —
 # so the team gets the server. Leave it tracked; never add it to this fragment.
+# --- /discern harness ---

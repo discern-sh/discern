@@ -22,7 +22,7 @@ runtime.
 │  (one self-contained binary) │   in)        │  sources (bundled in)    │
 └──────────────┬───────────────┘              └──────────────────────────┘
        │  discern setup / upgrade
-       │  write seeds · merge · append · materialize skills · compile guidance
+       │  write seeds · merge · reconcile .gitignore · materialize skills · compile guidance
        ▼
 ┌────────────────────────────────────────────────────────────┐
 │                   An install — on disk                      │
@@ -31,7 +31,7 @@ runtime.
 │      guidance.md · ./skills/ · ./recipes/ · brief.md (yours)│
 │  + generated: AGENTS.md, CLAUDE.md/GEMINI.md,               │
 │      .claude/skills/  (the binary's — gitignored)           │
-│  + merged .claude/settings.json, appended .gitignore        │
+│  + merged .claude/settings.json, co-managed .gitignore      │
 │  (docs/ + TODO.md arrive later, via discern setup)      │
 └────────────────────────────────────────────────────────────┘
 ```
