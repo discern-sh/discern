@@ -16,10 +16,11 @@ needs Deno.
 The command surface is six verbs: `setup` (the staged, zero-config scaffold
 handshake — welcome → verify → begin → done; the retired `init`/`bootstrap`
 names redirect to it), `upgrade` (run pending migrations, re-materialize Skills,
-recompile guidance), `doctor` (verify an install), `migrate` (report pending
-Schema steps), `config` (comment-preserving `discern.toml` edits), and
-`add-preset` (overlay a reusable preset). Routing lives in
-[`main.ts`](../../src/main.ts); each verb's logic is in `src/commands/`.
+reconcile the fixed `discern.toml` scaffold, recompile guidance), `doctor`
+(verify an install), `migrate` (report pending Schema steps), `config`
+(comment-preserving `discern.toml` edits), and `add-preset` (overlay a reusable
+preset). Routing lives in [`main.ts`](../../src/main.ts); each verb's logic is
+in `src/commands/`.
 
 Each human touchpoint of the handshake **serves a pre-composed, first-person
 _message to your human_** the agent relays — the consent conversation at
@@ -40,18 +41,23 @@ never travels) cannot complete setup silently
 ([ADR 0090](../_adr/0090-setup-proves-worktree-viability.md)).
 
 The ideas worth understanding here: the **disposition**-driven scaffold, with
-ownership in two buckets —
+ownership in three buckets —
 [yours](../00-orientation/glossary.md#your-files--yours) (committed seeds,
-write-once) and [the binary's](../00-orientation/glossary.md#the-binarys-files)
-(gitignored, re-published artifacts) — so `upgrade` overwrites the binary's
-files but never touches yours; and the **Schema-version**
-[Migration](../00-orientation/glossary.md#migration) chain that evolves an
-install's shape, stamped into `[meta].schema_version` in `discern.toml` (the
-`5 → 6` step dissolved the old `.discern/` namespace into this one root file —
-[ADR 0020](../_adr/0020-dissolve-discern-dir.md)). `upgrade` validates the
-migrated config before stamping that schema, and `upgrade` / `migrate` refuse a
-config stamped by a newer binary rather than silently downgrading it
-([ADR 0085](../_adr/0085-validate-migrations-before-schema-stamping.md)).
+write-once), a co-managed `discern.toml` scaffold, and
+[the binary's](../00-orientation/glossary.md#the-binarys-files) (gitignored,
+re-published artifacts) — so `upgrade` overwrites the binary's files, restores
+missing fixed config sections/keys, and leaves project-owned values alone; and
+the **Schema-version** [Migration](../00-orientation/glossary.md#migration)
+chain that evolves an install's shape, stamped into `[meta].schema_version` in
+`discern.toml` (the `5 → 6` step dissolved the old `.discern/` namespace into
+this one root file — [ADR 0020](../_adr/0020-dissolve-discern-dir.md)).
+`upgrade` validates the migrated config before stamping that schema, and
+`upgrade` / `migrate` refuse a config stamped by a newer binary rather than
+silently downgrading it
+([ADR 0085](../_adr/0085-validate-migrations-before-schema-stamping.md)). The
+config-scaffold reconciliation is separate from behaviour-changing migrations:
+it is additive and only-if-absent, and is recorded in
+[ADR 0092](../_adr/0092-upgrade-reconciles-config-scaffold.md).
 
 Setup's documentation skeleton is also config-pointed. `[docs].dir` defaults to
 `docs/`; `setup verify` asks for a separate location when that path already

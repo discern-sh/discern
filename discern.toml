@@ -77,18 +77,20 @@ dir = "docs/"
 [guidance]
 # Your guideline source file(s), relative to the project root. Globs are allowed.
 # Read only if present; the built-in harness guidance is always prepended, so
-# these are additive. `discern setup` has your coding agent seed a starter guidance.md.
+# these are additive. `discern setup` lays a starter guidance.md (and migrates any
+# pre-existing CLAUDE.md/AGENTS.md into it) for your coding agent to fill.
 sources = ["guidance.md"]
 
-# Which provider files to emit. Known targets:
+# Which agent integrations to enable. Guidance targets:
 #   "claude_code" -> CLAUDE.md   "codex" -> AGENTS.md   "gemini" -> GEMINI.md
+#   "cursor" -> AGENTS.md        "copilot" -> AGENTS.md
 agents = ["claude_code", "codex", "gemini"]
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [skills] — focused, reusable task playbooks. The effective set is discern's
 # bundled built-ins plus YOUR authored skills under the directory below, where
 # yours override a built-in of the same name. discern materializes the set into
-# .claude/skills/ (gitignored): built-ins copied, yours symlinked (edits are live).
+# each agent's skills dir (gitignored): built-ins copied, yours symlinked (edits live).
 #   discern skills list           show the set + which of yours override which
 #   discern skills eject <name>   copy a built-in here so you can customize it
 # ─────────────────────────────────────────────────────────────────────────────
@@ -107,9 +109,12 @@ dir = "skills"
 #   lint       check  read-only static analysis
 #   typecheck  check  read-only type checking
 #   test       test   the test suite
+#   smoke      test   a fast check that the app boots in this checkout (proves it
+#                     runs wherever the gate runs — including inside a worktree)
 # A value is one command, or a list run in order: lint = ["eslint .", "stylelint ."].
 # OMIT a capability you don't have — an absent capability is "knowably absent", so
-# a fresh install is a green gate you grow into. `discern doctor` shows which are wired.
+# a fresh install is a green gate you grow into. `discern setup` has your coding agent
+# fill these by sniffing the repo; `discern doctor` shows which are wired.
 #
 # `discern prepare` is the fast inner loop: it runs the fix-stage then the check-stage
 # capabilities, and never builds or tests.
@@ -126,7 +131,7 @@ test      = "deno task test"
 # [checks.<name>] — custom, non-standard gate work that isn't a known capability.
 # `stage` (REQUIRED) is one of fix|build|check|test; `run` the command (or a
 # list); `provides` an optional free-text label. Use this for anything outside
-# the five capabilities above.
+# the six capabilities above.
 # ─────────────────────────────────────────────────────────────────────────────
 
 # `prose` lints docs/ with Vale at the check stage — error-severity findings block

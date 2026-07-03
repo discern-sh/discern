@@ -6,13 +6,16 @@
  *
  *   1. run any pending config-schema migrations (ADR 0014/0020);
  *   2. prove the migrated config still parses and validates;
- *   3. recompile the guidelines — which re-materializes the bundled skills into
+ *   3. reconcile the fixed `discern.toml` scaffold against the current
+ *      template, adding missing documented sections/keys without rewriting
+ *      existing values;
+ *   4. recompile the guidelines — which re-materializes the bundled skills into
  *      `.claude/skills/` and writes the per-provider agent files (each gated on
  *      its feature);
- *   4. stamp the new `[meta].schema_version` into the config.
+ *   5. stamp the new `[meta].schema_version` into the config.
  *
- * Your files (`discern.toml`, guidance sources, authored skills, recipes) are
- * never touched. The clean-tree git guard keeps the upgrade revertible.
+ * Your config values, guidance sources, authored skills, and recipes are never
+ * rewritten. The clean-tree git guard keeps the upgrade revertible.
  */
 
 import { Logger } from "../lib/log.ts";
@@ -32,6 +35,10 @@ import {
   type Migration,
   pendingMigrations,
 } from "../lib/migrations.ts";
+import {
+  type ConfigReconcileOperation,
+  reconcileConfigText,
+} from "../lib/config_reconcile.ts";
 import {
   type ConfigIssue,
   ConfigValidationError,
@@ -141,11 +148,20 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     to: m.from + 1,
     describe: m.describe,
   }));
+  const currentReconciliation = pending.length === 0
+    ? await reconcileConfigText(tomlText)
+    : { operations: [] as ConfigReconcileOperation[], templateAvailable: true };
+  const pendingReconciliationJson = currentReconciliation.operations.map(
+    operationToJson,
+  );
 
   // --check: report whether config migrations are pending. There is no managed
-  // drift any more — an install is current iff its schema is current.
+  // scaffold drift once the schema is current — an install is current iff both
+  // its schema and its fixed config scaffold match this build.
   if (options.check) {
-    const ok = pending.length === 0;
+    const ok = pending.length === 0 &&
+      currentReconciliation.operations.length === 0 &&
+      currentReconciliation.templateAvailable;
     if (options.json) {
       log.result({
         ok,
@@ -154,16 +170,33 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
           check: true,
           schema: { recorded: migrateFrom, current: SCHEMA_VERSION },
           pending_migrations: pendingJson,
+          pending_reconciliation: pendingReconciliationJson,
+          config_template_available: currentReconciliation.templateAvailable,
         },
       });
     } else if (ok) {
       log.ok(`Install is up to date (schema ${SCHEMA_VERSION}).`);
     } else {
-      log.error(
-        `Install schema is v${migrateFrom}, but this build expects v${SCHEMA_VERSION}.`,
-      );
-      for (const m of pending) {
-        log.detail(`migration ${m.from}→${m.from + 1}: ${m.describe}`);
+      if (pending.length > 0) {
+        log.error(
+          `Install schema is v${migrateFrom}, but this build expects v${SCHEMA_VERSION}.`,
+        );
+        for (const m of pending) {
+          log.detail(`migration ${m.from}→${m.from + 1}: ${m.describe}`);
+        }
+      }
+      if (currentReconciliation.operations.length > 0) {
+        log.error(
+          "Install config scaffold is missing current template defaults.",
+        );
+        for (const op of currentReconciliation.operations) {
+          log.detail(operationLabel(op));
+        }
+      }
+      if (!currentReconciliation.templateAvailable) {
+        log.error(
+          "Could not resolve the config template to check scaffold drift.",
+        );
       }
       log.line();
       log.info("Apply it: run `discern upgrade`.");
@@ -177,13 +210,26 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
         ok: true,
         verb: "upgrade",
         dry_run: true,
-        data: { pending_migrations: pendingJson },
+        data: {
+          pending_migrations: pendingJson,
+          pending_reconciliation: pendingReconciliationJson,
+          config_template_available: currentReconciliation.templateAvailable,
+        },
       });
     } else {
       if (pending.length > 0) {
         log.info(`Would run ${pending.length} migration(s):`);
         for (const m of pending) {
           log.detail(`${m.from}→${m.from + 1}: ${m.describe}`);
+        }
+        log.line();
+      }
+      if (currentReconciliation.operations.length > 0) {
+        log.info(
+          `Would reconcile ${currentReconciliation.operations.length} config scaffold item(s):`,
+        );
+        for (const op of currentReconciliation.operations) {
+          log.detail(operationLabel(op));
         }
         log.line();
       }
@@ -285,6 +331,48 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     return 1;
   }
 
+  const reconciliation = await reconcileConfigFile(newConfigPath);
+  if (!reconciliation.templateAvailable) {
+    const message =
+      "could not resolve the config template; schema was not stamped because config scaffold reconciliation could not run.";
+    if (options.json) {
+      log.result({
+        ok: false,
+        verb: "upgrade",
+        error: "config_template_unavailable",
+        message,
+        data: {
+          schema: { from: migrateFrom, current: SCHEMA_VERSION },
+          config_reconciled: [],
+        },
+      });
+    } else {
+      log.error(message);
+    }
+    return 1;
+  }
+  const reconciledValidity = await validateMigratedConfig(newConfigPath);
+  if (!reconciledValidity.ok) {
+    if (options.json) {
+      log.result({
+        ok: false,
+        verb: "upgrade",
+        error: "invalid_migrated_config",
+        message: reconciledValidity.message,
+        data: {
+          schema: { from: migrateFrom, current: SCHEMA_VERSION },
+          config_reconciled: reconciliation.operations.map(operationToJson),
+          ...(reconciledValidity.issues === undefined
+            ? {}
+            : { issues: reconciledValidity.issues }),
+        },
+      });
+    } else {
+      log.error(reconciledValidity.message);
+    }
+    return 1;
+  }
+
   // 2. Recompile the guidelines (re-materializes skills + writes agent files,
   // each gated on its feature). A failure here is non-fatal to the upgrade — the
   // schema is still stamped — but it is reported.
@@ -331,6 +419,8 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
           to: m.from + 1,
           describe: m.describe,
         })),
+        config_reconciled: reconciliation.operations.map(operationToJson),
+        config_template_available: reconciliation.templateAvailable,
         skills: guidelines === undefined ? null : {
           copied: guidelines.skillsCopied,
           linked: guidelines.skillsLinked,
@@ -353,7 +443,12 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
       log.detail(`${m.from}→${m.from + 1}: ${m.describe}`);
     }
   }
-  renderUpgradeSummary(log, guidelines, applied.length);
+  renderUpgradeSummary(
+    log,
+    guidelines,
+    applied.length,
+    reconciliation.operations,
+  );
   return 0;
 }
 
@@ -411,10 +506,17 @@ function renderUpgradeSummary(
   log: Logger,
   guidelines: GuidelinesResult | undefined,
   migrationCount: number,
+  reconciliation: ConfigReconcileOperation[],
 ): void {
   log.heading("Upgrade summary");
   if (migrationCount > 0) {
     log.info(`migrations applied: ${migrationCount}`);
+  }
+  if (reconciliation.length > 0) {
+    log.ok(`config scaffold reconciled: ${reconciliation.length}`);
+    for (const op of reconciliation) {
+      log.detail(operationLabel(op));
+    }
   }
   if (guidelines !== undefined) {
     log.ok(
@@ -445,4 +547,38 @@ async function stampSchema(
   const editor = new TomlEditor(await Deno.readTextFile(configPath));
   stampSchemaVersion(editor, version);
   await Deno.writeTextFile(configPath, editor.toString());
+}
+
+function operationToJson(op: ConfigReconcileOperation): {
+  kind: ConfigReconcileOperation["kind"];
+  path: string;
+} {
+  return { kind: op.kind, path: op.path };
+}
+
+function operationLabel(op: ConfigReconcileOperation): string {
+  return op.kind === "section" ? `add [${op.path}]` : `add ${op.path}`;
+}
+
+async function reconcileConfigFile(
+  configPath: string,
+): Promise<{
+  operations: ConfigReconcileOperation[];
+  templateAvailable: boolean;
+}> {
+  const before = await Deno.readTextFile(configPath);
+  const result = await reconcileConfigText(before);
+  if (!result.templateAvailable) {
+    return {
+      operations: [],
+      templateAvailable: false,
+    };
+  }
+  if (result.text !== before) {
+    await Deno.writeTextFile(configPath, result.text);
+  }
+  return {
+    operations: result.operations,
+    templateAvailable: result.templateAvailable,
+  };
 }

@@ -178,13 +178,14 @@ verbs:
 upgrade` brings the _project_ into line with it: it runs any pending
 config-schema **Migration**s (the `5 → 6` step dissolved `.discern/` into the
 single root `discern.toml`), re-materializes the Skills (always overwritten —
-they are the binary's), recompiles the guidance, and re-stamps the **Schema
-version** in `discern.toml`. Your seed files are left untouched. There is
-nothing to hash and nothing to drift: the engine is in the binary, not on disk.
-This repo proves the loop by running its _own_ engine straight from source —
-`discern finish`, where `discern` runs the engine of the checkout you are in —
-so the gate the maintainer runs is the gate that ships, with no second copy to
-keep in sync.
+they are the binary's), restores any missing fixed `discern.toml` scaffold
+sections/keys from the current template, recompiles the guidance, and re-stamps
+the **Schema version** in `discern.toml`. Project-owned values and named config
+tables are left alone. There is nothing to hash and nothing to drift in the
+engine itself: it is in the binary, not on disk. This repo proves the loop by
+running its _own_ engine straight from source — `discern finish`, where
+`discern` runs the engine of the checkout you are in — so the gate the
+maintainer runs is the gate that ships, with no second copy to keep in sync.
 
 Alongside the runtime path, guidance flows author-once → compile-everywhere:
 discern's built-in harness guidance plus your **Guidance source** (`guidance.md`

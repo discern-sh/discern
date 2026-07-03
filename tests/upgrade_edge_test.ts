@@ -5,8 +5,8 @@
  * reporting branches they leave uncovered:
  *
  *   - the pre-flight refusals: no discern.toml, unparseable toml; and the
- *     non-fatal path when the templates dir is missing (the guideline compile
- *     is skipped but the upgrade still succeeds);
+ *     fatal path when the templates dir is missing (the config scaffold cannot
+ *     be reconciled, so the schema is not stamped);
  *   - the human-mode (non-JSON) renderings of --check ok, --dry-run, the dirty
  *     guard, and the migrations-applied summary;
  *   - --dry-run's --json payload and its pending-migration preview;
@@ -148,37 +148,33 @@ Deno.test("upgrade refuses a config from a newer schema (--json)", async () => {
   });
 });
 
-Deno.test("upgrade survives an absent templates dir: guidelines just don't compile (--json)", async () => {
+Deno.test("upgrade refuses an absent templates dir before stamping (--json)", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
-    // Point resolution at a path that does not exist; each guideline-compile job
-    // (materialize skills, write agent files) fails. The failures are ISOLATED and
-    // non-fatal to the upgrade (ADR 0065) — the schema is still stamped — so the
-    // command succeeds but reports the compile as incomplete, enumerating the
-    // per-artifact errors.
+    // Point resolution at a path that does not exist. Guideline refresh failures
+    // are still isolated, but the config template is now required so upgrade can
+    // prove and repair scaffold drift before stamping the schema.
     const r = await runCli(["upgrade", "--json"], dir, {
       DISCERN_TEMPLATES_DIR: join(dir, "no", "such", "templates"),
     });
-    assertEquals(r.code, 0, r.stderr);
+    assertEquals(r.code, 1, r.stderr);
     const res = JSON.parse(r.stdout);
-    assertEquals(res.ok, true);
-    assertEquals(res.data.guidelines_compiled, false);
-    assertEquals(res.data.skills, { copied: 0, linked: 0, pruned: 0 });
-    assertEquals(res.data.agents_written, []);
-    assert(res.data.guidelines_errors.length > 0, r.stdout);
+    assertEquals(res.ok, false);
+    assertEquals(res.error, "config_template_unavailable");
+    assertStringIncludes(res.message, "schema was not stamped");
+    assertEquals(res.data.config_reconciled, []);
   });
 });
 
-Deno.test("upgrade survives an absent templates dir: warns and exits zero (human)", async () => {
+Deno.test("upgrade refuses an absent templates dir before stamping (human)", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
     const r = await runCli(["upgrade"], dir, {
       DISCERN_TEMPLATES_DIR: join(dir, "no", "such", "templates"),
     });
-    assertEquals(r.code, 0, r.stderr);
-    // The isolated compile failures surface as non-fatal warnings on stderr,
-    // capped by an aggregate (ADR 0065).
-    assertStringIncludes(r.stderr, "guideline refresh did not fully complete");
+    assertEquals(r.code, 1);
+    assertStringIncludes(r.stderr, "config template");
+    assertStringIncludes(r.stderr, "schema was not stamped");
   });
 });
 

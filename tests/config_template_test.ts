@@ -14,8 +14,11 @@ import {
 } from "@std/assert";
 import { join } from "@std/path";
 import {
+  keyBlockFromTemplate,
   readConfigTemplate,
   sectionBlockFromTemplate,
+  sectionKeyNamesFromTemplate,
+  sectionNamesFromTemplate,
 } from "../src/lib/config_template.ts";
 import { PROVIDERS } from "../src/lib/providers.ts";
 import { REAL_TEMPLATES } from "./helpers.ts";
@@ -73,6 +76,36 @@ Deno.test("extracts [guidance] including its {{agents_array}} token (for the cal
   assertStringIncludes(block, "[guidance]");
   assertStringIncludes(block, 'sources = ["guidance.md"]');
   assertStringIncludes(block, "agents = [{{agents_array}}]");
+});
+
+Deno.test("lists only active template section headers, in file order", async () => {
+  assertEquals(sectionNamesFromTemplate(await realTemplate()), [
+    "meta",
+    "project",
+    "features",
+    "docs",
+    "guidance",
+    "skills",
+    "capabilities",
+    "scopes.docs",
+    "worktree",
+    "worktree.setup",
+    "gate",
+    "coupling",
+    "recipes",
+  ]);
+});
+
+Deno.test("extracts a documented key block and section key order", async () => {
+  const template = await realTemplate();
+  assertEquals(sectionKeyNamesFromTemplate(template, "gate"), [
+    "stream",
+    "fail_fast",
+  ]);
+  const block = keyBlockFromTemplate(template, "gate.fail_fast");
+  assertExists(block);
+  assertStringIncludes(block, "# Cancel the in-flight sibling commands");
+  assertStringIncludes(block, "fail_fast = true");
 });
 
 Deno.test("[guidance] template comment names every known agent and guidance target", async () => {

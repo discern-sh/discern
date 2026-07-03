@@ -490,6 +490,51 @@ Deno.test("deleteKey does not remove a commented-out key", () => {
   assertStringIncludes(editor.toString(), '# native = "make -C native check"');
 });
 
+Deno.test("insertKeyBlock places a documented key in canonical order", () => {
+  const input = [
+    "[gate]",
+    "# Cancel siblings.",
+    "fail_fast = true",
+    "",
+    "[coupling]",
+    "in_gate = false",
+    "",
+  ].join("\n");
+  const editor = new TomlEditor(input);
+
+  assert(
+    editor.insertKeyBlock(
+      "gate",
+      "stream",
+      "# Stream output live.\nstream = false",
+      ["stream", "fail_fast"],
+    ),
+  );
+  assert(
+    !editor.insertKeyBlock(
+      "gate",
+      "stream",
+      "# Stream output live.\nstream = false",
+      ["stream", "fail_fast"],
+    ),
+  );
+
+  assertEquals(
+    editor.toString(),
+    [
+      "[gate]",
+      "# Stream output live.",
+      "stream = false",
+      "# Cancel siblings.",
+      "fail_fast = true",
+      "",
+      "[coupling]",
+      "in_gate = false",
+      "",
+    ].join("\n"),
+  );
+});
+
 Deno.test("deleteSection removes an entire section and preserves CRLF style", () => {
   const input =
     `[project]\r\nslug = "demo"\r\n\r\n[features]\r\nworktrees = true\r\nratchets = false\r\n\r\n[gate]\r\nstream = false\r\n`;
