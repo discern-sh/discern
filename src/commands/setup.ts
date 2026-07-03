@@ -33,6 +33,7 @@ import {
   resolveConfigPath,
   resolveSetupDir,
   resolveTemplatesDir,
+  resolveWorktreeRoot,
 } from "../lib/paths.ts";
 import { type InitFlags, resolveInitConfig } from "../lib/prompts.ts";
 import {
@@ -56,6 +57,11 @@ import { planToJson, renderPlan } from "../lib/plan_view.ts";
 import { compileGuidelines } from "../engine/guidelines.ts";
 import { doctorResult } from "./doctor.ts";
 import { finishResult } from "../engine/gate/finish.ts";
+import {
+  lifecycleContext,
+  probeWorktreeViability,
+} from "../engine/worktree/lifecycle.ts";
+import { isFeatureEnabled } from "../shared/features.ts";
 import {
   type HooksIntegration,
   providerFor,
@@ -1337,6 +1343,10 @@ interface DoneSuccessView {
   /** The ready-to-relay completion message — carried verbatim, identical to the
    * `--json` `guidance` field (ADR 0086). */
   guidance: string;
+  /** Whether the worktree probe actually proved the project viable in a copy (ADR
+   * 0090) — false when the probe was skipped (worktrees off, uncreatable, or forced),
+   * so the render never claims coverage it didn't earn. */
+  worktreeProven: boolean;
 }
 
 /** The ordered next-action hints `setup done --json` carries for an agent (A11): land
@@ -1436,6 +1446,7 @@ function printDoneSuccess(view: DoneSuccessView): void {
     reactivation,
     coachVerb,
     guidance,
+    worktreeProven,
   } = view;
 
   console.log(
@@ -1469,6 +1480,15 @@ function printDoneSuccess(view: DoneSuccessView): void {
   if (assurance.verdict !== "full") {
     console.log(
       '  (absent = no such command wired; deferred = deliberately off. Wire one with `discern config set-capability <name> "<command>"`.)',
+    );
+  }
+
+  // The worktree-viability proof (ADR 0090) — shown only when it actually ran green, so
+  // a worktrees-off or skipped run never claims coverage it didn't earn.
+  if (worktreeProven) {
+    console.log("");
+    console.log(
+      "Proved your project runs inside a worktree — the isolated copy every future task uses.",
     );
   }
 
@@ -1526,14 +1546,19 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
     return 1;
   }
 
-  // The structural completion proof (ADR 0065): refresh → doctor → finish must pass
-  // before completion is recorded, so "the gate is real" can't be reported without
-  // being true. `--force` is the escape hatch — it skips the proof entirely.
+  // The structural completion proof (ADR 0065/0090): refresh → doctor → finish must
+  // pass, THEN the project must prove viable in a linked worktree, before completion is
+  // recorded — so "the gate is real" can't be reported without being true, and "my app
+  // broke in the copy" can't arrive weeks later. `--force` is the escape hatch — it skips
+  // the whole proof, the probe included. `worktreeProven` stays false when the probe was
+  // skipped (worktrees off, uncreatable, or forced), so the report never over-claims.
+  let worktreeProven = false;
   if (!opts.force) {
-    const failed = await proveGateGreen(root, opts.json);
-    if (failed !== undefined) {
-      return failed; // already emitted; [meta].bootstrapped is NOT recorded
+    const proof = await proveGateGreen(root, opts.json);
+    if (!proof.ok) {
+      return proof.exitCode; // already emitted; [meta].bootstrapped is NOT recorded
     }
+    worktreeProven = proof.worktreeProven;
   }
 
   // Record the marker, comment-preserving (mirrors `discern config set --bool`).
@@ -1573,6 +1598,7 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
       bootstrapped: true,
       forced,
       gate_proven: !opts.force,
+      worktree_proven: worktreeProven,
       marker_committed: markerCommit === "committed",
       leftover,
       assurance,
@@ -1606,23 +1632,34 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
     reactivation,
     coachVerb,
     guidance,
+    worktreeProven,
   });
   return 0;
 }
 
+/** The outcome of the completion proof: a failure (already emitted) with its exit code,
+ * or success carrying whether the worktree probe actually proved viability — the honest
+ * signal the completion report renders (ADR 0090). */
+type GateProof =
+  | { ok: false; exitCode: number }
+  | { ok: true; worktreeProven: boolean };
+
 /**
  * Run the completion proof `discern setup done` requires before recording
- * `[meta].bootstrapped` (ADR 0065): `refresh` (so the generated agent files are
- * current), then `doctor` (the install is healthy), then `finish` (the gate is
- * green with whatever capabilities were just wired). The cores run BELOW the
- * router/MCP bootstrap gate, so they execute even though setup isn't recorded yet —
- * the "bootstrap bypass" is automatic. Returns `undefined` when the proof passed
- * (the caller records completion), or exit 1 (already emitted) when a step failed.
+ * `[meta].bootstrapped` (ADR 0065/0090): `refresh` (so the generated agent files are
+ * current), then `doctor` (the install is healthy), then `finish` (the gate is green
+ * with whatever capabilities were just wired) — all in the main checkout — then a
+ * WORKTREE PROBE proving the project is also viable in a linked worktree, the copy
+ * every future task runs in (the main checkout being the one place agents are told
+ * never to work). The cores run BELOW the router/MCP bootstrap gate, so they execute
+ * even though setup isn't recorded yet — the "bootstrap bypass" is automatic. Returns a
+ * failure (already emitted) with its exit code, or success carrying whether the probe
+ * actually proved viability.
  */
 async function proveGateGreen(
   root: string,
   json: boolean,
-): Promise<number | undefined> {
+): Promise<GateProof> {
   // 1. refresh — recompile the agent files + skills so finish's currency check sees
   //    a current tree (the agent likely edited guidance.md and the docs just now).
   try {
@@ -1631,33 +1668,118 @@ async function proveGateGreen(
       new Logger({ json, noColor: false, humanStream: "stdout" }),
     );
   } catch (error) {
-    return emitDoneGateFailure(
-      json,
-      "refresh",
-      `could not compile the agent guidance: ${errMsg(error)}`,
-    );
+    return {
+      ok: false,
+      exitCode: emitDoneGateFailure(
+        json,
+        "refresh",
+        `could not compile the agent guidance: ${errMsg(error)}`,
+      ),
+    };
   }
 
   // 2. doctor — the install must be healthy (capability commands resolvable, the
   //    configured agents known, the gotchas doc resolving, …).
   if (!(await doctorResult(root)).ok) {
-    return emitDoneGateFailure(
-      json,
-      "doctor",
-      "the install has problems; run `discern doctor` and fix what it flags",
-    );
+    return {
+      ok: false,
+      exitCode: emitDoneGateFailure(
+        json,
+        "doctor",
+        "the install has problems; run `discern doctor` and fix what it flags",
+      ),
+    };
   }
 
   // 3. finish — the gate must be green with the capabilities the agent wired.
   if (!(await finishResult(root)).ok) {
-    return emitDoneGateFailure(
-      json,
-      "finish",
-      "the quality gate is not green; run `discern finish`, fix the failures, then re-run",
-    );
+    return {
+      ok: false,
+      exitCode: emitDoneGateFailure(
+        json,
+        "finish",
+        "the quality gate is not green; run `discern finish`, fix the failures, then re-run",
+      ),
+    };
   }
 
-  return undefined;
+  // 4. worktree probe — the gate is green HERE, but here is the main checkout. Prove it
+  //    is green in a worktree too (ADR 0090), so an env-anchored app can't pass setup
+  //    and then break on the first real task.
+  return await proveWorktreeViable(root, json);
+}
+
+/**
+ * The final leg of the completion proof (ADR 0090): the gate passed in the main
+ * checkout, but that is the one place agents never work. Prove the project is ALSO
+ * viable inside a linked worktree — the copy every future task runs in — by creating a
+ * throwaway probe worktree exactly as `discern start` would (branching from the current
+ * unlanded `discern-setup` HEAD, not `main`), running the finish core inside it, and
+ * tearing it down win or lose. A red probe blocks `done` with the `worktree_probe`
+ * stage: either the worktree could not ready itself (broken `[worktree].steps`/`ensure`/
+ * resources), or the gate failed only in the copy (something the app needs — an
+ * untracked env file, an uninstalled dependency dir — didn't travel). Worktrees-off
+ * skips it (nothing to prove); an uncreatable probe (e.g. an unborn branch) is an honest
+ * skip, not a failure. Returns whether viability was actually proven, for the report.
+ */
+async function proveWorktreeViable(
+  root: string,
+  json: boolean,
+): Promise<GateProof> {
+  const cfg = await loadConfig(root);
+  if (!isFeatureEnabled(cfg, "worktrees")) {
+    return { ok: true, worktreeProven: false }; // worktrees off → nothing to prove
+  }
+
+  const log = new Logger({ json, noColor: false, humanStream: "stdout" });
+  log.info("Proving your project runs inside a worktree (a throwaway copy)…");
+  const outcome = await probeWorktreeViability(
+    await lifecycleContext(root, log),
+    resolveWorktreeRoot(root, cfg),
+    async (probeDir) => {
+      const r = await finishResult(probeDir);
+      if (r.ok) {
+        return { ok: true };
+      }
+      const detail = r.diagnostics?.[0]?.message ??
+        "the quality gate was red in the copy";
+      return { ok: false, detail };
+    },
+  );
+
+  switch (outcome.kind) {
+    case "probed":
+      if (outcome.ok) {
+        return { ok: true, worktreeProven: true };
+      }
+      return {
+        ok: false,
+        exitCode: emitDoneGateFailure(
+          json,
+          "worktree_probe",
+          `the gate is not green inside a fresh worktree — ${
+            outcome.detail ?? "the copy is not viable"
+          }. Something the app needs doesn't survive into a copy (an untracked env file, an uninstalled dependency dir); wire [worktree].steps / ensure / resources so a worktree is viable, then re-run`,
+        ),
+      };
+    case "setup_failed":
+      return {
+        ok: false,
+        exitCode: emitDoneGateFailure(
+          json,
+          "worktree_probe",
+          `the project could not set itself up in a fresh worktree — ${outcome.reason}. Fix its [worktree].steps / ensure / resources so a copy readies cleanly, then re-run`,
+        ),
+      };
+    case "uncreatable":
+      // Couldn't create a probe (e.g. an unborn branch) — not the app's fault. Report it
+      // un-proven rather than blocking; the first real `discern finish` in a worktree
+      // will prove it.
+      log.info(
+        `Skipped the worktree probe (${outcome.reason}); your first \`discern finish\` in a worktree will prove it.`,
+      );
+      return { ok: true, worktreeProven: false };
+  }
 }
 
 /**
@@ -1667,7 +1789,7 @@ async function proveGateGreen(
  */
 function emitDoneGateFailure(
   json: boolean,
-  stage: "refresh" | "doctor" | "finish",
+  stage: "refresh" | "doctor" | "finish" | "worktree_probe",
   detail: string,
 ): number {
   const message = `setup is not finished — ${detail}.`;
@@ -1682,7 +1804,7 @@ function emitDoneGateFailure(
   } else {
     console.error(`discern: ${message}`);
     console.error(
-      `       (\`discern setup done\` runs refresh → doctor → finish as its completion proof; the ${stage} step failed.)`,
+      `       (\`discern setup done\`'s completion proof is refresh → doctor → finish, then a worktree probe; the ${stage} step failed.)`,
     );
     console.error(
       "       Fix it and re-run, or pass --force to record completion without the proof.",

@@ -715,6 +715,9 @@ export const SetupDoneDataSchema = z.strictObject({
   bootstrapped: z.literal(true),
   forced: z.boolean(),
   gate_proven: z.boolean(),
+  /** Whether the worktree-viability probe (ADR 0090) actually ran green — false when it
+   * was skipped (worktrees off, an uncreatable probe, or `--force`). */
+  worktree_proven: z.boolean(),
   marker_committed: z.boolean(),
   leftover: z.array(z.string()),
   assurance: SetupAssuranceSchema,
