@@ -434,6 +434,8 @@ _Product positioning, messaging, and launch/content tasks._
       alias + migration care as the baselines rename. Evidence:
       `docs/_private/planning/discern-product-strategy.md` (vocabulary canon,
       pending item).
+- [ ] Avoid the word 'harness' (used in lots of user-facing surface areas), will
+      fix this in bulk as launch approaches.
 
 ## 👨‍💻 Jack's Odds and Ends
 
