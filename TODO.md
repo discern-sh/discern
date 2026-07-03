@@ -221,7 +221,10 @@ _Nothing outstanding._
 
 ## 🟢 Test & tooling hygiene
 
-_Nothing outstanding._
+- [ ] **Scaffold the CI gate workflow once releases are public.** The docs now
+      give a pasteable GitHub Actions recipe, but launch still needs the public
+      repo/version values re-checked and a later `setup`/binary affordance that
+      writes the workflow for users. Evidence: `docs/20-quality-gate/ci.md`.
 
 ## 🔵 Unmerged / at-risk work — decide: land or drop
 
