@@ -29,6 +29,7 @@ claude_code
 Cliffy('s)?
 CLIs?
 codebase('s)?
+codegen
 codemod
 composable
 concat
@@ -180,9 +181,12 @@ typecheck(ing)?
 typo'd
 unclamped
 unconfigured
+uncreatable
 unextendable
+unfakeable
 unformatted
 ungated
+unlanded
 unmanaged
 unmarketed
 unrunnable

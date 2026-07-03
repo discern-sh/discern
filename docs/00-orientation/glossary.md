@@ -218,11 +218,11 @@ under `[capabilities]` in `discern.toml`: `format`, `build`, `lint`,
 `typecheck`, `test`, and `smoke` (a fast "does it boot?" check —
 [ADR 0090](../_adr/0090-setup-proves-worktree-viability.md)). Each is a name
 mapped to a command (or a list run in order); the Engine **derives the gate
-[Stage](#stage)** from the name, so an author never writes a scheduling keyword. The set is closed — an unknown key is
-an error that points at a [Check](#check). A known capability that is simply
-**omitted** is [knowably absent](#readiness): the gate skips it, never errors.
-Not to be confused with a [Feature](#feature) (a subsystem toggle)
-([ADR 0017](../_adr/0017-capabilities-model.md)).
+[Stage](#stage)** from the name, so an author never writes a scheduling keyword.
+The set is closed — an unknown key is an error that points at a [Check](#check).
+A known capability that is simply **omitted** is [knowably absent](#readiness):
+the gate skips it, never errors. Not to be confused with a [Feature](#feature)
+(a subsystem toggle) ([ADR 0017](../_adr/0017-capabilities-model.md)).
 
 ### Check
 
