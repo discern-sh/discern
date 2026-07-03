@@ -31,6 +31,11 @@ function isBlankLine(line: string): boolean {
   return line.trim() === "";
 }
 
+/** True for a TOML comment line. */
+function isCommentLine(line: string): boolean {
+  return line.trimStart().startsWith("#");
+}
+
 /** The first newline sequence in a file, falling back to LF for new files. */
 function detectLineEnding(text: string): LineEnding {
   return (text.match(/\r\n|\n|\r/u)?.[0] as LineEnding | undefined) ?? "\n";
@@ -191,6 +196,8 @@ export function tomlStringArray(items: string[]): string {
 
 /** Matches a section header line, capturing the section path inside the brackets. */
 const HEADER_RE = /^\s*\[([^\]]+)\]/;
+
+type SectionSpan = { headerIdx: number; bodyEnd: number };
 
 /**
  * Edits the `discern.toml` subset in place, preserving comments and layout.
@@ -368,6 +375,53 @@ export class TomlEditor {
     return this;
   }
 
+  /**
+   * Insert a documented key block inside an existing section, ordered relative to
+   * the section's canonical keys. A no-op when the section is absent or the key
+   * already exists. `block` is usually from `keyBlockFromTemplate`: it may start
+   * with a blank separator, followed by comments and one assignment line.
+   */
+  insertKeyBlock(
+    section: string,
+    key: string,
+    block: string,
+    keyOrder: string[],
+  ): boolean {
+    const span = this.findSection(section);
+    if (span === null) {
+      return false;
+    }
+    if (this.assignmentLine(span, key) !== undefined) {
+      return false;
+    }
+
+    const keyIndex = keyOrder.indexOf(key);
+    const blockLines = splitTomlLines(block);
+    if (keyIndex !== -1) {
+      for (let i = keyIndex + 1; i < keyOrder.length; i++) {
+        const next = this.assignmentLine(span, keyOrder[i] ?? "");
+        if (next !== undefined) {
+          this.lines.splice(this.keyBlockStart(span, next), 0, ...blockLines);
+          return true;
+        }
+      }
+      for (let i = keyIndex - 1; i >= 0; i--) {
+        const previous = this.assignmentLine(span, keyOrder[i] ?? "");
+        if (previous !== undefined) {
+          this.lines.splice(
+            this.assignmentEnd(previous.index, previous.key),
+            0,
+            ...blockLines,
+          );
+          return true;
+        }
+      }
+    }
+
+    this.lines.splice(span.headerIdx + 1, 0, ...blockLines);
+    return true;
+  }
+
   /** Append a section block at EOF, separated from existing content by a gap. */
   private appendSectionBlock(blockLines: string[]): this {
     while (this.lines.length > 0) {
@@ -380,6 +434,53 @@ export class TomlEditor {
     }
     this.lines.push(...blockLines);
     return this;
+  }
+
+  /** Return one assignment line inside a section, if present. */
+  private assignmentLine(
+    span: SectionSpan,
+    key: string,
+  ): { index: number; key: string } | undefined {
+    const keyRe = new RegExp(`^(\\s*)${escapeRegExp(key)}(\\s*=\\s*).*$`);
+    for (let i = span.headerIdx + 1; i < span.bodyEnd; i++) {
+      const line = this.lines[i];
+      if (line !== undefined && keyRe.test(line)) {
+        return { index: i, key };
+      }
+    }
+    return undefined;
+  }
+
+  /** Start of the comment block directly attached to `assignment`. */
+  private keyBlockStart(
+    span: SectionSpan,
+    assignment: { index: number },
+  ): number {
+    let start = assignment.index;
+    while (
+      start - 1 > span.headerIdx &&
+      isCommentLine(this.lines[start - 1] ?? "")
+    ) {
+      start--;
+    }
+    if (
+      start - 1 > span.headerIdx &&
+      isBlankLine(this.lines[start - 1] ?? "")
+    ) {
+      start--;
+    }
+    return start;
+  }
+
+  /** Exclusive end of an assignment's value span, including multi-line arrays. */
+  private assignmentEnd(index: number, key: string): number {
+    const line = this.lines[index] ?? "";
+    const keyRe = new RegExp(`^(\\s*)${escapeRegExp(key)}(\\s*=\\s*).*$`);
+    const match = line.match(keyRe);
+    const prefix = match === null
+      ? ""
+      : `${match[1] ?? ""}${key}${match[2] ?? ""}`;
+    return this.valueEnd(index, prefix.length);
   }
 
   /** Set a string-valued key. */

@@ -756,8 +756,8 @@ const WORKTREE_ROOT_BLOCK =
 #       and adjacent, never nested inside the checkout (a worktree nested in its
 #       own repo is an anti-pattern: recursive tools double-count it, and walking
 #       up to the repo root mis-resolves the worktree's .git file).
-#   a RELATIVE path resolves against the repo root (".claude/worktrees" restores
-#       the old nesting; "../wts" a custom sibling).
+#   a RELATIVE path resolves against the repo root (".claude/worktrees" nests
+#       them inside the repo; "../wts" a custom sibling).
 #   an ABSOLUTE path is used as-is.
 root = ""`;
 

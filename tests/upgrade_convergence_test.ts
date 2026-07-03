@@ -10,11 +10,17 @@
  * clean-tree guard sees a non-repo; `--allow-dirty` keeps the runs deterministic.
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertExists,
+  assertStringIncludes,
+} from "@std/assert";
 import { copy } from "@std/fs";
 import { dirname, fromFileUrl, join } from "@std/path";
 import { readTarget, runCli, withTempDir } from "./helpers.ts";
 import { parseConfig } from "../src/shared/config_schema.ts";
+import { sectionBlockFromTemplate } from "../src/lib/config_template.ts";
 
 const HISTORICAL_FIXTURES = join(
   dirname(fromFileUrl(import.meta.url)),
@@ -54,6 +60,13 @@ async function upgrade(dir: string): Promise<any> {
   const res = JSON.parse(r.stdout);
   await assertCurrentConfigValid(dir);
   return res;
+}
+
+/** Run `upgrade --check --json` and return the parsed report plus exit code. */
+// deno-lint-ignore no-explicit-any
+async function upgradeCheck(dir: string): Promise<{ code: number; res: any }> {
+  const r = await runCli(["upgrade", "--check", "--json"], dir);
+  return { code: r.code, res: JSON.parse(r.stdout) };
 }
 
 /** Layout-agnostic config path: the new root `discern.toml`, else the legacy
@@ -120,6 +133,20 @@ async function setSchema(dir: string, version: number): Promise<void> {
   );
 }
 
+async function removeConfigSection(
+  dir: string,
+  section: string,
+): Promise<void> {
+  const path = await configPath(dir);
+  const text = await Deno.readTextFile(path);
+  const block = sectionBlockFromTemplate(text, section);
+  assertExists(block, `expected [${section}] in ${path}`);
+  await Deno.writeTextFile(
+    path,
+    text.replace(`\n\n${block}`, "").replace(block, ""),
+  );
+}
+
 Deno.test("upgrade of a current install applies no migrations and stays at the current schema", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
@@ -129,6 +156,33 @@ Deno.test("upgrade of a current install applies no migrations and stays at the c
     assertEquals(res.data.migrations_applied, []);
     assertEquals(res.data.schema.current, fresh);
     assertEquals(await recordedSchema(dir), fresh);
+  });
+});
+
+Deno.test("upgrade reconciles a current-schema config missing a fixed template section", async () => {
+  await withTempDir(async (dir) => {
+    await init(dir);
+    await removeConfigSection(dir, "recipes");
+
+    const check = await upgradeCheck(dir);
+    assertEquals(check.code, 1);
+    assertEquals(check.res.data.pending_migrations, []);
+    assertEquals(check.res.data.pending_reconciliation, [{
+      kind: "section",
+      path: "recipes",
+    }]);
+
+    const res = await upgrade(dir);
+    assertEquals(res.data.migrations_applied, []);
+    assertEquals(res.data.config_reconciled, [{
+      kind: "section",
+      path: "recipes",
+    }]);
+    const toml = await readTarget(dir, "discern.toml");
+    assertStringIncludes(toml, "# [recipes] — your own `discern` commands");
+    assertStringIncludes(toml, "\n[recipes]\n");
+    assertStringIncludes(toml, 'dir = "recipes"');
+    await assertSecondUpgradeIsByteStable(dir);
   });
 });
 

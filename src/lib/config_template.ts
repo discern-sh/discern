@@ -29,6 +29,9 @@ const HEADER_RE = /^\[([^\]]+)\]/;
 /** Matches the opening/closing line of a `# ───` ruled documentation block. */
 const RULE_RE = /^#\s*─/;
 
+/** Matches a simple single-line TOML assignment and captures its bare key. */
+const ASSIGNMENT_RE = /^\s*([A-Za-z0-9_-]+)\s*=/;
+
 /** True for a blank (whitespace-only) line. */
 function isBlank(line: string): boolean {
   return line.trim() === "";
@@ -110,11 +113,95 @@ export function sectionBlockFromTemplate(
   return out.join("\n");
 }
 
+/** The live, uncommented section headers the template actively writes, in order. */
+export function sectionNamesFromTemplate(templateText: string): string[] {
+  const out: string[] = [];
+  for (const line of templateText.split("\n")) {
+    const section = line.match(HEADER_RE)?.[1]?.trim();
+    if (section !== undefined) {
+      out.push(section);
+    }
+  }
+  return out;
+}
+
+/** The active keys the template writes inside one section, in order. */
+export function sectionKeyNamesFromTemplate(
+  templateText: string,
+  section: string,
+): string[] {
+  const block = sectionBlockFromTemplate(templateText, section);
+  if (block === undefined) {
+    return [];
+  }
+  const lines = block.split("\n");
+  const headerIdx = lines.findIndex(
+    (line) => line.match(HEADER_RE)?.[1]?.trim() === section,
+  );
+  if (headerIdx === -1) {
+    return [];
+  }
+  const keys: string[] = [];
+  for (const line of lines.slice(headerIdx + 1)) {
+    const key = line.match(ASSIGNMENT_RE)?.[1];
+    if (key !== undefined) {
+      keys.push(key);
+    }
+  }
+  return keys;
+}
+
+/**
+ * Extract the documented block for one active key from the rendered template:
+ * any directly-attached comment paragraph (and its separating blank, when the
+ * key is not first in the section) plus the key assignment line itself.
+ */
+export function keyBlockFromTemplate(
+  templateText: string,
+  dottedKey: string,
+): string | undefined {
+  const parts = dottedKey.split(".");
+  const key = parts.at(-1);
+  if (parts.length < 2 || key === undefined) {
+    return undefined;
+  }
+  const section = parts.slice(0, -1).join(".");
+  const block = sectionBlockFromTemplate(templateText, section);
+  if (block === undefined) {
+    return undefined;
+  }
+  const lines = block.split("\n");
+  const headerIdx = lines.findIndex(
+    (line) => line.match(HEADER_RE)?.[1]?.trim() === section,
+  );
+  if (headerIdx === -1) {
+    return undefined;
+  }
+  const keyRe = new RegExp(
+    `^\\s*${key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*=`,
+  );
+  const keyIdx = lines.findIndex((line, idx) =>
+    idx > headerIdx && keyRe.test(line)
+  );
+  if (keyIdx === -1) {
+    return undefined;
+  }
+
+  let start = keyIdx;
+  while (start - 1 > headerIdx && isComment(lines[start - 1] ?? "")) {
+    start--;
+  }
+  if (start - 1 > headerIdx && isBlank(lines[start - 1] ?? "")) {
+    start--;
+  }
+  return lines.slice(start, keyIdx + 1).join("\n");
+}
+
 /**
  * Read the bundled `discern.toml` template text, or `undefined` if the templates
- * tree cannot be resolved or read. Callers (the migration) treat `undefined` as
- * "fall back to a plain key edit" rather than failing — a missing template must
- * never break an upgrade.
+ * tree cannot be resolved or read. Migration callers may treat `undefined` as
+ * "fall back to a plain key edit"; scaffold reconciliation treats it as a
+ * blocking condition because it cannot prove the config is current.
  */
 export async function readConfigTemplate(
   env: EnvReader = Deno.env,

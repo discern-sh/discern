@@ -136,18 +136,19 @@ binary bundles none ([ADR 0018](../_adr/0018-vocabulary-consolidation.md)).
 ## File dispositions
 
 Every path an install touches has a **disposition** — how `discern` treats it on
-`upgrade`, and where it is edited. Ownership is **two buckets**:
-[yours](#your-files--yours) (committed seeds, write-once) and
-[the binary's](#the-binarys-files) (gitignored, re-published artifacts). The
-[Merged](#merged-file) seeds and [Generated](#generated-file) artifacts are
-named refinements within them. The full surface is mapped in
+`upgrade`, and where it is edited. Ownership is **three buckets**:
+[yours](#your-files--yours) (committed seeds, write-once),
+[co-managed seed](#co-managed-seed) (`discern.toml`'s fixed scaffold plus
+project-owned values), and [the binary's](#the-binarys-files) (gitignored,
+re-published artifacts). The [Merged](#merged-file) seeds and
+[Generated](#generated-file) artifacts are named refinements within them. The
+full surface is mapped in
 [install-surface.md](../80-development/install-surface.md).
 
 ### Your files / Yours
 
 A file written once — then owned by the project, **committed**, never refreshed
-or flagged by `upgrade`, and edited in place. The one seed `setup` always lays
-down is `discern.toml` (the entire discern footprint); it also seeds the project
+or flagged by `upgrade`, and edited in place. `setup` may seed the project
 `brief.md` when non-empty, plus the [Merged](#merged-file)
 `.claude/settings.json` and `.gitignore`. The rest are content you author at
 config-pointed locations (your [Guidance source](#guidance-source)
@@ -155,6 +156,16 @@ config-pointed locations (your [Guidance source](#guidance-source)
 [Recipes](#recipe) under `[recipes].dir`) or are created on demand after install
 by `discern setup begin` (the agent documentation tree under `[docs].dir` and
 `TODO.md`).
+
+### Co-managed seed
+
+`discern.toml`, the single root config file. The project owns its values and
+named record tables (`[checks.<name>]`, `[scopes.<name>]`, `[ratchets.<name>]`,
+`[worktree.resources.<name>]`), but `discern upgrade` owns the fixed scaffold:
+it runs versioned migrations and restores missing non-record sections/keys from
+the current template, with comments and canonical placement. Existing values are
+never rewritten by scaffold reconciliation
+([ADR 0092](../_adr/0092-upgrade-reconciles-config-scaffold.md)).
 
 ### The binary's files
 
