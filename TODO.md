@@ -116,9 +116,9 @@ _Nothing outstanding._
 - [ ] **The gate's `fix` stage rewrites uncommitted work with no snapshot.**
       Pre-existing dirty files are excluded from ADR 0047's strand detection by
       design (D1∖D0), so a misconfigured or buggy `[capabilities].format`
-      command run by `discern prepare`/`finish` can rewrite a user's
-      uncommitted changes with no backup and no warning. Benign for the common
-      formatters; the risk is the open-ended command table. Design question —
+      command run by `discern prepare`/`finish` can rewrite a user's uncommitted
+      changes with no backup and no warning. Benign for the common formatters;
+      the risk is the open-ended command table. Design question —
       stash-before-fix, a dirty-tree warning, or a diff preview — deferred from
       the launch-readiness review (finding C15) pending a decision. Evidence:
       `src/engine/gate/fix_drift.ts` (the deliberate D0 exclusion);
