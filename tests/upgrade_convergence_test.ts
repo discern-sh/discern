@@ -21,6 +21,10 @@ import { dirname, fromFileUrl, join } from "@std/path";
 import { readTarget, runCli, withTempDir } from "./helpers.ts";
 import { parseConfig } from "../src/shared/config_schema.ts";
 import { sectionBlockFromTemplate } from "../src/lib/config_template.ts";
+import {
+  DISCERN_GITIGNORE_BEGIN,
+  DISCERN_GITIGNORE_END,
+} from "../src/lib/agent_gitignore.ts";
 
 const HISTORICAL_FIXTURES = join(
   dirname(fromFileUrl(import.meta.url)),
@@ -67,6 +71,14 @@ async function upgrade(dir: string): Promise<any> {
 async function upgradeCheck(dir: string): Promise<{ code: number; res: any }> {
   const r = await runCli(["upgrade", "--check", "--json"], dir);
   return { code: r.code, res: JSON.parse(r.stdout) };
+}
+
+/** Run `upgrade --dry-run --json` and return the parsed report. */
+// deno-lint-ignore no-explicit-any
+async function upgradeDryRun(dir: string): Promise<any> {
+  const r = await runCli(["upgrade", "--dry-run", "--json"], dir);
+  assertEquals(r.code, 0, r.stderr);
+  return JSON.parse(r.stdout);
 }
 
 /** Layout-agnostic config path: the new root `discern.toml`, else the legacy
@@ -186,6 +198,58 @@ Deno.test("upgrade reconciles a current-schema config missing a fixed template s
   });
 });
 
+Deno.test("upgrade reconciles a messy legacy .gitignore to one discern block", async () => {
+  await withTempDir(async (dir) => {
+    await init(dir);
+    const messy = [
+      DISCERN_GITIGNORE_BEGIN,
+      "...",
+      "/AGENTS.md",
+      "/CLAUDE.md",
+      "...",
+      "/.agents/skills/",
+      "# Per-branch work evidence captured by the gate (runtime store, not source).",
+      "",
+      "# --- macOS ---",
+      ".DS_Store",
+      "**/.DS_Store",
+      "",
+      "# discern: materialized/compiled artifacts (re-published on upgrade)",
+      "",
+      "# discern: generated/ephemeral artifacts",
+      "/GEMINI.md",
+      "",
+    ].join("\n");
+    await Deno.writeTextFile(join(dir, ".gitignore"), messy);
+
+    const check = await upgradeCheck(dir);
+    assertEquals(check.code, 1);
+    assert(
+      check.res.data.pending_gitignore_reconciliation.length > 0,
+      "upgrade --check should report pending .gitignore reconciliation",
+    );
+
+    const beforeDryRun = await readTarget(dir, ".gitignore");
+    const dryRun = await upgradeDryRun(dir);
+    assert(
+      dryRun.data.pending_gitignore_reconciliation.length > 0,
+      "upgrade --dry-run should preview .gitignore reconciliation",
+    );
+    assertEquals(await readTarget(dir, ".gitignore"), beforeDryRun);
+
+    const res = await upgrade(dir);
+    assert(
+      res.data.gitignore_reconciled.length > 0,
+      "mutating upgrade should report .gitignore reconciliation",
+    );
+    const gitignore = await readTarget(dir, ".gitignore");
+    assertOneGitignoreBlock(gitignore);
+    assert(!/^# discern:/m.test(gitignore), gitignore);
+    assertStringIncludes(gitignore, "# --- macOS ---\n.DS_Store\n**/.DS_Store");
+    await assertSecondUpgradeIsByteStable(dir);
+  });
+});
+
 Deno.test("a second upgrade is a no-op (idempotent)", async () => {
   await withTempDir(async (dir) => {
     await init(dir);
@@ -193,6 +257,11 @@ Deno.test("a second upgrade is a no-op (idempotent)", async () => {
     await assertSecondUpgradeIsByteStable(dir);
   });
 });
+
+function assertOneGitignoreBlock(text: string): void {
+  assertEquals(text.match(new RegExp(DISCERN_GITIGNORE_BEGIN, "g"))?.length, 1);
+  assertEquals(text.match(new RegExp(DISCERN_GITIGNORE_END, "g"))?.length, 1);
+}
 
 Deno.test("upgrade re-materializes the bundled skills and stamps the current schema", async () => {
   await withTempDir(async (dir) => {

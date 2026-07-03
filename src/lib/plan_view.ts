@@ -86,14 +86,14 @@ export function renderReview(log: Logger, plan: Plan, destDir: string): void {
   if (integration.length > 0) {
     log.line(
       `\n  ${log.bold("Git & agent settings")} ${
-        log.dim("— merged into your project, never overwritten")
+        log.dim("— merged or reconciled into your project")
       }`,
     );
     for (const op of integration) {
       const what = op.disposition === "merge"
         ? "merged into your existing settings"
         : op.disposition === "append"
-        ? "the harness section appended to your .gitignore"
+        ? "the harness section reconciled in your .gitignore"
         : "created";
       log.line(row(log, op.targetRel, what));
     }

@@ -28,6 +28,7 @@ import {
   substituteTokens,
   type TokenMap,
 } from "./template.ts";
+import { reconcileDiscernGitignore } from "./agent_gitignore.ts";
 import type { SettingsSeedMerge } from "./settings_merge.ts";
 import {
   providersWithHooks,
@@ -40,7 +41,7 @@ export type OpDisposition =
   | "create" // target absent → will be created
   | "skip" // seed already present, or fully-idempotent no-op
   | "merge" // settings.json deep-merge
-  | "append"; // .gitignore fragment append
+  | "append"; // .gitignore block reconciliation against an existing file
 
 /** A single planned filesystem operation against one target path. */
 export interface PlanOp {
@@ -139,16 +140,13 @@ async function readBytesIfExists(
   }
 }
 
-/** The marker line that makes the .gitignore fragment append idempotent. */
-const GITIGNORE_MARKER = "# --- discern harness ---";
-
 /**
  * Walk the templates tree and produce a complete scaffolding plan.
  *
  * Every file is a write-once SEED (create-or-skip). The binary's own artifacts
  * (`templates/skills/`, `templates/guidance/`) are skipped — they are
  * materialized/read from the binary, never seeded. `.claude/settings.json`
- * deep-merges; `.gitignore` appends the harness fragment idempotently.
+ * deep-merges; `.gitignore` reconciles the harness block idempotently.
  *
  * @param templatesDir   absolute path to the `templates/` tree to scaffold from
  * @param destDir        absolute destination root (the project being scaffolded)
@@ -346,7 +344,7 @@ async function planSettingsMerge(
   };
 }
 
-/** Plan the idempotent append of the .gitignore fragment. */
+/** Plan reconciliation of the discern-owned .gitignore block. */
 async function planGitignoreAppend(
   sourceAbs: string,
   destDir: string,
@@ -358,40 +356,23 @@ async function planGitignoreAppend(
   const existing = existingRaw === undefined
     ? ""
     : TEXT_DECODER.decode(existingRaw);
+  const reconciled = reconcileDiscernGitignore(existing, fragment);
+  const changed = reconciled.operations.length > 0;
 
-  if (existing.includes(GITIGNORE_MARKER)) {
-    // Already appended: produce a skip op carrying the unchanged bytes.
-    return {
-      kind: "append-gitignore",
-      targetRel,
-      targetAbs,
-      disposition: "skip",
-      bytes: existingRaw ?? new Uint8Array(),
-      mode: 0o644,
-      note: "harness fragment already present",
-    };
-  }
-
-  // Append with a single separating newline when the file is non-empty and does
-  // not already end in one.
-  let prefix = existing;
-  if (prefix.length > 0 && !prefix.endsWith("\n")) {
-    prefix += "\n";
-  }
-  if (prefix.length > 0) {
-    prefix += "\n";
-  }
-  const combined = prefix + fragment;
   return {
     kind: "append-gitignore",
     targetRel,
     targetAbs,
-    disposition: existingRaw === undefined ? "create" : "append",
-    bytes: TEXT_ENCODER.encode(combined),
+    disposition: changed
+      ? existingRaw === undefined ? "create" : "append"
+      : "skip",
+    bytes: TEXT_ENCODER.encode(changed ? reconciled.text : existing),
     mode: 0o644,
-    note: existingRaw === undefined
-      ? "create .gitignore"
-      : "append harness fragment",
+    note: changed
+      ? existingRaw === undefined
+        ? "create .gitignore"
+        : "reconcile harness block"
+      : "harness block current",
   };
 }
 

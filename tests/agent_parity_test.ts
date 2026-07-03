@@ -32,7 +32,10 @@ import {
   providersWithHooks,
 } from "../src/lib/providers.ts";
 import { defaultNeutralScopes } from "../src/lib/config.ts";
-import { ignoreCovers } from "../src/lib/agent_gitignore.ts";
+import {
+  canonicalDiscernGitignoreBlock,
+  ignoreCovers,
+} from "../src/lib/agent_gitignore.ts";
 
 const REPO = fromFileUrl(new URL("../", import.meta.url));
 
@@ -41,7 +44,10 @@ const REPO = fromFileUrl(new URL("../", import.meta.url));
 const FRAGMENT = await Deno.readTextFile(
   join(REPO, "templates", ".gitignore.fragment"),
 );
-const FRAGMENT_LINES = FRAGMENT.split("\n").map((l) => l.trim());
+const CANONICAL_GITIGNORE_BLOCK = canonicalDiscernGitignoreBlock(FRAGMENT);
+const FRAGMENT_LINES = CANONICAL_GITIGNORE_BLOCK.split("\n").map((l) =>
+  l.trim()
+);
 
 // Coverage is decided by the ONE shared definition from the reconciler module
 // (`ignoreCovers`), so this guard and the upgrade-time convergence can never disagree
@@ -50,6 +56,13 @@ const fragmentIgnoresFile = (path: string) =>
   ignoreCovers(FRAGMENT_LINES, path, false);
 const fragmentIgnoresDir = (dir: string) =>
   ignoreCovers(FRAGMENT_LINES, dir, true);
+
+Deno.test("the shipped .gitignore fragment is the same canonical block upgrade writes", () => {
+  assertEquals(
+    CANONICAL_GITIGNORE_BLOCK,
+    FRAGMENT.endsWith("\n") ? FRAGMENT : `${FRAGMENT}\n`,
+  );
+});
 
 Deno.test("every known agent declares at least one detection binary (match-any)", () => {
   // PATH auto-detect (src/lib/detect_agents.ts) iterates AGENT_NAMES × each

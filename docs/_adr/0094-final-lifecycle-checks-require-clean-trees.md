@@ -1,4 +1,4 @@
-# ADR 0093: Final lifecycle checks require clean trees
+# ADR 0094: Final lifecycle checks require clean trees
 
 **Status**: accepted
 

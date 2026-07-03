@@ -21,7 +21,7 @@ the agent already committed — the everyday case for `deno fmt`, which reflows
 committed Markdown to 80 columns — that reformat lands uncommitted, and a plain
 green `finish` would tell the agent the branch is done even though the worktree
 is no longer clean. Graduation now refuses dirty worktrees
-([ADR 0093](0093-final-lifecycle-checks-require-clean-trees.md)), but surfacing
+([ADR 0094](0094-final-lifecycle-checks-require-clean-trees.md)), but surfacing
 the formatter diff at `finish` is still the useful point of failure: the agent
 is already looking at the gate result and can commit the fixer output
 deliberately.
@@ -101,7 +101,7 @@ tracked file**, detected by a before/after snapshot around the fix stage.
   and the diagnostic make it self-explanatory.
 - **A fixer that emits a new untracked file can still leave the worktree
   dirty.** Accepted: that case is visible in `git status` and outside CI's diff
-  guard too. Graduation refuses it under ADR 0093; catching it in `finish`
+  guard too. Graduation refuses it under ADR 0094; catching it in `finish`
   remains a possible later extension.
 
 ## Alternatives considered

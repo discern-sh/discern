@@ -5,7 +5,7 @@
 ## Context
 
 `discern setup begin` scaffolds discern's own wiring into the project: the
-`discern.toml`, the appended `.gitignore` fragment, and — per configured agent —
+`discern.toml`, the co-managed `.gitignore` block, and — per configured agent —
 the MCP-server and session-hook files (`.mcp.json`, `.claude/settings.json`,
 `.codex/config.toml`, `.gemini/settings.json`, …). On a fresh install it does
 this on a dedicated, throwaway `discern-setup` branch created off a clean tree
@@ -37,7 +37,7 @@ The pressure was to extend that ownership backward to `begin`.
 
 The engine commits the harness machinery it scaffolds. After `begin` scaffolds
 and records provenance, and before it prints the brief, it commits **exactly**
-the machinery — the config, the `.gitignore` fragment, the per-agent MCP + hooks
+the machinery — the config, the `.gitignore` block, the per-agent MCP + hooks
 files, and any app-managed worktree-lifecycle config an agent declares (Codex's
 `environment.toml`) — as one `discern: scaffold harness` commit on the
 `discern-setup` branch. The committed set is derived from the scaffold outcome

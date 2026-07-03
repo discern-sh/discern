@@ -105,7 +105,8 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0089 — Machine-local provider settings stay ignored](0089-machine-local-provider-settings-stay-ignored.md)
 - [0090 — Setup proves the project runs in a worktree, and `smoke` joins the known capabilities](0090-setup-proves-worktree-viability.md)
 - [0092 — `upgrade` reconciles the fixed `discern.toml` scaffold](0092-upgrade-reconciles-config-scaffold.md)
-- [0093 — Final lifecycle checks require clean trees](0093-final-lifecycle-checks-require-clean-trees.md)
+- [0093 — `upgrade` reconciles the discern `.gitignore` block](0093-upgrade-reconciles-gitignore-block.md)
+- [0094 — Final lifecycle checks require clean trees](0094-final-lifecycle-checks-require-clean-trees.md)
 
 ## Superseded and consolidated ADRs
 

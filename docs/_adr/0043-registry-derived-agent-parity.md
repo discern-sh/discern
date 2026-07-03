@@ -87,12 +87,12 @@ everywhere.**
    both this test and the upgrade-time reconciler use, so the guard and the
    convergence can never disagree.
 
-3. **`ensureAgentArtifactsIgnored`** — an idempotent, registry-derived
-   `.gitignore` reconciler run on every `discern upgrade` — makes EXISTING
-   installs converge: a future agent's artifacts get ignored on the next upgrade
-   with no bespoke per-agent migration. It only appends rules not already
-   covered (an exact line or an ancestor wildcard like `/.claude/*`), so a
-   correct install is an untouched no-op; the frozen schema-9/10 gitignore
+3. **`.gitignore` convergence is registry-derived.**
+   [ADR 0093](0093-upgrade-reconciles-gitignore-block.md) replaces the original
+   additive helper with a canonical discern-owned block reconciler run on every
+   `discern upgrade`: a future agent's artifacts get ignored on the next upgrade
+   with no bespoke per-agent migration, and historical one-off `# discern:`
+   sections are absorbed into one block. The frozen schema-9/10 gitignore
    migrations stay as historical records.
 
 4. **Skills join guidance under one "generated artifacts are current"
