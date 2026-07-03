@@ -1598,6 +1598,109 @@ export async function start(
 }
 
 /**
+ * The outcome of a worktree-viability probe (ADR 0090) — one throwaway worktree
+ * created, exercised, and destroyed to prove the project actually functions where
+ * every future task lives.
+ */
+export type WorktreeProbeOutcome =
+  /** The probe could not be created — an unborn branch (no commit yet), not the main
+   * checkout, or a git failure. Not the app's fault, so the caller reports the project
+   * un-proven-in-a-worktree but does NOT block on it. */
+  | { kind: "uncreatable"; reason: string }
+  /** The worktree was created but readying it (resources, one-shot `steps`, the
+   * fresh-creation `ensure`) FAILED — the project cannot set itself up in a copy. A
+   * genuine red the caller blocks on. */
+  | { kind: "setup_failed"; reason: string }
+  /** The probe ran inside the readied worktree; `ok` is the caller's verdict, `detail`
+   * its note. */
+  | { kind: "probed"; ok: boolean; detail?: string };
+
+/**
+ * Prove the project is viable inside a linked worktree — the copy every future task
+ * runs in — by creating a THROWAWAY one exactly as `discern start` would, running a
+ * caller-supplied `probe` inside it, and tearing it down unconditionally (win or
+ * lose). The worktree branches from the main checkout's CURRENT HEAD, never from
+ * `main`: a project still on its unlanded `discern-setup` branch is probed with its
+ * own just-authored config, not a repo without discern at all (ADR 0090). It reuses
+ * the same create (`addWorktree` + `worktreeSetup`) and removal (`removeWorktreeSafely`)
+ * cores the rest of the lifecycle uses, so the probe exercises precisely what a real
+ * worktree does — its `[worktree.setup]` steps/ensure, its resources, its env
+ * inheritance — the anchoring an env-anchored app silently breaks. Gate-agnostic: the
+ * caller decides what "viable" means via `probe` (setup passes it the finish core).
+ * Runs from the main checkout; never throws — a teardown hiccup is swallowed (a later
+ * `worktree:prune` reclaims the remains).
+ */
+export async function probeWorktreeViability(
+  ctx: LifecycleContext,
+  worktreeRoot: string,
+  probe: (probeDir: string) => Promise<{ ok: boolean; detail?: string }>,
+): Promise<WorktreeProbeOutcome> {
+  const asMsg = (e: unknown): string =>
+    e instanceof Error ? e.message : String(e);
+
+  // The probe branches from the main checkout's HEAD; anywhere else is a skip, not a
+  // red (nothing to fault the app for).
+  try {
+    await assertNotInWorktree("worktree probe", ctx.cwd);
+  } catch (e) {
+    return { kind: "uncreatable", reason: asMsg(e) };
+  }
+
+  const settings = await loadIdentitySettings(ctx.root);
+  let branch: string;
+  let dir: string;
+  try {
+    const minted = await mintFreeWorktree(ctx, settings, worktreeRoot);
+    branch = minted.branch;
+    dir = minted.dir;
+    // `git worktree add` from HEAD — fails on an unborn branch (no commit yet), which
+    // is a legitimate skip, not the app failing.
+    await addWorktree(ctx.root, dir, branch);
+  } catch (e) {
+    return { kind: "uncreatable", reason: asMsg(e) };
+  }
+
+  try {
+    // Ready the worktree exactly as a real one: resources, env inheritance, one-shot
+    // `steps`, fresh-creation `ensure`, agent-file refresh, sentinel. A throw here is
+    // the app failing to set itself up in a copy — the core failure the probe catches.
+    try {
+      await worktreeSetup(await lifecycleContext(dir, ctx.log, dir));
+    } catch (e) {
+      return { kind: "setup_failed", reason: asMsg(e) };
+    }
+    const verdict = await probe(dir);
+    return verdict.detail !== undefined
+      ? { kind: "probed", ok: verdict.ok, detail: verdict.detail }
+      : { kind: "probed", ok: verdict.ok };
+  } finally {
+    await teardownProbeWorktree(ctx, dir, branch);
+  }
+}
+
+/**
+ * Discard a probe worktree unconditionally and best-effort: destroy its resources
+ * (from inside it, so `@dir@` destroys resolve), remove the worktree directory, then
+ * delete its now-free branch. Every step swallows its own failure — a probe teardown
+ * must never fail the caller (`setup done`); `worktree:prune` is the backstop.
+ */
+async function teardownProbeWorktree(
+  ctx: LifecycleContext,
+  dir: string,
+  branch: string,
+): Promise<void> {
+  try {
+    await teardownResources(await lifecycleContext(dir, ctx.log, dir));
+  } catch { /* best-effort */ }
+  try {
+    await removeWorktreeSafely(dir, ctx.root);
+  } catch { /* best-effort */ }
+  try {
+    await makeGitRunner(ctx)(["branch", "-D", branch]);
+  } catch { /* best-effort */ }
+}
+
+/**
  * Map a thrown worktree precondition / identity error to its {@link DiscernResult}
  * error fields, or undefined when `e` is neither. The single source of the failure
  * slugs (`precondition_failed`, `identity_error`) shared by the CLI runner
