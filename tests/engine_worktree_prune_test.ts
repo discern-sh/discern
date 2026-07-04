@@ -25,6 +25,7 @@ import {
   addWorktree,
   git,
   gitInit,
+  gitOut,
   runAgent,
   scaffoldEngine,
   writeConfig,
@@ -242,6 +243,57 @@ Deno.test("worktree prune --dry-run lists what the real run removes, and acts on
     assert(
       !(await branchList(dir)).includes("agent/victim"),
       "the merged branch should be deleted by the real run",
+    );
+  });
+});
+
+Deno.test("worktree prune --dry-run reports stale metadata and apply prunes that entry", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "stale-meta");
+    const canonicalWt = await Deno.realPath(wt);
+
+    // Simulate an out-of-band deletion that leaves git's worktree admin metadata
+    // behind. This is the stale bookkeeping `git worktree prune` would reclaim.
+    await Deno.remove(wt, { recursive: true });
+
+    const dry = await runAgent(dir, ["worktree", "prune", "--dry-run"]);
+    assertEquals(dry.code, 0, dry.output);
+    assertStringIncludes(dry.stdout, "Stale metadata: 1 entry");
+    assertStringIncludes(dry.stdout, wt);
+
+    const dryJson = await runAgent(dir, [
+      "worktree",
+      "prune",
+      "--dry-run",
+      "--json",
+    ]);
+    assertEquals(dryJson.code, 0, dryJson.output);
+    const plan = JSON.parse(dryJson.stdout.trim());
+    const stalePlanSteps = plan.plan.steps.filter((
+      s: { group?: string },
+    ) => s.group === "Stale metadata");
+    assertEquals(
+      stalePlanSteps.map((s: { label: string }) => s.label),
+      [canonicalWt],
+      dryJson.stdout,
+    );
+
+    const real = await runAgent(dir, ["worktree", "prune", "--yes", "--json"]);
+    assertEquals(real.code, 0, real.output);
+    const result = JSON.parse(real.stdout.trim());
+    const staleResultSteps = result.steps.filter((
+      s: { group?: string },
+    ) => s.group === "Stale metadata");
+    assertEquals(
+      staleResultSteps.map((s: { label: string }) => s.label),
+      [canonicalWt],
+      real.stdout,
+    );
+    assert(
+      !(await gitOut(dir, "worktree", "list", "--porcelain")).includes(
+        canonicalWt,
+      ),
+      "apply should prune the stale metadata git listed in the plan",
     );
   });
 });

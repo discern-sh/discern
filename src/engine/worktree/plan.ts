@@ -15,6 +15,7 @@ import type { EnginePlan, PlanStep } from "../../shared/result.ts";
 import type { GraduateTarget } from "../../shared/config_schema.ts";
 import type { IgnoredFileChangeSummary } from "./ignored.ts";
 import type { LedgerItem } from "./resources.ts";
+import type { GitWorktreePruneScan, OrphanWorktreeSweepScan } from "./git.ts";
 
 // ── teardown ────────────────────────────────────────────────────────────────
 
@@ -288,37 +289,42 @@ export function setupPlanToEngine(plan: SetupPlan): EnginePlan {
 // ── prune ─────────────────────────────────────────────────────────────────────
 
 /**
- * What `worktree prune` would reclaim — the result of the read-only scans (stale
- * worktrees, fully-merged dangling branches, orphan directories) plus the pure
- * orphan-resource classification. The deliverable a dry-run renders and the apply
- * executor acts on.
+ * What `worktree prune` would reclaim — the carried read-only scans (stale
+ * worktrees, fully-merged dangling branches, stale metadata, orphan directories)
+ * plus the pure orphan-resource classification. The deliverable a dry-run renders
+ * and the apply executor acts on.
  */
 export interface PrunePlan {
-  /** Stale worktree directories git would remove. */
-  worktreesToRemove: string[];
-  /** Fully-merged dangling branches that would be deleted. */
-  branchesToDelete: string[];
-  /** Orphan gitlinked directories that would be reclaimed. */
-  orphanDirs: string[];
-  /** Orphan gitlinked directories kept because they still contain local work. */
-  orphanDirsKept: { path: string; reason: string }[];
-  /** Orphaned worktree resources GC would reclaim (handle labels). */
-  resourceReclaims: string[];
+  /** Git-worktree/branch/stale-metadata scan to apply exactly. */
+  gitScan: GitWorktreePruneScan;
+  /** Orphan-directory scan to apply exactly. */
+  orphanScan: OrphanWorktreeSweepScan;
+  /** Orphaned worktree resource ledger entries GC would reclaim. */
+  resourceReclaims: LedgerItem[];
+  /** Orphaned resource ledger entries kept as live, guarded, or opted out. */
+  resourceReclaimsKept: number;
+}
+
+function pruneBranchesToDelete(scan: GitWorktreePruneScan): string[] {
+  return [
+    ...scan.worktreesToRemove.map((w) => w.branch).filter((b) => b !== ""),
+    ...scan.branchesToDelete,
+  ];
 }
 
 /** Project a prune plan onto the shared renderer, grouping by what is reclaimed. */
 export function prunePlanToEngine(plan: PrunePlan): EnginePlan {
   const steps: PlanStep[] = [];
-  for (const w of plan.worktreesToRemove) {
+  for (const w of plan.gitScan.worktreesToRemove) {
     steps.push({
       kind: "git",
-      label: w,
+      label: w.path,
       disposition: "run",
       note: "remove stale worktree",
       group: "Worktrees",
     });
   }
-  for (const b of plan.branchesToDelete) {
+  for (const b of pruneBranchesToDelete(plan.gitScan)) {
     steps.push({
       kind: "git",
       label: b,
@@ -327,16 +333,25 @@ export function prunePlanToEngine(plan: PrunePlan): EnginePlan {
       group: "Branches",
     });
   }
-  for (const d of plan.orphanDirs) {
+  for (const m of plan.gitScan.staleMetadata) {
     steps.push({
       kind: "git",
-      label: d,
+      label: m.path,
+      disposition: "run",
+      note: "prune stale git metadata",
+      group: "Stale metadata",
+    });
+  }
+  for (const d of plan.orphanScan.removable) {
+    steps.push({
+      kind: "git",
+      label: d.path,
       disposition: "run",
       note: "reclaim orphan directory",
       group: "Orphan directories",
     });
   }
-  for (const kept of plan.orphanDirsKept) {
+  for (const kept of plan.orphanScan.kept) {
     steps.push({
       kind: "git",
       label: kept.path,
@@ -348,19 +363,24 @@ export function prunePlanToEngine(plan: PrunePlan): EnginePlan {
   for (const r of plan.resourceReclaims) {
     steps.push({
       kind: "resource-destroy",
-      label: r,
+      label: r.entry.resource_identity,
       disposition: "run",
       note: "reclaim orphaned resource",
       group: "Resources",
     });
   }
-  return { title: "Prune plan", details: [], steps };
+  const staleCount = plan.gitScan.staleMetadata.length;
+  const details = staleCount === 0 ? [] : [
+    `Stale metadata: ${staleCount} entr${staleCount === 1 ? "y" : "ies"}`,
+  ];
+  return { title: "Prune plan", details, steps };
 }
 
 /** True when a prune plan would change nothing (every scan came back empty). */
 export function prunePlanIsEmpty(plan: PrunePlan): boolean {
-  return plan.worktreesToRemove.length === 0 &&
-    plan.branchesToDelete.length === 0 &&
-    plan.orphanDirs.length === 0 &&
+  return plan.gitScan.worktreesToRemove.length === 0 &&
+    pruneBranchesToDelete(plan.gitScan).length === 0 &&
+    plan.gitScan.staleMetadata.length === 0 &&
+    plan.orphanScan.removable.length === 0 &&
     plan.resourceReclaims.length === 0;
 }

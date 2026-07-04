@@ -15,7 +15,7 @@
  * (apply) on the SAME fixture, so the two see identical state.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import {
@@ -100,6 +100,41 @@ Deno.test("parity: worktree prune apply removes nothing the dry-run didn't list"
     assert(appliedSet(apply.stdout).size > 0, "fixture produced no removals");
     assertAppliedSubsetOfPlanned(dry.stdout, apply.stdout, "prune");
   });
+});
+
+Deno.test("parity: worktree prune apply consumes the built scan instead of re-scanning", async () => {
+  const lifecycle = await Deno.readTextFile("src/engine/worktree/lifecycle.ts");
+  assertStringIncludes(
+    lifecycle,
+    "pruneGitWorktrees(plan.gitScan",
+    "prune apply must consume the git scan stored in its plan",
+  );
+  assertStringIncludes(
+    lifecycle,
+    "sweepOrphanWorktrees(plan.orphanScan",
+    "prune apply must consume the orphan scan stored in its plan",
+  );
+  assertStringIncludes(
+    lifecycle,
+    "plan.resourceReclaims",
+    "prune apply must consume the resource reclaim entries stored in its plan",
+  );
+  assert(
+    !lifecycle.includes("pruneGitWorktrees({"),
+    "prune apply must not rebuild git prune options and re-scan",
+  );
+  assert(
+    !lifecycle.includes("sweepOrphanWorktrees({"),
+    "prune apply must not rebuild orphan sweep options and re-scan",
+  );
+
+  const gitLayer = await Deno.readTextFile("src/engine/worktree/git.ts");
+  assertStringIncludes(gitLayer, "scanGitWorktreesForPrune");
+  assertStringIncludes(gitLayer, "scanOrphanWorktreesForSweep");
+  assert(
+    !gitLayer.includes("dryRun?: boolean"),
+    "git prune/sweep helpers should not have dry/wet branches to keep in sync",
+  );
 });
 
 Deno.test("parity: worktree teardown apply destroys nothing the dry-run didn't list", async () => {

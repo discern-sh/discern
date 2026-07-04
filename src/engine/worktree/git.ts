@@ -1276,27 +1276,64 @@ export async function listWorktreeFleet(
   return out;
 }
 
-/** Options for {@link pruneGitWorktrees}. */
-export interface PruneOptions {
-  /** Print what would happen without removing anything. */
-  dryRun?: boolean;
+/** Options for the read-only git-worktree prune scan. */
+export interface PruneScanOptions {
   /** Allow clean detached worktrees whose HEAD is already merged to be removed. */
   includeDetached?: boolean;
   /** Integration-branch fallback when `MAIN_BRANCH` is unset (`[project].main_branch`). */
   mainBranch?: string;
-  /** The logger for the scan/removal narration. */
-  log: Logger;
+}
+
+/** One planned linked-worktree removal from the git-worktree scan. */
+export interface WorktreeRemovalCandidate {
+  path: string;
+  /** The checked-out local branch to delete after removal, or "" for detached. */
+  branch: string;
+}
+
+/** One stale git worktree admin entry the scan found. */
+export interface StaleWorktreeMetadata {
+  /** The checkout path git reports as prunable. */
+  path: string;
+  /** The exact `<common>/worktrees/<key>` admin dir to prune. */
+  adminDir: string;
+  /** The `gitdir` back-pointer recorded when the scan ran. */
+  gitDir: string;
+}
+
+/** One rendered line from the git-worktree prune scan. */
+export interface PruneScanLine {
+  action: "KEEP" | "REMOVE" | "PRUNE" | "DELETE";
+  label: string;
+  reason: string;
+}
+
+/** The read-only scan that `worktree prune` later applies exactly. */
+export interface GitWorktreePruneScan {
+  repoRoot: string;
+  mainBranch: string;
+  worktreesToRemove: WorktreeRemovalCandidate[];
+  branchesToDelete: string[];
+  staleMetadata: StaleWorktreeMetadata[];
+  worktreeLines: PruneScanLine[];
+  branchLines: PruneScanLine[];
 }
 
 /** The outcome of a prune run. */
 export interface PruneResult {
-  /** Worktrees removed (or that would be, in a dry run). */
+  /** Worktrees removed. */
   removed: string[];
-  /** Branches deleted (or that would be). */
+  /** Branches deleted. */
   branchesDeleted: string[];
-  /** Stale worktree metadata entries found. */
-  staleMetadata: number;
+  /** Stale worktree metadata entries pruned. */
+  staleMetadata: string[];
   /** Whether any removal or branch deletion failed. */
+  failed: boolean;
+}
+
+/** The outcome of applying the planned stale-metadata cleanup. */
+export interface StaleMetadataPruneResult {
+  pruned: string[];
   failed: boolean;
 }
 
@@ -1327,18 +1364,57 @@ async function commitIsMerged(
     ], repoRoot)).success;
 }
 
+function shortBranchName(ref: string): string {
+  return ref.startsWith("refs/heads/") ? ref.slice("refs/heads/".length) : ref;
+}
+
+function checkoutPathFromGitDir(gitDir: string): string {
+  return basename(gitDir) === ".git" ? dirname(gitDir) : gitDir;
+}
+
+async function staleMetadataForRecord(
+  commonGitDir: string,
+  rec: WorktreeRecord,
+): Promise<StaleWorktreeMetadata> {
+  const canonicalRecord = await canonicalizeMaybeMissing(rec.path);
+  const worktreesDir = join(commonGitDir, "worktrees");
+  let entries: Deno.DirEntry[];
+  try {
+    entries = [];
+    for await (const entry of Deno.readDir(worktreesDir)) {
+      entries.push(entry);
+    }
+  } catch {
+    entries = [];
+  }
+  for (const entry of entries) {
+    if (!entry.isDirectory) {
+      continue;
+    }
+    const adminDir = join(worktreesDir, entry.name);
+    const raw = (await firstLine(join(adminDir, "gitdir")))?.trim();
+    if (raw === undefined || raw === "") {
+      continue;
+    }
+    const gitDir = isAbsolute(raw) ? raw : resolve(adminDir, raw);
+    const checkoutPath = checkoutPathFromGitDir(gitDir);
+    if ((await canonicalizeMaybeMissing(checkoutPath)) === canonicalRecord) {
+      return { path: rec.path, adminDir, gitDir };
+    }
+  }
+  throw new WorktreeGitError(
+    `worktree prune: could not resolve stale metadata for '${rec.path}'.`,
+  );
+}
+
 /**
- * Remove stale git worktrees and fully-merged branches while keeping work worth
- * reviewing. The
- * interactive confirmation is the caller's job (the lifecycle layer prompts and
- * passes results through); this runs the scan + removals and narrates via `log`.
- * Throws `WorktreeGitError` on a setup failure.
+ * Scan stale git worktrees and fully-merged branches while keeping work worth
+ * reviewing. Read-only: it returns the exact candidate set the apply path will
+ * consume.
  */
-export async function pruneGitWorktrees(
-  opts: PruneOptions,
-): Promise<PruneResult> {
-  const { log } = opts;
-  const dryRun = opts.dryRun ?? false;
+export async function scanGitWorktreesForPrune(
+  opts: PruneScanOptions,
+): Promise<GitWorktreePruneScan> {
   const includeDetached = opts.includeDetached ?? false;
   const mainBranch = integrationBranch(opts.mainBranch);
 
@@ -1364,31 +1440,46 @@ export async function pruneGitWorktrees(
   const listRun = await git(["worktree", "list", "--porcelain"], repoRoot);
   const records = parseWorktreeList(listRun.stdout);
   const mainWorktreePath = records[0]?.path ?? "";
+  const commonGitDir = await commonGitDirFrom(repoRoot);
+  if (commonGitDir === undefined) {
+    throw new WorktreeGitError(
+      "worktree prune: could not resolve the shared git directory.",
+    );
+  }
 
-  const removeCandidates: string[] = [];
-  const removeCandidateBranches: string[] = [];
+  const worktreesToRemove: WorktreeRemovalCandidate[] = [];
+  const branchesToDelete: string[] = [];
+  const staleMetadata: StaleWorktreeMetadata[] = [];
+  const worktreeLines: PruneScanLine[] = [];
+  const branchLines: PruneScanLine[] = [];
   const scheduledBranches = new Set<string>();
-  let staleMetadata = 0;
-
-  log.line(`Scanning worktrees in ${repoRoot}`);
-  log.line();
 
   for (const rec of records) {
-    const shortBranch = rec.branch.startsWith("refs/heads/")
-      ? rec.branch.slice("refs/heads/".length)
-      : rec.branch;
+    const shortBranch = shortBranchName(rec.branch);
 
     if (rec.prunable) {
-      staleMetadata += 1;
-      log.line(`PRUNE  ${rec.path} (stale metadata)`);
+      staleMetadata.push(await staleMetadataForRecord(commonGitDir, rec));
+      worktreeLines.push({
+        action: "PRUNE",
+        label: rec.path,
+        reason: "stale metadata",
+      });
       continue;
     }
     if (rec.path === mainWorktreePath) {
-      log.line(`KEEP   ${rec.path} (main worktree)`);
+      worktreeLines.push({
+        action: "KEEP",
+        label: rec.path,
+        reason: "main worktree",
+      });
       continue;
     }
     if (rec.path === repoRoot) {
-      log.line(`KEEP   ${rec.path} (running from here)`);
+      worktreeLines.push({
+        action: "KEEP",
+        label: rec.path,
+        reason: "running from here",
+      });
       continue;
     }
 
@@ -1417,39 +1508,41 @@ export async function pruneGitWorktrees(
     }
 
     if (keepReasons.length > 0) {
-      log.line(`KEEP   ${rec.path} (${keepReasons.join(", ")})`);
+      worktreeLines.push({
+        action: "KEEP",
+        label: rec.path,
+        reason: keepReasons.join(", "),
+      });
       continue;
     }
 
-    removeCandidates.push(rec.path);
-    removeCandidateBranches.push(shortBranch);
+    worktreesToRemove.push({ path: rec.path, branch: shortBranch });
     if (shortBranch !== "") {
       scheduledBranches.add(shortBranch);
-      log.line(
-        `REMOVE ${rec.path} (clean branch ${shortBranch}, fully merged)`,
-      );
+      worktreeLines.push({
+        action: "REMOVE",
+        label: rec.path,
+        reason: `clean branch ${shortBranch}, fully merged`,
+      });
     } else {
-      log.line(`REMOVE ${rec.path} (clean detached)`);
+      worktreeLines.push({
+        action: "REMOVE",
+        label: rec.path,
+        reason: "clean detached",
+      });
     }
   }
 
   // Branches checked out in a kept worktree must never be deleted.
   const keptWorktreeBranches = new Set<string>();
   for (const rec of records) {
-    const shortBranch = rec.branch.startsWith("refs/heads/")
-      ? rec.branch.slice("refs/heads/".length)
-      : rec.branch;
+    const shortBranch = shortBranchName(rec.branch);
     if (shortBranch === "" || scheduledBranches.has(shortBranch)) {
       continue;
     }
     keptWorktreeBranches.add(shortBranch);
   }
 
-  log.line();
-  log.line(`Scanning branches in ${repoRoot}`);
-  log.line();
-
-  const deleteBranches: string[] = [];
   const refsRun = await git(
     ["for-each-ref", "--format=%(refname:short)", "refs/heads"],
     repoRoot,
@@ -1459,84 +1552,110 @@ export async function pruneGitWorktrees(
       continue;
     }
     if (branchName === mainBranch) {
-      log.line(`KEEP   ${branchName} (protected)`);
+      branchLines.push({
+        action: "KEEP",
+        label: branchName,
+        reason: "protected",
+      });
       continue;
     }
     if (keptWorktreeBranches.has(branchName)) {
-      log.line(`KEEP   ${branchName} (checked out in a kept worktree)`);
+      branchLines.push({
+        action: "KEEP",
+        label: branchName,
+        reason: "checked out in a kept worktree",
+      });
       continue;
     }
     if (scheduledBranches.has(branchName)) {
       continue;
     }
     if (await branchIsMerged(repoRoot, branchName, mainBranch)) {
-      deleteBranches.push(branchName);
+      branchesToDelete.push(branchName);
       scheduledBranches.add(branchName);
-      log.line(`DELETE ${branchName} (fully merged into ${mainBranch})`);
+      branchLines.push({
+        action: "DELETE",
+        label: branchName,
+        reason: `fully merged into ${mainBranch}`,
+      });
     } else {
-      log.line(`KEEP   ${branchName} (has unmerged commits)`);
+      branchLines.push({
+        action: "KEEP",
+        label: branchName,
+        reason: "has unmerged commits",
+      });
     }
+  }
+
+  return {
+    repoRoot,
+    mainBranch,
+    worktreesToRemove,
+    branchesToDelete,
+    staleMetadata,
+    worktreeLines,
+    branchLines,
+  };
+}
+
+/** Render the read-only git-worktree prune scan without re-scanning. */
+export function renderGitWorktreePruneScan(
+  scan: GitWorktreePruneScan,
+  log: Logger,
+): void {
+  log.line(`Scanning worktrees in ${scan.repoRoot}`);
+  log.line();
+  for (const line of scan.worktreeLines) {
+    log.line(`${line.action.padEnd(6)} ${line.label} (${line.reason})`);
   }
   log.line();
-
-  const worktreeBranchCount =
-    removeCandidateBranches.filter((b) => b !== "").length;
-  const totalBranches = worktreeBranchCount + deleteBranches.length;
-
-  if (dryRun) {
-    log.line("Dry run complete.");
-    log.line(
-      `Would remove ${removeCandidates.length} worktree(s) and delete ${totalBranches} branch(es).`,
-    );
-    if (staleMetadata > 0) {
-      log.line(
-        `Would also prune ${staleMetadata} stale metadata ${
-          staleMetadata === 1 ? "entry" : "entries"
-        }.`,
-      );
-    }
-    // The result must describe what WOULD be removed/deleted — dryRun gates the
-    // EFFECTS, never the reported plan. (A caller building a plan reads these
-    // lists; returning empty here is the divergence the plan/apply model forbids.)
-    return {
-      removed: removeCandidates,
-      branchesDeleted: [
-        ...removeCandidateBranches.filter((b) => b !== ""),
-        ...deleteBranches,
-      ],
-      staleMetadata,
-      failed: false,
-    };
+  log.line(`Scanning branches in ${scan.repoRoot}`);
+  log.line();
+  for (const line of scan.branchLines) {
+    log.line(`${line.action.padEnd(6)} ${line.label} (${line.reason})`);
   }
+  log.line();
+}
+
+/**
+ * Apply a git-worktree prune scan. This consumes the scan built earlier rather
+ * than discovering a fresh candidate set.
+ */
+export async function pruneGitWorktrees(
+  scan: GitWorktreePruneScan,
+  log: Logger,
+): Promise<PruneResult> {
+  renderGitWorktreePruneScan(scan, log);
 
   const deleteBranchSafe = async (branch: string): Promise<boolean> => {
-    if (!(await branchIsMerged(repoRoot, branch, mainBranch))) {
+    if (!(await branchIsMerged(scan.repoRoot, branch, scan.mainBranch))) {
       log.error(
-        `Refusing to delete ${branch}: not fully merged into ${mainBranch}`,
+        `Refusing to delete ${branch}: not fully merged into ${scan.mainBranch}`,
       );
       return false;
     }
-    return (await git(["branch", "-D", branch], repoRoot)).success;
+    return (await git(["branch", "-D", branch], scan.repoRoot)).success;
   };
 
   const removed: string[] = [];
   const branchesDeleted: string[] = [];
   let failed = false;
 
-  if (removeCandidates.length === 0 && deleteBranches.length === 0) {
+  if (
+    scan.worktreesToRemove.length === 0 && scan.branchesToDelete.length === 0
+  ) {
     log.line("Nothing to remove.");
   } else {
-    for (const [i, worktreePath] of removeCandidates.entries()) {
-      const branchToDelete = removeCandidateBranches[i] ?? "";
-      log.line(`Removing ${worktreePath}...`);
+    for (const candidate of scan.worktreesToRemove) {
+      log.line(`Removing ${candidate.path}...`);
       try {
-        await removeWorktreeSafely(worktreePath, repoRoot, {
+        await removeWorktreeSafely(candidate.path, scan.repoRoot, {
           pruneMetadata: false,
         });
-        removed.push(worktreePath);
-        if (branchToDelete !== "") {
-          if (await deleteBranchSafe(branchToDelete)) {
-            branchesDeleted.push(branchToDelete);
+        removed.push(candidate.path);
+        if (candidate.branch !== "") {
+          if (await deleteBranchSafe(candidate.branch)) {
+            branchesDeleted.push(candidate.branch);
           } else {
             failed = true;
           }
@@ -1545,7 +1664,7 @@ export async function pruneGitWorktrees(
         failed = true;
       }
     }
-    for (const branchName of deleteBranches) {
+    for (const branchName of scan.branchesToDelete) {
       if (await deleteBranchSafe(branchName)) {
         branchesDeleted.push(branchName);
       } else {
@@ -1554,26 +1673,71 @@ export async function pruneGitWorktrees(
     }
   }
 
-  return { removed, branchesDeleted, staleMetadata, failed };
+  return { removed, branchesDeleted, staleMetadata: [], failed };
 }
 
-/** Prune stale git worktree metadata after orphan directories have been classified. */
+async function staleMetadataStillMatches(
+  entry: StaleWorktreeMetadata,
+): Promise<boolean> {
+  const raw = (await firstLine(join(entry.adminDir, "gitdir")))?.trim();
+  if (raw === undefined || raw === "") {
+    return false;
+  }
+  const currentGitDir = isAbsolute(raw) ? raw : resolve(entry.adminDir, raw);
+  if (currentGitDir !== entry.gitDir) {
+    return false;
+  }
+  return !(await pathExists(entry.gitDir)) &&
+    !(await pathExists(checkoutPathFromGitDir(entry.gitDir)));
+}
+
+/** Prune the exact stale git worktree metadata entries from a prior scan. */
 export async function pruneStaleWorktreeMetadata(
-  cwd: string = Deno.cwd(),
-): Promise<void> {
-  await git(["worktree", "prune"], cwd);
+  scan: GitWorktreePruneScan,
+  log: Logger,
+): Promise<StaleMetadataPruneResult> {
+  const pruned: string[] = [];
+  let failed = false;
+  for (const entry of scan.staleMetadata) {
+    if (!(await pathExists(entry.adminDir))) {
+      continue;
+    }
+    if (!(await staleMetadataStillMatches(entry))) {
+      log.warn(
+        `Skipped stale worktree metadata for ${entry.path}: candidate changed since the plan was built.`,
+      );
+      continue;
+    }
+    log.line(`Pruning stale metadata for ${entry.path}...`);
+    try {
+      await Deno.remove(entry.adminDir, { recursive: true });
+      pruned.push(entry.path);
+    } catch {
+      failed = true;
+    }
+  }
+  return { pruned, failed };
 }
 
-/** Options for {@link sweepOrphanWorktrees}. */
-export interface SweepOptions {
+/** Options for the read-only orphan-worktree sweep scan. */
+export interface SweepScanOptions {
   /** Extra directories to scan (besides every registered worktree's parent). */
   extraDirs?: string[];
-  /** Print what would be reclaimed without removing anything. */
-  dryRun?: boolean;
   /** Integration-branch fallback when `MAIN_BRANCH` is unset (`[project].main_branch`). */
   mainBranch?: string;
-  /** The logger for the scan/removal narration. */
-  log: Logger;
+}
+
+/** One planned orphan-worktree directory removal. */
+export interface OrphanWorktreeRemoval {
+  path: string;
+  reason: string;
+}
+
+/** The read-only orphan-worktree sweep scan. */
+export interface OrphanWorktreeSweepScan {
+  mainRepo: string;
+  removable: OrphanWorktreeRemoval[];
+  kept: { path: string; reason: string }[];
 }
 
 /** The outcome of an orphan sweep. */
@@ -1642,10 +1806,9 @@ async function inspectOrphanWorktree(
  * plus any `extraDirs`. Removal goes through {@link removeWorktreeSafely}, which
  * re-checks the boundary. Throws `WorktreeGitError` when not in a git repo.
  */
-export async function sweepOrphanWorktrees(
-  opts: SweepOptions,
-): Promise<SweepResult> {
-  const { log } = opts;
+export async function scanOrphanWorktreesForSweep(
+  opts: SweepScanOptions,
+): Promise<OrphanWorktreeSweepScan> {
   const mainBranch = integrationBranch(opts.mainBranch);
   const mainFirst = await firstWorktreePath();
   if (mainFirst === undefined || mainFirst === "") {
@@ -1722,49 +1885,60 @@ export async function sweepOrphanWorktrees(
     }
   }
 
-  if (orphans.length === 0) {
-    log.line("No orphaned worktree directories found.");
-    return { removed: [], kept: [], failed: false };
-  }
-
-  log.line(
-    "Orphaned worktree directories (gitlinked to this repo, not tracked by git):",
-  );
-  const removable: string[] = [];
+  const removable: OrphanWorktreeRemoval[] = [];
   const kept: { path: string; reason: string }[] = [];
   for (const dir of orphans) {
     const decision = await inspectOrphanWorktree(mainRepo, dir, mainBranch);
     if (decision.remove) {
-      removable.push(dir);
-      log.line(`REMOVE ${dir} (${decision.reason})`);
+      removable.push({ path: dir, reason: decision.reason });
     } else {
       kept.push({ path: dir, reason: decision.reason });
-      log.line(`KEEP   ${dir} (${decision.reason})`);
     }
   }
+  return { mainRepo, removable, kept };
+}
 
-  if (opts.dryRun) {
-    log.line(
-      `Would reclaim ${removable.length} orphaned worktree director${
-        removable.length === 1 ? "y" : "ies"
-      }.`,
-    );
-    // Return the candidates — dryRun gates the removal, not the reported plan.
-    return { removed: removable, kept, failed: false };
+/** Render the read-only orphan-worktree sweep scan without re-scanning. */
+export function renderOrphanWorktreeSweepScan(
+  scan: OrphanWorktreeSweepScan,
+  log: Logger,
+): void {
+  if (scan.removable.length === 0 && scan.kept.length === 0) {
+    log.line("No orphaned worktree directories found.");
+    return;
   }
+  log.line(
+    "Orphaned worktree directories (gitlinked to this repo, not tracked by git):",
+  );
+  for (const item of scan.removable) {
+    log.line(`REMOVE ${item.path} (${item.reason})`);
+  }
+  for (const item of scan.kept) {
+    log.line(`KEEP   ${item.path} (${item.reason})`);
+  }
+}
+
+/** Apply an orphan-worktree sweep scan exactly as planned. */
+export async function sweepOrphanWorktrees(
+  scan: OrphanWorktreeSweepScan,
+  log: Logger,
+): Promise<SweepResult> {
+  renderOrphanWorktreeSweepScan(scan, log);
 
   const removed: string[] = [];
   let failed = false;
-  for (const dir of removable) {
-    log.line(`Removing orphan ${dir}...`);
+  for (const item of scan.removable) {
+    log.line(`Removing orphan ${item.path}...`);
     try {
-      await removeWorktreeSafely(dir, mainRepo, { pruneMetadata: false });
-      removed.push(dir);
+      await removeWorktreeSafely(item.path, scan.mainRepo, {
+        pruneMetadata: false,
+      });
+      removed.push(item.path);
     } catch {
       failed = true;
     }
   }
-  return { removed, kept, failed };
+  return { removed, kept: scan.kept, failed };
 }
 
 /** Read the raw value (everything after the first `=`) for `key` in a `.env`-style file. */

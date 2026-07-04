@@ -15,7 +15,7 @@
  */
 
 import { join } from "@std/path";
-import { Logger, loggerSink } from "../../lib/log.ts";
+import { type Logger, loggerSink } from "../../lib/log.ts";
 import { canPrompt, confirmProceed } from "../../lib/prompts.ts";
 import {
   type DiscernConfig,
@@ -48,8 +48,9 @@ import {
   destroyResources,
   ensureResources,
   entriesForWorktree,
-  gcOrphanResources,
+  gcPlannedOrphanResources,
   type GcResult,
+  type LedgerItem,
   listEntries,
   readResourceSpecs,
   recordResourceEnv,
@@ -105,6 +106,8 @@ import {
   removeWorktreeSafely,
   resolveCommonGitDir,
   resolveIntegrationAnchors,
+  scanGitWorktreesForPrune,
+  scanOrphanWorktreesForSweep,
   sweepOrphanWorktrees,
   WorktreeGitError,
   worktreeGitKey,
@@ -1801,35 +1804,30 @@ export interface WorktreePruneOptions {
 
 /**
  * The read-only prune SCAN — what `worktree prune` would remove and reclaim,
- * gathered without acting. The git-worktree and orphan-dir scans run their
- * existing functions in `dryRun` mode through a quiet logger (so planning never
- * narrates); the resource reclaims come from the pure {@link classifyOrphans}
- * decision over the ledger. The deliverable a `--dry-run` renders and the apply
- * path reports.
+ * gathered without acting. The git-worktree and orphan-dir scans are carried in
+ * the plan so apply consumes the same candidate set instead of re-reading live
+ * state; resource reclaims come from the pure {@link classifyOrphans} decision
+ * over the ledger. The deliverable a `--dry-run` renders and the apply path
+ * reports.
  */
 async function buildPrunePlan(
   ctx: LifecycleContext,
   extraScanDirs?: string[],
 ): Promise<PrunePlan> {
-  const quiet = new Logger({ json: true, noColor: true });
-  const prune = await pruneGitWorktrees({
-    dryRun: true,
+  const gitScan = await scanGitWorktreesForPrune({
     includeDetached: true,
     mainBranch: ctx.config.project.main_branch,
-    log: quiet,
   });
-  const sweep = await sweepOrphanWorktrees({
-    dryRun: true,
-    log: quiet,
+  const orphanScan = await scanOrphanWorktreesForSweep({
     mainBranch: ctx.config.project.main_branch,
     ...(extraScanDirs !== undefined ? { extraDirs: extraScanDirs } : {}),
   });
+  const resources = await planResourceReclaims(ctx);
   return {
-    worktreesToRemove: prune.removed,
-    branchesToDelete: prune.branchesDeleted,
-    orphanDirs: sweep.removed,
-    orphanDirsKept: sweep.kept,
-    resourceReclaims: await planResourceReclaims(ctx),
+    gitScan,
+    orphanScan,
+    resourceReclaims: resources.reclaimable,
+    resourceReclaimsKept: resources.kept,
   };
 }
 
@@ -1839,18 +1837,23 @@ async function buildPrunePlan(
  * ledger and the live-worktree snapshot. No destroy, no ledger writes. A no-op
  * outside a git repo.
  */
-async function planResourceReclaims(ctx: LifecycleContext): Promise<string[]> {
+async function planResourceReclaims(
+  ctx: LifecycleContext,
+): Promise<{ reclaimable: LedgerItem[]; kept: number }> {
   const commonGitDir = await resolveCommonGitDir(ctx.cwd);
   if (commonGitDir === undefined) {
-    return [];
+    return { reclaimable: [], kept: 0 };
   }
   const livePaths = await liveWorktreePaths(ctx.cwd);
-  const { reclaimable } = classifyOrphans(await listEntries(commonGitDir), {
-    gitKeys: await liveWorktreeGitKeys(commonGitDir),
-    paths: livePaths,
-    identities: await liveResourceIdentitySet(ctx, livePaths),
-  });
-  return reclaimable.map((item) => item.entry.resource_identity);
+  const { reclaimable, kept } = classifyOrphans(
+    await listEntries(commonGitDir),
+    {
+      gitKeys: await liveWorktreeGitKeys(commonGitDir),
+      paths: livePaths,
+      identities: await liveResourceIdentitySet(ctx, livePaths),
+    },
+  );
+  return { reclaimable, kept };
 }
 
 /**
@@ -1910,35 +1913,35 @@ export async function worktreePrune(
 
   // Apply: run the real removals, narrating exactly as before.
   ctx.log.heading("Pruning worktrees and fully-merged branches…");
-  const prune = await pruneGitWorktrees({
-    dryRun: false,
-    includeDetached: true,
-    mainBranch: ctx.config.project.main_branch,
-    log: ctx.log,
-  });
+  let prune = await pruneGitWorktrees(plan.gitScan, ctx.log);
 
   ctx.log.heading("Reclaiming orphaned worktree directories…");
-  const sweep = await sweepOrphanWorktrees({
-    dryRun: false,
-    log: ctx.log,
-    mainBranch: ctx.config.project.main_branch,
-    ...(opts.extraScanDirs !== undefined
-      ? { extraDirs: opts.extraScanDirs }
-      : {}),
-  });
+  const sweep = await sweepOrphanWorktrees(plan.orphanScan, ctx.log);
 
   ctx.log.heading("Reclaiming orphaned worktree resources…");
-  const gc = await gcWorktreeResources(ctx, false);
+  const gc = await gcWorktreeResources(
+    ctx,
+    plan.resourceReclaims,
+    plan.resourceReclaimsKept,
+  );
 
-  if (prune.failed || sweep.failed || gc.failed) {
-    throw new WorktreeGitError("One or more cleanups failed.");
-  }
-  if (prune.staleMetadata > 0 && sweep.kept.length === 0) {
-    await pruneStaleWorktreeMetadata(ctx.root);
-  } else if (prune.staleMetadata > 0) {
+  if (
+    plan.gitScan.staleMetadata.length > 0 && plan.orphanScan.kept.length === 0
+  ) {
+    ctx.log.heading("Pruning stale worktree metadata…");
+    const metadata = await pruneStaleWorktreeMetadata(plan.gitScan, ctx.log);
+    prune = {
+      ...prune,
+      staleMetadata: metadata.pruned,
+      failed: prune.failed || metadata.failed,
+    };
+  } else if (plan.gitScan.staleMetadata.length > 0) {
     ctx.log.warn(
       "Skipped stale worktree metadata pruning because an orphaned worktree directory was kept.",
     );
+  }
+  if (prune.failed || sweep.failed || gc.failed) {
+    throw new WorktreeGitError("One or more cleanups failed.");
   }
   ctx.log.ok("Prune complete.");
 
@@ -1949,7 +1952,11 @@ export async function worktreePrune(
 
 /** Map the real prune/sweep/GC outcomes to `--json` step results. */
 function pruneResults(
-  prune: { removed: string[]; branchesDeleted: string[] },
+  prune: {
+    removed: string[];
+    branchesDeleted: string[];
+    staleMetadata: string[];
+  },
   sweep: { removed: string[] },
   gc: GcResult,
 ): StepResult[] {
@@ -1972,6 +1979,9 @@ function pruneResults(
     ...sweep.removed.map((d) =>
       step("git", d, "reclaimed orphan directory", "Orphan directories")
     ),
+    ...prune.staleMetadata.map((d) =>
+      step("git", d, "pruned stale metadata", "Stale metadata")
+    ),
     ...gc.reclaimed.map((r) =>
       step("resource-destroy", r, "reclaimed orphaned resource", "Resources")
     ),
@@ -1980,26 +1990,25 @@ function pruneResults(
 
 /**
  * The resource-GC pass of `worktree prune`: reclaim any ledgered resource whose
- * worktree is gone. Conservative — `gcOrphanResources` only acts on entries this
- * project's ledger holds, and never on one a live worktree still owns (by key,
- * path, or resource handle). A no-op outside a git repo.
+ * worktree is gone. Conservative — it only acts on the planned entries this
+ * project's ledger held, and still rechecks that no live worktree owns one before
+ * destroy (by key, path, or resource handle). A no-op outside a git repo.
  */
 async function gcWorktreeResources(
   ctx: LifecycleContext,
-  dryRun: boolean,
+  reclaimable: LedgerItem[],
+  kept: number,
 ): Promise<GcResult> {
   const empty: GcResult = { reclaimed: [], kept: 0, failed: false };
   const commonGitDir = await resolveCommonGitDir(ctx.cwd);
   if (commonGitDir === undefined) {
     return empty;
   }
-  const livePaths = await liveWorktreePaths(ctx.cwd);
-  const gc = await gcOrphanResources({
+  const gc = await gcPlannedOrphanResources({
     commonGitDir,
     cwd: ctx.cwd,
-    liveGitKeys: await liveWorktreeGitKeys(commonGitDir),
-    livePaths,
-    liveIdentities: await liveResourceIdentitySet(ctx, livePaths),
+    reclaimable,
+    kept,
     // Re-evaluate handle ownership against CURRENT disk state before each destroy:
     // a worktree created mid-loop can own this handle under a fresh git_key that
     // the snapshot — and the `gitKeyIsLive` re-check — both miss (M1).
@@ -2007,15 +2016,10 @@ async function gcWorktreeResources(
       const paths = await liveWorktreePaths(ctx.cwd);
       return (await liveResourceIdentitySet(ctx, paths)).has(identity);
     },
-    dryRun,
     log: ctx.log,
   });
   const n = gc.reclaimed.length;
-  if (dryRun) {
-    ctx.log.line(
-      `Would reclaim ${n} orphaned worktree resource${n === 1 ? "" : "s"}.`,
-    );
-  } else if (n === 0) {
+  if (n === 0) {
     ctx.log.line("No orphaned worktree resources found.");
   } else {
     ctx.log.ok(

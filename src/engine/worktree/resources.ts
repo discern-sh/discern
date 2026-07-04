@@ -634,6 +634,25 @@ export interface GcParams {
   log: Logger;
 }
 
+/** Inputs for applying an already-classified orphan-resource GC plan. */
+export interface PlannedGcParams {
+  /** The repo's common git dir (where the ledger lives). */
+  commonGitDir: string;
+  /** Where destroy commands run (the main checkout). */
+  cwd: string;
+  /** Ledger entries the plan classified as reclaimable. */
+  reclaimable: LedgerItem[];
+  /** Entries kept during the plan's classification. */
+  kept: number;
+  /**
+   * Re-check, against CURRENT disk state, whether a resource handle is owned by a
+   * live worktree — the recycling guard re-evaluated right before each irreversible
+   * destroy. Returns true to KEEP the entry.
+   */
+  recheckIdentityLive?: (identity: string) => Promise<boolean>;
+  log: Logger;
+}
+
 /** The outcome of an orphan-resource GC pass. */
 export interface GcResult {
   /** Resource handles reclaimed (or that would be, in a dry run). */
@@ -723,15 +742,36 @@ export async function gcOrphanResources(p: GcParams): Promise<GcResult> {
       identities: p.liveIdentities,
     },
   );
-  const result: GcResult = { reclaimed: [], kept, failed: false };
-  for (const { path, entry } of reclaimable) {
-    const label =
-      `${entry.resource_name} (${entry.resource_identity}) from removed worktree ${entry.git_key}`;
-    if (p.dryRun) {
+  if (p.dryRun) {
+    const result: GcResult = { reclaimed: [], kept, failed: false };
+    for (const { entry } of reclaimable) {
+      const label =
+        `${entry.resource_name} (${entry.resource_identity}) from removed worktree ${entry.git_key}`;
       p.log.line(`  would reclaim ${label}`);
       result.reclaimed.push(entry.resource_identity);
-      continue;
     }
+    return result;
+  }
+  return await gcPlannedOrphanResources({
+    commonGitDir: p.commonGitDir,
+    cwd: p.cwd,
+    reclaimable,
+    kept,
+    ...(p.recheckIdentityLive !== undefined
+      ? { recheckIdentityLive: p.recheckIdentityLive }
+      : {}),
+    log: p.log,
+  });
+}
+
+/** Apply an already-classified orphan-resource GC plan, with per-entry rechecks. */
+export async function gcPlannedOrphanResources(
+  p: PlannedGcParams,
+): Promise<GcResult> {
+  const result: GcResult = { reclaimed: [], kept: p.kept, failed: false };
+  for (const { path, entry } of p.reclaimable) {
+    const label =
+      `${entry.resource_name} (${entry.resource_identity}) from removed worktree ${entry.git_key}`;
     // Re-validate against disk right before destroying (see the doc comment): the
     // git_key must still be dead, the on-disk entry must still be the one we read,
     // AND no live worktree may now own this handle — else a concurrent create

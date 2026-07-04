@@ -220,35 +220,64 @@ Deno.test("setupPlanToEngine: every step runs, branch surfaced as a detail", () 
 
 Deno.test("prunePlanToEngine + prunePlanIsEmpty: groups reclaims; empty is empty", () => {
   const empty = {
-    worktreesToRemove: [],
-    branchesToDelete: [],
-    orphanDirs: [],
-    orphanDirsKept: [],
+    gitScan: {
+      repoRoot: "/repo",
+      mainBranch: "main",
+      worktreesToRemove: [],
+      branchesToDelete: [],
+      staleMetadata: [],
+      worktreeLines: [],
+      branchLines: [],
+    },
+    orphanScan: {
+      mainRepo: "/repo",
+      removable: [],
+      kept: [],
+    },
     resourceReclaims: [],
+    resourceReclaimsKept: 0,
   };
   assert(prunePlanIsEmpty(empty));
   assertEquals(prunePlanToEngine(empty).steps.length, 0);
 
   const full = {
-    worktreesToRemove: ["/repo/.wt/stale"],
-    branchesToDelete: ["agent/old"],
-    orphanDirs: ["/repo/.wt/orphan"],
-    orphanDirsKept: [{
-      path: "/repo/.wt/dirty",
-      reason: "dirty 1 status entries",
-    }],
-    resourceReclaims: ["app-z-db"],
+    gitScan: {
+      repoRoot: "/repo",
+      mainBranch: "main",
+      worktreesToRemove: [{ path: "/repo/.wt/stale", branch: "agent/stale" }],
+      branchesToDelete: ["agent/old"],
+      staleMetadata: [{
+        path: "/repo/.wt/gone",
+        adminDir: "/repo/.git/worktrees/gone",
+        gitDir: "/repo/.wt/gone/.git",
+      }],
+      worktreeLines: [],
+      branchLines: [],
+    },
+    orphanScan: {
+      mainRepo: "/repo",
+      removable: [{ path: "/repo/.wt/orphan", reason: "clean" }],
+      kept: [{
+        path: "/repo/.wt/dirty",
+        reason: "dirty 1 status entries",
+      }],
+    },
+    resourceReclaims: items(entry({ resource_identity: "app-z-db" })),
+    resourceReclaimsKept: 1,
   };
   assert(!prunePlanIsEmpty(full));
-  const groups = new Set(prunePlanToEngine(full).steps.map((s) => s.group));
+  const enginePlan = prunePlanToEngine(full);
+  const groups = new Set(enginePlan.steps.map((s) => s.group));
   assertEquals(
     groups,
     new Set([
       "Worktrees",
       "Branches",
+      "Stale metadata",
       "Orphan directories",
       "Kept orphan directories",
       "Resources",
     ]),
   );
+  assert(enginePlan.details.some((d) => d.includes("Stale metadata: 1 entry")));
 });
