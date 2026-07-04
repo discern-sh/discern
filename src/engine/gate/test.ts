@@ -66,14 +66,26 @@ async function runTestGate(
     };
   }
   const { results, failedStage } = await runJobGroups([group], runOpts, out);
-  const { steps, diagnostics } = await serializeJobSteps([group], results);
+  const { steps, diagnostics, hints } = await serializeJobSteps(
+    [group],
+    results,
+  );
   return {
     result: {
       ok: failedStage === null,
       verb: "test",
       steps,
       diagnostics: diagnostics.length > 0 ? diagnostics : undefined,
-      ...(inProgress !== undefined ? { hints: [inProgress] } : {}),
+      ...(
+        inProgress !== undefined || hints.length > 0
+          ? {
+            hints: [
+              ...(inProgress !== undefined ? [inProgress] : []),
+              ...hints,
+            ],
+          }
+          : {}
+      ),
     },
     failedStage,
     out,
@@ -122,5 +134,8 @@ export async function runTestCapability(
     return 1;
   }
   out.ok("Tests passed.");
+  for (const hint of result.hints ?? []) {
+    out.info(hint);
+  }
   return 0;
 }

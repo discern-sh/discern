@@ -31,6 +31,25 @@ undefined fields, so a clean refusal serializes to just
 message}`. Under `--json` the envelope is the **entire**
 output ([ADR 0028](../_adr/0028-result-envelope-and-diagnostics.md)).
 
+## `steps[]` job output artifacts
+
+For gate jobs that run (`finish`, `prepare`, and `discern test`), each `steps[]`
+entry includes the outcome plus lightweight output metadata:
+
+- `output_path` — a best-effort OS-temp file containing the job's full combined
+  stdout+stderr capture;
+- `output_lines` — the number of lines the job printed;
+- `error_like_lines` — the number of lines that look like generic diagnostics
+  (`error:`, `warning:`, Rust-style `error[...]`, or compiler caret lines).
+
+These fields are deliberately **advisory**. A command's exit code still decides
+whether the step passed or failed. When a passing job prints many error-like
+lines, discern adds a `hints[]` entry pointing at the output artifact rather
+than failing the gate: some tools legitimately print compiler-shaped text while
+returning zero, and only the project can decide whether that is a mis-scoped
+command or harmless noise
+([ADR 0096](../_adr/0096-passing-jobs-keep-output-artifacts.md)).
+
 ## `diagnostics[]` — the structured "why"
 
 A failed gate command yields a normalized {@link Diagnostic} so an agent loops

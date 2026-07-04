@@ -157,6 +157,46 @@ Deno.test("finish --json: a failing check reports ok:false, a failed step, and a
   });
 });
 
+Deno.test("finish --json: a passing job with suspicious output exposes an advisory artifact", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        'main_branch = "main"',
+        "",
+        "[capabilities]",
+        "lint = \"printf 'error: one\\nwarning: two\\n    ^~~~~\\nerror: three\\nwarning: four\\n    ^~~~~\\nerror: five\\nwarning: six\\n    ^~~~~\\nerror: seven\\nwarning: eight\\n    ^~~~~\\n'\"",
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+    const r = await runAgent(dir, ["finish", "--json"]);
+    assertEquals(r.code, 0, r.output);
+
+    const obj = parseJson(r.stdout);
+    assertEquals(obj.ok, true);
+    assertEquals(obj.diagnostics, undefined);
+    const lint = stepFor(obj, "lint");
+    assertEquals(lint.outcome, "ok");
+    assertEquals(lint.output_lines, 12);
+    assertEquals(lint.error_like_lines, 12);
+    assertEquals(typeof lint.output_path, "string");
+    const output = await Deno.readTextFile(lint.output_path);
+    assertStringIncludes(output, "error: one");
+    assertStringIncludes(output, "warning: eight");
+    assert(
+      (obj.hints ?? []).some((hint: string) =>
+        hint.includes("lint passed but printed 12 error-like line(s)") &&
+        hint.includes(lint.output_path)
+      ),
+      `expected a loud-success advisory hint, got ${JSON.stringify(obj.hints)}`,
+    );
+  });
+});
+
 Deno.test("finish --json: stream-enabled failures capture output into the diagnostic", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

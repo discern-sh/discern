@@ -19,6 +19,12 @@ export interface JobResult {
   code: number;
   /** Whole-second wall-clock duration (integer). */
   durationS: number;
+  /** Best-effort path to the job's full combined stdout+stderr capture. */
+  outputPath?: string;
+  /** Count of lines the job printed to stdout+stderr. */
+  outputLines: number;
+  /** Count of output lines that look like compiler/linter diagnostics. */
+  errorLikeLines: number;
   /**
    * The job's FULL captured combined stdout+stderr (uncapped — stream mode keeps a
    * head+tail window), present ONLY on a GENUINELY failed job. finish normalizes it

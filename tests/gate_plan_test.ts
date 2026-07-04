@@ -49,6 +49,18 @@ paths = ["gadget/**"]
 gate = "echo gadget"
 `);
 
+function jobResult(
+  fields:
+    & Omit<JobResult, "outputLines" | "errorLikeLines">
+    & Partial<Pick<JobResult, "outputLines" | "errorLikeLines">>,
+): JobResult {
+  return {
+    outputLines: 0,
+    errorLikeLines: 0,
+    ...fields,
+  };
+}
+
 Deno.test("the FULL fixture wires EVERY known capability (so the gate-shape tests cover the whole vocabulary)", () => {
   // The plan/shape assertions below hard-code capability labels off FULL's
   // [capabilities]. Tie that fixture to the SSOT: a capability added to
@@ -117,7 +129,10 @@ Deno.test("buildGateResult: serializes plan+results into the DiscernResult envel
   // Simulate: fix+build+check/test all passed; widget gate passed; gadget skipped.
   const results = new Map<string, JobResult>();
   const ok = (label: string): void => {
-    results.set(label, { label, status: "ok", code: 0, durationS: 1 });
+    results.set(
+      label,
+      jobResult({ label, status: "ok", code: 0, durationS: 1 }),
+    );
   };
   for (
     const l of [
@@ -160,13 +175,13 @@ Deno.test("buildGateResult: an aborted stage leaves later jobs skipped; the fail
   const results = new Map<string, JobResult>([
     [
       "format",
-      {
+      jobResult({
         label: "format",
         status: "failed",
         code: 1,
         durationS: 0,
         output: "boom",
-      },
+      }),
     ],
   ]);
   const result = await buildGateResult(plan, results, "fix");
@@ -189,22 +204,25 @@ Deno.test("buildGateResult: a cancelled sibling is reported skipped, not failed,
   const plan = buildGatePlan(FULL, []);
   const results = new Map<string, JobResult>([
     // lint genuinely failed (carries output); typecheck was fail-fast-cancelled.
-    ["lint", {
-      label: "lint",
-      status: "failed",
-      code: 1,
-      durationS: 0,
-      output: "boom",
-    }],
+    [
+      "lint",
+      jobResult({
+        label: "lint",
+        status: "failed",
+        code: 1,
+        durationS: 0,
+        output: "boom",
+      }),
+    ],
     [
       "typecheck",
-      {
+      jobResult({
         label: "typecheck",
         status: "failed",
         code: 1,
         durationS: 0,
         cancelled: true,
-      },
+      }),
     ],
   ]);
   const result = await buildGateResult(plan, results, "check/test");
@@ -242,13 +260,16 @@ Deno.test("buildGateResult: a LARGE SARIF output is normalized to one diagnostic
   );
 
   const results = new Map<string, JobResult>([
-    ["lint", {
-      label: "lint",
-      status: "failed",
-      code: 1,
-      durationS: 0,
-      output: sarif,
-    }],
+    [
+      "lint",
+      jobResult({
+        label: "lint",
+        status: "failed",
+        code: 1,
+        durationS: 0,
+        output: sarif,
+      }),
+    ],
   ]);
   const result = await buildGateResult(
     buildGatePlan(FULL, []),

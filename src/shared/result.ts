@@ -114,6 +114,12 @@ export interface StepResult {
   outcome: StepOutcome;
   /** Whole-second wall-clock duration when measured (jobs / ratchets). */
   durationS?: number | undefined;
+  /** Best-effort path to a full output artifact for job steps that ran. */
+  outputPath?: string | undefined;
+  /** Count of output lines for job steps that ran. */
+  outputLines?: number | undefined;
+  /** Count of output lines that look like compiler/linter diagnostics. */
+  errorLikeLines?: number | undefined;
 }
 
 /**
@@ -462,6 +468,9 @@ export interface PlanStepJson {
 export interface StepResultJson extends PlanStepJson {
   outcome: StepOutcome;
   duration_s?: number | undefined;
+  output_path?: string | undefined;
+  output_lines?: number | undefined;
+  error_like_lines?: number | undefined;
 }
 
 /** Reduce one step to its JSON-friendly shape. */
@@ -481,6 +490,9 @@ export function stepResultToJson(r: StepResult): StepResultJson {
     ...stepToJson(r.step),
     outcome: r.outcome,
     duration_s: r.durationS,
+    output_path: r.outputPath,
+    output_lines: r.outputLines,
+    error_like_lines: r.errorLikeLines,
   };
 }
 

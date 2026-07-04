@@ -49,7 +49,10 @@ async function runPrepareGate(
   const groups = preparePlanGroups(cfg);
   const { runOpts, out } = gateRunContext(root, cfg, json);
   const { results, failedStage } = await runJobGroups(groups, runOpts, out);
-  const { steps, diagnostics } = await serializeJobSteps(groups, results);
+  const { steps, diagnostics, hints: jobOutputHints } = await serializeJobSteps(
+    groups,
+    results,
+  );
   const inProgress = setupInProgressHint(cfg.meta.bootstrapped);
   // The co-change advisory (ADR 0084) rides the fast inner loop too, behind the SAME
   // [coupling].in_gate preference, so the nudge meets the change while it is hot — not
@@ -63,6 +66,7 @@ async function runPrepareGate(
   const hints = [
     // Pre-setup, this output is indicative — prepare is un-gated during setup (ADR 0065).
     ...(inProgress !== undefined ? [inProgress] : []),
+    ...jobOutputHints,
     ...couplingHints,
   ];
   const result: DiscernResult = {

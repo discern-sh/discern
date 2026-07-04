@@ -86,6 +86,9 @@ export const StepResultJsonSchema = z.strictObject({
   group: z.string().optional(),
   outcome: outcomeEnum,
   duration_s: z.number().optional(),
+  output_path: z.string().optional(),
+  output_lines: z.number().optional(),
+  error_like_lines: z.number().optional(),
 });
 
 /** Mirror of {@link import("./result.ts").PlanJson} — a whole dry-run plan. */

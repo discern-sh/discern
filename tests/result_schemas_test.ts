@@ -117,6 +117,9 @@ Deno.test("envelope schema is locked to serializeResult's wire shape", () => {
       },
       outcome: "ok",
       durationS: 3,
+      outputPath: "/tmp/discern-job-demo.log",
+      outputLines: 4,
+      errorLikeLines: 2,
     }],
     diagnostics: [{
       tool: "t",

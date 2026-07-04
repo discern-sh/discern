@@ -32,6 +32,8 @@ import type {
   StepResult,
 } from "../../shared/result.ts";
 
+const LOUD_SUCCESS_ERROR_LIKE_LINES = 10;
+
 /**
  * A gate job as planned: the command to run plus the metadata the ADR-0004 report
  * needs. `willRun` is false only for a configured-but-unchanged scope gate (listed
@@ -320,6 +322,22 @@ function stepOutcome(r: JobResult | undefined): StepOutcome {
   return r.code === 0 ? "ok" : "failed";
 }
 
+function loudSuccessHint(
+  job: PlannedJob,
+  result: JobResult,
+): string | undefined {
+  if (
+    result.code !== 0 ||
+    result.errorLikeLines < LOUD_SUCCESS_ERROR_LIKE_LINES
+  ) {
+    return undefined;
+  }
+  const where = result.outputPath === undefined
+    ? ""
+    : ` - output at ${result.outputPath}`;
+  return `${job.label} passed but printed ${result.errorLikeLines} error-like line(s) across ${result.outputLines} output line(s)${where}.`;
+}
+
 /**
  * Serialize executed job groups into {@link StepResult}s + {@link Diagnostic}s — the
  * projection shared by `finish`, `prepare`, and `discern test`. Each capability/
@@ -333,9 +351,12 @@ function stepOutcome(r: JobResult | undefined): StepOutcome {
 export async function serializeJobSteps(
   groups: JobGroup[],
   results: Map<string, JobResult>,
-): Promise<{ steps: StepResult[]; diagnostics: Diagnostic[] }> {
+): Promise<
+  { steps: StepResult[]; diagnostics: Diagnostic[]; hints: string[] }
+> {
   const steps: StepResult[] = [];
   const diagnostics: Diagnostic[] = [];
+  const hints: string[] = [];
   for (const group of groups) {
     for (const j of group.jobs) {
       const r = results.get(j.label);
@@ -350,7 +371,16 @@ export async function serializeJobSteps(
         },
         outcome: stepOutcome(r),
         durationS: r === undefined ? 0 : r.durationS,
+        outputPath: r?.outputPath,
+        outputLines: r?.outputLines,
+        errorLikeLines: r?.errorLikeLines,
       });
+      if (r !== undefined) {
+        const hint = loudSuccessHint(j, r);
+        if (hint !== undefined) {
+          hints.push(hint);
+        }
+      }
       if (r !== undefined && r.code !== 0 && r.cancelled !== true) {
         const normalized = r.output !== undefined
           ? normalizeDiagnostics(r.output, j.label, j.command)
@@ -372,7 +402,7 @@ export async function serializeJobSteps(
       }
     }
   }
-  return { steps, diagnostics };
+  return { steps, diagnostics, hints };
 }
 
 /**
@@ -387,7 +417,10 @@ export async function buildGateResult(
   results: Map<string, JobResult>,
   failedStage: FailedStage | null,
 ): Promise<DiscernResult<GateData>> {
-  const { steps, diagnostics } = await serializeJobSteps(plan.groups, results);
+  const { steps, diagnostics, hints } = await serializeJobSteps(
+    plan.groups,
+    results,
+  );
   const data: GateData = {
     failed_stage: failedStage,
     scopes_changed: plan.scopesChanged,
@@ -397,6 +430,7 @@ export async function buildGateResult(
     verb: "finish",
     steps,
     diagnostics: diagnostics.length > 0 ? diagnostics : undefined,
+    hints: hints.length > 0 ? hints : undefined,
     data,
   };
 }

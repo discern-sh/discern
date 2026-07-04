@@ -184,7 +184,7 @@ Deno.test("buffered mode captures combined stdout+stderr after the banner", asyn
   assert(s.text().includes("oops-stderr"), s.text());
 });
 
-Deno.test("a genuinely failed job carries its captured output for the diagnostic; a passing one does not", async () => {
+Deno.test("a genuinely failed job carries diagnostic output; a passing one carries only an artifact", async () => {
   const s = makeSink();
   const r = await runParallel([
     { label: "fail", command: "echo why-it-failed >&2; exit 1" },
@@ -202,8 +202,25 @@ Deno.test("a genuinely failed job carries its captured output for the diagnostic
   assert(fail?.output !== undefined, "expected the failed job to carry output");
   assertStringIncludes(fail.output, "why-it-failed");
   assertEquals(fail.cancelled, undefined);
-  // A passing job stays lean — no output, no cancelled flag.
+  assertEquals(fail.outputLines, 1);
+  assertEquals(fail.errorLikeLines, 0);
+  assert(
+    fail.outputPath !== undefined,
+    "expected the failed job to expose its full output artifact",
+  );
+  assertStringIncludes(
+    await Deno.readTextFile(fail.outputPath),
+    "why-it-failed",
+  );
+  // A passing job stays diagnostically lean, but its full output remains inspectable.
   assertEquals(pass?.output, undefined);
+  assertEquals(pass?.outputLines, 1);
+  assertEquals(pass?.errorLikeLines, 0);
+  assert(
+    pass?.outputPath !== undefined,
+    "expected the passing job to expose its full output artifact",
+  );
+  assertStringIncludes(await Deno.readTextFile(pass.outputPath), "all-good");
 });
 
 Deno.test("stream-mode failed jobs retain a capped head and tail for diagnostics", async () => {

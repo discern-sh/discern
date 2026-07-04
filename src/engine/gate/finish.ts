@@ -313,6 +313,7 @@ async function runGate(
     skillsOn,
   );
   const result = await buildGateResult(plan, results, failedStage);
+  const jobOutputHints = result.hints ?? [];
   // The currency checks aren't plan-group jobs, so their diagnostics (the diff / the
   // drift list + the `discern refresh` reproduce command) are attached here, like the
   // merge stage's failed_stage rides in `data` without a job entry.
@@ -357,6 +358,7 @@ async function runGate(
       failedStage,
       gateReceipt.status === "recorded",
     ),
+    ...jobOutputHints,
     ...couplingHints,
   ];
   if (hints.length > 0) {

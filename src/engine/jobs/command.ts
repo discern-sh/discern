@@ -11,6 +11,7 @@
  */
 
 import type { Job, JobResult } from "./types.ts";
+import { JobOutputRecorder } from "./output_record.ts";
 import { shellCommand } from "../../shared/subprocess.ts";
 
 /** Options for spawning a single job. */
@@ -37,9 +38,10 @@ const DECODER = new TextDecoder();
 
 /**
  * Hard cap (bytes) on the buffer retained for the capture in STREAM mode, where
- * output isn't otherwise held in memory. Split into a head and a tail window so a
- * failed streamed job carries both its first errors and its trailing summary;
- * bounds worst-case memory on a pathological stream.
+ * output isn't otherwise held in memory (the full stream is written to a temp
+ * artifact). Split into a head and a tail window so a failed streamed job carries
+ * both its first errors and its trailing summary; bounds worst-case memory on a
+ * pathological stream.
  */
 const STREAM_CAP_BYTES = 1_000_000;
 const HEAD_CAP = STREAM_CAP_BYTES / 2;
@@ -95,13 +97,13 @@ async function streamPrefixed(
   stream: ReadableStream<Uint8Array>,
   label: string,
   write: (chunk: Uint8Array) => void,
-  onChunk?: (chunk: Uint8Array) => void,
+  onChunk?: (chunk: Uint8Array) => void | Promise<void>,
 ): Promise<void> {
   const dec = new TextDecoder();
   const prefix = `── ${label} │ `;
   let buf = "";
   for await (const chunk of stream) {
-    onChunk?.(chunk);
+    await onChunk?.(chunk);
     buf += dec.decode(chunk, { stream: true });
     let nl = buf.indexOf("\n");
     while (nl >= 0) {
@@ -137,6 +139,7 @@ export async function spawnJob(
     detached: true,
   }).spawn();
   const pid = child.pid;
+  const outputRecorder = await JobOutputRecorder.create();
 
   let killTimer: ReturnType<typeof setTimeout> | undefined;
   const onAbort = (): void => {
@@ -194,15 +197,20 @@ export async function spawnJob(
   };
   const drain = async (s: ReadableStream<Uint8Array>): Promise<void> => {
     if (opts.stream) {
-      await streamPrefixed(s, job.label, opts.write, retainCapped);
+      await streamPrefixed(s, job.label, opts.write, async (chunk) => {
+        retainCapped(chunk);
+        await outputRecorder.write(chunk);
+      });
     } else {
       for await (const c of s) {
         chunks.push(c);
+        await outputRecorder.write(c);
       }
     }
   };
   await Promise.all([drain(child.stdout), drain(child.stderr)]);
   const status = await child.status;
+  const outputSummary = await outputRecorder.finish();
 
   if (killTimer !== undefined) {
     clearTimeout(killTimer);
@@ -226,6 +234,7 @@ export async function spawnJob(
     status: code === 0 ? "ok" : "failed",
     code,
     durationS,
+    ...outputSummary,
   };
   if (cancelled) {
     result.cancelled = true;

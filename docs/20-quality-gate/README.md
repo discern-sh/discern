@@ -21,15 +21,20 @@ result shape every verb returns
 ([ADR 0028](../_adr/0028-result-envelope-and-diagnostics.md)):
 `{ok, verb, steps, diagnostics?, hints?, data}`, a serialization of the plan
 `finish` executed, not a re-derivation. Each Capability/Check/Scope gate is a
-`steps[]` entry; a genuine failure also yields a `diagnostics[]` entry carrying
-the command to reproduce it and its captured output: either a clean, capped
-Tier-0 excerpt with `output_path` for the full normalized capture when
-truncated, or file/line/rule findings when the tool emits SARIF. This lets an
-agent loop act→read-error→fix instead of re-running and scraping stderr.
-`hints[]` carries the next-step advice the human tail prints. Under `--json` the
-envelope is the **entire** output: all narration and command output is
-suppressed (not rerouted), so the combined stdout+stderr is exactly that one
-object — safe for an agent to capture
+`steps[]` entry with its outcome, duration, output artifact path, and
+lightweight line counts. A genuine failure also yields a `diagnostics[]` entry
+carrying the command to reproduce it and its captured output: either a clean,
+capped Tier-0 excerpt with `output_path` for the full normalized capture when
+truncated, or file/line/rule findings when the tool emits SARIF. Passing jobs
+that print many error-like lines add an advisory `hints[]` pointer to their
+output artifact without changing the gate result. This lets an agent loop
+act→read-error→fix instead of re-running and scraping stderr, while still making
+loud successful jobs inspectable
+([ADR 0096](../_adr/0096-passing-jobs-keep-output-artifacts.md)). `hints[]`
+carries the next-step advice the human tail prints. Under `--json` the envelope
+is the **entire** output: all narration and command output is suppressed (not
+rerouted), so the combined stdout+stderr is exactly that one object — safe for
+an agent to capture
 ([ADR 0028](../_adr/0028-result-envelope-and-diagnostics.md),
 [ADR 0083](../_adr/0083-normalize-and-offload-diagnostic-output.md)).
 `finish --dry-run` prints the plan (the jobs and Scope gates that _would_ run)
