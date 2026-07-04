@@ -64,7 +64,8 @@ how much discern knows about the tool:
   ([ADR 0083](../_adr/0083-normalize-and-offload-diagnostic-output.md)).
 - **Tier 1 (opt-in):** when a capability/check declares a diagnostics `format`,
   discern parses the output into `file` / `line` / `col` / `rule`.
-- **Tier 2 (derived):** `fix_available` when a wired fixer may resolve it.
+- **Tier 2 (derived):** `fix_available: true` on a failed non-fix
+  capability/check when the same gate plan has a fix-stage job wired.
 
 `finish`, `prepare`, and `discern test` all run through the gate's job runner,
 so a failure from any of them carries the same `steps[]` + `diagnostics[]` —

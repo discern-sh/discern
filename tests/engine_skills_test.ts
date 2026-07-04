@@ -60,12 +60,80 @@ Deno.test("discern skills eject copies a built-in and the effective set then pre
   });
 });
 
+Deno.test("discern skills eject --json emits an envelope and materializes the override", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+
+    const r = await runAgent(dir, [
+      "skills",
+      "eject",
+      "--json",
+      "discern-write-adr",
+    ]);
+    assertEquals(r.code, 0, r.output);
+    assertEquals(r.stderr, "");
+    const obj = JSON.parse(r.stdout) as {
+      ok: boolean;
+      verb: string;
+      data: {
+        name: string;
+        dest_rel: string;
+        skills_dir_persisted: boolean;
+        materialized: { linked: number; errors: string[] };
+      };
+    };
+    assertEquals(obj.ok, true);
+    assertEquals(obj.verb, "skills:eject");
+    assertEquals(obj.data.name, "discern-write-adr");
+    assertEquals(obj.data.dest_rel, "skills/discern-write-adr");
+    assertEquals(obj.data.skills_dir_persisted, false);
+    assert(obj.data.materialized.linked >= 1);
+    assertEquals(obj.data.materialized.errors, []);
+    assert(
+      await exists(join(dir, "skills/discern-write-adr/SKILL.md")),
+      "ejected copy must land in ./skills/",
+    );
+    assert(
+      (await Deno.lstat(join(dir, ".claude/skills/discern-write-adr")))
+        .isSymlink,
+      "the override should materialize as a symlink",
+    );
+  });
+});
+
 Deno.test("discern skills eject rejects an unknown skill", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     const r = await runAgent(dir, ["skills", "eject", "does-not-exist"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.stderr, 'no bundled skill named "does-not-exist"');
+  });
+});
+
+Deno.test("discern skills eject --json reports errors in the envelope", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    const r = await runAgent(dir, [
+      "skills",
+      "eject",
+      "--json",
+      "does-not-exist",
+    ]);
+    assertEquals(r.code, 1, r.output);
+    assertEquals(r.stderr, "");
+    const obj = JSON.parse(r.stdout) as {
+      ok: boolean;
+      verb: string;
+      error: string;
+      message: string;
+    };
+    assertEquals(obj.ok, false);
+    assertEquals(obj.verb, "skills:eject");
+    assertEquals(obj.error, "skills_eject_failed");
+    assertStringIncludes(
+      obj.message,
+      'no bundled skill named "does-not-exist"',
+    );
   });
 });
 

@@ -127,6 +127,7 @@ Deno.test("finish --json: a failing check reports ok:false, a failed step, and a
         "neutral = true",
         "",
         "[capabilities]",
+        'format = "true"',
         // a check-stage capability that prints to stderr, then fails
         'lint = "echo boom-on-stderr >&2; exit 1"',
         "",
@@ -152,6 +153,7 @@ Deno.test("finish --json: a failing check reports ok:false, a failed step, and a
     );
     assertEquals(diag.severity, "error");
     assertEquals(diag.reproduce_cmd, "echo boom-on-stderr >&2; exit 1");
+    assertEquals(diag.fix_available, true);
     assertStringIncludes(diag.output, "boom-on-stderr");
     assertFailedStepsHaveDiagnostics(obj);
   });

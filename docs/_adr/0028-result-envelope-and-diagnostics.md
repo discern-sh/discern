@@ -104,9 +104,11 @@ per-tool knowledge:
   diagnostic. Declared _text_ formats (a per-check regex via a future
   `[diagnostics.<name>]` table) are the next slice — deferred because they need
   a config-surface decision, where SARIF needed none.
-- **Tier 2 — derive (planned).** `fix_available` will follow from whether a
-  fixer is wired for the failing capability; the field exists on the
-  `Diagnostic` but is not yet populated (see TODO.md).
+- **Tier 2 — derive.** `fix_available: true` is attached to a failed
+  capability/check diagnostic from a non-fix stage when the executed gate plan
+  has a real fix-stage job wired. It is deliberately absent for scope gates,
+  generated-artifact currency diagnostics, fix-stage failures themselves, and
+  configs with no fixer.
 
 ### MCP is a renderer, not a rewrite
 

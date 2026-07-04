@@ -338,6 +338,29 @@ function loudSuccessHint(
   return `${job.label} passed but printed ${result.errorLikeLines} error-like line(s) across ${result.outputLines} output line(s)${where}.`;
 }
 
+function hasFixStageJob(groups: JobGroup[]): boolean {
+  return groups.some((g) => g.stage === "fix" && g.jobs.some((j) => j.willRun));
+}
+
+function fixAvailableFor(
+  job: PlannedJob,
+  fixStageWired: boolean,
+): true | undefined {
+  return fixStageWired && job.kind !== "scope-gate" &&
+      job.reportStage !== "fix"
+    ? true
+    : undefined;
+}
+
+function withFixAvailable(
+  diagnostics: Diagnostic[],
+  fixAvailable: true | undefined,
+): Diagnostic[] {
+  return fixAvailable === true
+    ? diagnostics.map((d) => ({ ...d, fix_available: true }))
+    : diagnostics;
+}
+
 /**
  * Serialize executed job groups into {@link StepResult}s + {@link Diagnostic}s — the
  * projection shared by `finish`, `prepare`, and `discern test`. Each capability/
@@ -357,6 +380,7 @@ export async function serializeJobSteps(
   const steps: StepResult[] = [];
   const diagnostics: Diagnostic[] = [];
   const hints: string[] = [];
+  const fixStageWired = hasFixStageJob(groups);
   for (const group of groups) {
     for (const j of group.jobs) {
       const r = results.get(j.label);
@@ -382,11 +406,12 @@ export async function serializeJobSteps(
         }
       }
       if (r !== undefined && r.code !== 0 && r.cancelled !== true) {
+        const fixAvailable = fixAvailableFor(j, fixStageWired);
         const normalized = r.output !== undefined
           ? normalizeDiagnostics(r.output, j.label, j.command)
           : undefined;
         if (normalized !== undefined) {
-          diagnostics.push(...normalized);
+          diagnostics.push(...withFixAvailable(normalized, fixAvailable));
         } else {
           const outputFields = r.output !== undefined
             ? await diagnosticOutputFields(r.output)
@@ -396,6 +421,7 @@ export async function serializeJobSteps(
             severity: "error",
             message: `${j.label} failed (exit ${r.code})`,
             reproduce_cmd: j.command,
+            ...(fixAvailable === true ? { fix_available: true } : {}),
             ...outputFields,
           });
         }
