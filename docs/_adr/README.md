@@ -109,6 +109,7 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0094 — Final lifecycle checks require clean trees](0094-final-lifecycle-checks-require-clean-trees.md)
 - [0095 — Standardize the prelaunch CLI vocabulary](0095-prelaunch-cli-vocabulary.md)
 - [0096 — Passing jobs keep output artifacts](0096-passing-jobs-keep-output-artifacts.md)
+- [0097 — Publish generated JSON result contracts](0097-publish-json-result-contracts.md)
 
 ## Superseded and consolidated ADRs
 

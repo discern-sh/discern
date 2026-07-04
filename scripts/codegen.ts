@@ -17,6 +17,10 @@ import {
   renderConfigDocSchemaJson,
   renderConfigReferenceDoc,
 } from "../src/shared/config_codegen.ts";
+import {
+  renderResultJsonSchema,
+  renderResultTypesDts,
+} from "../src/shared/result_codegen.ts";
 
 const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
 
@@ -33,6 +37,7 @@ async function write(rel: string, text: string): Promise<void> {
     console.log(`  unchanged  ${rel}`);
     return;
   }
+  await Deno.mkdir(dirname(path), { recursive: true });
   await Deno.writeTextFile(path, text);
   console.log(`  ${before === undefined ? "created  " : "updated  "} ${rel}`);
 }
@@ -43,3 +48,8 @@ await write(
   "docs/10-installer/config-reference.md",
   renderConfigReferenceDoc(),
 );
+console.log(
+  "Regenerating result artifacts from src/shared/result_contracts.ts:",
+);
+await write("schema/discern-results.schema.json", renderResultJsonSchema());
+await write("types/discern-json.d.ts", renderResultTypesDts());

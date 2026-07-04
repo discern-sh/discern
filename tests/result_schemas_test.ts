@@ -41,14 +41,18 @@ import {
   FinishOutputSchema,
   GateDataSchema,
   GraduateOutputSchema,
+  HelpOutputSchema,
   ImproveOutputSchema,
   IntegrateOutputSchema,
+  PrepareOutputSchema,
+  RatchetsOutputSchema,
   RefreshOutputSchema,
   ScopesOutputSchema,
   StartOutputSchema,
   StatusDataSchema,
   StatusOutputSchema,
   StepResultJsonSchema,
+  TestOutputSchema,
 } from "../src/shared/result_schemas.ts";
 import { FEATURES } from "../src/shared/features.ts";
 import { finishResult } from "../src/engine/gate/finish.ts";
@@ -275,9 +279,19 @@ Deno.test("prepare/test results are faithful (clean and failing)", async () => {
       "prepare clean",
     );
     expectValid(
+      PrepareOutputSchema,
+      await prepareResult(dir),
+      "prepare clean public schema",
+    );
+    expectValid(
       DatalessEnvelopeSchema,
       await testResult(dir),
       "test unconfigured",
+    );
+    expectValid(
+      TestOutputSchema,
+      await testResult(dir),
+      "test unconfigured public schema",
     );
 
     await writeConfig(
@@ -294,10 +308,10 @@ Deno.test("prepare/test results are faithful (clean and failing)", async () => {
     );
     const prep = await prepareResult(dir);
     assertEquals(prep.ok, false);
-    expectValid(DatalessEnvelopeSchema, prep, "prepare failing");
+    expectValid(PrepareOutputSchema, prep, "prepare failing");
     const test = await testResult(dir);
     assertEquals(test.ok, false);
-    expectValid(DatalessEnvelopeSchema, test, "test failing");
+    expectValid(TestOutputSchema, test, "test failing");
   });
 });
 
@@ -576,14 +590,14 @@ Deno.test("docs/help results are faithful (index, single doc, not-found, no-tree
     );
 
     // help reads discern's OWN bundled docs (always present in this repo's build).
-    expectValid(DocsOutputSchema, await helpResult(dir), "help index");
+    expectValid(HelpOutputSchema, await helpResult(dir), "help index");
     expectValid(
-      DocsOutputSchema,
+      HelpOutputSchema,
       await helpResult(dir, { target: "config-reference" }),
       "help single",
     );
     expectValid(
-      DocsOutputSchema,
+      HelpOutputSchema,
       await helpResult(dir, { target: "no-such-doc" }),
       "help not-found",
     );
@@ -614,9 +628,14 @@ Deno.test("ratchets result is faithful (dry-run plan and applied steps)", async 
       await ratchetsResult(dir, { dryRun: true }),
       "ratchets dry-run",
     );
+    expectValid(
+      RatchetsOutputSchema,
+      await ratchetsResult(dir, { dryRun: true }),
+      "ratchets dry-run public schema",
+    );
     const applied = await ratchetsResult(dir);
     assertEquals(applied.ok, true);
-    expectValid(DatalessEnvelopeSchema, applied, "ratchets applied");
+    expectValid(RatchetsOutputSchema, applied, "ratchets applied");
   });
 });
 

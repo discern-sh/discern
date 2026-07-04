@@ -32,20 +32,23 @@ import { findRoot } from "../../shared/env.ts";
 import { type DiscernResult, serializeResult } from "../../shared/result.ts";
 import {
   CouplingOutputSchema,
-  DatalessEnvelopeSchema,
   type DocsData,
   DocsOutputSchema,
   DoctorOutputSchema,
   FinishOutputSchema,
   type GraduateData,
   GraduateOutputSchema,
+  HelpOutputSchema,
   ImproveOutputSchema,
   IntegrateOutputSchema,
+  PrepareOutputSchema,
+  RatchetsOutputSchema,
   RefreshOutputSchema,
   ScopesOutputSchema,
   type StartData,
   StartOutputSchema,
   StatusOutputSchema,
+  TestOutputSchema,
 } from "../../shared/result_schemas.ts";
 import {
   configSchema,
@@ -341,7 +344,7 @@ export const TOOLS: McpTool[] = orderTools([
   defineTool({
     name: "discern_prepare",
     title: "Run the fast gate",
-    outputSchema: DatalessEnvelopeSchema.shape,
+    outputSchema: PrepareOutputSchema.shape,
     annotations: MUTATING,
     description:
       "Run the fast inner-loop gate — the fix-stage fixers, then the read-only " +
@@ -354,7 +357,7 @@ export const TOOLS: McpTool[] = orderTools([
   defineTool({
     name: "discern_test",
     title: "Run the tests",
-    outputSchema: DatalessEnvelopeSchema.shape,
+    outputSchema: TestOutputSchema.shape,
     annotations: MUTATING,
     description:
       "Run the project's test capability on its own (the `test` stage, outside the " +
@@ -366,7 +369,7 @@ export const TOOLS: McpTool[] = orderTools([
   defineTool({
     name: "discern_ratchets",
     title: "Check the ratchets",
-    outputSchema: DatalessEnvelopeSchema.shape,
+    outputSchema: RatchetsOutputSchema.shape,
     annotations: MUTATING,
     description:
       "Check every configured quality ratchet (a never-loosen metric floor/ceiling): " +
@@ -521,7 +524,7 @@ export const TOOLS: McpTool[] = orderTools([
   defineTool({
     name: "discern_help",
     title: "Read discern's docs",
-    outputSchema: DocsOutputSchema.shape,
+    outputSchema: HelpOutputSchema.shape,
     annotations: READ_ONLY,
     description:
       "Read discern's OWN documentation — the harness's docs (the discern.toml " +

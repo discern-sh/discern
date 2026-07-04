@@ -121,6 +121,17 @@ const ENVELOPE_BASE_FIELDS = {
   message: z.string().optional(),
 };
 
+const ENVELOPE_BASE_FIELDS_WITHOUT_VERB = {
+  ok: z.boolean(),
+  dry_run: z.boolean().optional(),
+  plan: PlanJsonSchema.optional(),
+  steps: z.array(StepResultJsonSchema).optional(),
+  diagnostics: z.array(DiagnosticSchema).optional(),
+  hints: z.array(z.string()).optional(),
+  error: z.string().optional(),
+  message: z.string().optional(),
+};
+
 /** The general "any envelope" schema, with `data` left open (`unknown`). Locked to
  * `serializeResult` by the result-schema test (a maximal result carries `data`). */
 export const EnvelopeSchema = z.strictObject({
@@ -138,6 +149,52 @@ export const EnvelopeSchema = z.strictObject({
  * preview is still data-less.)
  */
 export const DatalessEnvelopeSchema = z.strictObject(ENVELOPE_BASE_FIELDS);
+
+export const ConfigIssueSchema = z.strictObject({
+  path: z.string(),
+  message: z.string(),
+});
+
+const ConfigIssueDataSchema = z.strictObject({
+  issues: z.array(ConfigIssueSchema),
+});
+
+function dataSchemaWithConfigIssues<T extends z.ZodType>(
+  dataSchema: T,
+): z.ZodUnion<[T, typeof ConfigIssueDataSchema]> {
+  return z.union([dataSchema, ConfigIssueDataSchema]);
+}
+
+function resultOutputSchema<T extends z.ZodType>(
+  verb: string,
+  dataSchema: T,
+): z.ZodObject<
+  typeof ENVELOPE_BASE_FIELDS_WITHOUT_VERB & {
+    verb: z.ZodLiteral<string>;
+    data: z.ZodOptional<z.ZodUnion<[T, typeof ConfigIssueDataSchema]>>;
+  }
+> {
+  return z.strictObject({
+    ...ENVELOPE_BASE_FIELDS_WITHOUT_VERB,
+    verb: z.literal(verb),
+    data: dataSchemaWithConfigIssues(dataSchema).optional(),
+  });
+}
+
+function datalessResultOutputSchema(
+  verb: string,
+): z.ZodObject<
+  typeof ENVELOPE_BASE_FIELDS_WITHOUT_VERB & {
+    verb: z.ZodLiteral<string>;
+    data: z.ZodOptional<typeof ConfigIssueDataSchema>;
+  }
+> {
+  return z.strictObject({
+    ...ENVELOPE_BASE_FIELDS_WITHOUT_VERB,
+    verb: z.literal(verb),
+    data: ConfigIssueDataSchema.optional(),
+  });
+}
 
 // ── per-verb `data` schemas (the source; the core's `data` type infers from it) ──
 
@@ -764,98 +821,331 @@ export const SetupDoneDataSchema = z.strictObject({
 });
 export type SetupDoneData = z.infer<typeof SetupDoneDataSchema>;
 
+// CLI-only installer/configuration result payloads ────────────────────────────
+
+const setupProjectSchema = z.strictObject({
+  slug: z.string(),
+  agents: z.array(z.string()),
+});
+
+const setupProgressSchema = z.strictObject({
+  pending_markers: z.array(z.string()),
+  capabilities: z.array(
+    z.strictObject({ name: z.string(), wired: z.boolean() }),
+  ),
+});
+
+/** `setup` / `setup begin` / the fresh welcome redirect. One schema covers the
+ * phased setup surface because the emitted `verb` is deliberately still `setup` for
+ * the welcome and begin paths. Mode-specific fields are optional; command-specific
+ * sub-verbs (`setup:verify`, `setup:step`, `setup:done`, `setup:land`) have their
+ * own narrowed schemas below. */
+export const SetupDataSchema = z.strictObject({
+  phase: z.enum(["fresh", "in_progress", "done"]).optional(),
+  complete: z.boolean().optional(),
+  next_action: z.string().optional(),
+  agent_guidance: z.string().optional(),
+  human_framing: z.string().optional(),
+  progress: setupProgressSchema.optional(),
+  already_set_up: z.boolean().optional(),
+  message: z.string().optional(),
+  project: setupProjectSchema.optional(),
+  plan: z.array(
+    z.strictObject({
+      path: z.string(),
+      action: z.enum(["create", "skip", "merge", "append"]),
+      note: z.string().optional(),
+    }),
+  ).optional(),
+  guidance: z.string().optional(),
+  command: z.string().optional(),
+  bootstrapped: z.boolean().optional(),
+  branch: z.string().nullable().optional(),
+  machinery_committed: z.boolean().optional(),
+  kit_version: z.string().optional(),
+  written: z.array(z.string()).optional(),
+  compiled: z.array(z.string()).optional(),
+  mcp_wired: z.array(z.string()).optional(),
+  worktree_app_wired: z.array(z.string()).optional(),
+  project_rules_wired: z.array(z.string()).optional(),
+  guidelines_compiled: z.boolean().optional(),
+  guidelines_errors: z.array(z.string()).optional(),
+  skeletons: z.array(z.string()).optional(),
+  skipped: z.array(z.string()).optional(),
+  instructions: z.string().optional(),
+  page: SetupStepDataSchema.nullable().optional(),
+  changes: z.array(z.string()).optional(),
+});
+export type SetupData = z.infer<typeof SetupDataSchema>;
+
+/** `setup:land` — setup branch landing preview/result. Refusals carry no data. */
+export const SetupLandDataSchema = z.strictObject({
+  landed: z.boolean(),
+  branch: z.string(),
+  target: z.string(),
+  fast_forward: z.boolean(),
+  branch_deleted: z.boolean(),
+});
+export type SetupLandData = z.infer<typeof SetupLandDataSchema>;
+
+const configEditSchema = z.strictObject({
+  key: z.string(),
+  literal: z.string(),
+});
+
+/** `config` — every config subcommand reports the file and applied/planned edits. */
+export const ConfigDataSchema = z.strictObject({
+  file: z.string(),
+  edits: z.array(configEditSchema),
+});
+export type ConfigData = z.infer<typeof ConfigDataSchema>;
+
+/** `preset` — preset application, preview, and unknown-preset discovery payloads. */
+export const PresetDataSchema = z.strictObject({
+  preset: z.string().optional(),
+  available: z.array(z.string()).optional(),
+  plan: z.array(
+    z.strictObject({
+      path: z.string(),
+      action: z.enum(["create", "skip", "merge", "append"]),
+      note: z.string().optional(),
+    }),
+  ).optional(),
+  config_fills: z.boolean().optional(),
+  written: z.array(z.string()).optional(),
+});
+export type PresetData = z.infer<typeof PresetDataSchema>;
+
+const migrationStepSchema = z.strictObject({
+  from: z.number(),
+  to: z.number(),
+  describe: z.string(),
+});
+
+const configReconcileOperationSchema = z.strictObject({
+  kind: z.enum(["section", "key"]),
+  path: z.string(),
+});
+
+const gitignoreReconcileOperationSchema = z.strictObject({
+  kind: z.enum(["create-block", "replace-block"]),
+  path: z.string(),
+});
+
+const upgradeSchemaSnapshotSchema = z.strictObject({
+  recorded: z.number().optional(),
+  from: z.number().optional(),
+  current: z.number(),
+});
+
+/** `upgrade` — read-only checks, dry-runs, apply summaries, and refusal details. */
+export const UpgradeDataSchema = z.strictObject({
+  check: z.boolean().optional(),
+  schema: upgradeSchemaSnapshotSchema.optional(),
+  pending_migrations: z.array(migrationStepSchema).optional(),
+  pending_reconciliation: z.array(configReconcileOperationSchema).optional(),
+  config_template_available: z.boolean().optional(),
+  pending_gitignore_reconciliation: z.array(gitignoreReconcileOperationSchema)
+    .optional(),
+  gitignore_template_available: z.boolean().optional(),
+  changes: z.array(z.string()).optional(),
+  issues: z.array(ConfigIssueSchema).optional(),
+  kit_version: z.string().optional(),
+  migrations_applied: z.array(migrationStepSchema).optional(),
+  config_reconciled: z.array(configReconcileOperationSchema).optional(),
+  gitignore_reconciled: z.array(gitignoreReconcileOperationSchema).optional(),
+  skills: z.strictObject({
+    copied: z.number(),
+    linked: z.number(),
+    pruned: z.number(),
+  }).nullable().optional(),
+  agents_written: z.array(z.string()).optional(),
+  mcp_wired: z.array(z.string()).optional(),
+  project_rules_wired: z.array(z.string()).optional(),
+  guidelines_compiled: z.boolean().optional(),
+  guidelines_errors: z.array(z.string()).optional(),
+});
+export type UpgradeData = z.infer<typeof UpgradeDataSchema>;
+
+const skillListingSchema = z.strictObject({
+  name: z.string(),
+  source: z.enum(["authored", "bundled"]),
+  overridesBundled: z.boolean(),
+  hasBundled: z.boolean(),
+});
+
+const skillMaterializeSchema = z.strictObject({
+  copied: z.number(),
+  linked: z.number(),
+  pruned: z.number(),
+  errors: z.array(z.string()),
+});
+
+/** `skills:list` — the effective built-in/authored skill set. */
+export const SkillsListDataSchema = z.strictObject({
+  skills: z.array(skillListingSchema),
+});
+export type SkillsListData = z.infer<typeof SkillsListDataSchema>;
+
+/** `skills:eject` — where a bundled skill was copied and how materialization went. */
+export const SkillsEjectDataSchema = z.strictObject({
+  name: z.string(),
+  dest_abs: z.string(),
+  dest_rel: z.string(),
+  skills_dir_persisted: z.boolean(),
+  materialized: skillMaterializeSchema,
+});
+export type SkillsEjectData = z.infer<typeof SkillsEjectDataSchema>;
+
 // ── per-verb output schemas (the envelope with `data` narrowed) ──────────────
 // Advertised by the MCP server as each tool's `outputSchema`; the SDK validates a
 // call's `structuredContent` against `<schema>.shape`. The data-less verbs use the
 // bare {@link EnvelopeSchema}.
 
+/** `setup` output: envelope + the phased setup/welcome `data`. */
+export const SetupOutputSchema = resultOutputSchema("setup", SetupDataSchema);
+
 /** `finish` output: envelope + the gate's `data`. */
-export const FinishOutputSchema = z.strictObject({
-  ...ENVELOPE_BASE_FIELDS,
-  data: GateDataSchema.optional(),
-});
+export const FinishOutputSchema = resultOutputSchema("finish", GateDataSchema);
+
+/** `prepare` output: envelope only (except top-level config parse errors). */
+export const PrepareOutputSchema = datalessResultOutputSchema("prepare");
+
+/** `test` output: envelope only (except top-level config parse errors). */
+export const TestOutputSchema = datalessResultOutputSchema("test");
+
+/** `ratchets` output: envelope only (except top-level config parse errors). */
+export const RatchetsOutputSchema = datalessResultOutputSchema("ratchets");
 
 /** `refresh` output: envelope + the generated-artifact summary `data`. */
-export const RefreshOutputSchema = z.strictObject({
-  ...ENVELOPE_BASE_FIELDS,
-  data: RefreshDataSchema.optional(),
-});
+export const RefreshOutputSchema = resultOutputSchema(
+  "refresh",
+  RefreshDataSchema,
+);
 
 /** `status` output: envelope + the situation `data`. */
-export const StatusOutputSchema = z.strictObject({
-  ...ENVELOPE_BASE_FIELDS,
-  data: StatusDataSchema.optional(),
-});
+export const StatusOutputSchema = resultOutputSchema(
+  "status",
+  StatusDataSchema,
+);
 
 /** `doctor` output: envelope + the install-check `data`. */
-export const DoctorOutputSchema = z.strictObject({
-  ...ENVELOPE_BASE_FIELDS,
-  data: DoctorDataSchema.optional(),
-});
+export const DoctorOutputSchema = resultOutputSchema(
+  "doctor",
+  DoctorDataSchema,
+);
 
 /** `scopes` output: envelope + the scope-list `data`. */
-export const ScopesOutputSchema = z.strictObject({
-  ...ENVELOPE_BASE_FIELDS,
-  data: ScopesDataSchema.optional(),
-});
+export const ScopesOutputSchema = resultOutputSchema(
+  "scopes",
+  ScopesDataSchema,
+);
 
 /** `coupling` output: envelope + the co-change `data`. */
-export const CouplingOutputSchema = z.strictObject({
-  ...ENVELOPE_BASE_FIELDS,
-  data: CouplingDataSchema.optional(),
-});
+export const CouplingOutputSchema = resultOutputSchema(
+  "coupling",
+  CouplingDataSchema,
+);
 
 /** `start` output: envelope + the new-worktree `data`. */
-export const StartOutputSchema = z.strictObject({
-  ...ENVELOPE_BASE_FIELDS,
-  data: StartDataSchema.optional(),
-});
+export const StartOutputSchema = resultOutputSchema("start", StartDataSchema);
 
 /** `graduate` output: envelope + the landing-root `data` (present on an apply; a
  * dry-run preview carries none). */
-export const GraduateOutputSchema = z.strictObject({
-  ...ENVELOPE_BASE_FIELDS,
-  data: GraduateDataSchema.optional(),
-});
+export const GraduateOutputSchema = resultOutputSchema(
+  "graduate",
+  GraduateDataSchema,
+);
 
 /** `integrate` output: envelope + the "what landed beneath the branch" `data`. */
-export const IntegrateOutputSchema = z.strictObject({
-  ...ENVELOPE_BASE_FIELDS,
-  data: IntegrateDataSchema.optional(),
-});
+export const IntegrateOutputSchema = resultOutputSchema(
+  "integrate",
+  IntegrateDataSchema,
+);
 
 /** `improve` output: envelope + the coaching `data`. */
-export const ImproveOutputSchema = z.strictObject({
-  ...ENVELOPE_BASE_FIELDS,
-  data: ImproveDataSchema.optional(),
-});
+export const ImproveOutputSchema = resultOutputSchema(
+  "improve",
+  ImproveDataSchema,
+);
 
-/** `docs`/`help` output: envelope + the documentation `data`. */
-export const DocsOutputSchema = z.strictObject({
-  ...ENVELOPE_BASE_FIELDS,
-  data: DocsDataSchema.optional(),
-});
+/** `docs` output: envelope + the documentation `data`. */
+export const DocsOutputSchema = resultOutputSchema("docs", DocsDataSchema);
+
+/** `help` output: envelope + the bundled documentation `data`. */
+export const HelpOutputSchema = resultOutputSchema("help", DocsDataSchema);
 
 /** `setup:step` output: envelope + the structured page `data`. CLI-only (setup is
  * not an MCP tool), but modeled here so the page parser validates against one
  * source and a faithfulness test can pin the real serialized output to it. */
-export const SetupStepOutputSchema = z.strictObject({
-  ...ENVELOPE_BASE_FIELDS,
-  data: SetupStepDataSchema.optional(),
-});
+export const SetupStepOutputSchema = resultOutputSchema(
+  "setup:step",
+  SetupStepDataSchema,
+);
 
 /** `setup:verify` output: envelope + the preflight `data` (fresh or redirect). CLI-only
  * (setup is not an MCP tool), modeled here so a faithfulness test can pin the real
  * serialized output — including the consent `guidance` — to one source (ADR 0041). */
-export const SetupVerifyOutputSchema = z.strictObject({
-  ...ENVELOPE_BASE_FIELDS,
-  data: SetupVerifyDataSchema.optional(),
-});
+export const SetupVerifyOutputSchema = resultOutputSchema(
+  "setup:verify",
+  SetupVerifyDataSchema,
+);
 
 /** `setup:done` output: envelope + the completion `data`. CLI-only (setup is not an MCP
  * tool), modeled here so a faithfulness test can pin the real serialized output —
  * including the completion `guidance` — to one source (ADR 0041). */
-export const SetupDoneOutputSchema = z.strictObject({
-  ...ENVELOPE_BASE_FIELDS,
-  data: SetupDoneDataSchema.optional(),
-});
+export const SetupDoneOutputSchema = resultOutputSchema(
+  "setup:done",
+  SetupDoneDataSchema,
+);
+
+/** `setup:land` output: envelope + the landing preview/result `data`. */
+export const SetupLandOutputSchema = resultOutputSchema(
+  "setup:land",
+  SetupLandDataSchema,
+);
+
+/** `config` output: envelope + applied/planned TOML edits. */
+export const ConfigOutputSchema = resultOutputSchema(
+  "config",
+  ConfigDataSchema,
+);
+
+/** `preset` output: envelope + preset preview/application/discovery data. */
+export const PresetOutputSchema = resultOutputSchema(
+  "preset",
+  PresetDataSchema,
+);
+
+/** `upgrade` output: envelope + migration/reconciliation summary data. */
+export const UpgradeOutputSchema = resultOutputSchema(
+  "upgrade",
+  UpgradeDataSchema,
+);
+
+/** `worktree setup` output: envelope only (except top-level config parse errors). */
+export const WorktreeSetupOutputSchema = datalessResultOutputSchema(
+  "worktree setup",
+);
+
+/** `worktree teardown` output: envelope only (except top-level config parse errors). */
+export const WorktreeTeardownOutputSchema = datalessResultOutputSchema(
+  "worktree teardown",
+);
+
+/** `worktree prune` output: envelope only (except top-level config parse errors). */
+export const WorktreePruneOutputSchema = datalessResultOutputSchema(
+  "worktree prune",
+);
+
+/** `skills:list` output: envelope + effective skill listing data. */
+export const SkillsListOutputSchema = resultOutputSchema(
+  "skills:list",
+  SkillsListDataSchema,
+);
+
+/** `skills:eject` output: envelope + ejection/materialization data. */
+export const SkillsEjectOutputSchema = resultOutputSchema(
+  "skills:eject",
+  SkillsEjectDataSchema,
+);

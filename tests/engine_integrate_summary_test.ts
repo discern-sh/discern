@@ -19,9 +19,14 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
-import { IntegrateOutputSchema } from "../src/shared/result_schemas.ts";
+import {
+  type IntegrateData,
+  IntegrateOutputSchema,
+} from "../src/shared/result_schemas.ts";
 
-type IntegrateJson = z.infer<typeof IntegrateOutputSchema>;
+type IntegrateJson = Omit<z.infer<typeof IntegrateOutputSchema>, "data"> & {
+  data?: IntegrateData;
+};
 
 /** Parse an `integrate --json` run's stdout. */
 function parse(stdout: string): IntegrateJson {
@@ -33,7 +38,7 @@ function parse(stdout: string): IntegrateJson {
       JSON.stringify(parsed.success ? [] : parsed.error.issues, null, 2)
     }\n${stdout}`,
   );
-  return parsed.data;
+  return parsed.data as IntegrateJson;
 }
 
 /** Looks like an abbreviated-or-full git object id. */

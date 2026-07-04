@@ -99,6 +99,36 @@ test is the MCP analog of the gate's generated-file currency check
 ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md)): a schema is
 only safe because it is mechanically tied to what it describes.
 
+## Published result contracts
+
+discern publishes the same typed result surface as generated artifacts
+([ADR 0097](../_adr/0097-publish-json-result-contracts.md)):
+
+- [`schema/discern-results.schema.json`](../../schema/discern-results.schema.json)
+  — a JSON Schema for every CLI command path that emits a `DiscernResult` JSON
+  object, plus MCP tool-result wrappers.
+- [`types/discern-json.d.ts`](../../types/discern-json.d.ts) — standalone
+  TypeScript definitions generated from the same registry.
+
+Each command definition carries a literal `verb` discriminator, so TypeScript
+consumers can switch on `result.verb` and narrow to the command-specific `data`.
+The generated types also expose lookup maps:
+
+- `DiscernResultByVerb` — envelope type by serialized `verb`.
+- `DiscernResultByCommand` — envelope type by CLI command path.
+- `DiscernMcpStructuredContentByTool` — MCP `structuredContent` type by tool
+  name.
+- `DiscernMcpToolResultByTool` — the full MCP
+  `{content, structuredContent,
+  isError}` wrapper by tool name.
+
+The generator is wired into `deno task codegen` alongside the config reference.
+`tests/result_codegen_test.ts` asserts the committed artifacts match the
+registry and that every registered CLI command path is either covered or
+explicitly excluded. Exclusions are the commands that do not emit a
+`DiscernResult` JSON object (`identity`, `mcp`, hook plumbing, and the plain
+config read helpers).
+
 ## `discern mcp` — the agent-native surface
 
 `discern mcp` ([ADR 0038](../_adr/0038-official-mcp-sdk.md)) serves the verbs to
@@ -108,9 +138,10 @@ result is rendered as `{ content, structuredContent, isError }`, the same
 `DiscernResult` the CLI prints.
 
 **Tools.** The exposed set mirrors the work verbs: `discern_status`,
-`discern_finish`, `discern_prepare`, `discern_test`, `discern_ratchets`,
-`discern_doctor`, `discern_improve`, `discern_scopes`, `discern_docs`,
-`discern_help`, `discern_graduate`. Each advertises:
+`discern_refresh`, `discern_finish`, `discern_prepare`, `discern_test`,
+`discern_ratchets`, `discern_doctor`, `discern_improve`, `discern_scopes`,
+`discern_coupling`, `discern_docs`, `discern_help`, `discern_start`,
+`discern_integrate`, `discern_graduate`. Each advertises:
 
 - a **`title`** (a short human label) and a **description**;
 - an **`outputSchema`** — its per-verb schema from `result_schemas.ts`, which
