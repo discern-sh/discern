@@ -25,17 +25,27 @@ showing the `destroy` command verbatim as a `[project]` step rather than
 labelling it. The reader draws the destructive conclusion from the command, as
 they already do for every other judgment the model leaves to them.
 
+## Update (checks render after the human model)
+
+The execution model remains in `discern doctor`'s default human output, but the
+human render now places the long model before the actionable doctor checks. A
+terminal usually leaves the tail of the command visible, so ending with
+`Doctor checks` and the pass/fail summary makes the user's next action clearer
+without hiding the model. The structured `--json` shape is unchanged:
+`data.checks` and `data.execution_model` remain separate keyed fields for agents
+and MCP clients.
+
 ## Update (hints are opt-in in the human render)
 
-The per-step hints proved long enough to bury the checks above the model on a
-normal terminal, and inline between the step lines they broke a quick read of
-the sequence. The human render now hides them by default and shows a pointer —
-at the top and the foot of the section — to `discern doctor --verbose`, which
-prints the hint on every step it applies to, repeats included. The structured
-`--json` `execution_model` is unchanged: it always carries every step's hint, so
-an agent reading the model is unaffected. The steps themselves (their order and
-actors) still render by default; only the explanatory hints moved behind the
-flag.
+When the checks still rendered before the model, the per-step hints proved long
+enough to bury them on a normal terminal, and inline between the step lines they
+broke a quick read of the sequence. The human render hides hints by default and
+shows a pointer — at the top and the foot of the section — to
+`discern doctor --verbose`, which prints the hint on every step it applies to,
+repeats included. The structured `--json` `execution_model` is unchanged: it
+always carries every step's hint, so an agent reading the model is unaffected.
+The steps themselves (their order and actors) still render by default; only the
+explanatory hints moved behind the flag.
 
 ## Context
 
@@ -65,9 +75,10 @@ annotates each step with the class-level expectation — but it does NOT judge t
 configuration.**
 
 - **Form factor: a section in `doctor`, in the default output.** A
-  clearly-delimited "Execution model" block follows the checks (human, on stderr
-  like the rest of doctor's narration); the structured `execution_model` rides
-  in `data` under `--json`. Both the CLI command and the read-only MCP
+  clearly-delimited "Execution model" block renders in the human output (stderr
+  like the rest of doctor's narration), before the actionable checks so the
+  terminal tail ends on the health report; the structured `execution_model`
+  rides in `data` under `--json`. Both the CLI command and the read-only MCP
   `discern_doctor` inherit it automatically (one `doctorResult`). This makes a
   support issue template — "paste `discern doctor`" — a shared ground truth, and
   lets a consuming agent read the facts itself.

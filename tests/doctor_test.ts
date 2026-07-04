@@ -232,6 +232,14 @@ Deno.test("doctor: human output reports advisories separately from failures", as
     assertStringIncludes(stderr, "capabilities: none wired yet");
     assertStringIncludes(stderr, "git: ");
     assertStringIncludes(stderr, "All checks passed (see the advisory above).");
+    const modelAt = stderr.indexOf("Execution model");
+    const checksAt = stderr.indexOf("Doctor checks");
+    const firstCheckAt = stderr.indexOf("discern.toml: present and valid TOML");
+    const summaryAt = stderr.indexOf("All checks passed");
+    assert(modelAt >= 0, "doctor should render the execution model");
+    assert(checksAt > modelAt, "doctor checks should follow the model");
+    assert(firstCheckAt > checksAt, "checks should render under their heading");
+    assert(summaryAt > firstCheckAt, "the summary should close the output");
   });
 });
 
@@ -652,7 +660,7 @@ Deno.test("doctor: human output hides step hints by default and points to --verb
     const { code, stderr } = await runCli(["doctor"], dir);
     assertEquals(code, 0);
     // Step lines are present; their explanatory hints are not — the default render stays
-    // a scannable sequence so the checks above it aren't buried under a long scroll.
+    // a scannable sequence before the actionable checks close the output.
     assertStringIncludes(stderr, "[discern] merge-check");
     assert(
       !stderr.includes("A built-in git mutation"),

@@ -664,7 +664,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
 
 /** Load the typed config for the execution model, or `undefined` when none can be
  * read (a missing or invalid discern.toml). The model is omitted in that case — the
- * failing checks above are the actionable report; a model derived from defaults would
+ * failing checks are the actionable report; a model derived from defaults would
  * only add noise to a broken install. */
 async function loadModelConfig(
   destDir: string,
@@ -807,6 +807,26 @@ function renderExecutionModel(
   }
 }
 
+/** Render the actionable install checks for the human (non-`--json`) path. */
+function renderDoctorChecks(log: Logger, checks: Check[]): void {
+  log.heading("Doctor checks");
+  for (const check of checks) {
+    if (check.status === "warn") {
+      log.warn(`${check.name}: ${check.detail}`);
+      if (check.fix) {
+        log.detail(`fix: ${check.fix}`);
+      }
+    } else if (check.status === "ok") {
+      log.ok(`${check.name}: ${check.detail}`);
+    } else {
+      log.error(`${check.name}: ${check.detail}`);
+      if (check.fix) {
+        log.detail(`fix: ${check.fix}`);
+      }
+    }
+  }
+}
+
 /** Run `discern doctor`. Returns a process exit code (0 = healthy). */
 export async function runDoctor(options: DoctorOptions): Promise<number> {
   const log = new Logger(options);
@@ -827,21 +847,11 @@ export async function runDoctor(options: DoctorOptions): Promise<number> {
       env.git !== undefined ? gitDisplayVersion(env.git) : "not found"
     }`,
   );
-  for (const check of checks) {
-    if (check.status === "warn") {
-      log.warn(`${check.name}: ${check.detail}`);
-      if (check.fix) {
-        log.detail(`fix: ${check.fix}`);
-      }
-    } else if (check.status === "ok") {
-      log.ok(`${check.name}: ${check.detail}`);
-    } else {
-      log.error(`${check.name}: ${check.detail}`);
-      if (check.fix) {
-        log.detail(`fix: ${check.fix}`);
-      }
-    }
+  const cfg = await loadModelConfig(destDir);
+  if (cfg !== undefined) {
+    renderExecutionModel(log, buildExecutionModel(cfg), options.verbose);
   }
+  renderDoctorChecks(log, checks);
   log.line();
   if (healthy) {
     const advisories = checks.filter((c) => c.status === "warn").length;
@@ -855,10 +865,6 @@ export async function runDoctor(options: DoctorOptions): Promise<number> {
     log.error(
       `${failed} check${failed === 1 ? "" : "s"} failed — see the fixes above.`,
     );
-  }
-  const cfg = await loadModelConfig(destDir);
-  if (cfg !== undefined) {
-    renderExecutionModel(log, buildExecutionModel(cfg), options.verbose);
   }
   return healthy ? 0 : 1;
 }
