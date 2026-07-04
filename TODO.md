@@ -64,61 +64,14 @@ _Nothing outstanding._
       `docs/_adr/_superseded/0091-rescue-generated-content-before-overwrite.md`;
       `src/engine/guidelines.ts`; `src/lib/skills.ts`.
 
-- [ ] **The v3→v4 config migration leaves stale comment blocks behind.** It is
-      comment-preserving, so it rewrites the tables (`[slots]`→`[capabilities]`/
-      `[checks]`, `[scopes]` arrays→tables, drops `[evidence]`) but can leave
-      the explanatory comment blocks that describe the _retired_ structure — the
-      big `[slots]`/`phase` header, the `[ratchets]` "slot" references, and the
-      `[evidence]` header. The output is valid TOML but messy enough that a
-      migrated install may need a hand-tidy to match the v4 template's layout.
-      The later `5 → 6` mirror issue (new `[features]`/`[guidance]`/`[skills]`
-      sections appended comment-less at EOF) has been fixed by inserting
-      template-backed documented sections; this item is now only about the
-      `3 → 4` stale deleted-section comments. Consider dropping a deleted
-      section's leading comment block, or re-emitting the template comments for
-      the sections the step rewrites. Evidence: `src/lib/migrations.ts` (the
-      `from: 3` step); target layout is `templates/discern.toml.tmpl`.
-
-- [ ] **The 5→6 migration doesn't relocate a `.discern/`-pointed
-      `gotchas_doc`.** If `[project].gotchas_doc` pointed inside
-      `.discern/guidelines/`, that file is concatenated into `guidance.md` and
-      `.discern/` is deleted, leaving `gotchas_doc` dangling (and merging a
-      distinct doc into general guidance). `doctor` now _flags_ a dangling
-      `gotchas_doc`, but the migration should relocate it (or keep it
-      standalone) rather than rely on the user noticing. The common case
-      (`gotchas_doc` under `docs/`, or empty) is unaffected. Evidence:
-      `src/lib/migrations.ts` (`from: 5`); `src/commands/doctor.ts` (the new
-      "gotchas doc" check surfaces it).
-
 - [ ] **`setup`/`upgrade` `--json` report `ok:true` when agent-guidance
       compilation failed.** The primary operation (scaffold / migrate + stamp)
       did succeed and the failure IS surfaced in a sub-field (`compiled:[]` /
       `guidelines_compiled:false`), and guidance is regenerable via
-      `discern
-      refresh` — so this is defensible, not a clear bug. But a
-      consumer keying on top-level `ok` won't learn the agent files didn't
-      compile. Decide whether `ok` should reflect a secondary-artifact failure,
-      and apply it consistently across the installer verbs. Evidence:
-      `src/commands/setup.ts` (~306, ~319); `src/commands/upgrade.ts` (~209).
-
-- [ ] **The gate's `fix` stage rewrites uncommitted work with no snapshot.**
-      Pre-existing dirty files are excluded from ADR 0047's strand detection by
-      design (D1∖D0), so a misconfigured or buggy `[capabilities].format`
-      command run by `discern prepare`/`finish` can rewrite a user's uncommitted
-      changes with no backup and no warning. Benign for the common formatters;
-      the risk is the open-ended command table. Design question —
-      stash-before-fix, a dirty-tree warning, or a diff preview — deferred from
-      the launch-readiness review (finding C15) pending a decision. Evidence:
-      `src/engine/gate/fix_drift.ts` (the deliberate D0 exclusion);
-      [ADR 0047](docs/_adr/0047-fix-stage-strand-detection.md).
-
-- [ ] **`skills` `targetExists` treats an unreadable symlink target as
-      missing.** A bare `catch {}` conflates "absent" with "couldn't stat", so a
-      symlink whose target is merely unreadable (e.g. EACCES) could be pruned
-      during materialize. Self-healing (the symlink is recreated on the next
-      `discern refresh`), hence low severity, but the stat error should be
-      distinguished from a genuine absence. Evidence: `src/lib/skills.ts`
-      (`targetExists` ~151).
+      `discern refresh` — so this is defensible, not a clear bug. But a consumer
+      keying on top-level `ok` won't learn the agent files didn't compile.
+      Decide whether `ok` should reflect a secondary-artifact failure, and apply
+      it consistently across all verbs, not just the installer.
 
 - [ ] **Tier-1 diagnostics: declared text formats (the `[diagnostics.<name>]`
       regex slice).** `finish` normalizes a failed tool's output into structured
@@ -146,16 +99,6 @@ _Nothing outstanding._
       too. Evidence: `src/engine/worktree/lifecycle.ts` (parallel
       `log.info`/`done()`); `src/shared/result.ts` (`renderPlan`).
 
-- [ ] **Human-output polish (cosmetic).** (a) A SARIF-emitting check dumps its
-      raw JSON to the human stream before the parsed Failures block — humans pay
-      for both the raw and located views. (b) No `FORCE_COLOR` override: colour
-      is gated on `Deno.stdout.isTerminal()` only, so piped human output is
-      always plain. (c) A single failure is reported three times (the stream
-      banner, the Failures block, and the `✗ The <stage> stage failed.` die
-      line). Evidence: `src/engine/jobs/runner.ts`; `src/engine/output.ts`
-      (`colorEnabled`); `src/engine/gate/finish.ts` (`renderFailures` +
-      `failMessage`).
-
 ## 🟢 Test & tooling hygiene
 
 - [ ] **Scaffold the CI gate workflow once releases are public.** The docs now
@@ -170,48 +113,23 @@ outstanding._
 
 ## ⚪ Explorations / ideas (unscheduled)
 
-- [ ] **`setup` is all-or-nothing; design a "feature opt-in" install (and handle
-      pre-existing docs).** Today `setup` scaffolds the whole harness — full
-      docs tree, all slots, all adapters — regardless of what the target repo
-      already has. The first real install (`passapp`, an established Laravel
-      app) surfaced a concrete gap: the repo already had its own `docs/` (loose
-      files `Stripe.md`, `Annuities.md`, `Mathematics.md`, `Deployment.md`,
-      `Filament.md`, and `docs/AI/*`), and `discern setup` built a _parallel_
-      numbered tree beside them — declaring `docs/README.md` the "canonical
-      source of truth" while never acknowledging or folding in the existing
-      docs. Several overlap directly with the new subtrees it created
-      (`Stripe.md` ↔ `60-billing`, `docs/AI/` ↔ `40-ai`,
-      `Mathematics.md`/`Annuities.md` ↔ `30-questions`, `Deployment.md` ↔
-      `80-development`, `Filament.md` ↔ `70-admin`), leaving the developer with
-      two doc systems and no guidance on reconciling them. Tackle as part of a
-      broader opt-in model where a developer chooses which harness pieces to
-      install rather than getting everything — and where `discern setup` detect
-      pre-existing docs and either fold them into the tree or record them for
-      folding. **Partly addressed:** `discern setup` no longer lays the skeleton
-      tree when a `docs/` already exists
-      ([ADR 0024](docs/_adr/0024-setup-command-not-skill.md)), so it no longer
-      builds a _parallel_ tree — but acknowledging/folding pre-existing loose
-      docs and the opt-in install model remain. (Observed in the `passapp`
-      control case; that staging area will be discarded and re-run, so
-      re-confirm against a fresh run. Worth an ADR when designed.)
-
 - [ ] **Review the coupling advisory's judgment constants across diverse repos,
       then consider on-by-default.** `coupling` is zero-config, but its three
-      fixed constants — `LLR_CUTOFF` (6.63, p<0.01 significance),
-      `MIN_CONFIDENCE` (0.2, the relevance floor), and `MIN_COCHANGES` (2, the
-      fluke floor) — carry the product claim that the calibration generalizes
-      across repo cultures. They are principled and were validated against
-      _this_ repo's history, but deleting every knob also deleted any recourse
-      if a very different repo (a huge monorepo, or one with very different
-      commit habits) reads too noisy or too quiet. Experiment with these across
-      several repos of different size/age/commit-style; confirm the
-      genuine-vs-incidental boundary holds (or learn where it doesn't). Once
-      they are trusted, consider flipping `[coupling].in_gate` to default **on**
-      so the diff-aware nudge rides with `finish` out of the box. Also worth
-      weighing then: localising the mined window to the change-set files for
-      huge monorepos, and a formal multiple-testing correction (today bounded
-      only by the top-k output cap). Evidence: `src/engine/coupling/coupling.ts`
-      (the constants), `[coupling]` in `discern.toml`
+      fixed constants (`LLR_CUTOFF`, `MIN_CONFIDENCE`, and `MIN_COCHANGES`)
+      carry the product claim that the calibration generalizes across repo
+      cultures. They are principled and were validated against _this_ repo's
+      history as well as several other repos available at the time, but deleting
+      every knob also deleted any recourse if a very different repo (a huge
+      monorepo, or one with very different commit habits) reads too noisy or too
+      quiet. Experiment with these across several repos of different
+      size/age/commit-style; confirm the genuine-vs-incidental boundary holds
+      (or learn where it doesn't). Once they are trusted, consider flipping
+      `[coupling].in_gate` to default **on** so the diff-aware nudge rides with
+      `finish` out of the box. Also worth weighing then: localising the mined
+      window to the change-set files for huge monorepos, and a formal
+      multiple-testing correction (today bounded only by the top-k output cap).
+      Evidence: `src/engine/coupling/coupling.ts` (the constants), `[coupling]`
+      in `discern.toml`
       ([ADR 0084](docs/_adr/0084-co-change-coupling-advisory.md)).
 
 - [ ] **`discern improve` candidates + a `// discern-coupled-to:` declaration
@@ -221,88 +139,6 @@ outstanding._
       essential invariants. Nothing today bridges the two as a periodic,
       considered review — and nothing remembers which couplings a human has
       already judged, so any standing surface re-serves the same advice forever.
-      This item is the design for both halves. **Deferred — design only here; do
-      not implement without confirmation.**
-
-  - **`improve` candidates.** Extend `discern improve` (the subjective-review
-    surface — formerly `audit`,
-    [ADR 0079](docs/_adr/0079-improve-is-a-coach-not-an-audit.md)) with the
-    top-N strongest co-change pairs that are _not yet protected_ by a forcing
-    function — "candidates to lock with a parity test, or to deliberately
-    decouple." It is the discovery→enforcement bridge made a deliberate,
-    on-demand review item rather than a per-change nudge: the agent/human looks
-    at the strongest couplings periodically and _decides_, instead of being
-    prompted mid-change. Lands as a `review` (not a deterministic `rule`) —
-    discern surfaces the pair and its evidence and leaves the judgement to the
-    consumer (ADR 0063).
-
-  - **The re-advice problem, and the fix.** A standing candidate list with no
-    state re-serves the same pairs every run, including the ones already judged
-    — noise that trains the reader to ignore it. The fix is an inline,
-    stack-agnostic **declaration marker**, `// discern-coupled-to: <path>`,
-    which gives a coupling three states:
-    - **Discovered** — present only in the heuristic co-change graph. Always
-      advisory; what `coupling` surfaces today.
-    - **Declared** — a `// discern-coupled-to: B` comment on a line in file `A`:
-      the user/agent has _asserted_ the coupling is real. This (a) drops the
-      pair out of the discovered-candidate list, so `improve` **self-cleans**
-      and only genuinely-new pairs surface on later runs; and (b) becomes its
-      own _precise_ check — "you changed `A`, which declares it's coupled to
-      `B`, but `B` isn't in your change" — decidable **from the diff alone, in
-      any language, with no static analysis**. This is the key insight: a
-      declared coupling is the stack-agnostic forcing function discern otherwise
-      can't offer a non-TS repo (ADR 0051's parity tests need a test runner and
-      a canonical set; this needs only a grep over the diff).
-    - **Enforced** — a real ADR-0051 parity/architectural test, for the stacks
-      that can write one. The strongest, but TS/test-runner-bound.
-
-  - **Design notes (record so an implementer needs no further context):**
-    - **Directional, not symmetric.** `discern-coupled-to: B` on `A` asserts A→B
-      only; to bind both ways, add the reverse marker on `B`. (Mirrors the
-      directional co-change edges — `coupling` already reports A→B and B→A
-      separately.)
-    - **Needs a currency check.** A marker pointing at a path that no longer
-      exists is a silent decay, exactly the failure ADR 0053 guards. Reuse the
-      ADR-0053 comment-scanning machinery (`tests/comment_currency_test.ts`'s
-      extractor, which already skips string/template bodies and resolves path
-      references against the live tree) to fail the gate when a
-      `discern-coupled-to:` target is missing.
-    - **A separate ignore marker is YAGNI for now.** The "this strong co-change
-      is genuinely incidental — stop suggesting it" case would want its own
-      `// discern-coupling-ignore: <path>` marker (suppress the candidate
-      without asserting a checkable coupling). Don't build it until the
-      `improve` candidate list actually annoys — declaring the coupling already
-      removes it from the list, which covers the common case.
-    - **Inline comment, not config — deliberate.** Keeping the declaration in a
-      code comment (not a `discern.toml` key) preserves zero-_config_: it is
-      declarative _intent that travels with the code_, not a tuning knob, and it
-      sits beside the coupled line where a reader meets it. It matches discern's
-      existing inline-marker vocabulary (`# desc:` on a recipe,
-      `discern-allow-retrospective`), so it is not a new mechanism, just a new
-      marker.
-    - **A declared coupling _could_ justify optional gating** — it is asserted,
-      not guessed, so failing on it is defensible in a way a discovered nudge
-      never is — **but it must still default to advisory** to honour the
-      never-block discipline (ADR 0084); any blocking is opt-in, like
-      `[coupling].in_gate`.
-
-    Evidence: `src/engine/coupling/coupling.ts` (the discovered graph);
-    `src/engine/improve/rules.ts` (where a candidate `review` would land);
-    `tests/comment_currency_test.ts` (the marker-currency machinery to reuse);
-    [ADR 0084](docs/_adr/0084-co-change-coupling-advisory.md) (discovery) →
-    [ADR 0051](docs/_adr/0051-canonical-set-parity.md) (enforcement).
-
-- [ ] **Surface the per-verb execution model beyond `doctor`.** The execution
-      model (ADR 0063, `VerbPlan`) is only reachable by running `discern doctor`
-      and scrolling past the health checks. Make it independently addressable
-      (e.g. `doctor --section execution-model`, or expose via `help`/`status`)
-      and front-load `doctor`'s envelope with a crisp
-      `{ok, problems,
-      next_action}` verdict so a consumer can early-out.
-      Keep one envelope per verb (ADR 0028) — don't split `doctor` into several
-      commands. Evidence: `src/engine/doctor/execution_model.ts`,
-      `src/engine/doctor/doctor.ts`. (Deferred from onboarding triage — useful,
-      not urgent.)
 
 ## 📣 Marketing & positioning
 
@@ -366,8 +202,6 @@ _Product positioning, messaging, and launch/content tasks._
 _Small things Jack finds whilst reviewing code and documentation; cleaned up
 periodically in maintenance batches._
 
-- [ ] `base.md` guidance needs polishing: do this once MCP and guideline work is
-      concluded and wrapped up as a final pass.
 - [ ] Discern should make clear to end-users that the `docs` feature, and the
       documentation subtree procedures, are _conceptually distinct_ from any
       existing documentation the user has already set up in their project. The
@@ -383,6 +217,3 @@ periodically in maintenance batches._
       changes will be publicly visible to end-users, including future ADRs.
 - [ ] Conduct a general-purpose thorough "consistency review" - establish all
       aspects of the platform use the same conventions consistently everywhere.
-      Noteworthy inconsistencies currently (non-exhaustive list):
-      `discern <verb>` where <verb> is a single word, but `worktree prune` etc.
-      is two words; etc...
