@@ -43,7 +43,7 @@ shell call site routes through it.
   process group, tree-kill on cancellation, and live line-prefixed streaming —
   none expressible through a buffered `.output()`; and
 - the logger-routed setup runner (`engine/worktree/shell.ts`), which reserves
-  its parent's stdout for a machine result (the `worktree:create` hook's path)
+  its parent's stdout for a machine result (the `worktree create` hook's path)
   by draining the child's stdout onto stderr.
 
 Both still take the `:` no-op and `127` conventions from the shared module, so

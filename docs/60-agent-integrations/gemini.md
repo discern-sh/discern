@@ -47,7 +47,7 @@ the session-start hook:
         "hooks": [
           {
             "type": "command",
-            "command": "discern worktree:ensure"
+            "command": "discern worktree ensure"
           }
         ]
       }

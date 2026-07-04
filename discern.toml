@@ -48,7 +48,7 @@ gotchas_doc = "docs/80-development/finish-gate-gotchas.md"
 # ─────────────────────────────────────────────────────────────────────────────
 
 [features]
-worktrees = true   # the isolated git-worktree workflow (worktree / worktree:* verbs)
+worktrees = true   # the isolated git-worktree workflow (worktree command group)
 ratchets  = true   # never-loosen metric floors (the `ratchets` verb)
 guidance  = true   # compile agent files from built-in + your sources
 skills    = true   # bundled + authored skills, materialized into .claude/skills/
@@ -195,7 +195,7 @@ enabled = true
 inherit_env = []   # e.g. ["APP_KEY", "OPENAI_API_KEY"]
 
 # Give each worktree a deterministic dev-server port (hashed from its id) so
-# concurrent worktrees never collide. Read it with `discern worktree-name --port`.
+# concurrent worktrees never collide. Read it with `discern identity --port`.
 # This is derived IDENTITY, not a resource — it provisions nothing.
 port = true
 
@@ -222,7 +222,7 @@ ignored_file_drift = true
 # reclaim it). Resources are CREATED top-to-bottom and DESTROYED bottom-to-top.
 # Commands run via `sh -c` after @…@ token expansion; an empty command is a clean
 # no-op. A worktree that vanishes without a clean teardown has its resources
-# reclaimed by `discern worktree:prune` (the GC safety net) — so author `create` AND
+# reclaimed by `discern worktree prune` (the GC safety net) — so author `create` AND
 # `destroy` idempotent (`create` is skipped for an already-provisioned resource;
 # `destroy` may re-run via prune) and cwd-independent (prune runs `destroy` from the
 # main checkout: use @…@ handles or absolute paths, not relative ones).
@@ -235,7 +235,7 @@ ignored_file_drift = true
 #   @port@          the deterministic dev-server port
 #   @project_slug@  your project slug
 #   @dir@           this worktree's root
-# Read a handle back from a recipe with `discern worktree-name --resource <name>`
+# Read a handle back from a recipe with `discern identity --resource <name>`
 # (also exported into the worktree's .env as DISCERN_RESOURCE_<NAME>).
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -253,7 +253,7 @@ ignored_file_drift = true
 # Any other isolated resource — an emulator, a queue, a bucket, a namespace.
 # [worktree.resources.example]
 # create   = "make-thing @resource@"
-# destroy  = "destroy-thing @resource@"   # idempotent: may re-run via worktree:prune
+# destroy  = "destroy-thing @resource@"   # idempotent: may re-run via worktree prune
 # ensure   = "ensure-thing @resource@"   # optional: reconcile drift at session start
 # required = true                          # optional: false = create failure is non-fatal
 # retries  = 0                             # optional: retry create/destroy N times
@@ -405,13 +405,13 @@ in_gate = true
 # `# desc: ...` line into the directory below and it becomes a first-class
 # `discern <name>` command, listed by `discern --help` under "Project recipes". This
 # directory is yours: `discern upgrade` never writes or refreshes anything here. A name
-# that collides with a built-in engine recipe (finish, worktree:*, …) is ignored
+# that collides with a built-in engine recipe (finish, worktree setup, …) is ignored
 # with a warning — the engine always wins, so a project file can never redefine
 # the core gate. A recipe is a standalone executable in any language: `discern`
 # exec's it with the DISCERN_* environment exported (DISCERN_ROOT, DISCERN_RECIPES,
 # MAIN_BRANCH, …) and your args forwarded. A recipe is self-contained: it reads
 # config by calling the binary (`discern config get <key>`) and resolves worktree
-# identity with `discern worktree-name --db|--site|--port|--resource <name>`.
+# identity with `discern identity --db|--site|--port|--resource <name>`.
 # ─────────────────────────────────────────────────────────────────────────────
 
 [recipes]

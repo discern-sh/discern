@@ -34,7 +34,7 @@ Everything else — stdout-carries-only-JSON, human mode unchanged, the
 
 ## Context
 
-`init` and `doctor` already speak `--json`; `agent finish` did not. But finish
+`setup` and `doctor` already speak `--json`; `agent finish` did not. But finish
 is the recipe an agent-driven workflow most wants to consume — it is the gate
 that says "is this work done?". Without machine-readable output, an agent has to
 scrape human text and the exit code, which conflates _what failed_ into a single
@@ -122,5 +122,5 @@ all human output to stderr.
   per-slot pass/fail isn't known without changing the execution model. Per-phase
   is the honest unit.
 - **Emit JSON to a file instead of stdout.** Rejected: stdout with human output
-  on stderr is the conventional, composable contract (matches `init`/`doctor`),
+  on stderr is the conventional, composable contract (matches `setup`/`doctor`),
   and needs no path coordination.

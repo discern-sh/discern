@@ -17,7 +17,7 @@ export const KIT_VERSION: string = denoJson.version;
  * (ADR 0014). Distinct from `KIT_VERSION` on purpose: `KIT_VERSION` is the
  * package's semver for display, while this is a plain monotonic integer that
  * bumps *only* when an installed project needs a migration to stay correct.
- * `init` stamps the current value into the config (`[meta].schema_version`);
+ * `setup` stamps the current value into the config (`[meta].schema_version`);
  * `upgrade` reads the recorded value, brings the install forward, and re-stamps.
  * Most releases need no migration and leave this untouched.
  *
@@ -31,9 +31,8 @@ export const KIT_VERSION: string = denoJson.version;
  * schema-5→6 **dissolves `.discern/`** into the single-file
  * footprint — config to a root `discern.toml`, guidance/recipes/authored-skills
  * moved out, bundled skills pruned, `[features]`/`[guidance]`/`[skills]` sections
- * added (ADR 0020); schema-6→7 turns bootstrap from a materialized skill into the
- * `discern bootstrap` command — it prunes the stale `.claude/skills/bootstrap/`
- * copy and back-fills `[meta].bootstrapped = true` for an already-configured
+ * added (ADR 0020); schema-6→7 moves one-time setup instructions out of a materialized skill into the
+ * `discern setup` command — it prunes the stale legacy materialized setup-skill copy and back-fills `[meta].bootstrapped = true` for an already-configured
  * install so the new setup reminder never nags it (ADR 0024); schema-7 to 8
  * generalizes the hard-coded `[worktree.db]`/`[worktree.dev_server]` adapters into
  * the generic `[worktree.resources.<name>]` seam — it carries non-empty

@@ -7,12 +7,12 @@
  * `src/main.ts`, with a `discern` shim on PATH so a project recipe or hook that
  * calls `discern <verb>` resolves the same command a real install would. It reuses
  * the installer's own `assembleInitPlan`/`applyPlan` to lay down a faithful install
- * (so the engine runs exactly the bytes a real `discern init` would write), then
+ * (so the engine runs exactly the bytes a real `discern setup` would write), then
  * drives the verbs through the dispatcher. The suite is the engine's black-box
  * behavioral parity oracle.
  *
  * Tests that exercise scope/scope-gate/ratchet behaviour need a git repo so
- * `changed-scopes` can answer; `gitInit` makes a hermetic one (its own config,
+ * `scopes` can answer; `gitInit` makes a hermetic one (its own config,
  * no signing, a `main` branch) so a developer's global git settings can't leak
  * in. `writeConfig` overwrites the scaffolded `.discern/config.toml` (a seed file) with
  * test-specific capabilities/checks/scopes/ratchets.

@@ -19,7 +19,7 @@ Two gaps surfaced in real use:
    engine.
 
 2. **No garbage collection.** When a worktree vanishes WITHOUT a clean teardown
-   (hard kill, `rm -rf`, a crash), its external resource leaks. `worktree:prune`
+   (hard kill, `rm -rf`, a crash), its external resource leaks. `worktree prune`
    deliberately did **not** drop databases — it runs from the main checkout, and
    the drop command needs the worktree's identity, which was only resolvable
    from inside the (now-gone) worktree. Orphans accumulated, and a stale
@@ -46,7 +46,7 @@ stays derived identity (it provisions nothing), not a resource.
 resources, **namespaced by project** (the slug prefix, so two projects'
 worktrees on one host never collide), and shell-safe. It is exposed as the
 `@resource@` token (bound to the running resource), via
-`discern worktree-name --resource <name>`, and in the worktree's `.env` as
+`discern identity --resource <name>`, and in the worktree's `.env` as
 `DISCERN_RESOURCE_<NAME>` — all three yield the same value, so a project's own
 tooling (running later, in a separate process) can address its OWN resource
 instead of guessing from a shared global pool. The existing
@@ -76,7 +76,7 @@ isn't `gc =
 false`. The frozen, fully-expanded destroy command is run (identity
 can't be re-derived once the worktree is gone); a command that still carries an
 `@token@` is refused rather than half-run. Deletion is compare-and-swap.
-`worktree:prune
+`worktree prune
 --dry-run` reports what would be reclaimed without acting.
 
 **Explicit *no*s.** GC never enumerates external resources directly (it only
@@ -97,7 +97,7 @@ dual config shape forever.
 - **The motivating case is now expressible** with no engine change: a project
   wires a per-worktree emulator/container as `[worktree.resources.<name>]` and
   discovers its handle at runtime.
-- **Orphans are reclaimed.** `worktree:prune` now GCs orphaned resources —
+- **Orphans are reclaimed.** `worktree prune` now GCs orphaned resources —
   including databases, which it used to skip. This is strictly safer than the
   old "DBs leak forever," but it does mean prune can run a destructive `dropdb`
   from the main checkout; the conservative guards, `gc = false` opt-out, and

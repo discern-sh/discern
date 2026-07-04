@@ -45,10 +45,10 @@ upgradable thereafter.
 
 It is **one self-contained binary** with two faces:
 
-- The **Installer** — the `discern setup` / `upgrade` / `doctor` / `migrate` /
-  `config` / `add-preset` verbs. They _scaffold_ a project, _refresh_ it, and
-  check it. This face is build-time work: it writes a project's files, then
-  steps out of the way.
+- The **Installer** — the `discern setup` / `upgrade` / `doctor` / `upgrade` /
+  `config` / `preset` verbs. They _scaffold_ a project, _refresh_ it, and check
+  it. This face is build-time work: it writes a project's files, then steps out
+  of the way.
 - The **Engine** — the stack-neutral logic behind `discern finish` / `prepare` /
   `improve` / `worktree` / … . It is **TypeScript compiled into the binary**
   ([`src/engine/`](../../src/engine/), sharing
@@ -59,8 +59,8 @@ Both faces are the same `discern` command on `PATH`; an installed project
 carries no engine of its own and needs no Deno at runtime. The seed files, the
 built-in Skills, and the built-in guidance an install starts from are **bundled
 into the binary** (their source lives under [`templates/`](../../templates/))
-and written out by `setup`/`upgrade` — there is no committed copy of the harness
-to keep in sync. The whole discern footprint in a project is **one root file,
+and written out by `setup` — there is no committed copy of the harness to keep
+in sync. The whole discern footprint in a project is **one root file,
 `discern.toml`** ([ADR 0020](../_adr/0020-dissolve-discern-dir.md)); everything
 else you keep lives at open, config-pointed paths you choose.
 
@@ -155,9 +155,9 @@ verbs:
   it surveys the whole fleet of Worktrees in flight. It rounds out the trio with
   `discern doctor` (_is it correctly installed?_) and `discern improve` (_what
   should get better next?_).
-- `discern worktree` carves an isolated **Worktree** (and branch) for a change,
-  so the main checkout is never touched. Each Worktree gets its own dev-server
-  port and any per-worktree **resources** (a database, an emulator, …) a project
+- `discern start` carves an isolated **Worktree** (and branch) for a change, so
+  the main checkout is never touched. Each Worktree gets its own dev-server port
+  and any per-worktree **resources** (a database, an emulator, …) a project
   declares through the **Worktree settings** — none until wired.
 - `discern prepare` is the fast inner loop: the fix-stage Capabilities, then the
   check-stage ones.

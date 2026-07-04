@@ -4,7 +4,7 @@
     "sessionStart": [
       {
         "type": "command",
-        "bash": "discern worktree:ensure",
+        "bash": "discern worktree ensure",
         "timeoutSec": 30
       }
     ]

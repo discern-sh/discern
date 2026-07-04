@@ -1,5 +1,5 @@
 /**
- * `changed-scopes`: classify which scopes the branch + working tree touch, so the
+ * `scopes`: classify which scopes the branch + working tree touch, so the
  * gate fires only the scope gates whose scope actually changed (and decides the
  * preview line).
  *
@@ -11,7 +11,7 @@
 
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import type { DiscernResult } from "../../shared/result.ts";
-import type { ChangedScopesData } from "../../shared/result_schemas.ts";
+import type { ScopesData } from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import { pathMatchesPattern } from "./glob.ts";
@@ -28,7 +28,7 @@ import { expandDocsDirReference } from "../../shared/docs_path.ts";
  */
 export const SCOPE_MARKERS = ["code", "previewable"] as const;
 
-/** One derived changed-scopes marker ({@link SCOPE_MARKERS}). */
+/** One derived scopes marker ({@link SCOPE_MARKERS}). */
 export type ScopeMarker = (typeof SCOPE_MARKERS)[number];
 
 /** Named accessors for the markers — positional, so they never re-list the literals. */
@@ -123,7 +123,7 @@ function resolvedScopePaths(
  * Whether `path` is a NEUTRAL path — one a change to needs no gate, and that must
  * not register as evidence: it matches a `neutral`-flagged scope (docs, agent
  * guidance, generated/materialized artifacts), or it is a root-level `*.md`. The
- * single definition of "neutral path", shared by {@link changedScopes} (which drops
+ * single definition of "neutral path", shared by {@link scopes} (which drops
  * these before classifying) and the co-change miner (which drops them before
  * building baskets, so `AGENTS.md`, `dist/`, lockfiles, and materialized skills
  * never create coupling edges).
@@ -143,7 +143,7 @@ export function isNeutralPath(config: DiscernConfig, path: string): boolean {
 
 /**
  * The fire-scopes an explicit list of changed paths touches, in declaration order —
- * the scope-matching half of {@link changedScopes}, factored out so any verb that
+ * the scope-matching half of {@link scopes}, factored out so any verb that
  * already has a path list in hand (integrate's incoming files) classifies it through
  * the SAME matcher rather than a parallel copy. It answers only "which gated scopes
  * do these paths fall in?"; neutral scopes and the derived markers are not its
@@ -178,7 +178,7 @@ export function scopesForPaths(
  * `code` marker, the `previewable` marker, then the firing scopes that matched
  * (in declaration order). Pass a pre-loaded config to avoid re-parsing.
  */
-export async function changedScopes(
+export async function classifyScopes(
   root: string,
   cfg?: DiscernConfig,
 ): Promise<string[]> {
@@ -212,49 +212,49 @@ export async function changedScopes(
   return out;
 }
 
-/** Options for the `changed-scopes` subcommand surface. */
-export interface ChangedScopesOptions {
+/** Options for the `scopes` subcommand surface. */
+export interface ScopesOptions {
   json?: boolean;
   /** Exit-status-only membership test for a single scope/marker name. */
   has?: string;
 }
 
-/** The `changed-scopes` envelope for a classified scope list — the one shape both
+/** The `scopes` envelope for a classified scope list — the one shape both
  * the CLI `--json` and the MCP tool render. */
-function changedScopesEnvelope(
+function scopesEnvelope(
   scopes: string[],
-): DiscernResult<ChangedScopesData> {
+): DiscernResult<ScopesData> {
   return {
     ok: true,
-    verb: "changed-scopes",
-    data: { scopes } satisfies ChangedScopesData,
+    verb: "scopes",
+    data: { scopes } satisfies ScopesData,
   };
 }
 
 /**
- * Compute the `changed-scopes` {@link DiscernResult} without printing — the entry
+ * Compute the `scopes` {@link DiscernResult} without printing — the entry
  * point the MCP server renders, and the source the CLI's `--json` serializes.
  */
-export async function changedScopesResult(
+export async function scopesResult(
   root: string,
-): Promise<DiscernResult<ChangedScopesData>> {
-  return changedScopesEnvelope(await changedScopes(root));
+): Promise<DiscernResult<ScopesData>> {
+  return scopesEnvelope(await classifyScopes(root));
 }
 
 /**
- * The `changed-scopes` subcommand: print the scopes (one per line), a JSON array
+ * The `scopes` subcommand: print the scopes (one per line), a JSON array
  * (`--json`), or test membership silently (`--has <name>` → exit 0/1).
  */
-export async function runChangedScopes(
+export async function runScopes(
   root: string,
-  opts: ChangedScopesOptions,
+  opts: ScopesOptions,
 ): Promise<number> {
-  const scopes = await changedScopes(root);
+  const scopes = await classifyScopes(root);
   if (opts.has !== undefined) {
     return scopes.includes(opts.has) ? 0 : 1;
   }
   if (opts.json) {
-    emitResult(changedScopesEnvelope(scopes));
+    emitResult(scopesEnvelope(scopes));
     return 0;
   }
   for (const s of scopes) {

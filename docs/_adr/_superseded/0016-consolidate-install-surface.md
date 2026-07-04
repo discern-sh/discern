@@ -10,11 +10,11 @@ introduced is dissolved into a single root `discern.toml`).
 
 ## Context
 
-`discern init` into a fresh project scaffolded **66 files across eight top-level
-entries**: `bin/`, `docs/`, `TODO.md`, `discern.toml`, `.ai/`, `.claude/`,
-`.discern/`, and `.gitignore`. The raw count is not the problem — `.git/` is
-thousands of files behind one entry and nobody minds. The problem is **spread**
-and **premature seeding**:
+`discern setup` into a fresh project scaffolded **66 files across eight
+top-level entries**: `bin/`, `docs/`, `TODO.md`, `discern.toml`, `.ai/`,
+`.claude/`, `.discern/`, and `.gitignore`. The raw count is not the problem —
+`.git/` is thousands of files behind one entry and nobody minds. The problem is
+**spread** and **premature seeding**:
 
 - **Machinery leaked out of its namespace.** The dispatcher lived at `bin/agent`
   (colliding with projects that have their own `bin/`, and easy for an agent to
@@ -22,11 +22,11 @@ and **premature seeding**:
   and author-once guidance/skills lived under a second top-level dotdir `.ai/`.
   A developer adding the harness saw several new top-level entries they did not
   create.
-- **We documented a system that did not exist yet.** `init` laid down a 15-file
+- **We documented a system that did not exist yet.** `setup` laid down a 15-file
   `docs/` skeleton and a `TODO.md`, almost entirely
-  `<!-- /bootstrap fills
-  this -->` placeholders, on day one — before there was
-  anything to document.
+  `<!-- discern setup fills
+  this -->` placeholders, on day one — before there
+  was anything to document.
 - **The config carried the kit's brand into the project root.** `discern.toml`
   sat at the top level of every consumer.
 
@@ -45,17 +45,18 @@ defer the developer-space artifacts until they have real content.
    **`.discern/config.toml`**; guidance to **`.discern/guidelines/`**; skills to
    **`.discern/skills/`**. The `.ai/` directory is gone. The "is this a discern
    project?" root marker is now `.discern/config.toml` (with a legacy fallback
-   to `discern.toml`, see point 4). After `init`, a plain `ls` shows nothing new
-   but `agent` and the `.discern/` namespace.
+   to `discern.toml`, see point 4). After `setup`, a plain `ls` shows nothing
+   new but `agent` and the `.discern/` namespace.
 
-2. **Lazy docs and TODO.** `init` scaffolds **no `docs/` tree and no
+2. **Lazy docs and TODO.** `setup` scaffolds **no `docs/` tree and no
    `TODO.md`**. The doc/ADR/TODO skeletons ship inside the skills that consume
    them, under `.discern/skills/<skill>/skel/`, and are created on demand:
-   `/bootstrap` materialises the orientation + `80-development` tree and
+   `discern setup` materialises the orientation + `80-development` tree and
    `TODO.md`; `write-adr` creates `docs/_adr/`; `document-subsystem` creates
    `docs/_internal/`. The docs/ADR/backlog _discipline_ is unchanged — it is
    delivered by the skills, not by empty scaffolding. `[project].gotchas_doc`
-   defaults to empty and `/bootstrap` sets it when it creates the gotchas doc.
+   defaults to empty and `discern setup` sets it when it creates the gotchas
+   doc.
 
 3. **`bin/` is eliminated, not relocated behind a symlink.** The daily command
    is the literal `agent` at the repo root.
@@ -68,11 +69,11 @@ defer the developer-space artifacts until they have real content.
    `.ai/skills` → `.discern/skills`, repoints the `.claude` worktree hooks at
    `./agent`, and best-effort repoints the neutral-scope globs. The migration is
    **idempotent** (each rename no-ops once its source is gone, so a re-run — or
-   an install already in the new layout — passes through cleanly).
-   `upgrade`/`migrate` detect the config at either the new or the legacy path so
-   a pre-migration install is still recognised and carried forward; the
-   migration runner's config-editing context resolves the same way. This repo is
-   migrated by running its own step.
+   an install already in the new layout — passes through cleanly). `upgrade`
+   detect the config at either the new or the legacy path so a pre-migration
+   install is still recognised and carried forward; the migration runner's
+   config-editing context resolves the same way. This repo is migrated by
+   running its own step.
 
 ## Consequences
 
@@ -87,7 +88,7 @@ defer the developer-space artifacts until they have real content.
   unit test exercises the transform directly. This is the same gate-enforced
   discipline as `selfcheck`.
 - **The legacy `discern.toml` path is now a recognised input** to `upgrade`/
-  `migrate` (and the migration context). This is a small, permanent piece of
+  `upgrade` (and the migration context). This is a small, permanent piece of
   backward-tolerance; it is the seam that makes the migration reachable.
 - This amends — does not supersede —
   [ADR 0008](0008-declarative-managed-set.md): the managed set in `managed.json`
@@ -111,7 +112,7 @@ defer the developer-space artifacts until they have real content.
   a clean root: the config is edited rarely after bootstrap, and keeping it in
   the namespace makes the marker, the engine, the guidance, and the skills one
   coherent door.
-- **Keep scaffolding the docs tree at `init` as a forcing function.** Rejected:
+- **Keep scaffolding the docs tree at `setup` as a forcing function.** Rejected:
   16 placeholder files on day one read as noise, and the discipline is already
   carried by the skills that author the content. Lazy creation puts a file on
   disk only when it has something real in it.

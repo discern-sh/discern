@@ -23,7 +23,7 @@ import {
   writeExecutable,
 } from "./engine_helpers.ts";
 import { fixDriftPaths } from "../src/engine/gate/fix_drift.ts";
-import { parsePorcelainPaths } from "../src/engine/scopes/changed.ts";
+import { parsePorcelainPaths } from "../src/engine/scopes/scopes.ts";
 
 // deno-lint-ignore no-explicit-any
 function parseJson(stdout: string): any {

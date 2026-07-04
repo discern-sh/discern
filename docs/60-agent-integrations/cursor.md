@@ -76,7 +76,7 @@ The seeded Cursor hook is:
   "hooks": {
     "sessionStart": [
       {
-        "command": "discern worktree:ensure"
+        "command": "discern worktree ensure"
       }
     ]
   }

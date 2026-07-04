@@ -1,7 +1,7 @@
 /**
  * Risk R1 parity: the TS worktree identity MUST reproduce the exact port/site/db/
  * branch/id values the shell engine produces. These vectors were captured from
- * `templates/.discern/engine/worktree-name` + system `cksum` (see the fixture's
+ * `templates/.discern/engine/identity` + system `cksum` (see the fixture's
  * `_provenance`). A drift here silently shifts every existing worktree's identity.
  *
  * Two layers are pinned: the POSIX `cksum` vectors (the hash the derivation rests
@@ -209,12 +209,12 @@ Deno.test("metadata ids colliding with the project slug get a wt- prefix", async
     await Deno.writeTextFile(join(dir, "README.md"), "scaffold\n");
     await gitInit(dir);
     for (
-      const [worktreeName, expected] of [
+      const [identity, expected] of [
         ["discern", "wt-discern"],
         ["discern42", "wt-discern42"],
       ] as const
     ) {
-      const worktree = await addWorktree(dir, worktreeName);
+      const worktree = await addWorktree(dir, identity);
       assertEquals(
         await resolveWorktreeId(settings, worktree, fakeEnv()),
         expected,

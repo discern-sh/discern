@@ -53,7 +53,7 @@ Cleanliness predicates are explicit about what they protect:
   disposable, not because status hides all untracked files.
 - Scope classification still includes untracked files, because it answers "which
   paths changed?" for the gate.
-- Gate receipts, graduation's worktree-clean precondition, and `worktree:prune`
+- Gate receipts, graduation's worktree-clean precondition, and `worktree prune`
   stay stricter, because they guard exact-tree validation or possible data loss.
 
 The explicit no: discern does not add a broad provider-local denylist. A

@@ -1,6 +1,6 @@
-# ADR 0005: Declarative config — a comment-preserving editor, `discern config`, and `init --config`
+# ADR 0005: Declarative config — a comment-preserving editor, `discern config`, and `setup --config`
 
-> **Current-state note.** `init --config` is retired — `init` redirects to
+> **Current-state note.** `setup --config` is retired — `setup` redirects to
 > `discern setup` ([ADR 0036](0036-unify-setup.md)). The comment-preserving
 > `TomlEditor`, the `discern config` surface, and the published JSON Schema all
 > still ship; the schema is now generated from one Zod definition
@@ -13,7 +13,7 @@ below.
 
 ## Update (1.0)
 
-The original decision below shipped the `init --config` shape as a type called
+The original decision below shipped the `setup --config` shape as a type called
 `InitAnswersFile` — an internal answers struct that `add-adapter` then quietly
 reused for `adapter.json`. Once two surfaces consumed it, it was a published API
 in all but name.
@@ -23,17 +23,17 @@ in all but name.
 name, an optional **`version`** (a document declaring a major this build doesn't
 understand is refused, not misread), an accepted **`$schema`** pointer, and a
 **published JSON Schema** at `schema/discern-config.schema.json` for editor
-validation. `init --config` and `adapter.json` (ADR 0007) are its two consumers.
-The `ratchets` field also drops the pre-1.0 `coverage_min` number shorthand (ADR
-0003): every ratchet is a table.
+validation. `setup --config` and `adapter.json` (ADR 0007) are its two
+consumers. The `ratchets` field also drops the pre-1.0 `coverage_min` number
+shorthand (ADR 0003): every ratchet is a table.
 
 ## Context
 
 discern exists to be driven by other tools: a wrapping scaffolder runs
-`discern init` and then layers its own stack-specific pieces on top. Today that
+`discern setup` and then layers its own stack-specific pieces on top. Today that
 layering means **hand-editing `discern.toml`** — there is no supported way to
 set slots, scopes, side-gates, or ratchets programmatically. Non-interactive
-`init` takes discrete flags (`--name`, `--slug`, `--source-globs`,
+`setup` takes discrete flags (`--name`, `--slug`, `--source-globs`,
 `--brief @file`, …) that cover only the `[project]` identity and the `web`
 scope; everything else a real project needs is left to the scaffolder to write
 into TOML itself.
@@ -92,11 +92,12 @@ the value type (numeric → number, `true`/`false` → bool, else string),
 overridable with `--number`/`--bool`/`--string`.
 
 Every subcommand honours `--json` (emitting `{ok, file, dry_run, edits:[…]}`)
-and `--dry-run` (report the edits, write nothing) — parity with `init`/`doctor`.
+and `--dry-run` (report the edits, write nothing) — parity with
+`setup`/`doctor`.
 
-### 3. `init --config <file>` (drive a fresh install declaratively)
+### 3. `setup --config <file>` (drive a fresh install declaratively)
 
-`init --config answers.json` (or `--config -` for stdin) reads a JSON answers
+`setup --config answers.json` (or `--config -` for stdin) reads a JSON answers
 file and scaffolds non-interactively. Base fields mirror the flags (`name`,
 `slug`, `branch_prefix`, `source_globs`, `brief`, `agents`); the value-add is
 `slots`, `scopes`, `side_gates`, and `ratchets`, which are applied to the
@@ -123,7 +124,7 @@ defaults.
 ## Consequences
 
 - A scaffolder or CI can drive discern end-to-end without owning any TOML
-  editing: `init --config` for a fresh, fully-specified install;
+  editing: `setup --config` for a fresh, fully-specified install;
   `discern config …` to adjust an existing one. This is the central win for the
   "consumed by another project" use case.
 - `discern.toml` stays legible: programmatic edits preserve its comments and
@@ -146,8 +147,8 @@ defaults.
 - **A full comment-preserving TOML AST library.** Overkill and a heavy
   dependency for the tiny, fixed subset the kit uses. A few-dozen-line surgical
   editor is proportionate and has no new dependency.
-- **Only `init --config`, no `config` subcommand (or vice-versa).** Rejected:
-  the two serve different moments — `init --config` specifies a fresh install,
+- **Only `setup --config`, no `config` subcommand (or vice-versa).** Rejected:
+  the two serve different moments — `setup --config` specifies a fresh install,
   `config` adjusts an existing one (the more common scaffolder need over time).
   They share the editor, so shipping both is cheap.
 - **A TOML answers-file instead of JSON.** Rejected: JSON is the unambiguous

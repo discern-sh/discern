@@ -21,7 +21,7 @@ function incoming(): unknown {
     hooks: {
       SessionStart: [
         {
-          hooks: [{ type: "command", command: "./agent worktree:ensure" }],
+          hooks: [{ type: "command", command: "./agent worktree ensure" }],
         },
       ],
     },
@@ -66,7 +66,7 @@ Deno.test("merge appends a genuinely new hook group for the same event", () => {
   assertExists(ourGroup);
   const ourHook = ourGroup.hooks[0];
   assertExists(ourHook);
-  assertEquals(ourHook.command, "./agent worktree:ensure");
+  assertEquals(ourHook.command, "./agent worktree ensure");
 });
 
 Deno.test("permissions.deny is unioned, not replaced", () => {
@@ -180,7 +180,7 @@ Deno.test("mergeJsonSettingsDedupingGroups: flat group-level command/bash hooks 
   // strategy collapses structurally-equal groups, so re-seeding is byte-stable.
   const cursor = JSON.stringify({
     version: 1,
-    hooks: { sessionStart: [{ command: "discern worktree:ensure" }] },
+    hooks: { sessionStart: [{ command: "discern worktree ensure" }] },
   });
   const once = mergeJsonSettingsDedupingGroups(undefined, cursor);
   const twice = mergeJsonSettingsDedupingGroups(once, cursor);
@@ -198,7 +198,7 @@ Deno.test("mergeJsonSettingsDedupingGroups: flat group-level command/bash hooks 
     hooks: {
       sessionStart: [{
         type: "command",
-        bash: "discern worktree:ensure",
+        bash: "discern worktree ensure",
         timeoutSec: 30,
       }],
     },
@@ -219,7 +219,7 @@ Deno.test("mergeJsonSettingsDedupingGroups: a user's distinct hook group is pres
   });
   const incoming = JSON.stringify({
     version: 1,
-    hooks: { sessionStart: [{ command: "discern worktree:ensure" }] },
+    hooks: { sessionStart: [{ command: "discern worktree ensure" }] },
   });
   const merged = JSON.parse(
     mergeJsonSettingsDedupingGroups(existing, incoming),
@@ -229,7 +229,7 @@ Deno.test("mergeJsonSettingsDedupingGroups: a user's distinct hook group is pres
   assertEquals(merged.hooks.sessionStart[0]?.command, "my-own-hook");
   assertEquals(
     merged.hooks.sessionStart[1]?.command,
-    "discern worktree:ensure",
+    "discern worktree ensure",
   );
 });
 

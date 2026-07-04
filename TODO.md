@@ -78,12 +78,12 @@ _Nothing outstanding._
       `5 → 6` step (ADR 0020) has the mirror issue: it appends the new
       `[features]`/`[guidance]`/`[skills]` sections comment-less at EOF (and in
       reverse key order). Net effect: a migrating user lands on a barer,
-      comment- stripped config than a fresh `init` produces — the two onboarding
-      paths diverge. The clean fix is to re-render `discern.toml` from the
-      commented template, preserving the user's values, rather than line-editing
-      in place. Consider also dropping a deleted section's leading comment
-      block. Evidence: `src/lib/migrations.ts` (the `from: 3` and `from: 5`
-      steps); target layout is `templates/discern.toml.tmpl`.
+      comment- stripped config than a fresh `setup` produces — the two
+      onboarding paths diverge. The clean fix is to re-render `discern.toml`
+      from the commented template, preserving the user's values, rather than
+      line-editing in place. Consider also dropping a deleted section's leading
+      comment block. Evidence: `src/lib/migrations.ts` (the `from: 3` and
+      `from: 5` steps); target layout is `templates/discern.toml.tmpl`.
 
 - [ ] **The 5→6 migration doesn't relocate a `.discern/`-pointed
       `gotchas_doc`.** If `[project].gotchas_doc` pointed inside
@@ -96,7 +96,7 @@ _Nothing outstanding._
       `src/lib/migrations.ts` (`from: 5`); `src/commands/doctor.ts` (the new
       "gotchas doc" check surfaces it).
 
-- [ ] **`worktree:prune` apply re-scans instead of consuming its plan (footgun,
+- [ ] **`worktree prune` apply re-scans instead of consuming its plan (footgun,
       gate-guarded).** `pruneGitWorktrees`/`sweepOrphanWorktrees` still take a
       `dryRun` flag whose two return paths must stay in lock-step (the original
       catastrophe was the dry path returning empty lists). Both now return their
@@ -112,7 +112,7 @@ _Nothing outstanding._
       `sweepOrphanWorktrees` ~920); `src/engine/worktree/lifecycle.ts`
       (`worktreePrune`, `buildPrunePlan`).
 
-- [ ] **`worktree:prune --dry-run` no longer mentions stale-metadata pruning.**
+- [ ] **`worktree prune --dry-run` no longer mentions stale-metadata pruning.**
       The pre-plan dry-run narrated "Would also prune N stale metadata entries";
       the plan-based dry-run drops it (it isn't a candidate in `PruneResult`,
       and the apply's trailing `git worktree prune` cleans it regardless). Non-
@@ -123,7 +123,7 @@ _Nothing outstanding._
       the `dryRun` return ~832); `src/engine/worktree/plan.ts`
       (`prunePlanToEngine`).
 
-- [ ] **`init`/`upgrade` `--json` report `ok:true` when agent-guidance
+- [ ] **`setup`/`upgrade` `--json` report `ok:true` when agent-guidance
       compilation failed.** The primary operation (scaffold / migrate + stamp)
       did succeed and the failure IS surfaced in a sub-field (`compiled:[]` /
       `guidelines_compiled:false`), and guidance is regenerable via
@@ -132,7 +132,7 @@ _Nothing outstanding._
       consumer keying on top-level `ok` won't learn the agent files didn't
       compile. Decide whether `ok` should reflect a secondary-artifact failure,
       and apply it consistently across the installer verbs. Evidence:
-      `src/commands/init.ts` (~306, ~319); `src/commands/upgrade.ts` (~209).
+      `src/commands/setup.ts` (~306, ~319); `src/commands/upgrade.ts` (~209).
 
 - [ ] **The gate's `fix` stage rewrites uncommitted work with no snapshot.**
       Pre-existing dirty files are excluded from ADR 0047's strand detection by
@@ -171,16 +171,15 @@ _Nothing outstanding._
       (`buildGateResult` calls it).
 
 - [ ] **`discern mcp` could expose more read/run verbs.** Wired so far:
-      `finish`, `prepare`, `test`, `doctor`, `changed_scopes`, `audit`, `docs`,
-      and `graduate` (the last two feature-gated) — each backed by a
+      `finish`, `prepare`, `test`, `doctor`, `scopes`, `audit`, `docs`, and
+      `graduate` (the last two feature-gated) — each backed by a
       result-returning core
       (`finishResult`/`prepareResult`/`testResult`/`doctorResult`/`docsResult`/
       `graduateResult`/…). `ratchets` is the obvious next candidate (extract a
-      `ratchetsResult` core first). The `worktree`/`worktree:*` lifecycle verbs
-      are deliberately NOT exposed: they are driven by the
-      worktree-create/session hooks, and an agent must not hop between or
-      `prune` the worktree it is sitting in. Evidence:
-      `src/engine/mcp/server.ts` (`TOOLS`).
+      `ratchetsResult` core first). The `worktree` lifecycle verbs are
+      deliberately NOT exposed: they are driven by the worktree-create/session
+      hooks, and an agent must not hop between or `prune` the worktree it is
+      sitting in. Evidence: `src/engine/mcp/server.ts` (`TOOLS`).
 
 - [ ] **A `discern start` verb to launch a worktree from the main checkout.** An
       agent invoked on `main` (not in a worktree) has no affordance to spin up
@@ -194,8 +193,8 @@ _Nothing outstanding._
       one worktree, so a `discern_start` tool would have to return the new
       worktree's path and tell the agent to re-root there, not silently
       relocate. Distinct from — and complementary to — the
-      deliberately-unexposed `worktree:*` lifecycle verbs above: this _creates_
-      a worktree to inhabit; it never hops into or prunes an existing one.
+      deliberately-unexposed `worktree` lifecycle verbs above: this _creates_ a
+      worktree to inhabit; it never hops into or prunes an existing one.
       Follow-up, after the MCP server expansion.
 
 - [ ] **Tier-2 diagnostics: populate `fix_available`.** The `Diagnostic` field
@@ -254,31 +253,30 @@ outstanding._
 
 ## ⚪ Explorations / ideas (unscheduled)
 
-- [ ] **`init` is all-or-nothing; design a "feature opt-in" install (and handle
-      pre-existing docs).** Today `init` scaffolds the whole harness — full docs
-      tree, all slots, all adapters — regardless of what the target repo already
-      has. The first real install (`passapp`, an established Laravel app)
-      surfaced a concrete gap: the repo already had its own `docs/` (loose files
-      `Stripe.md`, `Annuities.md`, `Mathematics.md`, `Deployment.md`,
-      `Filament.md`, and `docs/AI/*`), and `discern bootstrap` built a
-      _parallel_ numbered tree beside them — declaring `docs/README.md` the
-      "canonical source of truth" while never acknowledging or folding in the
-      existing docs. Several overlap directly with the new subtrees it created
+- [ ] **`setup` is all-or-nothing; design a "feature opt-in" install (and handle
+      pre-existing docs).** Today `setup` scaffolds the whole harness — full
+      docs tree, all slots, all adapters — regardless of what the target repo
+      already has. The first real install (`passapp`, an established Laravel
+      app) surfaced a concrete gap: the repo already had its own `docs/` (loose
+      files `Stripe.md`, `Annuities.md`, `Mathematics.md`, `Deployment.md`,
+      `Filament.md`, and `docs/AI/*`), and `discern setup` built a _parallel_
+      numbered tree beside them — declaring `docs/README.md` the "canonical
+      source of truth" while never acknowledging or folding in the existing
+      docs. Several overlap directly with the new subtrees it created
       (`Stripe.md` ↔ `60-billing`, `docs/AI/` ↔ `40-ai`,
       `Mathematics.md`/`Annuities.md` ↔ `30-questions`, `Deployment.md` ↔
       `80-development`, `Filament.md` ↔ `70-admin`), leaving the developer with
       two doc systems and no guidance on reconciling them. Tackle as part of a
       broader opt-in model where a developer chooses which harness pieces to
-      install rather than getting everything — and where
-      `init`/`discern
-      bootstrap` detect pre-existing docs and either fold
-      them into the tree or record them for folding. **Partly addressed:**
-      `discern bootstrap` no longer lays the skeleton tree when a `docs/`
-      already exists ([ADR 0024](docs/_adr/0024-bootstrap-as-command.md)), so it
-      no longer builds a _parallel_ tree — but acknowledging/folding
-      pre-existing loose docs and the opt-in install model remain. (Observed in
-      the `passapp` control case; that staging area will be discarded and
-      re-run, so re-confirm against a fresh run. Worth an ADR when designed.)
+      install rather than getting everything — and where `discern setup` detect
+      pre-existing docs and either fold them into the tree or record them for
+      folding. **Partly addressed:** `discern setup` no longer lays the skeleton
+      tree when a `docs/` already exists
+      ([ADR 0024](docs/_adr/0024-setup-command-not-skill.md)), so it no longer
+      builds a _parallel_ tree — but acknowledging/folding pre-existing loose
+      docs and the opt-in install model remain. (Observed in the `passapp`
+      control case; that staging area will be discarded and re-run, so
+      re-confirm against a fresh run. Worth an ADR when designed.)
 
 - [ ] **Review the coupling advisory's judgment constants across diverse repos,
       then consider on-by-default.** `coupling` is zero-config, but its three
@@ -469,5 +467,5 @@ periodically in maintenance batches._
 - [ ] Conduct a general-purpose thorough "consistency review" - establish all
       aspects of the platform use the same conventions consistently everywhere.
       Noteworthy inconsistencies currently (non-exhaustive list):
-      `discern <verb>` where <verb> is a single word, but `worktree:prune` etc.
+      `discern <verb>` where <verb> is a single word, but `worktree prune` etc.
       is two words; etc...

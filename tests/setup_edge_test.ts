@@ -1,6 +1,6 @@
 /**
  * `setup` error / edge branches not exercised by the happy-path suites
- * (`cli_test.ts`, `init_config_test.ts`). Each existing
+ * (`cli_test.ts`, `setup_config_test.ts`). Each existing
  * error test asserts the `--json` surface; these pin the *human* (non-JSON)
  * reporting branches that print to stderr instead, plus the templates-not-found
  * guard and the fills-over-a-skipped-seed early return. Run as subprocesses via
@@ -105,13 +105,13 @@ Deno.test("setup reports a missing --config file to stderr without --json", asyn
   });
 });
 
-// --- invalid fills from assembleInitPlan, human branch ---
+// --- invalid fills from assembleSetupPlan, human branch ---
 
 Deno.test("setup reports invalid --config fills to stderr without --json", async () => {
   await withTempDir(async (dir) => {
     // A document that parses and is the right version, but carries an invalid
     // fill (bad check stage) — so loadConfigDoc succeeds and the error surfaces
-    // later, inside assembleInitPlan via applyConfigDoc.
+    // later, inside assembleSetupPlan via applyConfigDoc.
     await Deno.writeTextFile(
       join(dir, "answers.json"),
       JSON.stringify({
@@ -149,7 +149,7 @@ Deno.test("setup --force --config leaves an existing discern.toml untouched (fil
     // The fresh seed carries no capability fills.
     assert(!before.includes('test = "vitest run"'));
 
-    // Re-init with --force AND a --config that *would* fill capabilities. Because
+    // Re-run setup with --force AND a --config that *would* fill capabilities. Because
     // discern.toml is a seed already present, its plan op is `skip`, so
     // applyFillsToPlan returns early and never applies the fills — the seed is
     // left exactly as the user's.

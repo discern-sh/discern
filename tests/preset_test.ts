@@ -2,7 +2,7 @@
  * Tests for the preset contract (ADR 0007, ADR 0018), exercised end-to-end
  * against a FAKE example preset fixture (a toy "stack" under
  * tests/fixtures/presets/example/ — not a real ecosystem, not shipped).
- * `add-preset` overlays the preset's files AND applies its preset.json config
+ * `preset` overlays the preset's files AND applies its preset.json config
  * fills to discern.toml.
  */
 
@@ -30,23 +30,23 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
-Deno.test("add-preset overlays the example preset's files and config fills", async () => {
+Deno.test("preset overlays the example preset's files and config fills", async () => {
   await withTempDir(async (dir) => {
     assertEquals(
-      (await runCli(["init", "--confirmed", "--yes", "--slug", "demo"], dir))
+      (await runCli(["setup", "--confirmed", "--yes", "--slug", "demo"], dir))
         .code,
       0,
     );
 
     const r = await runCli(
-      ["add-preset", "example", "--yes", "--json"],
+      ["preset", "example", "--yes", "--json"],
       dir,
       PRESET_ENV,
     );
     assertEquals(r.code, 0, r.stderr);
     const result = JSON.parse(r.stdout);
     assertEquals(result.ok, true);
-    assertEquals(result.verb, "add-preset");
+    assertEquals(result.verb, "preset");
     assertEquals(result.data.config_fills, true);
 
     // Files overlaid: a seed recipe, a seed guideline fragment, a managed skill.
@@ -77,22 +77,22 @@ Deno.test("add-preset overlays the example preset's files and config fills", asy
   });
 });
 
-Deno.test("add-preset: the overlaid project recipe is runnable via agent", async () => {
+Deno.test("preset: the overlaid project recipe is runnable via agent", async () => {
   await withTempDir(async (dir) => {
-    await runCli(["init", "--confirmed", "--yes", "--slug", "demo"], dir);
-    await runCli(["add-preset", "example", "--yes"], dir, PRESET_ENV);
+    await runCli(["setup", "--confirmed", "--yes", "--slug", "demo"], dir);
+    await runCli(["preset", "example", "--yes"], dir, PRESET_ENV);
     const r = await runAgent(dir, ["example-deploy"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "example deploy ran");
   });
 });
 
-Deno.test("add-preset --dry-run writes nothing (files or fills)", async () => {
+Deno.test("preset --dry-run writes nothing (files or fills)", async () => {
   await withTempDir(async (dir) => {
-    await runCli(["init", "--confirmed", "--yes", "--slug", "demo"], dir);
+    await runCli(["setup", "--confirmed", "--yes", "--slug", "demo"], dir);
     const before = await Deno.readTextFile(join(dir, "discern.toml"));
     const r = await runCli(
-      ["add-preset", "example", "--yes", "--dry-run", "--json"],
+      ["preset", "example", "--yes", "--dry-run", "--json"],
       dir,
       PRESET_ENV,
     );
@@ -106,11 +106,11 @@ Deno.test("add-preset --dry-run writes nothing (files or fills)", async () => {
   });
 });
 
-Deno.test("add-preset still reports unknown presets with the fixtures dir set", async () => {
+Deno.test("preset still reports unknown presets with the fixtures dir set", async () => {
   await withTempDir(async (dir) => {
-    await runCli(["init", "--confirmed", "--yes", "--slug", "demo"], dir);
+    await runCli(["setup", "--confirmed", "--yes", "--slug", "demo"], dir);
     const r = await runCli(
-      ["add-preset", "nope", "--json"],
+      ["preset", "nope", "--json"],
       dir,
       PRESET_ENV,
     );
@@ -141,11 +141,11 @@ async function stagePreset(
   return { env: { DISCERN_PRESETS_DIR: presetsRoot }, presetsRoot };
 }
 
-Deno.test("add-preset reports not_initialized when there is no discern.toml (--json)", async () => {
+Deno.test("preset reports not_initialized when there is no discern.toml (--json)", async () => {
   await withTempDir(async (dir) => {
-    // No `init` here — the dir has no discern.toml.
+    // No `setup` here — the dir has no discern.toml.
     const r = await runCli(
-      ["add-preset", "example", "--yes", "--json"],
+      ["preset", "example", "--yes", "--json"],
       dir,
       PRESET_ENV,
     );
@@ -157,10 +157,10 @@ Deno.test("add-preset reports not_initialized when there is no discern.toml (--j
   });
 });
 
-Deno.test("add-preset reports not_initialized as plain text without --json", async () => {
+Deno.test("preset reports not_initialized as plain text without --json", async () => {
   await withTempDir(async (dir) => {
     const r = await runCli(
-      ["add-preset", "example", "--yes"],
+      ["preset", "example", "--yes"],
       dir,
       PRESET_ENV,
     );
@@ -169,10 +169,10 @@ Deno.test("add-preset reports not_initialized as plain text without --json", asy
   });
 });
 
-Deno.test("add-preset reports an unknown preset as plain text (no --json)", async () => {
+Deno.test("preset reports an unknown preset as plain text (no --json)", async () => {
   await withTempDir(async (dir) => {
-    await runCli(["init", "--confirmed", "--yes", "--slug", "demo"], dir);
-    const r = await runCli(["add-preset", "nope"], dir, PRESET_ENV);
+    await runCli(["setup", "--confirmed", "--yes", "--slug", "demo"], dir);
+    const r = await runCli(["preset", "nope"], dir, PRESET_ENV);
     assertEquals(r.code, 1);
     // The non-JSON branch logs the message to stderr; the example fixture is
     // listed as available.
@@ -181,12 +181,12 @@ Deno.test("add-preset reports an unknown preset as plain text (no --json)", asyn
   });
 });
 
-Deno.test("add-preset with no presets dir reports 'ships no presets yet'", async () => {
+Deno.test("preset with no presets dir reports 'ships no presets yet'", async () => {
   await withTempDir(async (dir) => {
-    await runCli(["init", "--confirmed", "--yes", "--slug", "demo"], dir);
+    await runCli(["setup", "--confirmed", "--yes", "--slug", "demo"], dir);
     // No DISCERN_PRESETS_DIR and the repo bundles none, so the resolver walks
     // up, finds nothing, and the available list is empty.
-    const r = await runCli(["add-preset", "example", "--json"], dir);
+    const r = await runCli(["preset", "example", "--json"], dir);
     assertEquals(r.code, 1);
     const result = JSON.parse(r.stdout);
     assertEquals(result.error, "unknown_preset");
@@ -195,12 +195,12 @@ Deno.test("add-preset with no presets dir reports 'ships no presets yet'", async
   });
 });
 
-Deno.test("add-preset --dry-run prints the plan as plain text and writes nothing", async () => {
+Deno.test("preset --dry-run prints the plan as plain text and writes nothing", async () => {
   await withTempDir(async (dir) => {
-    await runCli(["init", "--confirmed", "--yes", "--slug", "demo"], dir);
+    await runCli(["setup", "--confirmed", "--yes", "--slug", "demo"], dir);
     const before = await Deno.readTextFile(join(dir, "discern.toml"));
     const r = await runCli(
-      ["add-preset", "example", "--yes", "--dry-run"],
+      ["preset", "example", "--yes", "--dry-run"],
       dir,
       PRESET_ENV,
     );
@@ -222,16 +222,16 @@ Deno.test("add-preset --dry-run prints the plan as plain text and writes nothing
   });
 });
 
-Deno.test("add-preset overlays a preset that has no preset.json (files only, no fills)", async () => {
+Deno.test("preset overlays a preset that has no preset.json (files only, no fills)", async () => {
   await withTempDir(async (dir) => {
-    await runCli(["init", "--confirmed", "--yes", "--slug", "demo"], dir);
+    await runCli(["setup", "--confirmed", "--yes", "--slug", "demo"], dir);
     const before = await Deno.readTextFile(join(dir, "discern.toml"));
     const { env } = await stagePreset(dir, "filesonly", {
       "recipes/filesonly": "# files only preset\n",
     });
 
     const r = await runCli(
-      ["add-preset", "filesonly", "--yes", "--json"],
+      ["preset", "filesonly", "--yes", "--json"],
       dir,
       env,
     );
@@ -249,9 +249,9 @@ Deno.test("add-preset overlays a preset that has no preset.json (files only, no 
   });
 });
 
-Deno.test("add-preset rejects a preset.json that is not a JSON object", async () => {
+Deno.test("preset rejects a preset.json that is not a JSON object", async () => {
   await withTempDir(async (dir) => {
-    await runCli(["init", "--confirmed", "--yes", "--slug", "demo"], dir);
+    await runCli(["setup", "--confirmed", "--yes", "--slug", "demo"], dir);
     const before = await Deno.readTextFile(join(dir, "discern.toml"));
     const { env } = await stagePreset(dir, "badjson", {
       "recipes/badjson": "# preset with a non-object manifest\n",
@@ -259,7 +259,7 @@ Deno.test("add-preset rejects a preset.json that is not a JSON object", async ()
     });
 
     const r = await runCli(
-      ["add-preset", "badjson", "--yes", "--json"],
+      ["preset", "badjson", "--yes", "--json"],
       dir,
       env,
     );
@@ -277,9 +277,9 @@ Deno.test("add-preset rejects a preset.json that is not a JSON object", async ()
   });
 });
 
-Deno.test("add-preset rejects invalid config fills as plain text", async () => {
+Deno.test("preset rejects invalid config fills as plain text", async () => {
   await withTempDir(async (dir) => {
-    await runCli(["init", "--confirmed", "--yes", "--slug", "demo"], dir);
+    await runCli(["setup", "--confirmed", "--yes", "--slug", "demo"], dir);
     const { env } = await stagePreset(dir, "badfills", {
       // A check with an unknown stage — applyConfigDoc throws on it.
       "preset.json": JSON.stringify({
@@ -288,7 +288,7 @@ Deno.test("add-preset rejects invalid config fills as plain text", async () => {
       }),
     });
 
-    const r = await runCli(["add-preset", "badfills", "--yes"], dir, env);
+    const r = await runCli(["preset", "badfills", "--yes"], dir, env);
     assertEquals(r.code, 1);
     // The non-JSON branch logs to stderr and names the offending preset.
     assertStringIncludes(
@@ -299,9 +299,9 @@ Deno.test("add-preset rejects invalid config fills as plain text", async () => {
   });
 });
 
-Deno.test("add-preset rejects a preset.json with an unsupported version", async () => {
+Deno.test("preset rejects a preset.json with an unsupported version", async () => {
   await withTempDir(async (dir) => {
-    await runCli(["init", "--confirmed", "--yes", "--slug", "demo"], dir);
+    await runCli(["setup", "--confirmed", "--yes", "--slug", "demo"], dir);
     const { env } = await stagePreset(dir, "futurever", {
       "preset.json": JSON.stringify({
         version: "3",
@@ -310,7 +310,7 @@ Deno.test("add-preset rejects a preset.json with an unsupported version", async 
     });
 
     const r = await runCli(
-      ["add-preset", "futurever", "--yes", "--json"],
+      ["preset", "futurever", "--yes", "--json"],
       dir,
       env,
     );
@@ -321,9 +321,9 @@ Deno.test("add-preset rejects a preset.json with an unsupported version", async 
   });
 });
 
-Deno.test("add-preset falls back to default agents when discern.toml omits them", async () => {
+Deno.test("preset falls back to default agents when discern.toml omits them", async () => {
   await withTempDir(async (dir) => {
-    await runCli(["init", "--confirmed", "--yes", "--slug", "demo"], dir);
+    await runCli(["setup", "--confirmed", "--yes", "--slug", "demo"], dir);
     // Strip the `agents = [...]` line so the command takes the DEFAULTS branch
     // when building its scaffold config.
     const original = await Deno.readTextFile(join(dir, "discern.toml"));
@@ -334,7 +334,7 @@ Deno.test("add-preset falls back to default agents when discern.toml omits them"
     await Deno.writeTextFile(join(dir, "discern.toml"), stripped);
 
     const r = await runCli(
-      ["add-preset", "example", "--yes", "--json"],
+      ["preset", "example", "--yes", "--json"],
       dir,
       PRESET_ENV,
     );

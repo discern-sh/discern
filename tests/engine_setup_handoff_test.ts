@@ -13,7 +13,7 @@
  *     JSON-consuming agent can't read ok:true / exit 0 as complete;
  *  3. `status` surfaces unfinished setup loudly in EVERY location (not the old
  *     main-only buried nudge) and goes silent once `[meta].bootstrapped` is set;
- *  4. the SessionStart `worktree:ensure` reminder fires while setup is unfinished;
+ *  4. the SessionStart `worktree ensure` reminder fires while setup is unfinished;
  *  5. the printed brief frames its close as stop-conditions, not a report.
  */
 
@@ -132,17 +132,17 @@ Deno.test("status surfaces unfinished setup from a worktree too, not just the ma
   });
 });
 
-Deno.test("worktree:ensure reminds on session start while setup is unfinished, then stops", async () => {
+Deno.test("worktree ensure reminds on session start while setup is unfinished, then stops", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
     await runAgent(dir, ["setup", "begin", "--confirmed"]);
 
-    const before = await runAgent(dir, ["worktree:ensure"]);
+    const before = await runAgent(dir, ["worktree", "ensure"]);
     assertEquals(before.code, 0, before.output);
     assertStringIncludes(before.stdout, "Setup is NOT finished");
 
     await runAgent(dir, ["setup", "done", "--force"]);
-    const after = await runAgent(dir, ["worktree:ensure"]);
+    const after = await runAgent(dir, ["worktree", "ensure"]);
     assertEquals(after.code, 0, after.output);
     assertEquals(
       after.output.includes("Setup is NOT finished"),

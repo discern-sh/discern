@@ -12,13 +12,13 @@ the provider registry of
 
 ## Context
 
-ADR 0036 collapsed init + bootstrap into one zero-config `discern setup`: the
-user installs the binary, tells their coding agent to "run discern," and a
-single command scaffolds the machinery, lays the doc skeletons, and prints the
-authoring brief. ADR 0037 made the unfinished state observable; ADR 0044 made
-the agent's conversation warm rather than gated; ADR 0065 made completion a
-proven gate. Each hardened the _single-shot_ shape: one command that **acts on
-first contact**.
+ADR 0036 collapsed setup into one zero-config `discern setup`: the user installs
+the binary, tells their coding agent to "run discern," and a single command
+scaffolds the machinery, lays the doc skeletons, and prints the authoring brief.
+ADR 0037 made the unfinished state observable; ADR 0044 made the agent's
+conversation warm rather than gated; ADR 0065 made completion a proven gate.
+Each hardened the _single-shot_ shape: one command that **acts on first
+contact**.
 
 Running that shape end-to-end with agents — and humans — that had never heard of
 discern surfaced a cluster of defects the hardening could not reach, because
@@ -68,15 +68,15 @@ lever.
 **`discern setup` becomes an explicit, mostly read-only state machine whose one
 hard invariant is that nothing is written until `begin`.** Four phases:
 
-1. **`discern setup` (and bare `discern`, pre-bootstrap) → welcome.** Read-only,
-   and **three-state**: _fresh_ (no config, in a git tree), _in progress_
-   (`begin` ran, `[meta].bootstrapped` still false), and _done_ (bootstrapped →
-   today's grouped help). Human output is **dual-addressed** — a Humans block
-   (what discern is, that it is safe, reversible, and touches nothing outside
-   this folder) and an Agents block (you drive setup; run
-   `discern setup
-   verify`). `--json` carries `phase` and `next_action` so a
-   JSON-consuming agent is funneled the same way.
+1. **`discern setup` (and bare `discern`, pre-setup) → welcome.** Read-only, and
+   **three-state**: _fresh_ (no config, in a git tree), _in progress_ (`begin`
+   ran, `[meta].bootstrapped` still false), and _done_ (bootstrapped → today's
+   grouped help). Human output is **dual-addressed** — a Humans block (what
+   discern is, that it is safe, reversible, and touches nothing outside this
+   folder) and an Agents block (you drive setup; run `discern setup
+   verify`).
+   `--json` carries `phase` and `next_action` so a JSON-consuming agent is
+   funneled the same way.
 
 2. **`discern setup verify` → preflight.** Read-only. It machine-checks the
    ground and produces the consent conversation **from facts about this repo**:
@@ -149,8 +149,8 @@ The explicit *no*s:
 
 - **`discern setup` keeps its declarative behaviour.** Given `--config` or the
   scaffold flags (the CI/preset path), `setup` proceeds as `begin`; only the
-  _bare_ invocation welcomes. The retired `init`/`bootstrap` aliases still
-  redirect (ADR 0036).
+  _bare_ invocation welcomes. The retired `setup`/`setup` aliases still redirect
+  (ADR 0036).
 
 - **The commands stay non-interactive.** Each prints and exits (ADR 0036/0044);
   the conversation — including the new consent checklist — is the _agent's_ to

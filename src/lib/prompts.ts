@@ -1,5 +1,5 @@
 /**
- * The `init` wizard: resolve a complete `InitConfig` from CLI flags and, when
+ * The `setup` wizard: resolve a complete `SetupConfig` from CLI flags and, when
  * interactive, from prompts. Every prompt has a flag equivalent so the whole
  * wizard is skippable for CI/agent runs (`--yes` + flags). Prompts are only
  * ever reached on a TTY with `--yes` absent.
@@ -9,11 +9,11 @@ import { Checkbox, Confirm, Input } from "@cliffy/prompt";
 import {
   type AgentName,
   DEFAULTS,
-  type InitConfig,
   isValidSlug,
   KNOWN_AGENTS,
   parseAgents,
   parseSourceGlobs,
+  type SetupConfig,
   SLUG_RULE,
   slugify,
 } from "./config.ts";
@@ -21,7 +21,7 @@ import { PROVIDERS } from "./providers.ts";
 import type { Logger } from "./log.ts";
 import { normalizeDocsDir } from "../shared/docs_path.ts";
 
-/** Raw flag values passed to `init` (all optional; undefined → ask/default). */
+/** Raw flag values passed to `setup` (all optional; undefined → ask/default). */
 export interface InitFlags {
   name?: string | undefined;
   slug?: string | undefined;
@@ -53,15 +53,15 @@ export function canPrompt(yes: boolean): boolean {
 }
 
 /**
- * Resolve the full `InitConfig`. In non-interactive mode every value comes from
+ * Resolve the full `SetupConfig`. In non-interactive mode every value comes from
  * a flag or its default; in interactive mode unset values are prompted, seeded
  * with those same defaults. Throws on an invalid `--slug` flag (no silent
  * coercion of an explicit choice).
  */
-export async function resolveInitConfig(
+export async function resolveSetupConfig(
   flags: InitFlags,
   log: Logger,
-): Promise<InitConfig> {
+): Promise<SetupConfig> {
   const interactive = canPrompt(flags.yes ?? false);
 
   // 1. Project name.

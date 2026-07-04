@@ -52,19 +52,19 @@ delete the committed-engine sync machinery with it.
 
 2. **`discern` is the one command; `agent` is dropped.** The former engine
    recipes are first-class `discern` subcommands (`finish`, `tidy`, `test`,
-   `ratchets`, `guidelines`, `worktree`/`worktree:*`, `worktree-name`,
-   `changed-scopes`). The root `agent` file is no longer scaffolded; worktree
-   hooks, docs, and compiled guidance repoint to `discern`.
+   `ratchets`, `guidelines`, the `worktree` command group, `identity`,
+   `scopes`). The root `agent` file is no longer scaffolded; worktree hooks,
+   docs, and compiled guidance repoint to `discern`.
 
 3. **"Managed files" retire.** With no committed engine to sync, there is no
    `manifest.json`, no content hashes, no `.new` preservation, no orphan
-   reconciliation, no drift detection. `init` lays down only _your_ seed files
+   reconciliation, no drift detection. `setup` lays down only _your_ seed files
    (config, guidelines stub, brief, recipes README, merged settings, gitignore).
    **Skills become materialized artifacts**: bundled in the binary, copied to
-   `.discern/skills/` by `init`/`upgrade` (always overwritten — they are the
-   binary's), **gitignored**, then symlinked into `.claude/skills/`. The
-   ownership model is now two buckets: _yours_ (committed seeds, write-once) and
-   _the binary's_ (gitignored, re-published artifacts — skills, compiled
+   `.discern/skills/` by `setup` (always overwritten — they are the binary's),
+   **gitignored**, then symlinked into `.claude/skills/`. The ownership model is
+   now two buckets: _yours_ (committed seeds, write-once) and _the binary's_
+   (gitignored, re-published artifacts — skills, compiled
    `CLAUDE.md`/`AGENTS.md`; the engine is the limit case, not even on disk).
 
 4. **Project recipes stay language-agnostic executables.** The binary discovers
@@ -113,7 +113,7 @@ dual-vocabulary renderer.
   prunes a pre-existing on-disk shell engine from an upgrading install.
 - **Config is held to strict TOML.** The runtime reader is now `@std/toml`,
   stricter than the retired `toml.awk`; a malformed config throws, surfaced by
-  `doctor`/`migrate` rather than read leniently. (Amends
+  `doctor` rather than read leniently. (Amends
   [ADR 0004](_superseded/0004-structured-finish-json.md) only in that
   `duration_s` stays an integer for output-compat.)
 - **One binary, one PATH command.** ~60–90 MB (V8 was always baked in), startup

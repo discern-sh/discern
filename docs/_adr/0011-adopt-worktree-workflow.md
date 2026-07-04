@@ -2,7 +2,7 @@
 
 > **Current-state note.** The worktree workflow is still how discern develops
 > itself, but the mechanics moved on: the hooks parse their payload inside the
-> binary rather than shelling out to `bin/agent worktree*`
+> binary rather than shelling out to `bin/agent worktree lifecycle helpers`
 > ([ADR 0040](0040-worktree-hooks-in-the-binary.md)), the `db`/`dev_server`
 > seams became per-worktree resources ([ADR 0025](0025-worktree-resources.md)),
 > placement is the configurable sibling default
@@ -43,7 +43,7 @@ by the harness hooks.
 - **No further configuration.** `[worktree] enabled = true` and the empty
   `db`/`dev_server` adapters stay as they are; a worktree round for this repo is
   the git-and-gate path only.
-- The `SessionStart` `worktree:ensure` hook and the
+- The `SessionStart` `worktree ensure` hook and the
   `WorktreeCreate`/`WorktreeRemove` hooks are now **load-bearing**, not dormant.
 
 ## Consequences
@@ -54,8 +54,8 @@ by the harness hooks.
   validation argument as ADR 0010.
 - The hooks are live, so a breakage in them now affects day-to-day development,
   not only downstream users. They stay deliberately thin (a few lines of POSIX
-  sh that shell out to `bin/agent worktree*`); the real logic lives in the
-  engine recipes, which the test suite covers hermetically.
+  sh that shell out to `bin/agent worktree lifecycle helpers`); the real logic
+  lives in the engine recipes, which the test suite covers hermetically.
 - `port = true` still derives a per-worktree port that nothing in this repo
   consumes (there is no dev-server). It is harmless and left on rather than
   carrying a special-case; a project that wires a dev-server adapter would want

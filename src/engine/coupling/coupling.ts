@@ -9,7 +9,7 @@
  *
  * Strictly ADVISORY (ADR 0084): it points at where to look and the human/agent decides
  * essential (lock it with a forcing-function — ADR 0051) or incidental (ignore). It
- * never blocks. Three modes, one verb (modelled on `changed-scopes`):
+ * never blocks. Three modes, one verb (modelled on `scopes`):
  *  - **diff-aware** (no path) — the current change set's partners that are MISSING from
  *    it (the primary surface, and what the gate appends when `[coupling].in_gate`);
  *  - **query** (`coupling <path>`) — one file's top co-change partners (its blast radius);
@@ -40,7 +40,7 @@ import type { CouplingData } from "../../shared/result_schemas.ts";
 import type { EnvReader } from "../../shared/env.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { runGit } from "../../shared/subprocess.ts";
-import { collectPaths, isNeutralPath } from "../scopes/changed.ts";
+import { collectPaths, isNeutralPath } from "../scopes/scopes.ts";
 import { colorEnabled, makeOut, type Out } from "../output.ts";
 
 /** How many recent non-merge commits to mine — a bounded window, the one resource

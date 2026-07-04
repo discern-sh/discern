@@ -49,7 +49,7 @@ export class Logger {
   /**
    * Which stream human (non-JSON) narration (info/ok/heading/detail) goes to:
    * `"stdout"` for an interactive verb, `"stderr"` when the parent reserves its
-   * stdout for a machine result (the `worktree:create` hook returns the worktree
+   * stdout for a machine result (the `worktree create` hook returns the worktree
    * path there). Project-supplied commands route independently of this — they are
    * captured and surfaced only on failure (`engine/worktree/shell.ts`), so a chatty
    * command never lands on either narration channel regardless of this setting.
@@ -137,7 +137,7 @@ export class Logger {
    * `console.log`. Suppressed in JSON mode.
    *
    * Corollary for a caller that reserves stdout for its OWN machine result — the
-   * `worktree:create` hook returns the worktree path there: it must NOT narrate via
+   * `worktree create` hook returns the worktree path there: it must NOT narrate via
    * `line()` on that path. It routes its setup commands' output to stderr (see
    * `engine/worktree/shell.ts`) and the hook test asserts stdout stays the path.
    */

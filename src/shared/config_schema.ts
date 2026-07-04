@@ -17,7 +17,7 @@
  * Two views share the same building blocks:
  *   - {@link configSchema} — the live `discern.toml` the engine validates.
  *   - {@link configDocSchema} — the declarative config *document* consumed by
- *     `init --config` and presets, a derived subset so it cannot diverge.
+ *     `setup --config` and presets, a derived subset so it cannot diverge.
  *
  * The inferred Zod types stay internal (re-exported as plain aliases); they never
  * surface in the package's exported API, so `no-slow-types` has nothing to chew.
@@ -226,7 +226,7 @@ const projectSection = z.strictObject({
 const featuresSection = z.strictObject(
   {
     worktrees: z.boolean().default(true).describe(
-      "The isolated git-worktree workflow (worktree / worktree:* verbs).",
+      "The isolated git-worktree workflow (worktree command group).",
     ),
     ratchets: z.boolean().default(true).describe(
       "Never-loosen metric floors (the `ratchets` verb).",
@@ -323,7 +323,7 @@ const resourceValue = z.strictObject({
     "Command run once at worktree setup (skipped when the resource is already provisioned). Author it idempotent and cwd-independent. An empty command is a clean no-op.",
   ),
   destroy: z.string().default("").describe(
-    "Command run once at teardown. Author it idempotent (it may re-run via worktree:prune) and cwd-independent.",
+    "Command run once at teardown. Author it idempotent (it may re-run via worktree prune) and cwd-independent.",
   ),
   ensure: z.string().default("").describe(
     "Optional: reconcile drift / re-readiness at session start.",
@@ -467,7 +467,7 @@ export type RatchetConfig = z.infer<typeof ratchetValue>;
 /** One `[worktree.resources.<name>]` entry, fully defaulted. */
 export type ResourceConfig = z.infer<typeof resourceValue>;
 
-// ── the declarative config *document* (init --config / presets) ────────────────
+// ── the declarative config *document* (setup --config / presets) ────────────────
 
 /**
  * The config-document major version this build understands. A document may omit
@@ -510,7 +510,7 @@ export const configDocSchema = z.strictObject({
     "Which agent integrations to enable: claude_code -> CLAUDE.md, gemini -> GEMINI.md, codex / cursor / copilot -> AGENTS.md.",
   ),
   description: z.string().optional().describe(
-    "Preset metadata, shown when listing presets; ignored by `init --config`.",
+    "Preset metadata, shown when listing presets; ignored by `setup --config`.",
   ),
   features: z.record(z.string(), z.boolean()).optional().describe(
     "[features] toggles — a feature name mapped to a boolean (default true).",

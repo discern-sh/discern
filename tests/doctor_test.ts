@@ -56,15 +56,15 @@ interface DoctorPayload {
 }
 
 /** Scaffold a healthy install in `dir`; assert it succeeded. */
-async function initInstall(dir: string, slug = "doc-demo"): Promise<void> {
+async function setupInstall(dir: string, slug = "doc-demo"): Promise<void> {
   const { code } = await runCli([
-    "init",
+    "setup",
     "--confirmed",
     "--yes",
     "--slug",
     slug,
   ], dir);
-  assertEquals(code, 0, "init should scaffold a healthy install");
+  assertEquals(code, 0, "setup should scaffold a healthy install");
 }
 
 /** Run `doctor --json` and return the parsed payload alongside the exit code. */
@@ -151,7 +151,7 @@ async function addCheck(
 
 Deno.test("doctor --json: a fresh install is fully healthy and exits 0", async () => {
   await withTempDir(async (dir) => {
-    await initInstall(dir);
+    await setupInstall(dir);
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 0);
     assertEquals(payload.ok, true);
@@ -177,7 +177,7 @@ Deno.test("doctor --json: a fresh install is fully healthy and exits 0", async (
 
 Deno.test("doctor: the features check names every feature when all are on", async () => {
   await withTempDir(async (dir) => {
-    await initInstall(dir);
+    await setupInstall(dir);
     const { payload } = await runDoctorJson(dir);
     // A fresh install has every feature on → the detail derives the full list from
     // the FEATURES SSOT, so each one (mcp included) must appear.
@@ -191,7 +191,7 @@ Deno.test("doctor: the features check names every feature when all are on", asyn
 
 Deno.test("doctor: the git check fails with a fix when git is unreachable", async () => {
   await withTempDir(async (dir) => {
-    await initInstall(dir);
+    await setupInstall(dir);
     // Point GIT_BIN at a name that does not resolve, so the git probe fails the
     // same way a machine with no git would — without touching the real PATH.
     const { code, stdout } = await runCli(["doctor", "--json"], dir, {
@@ -209,7 +209,7 @@ Deno.test("doctor: the git check fails with a fix when git is unreachable", asyn
 
 Deno.test("doctor: human (non-json) output reports a clean bill on stderr, exit 0", async () => {
   await withTempDir(async (dir) => {
-    await initInstall(dir);
+    await setupInstall(dir);
     const { code, stderr } = await runCli(["doctor"], dir);
     assertEquals(code, 0);
     assertStringIncludes(stderr, "discern doctor");
@@ -224,7 +224,7 @@ Deno.test("doctor: human (non-json) output reports a clean bill on stderr, exit 
 
 Deno.test("doctor: invalid (malformed) discern.toml is flagged with a syntax fix", async () => {
   await withTempDir(async (dir) => {
-    await initInstall(dir);
+    await setupInstall(dir);
     await Deno.writeTextFile(
       join(dir, "discern.toml"),
       'this is = not valid toml [[[\n"unterminated\n',
@@ -248,7 +248,7 @@ Deno.test("doctor: invalid (malformed) discern.toml is flagged with a syntax fix
 
 Deno.test("doctor: a missing config is flagged as not initialized", async () => {
   await withTempDir(async (dir) => {
-    // No `init` here — the dir has no discern.toml.
+    // No `setup` here — the dir has no discern.toml.
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 1);
     assertEquals(payload.ok, false);
@@ -261,7 +261,7 @@ Deno.test("doctor: a missing config is flagged as not initialized", async () => 
 
 Deno.test("doctor: a stale schema is flagged with an upgrade fix", async () => {
   await withTempDir(async (dir) => {
-    await initInstall(dir);
+    await setupInstall(dir);
     await setSchema(dir, 1);
 
     const { code, payload } = await runDoctorJson(dir);
@@ -276,7 +276,7 @@ Deno.test("doctor: a stale schema is flagged with an upgrade fix", async () => {
 
 Deno.test("doctor: human output for a stale schema prints the fix and a failure summary", async () => {
   await withTempDir(async (dir) => {
-    await initInstall(dir);
+    await setupInstall(dir);
     await setSchema(dir, 1);
 
     const { code, stderr } = await runCli(["doctor"], dir);
@@ -291,7 +291,7 @@ Deno.test("doctor: human output for a stale schema prints the fix and a failure 
 
 Deno.test("doctor: an unknown capability key is flagged with a rename fix", async () => {
   await withTempDir(async (dir) => {
-    await initInstall(dir);
+    await setupInstall(dir);
     // Inject a capability key outside the known vocabulary. Still valid TOML, so
     // the syntax check passes — but the schema check (the closed [capabilities]
     // vocabulary) flags it with the rename/move-to-[checks] guidance.
@@ -309,7 +309,7 @@ Deno.test("doctor: an unknown capability key is flagged with a rename fix", asyn
 
 Deno.test("doctor: a fresh install reports its wired capabilities", async () => {
   await withTempDir(async (dir) => {
-    await initInstall(dir);
+    await setupInstall(dir);
     // The default scaffold ships none wired; add a known one.
     await addCapability(dir, "test", "echo ok");
     const { payload } = await runDoctorJson(dir);
@@ -321,7 +321,7 @@ Deno.test("doctor: a fresh install reports its wired capabilities", async () => 
 
 Deno.test("doctor: a fresh install passes the recipe-contract check (no recipes seeded)", async () => {
   await withTempDir(async (dir) => {
-    await initInstall(dir);
+    await setupInstall(dir);
     // A fresh install seeds no recipes dir at all, so there is nothing sourcing
     // the retired shell library.
     const { code, payload } = await runDoctorJson(dir);
@@ -332,7 +332,7 @@ Deno.test("doctor: a fresh install passes the recipe-contract check (no recipes 
 
 Deno.test("doctor: a recipe sourcing the retired shell library is flagged with the new-contract fix", async () => {
   await withTempDir(async (dir) => {
-    await initInstall(dir);
+    await setupInstall(dir);
     // A recipe carried forward from a pre-binary install: it sources the engine
     // library that no longer exists, so it would break at runtime. (The default
     // [recipes].dir is ./recipes; a fresh install seeds no recipes dir.)
@@ -352,7 +352,7 @@ Deno.test("doctor: a recipe sourcing the retired shell library is flagged with t
 
 Deno.test("doctor: a fresh install confirms `sh` resolves on PATH", async () => {
   await withTempDir(async (dir) => {
-    await initInstall(dir);
+    await setupInstall(dir);
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 0);
     assertEquals(check(payload, "sh").ok, true);
@@ -361,7 +361,7 @@ Deno.test("doctor: a fresh install confirms `sh` resolves on PATH", async () => 
 
 Deno.test("doctor: a foreign worktree hook is an advisory warning, not a failure", async () => {
   await withTempDir(async (dir) => {
-    await initInstall(dir);
+    await setupInstall(dir);
     // Inject another tool's worktree automation alongside the harness's own hooks
     // (which call `discern`); the harness's stay, this one is foreign.
     const p = join(dir, ".claude/settings.json");
@@ -384,7 +384,7 @@ Deno.test("doctor: a foreign worktree hook is an advisory warning, not a failure
 
 Deno.test("doctor: reports the [features] toggle state and reflects a disabled feature", async () => {
   await withTempDir(async (dir) => {
-    await initInstall(dir);
+    await setupInstall(dir);
     const fresh = await runDoctorJson(dir);
     assertEquals(fresh.code, 0);
     const f = check(fresh.payload, "features");
@@ -408,7 +408,7 @@ Deno.test("doctor: reports the [features] toggle state and reflects a disabled f
 
 Deno.test("doctor: nudges a [checks.x] that mirrors a standard capability (advisory)", async () => {
   await withTempDir(async (dir) => {
-    await initInstall(dir);
+    await setupInstall(dir);
     // A standard capability wired as a check: name `lint` at its canonical stage.
     // `echo` resolves on PATH so the command check passes — isolating the nudge.
     await addCheck(dir, "lint", "check", "echo lint");
@@ -425,7 +425,7 @@ Deno.test("doctor: nudges a [checks.x] that mirrors a standard capability (advis
 
 Deno.test("doctor: does NOT nudge a custom-named check, or one at a non-canonical stage", async () => {
   await withTempDir(async (dir) => {
-    await initInstall(dir);
+    await setupInstall(dir);
     // `licenses` is not a capability name; `lint` at stage `test` is not lint's
     // canonical stage — neither is a misfiled capability.
     await addCheck(dir, "licenses", "check", "license-scan");
@@ -442,7 +442,7 @@ Deno.test("doctor: does NOT nudge a custom-named check, or one at a non-canonica
 
 Deno.test("doctor: does NOT nudge when the capability slot is already wired", async () => {
   await withTempDir(async (dir) => {
-    await initInstall(dir);
+    await setupInstall(dir);
     // [capabilities].lint is taken, so [checks.lint] can't move there — no nudge.
     await addCapability(dir, "lint", "eslint .");
     await addCheck(dir, "lint", "check", "stylelint .");
@@ -457,7 +457,7 @@ Deno.test("doctor: does NOT nudge when the capability slot is already wired", as
 
 Deno.test("doctor: flags a gotchas_doc that points at a missing file", async () => {
   await withTempDir(async (dir) => {
-    await initInstall(dir);
+    await setupInstall(dir);
     assertEquals(
       (await runCli(
         ["config", "set", "project.gotchas_doc", "docs/nope.md"],
@@ -476,7 +476,7 @@ Deno.test("doctor: flags a gotchas_doc that points at a missing file", async () 
 
 Deno.test("doctor: reports resolved guidance sources and authored skills when present", async () => {
   await withTempDir(async (dir) => {
-    await initInstall(dir);
+    await setupInstall(dir);
     // A guidance source + an authored skill exercise the "populated" branch of
     // both checks (a fresh install only hits the "none yet" branch).
     await Deno.writeTextFile(join(dir, "guidance.md"), "# project guidance\n");
@@ -492,7 +492,7 @@ Deno.test("doctor: reports resolved guidance sources and authored skills when pr
 
 Deno.test("doctor: surfaces per-agent integration coverage (MCP + hooks wired for all three)", async () => {
   await withTempDir(async (dir) => {
-    await initInstall(dir); // default agents: claude_code + codex
+    await setupInstall(dir); // default agents: claude_code + codex
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 0); // a registry-described divergence is healthy, just reported
 
@@ -526,7 +526,7 @@ Deno.test("doctor: surfaces per-agent integration coverage (MCP + hooks wired fo
 
 Deno.test("doctor: Cursor-only guidance report is backed by compiled AGENTS.md output", async () => {
   await withTempDir(async (dir) => {
-    await initInstall(dir);
+    await setupInstall(dir);
     await setAgents(dir, '["cursor"]');
 
     const { code, payload } = await runDoctorJson(dir);
@@ -546,7 +546,7 @@ Deno.test("doctor: Cursor-only guidance report is backed by compiled AGENTS.md o
 
 Deno.test("doctor: surfaces Gemini's one-time trust step and the bypass action", async () => {
   await withTempDir(async (dir) => {
-    await initInstall(dir);
+    await setupInstall(dir);
     // Configure Gemini so its per-agent coverage row appears, then re-run doctor.
     await setAgents(dir, '["gemini"]');
     const { payload } = await runDoctorJson(dir);
@@ -562,7 +562,7 @@ Deno.test("doctor: surfaces Gemini's one-time trust step and the bypass action",
 
 Deno.test("doctor --json: carries the execution model, each step marked project/discern with a hint", async () => {
   await withTempDir(async (dir) => {
-    await initInstall(dir);
+    await setupInstall(dir);
     await addCapability(dir, "lint", "echo lint"); // a real [project] gate command
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 0);
@@ -574,11 +574,11 @@ Deno.test("doctor --json: carries the execution model, each step marked project/
         "test",
         "ratchets",
         "start",
-        "worktree:ensure",
+        "worktree ensure",
         "integrate",
         "graduate (--to branch)",
         "graduate (--to trunk)",
-        "worktree:prune",
+        "worktree prune",
       ]
     ) {
       modelVerb(payload, v);
@@ -599,7 +599,7 @@ Deno.test("doctor --json: carries the execution model, each step marked project/
 
 Deno.test("doctor --json: a per-worktree resource shows its teardown step with the user's command", async () => {
   await withTempDir(async (dir) => {
-    await initInstall(dir);
+    await setupInstall(dir);
     await appendConfig(
       dir,
       '[worktree.resources.db]\ncreate = "createdb x"\ndestroy = "dropdb x"\n',
@@ -618,7 +618,7 @@ Deno.test("doctor --json: a per-worktree resource shows its teardown step with t
 
 Deno.test("doctor: human output prints the execution-model section on stderr", async () => {
   await withTempDir(async (dir) => {
-    await initInstall(dir);
+    await setupInstall(dir);
     // The human render goes to stderr like the rest of doctor's narration.
     const { code, stderr } = await runCli(["doctor"], dir);
     assertEquals(code, 0);
@@ -630,7 +630,7 @@ Deno.test("doctor: human output prints the execution-model section on stderr", a
 
 Deno.test("doctor: human output hides step hints by default and points to --verbose (top and foot)", async () => {
   await withTempDir(async (dir) => {
-    await initInstall(dir);
+    await setupInstall(dir);
     const { code, stderr } = await runCli(["doctor"], dir);
     assertEquals(code, 0);
     // Step lines are present; their explanatory hints are not — the default render stays
@@ -654,7 +654,7 @@ Deno.test("doctor: human output hides step hints by default and points to --verb
 
 Deno.test("doctor --verbose: shows every step's hint, undeduplicated, and drops the pointer", async () => {
   await withTempDir(async (dir) => {
-    await initInstall(dir);
+    await setupInstall(dir);
     const { code, stderr } = await runCli(["doctor", "--verbose"], dir);
     assertEquals(code, 0);
     // Hints are shown and never deduplicated: the git hint recurs on every git step
@@ -663,7 +663,7 @@ Deno.test("doctor --verbose: shows every step's hint, undeduplicated, and drops 
     const start = stderr.indexOf("graduate (--to trunk)");
     const section = stderr.slice(
       start,
-      stderr.indexOf("worktree:prune", start),
+      stderr.indexOf("worktree prune", start),
     );
     const gitHints = section.split("A built-in git mutation").length - 1;
     assert(

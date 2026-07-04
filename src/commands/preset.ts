@@ -1,13 +1,13 @@
 /**
- * `discern add-preset <name>` — overlay a preset from `presets/<name>/` onto
+ * `discern preset <name>` — overlay a preset from `presets/<name>/` onto
  * the current project (ADR 0007, ADR 0018).
  *
  * A preset is a **file overlay plus config fills**: every file in the preset dir
- * is scaffolded with the same token/merge/exec-bit machinery as `init`
+ * is scaffolded with the same token/merge/exec-bit machinery as `setup`
  * (the seed-scaffolding rules apply — create-or-skip, never overwrite a present
  * file), and an optional `preset.json` at its root —
  * metadata, never scaffolded — is a discern config document (the same shape
- * `init --config` reads) whose capabilities / checks / scopes / ratchets are
+ * `setup --config` reads) whose capabilities / checks / scopes / ratchets are
  * written into the project's `discern.toml` via the comment-preserving
  * editor. So a preset overlays both files (recipes, skills, guideline fragments,
  * docs) and config (capabilities, checks, scopes).
@@ -20,7 +20,7 @@ import { dirname, fromFileUrl, join } from "@std/path";
 import { Logger } from "../lib/log.ts";
 import { parseDiscernToml } from "../lib/toml_render.ts";
 import { resolveConfigPath } from "../lib/paths.ts";
-import { DEFAULTS, type InitConfig, tokensFromConfig } from "../lib/config.ts";
+import { DEFAULTS, type SetupConfig, tokensFromConfig } from "../lib/config.ts";
 import { applyPlan, buildPlan } from "../lib/fs_plan.ts";
 import { planToJson, renderPlan, renderReview } from "../lib/plan_view.ts";
 import { confirmProceed } from "../lib/prompts.ts";
@@ -38,7 +38,7 @@ const PRESET_MANIFEST = "preset.json";
  * Load a preset's `preset.json`, or undefined if absent. It is a discern config
  * document (its capabilities/checks/scopes/ratchets are the fills); a
  * `description` field, if present, is metadata only. Its `version`, if present,
- * is validated the same way `init --config` validates one.
+ * is validated the same way `setup --config` validates one.
  */
 async function loadPresetFills(
   presetDir: string,
@@ -66,8 +66,8 @@ function hasFills(fills: DiscernConfigDoc | undefined): boolean {
     !!(fills.capabilities || fills.checks || fills.scopes || fills.ratchets);
 }
 
-/** Options accepted by `add-preset`. */
-export interface AddPresetOptions {
+/** Options accepted by `preset`. */
+export interface PresetOptions {
   json: boolean;
   noColor: boolean;
   dryRun: boolean;
@@ -120,10 +120,10 @@ async function listPresets(
   return names.sort();
 }
 
-/** Run `discern add-preset <name>`. Returns a process exit code. */
-export async function runAddPreset(
+/** Run `discern preset <name>`. Returns a process exit code. */
+export async function runPreset(
   name: string,
-  options: AddPresetOptions,
+  options: PresetOptions,
 ): Promise<number> {
   const log = new Logger(options);
   const destDir = Deno.cwd();
@@ -142,7 +142,7 @@ export async function runAddPreset(
     if (options.json) {
       log.result({
         ok: false,
-        verb: "add-preset",
+        verb: "preset",
         error: "not_initialized",
         message,
       });
@@ -163,7 +163,7 @@ export async function runAddPreset(
     if (options.json) {
       log.result({
         ok: false,
-        verb: "add-preset",
+        verb: "preset",
         error: "unknown_preset",
         message,
         data: { available },
@@ -178,7 +178,7 @@ export async function runAddPreset(
   if (configPath === undefined) return 1;
 
   // A preset is scaffolded exactly like the base templates tree.
-  const config: InitConfig = {
+  const config: SetupConfig = {
     projectName: toml.project.slug ?? "app",
     slug: toml.project.slug ?? "app",
     branchPrefix: toml.project.branch_prefix ?? DEFAULTS.branchPrefix,
@@ -187,12 +187,12 @@ export async function runAddPreset(
     agents:
       (toml.project.agents && toml.project.agents.length > 0
         ? toml.project.agents
-        : [...DEFAULTS.agents]) as InitConfig["agents"],
+        : [...DEFAULTS.agents]) as SetupConfig["agents"],
   };
   const tokens = tokensFromConfig(config);
   // A preset's files overlay exactly like the base templates tree: every file is
   // a write-once seed (a changed preset file on re-apply is skipped as a present
-  // seed). Unlike `init`, a preset's `skills/`/`guidance/` ARE intended overlays,
+  // seed). Unlike `setup`, a preset's `skills/`/`guidance/` ARE intended overlays,
   // so they are scaffolded (excludeNonSeed defaults off).
   const plan = await buildPlan({ templatesDir: presetDir, destDir, tokens });
   // preset.json is metadata (config fills), not a scaffolded file.
@@ -218,7 +218,7 @@ export async function runAddPreset(
     if (options.json) {
       log.result({
         ok: false,
-        verb: "add-preset",
+        verb: "preset",
         error: "invalid_preset",
         message,
       });
@@ -232,7 +232,7 @@ export async function runAddPreset(
     if (options.json) {
       log.result({
         ok: true,
-        verb: "add-preset",
+        verb: "preset",
         dry_run: true,
         data: {
           preset: name,
@@ -268,7 +268,7 @@ export async function runAddPreset(
   if (options.json) {
     log.result({
       ok: true,
-      verb: "add-preset",
+      verb: "preset",
       data: {
         preset: name,
         written: changed.map((op) => op.targetRel),

@@ -22,7 +22,7 @@ the engine-always-wins shadow rule survives.
 ## Context
 
 `bin/agent` is the task-runner surface a coding agent drives: `agent finish`,
-`agent worktree:exit`, and more. It dispatches a verb to a file by mapping `:`
+`agent worktree exit`, and more. It dispatches a verb to a file by mapping `:`
 to `-` and running `.discern/engine/<recipe>`. Recipes are auto-discovered from
 the files on disk — drop one in and it works, no registry.
 
@@ -55,13 +55,13 @@ the engine, kept strictly separate from the managed engine.
   `bin/agent` with no config edit.
 - **Unmanaged.** `.discern/recipes/` matches no managed prefix
   (`.discern/engine/`, `.ai/skills/`, `bin/agent`), so it is never tracked,
-  refreshed, or `.new`-preserved by `init`/`upgrade`. It is the project's.
+  refreshed, or `.new`-preserved by `setup`/`upgrade`. It is the project's.
 - **Resolution precedence: the engine always wins.** `bin/agent` checks the
   engine first, then the project recipes dir. A project recipe whose name
   collides with a built-in engine recipe is **never run** — instead `bin/agent`
   prints a warning to stderr that the project recipe is shadowed and should be
-  renamed. The core commands (`finish`, `worktree:*`, …) can never be broken or
-  redefined by a project file.
+  renamed. The core commands (`finish`, `worktree command group`, …) can never
+  be broken or redefined by a project file.
 - **Discovery + help.** A project recipe carries a `# desc:` line, exactly like
   a top-level engine command, and surfaces under its own **"Project recipes"**
   group in `agent --help`. The unknown-recipe "did you mean…?" suggester also
@@ -71,9 +71,9 @@ the engine, kept strictly separate from the managed engine.
   exported `DISCERN_*` paths, so it can `. "$DISCERN_LIB/bootstrap.sh"` to get
   the same `info`/`ok`/`die`, `config_get`, and `run_parallel` surface the
   engine recipes use.
-- **Scaffolding.** `init` writes a seed `.discern/recipes/README.md` documenting
-  the directory and the `# desc:` contract. As a seed it is write-once and never
-  touched by `upgrade`.
+- **Scaffolding.** `setup` writes a seed `.discern/recipes/README.md`
+  documenting the directory and the `# desc:` contract. As a seed it is
+  write-once and never touched by `upgrade`.
 
 ## Consequences
 

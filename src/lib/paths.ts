@@ -37,7 +37,7 @@ async function isDir(path: string): Promise<boolean> {
  * Resolve the config file inside an install directory: the root `discern.toml`
  * if present, else a legacy `.discern/config.toml`, else `undefined` when
  * `destDir` is not a discern install. The new path is preferred so a migrated
- * install is unambiguous; the legacy fallback is what lets `upgrade`/`migrate`
+ * install is unambiguous; the legacy fallback is what lets `upgrade`
  * recognise a pre-6 install and carry it forward.
  */
 export async function resolveConfigPath(
@@ -95,7 +95,7 @@ export function resolveRecipesDir(
 /**
  * The directory under which per-worktree `<name>` checkouts are created — the ONE
  * resolver every spawn path (the `WorktreeCreate` hook) and the orphan-sweep
- * wiring (`worktree:prune`'s `extraDirs`) share, so the placement convention lives
+ * wiring (`worktree prune`'s `extraDirs`) share, so the placement convention lives
  * in exactly one place. It lives HERE, in the feature layer, never in the
  * stack-neutral engine: the engine discovers existing worktrees from git's own
  * registry and knows nothing of *where* new ones go (ADR 0040, ADR 0052).

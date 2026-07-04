@@ -47,7 +47,7 @@ import {
   setupProgress,
   setupUnfinishedHint,
 } from "../../shared/setup_state.ts";
-import { changedScopes, isScopeMarker } from "../scopes/changed.ts";
+import { classifyScopes, isScopeMarker } from "../scopes/scopes.ts";
 import { planScopeGates } from "../gate/plan.ts";
 import {
   checkGuidanceCurrent,
@@ -214,8 +214,8 @@ export async function statusResult(
   // Local-only heavy blocks: the changed scopes and what the gate would fire.
   let changed: string[] | undefined;
   if (!fleetLed) {
-    changed = await changedScopes(root, cfg);
-    data.changed_scopes = changed;
+    changed = await classifyScopes(root, cfg);
+    data.scopes = changed;
     data.gate = buildGateBlock(cfg, changed);
   }
 
@@ -861,12 +861,10 @@ function renderStatusHuman(result: DiscernResult<StatusData>): void {
     }
   }
 
-  if (data.changed_scopes !== undefined) {
+  if (data.scopes !== undefined) {
     out.raw(
       `  ${label("scopes")}${
-        data.changed_scopes.length > 0
-          ? data.changed_scopes.join(", ")
-          : "(none changed)"
+        data.scopes.length > 0 ? data.scopes.join(", ") : "(none changed)"
       }\n`,
     );
   }

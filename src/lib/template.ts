@@ -30,7 +30,7 @@ export type ContentTokenName =
   | "scopes_previewable"
   | "kit_version";
 
-/** The concrete token values resolved for one `init` run. */
+/** The concrete token values resolved for one `setup` run. */
 export type TokenMap = Record<ContentTokenName, string>;
 
 /** The single path token that may appear in a template file *name*. */

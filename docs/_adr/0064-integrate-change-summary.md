@@ -5,7 +5,7 @@
 the result envelope + advisory hints of
 [ADR 0028](0028-result-envelope-and-diagnostics.md) /
 [ADR 0030](_superseded/0030-quiet-json-output.md), and reusing the
-scope-classification SSOT of the changed-scopes verb.
+scope-classification SSOT of the scopes verb.
 
 ## Context
 
@@ -52,8 +52,8 @@ The payload, from highest-value signal down:
   what the agent must act on.
 - **`scopes_incoming`** — the fire-scopes the incoming files fall in, classified
   through the **same** matcher the gate uses (`scopesForPaths`, factored out of
-  `changedScopes` so the two can't drift). A broader "be wary of the `engine`
-  scope" signal that survives even when the exact files differ.
+  `scopes` so the two can't drift). A broader "be wary of the `engine` scope"
+  signal that survives even when the exact files differ.
 - **`commits` / `files`** — what landed, each **capped** (10 / 20) with the
   pre-cap `*_total` and a `*_truncated` flag, so the agent always knows the true
   size without the full list flooding its context.
@@ -95,7 +95,7 @@ merge" extended to the summary). Renames are decomposed to delete + add
   call. This matters most in a busy repo, where the atomic-commit discipline
   discern itself encourages produces high merge churn.
 - **The scope matcher gained one caller and lost its duplication.**
-  `scopesForPaths` is now the single classifier behind both `changed-scopes` and
+  `scopesForPaths` is now the single classifier behind both `scopes` and
   `integrate`; a path-glob change moves both together.
 - **`integrate`'s tool advertises a data-bearing `outputSchema`.** It joined the
   data verbs (`finish`/`status`/`start`/…) — `IntegrateOutputSchema` narrows the

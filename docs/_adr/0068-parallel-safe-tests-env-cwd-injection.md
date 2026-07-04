@@ -46,9 +46,9 @@ Convert the nine files to **inject** the value rather than mutate the process.
   `resolveTemplatesDir`, `readConfigTemplate` (threaded through the
   `MigrationContext`), `loadIdentitySettings`, `resolveWorktreeId`,
   `terminalWidth`/`helpWidth`/`operatorHelp`, and `colourEnabled`.
-- **The cwd** is passed explicitly: `runMigrate`/`runUpgrade` gained an optional
-  `cwd` (default `Deno.cwd()`), so the migrate/upgrade tests pass the temp dir
-  instead of `Deno.chdir`-ing into it and back.
+- **The cwd** is passed explicitly: `runUpgrade`/`runUpgrade` gained an optional
+  `cwd` (default `Deno.cwd()`), so the upgrade tests pass the temp dir instead
+  of `Deno.chdir`-ing into it and back.
 - **The git subprocess env** is forwarded, not set on the process: `runGit`/
   `worktreeState` gained an `env` option merged over the parent environment
   ([ADR 0054](0054-subprocess-single-source.md) keeps `runGit` the one git

@@ -16,7 +16,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { assembleInitPlan } from "../src/commands/setup.ts";
-import type { InitConfig } from "../src/lib/config.ts";
+import type { SetupConfig } from "../src/lib/config.ts";
 import { applyPlan } from "../src/lib/fs_plan.ts";
 import { parseDiscernToml } from "../src/lib/toml_render.ts";
 import { schemaFromRaw } from "../src/lib/schema.ts";
@@ -28,7 +28,7 @@ import { loadConfig } from "../src/shared/config_schema.ts";
 import { REAL_TEMPLATES, withTempDir } from "./helpers.ts";
 
 /** A resolved config for a non-interactive integration scaffold. */
-function integrationConfig(): InitConfig {
+function integrationConfig(): SetupConfig {
   return {
     projectName: "Integration Demo",
     slug: "integration-demo",
@@ -72,7 +72,7 @@ Deno.test("init scaffolds the real templates into a working harness", async () =
 
     // 3. The bundled skills materialize (copied) into each configured agent's
     // skills dir. The plan lays down only seeds; skills are the binary's own
-    // artifacts, materialized the way runInit/worktree setup do — so drive that
+    // artifacts, materialized the way runSetup/worktree setup do — so drive that
     // step here (for the project's real agent set), then assert.
     const cfg = await loadConfig(dir);
     await materializeSkills(dir, cfg, skillsDirsForAgents(guidanceAgents(cfg)));
@@ -101,7 +101,7 @@ Deno.test("init scaffolds the real templates into a working harness", async () =
     assert(Array.isArray(settings.hooks?.WorktreeCreate));
     assertStringIncludes(
       JSON.stringify(settings.hooks.WorktreeCreate),
-      "worktree:create",
+      "worktree create",
     );
     assert(!/\bjq\b/.test(JSON.stringify(settings.hooks)));
 
@@ -113,7 +113,7 @@ Deno.test("init scaffolds the real templates into a working harness", async () =
     // 7. The binary's OWN template subtrees are NEVER seeded into the project tree
     // — they are materialized/read from the binary on demand. A regression here
     // re-pollutes the user's tracked tree, exactly what ADR 0024 removed for the
-    // bootstrap assets. `docs/` is likewise lazy (laid by `discern bootstrap`).
+    // bootstrap assets. `docs/` is likewise lazy (laid by `discern setup`).
     await assertAbsent(join(dir, "bootstrap"));
     await assertAbsent(join(dir, "skills"));
     await assertAbsent(join(dir, "guidance"));

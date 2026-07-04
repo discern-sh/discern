@@ -6,9 +6,9 @@
  * only when an installed project needs a migration to stay correct. It lives in
  * the config the user already owns, recorded under `[meta].schema_version`.
  *
- * `init` stamps the current value via {@link stampSchemaVersion}; `upgrade` reads
+ * `setup` stamps the current value via {@link stampSchemaVersion}; `upgrade` reads
  * the recorded value with {@link resolveRecordedSchema}, runs the pending chain,
- * and re-stamps. `migrate` reads it to report status.
+ * and re-stamps. `upgrade` reads it to report status.
  */
 
 import { join } from "@std/path";
@@ -38,7 +38,7 @@ export function schemaFromRaw(
  * Resolve the install's recorded schema version — the anchor the migration
  * chain steps from. Resolution preserves the prior chain's intent:
  *
- *   1. `[meta].schema_version` in the config, if present. A fresh `init` always
+ *   1. `[meta].schema_version` in the config, if present. A fresh `setup` always
  *      stamps it, so every current install hits this.
  *   2. else a legacy `.discern/manifest.json`'s `schema_version`, if present —
  *      so an old hash-tracked install starts its migration from the right step

@@ -2,25 +2,25 @@
 
 _Throwaway git Worktrees so an agent never works in the main checkout._
 
-This subtree covers the Worktree lifecycle. The `discern worktree*` verbs
-provision and tear down an isolated `git worktree` (and its branch) per change,
-each with a **deterministic dev-server port** and any number of project-declared
-**resources** — external things (a database, an emulator, a container, a queue)
-that must exist for exactly the life of the Worktree. The git mechanics are
-generic; the resources are the only stack-specific part, declared as
-`[worktree.resources.<name>]` tables in `discern.toml`. A fresh install declares
-none, so a Worktree round is a clean no-op until a project wires one. The whole
-workflow is the `worktrees` feature, which can be turned off in `[features]`
-(ADR 0011, ADR 0025).
+This subtree covers the Worktree lifecycle. The `discern worktree ...`
+subcommands provision and tear down an isolated `git worktree` (and its branch)
+per change, each with a **deterministic dev-server port** and any number of
+project-declared **resources** — external things (a database, an emulator, a
+container, a queue) that must exist for exactly the life of the Worktree. The
+git mechanics are generic; the resources are the only stack-specific part,
+declared as `[worktree.resources.<name>]` tables in `discern.toml`. A fresh
+install declares none, so a Worktree round is a clean no-op until a project
+wires one. The whole workflow is the `worktrees` feature, which can be turned
+off in `[features]` (ADR 0011, ADR 0025).
 
 The lifecycle is driven by hooks in `.claude/settings.json`: `SessionStart` →
-[`worktree:ensure`](../../src/engine/worktree/lifecycle.ts) (idempotent setup +
+[`worktree ensure`](../../src/engine/worktree/lifecycle.ts) (idempotent setup +
 resource `ensure` + `[worktree.setup].ensure`), `WorktreeCreate` →
-[`worktree:create`](../../src/lib/worktree_hooks.ts) (reads the hook's JSON
+[`worktree create`](../../src/lib/worktree_hooks.ts) (reads the hook's JSON
 payload, adds the worktree, then runs first-time setup — which creates the
 resources and runs `[worktree.setup]`: the one-shot `steps`, then the convergent
 `ensure`), `WorktreeRemove` →
-[`worktree:remove`](../../src/lib/worktree_hooks.ts) (tears it down). Those two
+[`worktree remove`](../../src/lib/worktree_hooks.ts) (tears it down). Those two
 hook entries parse their payload in the binary itself — no `jq`
 ([ADR 0040](../_adr/0040-worktree-hooks-in-the-binary.md)). An agent on the
 **main checkout** that needs its own Worktree runs
@@ -52,15 +52,15 @@ fast-forwarding the trunk to it and deleting the merged branch. Its
 main-checkout precondition also cares about tracked changes, not untracked local
 scratch; the worktree precondition is stricter because graduation refuses any
 tracked, not staged, staged, or untracked worktree change before it removes the
-checkout; [`worktree:prune`](../../src/engine/worktree/lifecycle.ts) sweeps
+checkout; [`worktree prune`](../../src/engine/worktree/lifecycle.ts) sweeps
 stale Worktrees and **reclaims the resources of any Worktree that vanished
 without a clean teardown** (the garbage-collection safety net).
 [`status`](../../src/engine/status/status.ts) uses the same ordinary Git-clean
 boundary as prune for its local and fleet `clean` fields: tracked changes and
 untracked non-ignored files make a Worktree dirty, while ignored
 provider-local/generated files stay out of the signal.
-[`worktree-name`](../../src/engine/worktree/identity.ts) resolves a Worktree's
-stable identity (id / site / branch / port / db / worktree / resource).
+[`identity`](../../src/engine/worktree/identity.ts) resolves a Worktree's stable
+identity (id / site / branch / port / db / worktree / resource).
 
 **Proving a copy works.** The same create → setup → removal cores back a further
 use: `setup done`'s **worktree-viability probe**
@@ -86,11 +86,11 @@ walk-up to the repo root mis-resolves the worktree's `.git` file). A relative
 `root` resolves against the repo root (`.claude/worktrees` nests them inside the
 repo); an absolute one is used as-is. The engine stays location-agnostic — it
 discovers existing Worktrees from git's own registry, never a hardcoded path —
-so only the create hook and `worktree:prune`'s orphan sweep know the convention
+so only the create hook and `worktree prune`'s orphan sweep know the convention
 ([ADR 0052](../_adr/0052-worktree-sibling-placement.md)).
 
 Each effectful lifecycle verb — `start`, `worktree` (setup), `integrate`,
-`worktree:teardown`, `worktree:prune`, and `graduate` — takes a `--dry-run` that
+`worktree teardown`, `worktree prune`, and `graduate` — takes a `--dry-run` that
 prints the plan (what it _would_ create, destroy, reclaim, move, or merge) and
 touches nothing, plus a `--json` serialization of plan + results
 ([ADR 0027](../_adr/0027-plan-apply-engine-execution.md)). The destructive ones

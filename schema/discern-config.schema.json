@@ -57,7 +57,7 @@
       }
     },
     "description": {
-      "description": "Preset metadata, shown when listing presets; ignored by `init --config`.",
+      "description": "Preset metadata, shown when listing presets; ignored by `setup --config`.",
       "type": "string"
     },
     "features": {

@@ -23,11 +23,11 @@ harness into any repository, in one command, and keeps it upgradable thereafter.
 
 ### Installer
 
-The scaffolding face of the `discern` binary — `discern setup`, `upgrade`,
-`doctor`, `migrate`, `config`, `add-preset`. Its TypeScript lives under
-[`src/`](../../src/) and compiles into the single-file binary. It writes and
-refreshes a project's files; it is build-time work only — an installed project
-never needs Deno, and the Installer is never a runtime dependency of it.
+The scaffolding face of the `discern` binary — `discern setup`, `doctor`,
+`config`, `preset`. Its TypeScript lives under [`src/`](../../src/) and compiles
+into the single-file binary. It writes and refreshes a project's files; it is
+build-time work only — an installed project never needs Deno, and the Installer
+is never a runtime dependency of it.
 
 ### Harness
 
@@ -40,15 +40,15 @@ any config-pointed content you author (your [Guidance source](#guidance-source),
 [Skills](#skill), [Recipes](#recipe)) and the generated files. The seed and
 Skill files an install starts from originate under
 [`templates/`](../../templates/) and are **bundled into the binary**, which
-writes them out at `setup`/`upgrade`. (The agent documentation tree at
-`[docs].dir` and `TODO.md` are not fixed install paths; setup and the bundled
-Skills create them on demand.)
+writes them out at `setup`. (The agent documentation tree at `[docs].dir` and
+`TODO.md` are not fixed install paths; setup and the bundled Skills create them
+on demand.)
 
 ### Engine
 
 The stack-neutral logic behind the `discern` run-time verbs (`finish`,
-`prepare`, `improve`, `status`, `worktree`/`worktree:*`, `integrate`,
-`graduate`, `ratchets`, `refresh`, `changed-scopes`, `coupling`, …), written in
+`prepare`, `improve`, `status`, the `worktree` command group, `integrate`,
+`graduate`, `ratchets`, `refresh`, `scopes`, `coupling`, …), written in
 **TypeScript and compiled into the binary** under
 [`src/engine/`](../../src/engine/) (sharing [`src/shared/`](../../src/shared/)
 with the Installer). The Engine knows nothing stack-specific — it runs the
@@ -76,7 +76,7 @@ with `DISCERN_*` exported; a name with a colon maps to a hyphenated file
 (`some:verb` → `some-verb`). A recipe reads config through the
 `discern config get|array|has|
 subsections|keys` surface and worktree identity
-through `discern worktree-name --db|--site|--port|--resource <name>` — it does
+through `discern identity --db|--site|--port|--resource <name>` — it does
 **not** source a shell library. On a name collision with a built-in verb the
 binary wins ([ADR 0001](../_adr/0001-project-owned-recipes.md)).
 
@@ -112,10 +112,10 @@ One **idempotent** step that brings an install from Schema version `N` to `N+1`.
 `upgrade` reads `[meta].schema_version` (from `discern.toml`, or a legacy
 `.discern/config.toml` for a pre-6 install), runs every pending step in order up
 to the binary's, validates the migrated config, then re-stamps it. If the
-project records a newer schema than the binary supports, `upgrade` and `migrate`
-refuse and point the user at reinstalling discern instead of stamping the config
-down. A step can edit the config comment-preserving, move/rewrite files, and
-deep-merge settings — the `5 → 6` step moves the config to the root, relocates
+project records a newer schema than the binary supports and `upgrade` refuse and
+point the user at reinstalling discern instead of stamping the config down. A
+step can edit the config comment-preserving, move/rewrite files, and deep-merge
+settings — the `5 → 6` step moves the config to the root, relocates
 guidance/recipes/authored skills out of `.discern/`, prunes the pristine bundled
 skills, and deletes `.discern/`
 ([ADR 0014](../_adr/0014-versioned-migration-system.md),
@@ -124,7 +124,7 @@ skills, and deletes `.discern/`
 
 ### Preset
 
-A reusable overlay applied with `discern add-preset <name>`: a `presets/<name>/`
+A reusable overlay applied with `discern preset <name>`: a `presets/<name>/`
 directory whose files are scaffolded onto a project (with the same yours-vs-the-
 binary's rules as `setup`) plus an optional `preset.json` at its root — an
 discern config document whose `capabilities` / `checks` / `scopes` / `ratchets`
@@ -352,8 +352,8 @@ container, a queue — declared as `[worktree.resources.<name>]` with a `create`
 command (run once at setup) and a `destroy` (run once at teardown). It is
 created once, reused by every later command for the life of the worktree, and
 destroyed at teardown; a worktree that vanishes without a clean teardown has its
-resources reclaimed by `worktree:prune` (the GC safety net). Its
-project-namespaced handle is read with `worktree-name --resource <name>` or the
+resources reclaimed by `worktree prune` (the GC safety net). Its
+project-namespaced handle is read with `identity --resource <name>` or the
 `DISCERN_RESOURCE_<NAME>` env var
 ([ADR 0025](../_adr/0025-worktree-resources.md)).
 
@@ -412,9 +412,9 @@ discern's **bundled** built-ins (in the binary, sourced from
 [`templates/skills/`](../../templates/skills/) — all named with the `discern-`
 prefix, so their provenance shows wherever they surface) plus any you **author**
 under `[skills].dir` (default `./skills`), where yours override a built-in of
-the same name. `discern refresh` (and `setup`/`upgrade`) materialize the set
-into `.claude/skills/` (gitignored, [the binary's](#the-binarys-files)):
-built-ins **copied**, authored skills **symlinked** so edits are live.
+the same name. `discern refresh` (and `setup`) materialize the set into
+`.claude/skills/` (gitignored, [the binary's](#the-binarys-files)): built-ins
+**copied**, authored skills **symlinked** so edits are live.
 `discern skills
 list` shows the set; `discern skills eject <name>` copies a
 built-in into your dir to customize. The `skills` [Feature](#feature) governs

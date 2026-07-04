@@ -35,13 +35,13 @@ command is a clean no-op. A `required` create that fails aborts setup loudly
 
 ## The lifecycle
 
-| Phase                                     | What happens                                                                                                                                                               |
-| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `discern worktree` (first run)            | **setup** — creates each resource (a ledger entry is written first, so a crash mid-create is GC-able), then records its handle into `.env`.                                |
-| `discern worktree` re-run / re-fired hook | **re-ready, never re-create** — an already-configured worktree skips resource `create` and the setup steps, running each resource's `ensure` instead. Setup is idempotent. |
-| any later command                         | **reuse** — the resource persists for the whole Worktree; nothing re-creates it. Pay an expensive readiness cost once, never per-invocation.                               |
-| `discern worktree:teardown` / `graduate`  | **destroy** — runs each resource's destroy in reverse order (best-effort), then clears its ledger entry. A clean exit leaves no orphan.                                    |
-| `discern worktree:prune`                  | **garbage-collect** — reclaims the resources of any Worktree that vanished WITHOUT a clean teardown (hard kill, `rm -rf`, crash).                                          |
+| Phase                                           | What happens                                                                                                                                                               |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `discern worktree setup`                        | **setup** — creates each resource (a ledger entry is written first, so a crash mid-create is GC-able), then records its handle into `.env`.                                |
+| `discern worktree setup` re-run / re-fired hook | **re-ready, never re-create** — an already-configured worktree skips resource `create` and the setup steps, running each resource's `ensure` instead. Setup is idempotent. |
+| any later command                               | **reuse** — the resource persists for the whole Worktree; nothing re-creates it. Pay an expensive readiness cost once, never per-invocation.                               |
+| `discern worktree teardown` / `graduate`        | **destroy** — runs each resource's destroy in reverse order (best-effort), then clears its ledger entry. A clean exit leaves no orphan.                                    |
+| `discern worktree prune`                        | **garbage-collect** — reclaims the resources of any Worktree that vanished WITHOUT a clean teardown (hard kill, `rm -rf`, crash).                                          |
 
 Teardown is **best-effort and idempotent**: a failure is logged and never
 strands a Worktree (a later prune is the backstop), and a destroy that runs when
@@ -71,15 +71,15 @@ It is:
 These tokens are available to every resource command, expanded per-Worktree at
 run time:
 
-| Token            | Value                                         | Read it with                      |
-| ---------------- | --------------------------------------------- | --------------------------------- |
-| `@resource@`     | this resource's handle (`<slug>-<id>-<name>`) | `worktree-name --resource <name>` |
-| `@worktree@`     | the Worktree's base handle (`<slug>-<id>`)    | `worktree-name --worktree`        |
-| `@db@`           | a database-name-safe identity (underscores)   | `worktree-name --db`              |
-| `@site@`         | a DNS-safe site/host name                     | `worktree-name --site`            |
-| `@port@`         | the deterministic dev-server port             | `worktree-name --port`            |
-| `@project_slug@` | the project slug                              | `config get project.slug`         |
-| `@dir@`          | the Worktree root (absolute)                  | —                                 |
+| Token            | Value                                         | Read it with                 |
+| ---------------- | --------------------------------------------- | ---------------------------- |
+| `@resource@`     | this resource's handle (`<slug>-<id>-<name>`) | `identity --resource <name>` |
+| `@worktree@`     | the Worktree's base handle (`<slug>-<id>`)    | `identity --worktree`        |
+| `@db@`           | a database-name-safe identity (underscores)   | `identity --db`              |
+| `@site@`         | a DNS-safe site/host name                     | `identity --site`            |
+| `@port@`         | the deterministic dev-server port             | `identity --port`            |
+| `@project_slug@` | the project slug                              | `config get project.slug`    |
+| `@dir@`          | the Worktree root (absolute)                  | —                            |
 
 `@resource@` is bound to the resource whose command is running; it is empty in
 `[worktree.setup].steps` (which run outside any single resource — use
@@ -93,8 +93,8 @@ A project's gate, scripts, or app — running **later, in a separate process**
 inside the Worktree — discover a resource's handle two ways, both equal to what
 `create` used:
 
-1. **Query:** `discern worktree-name --resource <name>` (and `--resources` to
-   list every declared resource as `name=handle` lines).
+1. **Query:** `discern identity --resource <name>` (and `--resources` to list
+   every declared resource as `name=handle` lines).
 2. **Env:** the Worktree's `.env` carries `DISCERN_RESOURCE_<NAME>` (uppercased,
    non-alphanumerics → `_`) and `DISCERN_WORKTREE`, written at setup when a
    `.env` exists.
@@ -113,7 +113,7 @@ by git. The entry records the project, the Worktree's git key, the resource
 handle, and the **frozen, fully-expanded destroy command** — everything GC needs
 once the Worktree is gone and its identity can no longer be re-derived.
 
-`worktree:prune` reconciles the ledger against the live Worktrees and runs
+`worktree prune` reconciles the ledger against the live Worktrees and runs
 `destroy` for any entry whose Worktree has vanished. GC is **conservative by
 construction** — it only ever runs a destroy command that is IN this project's
 ledger, and it keeps (never reclaims) an entry that is any of:
@@ -126,7 +126,7 @@ ledger, and it keeps (never reclaims) an entry that is any of:
 - carrying an unresolved `@token@` in its frozen destroy command (refused, never
   half-run).
 
-Deletion is compare-and-swap, and `worktree:prune --dry-run` reports exactly
+Deletion is compare-and-swap, and `worktree prune --dry-run` reports exactly
 what it _would_ reclaim without acting. A clean `graduate`/`teardown` clears
 entries up front, so only an unclean exit ever leaves an orphan for GC to find.
 
@@ -140,7 +140,7 @@ entries up front, so only an unclean exit ever leaves an orphan for GC to find.
 ## Drift
 
 A worktree-lifetime resource can die out-of-band — a host reboot stops a running
-emulator. Declare an `ensure` command to reconcile it: `worktree:ensure` (the
+emulator. Declare an `ensure` command to reconcile it: `worktree ensure` (the
 session-start hook) runs each resource's `ensure` when the Worktree is already
 set up. `ensure` must be idempotent. If a resource declares no `ensure`,
 re-readiness is the project's responsibility.

@@ -23,10 +23,10 @@ import { SCHEMA_VERSION } from "../src/lib/version.ts";
 import { readTarget, runCli, targetExists, withTempDir } from "./helpers.ts";
 
 /** Fresh install in `dir` (the standard scaffold the other suites use). */
-async function init(dir: string): Promise<void> {
+async function setup(dir: string): Promise<void> {
   assertEquals(
     (await runCli([
-      "init",
+      "setup",
       "--confirmed",
       "--yes",
       "--slug",
@@ -52,7 +52,7 @@ async function git(dir: string, ...args: string[]): Promise<void> {
 
 /** A fresh install committed into a new git repo — a clean starting tree. */
 async function initCommittedRepo(dir: string): Promise<void> {
-  await init(dir);
+  await setup(dir);
   await git(dir, "init");
   await git(dir, "config", "user.email", "test@example.com");
   await git(dir, "config", "user.name", "Test");
@@ -102,7 +102,7 @@ Deno.test("upgrade with no discern.toml fails as not_initialized (human)", async
 
 Deno.test("upgrade with an unparseable discern.toml fails as invalid_toml (--json)", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     // Corrupt the toml so parseDiscernToml throws.
     await Deno.writeTextFile(
       join(dir, "discern.toml"),
@@ -119,7 +119,7 @@ Deno.test("upgrade with an unparseable discern.toml fails as invalid_toml (--jso
 
 Deno.test("upgrade with an unparseable discern.toml fails as invalid_toml (human)", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     await Deno.writeTextFile(
       join(dir, "discern.toml"),
       "broken = = =\n[[[\n",
@@ -133,7 +133,7 @@ Deno.test("upgrade with an unparseable discern.toml fails as invalid_toml (human
 
 Deno.test("upgrade refuses a config from a newer schema (--json)", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     await setSchema(dir, SCHEMA_VERSION + 1);
     const before = await readTarget(dir, "discern.toml");
 
@@ -150,7 +150,7 @@ Deno.test("upgrade refuses a config from a newer schema (--json)", async () => {
 
 Deno.test("upgrade refuses an absent templates dir before stamping (--json)", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     // Point resolution at a path that does not exist. Guideline refresh failures
     // are still isolated, but the config template is now required so upgrade can
     // prove and repair scaffold drift before stamping the schema.
@@ -168,7 +168,7 @@ Deno.test("upgrade refuses an absent templates dir before stamping (--json)", as
 
 Deno.test("upgrade refuses an absent templates dir before stamping (human)", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     const r = await runCli(["upgrade"], dir, {
       DISCERN_TEMPLATES_DIR: join(dir, "no", "such", "templates"),
     });
@@ -182,7 +182,7 @@ Deno.test("upgrade refuses an absent templates dir before stamping (human)", asy
 
 Deno.test("upgrade fills agents from defaults when discern.toml carries no agents key", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     // Strip the `agents = [...]` line so [guidance].agents is absent; the
     // guideline compile must fall back to the default agents to resolve content.
     const tomlPath = join(dir, "discern.toml");
@@ -205,7 +205,7 @@ Deno.test("upgrade fills agents from defaults when discern.toml carries no agent
 
 Deno.test("upgrade --check (human) confirms an in-sync install and exits zero", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     const r = await runCli(["upgrade", "--check"], dir);
     assertEquals(r.code, 0, r.stderr);
     // The ok line is the human rendering of `ok: true` (no JSON envelope).
@@ -217,7 +217,7 @@ Deno.test("upgrade --check (human) confirms an in-sync install and exits zero", 
 
 Deno.test("upgrade --dry-run --json previews pending migrations and writes nothing", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     const r = await runCli(["upgrade", "--dry-run", "--json"], dir);
     assertEquals(r.code, 0, r.stderr);
     const res = JSON.parse(r.stdout);
@@ -231,7 +231,7 @@ Deno.test("upgrade --dry-run --json previews pending migrations and writes nothi
 
 Deno.test("upgrade --dry-run --json previews pending migrations without running them", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     // Regress the recorded schema so the production 1→2 step is pending.
     await setSchema(dir, 1);
     const r = await runCli(["upgrade", "--dry-run", "--json"], dir);
@@ -249,7 +249,7 @@ Deno.test("upgrade --dry-run --json previews pending migrations without running 
 
 Deno.test("upgrade --dry-run (human) names pending migrations and writes nothing", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     await setSchema(dir, 1);
     const r = await runCli(["upgrade", "--dry-run"], dir);
     assertEquals(r.code, 0, r.stderr);
@@ -340,7 +340,7 @@ async function upgradeHumanIn(
 
 Deno.test("upgrade (human) reports the migrations it applied", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     await setSchema(dir, SCHEMA_VERSION - 1); // one behind → the synthetic step is pending
     const chain: Migration[] = [{
       from: SCHEMA_VERSION - 1,

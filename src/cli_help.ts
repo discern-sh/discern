@@ -58,7 +58,7 @@ export const COMMAND_GROUPS: readonly CommandGroup[] = [
   {
     name: "Worktree lifecycle",
     note: "isolated workspaces your agent drives",
-    commands: ["start", "integrate", "graduate", "worktree", "worktree-name"],
+    commands: ["start", "integrate", "graduate", "worktree", "identity"],
   },
   {
     name: "Setup & maintenance",
@@ -67,10 +67,9 @@ export const COMMAND_GROUPS: readonly CommandGroup[] = [
       "setup",
       "upgrade",
       "doctor",
-      "migrate",
       "config",
       "refresh",
-      "add-preset",
+      "preset",
     ],
   },
   {
@@ -80,7 +79,7 @@ export const COMMAND_GROUPS: readonly CommandGroup[] = [
       "improve",
       "ratchets",
       "skills",
-      "changed-scopes",
+      "scopes",
       "coupling",
       "docs",
       "help",

@@ -14,10 +14,10 @@ agent-facing surface:
 1. **No single result object.** `finish` hand-built a bespoke `GateReport`
    (`{ok, jobs[], scope_gates[], failed_stage, scopes_changed}`, the old ADR
    0004 shape). The worktree/ratchet verbs shared a _different_ generic shape
-   (`{ok, steps[]}`). `changed-scopes` emitted a bare JSON array; `skills list`
-   a bespoke array; the installer verbs (`doctor`/`init`/`migrate`/…) each had
-   their own `Logger.jsonResult` payload. Six-plus disjoint shapes; some carried
-   a top-level `ok`, some didn't. An agent couldn't even rely on `result.ok`.
+   (`{ok, steps[]}`). `scopes` emitted a bare JSON array; `skills list` a
+   bespoke array; the installer verbs (`doctor`/`setup`/…) each had their own
+   `Logger.jsonResult` payload. Six-plus disjoint shapes; some carried a
+   top-level `ok`, some didn't. An agent couldn't even rely on `result.ok`.
 
 2. **The result object was a `--json`-only escape hatch, not the spine.** Human
    output was produced _imperatively during execution_ (headings as groups ran,

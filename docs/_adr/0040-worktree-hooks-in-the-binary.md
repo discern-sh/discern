@@ -16,13 +16,13 @@ of them — `WorktreeCreate` and `WorktreeRemove` — receive a JSON payload on
 stdin (`{name, cwd}` and `{worktree_path}` respectively). The original hooks
 were raw shell one-liners embedded in the settings JSON: each piped the payload
 through **`jq`** to extract its fields, and `WorktreeCreate` additionally ran
-`git worktree add` inline before handing off to `discern worktree` for setup.
+`git worktree add` inline before handing off to `discern worktree setup`.
 
 ```sh
 input=$(cat); name=$(printf %s "$input" | jq -r .name); cwd=$(... jq -r .cwd)
 dir="$cwd/.claude/worktrees/$name"
 if [ ! -e "$dir/.git" ]; then git -C "$cwd" worktree add "$dir" -b "agent/$name" 1>&2; fi
-(cd "$dir" && discern worktree 1>&2); printf %s "$dir"
+(cd "$dir" && discern worktree setup 1>&2); printf %s "$dir"
 ```
 
 That made `jq` a hard runtime dependency of discern for every end user who
@@ -33,27 +33,27 @@ JSON on its own. But the program the hook shells into — `discern` — is a
 JSON-native binary that is _already invoked by the same hook_. The
 worktree-creation and field-parsing logic also lived as an untested shell
 string, split awkwardly between the hook (`git worktree add`) and the binary
-(`discern worktree` setup).
+(via `discern worktree setup`).
 
 ## Decision
 
 The two payload-bearing hooks become thin dispatches to the binary, which reads
-its own stdin: `WorktreeCreate` → **`discern worktree:create`**,
-`WorktreeRemove` → **`discern worktree:remove`**. Each verb reads the hook's
+its own stdin: `WorktreeCreate` → **`discern worktree create`**,
+`WorktreeRemove` → **`discern worktree remove`**. Each verb reads the hook's
 JSON payload from stdin, parses it natively (no `jq`), and does the work the
 shell used to:
 
-- `worktree:create` derives `<cwd>/.claude/worktrees/<name>` and branch
+- `worktree create` derives `<cwd>/.claude/worktrees/<name>` and branch
   `<branch_prefix><name>` (the prefix read from config, not substituted into the
   settings template), creates the linked worktree (idempotently — a re-fired
   hook is a no-op on the `git worktree add`), runs the existing `worktree` setup
   inside it, and writes **only** the worktree path to stdout (no trailing
   newline, as the old `printf %s` did) so Claude Code reads it as the result.
   All setup narration goes to stderr, mirroring the old `… 1>&2`.
-- `worktree:remove` reads `worktree_path` and runs the existing
-  `worktree:teardown`, swallowing any error so the event never fails (the old
+- `worktree remove` reads `worktree_path` and runs the existing
+  `worktree teardown`, swallowing any error so the event never fails (the old
   hook's trailing `|| true`); a stranded resource is reclaimed later by
-  `worktree:prune`.
+  `worktree prune`.
 
 **Layering.** The adapter lives in the FEATURE layer
 ([`src/lib/worktree_hooks.ts`](../../src/lib/worktree_hooks.ts)), not the

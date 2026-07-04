@@ -5,7 +5,7 @@
  * `engine_worktree_test.ts` drives the happy-path lifecycle (setup → exit →
  * prune). This file pins down the surfaces it leaves uncovered: the safety
  * boundary of `remove-worktree-safely` (refuse the main checkout / a non-worktree
- * path), the BRANCH-pruning behaviour of `worktree:prune` (a merged branch with
+ * path), the BRANCH-pruning behaviour of `worktree prune` (a merged branch with
  * no worktree is deleted; an unmerged one is kept), teardown destroying a
  * worktree's declared resources (not just the no-op path),
  * `inherit-main-env-vars` copying a whitelisted secret into a worktree's `.env`,
@@ -113,7 +113,7 @@ Deno.test("remove-worktree-safely removes a real linked worktree and reconciles 
       `the worktree directory should be gone\n${r.output}`,
     );
     // git should no longer list it as a registered worktree.
-    const list = await runAgent(dir, ["worktree-name", "--id"], { cwd: dir });
+    const list = await runAgent(dir, ["identity", "--id"], { cwd: dir });
     assertEquals(
       list.output.includes("removable"),
       false,
@@ -134,14 +134,14 @@ Deno.test("remove-worktree-safely is idempotent on an already-removed path", asy
   });
 });
 
-// ── worktree:prune — branch sweeping (the merged/unmerged distinction) ───────
+// ── worktree prune — branch sweeping (the merged/unmerged distinction) ───────
 //
 // The existing suite asserts a merged worktree DIRECTORY is reclaimed and a live
 // one is kept. This pins the parallel BRANCH behaviour: a fully-merged branch
 // whose worktree is already gone is deleted, while an unmerged dangling branch is
 // preserved (its commits are still worth reviewing).
 
-Deno.test("worktree:prune deletes a dangling fully-merged branch but keeps an unmerged one", async () => {
+Deno.test("worktree prune deletes a dangling fully-merged branch but keeps an unmerged one", async () => {
   await withTempDir(async (dir) => {
     // Two extra worktrees so we can produce two branches, then remove the
     // worktrees to leave the branches dangling (no checkout) for the branch
@@ -165,7 +165,7 @@ Deno.test("worktree:prune deletes a dangling fully-merged branch but keeps an un
     await git(dir, "worktree", "remove", "--force", mergedWt);
     await git(dir, "worktree", "remove", "--force", keepWt);
 
-    const r = await runAgent(dir, ["worktree:prune", "--yes"]);
+    const r = await runAgent(dir, ["worktree", "prune", "--yes"]);
     assertEquals(r.code, 0, r.output);
 
     // Inspect the surviving local branches directly via git.
@@ -184,7 +184,7 @@ Deno.test("worktree:prune deletes a dangling fully-merged branch but keeps an un
   });
 });
 
-// ── worktree:prune — the dry-run plan must AGREE with the real run ───────────
+// ── worktree prune — the dry-run plan must AGREE with the real run ───────────
 //
 // Regression guard (ADR 0027): `--dry-run` builds a plan from what prune WOULD
 // remove and reclaim. A dry-run that reports "nothing to do" while the real run
@@ -193,7 +193,7 @@ Deno.test("worktree:prune deletes a dangling fully-merged branch but keeps an un
 // narrated their candidates but returned EMPTY lists in dryRun mode, so the plan
 // read nothing). This pins the two paths to agree.
 
-Deno.test("worktree:prune --dry-run lists what the real run removes, and acts on nothing", async () => {
+Deno.test("worktree prune --dry-run lists what the real run removes, and acts on nothing", async () => {
   await withTempDir(async (dir) => {
     // A live, clean, fully-merged worktree — a genuine removal candidate.
     const mergedWt = await mainWithWorktree(dir, "victim");
@@ -203,7 +203,7 @@ Deno.test("worktree:prune --dry-run lists what the real run removes, and acts on
     await git(dir, "merge", "--no-ff", "-m", "merge victim", "agent/victim");
 
     // Dry-run must NAME the candidate (not claim "nothing to do") and touch nothing.
-    const dry = await runAgent(dir, ["worktree:prune", "--dry-run"]);
+    const dry = await runAgent(dir, ["worktree", "prune", "--dry-run"]);
     assertEquals(dry.code, 0, dry.output);
     assertStringIncludes(dry.stdout, "victim");
     assert(
@@ -217,7 +217,8 @@ Deno.test("worktree:prune --dry-run lists what the real run removes, and acts on
 
     // --dry-run --json: the plan carries the worktree and its branch.
     const dryJson = await runAgent(dir, [
-      "worktree:prune",
+      "worktree",
+      "prune",
       "--dry-run",
       "--json",
     ]);
@@ -231,7 +232,7 @@ Deno.test("worktree:prune --dry-run lists what the real run removes, and acts on
     );
 
     // The real run removes exactly what the dry-run promised.
-    const real = await runAgent(dir, ["worktree:prune", "--yes"]);
+    const real = await runAgent(dir, ["worktree", "prune", "--yes"]);
     assertEquals(real.code, 0, real.output);
     assertEquals(
       await exists(mergedWt),
@@ -245,7 +246,7 @@ Deno.test("worktree:prune --dry-run lists what the real run removes, and acts on
   });
 });
 
-Deno.test("worktree:prune refuses off-TTY without --yes and shows the candidates", async () => {
+Deno.test("worktree prune refuses off-TTY without --yes and shows the candidates", async () => {
   await withTempDir(async (dir) => {
     const mergedWt = await mainWithWorktree(dir, "confirm");
     await Deno.writeTextFile(join(mergedWt, "m.txt"), "m\n");
@@ -253,7 +254,7 @@ Deno.test("worktree:prune refuses off-TTY without --yes and shows the candidates
     await git(mergedWt, "commit", "-q", "-m", "m", "--no-gpg-sign");
     await git(dir, "merge", "--no-ff", "-m", "merge confirm", "agent/confirm");
 
-    const r = await runAgent(dir, ["worktree:prune"]);
+    const r = await runAgent(dir, ["worktree", "prune"]);
 
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "Confirmation required");
@@ -266,7 +267,7 @@ Deno.test("worktree:prune refuses off-TTY without --yes and shows the candidates
   });
 });
 
-// ── worktree:prune — orphan-directory sweep at the configured root ───────────
+// ── worktree prune — orphan-directory sweep at the configured root ───────────
 //
 // A worktree dir whose git metadata was lost (a hard kill, a failed remove hook)
 // is reclaimed by the orphan sweep. The sweep discovers locations from git's
@@ -276,7 +277,7 @@ Deno.test("worktree:prune refuses off-TTY without --yes and shows the candidates
 // extraDirs (ADR 0052). This pins that wiring: a FULLY-orphaned dir at the
 // (sibling) default root is still reclaimed.
 
-Deno.test("worktree:prune keeps a dirty orphaned dir at the configured worktree root", async () => {
+Deno.test("worktree prune keeps a dirty orphaned dir at the configured worktree root", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "orphan"); // <dir>.worktrees/orphan
     const root = dirname(wt); // the sibling worktree root
@@ -292,7 +293,7 @@ Deno.test("worktree:prune keeps a dirty orphaned dir at the configured worktree 
     // No registered linked worktree now points anywhere under `root`, so the
     // git-derived parent scan cannot reach it; only the extraDirs the dispatch
     // layer passes (the resolved [worktree].root) does.
-    const r = await runAgent(dir, ["worktree:prune", "--yes"]);
+    const r = await runAgent(dir, ["worktree", "prune", "--yes"]);
     assertEquals(r.code, 0, r.output);
     assert(
       await exists(orphan),
@@ -306,7 +307,7 @@ Deno.test("worktree:prune keeps a dirty orphaned dir at the configured worktree 
   });
 });
 
-Deno.test("worktree:prune reclaims a clean fully-orphaned dir at the configured worktree root", async () => {
+Deno.test("worktree prune reclaims a clean fully-orphaned dir at the configured worktree root", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "clean-orphan");
     const root = dirname(wt);
@@ -324,7 +325,7 @@ Deno.test("worktree:prune reclaims a clean fully-orphaned dir at the configured 
     );
     await Deno.rename(wt, orphan);
 
-    const r = await runAgent(dir, ["worktree:prune", "--yes"]);
+    const r = await runAgent(dir, ["worktree", "prune", "--yes"]);
     assertEquals(r.code, 0, r.output);
     assertEquals(
       await exists(orphan),
@@ -334,13 +335,13 @@ Deno.test("worktree:prune reclaims a clean fully-orphaned dir at the configured 
   });
 });
 
-Deno.test("worktree:prune refuses to run from inside a linked worktree", async () => {
+Deno.test("worktree prune refuses to run from inside a linked worktree", async () => {
   await withTempDir(async (dir) => {
     // Pool housekeeping is a main-checkout operation (guarded by
     // assert-not-in-worktree). Driving it from inside a linked worktree must
     // refuse — you would be pruning siblings from within one — and touch nothing.
     const wt = await mainWithWorktree(dir, "from-inside");
-    const r = await runAgent(wt, ["worktree:prune", "--yes"]);
+    const r = await runAgent(wt, ["worktree", "prune", "--yes"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "main checkout");
     assert(await exists(wt), `the worktree must be left intact\n${r.output}`);
@@ -364,14 +365,14 @@ async function branchList(dir: string): Promise<string> {
   return new TextDecoder().decode(stdout);
 }
 
-// ── worktree:teardown — resources actually destroyed ────────────────────────
+// ── worktree teardown — resources actually destroyed ────────────────────────
 //
 // The sibling test proves teardown is a clean no-op when nothing is declared.
 // This proves the other half: a resource created at setup is destroyed at
 // teardown (via the ledger's frozen command), with its handle expanded. The
 // markers live OUTSIDE the worktree so the destroy can be checked afterwards.
 
-Deno.test("worktree:teardown destroys the worktree's resources", async () => {
+Deno.test("worktree teardown destroys the worktree's resources", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "tear");
     const markers = join(dir, "markers");
@@ -386,17 +387,17 @@ Deno.test("worktree:teardown destroys the worktree's resources", async () => {
     );
 
     // Setup creates the resource (and the ledger entry teardown acts on).
-    const setup = await runAgent(wt, ["worktree"]);
+    const setup = await runAgent(wt, ["worktree", "setup"]);
     assertEquals(setup.code, 0, setup.output);
-    const handle =
-      (await runAgent(wt, ["worktree-name", "--resource", "thing"])).stdout
-        .trim();
+    const handle = (await runAgent(wt, ["identity", "--resource", "thing"]))
+      .stdout
+      .trim();
     assert(
       await exists(join(markers, `${handle}.live`)),
       `setup did not create the resource\n${setup.output}`,
     );
 
-    const r = await runAgent(wt, ["worktree:teardown"]);
+    const r = await runAgent(wt, ["worktree", "teardown"]);
     assertEquals(r.code, 0, r.output);
     assert(
       await exists(join(markers, `${handle}.gone`)),
@@ -409,12 +410,12 @@ Deno.test("worktree:teardown destroys the worktree's resources", async () => {
   });
 });
 
-Deno.test("worktree:teardown refuses to run from the main checkout", async () => {
+Deno.test("worktree teardown refuses to run from the main checkout", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
     // From main, teardown must refuse — it is a worktree-only, destructive op.
-    const r = await runAgent(dir, ["worktree:teardown"]);
+    const r = await runAgent(dir, ["worktree", "teardown"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "worktree");
   });
@@ -423,13 +424,13 @@ Deno.test("worktree:teardown refuses to run from the main checkout", async () =>
 // ── Codex [cleanup] contract: the written cleanup.script is the cwd-based teardown ──
 //
 // Codex's environment.toml `[cleanup].script` runs as a BARE command in the worktree
-// cwd with no stdin (unlike Claude's `worktree:remove`, which reads a {worktree_path}
+// cwd with no stdin (unlike Claude's `worktree remove`, which reads a {worktree_path}
 // payload). This binds the two halves of that contract: the exact script string
 // discern writes into the app's environment.toml IS a dispatchable verb that tears the
 // worktree down by cwd — so a rename of the verb (or the written script) that broke
 // Codex teardown would red-light here rather than silently ship.
 
-Deno.test("worktree:teardown by cwd is the verb discern writes as Codex's environment.toml [cleanup].script", async () => {
+Deno.test("worktree teardown by cwd is the verb discern writes as Codex's environment.toml [cleanup].script", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "codexcleanup");
     const markers = join(dir, "markers");
@@ -441,10 +442,10 @@ Deno.test("worktree:teardown by cwd is the verb discern writes as Codex's enviro
         `destroy = "mkdir -p ${markers} && rm -f ${markers}/@resource@.live && touch ${markers}/@resource@.gone"\n`,
     );
     // Setup creates the resource + the ledger entry teardown acts on.
-    await runAgent(wt, ["worktree"]);
-    const handle =
-      (await runAgent(wt, ["worktree-name", "--resource", "thing"])).stdout
-        .trim();
+    await runAgent(wt, ["worktree", "setup"]);
+    const handle = (await runAgent(wt, ["identity", "--resource", "thing"]))
+      .stdout
+      .trim();
 
     // discern writes the cleanup script into the app's environment.toml…
     await wireProviderWorktreeApp(wt, ["codex"]);

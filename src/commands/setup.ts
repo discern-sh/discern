@@ -27,7 +27,7 @@
 
 import { ensureDir, walk } from "@std/fs";
 import { dirname, join, relative } from "@std/path";
-import { type InitConfig, tokensFromConfig } from "../lib/config.ts";
+import { type SetupConfig, tokensFromConfig } from "../lib/config.ts";
 import { Logger } from "../lib/log.ts";
 import {
   resolveConfigPath,
@@ -35,7 +35,7 @@ import {
   resolveTemplatesDir,
   resolveWorktreeRoot,
 } from "../lib/paths.ts";
-import { type InitFlags, resolveInitConfig } from "../lib/prompts.ts";
+import { type InitFlags, resolveSetupConfig } from "../lib/prompts.ts";
 import {
   applyConfigDoc,
   type DiscernConfigDoc,
@@ -228,7 +228,7 @@ const NO_PROJECT =
 export async function assembleInitPlan(params: {
   templatesDir: string;
   destDir: string;
-  config: InitConfig;
+  config: SetupConfig;
   /** Declarative slots/scopes/side_gates/ratchets fills from `setup --config`. */
   fills?: DiscernConfigDoc | undefined;
 }): Promise<Plan> {
@@ -378,7 +378,7 @@ function applyFillsToPlan(plan: Plan, fills: DiscernConfigDoc): void {
 
 /** What a scaffold pass produced (for the human summary and the JSON envelope). */
 interface ScaffoldOutcome {
-  config: InitConfig;
+  config: SetupConfig;
   written: string[];
   compiled: string[];
   mcpWired: string[];
@@ -439,9 +439,9 @@ async function scaffoldHarness(
   if (freshInstall && effectiveFlags.agents === undefined) {
     effectiveFlags.agents = (await resolveDefaultAgents()).join(",");
   }
-  let config: InitConfig;
+  let config: SetupConfig;
   try {
-    config = await resolveInitConfig(effectiveFlags, log);
+    config = await resolveSetupConfig(effectiveFlags, log);
   } catch (error) {
     // A bad explicit choice (e.g. an invalid --slug) — a clean diagnostic, not
     // a stack trace.
@@ -593,7 +593,7 @@ async function scaffoldHarness(
  */
 async function seedGuidance(
   root: string,
-  config: InitConfig,
+  config: SetupConfig,
   freshInstall: boolean,
 ): Promise<{ guidanceLaid: boolean; migrated: string[] }> {
   const guidancePath = join(root, "guidance.md");
@@ -644,7 +644,7 @@ async function seedGuidance(
       continue;
     }
     appended += `\n${heading}\n\n` +
-      `<!-- discern migrated your existing ${m.file} here during setup so it wouldn't ` +
+      `<!-- discern imported your existing ${m.file} here during setup so it wouldn't ` +
       `be lost. Fold it into the conventions above, then delete this note. -->\n\n` +
       `${m.body}\n`;
   }
@@ -874,7 +874,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   // Prefer the fresh scaffold's project name — its casing is preserved from the
   // directory ("ListOfListsOfLists"). Reconstructing from the persisted slug loses
   // it (the slug is lowercase → "Listoflistsoflists"), so fall back to that only on
-  // a resume where the fresh InitConfig isn't in hand (ADR 0065).
+  // a resume where the fresh SetupConfig isn't in hand (ADR 0065).
   const name = scaffold?.config.projectName ??
     (cfg ? displayNameFromSlug(cfg.project.slug) : "the project");
   const docsDir = cfg?.docs.dir ?? scaffold?.config.docsDir ?? DEFAULT_DOCS_DIR;
@@ -1651,8 +1651,8 @@ type GateProof =
  * with whatever capabilities were just wired) — all in the main checkout — then a
  * WORKTREE PROBE proving the project is also viable in a linked worktree, the copy
  * every future task runs in (the main checkout being the one place agents are told
- * never to work). The cores run BELOW the router/MCP bootstrap gate, so they execute
- * even though setup isn't recorded yet — the "bootstrap bypass" is automatic. Returns a
+ * never to work). The cores run BELOW the router/MCP setup gate, so they execute
+ * even though setup isn't recorded yet — the "setup bypass" is automatic. Returns a
  * failure (already emitted) with its exit code, or success carrying whether the probe
  * actually proved viability.
  */

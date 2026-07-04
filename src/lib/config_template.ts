@@ -3,7 +3,7 @@
  *
  * The template (`templates/discern.toml.tmpl`) is the single source of truth for
  * how a section *should* read in a project's config: its `# ───` documentation
- * paragraph, its `[header]`, and its body of commented defaults. `init` lays the
+ * paragraph, its `[header]`, and its body of commented defaults. `setup` lays the
  * whole template down, so a fresh config is fully documented. A 5→6 migration
  * (ADR 0020) adds sections to an *existing* config — and an only-if-absent line
  * edit would append them as bare keys, leaving a migrated config worse-documented

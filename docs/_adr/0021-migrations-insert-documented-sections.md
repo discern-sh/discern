@@ -4,7 +4,7 @@
 
 ## Context
 
-A fresh `discern init` lays the whole config template down, so the config it
+A fresh `discern setup` lays the whole config template down, so the config it
 produces reads well: every section preceded by its `# ───` documentation
 paragraph, in a deliberate order, `[meta]` first. The
 [migration chain](0014-versioned-migration-system.md) evolves an _existing_

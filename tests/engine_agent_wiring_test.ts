@@ -27,7 +27,7 @@ Deno.test("Gemini: the seed (hooksConfig.enabled + SessionStart) and the MCP reg
 
     // The seed landed: hooksConfig.enabled (the hooks system's canonical toggle —
     // a SEPARATE section from the per-event arrays; Gemini rejects a boolean under
-    // `hooks`) + the SessionStart → worktree:ensure hook.
+    // `hooks`) + the SessionStart → worktree ensure hook.
     const seeded = JSON.parse(
       await Deno.readTextFile(join(dir, ".gemini/settings.json")),
     );
@@ -35,7 +35,7 @@ Deno.test("Gemini: the seed (hooksConfig.enabled + SessionStart) and the MCP reg
     assertEquals(seeded.hooks.enabled, undefined); // never a boolean under hooks
     assertEquals(
       seeded.hooks.SessionStart[0].hooks[0].command,
-      "discern worktree:ensure",
+      "discern worktree ensure",
     );
     assertEquals(seeded.mcpServers, undefined); // register() adds this, not the seed
 
@@ -62,7 +62,7 @@ Deno.test("Gemini: the seed (hooksConfig.enabled + SessionStart) and the MCP reg
     assertEquals(merged.hooksConfig.enabled, true);
     assertEquals(
       merged.hooks.SessionStart[0].hooks[0].command,
-      "discern worktree:ensure",
+      "discern worktree ensure",
     );
     assertEquals(merged.mcpServers.discern, {
       command: "discern",
@@ -90,7 +90,7 @@ Deno.test("Codex: refresh wires .codex/config.toml (MCP) and co-manages environm
     assertEquals(hooks.hooks.SessionStart[0].matcher, "startup|resume");
     assertEquals(
       hooks.hooks.SessionStart[0].hooks[0].command,
-      "discern worktree:ensure",
+      "discern worktree ensure",
     );
 
     // refresh wires the MCP server (TOML) and the app worktree-lifecycle file.
@@ -146,8 +146,8 @@ Deno.test("Codex: refresh wires .codex/config.toml (MCP) and co-manages environm
     };
     assertEquals(env.version, 1);
     assertEquals(env.name, "Discern");
-    assertEquals(env.setup.script, "discern worktree:ensure");
-    assertEquals(env.cleanup.script, "discern worktree:teardown");
+    assertEquals(env.setup.script, "discern worktree ensure");
+    assertEquals(env.cleanup.script, "discern worktree teardown");
 
     const rules = await Deno.readTextFile(
       join(dir, ".codex/rules/discern.rules"),
@@ -172,20 +172,20 @@ Deno.test("Cursor + Copilot: scaffold seeds each SessionStart hook; refresh wire
     await scaffoldEngine(dir, { agents: ["cursor", "copilot"] });
 
     // The scaffold seeded each vendor's SessionStart hook in its own shape — Cursor's
-    // flat `{ command }`, Copilot's `{ type, bash }` — both running worktree:ensure.
+    // flat `{ command }`, Copilot's `{ type, bash }` — both running worktree ensure.
     const cursorHooks = JSON.parse(
       await Deno.readTextFile(join(dir, ".cursor/hooks.json")),
     );
     assertEquals(
       cursorHooks.hooks.sessionStart[0].command,
-      "discern worktree:ensure",
+      "discern worktree ensure",
     );
     const copilotHooks = JSON.parse(
       await Deno.readTextFile(join(dir, ".github/hooks/discern.json")),
     );
     assertEquals(
       copilotHooks.hooks.sessionStart[0].bash,
-      "discern worktree:ensure",
+      "discern worktree ensure",
     );
 
     // refresh wires Cursor's own .cursor/mcp.json and Copilot's co-owned .mcp.json.

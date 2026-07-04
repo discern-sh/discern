@@ -18,7 +18,7 @@ import type { LedgerItem } from "./resources.ts";
 
 // ── teardown ────────────────────────────────────────────────────────────────
 
-/** What `worktree:teardown` would destroy: this worktree's ledger entries, in the
+/** What `worktree teardown` would destroy: this worktree's ledger entries, in the
  * reverse-creation order they will be destroyed in. */
 export interface TeardownPlan {
   /** Ledger entries for this worktree, sorted for destruction (reverse seq). */
@@ -288,7 +288,7 @@ export function setupPlanToEngine(plan: SetupPlan): EnginePlan {
 // ── prune ─────────────────────────────────────────────────────────────────────
 
 /**
- * What `worktree:prune` would reclaim — the result of the read-only scans (stale
+ * What `worktree prune` would reclaim — the result of the read-only scans (stale
  * worktrees, fully-merged dangling branches, orphan directories) plus the pure
  * orphan-resource classification. The deliverable a dry-run renders and the apply
  * executor acts on.

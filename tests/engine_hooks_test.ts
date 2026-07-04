@@ -2,7 +2,7 @@
  * Coverage for the worktree-lifecycle hook commands wired into
  * `.claude/settings.json` — the SessionStart / WorktreeCreate / WorktreeRemove
  * entries that drive the worktree workflow. They are now thin `discern
- * worktree:ensure` / `worktree:create` / `worktree:remove` dispatches: the binary
+ * worktree ensure` / `worktree create` / `worktree remove` dispatches: the binary
  * reads the hook's JSON payload from stdin itself, so the hooks no longer shell
  * out to `jq` (ADR 0039). Each test extracts the command from the RENDERED
  * settings and runs it exactly as the harness would — `sh -c <command>` with the
@@ -67,16 +67,16 @@ Deno.test("hooks: no worktree hook shells out to jq anymore", async () => {
     // The create/remove hooks are the thin binary dispatches that replaced it.
     assertStringIncludes(
       await hookCommand(dir, "WorktreeCreate"),
-      "worktree:create",
+      "worktree create",
     );
     assertStringIncludes(
       await hookCommand(dir, "WorktreeRemove"),
-      "worktree:remove",
+      "worktree remove",
     );
   });
 });
 
-Deno.test("hook SessionStart: dispatches worktree:ensure (a no-op in the main checkout)", async () => {
+Deno.test("hook SessionStart: dispatches worktree ensure (a no-op in the main checkout)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -99,7 +99,7 @@ Deno.test("hook WorktreeCreate: creates the worktree, runs setup, prints its pat
     // The hook prints ONLY the new worktree's path on stdout (no trailing
     // newline) — Claude Code reads it as the worktree location.
     assertEquals(r.stdout, wt);
-    // It is a real linked worktree, with `discern worktree` setup having run.
+    // It is a real linked worktree, with `discern worktree setup` having run.
     assert(await exists(join(wt, ".git")), `not a worktree\n${r.stderr}`);
     assert(
       await exists(join(wt, ".claude/skills/discern-write-adr/SKILL.md")),

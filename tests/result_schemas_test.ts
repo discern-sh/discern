@@ -32,7 +32,6 @@ import {
   STEP_OUTCOMES,
 } from "../src/shared/result.ts";
 import {
-  ChangedScopesOutputSchema,
   type CouplingData,
   CouplingOutputSchema,
   DatalessEnvelopeSchema,
@@ -45,6 +44,7 @@ import {
   ImproveOutputSchema,
   IntegrateOutputSchema,
   RefreshOutputSchema,
+  ScopesOutputSchema,
   StartOutputSchema,
   StatusDataSchema,
   StatusOutputSchema,
@@ -56,7 +56,7 @@ import { prepareResult } from "../src/engine/gate/prepare.ts";
 import { testResult } from "../src/engine/gate/test.ts";
 import { ratchetsResult } from "../src/engine/gate/ratchets.ts";
 import { doctorResult } from "../src/commands/doctor.ts";
-import { changedScopesResult } from "../src/engine/scopes/changed.ts";
+import { scopesResult } from "../src/engine/scopes/scopes.ts";
 import { couplingResult } from "../src/engine/coupling/coupling.ts";
 import { statusResult } from "../src/engine/status/status.ts";
 import { improveResult } from "../src/engine/improve/improve.ts";
@@ -396,14 +396,14 @@ Deno.test("doctor execution_model is faithful across a rich config (resources, r
   });
 });
 
-Deno.test("changed-scopes result is faithful", async () => {
+Deno.test("scopes result is faithful", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
     expectValid(
-      ChangedScopesOutputSchema,
-      await changedScopesResult(dir),
-      "changed-scopes",
+      ScopesOutputSchema,
+      await scopesResult(dir),
+      "scopes",
     );
   });
 });

@@ -71,3 +71,87 @@ Deno.test("shipped templates/ never name engine-developer commands", async () =>
     }`,
   );
 });
+
+const DOCS = join(REPO_ROOT, "docs");
+const TESTS = join(REPO_ROOT, "tests");
+const RECIPES = join(REPO_ROOT, "recipes");
+
+const ROOT_TEXT_FILES = [
+  "README.md",
+  "TODO.md",
+  "guidance.md",
+  "discern.toml",
+];
+
+const RETIRED_COMMAND_ALLOWLIST = new Set([
+  "tests/dev_vocab_guard_test.ts",
+  "docs/_adr/0095-prelaunch-cli-vocabulary.md",
+]);
+
+const RETIRED_COMMAND_TOKENS = [
+  "changed-scopes",
+  "worktree-name",
+  "add-preset",
+  "discern migrate",
+  "discern init",
+  "discern bootstrap",
+  "migrate --check",
+  "`migrate`",
+  "`init`",
+  "`bootstrap`",
+  "src/commands/migrate.ts",
+  "src/commands/init.ts",
+  "src/commands/bootstrap.ts",
+  "tests/migrate_test.ts",
+  "tests/engine_changed_scopes_test.ts",
+  "tests/init_config_test.ts",
+  "tests/init_edge_test.ts",
+  "src/engine/scopes/changed.ts",
+  "`discern worktree`",
+  "discern worktree subcommands",
+  "worktree:setup",
+  "worktree:ensure",
+  "worktree:create",
+  "worktree:remove",
+  "worktree:teardown",
+  "worktree:prune",
+  "`worktree:*`",
+];
+
+async function maybeTextFile(
+  rel: string,
+): Promise<[string, string] | undefined> {
+  try {
+    return [rel, await Deno.readTextFile(join(REPO_ROOT, rel))];
+  } catch {
+    return undefined;
+  }
+}
+
+async function commandSurfaceFiles(): Promise<Array<[string, string]>> {
+  const out: Array<[string, string]> = [];
+  for (const root of [SRC, TESTS, DOCS, TEMPLATES, RECIPES]) {
+    out.push(...await textFiles(root));
+  }
+  for (const rel of ROOT_TEXT_FILES) {
+    const file = await maybeTextFile(rel);
+    if (file !== undefined) out.push(file);
+  }
+  return out.filter(([rel]) => !RETIRED_COMMAND_ALLOWLIST.has(rel));
+}
+
+Deno.test("retired prelaunch command vocabulary does not reappear", async () => {
+  const offenders: string[] = [];
+  for (const [rel, text] of await commandSurfaceFiles()) {
+    for (const token of RETIRED_COMMAND_TOKENS) {
+      if (text.includes(token)) {
+        offenders.push(`${rel} contains ${JSON.stringify(token)}`);
+      }
+    }
+  }
+  assertEquals(
+    offenders,
+    [],
+    `retired command vocabulary is still present:\n  ${offenders.join("\n  ")}`,
+  );
+});

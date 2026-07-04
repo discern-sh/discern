@@ -229,11 +229,11 @@ Deno.test("doctor reports the schema version is current on a fresh install", asy
   });
 });
 
-Deno.test("add-preset reports unknown preset with a friendly error", async () => {
+Deno.test("preset reports unknown preset with a friendly error", async () => {
   await withTempDir(async (dir) => {
     await runCli(["setup", "--confirmed", "--json", "--slug", "demo"], dir);
     const { code, stdout } = await runCli(
-      ["add-preset", "node", "--json"],
+      ["preset", "node", "--json"],
       dir,
     );
     assertEquals(code, 1);

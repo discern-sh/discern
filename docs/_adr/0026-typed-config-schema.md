@@ -94,7 +94,7 @@ defines every section, key, type, **default**, and **human description**
   boundary below.
 
 - **No on-disk shape change, so no migration.** Nothing this change writes to
-  disk moved: the template is byte-identical, `init`/`upgrade` write the same
+  disk moved: the template is byte-identical, `setup`/`upgrade` write the same
   bytes, and a correctly-migrated schema-8 config validates cleanly. This is a
   pure read/validation/generation refactor, so `SCHEMA_VERSION` stays **8**. The
   stricter _validation_ can reject a previously-_tolerated_ (never really valid)

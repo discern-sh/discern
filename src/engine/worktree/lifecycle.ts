@@ -1,8 +1,8 @@
 /**
  * The worktree lifecycle entry points — worktree setup, ensure, graduate,
  * teardown, and prune. These compose the identity, resource, and git layers into
- * the operations the dispatcher exposes as `discern worktree`, `discern graduate`,
- * and `worktree:*`.
+ * the operations the dispatcher exposes as `discern worktree setup`, `discern graduate`,
+ * and the `worktree` command group.
  *
  * Per-worktree external resources ([worktree.resources.<name>].create/destroy)
  * are project-supplied command strings run via `sh -c` after `@…@` token
@@ -122,7 +122,7 @@ import { failMessage, finishResult } from "../gate/finish.ts";
 import { inspectGateReceipt } from "../gate/receipt.ts";
 // integrate classifies the merge's incoming files into the project's scopes for its
 // "what landed beneath you" summary (ADR 0064), via the same matcher the gate uses.
-import { scopesForPaths } from "../scopes/changed.ts";
+import { scopesForPaths } from "../scopes/scopes.ts";
 
 /** Context shared by every lifecycle operation. */
 export interface LifecycleContext {
@@ -191,7 +191,7 @@ async function resolveContextIdentity(
 /**
  * Tear down this worktree's external resources — every ledger entry for this
  * worktree, destroyed in reverse creation order. Best-effort and non-fatal: a
- * teardown hiccup must never strand a worktree (a later `worktree:prune` is the
+ * teardown hiccup must never strand a worktree (a later `worktree prune` is the
  * backstop). A no-op when nothing was created. Run from inside the worktree (so
  * `@dir@`-bearing destroys still resolve).
  */
@@ -258,7 +258,7 @@ async function recordPort(
   ctx.log.ok(
     wrote
       ? `Worktree dev-server port: ${port} (recorded in .env).`
-      : `Worktree dev-server port: ${port} (read it via: discern worktree-name --port).`,
+      : `Worktree dev-server port: ${port} (read it via: discern identity --port).`,
   );
 }
 
@@ -372,7 +372,7 @@ async function runEnsureSteps(
 }
 
 /**
- * Set up a linked worktree — the `worktree` recipe. Asserts the worktree
+ * Set up a linked worktree — the `worktree setup` command. Asserts the worktree
  * precondition, ensures a named branch, provisions the per-worktree resources (a
  * `required` create is fatal), inherits env vars, records the port + resource
  * handles into `.env`, runs the one-shot `[worktree.setup].steps` then the
@@ -384,7 +384,7 @@ async function runEnsureSteps(
  * the non-idempotent phases are not repeated — resources are re-readied via
  * `ensure` rather than re-created, and the one-shot `steps` are skipped. The
  * convergent `setup.ensure` runs on EVERY pass (re-install deps, rebuild) so a
- * re-fired `worktree:create` hook or a re-run `discern worktree` re-converges the
+ * re-fired `worktree create` hook or a re-run `discern worktree setup` re-converges the
  * worktree on the current tree.
  */
 export async function worktreeSetup(
@@ -393,10 +393,10 @@ export async function worktreeSetup(
 ): Promise<void> {
   // 1. must be inside a linked worktree
   try {
-    await assertInWorktree("discern worktree", ctx.cwd);
+    await assertInWorktree("discern worktree setup", ctx.cwd);
   } catch {
     throw new WorktreeGitError(
-      "discern worktree must be run from inside a linked git worktree, not the main checkout.",
+      "discern worktree setup must be run from inside a linked git worktree, not the main checkout.",
     );
   }
 
@@ -404,7 +404,12 @@ export async function worktreeSetup(
   // outcomes against it, so the preview and the `--json` report can't drift.
   const plan = await buildSetupPlan(ctx);
   if (opts.dryRun ?? false) {
-    emitDryRun(ctx, "worktree", setupPlanToEngine(plan), opts.json ?? false);
+    emitDryRun(
+      ctx,
+      "worktree setup",
+      setupPlanToEngine(plan),
+      opts.json ?? false,
+    );
     return;
   }
 
@@ -417,8 +422,8 @@ export async function worktreeSetup(
   await ensureWorktreeBranch(identity.branch, ctx.cwd);
 
   // Has this worktree already completed setup? The ready sentinel is the proof. The
-  // two non-ensure callers — a re-fired `worktree:create` hook and an explicit
-  // `discern worktree` — reach here on an already-configured worktree, where the
+  // two non-ensure callers — a re-fired `worktree create` hook and an explicit
+  // `discern worktree setup` — reach here on an already-configured worktree, where the
   // non-idempotent phases (resource `create`, `[worktree.setup].steps`) must not
   // re-run. (`worktreeEnsure` gates the session-start path the same way.)
   const configured = await sentinelPresent(ctx.cwd);
@@ -510,7 +515,7 @@ export async function worktreeSetup(
 
   if (opts.json ?? false) {
     emitResults(
-      "worktree",
+      "worktree setup",
       setupResults(plan, createdFailed, refreshOk, ensureFailed),
     );
   }
@@ -578,7 +583,7 @@ export async function worktreeEnsure(
     return { kind: "already" };
   }
   ctx.log.warn(
-    "[discern] Worktree not configured yet; running 'discern worktree'…",
+    "[discern] Worktree not configured yet; running 'discern worktree setup'…",
   );
   await worktreeSetup(ctx);
   return { kind: "ran" };
@@ -586,7 +591,7 @@ export async function worktreeEnsure(
 
 /**
  * Tear down this worktree's resources without graduating its
- * branch — the `worktree:teardown` recipe, used when DISCARDING a worktree.
+ * branch — the `worktree teardown` recipe, used when DISCARDING a worktree.
  * Asserts the worktree precondition; destroys every resource the worktree created.
  */
 export async function worktreeTeardown(
@@ -594,10 +599,10 @@ export async function worktreeTeardown(
   opts: WorktreeOpOptions = {},
 ): Promise<void> {
   try {
-    await assertInWorktree("discern worktree:teardown", ctx.cwd);
+    await assertInWorktree("discern worktree teardown", ctx.cwd);
   } catch {
     throw new WorktreeGitError(
-      "discern worktree:teardown must be run from inside a linked git worktree, not the main checkout.",
+      "discern worktree teardown must be run from inside a linked git worktree, not the main checkout.",
     );
   }
 
@@ -605,7 +610,7 @@ export async function worktreeTeardown(
   if (opts.dryRun ?? false) {
     emitDryRun(
       ctx,
-      "worktree:teardown",
+      "worktree teardown",
       teardownPlanToEngine(plan),
       opts.json ?? false,
     );
@@ -632,7 +637,7 @@ export async function worktreeTeardown(
         ? "ok"
         : "skipped",
     }));
-    emitResults("worktree:teardown", results);
+    emitResults("worktree teardown", results);
   }
 }
 
@@ -1654,7 +1659,7 @@ export type WorktreeProbeOutcome =
  * inheritance — the anchoring an env-anchored app silently breaks. Gate-agnostic: the
  * caller decides what "viable" means via `probe` (setup passes it the finish core).
  * Runs from the main checkout; never throws — a teardown hiccup is swallowed (a later
- * `worktree:prune` reclaims the remains).
+ * `worktree prune` reclaims the remains).
  */
 export async function probeWorktreeViability(
   ctx: LifecycleContext,
@@ -1708,7 +1713,7 @@ export async function probeWorktreeViability(
  * Discard a probe worktree unconditionally and best-effort: destroy its resources
  * (from inside it, so `@dir@` destroys resolve), remove the worktree directory, then
  * delete its now-free branch. Every step swallows its own failure — a probe teardown
- * must never fail the caller (`setup done`); `worktree:prune` is the backstop.
+ * must never fail the caller (`setup done`); `worktree prune` is the backstop.
  */
 async function teardownProbeWorktree(
   ctx: LifecycleContext,
@@ -1795,7 +1800,7 @@ export interface WorktreePruneOptions {
 }
 
 /**
- * The read-only prune SCAN — what `worktree:prune` would remove and reclaim,
+ * The read-only prune SCAN — what `worktree prune` would remove and reclaim,
  * gathered without acting. The git-worktree and orphan-dir scans run their
  * existing functions in `dryRun` mode through a quiet logger (so planning never
  * narrates); the resource reclaims come from the pure {@link classifyOrphans}
@@ -1849,7 +1854,7 @@ async function planResourceReclaims(ctx: LifecycleContext): Promise<string[]> {
 }
 
 /**
- * Housekeeping for the worktree pool — the `worktree:prune` recipe. Removes stale
+ * Housekeeping for the worktree pool — the `worktree prune` recipe. Removes stale
  * worktrees and fully-merged branches, reclaims gitlinked orphan directories, then
  * reclaims orphaned per-worktree RESOURCES (the GC safety net: a resource whose
  * worktree vanished without a clean teardown). Refuses to run from inside a linked
@@ -1861,10 +1866,10 @@ export async function worktreePrune(
   opts: WorktreePruneOptions = {},
 ): Promise<void> {
   try {
-    await assertNotInWorktree("discern worktree:prune", ctx.cwd);
+    await assertNotInWorktree("discern worktree prune", ctx.cwd);
   } catch {
     throw new WorktreeGitError(
-      "discern worktree:prune must be run from the main checkout, not a linked worktree.",
+      "discern worktree prune must be run from the main checkout, not a linked worktree.",
     );
   }
   const json = opts.json ?? false;
@@ -1875,7 +1880,7 @@ export async function worktreePrune(
   if (opts.dryRun ?? false) {
     emitDryRun(
       ctx,
-      "worktree:prune",
+      "worktree prune",
       enginePlan,
       json,
     );
@@ -1884,14 +1889,14 @@ export async function worktreePrune(
 
   if (!prunePlanIsEmpty(plan) && !(opts.assumeYes ?? false)) {
     const message =
-      "Confirmation required for `discern worktree:prune`; review the candidates and re-run with `--yes`.";
+      "Confirmation required for `discern worktree prune`; review the candidates and re-run with `--yes`.";
     if (!canPrompt(false)) {
       if (!json) {
         renderPlan(loggerSink(ctx.log), enginePlan);
       }
       throw new WorktreeResultError(message, {
         ok: false,
-        verb: "worktree:prune",
+        verb: "worktree prune",
         error: "confirmation_required",
         message,
         plan: enginePlan,
@@ -1938,7 +1943,7 @@ export async function worktreePrune(
   ctx.log.ok("Prune complete.");
 
   if (json) {
-    emitResults("worktree:prune", pruneResults(prune, sweep, gc));
+    emitResults("worktree prune", pruneResults(prune, sweep, gc));
   }
 }
 
@@ -1974,7 +1979,7 @@ function pruneResults(
 }
 
 /**
- * The resource-GC pass of `worktree:prune`: reclaim any ledgered resource whose
+ * The resource-GC pass of `worktree prune`: reclaim any ledgered resource whose
  * worktree is gone. Conservative — `gcOrphanResources` only acts on entries this
  * project's ledger holds, and never on one a live worktree still owns (by key,
  * path, or resource handle). A no-op outside a git repo.
@@ -2058,12 +2063,12 @@ async function liveResourceIdentitySet(
 }
 
 /**
- * Resolve a single identity field for the `worktree-name` command surface. Kept
- * here so the dispatcher can map `discern worktree-name --<field>` to one call
+ * Resolve a single identity field for the `identity` command surface. Kept
+ * here so the dispatcher can map `discern identity --<field>` to one call
  * without reaching into the identity internals. Throws `IdentityError` (carrying
  * an exit code) on a resolution failure.
  */
-export async function worktreeNameField(
+export async function identityField(
   root: string,
   field: WorktreeField,
   target: string = Deno.cwd(),
@@ -2091,11 +2096,11 @@ export async function worktreeNameField(
 }
 
 /**
- * Resolve a named resource's handle for `worktree-name --resource <name>` — the
+ * Resolve a named resource's handle for `identity --resource <name>` — the
  * runtime-discovery query that equals what the resource's `create` used and what
  * `DISCERN_RESOURCE_<NAME>` carries in the worktree's `.env`.
  */
-export async function worktreeResourceHandle(
+export async function identityResourceHandle(
   root: string,
   name: string,
   target: string = Deno.cwd(),
@@ -2107,9 +2112,9 @@ export async function worktreeResourceHandle(
 
 /**
  * List every declared resource's handle as `name=handle` lines, for
- * `worktree-name --resources` (visibility into a worktree's resources).
+ * `identity --resources` (visibility into a worktree's resources).
  */
-export async function worktreeResourcesList(
+export async function identityResourcesList(
   root: string,
   target: string = Deno.cwd(),
 ): Promise<string[]> {

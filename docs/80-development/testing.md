@@ -84,7 +84,7 @@ That metric feeds a ratchet — `[ratchets.coverage]` in
 tests, then bump `limit` to just below the newly measured value.
 
 Some code is **intentionally** uncovered: the interactive TTY paths — the prompt
-helpers ([src/lib/prompts.ts](../../src/lib/prompts.ts), e.g. `add-preset`'s
+helpers ([src/lib/prompts.ts](../../src/lib/prompts.ts), e.g. `preset`'s
 confirm) and the `docs` browser's `Select` loop and pager
 ([src/commands/docs.ts](../../src/commands/docs.ts)) — only run on a real
 terminal, which a black-box subprocess suite can't drive without a pseudo-TTY.

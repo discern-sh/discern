@@ -86,7 +86,7 @@ The seeded Codex hook is:
         "hooks": [
           {
             "type": "command",
-            "command": "discern worktree:ensure"
+            "command": "discern worktree ensure"
           }
         ]
       }
@@ -109,10 +109,10 @@ version = 1
 name = "Discern"
 
 [setup]
-script = "discern worktree:ensure"
+script = "discern worktree ensure"
 
 [cleanup]
-script = "discern worktree:teardown"
+script = "discern worktree teardown"
 ```
 
 `version` and `name` are written only when absent, so an app-created file keeps

@@ -31,7 +31,7 @@
  *
  * ## Not the scaffold templater (`src/lib/template.ts`)
  *
- * That module substitutes `{{token}}` in the `.tmpl` SCAFFOLD surface at `init`
+ * That module substitutes `{{token}}` in the `.tmpl` SCAFFOLD surface at `setup`
  * time, over a different token set, leaving an unknown token VERBATIM (drift is
  * reported, not fatal). This one runs at guidance-compile time, is strict, and adds
  * conditionals. They never process the same files — the scaffold skips

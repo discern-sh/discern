@@ -84,28 +84,28 @@ result is rendered as `{ content, structuredContent, isError }`, the same
 
 **Tools.** The exposed set mirrors the work verbs: `discern_status`,
 `discern_finish`, `discern_prepare`, `discern_test`, `discern_ratchets`,
-`discern_doctor`, `discern_improve`, `discern_changed_scopes`, `discern_docs`,
+`discern_doctor`, `discern_improve`, `discern_scopes`, `discern_docs`,
 `discern_help`, `discern_graduate`. Each advertises:
 
 - a **`title`** (a short human label) and a **description**;
 - an **`outputSchema`** — its per-verb schema from `result_schemas.ts`, which
   the SDK validates `structuredContent` against on every call;
 - honest **`annotations`** — `readOnlyHint` for the pure-observation verbs
-  (`status`, `doctor`, `changed_scopes`, `improve`, `docs`, `help`);
-  not-read-only for the ones that run commands or rewrite files (`finish`,
-  `prepare`, `test`, `ratchets`); and `destructiveHint` for `graduate` (it tears
-  down resources and moves the branch).
+  (`status`, `doctor`, `scopes`, `improve`, `docs`, `help`); not-read-only for
+  the ones that run commands or rewrite files (`finish`, `prepare`, `test`,
+  `ratchets`); and `destructiveHint` for `graduate` (it tears down resources and
+  moves the branch).
 
 A tool is **gated like its verb**: a feature-disabled tool is not registered
-(absent from `tools/list`), and the bootstrap-gated verbs (the gate verbs and
+(absent from `tools/list`), and the setup-gated verbs (the gate verbs and
 `discern_docs`) refuse with `not_set_up` until the project is set up.
 `discern_ratchets` is **slow and on-demand** — it runs the metric commands, so
 it is not part of `discern_finish`; check it explicitly.
 
-The worktree lifecycle verbs (`worktree`, `worktree:*`) are **deliberately not
-exposed** — they are hook-driven and an agent must never hop between or prune
-the worktree it is in. `discern_graduate` is the one lifecycle op on the
-surface.
+The worktree lifecycle verbs (`worktree`, `worktree command group`) are
+**deliberately not exposed** — they are hook-driven and an agent must never hop
+between or prune the worktree it is in. `discern_graduate` is the one lifecycle
+op on the surface.
 
 **Instructions.** The server advertises an `instructions` block — the native
 "when to use which tool" guide capable clients load on connect: orient with
@@ -121,12 +121,12 @@ on every read and serve the verb's `data` payload (not the full envelope):
 | URI                                          | Content                              | MIME                   |
 | -------------------------------------------- | ------------------------------------ | ---------------------- |
 | `discern://status`                           | a live `status` snapshot             | `application/json`     |
-| `discern://changed-scopes`                   | the changed scopes                   | `application/json`     |
+| `discern://scopes`                           | the changed scopes                   | `application/json`     |
 | `discern://config`                           | the resolved `discern.toml`          | `application/json`     |
 | `discern://help` · `discern://help/{target}` | discern's own docs (index · one doc) | JSON · `text/markdown` |
 | `discern://docs` · `discern://docs/{target}` | the project's docs (index · one doc) | JSON · `text/markdown` |
 
 Resources are gated like their tools (the `docs` resource on the `docs` feature
-and on bootstrap; `help` always). They are application-driven and not reliably
-auto-injected across clients, so the **tools stay the reliable path** and
-resources are the attachable surface beside them.
+and on setup completion; `help` always). They are application-driven and not
+reliably auto-injected across clients, so the **tools stay the reliable path**
+and resources are the attachable surface beside them.

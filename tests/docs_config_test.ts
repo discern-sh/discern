@@ -2,7 +2,7 @@ import { assertEquals } from "@std/assert";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { jobsInStage } from "../src/engine/gate/stages.ts";
 import { planScopeGates } from "../src/engine/gate/plan.ts";
-import { scopesForPaths } from "../src/engine/scopes/changed.ts";
+import { scopesForPaths } from "../src/engine/scopes/scopes.ts";
 import { buildRatchetPlan } from "../src/engine/gate/ratchet_plan.ts";
 
 const CONFIG = parseConfigOrThrow(`

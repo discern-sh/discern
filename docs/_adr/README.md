@@ -53,7 +53,7 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0033 — A `status` verb with location-aware scope](0033-status-verb-and-location-aware-scope.md)
 - [0034 — AGENTS.md is an untracked build artifact, guarded by a currency check](0034-agents-md-untracked-currency-check.md)
 - [0035 — A strict, config-only template engine for the built-in guidance](0035-guidance-templating-engine.md)
-- [0036 — Unify init + bootstrap into one zero-config `discern setup`](0036-unify-setup.md)
+- [0036 — Unify setup under one zero-config `discern setup`](0036-unify-setup.md)
 - [0037 — Setup-incompleteness is an observable state, not a prose handoff](0037-setup-incompleteness-observable.md)
 - [0038 — The MCP server runs on the official TypeScript SDK over stdio](0038-official-mcp-sdk.md)
 - [0039 — discern ships its own docs to every install via `discern help`](0039-bundled-help-docs.md)
@@ -107,6 +107,7 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0092 — `upgrade` reconciles the fixed `discern.toml` scaffold](0092-upgrade-reconciles-config-scaffold.md)
 - [0093 — `upgrade` reconciles the discern `.gitignore` block](0093-upgrade-reconciles-gitignore-block.md)
 - [0094 — Final lifecycle checks require clean trees](0094-final-lifecycle-checks-require-clean-trees.md)
+- [0095 — Standardize the prelaunch CLI vocabulary](0095-prelaunch-cli-vocabulary.md)
 
 ## Superseded and consolidated ADRs
 
@@ -129,7 +130,7 @@ without cluttering the active index above.
   — retired by the single binary (0019)
 - [0016 — Consolidate the install surface under `.discern/`](_superseded/0016-consolidate-install-surface.md)
   — superseded by the root `discern.toml` (0020)
-- [0024 — Bootstrap is a command, not a skill](_superseded/0024-bootstrap-as-command.md)
+- [0024 — Setup is a command, not a skill](_superseded/0024-setup-command-not-skill.md)
   — consolidated into `discern setup` (0036)
 - [0030 — `--json` is quiet](_superseded/0030-quiet-json-output.md) —
   consolidated into the result envelope (0028)

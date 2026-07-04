@@ -26,7 +26,7 @@ import { DEFAULT_DOCS_DIR, normalizeDocsDir } from "./docs_path.ts";
  * Deliberately EXCLUDES, besides the knowledge/orientation verbs (`help` —
  * discern's own documentation, the thing you consult at exactly this moment;
  * `status`/`doctor` — orient and debug a broken install) and the plumbing the
- * hooks and `setup` itself drive (`refresh`, `worktree`, `changed-scopes`,
+ * hooks and `setup` itself drive (`refresh`, `worktree`, `scopes`,
  * `config`, …):
  *
  *   - the GATE PROOF verbs `finish` / `prepare` / `test` / `ratchets`. The agent
@@ -40,15 +40,15 @@ import { DEFAULT_DOCS_DIR, normalizeDocsDir } from "./docs_path.ts";
  * `docs` IS gated: it browses the project's own tree, which has nothing in it
  * until setup seeds and fills it (`help` is the pre-setup documentation surface).
  */
-export const BOOTSTRAP_GATED_VERBS: ReadonlySet<string> = new Set<string>([
+export const SETUP_GATED_VERBS: ReadonlySet<string> = new Set<string>([
   "graduate",
   "integrate",
   "docs",
 ]);
 
-/** True when `verb` refuses until the project is set up (see {@link BOOTSTRAP_GATED_VERBS}). */
-export function verbNeedsBootstrap(verb: string): boolean {
-  return BOOTSTRAP_GATED_VERBS.has(verb);
+/** True when `verb` refuses until the project is set up (see {@link SETUP_GATED_VERBS}). */
+export function verbNeedsSetup(verb: string): boolean {
+  return SETUP_GATED_VERBS.has(verb);
 }
 
 /**
@@ -79,7 +79,7 @@ export type SetupSubverb = (typeof SETUP_SUBVERBS)[number];
  */
 export type SetupPhase = "fresh" | "in_progress" | "done";
 
-/** Derive the lifecycle {@link SetupPhase} from config presence + the bootstrap mark,
+/** Derive the lifecycle {@link SetupPhase} from config presence + the setup completion marker,
  * in ONE place so the welcome, the router, and `status` can't classify it differently. */
 export function setupPhaseOf(
   opts: { hasConfig: boolean; bootstrapped: boolean },
@@ -104,7 +104,7 @@ export function setupNextAction(phase: SetupPhase): string {
 }
 
 /**
- * The canonical refusal shown when a {@link BOOTSTRAP_GATED_VERBS} verb runs
+ * The canonical refusal shown when a {@link SETUP_GATED_VERBS} verb runs
  * before setup — the same sentence in the CLI's `not_set_up` error and the MCP
  * tool's, so the funnel toward `discern setup` reads identically on both surfaces.
  */

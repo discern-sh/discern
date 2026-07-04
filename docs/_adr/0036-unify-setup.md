@@ -1,13 +1,13 @@
-# ADR 0036: Unify init + bootstrap into one zero-config `discern setup`
+# ADR 0036: Unify setup under one zero-config `discern setup`
 
 **Status**: accepted
 
-Amends and **consolidates** [ADR 0024](_superseded/0024-bootstrap-as-command.md)
-(which made bootstrap a command, not a skill — a decision that lives on here:
-`discern setup` is a command that prints instructions, recorded by the
-`[meta].bootstrapped` marker) and builds on
-[ADR 0016](_superseded/0016-consolidate-install-surface.md). Hardened by
-[ADR 0037](0037-setup-incompleteness-observable.md), which makes the
+Amends and **consolidates**
+[ADR 0024](_superseded/0024-setup-command-not-skill.md) (which moved setup out
+of a materialized skill — a decision that lives on here: `discern setup` is a
+command that prints instructions, recorded by the `[meta].bootstrapped` marker)
+and builds on [ADR 0016](_superseded/0016-consolidate-install-surface.md).
+Hardened by [ADR 0037](0037-setup-incompleteness-observable.md), which makes the
 unfinished-setup state observable so the handoff can't be mistaken for
 completion. The setup-brief interaction model it established —
 propose-and-confirm — is later revised to _involve, don't gate_ by
@@ -17,12 +17,12 @@ propose-and-confirm — is later revised to _involve, don't gate_ by
 
 A fresh install took **two human touchpoints**:
 
-1. The user ran **`discern init`** — an interactive wizard asking for a name, a
+1. The user ran **`discern setup`** — an interactive wizard asking for a name, a
    slug, source globs, a brief, and which agent files to emit — which scaffolded
    the machinery.
-2. The user then **told their coding agent to run `discern bootstrap`**, which
-   laid the doc skeletons and printed the authoring instructions the agent
-   worked through, finishing with `discern bootstrap done`.
+2. The user then **told their coding agent to run `discern setup`**, which laid
+   the doc skeletons and printed the authoring instructions the agent worked
+   through, finishing with `discern setup done`.
 
 Two problems with that shape:
 
@@ -31,8 +31,8 @@ Two problems with that shape:
   propose all of them, and the wizard is friction between install and value. The
   product we want to sell is _zero-configuration_: the user makes no decisions;
   their coding agent asks them clarifying questions and does the rest.
-- **The split is an artifact, not a boundary.** `init` (mechanical scaffold) and
-  `bootstrap` (agent authoring) are two halves of one event: "set this project
+- **The split is an artifact, not a boundary.** `setup` (mechanical scaffold)
+  and `setup` (agent authoring) are two halves of one event: "set this project
   up." Two verbs, two names to learn, two things to sequence — for one job.
 
 There is also a **model-capability** insight specific to setup. Setup is a
@@ -45,21 +45,18 @@ agent off, not only inside the prompt.
 
 ## Decision
 
-**Collapse `init` + `bootstrap` into a single, always-non-interactive
-`discern
-setup`, fronted by bare `discern`, and market it as
-zero-configuration.**
+**Make `discern setup` the single, always-non-interactive setup surface, fronted
+by bare `discern`, and market it as zero-configuration.**
 
 - **One command.** `discern setup` scaffolds the machinery (a `discern.toml`
   with capabilities unset, the compiled agent files, the merged settings, the
   MCP wiring), lays the doc skeletons (only when the project has none), and
   prints the authoring instructions for the agent — in one invocation.
-  `discern setup done` validates and records `[meta].bootstrapped`, exactly as
-  `bootstrap done` did.
+  `discern setup done` validates and records `[meta].bootstrapped`.
 - **Bare `discern` is the entry point.** The install message is now "tell your
   coding agent to run `discern`." Bare `discern`, before setup is recorded, runs
-  `setup` (in a project, or — to avoid scaffolding a stray directory — in any
-  git work tree); once recorded, it shows help as before.
+  setup (in a project, or — to avoid scaffolding a stray directory — in any git
+  work tree); once recorded, it shows help as before.
 - **Always non-interactive.** There is no wizard. Setup resolves everything from
   zero-config defaults (slug from the directory, the default agent set, no
   brief). The user makes no decisions at the CLI; the agent asks clarifying
@@ -68,29 +65,20 @@ zero-configuration.**
 - **Pre-setup, the work verbs hard-redirect.** Until `[meta].bootstrapped` is
   recorded, `finish` / `prepare` / `test` / `ratchets` / `graduate` refuse and
   point at `discern setup` (exit non-zero; a structured `not_set_up` result
-  under `--json`). This **amends ADR 0024's "nudge, not gate"** for these verbs:
-  an empty gate pre-setup reports a false "all-green," which is worse than a
-  clear redirect. `help` (discern's own documentation), `status`, `doctor`,
-  `config`, the plumbing the hooks call, and `setup` itself stay open, and a
-  parse-broken config still surfaces its own TOML error rather than the redirect
-  (the `configOk` guard) — so the spirit of 0024 (never wall the debugging or
-  read-only paths) is preserved where it matters. (`docs` was originally exempt
-  too, but it browses the project's _own_ tree, which is empty until setup fills
-  it; it later joined the gated set, with `help` as the pre-setup documentation
-  surface — [ADR 0039](0039-bundled-help-docs.md). The gated set lives once in
-  `shared/setup_state.ts`, shared by the CLI router and the MCP server.)
-- **`init` and `bootstrap` redirect to `setup`.** The retired names (and
-  `bootstrap done` → `setup done`) still work, printing a one-line "now
-  `discern
-  setup`" note, so existing muscle memory and older docs don't break.
+  under `--json`). This amends ADR 0024's "nudge, not gate" stance for these
+  verbs: an empty gate pre-setup reports a false "all-green," which is worse
+  than a clear redirect. `help` (discern's own documentation), `status`,
+  `doctor`, `config`, the plumbing the hooks call, and `setup` itself stay open.
+- **No launch aliases.** The launched CLI surface keeps `setup` as the only
+  setup verb. Historical aliases were removed before launch so generated
+  guidance, docs, and tests teach a single command.
 - **The prompt carries a frontier-model gate.** Its first step tells the agent
   to confirm it is running the user's most capable model and, if not, to stop
   and ask the user to switch before continuing. The installer message carries
-  the same nudge so it reaches the user up front. (See the adversarial review
-  below for the other prompt changes.)
+  the same nudge so it reaches the user up front.
 - **No schema change.** The completion marker stays `[meta].bootstrapped`
-  (internal), so there is no migration; an install bootstrapped under the old
-  verb reads as set up under the new one.
+  (internal), so there is no migration; a project completed under the earlier
+  setup flow reads as set up under this one.
 
 ### Adversarial review of the prompt
 
@@ -115,12 +103,11 @@ carried, beyond the rename:
 
 ## Consequences
 
-- `src/commands/init.ts` + `src/commands/bootstrap.ts` become a single
-  `src/commands/setup.ts`; `templates/bootstrap/` becomes `templates/setup/`;
-  the skeleton marker becomes `<!-- setup fills this -->`.
-- The interactive wizard (`resolveInitConfig`'s prompt branches) is no longer
+- `src/commands/setup.ts` owns setup; `templates/setup/` holds the served
+  instructions; the skeleton marker is `<!-- setup fills this -->`.
+- The interactive wizard (`resolveSetupConfig`'s prompt branches) is no longer
   reached from setup; the prompt helpers (`confirmProceed`, `renderReview`)
-  survive only for `add-preset`, which is still interactive.
+  survive only for `preset`, which is still interactive.
 - The default footprint is unchanged: setup with no flags still lands just
   `discern.toml` (+ the generated agent files), with no `brief.md`.
 - Engine tests treat a scaffold as **set up** by default (`scaffoldEngine` marks
@@ -131,9 +118,8 @@ carried, beyond the rename:
 
 ## Alternatives considered
 
-- **Keep `init` as the unified verb name.** Rejected: `init` carries the "run
-  the wizard" connotation we are removing; `setup` names the one-time event
-  cleanly. (`init` survives as a redirecting alias.)
+- **Keep the older split setup surface.** Rejected: the split surface keeps two
+  names for one event, which is exactly the confusion this ADR removes.
 - **Soft redirect (keep ADR 0024's nudge, still run the verb).** Rejected for
   the gate verbs: running an empty gate pre-setup returns a misleading success.
   A hybrid (hard for gate verbs, soft for the rest) was considered but adds a

@@ -32,7 +32,7 @@ import {
   KNOWN_CAPABILITIES,
 } from "../src/shared/capabilities.ts";
 
-/** A config with a project slug and one gated scope (so changed-scopes/gate have
+/** A config with a project slug and one gated scope (so scopes/gate have
  * something to classify), written before gitInit so a worktree inherits it. */
 const SCOPE_CONFIG = [
   "[project]",
@@ -117,7 +117,7 @@ Deno.test("status: from the main checkout, the default leads with the fleet (and
     }
     // Leading with the fleet omits the heavy local-only blocks.
     assertEquals(obj.data.gate, undefined);
-    assertEquals(obj.data.changed_scopes, undefined);
+    assertEquals(obj.data.scopes, undefined);
 
     // --local suppresses the fleet and restores the local blocks.
     const local = await runAgent(dir, ["status", "--local", "--json"]);
@@ -128,7 +128,7 @@ Deno.test("status: from the main checkout, the default leads with the fleet (and
       lobj.data.gate,
       `--local must restore the gate block: ${local.stdout}`,
     );
-    assert(Array.isArray(lobj.data.changed_scopes));
+    assert(Array.isArray(lobj.data.scopes));
   });
 });
 
@@ -406,7 +406,7 @@ Deno.test("status: from a worktree, the default is local; --all adds the fleet",
     assertEquals(obj.data.worktree.id, "alpha");
     assertEquals(obj.data.git.branch, "agent/alpha");
     assert(obj.data.gate);
-    assert(Array.isArray(obj.data.changed_scopes));
+    assert(Array.isArray(obj.data.scopes));
 
     // --all from a worktree keeps the local blocks AND adds the fleet survey.
     const all = await runAgent(wt, ["status", "--all", "--json"]);
@@ -495,7 +495,7 @@ Deno.test("status: a dirty worktree hints to prepare while iterating and finish 
     const obj = parseStatus(r.stdout);
     assertEquals(obj.data.git.clean, false);
     assert(
-      obj.data.changed_scopes.includes("web"),
+      obj.data.scopes.includes("web"),
       `expected 'web' among changed scopes: ${JSON.stringify(obj.data)}`,
     );
     assert(

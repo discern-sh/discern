@@ -7,7 +7,7 @@
  * handful of satellites RE-LIST members of those sets by hand, each needing its own
  * hand-wired handler so it can't be a derived list: the Cliffy `.command()`
  * registrations (verb → handler), the MCP `TOOLS` table (verb → tool), the
- * bootstrap gate, the per-verb feature gate, and the typo-suggester's recipe names.
+ * setup gate, the per-verb feature gate, and the typo-suggester's recipe names.
  * Without a tie, adding or renaming a verb silently leaves one stale — a dead MCP
  * slug, an orphaned feature mapping, a verb the gate forgets to guard.
  *
@@ -31,7 +31,7 @@ import {
 import { buildCli, KNOWN_VERBS } from "../src/main.ts";
 import { TOOLS, verbOf } from "../src/engine/mcp/server.ts";
 import { FEATURES, isFeature, VERB_FEATURE } from "../src/shared/features.ts";
-import { BOOTSTRAP_GATED_VERBS } from "../src/shared/setup_state.ts";
+import { SETUP_GATED_VERBS } from "../src/shared/setup_state.ts";
 import { WORKTREE_FIELDS } from "../src/engine/worktree/identity.ts";
 
 const sorted = (xs: Iterable<string>): string[] => [...xs].sort();
@@ -90,8 +90,8 @@ Deno.test("every MCP tool maps to a real verb, with explicit non-engine addition
   // are pinned here, so a new verb forces a choice rather than drifting.
   const NON_ENGINE_TOOL_VERBS = new Set(["doctor", "docs", "help"]);
   const ENGINE_VERBS_WITHOUT_TOOL = new Set([
-    "worktree", // a command group (worktree:* subverbs), not a single tool
-    "worktree-name", // identity-resolution plumbing
+    "worktree", // a command group (worktree command group), not a single tool
+    "identity", // identity-resolution plumbing
     "skills", // a command group (skills list/eject)
     "mcp", // the server itself — it cannot expose itself as one of its tools
   ]);
@@ -123,14 +123,14 @@ Deno.test("every MCP tool maps to a real verb, with explicit non-engine addition
   );
 });
 
-Deno.test("every bootstrap-gated verb is a real known verb", () => {
-  // BOOTSTRAP_GATED_VERBS is an intentional SUBSET of the verbs (the ones that
+Deno.test("every setup-gated verb is a real known verb", () => {
+  // SETUP_GATED_VERBS is an intentional SUBSET of the verbs (the ones that
   // mislead before setup). It must never name a verb that doesn't exist — a typo'd
   // entry would silently gate nothing.
-  for (const v of BOOTSTRAP_GATED_VERBS) {
+  for (const v of SETUP_GATED_VERBS) {
     assert(
       KNOWN_VERBS.has(v),
-      `BOOTSTRAP_GATED_VERBS names "${v}", which is not a known CLI verb`,
+      `SETUP_GATED_VERBS names "${v}", which is not a known CLI verb`,
     );
   }
 });
@@ -152,23 +152,21 @@ Deno.test("VERB_FEATURE keys are real verbs and values are real features", () =>
   }
 });
 
-Deno.test("the worktree-name CLI exposes a flag for EXACTLY the identity-field SSOT", () => {
+Deno.test("the identity CLI exposes a flag for EXACTLY the identity-field SSOT", () => {
   // The --<field> flags re-list WORKTREE_FIELDS by hand (each carries its own help
   // text, so they can't be a derived list) — tie them by test. The resolver's switch
   // and the action's field selection already derive from the SSOT; this catches a
   // flag that drifts from it (a renamed/removed field, or a new one with no flag).
   const root = new Command();
   attachEngineCommands(root as unknown as Command, new Set(FEATURES));
-  const wtName = root.getCommands().find((c) =>
-    c.getName() === "worktree-name"
-  );
-  assert(wtName !== undefined, "the worktree-name command is not registered");
-  const optionNames = wtName.getOptions().map((o) => o.name);
+  const identity = root.getCommands().find((c) => c.getName() === "identity");
+  assert(identity !== undefined, "the identity command is not registered");
+  const optionNames = identity.getOptions().map((o) => o.name);
 
   for (const f of WORKTREE_FIELDS) {
     assert(
       optionNames.includes(f),
-      `worktree-name has no --${f} flag for the WORKTREE_FIELDS member "${f}"`,
+      `identity has no --${f} flag for the WORKTREE_FIELDS member "${f}"`,
     );
   }
   // The only NON-field options are the resource queries (explicit, named exceptions).
@@ -177,14 +175,14 @@ Deno.test("the worktree-name CLI exposes a flag for EXACTLY the identity-field S
     assert(
       optionNames.includes(n) &&
         !(WORKTREE_FIELDS as readonly string[]).includes(n),
-      `NON_FIELD_OPTIONS lists "${n}", but it is not a non-field worktree-name option`,
+      `NON_FIELD_OPTIONS lists "${n}", but it is not a non-field identity option`,
     );
   }
   const fieldOptions = optionNames.filter((n) => !NON_FIELD_OPTIONS.has(n));
   assertEquals(
     sorted(fieldOptions),
     sorted(WORKTREE_FIELDS),
-    "worktree-name's identity flags have drifted from WORKTREE_FIELDS — add the flag " +
+    "identity's identity flags have drifted from WORKTREE_FIELDS — add the flag " +
       "for the new field, or record a new non-field option in NON_FIELD_OPTIONS",
   );
 });
@@ -195,10 +193,12 @@ Deno.test("ENGINE_RECIPE_NAMES is the engine verbs minus the command groups, plu
   // sub-recipes (real recipe files / hook entry points that are not top-level
   // verbs). Both differences are explicit, so a new engine verb forces a decision.
   const RECIPE_DROPS_ENGINE_VERB = new Set([
+    "worktree",
     "skills", // a command group, not a suggestable recipe
     "mcp", // the server entry point, not a suggestable recipe
   ]);
   const RECIPE_ADDS_SUBRECIPES = [
+    "worktree-setup",
     "worktree-create",
     "worktree-remove",
     "worktree-ensure",

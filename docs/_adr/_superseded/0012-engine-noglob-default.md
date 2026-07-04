@@ -19,9 +19,8 @@ with normal shell globbing.
 
 ## Context
 
-`changed-scopes` classifies changed paths against the `[scopes]` globs by
-word-splitting each scope's patterns out of `config_array` in an unquoted `for`
-loop:
+`scopes` classifies changed paths against the `[scopes]` globs by word-splitting
+each scope's patterns out of `config_array` in an unquoted `for` loop:
 
 ```sh
 for _ms_pat in $(config_array "scopes.$_ms_key"); do
@@ -60,7 +59,7 @@ recipes that merely source the library keep normal globbing (see Refinement).
   the specific expansion (none do today).
 - `set -f` touches only filename generation; `case` pattern-matching and `${…}`
   parameter expansion, which the recipes rely on, are unaffected.
-- `changed-scopes` keeps its own `set -f` as documented defense-in-depth at the
+- `scopes` keeps its own `set -f` as documented defense-in-depth at the
   highest-risk site.
 
 This sits alongside two complementary measures that landed with it: a shellcheck

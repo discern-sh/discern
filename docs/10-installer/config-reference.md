@@ -37,7 +37,7 @@ Toggle whole discern subsystems on/off. Every feature defaults to ON; set one to
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `worktrees` | boolean | `true` | The isolated git-worktree workflow (worktree / worktree:* verbs). |
+| `worktrees` | boolean | `true` | The isolated git-worktree workflow (worktree command group). |
 | `ratchets` | boolean | `true` | Never-loosen metric floors (the `ratchets` verb). |
 | `guidance` | boolean | `true` | Compile agent files from built-in + your sources. |
 | `skills` | boolean | `true` | Bundled + authored skills, materialized into .claude/skills/. |
@@ -123,7 +123,7 @@ The isolated-worktree workflow. The git mechanics are generic; everything projec
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `create` | string | `""` | Command run once at worktree setup (skipped when the resource is already provisioned). Author it idempotent and cwd-independent. An empty command is a clean no-op. |
-| `destroy` | string | `""` | Command run once at teardown. Author it idempotent (it may re-run via worktree:prune) and cwd-independent. |
+| `destroy` | string | `""` | Command run once at teardown. Author it idempotent (it may re-run via worktree prune) and cwd-independent. |
 | `ensure` | string | `""` | Optional: reconcile drift / re-readiness at session start. |
 | `required` | boolean | `true` | false: a create failure is non-fatal (does not abort setup). |
 | `retries` | number | `0` | Retry create/destroy this many times. |

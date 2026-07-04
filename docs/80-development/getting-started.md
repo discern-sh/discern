@@ -14,7 +14,7 @@ wrapper (`scripts/discern`) points it at the current checkout's own engine.
 These work the same regardless of language or framework (shown here as
 `discern <verb>`):
 
-- **`discern worktree`** sets up an isolated checkout for a change (see the
+- **`discern start`** sets up an isolated checkout for a change (see the
   worktree note in the project guidelines).
 - **`discern prepare`** is the fast inner loop — applies the fix-stage work,
   then the check-stage work; no build, no tests.
@@ -51,7 +51,7 @@ or the parser prints help.)
 ```sh
 deno task install-dev-cli         # put `discern` on your PATH (once)
 discern --help                    # the command surface (installer + engine verbs)
-discern init                      # scaffold into the current dir (try a scratch dir)
+discern setup                      # scaffold into the current dir (try a scratch dir)
 deno task build                   # compile per-platform binaries → dist/ (release only)
 ```
 
@@ -65,7 +65,7 @@ you of it. (Killed with `-9`? Restore by hand with `install-dev-cli`.)
 
 discern has no long-running app to start — it is one CLI binary with the engine
 compiled in. To _see it work_, either scaffold it into a temp directory with
-`discern init` and drive `discern` there, or just run the gate in this repo.
+`discern setup` and drive `discern` there, or just run the gate in this repo.
 
 **Your first green gate.** From the repo root:
 
@@ -83,8 +83,8 @@ explain what to fix.
 ([ADR 0011](../_adr/0011-adopt-worktree-workflow.md), as amended by
 [ADR 0019](../_adr/0019-single-binary-ts-engine.md)): the
 `.claude/settings.json` hooks provision an isolated worktree per session and
-tear it down afterward (here they call `deno task dev worktree:*`), and
-`discern graduate` graduates a finished branch back into the main checkout.
-Editing rules (yours vs the binary's) live in
-[code-conventions.md](code-conventions.md); IDE colour/exclude setup is in
-[for-humans.md](for-humans.md).
+tear it down afterward (here they call
+`deno task dev worktree ensure`/`create`/`remove`), and `discern graduate`
+graduates a finished branch back into the main checkout. Editing rules (yours vs
+the binary's) live in [code-conventions.md](code-conventions.md); IDE
+colour/exclude setup is in [for-humans.md](for-humans.md).

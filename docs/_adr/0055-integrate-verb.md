@@ -8,7 +8,7 @@ boundary of [ADR 0034](0034-agents-md-untracked-currency-check.md).
 ## Context
 
 discern wraps both _ends_ of a worktree's life in deterministic verbs.
-**create** (the `worktree:create` hook) adds the worktree, then materializes the
+**create** (the `worktree create` hook) adds the worktree, then materializes the
 agent files and skills. **`graduate`** hands the branch back to the main
 checkout. The middle transition — _bring the latest main into this branch_ — had
 no verb. A raw `git merge main` carried it, and the guidance and the gate both

@@ -7,7 +7,7 @@
  * project root by walking up from the cwd to the nearest ancestor holding that
  * file. The pre-6 consolidated location (`.discern/config.toml`) is still
  * recognised as a legacy marker so a not-yet-upgraded install is found and
- * carried forward by `upgrade`/`migrate`.
+ * carried forward by `upgrade`.
  *
  * A recipe is handed the `DISCERN_*` variables and reads config via `discern
  * config get` rather than sourcing shell helpers; no engine paths
@@ -82,7 +82,7 @@ export async function findRoot(
  * `discern.toml` if present, else the legacy `.discern/config.toml`, else
  * undefined when `root` is not a discern install. The new path is preferred so a
  * migrated install is unambiguous; the legacy fallback is what lets the engine,
- * `upgrade`, and `migrate` keep working in a pre-6 install.
+ * `upgrade`, and `upgrade` keep working in a pre-6 install.
  */
 export async function installedConfigRel(
   root: string,

@@ -7,7 +7,7 @@
  *
  * It mirrors the gate's job convention (engine/jobs/command.ts): a SUCCESSFUL command
  * is silent — its output reaches neither the parent's stdout (which a caller may
- * reserve for a machine result, e.g. the `worktree:create` hook's worktree path) nor
+ * reserve for a machine result, e.g. the `worktree create` hook's worktree path) nor
  * the `SessionStart` hook's stdout (which Claude Code injects as agent context, so a
  * chatty `vale sync`/`npm ci` would otherwise leak its progress bar into every
  * session). A FAILED command surfaces its captured output to STDERR — the diagnostic

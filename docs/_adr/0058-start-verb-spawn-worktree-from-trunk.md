@@ -57,7 +57,7 @@ directory are both free, so it always _creates_ a worktree and never adopts one.
 layer's `resolveWorktreeRoot` ([ADR 0052](0052-worktree-sibling-placement.md)),
 never the stack-neutral engine. So `startResult` takes the placement root as a
 parameter; the dispatcher and the MCP server resolve it and pass it in — exactly
-as the `worktree:prune` wiring already does. One engine core,
+as the `worktree prune` wiring already does. One engine core,
 `createAndSetupWorktree`, holds the "create the worktree, then set it up"
 sequence, shared by `discern start` and the `WorktreeCreate` hook so they can't
 drift.
@@ -119,8 +119,8 @@ the CLI.
   mode no longer has "no other option" behind it.
 - `discern start` only _creates_ a worktree to inhabit. It never hops into,
   adopts, or prunes an existing one — that boundary keeps it complementary to
-  the unexposed `worktree:*` lifecycle verbs and to `graduate` / `integrate`,
-  which operate _on_ the current worktree.
+  the unexposed `worktree` command group and to `graduate` / `integrate`, which
+  operate _on_ the current worktree.
 - discern now owns a worktree-id generator. Only `discern start` uses it; every
   other path still derives identity from an externally supplied name, so the
   frozen identity derivation

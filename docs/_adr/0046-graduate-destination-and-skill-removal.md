@@ -64,8 +64,8 @@ its worthwhile parts onto discern's own surfaces.**
     here", "move this back to main") → the MCP server `instructions` block.
 
   This follows the precedent of
-  [ADR 0024](_superseded/0024-bootstrap-as-command.md), which retired the
-  bootstrap _skill_ for a command: a single deterministic action is not a skill.
+  [ADR 0024](_superseded/0024-setup-command-not-skill.md), which retired the
+  setup skill for a command: a single deterministic action is not a skill.
 
 ## Consequences
 

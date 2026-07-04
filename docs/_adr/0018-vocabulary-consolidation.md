@@ -91,7 +91,7 @@ The concrete moves:
   all go. A project that wants a pre-finish artifact gate writes a `[check]`.
 
 - **"Adapter" splits.** The installable overlay becomes a **preset**:
-  `add-adapter` → `add-preset`, `adapters/` → `presets/`, `adapter.json` →
+  `add-adapter` → `preset`, `adapters/` → `presets/`, `adapter.json` →
   `preset.json`, `DISCERN_ADAPTERS_DIR` → `DISCERN_PRESETS_DIR`. The worktree
   database/dev-server seams stop being called "adapters" — they are **worktree
   settings** (the `[worktree.db]` / `[worktree.dev_server]` config keys are

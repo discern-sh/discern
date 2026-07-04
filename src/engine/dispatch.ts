@@ -4,8 +4,7 @@
  * `[recipes].dir` (default `./recipes`) for an unknown verb.
  *
  * Engine verbs operate on the project (found by walking up to `discern.toml`), so
- * each requires a project root. `worktree:<sub>` is normalised to the Cliffy
- * group `worktree <sub>` before parsing (Cliffy forbids `:` in command names).
+ * each requires a project root.
  */
 
 import { Command } from "@cliffy/command";
@@ -45,7 +44,7 @@ import { runMcpServer } from "./mcp/server.ts";
 import { runPrepare } from "./gate/prepare.ts";
 import { runTestCapability } from "./gate/test.ts";
 import { runRatchets } from "./gate/ratchets.ts";
-import { runChangedScopes } from "./scopes/changed.ts";
+import { runScopes } from "./scopes/scopes.ts";
 import { runCoupling } from "./coupling/coupling.ts";
 import { runStatus } from "./status/status.ts";
 import { refreshResult } from "./guidelines.ts";
@@ -53,6 +52,9 @@ import { guidanceAgents } from "./guidance_render.ts";
 import {
   graduate,
   IdentityError,
+  identityField,
+  identityResourceHandle,
+  identityResourcesList,
   integrate,
   type LifecycleContext,
   lifecycleContext,
@@ -60,10 +62,7 @@ import {
   worktreeEnsure,
   worktreeErrorResult,
   WorktreeGitError,
-  worktreeNameField,
   worktreePrune,
-  worktreeResourceHandle,
-  worktreeResourcesList,
   worktreeSetup,
   worktreeTeardown,
 } from "./worktree/lifecycle.ts";
@@ -86,22 +85,22 @@ export const KNOWN_ENGINE_VERBS: ReadonlySet<string> = new Set([
   "improve",
   "ratchets",
   "refresh",
-  "changed-scopes",
+  "scopes",
   "coupling",
   "status",
   "graduate",
   "integrate",
   "start",
   "worktree",
-  "worktree-name",
+  "identity",
   "skills",
   "mcp",
 ]);
 
-/** Hyphenated engine recipe names + their displayed (colon) form, for the suggester.
+/** Hyphenated engine recipe filenames plus their displayed command form, for the suggester.
  * Intentionally NOT equal to {@link KNOWN_ENGINE_VERBS}: it drops the command-group
  * verbs that have no recipe form (skills, mcp) and adds the worktree sub-recipes
- * (worktree-create/remove/ensure/teardown/prune). That deliberate relationship is
+ * (worktree-setup/create/remove/ensure/teardown/prune). That deliberate relationship is
  * tied to the verb SSOT by `tests/engine_verb_parity_test.ts`, so a new engine verb
  * forces a conscious choice here rather than silently drifting. */
 export const ENGINE_RECIPE_NAMES: readonly string[] = [
@@ -111,14 +110,14 @@ export const ENGINE_RECIPE_NAMES: readonly string[] = [
   "improve",
   "ratchets",
   "refresh",
-  "changed-scopes",
+  "scopes",
   "coupling",
   "status",
   "graduate",
   "integrate",
   "start",
-  "worktree",
-  "worktree-name",
+  "identity",
+  "worktree-setup",
   "worktree-create",
   "worktree-remove",
   "worktree-ensure",
@@ -126,13 +125,13 @@ export const ENGINE_RECIPE_NAMES: readonly string[] = [
   "worktree-prune",
 ];
 
-/** Render a recipe's file name as the user types it (worktree-teardown → worktree:teardown). */
+/** Render a recipe filename as the user-facing command (worktree-teardown -> worktree teardown). */
 function displayName(name: string): string {
-  if (name === "worktree-name") {
-    return "worktree-name";
+  if (name === "identity") {
+    return "identity";
   }
   if (name.startsWith("worktree-")) {
-    return `worktree:${name.slice("worktree-".length)}`;
+    return "worktree " + name.slice("worktree-".length);
   }
   if (name.startsWith("finish-")) {
     return `finish:${name.slice("finish-".length)}`;
@@ -204,7 +203,7 @@ async function runWorktreeOp(
 
 /**
  * Defence in depth behind the `status` banner: the SessionStart hook runs
- * `discern worktree:ensure` on every session start, so a session opened while
+ * `discern worktree ensure` on every session start, so a session opened while
  * one-time setup is still outstanding ([meta].bootstrapped unset) is told — at the
  * top, before it does anything — to resume and finish it, rather than assuming the
  * earlier session completed it. Plain stdout, which a SessionStart hook injects as
@@ -383,7 +382,7 @@ export function attachEngineCommands(
   }
 
   root
-    .command("changed-scopes")
+    .command("scopes")
     .description("Classify which scopes the branch + working tree changed.")
     .option(
       "--json",
@@ -395,7 +394,7 @@ export function attachEngineCommands(
     )
     .action(async (o) => {
       Deno.exit(
-        await runChangedScopes(await requireRoot(), {
+        await runScopes(await requireRoot(), {
           json: o.json ?? false,
           ...(o.has !== undefined ? { has: o.has } : {}),
         }),
@@ -482,7 +481,7 @@ export function attachEngineCommands(
               dryRun: o.dryRun ?? false,
               // WHERE the worktree lands is the feature-layer placement convention,
               // resolved here and passed in — the engine core bakes in none (ADR 0052),
-              // exactly as the worktree:prune wiring below does.
+              // exactly as the worktree prune wiring below does.
               worktreeRoot: resolveWorktreeRoot(ctx.root, ctx.config),
             }),
           { json, verb: "start" },
@@ -552,7 +551,7 @@ export function attachEngineCommands(
     });
 
   root
-    .command("worktree-name")
+    .command("identity")
     .description(
       "Resolve a worktree's stable identity (id/site/branch/port/db/worktree/resource).",
     )
@@ -579,9 +578,9 @@ export function attachEngineCommands(
       const target = path ?? Deno.cwd();
       try {
         if (o.resource !== undefined) {
-          console.log(await worktreeResourceHandle(root, o.resource, target));
+          console.log(await identityResourceHandle(root, o.resource, target));
         } else if (o.resources) {
-          for (const line of await worktreeResourcesList(root, target)) {
+          for (const line of await identityResourcesList(root, target)) {
             console.log(line);
           }
         } else {
@@ -592,7 +591,7 @@ export function attachEngineCommands(
             f !== "id" && o[f] === true
           ) ??
             "id";
-          console.log(await worktreeNameField(root, field, target));
+          console.log(await identityField(root, field, target));
         }
         Deno.exit(0);
       } catch (e) {
@@ -604,10 +603,8 @@ export function attachEngineCommands(
       }
     });
 
-  const worktree = new Command()
-    .description(
-      "Set up the current worktree; manage it with the colon sub-verbs worktree:ensure, worktree:teardown, worktree:prune.",
-    )
+  const worktreeSetupCommand = new Command()
+    .description("Set up or re-converge the current linked worktree.")
     .option(
       "--json",
       "Emit a machine-readable (plan, results) object on stdout.",
@@ -618,10 +615,17 @@ export function attachEngineCommands(
       Deno.exit(
         await runWorktreeOp(
           (ctx) => worktreeSetup(ctx, { json, dryRun: o.dryRun ?? false }),
-          { json, verb: "worktree" },
+          { json, verb: "worktree setup" },
         ),
       );
+    });
+
+  const worktree = new Command()
+    .description("Manage this checkout's linked worktree lifecycle.")
+    .action(function (): void {
+      this.showHelp();
     })
+    .command("setup", worktreeSetupCommand)
     .command(
       "ensure",
       new Command()
@@ -652,7 +656,7 @@ export function attachEngineCommands(
             await runWorktreeOp(
               (ctx) =>
                 worktreeTeardown(ctx, { json, dryRun: o.dryRun ?? false }),
-              { json, verb: "worktree:teardown" },
+              { json, verb: "worktree teardown" },
             ),
           );
         }),
@@ -702,11 +706,11 @@ export function attachEngineCommands(
                   dryRun: o.dryRun ?? false,
                   json,
                   // The engine sweeps git-derived worktree parents on its own; the
-                  // configured root (a location convention the engine doesn't know)
+                  // configured root (a location convention the engine does not know)
                   // is passed so a FULLY-orphaned root is still reclaimed (ADR 0052).
                   extraScanDirs: [resolveWorktreeRoot(ctx.root, ctx.config)],
                 }),
-              { json, verb: "worktree:prune" },
+              { json, verb: "worktree prune" },
             ),
           );
         }),

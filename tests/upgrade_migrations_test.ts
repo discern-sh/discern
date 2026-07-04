@@ -14,10 +14,10 @@ import type { Migration } from "../src/lib/migrations.ts";
 import { SCHEMA_VERSION } from "../src/lib/version.ts";
 import { readTarget, runCli, targetExists, withTempDir } from "./helpers.ts";
 
-async function init(dir: string): Promise<void> {
+async function setup(dir: string): Promise<void> {
   assertEquals(
     (await runCli([
-      "init",
+      "setup",
       "--confirmed",
       "--yes",
       "--slug",
@@ -108,7 +108,7 @@ async function upgradeCheckJsonIn(dir: string): Promise<{
 
 Deno.test("upgrade refuses a config from a newer schema and does not stamp down", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     await setSchema(dir, SCHEMA_VERSION + 1);
     const before = await readTarget(dir, "discern.toml");
 
@@ -128,7 +128,7 @@ Deno.test("upgrade refuses a config from a newer schema and does not stamp down"
 
 Deno.test("upgrade refuses to stamp when a migration leaves invalid TOML", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     await setSchema(dir, SCHEMA_VERSION - 1);
     const chain: Migration[] = [{
       from: SCHEMA_VERSION - 1,
@@ -149,7 +149,7 @@ Deno.test("upgrade refuses to stamp when a migration leaves invalid TOML", async
 
 Deno.test("a current install has nothing pending and applies no migrations", async () => {
   await withTempDir(async (dir) => {
-    await init(dir); // a fresh install is stamped at the current schema
+    await setup(dir); // a fresh install is stamped at the current schema
     const r = await runCli(["upgrade", "--json"], dir);
     assertEquals(r.code, 0, r.stderr);
     assertEquals(JSON.parse(r.stdout).data.migrations_applied, []);
@@ -160,7 +160,7 @@ Deno.test("a current install has nothing pending and applies no migrations", asy
 
 Deno.test("upgrade runs a pending migration before the sync, then stamps the schema", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     await setSchema(dir, SCHEMA_VERSION - 1); // model an install one schema behind
 
     const ran: string[] = [];
@@ -191,7 +191,7 @@ Deno.test("upgrade runs a pending migration before the sync, then stamps the sch
 
 Deno.test("upgrade re-running an applied migration is a no-op (idempotent fold)", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     await setSchema(dir, SCHEMA_VERSION - 1);
     const chain: Migration[] = [{
       from: SCHEMA_VERSION - 1,

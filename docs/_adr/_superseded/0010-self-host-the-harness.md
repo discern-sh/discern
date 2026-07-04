@@ -41,9 +41,9 @@ backward-compatibility cost to doing it now.
 
 Install the harness into the repo and make `./bin/agent finish` the repo's gate.
 
-- **Committed managed copy ("Option C").** `discern init` runs at the root; the
+- **Committed managed copy ("Option C").** `discern setup` runs at the root; the
   managed set (`bin/agent`, `.discern/engine/**`, `.ai/skills/**`) is committed
-  as a copy of `templates/`, alongside the seed files `init` writes
+  as a copy of `templates/`, alongside the seed files `setup` writes
   (`discern.toml`, `docs/**`, `.ai/guidelines/discern.md`, `TODO.md`).
 - **Drift is a gate-enforced invariant.** A new read-only
   `discern upgrade --check` (exposed as `deno task selfcheck`) exits non-zero if

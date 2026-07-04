@@ -196,11 +196,11 @@ export const RefreshDataSchema = z.strictObject({
 });
 export type RefreshData = z.infer<typeof RefreshDataSchema>;
 
-/** `changed-scopes` — the classified scope/marker list. */
-export const ChangedScopesDataSchema = z.strictObject({
+/** `scopes` — the classified scope/marker list. */
+export const ScopesDataSchema = z.strictObject({
   scopes: z.array(z.string()),
 });
-export type ChangedScopesData = z.infer<typeof ChangedScopesDataSchema>;
+export type ScopesData = z.infer<typeof ScopesDataSchema>;
 
 /** How a `coupling` query is rooted: `diff` (surface what co-changes with the current
  * change set but is missing from it), `query` (one file's top co-change partners), or
@@ -424,14 +424,14 @@ const statusFeaturesSchema = z.strictObject(
 export type StatusFeatures = z.infer<typeof statusFeaturesSchema>;
 
 /** `status` — the full situation payload. The local-only heavy blocks
- * (`changed_scopes`/`gate`) are present in the local view and omitted when leading
+ * (`scopes`/`gate`) are present in the local view and omitted when leading
  * with the fleet from main; `fleet` is present only when the survey is included. */
 export const StatusDataSchema = z.strictObject({
   location: z.enum(LOCATIONS),
   root: z.string(),
   worktree: statusWorktreeSchema.nullable(),
   git: statusGitSchema.nullable(),
-  changed_scopes: z.array(z.string()).optional(),
+  scopes: z.array(z.string()).optional(),
   gate: statusGateSchema.optional(),
   features: statusFeaturesSchema,
   ratchets: z.array(z.string()),
@@ -789,10 +789,10 @@ export const DoctorOutputSchema = z.strictObject({
   data: DoctorDataSchema.optional(),
 });
 
-/** `changed-scopes` output: envelope + the scope-list `data`. */
-export const ChangedScopesOutputSchema = z.strictObject({
+/** `scopes` output: envelope + the scope-list `data`. */
+export const ScopesOutputSchema = z.strictObject({
   ...ENVELOPE_BASE_FIELDS,
-  data: ChangedScopesDataSchema.optional(),
+  data: ScopesDataSchema.optional(),
 });
 
 /** `coupling` output: envelope + the co-change `data`. */

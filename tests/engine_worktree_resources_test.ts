@@ -1,7 +1,7 @@
 /**
  * End-to-end coverage for the per-worktree resource lifecycle, driven through the
- * CLI exactly as a real install runs it: `discern worktree` (setup) creates the
- * declared resources and records their handles; `discern worktree:prune` reclaims
+ * CLI exactly as a real install runs it: `discern worktree setup` creates the
+ * declared resources and records their handles; `discern worktree prune` reclaims
  * the resources of a worktree that vanished without a clean teardown. The
  * fine-grained GC guards are unit-tested in `worktree_resources_test.ts`; this
  * pins the wiring — that the verbs, the ledger, and runtime discovery line up.
@@ -75,11 +75,11 @@ Deno.test("worktree setup creates a resource and records its handle for runtime 
       ].join("\n"),
     );
 
-    const setup = await runAgent(wt, ["worktree"]);
+    const setup = await runAgent(wt, ["worktree", "setup"]);
     assertEquals(setup.code, 0, setup.output);
 
     // The handle the query resolves…
-    const q = await runAgent(wt, ["worktree-name", "--resource", "thing"]);
+    const q = await runAgent(wt, ["identity", "--resource", "thing"]);
     assertEquals(q.code, 0, q.output);
     const handle = q.stdout.trim();
     assert(handle.length > 0, "no handle resolved");
@@ -101,7 +101,7 @@ Deno.test("a required create failure aborts setup; required = false does not", a
     // Default required = true → a failing create is fatal.
     const wt = await mainWithWorktree(dir, "req");
     await declareResource(wt, join(dir, "m"), 'create = "false"');
-    const setup = await runAgent(wt, ["worktree"]);
+    const setup = await runAgent(wt, ["worktree", "setup"]);
     assertEquals(setup.code, 1, setup.output);
     assertStringIncludes(setup.output, "thing");
   });
@@ -113,7 +113,7 @@ Deno.test("a required create failure aborts setup; required = false does not", a
       join(dir, "m"),
       ['create   = "false"', "required = false"].join("\n"),
     );
-    const setup = await runAgent(wt, ["worktree"]);
+    const setup = await runAgent(wt, ["worktree", "setup"]);
     assertEquals(setup.code, 0, setup.output);
   });
 });
@@ -135,11 +135,11 @@ Deno.test("graduate destroys the worktree's resources before removing it", async
           'destroy = "mkdir -p @MARKERS@ && rm -f @MARKERS@/@resource@.live && touch @MARKERS@/@resource@.gone"',
         ].join("\n"),
       );
-      assertEquals((await runAgent(wt, ["worktree"])).code, 0);
+      assertEquals((await runAgent(wt, ["worktree", "setup"])).code, 0);
       await commitCurrentWorktree(wt);
-      const handle =
-        (await runAgent(wt, ["worktree-name", "--resource", "thing"])).stdout
-          .trim();
+      const handle = (await runAgent(wt, ["identity", "--resource", "thing"]))
+        .stdout
+        .trim();
 
       // graduate tears resources down at step 4 (while @dir@ still resolves),
       // then removes the worktree — so a graduated worktree leaves no orphan.
@@ -153,7 +153,7 @@ Deno.test("graduate destroys the worktree's resources before removing it", async
   });
 });
 
-Deno.test("worktree:ensure runs a resource's ensure on an already-configured worktree", async () => {
+Deno.test("worktree ensure runs a resource's ensure on an already-configured worktree", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "ens");
     const markers = join(dir, "markers");
@@ -167,17 +167,17 @@ Deno.test("worktree:ensure runs a resource's ensure on an already-configured wor
       ].join("\n"),
     );
     // Setup marks the worktree configured (create runs, no ensure yet).
-    assertEquals((await runAgent(wt, ["worktree"])).code, 0);
-    const handle =
-      (await runAgent(wt, ["worktree-name", "--resource", "thing"])).stdout
-        .trim();
+    assertEquals((await runAgent(wt, ["worktree", "setup"])).code, 0);
+    const handle = (await runAgent(wt, ["identity", "--resource", "thing"]))
+      .stdout
+      .trim();
     assert(
       !(await exists(join(markers, `${handle}.ensured`))),
       "ensure ran during setup",
     );
 
     // Session-start ensure on an already-configured worktree reconciles drift.
-    const ens = await runAgent(wt, ["worktree:ensure"]);
+    const ens = await runAgent(wt, ["worktree", "ensure"]);
     assertEquals(ens.code, 0, ens.output);
     assert(
       await exists(join(markers, `${handle}.ensured`)),
@@ -210,15 +210,15 @@ Deno.test("worktree setup is idempotent: a re-run re-readies but never re-create
       ].join("\n"),
     );
 
-    const first = await runAgent(wt, ["worktree"]);
+    const first = await runAgent(wt, ["worktree", "setup"]);
     assertEquals(first.code, 0, first.output);
-    const handle =
-      (await runAgent(wt, ["worktree-name", "--resource", "thing"])).stdout
-        .trim();
+    const handle = (await runAgent(wt, ["identity", "--resource", "thing"]))
+      .stdout
+      .trim();
 
-    // Re-enter setup (as a re-fired create hook or an explicit `discern worktree`
+    // Re-enter setup (as a re-fired create hook or an explicit `discern worktree setup`
     // would): it must re-ready, not re-create or re-run steps.
-    const second = await runAgent(wt, ["worktree"]);
+    const second = await runAgent(wt, ["worktree", "setup"]);
     assertEquals(second.code, 0, second.output);
     assertStringIncludes(second.output, "already configured");
 
@@ -235,7 +235,7 @@ Deno.test("worktree setup is idempotent: a re-run re-readies but never re-create
   });
 });
 
-Deno.test("worktree:prune reclaims a vanished worktree's resource (GC), and --dry-run does not", async () => {
+Deno.test("worktree prune reclaims a vanished worktree's resource (GC), and --dry-run does not", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "orph");
     const markers = join(dir, "markers");
@@ -247,11 +247,10 @@ Deno.test("worktree:prune reclaims a vanished worktree's resource (GC), and --dr
         'destroy = "mkdir -p @MARKERS@ && rm -f @MARKERS@/@resource@.live && touch @MARKERS@/@resource@.gone"',
       ].join("\n"),
     );
-    const setup = await runAgent(wt, ["worktree"]);
+    const setup = await runAgent(wt, ["worktree", "setup"]);
     assertEquals(setup.code, 0, setup.output);
-    const handle =
-      (await runAgent(wt, ["worktree-name", "--resource", "thing"]))
-        .stdout.trim();
+    const handle = (await runAgent(wt, ["identity", "--resource", "thing"]))
+      .stdout.trim();
     assert(
       await exists(join(markers, `${handle}.live`)),
       "setup did not create",
@@ -262,7 +261,7 @@ Deno.test("worktree:prune reclaims a vanished worktree's resource (GC), and --dr
 
     // Dry run: the prune plan lists the orphan as a reclaim, but acts on nothing
     // (ADR 0027 folded prune's dry-run into the shared plan listing).
-    const dry = await runAgent(dir, ["worktree:prune", "--dry-run"]);
+    const dry = await runAgent(dir, ["worktree", "prune", "--dry-run"]);
     assertEquals(dry.code, 0, dry.output);
     assertStringIncludes(dry.output, handle);
     assertStringIncludes(dry.output, "reclaim orphaned resource");
@@ -272,7 +271,7 @@ Deno.test("worktree:prune reclaims a vanished worktree's resource (GC), and --dr
     );
 
     // Real run: reclaims it.
-    const prune = await runAgent(dir, ["worktree:prune", "--yes"]);
+    const prune = await runAgent(dir, ["worktree", "prune", "--yes"]);
     assertEquals(prune.code, 0, prune.output);
     assert(
       await exists(join(markers, `${handle}.gone`)),

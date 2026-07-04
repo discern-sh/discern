@@ -10,7 +10,7 @@ discern has two ways to push a change into an installed project:
   and, per file, compares three hashes — the on-disk bytes, the kit's new bytes,
   and the manifest's recorded hash — to decide skip / overwrite /
   preserve-as-`.new`. Seed files are never touched.
-- **`migrate`** (ADR 0009) rewrites a project's `discern.toml` from the 0.x
+- **`upgrade`** (ADR 0009) rewrites a project's `discern.toml` from the 0.x
   shape to 1.0. Its rules are hardcoded to that one jump, and it detects whether
   it applies by sniffing the file's content.
 
@@ -26,7 +26,7 @@ layout are still provisional) — hit limits that are structural, not incidental
   consumer's disk forever. Renaming, splitting, or deleting a recipe or skill is
   therefore unsafe — consumers silently accumulate orphans.
 - **Seed files cannot evolve structurally.** Upgrade skips them; only
-  `discern.toml` has any evolution path, through the bespoke `migrate`. A change
+  `discern.toml` has any evolution path, through the bespoke `upgrade`. A change
   to the docs tree, the guidelines format, the `.claude` hooks, or the config
   shape beyond that one jump cannot reach an existing install.
 - **Migration is a one-shot, not a sequence.** The install records no schema
@@ -55,10 +55,11 @@ safety.
 
 1. **A schema version anchors every install.** The manifest records a monotonic
    integer `schema_version`, distinct from `kit_version` (which stays a
-   display/semver field and drives no logic). `init` stamps the current version;
-   `upgrade` reads the recorded one, brings the install forward, and re-stamps.
-   This generalises the precedent already set by `CONFIG_DOC_VERSION`, which
-   versions the config _document_ and refuses an unknown major.
+   display/semver field and drives no logic). `setup` stamps the current
+   version; `upgrade` reads the recorded one, brings the install forward, and
+   re-stamps. This generalises the precedent already set by
+   `CONFIG_DOC_VERSION`, which versions the config _document_ and refuses an
+   unknown major.
 
 2. **Migrations are an ordered chain, not a one-shot.** Each migration is a
    small, idempotent step (`from → to`) that describes and applies its change.
@@ -68,13 +69,13 @@ safety.
    rename managed _and_ seed files**, rewrite content inside user-owned files,
    and merge `.claude/settings.json`. This is where renames, tree
    reorganisations, and the eventual kit rename live. The bespoke 0.x→1.0
-   `migrate` is **retired, not ported**: the current shape is declared schema v1
+   `upgrade` is **retired, not ported**: the current shape is declared schema v1
    and the chain starts clean (the sole pre-adoption consumer is migrated by
    hand once).
 
-3. **`upgrade` reconciles orphans.** Independently of the chain, `upgrade` diffs
-   the manifest's recorded managed paths against the new templates and removes
-   any that vanished — but only when the on-disk copy is _pristine_ (matches the
+3. **`upgrade` reconciles orphans.** Independently of the chain diffs the
+   manifest's recorded managed paths against the new templates and removes any
+   that vanished — but only when the on-disk copy is _pristine_ (matches the
    recorded hash); an edited orphan is left in place with a warning. The
    manifest already carries the prior path list, so this needs no new state.
    Orphan removal handles _deletions_; a rename that must carry user edits
@@ -90,14 +91,14 @@ safety.
 
 5. **Migration folds into `upgrade`.** Bringing an install up to date is one
    command: run pending migrations, then sync files (orphan prune included),
-   then validate and stamp. `migrate --check` survives for inspection and the
+   then validate and stamp. `upgrade --check` survives for inspection and the
    `doctor` nudge, but the happy path no longer depends on the user running two
    commands in the right order.
 
 6. **The lifecycle is tested, not just the transform.** The authority is a
    fixture-based test over the existing scaffold-and-shell-out harness,
    asserting the keystone invariant — **"upgrade ≡ fresh init"**: an old install
-   brought forward by `upgrade` matches a fresh `init` at the same version.
+   brought forward by `upgrade` matches a fresh `setup` at the same version.
    Managed files and the schema are byte-identical (proven via the manifest's
    recorded hashes); a _seed_ a migration transforms converges in **shape**, not
    byte-for-byte — a comment-preserving config edit need not reproduce the
@@ -133,7 +134,7 @@ rename lands later as a further step, validated by the same convergence test.
   fixture**, and the convergence test must stay green. This is deliberately the
   same discipline as the `selfcheck` drift gate — it makes "did you ship this to
   consumers?" a gate failure rather than a later surprise.
-- Retiring the 0.x→1.0 `migrate` rather than porting it means a 0.x
+- Retiring the 0.x→1.0 `upgrade` rather than porting it means a 0.x
   `discern.toml` is no longer auto-handled. This is acceptable _only_ because of
   the pre-adoption window and the one hand-migrated consumer; the same choice
   would be unacceptable post-release. It revises the migration mechanism
@@ -149,7 +150,7 @@ rename lands later as a further step, validated by the same convergence test.
 
 ## Alternatives considered
 
-- **Extend `migrate` with more hardcoded jumps.** Rejected: without a version
+- **Extend `upgrade` with more hardcoded jumps.** Rejected: without a version
   anchor on the install, each addition compounds the content-sniffing problem,
   and there is still no record of where an install sits and no way to remove
   files.
@@ -161,6 +162,6 @@ rename lands later as a further step, validated by the same convergence test.
   recoverability for almost none of the cost, given consumers are git repos. The
   staged-swap design is worth doing later, not a prerequisite for the anchor and
   the chain.
-- **Keep `migrate` and `upgrade` separate, just document the order.** Rejected:
+- **Keep `upgrade` and `upgrade` separate, just document the order.** Rejected:
   the order you must remember is the defect; 0009 already showed the nudge is
   not enough.

@@ -25,7 +25,7 @@ The 1.0 redesign **removes that privilege**. There is now exactly one model:
   gate never runs it; the ratchet runs it on demand) — see _Update (1.0)_ in the
   slot/phase model. The phantom `coverage` phase is gone.
 
-`discern migrate` rewrites a pre-1.0 `coverage_min` into a `[ratchets.coverage]`
+`discern upgrade` rewrites a pre-1.0 `coverage_min` into a `[ratchets.coverage]`
 table. Everything in the original decision about the _mechanism_ (two halves:
 never-loosened-vs-`main`, measured-vs-limit; `up`/`down`; the emission
 convention) stands unchanged — only coverage's special-casing was dropped.

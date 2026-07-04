@@ -11,11 +11,11 @@ and pinned by a forcing-function guard in the spirit of
 
 In an already-installed project `discern --help` lists ~22 top-level verbs in
 one flat block, in command-registration order. That order is installer-first
-(`upgrade`/`doctor`/`migrate` and the doc browsers register before the engine
-verbs), so the verbs a person touches every loop — `status`, `prepare`, `finish`
-— scatter below the ones they touch monthly, and the headline pitched
-_scaffolding_ (`setup`) even though `setup` is hidden once the project is
-bootstrapped. The list reads as a dump, not an operator's map.
+(`upgrade`/`doctor` and the doc browsers register before the engine verbs), so
+the verbs a person touches every loop — `status`, `prepare`, `finish` — scatter
+below the ones they touch monthly, and the headline pitched _scaffolding_
+(`setup`) even though `setup` is hidden once the project is bootstrapped. The
+list reads as a dump, not an operator's map.
 
 The obvious fix — group the commands under headings — runs into the framework.
 discern's CLI is Cliffy, and Cliffy (1.2.x) does not group **commands**:

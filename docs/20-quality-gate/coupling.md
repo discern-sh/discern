@@ -22,17 +22,16 @@ and the list stated to be **not exhaustive**.
 ## Three modes
 
 `coupling` is one verb, and the number of file paths you give it selects the
-mode (mirroring `changed-scopes`):
+mode (mirroring `scopes`):
 
 - **diff-aware** (no argument) — the primary surface. The "change set" is your
   **branch's work** — everything committed since the fork from the integration
-  branch, plus any uncommitted edits (the same set `changed-scopes` and the gate
-  use). So it is non-empty even on a clean working tree when the branch is
-  ahead; it is the unit that would graduate, not just the latest commit. It
-  names the files that co-change with that set but are **missing** from it.
-  _"You changed `result.ts`, but not `result_schemas.ts` — which changed in 5 of
-  the 14 recent commits that touched `result.ts` (36%). Worth a look, or
-  intentional?"_
+  branch, plus any uncommitted edits (the same set `scopes` and the gate use).
+  So it is non-empty even on a clean working tree when the branch is ahead; it
+  is the unit that would graduate, not just the latest commit. It names the
+  files that co-change with that set but are **missing** from it. _"You changed
+  `result.ts`, but not `result_schemas.ts` — which changed in 5 of the 14 recent
+  commits that touched `result.ts` (36%). Worth a look, or intentional?"_
 - **query** (`discern coupling <path>`) — one file's top co-change partners, its
   blast radius. Useful before a change: _what tends to move when I touch this?_
 - **evidence** (`discern coupling <a> <b>`) — the shared co-change history of

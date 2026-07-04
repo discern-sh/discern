@@ -1,6 +1,6 @@
 /**
  * Unit tests for the **discern config document** loader/validator
- * (`src/lib/config_doc.ts`) — the JSON shape behind `init --config` and a
+ * (`src/lib/config_doc.ts`) — the JSON shape behind `setup --config` and a
  * preset's `preset.json`.
  *
  * These pin the guard rails: refusing an unsupported major `version`, rejecting

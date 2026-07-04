@@ -42,7 +42,7 @@ function sideGateConfig(widgetCmd: string, gadgetCmd: string): string {
   ].join("\n");
 }
 
-/** Create an untracked file under a path so changed-scopes classifies it. */
+/** Create an untracked file under a path so scopes classifies it. */
 async function touch(dir: string, rel: string): Promise<void> {
   await writeExecutable(join(dir, rel), "x"); // writeExecutable ensures parent dirs
 }
@@ -78,11 +78,11 @@ Deno.test("scope-gates: a gate fires for a NESTED path, not just a direct child 
     );
     await gitInit(dir);
     // A change nested several levels under widget/, with widget/ present at the
-    // repo root. The scope glob is "widget/**": if changed-scopes lets the shell
+    // repo root. The scope glob is "widget/**": if scopes lets the shell
     // pathname-expand it against the working tree, it collapses to the direct
     // child "widget/sub" and this deeper file matches nothing — silently skipping
     // the gate. The gate firing here is the guard that pattern matching stays
-    // literal (i.e. set -f in changed-scopes). Real source lives nested, so this
+    // literal (i.e. set -f in scopes). Real source lives nested, so this
     // is the case that bit a Swift sub-app's gate in the field.
     await touch(dir, "widget/sub/deep/x.txt");
 

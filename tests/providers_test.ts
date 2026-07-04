@@ -72,7 +72,7 @@ Deno.test("skillsDirsForAgents: dedupes Codex+Gemini onto the shared .agents/ski
 });
 
 Deno.test("every agent renders a distinct `<label> (<file>)` choice — the init prompt's display", () => {
-  // The `init` agent-files Checkbox derives each option's display from the
+  // The `setup` agent-files Checkbox derives each option's display from the
   // registry: `${label} (${guidanceFile.path})`. The label and path must be
   // 1:1 with the agent, or two agents render identically and one is silently
   // mislabelled (the "two Codexs" bug, when a hardcoded fallback labelled both
@@ -356,7 +356,7 @@ Deno.test("wireProviderMcp Gemini DEEP-MERGES, preserving the seeded hooks block
         hooks: {
           SessionStart: [{
             matcher: "startup",
-            hooks: [{ type: "command", command: "discern worktree:ensure" }],
+            hooks: [{ type: "command", command: "discern worktree ensure" }],
           }],
         },
         mcpServers: { other: { command: "other-tool" } },
@@ -558,8 +558,8 @@ Deno.test("wireProviderWorktreeApp co-manages Codex environment.toml, preserving
     assertEquals(parsed.version, 1); // app key preserved
     assertEquals(parsed.name, "default"); // app key preserved, not "Discern"
     assertEquals(parsed.actions, [{ label: "lint" }]); // app [[actions]] preserved
-    assertEquals(parsed.setup.script, "discern worktree:ensure");
-    assertEquals(parsed.cleanup.script, "discern worktree:teardown");
+    assertEquals(parsed.setup.script, "discern worktree ensure");
+    assertEquals(parsed.cleanup.script, "discern worktree teardown");
 
     // Idempotent: a second pass writes nothing.
     assertEquals(await wireProviderWorktreeApp(dir, ["codex"]), []);
@@ -610,7 +610,7 @@ Deno.test("wireProviderWorktreeApp fills missing Codex scripts without clobberin
       cleanup: { script: string };
     };
     assertEquals(parsed.setup.script, "bin/setup-codex-env");
-    assertEquals(parsed.cleanup.script, "discern worktree:teardown");
+    assertEquals(parsed.cleanup.script, "discern worktree teardown");
   });
 });
 
@@ -634,8 +634,8 @@ Deno.test("wireProviderWorktreeApp creates a SCHEMA-VALID environment.toml when 
     };
     assertEquals(parsed.version, 1);
     assertEquals(parsed.name, "Discern");
-    assertEquals(parsed.setup.script, "discern worktree:ensure");
-    assertEquals(parsed.cleanup.script, "discern worktree:teardown");
+    assertEquals(parsed.setup.script, "discern worktree ensure");
+    assertEquals(parsed.cleanup.script, "discern worktree teardown");
 
     // Claude/Gemini declare no worktreeApp → nothing written, no file created.
     assertEquals(

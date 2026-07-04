@@ -8,7 +8,7 @@
  * is exactly one step producing each version from 2 up to `SCHEMA_VERSION`.
  *
  * The chain's first step is the schema-1→2 `main_branch` backfill (the bespoke
- * 0.x→1.0 `migrate` ADR 0014 retired was not ported — the current shape was
+ * 0.x→1.0 `upgrade` ADR 0014 retired was not ported — the current shape was
  * declared schema 1 and the chain grows from there). Later steps append as
  * further bumps; the final one prunes the on-disk `.discern/engine/` tree a
  * schema-4 install carried.
@@ -395,7 +395,7 @@ export const MIGRATIONS: Migration[] = [
       // 1. Move the config to the root single-file footprint.
       await ctx.rename(".discern/config.toml", "discern.toml");
 
-      // 2. Add the new sections. A fresh `init` lays the whole template down, so
+      // 2. Add the new sections. A fresh `setup` lays the whole template down, so
       // its config reads fully documented; an only-if-absent *line* edit here
       // would instead append bare keys at EOF, leaving a migrated config
       // progressively worse-documented than an init'd one the longer it has
@@ -537,7 +537,7 @@ export const MIGRATIONS: Migration[] = [
         ctx.note("moved recipes → ./recipes/");
       }
 
-      // 5. Move the brief → ./brief.md (authored intent, read by `discern bootstrap`).
+      // 5. Move the brief → ./brief.md (authored intent, read by `discern setup`).
       await ctx.rename(".discern/brief.md", "brief.md");
 
       // 6. Split skills (§3.5): authored dirs move to ./skills/; pristine bundled
@@ -583,14 +583,11 @@ export const MIGRATIONS: Migration[] = [
   {
     from: 6,
     describe:
-      "retire the bootstrap skill for the `discern bootstrap` command: prune the stale .claude/skills/bootstrap/ copy and back-fill [meta].bootstrapped for an already-configured install (ADR 0024)",
+      "retire the setup skill for the `discern setup` command: prune the stale legacy materialized setup-skill copy and back-fill [meta].bootstrapped for an already-configured install (ADR 0024)",
     apply: async (ctx) => {
-      // Bootstrap is now a CLI command, not a materialized skill. Remove the
-      // pristine copy a schema-6 install left under .claude/skills/: it is no longer
-      // in the bundled set, so `materializeSkills` treats it as a foreign dir and
-      // would leave it forever. Idempotent (a no-op once gone). An AUTHORED skill
-      // the user named "bootstrap" is a symlink, not a tree we ship — removing the
-      // link is harmless, the next refresh re-links it from [skills].dir.
+      // Setup instructions are now CLI-served, not a materialized skill. Remove the
+      // pristine legacy copy a schema-6 install left under .claude/skills/: it is no longer in the bundled set, so `materializeSkills` treats it as a foreign dir and
+      // would leave it forever. Idempotent (a no-op once gone). An authored skill with that legacy basename is a symlink, not a tree we ship — removing the link is harmless, the next refresh re-links it from [skills].dir.
       // discern-allow-retrospective: "no longer in the bundled set" is the live
       // bundled set this prune acts on, not a past state.
       await ctx.removeAll(".claude/skills/bootstrap");
@@ -611,8 +608,8 @@ export const MIGRATIONS: Migration[] = [
       }
       // Back-fill: an install that already has capabilities wired or a docs/ tree
       // is effectively bootstrapped, so record it and the reminder stays quiet. A
-      // bare install gets no marker — absent ≡ not bootstrapped everywhere, so its
-      // first `discern bootstrap` runs normally. Only-if-true keeps "absent"
+      // bare install gets no marker — absent ≡ not set up everywhere, so its
+      // first `discern setup` runs normally. Only-if-true keeps "absent"
       // meaning exactly one thing.
       const caps = isRecord(raw.capabilities) ? raw.capabilities : {};
       const configured = Object.keys(caps).length > 0 ||
@@ -624,7 +621,7 @@ export const MIGRATIONS: Migration[] = [
         );
       } else {
         ctx.note(
-          "not yet bootstrapped — run `discern bootstrap` to seed the docs",
+          "not yet bootstrapped — run `discern setup` to seed the docs",
         );
       }
     },
@@ -951,7 +948,7 @@ const COMMENTED_RESOURCES_BLOCK =
 # Any other isolated resource — an emulator, a queue, a bucket, a namespace.
 # [worktree.resources.example]
 # create   = "make-thing @resource@"
-# destroy  = "destroy-thing @resource@"   # idempotent: may re-run via worktree:prune
+# destroy  = "destroy-thing @resource@"   # idempotent: may re-run via worktree prune
 # ensure   = "ensure-thing @resource@"   # optional: reconcile drift at session start
 # required = true                          # optional: false = create failure is non-fatal
 # retries  = 0                             # optional: retry create/destroy N times

@@ -150,7 +150,7 @@ Deno.test("execution model: a resource teardown shows the user's command in ever
     const verb of [
       "graduate (--to branch)",
       "graduate (--to trunk)",
-      "worktree:prune",
+      "worktree prune",
     ]
   ) {
     const vp = model.find((v) => v.verb === verb);

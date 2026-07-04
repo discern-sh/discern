@@ -98,7 +98,7 @@ const RETIRED_ARCHITECTURE: RegExp[] = [
   /\bthe cutover\b/i,
   /\bmanaged-file machinery\b/i,
   /\bts port\b/i,
-  // "the shell `output.sh`" / "shell `worktree-name`" — the dead shell engine
+  // "the shell `output.sh`" / "shell `identity`" — the dead shell engine
   // named via a file or recipe. The backtick keeps runtime senses ("shell
   // command", "via `sh -c`") out.
   /\bshell [`]/i,

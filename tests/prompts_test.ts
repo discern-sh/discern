@@ -1,11 +1,11 @@
 /**
- * Unit tests for the `init` wizard's non-interactive surface (`src/lib/prompts.ts`).
+ * Unit tests for the `setup` wizard's non-interactive surface (`src/lib/prompts.ts`).
  *
  * The interactive prompt bodies (Cliffy `Input`/`Checkbox`/`Confirm`) are
  * reached only on a TTY with `--yes` absent and are deliberately NOT exercised
  * here — mocking Cliffy is out of scope. These tests pin only the flag-driven
  * and error paths: `resolveBrief`'s literal/`@path`/missing-file behaviour,
- * `canPrompt`'s `--yes` short-circuit, and `resolveInitConfig` with prompts
+ * `canPrompt`'s `--yes` short-circuit, and `resolveSetupConfig` with prompts
  * suppressed (warnings on unknown agents, dropping the unknown, and the
  * empty-input fallbacks to defaults).
  */
@@ -20,7 +20,7 @@ import { join } from "@std/path";
 import {
   canPrompt,
   resolveBrief,
-  resolveInitConfig,
+  resolveSetupConfig,
 } from "../src/lib/prompts.ts";
 import { DEFAULTS } from "../src/lib/config.ts";
 import { Logger } from "../src/lib/log.ts";
@@ -84,11 +84,11 @@ Deno.test("canPrompt(true) is false — --yes always suppresses prompts", () => 
   assertEquals(canPrompt(true), false);
 });
 
-// ---- resolveInitConfig (prompts suppressed via flags.yes) ------------------
+// ---- resolveSetupConfig (prompts suppressed via flags.yes) ------------------
 
-Deno.test("resolveInitConfig warns on an unknown agent, drops it, keeps the known one", async () => {
+Deno.test("resolveSetupConfig warns on an unknown agent, drops it, keeps the known one", async () => {
   await captureStderr(async (lines) => {
-    const config = await resolveInitConfig(
+    const config = await resolveSetupConfig(
       { yes: true, agents: "bogus,claude_code" },
       logger(),
     );
@@ -104,9 +104,9 @@ Deno.test("resolveInitConfig warns on an unknown agent, drops it, keeps the know
   });
 });
 
-Deno.test("resolveInitConfig falls back to default agents when all names are garbage", async () => {
+Deno.test("resolveSetupConfig falls back to default agents when all names are garbage", async () => {
   await captureStderr(async (lines) => {
-    const config = await resolveInitConfig(
+    const config = await resolveSetupConfig(
       { yes: true, agents: "nope, , also-nope" },
       logger(),
     );
@@ -120,9 +120,9 @@ Deno.test("resolveInitConfig falls back to default agents when all names are gar
   });
 });
 
-Deno.test("resolveInitConfig keeps a valid agents flag without warning", async () => {
+Deno.test("resolveSetupConfig keeps a valid agents flag without warning", async () => {
   await captureStderr(async (lines) => {
-    const config = await resolveInitConfig(
+    const config = await resolveSetupConfig(
       { yes: true, agents: "codex" },
       logger(),
     );
@@ -135,8 +135,8 @@ Deno.test("resolveInitConfig keeps a valid agents flag without warning", async (
   });
 });
 
-Deno.test("resolveInitConfig falls back to default source globs when the flag parses to empty", async () => {
-  const config = await resolveInitConfig(
+Deno.test("resolveSetupConfig falls back to default source globs when the flag parses to empty", async () => {
+  const config = await resolveSetupConfig(
     { yes: true, sourceGlobs: " , ,, " },
     logger(),
   );
@@ -144,8 +144,8 @@ Deno.test("resolveInitConfig falls back to default source globs when the flag pa
   assertEquals(config.sourceGlobs, [...DEFAULTS.sourceGlobs]);
 });
 
-Deno.test("resolveInitConfig honours explicit base flags non-interactively", async () => {
-  const config = await resolveInitConfig(
+Deno.test("resolveSetupConfig honours explicit base flags non-interactively", async () => {
+  const config = await resolveSetupConfig(
     {
       yes: true,
       name: "My Project",
@@ -164,11 +164,11 @@ Deno.test("resolveInitConfig honours explicit base flags non-interactively", asy
   assertEquals(config.agents, [...DEFAULTS.agents]);
 });
 
-Deno.test("resolveInitConfig resolves a @path brief flag non-interactively", async () => {
+Deno.test("resolveSetupConfig resolves a @path brief flag non-interactively", async () => {
   await withTempDir(async (dir) => {
     const path = join(dir, "b.md");
     await Deno.writeTextFile(path, "briefed from file");
-    const config = await resolveInitConfig(
+    const config = await resolveSetupConfig(
       { yes: true, brief: `@${path}` },
       logger(),
     );
@@ -176,17 +176,17 @@ Deno.test("resolveInitConfig resolves a @path brief flag non-interactively", asy
   });
 });
 
-Deno.test("resolveInitConfig rejects an invalid explicit --slug", async () => {
+Deno.test("resolveSetupConfig rejects an invalid explicit --slug", async () => {
   // An explicit bad slug is an error (no silent coercion of a chosen value).
   await assertRejects(
-    () => resolveInitConfig({ yes: true, slug: "Bad Slug!" }, logger()),
+    () => resolveSetupConfig({ yes: true, slug: "Bad Slug!" }, logger()),
     Error,
     'invalid --slug "Bad Slug!"',
   );
 });
 
-Deno.test("resolveInitConfig empty branch-prefix flag falls back to the default", async () => {
-  const config = await resolveInitConfig(
+Deno.test("resolveSetupConfig empty branch-prefix flag falls back to the default", async () => {
+  const config = await resolveSetupConfig(
     { yes: true, branchPrefix: "   " },
     logger(),
   );

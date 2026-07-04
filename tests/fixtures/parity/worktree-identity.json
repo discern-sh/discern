@@ -1,5 +1,5 @@
 {
-  "_provenance": "Phase 0d parity capture (single-binary refactor). Pins Risk R1 (POSIX cksum parity) and worktree identity. Captured from the shell engine templates/.discern/engine/worktree-name + system cksum on aarch64-apple-darwin, Deno 2.8.3. The TS shared/crc.ts + engine/worktree/identity.ts MUST reproduce these exactly. cksum input is `printf '%s' <id>` with NO trailing newline. The empty-string crc 4294967295 (0xFFFFFFFF) proves POSIX cksum (poly 0x04C11DB7, length-fed, final-complement), not zlib crc32 (which is 0 for empty).",
+  "_provenance": "Phase 0d parity capture (single-binary refactor). Pins Risk R1 (POSIX cksum parity) and worktree identity. Captured from the shell engine templates/.discern/engine/identity + system cksum on aarch64-apple-darwin, Deno 2.8.3. The TS shared/crc.ts + engine/worktree/identity.ts MUST reproduce these exactly. cksum input is `printf '%s' <id>` with NO trailing newline. The empty-string crc 4294967295 (0xFFFFFFFF) proves POSIX cksum (poly 0x04C11DB7, length-fed, final-complement), not zlib crc32 (which is 0 for empty).",
   "cksum": [
     { "input": "", "crc": 4294967295, "octets": 0 },
     { "input": "a", "crc": 1220704766, "octets": 1 },

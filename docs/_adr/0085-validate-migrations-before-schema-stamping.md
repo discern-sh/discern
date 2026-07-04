@@ -5,9 +5,9 @@
 ## Context
 
 The migration chain is discern's upgrade safety story: a project records
-`[meta].schema_version`, `upgrade` runs every pending step, then stamps the
-project as current. ADR 0014 already says the migrated result must be validated
-before stamping, but the implementation did not enforce that boundary. A
+`[meta].schema_version` runs every pending step, then stamps the project as
+current. ADR 0014 already says the migrated result must be validated before
+stamping, but the implementation did not enforce that boundary. A
 comment-preserving TOML edit could leave `discern.toml` syntactically invalid or
 schema-invalid, while `upgrade` still exited successfully and stamped the
 current schema. Every later command would then fail on the user's now-current
@@ -31,14 +31,14 @@ cannot share that soft-failure semantics.
 
 `upgrade` proves the migrated `discern.toml` parses and validates against the
 current schema before it recompiles guidance or stamps `[meta].schema_version`.
-If validation fails, `upgrade` returns a hard `invalid_migrated_config` failure
-and leaves the recorded schema untouched. The migration's partial file edits may
-still be present, but the project is not marked current; a fixed, idempotent
-migration can be re-run from the same recorded version.
+If validation fails returns a hard `invalid_migrated_config` failure and leaves
+the recorded schema untouched. The migration's partial file edits may still be
+present, but the project is not marked current; a fixed, idempotent migration
+can be re-run from the same recorded version.
 
 A recorded schema greater than this binary's `SCHEMA_VERSION` is a hard forward
 skew refusal on every migration-status surface: `upgrade`, `upgrade --check`,
-and `migrate` all return `schema_version_too_new` with the user-facing message
+and `upgrade` all return `schema_version_too_new` with the user-facing message
 "this project needs a newer discern — re-run the installer." They do not compute
 a pending set, do not report "up to date," and do not stamp the schema down.
 

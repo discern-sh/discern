@@ -71,7 +71,7 @@ permission default:
         "hooks": [
           {
             "type": "command",
-            "command": "discern worktree:ensure",
+            "command": "discern worktree ensure",
             "timeout": 600
           }
         ]
@@ -82,7 +82,7 @@ permission default:
         "hooks": [
           {
             "type": "command",
-            "command": "discern worktree:create"
+            "command": "discern worktree create"
           }
         ]
       }
@@ -92,7 +92,7 @@ permission default:
         "hooks": [
           {
             "type": "command",
-            "command": "discern worktree:remove"
+            "command": "discern worktree remove"
           }
         ]
       }
@@ -110,8 +110,8 @@ Claude Code does not need a separate folder-trust step for discern's MCP server.
 ## Runtime behavior and gotchas
 
 Claude Code is the only supported agent with a worktree create/remove hook
-contract. `WorktreeCreate` runs `discern worktree:create`, `WorktreeRemove` runs
-`discern worktree:remove`, and `SessionStart` runs `discern worktree:ensure`.
+contract. `WorktreeCreate` runs `discern worktree create`, `WorktreeRemove` runs
+`discern worktree remove`, and `SessionStart` runs `discern worktree ensure`.
 
 Claude Code can also re-root a running session with `EnterWorktree`. That moves
 Claude Code's shell and instruction-file context, but a stdio MCP process still

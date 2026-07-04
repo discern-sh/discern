@@ -13,14 +13,13 @@ refreshes it over time **without clobbering** the files you own. It compiles to
 standalone binaries in `dist/` via `deno task build`; an installed project never
 needs Deno.
 
-The command surface is six verbs: `setup` (the staged, zero-config scaffold
-handshake — welcome → verify → begin → done; the retired `init`/`bootstrap`
-names redirect to it), `upgrade` (run pending migrations, re-materialize Skills,
-reconcile the fixed `discern.toml` scaffold, recompile guidance), `doctor`
-(verify an install), `migrate` (report pending Schema steps), `config`
-(comment-preserving `discern.toml` edits), and `add-preset` (overlay a reusable
-preset). Routing lives in [`main.ts`](../../src/main.ts); each verb's logic is
-in `src/commands/`.
+The command surface is five installer verbs: `setup` (the staged, zero-config
+scaffold handshake — welcome → verify → begin → done), `upgrade` (run pending
+migrations, re-materialize Skills, reconcile the fixed `discern.toml` scaffold,
+and recompile guidance), `doctor` (verify an install and report pending Schema
+steps), `config` (comment-preserving `discern.toml` edits), and `preset`
+(overlay a reusable preset). Routing lives in [`main.ts`](../../src/main.ts);
+each verb's logic is in `src/commands/`.
 
 Each human touchpoint of the handshake **serves a pre-composed, first-person
 _message to your human_** the agent relays — the consent conversation at
@@ -52,8 +51,8 @@ chain that evolves an install's shape, stamped into `[meta].schema_version` in
 `discern.toml` (the `5 → 6` step dissolved the old `.discern/` namespace into
 this one root file — [ADR 0020](../_adr/0020-dissolve-discern-dir.md)).
 `upgrade` validates the migrated config before stamping that schema, and
-`upgrade` / `migrate` refuse a config stamped by a newer binary rather than
-silently downgrading it
+`upgrade` refuse a config stamped by a newer binary rather than silently
+downgrading it
 ([ADR 0085](../_adr/0085-validate-migrations-before-schema-stamping.md)). The
 config-scaffold reconciliation is separate from behaviour-changing migrations:
 it is additive and only-if-absent, and is recorded in

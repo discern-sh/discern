@@ -3,13 +3,13 @@
  * worktree's `.env`. The deterministic port and the per-worktree resource handles
  * are both recorded here so a project's OWN tooling — its gate, its scripts,
  * running later in a separate process — can discover this worktree's identity at
- * runtime by reading `.env` (the `discern worktree-name --port|--resource` query
+ * runtime by reading `.env` (the `discern identity --port|--resource` query
  * is the always-available second channel).
  *
  * Extracted so the port write (`recordPort`) and the resource writes share ONE
  * upsert idiom — replace the first `KEY=` line if present, else append respecting
  * the file's trailing-newline convention. `.env` is never CREATED here: a project
- * without one discovers identity via `worktree-name` instead (matching the port's
+ * without one discovers identity via `identity` instead (matching the port's
  * long-standing behaviour).
  */
 
@@ -65,7 +65,7 @@ export async function readEnvFile(
 /**
  * Upsert `KEY=value` into the worktree's `.env`, writing it back. Returns true
  * when written, false when the worktree has no `.env` (in which case nothing is
- * created — the value stays discoverable via `discern worktree-name`). The caller
+ * created — the value stays discoverable via `discern identity`). The caller
  * decides what to log.
  */
 export async function writeEnvVar(

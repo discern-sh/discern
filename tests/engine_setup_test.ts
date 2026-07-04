@@ -2,7 +2,7 @@
  * Engine coverage for the staged `discern setup` handshake (ADR 0036/0075) — driven
  * through the real CLI so Cliffy parsing, the `begin` skeleton scaffolding, the `done`
  * validator, the `[meta].bootstrapped` marker, the pre-setup hard redirect, the
- * bare-`discern` welcome, the `init`/`bootstrap` back-compat redirect, and the
+ * bare-`discern` welcome, the `setup`/`setup` back-compat redirect, and the
  * self-hiding from help are all exercised end-to-end. The read-only welcome surface
  * itself (the three states, the dual-address) is covered in engine_setup_welcome_test.
  *
@@ -276,12 +276,12 @@ Deno.test("setup begin --docs persists and scaffolds a separate agent docs tree"
   });
 });
 
-Deno.test("the scaffolded dev-loop docs name the canonical worktree verb (discern start, not bare discern worktree)", async () => {
+Deno.test("the scaffolded dev-loop docs name the canonical worktree verb (discern start, not the help-only worktree parent)", async () => {
   // `discern start` (from the main checkout) is how you begin a new line of work;
-  // `discern worktree` is the in-worktree convergence command. The skeleton dev-loop
+  // `discern worktree setup` is the in-worktree convergence command. The skeleton dev-loop
   // docs used the latter for "set up a checkout for a change", which a cold run read as
   // an inconsistency with the `discern start` that status/doctor surface. Guard that
-  // the shipped skeletons point at `discern start` and never bare `discern worktree`.
+  // the shipped skeletons point at `discern start` and never the help-only worktree parent for starting work.
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
     await runAgent(dir, ["setup", "begin", "--confirmed"]); // lays the docs skeletons
@@ -294,8 +294,9 @@ Deno.test("the scaffolded dev-loop docs name the canonical worktree verb (discer
       const body = await Deno.readTextFile(join(dir, rel));
       assertStringIncludes(body, "discern start");
       assert(
-        !body.includes("discern worktree"),
-        `${rel} must use 'discern start' for beginning work, not bare 'discern worktree':\n${body}`,
+        !/discern worktree(?! (setup|ensure|create|remove|teardown|prune))/
+          .test(body),
+        `${rel} must use 'discern start' for beginning work, not the help-only worktree parent:\n${body}`,
       );
     }
   });
@@ -444,7 +445,7 @@ Deno.test("finish/prepare/test/ratchets run before setup is recorded, carrying t
       assertEquals(res.verb, verb, r.output);
       assert(
         res.error !== "not_set_up",
-        `${verb} must not redirect to setup pre-bootstrap: ${r.output}`,
+        `${verb} must not redirect to setup pre-setup: ${r.output}`,
       );
       assert(
         (res.hints ?? []).some((h: string) =>
@@ -1322,7 +1323,7 @@ Deno.test("an unparseable config surfaces its TOML error without the setup redir
 
 Deno.test("bare `discern` shows the setup welcome in an un-set-up project, but help once set up", async () => {
   await withTempDir(async (dir) => {
-    // Un-set-up project (config present, not bootstrapped): bare `discern` shows the
+    // Un-set-up project (config present, not set up): bare `discern` shows the
     // read-only welcome (in-progress), NOT the brief and NOT a scaffold (ADR 0075).
     await scaffoldEngine(dir, { bootstrapped: false });
     const bare = await runAgent(dir, []);
@@ -1360,23 +1361,6 @@ Deno.test("bare `discern` shows the fresh welcome inside a git work tree, writin
       !(await exists(join(dir, "discern.toml"))),
       "the welcome is read-only — bare `discern` must not scaffold",
     );
-  });
-});
-
-Deno.test("`discern init` and `discern bootstrap` redirect to setup with a note", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir, { bootstrapped: false });
-
-    const init = await runAgent(dir, ["init"]);
-    assertEquals(init.code, 0, init.output);
-    assertStringIncludes(init.stderr, "is now `discern setup`");
-    // init/bootstrap now land on the staged `setup` welcome (in-progress here), not
-    // the brief — they redirect to `setup`, which is the read-only welcome (ADR 0075).
-    assertStringIncludes(init.stdout, "IN PROGRESS");
-
-    const bootstrap = await runAgent(dir, ["bootstrap"]);
-    assertEquals(bootstrap.code, 0, bootstrap.output);
-    assertStringIncludes(bootstrap.stderr, "is now `discern setup`");
   });
 });
 

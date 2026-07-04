@@ -50,7 +50,7 @@ installer read it.
   either way), and `loadManagedSpec(dir)` / `parseManagedSpec` /
   `mergeManagedSpecs`. `isManaged(path)` remains as a thin wrapper over the
   default for callers without a spec.
-- **`buildPlan` takes an optional `managedSpec`.** `init` and `upgrade` load it
+- **`buildPlan` takes an optional `managedSpec`.** `setup` and `upgrade` load it
   from the templates tree; `add-adapter` classifies an adapter's overlay files
   by `DEFAULT_MANAGED_SPEC` **merged with the adapter's own `managed.json`** (if
   it ships one), so an adapter can mark overlay files it owns.
@@ -78,7 +78,7 @@ installer read it.
 - **Keep the set hardcoded.** Rejected: it hides the contract and blocks
   adapter-owned managed files — the two problems above.
 - **Record the rule in the project manifest instead of the template.** The
-  manifest already lists the managed _files_ (paths + hashes), but `init` must
+  manifest already lists the managed _files_ (paths + hashes), but `setup` must
   classify _new_ files from the template walk before any manifest exists for
   them, so the rule has to come from the template. The template declaration is
   the right source of truth; the manifest stays a record of what was written.

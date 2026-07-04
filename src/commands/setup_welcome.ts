@@ -1,5 +1,5 @@
 /**
- * `discern setup` (and bare `discern`, pre-bootstrap) — the read-only WELCOME, the
+ * `discern setup` (and bare `discern`, pre-setup) — the read-only WELCOME, the
  * first contact for both readers (ADR 0075). It writes NOTHING; the destructive
  * scaffold lives behind `discern setup begin`.
  *
@@ -71,7 +71,7 @@ const IN_PROGRESS_AGENT_GUIDANCE =
 
 /**
  * Render the welcome for the cwd's project, resolving its lifecycle phase from config
- * presence + the bootstrap mark. Read-only and non-fatal: an unparseable config is
+ * presence + the setup completion marker. Read-only and non-fatal: an unparseable config is
  * treated as in-progress (the agent can repair it; the real TOML error surfaces on the
  * verbs that parse strictly), never a crash on first contact. Always exits 0.
  */

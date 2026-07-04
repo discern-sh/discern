@@ -70,16 +70,16 @@ function plural(count, singular, pluralForm = `${singular}s`) {
 }
 
 try {
-  const [status, improve, changedScopes] = await Promise.all([
+  const [status, improve, scopes] = await Promise.all([
     runJson("discern status --json", ["status", "--json"]),
     runJson("discern improve --json", ["improve", "--json"]),
-    runJson("discern changed-scopes --json", ["changed-scopes", "--json"]),
+    runJson("discern scopes --json", ["scopes", "--json"]),
   ]);
 
   const data = status.data || {};
   const git = data.git || {};
   const gate = data.gate || {};
-  const scopes = changedScopes.data?.scopes || data.changed_scopes || [];
+  const scopes = scopes.data?.scopes || data.scopes || [];
   const changedFiles = Number.isFinite(git.changed_files)
     ? git.changed_files
     : "unknown";

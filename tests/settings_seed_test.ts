@@ -65,7 +65,7 @@ Deno.test("mergeJsonSettingsText: byte-identical to the JSON deep-merge it lifts
 const ACME_HOOKS: HooksIntegration = {
   settingsFile: ".acme/settings.json",
   worktreeEventKeys: [], // SessionStart-only — no worktree create/remove events
-  sessionHookNeedle: "discern worktree:ensure",
+  sessionHookNeedle: "discern worktree ensure",
 };
 
 /** The SettingsSeed `settingsSeeds()` would derive for ACME — the exact registry
@@ -85,7 +85,7 @@ async function acmeTemplates(dir: string): Promise<void> {
       {
         hooks: {
           SessionStart: [{
-            hooks: [{ type: "command", command: "discern worktree:ensure" }],
+            hooks: [{ type: "command", command: "discern worktree ensure" }],
           }],
         },
         permissions: { deny: ["Read(./.env)"] },
@@ -121,7 +121,7 @@ Deno.test("a synthetic SessionStart-only hooks provider seeds purely from its de
       );
       assertEquals(
         settings.hooks.SessionStart[0].hooks[0].command,
-        "discern worktree:ensure",
+        "discern worktree ensure",
       );
       assertEquals(settings.permissions.deny, ["Read(./.env)"]);
     });

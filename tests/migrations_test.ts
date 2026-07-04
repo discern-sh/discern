@@ -81,7 +81,7 @@ Deno.test("the production chain is contiguous up to the current schema", () => {
   // One step per bump, from 1 up to SCHEMA_VERSION: 1→2 (main_branch backfill),
   // 2→3 (the .discern/ surface consolidation), 3→4 (capabilities/checks),
   // 4→5 (prune the pre-existing on-disk shell engine), 5→6 (dissolve .discern/
-  // into the single-file footprint), 6→7 (bootstrap skill → command),
+  // into the single-file footprint), 6→7 (setup skill → command),
   // 7→8 (db/dev_server → [worktree.resources.*]), 8→9 (untrack AGENTS.md),
   // 9→10 (ignore .agents/skills/), 10→11 (drop [features].mcp), 11→12 (rename
   // [worktree].graduate_to "main" → "trunk"), 12→13 (add [worktree].root), and
@@ -590,7 +590,7 @@ Deno.test("migration 2→3 moves the config + guidance seeds (shell dispatcher l
     await Deno.mkdir(join(dir, ".claude"), { recursive: true });
     await Deno.writeTextFile(
       join(dir, ".claude/settings.json"),
-      '{ "hooks": { "SessionStart": [{ "command": "./bin/agent worktree:ensure" }] } }\n',
+      '{ "hooks": { "SessionStart": [{ "command": "./bin/agent worktree ensure" }] } }\n',
     );
 
     // Run the real 2→3 step via the production chain.
@@ -612,7 +612,7 @@ Deno.test("migration 2→3 moves the config + guidance seeds (shell dispatcher l
     const settings = await Deno.readTextFile(
       join(dir, ".claude/settings.json"),
     );
-    assertStringIncludes(settings, "./agent worktree:ensure");
+    assertStringIncludes(settings, "./agent worktree ensure");
     assert(!settings.includes("./bin/agent"), "no stale ./bin/agent hook");
     assertStringIncludes(
       await Deno.readTextFile(join(dir, ".discern/config.toml")),
@@ -737,10 +737,10 @@ Deno.test("migration 4→5 prunes a pre-existing on-disk shell engine, agent, an
       `${
         JSON.stringify({
           hooks: {
-            SessionStart: [{ command: "./agent worktree:ensure" }],
+            SessionStart: [{ command: "./agent worktree ensure" }],
             WorktreeRemove: [{
               command:
-                "sh -c 'git worktree add -b agent/$name dir; ./agent worktree:teardown'",
+                "sh -c 'git worktree add -b agent/$name dir; ./agent worktree teardown'",
             }],
           },
         })
@@ -771,8 +771,8 @@ Deno.test("migration 4→5 prunes a pre-existing on-disk shell engine, agent, an
       join(dir, ".claude/settings.json"),
     );
     assert(!settings.includes("./agent"), "no stale ./agent hook remains");
-    assertStringIncludes(settings, "discern worktree:ensure");
-    assertStringIncludes(settings, "discern worktree:teardown");
+    assertStringIncludes(settings, "discern worktree ensure");
+    assertStringIncludes(settings, "discern worktree teardown");
     assertStringIncludes(settings, "agent/$name");
 
     // The materialized skills are now gitignored; the user's entry and the
@@ -1069,15 +1069,15 @@ Deno.test("migration 6→7 back-fills true when a docs/ tree exists, even withou
   });
 });
 
-Deno.test("migration 6→7 leaves the marker absent for a bare install (absent ≡ not bootstrapped)", async () => {
+Deno.test("migration 6→7 leaves the marker absent for a bare install (absent ≡ not set up)", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(
       join(dir, "discern.toml"),
       '[meta]\nschema_version = 6\n[project]\nslug = "demo"\n',
     );
     await applyMigrations({ destDir: dir, from: 6, to: 7 });
-    // No capabilities, no docs/ → first `discern bootstrap` should still run, so
-    // the migration records nothing (a bare install reads as not bootstrapped).
+    // No capabilities, no docs/ → first `discern setup` should still run, so
+    // the migration records nothing (a bare install reads as not set up).
     assert(
       !(await Deno.readTextFile(join(dir, "discern.toml"))).includes(
         "bootstrapped",
@@ -1086,7 +1086,7 @@ Deno.test("migration 6→7 leaves the marker absent for a bare install (absent �
   });
 });
 
-Deno.test("migration 6→7 prunes the stale materialized bootstrap skill and never clobbers an explicit marker", async () => {
+Deno.test("migration 6→7 prunes the stale materialized setup skill and never clobbers an explicit marker", async () => {
   await withTempDir(async (dir) => {
     // A configured install that already recorded bootstrapped = false by hand:
     // the back-fill must not flip it to true despite the capabilities.

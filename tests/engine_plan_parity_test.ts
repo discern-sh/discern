@@ -2,7 +2,7 @@
  * The ARCHITECTURAL guard for the plan/apply class (ADR 0027): for every effectful
  * verb, **every effect the apply path produces must have been listed in the
  * dry-run plan**. This is the invariant whose violation was the catastrophic bug —
- * `worktree:prune --dry-run` reported "nothing to do" while the real run removed
+ * `worktree prune --dry-run` reported "nothing to do" while the real run removed
  * worktrees and branches. Here it is a GATE FAILURE, not a code comment.
  *
  * The check is `applied ⊆ planned` (by `kind:label`), the safety direction: apply
@@ -76,7 +76,7 @@ async function mainWithWorktree(dir: string, name: string): Promise<string> {
   return await addWorktree(dir, name);
 }
 
-Deno.test("parity: worktree:prune apply removes nothing the dry-run didn't list", async () => {
+Deno.test("parity: worktree prune apply removes nothing the dry-run didn't list", async () => {
   await withTempDir(async (dir) => {
     // A live, clean, fully-merged worktree → a real removal candidate.
     const wt = await mainWithWorktree(dir, "parityvictim");
@@ -85,9 +85,14 @@ Deno.test("parity: worktree:prune apply removes nothing the dry-run didn't list"
     await git(wt, "commit", "-q", "-m", "m", "--no-gpg-sign");
     await git(dir, "merge", "--no-ff", "-m", "merge", "agent/parityvictim");
 
-    const dry = await runAgent(dir, ["worktree:prune", "--dry-run", "--json"]);
+    const dry = await runAgent(dir, [
+      "worktree",
+      "prune",
+      "--dry-run",
+      "--json",
+    ]);
     assertEquals(dry.code, 0, dry.output);
-    const apply = await runAgent(dir, ["worktree:prune", "--yes", "--json"]);
+    const apply = await runAgent(dir, ["worktree", "prune", "--yes", "--json"]);
     assertEquals(apply.code, 0, apply.output);
 
     // The fixture has real work, so the applied set is non-empty — which, under the
@@ -97,7 +102,7 @@ Deno.test("parity: worktree:prune apply removes nothing the dry-run didn't list"
   });
 });
 
-Deno.test("parity: worktree:teardown apply destroys nothing the dry-run didn't list", async () => {
+Deno.test("parity: worktree teardown apply destroys nothing the dry-run didn't list", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "parityteardown");
     const markers = join(dir, "markers");
@@ -108,15 +113,16 @@ Deno.test("parity: worktree:teardown apply destroys nothing the dry-run didn't l
         `create  = "mkdir -p ${markers} && touch ${markers}/@resource@.live"\n` +
         `destroy = "rm -f ${markers}/@resource@.live"\n`,
     );
-    assertEquals((await runAgent(wt, ["worktree"])).code, 0);
+    assertEquals((await runAgent(wt, ["worktree", "setup"])).code, 0);
 
     const dry = await runAgent(wt, [
-      "worktree:teardown",
+      "worktree",
+      "teardown",
       "--dry-run",
       "--json",
     ]);
     assertEquals(dry.code, 0, dry.output);
-    const apply = await runAgent(wt, ["worktree:teardown", "--json"]);
+    const apply = await runAgent(wt, ["worktree", "teardown", "--json"]);
     assertEquals(apply.code, 0, apply.output);
 
     assert(appliedSet(apply.stdout).size > 0, "fixture destroyed nothing");
@@ -145,9 +151,14 @@ Deno.test("parity: worktree setup apply runs nothing the dry-run didn't list", a
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "paritysetup");
 
-    const dry = await runAgent(wt, ["worktree", "--dry-run", "--json"]);
+    const dry = await runAgent(wt, [
+      "worktree",
+      "setup",
+      "--dry-run",
+      "--json",
+    ]);
     assertEquals(dry.code, 0, dry.output);
-    const apply = await runAgent(wt, ["worktree", "--json"]);
+    const apply = await runAgent(wt, ["worktree", "setup", "--json"]);
     assertEquals(apply.code, 0, apply.output);
 
     assert(appliedSet(apply.stdout).size > 0, "fixture set up nothing");

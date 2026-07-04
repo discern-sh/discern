@@ -20,7 +20,7 @@ Deno.test("engine smoke: discern --help lists commands and exits 0", async () =>
     // surfaces its colon-spelled sub-verbs in its description, so the top-level
     // help teaches both the promotion and the colon spelling.
     assertStringIncludes(r.stdout, "graduate");
-    assertStringIncludes(r.stdout, "worktree:teardown");
+    assertStringIncludes(r.stdout, "worktree", "teardown");
   });
 });
 

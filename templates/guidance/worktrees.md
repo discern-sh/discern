@@ -2,7 +2,7 @@
 
 discern keeps each task in its own **linked git worktree** so parallel work
 doesn't collide.{{#if has_worktree_resources}} It provisions per-worktree external
-**resources**; read one with `discern worktree-name --resource <name>`.{{/if}}
+**resources**; read one with `discern identity --resource <name>`.{{/if}}
 
 - **`discern_start`** — from the main checkout (`{{main_branch}}`), create your
   isolated worktree (branch prefix `{{branch_prefix}}`) and re-root into the

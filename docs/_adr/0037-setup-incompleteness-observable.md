@@ -3,8 +3,8 @@
 **Status**: accepted
 
 Hardens the handoff introduced by [ADR 0036](0036-unify-setup.md) (unify init +
-bootstrap into `discern setup`), applying the "gate-detectable, not a plea"
-pattern of [ADR 0034](0034-agents-md-untracked-currency-check.md) and leaning on
+setup under `discern setup`), applying the "gate-detectable, not a plea" pattern
+of [ADR 0034](0034-agents-md-untracked-currency-check.md) and leaning on
 `status` as the reflexive orientation verb
 ([ADR 0033](0033-status-verb-and-location-aware-scope.md)).
 [ADR 0044](0044-setup-involve-not-gate.md) later revises the same brief's
@@ -68,7 +68,7 @@ points, and stop the `setup` command's output from reading as completion.**
    finished?".
 
 3. **Remind on session start.** The SessionStart hook already runs
-   `discern worktree:ensure`; while `!bootstrapped` it now prints the canonical
+   `discern worktree ensure`; while `!bootstrapped` it now prints the canonical
    resume reminder to stdout (which a SessionStart hook injects as context), so
    a session opened mid-setup is told to finish it. Teaching the **command's
    behaviour** rather than the settings template means existing installs get it

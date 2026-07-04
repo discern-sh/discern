@@ -27,9 +27,9 @@ should I do next?_
 Neither answers the _situation_: which branch this is, whether the tree is
 dirty, how far it sits from the integration branch, which scope gates a change
 would fire, which worktrees are in flight. An agent reconstructed that by hand
-from `git status`, `git branch`, `discern changed-scopes`,
-`discern worktree-name`, and a read of `discern.toml` — several calls, each a
-partial view, none of it the orientation a session actually needs up front.
+from `git status`, `git branch`, `discern scopes`, `discern identity`, and a
+read of `discern.toml` — several calls, each a partial view, none of it the
+orientation a session actually needs up front.
 
 Two forces shaped the design:
 
@@ -55,9 +55,9 @@ derivation only. It **never** runs the gate, runs tests, measures ratchets,
 probes resource readiness, or creates/destroys anything. It reports what the
 gate **would** fire (the wired capabilities/checks and the scope gates the
 current change triggers, reusing the gate's own `planScopeGates` selection) and
-what **changed** (reusing the `changed-scopes` classification) — but it never
-asserts a pass/fail it did not verify. Its `hints[]` are advisory next-steps
-("run `discern finish`", "looks ready to graduate"), phrased as
+what **changed** (reusing the `scopes` classification) — but it never asserts a
+pass/fail it did not verify. Its `hints[]` are advisory next-steps ("run
+`discern finish`", "looks ready to graduate"), phrased as
 observation-plus-suggestion, never as a claim that the gate passed. A regression
 test pins the property: running `status` against a dirty worktree leaves the
 tree byte-for-byte unchanged and provisions no resource.
@@ -79,8 +79,8 @@ inconsistency**:
 - **In the main checkout** (worktrees enabled, ≥1 live worktree) → the **fleet**
   view, led by a cheap row-per-worktree table that **always includes the main
   checkout itself**, so nothing is hidden. Leading with the fleet omits the
-  heavy local-only blocks (`changed_scopes`, `gate`), which mean little from the
-  seat that supervises rather than edits.
+  heavy local-only blocks (`scopes`, `gate`), which mean little from the seat
+  that supervises rather than edits.
 - **Worktrees off, or no worktrees** → the local view everywhere (a fleet is
   meaningless), with a hint from the main checkout that no worktrees are active.
 
@@ -94,8 +94,7 @@ ahead/behind the integration branch, a **last-activity** timestamp, and a
 best-effort id/port read from each worktree's `.env`. `status` does **not** run
 per-worktree changed-scope classification across the fleet; the supervisor view
 needs dirty/ahead/behind, not a full per-worktree gate analysis. The
-single-worktree local view is where `changed_scopes` and the `gate` block
-belong.
+single-worktree local view is where `scopes` and the `gate` block belong.
 
 ### `status` marks the current fleet row — "clean" is never "available"
 
@@ -170,9 +169,9 @@ re-implements no git plumbing.
   `audit` = quality, `status` = situation. None overlaps another, and the docs
   and guidance can teach the distinction in one breath.
 - **The result shape is conditional.** Consumers must branch on `location` and
-  the presence of `fleet`/`gate`/`changed_scopes`. That is the cost of a
-  location-aware view; it is documented in the data contract and the tool
-  description, and the discriminants are explicit.
+  the presence of `fleet`/`gate`/`scopes`. That is the cost of a location-aware
+  view; it is documented in the data contract and the tool description, and the
+  discriminants are explicit.
 - **`status` reports what the gate _would_ do, not what it _did_.** It can say
   "the branch is clean and contains main" but never "the gate passed" — that
   remains `finish`'s word. This is a deliberate honesty boundary, reinforced by

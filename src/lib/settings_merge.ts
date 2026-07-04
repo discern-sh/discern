@@ -6,7 +6,7 @@
  *
  *   hooks.<Event>      arrays of hook-group objects. Append our groups, but skip
  *                      any group whose inner command string already exists, so
- *                      re-running `init`/`upgrade` adds nothing twice.
+ *                      re-running `setup`/`upgrade` adds nothing twice.
  *   permissions.allow  arrays of permission strings. Union (dedup by value).
  *   permissions.deny
  *   everything else    set-if-absent: take ours only when the key is missing;

@@ -14,8 +14,8 @@
 
 discern is two halves that share one binary: the **installer**
 (`src/commands/**`) and the **engine** (`src/engine/**`). The installer half
-already had the right execution shape. `init`/`add-preset` compute a pure `Plan`
-— a flat list of operations, built _before_ anything is written
+already had the right execution shape. `setup`/`preset` compute a pure `Plan` —
+a flat list of operations, built _before_ anything is written
 ([`src/lib/fs_plan.ts`](../../src/lib/fs_plan.ts)) — and a thin executor applies
 it, with rendering kept separate
 ([`src/lib/plan_view.ts`](../../src/lib/plan_view.ts)) so planning stays pure.
@@ -130,12 +130,12 @@ existing `finish --json` tests stay green unchanged.
 ## Consequences
 
 - **`--dry-run` works on every effectful verb** — `finish`, `graduate`,
-  `worktree` (setup), `worktree:teardown`, `worktree:prune`, and `ratchets` —
+  `worktree` (setup), `worktree teardown`, `worktree prune`, and `ratchets` —
   free, because the plan is computed before any effect. Each also accepts
   `--dry-run --json` (the plan as JSON) and, when applied, `--json` (a
-  serialization of plan + results). The pure-query verbs `worktree-name` and
-  `changed-scopes`, and the thin `prepare`/`test` gate variants, were left alone
-  — they have no apply step to plan.
+  serialization of plan + results). The pure-query verbs `identity` and
+  `scopes`, and the thin `prepare`/`test` gate variants, were left alone — they
+  have no apply step to plan.
 - **The planners are unit-tested without a subprocess.** `gate_plan_test.ts`,
   `worktree_plan_test.ts`, and `ratchet_plan_test.ts` exercise the whole "what
   would run / what would be reclaimed / how does it serialize" decision in ~1 ms
@@ -148,22 +148,21 @@ existing `finish --json` tests stay green unchanged.
   flow restructuring: it changes no config shape, no on-disk format, and no
   project file. `SCHEMA_VERSION` is untouched. A dogfooding project needs
   nothing but the rebuilt binary — so, deliberately, none was written.
-- **One intended human-output change.** `worktree:prune --dry-run` now renders
+- **One intended human-output change.** `worktree prune --dry-run` now renders
   the shared plan listing instead of the old per-function "Would reclaim N …"
   narration. Its scan stays read-only and its _apply_ narration is byte-
   identical; only the dry-run preview text changed (folding prune's pre-existing
   `--dry-run` into a real plan rather than leaving a parallel path was the
   point). Every other existing human string and the `finish --json`,
-  `changed-scopes --json`, and `worktree-name --json` contracts are unchanged.
+  `scopes --json`, and `identity --json` contracts are unchanged.
 - **Scope timing is preserved exactly.** The gate's apply path still classifies
-  the changed scopes _after_ the stage groups run (`buildStageGroups` →
-  `changedScopes` → `scopeGatesGroup`), not before — because `changedScopes`
-  reads the working tree, which a fix-stage codemod can mutate, and classifying
-  earlier could run _fewer_ scope gates than the post-fix tree warrants, against
-  the fail-open bias. `--dry-run` classifies once, read-only (it runs no fixers,
-  so the tree it sees is the one the apply would start from); the pure
-  `buildGatePlan` composes the same two halves for that preview and for the unit
-  tests.
+  the changed scopes _after_ the stage groups run (`buildStageGroups` → `scopes`
+  → `scopeGatesGroup`), not before — because `scopes` reads the working tree,
+  which a fix-stage codemod can mutate, and classifying earlier could run
+  _fewer_ scope gates than the post-fix tree warrants, against the fail-open
+  bias. `--dry-run` classifies once, read-only (it runs no fixers, so the tree
+  it sees is the one the apply would start from); the pure `buildGatePlan`
+  composes the same two halves for that preview and for the unit tests.
 - **One genuinely safe ordering shift.** Graduation now creates the worktree's
   branch in the _executor_ (after the read-only preconditions pass) rather than
   during diagnosis, so a detached+behind worktree fails the precondition

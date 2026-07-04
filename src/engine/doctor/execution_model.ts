@@ -95,7 +95,7 @@ const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
   "resource-destroy": {
     actor: "project",
     hint:
-      "Your `destroy` command for a per-worktree external resource. Runs at graduate/teardown AND at orphan GC (`worktree:prune`); author it idempotent and cwd-independent, and set `gc = false` for a data-loss-sensitive resource you only want torn down explicitly.",
+      "Your `destroy` command for a per-worktree external resource. Runs at graduate/teardown AND at orphan GC (`worktree prune`); author it idempotent and cwd-independent, and set `gc = false` for a data-loss-sensitive resource you only want torn down explicitly.",
   },
   git: {
     actor: "discern",
@@ -269,7 +269,7 @@ function resourceEntries(
   return Object.entries(cfg.worktree.resources);
 }
 
-/** `start` / `worktree:create` — mint a fresh worktree and run its first-time setup.
+/** `start` / `worktree create` — mint a fresh worktree and run its first-time setup.
  * Mirrors `createAndSetupWorktree` → `buildSetupPlan` (lifecycle.ts), reading the
  * resource / setup commands live from the config. */
 function startVerb(cfg: DiscernConfig): VerbPlan {
@@ -316,7 +316,7 @@ function startVerb(cfg: DiscernConfig): VerbPlan {
   };
 }
 
-/** `worktree:ensure` — the idempotent session-start convergence (lifecycle.ts
+/** `worktree ensure` — the idempotent session-start convergence (lifecycle.ts
  * `worktreeEnsure`): reconcile resources declaring an `ensure`, then re-run the
  * convergent `[worktree.setup].ensure`. A no-op once the worktree is ready. */
 function ensureVerb(cfg: DiscernConfig): VerbPlan {
@@ -324,7 +324,7 @@ function ensureVerb(cfg: DiscernConfig): VerbPlan {
     step("setup-ensure", s, { condition: "converge the worktree on the tree" })
   );
   return {
-    verb: "worktree:ensure",
+    verb: "worktree ensure",
     when:
       "On every session start — reconcile any resource declaring an `ensure`, then re-run the convergent setup commands. Idempotent: a no-op once the worktree is ready.",
     steps,
@@ -397,7 +397,7 @@ function graduateVerb(cfg: DiscernConfig, to: GraduateTarget): VerbPlan {
   };
 }
 
-/** `worktree:prune` — the garbage-collection sweep (lifecycle.ts `worktreePrune`):
+/** `worktree prune` — the garbage-collection sweep (lifecycle.ts `worktreePrune`):
  * remove stale worktrees / dangling branches / orphan dirs, then reclaim the
  * resources of any worktree that vanished without a clean teardown. */
 function pruneVerb(cfg: DiscernConfig): VerbPlan {
@@ -423,7 +423,7 @@ function pruneVerb(cfg: DiscernConfig): VerbPlan {
     }
   }
   return {
-    verb: "worktree:prune",
+    verb: "worktree prune",
     when:
       "Housekeeping — sweep stale worktrees and reclaim resources orphaned by a worktree that vanished without a clean teardown.",
     steps,

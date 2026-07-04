@@ -216,7 +216,7 @@ export interface Diagnostic {
  * The uniform result every `discern` verb returns. An agent can rely on `ok`,
  * `verb`, `error`, and `diagnostics` being present on EVERY verb; the structural
  * `plan`/`steps` carry the verbs that have steps (finish, worktree, ratchets,
- * graduate), and `data` carries each verb's own payload (doctor's checks, migrate's
+ * graduate), and `data` carries each verb's own payload (doctor's checks, schema migration data
  * schema versions, init's written-files list).
  *
  * `serializeResult` renders it to `--json`; the human path renders the same fields

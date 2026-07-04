@@ -50,7 +50,7 @@ already understands resource `ensure` understands this immediately.
 
 - **creation** — after the one-shot `steps`, as the final environment step
   before the agent-file refresh;
-- **session-start re-entry** — in `worktree:ensure`'s already-configured branch,
+- **session-start re-entry** — in `worktree ensure`'s already-configured branch,
   alongside resource `ensure`, so a re-entered worktree re-converges (gated by
   the existing `[worktree].enabled` session-start mechanism);
 - **`discern integrate`** — after the merge + the agent-file refresh. This is

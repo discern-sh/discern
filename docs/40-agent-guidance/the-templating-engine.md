@@ -73,7 +73,7 @@ legitimately contain `{{…}}` and is never interpreted.
 
 This engine is also distinct from the scaffold templater
 ([`src/lib/template.ts`](../../src/lib/template.ts)), which substitutes
-`{{token}}` in `.tmpl` _seed_ files at `init` time, over a different token set,
+`{{token}}` in `.tmpl` _seed_ files at `setup` time, over a different token set,
 and leaves an unknown token verbatim (drift is reported, not fatal). The two
 never process the same files (the scaffold skips `templates/guidance/`), so the
 shared `{{}}` delimiter never collides.

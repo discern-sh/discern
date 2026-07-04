@@ -153,9 +153,9 @@ let broken work through — the expensive failure. But once something has alread
 failed, burning wall-clock on doomed siblings just slows the agent's loop. Safe
 when unsure, fast when certain.
 
-**How it shows up.** [`changed.ts`](../../src/engine/scopes/changed.ts)
-classifies unknown paths as gated code; a scope's `gate` fires only when that
-scope actually changed ([ADR 0018](../_adr/0018-vocabulary-consolidation.md));
+**How it shows up.** [`scopes.ts`](../../src/engine/scopes/scopes.ts) classifies
+unknown paths as gated code; a scope's `gate` fires only when that scope
+actually changed ([ADR 0018](../_adr/0018-vocabulary-consolidation.md));
 `[gate].fail_fast` defaults on — the first failing job tree-kills its running
 siblings via Deno's process-group kill
 ([command.ts](../../src/engine/jobs/command.ts)) — and the structured report

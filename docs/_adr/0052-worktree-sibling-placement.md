@@ -48,7 +48,7 @@ entirely.
 - **One shared resolver.** `resolveWorktreeRoot(repoRoot, config)` lives in the
   feature layer ([`src/lib/paths.ts`](../../src/lib/paths.ts)), never the
   engine. Every spawn path goes through it: the create hook builds
-  `join(resolveWorktreeRoot(cwd, config), name)`, and `worktree:prune` passes
+  `join(resolveWorktreeRoot(cwd, config), name)`, and `worktree prune` passes
   the resolved root as the orphan-sweep's `extraDirs` so a _fully_-orphaned root
   (no registered worktree left to derive its parent from) is still reclaimed.
   The dispatch layer — not `src/engine/**` — resolves and threads the root,

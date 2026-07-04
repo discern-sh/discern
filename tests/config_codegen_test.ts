@@ -90,7 +90,7 @@ Deno.test("the docs reference documents every section, with its describe() prose
 // ── template ↔ schema drift guards (the template stays hand-authored, ADR 0005,
 //    but cannot silently diverge from the schema) ──────────────────────────────
 
-/** The shipped template with its tokens filled, as `discern init` renders it. */
+/** The shipped template with its tokens filled, as `discern setup` renders it. */
 async function renderedTemplate(): Promise<string> {
   let t = await Deno.readTextFile(
     new URL("../templates/discern.toml.tmpl", import.meta.url),
@@ -116,7 +116,7 @@ Deno.test("the shipped discern.toml.tmpl renders to a config that VALIDATES unde
   assert(config !== undefined);
 });
 
-// `init` stamps the live SCHEMA_VERSION over the template's literal, so a stale
+// `setup` stamps the live SCHEMA_VERSION over the template's literal, so a stale
 // literal is invisible at runtime — but the seed is a reference users read, and
 // the literal had silently drifted (8 while the build was at 11). Bind it to the
 // one source of truth so a future SCHEMA_VERSION bump that forgets the seed fails

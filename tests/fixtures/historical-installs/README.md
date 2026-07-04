@@ -1,7 +1,7 @@
 # Historical install fixtures
 
 Each `schema-XX/` directory contains the user-owned bytes from a real
-`discern init --yes --slug demo --name Demo` run at an older schema bump commit:
+`discern setup --yes --slug demo --name Demo` run at an older schema bump commit:
 
 - `schema-06`: `142a898`
 - `schema-07`: `5443267`

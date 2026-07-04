@@ -11,7 +11,7 @@
  * worktree locations from git's own registry — see the agent-agnosticism guard
  * in `tests/agent_agnostic_test.ts`).
  *
- * Each verb is a thin `discern worktree:create` / `discern worktree:remove`: the
+ * Each verb is a thin `discern worktree create` / `discern worktree remove`: the
  * binary — already invoked by the hook, and already a JSON-native program —
  * parses the `{name, cwd}` / `{worktree_path}` payload from its own stdin and
  * runs the git plumbing itself. Keeping that logic in the binary rather than in
@@ -62,7 +62,7 @@ function stringField(
 }
 
 /**
- * `discern worktree:create` — the `WorktreeCreate` hook entry point. Reads
+ * `discern worktree create` — the `WorktreeCreate` hook entry point. Reads
  * `{name, cwd}` from stdin, creates a linked worktree at
  * `<resolveWorktreeRoot(cwd, config)>/<name>` (a sibling of the repo by default —
  * `[worktree].root` overrides) on branch `<branch_prefix><name>`, runs the
@@ -75,7 +75,7 @@ export async function worktreeCreateHook(): Promise<number> {
   const log = hookLogger();
   if (Deno.stdin.isTerminal()) {
     log.error(
-      "discern worktree:create reads a Claude Code WorktreeCreate JSON payload ({name, cwd}) on stdin.",
+      "discern worktree create reads a Claude Code WorktreeCreate JSON payload ({name, cwd}) on stdin.",
     );
     return 1;
   }
@@ -135,7 +135,7 @@ export async function worktreeCreateHook(): Promise<number> {
 }
 
 /**
- * `discern worktree:remove` — the `WorktreeRemove` hook entry point. Reads
+ * `discern worktree remove` — the `WorktreeRemove` hook entry point. Reads
  * `{worktree_path}` from stdin and tears down that worktree's resources.
  * Best-effort: a teardown problem (or a worktree already gone) never fails the
  * event, so it always returns 0.
@@ -145,7 +145,7 @@ export async function worktreeRemoveHook(): Promise<number> {
   try {
     if (Deno.stdin.isTerminal()) {
       log.warn(
-        "discern worktree:remove reads a Claude Code WorktreeRemove JSON payload ({worktree_path}) on stdin — nothing to do.",
+        "discern worktree remove reads a Claude Code WorktreeRemove JSON payload ({worktree_path}) on stdin — nothing to do.",
       );
       return 0;
     }
@@ -162,9 +162,9 @@ export async function worktreeRemoveHook(): Promise<number> {
     );
   } catch (e) {
     // Never fail the remove event — a stranded resource is reclaimed later by
-    // `discern worktree:prune`. Narrate the reason to stderr and move on.
+    // `discern worktree prune`. Narrate the reason to stderr and move on.
     log.warn(
-      `worktree:remove teardown did not complete: ${
+      `worktree remove teardown did not complete: ${
         e instanceof Error ? e.message : String(e)
       }`,
     );

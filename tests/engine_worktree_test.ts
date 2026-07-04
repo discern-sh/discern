@@ -59,7 +59,7 @@ async function commitCurrentWorktree(
 Deno.test("worktree setup: refreshes agent files and links skills inside the worktree", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "alpha");
-    const r = await runAgent(wt, ["worktree"]);
+    const r = await runAgent(wt, ["worktree", "setup"]);
     assertEquals(r.code, 0, r.output);
     assert(
       await exists(join(wt, "CLAUDE.md")),
@@ -73,7 +73,7 @@ Deno.test("worktree setup: refreshes agent files and links skills inside the wor
   });
 });
 
-Deno.test("worktree lands in a sibling dir (never nested), and status + worktree-name work there", async () => {
+Deno.test("worktree lands in a sibling dir (never nested), and status + identity work there", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "theta");
 
@@ -87,8 +87,8 @@ Deno.test("worktree lands in a sibling dir (never nested), and status + worktree
     );
     assertStringIncludes(wt, `${basename(dir)}.worktrees`);
 
-    // worktree-name resolves identity from the sibling checkout…
-    const name = await runAgent(wt, ["worktree-name", "--id"]);
+    // identity resolves identity from the sibling checkout…
+    const name = await runAgent(wt, ["identity", "--id"]);
     assertEquals(name.code, 0, name.output);
     assertStringIncludes(name.stdout, "theta");
 
@@ -105,13 +105,13 @@ Deno.test("worktree lands in a sibling dir (never nested), and status + worktree
   });
 });
 
-Deno.test("worktree:ensure sets up once, then is a no-op", async () => {
+Deno.test("worktree ensure sets up once, then is a no-op", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "beta");
-    const first = await runAgent(wt, ["worktree:ensure"]);
+    const first = await runAgent(wt, ["worktree", "ensure"]);
     assertEquals(first.code, 0, first.output);
     assertStringIncludes(first.output, "not configured yet");
-    const second = await runAgent(wt, ["worktree:ensure"]);
+    const second = await runAgent(wt, ["worktree", "ensure"]);
     assertEquals(second.code, 0, second.output);
     assertEquals(
       second.output.includes("not configured yet"),
@@ -378,7 +378,7 @@ Deno.test("graduate reports ignored files changed since worktree setup at the to
     );
     await gitInit(dir);
     const wt = await addWorktree(dir, "ignored-drift");
-    const setup = await runAgent(wt, ["worktree"]);
+    const setup = await runAgent(wt, ["worktree", "setup"]);
     assertEquals(setup.code, 0, setup.output);
 
     await Deno.mkdir(join(wt, "local-cache", "nested"), { recursive: true });
@@ -389,7 +389,7 @@ Deno.test("graduate reports ignored files changed since worktree setup at the to
       );
     }
 
-    const reentry = await runAgent(wt, ["worktree"]);
+    const reentry = await runAgent(wt, ["worktree", "setup"]);
     assertEquals(reentry.code, 0, reentry.output);
     await commitCurrentWorktree(wt);
 
@@ -436,7 +436,7 @@ Deno.test("graduate suppresses ignored-file drift detection when configured off"
     );
     await gitInit(dir);
     const wt = await addWorktree(dir, "ignored-off");
-    const setup = await runAgent(wt, ["worktree"]);
+    const setup = await runAgent(wt, ["worktree", "setup"]);
     assertEquals(setup.code, 0, setup.output);
     await Deno.mkdir(join(wt, "local-cache"), { recursive: true });
     await Deno.writeTextFile(join(wt, "local-cache", "changed.txt"), "x\n");
@@ -657,27 +657,27 @@ Deno.test("integrate end-to-end: a behind finish points at integrate, which then
   });
 });
 
-Deno.test("worktree-name resolves the worktree identity (id + branch)", async () => {
+Deno.test("identity resolves the worktree identity (id + branch)", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "epsilon");
-    const id = await runAgent(wt, ["worktree-name", "--id"]);
+    const id = await runAgent(wt, ["identity", "--id"]);
     assertEquals(id.code, 0, id.output);
     assertStringIncludes(id.stdout, "epsilon");
-    const branch = await runAgent(wt, ["worktree-name", "--branch"]);
+    const branch = await runAgent(wt, ["identity", "--branch"]);
     assertEquals(branch.code, 0, branch.output);
     assertStringIncludes(branch.stdout, "epsilon");
   });
 });
 
-Deno.test("worktree:teardown runs the (no-op) adapter seams cleanly", async () => {
+Deno.test("worktree teardown runs the (no-op) adapter seams cleanly", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "eta");
-    const r = await runAgent(wt, ["worktree:teardown"]);
+    const r = await runAgent(wt, ["worktree", "teardown"]);
     assertEquals(r.code, 0, r.output);
   });
 });
 
-Deno.test("worktree:prune --yes reclaims a fully-merged worktree", async () => {
+Deno.test("worktree prune --yes reclaims a fully-merged worktree", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "zeta");
     await Deno.writeTextFile(join(wt, "z.txt"), "z\n");
@@ -686,7 +686,7 @@ Deno.test("worktree:prune --yes reclaims a fully-merged worktree", async () => {
     // Merge the branch into main so it is fully merged → prune may reclaim it.
     await git(dir, "merge", "--no-ff", "-m", "merge zeta", "agent/zeta");
 
-    const r = await runAgent(dir, ["worktree:prune", "--yes"]);
+    const r = await runAgent(dir, ["worktree", "prune", "--yes"]);
     assertEquals(r.code, 0, r.output);
     assertEquals(
       await exists(wt),
@@ -696,7 +696,7 @@ Deno.test("worktree:prune --yes reclaims a fully-merged worktree", async () => {
   });
 });
 
-Deno.test("worktree:prune keeps a sibling worktree that still has unmerged work", async () => {
+Deno.test("worktree prune keeps a sibling worktree that still has unmerged work", async () => {
   await withTempDir(async (dir) => {
     const live = await mainWithWorktree(dir, "live");
     // The sibling carries an unmerged commit — pruning must preserve it and
@@ -705,7 +705,7 @@ Deno.test("worktree:prune keeps a sibling worktree that still has unmerged work"
     await git(live, "add", "-A");
     await git(live, "commit", "-q", "-m", "wip", "--no-gpg-sign");
 
-    const r = await runAgent(dir, ["worktree:prune", "--yes"]);
+    const r = await runAgent(dir, ["worktree", "prune", "--yes"]);
     assertEquals(r.code, 0, r.output);
     assertEquals(
       await exists(live),
@@ -715,7 +715,7 @@ Deno.test("worktree:prune keeps a sibling worktree that still has unmerged work"
   });
 });
 
-Deno.test("status and worktree:prune keep a fully-merged worktree with uncommitted changes", async () => {
+Deno.test("status and worktree prune keep a fully-merged worktree with uncommitted changes", async () => {
   await withTempDir(async (dir) => {
     const dirty = await mainWithWorktree(dir, "dirty-merged");
     await Deno.writeTextFile(join(dirty, "tracked.txt"), "merged\n");
@@ -742,7 +742,7 @@ Deno.test("status and worktree:prune keep a fully-merged worktree with uncommitt
     assertEquals(row.clean, false);
     assertEquals(row.changed_files, 2);
 
-    const dry = await runAgent(dir, ["worktree:prune", "--dry-run"]);
+    const dry = await runAgent(dir, ["worktree", "prune", "--dry-run"]);
     assertEquals(dry.code, 0, dry.output);
     assertStringIncludes(dry.output, "(nothing to do)");
     assert(
@@ -750,7 +750,7 @@ Deno.test("status and worktree:prune keep a fully-merged worktree with uncommitt
       `dry-run prune must not remove the dirty worktree\n${dry.output}`,
     );
 
-    const r = await runAgent(dir, ["worktree:prune", "--yes"]);
+    const r = await runAgent(dir, ["worktree", "prune", "--yes"]);
     assertEquals(r.code, 0, r.output);
     assert(
       await exists(dirty),
@@ -773,7 +773,7 @@ Deno.test("status and worktree:prune keep a fully-merged worktree with uncommitt
   });
 });
 
-Deno.test("worktree:prune --yes keeps a clean detached worktree whose HEAD is not merged", async () => {
+Deno.test("worktree prune --yes keeps a clean detached worktree whose HEAD is not merged", async () => {
   await withTempDir(async (dir) => {
     const detached = await mainWithWorktree(dir, "detached-unmerged");
     await git(detached, "checkout", "--detach");
@@ -789,7 +789,7 @@ Deno.test("worktree:prune --yes keeps a clean detached worktree whose HEAD is no
     );
     const detachedHead = await gitOut(detached, "rev-parse", "HEAD");
 
-    const r = await runAgent(dir, ["worktree:prune", "--yes"]);
+    const r = await runAgent(dir, ["worktree", "prune", "--yes"]);
     assertEquals(r.code, 0, r.output);
     assert(
       await exists(detached),
@@ -995,7 +995,7 @@ Deno.test("worktree setup: runs the one-shot steps then the convergent ensure", 
         steps: [`echo x >> ${steps}`],
         ensure: [`echo x >> ${ensure}`],
       });
-      const r = await runAgent(wt, ["worktree"]);
+      const r = await runAgent(wt, ["worktree", "setup"]);
       assertEquals(r.code, 0, r.output);
       assertEquals(await markerCount(steps), 1, `steps ran once\n${r.output}`);
       assertEquals(await markerCount(ensure), 1, `ensure ran\n${r.output}`);
@@ -1012,8 +1012,8 @@ Deno.test("worktree setup re-entry: skips the one-shot steps, re-runs ensure", a
         steps: [`echo x >> ${steps}`],
         ensure: [`echo x >> ${ensure}`],
       });
-      await runAgent(wt, ["worktree"]); // creation: steps 1, ensure 1
-      const again = await runAgent(wt, ["worktree"]); // re-entry
+      await runAgent(wt, ["worktree", "setup"]); // creation: steps 1, ensure 1
+      const again = await runAgent(wt, ["worktree", "setup"]); // re-entry
       assertEquals(again.code, 0, again.output);
       assertStringIncludes(again.output, "skipping setup steps");
       assertEquals(
@@ -1030,15 +1030,15 @@ Deno.test("worktree setup re-entry: skips the one-shot steps, re-runs ensure", a
   });
 });
 
-Deno.test("worktree:ensure converges via [worktree.setup].ensure on every session start", async () => {
+Deno.test("worktree ensure converges via [worktree.setup].ensure on every session start", async () => {
   await withTempDir(async (dir) => {
     await withMarkers(async (markers) => {
       const ensure = join(markers, "ensure");
       const wt = await mainWithSetup(dir, "wt-ensure", {
         ensure: [`echo x >> ${ensure}`],
       });
-      await runAgent(wt, ["worktree:ensure"]); // first: fresh setup → ensure 1
-      await runAgent(wt, ["worktree:ensure"]); // already configured → ensure 2
+      await runAgent(wt, ["worktree", "ensure"]); // first: fresh setup → ensure 1
+      await runAgent(wt, ["worktree", "ensure"]); // already configured → ensure 2
       assertEquals(
         await markerCount(ensure),
         2,
@@ -1048,9 +1048,9 @@ Deno.test("worktree:ensure converges via [worktree.setup].ensure on every sessio
   });
 });
 
-Deno.test("worktree:ensure: a successful ensure command's output never leaks into session-start stdout", async () => {
+Deno.test("worktree ensure: a successful ensure command's output never leaks into session-start stdout", async () => {
   await withTempDir(async (dir) => {
-    // The SessionStart hook runs `worktree:ensure` and Claude Code injects its STDOUT
+    // The SessionStart hook runs `worktree ensure` and Claude Code injects its STDOUT
     // as agent context, so a chatty ensure command (a `vale sync` progress bar) must
     // not surface there. The command prints `OUT42END` only when it RUNS — the marker
     // is absent from the command text, so the "Ensure step: …" narration can't
@@ -1058,7 +1058,7 @@ Deno.test("worktree:ensure: a successful ensure command's output never leaks int
     const wt = await mainWithSetup(dir, "quiet-ensure", {
       ensure: ["echo OUT$((6*7))END"],
     });
-    const r = await runAgent(wt, ["worktree:ensure"]);
+    const r = await runAgent(wt, ["worktree", "ensure"]);
     assertEquals(r.code, 0, r.output);
     assertEquals(
       r.output.includes("OUT42END"),
@@ -1068,13 +1068,13 @@ Deno.test("worktree:ensure: a successful ensure command's output never leaks int
   });
 });
 
-Deno.test("worktree --dry-run: lists the ensure commands it would run", async () => {
+Deno.test("worktree setup --dry-run: lists the ensure commands it would run", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithSetup(dir, "dry", {
       steps: ["echo once-only"],
       ensure: ["echo converge-me"],
     });
-    const r = await runAgent(wt, ["worktree", "--dry-run"]);
+    const r = await runAgent(wt, ["worktree", "setup", "--dry-run"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.output, "echo once-only");
     assertStringIncludes(r.output, "echo converge-me");
@@ -1084,7 +1084,7 @@ Deno.test("worktree --dry-run: lists the ensure commands it would run", async ()
 Deno.test("worktree setup: a failing ensure at creation is fatal (aborts setup)", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithSetup(dir, "fatal-ensure", { ensure: ["exit 7"] });
-    const r = await runAgent(wt, ["worktree"]);
+    const r = await runAgent(wt, ["worktree", "setup"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "Ensure step failed");
     // Aborted before the agent-file refresh + sentinel — setup never completed.

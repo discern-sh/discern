@@ -83,7 +83,7 @@ The seeded Copilot hook is:
     "sessionStart": [
       {
         "type": "command",
-        "bash": "discern worktree:ensure",
+        "bash": "discern worktree ensure",
         "timeoutSec": 30
       }
     ]
@@ -112,7 +112,7 @@ hook contract for discern to drive. discern owns its own worktree lifecycle
 through `discern start`, `discern integrate`, and `discern graduate`.
 
 Copilot's `sessionStart` hook can fire per prompt in interactive mode.
-`discern worktree:ensure` is intentionally idempotent so repeated hook fires are
+`discern worktree ensure` is intentionally idempotent so repeated hook fires are
 safe.
 
 Copilot's local sandbox and pre-tool hooks are separate vendor features. discern

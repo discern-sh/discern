@@ -44,7 +44,7 @@ gotchas_doc = ""
 # ─────────────────────────────────────────────────────────────────────────────
 
 [features]
-worktrees = true   # the isolated git-worktree workflow (worktree / worktree:* verbs)
+worktrees = true   # the isolated git-worktree workflow (worktree command group)
 ratchets  = true   # never-loosen metric floors (the `ratchets` verb)
 guidance  = true   # compile agent files from built-in + your sources
 skills    = true   # bundled + authored skills, materialized into .claude/skills/
@@ -62,7 +62,7 @@ docs      = true   # the `docs` browser over your docs/ tree
 [guidance]
 # Your guideline source file(s), relative to the project root. Globs are allowed.
 # Read only if present; the built-in harness guidance is always prepended, so
-# these are additive. Run `discern bootstrap` to seed a starter guidance.md.
+# these are additive. Run `discern setup` to seed a starter guidance.md.
 sources = ["guidance.md"]
 
 # Which provider files to emit. Known targets:
@@ -96,7 +96,7 @@ dir = "skills"
 #   test       test   the test suite
 # A value is one command, or a list run in order: lint = ["eslint .", "stylelint ."].
 # OMIT a capability you don't have — an absent capability is "knowably absent", so
-# a fresh install is a green gate you grow into. Run `discern bootstrap` to have your
+# a fresh install is a green gate you grow into. Run `discern setup` to have your
 # coding agent fill these by sniffing the repo; `discern doctor` shows which are wired.
 #
 # `discern prepare` is the fast inner loop: it runs the fix-stage then the check-stage
@@ -168,7 +168,7 @@ enabled = true
 inherit_env = []   # e.g. ["APP_KEY", "OPENAI_API_KEY"]
 
 # Give each worktree a deterministic dev-server port (hashed from its id) so
-# concurrent worktrees never collide. Read it with `discern worktree-name --port`.
+# concurrent worktrees never collide. Read it with `discern identity --port`.
 port = true
 
 # Database seam. Each worktree gets its own database so tests never clash.
@@ -251,13 +251,13 @@ fail_fast = true
 # `# desc: ...` line into the directory below and it becomes a first-class
 # `discern <name>` command, listed by `discern --help` under "Project recipes". This
 # directory is yours: `discern upgrade` never writes or refreshes anything here. A name
-# that collides with a built-in engine recipe (finish, worktree:*, …) is ignored
+# that collides with a built-in engine recipe (finish, worktree setup, …) is ignored
 # with a warning — the engine always wins, so a project file can never redefine
 # the core gate. A recipe is a standalone executable in any language: `discern`
 # exec's it with the DISCERN_* environment exported (DISCERN_ROOT, DISCERN_RECIPES,
 # MAIN_BRANCH, …) and your args forwarded. A recipe is self-contained: it reads
 # config by calling the binary (`discern config get <key>`) and resolves worktree
-# identity with `discern worktree-name --db|--site|--port`.
+# identity with `discern identity --db|--site|--port`.
 # ─────────────────────────────────────────────────────────────────────────────
 
 [recipes]

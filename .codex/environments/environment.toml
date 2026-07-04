@@ -2,7 +2,7 @@ version = 1
 name = "Discern"
 
 [setup]
-script = "discern worktree:ensure"
+script = "discern worktree ensure"
 
 [cleanup]
-script = "discern worktree:teardown"
+script = "discern worktree teardown"

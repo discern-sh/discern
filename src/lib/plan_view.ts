@@ -1,7 +1,7 @@
 /**
  * Presentation of a `Plan`: the review-and-confirm screen and the dry-run
  * listing. Kept apart from `fs_plan.ts` so planning stays pure and printing stays
- * in one place, shared by `init` and `add-preset`.
+ * in one place, shared by `setup` and `preset`.
  */
 
 import type { Logger } from "./log.ts";

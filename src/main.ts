@@ -20,10 +20,7 @@ import {
 } from "./shared/config_schema.ts";
 import { findRoot } from "./shared/env.ts";
 import { capabilityList } from "./shared/capabilities.ts";
-import {
-  NOT_SET_UP_MESSAGE,
-  verbNeedsBootstrap,
-} from "./shared/setup_state.ts";
+import { NOT_SET_UP_MESSAGE, verbNeedsSetup } from "./shared/setup_state.ts";
 import {
   enabledFeatures,
   type Feature,
@@ -42,8 +39,7 @@ import { runSetupVerify } from "./commands/setup_verify.ts";
 import { runSetupLand } from "./commands/setup_land.ts";
 import { runUpgrade } from "./commands/upgrade.ts";
 import { runDoctor } from "./commands/doctor.ts";
-import { runMigrate } from "./commands/migrate.ts";
-import { runAddPreset } from "./commands/add_preset.ts";
+import { runPreset } from "./commands/preset.ts";
 import { runDocs, runHelp } from "./commands/docs.ts";
 import {
   runConfigSet,
@@ -365,32 +361,14 @@ export function buildCli(
     });
 
   root
-    .command("migrate")
-    .description(
-      "Report pending schema migrations (read-only); `upgrade` applies them.",
-    )
-    .option(
-      "--check",
-      "Exit non-zero when migrations are pending (a scripting signal).",
-    )
-    .action(async (options) => {
-      const code = await runMigrate({
-        json: options.json ?? false,
-        noColor: noColorFrom(options.color),
-        check: options.check ?? false,
-      });
-      Deno.exit(code);
-    });
-
-  root
-    .command("add-preset <name:string>")
+    .command("preset <name:string>")
     .description(
       "Overlay a reference preset from presets/<name>/ (ships none by default).",
     )
     .option("-y, --yes", "Non-interactive: skip the confirm prompt.")
     .option("--dry-run", "Print the plan and write nothing.")
     .action(async (options, name: string) => {
-      const code = await runAddPreset(name, {
+      const code = await runPreset(name, {
         json: options.json ?? false,
         noColor: noColorFrom(options.color),
         dryRun: options.dryRun ?? false,
@@ -654,7 +632,7 @@ export function buildCli(
 
   root.command("config", config);
 
-  // The project task-runner verbs (finish, prepare, graduate, worktree:*, …) are
+  // The project task-runner verbs (finish, prepare, graduate, worktree command group, …) are
   // first-class `discern` subcommands. The cast drops
   // the threaded global-option generics (which the engine actions don't read) —
   // Cliffy's generic Command type is impractical to spell at this boundary.
@@ -679,7 +657,7 @@ interface ProjectState {
  * Resolve the CLI state for the project the cwd is in, with a single config read.
  * When not inside a project, every feature is reported enabled so `--help` and the
  * core verbs behave normally (a verb that needs a project still errors with "no
- * project"), and `bootstrapped`/`inProject` are false (so the bootstrap nudge and
+ * project"), and `bootstrapped`/`inProject` are false (so the setup nudge and
  * self-hiding never fire outside a project). An unparseable config degrades the
  * same way (`configOk: false`) — never block the CLI, and never nudge over the real
  * TOML error, on a config the user is mid-edit on.
@@ -738,17 +716,15 @@ async function isGitWorkTree(dir: string): Promise<boolean> {
 
 /**
  * Installer verbs Cliffy owns; combined with the engine verbs to decide which
- * unknown first tokens fall through to a project recipe. (`init`/`bootstrap` are
- * rewritten to `setup` before this check — ADR 0036.) Exported as the universe of
- * known verbs the parity guard ties the feature-gating / bootstrap / MCP satellites
+ * unknown first tokens fall through to a project recipe. Exported as the universe of
+ * known verbs the parity guard ties the feature-gating / setup / MCP satellites
  * to (`tests/engine_verb_parity_test.ts`).
  */
 export const KNOWN_VERBS: ReadonlySet<string> = new Set<string>([
   "setup",
   "upgrade",
   "doctor",
-  "migrate",
-  "add-preset",
+  "preset",
   "docs",
   "help",
   "config",
@@ -757,22 +733,7 @@ export const KNOWN_VERBS: ReadonlySet<string> = new Set<string>([
 
 /** Parse argv and dispatch. Exported for tests; called below when run directly. */
 export async function main(args: string[]): Promise<void> {
-  // Normalise `worktree:<sub>` → `worktree <sub>` for the Cliffy group (Cliffy
-  // forbids ':' in command names).
-  let argv = args;
-  const first = argv[0];
-  if (first !== undefined && first.startsWith("worktree:")) {
-    argv = ["worktree", first.slice("worktree:".length), ...argv.slice(1)];
-  }
-  // `init`/`bootstrap` were unified into `setup` (ADR 0036): redirect the retired
-  // names — and their subcommands (`bootstrap done` → `setup done`) — with a note,
-  // so old muscle memory and older docs keep working.
-  if (first === "init" || first === "bootstrap") {
-    console.error(
-      `discern: \`discern ${first}\` is now \`discern setup\` — running it.`,
-    );
-    argv = ["setup", ...argv.slice(1)];
-  }
+  const argv = args;
   const verb = argv[0];
 
   try {
@@ -835,7 +796,7 @@ export async function main(args: string[]): Promise<void> {
     }
 
     // Pre-setup hard redirect (ADR 0036): until the project records
-    // `[meta].bootstrapped`, the bootstrap-gated verbs refuse and point at setup —
+    // `[meta].bootstrapped`, the setup-gated verbs refuse and point at setup —
     // running an empty gate would report a false "all-green", and `docs` would
     // browse an empty tree. A clean funnel, not a generic block: `help` (discern's
     // own docs), status/doctor/config and the setup/plumbing verbs stay open, and a
@@ -843,7 +804,7 @@ export async function main(args: string[]): Promise<void> {
     // It fires in --json too, as a structured `not_set_up` result, so an agent
     // consuming JSON learns to set up rather than misreading an empty pass.
     if (
-      inProject && configOk && !bootstrapped && verbNeedsBootstrap(verb)
+      inProject && configOk && !bootstrapped && verbNeedsSetup(verb)
     ) {
       if (argv.includes("--json")) {
         emitResult({

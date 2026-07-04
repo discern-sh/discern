@@ -3,7 +3,7 @@
 **Status**: accepted
 
 Hardens the setup flow established by [ADR 0036](0036-unify-setup.md) (unify
-init + bootstrap into `discern setup`) and the incompleteness signaling of
+setup into `discern setup`) and the incompleteness signaling of
 [ADR 0037](0037-setup-incompleteness-observable.md); revises the pre-setup verb
 redirect 0036 introduced. Builds on
 [ADR 0034](0034-agents-md-untracked-currency-check.md) (the generated agent
@@ -19,12 +19,12 @@ them.** The brief is prose; the files and state behind it didn't match.
 
 - **The brief prescribes an impossible order.** Step 8 tells the agent to run
   `discern finish` (the "prove the gate is green" proof ADR 0036 calls for)
-  _before_ `discern setup done`. But `finish` is one of the
-  `BOOTSTRAP_GATED_VERBS` — it hard-redirects with _"this project isn't set up
-  yet"_ until `setup done` records `[meta].bootstrapped`. The proof step cannot
-  execute in the order the brief gives. Worse, **no test caught it**: the engine
-  test harness scaffolds with `bootstrapped = true` by default, so every gate
-  test runs in the one state where the contradiction is invisible.
+  _before_ `discern setup done`. But `finish` is one of the `SETUP_GATED_VERBS`
+  — it hard-redirects with _"this project isn't set up yet"_ until `setup done`
+  records `[meta].bootstrapped`. The proof step cannot execute in the order the
+  brief gives. Worse, **no test caught it**: the engine test harness scaffolds
+  with `bootstrapped = true` by default, so every gate test runs in the one
+  state where the contradiction is invisible.
 
 - **An existing agent file wasn't carried into the tracked source.**
   `compileGuidelines` regenerates each agent file from the compiled guidance, so
@@ -70,17 +70,17 @@ setup runs isolated on its own branch.** Concretely:
 
 1. **`discern setup done` proves completion structurally.** It runs, in order,
    `refresh` → `doctor` → `finish` (calling the result cores directly, which sit
-   below the router/MCP gate, so no bootstrap bypass plumbing is needed) and
-   records `[meta].bootstrapped = true` **only when doctor and finish are
-   green** (markers must already be clear, as before). `--force` remains the
-   escape hatch: it bypasses both the marker check and the gate and records
-   completion regardless. The agent no longer runs `finish` as a separate
-   pre-`done` step — `setup done` _is_ the green-gate proof, so "the gate is
-   real" can no longer be reported without being true.
+   below the router/MCP gate, so no setup bypass plumbing is needed) and records
+   `[meta].bootstrapped = true` **only when doctor and finish are green**
+   (markers must already be clear, as before). `--force` remains the escape
+   hatch: it bypasses both the marker check and the gate and records completion
+   regardless. The agent no longer runs `finish` as a separate pre-`done` step —
+   `setup done` _is_ the green-gate proof, so "the gate is real" can no longer
+   be reported without being true.
 
 2. **The gate's proof verbs are usable during setup.** `finish`, `prepare`,
-   `test`, and `ratchets` are removed from `BOOTSTRAP_GATED_VERBS` so the agent
-   can iterate while wiring capabilities — and test a ratchet it wires — during
+   `test`, and `ratchets` are removed from `SETUP_GATED_VERBS` so the agent can
+   iterate while wiring capabilities — and test a ratchet it wires — during
    Step 7. They are **not** silent: while `!bootstrapped` each carries a
    `hints[]` entry stating setup is unfinished and this output is indicative
    until `discern setup
@@ -113,7 +113,7 @@ setup runs isolated on its own branch.** Concretely:
    to "flesh out" must be laid carrying a marker.
 
 5. **Skeleton fills use the correctly-cased project name.** The display name
-   comes from `InitConfig.projectName` (casing preserved from the directory),
+   comes from `SetupConfig.projectName` (casing preserved from the directory),
    falling back to slug title-casing only on a `--force` resume where the fresh
    config isn't in hand.
 

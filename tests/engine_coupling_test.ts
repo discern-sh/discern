@@ -20,7 +20,7 @@
  *    "of N" denominators, excludes a solo commit, and reports "no shared history" as zero;
  *  - the partner list is capped (top-k), so the advisory never floods;
  *  - finish AND the fast inner loop prepare surface it only behind `[coupling].in_gate`,
- *    never changing pass/fail, and it is suppressed pre-bootstrap.
+ *    never changing pass/fail, and it is suppressed pre-setup.
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
@@ -565,7 +565,7 @@ Deno.test("finish suppresses the coupling advisory until the install is bootstra
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
     await gitInit(dir);
-    // in_gate on, but not bootstrapped → coupling behaves as if disabled (its in-session
+    // in_gate on, but not set up → coupling behaves as if disabled (its in-session
     // setup stays uncluttered). The config text mentions `bootstrapped` so writeConfig
     // leaves it false.
     await writeConfig(
@@ -597,7 +597,7 @@ Deno.test("finish suppresses the coupling advisory until the install is bootstra
     const result = await finishResult(dir);
     assert(
       !(result.hints ?? []).some((h) => h.includes("Co-change advisory")),
-      `no advisory before bootstrap: ${JSON.stringify(result.hints)}`,
+      `no advisory before setup completion: ${JSON.stringify(result.hints)}`,
     );
   });
 });
@@ -740,7 +740,7 @@ Deno.test("prepare suppresses the coupling advisory until the install is bootstr
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
     await gitInit(dir);
-    // in_gate on, but not bootstrapped → coupling behaves as if disabled (the in-session
+    // in_gate on, but not set up → coupling behaves as if disabled (the in-session
     // setup loop stays uncluttered), exactly as finish does.
     await writeConfig(
       dir,
@@ -771,7 +771,7 @@ Deno.test("prepare suppresses the coupling advisory until the install is bootstr
     const result = await prepareResult(dir);
     assert(
       !(result.hints ?? []).some((h) => h.includes("Co-change advisory")),
-      `no advisory before bootstrap: ${JSON.stringify(result.hints)}`,
+      `no advisory before setup completion: ${JSON.stringify(result.hints)}`,
     );
   });
 });

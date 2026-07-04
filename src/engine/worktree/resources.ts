@@ -359,7 +359,7 @@ export async function createResources(
     // Already provisioned? A ledger entry for this (worktree, resource) is the proof
     // `create` already ran — it is the intent-log written just before create. Re-
     // entering setup (a re-fired create hook, a recovered partial setup, an explicit
-    // `discern worktree`) must NOT re-run create: a `createdb` / `docker run --name`
+    // `discern worktree setup`) must NOT re-run create: a `createdb` / `docker run --name`
     // is not idempotent, and its "already exists" non-zero exit would abort an
     // already-good worktree. Skip it; session-start `ensure` re-readies it if asked.
     if (
@@ -460,7 +460,7 @@ function resourceCommandEnv(
  * Record the worktree's resource handles into its `.env` for runtime discovery —
  * `DISCERN_WORKTREE` plus `DISCERN_RESOURCE_<NAME>` per declared resource — each
  * equal to what `create` used. A no-op when nothing is declared or there is no
- * `.env` (the handles stay discoverable via `discern worktree-name --resource`).
+ * `.env` (the handles stay discoverable via `discern identity --resource`).
  */
 export async function recordResourceEnv(
   ctx: ResourceContext,
@@ -510,7 +510,7 @@ export async function entriesForWorktree(
  * best-effort and idempotent. The caller passes the entries it planned from, so
  * apply acts on exactly the previewed set — there is no re-read that could drift
  * from the plan. An entry is cleared only on success; a failed destroy keeps it so
- * a later `worktree:prune` retries (self-healing). Returns which resources were
+ * a later `worktree prune` retries (self-healing). Returns which resources were
  * destroyed and which were kept-for-retry.
  */
 export async function destroyResources(

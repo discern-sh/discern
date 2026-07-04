@@ -10,9 +10,9 @@ import { join } from "@std/path";
 import { runCli, withTempDir } from "./helpers.ts";
 
 /** Scaffold a fresh install in `dir`. */
-async function init(dir: string): Promise<void> {
+async function setup(dir: string): Promise<void> {
   const r = await runCli(
-    ["init", "--confirmed", "--yes", "--slug", "demo", "--name", "Demo"],
+    ["setup", "--confirmed", "--yes", "--slug", "demo", "--name", "Demo"],
     dir,
   );
   assertEquals(r.code, 0, r.stderr);
@@ -25,7 +25,7 @@ function readToml(dir: string): Promise<string> {
 
 Deno.test("config set-capability fills a capability and preserves comments", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     const r = await runCli(
       ["config", "set-capability", "test", "vitest run", "--json"],
       dir,
@@ -54,7 +54,7 @@ Deno.test("config set-capability round-trips the smoke capability (ADR 0090)", a
   // `smoke` is a first-class known capability (stage: test), so set-capability accepts
   // it and the written line re-parses cleanly — the same path every capability takes.
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     const r = await runCli(
       // `true` is a real, PATH-resolvable stand-in for a boot check (so doctor stays
       // green); the point is that `smoke` takes the same accept→write→load path as any
@@ -79,7 +79,7 @@ Deno.test("config set-capability round-trips the smoke capability (ADR 0090)", a
 
 Deno.test("config set refuses an unknown key at write time (no bricked config)", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     const before = await readToml(dir);
     const r = await runCli(
       ["config", "set", "project.frobnicate", "hello", "--json"],
@@ -100,7 +100,7 @@ Deno.test("config set refuses an unknown key at write time (no bricked config)",
 
 Deno.test("config set allows a valid-but-incomplete path (incremental table build)", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     // Setting one key of a ratchet table before its siblings is legitimate.
     const r = await runCli(
       ["config", "set", "ratchets.coverage.limit", "80"],
@@ -113,7 +113,7 @@ Deno.test("config set allows a valid-but-incomplete path (incremental table buil
 
 Deno.test("config set-capability rejects an unknown capability name", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     const r = await runCli(
       ["config", "set-capability", "deploy", "deploy.sh", "--json"],
       dir,
@@ -127,7 +127,7 @@ Deno.test("config set-capability rejects an unknown capability name", async () =
 
 Deno.test("config set-check writes a check table", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     const r = await runCli(
       [
         "config",
@@ -161,7 +161,7 @@ Deno.test("config set-check writes a check table", async () => {
 
 Deno.test("config set-check rejects an unknown stage", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     const r = await runCli(
       [
         "config",
@@ -184,7 +184,7 @@ Deno.test("config set-check rejects an unknown stage", async () => {
 
 Deno.test("config set-scope sets a paths array", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     const r = await runCli(
       ["config", "set-scope", "native", "native/**", "native/lib/**"],
       dir,
@@ -198,7 +198,7 @@ Deno.test("config set-scope sets a paths array", async () => {
 
 Deno.test("config set-scope folds in --neutral and --gate", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     const r = await runCli(
       [
         "config",
@@ -220,7 +220,7 @@ Deno.test("config set-scope folds in --neutral and --gate", async () => {
 
 Deno.test("config set-ratchet writes a named ratchet table", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     const r = await runCli(
       [
         "config",
@@ -246,7 +246,7 @@ Deno.test("config set-ratchet writes a named ratchet table", async () => {
 
 Deno.test("config set-ratchet treats 'coverage' as an ordinary ratchet name", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     const r = await runCli(
       [
         "config",
@@ -270,7 +270,7 @@ Deno.test("config set-ratchet treats 'coverage' as an ordinary ratchet name", as
 
 Deno.test("config set-ratchet requires a --run", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     const r = await runCli(
       ["config", "set-ratchet", "bundle", "--limit", "100"],
       dir,
@@ -281,7 +281,7 @@ Deno.test("config set-ratchet requires a --run", async () => {
 
 Deno.test("config set infers types (number / bool / string)", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     await runCli(["config", "set", "ratchets.coverage.limit", "80"], dir);
     await runCli(["config", "set", "worktree.port", "false"], dir);
     await runCli(["config", "set", "project.main_branch", "trunk"], dir);
@@ -294,7 +294,7 @@ Deno.test("config set infers types (number / bool / string)", async () => {
 
 Deno.test("config set preserves the edited line's inline comment", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     const r = await runCli(
       ["config", "set", "features.worktrees", "false"],
       dir,
@@ -309,7 +309,7 @@ Deno.test("config set preserves the edited line's inline comment", async () => {
 
 Deno.test("config set --string forces a numeric-looking value to a string", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     await runCli(["config", "set", "project.slug", "123", "--string"], dir);
     assertStringIncludes(await readToml(dir), 'slug = "123"');
   });
@@ -317,7 +317,7 @@ Deno.test("config set --string forces a numeric-looking value to a string", asyn
 
 Deno.test("config --dry-run writes nothing", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     const before = await readToml(dir);
     const r = await runCli(
       [
@@ -359,7 +359,7 @@ Deno.test("config errors to stderr (not JSON) when not initialized", async () =>
 
 Deno.test("config set-check rejects a malformed check name", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     const r = await runCli(
       [
         "config",
@@ -383,7 +383,7 @@ Deno.test("config set-check rejects a malformed check name", async () => {
 
 Deno.test("config set-scope rejects a malformed scope name", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     const r = await runCli(
       ["config", "set-scope", "bad/name", "src/**", "--json"],
       dir,
@@ -397,7 +397,7 @@ Deno.test("config set-scope rejects a malformed scope name", async () => {
 
 Deno.test("config set-scope: Cliffy rejects zero globs before the handler", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     // `<globs...>` is a required variadic, so Cliffy fails (exit 2) before the
     // handler's own globs.length===0 guard can run — see findings.
     const r = await runCli(["config", "set-scope", "native"], dir);
@@ -408,7 +408,7 @@ Deno.test("config set-scope: Cliffy rejects zero globs before the handler", asyn
 
 Deno.test("config set-ratchet rejects a malformed ratchet name", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     const r = await runCli(
       [
         "config",
@@ -431,7 +431,7 @@ Deno.test("config set-ratchet rejects a malformed ratchet name", async () => {
 
 Deno.test("config set-ratchet rejects an invalid --direction", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     const r = await runCli(
       [
         "config",
@@ -456,7 +456,7 @@ Deno.test("config set-ratchet rejects an invalid --direction", async () => {
 
 Deno.test("config set-ratchet rejects a non-numeric --limit", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     const r = await runCli(
       [
         "config",
@@ -479,7 +479,7 @@ Deno.test("config set-ratchet rejects a non-numeric --limit", async () => {
 
 Deno.test("config set-ratchet defaults metric to the name and direction to up", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     const r = await runCli(
       ["config", "set-ratchet", "cov", "--limit", "80", "--run", "measure-cov"],
       dir,
@@ -495,7 +495,7 @@ Deno.test("config set-ratchet defaults metric to the name and direction to up", 
 
 Deno.test("config set rejects a key without a section", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     const r = await runCli(["config", "set", "slug", "x", "--json"], dir);
     assertEquals(r.code, 1);
     const result = JSON.parse(r.stdout);
@@ -506,7 +506,7 @@ Deno.test("config set rejects a key without a section", async () => {
 
 Deno.test("config set rejects more than one type flag", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     const r = await runCli(
       ["config", "set", "project.slug", "1", "--number", "--bool", "--json"],
       dir,
@@ -520,7 +520,7 @@ Deno.test("config set rejects more than one type flag", async () => {
 
 Deno.test("config set --bool forces a boolean and rejects a non-boolean", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     // Valid: "true"/"false" pass through tomlBool.
     const ok = await runCli(
       ["config", "set", "worktree.enabled", "true", "--bool"],
@@ -543,7 +543,7 @@ Deno.test("config set --bool forces a boolean and rejects a non-boolean", async 
 
 Deno.test("config set --number forces a numeric literal and rejects non-numbers", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     // Valid: preserves the written form.
     const ok = await runCli(
       ["config", "set", "ratchets.coverage.limit", "0.0", "--number"],
@@ -571,7 +571,7 @@ Deno.test("config set --number forces a numeric literal and rejects non-numbers"
 
 Deno.test("config set prints a human success line without --json", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     const r = await runCli(
       ["config", "set", "project.main_branch", "trunk"],
       dir,
@@ -586,7 +586,7 @@ Deno.test("config set prints a human success line without --json", async () => {
 
 Deno.test("config --dry-run prints the edit without --json and writes nothing", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     const before = await readToml(dir);
     const r = await runCli(
       ["config", "set", "project.main_branch", "trunk", "--dry-run"],
@@ -603,7 +603,7 @@ Deno.test("config --dry-run prints the edit without --json and writes nothing", 
 
 Deno.test("config set --dry-run --json reports the edit and writes nothing", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     const before = await readToml(dir);
     const r = await runCli(
       ["config", "set", "project.slug", "renamed", "--dry-run", "--json"],

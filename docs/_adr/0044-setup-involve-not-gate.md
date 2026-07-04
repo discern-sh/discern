@@ -3,8 +3,8 @@
 **Status**: accepted
 
 Revises the setup-brief interaction model established by
-[ADR 0036](0036-unify-setup.md) (unify init + bootstrap into `discern setup`)
-and preserves the incompleteness signaling hardened by
+[ADR 0036](0036-unify-setup.md) (unify setup under `discern setup`) and
+preserves the incompleteness signaling hardened by
 [ADR 0037](0037-setup-incompleteness-observable.md). Where 0036's brief told the
 agent to _propose and wait for confirmation_, this shifts to _recommend,
 narrate, proceed on reversible changes, and commit atomically_ — pausing only

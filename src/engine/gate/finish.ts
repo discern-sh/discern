@@ -37,7 +37,7 @@ import {
 } from "./fix_drift.ts";
 import { renderFailureTail } from "./failure_tail.ts";
 import { diagnosticOutputFields } from "./diagnostic_output.ts";
-import { changedScopes, PREVIEWABLE_MARKER } from "../scopes/changed.ts";
+import { classifyScopes, PREVIEWABLE_MARKER } from "../scopes/scopes.ts";
 import { couplingGateHints } from "../coupling/coupling.ts";
 import { colorEnabled, makeOut, type Out, outSink } from "../output.ts";
 import {
@@ -275,7 +275,7 @@ async function runGate(
   //    its fail-open bias (it never runs FEWER gates than the post-fix tree warrants).
   //    Computed even when the merge precondition failed, so the result still lists the
   //    scopes (their gates serialize as skipped, like every other downstream step).
-  const changed = await changedScopes(root, cfg);
+  const changed = await classifyScopes(root, cfg);
   const sgGroup = scopeGatesGroup(planScopeGates(cfg, changed));
 
   // 4. Scope gates (only when the stage groups passed).
@@ -471,7 +471,7 @@ async function dryRunGate(
   json: boolean,
 ): Promise<number> {
   const cfg = await loadConfig(root);
-  const changed = await changedScopes(root, cfg);
+  const changed = await classifyScopes(root, cfg);
   const plan = buildGatePlan(cfg, changed);
   const engine = gatePlanToEngine(plan);
   if (json) {
@@ -496,7 +496,7 @@ export async function finishResult(
 ): Promise<DiscernResult<GateData>> {
   if (opts.dryRun ?? false) {
     const cfg = await loadConfig(root);
-    const changed = await changedScopes(root, cfg);
+    const changed = await classifyScopes(root, cfg);
     return previewResult(
       "finish",
       gatePlanToEngine(buildGatePlan(cfg, changed)),

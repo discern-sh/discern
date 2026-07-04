@@ -53,9 +53,9 @@ Two tools, strongest first:
    `failMessage` became a total `Record<FailedStage, string>`; `[features]`'
    schema keys are pinned to `FEATURES` by `satisfies Record<Feature, …>`; the
    helper-verb dispatch became a total `Record<HelperVerb, handler>`;
-   `worktreeNameField`'s `switch` over `WorktreeField` dropped its `default` so
-   it is exhaustive; the result/diagnostic/location wire schemas now derive
-   their `z.enum(...)` from the matching `result.ts` constant tuples.
+   `identityField`'s `switch` over `WorktreeField` dropped its `default` so it
+   is exhaustive; the result/diagnostic/location wire schemas now derive their
+   `z.enum(...)` from the matching `result.ts` constant tuples.
 
 2. **A forcing-function test — when compile-time is impossible.** Some
    satellites each need their own hand-wired handler and so cannot be a derived
@@ -64,8 +64,8 @@ Two tools, strongest first:
    union). There, a test loops the canonical set and asserts each satellite
    covers it. `tests/engine_verb_parity_test.ts` is the keystone: one loop
    reconciles the verb SSOT against the Cliffy registrations, the MCP `TOOLS`,
-   the bootstrap gate, the feature gate, the recipe-name list, and the
-   worktree-name flags.
+   the setup gate, the feature gate, the recipe-name list, and the identity
+   flags.
 
 The **derive-vs-tie** rule decides which per satellite:
 

@@ -1,5 +1,5 @@
 /**
- * Resolved configuration for an `init` run, plus the default values and the
+ * Resolved configuration for an `setup` run, plus the default values and the
  * slug-validation rule. Centralising defaults here keeps them one source of
  * truth shared by the wizard, the non-interactive path, and the tests.
  */
@@ -64,7 +64,7 @@ export function defaultNeutralScopes(): string[] {
 }
 
 /** The fully-resolved answers that drive scaffolding. */
-export interface InitConfig {
+export interface SetupConfig {
   projectName: string;
   slug: string;
   branchPrefix: string;
@@ -119,7 +119,7 @@ export function parseSourceGlobs(input: string): string[] {
 }
 
 /** Build the full content-token map from a resolved config. */
-export function tokensFromConfig(config: InitConfig): TokenMap {
+export function tokensFromConfig(config: SetupConfig): TokenMap {
   return {
     project_name: config.projectName,
     project_slug: config.slug,

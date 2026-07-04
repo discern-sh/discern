@@ -1,11 +1,11 @@
 /**
- * The scaffolding plan: a pure description of what `init` (and `add-preset`)
+ * The scaffolding plan: a pure description of what `setup` (and `preset`)
  * will do to disk, built *before* anything is written.
  *
  * Separating planning from execution buys three things the spec requires:
  *   - `--dry-run` renders the plan and touches nothing.
  *   - the review-and-confirm screen lists exactly what will be written/merged.
- *   - `init` is idempotent: re-planning sees what is already present and marks
+ *   - `setup` is idempotent: re-planning sees what is already present and marks
  *     each op accordingly (create vs skip).
  *
  * A plan is a flat list of `PlanOp`s. The walker turns the templates tree into a
@@ -152,7 +152,7 @@ async function readBytesIfExists(
  * @param destDir        absolute destination root (the project being scaffolded)
  * @param tokens         resolved content tokens
  * @param excludeNonSeed skip the binary's own `skills/`/`guidance/` subtrees.
- *   Set when scaffolding from the BINARY's templates (`init`), where those are
+ *   Set when scaffolding from the BINARY's templates (`setup`), where those are
  *   materialized/read from the binary rather than seeded. Left false for a preset
  *   overlay, whose `skills/` IS an intended authored-skill overlay.
  * @param seeds          the settings seeds to deep-merge (rather than write
@@ -170,7 +170,7 @@ export async function buildPlan(params: {
   /** The agents this project configured. When set, a per-agent seed (a hooks
    * provider's settings file) is laid only for an agent in this list — so an
    * unconfigured agent leaves no inert hooks/settings behind. Omitted (e.g. by
-   * add-preset) means no agent filtering. */
+   * preset) means no agent filtering. */
   configuredAgents?: readonly string[];
 }): Promise<Plan> {
   const { templatesDir, destDir, tokens } = params;

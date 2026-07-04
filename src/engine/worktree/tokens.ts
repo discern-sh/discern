@@ -8,11 +8,11 @@
  * the `@…@` delimiter — distinct from the installer's `{{…}}` content tokens
  * (already substituted at init) — so the two layers never collide:
  *
- *   @db@            the database-name-safe identity      (worktree-name --db)
- *   @site@          the dev-server site/host name        (worktree-name --site)
- *   @port@          the deterministic per-worktree port  (worktree-name --port)
- *   @worktree@      the worktree's base handle, slug-id  (worktree-name --worktree)
- *   @resource@      this resource's handle, slug-id-name (worktree-name --resource <name>)
+ *   @db@            the database-name-safe identity      (identity --db)
+ *   @site@          the dev-server site/host name        (identity --site)
+ *   @port@          the deterministic per-worktree port  (identity --port)
+ *   @worktree@      the worktree's base handle, slug-id  (identity --worktree)
+ *   @resource@      this resource's handle, slug-id-name (identity --resource <name>)
  *   @project_slug@  the project slug                     (config project.slug)
  *   @dir@           the worktree root                    (the checkout's abs path)
  *

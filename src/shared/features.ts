@@ -59,13 +59,13 @@ export function enabledFeatures(config: DiscernConfig): Feature[] {
 
 /**
  * The feature that owns a top-level verb, or undefined for a core verb (always
- * available). `worktree:<sub>` is normalised to `worktree` before this is called.
+ * available). `worktree <sub>` is normalised to `worktree` before this is called.
  * Used by the CLI router to give a clear "feature disabled" error instead of an
  * "unknown recipe" fallthrough.
  */
 export const VERB_FEATURE: Readonly<Record<string, Feature>> = {
   worktree: "worktrees",
-  "worktree-name": "worktrees",
+  "identity": "worktrees",
   ratchets: "ratchets",
   refresh: "guidance",
   graduate: "worktrees",

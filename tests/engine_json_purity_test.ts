@@ -104,7 +104,7 @@ Deno.test("every --json verb emits ONLY the envelope (no human or subprocess lea
         { args: ["test", "--json"], verb: "test" },
         { args: ["ratchets", "--json"], verb: "ratchets" },
         { args: ["improve", "--json"], verb: "improve" },
-        { args: ["changed-scopes", "--json"], verb: "changed-scopes" },
+        { args: ["scopes", "--json"], verb: "scopes" },
         { args: ["status", "--json"], verb: "status" },
         { args: ["refresh", "--json"], verb: "refresh" },
         { args: ["skills", "list", "--json"], verb: "skills:list" },
@@ -173,9 +173,12 @@ Deno.test("worktree --json: setup steps and resource commands don't leak", async
     );
     await gitInit(dir);
     const wt = await addWorktree(dir, "purity");
-    // Bare `worktree` runs setup: the printing setup step + resource create must
+    // `worktree setup` runs setup: the printing setup step + resource create must
     // be silenced under --json (they inherit stdio in human mode).
-    assertEnvelopeOnly(await runAgent(wt, ["worktree", "--json"]), "worktree");
+    assertEnvelopeOnly(
+      await runAgent(wt, ["worktree", "setup", "--json"]),
+      "worktree setup",
+    );
   });
 });
 

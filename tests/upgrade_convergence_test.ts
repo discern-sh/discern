@@ -1,7 +1,7 @@
 /**
  * The migration-system invariant (ADR 0014/0020): an install brought forward by
  * `upgrade` must reach the **current schema**, with its config migrated into the
- * **same shape** a fresh init produces at that schema — now the dissolved
+ * **same shape** a fresh setup produces at that schema — now the dissolved
  * single-file `discern.toml` footprint. (Byte-for-byte convergence is gone: a
  * migrated *seed* carries no surrounding comments, which is fine — the seed is
  * the user's, not the kit's.)
@@ -40,10 +40,10 @@ const STABLE_TARGETS = [
 
 /** Scaffold a fresh install into `dir`. `--name` is pinned for parity with a
  * real in-place upgrade (which keeps the same directory). */
-async function init(dir: string): Promise<void> {
+async function setup(dir: string): Promise<void> {
   assertEquals(
     (await runCli([
-      "init",
+      "setup",
       "--confirmed",
       "--yes",
       "--slug",
@@ -161,7 +161,7 @@ async function removeConfigSection(
 
 Deno.test("upgrade of a current install applies no migrations and stays at the current schema", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     const fresh = await recordedSchema(dir);
     const res = await upgrade(dir);
     assertEquals(res.verb, "upgrade");
@@ -173,7 +173,7 @@ Deno.test("upgrade of a current install applies no migrations and stays at the c
 
 Deno.test("upgrade reconciles a current-schema config missing a fixed template section", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     await removeConfigSection(dir, "recipes");
 
     const check = await upgradeCheck(dir);
@@ -200,7 +200,7 @@ Deno.test("upgrade reconciles a current-schema config missing a fixed template s
 
 Deno.test("upgrade reconciles a messy legacy .gitignore to one discern block", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     const messy = [
       DISCERN_GITIGNORE_BEGIN,
       "...",
@@ -252,7 +252,7 @@ Deno.test("upgrade reconciles a messy legacy .gitignore to one discern block", a
 
 Deno.test("a second upgrade is a no-op (idempotent)", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     await upgrade(dir);
     await assertSecondUpgradeIsByteStable(dir);
   });
@@ -265,8 +265,8 @@ function assertOneGitignoreBlock(text: string): void {
 
 Deno.test("upgrade re-materializes the bundled skills and stamps the current schema", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
-    // init already materialized .claude/skills/; tamper a built-in copy — upgrade
+    await setup(dir);
+    // setup already materialized .claude/skills/; tamper a built-in copy — upgrade
     // must restore it from the binary.
     const skill = join(dir, ".claude/skills/discern-write-adr/SKILL.md");
     await Deno.writeTextFile(skill, "tampered\n");
@@ -300,7 +300,7 @@ Deno.test("a schema-1 install missing main_branch upgrades to the current schema
       // Regress a current install to look like a schema-1 one made before
       // main_branch existed: strip the field and reset the recorded schema. A
       // schema-1 install kept its config at the root (pre-.discern/ consolidation).
-      await init(older);
+      await setup(older);
       await removeMainBranch(older);
       await setSchema(older, 1);
 
@@ -310,7 +310,7 @@ Deno.test("a schema-1 install missing main_branch upgrades to the current schema
         [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
       );
 
-      await init(fresh); // a fresh install at the current schema
+      await setup(fresh); // a fresh install at the current schema
 
       // The migrated install reaches the same schema as a fresh one…
       assertEquals(await recordedSchema(older), await recordedSchema(fresh));
@@ -369,7 +369,7 @@ async function regressToV3(dir: string): Promise<void> {
 Deno.test("a schema-3 [slots] install upgrades to the capabilities shape and the current schema", async () => {
   await withTempDir(async (older) => {
     await withTempDir(async (fresh) => {
-      await init(older); // a fresh install at the current schema
+      await setup(older); // a fresh install at the current schema
       await regressToV3(older); // reverse the seed config to the pre-4 shape
 
       const res = await upgrade(older); // runs 3→4 … current, materializes, stamps
@@ -378,7 +378,7 @@ Deno.test("a schema-3 [slots] install upgrades to the capabilities shape and the
         [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
       );
 
-      await init(fresh);
+      await setup(fresh);
       // The migrated install reaches the same schema as a fresh one.
       assertEquals(await recordedSchema(older), await recordedSchema(fresh));
       // The seed converges in shape at the dissolved footprint: capabilities
@@ -391,7 +391,7 @@ Deno.test("a schema-3 [slots] install upgrades to the capabilities shape and the
       assert(!toml.includes("[slots."));
       assert(!toml.includes("[evidence]"));
       // Papercut 1: the schema-6 sections arrive WITH their doc blocks, grouped
-      // after [project] — so a migrated config reads like a fresh init's, not a
+      // after [project] — so a migrated config reads like a fresh setup's, not a
       // pile of bare keys at EOF.
       assertStringIncludes(
         toml,
@@ -416,7 +416,7 @@ Deno.test("a schema-3 [slots] install upgrades to the capabilities shape and the
 
 Deno.test("a legacy install whose schema lives only in a manifest upgrades, prunes the engine, and dissolves .discern/", async () => {
   await withTempDir(async (dir) => {
-    await init(dir);
+    await setup(dir);
     // Model a genuine pre-teardown (schema-4) install: config at the consolidated
     // .discern/ location, schema recorded ONLY in a legacy manifest (no [meta]),
     // plus a committed shell engine + agent and hooks calling `./agent`.
@@ -444,7 +444,7 @@ Deno.test("a legacy install whose schema lives only in a manifest upgrades, prun
       join(dir, ".claude/settings.json"),
       `${
         JSON.stringify({
-          hooks: { SessionStart: [{ command: "./agent worktree:ensure" }] },
+          hooks: { SessionStart: [{ command: "./agent worktree ensure" }] },
         })
       }\n`,
     );
@@ -466,7 +466,7 @@ Deno.test("a legacy install whose schema lives only in a manifest upgrades, prun
       !settings.includes("./agent"),
       "hooks still call the deleted ./agent",
     );
-    assertStringIncludes(settings, "discern worktree:ensure");
+    assertStringIncludes(settings, "discern worktree ensure");
     // The .gitignore was rewritten for the dissolved layout: no .discern, the new
     // mirrors ignored.
     const gitignore = await readTarget(dir, ".gitignore");

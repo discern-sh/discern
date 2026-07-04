@@ -4,7 +4,7 @@
  * two places:
  *
  *   - `discern setup --config <file>` — drives a fresh, non-interactive install.
- *   - a preset's `preset.json` — the config half of an `add-preset` overlay.
+ *   - a preset's `preset.json` — the config half of an `preset` overlay.
  *
  * Both apply the document's `capabilities` / `checks` / `scopes` / `ratchets` to
  * a project's `discern.toml` through the comment-preserving `TomlEditor`.

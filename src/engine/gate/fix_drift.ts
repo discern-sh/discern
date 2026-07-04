@@ -24,7 +24,7 @@
 
 import type { Diagnostic } from "../../shared/result.ts";
 import { diagnosticOutputFields } from "./diagnostic_output.ts";
-import { parsePorcelainPaths } from "../scopes/changed.ts";
+import { parsePorcelainPaths } from "../scopes/scopes.ts";
 import { runGit } from "../../shared/subprocess.ts";
 
 /**

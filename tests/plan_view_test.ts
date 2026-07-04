@@ -10,7 +10,7 @@
  * are identity and we assert on plain text. We spy on `console.log` (the `line`
  * channel, stdout) and `console.error` (heading/warn, stderr), restoring the
  * originals in a `finally`. Two integration cases drive the real renderer through
- * `init`.
+ * `setup`.
  */
 
 import {
@@ -223,7 +223,7 @@ Deno.test("planToJson maps each op to {path, action, note}", () => {
 
 // ---------------------------------------------------------------------------
 // Integration: the dry-run plan renderer wired through `setup`. (The grouped
-// review screen `renderReview` is now only used by `add-preset` — covered in
+// review screen `renderReview` is now only used by `preset` — covered in
 // preset_test; `setup` is non-interactive, so it has no review screen.)
 // ---------------------------------------------------------------------------
 

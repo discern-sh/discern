@@ -10,9 +10,9 @@ three run-time verbs no longer read as well as the public CLI deserves:
 - **`tidy`** is the fast inner loop (the fix stage, then the read-only checks).
   "Tidy" reads as an optional cleanup, not as the thing you run _before_ the
   full gate. The mental model is "get the change ready, then prove it done."
-- **`worktree:exit`** graduates a worktree's branch back to the main checkout
+- **`worktree exit`** graduates a worktree's branch back to the main checkout
   for review. It is one of the most frequent actions in the workflow, yet it was
-  buried in the `worktree:` namespace beside the rarely-typed plumbing
+  buried in the `worktree` namespace beside the rarely-typed plumbing
   (`teardown`, `prune`, `ensure`) — and "exit" undersells it (you are not
   exiting, you are promoting finished work).
 - **`guidelines`** compiles the agent files _and_ materializes skills, and is
@@ -30,12 +30,12 @@ rename with no aliases.**
 - **`tidy` → `prepare`.** Behaviour is unchanged: run the fix-stage commands,
   then the check-stage commands; never build or test. The name states intent —
   `discern prepare` readies a change; `discern finish` proves it done.
-- **`worktree:exit` → `graduate` (promoted to top-level).** Behaviour, safety
-  checks, and reporting are unchanged. It moves from the `worktree:` group to a
+- **`worktree exit` → `graduate` (promoted to top-level).** Behaviour, safety
+  checks, and reporting are unchanged. It moves from the `worktree` group to a
   first-class `discern graduate`, because graduating finished work for review is
   a primary action in the workflow, not worktree plumbing. The lower-level
-  worktree management stays namespaced (`worktree:teardown`, `worktree:prune`,
-  `worktree:ensure`, bare `worktree`, `worktree-name`).
+  worktree management stays namespaced (`worktree teardown`, `worktree prune`,
+  `worktree ensure`, bare `worktree`, `identity`).
 - **`guidelines` → `refresh`.** Behaviour is unchanged _for now_ (compile the
   built-in guidance plus `[guidance].sources` into the agent files, and
   materialize/link the effective skill set). The broader name leaves room to
@@ -50,8 +50,8 @@ rename with no aliases.**
 The canonical workflow now reads:
 
 ```
-discern init
-/bootstrap
+discern setup
+discern setup
 discern prepare    # fast inner loop: fixers + checks, no build/test
 discern finish     # full definition-of-done gate
 discern graduate   # graduate the isolated worktree branch back for review
@@ -74,7 +74,7 @@ discern refresh    # refresh generated agent files, skills, integration artifact
 - **No migration step ships.** The rename touches verbs, not the config schema,
   so `[meta].schema_version` is unchanged. A downstream project adapts by
   getting the new binary and updating its own references; the worktree git hooks
-  call `worktree` / `worktree:ensure` / `worktree:teardown` — none renamed — so
+  call `worktree` / `worktree ensure` / `worktree teardown` — none renamed — so
   hooks are unaffected.
 - Historical ADRs keep their point-in-time verb names (e.g. an ADR describing
   the cutover-era `tidy`/`guidelines`); this ADR is the record of the change,
@@ -85,7 +85,7 @@ discern refresh    # refresh generated agent files, skills, integration artifact
 - **Keep aliases for the old verbs.** Rejected: pre-release there is nothing to
   keep compatible, and a permanent alias for every verb is the dual-spelling
   debt ADR 0022 already argued against.
-- **Leave `worktree:exit` namespaced (rename only).** Rejected: graduating is a
+- **Leave `worktree exit` namespaced (rename only).** Rejected: graduating is a
   primary, frequent action; keeping it beside the plumbing kept underselling the
   common path. Promotion makes "finish, then graduate" read as the workflow it
   is.

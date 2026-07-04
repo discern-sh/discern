@@ -16,7 +16,7 @@
  * agent skills dir is 100% generated. That removes by construction the mixed-
  * ignore trap that silently de-tracked authored skills on upgrade.
  *
- * `init`/`upgrade` materialize for the main checkout; a linked git worktree does
+ * `setup`/`upgrade` materialize for the main checkout; a linked git worktree does
  * NOT inherit the gitignored agent skills dirs, so worktree setup materializes them
  * too. Materialization always reconciles, so a removed/ejected skill never lingers.
  */

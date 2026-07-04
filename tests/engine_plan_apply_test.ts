@@ -202,17 +202,17 @@ Deno.test("ratchets --json serializes the held/failed results", async () => {
 
 // ── worktree setup ─────────────────────────────────────────────────────────────
 
-Deno.test("worktree --dry-run shows the setup plan; --json reports the steps", async () => {
+Deno.test("worktree setup --dry-run shows the setup plan; --json reports the steps", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "setup");
 
-    const dry = await runAgent(wt, ["worktree", "--dry-run"]);
+    const dry = await runAgent(wt, ["worktree", "setup", "--dry-run"]);
     assertEquals(dry.code, 0, dry.output);
     assertStringIncludes(dry.stdout, "Worktree setup plan");
     assertStringIncludes(dry.stdout, "ensure-branch");
     assertStringIncludes(dry.stdout, "refresh agent files");
 
-    const json = await runAgent(wt, ["worktree", "--json"]);
+    const json = await runAgent(wt, ["worktree", "setup", "--json"]);
     assertEquals(json.code, 0, json.output);
     const obj = parseJson(json.stdout); // stdout must be ONLY the JSON object
     assertEquals(obj.ok, true);
@@ -225,9 +225,9 @@ Deno.test("worktree --dry-run shows the setup plan; --json reports the steps", a
   });
 });
 
-// ── worktree:teardown ───────────────────────────────────────────────────────
+// ── worktree teardown ───────────────────────────────────────────────────────
 
-Deno.test("worktree:teardown --dry-run and --json reflect the ledger", async () => {
+Deno.test("worktree teardown --dry-run and --json reflect the ledger", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "tear");
     const markers = join(dir, "markers");
@@ -239,16 +239,16 @@ Deno.test("worktree:teardown --dry-run and --json reflect the ledger", async () 
         `destroy = "mkdir -p ${markers} && rm -f ${markers}/@resource@.live"\n`,
     );
     // Setup writes the ledger entry teardown plans from.
-    assertEquals((await runAgent(wt, ["worktree"])).code, 0);
+    assertEquals((await runAgent(wt, ["worktree", "setup"])).code, 0);
 
     // Dry-run lists the resource and destroys nothing.
-    const dry = await runAgent(wt, ["worktree:teardown", "--dry-run"]);
+    const dry = await runAgent(wt, ["worktree", "teardown", "--dry-run"]);
     assertEquals(dry.code, 0, dry.output);
     assertStringIncludes(dry.stdout, "Teardown plan");
     assertStringIncludes(dry.stdout, "thing");
 
     // Real teardown with --json reports the destroyed resource.
-    const json = await runAgent(wt, ["worktree:teardown", "--json"]);
+    const json = await runAgent(wt, ["worktree", "teardown", "--json"]);
     assertEquals(json.code, 0, json.output);
     const obj = parseJson(json.stdout);
     assertEquals(obj.ok, true);
@@ -258,13 +258,13 @@ Deno.test("worktree:teardown --dry-run and --json reflect the ledger", async () 
   });
 });
 
-// ── worktree:prune ──────────────────────────────────────────────────────────
+// ── worktree prune ──────────────────────────────────────────────────────────
 
-Deno.test("worktree:prune --json on a clean pool reports ok with no steps", async () => {
+Deno.test("worktree prune --json on a clean pool reports ok with no steps", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    const r = await runAgent(dir, ["worktree:prune", "--json"]);
+    const r = await runAgent(dir, ["worktree", "prune", "--json"]);
     assertEquals(r.code, 0, r.output);
     const obj = parseJson(r.stdout);
     assertEquals(obj.ok, true);
@@ -287,7 +287,7 @@ Deno.test("graduate --dry-run shows the plan after the preconditions pass", asyn
     assertStringIncludes(r.stdout, "remove-worktree");
     // The worktree must still exist — dry-run mutates nothing.
     assertEquals(
-      (await runAgent(wt, ["worktree-name", "--branch"])).code,
+      (await runAgent(wt, ["identity", "--branch"])).code,
       0,
       "dry-run must leave the worktree intact",
     );

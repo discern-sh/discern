@@ -13,7 +13,7 @@ a harness can drive, and they behave unlike Claude Code's `WorktreeCreate` /
 `WorktreeRemove` contract:
 
 - **A per-session `SessionStart` hook** in `.codex/hooks.json` — the portable
-  `worktree:ensure` analogue, fired in the bare CLI. Handled like any other
+  `worktree ensure` analogue, fired in the bare CLI. Handled like any other
   provider hook (a `HooksIntegration` + a seed template; ADR 0071).
 - **`.codex/environments/environment.toml`** with `[setup]`/`[cleanup]` `script`
   keys — a real create/teardown pair, but with two properties that make it
@@ -24,7 +24,7 @@ a harness can drive, and they behave unlike Claude Code's `WorktreeCreate` /
      `$CODEX_HOME/worktrees`), as **bare commands in the worktree cwd with no
      stdin payload** — not for discern's own sibling worktrees, and not with the
      `{worktree_path}` JSON that Claude's `WorktreeRemove` hands
-     `worktree:remove`.
+     `worktree remove`.
 
 Two questions fell out: how should discern write into a file the app owns and
 regenerates, and what runs as `[cleanup]` when there is no stdin to carry the
@@ -33,7 +33,7 @@ worktree path?
 ## Decision
 
 **discern co-manages `environment.toml` through a new optional provider seam,
-and points `[cleanup]` at the pre-existing cwd-based `worktree:teardown` verb —
+and points `[cleanup]` at the pre-existing cwd-based `worktree teardown` verb —
 no new verb is introduced.**
 
 1. **A `WorktreeAppIntegration` on the provider record**
@@ -47,8 +47,8 @@ no new verb is introduced.**
    ```
 
    Only Codex declares one. `registerCodexEnvironment` merges
-   `[setup].script = "discern worktree:ensure"` and
-   `[cleanup].script = "discern worktree:teardown"` via the comment-preserving
+   `[setup].script = "discern worktree ensure"` and
+   `[cleanup].script = "discern worktree teardown"` via the comment-preserving
    `TomlEditor`, rewriting a script key only when it is absent or still set to
    discern's own default. A user-customized script value is preserved, while the
    app's `[[actions]]` and comments survive untouched. Codex's schema
@@ -74,13 +74,13 @@ no new verb is introduced.**
    bytes change, so a refresh that finds both scripts present or customized is a
    clean no-op.
 
-3. **`[cleanup]` reuses the existing cwd-based `worktree:teardown` verb.** That
+3. **`[cleanup]` reuses the existing cwd-based `worktree teardown` verb.** That
    verb already resolves the worktree from the process cwd (it walks up to
    `discern.toml` and runs `worktreeTeardown` against that root) and needs no
    stdin — exactly the bare-command-in-cwd shape the Codex app invokes
    `[cleanup]` with. It has existed since the engine's first dispatcher; Phase B
    adds no teardown verb, only the `environment.toml` line that names it.
-   (`worktree:remove`, the Claude `WorktreeRemove` entry point, stays distinct:
+   (`worktree remove`, the Claude `WorktreeRemove` entry point, stays distinct:
    it reads a `{worktree_path}` stdin payload, which `[cleanup]` does not
    provide.)
 
@@ -92,7 +92,7 @@ The explicit *no*s:
   `SessionStart` hook. discern writes the file so the app-managed flow works,
   and stops there.
 - **No new teardown verb, and no second teardown core.** `[cleanup]` and
-  Claude's `worktree:remove` converge on the one
+  Claude's `worktree remove` converge on the one
   `worktreeTeardown(lifecycleContext(...))` core; only the worktree-resolution
   differs (cwd vs. payload).
 - **The seam is not forced on every provider.** Unlike `mcp`/`trust` (required),
@@ -130,8 +130,8 @@ The explicit *no*s:
   a user's deliberate environment setup/cleanup commands. Ownership-aware writes
   keep the self-heal for absent or discern-default values without treating user
   customization as drift.
-- **A new `worktree:cleanup` (or `worktree:remove`-style) verb for
-  `[cleanup]`.** Rejected: `worktree:teardown` already does cwd-based, no-stdin
+- **A new `worktree cleanup` (or `worktree remove`-style) verb for
+  `[cleanup]`.** Rejected: `worktree teardown` already does cwd-based, no-stdin
   teardown through the shared core; a second verb would duplicate it and split
   the teardown logic the gate must keep coherent. (The Phase B brief assumed a
   new verb was needed; the live code already had one — trust the code over the

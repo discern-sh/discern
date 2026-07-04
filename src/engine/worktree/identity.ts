@@ -45,10 +45,10 @@ export interface WorktreeIdentity {
 }
 
 /**
- * The identity fields the `worktree-name` command can resolve — the
+ * The identity fields the `identity` command can resolve — the
  * {@link WorktreeIdentity} keys plus `worktree` (the base resource handle, derived
  * via `worktreeBase` rather than stored on the identity). The SINGLE source the
- * resolver's parameter union and exhaustive switch (`worktreeNameField`) and the
+ * resolver's parameter union and exhaustive switch (`identityField`) and the
  * CLI's `--<field>` flags (`dispatch.ts`) derive from, so a new field can't be added
  * to one satellite without the others: the union+switch is compile-total (a missing
  * case fails `deno check`), and the flags are tied by `engine_verb_parity_test.ts`.
@@ -176,7 +176,7 @@ export function resourceForId(slug: string, id: string, name: string): string {
 export function validateOverrideId(raw: string): string {
   if (!OVERRIDE_ID_RE.test(raw)) {
     throw new IdentityError(
-      `worktree-name: invalid DISCERN_WORKTREE_ID '${raw}'. Use letters, numbers, dots, dashes, or underscores.`,
+      `identity: invalid DISCERN_WORKTREE_ID '${raw}'. Use letters, numbers, dots, dashes, or underscores.`,
     );
   }
   return sanitizeSlug(raw);
@@ -326,7 +326,7 @@ export async function loadIdentitySettings(
   const slug = sanitizeSlug(rawSlug);
   if (slug === "") {
     throw new IdentityError(
-      "worktree-name: project slug resolved to an empty value (set [project].slug or DISCERN_PROJECT_SLUG).",
+      "identity: project slug resolved to an empty value (set [project].slug or DISCERN_PROJECT_SLUG).",
     );
   }
   return { slug, branchPrefix };
@@ -432,7 +432,7 @@ async function metadataIdFromGit(path: string): Promise<string> {
       const commonGitDir = await normalizeCommonGitDir(path, commonRaw ?? "");
       if (gitDir === commonGitDir) {
         throw new IdentityError(
-          "worktree-name: refused - target is the main checkout, not a linked worktree.",
+          "identity: refused - target is the main checkout, not a linked worktree.",
         );
       }
       return basename(gitDir);
@@ -459,7 +459,7 @@ async function metadataIdFromGit(path: string): Promise<string> {
   }
 
   throw new IdentityError(
-    `worktree-name: could not resolve linked-worktree metadata for ${path}.`,
+    `identity: could not resolve linked-worktree metadata for ${path}.`,
   );
 }
 
@@ -489,7 +489,7 @@ export async function resolveWorktreeId(
   const id = sanitizeSlug(rawId);
   if (id === "") {
     throw new IdentityError(
-      `worktree-name: git metadata id '${rawId}' did not contain any safe characters.`,
+      `identity: git metadata id '${rawId}' did not contain any safe characters.`,
     );
   }
 

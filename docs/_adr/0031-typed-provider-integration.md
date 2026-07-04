@@ -17,9 +17,9 @@ Today that per-agent knowledge is scattered and partial:
 - the **guidance → file** mapping lives in a private `AGENT_OUTPUT` table in
   `engine/guidelines.ts` (`claude_code → CLAUDE.md`, `codex → AGENTS.md`, …);
 - the **worktree-lifecycle hooks** and **settings** are hardcoded to
-  `.claude/settings.json` in the seed template and in `init`'s hook-stripping;
+  `.claude/settings.json` in the seed template and in `setup`'s hook-stripping;
 - the materialized **skills** dir is hardcoded `.claude/skills/`;
-- and **MCP registration** (ADR 0030 wants `init` to wire `discern mcp`) had no
+- and **MCP registration** (ADR 0030 wants `setup` to wire `discern mcp`) had no
   home at all.
 
 Adding or completing a provider means finding and editing each of these
@@ -46,9 +46,9 @@ instead of its own table:
 
 - `guidelines.ts` compiles to `provider.guidanceFile.path`;
 - the refresh core (`compileGuidelines`) wires each configured provider's
-  `mcp.register` (`.mcp.json` + the approval in settings), so `init`, `upgrade`,
-  `refresh`, and worktree-setup all (re-)establish it idempotently; `init`
-  drives hook-stripping from `provider.hooks`;
+  `mcp.register` (`.mcp.json` + the approval in settings), so `setup`,
+  `upgrade`, `refresh`, and worktree-setup all (re-)establish it idempotently;
+  `setup` drives hook-stripping from `provider.hooks`;
 - future provider-specific behaviour (e.g. a per-agent skills dir) extends the
   same record rather than adding a new scattered conditional. (The per-agent
   skills dir was added in
@@ -70,14 +70,14 @@ guessed.
   drift between guidelines, init, and the worktree lifecycle.
 - **MCP wiring is agent-agnostic by construction, and self-healing.** The
   refresh core iterates the configured providers and calls each one's `register`
-  (no Claude-specific branch), so `init` establishes it while
+  (no Claude-specific branch), so `setup` establishes it while
   `refresh`/`upgrade` backfill an install that lacks it. Teaching another agent
   is filling its `mcp`.
 - **The worktree-hook surface is typed**, so a future Codex hook integration
   reuses the same `HooksIntegration` shape rather than inventing a parallel
   path.
 - **A small migration of call sites.** `guidelines.ts` drops its `AGENT_OUTPUT`
-  table for the registry; `init`'s `stripWorktreeHooksFromPlan` keys off
+  table for the registry; `setup`'s `stripWorktreeHooksFromPlan` keys off
   `provider.hooks` instead of literals. No behaviour change for guidance output.
 
 ## Alternatives considered

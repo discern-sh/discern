@@ -63,13 +63,13 @@ The gate is part of the binary's TypeScript engine
 ([`src/engine/`](../../src/engine/)). Its public verbs are first-class `discern`
 subcommands:
 
-| Command                  | What it does                                                                                                                                              | Source                                                               |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `discern finish`         | The full gate — (in a worktree) a fail-fast main-merged check first, then `fix`+`build`, then `check`+`test` in parallel, then scope-matched scope gates. | [`src/engine/gate/finish.ts`](../../src/engine/gate/finish.ts)       |
-| `discern prepare`        | The fast inner loop — fixers then read-only checks; no build or test.                                                                                     | [`src/engine/gate/prepare.ts`](../../src/engine/gate/prepare.ts)     |
-| `discern test`           | The `test` capability on its own.                                                                                                                         | [`src/engine/gate/test.ts`](../../src/engine/gate/test.ts)           |
-| `discern ratchets`       | Checks never-loosen metric floors/ceilings against `main` (on demand; not part of `finish`).                                                              | [`src/engine/gate/ratchets.ts`](../../src/engine/gate/ratchets.ts)   |
-| `discern changed-scopes` | Classifies which scopes the branch touches; fails **open** (an unknown path runs more gates, never fewer).                                                | [`src/engine/scopes/changed.ts`](../../src/engine/scopes/changed.ts) |
+| Command            | What it does                                                                                                                                              | Source                                                             |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `discern finish`   | The full gate — (in a worktree) a fail-fast main-merged check first, then `fix`+`build`, then `check`+`test` in parallel, then scope-matched scope gates. | [`src/engine/gate/finish.ts`](../../src/engine/gate/finish.ts)     |
+| `discern prepare`  | The fast inner loop — fixers then read-only checks; no build or test.                                                                                     | [`src/engine/gate/prepare.ts`](../../src/engine/gate/prepare.ts)   |
+| `discern test`     | The `test` capability on its own.                                                                                                                         | [`src/engine/gate/test.ts`](../../src/engine/gate/test.ts)         |
+| `discern ratchets` | Checks never-loosen metric floors/ceilings against `main` (on demand; not part of `finish`).                                                              | [`src/engine/gate/ratchets.ts`](../../src/engine/gate/ratchets.ts) |
+| `discern scopes`   | Classifies which scopes the branch touches; fails **open** (an unknown path runs more gates, never fewer).                                                | [`src/engine/scopes/scopes.ts`](../../src/engine/scopes/scopes.ts) |
 
 The gate, `config`, and `doctor` are **core** — always on. The other subsystems
 each sit behind a `[features]` toggle (`worktrees`, `ratchets`, `guidance`,
@@ -102,14 +102,14 @@ sits behind `[features].worktrees`.
 
 | Command                     | What it does                                                                         |
 | --------------------------- | ------------------------------------------------------------------------------------ |
-| `discern worktree:create`   | Creates + sets up a worktree from the `WorktreeCreate` hook's JSON payload (stdin).  |
-| `discern worktree`          | Sets up a freshly-created worktree (what `worktree:create` runs inside it).          |
-| `discern worktree:ensure`   | Session-start idempotent setup (run by the `SessionStart` hook).                     |
+| `discern worktree create`   | Creates + sets up a worktree from the `WorktreeCreate` hook's JSON payload (stdin).  |
+| `discern worktree setup`    | Sets up a freshly-created worktree (what `worktree create` runs inside it).          |
+| `discern worktree ensure`   | Session-start idempotent setup (run by the `SessionStart` hook).                     |
 | `discern graduate`          | Graduates the branch into the main repo and tears the worktree down.                 |
-| `discern worktree:remove`   | Tears a worktree down from the `WorktreeRemove` hook's payload (stdin; best-effort). |
-| `discern worktree:teardown` | Destroys a worktree's resources (what `worktree:remove` runs).                       |
-| `discern worktree:prune`    | Sweeps stale worktrees, fully-merged branches, orphan dirs, and orphan resources.    |
-| `discern worktree-name`     | Resolves a worktree's stable identity (id / site / branch / port / db / resource).   |
+| `discern worktree remove`   | Tears a worktree down from the `WorktreeRemove` hook's payload (stdin; best-effort). |
+| `discern worktree teardown` | Destroys a worktree's resources (what `worktree remove` runs).                       |
+| `discern worktree prune`    | Sweeps stale worktrees, fully-merged branches, orphan dirs, and orphan resources.    |
+| `discern identity`          | Resolves a worktree's stable identity (id / site / branch / port / db / resource).   |
 
 The lifecycle logic lives in
 [`src/engine/worktree/lifecycle.ts`](../../src/engine/worktree/lifecycle.ts);
@@ -161,7 +161,7 @@ its own directory:
 | [`discern-write-adr`](../../templates/skills/discern-write-adr/SKILL.md)                   | Record a significant decision as an Architecture Decision Record.                                            |
 
 (Seeding a fresh install is **not** a skill — it is the `discern setup` command;
-see below and [ADR 0024](../_adr/_superseded/0024-bootstrap-as-command.md),
+see below and [ADR 0024](../_adr/_superseded/0024-setup-command-not-skill.md),
 amended by [ADR 0036](../_adr/0036-unify-setup.md).)
 
 ## Documentation & ADR scaffold (lazy — not part of the install surface)
@@ -191,13 +191,14 @@ configured destination ([ADR 0080](../_adr/0080-configured-agent-docs-root.md)).
 | --------------------------------------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `TODO.md`                                                             | yours           | The shared backlog for deferred or at-risk work; documents its own format. Lazy — not shipped at `setup`; created by `discern setup` (or on the first deferral) from its bundled skeleton, then yours to keep.                                                                                                                                                                              |
 | `recipes/` (`[recipes].dir`)                                          | yours           | Your own `discern <verb>` recipes (default `./recipes`, read only if present) — the engine wins on a name collision ([ADR 0001](../_adr/0001-project-owned-recipes.md)). Recipes read config through `discern config get`, not by sourcing a shell library.                                                                                                                                 |
-| [`.claude/settings.json`](../../templates/.claude/settings.json.tmpl) | yours (merged)  | Adds a `Read(./.env)` deny and three hooks — `SessionStart` → `discern worktree:ensure`, `WorktreeCreate` → `discern worktree:create`, `WorktreeRemove` → `discern worktree:remove` — preserving existing settings. (The worktree hooks are omitted when `[features].worktrees = false`.)                                                                                                   |
+| [`.claude/settings.json`](../../templates/.claude/settings.json.tmpl) | yours (merged)  | Adds a `Read(./.env)` deny and three hooks — `SessionStart` → `discern worktree ensure`, `WorktreeCreate` → `discern worktree create`, `WorktreeRemove` → `discern worktree remove` — preserving existing settings. (The worktree hooks are omitted when `[features].worktrees = false`.)                                                                                                   |
 | [`.gitignore`](../../templates/.gitignore.fragment)                   | co-managed seed | The project owns its ignore rules outside `# --- discern harness ---` / `# --- /discern harness ---`. Inside that block, discern ignores the compiled agent files `/AGENTS.md`, `/CLAUDE.md`, `/GEMINI.md` (all build artifacts — ADR 0034), generated skills dirs, and `/.claude/*` except the shared `.claude/settings.json`; `upgrade` reconciles it to the current fragment (ADR 0093). |
 
 > In this repo (which self-hosts from source), these hooks call
-> `deno task dev worktree:*` rather than `discern worktree:*`: they run
-> automatically with no setup, so they go through Deno directly instead of the
-> optional local-dev `discern` wrapper. The distributed
+> `deno task dev worktree ensure`, `deno task dev worktree create`, and
+> `deno task dev worktree remove` rather than the installed `discern` binary:
+> they run automatically with no setup, so they go through Deno directly instead
+> of the optional local-dev `discern` wrapper. The distributed
 > [`templates/.claude/settings.json.tmpl`](../../templates/.claude/settings.json.tmpl)
 > uses the on-`PATH` `discern` binary.
 

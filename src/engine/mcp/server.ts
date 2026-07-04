@@ -31,7 +31,6 @@ import { z } from "@zod/zod";
 import { findRoot } from "../../shared/env.ts";
 import { type DiscernResult, serializeResult } from "../../shared/result.ts";
 import {
-  ChangedScopesOutputSchema,
   CouplingOutputSchema,
   DatalessEnvelopeSchema,
   type DocsData,
@@ -43,6 +42,7 @@ import {
   ImproveOutputSchema,
   IntegrateOutputSchema,
   RefreshOutputSchema,
+  ScopesOutputSchema,
   type StartData,
   StartOutputSchema,
   StatusOutputSchema,
@@ -61,7 +61,7 @@ import {
 import { enabledFeatures, type Feature } from "../../shared/features.ts";
 import {
   NOT_SET_UP_MESSAGE,
-  verbNeedsBootstrap,
+  verbNeedsSetup,
 } from "../../shared/setup_state.ts";
 import { Logger } from "../../lib/log.ts";
 import { finishResult } from "../gate/finish.ts";
@@ -70,7 +70,7 @@ import { testResult } from "../gate/test.ts";
 import { ratchetsResult } from "../gate/ratchets.ts";
 import { improveResult } from "../improve/improve.ts";
 import { CATEGORY_NAMES } from "../improve/rules.ts";
-import { changedScopesResult } from "../scopes/changed.ts";
+import { scopesResult } from "../scopes/scopes.ts";
 import { couplingResult } from "../coupling/coupling.ts";
 import { statusResult } from "../status/status.ts";
 import { refreshResult } from "../guidelines.ts";
@@ -222,7 +222,7 @@ const TOOL_PRIORITY = [
   "discern_integrate",
   "discern_ratchets",
   "discern_graduate",
-  "discern_changed_scopes",
+  "discern_scopes",
   "discern_coupling",
   "discern_refresh",
   "discern_docs",
@@ -411,15 +411,15 @@ export const TOOLS: McpTool[] = orderTools([
     run: (root) => doctorResult(root),
   }),
   defineTool({
-    name: "discern_changed_scopes",
+    name: "discern_scopes",
     title: "List changed scopes",
-    outputSchema: ChangedScopesOutputSchema.shape,
+    outputSchema: ScopesOutputSchema.shape,
     annotations: READ_ONLY,
     description:
       "List which project scopes the current branch and working tree changed — the " +
       "classification that decides which scope gates the quality gate fires.",
     inputSchema: { ...PATH_PARAM },
-    run: (root) => changedScopesResult(root),
+    run: (root) => scopesResult(root),
   }),
   defineTool({
     name: "discern_coupling",
@@ -785,7 +785,7 @@ function mcpStartHint(path: string): string {
     `the trunk — otherwise your edits and the gate will diverge.`;
 }
 
-/** The verb slug behind a tool name (`discern_changed_scopes` → `changed-scopes`),
+/** The verb slug behind a tool name (`discern_scopes` → `scopes`),
  * for the envelope every failure path renders. Exported as the tool→verb bridge the
  * verb-parity guard uses to tie {@link TOOLS} back to the CLI verb SSOT. */
 export function verbOf(toolName: string): string {
@@ -865,13 +865,13 @@ async function runTool(
         "not inside a discern project (no discern.toml in this directory or any parent).",
     });
   }
-  // Pre-setup gate — the MCP mirror of the CLI redirect: a bootstrap-gated verb
-  // (the gate verbs and `discern_docs`) refuses until the project records
+  // Pre-setup gate — the MCP mirror of the CLI redirect: a setup-gated verb
+  // (the setup-gated verbs, including `discern_docs`) refuses until the project records
   // `[meta].bootstrapped`, so an agent never reads a false all-green or an empty
   // doc tree. `discern_help`/`discern_status`/`discern_doctor`/`discern_improve` are
   // not gated — they are exactly what you reach for before setup is done.
   if (
-    verbNeedsBootstrap(verbOf(tool.name)) && !(await bootstrapGatePasses(root))
+    verbNeedsSetup(verbOf(tool.name)) && !(await setupGatePasses(root))
   ) {
     return renderResult({
       ok: false,
@@ -924,14 +924,14 @@ async function pathExists(path: string): Promise<boolean> {
 }
 
 /**
- * Whether the pre-setup gate should let a bootstrap-gated tool run: true once the
+ * Whether the pre-setup gate should let a setup-gated tool run: true once the
  * project records `[meta].bootstrapped`, and also true when the config cannot be
  * read — so the verb's own core surfaces the real config error rather than a
  * misleading `not_set_up` (the MCP mirror of the CLI's `configOk` guard). Resolved
- * per call, not once at startup, so a project bootstrapped mid-session (via the
+ * per call, not once at startup, so a project set up mid-session (via the
  * CLI, alongside a long-lived server) is picked up without a restart.
  */
-async function bootstrapGatePasses(root: string): Promise<boolean> {
+async function setupGatePasses(root: string): Promise<boolean> {
   try {
     return (await loadConfig(root)).meta.bootstrapped;
   } catch {
@@ -1017,11 +1017,11 @@ function asJson(data: unknown): string {
   return JSON.stringify(data, null, 2);
 }
 
-/** Throw the canonical not-set-up refusal when a bootstrap-gated resource is read
+/** Throw the canonical not-set-up refusal when a setup-gated resource is read
  * before the project records `[meta].bootstrapped` — the resource mirror of the
  * tool's pre-setup gate. */
-async function assertResourceBootstrapped(root: string): Promise<void> {
-  if (!(await bootstrapGatePasses(root))) {
+async function assertResourceSetUp(root: string): Promise<void> {
+  if (!(await setupGatePasses(root))) {
     throw new Error(NOT_SET_UP_MESSAGE);
   }
 }
@@ -1079,7 +1079,7 @@ function registerDocTree(
 
 /**
  * Register the readable resources, mirroring the tools' feature- and pre-setup-
- * gating: `discern://status`, `discern://changed-scopes`, and `discern://config`
+ * gating: `discern://status`, `discern://scopes`, and `discern://config`
  * are always available; `discern://help` (+ a `{target}` template) is too; and
  * `discern://docs` (+ template) is registered only with the `docs` feature on and
  * refuses per read until the project is bootstrapped — exactly as the matching tools
@@ -1123,8 +1123,8 @@ function registerResources(
   );
 
   server.registerResource(
-    "discern-changed-scopes",
-    "discern://changed-scopes",
+    "discern-scopes",
+    "discern://scopes",
     {
       description:
         "The project scopes the current branch and working tree changed — what decides which scope gates fire.",
@@ -1134,7 +1134,7 @@ function registerResources(
       resourceText(
         uri,
         JSON_MIME,
-        asJson((await changedScopesResult(currentRoot())).data),
+        asJson((await scopesResult(currentRoot())).data),
       ),
   );
 
@@ -1160,7 +1160,7 @@ function registerResources(
   );
 
   // docs — the project's documentation, gated on the `docs` feature and (per read)
-  // on bootstrap, mirroring the discern_docs tool.
+  // on setup completion, mirroring the discern_docs tool.
   if (enabled.has("docs")) {
     registerDocTree(
       server,
@@ -1168,12 +1168,12 @@ function registerResources(
       "the project's documentation",
       async () => {
         const root = currentRoot();
-        await assertResourceBootstrapped(root);
+        await assertResourceSetUp(root);
         return docsResult(root);
       },
       async (target) => {
         const root = currentRoot();
-        await assertResourceBootstrapped(root);
+        await assertResourceSetUp(root);
         return docsResult(root, { target });
       },
     );
