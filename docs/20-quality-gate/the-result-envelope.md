@@ -105,14 +105,19 @@ discern publishes the same typed result surface as generated artifacts
 ([ADR 0097](../_adr/0097-publish-json-result-contracts.md)):
 
 - [`schema/discern-results.schema.json`](../../schema/discern-results.schema.json)
-  — a JSON Schema for every CLI command path that emits a `DiscernResult` JSON
-  object, plus MCP tool-result wrappers.
+  — a JSON Schema whose root accepts either a CLI command's `DiscernResult` JSON
+  object or an MCP tool-result wrapper.
 - [`types/discern-json.d.ts`](../../types/discern-json.d.ts) — standalone
   TypeScript definitions generated from the same registry.
 
 Each command definition carries a literal `verb` discriminator, so TypeScript
 consumers can switch on `result.verb` and narrow to the command-specific `data`.
-The generated types also expose lookup maps:
+The JSON Schema exposes `DiscernCliJsonResult` and `DiscernMcpJsonResult`
+entrypoints under `$defs`, plus a discriminator mapping for the CLI union. A
+consumer that already knows the command or verb can validate against the
+per-verb `$defs` entry named by `x-discern-contracts`; that gives clearer errors
+than validating against the full union. The generated TypeScript file also
+exposes lookup maps:
 
 - `DiscernResultByVerb` — envelope type by serialized `verb`.
 - `DiscernResultByCommand` — envelope type by CLI command path.
@@ -128,6 +133,13 @@ registry and that every registered CLI command path is either covered or
 explicitly excluded. Exclusions are the commands that do not emit a
 `DiscernResult` JSON object (`identity`, `mcp`, hook plumbing, and the plain
 config read helpers).
+
+Runtime schemas remain strict: the MCP SDK still validates a tool's
+`structuredContent` against the exact Zod output schema from
+`result_schemas.ts`. The published JSON Schema is more tolerant: it omits
+`additionalProperties: false` markers so additive fields in a later discern
+release do not break consumers pinned to an older compatible schema. Map-shaped
+fields still publish their value schema through `additionalProperties`.
 
 ## `discern mcp` — the agent-native surface
 

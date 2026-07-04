@@ -90,16 +90,67 @@ function mcpToolResultSchema(structuredContentRef: JsonObject): JsonObject {
   };
 }
 
+function publicSchema(schema: JsonObject): JsonObject {
+  const rewritten = removeClosedOutputMarkers(schema);
+  return isObject(rewritten) ? rewritten : schema;
+}
+
+function removeClosedOutputMarkers(value: JsonValue): JsonValue {
+  if (Array.isArray(value)) {
+    return value.map(removeClosedOutputMarkers);
+  }
+  if (!isObject(value)) {
+    return value;
+  }
+  const out: JsonObject = {};
+  for (const [key, child] of Object.entries(value)) {
+    if (key === "additionalProperties" && child === false) {
+      continue;
+    }
+    out[key] = removeClosedOutputMarkers(child);
+  }
+  return out;
+}
+
+function cliUnionSchema(): JsonObject {
+  return {
+    title: "DiscernCliJsonResult",
+    description:
+      "Any `discern <command> --json` result. Consumers with a known verb should prefer the per-verb schema referenced by x-discern-contracts for clearer validation errors.",
+    oneOf: CLI_JSON_RESULT_CONTRACTS.map((contract) =>
+      refFor(typeName(contract))
+    ),
+    discriminator: {
+      propertyName: "verb",
+      mapping: Object.fromEntries(
+        CLI_JSON_RESULT_CONTRACTS.map((contract) => [
+          contract.verb,
+          `#/$defs/${typeName(contract)}`,
+        ]),
+      ),
+    },
+  };
+}
+
+function mcpUnionSchema(): JsonObject {
+  return {
+    title: "DiscernMcpJsonResult",
+    description:
+      "Any MCP tool result object returned by discern's MCP server. Its structuredContent is the same DiscernResult envelope exposed by the corresponding CLI command.",
+    oneOf: MCP_RESULT_CONTRACTS.map((contract) =>
+      refFor(mcpTypeName(contract))
+    ),
+  };
+}
+
 export function buildResultJsonSchema(): JsonObject {
   const defs: JsonObject = {};
-  const oneOf: JsonObject[] = [];
   for (const contract of CLI_JSON_RESULT_CONTRACTS) {
     const name = typeName(contract);
     defs[name] = {
       title: name,
       ...generatedSchema(contract.schema),
     };
-    oneOf.push(refFor(name));
   }
   for (const contract of MCP_RESULT_CONTRACTS) {
     defs[mcpTypeName(contract)] = {
@@ -107,13 +158,18 @@ export function buildResultJsonSchema(): JsonObject {
       ...mcpToolResultSchema(refFor(typeName(contract))),
     };
   }
-  return {
+  defs.DiscernCliJsonResult = cliUnionSchema();
+  defs.DiscernMcpJsonResult = mcpUnionSchema();
+  return publicSchema({
     $schema: "https://json-schema.org/draft/2020-12/schema",
     $id: RESULT_SCHEMA_ID,
     title: SCHEMA_TITLE,
     description:
-      "The public JSON contract for discern CLI --json results and MCP tool structuredContent. Each command result is a DiscernResult envelope with a literal verb discriminator.",
-    oneOf,
+      "The public JSON contract for discern CLI --json results and MCP tool results. Runtime schemas remain strict, but this published schema intentionally permits additive object fields so older pinned schemas can validate newer compatible output.",
+    oneOf: [
+      refFor("DiscernCliJsonResult"),
+      refFor("DiscernMcpJsonResult"),
+    ],
     $defs: defs,
     "x-discern-contracts": CLI_JSON_RESULT_CONTRACTS.map((contract) => ({
       id: contract.id,
@@ -125,7 +181,7 @@ export function buildResultJsonSchema(): JsonObject {
         ? {}
         : { mcpToolResultSchema: `#/$defs/${mcpTypeName(contract)}` }),
     })),
-  };
+  }) as JsonObject;
 }
 
 export function renderResultJsonSchema(): string {

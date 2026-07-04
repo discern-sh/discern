@@ -107,10 +107,10 @@ Deno.test("every --json verb emits ONLY the envelope (no human or subprocess lea
         { args: ["scopes", "--json"], verb: "scopes" },
         { args: ["status", "--json"], verb: "status" },
         { args: ["refresh", "--json"], verb: "refresh" },
-        { args: ["skills", "list", "--json"], verb: "skills:list" },
+        { args: ["skills", "list", "--json"], verb: "skills list" },
         {
           args: ["skills", "eject", "--json", "discern-write-adr"],
-          verb: "skills:eject",
+          verb: "skills eject",
         },
         // A dry-run preview is an envelope too (plan, no steps).
         { args: ["finish", "--dry-run", "--json"], verb: "finish" },

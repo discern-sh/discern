@@ -88,7 +88,7 @@ function emitLand(
   if (opts.json) {
     emitResult({
       ok: result.ok,
-      verb: "setup:land",
+      verb: "setup land",
       ...(result.error !== undefined ? { error: result.error } : {}),
       message: result.message,
     });
@@ -188,7 +188,7 @@ export async function runSetupLand(opts: SetupLandOptions): Promise<number> {
     if (opts.json) {
       emitResult({
         ok: true,
-        verb: "setup:land",
+        verb: "setup land",
         dry_run: true,
         data: {
           landed: false,
@@ -258,7 +258,7 @@ export async function runSetupLand(opts: SetupLandOptions): Promise<number> {
   if (opts.json) {
     emitResult({
       ok: true,
-      verb: "setup:land",
+      verb: "setup land",
       data,
       hints: [`Setup landed onto ${target}.`],
     });

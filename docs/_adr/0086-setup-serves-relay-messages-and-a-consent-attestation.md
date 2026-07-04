@@ -119,7 +119,7 @@ The explicit **no**s:
   at the read-only→destructive boundary, without a state machine.
 - **Single-source discipline extends to the messages.** They live once and every
   surface carries them verbatim; parity tests fail if any copy drifts, and the
-  `setup:done` payload is now schema-backed (ADR 0041) like `verify`/`step`.
+  `setup done` payload is now schema-backed (ADR 0041) like `verify`/`step`.
 - **The attestation is honest about its limits.** A determined agent can pass
   `--confirmed` without holding the conversation. Accepted: the aim is a raised
   floor, and the flag's value is the served payload it withholds until asked,

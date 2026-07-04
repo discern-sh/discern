@@ -36,7 +36,7 @@ integration branch (`MAIN_BRANCH` / `[project].main_branch`), or merges it when
 the integration branch has advanced, then deletes the merged branch — leaving
 the user on the integration branch with the harness in place. It supports
 `--dry-run` (preview, touch nothing) and `--json`, and returns the standard
-result envelope (verb `setup:land`).
+result envelope (verb `setup land`).
 
 It is **not** a reuse of `graduate`: the two share a land-onto-trunk _shape_ but
 differ in scope. `graduate` removes the clean worktree it ran in and tears down

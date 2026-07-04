@@ -28,7 +28,7 @@ Deno.test("discern skills list shows the built-ins, and --json emits structured 
       data: { skills: Array<{ name: string; source: string }> };
     };
     assertEquals(obj.ok, true);
-    assertEquals(obj.verb, "skills:list");
+    assertEquals(obj.verb, "skills list");
     assert(
       obj.data.skills.some((r) =>
         r.name === "discern-write-adr" && r.source === "bundled"
@@ -83,7 +83,7 @@ Deno.test("discern skills eject --json emits an envelope and materializes the ov
       };
     };
     assertEquals(obj.ok, true);
-    assertEquals(obj.verb, "skills:eject");
+    assertEquals(obj.verb, "skills eject");
     assertEquals(obj.data.name, "discern-write-adr");
     assertEquals(obj.data.dest_rel, "skills/discern-write-adr");
     assertEquals(obj.data.skills_dir_persisted, false);
@@ -128,7 +128,7 @@ Deno.test("discern skills eject --json reports errors in the envelope", async ()
       message: string;
     };
     assertEquals(obj.ok, false);
-    assertEquals(obj.verb, "skills:eject");
+    assertEquals(obj.verb, "skills eject");
     assertEquals(obj.error, "skills_eject_failed");
     assertStringIncludes(
       obj.message,

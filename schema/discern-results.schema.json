@@ -2,91 +2,13 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/jackwh/discern/main/schema/discern-results.schema.json",
   "title": "discern CLI and MCP JSON results",
-  "description": "The public JSON contract for discern CLI --json results and MCP tool structuredContent. Each command result is a DiscernResult envelope with a literal verb discriminator.",
+  "description": "The public JSON contract for discern CLI --json results and MCP tool results. Runtime schemas remain strict, but this published schema intentionally permits additive object fields so older pinned schemas can validate newer compatible output.",
   "oneOf": [
     {
-      "$ref": "#/$defs/DiscernSetupResult"
+      "$ref": "#/$defs/DiscernCliJsonResult"
     },
     {
-      "$ref": "#/$defs/DiscernSetupVerifyResult"
-    },
-    {
-      "$ref": "#/$defs/DiscernSetupStepResult"
-    },
-    {
-      "$ref": "#/$defs/DiscernSetupDoneResult"
-    },
-    {
-      "$ref": "#/$defs/DiscernSetupLandResult"
-    },
-    {
-      "$ref": "#/$defs/DiscernUpgradeResult"
-    },
-    {
-      "$ref": "#/$defs/DiscernDoctorResult"
-    },
-    {
-      "$ref": "#/$defs/DiscernPresetResult"
-    },
-    {
-      "$ref": "#/$defs/DiscernDocsResult"
-    },
-    {
-      "$ref": "#/$defs/DiscernHelpResult"
-    },
-    {
-      "$ref": "#/$defs/DiscernConfigResult"
-    },
-    {
-      "$ref": "#/$defs/DiscernFinishResult"
-    },
-    {
-      "$ref": "#/$defs/DiscernPrepareResult"
-    },
-    {
-      "$ref": "#/$defs/DiscernTestResult"
-    },
-    {
-      "$ref": "#/$defs/DiscernImproveResult"
-    },
-    {
-      "$ref": "#/$defs/DiscernRatchetsResult"
-    },
-    {
-      "$ref": "#/$defs/DiscernRefreshResult"
-    },
-    {
-      "$ref": "#/$defs/DiscernScopesResult"
-    },
-    {
-      "$ref": "#/$defs/DiscernCouplingResult"
-    },
-    {
-      "$ref": "#/$defs/DiscernStatusResult"
-    },
-    {
-      "$ref": "#/$defs/DiscernStartResult"
-    },
-    {
-      "$ref": "#/$defs/DiscernGraduateResult"
-    },
-    {
-      "$ref": "#/$defs/DiscernIntegrateResult"
-    },
-    {
-      "$ref": "#/$defs/DiscernWorktreeSetupResult"
-    },
-    {
-      "$ref": "#/$defs/DiscernWorktreeTeardownResult"
-    },
-    {
-      "$ref": "#/$defs/DiscernWorktreePruneResult"
-    },
-    {
-      "$ref": "#/$defs/DiscernSkillsListResult"
-    },
-    {
-      "$ref": "#/$defs/DiscernSkillsEjectResult"
+      "$ref": "#/$defs/DiscernMcpJsonResult"
     }
   ],
   "$defs": {
@@ -157,8 +79,7 @@
                   "kind",
                   "label",
                   "disposition"
-                ],
-                "additionalProperties": false
+                ]
               }
             }
           },
@@ -166,8 +87,7 @@
             "title",
             "details",
             "steps"
-          ],
-          "additionalProperties": false
+          ]
         },
         "steps": {
           "type": "array",
@@ -235,8 +155,7 @@
               "label",
               "disposition",
               "outcome"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "diagnostics": {
@@ -290,8 +209,7 @@
               "severity",
               "message",
               "reproduce_cmd"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "hints": {
@@ -359,16 +277,14 @@
                         "required": [
                           "name",
                           "wired"
-                        ],
-                        "additionalProperties": false
+                        ]
                       }
                     }
                   },
                   "required": [
                     "pending_markers",
                     "capabilities"
-                  ],
-                  "additionalProperties": false
+                  ]
                 },
                 "already_set_up": {
                   "type": "boolean"
@@ -392,8 +308,7 @@
                   "required": [
                     "slug",
                     "agents"
-                  ],
-                  "additionalProperties": false
+                  ]
                 },
                 "plan": {
                   "type": "array",
@@ -419,8 +334,7 @@
                     "required": [
                       "path",
                       "action"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 },
                 "guidance": {
@@ -551,8 +465,7 @@
                             "what_not_to_do",
                             "completion_check",
                             "next_action"
-                          ],
-                          "additionalProperties": false
+                          ]
                         },
                         "guidance": {
                           "type": "string"
@@ -563,8 +476,7 @@
                         "title",
                         "spine",
                         "guidance"
-                      ],
-                      "additionalProperties": false
+                      ]
                     },
                     {
                       "type": "null"
@@ -577,8 +489,7 @@
                     "type": "string"
                   }
                 }
-              },
-              "additionalProperties": false
+              }
             },
             {
               "type": "object",
@@ -598,15 +509,13 @@
                     "required": [
                       "path",
                       "message"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 }
               },
               "required": [
                 "issues"
-              ],
-              "additionalProperties": false
+              ]
             }
           ]
         }
@@ -614,8 +523,7 @@
       "required": [
         "ok",
         "verb"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernSetupVerifyResult": {
       "title": "DiscernSetupVerifyResult",
@@ -684,8 +592,7 @@
                   "kind",
                   "label",
                   "disposition"
-                ],
-                "additionalProperties": false
+                ]
               }
             }
           },
@@ -693,8 +600,7 @@
             "title",
             "details",
             "steps"
-          ],
-          "additionalProperties": false
+          ]
         },
         "steps": {
           "type": "array",
@@ -762,8 +668,7 @@
               "label",
               "disposition",
               "outcome"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "diagnostics": {
@@ -817,8 +722,7 @@
               "severity",
               "message",
               "reproduce_cmd"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "hints": {
@@ -835,7 +739,7 @@
         },
         "verb": {
           "type": "string",
-          "const": "setup:verify"
+          "const": "setup verify"
         },
         "data": {
           "anyOf": [
@@ -876,8 +780,7 @@
                         "repo",
                         "clean",
                         "uncommitted"
-                      ],
-                      "additionalProperties": false
+                      ]
                     },
                     "docs": {
                       "type": "object",
@@ -898,8 +801,7 @@
                       },
                       "required": [
                         "exists"
-                      ],
-                      "additionalProperties": false
+                      ]
                     },
                     "existing_instructions": {
                       "type": "array",
@@ -930,8 +832,7 @@
                     "agents_detected",
                     "agents_effective",
                     "worktree_path"
-                  ],
-                  "additionalProperties": false
+                  ]
                 },
                 "conflicts": {
                   "type": "array",
@@ -954,8 +855,7 @@
                     "required": [
                       "kind",
                       "detail"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 },
                 "guidance": {
@@ -965,8 +865,7 @@
               "required": [
                 "phase",
                 "next_action"
-              ],
-              "additionalProperties": false
+              ]
             },
             {
               "type": "object",
@@ -986,15 +885,13 @@
                     "required": [
                       "path",
                       "message"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 }
               },
               "required": [
                 "issues"
-              ],
-              "additionalProperties": false
+              ]
             }
           ]
         }
@@ -1002,8 +899,7 @@
       "required": [
         "ok",
         "verb"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernSetupStepResult": {
       "title": "DiscernSetupStepResult",
@@ -1072,8 +968,7 @@
                   "kind",
                   "label",
                   "disposition"
-                ],
-                "additionalProperties": false
+                ]
               }
             }
           },
@@ -1081,8 +976,7 @@
             "title",
             "details",
             "steps"
-          ],
-          "additionalProperties": false
+          ]
         },
         "steps": {
           "type": "array",
@@ -1150,8 +1044,7 @@
               "label",
               "disposition",
               "outcome"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "diagnostics": {
@@ -1205,8 +1098,7 @@
               "severity",
               "message",
               "reproduce_cmd"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "hints": {
@@ -1223,7 +1115,7 @@
         },
         "verb": {
           "type": "string",
-          "const": "setup:step"
+          "const": "setup step"
         },
         "data": {
           "anyOf": [
@@ -1274,8 +1166,7 @@
                     "what_not_to_do",
                     "completion_check",
                     "next_action"
-                  ],
-                  "additionalProperties": false
+                  ]
                 },
                 "guidance": {
                   "type": "string"
@@ -1286,8 +1177,7 @@
                 "title",
                 "spine",
                 "guidance"
-              ],
-              "additionalProperties": false
+              ]
             },
             {
               "type": "object",
@@ -1307,15 +1197,13 @@
                     "required": [
                       "path",
                       "message"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 }
               },
               "required": [
                 "issues"
-              ],
-              "additionalProperties": false
+              ]
             }
           ]
         }
@@ -1323,8 +1211,7 @@
       "required": [
         "ok",
         "verb"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernSetupDoneResult": {
       "title": "DiscernSetupDoneResult",
@@ -1393,8 +1280,7 @@
                   "kind",
                   "label",
                   "disposition"
-                ],
-                "additionalProperties": false
+                ]
               }
             }
           },
@@ -1402,8 +1288,7 @@
             "title",
             "details",
             "steps"
-          ],
-          "additionalProperties": false
+          ]
         },
         "steps": {
           "type": "array",
@@ -1471,8 +1356,7 @@
               "label",
               "disposition",
               "outcome"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "diagnostics": {
@@ -1526,8 +1410,7 @@
               "severity",
               "message",
               "reproduce_cmd"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "hints": {
@@ -1544,7 +1427,7 @@
         },
         "verb": {
           "type": "string",
-          "const": "setup:done"
+          "const": "setup done"
         },
         "data": {
           "anyOf": [
@@ -1599,8 +1482,7 @@
                         "required": [
                           "name",
                           "state"
-                        ],
-                        "additionalProperties": false
+                        ]
                       }
                     },
                     "enforced": {
@@ -1623,8 +1505,7 @@
                     "enforced",
                     "total",
                     "verdict"
-                  ],
-                  "additionalProperties": false
+                  ]
                 },
                 "landing": {
                   "type": "object",
@@ -1651,8 +1532,7 @@
                     "target",
                     "on_target",
                     "command"
-                  ],
-                  "additionalProperties": false
+                  ]
                 },
                 "reactivation": {
                   "type": "object",
@@ -1679,16 +1559,14 @@
                           "agent",
                           "label",
                           "step"
-                        ],
-                        "additionalProperties": false
+                        ]
                       }
                     }
                   },
                   "required": [
                     "summary",
                     "per_agent"
-                  ],
-                  "additionalProperties": false
+                  ]
                 },
                 "coach": {
                   "type": "object",
@@ -1703,8 +1581,7 @@
                   "required": [
                     "verb",
                     "command"
-                  ],
-                  "additionalProperties": false
+                  ]
                 },
                 "guidance": {
                   "type": "string"
@@ -1722,8 +1599,7 @@
                 "reactivation",
                 "coach",
                 "guidance"
-              ],
-              "additionalProperties": false
+              ]
             },
             {
               "type": "object",
@@ -1743,15 +1619,13 @@
                     "required": [
                       "path",
                       "message"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 }
               },
               "required": [
                 "issues"
-              ],
-              "additionalProperties": false
+              ]
             }
           ]
         }
@@ -1759,8 +1633,7 @@
       "required": [
         "ok",
         "verb"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernSetupLandResult": {
       "title": "DiscernSetupLandResult",
@@ -1829,8 +1702,7 @@
                   "kind",
                   "label",
                   "disposition"
-                ],
-                "additionalProperties": false
+                ]
               }
             }
           },
@@ -1838,8 +1710,7 @@
             "title",
             "details",
             "steps"
-          ],
-          "additionalProperties": false
+          ]
         },
         "steps": {
           "type": "array",
@@ -1907,8 +1778,7 @@
               "label",
               "disposition",
               "outcome"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "diagnostics": {
@@ -1962,8 +1832,7 @@
               "severity",
               "message",
               "reproduce_cmd"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "hints": {
@@ -1980,7 +1849,7 @@
         },
         "verb": {
           "type": "string",
-          "const": "setup:land"
+          "const": "setup land"
         },
         "data": {
           "anyOf": [
@@ -2009,8 +1878,7 @@
                 "target",
                 "fast_forward",
                 "branch_deleted"
-              ],
-              "additionalProperties": false
+              ]
             },
             {
               "type": "object",
@@ -2030,15 +1898,13 @@
                     "required": [
                       "path",
                       "message"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 }
               },
               "required": [
                 "issues"
-              ],
-              "additionalProperties": false
+              ]
             }
           ]
         }
@@ -2046,8 +1912,7 @@
       "required": [
         "ok",
         "verb"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernUpgradeResult": {
       "title": "DiscernUpgradeResult",
@@ -2116,8 +1981,7 @@
                   "kind",
                   "label",
                   "disposition"
-                ],
-                "additionalProperties": false
+                ]
               }
             }
           },
@@ -2125,8 +1989,7 @@
             "title",
             "details",
             "steps"
-          ],
-          "additionalProperties": false
+          ]
         },
         "steps": {
           "type": "array",
@@ -2194,8 +2057,7 @@
               "label",
               "disposition",
               "outcome"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "diagnostics": {
@@ -2249,8 +2111,7 @@
               "severity",
               "message",
               "reproduce_cmd"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "hints": {
@@ -2292,8 +2153,7 @@
                   },
                   "required": [
                     "current"
-                  ],
-                  "additionalProperties": false
+                  ]
                 },
                 "pending_migrations": {
                   "type": "array",
@@ -2314,8 +2174,7 @@
                       "from",
                       "to",
                       "describe"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 },
                 "pending_reconciliation": {
@@ -2337,8 +2196,7 @@
                     "required": [
                       "kind",
                       "path"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 },
                 "config_template_available": {
@@ -2363,8 +2221,7 @@
                     "required": [
                       "kind",
                       "path"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 },
                 "gitignore_template_available": {
@@ -2391,8 +2248,7 @@
                     "required": [
                       "path",
                       "message"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 },
                 "kit_version": {
@@ -2417,8 +2273,7 @@
                       "from",
                       "to",
                       "describe"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 },
                 "config_reconciled": {
@@ -2440,8 +2295,7 @@
                     "required": [
                       "kind",
                       "path"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 },
                 "gitignore_reconciled": {
@@ -2463,8 +2317,7 @@
                     "required": [
                       "kind",
                       "path"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 },
                 "skills": {
@@ -2486,8 +2339,7 @@
                         "copied",
                         "linked",
                         "pruned"
-                      ],
-                      "additionalProperties": false
+                      ]
                     },
                     {
                       "type": "null"
@@ -2521,8 +2373,7 @@
                     "type": "string"
                   }
                 }
-              },
-              "additionalProperties": false
+              }
             },
             {
               "type": "object",
@@ -2542,15 +2393,13 @@
                     "required": [
                       "path",
                       "message"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 }
               },
               "required": [
                 "issues"
-              ],
-              "additionalProperties": false
+              ]
             }
           ]
         }
@@ -2558,8 +2407,7 @@
       "required": [
         "ok",
         "verb"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernDoctorResult": {
       "title": "DiscernDoctorResult",
@@ -2628,8 +2476,7 @@
                   "kind",
                   "label",
                   "disposition"
-                ],
-                "additionalProperties": false
+                ]
               }
             }
           },
@@ -2637,8 +2484,7 @@
             "title",
             "details",
             "steps"
-          ],
-          "additionalProperties": false
+          ]
         },
         "steps": {
           "type": "array",
@@ -2706,8 +2552,7 @@
               "label",
               "disposition",
               "outcome"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "diagnostics": {
@@ -2761,8 +2606,7 @@
               "severity",
               "message",
               "reproduce_cmd"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "hints": {
@@ -2805,8 +2649,7 @@
                   "required": [
                     "discern",
                     "platform"
-                  ],
-                  "additionalProperties": false
+                  ]
                 },
                 "checks": {
                   "type": "array",
@@ -2842,8 +2685,7 @@
                       "status",
                       "ok",
                       "detail"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 },
                 "execution_model": {
@@ -2904,8 +2746,7 @@
                             "kind",
                             "label",
                             "actor"
-                          ],
-                          "additionalProperties": false
+                          ]
                         }
                       }
                     },
@@ -2913,8 +2754,7 @@
                       "verb",
                       "when",
                       "steps"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 }
               },
@@ -2922,8 +2762,7 @@
                 "kit_version",
                 "environment",
                 "checks"
-              ],
-              "additionalProperties": false
+              ]
             },
             {
               "type": "object",
@@ -2943,15 +2782,13 @@
                     "required": [
                       "path",
                       "message"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 }
               },
               "required": [
                 "issues"
-              ],
-              "additionalProperties": false
+              ]
             }
           ]
         }
@@ -2959,8 +2796,7 @@
       "required": [
         "ok",
         "verb"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernPresetResult": {
       "title": "DiscernPresetResult",
@@ -3029,8 +2865,7 @@
                   "kind",
                   "label",
                   "disposition"
-                ],
-                "additionalProperties": false
+                ]
               }
             }
           },
@@ -3038,8 +2873,7 @@
             "title",
             "details",
             "steps"
-          ],
-          "additionalProperties": false
+          ]
         },
         "steps": {
           "type": "array",
@@ -3107,8 +2941,7 @@
               "label",
               "disposition",
               "outcome"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "diagnostics": {
@@ -3162,8 +2995,7 @@
               "severity",
               "message",
               "reproduce_cmd"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "hints": {
@@ -3220,8 +3052,7 @@
                     "required": [
                       "path",
                       "action"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 },
                 "config_fills": {
@@ -3233,8 +3064,7 @@
                     "type": "string"
                   }
                 }
-              },
-              "additionalProperties": false
+              }
             },
             {
               "type": "object",
@@ -3254,15 +3084,13 @@
                     "required": [
                       "path",
                       "message"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 }
               },
               "required": [
                 "issues"
-              ],
-              "additionalProperties": false
+              ]
             }
           ]
         }
@@ -3270,8 +3098,7 @@
       "required": [
         "ok",
         "verb"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernDocsResult": {
       "title": "DiscernDocsResult",
@@ -3340,8 +3167,7 @@
                   "kind",
                   "label",
                   "disposition"
-                ],
-                "additionalProperties": false
+                ]
               }
             }
           },
@@ -3349,8 +3175,7 @@
             "title",
             "details",
             "steps"
-          ],
-          "additionalProperties": false
+          ]
         },
         "steps": {
           "type": "array",
@@ -3418,8 +3243,7 @@
               "label",
               "disposition",
               "outcome"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "diagnostics": {
@@ -3473,8 +3297,7 @@
               "severity",
               "message",
               "reproduce_cmd"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "hints": {
@@ -3527,8 +3350,7 @@
                       "section",
                       "slug",
                       "title"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 },
                 "doc": {
@@ -3556,8 +3378,7 @@
                     "slug",
                     "title",
                     "content"
-                  ],
-                  "additionalProperties": false
+                  ]
                 },
                 "candidates": {
                   "type": "array",
@@ -3565,8 +3386,7 @@
                     "type": "string"
                   }
                 }
-              },
-              "additionalProperties": false
+              }
             },
             {
               "type": "object",
@@ -3586,15 +3406,13 @@
                     "required": [
                       "path",
                       "message"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 }
               },
               "required": [
                 "issues"
-              ],
-              "additionalProperties": false
+              ]
             }
           ]
         }
@@ -3602,8 +3420,7 @@
       "required": [
         "ok",
         "verb"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernHelpResult": {
       "title": "DiscernHelpResult",
@@ -3672,8 +3489,7 @@
                   "kind",
                   "label",
                   "disposition"
-                ],
-                "additionalProperties": false
+                ]
               }
             }
           },
@@ -3681,8 +3497,7 @@
             "title",
             "details",
             "steps"
-          ],
-          "additionalProperties": false
+          ]
         },
         "steps": {
           "type": "array",
@@ -3750,8 +3565,7 @@
               "label",
               "disposition",
               "outcome"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "diagnostics": {
@@ -3805,8 +3619,7 @@
               "severity",
               "message",
               "reproduce_cmd"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "hints": {
@@ -3859,8 +3672,7 @@
                       "section",
                       "slug",
                       "title"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 },
                 "doc": {
@@ -3888,8 +3700,7 @@
                     "slug",
                     "title",
                     "content"
-                  ],
-                  "additionalProperties": false
+                  ]
                 },
                 "candidates": {
                   "type": "array",
@@ -3897,8 +3708,7 @@
                     "type": "string"
                   }
                 }
-              },
-              "additionalProperties": false
+              }
             },
             {
               "type": "object",
@@ -3918,15 +3728,13 @@
                     "required": [
                       "path",
                       "message"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 }
               },
               "required": [
                 "issues"
-              ],
-              "additionalProperties": false
+              ]
             }
           ]
         }
@@ -3934,8 +3742,7 @@
       "required": [
         "ok",
         "verb"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernConfigResult": {
       "title": "DiscernConfigResult",
@@ -4004,8 +3811,7 @@
                   "kind",
                   "label",
                   "disposition"
-                ],
-                "additionalProperties": false
+                ]
               }
             }
           },
@@ -4013,8 +3819,7 @@
             "title",
             "details",
             "steps"
-          ],
-          "additionalProperties": false
+          ]
         },
         "steps": {
           "type": "array",
@@ -4082,8 +3887,7 @@
               "label",
               "disposition",
               "outcome"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "diagnostics": {
@@ -4137,8 +3941,7 @@
               "severity",
               "message",
               "reproduce_cmd"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "hints": {
@@ -4180,16 +3983,14 @@
                     "required": [
                       "key",
                       "literal"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 }
               },
               "required": [
                 "file",
                 "edits"
-              ],
-              "additionalProperties": false
+              ]
             },
             {
               "type": "object",
@@ -4209,15 +4010,13 @@
                     "required": [
                       "path",
                       "message"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 }
               },
               "required": [
                 "issues"
-              ],
-              "additionalProperties": false
+              ]
             }
           ]
         }
@@ -4225,8 +4024,7 @@
       "required": [
         "ok",
         "verb"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernFinishResult": {
       "title": "DiscernFinishResult",
@@ -4295,8 +4093,7 @@
                   "kind",
                   "label",
                   "disposition"
-                ],
-                "additionalProperties": false
+                ]
               }
             }
           },
@@ -4304,8 +4101,7 @@
             "title",
             "details",
             "steps"
-          ],
-          "additionalProperties": false
+          ]
         },
         "steps": {
           "type": "array",
@@ -4373,8 +4169,7 @@
               "label",
               "disposition",
               "outcome"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "diagnostics": {
@@ -4428,8 +4223,7 @@
               "severity",
               "message",
               "reproduce_cmd"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "hints": {
@@ -4504,15 +4298,13 @@
                   },
                   "required": [
                     "status"
-                  ],
-                  "additionalProperties": false
+                  ]
                 }
               },
               "required": [
                 "failed_stage",
                 "scopes_changed"
-              ],
-              "additionalProperties": false
+              ]
             },
             {
               "type": "object",
@@ -4532,15 +4324,13 @@
                     "required": [
                       "path",
                       "message"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 }
               },
               "required": [
                 "issues"
-              ],
-              "additionalProperties": false
+              ]
             }
           ]
         }
@@ -4548,8 +4338,7 @@
       "required": [
         "ok",
         "verb"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernPrepareResult": {
       "title": "DiscernPrepareResult",
@@ -4618,8 +4407,7 @@
                   "kind",
                   "label",
                   "disposition"
-                ],
-                "additionalProperties": false
+                ]
               }
             }
           },
@@ -4627,8 +4415,7 @@
             "title",
             "details",
             "steps"
-          ],
-          "additionalProperties": false
+          ]
         },
         "steps": {
           "type": "array",
@@ -4696,8 +4483,7 @@
               "label",
               "disposition",
               "outcome"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "diagnostics": {
@@ -4751,8 +4537,7 @@
               "severity",
               "message",
               "reproduce_cmd"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "hints": {
@@ -4789,22 +4574,19 @@
                 "required": [
                   "path",
                   "message"
-                ],
-                "additionalProperties": false
+                ]
               }
             }
           },
           "required": [
             "issues"
-          ],
-          "additionalProperties": false
+          ]
         }
       },
       "required": [
         "ok",
         "verb"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernTestResult": {
       "title": "DiscernTestResult",
@@ -4873,8 +4655,7 @@
                   "kind",
                   "label",
                   "disposition"
-                ],
-                "additionalProperties": false
+                ]
               }
             }
           },
@@ -4882,8 +4663,7 @@
             "title",
             "details",
             "steps"
-          ],
-          "additionalProperties": false
+          ]
         },
         "steps": {
           "type": "array",
@@ -4951,8 +4731,7 @@
               "label",
               "disposition",
               "outcome"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "diagnostics": {
@@ -5006,8 +4785,7 @@
               "severity",
               "message",
               "reproduce_cmd"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "hints": {
@@ -5044,22 +4822,19 @@
                 "required": [
                   "path",
                   "message"
-                ],
-                "additionalProperties": false
+                ]
               }
             }
           },
           "required": [
             "issues"
-          ],
-          "additionalProperties": false
+          ]
         }
       },
       "required": [
         "ok",
         "verb"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernImproveResult": {
       "title": "DiscernImproveResult",
@@ -5128,8 +4903,7 @@
                   "kind",
                   "label",
                   "disposition"
-                ],
-                "additionalProperties": false
+                ]
               }
             }
           },
@@ -5137,8 +4911,7 @@
             "title",
             "details",
             "steps"
-          ],
-          "additionalProperties": false
+          ]
         },
         "steps": {
           "type": "array",
@@ -5206,8 +4979,7 @@
               "label",
               "disposition",
               "outcome"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "diagnostics": {
@@ -5261,8 +5033,7 @@
               "severity",
               "message",
               "reproduce_cmd"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "hints": {
@@ -5328,8 +5099,7 @@
                     "title",
                     "action",
                     "why"
-                  ],
-                  "additionalProperties": false
+                  ]
                 },
                 "categories": {
                   "type": "array",
@@ -5390,8 +5160,7 @@
                             "weight",
                             "detail",
                             "teach"
-                          ],
-                          "additionalProperties": false
+                          ]
                         }
                       },
                       "reviews": {
@@ -5424,8 +5193,7 @@
                               "required": [
                                 "source",
                                 "excerpt"
-                              ],
-                              "additionalProperties": false
+                              ]
                             }
                           },
                           "required": [
@@ -5433,8 +5201,7 @@
                             "title",
                             "ask",
                             "teach"
-                          ],
-                          "additionalProperties": false
+                          ]
                         }
                       }
                     },
@@ -5446,8 +5213,7 @@
                       "weak",
                       "rules",
                       "reviews"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 }
               },
@@ -5457,8 +5223,7 @@
                 "open_reviews",
                 "next_action",
                 "categories"
-              ],
-              "additionalProperties": false
+              ]
             },
             {
               "type": "object",
@@ -5478,15 +5243,13 @@
                     "required": [
                       "path",
                       "message"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 }
               },
               "required": [
                 "issues"
-              ],
-              "additionalProperties": false
+              ]
             }
           ]
         }
@@ -5494,8 +5257,7 @@
       "required": [
         "ok",
         "verb"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernRatchetsResult": {
       "title": "DiscernRatchetsResult",
@@ -5564,8 +5326,7 @@
                   "kind",
                   "label",
                   "disposition"
-                ],
-                "additionalProperties": false
+                ]
               }
             }
           },
@@ -5573,8 +5334,7 @@
             "title",
             "details",
             "steps"
-          ],
-          "additionalProperties": false
+          ]
         },
         "steps": {
           "type": "array",
@@ -5642,8 +5402,7 @@
               "label",
               "disposition",
               "outcome"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "diagnostics": {
@@ -5697,8 +5456,7 @@
               "severity",
               "message",
               "reproduce_cmd"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "hints": {
@@ -5735,22 +5493,19 @@
                 "required": [
                   "path",
                   "message"
-                ],
-                "additionalProperties": false
+                ]
               }
             }
           },
           "required": [
             "issues"
-          ],
-          "additionalProperties": false
+          ]
         }
       },
       "required": [
         "ok",
         "verb"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernRefreshResult": {
       "title": "DiscernRefreshResult",
@@ -5819,8 +5574,7 @@
                   "kind",
                   "label",
                   "disposition"
-                ],
-                "additionalProperties": false
+                ]
               }
             }
           },
@@ -5828,8 +5582,7 @@
             "title",
             "details",
             "steps"
-          ],
-          "additionalProperties": false
+          ]
         },
         "steps": {
           "type": "array",
@@ -5897,8 +5650,7 @@
               "label",
               "disposition",
               "outcome"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "diagnostics": {
@@ -5952,8 +5704,7 @@
               "severity",
               "message",
               "reproduce_cmd"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "hints": {
@@ -6018,8 +5769,7 @@
                     "copied",
                     "linked",
                     "pruned"
-                  ],
-                  "additionalProperties": false
+                  ]
                 },
                 "errors": {
                   "type": "array",
@@ -6035,8 +5785,7 @@
                 "project_rules_wired",
                 "skills",
                 "errors"
-              ],
-              "additionalProperties": false
+              ]
             },
             {
               "type": "object",
@@ -6056,15 +5805,13 @@
                     "required": [
                       "path",
                       "message"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 }
               },
               "required": [
                 "issues"
-              ],
-              "additionalProperties": false
+              ]
             }
           ]
         }
@@ -6072,8 +5819,7 @@
       "required": [
         "ok",
         "verb"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernScopesResult": {
       "title": "DiscernScopesResult",
@@ -6142,8 +5888,7 @@
                   "kind",
                   "label",
                   "disposition"
-                ],
-                "additionalProperties": false
+                ]
               }
             }
           },
@@ -6151,8 +5896,7 @@
             "title",
             "details",
             "steps"
-          ],
-          "additionalProperties": false
+          ]
         },
         "steps": {
           "type": "array",
@@ -6220,8 +5964,7 @@
               "label",
               "disposition",
               "outcome"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "diagnostics": {
@@ -6275,8 +6018,7 @@
               "severity",
               "message",
               "reproduce_cmd"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "hints": {
@@ -6309,8 +6051,7 @@
               },
               "required": [
                 "scopes"
-              ],
-              "additionalProperties": false
+              ]
             },
             {
               "type": "object",
@@ -6330,15 +6071,13 @@
                     "required": [
                       "path",
                       "message"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 }
               },
               "required": [
                 "issues"
-              ],
-              "additionalProperties": false
+              ]
             }
           ]
         }
@@ -6346,8 +6085,7 @@
       "required": [
         "ok",
         "verb"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernCouplingResult": {
       "title": "DiscernCouplingResult",
@@ -6416,8 +6154,7 @@
                   "kind",
                   "label",
                   "disposition"
-                ],
-                "additionalProperties": false
+                ]
               }
             }
           },
@@ -6425,8 +6162,7 @@
             "title",
             "details",
             "steps"
-          ],
-          "additionalProperties": false
+          ]
         },
         "steps": {
           "type": "array",
@@ -6494,8 +6230,7 @@
               "label",
               "disposition",
               "outcome"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "diagnostics": {
@@ -6549,8 +6284,7 @@
               "severity",
               "message",
               "reproduce_cmd"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "hints": {
@@ -6626,8 +6360,7 @@
                       "of",
                       "confidence",
                       "lift"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 },
                 "a": {
@@ -6670,16 +6403,14 @@
                       "sha",
                       "date",
                       "subject"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 }
               },
               "required": [
                 "mode",
                 "partners"
-              ],
-              "additionalProperties": false
+              ]
             },
             {
               "type": "object",
@@ -6699,15 +6430,13 @@
                     "required": [
                       "path",
                       "message"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 }
               },
               "required": [
                 "issues"
-              ],
-              "additionalProperties": false
+              ]
             }
           ]
         }
@@ -6715,8 +6444,7 @@
       "required": [
         "ok",
         "verb"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernStatusResult": {
       "title": "DiscernStatusResult",
@@ -6785,8 +6513,7 @@
                   "kind",
                   "label",
                   "disposition"
-                ],
-                "additionalProperties": false
+                ]
               }
             }
           },
@@ -6794,8 +6521,7 @@
             "title",
             "details",
             "steps"
-          ],
-          "additionalProperties": false
+          ]
         },
         "steps": {
           "type": "array",
@@ -6863,8 +6589,7 @@
               "label",
               "disposition",
               "outcome"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "diagnostics": {
@@ -6918,8 +6643,7 @@
               "severity",
               "message",
               "reproduce_cmd"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "hints": {
@@ -6990,8 +6714,7 @@
                         "port",
                         "db",
                         "resources"
-                      ],
-                      "additionalProperties": false
+                      ]
                     },
                     {
                       "type": "null"
@@ -7042,8 +6765,7 @@
                         "changed_files",
                         "behind_integration",
                         "ahead_integration"
-                      ],
-                      "additionalProperties": false
+                      ]
                     },
                     {
                       "type": "null"
@@ -7082,8 +6804,7 @@
                     "capabilities",
                     "checks",
                     "scope_gates"
-                  ],
-                  "additionalProperties": false
+                  ]
                 },
                 "features": {
                   "type": "object",
@@ -7114,8 +6835,7 @@
                     "skills",
                     "docs",
                     "coupling"
-                  ],
-                  "additionalProperties": false
+                  ]
                 },
                 "ratchets": {
                   "type": "array",
@@ -7152,8 +6872,7 @@
                   },
                   "required": [
                     "status"
-                  ],
-                  "additionalProperties": false
+                  ]
                 },
                 "stale_generated": {
                   "type": "array",
@@ -7191,16 +6910,14 @@
                         "required": [
                           "name",
                           "wired"
-                        ],
-                        "additionalProperties": false
+                        ]
                       }
                     }
                   },
                   "required": [
                     "pending_markers",
                     "capabilities"
-                  ],
-                  "additionalProperties": false
+                  ]
                 },
                 "fleet": {
                   "type": "array",
@@ -7250,8 +6967,7 @@
                       "changed_files",
                       "ahead",
                       "behind"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 }
               },
@@ -7262,8 +6978,7 @@
                 "git",
                 "features",
                 "ratchets"
-              ],
-              "additionalProperties": false
+              ]
             },
             {
               "type": "object",
@@ -7283,15 +6998,13 @@
                     "required": [
                       "path",
                       "message"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 }
               },
               "required": [
                 "issues"
-              ],
-              "additionalProperties": false
+              ]
             }
           ]
         }
@@ -7299,8 +7012,7 @@
       "required": [
         "ok",
         "verb"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernStartResult": {
       "title": "DiscernStartResult",
@@ -7369,8 +7081,7 @@
                   "kind",
                   "label",
                   "disposition"
-                ],
-                "additionalProperties": false
+                ]
               }
             }
           },
@@ -7378,8 +7089,7 @@
             "title",
             "details",
             "steps"
-          ],
-          "additionalProperties": false
+          ]
         },
         "steps": {
           "type": "array",
@@ -7447,8 +7157,7 @@
               "label",
               "disposition",
               "outcome"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "diagnostics": {
@@ -7502,8 +7211,7 @@
               "severity",
               "message",
               "reproduce_cmd"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "hints": {
@@ -7541,8 +7249,7 @@
                 "id",
                 "branch",
                 "path"
-              ],
-              "additionalProperties": false
+              ]
             },
             {
               "type": "object",
@@ -7562,15 +7269,13 @@
                     "required": [
                       "path",
                       "message"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 }
               },
               "required": [
                 "issues"
-              ],
-              "additionalProperties": false
+              ]
             }
           ]
         }
@@ -7578,8 +7283,7 @@
       "required": [
         "ok",
         "verb"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernGraduateResult": {
       "title": "DiscernGraduateResult",
@@ -7648,8 +7352,7 @@
                   "kind",
                   "label",
                   "disposition"
-                ],
-                "additionalProperties": false
+                ]
               }
             }
           },
@@ -7657,8 +7360,7 @@
             "title",
             "details",
             "steps"
-          ],
-          "additionalProperties": false
+          ]
         },
         "steps": {
           "type": "array",
@@ -7726,8 +7428,7 @@
               "label",
               "disposition",
               "outcome"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "diagnostics": {
@@ -7781,8 +7482,7 @@
               "severity",
               "message",
               "reproduce_cmd"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "hints": {
@@ -7848,15 +7548,13 @@
                       },
                       "required": [
                         "status"
-                      ],
-                      "additionalProperties": false
+                      ]
                     }
                   },
                   "required": [
                     "mode",
                     "receipt"
-                  ],
-                  "additionalProperties": false
+                  ]
                 },
                 "ignored_file_changes": {
                   "type": "object",
@@ -7889,14 +7587,12 @@
                     "changed_roots",
                     "changed_total",
                     "truncated"
-                  ],
-                  "additionalProperties": false
+                  ]
                 }
               },
               "required": [
                 "root"
-              ],
-              "additionalProperties": false
+              ]
             },
             {
               "type": "object",
@@ -7916,15 +7612,13 @@
                     "required": [
                       "path",
                       "message"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 }
               },
               "required": [
                 "issues"
-              ],
-              "additionalProperties": false
+              ]
             }
           ]
         }
@@ -7932,8 +7626,7 @@
       "required": [
         "ok",
         "verb"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernIntegrateResult": {
       "title": "DiscernIntegrateResult",
@@ -8002,8 +7695,7 @@
                   "kind",
                   "label",
                   "disposition"
-                ],
-                "additionalProperties": false
+                ]
               }
             }
           },
@@ -8011,8 +7703,7 @@
             "title",
             "details",
             "steps"
-          ],
-          "additionalProperties": false
+          ]
         },
         "steps": {
           "type": "array",
@@ -8080,8 +7771,7 @@
               "label",
               "disposition",
               "outcome"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "diagnostics": {
@@ -8135,8 +7825,7 @@
               "severity",
               "message",
               "reproduce_cmd"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "hints": {
@@ -8181,8 +7870,7 @@
                     "required": [
                       "sha",
                       "subject"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 },
                 "commits_total": {
@@ -8228,8 +7916,7 @@
                       "status",
                       "added",
                       "removed"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 },
                 "files_total": {
@@ -8273,8 +7960,7 @@
                     "base",
                     "before",
                     "main"
-                  ],
-                  "additionalProperties": false
+                  ]
                 }
               },
               "required": [
@@ -8290,8 +7976,7 @@
                 "overlap_total",
                 "scopes_incoming",
                 "range"
-              ],
-              "additionalProperties": false
+              ]
             },
             {
               "type": "object",
@@ -8311,15 +7996,13 @@
                     "required": [
                       "path",
                       "message"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 }
               },
               "required": [
                 "issues"
-              ],
-              "additionalProperties": false
+              ]
             }
           ]
         }
@@ -8327,8 +8010,7 @@
       "required": [
         "ok",
         "verb"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernWorktreeSetupResult": {
       "title": "DiscernWorktreeSetupResult",
@@ -8397,8 +8079,7 @@
                   "kind",
                   "label",
                   "disposition"
-                ],
-                "additionalProperties": false
+                ]
               }
             }
           },
@@ -8406,8 +8087,7 @@
             "title",
             "details",
             "steps"
-          ],
-          "additionalProperties": false
+          ]
         },
         "steps": {
           "type": "array",
@@ -8475,8 +8155,7 @@
               "label",
               "disposition",
               "outcome"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "diagnostics": {
@@ -8530,8 +8209,7 @@
               "severity",
               "message",
               "reproduce_cmd"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "hints": {
@@ -8568,22 +8246,19 @@
                 "required": [
                   "path",
                   "message"
-                ],
-                "additionalProperties": false
+                ]
               }
             }
           },
           "required": [
             "issues"
-          ],
-          "additionalProperties": false
+          ]
         }
       },
       "required": [
         "ok",
         "verb"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernWorktreeTeardownResult": {
       "title": "DiscernWorktreeTeardownResult",
@@ -8652,8 +8327,7 @@
                   "kind",
                   "label",
                   "disposition"
-                ],
-                "additionalProperties": false
+                ]
               }
             }
           },
@@ -8661,8 +8335,7 @@
             "title",
             "details",
             "steps"
-          ],
-          "additionalProperties": false
+          ]
         },
         "steps": {
           "type": "array",
@@ -8730,8 +8403,7 @@
               "label",
               "disposition",
               "outcome"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "diagnostics": {
@@ -8785,8 +8457,7 @@
               "severity",
               "message",
               "reproduce_cmd"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "hints": {
@@ -8823,22 +8494,19 @@
                 "required": [
                   "path",
                   "message"
-                ],
-                "additionalProperties": false
+                ]
               }
             }
           },
           "required": [
             "issues"
-          ],
-          "additionalProperties": false
+          ]
         }
       },
       "required": [
         "ok",
         "verb"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernWorktreePruneResult": {
       "title": "DiscernWorktreePruneResult",
@@ -8907,8 +8575,7 @@
                   "kind",
                   "label",
                   "disposition"
-                ],
-                "additionalProperties": false
+                ]
               }
             }
           },
@@ -8916,8 +8583,7 @@
             "title",
             "details",
             "steps"
-          ],
-          "additionalProperties": false
+          ]
         },
         "steps": {
           "type": "array",
@@ -8985,8 +8651,7 @@
               "label",
               "disposition",
               "outcome"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "diagnostics": {
@@ -9040,8 +8705,7 @@
               "severity",
               "message",
               "reproduce_cmd"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "hints": {
@@ -9078,22 +8742,19 @@
                 "required": [
                   "path",
                   "message"
-                ],
-                "additionalProperties": false
+                ]
               }
             }
           },
           "required": [
             "issues"
-          ],
-          "additionalProperties": false
+          ]
         }
       },
       "required": [
         "ok",
         "verb"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernSkillsListResult": {
       "title": "DiscernSkillsListResult",
@@ -9162,8 +8823,7 @@
                   "kind",
                   "label",
                   "disposition"
-                ],
-                "additionalProperties": false
+                ]
               }
             }
           },
@@ -9171,8 +8831,7 @@
             "title",
             "details",
             "steps"
-          ],
-          "additionalProperties": false
+          ]
         },
         "steps": {
           "type": "array",
@@ -9240,8 +8899,7 @@
               "label",
               "disposition",
               "outcome"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "diagnostics": {
@@ -9295,8 +8953,7 @@
               "severity",
               "message",
               "reproduce_cmd"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "hints": {
@@ -9313,7 +8970,7 @@
         },
         "verb": {
           "type": "string",
-          "const": "skills:list"
+          "const": "skills list"
         },
         "data": {
           "anyOf": [
@@ -9347,15 +9004,13 @@
                       "source",
                       "overridesBundled",
                       "hasBundled"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 }
               },
               "required": [
                 "skills"
-              ],
-              "additionalProperties": false
+              ]
             },
             {
               "type": "object",
@@ -9375,15 +9030,13 @@
                     "required": [
                       "path",
                       "message"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 }
               },
               "required": [
                 "issues"
-              ],
-              "additionalProperties": false
+              ]
             }
           ]
         }
@@ -9391,8 +9044,7 @@
       "required": [
         "ok",
         "verb"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernSkillsEjectResult": {
       "title": "DiscernSkillsEjectResult",
@@ -9461,8 +9113,7 @@
                   "kind",
                   "label",
                   "disposition"
-                ],
-                "additionalProperties": false
+                ]
               }
             }
           },
@@ -9470,8 +9121,7 @@
             "title",
             "details",
             "steps"
-          ],
-          "additionalProperties": false
+          ]
         },
         "steps": {
           "type": "array",
@@ -9539,8 +9189,7 @@
               "label",
               "disposition",
               "outcome"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "diagnostics": {
@@ -9594,8 +9243,7 @@
               "severity",
               "message",
               "reproduce_cmd"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "hints": {
@@ -9612,7 +9260,7 @@
         },
         "verb": {
           "type": "string",
-          "const": "skills:eject"
+          "const": "skills eject"
         },
         "data": {
           "anyOf": [
@@ -9655,8 +9303,7 @@
                     "linked",
                     "pruned",
                     "errors"
-                  ],
-                  "additionalProperties": false
+                  ]
                 }
               },
               "required": [
@@ -9665,8 +9312,7 @@
                 "dest_rel",
                 "skills_dir_persisted",
                 "materialized"
-              ],
-              "additionalProperties": false
+              ]
             },
             {
               "type": "object",
@@ -9686,15 +9332,13 @@
                     "required": [
                       "path",
                       "message"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 }
               },
               "required": [
                 "issues"
-              ],
-              "additionalProperties": false
+              ]
             }
           ]
         }
@@ -9702,8 +9346,7 @@
       "required": [
         "ok",
         "verb"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernDoctorMcpToolResult": {
       "title": "DiscernDoctorMcpToolResult",
@@ -9724,8 +9367,7 @@
             "required": [
               "type",
               "text"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "structuredContent": {
@@ -9739,8 +9381,7 @@
         "content",
         "structuredContent",
         "isError"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernDocsMcpToolResult": {
       "title": "DiscernDocsMcpToolResult",
@@ -9761,8 +9402,7 @@
             "required": [
               "type",
               "text"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "structuredContent": {
@@ -9776,8 +9416,7 @@
         "content",
         "structuredContent",
         "isError"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernHelpMcpToolResult": {
       "title": "DiscernHelpMcpToolResult",
@@ -9798,8 +9437,7 @@
             "required": [
               "type",
               "text"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "structuredContent": {
@@ -9813,8 +9451,7 @@
         "content",
         "structuredContent",
         "isError"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernFinishMcpToolResult": {
       "title": "DiscernFinishMcpToolResult",
@@ -9835,8 +9472,7 @@
             "required": [
               "type",
               "text"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "structuredContent": {
@@ -9850,8 +9486,7 @@
         "content",
         "structuredContent",
         "isError"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernPrepareMcpToolResult": {
       "title": "DiscernPrepareMcpToolResult",
@@ -9872,8 +9507,7 @@
             "required": [
               "type",
               "text"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "structuredContent": {
@@ -9887,8 +9521,7 @@
         "content",
         "structuredContent",
         "isError"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernTestMcpToolResult": {
       "title": "DiscernTestMcpToolResult",
@@ -9909,8 +9542,7 @@
             "required": [
               "type",
               "text"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "structuredContent": {
@@ -9924,8 +9556,7 @@
         "content",
         "structuredContent",
         "isError"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernImproveMcpToolResult": {
       "title": "DiscernImproveMcpToolResult",
@@ -9946,8 +9577,7 @@
             "required": [
               "type",
               "text"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "structuredContent": {
@@ -9961,8 +9591,7 @@
         "content",
         "structuredContent",
         "isError"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernRatchetsMcpToolResult": {
       "title": "DiscernRatchetsMcpToolResult",
@@ -9983,8 +9612,7 @@
             "required": [
               "type",
               "text"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "structuredContent": {
@@ -9998,8 +9626,7 @@
         "content",
         "structuredContent",
         "isError"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernRefreshMcpToolResult": {
       "title": "DiscernRefreshMcpToolResult",
@@ -10020,8 +9647,7 @@
             "required": [
               "type",
               "text"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "structuredContent": {
@@ -10035,8 +9661,7 @@
         "content",
         "structuredContent",
         "isError"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernScopesMcpToolResult": {
       "title": "DiscernScopesMcpToolResult",
@@ -10057,8 +9682,7 @@
             "required": [
               "type",
               "text"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "structuredContent": {
@@ -10072,8 +9696,7 @@
         "content",
         "structuredContent",
         "isError"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernCouplingMcpToolResult": {
       "title": "DiscernCouplingMcpToolResult",
@@ -10094,8 +9717,7 @@
             "required": [
               "type",
               "text"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "structuredContent": {
@@ -10109,8 +9731,7 @@
         "content",
         "structuredContent",
         "isError"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernStatusMcpToolResult": {
       "title": "DiscernStatusMcpToolResult",
@@ -10131,8 +9752,7 @@
             "required": [
               "type",
               "text"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "structuredContent": {
@@ -10146,8 +9766,7 @@
         "content",
         "structuredContent",
         "isError"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernStartMcpToolResult": {
       "title": "DiscernStartMcpToolResult",
@@ -10168,8 +9787,7 @@
             "required": [
               "type",
               "text"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "structuredContent": {
@@ -10183,8 +9801,7 @@
         "content",
         "structuredContent",
         "isError"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernGraduateMcpToolResult": {
       "title": "DiscernGraduateMcpToolResult",
@@ -10205,8 +9822,7 @@
             "required": [
               "type",
               "text"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "structuredContent": {
@@ -10220,8 +9836,7 @@
         "content",
         "structuredContent",
         "isError"
-      ],
-      "additionalProperties": false
+      ]
     },
     "DiscernIntegrateMcpToolResult": {
       "title": "DiscernIntegrateMcpToolResult",
@@ -10242,8 +9857,7 @@
             "required": [
               "type",
               "text"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "structuredContent": {
@@ -10257,8 +9871,181 @@
         "content",
         "structuredContent",
         "isError"
+      ]
+    },
+    "DiscernCliJsonResult": {
+      "title": "DiscernCliJsonResult",
+      "description": "Any `discern <command> --json` result. Consumers with a known verb should prefer the per-verb schema referenced by x-discern-contracts for clearer validation errors.",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/DiscernSetupResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernSetupVerifyResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernSetupStepResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernSetupDoneResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernSetupLandResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernUpgradeResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernDoctorResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernPresetResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernDocsResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernHelpResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernConfigResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernFinishResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernPrepareResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernTestResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernImproveResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernRatchetsResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernRefreshResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernScopesResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernCouplingResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernStatusResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernStartResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernGraduateResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernIntegrateResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernWorktreeSetupResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernWorktreeTeardownResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernWorktreePruneResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernSkillsListResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernSkillsEjectResult"
+        }
       ],
-      "additionalProperties": false
+      "discriminator": {
+        "propertyName": "verb",
+        "mapping": {
+          "setup": "#/$defs/DiscernSetupResult",
+          "setup verify": "#/$defs/DiscernSetupVerifyResult",
+          "setup step": "#/$defs/DiscernSetupStepResult",
+          "setup done": "#/$defs/DiscernSetupDoneResult",
+          "setup land": "#/$defs/DiscernSetupLandResult",
+          "upgrade": "#/$defs/DiscernUpgradeResult",
+          "doctor": "#/$defs/DiscernDoctorResult",
+          "preset": "#/$defs/DiscernPresetResult",
+          "docs": "#/$defs/DiscernDocsResult",
+          "help": "#/$defs/DiscernHelpResult",
+          "config": "#/$defs/DiscernConfigResult",
+          "finish": "#/$defs/DiscernFinishResult",
+          "prepare": "#/$defs/DiscernPrepareResult",
+          "test": "#/$defs/DiscernTestResult",
+          "improve": "#/$defs/DiscernImproveResult",
+          "ratchets": "#/$defs/DiscernRatchetsResult",
+          "refresh": "#/$defs/DiscernRefreshResult",
+          "scopes": "#/$defs/DiscernScopesResult",
+          "coupling": "#/$defs/DiscernCouplingResult",
+          "status": "#/$defs/DiscernStatusResult",
+          "start": "#/$defs/DiscernStartResult",
+          "graduate": "#/$defs/DiscernGraduateResult",
+          "integrate": "#/$defs/DiscernIntegrateResult",
+          "worktree setup": "#/$defs/DiscernWorktreeSetupResult",
+          "worktree teardown": "#/$defs/DiscernWorktreeTeardownResult",
+          "worktree prune": "#/$defs/DiscernWorktreePruneResult",
+          "skills list": "#/$defs/DiscernSkillsListResult",
+          "skills eject": "#/$defs/DiscernSkillsEjectResult"
+        }
+      }
+    },
+    "DiscernMcpJsonResult": {
+      "title": "DiscernMcpJsonResult",
+      "description": "Any MCP tool result object returned by discern's MCP server. Its structuredContent is the same DiscernResult envelope exposed by the corresponding CLI command.",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/DiscernDoctorMcpToolResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernDocsMcpToolResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernHelpMcpToolResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernFinishMcpToolResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernPrepareMcpToolResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernTestMcpToolResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernImproveMcpToolResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernRatchetsMcpToolResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernRefreshMcpToolResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernScopesMcpToolResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernCouplingMcpToolResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernStatusMcpToolResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernStartMcpToolResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernGraduateMcpToolResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernIntegrateMcpToolResult"
+        }
+      ]
     }
   },
   "x-discern-contracts": [
@@ -10273,7 +10060,7 @@
     },
     {
       "id": "setupVerify",
-      "verb": "setup:verify",
+      "verb": "setup verify",
       "commands": [
         "setup verify"
       ],
@@ -10281,7 +10068,7 @@
     },
     {
       "id": "setupStep",
-      "verb": "setup:step",
+      "verb": "setup step",
       "commands": [
         "setup step"
       ],
@@ -10289,7 +10076,7 @@
     },
     {
       "id": "setupDone",
-      "verb": "setup:done",
+      "verb": "setup done",
       "commands": [
         "setup done"
       ],
@@ -10297,7 +10084,7 @@
     },
     {
       "id": "setupLand",
-      "verb": "setup:land",
+      "verb": "setup land",
       "commands": [
         "setup land"
       ],
@@ -10507,7 +10294,7 @@
     },
     {
       "id": "skillsList",
-      "verb": "skills:list",
+      "verb": "skills list",
       "commands": [
         "skills list"
       ],
@@ -10515,7 +10302,7 @@
     },
     {
       "id": "skillsEject",
-      "verb": "skills:eject",
+      "verb": "skills eject",
       "commands": [
         "skills eject"
       ],

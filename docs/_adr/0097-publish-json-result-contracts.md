@@ -46,11 +46,32 @@ Public output schemas use literal `verb` values. Consumers can switch on
 also exposes lookup maps by serialized verb, by CLI command path, by MCP
 `structuredContent` tool name, and by full MCP tool-result wrapper.
 
+The JSON Schema root accepts either a CLI `DiscernResult` or an MCP tool-result
+wrapper. It also publishes named `DiscernCliJsonResult` and
+`DiscernMcpJsonResult` union entrypoints under `$defs`; `x-discern-contracts`
+maps each CLI command path and MCP tool back to the relevant per-result schema.
+The CLI union includes a discriminator mapping on `verb` for tooling that
+understands that extension, while plain JSON Schema consumers can still choose a
+specific per-verb `$defs` entry themselves.
+
+The public JSON Schema is compatibility-open for output objects: codegen strips
+`additionalProperties: false` markers that come from strict runtime Zod objects,
+while preserving map value schemas expressed through `additionalProperties`.
+Runtime and MCP validation remain strict because they still use the original Zod
+schemas. This keeps accidental extra runtime fields visible in tests and MCP
+validation, without making additive public output fields a breaking change for
+consumers pinned to an older schema.
+
 `deno task codegen` writes the result schema and TypeScript definitions
 alongside the existing config artifacts. Tests assert that:
 
 - the committed artifacts match the generator;
 - every public result schema has the expected literal `verb`;
+- public verb values use the CLI's space-separated command vocabulary rather
+  than colon-delimited subcommands;
+- the public JSON Schema omits closed-object `additionalProperties: false`
+  markers;
+- the schema root reaches both the CLI and MCP union entrypoints;
 - every registered CLI command path is either covered or explicitly excluded;
 - every MCP tool uses the same output schema the public registry publishes.
 
@@ -79,6 +100,11 @@ cores because the top-level CLI can emit `invalid_config`/`invalid_toml`
 refusals before a verb core runs. That shared refusal remains part of the
 published CLI contract even when MCP reaches the same core through a different
 preflight path.
+
+The public schema is also intentionally wider than the runtime Zod schemas for
+additive object fields. That is the output-contract compatibility policy:
+consumers validate the fields they understand, while newer discern releases can
+add fields without turning an older pinned schema into a rejection machine.
 
 The generated TypeScript file is verbose because it is standalone and repeats
 structural envelope fields rather than importing internal Zod types. That

@@ -43,6 +43,20 @@ _Nothing outstanding._
 
 ## 🟡 Smaller fixes & polish
 
+- [ ] **Version the public JSON result contract before launch.** The generated
+      result schema currently uses a mutable `main`-branch `$id`, which is fine
+      while the contract is pre-launch but too slippery for consumers pinning a
+      public validation target. Before calling the result contract stable, move
+      it to an immutable/versioned identity (for example a `schema/v1/...` path
+      with a documented compatibility policy, or a release-tag/domain URL), and
+      consider adding a top-level `schema_version: 1` field to every
+      `DiscernResult` envelope so raw `--json` output identifies its contract
+      without out-of-band knowledge. Decide whether the version tracks only
+      breaking schema changes or the discern release line, then document that in
+      the result-envelope docs. Evidence: `src/shared/result_codegen.ts`
+      (`RESULT_SCHEMA_ID`); `schema/discern-results.schema.json`;
+      `docs/20-quality-gate/the-result-envelope.md`.
+
 - [ ] **Revisit when agents should run ratchets in the lifecycle.** The current
       guidance intentionally says to run ratchets "as needed" and keeps them
       slow/on-demand, with non-dry-run checks requiring a clean tree. Revisit

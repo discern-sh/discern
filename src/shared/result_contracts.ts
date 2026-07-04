@@ -63,25 +63,25 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
   {
     id: "setupVerify",
     commands: ["setup verify"],
-    verb: "setup:verify",
+    verb: "setup verify",
     schema: SetupVerifyOutputSchema,
   },
   {
     id: "setupStep",
     commands: ["setup step"],
-    verb: "setup:step",
+    verb: "setup step",
     schema: SetupStepOutputSchema,
   },
   {
     id: "setupDone",
     commands: ["setup done"],
-    verb: "setup:done",
+    verb: "setup done",
     schema: SetupDoneOutputSchema,
   },
   {
     id: "setupLand",
     commands: ["setup land"],
-    verb: "setup:land",
+    verb: "setup land",
     schema: SetupLandOutputSchema,
   },
   {
@@ -234,13 +234,13 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
   {
     id: "skillsList",
     commands: ["skills list"],
-    verb: "skills:list",
+    verb: "skills list",
     schema: SkillsListOutputSchema,
   },
   {
     id: "skillsEject",
     commands: ["skills eject"],
-    verb: "skills:eject",
+    verb: "skills eject",
     schema: SkillsEjectOutputSchema,
   },
 ] as const;

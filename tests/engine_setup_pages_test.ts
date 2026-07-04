@@ -82,7 +82,7 @@ Deno.test("setup step <n> --json carries the structured spine AND the prose guid
     assertEquals(r.code, 0, r.output);
 
     const res = JSON.parse(r.stdout);
-    assertEquals(res.verb, "setup:step");
+    assertEquals(res.verb, "setup step");
     const d = res.data;
     assertEquals(d.step, 3);
     assertEquals(typeof d.title, "string");

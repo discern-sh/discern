@@ -154,7 +154,7 @@ Deno.test("setup done --json carries the per-capability assurance block + verdic
     const res = JSON.parse(
       (await runAgent(dir, ["setup", "done", "--force", "--json"])).stdout,
     );
-    assertEquals(res.verb, "setup:done");
+    assertEquals(res.verb, "setup done");
     const a = res.data.assurance;
     assertEquals(a.verdict, "partial");
     assertEquals(a.enforced, 2);

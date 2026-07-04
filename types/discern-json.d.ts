@@ -201,7 +201,7 @@ export type DiscernSetupVerifyResult = {
   hints?: Array<string>;
   error?: string;
   message?: string;
-  verb: "setup:verify";
+  verb: "setup verify";
   data?: {
     phase: "fresh" | "in_progress" | "done";
     next_action: string;
@@ -307,7 +307,7 @@ export type DiscernSetupStepResult = {
   hints?: Array<string>;
   error?: string;
   message?: string;
-  verb: "setup:step";
+  verb: "setup step";
   data?: {
     step: number;
     title: string;
@@ -397,7 +397,7 @@ export type DiscernSetupDoneResult = {
   hints?: Array<string>;
   error?: string;
   message?: string;
-  verb: "setup:done";
+  verb: "setup done";
   data?: {
     bootstrapped: true;
     forced: boolean;
@@ -512,7 +512,7 @@ export type DiscernSetupLandResult = {
   hints?: Array<string>;
   error?: string;
   message?: string;
-  verb: "setup:land";
+  verb: "setup land";
   data?: {
     landed: boolean;
     branch: string;
@@ -2604,7 +2604,7 @@ export type DiscernSkillsListResult = {
   hints?: Array<string>;
   error?: string;
   message?: string;
-  verb: "skills:list";
+  verb: "skills list";
   data?: {
     skills: Array<{
       name: string;
@@ -2689,7 +2689,7 @@ export type DiscernSkillsEjectResult = {
   hints?: Array<string>;
   error?: string;
   message?: string;
-  verb: "skills:eject";
+  verb: "skills eject";
   data?: {
     name: string;
     dest_abs: string;
@@ -2741,10 +2741,10 @@ export type DiscernCliJsonResult =
 
 export interface DiscernResultByVerb {
   setup: DiscernSetupResult;
-  "setup:verify": DiscernSetupVerifyResult;
-  "setup:step": DiscernSetupStepResult;
-  "setup:done": DiscernSetupDoneResult;
-  "setup:land": DiscernSetupLandResult;
+  "setup verify": DiscernSetupVerifyResult;
+  "setup step": DiscernSetupStepResult;
+  "setup done": DiscernSetupDoneResult;
+  "setup land": DiscernSetupLandResult;
   upgrade: DiscernUpgradeResult;
   doctor: DiscernDoctorResult;
   preset: DiscernPresetResult;
@@ -2766,8 +2766,8 @@ export interface DiscernResultByVerb {
   "worktree setup": DiscernWorktreeSetupResult;
   "worktree teardown": DiscernWorktreeTeardownResult;
   "worktree prune": DiscernWorktreePruneResult;
-  "skills:list": DiscernSkillsListResult;
-  "skills:eject": DiscernSkillsEjectResult;
+  "skills list": DiscernSkillsListResult;
+  "skills eject": DiscernSkillsEjectResult;
 }
 
 export interface DiscernResultByCommand {

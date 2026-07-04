@@ -58,6 +58,70 @@ Deno.test("public result schemas carry literal verb discriminators", () => {
   }
 });
 
+Deno.test("public result verbs use CLI-style space delimiters, never colons", () => {
+  for (const contract of CLI_JSON_RESULT_CONTRACTS) {
+    assert(
+      !contract.verb.includes(":"),
+      `${contract.id} uses colon-delimited verb ${contract.verb}`,
+    );
+  }
+});
+
+Deno.test("public JSON schema is additive-compatible for output objects", () => {
+  const offenders: string[] = [];
+  collectClosedOutputMarkers(buildResultJsonSchema(), "$", offenders);
+  assertEquals(
+    offenders,
+    [],
+    "public output schema should not publish additionalProperties:false; keep strictness in runtime Zod/MCP schemas instead",
+  );
+});
+
+Deno.test("public JSON schema exposes reachable CLI and MCP union entrypoints", () => {
+  const schema = buildResultJsonSchema();
+  assert(isRecord(schema.$defs), "result schema should carry $defs");
+  assertEquals(schema.oneOf, [
+    { $ref: "#/$defs/DiscernCliJsonResult" },
+    { $ref: "#/$defs/DiscernMcpJsonResult" },
+  ]);
+
+  const cli = schema.$defs.DiscernCliJsonResult;
+  assert(isRecord(cli), "DiscernCliJsonResult should be a schema");
+  assertEquals(
+    sorted(refsFromOneOf(cli)),
+    sorted(
+      CLI_JSON_RESULT_CONTRACTS.map((contract) =>
+        `#/$defs/Discern${pascalCase(contract.id)}Result`
+      ),
+    ),
+  );
+  const discriminator = cli.discriminator;
+  assert(isRecord(discriminator), "CLI union should advertise a discriminator");
+  assertEquals(discriminator.propertyName, "verb");
+  assert(
+    isRecord(discriminator.mapping),
+    "discriminator should carry a mapping",
+  );
+  for (const contract of CLI_JSON_RESULT_CONTRACTS) {
+    assertEquals(
+      discriminator.mapping[contract.verb],
+      `#/$defs/Discern${pascalCase(contract.id)}Result`,
+      `${contract.verb} should map to its per-verb schema`,
+    );
+  }
+
+  const mcp = schema.$defs.DiscernMcpJsonResult;
+  assert(isRecord(mcp), "DiscernMcpJsonResult should be a schema");
+  assertEquals(
+    sorted(refsFromOneOf(mcp)),
+    sorted(
+      MCP_RESULT_CONTRACTS.map((contract) =>
+        `#/$defs/Discern${pascalCase(contract.id)}McpToolResult`
+      ),
+    ),
+  );
+});
+
 Deno.test("every registered CLI command is classified as JSON-contracted or intentionally excluded", () => {
   const root = buildCli(new Set(FEATURES), false) as unknown as Command;
   const all = collectCommandPaths(root);
@@ -115,6 +179,37 @@ function collectCommandPaths(root: Command): string[] {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function refsFromOneOf(schema: Record<string, unknown>): string[] {
+  assert(Array.isArray(schema.oneOf), "schema should carry oneOf");
+  return schema.oneOf.map((entry) => {
+    assert(isRecord(entry), "oneOf entry should be a schema object");
+    assert(typeof entry.$ref === "string", "oneOf entry should be a $ref");
+    return entry.$ref;
+  });
+}
+
+function collectClosedOutputMarkers(
+  value: unknown,
+  path: string,
+  out: string[],
+): void {
+  if (Array.isArray(value)) {
+    value.forEach((item, index) =>
+      collectClosedOutputMarkers(item, `${path}[${index}]`, out)
+    );
+    return;
+  }
+  if (!isRecord(value)) {
+    return;
+  }
+  if (value.additionalProperties === false) {
+    out.push(path);
+  }
+  for (const [key, child] of Object.entries(value)) {
+    collectClosedOutputMarkers(child, `${path}.${key}`, out);
+  }
 }
 
 function pascalCase(id: string): string {

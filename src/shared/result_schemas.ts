@@ -657,7 +657,7 @@ export const DocsDataSchema = z.strictObject({
 });
 export type DocsData = z.infer<typeof DocsDataSchema>;
 
-// setup:step ──────────────────────────────────────────────────────────────────
+// setup step ──────────────────────────────────────────────────────────────────
 
 /**
  * The machine-readable **spine** of one setup page (ADR 0078) — navigation and
@@ -679,7 +679,7 @@ export const SetupPageSpineSchema = z.strictObject({
 export type SetupPageSpine = z.infer<typeof SetupPageSpineSchema>;
 
 /**
- * `setup:step` — one numbered setup page: the machine `spine` plus the warm prose
+ * `setup step` — one numbered setup page: the machine `spine` plus the warm prose
  * `guidance` the agent follows verbatim. `setup step <n> --json` carries BOTH
  * lanes; the human rendering leads with the prose (ADR 0078).
  */
@@ -691,7 +691,7 @@ export const SetupStepDataSchema = z.strictObject({
 });
 export type SetupStepData = z.infer<typeof SetupStepDataSchema>;
 
-// setup:verify ──────────────────────────────────────────────────────────────────
+// setup verify ──────────────────────────────────────────────────────────────────
 
 /**
  * One pre-existing thing `begin` must work around — a heads-up for the human to weigh
@@ -733,13 +733,13 @@ export const SetupVerifyFindingsSchema = z.strictObject({
 export type SetupVerifyFindings = z.infer<typeof SetupVerifyFindingsSchema>;
 
 /**
- * `setup:verify` — the read-only preflight payload (ADR 0075), two shapes under one
+ * `setup verify` — the read-only preflight payload (ADR 0075), two shapes under one
  * schema:
  *   - the FRESH preflight: the structured machine lane (`findings`/`conflicts`/`ready`)
  *     plus the consent `guidance` — the warm prose the agent relays VERBATIM and never
  *     summarizes — and the `next_action` funnel into `begin`;
  *   - the redirect (phase ≠ fresh): just `phase` + `next_action`.
- * The two-lane split mirrors `setup:step` (ADR 0078): consent/behavioral instructions
+ * The two-lane split mirrors `setup step` (ADR 0078): consent/behavioral instructions
  * stay prose, because agents summarize and weaken the same content when it arrives as
  * structured fields. `phase` mirrors `SetupPhase` (shared/setup_state.ts).
  */
@@ -753,7 +753,7 @@ export const SetupVerifyDataSchema = z.strictObject({
 });
 export type SetupVerifyData = z.infer<typeof SetupVerifyDataSchema>;
 
-// setup:done ──────────────────────────────────────────────────────────────────
+// setup done ──────────────────────────────────────────────────────────────────
 
 /** One capability's honest coverage state at completion — mirrors
  * {@link import("./setup_assurance.ts").CapabilityAssurance}. The `state` enum is
@@ -798,7 +798,7 @@ export const SetupDoneLandingSchema = z.strictObject({
 });
 
 /**
- * `setup:done` — the completion payload (ADR 0065/0078/0086). The structured pieces
+ * `setup done` — the completion payload (ADR 0065/0078/0086). The structured pieces
  * (assurance / landing / reactivation / coach) are the machine lane; the `guidance`
  * prose is the ready-to-relay completion message a courier agent hands its human —
  * carried verbatim and identical to the human render, never flattened into fields
@@ -838,7 +838,7 @@ const setupProgressSchema = z.strictObject({
 /** `setup` / `setup begin` / the fresh welcome redirect. One schema covers the
  * phased setup surface because the emitted `verb` is deliberately still `setup` for
  * the welcome and begin paths. Mode-specific fields are optional; command-specific
- * sub-verbs (`setup:verify`, `setup:step`, `setup:done`, `setup:land`) have their
+ * sub-verbs (`setup verify`, `setup step`, `setup done`, `setup land`) have their
  * own narrowed schemas below. */
 export const SetupDataSchema = z.strictObject({
   phase: z.enum(["fresh", "in_progress", "done"]).optional(),
@@ -878,7 +878,7 @@ export const SetupDataSchema = z.strictObject({
 });
 export type SetupData = z.infer<typeof SetupDataSchema>;
 
-/** `setup:land` — setup branch landing preview/result. Refusals carry no data. */
+/** `setup land` — setup branch landing preview/result. Refusals carry no data. */
 export const SetupLandDataSchema = z.strictObject({
   landed: z.boolean(),
   branch: z.string(),
@@ -981,13 +981,13 @@ const skillMaterializeSchema = z.strictObject({
   errors: z.array(z.string()),
 });
 
-/** `skills:list` — the effective built-in/authored skill set. */
+/** `skills list` — the effective built-in/authored skill set. */
 export const SkillsListDataSchema = z.strictObject({
   skills: z.array(skillListingSchema),
 });
 export type SkillsListData = z.infer<typeof SkillsListDataSchema>;
 
-/** `skills:eject` — where a bundled skill was copied and how materialization went. */
+/** `skills eject` — where a bundled skill was copied and how materialization went. */
 export const SkillsEjectDataSchema = z.strictObject({
   name: z.string(),
   dest_abs: z.string(),
@@ -1075,33 +1075,33 @@ export const DocsOutputSchema = resultOutputSchema("docs", DocsDataSchema);
 /** `help` output: envelope + the bundled documentation `data`. */
 export const HelpOutputSchema = resultOutputSchema("help", DocsDataSchema);
 
-/** `setup:step` output: envelope + the structured page `data`. CLI-only (setup is
+/** `setup step` output: envelope + the structured page `data`. CLI-only (setup is
  * not an MCP tool), but modeled here so the page parser validates against one
  * source and a faithfulness test can pin the real serialized output to it. */
 export const SetupStepOutputSchema = resultOutputSchema(
-  "setup:step",
+  "setup step",
   SetupStepDataSchema,
 );
 
-/** `setup:verify` output: envelope + the preflight `data` (fresh or redirect). CLI-only
+/** `setup verify` output: envelope + the preflight `data` (fresh or redirect). CLI-only
  * (setup is not an MCP tool), modeled here so a faithfulness test can pin the real
  * serialized output — including the consent `guidance` — to one source (ADR 0041). */
 export const SetupVerifyOutputSchema = resultOutputSchema(
-  "setup:verify",
+  "setup verify",
   SetupVerifyDataSchema,
 );
 
-/** `setup:done` output: envelope + the completion `data`. CLI-only (setup is not an MCP
+/** `setup done` output: envelope + the completion `data`. CLI-only (setup is not an MCP
  * tool), modeled here so a faithfulness test can pin the real serialized output —
  * including the completion `guidance` — to one source (ADR 0041). */
 export const SetupDoneOutputSchema = resultOutputSchema(
-  "setup:done",
+  "setup done",
   SetupDoneDataSchema,
 );
 
-/** `setup:land` output: envelope + the landing preview/result `data`. */
+/** `setup land` output: envelope + the landing preview/result `data`. */
 export const SetupLandOutputSchema = resultOutputSchema(
-  "setup:land",
+  "setup land",
   SetupLandDataSchema,
 );
 
@@ -1138,14 +1138,14 @@ export const WorktreePruneOutputSchema = datalessResultOutputSchema(
   "worktree prune",
 );
 
-/** `skills:list` output: envelope + effective skill listing data. */
+/** `skills list` output: envelope + effective skill listing data. */
 export const SkillsListOutputSchema = resultOutputSchema(
-  "skills:list",
+  "skills list",
   SkillsListDataSchema,
 );
 
-/** `skills:eject` output: envelope + ejection/materialization data. */
+/** `skills eject` output: envelope + ejection/materialization data. */
 export const SkillsEjectOutputSchema = resultOutputSchema(
-  "skills:eject",
+  "skills eject",
   SkillsEjectDataSchema,
 );

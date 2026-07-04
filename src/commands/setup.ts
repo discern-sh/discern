@@ -1220,7 +1220,7 @@ export async function runSetupStep(
     if (opts.json) {
       emitResult({
         ok: false,
-        verb: "setup:step",
+        verb: "setup step",
         error: "brief_unparseable",
         message,
       });
@@ -1235,7 +1235,7 @@ export async function runSetupStep(
     if (opts.json) {
       emitResult({
         ok: false,
-        verb: "setup:step",
+        verb: "setup step",
         error: "no_such_step",
         message,
       });
@@ -1246,7 +1246,7 @@ export async function runSetupStep(
   }
   if (opts.json) {
     // Both lanes: the machine `spine` AND the prose `guidance` (ADR 0078).
-    emitResult({ ok: true, verb: "setup:step", data: page });
+    emitResult({ ok: true, verb: "setup step", data: page });
   } else {
     // Human: the prose leads; the spine's rails bracket it (renderSetupPage).
     console.log(renderSetupPage(page));
@@ -1337,7 +1337,7 @@ function emitSetupIncomplete(
   if (json) {
     emitResult({
       ok: false,
-      verb: "setup:done",
+      verb: "setup done",
       error: "incomplete",
       message,
       data: { leftover, unmet },
@@ -1556,7 +1556,7 @@ function printDoneSuccess(view: DoneSuccessView): void {
  * checks AND the proof.
  */
 export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
-  const root = await rootOrError(opts.json, "setup:done");
+  const root = await rootOrError(opts.json, "setup done");
   if (root === undefined) {
     return 1;
   }
@@ -1642,7 +1642,7 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
     };
     emitResult({
       ok: true,
-      verb: "setup:done",
+      verb: "setup done",
       hints: doneHints(landing, reactivation, coachVerb),
       data,
     });
@@ -1834,7 +1834,7 @@ function emitDoneGateFailure(
   if (json) {
     emitResult({
       ok: false,
-      verb: "setup:done",
+      verb: "setup done",
       error: "gate_failed",
       message,
       data: { stage },

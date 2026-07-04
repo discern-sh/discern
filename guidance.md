@@ -147,12 +147,11 @@ Iterate on one suite with `deno task test tests/<name>_test.ts` (or
   (import from `node:process`), no thrown literals, `eqeqeq`. Match the
   surrounding code and write to these the first time — the gate enforces every
   rule, so fighting the linter just costs a `finish` loop.
-- **Some config artifacts and schemas are generated.** The `deno task codegen`
-  command rewrites `schema/discern-config.schema.json`,
-  `schema/discern-results.schema.json`, and
-  `docs/10-installer/config-reference.md` automatically, and is wired in to
-  discern's own `[capabilities.build]` step (the `discern.toml` template stays
-  hand-authored — ADR 0005/0026).
+- **Several artifacts and schemas are generated.** The `deno task codegen`
+  command rewrites `docs/10-installer/config-reference.md`, `schema/*.json`, and
+  `types/*.d.ts` automatically. The codegen command is wired in to discern's own
+  `[capabilities.build]` step (the `discern.toml` template stays hand-authored —
+  ADR 0005/0026).
 - **Keep `docs/` current with the change.** The `docs/` tree is the source of
   truth and must not drift from code — update the affected docs in the same
   commit. `docs/` and root `*.md` fire no gate (a neutral scope); `docs/` alone

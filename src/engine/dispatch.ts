@@ -775,7 +775,7 @@ async function runSkillsList(opts: { json: boolean }): Promise<number> {
   if (opts.json) {
     emitResult({
       ok: true,
-      verb: "skills:list",
+      verb: "skills list",
       data: { skills: rows },
     });
     return 0;
@@ -843,18 +843,18 @@ async function skillsEjectResult(
     if (materialized.errors.length > 0) {
       return {
         ok: false,
-        verb: "skills:eject",
+        verb: "skills eject",
         error: "partial_materialization",
         message:
           `ejected "${name}", but could not materialize every configured agent skill directory`,
         data,
       };
     }
-    return { ok: true, verb: "skills:eject", data };
+    return { ok: true, verb: "skills eject", data };
   } catch (error) {
     return {
       ok: false,
-      verb: "skills:eject",
+      verb: "skills eject",
       error: "skills_eject_failed",
       message: thrownMessage(error),
     };

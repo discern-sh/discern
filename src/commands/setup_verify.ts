@@ -86,7 +86,7 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
       next_action: phase === "done" ? "discern status" : "discern setup done",
     };
     if (opts.json) {
-      log.result({ ok: true, verb: "setup:verify", data: redirect });
+      log.result({ ok: true, verb: "setup verify", data: redirect });
     } else {
       console.log(message);
     }
@@ -142,7 +142,7 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
       // engine ignores the placeholder, so a verbatim copy records nothing).
       next_action: nextAction,
     };
-    log.result({ ok: true, verb: "setup:verify", data });
+    log.result({ ok: true, verb: "setup verify", data });
     return 0;
   }
 
