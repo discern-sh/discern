@@ -596,6 +596,7 @@ Deno.test("discern mcp: discern_help returns discern's OWN docs, not the project
     const index = await mcp.recv();
     assertEquals(index.result.isError, false);
     assertEquals(index.result.structuredContent.verb, "help");
+    assertEquals(index.result.structuredContent.data.docs_dir, undefined);
     const docs = index.result.structuredContent.data.docs;
     assert(
       docs.some((d: { slug: string }) => d.slug === "config-reference"),
@@ -633,17 +634,22 @@ Deno.test("discern mcp: discern_help returns discern's OWN docs, not the project
       "the single-doc result carries the file's content",
     );
 
-    // A missing target → a not_found error envelope.
+    // A near-miss target → a not_found error envelope with retryable suggestions.
     await mcp.send({
       jsonrpc: "2.0",
       id: 4,
       method: "tools/call",
-      params: { name: "discern_help", arguments: { target: "no-such-doc" } },
+      params: { name: "discern_help", arguments: { target: "config" } },
     });
     const miss = await mcp.recv();
     assertEquals(miss.result.isError, true);
     assertEquals(miss.result.structuredContent.verb, "help");
     assertEquals(miss.result.structuredContent.error, "not_found");
+    assertStringIncludes(miss.result.structuredContent.message, "Closest");
+    assertEquals(
+      miss.result.structuredContent.data.suggestions[0].slug,
+      "config-reference",
+    );
 
     assertEquals(await mcp.close(), 0);
   });

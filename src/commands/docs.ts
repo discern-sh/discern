@@ -43,6 +43,7 @@ import {
   formatDocsExport,
   groupDocs,
   resolveDoc,
+  suggestDocs,
 } from "../lib/docs.ts";
 import {
   BUNDLED_INTERNAL_DOC_DIRS,
@@ -164,6 +165,35 @@ export interface DocsOptions {
 /** The machine-readable record for one doc (sans content). */
 function toRecord(e: DocEntry): DocRecord {
   return { path: e.path, section: e.section, slug: e.slug, title: e.title };
+}
+
+/** Index payload; `help` deliberately omits a local docs_dir path. */
+function indexData(desc: DocsVerb, tree: DocsTree, cwd: string): DocsData {
+  return {
+    ...(desc.verb === "docs" ? { docs_dir: display(tree.docsDir, cwd) } : {}),
+    count: tree.entries.length,
+    docs: tree.entries.map(toRecord),
+  };
+}
+
+/** Compact human-readable names for nearest-match guidance. */
+function suggestionLabels(suggestions: readonly DocEntry[]): string[] {
+  return suggestions.map((entry) =>
+    entry.slug === "README" ? entry.path : `${entry.slug} (${entry.path})`
+  );
+}
+
+/** Not-found sentence with fuzzy nearest matches when any are close enough. */
+function notFoundMessage(
+  target: string,
+  suggestions: readonly DocEntry[],
+): string {
+  const base = `no doc matches "${target}".`;
+  if (suggestions.length === 0) return base;
+  const labels = suggestionLabels(suggestions.slice(0, 3));
+  return `${base} Closest match${labels.length === 1 ? "" : "es"}: ${
+    labels.join(", ")
+  }.`;
 }
 
 /** Path of `abs` relative to `cwd`, for display (falls back to `abs`). */
@@ -510,11 +540,7 @@ async function treeResult(
     return {
       ok: true,
       verb: desc.verb,
-      data: {
-        docs_dir: display(tree.docsDir, cwd),
-        count: 0,
-        docs: [],
-      } satisfies DocsData,
+      data: indexData(desc, tree, cwd),
     };
   }
 
@@ -522,11 +548,19 @@ async function treeResult(
   if (opts.target !== undefined && opts.target !== "") {
     const res = resolveDoc(tree, opts.target, cwd);
     if (res.kind === "none") {
+      const suggestions = suggestDocs(tree, opts.target).map((item) =>
+        item.entry
+      );
       return {
         ok: false,
         verb: desc.verb,
         error: "not_found",
-        message: `no doc matches "${opts.target}".`,
+        message: notFoundMessage(opts.target, suggestions),
+        ...(suggestions.length > 0
+          ? {
+            data: { suggestions: suggestions.map(toRecord) } satisfies DocsData,
+          }
+          : {}),
       };
     }
     if (res.kind === "ambiguous") {
@@ -552,11 +586,7 @@ async function treeResult(
   return {
     ok: true,
     verb: desc.verb,
-    data: {
-      docs_dir: display(tree.docsDir, cwd),
-      count: tree.entries.length,
-      docs: tree.entries.map(toRecord),
-    } satisfies DocsData,
+    data: indexData(desc, tree, cwd),
   };
 }
 
@@ -596,7 +626,11 @@ async function viewTarget(
   const res = resolveDoc(tree, target, cwd);
 
   if (res.kind === "none") {
-    log.error(`no doc matches "${target}".`);
+    const suggestions = suggestDocs(tree, target).map((item) => item.entry);
+    log.error(notFoundMessage(target, suggestions));
+    for (const label of suggestionLabels(suggestions)) {
+      log.detail(label);
+    }
     log.detail(`list what's available: discern ${verb} --list`);
     return 1;
   }

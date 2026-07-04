@@ -3385,6 +3385,32 @@
                   "items": {
                     "type": "string"
                   }
+                },
+                "suggestions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "path": {
+                        "type": "string"
+                      },
+                      "section": {
+                        "type": "string"
+                      },
+                      "slug": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "path",
+                      "section",
+                      "slug",
+                      "title"
+                    ]
+                  }
                 }
               }
             },
@@ -3706,6 +3732,32 @@
                   "type": "array",
                   "items": {
                     "type": "string"
+                  }
+                },
+                "suggestions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "path": {
+                        "type": "string"
+                      },
+                      "section": {
+                        "type": "string"
+                      },
+                      "slug": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "path",
+                      "section",
+                      "slug",
+                      "title"
+                    ]
                   }
                 }
               }

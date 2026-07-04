@@ -77,6 +77,12 @@ export type ResolveResult =
   | { kind: "ambiguous"; entries: DocEntry[] }
   | { kind: "none" };
 
+/** One fuzzy target suggestion, ordered by closest first. */
+export interface DocSuggestion {
+  entry: DocEntry;
+  score: number;
+}
+
 /** True when `path` is an existing directory. */
 async function isDir(path: string): Promise<boolean> {
   try {
@@ -309,6 +315,80 @@ function aliases(entry: DocEntry): string[] {
     base,
     entry.slug,
   ].map((s) => s.toLowerCase());
+}
+
+/** Normalize a free-form doc target for fuzzy comparison. */
+function fuzzyKey(value: string): string {
+  return value.toLowerCase()
+    .replace(/\.md$/i, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/** Classic Levenshtein distance over short doc aliases. */
+function editDistance(a: string, b: string): number {
+  if (a === b) return 0;
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+
+  let prev = Array.from({ length: b.length + 1 }, (_, index) => index);
+  for (let i = 1; i <= a.length; i += 1) {
+    const curr = [i];
+    for (let j = 1; j <= b.length; j += 1) {
+      const cost = a.charCodeAt(i - 1) === b.charCodeAt(j - 1) ? 0 : 1;
+      curr[j] = Math.min(
+        (curr[j - 1] ?? 0) + 1,
+        (prev[j] ?? 0) + 1,
+        (prev[j - 1] ?? 0) + cost,
+      );
+    }
+    prev = curr;
+  }
+  return prev[b.length] ?? Math.max(a.length, b.length);
+}
+
+/** Score one normalized query against one normalized alias. */
+function fuzzyScore(query: string, alias: string): number | undefined {
+  if (!query || !alias) return undefined;
+  if (alias === query) return 0;
+  if (alias.startsWith(query)) return 1;
+  if (alias.includes(query)) return 4;
+
+  const distance = editDistance(query, alias);
+  const limit = Math.max(
+    2,
+    Math.floor(Math.max(query.length, alias.length) / 3),
+  );
+  return distance <= limit ? 10 + distance : undefined;
+}
+
+/**
+ * Suggest docs for a target that did not resolve exactly. Suggestions are driven
+ * from the indexed tree, so every newly-added doc automatically participates.
+ */
+export function suggestDocs(
+  tree: DocsTree,
+  target: string,
+  limit = 5,
+): DocSuggestion[] {
+  const query = fuzzyKey(target);
+  if (!query) return [];
+
+  const suggestions: DocSuggestion[] = [];
+  for (const entry of tree.entries) {
+    const candidates = [...aliases(entry), entry.title].map(fuzzyKey);
+    const scores = candidates
+      .map((candidate) => fuzzyScore(query, candidate))
+      .filter((score): score is number => score !== undefined);
+    const score = scores.length > 0 ? Math.min(...scores) : undefined;
+    if (score !== undefined) suggestions.push({ entry, score });
+  }
+
+  return suggestions
+    .sort((a, b) =>
+      a.score - b.score || a.entry.relToDocs.localeCompare(b.entry.relToDocs)
+    )
+    .slice(0, limit);
 }
 
 /**

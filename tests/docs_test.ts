@@ -555,6 +555,20 @@ Deno.test("docs <unknown> --json reports not_found, exit 1", async () => {
   });
 });
 
+Deno.test("docs <near miss> --json suggests valid doc targets", async () => {
+  await withTempDir(async (dir) => {
+    await makeDocsProject(dir);
+    const { code, stdout } = await runCli(["docs", "alph", "--json"], dir);
+    assertEquals(code, 1);
+    const res = JSON.parse(stdout);
+    assertEquals(res.ok, false);
+    assertEquals(res.error, "not_found");
+    assertStringIncludes(res.message, "Closest match");
+    assertEquals(res.data.suggestions[0].slug, "alpha");
+    assertEquals(res.data.suggestions[0].path, "docs/00-intro/alpha.md");
+  });
+});
+
 Deno.test("docs <ambiguous> without --json lists the candidates on stderr", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);

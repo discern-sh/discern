@@ -64,6 +64,7 @@ Deno.test("help serves the bundled tree, never the project's own docs/", async (
     const res = JSON.parse(stdout);
     assertEquals(res.ok, true);
     assertEquals(res.verb, "help");
+    assertEquals(res.data.docs_dir, undefined);
     // Exactly the 4 public docs of the fixture — and NOT the project's decoy.
     assertEquals(res.data.count, 4);
     assert(res.data.docs.some((d: { slug: string }) => d.slug === "concepts"));
@@ -142,6 +143,25 @@ Deno.test("help <unknown> --json reports not_found, exit 1", async () => {
     assertEquals(res.verb, "help");
     assertEquals(res.error, "not_found");
     assertStringIncludes(res.message, "nonesuch");
+  });
+});
+
+Deno.test("help <near miss> --json suggests valid doc targets", async () => {
+  await withTempDir(async (dir) => {
+    const help = await makeHelpFixture(dir);
+    const { code, stdout } = await runCli(
+      ["help", "concept", "--json"],
+      dir,
+      { DISCERN_DOCS_DIR: help },
+    );
+    assertEquals(code, 1);
+    const res = JSON.parse(stdout);
+    assertEquals(res.ok, false);
+    assertEquals(res.verb, "help");
+    assertEquals(res.error, "not_found");
+    assertStringIncludes(res.message, "Closest match");
+    assertEquals(res.data.suggestions[0].slug, "concepts");
+    assertEquals(res.data.suggestions[0].path, "helpdocs/00-intro/concepts.md");
   });
 });
 
@@ -362,6 +382,7 @@ Deno.test("dogfood: help serves THIS repo's own docs (config reference)", async 
 
   const index = await runCli(["help", "--json"], REPO_ROOT);
   const ires = JSON.parse(index.stdout);
+  assertEquals(ires.data.docs_dir, undefined);
   assert(ires.data.count > 0);
   assert(
     ires.data.docs.every((d: { path: string }) =>

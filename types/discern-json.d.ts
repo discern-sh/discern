@@ -949,6 +949,12 @@ export type DiscernDocsResult = {
       content: string;
     };
     candidates?: Array<string>;
+    suggestions?: Array<{
+      path: string;
+      section: string;
+      slug: string;
+      title: string;
+    }>;
   } | {
     issues: Array<{
       path: string;
@@ -1044,6 +1050,12 @@ export type DiscernHelpResult = {
       content: string;
     };
     candidates?: Array<string>;
+    suggestions?: Array<{
+      path: string;
+      section: string;
+      slug: string;
+      title: string;
+    }>;
   } | {
     issues: Array<{
       path: string;
