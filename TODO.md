@@ -66,24 +66,18 @@ _Nothing outstanding._
 
 - [ ] **The v3→v4 config migration leaves stale comment blocks behind.** It is
       comment-preserving, so it rewrites the tables (`[slots]`→`[capabilities]`/
-      `[checks]`, `[scopes]` arrays→tables, drops `[evidence]`) but leaves the
-      explanatory comment blocks that describe the _retired_ structure — the big
-      `[slots]`/`phase` header, the `[ratchets]` "slot" references, the
-      `[evidence]` header — and appends the new tables orphaned at the end of
-      the file, detached from their comments. The output is valid TOML but messy
-      enough that a migrated install needs a hand-tidy to match the v4
-      template's layout. Consider also dropping a deleted section's leading
-      comment block, or re-emitting the template comments for the sections the
-      step rewrites. Observed needing a hand-tidy on several v3→v4 installs. The
-      `5 → 6` step (ADR 0020) has the mirror issue: it appends the new
-      `[features]`/`[guidance]`/`[skills]` sections comment-less at EOF (and in
-      reverse key order). Net effect: a migrating user lands on a barer,
-      comment- stripped config than a fresh `setup` produces — the two
-      onboarding paths diverge. The clean fix is to re-render `discern.toml`
-      from the commented template, preserving the user's values, rather than
-      line-editing in place. Consider also dropping a deleted section's leading
-      comment block. Evidence: `src/lib/migrations.ts` (the `from: 3` and
-      `from: 5` steps); target layout is `templates/discern.toml.tmpl`.
+      `[checks]`, `[scopes]` arrays→tables, drops `[evidence]`) but can leave
+      the explanatory comment blocks that describe the _retired_ structure — the
+      big `[slots]`/`phase` header, the `[ratchets]` "slot" references, and the
+      `[evidence]` header. The output is valid TOML but messy enough that a
+      migrated install may need a hand-tidy to match the v4 template's layout.
+      The later `5 → 6` mirror issue (new `[features]`/`[guidance]`/`[skills]`
+      sections appended comment-less at EOF) has been fixed by inserting
+      template-backed documented sections; this item is now only about the
+      `3 → 4` stale deleted-section comments. Consider dropping a deleted
+      section's leading comment block, or re-emitting the template comments for
+      the sections the step rewrites. Evidence: `src/lib/migrations.ts` (the
+      `from: 3` step); target layout is `templates/discern.toml.tmpl`.
 
 - [ ] **The 5→6 migration doesn't relocate a `.discern/`-pointed
       `gotchas_doc`.** If `[project].gotchas_doc` pointed inside
@@ -170,49 +164,12 @@ _Nothing outstanding._
       (`normalizeDiagnostics` — SARIF only); `src/engine/gate/plan.ts`
       (`buildGateResult` calls it).
 
-- [ ] **`discern mcp` could expose more read/run verbs.** Wired so far:
-      `finish`, `prepare`, `test`, `doctor`, `scopes`, `audit`, `docs`, and
-      `graduate` (the last two feature-gated) — each backed by a
-      result-returning core
-      (`finishResult`/`prepareResult`/`testResult`/`doctorResult`/`docsResult`/
-      `graduateResult`/…). `ratchets` is the obvious next candidate (extract a
-      `ratchetsResult` core first). The `worktree` lifecycle verbs are
-      deliberately NOT exposed: they are driven by the worktree-create/session
-      hooks, and an agent must not hop between or `prune` the worktree it is
-      sitting in. Evidence: `src/engine/mcp/server.ts` (`TOOLS`).
-
-- [ ] **A `discern start` verb to launch a worktree from the main checkout.** An
-      agent invoked on `main` (not in a worktree) has no affordance to spin up
-      its own isolated worktree, so it improvises badly: observed an agent call
-      `discern status`, see an idle, up-to-date worktree belonging to _another_
-      agent (which simply hadn't started working yet), and move in to work there
-      — jumping into someone else's worktree was its only option. A
-      `discern start` (a naming-convention sibling of `finish`/`graduate`) would
-      create a fresh worktree on its own `agent/` branch and guide the agent to
-      move inside it before continuing. MCP wrinkle: the server runs rooted in
-      one worktree, so a `discern_start` tool would have to return the new
-      worktree's path and tell the agent to re-root there, not silently
-      relocate. Distinct from — and complementary to — the
-      deliberately-unexposed `worktree` lifecycle verbs above: this _creates_ a
-      worktree to inhabit; it never hops into or prunes an existing one.
-      Follow-up, after the MCP server expansion.
-
 - [ ] **Tier-2 diagnostics: populate `fix_available`.** The `Diagnostic` field
       and the ADR-0028 Tier-2 tier exist, but nothing sets it. Derive it from
       whether a `fix`-stage command is wired for the failing capability (a
       formatter that may auto-resolve it). Evidence: `src/shared/result.ts`
       (`Diagnostic.fix_available`); `src/engine/gate/plan.ts`
       (`buildGateResult`).
-
-- [ ] **`prepare`/`test` `--json` carry no `steps`/`diagnostics`.** They emit a
-      valid `{ok, verb}` envelope, but run the joined stage command via
-      `runShellInherit`, which under `--json` now DISCARDS the command's output
-      (the quiet rule, ADR 0030) — so a failing `prepare --json` is opaque
-      (`ok:false`, no diagnostic). Rework them to run through the job runner
-      (the `runGate` machinery) so the failure is captured into `steps[]` +
-      structured `diagnostics[]` like `finish`. Evidence:
-      `src/engine/gate/prepare.ts`, `src/engine/gate/test.ts`,
-      `src/engine/gate/run-shell.ts`.
 
 - [ ] **The apply path's human output isn't rendered FROM the result.**
       `finish`, the worktree verbs, and `ratchets` narrate during execution, in
@@ -328,7 +285,7 @@ outstanding._
       advisory; what `coupling` surfaces today.
     - **Declared** — a `// discern-coupled-to: B` comment on a line in file `A`:
       the user/agent has _asserted_ the coupling is real. This (a) drops the
-      pair out of the discovered-candidate list, so the audit **self-cleans**
+      pair out of the discovered-candidate list, so `improve` **self-cleans**
       and only genuinely-new pairs surface on later runs; and (b) becomes its
       own _precise_ check — "you changed `A`, which declares it's coupled to
       `B`, but `B` isn't in your change" — decidable **from the diff alone, in
@@ -353,9 +310,9 @@ outstanding._
     - **A separate ignore marker is YAGNI for now.** The "this strong co-change
       is genuinely incidental — stop suggesting it" case would want its own
       `// discern-coupling-ignore: <path>` marker (suppress the candidate
-      without asserting a checkable coupling). Don't build it until the audit
-      candidate list actually annoys — declaring the coupling already removes it
-      from the list, which covers the common case.
+      without asserting a checkable coupling). Don't build it until the
+      `improve` candidate list actually annoys — declaring the coupling already
+      removes it from the list, which covers the common case.
     - **Inline comment, not config — deliberate.** Keeping the declaration in a
       code comment (not a `discern.toml` key) preserves zero-_config_: it is
       declarative _intent that travels with the code_, not a tuning knob, and it
@@ -458,7 +415,7 @@ periodically in maintenance batches._
       the user's codebase_ - which is what matters to their coding agents - and
       likely diverges from what they would consciously choose to document
       already. This is a teaching opportunity as it can be hard to understand
-      for new users, so should be folded in to `discern audit` and throughout
+      for new users, so should be folded in to `discern improve` and throughout
       our own docs, guidance, and reference materials.
 - [ ] Fan-out agentic review/rewrite for public-facing audiences of all
       documentation (Vale prose lint is now wired — see `[ratchets.prose]`);
