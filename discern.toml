@@ -122,7 +122,7 @@ dir = "skills"
 
 [capabilities]
 format    = "deno fmt"
-# build     = "deno task build"     # Off for now whilst considering DAG
+build     = "deno task codegen"
 lint      = "deno lint"
 typecheck = "deno check"
 test      = "deno task test"
