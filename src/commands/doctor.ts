@@ -97,6 +97,31 @@ export async function doctorEnvironment(): Promise<DoctorEnvironment> {
  * SSOT) and re-exported here. */
 export type { Check };
 
+type DraftCheck = Omit<Check, "status"> & { status?: Check["status"] };
+
+/** Fill doctor's severity grade from the compatibility booleans. The envelope stays
+ * green for warnings (`ok: true`), but every check now carries a first-class status so
+ * machine consumers do not have to infer severity from `ok` + `warn`. */
+function checkStatus(check: DraftCheck): Check["status"] {
+  return check.status ?? (!check.ok ? "fail" : check.warn ? "warn" : "ok");
+}
+
+function normalizeCheck(check: DraftCheck): Check {
+  const status = checkStatus(check);
+  return {
+    name: check.name,
+    status,
+    detail: check.detail,
+    ok: status !== "fail",
+    ...(check.fix !== undefined ? { fix: check.fix } : {}),
+    ...(status === "warn" ? { warn: true } : {}),
+  };
+}
+
+function normalizeChecks(checks: DraftCheck[]): Check[] {
+  return checks.map(normalizeCheck);
+}
+
 /** `git --version` trimmed for a compact display ("git version 2.5.0" → "2.5.0").
  * The full string is preserved verbatim in the `--json` environment block. */
 function gitDisplayVersion(raw: string): string {
@@ -121,7 +146,7 @@ async function fileExists(path: string): Promise<boolean> {
 
 /** Run the installer-level checks against `destDir`. */
 export async function runChecks(destDir: string): Promise<Check[]> {
-  const checks: Check[] = [];
+  const checks: DraftCheck[] = [];
 
   // 1. the config (discern.toml, or a legacy .discern/config.toml) exists and is
   // syntactically valid TOML.
@@ -150,7 +175,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
         : "fix the TOML syntax in discern.toml",
     });
     // Without a parseable config the remaining checks have nothing to read.
-    return checks;
+    return normalizeChecks(checks);
   }
 
   // 2. schema currency — the recorded `[meta].schema_version` matches this build.
@@ -203,7 +228,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
   // actionable report, and re-deriving them from a half-valid config would only
   // add noise.
   if (config === undefined) {
-    return checks;
+    return normalizeChecks(checks);
   }
 
   // Setup provenance (ADR 0075) — informational, shown only when recorded: which model
@@ -233,10 +258,17 @@ export async function runChecks(destDir: string): Promise<Check[]> {
     .filter(([, v]) => v !== undefined).map(([k]) => k);
   checks.push({
     name: "capabilities",
-    ok: true,
+    ok: wiredCaps.length > 0,
     detail: wiredCaps.length === 0
       ? "none wired yet (gate passes without checking)"
       : `wired: ${wiredCaps.join(", ")}`,
+    ...(wiredCaps.length === 0
+      ? {
+        status: "warn" as const,
+        fix:
+          "wire at least one [capabilities] command, or add a deliberate [checks.<name>] entry if the project uses only custom gate work",
+      }
+      : {}),
   });
 
   // 5. capability/check commands resolve — the first word of each declared
@@ -627,7 +659,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
     }
   }
 
-  return checks;
+  return normalizeChecks(checks);
 }
 
 /** Load the typed config for the execution model, or `undefined` when none can be
@@ -647,9 +679,9 @@ async function loadModelConfig(
 /**
  * Compute the `doctor` {@link DiscernResult} without printing — the entry point the
  * MCP server renders, and the source the CLI's `--json` serializes. Runs the
- * install checks and folds them into the envelope (`ok` = every check passed; the
- * per-check detail + fix ride in `data.checks`, the per-verb execution model in
- * `data.execution_model`).
+ * install checks and folds them into the envelope (`ok` = no failed checks; warnings
+ * keep exit 0 but surface as `status: "warn"` in `data.checks`, and the per-verb
+ * execution model rides in `data.execution_model`).
  */
 export async function doctorResult(
   destDir: string,
@@ -657,7 +689,7 @@ export async function doctorResult(
   const checks = await runChecks(destDir);
   const cfg = await loadModelConfig(destDir);
   return {
-    ok: checks.every((c) => c.ok),
+    ok: checks.every((c) => c.status !== "fail"),
     verb: "doctor",
     data: {
       kit_version: KIT_VERSION,
@@ -787,7 +819,7 @@ export async function runDoctor(options: DoctorOptions): Promise<number> {
   }
 
   const checks = await runChecks(destDir);
-  const healthy = checks.every((c) => c.ok);
+  const healthy = checks.every((c) => c.status !== "fail");
   log.heading("discern doctor");
   const env = await doctorEnvironment();
   log.detail(
@@ -796,12 +828,12 @@ export async function runDoctor(options: DoctorOptions): Promise<number> {
     }`,
   );
   for (const check of checks) {
-    if (check.warn) {
+    if (check.status === "warn") {
       log.warn(`${check.name}: ${check.detail}`);
       if (check.fix) {
         log.detail(`fix: ${check.fix}`);
       }
-    } else if (check.ok) {
+    } else if (check.status === "ok") {
       log.ok(`${check.name}: ${check.detail}`);
     } else {
       log.error(`${check.name}: ${check.detail}`);
@@ -812,7 +844,7 @@ export async function runDoctor(options: DoctorOptions): Promise<number> {
   }
   log.line();
   if (healthy) {
-    const advisories = checks.filter((c) => c.warn).length;
+    const advisories = checks.filter((c) => c.status === "warn").length;
     log.ok(
       advisories > 0
         ? "All checks passed (see the advisory above)."

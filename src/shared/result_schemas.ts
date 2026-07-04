@@ -456,6 +456,7 @@ export type StatusData = z.infer<typeof StatusDataSchema>;
 /** One doctor check ({@link import("../commands/doctor.ts").Check}). */
 export const CheckSchema = z.strictObject({
   name: z.string(),
+  status: z.enum(["ok", "warn", "fail"]),
   ok: z.boolean(),
   detail: z.string(),
   fix: z.string().optional(),
