@@ -500,6 +500,28 @@ Deno.test("setup done runs the gate and records bootstrapped only when green (AD
   });
 });
 
+Deno.test("setup done blocks when the refresh proof only partially completes", async () => {
+  await withTempDir(async (dir) => {
+    await readyForDone(dir, "true");
+    const malformed = '{ "mcpServers": { "other": true, }, }\n';
+    await Deno.writeTextFile(join(dir, ".mcp.json"), malformed);
+
+    const done = await runAgent(dir, ["setup", "done", "--json"]);
+    assertEquals(done.code, 1, done.output);
+    const res = JSON.parse(done.stdout);
+    assertEquals(res.ok, false);
+    assertEquals(res.error, "gate_failed");
+    assertEquals(res.data.stage, "refresh");
+    assertStringIncludes(res.message, "malformed JSON");
+    assert(
+      !(await Deno.readTextFile(join(dir, "discern.toml"))).includes(
+        "bootstrapped = true",
+      ),
+      "setup done must not record completion after a partial refresh",
+    );
+  });
+});
+
 // ── the worktree-viability probe (ADR 0090) ──────────────────────────────────────
 // `setup done` proves the gate in the main checkout AND in a throwaway worktree — the
 // copy every future task runs in — so an env-anchored app can't pass setup and then

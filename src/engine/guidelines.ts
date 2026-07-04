@@ -67,6 +67,24 @@ export interface GuidelinesResult {
   errors: string[];
 }
 
+/** The non-blank refresh errors a caller should treat as failed artifacts.
+ * Whitespace-only entries are ignored so accidental empty strings don't turn a
+ * successful refresh into a failure. */
+export function guidanceRefreshErrors(
+  result: Pick<GuidelinesResult, "errors">,
+): string[] {
+  return result.errors
+    .map((error) => error.trim())
+    .filter((error) => error.length > 0);
+}
+
+/** Whether a guidance refresh completed without any non-blank artifact errors. */
+export function guidanceRefreshSucceeded(
+  result: Pick<GuidelinesResult, "errors">,
+): boolean {
+  return guidanceRefreshErrors(result).length === 0;
+}
+
 /** Render the compile summary as the stable `refresh` data payload. */
 function refreshData(result: GuidelinesResult): RefreshData {
   return {
@@ -79,7 +97,7 @@ function refreshData(result: GuidelinesResult): RefreshData {
       linked: result.skillsLinked,
       pruned: result.skillsPruned,
     },
-    errors: result.errors,
+    errors: guidanceRefreshErrors(result),
   };
 }
 
@@ -93,7 +111,8 @@ export async function refreshResult(
   logger = new Logger({ json: true, noColor: true }),
 ): Promise<DiscernResult> {
   const result = await compileGuidelines(root, logger);
-  const failed = result.errors.length > 0;
+  const errors = guidanceRefreshErrors(result);
+  const failed = errors.length > 0;
   return {
     ok: !failed,
     verb: "refresh",
@@ -101,7 +120,7 @@ export async function refreshResult(
       ? {
         error: "partial_refresh",
         message:
-          `${result.errors.length} artifact(s) failed to refresh; see data.errors.`,
+          `${errors.length} artifact(s) failed to refresh; see data.errors.`,
       }
       : {}),
     hints: result.hints,

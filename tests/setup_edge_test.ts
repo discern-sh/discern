@@ -37,6 +37,29 @@ Deno.test("setup reports templates_not_found in JSON when the override dir is mi
   });
 });
 
+Deno.test("setup --json reports a partial refresh as top-level not-ok while keeping the scaffold", async () => {
+  await withTempDir(async (dir) => {
+    const malformed = '{ "mcpServers": { "other": true, }, }\n';
+    await Deno.writeTextFile(join(dir, ".mcp.json"), malformed);
+
+    const { code, stdout } = await runCli(
+      ["setup", "--confirmed", "--json", "--slug", "demo"],
+      dir,
+    );
+    assertEquals(code, 0);
+    const result = JSON.parse(stdout);
+    assertEquals(result.ok, false);
+    assertEquals(result.error, "partial_refresh");
+    assertEquals(result.data.guidelines_compiled, false);
+    assertStringIncludes(
+      result.data.guidelines_errors.join("\n"),
+      "malformed JSON",
+    );
+    assert(await pathExists(join(dir, "discern.toml")));
+    assertEquals(await Deno.readTextFile(join(dir, ".mcp.json")), malformed);
+  });
+});
+
 Deno.test("setup reports templates_not_found to stderr without --json", async () => {
   await withTempDir(async (dir) => {
     const { code, stdout, stderr } = await runCli(

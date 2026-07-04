@@ -48,6 +48,7 @@ import {
 } from "../shared/config_schema.ts";
 import {
   compileGuidelines,
+  guidanceRefreshErrors,
   type GuidelinesResult,
 } from "../engine/guidelines.ts";
 import {
@@ -426,22 +427,24 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
   // each gated on its feature). A failure here is non-fatal to the upgrade — the
   // schema is still stamped — but it is reported.
   let guidelines: GuidelinesResult | undefined;
+  let thrownGuidelinesError: string | undefined;
   try {
     // Pass upgrade's own logger so its narration follows upgrade's stream
     // discipline (suppressed in --json, stderr in human mode) — never polluting
     // the stdout JSON object.
     guidelines = await compileGuidelines(destDir, log);
   } catch (error) {
-    log.warn(
-      `could not recompile guidelines: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-    );
+    thrownGuidelinesError = `could not recompile guidelines: ${
+      error instanceof Error ? error.message : String(error)
+    }`;
+    log.warn(thrownGuidelinesError);
   }
   // A per-artifact failure inside the compile is isolated, not thrown (ADR 0065):
   // the per-job detail was already warned by compileGuidelines, so surface only an
   // aggregate here and treat the compile as incomplete.
-  const guidelinesErrors = guidelines?.errors ?? [];
+  const guidelinesErrors = guidelines === undefined
+    ? (thrownGuidelinesError === undefined ? [] : [thrownGuidelinesError])
+    : guidanceRefreshErrors(guidelines);
   if (guidelinesErrors.length > 0) {
     log.warn(
       `guideline refresh did not fully complete: ${guidelinesErrors.length} artifact(s) failed.`,
@@ -455,8 +458,13 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
 
   if (options.json) {
     log.result({
-      ok: true,
+      ok: fullyCompiled,
       verb: "upgrade",
+      ...(fullyCompiled ? {} : {
+        error: "partial_refresh",
+        message:
+          `${guidelinesErrors.length} artifact(s) failed to refresh; see data.guidelines_errors.`,
+      }),
       hints: guidelines?.hints ?? [],
       data: {
         kit_version: KIT_VERSION,

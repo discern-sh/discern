@@ -148,8 +148,9 @@ async function builtinGuidance(config: DiscernConfig): Promise<string> {
 
 /**
  * The full compiled guidance body: built-in sections (feature-gated) followed by
- * the user's `[guidance].sources`, each separated by a blank line — the content a
- * canonical / full-body provider file holds.
+ * the user's `[guidance].sources`. A single Markdown horizontal rule separates
+ * shipped guidance from user-authored guidance, so the ownership boundary is
+ * visible without changing either side's prose.
  */
 export async function composeGuidanceBody(
   root: string,
@@ -157,6 +158,10 @@ export async function composeGuidanceBody(
 ): Promise<string> {
   let body = await builtinGuidance(config);
   const sources = await resolveGuidanceSources(root, config);
+  if (sources.length > 0) {
+    const builtIn = body.trimEnd();
+    body = builtIn === "" ? "" : `${builtIn}\n\n---\n\n`;
+  }
   for (const src of sources) {
     body += await Deno.readTextFile(src);
     body += "\n";

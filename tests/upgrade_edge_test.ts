@@ -201,6 +201,27 @@ Deno.test("upgrade fills agents from defaults when discern.toml carries no agent
   });
 });
 
+Deno.test("upgrade --json reports a partial refresh as top-level not-ok while keeping the stamp", async () => {
+  await withTempDir(async (dir) => {
+    await setup(dir);
+    const malformed = '{ "mcpServers": { "other": true, }, }\n';
+    await Deno.writeTextFile(join(dir, ".mcp.json"), malformed);
+
+    const r = await runCli(["upgrade", "--json"], dir);
+    assertEquals(r.code, 0, r.stderr);
+    const res = JSON.parse(r.stdout);
+    assertEquals(res.ok, false);
+    assertEquals(res.error, "partial_refresh");
+    assertEquals(res.data.guidelines_compiled, false);
+    assertStringIncludes(
+      res.data.guidelines_errors.join("\n"),
+      "malformed JSON",
+    );
+    assertEquals(await recordedSchema(dir), SCHEMA_VERSION);
+    assertEquals(await Deno.readTextFile(join(dir, ".mcp.json")), malformed);
+  });
+});
+
 // ---- --check, human mode --------------------------------------------------
 
 Deno.test("upgrade --check (human) confirms an in-sync install and exits zero", async () => {

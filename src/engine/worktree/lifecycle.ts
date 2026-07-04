@@ -116,7 +116,7 @@ import {
 // worktree setup recompiles the agent guidance as its final step — which also
 // materializes skills into .claude/skills/ inside the freshly created worktree (a
 // linked worktree does not inherit that gitignored directory from the main checkout).
-import { compileGuidelines } from "../guidelines.ts";
+import { compileGuidelines, guidanceRefreshSucceeded } from "../guidelines.ts";
 // graduate validates the exact tree it lands by running the full gate at the landing
 // boundary (ADR 0067) — fast-pathed by a gate-pass receipt when nothing changed since
 // the agent's own `finish`, so a clean-merging but gate-breaking `integrate` (or any
@@ -493,7 +493,7 @@ export async function worktreeSetup(
   let refreshOk = true;
   try {
     const refreshed = await compileGuidelines(ctx.root, ctx.log);
-    refreshOk = refreshed.errors.length === 0;
+    refreshOk = guidanceRefreshSucceeded(refreshed);
   } catch {
     refreshOk = false;
     ctx.log.warn("Agent-file refresh reported an error — continuing.");
@@ -1380,7 +1380,7 @@ async function executeIntegratePlan(
       let refreshHints: string[] = [];
       try {
         const refreshed = await compileGuidelines(ctx.root, ctx.log);
-        refreshOk = refreshed.errors.length === 0;
+        refreshOk = guidanceRefreshSucceeded(refreshed);
         refreshHints = refreshed.hints;
       } catch {
         refreshOk = false;

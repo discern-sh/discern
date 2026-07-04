@@ -1169,3 +1169,47 @@ Deno.test("integrate: a failing ensure is recorded but never undoes the merge", 
     );
   });
 });
+
+Deno.test("integrate: a partial refresh is recorded but never undoes the merge", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "integ-refresh-fail");
+    const malformed = '{ "mcpServers": { "other": true, }, }\n';
+    await Deno.writeTextFile(join(wt, ".mcp.json"), malformed);
+    await git(wt, "add", ".mcp.json");
+    await git(
+      wt,
+      "commit",
+      "-q",
+      "-m",
+      "add malformed mcp config",
+      "--no-gpg-sign",
+    );
+
+    await Deno.writeTextFile(join(dir, "upstream.txt"), "from main\n");
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "upstream", "--no-gpg-sign");
+
+    const r = await runAgent(wt, ["integrate", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    assert(await exists(join(wt, "upstream.txt")), "the merge must be kept");
+    const result = JSON.parse(r.stdout) as {
+      ok: boolean;
+      steps: Array<{ kind: string; label: string; outcome: string }>;
+    };
+    const mergeStep = result.steps.find((s) =>
+      s.kind === "git" && s.label === "merge"
+    );
+    assertEquals(mergeStep?.outcome, "ok", `merge recorded ok\n${r.stdout}`);
+    const refreshStep = result.steps.find((s) => s.kind === "refresh");
+    assertEquals(
+      refreshStep?.outcome,
+      "failed",
+      `the partial refresh is recorded as a failed step\n${r.stdout}`,
+    );
+    assertEquals(
+      result.ok,
+      false,
+      `result.ok reflects the partial refresh\n${r.stdout}`,
+    );
+  });
+});

@@ -54,7 +54,11 @@ import {
   SettingsMergePlanError,
 } from "../lib/fs_plan.ts";
 import { planToJson, renderPlan } from "../lib/plan_view.ts";
-import { compileGuidelines } from "../engine/guidelines.ts";
+import {
+  compileGuidelines,
+  guidanceRefreshErrors,
+  guidanceRefreshSucceeded,
+} from "../engine/guidelines.ts";
 import { doctorResult } from "./doctor.ts";
 import { finishResult } from "../engine/gate/finish.ts";
 import {
@@ -390,6 +394,10 @@ interface ScaffoldOutcome {
   worktreeAppWired: string[];
   /** Project-local provider policy/rules files written by `compileGuidelines`. */
   projectRulesWired: string[];
+  /** Whether every refresh artifact completed without non-blank errors. */
+  guidelinesCompiled: boolean;
+  /** Non-blank refresh artifact errors, trimmed for the JSON result. */
+  guidelinesErrors: string[];
   hints: string[];
 }
 
@@ -531,6 +539,8 @@ async function scaffoldHarness(
   let mcpWired: string[] = [];
   let worktreeAppWired: string[] = [];
   let projectRulesWired: string[] = [];
+  let guidelinesCompiled = true;
+  let guidelinesErrors: string[] = [];
   let hints: string[] = [];
   try {
     const g = await compileGuidelines(destDir, log);
@@ -539,18 +549,24 @@ async function scaffoldHarness(
     worktreeAppWired = g.worktreeAppWired;
     projectRulesWired = g.projectRulesWired;
     hints = g.hints;
+    guidelinesErrors = guidanceRefreshErrors(g);
+    guidelinesCompiled = guidanceRefreshSucceeded(g);
     // A per-artifact refresh failure is isolated (ADR 0065) — surface it so the
     // user knows a skills dir / agent file / the MCP wiring didn't complete.
-    if (g.errors.length > 0) {
+    if (guidelinesErrors.length > 0) {
       hints = [
-        ...g.errors.map((e) =>
+        ...guidelinesErrors.map((e) =>
           `setup could not complete a refresh artifact: ${e}`
         ),
         ...hints,
       ];
     }
   } catch (error) {
-    log.warn(`could not compile agent guidance: ${errMsg(error)}`);
+    const message = `could not compile agent guidance: ${errMsg(error)}`;
+    guidelinesCompiled = false;
+    guidelinesErrors = [message];
+    hints = [`setup could not complete a refresh artifact: ${message}`];
+    log.warn(message);
   }
   if (seeded.migrated.length > 0) {
     hints = [
@@ -573,6 +589,8 @@ async function scaffoldHarness(
       mcpWired,
       worktreeAppWired,
       projectRulesWired,
+      guidelinesCompiled,
+      guidelinesErrors,
       hints,
     },
   };
@@ -899,9 +917,16 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   }
 
   if (opts.json) {
+    const setupOk = scaffold?.guidelinesCompiled ?? true;
+    const guidelinesErrors = scaffold?.guidelinesErrors ?? [];
     log.result({
-      ok: true,
+      ok: setupOk,
       verb: "setup",
+      ...(setupOk ? {} : {
+        error: "partial_refresh",
+        message:
+          `${guidelinesErrors.length} artifact(s) failed to refresh; see data.guidelines_errors.`,
+      }),
       hints: scaffold?.hints ?? [],
       data: {
         // The scaffold succeeded, but SETUP is not done — the agent must now act
@@ -923,6 +948,8 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
         mcp_wired: scaffold?.mcpWired ?? [],
         worktree_app_wired: scaffold?.worktreeAppWired ?? [],
         project_rules_wired: scaffold?.projectRulesWired ?? [],
+        guidelines_compiled: setupOk,
+        guidelines_errors: guidelinesErrors,
         skeletons: laid,
         skipped,
         instructions,
@@ -1663,10 +1690,21 @@ async function proveGateGreen(
   // 1. refresh — recompile the agent files + skills so finish's currency check sees
   //    a current tree (the agent likely edited guidance.md and the docs just now).
   try {
-    await compileGuidelines(
+    const refreshed = await compileGuidelines(
       root,
       new Logger({ json, noColor: false, humanStream: "stdout" }),
     );
+    const errors = guidanceRefreshErrors(refreshed);
+    if (errors.length > 0) {
+      return {
+        ok: false,
+        exitCode: emitDoneGateFailure(
+          json,
+          "refresh",
+          `guidance refresh did not fully complete: ${errors.join("; ")}`,
+        ),
+      };
+    }
   } catch (error) {
     return {
       ok: false,

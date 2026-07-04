@@ -1,6 +1,10 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { join } from "@std/path";
-import { compileGuidelines } from "../src/engine/guidelines.ts";
+import { dirname, fromFileUrl, join } from "@std/path";
+import {
+  compileGuidelines,
+  guidanceRefreshErrors,
+  guidanceRefreshSucceeded,
+} from "../src/engine/guidelines.ts";
 
 /** Scaffold a temp project with a discern.toml, a guidance source, and one
  * authored skill (under ./skills/). Built-in guidance + bundled skills come from
@@ -98,6 +102,35 @@ Deno.test("compileGuidelines: built-in + sources (no banner); copies built-ins, 
   }
 });
 
+Deno.test("guidance refresh status ignores blank error entries", () => {
+  assertEquals(guidanceRefreshErrors({ errors: [" \n\t "] }), []);
+  assertEquals(guidanceRefreshSucceeded({ errors: [" \n\t "] }), true);
+  assertEquals(
+    guidanceRefreshErrors({ errors: [" \n\t ", " real error "] }),
+    ["real error"],
+  );
+  assertEquals(
+    guidanceRefreshSucceeded({ errors: [" \n\t ", " real error "] }),
+    false,
+  );
+});
+
+Deno.test("compileGuidelines callers use the shared partial-refresh predicate", async () => {
+  const root = join(dirname(fromFileUrl(import.meta.url)), "..");
+  const offenders: string[] = [];
+  for await (const path of sourceFiles(join(root, "src"))) {
+    const rel = path.slice(root.length + 1);
+    if (rel === "src/engine/guidelines.ts") {
+      continue;
+    }
+    const text = await Deno.readTextFile(path);
+    if (text.includes("compileGuidelines(") && /\.errors\.length/.test(text)) {
+      offenders.push(rel);
+    }
+  }
+  assertEquals(offenders, []);
+});
+
 Deno.test("compileGuidelines respects [features]: guidance off compiles nothing; skills off materializes nothing", async () => {
   // guidance off → no agent files, but skills still materialize (jobs are gated
   // independently).
@@ -154,3 +187,14 @@ Deno.test("compileGuidelines respects [features]: guidance off compiles nothing;
     await Deno.remove(b, { recursive: true });
   }
 });
+
+async function* sourceFiles(dir: string): AsyncGenerator<string> {
+  for await (const entry of Deno.readDir(dir)) {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory) {
+      yield* sourceFiles(path);
+    } else if (entry.isFile && path.endsWith(".ts")) {
+      yield path;
+    }
+  }
+}

@@ -5,7 +5,7 @@
  * writes by construction. Fast: no subprocess.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { compileGuidelines } from "../src/engine/guidelines.ts";
 import {
@@ -41,6 +41,11 @@ Deno.test("renderAgentFiles: AGENTS.md is the full body; CLAUDE.md is the @AGENT
     assert(
       agents.startsWith("# Working with the discern harness"),
       "the canonical file opens with the guidance — no banner",
+    );
+    assertStringIncludes(
+      agents,
+      "\n---\n\n# Mine\nA rule.\n",
+      "the shipped guidance and user guidance are separated by one Markdown rule",
     );
     assert(agents.includes("A rule."), "the user source is appended");
     assertEquals(files.get("CLAUDE.md"), "@AGENTS.md\n");
