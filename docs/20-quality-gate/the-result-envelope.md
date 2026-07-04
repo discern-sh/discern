@@ -31,6 +31,11 @@ undefined fields, so a clean refusal serializes to just
 message}`. Under `--json` the envelope is the **entire**
 output ([ADR 0028](../_adr/0028-result-envelope-and-diagnostics.md)).
 
+Human plan summaries are rendered from `plan` with `renderPlan`; human apply
+step summaries are rendered from `steps[]` with `renderStepResults`. Verbs may
+still stream live job/progress output while running, but the settled "what ran"
+list is one rendering of the same result object that `--json` serializes.
+
 ## `steps[]` job output artifacts
 
 For gate jobs that run (`finish`, `prepare`, and `discern test`), each `steps[]`

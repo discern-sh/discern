@@ -76,6 +76,7 @@ import {
   type EnginePlan,
   previewResult,
   renderPlan,
+  renderStepResults,
   type StepResult,
 } from "../../shared/result.ts";
 import type {
@@ -154,6 +155,8 @@ export interface WorktreeOpOptions {
   dryRun?: boolean;
   /** Emit a machine-readable (plan, results) object on stdout. */
   json?: boolean;
+  /** Render the human apply summary (internal protocol callers may reserve stdout). */
+  humanApplySummary?: boolean;
   /** Graduate only: where the branch lands. Overrides `[worktree].graduate_to`. */
   to?: GraduateTarget | undefined;
 }
@@ -176,9 +179,55 @@ function emitDryRun(
   renderPlan(loggerSink(ctx.log), plan);
 }
 
-/** Emit an applied verb's result as the `--json` DiscernResult on stdout. */
-function emitResults(verb: string, results: StepResult[]): void {
-  emitResult(appliedResult(verb, results));
+function applyResultTitle(verb: string): string {
+  switch (verb) {
+    case "start":
+      return "Start results";
+    case "integrate":
+      return "Integration results";
+    case "graduate":
+      return "Graduation results";
+    case "worktree setup":
+      return "Worktree setup results";
+    case "worktree teardown":
+      return "Worktree teardown results";
+    case "worktree prune":
+      return "Worktree prune results";
+    default:
+      return `${verb} results`;
+  }
+}
+
+interface WorktreeResultRenderHooks<TData> {
+  afterPlan?: ((result: DiscernResult<TData>) => void) | undefined;
+  afterApply?: ((result: DiscernResult<TData>) => void) | undefined;
+}
+
+/**
+ * Render one result object on the requested surface. Dry-runs use the shared plan
+ * renderer; applies use the shared StepResult renderer, so the human summary and
+ * `--json` agree on the settled step list.
+ */
+function emitOrRenderWorktreeResult<TData>(
+  ctx: LifecycleContext,
+  result: DiscernResult<TData>,
+  json: boolean,
+  hooks: WorktreeResultRenderHooks<TData> = {},
+): void {
+  if (json) {
+    emitResult(result);
+    return;
+  }
+  if (result.dry_run === true && result.plan !== undefined) {
+    renderPlan(loggerSink(ctx.log), result.plan);
+    hooks.afterPlan?.(result);
+    return;
+  }
+  renderStepResults(loggerSink(ctx.log), {
+    title: applyResultTitle(result.verb),
+    steps: result.steps ?? [],
+  });
+  hooks.afterApply?.(result);
 }
 
 /** Resolve this worktree's full identity (and the settings it derived from) from
@@ -516,11 +565,12 @@ export async function worktreeSetup(
 
   ctx.log.ok("Worktree setup complete.");
 
-  if (opts.json ?? false) {
-    emitResults(
-      "worktree setup",
-      setupResults(plan, createdFailed, refreshOk, ensureFailed),
-    );
+  const result = appliedResult(
+    "worktree setup",
+    setupResults(plan, createdFailed, refreshOk, ensureFailed),
+  );
+  if ((opts.json ?? false) || (opts.humanApplySummary ?? true)) {
+    emitOrRenderWorktreeResult(ctx, result, opts.json ?? false);
   }
 }
 
@@ -544,7 +594,9 @@ export async function createAndSetupWorktree(
   log: Logger,
 ): Promise<void> {
   await addWorktree(mainRepo, dir, branch);
-  await worktreeSetup(await lifecycleContext(dir, log, dir));
+  await worktreeSetup(await lifecycleContext(dir, log, dir), {
+    humanApplySummary: false,
+  });
 }
 
 /** The outcome of the idempotent session-start ensure check. */
@@ -588,7 +640,7 @@ export async function worktreeEnsure(
   ctx.log.warn(
     "[discern] Worktree not configured yet; running 'discern worktree setup'…",
   );
-  await worktreeSetup(ctx);
+  await worktreeSetup(ctx, { humanApplySummary: false });
   return { kind: "ran" };
 }
 
@@ -626,22 +678,24 @@ export async function worktreeTeardown(
   const { destroyed, failed } = await destroyResources(ctx, plan.entries);
   ctx.log.ok("Worktree teardown complete.");
 
-  if (opts.json ?? false) {
-    const results: StepResult[] = plan.entries.map((item) => ({
-      step: {
-        kind: "resource-destroy",
-        label: item.entry.resource_name,
-        disposition: "run",
-        note: item.entry.resource_identity,
-      },
-      outcome: failed.includes(item.entry.resource_name)
-        ? "failed"
-        : destroyed.includes(item.entry.resource_name)
-        ? "ok"
-        : "skipped",
-    }));
-    emitResults("worktree teardown", results);
-  }
+  const results: StepResult[] = plan.entries.map((item) => ({
+    step: {
+      kind: "resource-destroy",
+      label: item.entry.resource_name,
+      disposition: "run",
+      note: item.entry.resource_identity,
+    },
+    outcome: failed.includes(item.entry.resource_name)
+      ? "failed"
+      : destroyed.includes(item.entry.resource_name)
+      ? "ok"
+      : "skipped",
+  }));
+  emitOrRenderWorktreeResult(
+    ctx,
+    appliedResult("worktree teardown", results),
+    opts.json ?? false,
+  );
 }
 
 /** A bound git runner for the graduation flow (defaults to the worktree cwd). */
@@ -986,13 +1040,7 @@ export async function graduate(
     dryRun: opts.dryRun ?? false,
     to: opts.to,
   });
-  if (opts.json ?? false) {
-    emitResult(result);
-  } else if (result.dry_run === true && result.plan !== undefined) {
-    // Human dry-run: render the plan the result carries (an apply already narrated
-    // through ctx.log while executeGraduatePlan ran).
-    renderPlan(loggerSink(ctx.log), result.plan);
-  }
+  emitOrRenderWorktreeResult(ctx, result, opts.json ?? false);
 }
 
 /**
@@ -1438,16 +1486,13 @@ export async function integrate(
   opts: WorktreeOpOptions = {},
 ): Promise<void> {
   const result = await integrateResult(ctx, { dryRun: opts.dryRun ?? false });
-  if (opts.json ?? false) {
-    emitResult(result);
-  } else if (result.dry_run === true && result.plan !== undefined) {
-    // Human dry-run: render the plan, then the predicted "what would land" summary
-    // (an apply already narrated through ctx.log). Both read the one result object.
-    renderPlan(loggerSink(ctx.log), result.plan);
-    if (result.data !== undefined) {
-      narrateIntegration(ctx, result.data, true);
-    }
-  }
+  emitOrRenderWorktreeResult(ctx, result, opts.json ?? false, {
+    afterPlan: (r) => {
+      if (r.data !== undefined) {
+        narrateIntegration(ctx, r.data, true);
+      }
+    },
+  });
 }
 
 /**
@@ -1615,20 +1660,15 @@ export async function start(
     dryRun: opts.dryRun ?? false,
     worktreeRoot: opts.worktreeRoot,
   });
-  if (opts.json ?? false) {
-    emitResult(result);
-    return;
-  }
-  if (result.dry_run === true && result.plan !== undefined) {
-    // Human dry-run: render the plan (an apply already narrated through ctx.log).
-    renderPlan(loggerSink(ctx.log), result.plan);
-    return;
-  }
-  // Human apply: the new worktree's path is the deliverable — say how to enter it.
-  const data = result.data;
-  if (data !== undefined) {
-    ctx.log.info(`cd into it to continue: cd ${data.path}`);
-  }
+  emitOrRenderWorktreeResult(ctx, result, opts.json ?? false, {
+    afterApply: (r) => {
+      // Human apply: the new worktree's path is the deliverable — say how to enter it.
+      const data = r.data;
+      if (data !== undefined) {
+        ctx.log.info(`cd into it to continue: cd ${data.path}`);
+      }
+    },
+  });
 }
 
 /**
@@ -1945,9 +1985,11 @@ export async function worktreePrune(
   }
   ctx.log.ok("Prune complete.");
 
-  if (json) {
-    emitResults("worktree prune", pruneResults(prune, sweep, gc));
-  }
+  emitOrRenderWorktreeResult(
+    ctx,
+    appliedResult("worktree prune", pruneResults(prune, sweep, gc)),
+    json,
+  );
 }
 
 /** Map the real prune/sweep/GC outcomes to `--json` step results. */

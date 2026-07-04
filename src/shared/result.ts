@@ -402,7 +402,7 @@ export function capText(s: string): CappedText {
   };
 }
 
-// ── the shared plan renderer (the `--dry-run` listing) ──────────────────────
+// ── the shared human renderers ──────────────────────────────────────────────
 
 /**
  * The minimal output surface the renderer needs. Implemented by both the gate's
@@ -450,6 +450,89 @@ export function renderPlan(sink: RenderSink, plan: EnginePlan): void {
       : "  ";
     const label = DISPOSITION_LABEL[step.disposition].padEnd(6);
     const note = step.note !== undefined ? sink.dim(` — ${step.note}`) : "";
+    sink.line(`${indent}${label} ${step.label}${note}`);
+  }
+}
+
+/** A complete, renderable apply result: a titled executed-step list. */
+export interface StepResultsView {
+  /** Heading for the apply summary (e.g. "Ratchet results"). */
+  title: string;
+  /** Context lines shown above the steps. */
+  details?: string[] | undefined;
+  steps: StepResult[];
+}
+
+/** Short, human label for each executed-step outcome. */
+const OUTCOME_LABEL: Record<StepOutcome, string> = {
+  ok: "ok",
+  failed: "failed",
+  skipped: "skipped",
+};
+
+function stepResultNote(result: StepResult): string | undefined {
+  const parts: string[] = [];
+  if (result.step.note !== undefined) {
+    parts.push(result.step.note);
+  }
+
+  const metadata: string[] = [];
+  if (result.durationS !== undefined) {
+    metadata.push(`${result.durationS}s`);
+  }
+  if (result.outputLines !== undefined) {
+    metadata.push(
+      `${result.outputLines} output line${result.outputLines === 1 ? "" : "s"}`,
+    );
+  }
+  if (result.errorLikeLines !== undefined && result.errorLikeLines > 0) {
+    metadata.push(
+      `${result.errorLikeLines} diagnostic-like line${
+        result.errorLikeLines === 1 ? "" : "s"
+      }`,
+    );
+  }
+  if (result.outputPath !== undefined) {
+    metadata.push(`output: ${result.outputPath}`);
+  }
+  if (metadata.length > 0) {
+    parts.push(metadata.join(", "));
+  }
+
+  return parts.length > 0 ? parts.join(" | ") : undefined;
+}
+
+/**
+ * Render executed steps as a per-step listing — the apply-mode mirror of
+ * {@link renderPlan}. Steps carrying a `group` are printed under a dim group line.
+ */
+export function renderStepResults(
+  sink: RenderSink,
+  view: StepResultsView,
+): void {
+  sink.heading(view.title);
+  for (const d of view.details ?? []) {
+    sink.line(`  ${sink.dim(d)}`);
+  }
+  if (view.steps.length === 0) {
+    sink.line(`  ${sink.dim("(nothing ran)")}`);
+    return;
+  }
+  let group: string | undefined;
+  for (const result of view.steps) {
+    const step = result.step;
+    if (step.group !== group) {
+      group = step.group;
+      if (group !== undefined && group !== "") {
+        sink.line(`  ${sink.dim(group)}`);
+      }
+    }
+    const indent = step.group !== undefined && step.group !== ""
+      ? "    "
+      : "  ";
+    const label = OUTCOME_LABEL[result.outcome].padEnd(8);
+    const detail = stepResultNote(result);
+    const note = detail !== undefined ? sink.dim(` - ${detail}`) : "";
     sink.line(`${indent}${label} ${step.label}${note}`);
   }
 }

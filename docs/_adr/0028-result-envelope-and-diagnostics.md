@@ -61,17 +61,14 @@ interface DiscernResult {
 
 `serializeResult` is the ONE place the wire shape is defined (undefined fields
 dropped). A preview carries `plan` + `dry_run` and no `steps`; an apply carries
-`steps`. How tightly human and machine output are bound differs by path, and the
-ADR is precise about it: for a **preview**, the human listing and the JSON are
-two renderings of one object through one shared renderer (`renderPlan`), so they
-cannot disagree. For an **apply**, the JSON is the serialized result while the
-human narration is produced _during execution_ — kept consistent because both
-read the same run, a convention rather than a structural invariant (there is no
-shared `steps[]` renderer yet; unifying that is future work). A verb may add
-bespoke human _advice_ (finish's success tail, doctor's per-check fix hints) on
-top, and **live streamed job output stays a side-channel** (you cannot render
-post-hoc bytes from a settled object) — though under `--json` that side-channel
-is itself silenced (see the _Update_ below).
+`steps`. For a **preview**, the human listing and the JSON are two renderings of
+one object through one shared renderer (`renderPlan`), so they cannot disagree.
+For an **apply**, the settled step summary is rendered from `steps[]` through
+the shared `renderStepResults`; the JSON serializes those same `steps[]`. A verb
+may add bespoke human _advice_ (finish's success tail, doctor's per-check fix
+hints) on top, and **live streamed job/progress output stays a side-channel**
+(you cannot render post-hoc bytes from a settled object) — though under `--json`
+that side-channel is itself silenced (see the _Update_ below).
 
 We deliberately did **not** force every verb's payload into one shape: a doctor
 check is not a gate job, a pending migration is not a step. Per-verb data rides
@@ -120,10 +117,10 @@ verbs is `serializeResult` over stdio — a third rendering of the same spine.
 - **Agents loop act → read-error → fix.** The failure's command and output are
   in the result; no re-run, no stderr scraping. This is the headline DX win and
   the reason the work was prioritized above backward compatibility.
-- **Human and machine output share a renderer for previews** (and are parallel
-  renderings of the same run for applies). A preview's two views cannot drift;
-  an apply's are kept consistent by construction until a shared `steps[]`
-  renderer lands.
+- **Human and machine output share renderers for plans and step summaries.** A
+  preview's two views cannot drift; an apply's settled step summary is rendered
+  from the same `steps[]` that `--json` serializes, while live job/progress
+  output remains a side-channel.
 - **One contract to learn and to test.** `serializeResult` is the single wire
   definition; new verbs get the envelope automatically.
 - **Breaking — every `--json` shape changed.** `finish` no longer emits

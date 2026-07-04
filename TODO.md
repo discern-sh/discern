@@ -90,15 +90,6 @@ _Nothing outstanding._
       (`normalizeDiagnostics` — SARIF only); `src/engine/gate/plan.ts`
       (`buildGateResult` calls it).
 
-- [ ] **The apply path's human output isn't rendered FROM the result.**
-      `finish`, the worktree verbs, and `ratchets` narrate during execution, in
-      parallel with the `steps[]` they serialize for `--json` — kept consistent
-      by convention, not structure (ADR 0028 is now precise about this). A
-      shared `StepResult[]` renderer (the mirror of `renderPlan`, which covers
-      only plans) would make the apply path a true rendering of the one object
-      too. Evidence: `src/engine/worktree/lifecycle.ts` (parallel
-      `log.info`/`done()`); `src/shared/result.ts` (`renderPlan`).
-
 ## 🟢 Test & tooling hygiene
 
 - [ ] **Scaffold the CI gate workflow once releases are public.** The docs now

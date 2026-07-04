@@ -29,6 +29,7 @@ import {
   type PlanStep,
   previewResult,
   renderPlan,
+  renderStepResults,
   type StepOutcome,
   type StepResult,
 } from "../../shared/result.ts";
@@ -438,8 +439,13 @@ export async function runRatchets(
     }
   }
 
-  const { ok } = await executeRatchetPlan(plan, root, mainBranch, out);
-  if (!ok) {
+  const { results } = await executeRatchetPlan(plan, root, mainBranch, out);
+  const result = appliedResult("ratchets", results);
+  renderStepResults(outSink(out), {
+    title: "Ratchet results",
+    steps: result.steps ?? [],
+  });
+  if (!result.ok) {
     out.error("One or more ratchets failed.");
     return 1;
   }

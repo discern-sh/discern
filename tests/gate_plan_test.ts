@@ -7,7 +7,7 @@
  * subprocess-driven `engine_finish_json_test.ts`; this pins the decisions directly.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { KNOWN_CAPABILITIES } from "../src/shared/capabilities.ts";
 import {
@@ -25,6 +25,8 @@ import {
   planToJson,
   renderPlan,
   type RenderSink,
+  renderStepResults,
+  type StepResult,
 } from "../src/shared/result.ts";
 
 const FULL = parseConfigOrThrow(`
@@ -418,6 +420,64 @@ Deno.test("renderPlan: an empty plan says so", () => {
   const { sink, lines } = captureSink();
   renderPlan(sink, empty);
   assert(lines.join("\n").includes("nothing to do"));
+});
+
+Deno.test("renderStepResults: groups outcomes and renders result metadata", () => {
+  const steps: StepResult[] = [
+    {
+      step: {
+        kind: "job",
+        label: "format",
+        disposition: "run",
+        note: "deno fmt",
+        group: "Fix",
+      },
+      outcome: "ok",
+      durationS: 2,
+      outputLines: 3,
+      errorLikeLines: 1,
+      outputPath: "/tmp/format.out",
+    },
+    {
+      step: {
+        kind: "scope-gate",
+        label: "scope:docs",
+        disposition: "skip",
+        note: "scope unchanged",
+        group: "Scopes",
+      },
+      outcome: "skipped",
+    },
+    {
+      step: {
+        kind: "ratchet",
+        label: "coverage",
+        disposition: "run",
+      },
+      outcome: "failed",
+    },
+  ];
+  const { sink, lines } = captureSink();
+  renderStepResults(sink, { title: "Apply results", steps });
+  const text = lines.join("\n");
+
+  assert(text.includes("Apply results"));
+  assert(text.includes("Fix"));
+  assert(text.includes("Scopes"));
+  assert(/ok\s+format/.test(text), text);
+  assertStringIncludes(text, "deno fmt");
+  assertStringIncludes(text, "2s");
+  assertStringIncludes(text, "3 output lines");
+  assertStringIncludes(text, "1 diagnostic-like line");
+  assertStringIncludes(text, "output: /tmp/format.out");
+  assert(/skipped\s+scope:docs/.test(text), text);
+  assert(/failed\s+coverage/.test(text), text);
+});
+
+Deno.test("renderStepResults: an empty apply says nothing ran", () => {
+  const { sink, lines } = captureSink();
+  renderStepResults(sink, { title: "Apply results", steps: [] });
+  assert(lines.join("\n").includes("nothing ran"));
 });
 
 Deno.test("planToJson: round-trips the plan shape", () => {

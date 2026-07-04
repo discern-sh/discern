@@ -159,6 +159,7 @@ export async function worktreeRemoveHook(): Promise<number> {
     }
     await worktreeTeardown(
       await lifecycleContext(worktreePath, log, worktreePath),
+      { humanApplySummary: false },
     );
   } catch (e) {
     // Never fail the remove event — a stranded resource is reclaimed later by
