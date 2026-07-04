@@ -7,7 +7,7 @@ co-manages the files below when Gemini is enabled in `[guidance].agents`:
 | ----------------------- | ----------------------------------------------- | --------------------- |
 | `GEMINI.md`             | Pointer to the canonical compiled guidance file | Generated, gitignored |
 | `.agents/skills/`       | Materialized Agent Skills                       | Generated, gitignored |
-| `.gemini/settings.json` | MCP server entry and session-start hook         | Seeded, tracked       |
+| `.gemini/settings.json` | MCP server entry and session-start hook         | Co-managed, tracked   |
 
 Gemini is not in `DEFAULT_AGENTS`; add `"gemini"` to `[guidance].agents` to emit
 these artifacts.

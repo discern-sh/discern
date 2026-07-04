@@ -9,7 +9,7 @@ writes or co-manages the files below when Claude Code is enabled in
 | `CLAUDE.md`             | Pointer to the canonical compiled guidance file  | Generated, gitignored |
 | `.claude/skills/`       | Materialized Claude Code Skills                  | Generated, gitignored |
 | `.mcp.json`             | Project MCP server entry                         | Co-managed, tracked   |
-| `.claude/settings.json` | Hooks, MCP pre-approval, and permission defaults | Seeded, tracked       |
+| `.claude/settings.json` | Hooks, MCP pre-approval, and permission defaults | Co-managed, tracked   |
 
 Claude Code may also create `.claude/settings.local.json` for machine-local
 permission grants and overrides. discern does not seed or track that file; the
@@ -56,7 +56,7 @@ byte-identical whichever provider wires it first.
 
 ## `.claude/settings.json`
 
-The seeded Claude Code settings include the worktree hooks and a conservative
+The Claude Code settings seed includes the worktree hooks and a conservative
 permission default:
 
 ```json

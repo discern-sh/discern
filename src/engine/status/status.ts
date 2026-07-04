@@ -53,6 +53,10 @@ import {
   checkGuidanceCurrent,
   type GuidanceDriftEntry,
 } from "../guidance_render.ts";
+import {
+  checkProviderHooksCurrent,
+  type ProviderHookDriftEntry,
+} from "../../lib/provider_hooks.ts";
 import { checkSkillsCurrent, type SkillsDriftEntry } from "../../lib/skills.ts";
 import {
   assertMainMerged,
@@ -250,6 +254,15 @@ export async function statusResult(
     }
   }
 
+  // Provider integration currency. Hook files are provider-owned settings that
+  // `discern refresh` re-seeds through registry-declared merge strategies. Surface
+  // missing/stale hook files during orientation just like generated guidance and
+  // materialized skills, but keep status read-only.
+  const providerHookDrift = await checkProviderHooksCurrent(root, cfg);
+  if (providerHookDrift.length > 0) {
+    data.stale_integrations = providerHookDrift.map((d) => d.path);
+  }
+
   // One-time setup state (ADR 0036). Until `[meta].bootstrapped` is recorded the
   // project is mid-setup and the agent must finish it — surfaced loudly (a banner,
   // a lead hint) so a half-done setup isn't mistaken for a finished one. Walk for
@@ -292,6 +305,7 @@ export async function statusResult(
     liveCount,
     guidanceDrift,
     skillsDrift,
+    providerHookDrift,
     setupPending,
     gateReceipt,
   });
@@ -473,6 +487,8 @@ interface HintContext {
   guidanceDrift: GuidanceDriftEntry[];
   /** Materialized skills that don't match the effective set a refresh would place. */
   skillsDrift: SkillsDriftEntry[];
+  /** Provider hook files that don't match the configured integration seed. */
+  providerHookDrift: ProviderHookDriftEntry[];
   /** Scaffolded files still carrying skeleton markers while setup is unfinished;
    * undefined once `[meta].bootstrapped` is recorded. Drives the lead setup hint. */
   setupPending: string[] | undefined;
@@ -523,6 +539,19 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
       allMissing
         ? `Skills aren't materialized yet (${dirs}); run \`discern refresh\`.`
         : `Materialized skills are out of date (${dirs}); run \`discern refresh\` — edits belong in your [skills].dir source, not the materialized copy.`,
+    );
+  }
+
+  if (ctx.providerHookDrift.length > 0) {
+    const paths = [...new Set(ctx.providerHookDrift.map((d) => d.path))]
+      .join(", ");
+    const allMissing = ctx.providerHookDrift.every((d) =>
+      d.reason === "missing"
+    );
+    hints.push(
+      allMissing
+        ? `Provider integration files are missing (${paths}); run \`discern refresh\`.`
+        : `Provider integration files need attention (${paths}); run \`discern refresh\`, and if it reports a malformed settings file, repair that file and re-run refresh.`,
     );
   }
 

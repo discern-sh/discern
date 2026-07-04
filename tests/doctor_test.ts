@@ -16,6 +16,7 @@ import { join } from "@std/path";
 import { runCli, withTempDir } from "./helpers.ts";
 import { renderAgentFiles } from "../src/engine/guidance_render.ts";
 import { FEATURES } from "../src/shared/features.ts";
+import { providersWithHooks } from "../src/lib/providers.ts";
 
 /** One check in the `doctor --json` payload. */
 interface DoctorCheck {
@@ -571,10 +572,47 @@ Deno.test("doctor: surfaces per-agent integration coverage (MCP + hooks wired fo
   });
 });
 
+Deno.test("doctor: fails when configured provider hook files are missing", async () => {
+  await withTempDir(async (dir) => {
+    const hookProviders = providersWithHooks();
+    const { code: setupCode } = await runCli([
+      "setup",
+      "--confirmed",
+      "--yes",
+      "--slug",
+      "doctor-hooks",
+      "--agents",
+      hookProviders.map((p) => p.name).join(","),
+    ], dir);
+    assertEquals(setupCode, 0, "setup should scaffold every hooks provider");
+
+    for (const provider of hookProviders) {
+      const hooks = provider.hooks;
+      assert(hooks !== undefined);
+      await Deno.remove(join(dir, hooks.settingsFile));
+    }
+
+    const { code, payload } = await runDoctorJson(dir);
+    assertEquals(code, 1);
+    assertEquals(payload.ok, false);
+    for (const provider of hookProviders) {
+      const hooks = provider.hooks;
+      assert(hooks !== undefined);
+      const hookCheck = check(payload, `agent hooks: ${provider.label}`);
+      assertEquals(hookCheck.status, "fail");
+      assertStringIncludes(hookCheck.detail, hooks.settingsFile);
+      assertStringIncludes(hookCheck.detail, "missing");
+      assertStringIncludes(hookCheck.fix ?? "", "discern refresh");
+    }
+  });
+});
+
 Deno.test("doctor: Cursor-only guidance report is backed by compiled AGENTS.md output", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir);
     await setAgents(dir, '["cursor"]');
+    const refresh = await runCli(["refresh", "--json"], dir);
+    assertEquals(refresh.code, 0, refresh.stdout + refresh.stderr);
 
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 0);

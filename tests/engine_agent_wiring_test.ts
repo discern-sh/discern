@@ -167,6 +167,83 @@ Deno.test("Codex: refresh wires .codex/config.toml (MCP) and co-manages environm
   });
 });
 
+Deno.test("refresh re-seeds missing provider hook files for every configured hooks provider", async () => {
+  await withTempDir(async (dir) => {
+    const hookProviders = providersWithHooks();
+    const agents = hookProviders.map((p) => p.name as AgentName);
+    await scaffoldEngine(dir, { agents });
+    const hookFiles = [
+      ...new Set(
+        hookProviders.flatMap((p) =>
+          p.hooks === undefined ? [] : [p.hooks.settingsFile]
+        ),
+      ),
+    ].sort();
+
+    for (const file of hookFiles) {
+      await Deno.remove(join(dir, file));
+    }
+
+    const r = await runAgent(dir, ["refresh", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    const data = JSON.parse(r.stdout).data as { hooks_wired: string[] };
+    assertEquals([...data.hooks_wired].sort(), hookFiles);
+
+    for (const provider of hookProviders) {
+      const hooks = provider.hooks;
+      assert(hooks !== undefined);
+      const body = await Deno.readTextFile(join(dir, hooks.settingsFile));
+      assertStringIncludes(body, hooks.sessionHookNeedle);
+    }
+
+    const second = await runAgent(dir, ["refresh", "--json"]);
+    assertEquals(second.code, 0, second.output);
+    assertEquals(JSON.parse(second.stdout).data.hooks_wired, []);
+  });
+});
+
+Deno.test("refresh re-seeds provider hooks without clobbering user settings", async () => {
+  await withTempDir(async (dir) => {
+    const hookProviders = providersWithHooks();
+    const agents = hookProviders.map((p) => p.name as AgentName);
+    await scaffoldEngine(dir, { agents });
+    const hookFiles = [
+      ...new Set(
+        hookProviders.flatMap((p) =>
+          p.hooks === undefined ? [] : [p.hooks.settingsFile]
+        ),
+      ),
+    ].sort();
+
+    for (const provider of hookProviders) {
+      const hooks = provider.hooks;
+      assert(hooks !== undefined);
+      const path = join(dir, hooks.settingsFile);
+      const settings = JSON.parse(await Deno.readTextFile(path)) as Record<
+        string,
+        unknown
+      >;
+      delete settings.hooks;
+      settings.userPreserved = provider.name;
+      await Deno.writeTextFile(path, `${JSON.stringify(settings, null, 2)}\n`);
+    }
+
+    const r = await runAgent(dir, ["refresh", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    const data = JSON.parse(r.stdout).data as { hooks_wired: string[] };
+    assertEquals([...data.hooks_wired].sort(), hookFiles);
+
+    for (const provider of hookProviders) {
+      const hooks = provider.hooks;
+      assert(hooks !== undefined);
+      const body = await Deno.readTextFile(join(dir, hooks.settingsFile));
+      const settings = JSON.parse(body) as { userPreserved?: string };
+      assertEquals(settings.userPreserved, provider.name);
+      assertStringIncludes(body, hooks.sessionHookNeedle);
+    }
+  });
+});
+
 Deno.test("Cursor + Copilot: scaffold seeds each SessionStart hook; refresh wires .cursor/mcp.json and the co-owned .mcp.json", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { agents: ["cursor", "copilot"] });

@@ -283,9 +283,10 @@ export const TOOLS: McpTool[] = orderTools([
       "gates); data.gate_receipt explains whether the current clean HEAD already " +
       "has a recorded discern_finish pass; data.worktree carries this worktree's id/port/db and provisioned " +
       "resources; data.features and data.ratchets list the configured set. " +
-      "data.stale_generated flags generated agent files, and data.stale_materialized " +
-      "the materialized skills, that have drifted from their sources (call " +
-      "discern_refresh for either); data.setup_unfinished is present while the project's " +
+      "data.stale_generated flags generated agent files, data.stale_materialized " +
+      "the materialized skills, and data.stale_integrations provider integration " +
+      "files, that have drifted from their sources (call " +
+      "discern_refresh for any of them); data.setup_unfinished is present while the project's " +
       "one-time setup is still incomplete. From the " +
       "main checkout it leads with data.fleet (a cheap row per worktree: branch, " +
       "Git-clean state, ahead/behind, a last_activity timestamp, and is_current marking the row " +

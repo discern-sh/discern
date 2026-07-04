@@ -380,6 +380,12 @@
                     "type": "string"
                   }
                 },
+                "hooks_wired": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
                 "worktree_app_wired": {
                   "type": "array",
                   "items": {
@@ -2353,6 +2359,18 @@
                   }
                 },
                 "mcp_wired": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "hooks_wired": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "worktree_app_wired": {
                   "type": "array",
                   "items": {
                     "type": "string"
@@ -5792,6 +5810,12 @@
                     "type": "string"
                   }
                 },
+                "hooks_wired": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
                 "worktree_app_wired": {
                   "type": "array",
                   "items": {
@@ -5833,6 +5857,7 @@
               "required": [
                 "agents_written",
                 "mcp_wired",
+                "hooks_wired",
                 "worktree_app_wired",
                 "project_rules_wired",
                 "skills",
@@ -6933,6 +6958,12 @@
                   }
                 },
                 "stale_materialized": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "stale_integrations": {
                   "type": "array",
                   "items": {
                     "type": "string"

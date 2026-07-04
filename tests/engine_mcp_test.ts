@@ -1956,7 +1956,7 @@ Deno.test("discern mcp: initialization instructions prioritize discern_status", 
   );
 });
 
-Deno.test("discern mcp: discern_status documents its actionable data fields (incl. stale_materialized)", async () => {
+Deno.test("discern mcp: discern_status documents its actionable data fields (incl. stale integrations)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -1980,12 +1980,13 @@ Deno.test("discern mcp: discern_status documents its actionable data fields (inc
     // field status DOES emit — each tells the agent to run a command (`discern
     // refresh`, or finish setup). `stale_materialized` is why this guard exists: it
     // arrived with the materialized-skills currency check AFTER its two siblings were
-    // documented, and silently went unmentioned. Pin all three so a new advisory
+    // documented, and silently went unmentioned. Pin the set so a new advisory
     // field can't drift into the payload undocumented the same way.
     for (
       const field of [
         "stale_generated",
         "stale_materialized",
+        "stale_integrations",
         "setup_unfinished",
         "incoming_overlap",
       ]

@@ -103,6 +103,7 @@ export type DiscernSetupResult = {
     written?: Array<string>;
     compiled?: Array<string>;
     mcp_wired?: Array<string>;
+    hooks_wired?: Array<string>;
     worktree_app_wired?: Array<string>;
     project_rules_wired?: Array<string>;
     guidelines_compiled?: boolean;
@@ -645,6 +646,8 @@ export type DiscernUpgradeResult = {
     } | null;
     agents_written?: Array<string>;
     mcp_wired?: Array<string>;
+    hooks_wired?: Array<string>;
+    worktree_app_wired?: Array<string>;
     project_rules_wired?: Array<string>;
     guidelines_compiled?: boolean;
     guidelines_errors?: Array<string>;
@@ -1674,6 +1677,7 @@ export type DiscernRefreshResult = {
   data?: {
     agents_written: Array<string>;
     mcp_wired: Array<string>;
+    hooks_wired: Array<string>;
     worktree_app_wired: Array<string>;
     project_rules_wired: Array<string>;
     skills: {
@@ -1992,6 +1996,7 @@ export type DiscernStatusResult = {
     };
     stale_generated?: Array<string>;
     stale_materialized?: Array<string>;
+    stale_integrations?: Array<string>;
     setup_unfinished?: {
       pending_markers: Array<string>;
       capabilities: Array<{

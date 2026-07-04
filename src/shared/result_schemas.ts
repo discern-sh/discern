@@ -245,6 +245,7 @@ export type GateValidationData = z.infer<typeof GateValidationSchema>;
 export const RefreshDataSchema = z.strictObject({
   agents_written: z.array(z.string()),
   mcp_wired: z.array(z.string()),
+  hooks_wired: z.array(z.string()),
   worktree_app_wired: z.array(z.string()),
   project_rules_wired: z.array(z.string()),
   skills: z.strictObject({
@@ -498,6 +499,7 @@ export const StatusDataSchema = z.strictObject({
   gate_receipt: GateReceiptCheckSchema.optional(),
   stale_generated: z.array(z.string()).optional(),
   stale_materialized: z.array(z.string()).optional(),
+  stale_integrations: z.array(z.string()).optional(),
   setup_unfinished: z.strictObject({
     pending_markers: z.array(z.string()),
     capabilities: z.array(
@@ -868,6 +870,7 @@ export const SetupDataSchema = z.strictObject({
   written: z.array(z.string()).optional(),
   compiled: z.array(z.string()).optional(),
   mcp_wired: z.array(z.string()).optional(),
+  hooks_wired: z.array(z.string()).optional(),
   worktree_app_wired: z.array(z.string()).optional(),
   project_rules_wired: z.array(z.string()).optional(),
   guidelines_compiled: z.boolean().optional(),
@@ -963,6 +966,8 @@ export const UpgradeDataSchema = z.strictObject({
   }).nullable().optional(),
   agents_written: z.array(z.string()).optional(),
   mcp_wired: z.array(z.string()).optional(),
+  hooks_wired: z.array(z.string()).optional(),
+  worktree_app_wired: z.array(z.string()).optional(),
   project_rules_wired: z.array(z.string()).optional(),
   guidelines_compiled: z.boolean().optional(),
   guidelines_errors: z.array(z.string()).optional(),

@@ -8,7 +8,7 @@ co-manages the files below when Codex is enabled in `[guidance].agents`:
 | `AGENTS.md`                            | Canonical compiled guidance file          | Generated, gitignored |
 | `.agents/skills/`                      | Materialized Agent Skills                 | Generated, gitignored |
 | `.codex/config.toml`                   | Project Codex config and MCP server entry | Co-managed, tracked   |
-| `.codex/hooks.json`                    | Session-start hook                        | Seeded, tracked       |
+| `.codex/hooks.json`                    | Session-start hook                        | Co-managed, tracked   |
 | `.codex/environments/environment.toml` | Codex app worktree setup/cleanup          | Co-managed, tracked   |
 | `.codex/rules/discern.rules`           | Narrow Git rules for discern worktrees    | Co-managed, tracked   |
 
@@ -75,7 +75,7 @@ make the CLI fallback or future discern tools more brittle.
 
 ## `.codex/hooks.json`
 
-The seeded Codex hook is:
+The discern-owned Codex hook seed is:
 
 ```json
 {
@@ -95,9 +95,11 @@ The seeded Codex hook is:
 }
 ```
 
-The hook is idempotent. It keeps a Codex session re-ready when opened or resumed
-inside a discern worktree. Codex still gates committed hooks behind its hook
-trust flow, so the command does not run until the user trusts the hook hash.
+`discern refresh` re-seeds this hook idempotently, preserving unrelated settings
+and hook groups in the same file. It keeps a Codex session re-ready when opened
+or resumed inside a discern worktree. Codex still gates committed hooks behind
+its hook trust flow, so the command does not run until the user trusts the hook
+hash.
 
 ## `.codex/environments/environment.toml`
 

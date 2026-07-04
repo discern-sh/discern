@@ -8,7 +8,12 @@
  * observation).
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertRejects,
+  assertStringIncludes,
+} from "@std/assert";
 import { walk } from "@std/fs";
 import { join, relative } from "@std/path";
 import { withTempDir } from "./helpers.ts";
@@ -31,6 +36,8 @@ import {
   type Capability,
   KNOWN_CAPABILITIES,
 } from "../src/shared/capabilities.ts";
+import { providersWithHooks } from "../src/lib/providers.ts";
+import type { AgentName } from "../src/lib/config.ts";
 
 /** A config with a project slug and one gated scope (so scopes/gate have
  * something to classify), written before gitInit so a worktree inherits it. */
@@ -842,6 +849,47 @@ Deno.test("status: a missing generated agent file hints it isn't built yet", asy
       ),
       `expected a not-built-yet hint: ${JSON.stringify(obj.hints)}`,
     );
+  });
+});
+
+Deno.test("status: missing provider hook integrations are listed and hinted to refresh", async () => {
+  await withTempDir(async (dir) => {
+    const hookProviders = providersWithHooks();
+    await scaffoldEngine(dir, {
+      agents: hookProviders.map((p) => p.name as AgentName),
+    });
+    await gitInit(dir);
+    const hookFiles = [
+      ...new Set(
+        hookProviders.flatMap((p) =>
+          p.hooks === undefined ? [] : [p.hooks.settingsFile]
+        ),
+      ),
+    ].sort();
+    for (const file of hookFiles) {
+      await Deno.remove(join(dir, file));
+    }
+
+    const r = await runAgent(dir, ["status", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    const obj = parseStatus(r.stdout);
+    assertEquals([...(obj.data.stale_integrations ?? [])].sort(), hookFiles);
+    assert(
+      (obj.hints ?? []).some((h: string) =>
+        h.includes("Provider integration files are missing") &&
+        h.includes("discern refresh")
+      ),
+      `expected a provider integration refresh hint: ${
+        JSON.stringify(obj.hints)
+      }`,
+    );
+
+    for (const file of hookFiles) {
+      await assertRejects(
+        () => Deno.stat(join(dir, file)),
+        Deno.errors.NotFound,
+      );
+    }
   });
 });
 

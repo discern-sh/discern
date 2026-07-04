@@ -386,6 +386,7 @@ interface ScaffoldOutcome {
   written: string[];
   compiled: string[];
   mcpWired: string[];
+  hooksWired: string[];
   /** Project files written co-managing an agent app's worktree-lifecycle config
    * (Codex's `environment.toml`) — `compileGuidelines`'s `worktreeAppWired`
    * passed through. Folded into {@link commitScaffoldedMachinery}'s commit
@@ -537,6 +538,7 @@ async function scaffoldHarness(
   // broken templates tree shouldn't fail the scaffold.
   let compiled: string[] = [];
   let mcpWired: string[] = [];
+  let hooksWired: string[] = [];
   let worktreeAppWired: string[] = [];
   let projectRulesWired: string[] = [];
   let guidelinesCompiled = true;
@@ -546,6 +548,7 @@ async function scaffoldHarness(
     const g = await compileGuidelines(destDir, log);
     compiled = g.agentsWritten;
     mcpWired = g.mcpWired;
+    hooksWired = g.hooksWired;
     worktreeAppWired = g.worktreeAppWired;
     projectRulesWired = g.projectRulesWired;
     hints = g.hints;
@@ -587,6 +590,7 @@ async function scaffoldHarness(
       written,
       compiled,
       mcpWired,
+      hooksWired,
       worktreeAppWired,
       projectRulesWired,
       guidelinesCompiled,
@@ -946,6 +950,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
         written: scaffold?.written ?? [],
         compiled: scaffold?.compiled ?? [],
         mcp_wired: scaffold?.mcpWired ?? [],
+        hooks_wired: scaffold?.hooksWired ?? [],
         worktree_app_wired: scaffold?.worktreeAppWired ?? [],
         project_rules_wired: scaffold?.projectRulesWired ?? [],
         guidelines_compiled: setupOk,
@@ -1134,8 +1139,9 @@ const AUTHORED_CONTENT_SEEDS: ReadonlySet<string> = new Set([
  * Commit the harness machinery `setup begin` just scaffolded — discern's OWN wiring: the
  * config, the `.gitignore` fragment, the per-agent MCP + hooks files, any app-managed
  * worktree-lifecycle config, and any provider-owned project rules an agent declares
- * (derived from {@link ScaffoldOutcome.written} ∪ `.mcpWired` ∪ `.worktreeAppWired`
- * ∪ `.projectRulesWired`, minus the {@link AUTHORED_CONTENT_SEEDS} the agent fills) —
+ * (derived from {@link ScaffoldOutcome.written} ∪ `.mcpWired` ∪ `.hooksWired`
+ * ∪ `.worktreeAppWired` ∪ `.projectRulesWired`, minus the
+ * {@link AUTHORED_CONTENT_SEEDS} the agent fills) —
  * as one `discern: scaffold harness` commit on the `discern-setup` branch. discern
  * OWNS this commit because the files are exactly the ones a coding agent's safety classifier
  * refuses to commit (pre-approving an MCP server widens permissions), which otherwise strands
@@ -1149,8 +1155,9 @@ const AUTHORED_CONTENT_SEEDS: ReadonlySet<string> = new Set([
  *
  * The committed set is the union of every {@link ScaffoldOutcome} array discern itself wrote
  * — never a hand-copied per-agent file list — so a new wiring category (the way
- * `worktreeAppWired` and `projectRulesWired` joined `mcpWired` here) only has to flow
- * into `ScaffoldOutcome` once to be committed for every provider that declares it; `tests/agent_parity_test.ts`-style
+ * `hooksWired`, `worktreeAppWired`, and `projectRulesWired` joined `mcpWired`
+ * here) only has to flow into `ScaffoldOutcome` once to be committed for every
+ * provider that declares it; `tests/agent_parity_test.ts`-style
  * coverage holds the registry and this set in sync.
  */
 async function commitScaffoldedMachinery(
@@ -1161,6 +1168,7 @@ async function commitScaffoldedMachinery(
     ...new Set([
       ...scaffold.written,
       ...scaffold.mcpWired,
+      ...scaffold.hooksWired,
       ...scaffold.worktreeAppWired,
       ...scaffold.projectRulesWired,
     ]),

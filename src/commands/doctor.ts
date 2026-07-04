@@ -30,6 +30,7 @@ import {
 } from "../shared/config_schema.ts";
 import { buildExecutionModel } from "../engine/doctor/execution_model.ts";
 import { renderAgentFiles } from "../engine/guidance_render.ts";
+import { checkProviderHooksCurrent } from "../lib/provider_hooks.ts";
 import { providerFor, providersWithHooks } from "../lib/providers.ts";
 import {
   enabledFeatures,
@@ -444,6 +445,11 @@ export async function runChecks(destDir: string): Promise<Check[]> {
     }
   }
 
+  const providerHookDrift = await checkProviderHooksCurrent(destDir, config);
+  const hookDriftByAgent = new Map(
+    providerHookDrift.map((entry) => [entry.agent, entry]),
+  );
+
   // 8b. agent integrations — per CONFIGURED agent, the integration surfaces the
   // provider registry wires today (guidance file, skills dir, MCP, worktree hooks).
   // Makes per-agent coverage EXPLICIT rather than a silent gap: MCP/hooks are
@@ -466,11 +472,15 @@ export async function runChecks(destDir: string): Promise<Check[]> {
     const guidanceWired = isFeatureEnabled(config, "guidance") &&
       guidanceRenderError === undefined &&
       renderedGuidanceFiles.has(guidancePath);
+    const hookDrift = hookDriftByAgent.get(name);
+    const hooksWired = provider.hooks !== undefined &&
+      isFeatureEnabled(config, "worktrees") &&
+      hookDrift === undefined;
     const wired = [
       guidanceWired ? `guidance ${guidancePath}` : undefined,
       provider.skillsDir ? `skills ${provider.skillsDir}` : undefined,
       mcp.kind === "wired" ? "mcp" : undefined,
-      provider.hooks ? "hooks" : undefined,
+      hooksWired ? "hooks" : undefined,
     ].filter((s): s is string => s !== undefined);
     // Surfaces NOT wired, each stated explicitly so a gap is visible, not silent:
     // a `pending` MCP is committable and names the file discern will write into once
@@ -486,7 +496,13 @@ export async function runChecks(destDir: string): Promise<Check[]> {
       mcp.kind === "pending"
         ? `mcp → ${mcp.targetFile} (committable; not yet wired)`
         : undefined,
-      provider.hooks ? undefined : "hooks (own mechanism)",
+      provider.hooks === undefined
+        ? "hooks (own mechanism)"
+        : !isFeatureEnabled(config, "worktrees")
+        ? "hooks (worktrees feature off)"
+        : hookDrift !== undefined
+        ? `hooks ${hookDrift.path} (${hookDrift.reason})`
+        : undefined,
     ].filter((s): s is string => s !== undefined);
     let detail = `wired: ${wired.join(", ")}`;
     if (notWired.length > 0) {
@@ -506,6 +522,19 @@ export async function runChecks(destDir: string): Promise<Check[]> {
         : `; trust: not required — ${provider.trust.hint}`;
     }
     checks.push({ name: `agent: ${provider.label}`, ok: true, detail });
+  }
+
+  for (const drift of providerHookDrift) {
+    checks.push({
+      name: `agent hooks: ${drift.label}`,
+      ok: false,
+      detail: drift.detail === undefined
+        ? `${drift.path} is ${drift.reason}`
+        : `${drift.path} is ${drift.reason}: ${drift.detail}`,
+      fix: drift.reason === "unreadable"
+        ? `repair ${drift.path}, then run \`discern refresh\``
+        : `run \`discern refresh\` to re-seed ${drift.path}`,
+    });
   }
 
   // 9. features — surface the [features] toggle state, so a user can SEE which
