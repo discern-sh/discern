@@ -267,6 +267,27 @@ Deno.test("doctor: invalid (malformed) discern.toml is flagged with a syntax fix
   });
 });
 
+Deno.test("doctor: human output still prints checks when the execution model cannot load", async () => {
+  await withTempDir(async (dir) => {
+    await setupInstall(dir);
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      'this is = not valid toml [[[\n"unterminated\n',
+    );
+
+    const { code, stderr } = await runCli(["doctor"], dir);
+    assertEquals(code, 1);
+    assert(
+      !stderr.includes("Execution model"),
+      "invalid config should omit the execution model",
+    );
+    assertStringIncludes(stderr, "Doctor checks");
+    assertStringIncludes(stderr, "discern.toml: invalid");
+    assertStringIncludes(stderr, "fix: fix the TOML syntax in discern.toml");
+    assertStringIncludes(stderr, "1 check failed — see the fixes above.");
+  });
+});
+
 Deno.test("doctor: a missing config is flagged as not initialized", async () => {
   await withTempDir(async (dir) => {
     // No `setup` here — the dir has no discern.toml.
