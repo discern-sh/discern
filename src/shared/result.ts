@@ -180,7 +180,8 @@ export type FailedStage = (typeof FAILED_STAGES)[number];
  *    everywhere.
  *  - **Tier 1 (opt-in):** when a capability/check declares a diagnostics `format`,
  *    discern parses `output` into `file`/`line`/`col`/`rule`/`message`.
- *  - **Tier 2 (derived):** `fix_available` — a fixer is wired that may resolve it.
+ *  - **Tier 2 (derived):** `fix_available` — a fixer is wired that may resolve a
+ *    non-fix capability/check failure.
  */
 
 /** A diagnostic's severity. A const tuple so `result_schemas.ts` derives its Zod
@@ -212,7 +213,7 @@ export interface Diagnostic {
   col?: number | undefined;
   /** Tier 1: the tool's rule/code identifier (an eslint rule, a `TSxxxx` code). */
   rule?: string | undefined;
-  /** Tier 2: whether a wired fixer may auto-resolve this (a fix-stage command exists). */
+  /** Tier 2: present when a wired fixer may auto-resolve this non-fix job failure. */
   fix_available?: boolean | undefined;
 }
 

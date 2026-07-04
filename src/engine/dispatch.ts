@@ -33,7 +33,12 @@ import {
   resolveRecipesDir,
   resolveWorktreeRoot,
 } from "../lib/paths.ts";
-import { ejectSkill, listSkills, materializeSkills } from "../lib/skills.ts";
+import {
+  ejectSkill,
+  listSkills,
+  type MaterializeResult,
+  materializeSkills,
+} from "../lib/skills.ts";
 import { skillsDirsForAgents } from "../lib/providers.ts";
 import { TomlEditor } from "../lib/toml_edit.ts";
 import { Logger } from "../lib/log.ts";
@@ -74,6 +79,7 @@ import {
 } from "../lib/worktree_hooks.ts";
 import { gotchasHint } from "./gate/gotchas.ts";
 import { colorEnabled } from "./output.ts";
+import type { DiscernResult } from "../shared/result.ts";
 
 /** The top-level engine verbs Cliffy owns (everything else → recipe fallthrough).
  * This is the full set the engine *could* own; feature-gating decides which are
@@ -747,9 +753,15 @@ function attachSkillsCommand(root: Command): void {
         .description(
           "Copy a bundled built-in into [skills].dir so you can customize it.",
         )
+        .option(
+          "--json",
+          "Emit the eject result as a JSON DiscernResult on stdout.",
+        )
         .arguments("<name:string>")
-        .action(async (_o, name: string) => {
-          Deno.exit(await runSkillsEject(name));
+        .action(async (o, name: string) => {
+          Deno.exit(
+            await runSkillsEject(name, { json: o.json ?? false }),
+          );
         }),
     );
   root.command("skills", skills);
@@ -782,9 +794,22 @@ async function runSkillsList(opts: { json: boolean }): Promise<number> {
   return 0;
 }
 
-/** `discern skills eject <name>` — copy a built-in into `[skills].dir` to edit. */
-async function runSkillsEject(name: string): Promise<number> {
-  const root = await requireRoot();
+interface SkillsEjectData {
+  name: string;
+  dest_abs: string;
+  dest_rel: string;
+  skills_dir_persisted: boolean;
+  materialized: MaterializeResult;
+}
+
+function thrownMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+async function skillsEjectResult(
+  root: string,
+  name: string,
+): Promise<DiscernResult<SkillsEjectData>> {
   const cfg = await loadConfig(root);
   try {
     const result = await ejectSkill(root, cfg, name);
@@ -793,28 +818,87 @@ async function runSkillsEject(name: string): Promise<number> {
     // ("is the key written?"), not a typed one (the typed value always defaults).
     const path = (await resolveConfigPath(root)) ?? join(root, CONFIG_REL);
     const text = await Deno.readTextFile(path);
+    let skillsDirPersisted = false;
     if (!new RawConfig(text).has("skills.dir")) {
       const editor = new TomlEditor(text);
       editor.setString("skills.dir", "skills");
       await Deno.writeTextFile(path, editor.toString());
+      skillsDirPersisted = true;
     }
     // Re-materialize so each agent's skills dir reflects the ejected override now
     // (reloaded, since [skills].dir may have just been written above).
     const updated = await loadConfig(root);
-    await materializeSkills(
+    const materialized = await materializeSkills(
       root,
       updated,
       skillsDirsForAgents(guidanceAgents(updated)),
     );
-    console.log(
-      `Ejected "${name}" → ${result.destRel} (it now overrides the built-in).`,
-    );
-    console.log("Edit it there; `discern skills list` confirms the override.");
-    return 0;
-  } catch (e) {
-    console.error(`discern: ${e instanceof Error ? e.message : String(e)}`);
-    return 1;
+    const data: SkillsEjectData = {
+      name: result.name,
+      dest_abs: result.destAbs,
+      dest_rel: result.destRel,
+      skills_dir_persisted: skillsDirPersisted,
+      materialized,
+    };
+    if (materialized.errors.length > 0) {
+      return {
+        ok: false,
+        verb: "skills:eject",
+        error: "partial_materialization",
+        message:
+          `ejected "${name}", but could not materialize every configured agent skill directory`,
+        data,
+      };
+    }
+    return { ok: true, verb: "skills:eject", data };
+  } catch (error) {
+    return {
+      ok: false,
+      verb: "skills:eject",
+      error: "skills_eject_failed",
+      message: thrownMessage(error),
+    };
   }
+}
+
+function renderSkillsEjectResult(
+  log: Logger,
+  result: DiscernResult<SkillsEjectData>,
+): void {
+  if (!result.ok) {
+    log.error(result.message ?? "skills eject failed");
+    for (const error of result.data?.materialized.errors ?? []) {
+      log.detail(error);
+    }
+    return;
+  }
+  const data = result.data;
+  if (data === undefined) {
+    log.error("skills eject returned no result data");
+    return;
+  }
+  log.ok(
+    `Ejected "${data.name}" -> ${data.dest_rel} (it now overrides the built-in).`,
+  );
+  log.info("Edit it there; `discern skills list` confirms the override.");
+}
+
+/** `discern skills eject <name>` — copy a built-in into `[skills].dir` to edit. */
+async function runSkillsEject(
+  name: string,
+  opts: { json?: boolean } = {},
+): Promise<number> {
+  const root = await requireRoot();
+  const result = await skillsEjectResult(root, name);
+  if (opts.json ?? false) {
+    emitResult(result);
+  } else {
+    renderSkillsEjectResult(
+      new Logger({ json: false, noColor: false, humanStream: "stdout" }),
+      result,
+    );
+  }
+  return result.ok ? 0 : 1;
 }
 
 /** Length of the common leading run of two strings. */

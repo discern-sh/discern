@@ -164,13 +164,6 @@ _Nothing outstanding._
       (`normalizeDiagnostics` — SARIF only); `src/engine/gate/plan.ts`
       (`buildGateResult` calls it).
 
-- [ ] **Tier-2 diagnostics: populate `fix_available`.** The `Diagnostic` field
-      and the ADR-0028 Tier-2 tier exist, but nothing sets it. Derive it from
-      whether a `fix`-stage command is wired for the failing capability (a
-      formatter that may auto-resolve it). Evidence: `src/shared/result.ts`
-      (`Diagnostic.fix_available`); `src/engine/gate/plan.ts`
-      (`buildGateResult`).
-
 - [ ] **The apply path's human output isn't rendered FROM the result.**
       `finish`, the worktree verbs, and `ratchets` narrate during execution, in
       parallel with the `steps[]` they serialize for `--json` — kept consistent
@@ -179,12 +172,6 @@ _Nothing outstanding._
       only plans) would make the apply path a true rendering of the one object
       too. Evidence: `src/engine/worktree/lifecycle.ts` (parallel
       `log.info`/`done()`); `src/shared/result.ts` (`renderPlan`).
-
-- [ ] **`skills eject` is the lone CLI verb off the envelope.** A mutating verb
-      that emits `console.log`/`console.error` with no `--json`. Low
-      agent-consumption (interactive customization), but it should return a
-      `DiscernResult` for completeness. Evidence: `src/engine/dispatch.ts`
-      (`runSkillsEject`).
 
 - [ ] **Human-output polish (cosmetic).** (a) A SARIF-emitting check dumps its
       raw JSON to the human stream before the parsed Failures block — humans pay

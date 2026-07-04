@@ -198,6 +198,79 @@ Deno.test("buildGateResult: an aborted stage leaves later jobs skipped; the fail
   assert(diag, "expected a diagnostic for the failed format job");
   assertEquals(diag.output, "boom");
   assertEquals(diag.reproduce_cmd, "deno fmt");
+  assertEquals(diag.fix_available, undefined);
+});
+
+Deno.test("buildGateResult: non-fix capability/check failures note a wired fix stage", async () => {
+  const plan = buildGatePlan(FULL, []);
+  const results = new Map<string, JobResult>([
+    [
+      "format",
+      jobResult({ label: "format", status: "ok", code: 0, durationS: 0 }),
+    ],
+    [
+      "lint",
+      jobResult({
+        label: "lint",
+        status: "failed",
+        code: 1,
+        durationS: 0,
+        output: "boom",
+      }),
+    ],
+  ]);
+  const result = await buildGateResult(plan, results, "check/test");
+  const diag = (result.diagnostics ?? []).find((d) => d.tool === "lint");
+  assert(diag, "expected a diagnostic for the failed lint job");
+  assertEquals(diag.fix_available, true);
+});
+
+Deno.test("buildGateResult: fix_available is absent without a fix-stage job and on scope-gates", async () => {
+  const noFix = parseConfigOrThrow(`
+[capabilities]
+lint = "eslint ."
+`);
+  const noFixResult = await buildGateResult(
+    buildGatePlan(noFix, []),
+    new Map<string, JobResult>([
+      [
+        "lint",
+        jobResult({
+          label: "lint",
+          status: "failed",
+          code: 1,
+          durationS: 0,
+          output: "boom",
+        }),
+      ],
+    ]),
+    "check/test",
+  );
+  const lint = (noFixResult.diagnostics ?? []).find((d) => d.tool === "lint");
+  assert(lint, "expected a lint diagnostic");
+  assertEquals(lint.fix_available, undefined);
+
+  const scopeResult = await buildGateResult(
+    buildGatePlan(FULL, ["widget"]),
+    new Map<string, JobResult>([
+      [
+        "scope:widget",
+        jobResult({
+          label: "scope:widget",
+          status: "failed",
+          code: 1,
+          durationS: 0,
+          output: "boom",
+        }),
+      ],
+    ]),
+    "scope_gates",
+  );
+  const scope = (scopeResult.diagnostics ?? []).find((d) =>
+    d.tool === "scope:widget"
+  );
+  assert(scope, "expected a scope-gate diagnostic");
+  assertEquals(scope.fix_available, undefined);
 });
 
 Deno.test("buildGateResult: a cancelled sibling is reported skipped, not failed, and earns no diagnostic", async () => {
@@ -284,6 +357,7 @@ Deno.test("buildGateResult: a LARGE SARIF output is normalized to one diagnostic
   );
   assertEquals(diags[0]?.rule, "rule-0");
   assertEquals(diags[0]?.file, "src/file0.ts");
+  assert(diags.every((d) => d.fix_available === true));
   // Every diagnostic is Tier-1 (located) — none fell back to a raw Tier-0 blob.
   assert(diags.every((d) => d.file !== undefined && d.output === undefined));
 });
