@@ -99,11 +99,12 @@ which requires an explicit `--confirmed` attestation that the consent
 conversation happened, refusing and re-serving that message without it (outside
 the declarative `--config` / `--allow-dirty` paths). It lays down only _your_
 seed files with zero-config defaults — a `discern.toml` with no Capabilities
-wired yet (a green gate you grow into — an omitted capability is simply
-skipped), a merged `.claude/settings.json`, and a co-managed `.gitignore` block.
-It then **materializes** the bundled Skills into each configured agent's skills
-dir (gitignored) and compiles the agent guidance. There is no engine and no
-manifest to write — the Engine is in the binary. Files split by **disposition**:
+wired yet (a bootstrap state: omitted individual capabilities are skipped, but
+`doctor` warns while the gate has zero project checks), a merged
+`.claude/settings.json`, and a co-managed `.gitignore` block. It then
+**materializes** the bundled Skills into each configured agent's skills dir
+(gitignored) and compiles the agent guidance. There is no engine and no manifest
+to write — the Engine is in the binary. Files split by **disposition**:
 [yours](glossary.md#your-files--yours) (the committed seeds, written once then
 kept), [the binary's](glossary.md#the-binarys-files) (gitignored artifacts it
 re-publishes, like the materialized Skills), plus the merged `settings.json` and

@@ -20,6 +20,7 @@ import { FEATURES } from "../src/shared/features.ts";
 /** One check in the `doctor --json` payload. */
 interface DoctorCheck {
   name: string;
+  status: "ok" | "warn" | "fail";
   ok: boolean;
   detail: string;
   fix?: string;
@@ -149,7 +150,7 @@ async function addCheck(
   );
 }
 
-Deno.test("doctor --json: a fresh install is fully healthy and exits 0", async () => {
+Deno.test("doctor --json: a fresh install exits 0 and warns when no capabilities are wired", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir);
     const { code, payload } = await runDoctorJson(dir);
@@ -162,6 +163,17 @@ Deno.test("doctor --json: a fresh install is fully healthy and exits 0", async (
     ) {
       assertEquals(check(payload, name).ok, true, `${name} should pass`);
     }
+    for (const c of payload.data.checks) {
+      assert(
+        c.status === "ok" || c.status === "warn" || c.status === "fail",
+        `${c.name} should carry a closed status`,
+      );
+    }
+    const capabilities = check(payload, "capabilities");
+    assertEquals(capabilities.status, "warn");
+    assertEquals(capabilities.warn, true);
+    assertStringIncludes(capabilities.detail, "none wired yet");
+    assertStringIncludes(capabilities.fix ?? "", "[capabilities]");
     // The schema check names the current version.
     assertStringIncludes(check(payload, "schema version").detail, "current");
     // The git check reports the resolved version (triage context).
@@ -207,7 +219,7 @@ Deno.test("doctor: the git check fails with a fix when git is unreachable", asyn
   });
 });
 
-Deno.test("doctor: human (non-json) output reports a clean bill on stderr, exit 0", async () => {
+Deno.test("doctor: human output reports advisories separately from failures", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir);
     const { code, stderr } = await runCli(["doctor"], dir);
@@ -217,8 +229,9 @@ Deno.test("doctor: human (non-json) output reports a clean bill on stderr, exit 
     assertStringIncludes(stderr, "discern 1.0.0 ·");
     assertStringIncludes(stderr, "discern.toml: present and valid TOML");
     assertStringIncludes(stderr, "schema 14 (current)");
+    assertStringIncludes(stderr, "capabilities: none wired yet");
     assertStringIncludes(stderr, "git: ");
-    assertStringIncludes(stderr, "All checks passed.");
+    assertStringIncludes(stderr, "All checks passed (see the advisory above).");
   });
 });
 
@@ -267,6 +280,7 @@ Deno.test("doctor: a stale schema is flagged with an upgrade fix", async () => {
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 1);
     const schema = check(payload, "schema version");
+    assertEquals(schema.status, "fail");
     assertEquals(schema.ok, false);
     assertStringIncludes(schema.detail, "v1");
     assertStringIncludes(schema.detail, "v14");
@@ -301,6 +315,7 @@ Deno.test("doctor: an unknown capability key is flagged with a rename fix", asyn
     assertEquals(code, 1);
     assertEquals(check(payload, "discern.toml").ok, true);
     const schema = check(payload, "config schema");
+    assertEquals(schema.status, "fail");
     assertEquals(schema.ok, false);
     assertStringIncludes(schema.detail, "bogus");
     assertStringIncludes(schema.detail, "known capability");
@@ -314,6 +329,7 @@ Deno.test("doctor: a fresh install reports its wired capabilities", async () => 
     await addCapability(dir, "test", "echo ok");
     const { payload } = await runDoctorJson(dir);
     const caps = check(payload, "capabilities");
+    assertEquals(caps.status, "ok");
     assertEquals(caps.ok, true);
     assertStringIncludes(caps.detail, "test");
   });
@@ -377,6 +393,7 @@ Deno.test("doctor: a foreign worktree hook is an advisory warning, not a failure
     assertEquals(code, 0); // an advisory does NOT make doctor unhealthy
     assertEquals(payload.ok, true);
     const wt = check(payload, "worktree automation");
+    assertEquals(wt.status, "warn");
     assertEquals(wt.ok, true);
     assertEquals(wt.warn, true);
   });
@@ -417,6 +434,7 @@ Deno.test("doctor: nudges a [checks.x] that mirrors a standard capability (advis
     assertEquals(code, 0); // advisory — the install is healthy
     assertEquals(payload.ok, true);
     const nudge = check(payload, "capability-shaped checks");
+    assertEquals(nudge.status, "warn");
     assertEquals(nudge.warn, true);
     assertStringIncludes(nudge.detail, "[checks.lint]");
     assertStringIncludes(nudge.fix ?? "", "[capabilities].lint");

@@ -118,9 +118,11 @@ dir = "skills"
 #   smoke      test   a fast check that the app boots in this checkout (proves it
 #                     runs wherever the gate runs — including inside a worktree)
 # A value is one command, or a list run in order: lint = ["eslint .", "stylelint ."].
-# OMIT a capability you don't have — an absent capability is "knowably absent", so
-# a fresh install is a green gate you grow into. `discern setup` has your coding agent
-# fill these by sniffing the repo; `discern doctor` shows which are wired.
+# OMIT an individual capability you truly do not have yet. A config with zero wired
+# capabilities is only a bootstrap state: the gate can pass without checking anything,
+# so `discern doctor` reports it as a warning until at least one capability or custom
+# check is wired. `discern setup` has your coding agent fill these by sniffing the repo;
+# `discern doctor` shows which are wired.
 #
 # `discern prepare` is the fast inner loop: it runs the fix-stage then the check-stage
 # capabilities, and never builds or tests.
