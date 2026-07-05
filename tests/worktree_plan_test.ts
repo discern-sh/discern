@@ -19,6 +19,7 @@ import {
   setupPlanToEngine,
   teardownPlanToEngine,
 } from "../src/engine/worktree/plan.ts";
+import { remapWorktreeLocalTemplatesDir } from "../src/engine/worktree/lifecycle.ts";
 
 /** A ledger entry fixture with sensible defaults, overridable per field. */
 function entry(over: Partial<ResourceEntry> = {}): ResourceEntry {
@@ -208,6 +209,25 @@ Deno.test("graduatePlanToEngine: to=trunk fast-forwards the trunk and deletes th
   // The landing detail names the trunk fast-forward + branch deletion, not a checkout.
   assert(clean.details.some((d) => d.includes("Into trunk:")));
   assert(!clean.steps.some((s) => s.label === "checkout"));
+});
+
+Deno.test("remapWorktreeLocalTemplatesDir: only remaps templates sourced from the removed worktree", () => {
+  assertEquals(
+    remapWorktreeLocalTemplatesDir(
+      "/repo.worktrees/task/templates",
+      "/repo.worktrees/task",
+      "/repo",
+    ),
+    "/repo/templates",
+  );
+  assertEquals(
+    remapWorktreeLocalTemplatesDir(
+      "/opt/discern/templates",
+      "/repo.worktrees/task",
+      "/repo",
+    ),
+    undefined,
+  );
 });
 
 Deno.test("setupPlanToEngine: every step runs, branch surfaced as a detail", () => {
