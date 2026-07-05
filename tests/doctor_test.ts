@@ -16,7 +16,8 @@ import { join } from "@std/path";
 import { runCli, withTempDir } from "./helpers.ts";
 import { renderAgentFiles } from "../src/engine/guidance_render.ts";
 import { FEATURES } from "../src/shared/features.ts";
-import { providersWithHooks } from "../src/lib/providers.ts";
+import { providerFor, providersWithHooks } from "../src/lib/providers.ts";
+import { AGENT_NAMES } from "../src/shared/config_schema.ts";
 
 /** One check in the `doctor --json` payload. */
 interface DoctorCheck {
@@ -642,6 +643,32 @@ Deno.test("doctor: surfaces Gemini's one-time trust step and the bypass action",
     assertStringIncludes(gemini.detail, "trust: one-time");
     assertStringIncludes(gemini.detail, "GEMINI_CLI_TRUST_WORKSPACE=true");
     assertStringIncludes(gemini.detail, "hooksConfig.enabled = true");
+  });
+});
+
+Deno.test("doctor surfaces an integration-coverage row for EVERY configured agent", async () => {
+  await withTempDir(async (dir) => {
+    await setupInstall(dir);
+    // Configure every known agent, so each must produce its `agent: <label>` row.
+    // The per-agent tests above pin each provider's specific detail; this ties the
+    // ROW's existence to the registry (AGENT_NAMES), so a new agent auto-enrols —
+    // the coverage loop can't quietly omit it.
+    await setAgents(dir, JSON.stringify([...AGENT_NAMES]));
+    const { payload } = await runDoctorJson(dir);
+    for (const name of AGENT_NAMES) {
+      const label = providerFor(name)?.label;
+      assert(label !== undefined, `no provider label for ${name}`);
+      const row = check(payload, `agent: ${label}`);
+      assertEquals(
+        row.ok,
+        true,
+        `${name}: doctor's per-agent coverage row must be ok (a divergence is reported, not failed)`,
+      );
+      assert(
+        row.detail.trim().length > 0,
+        `${name}: the coverage row must carry a non-empty detail naming its surfaces`,
+      );
+    }
   });
 });
 
