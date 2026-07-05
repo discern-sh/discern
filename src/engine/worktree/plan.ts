@@ -112,6 +112,14 @@ export function graduatePlanToEngine(plan: GraduatePlan): EnginePlan {
       note: `${plan.worktreeBranch} in ${plan.mainRepo}`,
     });
   }
+  steps.push({
+    kind: "refresh",
+    label: "refresh agent files",
+    disposition: "run",
+    note: plan.to === "trunk"
+      ? "re-materialize the trunk checkout's generated agent files + skills"
+      : "re-materialize the review checkout's generated agent files + skills",
+  });
   const landing = plan.to === "trunk"
     ? `Into trunk:         ${plan.mainRepo} (fast-forward ${plan.trunk}, delete ${plan.worktreeBranch})`
     : `Into main checkout: ${plan.mainRepo} (on ${plan.mainBranch})`;

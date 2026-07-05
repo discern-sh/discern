@@ -48,7 +48,11 @@ gate-pass receipt proves the agent's own `finish` already passed this commit
 ([ADR 0067](../_adr/0067-graduate-validates-the-landed-tree.md)) — then
 graduates the branch into the main repo and removes the Worktree, landing per
 `[worktree].graduate_to` (or `--to` per run): onto its own branch for review, or
-fast-forwarding the trunk to it and deleting the merged branch. Its
+fast-forwarding the trunk to it and deleting the merged branch. After landing,
+it runs `discern refresh` in the checkout it leaves behind — the review branch
+for `--to branch`, or the trunk for `--to trunk` — so generated guidance,
+materialized skills, and provider integrations match the landed sources
+([ADR 0098](../_adr/0098-graduate-refreshes-the-landing-checkout.md)). Its
 main-checkout precondition also cares about tracked changes, not untracked local
 scratch; the worktree precondition is stricter because graduation refuses any
 tracked, not staged, staged, or untracked worktree change before it removes the
@@ -127,3 +131,5 @@ inspectable before they act.
 - [ADR 0059](../_adr/0059-worktree-setup-ensure.md) — `[worktree.setup].ensure`,
   the convergent bucket that re-runs every pass (creation, session start,
   integrate) to keep the worktree's environment current with the tree.
+- [ADR 0098](../_adr/0098-graduate-refreshes-the-landing-checkout.md) —
+  graduation refreshes the checkout it leaves behind.

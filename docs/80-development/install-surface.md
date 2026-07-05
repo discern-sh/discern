@@ -100,16 +100,16 @@ is the per-worktree **resources** (`[worktree.resources.<name>]`) a project
 declares in `discern.toml`; a fresh install declares none. The whole workflow
 sits behind `[features].worktrees`.
 
-| Command                     | What it does                                                                         |
-| --------------------------- | ------------------------------------------------------------------------------------ |
-| `discern worktree create`   | Creates + sets up a worktree from the `WorktreeCreate` hook's JSON payload (stdin).  |
-| `discern worktree setup`    | Sets up a freshly-created worktree (what `worktree create` runs inside it).          |
-| `discern worktree ensure`   | Session-start idempotent setup (run by the `SessionStart` hook).                     |
-| `discern graduate`          | Graduates the branch into the main repo and tears the worktree down.                 |
-| `discern worktree remove`   | Tears a worktree down from the `WorktreeRemove` hook's payload (stdin; best-effort). |
-| `discern worktree teardown` | Destroys a worktree's resources (what `worktree remove` runs).                       |
-| `discern worktree prune`    | Sweeps stale worktrees, fully-merged branches, orphan dirs, and orphan resources.    |
-| `discern identity`          | Resolves a worktree's stable identity (id / site / branch / port / db / resource).   |
+| Command                     | What it does                                                                                                   |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `discern worktree create`   | Creates + sets up a worktree from the `WorktreeCreate` hook's JSON payload (stdin).                            |
+| `discern worktree setup`    | Sets up a freshly-created worktree (what `worktree create` runs inside it).                                    |
+| `discern worktree ensure`   | Session-start idempotent setup (run by the `SessionStart` hook).                                               |
+| `discern graduate`          | Graduates the branch into the main repo, tears the worktree down, and refreshes the checkout it leaves behind. |
+| `discern worktree remove`   | Tears a worktree down from the `WorktreeRemove` hook's payload (stdin; best-effort).                           |
+| `discern worktree teardown` | Destroys a worktree's resources (what `worktree remove` runs).                                                 |
+| `discern worktree prune`    | Sweeps stale worktrees, fully-merged branches, orphan dirs, and orphan resources.                              |
+| `discern identity`          | Resolves a worktree's stable identity (id / site / branch / port / db / resource).                             |
 
 The lifecycle logic lives in
 [`src/engine/worktree/lifecycle.ts`](../../src/engine/worktree/lifecycle.ts);

@@ -871,8 +871,8 @@ async function assertGraduateBranchStillCurrent(
  * Apply a graduation plan — the mutation dance. Ensures the named branch
  * (creating one if the worktree is detached), validates the exact tree against the whole
  * gate before landing (ADR 0067, fast-pathed by a gate-pass receipt), tears down the
- * resources, removes the worktree, and lands the branch in main. Narrates exactly
- * as before; throws `WorktreeGitError` on any unrecoverable
+ * resources, removes the worktree, lands the branch in main, and refreshes the
+ * checkout it leaves behind. Narrates exactly as before; throws `WorktreeGitError` on any unrecoverable
  * error (the branch keeps its commits). Returns the per-step results for `--json`.
  */
 async function executeGraduatePlan(
@@ -882,6 +882,7 @@ async function executeGraduatePlan(
 ): Promise<{
   steps: StepResult[];
   gateValidation: NonNullable<GraduateData["gate_validation"]>;
+  refreshHints: string[];
 }> {
   // ensure a named branch (the one mutating step the read-only diagnosis deferred)
   const settings = await loadIdentitySettings(ctx.root);
@@ -927,6 +928,20 @@ async function executeGraduatePlan(
   const results: StepResult[] = [];
   const done = (kind: StepResult["step"]["kind"], label: string): void => {
     results.push({ step: { kind, label, disposition: "run" }, outcome: "ok" });
+  };
+  const doneRefresh = (
+    outcome: StepResult["outcome"],
+    note: string,
+  ): void => {
+    results.push({
+      step: {
+        kind: "refresh",
+        label: "refresh agent files",
+        disposition: "run",
+        note,
+      },
+      outcome,
+    });
   };
 
   ctx.log.heading("Graduation plan");
@@ -1017,9 +1032,37 @@ async function executeGraduatePlan(
   }
 
   const landedOn = to === "trunk" ? trunk : worktreeBranch;
+  // Re-materialize the checkout that graduate leaves behind. The branch has already
+  // landed, so a refresh hiccup is reported as a failed step rather than undoing the
+  // git transition (parallel to integrate's post-merge refresh).
+  ctx.log.info(
+    "Re-materializing agent files + skills in the landing checkout…",
+  );
+  let refreshOk = true;
+  let refreshHints: string[] = [];
+  try {
+    const refreshed = await compileGuidelines(mainRepo, ctx.log);
+    refreshOk = guidanceRefreshSucceeded(refreshed);
+    refreshHints = refreshed.hints;
+  } catch {
+    refreshOk = false;
+    ctx.log.warn("Agent-file refresh reported an error — continuing.");
+  }
+  const refreshNote = to === "trunk"
+    ? "re-materialized the trunk checkout's generated agent files + skills"
+    : "re-materialized the review checkout's generated agent files + skills";
+  doneRefresh(refreshOk ? "ok" : "failed", refreshNote);
+  if (!refreshOk) {
+    refreshHints = [
+      ...refreshHints,
+      `Graduation landed on ${landedOn}, but the post-landing refresh failed; ` +
+      `run \`discern refresh\` in ${mainRepo}.`,
+    ];
+  }
+
   ctx.log.heading("Graduation complete.");
   ctx.log.line(`  You are on ${landedOn} in ${mainRepo}.`);
-  return { steps: results, gateValidation };
+  return { steps: results, gateValidation, refreshHints };
 }
 
 /**
@@ -1028,9 +1071,10 @@ async function executeGraduatePlan(
  * external resources, removes the clean worktree directory, then lands the branch per the destination (`opts.to`, falling back
  * to `[worktree].graduate_to`): `"branch"` checks it out in main for review;
  * `"trunk"` fast-forwards the trunk to the branch tip and deletes the merged
- * branch. Refuses dirty worktrees and dirty main checkouts. `--dry-run` shows the
- * plan (after the read-only preconditions pass) and touches nothing. Throws
- * `WorktreeGitError` on any unrecoverable error (the branch keeps its commits).
+ * branch. The checkout left behind is refreshed after landing. Refuses dirty
+ * worktrees and dirty main checkouts. `--dry-run` shows the plan (after the
+ * read-only preconditions pass) and touches nothing. Throws `WorktreeGitError` on
+ * any unrecoverable error (the branch keeps its commits).
  */
 export async function graduate(
   ctx: LifecycleContext,
@@ -1078,6 +1122,7 @@ export async function graduateResult(
       ? { ignored_file_changes: plan.ignoredFileChanges }
       : {}),
   };
+  result.hints = executed.refreshHints;
   return result;
 }
 
