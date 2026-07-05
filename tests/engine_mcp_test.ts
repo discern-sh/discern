@@ -18,7 +18,9 @@ import {
 } from "../src/shared/result_schemas.ts";
 import {
   buildInstructions,
+  runTool,
   TOOLS,
+  verbOf,
   WorkingRoot,
 } from "../src/engine/mcp/server.ts";
 import { FEATURES } from "../src/shared/features.ts";
@@ -167,6 +169,31 @@ function initParams(
     clientInfo: { name: "test", version: "0" },
   };
 }
+
+Deno.test("mcp: EVERY tool's live call echoes its own verb", async () => {
+  // The verb echo was pinned tool-by-tool (14 of 15). The SDK advertises each tool's
+  // outputSchema as z.literal(verb), but a copy-paste tool whose CORE returns another
+  // verb's result still renders that wrong verb. Call every tool through runTool (the
+  // SDK's own per-call entry point) and assert the rendered structuredContent carries
+  // THIS tool's verb. Even a refusal/preview echoes the verb, so no per-tool happy
+  // fixture is needed; `dry_run` keeps every call fast and side-effect-free. Iterated
+  // over TOOLS, so a new tool auto-enrols.
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { bootstrapped: true });
+    await gitInit(dir);
+    for (const tool of TOOLS) {
+      // A fresh WorkingRoot per tool so a lifecycle re-aim never drifts the next call.
+      const result = await runTool(tool, new WorkingRoot(dir), { dry_run: true });
+      assertEquals(
+        result.structuredContent.verb,
+        verbOf(tool.name),
+        `${tool.name}: its live result must echo verb "${
+          verbOf(tool.name)
+        }", not "${result.structuredContent.verb}"`,
+      );
+    }
+  });
+});
 
 Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernResults", async () => {
   await withTempDir(async (dir) => {
