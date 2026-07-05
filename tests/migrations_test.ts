@@ -38,6 +38,69 @@ const HISTORICAL_FIXTURES = join(
   "fixtures",
   "historical-installs",
 );
+const HISTORICAL_FIXTURE_RE = /^schema-(\d+)$/;
+
+const CORPUS_EXEMPT_FROMS: ReadonlyMap<number, string> = new Map([
+  // Covered by "migration 1→2 backfills [project].main_branch when the config predates it".
+  [
+    1,
+    "migration 1→2 backfills [project].main_branch when the config predates it",
+  ],
+  // Covered by "migration 2→3 moves the config + guidance seeds (shell dispatcher left to the prune step)".
+  [
+    2,
+    "migration 2→3 moves the config + guidance seeds (shell dispatcher left to the prune step)",
+  ],
+  // Covered by "migration 3→4 converts slots→capabilities/checks, inlines ratchet runs, folds side-gates, drops evidence".
+  [
+    3,
+    "migration 3→4 converts slots→capabilities/checks, inlines ratchet runs, folds side-gates, drops evidence",
+  ],
+  // Covered by "migration 4→5 prunes a pre-existing on-disk shell engine, agent, and manifest".
+  [
+    4,
+    "migration 4→5 prunes a pre-existing on-disk shell engine, agent, and manifest",
+  ],
+  // Covered by "migration 5→6 dissolves .discern/: moves config/guidance/recipes/authored-skills out, prunes bundled, adds sections".
+  [
+    5,
+    "migration 5→6 dissolves .discern/: moves config/guidance/recipes/authored-skills out, prunes bundled, adds sections",
+  ],
+]);
+
+function historicalFixtureName(from: number): string {
+  return `schema-${String(from).padStart(2, "0")}`;
+}
+
+function historicalFixtureFrom(name: string): number {
+  const match = HISTORICAL_FIXTURE_RE.exec(name);
+  if (match === null || match[1] === undefined) {
+    throw new Error(`not a historical fixture directory: ${name}`);
+  }
+  return Number(match[1]);
+}
+
+async function historicalFixtureNames(): Promise<string[]> {
+  const names: string[] = [];
+  for await (const entry of Deno.readDir(HISTORICAL_FIXTURES)) {
+    if (!entry.isDirectory) continue;
+    const match = HISTORICAL_FIXTURE_RE.exec(entry.name);
+    if (match === null || match[1] === undefined) continue;
+    const from = Number(match[1]);
+    assertEquals(
+      entry.name,
+      historicalFixtureName(from),
+      "historical fixture directories must be zero-padded, e.g. schema-06",
+    );
+    names.push(entry.name);
+  }
+  names.sort();
+  return names;
+}
+
+async function historicalFixtureFroms(): Promise<Set<number>> {
+  return new Set((await historicalFixtureNames()).map(historicalFixtureFrom));
+}
 
 /** Every tracked file under `dir` (excluding `.git`) as path → content, for
  * byte-for-byte no-op comparison across a migration re-application. */
@@ -124,6 +187,45 @@ Deno.test("the production chain is contiguous up to the current schema", () => {
   assert(isChainContiguous(MIGRATIONS, SCHEMA_VERSION));
 });
 
+Deno.test("EVERY migration step has corpus idempotency coverage or an honest exemption", async () => {
+  // The corpus idempotency guard below iterates fixtures. This companion guard
+  // iterates the MIGRATIONS chain itself, so adding a new step auto-enrols it:
+  // either capture schema-XX, or add a named exemption that points at its
+  // per-step re-run test.
+  const fixtureFroms = await historicalFixtureFroms();
+  const migrationFroms = new Set(MIGRATIONS.map((m) => m.from));
+
+  for (const [from, coveredBy] of CORPUS_EXEMPT_FROMS) {
+    assert(
+      migrationFroms.has(from),
+      `CORPUS_EXEMPT_FROMS lists ${from}, but MIGRATIONS has no ${from}→${
+        from + 1
+      } step`,
+    );
+    assert(
+      !fixtureFroms.has(from),
+      `CORPUS_EXEMPT_FROMS lists ${from}, but ${
+        historicalFixtureName(from)
+      } now exists; delete the exemption and let the corpus guard cover it`,
+    );
+    assertStringIncludes(
+      coveredBy,
+      `migration ${from}→${from + 1}`,
+      `CORPUS_EXEMPT_FROMS[${from}] must name the per-step re-run test`,
+    );
+  }
+
+  for (const migration of MIGRATIONS) {
+    assert(
+      fixtureFroms.has(migration.from) ||
+        CORPUS_EXEMPT_FROMS.has(migration.from),
+      `migration ${migration.from}→${migration.from + 1} has no ${
+        historicalFixtureName(migration.from)
+      } fixture and no CORPUS_EXEMPT_FROMS entry naming per-step re-run coverage`,
+    );
+  }
+});
+
 Deno.test("EVERY historical-corpus migration step is idempotent on its own before-state", async () => {
   // Migration.apply is documented "MUST be idempotent" — re-running a step on the
   // state it just produced must change nothing. Each step is era-specific (2→3 moves
@@ -131,15 +233,9 @@ Deno.test("EVERY historical-corpus migration step is idempotent on its own befor
   // meaningful against the step's OWN before-state: a real install at that schema.
   // The historical corpus supplies exactly those, so this ties the contract to real
   // installs across the corpus-covered range and auto-enrols a new fixture. The
-  // per-step unit tests cover the shape variations; 1→2 (no corpus fixture) carries
-  // its own re-run below.
-  const names: string[] = [];
-  for await (const entry of Deno.readDir(HISTORICAL_FIXTURES)) {
-    if (entry.isDirectory && /^schema-\d+$/.test(entry.name)) {
-      names.push(entry.name);
-    }
-  }
-  names.sort();
+  // per-step unit tests cover the shape variations; the companion guard above
+  // forces every non-corpus step to name its own re-run test.
+  const names = await historicalFixtureNames();
   assert(names.length > 0, "the historical fixture corpus should not be empty");
 
   for (const name of names) {
@@ -613,8 +709,9 @@ Deno.test("migration 1→2 backfills [project].main_branch when the config preda
     assertStringIncludes(migrated, 'main_branch = "main"');
 
     // Idempotent: re-running 1→2 on the now-backfilled config changes nothing.
+    const afterFirst = await snapshotDir(dir);
     await applyMigrations({ destDir: dir, from: 1, to: 2 });
-    assertEquals(await Deno.readTextFile(join(dir, "discern.toml")), migrated);
+    assertEquals(await snapshotDir(dir), afterFirst);
   });
 });
 
@@ -680,8 +777,9 @@ Deno.test("migration 2→3 moves the config + guidance seeds (shell dispatcher l
     );
 
     // Idempotent: a second run over the now-moved seeds is a clean no-op.
+    const afterFirst = await snapshotDir(dir);
     await applyMigrations({ destDir: dir, from: 2, to: 3 });
-    assert(await targetExists(dir, ".discern/config.toml"));
+    assertEquals(await snapshotDir(dir), afterFirst);
   });
 });
 
@@ -756,11 +854,9 @@ Deno.test("migration 3→4 converts slots→capabilities/checks, inlines ratchet
     assert(!toml.includes("[evidence]"));
 
     // Idempotent: a second run is a clean no-op.
+    const afterFirst = await snapshotDir(dir);
     await applyMigrations({ destDir: dir, from: 3, to: 4 });
-    assertEquals(
-      await Deno.readTextFile(join(dir, ".discern/config.toml")),
-      toml,
-    );
+    assertEquals(await snapshotDir(dir), afterFirst);
   });
 });
 
@@ -842,15 +938,10 @@ Deno.test("migration 4→5 prunes a pre-existing on-disk shell engine, agent, an
     assertStringIncludes(gitignore, "/node_modules");
     assertEquals(gitignore.match(/^\s*\/?CLAUDE\.md\b/gm)?.length, 1);
 
-    // Idempotent: a re-run over the already-pruned install is a clean no-op —
-    // the hooks stay repointed and the .gitignore gains no duplicate lines.
+    // Idempotent: a re-run over the already-pruned install is a clean no-op.
+    const afterFirst = await snapshotDir(dir);
     await applyMigrations({ destDir: dir, from: 4, to: 5 });
-    assertEquals(await targetExists(dir, ".discern/config.toml"), true);
-    assertEquals(
-      await Deno.readTextFile(join(dir, ".claude/settings.json")),
-      settings,
-    );
-    assertEquals(await Deno.readTextFile(join(dir, ".gitignore")), gitignore);
+    assertEquals(await snapshotDir(dir), afterFirst);
   });
 });
 
@@ -981,11 +1072,10 @@ Deno.test("migration 5→6 dissolves .discern/: moves config/guidance/recipes/au
     assertStringIncludes(gitignore, "/GEMINI.md");
     assert(!/^\s*\/?AGENTS\.md\b/m.test(gitignore), "AGENTS.md stays tracked");
 
-    // Idempotent: a re-run over the migrated install changes nothing — the
-    // sections are present now, so insertion is skipped, not repeated.
+    // Idempotent: a re-run over the migrated install changes nothing.
+    const afterFirst = await snapshotDir(dir);
     await applyMigrations({ destDir: dir, from: 5, to: 6, onNote: () => {} });
-    assertEquals(await Deno.readTextFile(join(dir, "discern.toml")), toml);
-    assertEquals(await targetExists(dir, "skills/kit-special/SKILL.md"), true);
+    assertEquals(await snapshotDir(dir), afterFirst);
   });
 });
 
