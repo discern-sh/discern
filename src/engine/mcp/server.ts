@@ -558,7 +558,9 @@ export const TOOLS: McpTool[] = orderTools([
       "worktree's resources, remove the clean worktree, then " +
       'land the branch per `to`. `to:"branch"` checks it out in the main repo for ' +
       'review (branch preserved); `to:"trunk"` fast-forwards the trunk to the branch ' +
-      "tip and deletes the now-merged branch. Omit `to` to use the project default " +
+      "tip and deletes the now-merged branch. It then refreshes the checkout it " +
+      "leaves behind, so generated guidance, skills, and provider integrations " +
+      "match the landed tree. Omit `to` to use the project default " +
       "([worktree].graduate_to). This is the single deterministic implementation — " +
       "run it rather than reproducing the steps with git; commit the work with a real " +
       "message first so it lands as a proper review commit, then relay the result. " +

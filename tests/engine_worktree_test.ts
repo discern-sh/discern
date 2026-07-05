@@ -56,6 +56,41 @@ async function commitCurrentWorktree(
   );
 }
 
+async function commitGuidanceMarker(
+  wt: string,
+  marker: string,
+): Promise<void> {
+  const guidance = join(wt, "guidance.md");
+  const existing = await Deno.readTextFile(guidance).catch(() => "");
+  await Deno.writeTextFile(
+    guidance,
+    `${existing}\n\n## ${marker}\n\nKeep this marker visible in generated guidance.\n`,
+  );
+  await git(wt, "add", "guidance.md");
+  await git(wt, "commit", "-q", "-m", "update guidance", "--no-gpg-sign");
+}
+
+async function assertLandingGuidanceRefreshed(
+  dir: string,
+  marker: string,
+): Promise<void> {
+  assertStringIncludes(
+    await Deno.readTextFile(join(dir, "CLAUDE.md")),
+    marker,
+    "graduation should refresh generated guidance in the checkout it leaves behind",
+  );
+  const status = await runAgent(dir, ["status", "--json"]);
+  assertEquals(status.code, 0, status.output);
+  const result = JSON.parse(status.stdout) as {
+    data: { stale_generated?: string[] };
+  };
+  assertEquals(
+    result.data.stale_generated ?? [],
+    [],
+    `generated guidance should be current after graduation\n${status.stdout}`,
+  );
+}
+
 Deno.test("worktree setup: refreshes agent files and links skills inside the worktree", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "alpha");
@@ -144,6 +179,34 @@ Deno.test("graduate: moves the branch into main and removes the worktree", async
   });
 });
 
+Deno.test("graduate --to branch: refreshes the review checkout after landing", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "review-refresh");
+    const marker = "Review Branch Graduation Refresh";
+    await commitGuidanceMarker(wt, marker);
+
+    const r = await runAgent(wt, ["graduate", "--to", "branch", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    const result = JSON.parse(r.stdout) as {
+      ok: boolean;
+      steps: Array<{ label: string; outcome: string }>;
+    };
+    assertEquals(result.ok, true);
+    assert(
+      result.steps.some((s) =>
+        s.label === "refresh agent files" && s.outcome === "ok"
+      ),
+      `graduate should report the post-landing refresh\n${r.stdout}`,
+    );
+    assertEquals(
+      await gitOut(dir, "branch", "--show-current"),
+      "agent/review-refresh",
+      `main checkout should be on the review branch\n${r.output}`,
+    );
+    await assertLandingGuidanceRefreshed(dir, marker);
+  });
+});
+
 Deno.test("graduate --to trunk: fast-forwards the trunk, lands on it, and deletes the merged branch", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "epsilon");
@@ -175,6 +238,93 @@ Deno.test("graduate --to trunk: fast-forwards the trunk, lands on it, and delete
       `the merged branch should be deleted\n${r.output}`,
     );
     assertStringIncludes(r.output, "Graduation complete");
+  });
+});
+
+Deno.test("graduate --to trunk: refreshes the trunk checkout after landing", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "trunk-refresh");
+    const marker = "Trunk Graduation Refresh";
+    await commitGuidanceMarker(wt, marker);
+
+    const r = await runAgent(wt, ["graduate", "--to", "trunk", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    const result = JSON.parse(r.stdout) as {
+      ok: boolean;
+      steps: Array<{ label: string; outcome: string }>;
+    };
+    assertEquals(result.ok, true);
+    assert(
+      result.steps.some((s) =>
+        s.label === "refresh agent files" && s.outcome === "ok"
+      ),
+      `graduate should report the post-landing refresh\n${r.stdout}`,
+    );
+    assertEquals(
+      await gitOut(dir, "branch", "--show-current"),
+      "main",
+      `main checkout should be on the trunk\n${r.output}`,
+    );
+    assertEquals(
+      await gitOut(dir, "branch", "--list", "agent/trunk-refresh"),
+      "",
+      `the merged branch should be deleted\n${r.output}`,
+    );
+    await assertLandingGuidanceRefreshed(dir, marker);
+  });
+});
+
+Deno.test("graduate: a partial post-landing refresh is recorded but does not undo landing", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "grad-refresh-fail");
+    const malformed = '{ "mcpServers": { "other": true, }, }\n';
+    await Deno.writeTextFile(join(wt, ".mcp.json"), malformed);
+    await git(wt, "add", ".mcp.json");
+    await git(
+      wt,
+      "commit",
+      "-q",
+      "-m",
+      "add malformed mcp config",
+      "--no-gpg-sign",
+    );
+
+    const r = await runAgent(wt, ["graduate", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    assertEquals(
+      await exists(wt),
+      false,
+      `worktree should still be removed after a partial refresh\n${r.output}`,
+    );
+    assertEquals(
+      await gitOut(dir, "branch", "--show-current"),
+      "agent/grad-refresh-fail",
+      `branch landing should be kept\n${r.output}`,
+    );
+
+    const result = JSON.parse(r.stdout) as {
+      ok: boolean;
+      steps: Array<{ kind: string; label: string; outcome: string }>;
+    };
+    const checkoutStep = result.steps.find((s) =>
+      s.kind === "git" && s.label === "checkout"
+    );
+    assertEquals(
+      checkoutStep?.outcome,
+      "ok",
+      `checkout should be recorded as landed\n${r.stdout}`,
+    );
+    const refreshStep = result.steps.find((s) => s.kind === "refresh");
+    assertEquals(
+      refreshStep?.outcome,
+      "failed",
+      `the partial refresh is recorded as a failed step\n${r.stdout}`,
+    );
+    assertEquals(
+      result.ok,
+      false,
+      `result.ok reflects the partial refresh\n${r.stdout}`,
+    );
   });
 });
 

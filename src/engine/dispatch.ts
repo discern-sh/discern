@@ -498,7 +498,7 @@ export function attachEngineCommands(
   root
     .command("graduate")
     .description(
-      "Finish the work, then graduate this worktree's branch into the main checkout for review.",
+      "Finish the work, then graduate this worktree's branch into the main checkout and refresh the landing checkout.",
     )
     .option(
       "--json",

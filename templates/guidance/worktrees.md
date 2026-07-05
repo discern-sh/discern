@@ -15,7 +15,8 @@ doesn't collide.{{#if has_worktree_resources}} It provisions per-worktree extern
   a green finish, unless the user specifically asked you to graduate without
   review, stop and wait for their confirmation.
   It lands on `{{graduate_to}}` by default; options are `branch` (checked out for
-  review) or `trunk` (fast-forwarded, the merged branch deleted).
+  review) or `trunk` (fast-forwarded, the merged branch deleted), and refreshes
+  the checkout it leaves behind.
 
 While iterating on uncommitted work, use `discern_prepare`, `discern_test`, or a
 targeted project command. When the intended final tree is ready, commit it first,

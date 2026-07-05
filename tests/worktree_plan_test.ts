@@ -140,6 +140,7 @@ Deno.test("graduatePlanToEngine: resources gate the teardown step for branch gra
     "teardown resources",
     "remove-worktree",
     "checkout",
+    "refresh agent files",
   ]);
   assertEquals(
     dirty.steps.find((s) => s.label === "teardown resources")?.disposition,
@@ -154,6 +155,7 @@ Deno.test("graduatePlanToEngine: resources gate the teardown step for branch gra
     "teardown resources",
     "remove-worktree",
     "checkout",
+    "refresh agent files",
   ]);
   // No resources → the teardown step is shown but skipped.
   assertEquals(
@@ -189,6 +191,7 @@ Deno.test("graduatePlanToEngine: to=trunk fast-forwards the trunk and deletes th
     "fast-forward-trunk",
     "remove-worktree",
     "delete-branch",
+    "refresh agent files",
   ]);
 
   const clean = graduatePlanToEngine({
@@ -200,6 +203,7 @@ Deno.test("graduatePlanToEngine: to=trunk fast-forwards the trunk and deletes th
     "fast-forward-trunk",
     "remove-worktree",
     "delete-branch",
+    "refresh agent files",
   ]);
   // The landing detail names the trunk fast-forward + branch deletion, not a checkout.
   assert(clean.details.some((d) => d.includes("Into trunk:")));
