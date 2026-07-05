@@ -84,6 +84,9 @@ export interface GatePlan {
   /** The merge check runs FIRST, as a fail-fast precondition (ADR 0050); it self-skips
    * in the main checkout. Always true (the field gates its plan-listing, not its run). */
   mergeCheck: boolean;
+  /** The tracked-artifacts guard runs as a fail-fast precondition after the merge check.
+   * It blocks when a discern-managed ignored artifact was force-added to Git. */
+  trackedArtifactsCheck: boolean;
   scopesChanged: string[];
 }
 
@@ -277,6 +280,7 @@ export function composeGatePlan(
     guidanceCheck,
     skillsCheck,
     mergeCheck: true,
+    trackedArtifactsCheck: true,
     scopesChanged: changed,
   };
 }
@@ -286,8 +290,9 @@ export function composeGatePlan(
  * classified by the caller — the only read-only I/O). Pure given those inputs, so
  * the whole "what would the gate run" decision is unit-testable without a
  * subprocess. Mirrors the gate's order: the leading fail-fast preconditions — the
- * merge check (ADR 0050) then the guidance/skills currency checks (ADR 0056) — then
- * fix (serial) → build → check∥test → scope-gates. Used by `--dry-run` (which
+ * merge check (ADR 0050), tracked-artifacts guard, then the guidance/skills
+ * currency checks (ADR 0056) — then fix (serial) → build → check∥test →
+ * scope-gates. Used by `--dry-run` (which
  * classifies scopes once, read-only); the apply path classifies scopes AFTER the
  * stage groups run and {@link composeGatePlan}s the same shape.
  */
@@ -466,10 +471,11 @@ export async function buildGateResult(
 /**
  * Project a gate plan onto the common {@link EnginePlan} the shared renderer
  * prints. Leading `gate` steps stand for the fail-fast preconditions — the merge
- * check (ADR 0050) then the guidance/skills currency checks (ADR 0056) — followed by
- * each job grouped under its stage, a firing job `run`, an unchanged scope gate
- * `skip`. Honest by construction: capabilities/checks render as "run" — fail-fast may
- * still skip some, which a plan cannot predict.
+ * check (ADR 0050), tracked-artifacts guard, then the guidance/skills currency
+ * checks (ADR 0056) — followed by each job grouped under its stage, a firing job
+ * `run`, an unchanged scope gate `skip`. Honest by construction:
+ * capabilities/checks render as "run" — fail-fast may still skip some, which a
+ * plan cannot predict.
  */
 export function gatePlanToEngine(plan: GatePlan): EnginePlan {
   const steps: PlanStep[] = [];
@@ -480,6 +486,15 @@ export function gatePlanToEngine(plan: GatePlan): EnginePlan {
       disposition: "gate",
       note:
         "verify this branch contains the integration branch before running the gate (no-op in the main checkout)",
+    });
+  }
+  if (plan.trackedArtifactsCheck) {
+    steps.push({
+      kind: "tracked-artifacts-check",
+      label: "tracked-artifacts-check",
+      disposition: "gate",
+      note:
+        "verify discern-managed ignored artifacts are not tracked by Git (`git rm --cached` if tracked)",
     });
   }
   if (plan.guidanceCheck) {

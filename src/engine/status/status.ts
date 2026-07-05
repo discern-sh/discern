@@ -59,6 +59,11 @@ import {
 } from "../../lib/provider_hooks.ts";
 import { checkSkillsCurrent, type SkillsDriftEntry } from "../../lib/skills.ts";
 import {
+  type TrackedDiscernIgnoredArtifacts,
+  trackedDiscernIgnoredArtifacts,
+  trackedDiscernIgnoredArtifactsHint,
+} from "../../lib/agent_gitignore.ts";
+import {
   assertMainMerged,
   type FleetWorktree,
   gitSnapshot,
@@ -263,6 +268,11 @@ export async function statusResult(
     data.stale_integrations = providerHookDrift.map((d) => d.path);
   }
 
+  const trackedIgnoredArtifacts = await trackedDiscernIgnoredArtifacts(root);
+  if (trackedIgnoredArtifacts.paths.length > 0) {
+    data.tracked_ignored_artifacts = trackedIgnoredArtifacts.paths;
+  }
+
   // One-time setup state (ADR 0036). Until `[meta].bootstrapped` is recorded the
   // project is mid-setup and the agent must finish it — surfaced loudly (a banner,
   // a lead hint) so a half-done setup isn't mistaken for a finished one. Walk for
@@ -306,6 +316,7 @@ export async function statusResult(
     guidanceDrift,
     skillsDrift,
     providerHookDrift,
+    trackedIgnoredArtifacts,
     setupPending,
     gateReceipt,
   });
@@ -489,6 +500,8 @@ interface HintContext {
   skillsDrift: SkillsDriftEntry[];
   /** Provider hook files that don't match the configured integration seed. */
   providerHookDrift: ProviderHookDriftEntry[];
+  /** Discern-owned ignored artifacts currently tracked by Git. */
+  trackedIgnoredArtifacts: TrackedDiscernIgnoredArtifacts;
   /** Scaffolded files still carrying skeleton markers while setup is unfinished;
    * undefined once `[meta].bootstrapped` is recorded. Drives the lead setup hint. */
   setupPending: string[] | undefined;
@@ -512,6 +525,10 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
   }
   if (ctx.mergeWarning !== undefined) {
     hints.push(ctx.mergeWarning);
+  }
+
+  if (ctx.trackedIgnoredArtifacts.paths.length > 0) {
+    hints.push(trackedDiscernIgnoredArtifactsHint(ctx.trackedIgnoredArtifacts));
   }
 
   // Generated agent files drifted from their source — actionable anywhere, so lead

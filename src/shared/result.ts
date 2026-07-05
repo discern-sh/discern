@@ -48,6 +48,7 @@ export const STEP_KINDS = [
   "job", // run a gate job (a capability or a check)
   "scope-gate", // run a scope's self-contained gate
   "merge-check", // assert the branch contains the integration branch
+  "tracked-artifacts-check", // assert discern-owned ignored artifacts are untracked
   "guidance-check", // assert the generated agent files match their sources
   "skills-check", // assert the materialized skills match the effective set
   "resource-create", // create a per-worktree external resource
@@ -138,6 +139,7 @@ export interface StepResult {
  *    so their combined failure reports this label rather than `check` or `test`;
  *  - `scope_gates` — a changed scope's self-contained gate failed;
  *  - `fix_drift` — the fix stage left uncommitted changes (ADR 0047);
+ *  - `tracked_artifacts` — a discern-owned generated/local artifact is tracked by Git;
  *  - `guidance` / `skills` — a generated agent file / materialized skills dir is stale
  *    (the currency checks, ADR 0034);
  *  - `merge` — the branch is behind the integration branch (the fail-fast
@@ -156,6 +158,7 @@ export const FAILED_STAGES = [
   "check/test",
   "scope_gates",
   "fix_drift",
+  "tracked_artifacts",
   "guidance",
   "skills",
   "merge",

@@ -60,6 +60,12 @@ import {
   type GuidanceDriftEntry,
 } from "../guidance_render.ts";
 import { checkSkillsCurrent, type SkillsDriftEntry } from "../../lib/skills.ts";
+import {
+  gitLsFilesCommand,
+  type TrackedDiscernIgnoredArtifacts,
+  trackedDiscernIgnoredArtifacts,
+  trackedDiscernIgnoredArtifactsHint,
+} from "../../lib/agent_gitignore.ts";
 
 /**
  * The human die message for each {@link FailedStage}. A TOTAL record (not a switch
@@ -78,6 +84,8 @@ const FAIL_MESSAGES: Record<FailedStage, string> = {
   scope_gates: "One or more scope gates failed.",
   fix_drift:
     "The fix stage left uncommitted changes — commit the formatter's output, then re-run.",
+  tracked_artifacts:
+    "Discern-managed ignored artifacts are tracked by Git — remove them from the index, run `discern refresh`, then re-run.",
   guidance:
     "Generated agent files are out of date — run `discern refresh` (edits belong in your [guidance].sources, not the generated file, which a refresh overwrites).",
   skills:
@@ -167,6 +175,24 @@ async function skillsDiagnostic(
   };
 }
 
+async function trackedArtifactsDiagnostic(
+  tracked: TrackedDiscernIgnoredArtifacts,
+): Promise<Diagnostic> {
+  const outputFields = await diagnosticOutputFields(
+    `${trackedDiscernIgnoredArtifactsHint(tracked)}\n\n` +
+      `Tracked paths:\n${tracked.paths.map((p) => `  - ${p}`).join("\n")}`,
+  );
+  return {
+    tool: "tracked-artifacts",
+    severity: "error",
+    message: `discern-managed ignored artifacts are tracked by Git: ${
+      tracked.paths.join(", ")
+    }`,
+    reproduce_cmd: gitLsFilesCommand(tracked.repairTargets),
+    ...outputFields,
+  };
+}
+
 /** Run the gate once: plan, apply, build the result. */
 async function runGate(
   root: string,
@@ -208,7 +234,21 @@ async function runGate(
     out.warn(mergeWarning);
   }
 
-  // 1b. Generated-artifacts currency — guidance (ADR 0034) — also runs FIRST, as a
+  // 1b. Discern-owned ignored artifacts must not be tracked. A forced `git add -f`
+  //     can put generated agent files, materialized skills, or machine-local provider
+  //     state into the index despite the canonical .gitignore block. Block before the
+  //     currency checks: a tracked generated file can be byte-current, but it is still
+  //     the wrong review unit and would graduate a derivative into history.
+  let trackedArtifactsDiag: Diagnostic | undefined;
+  if (failedStage === null) {
+    const tracked = await trackedDiscernIgnoredArtifacts(root);
+    if (tracked.paths.length > 0) {
+      failedStage = "tracked_artifacts";
+      trackedArtifactsDiag = await trackedArtifactsDiagnostic(tracked);
+    }
+  }
+
+  // 1c. Generated-artifacts currency — guidance (ADR 0034) — also runs FIRST, as a
   //     fail-fast precondition beside the merge check (ADR 0056). Its verdict is
   //     invariant across the gate for the same reason the merge check's is: the gate
   //     never runs `discern refresh`, and its fix stage formats SOURCE code, never the
@@ -229,7 +269,7 @@ async function runGate(
     }
   }
 
-  // 1c. Materialized-skills currency (ADR 0034, extended to skills) — the same
+  // 1d. Materialized-skills currency (ADR 0034, extended to skills) — the same
   //     fail-fast precondition for the skills dirs. STALE blocks; MISSING (the whole
   //     dir absent on a fresh checkout) and FOREIGN (an unmanaged drop-in) do not.
   const skillsOn = isFeatureEnabled(cfg, "skills");
@@ -314,9 +354,14 @@ async function runGate(
   );
   const result = await buildGateResult(plan, results, failedStage);
   const jobOutputHints = result.hints ?? [];
-  // The currency checks aren't plan-group jobs, so their diagnostics (the diff / the
-  // drift list + the `discern refresh` reproduce command) are attached here, like the
-  // merge stage's failed_stage rides in `data` without a job entry.
+  // The fail-fast checks aren't plan-group jobs, so their diagnostics are attached
+  // here, like the merge stage's failed_stage rides in `data` without a job entry.
+  if (trackedArtifactsDiag !== undefined) {
+    result.diagnostics = [
+      ...(result.diagnostics ?? []),
+      trackedArtifactsDiag,
+    ];
+  }
   if (guidanceDiag !== undefined) {
     result.diagnostics = [...(result.diagnostics ?? []), guidanceDiag];
   }
@@ -464,9 +509,10 @@ function printSuccessTail(cfg: DiscernConfig, out: Out, hints: string[]): void {
 
 /**
  * Print the gate plan without running it (`--dry-run`): the leading fail-fast
- * preconditions (the merge check, then the guidance/skills currency checks), the
- * wired job groups, and the scope-gates selected for the changed scopes. Honest —
- * it lists "what would run"; it cannot predict which jobs fail-fast would skip.
+ * preconditions (the merge check, tracked-artifacts guard, then the guidance/skills
+ * currency checks), the wired job groups, and the scope-gates selected for the
+ * changed scopes. Honest — it lists "what would run"; it cannot predict which jobs
+ * fail-fast would skip.
  */
 async function dryRunGate(
   root: string,

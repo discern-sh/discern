@@ -77,6 +77,11 @@ const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
     hint:
       "Built-in fail-fast precondition: the branch must already contain the latest integration branch before the gate spends time. A no-op in the main checkout.",
   },
+  "tracked-artifacts-check": {
+    actor: "discern",
+    hint:
+      "Built-in fail-fast precondition: discern-managed ignored artifacts must not be tracked by Git. Remove them from the index with `git rm --cached`, then refresh.",
+  },
   "guidance-check": {
     actor: "discern",
     hint:
@@ -203,6 +208,9 @@ function finishVerb(cfg: DiscernConfig): VerbPlan {
   const steps: ExecutionStep[] = [];
   if (plan.mergeCheck) {
     steps.push(step("merge-check", "merge-check"));
+  }
+  if (plan.trackedArtifactsCheck) {
+    steps.push(step("tracked-artifacts-check", "tracked-artifacts-check"));
   }
   if (plan.guidanceCheck) {
     steps.push(step("guidance-check", "guidance-check"));

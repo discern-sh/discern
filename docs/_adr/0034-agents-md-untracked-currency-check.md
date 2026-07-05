@@ -89,6 +89,17 @@ It is surfaced as:
   refresh would change, and the redirect: _edits belong in your
   `[guidance].sources`, not the generated file._
 
+**4. A "generated/local artifacts stay untracked" check.** The currency check
+catches byte drift, but it cannot catch a byte-current artifact that was forced
+into Git with `git add -f`. `discern status` therefore reports
+`tracked_ignored_artifacts` for any tracked path matched by discern's own
+generated/local ignore model, and `discern finish` blocks with
+`failed_stage: "tracked_artifacts"`. The diagnostic tells the agent to remove
+the paths from the index with `git rm -r --cached -- <path...>`, then run
+`discern refresh`. The detector is derived from the same provider-registry
+artifact set and canonical `.gitignore` block as setup/upgrade, so a new
+generated file or skills directory auto-enrols.
+
 ## Consequences
 
 - **Prime context reclaimed.** The most valuable tokens now open with real
@@ -105,6 +116,9 @@ It is surfaced as:
   check blocks on `stale` and not `missing`, a fresh checkout with no
   `AGENTS.md` stays green; drift is caught the moment the file exists and
   disagrees.
+- **Forced tracking is self-healing.** If an agent overrides the ignore block
+  and stages a generated/local artifact anyway, the next `status` names it and
+  the next `finish` refuses to bless the branch until the index is repaired.
 - **One self-healing path.** `renderAgentFiles` being the single renderer means
   a future change to the compile (a new feature section, a provider) is
   reflected in the check automatically.
@@ -128,6 +142,10 @@ It is surfaced as:
   currency check makes the tracked-file guard redundant. Untracking also stops a
   regenerated `AGENTS.md` from dirtying the tree every time a worktree
   refreshes.
+- **Warn only in `status`, but let `finish` pass.** Rejected: status is the
+  right orientation surface for the next agent, but the branch should not be
+  able to graduate with a known generated/local artifact in history. The gate is
+  the durable guardrail.
 - **Block `finish` on `missing` too.** Rejected: an untracked artifact is
   expected to be absent on a fresh checkout, so blocking would red-light
   first-run CI for every consumer. `status` still surfaces `missing` advisorily,

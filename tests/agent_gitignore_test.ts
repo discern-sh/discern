@@ -14,9 +14,10 @@ import {
   ensureDiscernGitignoreBlock,
   ignoreCovers,
   reconcileDiscernGitignore,
+  trackedDiscernIgnoredArtifacts,
 } from "../src/lib/agent_gitignore.ts";
 import { withTempDir } from "./helpers.ts";
-import { gitInit } from "./engine_helpers.ts";
+import { git, gitInit } from "./engine_helpers.ts";
 
 const REPO = join(dirname(fromFileUrl(import.meta.url)), "..");
 const FRAGMENT = await Deno.readTextFile(
@@ -154,31 +155,37 @@ Deno.test("ensureDiscernGitignoreBlock: no .gitignore creates the canonical bloc
   });
 });
 
-Deno.test("ensureDiscernGitignoreBlock: a tracked guidance file remains tracked while the block stays complete", async () => {
+Deno.test("trackedDiscernIgnoredArtifacts detects forced tracked artifacts from the canonical ignore block", async () => {
   await withTempDir(async (root) => {
-    // A .gitignore rule does not untrack an already-committed file. The canonical
-    // block can stay complete while a project that deliberately committed AGENTS.md
-    // keeps that index choice.
-    await Deno.writeTextFile(join(root, "AGENTS.md"), "tracked on purpose\n");
     await Deno.writeTextFile(join(root, ".gitignore"), "node_modules/\n");
-    await gitInit(root); // commits AGENTS.md + .gitignore on main
-
     await ensureDiscernGitignoreBlock(root);
-    const gitignore = await Deno.readTextFile(join(root, ".gitignore"));
-    assertStringIncludes(gitignore, "/AGENTS.md");
-
-    const tracked = new Deno.Command("git", {
-      args: ["ls-files", "--", "AGENTS.md"],
-      cwd: root,
-      stdout: "piped",
-      stderr: "piped",
-    });
-    const output = await tracked.output();
-    assertEquals(output.code, 0);
-    assertEquals(
-      new TextDecoder().decode(output.stdout).trim(),
-      "AGENTS.md",
+    await Deno.mkdir(join(root, ".claude"));
+    await Deno.writeTextFile(join(root, "AGENTS.md"), "forced\n");
+    await Deno.writeTextFile(join(root, "CLAUDE.md"), "@AGENTS.md\n");
+    await Deno.writeTextFile(
+      join(root, ".claude", "settings.json"),
+      "{}\n",
     );
+    await Deno.writeTextFile(
+      join(root, ".claude", "settings.local.json"),
+      "{}\n",
+    );
+    await gitInit(root);
+    await git(root, "add", "-f", "AGENTS.md", "CLAUDE.md");
+    await git(root, "add", "-f", ".claude/settings.local.json");
+    await git(root, "add", ".claude/settings.json");
+
+    const tracked = await trackedDiscernIgnoredArtifacts(root);
+    assertEquals(tracked.paths.sort(), [
+      ".claude/settings.local.json",
+      "AGENTS.md",
+      "CLAUDE.md",
+    ]);
+    assertEquals(tracked.repairTargets.sort(), [
+      ".claude/settings.local.json",
+      "AGENTS.md",
+      "CLAUDE.md",
+    ]);
   });
 });
 

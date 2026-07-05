@@ -852,6 +852,31 @@ Deno.test("status: a missing generated agent file hints it isn't built yet", asy
   });
 });
 
+Deno.test("status: tracked discern-managed ignored artifacts are listed with an index repair hint", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { agents: ["claude_code", "codex"] });
+    await gitInit(dir);
+    await runAgent(dir, ["refresh"]);
+    await git(dir, "add", "-f", "AGENTS.md", "CLAUDE.md");
+
+    const r = await runAgent(dir, ["status", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    const obj = parseStatus(r.stdout);
+    assertEquals(
+      [...(obj.data.tracked_ignored_artifacts ?? [])].sort(),
+      ["AGENTS.md", "CLAUDE.md"],
+    );
+    assert(
+      (obj.hints ?? []).some((h: string) =>
+        h.includes("Discern-managed ignored artifacts are tracked by Git") &&
+        h.includes("git rm -r --cached -- AGENTS.md CLAUDE.md") &&
+        h.includes("discern refresh")
+      ),
+      `expected a tracked-artifacts repair hint: ${JSON.stringify(obj.hints)}`,
+    );
+  });
+});
+
 Deno.test("status: missing provider hook integrations are listed and hinted to refresh", async () => {
   await withTempDir(async (dir) => {
     const hookProviders = providersWithHooks();

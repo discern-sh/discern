@@ -13,6 +13,7 @@ import { join } from "@std/path";
 import { agentArtifactPaths } from "./providers.ts";
 import { resolveTemplatesDir } from "./paths.ts";
 import type { EnvReader } from "../shared/env.ts";
+import { runGit } from "../shared/subprocess.ts";
 
 export const DISCERN_GITIGNORE_BEGIN = "# --- discern harness ---";
 export const DISCERN_GITIGNORE_END = "# --- /discern harness ---";
@@ -38,6 +39,11 @@ export interface GitignoreReconcileResult {
 export interface GitignoreFileReconcileResult {
   operations: GitignoreReconcileOperation[];
   templateAvailable: boolean;
+}
+
+export interface TrackedDiscernIgnoredArtifacts {
+  paths: string[];
+  repairTargets: string[];
 }
 
 /**
@@ -195,6 +201,56 @@ export async function ensureDiscernGitignoreBlock(
   };
 }
 
+/** Git-tracked paths that match discern's own generated/local ignore rules. */
+export async function trackedDiscernIgnoredArtifacts(
+  root: string,
+  env: EnvReader = Deno.env,
+): Promise<TrackedDiscernIgnoredArtifacts> {
+  const artifacts = agentArtifactPaths();
+  const fragment = await readGitignoreFragment(env);
+  const block = canonicalDiscernGitignoreBlock(fragment ?? "", artifacts);
+  const rules = managedIgnoreRules(block);
+  const candidates = trackedCandidateRoots(rules);
+  if (candidates.length === 0) {
+    return { paths: [], repairTargets: [] };
+  }
+
+  const tracked = await runGit(["ls-files", "-z", "--", ...candidates], {
+    cwd: root,
+  });
+  if (!tracked.success) {
+    return { paths: [], repairTargets: [] };
+  }
+
+  const paths = unique(
+    splitNul(tracked.stdout).filter((path) =>
+      isIgnoredByManagedRules(
+        path,
+        rules,
+      )
+    ),
+  ).sort();
+  return { paths, repairTargets: repairTargetsFor(paths, artifacts) };
+}
+
+export function trackedDiscernIgnoredArtifactsHint(
+  tracked: TrackedDiscernIgnoredArtifacts,
+): string {
+  return `Discern-managed ignored artifacts are tracked by Git (${
+    summarizePaths(tracked.paths)
+  }); remove them from the index with \`${
+    gitRmCachedCommand(tracked.repairTargets)
+  }\`, then run \`discern refresh\`.`;
+}
+
+export function gitRmCachedCommand(paths: readonly string[]): string {
+  return `git rm -r --cached -- ${paths.map(shellQuote).join(" ")}`;
+}
+
+export function gitLsFilesCommand(paths: readonly string[]): string {
+  return `git ls-files -- ${paths.map(shellQuote).join(" ")}`;
+}
+
 async function readTextIfExists(path: string): Promise<string | undefined> {
   try {
     return await Deno.readTextFile(path);
@@ -208,6 +264,140 @@ async function readTextIfExists(path: string): Promise<string | undefined> {
 
 function normalizeLineEndings(text: string): string {
   return text.replaceAll("\r\n", "\n").replaceAll("\r", "\n");
+}
+
+interface ManagedIgnoreRule {
+  negated: boolean;
+  path: string;
+  directory: boolean;
+  wildcardChildren: boolean;
+}
+
+function managedIgnoreRules(block: string): ManagedIgnoreRule[] {
+  return block.split("\n").flatMap((line) => {
+    const rule = parseManagedIgnoreRule(line);
+    return rule === undefined ? [] : [rule];
+  });
+}
+
+function parseManagedIgnoreRule(line: string): ManagedIgnoreRule | undefined {
+  const withoutComment = line.split("#", 1)[0]?.trim() ?? "";
+  if (withoutComment === "") {
+    return undefined;
+  }
+  const negated = withoutComment.startsWith("!");
+  const unnegated = negated ? withoutComment.slice(1) : withoutComment;
+  const withoutLeadingSlash = unnegated.replace(/^\/+/, "");
+  const wildcardChildren = withoutLeadingSlash.endsWith("/*");
+  const directory = !wildcardChildren && withoutLeadingSlash.endsWith("/");
+  const path = wildcardChildren
+    ? withoutLeadingSlash.slice(0, -2).replace(/\/+$/, "")
+    : withoutLeadingSlash.replace(/\/+$/, "");
+  if (path === "") {
+    return undefined;
+  }
+  return { negated, path, directory, wildcardChildren };
+}
+
+function trackedCandidateRoots(rules: readonly ManagedIgnoreRule[]): string[] {
+  return unique(
+    rules.filter((rule) => !rule.negated).map((rule) => rule.path),
+  );
+}
+
+function isIgnoredByManagedRules(
+  path: string,
+  rules: readonly ManagedIgnoreRule[],
+): boolean {
+  let ignored = false;
+  for (const rule of rules) {
+    if (pathMatchesRule(path, rule)) {
+      ignored = !rule.negated;
+    }
+  }
+  return ignored;
+}
+
+function pathMatchesRule(path: string, rule: ManagedIgnoreRule): boolean {
+  if (rule.directory || rule.wildcardChildren) {
+    return path === rule.path || path.startsWith(`${rule.path}/`);
+  }
+  return path === rule.path;
+}
+
+function repairTargetsFor(
+  paths: readonly string[],
+  artifacts: GitignoreArtifactSet,
+): string[] {
+  const targets: string[] = [];
+  const covered = new Set<string>();
+  for (
+    const dir of [...artifacts.skillsDirs].sort((a, b) => b.length - a.length)
+  ) {
+    const hasTrackedChild = paths.some((path) =>
+      path === dir || path.startsWith(`${dir}/`)
+    );
+    if (!hasTrackedChild) {
+      continue;
+    }
+    pushUnique(targets, dir);
+    for (const path of paths) {
+      if (path === dir || path.startsWith(`${dir}/`)) {
+        covered.add(path);
+      }
+    }
+  }
+
+  for (const path of paths) {
+    if (covered.has(path)) {
+      continue;
+    }
+    pushUnique(targets, collapseWildcardRepairTarget(path));
+  }
+  return targets;
+}
+
+function collapseWildcardRepairTarget(path: string): string {
+  if (!path.startsWith(".claude/")) {
+    return path;
+  }
+  const [, child] = path.split("/");
+  return child === undefined ? path : `.claude/${child}`;
+}
+
+function summarizePaths(paths: readonly string[], limit = 8): string {
+  const shown = paths.slice(0, limit).join(", ");
+  return paths.length <= limit
+    ? shown
+    : `${shown}, +${paths.length - limit} more`;
+}
+
+function gitPathNeedsQuoting(path: string): boolean {
+  return !/^[A-Za-z0-9_./:@%+=,-]+$/.test(path);
+}
+
+function shellQuote(path: string): string {
+  return gitPathNeedsQuoting(path)
+    ? `'${path.replaceAll("'", "'\\''")}'`
+    : path;
+}
+
+function splitNul(text: string): string[] {
+  return text.split("\0").filter((part) => part !== "");
+}
+
+function unique(values: readonly string[]): string[] {
+  const out: string[] = [];
+  for (const value of values) {
+    pushUnique(out, value);
+  }
+  return out;
+}
+
+function pushUnique(values: string[], value: string): void {
+  if (!values.includes(value)) {
+    values.push(value);
+  }
 }
 
 function trimFinalSplit(text: string): string[] {

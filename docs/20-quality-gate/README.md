@@ -4,16 +4,19 @@ _`discern finish` — the compound gate that fixes, builds, checks, and tests
 before work is called done._
 
 This subtree covers the gate and everything it runs. The built-in
-[`finish`](../../src/engine/gate/finish.ts) verb first runs a fail-fast **merge
-check** — in a Worktree, that the branch contains the latest `main`
-([ADR 0050](../_adr/0050-merge-check-fail-fast.md)); behind it, the gate stops
-before spending the slow Stages on a result the forced re-integration would
-discard. It then walks the **Stages** in order — **fix** (serial, mutating
-fixers), **build** (parallel artifact producers), then **check** and **test** in
-parallel — and each **Capability** and **Check** runs as its own labelled job,
-so a failure points at the exact one rather than a whole Stage. A known
-Capability's Stage is derived from its name; a Check states its own. After the
-Stages come the **Scope** `gate`s for any Scope that changed.
+[`finish`](../../src/engine/gate/finish.ts) verb first runs fail-fast
+preconditions: the **merge check** — in a Worktree, that the branch contains the
+latest `main` ([ADR 0050](../_adr/0050-merge-check-fail-fast.md)); the
+tracked-artifacts guard, which refuses discern-managed ignored artifacts that
+were force-added to Git; and the generated guidance/skills currency checks. If a
+precondition fails, the gate stops before spending the slow Stages on a result
+that the required tree or index repair would invalidate. It then walks the
+**Stages** in order — **fix** (serial, mutating fixers), **build** (parallel
+artifact producers), then **check** and **test** in parallel — and each
+**Capability** and **Check** runs as its own labelled job, so a failure points
+at the exact one rather than a whole Stage. A known Capability's Stage is
+derived from its name; a Check states its own. After the Stages come the
+**Scope** `gate`s for any Scope that changed.
 
 `discern prepare` is the fast inner loop: the fix-stage then check-stage work,
 with no build or test. `--json` emits the **`DiscernResult` envelope** — the one

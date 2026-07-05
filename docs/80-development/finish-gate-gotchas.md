@@ -43,6 +43,25 @@ the merge, then carry on.) Then run `discern finish` again to verify the
 correct, merged tree. (In the main checkout, not a worktree, this check is a
 no-op — there is nothing to integrate into.)
 
+### A generated or local discern artifact was force-added
+
+**Symptom.** `discern status` warns that discern-managed ignored artifacts are
+tracked by Git, or `discern finish` stops before running jobs with
+`failed_stage: "tracked_artifacts"`. The named files are usually generated agent
+files (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`), materialized skills, or
+machine-local provider state under `.claude/`.
+
+**Cause.** The file matches the discern-owned `.gitignore` block, but someone
+used `git add -f` or otherwise forced it into the index. A file can be
+byte-current and still be wrong to track: the reviewable source is
+`guidance.md`, `[skills].dir`, or provider config, not the generated/local
+artifact.
+
+**Fix.** Remove it from the index without deleting the working-tree copy:
+`git rm -r --cached -- <path...>`. Then run `discern refresh` to rebuild any
+generated artifacts that are missing, commit the index change, and re-run
+`discern finish`.
+
 ### The fix stage reformatted a file you already committed
 
 **Symptom.** `finish` stops right at the end — every stage green — reporting

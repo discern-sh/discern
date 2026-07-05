@@ -15,6 +15,7 @@ import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import { CAPTURE_CAP } from "../src/shared/result.ts";
 import {
+  git,
   gitInit,
   runAgent,
   scaffoldEngine,
@@ -557,6 +558,12 @@ Deno.test("finish --dry-run --json: emits a preview envelope (plan, no steps)", 
       obj.plan.steps.some((s: { label: string }) => s.label === "test"),
       "dry-run plan should list the test job",
     );
+    assert(
+      obj.plan.steps.some((s: { label: string; disposition: string }) =>
+        s.label === "tracked-artifacts-check" && s.disposition === "gate"
+      ),
+      "dry-run plan should list the tracked-artifacts precondition",
+    );
     // A preview ran nothing, so there are no executed steps.
     assertEquals(obj.steps, undefined);
   });
@@ -779,6 +786,52 @@ Deno.test("finish --json: a MISSING generated agent file does NOT block (untrack
     const obj = parseJson(r.stdout);
     assertEquals(obj.ok, true);
     assertEquals(obj.data.failed_stage, null);
+    assertEquals(diagFor(obj, "guidance"), undefined);
+  });
+});
+
+Deno.test("finish --json: tracked discern-managed ignored artifacts fail before jobs run", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        'main_branch = "main"',
+        "",
+        "[guidance]",
+        'agents = ["claude_code", "codex"]',
+        "",
+        "[capabilities]",
+        'test = "true"',
+        "",
+      ].join("\n"),
+    );
+    await runAgent(dir, ["refresh"]);
+    await git(dir, "add", "-f", "AGENTS.md", "CLAUDE.md");
+
+    const r = await runAgent(dir, ["finish", "--json"]);
+    assertEquals(r.code, 1, r.output);
+    const obj = parseJson(r.stdout);
+    assertEquals(obj.ok, false);
+    assertEquals(obj.data.failed_stage, "tracked_artifacts");
+    assert(
+      obj.steps.every((s: { outcome: string }) => s.outcome === "skipped"),
+      `the test job must not run after the tracked-artifacts precondition fails: ${r.stdout}`,
+    );
+    const diag = diagFor(obj, "tracked-artifacts");
+    assert(
+      diag !== undefined,
+      `expected tracked-artifacts diagnostic: ${r.stdout}`,
+    );
+    assertStringIncludes(diag.reproduce_cmd, "git ls-files --");
+    assertStringIncludes(
+      diag.output,
+      "git rm -r --cached -- AGENTS.md CLAUDE.md",
+    );
+    assertStringIncludes(diag.output, "discern refresh");
     assertEquals(diagFor(obj, "guidance"), undefined);
   });
 });
