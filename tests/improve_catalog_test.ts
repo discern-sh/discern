@@ -14,7 +14,11 @@
 
 import { assert, assertEquals } from "@std/assert";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
-import { CATEGORIES, CATEGORY_NAMES } from "../src/engine/improve/rules.ts";
+import {
+  CATEGORIES,
+  CATEGORY_NAMES,
+  isDeterministic,
+} from "../src/engine/improve/rules.ts";
 import { evaluateReport } from "../src/engine/improve/improve.ts";
 import {
   type ImprovementContext,
@@ -93,6 +97,38 @@ Deno.test("improve catalog: CATEGORY_NAMES is derived from the catalog, in order
   // so it must stay derived from CATEGORIES rather than hand-listed.
   assertEquals(CATEGORY_NAMES, CATEGORIES.map((c) => c.name));
   assert(CATEGORY_NAMES.length > 0);
+});
+
+/** A config + facts where every fact a rule reads is at its worst (the ctx()
+ * defaults are already barren; the config wires nothing). */
+function barren(): ImprovementContext {
+  return ctx(`[project]\nslug = "demo"\n`);
+}
+
+Deno.test("every deterministic rule discriminates: passes on a perfect project, fails on a barren one", () => {
+  // The score-100 test proves the catalog CAN reach 100, but not that each rule's
+  // own evaluate() actually decides anything — an always-pass (or inverted) rule
+  // scores 100 on `perfect()` all the same, and its verdict was only ever pinned for
+  // a hand-picked subset in engine_improve_test. Assert every deterministic rule
+  // separates a perfect project from a barren one, so a new rule's evaluate() can't
+  // ship as a no-op. Derived from CATEGORIES, so a new rule auto-enrols.
+  const p = perfect();
+  const b = barren();
+  for (const category of CATEGORIES) {
+    for (const rule of category.rules.filter(isDeterministic)) {
+      assertEquals(
+        rule.evaluate(p).status,
+        "pass",
+        `${rule.id}: must PASS on a perfect project`,
+      );
+      assert(
+        rule.evaluate(b).status !== "pass",
+        `${rule.id}: must NOT pass on a barren project (got "${
+          rule.evaluate(b).status
+        }") — its evaluate() doesn't discriminate`,
+      );
+    }
+  }
 });
 
 Deno.test("improve catalog: rule ids are unique and namespaced by their category", () => {
