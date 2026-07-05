@@ -376,7 +376,9 @@ Deno.test("config set-<record> rejects a malformed name in every record section"
   for (const p of EXEMPT) {
     assert(all.includes(p), `EXEMPT lists "${p}", no longer a record section`);
   }
-  const kinds = all.filter((p) => !EXEMPT.has(p)).map((p) => p.replace(/s$/, ""));
+  const kinds = all.filter((p) => !EXEMPT.has(p)).map((p) =>
+    p.replace(/s$/, "")
+  );
   assertEquals(
     Object.keys(SET_RECORD_ARGS).sort(),
     [...kinds].sort(),

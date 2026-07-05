@@ -325,12 +325,15 @@ async function writePrinciples(
  * and `capabilities` could have been broken to always-pass unnoticed. Coupled to the
  * SSOT, so a new check must supply a fail/pass fixture.
  */
-const CHECK_EVAL_CASES: Record<string, {
-  fail(root: string): Promise<{ root: string; config: DiscernConfig }>;
-  pass(root: string): Promise<{ root: string; config: DiscernConfig }>;
-}> = {
+type EvalCtx = { root: string; config: DiscernConfig };
+type EvalCase = {
+  fail(root: string): Promise<EvalCtx>;
+  pass(root: string): Promise<EvalCtx>;
+};
+
+const CHECK_EVAL_CASES: Record<string, EvalCase> = {
   design_principles: {
-    async fail(root) {
+    async fail(root): Promise<EvalCtx> {
       const config = baseConfig();
       await writePrinciples(
         root,
@@ -339,7 +342,7 @@ const CHECK_EVAL_CASES: Record<string, {
       );
       return { root, config };
     },
-    async pass(root) {
+    async pass(root): Promise<EvalCtx> {
       const config = baseConfig();
       await writePrinciples(
         root,
@@ -350,7 +353,7 @@ const CHECK_EVAL_CASES: Record<string, {
     },
   },
   guidance: {
-    async fail(root) {
+    async fail(root): Promise<EvalCtx> {
       // Conventions heading present but the stub placeholder never replaced.
       await Deno.writeTextFile(
         join(root, "guidance.md"),
@@ -358,7 +361,7 @@ const CHECK_EVAL_CASES: Record<string, {
       );
       return { root, config: baseConfig() };
     },
-    async pass(root) {
+    async pass(root): Promise<EvalCtx> {
       await Deno.writeTextFile(
         join(root, "guidance.md"),
         "# Guidance\n\nA real pitch.\n\n## Conventions\n\nReal conventions.\n",
@@ -368,10 +371,10 @@ const CHECK_EVAL_CASES: Record<string, {
   },
   capabilities: {
     // Reads config only — no capability wired vs one wired.
-    fail(root) {
+    fail(root): Promise<EvalCtx> {
       return Promise.resolve({ root, config: baseConfig() });
     },
-    pass(root) {
+    pass(root): Promise<EvalCtx> {
       return Promise.resolve({
         root,
         config: baseConfig({ capabilities: { test: "true" } }),

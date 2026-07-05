@@ -43,7 +43,9 @@ const HISTORICAL_FIXTURES = join(
  * byte-for-byte no-op comparison across a migration re-application. */
 async function snapshotDir(dir: string): Promise<Map<string, string>> {
   const snap = new Map<string, string>();
-  for await (const entry of walk(dir, { includeDirs: false, includeSymlinks: false })) {
+  for await (
+    const entry of walk(dir, { includeDirs: false, includeSymlinks: false })
+  ) {
     const rel = relative(dir, entry.path);
     if (rel === ".git" || rel.startsWith(`.git${"/"}`)) continue;
     snap.set(rel, await Deno.readTextFile(entry.path));
@@ -152,7 +154,9 @@ Deno.test("EVERY historical-corpus migration step is idempotent on its own befor
       assertEquals(
         await snapshotDir(dir),
         afterFirst,
-        `migration ${from}→${from + 1} is not idempotent on the schema-${from} install`,
+        `migration ${from}→${
+          from + 1
+        } is not idempotent on the schema-${from} install`,
       );
     });
   }

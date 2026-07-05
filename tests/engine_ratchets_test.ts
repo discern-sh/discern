@@ -18,7 +18,7 @@ import {
 } from "./engine_helpers.ts";
 import { ratchetPlanIntegrityFailure } from "../src/engine/gate/ratchets.ts";
 import type { PlannedRatchet } from "../src/engine/gate/ratchet_plan.ts";
-import { EXTENTS, type Extent } from "../src/shared/config_schema.ts";
+import { type Extent, EXTENTS } from "../src/shared/config_schema.ts";
 
 interface RatchetsJson {
   ok: boolean;
@@ -725,7 +725,10 @@ const EXTENT_CASES: Record<
   { files: Array<[string, string]>; per: string; expect: string }
 > = {
   files: {
-    files: [["content/a.txt", "w"], ["content/b.txt", "w"], ["content/c.txt", "w"]],
+    files: [["content/a.txt", "w"], ["content/b.txt", "w"], [
+      "content/c.txt",
+      "w",
+    ]],
     per: '{ files = "content/**" }',
     expect: "per 3 files",
   },

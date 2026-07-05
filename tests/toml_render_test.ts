@@ -97,7 +97,9 @@ Deno.test("parseDiscernToml drops EVERY wrong-typed [project] string field to un
     .filter((f) => f !== "agents");
   assert(
     stringFields.length >= 3,
-    `expected the [project] string fields (slug/branch_prefix/gotchas_doc), got: ${stringFields.join(", ")}`,
+    `expected the [project] string fields (slug/branch_prefix/gotchas_doc), got: ${
+      stringFields.join(", ")
+    }`,
   );
 
   // A document assigning a NUMBER to every string field: each must coerce away

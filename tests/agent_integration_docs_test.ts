@@ -29,7 +29,9 @@ Deno.test("every reuse-canonical agent's integration doc signposts IDE-only user
   // dropped reuseCanonical would otherwise make this guard vacuously pass).
   assert(
     agents.length >= 2,
-    `expected the reuse-canonical set to include at least cursor + copilot, got: ${agents.join(", ")}`,
+    `expected the reuse-canonical set to include at least cursor + copilot, got: ${
+      agents.join(", ")
+    }`,
   );
 
   // Read every integration doc once; each agent's doc is the one that configures it
@@ -38,7 +40,9 @@ Deno.test("every reuse-canonical agent's integration doc signposts IDE-only user
   const dir = new URL("../docs/60-agent-integrations/", import.meta.url);
   const docs: Array<{ file: string; text: string }> = [];
   for await (const entry of Deno.readDir(dir)) {
-    if (entry.isFile && entry.name.endsWith(".md") && entry.name !== "README.md") {
+    if (
+      entry.isFile && entry.name.endsWith(".md") && entry.name !== "README.md"
+    ) {
       docs.push({
         file: entry.name,
         text: await Deno.readTextFile(new URL(entry.name, dir)),

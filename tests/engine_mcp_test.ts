@@ -183,7 +183,9 @@ Deno.test("mcp: EVERY tool's live call echoes its own verb", async () => {
     await gitInit(dir);
     for (const tool of TOOLS) {
       // A fresh WorkingRoot per tool so a lifecycle re-aim never drifts the next call.
-      const result = await runTool(tool, new WorkingRoot(dir), { dry_run: true });
+      const result = await runTool(tool, new WorkingRoot(dir), {
+        dry_run: true,
+      });
       assertEquals(
         result.structuredContent.verb,
         verbOf(tool.name),
