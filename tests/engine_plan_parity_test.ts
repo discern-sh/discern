@@ -200,3 +200,38 @@ Deno.test("parity: worktree setup apply runs nothing the dry-run didn't list", a
     assertAppliedSubsetOfPlanned(dry.stdout, apply.stdout, "setup");
   });
 });
+
+Deno.test("parity: integrate apply merges nothing the dry-run didn't list", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "parityintegrate");
+    // Advance main after the branch forked → the worktree is behind, so integrate
+    // has real work (a fast-forward/merge) and a non-empty applied set.
+    await Deno.writeTextFile(join(dir, "up.txt"), "up\n");
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "upstream", "--no-gpg-sign");
+
+    const dry = await runAgent(wt, ["integrate", "--dry-run", "--json"]);
+    assertEquals(dry.code, 0, dry.output);
+    const apply = await runAgent(wt, ["integrate", "--json"]);
+    assertEquals(apply.code, 0, apply.output);
+
+    assert(appliedSet(apply.stdout).size > 0, "fixture integrated nothing");
+    assertAppliedSubsetOfPlanned(dry.stdout, apply.stdout, "integrate");
+  });
+});
+
+Deno.test("parity: start apply creates nothing the dry-run didn't list", async () => {
+  await withTempDir(async (dir) => {
+    // start runs from the MAIN checkout and mints a fresh worktree — a full apply.
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+
+    const dry = await runAgent(dir, ["start", "--dry-run", "--json"]);
+    assertEquals(dry.code, 0, dry.output);
+    const apply = await runAgent(dir, ["start", "--json"]);
+    assertEquals(apply.code, 0, apply.output);
+
+    assert(appliedSet(apply.stdout).size > 0, "fixture started nothing");
+    assertAppliedSubsetOfPlanned(dry.stdout, apply.stdout, "start");
+  });
+});
