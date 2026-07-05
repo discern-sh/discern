@@ -7,6 +7,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
+import { recordConfigPaths } from "../src/shared/config_codegen.ts";
 import { runCli, withTempDir } from "./helpers.ts";
 
 /** Scaffold a fresh install in `dir`. */
@@ -357,42 +358,47 @@ Deno.test("config errors to stderr (not JSON) when not initialized", async () =>
   });
 });
 
-Deno.test("config set-check rejects a malformed check name", async () => {
-  await withTempDir(async (dir) => {
-    await setup(dir);
-    const r = await runCli(
-      [
-        "config",
-        "set-check",
-        "bad name",
-        "--stage",
-        "check",
-        "--run",
-        "x",
-        "--json",
-      ],
-      dir,
-    );
-    assertEquals(r.code, 1);
-    const result = JSON.parse(r.stdout);
-    assertEquals(result.ok, false);
-    assertEquals(result.error, "invalid_argument");
-    assertStringIncludes(result.message, "check name must be");
-  });
-});
+Deno.test("config set-<record> rejects a malformed name in every record section", async () => {
+  // Every `config set-<record>` subcommand validates its <name> through the same
+  // rule. Sections derive from the schema SSOT (recordConfigPaths); the args differ
+  // per subcommand (scope takes globs, check takes --stage/--run, ratchet takes
+  // --limit/--run), so a fixture arg-list is mapped per kind and asserted to cover
+  // exactly the sections — a new record section forces an entry here (or an
+  // exemption). worktree.resources has no `set-resource` subcommand: a self-checking
+  // exemption from the CLI record-writer set.
+  const SET_RECORD_ARGS: Record<string, string[]> = {
+    check: ["--stage", "check", "--run", "x"],
+    scope: ["src/**"],
+    ratchet: ["--limit", "80", "--run", "m"],
+  };
+  const EXEMPT = new Set(["worktree.resources"]);
+  const all = recordConfigPaths();
+  for (const p of EXEMPT) {
+    assert(all.includes(p), `EXEMPT lists "${p}", no longer a record section`);
+  }
+  const kinds = all.filter((p) => !EXEMPT.has(p)).map((p) =>
+    p.replace(/s$/, "")
+  );
+  assertEquals(
+    Object.keys(SET_RECORD_ARGS).sort(),
+    [...kinds].sort(),
+    "SET_RECORD_ARGS must cover exactly the record-section set-<kind> subcommands",
+  );
 
-Deno.test("config set-scope rejects a malformed scope name", async () => {
-  await withTempDir(async (dir) => {
-    await setup(dir);
-    const r = await runCli(
-      ["config", "set-scope", "bad/name", "src/**", "--json"],
-      dir,
-    );
-    assertEquals(r.code, 1);
-    const result = JSON.parse(r.stdout);
-    assertEquals(result.ok, false);
-    assertStringIncludes(result.message, "scope name must be");
-  });
+  for (const [kind, extra] of Object.entries(SET_RECORD_ARGS)) {
+    await withTempDir(async (dir) => {
+      await setup(dir);
+      const r = await runCli(
+        ["config", `set-${kind}`, "bad name", ...extra, "--json"],
+        dir,
+      );
+      assertEquals(r.code, 1, r.stderr);
+      const result = JSON.parse(r.stdout);
+      assertEquals(result.ok, false);
+      assertEquals(result.error, "invalid_argument");
+      assertStringIncludes(result.message, `${kind} name must be`);
+    });
+  }
 });
 
 Deno.test("config set-scope: Cliffy rejects zero globs before the handler", async () => {
@@ -403,29 +409,6 @@ Deno.test("config set-scope: Cliffy rejects zero globs before the handler", asyn
     const r = await runCli(["config", "set-scope", "native"], dir);
     assertEquals(r.code, 2);
     assertStringIncludes(r.stderr, "Missing argument");
-  });
-});
-
-Deno.test("config set-ratchet rejects a malformed ratchet name", async () => {
-  await withTempDir(async (dir) => {
-    await setup(dir);
-    const r = await runCli(
-      [
-        "config",
-        "set-ratchet",
-        "bad name",
-        "--limit",
-        "80",
-        "--run",
-        "m",
-        "--json",
-      ],
-      dir,
-    );
-    assertEquals(r.code, 1);
-    const result = JSON.parse(r.stdout);
-    assertEquals(result.ok, false);
-    assertStringIncludes(result.message, "ratchet name must be");
   });
 });
 

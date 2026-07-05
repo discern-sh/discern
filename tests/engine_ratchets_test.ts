@@ -18,6 +18,7 @@ import {
 } from "./engine_helpers.ts";
 import { ratchetPlanIntegrityFailure } from "../src/engine/gate/ratchets.ts";
 import type { PlannedRatchet } from "../src/engine/gate/ratchet_plan.ts";
+import { type Extent, EXTENTS } from "../src/shared/config_schema.ts";
 
 interface RatchetsJson {
   ok: boolean;
@@ -713,75 +714,76 @@ Deno.test("ratchets: the same growth breaks a raw count, and the failure points 
   });
 });
 
-// ── Every built-in extent measures the right denominator ───────────────────────
-// `per = { words = … }` is exercised above; cover the other three measures so a
-// regression in any branch of the extent counter (not just words) fails. Each
-// emits a 0 numerator, so the rate is 0 regardless and the breakdown reveals the
-// measured denominator the assertion pins.
+// ── Every built-in extent measures the right denominator (class guard) ─────────
+// A fixture per built-in extent: a known corpus whose denominator the breakdown
+// must report. Keyed by extent so the guard can assert it covers EXACTLY the
+// EXTENTS SSOT — a new measure added to the vocabulary forces a case here rather
+// than shipping with a silently-untested counter branch. Each run emits a 0
+// numerator, so the rate is 0 regardless and only the measured denominator shows.
+const EXTENT_CASES: Record<
+  Extent,
+  { files: Array<[string, string]>; per: string; expect: string }
+> = {
+  files: {
+    files: [["content/a.txt", "w"], ["content/b.txt", "w"], [
+      "content/c.txt",
+      "w",
+    ]],
+    per: '{ files = "content/**" }',
+    expect: "per 3 files",
+  },
+  lines: {
+    files: [["content/x.txt", "a\nb\nc\nd\n"]], // 4 newlines
+    per: '{ lines = "content/**" }',
+    expect: "per 4 lines",
+  },
+  words: {
+    files: [["content/a.txt", Array(100).fill("w").join(" ")]], // 100 words
+    per: '{ words = "content/**" }',
+    expect: "per 100 words",
+  },
+  bytes: {
+    files: [["content/x.txt", "abcdefghij"]], // 10 bytes
+    per: '{ bytes = "content/**" }',
+    expect: "per 10 bytes",
+  },
+};
 
-Deno.test("ratchets: the `files` extent counts matching tracked files", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await writeConfig(
-      dir,
-      ratchetConfig({
-        name: "r",
-        direction: "down",
-        limit: "1",
-        per: '{ files = "content/**" }',
-        run: "echo 'DISCERN_METRIC r 0'",
-      }),
-    );
-    await writeWordFile(dir, "content/a.txt", 1);
-    await writeWordFile(dir, "content/b.txt", 1);
-    await writeWordFile(dir, "content/c.txt", 1);
-    await gitInit(dir);
-    const r = await runAgent(dir, ["ratchets"]);
-    assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, "per 3 files");
-  });
-});
+Deno.test("ratchets: EVERY built-in extent measures its own denominator", async () => {
+  // SSOT coupling: the cases name EXACTLY the EXTENTS vocabulary — a new extent
+  // can't ship without a denominator case here, and a removed one can't leave a
+  // dead case behind. This is the tie that auto-enrols the next measure.
+  assertEquals(
+    Object.keys(EXTENT_CASES).sort(),
+    [...EXTENTS].sort(),
+    "EXTENT_CASES must cover exactly the EXTENTS SSOT — add/remove a case for the changed extent",
+  );
 
-Deno.test("ratchets: the `lines` extent sums newlines across matching files", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await writeConfig(
-      dir,
-      ratchetConfig({
-        name: "r",
-        direction: "down",
-        limit: "1",
-        per: '{ lines = "content/**" }',
-        run: "echo 'DISCERN_METRIC r 0'",
-      }),
-    );
-    await writeText(dir, "content/x.txt", "a\nb\nc\nd\n"); // 4 newlines
-    await gitInit(dir);
-    const r = await runAgent(dir, ["ratchets"]);
-    assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, "per 4 lines");
-  });
-});
-
-Deno.test("ratchets: the `bytes` extent sums file sizes", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await writeConfig(
-      dir,
-      ratchetConfig({
-        name: "r",
-        direction: "down",
-        limit: "1",
-        per: '{ bytes = "content/**" }',
-        run: "echo 'DISCERN_METRIC r 0'",
-      }),
-    );
-    await writeText(dir, "content/x.txt", "abcdefghij"); // 10 bytes
-    await gitInit(dir);
-    const r = await runAgent(dir, ["ratchets"]);
-    assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, "per 10 bytes");
-  });
+  for (const measure of EXTENTS) {
+    const c = EXTENT_CASES[measure];
+    await withTempDir(async (dir) => {
+      await scaffoldEngine(dir);
+      await writeConfig(
+        dir,
+        ratchetConfig({
+          name: "r",
+          direction: "down",
+          limit: "1",
+          per: c.per,
+          run: "echo 'DISCERN_METRIC r 0'",
+        }),
+      );
+      for (const [rel, content] of c.files) await writeText(dir, rel, content);
+      await gitInit(dir);
+      const r = await runAgent(dir, ["ratchets"]);
+      assertEquals(r.code, 0, `${measure}: ${r.output}`);
+      assertStringIncludes(
+        r.stdout,
+        c.expect,
+        `the ${measure} extent must report "${c.expect}" in the breakdown`,
+      );
+    });
+  }
 });
 
 Deno.test("ratchets: a `per` metric the run never emits errors clearly", async () => {

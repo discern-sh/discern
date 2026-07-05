@@ -474,6 +474,34 @@ Deno.test("graduate: refuses from the main checkout (worktree-only, the CLI mirr
   });
 });
 
+Deno.test("every worktree-lifecycle verb maps a wrong-side refusal to error:precondition_failed", async () => {
+  // graduate/integrate are worktree-only; start is main-only. A wrong-side run is a
+  // refused precondition, and the --json envelope must carry the machine slug an
+  // agent branches on — not just human text any message could satisfy. Pinned as one
+  // set so a new lifecycle verb's refusal can't silently degrade to a bare exit-1
+  // (start already asserted the slug; the integrate/graduate CLI paths did not).
+  const REFUSALS = [
+    { verb: "graduate", side: "main" as const },
+    { verb: "integrate", side: "main" as const },
+    { verb: "start", side: "worktree" as const },
+  ];
+  for (const { verb, side } of REFUSALS) {
+    await withTempDir(async (dir) => {
+      const wt = await mainWithWorktree(dir, `refuse-${verb}`);
+      const r = await runAgent(side === "main" ? dir : wt, [verb, "--json"]);
+      assertEquals(r.code, 1, `${verb} from ${side}: ${r.output}`);
+      const result = JSON.parse(r.stdout);
+      assertEquals(result.ok, false, `${verb} from ${side}`);
+      assertEquals(result.verb, verb, `${verb} from ${side}`);
+      assertEquals(
+        result.error,
+        "precondition_failed",
+        `${verb} refused from the ${side} side must map to precondition_failed`,
+      );
+    });
+  }
+});
+
 Deno.test("integrate: no-op when the branch already contains main", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "kappa");

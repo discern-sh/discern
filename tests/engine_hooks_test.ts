@@ -17,9 +17,12 @@ import { withTempDir } from "./helpers.ts";
 import {
   engineEnv,
   gitInit,
+  gitOut,
+  runAgent,
   scaffoldEngine,
   worktreePath,
 } from "./engine_helpers.ts";
+import { AGENT_NAMES } from "../src/shared/config_schema.ts";
 
 const DECODER = new TextDecoder();
 
@@ -104,6 +107,41 @@ Deno.test("hook WorktreeCreate: creates the worktree, runs setup, prints its pat
     assert(
       await exists(join(wt, ".claude/skills/discern-write-adr/SKILL.md")),
       `setup did not run inside the worktree\n${r.stderr}`,
+    );
+  });
+});
+
+Deno.test("hook-created worktree stays git-clean after setup and session-start ensure", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { agents: [...AGENT_NAMES] });
+    const refresh = await runAgent(dir, ["refresh", "--json"]);
+    assertEquals(refresh.code, 0, refresh.output);
+    await gitInit(dir);
+
+    const create = await runHook(
+      dir,
+      await hookCommand(dir, "WorktreeCreate"),
+      {
+        name: "clean",
+        cwd: dir,
+      },
+    );
+    assertEquals(create.code, 0, create.stderr);
+    const wt = worktreePath(dir, "clean");
+    assertEquals(create.stdout, wt);
+
+    assertEquals(
+      await gitOut(wt, "status", "--porcelain", "--untracked-files=all"),
+      "",
+      "worktree setup must not leave tracked or unignored files dirty",
+    );
+
+    const ensure = await runHook(wt, await hookCommand(wt, "SessionStart"), {});
+    assertEquals(ensure.code, 0, ensure.stderr);
+    assertEquals(
+      await gitOut(wt, "status", "--porcelain", "--untracked-files=all"),
+      "",
+      "session-start ensure must not leave tracked or unignored files dirty",
     );
   });
 });

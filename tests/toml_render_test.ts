@@ -85,22 +85,41 @@ Deno.test("parseDiscernToml tolerates a missing [project] block", () => {
   assertEquals(parsed.raw.title, "no project here");
 });
 
-Deno.test("parseDiscernToml drops wrong-typed fields to undefined", () => {
-  // Numbers where strings are expected, and a non-table `project` value are all
-  // coerced away rather than surfaced as the wrong type.
-  const text = `
-[project]
-slug = 123
-branch_prefix = true
-gotchas_doc = 4.5
-agents = "claude_code"
-`;
-  const parsed = parseDiscernToml(text);
-  assertEquals(parsed.project.slug, undefined);
-  assertEquals(parsed.project.branch_prefix, undefined);
-  assertEquals(parsed.project.gotchas_doc, undefined);
-  // A non-array `agents` is dropped entirely.
-  assertEquals(parsed.project.agents, undefined);
+Deno.test("parseDiscernToml drops EVERY wrong-typed [project] string field to undefined", () => {
+  // Discover the extracted [project] string fields from a fully-populated parse —
+  // the SSOT is the returned shape itself, so a new string field auto-enrols here
+  // rather than shipping with an untested coercion. `agents` is the sole array
+  // field (its wrong-typed case is a separate test below).
+  const populated = parseDiscernToml(
+    `[project]\nslug = "s"\nbranch_prefix = "b"\ngotchas_doc = "g"\nagents = ["claude_code"]`,
+  ).project;
+  const stringFields = (Object.keys(populated) as Array<keyof typeof populated>)
+    .filter((f) => f !== "agents");
+  assert(
+    stringFields.length >= 3,
+    `expected the [project] string fields (slug/branch_prefix/gotchas_doc), got: ${
+      stringFields.join(", ")
+    }`,
+  );
+
+  // A document assigning a NUMBER to every string field: each must coerce away
+  // rather than surface as the wrong type.
+  const parsed = parseDiscernToml(
+    `[project]\n${stringFields.map((f) => `${f} = 123`).join("\n")}`,
+  ).project;
+  for (const f of stringFields) {
+    assertEquals(
+      parsed[f],
+      undefined,
+      `wrong-typed [project].${f} must coerce to undefined`,
+    );
+  }
+
+  // A non-array `agents` is likewise dropped entirely.
+  assertEquals(
+    parseDiscernToml(`[project]\nagents = "claude_code"`).project.agents,
+    undefined,
+  );
 });
 
 Deno.test("parseDiscernToml filters non-string entries out of the agents array", () => {

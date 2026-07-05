@@ -851,7 +851,7 @@ export class WorkingRoot {
  * server down). A disabled feature is handled earlier, by simply not registering its
  * tool — so it is absent from `tools/list` and the SDK rejects a call to it.
  */
-async function runTool(
+export async function runTool(
   tool: McpTool,
   working: WorkingRoot,
   args: Record<string, unknown>,

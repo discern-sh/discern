@@ -17,12 +17,17 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { join } from "@std/path";
+import { dirname, join } from "@std/path";
 import { REAL_TEMPLATES, withTempDir } from "./helpers.ts";
 import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
 import { parseSetupBrief } from "../src/shared/setup_pages.ts";
 import { SETUP_COMPLETION_CHECKS } from "../src/shared/setup_checks.ts";
 import { SetupStepOutputSchema } from "../src/shared/result_schemas.ts";
+import {
+  configSchema,
+  type DiscernConfig,
+} from "../src/shared/config_schema.ts";
+import { normalizeDocsDir } from "../src/shared/docs_path.ts";
 
 const BRIEF = join(REAL_TEMPLATES, "setup", "instructions.md");
 
@@ -290,5 +295,119 @@ Deno.test("each completion check's describe matches its page's completion_check 
       check.describe,
       `Step ${check.step}'s completion_check must match the '${check.name}' check's describe (ADR 0078)`,
     );
+  }
+});
+
+// ── forcing function: every check's evaluate() actually fails when work is skipped ──
+
+const baseConfig = (patch: Record<string, unknown> = {}): DiscernConfig =>
+  configSchema.parse({ project: { slug: "demo" }, ...patch });
+
+/** Write the design-principles doc at the config's docs dir with `body`. */
+async function writePrinciples(
+  root: string,
+  config: DiscernConfig,
+  body: string,
+): Promise<void> {
+  const path = join(
+    root,
+    `${normalizeDocsDir(config.docs.dir)}00-orientation/design-principles.md`,
+  );
+  await Deno.mkdir(dirname(path), { recursive: true });
+  await Deno.writeTextFile(path, body);
+}
+
+/**
+ * For every completion check: a context where its step's work is ABSENT/stubbed
+ * (evaluate must be false) and one where it's PRESENT (true). The describe-parity
+ * loop above proves each check exists; this proves each check's evaluate() actually
+ * catches a skipped step — end-to-end only `design_principles` did, so `guidance`
+ * and `capabilities` could have been broken to always-pass unnoticed. Coupled to the
+ * SSOT, so a new check must supply a fail/pass fixture.
+ */
+type EvalCtx = { root: string; config: DiscernConfig };
+type EvalCase = {
+  fail(root: string): Promise<EvalCtx>;
+  pass(root: string): Promise<EvalCtx>;
+};
+
+const CHECK_EVAL_CASES: Record<string, EvalCase> = {
+  design_principles: {
+    async fail(root): Promise<EvalCtx> {
+      const config = baseConfig();
+      await writePrinciples(
+        root,
+        config,
+        "# Design principles\n\n## 1. Only one\n\nEXAMPLE deleted, not filled.\n",
+      );
+      return { root, config };
+    },
+    async pass(root): Promise<EvalCtx> {
+      const config = baseConfig();
+      await writePrinciples(
+        root,
+        config,
+        "# Design principles\n\n## 1. First\n\na.\n\n## 2. Second\n\nb.\n\n## 3. Third\n\nc.\n",
+      );
+      return { root, config };
+    },
+  },
+  guidance: {
+    async fail(root): Promise<EvalCtx> {
+      // Conventions heading present but the stub placeholder never replaced.
+      await Deno.writeTextFile(
+        join(root, "guidance.md"),
+        "# Guidance\n\nA pitch.\n\n## Conventions\n\n_(replace this section with the project's real conventions)_\n",
+      );
+      return { root, config: baseConfig() };
+    },
+    async pass(root): Promise<EvalCtx> {
+      await Deno.writeTextFile(
+        join(root, "guidance.md"),
+        "# Guidance\n\nA real pitch.\n\n## Conventions\n\nReal conventions.\n",
+      );
+      return { root, config: baseConfig() };
+    },
+  },
+  capabilities: {
+    // Reads config only — no capability wired vs one wired.
+    fail(root): Promise<EvalCtx> {
+      return Promise.resolve({ root, config: baseConfig() });
+    },
+    pass(root): Promise<EvalCtx> {
+      return Promise.resolve({
+        root,
+        config: baseConfig({ capabilities: { test: "true" } }),
+      });
+    },
+  },
+};
+
+Deno.test("every completion check's evaluate() fails when its step's work is skipped, passes when done", async () => {
+  // Coupling: the fixtures name EXACTLY the checks — a new check can't ship without
+  // its fail-path exercised (or a recorded fixture).
+  assertEquals(
+    Object.keys(CHECK_EVAL_CASES).sort(),
+    SETUP_COMPLETION_CHECKS.map((c) => c.name).sort(),
+    "CHECK_EVAL_CASES must cover exactly SETUP_COMPLETION_CHECKS",
+  );
+
+  for (const check of SETUP_COMPLETION_CHECKS) {
+    const c = CHECK_EVAL_CASES[check.name];
+    if (c === undefined) continue; // covered by the coupling assertion above
+    await withTempDir(async (root) => {
+      assertEquals(
+        await check.evaluate(await c.fail(root)),
+        false,
+        `${check.name}: evaluate() must FAIL when the step's work is skipped`,
+      );
+    });
+    await withTempDir(async (root) => {
+      assertEquals(
+        await check.evaluate(await c.pass(root)),
+        true,
+        `${check.name}: evaluate() must PASS when the step's work is present`,
+      );
+    });
   }
 });

@@ -22,6 +22,7 @@ import {
 } from "../src/lib/config_doc.ts";
 import { TomlEditor } from "../src/lib/toml_edit.ts";
 import { parseConfig } from "../src/shared/config_schema.ts";
+import { recordConfigPaths } from "../src/shared/config_codegen.ts";
 import { withTempDir } from "./helpers.ts";
 
 /** A fresh editor over a minimal `[project]` config for apply-side tests. */
@@ -349,30 +350,41 @@ Deno.test("applyConfigDoc rejects a ratchet with no limit using the ratchet erro
   );
 });
 
-Deno.test("applyConfigDoc rejects names that are not TOML bare keys", () => {
-  // Each named section funnels its name through the same NAME_RE guard.
-  assertThrows(
-    () =>
-      applyConfigDoc(editor(), {
-        checks: { "bad name": { stage: "check", run: "x" } },
-      }),
-    Error,
-    "check name must be letters, digits",
+Deno.test("applyConfigDoc rejects a non-bare-key name in EVERY named-record section", () => {
+  // Every named section funnels its <name> through the same NAME_RE guard
+  // (assertName), and assertName runs first in each section loop — so a bad name
+  // throws regardless of the rest of the spec. Derive the sections from the live
+  // schema (recordConfigPaths) so a new open <name> table auto-enrols here.
+  //
+  // worktree.resources is a record table too, but applyConfigDoc doesn't own it (its
+  // name is validated on the `config set-resource` path); an explicit, self-checking
+  // exception rather than a silent omission.
+  const APPLY_DOC_EXEMPT = new Set(["worktree.resources"]);
+  const all = recordConfigPaths();
+  for (const p of APPLY_DOC_EXEMPT) {
+    assert(
+      all.includes(p),
+      `APPLY_DOC_EXEMPT lists "${p}", which is no longer a record section`,
+    );
+  }
+  const sections = all.filter((p) => !APPLY_DOC_EXEMPT.has(p));
+  assert(
+    sections.length >= 3,
+    `expected at least checks/scopes/ratchets, got: ${sections.join(", ")}`,
   );
-  assertThrows(
-    () =>
-      applyConfigDoc(editor(), { scopes: { "bad.scope": { paths: ["x"] } } }),
-    Error,
-    "scope name must be letters, digits",
-  );
-  assertThrows(
-    () =>
-      applyConfigDoc(editor(), {
-        ratchets: { "bad name": { limit: 1, run: "m" } },
-      }),
-    Error,
-    "ratchet name must be letters, digits",
-  );
+
+  for (const section of sections) {
+    assertThrows(
+      () =>
+        applyConfigDoc(
+          editor(),
+          { [section]: { "bad name": {} } } as unknown as DiscernConfigDoc,
+        ),
+      Error,
+      "name must be letters, digits", // the shared NAME_RE message, kind-agnostic
+      `${section}: a non-bare-key name must be rejected`,
+    );
+  }
 });
 
 /**

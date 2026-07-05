@@ -13,8 +13,8 @@ import {
   assertRejects,
   assertStringIncludes,
 } from "@std/assert";
-import { join } from "@std/path";
-import { copy } from "@std/fs";
+import { dirname, fromFileUrl, join, relative } from "@std/path";
+import { copy, walk } from "@std/fs";
 import { SCHEMA_VERSION } from "../src/lib/version.ts";
 import { parseDiscernToml } from "../src/lib/toml_render.ts";
 import {
@@ -32,6 +32,26 @@ import {
   targetExists,
   withTempDir,
 } from "./helpers.ts";
+
+const HISTORICAL_FIXTURES = join(
+  dirname(fromFileUrl(import.meta.url)),
+  "fixtures",
+  "historical-installs",
+);
+
+/** Every tracked file under `dir` (excluding `.git`) as path → content, for
+ * byte-for-byte no-op comparison across a migration re-application. */
+async function snapshotDir(dir: string): Promise<Map<string, string>> {
+  const snap = new Map<string, string>();
+  for await (
+    const entry of walk(dir, { includeDirs: false, includeSymlinks: false })
+  ) {
+    const rel = relative(dir, entry.path);
+    if (rel === ".git" || rel.startsWith(`.git${"/"}`)) continue;
+    snap.set(rel, await Deno.readTextFile(entry.path));
+  }
+  return snap;
+}
 
 /** A synthetic step that records its `from` when applied. */
 function recordingStep(from: number, log: number[]): Migration {
@@ -102,6 +122,44 @@ Deno.test("the production chain is contiguous up to the current schema", () => {
     13,
   ]);
   assert(isChainContiguous(MIGRATIONS, SCHEMA_VERSION));
+});
+
+Deno.test("EVERY historical-corpus migration step is idempotent on its own before-state", async () => {
+  // Migration.apply is documented "MUST be idempotent" — re-running a step on the
+  // state it just produced must change nothing. Each step is era-specific (2→3 moves
+  // the config into .discern/, which 5→6 later dissolves), so idempotency is only
+  // meaningful against the step's OWN before-state: a real install at that schema.
+  // The historical corpus supplies exactly those, so this ties the contract to real
+  // installs across the corpus-covered range and auto-enrols a new fixture. The
+  // per-step unit tests cover the shape variations; 1→2 (no corpus fixture) carries
+  // its own re-run below.
+  const names: string[] = [];
+  for await (const entry of Deno.readDir(HISTORICAL_FIXTURES)) {
+    if (entry.isDirectory && /^schema-\d+$/.test(entry.name)) {
+      names.push(entry.name);
+    }
+  }
+  names.sort();
+  assert(names.length > 0, "the historical fixture corpus should not be empty");
+
+  for (const name of names) {
+    const from = Number(name.slice("schema-".length));
+    if (from >= SCHEMA_VERSION) continue; // no step beyond the current schema
+    await withTempDir(async (dir) => {
+      await copy(join(HISTORICAL_FIXTURES, name), dir, { overwrite: true });
+      const step = { destDir: dir, from, to: from + 1, onNote: () => {} };
+      await applyMigrationsUnchecked(step); // the real transform
+      const afterFirst = await snapshotDir(dir);
+      await applyMigrationsUnchecked(step); // re-apply — must be a clean no-op
+      assertEquals(
+        await snapshotDir(dir),
+        afterFirst,
+        `migration ${from}→${
+          from + 1
+        } is not idempotent on the schema-${from} install`,
+      );
+    });
+  }
 });
 
 Deno.test("migration 7→8 converts non-empty db/dev_server into [worktree.resources.*]", async () => {
@@ -551,10 +609,12 @@ Deno.test("migration 1→2 backfills [project].main_branch when the config preda
     // Drive the real production chain (default registry) from schema 1 to 2.
     const applied = await applyMigrations({ destDir: dir, from: 1, to: 2 });
     assertEquals(applied.map((m) => m.from), [1]);
-    assertStringIncludes(
-      await Deno.readTextFile(join(dir, "discern.toml")),
-      'main_branch = "main"',
-    );
+    const migrated = await Deno.readTextFile(join(dir, "discern.toml"));
+    assertStringIncludes(migrated, 'main_branch = "main"');
+
+    // Idempotent: re-running 1→2 on the now-backfilled config changes nothing.
+    await applyMigrations({ destDir: dir, from: 1, to: 2 });
+    assertEquals(await Deno.readTextFile(join(dir, "discern.toml")), migrated);
   });
 });
 
