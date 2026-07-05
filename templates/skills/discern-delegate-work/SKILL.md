@@ -37,7 +37,7 @@ Now decide how many agents, prompts, and worktrees the work actually wants. Pick
 - **A large effort with real seams → one brief per stream, in parallel worktrees.** Split **only on real seams**: each stream owns a disjoint slice of the tree, with **no files in flight shared across streams** — two worktrees editing the same file just relocates the collision to integration. Check the seam honestly (which files will each stream actually touch, shared registries and generated files included); where two streams would meet, either merge them into one brief or split the shared piece out as its own stage that lands *first*. Each stream gets its own self-contained prompt (§3), runs in its own worktree, and lands independently.
 - **Dependent milestones → staged briefs, delegated in turn.** If stage B builds on what stage A produces, don't launch them together — write A's brief now, and B's *after A lands and is reviewed*, so B's prompt can point at what A actually built rather than what you hoped it would.
 
-For a parallel fan-out, also fix the **landing order** now (who integrates first; later streams run `discern_integrate` to bring the trunk's progress in beneath their work) — and say in each brief that other streams are in flight, so the agent keeps to its own slice.
+**When the handoff yields more than one brief, key each one.** Give every brief a workstream key whose *number is the wave* and *letter is a slot within it*: briefs sharing a number (`1A`, `1B`) touch disjoint territory and run at once, each in its own worktree; a higher number waits for every lower wave to land, and staged briefs are simply successive waves — `1A`+`1B`+`1C → 2A → 3A`. The key *is* the cross-wave landing order, fixed once and later read straight off the titles rather than reconstructed from memory; within a wave, still name who integrates first (later streams run `discern_integrate` to bring the trunk's progress in beneath their work). And say in each brief that other streams are in flight, so the agent keeps to its own slice.
 
 ---
 
@@ -49,7 +49,7 @@ The cardinal rule: **assume the new agent knows nothing of this conversation.** 
 
 Give each prompt a clear spine. Adapt the headings to the task, but cover:
 
-- **Title and one-line goal** — what this achieves, in a sentence.
+- **Title and one-line goal** — what this achieves, in a sentence. When the handoff spans multiple streams (§2), lead the title with the workstream key — `1B — Add rate limiting to the upload endpoint`.
 - **Orient first** — have it begin by orienting (`discern_status`) and reading the project's guidance file before it edits anything.
 - **Background — why this, why now** — the context you hold and it doesn't: the problem, what's true today, what made the change worth doing. Usually the part only you can supply, and the part most often skipped.
 - **Deliverables** — the concrete, ordered changes. For each, say *what* and *where*, and name an existing thing to mirror for house style ("model it on X"). Real anchors — files, tests, patterns — are the difference between aimed work and a wander.
@@ -77,7 +77,7 @@ Keep this to a few lines — the agent's own guidance file already states most o
 
 ## 5. Hand it off
 
-Present each finished prompt as one self-contained block the user can copy verbatim — clearly delimited, complete top to bottom, nothing left for them to fill in by hand (offer to save them to files if they'd rather). Then explain how it runs: launched as a **new session, each starts on its own branch in a fresh worktree**, isolated from your current work and from each other. (If you can launch the sessions or worktrees directly yourself and the user would prefer it, offer — but handing the prompts over is the default.) For a fan-out, restate the landing order from §2 so the user knows which result to integrate first.
+Present each finished prompt as one self-contained block the user can copy verbatim — clearly delimited, complete top to bottom, nothing left for them to fill in by hand. Always present them in the session first; when there's more than one, also **offer** to save them as Markdown files in the user's project — each filename prefixed with its workstream key (`1a-<slug>.md`, `2a-<slug>.md`), in a sensible spot you suggest from the project's own layout (an existing planning or prompts folder, say) — and write them only if the user says yes. Then explain how it runs: launched as a **new session, each starts on its own branch in a fresh worktree**, isolated from your current work and from each other. (If you can launch the sessions or worktrees directly yourself and the user would prefer it, offer — but handing the prompts over is the default.) For a fan-out, restate the landing order from §2 so the user knows which result to integrate first.
 
 ---
 
@@ -101,6 +101,7 @@ Report what you find plainly — what stands, what needs another pass — and fe
 
 - The work is pinned down — goal, shape, and every unknown either resolved or explicitly handed to an agent to decide.
 - The handoff is deliberately shaped — one brief, a fan-out on real seams with disjoint files in flight and a fixed landing order, or staged briefs — and the simplest shape that fits was chosen.
+- For a multi-brief handoff, every brief carries its workstream key — in its title, and in its filename if saved — and you offered to save the set as Markdown files in the project.
 - Every prompt is **self-contained**, assuming no memory of this conversation, carrying title, orientation, background, deliverables, constraints, out-of-scope, and a definition of done that is both falsifiable and stated from the user's side.
 - The standing project constraints (the gate as the bar, atomic commits, no hand-editing generated files, plus the project's own guidelines) are baked into each.
 - The user has each prompt as a copyable block and knows that launching one spins up a fresh worktree.
