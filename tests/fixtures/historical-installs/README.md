@@ -1,7 +1,9 @@
 # Historical install fixtures
 
 Each `schema-XX/` directory contains the user-owned bytes from a real
-`discern setup --yes --slug demo --name Demo` run at an older schema bump commit:
+`discern setup --yes --slug demo --name Demo` run at an older schema bump commit,
+or from applying the real migration step to the prior captured fixture when a
+setup-era capture was not available:
 
 - `schema-06`: `142a898`
 - `schema-07`: `5443267`
@@ -10,6 +12,7 @@ Each `schema-XX/` directory contains the user-owned bytes from a real
 - `schema-10`: `d271356`
 - `schema-11`: `33d3c85`
 - `schema-12`: `458ddcf`
+- `schema-13`: derived from `schema-12` by applying 12→13 and stamping schema 13
 
 The fixtures keep only `discern.toml`, `.gitignore`, and
 `.claude/settings.json`: the convergence test asserts those user-facing files
