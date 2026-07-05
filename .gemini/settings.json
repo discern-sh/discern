@@ -1,6 +1,5 @@
 {
   "hooks": {
-    "enabled": true,
     "SessionStart": [
       {
         "matcher": "startup",
@@ -20,5 +19,8 @@
         "mcp"
       ]
     }
+  },
+  "hooksConfig": {
+    "enabled": true
   }
 }
