@@ -189,6 +189,44 @@ Deno.test("doctor --json: a fresh install exits 0 and warns when no capabilities
   });
 });
 
+Deno.test("every failing doctor check names a fix (shape guard over the emitted set)", async () => {
+  // The per-check tests pin fix-presence one check at a time (schema version, git,
+  // recipe contract, gotchas, the capability nudge…). This ties the invariant to the
+  // whole emitted set: degrade the install so a broad set of checks trips at once,
+  // then assert every check carries a closed status and every FAILING one names a
+  // non-empty fix — an unactionable failure is a dead end. A new check that fails
+  // without a remedy red-lights here rather than shipping silently.
+  await withTempDir(async (dir) => {
+    await setupInstall(dir);
+    const cfgPath = join(dir, "discern.toml");
+    let toml = await Deno.readTextFile(cfgPath);
+    toml = toml.replace(/schema_version = \d+/, "schema_version = 1"); // stale → fails
+    toml = toml.replace(/agents = \[[^\]]*\]/, 'agents = ["bogus_agent"]'); // unknown → fails
+    await Deno.writeTextFile(cfgPath, toml);
+
+    const { payload } = await runDoctorJson(dir);
+    const failing = payload.data.checks.filter((c) => c.status === "fail");
+    assert(
+      failing.length >= 1,
+      `the degraded fixture should fail at least one check, got: ${
+        payload.data.checks.map((c) => `${c.name}:${c.status}`).join(", ")
+      }`,
+    );
+    for (const c of payload.data.checks) {
+      assert(
+        c.status === "ok" || c.status === "warn" || c.status === "fail",
+        `${c.name}: must carry a closed status, got "${c.status}"`,
+      );
+      if (c.status === "fail") {
+        assert(
+          (c.fix ?? "").trim().length > 0,
+          `${c.name}: a failing check must name a fix (it is a dead end otherwise)`,
+        );
+      }
+    }
+  });
+});
+
 Deno.test("doctor: the features check names every feature when all are on", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir);
