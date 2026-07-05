@@ -14,7 +14,7 @@
  * failure; [worktree.setup].ensure re-runs on every pass to converge the worktree.
  */
 
-import { join } from "@std/path";
+import { isAbsolute, join, relative } from "@std/path";
 import { type Logger, loggerSink } from "../../lib/log.ts";
 import { canPrompt, confirmProceed } from "../../lib/prompts.ts";
 import {
@@ -118,6 +118,7 @@ import {
 // materializes skills into .claude/skills/ inside the freshly created worktree (a
 // linked worktree does not inherit that gitignored directory from the main checkout).
 import { compileGuidelines, guidanceRefreshSucceeded } from "../guidelines.ts";
+import { resolveTemplatesDir } from "../../lib/paths.ts";
 // graduate validates the exact tree it lands by running the full gate at the landing
 // boundary (ADR 0067) — fast-pathed by a gate-pass receipt when nothing changed since
 // the agent's own `finish`, so a clean-merging but gate-breaking `integrate` (or any
@@ -956,6 +957,10 @@ async function executeGraduatePlan(
   if (ignoredLine !== undefined) {
     ctx.log.detail(ignoredLine);
   }
+  const refreshTemplatesDir = await postLandingRefreshTemplatesDir(
+    worktreePath,
+    mainRepo,
+  );
 
   // tear down external resources (non-fatal, while still in the worktree so
   // @dir@-bearing destroys resolve, and before removal so no orphan is left)
@@ -1041,7 +1046,11 @@ async function executeGraduatePlan(
   let refreshOk = true;
   let refreshHints: string[] = [];
   try {
-    const refreshed = await compileGuidelines(mainRepo, ctx.log);
+    const refreshed = await compileGuidelinesForLandingRefresh(
+      mainRepo,
+      ctx.log,
+      refreshTemplatesDir,
+    );
     refreshOk = guidanceRefreshSucceeded(refreshed);
     refreshHints = refreshed.hints;
   } catch {
@@ -1138,6 +1147,72 @@ function ignoredFileChangeDetail(
   return `Ignored files changed since setup: ${
     summary.changed_roots.join(", ")
   }${more}`;
+}
+
+/** If the source templates for a post-landing refresh live inside the worktree that
+ * graduate is about to remove, point the refresh at the matching path in the main
+ * checkout after landing. This is a no-op for installed binaries and external
+ * projects, whose templates are outside the graduating worktree. */
+export function remapWorktreeLocalTemplatesDir(
+  templatesDir: string,
+  worktreePath: string,
+  mainRepo: string,
+): string | undefined {
+  const rel = relative(worktreePath, templatesDir);
+  if (rel === "" || (!rel.startsWith("..") && !isAbsolute(rel))) {
+    return join(mainRepo, rel);
+  }
+  return undefined;
+}
+
+async function directoryExists(path: string): Promise<boolean> {
+  try {
+    return (await Deno.stat(path)).isDirectory;
+  } catch {
+    return false;
+  }
+}
+
+async function postLandingRefreshTemplatesDir(
+  worktreePath: string,
+  mainRepo: string,
+): Promise<string | undefined> {
+  let templatesDir: string;
+  try {
+    templatesDir = await resolveTemplatesDir();
+  } catch {
+    return undefined;
+  }
+  const remapped = remapWorktreeLocalTemplatesDir(
+    templatesDir,
+    worktreePath,
+    mainRepo,
+  );
+  return remapped !== undefined && await directoryExists(remapped)
+    ? remapped
+    : undefined;
+}
+
+async function compileGuidelinesForLandingRefresh(
+  root: string,
+  logger: Logger,
+  templatesDir: string | undefined,
+): Promise<Awaited<ReturnType<typeof compileGuidelines>>> {
+  if (templatesDir === undefined) {
+    return await compileGuidelines(root, logger);
+  }
+
+  const previous = Deno.env.get("DISCERN_TEMPLATES_DIR");
+  Deno.env.set("DISCERN_TEMPLATES_DIR", templatesDir);
+  try {
+    return await compileGuidelines(root, logger);
+  } finally {
+    if (previous === undefined) {
+      Deno.env.delete("DISCERN_TEMPLATES_DIR");
+    } else {
+      Deno.env.set("DISCERN_TEMPLATES_DIR", previous);
+    }
+  }
 }
 
 // How much integration detail rides inline before an agent is pointed at git for
