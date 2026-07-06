@@ -2,7 +2,11 @@
 
 **Status**: accepted; extends [ADR 0075](0075-setup-staged-handshake.md)
 (setup's staged handshake) and [ADR 0026](0026-typed-config-schema.md) (the
-typed config schema is the source of truth).
+typed config schema is the source of truth); the configured root's default
+moves inside the `discern/` namespace by
+[ADR 0099](0099-consolidate-authored-surface-under-discern-namespace.md), and
+the tree's agent-first identity is formalized by
+[ADR 0100](0100-doctree-is-the-agents-map.md).
 
 ## Context
 
