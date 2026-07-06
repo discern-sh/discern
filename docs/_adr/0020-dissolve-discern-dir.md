@@ -10,8 +10,8 @@ server became core infrastructure, not a toggle); the root-scatter defaults
 introduced here are consolidated under a visible `discern/` namespace by
 [ADR 0099](0099-consolidate-authored-surface-under-discern-namespace.md), and
 the `[features]` set is retired outright by
-[ADR 0101](0101-retire-the-features-toggles.md) — this ADR's config-pointing
-and ownership rules stand
+[ADR 0101](0101-retire-the-features-toggles.md) — this ADR's config-pointing and
+ownership rules stand
 
 ## Context
 

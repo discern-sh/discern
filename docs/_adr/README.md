@@ -112,7 +112,7 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0097 — Publish generated JSON result contracts](0097-publish-json-result-contracts.md)
 - [0098 — Graduate refreshes the landing checkout](0098-graduate-refreshes-the-landing-checkout.md)
 - [0099 — Consolidate the authored surface under a visible `discern/` namespace](0099-consolidate-authored-surface-under-discern-namespace.md)
-- [0100 — The doctree is the agent-maintained map, not the project's documentation](0100-doctree-is-the-agents-map.md)
+- [0100 — The documentation tree is the agent-maintained map, not the project's own docs](0100-doctree-is-the-agents-map.md)
 - [0101 — Retire the `[features]` toggles](0101-retire-the-features-toggles.md)
 - [0102 — One paths registry, rendered artifacts, and leakage guards](0102-paths-registry-and-rendered-artifacts.md)
 
