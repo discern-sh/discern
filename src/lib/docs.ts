@@ -26,7 +26,8 @@ import {
 } from "@std/path";
 import { inlineToPlain } from "./markdown.ts";
 import { RawConfig } from "../shared/config_read.ts";
-import { DEFAULT_DOCS_DIR, normalizeDocsDir } from "../shared/docs_path.ts";
+import { normalizeDocsDir } from "../shared/docs_path.ts";
+import { SOURCE_PATHS } from "../shared/paths_registry.ts";
 import { resolveConfigPath } from "./paths.ts";
 
 /** One indexed documentation file. */
@@ -171,7 +172,7 @@ async function resolveDocsDir(
   const raw = await RawConfig.load(root);
   const candidate = join(
     root,
-    normalizeDocsDir(raw.get("docs.dir", DEFAULT_DOCS_DIR)),
+    normalizeDocsDir(raw.get("docs.dir", SOURCE_PATHS.docs.defaultPath)),
   );
   return (await isDir(candidate)) ? { docsDir: candidate, root } : undefined;
 }

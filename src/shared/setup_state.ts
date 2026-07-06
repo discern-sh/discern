@@ -14,7 +14,8 @@ import { walk } from "@std/fs";
 import { join, relative } from "@std/path";
 import { KNOWN_CAPABILITIES } from "./capabilities.ts";
 import { type DiscernConfig, loadConfig } from "./config_schema.ts";
-import { DEFAULT_DOCS_DIR, normalizeDocsDir } from "./docs_path.ts";
+import { normalizeDocsDir } from "./docs_path.ts";
+import { guidanceSeedRel, SOURCE_PATHS } from "./paths_registry.ts";
 
 /**
  * Work verbs that refuse until the project records `[meta].bootstrapped`
@@ -156,12 +157,12 @@ async function pathExists(path: string): Promise<boolean> {
 
 /**
  * Walk the scaffolded surface for files that still carry a skeleton marker —
- * every `.md` under `docs/`, plus the `guidance.md` source. Returns repo-relative
- * paths, sorted. Cheap (a handful of small files) but still worth gating on
- * `!bootstrapped` at the call site so a finished project pays nothing. The
- * `guidance.md` check is narrowed to the `setup fills this` sentinel (its stub
- * never carries an EXAMPLE principle), matching what `setup done` has always
- * asserted.
+ * every `.md` under the configured docs tree, plus the guidance seed. Returns
+ * repo-relative paths, sorted. Cheap (a handful of small files) but still worth
+ * gating on `!bootstrapped` at the call site so a finished project pays nothing.
+ * The guidance-seed check is narrowed to the `setup fills this` sentinel (its
+ * stub never carries an EXAMPLE principle), matching what `setup done` has
+ * always asserted.
  */
 export async function findSkeletonMarkers(
   root: string,
@@ -169,15 +170,19 @@ export async function findSkeletonMarkers(
 ): Promise<string[]> {
   const leftover: string[] = [];
 
-  let docsRel = DEFAULT_DOCS_DIR;
-  if (config !== undefined) {
-    docsRel = normalizeDocsDir(config.docs.dir);
-  } else {
+  let docsRel = SOURCE_PATHS.docs.defaultPath;
+  let guidanceRel = SOURCE_PATHS.guidance.defaultPath;
+  let resolved = config;
+  if (resolved === undefined) {
     try {
-      docsRel = normalizeDocsDir((await loadConfig(root)).docs.dir);
+      resolved = await loadConfig(root);
     } catch {
       // A missing/broken config is diagnosed elsewhere; inspect the default tree.
     }
+  }
+  if (resolved !== undefined) {
+    docsRel = normalizeDocsDir(resolved.docs.dir);
+    guidanceRel = guidanceSeedRel(resolved.guidance.sources);
   }
   const docsDir = join(root, docsRel);
   if (await pathExists(docsDir)) {
@@ -195,11 +200,11 @@ export async function findSkeletonMarkers(
     }
   }
 
-  const guidance = join(root, "guidance.md");
+  const guidance = join(root, guidanceRel);
   if (await pathExists(guidance)) {
     try {
       if ((await Deno.readTextFile(guidance)).includes("setup fills this")) {
-        leftover.push("guidance.md");
+        leftover.push(guidanceRel);
       }
     } catch {
       // unreadable — skip.

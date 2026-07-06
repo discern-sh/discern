@@ -18,6 +18,7 @@ import {
 } from "../shared/env.ts";
 import type { DiscernConfig } from "../shared/config_schema.ts";
 import { normalizeDocsDir } from "../shared/docs_path.ts";
+import { guidanceSeedRel, SOURCE_PATHS } from "../shared/paths_registry.ts";
 
 // Re-export the install markers so installer-side callers can import them from
 // the lib layer (the canonical definitions live in the shared env module).
@@ -62,9 +63,10 @@ function resolveDir(root: string, value: string): ResolvedDir {
 }
 
 /**
- * The authored-skills directory: `[skills].dir`, default `./skills`. Read only
- * when present by the caller — the default lets a `skills/` dir be picked up with
- * zero config, and points elsewhere when configured.
+ * The authored-skills directory: `[skills].dir` (its default lives in the paths
+ * registry). Read only when present by the caller — the default lets the
+ * namespace dir be picked up with zero config, and points elsewhere when
+ * configured.
  */
 export function resolveSkillsDir(
   root: string,
@@ -73,7 +75,8 @@ export function resolveSkillsDir(
   return resolveDir(root, config.skills.dir);
 }
 
-/** The configured agent-documentation tree: `[docs].dir`, default `docs/`. */
+/** The configured agent-documentation tree: `[docs].dir` (its default lives in
+ * the paths registry). */
 export function resolveDocsDir(
   root: string,
   config: DiscernConfig,
@@ -82,14 +85,43 @@ export function resolveDocsDir(
 }
 
 /**
- * The project recipes directory: `[recipes].dir`, default `./recipes`. The
- * default works with no config; point it elsewhere (e.g. `tools/`) if preferred.
+ * The project recipes directory: `[recipes].dir` (its default lives in the paths
+ * registry). The default works with no config; point it elsewhere (e.g.
+ * `tools/`) if preferred.
  */
 export function resolveRecipesDir(
   root: string,
   config: DiscernConfig,
 ): ResolvedDir {
   return resolveDir(root, config.recipes.dir);
+}
+
+/**
+ * The deferred-work ledger: `[project].todo` (its default lives in the paths
+ * registry). Setup seeds it here; agents read and maintain it.
+ */
+export function resolveTodoPath(
+  root: string,
+  config: DiscernConfig,
+): ResolvedDir {
+  return resolveDir(root, config.project.todo);
+}
+
+/**
+ * The project brief's fixed location. Registry-backed with NO config key (ADR
+ * 0102): the brief is setup-time input, not an ongoing convention, so it gains a
+ * key only when a real need appears.
+ */
+export function resolveBriefPath(root: string): ResolvedDir {
+  return resolveDir(root, SOURCE_PATHS.brief.defaultPath);
+}
+
+/**
+ * The concrete file setup seeds the starter guidance into — the registry's
+ * {@link guidanceSeedRel} over the configured `[guidance].sources`.
+ */
+export function resolveGuidanceSeedRel(config: DiscernConfig): string {
+  return guidanceSeedRel(config.guidance.sources);
 }
 
 /**
@@ -124,20 +156,23 @@ export function resolveWorktreeRoot(
 }
 
 /**
- * Expand `[guidance].sources` (default `["guidance.md"]`) into the matched source
- * files under `root`, present-only: a pattern that matches nothing simply
- * contributes nothing. Globs are supported. Results are de-duplicated and sorted
- * for a stable concatenation order regardless of match order.
+ * Expand `[guidance].sources` (default: the registry's guidance path) into the
+ * matched source files under `root`, present-only: a pattern that matches
+ * nothing simply contributes nothing. Globs are supported. Results are
+ * de-duplicated and sorted for a stable concatenation order regardless of match
+ * order.
  */
 export async function resolveGuidanceSources(
   root: string,
   config: DiscernConfig,
 ): Promise<string[]> {
-  // The schema defaults an absent `[guidance].sources` to `["guidance.md"]`; an
-  // explicit empty list also falls back to it (an install that compiles only the
-  // built-in guidance still wants the default source picked up when present).
+  // The schema defaults an absent `[guidance].sources` to the registry default;
+  // an explicit empty list also falls back to it (an install that compiles only
+  // the built-in guidance still wants the default source picked up when present).
   const configured = config.guidance.sources;
-  const patterns = configured.length > 0 ? configured : ["guidance.md"];
+  const patterns = configured.length > 0
+    ? configured
+    : [SOURCE_PATHS.guidance.defaultPath];
   const matched = new Set<string>();
   for (const pattern of patterns) {
     // Absolute patterns are honoured as-is; relative ones resolve against root.

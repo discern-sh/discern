@@ -13,7 +13,8 @@ import { KIT_VERSION } from "./version.ts";
 // re-exported here under the installer's long-standing name, so the wizard, the
 // config document, and the generated editor JSON Schema share one list.
 import { AGENT_NAMES, DEFAULT_AGENTS } from "../shared/config_schema.ts";
-import { DEFAULT_DOCS_DIR, DOCS_DIR_REFERENCE } from "../shared/docs_path.ts";
+import { DOCS_DIR_REFERENCE } from "../shared/docs_path.ts";
+import { NAMESPACE_DIR, SOURCE_PATHS } from "../shared/paths_registry.ts";
 import { neutralAgentScopePaths } from "./providers.ts";
 
 /** The agent/provider files the kit knows how to emit. */
@@ -42,23 +43,24 @@ export const DEFAULTS = {
   sourceGlobs: ["src/**", "app/**"],
   // Default to the two committed-standard providers; gemini is opt-in.
   agents: [...DEFAULT_AGENTS] as AgentName[],
-  docsDir: DEFAULT_DOCS_DIR,
+  docsDir: SOURCE_PATHS.docs.defaultPath,
   gotchasDoc: "",
   scopesPreviewable: ['"public/**"'],
 } as const;
 
 /**
  * The neutral-scope globs a fresh install seeds (already TOML-quoted): docs, the
- * authored-skills source, and EVERY known agent's generated dir — the last derived
- * from the provider registry via {@link neutralAgentScopePaths}, so adding an agent
- * neutralizes its dir automatically instead of leaving a hand-maintained
- * `.claude/`-only list to drift. Root-level *.md (e.g. guidance.md) is treated as
- * neutral by the classifier regardless.
+ * `discern/` namespace (guidance sources, authored skills, recipes, the ledger,
+ * the brief — every default from the paths registry lives under it), and EVERY
+ * known agent's generated dir — the last derived from the provider registry via
+ * {@link neutralAgentScopePaths}, so adding an agent neutralizes its dir
+ * automatically instead of leaving a hand-maintained `.claude/`-only list to
+ * drift. Root-level *.md is treated as neutral by the classifier regardless.
  */
 export function defaultNeutralScopes(): string[] {
   return [
     `"${DOCS_DIR_REFERENCE}"`,
-    '"skills/"',
+    `"${NAMESPACE_DIR}"`,
     ...neutralAgentScopePaths().map((p) => `"${p}"`),
   ];
 }

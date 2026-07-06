@@ -25,6 +25,7 @@ import { join } from "@std/path";
 import { KNOWN_CAPABILITIES } from "./capabilities.ts";
 import type { DiscernConfig } from "./config_schema.ts";
 import { normalizeDocsDir } from "./docs_path.ts";
+import { guidanceSeedRel } from "./paths_registry.ts";
 
 /** What a completion predicate reads: the project root and its loaded config. */
 export interface SetupCheckContext {
@@ -52,9 +53,6 @@ export interface SetupCheckResult {
   describe: string;
   passed: boolean;
 }
-
-/** The guidance source the skeleton lays (Step 4's subject). */
-const GUIDANCE_REL = "guidance.md";
 
 /** Read a repo-relative text file, or undefined when it is absent/unreadable. */
 async function readFileOr(
@@ -102,9 +100,12 @@ export const SETUP_COMPLETION_CHECKS: readonly SetupCompletionCheck[] = [
     step: 4,
     name: "guidance",
     describe:
-      "guidance.md has a real one-line pitch and a filled-in Conventions section.",
-    async evaluate({ root }): Promise<boolean> {
-      const text = await readFileOr(root, GUIDANCE_REL);
+      "The guidance source has a real one-line pitch and a filled-in Conventions section.",
+    async evaluate({ root, config }): Promise<boolean> {
+      const text = await readFileOr(
+        root,
+        guidanceSeedRel(config.guidance.sources),
+      );
       if (text === undefined) {
         return true; // not laid → N/A
       }

@@ -18,7 +18,8 @@ import { toCommandList } from "../../shared/config_schema.ts";
 import type { DiscernConfig } from "../../shared/config_schema.ts";
 import { resolveGuidanceSources, resolveSkillsDir } from "../../lib/paths.ts";
 import { allGuidanceFilePaths } from "../../lib/providers.ts";
-import { DEFAULT_DOCS_DIR, normalizeDocsDir } from "../../shared/docs_path.ts";
+import { normalizeDocsDir } from "../../shared/docs_path.ts";
+import { SOURCE_PATHS } from "../../shared/paths_registry.ts";
 import type {
   Category,
   DeterministicRule,
@@ -61,7 +62,7 @@ async function fileExists(path: string): Promise<boolean> {
  * excluding the `0000-template` seed. Zero when the directory is absent. */
 export async function countAdrs(
   root: string,
-  docsDir = DEFAULT_DOCS_DIR,
+  docsDir = SOURCE_PATHS.docs.defaultPath,
 ): Promise<number> {
   let count = 0;
   async function scan(dir: string): Promise<void> {
@@ -447,10 +448,10 @@ const GUIDANCE: Category = {
       teach:
         "Strong guidance is specific and load-bearing: it changes what an agent does. " +
         "If a line would be true of any project in the language, cut it. If a real " +
-        "constraint isn't written down, add it. Edit guidance.md and run `discern refresh`.",
+        "constraint isn't written down, add it. Edit your guidance source and run `discern refresh`.",
       against: (ctx): { source: string; excerpt: string } | undefined =>
         ctx.guidanceChars === 0 ? undefined : {
-          source: "guidance.md",
+          source: ctx.config.guidance.sources.join(", "),
           excerpt: excerpt(ctx.guidanceText, 600),
         },
     },

@@ -1,6 +1,3 @@
-/** The discoverable project-relative home for discern's documentation tree. */
-export const DEFAULT_DOCS_DIR = "docs/";
-
 /** A live config reference accepted in commands and globs that follow `[docs].dir`. */
 export const DOCS_DIR_REFERENCE = "${docs.dir}";
 

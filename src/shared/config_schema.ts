@@ -29,7 +29,8 @@ import { join } from "@std/path";
 import { CONFIG_REL, installedConfigRel } from "./env.ts";
 import { KNOWN_CAPABILITIES, STAGES } from "./capabilities.ts";
 import type { Feature } from "./features.ts";
-import { DEFAULT_DOCS_DIR, isValidDocsDir } from "./docs_path.ts";
+import { isValidDocsDir } from "./docs_path.ts";
+import { SOURCE_PATHS } from "./paths_registry.ts";
 
 // ── TOML syntax diagnostics (kept here so config_read/toml_render share them) ──
 
@@ -214,6 +215,9 @@ const projectSection = z.strictObject({
   gotchas_doc: z.string().default("").describe(
     "Where the gate points an agent when a stage fails in a non-obvious way. Empty disables the pointer.",
   ),
+  todo: z.string().default(SOURCE_PATHS.todo.defaultPath).describe(
+    "Where the deferred-work ledger (the running TODO list agents read and maintain) lives, relative to the project root.",
+  ),
   agents: z.array(z.string()).optional().describe(
     "Deprecated: providers now live under [guidance].agents. Read only as a pre-migration fallback.",
   ),
@@ -249,7 +253,8 @@ const featuresSection = z.strictObject(
 );
 
 const guidanceSection = z.strictObject({
-  sources: z.array(z.string()).default(["guidance.md"]).describe(
+  sources: z.array(z.string()).default([SOURCE_PATHS.guidance.defaultPath])
+    .describe(
     "Your guideline source file(s), relative to the project root. Globs allowed. Read only if present; the built-in harness guidance is always prepended.",
   ),
   agents: z.array(z.string()).default([]).describe(
@@ -260,8 +265,8 @@ const guidanceSection = z.strictObject({
 );
 
 const skillsSection = z.strictObject({
-  dir: z.string().default("skills").describe(
-    "Where your authored skills live, relative to the project root. Read only if present, so a project with no skills/ dir simply uses the built-ins.",
+  dir: z.string().default(SOURCE_PATHS.skills.defaultPath).describe(
+    "Where your authored skills live, relative to the project root. Read only if present, so a project with no authored-skills dir simply uses the built-ins.",
   ),
 }).prefault({}).describe(
   "Focused, reusable task playbooks. The effective set is discern's bundled built-ins plus your authored skills under the directory below, where yours override a built-in of the same name.",
@@ -271,7 +276,7 @@ const docsSection = z.strictObject({
   dir: z.string().refine(isValidDocsDir, {
     message:
       "must be a project-relative directory that stays inside the repository",
-  }).default(DEFAULT_DOCS_DIR).describe(
+  }).default(SOURCE_PATHS.docs.defaultPath).describe(
     "Where discern's agent documentation tree lives, relative to the project root. `discern setup` scaffolds it here and `discern docs` browses it by default.",
   ),
 }).prefault({}).describe(
@@ -411,7 +416,7 @@ const couplingSection = z.strictObject({
 );
 
 const recipesSection = z.strictObject({
-  dir: z.string().default("recipes").describe(
+  dir: z.string().default(SOURCE_PATHS.recipes.defaultPath).describe(
     'Where your recipes live, relative to the project root. The default works with no config; point it elsewhere (e.g. "tools/") if you prefer.',
   ),
 }).prefault({}).describe(

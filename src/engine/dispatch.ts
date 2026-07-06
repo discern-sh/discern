@@ -821,7 +821,7 @@ async function skillsEjectResult(
     let skillsDirPersisted = false;
     if (!new RawConfig(text).has("skills.dir")) {
       const editor = new TomlEditor(text);
-      editor.setString("skills.dir", "skills");
+      editor.setString("skills.dir", cfg.skills.dir);
       await Deno.writeTextFile(path, editor.toString());
       skillsDirPersisted = true;
     }

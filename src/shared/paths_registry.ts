@@ -108,3 +108,14 @@ export function sourcePathDefault(name: SourcePathName): string {
 export function isConcretePath(pattern: string): boolean {
   return !/[*?[\]{}]/.test(pattern);
 }
+
+/**
+ * The concrete file setup seeds the starter guidance into, given the configured
+ * `[guidance].sources`: the first entry that is a plain path (no glob
+ * metacharacters), else the registry default. One definition shared by the
+ * seeding (`seedGuidance`) and the setup-progress checks, so "where does the
+ * guidance stub live" is answered identically everywhere.
+ */
+export function guidanceSeedRel(sources: readonly string[]): string {
+  return sources.find(isConcretePath) ?? SOURCE_PATHS.guidance.defaultPath;
+}
