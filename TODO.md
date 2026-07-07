@@ -164,6 +164,17 @@ _Product positioning, messaging, and launch/content tasks._
       routes each session's lessons back into the harness (guidance, skills,
       recipes, docs, ADRs) so every future agent — of any vendor — inherits
       them. Drop it in when the messaging is ready.
+- [ ] **Explore: "grows your discernment" as a marketing angle.** Some bundled
+      skills don't just guard quality, they teach it: `discern-shape-the-work`
+      interrogates a vague ask with consequence-level questions (empty input?
+      repeated action? two actors at once?), and each well-put question hands
+      the user a category of concern they keep for their next ask. For the
+      wave-2 audience with enthusiasm but not yet judgment, this reframes
+      discern from a gate that says no into a mentor that compounds — and it
+      puns on the product name. Sibling of "the project gets smarter over time"
+      (that one is the *project* learning; this one is the *user* learning).
+      Candidate for landing copy. Evidence:
+      `templates/skills/discern-shape-the-work/SKILL.md` (§4).
 - [ ] **Rename `ratchets` → `baselines` throughout (decided).** Vocabulary
       decision recorded in the product-strategy doc: "ratchet" carries bad
       associations (Nurse Ratched, the US slang for "trashy") and doesn't read
