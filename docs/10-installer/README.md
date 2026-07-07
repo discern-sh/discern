@@ -97,8 +97,13 @@ Edit the schema, not the generated files.
 | ---------------------- | -------------------------------------------------------------------------------------------- |
 | `command-surface.md`   | The six verbs, their flags, and the `--json` / exit-code contract.                           |
 | `the-install-plan.md`  | How the bundled seeds become a plan of file ops by disposition (`fs_plan`, token rendering). |
-| `migrations.md`        | The versioned Migration chain, the Schema version, and the idempotency contract (ADR 0014).  |
-| `config-editing.md`    | Comment-preserving TOML edits behind `discern config` (`toml_edit`).                         |
+
+## Reference
+
+- [migrations.md](migrations.md) — the versioned Migration chain, the Schema
+  version, and the idempotency contract.
+- [config-access.md](../50-engine-internals/config-access.md) — the typed
+  schema, the paths registry, and the comment-preserving config writer.
 
 ## See also
 

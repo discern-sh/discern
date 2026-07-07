@@ -61,9 +61,13 @@ is factored into pure functions, unit-tested with no subprocess.
 | File _(to be written)_    | What it will cover                                                                                                     |
 | ------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | `the-dispatcher.md`       | Root-finding (`discern.toml`), dispatch, engine-wins-on-collision, the typo suggester, `--help`.                       |
-| `config-access.md`        | Reading `discern.toml` via `config_read.ts`, the paths registry and resolvers, and the `discern config` surface.       |
 | `the-job-runner.md`       | Serial/parallel staging, labelling, fail-fast tree-kill, and the structured channel.                                   |
 | `the-plan-apply-model.md` | The engine `Plan` vocabulary, the thin executors, the one renderer, and how `--dry-run` / `--json` derive from a plan. |
+
+## Reference
+
+- [config-access.md](config-access.md) — reading `discern.toml` via the typed
+  schema, the paths registry and resolvers, and the `discern config` surface.
 
 ## See also
 
