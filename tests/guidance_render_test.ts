@@ -365,6 +365,16 @@ Deno.test("renderAgentFiles: every guidance variable is config-driven — no har
       expect: "zz-ledger.md",
       contextOnly: true,
     },
+    skills_dir: {
+      toml: '[skills]\ndir = "zz-playbooks"\n[guidance]\nagents = ["codex"]\n',
+      expect: "zz-playbooks",
+      contextOnly: true,
+    },
+    recipes_dir: {
+      toml: '[recipes]\ndir = "zz-tools"\n[guidance]\nagents = ["codex"]\n',
+      expect: "zz-tools",
+      contextOnly: true,
+    },
     guidance_sources: {
       toml: '[guidance]\nagents = ["codex"]\nsources = ["zz-rules.md"]\n',
       expect: "zz-rules.md",

@@ -96,6 +96,10 @@ export function guidanceContext(config: DiscernConfig): GuidanceContext {
       // section consumes it yet; bundled-skill rendering does (ADR 0102), and it
       // is exposed here so both surfaces read one context.
       todo_path: config.project.todo,
+      // The authored-skills and recipes directories, likewise consumed by the
+      // rendered-skill surface (ADR 0102) rather than any built-in section.
+      skills_dir: config.skills.dir,
+      recipes_dir: config.recipes.dir,
       main_branch: config.project.main_branch,
       graduate_to: config.worktree.graduate_to,
       guidance_sources: codeList(config.guidance.sources),
