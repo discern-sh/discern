@@ -868,6 +868,98 @@ async function registerCodexRules(root: string): Promise<string[]> {
   return wrote !== undefined ? [wrote] : [];
 }
 
+/**
+ * Strip discern's contribution back out of the project-committable
+ * `.codex/config.toml` — the uninstall inverse of {@link registerCodexProjectConfig},
+ * co-located so the two can never disagree on what discern wrote. Removes the
+ * `[mcp_servers.discern]` table, discern's sibling-worktree `writable_roots`
+ * entry (recomputed from the SAME resolver register used, so it is removed
+ * exactly), and the set-if-absent `project_doc_max_bytes` when it still holds
+ * discern's default. Other servers, keys, comments, and user-provided writable
+ * roots are preserved. Returns the new TOML text, or `null` when nothing but
+ * discern's own content was left (delete the file). A user-provided
+ * `project_doc_max_bytes` (any other value) is kept.
+ */
+export async function stripDiscernFromCodexConfig(
+  existingText: string,
+  root: string,
+  config: DiscernConfig,
+): Promise<string | null> {
+  const editor = new TomlEditor(existingText);
+  editor.deleteSection(`mcp_servers.${DISCERN_MCP_SERVER.name}`);
+
+  const placementRoot = await codexWorktreePlacementBaseRoot(root);
+  const discernRoot = codexWritableWorktreeRoot(placementRoot, config);
+  const parsed = parseTomlObject(existingText);
+  const roots = stringArrayAt(parsed, [
+    "sandbox_workspace_write",
+    "writable_roots",
+  ]);
+  const remaining = roots.filter((r) => r !== discernRoot);
+  if (roots.length !== remaining.length) {
+    if (remaining.length === 0) {
+      editor.deleteKey("sandbox_workspace_write.writable_roots");
+      const afterKey = parseTomlObject(editor.toString());
+      const section = objectPath(afterKey, ["sandbox_workspace_write"]);
+      if (isObject(section) && Object.keys(section).length === 0) {
+        editor.deleteSection("sandbox_workspace_write");
+      }
+    } else {
+      editor.setStringArray(
+        "sandbox_workspace_write.writable_roots",
+        remaining,
+      );
+    }
+  }
+
+  if (
+    objectPath(parsed, ["project_doc_max_bytes"]) ===
+      CODEX_PROJECT_DOC_MAX_BYTES
+  ) {
+    editor.deleteRootKey("project_doc_max_bytes");
+  }
+
+  const out = editor.toString();
+  return Object.keys(parseTomlObject(out)).length === 0 ? null : out;
+}
+
+/**
+ * Strip discern's contribution back out of the Codex app's `environment.toml` —
+ * the uninstall inverse of {@link registerCodexEnvironment}. Removes discern's
+ * `[setup]`/`[cleanup]` scripts (only while they still hold discern's default
+ * command; a user-customized script is preserved), then deletes the file
+ * outright when the only thing left is the `version`/`name` shell discern seeds
+ * for a from-scratch file — but keeps it (scripts stripped) when the Codex app
+ * owns the file (its own `version`/`name`/`[[actions]]`), restoring sole app
+ * ownership without discarding the app's config.
+ */
+export function stripDiscernFromCodexEnv(existingText: string): string | null {
+  const editor = new TomlEditor(existingText);
+  const parsed = parseTomlObject(existingText);
+
+  const dropScriptSection = (section: string, discernScript: string): void => {
+    if (stringAt(parsed, [section, "script"]) !== discernScript) {
+      return;
+    }
+    editor.deleteKey(`${section}.script`);
+    const after = objectPath(parseTomlObject(editor.toString()), [section]);
+    if (isObject(after) && Object.keys(after).length === 0) {
+      editor.deleteSection(section);
+    }
+  };
+  dropScriptSection("setup", CODEX_ENV_SETUP_SCRIPT);
+  dropScriptSection("cleanup", CODEX_ENV_CLEANUP_SCRIPT);
+
+  const remaining = parseTomlObject(editor.toString());
+  const keys = Object.keys(remaining);
+  const isDiscernShell = keys.every((k) => k === "version" || k === "name") &&
+    remaining.version === 1 && remaining.name === "Discern";
+  if (keys.length === 0 || isDiscernShell) {
+    return null;
+  }
+  return editor.toString();
+}
+
 // ── Cursor & GitHub Copilot (reuse-canonical guidance + skills) ──────────────
 
 /**

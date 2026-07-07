@@ -70,6 +70,7 @@ export const COMMAND_GROUPS: readonly CommandGroup[] = [
       "config",
       "refresh",
       "preset",
+      "uninstall",
     ],
   },
   {

@@ -31,6 +31,7 @@ import { runSetupWelcome } from "./commands/setup_welcome.ts";
 import { runSetupVerify } from "./commands/setup_verify.ts";
 import { runSetupLand } from "./commands/setup_land.ts";
 import { runUpgrade } from "./commands/upgrade.ts";
+import { runUninstall } from "./commands/uninstall.ts";
 import { runDoctor } from "./commands/doctor.ts";
 import { runPreset } from "./commands/preset.ts";
 import { runDocs, runHelp } from "./commands/docs.ts";
@@ -328,6 +329,28 @@ export function buildCli(hideSetup: boolean): RootCommand {
         allowDirty: options.allowDirty ?? false,
       });
       Deno.exit(code);
+    });
+
+  root
+    .command("uninstall")
+    .description(
+      "Remove discern's wiring from this project (keeps your discern.toml, guidance, and docs).",
+    )
+    .option(
+      "--dry-run",
+      "Preview exactly what would be removed and kept; change nothing.",
+    )
+    .option("-y, --yes", "Skip the confirmation prompt.")
+    .action(async (options) => {
+      const { json, noColor } = globalFlags(options);
+      Deno.exit(
+        await runUninstall({
+          json,
+          noColor,
+          dryRun: options.dryRun ?? false,
+          yes: options.yes ?? false,
+        }),
+      );
     });
 
   root
@@ -685,6 +708,7 @@ function shouldWelcomeBare(
 export const KNOWN_VERBS: ReadonlySet<string> = new Set<string>([
   "setup",
   "upgrade",
+  "uninstall",
   "doctor",
   "preset",
   "docs",

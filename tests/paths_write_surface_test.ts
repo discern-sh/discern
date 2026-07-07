@@ -79,6 +79,10 @@ const WRITE_SITE_HOMES = new Map<string, string>([
   ],
   ["src/commands/config.ts", "the discern.toml writer (config set)"],
   ["src/commands/upgrade.ts", "the discern.toml writer (migration re-stamp)"],
+  [
+    "src/commands/uninstall.ts",
+    "the uninstall executor: removes registry-declared generated files and strips co-owned files (the write-surface inverse)",
+  ],
   ["src/commands/preset.ts", "the discern.toml writer (preset overlay)"],
   [
     "src/engine/dispatch.ts",

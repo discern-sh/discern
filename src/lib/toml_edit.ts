@@ -565,6 +565,35 @@ export class TomlEditor {
     return this.setRootLiteral(key, tomlNumber(value));
   }
 
+  /**
+   * Remove a ROOT-level (pre-section) `key = …` assignment if present, returning
+   * true when a line was removed. The root-region counterpart to {@link deleteKey}
+   * (which addresses only `section.key` assignments); used to strip a foreign
+   * co-managed file's discern-seeded root keys on uninstall (Codex's
+   * `environment.toml` `version` / `name`). The key must be a bare name.
+   */
+  deleteRootKey(key: string): boolean {
+    if (key.includes(".")) {
+      throw new Error(`root key must be a bare name (got "${key}")`);
+    }
+    const keyRe = new RegExp(`^(\\s*)${escapeRegExp(key)}(\\s*=\\s*).*$`);
+    const end = this.rootEnd();
+    for (let i = 0; i < end; i++) {
+      const lineText = this.lines[i];
+      if (lineText === undefined) {
+        continue;
+      }
+      const m = lineText.match(keyRe);
+      if (m) {
+        const prefix = `${m[1] ?? ""}${key}${m[2] ?? ""}`;
+        const valueEnd = this.valueEnd(i, prefix.length);
+        this.lines.splice(i, valueEnd - i);
+        return true;
+      }
+    }
+    return false;
+  }
+
   /** The edited text, with the original trailing-newline convention restored. */
   toString(): string {
     const body = this.lines.join(this.lineEnding);
