@@ -39,12 +39,13 @@ One self-contained binary — no runtime to manage, no account, no API key. Your
 project needs nothing but `git`. macOS and Linux (Windows via WSL).
 [Build from source →](docs/80-development/)
 
-**2 — Hand it to your agent.** Open your coding agent in the project and tell it:
+**2 — Hand it to your agent.** Open your coding agent in the project and tell
+it:
 
 > _"Run `discern setup` in this project."_
 
-That's the whole handoff. Your agent reads the repo, proposes the format / lint /
-typecheck / test commands, drafts your docs and guidance, wires the gate, and
+That's the whole handoff. Your agent reads the repo, proposes the format / lint
+/ typecheck / test commands, drafts your docs and guidance, wires the gate, and
 proves it green — committing each step for you to review, and writing nothing
 until you say go. Budget 20–40 minutes for the one-time conversation, and point
 your **most capable** model at it: every later session inherits what it sets up.
@@ -69,8 +70,8 @@ it safely into a shared codebase — never sped up. `discern` closes that gap:
   your repo the same way — even several at once.
 - **Stop babysitting.** What your agents hand back has already cleared the same
   bar you'd hold a person to — every check green, coverage held, regressions
-  guarded. To make that the rule for `main` itself, [run the gate in
-  CI](docs/20-quality-gate/ci.md).
+  guarded. To make that the rule for `main` itself,
+  [run the gate in CI](docs/20-quality-gate/ci.md).
 
 More time _building_, less time _babysitting_.
 
