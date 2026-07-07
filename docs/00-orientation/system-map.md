@@ -26,13 +26,13 @@ runtime.
        ▼
 ┌────────────────────────────────────────────────────────────┐
 │                   An install — on disk                      │
-│  discern.toml  — the one root file (no engine, no manifest) │
-│  + your config-pointed content (read if present):           │
-│      guidance.md · ./skills/ · ./recipes/ · brief.md (yours)│
+│  discern.toml — the one root file (no engine, no manifest)  │
+│  + discern/ — the visible namespace, 100% yours:            │
+│      guidance.md · docs/ (the map) · TODO.md ·              │
+│      skills/ · recipes/ · brief.md (each config-pointable)  │
 │  + generated: AGENTS.md, CLAUDE.md/GEMINI.md,               │
-│      .claude/skills/  (the binary's — gitignored)           │
-│  + merged .claude/settings.json, co-managed .gitignore      │
-│  (docs/ + TODO.md arrive later, via discern setup)      │
+│      .claude/skills/, .agents/skills/ (gitignored)          │
+│  + merged provider settings, co-managed .gitignore          │
 └────────────────────────────────────────────────────────────┘
 ```
 
@@ -51,9 +51,9 @@ person / coding agent
            ▼                                         ▼
 ┌──────────────────────────────┐        ┌──────────────────────────────┐
 │  project Recipe (exec'd)     │        │        discern.toml           │
-│  ./recipes/<verb>            │        │  Features · Capabilities ·    │
-│  with DISCERN_* exported     │ ─────► │  Checks · Scopes (+ gates) ·  │
-│  (built-in verb wins)        │ reads  │  Ratchets · Worktree settings │
+│  discern/recipes/<verb>      │        │  Capabilities · Checks ·      │
+│  with DISCERN_* exported     │ ─────► │  Scopes (+ gates) · Ratchets  │
+│  (built-in verb wins)        │ reads  │  · Worktree settings          │
 └──────────────────────────────┘  via   └──────────────────────────────┘
                                  discern config get
 ```

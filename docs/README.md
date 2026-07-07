@@ -25,18 +25,17 @@ Two commands read a documentation tree, and they read **different** ones:
   gate/worktree/ratchet pages, without leaving the terminal: `discern help` for
   the index, `discern help config-reference` for one page, and `--list` /
   `--json` / `--raw` for scripted access. It always serves discern's **public**
-  docs (never the host project's), is available even where the `docs` feature is
-  off, and never shows the `_internal` / `_private` subtrees
-  ([ADR 0039](_adr/0039-bundled-help-docs.md)). The ADRs are hidden by default
-  but can be browsed with `discern help --adr` (CLI only — the MCP tool never
-  exposes them).
-- **`discern docs`** browses **the host project's agent documentation tree** at
-  `[docs].dir` (default `docs/`, resolved from the project root). Inside the
-  discern repo it surfaces this tree — because here the project's docs _are_
-  discern's docs — but another project can keep the tree at a location such as
-  `docs/discern/`, separate from human-curated docs. It is gated on the `docs`
-  feature, takes a one-call `--dir` override, and (unlike `help`) is refused
-  before setup, since the project's tree is empty until setup seeds and fills it
+  docs (never the host project's) and never shows the `_internal` / `_private`
+  subtrees ([ADR 0039](_adr/0039-bundled-help-docs.md)). The ADRs are hidden by
+  default but can be browsed with `discern help --adr` (CLI only — the MCP tool
+  never exposes them).
+- **`discern docs`** browses **the host project's map** — the agent-maintained
+  documentation tree at `[docs].dir` (default `discern/docs/`, resolved from the
+  project root; [ADR 0100](_adr/0100-doctree-is-the-agents-map.md)). This repo
+  points `[docs].dir` at root `docs/` — here the project's docs _are_ the map, a
+  deliberate, self-hosted exercise of the pointing escape hatch. It takes a
+  one-call `--dir` override, and (unlike `help`) is refused before setup, since
+  the project's tree is empty until setup seeds and fills it
   ([ADR 0080](_adr/0080-configured-agent-docs-root.md)).
 
 Both share one implementation and the same surfaces: an interactive picker on a

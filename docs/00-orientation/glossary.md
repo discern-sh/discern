@@ -34,15 +34,44 @@ is never a runtime dependency of it.
 What an install _gives a project_: the `discern` verbs it can run, an
 `discern.toml` config, the bundled [Skills](#skill), and the compiled guidance.
 The logic — the [Engine](#engine) — is in the binary, not installed into the
-project; on disk the entire discern footprint is **one root file,
-`discern.toml`** ([ADR 0020](../_adr/0020-dissolve-discern-dir.md)), alongside
-any config-pointed content you author (your [Guidance source](#guidance-source),
-[Skills](#skill), [Recipes](#recipe)) and the generated files. The seed and
+project; on disk the committed discern footprint is **one root file,
+`discern.toml`, plus one visible folder, [the Namespace](#namespace)** —
+enforced by test
+([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md))
+— alongside the gitignored generated files. Every source the Namespace defaults
+can be config-pointed elsewhere (your [Guidance source](#guidance-source),
+[Skills](#skill), [Recipes](#recipe), [the Map](#map), the ledger). The seed and
 Skill files an install starts from originate under
 [`templates/`](../../templates/) and are **bundled into the binary**, which
-writes them out at `setup`. (The agent documentation tree at `[docs].dir` and
-`TODO.md` are not fixed install paths; setup and the bundled Skills create them
-on demand.)
+writes them out at `setup`.
+
+### Namespace
+
+The visible `discern/` directory — the default home for everything discern asks
+you to author (the [Guidance source](#guidance-source), authored
+[Skills](#skill), [Recipes](#recipe), the project brief) and everything its
+discipline maintains for you ([the Map](#map), the `TODO.md` deferred-work
+ledger). A path defaults into it exactly when discern is the reason it looks the
+way it does; content you author for audiences of your own never defaults there.
+The Namespace is 100% yours — no generated or gitignored artifact is ever
+written inside it — and every source in it keeps a config key that points it
+anywhere
+([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md),
+[ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)).
+
+### Map
+
+The documentation tree discern maintains at `[docs].dir` (default
+`discern/docs/`): an **agent-first** account of the codebase — inferred by
+agents, written by agents, read by agents first and by humans as an audit of
+what their agents actually understand. Its structure, format, and upkeep are
+discern's to prescribe; staleness is a defect the gate catches. It is
+deliberately **not** the project's own documentation, which discern never
+touches; pointing `[docs].dir` at real docs is deliberate consent to apply the
+map discipline there (this repo does exactly that with its root `docs/`).
+`setup begin` scaffolds it eagerly and the setup authoring pass fills it — a
+blank map is worse than none
+([ADR 0100](../_adr/0100-doctree-is-the-agents-map.md)).
 
 ### Engine
 
@@ -99,10 +128,11 @@ from.
 A plain monotonic integer — the anchor the [Migration](#migration) chain steps
 from, stamped into `[meta].schema_version` in `discern.toml`. It bumps **only**
 when an installed project needs a migration to stay correct, so most releases
-leave it untouched. The current shape is schema **14** — the `13 → 14` step
-removes the `.claude/settings.local.json` gitignore exception so machine-local
-provider settings stay ignored
-([ADR 0089](../_adr/0089-machine-local-provider-settings-stay-ignored.md)).
+leave it untouched. The current shape is schema **16** — the `14 → 15` step
+consolidates the authored surface under the [Namespace](#namespace)
+([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)),
+and `15 → 16` retires the `[features]` toggles so every subsystem is core
+([ADR 0101](../_adr/0101-retire-the-features-toggles.md)).
 
 ### Migration
 
@@ -146,15 +176,28 @@ full surface is mapped in
 ### Your files / Yours
 
 A file written once — then owned by the project, **committed**, never refreshed
-or flagged by `upgrade`, and edited in place. `setup` may seed the project
-`brief.md` when non-empty, plus the [Merged](#merged-file)
-`.claude/settings.json` and the project-owned rules outside the
-[co-managed](#co-managed-seed) `.gitignore` block. The rest are content you
-author at config-pointed locations (your [Guidance source](#guidance-source)
-`guidance.md`, authored [Skills](#skill) under `[skills].dir`,
-[Recipes](#recipe) under `[recipes].dir`) or are created on demand after install
-by `discern setup begin` (the agent documentation tree under `[docs].dir` and
-`TODO.md`).
+or flagged by `upgrade`, and edited in place. `setup` may seed the project brief
+(`discern/brief.md`) when non-empty, plus the [Merged](#merged-file) provider
+settings and the project-owned rules outside the [co-managed](#co-managed-seed)
+`.gitignore` block. The rest live in the [Namespace](#namespace) by default and
+anywhere you point their keys: your [Guidance source](#guidance-source),
+authored [Skills](#skill) under `[skills].dir`, [Recipes](#recipe) under
+`[recipes].dir`, and the two `discern setup begin` scaffolds and the setup
+authoring pass fills — [the Map](#map) under `[docs].dir` and the deferred-work
+ledger at `[project].todo`.
+
+### Placement is consent
+
+The rule that decides what discern (and the agents it briefs) may write
+([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)).
+A file at its [Namespace](#namespace) default carries an **implicit**
+write-license: agents maintain it freely, and staleness is a defect. A config
+key pointed at a path outside the Namespace is an **explicit** write-license:
+the user typed the path, and that typing is the consent. A path that is neither
+is untouchable — by construction, not by warning: the write-surface contract is
+an architectural test
+([`tests/paths_write_surface_test.ts`](../../tests/paths_write_surface_test.ts)),
+so a write anywhere else fails the gate.
 
 ### Co-managed seed
 
@@ -178,9 +221,9 @@ discern-owned fragments
 A **gitignored** artifact the binary re-publishes on every `upgrade`, always
 safe to overwrite because the binary owns it — the opposite of
 [yours](#your-files--yours). The materialized [Skills](#skill) under
-`.claude/skills/` (built-ins copied, authored ones symlinked) and the compiled
-agent files `AGENTS.md`/`CLAUDE.md`/`GEMINI.md` are all the binary's
-[Generated](#generated-file) artifacts
+`.claude/skills/` and `.agents/skills/` (built-ins rendered, authored ones
+symlinked) and the compiled agent files `AGENTS.md`/`CLAUDE.md`/`GEMINI.md` are
+all the binary's [Generated](#generated-file) artifacts
 ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md)). The
 [Engine](#engine), the built-in guidance, and the built-in Skill sources are the
 limit case: the binary's, but **bundled** inside it, not on disk in a project at
@@ -193,10 +236,11 @@ caught by `discern finish`'s currency check instead.)
 
 A [yours](#your-files--yours) seed folded into whatever the project already has
 rather than written whole, so an existing project keeps its own content. It is
-produced only at `setup` and left untouched by `upgrade`: today that is the
-structured merge of `.claude/settings.json`. `.gitignore` used to be described
-as a merged file; its project-owned rules are still preserved, but the discern
-block is now a [co-managed seed](#co-managed-seed).
+produced only at `setup` and left untouched by `upgrade`: the structured merge
+of each configured agent's settings file (`.claude/settings.json` and its peers,
+routed through the provider registry). `.gitignore` used to be described as a
+merged file; its project-owned rules are still preserved, but the discern block
+is now a [co-managed seed](#co-managed-seed).
 
 ### Generated file
 
@@ -204,7 +248,7 @@ A file produced by a `discern` command rather than copied from a template, and
 reproduced by re-running that command rather than edited directly.
 `discern
 refresh` compiles the agent files (`CLAUDE.md`, `AGENTS.md`,
-`GEMINI.md`) and materializes `.claude/skills/`. They are all
+`GEMINI.md`) and materializes the configured agents' skills dirs. They are all
 [the binary's](#the-binarys-files) gitignored build artifacts; the reviewable,
 tracked form is your `[guidance].sources`, and `discern finish` flags a
 generated file that has drifted from its source (ADR 0034).
@@ -372,7 +416,7 @@ depth under [`../40-agent-guidance/`](../40-agent-guidance/).
 
 The project's own agent instructions ([yours](#your-files--yours)), at the
 location(s) named by `[guidance].sources` in `discern.toml` — default
-`guidance.md` at the root, globs allowed, read only if present. They are
+`discern/guidance.md`, globs allowed, read only if present. They are
 **additive**: discern's built-in harness guidance (bundled,
 [`templates/guidance/`](../../templates/guidance/)) is always prepended, so your
 sources extend it rather than replace it.
@@ -395,14 +439,17 @@ A focused agent capability shipped as a `SKILL.md`. The effective set is
 discern's **bundled** built-ins (in the binary, sourced from
 [`templates/skills/`](../../templates/skills/) — all named with the `discern-`
 prefix, so their provenance shows wherever they surface) plus any you **author**
-under `[skills].dir` (default `./skills`), where yours override a built-in of
-the same name. `discern refresh` (and `setup`) materialize the set into
-`.claude/skills/` (gitignored, [the binary's](#the-binarys-files)): built-ins
-**copied**, authored skills **symlinked** so edits are live.
-`discern skills
-list` shows the set; `discern skills eject <name>` copies a
-built-in into your dir to customize; `[skills].exclude` drops named skills from
-materialization ([ADR 0101](../_adr/0101-retire-the-features-toggles.md)).
+under `[skills].dir` (default `discern/skills`), where yours override a built-in
+of the same name. `discern refresh` (and `setup`) materialize the set into each
+configured agent's skills dir (gitignored, [the binary's](#the-binarys-files)):
+built-ins **rendered** through the strict template engine — path tokens become
+the configured paths
+([ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)) — and
+authored skills **symlinked** so edits are live. `discern skills
+list` shows the
+set; `discern skills eject <name>` copies a built-in into your dir to customize;
+`[skills].exclude` drops named skills from materialization
+([ADR 0101](../_adr/0101-retire-the-features-toggles.md)).
 
 ---
 

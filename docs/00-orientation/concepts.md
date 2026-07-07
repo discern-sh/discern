@@ -60,9 +60,12 @@ carries no engine of its own and needs no Deno at runtime. The seed files, the
 built-in Skills, and the built-in guidance an install starts from are **bundled
 into the binary** (their source lives under [`templates/`](../../templates/))
 and written out by `setup` — there is no committed copy of the harness to keep
-in sync. The whole discern footprint in a project is **one root file,
-`discern.toml`** ([ADR 0020](../_adr/0020-dissolve-discern-dir.md)); everything
-else you keep lives at open, config-pointed paths you choose.
+in sync. The committed discern footprint in a project is **one root file,
+`discern.toml`, plus one visible folder, the
+[`discern/` namespace](glossary.md#namespace)** — enforced by test
+([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md));
+every source the namespace defaults has a config key that points it at a path
+you choose.
 
 The Engine is deliberately **ignorant of your stack**. It runs "the test
 Capability," "the fix-stage work," "the `gate` for this Scope" — names it
@@ -71,9 +74,10 @@ of six known things a project can do (`format` / `build` / `lint` / `typecheck`
 / `test` / `smoke`); the Engine **derives the [Stage](glossary.md#stage)** each
 runs in from its name, so you never write a scheduling keyword. Anything outside
 those five is a **[Check](glossary.md#check)** with an explicit Stage. Fill the
-Capabilities once and the generic Engine becomes your project's gate. A separate
-`[features]` table toggles whole subsystems (worktrees, ratchets, guidance,
-skills, docs) on or off — distinct from the Capabilities that wire the gate.
+Capabilities once and the generic Engine becomes your project's gate. Every
+subsystem is core — there is no toggle table
+([ADR 0101](../_adr/0101-retire-the-features-toggles.md)): a subsystem you don't
+use (worktrees you never start, ratchets you never define) is naturally inert.
 
 ---
 
@@ -88,36 +92,39 @@ inspects the repo (git state, an existing `docs/` tree, existing agent
 instructions, the agents on PATH, the worktree location) and **serves a
 ready-to-relay _message to your human_** — the script, not stage directions
 ([ADR 0086](../_adr/0086-setup-serves-relay-messages-and-a-consent-attestation.md)):
-what discern is, what it will do and cost, the model question, the docs home,
-and the worktree location, for the agent to relay (adapting the wording, never
-thinning the points). When human-written docs already occupy `docs/`, that
-message chooses a separate home for discern's agent documentation tree and
-passes it to `begin` with `--docs`; the persisted `[docs].dir` then drives every
-docs-aware surface ([ADR 0080](../_adr/0080-configured-agent-docs-root.md)).
-**Nothing is written until `discern setup begin`** — the first mutating step,
-which requires an explicit `--confirmed` attestation that the consent
-conversation happened, refusing and re-serving that message without it (outside
-the declarative `--config` / `--allow-dirty` paths). It lays down only _your_
-seed files with zero-config defaults — a `discern.toml` with no Capabilities
-wired yet (a bootstrap state: omitted individual capabilities are skipped, but
-`doctor` warns while the gate has zero project checks), a merged
-`.claude/settings.json`, and a co-managed `.gitignore` block. It then
-**materializes** the bundled Skills into each configured agent's skills dir
-(gitignored) and compiles the agent guidance. There is no engine and no manifest
-to write — the Engine is in the binary. Files split by **disposition**:
-[yours](glossary.md#your-files--yours) (the committed seeds, written once then
-kept), [the binary's](glossary.md#the-binarys-files) (gitignored artifacts it
-re-publishes, like the materialized Skills), plus the merged `settings.json` and
-co-managed `.gitignore` block. On a fresh install in a clean repo, `begin` then
-**commits** the harness wiring it just wrote — the `discern.toml`, the
-`.gitignore` block, and the per-agent MCP + hooks files — as one
-`discern: scaffold harness` commit
+what discern is, what it will do and cost, the model question, the docs
+question, and the worktree location, for the agent to relay (adapting the
+wording, never thinning the points). The docs question is consent, not
+collision-avoidance: the [map](glossary.md#map) defaults to its own
+`discern/docs/`, and the message asks whether discern should instead manage the
+project's existing documentation — pointing `[docs].dir` (via `begin --docs`) is
+that explicit consent ([ADR 0100](../_adr/0100-doctree-is-the-agents-map.md));
+the persisted `[docs].dir` then drives every docs-aware surface
+([ADR 0080](../_adr/0080-configured-agent-docs-root.md)). **Nothing is written
+until `discern setup begin`** — the first mutating step, which requires an
+explicit `--confirmed` attestation that the consent conversation happened,
+refusing and re-serving that message without it (outside the declarative
+`--config` / `--allow-dirty` paths). It lays down only _your_ seed files with
+zero-config defaults — a `discern.toml` with no Capabilities wired yet (a
+bootstrap state: omitted individual capabilities are skipped, but `doctor` warns
+while the gate has zero project checks), a merged `.claude/settings.json`, and a
+co-managed `.gitignore` block. It then **materializes** the bundled Skills into
+each configured agent's skills dir (gitignored) and compiles the agent guidance.
+There is no engine and no manifest to write — the Engine is in the binary. Files
+split by **disposition**: [yours](glossary.md#your-files--yours) (the committed
+seeds, written once then kept), [the binary's](glossary.md#the-binarys-files)
+(gitignored artifacts it re-publishes, like the materialized Skills), plus the
+merged `settings.json` and co-managed `.gitignore` block. On a fresh install in
+a clean repo, `begin` then **commits** the harness wiring it just wrote — the
+`discern.toml`, the `.gitignore` block, and the per-agent MCP + hooks files — as
+one `discern: scaffold harness` commit
 ([ADR 0076](../_adr/0076-engine-commits-scaffolded-machinery.md)), so the coding
 agent never has to commit discern's own permission-widening config (its safety
-classifier would refuse). `begin` then lays the docs-tree and `TODO.md`
-skeletons at the configured root (only when the project has none) — left
-uncommitted for the agent to fill — and prints the operating principles plus the
-first **page** of the authoring brief; the agent pulls each subsequent page with
+classifier would refuse). `begin` then lays the [map](glossary.md#map) and
+ledger skeletons at their configured paths (default `discern/docs/` and
+`discern/TODO.md`, laid only when absent) — left uncommitted for the agent to
+fill — and prints the operating principles plus the first **page** of the
+authoring brief; the agent pulls each subsequent page with
 `discern setup step
 <n>`
 ([ADR 0078](../_adr/0078-setup-pages-and-per-step-proof.md)).
@@ -125,8 +132,8 @@ first **page** of the authoring brief; the agent pulls each subsequent page with
 **2. Fill in the stack.** That brief — a structured page per step, served one at
 a time — is what the coding agent already in the loop works through: it sniffs
 the repo, asks the user a few clarifying questions, and _proposes_ Capability
-fills (formatter, linter, type-checker, tests), seeds a starter `guidance.md`,
-and fills the docs tree and `TODO.md` from the repo and those answers — working
+fills (formatter, linter, type-checker, tests), seeds a starter guidance source,
+and fills the map and the ledger from the repo and those answers — working
 transparently throughout: recommending each change, saying why it helps and that
 `discern` is what will enforce it, committing each stage on its own so the user
 can review or revert, and pausing only for genuine decisions rather than gating
@@ -189,10 +196,11 @@ running its _own_ engine straight from source — `discern finish`, where
 maintainer runs is the gate that ships, with no second copy to keep in sync.
 
 Alongside the runtime path, guidance flows author-once → compile-everywhere:
-discern's built-in harness guidance plus your **Guidance source** (`guidance.md`
-by default) are compiled by `discern refresh` into each **Compiled agent file**
-(`AGENTS.md`, `CLAUDE.md`, `GEMINI.md` — all gitignored build artifacts, drift
-guarded by the currency check), so several agents share one set of instructions.
+discern's built-in harness guidance plus your **Guidance source**
+(`discern/guidance.md` by default) are compiled by `discern refresh` into each
+**Compiled agent file** (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md` — all gitignored
+build artifacts, drift guarded by the currency check), so several agents share
+one set of instructions.
 
 ---
 
