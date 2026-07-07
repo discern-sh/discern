@@ -4,16 +4,55 @@
 
 Your AI writes the code now — **`discern` makes sure it holds up.**
 
-`discern` is a **zero-configuration quality harness for coding agents and the
-humans who run them.** One command drops in the guardrails a serious team relies
-on — a quality gate, isolated worktrees, shared agent instructions, a docs
-discipline — into any repo, in any language, for any agent. Then it gets out of
-the way and keeps your codebase honest while your agents build.
+<!-- HERO ASSET — TERMINAL RECORDING GOES HERE.
+     Embed the ~30-second setup-handshake cast (asciinema / VHS) once it's
+     recorded: the human installs, hands off to the agent, and watches it wire the
+     whole project up. Owner-supplied — don't fake one. The two-step below stands
+     in until then. -->
 
-> **`discern` doesn't write your code, run a model, or need an API key.** It
-> works with the agents you already use, in the language you already write — and
-> its committed footprint in your project is one root file and one visible
-> folder, a claim an architectural test keeps true.
+`discern` drops the guardrails a serious team relies on into your project — and
+lets your coding agent set them up for you. In plain terms, three things:
+
+- **Quality checks on every change** (the _gate_) — your formatter, linter, and
+  tests, run together before any change counts as done, so mistakes get caught
+  before they ship.
+- **A safe, separate copy of the project for each task** (an isolated _git
+  worktree_) — so a handful of agents can work at once and never step on one
+  another.
+- **One set of instructions every AI reads** — write how your project works
+  once, and Claude Code, Cursor, Copilot, Codex, and Gemini all follow it (along
+  with any other tool that reads an `AGENTS.md` file).
+
+The catch that isn't one: **you don't configure any of it — your AI does.**
+
+---
+
+## Get started in two steps
+
+**1 — Install the binary.** One command, once:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/jackwh/discern/main/install.sh | sh
+```
+
+One self-contained binary — no runtime to manage, no account, no API key. Your
+project needs nothing but `git`. macOS and Linux (Windows via WSL).
+[Build from source →](docs/80-development/)
+
+**2 — Hand it to your agent.** Open your coding agent in the project and tell it:
+
+> _"Run `discern setup` in this project."_
+
+That's the whole handoff. Your agent reads the repo, proposes the format / lint /
+typecheck / test commands, drafts your docs and guidance, wires the gate, and
+proves it green — committing each step for you to review, and writing nothing
+until you say go. Budget 20–40 minutes for the one-time conversation, and point
+your **most capable** model at it: every later session inherits what it sets up.
+
+> `discern` doesn't write your code, run a model, or need an API key. It works
+> with the agents you already use, in the language you already write — and its
+> committed footprint in your project is **one root file and one visible
+> folder**, a claim an architectural test keeps true.
 
 ---
 
@@ -26,8 +65,8 @@ it safely into a shared codebase — never sped up. `discern` closes that gap:
   sealed git worktree, so they never trip over each other and you never untangle
   a mess two of them made at once.
 - **Switch agents freely.** One source of truth compiles into every agent's
-  instructions, so Claude Code, Codex, and Gemini all treat your repo the same
-  way — even several at once.
+  instructions, so Claude Code, Cursor, Copilot, Codex, and Gemini all treat
+  your repo the same way — even several at once.
 - **Stop babysitting.** Nothing reaches `main` until it clears the same bar
   you'd hold a person to: every check green, coverage held, regressions guarded.
 
@@ -35,39 +74,16 @@ More time _building_, less time _babysitting_.
 
 ---
 
-## Install
+## Then, day to day
 
-```sh
-curl -fsSL https://raw.githubusercontent.com/jackwh/discern/main/install.sh | sh
-```
-
-One self-contained binary — no runtime to manage; your project needs nothing but
-`git`. macOS and Linux (Windows via WSL).
-[Build from source →](docs/80-development/)
-
----
-
-## Quickstart
-
-**Zero configuration — your coding agent does the setup.** After installing,
-just point your agent at a repo:
-
-```sh
-cd your-project     # any repo (git required)
-discern             # one-time setup: scaffolds, then your agent fills in the rest
-```
-
-It sniffs your stack, proposes the format / lint / typecheck / test commands,
-seeds your docs and guidance, and commits each step for you to review. No
-wizard, no API key, no lock-in.
-
-Then, day to day:
+Once setup is done, this is the rhythm — and **your coding agent runs almost all
+of it as it works**, not you:
 
 ```sh
 discern status      # what's true right now, and what to do next
 discern start       # carve a fresh isolated worktree for a task
 discern prepare     # fast inner loop: format + checks
-discern finish      # the full gate — your definition of done
+discern finish      # the full gate — the bar for "done"
 discern graduate    # land the reviewed branch back on main
 ```
 
@@ -88,8 +104,8 @@ either way.
   checkout. [Worktrees →](docs/30-worktrees/)
 - **Author-once agent instructions.** Write your guidance once; `discern`
   compiles it into each agent's own file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`)
-  so several agents share one source of truth.
-  [Agent guidance →](docs/40-agent-guidance/)
+  — so every agent, and any other tool that reads `AGENTS.md`, works from one
+  source of truth. [Agent guidance →](docs/40-agent-guidance/)
 - **Ratchets.** Numbers that may only improve — coverage, bundle size, lint
   counts — so quality climbs and never slips back.
 - **A docs & decision discipline.** A living, agent-maintained map of your
