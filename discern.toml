@@ -17,7 +17,7 @@
 [meta]
 # The install schema version — managed by discern (bumped by `discern upgrade`).
 # Don't edit this by hand.
-schema_version = 14
+schema_version = 15
 bootstrapped   = true
 
 [project]
@@ -35,6 +35,12 @@ main_branch = "main"
 # this doc current with the traps specific to your stack (see the comment block
 # the gate prints on failure). Empty disables the pointer.
 gotchas_doc = "docs/80-development/finish-gate-gotchas.md"
+
+# Where the deferred-work ledger lives. This repo deliberately pins its
+# pre-namespace root layout (ADR 0099/0102 dogfooding): a permanent, self-hosted
+# exercise of the pointing escape hatch that makes any hard-coded default leak
+# loud instead of invisible. The shipped default is discern/TODO.md.
+todo = "TODO.md"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [features] — toggle whole discern subsystems on/off. Every feature defaults to
@@ -62,6 +68,8 @@ coupling  = true   # the co-change advisory (the `coupling` verb)
 # ─────────────────────────────────────────────────────────────────────────────
 
 [docs]
+# Pinned to the repo's root layout — a deliberate non-default (ADR 0099); the
+# shipped default is discern/docs/.
 dir = "docs/"
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -77,8 +85,8 @@ dir = "docs/"
 [guidance]
 # Your guideline source file(s), relative to the project root. Globs are allowed.
 # Read only if present; the built-in harness guidance is always prepended, so
-# these are additive. `discern setup` lays a starter guidance.md (and migrates any
-# pre-existing CLAUDE.md/AGENTS.md into it) for your coding agent to fill.
+# these are additive. Pinned to the repo's root layout — a deliberate
+# non-default (ADR 0099); the shipped default is discern/guidance.md.
 sources = ["guidance.md"]
 
 # Which agent integrations to enable. Guidance targets:
@@ -96,9 +104,9 @@ agents = ["claude_code", "codex", "gemini", "cursor", "copilot"]
 # ─────────────────────────────────────────────────────────────────────────────
 
 [skills]
-# Where your authored skills live, relative to the project root. The default
-# works with no config at all; point it elsewhere if you prefer. Read only if
-# present, so a project with no skills/ dir simply uses the built-ins.
+# Where your authored skills live, relative to the project root. Pinned to the
+# repo's root layout — a deliberate non-default (ADR 0099); the shipped default
+# is discern/skills.
 dir = "skills"
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -415,6 +423,7 @@ in_gate = true
 # ─────────────────────────────────────────────────────────────────────────────
 
 [recipes]
-# Where your recipes live, relative to the project root. The default works with
-# no config at all; point it elsewhere (e.g. "tools/") if you prefer.
+# Where your recipes live, relative to the project root. Pinned to the repo's
+# root layout — a deliberate non-default (ADR 0099); the shipped default is
+# discern/recipes.
 dir = "recipes"

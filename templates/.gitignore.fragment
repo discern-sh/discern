@@ -2,8 +2,8 @@
 # These are discern's generated agent files, materialized skills,
 # and local provider state. discern manages these files for you,
 # and refreshes them automatically, so you shouldn't edit this
-# section by hand. A full list of discern-managed files is
-# available in the docs: docs/80-development/install-surface.md
+# section by hand. For the full list of discern-managed files,
+# run `discern help` or see https://discern.sh
 /AGENTS.md
 /CLAUDE.md
 /GEMINI.md

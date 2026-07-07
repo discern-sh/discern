@@ -17,7 +17,7 @@
 [meta]
 # The install schema version — managed by discern (bumped by `discern upgrade`).
 # Don't edit this by hand.
-schema_version = 14
+schema_version = 15
 
 
 [project]
@@ -35,6 +35,10 @@ main_branch = "main"
 # this doc current with the traps specific to your stack (see the comment block
 # the gate prints on failure). Empty disables the pointer.
 gotchas_doc = "{{gotchas_doc}}"
+
+# Where the deferred-work ledger lives — the running TODO list agents read and
+# maintain, relative to the project root. `discern setup` seeds it here.
+todo = "discern/TODO.md"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -81,9 +85,9 @@ dir = "{{docs_dir}}"
 [guidance]
 # Your guideline source file(s), relative to the project root. Globs are allowed.
 # Read only if present; the built-in harness guidance is always prepended, so
-# these are additive. `discern setup` lays a starter guidance.md (and migrates any
-# pre-existing CLAUDE.md/AGENTS.md into it) for your coding agent to fill.
-sources = ["guidance.md"]
+# these are additive. `discern setup` lays a starter source here (and migrates
+# any pre-existing CLAUDE.md/AGENTS.md into it) for your coding agent to fill.
+sources = ["discern/guidance.md"]
 
 # Which agent integrations to enable. Guidance targets:
 #   "claude_code" -> CLAUDE.md   "codex" -> AGENTS.md   "gemini" -> GEMINI.md
@@ -103,8 +107,8 @@ agents = [{{agents_array}}]
 [skills]
 # Where your authored skills live, relative to the project root. The default
 # works with no config at all; point it elsewhere if you prefer. Read only if
-# present, so a project with no skills/ dir simply uses the built-ins.
-dir = "skills"
+# present, so a project with no authored-skills dir simply uses the built-ins.
+dir = "discern/skills"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -394,4 +398,4 @@ in_gate = false
 [recipes]
 # Where your recipes live, relative to the project root. The default works with
 # no config at all; point it elsewhere (e.g. "tools/") if you prefer.
-dir = "recipes"
+dir = "discern/recipes"

@@ -29,6 +29,7 @@ Project identity and integration settings.
 | `branch_prefix` | string | `"agent/"` | Branch prefix for worktrees created by the harness, e.g. "agent/my-feature". |
 | `main_branch` | string | `"main"` | The integration branch the gate merges into and worktrees graduate onto. Override per-invocation with the MAIN_BRANCH env var. |
 | `gotchas_doc` | string | `""` | Where the gate points an agent when a stage fails in a non-obvious way. Empty disables the pointer. |
+| `todo` | string | `"discern/TODO.md"` | Where the deferred-work ledger (the running TODO list agents read and maintain) lives, relative to the project root. |
 | `agents` | string[] | — | Deprecated: providers now live under [guidance].agents. Read only as a pre-migration fallback. |
 
 ## `[features]`
@@ -50,7 +51,7 @@ The author-once → compile-everywhere agent-instruction pipeline. `discern refr
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `sources` | string[] | `["guidance.md"]` | Your guideline source file(s), relative to the project root. Globs allowed. Read only if present; the built-in harness guidance is always prepended. |
+| `sources` | string[] | `["discern/guidance.md"]` | Your guideline source file(s), relative to the project root. Globs allowed. Read only if present; the built-in harness guidance is always prepended. |
 | `agents` | string[] | `[]` | Which agent integrations to enable: claude_code -> CLAUDE.md, gemini -> GEMINI.md, codex / cursor / copilot -> AGENTS.md. |
 
 ## `[skills]`
@@ -59,7 +60,7 @@ Focused, reusable task playbooks. The effective set is discern's bundled built-i
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `dir` | string | `"skills"` | Where your authored skills live, relative to the project root. Read only if present, so a project with no skills/ dir simply uses the built-ins. |
+| `dir` | string | `"discern/skills"` | Where your authored skills live, relative to the project root. Read only if present, so a project with no authored-skills dir simply uses the built-ins. |
 
 ## `[docs]`
 
@@ -67,7 +68,7 @@ The project documentation tree discern scaffolds, validates, and browses.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `dir` | string | `"docs/"` | Where discern's agent documentation tree lives, relative to the project root. `discern setup` scaffolds it here and `discern docs` browses it by default. |
+| `dir` | string | `"discern/docs/"` | Where discern's agent documentation tree lives, relative to the project root. `discern setup` scaffolds it here and `discern docs` browses it by default. |
 
 ## `[capabilities]`
 
@@ -174,4 +175,4 @@ Your own `discern` commands. Drop an executable carrying a `# desc: ...` line in
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `dir` | string | `"recipes"` | Where your recipes live, relative to the project root. The default works with no config; point it elsewhere (e.g. "tools/") if you prefer. |
+| `dir` | string | `"discern/recipes"` | Where your recipes live, relative to the project root. The default works with no config; point it elsewhere (e.g. "tools/") if you prefer. |

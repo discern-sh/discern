@@ -76,7 +76,7 @@
       "type": "object",
       "properties": {
         "dir": {
-          "default": "docs/",
+          "default": "discern/docs/",
           "description": "Where discern's agent documentation tree lives, relative to the project root. `discern setup` scaffolds it here and `discern docs` browses it by default.",
           "type": "string"
         }
