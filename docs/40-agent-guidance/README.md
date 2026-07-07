@@ -41,21 +41,25 @@ configured (a ratchet, a worktree resource).
 The Skills are the bundled built-ins (one directory per skill under
 [`templates/skills/`](../../templates/skills/), every name carrying the
 `discern-` prefix; the [install surface](../80-development/install-surface.md)
-tables them) plus any you author under `[skills].dir` (default `./skills`, yours
-overriding a built-in by name). The `discern-cure-a-bug` built-in pairs with an
-always-on norm in the built-in base — discern's first general working discipline
-shipped on by default
+tables them) plus any you author under `[skills].dir` (default `discern/skills`,
+yours overriding a built-in by name). The `discern-cure-a-bug` built-in pairs
+with an always-on norm in the built-in base — discern's first general working
+discipline shipped on by default
 ([ADR 0049](../_adr/0049-bug-class-discipline-built-in.md)). They materialize
 into each configured agent's skills directory
 ([`.claude/skills/`](../../.claude/skills/) for Claude Code, the cross-tool
 `.agents/skills/` for Codex, Gemini, Cursor, and GitHub Copilot — Claude Code
 does not read the shared dir;
 [ADR 0043](../_adr/0043-registry-derived-agent-parity.md)) — gitignored
-artifacts the binary re-publishes: built-ins **copied**, authored skills
-**symlinked**. The materialized skills are guarded by the **same currency
-check** as the compiled files: `discern status` / `discern finish` flag a skills
-dir that has drifted from the effective set, so a hand-edited or stale copy is
-caught, not silent
+artifacts the binary re-publishes: built-ins **rendered** in (their markdown
+passes through the same [templating engine](the-templating-engine.md), so a
+shipped skill speaks your configured paths, never discern's defaults —
+[ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)), authored
+skills **symlinked**. The materialized skills are guarded by the **same currency
+check** as the compiled files, comparing against the _rendered_ source:
+`discern status` / `discern finish` flag a skills dir that has drifted from the
+effective set, so a hand-edited copy — or a path reconfiguration awaiting
+`refresh` — is caught, not silent
 ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md), extended to
 skills).
 

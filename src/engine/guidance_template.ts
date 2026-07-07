@@ -23,11 +23,14 @@
  * in a built-in template therefore fails loudly at refresh / currency-check time
  * instead of silently emitting an empty string.
  *
- * ## Boundary — built-in sections ONLY
+ * ## Boundary — discern's own shipped surfaces ONLY
  *
- * This renders discern's OWN guidance sections. The user's `[guidance].sources`
- * are appended verbatim by the compiler and are NEVER passed through here — a
- * user's markdown may legitimately contain `{{…}}`.
+ * This renders discern's OWN guidance sections, plus bundled-skill markdown at
+ * materialization (`src/lib/skills.ts` — ADR 0102), both against the one
+ * context `guidanceContext` builds. The user's `[guidance].sources` are
+ * appended verbatim by the compiler, and authored skills are symlinked
+ * untouched — a user's markdown may legitimately contain `{{…}}` and is NEVER
+ * passed through here.
  *
  * ## Not the scaffold templater (`src/lib/template.ts`)
  *

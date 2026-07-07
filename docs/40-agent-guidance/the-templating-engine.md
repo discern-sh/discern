@@ -1,7 +1,7 @@
 # The guidance templating engine
 
-_How discern's **built-in** guidance sections are rendered against a project's
-config before they are compiled into each agent file._
+_How discern's **built-in** guidance sections and **bundled** skills are
+rendered against a project's config before they are compiled or materialized._
 
 discern's built-in sections
 ([`templates/guidance/*.md`](../../templates/guidance/)) are the distribution
@@ -13,6 +13,13 @@ engine
 before concatenating them. The decision and its rationale are
 [ADR 0035](../_adr/0035-guidance-templating-engine.md); this page is the working
 reference.
+
+The same engine renders **bundled-skill markdown** at materialization (and at
+`skills eject`), against the same context, so a shipped skill's prose names the
+project's configured paths — `{{docs_dir}}`, `{{todo_path}}` — never discern's
+defaults ([ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)). A
+sentinel-render test and a source-literal ban keep any hard-coded default a gate
+failure.
 
 ## Syntax
 
@@ -65,10 +72,11 @@ branch that won't be taken** — throws `GuidanceTemplateError`, as does a
 malformed or unbalanced tag. Validation walks the whole tree before any output,
 so a bad name can't lurk in a branch only some project's config takes.
 
-## Boundary — built-in sections only
+## Boundary — discern's own shipped surfaces only
 
-Only discern's own built-in sections are templated. The user's
-`[guidance].sources` are appended **verbatim** — a project's own markdown may
+Only content discern ships is templated: the built-in sections and bundled-skill
+markdown. The user's `[guidance].sources` are appended **verbatim**, and
+authored skills are symlinked untouched — a project's own markdown may
 legitimately contain `{{…}}` and is never interpreted.
 
 This engine is also distinct from the scaffold templater
