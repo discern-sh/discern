@@ -92,6 +92,10 @@ export function guidanceContext(config: DiscernConfig): GuidanceContext {
     vars: {
       branch_prefix: config.project.branch_prefix,
       docs_dir: normalizeDocsDir(config.docs.dir),
+      // The deferred-work ledger's configured location. No built-in guidance
+      // section consumes it yet; bundled-skill rendering does (ADR 0102), and it
+      // is exposed here so both surfaces read one context.
+      todo_path: config.project.todo,
       main_branch: config.project.main_branch,
       graduate_to: config.worktree.graduate_to,
       guidance_sources: codeList(config.guidance.sources),

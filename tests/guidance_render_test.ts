@@ -333,7 +333,14 @@ Deno.test("renderAgentFiles: every guidance variable is config-driven — no har
   // `expect` is a sentinel that must reach the output. graduate_to carries none —
   // both of its enum members already appear in the prose as options — so it is
   // proven by the universal "changing the config changes the output" check instead.
-  const cases: Record<string, { toml: string; expect?: string }> = {
+  // `contextOnly` marks a var no built-in section consumes yet (it exists for the
+  // rendered-skill surface — ADR 0102): its case proves the CONTEXT value flows
+  // from config, and starts failing the render checks the moment a section adopts
+  // it without a real case here.
+  const cases: Record<
+    string,
+    { toml: string; expect?: string; contextOnly?: boolean }
+  > = {
     branch_prefix: {
       toml:
         '[project]\nbranch_prefix = "zz-wt/"\n[guidance]\nagents = ["codex"]\n',
@@ -351,6 +358,12 @@ Deno.test("renderAgentFiles: every guidance variable is config-driven — no har
     docs_dir: {
       toml: '[docs]\ndir = "zz-docs/"\n[guidance]\nagents = ["codex"]\n',
       expect: "zz-docs/",
+    },
+    todo_path: {
+      toml:
+        '[project]\ntodo = "zz-ledger.md"\n[guidance]\nagents = ["codex"]\n',
+      expect: "zz-ledger.md",
+      contextOnly: true,
     },
     guidance_sources: {
       toml: '[guidance]\nagents = ["codex"]\nsources = ["zz-rules.md"]\n',
@@ -399,6 +412,23 @@ Deno.test("renderAgentFiles: every guidance variable is config-driven — no har
 
   const baseline = await renderBody('[guidance]\nagents = ["codex"]\n');
   for (const [name, c] of Object.entries(cases)) {
+    if (c.contextOnly === true) {
+      // Not consumed by any built-in section: prove the context value itself
+      // flows from config (the rendered-skill surface reads the same context).
+      const dir = await Deno.makeTempDir({ prefix: "discern-var-ctx-" });
+      try {
+        await Deno.writeTextFile(join(dir, "discern.toml"), c.toml);
+        const ctx = guidanceContext(await loadConfig(dir));
+        assertEquals(
+          ctx.vars[name],
+          c.expect,
+          `${name}: the configured value must flow into the guidance context`,
+        );
+      } finally {
+        await Deno.remove(dir, { recursive: true });
+      }
+      continue;
+    }
     const body = await renderBody(c.toml);
     assert(
       body !== baseline,
