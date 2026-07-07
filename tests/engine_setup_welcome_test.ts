@@ -389,7 +389,10 @@ Deno.test("verify offers the existing-docs opt-in as consent, and surfaces agent
     assertStringIncludes(d.guidance, "discern won't touch it");
     assertStringIncludes(d.guidance, SOURCE_PATHS.docs.defaultPath);
     assertStringIncludes(d.guidance, "keep them separate (the default)");
-    assertStringIncludes(d.guidance, "--docs <their-docs-path>");
+    // The opt-in serves the REAL detected path, never a placeholder a verbatim-
+    // copying agent would scaffold literally.
+    assertStringIncludes(d.guidance, "--docs docs/");
+    assert(!d.guidance.includes("<their-docs-path>"));
     // The default command carries no --docs: the opt-in is an addition, never a
     // placeholder that pushes agents to pass one.
     assert(!d.next_action.includes("--docs"));

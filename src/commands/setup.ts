@@ -871,6 +871,22 @@ async function resolveSetupRoot(start: string): Promise<string> {
  */
 export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   const log = new Logger(opts);
+
+  // The verbatim-copy guard for `--docs`, mirroring the `--model` placeholder
+  // guard in recordProvenance: an angle-bracket value is the consent framing's
+  // own example copied unsubstituted, and accepting it would scaffold a literal
+  // `<placeholder>/` tree. --model degrades silently (provenance is advisory);
+  // --docs REFUSES, because it decides where real files land.
+  if (opts.docs !== undefined && /[<>]/.test(opts.docs)) {
+    emitSetupError(
+      log,
+      opts,
+      "invalid_option",
+      `--docs received a literal placeholder (${opts.docs}) — substitute the real project-relative path to the docs folder (e.g. --docs docs/), or omit the flag to keep discern's map at its default home.`,
+    );
+    return 1;
+  }
+
   const destDir = await resolveSetupRoot(Deno.cwd());
   const existingConfig = await resolveConfigPath(destDir);
   let freshInstall = existingConfig === undefined;

@@ -1,12 +1,15 @@
 /** A live config reference accepted in commands and globs that follow `[docs].dir`. */
 export const DOCS_DIR_REFERENCE = "${docs.dir}";
 
-/** True when a docs directory stays inside the project root. */
+/** True when a docs directory stays inside the project root. An angle bracket is
+ * never part of a real docs path — it is an unsubstituted `<placeholder>` copied
+ * verbatim from an instruction, and accepting one scaffolds a literal
+ * `<placeholder>/` tree — so the class is rejected here, for every caller. */
 export function isValidDocsDir(value: string): boolean {
   const trimmed = value.trim().replaceAll("\\", "/");
   if (
     trimmed === "" || /^\.\/?$/.test(trimmed) || trimmed.startsWith("/") ||
-    /^[A-Za-z]:\//.test(trimmed)
+    /^[A-Za-z]:\//.test(trimmed) || /[<>]/.test(trimmed)
   ) {
     return false;
   }

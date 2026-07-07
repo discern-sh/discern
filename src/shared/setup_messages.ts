@@ -168,7 +168,11 @@ export function consentMessage(ctx: ConsentContext): string {
     ...(docsExists
       ? [
         "",
-        "If they chose to have discern maintain their existing docs, add `--docs <their-docs-path>` so the choice is recorded as [docs].dir.",
+        // The REAL detected path, never a placeholder: an agent that copies this
+        // verbatim passes a valid value (a `<placeholder>` copied verbatim is
+        // rejected at the flag boundary, but the served text shouldn't set the
+        // trap in the first place).
+        `If they chose to have discern maintain their existing docs, add \`--docs ${EXISTING_DOCS_REL}\` so the choice is recorded as [docs].dir.`,
       ]
       : []),
   ].join("\n");

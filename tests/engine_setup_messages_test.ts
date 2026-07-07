@@ -68,8 +68,10 @@ Deno.test("consentMessage offers the existing-docs opt-in exactly when a docs tr
   assertStringIncludes(withDocs, "discern won't touch it");
   assertStringIncludes(withDocs, SOURCE_PATHS.docs.defaultPath);
   assertStringIncludes(withDocs, "keep them separate (the default)");
-  // The --docs flag is the agent's post-conversation instruction, outside the fence.
-  assertStringIncludes(withDocs, "--docs <their-docs-path>");
+  // The --docs flag is the agent's post-conversation instruction, outside the
+  // fence — carrying the REAL detected path, never a placeholder to substitute.
+  assertStringIncludes(withDocs, "--docs docs/");
+  assert(!withDocs.includes("<their-docs-path>"));
   const fenced = withDocs.split("end of message")[0] ?? "";
   assert(
     !fenced.includes("--docs"),
