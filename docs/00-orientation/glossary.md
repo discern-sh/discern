@@ -64,9 +64,7 @@ The verb-routing front of the `discern` binary
 root (the nearest ancestor with a `discern.toml`), routes a known verb to its
 built-in handler, and on an _unknown_ verb execs a matching project
 [Recipe](#recipe) with the `DISCERN_*` environment exported. A built-in verb
-wins over a same-named recipe (warning on the shadow); a verb whose
-[Feature](#feature) is disabled reports "feature disabled" rather than falling
-through.
+wins over a same-named recipe (warning on the shadow).
 
 ### Recipe
 
@@ -218,19 +216,6 @@ generated file that has drifted from its source (ADR 0034).
 Terms for `discern finish` and what it runs. Covered in depth under
 [`../20-quality-gate/`](../20-quality-gate/).
 
-### Feature
-
-One of the toggleable subsystems listed under `[features]` in `discern.toml` —
-`worktrees`, `ratchets`, `guidance`, `skills`, `docs`, `coupling` — each
-defaulting **on**. Setting one to `false` removes it coherently: its verbs hide
-from `--help` (and error if invoked), its hooks are left out of `settings.json`,
-its guidance section is dropped, and its [`doctor`](#installer) checks skip. A
-Feature is **distinct from a [Capability](#capability)**: `[features]` toggles
-whole subsystems, `[capabilities]` is the gate's command table. The gate,
-`config`, and `doctor` are core and not listed
-([ADR 0020](../_adr/0020-dissolve-discern-dir.md),
-[`features.ts`](../../src/shared/features.ts)).
-
 ### Capability
 
 One of a small, **closed** vocabulary of things a project can do, declared flat
@@ -241,8 +226,8 @@ mapped to a command (or a list run in order); the Engine **derives the gate
 [Stage](#stage)** from the name, so an author never writes a scheduling keyword.
 The set is closed — an unknown key is an error that points at a [Check](#check).
 A known capability that is simply **omitted** is [knowably absent](#readiness):
-the gate skips it, never errors. Not to be confused with a [Feature](#feature)
-(a subsystem toggle) ([ADR 0017](../_adr/0017-capabilities-model.md)).
+the gate skips it, never errors
+([ADR 0017](../_adr/0017-capabilities-model.md)).
 
 ### Check
 
@@ -314,7 +299,7 @@ and there are no thresholds to tune. Available on demand in three modes (the
 diff-aware change-set view, a one-file `coupling <path>` query, and a two-file
 `coupling <a> <b>` evidence view that lists the commits where both changed) and,
 behind `[coupling].in_gate`, at the tail of the [Gate](#gate). It is the
-**discovery** end of the [canonical-set](#feature) discipline that the parity
+**discovery** end of the canonical-set discipline that the parity
 tests **enforce** — the two stay deliberately separate
 ([ADR 0084](../_adr/0084-co-change-coupling-advisory.md),
 [ADR 0051](../_adr/0051-canonical-set-parity.md)). Covered in
@@ -340,8 +325,7 @@ The stack-specific part of the worktree workflow the engine calls but does not
 implement: per-worktree **[resources](#worktree-resource)**
 (`[worktree.resources.<name>]` with `create`/`destroy`), plus the per-worktree
 `inherit_env`, `port`, and `setup` keys. A fresh install declares no resources,
-so a worktree round is a clean no-op until a project wires one. The whole
-workflow is the `worktrees` [Feature](#feature), inert when it is off
+so a worktree round is a clean no-op until a project wires one
 ([ADR 0011](../_adr/0011-adopt-worktree-workflow.md),
 [ADR 0025](../_adr/0025-worktree-resources.md)).
 
@@ -397,7 +381,7 @@ sources extend it rather than replace it.
 
 `CLAUDE.md`, `AGENTS.md`, `GEMINI.md` — per-agent instruction files
 [generated](#generated-file) by `discern refresh` from the built-in guidance
-(one section per enabled [Feature](#feature)) plus the Guidance source. They
+sections plus the Guidance source. They
 carry no banner — they open with the guidance itself, and drift from their
 source is caught by `discern status` / `discern finish`
 ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md)). Which files
@@ -417,8 +401,8 @@ the same name. `discern refresh` (and `setup`) materialize the set into
 **copied**, authored skills **symlinked** so edits are live.
 `discern skills
 list` shows the set; `discern skills eject <name>` copies a
-built-in into your dir to customize. The `skills` [Feature](#feature) governs
-the whole subsystem.
+built-in into your dir to customize; `[skills].exclude` drops named skills
+from materialization ([ADR 0101](../_adr/0101-retire-the-features-toggles.md)).
 
 ---
 

@@ -56,7 +56,7 @@ dir = "docs/"
 # ─────────────────────────────────────────────────────────────────────────────
 # [guidance] — the author-once → compile-everywhere agent-instruction pipeline.
 # `discern refresh` compiles discern's built-in harness guidance (always
-# prepended, feature-aware) plus YOUR sources below into one generated file per
+# prepended) plus YOUR sources below into one generated file per
 # provider. The generated files are build artifacts — gitignored, never
 # hand-edited. Edit your sources below (the tracked, reviewable form) and re-run
 # `discern refresh`; `discern status` / `discern finish` flag a generated file

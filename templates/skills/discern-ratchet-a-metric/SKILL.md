@@ -45,7 +45,7 @@ limit     = 41                         # today's value on main — never aspirat
 run       = "tools/count-suppressions" # prints: DISCERN_METRIC suppressions 41
 ```
 
-Keep the `run` script in the repo like any other tool, and make it print *only* from what's in the tree — determinism (step 1) is a property of this command. (If `discern ratchets` reports the subsystem disabled, turn on `[features].ratchets` first.)
+Keep the `run` script in the repo like any other tool, and make it print *only* from what's in the tree — determinism (step 1) is a property of this command.
 
 ---
 
