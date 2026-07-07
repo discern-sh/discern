@@ -210,7 +210,7 @@ function buildConflicts(
       kind: "existing_instructions",
       detail: `Found existing agent instructions (${
         existingInstructions.join(", ")
-      }). begin preserves them by folding their content into guidance.md — nothing is lost, and you reconcile any overlap with discern's guidance at the end of setup.`,
+      }). begin preserves them by folding their content into ${SOURCE_PATHS.guidance.defaultPath} — nothing is lost, and you reconcile any overlap with discern's guidance at the end of setup.`,
     });
   }
   return conflicts;
@@ -236,8 +236,8 @@ function printPreflight(p: {
   const instructions = p.existingInstructions.length > 0
     ? `found ${
       p.existingInstructions.join(", ")
-    } — begin preserves it (folded into guidance.md)`
-    : "none yet — begin seeds guidance.md";
+    } — begin preserves it (folded into ${SOURCE_PATHS.guidance.defaultPath})`
+    : `none yet — begin seeds ${SOURCE_PATHS.guidance.defaultPath}`;
   const agents = p.detected.length > 0
     ? `detected on PATH: ${p.detected.join(", ")}`
     : `none detected on PATH — begin will default to ${
