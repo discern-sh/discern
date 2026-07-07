@@ -255,8 +255,8 @@ const featuresSection = z.strictObject(
 const guidanceSection = z.strictObject({
   sources: z.array(z.string()).default([SOURCE_PATHS.guidance.defaultPath])
     .describe(
-    "Your guideline source file(s), relative to the project root. Globs allowed. Read only if present; the built-in harness guidance is always prepended.",
-  ),
+      "Your guideline source file(s), relative to the project root. Globs allowed. Read only if present; the built-in harness guidance is always prepended.",
+    ),
   agents: z.array(z.string()).default([]).describe(
     "Which agent integrations to enable: claude_code -> CLAUDE.md, gemini -> GEMINI.md, codex / cursor / copilot -> AGENTS.md.",
   ),

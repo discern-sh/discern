@@ -107,7 +107,8 @@ import {
   landingSummary,
 } from "./setup_land.ts";
 import { KNOWN_ENGINE_VERBS } from "../engine/dispatch.ts";
-import { DEFAULT_DOCS_DIR, normalizeDocsDir } from "../shared/docs_path.ts";
+import { normalizeDocsDir } from "../shared/docs_path.ts";
+import { guidanceSeedRel, SOURCE_PATHS } from "../shared/paths_registry.ts";
 
 /** Options accepted by `discern setup` (global flags + declarative passthrough). */
 export interface SetupOptions extends InitFlags {
@@ -383,6 +384,9 @@ function applyFillsToPlan(plan: Plan, fills: DiscernConfigDoc): void {
 /** What a scaffold pass produced (for the human summary and the JSON envelope). */
 interface ScaffoldOutcome {
   config: SetupConfig;
+  /** Where the starter guidance was (or would be) seeded — the resolved
+   * `[guidance].sources` seed location. */
+  guidanceRel: string;
   written: string[];
   compiled: string[];
   mcpWired: string[];
@@ -527,10 +531,20 @@ async function scaffoldHarness(
     await recordProvenance(destDir, opts.model);
   }
 
-  // Seed guidance.md (the default [guidance].sources) BEFORE the first compile, and
-  // migrate any pre-existing, hand-authored agent file into it so the compile that
-  // follows can't destroy the user's instructions (ADR 0065).
-  const seeded = await seedGuidance(destDir, config, freshInstall);
+  // Seed the guidance source (the configured [guidance].sources, else the registry
+  // default) BEFORE the first compile, and migrate any pre-existing, hand-authored
+  // agent file into it so the compile that follows can't destroy the user's
+  // instructions (ADR 0065). The freshly-applied plan wrote the config, so the
+  // seed location resolves from it; a broken config falls back to the default.
+  let guidanceRel = SOURCE_PATHS.guidance.defaultPath;
+  try {
+    guidanceRel = guidanceSeedRel(
+      (await loadConfig(destDir)).guidance.sources,
+    );
+  } catch {
+    // Unreadable config — seed at the registry default; doctor diagnoses the rest.
+  }
+  const seeded = await seedGuidance(destDir, guidanceRel, config, freshInstall);
 
   // Compile guidance, materialize skills, and wire each agent's MCP server — all
   // via the one refresh core (compileGuidelines). Pass setup's logger so the
@@ -575,18 +589,19 @@ async function scaffoldHarness(
     hints = [
       `Preserved your existing ${
         seeded.migrated.join(", ")
-      } by migrating it into guidance.md — fold it into the conventions and delete the import note.`,
+      } by migrating it into ${guidanceRel} — fold it into the conventions and delete the import note.`,
       ...hints,
     ];
   }
 
   const written = changed.map((op) => op.targetRel);
   if (seeded.guidanceLaid) {
-    written.push("guidance.md");
+    written.push(guidanceRel);
   }
   return {
     outcome: {
       config,
+      guidanceRel,
       written,
       compiled,
       mcpWired,
@@ -601,24 +616,26 @@ async function scaffoldHarness(
 }
 
 /**
- * Seed `guidance.md` (the default `[guidance].sources`) before the first compile,
- * and — critically — migrate any pre-existing, hand-authored agent file into it so
- * the compile that follows can't destroy the user's instructions (ADR 0065).
+ * Seed the guidance source at `guidanceRel` (the resolved `[guidance].sources`
+ * seed location) before the first compile, and — critically — migrate any
+ * pre-existing, hand-authored agent file into it so the compile that follows
+ * can't destroy the user's instructions (ADR 0065).
  *
  * On a FRESH install no discern-generated agent file can exist (discern writes them
  * only via a compile, which needs a config), so every `CLAUDE.md`/`AGENTS.md`/
- * `GEMINI.md` already on disk is the USER's — its body is folded into `guidance.md`
+ * `GEMINI.md` already on disk is the USER's — its body is folded into the source
  * under a labelled heading, deduped by content so identical mirrors migrate once.
- * The stub is laid only when `guidance.md` is absent, so a re-run never clobbers the
- * agent's work; on a `--force` re-run the user's content is already in `guidance.md`
+ * The stub is laid only when the source is absent, so a re-run never clobbers the
+ * agent's work; on a `--force` re-run the user's content is already in the source
  * from the first run, so migration is skipped.
  */
 async function seedGuidance(
   root: string,
+  guidanceRel: string,
   config: SetupConfig,
   freshInstall: boolean,
 ): Promise<{ guidanceLaid: boolean; migrated: string[] }> {
-  const guidancePath = join(root, "guidance.md");
+  const guidancePath = join(root, guidanceRel);
 
   // Capture pre-existing user agent files (fresh install only — see above).
   const migrated: { file: string; body: string }[] = [];
@@ -643,7 +660,7 @@ async function seedGuidance(
     }
   }
 
-  // Lay the stub when guidance.md is absent (write-once: a re-run keeps the agent's).
+  // Lay the stub when the source is absent (write-once: a re-run keeps the agent's).
   let content: string;
   let guidanceLaid = false;
   try {
@@ -672,6 +689,7 @@ async function seedGuidance(
   }
 
   if (guidanceLaid || appended.length > 0) {
+    await ensureDir(dirname(guidancePath));
     await Deno.writeTextFile(guidancePath, content + appended);
   }
   return { guidanceLaid, migrated: migrated.map((m) => m.file) };
@@ -723,14 +741,16 @@ async function recordProvenance(
 
 /**
  * Phase 2 — lay the doc skeletons under `root`, non-destructively. The docs tree
- * is all-or-nothing: skipped entirely when any `docs/` already exists, so an
- * existing tree is never mixed with the skeleton shape. `TODO.md` is an
- * independent single-file seed, laid only when absent.
+ * is all-or-nothing: skipped entirely when the configured docs dir already
+ * exists, so an existing tree is never mixed with the skeleton shape. The
+ * deferred-work ledger (`[project].todo`) is an independent single-file seed,
+ * laid only when absent.
  */
 async function laySkeletons(
   root: string,
   name: string,
   docsDir: string,
+  todoRel: string,
 ): Promise<{ laid: string[]; skipped: string[] }> {
   const skeletonDir = join(await resolveSetupDir(), "skeleton");
   const laid: string[] = [];
@@ -750,19 +770,32 @@ async function laySkeletons(
   }
 
   const todoSkeleton = join(skeletonDir, "TODO.md");
-  if (await pathExists(join(root, "TODO.md"))) {
-    skipped.push("TODO.md");
+  if (await pathExists(join(root, todoRel))) {
+    skipped.push(todoRel);
   } else if (await pathExists(todoSkeleton)) {
-    await copyTextSubstituting(todoSkeleton, join(root, "TODO.md"), name);
-    laid.push("TODO.md");
+    await copyTextSubstituting(todoSkeleton, join(root, todoRel), name);
+    laid.push(todoRel);
   }
 
   return { laid, skipped };
 }
 
-/** Render the configured docs root into setup's agent-facing path references. */
-function renderDocsDir(instructions: string, docsDir: string): string {
-  return instructions.replaceAll("{{docs_dir}}", normalizeDocsDir(docsDir));
+/** The path context setup's agent-facing brief renders against. */
+interface SetupPathContext {
+  docsDir: string;
+  todoRel: string;
+  guidanceRel: string;
+}
+
+/** Render the configured source paths into setup's agent-facing path references. */
+function renderSetupPaths(
+  instructions: string,
+  paths: SetupPathContext,
+): string {
+  return instructions
+    .replaceAll("{{docs_dir}}", normalizeDocsDir(paths.docsDir))
+    .replaceAll("{{todo_path}}", paths.todoRel)
+    .replaceAll("{{guidance_path}}", paths.guidanceRel);
 }
 
 async function gitTopLevel(start: string): Promise<string | undefined> {
@@ -899,8 +932,10 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   // a resume where the fresh SetupConfig isn't in hand (ADR 0065).
   const name = scaffold?.config.projectName ??
     (cfg ? displayNameFromSlug(cfg.project.slug) : "the project");
-  const docsDir = cfg?.docs.dir ?? scaffold?.config.docsDir ?? DEFAULT_DOCS_DIR;
-  const { laid, skipped } = await laySkeletons(destDir, name, docsDir);
+  const docsDir = cfg?.docs.dir ?? scaffold?.config.docsDir ??
+    SOURCE_PATHS.docs.defaultPath;
+  const todoRel = cfg?.project.todo ?? SOURCE_PATHS.todo.defaultPath;
+  const { laid, skipped } = await laySkeletons(destDir, name, docsDir, todoRel);
 
   // --- Phase 3: print the operating principles + the FIRST page (ADR 0078) ---
   // `begin` emits the principles and page 0 only (A10); the agent pulls each
@@ -910,7 +945,14 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   const rawInstructions = await Deno.readTextFile(
     join(await resolveSetupDir(), "instructions.md"),
   );
-  let instructions = renderDocsDir(rawInstructions, docsDir);
+  let instructions = renderSetupPaths(rawInstructions, {
+    docsDir,
+    todoRel,
+    guidanceRel: scaffold?.guidanceRel ??
+      (cfg !== undefined
+        ? guidanceSeedRel(cfg.guidance.sources)
+        : SOURCE_PATHS.guidance.defaultPath),
+  });
   let firstPage: SetupPage | undefined;
   try {
     const rendered = renderSetupBegin(instructions);
@@ -1126,14 +1168,14 @@ async function ensureSetupBranch(
 /**
  * Authored-content seeds the coding agent fills and commits itself — NEVER swept into
  * the machinery commit. Both are scaffolded into {@link ScaffoldOutcome.written}:
- * `guidance.md` (the conventions stub) and `brief.md` (the captured intent, present only
- * when a brief was supplied). The other authored seeds — the `docs/` skeletons and
- * `TODO.md` — are laid AFTER the commit (by {@link laySkeletons}), so they never reach it.
+ * the guidance stub (at the resolved seed location) and the brief (the captured
+ * intent, present only when a brief was supplied — at its fixed registry path).
+ * The other authored seeds — the docs skeletons and the deferred-work ledger —
+ * are laid AFTER the commit (by {@link laySkeletons}), so they never reach it.
  */
-const AUTHORED_CONTENT_SEEDS: ReadonlySet<string> = new Set([
-  "guidance.md",
-  "brief.md",
-]);
+function authoredContentSeeds(guidanceRel: string): ReadonlySet<string> {
+  return new Set([guidanceRel, SOURCE_PATHS.brief.defaultPath]);
+}
 
 /**
  * Commit the harness machinery `setup begin` just scaffolded — discern's OWN wiring: the
@@ -1141,7 +1183,7 @@ const AUTHORED_CONTENT_SEEDS: ReadonlySet<string> = new Set([
  * worktree-lifecycle config, and any provider-owned project rules an agent declares
  * (derived from {@link ScaffoldOutcome.written} ∪ `.mcpWired` ∪ `.hooksWired`
  * ∪ `.worktreeAppWired` ∪ `.projectRulesWired`, minus the
- * {@link AUTHORED_CONTENT_SEEDS} the agent fills) —
+ * {@link authoredContentSeeds} the agent fills) —
  * as one `discern: scaffold harness` commit on the `discern-setup` branch. discern
  * OWNS this commit because the files are exactly the ones a coding agent's safety classifier
  * refuses to commit (pre-approving an MCP server widens permissions), which otherwise strands
@@ -1149,9 +1191,9 @@ const AUTHORED_CONTENT_SEEDS: ReadonlySet<string> = new Set([
  * precedent — the engine commits its own output — and mirrors its shape: best-effort and
  * fail-open, so a commit failure (e.g. commit signing) never fails `begin`; the agent can
  * still commit by hand. Commits ONLY the derived machinery paths (never `git add -A`), so the
- * authored-content seeds (guidance.md, the docs skeletons, TODO.md) stay uncommitted for the
- * agent. The caller gates this on being on the `discern-setup` branch (a fresh install in a
- * git repo), so it never runs when setup proceeds in place.
+ * authored-content seeds (the guidance stub, the docs skeletons, the ledger) stay uncommitted
+ * for the agent. The caller gates this on being on the `discern-setup` branch (a fresh install
+ * in a git repo), so it never runs when setup proceeds in place.
  *
  * The committed set is the union of every {@link ScaffoldOutcome} array discern itself wrote
  * — never a hand-copied per-agent file list — so a new wiring category (the way
@@ -1173,7 +1215,7 @@ async function commitScaffoldedMachinery(
       ...scaffold.projectRulesWired,
     ]),
   ]
-    .filter((p) => !AUTHORED_CONTENT_SEEDS.has(p))
+    .filter((p) => !authoredContentSeeds(scaffold.guidanceRel).has(p))
     .sort();
   if (paths.length === 0) {
     return "skipped"; // nothing scaffolded to commit (e.g. a fully-idempotent re-run)
@@ -1208,16 +1250,25 @@ export async function runSetupStep(
   const rawInstructions = await Deno.readTextFile(
     join(await resolveSetupDir(), "instructions.md"),
   );
-  let docsDir = DEFAULT_DOCS_DIR;
+  let docsDir = SOURCE_PATHS.docs.defaultPath;
+  let todoRel = SOURCE_PATHS.todo.defaultPath;
+  let guidanceRel = SOURCE_PATHS.guidance.defaultPath;
   const root = await findRoot();
   if (root !== undefined) {
     try {
-      docsDir = (await loadConfig(root)).docs.dir;
+      const cfg = await loadConfig(root);
+      docsDir = cfg.docs.dir;
+      todoRel = cfg.project.todo;
+      guidanceRel = guidanceSeedRel(cfg.guidance.sources);
     } catch {
-      // A broken config is diagnosed by strict verbs; keep the default path here.
+      // A broken config is diagnosed by strict verbs; keep the default paths here.
     }
   }
-  const instructions = renderDocsDir(rawInstructions, docsDir);
+  const instructions = renderSetupPaths(rawInstructions, {
+    docsDir,
+    todoRel,
+    guidanceRel,
+  });
   let page: SetupPage | undefined;
   try {
     page = getSetupPage(instructions, n);
@@ -1382,6 +1433,8 @@ interface DoneSuccessView {
    * 0090) — false when the probe was skipped (worktrees off, uncreatable, or forced),
    * so the render never claims coverage it didn't earn. */
   worktreeProven: boolean;
+  /** The configured deferred-work ledger path (`[project].todo`). */
+  todoRel: string;
 }
 
 /** The ordered next-action hints `setup done --json` carries for an agent (A11): land
@@ -1390,6 +1443,7 @@ function doneHints(
   landing: LandingSummary,
   reactivation: ReturnType<typeof reactivationHandoff>,
   coachVerb: string,
+  todoRel: string,
 ): string[] {
   const hints: string[] = [];
   if (landing.inRepo && !landing.onTarget && landing.branch !== "") {
@@ -1399,7 +1453,7 @@ function doneHints(
   }
   hints.push(reactivation.summary);
   hints.push(
-    `Deepen your setup: run \`discern ${coachVerb} --json\` (the project coach), review the findings with your human, do the quick wins now, and record larger ones in TODO.md.`,
+    `Deepen your setup: run \`discern ${coachVerb} --json\` (the project coach), review the findings with your human, do the quick wins now, and record larger ones in ${todoRel}.`,
   );
   return hints;
 }
@@ -1482,6 +1536,7 @@ function printDoneSuccess(view: DoneSuccessView): void {
     coachVerb,
     guidance,
     worktreeProven,
+    todoRel,
   } = view;
 
   console.log(
@@ -1543,7 +1598,7 @@ function printDoneSuccess(view: DoneSuccessView): void {
   console.log(
     "     review the findings with your human, do the quick wins now, and defer larger",
   );
-  console.log("     initiatives to TODO.md.");
+  console.log(`     initiatives to ${todoRel}.`);
 
   // The ready-to-relay completion message, carried verbatim (identical to the `--json`
   // `guidance` field) so a courier agent can hand the human a warm close (ADR 0086).
@@ -1651,7 +1706,7 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
     emitResult({
       ok: true,
       verb: "setup done",
-      hints: doneHints(landing, reactivation, coachVerb),
+      hints: doneHints(landing, reactivation, coachVerb, cfg.project.todo),
       data,
     });
     return 0;
@@ -1668,6 +1723,7 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
     coachVerb,
     guidance,
     worktreeProven,
+    todoRel: cfg.project.todo,
   });
   return 0;
 }

@@ -29,6 +29,7 @@ import {
   type TokenMap,
 } from "./template.ts";
 import { reconcileDiscernGitignore } from "./agent_gitignore.ts";
+import { SOURCE_PATHS } from "../shared/paths_registry.ts";
 import type { SettingsSeedMerge } from "./settings_merge.ts";
 import {
   providersWithHooks,
@@ -377,17 +378,18 @@ async function planGitignoreAppend(
 }
 
 /**
- * Build the op for the root `brief.md` — a SEED file: written once with a short
- * header, never overwritten if already present (preserves any edits the user or
- * `discern setup` made). Only seeded when a brief is supplied (via `--brief` /
- * `--config`; the default zero-config run supplies none), so a default install's
- * footprint stays just `discern.toml`.
+ * Build the op for the project brief — a SEED file at its fixed registry
+ * location: written once with a short header, never overwritten if already
+ * present (preserves any edits the user or `discern setup` made). Only seeded
+ * when a brief is supplied (via `--brief` / `--config`; the default zero-config
+ * run supplies none), so a default install's footprint stays just
+ * `discern.toml`.
  */
 export async function planBrief(
   destDir: string,
   brief: string,
 ): Promise<PlanOp> {
-  const targetRel = "brief.md";
+  const targetRel = SOURCE_PATHS.brief.defaultPath;
   const targetAbs = join(destDir, targetRel);
   const body = brief.trimEnd();
   const content = `# Project brief\n\n` +

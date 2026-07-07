@@ -51,11 +51,11 @@ export const SOURCE_PATH_NAMES = [
 export type SourcePathName = (typeof SOURCE_PATH_NAMES)[number];
 
 /**
- * The registry. `satisfies Record<SourcePathName, …>` pins its keys to
+ * The registry. The `Record<SourcePathName, …>` annotation pins its keys to
  * {@link SOURCE_PATH_NAMES} at compile time, so the name list and the table can
  * never drift.
  */
-export const SOURCE_PATHS = {
+export const SOURCE_PATHS: Readonly<Record<SourcePathName, SourcePathEntry>> = {
   guidance: {
     key: "guidance.sources",
     defaultPath: "discern/guidance.md",
@@ -96,7 +96,7 @@ export const SOURCE_PATHS = {
     description:
       "The project brief captured at setup — authored intent, read by the setup instructions.",
   },
-} as const satisfies Record<SourcePathName, SourcePathEntry>;
+};
 
 /** The default path for source `name` — the ADR 0099 namespace location. */
 export function sourcePathDefault(name: SourcePathName): string {
