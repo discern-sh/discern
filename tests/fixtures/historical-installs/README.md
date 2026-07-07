@@ -17,6 +17,10 @@ setup-era capture was not available:
   default-layout authored surface (`guidance.md`, `docs/`, `TODO.md`,
   `brief.md`, `skills/`, `recipes/`) so the 14→15 namespace move is exercised
   on real files
+- `schema-15`: derived from `schema-14` by applying the real 14→15 step with a
+  schema-15 engine — the config carries `[features]` and `[worktree].enabled`
+  and the authored surface sits under `discern/`, so the 15→16 toggle
+  retirement (ADR 0101) is exercised on real bytes
 
 The fixtures keep only `discern.toml`, `.gitignore`, and
 `.claude/settings.json` (plus, from `schema-14`, the movable authored surface):

@@ -729,7 +729,140 @@ export const MIGRATIONS: Migration[] = [
       await migrateIntoNamespace(ctx);
     },
   },
+  {
+    from: 15,
+    describe:
+      "retire the [features] toggles and [worktree].enabled — every subsystem is core now; a features.skills = false becomes an authored [skills].exclude of the bundled set (ADR 0101)",
+    apply: async (ctx) => {
+      await retireFeatureToggles(ctx);
+    },
+  },
 ];
+
+/**
+ * The schema-15→16 transform (ADR 0101): drop the `[features]` section (banner
+ * comment included) and the duplicate `[worktree].enabled` key. A discarded
+ * preference is NAMED in the notes, never silently eaten: each
+ * `features.<name> = false` gets a note, and `features.skills = false` is mapped
+ * to its honest equivalent — an authored `[skills].exclude` covering every
+ * bundled skill (trim the list to bring individual skills back). The stale
+ * "(Inert when [features].<name> = false.)" template comments are scrubbed
+ * best-effort. Idempotent: a config with neither the section nor the key is
+ * untouched.
+ */
+async function retireFeatureToggles(ctx: MigrationContext): Promise<void> {
+  const text = await ctx.readConfig();
+  if (text === undefined) {
+    return; // no config to evolve.
+  }
+  let raw: Record<string, unknown>;
+  try {
+    raw = parseDiscernToml(text).raw;
+  } catch {
+    return; // unparseable — upgrade validates the config first; belt-and-braces.
+  }
+  const features = isRecord(raw.features) ? raw.features : undefined;
+  const worktree = isRecord(raw.worktree) ? raw.worktree : {};
+
+  // features.skills = false → the honest equivalent: exclude every bundled skill
+  // by name. Merged with any existing exclude list (never clobbered).
+  if (features?.skills === false) {
+    const skillsTbl = isRecord(raw.skills) ? raw.skills : {};
+    const existing = Array.isArray(skillsTbl.exclude)
+      ? skillsTbl.exclude.filter((s): s is string => typeof s === "string")
+      : [];
+    const merged = [...new Set([...existing, ...await bundledSkillNames()])]
+      .sort();
+    await ctx.editToml((e) => e.setStringArray("skills.exclude", merged));
+    ctx.note(
+      "[features].skills = false became [skills].exclude covering every bundled skill — the honest equivalent; remove names from the list to bring individual skills back",
+    );
+  }
+
+  // Name every other disabled toggle the drop discards (ADR 0101).
+  for (const [name, value] of Object.entries(features ?? {})) {
+    if (name === "skills" || value !== false) {
+      continue;
+    }
+    ctx.note(
+      `dropped [features].${name} = false — the subsystem toggles were retired (every subsystem is core now, ADR 0101); the escape is behavioral, not configurational`,
+    );
+  }
+  if (worktree.enabled === false) {
+    ctx.note(
+      "dropped [worktree].enabled = false — session-start worktree setup is built in now (a silent no-op outside a linked worktree)",
+    );
+  }
+
+  if (features !== undefined) {
+    await ctx.rewrite("discern.toml", removeFeaturesSection);
+  }
+  if (worktree.enabled !== undefined) {
+    await ctx.editToml((e) => e.deleteKey("worktree.enabled"));
+  }
+
+  // Scrub the retired toggles from the template's own comment prose — the exact
+  // phrasings the schema-15 template shipped. Best-effort literal swaps: a
+  // hand-edited comment simply stays as the user wrote it.
+  await ctx.rewrite("discern.toml", (t) =>
+    t
+      .replace(
+        " (Inert\n# when [features].worktrees = false.)",
+        "",
+      )
+      .replace(" (Inert when [features].ratchets = false.)", "")
+      .replace(" (Inert when [features].coupling = false.)", ""));
+}
+
+/**
+ * Remove the whole `[features]` section: the header, its key lines (up to the
+ * first blank/comment/header), the banner comment paragraph directly above it —
+ * but only when that paragraph is actually about `[features]`, so a user's own
+ * unrelated comment is never eaten — and the blank separators, collapsed back to
+ * one blank run. A no-op without the header.
+ */
+function removeFeaturesSection(text: string): string {
+  const lines = text.split("\n");
+  const idx = lines.findIndex((l) => l.trim() === "[features]");
+  if (idx === -1) {
+    return text;
+  }
+  let end = idx + 1;
+  while (end < lines.length) {
+    const t = (lines[end] ?? "").trim();
+    if (t === "" || t.startsWith("#") || t.startsWith("[")) {
+      break;
+    }
+    end++;
+  }
+  // The banner sits above the header, separated by blank line(s): walk past the
+  // blanks, then take the contiguous comment paragraph when it names [features].
+  let start = idx;
+  let probe = idx;
+  while (probe - 1 >= 0 && (lines[probe - 1] ?? "").trim() === "") {
+    probe--;
+  }
+  let bannerStart = probe;
+  while (
+    bannerStart - 1 >= 0 &&
+    (lines[bannerStart - 1] ?? "").trim().startsWith("#")
+  ) {
+    bannerStart--;
+  }
+  if (
+    bannerStart < probe &&
+    lines.slice(bannerStart, probe).join("\n").includes("[features]")
+  ) {
+    start = bannerStart;
+  }
+  // Consume the blank separators after the body — the blank run ABOVE the removed
+  // block (kept intact) already separates the neighbours it leaves adjacent.
+  while (end < lines.length && (lines[end] ?? "").trim() === "") {
+    end++;
+  }
+  lines.splice(start, end - start);
+  return lines.join("\n");
+}
 
 /** A migration decision for one registry path: whether its config key is
  * pointed away from the pre-namespace default. */
@@ -1065,8 +1198,8 @@ async function migrateLegacyWorktreeResources(
     : (Object.keys(resources).length > 0 ? "" : COMMENTED_RESOURCES_BLOCK);
 
   await ctx.rewrite("discern.toml", (t) => {
-    let out = removeWorktreeTable(t, "[worktree.db]");
-    out = removeWorktreeTable(out, "[worktree.dev_server]");
+    let out = removeTableBlock(t, "[worktree.db]");
+    out = removeTableBlock(out, "[worktree.dev_server]");
     if (insertBlock !== "") {
       out = insertAfterWorktreeBase(out, insertBlock);
     }
@@ -1087,14 +1220,14 @@ async function migrateLegacyWorktreeResources(
 }
 
 /**
- * Remove a `[worktree.<name>]` table — its `[header]`, its key/value body (up to
+ * Remove a config table — its `[header]`, its key/value body (up to
  * the first blank, comment, or next header), the contiguous comment paragraph that
  * directly precedes it (its OWN doc comment), and one trailing blank separator.
  * Unlike `TomlEditor.deleteSection` (greedy to the next header), this stops at the
  * blank/comment boundary, so the FOLLOWING section keeps its own doc comment. A
  * no-op when the header is absent.
  */
-function removeWorktreeTable(text: string, header: string): string {
+function removeTableBlock(text: string, header: string): string {
   const lines = text.split("\n");
   const idx = lines.findIndex((l) => l.trim() === header);
   if (idx === -1) {

@@ -21,7 +21,7 @@ export const KIT_VERSION: string = denoJson.version;
  * `upgrade` reads the recorded value, brings the install forward, and re-stamps.
  * Most releases need no migration and leave this untouched.
  *
- * The current shape is schema **15**. The chain: schema-1→2 backfills
+ * The current shape is schema **16**. The chain: schema-1→2 backfills
  * `[project].main_branch`; schema-2→3 consolidates the install surface under
  * `.discern/` (config + guidance seeds); schema-3→4 converts
  * `[slots]`→`[capabilities]`/`[checks]`, inlines ratchet runs, folds side-gates
@@ -56,8 +56,12 @@ export const KIT_VERSION: string = denoJson.version;
  * its legacy root default (the guidance seed, the docs tree, authored skills,
  * recipes, the deferred-work ledger, the brief) moves to its `discern/`
  * default from the paths registry, with pointed paths untouched (ADR
- * 0099/0102). See `MIGRATIONS`. A config with no `[meta].schema_version` is
+ * 0099/0102); schema-15→16 **retires the `[features]` toggles** and the
+ * duplicate `[worktree].enabled` key — every subsystem is core, discarded
+ * non-default preferences are named in the notes, and a `features.skills =
+ * false` becomes an authored `[skills].exclude` covering the bundled set (ADR
+ * 0101). See `MIGRATIONS`. A config with no `[meta].schema_version` is
  * read as schema 1 (or a legacy manifest's recorded version), then migrated
  * forward.
  */
-export const SCHEMA_VERSION = 15;
+export const SCHEMA_VERSION = 16;

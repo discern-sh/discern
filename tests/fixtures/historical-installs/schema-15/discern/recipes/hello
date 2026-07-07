@@ -1,0 +1,3 @@
+#!/bin/sh
+# desc: say hello
+echo hello
