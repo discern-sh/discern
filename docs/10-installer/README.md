@@ -100,17 +100,15 @@ reference, the editor [JSON Schema](../../schema/discern-config.schema.json),
 and the rules the engine enforces all come from one source and cannot drift.
 Edit the schema, not the generated files.
 
-> **Status: stub.** This README orients the subtree; the leaves below are not
-> written yet. Fill them with the
-> [`discern-document-subsystem`](../../templates/skills/discern-document-subsystem/SKILL.md)
-> skill.
+## Guides
 
-## Planned leaves
-
-| File _(to be written)_ | What it will cover                                                                           |
-| ---------------------- | -------------------------------------------------------------------------------------------- |
-| `command-surface.md`   | The six verbs, their flags, and the `--json` / exit-code contract.                           |
-| `the-install-plan.md`  | How the bundled seeds become a plan of file ops by disposition (`fs_plan`, token rendering). |
+- [walkthrough.md](walkthrough.md) — one honest session end to end: install →
+  the setup conversation → shipping a first change → `finish` → `graduate`.
+- [what-discern-writes.md](what-discern-writes.md) — the whole footprint (what
+  discern creates, merges into, and keeps), what runs on your machine, and how
+  `discern uninstall` removes it.
+- [faq.md](faq.md) — common questions and troubleshooting, fronted by
+  `discern doctor`.
 
 ## Reference
 

@@ -62,13 +62,13 @@ freely.
 
 | Path                                             | What's in it                                                                                                                                                                                                                                                                                                                                                                                                              |
 | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [10-installer/](10-installer/)                   | The Deno/TypeScript **Installer**: `setup`, `doctor`, `config`, `preset`, the seed scaffolding (`templates/` → your files) and materialized skills, and the Schema-version Migration chain.                                                                                                                                                                                                                               |
+| [10-installer/](10-installer/)                   | The Deno/TypeScript **Installer**: `setup`, `doctor`, `config`, `preset`, `uninstall`, the seed scaffolding (`templates/` → your files) and materialized skills, and the Schema-version Migration chain. New here? Start with the [walkthrough](10-installer/walkthrough.md), then [what discern writes](10-installer/what-discern-writes.md) and the [FAQ](10-installer/faq.md).                                             |
 | [20-quality-gate/](20-quality-gate/)             | `discern finish` and the Capability/Check execution model — fix · build · check · test — plus Scope classification (and Scope gates), Ratchets, and the [`improve`](20-quality-gate/improve.md) continuous-improvement coach.                                                                                                                                                                                             |
 | [30-worktrees/](30-worktrees/)                   | The isolated-Worktree workflow: lifecycle (create · ensure · graduate · teardown · prune), per-Worktree identity (name · port · site · db · resource), and per-Worktree resources (create/destroy + orphan GC).                                                                                                                                                                                                           |
 | [40-agent-guidance/](40-agent-guidance/)         | Author-once → compile-everywhere: the Guidance source, the `discern refresh` compiler, the Compiled agent files, and the bundled Skills.                                                                                                                                                                                                                                                                                  |
-| [50-engine-internals/](50-engine-internals/)     | The TypeScript **engine** compiled into the binary — the verb dispatcher, the job runner, scope classification, config access, output, and the failure-pointer wording.                                                                                                                                                                                                                                                   |
+| [50-engine-internals/](50-engine-internals/)     | The TypeScript **engine** compiled into the binary — the verb dispatcher, the job runner, scope classification, config access, output, and the failure-pointer wording. Contributor-facing: not bundled into `discern help`.                                                                                                                                                                                              |
 | [60-agent-integrations/](60-agent-integrations/) | Provider-specific integration guides: the files discern writes for each supported coding agent, their trust gates, and their daily-use gotchas.                                                                                                                                                                                                                                                                           |
-| [80-development/](80-development/)               | Working on discern: getting set up, the [notes for humans](80-development/for-humans.md) (IDE setup and local prerequisites), the testing approach, code conventions, the [install surface](80-development/install-surface.md) (what an install contains, yours vs the binary's), and the [finish-gate gotchas](80-development/finish-gate-gotchas.md) the quality gate points at when a step fails in a non-obvious way. |
+| [80-development/](80-development/)               | Working on discern: getting set up, the [notes for humans](80-development/for-humans.md) (IDE setup and local prerequisites), the testing approach, code conventions, the [install surface](80-development/install-surface.md) (what an install contains, yours vs the binary's), and the [finish-gate gotchas](80-development/finish-gate-gotchas.md) the quality gate points at when a step fails in a non-obvious way. Contributor-facing: not bundled into `discern help`. |
 
 ### Reference material
 
@@ -78,14 +78,17 @@ freely.
 | [_internal/](_internal/) | The documenter brief and per-subtree scope manifests for writing and refreshing this tree. Methodology, not user-facing; kept for reproducibility (and seeded into every install's own tree).                                                                 |
 | [_private/](_private/)   | discern-only material that never ships to users — the maintainer's notes, positioning, and research. Never embedded in a binary and never surfaced by `help`.                                                                                                 |
 
-The three reference trees map onto how `discern help` curates them: the numbered
-subtrees above are **public** (always shipped); `_adr/` is **internal but
-opt-in** (shipped, revealed only by `--adr`); and `_internal/` and `_private/`
-(and any other `_`-prefixed tree) are **private** — excluded from the binary and
-the `help` view by default. The single allowlist of what ships is
-`BUNDLED_INTERNAL_DOC_DIRS` in [`src/lib/paths.ts`](../src/lib/paths.ts), so a
-new private tree is safe the moment it is created, with no list to remember (a
-guard test pins this — `tests/docs_curation_test.ts`).
+How `discern help` curates these trees: the **user-relevant** numbered subtrees
+ship in every binary; `_adr/` is **internal but opt-in** (shipped, revealed only
+by `--adr`); and the **contributor** trees (`50-engine-internals/`,
+`80-development/`) plus every `_`-prefixed private tree (`_internal/`,
+`_private/`) are **excluded** from the binary — a user browsing `discern help`
+sees how to operate the harness, not how it is built or the maintainer's notes.
+Two allowlists in [`src/lib/paths.ts`](../src/lib/paths.ts) decide it —
+`BUNDLED_PUBLIC_DOC_DIRS` (the user-relevant public trees) and
+`BUNDLED_INTERNAL_DOC_DIRS` (the ADRs) — so a tree ships only when named, a new
+private tree is safe the moment it is created, and a guard test pins it
+(`tests/docs_curation_test.ts`).
 
 ---
 
