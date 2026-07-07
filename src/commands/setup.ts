@@ -59,6 +59,7 @@ import {
   guidanceRefreshErrors,
   guidanceRefreshSucceeded,
 } from "../engine/guidelines.ts";
+import { renderAgentFiles } from "../engine/guidance_render.ts";
 import { doctorResult } from "./doctor.ts";
 import { finishResult } from "../engine/gate/finish.ts";
 import {
@@ -70,7 +71,7 @@ import { resolveDefaultAgents } from "../lib/detect_agents.ts";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { CONFIG_REL, findRoot } from "../shared/env.ts";
 import { emitResult } from "../shared/emit.ts";
-import { findSkeletonMarkers } from "../shared/setup_state.ts";
+import { findSkeletonMarkers, SETUP_BRANCH } from "../shared/setup_state.ts";
 import {
   getSetupPage,
   renderSetupBegin,
@@ -590,6 +591,14 @@ async function scaffoldHarness(
       ...hints,
     ];
   }
+  if (seeded.skippedOwnRender.length > 0) {
+    hints = [
+      `Skipped importing ${
+        seeded.skippedOwnRender.join(", ")
+      } into ${guidanceRel} — it matches discern's own compiled output (a leftover of an earlier setup), not your authoring.`,
+      ...hints,
+    ];
+  }
 
   const written = changed.map((op) => op.targetRel);
   if (seeded.guidanceLaid) {
@@ -618,10 +627,15 @@ async function scaffoldHarness(
  * pre-existing, hand-authored agent file into it so the compile that follows
  * can't destroy the user's instructions (ADR 0065).
  *
- * On a FRESH install no discern-generated agent file can exist (discern writes them
- * only via a compile, which needs a config), so every `CLAUDE.md`/`AGENTS.md`/
- * `GEMINI.md` already on disk is the USER's — its body is folded into the source
- * under a labelled heading, deduped by content so identical mirrors migrate once.
+ * On a FRESH install no discern-generated agent file SHOULD exist (discern writes
+ * them only via a compile, which needs a config) — but one can survive an
+ * abandoned earlier setup, because the compiled files are gitignored and outlive
+ * a branch switch or a deleted `discern-setup` branch. So a candidate is treated
+ * as the USER's — its body folded into the source under a labelled heading,
+ * deduped by content so identical mirrors migrate once — only when it does NOT
+ * match discern's own render for that path ({@link renderAgentFiles} is
+ * deterministic from config + sources, so the comparison is exact and cheap);
+ * a match is skipped and reported, never re-imported as if it were authoring.
  * The stub is laid only when the source is absent, so a re-run never clobbers the
  * agent's work; on a `--force` re-run the user's content is already in the source
  * from the first run, so migration is skipped.
@@ -631,12 +645,27 @@ async function seedGuidance(
   guidanceRel: string,
   config: SetupConfig,
   freshInstall: boolean,
-): Promise<{ guidanceLaid: boolean; migrated: string[] }> {
+): Promise<{
+  guidanceLaid: boolean;
+  migrated: string[];
+  skippedOwnRender: string[];
+}> {
   const guidancePath = join(root, guidanceRel);
 
   // Capture pre-existing user agent files (fresh install only — see above).
   const migrated: { file: string; body: string }[] = [];
+  const skippedOwnRender: string[] = [];
   if (freshInstall) {
+    // Discern's own compiled content for each agent-file path, rendered from the
+    // just-scaffolded config + the on-disk sources — the exact bytes a refresh
+    // would write. Unavailable (undefined) when the config can't load; the
+    // migration then proceeds as before rather than blocking the scaffold.
+    let ownRender: Map<string, string> | undefined;
+    try {
+      ownRender = await renderAgentFiles(root);
+    } catch {
+      ownRender = undefined;
+    }
     const seen = new Set<string>();
     for (const agent of config.agents) {
       const rel = providerFor(agent)?.guidanceFile.path;
@@ -651,6 +680,12 @@ async function seedGuidance(
       }
       if (body.length === 0 || seen.has(body)) {
         continue; // empty, or an identical mirror already captured
+      }
+      if (ownRender?.get(rel)?.trim() === body) {
+        // A survivor of an abandoned setup, not the user's authoring — importing
+        // it would fold discern's own compiled guidance back into the source.
+        skippedOwnRender.push(rel);
+        continue;
       }
       seen.add(body);
       migrated.push({ file: rel, body });
@@ -689,7 +724,11 @@ async function seedGuidance(
     await ensureDir(dirname(guidancePath));
     await Deno.writeTextFile(guidancePath, content + appended);
   }
-  return { guidanceLaid, migrated: migrated.map((m) => m.file) };
+  return {
+    guidanceLaid,
+    migrated: migrated.map((m) => m.file),
+    skippedOwnRender,
+  };
 }
 
 /**
@@ -834,7 +873,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   const log = new Logger(opts);
   const destDir = await resolveSetupRoot(Deno.cwd());
   const existingConfig = await resolveConfigPath(destDir);
-  const freshInstall = existingConfig === undefined;
+  let freshInstall = existingConfig === undefined;
 
   // Already set up → setup is a no-op unless --force re-seeds. An unparseable
   // config is treated as not-set-up so the agent can repair it.
@@ -899,6 +938,14 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
       return stop; // dirty tree — error already emitted, nothing written
     }
     setupBranch = branch;
+    // The checkout may have been a RESUME: an abandoned setup's config lives in
+    // commits on the pre-existing `discern-setup` branch, so checking it out just
+    // materialized a half-finished install that looked fresh from the branch we
+    // started on. Recompute, so the paths below reprint the brief instead of
+    // re-scaffolding over (and re-importing) the earlier run's work.
+    if (branch !== undefined) {
+      freshInstall = (await resolveConfigPath(destDir)) === undefined;
+    }
   }
 
   // --- Phase 1: scaffold the machinery (fresh install, or --force refresh) ---
@@ -1106,10 +1153,6 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   console.log(heavyRule);
   return 0;
 }
-
-/** The branch `discern setup` creates so a fresh install never lands on — or commits
- * to — the user's current branch. */
-const SETUP_BRANCH = "discern-setup";
 
 /**
  * Before a FRESH scaffold writes anything, isolate the work on its own branch

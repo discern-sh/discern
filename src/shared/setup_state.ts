@@ -16,6 +16,26 @@ import { KNOWN_CAPABILITIES } from "./capabilities.ts";
 import { type DiscernConfig, loadConfig } from "./config_schema.ts";
 import { normalizeDocsDir } from "./docs_path.ts";
 import { guidanceSeedRel, SOURCE_PATHS } from "./paths_registry.ts";
+import { runGit } from "./subprocess.ts";
+
+/** The branch a fresh `discern setup` isolates its work on, so its several
+ * commits never land on — or pollute — the user's current branch (ADR 0065). */
+export const SETUP_BRANCH = "discern-setup";
+
+/**
+ * True when a setup branch exists in `dir`'s repository. From a branch WITHOUT
+ * `discern.toml` (the config lives only in commits on {@link SETUP_BRANCH}),
+ * this is the signal that setup is half-finished, not fresh — the first-contact
+ * surfaces route to the resume path (check the branch out) instead of the fresh
+ * funnel, whose re-scaffold would fold discern's own compiled output back into
+ * the guidance source.
+ */
+export async function setupBranchExists(dir: string): Promise<boolean> {
+  return (await runGit(
+    ["rev-parse", "--verify", "--quiet", `refs/heads/${SETUP_BRANCH}`],
+    { cwd: dir },
+  )).success;
+}
 
 /**
  * Work verbs that refuse until the project records `[meta].bootstrapped`

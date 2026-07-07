@@ -46,7 +46,11 @@ import {
   deriveConsentContext,
 } from "../shared/setup_messages.ts";
 import { SOURCE_PATHS } from "../shared/paths_registry.ts";
-import { setupPhaseOf } from "../shared/setup_state.ts";
+import {
+  SETUP_BRANCH,
+  setupBranchExists,
+  setupPhaseOf,
+} from "../shared/setup_state.ts";
 
 /** Options for the read-only preflight (just the global flags — it takes no input). */
 export interface VerifyOptions {
@@ -87,6 +91,25 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
     const redirect: SetupVerifyData = {
       phase,
       next_action: phase === "done" ? "discern status" : "discern setup done",
+    };
+    if (opts.json) {
+      log.result({ ok: true, verb: "setup verify", data: redirect });
+    } else {
+      console.log(message);
+    }
+    return 0;
+  }
+
+  // No config HERE, but a `discern-setup` branch exists carrying setup's work: an
+  // abandoned half-finished setup, not a fresh install. Redirect to the resume —
+  // funneling toward `begin` from this branch would re-scaffold over it.
+  if (await setupBranchExists(destDir)) {
+    const message =
+      `Setup has already begun on the \`${SETUP_BRANCH}\` branch, and you are not on it. ` +
+      `Check it out (\`git checkout ${SETUP_BRANCH}\`) and continue from there — don't start setup again from this branch.`;
+    const redirect: SetupVerifyData = {
+      phase: "in_progress",
+      next_action: `git checkout ${SETUP_BRANCH}`,
     };
     if (opts.json) {
       log.result({ ok: true, verb: "setup verify", data: redirect });

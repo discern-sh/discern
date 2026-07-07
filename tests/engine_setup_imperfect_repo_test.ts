@@ -13,6 +13,7 @@ import { exists } from "@std/fs";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import { git, gitInit, gitOut, runAgent } from "./engine_helpers.ts";
+import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 
 /** A fresh git work tree with one commit — on the given branch, not `main`. */
 async function repoOnBranch(dir: string, branch: string): Promise<void> {
@@ -125,5 +126,115 @@ Deno.test("begin on an unborn-main repo stamps main, and land serves the creatio
     assertEquals(land.code, 0, land.output);
     assertEquals(await gitOut(dir, "branch", "--show-current"), "main");
     assert(await exists(join(dir, "discern.toml")), "the harness landed on main");
+  });
+});
+
+// ── B7: an abandoned setup resumes instead of compounding ─────────────────────
+
+Deno.test("an abandoned setup routes first contact to the resume, and re-begin resumes instead of re-scaffolding", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+    await gitInit(dir);
+    const first = await runAgent(dir, [
+      "setup",
+      "begin",
+      "--confirmed",
+      "--agents",
+      "claude_code",
+    ]);
+    assertEquals(first.code, 0, first.output);
+
+    // Abandon mid-setup: switch back to main. The config lives only in commits
+    // on discern-setup; the compiled agent files are gitignored and survive.
+    await git(dir, "checkout", "-q", "main");
+    assert(!(await exists(join(dir, "discern.toml"))), "config is branch-only");
+
+    // The welcome routes to the resume, not the FRESH funnel.
+    const w = JSON.parse((await runAgent(dir, ["setup", "--json"])).stdout)
+      .data;
+    assertEquals(w.phase, "in_progress");
+    assertStringIncludes(w.next_action, "git checkout discern-setup");
+    assertStringIncludes(w.agent_guidance, "do NOT start setup again");
+    const human = (await runAgent(dir, ["setup"])).stdout;
+    assertStringIncludes(human, "IN PROGRESS");
+    assertStringIncludes(human, "git checkout discern-setup");
+    assert(
+      !human.includes("This project isn't set up yet"),
+      `the fresh welcome must not show over an abandoned setup:\n${human}`,
+    );
+
+    // verify routes the same way.
+    const v = JSON.parse(
+      (await runAgent(dir, ["setup", "verify", "--json"])).stdout,
+    ).data;
+    assertEquals(v.phase, "in_progress");
+    assertStringIncludes(v.next_action, "git checkout discern-setup");
+
+    // A re-begin from main RESUMES: the existing branch is checked out, the
+    // materialized install is recognized (nothing re-scaffolded), and nothing of
+    // discern's own compiled output is imported into the guidance source.
+    const re = await runAgent(dir, [
+      "setup",
+      "begin",
+      "--confirmed",
+      "--json",
+      "--agents",
+      "claude_code",
+    ]);
+    assertEquals(re.code, 0, re.output);
+    const reData = JSON.parse(re.stdout).data;
+    assertEquals(reData.written, [], "a resume must not re-scaffold");
+    const guidance = await Deno.readTextFile(
+      join(dir, SOURCE_PATHS.guidance.defaultPath),
+    );
+    assert(
+      !guidance.includes("Imported from"),
+      `discern's own compiled output was imported into guidance:\n${guidance}`,
+    );
+  });
+});
+
+Deno.test("re-begin never imports a surviving compiled agent file that matches discern's own render", async () => {
+  // The harder abandonment: the setup branch was DELETED, so the install really
+  // is fresh again — but the gitignored compiled agent file survived on disk.
+  // The exact-match guard must recognize it as discern's own output and skip the
+  // "Imported from" migration (it is not the user's authoring), and say so.
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+    await gitInit(dir);
+    const first = await runAgent(dir, [
+      "setup",
+      "begin",
+      "--confirmed",
+      "--agents",
+      "claude_code",
+    ]);
+    assertEquals(first.code, 0, first.output);
+    await git(dir, "checkout", "-q", "main");
+    await git(dir, "branch", "-D", "discern-setup");
+    assert(await exists(join(dir, "CLAUDE.md")), "the compiled file survives");
+
+    const re = await runAgent(dir, [
+      "setup",
+      "begin",
+      "--confirmed",
+      "--json",
+      "--agents",
+      "claude_code",
+    ]);
+    assertEquals(re.code, 0, re.output);
+    const guidance = await Deno.readTextFile(
+      join(dir, SOURCE_PATHS.guidance.defaultPath),
+    );
+    assert(
+      !guidance.includes("Imported from"),
+      `discern's own compiled output was imported into guidance:\n${guidance}`,
+    );
+    // …and the skip is reported, not silent.
+    const hints: string[] = JSON.parse(re.stdout).hints ?? [];
+    assert(
+      hints.some((h) => h.includes("discern's own compiled output")),
+      `expected a skip hint: ${JSON.stringify(hints)}`,
+    );
   });
 });

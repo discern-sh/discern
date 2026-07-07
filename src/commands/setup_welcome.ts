@@ -20,6 +20,8 @@ import { emitResult } from "../shared/emit.ts";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { findRoot } from "../shared/env.ts";
 import {
+  SETUP_BRANCH,
+  setupBranchExists,
   setupNextAction,
   setupPhaseOf,
   type SetupProgress,
@@ -69,6 +71,9 @@ const FRESH_HUMAN_FRAMING =
 const IN_PROGRESS_AGENT_GUIDANCE =
   "Finishing setup is YOUR job, not a status to report back. Continue the setup brief, then run `discern setup done` to validate and record completion — and don't tell the user setup is done until it passes. Reprint the brief any time with `discern setup begin` (idempotent; it won't touch your work).";
 
+const ABANDONED_AGENT_GUIDANCE =
+  `Setup is already in progress on the \`${SETUP_BRANCH}\` branch — resume it there; do NOT start setup again from this branch (that would re-scaffold over the half-finished install). Check the branch out (\`git checkout ${SETUP_BRANCH}\`), reprint the brief with \`discern setup begin\`, continue it, then run \`discern setup done\` to finish.`;
+
 /**
  * Render the welcome for the cwd's project, resolving its lifecycle phase from config
  * presence + the setup completion marker. Read-only and non-fatal: an unparseable config is
@@ -89,6 +94,28 @@ export async function runSetupWelcome(opts: WelcomeOptions): Promise<number> {
     }
   }
   const phase = setupPhaseOf({ hasConfig, bootstrapped });
+
+  // A half-finished setup abandoned from another branch: no config HERE, but a
+  // `discern-setup` branch exists carrying setup's work. Route to the resume
+  // surface — the fresh funnel would walk the agent into re-scaffolding over it.
+  if (phase === "fresh" && await setupBranchExists(Deno.cwd())) {
+    if (opts.json) {
+      emitResult({
+        ok: true,
+        verb: "setup",
+        data: {
+          phase: "in_progress",
+          complete: false,
+          next_action: `git checkout ${SETUP_BRANCH}`,
+          agent_guidance: ABANDONED_AGENT_GUIDANCE,
+        },
+      });
+      return 0;
+    }
+    console.log(abandonedSetupWelcome().join("\n"));
+    return 0;
+  }
+
   const next = setupNextAction(phase);
   const progress = phase === "in_progress" && root !== undefined &&
       config !== undefined
@@ -394,6 +421,31 @@ function styledFreshWelcome(): string[] {
     ),
     boxLine(dim("carry it through.")),
     boxBottom(),
+  ];
+}
+
+/** The abandoned-mid-setup welcome: a `discern-setup` branch exists with setup's
+ * work, but the current branch has no config — the resume is to check the branch
+ * out, never to re-enter the fresh funnel (whose re-scaffold would pollute the
+ * half-finished install). */
+function abandonedSetupWelcome(): string[] {
+  return [
+    "discern setup is IN PROGRESS here — not yet finished.",
+    "",
+    `A \`${SETUP_BRANCH}\` branch exists carrying setup's work so far, but you are`,
+    "not on it.",
+    "",
+    "Agents: resume the setup there — do NOT start setup again from this branch",
+    "(that would re-scaffold over the half-finished install). Your next actions:",
+    "",
+    `    git checkout ${SETUP_BRANCH}`,
+    "    discern setup begin        (reprints the brief; idempotent)",
+    "",
+    "Then continue the brief and run `discern setup done` to finish.",
+    "",
+    `Humans: your coding agent left setup half-done on the \`${SETUP_BRANCH}\``,
+    "branch. It can pick up right where it left off — or roll everything back by",
+    "deleting that branch.",
   ];
 }
 
