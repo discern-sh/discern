@@ -51,20 +51,10 @@ the engine generalization of the installer's
 from (gate job derivation, scope-gate selection, the prune-GC reclaim decision)
 is factored into pure functions, unit-tested with no subprocess.
 
-> **Status: stub.** This README orients the subtree; the leaves below are not
-> written yet. Fill them with the
-> [`discern-document-subsystem`](../../templates/skills/discern-document-subsystem/SKILL.md)
-> skill.
+This tree is contributor-facing — internals for people working ON discern — so
+it is not bundled into `discern help`; read it here or on GitHub.
 
-## Planned leaves
-
-| File _(to be written)_    | What it will cover                                                                                                     |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `the-dispatcher.md`       | Root-finding (`discern.toml`), dispatch, engine-wins-on-collision, the typo suggester, `--help`.                       |
-| `the-job-runner.md`       | Serial/parallel staging, labelling, fail-fast tree-kill, and the structured channel.                                   |
-| `the-plan-apply-model.md` | The engine `Plan` vocabulary, the thin executors, the one renderer, and how `--dry-run` / `--json` derive from a plan. |
-
-## Reference
+## In this section
 
 - [config-access.md](config-access.md) — reading `discern.toml` via the typed
   schema, the paths registry and resolvers, and the `discern config` surface.

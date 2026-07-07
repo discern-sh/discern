@@ -73,24 +73,11 @@ build if a new agent isn't handled across every surface, so the integrations
 cannot drift as agents are added
 ([ADR 0043](../_adr/0043-registry-derived-agent-parity.md)).
 
-> **Status: stub.** This README orients the subtree; the leaves below are not
-> written yet. Fill them with the
-> [`discern-document-subsystem`](../../templates/skills/discern-document-subsystem/SKILL.md)
-> skill.
-
-## Reference
+## In this section
 
 - [the-templating-engine.md](the-templating-engine.md) — the `{{var}}` /
   `{{#if}}` engine that renders the built-in sections against committed config,
   its strictness, and the config-only invariant.
-
-## Planned leaves
-
-| File _(to be written)_     | What it will cover                                                                                                   |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `the-guidelines-recipe.md` | How `discern refresh` assembles built-in + sources into per-agent files and banners.                                 |
-| `the-compiled-files.md`    | The agent-file targets, the `[guidance].agents` selector, tracked vs gitignored, the do-not-edit rule.               |
-| `bundled-skills.md`        | What each shipped Skill does, the built-in/authored override rule, and how the agents' skills dirs are materialized. |
 
 ## See also
 

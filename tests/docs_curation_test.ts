@@ -14,6 +14,7 @@ import { assert, assertEquals } from "@std/assert";
 import { dirname, fromFileUrl, join } from "@std/path";
 import {
   BUNDLED_INTERNAL_DOC_DIRS,
+  BUNDLED_PUBLIC_DOC_DIRS,
   isBundledDocEntry,
 } from "../src/lib/paths.ts";
 import { discoverDocs } from "../src/lib/docs.ts";
@@ -29,15 +30,24 @@ async function topLevelDocEntries(): Promise<string[]> {
 }
 
 Deno.test("isBundledDocEntry ships public + the ADR allowlist, and nothing else internal", () => {
-  // Public entries and the root README ship; the never-ship private trees do not.
+  // Allowlisted public entries and the root README ship; the never-ship private
+  // trees do not.
   assert(isBundledDocEntry("00-orientation"));
   assert(isBundledDocEntry("README.md"));
   assertEquals(isBundledDocEntry("_internal"), false);
   assertEquals(isBundledDocEntry("_private"), false);
   // A brand-new `_`-prefixed tree is private by default — no list to update.
   assertEquals(isBundledDocEntry("_anything-new"), false);
-  // Exactly the allowlist ships among the internal trees.
+  // The contributor/engine-internals trees are for people working ON discern,
+  // not using it — they never ship in a customer binary.
+  assertEquals(isBundledDocEntry("50-engine-internals"), false);
+  assertEquals(isBundledDocEntry("80-development"), false);
+  // Exactly the allowlists ship — the ADR internal tree, and every user-relevant
+  // public tree.
   for (const allowed of BUNDLED_INTERNAL_DOC_DIRS) {
+    assert(isBundledDocEntry(allowed), `${allowed} should be bundled`);
+  }
+  for (const allowed of BUNDLED_PUBLIC_DOC_DIRS) {
     assert(isBundledDocEntry(allowed), `${allowed} should be bundled`);
   }
 });
@@ -52,6 +62,20 @@ Deno.test("the real docs/ tree embeds only public docs + the allowlist", async (
   assertEquals(internalEmbedded.sort(), [...BUNDLED_INTERNAL_DOC_DIRS].sort());
   assert(!embedded.includes("_private"), "_private must never be embedded");
   assert(!embedded.includes("_internal"), "_internal must never be embedded");
+
+  // Every allowlisted public tree ships; the contributor/engine-internals trees
+  // never do (a user's binary is for operating the harness, not building it).
+  for (const dir of BUNDLED_PUBLIC_DOC_DIRS) {
+    assert(embedded.includes(dir), `${dir} should be embedded`);
+  }
+  assert(
+    !embedded.includes("50-engine-internals"),
+    "engine-internals must not ship in a user binary",
+  );
+  assert(
+    !embedded.includes("80-development"),
+    "the development tree must not ship in a user binary",
+  );
 
   // Every top-level dir is either a numbered public subtree or `_`-prefixed —
   // nothing can be private-by-intent yet ship because someone forgot the prefix.

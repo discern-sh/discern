@@ -213,15 +213,41 @@ export const BUNDLED_DOCS_STAGE_DIR = ".discern-help-docs";
 export const BUNDLED_INTERNAL_DOC_DIRS: readonly string[] = ["_adr"];
 
 /**
- * Whether a top-level `docs/` entry (a public subtree, the root `README`, or an
- * allowlisted internal tree) is embedded into the binary for `discern help`.
- * Default-DENY: a `_`-prefixed tree ships only when named in
- * {@link BUNDLED_INTERNAL_DOC_DIRS}, so `_internal` / `_private` (and any future
- * private tree) are excluded automatically. The one predicate the build filters
- * on and the curation guard test pins.
+ * The public docs subtrees a customer binary ships for `discern help` — the
+ * user-relevant trees, ALLOWLISTED so a contributor/engine-internals tree never
+ * leaks into every user's binary. `50-engine-internals` and `80-development` are
+ * for people working ON discern (the dispatcher's internals, the Deno tasks, the
+ * install surface), not people using it, so they are deliberately absent: a user
+ * browsing `discern help` should see how to operate the harness, not how it is
+ * built. The one list the embed and the curation guard test read.
+ */
+export const BUNDLED_PUBLIC_DOC_DIRS: readonly string[] = [
+  "00-orientation",
+  "10-installer",
+  "20-quality-gate",
+  "30-worktrees",
+  "40-agent-guidance",
+  "60-agent-integrations",
+];
+
+/**
+ * Whether a top-level `docs/` entry is embedded into the binary for
+ * `discern help`. Allowlisted, default-DENY on every axis: a `_`-prefixed tree
+ * ships only when named in {@link BUNDLED_INTERNAL_DOC_DIRS} (the ADRs), a
+ * numbered subtree only when it is a user-relevant one in
+ * {@link BUNDLED_PUBLIC_DOC_DIRS} (so the engine-internals and development trees
+ * stay out), and a root-level Markdown file (the docs front door) always ships.
+ * The one predicate `scripts/build.ts` filters the embed on — keeping the binary
+ * and the guard test on a single source (ADR 0051).
  */
 export function isBundledDocEntry(name: string): boolean {
-  return !name.startsWith("_") || BUNDLED_INTERNAL_DOC_DIRS.includes(name);
+  if (name.startsWith("_")) {
+    return BUNDLED_INTERNAL_DOC_DIRS.includes(name);
+  }
+  if (!name.includes("/") && name.endsWith(".md")) {
+    return true; // a root-level doc (the front-door README)
+  }
+  return BUNDLED_PUBLIC_DOC_DIRS.includes(name);
 }
 
 /**

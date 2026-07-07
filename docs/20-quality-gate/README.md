@@ -74,23 +74,15 @@ sibling a change is likely missing. It is purely advisory and **never blocks**
 canonical-set discipline (ADR 0051) that the gate's parity tests enforce
 ([ADR 0084](../_adr/0084-co-change-coupling-advisory.md)).
 
-> **Status: stub.** This README orients the subtree; the leaves below are not
-> written yet (except the written [`improve.md`](improve.md) and
-> [`the-result-envelope.md`](the-result-envelope.md)). Fill the rest with the
-> [`discern-document-subsystem`](../../templates/skills/discern-document-subsystem/SKILL.md)
-> skill.
+## In this section
 
-## Planned leaves
-
-| File _(to be written)_                                         | What it will cover                                                                                                                                                                                                            |
-| -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `the-finish-stages.md`                                         | The Stage order, serial-vs-parallel rules, fail-fast, and the gotchas pointer on fail.                                                                                                                                        |
-| [`ci.md`](ci.md) _(written)_                                   | How to run `discern finish` on GitHub Actions so the gate protects `main` outside local runs.                                                                                                                                 |
-| `capabilities-and-checks.md`                                   | The five known Capabilities, the derived Stage, custom Checks, and how the Engine finds them.                                                                                                                                 |
-| `scopes-and-gates.md`                                          | Scope globs, fail-open classification, and wiring a Scope `gate` (ADR 0018).                                                                                                                                                  |
-| `ratchets.md`                                                  | Never-loosen floors/ceilings, raw counts vs `per` rates, the `DISCERN_METRIC` protocol, holding against `main`.                                                                                                               |
-| [`the-result-envelope.md`](the-result-envelope.md) _(written)_ | The `DiscernResult` envelope every verb returns, its `diagnostics[]`, the typed result schemas, and `discern mcp`'s self-describing surface (ADR 0028, ADR 0041).                                                             |
-| [`coupling.md`](coupling.md) _(written)_                       | The co-change advisory: the zero-config self-calibrating metric (counts + a log-likelihood-ratio significance test + an IQR size fence), the diff-aware, query, and evidence modes, and the default-off gate hint (ADR 0084). |
+| Leaf                                             | What it covers                                                                                                                                                                                       |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`ratchets.md`](ratchets.md)                     | Never-loosen floors and ceilings, raw counts versus `per` rates, the `DISCERN_METRIC` protocol, and what to do when one fires.                                                                        |
+| [`the-result-envelope.md`](the-result-envelope.md) | The `DiscernResult` envelope every verb returns, its `diagnostics[]`, the typed result schemas, and `discern mcp`'s self-describing surface (ADR 0028, ADR 0041).                                     |
+| [`ci.md`](ci.md)                                 | How to run `discern finish` on GitHub Actions so the gate protects `main` outside local runs, and what an ephemeral cloud-agent environment sees without the binary.                                  |
+| [`improve.md`](improve.md)                       | The continuous-improvement coach — what should get better next, versus the gate's did-this-pass.                                                                                                      |
+| [`coupling.md`](coupling.md)                     | The co-change advisory: the self-calibrating metric, the diff-aware/query/evidence modes, and the default-off gate hint (ADR 0084).                                                                   |
 
 ## See also
 
