@@ -171,6 +171,49 @@ Deno.test("verify in a non-git directory serves git-init-first and promises no i
   });
 });
 
+// ── C11: the welcome shows where it's needed most ──────────────────────────────
+
+Deno.test("bare `discern` in a non-git directory shows the welcome (leading with git init), not raw CLI help", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+    const r = await runAgent(dir, []);
+    assertEquals(r.code, 0, r.output);
+    // The curated first contact, dual-addressed — not the operator help.
+    assertStringIncludes(r.stdout, "FOR HUMANS");
+    assertStringIncludes(r.stdout, "FOR CODING AGENTS");
+    assert(
+      !r.stdout.includes("Usage:"),
+      `raw CLI help must not be the no-git first contact:\n${r.stdout}`,
+    );
+    // …and it leads with the git-init step (there is no isolation without git).
+    assertStringIncludes(r.stdout, "git init");
+    // The welcome writes nothing, in a stray dir least of all.
+    assert(!(await exists(join(dir, "discern.toml"))));
+  });
+});
+
+Deno.test("the fresh welcome carries the git-init note only in a non-git directory", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+    // Non-git: the note rides both surfaces.
+    const nonGit = await runAgent(dir, ["setup"]);
+    assertStringIncludes(nonGit.stdout, "isn't a git repository yet");
+    const nonGitJson = JSON.parse(
+      (await runAgent(dir, ["setup", "--json"])).stdout,
+    ).data;
+    assertStringIncludes(nonGitJson.human_framing, "git init");
+
+    // With git: no note on either surface.
+    await gitInit(dir);
+    const withGit = await runAgent(dir, ["setup"]);
+    assert(!withGit.stdout.includes("isn't a git repository yet"));
+    const withGitJson = JSON.parse(
+      (await runAgent(dir, ["setup", "--json"])).stdout,
+    ).data;
+    assert(!withGitJson.human_framing.includes("git init"));
+  });
+});
+
 // ── C10: a copied placeholder can't scaffold ───────────────────────────────────
 
 Deno.test("isValidDocsDir rejects the placeholder class, not one instance", () => {

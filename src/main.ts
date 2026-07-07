@@ -11,7 +11,6 @@ import { Command } from "@cliffy/command";
 import { KIT_VERSION } from "./lib/version.ts";
 import { operatorHelp } from "./cli_help.ts";
 import { emitResult } from "./shared/emit.ts";
-import { runGit } from "./shared/subprocess.ts";
 import {
   AGENT_NAMES,
   ConfigParseError,
@@ -663,25 +662,18 @@ async function resolveProjectState(): Promise<ProjectState> {
 /**
  * Whether a bare `discern` (no verb) should print the setup WELCOME rather than help.
  * In a project: whenever setup is still outstanding (the resume path). Not in a
- * project: only when the cwd is a git work tree — the freshly-installed "tell your
- * agent to run discern" path — so a bare `discern` in a stray directory shows help,
- * not a welcome for a project that will never exist there (the explicit `discern
- * setup` always welcomes). The welcome itself writes nothing (ADR 0036/0075).
+ * project: always — including outside a git work tree. That last case was once
+ * restricted "to avoid touching a stray dir", but the welcome writes nothing, so
+ * there was never anything to avoid — while the cost was real: the no-git novice
+ * (the user the curated first contact exists for) got raw CLI help at exactly the
+ * moment the install message said "run discern". The welcome now leads the non-git
+ * case with the `git init` step; explicit help stays one `--help` away.
  */
-async function shouldWelcomeBare(
+function shouldWelcomeBare(
   inProject: boolean,
   bootstrapped: boolean,
-): Promise<boolean> {
-  if (inProject) {
-    return !bootstrapped;
-  }
-  return await isGitWorkTree(Deno.cwd());
-}
-
-/** True when `dir` is inside a git work tree (cheap `git rev-parse` probe). */
-async function isGitWorkTree(dir: string): Promise<boolean> {
-  return (await runGit(["rev-parse", "--is-inside-work-tree"], { cwd: dir }))
-    .success;
+): boolean {
+  return inProject ? !bootstrapped : true;
 }
 
 /**
@@ -724,10 +716,11 @@ export async function main(args: string[]): Promise<void> {
     // Bare `discern`: pre-setup, this prints the read-only WELCOME — the install
     // message tells the user to "tell your coding agent to run discern" (ADR 0036),
     // and the welcome dual-addresses both readers and funnels the agent into the
-    // staged handshake (ADR 0075). It writes nothing. Once the project is set up (or
-    // outside a git repo, to avoid touching a stray dir), it falls through to help.
+    // staged handshake (ADR 0075). It writes nothing, so it shows even in a non-git
+    // directory (leading with the git-init step); once the project is set up, bare
+    // `discern` falls through to help.
     if (verb === undefined) {
-      if (await shouldWelcomeBare(inProject, bootstrapped)) {
+      if (shouldWelcomeBare(inProject, bootstrapped)) {
         Deno.exit(
           await runSetupWelcome({
             json: false,

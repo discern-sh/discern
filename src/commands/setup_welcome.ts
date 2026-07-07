@@ -19,6 +19,7 @@
 import { emitResult } from "../shared/emit.ts";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { findRoot } from "../shared/env.ts";
+import { runGit } from "../shared/subprocess.ts";
 import {
   SETUP_BRANCH,
   setupBranchExists,
@@ -40,6 +41,13 @@ export interface WelcomeOptions {
 export interface WelcomeStyleMode {
   /** True only for an interactive TTY when colour has not been disabled. */
   tty: boolean;
+}
+
+/** The repo facts the fresh welcome grounds itself in — today just whether the
+ * directory is a git work tree, so a no-git first contact leads with the
+ * `git init` step instead of promising the isolated branch it can't deliver. */
+export interface WelcomeContext {
+  gitRepo: boolean;
 }
 
 /** Inputs at the command edge that decide whether to use the styled render. */
@@ -67,6 +75,12 @@ const FRESH_AGENT_GUIDANCE =
 
 const FRESH_HUMAN_FRAMING =
   "discern adds a quality gate, isolated git worktrees, and shared agent instructions to this repo, tailored to your codebase by your own coding agent — isolated, reversible, and with no API key. Everything it adds lands in one root file (discern.toml) and one visible discern/ folder; nothing else in the repo is touched. Expect roughly 20–40 minutes and a meaningful number of tokens. Point your most capable model at it: setup is one-time and high-leverage.";
+
+/** The leading note a non-git first contact carries on both surfaces: the very
+ * first step is `git init` — the isolation and undo story every other welcome
+ * sentence relies on doesn't exist until it runs. */
+const FRESH_NON_GIT_NOTE =
+  "This folder isn't a git repository yet — setup's first step is `git init` (git is what makes setup isolated, reversible, and easy to undo); `discern setup verify` walks you through it.";
 
 const IN_PROGRESS_AGENT_GUIDANCE =
   "Finishing setup is YOUR job, not a status to report back. Continue the setup brief, then run `discern setup done` to validate and record completion — and don't tell the user setup is done until it passes. Reprint the brief any time with `discern setup begin` (idempotent; it won't touch your work).";
@@ -121,6 +135,12 @@ export async function runSetupWelcome(opts: WelcomeOptions): Promise<number> {
       config !== undefined
     ? await setupProgress(root, config)
     : undefined;
+  // The fresh welcome grounds itself in the git state, so a no-git first contact
+  // leads with the `git init` step (the audience most likely to lack git is
+  // exactly the one this curated first contact exists for).
+  const gitRepo = phase !== "fresh" ||
+    (await runGit(["rev-parse", "--is-inside-work-tree"], { cwd: Deno.cwd() }))
+      .success;
 
   if (opts.json) {
     emitResult({
@@ -136,7 +156,9 @@ export async function runSetupWelcome(opts: WelcomeOptions): Promise<number> {
         ...(phase === "fresh"
           ? {
             agent_guidance: FRESH_AGENT_GUIDANCE,
-            human_framing: FRESH_HUMAN_FRAMING,
+            human_framing: gitRepo
+              ? FRESH_HUMAN_FRAMING
+              : `${FRESH_NON_GIT_NOTE} ${FRESH_HUMAN_FRAMING}`,
           }
           : {}),
         ...(phase === "in_progress"
@@ -164,7 +186,7 @@ export async function runSetupWelcome(opts: WelcomeOptions): Promise<number> {
 
   switch (phase) {
     case "fresh":
-      console.log(renderFreshWelcome(style).join("\n"));
+      console.log(renderFreshWelcome(style, { gitRepo }).join("\n"));
       break;
     case "in_progress":
       console.log(inProgressWelcome(progress).join("\n"));
@@ -321,17 +343,50 @@ const PLAIN_FRESH_WELCOME: readonly string[] = [
   "  points you at the next step. Don't hand this back as a report — carry it through.",
 ];
 
+/** The plain-render lines of the non-git leading note ({@link FRESH_NON_GIT_NOTE}
+ * wrapped to the welcome's layout), inserted right under the headline. */
+const PLAIN_NON_GIT_NOTE: readonly string[] = [
+  "",
+  "  ⚠ This folder isn't a git repository yet. Setup's first step is `git init` —",
+  "    git is what makes setup isolated, reversible, and easy to undo.",
+];
+
 /** Render the fresh-install welcome in either plain or TTY-decorated form. */
-export function renderFreshWelcome(style: WelcomeStyleMode): string[] {
-  return style.tty ? styledFreshWelcome() : [...PLAIN_FRESH_WELCOME];
+export function renderFreshWelcome(
+  style: WelcomeStyleMode,
+  ctx: WelcomeContext = { gitRepo: true },
+): string[] {
+  if (style.tty) {
+    return styledFreshWelcome(ctx);
+  }
+  const lines = [...PLAIN_FRESH_WELCOME];
+  if (!ctx.gitRepo) {
+    const at = lines.indexOf("This project isn't set up yet.") + 1;
+    lines.splice(at, 0, ...PLAIN_NON_GIT_NOTE);
+  }
+  return lines;
 }
 
-function styledFreshWelcome(): string[] {
+function styledFreshWelcome(ctx: WelcomeContext): string[] {
   return [
     boxTop(),
     boxLine(`${bold(cyan("discern"))} — a stack-neutral quality harness`),
     boxLine(dim("for coding agents and the humans who run them.")),
     boxRule("This project isn't set up yet."),
+    ...(ctx.gitRepo ? [] : [
+      boxLine(""),
+      boxLine(
+        yellow(
+          "⚠ This folder isn't a git repository yet. Setup's first step is",
+        ),
+      ),
+      boxLine(
+        yellow(
+          "  `git init` — git is what makes setup isolated, reversible, and",
+        ),
+      ),
+      boxLine(yellow("  easy to undo.")),
+    ]),
     boxLine(""),
     boxLine(bold(cyan("FOR HUMANS"))),
     boxLine(
