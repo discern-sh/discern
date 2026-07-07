@@ -34,6 +34,7 @@ import {
   StartOutputSchema,
   StatusOutputSchema,
   TestOutputSchema,
+  UninstallOutputSchema,
   UpgradeOutputSchema,
   WorktreePruneOutputSchema,
   WorktreeSetupOutputSchema,
@@ -89,6 +90,12 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     commands: ["upgrade"],
     verb: "upgrade",
     schema: UpgradeOutputSchema,
+  },
+  {
+    id: "uninstall",
+    commands: ["uninstall"],
+    verb: "uninstall",
+    schema: UninstallOutputSchema,
   },
   {
     id: "doctor",

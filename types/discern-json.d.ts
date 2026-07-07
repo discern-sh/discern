@@ -673,6 +673,92 @@ export type DiscernUpgradeResult = {
   };
 };
 
+export type DiscernUninstallResult = {
+  ok: boolean;
+  dry_run?: boolean;
+  plan?: {
+    title: string;
+    details: Array<string>;
+    steps: Array<{
+      kind:
+        | "job"
+        | "scope-gate"
+        | "merge-check"
+        | "tracked-artifacts-check"
+        | "guidance-check"
+        | "skills-check"
+        | "resource-create"
+        | "resource-destroy"
+        | "git"
+        | "setup-step"
+        | "setup-ensure"
+        | "env"
+        | "refresh"
+        | "ratchet";
+      label: string;
+      disposition: "run" | "skip" | "gate";
+      note?: string;
+      group?: string;
+    }>;
+  };
+  steps?: Array<{
+    kind:
+      | "job"
+      | "scope-gate"
+      | "merge-check"
+      | "tracked-artifacts-check"
+      | "guidance-check"
+      | "skills-check"
+      | "resource-create"
+      | "resource-destroy"
+      | "git"
+      | "setup-step"
+      | "setup-ensure"
+      | "env"
+      | "refresh"
+      | "ratchet";
+    label: string;
+    disposition: "run" | "skip" | "gate";
+    note?: string;
+    group?: string;
+    outcome: "ok" | "failed" | "skipped";
+    duration_s?: number;
+    output_path?: string;
+    output_lines?: number;
+    error_like_lines?: number;
+  }>;
+  diagnostics?: Array<{
+    tool: string;
+    severity: "error" | "warning";
+    message: string;
+    reproduce_cmd: string;
+    output?: string;
+    truncated?: boolean;
+    output_path?: string;
+    file?: string;
+    line?: number;
+    col?: number;
+    rule?: string;
+    fix_available?: boolean;
+  }>;
+  hints?: Array<string>;
+  error?: string;
+  message?: string;
+  verb: "uninstall";
+  data?: {
+    removed?: Array<string>;
+    stripped?: Array<string>;
+    kept?: Array<string>;
+    binary_hint?: string;
+    worktrees?: Array<string>;
+  } | {
+    issues: Array<{
+      path: string;
+      message: string;
+    }>;
+  };
+};
+
 export type DiscernDoctorResult = {
   ok: boolean;
   dry_run?: boolean;
@@ -2786,6 +2872,7 @@ export type DiscernCliJsonResult =
   | DiscernSetupDoneResult
   | DiscernSetupLandResult
   | DiscernUpgradeResult
+  | DiscernUninstallResult
   | DiscernDoctorResult
   | DiscernPresetResult
   | DiscernDocsResult
@@ -2816,6 +2903,7 @@ export interface DiscernResultByVerb {
   "setup done": DiscernSetupDoneResult;
   "setup land": DiscernSetupLandResult;
   upgrade: DiscernUpgradeResult;
+  uninstall: DiscernUninstallResult;
   doctor: DiscernDoctorResult;
   preset: DiscernPresetResult;
   docs: DiscernDocsResult;
@@ -2848,6 +2936,7 @@ export interface DiscernResultByCommand {
   "setup done": DiscernSetupDoneResult;
   "setup land": DiscernSetupLandResult;
   upgrade: DiscernUpgradeResult;
+  uninstall: DiscernUninstallResult;
   doctor: DiscernDoctorResult;
   preset: DiscernPresetResult;
   docs: DiscernDocsResult;

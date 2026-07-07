@@ -969,6 +969,19 @@ export const UpgradeDataSchema = z.strictObject({
 });
 export type UpgradeData = z.infer<typeof UpgradeDataSchema>;
 
+/** `uninstall` data: the removal plan/outcome (removed files, stripped co-owned
+ * files, kept user content, and the binary-removal hint), or the active
+ * worktrees on a refusal. All optional so the same shape covers a plan, an
+ * applied run, and a refusal. */
+export const UninstallDataSchema = z.strictObject({
+  removed: z.array(z.string()).optional(),
+  stripped: z.array(z.string()).optional(),
+  kept: z.array(z.string()).optional(),
+  binary_hint: z.string().optional(),
+  worktrees: z.array(z.string()).optional(),
+});
+export type UninstallData = z.infer<typeof UninstallDataSchema>;
+
 const skillListingSchema = z.strictObject({
   name: z.string(),
   source: z.enum(["authored", "bundled"]),
@@ -1123,6 +1136,12 @@ export const PresetOutputSchema = resultOutputSchema(
 export const UpgradeOutputSchema = resultOutputSchema(
   "upgrade",
   UpgradeDataSchema,
+);
+
+/** `uninstall` output: envelope + the removal plan/outcome data. */
+export const UninstallOutputSchema = resultOutputSchema(
+  "uninstall",
+  UninstallDataSchema,
 );
 
 /** `worktree setup` output: envelope only (except top-level config parse errors). */

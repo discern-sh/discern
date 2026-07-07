@@ -568,7 +568,7 @@ export class TomlEditor {
   /**
    * Remove a ROOT-level (pre-section) `key = …` assignment if present, returning
    * true when a line was removed. The root-region counterpart to {@link deleteKey}
-   * (which addresses only `section.key` assignments); used to strip a foreign
+   * (which addresses only `section.key` assignments); it strips a foreign
    * co-managed file's discern-seeded root keys on uninstall (Codex's
    * `environment.toml` `version` / `name`). The key must be a bare name.
    */
