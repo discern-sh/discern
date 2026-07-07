@@ -6914,37 +6914,6 @@
                     "scope_gates"
                   ]
                 },
-                "features": {
-                  "type": "object",
-                  "properties": {
-                    "worktrees": {
-                      "type": "boolean"
-                    },
-                    "ratchets": {
-                      "type": "boolean"
-                    },
-                    "guidance": {
-                      "type": "boolean"
-                    },
-                    "skills": {
-                      "type": "boolean"
-                    },
-                    "docs": {
-                      "type": "boolean"
-                    },
-                    "coupling": {
-                      "type": "boolean"
-                    }
-                  },
-                  "required": [
-                    "worktrees",
-                    "ratchets",
-                    "guidance",
-                    "skills",
-                    "docs",
-                    "coupling"
-                  ]
-                },
                 "ratchets": {
                   "type": "array",
                   "items": {
@@ -7096,7 +7065,6 @@
                 "root",
                 "worktree",
                 "git",
-                "features",
                 "ratchets"
               ]
             },

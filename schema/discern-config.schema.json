@@ -60,16 +60,6 @@
       "description": "Preset metadata, shown when listing presets; ignored by `setup --config`.",
       "type": "string"
     },
-    "features": {
-      "description": "[features] toggles — a feature name mapped to a boolean (default true).",
-      "type": "object",
-      "propertyNames": {
-        "type": "string"
-      },
-      "additionalProperties": {
-        "type": "boolean"
-      }
-    },
     "docs": {
       "description": "[docs] settings — chiefly the project-relative directory holding discern's agent documentation tree.",
       "default": {},

@@ -2009,14 +2009,6 @@ export type DiscernStatusResult = {
       checks: Array<string>;
       scope_gates: Array<string>;
     };
-    features: {
-      worktrees: boolean;
-      ratchets: boolean;
-      guidance: boolean;
-      skills: boolean;
-      docs: boolean;
-      coupling: boolean;
-    };
     ratchets: Array<string>;
     gate_receipt?: {
       status:

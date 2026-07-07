@@ -32,19 +32,6 @@ Project identity and integration settings.
 | `todo` | string | `"discern/TODO.md"` | Where the deferred-work ledger (the running TODO list agents read and maintain) lives, relative to the project root. |
 | `agents` | string[] | — | Deprecated: providers now live under [guidance].agents. Read only as a pre-migration fallback. |
 
-## `[features]`
-
-Toggle whole discern subsystems on/off. Every feature defaults to ON; set one to false to remove it coherently. NOTE: a *feature* is NOT a *capability* — [capabilities] is the gate's command table; [features] toggles subsystems.
-
-| Key | Type | Default | Description |
-| --- | --- | --- | --- |
-| `worktrees` | boolean | `true` | The isolated git-worktree workflow (worktree command group). |
-| `ratchets` | boolean | `true` | Never-loosen metric floors (the `ratchets` verb). |
-| `guidance` | boolean | `true` | Compile agent files from built-in + your sources. |
-| `skills` | boolean | `true` | Bundled + authored skills, materialized into .claude/skills/. |
-| `docs` | boolean | `true` | The `docs` browser over your docs/ tree. |
-| `coupling` | boolean | `true` | The co-change advisory (the `coupling` verb). |
-
 ## `[guidance]`
 
 The author-once → compile-everywhere agent-instruction pipeline. `discern refresh` compiles discern's built-in guidance plus your sources into one generated file per provider.
@@ -56,11 +43,12 @@ The author-once → compile-everywhere agent-instruction pipeline. `discern refr
 
 ## `[skills]`
 
-Focused, reusable task playbooks. The effective set is discern's bundled built-ins plus your authored skills under the directory below, where yours override a built-in of the same name.
+Focused, reusable task playbooks. The effective set is discern's bundled built-ins plus your authored skills under the directory below, where yours override a built-in of the same name, minus any names in `exclude`.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `dir` | string | `"discern/skills"` | Where your authored skills live, relative to the project root. Read only if present, so a project with no authored-skills dir simply uses the built-ins. |
+| `exclude` | string[] | `[]` | Skill names (bundled or authored) excluded from materialization — each materialized skill occupies context in every agent session, so drop the ones this project never needs. An unknown name is warned about, never fatal. |
 
 ## `[docs]`
 
@@ -106,11 +94,10 @@ The core commands the gate runs, one per known capability; each maps to a gate s
 
 ## `[worktree]`
 
-The isolated-worktree workflow. The git mechanics are generic; everything project-specific is a RESOURCE you declare. Inert when [features].worktrees = false.
+The isolated-worktree workflow. The git mechanics are generic; everything project-specific is a RESOURCE you declare.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `enabled` | boolean | `false` | Run the idempotent worktree setup automatically at session start. |
 | `root` | string | `""` | Where per-worktree checkouts are created (a <name> dir is made under it). Empty (the default) ⇒ a sibling of the repo, "<repo>.worktrees" — visible and adjacent, never nested inside the checkout. A relative path resolves against the repo root (".claude/worktrees" nests them inside the repo); an absolute path is used as-is. |
 | `port` | boolean | `false` | Give each worktree a deterministic dev-server port (hashed from its id) so concurrent worktrees never collide. Derived identity, not a resource — it provisions nothing. |
 | `graduate_to` | `branch` \| `trunk` | `"branch"` | Where `discern graduate` lands by default. "branch" (the safe default) leaves the work on its own branch, checked out in the main repo for review — the branch is preserved. "trunk" fast-forwards the trunk to the branch tip, checks the trunk out, and deletes the now-merged branch (the gate already guarantees the branch contains the trunk, so this is always a clean fast-forward). "trunk" is a role: it resolves to `[project].main_branch` (`main`, `master`, …) — not a literal branch named "main". Override per-run with `--to branch\|trunk`. |
@@ -163,7 +150,7 @@ Ergonomics for the parallel gate stages (and scope gates). These affect how `dis
 
 ## `[coupling]`
 
-Co-change coupling detection — a zero-config, read-only advisory that mines git history for files that change together, so a touched file's habitual sibling isn't forgotten. It self-calibrates to your repo, so there are no thresholds to tune; the only setting is whether it also rides along with the gate. Read it on demand with `discern coupling`. Purely advisory: it points at where to look and never blocks. (Inert when [features].coupling = false.)
+Co-change coupling detection — a zero-config, read-only advisory that mines git history for files that change together, so a touched file's habitual sibling isn't forgotten. It self-calibrates to your repo, so there are no thresholds to tune; the only setting is whether it also rides along with the gate. Read it on demand with `discern coupling`. Purely advisory: it points at where to look and never blocks.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
