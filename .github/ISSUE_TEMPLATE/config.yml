@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Troubleshooting & FAQ
+    url: https://github.com/jackwh/discern/blob/main/docs/10-installer/faq.md
+    about: Start here — most "something is off" moments are answered by `discern doctor` and the FAQ.
+  - name: Report a security vulnerability
+    url: https://github.com/jackwh/discern/security/advisories/new
+    about: Please report vulnerabilities privately, not as a public issue (see SECURITY.md).
