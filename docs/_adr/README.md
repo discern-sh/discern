@@ -116,6 +116,7 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0101 — Retire the `[features]` toggles](0101-retire-the-features-toggles.md)
 - [0102 — One paths registry, rendered artifacts, and leakage guards](0102-paths-registry-and-rendered-artifacts.md)
 - [0103 — Setup grounds itself in the repo's real state — detected default branch, git-init-first without git, a welcome everywhere](0103-setup-holds-up-on-imperfect-repos.md)
+- [0104 — `discern uninstall` is the exit-honesty verb — registry-derived removal, CLI-only](0104-uninstall-is-the-exit-honesty-verb.md)
 
 ## Superseded and consolidated ADRs
 
