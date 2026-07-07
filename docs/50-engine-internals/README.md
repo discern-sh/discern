@@ -8,8 +8,9 @@ and guidance. [`dispatch.ts`](../../src/engine/dispatch.ts) is the
 `discern.toml`), routes a known `discern <verb>` to its built-in in-binary
 handler, execs an _unknown_ verb as a matching project Recipe (with the
 `DISCERN_*` environment exported), lets the Engine win on a name collision with
-a project recipe, and suggests a near-match on a typo. A verb whose subsystem is
-turned off in `[features]` is reported as disabled rather than falling through.
+a project recipe, and suggests a near-match on a typo. Every subsystem's verbs
+are always registered — there is no toggle layer in the dispatch
+([ADR 0101](../_adr/0101-retire-the-features-toggles.md)).
 
 The Engine is **TypeScript compiled into the binary**, under
 [`src/engine/`](../../src/engine/) and sharing
@@ -22,10 +23,9 @@ and identity ([`worktree/`](../../src/engine/worktree/)), and the guideline
 compiler ([`guidelines.ts`](../../src/engine/guidelines.ts)) — which assembles
 discern's built-in guidance plus the project's sources and materializes the
 skills. Shared concerns — config reading, the
-[feature toggles](../00-orientation/glossary.md#feature)
-([`features.ts`](../../src/shared/features.ts)), capability/stage constants, the
-POSIX-`cksum` port, and root discovery with `DISCERN_*` — live under
-[`src/shared/`](../../src/shared/).
+[paths registry](../../src/shared/paths_registry.ts), capability/stage
+constants, the POSIX-`cksum` port, and root discovery with `DISCERN_*` — live
+under [`src/shared/`](../../src/shared/).
 
 Scope globs are matched in-memory by
 [`scopes/glob.ts`](../../src/engine/scopes/glob.ts), so a glob in a config value
@@ -60,8 +60,8 @@ is factored into pure functions, unit-tested with no subprocess.
 
 | File _(to be written)_    | What it will cover                                                                                                     |
 | ------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `the-dispatcher.md`       | Root-finding (`discern.toml`), dispatch, engine-wins-on-collision, feature gating, the typo suggester, `--help`.       |
-| `config-access.md`        | Reading `discern.toml` via `config_read.ts`, the `[features]` toggles, and the `discern config` surface.               |
+| `the-dispatcher.md`       | Root-finding (`discern.toml`), dispatch, engine-wins-on-collision, the typo suggester, `--help`.                       |
+| `config-access.md`        | Reading `discern.toml` via `config_read.ts`, the paths registry and resolvers, and the `discern config` surface.       |
 | `the-job-runner.md`       | Serial/parallel staging, labelling, fail-fast tree-kill, and the structured channel.                                   |
 | `the-plan-apply-model.md` | The engine `Plan` vocabulary, the thin executors, the one renderer, and how `--dry-run` / `--json` derive from a plan. |
 

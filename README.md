@@ -12,7 +12,8 @@ the way and keeps your codebase honest while your agents build.
 
 > **`discern` doesn't write your code, run a model, or need an API key.** It
 > works with the agents you already use, in the language you already write — and
-> its entire footprint in your project is a single file.
+> its committed footprint in your project is one root file and one visible
+> folder, a claim an architectural test keeps true.
 
 ---
 
@@ -91,12 +92,13 @@ either way.
   [Agent guidance →](docs/40-agent-guidance/)
 - **Ratchets.** Numbers that may only improve — coverage, bundle size, lint
   counts — so quality climbs and never slips back.
-- **A docs & decision discipline.** A living docs tree and Architecture Decision
-  Records, kept current by the gate itself.
+- **A docs & decision discipline.** A living, agent-maintained map of your
+  codebase and Architecture Decision Records, kept current by the gate itself.
 
-Your whole footprint in the repo is **one file, `discern.toml`** — everything
-else is bundled in the binary or generated.
-[Config reference →](docs/10-installer/config-reference.md)
+Your committed footprint in the repo is **one root file, `discern.toml`, plus
+one visible `discern/` folder** — everything else is bundled in the binary or
+generated, and an architectural test fails the moment `discern` writes anywhere
+else. [Config reference →](docs/10-installer/config-reference.md)
 
 ---
 

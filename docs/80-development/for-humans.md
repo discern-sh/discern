@@ -15,17 +15,18 @@ of the engine — it lives in the binary
 running its own engine from source (`discern finish`), so there is **no** second
 copy to keep in sync and nothing that can drift.
 
-What an install does lay down is anchored by **one root file, `discern.toml`**
-([ADR 0020](../_adr/0020-dissolve-discern-dir.md)). Files split into **two
-buckets**: _your_ committed files (`discern.toml`, the `brief.md` seed, and the
-content you author at config-pointed paths — `guidance.md`, `./skills/`,
-`./recipes/` — plus the merged settings/gitignore), and _the binary's_
-gitignored, re-published artifacts (the materialised `.claude/skills/` and the
-compiled agent files `AGENTS.md`/`CLAUDE.md`/`GEMINI.md`, all gitignored — ADR
-0034). The full file-by-file map is in [install-surface.md](install-surface.md),
-and the [dispositions](../00-orientation/glossary.md#file-dispositions) are
-defined in the glossary. Edit your files in place; the binary's artifacts are
-produced from source in this repo and overwritten on `upgrade`.
+What an install lays down is **one root file, `discern.toml`, plus one visible
+folder, `discern/`** — enforced by test
+([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)).
+Files split into **two buckets**: _your_ committed files (`discern.toml`, the
+namespace content — guidance, skills, recipes, the map, the ledger, the brief,
+each config-pointable elsewhere — plus the merged settings/gitignore), and _the
+binary's_ gitignored, re-published artifacts (the materialised skills dirs and
+the compiled agent files `AGENTS.md`/`CLAUDE.md`/`GEMINI.md` — ADR 0034). The
+full file-by-file map is in [install-surface.md](install-surface.md), and the
+[dispositions](../00-orientation/glossary.md#file-dispositions) are defined in
+the glossary. Edit your files in place; the binary's artifacts are produced from
+source in this repo and overwritten on `upgrade`.
 
 ## Prerequisites
 
@@ -75,7 +76,8 @@ out of search. There is no simple built-in equivalent for the colour-coding.
 
 Don't hand-edit the generated agent files: `AGENTS.md`, `CLAUDE.md`, and
 `GEMINI.md` (all gitignored build artifacts — ADR 0034) are compiled from
-discern's built-in guidance plus your [`guidance.md`](../../guidance.md) by
+discern's built-in guidance plus this repo's own
+[`guidance.md`](../../guidance.md) (a config-pointed, non-default location) by
 `discern refresh`. Edit your guidance source and recompile.
 
 ## Working alongside the agents

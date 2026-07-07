@@ -98,8 +98,8 @@ wins over a same-named recipe (warning on the shadow).
 ### Recipe
 
 A project's **own** `discern` verb — a language-agnostic executable under
-`[recipes].dir` (default `./recipes`). The binary execs it on an unknown verb,
-with `DISCERN_*` exported; a name with a colon maps to a hyphenated file
+`[recipes].dir` (default `discern/recipes`). The binary execs it on an unknown
+verb, with `DISCERN_*` exported; a name with a colon maps to a hyphenated file
 (`some:verb` → `some-verb`). A recipe reads config through the
 `discern config get|array|has|
 subsections|keys` surface and worktree identity

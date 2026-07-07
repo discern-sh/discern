@@ -103,9 +103,10 @@ whether the advisory also rides along with the gate:
 | --------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | `in_gate` | `false` | Surface the diff-aware advisory during the gate too — `discern finish` **and** the fast inner loop `discern prepare` (as hints, at the tail). |
 
-The whole subsystem is the `coupling`
-[Feature](../00-orientation/glossary.md#feature), inert when
-`[features].coupling = false`. The full config reference is in
+The subsystem is core and costs nothing until invoked — read-only,
+self-calibrating, on demand; `in_gate` is its one cost decision
+([ADR 0101](../_adr/0101-retire-the-features-toggles.md)). The full config
+reference is in
 [config-reference.md](../10-installer/config-reference.md#coupling).
 
 ## In the gate

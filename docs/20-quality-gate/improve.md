@@ -58,17 +58,18 @@ into a priority queue themselves.
 
 ## Categories
 
-A feature-disabled category disappears coherently. Core categories always apply.
+Every category applies to every install — every subsystem is core
+([ADR 0101](../_adr/0101-retire-the-features-toggles.md)).
 
-| Category    | Feature     | Objective baseline and qualitative coaching                                          |
-| ----------- | ----------- | ------------------------------------------------------------------------------------ |
-| `gate`      | _core_      | tests, static analysis, formatter · test depth, isolation, parallelism               |
-| `setup`     | _core_      | setup complete, gotchas doc present · failure memory is actionable                   |
-| `guidance`  | `guidance`  | substantive source, compiled files · knowledge is project-specific and non-inferable |
-| `docs`      | `docs`      | docs tree, ADRs · pages match code and form a navigable tree                         |
-| `worktrees` | `worktrees` | workflow enabled · shared external resources are declared per worktree               |
-| `ratchets`  | `ratchets`  | at least one ratchet · missing signals and raw growing-tree counts are reviewed      |
-| `skills`    | `skills`    | recurring-task opportunities · authored skills are executable, verifiable playbooks  |
+| Category    | Objective baseline and qualitative coaching                                          |
+| ----------- | ------------------------------------------------------------------------------------ |
+| `gate`      | tests, static analysis, formatter · test depth, isolation, parallelism               |
+| `setup`     | setup complete, gotchas doc present · failure memory is actionable                   |
+| `guidance`  | substantive source, compiled files · knowledge is project-specific and non-inferable |
+| `docs`      | docs tree, ADRs · pages match code and form a navigable tree                         |
+| `worktrees` | (no objective rule) · shared external resources are declared per worktree            |
+| `ratchets`  | at least one ratchet · missing signals and raw growing-tree counts are reviewed      |
+| `skills`    | recurring-task opportunities · authored skills are executable, verifiable playbooks  |
 
 ## Running it
 
@@ -118,7 +119,7 @@ The human report, `--json`, and MCP tool render one `DiscernResult`
 
 `--min-score` remains the optional enforcement signal. Below the floor, `ok`
 becomes `false` with `error: "below_min_score"`. An unknown `--category` is
-`unknown_category`; one owned by a disabled feature is `category_disabled`.
+`unknown_category`.
 
 ## MCP
 

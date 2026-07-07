@@ -48,8 +48,11 @@ re-published artifacts) — so `upgrade` overwrites the binary's files, restores
 missing fixed config sections/keys, and leaves project-owned values alone; and
 the **Schema-version** [Migration](../00-orientation/glossary.md#migration)
 chain that evolves an install's shape, stamped into `[meta].schema_version` in
-`discern.toml` (the `5 → 6` step dissolved the old `.discern/` namespace into
-this one root file — [ADR 0020](../_adr/0020-dissolve-discern-dir.md)).
+`discern.toml` (the `5 → 6` step dissolved the old hidden `.discern/` directory
+into this one root file — [ADR 0020](../_adr/0020-dissolve-discern-dir.md) — and
+the `14 → 15` step gathered the authored surface into the visible `discern/`
+[Namespace](../00-orientation/glossary.md#namespace) —
+[ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)).
 `upgrade` validates the migrated config before stamping that schema, and
 `upgrade` refuse a config stamped by a newer binary rather than silently
 downgrading it
@@ -59,10 +62,13 @@ it is additive and only-if-absent, and is recorded in
 [ADR 0092](../_adr/0092-upgrade-reconciles-config-scaffold.md).
 
 Setup's documentation skeleton is also config-pointed. `[docs].dir` defaults to
-`docs/`; `setup verify` asks for a separate location when that path already
-holds human-written docs, and `setup begin --docs <path>` persists and scaffolds
-the chosen root. The docs browser and quality-gate declarations resolve the same
-field ([ADR 0080](../_adr/0080-configured-agent-docs-root.md)).
+`discern/docs/` — the [map](../00-orientation/glossary.md#map)'s own folder,
+colliding with nothing; `setup verify`'s consent conversation asks whether
+discern should instead manage the project's existing docs, and
+`setup begin --docs <path>` persists and scaffolds the chosen root
+([ADR 0100](../_adr/0100-doctree-is-the-agents-map.md)). The docs browser and
+quality-gate declarations resolve the same field
+([ADR 0080](../_adr/0080-configured-agent-docs-root.md)).
 
 `setup begin` resolves its destination before writing: inside an existing
 install it walks to the nearest ancestor with `discern.toml`; before install, in

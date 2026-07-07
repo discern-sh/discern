@@ -7,10 +7,10 @@ This subtree covers the instruction pipeline. discern ships **built-in harness
 guidance** bundled in the binary
 ([`templates/guidance/`](../../templates/guidance/)); you add your own
 **Guidance source** — `[guidance].sources` in `discern.toml`, default
-`guidance.md`, globs allowed.
+`discern/guidance.md`, globs allowed.
 [`discern refresh`](../../src/engine/guidelines.ts) regenerates the generated
 agent files, skills, and integration artifacts: it compiles
-`[built-in base] + [a section per enabled feature] + [your sources]` into each
+`[built-in base] + [the built-in sections] + [your sources]` into each
 **Compiled agent file**, selected by `[guidance].agents` (`claude_code` →
 `CLAUDE.md`, `codex` / `cursor` / `copilot` → `AGENTS.md`, `gemini` →
 `GEMINI.md`). The same verb (re)materializes the **Skills** into each configured
@@ -32,11 +32,11 @@ each mirror falls back to the full body. They carry no banner — `discern statu
 / `discern finish` flag a generated file that has drifted from its source
 instead. Driving several agents from one source is what keeps guidance
 provider-agnostic — write the rule once, every agent gets it. The built-in
-guidance is feature-aware, so a subsystem you disable in `[features]` drops its
-section; it is also **config-aware** — each built-in section is rendered through
-a small [templating engine](the-templating-engine.md) so the generic shipped
-prose names your real branch and omits content for anything you haven't
-configured (a ratchet, a worktree resource).
+guidance is **config-aware** — each built-in section is rendered through a small
+[templating engine](the-templating-engine.md) so the generic shipped prose names
+your real branch and paths and omits content for anything you haven't configured
+(the ratchets section compiles in only when at least one ratchet is defined —
+[ADR 0101](../_adr/0101-retire-the-features-toggles.md)).
 
 The Skills are the bundled built-ins (one directory per skill under
 [`templates/skills/`](../../templates/skills/), every name carrying the

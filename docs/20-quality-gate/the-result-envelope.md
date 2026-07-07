@@ -164,8 +164,7 @@ result is rendered as `{ content, structuredContent, isError }`, the same
   `ratchets`); and `destructiveHint` for `graduate` (it tears down resources and
   moves the branch).
 
-A tool is **gated like its verb**: a feature-disabled tool is not registered
-(absent from `tools/list`), and the setup-gated verbs (the gate verbs and
+A tool is **gated like its verb**: the setup-gated verbs (the gate verbs and
 `discern_docs`) refuse with `not_set_up` until the project is set up.
 `discern_ratchets` is **slow and on-demand** — it runs the metric commands, so
 it is not part of `discern_finish`; check it explicitly.
@@ -180,8 +179,7 @@ op on the surface.
 `discern_status`, gate with `discern_finish` (`discern_prepare`/`discern_test`
 while iterating), learn discern via `discern_help`, read the project's docs via
 `discern_docs`, improve with `discern_improve`, graduate with
-`discern_graduate`. It is feature-aware (the docs/graduate lines drop when their
-feature is off).
+`discern_graduate`.
 
 **Resources.** Alongside the tools, five readable resources are computed fresh
 on every read and serve the verb's `data` payload (not the full envelope):

@@ -10,8 +10,9 @@ container, a queue) that must exist for exactly the life of the Worktree. The
 git mechanics are generic; the resources are the only stack-specific part,
 declared as `[worktree.resources.<name>]` tables in `discern.toml`. A fresh
 install declares none, so a Worktree round is a clean no-op until a project
-wires one. The whole workflow is the `worktrees` feature, which can be turned
-off in `[features]` (ADR 0011, ADR 0025).
+wires one. The workflow is core — always wired, with no configuration attached;
+a session that never runs `start` simply never uses it (ADR 0011, ADR 0025,
+[ADR 0101](../_adr/0101-retire-the-features-toggles.md)).
 
 The lifecycle is driven by hooks in `.claude/settings.json`: `SessionStart` →
 [`worktree ensure`](../../src/engine/worktree/lifecycle.ts) (idempotent setup +
