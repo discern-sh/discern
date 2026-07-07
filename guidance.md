@@ -37,9 +37,9 @@ A project's entire discern footprint is a single root file, **`discern.toml`**.
 Everything else is bundled in the binary, a **config-pointed** location the user
 chooses (with discoverable defaults — `guidance.md`, `./skills`, `./recipes`),
 or a generated **output** (`AGENTS.md`/`CLAUDE.md`/`GEMINI.md` are gitignored
-build artifacts; as vendor-specific files and paths are materialized).
-Every subsystem is core (ADR 0101) — `[capabilities]` is the gate's command
-table, and the one per-skill knob is `[skills].exclude`.
+build artifacts; as vendor-specific files and paths are materialized). Every
+subsystem is core (ADR 0101) — `[capabilities]` is the gate's command table, and
+the one per-skill knob is `[skills].exclude`.
 
 ## ⚠️ Edit in place — there is no managed copy to sync
 

@@ -2423,4 +2423,3 @@ Deno.test("discern mcp: the resources follow the re-aimed working root after dis
     assertEquals(await mcp.close(), 0);
   });
 });
-

@@ -299,8 +299,8 @@ and there are no thresholds to tune. Available on demand in three modes (the
 diff-aware change-set view, a one-file `coupling <path>` query, and a two-file
 `coupling <a> <b>` evidence view that lists the commits where both changed) and,
 behind `[coupling].in_gate`, at the tail of the [Gate](#gate). It is the
-**discovery** end of the canonical-set discipline that the parity
-tests **enforce** — the two stay deliberately separate
+**discovery** end of the canonical-set discipline that the parity tests
+**enforce** — the two stay deliberately separate
 ([ADR 0084](../_adr/0084-co-change-coupling-advisory.md),
 [ADR 0051](../_adr/0051-canonical-set-parity.md)). Covered in
 [coupling.md](../20-quality-gate/coupling.md).
@@ -381,9 +381,9 @@ sources extend it rather than replace it.
 
 `CLAUDE.md`, `AGENTS.md`, `GEMINI.md` — per-agent instruction files
 [generated](#generated-file) by `discern refresh` from the built-in guidance
-sections plus the Guidance source. They
-carry no banner — they open with the guidance itself, and drift from their
-source is caught by `discern status` / `discern finish`
+sections plus the Guidance source. They carry no banner — they open with the
+guidance itself, and drift from their source is caught by `discern status` /
+`discern finish`
 ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md)). Which files
 are emitted is set by `[guidance].agents` (`claude_code` → `CLAUDE.md`, `codex`
 → `AGENTS.md`, `gemini` → `GEMINI.md`). All are gitignored build artifacts;
@@ -401,8 +401,8 @@ the same name. `discern refresh` (and `setup`) materialize the set into
 **copied**, authored skills **symlinked** so edits are live.
 `discern skills
 list` shows the set; `discern skills eject <name>` copies a
-built-in into your dir to customize; `[skills].exclude` drops named skills
-from materialization ([ADR 0101](../_adr/0101-retire-the-features-toggles.md)).
+built-in into your dir to customize; `[skills].exclude` drops named skills from
+materialization ([ADR 0101](../_adr/0101-retire-the-features-toggles.md)).
 
 ---
 

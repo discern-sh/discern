@@ -138,7 +138,9 @@ Deno.test("compileGuidelines honours [skills].exclude: an excluded bundled set m
     const bundled = await bundledSkillNames();
     await Deno.writeTextFile(
       join(dir, "discern.toml"),
-      `[skills]\nexclude = ${JSON.stringify(bundled)}\n[guidance]\nagents = ["claude_code"]\n`,
+      `[skills]\nexclude = ${
+        JSON.stringify(bundled)
+      }\n[guidance]\nagents = ["claude_code"]\n`,
     );
     const r = await compileGuidelines(dir);
     assertEquals(r.skillsCopied, 0);
