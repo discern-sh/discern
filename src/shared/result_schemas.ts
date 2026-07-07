@@ -705,7 +705,6 @@ export type SetupStepData = z.infer<typeof SetupStepDataSchema>;
  */
 export const SetupVerifyConflictSchema = z.strictObject({
   kind: z.enum([
-    "existing_docs",
     "existing_instructions",
     "dirty_tree",
     "not_a_repo",
@@ -728,7 +727,6 @@ export const SetupVerifyFindingsSchema = z.strictObject({
   }),
   docs: z.strictObject({
     exists: z.boolean(),
-    suggested_discern_dir: z.string().nullable().optional(),
   }),
   existing_instructions: z.array(z.string()),
   agents_detected: z.array(z.string()),

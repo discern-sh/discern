@@ -3,12 +3,15 @@
  * (ADR 0075). It writes nothing; it inspects the repo and turns the result into the
  * consent conversation the agent walks its human through before `begin`.
  *
- * Grounded, not generic: it reports THIS repo's git state, an existing `docs/` tree, a
- * pre-existing agent-instructions file `begin` will fold into `guidance.md`, the agents
- * detected on PATH (ADR 0069), and the exact sibling path the worktrees will use
- * (ADR 0052) — then serves the agent a ready-to-relay `guidance` block (the pre-composed
- * "message to your human": what discern adds, what it will do and cost, the model
- * question, the docs home, the worktree location) it relays and then runs `begin`. The
+ * Grounded, not generic: it reports THIS repo's git state, whether the project has a
+ * `docs/` tree of its own (the map defaults to its own namespace home and never touches
+ * it; pointing `[docs].dir` at existing docs is a deliberate opt-in the consent message
+ * offers — ADR 0100), a pre-existing agent-instructions file `begin` will fold into the
+ * guidance source, the agents detected on PATH (ADR 0069), and the exact sibling path
+ * the worktrees will use (ADR 0052) — then serves the agent a ready-to-relay `guidance`
+ * block (the pre-composed "message to your human": what discern adds, what it will do
+ * and cost, the model question, the docs opt-in, the worktree location) it relays and
+ * then runs `begin`. The
  * message is the script, not stage directions (ADR 0086): a terse courier agent that
  * only relays discern's words still delivers a complete first conversation. It is kept
  * out of structured fields on purpose — agents summarize and weaken the same content
@@ -42,6 +45,7 @@ import {
   consentMessage,
   deriveConsentContext,
 } from "../shared/setup_messages.ts";
+import { SOURCE_PATHS } from "../shared/paths_registry.ts";
 import { setupPhaseOf } from "../shared/setup_state.ts";
 
 /** Options for the read-only preflight (just the global flags — it takes no input). */
@@ -50,7 +54,6 @@ export interface VerifyOptions {
   noColor: boolean;
 }
 
-const SUGGESTED_DOCS_DIR = "docs/discern/";
 /**
  * Run the preflight for the cwd's project. Read-only and always exits 0. For a project
  * that is already set up (or mid-setup) the preflight is moot — `begin` has run or is
@@ -105,14 +108,14 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
   const { worktreePath, docsExists } = await deriveConsentContext(destDir);
   const existingInstructions = await findExistingInstructions(destDir);
 
-  const conflicts = buildConflicts(git, docsExists, existingInstructions);
+  const conflicts = buildConflicts(git, existingInstructions);
   // The consent conversation as ONE ready-to-relay prose block, built once and rendered
   // identically on both surfaces — never split into structured fields, which agents
   // summarize and weaken (ADR 0078). discern ships the script, not stage directions
   // (ADR 0086). The human render leads with it; `--json` carries it verbatim under
   // `guidance`; a flag-less fresh `begin` re-serves the same string.
   const guidance = consentMessage({ worktreePath, docsExists });
-  const nextAction = confirmedBeginCommand(docsExists);
+  const nextAction = confirmedBeginCommand();
 
   if (opts.json) {
     const data: SetupVerifyData = {
@@ -126,7 +129,6 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
         },
         docs: {
           exists: docsExists,
-          suggested_discern_dir: docsExists ? SUGGESTED_DOCS_DIR : null,
         },
         existing_instructions: existingInstructions,
         agents_detected: detected,
@@ -182,10 +184,11 @@ async function findExistingInstructions(destDir: string): Promise<string[]> {
 }
 
 /** Build the conflict list from the findings — pre-existing things `begin` works
- * around, each a heads-up for the human, never a blocker. */
+ * around, each a heads-up for the human, never a blocker. An existing `docs/` tree
+ * is NOT one of them: the map's namespace default collides with nothing (ADR 0100),
+ * so the docs choice rides the consent message as an opt-in, not a warning. */
 function buildConflicts(
   git: Awaited<ReturnType<typeof worktreeState>>,
-  docsExists: boolean,
   existingInstructions: string[],
 ): SetupVerifyConflict[] {
   const conflicts: SetupVerifyConflict[] = [];
@@ -200,13 +203,6 @@ function buildConflicts(
       kind: "dirty_tree",
       detail:
         "Uncommitted changes to tracked files — begin will ask you to commit or stash first. (Advanced: --allow-dirty sets up on the current branch as-is, skipping the isolated discern-setup branch — for CI or automated setups.)",
-    });
-  }
-  if (docsExists) {
-    conflicts.push({
-      kind: "existing_docs",
-      detail:
-        `You already have a docs/ tree. discern's docs describe what's inferable from the code — conceptually distinct from docs you've hand-curated. Choose a separate home such as ${SUGGESTED_DOCS_DIR}, then pass it to begin with --docs so the choice is persisted as [docs].dir.`,
     });
   }
   if (existingInstructions.length > 0) {
@@ -235,8 +231,8 @@ function printPreflight(p: {
   guidance: string;
 }): void {
   const docs = p.docsExists
-    ? "existing docs/ tree — begin leaves it untouched (see below)"
-    : "no docs/ tree yet — begin will scaffold one";
+    ? `you have your own docs/ tree — begin leaves it untouched; discern's map lands at ${SOURCE_PATHS.docs.defaultPath} unless you point [docs].dir at yours (offered below)`
+    : `none of your own — discern's map (its agent-maintained docs tree) will be scaffolded at ${SOURCE_PATHS.docs.defaultPath}`;
   const instructions = p.existingInstructions.length > 0
     ? `found ${
       p.existingInstructions.join(", ")

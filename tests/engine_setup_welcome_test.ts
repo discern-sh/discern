@@ -15,6 +15,7 @@ import { exists } from "@std/fs";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
+import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import {
   SetupDoneOutputSchema,
   SetupVerifyOutputSchema,
@@ -353,7 +354,7 @@ Deno.test("verify's consent guidance is identical and faithful across the human 
   });
 });
 
-Deno.test("verify surfaces existing docs/ and agent instructions as conflicts", async () => {
+Deno.test("verify offers the existing-docs opt-in as consent, and surfaces agent instructions as a conflict", async () => {
   await withTempDir(async (dir) => {
     await freshRepo(dir);
     await Deno.mkdir(join(dir, "docs"));
@@ -366,23 +367,44 @@ Deno.test("verify surfaces existing docs/ and agent instructions as conflicts", 
     );
     const d = res.data;
     const kinds = d.conflicts.map((c: { kind: string }) => c.kind);
+    // An existing docs/ tree is NOT a conflict: the map's namespace default
+    // collides with nothing (ADR 0100) — the choice rides the consent message.
     assert(
-      kinds.includes("existing_docs"),
-      `expected an existing_docs conflict: ${JSON.stringify(kinds)}`,
+      !kinds.includes("existing_docs"),
+      `existing docs must not be a conflict: ${JSON.stringify(kinds)}`,
     );
     assert(
       kinds.includes("existing_instructions"),
       `expected an existing_instructions conflict: ${JSON.stringify(kinds)}`,
     );
     assert(d.findings.existing_instructions.includes("CLAUDE.md"));
-    // With a docs/ tree present, the relay message asks where discern's own docs
-    // should live (recommending docs/discern/) and the command carries --docs.
+    assertEquals(d.findings.docs.exists, true);
+    // With a docs/ tree present, the relay message promises it stays untouched,
+    // names the map's default home, and offers pointing [docs].dir as the opt-in.
     assertStringIncludes(d.guidance, "You already have a docs/ folder");
-    assertStringIncludes(d.guidance, "docs/discern/");
-    assertStringIncludes(d.guidance, "--docs");
-    assertEquals(d.findings.docs.suggested_discern_dir, "docs/discern/");
-    assertStringIncludes(d.next_action, "--docs");
+    assertStringIncludes(d.guidance, "discern won't touch it");
+    assertStringIncludes(d.guidance, SOURCE_PATHS.docs.defaultPath);
+    assertStringIncludes(d.guidance, "keep them separate (the default)");
+    assertStringIncludes(d.guidance, "--docs <their-docs-path>");
+    // The default command carries no --docs: the opt-in is an addition, never a
+    // placeholder that pushes agents to pass one.
+    assert(!d.next_action.includes("--docs"));
     SetupVerifyOutputSchema.parse(res);
+  });
+});
+
+Deno.test("verify asks no docs question when the project has no docs tree", async () => {
+  await withTempDir(async (dir) => {
+    await freshRepo(dir);
+    const d = JSON.parse(
+      (await runAgent(dir, ["setup", "verify", "--json"])).stdout,
+    ).data;
+    assertEquals(d.findings.docs.exists, false);
+    assert(!d.guidance.includes("You already have a docs/ folder"));
+    assert(!d.guidance.includes("--docs"));
+    // The default is still stated: the human render names where the map lands.
+    const human = (await runAgent(dir, ["setup", "verify"])).stdout;
+    assertStringIncludes(human, SOURCE_PATHS.docs.defaultPath);
   });
 });
 

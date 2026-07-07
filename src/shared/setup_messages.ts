@@ -28,10 +28,12 @@
 
 import { basename, dirname, join } from "@std/path";
 import type { SetupAssurance } from "./setup_assurance.ts";
+import { SOURCE_PATHS } from "./paths_registry.ts";
 
 /** The two repo facts a consent message is grounded in — the exact sibling worktree
- * path that will be created (ADR 0052) and whether a `docs/` tree already exists (so
- * the message asks where discern's own docs should live). */
+ * path that will be created (ADR 0052) and whether the project has a `docs/` tree of
+ * its own (so the message offers the ADR 0100 opt-in: point discern's map discipline
+ * at those docs, or keep the map separate at its namespace default). */
 export interface ConsentContext {
   worktreePath: string;
   docsExists: boolean;
@@ -52,21 +54,17 @@ export async function deriveConsentContext(
   return { worktreePath, docsExists };
 }
 
-/** The recommended home for discern's agent-doc tree when the project already has a
- * hand-authored `docs/` (kept in step with `verify`'s findings note). */
-const SUGGESTED_DOCS_DIR = "docs/discern/";
-
 /**
  * The exact `begin` command a fresh, non-declarative setup runs AFTER the consent
- * conversation — always carrying `--confirmed` (the attestation) and, when a docs tree
- * already exists, the `--docs` placeholder. The single source for this string, shared by
- * {@link consentMessage}, `verify`'s `next_action`, and `begin`'s `awaiting_consent`
- * refusal, so the three never drift.
+ * conversation — always carrying `--confirmed` (the attestation). The single source
+ * for this string, shared by {@link consentMessage}, `verify`'s `next_action`, and
+ * `begin`'s `awaiting_consent` refusal, so the three never drift. The `--docs`
+ * opt-in (a project that chose to put its existing docs under the map discipline)
+ * is an addition the consent framing describes, never part of the default command:
+ * the default needs no flag, and a placeholder here would push agents to pass one.
  */
-export function confirmedBeginCommand(docsExists: boolean): string {
-  return docsExists
-    ? 'discern setup begin --model "<your-model-id>" --docs "<chosen-docs-dir>" --confirmed'
-    : 'discern setup begin --model "<your-model-id>" --confirmed';
+export function confirmedBeginCommand(): string {
+  return 'discern setup begin --model "<your-model-id>" --confirmed';
 }
 
 /** A labelled rule that fences the relayable message off from the agent-facing framing
@@ -79,12 +77,13 @@ function fence(label: string): string {
 /**
  * The pre-`begin` consent block `verify` serves and a flag-less fresh `begin` re-serves.
  * ONE prose string: (a) a framing line to the agent carrying the adaptive relay licence;
- * (b) the message itself — first-person agent voice, ≤ ~200 words — the three-pillar
- * explainer, the roadmap with an honest time-and-tokens expectation and the safety
- * frame, then the numbered confirmations (the model question verbatim, the docs home
- * when `docsExists`, the exact worktree location, ready-to-begin); (c) the exact next
- * command including `--confirmed`. The command rides OUTSIDE the fenced message — it is
- * the agent's to run, not the human's to read.
+ * (b) the message itself — first-person agent voice, kept short enough to survive a
+ * single read — the three-pillar explainer, the roadmap with an honest time-and-tokens
+ * expectation and the safety frame, then the numbered confirmations (the model question
+ * verbatim, the existing-docs opt-in when `docsExists` (ADR 0100), the exact worktree
+ * location, ready-to-begin); (c) the exact next command including `--confirmed`. The
+ * command rides OUTSIDE the fenced message — it is the agent's to run, not the human's
+ * to read.
  */
 export function consentMessage(ctx: ConsentContext): string {
   const { worktreePath, docsExists } = ctx;
@@ -95,7 +94,7 @@ export function consentMessage(ctx: ConsentContext): string {
   let n = 2;
   if (docsExists) {
     confirmations.push(
-      `${n}. You already have a docs/ folder. discern's docs describe what's inferable from the code — separate from anything you've hand-written — so they belong somewhere of their own. Shall I put them under ${SUGGESTED_DOCS_DIR}?`,
+      `${n}. You already have a docs/ folder — it's yours, and discern won't touch it. Its map of the codebase lives separately, at ${SOURCE_PATHS.docs.defaultPath}. Or I can point discern at your existing docs, so it maintains them under that same discipline — keep them separate (the default), or point discern at yours?`,
     );
     n += 1;
   }
@@ -107,7 +106,7 @@ export function consentMessage(ctx: ConsentContext): string {
     `${n}. Ready for me to begin? Expect roughly 20–40 minutes and a meaningful number of tokens.`,
   );
 
-  const command = confirmedBeginCommand(docsExists);
+  const command = confirmedBeginCommand();
 
   return [
     "Relay the message below to your human as your next chat message — adapt the wording to your own voice if you like, but keep every point, and relay anything in quotation marks word for word. Then wait for their answers.",
@@ -133,6 +132,12 @@ export function consentMessage(ctx: ConsentContext): string {
     "Once they've answered, run this — substitute your own model id, or drop `--model` if you don't know it (it is recorded only for support triage):",
     "",
     `    ${command}`,
+    ...(docsExists
+      ? [
+        "",
+        "If they chose to have discern maintain their existing docs, add `--docs <their-docs-path>` so the choice is recorded as [docs].dir.",
+      ]
+      : []),
   ].join("\n");
 }
 

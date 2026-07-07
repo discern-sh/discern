@@ -13,6 +13,7 @@ import {
   confirmedBeginCommand,
   consentMessage,
 } from "../src/shared/setup_messages.ts";
+import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import type { SetupAssurance } from "../src/shared/setup_assurance.ts";
 
 const WT = "/repo.worktrees";
@@ -55,37 +56,47 @@ Deno.test("consentMessage carries the relay licence, the verbatim model question
   assert(!msg.includes("--docs"), "no docs tree → no --docs in the command");
 });
 
-Deno.test("consentMessage adds the docs-home ask and --docs only when a docs tree exists", () => {
+Deno.test("consentMessage offers the existing-docs opt-in exactly when a docs tree exists (ADR 0100)", () => {
   const withDocs = consentMessage({ worktreePath: WT, docsExists: true });
-  assertStringIncludes(withDocs, "You already have a docs/ folder");
-  assertStringIncludes(withDocs, "docs/discern/");
-  assertStringIncludes(withDocs, "--docs");
+  // The promise, then the default, then the opt-in — a choice, not a workaround.
+  assertStringIncludes(withDocs, "discern won't touch it");
+  assertStringIncludes(withDocs, SOURCE_PATHS.docs.defaultPath);
+  assertStringIncludes(withDocs, "keep them separate (the default)");
+  // The --docs flag is the agent's post-conversation instruction, outside the fence.
+  assertStringIncludes(withDocs, "--docs <their-docs-path>");
+  const fenced = withDocs.split("end of message")[0] ?? "";
+  assert(
+    !fenced.includes("--docs"),
+    "the --docs mechanics are agent-facing — never inside the relayed message",
+  );
 
   const noDocs = consentMessage({ worktreePath: WT, docsExists: false });
   assert(!noDocs.includes("You already have a docs/ folder"));
+  assert(!noDocs.includes("--docs"));
 });
 
-Deno.test("consentMessage keeps the message body concise (≤ ~200 words of prose)", () => {
+Deno.test("consentMessage keeps the message body concise (≤ ~250 words of prose)", () => {
   // The message the human reads sits between the two fences; the framing line and the
   // command ride outside it. Keep it short enough to survive a single read — the base
-  // case at the ~200-word target, the docs case adding only its one extra confirmation.
+  // case at the ~250-word target (the three pillars plus the footprint story), the
+  // docs case adding only its one extra confirmation.
   const wordsOf = (docsExists: boolean): number => {
     const body = consentMessage({ worktreePath: WT, docsExists })
       .split("message to your human")[1]?.split("end of message")[0] ?? "";
     return body.trim().split(/\s+/).filter(Boolean).length;
   };
   const base = wordsOf(false);
-  assert(base > 0 && base <= 210, `base message body was ${base} words`);
-  assert(wordsOf(true) <= 240, `docs message body was ${wordsOf(true)} words`);
+  assert(base > 0 && base <= 260, `base message body was ${base} words`);
+  assert(wordsOf(true) <= 320, `docs message body was ${wordsOf(true)} words`);
 });
 
 // ── confirmedBeginCommand ────────────────────────────────────────────────────
 
-Deno.test("confirmedBeginCommand always carries --confirmed, and --docs only with a docs tree", () => {
-  assertStringIncludes(confirmedBeginCommand(false), "--confirmed");
-  assert(!confirmedBeginCommand(false).includes("--docs"));
-  assertStringIncludes(confirmedBeginCommand(true), "--confirmed");
-  assertStringIncludes(confirmedBeginCommand(true), "--docs");
+Deno.test("confirmedBeginCommand carries --confirmed and never a --docs placeholder", () => {
+  assertStringIncludes(confirmedBeginCommand(), "--confirmed");
+  // The docs opt-in is an addition the consent framing describes; a placeholder in
+  // the default command would push every agent to pass one (ADR 0100).
+  assert(!confirmedBeginCommand().includes("--docs"));
 });
 
 // ── completionMessage ────────────────────────────────────────────────────────
