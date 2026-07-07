@@ -90,6 +90,11 @@ agents = [{{agents_array}}]
 # present, so a project with no authored-skills dir simply uses the built-ins.
 dir = "discern/skills"
 
+# Skill names (bundled or authored) to leave out of materialization. Every
+# materialized skill occupies context in each agent session, so exclude the ones
+# this project never needs. An unknown name is warned about, never fatal.
+# exclude = ["a-skill-this-project-never-needs"]
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [capabilities] — the core commands the gate runs, one per known capability.

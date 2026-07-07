@@ -156,14 +156,16 @@ export function parseSkillFrontmatter(text: string): SkillFrontmatter {
 }
 
 /**
- * Resolve the effective skill set: every bundled built-in plus every authored
- * skill under `[skills].dir`, keyed by name, with an authored skill overriding a
- * bundled one of the same name. Returned sorted by name.
+ * Every known skill — bundled built-ins plus authored ones under `[skills].dir`,
+ * keyed by name, an authored skill overriding a bundled one of the same name —
+ * BEFORE the `[skills].exclude` filter. The shared base the effective set, the
+ * listing, and the unknown-exclusion check all derive from, so the three can
+ * never disagree on what a name means.
  */
-export async function resolveEffectiveSkills(
+async function resolveSkillsByName(
   root: string,
   config: DiscernConfig,
-): Promise<SkillEntry[]> {
+): Promise<Map<string, SkillEntry>> {
   const bundledDir = await resolveBundledSkillsDir();
   const bundled = await dirNames(bundledDir);
   const { abs: authoredDir } = resolveSkillsDir(root, config);
@@ -186,7 +188,35 @@ export async function resolveEffectiveSkills(
       overridesBundled: byName.has(name),
     });
   }
-  return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
+  return byName;
+}
+
+/**
+ * Resolve the effective skill set: every bundled built-in plus every authored
+ * skill under `[skills].dir`, with an authored skill overriding a bundled one of
+ * the same name, minus the names in `[skills].exclude`. Returned sorted by name.
+ */
+export async function resolveEffectiveSkills(
+  root: string,
+  config: DiscernConfig,
+): Promise<SkillEntry[]> {
+  const byName = await resolveSkillsByName(root, config);
+  const excluded = new Set(config.skills.exclude);
+  return [...byName.values()]
+    .filter((e) => !excluded.has(e.name))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** The `[skills].exclude` names matching no bundled or authored skill — a likely
+ * typo, surfaced as a warning (never fatal) wherever a logger is at hand. */
+export async function unknownExcludedSkills(
+  root: string,
+  config: DiscernConfig,
+): Promise<string[]> {
+  const known = await resolveSkillsByName(root, config);
+  return [...new Set(config.skills.exclude)]
+    .filter((name) => !known.has(name))
+    .sort();
 }
 
 /** A listing row for `discern skills list`. */
@@ -197,21 +227,29 @@ export interface SkillListing {
   overridesBundled: boolean;
   /** True when a bundled built-in of this name exists (shadowed or not). */
   hasBundled: boolean;
+  /** True when `[skills].exclude` drops this skill from materialization. */
+  excluded: boolean;
 }
 
-/** The effective set as listing rows (for `discern skills list`). */
+/** Every known skill as a listing row (for `discern skills list`), the excluded
+ * ones included and flagged — the listing shows the whole set and what
+ * `[skills].exclude` does to it, not just the survivors. */
 export async function listSkills(
   root: string,
   config: DiscernConfig,
 ): Promise<SkillListing[]> {
   const bundled = new Set(await bundledSkillNames());
-  const effective = await resolveEffectiveSkills(root, config);
-  return effective.map((e) => ({
-    name: e.name,
-    source: e.source,
-    overridesBundled: e.overridesBundled,
-    hasBundled: bundled.has(e.name),
-  }));
+  const byName = await resolveSkillsByName(root, config);
+  const excluded = new Set(config.skills.exclude);
+  return [...byName.values()]
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((e) => ({
+      name: e.name,
+      source: e.source,
+      overridesBundled: e.overridesBundled,
+      hasBundled: bundled.has(e.name),
+      excluded: excluded.has(e.name),
+    }));
 }
 
 // ── bundled-skill rendering (ADR 0102) ──────────────────────────────────────
@@ -386,6 +424,15 @@ export async function materializeSkills(
   log?: Logger,
 ): Promise<MaterializeResult> {
   const effective = await resolveEffectiveSkills(root, config);
+  // A typo'd exclusion silently excludes nothing — say so, but never fail on it.
+  const unknownExcluded = await unknownExcludedSkills(root, config);
+  if (unknownExcluded.length > 0) {
+    log?.warn(
+      `[skills].exclude names no known skill: ${
+        unknownExcluded.join(", ")
+      } — check for a typo (\`discern skills list\` shows the known set).`,
+    );
+  }
   // The same resolved-config context the guidance compiler renders against —
   // one context for both rendered surfaces (ADR 0102).
   const ctx = guidanceContext(config);

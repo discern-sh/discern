@@ -765,9 +765,10 @@ async function runSkillsList(opts: { json: boolean }): Promise<number> {
   }
   console.log("Effective skills:");
   for (const r of rows) {
-    const tag = r.source === "authored"
+    const base = r.source === "authored"
       ? (r.overridesBundled ? "yours (overrides built-in)" : "yours")
       : "built-in";
+    const tag = r.excluded ? `${base} — excluded ([skills].exclude)` : base;
     console.log(`  ${r.name.padEnd(24)} ${tag}`);
   }
   return 0;

@@ -238,8 +238,11 @@ const skillsSection = z.strictObject({
   dir: z.string().default(SOURCE_PATHS.skills.defaultPath).describe(
     "Where your authored skills live, relative to the project root. Read only if present, so a project with no authored-skills dir simply uses the built-ins.",
   ),
+  exclude: z.array(z.string()).default([]).describe(
+    "Skill names (bundled or authored) excluded from materialization — each materialized skill occupies context in every agent session, so drop the ones this project never needs. An unknown name is warned about, never fatal.",
+  ),
 }).prefault({}).describe(
-  "Focused, reusable task playbooks. The effective set is discern's bundled built-ins plus your authored skills under the directory below, where yours override a built-in of the same name.",
+  "Focused, reusable task playbooks. The effective set is discern's bundled built-ins plus your authored skills under the directory below, where yours override a built-in of the same name, minus any names in `exclude`.",
 );
 
 const docsSection = z.strictObject({
