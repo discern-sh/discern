@@ -856,8 +856,10 @@ async function gitTopLevel(start: string): Promise<string | undefined> {
  * the same marker walk as status/done/step; fresh setup in a Git subdirectory uses
  * the repository top-level so the scaffold and the setup branch describe one tree.
  * Outside Git, there is no broader project root to infer, so setup stays in cwd.
+ * Shared with `setup verify`, so the preflight's previews (the sibling worktree
+ * path above all) describe the same tree `begin` will actually operate on.
  */
-async function resolveSetupRoot(start: string): Promise<string> {
+export async function resolveSetupRoot(start: string): Promise<string> {
   return (await findRoot(start)) ?? (await gitTopLevel(start)) ?? start;
 }
 

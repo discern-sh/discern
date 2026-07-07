@@ -45,6 +45,7 @@ import {
   consentMessage,
   deriveConsentContext,
 } from "../shared/setup_messages.ts";
+import { resolveSetupRoot } from "./setup.ts";
 import { SOURCE_PATHS } from "../shared/paths_registry.ts";
 import { runGit } from "../shared/subprocess.ts";
 import {
@@ -71,7 +72,10 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
     humanStream: "stdout",
   });
   const root = await findRoot();
-  const destDir = Deno.cwd();
+  // The SAME root resolution `begin` uses — a preflight run from a repo
+  // subdirectory must preview the tree setup will actually operate on (the
+  // repository top-level and ITS sibling worktree path), not the subdirectory's.
+  const destDir = await resolveSetupRoot(Deno.cwd());
   let config: DiscernConfig | undefined;
   let bootstrapped = false;
   if (root !== undefined) {

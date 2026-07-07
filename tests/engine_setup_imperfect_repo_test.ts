@@ -171,6 +171,28 @@ Deno.test("verify in a non-git directory serves git-init-first and promises no i
   });
 });
 
+// ── C9 residual: verify previews from the resolved root ───────────────────────
+
+Deno.test("verify from a repo subdirectory previews the ROOT's sibling worktree path", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+    await gitInit(dir);
+    const sub = join(dir, "packages", "app");
+    await Deno.mkdir(sub, { recursive: true });
+
+    const d = JSON.parse(
+      (await runAgent(dir, ["setup", "verify", "--json"], { cwd: sub })).stdout,
+    ).data;
+    // The preview must describe the tree `begin` will operate on — the repo
+    // top-level and ITS sibling — not `<subdir>.worktrees` inside the repo.
+    // (realPath: git reports the /private-canonicalized form of the temp dir.)
+    assertEquals(
+      d.findings.worktree_path,
+      `${await Deno.realPath(dir)}.worktrees`,
+    );
+  });
+});
+
 // ── C11: the welcome shows where it's needed most ──────────────────────────────
 
 Deno.test("bare `discern` in a non-git directory shows the welcome (leading with git init), not raw CLI help", async () => {
