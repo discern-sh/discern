@@ -28,7 +28,7 @@ Deno.test("recipes: a project recipe runs via agent <name>", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeExecutable(
-      join(dir, "recipes/hello"),
+      join(dir, "discern/recipes/hello"),
       "#!/usr/bin/env sh\n# desc: say hello\necho HELLO-FROM-PROJECT\n",
     );
     const r = await runAgent(dir, ["hello"]);
@@ -41,7 +41,7 @@ Deno.test("recipes: a project recipe is listed under --help", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeExecutable(
-      join(dir, "recipes/hello"),
+      join(dir, "discern/recipes/hello"),
       "#!/usr/bin/env sh\n# desc: say hello\necho hi\n",
     );
     const r = await runAgent(dir, ["--help"]);
@@ -55,7 +55,7 @@ Deno.test("recipes: a project recipe is listed under --help", async () => {
 Deno.test("recipes: a project recipe reads config via discern config get", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    await writeExecutable(join(dir, "recipes/show-slug"), SLUG_RECIPE);
+    await writeExecutable(join(dir, "discern/recipes/show-slug"), SLUG_RECIPE);
     const r = await runAgent(dir, ["show-slug"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "SLUG=engine-test");
@@ -73,7 +73,7 @@ Deno.test("recipes: a project recipe uses normal shell globbing", async () => {
     // the exact shape of a native sub-app recipe like `ls "$dir"/*.xcodeproj`. It
     // reads DISCERN_ROOT from the environment the dispatcher exports.
     await writeExecutable(
-      join(dir, "recipes/globby"),
+      join(dir, "discern/recipes/globby"),
       [
         "#!/usr/bin/env sh",
         "# desc: count files via a shell glob",
@@ -98,7 +98,7 @@ Deno.test("recipes: a name colliding with an engine recipe is shadowed (engine w
     await gitInit(dir);
     // A project recipe named `finish` must NOT override the gate.
     await writeExecutable(
-      join(dir, "recipes/finish"),
+      join(dir, "discern/recipes/finish"),
       "#!/usr/bin/env sh\n# desc: not the real finish\necho PROJECT-FINISH-RAN\n",
     );
     const r = await runAgent(dir, ["finish"]);
@@ -116,7 +116,7 @@ Deno.test("recipes: a shadowed name is omitted from the --help project listing",
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeExecutable(
-      join(dir, "recipes/finish"),
+      join(dir, "discern/recipes/finish"),
       "#!/usr/bin/env sh\n# desc: not the real finish\necho hi\n",
     );
     const r = await runAgent(dir, ["--help"]);
@@ -134,9 +134,9 @@ Deno.test("recipes: a non-executable project recipe is reported, not run", async
     await scaffoldEngine(dir);
     // The recipes dir is opt-in (no longer scaffolded), so create it before
     // dropping a non-executable file straight in (writeExecutable would chmod +x).
-    await Deno.mkdir(join(dir, "recipes"), { recursive: true });
+    await Deno.mkdir(join(dir, "discern/recipes"), { recursive: true });
     await Deno.writeTextFile(
-      join(dir, "recipes/deploy"),
+      join(dir, "discern/recipes/deploy"),
       "#!/usr/bin/env sh\n# desc: deploy\necho deployed\n",
     );
     // No chmod +x.
@@ -180,7 +180,7 @@ Deno.test("recipes: DISCERN_RECIPES is exported into a recipe's environment", as
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeExecutable(
-      join(dir, "recipes/show-recipes-dir"),
+      join(dir, "discern/recipes/show-recipes-dir"),
       "#!/usr/bin/env sh\n# desc: print the recipes dir\nprintf 'RECIPES=%s\\n' \"$DISCERN_RECIPES\"\n",
     );
     const r = await runAgent(dir, ["show-recipes-dir"]);
@@ -193,7 +193,7 @@ Deno.test("recipes: an unknown verb suggests a near-match project recipe", async
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeExecutable(
-      join(dir, "recipes/deploy"),
+      join(dir, "discern/recipes/deploy"),
       "#!/usr/bin/env sh\n# desc: deploy\necho deployed\n",
     );
     const r = await runAgent(dir, ["deplyo"]); // transposed typo

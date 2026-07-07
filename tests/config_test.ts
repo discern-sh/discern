@@ -70,12 +70,13 @@ Deno.test("tokensFromConfig produces the full token contract", () => {
   assertEquals(map.docs_dir, "docs/discern/");
   assertEquals(map.scopes_web, '"src/**", "lib/**"');
   // The neutral/previewable/gotchas defaults are fixed. Neutral names docs, the
-  // authored-skills source, and EVERY known agent's generated dir, derived from the
-  // provider registry (.claude/ for Claude Code, .agents/ for Codex+Gemini) — so a
-  // new agent is neutralized without editing this list.
+  // discern/ namespace (every authored default from the paths registry lives
+  // under it), and EVERY known agent's generated dir, derived from the provider
+  // registry (.claude/ for Claude Code, .agents/ for Codex+Gemini) — so a new
+  // agent is neutralized without editing this list.
   assertEquals(
     map.scopes_neutral,
-    '"${docs.dir}", "skills/", ".claude/", ".agents/"',
+    '"${docs.dir}", "discern/", ".claude/", ".agents/"',
   );
   assertEquals(map.scopes_previewable, '"public/**"');
 });

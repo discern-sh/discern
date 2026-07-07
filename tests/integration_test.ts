@@ -86,7 +86,7 @@ Deno.test("init scaffolds the real templates into a working harness", async () =
 
     // 4. The brief was written verbatim under a header (at the root brief.md).
     assertStringIncludes(
-      await Deno.readTextFile(join(dir, "brief.md")),
+      await Deno.readTextFile(join(dir, "discern/brief.md")),
       "An end-to-end integration brief.",
     );
 

@@ -193,7 +193,7 @@ Deno.test("upgrade reconciles a current-schema config missing a fixed template s
     const toml = await readTarget(dir, "discern.toml");
     assertStringIncludes(toml, "# [recipes] — your own `discern` commands");
     assertStringIncludes(toml, "\n[recipes]\n");
-    assertStringIncludes(toml, 'dir = "recipes"');
+    assertStringIncludes(toml, 'dir = "discern/recipes"');
     await assertSecondUpgradeIsByteStable(dir);
   });
 });
@@ -307,7 +307,7 @@ Deno.test("a schema-1 install missing main_branch upgrades to the current schema
       const res = await upgrade(older); // runs 1→2 … current, materializes, stamps
       assertEquals(
         res.data.migrations_applied.map((m: { from: number }) => m.from),
-        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
       );
 
       await setup(fresh); // a fresh install at the current schema
@@ -375,7 +375,7 @@ Deno.test("a schema-3 [slots] install upgrades to the capabilities shape and the
       const res = await upgrade(older); // runs 3→4 … current, materializes, stamps
       assertEquals(
         res.data.migrations_applied.map((m: { from: number }) => m.from),
-        [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+        [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
       );
 
       await setup(fresh);
@@ -453,7 +453,7 @@ Deno.test("a legacy install whose schema lives only in a manifest upgrades, prun
     // The manifest anchored the chain at schema 4, so every later step runs.
     assertEquals(
       res.data.migrations_applied.map((m: { from: number }) => m.from),
-      [4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+      [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
     );
     // The shell engine, dispatcher, manifest, and the whole .discern/ namespace
     // are gone; the config now lives at the root footprint.

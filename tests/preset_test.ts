@@ -50,12 +50,12 @@ Deno.test("preset overlays the example preset's files and config fills", async (
     assertEquals(result.data.config_fills, true);
 
     // Files overlaid: a seed recipe, a seed guideline fragment, a managed skill.
-    assert(await exists(join(dir, "recipes/example-deploy")));
-    assert(await exists(join(dir, "guidance.md")));
-    assert(await exists(join(dir, "skills/example-skill/SKILL.md")));
+    assert(await exists(join(dir, "discern/recipes/example-deploy")));
+    assert(await exists(join(dir, "discern/guidance.md")));
+    assert(await exists(join(dir, "discern/skills/example-skill/SKILL.md")));
     // The overlaid recipe kept its exec bit.
     const recipeInfo = await Deno.stat(
-      join(dir, "recipes/example-deploy"),
+      join(dir, "discern/recipes/example-deploy"),
     );
     assert(
       ((recipeInfo.mode ?? 0) & 0o111) !== 0,
@@ -98,7 +98,7 @@ Deno.test("preset --dry-run writes nothing (files or fills)", async () => {
     );
     assertEquals(r.code, 0, r.stderr);
     assertEquals(JSON.parse(r.stdout).dry_run, true);
-    assert(!(await exists(join(dir, "recipes/example-deploy"))));
+    assert(!(await exists(join(dir, "discern/recipes/example-deploy"))));
     assertEquals(
       await Deno.readTextFile(join(dir, "discern.toml")),
       before,
@@ -207,14 +207,14 @@ Deno.test("preset --dry-run prints the plan as plain text and writes nothing", a
     assertEquals(r.code, 0, r.stderr);
     // The plan rows print to stdout (the user-facing channel); the heading and
     // the config-fills note are status lines on stderr.
-    assertStringIncludes(r.stdout, "recipes/example-deploy");
+    assertStringIncludes(r.stdout, "discern/recipes/example-deploy");
     assertStringIncludes(r.stderr, 'Dry run — preset "example" would overlay');
     assertStringIncludes(
       r.stderr,
       "Would also apply config fills to discern.toml",
     );
     // Nothing was written.
-    assert(!(await exists(join(dir, "recipes/example-deploy"))));
+    assert(!(await exists(join(dir, "discern/recipes/example-deploy"))));
     assertEquals(
       await Deno.readTextFile(join(dir, "discern.toml")),
       before,
@@ -341,6 +341,6 @@ Deno.test("preset falls back to default agents when discern.toml omits them", as
     assertEquals(r.code, 0, r.stderr);
     assertEquals(JSON.parse(r.stdout).ok, true);
     // The overlay still applied normally despite the missing agents key.
-    assert(await exists(join(dir, "recipes/example-deploy")));
+    assert(await exists(join(dir, "discern/recipes/example-deploy")));
   });
 });

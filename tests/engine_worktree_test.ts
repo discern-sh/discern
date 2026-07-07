@@ -60,13 +60,14 @@ async function commitGuidanceMarker(
   wt: string,
   marker: string,
 ): Promise<void> {
-  const guidance = join(wt, "guidance.md");
+  const guidance = join(wt, "discern/guidance.md");
+  await Deno.mkdir(join(wt, "discern"), { recursive: true });
   const existing = await Deno.readTextFile(guidance).catch(() => "");
   await Deno.writeTextFile(
     guidance,
     `${existing}\n\n## ${marker}\n\nKeep this marker visible in generated guidance.\n`,
   );
-  await git(wt, "add", "guidance.md");
+  await git(wt, "add", "discern/guidance.md");
   await git(wt, "commit", "-q", "-m", "update guidance", "--no-gpg-sign");
 }
 

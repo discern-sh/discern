@@ -268,7 +268,7 @@ Deno.test("doctor: human output reports advisories separately from failures", as
     // The environment header gives at-a-glance triage context.
     assertStringIncludes(stderr, "discern 1.0.0 ·");
     assertStringIncludes(stderr, "discern.toml: present and valid TOML");
-    assertStringIncludes(stderr, "schema 14 (current)");
+    assertStringIncludes(stderr, "schema 15 (current)");
     assertStringIncludes(stderr, "capabilities: none wired yet");
     assertStringIncludes(stderr, "git: ");
     assertStringIncludes(stderr, "All checks passed (see the advisory above).");
@@ -352,7 +352,7 @@ Deno.test("doctor: a stale schema is flagged with an upgrade fix", async () => {
     assertEquals(schema.status, "fail");
     assertEquals(schema.ok, false);
     assertStringIncludes(schema.detail, "v1");
-    assertStringIncludes(schema.detail, "v14");
+    assertStringIncludes(schema.detail, "v15");
     assertStringIncludes(schema.fix ?? "", "discern upgrade");
   });
 });
@@ -420,10 +420,10 @@ Deno.test("doctor: a recipe sourcing the retired shell library is flagged with t
     await setupInstall(dir);
     // A recipe carried forward from a pre-binary install: it sources the engine
     // library that no longer exists, so it would break at runtime. (The default
-    // [recipes].dir is ./recipes; a fresh install seeds no recipes dir.)
-    await Deno.mkdir(join(dir, "recipes"), { recursive: true });
+    // [recipes].dir is discern/recipes; a fresh install seeds no recipes dir.)
+    await Deno.mkdir(join(dir, "discern/recipes"), { recursive: true });
     await Deno.writeTextFile(
-      join(dir, "recipes/reset"),
+      join(dir, "discern/recipes/reset"),
       '#!/usr/bin/env sh\n# desc: reset fixtures\n. "$DISCERN_LIB/bootstrap.sh"\nok done\n',
     );
     const { code, payload } = await runDoctorJson(dir);
@@ -566,9 +566,15 @@ Deno.test("doctor: reports resolved guidance sources and authored skills when pr
     await setupInstall(dir);
     // A guidance source + an authored skill exercise the "populated" branch of
     // both checks (a fresh install only hits the "none yet" branch).
-    await Deno.writeTextFile(join(dir, "guidance.md"), "# project guidance\n");
-    await Deno.mkdir(join(dir, "skills/my-skill"), { recursive: true });
-    await Deno.writeTextFile(join(dir, "skills/my-skill/SKILL.md"), "# mine\n");
+    await Deno.writeTextFile(
+      join(dir, "discern/guidance.md"),
+      "# project guidance\n",
+    );
+    await Deno.mkdir(join(dir, "discern/skills/my-skill"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, "discern/skills/my-skill/SKILL.md"),
+      "# mine\n",
+    );
 
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 0);

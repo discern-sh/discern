@@ -57,7 +57,7 @@ Deno.test("setup --config scaffolds from a JSON answers file", async () => {
 
     // The brief was captured.
     assertStringIncludes(
-      await Deno.readTextFile(join(dir, "brief.md")),
+      await Deno.readTextFile(join(dir, "discern/brief.md")),
       "A declaratively-configured app.",
     );
   });

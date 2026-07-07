@@ -18,6 +18,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join } from "@std/path";
+import { guidanceSeedRel } from "../src/shared/paths_registry.ts";
 import { REAL_TEMPLATES, withTempDir } from "./helpers.ts";
 import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
 import { parseSetupBrief } from "../src/shared/setup_pages.ts";
@@ -190,13 +191,15 @@ async function layMarkerFreeProject(
 ): Promise<void> {
   await scaffoldEngine(dir, { bootstrapped: false });
   await gitInit(dir);
-  await Deno.mkdir(join(dir, "docs/00-orientation"), { recursive: true });
+  await Deno.mkdir(join(dir, "discern/docs/00-orientation"), {
+    recursive: true,
+  });
   await Deno.writeTextFile(
-    join(dir, "docs/00-orientation/design-principles.md"),
+    join(dir, "discern/docs/00-orientation/design-principles.md"),
     principles,
   );
   await Deno.writeTextFile(
-    join(dir, "guidance.md"),
+    join(dir, "discern/guidance.md"),
     "# Guidance\n\nA real pitch describing the project.\n\n## Conventions\n\nReal conventions.\n",
   );
   await runAgent(dir, ["config", "set-capability", "test", "true"]);
@@ -355,18 +358,28 @@ const CHECK_EVAL_CASES: Record<string, EvalCase> = {
   guidance: {
     async fail(root): Promise<EvalCtx> {
       // Conventions heading present but the stub placeholder never replaced.
+      const config = baseConfig();
+      await Deno.mkdir(
+        join(root, dirname(guidanceSeedRel(config.guidance.sources))),
+        { recursive: true },
+      );
       await Deno.writeTextFile(
-        join(root, "guidance.md"),
+        join(root, guidanceSeedRel(config.guidance.sources)),
         "# Guidance\n\nA pitch.\n\n## Conventions\n\n_(replace this section with the project's real conventions)_\n",
       );
-      return { root, config: baseConfig() };
+      return { root, config };
     },
     async pass(root): Promise<EvalCtx> {
+      const config = baseConfig();
+      await Deno.mkdir(
+        join(root, dirname(guidanceSeedRel(config.guidance.sources))),
+        { recursive: true },
+      );
       await Deno.writeTextFile(
-        join(root, "guidance.md"),
+        join(root, guidanceSeedRel(config.guidance.sources)),
         "# Guidance\n\nA real pitch.\n\n## Conventions\n\nReal conventions.\n",
       );
-      return { root, config: baseConfig() };
+      return { root, config };
     },
   },
   capabilities: {

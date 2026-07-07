@@ -70,7 +70,7 @@ Deno.test("setup --json scaffolds and reports JSON", async () => {
     assert(result.data.compiled.includes("CLAUDE.md"));
     // It also lays the doc skeletons; `skeletons` lists them, and it prints the
     // agent instructions inline.
-    assert(result.data.skeletons.includes("docs/"));
+    assert(result.data.skeletons.includes("discern/docs/"));
     assert(typeof result.data.instructions === "string");
     // The files really landed.
     await Deno.stat(join(dir, "discern.toml"));

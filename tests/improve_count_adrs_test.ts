@@ -22,7 +22,7 @@ Deno.test("countAdrs counts ADRs nested under _superseded/ and excludes the temp
     await Deno.writeTextFile(join(superseded, "0002-beta.md"), "# ADR 0002");
     await Deno.writeTextFile(join(superseded, "0004-delta.md"), "# ADR 0004");
     // 2 current + 2 superseded = 4 real ADRs; the 0000-template seed is excluded.
-    assertEquals(await countAdrs(root), 4);
+    assertEquals(await countAdrs(root, "docs/"), 4);
   } finally {
     await Deno.remove(root, { recursive: true });
   }

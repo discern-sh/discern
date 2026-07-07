@@ -12,6 +12,7 @@ import {
 import { KNOWN_CAPABILITIES, STAGES } from "../src/shared/capabilities.ts";
 import { FEATURES } from "../src/shared/features.ts";
 import { KNOWN_AGENTS } from "../src/lib/config.ts";
+import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 
 // ── defaults ───────────────────────────────────────────────────────────────────
 
@@ -21,10 +22,13 @@ Deno.test("an empty config validates to a fully-defaulted object", () => {
   assertEquals(c.project.branch_prefix, "agent/");
   assertEquals(c.project.slug, "");
   assertEquals(c.project.gotchas_doc, "");
-  assertEquals(c.skills.dir, "skills");
-  assertEquals(c.docs.dir, "docs/");
-  assertEquals(c.recipes.dir, "recipes");
-  assertEquals(c.guidance.sources, ["guidance.md"]);
+  // The path defaults are the registry's (ADR 0102) — asserted against it, so
+  // the schema can never drift from the one source of truth.
+  assertEquals(c.skills.dir, SOURCE_PATHS.skills.defaultPath);
+  assertEquals(c.docs.dir, SOURCE_PATHS.docs.defaultPath);
+  assertEquals(c.recipes.dir, SOURCE_PATHS.recipes.defaultPath);
+  assertEquals(c.guidance.sources, [SOURCE_PATHS.guidance.defaultPath]);
+  assertEquals(c.project.todo, SOURCE_PATHS.todo.defaultPath);
   assertEquals(c.guidance.agents, []);
   assertEquals(c.meta.bootstrapped, false);
   // records default to empty

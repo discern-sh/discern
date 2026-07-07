@@ -118,6 +118,9 @@ run = "echo DISCERN_METRIC coverage 1"
 [guidance]
 agents = ["claude_code"]
 sources = ["guidance.md"]
+
+[docs]
+dir = "docs/"
 `;
 
 /** Lay down the files the strong config's deterministic rules look for. */

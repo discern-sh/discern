@@ -25,9 +25,14 @@ import {
 } from "../src/lib/docs.ts";
 import { readTarget, runCli, seedConfig, withTempDir } from "./helpers.ts";
 
-/** Write a small but representative docs tree (with an .discern/config.toml anchor). */
+/** Write a small but representative docs tree (with an .discern/config.toml anchor).
+ * The tree lives at a pinned root `docs/` — a pointed, non-default layout — so
+ * these behavior tests double as coverage of the pointing escape hatch. */
 async function makeDocsProject(dir: string): Promise<void> {
-  await seedConfig(dir, 'slug = "demo"\n');
+  await seedConfig(
+    dir,
+    '[meta]\nbootstrapped = true\n[docs]\ndir = "docs/"\n[project]\nslug = "demo"\n',
+  );
   const files: Record<string, string> = {
     "docs/README.md": "# Docs Home\n\nWelcome.\n",
     "docs/00-intro/README.md": "# Intro\n",
@@ -588,7 +593,10 @@ Deno.test("docs --json reports an empty tree as count 0 (only internal docs pres
   await withTempDir(async (dir) => {
     // A docs dir holding nothing but an internal _-prefixed subtree: the tree
     // exists, but every entry is filtered out → an empty user-facing index.
-    await seedConfig(dir, 'slug = "demo"\n');
+    await seedConfig(
+      dir,
+      '[meta]\nbootstrapped = true\n[docs]\ndir = "docs/"\n[project]\nslug = "demo"\n',
+    );
     await Deno.mkdir(join(dir, "docs/_adr"), { recursive: true });
     await Deno.writeTextFile(join(dir, "docs/_adr/0001-first.md"), "# ADR\n");
 
@@ -603,7 +611,10 @@ Deno.test("docs --json reports an empty tree as count 0 (only internal docs pres
 
 Deno.test("bare docs warns when the tree has no Markdown (no hang, exit 0)", async () => {
   await withTempDir(async (dir) => {
-    await seedConfig(dir, 'slug = "demo"\n');
+    await seedConfig(
+      dir,
+      '[meta]\nbootstrapped = true\n[docs]\ndir = "docs/"\n[project]\nslug = "demo"\n',
+    );
     // A docs dir with a non-Markdown file only → discovery finds the dir but
     // indexes nothing.
     await Deno.mkdir(join(dir, "docs"), { recursive: true });
@@ -646,7 +657,10 @@ Deno.test("docs honours $COLUMNS for the wrap width", async () => {
 
 Deno.test("discoverDocs humanises the slug when a doc has no heading", async () => {
   await withTempDir(async (dir) => {
-    await seedConfig(dir, 'slug = "demo"\n');
+    await seedConfig(
+      dir,
+      '[meta]\nbootstrapped = true\n[docs]\ndir = "docs/"\n[project]\nslug = "demo"\n',
+    );
     await Deno.mkdir(join(dir, "docs"), { recursive: true });
     // No Markdown heading at all → the title falls back to a humanised slug.
     await Deno.writeTextFile(
@@ -663,7 +677,10 @@ Deno.test("discoverDocs humanises the slug when a doc has no heading", async () 
 
 Deno.test("discoverDocs falls back to a humanised title when a doc cannot be read", async () => {
   await withTempDir(async (dir) => {
-    await seedConfig(dir, 'slug = "demo"\n');
+    await seedConfig(
+      dir,
+      '[meta]\nbootstrapped = true\n[docs]\ndir = "docs/"\n[project]\nslug = "demo"\n',
+    );
     await Deno.mkdir(join(dir, "docs"), { recursive: true });
     // A dangling symlink with a .md name: walk yields it, but reading it throws,
     // so discovery swallows the error and humanises the slug instead.
@@ -691,7 +708,10 @@ Deno.test("docs without --json errors to stderr when there is no docs tree", asy
 
 Deno.test("docs --dir to a missing directory errors with that path", async () => {
   await withTempDir(async (dir) => {
-    await seedConfig(dir, 'slug = "demo"\n');
+    await seedConfig(
+      dir,
+      '[meta]\nbootstrapped = true\n[docs]\ndir = "docs/"\n[project]\nslug = "demo"\n',
+    );
     // An explicit --dir that does not exist takes the dir-specific message.
     const { code, stderr } = await runCli(["docs", "--dir", "nope"], dir);
     assertEquals(code, 1);

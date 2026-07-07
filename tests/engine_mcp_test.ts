@@ -535,9 +535,11 @@ Deno.test("discern mcp: discern_docs returns the index, a single doc, and a not_
     await scaffoldEngine(dir);
     await gitInit(dir);
     // The scaffold ships no docs/ tree until bootstrap — seed a tiny one.
-    await Deno.mkdir(join(dir, "docs", "00-orientation"), { recursive: true });
+    await Deno.mkdir(join(dir, "discern/docs", "00-orientation"), {
+      recursive: true,
+    });
     await Deno.writeTextFile(
-      join(dir, "docs", "00-orientation", "concepts.md"),
+      join(dir, "discern/docs", "00-orientation", "concepts.md"),
       "# Concepts\n\nThe core ideas of the project.\n",
     );
     const mcp = await spawnMcp(dir);
@@ -601,9 +603,9 @@ Deno.test("discern mcp: discern_help returns discern's OWN docs, not the project
     await gitInit(dir);
     // The host project has its own docs/ — discern_help must ignore it and serve
     // discern's bundled documentation (resolved module-relative to this repo).
-    await Deno.mkdir(join(dir, "docs"), { recursive: true });
+    await Deno.mkdir(join(dir, "discern/docs"), { recursive: true });
     await Deno.writeTextFile(
-      join(dir, "docs", "project-only.md"),
+      join(dir, "discern/docs", "project-only.md"),
       "# Project Only\n\nNothing to do with discern.\n",
     );
     const mcp = await spawnMcp(dir);
@@ -2352,9 +2354,11 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
     await scaffoldEngine(dir);
     await gitInit(dir);
     // Seed a project docs tree so discern://docs has content.
-    await Deno.mkdir(join(dir, "docs", "00-orientation"), { recursive: true });
+    await Deno.mkdir(join(dir, "discern/docs", "00-orientation"), {
+      recursive: true,
+    });
     await Deno.writeTextFile(
-      join(dir, "docs", "00-orientation", "concepts.md"),
+      join(dir, "discern/docs", "00-orientation", "concepts.md"),
       "# Concepts\n\nThe core ideas of the project.\n",
     );
     const mcp = await spawnMcp(dir);

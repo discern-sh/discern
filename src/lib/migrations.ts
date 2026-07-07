@@ -746,11 +746,11 @@ export const MIGRATIONS: Migration[] = [
 interface NamespaceMoveDecision {
   /** The registry entry being considered. */
   name: SourcePathName;
-  /** True when the configured value differs from the old default — the user
+  /** True when the configured value differs from the legacy default — the user
    * typed a path, so the migration must not touch it. */
   pointed: boolean;
-  /** True when the key is literally written in the config (at the old default),
-   * so a move must also update the written value to the new default. */
+  /** True when the key is literally written in the config (at the legacy
+   * default), so a move must also update the written value to the new default. */
   keyWritten: boolean;
 }
 
@@ -782,7 +782,7 @@ function rawValueAt(
 
 /**
  * Whether a keyed registry path is pointed away from its pre-namespace default.
- * Absent ⇒ unpointed (the old schema default governed). A list key (the guidance
+ * Absent ⇒ unpointed (the legacy schema default governed). A list key (the guidance
  * sources) is unpointed when empty or exactly the one legacy default entry; a
  * dir key when it canonicalizes to the legacy default.
  */
@@ -814,11 +814,11 @@ function decideNamespaceMove(
 /**
  * The schema-14→15 transform (ADR 0099/0102): consolidate the authored surface
  * under the visible `discern/` namespace. Enumerates the paths registry — for
- * each source path whose config key is NOT pointed away from the old default,
+ * each source path whose config key is NOT pointed away from the legacy default,
  * move the file/dir from its pre-namespace location to its `discern/` default
  * (creating the namespace dir as needed) and update an explicitly-written key to
  * the new default. A pointed path is untouched; a move blocked by an occupied
- * target keeps the old location working by pinning the key to it explicitly.
+ * target keeps the legacy location working by pinning the key to it explicitly.
  * Also carries `[project].gotchas_doc` and the seeded neutral-scope globs across
  * a docs/skills move, best-effort — same craft as the 2→3 glob repoint.
  */
@@ -850,7 +850,7 @@ async function migrateIntoNamespace(ctx: MigrationContext): Promise<void> {
     const targetOccupied = await ctx.exists(to);
 
     if (sourceExists && targetOccupied) {
-      // Can't move without clobbering — keep the old location WORKING by
+      // Can't move without clobbering — keep the legacy location WORKING by
       // pinning the key to it explicitly (placement-is-consent: the pin records
       // the layout the install actually has). The brief has no key to pin.
       if (entry.key !== null) {
@@ -886,7 +886,7 @@ async function migrateIntoNamespace(ctx: MigrationContext): Promise<void> {
 
   // Carry [project].gotchas_doc across a docs move: it points INTO the tree
   // that just moved, so rewrite its prefix (only when it wasn't pointed
-  // elsewhere — a path outside the old docs default is untouched).
+  // elsewhere — a path outside the legacy docs default is untouched).
   const docsEntry = SOURCE_PATHS.docs;
   const gotchas = rawValueAt(raw, "project.gotchas_doc");
   if (
@@ -913,7 +913,7 @@ async function migrateIntoNamespace(ctx: MigrationContext): Promise<void> {
     });
   }
 
-  // Best-effort: the old template seeded literal neutral-scope globs for the
+  // Best-effort: the pre-namespace template seeded literal neutral-scope globs for the
   // docs tree and the authored skills; repoint them at the moved locations so
   // the neutral scope keeps matching. A customised glob simply won't match the
   // pattern — harmless (same craft as the 2→3 `.ai/` repoint).

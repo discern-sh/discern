@@ -185,8 +185,11 @@ Deno.test("engine refresh: compiled agent files are world-readable (0644)", asyn
 Deno.test("engine refresh: prunes the link of an authored skill removed from the source tree", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    // An authored skill under ./skills/ is symlinked into .claude/skills/.
-    await writeExecutable(join(dir, "skills/temp/SKILL.md"), "temp skill");
+    // An authored skill under the default skills dir is symlinked into .claude/skills/.
+    await writeExecutable(
+      join(dir, "discern/skills/temp/SKILL.md"),
+      "temp skill",
+    );
 
     let r = await runAgent(dir, ["refresh"]);
     assertEquals(r.code, 0, r.output);
@@ -196,7 +199,7 @@ Deno.test("engine refresh: prunes the link of an authored skill removed from the
     );
 
     // Remove the authored skill; re-running must prune the now-dangling link.
-    await Deno.remove(join(dir, "skills/temp"), { recursive: true });
+    await Deno.remove(join(dir, "discern/skills/temp"), { recursive: true });
     r = await runAgent(dir, ["refresh"]);
     assertEquals(r.code, 0, r.output);
 

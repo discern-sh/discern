@@ -38,7 +38,7 @@ Deno.test("config reconciliation restores a missing fixed section with comments"
     "# [recipes] — your own `discern` commands",
   );
   assertStringIncludes(result.text, "\n[recipes]\n");
-  assertStringIncludes(result.text, 'dir = "recipes"');
+  assertStringIncludes(result.text, 'dir = "discern/recipes"');
 
   const again = reconcileConfigTextWithTemplate(result.text, template);
   assertEquals(again.operations, []);

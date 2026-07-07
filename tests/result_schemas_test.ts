@@ -569,9 +569,11 @@ Deno.test("docs/help results are faithful (index, single doc, not-found, no-tree
     expectValid(DocsOutputSchema, await docsResult(dir), "docs no-tree");
 
     // Seed a tiny tree → index + single doc + not-found.
-    await Deno.mkdir(join(dir, "docs", "00-orientation"), { recursive: true });
+    await Deno.mkdir(join(dir, "discern/docs", "00-orientation"), {
+      recursive: true,
+    });
     await Deno.writeTextFile(
-      join(dir, "docs", "00-orientation", "concepts.md"),
+      join(dir, "discern/docs", "00-orientation", "concepts.md"),
       "# Concepts\n\nThe core ideas.\n",
     );
     const index = await docsResult(dir);

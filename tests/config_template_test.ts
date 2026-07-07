@@ -74,7 +74,7 @@ Deno.test("extracts [guidance] including its {{agents_array}} token (for the cal
   const block = sectionBlockFromTemplate(await realTemplate(), "guidance");
   assertExists(block);
   assertStringIncludes(block, "[guidance]");
-  assertStringIncludes(block, 'sources = ["guidance.md"]');
+  assertStringIncludes(block, 'sources = ["discern/guidance.md"]');
   assertStringIncludes(block, "agents = [{{agents_array}}]");
 });
 
@@ -143,7 +143,7 @@ Deno.test("extracts the last section ([recipes]) up to EOF, trailing blanks trim
   assertExists(block);
   assertStringIncludes(block, "# [recipes] — your own `discern` commands");
   assertStringIncludes(block, "\n[recipes]\n");
-  assertStringIncludes(block, 'dir = "recipes"');
+  assertStringIncludes(block, 'dir = "discern/recipes"');
   assert(!block.endsWith("\n"), "trailing blank lines are trimmed");
 });
 

@@ -22,7 +22,8 @@ const REPO_ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
  */
 async function makeHelpFixture(
   dir: string,
-  config = 'slug = "demo"\n',
+  config =
+    '[meta]\nbootstrapped = true\n[docs]\ndir = "docs/"\n[project]\nslug = "demo"\n',
 ): Promise<string> {
   await seedConfig(dir, config);
 

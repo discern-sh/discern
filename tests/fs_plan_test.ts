@@ -17,6 +17,7 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { dirname, join } from "@std/path";
+import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import {
   applyPlan,
   buildPlan,
@@ -367,12 +368,16 @@ Deno.test("applyPlan names the failed op and a fixed partial state reapplies cle
   }
 });
 
-Deno.test("brief is a write-once seed at root brief.md", async () => {
+Deno.test("brief is a write-once seed at its registry path", async () => {
   await withTempDir(async (dir) => {
     const op1 = await planBrief(dir, "first brief");
-    assertEquals(op1.targetRel, "brief.md");
+    assertEquals(op1.targetRel, SOURCE_PATHS.brief.defaultPath);
+    await Deno.mkdir(dirname(op1.targetAbs), { recursive: true });
     await Deno.writeFile(op1.targetAbs, op1.bytes);
-    assertStringIncludes(await readTarget(dir, "brief.md"), "first brief");
+    assertStringIncludes(
+      await readTarget(dir, SOURCE_PATHS.brief.defaultPath),
+      "first brief",
+    );
 
     // A second plan sees the existing brief and marks it skip.
     const op2 = await planBrief(dir, "second brief");

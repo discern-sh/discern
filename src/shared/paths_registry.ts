@@ -26,7 +26,7 @@ export interface SourcePathEntry {
    * and the shipped template write. */
   readonly defaultPath: string;
   /** The pre-namespace default this path lived at through schema 14 — what the
-   * 14→15 migration moves from. Historical, never used to seed anything new. */
+   * 14→15 migration moves from. It never seeds anything new. */
   readonly legacyPath: string;
   /** One-line description of what lives at the path. */
   readonly description: string;

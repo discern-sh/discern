@@ -45,8 +45,8 @@ Deno.test("discern skills eject copies a built-in and the effective set then pre
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "Ejected");
     assert(
-      await exists(join(dir, "skills/discern-write-adr/SKILL.md")),
-      "ejected copy must land in ./skills/",
+      await exists(join(dir, "discern/skills/discern-write-adr/SKILL.md")),
+      "ejected copy must land in the default skills dir",
     );
     // The ejected copy now overrides the built-in in the listing.
     const list = await runAgent(dir, ["skills", "list"]);
@@ -85,13 +85,13 @@ Deno.test("discern skills eject --json emits an envelope and materializes the ov
     assertEquals(obj.ok, true);
     assertEquals(obj.verb, "skills eject");
     assertEquals(obj.data.name, "discern-write-adr");
-    assertEquals(obj.data.dest_rel, "skills/discern-write-adr");
+    assertEquals(obj.data.dest_rel, "discern/skills/discern-write-adr");
     assertEquals(obj.data.skills_dir_persisted, false);
     assert(obj.data.materialized.linked >= 1);
     assertEquals(obj.data.materialized.errors, []);
     assert(
-      await exists(join(dir, "skills/discern-write-adr/SKILL.md")),
-      "ejected copy must land in ./skills/",
+      await exists(join(dir, "discern/skills/discern-write-adr/SKILL.md")),
+      "ejected copy must land in the default skills dir",
     );
     assert(
       (await Deno.lstat(join(dir, ".claude/skills/discern-write-adr")))
