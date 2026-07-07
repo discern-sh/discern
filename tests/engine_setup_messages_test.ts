@@ -46,6 +46,12 @@ Deno.test("consentMessage carries the relay licence, the verbatim model question
   );
   assertStringIncludes(msg, "isolated working copies (git worktrees)");
   assertStringIncludes(msg, "shared project instructions");
+  // The footprint story in namespace terms (ADR 0099): one root file, one visible
+  // folder (the map glossed for a novice), and the containment promise.
+  assertStringIncludes(msg, "one root file (`discern.toml`)");
+  assertStringIncludes(msg, "one visible `discern/` folder");
+  assertStringIncludes(msg, "map of your codebase");
+  assertStringIncludes(msg, "Nothing else in your repo is touched");
   // The honest time+token expectation and the safety frame.
   assertStringIncludes(msg, "20–40 minutes");
   assertStringIncludes(msg, "discern-setup");
@@ -141,6 +147,9 @@ Deno.test("completionMessage renders honest coverage for each verdict", () => {
     reactivation: READY_REACTIVATION,
   });
   assertStringIncludes(full, "all run on every change");
+  // The close restates the contained footprint the consent message promised.
+  assertStringIncludes(full, "Everything discern added is contained");
+  assertStringIncludes(full, "`discern/` folder");
 
   const partial = completionMessage({
     assurance: assurance("partial"),

@@ -40,6 +40,7 @@ const FRESH_WELCOME_FACTS: readonly string[] = [
   "agent instructions",
   '"Run `discern setup` in this project."',
   "Setup is isolated and reversible",
+  "one visible `discern/` folder",
   "no API",
   "key, and no surprises",
   "MOST CAPABLE model",
@@ -233,6 +234,9 @@ Deno.test("the fresh welcome --json carries the same instructional substance as 
     assertStringIncludes(d.human_framing, "most capable model");
     // Both surfaces actually say it, so neither path is the thinner one.
     assertStringIncludes(human, "MOST CAPABLE");
+    // The footprint story rides both surfaces: one root file, one visible folder.
+    assertStringIncludes(d.human_framing, "one visible discern/ folder");
+    assertStringIncludes(human, "one visible `discern/` folder");
   });
 });
 

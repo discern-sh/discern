@@ -119,6 +119,8 @@ export function consentMessage(ctx: ConsentContext): string {
     "  • isolated working copies (git worktrees) — each task gets its own copy, so parallel work never collides;",
     "  • shared project instructions — one place that tells every future coding session how this project works.",
     "",
+    "  • On disk that lands in one root file (`discern.toml`) and one visible `discern/` folder — a map of your codebase (docs agents write and keep current for you to audit), a deferred-work ledger, and those shared instructions — plus the files your coding tools require and two small shims. Nothing else in your repo is touched.",
+    "",
     "The plan: I'll study the repo, come back with one short batch of questions, author the project's docs and guidance, wire up the quality checks, and prove it green.",
     "",
     "It's safe and reversible: I work on a dedicated `discern-setup` branch, so nothing touches your main branch until you merge, you can undo it all by deleting that branch, and there's no API key or outside service.",
@@ -205,6 +207,8 @@ function landingLine(l: CompletionLanding): string {
  * The closing relay block `setup done` serves — ONE prose string mirroring
  * {@link consentMessage}'s shape: a framing line with the relay licence, then the
  * first-person message covering what the project now has (honest coverage), the
+ * contained footprint (the root `discern.toml` plus the `discern/` folder — the
+ * namespace story the consent message opened with, closed honestly), the
  * reactivation step (a fresh session, so discern's tools and hooks load), and the
  * landing recommendation. Composed from the already-computed {@link CompletionContext}
  * pieces — never recomputed.
@@ -228,6 +232,7 @@ export function completionMessage(ctx: CompletionContext): string {
     headline,
     "",
     `  • ${coverageLine(assurance)}`,
+    "  • Everything discern added is contained: `discern.toml` at the root and the `discern/` folder, plus the files your coding tools require — plain files you can read and audit any time.",
     `  • ${landingLine(landing)}`,
     "",
     fence("end of message"),
