@@ -30,7 +30,6 @@ import type {
   GateReceiptCheckData,
   Location,
   StatusData,
-  StatusFeatures,
   StatusFleetEntry,
   StatusGate,
   StatusGit,
@@ -38,7 +37,6 @@ import type {
 } from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { findRoot } from "../../shared/env.ts";
-import { FEATURES, isFeatureEnabled } from "../../shared/features.ts";
 import {
   type Capability,
   KNOWN_CAPABILITIES,
@@ -182,24 +180,17 @@ export async function statusResult(
     ? await buildWorktreeBlock(root, cfg)
     : null;
 
-  // Built from the FEATURES SSOT (not a hand-listed object) so every toggle is
-  // reported and a new feature can't silently go missing from status.
-  const features: StatusFeatures = Object.fromEntries(
-    FEATURES.map((f) => [f, isFeatureEnabled(cfg, f)]),
-  ) as StatusFeatures;
-
-  // Fleet decision. The fleet is meaningful only with the worktrees feature on, and
-  // only worth surveying from the main checkout (the supervisor view) or when a
-  // worktree explicitly asks via --all — so a plain local worktree view never pays
-  // for it. The survey is read-only either way.
-  const wantFleet = features.worktrees && (all || location === "main");
+  // Fleet decision. The fleet is only worth surveying from the main checkout (the
+  // supervisor view) or when a worktree explicitly asks via --all — so a plain
+  // local worktree view never pays for it. The survey is read-only either way.
+  const wantFleet = all || location === "main";
   const fleetRows = wantFleet ? await listWorktreeFleet(root, mainBranch) : [];
   const liveCount = fleetRows.filter((w) => !w.isMain).length;
   const includeFleet = all
     ? true
     : local
     ? false
-    : location === "main" && features.worktrees && liveCount >= 1;
+    : location === "main" && liveCount >= 1;
   // "Fleet-led" — the main-checkout supervisor view that leads with the fleet and
   // omits the heavy local-only blocks. A worktree with --all keeps its local blocks
   // AND gains the fleet, so it is not fleet-led.
@@ -210,7 +201,6 @@ export async function statusResult(
     root,
     worktree,
     git,
-    features,
     ratchets: Object.keys(cfg.ratchets),
   };
   const gateReceipt = location === "worktree"
@@ -231,22 +221,21 @@ export async function statusResult(
   // Generated-artifacts currency (ADR 0034): a cheap read-only check that the agent
   // files match what `discern refresh` would write. Advisory only here — surfaced as
   // a hint so a drifted or not-yet-built AGENTS.md is noticed at orientation, never
-  // an unverified pass/fail. Skipped when guidance is off (nothing is generated).
-  let guidanceDrift: GuidanceDriftEntry[] = [];
-  if (isFeatureEnabled(cfg, "guidance")) {
-    guidanceDrift = await checkGuidanceCurrent(root, cfg);
-    if (guidanceDrift.length > 0) {
-      data.stale_generated = guidanceDrift.map((d) => d.path);
-    }
+  // an unverified pass/fail.
+  const guidanceDrift: GuidanceDriftEntry[] = await checkGuidanceCurrent(
+    root,
+    cfg,
+  );
+  if (guidanceDrift.length > 0) {
+    data.stale_generated = guidanceDrift.map((d) => d.path);
   }
 
   // The same read-only currency check, for the MATERIALIZED skills (ADR 0034,
   // extended to skills). Advisory here, like `stale_generated`: a drifted or
-  // not-yet-materialized skills dir is noticed at orientation. Skipped when skills
-  // is off. Reports the affected skill paths (dir/name), `missing` dirs included.
-  let skillsDrift: SkillsDriftEntry[] = [];
-  if (isFeatureEnabled(cfg, "skills")) {
-    skillsDrift = await checkSkillsCurrent(root, cfg);
+  // not-yet-materialized skills dir is noticed at orientation. Reports the
+  // affected skill paths (dir/name), `missing` dirs included.
+  const skillsDrift: SkillsDriftEntry[] = await checkSkillsCurrent(root, cfg);
+  {
     // Report only `missing`/`stale` (parallel to `stale_generated` for guidance) — a
     // `foreign` drop-in is NOT discern's to fix (the materializer leaves it and warns),
     // so listing it under a `stale_`-named field would tell an agent to "refresh" a
@@ -311,7 +300,6 @@ export async function statusResult(
     incomingOverlap: overlapInfo,
     mergeWarning,
     fleet,
-    worktreesOn: features.worktrees,
     liveCount,
     guidanceDrift,
     skillsDrift,
@@ -492,7 +480,6 @@ interface HintContext {
   /** Warning when the configured integration branch is absent locally. */
   mergeWarning: string | undefined;
   fleet: StatusFleetEntry[] | undefined;
-  worktreesOn: boolean;
   liveCount: number;
   /** Generated agent files that don't match what `discern refresh` would write. */
   guidanceDrift: GuidanceDriftEntry[];
@@ -587,10 +574,7 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
   // trunk" when `git.branch` actually says so; otherwise use the off-trunk sibling,
   // which gives the same advice without the false claim. With no git block to check
   // against (no repo), keep the original wording — unverifiable, not contradicted.
-  if (
-    ctx.location === "main" && ctx.worktreesOn &&
-    ctx.setupPending === undefined
-  ) {
+  if (ctx.location === "main" && ctx.setupPending === undefined) {
     hints.push(
       ctx.git !== null && ctx.git.branch !== main
         ? offTrunkStartHereHint(ctx.git.branch, main)
@@ -653,11 +637,7 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
   // setup here" hint, so suppress the whole block until `[meta].bootstrapped` is
   // recorded — the setup-unfinished hint at the top is the only "what now" that fits.
   if (ctx.location === "main" && ctx.setupPending === undefined) {
-    if (!ctx.worktreesOn) {
-      hints.push(
-        "The worktrees workflow is off; work happens directly in this checkout.",
-      );
-    } else if (ctx.liveCount === 0) {
+    if (ctx.liveCount === 0) {
       hints.push("No active worktrees; start one to begin work.");
     } else if (ctx.fleet !== undefined) {
       const others = ctx.fleet.filter((e) => !e.is_main);

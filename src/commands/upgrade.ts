@@ -12,8 +12,7 @@
  *   4. reconcile the discern-owned `.gitignore` block against the current
  *      fragment, preserving project ignore rules outside it;
  *   5. recompile the guidelines — which re-materializes the bundled skills into
- *      `.claude/skills/` and writes the per-provider agent files (each gated on
- *      its feature);
+ *      `.claude/skills/` and writes the per-provider agent files;
  *   6. stamp the new `[meta].schema_version` into the config.
  *
  * Your config values, guidance sources, authored skills, and recipes are never
@@ -423,8 +422,8 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     return 1;
   }
 
-  // 2. Recompile the guidelines (re-materializes skills + writes agent files,
-  // each gated on its feature). A failure here is non-fatal to the upgrade — the
+  // 2. Recompile the guidelines (re-materializes skills + writes agent files).
+  // A failure here is non-fatal to the upgrade — the
   // schema is still stamped — but it is reported.
   let guidelines: GuidelinesResult | undefined;
   let thrownGuidelinesError: string | undefined;

@@ -17,7 +17,6 @@
 
 import { Select } from "@cliffy/prompt";
 import { loadConfig } from "../../shared/config_schema.ts";
-import { isFeatureEnabled } from "../../shared/features.ts";
 import type { DiscernResult } from "../../shared/result.ts";
 import type { ImproveData } from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
@@ -94,8 +93,8 @@ function evaluateCategory(
 }
 
 /**
- * Evaluate the catalog into a ranked report. A category whose feature is disabled
- * is skipped entirely; `only` restricts evaluation to a single category slug. The
+ * Evaluate the catalog into a ranked report. `only` restricts evaluation to a
+ * single category slug. The
  * overall score is weighted over EVERY evaluated deterministic rule, and the
  * categories are sorted weakest-first (then by most weak rules, then most reviews).
  */
@@ -105,9 +104,6 @@ export function evaluateReport(
 ): ImprovementReport {
   const categories: CategoryResult[] = [];
   for (const cat of CATEGORIES) {
-    if (cat.feature && !isFeatureEnabled(ctx.config, cat.feature)) {
-      continue;
-    }
     if (only !== undefined && cat.name !== only) {
       continue;
     }
@@ -200,28 +196,9 @@ function selectNextAction(categories: readonly CategoryResult[]): NextAction {
 
 // ── the category filter (shared validation) ─────────────────────────────────
 
-/** Whether a `--category` slug is auditable, a disabled feature's, or unknown. */
-function categoryStatus(
-  name: string,
-  config: Awaited<ReturnType<typeof loadConfig>>,
-): "ok" | "disabled" | "unknown" {
-  const cat = CATEGORIES.find((c) => c.name === name);
-  if (cat === undefined) {
-    return "unknown";
-  }
-  if (cat.feature && !isFeatureEnabled(config, cat.feature)) {
-    return "disabled";
-  }
-  return "ok";
-}
-
-/** The auditable category slugs for `config` (feature-disabled ones excluded). */
-function auditableCategoryNames(
-  config: Awaited<ReturnType<typeof loadConfig>>,
-): string[] {
-  return CATEGORIES
-    .filter((c) => !c.feature || isFeatureEnabled(config, c.feature))
-    .map((c) => c.name);
+/** Whether a `--category` slug names a catalog category. */
+function isKnownCategory(name: string): boolean {
+  return CATEGORIES.some((c) => c.name === name);
 }
 
 /** Options accepted by the improve core and CLI. */
@@ -242,23 +219,17 @@ async function buildReport(
   opts: ImproveOptions,
 ): Promise<{ report: ImprovementReport } | { error: DiscernResult<never> }> {
   const config = await loadConfig(root);
-  if (opts.category !== undefined) {
-    const status = categoryStatus(opts.category, config);
-    if (status !== "ok") {
-      const known = auditableCategoryNames(config).join(", ");
-      return {
-        error: {
-          ok: false,
-          verb: "improve",
-          error: status === "unknown"
-            ? "unknown_category"
-            : "category_disabled",
-          message: status === "unknown"
-            ? `unknown category "${opts.category}" — known categories: ${known}.`
-            : `category "${opts.category}" belongs to a disabled feature — auditable categories: ${known}.`,
-        },
-      };
-    }
+  if (opts.category !== undefined && !isKnownCategory(opts.category)) {
+    const known = CATEGORIES.map((c) => c.name).join(", ");
+    return {
+      error: {
+        ok: false,
+        verb: "improve",
+        error: "unknown_category",
+        message:
+          `unknown category "${opts.category}" — known categories: ${known}.`,
+      },
+    };
   }
   const ctx = await buildContext(root, config);
   return { report: evaluateReport(ctx, opts.category) };

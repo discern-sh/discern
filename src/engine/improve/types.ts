@@ -21,7 +21,6 @@
  */
 
 import type { DiscernConfig } from "../../shared/config_schema.ts";
-import type { Feature } from "../../shared/features.ts";
 
 // ── the gathered facts a rule reads ─────────────────────────────────────────
 
@@ -119,18 +118,12 @@ export interface SubjectiveRule {
 /** A best-practice rule — decided by discern, or surfaced for the agent. */
 export type Rule = DeterministicRule | SubjectiveRule;
 
-/**
- * A group of related rules. When `feature` is set and that feature is OFF, the
- * whole category is skipped — a disabled subsystem's best practices don't apply
- * (the same "a disabled feature vanishes coherently" rule the rest of discern
- * follows).
- */
+/** A group of related rules. Every category is always reviewed — the subsystems
+ * are all core (ADR 0101). */
 export interface Category {
   /** Stable slug, used by `--category` (e.g. `gate`, `guidance`). */
   name: string;
   title: string;
-  /** Gate the whole category on a feature; omit for a core (always-reviewed) area. */
-  feature?: Feature;
   rules: Rule[];
 }
 

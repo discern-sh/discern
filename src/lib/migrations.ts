@@ -32,7 +32,6 @@ import type { EnvReader } from "../shared/env.ts";
 import { KNOWN_CAPABILITIES } from "./config.ts";
 import { bundledSkillNames } from "./skills.ts";
 import { resolveBundledSkillsDir } from "./paths.ts";
-import { FEATURES } from "../shared/features.ts";
 import { DEFAULT_AGENTS } from "../shared/config_schema.ts";
 import {
   SOURCE_PATH_NAMES,
@@ -377,7 +376,7 @@ export const MIGRATIONS: Migration[] = [
   {
     from: 5,
     describe:
-      "dissolve .discern/ into the single-file footprint: config → root discern.toml; move guidance/recipes/authored skills out; prune bundled skills; add [features]/[guidance]/[skills] (ADR 0020)",
+      "dissolve .discern/ into the single-file footprint: config → root discern.toml; move guidance/recipes/authored skills out; prune bundled skills; add [guidance]/[skills] (ADR 0020)",
     apply: async (ctx) => {
       // Capture the legacy [project].agents (to seed [guidance].agents) BEFORE
       // moving the config, while it is still readable at its old location.
@@ -405,11 +404,14 @@ export const MIGRATIONS: Migration[] = [
       // would instead append bare keys at EOF, leaving a migrated config
       // progressively worse-documented than an init'd one the longer it has
       // existed. So when a section is wholly absent — the common case, since
-      // [features]/[guidance]/[skills] are new in schema 6 — insert its canonical
+      // [guidance]/[skills] are new in schema 6 — insert its canonical
       // doc-commented block from the template at its canonical position, giving a
       // migrated config the same quality as a fresh one. Fall back to a bare key
       // edit only when a section is already partly present (so a hand edit is
-      // never clobbered) or the template can't be read.
+      // never clobbered) or the template can't be read. ([features] — new at this
+      // schema, retired at 16 (ADR 0101) — is deliberately NOT written: the chain
+      // runs to the current schema, so inserting a section a later step deletes
+      // would be churn.)
       const movedText = await ctx.readConfig();
       let raw: Record<string, unknown> = {};
       if (movedText !== undefined) {
@@ -419,7 +421,6 @@ export const MIGRATIONS: Migration[] = [
           // belt-and-braces; leave raw empty so every section is treated absent.
         }
       }
-      const featuresTbl = isRecord(raw.features) ? raw.features : undefined;
       const guidanceTbl = isRecord(raw.guidance) ? raw.guidance : undefined;
       const skillsTbl = isRecord(raw.skills) ? raw.skills : undefined;
       const recipesTbl = isRecord(raw.recipes) ? raw.recipes : undefined;
@@ -447,23 +448,12 @@ export const MIGRATIONS: Migration[] = [
           e.insertSectionBlockAtTop(metaBlock);
         }
 
-        // [features] / [guidance] / [skills] — grouped after [project]. Inserted
+        // [guidance] / [skills] — grouped after [project]. Inserted
         // in order so each is the anchor for the next; the bare fallback fills
         // any key whose value is absent (all of them when the section is new).
-        const featuresBlock = block("features");
-        if (featuresTbl === undefined && featuresBlock !== undefined) {
-          e.insertSectionBlockAfter("project", featuresBlock);
-        } else {
-          for (const f of FEATURES) {
-            if (featuresTbl?.[f] === undefined) {
-              e.setBool(`features.${f}`, true);
-            }
-          }
-        }
-
         const guidanceBlock = block("guidance");
         if (guidanceTbl === undefined && guidanceBlock !== undefined) {
-          e.insertSectionBlockAfter("features", guidanceBlock);
+          e.insertSectionBlockAfter("project", guidanceBlock);
         } else {
           if (guidanceTbl?.sources === undefined) {
             e.setStringArray("guidance.sources", ["guidance.md"]);

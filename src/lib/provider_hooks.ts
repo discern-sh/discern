@@ -15,7 +15,6 @@ import {
   type DiscernConfig,
   resolveConfiguredAgents,
 } from "../shared/config_schema.ts";
-import { isFeatureEnabled } from "../shared/features.ts";
 import { resolveTemplatesDir } from "./paths.ts";
 import { type Provider, providerFor } from "./providers.ts";
 import { mergeJsonSettingsText } from "./settings_merge.ts";
@@ -40,9 +39,6 @@ function errText(error: unknown): string {
 }
 
 function hookProvidersForConfig(config: DiscernConfig): Provider[] {
-  if (!isFeatureEnabled(config, "worktrees")) {
-    return [];
-  }
   const providers: Provider[] = [];
   for (const agent of resolveConfiguredAgents(config)) {
     const provider = providerFor(agent);

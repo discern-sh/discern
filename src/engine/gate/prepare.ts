@@ -24,7 +24,6 @@ import { gateRunContext, runJobGroups } from "./execute.ts";
 import { renderFailureTail } from "./failure_tail.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { couplingGateHints } from "../coupling/coupling.ts";
-import { isFeatureEnabled } from "../../shared/features.ts";
 import type { DiscernResult, FailedStage } from "../../shared/result.ts";
 import type { Out } from "../output.ts";
 
@@ -57,12 +56,12 @@ async function runPrepareGate(
   // The co-change advisory (ADR 0084) rides the fast inner loop too, behind the SAME
   // [coupling].in_gate preference, so the nudge meets the change while it is hot — not
   // only at finish. Mirrors finish's discipline exactly: only on a GREEN, bootstrapped
-  // run with the feature on, best-effort, and touching ONLY `hints`, so it can never move
+  // run, best-effort, and touching ONLY `hints`, so it can never move
   // prepare's `ok` / exit code / failed stage, nor slow a failed loop (it is skipped then).
-  const couplingHints = failedStage === null && cfg.meta.bootstrapped &&
-      isFeatureEnabled(cfg, "coupling") && cfg.coupling.in_gate
-    ? await couplingGateHints(root)
-    : [];
+  const couplingHints =
+    failedStage === null && cfg.meta.bootstrapped && cfg.coupling.in_gate
+      ? await couplingGateHints(root)
+      : [];
   const hints = [
     // Pre-setup, this output is indicative — prepare is un-gated during setup (ADR 0065).
     ...(inProgress !== undefined ? [inProgress] : []),

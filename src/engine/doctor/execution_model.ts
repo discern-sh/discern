@@ -31,7 +31,6 @@ import type {
   DiscernConfig,
   GraduateTarget,
 } from "../../shared/config_schema.ts";
-import { isFeatureEnabled } from "../../shared/features.ts";
 import type { Stage } from "../../shared/capabilities.ts";
 import type { Actor, StepKind } from "../../shared/result.ts";
 import type { ExecutionStep, VerbPlan } from "../../shared/result_schemas.ts";
@@ -442,25 +441,22 @@ function pruneVerb(cfg: DiscernConfig): VerbPlan {
 
 /**
  * Build the full execution model from the typed config — one {@link VerbPlan} per
- * configurable verb, gated by the same feature toggles as the real CLI/MCP verb
- * surface (the worktree verbs only when `worktrees` is on, `ratchets` only when on).
+ * configurable verb, every verb unconditionally (ADR 0101: the subsystems are all
+ * core, matching the real CLI/MCP verb surface).
  * Pure: a function of config alone, so `discern doctor` and the MCP `discern_doctor`
  * tool both serve exactly this.
  */
 export function buildExecutionModel(cfg: DiscernConfig): VerbPlan[] {
-  const model: VerbPlan[] = [finishVerb(cfg), prepareVerb(cfg), testVerb(cfg)];
-  if (isFeatureEnabled(cfg, "ratchets")) {
-    model.push(ratchetsVerb(cfg));
-  }
-  if (isFeatureEnabled(cfg, "worktrees")) {
-    model.push(
-      startVerb(cfg),
-      ensureVerb(cfg),
-      integrateVerb(cfg),
-      graduateVerb(cfg, "branch"),
-      graduateVerb(cfg, "trunk"),
-      pruneVerb(cfg),
-    );
-  }
-  return model;
+  return [
+    finishVerb(cfg),
+    prepareVerb(cfg),
+    testVerb(cfg),
+    ratchetsVerb(cfg),
+    startVerb(cfg),
+    ensureVerb(cfg),
+    integrateVerb(cfg),
+    graduateVerb(cfg, "branch"),
+    graduateVerb(cfg, "trunk"),
+    pruneVerb(cfg),
+  ];
 }

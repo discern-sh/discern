@@ -42,26 +42,6 @@ todo = "discern/TODO.md"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# [features] — toggle whole discern subsystems on/off. Every feature defaults to
-# ON; set one to false to remove it coherently (its verbs hide, its hooks aren't
-# written, its guidance section is dropped from the compiled agent files, and its
-# doctor checks are skipped). The quality gate, config, and doctor are core and
-# always on — they are not listed here.
-#
-# NOTE: a *feature* is NOT a *capability*. [capabilities] (below) is the gate's
-# command table; [features] toggles subsystems. Different sections, different jobs.
-# ─────────────────────────────────────────────────────────────────────────────
-
-[features]
-worktrees = true   # the isolated git-worktree workflow (worktree command group)
-ratchets  = true   # never-loosen metric floors (the `ratchets` verb)
-guidance  = true   # compile agent files from built-in + your sources
-skills    = true   # bundled + authored skills, materialized into each agent's skills dir
-docs      = true   # the `docs` browser over your docs/ tree
-coupling  = true   # the co-change advisory (the `coupling` verb)
-
-
-# ─────────────────────────────────────────────────────────────────────────────
 # [docs] — discern's agent documentation tree. This is conceptually distinct
 # from human-curated project docs: setup scaffolds it here, `discern docs`
 # browses it, and `${docs.dir}` keeps checks/scopes/ratchets tied to this path.
@@ -187,13 +167,10 @@ neutral = true
 # ─────────────────────────────────────────────────────────────────────────────
 # [worktree] — the isolated-worktree workflow. The git mechanics are generic;
 # everything project-specific is a RESOURCE you declare below. A fresh install
-# declares none, so a worktree round is a clean no-op until you wire one. (Inert
-# when [features].worktrees = false.)
+# declares none, so a worktree round is a clean no-op until you wire one.
 # ─────────────────────────────────────────────────────────────────────────────
 
 [worktree]
-enabled = true
-
 # Where per-worktree checkouts are created (a <name> dir is made under it).
 #   ""  (the default) a SIBLING of the repo, "<repo>.worktrees/<name>" — visible
 #       and adjacent, never nested inside the checkout (a worktree nested in its
@@ -292,7 +269,8 @@ ensure = []  # converge, e.g. ["<install deps>"]
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [ratchets] — never-loosen quality floors, enforced on demand by `discern ratchets`
-# (slow, so NOT part of `discern finish`). (Inert when [features].ratchets = false.)
+# (slow, so NOT part of `discern finish`). None configured means none run — defining
+# one is what turns the subsystem on.
 #
 # A ratchet is a number you only ever want to improve: line coverage, a bundle-
 # size budget, a lint/type-error count, a perf budget. Each [ratchets.<name>]
@@ -370,7 +348,7 @@ fail_fast = true
 # <a> <b>` → the commits where both changed, to judge a coupling). It is
 # ZERO-CONFIG: it self-calibrates to your repo (commit size, cadence, scale), so
 # there are no thresholds to tune. Purely ADVISORY: it points at where to look
-# and never blocks. (Inert when [features].coupling = false.)
+# and never blocks.
 # ─────────────────────────────────────────────────────────────────────────────
 
 [coupling]

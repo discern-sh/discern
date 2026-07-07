@@ -602,7 +602,7 @@ export async function createAndSetupWorktree(
 
 /** The outcome of the idempotent session-start ensure check. */
 export type EnsureResult =
-  /** Worktree workflow disabled, or not in a linked worktree → silent no-op. */
+  /** Not in a linked worktree → silent no-op. */
   | { kind: "skipped" }
   /** Already configured (the sentinel is present) → no-op. */
   | { kind: "already" }
@@ -612,15 +612,12 @@ export type EnsureResult =
 /**
  * The idempotent session-start check — the `worktree-ensure` recipe. Runs
  * `worktreeSetup` exactly once for a linked worktree that has not been set up.
- * Safe to run on every session start: disabled workflow, the main checkout, a
+ * Safe to run on every session start: the main checkout, a
  * non-git dir, or an already-configured worktree are all silent no-ops.
  */
 export async function worktreeEnsure(
   ctx: LifecycleContext,
 ): Promise<EnsureResult> {
-  if (!ctx.config.worktree.enabled) {
-    return { kind: "skipped" };
-  }
   // Skip when not inside a linked worktree (including the main checkout).
   try {
     await assertInWorktree("session-start", ctx.cwd);

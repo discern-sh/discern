@@ -15,7 +15,6 @@
  */
 
 import { KNOWN_CAPABILITIES, STAGES } from "./config.ts";
-import { FEATURES, isFeature } from "../shared/features.ts";
 import {
   CONFIG_DOC_VERSION,
   type DiscernConfigDoc,
@@ -130,17 +129,6 @@ export function applyConfigDoc(
 ): void {
   if (doc.docs?.dir !== undefined) {
     editor.setString("docs.dir", doc.docs.dir);
-  }
-
-  // Features: a known toggle name mapped to a boolean. An unknown name is a typo
-  // worth catching rather than silently ignoring.
-  for (const [name, value] of Object.entries(doc.features ?? {})) {
-    if (!isFeature(name)) {
-      throw new Error(
-        `unknown feature "${name}" (known: ${FEATURES.join(", ")})`,
-      );
-    }
-    editor.setBool(`features.${name}`, value);
   }
 
   // Capabilities: a known name mapped to a command (or list). The stage is

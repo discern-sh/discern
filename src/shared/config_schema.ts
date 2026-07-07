@@ -28,7 +28,6 @@ import { parse as parseToml } from "@std/toml";
 import { join } from "@std/path";
 import { CONFIG_REL, installedConfigRel } from "./env.ts";
 import { KNOWN_CAPABILITIES, STAGES } from "./capabilities.ts";
-import type { Feature } from "./features.ts";
 import { isValidDocsDir } from "./docs_path.ts";
 import { SOURCE_PATHS } from "./paths_registry.ts";
 
@@ -223,35 +222,6 @@ const projectSection = z.strictObject({
   ),
 }).prefault({}).describe("Project identity and integration settings.");
 
-// `satisfies Record<Feature, z.ZodType>` pins this section's keys to the FEATURES
-// SSOT at COMPILE time: a feature added to FEATURES with no key here (or a key here
-// that is not a feature) fails `deno check`, so the [features] schema and the toggle
-// vocabulary can never drift — the bidirectional tie features.ts promises.
-const featuresSection = z.strictObject(
-  {
-    worktrees: z.boolean().default(true).describe(
-      "The isolated git-worktree workflow (worktree command group).",
-    ),
-    ratchets: z.boolean().default(true).describe(
-      "Never-loosen metric floors (the `ratchets` verb).",
-    ),
-    guidance: z.boolean().default(true).describe(
-      "Compile agent files from built-in + your sources.",
-    ),
-    skills: z.boolean().default(true).describe(
-      "Bundled + authored skills, materialized into .claude/skills/.",
-    ),
-    docs: z.boolean().default(true).describe(
-      "The `docs` browser over your docs/ tree.",
-    ),
-    coupling: z.boolean().default(true).describe(
-      "The co-change advisory (the `coupling` verb).",
-    ),
-  } satisfies Record<Feature, z.ZodType>,
-).prefault({}).describe(
-  "Toggle whole discern subsystems on/off. Every feature defaults to ON; set one to false to remove it coherently. NOTE: a *feature* is NOT a *capability* — [capabilities] is the gate's command table; [features] toggles subsystems.",
-);
-
 const guidanceSection = z.strictObject({
   sources: z.array(z.string()).default([SOURCE_PATHS.guidance.defaultPath])
     .describe(
@@ -353,9 +323,6 @@ export const GRADUATE_TARGETS = ["branch", "trunk"] as const;
 export type GraduateTarget = (typeof GRADUATE_TARGETS)[number];
 
 const worktreeSection = z.strictObject({
-  enabled: z.boolean().default(false).describe(
-    "Run the idempotent worktree setup automatically at session start.",
-  ),
   root: z.string().default("").describe(
     'Where per-worktree checkouts are created (a <name> dir is made under it). Empty (the default) ⇒ a sibling of the repo, "<repo>.worktrees" — visible and adjacent, never nested inside the checkout. A relative path resolves against the repo root (".claude/worktrees" nests them inside the repo); an absolute path is used as-is.',
   ),
@@ -386,7 +353,7 @@ const worktreeSection = z.strictObject({
     "Worktree setup commands: one-shot `steps` (creation only) and convergent `ensure` (re-run every pass).",
   ),
 }).prefault({}).describe(
-  "The isolated-worktree workflow. The git mechanics are generic; everything project-specific is a RESOURCE you declare. Inert when [features].worktrees = false.",
+  "The isolated-worktree workflow. The git mechanics are generic; everything project-specific is a RESOURCE you declare.",
 );
 
 const ratchetsSection = z.record(z.string().regex(NAME_RE), ratchetValue)
@@ -412,7 +379,7 @@ const couplingSection = z.strictObject({
     "Surface the co-change advisory during the gate too — both `discern finish` and the fast inner loop `discern prepare` (as hints, at the tail), so the nudge meets a change while it is hot. Off by default; purely advisory, it never affects pass/fail.",
   ),
 }).prefault({}).describe(
-  "Co-change coupling detection — a zero-config, read-only advisory that mines git history for files that change together, so a touched file's habitual sibling isn't forgotten. It self-calibrates to your repo, so there are no thresholds to tune; the only setting is whether it also rides along with the gate. Read it on demand with `discern coupling`. Purely advisory: it points at where to look and never blocks. (Inert when [features].coupling = false.)",
+  "Co-change coupling detection — a zero-config, read-only advisory that mines git history for files that change together, so a touched file's habitual sibling isn't forgotten. It self-calibrates to your repo, so there are no thresholds to tune; the only setting is whether it also rides along with the gate. Read it on demand with `discern coupling`. Purely advisory: it points at where to look and never blocks.",
 );
 
 const recipesSection = z.strictObject({
@@ -429,7 +396,6 @@ const recipesSection = z.strictObject({
 export const configSchema = z.strictObject({
   meta: metaSection,
   project: projectSection,
-  features: featuresSection,
   guidance: guidanceSection,
   skills: skillsSection,
   docs: docsSection,
@@ -517,9 +483,6 @@ export const configDocSchema = z.strictObject({
   description: z.string().optional().describe(
     "Preset metadata, shown when listing presets; ignored by `setup --config`.",
   ),
-  features: z.record(z.string(), z.boolean()).optional().describe(
-    "[features] toggles — a feature name mapped to a boolean (default true).",
-  ),
   docs: docsSection.optional().describe(
     "[docs] settings — chiefly the project-relative directory holding discern's agent documentation tree.",
   ),
@@ -595,6 +558,13 @@ function toConfigIssue(issue: z.core.$ZodIssue): ConfigIssue {
         }) or move it under [checks.<name>] with a stage.`,
       };
     }
+    if (path === "worktree" && issue.keys.includes("enabled")) {
+      return {
+        path,
+        message:
+          `dead config ${keys} — the worktree workflow is core now, not a toggle; run \`discern upgrade\` to drop it.`,
+      };
+    }
     if (path === "worktree") {
       return {
         path,
@@ -602,11 +572,11 @@ function toConfigIssue(issue: z.core.$ZodIssue): ConfigIssue {
           `dead config ${keys} — the engine reads [worktree.resources.<name>] now; run \`discern upgrade\` to migrate it.`,
       };
     }
-    if (path === "features" && issue.keys.includes("mcp")) {
+    if (path === "" && issue.keys.includes("features")) {
       return {
         path,
         message:
-          `dead config ${keys} — the MCP server is core infrastructure now, not a toggle; run \`discern upgrade\` to drop it.`,
+          "dead config [features] — the subsystem toggles were retired (every subsystem is core now; ADR 0101); run `discern upgrade` to drop the section.",
       };
     }
     return {
@@ -695,7 +665,7 @@ function liveSchemaJson(): Record<string, unknown> {
 
 /**
  * Whether a dotted key is a writable path in the schema — so `discern config set`
- * can refuse a typo (`project.frobnicate`, `features.bogus`) at WRITE time rather
+ * can refuse a typo (`project.frobnicate`, `gate.bogus`) at WRITE time rather
  * than leave a config the next read rejects. A record section (`checks`, `scopes`,
  * `ratchets`, `worktree.resources`) accepts any `<name>` segment, then matches the
  * value shape's keys. This deliberately permits a valid-but-incomplete path (e.g.

@@ -53,7 +53,6 @@ import {
 } from "../../shared/result.ts";
 import type { GateData } from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
-import { isFeatureEnabled } from "../../shared/features.ts";
 import { setupInProgressHint } from "../../shared/setup_state.ts";
 import {
   checkGuidanceCurrent,
@@ -258,9 +257,8 @@ async function runGate(
   //     agent must `discern refresh` and re-run to clear regardless. Block a STALE agent
   //     file only (a MISSING one is the legitimate fresh-checkout state — see ADR 0034).
   //     discern-allow-retrospective: "no longer matching" is the live drift this detects.
-  const guidanceOn = isFeatureEnabled(cfg, "guidance");
   let guidanceDiag: Diagnostic | undefined;
-  if (failedStage === null && guidanceOn) {
+  if (failedStage === null) {
     const stale = (await checkGuidanceCurrent(root, cfg))
       .filter((d) => d.reason === "stale");
     if (stale.length > 0) {
@@ -272,9 +270,8 @@ async function runGate(
   // 1d. Materialized-skills currency (ADR 0034, extended to skills) — the same
   //     fail-fast precondition for the skills dirs. STALE blocks; MISSING (the whole
   //     dir absent on a fresh checkout) and FOREIGN (an unmanaged drop-in) do not.
-  const skillsOn = isFeatureEnabled(cfg, "skills");
   let skillsDiag: Diagnostic | undefined;
-  if (failedStage === null && skillsOn) {
+  if (failedStage === null) {
     const stale = (await checkSkillsCurrent(root, cfg))
       .filter((d) => d.reason === "stale");
     if (stale.length > 0) {
@@ -345,13 +342,7 @@ async function runGate(
 
   // 6. Assemble the executed plan + result, attaching the agent-facing hints —
   //    the same next-step advice the human tail prints, promoted into the envelope.
-  const plan = composeGatePlan(
-    stageGroups,
-    sgGroup,
-    changed,
-    guidanceOn,
-    skillsOn,
-  );
+  const plan = composeGatePlan(stageGroups, sgGroup, changed);
   const result = await buildGateResult(plan, results, failedStage);
   const jobOutputHints = result.hints ?? [];
   // The fail-fast checks aren't plan-group jobs, so their diagnostics are attached
@@ -388,10 +379,10 @@ async function runGate(
   // behaves as if coupling were off (its in-session setup must stay uncluttered), and a
   // failed gate is not the moment for an advisory. Best-effort and never blocking — it
   // touches only `hints`, so it can't move `ok` / the exit code / `failed_stage`.
-  const couplingHints = failedStage === null && cfg.meta.bootstrapped &&
-      isFeatureEnabled(cfg, "coupling") && cfg.coupling.in_gate
-    ? await couplingGateHints(root)
-    : [];
+  const couplingHints =
+    failedStage === null && cfg.meta.bootstrapped && cfg.coupling.in_gate
+      ? await couplingGateHints(root)
+      : [];
   const receiptHint = gateReceiptHint(gateReceipt, failedStage);
   const hints = [
     ...(inProgress !== undefined ? [inProgress] : []),

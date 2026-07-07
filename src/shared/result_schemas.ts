@@ -18,13 +18,12 @@
  * and validates its real `serializeResult` output) keeps the two from drifting — the
  * MCP analog of the gate's guidance-currency check.
  *
- * Layer note: this is a `shared/` module — it depends only on `result.ts`, the
- * feature SSOT (`features.ts`), and Zod, never on `src/engine/**`, so the engine
+ * Layer note: this is a `shared/` module — it depends only on `result.ts` and
+ * Zod, never on `src/engine/**`, so the engine
  * cores import their data types FROM here (engine → shared), never the reverse.
  */
 
 import { z } from "@zod/zod";
-import { type Feature, FEATURES } from "./features.ts";
 import {
   ACTORS,
   DIAGNOSTIC_SEVERITIES,
@@ -472,18 +471,6 @@ const statusFleetEntrySchema = z.strictObject({
 });
 export type StatusFleetEntry = z.infer<typeof statusFleetEntrySchema>;
 
-/** The feature-toggle snapshot status reports — one boolean per {@link FEATURES}
- * entry, derived from that SSOT so a newly-added feature can't silently go
- * unreported (the shape is pinned to FEATURES by a guard test in
- * `result_schemas_test.ts`). */
-const statusFeaturesSchema = z.strictObject(
-  Object.fromEntries(FEATURES.map((f) => [f, z.boolean()])) as Record<
-    Feature,
-    z.ZodBoolean
-  >,
-);
-export type StatusFeatures = z.infer<typeof statusFeaturesSchema>;
-
 /** `status` — the full situation payload. The local-only heavy blocks
  * (`scopes`/`gate`) are present in the local view and omitted when leading
  * with the fleet from main; `fleet` is present only when the survey is included. */
@@ -494,7 +481,6 @@ export const StatusDataSchema = z.strictObject({
   git: statusGitSchema.nullable(),
   scopes: z.array(z.string()).optional(),
   gate: statusGateSchema.optional(),
-  features: statusFeaturesSchema,
   ratchets: z.array(z.string()),
   gate_receipt: GateReceiptCheckSchema.optional(),
   stale_generated: z.array(z.string()).optional(),

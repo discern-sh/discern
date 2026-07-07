@@ -836,8 +836,8 @@ export async function runCoupling(
 /**
  * The diff-aware co-change advisory as gate hints, or `[]`. The gate appends these at
  * its TAIL (with strand detection — it reads the diff, so it is dependency-bearing,
- * never a fail-fast precondition; ADR 0084). Gated by the caller on `[features].coupling`,
- * `[coupling].in_gate`, and a bootstrapped install. Best-effort: any failure yields
+ * never a fail-fast precondition; ADR 0084). Gated by the caller on
+ * `[coupling].in_gate` and a bootstrapped install. Best-effort: any failure yields
  * `[]`, so the advisory can NEVER affect the gate's `ok` / exit / `failed_stage`.
  * Uses a stricter presentation filter than direct `discern coupling`: explicit queries
  * are exploratory, while automatic gate hints should be rarer and higher-confidence.

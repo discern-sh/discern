@@ -61,7 +61,6 @@ import {
   type GuidanceContext,
   renderGuidanceTemplate,
 } from "../guidance_template.ts";
-import { enabledFeatures, type Feature } from "../../shared/features.ts";
 import {
   NOT_SET_UP_MESSAGE,
   verbNeedsSetup,
@@ -184,9 +183,6 @@ interface McpTool<TShape extends z.ZodRawShape = z.ZodRawShape> {
   outputSchema?: z.ZodRawShape;
   /** Honest behavioural hints (read-only / destructive / …). */
   annotations?: ToolAnnotations;
-  /** When set, the tool is registered (listed and callable) only if this feature is
-   * enabled — the MCP mirror of the CLI's per-feature verb gating. */
-  feature?: Feature;
   /** After a SUCCESSFUL, non-preview call, compute the server's new working root —
    * the data-driven re-aim (ADR 0062), so {@link runTool} needs no per-tool name
    * switch. `discern_start` points it at the worktree it just created
@@ -282,7 +278,7 @@ export const TOOLS: McpTool[] = orderTools([
       "lists what the gate WOULD fire (wired capabilities, checks, triggered scope " +
       "gates); data.gate_receipt explains whether the current clean HEAD already " +
       "has a recorded discern_finish pass; data.worktree carries this worktree's id/port/db and provisioned " +
-      "resources; data.features and data.ratchets list the configured set. " +
+      "resources; data.ratchets lists the configured ratchets. " +
       "data.stale_generated flags generated agent files, data.stale_materialized " +
       "the materialized skills, and data.stale_integrations provider integration " +
       "files, that have drifted from their sources (call " +
@@ -381,7 +377,6 @@ export const TOOLS: McpTool[] = orderTools([
       "discern_finish; run it as needed. Non-dry-run calls require a clean worktree " +
       "unless force is set while authoring or debugging ratchets. Set dry_run to " +
       "preview which ratchets would run without measuring anything.",
-    feature: "ratchets",
     inputSchema: {
       dry_run: z.boolean().optional().describe(
         "Preview the ratchets that would run and measure nothing (default false).",
@@ -430,7 +425,6 @@ export const TOOLS: McpTool[] = orderTools([
     title: "Co-change partners",
     outputSchema: CouplingOutputSchema.shape,
     annotations: READ_ONLY,
-    feature: "coupling",
     description:
       "Surface the files that historically change TOGETHER — a co-change advisory mined " +
       "from git history — so a touched file's habitual sibling isn't forgotten. Three " +
@@ -510,7 +504,6 @@ export const TOOLS: McpTool[] = orderTools([
       "`section/slug`, or path) to return that one doc's full Markdown content. The " +
       "grounded source to consult before reasoning about this project's documented " +
       "behaviour.",
-    feature: "docs",
     inputSchema: {
       target: z.string().optional().describe(
         "A specific doc to fetch (slug, section/slug, or path). Omit for the index.",
@@ -535,7 +528,7 @@ export const TOOLS: McpTool[] = orderTools([
       "discern.toml or reasoning about the gate. With no argument, return the index " +
       "(every doc's path, section, slug, and title); pass `target` (a slug, " +
       "`section/slug`, or path) for that one doc's full Markdown content. Always " +
-      "available — it is discern's help, not a project feature — and serves only " +
+      "available — it is discern's own help — and serves only " +
       "the public docs (the internal ADR/maintainer trees are never exposed here).",
     inputSchema: {
       target: z.string().optional().describe(
@@ -569,7 +562,6 @@ export const TOOLS: McpTool[] = orderTools([
       '— refuses (error:"precondition_failed") otherwise, pointing at discern_integrate ' +
       "to integrate first. Set dry_run to preview the plan without touching anything. " +
       "Operates only on the worktree the server runs in; it cannot reach another.",
-    feature: "worktrees",
     inputSchema: {
       to: z.enum(GRADUATE_TARGETS).optional().describe(
         'Where the branch lands. "branch": check it out in the main repo for review, ' +
@@ -629,7 +621,6 @@ export const TOOLS: McpTool[] = orderTools([
       "plan (and the SAME predicted `data`, computed read-only without merging) without " +
       "touching anything. Never touches the main checkout; operates only " +
       "on the worktree the server runs in.",
-    feature: "worktrees",
     inputSchema: {
       dry_run: z.boolean().optional().describe(
         "Preview the integration plan and touch nothing (default false).",
@@ -661,7 +652,6 @@ export const TOOLS: McpTool[] = orderTools([
       "are already inside a worktree, do NOT call this (you'd create a pointless " +
       'sibling): it refuses (error:"precondition_failed") if invoked anyway. Set ' +
       "dry_run to preview the plan without creating anything.",
-    feature: "worktrees",
     inputSchema: {
       dry_run: z.boolean().optional().describe(
         "Preview the start plan and touch nothing (default false).",
@@ -850,8 +840,7 @@ export class WorkingRoot {
  * applied here after a successful, non-preview call. Every refusal is rendered as a
  * normal (error) {@link DiscernResult} — a missing project, or an unexpected throw
  * from the verb (caught here so a single tool error can never take the whole stdio
- * server down). A disabled feature is handled earlier, by simply not registering its
- * tool — so it is absent from `tools/list` and the SDK rejects a call to it.
+ * server down).
  */
 export async function runTool(
   tool: McpTool,
@@ -948,11 +937,9 @@ async function setupGatePasses(root: string): Promise<boolean> {
 /**
  * Resolve the config the server renders + gates against: the project's real
  * `discern.toml`, or — outside a project, or when the config can't be parsed — the
- * fully-defaulted config (`configSchema.parse({})`). Resolved ONCE at startup and
- * shared by the feature gate and the text rendering below. The defaulted fallback
- * keeps the prior "every feature on when the config is unreadable" behaviour (every
- * feature defaults to true), so the tool surface never silently shrinks because of a
- * config the user is mid-edit on; it also gives {@link mcpContext} a sane fallback
+ * fully-defaulted config (`configSchema.parse({})`). Resolved ONCE at startup for
+ * the text rendering below. The defaulted fallback
+ * gives {@link mcpContext} a sane fallback
  * `main_branch` ("main") instead of leaving a raw `{{main_branch}}` token on the wire.
  */
 async function resolveServerConfig(
@@ -1084,10 +1071,10 @@ function registerDocTree(
 }
 
 /**
- * Register the readable resources, mirroring the tools' feature- and pre-setup-
- * gating: `discern://status`, `discern://scopes`, and `discern://config`
- * are always available; `discern://help` (+ a `{target}` template) is too; and
- * `discern://docs` (+ template) is registered only with the `docs` feature on and
+ * Register the readable resources, mirroring the tools' pre-setup gating:
+ * `discern://status`, `discern://scopes`, `discern://config`, and
+ * `discern://help` (+ a `{target}` template) are always available;
+ * `discern://docs` (+ template)
  * refuses per read until the project is bootstrapped — exactly as the matching tools
  * do. Every read recomputes from the verb core against the server's CURRENT working
  * root (resolved per read via {@link WorkingRoot}, ADR 0062), so the resources follow
@@ -1097,7 +1084,6 @@ function registerDocTree(
 function registerResources(
   server: McpServer,
   working: WorkingRoot,
-  enabled: ReadonlySet<Feature>,
 ): void {
   // Resolve the working root AT READ TIME (not captured), so a resource read reflects
   // the latest re-aim. Defensive throw only: resources are registered solely when the
@@ -1117,7 +1103,7 @@ function registerResources(
     "discern://status",
     {
       description:
-        "A live discern_status snapshot: the git situation, what the gate would fire, the features and ratchets, and (from the main checkout) the worktree fleet.",
+        "A live discern_status snapshot: the git situation, what the gate would fire, the configured ratchets, and (from the main checkout) the worktree fleet.",
       mimeType: JSON_MIME,
     },
     async (uri: URL) =>
@@ -1165,42 +1151,37 @@ function registerResources(
     (target) => helpResult(currentRoot(), { target }),
   );
 
-  // docs — the project's documentation, gated on the `docs` feature and (per read)
-  // on setup completion, mirroring the discern_docs tool.
-  if (enabled.has("docs")) {
-    registerDocTree(
-      server,
-      "docs",
-      "the project's documentation",
-      async () => {
-        const root = currentRoot();
-        await assertResourceSetUp(root);
-        return docsResult(root);
-      },
-      async (target) => {
-        const root = currentRoot();
-        await assertResourceSetUp(root);
-        return docsResult(root, { target });
-      },
-    );
-  }
+  // docs — the project's documentation, gated (per read) on setup completion,
+  // mirroring the discern_docs tool.
+  registerDocTree(
+    server,
+    "docs",
+    "the project's documentation",
+    async () => {
+      const root = currentRoot();
+      await assertResourceSetUp(root);
+      return docsResult(root);
+    },
+    async (target) => {
+      const root = currentRoot();
+      await assertResourceSetUp(root);
+      return docsResult(root, { target });
+    },
+  );
 }
 
 /**
  * The server's `instructions` — the native "when to use which tool" block capable
  * clients load when MCP connects (it rides in the `initialize` result). discern's
  * operating model in a few imperative lines, carrying the strong MCP-first stance:
- * these tools are the primary surface, not the CLI. Feature-aware, mirroring the
- * tool gating — the docs and ratchets lines appear only when their feature is on.
+ * these tools are the primary surface, not the CLI.
  * The worktree lifecycle is listed LINEARLY — start, then integrate, then graduate —
  * not branched on the server's location: every lifecycle tool is always registered
  * (ADR 0062 retired the location-based hiding), and the server re-aims its working
  * root on `discern_start`, so an agent that starts on the trunk can drive the whole
  * lifecycle through this one connection.
  */
-export function buildInstructions(
-  enabled: ReadonlySet<Feature>,
-): string {
+export function buildInstructions(): string {
   const lines = [
     "discern is this project's quality harness, and these tools are the primary " +
     "surface for working in it — prefer them over shelling out to the `discern` " +
@@ -1219,72 +1200,55 @@ export function buildInstructions(
     "discern_help.",
     "- Verify the install with discern_doctor when something looks misconfigured " +
     "(bad config, a command not on PATH, a stale schema).",
-  ];
-  if (enabled.has("docs")) {
-    lines.push("- Read THIS project's own documentation with discern_docs.");
-  }
-  lines.push(
+    "- Read THIS project's own documentation with discern_docs.",
     "- Ask discern_improve for the single highest-value project improvement.",
-  );
-  if (enabled.has("ratchets")) {
-    lines.push(
-      "- Run quality ratchets with discern_ratchets as needed — slow and " +
-        "on-demand, so NOT part of discern_finish. Non-dry-run ratchets require a " +
-        "clean worktree unless force=true while authoring ratchets.",
-    );
-  }
-  if (enabled.has("worktrees")) {
-    lines.push(
-      "- Starting work from the trunk (the main checkout)? Run discern_start to " +
-        "create your own isolated worktree: it returns the new worktree's path and " +
-        "re-aims these tools at it, so your later finish/integrate/graduate operate " +
-        "on the new worktree automatically. You must still move your OWN file " +
-        "operations into that path (your environment's worktree-entering capability, " +
-        "a fresh session rooted there, or cd) so edits land in the worktree, not the " +
-        "trunk. NEVER adopt an existing idle worktree; each is another line of work, " +
-        "and a clean working tree doesn't mean it's free.",
-    );
-    lines.push(
-      "- When the branch is behind `{{main_branch}}` (the gate's merge check " +
-        "points here), bring `{{main_branch}}` in with discern_integrate: it " +
-        "merges `{{main_branch}}` into this worktree's branch " +
-        "and re-materializes the agent files + skills in one step. Just call it — you " +
-        "don't need to run git to check first. It is idempotent (a no-op when already " +
-        "up to date), never touches the main checkout, and performs every precondition " +
-        "itself, refusing cleanly with the exact next step (e.g. a dirty tree or a " +
-        "merge conflict). Reproducing its steps by hand is slower and usually " +
-        "unnecessary.",
-    );
-    lines.push(
-      "- Only when the user explicitly asks to hand off or land a finished branch " +
-        '("graduate this", "I\'ll take it from here", "move this back to {{main_branch}}") ' +
-        "should you use discern_graduate. Do not treat a green finish or status hint as " +
-        "permission to graduate; if no handoff was requested, stop and report the " +
-        "branch ready for review. Commit the work with a real message, run the final " +
-        "clean discern_finish for that commit, then just call the tool (the single deterministic implementation — " +
-        "don't reproduce its git steps, and don't pre-flight preconditions with git: " +
-        "it refuses cleanly with the exact next step, e.g. run discern_integrate " +
-        "first) and relay its structured result. Pass " +
-        'to:"trunk" to fast-forward the trunk and delete the branch, to:"branch" to ' +
-        "leave it checked out for review, or omit it to use the project default.",
-    );
-  }
+    "- Run quality ratchets with discern_ratchets as needed — slow and " +
+    "on-demand, so NOT part of discern_finish. Non-dry-run ratchets require a " +
+    "clean worktree unless force=true while authoring ratchets.",
+    "- Starting work from the trunk (the main checkout)? Run discern_start to " +
+    "create your own isolated worktree: it returns the new worktree's path and " +
+    "re-aims these tools at it, so your later finish/integrate/graduate operate " +
+    "on the new worktree automatically. You must still move your OWN file " +
+    "operations into that path (your environment's worktree-entering capability, " +
+    "a fresh session rooted there, or cd) so edits land in the worktree, not the " +
+    "trunk. NEVER adopt an existing idle worktree; each is another line of work, " +
+    "and a clean working tree doesn't mean it's free.",
+    "- When the branch is behind `{{main_branch}}` (the gate's merge check " +
+    "points here), bring `{{main_branch}}` in with discern_integrate: it " +
+    "merges `{{main_branch}}` into this worktree's branch " +
+    "and re-materializes the agent files + skills in one step. Just call it — you " +
+    "don't need to run git to check first. It is idempotent (a no-op when already " +
+    "up to date), never touches the main checkout, and performs every precondition " +
+    "itself, refusing cleanly with the exact next step (e.g. a dirty tree or a " +
+    "merge conflict). Reproducing its steps by hand is slower and usually " +
+    "unnecessary.",
+    "- Only when the user explicitly asks to hand off or land a finished branch " +
+    '("graduate this", "I\'ll take it from here", "move this back to {{main_branch}}") ' +
+    "should you use discern_graduate. Do not treat a green finish or status hint as " +
+    "permission to graduate; if no handoff was requested, stop and report the " +
+    "branch ready for review. Commit the work with a real message, run the final " +
+    "clean discern_finish for that commit, then just call the tool (the single deterministic implementation — " +
+    "don't reproduce its git steps, and don't pre-flight preconditions with git: " +
+    "it refuses cleanly with the exact next step, e.g. run discern_integrate " +
+    "first) and relay its structured result. Pass " +
+    'to:"trunk" to fast-forward the trunk and delete the branch, to:"branch" to ' +
+    "leave it checked out for review, or omit it to use the project default.",
+  ];
   return lines.join("\n");
 }
 
 /**
- * Run the MCP server over stdio via the official SDK. The spawn root and the enabled
- * features are resolved once at startup; the spawn root seeds the mutable
+ * Run the MCP server over stdio via the official SDK. The spawn root is resolved
+ * once at startup; it seeds the mutable
  * {@link WorkingRoot} the verbs actually operate on (re-aimed by `discern_start` /
- * `discern_graduate`, ADR 0062). Every enabled tool is registered (feature-disabled
- * tools are omitted, the MCP mirror of the CLI listing only the active verbs).
+ * `discern_graduate`, ADR 0062). Every tool is registered unconditionally
+ * (ADR 0101: the subsystems are all core).
  * `connect` starts the transport; the server then runs until stdin closes (the
  * transport's `onclose`), at which point this resolves and the process exits.
  */
 export async function runMcpServer(): Promise<number> {
   const spawnRoot = await findRoot();
   const cfg = await resolveServerConfig(spawnRoot);
-  const enabled = new Set(enabledFeatures(cfg));
   // The server's logical cwd, made explicit: seeded from the spawn root, then
   // re-pointed on discern_start / discern_graduate. Both the tools and the readable
   // resources resolve it per call/read, so the whole surface follows the re-aim.
@@ -1292,14 +1256,11 @@ export async function runMcpServer(): Promise<number> {
   const server = new McpServer(
     { name: SERVER_NAME, version: KIT_VERSION },
     {
-      instructions: renderMcpText(buildInstructions(enabled), cfg),
+      instructions: renderMcpText(buildInstructions(), cfg),
     },
   );
 
   for (const tool of TOOLS) {
-    if (tool.feature !== undefined && !enabled.has(tool.feature)) {
-      continue;
-    }
     // The shared config: description plus the honest metadata (title, the per-verb
     // outputSchema the SDK validates structuredContent against, and the behavioural
     // annotations). Built with conditional keys so an absent field is omitted rather
@@ -1340,7 +1301,7 @@ export async function runMcpServer(): Promise<number> {
   // CURRENT working root (so the resources follow discern_start / discern_graduate
   // exactly as the tools do — ADR 0062).
   if (spawnRoot !== undefined) {
-    registerResources(server, working, enabled);
+    registerResources(server, working);
   }
 
   const transport = new StdioServerTransport();

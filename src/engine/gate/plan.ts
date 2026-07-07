@@ -13,7 +13,6 @@
  */
 
 import { type DiscernConfig, toCommand } from "../../shared/config_schema.ts";
-import { isFeatureEnabled } from "../../shared/features.ts";
 import type { Stage } from "../../shared/capabilities.ts";
 import { jobsInStage } from "./stages.ts";
 import { diagnosticOutputFields } from "./diagnostic_output.ts";
@@ -74,12 +73,12 @@ export interface JobGroup {
 export interface GatePlan {
   groups: JobGroup[];
   /** The generated-artifacts currency check runs as a fail-fast precondition, beside
-   * the merge check (ADR 0034, front-loaded by ADR 0056); true when the `guidance`
-   * feature is on. Blocks on a STALE agent file. */
+   * the merge check (ADR 0034, front-loaded by ADR 0056). Blocks on a STALE agent
+   * file. Always true (the field gates its plan-listing, not its run). */
   guidanceCheck: boolean;
-  /** The materialized-skills currency check (ADR 0034, extended to skills); true
-   * when the `skills` feature is on. A fail-fast precondition like guidance; blocks
-   * on a STALE skills dir. */
+  /** The materialized-skills currency check (ADR 0034, extended to skills). A
+   * fail-fast precondition like guidance; blocks on a STALE skills dir. Always true
+   * (the field gates its plan-listing, not its run). */
   skillsCheck: boolean;
   /** The merge check runs FIRST, as a fail-fast precondition (ADR 0050); it self-skips
    * in the main checkout. Always true (the field gates its plan-listing, not its run). */
@@ -270,15 +269,13 @@ export function composeGatePlan(
   stageGroups: JobGroup[],
   scopeGates: JobGroup | undefined,
   changed: string[],
-  guidanceCheck: boolean,
-  skillsCheck: boolean,
 ): GatePlan {
   return {
     groups: scopeGates === undefined
       ? stageGroups
       : [...stageGroups, scopeGates],
-    guidanceCheck,
-    skillsCheck,
+    guidanceCheck: true,
+    skillsCheck: true,
     mergeCheck: true,
     trackedArtifactsCheck: true,
     scopesChanged: changed,
@@ -301,8 +298,6 @@ export function buildGatePlan(cfg: DiscernConfig, changed: string[]): GatePlan {
     buildStageGroups(cfg),
     scopeGatesGroup(planScopeGates(cfg, changed)),
     changed,
-    isFeatureEnabled(cfg, "guidance"),
-    isFeatureEnabled(cfg, "skills"),
   );
 }
 

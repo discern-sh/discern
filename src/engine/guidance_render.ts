@@ -10,9 +10,8 @@
  * produce — there is no second copy of the compile logic, and no stored hash to
  * keep in sync.
  *
- * The compiled body is, in order: discern's built-in base guidance (always), a
- * built-in section per ENABLED feature (a disabled feature's section is omitted —
- * the feature-toggle mechanism), then the user's `[guidance].sources`. Each
+ * The compiled body is, in order: discern's built-in guidance sections, then the
+ * user's `[guidance].sources`. Each
  * provider file is either that full body or — for a provider that declares a
  * `pointer` and is not itself canonical — a pointer importing the canonical file.
  *
@@ -27,7 +26,6 @@ import {
   loadConfig,
   resolveConfiguredAgents,
 } from "../shared/config_schema.ts";
-import { type Feature, isFeatureEnabled } from "../shared/features.ts";
 import { resolveGuidanceSources, resolveTemplatesDir } from "../lib/paths.ts";
 import {
   emitsGuidanceFile,
@@ -43,16 +41,18 @@ import {
 import { normalizeDocsDir } from "../shared/docs_path.ts";
 
 /**
- * The built-in guidance sections, in compile order. The base section is always
- * included; every other section is gated on its feature, so disabling a feature
- * drops its guidance from the compiled output automatically.
+ * The built-in guidance sections, in compile order. Every section always
+ * compiles; a section that applies only to a configured state gates itself with
+ * a template conditional (ratchets.md renders only when at least one
+ * `[ratchets]` table exists — activation by presence, ADR 0101) and an
+ * all-conditional section that renders to nothing is dropped.
  */
-const BUILTIN_SECTIONS: ReadonlyArray<{ file: string; feature?: Feature }> = [
+const BUILTIN_SECTIONS: ReadonlyArray<{ file: string }> = [
   { file: "base.md" },
-  { file: "worktrees.md", feature: "worktrees" },
-  { file: "ratchets.md", feature: "ratchets" },
-  { file: "skills.md", feature: "skills" },
-  { file: "docs.md", feature: "docs" },
+  { file: "worktrees.md" },
+  { file: "ratchets.md" },
+  { file: "skills.md" },
+  { file: "docs.md" },
 ];
 
 /**
@@ -114,8 +114,8 @@ export function guidanceContext(config: DiscernConfig): GuidanceContext {
 }
 
 /**
- * Read, template, and concatenate discern's built-in guidance sections for the
- * enabled features, in {@link BUILTIN_SECTIONS} order. Each section is rendered
+ * Read, template, and concatenate discern's built-in guidance sections, in
+ * {@link BUILTIN_SECTIONS} order. Each section is rendered
  * against {@link guidanceContext} so generic prose can name the project's real
  * branch prefix / integration branch and drop config-gated content. ONLY built-in
  * sections are templated — the user's `[guidance].sources` are appended verbatim by
@@ -127,9 +127,6 @@ async function builtinGuidance(config: DiscernConfig): Promise<string> {
   const ctx = guidanceContext(config);
   let out = "";
   for (const section of BUILTIN_SECTIONS) {
-    if (section.feature && !isFeatureEnabled(config, section.feature)) {
-      continue;
-    }
     let text: string;
     try {
       text = await Deno.readTextFile(join(dir, section.file));
@@ -155,7 +152,7 @@ async function builtinGuidance(config: DiscernConfig): Promise<string> {
 }
 
 /**
- * The full compiled guidance body: built-in sections (feature-gated) followed by
+ * The full compiled guidance body: the built-in sections followed by
  * the user's `[guidance].sources`. A single Markdown horizontal rule separates
  * shipped guidance from user-authored guidance, so the ownership boundary is
  * visible without changing either side's prose.
@@ -228,22 +225,18 @@ export function agentFileContents(
 
 /**
  * The expected content of every agent file `discern refresh` would write, keyed by
- * project-relative path. Empty when the `guidance` feature is off (nothing is
- * generated). Each configured provider gets the full body, or — when it declares a
- * `pointer` and a different canonical file is also emitted — that pointer. A
- * reuse-canonical provider adds no vendor-specific file; if no canonical provider
- * is configured in the set, its read path is rendered as the canonical full-body
- * file. Unknown agent names are skipped (the writer warns about them). PURE: reads
- * only.
+ * project-relative path. Each configured provider gets the full body, or — when it
+ * declares a `pointer` and a different canonical file is also emitted — that
+ * pointer. A reuse-canonical provider adds no vendor-specific file; if no canonical
+ * provider is configured in the set, its read path is rendered as the canonical
+ * full-body file. Unknown agent names are skipped (the writer warns about them).
+ * PURE: reads only.
  */
 export async function renderAgentFiles(
   root: string,
   config?: DiscernConfig,
 ): Promise<Map<string, string>> {
   const cfg = config ?? await loadConfig(root);
-  if (!isFeatureEnabled(cfg, "guidance")) {
-    return new Map();
-  }
   const body = await composeGuidanceBody(root, cfg);
   return agentFileContents(guidanceFilesFor(guidanceAgents(cfg)), body);
 }
@@ -266,8 +259,8 @@ export interface GuidanceDriftEntry {
 
 /**
  * Compare every agent file `refresh` would write against what is on disk, and
- * return the ones that don't match (empty = all current, or the `guidance` feature
- * is off). The stateless currency check (ADR 0034): recompile in memory via
+ * return the ones that don't match (empty = all current). The stateless currency
+ * check (ADR 0034): recompile in memory via
  * {@link renderAgentFiles}, diff against disk — no stored hash. PURE: reads only.
  */
 export async function checkGuidanceCurrent(

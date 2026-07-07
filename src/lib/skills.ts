@@ -31,7 +31,6 @@ import {
   type DiscernConfig,
   resolveConfiguredAgents,
 } from "../shared/config_schema.ts";
-import { isFeatureEnabled } from "../shared/features.ts";
 import type { Logger } from "./log.ts";
 import { resolveBundledSkillsDir, resolveSkillsDir } from "./paths.ts";
 import { providerFor, skillsDirsForAgents } from "./providers.ts";
@@ -818,7 +817,7 @@ async function checkSkillsDir(
 /**
  * Compare what `discern refresh` would materialize against what is on disk, across
  * EVERY configured agent's skills dir, and return the entries that don't match
- * (empty = all current, or the `skills` feature is off). The stateless currency
+ * (empty = all current). The stateless currency
  * check for skills: re-resolve the effective set via {@link resolveEffectiveSkills},
  * diff against disk — no stored hash. PURE: reads only.
  */
@@ -826,9 +825,6 @@ export async function checkSkillsCurrent(
   root: string,
   config: DiscernConfig,
 ): Promise<SkillsDriftEntry[]> {
-  if (!isFeatureEnabled(config, "skills")) {
-    return [];
-  }
   const dirs = skillsDirsForAgents(resolveConfiguredAgents(config));
   if (dirs.length === 0) {
     return [];

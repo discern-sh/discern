@@ -32,11 +32,6 @@ import { buildExecutionModel } from "../engine/doctor/execution_model.ts";
 import { renderAgentFiles } from "../engine/guidance_render.ts";
 import { checkProviderHooksCurrent } from "../lib/provider_hooks.ts";
 import { providerFor, providersWithHooks } from "../lib/providers.ts";
-import {
-  enabledFeatures,
-  FEATURES,
-  isFeatureEnabled,
-} from "../shared/features.ts";
 import { capStage, isKnownCapability } from "../shared/capabilities.ts";
 import { commandExists } from "../shared/subprocess.ts";
 import { gitVersion } from "../engine/worktree/git.ts";
@@ -404,7 +399,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
   // configured, report what it resolves to. Both are present-only (an absent
   // match/dir is fine), so this is informational: it surfaces a typo'd path
   // before the user wonders why their guidance/skills aren't picked up.
-  if (isFeatureEnabled(config, "guidance")) {
+  {
     const sources = await resolveGuidanceSources(destDir, config);
     checks.push({
       name: "guidance sources",
@@ -414,7 +409,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
         : `${sources.length} source file(s) resolve`,
     });
   }
-  if (isFeatureEnabled(config, "skills")) {
+  {
     const { rel, abs } = resolveSkillsDir(destDir, config);
     let authored = 0;
     try {
@@ -433,16 +428,14 @@ export async function runChecks(destDir: string): Promise<Check[]> {
 
   let renderedGuidanceFiles = new Set<string>();
   let guidanceRenderError: string | undefined;
-  if (isFeatureEnabled(config, "guidance")) {
-    try {
-      renderedGuidanceFiles = new Set(
-        (await renderAgentFiles(destDir, config)).keys(),
-      );
-    } catch (error) {
-      guidanceRenderError = error instanceof Error
-        ? error.message
-        : String(error);
-    }
+  try {
+    renderedGuidanceFiles = new Set(
+      (await renderAgentFiles(destDir, config)).keys(),
+    );
+  } catch (error) {
+    guidanceRenderError = error instanceof Error
+      ? error.message
+      : String(error);
   }
 
   const providerHookDrift = await checkProviderHooksCurrent(destDir, config);
@@ -469,12 +462,10 @@ export async function runChecks(destDir: string): Promise<Check[]> {
     }
     const mcp = provider.mcp;
     const guidancePath = provider.guidanceFile.path;
-    const guidanceWired = isFeatureEnabled(config, "guidance") &&
-      guidanceRenderError === undefined &&
+    const guidanceWired = guidanceRenderError === undefined &&
       renderedGuidanceFiles.has(guidancePath);
     const hookDrift = hookDriftByAgent.get(name);
     const hooksWired = provider.hooks !== undefined &&
-      isFeatureEnabled(config, "worktrees") &&
       hookDrift === undefined;
     const wired = [
       guidanceWired ? `guidance ${guidancePath}` : undefined,
@@ -486,9 +477,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
     // a `pending` MCP is committable and names the file discern will write into once
     // authored; an absent hooks surface uses the agent's own mechanism.
     const notWired = [
-      !isFeatureEnabled(config, "guidance")
-        ? "guidance (feature off)"
-        : guidanceRenderError !== undefined
+      guidanceRenderError !== undefined
         ? `guidance ${guidancePath} (render error)`
         : !guidanceWired
         ? `guidance ${guidancePath} (not rendered)`
@@ -498,8 +487,6 @@ export async function runChecks(destDir: string): Promise<Check[]> {
         : undefined,
       provider.hooks === undefined
         ? "hooks (own mechanism)"
-        : !isFeatureEnabled(config, "worktrees")
-        ? "hooks (worktrees feature off)"
         : hookDrift !== undefined
         ? `hooks ${hookDrift.path} (${hookDrift.reason})`
         : undefined,
@@ -537,21 +524,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
     });
   }
 
-  // 9. features — surface the [features] toggle state, so a user can SEE which
-  // subsystems are on without inferring it from missing `--help` verbs.
-  {
-    const on = new Set(enabledFeatures(config));
-    const off = FEATURES.filter((f) => !on.has(f));
-    checks.push({
-      name: "features",
-      ok: true,
-      detail: off.length === 0
-        ? `all on (${[...on].join(", ")})`
-        : `on: ${[...on].join(", ") || "none"}; off: ${off.join(", ")}`,
-    });
-  }
-
-  // 10. gotchas doc resolves — if [project].gotchas_doc is set, the file the gate
+  // 9. gotchas doc resolves — if [project].gotchas_doc is set, the file the gate
   // points a failing agent at must exist (a 5→6 migration of a `.discern/`-pointed
   // doc, or a typo, can leave it dangling).
   {
@@ -574,7 +547,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
     }
   }
 
-  // 11. worktree-automation layering (advisory). If a hooks provider's settings file
+  // 10. worktree-automation layering (advisory). If a hooks provider's settings file
   // carries a worktree-lifecycle hook whose command does not invoke the harness CLI,
   // a different tool also automates worktrees here and would double setup/teardown.
   // Advisory only (a warn, still healthy): the install is fine, but the operator
@@ -582,8 +555,8 @@ export async function runChecks(destDir: string): Promise<Check[]> {
   // `deno task dev` (this repo self-hosting from source). The provider's settings file
   // and the worktree-command needle are read FROM the registry (every provider that
   // declares a hooks surface), so a second hooks-provider is covered without editing
-  // this check. Skipped when worktrees is off (the hooks are inert / not our concern).
-  if (isFeatureEnabled(config, "worktrees")) {
+  // this check.
+  {
     const foreignFiles: string[] = [];
     for (const provider of providersWithHooks()) {
       const integ = provider.hooks;
@@ -629,7 +602,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
     }
   }
 
-  // 12. capability-shaped checks (advisory). A [checks.<name>] whose name IS a
+  // 11. capability-shaped checks (advisory). A [checks.<name>] whose name IS a
   // standard capability and whose stage is that capability's canonical stage is
   // almost certainly meant to be a [capabilities] entry — which doctor reports and
   // `discern setup` fills, and a check does not. Nudge toward the free
@@ -660,7 +633,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
     }
   }
 
-  // 13. worktree-resource commands resolve (advisory). The first word of each
+  // 12. worktree-resource commands resolve (advisory). The first word of each
   // declared create/destroy/ensure should resolve from the project root, so a
   // worktree round won't die with "command not found".
   {

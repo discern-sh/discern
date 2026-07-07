@@ -2,8 +2,7 @@
  * The improvement **catalog** — the project facts gathered once ({@link buildContext})
  * and the best-practice {@link CATEGORIES} evaluated against them.
  *
- * Each category groups related rules and may be gated on a feature (a disabled
- * subsystem's practices don't apply). Each rule is either deterministic (discern
+ * Each category groups related rules. Each rule is either deterministic (discern
  * decides it) or subjective (discern surfaces it for the agent to judge against the
  * cited material). The catalog is data, not control flow: the runner in `improve.ts`
  * walks it. To add a best practice, add a rule here — nothing else changes.
@@ -380,7 +379,6 @@ const SETUP: Category = {
 const GUIDANCE: Category = {
   name: "guidance",
   title: "Agent guidance",
-  feature: "guidance",
   rules: [
     {
       kind: "deterministic",
@@ -462,7 +460,6 @@ const GUIDANCE: Category = {
 const DOCS: Category = {
   name: "docs",
   title: "Documentation",
-  feature: "docs",
   rules: [
     {
       kind: "deterministic",
@@ -554,26 +551,7 @@ const DOCS: Category = {
 const WORKTREES: Category = {
   name: "worktrees",
   title: "Worktree workflow",
-  feature: "worktrees",
   rules: [
-    {
-      kind: "deterministic",
-      id: "worktrees.enabled",
-      title: "Session-start worktree setup enabled",
-      weight: 1,
-      fix: "discern config set worktree.enabled true",
-      teach:
-        "With [worktree].enabled, each line of work runs in its own isolated git " +
-        "worktree set up automatically at session start, so concurrent efforts never " +
-        "collide. Enable it to get the isolated workflow without manual setup.",
-      evaluate: (ctx): { status: "pass" | "fail"; detail: string } =>
-        ctx.config.worktree.enabled
-          ? { status: "pass", detail: "[worktree].enabled is set" }
-          : {
-            status: "fail",
-            detail: "[worktree].enabled is false (no automatic setup)",
-          },
-    },
     {
       kind: "subjective",
       id: "worktrees.resources",
@@ -603,7 +581,6 @@ const WORKTREES: Category = {
 const RATCHETS: Category = {
   name: "ratchets",
   title: "Quality ratchets",
-  feature: "ratchets",
   rules: [
     {
       kind: "deterministic",
@@ -680,7 +657,6 @@ const RATCHETS: Category = {
 const SKILLS: Category = {
   name: "skills",
   title: "Skills",
-  feature: "skills",
   rules: [
     {
       kind: "subjective",
@@ -724,8 +700,8 @@ const SKILLS: Category = {
   ],
 };
 
-/** The full improvement catalog, in display order. The runner skips a category whose
- * `feature` is disabled, and ranks the rest weakest-first. */
+/** The full improvement catalog, in display order. The runner ranks the
+ * categories weakest-first. */
 export const CATEGORIES: readonly Category[] = [
   GATE,
   SETUP,

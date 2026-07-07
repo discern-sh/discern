@@ -65,13 +65,7 @@ import {
   lifecycleContext,
   probeWorktreeViability,
 } from "../engine/worktree/lifecycle.ts";
-import { isFeatureEnabled } from "../shared/features.ts";
-import {
-  type HooksIntegration,
-  providerFor,
-  providersWithHooks,
-  reactivationHandoff,
-} from "../lib/providers.ts";
+import { providerFor, reactivationHandoff } from "../lib/providers.ts";
 import { resolveDefaultAgents } from "../lib/detect_agents.ts";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { CONFIG_REL, findRoot } from "../shared/env.ts";
@@ -269,81 +263,7 @@ export async function assembleInitPlan(params: {
   if (params.fills) {
     applyFillsToPlan(plan, params.fills);
   }
-  // A worktrees-off install (only reachable via `--config`) must not carry the
-  // worktree lifecycle hooks — strip them from the settings op (§3.4).
-  if (params.fills?.features?.worktrees === false) {
-    stripWorktreeHooksFromPlan(plan);
-  }
   return plan;
-}
-
-/** True when `v` is a non-array JSON object. */
-function isPlainObject(v: unknown): v is Record<string, unknown> {
-  return typeof v === "object" && v !== null && !Array.isArray(v);
-}
-
-/**
- * Remove the worktree-lifecycle hooks from every hook-providing agent's planned
- * settings file. Used when the worktrees feature is disabled at setup, so a
- * disabled feature leaves no inert hooks behind. Provider-driven (ADR 0031): the
- * settings file and the hook-event vocabulary come from each {@link Provider}'s
- * `hooks`, so a new agent's hooks are stripped the same way without editing here.
- */
-function stripWorktreeHooksFromPlan(plan: Plan): void {
-  for (const provider of providersWithHooks()) {
-    if (provider.hooks !== undefined) {
-      stripWorktreeHooksFromOp(plan, provider.hooks);
-    }
-  }
-}
-
-/** Strip one provider's worktree hooks (its create/remove event groups + any
- * SessionStart hook that drives the worktree flow) from its planned settings op.
- * A no-op when the op or its hooks are absent/malformed. */
-function stripWorktreeHooksFromOp(plan: Plan, h: HooksIntegration): void {
-  const op = plan.ops.find((o) => o.targetRel === h.settingsFile);
-  if (op === undefined) {
-    return;
-  }
-  let settings: Record<string, unknown>;
-  try {
-    const parsed: unknown = JSON.parse(TEXT_DECODER.decode(op.bytes));
-    if (!isPlainObject(parsed)) {
-      return;
-    }
-    settings = parsed;
-  } catch {
-    return;
-  }
-  if (!isPlainObject(settings.hooks)) {
-    return;
-  }
-  const hooks = settings.hooks;
-  for (const key of h.worktreeEventKeys) {
-    delete hooks[key];
-  }
-  const sessionStart = hooks.SessionStart;
-  if (Array.isArray(sessionStart)) {
-    const kept = sessionStart.filter((group) => {
-      const inner = (group as { hooks?: unknown }).hooks;
-      if (!Array.isArray(inner)) {
-        return true;
-      }
-      return !inner.some((entry) => {
-        const cmd = (entry as { command?: unknown }).command;
-        return typeof cmd === "string" && cmd.includes(h.sessionHookNeedle);
-      });
-    });
-    if (kept.length === 0) {
-      delete hooks.SessionStart;
-    } else {
-      hooks.SessionStart = kept;
-    }
-  }
-  if (Object.keys(hooks).length === 0) {
-    delete settings.hooks;
-  }
-  op.bytes = TEXT_ENCODER.encode(`${JSON.stringify(settings, null, 2)}\n`);
 }
 
 /** Find the `discern.toml` op that is about to be created, or undefined. */
@@ -1828,8 +1748,8 @@ async function proveGateGreen(
  * tearing it down win or lose. A red probe blocks `done` with the `worktree_probe`
  * stage: either the worktree could not ready itself (broken `[worktree].steps`/`ensure`/
  * resources), or the gate failed only in the copy (something the app needs — an
- * untracked env file, an uninstalled dependency dir — didn't travel). Worktrees-off
- * skips it (nothing to prove); an uncreatable probe (e.g. an unborn branch) is an honest
+ * untracked env file, an uninstalled dependency dir — didn't travel). An
+ * uncreatable probe (e.g. an unborn branch) is an honest
  * skip, not a failure. Returns whether viability was actually proven, for the report.
  */
 async function proveWorktreeViable(
@@ -1837,10 +1757,6 @@ async function proveWorktreeViable(
   json: boolean,
 ): Promise<GateProof> {
   const cfg = await loadConfig(root);
-  if (!isFeatureEnabled(cfg, "worktrees")) {
-    return { ok: true, worktreeProven: false }; // worktrees off → nothing to prove
-  }
-
   const log = new Logger({ json, noColor: false, humanStream: "stdout" });
   log.info("Proving your project runs inside a worktree (a throwaway copy)…");
   const outcome = await probeWorktreeViability(

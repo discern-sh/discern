@@ -22,12 +22,6 @@ import { findRoot } from "./shared/env.ts";
 import { capabilityList } from "./shared/capabilities.ts";
 import { NOT_SET_UP_MESSAGE, verbNeedsSetup } from "./shared/setup_state.ts";
 import {
-  enabledFeatures,
-  type Feature,
-  featureForVerb,
-  FEATURES,
-} from "./shared/features.ts";
-import {
   beginOptsFrom,
   hasScaffoldIntent,
   runSetupBegin,
@@ -95,16 +89,11 @@ declare function rootShape(): ReturnType<
 >;
 type RootCommand = ReturnType<typeof rootShape>;
 
-/** Build the root command with its global flags and subcommands. Subsystem verbs
- * (worktree, ratchets, refresh, skills, docs) are attached only when their
- * feature is enabled, so `--help` lists exactly the active verbs. `help` (browse
- * discern's own bundled docs) is attached UNCONDITIONALLY — it is discern's own
- * help, not a project feature. `setup` is hidden from help once the project records
- * `[meta].bootstrapped` (it stays callable with `--force`). */
-export function buildCli(
-  enabled: ReadonlySet<Feature>,
-  hideSetup: boolean,
-): RootCommand {
+/** Build the root command with its global flags and subcommands. Every verb is
+ * attached unconditionally — the subsystems are all core (ADR 0101). `setup` is
+ * hidden from help once the project records `[meta].bootstrapped` (it stays
+ * callable with `--force`). */
+export function buildCli(hideSetup: boolean): RootCommand {
   const root = new Command()
     .name("discern")
     .version(KIT_VERSION)
@@ -377,55 +366,51 @@ export function buildCli(
       Deno.exit(code);
     });
 
-  if (enabled.has("docs")) {
-    root
-      .command("docs [target:string]")
-      .description("Browse and read the project's documentation tree.")
-      .option(
-        "--raw",
-        "Print a doc's pristine Markdown source instead of rendering it.",
-      )
-      .option(
-        "--list",
-        "Print a plain table of contents and exit (never interactive).",
-      )
-      .option("--no-pager", "Don't page rendered output through $PAGER.")
-      .option(
-        "--dir <path:string>",
-        "Docs directory to browse (default: the project's [docs].dir).",
-      )
-      .option("--width <cols:number>", "Wrap width for rendered output.")
-      .option(
-        "--export <scope:string>",
-        "Concatenate Markdown: public, all, or select.",
-      )
-      .option(
-        "--output <path:string>",
-        "Write an export to a file instead of stdout.",
-      )
-      .action(async (options, target?: string) => {
-        const code = await runDocs({
-          json: options.json ?? false,
-          noColor: noColorFrom(options.color),
-          raw: options.raw ?? false,
-          list: options.list ?? false,
-          // Cliffy maps `--no-pager` to a negatable `pager` boolean (like --no-color).
-          noPager: options.pager === false,
-          dir: options.dir,
-          width: options.width,
-          target,
-          export: options.export,
-          output: options.output,
-        });
-        Deno.exit(code);
+  root
+    .command("docs [target:string]")
+    .description("Browse and read the project's documentation tree.")
+    .option(
+      "--raw",
+      "Print a doc's pristine Markdown source instead of rendering it.",
+    )
+    .option(
+      "--list",
+      "Print a plain table of contents and exit (never interactive).",
+    )
+    .option("--no-pager", "Don't page rendered output through $PAGER.")
+    .option(
+      "--dir <path:string>",
+      "Docs directory to browse (default: the project's [docs].dir).",
+    )
+    .option("--width <cols:number>", "Wrap width for rendered output.")
+    .option(
+      "--export <scope:string>",
+      "Concatenate Markdown: public, all, or select.",
+    )
+    .option(
+      "--output <path:string>",
+      "Write an export to a file instead of stdout.",
+    )
+    .action(async (options, target?: string) => {
+      const code = await runDocs({
+        json: options.json ?? false,
+        noColor: noColorFrom(options.color),
+        raw: options.raw ?? false,
+        list: options.list ?? false,
+        // Cliffy maps `--no-pager` to a negatable `pager` boolean (like --no-color).
+        noPager: options.pager === false,
+        dir: options.dir,
+        width: options.width,
+        target,
+        export: options.export,
+        output: options.output,
       });
-  }
+      Deno.exit(code);
+    });
 
   // `help` — browse discern's OWN bundled documentation (the config reference,
-  // concepts, the gate/worktree/ratchet docs). Registered UNCONDITIONALLY: it is
-  // discern's own help, available in every install regardless of which features
-  // the project enabled — unlike `docs`, which serves the project's tree and is
-  // gated on the `docs` feature. The doc set is fixed and bundled, so there is no
+  // concepts, the gate/worktree/ratchet docs). Distinct from `docs`, which serves
+  // the project's tree. The doc set is fixed and bundled, so there is no
   // `--dir`; `--help`/`-h` (Cliffy usage) is a separate surface and coexists with
   // it. Mirrors `docs`'s read flags (target, --list/--raw/--json/--no-pager/--width)
   // plus a public-only `--export`.
@@ -636,16 +621,14 @@ export function buildCli(
   // first-class `discern` subcommands. The cast drops
   // the threaded global-option generics (which the engine actions don't read) —
   // Cliffy's generic Command type is impractical to spell at this boundary.
-  attachEngineCommands(root as unknown as Command, enabled);
+  attachEngineCommands(root as unknown as Command);
 
   return root;
 }
 
-/** The cwd project's resolved CLI state: enabled features, whether we are inside a
- * project at all, whether its config parsed, and whether it recorded
- * `[meta].bootstrapped`. */
+/** The cwd project's resolved CLI state: whether we are inside a project at all,
+ * whether its config parsed, and whether it recorded `[meta].bootstrapped`. */
 interface ProjectState {
-  enabled: ReadonlySet<Feature>;
   inProject: boolean;
   /** False when the config could not be parsed (so the nudge is suppressed and the
    * real ConfigParseError surfaces on its own, unobscured). */
@@ -655,38 +638,25 @@ interface ProjectState {
 
 /**
  * Resolve the CLI state for the project the cwd is in, with a single config read.
- * When not inside a project, every feature is reported enabled so `--help` and the
- * core verbs behave normally (a verb that needs a project still errors with "no
- * project"), and `bootstrapped`/`inProject` are false (so the setup nudge and
- * self-hiding never fire outside a project). An unparseable config degrades the
- * same way (`configOk: false`) — never block the CLI, and never nudge over the real
- * TOML error, on a config the user is mid-edit on.
+ * When not inside a project, `bootstrapped`/`inProject` are false (so the setup
+ * nudge and self-hiding never fire outside a project). An unparseable config
+ * degrades the same way (`configOk: false`) — never block the CLI, and never nudge
+ * over the real TOML error, on a config the user is mid-edit on.
  */
 async function resolveProjectState(): Promise<ProjectState> {
   const root = await findRoot();
   if (root === undefined) {
-    return {
-      enabled: new Set(FEATURES),
-      inProject: false,
-      configOk: true,
-      bootstrapped: false,
-    };
+    return { inProject: false, configOk: true, bootstrapped: false };
   }
   try {
     const cfg = await loadConfig(root);
     return {
-      enabled: new Set(enabledFeatures(cfg)),
       inProject: true,
       configOk: true,
       bootstrapped: cfg.meta.bootstrapped,
     };
   } catch {
-    return {
-      enabled: new Set(FEATURES),
-      inProject: true,
-      configOk: false,
-      bootstrapped: false,
-    };
+    return { inProject: true, configOk: false, bootstrapped: false };
   }
 }
 
@@ -717,8 +687,8 @@ async function isGitWorkTree(dir: string): Promise<boolean> {
 /**
  * Installer verbs Cliffy owns; combined with the engine verbs to decide which
  * unknown first tokens fall through to a project recipe. Exported as the universe of
- * known verbs the parity guard ties the feature-gating / setup / MCP satellites
- * to (`tests/engine_verb_parity_test.ts`).
+ * known verbs the parity guard ties the setup / MCP satellites to
+ * (`tests/engine_verb_parity_test.ts`).
  */
 export const KNOWN_VERBS: ReadonlySet<string> = new Set<string>([
   "setup",
@@ -746,12 +716,9 @@ export async function main(args: string[]): Promise<void> {
       }
     }
 
-    // Resolve which features this project has enabled (all-on outside a project),
-    // plus its setup state — one config read, so help lists only active verbs, a
-    // disabled verb errors clearly, and the setup redirect/self-hiding know whether
-    // setup is still outstanding.
-    const { enabled, inProject, configOk, bootstrapped } =
-      await resolveProjectState();
+    // Resolve the project's setup state — one config read, so the setup
+    // redirect/self-hiding know whether setup is still outstanding.
+    const { inProject, configOk, bootstrapped } = await resolveProjectState();
     const hideSetup = inProject && bootstrapped;
 
     // Bare `discern`: pre-setup, this prints the read-only WELCOME — the install
@@ -769,7 +736,7 @@ export async function main(args: string[]): Promise<void> {
         );
       }
       console.log(
-        operatorHelp(buildCli(enabled, hideSetup) as unknown as Command),
+        operatorHelp(buildCli(hideSetup) as unknown as Command),
       );
       await printProjectRecipes();
       Deno.exit(0);
@@ -778,21 +745,10 @@ export async function main(args: string[]): Promise<void> {
     // Explicit help: Cliffy's help plus the project-recipe listing.
     if (verb === "-h" || verb === "--help") {
       console.log(
-        operatorHelp(buildCli(enabled, hideSetup) as unknown as Command),
+        operatorHelp(buildCli(hideSetup) as unknown as Command),
       );
       await printProjectRecipes();
       Deno.exit(0);
-    }
-
-    // A verb that belongs to a disabled feature: a clear error, not a recipe
-    // fallthrough or a bare "unknown command".
-    const owningFeature = featureForVerb(verb);
-    if (owningFeature !== undefined && !enabled.has(owningFeature)) {
-      console.error(
-        `discern: the "${owningFeature}" feature is disabled in this project ` +
-          `(set [features].${owningFeature} = true in discern.toml to enable it).`,
-      );
-      Deno.exit(1);
     }
 
     // Pre-setup hard redirect (ADR 0036): until the project records
@@ -830,7 +786,7 @@ export async function main(args: string[]): Promise<void> {
       Deno.exit(await dispatchRecipeOrSuggest(verb, argv.slice(1)));
     }
 
-    await buildCli(enabled, hideSetup).parse(argv);
+    await buildCli(hideSetup).parse(argv);
   } catch (err) {
     // An unparseable or schema-invalid discern.toml must read as a clean
     // diagnostic, not a raw stack trace — in both human and `--json` modes (a

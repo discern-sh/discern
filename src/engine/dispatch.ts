@@ -27,7 +27,6 @@ import {
   installedConfigRel,
   recipeEnvVars,
 } from "../shared/env.ts";
-import type { Feature } from "../shared/features.ts";
 import {
   resolveConfigPath,
   resolveRecipesDir,
@@ -82,8 +81,7 @@ import { colorEnabled } from "./output.ts";
 import type { DiscernResult } from "../shared/result.ts";
 
 /** The top-level engine verbs Cliffy owns (everything else → recipe fallthrough).
- * This is the full set the engine *could* own; feature-gating decides which are
- * attached for a given project (a disabled one errors with "feature disabled"). */
+ * Every verb is attached unconditionally — the subsystems are all core (ADR 0101). */
 export const KNOWN_ENGINE_VERBS: ReadonlySet<string> = new Set([
   "finish",
   "prepare",
@@ -224,14 +222,9 @@ async function remindIfSetupUnfinished(ctx: LifecycleContext): Promise<void> {
   ctx.log.line(`[discern] ${setupUnfinishedHint(pending)}`);
 }
 
-/** Attach the engine task-runner verbs to the `discern` root command. Optional
- * subsystem verbs are attached only when their feature is enabled, so `--help`
- * lists exactly the active verbs (a disabled verb errors via the main router). */
-export function attachEngineCommands(
-  root: Command,
-  enabled: ReadonlySet<Feature>,
-): void {
-  // Core gate verbs — always on.
+/** Attach the engine task-runner verbs to the `discern` root command — every verb
+ * unconditionally (ADR 0101: the subsystems are all core). */
+export function attachEngineCommands(root: Command): void {
   root
     .command("finish")
     .description("The full quality gate — run before calling work done.")
@@ -315,8 +308,6 @@ export function attachEngineCommands(
       );
     });
 
-  // The MCP server is core infrastructure (ADR 0045), not a feature — always
-  // available, like finish/status/the config surface.
   root
     .command("mcp")
     .description(
@@ -328,64 +319,58 @@ export function attachEngineCommands(
       Deno.exit(await runMcpServer());
     });
 
-  if (enabled.has("ratchets")) {
-    root
-      .command("ratchets")
-      .description(
-        "Check every metric ratchet (slow; on demand, not part of finish).",
-      )
-      .option(
-        "--json",
-        "Emit the result as a JSON DiscernResult object on stdout.",
-      )
-      .option(
-        "--dry-run",
-        "Show the ratchets that would be measured; touch nothing.",
-      )
-      .option(
-        "--force",
-        "Run ratchets on a dirty worktree; intended only while authoring ratchets.",
-      )
-      .action(async (o) => {
-        Deno.exit(
-          await runRatchets(await requireRoot(), {
-            json: o.json ?? false,
-            dryRun: o.dryRun ?? false,
-            force: o.force ?? false,
-          }),
-        );
-      });
-  }
+  root
+    .command("ratchets")
+    .description(
+      "Check every metric ratchet (slow; on demand, not part of finish).",
+    )
+    .option(
+      "--json",
+      "Emit the result as a JSON DiscernResult object on stdout.",
+    )
+    .option(
+      "--dry-run",
+      "Show the ratchets that would be measured; touch nothing.",
+    )
+    .option(
+      "--force",
+      "Run ratchets on a dirty worktree; intended only while authoring ratchets.",
+    )
+    .action(async (o) => {
+      Deno.exit(
+        await runRatchets(await requireRoot(), {
+          json: o.json ?? false,
+          dryRun: o.dryRun ?? false,
+          force: o.force ?? false,
+        }),
+      );
+    });
 
-  if (enabled.has("guidance")) {
-    root
-      .command("refresh")
-      .description(
-        "Refresh the generated agent files, skills, and integration artifacts.",
-      )
-      .option(
-        "--json",
-        "Emit the result as a JSON DiscernResult on stdout (narration → stderr).",
-      )
-      .action(async (o) => {
-        const root = await requireRoot();
-        const json = o.json ?? false;
-        // --json: narration → stderr, the result envelope → stdout. Human: narrate
-        // to stdout via the default logger.
-        const log = json
-          ? new Logger({ json: true, noColor: false, humanStream: "stderr" })
-          : new Logger({ json: false, noColor: false, humanStream: "stdout" });
-        const res = await refreshResult(root, log);
-        if (json) {
-          emitResult(res);
-        }
-        Deno.exit(res.ok ? 0 : 1);
-      });
-  }
+  root
+    .command("refresh")
+    .description(
+      "Refresh the generated agent files, skills, and integration artifacts.",
+    )
+    .option(
+      "--json",
+      "Emit the result as a JSON DiscernResult on stdout (narration → stderr).",
+    )
+    .action(async (o) => {
+      const root = await requireRoot();
+      const json = o.json ?? false;
+      // --json: narration → stderr, the result envelope → stdout. Human: narrate
+      // to stdout via the default logger.
+      const log = json
+        ? new Logger({ json: true, noColor: false, humanStream: "stderr" })
+        : new Logger({ json: false, noColor: false, humanStream: "stdout" });
+      const res = await refreshResult(root, log);
+      if (json) {
+        emitResult(res);
+      }
+      Deno.exit(res.ok ? 0 : 1);
+    });
 
-  if (enabled.has("skills")) {
-    attachSkillsCommand(root);
-  }
+  attachSkillsCommand(root);
 
   root
     .command("scopes")
@@ -407,35 +392,33 @@ export function attachEngineCommands(
       );
     });
 
-  if (enabled.has("coupling")) {
-    root
-      .command("coupling")
-      .description(
-        "Surface files that historically change together (advisory; never blocks). " +
-          "No args: what co-changes with your branch's changes but is missing. One file: " +
-          "its top partners. Two files: the commits where both changed.",
-      )
-      .option(
-        "--json",
-        "Emit a JSON DiscernResult.",
-      )
-      .arguments("[file:string] [with:string]")
-      .action(async (o, file, withFile) => {
-        const paths = [file, withFile].filter((p): p is string =>
-          p !== undefined
-        );
-        Deno.exit(
-          await runCoupling(await requireRoot(), {
-            json: o.json ?? false,
-            ...(paths.length > 0 ? { paths } : {}),
-          }),
-        );
-      });
-  }
+  root
+    .command("coupling")
+    .description(
+      "Surface files that historically change together (advisory; never blocks). " +
+        "No args: what co-changes with your branch's changes but is missing. One file: " +
+        "its top partners. Two files: the commits where both changed.",
+    )
+    .option(
+      "--json",
+      "Emit a JSON DiscernResult.",
+    )
+    .arguments("[file:string] [with:string]")
+    .action(async (o, file, withFile) => {
+      const paths = [file, withFile].filter((p): p is string =>
+        p !== undefined
+      );
+      Deno.exit(
+        await runCoupling(await requireRoot(), {
+          json: o.json ?? false,
+          ...(paths.length > 0 ? { paths } : {}),
+        }),
+      );
+    });
 
   // `status` — read-only situation/orientation: what's true right now and what to
-  // do next. Always on (like doctor); it resolves the root itself so the
-  // not-initialized case is the uniform envelope under --json.
+  // do next. It resolves the root itself so the not-initialized case is the
+  // uniform envelope under --json.
   root
     .command("status")
     .description(
@@ -462,10 +445,6 @@ export function attachEngineCommands(
         }),
       );
     });
-
-  if (!enabled.has("worktrees")) {
-    return;
-  }
 
   root
     .command("start")
@@ -724,7 +703,7 @@ export function attachEngineCommands(
   root.command("worktree", worktree);
 }
 
-/** Attach the `skills` command group (list / eject). Gated on `features.skills`. */
+/** Attach the `skills` command group (list / eject). */
 function attachSkillsCommand(root: Command): void {
   const skills = new Command()
     .description(
