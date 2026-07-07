@@ -4,7 +4,7 @@ advisorily
 affordance
 agentic
 ajv
-allowlist
+allowlist(s|ed|ing)?
 Anthropic
 APIs?
 apply
@@ -138,6 +138,7 @@ reflog
 reflow(s|ed|ing)?
 reformat(s|ted|ting)?
 reframe
+regenerable
 reimplementing
 renderers?
 repoints?
@@ -198,6 +199,7 @@ untrusted
 uppercased
 validator
 vhost
+walkthrough(s)?
 Wilcoxon
 worktrees?
 Xcode('s)?
