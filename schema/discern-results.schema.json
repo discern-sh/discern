@@ -797,16 +797,6 @@
                       "properties": {
                         "exists": {
                           "type": "boolean"
-                        },
-                        "suggested_discern_dir": {
-                          "anyOf": [
-                            {
-                              "type": "string"
-                            },
-                            {
-                              "type": "null"
-                            }
-                          ]
                         }
                       },
                       "required": [
@@ -852,7 +842,6 @@
                       "kind": {
                         "type": "string",
                         "enum": [
-                          "existing_docs",
                           "existing_instructions",
                           "dirty_tree",
                           "not_a_repo"

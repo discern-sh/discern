@@ -219,7 +219,6 @@ export type DiscernSetupVerifyResult = {
       };
       docs: {
         exists: boolean;
-        suggested_discern_dir?: string | null;
       };
       existing_instructions: Array<string>;
       agents_detected: Array<string>;
@@ -227,11 +226,7 @@ export type DiscernSetupVerifyResult = {
       worktree_path: string;
     };
     conflicts?: Array<{
-      kind:
-        | "existing_docs"
-        | "existing_instructions"
-        | "dirty_tree"
-        | "not_a_repo";
+      kind: "existing_instructions" | "dirty_tree" | "not_a_repo";
       detail: string;
     }>;
     guidance?: string;

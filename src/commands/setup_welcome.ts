@@ -64,7 +64,7 @@ const FRESH_AGENT_GUIDANCE =
   "You are discern's configuration engine for this project — the capable agent already in the loop, here to set discern up for your human. This is a short workflow you DRIVE end to end (verify → begin → author → done), not a status to relay back and stop on; discern only guides you, and nothing is written until you run `discern setup begin`. Your next action now: run `discern setup verify` yourself to preview the plan and open the consent conversation — don't hand the welcome back as a report. It hands you the exact message to relay to your human (what discern is, what it will do and cost, and the points to confirm) — relay that, wait for their answers, then run `begin`.";
 
 const FRESH_HUMAN_FRAMING =
-  "discern adds a quality gate, isolated git worktrees, and shared agent instructions to this repo, tailored to your codebase by your own coding agent — isolated, reversible, and with no API key. Expect roughly 20–40 minutes and a meaningful number of tokens. Point your most capable model at it: setup is one-time and high-leverage.";
+  "discern adds a quality gate, isolated git worktrees, and shared agent instructions to this repo, tailored to your codebase by your own coding agent — isolated, reversible, and with no API key. Everything it adds lands in one root file (discern.toml) and one visible discern/ folder; nothing else in the repo is touched. Expect roughly 20–40 minutes and a meaningful number of tokens. Point your most capable model at it: setup is one-time and high-leverage.";
 
 const IN_PROGRESS_AGENT_GUIDANCE =
   "Finishing setup is YOUR job, not a status to report back. Continue the setup brief, then run `discern setup done` to validate and record completion — and don't tell the user setup is done until it passes. Reprint the brief any time with `discern setup begin` (idempotent; it won't touch your work).";
@@ -267,10 +267,12 @@ const PLAIN_FRESH_WELCOME: readonly string[] = [
   "",
   '      "Run `discern setup` in this project."',
   "",
-  "  Setup is isolated and reversible. It only touches this project – nothing else.",
-  "  Your agent works on a dedicated `discern-setup` branch in small step-by-step",
-  "  commits, so you can follow along — and undo everything with one command if",
-  "  you change your mind. There's no lock-in, no API key, and no surprises.",
+  "  Setup is isolated and reversible. Everything it adds lands in one root file",
+  "  (`discern.toml`) and one visible `discern/` folder — nothing else in your",
+  "  repo is touched. Your agent works on a dedicated `discern-setup` branch in",
+  "  small step-by-step commits, so you can follow along — and undo everything",
+  "  with one command if you change your mind. There's no lock-in, no API",
+  "  key, and no surprises.",
   "",
   "  Point your MOST CAPABLE model at it: setup is a one-time, high-leverage step,",
   "  and discern is only as good as the model that configured it.",
@@ -326,8 +328,11 @@ function styledFreshWelcome(): string[] {
     boxLine(""),
     ...actionBox(),
     boxLine(""),
-    boxLine("Setup is isolated and reversible. It only touches this project –"),
-    boxLine("nothing else."),
+    boxLine(
+      "Setup is isolated and reversible. Everything it adds lands in one",
+    ),
+    boxLine("root file (`discern.toml`) and one visible `discern/` folder —"),
+    boxLine("nothing else in your repo is touched."),
     boxLine("Your agent works on a dedicated `discern-setup` branch in small"),
     boxLine(
       "step-by-step commits, so you can follow along — and undo everything",
