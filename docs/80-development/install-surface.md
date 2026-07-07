@@ -138,32 +138,31 @@ and (re)materialises the skills. Which files it writes is set by
 
 The bundled skills the coding agent can invoke ship **in the binary** (their
 source lives under [`templates/skills/`](../../templates/skills/), compiled in
-via `deno compile --include templates`; the table below is guard-checked
-against that set), and a project can add its own under
-`[skills].dir` (default `./skills`, yours overriding a built-in by name).
-`discern refresh` (and `setup`/`upgrade`) materialise the effective set into
-`.claude/skills/` — **generated**, gitignored: built-ins **copied**, authored
-skills **symlinked** so edits are live (see
-[`src/lib/skills.ts`](../../src/lib/skills.ts)). `discern skills list` shows the
-set and which of yours override which; `discern skills eject <name>` copies a
-built-in into `./skills/` so you can customise it. Each is a `SKILL.md` under
-its own directory:
+via `deno compile --include templates`; the table below is guard-checked against
+that set), and a project can add its own under `[skills].dir` (default
+`./skills`, yours overriding a built-in by name). `discern refresh` (and
+`setup`/`upgrade`) materialise the effective set into `.claude/skills/` —
+**generated**, gitignored: built-ins **copied**, authored skills **symlinked**
+so edits are live (see [`src/lib/skills.ts`](../../src/lib/skills.ts)).
+`discern skills list` shows the set and which of yours override which;
+`discern skills eject <name>` copies a built-in into `./skills/` so you can
+customise it. Each is a `SKILL.md` under its own directory:
 
-| Skill                                                                                      | What it does                                                                                                 |
-| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
-| [`discern-shape-the-work`](../../templates/skills/discern-shape-the-work/SKILL.md)         | Turn a vague ask into a one-page brief: the goal, decisions answered or defaulted visibly, falsifiable criteria. |
-| [`discern-delegate-work`](../../templates/skills/discern-delegate-work/SKILL.md)           | Shape work into self-contained briefs — one handoff, a fan-out, or stages — then review what lands.          |
-| [`discern-prove-it-works`](../../templates/skills/discern-prove-it-works/SKILL.md)         | Earn the "done": exercise the real artifact and report an evidence dossier — verified, failed, unverifiable. |
-| [`discern-document-subsystem`](../../templates/skills/discern-document-subsystem/SKILL.md) | Write or refresh a subtree under `[docs].dir` per the documenter brief.                                      |
-| [`discern-cure-a-bug`](../../templates/skills/discern-cure-a-bug/SKILL.md)                 | Cure a whole class of defect — every instance, behind a permanent detector.                                  |
-| [`discern-diagnose-a-bug`](../../templates/skills/discern-diagnose-a-bug/SKILL.md)         | Prove a bug's cause — reproduce, falsify hypotheses — before any fix is written.                             |
-| [`discern-audit-the-suite`](../../templates/skills/discern-audit-the-suite/SKILL.md)       | Find instance-pinned test clusters and close each with a guard driven off the single source of truth.        |
+| Skill                                                                                          | What it does                                                                                                        |
+| ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| [`discern-shape-the-work`](../../templates/skills/discern-shape-the-work/SKILL.md)             | Turn a vague ask into a one-page brief: the goal, decisions answered or defaulted visibly, falsifiable criteria.    |
+| [`discern-delegate-work`](../../templates/skills/discern-delegate-work/SKILL.md)               | Shape work into self-contained briefs — one handoff, a fan-out, or stages — then review what lands.                 |
+| [`discern-prove-it-works`](../../templates/skills/discern-prove-it-works/SKILL.md)             | Earn the "done": exercise the real artifact and report an evidence dossier — verified, failed, unverifiable.        |
+| [`discern-document-subsystem`](../../templates/skills/discern-document-subsystem/SKILL.md)     | Write or refresh a subtree under `[docs].dir` per the documenter brief.                                             |
+| [`discern-cure-a-bug`](../../templates/skills/discern-cure-a-bug/SKILL.md)                     | Cure a whole class of defect — every instance, behind a permanent detector.                                         |
+| [`discern-diagnose-a-bug`](../../templates/skills/discern-diagnose-a-bug/SKILL.md)             | Prove a bug's cause — reproduce, falsify hypotheses — before any fix is written.                                    |
+| [`discern-audit-the-suite`](../../templates/skills/discern-audit-the-suite/SKILL.md)           | Find instance-pinned test clusters and close each with a guard driven off the single source of truth.               |
 | [`discern-prune-the-overgrowth`](../../templates/skills/discern-prune-the-overgrowth/SKILL.md) | Sweep out agent-session overgrowth — proven-safe cuts, behaviour-preserving commits, a ratchet capping the entropy. |
-| [`discern-outlaw-a-pattern`](../../templates/skills/discern-outlaw-a-pattern/SKILL.md)     | Make a legacy pattern illegal: detector, falling ratchet, permanent gate rule at zero.                       |
-| [`discern-ratchet-a-metric`](../../templates/skills/discern-ratchet-a-metric/SKILL.md)     | Put a defendable quality metric behind a never-loosen ratchet, limit set at today's value.                   |
-| [`discern-survey-the-fleet`](../../templates/skills/discern-survey-the-fleet/SKILL.md)     | Read-only reconnaissance across every worktree: intent, state, collisions, next steps.                       |
-| [`discern-teach-the-project`](../../templates/skills/discern-teach-the-project/SKILL.md)   | Route a session's lesson into guidance, a skill, a recipe, a doc, or an ADR — so future sessions inherit it. |
-| [`discern-write-adr`](../../templates/skills/discern-write-adr/SKILL.md)                   | Record a significant decision as an Architecture Decision Record.                                            |
+| [`discern-outlaw-a-pattern`](../../templates/skills/discern-outlaw-a-pattern/SKILL.md)         | Make a legacy pattern illegal: detector, falling ratchet, permanent gate rule at zero.                              |
+| [`discern-ratchet-a-metric`](../../templates/skills/discern-ratchet-a-metric/SKILL.md)         | Put a defendable quality metric behind a never-loosen ratchet, limit set at today's value.                          |
+| [`discern-survey-the-fleet`](../../templates/skills/discern-survey-the-fleet/SKILL.md)         | Read-only reconnaissance across every worktree: intent, state, collisions, next steps.                              |
+| [`discern-teach-the-project`](../../templates/skills/discern-teach-the-project/SKILL.md)       | Route a session's lesson into guidance, a skill, a recipe, a doc, or an ADR — so future sessions inherit it.        |
+| [`discern-write-adr`](../../templates/skills/discern-write-adr/SKILL.md)                       | Record a significant decision as an Architecture Decision Record.                                                   |
 
 (Seeding a fresh install is **not** a skill — it is the `discern setup` command;
 see below and [ADR 0024](../_adr/_superseded/0024-setup-command-not-skill.md),

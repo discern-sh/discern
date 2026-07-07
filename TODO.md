@@ -172,7 +172,7 @@ _Product positioning, messaging, and launch/content tasks._
       wave-2 audience with enthusiasm but not yet judgment, this reframes
       discern from a gate that says no into a mentor that compounds — and it
       puns on the product name. Sibling of "the project gets smarter over time"
-      (that one is the *project* learning; this one is the *user* learning).
+      (that one is the _project_ learning; this one is the _user_ learning).
       Candidate for landing copy. Evidence:
       `templates/skills/discern-shape-the-work/SKILL.md` (§4).
 - [ ] **Rename `ratchets` → `baselines` throughout (decided).** Vocabulary
