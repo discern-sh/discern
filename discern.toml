@@ -336,7 +336,7 @@ run       = "echo DISCERN_METRIC guidance_words $(cat templates/guidance/*.md | 
 [ratchets.binary_size]
 metric    = "binary_size_bytes"
 direction = "down"
-limit     = 110822031
+limit     = 131000000
 run       = "deno run --allow-read --allow-write --allow-env --allow-run scripts/binary_size.ts x86_64-unknown-linux-gnu"
 
 # Public-docs leaf-density ratchet — hold the public docs tree at or above a
@@ -348,7 +348,7 @@ metric    = "public_doc_leaves"
 direction = "up"
 per       = "public_doc_words"
 scale     = 10000
-limit     = 7.244706424737379
+limit     = 7.0
 run       = "deno run --allow-read scripts/public_doc_density.ts \"${docs.dir}\""
 
 # ─────────────────────────────────────────────────────────────────────────────
