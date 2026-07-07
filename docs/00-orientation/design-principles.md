@@ -70,12 +70,16 @@ binary and schema versions; the [Generated file](glossary.md#generated-file) and
 [The binary's files](glossary.md#the-binarys-files) dispositions in the
 [glossary](glossary.md) carry the rule that a re-published copy is reproduced,
 never edited. And where a closed vocabulary must be re-used (the CLI verbs, the
-capabilities, the features, the result kinds, the agent providers, …), every
+capabilities, the source paths, the result kinds, the agent providers, …), every
 satellite is **mechanically tied** to its one source — a compile-time total or a
 forcing-function test, so a new member auto-enrolls or fails the gate rather
 than drifting silently ([ADR 0051](../_adr/0051-canonical-set-parity.md),
 generalizing the agent-registry parity of
-[ADR 0043](../_adr/0043-registry-derived-agent-parity.md)).
+[ADR 0043](../_adr/0043-registry-derived-agent-parity.md)). The configurable
+source paths are one such vocabulary: the
+[paths registry](../../src/shared/paths_registry.ts) is the single home of every
+default, and a path literal anywhere else in `src/**` fails the gate
+([ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)).
 
 ---
 
@@ -83,14 +87,14 @@ generalizing the agent-registry parity of
 
 `discern` scaffolds into a repository you care about, so every command must be
 safe to run again. The ownership split makes this structural: _your_ files (the
-committed `discern.toml`, the `brief.md` seed, the merged
-`settings.json`/`.gitignore`, and the content you author at config-pointed paths
-— `guidance.md`, `./skills/`, `./recipes/`) are written once by `setup` (or by
-you) and never touched again, so `upgrade` cannot clobber an edit. _The
-binary's_ files (the gitignored, re-published artifacts — the materialized
-skills, the compiled agent files `AGENTS.md`/`CLAUDE.md`/`GEMINI.md`) are always
-safe to overwrite precisely because they are not yours to edit; they are
-rewritten on every recompile
+committed `discern.toml`, the merged `settings.json`/`.gitignore`, and the
+`discern/` namespace content — the guidance source, authored skills, recipes,
+the map, the ledger, the brief, each config-pointable elsewhere) are written
+once by `setup` (or by you) and never touched again, so `upgrade` cannot clobber
+an edit. _The binary's_ files (the gitignored, re-published artifacts — the
+materialized skills, the compiled agent files
+`AGENTS.md`/`CLAUDE.md`/`GEMINI.md`) are always safe to overwrite precisely
+because they are not yours to edit; they are rewritten on every recompile
 ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md)). Migrations are
 idempotent and the tree must be clean (or `--allow-dirty`) so an upgrade stays
 revertible with `git checkout`.
@@ -187,7 +191,146 @@ repo gates itself with the same engine it ships; there is no `selfcheck` or
 ([ADR 0019](../_adr/0019-single-binary-ts-engine.md), superseding
 [ADR 0010](../_adr/_superseded/0010-self-host-the-harness.md)). The
 `tests/engine_*` suites scaffold a project into temp dirs and run the engine
-against them; CI runs the same gate.
+against them; CI runs the same gate. The repo also self-hosts on a
+**non-default** layout — its map at root `docs/`, its ledger at root `TODO.md` —
+so a hard-coded path default diverges from the tree agents can see and leaks
+become loud ([ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)).
+
+---
+
+## 7. Sovereign inside, deferential outside
+
+discern is maximally prescriptive within the surface it owns and writes nothing
+beyond it. Inside its namespace it dictates structure, format, and upkeep;
+outside, it writes only the enumerated integration surface — the root
+`discern.toml`, the delimited `.gitignore` block, the provider files at
+vendor-fixed paths, a worktree's `.env`.
+
+**Why it matters.** Containment is what licenses the prescription: a strong
+opinion about your own house is a design; a strong opinion about someone else's
+is an intrusion. A tool that writes anywhere it likes cannot be trusted in a
+brownfield repository.
+
+**How it shows up.** The write-surface contract
+([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md))
+is an architectural test
+([`paths_write_surface_test.ts`](../../tests/paths_write_surface_test.ts)):
+every project-tree write in `src/**` targets a registry or provider-registry
+path or an enumerated shim, and a write anywhere else fails the gate. The
+namespace stays 100% the user's — no generated artifact is ever written inside
+`discern/`.
+
+---
+
+## 8. Placement is consent
+
+A file at its namespace default carries an implicit write-license: agents
+maintain it freely, and staleness is a defect. A config key pointed at a path
+outside the namespace is an explicit write-license: the user typed the path, and
+that typing is the consent. A path that is neither is untouchable.
+
+**Why it matters.** The failure mode this kills is an agent "helpfully"
+restructuring a team's published documentation. Untouchable-by-construction is a
+property; a warning is a hope.
+
+**How it shows up.** Every source path has a prescriptive default in the
+[paths registry](../../src/shared/paths_registry.ts) and a config key that
+points it anywhere; setup asks the docs question as consent
+([ADR 0100](../_adr/0100-doctree-is-the-agents-map.md)) instead of silently
+adopting an existing `docs/`; the write-surface test holds the boundary.
+
+---
+
+## 9. A subsystem that costs nothing when unused needs no switch
+
+Worktrees you never start, ratchets you never define, an advisory you never
+invoke — the escape is behavioral, not configurational. A configuration toggle
+exists only where an unused feature still imposes a real cost.
+
+**Why it matters.** Every toggle is a promise to test both states forever,
+multiplied together — and the off-states of a self-hosting repo are the
+permanently untested half of the matrix. Removing a toggle later is a breaking
+change while adding one later is not, so the burden of proof sits on the toggle.
+
+**How it shows up.** The `[features]` table is gone and every subsystem is core
+([ADR 0101](../_adr/0101-retire-the-features-toggles.md)). The one knob that
+survived is `[skills].exclude`, because materialized skills occupy agent context
+even when unused — the single subsystem that passes the test.
+
+---
+
+## 10. Structure over advice
+
+Everything structurally enforced happens reliably; everything merely advised
+degrades ([ADR 0077](../_adr/0077-setup-agent-is-the-configuration-engine.md)
+proved this across vendors). When a behaviour matters, encode it as a gate
+stage, a check, a ratchet, a parity test, or a refusal with a teaching payload —
+never as a sentence hoping to be obeyed.
+
+**Why it matters.** discern's users are agents. An agent under context pressure
+drops advice first; it cannot drop a red gate.
+
+**How it shows up.** Setup's mutating step refuses without a `--confirmed`
+consent attestation and re-serves the script
+([ADR 0086](../_adr/0086-setup-serves-relay-messages-and-a-consent-attestation.md));
+path discipline is a sentinel-render test and a literal ban, not a style note
+([ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)); a doc's
+claim is only as good as the check that fails when it stops being true.
+
+---
+
+## 11. The map, not the manual
+
+The documentation tree discern maintains is the agent's map of the codebase:
+inferred by agents, written by agents, read by agents first and by humans as an
+audit of what their agents actually understand. It is deliberately not the
+project's human-authored documentation, which discern never touches (see
+principle 8).
+
+**Why it matters.** A current map is a working instrument; a stale map is a
+defect the gate catches; a wrong map is a finding about the agent's
+understanding — which is exactly what makes it worth a human's read.
+
+**How it shows up.** The map defaults to its own `discern/docs/` and is
+scaffolded eagerly at `setup begin`
+([ADR 0100](../_adr/0100-doctree-is-the-agents-map.md)); pointing `[docs].dir`
+at real documentation is the user's explicit act (this repo does exactly that);
+the docs scope's prose check and currency discipline treat drift as a failure.
+
+---
+
+## 12. Exit honesty
+
+Uninstalling discern leaves a healthy repository: the user's assets are plain
+markdown at paths they chose or accepted, readable and valuable without the tool
+that helped grow them.
+
+**Why it matters.** A tool confident it will be kept has no need to make leaving
+expensive — and nothing discern removes on the way out was ever the user's.
+
+**How it shows up.** The namespace holds only plain-markdown content the user
+owns; the generated artifacts are gitignored, so deleting them leaves no tracked
+litter; assets a user wants unbranded are one `git mv` plus one config key away,
+before or after uninstall
+([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)).
+
+---
+
+## 13. A provable footprint
+
+The footprint claim is a checkable predicate, not a slogan: one committed root
+file, one visible namespace, the vendor-required agent files, and the enumerated
+shims — held by a test that fails the moment any verb writes anywhere else.
+
+**Why it matters.** A claim with an enforcing check stays true; a claim without
+one decays into marketing. Public copy quotes the sentence only while the test
+exists to keep it honest.
+
+**How it shows up.**
+[`paths_write_surface_test.ts`](../../tests/paths_write_surface_test.ts)
+enforces the contract from the registries; the
+[install surface](../80-development/install-surface.md) states the sentence in
+its provable form.
 
 ---
 
@@ -198,10 +341,19 @@ stack-specific (1), fed from single authoritative sources (2). The next two make
 that contract _livable_ — the install must be safe to re-run (3) and must not
 drag a runtime along (4) — which together are what let the harness be
 **installable and upgradable** rather than copied-and-forked per project. The
-last two are how the engine behaves under uncertainty (5) and how we keep
+next two are how the engine behaves under uncertainty (5) and how we keep
 ourselves honest that it works (6): self-hosting (6) is only credible _because_
 the engine is stack-neutral (1) and sourced from one truth (2), so the engine
 that gates this repo is the same one users receive.
+
+The remaining principles govern discern's conduct inside someone else's
+repository. Containment (7) is what licenses the prescription, and consent (8)
+is how the boundary is drawn; the toggle test (9) keeps the config surface
+honest about cost; structure over advice (10) is the enforcement doctrine that
+turns 7–9 (and everything else here) into tests rather than requests; the map
+(11) and exit honesty (12) define what discern maintains for a project and what
+it leaves behind; and the provable footprint (13) is the whole conduct story
+compressed into one checkable sentence.
 
 When you propose a change that violates one of these principles, that is a
 signal to question the change — not the principle. If you have a genuinely good
