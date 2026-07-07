@@ -140,6 +140,47 @@ missing on a fresh clone. That is expected: those files are generated artifacts,
 and the guidance check accepts `missing` as current. CI should verify the tree
 you committed, not materialize extra files and carry on.
 
+## Ephemeral cloud-agent environments
+
+Some coding agents don't run on your machine at all — they run in a fresh clone
+of your repo in an ephemeral environment: GitHub Copilot's coding agent, Codex on
+the web, and similar cloud runners. They clone the repo _without_ the discern
+binary, and discern's generated artifacts are gitignored by default
+([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md)), so those
+environments start with them absent:
+
+- the **compiled agent guidance** (`AGENTS.md` / `CLAUDE.md` / `GEMINI.md`) — so
+  the agent reads none of your discern guidance;
+- the **materialized skills** (`.claude/skills/`, `.agents/skills/`) — so the
+  bundled and authored skills aren't discoverable;
+- the **MCP server** — there is no binary to run `discern mcp`, so the `discern_*`
+  tools aren't available.
+
+That absence is deliberate, and the default does not change: tracking a
+derivative invites drift, and the reviewable source is your `discern/guidance.md`,
+not the compiled output. The cloud-agent case is a per-project choice ADR 0034
+already sanctions, made per project rather than flipped globally:
+
+- **Commit the artifacts.** Drop the compiled agent files (and, if you want the
+  skills too, their directories) from the `.gitignore` block so they travel with
+  the clone. The ephemeral agent then reads your guidance without the binary. The
+  trade-off is that you now maintain tracked generated files — run
+  `discern refresh` and commit them when the guidance source changes, or the
+  gate's currency check flags the drift.
+- **Install discern in the environment.** Add the same install step CI uses (see
+  above) to the environment's setup, so the binary is present. `discern refresh`
+  can then materialize the files and the MCP server can run — but keep the refresh
+  in the environment's own setup, not in the gate job, for the reason in
+  [What to customize](#what-to-customize).
+- **Rely on the gate in CI.** For the gate specifically, the workflow above
+  installs discern and runs `discern finish` on every pull request, so a change
+  that originates in a cloud environment is still held to the same bar before it
+  can land — whether or not that environment had discern while the work happened.
+
+Pick per project by what the ephemeral agent needs: guidance and skills (commit
+the artifacts), the full tool surface (install the binary), or just the merge bar
+(the CI gate).
+
 ## Cost
 
 This spends GitHub Actions minutes on every pull request update and every push
