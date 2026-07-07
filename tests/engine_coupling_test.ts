@@ -54,10 +54,6 @@ async function setup(dir: string, inGate = false): Promise<void> {
       "[project]",
       'slug = "engine-test"',
       "",
-      "[features]",
-      "guidance = false",
-      "skills = false",
-      "",
       "[coupling]",
       `in_gate = ${inGate}`,
       "",
@@ -481,31 +477,6 @@ Deno.test("the human CLI renders the FULL list (not the truncated gate hints) an
   });
 });
 
-Deno.test("the coupling verb is gated behind [features].coupling", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await gitInit(dir);
-    await writeConfig(
-      dir,
-      [
-        "[project]",
-        'slug = "engine-test"',
-        "",
-        "[features]",
-        "coupling = false",
-        "",
-      ]
-        .join("\n"),
-    );
-    const r = await runAgent(dir, ["coupling", "--json"]);
-    assertEquals(r.code, 1, r.output);
-    assert(
-      /feature|unknown|disabled/i.test(r.output),
-      `expected a feature-disabled/unknown refusal, got: ${r.output}`,
-    );
-  });
-});
-
 Deno.test("finish appends the coupling advisory only when [coupling].in_gate is on, and never changes pass/fail", async () => {
   await withTempDir(async (dir) => {
     await setup(dir, false);
@@ -530,10 +501,6 @@ Deno.test("finish appends the coupling advisory only when [coupling].in_gate is 
       [
         "[project]",
         'slug = "engine-test"',
-        "",
-        "[features]",
-        "guidance = false",
-        "skills = false",
         "",
         "[coupling]",
         "in_gate = true",
@@ -576,10 +543,6 @@ Deno.test("finish suppresses the coupling advisory until the install is bootstra
         "",
         "[project]",
         'slug = "engine-test"',
-        "",
-        "[features]",
-        "guidance = false",
-        "skills = false",
         "",
         "[coupling]",
         "in_gate = true",
@@ -707,10 +670,6 @@ Deno.test("prepare appends the coupling advisory only when [coupling].in_gate is
         "[project]",
         'slug = "engine-test"',
         "",
-        "[features]",
-        "guidance = false",
-        "skills = false",
-        "",
         "[coupling]",
         "in_gate = true",
         "",
@@ -750,10 +709,6 @@ Deno.test("prepare suppresses the coupling advisory until the install is bootstr
         "",
         "[project]",
         'slug = "engine-test"',
-        "",
-        "[features]",
-        "guidance = false",
-        "skills = false",
         "",
         "[coupling]",
         "in_gate = true",

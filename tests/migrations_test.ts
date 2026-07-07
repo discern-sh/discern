@@ -26,6 +26,7 @@ import {
   pendingMigrations,
 } from "../src/lib/migrations.ts";
 import { parseConfig } from "../src/shared/config_schema.ts";
+import { bundledSkillNames } from "../src/lib/skills.ts";
 import {
   fakeEnv,
   REAL_TEMPLATES,
@@ -168,8 +169,9 @@ Deno.test("the production chain is contiguous up to the current schema", () => {
   // 7→8 (db/dev_server → [worktree.resources.*]), 8→9 (untrack AGENTS.md),
   // 9→10 (ignore .agents/skills/), 10→11 (drop [features].mcp), 11→12 (rename
   // [worktree].graduate_to "main" → "trunk"), 12→13 (add [worktree].root),
-  // 13→14 (keep machine-local provider settings ignored), and 14→15 (move the
-  // authored surface into the discern/ namespace).
+  // 13→14 (keep machine-local provider settings ignored), 14→15 (move the
+  // authored surface into the discern/ namespace), and 15→16 (retire the
+  // [features] toggles and [worktree].enabled).
   assertEquals(MIGRATIONS.map((m) => m.from), [
     1,
     2,
@@ -185,6 +187,7 @@ Deno.test("the production chain is contiguous up to the current schema", () => {
     12,
     13,
     14,
+    15,
   ]);
   assert(isChainContiguous(MIGRATIONS, SCHEMA_VERSION));
 });
@@ -438,7 +441,7 @@ Deno.test("migration 8→9 also cleans stale schema-8 worktree db/dev_server tab
         'slug = "demo"',
         "",
         "[worktree]",
-        "enabled = true",
+        "port = true",
         "",
         "[worktree.db]",
         'clone = ""',
@@ -1025,23 +1028,20 @@ Deno.test("migration 5→6 dissolves .discern/: moves config/guidance/recipes/au
     assertEquals(await targetExists(dir, "discern.toml"), true);
     assertEquals(await targetExists(dir, ".discern"), false);
     const toml = await Deno.readTextFile(join(dir, "discern.toml"));
-    assertStringIncludes(toml, "[features]");
     assertStringIncludes(toml, "[guidance]");
     assertStringIncludes(toml, "[skills]");
+    // The retired [features] section is never introduced (ADR 0101): the chain
+    // runs to the current schema, where the toggles no longer exist.
+    assert(!toml.includes("[features]"), "no [features] section is added");
     // Each new section arrives WITH its canonical doc block (not a bare EOF
     // append), so a migrated config reads like a fresh init's — the papercut.
-    assertStringIncludes(
-      toml,
-      "# [features] — toggle whole discern subsystems",
-    );
     assertStringIncludes(toml, "# [guidance] — the author-once");
     assertStringIncludes(toml, "# [skills] — focused, reusable task playbooks");
     // ...and at the canonical position: grouped, in order, after [project] —
     // never dumped at EOF.
     const at = (s: string) => toml.indexOf(s);
     assert(
-      at("[project]") < at("[features]") &&
-        at("[features]") < at("[guidance]") &&
+      at("[project]") < at("[guidance]") &&
         at("[guidance]") < at("[skills]"),
       "new sections are grouped, in order, after [project]",
     );
@@ -1104,7 +1104,7 @@ Deno.test("migration 5→6 inserts a documented [meta] at the top when an instal
       "[meta] is first",
     );
     // The new sections still group after [project].
-    assert(toml.indexOf("[project]") < toml.indexOf("[features]"));
+    assert(toml.indexOf("[project]") < toml.indexOf("[guidance]"));
   });
 });
 
@@ -1134,12 +1134,11 @@ Deno.test("migration 5→6 still adds the sections (bare) when the template can'
     });
 
     const toml = await Deno.readTextFile(join(dir, "discern.toml"));
-    assertStringIncludes(toml, "[features]");
     assertStringIncludes(toml, "[guidance]");
     assertStringIncludes(toml, "[skills]");
     // Functional, but undocumented — the fallback path took over.
     assert(
-      !toml.includes("# [features] — toggle"),
+      !toml.includes("# [guidance] — the author-once"),
       "no doc block in fallback",
     );
   });
@@ -1749,6 +1748,116 @@ Deno.test("migration 14→15 with absent keys moves the files and writes no keys
     assert(
       !after.includes("sources"),
       "no [guidance].sources key should be written",
+    );
+  });
+});
+
+// ---- 15→16: retire the [features] toggles (ADR 0101) ------------------------
+
+/** A schema-15-shaped config carrying the full [features] block (values as
+ * given) and a [worktree] with the retired `enabled` key. */
+function schema15Toml(overrides: Partial<Record<string, string>> = {}): string {
+  const v = (name: string): string => overrides[name] ?? "true";
+  return [
+    "[meta]",
+    "schema_version = 15",
+    "",
+    "[project]",
+    'slug = "demo"',
+    "",
+    "# ─────",
+    "# [features] — toggle whole discern subsystems on/off.",
+    "# ─────",
+    "",
+    "[features]",
+    `worktrees = ${v("worktrees")}`,
+    `ratchets  = ${v("ratchets")}`,
+    `guidance  = ${v("guidance")}`,
+    `skills    = ${v("skills")}`,
+    `docs      = ${v("docs")}`,
+    `coupling  = ${v("coupling")}`,
+    "",
+    "[worktree]",
+    `enabled = ${overrides.enabled ?? "true"}`,
+    'root = ""',
+    "",
+  ].join("\n");
+}
+
+Deno.test("migration 15→16 drops [features] (banner included) and [worktree].enabled, silently for all-default values", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "discern.toml"), schema15Toml());
+    const notes: string[] = [];
+    await applyMigrations({
+      destDir: dir,
+      from: 15,
+      to: 16,
+      onNote: (m) => notes.push(m),
+    });
+    const toml = await Deno.readTextFile(join(dir, "discern.toml"));
+    assert(!toml.includes("[features]"), `[features] must be gone:\n${toml}`);
+    assert(
+      !toml.includes("toggle whole discern subsystems"),
+      "the banner comment goes with the section",
+    );
+    assert(!/^\s*enabled\s*=/m.test(toml), "[worktree].enabled must be gone");
+    assertStringIncludes(toml, 'root = ""'); // siblings kept
+    // Every dropped value was the shipped default — nothing worth a note.
+    assertEquals(notes, []);
+
+    // Idempotent: a re-run over the migrated config changes nothing.
+    const after = await Deno.readTextFile(join(dir, "discern.toml"));
+    await applyMigrations({ destDir: dir, from: 15, to: 16 });
+    assertEquals(await Deno.readTextFile(join(dir, "discern.toml")), after);
+  });
+});
+
+Deno.test("migration 15→16 names every discarded non-default preference in the notes", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      schema15Toml({ coupling: "false", enabled: "false" }),
+    );
+    const notes: string[] = [];
+    await applyMigrations({
+      destDir: dir,
+      from: 15,
+      to: 16,
+      onNote: (m) => notes.push(m),
+    });
+    assert(
+      notes.some((n) => n.includes("[features].coupling = false")),
+      `the discarded coupling toggle is named:\n${notes.join("\n")}`,
+    );
+    assert(
+      notes.some((n) => n.includes("[worktree].enabled = false")),
+      `the discarded enabled key is named:\n${notes.join("\n")}`,
+    );
+  });
+});
+
+Deno.test("migration 15→16 maps features.skills = false to a [skills].exclude of the bundled set", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      schema15Toml({ skills: "false" }),
+    );
+    const notes: string[] = [];
+    await applyMigrations({
+      destDir: dir,
+      from: 15,
+      to: 16,
+      onNote: (m) => notes.push(m),
+    });
+    const toml = await Deno.readTextFile(join(dir, "discern.toml"));
+    // The honest equivalent: every bundled skill excluded by name.
+    for (const name of await bundledSkillNames()) {
+      assertStringIncludes(toml, `"${name}"`);
+    }
+    assertStringIncludes(toml, "exclude");
+    assert(
+      notes.some((n) => n.includes("[skills].exclude")),
+      `the mapping is named in the notes:\n${notes.join("\n")}`,
     );
   });
 });

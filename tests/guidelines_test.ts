@@ -5,6 +5,7 @@ import {
   guidanceRefreshErrors,
   guidanceRefreshSucceeded,
 } from "../src/engine/guidelines.ts";
+import { bundledSkillNames } from "../src/lib/skills.ts";
 
 /** Scaffold a temp project with a discern.toml, a guidance source, and one
  * authored skill (under ./skills/). Built-in guidance + bundled skills come from
@@ -131,60 +132,28 @@ Deno.test("compileGuidelines callers use the shared partial-refresh predicate", 
   assertEquals(offenders, []);
 });
 
-Deno.test("compileGuidelines respects [features]: guidance off compiles nothing; skills off materializes nothing", async () => {
-  // guidance off → no agent files, but skills still materialize (jobs are gated
-  // independently).
-  const a = await Deno.makeTempDir({ prefix: "discern-guidelines-off-" });
+Deno.test("compileGuidelines honours [skills].exclude: an excluded bundled set materializes nothing, guidance still compiles", async () => {
+  const dir = await Deno.makeTempDir({ prefix: "discern-skills-excluded-" });
   try {
+    const bundled = await bundledSkillNames();
     await Deno.writeTextFile(
-      join(a, "discern.toml"),
-      '[features]\nguidance = false\n[guidance]\nagents = ["claude_code"]\n',
+      join(dir, "discern.toml"),
+      `[skills]\nexclude = ${JSON.stringify(bundled)}\n[guidance]\nagents = ["claude_code"]\n`,
     );
-    const r = await compileGuidelines(a);
-    assertEquals(r.agentsWritten, []);
-    assertEquals(
-      await Deno.lstat(join(a, "CLAUDE.md")).then(() => true).catch(() =>
-        false
-      ),
-      false,
-      "no agent file when guidance is off",
-    );
-    assert(
-      r.skillsCopied >= 1,
-      "skills still materialize when only guidance is off",
-    );
-  } finally {
-    await Deno.remove(a, { recursive: true });
-  }
-
-  // skills off → nothing under .claude/skills/, but guidance still compiles.
-  const b = await Deno.makeTempDir({ prefix: "discern-skills-off-" });
-  try {
-    await Deno.writeTextFile(
-      join(b, "discern.toml"),
-      '[features]\nskills = false\n[guidance]\nagents = ["claude_code"]\n',
-    );
-    const r = await compileGuidelines(b);
+    const r = await compileGuidelines(dir);
     assertEquals(r.skillsCopied, 0);
     assertEquals(r.skillsLinked, 0);
-    assertEquals(
-      await Deno.lstat(join(b, ".claude/skills")).then(() => true).catch(() =>
-        false
-      ),
-      false,
-      "no .claude/skills when skills is off",
-    );
     assertEquals(r.agentsWritten, ["CLAUDE.md"]);
     // With no tracked AGENTS.md emitted, CLAUDE.md falls back to the FULL guidance
     // (there is nothing to point at) rather than a dangling `@AGENTS.md` import.
-    const claudeOnly = await Deno.readTextFile(join(b, "CLAUDE.md"));
+    const claudeOnly = await Deno.readTextFile(join(dir, "CLAUDE.md"));
     assertStringIncludes(claudeOnly, "discern_finish");
     assert(
       !claudeOnly.includes("@AGENTS.md"),
       "no import line when there is no canonical file to point at",
     );
   } finally {
-    await Deno.remove(b, { recursive: true });
+    await Deno.remove(dir, { recursive: true });
   }
 });
 

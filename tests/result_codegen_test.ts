@@ -12,7 +12,6 @@ import {
   MCP_RESULT_CONTRACTS,
 } from "../src/shared/result_contracts.ts";
 import { buildCli } from "../src/main.ts";
-import { FEATURES } from "../src/shared/features.ts";
 import { TOOLS } from "../src/engine/mcp/server.ts";
 
 const sorted = (xs: Iterable<string>): string[] => [...xs].sort();
@@ -123,7 +122,7 @@ Deno.test("public JSON schema exposes reachable CLI and MCP union entrypoints", 
 });
 
 Deno.test("every registered CLI command is classified as JSON-contracted or intentionally excluded", () => {
-  const root = buildCli(new Set(FEATURES), false) as unknown as Command;
+  const root = buildCli(false) as unknown as Command;
   const all = collectCommandPaths(root);
   const contracted = CLI_JSON_RESULT_CONTRACTS.flatMap((
     contract,

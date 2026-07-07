@@ -16,7 +16,6 @@
 import { assert, assertEquals } from "@std/assert";
 import type { Command } from "@cliffy/command";
 import { buildCli } from "../src/main.ts";
-import { FEATURES } from "../src/shared/features.ts";
 import { SETUP_SUBVERBS } from "../src/shared/setup_state.ts";
 
 const sorted = (xs: Iterable<string>): string[] => [...xs].sort();
@@ -24,7 +23,7 @@ const sorted = (xs: Iterable<string>): string[] => [...xs].sort();
 Deno.test("the setup sub-verbs registered cover EXACTLY SETUP_SUBVERBS", () => {
   // Build the real CLI with every feature on, find the `setup` command, and read back
   // its registered sub-verbs. They must be exactly SETUP_SUBVERBS.
-  const root = buildCli(new Set(FEATURES), false) as unknown as Command;
+  const root = buildCli(false) as unknown as Command;
   const setup = root.getCommands().find((c) => c.getName() === "setup");
   assert(setup !== undefined, "the `setup` command is not registered");
   const registered = setup.getCommands().map((c) => c.getName());

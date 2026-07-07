@@ -25,7 +25,6 @@ import {
   groupedCommandNames,
   operatorHelp,
 } from "../src/cli_help.ts";
-import { type Feature, FEATURES } from "../src/shared/features.ts";
 
 const sorted = (xs: Iterable<string>): string[] => [...xs].sort();
 
@@ -42,10 +41,10 @@ function plain(s: string): string {
     .join("");
 }
 
-/** The full root with every feature on and `setup` shown — the maximal set of
+/** The full root with `setup` shown — the maximal set of
  * commands that can ever appear in `discern --help`. */
 function fullRoot(): Command {
-  return buildCli(new Set(FEATURES), false) as unknown as Command;
+  return buildCli(false) as unknown as Command;
 }
 
 Deno.test("every visible top-level command belongs to exactly one help group", () => {
@@ -136,25 +135,3 @@ Deno.test("the grouped command list word-wraps to the width with hanging indents
   );
 });
 
-Deno.test("a disabled feature drops its whole group, never an empty heading", () => {
-  // worktrees off → start/integrate/graduate/worktree(-name) are never registered,
-  // so the "Worktree lifecycle" group must vanish entirely rather than render an
-  // empty heading, and no command may fall into the defensive "Other" bucket.
-  const enabled = new Set<Feature>(["ratchets", "guidance", "skills", "docs"]);
-  const help = plain(
-    operatorHelp(buildCli(enabled, false) as unknown as Command),
-  );
-  assert(
-    !help.includes("Worktree lifecycle"),
-    "an empty group heading leaked into the help when its feature was off",
-  );
-  assert(
-    !help.includes("Other"),
-    "a command fell into the defensive Other bucket",
-  );
-  // The groups whose features are on still render.
-  assert(
-    help.includes("Agentic loop") && help.includes("Setup & maintenance"),
-    "an active group went missing",
-  );
-});

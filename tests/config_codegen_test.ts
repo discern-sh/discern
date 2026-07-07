@@ -84,7 +84,7 @@ Deno.test("the docs reference documents every section, with its describe() prose
   }
   // a couple of describe() strings render verbatim (prose comes from the schema)
   assert(doc.includes("never-loosen"));
-  assert(doc.includes("git-worktree workflow"));
+  assert(doc.includes("isolated-worktree workflow"));
 });
 
 // ── template ↔ schema drift guards (the template stays hand-authored, ADR 0005,

@@ -137,27 +137,43 @@ Deno.test("discern skills eject --json reports errors in the envelope", async ()
   });
 });
 
-Deno.test("the skills verb is hidden + errors when the skills feature is off", async () => {
+Deno.test("[skills].exclude drops a named skill end-to-end: list flags it, refresh omits it, an unknown name warns", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
       dir,
       [
         "[meta]",
-        "schema_version = 7",
+        "bootstrapped = true",
         "[project]",
         'slug = "demo"',
-        "[features]",
-        "skills = false",
+        "[skills]",
+        'exclude = ["discern-write-adr", "no-such-skill"]',
         "",
       ].join("\n"),
     );
-    // Hidden from --help.
-    const help = await runAgent(dir, ["--help"]);
-    assertEquals(help.stdout.includes("\n  skills"), false, help.stdout);
-    // Invoking it errors with the feature-disabled message.
-    const r = await runAgent(dir, ["skills", "list"]);
-    assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.stderr, 'the "skills" feature is disabled');
+    // The listing shows the whole known set with the excluded row flagged.
+    const list = await runAgent(dir, ["skills", "list", "--json"]);
+    assertEquals(list.code, 0, list.output);
+    const rows = (JSON.parse(list.stdout) as {
+      data: { skills: { name: string; excluded: boolean }[] };
+    }).data.skills;
+    const excluded = rows.find((r) => r.name === "discern-write-adr");
+    assertEquals(excluded?.excluded, true, JSON.stringify(rows));
+    assert(
+      rows.some((r) => r.name !== "discern-write-adr" && !r.excluded),
+      "non-excluded skills stay effective",
+    );
+
+    // Materialization omits the excluded skill; the unknown name warns, never fails.
+    const refresh = await runAgent(dir, ["refresh"]);
+    assertEquals(refresh.code, 0, refresh.output);
+    assertStringIncludes(refresh.output, "no-such-skill");
+    const materialized = join(dir, ".claude/skills/discern-write-adr");
+    assertEquals(
+      await Deno.lstat(materialized).then(() => true).catch(() => false),
+      false,
+      "an excluded skill must not be materialized",
+    );
   });
 });

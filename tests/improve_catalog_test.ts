@@ -62,7 +62,6 @@ format = "true"
 lint = "true"
 test = "true"
 [worktree]
-enabled = true
 [ratchets.coverage]
 limit = 1
 run = "echo"
@@ -235,14 +234,11 @@ Deno.test("improve scoring: partial credit moves the score between fail and pass
   );
 });
 
-Deno.test("improve scoring: a disabled feature drops its whole category", () => {
-  const report = evaluateReport(
-    ctx(`[features]\nratchets = false\nskills = false\n`),
-  );
+Deno.test("improve scoring: every catalog category is always reviewed (ADR 0101)", () => {
+  const report = evaluateReport(ctx(""));
   const names = report.categories.map((c) => c.name);
-  assert(!names.includes("ratchets"), "ratchets category should be gated off");
-  assert(!names.includes("skills"), "skills category should be gated off");
-  // Core categories are never gated.
+  assert(names.includes("ratchets"), "ratchets category is always reviewed");
+  assert(names.includes("skills"), "skills category is always reviewed");
   assert(names.includes("gate") && names.includes("setup"));
 });
 

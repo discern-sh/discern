@@ -23,7 +23,6 @@ import {
 import { PROVIDERS } from "../src/lib/providers.ts";
 import { REAL_TEMPLATES } from "./helpers.ts";
 import { AGENT_NAMES } from "../src/shared/config_schema.ts";
-import { FEATURES } from "../src/shared/features.ts";
 
 /** The real committed config template text. */
 async function realTemplate(): Promise<string> {
@@ -48,26 +47,18 @@ function agentTargetPairs(
   return pairs;
 }
 
-Deno.test("extracts a ruled-doc section (features) with its doc block, header, and body", async () => {
-  const block = sectionBlockFromTemplate(await realTemplate(), "features");
-  assertExists(block, "features block should be found");
+Deno.test("extracts a ruled-doc section (skills) with its doc block, header, and body", async () => {
+  const block = sectionBlockFromTemplate(await realTemplate(), "skills");
+  assertExists(block, "skills block should be found");
   // Leads with the section's documentation paragraph...
-  assertStringIncludes(block, "# [features] — toggle whole discern subsystems");
+  assertStringIncludes(block, "# [skills] — focused, reusable task playbooks");
   // ...then the header...
-  assertStringIncludes(block, "\n[features]\n");
-  // ...then the body of defaults — a `<feature> = true` line for EVERY feature. The
-  // template is hand-authored (ADR 0005), so this ties it to the FEATURES SSOT by
-  // test: a new feature must be seeded here or this fails (the `\s*` absorbs the
-  // alignment padding, which varies by name length).
-  for (const f of FEATURES) {
-    assert(
-      new RegExp(`(^|\\n)${f}\\s*= true\\b`).test(block),
-      `[features] template is missing a "${f} = true" line for the FEATURES member "${f}"`,
-    );
-  }
+  assertStringIncludes(block, "\n[skills]\n");
+  // ...then the body of defaults.
+  assertStringIncludes(block, 'dir = "discern/skills"');
   // No surrounding blank lines, and exactly one blank between doc and header.
   assert(!block.startsWith("\n") && !block.endsWith("\n"));
-  assertStringIncludes(block, "─\n\n[features]");
+  assertStringIncludes(block, "─\n\n[skills]");
 });
 
 Deno.test("extracts [guidance] including its {{agents_array}} token (for the caller to fill)", async () => {
@@ -82,7 +73,6 @@ Deno.test("lists only active template section headers, in file order", async () 
   assertEquals(sectionNamesFromTemplate(await realTemplate()), [
     "meta",
     "project",
-    "features",
     "docs",
     "guidance",
     "skills",
@@ -234,6 +224,6 @@ Deno.test("a comment run reaching the top of the file is treated as preamble, no
 Deno.test("readConfigTemplate resolves the bundled template", async () => {
   const text = await readConfigTemplate();
   assertExists(text, "the bundled template should resolve");
-  assertStringIncludes(text, "[features]");
   assertStringIncludes(text, "[guidance]");
+  assertStringIncludes(text, "[skills]");
 });

@@ -261,7 +261,7 @@ Deno.test("upgrade --dry-run --json previews pending migrations without running 
     assertEquals(res.dry_run, true);
     assertEquals(
       res.data.pending_migrations.map((m: { from: number }) => m.from),
-      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
     );
     // Still a dry run: the schema is untouched on disk.
     assertEquals(await recordedSchema(dir), 1);

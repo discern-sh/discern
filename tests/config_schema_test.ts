@@ -10,7 +10,6 @@ import {
   toCommandList,
 } from "../src/shared/config_schema.ts";
 import { KNOWN_CAPABILITIES, STAGES } from "../src/shared/capabilities.ts";
-import { FEATURES } from "../src/shared/features.ts";
 import { KNOWN_AGENTS } from "../src/lib/config.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 
@@ -42,14 +41,22 @@ Deno.test("an empty config validates to a fully-defaulted object", () => {
   assertEquals(c.worktree.ignored_file_drift, true);
 });
 
-Deno.test("features default ON; only a literal false disables one", () => {
-  const allOn = parseConfigOrThrow("");
-  for (const f of FEATURES) {
-    assertEquals(allOn.features[f], true, `${f} should default on`);
-  }
-  const off = parseConfigOrThrow("[features]\ndocs = false\n");
-  assertEquals(off.features.docs, false);
-  assertEquals(off.features.worktrees, true); // others still on
+Deno.test("a config still carrying [features] is rejected with the upgrade hint", () => {
+  // The toggles were retired (ADR 0101); a pre-16 config that still carries the
+  // section gets a dead-config message pointing at the migration, never a bare
+  // "unknown section".
+  const { config, issues } = parseConfig("[features]\ndocs = false\n");
+  assertEquals(config, undefined);
+  assertEquals(issues.length, 1);
+  assert(issues[0]?.message.includes("discern upgrade"), issues[0]?.message);
+  assert(issues[0]?.message.includes("[features]"), issues[0]?.message);
+});
+
+Deno.test("a config still carrying [worktree].enabled is rejected with the upgrade hint", () => {
+  const { config, issues } = parseConfig("[worktree]\nenabled = true\n");
+  assertEquals(config, undefined);
+  assertEquals(issues.length, 1);
+  assert(issues[0]?.message.includes("discern upgrade"), issues[0]?.message);
 });
 
 Deno.test("gate.fail_fast defaults ON; gate.stream defaults OFF", () => {
@@ -144,15 +151,14 @@ Deno.test("strict: a dead [worktree.db] adapter is rejected with an upgrade hint
   );
 });
 
-Deno.test("strict: a leftover [features].mcp is rejected with an upgrade hint (ADR 0045)", () => {
-  // MCP is core infrastructure now, not a toggle — an old config carrying the key
-  // must not crash cryptically; it gets the friendly "run discern upgrade" nudge,
-  // and `upgrade`'s 10→11 migration drops it.
+Deno.test("strict: a leftover [features].mcp is rejected with the section-level upgrade hint", () => {
+  // The whole [features] section is dead config now (ADR 0101) — an old config
+  // carrying any of it (mcp included) must not crash cryptically; it gets the
+  // friendly "run discern upgrade" nudge, and the 15→16 migration drops it.
   const { issues } = parseConfig(`[features]\nmcp = true\n`);
   assert(
-    issues.some((i) =>
-      i.path === "features" && /dead config|upgrade/.test(i.message)
-    ),
+    issues.some((i) => /dead config \[features\]|upgrade/.test(i.message)),
+    JSON.stringify(issues),
   );
 });
 
@@ -167,14 +173,14 @@ Deno.test("isSettableConfigPath: known leaf/record paths yes, typos no", () => {
   // Known scalar leaves and record paths are settable.
   assert(isSettableConfigPath("project.slug"));
   assert(isSettableConfigPath("gate.fail_fast"));
-  assert(isSettableConfigPath("features.docs"));
   assert(isSettableConfigPath("docs.dir"));
   assert(isSettableConfigPath("ratchets.coverage.limit")); // valid-but-incomplete OK
   assert(isSettableConfigPath("checks.x.stage"));
   assert(isSettableConfigPath("worktree.resources.db.create"));
   // Typos and unknown keys are not.
   assert(!isSettableConfigPath("project.frobnicate"));
-  assert(!isSettableConfigPath("features.bogus"));
+  assert(!isSettableConfigPath("features.docs")); // the retired toggles (ADR 0101)
+  assert(!isSettableConfigPath("worktree.enabled")); // retired with them
   assert(!isSettableConfigPath("capabilities.deploy")); // closed vocabulary
   assert(!isSettableConfigPath("nope.at.all"));
   assert(!isSettableConfigPath("ratchets.coverage.bogus"));

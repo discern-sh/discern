@@ -307,7 +307,7 @@ Deno.test("a schema-1 install missing main_branch upgrades to the current schema
       const res = await upgrade(older); // runs 1→2 … current, materializes, stamps
       assertEquals(
         res.data.migrations_applied.map((m: { from: number }) => m.from),
-        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
       );
 
       await setup(fresh); // a fresh install at the current schema
@@ -375,7 +375,7 @@ Deno.test("a schema-3 [slots] install upgrades to the capabilities shape and the
       const res = await upgrade(older); // runs 3→4 … current, materializes, stamps
       assertEquals(
         res.data.migrations_applied.map((m: { from: number }) => m.from),
-        [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
+        [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
       );
 
       await setup(fresh);
@@ -387,16 +387,14 @@ Deno.test("a schema-3 [slots] install upgrades to the capabilities shape and the
       const toml = await readTarget(older, "discern.toml");
       assertStringIncludes(toml, "[capabilities]");
       assertStringIncludes(toml, 'format = "deno fmt"');
-      assertStringIncludes(toml, "[features]");
       assert(!toml.includes("[slots."));
       assert(!toml.includes("[evidence]"));
+      // The retired [features] section never appears — the chain runs straight
+      // to the current schema, where the toggles are gone (ADR 0101).
+      assert(!toml.includes("[features]"), "no [features] section is added");
       // Papercut 1: the schema-6 sections arrive WITH their doc blocks, grouped
       // after [project] — so a migrated config reads like a fresh setup's, not a
       // pile of bare keys at EOF.
-      assertStringIncludes(
-        toml,
-        "# [features] — toggle whole discern subsystems",
-      );
       assertStringIncludes(toml, "# [guidance] — the author-once");
       assertStringIncludes(
         toml,
@@ -404,8 +402,7 @@ Deno.test("a schema-3 [slots] install upgrades to the capabilities shape and the
       );
       const at = (s: string) => toml.indexOf(s);
       assert(
-        at("[project]") < at("[features]") &&
-          at("[features]") < at("[guidance]") &&
+        at("[project]") < at("[guidance]") &&
           at("[guidance]") < at("[skills]"),
         "new sections grouped, in order, after [project]",
       );
@@ -453,7 +450,7 @@ Deno.test("a legacy install whose schema lives only in a manifest upgrades, prun
     // The manifest anchored the chain at schema 4, so every later step runs.
     assertEquals(
       res.data.migrations_applied.map((m: { from: number }) => m.from),
-      [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
+      [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
     );
     // The shell engine, dispatcher, manifest, and the whole .discern/ namespace
     // are gone; the config now lives at the root footprint.

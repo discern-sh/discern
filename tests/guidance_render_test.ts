@@ -307,20 +307,6 @@ Deno.test("renderAgentFiles: base guidance is MCP-first with a CLI fallback (no 
   }
 });
 
-Deno.test("checkGuidanceCurrent: guidance feature off → nothing to render or check", async () => {
-  const dir = await Deno.makeTempDir({ prefix: "discern-render-off-" });
-  try {
-    await Deno.writeTextFile(
-      join(dir, "discern.toml"),
-      '[features]\nguidance = false\n[guidance]\nagents = ["codex"]\n',
-    );
-    assertEquals((await renderAgentFiles(dir)).size, 0);
-    assertEquals(await checkGuidanceCurrent(dir), []);
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
-});
-
 Deno.test("renderAgentFiles: every guidance variable is config-driven — no hardcoded value can creep in", async () => {
   // Class guard for "built-in guidance states a discern.toml-configurable value but
   // hardcodes one literal instead of interpolating it" — the bug behind both the

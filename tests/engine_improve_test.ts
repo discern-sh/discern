@@ -109,7 +109,6 @@ lint = "true"
 test = "true"
 
 [worktree]
-enabled = true
 
 [ratchets.coverage]
 limit = 1
@@ -295,37 +294,35 @@ Deno.test("improve --category: focuses one area; unknown is a clean error", asyn
 
 Deno.test("improve --min-score: gates the build below the floor", async () => {
   await withTempDir(async (dir) => {
-    await scaffoldEngine(dir, { bootstrapped: false }); // a weak install (~11/100)
+    await scaffoldEngine(dir, { bootstrapped: false }); // a weak install (0/100)
 
     const below = await improveJson(dir, ["--min-score", "50"]);
     assertEquals(below.code, 1, "a score under the floor exits non-zero");
     assertEquals(below.payload.ok, false);
     assertEquals(below.payload.error, "below_min_score");
 
-    const met = await improveJson(dir, ["--min-score", "1"]);
+    const met = await improveJson(dir, ["--min-score", "0"]);
     assertEquals(met.code, 0, "a score at/above the floor exits zero");
     assertEquals(met.payload.ok, true);
   });
 });
 
-Deno.test("improve: a disabled feature category is skipped and rejected", async () => {
+Deno.test("improve: every catalog category is always reviewed; an unknown one is rejected", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    await writeConfig(
-      dir,
-      `[meta]\nbootstrapped = true\n[features]\nratchets = false\n`,
-    );
+    await writeConfig(dir, `[meta]\nbootstrapped = true\n`);
 
+    // The subsystems are all core (ADR 0101): the ratchets category is reviewed
+    // even with no ratchet configured — the coaching is exactly "define one".
     const all = await improveJson(dir);
-    assertEquals(
-      all.payload.data?.categories.find((c) => c.name === "ratchets"),
-      undefined,
-      "the ratchets category vanishes when the feature is off",
+    assert(
+      all.payload.data?.categories.some((c) => c.name === "ratchets"),
+      "the ratchets category is always part of the catalog",
     );
 
-    const focused = await improveJson(dir, ["--category", "ratchets"]);
+    const focused = await improveJson(dir, ["--category", "bogus"]);
     assertEquals(focused.code, 1);
-    assertEquals(focused.payload.error, "category_disabled");
+    assertEquals(focused.payload.error, "unknown_category");
   });
 });
 

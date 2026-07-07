@@ -649,49 +649,6 @@ Deno.test("setup done blocks when the gate is green here but red in a worktree â
   });
 });
 
-Deno.test("setup done skips the worktree probe when worktrees are off, and never claims the coverage (ADR 0090)", async () => {
-  await withTempDir(async (dir) => {
-    await readyForDone(dir, "true");
-    // Turn the worktree workflow off â€” there is nothing to prove, so the probe must not run.
-    const off = await runAgent(dir, [
-      "config",
-      "set",
-      "features.worktrees",
-      "false",
-      "--bool",
-    ]);
-    assertEquals(off.code, 0, off.output);
-
-    const done = await runAgent(dir, ["setup", "done", "--json"]);
-    assertEquals(done.code, 0, done.output);
-    const res = JSON.parse(done.stdout);
-    assertEquals(res.data.bootstrapped, true);
-    assertEquals(
-      res.data.worktree_proven,
-      false,
-      "a worktrees-off install proves no worktree",
-    );
-  });
-
-  // The human render must not claim worktree coverage it never proved.
-  await withTempDir(async (dir) => {
-    await readyForDone(dir, "true");
-    await runAgent(dir, [
-      "config",
-      "set",
-      "features.worktrees",
-      "false",
-      "--bool",
-    ]);
-    const done = await runAgent(dir, ["setup", "done"]);
-    assertEquals(done.code, 0, done.output);
-    assert(
-      !done.stdout.includes("runs inside a worktree"),
-      "worktrees-off setup must not claim worktree coverage",
-    );
-  });
-});
-
 Deno.test("setup done commits the completion marker when discern.toml is the only tracked change", async () => {
   // The completion marker [meta].bootstrapped was written but never committed, so a
   // diligent atomic-commit setup still ended with a dirty tree. Untracked local

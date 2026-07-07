@@ -15,7 +15,6 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { runCli, withTempDir } from "./helpers.ts";
 import { renderAgentFiles } from "../src/engine/guidance_render.ts";
-import { FEATURES } from "../src/shared/features.ts";
 import { providerFor, providersWithHooks } from "../src/lib/providers.ts";
 import { AGENT_NAMES } from "../src/shared/config_schema.ts";
 
@@ -227,20 +226,6 @@ Deno.test("every failing doctor check names a fix (shape guard over the emitted 
   });
 });
 
-Deno.test("doctor: the features check names every feature when all are on", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    const { payload } = await runDoctorJson(dir);
-    // A fresh install has every feature on → the detail derives the full list from
-    // the FEATURES SSOT, so each one (mcp included) must appear.
-    const detail = check(payload, "features").detail;
-    assertStringIncludes(detail, "all on");
-    for (const f of FEATURES) {
-      assertStringIncludes(detail, f, `features check should name '${f}'`);
-    }
-  });
-});
-
 Deno.test("doctor: the git check fails with a fix when git is unreachable", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir);
@@ -268,7 +253,7 @@ Deno.test("doctor: human output reports advisories separately from failures", as
     // The environment header gives at-a-glance triage context.
     assertStringIncludes(stderr, "discern 1.0.0 ·");
     assertStringIncludes(stderr, "discern.toml: present and valid TOML");
-    assertStringIncludes(stderr, "schema 15 (current)");
+    assertStringIncludes(stderr, "schema 16 (current)");
     assertStringIncludes(stderr, "capabilities: none wired yet");
     assertStringIncludes(stderr, "git: ");
     assertStringIncludes(stderr, "All checks passed (see the advisory above).");
@@ -352,7 +337,7 @@ Deno.test("doctor: a stale schema is flagged with an upgrade fix", async () => {
     assertEquals(schema.status, "fail");
     assertEquals(schema.ok, false);
     assertStringIncludes(schema.detail, "v1");
-    assertStringIncludes(schema.detail, "v15");
+    assertStringIncludes(schema.detail, "v16");
     assertStringIncludes(schema.fix ?? "", "discern upgrade");
   });
 });
@@ -465,30 +450,6 @@ Deno.test("doctor: a foreign worktree hook is an advisory warning, not a failure
     assertEquals(wt.status, "warn");
     assertEquals(wt.ok, true);
     assertEquals(wt.warn, true);
-  });
-});
-
-Deno.test("doctor: reports the [features] toggle state and reflects a disabled feature", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    const fresh = await runDoctorJson(dir);
-    assertEquals(fresh.code, 0);
-    const f = check(fresh.payload, "features");
-    assertEquals(f.ok, true);
-    assertStringIncludes(f.detail, "all on");
-
-    // Disable one feature via the real config surface; doctor must surface it.
-    assertEquals(
-      (await runCli(["config", "set", "features.worktrees", "false"], dir))
-        .code,
-      0,
-    );
-    const after = await runDoctorJson(dir);
-    assertEquals(after.code, 0); // a disabled feature is healthy, just reported
-    assertStringIncludes(
-      check(after.payload, "features").detail,
-      "off: worktrees",
-    );
   });
 });
 

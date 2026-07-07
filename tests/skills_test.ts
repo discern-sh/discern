@@ -193,12 +193,14 @@ Deno.test("listSkills annotates source / override / hasBundled", async () => {
       source: "authored",
       overridesBundled: true,
       hasBundled: true,
+      excluded: false,
     });
     assertEquals(rows.get("my-skill"), {
       name: "my-skill",
       source: "authored",
       overridesBundled: false,
       hasBundled: false,
+      excluded: false,
     });
     const writeAdr = rows.get("discern-write-adr");
     assertExists(writeAdr);

@@ -55,7 +55,6 @@ const RICH_TOML = [
   "limit = 80",
   "",
   "[worktree]",
-  "enabled = true",
   "port = true",
   'inherit_env = ["SECRET"]',
   "",
@@ -164,23 +163,27 @@ Deno.test("execution model: a resource teardown shows the user's command in ever
   }
 });
 
-Deno.test("execution model: verbs are gated by their feature toggles", () => {
+Deno.test("execution model: every configurable verb is always modeled (ADR 0101)", () => {
   const cfg = parseConfigOrThrow(
     [
       "[project]",
       'slug = "model-test"',
       "",
-      "[features]",
-      "worktrees = false",
-      "ratchets = false",
-      "",
     ].join("\n"),
   );
-  // With worktrees + ratchets off, only the always-on gate verbs remain — the MCP/CLI
-  // verb surface and the doctor model stay in lockstep.
+  // The subsystems are all core, so the model covers the full verb surface even
+  // on a bare config — the MCP/CLI verb surface and the doctor model stay in
+  // lockstep.
   assertEquals(buildExecutionModel(cfg).map((v) => v.verb), [
     "finish",
     "prepare",
     "test",
+    "ratchets",
+    "start",
+    "worktree ensure",
+    "integrate",
+    "graduate (--to branch)",
+    "graduate (--to trunk)",
+    "worktree prune",
   ]);
 });

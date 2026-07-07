@@ -27,7 +27,6 @@ import {
   configSchema,
   type DiscernConfig,
 } from "../src/shared/config_schema.ts";
-import { FEATURES } from "../src/shared/features.ts";
 
 const REPO = fromFileUrl(new URL("../", import.meta.url));
 
@@ -42,7 +41,7 @@ function configWith(patch: Record<string, unknown>): DiscernConfig {
  * Every agent-facing string the server renders for `config`: each tool's
  * description + title (interpolated through the production `renderMcpText`), each
  * input schema's `.describe()` text (static — not interpolated, but scanned so a
- * stray literal there is caught too), and the instructions with all features on
+ * stray literal there is caught too), and the instructions
  * (the fullest text). Joined into one blob for scanning.
  */
 function mcpSurface(config: DiscernConfig): string {
@@ -57,7 +56,7 @@ function mcpSurface(config: DiscernConfig): string {
       parts.push(JSON.stringify(z.toJSONSchema(z.object(tool.inputSchema))));
     }
   }
-  parts.push(renderMcpText(buildInstructions(new Set(FEATURES)), config));
+  parts.push(renderMcpText(buildInstructions(), config));
   return parts.join("\n\n");
 }
 

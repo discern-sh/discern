@@ -23,7 +23,6 @@ import {
   verbOf,
   WorkingRoot,
 } from "../src/engine/mcp/server.ts";
-import { FEATURES } from "../src/shared/features.ts";
 import { KIT_VERSION } from "../src/lib/version.ts";
 import { withTempDir } from "./helpers.ts";
 import {
@@ -292,8 +291,8 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     assertEquals(status.result.structuredContent.verb, "status");
     assertEquals(status.result.structuredContent.data.location, "main");
     assert(
-      status.result.structuredContent.data.features,
-      "status data carries the feature toggles",
+      Array.isArray(status.result.structuredContent.data.ratchets),
+      "status data carries the configured ratchets",
     );
 
     // tools/call discern_improve → the continuous-improvement DiscernResult.
@@ -1107,10 +1106,6 @@ Deno.test("discern mcp: project commands execute in the path-resolved worktree, 
         'slug = "engine-test"',
         'main_branch = "main"',
         "",
-        "[features]",
-        "guidance = false",
-        "skills = false",
-        "",
         "[checks.cwd]",
         'stage = "check"',
         'run = "pwd > command.cwd"',
@@ -1623,58 +1618,6 @@ Deno.test("discern mcp: after discern_start, discern_status follows the re-aimed
   });
 });
 
-Deno.test("discern mcp: a disabled feature hides its tool and refuses the call", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await gitInit(dir);
-    // Turn the worktrees feature off through the real config editor.
-    const set = await runAgent(dir, [
-      "config",
-      "set",
-      "features.worktrees",
-      "false",
-      "--bool",
-    ]);
-    assertEquals(set.code, 0, set.output);
-
-    const mcp = await spawnMcp(dir);
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-      params: initParams(),
-    });
-    await mcp.recv();
-
-    // tools/list omits discern_graduate (worktrees off) but keeps the always-on
-    // tools and the still-enabled docs tool.
-    await mcp.send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
-    const list = await mcp.recv();
-    const names = list.result.tools.map((t: { name: string }) => t.name);
-    assert(!names.includes("discern_graduate"), JSON.stringify(names));
-    assert(!names.includes("discern_integrate"), JSON.stringify(names));
-    assert(names.includes("discern_docs"), JSON.stringify(names));
-    assert(names.includes("discern_finish"), JSON.stringify(names));
-
-    // Calling the disabled tool anyway → an error result: a feature-disabled tool
-    // is simply not registered, so the SDK answers as it would for any unknown name.
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 3,
-      method: "tools/call",
-      params: { name: "discern_graduate", arguments: { dry_run: true } },
-    });
-    const refused = await mcp.recv();
-    assertEquals(refused.result.isError, true);
-    assert(
-      refused.result.content[0].text.includes("not found"),
-      JSON.stringify(refused.result),
-    );
-
-    assertEquals(await mcp.close(), 0);
-  });
-});
-
 /** The shape of one tool as `tools/list` advertises it (the fields this suite reads). */
 interface ListedTool {
   name: string;
@@ -1970,7 +1913,7 @@ Deno.test("discern mcp: discern_status metadata is search-shaped for orientation
 });
 
 Deno.test("discern mcp: initialization instructions prioritize discern_status", () => {
-  const instructions = buildInstructions(new Set(FEATURES));
+  const instructions = buildInstructions();
   const statusAt = instructions.indexOf("discern_status");
   assert(statusAt >= 0, instructions);
   assert(
@@ -2183,40 +2126,6 @@ Deno.test("discern mcp: a failing discern_ratchets apply returns an ok:false env
   });
 });
 
-Deno.test("discern mcp: discern_ratchets is hidden when the ratchets feature is off", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await gitInit(dir);
-    const set = await runAgent(dir, [
-      "config",
-      "set",
-      "features.ratchets",
-      "false",
-      "--bool",
-    ]);
-    assertEquals(set.code, 0, set.output);
-
-    const mcp = await spawnMcp(dir);
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-      params: initParams(),
-    });
-    const init = await mcp.recv();
-    // ratchets off → its line drops from the instructions too (mirrors tool gating).
-    assert(
-      !(init.result.instructions as string).includes("discern_ratchets"),
-      init.result.instructions,
-    );
-    await mcp.send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
-    const list = await mcp.recv();
-    const names = list.result.tools.map((t: { name: string }) => t.name);
-    assert(!names.includes("discern_ratchets"), JSON.stringify(names));
-    assertEquals(await mcp.close(), 0);
-  });
-});
-
 Deno.test("discern mcp: the server advertises a non-empty, MCP-first instructions block", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
@@ -2251,44 +2160,9 @@ Deno.test("discern mcp: the server advertises a non-empty, MCP-first instruction
       instructions.includes("Do not treat a green finish or status hint"),
       instructions,
     );
-    // Always-on diagnostics, plus the feature-gated ratchets line (on by default).
+    // Diagnostics and ratchets are always present (every subsystem is core).
     assert(instructions.includes("discern_doctor"), instructions);
     assert(instructions.includes("discern_ratchets"), instructions);
-    assertEquals(await mcp.close(), 0);
-  });
-});
-
-Deno.test("discern mcp: instructions are feature-aware (no graduate line when worktrees off)", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await gitInit(dir);
-    const set = await runAgent(dir, [
-      "config",
-      "set",
-      "features.worktrees",
-      "false",
-      "--bool",
-    ]);
-    assertEquals(set.code, 0, set.output);
-
-    const mcp = await spawnMcp(dir);
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-      params: initParams(),
-    });
-    const init = await mcp.recv();
-    const instructions = init.result.instructions as string;
-    assert(typeof instructions === "string" && instructions.length > 0);
-    // The graduate tool isn't registered with worktrees off, so its line is dropped
-    // from the instructions too (the block mirrors the tool gating).
-    assert(
-      !instructions.includes("discern_graduate"),
-      `worktrees off → no graduate line; got:\n${instructions}`,
-    );
-    // The always-on guidance still stands.
-    assert(instructions.includes("discern_status"), instructions);
     assertEquals(await mcp.close(), 0);
   });
 });
@@ -2418,8 +2292,8 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
     const statusData = JSON.parse(statusPart.text);
     assertEquals(statusData.location, "main");
     assert(
-      statusData.features,
-      "the status resource carries the feature toggles",
+      Array.isArray(statusData.ratchets),
+      "the status resource carries the configured ratchets",
     );
 
     // read discern://scopes
@@ -2550,34 +2424,3 @@ Deno.test("discern mcp: the resources follow the re-aimed working root after dis
   });
 });
 
-Deno.test("discern mcp: the docs resource is gated on the docs feature; help and status stay", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await gitInit(dir);
-    const set = await runAgent(dir, [
-      "config",
-      "set",
-      "features.docs",
-      "false",
-      "--bool",
-    ]);
-    assertEquals(set.code, 0, set.output);
-
-    const mcp = await spawnMcp(dir);
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-      params: initParams(),
-    });
-    await mcp.recv();
-    await mcp.send({ jsonrpc: "2.0", id: 2, method: "resources/list" });
-    const list = await mcp.recv();
-    const uris = (list.result.resources as { uri: string }[]).map((r) => r.uri);
-    assert(!uris.includes("discern://docs"), JSON.stringify(uris));
-    // help (discern's own docs) and the always-on snapshots stay.
-    assert(uris.includes("discern://help"), JSON.stringify(uris));
-    assert(uris.includes("discern://status"), JSON.stringify(uris));
-    assertEquals(await mcp.close(), 0);
-  });
-});

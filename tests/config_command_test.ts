@@ -296,14 +296,21 @@ Deno.test("config set infers types (number / bool / string)", async () => {
 Deno.test("config set preserves the edited line's inline comment", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);
-    const r = await runCli(
-      ["config", "set", "features.worktrees", "false"],
-      dir,
+    // Give a scalar line an inline comment, then edit it through the CLI: the
+    // comment must ride along with the rewritten value.
+    const path = join(dir, "discern.toml");
+    await Deno.writeTextFile(
+      path,
+      (await Deno.readTextFile(path)).replace(
+        "port = true",
+        "port = true   # deterministic dev-server port",
+      ),
     );
+    const r = await runCli(["config", "set", "worktree.port", "false"], dir);
     assertEquals(r.code, 0, r.stderr);
     assertStringIncludes(
       await readToml(dir),
-      "worktrees = false   # the isolated git-worktree workflow",
+      "port = false   # deterministic dev-server port",
     );
   });
 });
@@ -506,15 +513,15 @@ Deno.test("config set --bool forces a boolean and rejects a non-boolean", async 
     await setup(dir);
     // Valid: "true"/"false" pass through tomlBool.
     const ok = await runCli(
-      ["config", "set", "worktree.enabled", "true", "--bool"],
+      ["config", "set", "gate.stream", "true", "--bool"],
       dir,
     );
     assertEquals(ok.code, 0, ok.stderr);
-    assertStringIncludes(await readToml(dir), "enabled = true");
+    assertStringIncludes(await readToml(dir), "stream = true");
 
     // Invalid: --bool with a non-boolean throws, surfaced as a failure.
     const bad = await runCli(
-      ["config", "set", "worktree.enabled", "yes", "--bool", "--json"],
+      ["config", "set", "gate.stream", "yes", "--bool", "--json"],
       dir,
     );
     assertEquals(bad.code, 1);

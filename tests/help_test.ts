@@ -277,26 +277,6 @@ Deno.test("help --adr cannot be combined with --export", async () => {
   });
 });
 
-Deno.test("help is available even when the `docs` feature is disabled", async () => {
-  await withTempDir(async (dir) => {
-    const help = await makeHelpFixture(dir, "[features]\ndocs = false\n");
-
-    // `help` works regardless of the project's `docs` feature.
-    const helpRun = await runCli(
-      ["help", "--json"],
-      dir,
-      { DISCERN_DOCS_DIR: help },
-    );
-    assertEquals(helpRun.code, 0);
-    assertEquals(JSON.parse(helpRun.stdout).ok, true);
-
-    // Contrast: `docs` refuses, pointing at the disabled feature.
-    const docsRun = await runCli(["docs", "--json"], dir);
-    assertEquals(docsRun.code, 1);
-    assertStringIncludes(docsRun.stderr, "disabled");
-  });
-});
-
 Deno.test("help --export public concatenates only the public docs", async () => {
   await withTempDir(async (dir) => {
     const help = await makeHelpFixture(dir);

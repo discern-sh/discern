@@ -7,9 +7,9 @@
  * handful of satellites RE-LIST members of those sets by hand, each needing its own
  * hand-wired handler so it can't be a derived list: the Cliffy `.command()`
  * registrations (verb → handler), the MCP `TOOLS` table (verb → tool), the
- * setup gate, the per-verb feature gate, and the typo-suggester's recipe names.
+ * setup gate, and the typo-suggester's recipe names.
  * Without a tie, adding or renaming a verb silently leaves one stale — a dead MCP
- * slug, an orphaned feature mapping, a verb the gate forgets to guard.
+ * slug, or a verb the gate forgets to guard.
  *
  * This test is that tie. Each satellite is reconciled against the SSOT, and where a
  * satellite LEGITIMATELY differs (an intentional subset/superset) the difference is
@@ -30,19 +30,18 @@ import {
 } from "../src/engine/dispatch.ts";
 import { buildCli, KNOWN_VERBS } from "../src/main.ts";
 import { TOOLS, verbOf } from "../src/engine/mcp/server.ts";
-import { FEATURES, isFeature, VERB_FEATURE } from "../src/shared/features.ts";
 import { SETUP_GATED_VERBS } from "../src/shared/setup_state.ts";
 import { WORKTREE_FIELDS } from "../src/engine/worktree/identity.ts";
 
 const sorted = (xs: Iterable<string>): string[] => [...xs].sort();
 
 Deno.test("Cliffy registrations cover EXACTLY the engine-verb SSOT (verb → handler)", () => {
-  // Attach the engine commands to a fresh root with every feature ON (so every
-  // gated verb is wired), then read back the registered command names. They must be
+  // Attach the engine commands to a fresh root (every verb is unconditional, ADR
+  // 0101), then read back the registered command names. They must be
   // exactly KNOWN_ENGINE_VERBS — a verb added to the SSOT with no `.command()` (or a
   // registration with no SSOT entry) red-lights here.
   const root = new Command();
-  attachEngineCommands(root as unknown as Command, new Set(FEATURES));
+  attachEngineCommands(root as unknown as Command);
   const registered = root.getCommands().map((c) => c.getName());
   assertEquals(
     sorted(registered),
@@ -56,8 +55,8 @@ Deno.test("KNOWN_VERBS covers EXACTLY the registered top-level CLI commands", ()
   // The dispatcher consults KNOWN_VERBS before recipe fallthrough. If buildCli grows a
   // top-level command but KNOWN_VERBS does not, that registered command appears in
   // --help yet `main` treats it as an unknown recipe. Tie the installer+engine universe
-  // back to the actual Cliffy registrations, with every feature on for the fullest set.
-  const root = buildCli(new Set(FEATURES), false) as unknown as Command;
+  // back to the actual Cliffy registrations.
+  const root = buildCli(false) as unknown as Command;
   const registered = root.getCommands().map((c) => c.getName());
   assertEquals(
     sorted(registered),
@@ -135,30 +134,13 @@ Deno.test("every setup-gated verb is a real known verb", () => {
   }
 });
 
-Deno.test("VERB_FEATURE keys are real verbs and values are real features", () => {
-  // Every feature-gated verb must be a known verb (else the gate guards nothing),
-  // and every value a known feature. The value is already compile-checked to
-  // `Feature` by VERB_FEATURE's type; this also covers it at runtime, and ties the
-  // keys — which have no union type — back to the verb SSOT.
-  for (const [verb, feature] of Object.entries(VERB_FEATURE)) {
-    assert(
-      KNOWN_VERBS.has(verb),
-      `VERB_FEATURE maps "${verb}", which is not a known CLI verb`,
-    );
-    assert(
-      isFeature(feature),
-      `VERB_FEATURE maps "${verb}" to "${feature}", which is not a known feature`,
-    );
-  }
-});
-
 Deno.test("the identity CLI exposes a flag for EXACTLY the identity-field SSOT", () => {
   // The --<field> flags re-list WORKTREE_FIELDS by hand (each carries its own help
   // text, so they can't be a derived list) — tie them by test. The resolver's switch
   // and the action's field selection already derive from the SSOT; this catches a
   // flag that drifts from it (a renamed/removed field, or a new one with no flag).
   const root = new Command();
-  attachEngineCommands(root as unknown as Command, new Set(FEATURES));
+  attachEngineCommands(root as unknown as Command);
   const identity = root.getCommands().find((c) => c.getName() === "identity");
   assert(identity !== undefined, "the identity command is not registered");
   const optionNames = identity.getOptions().map((o) => o.name);

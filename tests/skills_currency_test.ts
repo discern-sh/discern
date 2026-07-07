@@ -61,16 +61,18 @@ Deno.test("a freshly materialized skills dir has zero drift", async () => {
   });
 });
 
-Deno.test("skills feature off → the check is a no-op", async () => {
+Deno.test("an excluded skill is not expected on disk — its absence is no drift", async () => {
   await withTempDir(async (root) => {
-    const config = cfg();
-    await materializeClean(root, config);
-    // Nuke a skill so a drift WOULD exist if the check ran.
-    await Deno.remove(join(root, SKILLS_REL, "discern-write-adr"), {
-      recursive: true,
-    });
-    const off = cfg("\n[features]\nskills = false\n");
-    assertEquals(await checkSkillsCurrent(root, off), []);
+    const excluded = cfg('exclude = ["discern-write-adr"]\n');
+    await materializeClean(root, excluded);
+    // The excluded skill was never placed, and its absence must not read as
+    // drift: the currency check and the materializer share one effective set.
+    assertEquals(
+      await Deno.lstat(join(root, SKILLS_REL, "discern-write-adr"))
+        .then(() => true).catch(() => false),
+      false,
+    );
+    assertEquals(await checkSkillsCurrent(root, excluded), []);
   });
 });
 

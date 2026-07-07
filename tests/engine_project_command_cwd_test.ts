@@ -34,10 +34,6 @@ const BASE = [
   'slug = "engine-test"',
   'main_branch = "main"',
   "",
-  "[features]",
-  "guidance = false",
-  "skills = false",
-  "",
 ];
 
 Deno.test("all gate command groups execute at the resolved root from a nested CLI cwd", async () => {
