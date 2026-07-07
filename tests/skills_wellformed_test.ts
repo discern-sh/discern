@@ -11,7 +11,7 @@
  */
 
 import { assert, assertEquals } from "@std/assert";
-import { join } from "@std/path";
+import { dirname, join } from "@std/path";
 import { resolveBundledSkillsDir } from "../src/lib/paths.ts";
 import { bundledSkillNames, parseSkillFrontmatter } from "../src/lib/skills.ts";
 
@@ -55,4 +55,24 @@ Deno.test("bundled skills: every one is well-formed (frontmatter name === direct
       throw new Error(`bundled skill '${name}' is malformed: ${detail}`);
     }
   }
+});
+
+Deno.test("bundled skills: the install-surface doc's table lists every one", async () => {
+  // The bundled-skills table in docs/80-development/install-surface.md is
+  // hand-authored prose with no compiler behind it, so a newly added skill can
+  // silently ship undocumented (it happened: the table once lacked a skill the
+  // binary bundled). Iterate the SAME canonical set the materializer drives off,
+  // so a new skill auto-enrols here and the doc must name it or the gate fails.
+  const dir = await resolveBundledSkillsDir();
+  const repoRoot = dirname(dirname(dir)); // …/templates/skills → repo root
+  const doc = await Deno.readTextFile(
+    join(repoRoot, "docs", "80-development", "install-surface.md"),
+  );
+  const names = await bundledSkillNames();
+  const missing = names.filter((name) => !doc.includes(`\`${name}\``));
+  assertEquals(
+    missing,
+    [],
+    "docs/80-development/install-surface.md's bundled-skills table must name every bundled skill",
+  );
 });
