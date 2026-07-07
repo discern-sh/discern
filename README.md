@@ -67,8 +67,10 @@ it safely into a shared codebase — never sped up. `discern` closes that gap:
 - **Switch agents freely.** One source of truth compiles into every agent's
   instructions, so Claude Code, Cursor, Copilot, Codex, and Gemini all treat
   your repo the same way — even several at once.
-- **Stop babysitting.** Nothing reaches `main` until it clears the same bar
-  you'd hold a person to: every check green, coverage held, regressions guarded.
+- **Stop babysitting.** What your agents hand back has already cleared the same
+  bar you'd hold a person to — every check green, coverage held, regressions
+  guarded. To make that the rule for `main` itself, [run the gate in
+  CI](docs/20-quality-gate/ci.md).
 
 More time _building_, less time _babysitting_.
 
@@ -122,8 +124,8 @@ else. [Config reference →](docs/10-installer/config-reference.md)
 
 The engine is **deliberately ignorant of your stack.** It never learns what "a
 test" is — it runs _the test capability_, a command you name once in
-`discern.toml`. That one idea is what lets a single harness drop into any repo,
-in any language, for any agent.
+`discern.toml`. That one idea is what lets a single harness drop into any repo
+and any language — and answer to whichever agent is driving it.
 
 Read the [concepts and system map](docs/00-orientation/) for the full model, or
 browse the docs right in your terminal with `discern help`.
