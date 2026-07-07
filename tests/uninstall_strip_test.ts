@@ -77,7 +77,9 @@ Deno.test("stripDiscernFromJsonSettings keeps user hooks and permissions, remove
   );
   const template = JSON.stringify({
     permissions: { deny: ["Read(./.env)"] },
-    hooks: { SessionStart: [{ hooks: [{ command: "discern worktree ensure" }] }] },
+    hooks: {
+      SessionStart: [{ hooks: [{ command: "discern worktree ensure" }] }],
+    },
   });
 
   const out = stripDiscernFromJsonSettings(existing, {
@@ -106,7 +108,9 @@ Deno.test("stripDiscernFromJsonSettings deletes a file that was purely discern's
   });
   const template = JSON.stringify({
     version: 1,
-    hooks: { sessionStart: [{ type: "command", bash: "discern worktree ensure" }] },
+    hooks: {
+      sessionStart: [{ type: "command", bash: "discern worktree ensure" }],
+    },
   });
   assertEquals(
     stripDiscernFromJsonSettings(existing, {
@@ -144,7 +148,10 @@ Deno.test("stripDiscernFromCodexEnv deletes a discern-created shell, keeps an ap
   ].join("\n");
   const out = stripDiscernFromCodexEnv(appOwned);
   assert(out !== null);
-  assert(!out.includes("discern worktree ensure"), "discern's script is stripped");
+  assert(
+    !out.includes("discern worktree ensure"),
+    "discern's script is stripped",
+  );
   assert(out.includes('name = "My Env"'), "the app's config is kept");
   assert(out.includes("npm ci"), "the app's actions are kept");
 });

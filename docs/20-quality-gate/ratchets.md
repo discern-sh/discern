@@ -19,9 +19,9 @@ you expect to move a metric. A non-dry-run needs a clean worktree (the
 measurement must reflect committed state); `--dry-run` previews which ratchets
 would run without measuring anything.
 
-Nothing about a ratchet you never define costs you anything — an undefined metric
-is simply not measured (design principle 9). You add a ratchet only where a
-number is worth defending.
+Nothing about a ratchet you never define costs you anything — an undefined
+metric is simply not measured (design principle 9). You add a ratchet only where
+a number is worth defending.
 
 ## What a ratchet block looks like
 
@@ -37,15 +37,15 @@ run       = "deno task coverage" # the command that measures it
 The fields:
 
 - **`direction`** — `"up"` when the value should rise (the `limit` is a floor,
-  as for coverage), or `"down"` when it should fall (the `limit` is a ceiling, as
-  for a size budget).
+  as for coverage), or `"down"` when it should fall (the `limit` is a ceiling,
+  as for a size budget).
 - **`limit`** — the floor or ceiling. It is compared against `main`: a floor may
   only rise, a ceiling may only fall, so a branch can tighten the gate but never
   loosen it.
 - **`run`** — the command that measures the metric. It runs on demand under
   `discern ratchets`, never as part of `finish`.
-- **`metric`** — the metric name the `run` command emits (defaults to the ratchet
-  name). Naming it lets one command emit several metrics.
+- **`metric`** — the metric name the `run` command emits (defaults to the
+  ratchet name). Naming it lets one command emit several metrics.
 
 ## How a measurement reports its number
 
@@ -74,10 +74,10 @@ compares the number to the limit, and asserts the limit was not loosened versus
 
 ## Raw counts versus rates
 
-A raw count is the wrong thing to hold when the project is growing. "No more than
-16 documentation lint alerts" fails the moment the docs double in size, even if
-their _quality_ never dropped. The `per` denominator turns a raw count into a
-rate that does not rise just because the project grew:
+A raw count is the wrong thing to hold when the project is growing. "No more
+than 16 documentation lint alerts" fails the moment the docs double in size,
+even if their _quality_ never dropped. The `per` denominator turns a raw count
+into a rate that does not rise just because the project grew:
 
 ```toml
 [ratchets.prose]
@@ -88,11 +88,12 @@ limit     = 16                      # ≤ 16 alerts per 1,000 words
 run       = "deno task prose \"docs/\""
 ```
 
-`per` divides the emitted metric by a denominator — a built-in word/line/file/byte
-count over a glob, or a second metric the same command emits — and `scale`
-expresses the rate against a readable unit (per 1,000 words, per 10,000). The
-metric then measures density, not volume, so a branch that adds prose at the same
-quality holds the line ([ADR 0057](../_adr/0057-rate-ratchets.md)).
+`per` divides the emitted metric by a denominator — a built-in
+word/line/file/byte count over a glob, or a second metric the same command emits
+— and `scale` expresses the rate against a readable unit (per 1,000 words, per
+10,000). The metric then measures density, not volume, so a branch that adds
+prose at the same quality holds the line
+([ADR 0057](../_adr/0057-rate-ratchets.md)).
 
 ## When a ratchet fires
 
@@ -120,7 +121,7 @@ when it fires.
 ## See also
 
 - [The quality gate](README.md) — where ratchets sit relative to `finish`.
-- [concepts.md](../00-orientation/concepts.md) — the Ratchet concept in the wider
-  picture.
+- [concepts.md](../00-orientation/concepts.md) — the Ratchet concept in the
+  wider picture.
 - [the-result-envelope.md](the-result-envelope.md) — the result shape
   `discern ratchets` returns.

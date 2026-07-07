@@ -14,8 +14,8 @@ are the same TypeScript program under `src/`, with the distribution surface
   — set up your environment and run discern from source.
 - **[docs/80-development/for-humans.md](docs/80-development/for-humans.md)** —
   IDE setup and local prerequisites.
-- **[docs/80-development/testing.md](docs/80-development/testing.md)** — the test
-  approach; `deno task test` is the authority on correctness.
+- **[docs/80-development/testing.md](docs/80-development/testing.md)** — the
+  test approach; `deno task test` is the authority on correctness.
 - **[docs/80-development/code-conventions.md](docs/80-development/code-conventions.md)**
   — the strict TypeScript and lint conventions the gate enforces.
 - **[docs/80-development/install-surface.md](docs/80-development/install-surface.md)**
@@ -38,8 +38,8 @@ change each — with a clear imperative subject and a body explaining _why_.
 ## Decisions and docs
 
 - Significant or hard-to-reverse decisions are recorded as **Architecture
-  Decision Records** in [`docs/_adr/`](docs/_adr/). Skim the recent ones before a
-  notable change, and add one when your change makes such a decision.
+  Decision Records** in [`docs/_adr/`](docs/_adr/). Skim the recent ones before
+  a notable change, and add one when your change makes such a decision.
 - The `docs/` tree is the source of truth and must not drift from code — update
   the affected docs in the same change.
 
@@ -47,5 +47,5 @@ change each — with a clear imperative subject and a body explaining _why_.
 
 - Bugs and setup failures: open an issue with the matching template and include
   `discern doctor --json`.
-- Security issues: follow [`SECURITY.md`](SECURITY.md) — report privately, not as
-  a public issue.
+- Security issues: follow [`SECURITY.md`](SECURITY.md) — report privately, not
+  as a public issue.

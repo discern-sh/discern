@@ -30,7 +30,6 @@ What you expected to happen instead.
 <!-- Run this in the affected project and paste the whole object. -->
 
 ```json
-
 ```
 
 ## Environment

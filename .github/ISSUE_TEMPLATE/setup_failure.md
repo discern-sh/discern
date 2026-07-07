@@ -30,7 +30,6 @@ The instruction you gave, and what it reported back.
 <!-- Run this in the project you were setting up and paste the whole object. -->
 
 ```json
-
 ```
 
 ## The failing output

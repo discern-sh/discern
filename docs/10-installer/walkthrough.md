@@ -11,9 +11,10 @@ out.
 
 ## 1. Install (about a minute)
 
-You install the binary once, the way the install page tells you (a `brew
-install`, a download, whatever your platform uses). The install message ends with
-one instruction — not "read the docs", but:
+You install the binary once, the way the install page tells you (a
+`brew
+install`, a download, whatever your platform uses). The install message
+ends with one instruction — not "read the docs", but:
 
 > Tell your coding agent to run `discern`.
 
@@ -30,9 +31,9 @@ Then the agent runs `discern setup verify`, and this is the moment that matters.
 discern serves a first-person **consent message** the agent relays verbatim (or
 in its own words) — it tells you, plainly:
 
-- what discern will write (one `discern.toml`, a visible `discern/` namespace for
-  your guidance and docs, the agent files each coding agent needs, a delimited
-  `.gitignore` block);
+- what discern will write (one `discern.toml`, a visible `discern/` namespace
+  for your guidance and docs, the agent files each coding agent needs, a
+  delimited `.gitignore` block);
 - that there is **no lock-in** — the namespace is plain Markdown you own, the
   generated files are gitignored, and `discern uninstall` takes the wiring back
   out;
@@ -40,8 +41,8 @@ in its own words) — it tells you, plainly:
   `discern/docs/`, or adopt your project's **existing docs** directory?
 
 You answer in plain language — _"yes, go ahead; use a fresh docs tree; set up
-Claude Code and Codex."_ The agent doesn't proceed until you've said yes; a fresh
-setup requires the agent to attest that this conversation happened.
+Claude Code and Codex."_ The agent doesn't proceed until you've said yes; a
+fresh setup requires the agent to attest that this conversation happened.
 
 ## 3. The agent scaffolds
 
@@ -64,9 +65,9 @@ would break in an isolated worktree can't complete setup silently.
 
 If that all passes, discern records that setup is complete and serves a
 **reactivation** note: the MCP tools, session hooks, and project rules it wired
-load at session start, so the session that ran setup can't see them yet — start a
-fresh agent session to pick them up. You then review the `discern-setup` branch
-like any other and land it.
+load at session start, so the session that ran setup can't see them yet — start
+a fresh agent session to pick them up. You then review the `discern-setup`
+branch like any other and land it.
 
 That's setup. A few minutes, one consent conversation, one review.
 

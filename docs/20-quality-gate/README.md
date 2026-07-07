@@ -76,13 +76,13 @@ canonical-set discipline (ADR 0051) that the gate's parity tests enforce
 
 ## In this section
 
-| Leaf                                             | What it covers                                                                                                                                                                                       |
-| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`ratchets.md`](ratchets.md)                     | Never-loosen floors and ceilings, raw counts versus `per` rates, the `DISCERN_METRIC` protocol, and what to do when one fires.                                                                        |
-| [`the-result-envelope.md`](the-result-envelope.md) | The `DiscernResult` envelope every verb returns, its `diagnostics[]`, the typed result schemas, and `discern mcp`'s self-describing surface (ADR 0028, ADR 0041).                                     |
-| [`ci.md`](ci.md)                                 | How to run `discern finish` on GitHub Actions so the gate protects `main` outside local runs, and what an ephemeral cloud-agent environment sees without the binary.                                  |
-| [`improve.md`](improve.md)                       | The continuous-improvement coach — what should get better next, versus the gate's did-this-pass.                                                                                                      |
-| [`coupling.md`](coupling.md)                     | The co-change advisory: the self-calibrating metric, the diff-aware/query/evidence modes, and the default-off gate hint (ADR 0084).                                                                   |
+| Leaf                                               | What it covers                                                                                                                                                       |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`ratchets.md`](ratchets.md)                       | Never-loosen floors and ceilings, raw counts versus `per` rates, the `DISCERN_METRIC` protocol, and what to do when one fires.                                       |
+| [`the-result-envelope.md`](the-result-envelope.md) | The `DiscernResult` envelope every verb returns, its `diagnostics[]`, the typed result schemas, and `discern mcp`'s self-describing surface (ADR 0028, ADR 0041).    |
+| [`ci.md`](ci.md)                                   | How to run `discern finish` on GitHub Actions so the gate protects `main` outside local runs, and what an ephemeral cloud-agent environment sees without the binary. |
+| [`improve.md`](improve.md)                         | The continuous-improvement coach — what should get better next, versus the gate's did-this-pass.                                                                     |
+| [`coupling.md`](coupling.md)                       | The co-change advisory: the self-calibrating metric, the diff-aware/query/evidence modes, and the default-off gate hint (ADR 0084).                                  |
 
 ## See also
 

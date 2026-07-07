@@ -12,8 +12,8 @@ discern doctor
 
 It checks the install end to end — the config parses, the schema is current, the
 commands your gate calls resolve on `PATH`, and each configured agent's
-integration is wired — and prints each verb's execution model so you can see what
-would run. When you report a problem, include its machine-readable form:
+integration is wired — and prints each verb's execution model so you can see
+what would run. When you report a problem, include its machine-readable form:
 
 ```
 discern doctor --json
@@ -25,8 +25,8 @@ the state a maintainer needs without a back-and-forth.
 ## `discern: command not found`
 
 The binary is not on your `PATH`. discern is a single self-contained file; the
-installer places it somewhere your shell can find it, but a fresh shell (or a new
-terminal that didn't reload your profile) may not have picked it up yet.
+installer places it somewhere your shell can find it, but a fresh shell (or a
+new terminal that didn't reload your profile) may not have picked it up yet.
 
 - Confirm where it landed: `which discern` (nothing printed ⇒ it is not on
   `PATH`).
@@ -47,11 +47,11 @@ server the agent starts. Two things commonly break that link:
 - **The committed config is untrusted.** Several agents — Codex, Gemini, Cursor,
   the GitHub Copilot CLI — hold committed MCP and hook config inert until you
   trust the folder once. `discern doctor` names the exact trust step per agent
-  (Claude Code needs none; discern pre-approves its server there). Until you take
-  that step, the wiring is present but dormant.
+  (Claude Code needs none; discern pre-approves its server there). Until you
+  take that step, the wiring is present but dormant.
 
-When the MCP server is genuinely unreachable, fall back to the `discern` CLI with
-`--json` in the meantime — every tool has a CLI verb behind it — and run
+When the MCP server is genuinely unreachable, fall back to the `discern` CLI
+with `--json` in the meantime — every tool has a CLI verb behind it — and run
 `discern doctor` to see which side is missing.
 
 ## Does discern work on Windows?
@@ -100,5 +100,5 @@ a public issue.
 - [What discern writes to your repo](what-discern-writes.md) — the footprint and
   how to remove it.
 - [The walkthrough](walkthrough.md) — one end-to-end session, start to finish.
-- [CI and cloud agents](../20-quality-gate/ci.md) — running the gate outside your
-  machine.
+- [CI and cloud agents](../20-quality-gate/ci.md) — running the gate outside
+  your machine.
