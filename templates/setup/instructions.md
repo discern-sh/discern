@@ -87,7 +87,7 @@ intent = "Build your mental model from the repository, then ask the user one sha
 files_to_read = [
   "the top-level layout, the README, and the manifests/lockfiles",
   "the actual code — models, config, tests",
-  "brief.md at the root, if a user or CI supplied one",
+  "{{brief_path}}, if a user or CI supplied one",
 ]
 must_do = [
   "Read the repository first — it is your primary source for the principles, concepts, and conventions you will write.",
@@ -103,7 +103,7 @@ next_action = "When you have your bearings, pull the next page: `discern setup s
 ```
 
 1. **Read the repository — it is your primary source.** The top-level layout, the README, the manifests/lockfiles, and the actual code (models, config, tests) are where the principles, concepts, and conventions you'll write are *evidenced*. Start forming the real mental model now; you inventory the stack properly in Step 7.
-2. **Ask the user a short, sharp batch of questions** — only what the code can't tell you: what the project is *for* and who it serves, its non-negotiable rules, anything in flight or deliberately unusual. Keep it to a handful of high-signal questions asked together, then proceed. (If a `brief.md` exists at the root — a user or CI may have supplied one via `--brief`/`--config` — read it first and let it narrow what you ask.)
+2. **Ask the user a short, sharp batch of questions** — only what the code can't tell you: what the project is *for* and who it serves, its non-negotiable rules, anything in flight or deliberately unusual. Keep it to a handful of high-signal questions asked together, then proceed. (If a brief exists at `{{brief_path}}` — a user or CI may have supplied one via `--brief`/`--config` — read it first and let it narrow what you ask.)
 
 **A thin answer is not a licence for a shallow result.** Whether the user gives you a single sentence or a deliberate "figure it out", the job is identical: mine the repository for what the system actually *is* and document *that* — don't paraphrase the answer and stop. The depth comes from the repo, not the length of the answer. Never invent a domain — derive it from what you find.
 

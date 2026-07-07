@@ -757,6 +757,11 @@ async function laySkeletons(
   const skipped: string[] = [];
   const docsRel = normalizeDocsDir(docsDir);
   const docsAbs = join(root, docsRel);
+  const tokens: SkeletonTokens = {
+    "{{project_name}}": name,
+    "{{docs_dir}}": docsRel,
+    "{{todo_path}}": todoRel,
+  };
 
   if (await pathExists(docsAbs)) {
     skipped.push(docsRel);
@@ -764,7 +769,7 @@ async function laySkeletons(
     await copyTreeSubstituting(
       join(skeletonDir, "docs"),
       docsAbs,
-      name,
+      tokens,
     );
     laid.push(docsRel);
   }
@@ -773,7 +778,7 @@ async function laySkeletons(
   if (await pathExists(join(root, todoRel))) {
     skipped.push(todoRel);
   } else if (await pathExists(todoSkeleton)) {
-    await copyTextSubstituting(todoSkeleton, join(root, todoRel), name);
+    await copyTextSubstituting(todoSkeleton, join(root, todoRel), tokens);
     laid.push(todoRel);
   }
 
@@ -787,7 +792,9 @@ interface SetupPathContext {
   guidanceRel: string;
 }
 
-/** Render the configured source paths into setup's agent-facing path references. */
+/** Render the configured source paths into setup's agent-facing path references.
+ * The brief has no config key (ADR 0102), so its token renders the registry
+ * default directly rather than riding {@link SetupPathContext}. */
 function renderSetupPaths(
   instructions: string,
   paths: SetupPathContext,
@@ -795,7 +802,8 @@ function renderSetupPaths(
   return instructions
     .replaceAll("{{docs_dir}}", normalizeDocsDir(paths.docsDir))
     .replaceAll("{{todo_path}}", paths.todoRel)
-    .replaceAll("{{guidance_path}}", paths.guidanceRel);
+    .replaceAll("{{guidance_path}}", paths.guidanceRel)
+    .replaceAll("{{brief_path}}", SOURCE_PATHS.brief.defaultPath);
 }
 
 async function gitTopLevel(start: string): Promise<string | undefined> {
@@ -2007,16 +2015,21 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
-/** Copy one text file, substituting `{{project_name}}`, creating parent dirs. */
+/** The `{{token}}` → value map the skeleton copies render against — the project
+ * name plus the configured source paths, so skeleton prose that names its own
+ * home (or its siblings) always names the CONFIGURED location, never a literal. */
+type SkeletonTokens = Readonly<Record<string, string>>;
+
+/** Copy one text file, substituting each skeleton token, creating parent dirs. */
 async function copyTextSubstituting(
   src: string,
   dest: string,
-  name: string,
+  tokens: SkeletonTokens,
 ): Promise<void> {
-  const text = (await Deno.readTextFile(src)).replaceAll(
-    "{{project_name}}",
-    name,
-  );
+  let text = await Deno.readTextFile(src);
+  for (const [token, value] of Object.entries(tokens)) {
+    text = text.replaceAll(token, value);
+  }
   await ensureDir(dirname(dest));
   await Deno.writeTextFile(dest, text);
 }
@@ -2025,10 +2038,10 @@ async function copyTextSubstituting(
 async function copyTreeSubstituting(
   srcDir: string,
   destDir: string,
-  name: string,
+  tokens: SkeletonTokens,
 ): Promise<void> {
   for await (const entry of walk(srcDir, { includeDirs: false })) {
     const rel = relative(srcDir, entry.path);
-    await copyTextSubstituting(entry.path, join(destDir, rel), name);
+    await copyTextSubstituting(entry.path, join(destDir, rel), tokens);
   }
 }

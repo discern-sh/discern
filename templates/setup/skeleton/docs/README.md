@@ -1,12 +1,12 @@
-# {{project_name}} documentation
+# {{project_name}} — the map
 
-The full documentation tree for {{project_name}}. Audience is layered: each subtree's `README.md` is for newcomers and visitors; the deeper leaves are for future-you and the coding agents that ground their work in this codebase.
+The agent-maintained map of {{project_name}}: how the system fits together, inferred from the code and written by the coding agents that work here. Agents read it to ground their work and keep it current as the code changes; humans read it to orient — and to audit what their agents actually understand about the codebase.
 
-**This tree is the canonical source of truth for how the system fits together.** It is written to describe **only what currently exists in code** — present tense, no "will eventually". When a change alters something the docs describe, the docs change with it. If a fact lives here and also in code, the code is authoritative and the docs must not drift from it.
+**The map is the canonical account of how the system fits together.** It describes **only what currently exists in code** — present tense, no "will eventually". When a change alters something the map describes, the map changes with it; a stale map is a defect. If a fact lives here and also in code, the code is authoritative and the map must not drift from it.
 
 If you're new, start with [00-orientation/](00-orientation/) and follow the trail.
 
-> This tree starts as a skeleton. Run the `discern setup` command to have your coding agent seed it from the repo and a few questions it asks you. The markers below (`<!-- setup fills this -->`) show what is still a placeholder.
+> The map starts as a skeleton. Run the `discern setup` command to have your coding agent seed it from the repo and a few questions it asks you. The markers below (`<!-- setup fills this -->`) show what is still a placeholder.
 
 ---
 
@@ -40,18 +40,18 @@ The subsystems are numbered subtrees, in the order a newcomer should read them �
 
 ---
 
-## How this tree is produced and kept current
+## How the map is produced and kept current
 
-The tree is seeded once by `discern setup`, then grown subtree-by-subtree with the `discern-document-subsystem` skill, which follows the brief it materializes at `_internal/documenter-agent-brief.md` the first time you run it. A single skeleton-and-orientation pass establishes the shared terminology and shape before any subtree is filled in.
+The map is seeded once by `discern setup`, then grown subtree-by-subtree with the `discern-document-subsystem` skill, which follows the brief it materializes at `_internal/documenter-agent-brief.md` the first time you run it. A single skeleton-and-orientation pass establishes the shared terminology and shape before any subtree is filled in.
 
-Because the tree is the source of truth, it must not drift from code. When you change something a doc describes — the architecture, the data model, a subsystem's documented behaviour, a public convention, or whether a feature exists — update the affected docs in the same change.
+Because the map is the canonical account, it must not drift from code. When you change something a doc describes — the architecture, the data model, a subsystem's documented behaviour, a public convention, or whether a feature exists — update the affected docs in the same change.
 
 ---
 
 ## Conventions
 
-- **File links** use relative paths from inside `docs/`: `[some module](../src/path/Thing.ext)`. Never a leading `docs/` from within `docs/`.
+- **File links** use relative paths from inside this tree: `[some module](../src/path/Thing.ext)`. Never a leading `{{docs_dir}}` from within the tree.
 - **Terminology** follows the [glossary](00-orientation/glossary.md). The project's canonical nouns are defined there once; synonyms are not introduced.
 - **No modal verbs about the system** ("should", "would", "could", "will eventually"). Every claim describes what exists in code today. Half-built or deprecated things live under a "Current state & gotchas" heading and are called out plainly.
 - **Diagrams are ASCII-first**, so they live in the text and stay diffable. A richer rendered image is the exception, not the default.
-- **Outstanding work does not live here.** The docs say what *is*; the root [`TODO.md`](../TODO.md) tracks what is *owed*.
+- **Outstanding work does not live here.** The map says what *is*; the deferred-work ledger at `{{todo_path}}` tracks what is *owed*.
