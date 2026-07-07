@@ -12,7 +12,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { exists } from "@std/fs";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
-import { git, gitInit, gitOut, runAgent } from "./engine_helpers.ts";
+import { git, gitInit, gitOut, runAgent, scaffoldEngine } from "./engine_helpers.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 
 /** A fresh git work tree with one commit — on the given branch, not `main`. */
@@ -167,6 +167,113 @@ Deno.test("verify in a non-git directory serves git-init-first and promises no i
     const begin = await runAgent(dir, ["setup", "begin"]);
     assertEquals(begin.code, 1, begin.output);
     assertStringIncludes(begin.stdout, d.guidance);
+  });
+});
+
+// ── B9: commit failures explain themselves ─────────────────────────────────────
+
+/** A git repo with one commit but NO configured identity — the commit was made
+ * with one-shot `-c` overrides. `user.useConfigOnly` makes the missing identity
+ * fail deterministically (without it, git may auto-detect user@hostname on some
+ * machines and silently record a guessed author instead). */
+async function repoWithoutIdentity(dir: string): Promise<void> {
+  await git(dir, "init", "-q", "-b", "main");
+  await git(dir, "config", "user.useConfigOnly", "true");
+  await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+  await git(dir, "add", "-A");
+  await git(
+    dir,
+    "-c",
+    "user.name=Engine Test",
+    "-c",
+    "user.email=engine-test@example.com",
+    "-c",
+    "commit.gpgsign=false",
+    "commit",
+    "-qm",
+    "scaffold",
+  );
+}
+
+Deno.test("verify names a missing git identity with the exact commands, and begin's failed machinery commit surfaces stderr", async () => {
+  await withTempDir(async (dir) => {
+    await repoWithoutIdentity(dir);
+
+    // The preflight names the gap BEFORE the agent burns a session hitting it.
+    const v = JSON.parse(
+      (await runAgent(dir, ["setup", "verify", "--json"])).stdout,
+    ).data;
+    assertEquals(v.findings.git.identity, false);
+    const conflict = v.conflicts.find(
+      (c: { kind: string }) => c.kind === "missing_git_identity",
+    );
+    assert(conflict !== undefined, JSON.stringify(v.conflicts));
+    assertStringIncludes(conflict.detail, 'git config user.name "Your Name"');
+    assertStringIncludes(
+      conflict.detail,
+      'git config user.email "you@example.com"',
+    );
+
+    // If the agent proceeds anyway, the machinery auto-commit fails — and the
+    // cause is surfaced (git's stderr line), not collapsed into a silent skip.
+    const begin = await runAgent(dir, [
+      "setup",
+      "begin",
+      "--confirmed",
+      "--json",
+      "--agents",
+      "claude_code",
+    ]);
+    assertEquals(begin.code, 0, begin.output);
+    const d = JSON.parse(begin.stdout).data;
+    assertEquals(d.machinery_committed, false);
+    assert(
+      typeof d.machinery_commit_error === "string" &&
+        d.machinery_commit_error.length > 0,
+      `expected the git stderr cause: ${JSON.stringify(d)}`,
+    );
+  });
+});
+
+Deno.test("a failed completion-marker commit explains itself instead of misattributing the cause", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { bootstrapped: false });
+    await git(dir, "init", "-q", "-b", "main");
+    await git(dir, "config", "user.useConfigOnly", "true");
+    await git(dir, "add", "-A");
+    await git(
+      dir,
+      "-c",
+      "user.name=Engine Test",
+      "-c",
+      "user.email=engine-test@example.com",
+      "-c",
+      "commit.gpgsign=false",
+      "commit",
+      "-qm",
+      "scaffold",
+    );
+
+    // --force skips the completion proof; the marker is written, and its
+    // auto-commit fails on the missing identity. The old output misattributed
+    // this as "could not prove that was the only discern.toml change".
+    const human = await runAgent(dir, ["setup", "done", "--force"]);
+    assertEquals(human.code, 0, human.output);
+    assertStringIncludes(human.stdout, "Git said:");
+    assert(
+      !human.stdout.includes("could not prove"),
+      `a failed commit must not be misattributed:\n${human.stdout}`,
+    );
+
+    const res = JSON.parse(
+      (await runAgent(dir, ["setup", "done", "--force", "--json"])).stdout,
+    );
+    assertEquals(res.data.marker_committed, false);
+    assert(
+      typeof res.data.marker_commit_error === "string" &&
+        res.data.marker_commit_error.length > 0,
+      `expected the git stderr cause: ${JSON.stringify(res.data)}`,
+    );
   });
 });
 

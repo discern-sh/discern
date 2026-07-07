@@ -694,6 +694,7 @@ export const SetupVerifyConflictSchema = z.strictObject({
     "existing_instructions",
     "dirty_tree",
     "not_a_repo",
+    "missing_git_identity",
   ]),
   detail: z.string(),
 });
@@ -710,6 +711,9 @@ export const SetupVerifyFindingsSchema = z.strictObject({
     repo: z.boolean(),
     clean: z.boolean(),
     uncommitted: z.number(),
+    /** Whether a commit identity (user.name + user.email) resolves here — the
+     * precheck that keeps setup's own commits from failing mid-flow. */
+    identity: z.boolean(),
   }),
   docs: z.strictObject({
     exists: z.boolean(),
@@ -801,6 +805,9 @@ export const SetupDoneDataSchema = z.strictObject({
    * was skipped (worktrees off, an uncreatable probe, or `--force`). */
   worktree_proven: z.boolean(),
   marker_committed: z.boolean(),
+  /** The git stderr line explaining a FAILED completion-marker auto-commit
+   * (absent when committed, skipped deliberately, or outside git). */
+  marker_commit_error: z.string().optional(),
   leftover: z.array(z.string()),
   assurance: SetupAssuranceSchema,
   landing: SetupDoneLandingSchema,
@@ -851,6 +858,9 @@ export const SetupDataSchema = z.strictObject({
   bootstrapped: z.boolean().optional(),
   branch: z.string().nullable().optional(),
   machinery_committed: z.boolean().optional(),
+  /** The git stderr line explaining a FAILED machinery auto-commit (absent when
+   * committed, or when the skip was deliberate). */
+  machinery_commit_error: z.string().optional(),
   kit_version: z.string().optional(),
   written: z.array(z.string()).optional(),
   compiled: z.array(z.string()).optional(),

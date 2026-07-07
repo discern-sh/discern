@@ -46,6 +46,7 @@ import {
   deriveConsentContext,
 } from "../shared/setup_messages.ts";
 import { SOURCE_PATHS } from "../shared/paths_registry.ts";
+import { runGit } from "../shared/subprocess.ts";
 import {
   SETUP_BRANCH,
   setupBranchExists,
@@ -121,6 +122,7 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
 
   // --- Gather the grounded findings (all read-only) ---
   const git = await worktreeState(destDir);
+  const identity = await gitIdentityPresent(destDir);
   const detected = await detectAgentsOnPath();
   const effectiveAgents = detected.length > 0
     ? detected
@@ -134,7 +136,7 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
   );
   const existingInstructions = await findExistingInstructions(destDir);
 
-  const conflicts = buildConflicts(git, existingInstructions);
+  const conflicts = buildConflicts(git, identity, existingInstructions);
   // The consent conversation as ONE ready-to-relay prose block, built once and rendered
   // identically on both surfaces — never split into structured fields, which agents
   // summarize and weaken (ADR 0078). discern ships the script, not stage directions
@@ -157,6 +159,7 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
           repo: git.kind !== "not-a-repo",
           clean: git.kind === "clean",
           uncommitted: git.kind === "dirty" ? git.changes.length : 0,
+          identity,
         },
         docs: {
           exists: docsExists,
@@ -220,6 +223,7 @@ async function findExistingInstructions(destDir: string): Promise<string[]> {
  * so the docs choice rides the consent message as an opt-in, not a warning. */
 function buildConflicts(
   git: Awaited<ReturnType<typeof worktreeState>>,
+  identity: boolean,
   existingInstructions: string[],
 ): SetupVerifyConflict[] {
   const conflicts: SetupVerifyConflict[] = [];
@@ -234,6 +238,15 @@ function buildConflicts(
       kind: "dirty_tree",
       detail:
         "Uncommitted changes to tracked files — begin will ask you to commit or stash first. (Advanced: --allow-dirty sets up on the current branch as-is, skipping the isolated discern-setup branch — for CI or automated setups.)",
+    });
+  }
+  if (git.kind !== "not-a-repo" && !identity) {
+    conflicts.push({
+      kind: "missing_git_identity",
+      detail:
+        "No git identity is configured, so the commits setup makes here will fail or record a guessed author. Set it first: " +
+        '`git config user.name "Your Name"` and `git config user.email "you@example.com"` ' +
+        "(add --global to set it machine-wide).",
     });
   }
   if (existingInstructions.length > 0) {
@@ -316,6 +329,21 @@ function gitSummary(git: Awaited<ReturnType<typeof worktreeState>>): string {
     case "not-a-repo":
       return "not a git repository — see below";
   }
+}
+
+/**
+ * Whether a git commit identity (user.name AND user.email) resolves here, across
+ * every config scope git itself would consult. Without one, every commit setup
+ * makes — the machinery commit, the agent's per-stage commits, the completion
+ * marker — fails mid-flow; naming it in the preflight (with the exact commands)
+ * costs one probe instead of a burned session.
+ */
+async function gitIdentityPresent(destDir: string): Promise<boolean> {
+  const name = (await runGit(["config", "user.name"], { cwd: destDir })).stdout
+    .trim();
+  const email = (await runGit(["config", "user.email"], { cwd: destDir }))
+    .stdout.trim();
+  return name !== "" && email !== "";
 }
 
 /** True when a path exists (any type, symlinks not followed). */

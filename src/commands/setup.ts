@@ -972,11 +972,11 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   // permission-widening wiring (a pre-approved MCP server), which its safety classifier
   // is rightly trained to refuse. Best-effort and fail-open (a commit failure falls back
   // to the agent committing by hand); skipped when setup proceeds in place with no branch.
-  let machineryCommitted = false;
+  let machineryCommit: AutoCommitOutcome | undefined;
   if (setupBranch !== undefined && scaffold !== undefined) {
-    machineryCommitted =
-      (await commitScaffoldedMachinery(destDir, scaffold)) === "committed";
+    machineryCommit = await commitScaffoldedMachinery(destDir, scaffold);
   }
+  const machineryCommitted = machineryCommit?.state === "committed";
 
   // --- Phase 2: lay the doc skeletons (only where the project has none) ---
   // Read the config for the project name, but degrade gracefully: a `--force`
@@ -1044,6 +1044,9 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
         bootstrapped: false,
         branch: setupBranch ?? null,
         machinery_committed: machineryCommitted,
+        ...(machineryCommit?.state === "failed"
+          ? { machinery_commit_error: machineryCommit.detail }
+          : {}),
         next_action:
           "Work through `data.instructions` (the principles + page 0), pull each next page with `discern setup step <n>`, then run `discern setup done` to finish.",
         project: {
@@ -1108,6 +1111,10 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   if (machineryCommitted) {
     console.log(
       "Committed discern's harness wiring (config, .gitignore, MCP + hooks) for you — the docs, guidance, and TODO below are yours to fill and commit.",
+    );
+  } else if (machineryCommit?.state === "failed") {
+    console.log(
+      `Could not auto-commit discern's harness wiring — commit the scaffolded files yourself once it's fixed. Git said: ${machineryCommit.detail}`,
     );
   }
   if (laid.length > 0) {
@@ -1263,7 +1270,7 @@ function authoredContentSeeds(guidanceRel: string): ReadonlySet<string> {
 async function commitScaffoldedMachinery(
   root: string,
   scaffold: ScaffoldOutcome,
-): Promise<"committed" | "skipped"> {
+): Promise<AutoCommitOutcome> {
   const paths = [
     ...new Set([
       ...scaffold.written,
@@ -1276,17 +1283,52 @@ async function commitScaffoldedMachinery(
     .filter((p) => !authoredContentSeeds(scaffold.guidanceRel).has(p))
     .sort();
   if (paths.length === 0) {
-    return "skipped"; // nothing scaffolded to commit (e.g. a fully-idempotent re-run)
+    // Nothing scaffolded to commit (e.g. a fully-idempotent re-run).
+    return { state: "skipped" };
   }
   const add = await runGit(["add", "--", ...paths], { cwd: root });
   if (!add.success) {
-    return "skipped";
+    return { state: "failed", detail: gitFailureLine(add.stderr) };
   }
   const commit = await runGit(
     ["commit", "-m", "discern: scaffold harness"],
     { cwd: root },
   );
-  return commit.success ? "committed" : "skipped";
+  return commit.success
+    ? { state: "committed" }
+    : { state: "failed", detail: gitFailureLine(commit.stderr) };
+}
+
+/**
+ * A best-effort git auto-commit's outcome. Fail-open stands — a failure never
+ * fails the verb — but the CAUSE is carried, not discarded: `failed` keeps the
+ * git stderr line (a missing identity, commit signing, a hook) so both surfaces
+ * can explain what to fix instead of misattributing the skip. `skipped` is the
+ * deliberate no-op (nothing to commit / could not prove the diff is safe).
+ */
+type AutoCommitOutcome =
+  | { state: "committed" }
+  | { state: "skipped" }
+  | { state: "failed"; detail: string };
+
+/** The completion-marker commit's outcome — {@link AutoCommitOutcome} plus the
+ * outside-git case, which is not a failure at all. */
+type MarkerCommitOutcome = AutoCommitOutcome | { state: "no-git" };
+
+/**
+ * The one git stderr line worth relaying from a failed auto-commit: the last
+ * `fatal:`/`error:` line when present (git states the specific cause there —
+ * "unable to auto-detect email address", a signing failure), else the first
+ * non-empty line, else a generic fallback.
+ */
+function gitFailureLine(stderr: string): string {
+  const lines = stderr.split("\n").map((l) => l.trim()).filter((l) =>
+    l !== ""
+  );
+  const fatal = lines.findLast((l) =>
+    l.startsWith("fatal:") || l.startsWith("error:")
+  );
+  return fatal ?? lines[0] ?? "git did not report a cause";
 }
 
 /** Options for `discern setup step <n>` (just the global flags). */
@@ -1382,9 +1424,9 @@ export async function runSetupStep(
 async function commitCompletionMarker(
   root: string,
   configPath: string,
-): Promise<"committed" | "skipped" | "no-git"> {
+): Promise<MarkerCommitOutcome> {
   if ((await worktreeState(root)).kind === "not-a-repo") {
-    return "no-git";
+    return { state: "no-git" };
   }
   const configRel = relative(root, configPath);
   // The config change must be EXACTLY the marker line we just wrote, nothing else
@@ -1393,7 +1435,7 @@ async function commitCompletionMarker(
   // "Anything else is unexpected", so fail open.
   const diff = await runGit(["diff", "HEAD", "--", configRel], { cwd: root });
   if (!diff.success) {
-    return "skipped";
+    return { state: "failed", detail: gitFailureLine(diff.stderr) };
   }
   const body = diff.stdout.split("\n");
   const added = body.filter((l) => l.startsWith("+") && !l.startsWith("+++"));
@@ -1402,17 +1444,20 @@ async function commitCompletionMarker(
   const onlyMarker = removed.length === 0 && added.length === 1 &&
     added[0]?.slice(1).trim() === `${markerKey} = true`;
   if (!onlyMarker) {
-    return "skipped"; // more than the marker line changed → leave it for the agent
+    // More than the marker line changed → leave it for the agent, deliberately.
+    return { state: "skipped" };
   }
   const add = await runGit(["add", "--", configRel], { cwd: root });
   if (!add.success) {
-    return "skipped";
+    return { state: "failed", detail: gitFailureLine(add.stderr) };
   }
   const commit = await runGit(
     ["commit", "-m", "Mark discern setup complete", "--", configRel],
     { cwd: root },
   );
-  return commit.success ? "committed" : "skipped";
+  return commit.success
+    ? { state: "committed" }
+    : { state: "failed", detail: gitFailureLine(commit.stderr) };
 }
 
 /**
@@ -1479,7 +1524,7 @@ interface DoneSuccessView {
   opts: SetupDoneOptions;
   forced: boolean;
   leftover: string[];
-  markerCommit: "committed" | "skipped" | "no-git";
+  markerCommit: MarkerCommitOutcome;
   assurance: SetupAssurance;
   landing: LandingSummary;
   reactivation: ReturnType<typeof reactivationHandoff>;
@@ -1610,11 +1655,15 @@ function printDoneSuccess(view: DoneSuccessView): void {
       `(Marked complete with --force despite ${leftover.length} file(s) still carrying skeleton markers.)`,
     );
   }
-  if (markerCommit === "committed") {
+  if (markerCommit.state === "committed") {
     console.log("Committed the completion marker (discern.toml).");
-  } else if (markerCommit === "skipped") {
+  } else if (markerCommit.state === "skipped") {
     console.log(
       "Commit the updated discern.toml — it carries the completion marker, but discern could not prove that was the only discern.toml change to auto-commit.",
+    );
+  } else if (markerCommit.state === "failed") {
+    console.log(
+      `Commit the updated discern.toml yourself — it carries the completion marker, but discern's auto-commit failed. Git said: ${markerCommit.detail}`,
     );
   }
 
@@ -1747,7 +1796,10 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
       forced,
       gate_proven: !opts.force,
       worktree_proven: worktreeProven,
-      marker_committed: markerCommit === "committed",
+      marker_committed: markerCommit.state === "committed",
+      ...(markerCommit.state === "failed"
+        ? { marker_commit_error: markerCommit.detail }
+        : {}),
       leftover,
       assurance,
       landing: {

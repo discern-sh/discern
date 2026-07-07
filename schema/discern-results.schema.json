@@ -361,6 +361,9 @@
                 "machinery_committed": {
                   "type": "boolean"
                 },
+                "machinery_commit_error": {
+                  "type": "string"
+                },
                 "kit_version": {
                   "type": "string"
                 },
@@ -784,12 +787,16 @@
                         },
                         "uncommitted": {
                           "type": "number"
+                        },
+                        "identity": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
                         "repo",
                         "clean",
-                        "uncommitted"
+                        "uncommitted",
+                        "identity"
                       ]
                     },
                     "docs": {
@@ -844,7 +851,8 @@
                         "enum": [
                           "existing_instructions",
                           "dirty_tree",
-                          "not_a_repo"
+                          "not_a_repo",
+                          "missing_git_identity"
                         ]
                       },
                       "detail": {
@@ -1452,6 +1460,9 @@
                 },
                 "marker_committed": {
                   "type": "boolean"
+                },
+                "marker_commit_error": {
+                  "type": "string"
                 },
                 "leftover": {
                   "type": "array",

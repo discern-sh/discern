@@ -101,6 +101,7 @@ export type DiscernSetupResult = {
     bootstrapped?: boolean;
     branch?: string | null;
     machinery_committed?: boolean;
+    machinery_commit_error?: string;
     kit_version?: string;
     written?: Array<string>;
     compiled?: Array<string>;
@@ -216,6 +217,7 @@ export type DiscernSetupVerifyResult = {
         repo: boolean;
         clean: boolean;
         uncommitted: number;
+        identity: boolean;
       };
       docs: {
         exists: boolean;
@@ -226,7 +228,11 @@ export type DiscernSetupVerifyResult = {
       worktree_path: string;
     };
     conflicts?: Array<{
-      kind: "existing_instructions" | "dirty_tree" | "not_a_repo";
+      kind:
+        | "existing_instructions"
+        | "dirty_tree"
+        | "not_a_repo"
+        | "missing_git_identity";
       detail: string;
     }>;
     guidance?: string;
@@ -408,6 +414,7 @@ export type DiscernSetupDoneResult = {
     gate_proven: boolean;
     worktree_proven: boolean;
     marker_committed: boolean;
+    marker_commit_error?: string;
     leftover: Array<string>;
     assurance: {
       capabilities: Array<{
