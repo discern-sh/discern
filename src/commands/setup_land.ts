@@ -153,12 +153,19 @@ export async function runSetupLand(opts: SetupLandOptions): Promise<number> {
     });
   }
   if (!(await run(["rev-parse", "--verify", "--quiet", target])).success) {
+    // The common shape of this: a brand-new repository whose first commits were
+    // born on the setup branch, so the integration branch never came into being.
+    // Serve the exact creation-then-land step in the message itself, so it rides
+    // both surfaces identically, rather than dead-ending.
     return emitLand(opts, {
       ok: false,
       error: "no_target",
       message:
-        `the integration branch ${target} does not exist, so setup cannot be landed onto it. ` +
-        `Create it, or set [project].main_branch to your integration branch, then re-run.`,
+        `the integration branch \`${target}\` doesn't exist in this repository yet — in a ` +
+        `brand-new repository the first commits are born on \`${branch}\`, so there is no ` +
+        `\`${target}\` to land onto. Create it at your setup's tip, then land: ` +
+        `\`git branch ${target} && ${LAND_COMMAND}\`. ` +
+        `(If this project integrates on a different branch, set [project].main_branch to it instead.)`,
       code: 1,
     });
   }

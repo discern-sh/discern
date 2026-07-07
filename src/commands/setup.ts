@@ -230,6 +230,9 @@ export async function assembleInitPlan(params: {
   config: SetupConfig;
   /** Declarative slots/scopes/side_gates/ratchets fills from `setup --config`. */
   fills?: DiscernConfigDoc | undefined;
+  /** The repo's detected integration branch, stamped into the fresh config's
+   * `[project].main_branch` (before the fills, so an explicit fill still wins). */
+  mainBranch?: string | undefined;
 }): Promise<Plan> {
   const { templatesDir, destDir, config } = params;
   const tokens = tokensFromConfig(config);
@@ -255,11 +258,16 @@ export async function assembleInitPlan(params: {
     plan.ops.sort((a, b) => a.targetRel.localeCompare(b.targetRel));
   }
 
-  // Stamp `[meta].schema_version` into the freshly-generated config, then apply
-  // any declarative fills (from `setup --config`). Both edit the config op's
-  // bytes in place, so the plan's bytes are final — dry-run/json show them and
-  // apply writes them. A `skip` config (an existing seed) is left untouched.
+  // Stamp `[meta].schema_version` and the detected integration branch into the
+  // freshly-generated config, then apply any declarative fills (from
+  // `setup --config`). All edit the config op's bytes in place, so the plan's
+  // bytes are final — dry-run/json show them and apply writes them. A `skip`
+  // config (an existing seed) is left untouched. Order matters: the fills come
+  // last, so an explicitly declared main_branch beats the detected one.
   stampSchemaIntoPlan(plan, SCHEMA_VERSION);
+  if (params.mainBranch !== undefined) {
+    stampMainBranchIntoPlan(plan, params.mainBranch);
+  }
   if (params.fills) {
     applyFillsToPlan(plan, params.fills);
   }
@@ -284,6 +292,73 @@ function stampSchemaIntoPlan(plan: Plan, version: number): void {
   const editor = new TomlEditor(TEXT_DECODER.decode(op.bytes));
   stampSchemaVersion(editor, version);
   op.bytes = TEXT_ENCODER.encode(editor.toString());
+}
+
+/**
+ * Stamp the detected `[project].main_branch` into a freshly-generated config op,
+ * in place (comment-preserving). Without this, a repo whose default branch is not
+ * `main` scaffolds a config pointing the gate's merge check at a branch that does
+ * not exist locally — a check that then silently self-skips forever, and a
+ * `setup land` that dead-ends.
+ */
+function stampMainBranchIntoPlan(plan: Plan, branch: string): void {
+  const op = freshConfigOp(plan);
+  if (!op) {
+    return;
+  }
+  const editor = new TomlEditor(TEXT_DECODER.decode(op.bytes));
+  editor.setString("project.main_branch", branch);
+  op.bytes = TEXT_ENCODER.encode(editor.toString());
+}
+
+/**
+ * Detect the repository's real integration branch for the scaffold to stamp: the
+ * remote's declared default (`origin/HEAD`) wins, then the branch checked out
+ * when setup started — so this must run BEFORE the `discern-setup` checkout —
+ * then the user's configured `init.defaultBranch` (a tiebreaker for a detached
+ * HEAD only: vendor builds bake a default into it — Apple's git ships
+ * `init.defaultBranch = main` in an unmaskable baked-in config — so consulting
+ * it ahead of the checked-out branch would stamp `main` on every macOS `master`
+ * repo, the exact bug this detection exists to fix). Undefined outside a git
+ * repo, when every probe comes back empty, or when the current branch is already
+ * `discern-setup` (a resume — never an integration branch).
+ */
+async function detectIntegrationBranch(
+  destDir: string,
+): Promise<string | undefined> {
+  const inRepo = await runGit(["rev-parse", "--is-inside-work-tree"], {
+    cwd: destDir,
+  });
+  if (!inRepo.success) {
+    return undefined;
+  }
+  const originHead = await runGit(
+    ["symbolic-ref", "--quiet", "refs/remotes/origin/HEAD"],
+    { cwd: destDir },
+  );
+  const originPrefix = "refs/remotes/origin/";
+  const originRef = originHead.stdout.trim();
+  if (originHead.success && originRef.startsWith(originPrefix)) {
+    const branch = originRef.slice(originPrefix.length);
+    if (branch !== "") {
+      return branch;
+    }
+  }
+  // `git branch --show-current` (not `rev-parse --abbrev-ref HEAD`) so an unborn
+  // branch — a brand-new `git init` with no commits yet — still names itself.
+  const current =
+    (await runGit(["branch", "--show-current"], { cwd: destDir })).stdout
+      .trim();
+  if (current !== "" && current !== SETUP_BRANCH) {
+    return current;
+  }
+  const configured =
+    (await runGit(["config", "init.defaultBranch"], { cwd: destDir })).stdout
+      .trim();
+  if (configured !== "") {
+    return configured;
+  }
+  return undefined;
 }
 
 /**
@@ -338,6 +413,7 @@ async function scaffoldHarness(
   opts: SetupOptions,
   log: Logger,
   freshInstall: boolean,
+  detectedMainBranch: string | undefined,
 ): Promise<{ outcome?: ScaffoldOutcome; stop?: number }> {
   let templatesDir: string;
   try {
@@ -389,6 +465,7 @@ async function scaffoldHarness(
       destDir,
       config,
       fills: fileAnswers,
+      mainBranch: detectedMainBranch,
     });
   } catch (error) {
     if (error instanceof SettingsMergePlanError) {
@@ -801,6 +878,15 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
     return emitAwaitingConsent(log, opts, destDir);
   }
 
+  // Detect the repo's real integration branch BEFORE the `discern-setup` checkout
+  // below (the last detection probe reads the currently checked-out branch), so the
+  // scaffold stamps `[project].main_branch` with the truth rather than assuming
+  // `main` — on a `master` repo that assumption silently disarms the gate's merge
+  // check and dead-ends `setup land`.
+  const detectedMainBranch = freshInstall
+    ? await detectIntegrationBranch(destDir)
+    : undefined;
+
   // --- Pre-scaffold: isolate a fresh install on its own branch (ADR 0065) ---
   // A fresh setup makes several commits; keep them off the user's current branch and
   // trivially revertible. Require a clean tree (fail if dirty), then create + check
@@ -823,6 +909,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
       opts,
       log,
       freshInstall,
+      detectedMainBranch,
     );
     if (stop !== undefined) {
       return stop; // error emitted, or --dry-run already printed the plan

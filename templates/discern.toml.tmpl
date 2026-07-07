@@ -28,7 +28,9 @@ slug = "{{project_slug}}"
 branch_prefix = "{{branch_prefix}}"
 
 # The integration branch the gate merges into and worktrees graduate onto.
-# Override per-invocation with the MAIN_BRANCH env var.
+# Detected from your repository at setup (origin/HEAD, then the branch setup
+# started from, then init.defaultBranch). Override per-invocation with the
+# MAIN_BRANCH env var.
 main_branch = "main"
 
 # Where the gate points an agent when a stage fails in a non-obvious way. Keep
