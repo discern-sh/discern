@@ -34,6 +34,11 @@ import { bundledSkillNames } from "./skills.ts";
 import { resolveBundledSkillsDir } from "./paths.ts";
 import { FEATURES } from "../shared/features.ts";
 import { DEFAULT_AGENTS } from "../shared/config_schema.ts";
+import {
+  SOURCE_PATH_NAMES,
+  SOURCE_PATHS,
+  type SourcePathName,
+} from "../shared/paths_registry.ts";
 
 /** True for a non-null, non-array object. */
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -726,7 +731,233 @@ export const MIGRATIONS: Migration[] = [
       await removeClaudeLocalSettingsGitignoreException(ctx);
     },
   },
+  {
+    from: 14,
+    describe:
+      "consolidate the authored surface under the visible discern/ namespace: each unpointed source (the guidance seed, the docs tree, authored skills, recipes, the deferred-work ledger, the brief) moves from its old root default to its discern/ default; pointed paths are untouched (ADR 0099/0102)",
+    apply: async (ctx) => {
+      await migrateIntoNamespace(ctx);
+    },
+  },
 ];
+
+/** A migration decision for one registry path: whether its config key is
+ * pointed away from the pre-namespace default. */
+interface NamespaceMoveDecision {
+  /** The registry entry being considered. */
+  name: SourcePathName;
+  /** True when the configured value differs from the old default — the user
+   * typed a path, so the migration must not touch it. */
+  pointed: boolean;
+  /** True when the key is literally written in the config (at the old default),
+   * so a move must also update the written value to the new default. */
+  keyWritten: boolean;
+}
+
+/** Strip a trailing slash for filesystem operations (`docs/` → `docs`). */
+function fsPath(p: string): string {
+  return p.replace(/\/+$/, "");
+}
+
+/** Canonicalize a configured dir-ish value for default comparison: trim, drop a
+ * leading `./` and any trailing slashes. */
+function canonicalDir(p: string): string {
+  return p.trim().replace(/^\.\//, "").replace(/\/+$/, "");
+}
+
+/** Read a dotted key from a raw parsed config, or undefined. */
+function rawValueAt(
+  raw: Record<string, unknown>,
+  dotted: string,
+): unknown {
+  let node: unknown = raw;
+  for (const seg of dotted.split(".")) {
+    if (!isRecord(node)) {
+      return undefined;
+    }
+    node = node[seg];
+  }
+  return node;
+}
+
+/**
+ * Whether a keyed registry path is pointed away from its pre-namespace default.
+ * Absent ⇒ unpointed (the old schema default governed). A list key (the guidance
+ * sources) is unpointed when empty or exactly the one legacy default entry; a
+ * dir key when it canonicalizes to the legacy default.
+ */
+function decideNamespaceMove(
+  raw: Record<string, unknown>,
+  name: SourcePathName,
+): NamespaceMoveDecision {
+  const entry = SOURCE_PATHS[name];
+  if (entry.key === null) {
+    return { name, pointed: false, keyWritten: false }; // fixed location (the brief)
+  }
+  const value = rawValueAt(raw, entry.key);
+  if (value === undefined) {
+    return { name, pointed: false, keyWritten: false };
+  }
+  if (Array.isArray(value)) {
+    const unpointed = value.length === 0 ||
+      (value.length === 1 && value[0] === entry.legacyPath);
+    return { name, pointed: !unpointed, keyWritten: true };
+  }
+  if (typeof value === "string") {
+    const unpointed = canonicalDir(value) === canonicalDir(entry.legacyPath);
+    return { name, pointed: !unpointed, keyWritten: true };
+  }
+  // An unrecognizable shape — never touch it.
+  return { name, pointed: true, keyWritten: true };
+}
+
+/**
+ * The schema-14→15 transform (ADR 0099/0102): consolidate the authored surface
+ * under the visible `discern/` namespace. Enumerates the paths registry — for
+ * each source path whose config key is NOT pointed away from the old default,
+ * move the file/dir from its pre-namespace location to its `discern/` default
+ * (creating the namespace dir as needed) and update an explicitly-written key to
+ * the new default. A pointed path is untouched; a move blocked by an occupied
+ * target keeps the old location working by pinning the key to it explicitly.
+ * Also carries `[project].gotchas_doc` and the seeded neutral-scope globs across
+ * a docs/skills move, best-effort — same craft as the 2→3 glob repoint.
+ */
+async function migrateIntoNamespace(ctx: MigrationContext): Promise<void> {
+  const text = await ctx.readConfig();
+  if (text === undefined) {
+    return; // no config to evolve.
+  }
+  let raw: Record<string, unknown>;
+  try {
+    raw = parseDiscernToml(text).raw;
+  } catch {
+    return; // unparseable — upgrade validates the config first; belt-and-braces.
+  }
+
+  const moved: SourcePathName[] = [];
+  const pinned: SourcePathName[] = [];
+  const repoint: Array<{ key: string; value: string | string[] }> = [];
+
+  for (const name of SOURCE_PATH_NAMES) {
+    const entry = SOURCE_PATHS[name];
+    const decision = decideNamespaceMove(raw, name);
+    if (decision.pointed) {
+      continue; // the user typed a path — their consent, their layout.
+    }
+    const from = fsPath(entry.legacyPath);
+    const to = fsPath(entry.defaultPath);
+    const sourceExists = await ctx.exists(from);
+    const targetOccupied = await ctx.exists(to);
+
+    if (sourceExists && targetOccupied) {
+      // Can't move without clobbering — keep the old location WORKING by
+      // pinning the key to it explicitly (placement-is-consent: the pin records
+      // the layout the install actually has). The brief has no key to pin.
+      if (entry.key !== null) {
+        repoint.push({
+          key: entry.key,
+          value: entry.key === "guidance.sources"
+            ? [entry.legacyPath]
+            : entry.legacyPath,
+        });
+        pinned.push(name);
+      }
+      ctx.note(
+        `left ${entry.legacyPath} in place — ${entry.defaultPath} already exists; resolve the collision and move it yourself if wanted`,
+      );
+      continue;
+    }
+
+    if (sourceExists) {
+      await ctx.rename(from, to);
+      moved.push(name);
+    }
+    // Converge an explicitly-written old-default key on the new default (the
+    // move carried the content; an absent key already reads the new default).
+    if (decision.keyWritten && entry.key !== null) {
+      repoint.push({
+        key: entry.key,
+        value: entry.key === "guidance.sources"
+          ? [entry.defaultPath]
+          : entry.defaultPath,
+      });
+    }
+  }
+
+  // Carry [project].gotchas_doc across a docs move: it points INTO the tree
+  // that just moved, so rewrite its prefix (only when it wasn't pointed
+  // elsewhere — a path outside the old docs default is untouched).
+  const docsEntry = SOURCE_PATHS.docs;
+  const gotchas = rawValueAt(raw, "project.gotchas_doc");
+  if (
+    moved.includes("docs") && typeof gotchas === "string" &&
+    gotchas.startsWith(docsEntry.legacyPath)
+  ) {
+    repoint.push({
+      key: "project.gotchas_doc",
+      value: `${docsEntry.defaultPath}${
+        gotchas.slice(docsEntry.legacyPath.length)
+      }`,
+    });
+  }
+
+  if (repoint.length > 0) {
+    await ctx.editToml((e) => {
+      for (const { key, value } of repoint) {
+        if (Array.isArray(value)) {
+          e.setStringArray(key, value);
+        } else {
+          e.setString(key, value);
+        }
+      }
+    });
+  }
+
+  // Best-effort: the old template seeded literal neutral-scope globs for the
+  // docs tree and the authored skills; repoint them at the moved locations so
+  // the neutral scope keeps matching. A customised glob simply won't match the
+  // pattern — harmless (same craft as the 2→3 `.ai/` repoint).
+  const globSwaps: Array<[string, string]> = [];
+  if (moved.includes("docs")) {
+    globSwaps.push([
+      `"${SOURCE_PATHS.docs.legacyPath}"`,
+      `"${SOURCE_PATHS.docs.defaultPath}"`,
+    ]);
+  }
+  if (moved.includes("skills")) {
+    globSwaps.push([
+      `"${SOURCE_PATHS.skills.legacyPath}/"`,
+      `"${SOURCE_PATHS.skills.defaultPath}/"`,
+    ]);
+  }
+  if (globSwaps.length > 0) {
+    await ctx.rewrite("discern.toml", (t) => {
+      let out = t;
+      for (const [oldGlob, newGlob] of globSwaps) {
+        out = out.replaceAll(oldGlob, newGlob);
+      }
+      return out;
+    });
+  }
+
+  if (moved.length > 0) {
+    ctx.note(
+      `moved into the discern/ namespace: ${
+        moved.map((n) => SOURCE_PATHS[n].legacyPath).join(", ")
+      } (ADR 0099)`,
+    );
+  }
+  if (pinned.length > 0) {
+    ctx.note(
+      `pinned to their existing locations: ${
+        pinned.map((n) =>
+          `${SOURCE_PATHS[n].key} = ${SOURCE_PATHS[n].legacyPath}`
+        )
+          .join(", ")
+      }`,
+    );
+  }
+}
 
 /**
  * Insert the documented `[worktree].root` key as the first key of the existing

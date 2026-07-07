@@ -21,7 +21,7 @@ export const KIT_VERSION: string = denoJson.version;
  * `upgrade` reads the recorded value, brings the install forward, and re-stamps.
  * Most releases need no migration and leave this untouched.
  *
- * The current shape is schema **14**. The chain: schema-1→2 backfills
+ * The current shape is schema **15**. The chain: schema-1→2 backfills
  * `[project].main_branch`; schema-2→3 consolidates the install surface under
  * `.discern/` (config + guidance seeds); schema-3→4 converts
  * `[slots]`→`[capabilities]`/`[checks]`, inlines ratchet runs, folds side-gates
@@ -50,8 +50,14 @@ export const KIT_VERSION: string = denoJson.version;
  * sibling of the repo (`<repo>.worktrees`), a relative/absolute path overrides —
  * so worktrees adopt the non-nested placement instead of `.claude/worktrees`
  * (ADR 0052); schema-13→14 removes the `.claude/settings.local.json` gitignore
- * exception so machine-local provider settings remain ignored (ADR 0089). See
- * `MIGRATIONS`. A config with no `[meta].schema_version` is read as schema 1 (or
- * a legacy manifest's recorded version), then migrated forward.
+ * exception so machine-local provider settings remain ignored (ADR 0089);
+ * schema-14→15 **consolidates the authored surface under the visible
+ * `discern/` namespace** — each source path whose key is not pointed away from
+ * the old root default (the guidance seed, the docs tree, authored skills,
+ * recipes, the deferred-work ledger, the brief) moves to its `discern/`
+ * default from the paths registry, with pointed paths untouched (ADR
+ * 0099/0102). See `MIGRATIONS`. A config with no `[meta].schema_version` is
+ * read as schema 1 (or a legacy manifest's recorded version), then migrated
+ * forward.
  */
-export const SCHEMA_VERSION = 14;
+export const SCHEMA_VERSION = 15;

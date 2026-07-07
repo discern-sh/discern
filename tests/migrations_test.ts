@@ -167,8 +167,9 @@ Deno.test("the production chain is contiguous up to the current schema", () => {
   // into the single-file footprint), 6→7 (setup skill → command),
   // 7→8 (db/dev_server → [worktree.resources.*]), 8→9 (untrack AGENTS.md),
   // 9→10 (ignore .agents/skills/), 10→11 (drop [features].mcp), 11→12 (rename
-  // [worktree].graduate_to "main" → "trunk"), 12→13 (add [worktree].root), and
-  // 13→14 (keep machine-local provider settings ignored).
+  // [worktree].graduate_to "main" → "trunk"), 12→13 (add [worktree].root),
+  // 13→14 (keep machine-local provider settings ignored), and 14→15 (move the
+  // authored surface into the discern/ namespace).
   assertEquals(MIGRATIONS.map((m) => m.from), [
     1,
     2,
@@ -183,6 +184,7 @@ Deno.test("the production chain is contiguous up to the current schema", () => {
     11,
     12,
     13,
+    14,
   ]);
   assert(isChainContiguous(MIGRATIONS, SCHEMA_VERSION));
 });
@@ -1558,5 +1560,195 @@ Deno.test("applyMigrations: a step that throws aborts the chain, runs no later s
     // The already-applied step was REPLAYED (called again) but idempotent — its
     // marker is untouched, proving the replay is safe, not corrupting.
     assertEquals(calls, { s1: 2, s2: 2, s3: 1 });
+  });
+});
+
+// ── the 14→15 namespace consolidation (ADR 0099/0102) ────────────────────────
+
+/** A default-layout schema-14 install: every authored source at its old root
+ * default, with the keys written the way the schema-14 template wrote them. */
+async function layDefaultLayoutInstall(dir: string): Promise<void> {
+  await Deno.writeTextFile(
+    join(dir, "discern.toml"),
+    [
+      "[meta]",
+      "schema_version = 14",
+      "",
+      "[project]",
+      'slug = "demo"',
+      'gotchas_doc = "docs/80-development/finish-gate-gotchas.md"',
+      "",
+      "[guidance]",
+      'sources = ["guidance.md"]',
+      'agents = ["codex"]',
+      "",
+      "[skills]",
+      'dir = "skills"',
+      "",
+      "[docs]",
+      'dir = "docs/"',
+      "",
+      "[scopes.docs]",
+      'paths   = ["${docs.dir}", "skills/", ".claude/"]',
+      "neutral = true",
+      "",
+      "[recipes]",
+      'dir = "recipes"',
+      "",
+    ].join("\n"),
+  );
+  await Deno.writeTextFile(join(dir, "guidance.md"), "# Mine\n");
+  await Deno.writeTextFile(join(dir, "TODO.md"), "# TODO\n- [ ] a thing\n");
+  await Deno.writeTextFile(join(dir, "brief.md"), "# Brief\n");
+  await Deno.mkdir(join(dir, "docs/80-development"), { recursive: true });
+  await Deno.writeTextFile(join(dir, "docs/README.md"), "# Docs\n");
+  await Deno.writeTextFile(
+    join(dir, "docs/80-development/finish-gate-gotchas.md"),
+    "# Gotchas\n",
+  );
+  await Deno.mkdir(join(dir, "skills/my-skill"), { recursive: true });
+  await Deno.writeTextFile(join(dir, "skills/my-skill/SKILL.md"), "do it\n");
+  await Deno.mkdir(join(dir, "recipes"), { recursive: true });
+  await Deno.writeTextFile(join(dir, "recipes/hello"), "#!/bin/sh\necho hi\n");
+}
+
+Deno.test("migration 14→15 moves a default layout into discern/ and repoints the written keys", async () => {
+  await withTempDir(async (dir) => {
+    await layDefaultLayoutInstall(dir);
+    await applyMigrations({ destDir: dir, from: 14, to: 15 });
+
+    // Every source moved to its namespace default, content intact.
+    assertEquals(await targetExists(dir, "discern/guidance.md"), true);
+    assertEquals(await targetExists(dir, "discern/TODO.md"), true);
+    assertEquals(await targetExists(dir, "discern/brief.md"), true);
+    assertEquals(await targetExists(dir, "discern/docs/README.md"), true);
+    assertEquals(
+      await targetExists(dir, "discern/skills/my-skill/SKILL.md"),
+      true,
+    );
+    assertEquals(await targetExists(dir, "discern/recipes/hello"), true);
+    // …and the old locations are gone.
+    for (
+      const old of [
+        "guidance.md",
+        "TODO.md",
+        "brief.md",
+        "docs",
+        "skills",
+        "recipes",
+      ]
+    ) {
+      assertEquals(await targetExists(dir, old), false, `${old} left behind`);
+    }
+
+    const toml = await Deno.readTextFile(join(dir, "discern.toml"));
+    // The written old-default keys converge on the new defaults…
+    assertStringIncludes(toml, 'sources = ["discern/guidance.md"]');
+    assertStringIncludes(toml, 'dir = "discern/skills"');
+    assertStringIncludes(toml, 'dir = "discern/docs/"');
+    assertStringIncludes(toml, 'dir = "discern/recipes"');
+    // …the gotchas pointer follows the moved docs tree…
+    assertStringIncludes(
+      toml,
+      'gotchas_doc = "discern/docs/80-development/finish-gate-gotchas.md"',
+    );
+    // …and the seeded neutral-scope skills glob is repointed (${docs.dir} needs
+    // no repoint — it follows the key).
+    assertStringIncludes(toml, '"discern/skills/"');
+
+    // Idempotent: a second run changes nothing.
+    const before = await Deno.readTextFile(join(dir, "discern.toml"));
+    await applyMigrations({ destDir: dir, from: 14, to: 15 });
+    assertEquals(await Deno.readTextFile(join(dir, "discern.toml")), before);
+  });
+});
+
+Deno.test("migration 14→15 leaves a pointed layout completely untouched", async () => {
+  await withTempDir(async (dir) => {
+    const toml = [
+      "[meta]",
+      "schema_version = 14",
+      "",
+      "[project]",
+      'slug = "demo"',
+      "",
+      "[guidance]",
+      'sources = ["conventions/rules.md"]',
+      'agents = ["codex"]',
+      "",
+      "[skills]",
+      'dir = "tools/skills"',
+      "",
+      "[docs]",
+      'dir = "documentation/"',
+      "",
+      "[recipes]",
+      'dir = "tools/recipes"',
+      "",
+    ].join("\n");
+    await Deno.writeTextFile(join(dir, "discern.toml"), toml);
+    await Deno.mkdir(join(dir, "conventions"), { recursive: true });
+    await Deno.writeTextFile(join(dir, "conventions/rules.md"), "# Rules\n");
+    await Deno.mkdir(join(dir, "documentation"), { recursive: true });
+    await Deno.writeTextFile(join(dir, "documentation/README.md"), "# Docs\n");
+
+    await applyMigrations({ destDir: dir, from: 14, to: 15 });
+
+    // Pointed paths: nothing moved, nothing rewritten, no discern/ created.
+    assertEquals(await Deno.readTextFile(join(dir, "discern.toml")), toml);
+    assertEquals(await targetExists(dir, "conventions/rules.md"), true);
+    assertEquals(await targetExists(dir, "documentation/README.md"), true);
+    assertEquals(await targetExists(dir, "discern"), false);
+  });
+});
+
+Deno.test("migration 14→15 pins a key to its old location when the namespace target is occupied", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      ["[meta]", "schema_version = 14", "", "[docs]", 'dir = "docs/"', ""].join(
+        "\n",
+      ),
+    );
+    await Deno.mkdir(join(dir, "docs"), { recursive: true });
+    await Deno.writeTextFile(join(dir, "docs/README.md"), "# Old\n");
+    await Deno.mkdir(join(dir, "discern/docs"), { recursive: true });
+    await Deno.writeTextFile(join(dir, "discern/docs/README.md"), "# New\n");
+
+    await applyMigrations({ destDir: dir, from: 14, to: 15 });
+
+    // Neither tree was clobbered; the key still points at the working old tree.
+    assertEquals(
+      await Deno.readTextFile(join(dir, "docs/README.md")),
+      "# Old\n",
+    );
+    assertEquals(
+      await Deno.readTextFile(join(dir, "discern/docs/README.md")),
+      "# New\n",
+    );
+    const toml = await Deno.readTextFile(join(dir, "discern.toml"));
+    assertStringIncludes(toml, 'dir = "docs/"');
+  });
+});
+
+Deno.test("migration 14→15 with absent keys moves the files and writes no keys", async () => {
+  await withTempDir(async (dir) => {
+    const toml = ["[meta]", "schema_version = 14", ""].join("\n");
+    await Deno.writeTextFile(join(dir, "discern.toml"), toml);
+    await Deno.writeTextFile(join(dir, "TODO.md"), "# TODO\n");
+    await Deno.writeTextFile(join(dir, "guidance.md"), "# Mine\n");
+
+    await applyMigrations({ destDir: dir, from: 14, to: 15 });
+
+    assertEquals(await targetExists(dir, "discern/TODO.md"), true);
+    assertEquals(await targetExists(dir, "discern/guidance.md"), true);
+    assertEquals(await targetExists(dir, "TODO.md"), false);
+    // No key was written — the new schema defaults cover the moved files.
+    const after = await Deno.readTextFile(join(dir, "discern.toml"));
+    assert(!after.includes("todo"), "no [project].todo key should be written");
+    assert(
+      !after.includes("sources"),
+      "no [guidance].sources key should be written",
+    );
   });
 });
