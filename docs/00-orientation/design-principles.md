@@ -29,8 +29,8 @@ capability is knowably absent, so the gate is green before any of them is filled
 
 **Why it matters.** The moment the engine knows what "a test" _is_, it stops
 being portable — it can only serve the stack it learned. Stack-neutrality is the
-whole product: one harness that drops into any repository, in any language, for
-any agent.
+whole product: one harness that drops into any repository, in any language,
+answering to whatever agent drives it.
 
 **How it shows up.** `finish` builds its stages by iterating over whatever
 `[capabilities]` and `[checks]` declare
