@@ -25,6 +25,11 @@ import { applyPlan } from "../src/lib/fs_plan.ts";
 import { TomlEditor } from "../src/lib/toml_edit.ts";
 import { resolveWorktreeRoot } from "../src/lib/paths.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
+import {
+  SOURCE_PATH_NAMES,
+  SOURCE_PATHS,
+  type SourcePathName,
+} from "../src/shared/paths_registry.ts";
 import type { AgentName } from "../src/lib/config.ts";
 import { REAL_TEMPLATES } from "./helpers.ts";
 
@@ -131,6 +136,64 @@ export async function scaffoldEngine(
   if (opts.bootstrapped !== false) {
     await markBootstrapped(join(dir, "discern.toml"));
   }
+}
+
+/** One keyed registry path repointed at a non-default location. */
+export interface RepointedPath {
+  name: SourcePathName;
+  /** The dotted config key (e.g. `docs.dir`). */
+  key: string;
+  /** The non-default value the key is pointed at. */
+  value: string;
+}
+
+/**
+ * A fully NON-DEFAULT source-path layout, derived from the paths registry so a
+ * newly registered path auto-enrols (ADR 0102): every keyed entry pointed at a
+ * `zz-alt-…` location shaped like its default (trailing slash / extension
+ * preserved so resolution behaves identically). A keyless entry (the brief)
+ * has nothing to repoint.
+ */
+export function nonDefaultPaths(): RepointedPath[] {
+  const out: RepointedPath[] = [];
+  for (const name of SOURCE_PATH_NAMES) {
+    const { key, defaultPath } = SOURCE_PATHS[name];
+    if (key === null) {
+      continue;
+    }
+    const dot = defaultPath.lastIndexOf(".");
+    const value = defaultPath.endsWith("/")
+      ? `zz-alt-${name}/`
+      : dot === -1
+      ? `zz-alt-${name}`
+      : `zz-alt-${name}${defaultPath.slice(dot)}`;
+    out.push({ name, key, value });
+  }
+  return out;
+}
+
+/**
+ * Repoint every keyed registry source path in a scaffolded `discern.toml` at
+ * the {@link nonDefaultPaths} layout (comment-preserving) — the
+ * paths-parameterized variant of the engine scaffold. `guidance.sources` is
+ * the one list-typed key; a future list-typed entry fails the config parse
+ * loudly, telling its author to teach this helper the shape.
+ */
+export async function repointSourcePaths(
+  dir: string,
+): Promise<RepointedPath[]> {
+  const path = join(dir, "discern.toml");
+  const editor = new TomlEditor(await Deno.readTextFile(path));
+  const repointed = nonDefaultPaths();
+  for (const { key, value } of repointed) {
+    if (key === "guidance.sources") {
+      editor.setStringArray(key, [value]);
+    } else {
+      editor.setString(key, value);
+    }
+  }
+  await Deno.writeTextFile(path, editor.toString());
+  return repointed;
 }
 
 /** Record `[meta].bootstrapped = true` in a scaffolded config (comment-preserving). */
