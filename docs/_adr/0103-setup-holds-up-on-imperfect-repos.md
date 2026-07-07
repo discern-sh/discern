@@ -2,10 +2,10 @@
 
 **Status**: accepted; builds on
 [ADR 0086](0086-setup-serves-relay-messages-and-a-consent-attestation.md) (the
-served relay messages this makes honest),
-[ADR 0081](0081-setup-land-command.md) (the landing command whose dead ends this
-closes), and [ADR 0100](0100-doctree-is-the-agents-map.md) (the single consent
-question whose promises this conditions)
+served relay messages this makes honest), [ADR 0081](0081-setup-land-command.md)
+(the landing command whose dead ends this closes), and
+[ADR 0100](0100-doctree-is-the-agents-map.md) (the single consent question whose
+promises this conditions)
 
 ## Context
 
@@ -40,8 +40,8 @@ built-in gitconfig. Consulting it ahead of the checked-out branch would stamp
 - **`begin` detects the repo's real integration branch and stamps it into the
   fresh config's `[project].main_branch`**, in this order: the remote's declared
   default (`git symbolic-ref refs/remotes/origin/HEAD`), then **the branch
-  checked out when setup started** (read before the `discern-setup` checkout;
-  an unborn branch still names itself), then `init.defaultBranch` as a
+  checked out when setup started** (read before the `discern-setup` checkout; an
+  unborn branch still names itself), then `init.defaultBranch` as a
   detached-HEAD tiebreaker only. The checked-out branch outranks
   `init.defaultBranch` deliberately — it is the repo's ground truth, while the
   config key is vendor-polluted (see Context) and, for unborn repos, already
@@ -54,14 +54,14 @@ built-in gitconfig. Consulting it ahead of the checked-out branch would stamp
   dead end. Land does **not** create the branch itself: a missing target can
   also be a misconfigured `[project].main_branch`, and silently creating a
   branch named by a typo is worse than one served command.
-- **The non-git posture is git-init-first.** The consent context carries the
-  git state, and every served promise conditions on it: without git the plan
-  leads with `git init` (offered as its own consent point inside the fenced
-  message), the unconditional branch-isolation sentence is replaced by its
-  conditioned form, and the served next action is `git init` then re-running
-  `verify` — never straight to `begin`. Setup does **not** require git: `begin`
-  still proceeds in place if invoked without it, but no surface promises
-  isolation it can't deliver.
+- **The non-git posture is git-init-first.** The consent context carries the git
+  state, and every served promise conditions on it: without git the plan leads
+  with `git init` (offered as its own consent point inside the fenced message),
+  the unconditional branch-isolation sentence is replaced by its conditioned
+  form, and the served next action is `git init` then re-running `verify` —
+  never straight to `begin`. Setup does **not** require git: `begin` still
+  proceeds in place if invoked without it, but no surface promises isolation it
+  can't deliver.
 - **Bare `discern` welcomes everywhere outside a set-up project**, including
   non-git directories, overturning the documented restriction. The welcome
   grounds itself in the git state and leads the non-git case with the `git init`
@@ -73,8 +73,8 @@ built-in gitconfig. Consulting it ahead of the checked-out branch would stamp
   first setup and `setup land` completes — the silent-self-skip class is closed
   at its source (the stamped config) rather than patched per consumer.
 - A repo whose `origin/HEAD` disagrees with the local checkout follows the
-  remote — the right call for clones, and the one case where the local branch
-  is not ground truth.
+  remote — the right call for clones, and the one case where the local branch is
+  not ground truth.
 - Setup run from a feature branch with no remote stamps that feature branch —
   the best available guess, and a visible, comment-adjacent config value the
   user can correct, where the old behaviour was an invisible wrong default.
@@ -89,10 +89,12 @@ built-in gitconfig. Consulting it ahead of the checked-out branch would stamp
 ## Alternatives considered
 
 - **The drafted detection order (`init.defaultBranch` before the current
-  branch).** Rejected on evidence: Apple's git bakes `init.defaultBranch =
-  main` into an unmaskable built-in config, so the drafted order re-introduces
-  the `master`-repo bug on every macOS machine. The user-preference reading of
-  `init.defaultBranch` only adds signal when no branch is checked out.
+  branch).** Rejected on evidence: Apple's git bakes
+  `init.defaultBranch =
+  main` into an unmaskable built-in config, so the
+  drafted order re-introduces the `master`-repo bug on every macOS machine. The
+  user-preference reading of `init.defaultBranch` only adds signal when no
+  branch is checked out.
 - **`setup land` auto-creates an unborn target.** Rejected: indistinguishable
   from a typo'd `[project].main_branch`, where auto-creation plants a
   wrong-named branch silently. The refusal serves the exact command instead.

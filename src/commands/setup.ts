@@ -347,9 +347,9 @@ async function detectIntegrationBranch(
   }
   // `git branch --show-current` (not `rev-parse --abbrev-ref HEAD`) so an unborn
   // branch — a brand-new `git init` with no commits yet — still names itself.
-  const current =
-    (await runGit(["branch", "--show-current"], { cwd: destDir })).stdout
-      .trim();
+  const current = (await runGit(["branch", "--show-current"], { cwd: destDir }))
+    .stdout
+    .trim();
   if (current !== "" && current !== SETUP_BRANCH) {
     return current;
   }
@@ -1340,9 +1340,7 @@ type MarkerCommitOutcome = AutoCommitOutcome | { state: "no-git" };
  * non-empty line, else a generic fallback.
  */
 function gitFailureLine(stderr: string): string {
-  const lines = stderr.split("\n").map((l) => l.trim()).filter((l) =>
-    l !== ""
-  );
+  const lines = stderr.split("\n").map((l) => l.trim()).filter((l) => l !== "");
   const fatal = lines.findLast((l) =>
     l.startsWith("fatal:") || l.startsWith("error:")
   );

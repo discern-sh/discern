@@ -76,6 +76,7 @@ Gemini
 generalizability
 git
 git_key
+gitconfig
 gitignored?
 gitlinks?
 globbing
@@ -105,6 +106,7 @@ maintainer
 Makefiles?
 metacharacters
 migrator
+misconfigur(ed|ation)s?
 monorepo
 mtime
 mutators?
@@ -189,6 +191,7 @@ ungated
 unlanded
 unmanaged
 unmarketed
+unmaskable
 unrunnable
 untrack(ed|ing|s)
 untrusted
@@ -197,5 +200,6 @@ validator
 vhost
 Wilcoxon
 worktrees?
+Xcode('s)?
 zod
 zsh

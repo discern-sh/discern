@@ -12,7 +12,13 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { exists } from "@std/fs";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
-import { git, gitInit, gitOut, runAgent, scaffoldEngine } from "./engine_helpers.ts";
+import {
+  git,
+  gitInit,
+  gitOut,
+  runAgent,
+  scaffoldEngine,
+} from "./engine_helpers.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import { isValidDocsDir } from "../src/shared/docs_path.ts";
 
@@ -126,7 +132,10 @@ Deno.test("begin on an unborn-main repo stamps main, and land serves the creatio
     const land = await runAgent(dir, ["setup", "land"]);
     assertEquals(land.code, 0, land.output);
     assertEquals(await gitOut(dir, "branch", "--show-current"), "main");
-    assert(await exists(join(dir, "discern.toml")), "the harness landed on main");
+    assert(
+      await exists(join(dir, "discern.toml")),
+      "the harness landed on main",
+    );
   });
 });
 

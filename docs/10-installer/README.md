@@ -77,18 +77,17 @@ directory. `setup verify` shares the same resolution, so its previews describe
 the tree `begin` will actually touch.
 
 Setup also grounds itself in the repo's real state rather than assuming a
-pristine one
-([ADR 0103](../_adr/0103-setup-holds-up-on-imperfect-repos.md)): `begin`
-detects the repository's actual integration branch (`origin/HEAD`, then the
-branch setup started from, then `init.defaultBranch`) and stamps it into
+pristine one ([ADR 0103](../_adr/0103-setup-holds-up-on-imperfect-repos.md)):
+`begin` detects the repository's actual integration branch (`origin/HEAD`, then
+the branch setup started from, then `init.defaultBranch`) and stamps it into
 `[project].main_branch`, so the gate's merge check is armed on `master` and
 unborn-default repos alike; a directory without git is served a git-init-first
-plan whose consent message promises no isolation it can't deliver; a missing
-git identity is named in `verify`'s findings with the exact `git config`
-commands; and the first-contact welcome shows in non-git directories too,
-leading with the `git init` step. An abandoned half-finished setup (its config
-committed only on the `discern-setup` branch) routes the welcome, `verify`, and
-a re-`begin` to the resume path instead of re-scaffolding over it.
+plan whose consent message promises no isolation it can't deliver; a missing git
+identity is named in `verify`'s findings with the exact `git config` commands;
+and the first-contact welcome shows in non-git directories too, leading with the
+`git init` step. An abandoned half-finished setup (its config committed only on
+the `discern-setup` branch) routes the welcome, `verify`, and a re-`begin` back
+to the half-finished branch instead of re-scaffolding over it.
 
 ## Config reference
 
