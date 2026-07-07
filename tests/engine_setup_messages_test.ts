@@ -21,7 +21,7 @@ const WT = "/repo.worktrees";
 // ── consentMessage ───────────────────────────────────────────────────────────
 
 Deno.test("consentMessage carries the relay licence, the verbatim model question, the three pillars, the cost, and the worktree path", () => {
-  const msg = consentMessage({ worktreePath: WT, docsExists: false });
+  const msg = consentMessage({ worktreePath: WT, docsExists: false, gitRepo: true });
   // The adaptive relay licence — the whole point of the script-not-stage-directions
   // genre (ADR 0086): reword allowed, dropping a point not.
   assertStringIncludes(
@@ -63,7 +63,7 @@ Deno.test("consentMessage carries the relay licence, the verbatim model question
 });
 
 Deno.test("consentMessage offers the existing-docs opt-in exactly when a docs tree exists (ADR 0100)", () => {
-  const withDocs = consentMessage({ worktreePath: WT, docsExists: true });
+  const withDocs = consentMessage({ worktreePath: WT, docsExists: true, gitRepo: true });
   // The promise, then the default, then the opt-in — a choice, not a workaround.
   assertStringIncludes(withDocs, "discern won't touch it");
   assertStringIncludes(withDocs, SOURCE_PATHS.docs.defaultPath);
@@ -76,9 +76,48 @@ Deno.test("consentMessage offers the existing-docs opt-in exactly when a docs tr
     "the --docs mechanics are agent-facing — never inside the relayed message",
   );
 
-  const noDocs = consentMessage({ worktreePath: WT, docsExists: false });
+  const noDocs = consentMessage({ worktreePath: WT, docsExists: false, gitRepo: true });
   assert(!noDocs.includes("You already have a docs/ folder"));
   assert(!noDocs.includes("--docs"));
+});
+
+Deno.test("consentMessage conditions every isolation promise on git being present", () => {
+  const nonGit = consentMessage({
+    worktreePath: WT,
+    docsExists: false,
+    gitRepo: false,
+  });
+  // The unconditional branch promise must not survive into a directory where
+  // there is no git to deliver it — the plan leads with `git init` instead.
+  assert(
+    !nonGit.includes(
+      "I work on a dedicated `discern-setup` branch, so nothing touches your main branch",
+    ),
+    "a non-git consent must not promise the isolated branch unconditionally",
+  );
+  assertStringIncludes(nonGit, "git init");
+  assertStringIncludes(nonGit, "OK to initialize git here?");
+  assertStringIncludes(
+    nonGit,
+    "once git is initialized I work on a dedicated `discern-setup` branch",
+  );
+  // The agent's next step is to initialize git and re-run the preflight — the
+  // begin command comes after the repo actually exists.
+  assertStringIncludes(
+    nonGit,
+    "initialize git (`git init`), re-run `discern setup verify`",
+  );
+
+  const withGit = consentMessage({
+    worktreePath: WT,
+    docsExists: false,
+    gitRepo: true,
+  });
+  assert(!withGit.includes("git init"), "a git repo needs no git-init step");
+  assertStringIncludes(
+    withGit,
+    "I work on a dedicated `discern-setup` branch, so nothing touches your main branch",
+  );
 });
 
 Deno.test("consentMessage keeps the message body concise (≤ ~250 words of prose)", () => {
@@ -87,7 +126,7 @@ Deno.test("consentMessage keeps the message body concise (≤ ~250 words of pros
   // case at the ~250-word target (the three pillars plus the footprint story), the
   // docs case adding only its one extra confirmation.
   const wordsOf = (docsExists: boolean): number => {
-    const body = consentMessage({ worktreePath: WT, docsExists })
+    const body = consentMessage({ worktreePath: WT, docsExists, gitRepo: true })
       .split("message to your human")[1]?.split("end of message")[0] ?? "";
     return body.trim().split(/\s+/).filter(Boolean).length;
   };

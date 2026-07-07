@@ -129,6 +129,47 @@ Deno.test("begin on an unborn-main repo stamps main, and land serves the creatio
   });
 });
 
+// ── B8: non-git directories are honest and git-init-first ─────────────────────
+
+Deno.test("verify in a non-git directory serves git-init-first and promises no isolation it can't deliver", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+    const res = JSON.parse(
+      (await runAgent(dir, ["setup", "verify", "--json"])).stdout,
+    );
+    const d = res.data;
+    assertEquals(d.findings.git.repo, false);
+
+    // The served next action is to CREATE the repository, then re-run the
+    // preflight — never straight to begin.
+    assertStringIncludes(d.next_action, "git init");
+    const conflict = d.conflicts.find(
+      (c: { kind: string }) => c.kind === "not_a_repo",
+    );
+    assert(conflict !== undefined, JSON.stringify(d.conflicts));
+    assertStringIncludes(conflict.detail, "git init");
+    assert(
+      !conflict.detail.includes("Consider"),
+      "git init is the path, not a soft suggestion",
+    );
+
+    // The consent message conditions its promises on the git state: no
+    // unconditional isolated-branch story, and the git-init consent point rides
+    // the fenced message.
+    assert(
+      !d.guidance.includes("so nothing touches your main branch"),
+      "the served message must not promise branch isolation without git",
+    );
+    assertStringIncludes(d.guidance, "OK to initialize git here?");
+
+    // Parity (ADR 0086): a flag-less fresh `begin` re-serves the identical
+    // conditioned message.
+    const begin = await runAgent(dir, ["setup", "begin"]);
+    assertEquals(begin.code, 1, begin.output);
+    assertStringIncludes(begin.stdout, d.guidance);
+  });
+});
+
 // ── B7: an abandoned setup resumes instead of compounding ─────────────────────
 
 Deno.test("an abandoned setup routes first contact to the resume, and re-begin resumes instead of re-scaffolding", async () => {

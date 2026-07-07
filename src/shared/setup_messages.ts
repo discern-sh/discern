@@ -29,14 +29,24 @@
 import { basename, dirname, join } from "@std/path";
 import type { SetupAssurance } from "./setup_assurance.ts";
 import { SOURCE_PATHS } from "./paths_registry.ts";
+import { runGit } from "./subprocess.ts";
 
-/** The two repo facts a consent message is grounded in — the exact sibling worktree
- * path that will be created (ADR 0052) and whether the project has a `docs/` tree of
+/** The project-relative docs directory the consent context probes for — and the
+ * exact path the consent message serves for the `--docs` opt-in, so the agent
+ * relays a real path, never a placeholder to substitute (or copy verbatim). */
+export const EXISTING_DOCS_REL = "docs/";
+
+/** The repo facts a consent message is grounded in — the exact sibling worktree
+ * path that will be created (ADR 0052), whether the project has a `docs/` tree of
  * its own (so the message offers the ADR 0100 opt-in: point discern's map discipline
- * at those docs, or keep the map separate at its namespace default). */
+ * at those docs, or keep the map separate at its namespace default), and whether
+ * the directory is a git work tree at all (so no surface promises the isolated
+ * `discern-setup` branch, the undo story, or worktrees where git can't deliver
+ * them — the non-git plan is `git init` first). */
 export interface ConsentContext {
   worktreePath: string;
   docsExists: boolean;
+  gitRepo: boolean;
 }
 
 /**
@@ -49,9 +59,12 @@ export interface ConsentContext {
 export async function deriveConsentContext(
   destDir: string,
 ): Promise<ConsentContext> {
-  const docsExists = await pathExists(join(destDir, "docs"));
+  const docsExists = await pathExists(join(destDir, EXISTING_DOCS_REL));
   const worktreePath = join(dirname(destDir), `${basename(destDir)}.worktrees`);
-  return { worktreePath, docsExists };
+  const gitRepo =
+    (await runGit(["rev-parse", "--is-inside-work-tree"], { cwd: destDir }))
+      .success;
+  return { worktreePath, docsExists, gitRepo };
 }
 
 /**
@@ -80,18 +93,27 @@ function fence(label: string): string {
  * (b) the message itself — first-person agent voice, kept short enough to survive a
  * single read — the three-pillar explainer, the roadmap with an honest time-and-tokens
  * expectation and the safety frame, then the numbered confirmations (the model question
- * verbatim, the existing-docs opt-in when `docsExists` (ADR 0100), the exact worktree
- * location, ready-to-begin); (c) the exact next command including `--confirmed`. The
- * command rides OUTSIDE the fenced message — it is the agent's to run, not the human's
- * to read.
+ * verbatim, the git-init consent when the directory has no git (`gitRepo` false), the
+ * existing-docs opt-in when `docsExists` (ADR 0100), the exact worktree location,
+ * ready-to-begin); (c) the exact next command including `--confirmed`. The command
+ * rides OUTSIDE the fenced message — it is the agent's to run, not the human's to
+ * read. Every promise is conditioned on the git state: without git there is no
+ * `discern-setup` branch or main-branch story to promise, so the plan leads with
+ * `git init` and the next action is to initialize git and re-run the preflight.
  */
 export function consentMessage(ctx: ConsentContext): string {
-  const { worktreePath, docsExists } = ctx;
+  const { worktreePath, docsExists, gitRepo } = ctx;
 
   const confirmations: string[] = [
     '1. Ask them this, word for word: "Am I your most capable model? Everything I configure here is inherited by every future session."',
   ];
   let n = 2;
+  if (!gitRepo) {
+    confirmations.push(
+      `${n}. This folder isn't under version control yet, so my first step will be \`git init\` — everything above (the safety net, the working copies) needs it. OK to initialize git here?`,
+    );
+    n += 1;
+  }
   if (docsExists) {
     confirmations.push(
       `${n}. You already have a docs/ folder — it's yours, and discern won't touch it. Its map of the codebase lives separately, at ${SOURCE_PATHS.docs.defaultPath}. Or I can point discern at your existing docs, so it maintains them under that same discipline — keep them separate (the default), or point discern at yours?`,
@@ -108,6 +130,13 @@ export function consentMessage(ctx: ConsentContext): string {
 
   const command = confirmedBeginCommand();
 
+  const plan = gitRepo
+    ? "The plan: I'll study the repo, come back with one short batch of questions, author the project's docs and guidance, wire up the quality checks, and prove it green."
+    : "The plan: I'll initialize git first (`git init` — the safety net below needs it), then study the project, come back with one short batch of questions, author the project's docs and guidance, wire up the quality checks, and prove it green.";
+  const safety = gitRepo
+    ? "It's safe and reversible: I work on a dedicated `discern-setup` branch, so nothing touches your main branch until you merge, you can undo it all by deleting that branch, and there's no API key or outside service."
+    : "It's safe and reversible: once git is initialized I work on a dedicated `discern-setup` branch, you can undo it all by deleting that branch, and there's no API key or outside service.";
+
   return [
     "Relay the message below to your human as your next chat message — adapt the wording to your own voice if you like, but keep every point, and relay anything in quotation marks word for word. Then wait for their answers.",
     "",
@@ -121,9 +150,9 @@ export function consentMessage(ctx: ConsentContext): string {
     "",
     "  • On disk that lands in one root file (`discern.toml`) and one visible `discern/` folder — a map of your codebase (docs agents write and keep current for you to audit), a deferred-work ledger, and those shared instructions — plus the files your coding tools require and two small shims. Nothing else in your repo is touched.",
     "",
-    "The plan: I'll study the repo, come back with one short batch of questions, author the project's docs and guidance, wire up the quality checks, and prove it green.",
+    plan,
     "",
-    "It's safe and reversible: I work on a dedicated `discern-setup` branch, so nothing touches your main branch until you merge, you can undo it all by deleting that branch, and there's no API key or outside service.",
+    safety,
     "",
     "A few things to confirm before I begin:",
     "",
@@ -131,7 +160,9 @@ export function consentMessage(ctx: ConsentContext): string {
     "",
     fence("end of message"),
     "",
-    "Once they've answered, run this — substitute your own model id, or drop `--model` if you don't know it (it is recorded only for support triage):",
+    gitRepo
+      ? "Once they've answered, run this — substitute your own model id, or drop `--model` if you don't know it (it is recorded only for support triage):"
+      : "Once they've answered: initialize git (`git init`), re-run `discern setup verify` to confirm the plan against the new repository, then run this — substitute your own model id, or drop `--model` if you don't know it (it is recorded only for support triage):",
     "",
     `    ${command}`,
     ...(docsExists

@@ -1983,8 +1983,7 @@ async function emitAwaitingConsent(
   opts: SetupOptions,
   destDir: string,
 ): Promise<number> {
-  const { worktreePath, docsExists } = await deriveConsentContext(destDir);
-  const guidance = consentMessage({ worktreePath, docsExists });
+  const guidance = consentMessage(await deriveConsentContext(destDir));
   const command = confirmedBeginCommand();
   const message =
     "Setup needs your human's consent before it writes anything. Relay the message below, wait for their answers, then re-run `begin` with --confirmed.";

@@ -125,10 +125,13 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
   const effectiveAgents = detected.length > 0
     ? detected
     : await resolveDefaultAgents();
-  // The two grounded facts the consent message is built from — the exact sibling
-  // worktree path and whether a docs/ tree already exists — derived once in the shared
-  // module so `begin`'s `awaiting_consent` refusal re-serves the identical message.
-  const { worktreePath, docsExists } = await deriveConsentContext(destDir);
+  // The grounded facts the consent message is built from — the exact sibling
+  // worktree path, whether a docs/ tree already exists, and whether git is here at
+  // all — derived once in the shared module so `begin`'s `awaiting_consent`
+  // refusal re-serves the identical message.
+  const { worktreePath, docsExists, gitRepo } = await deriveConsentContext(
+    destDir,
+  );
   const existingInstructions = await findExistingInstructions(destDir);
 
   const conflicts = buildConflicts(git, existingInstructions);
@@ -137,8 +140,13 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
   // summarize and weaken (ADR 0078). discern ships the script, not stage directions
   // (ADR 0086). The human render leads with it; `--json` carries it verbatim under
   // `guidance`; a flag-less fresh `begin` re-serves the same string.
-  const guidance = consentMessage({ worktreePath, docsExists });
-  const nextAction = confirmedBeginCommand();
+  const guidance = consentMessage({ worktreePath, docsExists, gitRepo });
+  // Without git the funnel's next action is to CREATE the repository setup's
+  // isolation needs (then re-run the preflight) — never straight to `begin`,
+  // which could only proceed in place, with no branch and nothing to land.
+  const nextAction = gitRepo
+    ? confirmedBeginCommand()
+    : "git init && discern setup verify";
 
   if (opts.json) {
     const data: SetupVerifyData = {
@@ -219,7 +227,7 @@ function buildConflicts(
     conflicts.push({
       kind: "not_a_repo",
       detail:
-        "Not a git repository — begin will set up in place, without the isolated discern-setup branch. Consider `git init` first so setup is easy to roll back.",
+        "Not a git repository — setup starts with `git init` here: the isolated discern-setup branch, the undo story, and the working copies all need it. Run `git init`, then re-run `discern setup verify`.",
     });
   } else if (git.kind === "dirty") {
     conflicts.push({
