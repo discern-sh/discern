@@ -115,6 +115,7 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0100 — The documentation tree is the agent-maintained map, not the project's own docs](0100-doctree-is-the-agents-map.md)
 - [0101 — Retire the `[features]` toggles](0101-retire-the-features-toggles.md)
 - [0102 — One paths registry, rendered artifacts, and leakage guards](0102-paths-registry-and-rendered-artifacts.md)
+- [0103 — Setup grounds itself in the repo's real state — detected default branch, git-init-first without git, a welcome everywhere](0103-setup-holds-up-on-imperfect-repos.md)
 
 ## Superseded and consolidated ADRs
 
