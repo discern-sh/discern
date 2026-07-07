@@ -39,10 +39,10 @@ Pick the **smallest surface that fully carries the lesson**, and give it exactly
 
 | The lesson is… | Its home | Why there |
 | --- | --- | --- |
-| A standing rule every session must follow ("always X here", "never Y") | **A guidance line** — the project guidance source (`guidance.md`), compiled into every agent's file | Always in context, so it's never missed — and always *paying* context, so it must earn its line |
-| A repeatable, multi-step procedure needing judgement | **An authored skill** — a `SKILL.md` under `[skills].dir` | Discoverable when the task matches; costs context only when used |
-| A deterministic action — a command sequence you'd otherwise re-derive | **A recipe** — an executable in `[recipes].dir` (it becomes `discern <name>`) | A script executes exactly; prose about commands drifts |
-| Durable context — how a subsystem works, what's true and why it's shaped this way | **A docs page** — under `[docs].dir` (the `discern-document-subsystem` skill maintains subtrees) | Read on demand; the reference the other surfaces can point at |
+| A standing rule every session must follow ("always X here", "never Y") | **A guidance line** — the project guidance source ({{guidance_sources}}), compiled into every agent's file | Always in context, so it's never missed — and always *paying* context, so it must earn its line |
+| A repeatable, multi-step procedure needing judgement | **An authored skill** — a `SKILL.md` under `{{skills_dir}}` | Discoverable when the task matches; costs context only when used |
+| A deterministic action — a command sequence you'd otherwise re-derive | **A recipe** — an executable in `{{recipes_dir}}` (it becomes `discern <name>`) | A script executes exactly; prose about commands drifts |
+| Durable context — how a subsystem works, what's true and why it's shaped this way | **A docs page** — under `{{docs_dir}}` (the `discern-document-subsystem` skill maintains subtrees) | Read on demand; the reference the other surfaces can point at |
 | A decision — hard to reverse, surprising without context, a real trade-off | **An ADR** — via the `discern-write-adr` skill | Records *why*, so it isn't silently re-litigated |
 
 Two rules across all five: **check for an existing home first** — a lesson that updates a stale guidance line, an existing skill, or a current doc belongs *there*, not in a duplicate; and **never split one lesson across surfaces** — if a rule needs its rationale, the rule goes in guidance with a link to the ADR that explains it.

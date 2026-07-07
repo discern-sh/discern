@@ -6,7 +6,7 @@
  * blocks `finish`, `missing`/`foreign` do not.
  */
 
-import { assertEquals } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import { join } from "@std/path";
 import {
   type DiscernConfig,
@@ -147,6 +147,30 @@ Deno.test("a lingering managed entry (in the manifest, no longer effective) is `
     const drift = await checkSkillsCurrent(root, config);
     const stale = drift.filter((d) => d.reason === "stale");
     assertEquals(stale.map((d) => d.name), ["dropped-builtin"]);
+  });
+});
+
+Deno.test("repointing a path key makes materialized skills `stale` until re-materialized (ADR 0102)", async () => {
+  await withTempDir(async (root) => {
+    const config = cfg();
+    await materializeClean(root, config);
+    assertEquals(await checkSkillsCurrent(root, config), []);
+
+    // Repoint the docs tree: the rendered prose changes, so the materialized
+    // copies must read as stale — the refresh-after-reconfigure contract
+    // guidance already has.
+    const repointed = cfg('[docs]\ndir = "zz-atlas/"\n');
+    const drift = await checkSkillsCurrent(root, repointed);
+    assert(
+      drift.some((d) => d.reason === "stale"),
+      `a path repoint must surface as stale drift, got: ${
+        JSON.stringify(drift)
+      }`,
+    );
+
+    // Re-materializing against the new config clears it.
+    await materializeSkills(root, repointed, DIRS);
+    assertEquals(await checkSkillsCurrent(root, repointed), []);
   });
 });
 

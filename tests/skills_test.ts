@@ -374,3 +374,49 @@ Deno.test("ejectSkill rejects an unknown skill, listing the available ones", asy
     assertStringIncludes((err as Error).message, "discern-write-adr");
   });
 });
+
+// ── bundled-skill rendering (ADR 0102) ──────────────────────────────────────
+
+Deno.test("materialization renders bundled markdown against the configured paths", async () => {
+  await withTempDir(async (root) => {
+    const config = parseConfigOrThrow(
+      '[docs]\ndir = "zz-atlas/"\n\n[project]\ntodo = "zz-ledger.md"\n',
+    );
+    await materializeSkills(root, config, CLAUDE_SKILLS);
+    const skillsAbs = claudeSkillsDirOf(root);
+
+    // The ADR skill's prose names the CONFIGURED docs tree, not a default...
+    const adr = await Deno.readTextFile(
+      join(skillsAbs, "discern-write-adr", "SKILL.md"),
+    );
+    assertStringIncludes(adr, "zz-atlas/_adr/");
+    // ...and the documenter skill names the configured ledger.
+    const doc = await Deno.readTextFile(
+      join(skillsAbs, "discern-document-subsystem", "SKILL.md"),
+    );
+    assertStringIncludes(doc, "zz-ledger.md");
+
+    // No token survives rendering in ANY materialized markdown file — a stray
+    // `{{` in output means a template failed to render.
+    for await (const entry of walk(skillsAbs, { includeDirs: false })) {
+      if (!entry.path.endsWith(".md")) continue;
+      const text = await Deno.readTextFile(entry.path);
+      assert(
+        !text.includes("{{"),
+        `unrendered token residue in ${relative(skillsAbs, entry.path)}`,
+      );
+    }
+  });
+});
+
+Deno.test("ejectSkill renders markdown — an authored copy speaks the project's paths, not tokens", async () => {
+  await withTempDir(async (root) => {
+    const config = parseConfigOrThrow(
+      '[skills]\ndir = "skills"\n\n[docs]\ndir = "zz-atlas/"\n',
+    );
+    const r = await ejectSkill(root, config, "discern-write-adr");
+    const text = await Deno.readTextFile(join(r.destAbs, "SKILL.md"));
+    assertStringIncludes(text, "zz-atlas/_adr/");
+    assert(!text.includes("{{"), "ejected markdown must carry no tokens");
+  });
+});
