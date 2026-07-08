@@ -87,6 +87,10 @@ import {
 } from "../worktree/lifecycle.ts";
 import { resolveWorktreeRoot } from "../../lib/paths.ts";
 import { KIT_VERSION } from "../../lib/version.ts";
+import {
+  createInstalledVersionResolver,
+  versionMismatchHint,
+} from "./version_check.ts";
 
 const SERVER_NAME = "discern";
 
@@ -828,6 +832,24 @@ function renderResult(result: DiscernResult): ToolResult {
   };
 }
 
+/** Append one hint to a result without clobbering the verb's own (used to add the
+ * stale-server restart hint to whatever the verb already returned). */
+function appendHint(result: DiscernResult, hint: string): DiscernResult {
+  return { ...result, hints: [...(result.hints ?? []), hint] };
+}
+
+/**
+ * The process-wide version resolver used when {@link runTool} is called without an
+ * explicit one (the direct-call test path). Lazily created so importing this
+ * module has no stat/exec side effect; the live server passes its own resolver,
+ * created once at startup in {@link runMcpServer}.
+ */
+let sharedInstalledVersion: (() => Promise<string | undefined>) | undefined;
+function defaultInstalledVersion(): Promise<string | undefined> {
+  sharedInstalledVersion ??= createInstalledVersionResolver();
+  return sharedInstalledVersion();
+}
+
 /**
  * The MCP server's **working root** — the directory its verbs operate on, held as one
  * mutable value because the OS process cwd is frozen at spawn and unusable for this
@@ -871,13 +893,27 @@ export async function runTool(
   working: WorkingRoot,
   args: Record<string, unknown>,
   signal?: AbortSignal,
+  resolveInstalledVersion: () => Promise<string | undefined> =
+    defaultInstalledVersion,
 ): Promise<ToolResult> {
+  // Version handshake: if the discern binary on disk was replaced with a different
+  // version since this long-lived server started, its engine and embedded templates
+  // are stale, so every result carries a restart hint (see version_check.ts). Cheap
+  // — a single stat per call, only spawning `--version` on the replace itself — so
+  // it runs on every path, refusals included.
+  const stale = versionMismatchHint(
+    KIT_VERSION,
+    await resolveInstalledVersion(),
+  );
+  const render = (result: DiscernResult): ToolResult =>
+    renderResult(stale === undefined ? result : appendHint(result, stale));
+
   // The explicit `path` override wins over the working root for this one call; any dir
   // inside a worktree resolves to its root, a non-project path → undefined → refusal.
   const pathArg = typeof args.path === "string" ? args.path : undefined;
   const root = pathArg ? await findRoot(pathArg) : working.get();
   if (root === undefined) {
-    return renderResult({
+    return render({
       ok: false,
       verb: verbOf(tool.name),
       error: "not_initialized",
@@ -893,7 +929,7 @@ export async function runTool(
   if (
     verbNeedsSetup(verbOf(tool.name)) && !(await setupGatePasses(root))
   ) {
-    return renderResult({
+    return render({
       ok: false,
       verb: verbOf(tool.name),
       error: "not_set_up",
@@ -930,7 +966,7 @@ export async function runTool(
       working.set(next);
     }
   }
-  return renderResult(result);
+  return render(result);
 }
 
 /** True when `path` exists on disk — the held-working-root liveness check the re-aim
@@ -1279,6 +1315,10 @@ export async function runMcpServer(): Promise<number> {
   // re-pointed on discern_start / discern_graduate. Both the tools and the readable
   // resources resolve it per call/read, so the whole surface follows the re-aim.
   const working = new WorkingRoot(spawnRoot);
+  // The version handshake's resolver, created once so it seeds its baseline stat at
+  // server start (this process IS KIT_VERSION); every tool call reuses it to detect
+  // the on-disk binary being replaced mid-session.
+  const installedVersion = createInstalledVersionResolver();
   const server = new McpServer(
     { name: SERVER_NAME, version: KIT_VERSION },
     {
@@ -1316,7 +1356,7 @@ export async function runMcpServer(): Promise<number> {
         tool.name,
         { ...config, inputSchema: tool.inputSchema },
         (args: Record<string, unknown>, extra: { signal: AbortSignal }) =>
-          runTool(tool, working, args, callSignal(extra)),
+          runTool(tool, working, args, callSignal(extra), installedVersion),
       );
     } else {
       // An argument-less verb registers no input schema, so the SDK skips
@@ -1327,7 +1367,7 @@ export async function runMcpServer(): Promise<number> {
         tool.name,
         config,
         (extra: { signal: AbortSignal }) =>
-          runTool(tool, working, {}, callSignal(extra)),
+          runTool(tool, working, {}, callSignal(extra), installedVersion),
       );
     }
   }
