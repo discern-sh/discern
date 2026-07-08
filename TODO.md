@@ -104,6 +104,20 @@ _Nothing outstanding._
       (`normalizeDiagnostics` — SARIF only); `src/engine/gate/plan.ts`
       (`buildGateResult` calls it).
 
+- [ ] **Per-capability `[gate].timeout` overrides.** `[gate].timeout` is one
+      GLOBAL budget applied to every job the gate runs
+      ([ADR 0108](docs/_adr/0108-gate-job-timeout.md)). A slow suite raises the
+      single number; there is no per-capability / per-check / per-scope
+      override. Deferred as the same config-value-shape decision the Tier-1
+      diagnostics entry above defers: a capability value is a bare
+      command-or-list today, and per-job budgets would need a table form
+      (`{ run = "…", timeout = N }`) plus schema/codegen/template work — heavier
+      than the global bound, which already closes the hang. Add only if real
+      projects hit a case one generous budget can't serve. Evidence:
+      `src/shared/config_schema.ts` (`gateSection.timeout`);
+      `src/engine/gate/execute.ts` (`gateRunContext` sets one `timeoutS` for the
+      whole run).
+
 ## 🟢 Test & tooling hygiene
 
 - [ ] **Scaffold the CI gate workflow once releases are public.** The docs now

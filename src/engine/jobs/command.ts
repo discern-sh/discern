@@ -24,6 +24,13 @@ export interface SpawnOptions {
   stream: boolean;
   /** Sink for streamed lines (the runner passes the same sink it uses for banners). */
   write: (chunk: Uint8Array) => void;
+  /**
+   * Per-command time budget in SECONDS (`[gate].timeout`). A job that has not
+   * exited within it is tree-killed and resolves as a GENUINE failure carrying
+   * `timedOutAfterS` — so a watch-mode runner or a hung dev server can never make
+   * the gate wait forever. Omitted or `<= 0` means no bound (the unit-test default).
+   */
+  timeoutS?: number;
 }
 
 /** A finished job: its result plus captured output (buffered mode only). */
@@ -46,7 +53,18 @@ const DECODER = new TextDecoder();
 const STREAM_CAP_BYTES = 1_000_000;
 const HEAD_CAP = STREAM_CAP_BYTES / 2;
 const TAIL_CAP = STREAM_CAP_BYTES - HEAD_CAP;
-const CAPTURE_ENV: Record<string, string> = { NO_COLOR: "1", TERM: "dumb" };
+/**
+ * The environment every gate command inherits. `NO_COLOR`/`TERM=dumb` tell tools
+ * they aren't on a terminal (so they emit plain, parseable output); `CI=1` is the
+ * honest signal for what the gate is — a local CI run — and, decisively, flips the
+ * ubiquitous watch-vs-single-run test runners into their single-run form, so a bare
+ * `test = "<runner>"` doesn't enter watch mode and hang the gate waiting for edits.
+ */
+const CAPTURE_ENV: Record<string, string> = {
+  NO_COLOR: "1",
+  TERM: "dumb",
+  CI: "1",
+};
 
 /** Signal an entire process group, falling back to the direct child. */
 export function killTree(pid: number, sig: Deno.Signal): void {
@@ -156,6 +174,21 @@ export async function spawnJob(
     }
   }
 
+  // Watchdog: a job that never exits within its budget is tree-killed — reusing the
+  // SAME SIGTERM→SIGKILL escalation (`onAbort`) that fail-fast/external cancellation
+  // uses — but recorded as a GENUINE timeout failure, not a cancelled sibling. Set
+  // `timedOutAfterS` only when the timer actually fires, so its presence is the
+  // "did it time out?" flag and the value is the budget the diagnostic reports.
+  let timedOutAfterS: number | undefined;
+  let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
+  const budgetS = opts.timeoutS;
+  if (budgetS !== undefined && budgetS > 0) {
+    timeoutTimer = setTimeout(() => {
+      timedOutAfterS = budgetS;
+      onAbort();
+    }, budgetS * 1000);
+  }
+
   // `chunks` holds the full output for the buffered human write + diagnostic
   // (buffered mode). In STREAM mode `chunks` stays empty and a byte-capped head +
   // tail window is retained instead, so a failed streamed job still carries a
@@ -215,6 +248,9 @@ export async function spawnJob(
   if (killTimer !== undefined) {
     clearTimeout(killTimer);
   }
+  if (timeoutTimer !== undefined) {
+    clearTimeout(timeoutTimer);
+  }
   if (signal) {
     signal.removeEventListener("abort", onAbort);
   }
@@ -227,7 +263,10 @@ export async function spawnJob(
   // `signal.aborted` is still false → it is correctly NOT cancelled and keeps its
   // diagnostic. A job that finished clean (code 0) before an abort stays ok.
   const code = finalCode(status.code, status.signal);
-  const cancelled = (opts.signal?.aborted ?? false) && code !== 0;
+  // A timed-out job is a genuine failure, never a cancelled sibling: exclude it here
+  // so it keeps its diagnostic even if a fail-fast/external abort also raced in.
+  const cancelled = timedOutAfterS === undefined &&
+    (opts.signal?.aborted ?? false) && code !== 0;
   const durationS = Math.round((performance.now() - start) / 1000);
   const result: JobResult = {
     label: job.label,
@@ -238,6 +277,9 @@ export async function spawnJob(
   };
   if (cancelled) {
     result.cancelled = true;
+  }
+  if (timedOutAfterS !== undefined) {
+    result.timedOutAfterS = timedOutAfterS;
   }
   // Attach the FULL captured output on a GENUINE failure (not a cancelled sibling).
   // Capping is deferred to the diagnostic layer so structured normalization (SARIF)

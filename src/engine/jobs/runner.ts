@@ -38,6 +38,13 @@ export interface RunOptions {
   signal?: AbortSignal;
   /** Whether colour is enabled for the status banners. */
   color: boolean;
+  /**
+   * Per-command time budget in SECONDS (`[gate].timeout`), applied to EVERY job in
+   * the run. A job that never exits within it is tree-killed and fails with a
+   * timeout diagnostic — so the gate can't hang on a watch-mode runner or a dev
+   * server. Omitted (the unit-test default) means no bound.
+   */
+  timeoutS?: number;
   /** Sink for human output (banners + buffered job output). Default: stderr. */
   write?: (chunk: Uint8Array) => void;
   /**
@@ -136,6 +143,7 @@ export async function runParallel(
         signal: controller.signal,
         stream,
         write,
+        ...(opts.timeoutS !== undefined ? { timeoutS: opts.timeoutS } : {}),
       }).then((s) => {
         if (opts.failFast && s.result.code !== 0) {
           controller.abort();
@@ -193,6 +201,7 @@ export async function runSerial(
         signal: controller.signal,
         stream,
         write,
+        ...(opts.timeoutS !== undefined ? { timeoutS: opts.timeoutS } : {}),
       });
       if (!quiet) {
         write(banner(s.result, opts.color));

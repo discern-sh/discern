@@ -77,19 +77,24 @@ Deno.test("runParallel: every job executes in its required cwd", async () => {
   }
 });
 
-Deno.test("spawnJob tells captured commands they are not running in a terminal", async () => {
+Deno.test("spawnJob runs captured commands with the non-interactive CI env contract", async () => {
+  // Pins the full CAPTURE_ENV contract so a future edit can't silently drop a key:
+  // NO_COLOR/TERM=dumb (tools emit plain, parseable output off a terminal) and CI=1
+  // (the honest local-CI signal that flips watch-vs-single-run runners into their
+  // single-run form, so a bare `test = "<runner>"` never enters watch mode and hangs
+  // the gate). A command that sets its own values still overrides them.
   const dir = await Deno.makeTempDir({ prefix: "discern-job-env-" });
   try {
     const sink = makeSink();
     const result = await runParallel([
       {
         label: "env",
-        command: 'printf \'%s:%s\' "$NO_COLOR" "$TERM" > observed.env',
+        command: 'printf \'%s:%s:%s\' "$NO_COLOR" "$TERM" "$CI" > observed.env',
       },
       {
         label: "override",
         command:
-          'NO_COLOR=custom TERM=xterm sh -c \'printf "%s:%s" "$NO_COLOR" "$TERM" > observed-override.env\'',
+          'NO_COLOR=custom TERM=xterm CI=0 sh -c \'printf "%s:%s:%s" "$NO_COLOR" "$TERM" "$CI" > observed-override.env\'',
       },
     ], {
       cwd: dir,
@@ -99,10 +104,13 @@ Deno.test("spawnJob tells captured commands they are not running in a terminal",
       write: sink.write,
     });
     assertEquals(result.ok, true);
-    assertEquals(await Deno.readTextFile(join(dir, "observed.env")), "1:dumb");
+    assertEquals(
+      await Deno.readTextFile(join(dir, "observed.env")),
+      "1:dumb:1",
+    );
     assertEquals(
       await Deno.readTextFile(join(dir, "observed-override.env")),
-      "custom:xterm",
+      "custom:xterm:0",
     );
   } finally {
     await Deno.remove(dir, { recursive: true });

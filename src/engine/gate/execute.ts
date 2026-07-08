@@ -101,6 +101,7 @@ export function gateRunContext(
       cwd: root,
       stream: cfg.gate.stream,
       failFast: cfg.gate.fail_fast,
+      timeoutS: cfg.gate.timeout,
       ...(signal !== undefined ? { signal } : {}),
       color,
       write: byteWriter("stdout"),
