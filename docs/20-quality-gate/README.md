@@ -3,6 +3,12 @@
 _`discern finish` — the compound gate that fixes, builds, checks, and tests
 before work is called done._
 
+> **New here?** Start with the [orientation tier](../00-orientation/) —
+> [concepts](../00-orientation/concepts.md) and
+> [what setup added to your repo](../00-orientation/after-setup.md) — before the
+> mechanism below. If a `discern finish` just went red, jump straight to
+> [when the gate fails](when-the-gate-fails.md).
+
 This subtree covers the gate and everything it runs. The built-in
 [`finish`](../../src/engine/gate/finish.ts) verb first runs fail-fast
 preconditions: the **merge check** — in a Worktree, that the branch contains the
@@ -85,6 +91,7 @@ canonical-set discipline (ADR 0051) that the gate's parity tests enforce
 
 | Leaf                                               | What it covers                                                                                                                                                       |
 | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`when-the-gate-fails.md`](when-the-gate-fails.md) | Day-2 triage for a red `discern finish`: reading the diagnostics, the common causes stage by stage, and what to hand back to your agent.                             |
 | [`ratchets.md`](ratchets.md)                       | Never-loosen floors and ceilings, raw counts versus `per` rates, the `DISCERN_METRIC` protocol, and what to do when one fires.                                       |
 | [`the-result-envelope.md`](the-result-envelope.md) | The `DiscernResult` envelope every verb returns, its `diagnostics[]`, the typed result schemas, and `discern mcp`'s self-describing surface (ADR 0028, ADR 0041).    |
 | [`ci.md`](ci.md)                                   | How to run `discern finish` on GitHub Actions so the gate protects `main` outside local runs, and what an ephemeral cloud-agent environment sees without the binary. |
