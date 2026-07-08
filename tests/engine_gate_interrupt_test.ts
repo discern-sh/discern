@@ -16,9 +16,12 @@
  * signal auto-enrols here (fix the class, not the instance).
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert } from "@std/assert";
 import { join } from "@std/path";
-import { INTERRUPT_SIGNALS } from "../src/engine/jobs/interrupt.ts";
+import {
+  INTERRUPT_SIGNALS,
+  SIGNAL_EXIT_CODES,
+} from "../src/engine/jobs/interrupt.ts";
 import {
   DENO_JSON,
   engineEnv,
@@ -55,7 +58,7 @@ function alive(pid: number): boolean {
 }
 
 for (const sig of INTERRUPT_SIGNALS) {
-  Deno.test(`an interrupted finish (${sig}) kills the in-flight gate job and dies by the signal`, async () => {
+  Deno.test(`an interrupted finish (${sig}) kills the in-flight gate job and dies by the interrupt`, async () => {
     const dir = await Deno.makeTempDir({ prefix: "discern-gate-interrupt-" });
     try {
       await scaffoldEngine(dir);
@@ -109,8 +112,22 @@ for (const sig of INTERRUPT_SIGNALS) {
       const status = await child.status;
       await drained;
 
-      // The engine died BY the signal (re-raised after reaping), not exit 0/1.
-      assertEquals(status.signal, sig, JSON.stringify(status));
+      // The engine died the way the interrupt asked — re-raised BY the signal
+      // (the normal path), OR with that signal's conventional 128+n exit code
+      // when the self-signal doesn't terminate (the documented fallback in
+      // interrupt.ts; observed under load once the listener is torn down). Both
+      // are a clean killed-by-interrupt outcome, not a normal exit 0/1; asserting
+      // only the former is stricter than interrupt.ts guarantees and flakes under
+      // load. What matters is it did NOT run to a normal completion.
+      const diedBySignal = status.signal === sig;
+      const diedByFallbackCode = status.signal === null &&
+        status.code === SIGNAL_EXIT_CODES[sig];
+      assert(
+        diedBySignal || diedByFallbackCode,
+        `expected death by ${sig} or exit ${SIGNAL_EXIT_CODES[sig]}, got ${
+          JSON.stringify(status)
+        }`,
+      );
       // And the job it was running is dead too — no orphaned gate processes.
       await pollFor(
         () => !alive(jobPid),

@@ -26,8 +26,11 @@
 export const INTERRUPT_SIGNALS: readonly Deno.Signal[] =
   Deno.build.os === "windows" ? ["SIGINT"] : ["SIGINT", "SIGTERM", "SIGHUP"];
 
-/** Conventional 128+n exit codes, the fallback when re-raising is unsupported. */
-const SIGNAL_EXIT_CODES: Partial<Record<Deno.Signal, number>> = {
+/** Conventional 128+n exit codes, the fallback when re-raising is unsupported (a
+ * self-signal that doesn't terminate — e.g. Windows, or under load once the
+ * listener is torn down). Exported so the interrupt E2E asserts against the SAME
+ * codes the fallback uses, rather than a hand-copied list. */
+export const SIGNAL_EXIT_CODES: Partial<Record<Deno.Signal, number>> = {
   SIGHUP: 129,
   SIGINT: 130,
   SIGTERM: 143,
