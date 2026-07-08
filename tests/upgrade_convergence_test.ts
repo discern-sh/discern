@@ -198,6 +198,54 @@ Deno.test("upgrade reconciles a current-schema config missing a fixed template s
   });
 });
 
+/** Simulate a config written before a record-table knob existed: drop the
+ * `margin` documentation lines from the [ratchets] banner. */
+async function dropMarginFromRatchetsBanner(dir: string): Promise<void> {
+  const path = await configPath(dir);
+  const text = await Deno.readTextFile(path);
+  const stale = text.replace(
+    /\n#\s+margin\b[\s\S]*?ordinary fluctuation\.\n/u,
+    "\n",
+  );
+  assert(stale !== text, "a fresh [ratchets] banner should document `margin`");
+  await Deno.writeTextFile(path, stale);
+}
+
+Deno.test("upgrade refreshes a record-table banner that lags the current template", async () => {
+  await withTempDir(async (dir) => {
+    await setup(dir);
+    await dropMarginFromRatchetsBanner(dir);
+
+    const check = await upgradeCheck(dir);
+    assertEquals(check.code, 1);
+    assertEquals(check.res.data.pending_migrations, []);
+    assertEquals(check.res.data.pending_reconciliation, [{
+      kind: "banner",
+      path: "ratchets",
+    }]);
+
+    const beforeDryRun = await readTarget(dir, "discern.toml");
+    const dryRun = await upgradeDryRun(dir);
+    assertEquals(dryRun.data.pending_reconciliation, [{
+      kind: "banner",
+      path: "ratchets",
+    }]);
+    assertEquals(await readTarget(dir, "discern.toml"), beforeDryRun);
+
+    const res = await upgrade(dir);
+    assertEquals(res.data.migrations_applied, []);
+    assertEquals(res.data.config_reconciled, [{
+      kind: "banner",
+      path: "ratchets",
+    }]);
+    // the newly-documented knob reaches the install …
+    assertStringIncludes(await readTarget(dir, "discern.toml"), "#   margin");
+    // … and the install is now current and byte-stable.
+    assertEquals((await upgradeCheck(dir)).code, 0);
+    await assertSecondUpgradeIsByteStable(dir);
+  });
+});
+
 Deno.test("upgrade reconciles a messy legacy .gitignore to one discern block", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);
