@@ -9,11 +9,11 @@ Everything discern knows about this project lives in one root file,
 
 - **Orient first.** Call **`discern_status`** at the start of a session — read-only
   and cheap — for what's true now and what to do next.
-- **Starting a task? Get your own worktree first.** On the main checkout, run
-  **`discern_start`** before you begin: it creates an isolated worktree and returns
-  its path. Nothing relocates you — re-root into it and work from there, never on
-  the trunk or in a worktree you didn't create. (See *Isolated worktree workflow*
-  below.)
+- **Starting a task? Get your own worktree first.** If you're on the main checkout,
+  run **`discern_start`** first: it creates an isolated worktree for your work and
+  returns its path. Nothing relocates you, so re-root into that path and work from
+  inside it, never on the trunk,or in a worktree you didn't create. (See *Isolated
+  worktree workflow* below.)
 - **`discern_finish` is the bar for "done".** It runs the project's whole quality
   gate; don't call a change finished until the final tree passes. Iterate with
   **`discern_prepare`** (the fast fix-then-check loop) or **`discern_test`** (just

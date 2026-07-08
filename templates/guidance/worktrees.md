@@ -23,7 +23,7 @@ doesn't collide.{{#if has_worktree_resources}} It provisions per-worktree extern
 While iterating on uncommitted work, use `discern_prepare`, `discern_test`, or a
 targeted project command. When the final tree is ready, commit it first, then run
 `discern_finish` once on the clean HEAD — that recorded pass is the one graduation
-honors; a finish before the final commit doesn't vouch for it.
+honors; subsequent commits after an earlier finish invalidate a previous pass.
 
 Graduation requires a clean worktree and lands committed branch history only.
 
