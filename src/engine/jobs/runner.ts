@@ -20,6 +20,7 @@
 
 import type { Job, JobResult, StageRunResult } from "./types.ts";
 import { spawnJob } from "./command.ts";
+import { trackRun } from "./interrupt.ts";
 
 /** How a stage run presents and schedules its jobs. */
 export interface RunOptions {
@@ -127,6 +128,7 @@ export async function runParallel(
   }
   const controller = new AbortController();
   const detach = chainExternal(controller, opts.signal);
+  const release = trackRun(controller);
   try {
     const settled = await Promise.all(jobs.map((job) =>
       spawnJob(job, {
@@ -153,6 +155,10 @@ export async function runParallel(
     return { ok: results.every((r) => r.code === 0), results };
   } finally {
     detach();
+    // May re-raise a pending OS interrupt (dying with its conventional status)
+    // once this was the last active run — after the banners above, so the user
+    // still sees what was cancelled.
+    release();
   }
 }
 
@@ -171,6 +177,7 @@ export async function runSerial(
   const stream = quiet ? false : opts.stream;
   const controller = new AbortController();
   const detach = chainExternal(controller, opts.signal);
+  const release = trackRun(controller);
   const results: JobResult[] = [];
   let ok = true;
   try {
@@ -202,5 +209,6 @@ export async function runSerial(
     return { ok, results };
   } finally {
     detach();
+    release();
   }
 }
