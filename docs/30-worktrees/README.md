@@ -2,6 +2,12 @@
 
 _Throwaway git Worktrees so an agent never works in the main checkout._
 
+> **New here?** Start with the [orientation tier](../00-orientation/) —
+> [concepts](../00-orientation/concepts.md) and
+> [what setup added to your repo](../00-orientation/after-setup.md) — before the
+> mechanism below. Sharing the repo with people?
+> [Working with a team](team-workflow.md) covers cloning and collaboration.
+
 This subtree covers the Worktree lifecycle. The `discern worktree ...`
 subcommands provision and tear down an isolated `git worktree` (and its branch)
 per change, each with a **deterministic dev-server port** and any number of
@@ -106,6 +112,7 @@ inspectable before they act.
 
 | File                                 | Covers                                                                                                                                                                    |
 | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [team-workflow.md](team-workflow.md) | The collaborator story: cloning with or without discern, the one-minute path to full function, and working alongside agent worktrees without colliding.                   |
 | [the-resources.md](the-resources.md) | Per-worktree resources: the config seam, the create/reuse/destroy lifecycle, the ledger + orphan GC, identity, ownership/namespacing, and the runtime-discovery contract. |
 
 > **Status: partial.** `the-resources.md` is written; the remaining lifecycle /
