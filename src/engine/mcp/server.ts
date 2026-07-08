@@ -825,11 +825,12 @@ async function startToolResult(
 export function mcpStartHint(path: string): string {
   return `discern's tools are now aimed at the new worktree at ${path} — your ` +
     `discern_finish / discern_integrate / discern_graduate calls operate on it ` +
-    `automatically from here. You must STILL move your own file operations into ` +
-    `${path}: re-root there (cd in, or start a session there), or — if you can't ` +
-    `change your working root — prefix every shell command with \`cd ${path} && …\` ` +
-    `and pass path="${path}" to every discern tool. Otherwise your edits land on ` +
-    `the trunk while the gate runs in the worktree, and the two diverge.`;
+    `automatically hereafter. You must STILL move your own file operations into ` +
+    `${path}: re-root there (cd in, or use your environment's worktree-entering ` +
+    `capability). If you can't change your working root: prefix every shell ` +
+    `command with \`cd ${path} && …\`, and pass path="${path}" to every discern ` +
+    `MCP tool. You MUST do this, otherwise your edits will land on the trunk ` +
+    `whilst the gate runs in the worktree, and the two states will diverge.`;
 }
 
 /** The verb slug behind a tool name (`discern_scopes` → `scopes`),
