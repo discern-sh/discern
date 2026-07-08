@@ -396,6 +396,9 @@ const gateSection = z.strictObject({
   fail_fast: z.boolean().default(true).describe(
     "Cancel the in-flight sibling commands the moment one fails. ON by default — an agent-driven gate wants a fast abort. Set false to run every job and see all failures in one pass.",
   ),
+  timeout: z.number().default(600).describe(
+    "Per-command time budget in SECONDS, applied to every job the gate runs (each capability, check, and scope gate). A command that does not exit within it is tree-killed and the stage fails with a plain-language timeout diagnostic — so the gate can never hang. One generous global budget (default 600 = 10 minutes): long enough for a real test suite, short enough that a stuck command (a watch-mode runner or a dev server wired without its single-run form) is caught within minutes rather than never. Set to 0 to disable the limit (not recommended — the gate can then hang indefinitely).",
+  ),
 }).prefault({}).describe(
   "Ergonomics for the parallel gate stages (and scope gates). These affect how `discern finish` runs its concurrent jobs.",
 );

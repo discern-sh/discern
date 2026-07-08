@@ -39,6 +39,13 @@ export interface JobResult {
    * non-zero). It is excluded from `diagnostics` and reported as `skipped`.
    */
   cancelled?: boolean;
+  /**
+   * The per-command time budget (seconds) this job blew through: present ONLY when
+   * the job was tree-killed by the gate's watchdog for never exiting (`[gate].timeout`).
+   * A GENUINE failure (not a cancelled sibling), it carries the budget so the
+   * diagnostic can name it. Presence, not the value, is the "did it time out?" flag.
+   */
+  timedOutAfterS?: number;
 }
 
 /** What a stage run returns: overall success plus the per-job results produced. */

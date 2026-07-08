@@ -362,6 +362,20 @@ function withFixAvailable(
 }
 
 /**
+ * The one-line message for a Tier-0 (unstructured) job failure. A job the gate's
+ * watchdog tree-killed for never exiting (`timedOutAfterS`) gets a plain-language
+ * diagnosis that names the usual culprit — a watch-mode runner or a hung dev
+ * server — and the two ways out; everything else reports its exit code. Behavioural
+ * throughout: it reasons about the outcome, never about which tool produced it.
+ */
+function jobFailureMessage(label: string, r: JobResult): string {
+  if (r.timedOutAfterS !== undefined) {
+    return `${label} timed out after ${r.timedOutAfterS}s without exiting and was killed — the command never returned. A watch-mode test runner or a dev server that never exits will hang the gate; wire it in its single-run (CI) form, or raise [gate].timeout for a legitimately long-running command.`;
+  }
+  return `${label} failed (exit ${r.code})`;
+}
+
+/**
  * Serialize executed job groups into {@link StepResult}s + {@link Diagnostic}s — the
  * projection shared by `finish`, `prepare`, and `discern test`. Each capability/
  * check/scope-gate job becomes a step (looked up by label; missing → skipped), in
@@ -407,9 +421,12 @@ export async function serializeJobSteps(
       }
       if (r !== undefined && r.code !== 0 && r.cancelled !== true) {
         const fixAvailable = fixAvailableFor(j, fixStageWired);
-        const normalized = r.output !== undefined
-          ? normalizeDiagnostics(r.output, j.label, j.command)
-          : undefined;
+        // A timed-out job is a hang, not a tool diagnostic — never SARIF-normalize
+        // it; its plain-language message (below) names the likely cause instead.
+        const normalized =
+          r.timedOutAfterS === undefined && r.output !== undefined
+            ? normalizeDiagnostics(r.output, j.label, j.command)
+            : undefined;
         if (normalized !== undefined) {
           diagnostics.push(...withFixAvailable(normalized, fixAvailable));
         } else {
@@ -419,7 +436,7 @@ export async function serializeJobSteps(
           diagnostics.push({
             tool: j.label,
             severity: "error",
-            message: `${j.label} failed (exit ${r.code})`,
+            message: jobFailureMessage(j.label, r),
             reproduce_cmd: j.command,
             ...(fixAvailable === true ? { fix_available: true } : {}),
             ...outputFields,

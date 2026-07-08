@@ -132,6 +132,28 @@ merge that adds a new source path can leave the generated index stale, which
 some tools report as a silent bootstrap failure (an empty error, an unexpected
 non-zero exit) rather than a clear "not found".
 
+### A command hangs, then fails with a timeout
+
+**Symptom.** `discern finish` sits on a stage with no further output, then —
+after `[gate].timeout` seconds (default 600) — fails that stage with a
+diagnostic that the command "timed out … without exiting". The command works
+fine when you run it by hand.
+
+**Cause.** A gate command never exits. The usual culprit is a **watch-mode test
+runner** or a **dev server** wired into a capability. Run by hand in your
+terminal it may pick a single run, but the gate runs it with stdin closed, no
+TTY, and piped output, where many runners default to _watching_ for file changes
+and wait forever. The gate exports `CI=1` (with `NO_COLOR` / `TERM=dumb`) to
+push runners into their single-run form, but one that ignores `CI` still hangs —
+so the timeout watchdog tree-kills the whole process group and fails the stage
+rather than waiting indefinitely.
+
+**Fix.** Wire the command in its **single-run form** — the flag or script that
+runs once and exits, not a `--watch`/interactive mode and not a long-lived
+server. If the command is _legitimately_ longer than the budget (a large suite),
+raise `[gate].timeout`; set it to `0` only to disable the bound entirely (not
+recommended — the gate can then hang again).
+
 ### A failure shows up as exit 0
 
 **Symptom.** You pipe `discern finish` into `tee`, `tail`, or another command to
