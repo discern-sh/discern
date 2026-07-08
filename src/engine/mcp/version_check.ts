@@ -4,18 +4,18 @@
  * A client spawns the discern MCP server ONCE and keeps it for the whole
  * session. If the discern binary on disk is replaced later — a `brew upgrade
  * discern` (or equivalent), then a `discern upgrade` that rewrites this project
- * to the new templates — the running server keeps executing the OLD engine and
- * the OLD embedded templates. A stale `discern_refresh` from this server and a
- * fresh CLI `discern finish` then rewrite the generated files back and forth
- * until the client restarts. Nothing else catches this drift; restarting the
- * session (so the client respawns the server from the new binary) is the fix.
+ * to the new templates — the running server keeps executing the engine and
+ * embedded templates it was compiled with. A stale `discern_refresh` from this
+ * server and a fresh CLI `discern finish` then rewrite the generated files back
+ * and forth until the client restarts. Nothing else catches this drift; a
+ * restart (so the client starts the server fresh from the new binary) is the fix.
  *
  * So on every tool call we compare the version THIS server was compiled with
  * (`KIT_VERSION`, baked into the running process) against the version of the
  * discern binary currently on disk, and on a mismatch append a hint telling the
  * agent to restart.
  *
- * Cheap by construction (the brief's "statted, not spawned per call"): the
+ * Cheap by construction — statted, not spawned per call: the
  * running executable is stat-keyed on every call (one syscall) and `<binary>
  * --version` is spawned ONLY when that key changes — which, for the running
  * binary, is exactly the replace event we care about. The resolver is seeded at

@@ -837,8 +837,8 @@ function renderResult(result: DiscernResult): ToolResult {
   };
 }
 
-/** Append one hint to a result without clobbering the verb's own (used to add the
- * stale-server restart hint to whatever the verb already returned). */
+/** Append one hint to a result without clobbering the verb's own — it adds the
+ * stale-server restart hint on top of whatever the verb already returned. */
 function appendHint(result: DiscernResult, hint: string): DiscernResult {
   return { ...result, hints: [...(result.hints ?? []), hint] };
 }

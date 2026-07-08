@@ -94,9 +94,9 @@ async function readTextIfExists(path: string): Promise<string | undefined> {
 /**
  * The closing hint every applied upgrade carries, on both the human and JSON
  * surfaces. An agent that spawned discern's MCP server before this upgrade keeps
- * running the old engine and embedded templates until its session restarts — the
- * MCP version handshake flags it, but telling the user to restart here closes the
- * window sooner.
+ * running the engine and embedded templates it loaded then, until its session
+ * restarts — the MCP version handshake flags it, but telling the user to restart
+ * here closes the window sooner.
  */
 const RESTART_AGENTS_HINT =
   "If an agent session is open, restart it so its discern MCP server reloads this build — a server started before the upgrade keeps running the old engine and templates until then.";
