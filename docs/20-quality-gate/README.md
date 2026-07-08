@@ -25,6 +25,14 @@ cancelling its call, or the MCP server shutting down — funnels into that same
 kill, so no orphaned gate processes outlive the run
 ([ADR 0105](../_adr/0105-interruption-reaches-detached-gate-jobs.md)).
 
+Every job runs through `sh -c` in a **non-interactive environment**: stdin is
+closed, there is no TTY, and `NO_COLOR` / `TERM=dumb` / `CI=1` are exported. The
+first two tell tools they are not on a terminal, so they emit plain text an
+agent can read rather than colour and cursor control; `CI=1` is the honest
+signal for what the gate is — a local CI run — and is what flips the many
+watch-vs-single-run test runners into their single-run form, so a bare
+`test = "<runner>"` never enters watch mode and waits forever for a file change.
+
 `discern prepare` is the fast inner loop: the fix-stage then check-stage work,
 with no build or test. `--json` emits the **`DiscernResult` envelope** — the one
 result shape every verb returns

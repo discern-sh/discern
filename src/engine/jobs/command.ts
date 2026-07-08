@@ -46,7 +46,18 @@ const DECODER = new TextDecoder();
 const STREAM_CAP_BYTES = 1_000_000;
 const HEAD_CAP = STREAM_CAP_BYTES / 2;
 const TAIL_CAP = STREAM_CAP_BYTES - HEAD_CAP;
-const CAPTURE_ENV: Record<string, string> = { NO_COLOR: "1", TERM: "dumb" };
+/**
+ * The environment every gate command inherits. `NO_COLOR`/`TERM=dumb` tell tools
+ * they aren't on a terminal (so they emit plain, parseable output); `CI=1` is the
+ * honest signal for what the gate is — a local CI run — and, decisively, flips the
+ * ubiquitous watch-vs-single-run test runners into their single-run form, so a bare
+ * `test = "<runner>"` doesn't enter watch mode and hang the gate waiting for edits.
+ */
+const CAPTURE_ENV: Record<string, string> = {
+  NO_COLOR: "1",
+  TERM: "dumb",
+  CI: "1",
+};
 
 /** Signal an entire process group, falling back to the direct child. */
 export function killTree(pid: number, sig: Deno.Signal): void {
