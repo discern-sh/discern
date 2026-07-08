@@ -52,6 +52,14 @@ These arise from how the harness works (git worktrees, parallel stages, build ar
 
 **Fix.** Wire the command in its **single-run form** — the flag or script that runs once and exits, not a `--watch`/interactive mode and not a long-lived server. If the command is *legitimately* longer than the budget (a large suite), raise `[gate].timeout`; set it to `0` only to disable the bound entirely (not recommended — the gate can then hang again).
 
+### A gate command fails with exit 127 (command not found)
+
+**Symptom.** A capability or check fails immediately with `exit 127` and a `sh: <cmd>: not found` line — a command that runs fine in the main checkout.
+
+**Cause.** A fresh worktree starts with only your tracked files. The tools and dependency directories that put that command on `PATH` — an untracked package `bin` directory, a local tools or cache directory, a per-checkout language environment — do not exist in the new worktree until something creates them, so the shell cannot find the command.
+
+**Fix.** Converge those directories in every worktree with `[worktree.setup].ensure` — commands that run on every setup pass (install dependencies, build the toolchain). One-shot scaffolding that only needs to run at creation goes in `[worktree.setup].steps`. Then the command is on `PATH` wherever the gate runs.
+
 ### A failure shows up as exit 0
 
 **Symptom.** You pipe `discern finish` into `tee`, `tail`, or another command to capture its output, and it appears to succeed even though a stage clearly failed.

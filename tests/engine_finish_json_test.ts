@@ -160,6 +160,43 @@ Deno.test("finish --json: a failing check reports ok:false, a failed step, and a
   });
 });
 
+Deno.test("finish --json: an exit-127 failure explains command-not-found and points at [worktree.setup].ensure", async () => {
+  // The class this guards: a tool present in the main checkout but absent from a
+  // fresh worktree fails with a bare `sh: <cmd>: not found` and exit 127, and nothing
+  // links the failure to worktrees or to [worktree.setup].ensure. The hint stays
+  // generic — no tool or ecosystem names — since discern never sniffs the stack.
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        'main_branch = "main"',
+        "",
+        "[capabilities]",
+        // a command that does not exist → the shell exits 127 ("command not found")
+        'lint = "discern-no-such-command-xyz --run"',
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+    const r = await runAgent(dir, ["finish", "--json"]);
+    assertEquals(r.code, 1, r.output);
+
+    const obj = parseJson(r.stdout);
+    assertEquals(obj.ok, false);
+    const diag = diagFor(obj, "lint");
+    assert(
+      diag,
+      `expected a diagnostic for lint, got ${JSON.stringify(obj.diagnostics)}`,
+    );
+    assertStringIncludes(diag.message, "exit 127");
+    assertStringIncludes(diag.message, "command not found");
+    assertStringIncludes(diag.message, "[worktree.setup].ensure");
+  });
+});
+
 Deno.test("finish --json: a passing job with suspicious output exposes an advisory artifact", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

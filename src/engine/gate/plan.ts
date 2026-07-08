@@ -362,15 +362,21 @@ function withFixAvailable(
 }
 
 /**
- * The one-line message for a Tier-0 (unstructured) job failure. A job the gate's
- * watchdog tree-killed for never exiting (`timedOutAfterS`) gets a plain-language
- * diagnosis that names the usual culprit — a watch-mode runner or a hung dev
- * server — and the two ways out; everything else reports its exit code. Behavioural
- * throughout: it reasons about the outcome, never about which tool produced it.
+ * The one-line message for a Tier-0 (unstructured) job failure, keyed off the
+ * OUTCOME, never off which tool produced it:
+ *  - a job the watchdog tree-killed for never exiting (`timedOutAfterS`) names the
+ *    usual culprit (a watch-mode runner / hung dev server) and the two ways out;
+ *  - exit 127 is the shell's "command not found" — in a fresh worktree the giveaway
+ *    is an untracked tool/dependency dir that never got converged, so the hint points
+ *    at `[worktree.setup].ensure` rather than leaving a bare `sh: <cmd>: not found`;
+ *  - everything else reports its exit code.
  */
 function jobFailureMessage(label: string, r: JobResult): string {
   if (r.timedOutAfterS !== undefined) {
     return `${label} timed out after ${r.timedOutAfterS}s without exiting and was killed — the command never returned. A watch-mode test runner or a dev server that never exits will hang the gate; wire it in its single-run (CI) form, or raise [gate].timeout for a legitimately long-running command.`;
+  }
+  if (r.code === 127) {
+    return `${label} failed (exit 127) — command not found. If it works in the main checkout, note that a fresh worktree starts without the untracked tool and dependency directories the main checkout has; converge them via [worktree.setup].ensure.`;
   }
   return `${label} failed (exit ${r.code})`;
 }
