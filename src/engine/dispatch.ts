@@ -324,6 +324,7 @@ export function attachEngineCommands(root: Command): void {
     .description(
       "Check every metric ratchet (slow; on demand, not part of finish).",
     )
+    .arguments("[names...:string]")
     .option(
       "--json",
       "Emit the result as a JSON DiscernResult object on stdout.",
@@ -336,12 +337,18 @@ export function attachEngineCommands(root: Command): void {
       "--force",
       "Run ratchets on a dirty worktree; intended only while authoring ratchets.",
     )
-    .action(async (o) => {
+    .option(
+      "--pin",
+      "Capture measured improvements: tighten each limit to the value just measured (the named ratchets, or every one with slack), commit that change on its own, and carry the gate-pass receipt forward. Requires a clean worktree.",
+    )
+    .action(async (o, ...names: string[]) => {
       Deno.exit(
         await runRatchets(await requireRoot(), {
           json: o.json ?? false,
           dryRun: o.dryRun ?? false,
           force: o.force ?? false,
+          pin: o.pin ?? false,
+          pinNames: names,
         }),
       );
     });

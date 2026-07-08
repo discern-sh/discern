@@ -15,6 +15,11 @@
  * edit silently invalidates it and `graduate` falls back to running the gate. It is a
  * fast-path cache for "this tree already passed", never a substitute for the gate: a
  * failing run clears it, and graduate re-runs `finish` whenever it is absent or stale.
+ *
+ * `finish` is its usual author, but `ratchets --pin` also carries an honored vouch
+ * forward onto the commit it makes: that commit changes only `[ratchets]` limits,
+ * which the gate never reads, so the vouch stays truthful across it and `graduate`
+ * need not re-run the whole gate for a re-pin (see {@link carryReceiptForwardAcrossPin}).
  */
 
 import { join } from "@std/path";
@@ -194,4 +199,31 @@ export async function inspectGateReceipt(
  */
 export async function gateReceiptHonored(cwd: string): Promise<boolean> {
   return (await inspectGateReceipt(cwd)).status === "honored";
+}
+
+/**
+ * Carry a gate-pass receipt across a `ratchets --pin` commit (ADR 0106).
+ *
+ * `ratchets --pin` commits ONLY `[ratchets.*]` limit changes — values the gate never
+ * reads (ratchets are not part of `finish`; ADR 0003) — so the tree the pin commit
+ * produces passes the gate iff the pre-pin tree did. When the pre-pin HEAD carried an
+ * HONORED receipt (it named that HEAD over a clean tree), re-stamp the vouch onto the
+ * new clean HEAD the commit created; otherwise the moved HEAD would strand a truthful
+ * pass and force `graduate` to re-run the whole gate for a change that cannot alter its
+ * outcome.
+ *
+ * Fail-closed and narrow: it forwards ONLY a vouch that genuinely held a moment ago
+ * (`priorHonored`), which only the caller — the author of the commit, so the one party
+ * that knows it touched nothing but ratchet limits — may assert. With no prior vouch it
+ * does nothing (returns `undefined`), leaving the now-stale receipt for `graduate` to
+ * re-validate. Best-effort like all receipt I/O: a write hiccup never fails the pin.
+ */
+export async function carryReceiptForwardAcrossPin(
+  cwd: string,
+  priorHonored: boolean,
+): Promise<GateReceiptRecordData | undefined> {
+  if (!priorHonored) {
+    return undefined;
+  }
+  return await recordGateOutcome(cwd, true);
 }

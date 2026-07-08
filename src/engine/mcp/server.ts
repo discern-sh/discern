@@ -384,13 +384,25 @@ export const TOOLS: McpTool[] = orderTools([
       "and ON DEMAND — it runs the metric commands, so it is NOT part of " +
       "discern_finish; run it as needed. Non-dry-run calls require a clean worktree " +
       "unless force is set while authoring or debugging ratchets. Set dry_run to " +
-      "preview which ratchets would run without measuring anything.",
+      "preview which ratchets would run without measuring anything. Set pin to " +
+      "capture measured improvements INSTEAD of just checking: it tightens each " +
+      "limit to the value just measured (the pin_names ratchets, or every one with " +
+      "slack), commits that change on its own, and carries the gate-pass receipt " +
+      "forward so graduate skips the redundant gate re-run — the ergonomic way to " +
+      "re-pin a baseline, never hand-edit discern.toml. Pin needs a clean worktree " +
+      "and pins nothing while any ratchet is failing.",
     inputSchema: {
       dry_run: z.boolean().optional().describe(
-        "Preview the ratchets that would run and measure nothing (default false).",
+        "Preview (with pin: report what pin would change); measure nothing without pin, and never write (default false).",
       ),
       force: z.boolean().optional().describe(
-        "Override the clean-worktree guard while authoring or debugging ratchets (default false).",
+        "Override the clean-worktree guard while authoring or debugging ratchets; ignored with pin (default false).",
+      ),
+      pin: z.boolean().optional().describe(
+        "Capture measured improvements: tighten each limit to the measured value, commit it alone, and carry the gate-pass receipt forward. Requires a clean worktree (default false).",
+      ),
+      pin_names: z.array(z.string()).optional().describe(
+        "With pin, restrict pinning to these ratchets (default: every ratchet with slack).",
       ),
       ...PATH_PARAM,
     },
@@ -398,6 +410,8 @@ export const TOOLS: McpTool[] = orderTools([
       ratchetsResult(root, {
         dryRun: args.dry_run === true,
         force: args.force === true,
+        pin: args.pin === true,
+        ...(args.pin_names !== undefined ? { pinNames: args.pin_names } : {}),
       }),
   }),
   defineTool({

@@ -13,12 +13,17 @@
  * (plan, results) through the shared renderer.
  */
 
-import { type Extent, loadConfig } from "../../shared/config_schema.ts";
+import {
+  type DiscernConfig,
+  type Extent,
+  loadConfig,
+} from "../../shared/config_schema.ts";
 import { RawConfig } from "../../shared/config_read.ts";
 import { colorEnabled, makeOut, type Out, outSink } from "../output.ts";
 import {
   buildRatchetPlan,
   perNote,
+  pinnedLimit,
   type PlannedRatchet,
   type RatchetPlan,
   ratchetPlanToEngine,
@@ -36,6 +41,10 @@ import {
 import { emitResult } from "../../shared/emit.ts";
 import { setupInProgressHint } from "../../shared/setup_state.ts";
 import { runGit, runShell } from "../../shared/subprocess.ts";
+import { join } from "@std/path";
+import { CONFIG_REL, installedConfigRel } from "../../shared/env.ts";
+import { TomlEditor } from "../../lib/toml_edit.ts";
+import { carryReceiptForwardAcrossPin, inspectGateReceipt } from "./receipt.ts";
 
 /** True when `s` is a non-negative decimal number. */
 function isNumber(s: string): boolean {
@@ -152,15 +161,18 @@ function fmtRate(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/\.?0+$/, "");
 }
 
-/** Check one planned ratchet. Prints its own pass/fail line; returns held/failed.
- * The ratchet is already schema-validated (direction ∈ up|down, limit a number,
- * run present), so its structural checks are folded into the schema. */
+/** Check one planned ratchet: the never-loosen read, the measurement, the comparison.
+ * Prints its own pass/fail line and returns whether it `held` plus the measured `value`
+ * (the rate or count compared to the limit) when a measurement was taken — the value
+ * `ratchets --pin` would tighten the limit to. The ratchet is already schema-validated
+ * (direction ∈ up|down, limit a number, run present), so its structural checks are
+ * folded into the schema. */
 async function ratchetCheck(
   r: PlannedRatchet,
   root: string,
   mainBranch: string,
   out: Out,
-): Promise<boolean> {
+): Promise<{ held: boolean; value?: number }> {
   const { name, metric, direction, limit, command, limitKey, per, scale } = r;
 
   // never loosened vs main
@@ -170,13 +182,13 @@ async function ratchetCheck(
       out.error(
         `ratchet '${name}': floor ${main} -> ${limit} vs ${mainBranch} — the floor only rises. Raise the metric, don't loosen the gate.`,
       );
-      return false;
+      return { held: false };
     }
     if (direction === "down" && limit > main) {
       out.error(
         `ratchet '${name}': ceiling ${main} -> ${limit} vs ${mainBranch} — the ceiling only falls. Lower the metric, don't loosen the gate.`,
       );
-      return false;
+      return { held: false };
     }
   }
 
@@ -185,7 +197,7 @@ async function ratchetCheck(
     out.error(
       `ratchet '${name}' has no run command (set run = "<command>" under [ratchets.${name}]).`,
     );
-    return false;
+    return { held: false };
   }
   out.heading(
     `Measuring ${metric} (${direction}, limit ${limit}${
@@ -200,13 +212,13 @@ async function ratchetCheck(
     out.error(
       `ratchet '${name}': could not read metric '${metric}'. Emit a line: DISCERN_METRIC ${metric} <number>.`,
     );
-    return false;
+    return { held: false };
   }
   if (!isNumber(measuredStr)) {
     out.error(
       `ratchet '${name}': metric '${metric}' value is not a number: '${measuredStr}'.`,
     );
-    return false;
+    return { held: false };
   }
   const measured = Number(measuredStr);
 
@@ -223,7 +235,7 @@ async function ratchetCheck(
         out.error(
           `ratchet '${name}': could not read 'per' metric '${per.metric}'. Emit a line: DISCERN_METRIC ${per.metric} <number>.`,
         );
-        return false;
+        return { held: false };
       }
       denom = d;
     } else {
@@ -236,7 +248,7 @@ async function ratchetCheck(
       out.error(
         `ratchet '${name}': cannot ratchet a rate — ${what} (nothing to divide by). Check the 'per' pathspec/metric.`,
       );
-      return false;
+      return { held: false };
     }
     value = (measured / denom) * scale;
     breakdown = ` (${measuredStr} per ${denom}${
@@ -251,7 +263,7 @@ async function ratchetCheck(
       out.error(
         `ratchet '${name}': ${metric} ${shown} is below the floor ${limit}${breakdown}. Improve it; never lower the floor.`,
       );
-      return false;
+      return { held: false, value };
     }
     out.ok(
       `ratchet '${name}': ${metric} ${shown} meets the floor ${limit}${breakdown}.`,
@@ -266,19 +278,30 @@ async function ratchetCheck(
       out.error(
         `ratchet '${name}': ${metric} ${shown} exceeds the ceiling ${limit}${breakdown}. Bring it down; never raise the ceiling.${growHint}`,
       );
-      return false;
+      return { held: false, value };
     }
     out.ok(
       `ratchet '${name}': ${metric} ${shown} within the ceiling ${limit}${breakdown}.`,
     );
   }
-  return true;
+  return { held: true, value };
 }
 
-/** The outcome of applying a ratchet plan: whether all held + the per-step results. */
+/** One ratchet's measured outcome, carried alongside its {@link StepResult} so the
+ * `--pin` pass can read the value the check computed without measuring a second time. */
+interface RatchetOutcome {
+  ratchet: PlannedRatchet;
+  held: boolean;
+  /** The value compared to the limit (rate or count); absent when unmeasurable. */
+  value?: number;
+}
+
+/** The outcome of applying a ratchet plan: whether all held, the per-step results, and
+ * the per-ratchet measured outcomes (which the pin pass reads). */
 interface RatchetExecution {
   ok: boolean;
   results: StepResult[];
+  outcomes: RatchetOutcome[];
 }
 
 function ratchetPlanIntegrityResult(
@@ -323,9 +346,10 @@ async function executeRatchetPlan(
   const mismatch = ratchetPlanIntegrityFailure(plan, steps);
   if (mismatch !== undefined) {
     out.error(mismatch.step.note ?? "Ratchet plan integrity check failed.");
-    return { ok: false, results: [mismatch] };
+    return { ok: false, results: [mismatch], outcomes: [] };
   }
   const results: StepResult[] = [];
+  const outcomes: RatchetOutcome[] = [];
   let ok = true;
   for (let i = 0; i < plan.ratchets.length; i++) {
     const r = plan.ratchets[i];
@@ -337,14 +361,256 @@ async function executeRatchetPlan(
       ok = false;
       break;
     }
-    const held = await ratchetCheck(r, root, mainBranch, out);
+    const { held, value } = await ratchetCheck(r, root, mainBranch, out);
     const outcome: StepOutcome = held ? "ok" : "failed";
     results.push({ step, outcome });
+    outcomes.push({
+      ratchet: r,
+      held,
+      ...(value !== undefined ? { value } : {}),
+    });
     if (!held) {
       ok = false;
     }
   }
-  return { ok, results };
+  return { ok, results, outcomes };
+}
+
+// ── `--pin`: capture a measured improvement into the limit (ADR 0106) ──────────
+
+/** One limit the pin pass will tighten: the ratchet, the value it measured, and the
+ * new limit computed from it (measured ∓ margin, in the tightening direction). */
+interface PinnedRatchet {
+  ratchet: PlannedRatchet;
+  measured: number;
+  newLimit: number;
+}
+
+/** A `ratchet` step for the pin result: always "ok" (a failing ratchet aborts the pin
+ * before any pin step is built), noting what was pinned or that there was nothing to. */
+function pinStep(name: string, note: string): StepResult {
+  return {
+    step: { kind: "ratchet", label: name, disposition: "run", note },
+    outcome: "ok",
+  };
+}
+
+function errText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/** The re-pin commit message: an imperative subject and a body listing each limit's
+ * old→new and the measurement behind it, so `git log` explains why the bound moved. */
+function pinCommitMessage(pins: PinnedRatchet[]): string {
+  const only = pins.length === 1 ? pins[0] : undefined;
+  const subject = only !== undefined
+    ? `Pin ratchet baseline: ${only.ratchet.name} ${only.ratchet.limit} → ${only.newLimit}`
+    : "Pin ratchet baselines after measured improvement";
+  const body = pins.map((p) => {
+    const bound = p.ratchet.direction === "up" ? "floor" : "ceiling";
+    return `- ${p.ratchet.name}: ${bound} ${p.ratchet.limit} → ${p.newLimit} (measured ${
+      fmtRate(p.measured)
+    })`;
+  }).join("\n");
+  return `${subject}\n\n` +
+    "Capture a measured improvement so it cannot regress. `discern ratchets`\n" +
+    "measured these metrics past their limits; `--pin` tightens each limit to\n" +
+    "the measured value, leaving any configured margin of headroom:\n\n" +
+    body;
+}
+
+/** Rewrite the pinned limits in discern.toml (comment-preservingly, via {@link
+ * TomlEditor}) and commit that file ALONE with an audit message. The clean-tree
+ * precondition guarantees the config is the only change the commit carries — which is
+ * what makes the commit gate-neutral and its receipt safe to carry forward. Returns an
+ * error string on failure, undefined on success. */
+async function applyPinEdits(
+  root: string,
+  pins: PinnedRatchet[],
+): Promise<string | undefined> {
+  const rel = (await installedConfigRel(root)) ?? CONFIG_REL;
+  const path = join(root, rel);
+  let text: string;
+  try {
+    text = await Deno.readTextFile(path);
+  } catch (error) {
+    return `could not read ${rel}: ${errText(error)}`;
+  }
+  try {
+    const editor = new TomlEditor(text);
+    for (const p of pins) {
+      editor.setNumber(`ratchets.${p.ratchet.name}.limit`, p.newLimit);
+    }
+    await Deno.writeTextFile(path, editor.toString());
+  } catch (error) {
+    return `could not rewrite ${rel}: ${errText(error)}`;
+  }
+  const add = await runGit(["add", "--", rel], { cwd: root });
+  if (!add.success) {
+    return `could not stage ${rel}: ${add.stderr.trim()}`;
+  }
+  const commit = await runGit(["commit", "-m", pinCommitMessage(pins)], {
+    cwd: root,
+  });
+  if (!commit.success) {
+    return `could not commit the re-pin: ${commit.stderr.trim()}`;
+  }
+  return undefined;
+}
+
+/**
+ * Apply `ratchets --pin` (ADR 0106): measure every ratchet, and for each one asked for
+ * — all of them, or the named subset — that improved past its limit by more than its
+ * margin, tighten the limit toward the measured value, commit that change on its own,
+ * and carry any gate-pass receipt forward across the (gate-neutral) commit so
+ * `graduate` need not re-run the whole gate. A FAILING ratchet pins nothing — you can't
+ * capture a good state from a red tree — and returns the ordinary failing result.
+ * `dryRun` measures and reports what it WOULD pin, changing nothing.
+ */
+async function pinRatchetsResult(
+  root: string,
+  cfg: DiscernConfig,
+  plan: RatchetPlan,
+  opts: { dryRun: boolean; names: string[] },
+): Promise<DiscernResult> {
+  if (plan.ratchets.length === 0) {
+    return {
+      ...appliedResult("ratchets", []),
+      hints: ["No ratchets configured, so there is nothing to pin."],
+    };
+  }
+
+  // A named ratchet that doesn't exist would otherwise pin nothing, silently.
+  const known = new Set(plan.ratchets.map((r) => r.name));
+  const unknown = opts.names.filter((n) => !known.has(n));
+  if (unknown.length > 0) {
+    return {
+      ok: false,
+      verb: "ratchets",
+      error: "unknown_ratchet",
+      message: `no ratchet named ${unknown.join(", ")}. Configured ratchets: ${
+        [...known].join(", ")
+      }.`,
+    };
+  }
+
+  // Pinning writes and commits, so it needs a clean tree; dry-run touches nothing.
+  if (!opts.dryRun) {
+    const dirty = await ratchetsPinCleanTreeMessage(root);
+    if (dirty !== undefined) {
+      return {
+        ok: false,
+        verb: "ratchets",
+        error: "dirty_worktree",
+        message: dirty,
+      };
+    }
+  }
+
+  // Capture the pre-pin vouch BEFORE anything changes: only an honored receipt may be
+  // carried across the commit we are about to make (ADR 0106 / 0067).
+  const priorReceipt = opts.dryRun ? undefined : await inspectGateReceipt(root);
+
+  const mainBranch = Deno.env.get("MAIN_BRANCH") || cfg.project.main_branch;
+  const out = makeOut(colorEnabled(), { quiet: true });
+  const { ok, results, outcomes } = await executeRatchetPlan(
+    plan,
+    root,
+    mainBranch,
+    out,
+  );
+
+  // A red ratchet blocks the whole pin: don't capture a state the gate wouldn't hold.
+  if (!ok) {
+    const failing = outcomes.filter((o) => !o.held).map((o) => o.ratchet.name);
+    const named = failing.length > 0 ? failing.join(", ") : "a ratchet";
+    return {
+      ...appliedResult("ratchets", results),
+      hints: [
+        `Not pinning: ${named} ${
+          failing.length === 1 ? "is" : "are"
+        } failing. Run \`discern ratchets\` to see why, then re-run \`discern ratchets --pin\` once green.`,
+      ],
+    };
+  }
+
+  const filter = opts.names.length > 0 ? new Set(opts.names) : undefined;
+  const considered = filter === undefined
+    ? outcomes
+    : outcomes.filter((o) => filter.has(o.ratchet.name));
+
+  const pins: PinnedRatchet[] = [];
+  const steps: StepResult[] = [];
+  for (const o of considered) {
+    const r = o.ratchet;
+    const bound = r.direction === "up" ? "floor" : "ceiling";
+    const newLimit = o.value === undefined
+      ? undefined
+      : pinnedLimit(r.direction, o.value, r.margin, r.limit);
+    if (o.value === undefined || newLimit === undefined) {
+      const seen = o.value === undefined
+        ? ""
+        : ` (measured ${fmtRate(o.value)})`;
+      steps.push(
+        pinStep(r.name, `held ${bound} ${r.limit} — nothing to pin${seen}`),
+      );
+      continue;
+    }
+    pins.push({ ratchet: r, measured: o.value, newLimit });
+    steps.push(
+      pinStep(
+        r.name,
+        `${
+          opts.dryRun ? "would pin" : "pinned"
+        } ${bound} ${r.limit} → ${newLimit} (measured ${fmtRate(o.value)})`,
+      ),
+    );
+  }
+
+  if (pins.length === 0) {
+    return {
+      ...appliedResult("ratchets", steps),
+      hints: [
+        "Nothing to pin — every ratchet asked for already sits at its measured value (within its margin).",
+      ],
+    };
+  }
+
+  if (opts.dryRun) {
+    return {
+      ...appliedResult("ratchets", steps),
+      dry_run: true,
+      hints: [
+        `Dry run — would pin ${pins.length} limit(s) in one commit; nothing was changed.`,
+      ],
+    };
+  }
+
+  const failure = await applyPinEdits(root, pins);
+  if (failure !== undefined) {
+    return {
+      ok: false,
+      verb: "ratchets",
+      error: "pin_failed",
+      message: failure,
+    };
+  }
+
+  // The commit moved HEAD; carry an honored pre-pin vouch onto it so graduate skips the
+  // redundant gate re-run (the commit changed only ratchet limits — gate-neutral).
+  const receipt = await carryReceiptForwardAcrossPin(
+    root,
+    priorReceipt?.status === "honored",
+  );
+  const carried = receipt?.status === "recorded";
+  return {
+    ...appliedResult("ratchets", steps),
+    hints: [
+      carried
+        ? "Carried the gate-pass receipt forward — `discern graduate` will skip the redundant gate re-run."
+        : "No current gate-pass receipt to carry forward — run `discern finish` before graduating, or graduate re-runs the gate.",
+    ],
+  };
 }
 
 /**
@@ -356,15 +622,40 @@ async function executeRatchetPlan(
  * require a clean tree unless forced for ratchet authoring. Otherwise it applies
  * the plan QUIET — the measurement output flows through a silent Out so a caller
  * owning stdout (the MCP stdio channel) stays uncontaminated.
+ *
+ * With `pin`, it instead runs the pin pass (ADR 0106): measure, tighten each
+ * asked-for limit that improved past its margin, commit that change alone, and carry
+ * a gate-pass receipt forward across it. `pinNames` restricts the pin to those
+ * ratchets (empty = all with slack). `dryRun` reports what pin would do, unchanged.
  */
 export async function ratchetsResult(
   root: string,
-  opts: { dryRun?: boolean; force?: boolean } = {},
+  opts: {
+    dryRun?: boolean;
+    force?: boolean;
+    pin?: boolean;
+    pinNames?: string[];
+  } = {},
 ): Promise<DiscernResult> {
   const cfg = await loadConfig(root);
   const plan = buildRatchetPlan(cfg);
   let result: DiscernResult;
-  if (opts.dryRun ?? false) {
+  if ((opts.pinNames?.length ?? 0) > 0 && !(opts.pin ?? false)) {
+    // Names only mean something to the pin pass; a bare `ratchets <name>` would
+    // otherwise silently check everything, ignoring what was asked for.
+    result = {
+      ok: false,
+      verb: "ratchets",
+      error: "invalid_args",
+      message:
+        "ratchet names only apply with --pin. Re-run as `discern ratchets --pin <name>…`, or drop the names to check every ratchet.",
+    };
+  } else if (opts.pin ?? false) {
+    result = await pinRatchetsResult(root, cfg, plan, {
+      dryRun: opts.dryRun ?? false,
+      names: opts.pinNames ?? [],
+    });
+  } else if (opts.dryRun ?? false) {
     result = previewResult("ratchets", ratchetPlanToEngine(plan));
   } else if (plan.ratchets.length === 0) {
     result = appliedResult("ratchets", []);
@@ -395,20 +686,53 @@ export async function ratchetsResult(
   return result;
 }
 
+/** Render a ratchets {@link DiscernResult} to the human console — the `--pin` path's
+ * story is the result envelope (steps + hints), not the live measurement narration the
+ * plain check path streams. */
+function renderRatchetsResult(result: DiscernResult): void {
+  const out = makeOut(colorEnabled(), { quiet: false });
+  if ((result.steps ?? []).length > 0) {
+    renderStepResults(outSink(out), {
+      title: "Ratchet results",
+      steps: result.steps ?? [],
+    });
+  }
+  if (!result.ok && result.message !== undefined) {
+    out.error(result.message);
+  }
+  for (const hint of result.hints ?? []) {
+    out.info(hint);
+  }
+}
+
 /** Run `ratchets`. Returns a process exit code (non-zero if any ratchet failed). */
 export async function runRatchets(
   root: string,
-  opts: { json?: boolean; dryRun?: boolean; force?: boolean } = {},
+  opts: {
+    json?: boolean;
+    dryRun?: boolean;
+    force?: boolean;
+    pin?: boolean;
+    pinNames?: string[];
+  } = {},
 ): Promise<number> {
   const json = opts.json ?? false;
   const dryRun = opts.dryRun ?? false;
   const force = opts.force ?? false;
+  const pin = opts.pin ?? false;
+  const pinNames = opts.pinNames ?? [];
 
-  // --json/MCP: the result envelope is the entire output (ADR 0030) — compute it
-  // through the shared core and emit it.
-  if (json) {
-    const result = await ratchetsResult(root, { dryRun, force });
-    emitResult(result);
+  // --json (any mode), --pin, or bare ratchet names: the result envelope is the whole
+  // story (ADR 0030) — compute it through the shared core, then emit (JSON) or render
+  // it (human). Pinning measures and commits, so live measurement narration would only
+  // bury the outcome; names without --pin route here so the shared guard fires.
+  if (json || pin || pinNames.length > 0) {
+    const result = await ratchetsResult(root, { dryRun, force, pin, pinNames });
+    if (json) {
+      emitResult(result);
+    } else {
+      renderRatchetsResult(result);
+    }
     return result.ok ? 0 : 1;
   }
 
@@ -464,4 +788,21 @@ async function ratchetsCleanTreeMessage(
     return undefined;
   }
   return "Ratchets require a clean worktree because they are slow final checks. Commit or stash changes, then re-run `discern ratchets`; use `--force` only while authoring or debugging ratchets.";
+}
+
+/** The clean-tree guard for `--pin`: pin commits the limit change on its own, so an
+ * unclean tree would sweep unrelated edits into that commit. Unlike a plain check, no
+ * `--force` escape — a dirty pin is never safe. Returns undefined when the tree is
+ * clean. */
+async function ratchetsPinCleanTreeMessage(
+  root: string,
+): Promise<string | undefined> {
+  const status = await runGit(["status", "--porcelain"], { cwd: root });
+  if (!status.success) {
+    return "Pinning requires a clean worktree, but discern could not read git status. Fix the git status check and re-run `discern ratchets --pin`.";
+  }
+  if (status.stdout.trim() === "") {
+    return undefined;
+  }
+  return "Pinning requires a clean worktree: it commits the limit change on its own, so any other edit would be swept into that commit. Commit or stash your changes, then re-run `discern ratchets --pin`.";
 }

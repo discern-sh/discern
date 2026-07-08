@@ -89,6 +89,10 @@ const WRITE_SITE_HOMES = new Map<string, string>([
     "skills eject: the discern.toml writer + the configured skills dir",
   ],
   [
+    "src/engine/gate/ratchets.ts",
+    "the discern.toml writer (ratchets --pin re-pins a ratchet limit)",
+  ],
+  [
     "src/lib/migrations.ts",
     "MigrationContext: registry legacy-to-default moves + config edits",
   ],
