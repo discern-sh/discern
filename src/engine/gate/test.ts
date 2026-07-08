@@ -35,6 +35,7 @@ const NO_TEST_CONFIGURED =
 async function runTestGate(
   root: string,
   json: boolean,
+  signal?: AbortSignal,
 ): Promise<
   {
     result: DiscernResult;
@@ -46,7 +47,7 @@ async function runTestGate(
 > {
   const cfg = await loadConfig(root);
   const group = stageGroup(cfg, "test");
-  const { runOpts, out } = gateRunContext(root, cfg, json);
+  const { runOpts, out } = gateRunContext(root, cfg, json, signal);
   // Pre-setup, lead with the "setup unfinished" advisory (ADR 0065): test is
   // un-gated during setup, so a pass here must not read as "done".
   const inProgress = setupInProgressHint(cfg.meta.bootstrapped);
@@ -99,9 +100,13 @@ async function runTestGate(
  * point the MCP server renders, and the source the CLI's `--json` serializes. Runs
  * the test command quiet (output captured, not streamed) so a caller owning stdout
  * (the MCP stdio channel) stays uncontaminated; a failure rides in `diagnostics[]`.
+ * Aborting `signal` tree-kills the in-flight test jobs and ends the run.
  */
-export async function testResult(root: string): Promise<DiscernResult> {
-  return (await runTestGate(root, true)).result;
+export async function testResult(
+  root: string,
+  signal?: AbortSignal,
+): Promise<DiscernResult> {
+  return (await runTestGate(root, true, signal)).result;
 }
 
 /** Run `test`. Returns a process exit code. */

@@ -2423,3 +2423,130 @@ Deno.test("discern mcp: the resources follow the re-aimed working root after dis
     assertEquals(await mcp.close(), 0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Cancellation propagation — an interrupted call must not orphan gate jobs.
+//
+// The class this guards: gate jobs run in their own detached process groups, so
+// the ONLY thing that can stop them is the runner's abort controller. Before
+// this wiring, a client cancelling a discern_finish call (or killing the server)
+// left the gate running invisibly to completion — orphaned processes racing the
+// user's next run over shared build state.
+// ---------------------------------------------------------------------------
+
+/** A gate config whose check job records its PID (the job group's leader) and
+ * blocks — so a test can cancel a genuinely in-flight gate, then prove the
+ * group died. */
+function sleeperConfig(): string {
+  return [
+    "[project]",
+    'slug = "engine-test"',
+    'main_branch = "main"',
+    "",
+    "[capabilities]",
+    'lint = "echo $$ > gate.pid && sleep 30"',
+  ].join("\n");
+}
+
+/** Poll until `check` is true, failing the test after the deadline. */
+async function pollUntil(
+  check: () => Promise<boolean> | boolean,
+  what: string,
+  timeoutMs = 30_000,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await check()) {
+      return;
+    }
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  throw new Error(`timed out waiting for ${what}`);
+}
+
+/** Whether a PID is still alive (signal-0 semantics via a harmless SIGCONT). */
+function pidAlive(pid: number): boolean {
+  try {
+    Deno.kill(pid, "SIGCONT");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Initialize handshake + the in-flight sleeper gate: start a discern_finish
+ * call (request id 2), wait until its check job is running, return the job's
+ * PID. Shared by the cancel and shutdown tests so both interrupt the same
+ * genuinely-running gate. */
+async function startInFlightFinish(
+  mcp: McpClient,
+  dir: string,
+): Promise<number> {
+  await mcp.send({
+    jsonrpc: "2.0",
+    id: 1,
+    method: "initialize",
+    params: initParams(),
+  });
+  await mcp.recv();
+  await mcp.send({ jsonrpc: "2.0", method: "notifications/initialized" });
+  await mcp.send({
+    jsonrpc: "2.0",
+    id: 2,
+    method: "tools/call",
+    params: { name: "discern_finish", arguments: {} },
+  });
+  const pidFile = join(dir, "gate.pid");
+  await pollUntil(
+    async () => await exists(pidFile),
+    "the gate's check job to start",
+  );
+  const jobPid = Number((await Deno.readTextFile(pidFile)).trim());
+  assert(Number.isFinite(jobPid) && jobPid > 0, `bad gate.pid: ${jobPid}`);
+  return jobPid;
+}
+
+Deno.test("mcp: cancelling an in-flight discern_finish tree-kills its gate jobs", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, sleeperConfig());
+    await gitInit(dir);
+    const mcp = await spawnMcp(dir);
+    const jobPid = await startInFlightFinish(mcp, dir);
+
+    // The client cancels the call — the SDK aborts the request's signal, which
+    // must reach the job runner's tree-kill.
+    await mcp.send({
+      jsonrpc: "2.0",
+      method: "notifications/cancelled",
+      params: { requestId: 2, reason: "user cancelled" },
+    });
+    await pollUntil(
+      () => !pidAlive(jobPid),
+      `cancelled gate job ${jobPid} to die`,
+      10_000,
+    );
+
+    assertEquals(await mcp.close(), 0);
+  });
+});
+
+Deno.test("mcp: server shutdown (stdin EOF) tree-kills an in-flight gate", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, sleeperConfig());
+    await gitInit(dir);
+    const mcp = await spawnMcp(dir);
+    const jobPid = await startInFlightFinish(mcp, dir);
+
+    // The client closes the pipe mid-call — the server must cancel the run
+    // (killing its jobs) before it exits, not leave them orphaned.
+    await mcp.closeStdin();
+    assertEquals(await mcp.finish(), 0);
+    await pollUntil(
+      () => !pidAlive(jobPid),
+      `gate job ${jobPid} to die with the server`,
+      10_000,
+    );
+  });
+});

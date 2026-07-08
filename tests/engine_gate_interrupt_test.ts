@@ -76,7 +76,15 @@ for (const sig of INTERRUPT_SIGNALS) {
       await gitInit(dir);
 
       const child = new Deno.Command("deno", {
-        args: ["run", "--no-check", "--config", DENO_JSON, "-A", MAIN_TS, "finish"],
+        args: [
+          "run",
+          "--no-check",
+          "--config",
+          DENO_JSON,
+          "-A",
+          MAIN_TS,
+          "finish",
+        ],
         cwd: dir,
         env: await engineEnv(),
         stdin: "null",

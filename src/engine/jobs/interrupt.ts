@@ -24,9 +24,7 @@
  * server down); SIGHUP the controlling terminal closing. Windows supports only
  * SIGINT of these in Deno. */
 export const INTERRUPT_SIGNALS: readonly Deno.Signal[] =
-  Deno.build.os === "windows"
-    ? ["SIGINT"]
-    : ["SIGINT", "SIGTERM", "SIGHUP"];
+  Deno.build.os === "windows" ? ["SIGINT"] : ["SIGINT", "SIGTERM", "SIGHUP"];
 
 /** Conventional 128+n exit codes, the fallback when re-raising is unsupported. */
 const SIGNAL_EXIT_CODES: Partial<Record<Deno.Signal, number>> = {

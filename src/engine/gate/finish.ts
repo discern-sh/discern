@@ -196,6 +196,7 @@ async function trackedArtifactsDiagnostic(
 async function runGate(
   root: string,
   json: boolean,
+  signal?: AbortSignal,
 ): Promise<
   {
     result: DiscernResult<GateData>;
@@ -210,7 +211,7 @@ async function runGate(
   // quiet — the result envelope is the entire output (ADR 0030), so the runner
   // and the Out are silenced and nothing streams to any fd. The shared run context
   // (job RunOptions + the narration Out) is the one `prepare`/`test` use too.
-  const { runOpts, out } = gateRunContext(root, cfg, json);
+  const { runOpts, out } = gateRunContext(root, cfg, json, signal);
 
   const results = new Map<string, JobResult>();
   let failedStage: FailedStage | null = null;
@@ -528,10 +529,12 @@ async function dryRunGate(
  * CLI's stdout. `dryRun` returns the preview (the plan, nothing run); otherwise it
  * runs the gate, routing the human narration to stderr (json semantics) so a
  * caller owning stdout — like the MCP stdio channel — stays uncontaminated.
+ * Aborting `signal` (the caller cancelling the call, or shutting down) tree-kills
+ * the in-flight gate jobs and returns the run as failed-with-cancellations.
  */
 export async function finishResult(
   root: string,
-  opts: { dryRun?: boolean } = {},
+  opts: { dryRun?: boolean; signal?: AbortSignal } = {},
 ): Promise<DiscernResult<GateData>> {
   if (opts.dryRun ?? false) {
     const cfg = await loadConfig(root);
@@ -541,7 +544,7 @@ export async function finishResult(
       gatePlanToEngine(buildGatePlan(cfg, changed)),
     );
   }
-  return (await runGate(root, true)).result;
+  return (await runGate(root, true, opts.signal)).result;
 }
 
 /** Run `finish`. Returns a process exit code. */

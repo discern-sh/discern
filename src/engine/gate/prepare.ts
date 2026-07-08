@@ -36,6 +36,7 @@ import type { Out } from "../output.ts";
 async function runPrepareGate(
   root: string,
   json: boolean,
+  signal?: AbortSignal,
 ): Promise<
   {
     result: DiscernResult;
@@ -46,7 +47,7 @@ async function runPrepareGate(
 > {
   const cfg = await loadConfig(root);
   const groups = preparePlanGroups(cfg);
-  const { runOpts, out } = gateRunContext(root, cfg, json);
+  const { runOpts, out } = gateRunContext(root, cfg, json, signal);
   const { results, failedStage } = await runJobGroups(groups, runOpts, out);
   const { steps, diagnostics, hints: jobOutputHints } = await serializeJobSteps(
     groups,
@@ -83,9 +84,13 @@ async function runPrepareGate(
  * entry point the MCP server renders, and the source the CLI's `--json` serializes.
  * Runs quiet (job stdio captured, not streamed) so a caller owning stdout — like the
  * MCP stdio channel — stays uncontaminated; a failure rides in `diagnostics[]`.
+ * Aborting `signal` tree-kills the in-flight jobs and ends the run.
  */
-export async function prepareResult(root: string): Promise<DiscernResult> {
-  return (await runPrepareGate(root, true)).result;
+export async function prepareResult(
+  root: string,
+  signal?: AbortSignal,
+): Promise<DiscernResult> {
+  return (await runPrepareGate(root, true, signal)).result;
 }
 
 /** Run `prepare`. Returns a process exit code. */

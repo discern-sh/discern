@@ -85,12 +85,15 @@ export async function runJobGroups(
  * project's commands. Human runs stream banners + job output to stdout;
  * `--json`/MCP runs go quiet — the result envelope is the entire output (ADR 0030),
  * so the runner and the Out are silenced while jobs still run and a failure's output
- * is still captured for its diagnostic.
+ * is still captured for its diagnostic. An optional `signal` rides into the
+ * RunOptions so an external caller (an MCP client cancelling its request, the
+ * server shutting down) can tree-kill the in-flight jobs.
  */
 export function gateRunContext(
   root: string,
   cfg: DiscernConfig,
   json: boolean,
+  signal?: AbortSignal,
 ): { runOpts: RunOptions; out: Out } {
   const color = colorEnabled();
   return {
@@ -98,6 +101,7 @@ export function gateRunContext(
       cwd: root,
       stream: cfg.gate.stream,
       failFast: cfg.gate.fail_fast,
+      ...(signal !== undefined ? { signal } : {}),
       color,
       write: byteWriter("stdout"),
       quiet: json,

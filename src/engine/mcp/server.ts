@@ -197,8 +197,15 @@ interface McpTool<TShape extends z.ZodRawShape = z.ZodRawShape> {
     result: DiscernResult,
     ctx: ReaimContext,
   ): string | undefined;
-  /** Run the verb in `root` with the call's arguments → the result to render. */
-  run(root: string, args: ToolArgs<TShape>): Promise<DiscernResult>;
+  /** Run the verb in `root` with the call's arguments → the result to render.
+   * `signal` aborts when the client cancels this request or the server is
+   * shutting down; a long-running verb (the gate tools) forwards it so its
+   * spawned jobs die with the call instead of running on as orphans. */
+  run(
+    root: string,
+    args: ToolArgs<TShape>,
+    signal: AbortSignal,
+  ): Promise<DiscernResult>;
 }
 
 /** Collect one tool with its handler's `args` typed from its own `inputSchema`
@@ -336,7 +343,8 @@ export const TOOLS: McpTool[] = orderTools([
       ),
       ...PATH_PARAM,
     },
-    run: (root, args) => finishResult(root, { dryRun: args.dry_run === true }),
+    run: (root, args, signal) =>
+      finishResult(root, { dryRun: args.dry_run === true, signal }),
   }),
   defineTool({
     name: "discern_prepare",
@@ -349,7 +357,7 @@ export const TOOLS: McpTool[] = orderTools([
       "quick check to run while iterating, before the full discern_finish. NOTE: the " +
       "fixers MUTATE the working tree (e.g. a formatter rewrites files).",
     inputSchema: { ...PATH_PARAM },
-    run: (root) => prepareResult(root),
+    run: (root, _args, signal) => prepareResult(root, signal),
   }),
   defineTool({
     name: "discern_test",
@@ -361,7 +369,7 @@ export const TOOLS: McpTool[] = orderTools([
       "full gate) and return the result envelope. When no test command is configured " +
       "it is a trivial pass carrying a hint that says so.",
     inputSchema: { ...PATH_PARAM },
-    run: (root) => testResult(root),
+    run: (root, _args, signal) => testResult(root, signal),
   }),
   defineTool({
     name: "discern_ratchets",
@@ -840,12 +848,15 @@ export class WorkingRoot {
  * applied here after a successful, non-preview call. Every refusal is rendered as a
  * normal (error) {@link DiscernResult} — a missing project, or an unexpected throw
  * from the verb (caught here so a single tool error can never take the whole stdio
- * server down).
+ * server down). `signal` (optional — a direct caller may omit it) aborts when the
+ * client cancels the request or the server shuts down; it is forwarded to the verb
+ * so a long-running gate dies with the call instead of running on as an orphan.
  */
 export async function runTool(
   tool: McpTool,
   working: WorkingRoot,
   args: Record<string, unknown>,
+  signal?: AbortSignal,
 ): Promise<ToolResult> {
   // The explicit `path` override wins over the working root for this one call; any dir
   // inside a worktree resolves to its root, a non-project path → undefined → refusal.
@@ -877,7 +888,8 @@ export async function runTool(
   }
   let result: DiscernResult;
   try {
-    result = await tool.run(root, args);
+    // A never-aborting default keeps the verb contract simple (always a signal).
+    result = await tool.run(root, args, signal ?? new AbortController().signal);
   } catch (e) {
     result = {
       ok: false,
@@ -1260,6 +1272,14 @@ export async function runMcpServer(): Promise<number> {
     },
   );
 
+  // Aborted when the client closes the pipe, so an in-flight gate run dies with
+  // the server instead of orphaning its jobs. Each call's effective signal is
+  // this OR the SDK's per-request signal (aborted on `notifications/cancelled`
+  // when the client cancels that one call).
+  const shutdown = new AbortController();
+  const callSignal = (extra: { signal: AbortSignal }): AbortSignal =>
+    AbortSignal.any([extra.signal, shutdown.signal]);
+
   for (const tool of TOOLS) {
     // The shared config: description plus the honest metadata (title, the per-verb
     // outputSchema the SDK validates structuredContent against, and the behavioural
@@ -1281,7 +1301,8 @@ export async function runMcpServer(): Promise<number> {
       server.registerTool(
         tool.name,
         { ...config, inputSchema: tool.inputSchema },
-        (args: Record<string, unknown>) => runTool(tool, working, args),
+        (args: Record<string, unknown>, extra: { signal: AbortSignal }) =>
+          runTool(tool, working, args, callSignal(extra)),
       );
     } else {
       // An argument-less verb registers no input schema, so the SDK skips
@@ -1291,7 +1312,8 @@ export async function runMcpServer(): Promise<number> {
       server.registerTool(
         tool.name,
         config,
-        () => runTool(tool, working, {}),
+        (extra: { signal: AbortSignal }) =>
+          runTool(tool, working, {}, callSignal(extra)),
       );
     }
   }
@@ -1308,11 +1330,15 @@ export async function runMcpServer(): Promise<number> {
   // The SDK's stdio transport closes only on an explicit `close()` — it does not
   // react to stdin EOF. Bridge that here so the server shuts down cleanly when the
   // client closes the pipe (and `runMcpServer` returns rather than deadlocking the
-  // top-level await): on stdin `end`, close the transport, whose `onclose` resolves.
+  // top-level await): on stdin `end`, cancel any in-flight verb (tree-killing its
+  // gate jobs) and close the transport, whose `onclose` resolves.
   const closed = new Promise<void>((resolve) => {
     transport.onclose = (): void => resolve();
   });
-  process.stdin.once("end", () => void transport.close());
+  process.stdin.once("end", () => {
+    shutdown.abort();
+    void transport.close();
+  });
   await server.connect(transport);
   await closed;
   return 0;
