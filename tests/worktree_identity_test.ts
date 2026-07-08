@@ -12,11 +12,13 @@ import { assert, assertEquals, assertMatch } from "@std/assert";
 import { join } from "@std/path";
 import { cksumString } from "../src/shared/crc.ts";
 import {
+  chooseWorktreeName,
   dbNameForId,
   deriveIdentity,
   fitSiteId,
   generateWorktreeId,
   type IdentitySettings,
+  NAME_SLUG_MAX,
   portForId,
   resolveWorktreeId,
   siteForId,
@@ -92,31 +94,202 @@ Deno.test("the pure derivation helpers match the vectors", () => {
 });
 
 Deno.test("generateWorktreeId mints a readable, valid, unique id (the discern start basis)", () => {
-  // Shape: <adjective>-<noun>-<hex tail>, all slug-safe — readable like the names
-  // Claude Code's hook supplies, but minted by discern for `discern start`.
-  const id = generateWorktreeId();
-  assertMatch(id, /^[a-z]+-[a-z]+-[0-9a-f]{6}$/);
+  // With no name: <adjective>-<noun>-<hex tail>, all slug-safe — readable like the
+  // names Claude Code's hook supplies, but minted by discern for `discern start`.
+  const minted = generateWorktreeId();
+  assertEquals(minted.source, "codename");
+  assertMatch(minted.id, /^[a-z]+-[a-z]+-[0-9a-f]{6}$/);
 
   // It is a valid identity id: the override validator accepts it unchanged, and the
   // derived branch is the clean `agent/<id>` `discern start` puts the worktree on.
   assertEquals(
-    validateOverrideId(id),
-    id,
-    `minted id '${id}' must be slug-valid`,
+    validateOverrideId(minted.id),
+    minted.id,
+    `minted id '${minted.id}' must be slug-valid`,
   );
   assertEquals(
-    deriveIdentity(id, { slug: "discern", branchPrefix: "agent/" }).branch,
-    `agent/${id}`,
+    deriveIdentity(minted.id, { slug: "discern", branchPrefix: "agent/" })
+      .branch,
+    `agent/${minted.id}`,
   );
 
   // Fresh across calls: the hex tail makes a repeated call collide only by
   // astronomical chance, so a batch must be all-distinct (the property `discern
   // start` relies on to never re-mint a live worktree's id).
-  const batch = Array.from({ length: 500 }, () => generateWorktreeId());
+  const batch = Array.from({ length: 500 }, () => generateWorktreeId().id);
   assertEquals(new Set(batch).size, batch.length, "minted ids must be unique");
   assert(
     new Set(batch.map((i) => i.split("-").slice(0, 2).join("-"))).size > 1,
     "the word pair should vary across a large batch (not a constant prefix)",
+  );
+});
+
+Deno.test("generateWorktreeId(name) builds a <slug>-<hex> id and keeps the hex unique", () => {
+  const first = generateWorktreeId("fix the upload retry");
+  assertEquals(first.source, "name");
+  assertMatch(first.id, /^fix-the-upload-retry-[0-9a-f]{6}$/);
+
+  // Two worktrees sharing a name still get distinct ids — the hex tail, not the
+  // words, is the uniqueness. This is what lets `discern start` name freely without
+  // ever re-minting a live worktree's id.
+  const second = generateWorktreeId("fix the upload retry");
+  assertMatch(second.id, /^fix-the-upload-retry-[0-9a-f]{6}$/);
+  assert(first.id !== second.id, "same name must still mint distinct ids");
+});
+
+// The class guard for "no caller string can break `discern start`". Every hostile
+// name must reduce — without throwing — to a branch- and path-safe id (or a codename
+// fallback), stay within the length cap, and round-trip as a valid identity id. The
+// invariant is asserted off ONE predicate over the table, so a newly-discovered hazard
+// added here is automatically held to the whole contract, not just spot-checked.
+const SAFE_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+interface NameCase {
+  /** The raw name a caller might pass. */
+  readonly name: string;
+  /** Whether it yields a name-derived slug or a codename fallback. */
+  readonly source: "name" | "codename";
+  /** Whether a transparency note is expected. */
+  readonly note: boolean;
+  /** The exact slug, when worth pinning (omitted for truncation cases). */
+  readonly slug?: string;
+}
+
+const NAME_CASES: readonly NameCase[] = [
+  // Clean slugs pass straight through — nothing to normalise, no note.
+  {
+    name: "fix-upload-retry",
+    source: "name",
+    note: false,
+    slug: "fix-upload-retry",
+  },
+  { name: "a", source: "name", note: false, slug: "a" },
+  // Natural-language intent becomes a slug, with a note that it changed.
+  {
+    name: "Fix the upload retry path",
+    source: "name",
+    note: true,
+    slug: "fix-the-upload-retry-path",
+  },
+  { name: "Fix Upload", source: "name", note: true, slug: "fix-upload" },
+  {
+    name: "   spaced   out   ",
+    source: "name",
+    note: true,
+    slug: "spaced-out",
+  },
+  {
+    name: "UPPER_snake_Case",
+    source: "name",
+    note: true,
+    slug: "upper-snake-case",
+  },
+  // git-ref / path hazards never survive sanitisation.
+  {
+    name: "feature/auth/login",
+    source: "name",
+    note: true,
+    slug: "feature-auth-login",
+  },
+  { name: "../../etc/passwd", source: "name", note: true, slug: "etc-passwd" },
+  {
+    name: "name..with..dots",
+    source: "name",
+    note: true,
+    slug: "name-with-dots",
+  },
+  {
+    name: "-leading-and-trailing-",
+    source: "name",
+    note: true,
+    slug: "leading-and-trailing",
+  },
+  { name: "ends.lock", source: "name", note: true, slug: "ends-lock" },
+  { name: "HEAD", source: "name", note: true, slug: "head" },
+  // Over-length names shorten on a word boundary, within the cap (slug not pinned).
+  {
+    name:
+      "add a really rather quite verbose and overly long descriptive name here",
+    source: "name",
+    note: true,
+  },
+  // Fully-stripped names fall back to a codename, with a note explaining it.
+  { name: "🚀🔥✨", source: "codename", note: true },
+  { name: "日本語のタスク", source: "codename", note: true },
+  { name: "!!!", source: "codename", note: true },
+  // Whitespace-only / empty are "no name at all": codename, and nothing to report.
+  { name: "   ", source: "codename", note: false },
+  { name: "", source: "codename", note: false },
+];
+
+Deno.test("chooseWorktreeName neutralises every hostile name (branch-safe or codename)", () => {
+  for (const c of NAME_CASES) {
+    const choice = chooseWorktreeName(c.name); // must never throw
+    assertEquals(choice.source, c.source, `source for '${c.name}'`);
+    assertEquals(
+      choice.note !== undefined,
+      c.note,
+      `note presence for '${c.name}'`,
+    );
+
+    if (choice.source === "name") {
+      assert(
+        SAFE_SLUG.test(choice.slug),
+        `slug '${choice.slug}' from '${c.name}' must be branch-safe`,
+      );
+      assert(
+        choice.slug.length <= NAME_SLUG_MAX,
+        `slug '${choice.slug}' from '${c.name}' must fit ${NAME_SLUG_MAX} chars`,
+      );
+      if (c.slug !== undefined) {
+        assertEquals(choice.slug, c.slug, `slug for '${c.name}'`);
+      }
+    } else {
+      assertEquals(
+        choice.slug,
+        "",
+        `codename choice for '${c.name}' is slug-less`,
+      );
+    }
+
+    // The load-bearing invariant: whatever the name, the minted id is a valid identity
+    // id (round-trips through the override validator) and keeps its hex tail.
+    const minted = generateWorktreeId(c.name);
+    assertEquals(minted.source, c.source, `minted source for '${c.name}'`);
+    assertEquals(
+      validateOverrideId(minted.id),
+      minted.id,
+      `minted id '${minted.id}' from '${c.name}' must be a valid identity id`,
+    );
+    if (c.source === "codename") {
+      assertMatch(
+        minted.id,
+        /^[a-z]+-[a-z]+-[0-9a-f]{6}$/,
+        `codename id '${minted.id}' keeps the <adjective>-<noun>-<hex> shape`,
+      );
+    } else {
+      assertMatch(
+        minted.id,
+        new RegExp(`^${choice.slug}-[0-9a-f]{6}$`),
+        `named id '${minted.id}' must be <slug>-<hex>`,
+      );
+    }
+  }
+});
+
+Deno.test("chooseWorktreeName notes explain normalisation and fallback", () => {
+  const normalised = chooseWorktreeName("Fix Upload");
+  assert(
+    normalised.note !== undefined &&
+      normalised.note.includes("Fix Upload") &&
+      normalised.note.includes("fix-upload"),
+    `normalisation note should show both forms: ${normalised.note}`,
+  );
+
+  const fallback = chooseWorktreeName("🚀");
+  assert(
+    fallback.note !== undefined && /codename/i.test(fallback.note),
+    `fallback note should mention the codename substitution: ${fallback.note}`,
   );
 });
 

@@ -278,22 +278,120 @@ function randomHexTail(): string {
 }
 
 /**
- * Mint a fresh, readable worktree id in the spirit of the existing worktree names
- * (`<adjective>-<noun>-<hex>`, e.g. `brisk-otter-a3f9c1`), sanitized to the same
- * rules a `DISCERN_WORKTREE_ID` override obeys ({@link sanitizeSlug} /
- * {@link OVERRIDE_ID_RE}). The hex tail makes it unique across calls; the word
- * pair keeps it legible. discern has no id generator otherwise — Claude Code's
- * worktree-create hook supplies the name — so `discern start` (which mints its own
- * worktree from the main checkout) needs this. Callers verify the derived branch /
- * directory is actually free before using it; a collision is astronomically
- * unlikely but never assumed.
+ * The longest a caller-supplied name may make the human portion (the slug body,
+ * before the hex tail) of a minted id. Beyond this the name is shortened on a word
+ * boundary — the hex tail still guarantees uniqueness, so this cap is purely about a
+ * readable branch and directory name, not correctness.
  */
-export function generateWorktreeId(): string {
-  return sanitizeSlug(
-    `${randomChoice(ID_ADJECTIVES)}-${
-      randomChoice(ID_NOUNS)
-    }-${randomHexTail()}`,
-  );
+export const NAME_SLUG_MAX = 40;
+
+/** How the human portion of a minted worktree id was chosen. */
+export type WorktreeNameSource = "name" | "codename";
+
+/**
+ * The decision {@link chooseWorktreeName} makes from an optional caller-supplied
+ * name: whether to build the id from that name or from a random codename, plus a
+ * transparency note when the supplied name was normalised or could not be used.
+ */
+export interface WorktreeNameChoice {
+  /** `"name"` when the caller's name yielded a usable slug; `"codename"` otherwise. */
+  source: WorktreeNameSource;
+  /** The branch-safe slug the name reduced to — non-empty ONLY when `source` is
+   * `"name"`, empty when a codename is used. */
+  slug: string;
+  /** A human note, present ONLY when a name was supplied AND it either changed under
+   * normalisation or was unusable (so a codename was substituted). Absent when no
+   * name was supplied, or it was already slug-clean. */
+  note?: string;
+}
+
+/**
+ * Shorten an already-sanitized slug to at most `max` chars, cutting on a dash
+ * boundary so a whole trailing word is dropped rather than a fragment left behind.
+ * Falls back to a hard cut only when the first word alone exceeds `max`.
+ */
+function clampSlug(slug: string, max: number): string {
+  if (slug.length <= max) {
+    return slug;
+  }
+  const cut = slug.slice(0, max).replace(/-+$/, "");
+  const lastDash = cut.lastIndexOf("-");
+  const onBoundary = lastDash > 0 ? cut.slice(0, lastDash) : "";
+  return onBoundary !== "" ? onBoundary : cut;
+}
+
+/**
+ * Decide the human portion of a minted worktree id from an OPTIONAL caller-supplied
+ * name. discern uses no AI, so an agent supplies intent as free text and this reduces
+ * it — deterministically — to a branch- and path-safe slug through the same
+ * {@link sanitizeSlug} every identity token obeys, clamped to {@link NAME_SLUG_MAX}
+ * on a word boundary. Because `sanitizeSlug` collapses every non-`[a-z0-9]` run to a
+ * single dash and trims the ends, the git-ref and path hazards a raw name might carry
+ * (spaces, slashes, `..`, a leading dash, a trailing `.lock`, control/emoji bytes)
+ * cannot survive it. The transform NEVER fails: an empty or fully-stripped name
+ * (all punctuation, emoji, or non-Latin script) returns `source:"codename"` so the
+ * caller falls back to a random `<adjective>-<noun>` pair — keeping `discern start`
+ * unable to fail on a cosmetic field. A `note` comes back whenever the supplied name
+ * changed or was dropped, so the caller can surface what happened (and retry with a
+ * cleaner name if it cares) without ever being forced to.
+ */
+export function chooseWorktreeName(name?: string): WorktreeNameChoice {
+  const trimmed = (name ?? "").trim();
+  if (trimmed === "") {
+    // No name supplied — a pure codename, and nothing to report.
+    return { source: "codename", slug: "" };
+  }
+  const slug = clampSlug(sanitizeSlug(trimmed), NAME_SLUG_MAX);
+  if (slug === "") {
+    return {
+      source: "codename",
+      slug: "",
+      note:
+        `Could not derive a branch-safe name from '${trimmed}' — used a random codename instead.`,
+    };
+  }
+  if (slug !== trimmed) {
+    return {
+      source: "name",
+      slug,
+      note: `Normalised the worktree name '${trimmed}' → '${slug}'.`,
+    };
+  }
+  return { source: "name", slug };
+}
+
+/** A freshly-minted worktree id plus how its human portion was chosen. */
+export interface MintedWorktreeId {
+  /** The full id: `<slug>-<hex>` from a caller name, else `<adjective>-<noun>-<hex>`. */
+  id: string;
+  /** Whether the human portion came from a caller name or a random codename. */
+  source: WorktreeNameSource;
+  /** Transparency note when a supplied name was normalised or dropped
+   * (see {@link chooseWorktreeName}). */
+  note?: string;
+}
+
+/**
+ * Mint a fresh, readable worktree id. With no name it keeps the original shape — a
+ * random `<adjective>-<noun>-<hex>` pair (e.g. `brisk-otter-a3f9c1`), legible like the
+ * names Claude Code's worktree hook supplies — so the unnamed path is unchanged. With
+ * a name it becomes `<slug>-<hex>`, the slug derived by {@link chooseWorktreeName} (an
+ * unusable name falls back to a codename). Either way the id is sanitized to the same
+ * rules a `DISCERN_WORKTREE_ID` override obeys ({@link sanitizeSlug} /
+ * {@link OVERRIDE_ID_RE}), and the hex tail — not the words — is what makes it unique
+ * across calls, so two worktrees sharing a name still get distinct ids. Callers verify
+ * the derived branch / directory is actually free before using it; a collision is
+ * astronomically unlikely but never assumed.
+ */
+export function generateWorktreeId(name?: string): MintedWorktreeId {
+  const choice = chooseWorktreeName(name);
+  const stem = choice.source === "name"
+    ? choice.slug
+    : `${randomChoice(ID_ADJECTIVES)}-${randomChoice(ID_NOUNS)}`;
+  const id = sanitizeSlug(`${stem}-${randomHexTail()}`);
+  return choice.note !== undefined
+    ? { id, source: choice.source, note: choice.note }
+    : { id, source: choice.source };
 }
 
 /**

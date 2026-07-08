@@ -234,17 +234,25 @@ export interface StartPlan {
   branch: string;
   /** Where the new checkout lands (`<worktree_root>/<id>`). */
   worktreePath: string;
+  /** A normalisation/fallback note when the caller named the worktree (see
+   * `chooseWorktreeName`) — surfaced in the dry-run preview so the caller sees the
+   * name it would actually get. Absent for an unnamed (codename) start. */
+  note?: string;
 }
 
 /** Project a start onto the shared renderer: create the worktree, then set it up. */
 export function startPlanToEngine(plan: StartPlan): EnginePlan {
+  const details = [
+    `New worktree: ${plan.id}`,
+    `Branch:       ${plan.branch}`,
+    `Path:         ${plan.worktreePath}`,
+  ];
+  if (plan.note !== undefined) {
+    details.push(`Name:         ${plan.note}`);
+  }
   return {
     title: "Start plan",
-    details: [
-      `New worktree: ${plan.id}`,
-      `Branch:       ${plan.branch}`,
-      `Path:         ${plan.worktreePath}`,
-    ],
+    details,
     steps: [
       {
         kind: "git",

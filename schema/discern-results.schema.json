@@ -7632,6 +7632,9 @@
                 },
                 "path": {
                   "type": "string"
+                },
+                "name_note": {
+                  "type": "string"
                 }
               },
               "required": [

@@ -730,5 +730,22 @@ Deno.test("start result is faithful (dry-run preview and applied worktree)", asy
     const applied = await startResult(ctx, { worktreeRoot });
     assertEquals(applied.ok, true);
     expectValid(StartOutputSchema, applied, "start applied");
+
+    // named: the caller's name flows into the branch slug, and the normalisation is
+    // surfaced through name_note (and stays schema-valid with the new field present).
+    const named = await startResult(ctx, {
+      worktreeRoot,
+      name: "Fix the Upload Retry",
+    });
+    assertEquals(named.ok, true);
+    expectValid(StartOutputSchema, named, "start named");
+    assert(
+      named.data?.branch.includes("fix-the-upload-retry") ?? false,
+      `named branch should carry the slug: ${named.data?.branch}`,
+    );
+    assert(
+      named.data?.name_note?.includes("fix-the-upload-retry") ?? false,
+      `expected a normalisation note: ${named.data?.name_note}`,
+    );
   });
 });

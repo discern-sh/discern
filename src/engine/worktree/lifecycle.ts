@@ -1673,17 +1673,22 @@ async function mintFreeWorktree(
   ctx: LifecycleContext,
   settings: IdentitySettings,
   worktreeRoot: string,
-): Promise<{ id: string; branch: string; dir: string }> {
+  name?: string,
+): Promise<{ id: string; branch: string; dir: string; note?: string }> {
   const run = makeGitRunner(ctx);
   for (let attempt = 0; attempt < 50; attempt++) {
-    const id = generateWorktreeId();
-    const { branch } = deriveIdentity(id, settings);
-    const dir = join(worktreeRoot, id);
+    const minted = generateWorktreeId(name);
+    const { branch } = deriveIdentity(minted.id, settings);
+    const dir = join(worktreeRoot, minted.id);
     const branchTaken =
       (await run(["show-ref", "--verify", "--quiet", `refs/heads/${branch}`]))
         .success;
     if (!branchTaken && !(await pathPresent(dir))) {
-      return { id, branch, dir };
+      // The note (if any) is deterministic from the name, so returning the winning
+      // attempt's carries the same transparency the caller surfaces upward.
+      return minted.note !== undefined
+        ? { id: minted.id, branch, dir, note: minted.note }
+        : { id: minted.id, branch, dir };
     }
   }
   throw new WorktreeGitError(
@@ -1707,21 +1712,26 @@ async function mintFreeWorktree(
  */
 export async function startResult(
   ctx: LifecycleContext,
-  opts: { dryRun?: boolean; worktreeRoot: string },
+  opts: { dryRun?: boolean; worktreeRoot: string; name?: string },
 ): Promise<DiscernResult<StartData>> {
   await assertNotInWorktree("discern start", ctx.cwd);
 
   const settings = await loadIdentitySettings(ctx.root);
-  const { id, branch, dir } = await mintFreeWorktree(
+  const { id, branch, dir, note } = await mintFreeWorktree(
     ctx,
     settings,
     opts.worktreeRoot,
+    opts.name,
   );
 
   if (opts.dryRun ?? false) {
     return previewResult(
       "start",
-      startPlanToEngine({ id, branch, worktreePath: dir }),
+      startPlanToEngine(
+        note !== undefined
+          ? { id, branch, worktreePath: dir, note }
+          : { id, branch, worktreePath: dir },
+      ),
     );
   }
 
@@ -1729,7 +1739,9 @@ export async function startResult(
   await createAndSetupWorktree(ctx.root, dir, branch, ctx.log);
   ctx.log.ok(`Worktree '${id}' is ready at ${dir}.`);
 
-  const data: StartData = { id, branch, path: dir };
+  const data: StartData = note !== undefined
+    ? { id, branch, path: dir, name_note: note }
+    : { id, branch, path: dir };
   const result: DiscernResult<StartData> = appliedResult("start", [
     {
       step: {
@@ -1751,11 +1763,13 @@ export async function startResult(
     },
   ]);
   result.data = data;
-  result.hints = [
+  const reRoot =
     `Created worktree '${id}' at ${dir} (branch ${branch}). Nothing was relocated ` +
     `for you — start a session rooted at ${dir} (or cd there) to continue, and do ` +
-    `not keep working in the main checkout.`,
-  ];
+    `not keep working in the main checkout.`;
+  // A normalisation/fallback note leads the hints, so the caller — and the human
+  // reading over its shoulder — see what the worktree was actually named.
+  result.hints = note !== undefined ? [note, reRoot] : [reRoot];
   return result;
 }
 
@@ -1771,11 +1785,17 @@ export async function startResult(
  */
 export async function start(
   ctx: LifecycleContext,
-  opts: { dryRun?: boolean; json?: boolean; worktreeRoot: string },
+  opts: {
+    dryRun?: boolean;
+    json?: boolean;
+    worktreeRoot: string;
+    name?: string;
+  },
 ): Promise<void> {
   const result = await startResult(ctx, {
     dryRun: opts.dryRun ?? false,
     worktreeRoot: opts.worktreeRoot,
+    name: opts.name ?? "",
   });
   emitOrRenderWorktreeResult(ctx, result, opts.json ?? false, {
     afterApply: (r) => {
