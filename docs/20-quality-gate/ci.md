@@ -1,14 +1,15 @@
 # Run the gate on GitHub Actions
 
-_Run `discern finish` in CI, then require that check before merging._
+_Protect your `main` branch: run `discern finish` on every pull request, then
+require that check before anything can merge._
+
+## Protect your main branch
 
 Local gates are discipline: a person or tool can still push around them. CI
 turns the gate into repository policy once the integration branch is protected.
 Every pull request and every push to that branch runs the same `discern finish`
 command you run locally; GitHub branch protection or a rule set is what blocks
 bypasses until that check is green.
-
-## Copy this workflow
 
 Create `.github/workflows/discern-gate.yml`:
 
@@ -114,12 +115,21 @@ result; the branch rule makes it block. The push trigger verifies landed commits
 and catches policy mistakes, but it cannot stop an already-accepted push by
 itself.
 
-## What to customize
+### The two values to customize
 
-Set `DISCERN_VERSION` to the released version you want CI to trust. The example
-installs the Linux release asset directly so the runner can verify the matching
-`.sha256` file before putting `discern` on `PATH`. If your job runs on another
-runner, change `DISCERN_ASSET` to that runner's release asset.
+The workflow runs as-is against discern's published releases. Two values pin it
+to the version and runner you want:
+
+- **`DISCERN_VERSION`** — the released version CI installs and trusts (for
+  example `v1.0.0`). The job downloads that release's Linux asset and verifies
+  its matching `.sha256` file before putting `discern` on `PATH`.
+- **`DISCERN_ASSET`** — the release asset for your runner's platform. Change it
+  when your job runs on something other than x86-64 Linux.
+
+Everything below is optional depth: adapting the workflow to your stack,
+ephemeral cloud-agent environments, cost, and ratchets.
+
+## Adapting the workflow
 
 Change the integration branch if your project does not use `main`:
 

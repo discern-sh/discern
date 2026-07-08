@@ -54,12 +54,43 @@ When the MCP server is genuinely unreachable, fall back to the `discern` CLI
 with `--json` in the meantime — every tool has a CLI verb behind it — and run
 `discern doctor` to see which side is missing.
 
+## `discern finish` failed and I'm not sure why
+
+Start with the failure discern hands back: for each failed job it names the
+tool, a command to reproduce just that failure, and the captured output. Your
+agent usually reads that and fixes it on its own. When you want to triage
+yourself, [when the gate fails](../20-quality-gate/when-the-gate-fails.md) walks
+the common causes stage by stage and what to paste to your agent, and
+`discern doctor` rules out a missing tool or a misconfigured install.
+
 ## Does discern work on Windows?
 
 discern is developed and tested on macOS and Linux. On Windows, run it under
 **WSL2**, where the git-worktree workflow and the POSIX shell the recipes assume
 behave as they do on Linux. A native-Windows shell is not a supported target
 today.
+
+## Can I use discern in a monorepo?
+
+Yes. discern is one harness per repository: a single `discern.toml` at the git
+root drives the whole tree. You don't install a separate discern per app or
+package inside it.
+
+Components inside the repo plug into that one gate through **scopes**. A scope
+names a region by its paths and can carry its own `gate` command that runs only
+when that region changed — so a subdirectory app is driven by its own commands,
+under the one root config:
+
+```toml
+[scopes.web]
+paths = ["apps/web/**"]
+gate  = "npm --prefix apps/web test"
+```
+
+A change under `apps/web/` now runs that app's own gate as part of
+`discern finish`, while a change elsewhere skips it. The root `[capabilities]`
+still cover what's shared across the repo; each scope adds what's local to one
+component.
 
 ## The worktrees are taking up disk
 
@@ -88,6 +119,20 @@ Two separate axes, deliberately kept distinct:
   `brew upgrade discern`). discern makes no network calls and never
   auto-updates, so a new version is always something you ask for.
 
+## I've changed my mind — how do I get discern out?
+
+`discern uninstall` takes the harness back out and tells you what it leaves
+behind. It removes the generated agent files and materialized skills, strips
+discern's entries from your agents' config files (leaving your own settings
+intact), and removes the `.gitignore` block. Preview it first with
+`discern uninstall --dry-run`.
+
+It keeps your content: `discern.toml` and the whole `discern/` folder stay, as
+plain Markdown at paths you chose — worth keeping with or without the tool.
+Removing the binary itself is a separate step your installer handles (for
+example `brew uninstall discern`). [What discern writes](what-discern-writes.md)
+is the full footprint, with removal covered end to end.
+
 ## Where do I report a bug?
 
 Open an issue on the project's GitHub repository. Pick the bug or setup-failure
@@ -100,5 +145,7 @@ a public issue.
 - [What discern writes to your repo](what-discern-writes.md) — the footprint and
   how to remove it.
 - [The walkthrough](walkthrough.md) — one end-to-end session, start to finish.
+- [When the gate fails](../20-quality-gate/when-the-gate-fails.md) — reading and
+  fixing a red `discern finish`.
 - [CI and cloud agents](../20-quality-gate/ci.md) — running the gate outside
   your machine.

@@ -13,6 +13,8 @@ system is shaped the way it is_ before you read how any one piece works.
 
 | Read this                                    | If you want to…                                                                           |
 | -------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| [after-setup.md](after-setup.md)             | See what setup just added to your repo, and which files are yours to edit.                |
+| [trust-and-data.md](trust-and-data.md)       | Know what runs on your machine — no network, a small footprint, what discern won't touch. |
 | [concepts.md](concepts.md)                   | Understand the moving parts at a glance — a short narrative tour of the system.           |
 | [system-map.md](system-map.md)               | See the architecture as one picture (ASCII).                                              |
 | [glossary.md](glossary.md)                   | Look up a specific term. The canonical names live here.                                   |
