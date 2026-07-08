@@ -337,6 +337,10 @@ run       = "echo DISCERN_METRIC guidance_words $(cat templates/guidance/*.md | 
 metric    = "binary_size_bytes"
 direction = "down"
 limit     = 131000000
+# The binary's byte count drifts with every commit, so `discern ratchets --pin`
+# leaves 1 MB of headroom when it re-pins this ceiling — capturing a real size
+# win without pinning to an exact value the next commit would breach.
+margin    = 1000000
 run       = "deno run --allow-read --allow-write --allow-env --allow-run scripts/binary_size.ts x86_64-unknown-linux-gnu"
 
 # Public-docs leaf-density ratchet — hold the public docs tree at or above a
