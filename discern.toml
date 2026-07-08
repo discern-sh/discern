@@ -271,7 +271,8 @@ ensure = ["vale sync"]   # converge: re-sync Vale styles for the prose check (id
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [ratchets] — never-loosen quality floors, enforced on demand by `discern ratchets`
-# (slow, so NOT part of `discern finish`).
+# (slow, so NOT part of `discern finish`). None configured means none run — defining
+# one is what turns the subsystem on.
 #
 # A ratchet is a number you only ever want to improve: line coverage, a bundle-
 # size budget, a lint/type-error count, a perf budget. Each [ratchets.<name>]
@@ -283,10 +284,25 @@ ensure = ["vale sync"]   # converge: re-sync Vale styles for the prose check (id
 #              a ceiling may only fall (you can't loosen the gate on a branch)
 #   run        the command that measures it — its output emits the metric line
 #              (run on demand by `discern ratchets`, never by the gate)
+#   per        divide the metric to ratchet a RATE, not a raw count — so the number
+#              doesn't rise just because the project grew. Either a second metric the
+#              run emits, or a built-in extent discern measures itself:
+#              per = { words = "${docs.dir}**" }  (files | lines | words | bytes over a pathspec)
+#   scale      multiply the rate so the limit reads in human units (e.g. 1000)
+#   margin     headroom `discern ratchets --pin` leaves when it tightens this limit
+#              to the measured value (default 0). Give a metric that drifts on
+#              unrelated commits (a size, a coverage %) a margin so a pinned limit
+#              isn't tripped by ordinary fluctuation.
 #
 # A ratchet's `run` reports its number by printing a line:
 #   DISCERN_METRIC <name> <number>
-# (the LAST such line wins).
+# (the LAST such line wins). There is no built-in or special ratchet — coverage
+# is just the conventional name for one. None are configured by default;
+# uncomment an example to enable it.
+#
+# Captured a gain? `discern ratchets --pin` tightens each improved limit to the
+# value just measured and commits it — the way to re-pin a baseline, never a
+# hand-edit (which can't tell a real gain from a quiet loosening).
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Coverage ratchet — hold src/ line coverage at or above a rising floor. The run
