@@ -308,7 +308,8 @@ ensure = []  # converge, e.g. ["<install deps>"]
 # Captured a gain? `discern ratchets --pin` tightens each improved limit to the
 # value just measured and commits it — the way to re-pin a baseline, never a
 # hand-edit (which can't tell a real gain from a quiet loosening).
-#
+# ─────────────────────────────────────────────────────────────────────────────
+
 # Coverage — keep line coverage at or above a rising floor:
 # [ratchets.coverage]
 # direction = "up"
@@ -332,7 +333,6 @@ ensure = []  # converge, e.g. ["<install deps>"]
 # scale     = 1000                   # ratchet "warnings per 1,000 lines"
 # limit     = 5
 # run       = "your-linter --count"  # must emit: DISCERN_METRIC warnings <count>
-# ─────────────────────────────────────────────────────────────────────────────
 
 
 # ─────────────────────────────────────────────────────────────────────────────
