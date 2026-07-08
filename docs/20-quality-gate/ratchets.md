@@ -46,6 +46,11 @@ The fields:
   `discern ratchets`, never as part of `finish`.
 - **`metric`** — the metric name the `run` command emits (defaults to the
   ratchet name). Naming it lets one command emit several metrics.
+- **`margin`** — headroom `discern ratchets --pin` leaves when it tightens this
+  limit to the measured value (default `0` — pin to the exact measurement). Give
+  a metric that drifts on unrelated commits — a bundle size, a coverage
+  percentage — a margin so a pinned limit is not tripped by ordinary
+  fluctuation.
 
 ## How a measurement reports its number
 
@@ -95,6 +100,27 @@ word/line/file/byte count over a glob, or a second metric the same command emits
 prose at the same quality holds the line
 ([ADR 0057](../_adr/0057-rate-ratchets.md)).
 
+## Capturing a gain: `discern ratchets --pin`
+
+When a change improves a ratcheted metric, capture the gain so it cannot slide
+back. `discern ratchets --pin` re-measures every ratchet and tightens each limit
+that improved to the value just measured — a floor up, a ceiling down — then
+commits that one change with an audit message. Name ratchets to pin only those
+(`discern ratchets --pin coverage`); with none named it pins every ratchet that
+has slack. It only ever tightens: a regressed metric is a failing ratchet, not a
+limit to loosen, and pin refuses to run while any ratchet is red.
+
+Pin is the way to re-pin a baseline — never hand-edit the number. Because its
+commit changes only `[ratchets]` limits, which the gate never reads, pin carries
+a green `discern finish` receipt forward onto it, so a follow-up
+`discern
+graduate` still skips the redundant gate re-run
+([ADR 0106](../_adr/0106-ratchets-pin-carries-the-gate-receipt.md)).
+
+For a metric that drifts on every commit — a bundle size, a coverage percentage
+— set a `margin` so pin leaves headroom instead of pinning to an exact value the
+next commit would breach; pin also skips a gain smaller than the margin.
+
 ## When a ratchet fires
 
 A ratchet fails for one of two reasons, and they call for opposite responses.
@@ -113,10 +139,10 @@ A ratchet fails for one of two reasons, and they call for opposite responses.
 
 Adding a ratchet is choosing a defendable number and wiring the block above:
 measure the metric as it stands today, set the limit at that value, and let it
-only tighten from there. The bundled
-[`discern-ratchet-a-metric`](../40-agent-guidance/README.md) skill walks the
-whole procedure — picking the metric, wiring the table, and knowing what to do
-when it fires.
+only tighten from there — `discern ratchets --pin` captures each later gain. The
+bundled [`discern-ratchet-a-metric`](../40-agent-guidance/README.md) skill walks
+the whole procedure — picking the metric, wiring the table, and knowing what to
+do when it fires.
 
 ## See also
 

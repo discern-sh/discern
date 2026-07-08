@@ -53,6 +53,8 @@ Keep the `run` script in the repo like any other tool, and make it print *only* 
 
 Measure the metric on `main` and set `limit` to exactly that. A ratchet holds ground; it doesn't seize it. An aspirational limit fails every branch immediately, and the "fix" people reach for is deleting the ratchet. Where the number *should* be is a goal — record it in the project's TODO — and tighten the limit as real improvements land (tightening is always allowed; that's the direction the door opens).
 
+Capture a gain with **`discern ratchets --pin`** — never a hand-edit. It re-measures, tightens each improved limit to the value just measured, commits that change on its own, and carries a green gate receipt forward so a follow-up graduation skips a needless re-run. For a metric that drifts on unrelated commits (bundle size, coverage), give the table a `margin` so pin leaves that much headroom instead of pinning to an exact number the next commit would breach; pin skips a gain smaller than the margin. Pass a name (`discern ratchets --pin coverage`) to pin just one.
+
 Then prove the wiring is live, detector-style: run `discern_ratchets` (or `discern ratchets --json`) and see it green — and check the failure path once, e.g. by temporarily tightening the limit past the current value and watching the run refuse, so you know a real regression will actually be caught. Finally, leave a line near the table (a comment, or the docs) saying *what this number stands for and why it's held* — the ratchet outlives the session that added it.
 
 ---
@@ -61,7 +63,7 @@ Then prove the wiring is live, detector-style: run `discern_ratchets` (or `disce
 
 **Never loosen the limit to pass.** A limit loosened versus `main` is precisely the regression the ratchet exists to catch — move the *metric* the right way instead: remove the instances you added, cover what you uncovered, shrink what you grew. This holds even when the work that tripped it feels unrelated or urgent; the ratchet is doing its job.
 
-The one legitimate exception is a limit that was *set wrong* — mis-measured, or measuring something the project has since deliberately changed. Correcting that is a real decision, not an escape hatch: make the case to the user, record it (an ADR, via `discern-write-adr`, when the correction is surprising), and adjust the limit in its own commit that says why. A quiet loosening buried in a feature branch is indistinguishable from the failure mode.
+The one legitimate exception is a limit that was *set wrong* — mis-measured, or measuring something the project has since deliberately changed. Correcting that is a real decision, not an escape hatch: make the case to the user, record it (an ADR, via `discern-write-adr`, when the correction is surprising), and adjust the limit in its own commit that says why. A quiet loosening buried in a feature branch is indistinguishable from the failure mode. (This hand-edit is only ever for *loosening* a mis-set limit — capturing a genuine improvement is `discern ratchets --pin`, step 4, which by construction can only tighten.)
 
 ---
 

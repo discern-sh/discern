@@ -294,12 +294,20 @@ ensure = []  # converge, e.g. ["<install deps>"]
 #              run emits, or a built-in extent discern measures itself:
 #              per = { words = "${docs.dir}**" }  (files | lines | words | bytes over a pathspec)
 #   scale      multiply the rate so the limit reads in human units (e.g. 1000)
+#   margin     headroom `discern ratchets --pin` leaves when it tightens this limit
+#              to the measured value (default 0). Give a metric that drifts on
+#              unrelated commits (a size, a coverage %) a margin so a pinned limit
+#              isn't tripped by ordinary fluctuation.
 #
 # A ratchet's `run` reports its number by printing a line:
 #   DISCERN_METRIC <name> <number>
 # (the LAST such line wins). There is no built-in or special ratchet — coverage
 # is just the conventional name for one. None are configured by default;
 # uncomment an example to enable it.
+#
+# Captured a gain? `discern ratchets --pin` tightens each improved limit to the
+# value just measured and commits it — the way to re-pin a baseline, never a
+# hand-edit (which can't tell a real gain from a quiet loosening).
 #
 # Coverage — keep line coverage at or above a rising floor:
 # [ratchets.coverage]
