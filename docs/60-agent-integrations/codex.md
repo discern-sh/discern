@@ -168,6 +168,12 @@ edits and commands; `.codex/rules/discern.rules` covers the expected
 `git add`/`git commit` prefixes that write linked-worktree Git metadata under
 the main checkout.
 
+Because the shell stays put, drive the worktree explicitly — the same fallback
+discern's guidance now teaches any agent that cannot change its working root:
+prefix every shell command with `cd <path> &&` and pass `path` to every discern
+tool. Edits and the gate then share the worktree root instead of splitting
+between it and the trunk.
+
 If a Codex session starts inside a worktree and that worktree is later removed,
 Codex can block the next user message with "Current working directory missing".
 This is a Codex runtime limitation, not a discern MCP failure:

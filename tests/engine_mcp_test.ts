@@ -18,6 +18,7 @@ import {
 } from "../src/shared/result_schemas.ts";
 import {
   buildInstructions,
+  mcpStartHint,
   runTool,
   TOOLS,
   verbOf,
@@ -1616,6 +1617,34 @@ Deno.test("discern mcp: after discern_start, discern_status follows the re-aimed
 
     assertEquals(await mcp.close(), 0);
   });
+});
+
+Deno.test("the can't-re-root fallback is one shared pattern across every shipped surface", () => {
+  // An agent that cannot change its working root must read the SAME fallback —
+  // prefix every shell command with `cd <path> &&`, and pass `path` to every
+  // discern tool — whether it looks at the compiled worktree guidance, the
+  // discern_start MCP result hint, or the MCP server instructions. Hold all three
+  // to both halves at once, driven off the same predicate, so no surface can
+  // silently drift back to the old vendor-vague "worktree-entering capability"
+  // wording, and none can teach half the pattern.
+  const surfaces: Record<string, string> = {
+    "compiled guidance (worktrees.md)": Deno.readTextFileSync(
+      new URL("../templates/guidance/worktrees.md", import.meta.url),
+    ),
+    "discern_start MCP hint": mcpStartHint("/wt/x"),
+    "MCP server instructions": buildInstructions(),
+  };
+  for (const [name, text] of Object.entries(surfaces)) {
+    assert(/cd .*&&/.test(text), `${name} must teach the cd-prefix: ${text}`);
+    assert(
+      /pass\s+`?path/i.test(text),
+      `${name} must say to pass \`path\` to every discern tool: ${text}`,
+    );
+    assert(
+      !/worktree-entering capability/.test(text),
+      `${name} must not fall back to the old vendor-vague wording: ${text}`,
+    );
+  }
 });
 
 /** The shape of one tool as `tools/list` advertises it (the fields this suite reads). */

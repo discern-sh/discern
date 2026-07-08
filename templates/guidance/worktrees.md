@@ -6,7 +6,9 @@ doesn't collide.{{#if has_worktree_resources}} It provisions per-worktree extern
 
 - **`discern_start`** — from the main checkout (`{{main_branch}}`), create your
   isolated worktree (branch prefix `{{branch_prefix}}`) and re-root into the
-  returned path. Already in a worktree? Stay there.
+  returned path: cd in, or start a session there. Can't change your working root?
+  Prefix every shell command with `cd <path> &&` and pass `path` to every discern
+  tool. Already in a worktree? Stay there.
 - **`discern_integrate`** brings `{{main_branch}}` into your branch when behind
   and reports upstream overlap. Idempotent — call it directly instead of
   pre-checking with git or hand-merging; it performs its own preconditions and
@@ -19,14 +21,12 @@ doesn't collide.{{#if has_worktree_resources}} It provisions per-worktree extern
   the checkout it leaves behind.
 
 While iterating on uncommitted work, use `discern_prepare`, `discern_test`, or a
-targeted project command. When the intended final tree is ready, commit it first,
-then run `discern_finish` once on the clean HEAD. That clean finish records the
-gate pass that graduation can honor; a finish run before the final commit does
-not vouch for the commit you later create.
+targeted project command. When the final tree is ready, commit it first, then run
+`discern_finish` once on the clean HEAD — that recorded pass is the one graduation
+honors; a finish before the final commit doesn't vouch for it.
 
 Graduation requires a clean worktree and lands committed branch history only.
 
-**Operate only in the worktree you were launched into, or the main checkout — never
-start work in one you didn't create.** A clean working tree doesn't mean it's free;
-the worktrees `discern_status` lists are other efforts in flight, not a pool to
-claim from.
+**Never edit a worktree from outside it without one of those moves, and never
+start work in one you didn't create.** A clean tree doesn't mean it's free; the ones
+`discern_status` lists are other efforts in flight, not a pool to claim from.

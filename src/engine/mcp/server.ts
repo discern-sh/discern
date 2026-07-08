@@ -671,9 +671,10 @@ export const TOOLS: McpTool[] = orderTools([
       "new worktree automatically — your later discern_finish / discern_integrate / " +
       "discern_graduate operate on it with nothing for you to thread. But that moves " +
       "only the discern tools: you MUST still move your OWN file operations into " +
-      "data.path — via your environment's worktree-entering capability, a fresh " +
-      "session rooted there, or changing directory — so your edits land in the " +
-      "worktree, not the trunk; otherwise your edits and the gate diverge. Each call " +
+      "data.path — re-root there, or if you can't change your working root, prefix " +
+      "every shell command with `cd <path> &&` and pass `path` to every discern tool " +
+      "— so your edits land in the worktree, not the trunk; otherwise your edits and " +
+      "the gate diverge. Each call " +
       "mints a NEW worktree (not idempotent) — call it once per line of work. If you " +
       "are already inside a worktree, do NOT call this (you'd create a pointless " +
       'sibling): it refuses (error:"precondition_failed") if invoked anyway. Set ' +
@@ -794,17 +795,21 @@ async function startToolResult(
  * now aimed at the new worktree automatically — finish/integrate/graduate follow.
  * (2) The agent must STILL move its own file operations into `path`, because the
  * server cannot relocate the client's session — and if it doesn't, its edits land on
- * the trunk while the gate runs in the worktree, so the two diverge. Vendor-neutral
- * by design (the server is agent-agnostic): it alludes to the capability rather than
- * naming any one client's worktree-entering command.
+ * the trunk while the gate runs in the worktree, so the two diverge. Written for the
+ * _class_ — an agent that cannot change its working root — not per vendor: re-root
+ * if you can, else prefix shell commands with `cd <path> &&` and pass `path` to
+ * every discern tool. The same pattern the compiled guidance teaches; keep them
+ * aligned (`version_check.ts` sibling aside, this is the one hint the two surfaces
+ * share). Exported so the parity guard can hold it to that shared wording.
  */
-function mcpStartHint(path: string): string {
+export function mcpStartHint(path: string): string {
   return `discern's tools are now aimed at the new worktree at ${path} — your ` +
     `discern_finish / discern_integrate / discern_graduate calls operate on it ` +
     `automatically from here. You must STILL move your own file operations into ` +
-    `${path} (your environment's worktree-entering capability, a fresh session ` +
-    `rooted there, or changing directory) so your edits land in the worktree, not ` +
-    `the trunk — otherwise your edits and the gate will diverge.`;
+    `${path}: re-root there (cd in, or start a session there), or — if you can't ` +
+    `change your working root — prefix every shell command with \`cd ${path} && …\` ` +
+    `and pass path="${path}" to every discern tool. Otherwise your edits land on ` +
+    `the trunk while the gate runs in the worktree, and the two diverge.`;
 }
 
 /** The verb slug behind a tool name (`discern_scopes` → `scopes`),
@@ -1271,10 +1276,11 @@ export function buildInstructions(): string {
     "create your own isolated worktree: it returns the new worktree's path and " +
     "re-aims these tools at it, so your later finish/integrate/graduate operate " +
     "on the new worktree automatically. You must still move your OWN file " +
-    "operations into that path (your environment's worktree-entering capability, " +
-    "a fresh session rooted there, or cd) so edits land in the worktree, not the " +
-    "trunk. NEVER adopt an existing idle worktree; each is another line of work, " +
-    "and a clean working tree doesn't mean it's free.",
+    "operations into that path: re-root there, or if you can't change your " +
+    "working root, prefix every shell command with `cd <path> &&` and pass `path` " +
+    "to every discern tool. Otherwise edits land on the trunk while the gate runs " +
+    "in the worktree. NEVER adopt an existing idle worktree; each is another line " +
+    "of work, and a clean working tree doesn't mean it's free.",
     "- When the branch is behind `{{main_branch}}` (the gate's merge check " +
     "points here), bring `{{main_branch}}` in with discern_integrate: it " +
     "merges `{{main_branch}}` into this worktree's branch " +
