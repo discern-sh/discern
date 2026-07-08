@@ -88,6 +88,13 @@ Two separate axes, deliberately kept distinct:
   `brew upgrade discern`). discern makes no network calls and never
   auto-updates, so a new version is always something you ask for.
 
+Either axis can leave a **stale MCP server**: an agent that started
+`discern mcp` before the change keeps running the old binary's engine and
+templates for the rest of its session. Restart the agent session after upgrading
+so it starts a fresh server on the new binary — `discern upgrade` closes with
+that reminder, and the `discern_*` tools flag the version mismatch on their own
+results until you do.
+
 ## Where do I report a bug?
 
 Open an issue on the project's GitHub repository. Pick the bug or setup-failure

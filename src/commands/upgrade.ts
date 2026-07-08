@@ -91,6 +91,16 @@ async function readTextIfExists(path: string): Promise<string | undefined> {
   }
 }
 
+/**
+ * The closing hint every applied upgrade carries, on both the human and JSON
+ * surfaces. An agent that spawned discern's MCP server before this upgrade keeps
+ * running the old engine and embedded templates until its session restarts — the
+ * MCP version handshake flags it, but telling the user to restart here closes the
+ * window sooner.
+ */
+const RESTART_AGENTS_HINT =
+  "If an agent session is open, restart it so its discern MCP server reloads this build — a server started before the upgrade keeps running the old engine and templates until then.";
+
 /** Run `discern upgrade`. Returns a process exit code. */
 export async function runUpgrade(options: UpgradeOptions): Promise<number> {
   const log = new Logger(options);
@@ -464,7 +474,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
         message:
           `${guidelinesErrors.length} artifact(s) failed to refresh; see data.guidelines_errors.`,
       }),
-      hints: guidelines?.hints ?? [],
+      hints: [...(guidelines?.hints ?? []), RESTART_AGENTS_HINT],
       data: {
         kit_version: KIT_VERSION,
         // `from` is the pre-upgrade schema; the install now records `current`
@@ -606,6 +616,7 @@ function renderUpgradeSummary(
   log.info(
     "This refreshed your project to match the installed discern. To get a newer discern itself, re-run the installer (e.g. `brew upgrade discern`).",
   );
+  log.info(RESTART_AGENTS_HINT);
 }
 
 /** Stamp `[meta].schema_version` into the config at `configPath`, in place. */

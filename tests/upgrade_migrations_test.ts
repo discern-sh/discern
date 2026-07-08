@@ -158,6 +158,22 @@ Deno.test("a current install has nothing pending and applies no migrations", asy
   });
 });
 
+Deno.test("upgrade (json) carries the restart-your-agents hint on the applied result", async () => {
+  await withTempDir(async (dir) => {
+    await setup(dir); // a fresh install: nothing to migrate, but the apply still runs
+    const run = await upgradeJsonIn(dir);
+    assertEquals(run.code, 0, run.stdout);
+    const hints = JSON.parse(run.stdout).hints as string[];
+    assert(
+      Array.isArray(hints) &&
+        hints.some((h) => h.includes("restart it so its discern MCP server")),
+      `applied upgrade JSON must carry the restart hint: ${
+        JSON.stringify(hints)
+      }`,
+    );
+  });
+});
+
 Deno.test("upgrade runs a pending migration before the sync, then stamps the schema", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);

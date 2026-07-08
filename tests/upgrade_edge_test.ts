@@ -382,3 +382,15 @@ Deno.test("upgrade (human) reports the migrations it applied", async () => {
     assertEquals(await targetExists(dir, "MIGRATED"), true);
   });
 });
+
+Deno.test("upgrade (human) closes with the restart-your-agents hint, even with nothing to migrate", async () => {
+  await withTempDir(async (dir) => {
+    await setup(dir);
+    // A plain apply with no pending migrations still recompiles and re-stamps, and
+    // still just replaced the binary from the user's point of view — so the restart
+    // hint is unconditional, not gated on a migration having run.
+    const { code, err } = await upgradeHumanIn(dir);
+    assertEquals(code, 0, err);
+    assertStringIncludes(err, "restart it so its discern MCP server reloads");
+  });
+});
