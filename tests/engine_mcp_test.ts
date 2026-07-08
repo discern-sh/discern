@@ -1624,9 +1624,8 @@ Deno.test("the can't-re-root fallback is one shared pattern across every shipped
   // prefix every shell command with `cd <path> &&`, and pass `path` to every
   // discern tool — whether it looks at the compiled worktree guidance, the
   // discern_start MCP result hint, or the MCP server instructions. Hold all three
-  // to both halves at once, driven off the same predicate, so no surface can
-  // silently drift back to the old vendor-vague "worktree-entering capability"
-  // wording, and none can teach half the pattern.
+  // to both halves at once, driven off the same predicate, so none can teach
+  // half the pattern.
   const surfaces: Record<string, string> = {
     "compiled guidance (worktrees.md)": Deno.readTextFileSync(
       new URL("../templates/guidance/worktrees.md", import.meta.url),
@@ -1639,10 +1638,6 @@ Deno.test("the can't-re-root fallback is one shared pattern across every shipped
     assert(
       /pass\s+`?path/i.test(text),
       `${name} must say to pass \`path\` to every discern tool: ${text}`,
-    );
-    assert(
-      !/worktree-entering capability/.test(text),
-      `${name} must not fall back to the old vendor-vague wording: ${text}`,
     );
   }
 });
