@@ -325,6 +325,21 @@ const resourceValue = z.strictObject({
   ),
 });
 
+/**
+ * The Zod entry schema for each record-table family — the single source of truth
+ * for the knobs a `[ratchets.<name>]` / `[checks.<name>]` / `[scopes.<name>]` /
+ * `[worktree.resources.<name>]` table accepts. Keyed by record family so the
+ * managed-banner guard (ADR 0107) can assert every knob is documented in that
+ * family's banner — the only channel by which a newly-added knob reaches an
+ * existing install. A field added here auto-enrols in that check.
+ */
+export const RECORD_ENTRY_SCHEMAS = {
+  checks: checkValue,
+  scopes: scopeValue,
+  ratchets: ratchetValue,
+  "worktree.resources": resourceValue,
+} as const;
+
 /** Where `discern graduate` lands the branch. A role, not a literal branch name —
  * `"trunk"` means whatever `[project].main_branch` is (`main`, `master`, …).
  * `"branch"`: leave the work on its own branch checked out in the main repo for
