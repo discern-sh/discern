@@ -5,6 +5,13 @@
  * side channel); `finish` builds its
  * `--json` report from the returned `JobResult[]`.
  *
+ * Every run is cancellable from outside: an external `signal` (an MCP client
+ * cancelling its request, the MCP server shutting down) aborts the run's own
+ * controller, tree-killing every in-flight job exactly as a fail-fast sibling
+ * failure would. Jobs are spawned `detached` (their own process groups), so no
+ * cancellation reaches them except through that controller — which is why every
+ * shutdown path must funnel into it.
+ *
  * The per-job status line format is `── <label> ─ ok` /
  * `── <label> ─ FAILED (exit N)`, with the stream-mode
  * line prefix `── <label> │ …`. Human output goes to the sink (stderr by
@@ -22,6 +29,12 @@ export interface RunOptions {
   stream: boolean;
   /** Cancel in-flight siblings the moment one job fails (on by default in finish). */
   failFast: boolean;
+  /**
+   * External cancellation: aborting it tree-kills every in-flight job and ends
+   * the run. A job killed this way reports `cancelled`, like a fail-fast-killed
+   * sibling; jobs not yet started never start.
+   */
+  signal?: AbortSignal;
   /** Whether colour is enabled for the status banners. */
   color: boolean;
   /** Sink for human output (banners + buffered job output). Default: stderr. */
@@ -73,6 +86,28 @@ function banner(result: JobResult, color: boolean): Uint8Array {
 }
 
 /**
+ * Funnel an optional external signal into the run's own controller, so a single
+ * abort source reaches `spawnJob`'s tree-kill. Returns the detach to call once
+ * the run settles (an already-aborted external cancels the run before any job
+ * starts).
+ */
+function chainExternal(
+  controller: AbortController,
+  external: AbortSignal | undefined,
+): () => void {
+  if (external === undefined) {
+    return (): void => {};
+  }
+  const onAbort = (): void => controller.abort();
+  if (external.aborted) {
+    onAbort();
+    return (): void => {};
+  }
+  external.addEventListener("abort", onAbort, { once: true });
+  return (): void => external.removeEventListener("abort", onAbort);
+}
+
+/**
  * Run labelled jobs concurrently. With fail-fast, the moment one job fails the
  * rest are cancelled (tree-killed) and reported as failures (a killed sibling
  * defaults to exit 1). Banners and
@@ -91,29 +126,34 @@ export async function runParallel(
     return { ok: true, results: [] };
   }
   const controller = new AbortController();
-  const settled = await Promise.all(jobs.map((job) =>
-    spawnJob(job, {
-      cwd: opts.cwd,
-      signal: controller.signal,
-      stream,
-      write,
-    }).then((s) => {
-      if (opts.failFast && s.result.code !== 0) {
-        controller.abort();
-      }
-      return s;
-    })
-  ));
-  if (!quiet) {
-    for (const s of settled) {
-      write(banner(s.result, opts.color));
-      if (!stream && s.output.length > 0) {
-        write(s.output);
+  const detach = chainExternal(controller, opts.signal);
+  try {
+    const settled = await Promise.all(jobs.map((job) =>
+      spawnJob(job, {
+        cwd: opts.cwd,
+        signal: controller.signal,
+        stream,
+        write,
+      }).then((s) => {
+        if (opts.failFast && s.result.code !== 0) {
+          controller.abort();
+        }
+        return s;
+      })
+    ));
+    if (!quiet) {
+      for (const s of settled) {
+        write(banner(s.result, opts.color));
+        if (!stream && s.output.length > 0) {
+          write(s.output);
+        }
       }
     }
+    const results = settled.map((s) => s.result);
+    return { ok: results.every((r) => r.code === 0), results };
+  } finally {
+    detach();
   }
-  const results = settled.map((s) => s.result);
-  return { ok: results.every((r) => r.code === 0), results };
 }
 
 /**
@@ -129,21 +169,38 @@ export async function runSerial(
   const write = opts.write ?? defaultWrite;
   const quiet = opts.quiet ?? false;
   const stream = quiet ? false : opts.stream;
+  const controller = new AbortController();
+  const detach = chainExternal(controller, opts.signal);
   const results: JobResult[] = [];
   let ok = true;
-  for (const job of jobs) {
-    const s = await spawnJob(job, { cwd: opts.cwd, stream, write });
-    if (!quiet) {
-      write(banner(s.result, opts.color));
-      if (!stream && s.output.length > 0) {
-        write(s.output);
+  try {
+    for (const job of jobs) {
+      // An abort between jobs stops the loop before the next spawn; jobs never
+      // started are absent from `results`, so finish reports them as "skipped".
+      if (controller.signal.aborted) {
+        ok = false;
+        break;
+      }
+      const s = await spawnJob(job, {
+        cwd: opts.cwd,
+        signal: controller.signal,
+        stream,
+        write,
+      });
+      if (!quiet) {
+        write(banner(s.result, opts.color));
+        if (!stream && s.output.length > 0) {
+          write(s.output);
+        }
+      }
+      results.push(s.result);
+      if (s.result.code !== 0) {
+        ok = false;
+        break;
       }
     }
-    results.push(s.result);
-    if (s.result.code !== 0) {
-      ok = false;
-      break;
-    }
+    return { ok, results };
+  } finally {
+    detach();
   }
-  return { ok, results };
 }

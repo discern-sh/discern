@@ -389,6 +389,124 @@ Deno.test("finalCode: a self-exited job keeps its real code; a signal-killed job
   assertEquals(finalCode(137, "SIGKILL"), 1);
 });
 
+Deno.test("runParallel: an external abort tree-kills every in-flight job promptly", async () => {
+  // The class this guards: an externally-initiated shutdown (an MCP client
+  // cancelling its call, the server shutting down) must reach the detached job
+  // groups — they are in their own process groups, so nothing but the runner's
+  // controller can kill them. Regression here means orphaned gate runs.
+  const dir = await Deno.makeTempDir({ prefix: "discern-job-abort-" });
+  try {
+    const external = new AbortController();
+    const start = performance.now();
+    const run = runParallel([
+      // Record the grandchild's PID so the test can prove the whole process
+      // GROUP died, not just the direct `sh`.
+      {
+        label: "slow",
+        command: "sh -c 'echo $$ > inner.pid; sleep 30' & wait",
+      },
+      { label: "slow-too", command: "sleep 30" },
+    ], {
+      cwd: dir,
+      stream: false,
+      failFast: true,
+      color: false,
+      signal: external.signal,
+      write: () => {},
+    });
+    // Give the jobs a moment to start, then cancel from outside.
+    while (!(await Deno.stat(join(dir, "inner.pid")).catch(() => null))) {
+      await new Promise((r) => setTimeout(r, 25));
+    }
+    external.abort();
+    const r = await run;
+    const elapsed = performance.now() - start;
+
+    assertEquals(r.ok, false);
+    for (const label of ["slow", "slow-too"]) {
+      const job = r.results.find((x) => x.label === label);
+      assertEquals(job?.cancelled, true, JSON.stringify(job));
+    }
+    assert(elapsed < 10_000, `expected prompt abort, took ${elapsed}ms`);
+    // The grandchild (the backgrounded inner sh) must be dead too.
+    const innerPid = Number(
+      (await Deno.readTextFile(join(dir, "inner.pid"))).trim(),
+    );
+    await waitForExit(innerPid);
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+Deno.test("runParallel: an already-aborted signal cancels before any job runs", async () => {
+  const dir = await Deno.makeTempDir({ prefix: "discern-job-preabort-" });
+  try {
+    const external = new AbortController();
+    external.abort();
+    const r = await runParallel([
+      { label: "never", command: "echo ran > ran.txt; sleep 30" },
+    ], {
+      cwd: dir,
+      stream: false,
+      failFast: true,
+      color: false,
+      signal: external.signal,
+      write: () => {},
+    });
+    assertEquals(r.ok, false);
+    assertEquals(r.results[0]?.cancelled, true);
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+Deno.test("runSerial: an external abort kills the running job and skips the rest", async () => {
+  const dir = await Deno.makeTempDir({ prefix: "discern-serial-abort-" });
+  try {
+    const external = new AbortController();
+    const run = runSerial([
+      { label: "current", command: "echo $$ > current.pid; sleep 30" },
+      { label: "after", command: "echo ran > after.txt" },
+    ], {
+      cwd: dir,
+      stream: false,
+      failFast: true,
+      color: false,
+      signal: external.signal,
+      write: () => {},
+    });
+    while (!(await Deno.stat(join(dir, "current.pid")).catch(() => null))) {
+      await new Promise((r) => setTimeout(r, 25));
+    }
+    external.abort();
+    const r = await run;
+
+    assertEquals(r.ok, false);
+    assertEquals(r.results.map((x) => x.label), ["current"]);
+    assertEquals(r.results[0]?.cancelled, true);
+    // The job after the abort never started (absent → finish reports "skipped").
+    assertEquals(
+      await Deno.stat(join(dir, "after.txt")).catch(() => null),
+      null,
+    );
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+/** Poll until a PID no longer exists (signal 0 probes without sending). */
+async function waitForExit(pid: number): Promise<void> {
+  for (let i = 0; i < 100; i++) {
+    try {
+      Deno.kill(pid, "SIGCONT");
+    } catch {
+      return; // gone
+    }
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  throw new Error(`process ${pid} still alive after abort`);
+}
+
 Deno.test("stream mode prefixes each output line", async () => {
   const s = makeSink();
   await runParallel([{ label: "j", command: "printf 'one\\ntwo\\n'" }], {
