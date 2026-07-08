@@ -456,13 +456,17 @@ export function attachEngineCommands(root: Command): void {
   root
     .command("start")
     .description(
-      "Create a fresh isolated worktree from the main checkout and print where to move into it.",
+      "Create a fresh isolated worktree from the main checkout and print where to move into it. Optionally --name it after the task you're starting.",
     )
     .option(
       "--json",
       "Emit a machine-readable (plan, result) object on stdout (data.path is the new worktree).",
     )
     .option("--dry-run", "Show the start plan; touch nothing.")
+    .option(
+      "--name <name:string>",
+      "Name the worktree after this task (a slug or a few words — discern normalises it into a branch-safe name). Omit for a random codename.",
+    )
     .action(async (o) => {
       const json = o.json ?? false;
       Deno.exit(
@@ -471,6 +475,7 @@ export function attachEngineCommands(root: Command): void {
             start(ctx, {
               json,
               dryRun: o.dryRun ?? false,
+              name: o.name ?? "",
               // WHERE the worktree lands is the feature-layer placement convention,
               // resolved here and passed in — the engine core bakes in none (ADR 0052),
               // exactly as the worktree prune wiring below does.

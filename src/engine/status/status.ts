@@ -450,7 +450,7 @@ export const FLEET_OWNERSHIP_HINT =
  * identity `status` didn't verify against `git.branch`.
  */
 export const START_HERE_HINT =
-  "You're on the trunk (the main checkout), not an isolated worktree — don't start work here. Run `discern start` to create your own worktree and move into it; never adopt an existing idle worktree (each belongs to another line of work, and a clean tree doesn't mean it's free).";
+  "You're on the trunk (the main checkout), not an isolated worktree — don't start work here. Run `discern start` to create your own worktree and move into it, naming it after the task you're starting so the worktree is identifiable rather than an opaque codename; never adopt an existing idle worktree (each belongs to another line of work, and a clean tree doesn't mean it's free).";
 
 /**
  * The {@link START_HERE_HINT} sibling for when the main checkout is — unusually —
@@ -463,7 +463,7 @@ export const START_HERE_HINT =
  */
 export function offTrunkStartHereHint(branch: string, trunk: string): string {
   const label = branch === "" ? "(detached)" : `'${branch}'`;
-  return `You're in the main checkout, but on branch ${label} — not '${trunk}' (the trunk) — and still not an isolated worktree. Run \`discern start\` to create your own worktree and move into it; never adopt an existing idle worktree (each belongs to another line of work, and a clean tree doesn't mean it's free).`;
+  return `You're in the main checkout, but on branch ${label} — not '${trunk}' (the trunk) — and still not an isolated worktree. Run \`discern start\` to create your own worktree and move into it, naming it after the task you're starting so the worktree is identifiable rather than an opaque codename; never adopt an existing idle worktree (each belongs to another line of work, and a clean tree doesn't mean it's free).`;
 }
 
 /** Everything the hint builder reads — assembled once so the hints can't drift from

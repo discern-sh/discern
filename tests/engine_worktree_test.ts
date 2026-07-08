@@ -9,7 +9,12 @@
  * to the dispatcher, so the bytes under test are what an install runs.
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertMatch,
+  assertStringIncludes,
+} from "@std/assert";
 import { basename, join } from "@std/path";
 import { exists } from "@std/fs";
 import { withTempDir } from "./helpers.ts";
@@ -983,7 +988,7 @@ Deno.test("worktree prune --yes keeps a clean detached worktree whose HEAD is no
 interface StartResult {
   ok: boolean;
   verb: string;
-  data: { id: string; branch: string; path: string };
+  data: { id: string; branch: string; path: string; name_note?: string };
   hints: string[];
 }
 
@@ -1025,6 +1030,42 @@ Deno.test("start: from the main checkout creates a set-up sibling worktree and r
         h.includes(path) && /session rooted|cd /.test(h)
       ),
       `expected a re-root hint naming ${path}: ${JSON.stringify(result.hints)}`,
+    );
+  });
+});
+
+Deno.test("start --name: derives the branch from the name and reports the normalisation", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+
+    // A messy, human-phrased name — spaces, case, trailing punctuation — is exactly
+    // what a weaker agent might pass; discern must turn it into a clean branch itself.
+    const r = await runAgent(dir, [
+      "start",
+      "--name",
+      "Fix the Upload Retry!",
+      "--json",
+    ]);
+    assertEquals(r.code, 0, r.output);
+    const result = JSON.parse(r.stdout) as StartResult;
+    assertEquals(result.ok, true);
+
+    const { id, branch, name_note, path } = result.data;
+    // The id/branch carry the slugified name; the hex tail keeps them unique.
+    assertMatch(id, /^fix-the-upload-retry-[0-9a-f]{6}$/);
+    assertEquals(branch, `agent/${id}`);
+    // The worktree really landed on that branch (not just a reported string).
+    assertEquals(await gitOut(path, "branch", "--show-current"), branch);
+    // The normalisation is surfaced in the data AND leads the hints, so the caller
+    // sees what the worktree was actually named.
+    assert(
+      name_note !== undefined && name_note.includes("fix-the-upload-retry"),
+      `expected a name_note naming the slug: ${name_note}`,
+    );
+    assert(
+      result.hints[0] === name_note,
+      `name_note should lead the hints: ${JSON.stringify(result.hints)}`,
     );
   });
 });

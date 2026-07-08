@@ -674,12 +674,25 @@ export const TOOLS: McpTool[] = orderTools([
       "data.path — re-root there, or if you can't change your working root, prefix " +
       "every shell command with `cd <path> &&` and pass `path` to every discern tool " +
       "— so your edits land in the worktree, not the trunk; otherwise your edits and " +
-      "the gate diverge. Each call " +
+      "the gate diverge. Optionally pass `name` — a few words describing the task " +
+      "you're about to start (e.g. `fix-upload-retry`, or a phrase like `fix the " +
+      "upload retry path`) — and discern normalises it into the branch name so the " +
+      "worktree is identifiable at a glance instead of an opaque codename; omit it " +
+      "and you get a random codename as before. Each call " +
       "mints a NEW worktree (not idempotent) — call it once per line of work. If you " +
       "are already inside a worktree, do NOT call this (you'd create a pointless " +
       'sibling): it refuses (error:"precondition_failed") if invoked anyway. Set ' +
       "dry_run to preview the plan without creating anything.",
     inputSchema: {
+      name: z.string().optional().describe(
+        "Optional name for the worktree — a short slug or a few words describing this " +
+          "task (e.g. `fix-upload-retry` or `fix the upload retry path`). You don't need " +
+          "to format it: discern normalises whatever you pass into a branch-safe slug " +
+          "(case, spaces, and punctuation are fixed; an over-long name is shortened; an " +
+          "unusable one — all punctuation, emoji — falls back to a random codename). " +
+          "Omit for a random codename. data.name_note reports any normalisation or " +
+          "fallback so you can retry with a cleaner name if you care.",
+      ),
       dry_run: z.boolean().optional().describe(
         "Preview the start plan and touch nothing (default false).",
       ),
@@ -688,7 +701,10 @@ export const TOOLS: McpTool[] = orderTools([
     // the subsequent finish/integrate/graduate operate on it with nothing to thread.
     reaimOnSuccess: (result) => (result.data as StartData | undefined)?.path,
     run: (root, args) =>
-      startToolResult(root, { dryRun: args.dry_run === true }),
+      startToolResult(root, {
+        dryRun: args.dry_run === true,
+        name: args.name ?? "",
+      }),
   }),
 ]);
 
@@ -758,7 +774,7 @@ async function integrateToolResult(
  */
 async function startToolResult(
   root: string,
-  opts: { dryRun?: boolean },
+  opts: { dryRun?: boolean; name?: string },
 ): Promise<DiscernResult> {
   const ctx = await lifecycleContext(
     root,
@@ -768,16 +784,20 @@ async function startToolResult(
     const result = await startResult(ctx, {
       dryRun: opts.dryRun ?? false,
       worktreeRoot: resolveWorktreeRoot(ctx.root, ctx.config),
+      name: opts.name ?? "",
     });
     // Over MCP, start ALSO re-aims the live server's working root at the new worktree
     // (runTool applies the re-aim once this returns) — the CLI can't, having no
     // persistent server, so the shared engine hint ("nothing relocated — cd there")
     // is wrong here. Replace it with the MCP story: the discern tools follow
     // automatically, but the agent must still move its OWN file context in. Only on a
-    // real apply (a dry-run created nothing and moves nothing).
+    // real apply (a dry-run created nothing and moves nothing). A naming note (if any)
+    // leads, so the agent still sees what the worktree was actually named.
     const data = result.data;
     if (result.ok && result.dry_run !== true && data !== undefined) {
-      result.hints = [mcpStartHint(data.path)];
+      result.hints = data.name_note !== undefined
+        ? [data.name_note, mcpStartHint(data.path)]
+        : [mcpStartHint(data.path)];
     }
     return result;
   } catch (e) {
