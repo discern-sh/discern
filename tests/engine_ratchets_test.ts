@@ -521,6 +521,7 @@ Deno.test("ratchets: a plan/projection length mismatch is a failed integrity ste
     command: "echo 'DISCERN_METRIC coverage 80'",
     limitKey: "ratchets.coverage.limit",
     scale: 1,
+    margin: 0,
   };
   const failure = ratchetPlanIntegrityFailure({ ratchets: [ratchet] }, []);
   assert(failure !== undefined, "a mismatch must produce a failed step");

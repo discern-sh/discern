@@ -11,6 +11,7 @@ import { assert, assertEquals } from "@std/assert";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import {
   buildRatchetPlan,
+  pinnedLimit,
   ratchetPlanToEngine,
 } from "../src/engine/gate/ratchet_plan.ts";
 
@@ -72,4 +73,56 @@ Deno.test("ratchetPlanToEngine: an empty plan projects to zero steps", () => {
   const engine = ratchetPlanToEngine(buildRatchetPlan(bare));
   assertEquals(engine.steps, []);
   assertEquals(engine.details, ["0 ratchet(s) configured"]);
+});
+
+Deno.test("buildRatchetPlan: margin defaults to 0 and carries an explicit value", () => {
+  const cfg = parseConfigOrThrow(`
+[ratchets.plain]
+direction = "up"
+limit = 10
+run = "echo x"
+
+[ratchets.roomy]
+direction = "down"
+limit = 100
+margin = 5
+run = "echo x"
+`);
+  const plan = buildRatchetPlan(cfg);
+  assertEquals(plan.ratchets.find((r) => r.name === "plain")?.margin, 0);
+  assertEquals(plan.ratchets.find((r) => r.name === "roomy")?.margin, 5);
+});
+
+// ── pinnedLimit: the pure decision behind `ratchets --pin` ──────────────────────
+
+Deno.test("pinnedLimit: tightens a floor up / a ceiling down to the measured value", () => {
+  assertEquals(pinnedLimit("up", 95, 0, 80), 95); // floor rises to the measurement
+  assertEquals(pinnedLimit("down", 50, 0, 100), 50); // ceiling falls to the measurement
+});
+
+Deno.test("pinnedLimit: margin leaves headroom in the loosening direction", () => {
+  assertEquals(pinnedLimit("up", 95, 5, 80), 90); // floor = measured − margin
+  assertEquals(pinnedLimit("down", 700000, 100000, 1000000), 800000); // ceiling = measured + margin
+});
+
+Deno.test("pinnedLimit: never loosens — returns undefined unless strictly tighter", () => {
+  // A worse measurement than the current limit would loosen: refused.
+  assertEquals(pinnedLimit("up", 70, 0, 80), undefined);
+  assertEquals(pinnedLimit("down", 150, 0, 100), undefined);
+  // At equality there is nothing to tighten.
+  assertEquals(pinnedLimit("up", 80, 0, 80), undefined);
+  assertEquals(pinnedLimit("down", 100, 0, 100), undefined);
+});
+
+Deno.test("pinnedLimit: an improvement inside the margin is not worth pinning", () => {
+  // measured 950, ceiling 1000, margin 100 → target 1050 is not below 1000.
+  assertEquals(pinnedLimit("down", 950, 100, 1000), undefined);
+  // measured 82, floor 80, margin 5 → target 77 is not above 80.
+  assertEquals(pinnedLimit("up", 82, 5, 80), undefined);
+});
+
+Deno.test("pinnedLimit: rounds a rate in the SAFE direction so the measurement still holds", () => {
+  // A floor rounds DOWN (so measured ≥ pinned floor); a ceiling rounds UP.
+  assertEquals(pinnedLimit("up", 89.317, 0, 80), 89.31);
+  assertEquals(pinnedLimit("down", 18.311, 0, 40), 18.32);
 });

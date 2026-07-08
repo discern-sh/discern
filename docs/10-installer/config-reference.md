@@ -138,6 +138,7 @@ Worktree setup commands: one-shot `steps` (creation only) and convergent `ensure
 | `run` | string \| string[] | — | The command whose output emits the metric line: DISCERN_METRIC <metric> <number>. |
 | `per` | string \| object | — | Divide the metric by this to ratchet a *rate*, not a raw count — so the number doesn't rise just because the project grew. Either a second metric the run emits, or a built-in extent discern measures itself: per = { words = "${docs.dir}**" } (files \| lines \| words \| bytes over a git pathspec). |
 | `scale` | number | `1` | Multiply the rate by this so the limit reads in human units, e.g. scale = 1000 for "per 1,000 words". |
+| `margin` | number | `0` | Headroom `discern ratchets --pin` leaves when it tightens this limit to the measured value: pin sets a floor to measured−margin (up) or a ceiling to measured+margin (down), and leaves a ratchet un-pinned when the improvement is smaller than its margin. Default 0 pins to the exact measured value; give a metric that drifts on unrelated changes (bundle size, coverage) a margin so a pinned limit isn't tripped by ordinary fluctuation. |
 
 ## `[gate]`
 

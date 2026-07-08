@@ -49,6 +49,9 @@ export interface PlannedRatchet {
   per?: PerSpec;
   /** Multiplier applied to the rate so the limit reads in human units (default 1). */
   scale: number;
+  /** Headroom `ratchets --pin` leaves when tightening this limit to the measured
+   * value (default 0 → pin to the exact measurement). Same units as `limit`. */
+  margin: number;
 }
 
 /** Normalize a schema-validated `per` into the executor's {@link PerSpec}. A string
@@ -102,11 +105,36 @@ export function buildRatchetPlan(cfg: DiscernConfig): RatchetPlan {
         command: expandDocsDirReference(toCommand(spec.run), cfg.docs.dir),
         limitKey: `ratchets.${name}.limit`,
         scale: spec.scale,
+        margin: spec.margin,
         ...(per !== undefined ? { per } : {}),
       };
     },
   );
   return { ratchets };
+}
+
+/**
+ * The value `ratchets --pin` would tighten a limit to, or `undefined` when there is
+ * no improvement worth capturing. It moves the limit toward the measured `value`,
+ * leaving `margin` of headroom (floor → `value − margin`, ceiling → `value + margin`),
+ * and rounds in the LOOSER direction (a floor down, a ceiling up, to two decimals) so
+ * the value just measured still satisfies the pinned limit. It returns `undefined`
+ * unless the result is STRICTLY tighter than `current` — so pin can only ever tighten
+ * (never loosen, whatever the margin) and never churns a no-op commit for an
+ * improvement smaller than the margin. Pure, so the whole decision is unit-testable.
+ */
+export function pinnedLimit(
+  direction: "up" | "down",
+  value: number,
+  margin: number,
+  current: number,
+): number | undefined {
+  const target = direction === "up" ? value - margin : value + margin;
+  const rounded = direction === "up"
+    ? Math.floor(target * 100) / 100
+    : Math.ceil(target * 100) / 100;
+  const tighter = direction === "up" ? rounded > current : rounded < current;
+  return tighter ? rounded : undefined;
 }
 
 /** A human suffix for a ratchet's denominator, e.g. " per 1000 words in <docs-dir>**"
