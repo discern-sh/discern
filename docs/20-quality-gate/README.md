@@ -18,6 +18,13 @@ at the exact one rather than a whole Stage. A known Capability's Stage is
 derived from its name; a Check states its own. After the Stages come the
 **Scope** `gate`s for any Scope that changed.
 
+Interrupting the gate stops it cleanly: each job runs detached in its own
+process group so the runner can tree-kill it whole, and every shutdown path — a
+fail-fast sibling failure, Ctrl-C/SIGTERM on the process, an MCP client
+cancelling its call, or the MCP server shutting down — funnels into that same
+kill, so no orphaned gate processes outlive the run
+([ADR 0105](../_adr/0105-interruption-reaches-detached-gate-jobs.md)).
+
 `discern prepare` is the fast inner loop: the fix-stage then check-stage work,
 with no build or test. `--json` emits the **`DiscernResult` envelope** — the one
 result shape every verb returns
