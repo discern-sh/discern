@@ -197,6 +197,101 @@ export function keyBlockFromTemplate(
   return lines.slice(start, keyIdx + 1).join("\n");
 }
 
+/** Matches a comment line whose first content is a bracketed section path —
+ * `# [ratchets] — …`, `# [worktree.resources.<name>] — …` — capturing the path. */
+const BANNER_IDENTITY_RE = /^\s*#\s*\[([^\]]+)\]/;
+
+/** One discern-owned managed banner: the record family it documents and its
+ * inclusive line span (opening `# ───` rule … closing `# ───` rule). */
+export interface ManagedBannerSpan {
+  /** The record family (a member of the caller's record paths) it documents. */
+  family: string;
+  /** Line index of the banner's opening `# ───` rule. */
+  start: number;
+  /** Line index of the banner's closing `# ───` rule, inclusive. */
+  end: number;
+}
+
+/**
+ * Locate every discern-owned **managed banner** in `text`: the `# ───`-delimited
+ * comment block documenting the SHAPE of a record table (`[ratchets]`,
+ * `[checks.<name>]`, `[scopes.<name>]`, `[worktree.resources.<name>]`) — the knobs
+ * it accepts. Those record tables are project-owned population that scaffold
+ * reconciliation never key-backfills, so the banner is the ONLY channel by which a
+ * newly-documented knob reaches an existing install; treating it as managed keeps
+ * that documentation current (ADR 0107).
+ *
+ * A managed banner opens with a `# ───` rule whose IMMEDIATELY following line is a
+ * `# [<record>…]` identity naming one of `recordPaths`, and closes at the next
+ * `# ───` rule, with only comment lines between. A block that does not close
+ * cleanly (a blank or live line intervenes, or the rule never recurs) is skipped,
+ * never half-matched — so the scan can never reach past a banner into a project's
+ * own tables and their comments. At most one banner per family (the first wins);
+ * spans come back in file order.
+ */
+export function scanManagedBanners(
+  text: string,
+  recordPaths: readonly string[],
+): ManagedBannerSpan[] {
+  const lines = text.split("\n");
+  const familyOf = (path: string): string | undefined =>
+    recordPaths.find((r) => path === r || path.startsWith(`${r}.`));
+  const spans: ManagedBannerSpan[] = [];
+  const seen = new Set<string>();
+  let i = 0;
+  while (i < lines.length) {
+    if (!RULE_RE.test(lines[i] ?? "")) {
+      i++;
+      continue;
+    }
+    // An opening rule's very next line must be a record identity — the shape the
+    // template authors every managed banner in. Anything else (a fixed-section
+    // banner, a section header, a closing rule) is not a managed open.
+    const path = (lines[i + 1] ?? "").match(BANNER_IDENTITY_RE)?.[1]?.trim();
+    const family = path === undefined ? undefined : familyOf(path);
+    if (family === undefined || seen.has(family)) {
+      i++;
+      continue;
+    }
+    // Collect to the next rule (inclusive); every line between must be a comment,
+    // or this is not a clean banner and we leave the region untouched.
+    let k = i + 1;
+    let clean = true;
+    while (k < lines.length && !RULE_RE.test(lines[k] ?? "")) {
+      if (!isComment(lines[k] ?? "")) {
+        clean = false;
+        break;
+      }
+      k++;
+    }
+    if (!clean || k >= lines.length) {
+      i++;
+      continue;
+    }
+    spans.push({ family, start: i, end: k });
+    seen.add(family);
+    i = k + 1;
+  }
+  return spans;
+}
+
+/**
+ * The canonical managed-banner text for each record family the template
+ * documents, keyed by family — the block verbatim, both `# ───` rule lines
+ * included. See {@link scanManagedBanners}.
+ */
+export function managedBannersFromTemplate(
+  templateText: string,
+  recordPaths: readonly string[],
+): Map<string, string> {
+  const lines = templateText.split("\n");
+  const out = new Map<string, string>();
+  for (const span of scanManagedBanners(templateText, recordPaths)) {
+    out.set(span.family, lines.slice(span.start, span.end + 1).join("\n"));
+  }
+  return out;
+}
+
 /**
  * Read the bundled `discern.toml` template text, or `undefined` if the templates
  * tree cannot be resolved or read. Migration callers may treat `undefined` as

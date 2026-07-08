@@ -12,7 +12,9 @@ import { parseDiscernToml, renderTomlStringList } from "./toml_render.ts";
 import { TomlEditor } from "./toml_edit.ts";
 import {
   keyBlockFromTemplate,
+  managedBannersFromTemplate,
   readConfigTemplate,
+  scanManagedBanners,
   sectionBlockFromTemplate,
   sectionKeyNamesFromTemplate,
   sectionNamesFromTemplate,
@@ -29,7 +31,8 @@ import {
 
 export type ConfigReconcileOperation =
   | { kind: "section"; path: string }
-  | { kind: "key"; path: string };
+  | { kind: "key"; path: string }
+  | { kind: "banner"; path: string };
 
 export interface ConfigReconcileResult {
   text: string;
@@ -37,7 +40,10 @@ export interface ConfigReconcileResult {
   templateAvailable: boolean;
 }
 
-const RECORD_CONFIG_PATHS = [
+/** The user-populated record tables whose named entries are project-owned
+ * population — never key-backfilled by scaffold reconciliation, and the families
+ * whose shape-doc banners it manages instead (ADR 0107). */
+export const RECORD_CONFIG_PATHS = [
   "checks",
   "scopes",
   "ratchets",
@@ -137,14 +143,66 @@ export function renderConfigTemplateForConfig(
   return substituteTokens(templateText, tokens).text;
 }
 
+/**
+ * Reconcile the discern-owned managed banners: refresh each record family's
+ * shape-doc banner to the current template. The named tables a banner documents —
+ * and their own comments — live OUTSIDE the banner rules, so they are never
+ * touched; only discern's documentation prose between the `# ───` rules is
+ * refreshed (ADR 0107). Splices bottom-up so earlier spans' line indices stay
+ * valid; reports the resulting operations top-down for readable output.
+ */
+function reconcileManagedBanners(
+  configText: string,
+  banners: Map<string, string>,
+): { text: string; operations: ConfigReconcileOperation[] } {
+  if (banners.size === 0) {
+    return { text: configText, operations: [] };
+  }
+  const lines = configText.split("\n");
+  const spans = scanManagedBanners(configText, RECORD_CONFIG_PATHS);
+  const refreshed: number[] = [];
+  for (const span of [...spans].sort((a, b) => b.start - a.start)) {
+    const canonical = banners.get(span.family);
+    if (canonical === undefined) {
+      continue; // the current template documents no banner for this family
+    }
+    if (lines.slice(span.start, span.end + 1).join("\n") === canonical) {
+      continue; // already current
+    }
+    lines.splice(
+      span.start,
+      span.end - span.start + 1,
+      ...canonical.split("\n"),
+    );
+    refreshed.push(span.start);
+  }
+  const byFamily = new Map(spans.map((s) => [s.start, s.family]));
+  const operations = refreshed
+    .sort((a, b) => a - b)
+    .map((start): ConfigReconcileOperation => ({
+      kind: "banner",
+      path: byFamily.get(start) ?? "",
+    }));
+  return { text: lines.join("\n"), operations };
+}
+
 /** Reconcile `configText` using an already-rendered current template. */
 export function reconcileConfigTextWithTemplate(
   configText: string,
   renderedTemplate: string,
 ): ConfigReconcileResult {
-  const currentRaw = parseDiscernToml(configText).raw;
+  // Pass 0: refresh discern-owned managed banners. Raw comment surgery — it
+  // changes no parsed value, so the structural passes below read the same config.
+  const banners = managedBannersFromTemplate(
+    renderedTemplate,
+    RECORD_CONFIG_PATHS,
+  );
+  const bannerPass = reconcileManagedBanners(configText, banners);
+  const baseText = bannerPass.text;
+
+  const currentRaw = parseDiscernToml(baseText).raw;
   const templateRaw = parseDiscernToml(renderedTemplate).raw;
-  const currentSections = sectionHeaders(configText);
+  const currentSections = sectionHeaders(baseText);
   const activeSections = sectionNamesFromTemplate(renderedTemplate).filter(
     (section) => !isUnderRecordPath(section),
   );
@@ -163,14 +221,15 @@ export function reconcileConfigTextWithTemplate(
   });
 
   const operations: ConfigReconcileOperation[] = [
+    ...bannerPass.operations,
     ...missingSections.map((path) => ({ kind: "section" as const, path })),
     ...missingKeys.map((path) => ({ kind: "key" as const, path })),
   ];
-  if (operations.length === 0) {
-    return { text: configText, operations, templateAvailable: true };
+  if (missingSections.length === 0 && missingKeys.length === 0) {
+    return { text: baseText, operations, templateAvailable: true };
   }
 
-  const editor = new TomlEditor(configText);
+  const editor = new TomlEditor(baseText);
   const placedSections = new Set(currentSections);
   for (const section of missingSections) {
     const block = sectionBlockFromTemplate(renderedTemplate, section);

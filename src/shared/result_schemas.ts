@@ -923,7 +923,7 @@ const migrationStepSchema = z.strictObject({
 });
 
 const configReconcileOperationSchema = z.strictObject({
-  kind: z.enum(["section", "key"]),
+  kind: z.enum(["section", "key", "banner"]),
   path: z.string(),
 });
 

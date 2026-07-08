@@ -15,12 +15,15 @@ import {
 import { join } from "@std/path";
 import {
   keyBlockFromTemplate,
+  managedBannersFromTemplate,
   readConfigTemplate,
+  scanManagedBanners,
   sectionBlockFromTemplate,
   sectionKeyNamesFromTemplate,
   sectionNamesFromTemplate,
 } from "../src/lib/config_template.ts";
 import { PROVIDERS } from "../src/lib/providers.ts";
+import { RECORD_CONFIG_PATHS } from "../src/lib/config_reconcile.ts";
 import { REAL_TEMPLATES } from "./helpers.ts";
 import { AGENT_NAMES } from "../src/shared/config_schema.ts";
 
@@ -226,4 +229,62 @@ Deno.test("readConfigTemplate resolves the bundled template", async () => {
   assertExists(text, "the bundled template should resolve");
   assertStringIncludes(text, "[guidance]");
   assertStringIncludes(text, "[skills]");
+});
+
+const RULE = `# ${"─".repeat(77)}`;
+
+Deno.test("managedBannersFromTemplate finds a ruled banner for every record family", async () => {
+  const banners = managedBannersFromTemplate(
+    await realTemplate(),
+    RECORD_CONFIG_PATHS,
+  );
+  assertEquals(
+    [...banners.keys()].sort(),
+    [...RECORD_CONFIG_PATHS].sort(),
+  );
+  for (const [family, block] of banners) {
+    const lines = block.split("\n");
+    assert(/^#\s*─/.test(lines[0] ?? ""), `${family} banner opens with a rule`);
+    assert(
+      /^#\s*─/.test(lines.at(-1) ?? ""),
+      `${family} banner closes with a rule`,
+    );
+  }
+});
+
+Deno.test("scanManagedBanners ignores a fixed-section banner", () => {
+  const text = [
+    RULE,
+    "# [gate] — ergonomics for the parallel gate stages.",
+    RULE,
+    "",
+    "[gate]",
+    "stream = false",
+  ].join("\n");
+  assertEquals(scanManagedBanners(text, RECORD_CONFIG_PATHS), []);
+});
+
+Deno.test("scanManagedBanners requires a clean close — a blank breaks the block", () => {
+  const text = [
+    RULE,
+    "# [ratchets] — quality floors",
+    "", // a blank line before the closing rule: not a clean banner
+    RULE,
+  ].join("\n");
+  assertEquals(scanManagedBanners(text, RECORD_CONFIG_PATHS), []);
+});
+
+Deno.test("scanManagedBanners bounds a banner at its closing rule, never a following table", () => {
+  const text = [
+    RULE, // line 0
+    "# [ratchets] — quality floors", // 1
+    "#   limit  the floor/ceiling", // 2
+    RULE, // 3 — the close
+    "",
+    "[ratchets.coverage]",
+    "limit = 80",
+  ].join("\n");
+  assertEquals(scanManagedBanners(text, RECORD_CONFIG_PATHS), [
+    { family: "ratchets", start: 0, end: 3 },
+  ]);
 });

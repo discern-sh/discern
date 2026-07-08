@@ -625,7 +625,7 @@ export type DiscernUpgradeResult = {
       describe: string;
     }>;
     pending_reconciliation?: Array<{
-      kind: "section" | "key";
+      kind: "section" | "key" | "banner";
       path: string;
     }>;
     config_template_available?: boolean;
@@ -646,7 +646,7 @@ export type DiscernUpgradeResult = {
       describe: string;
     }>;
     config_reconciled?: Array<{
-      kind: "section" | "key";
+      kind: "section" | "key" | "banner";
       path: string;
     }>;
     gitignore_reconciled?: Array<{

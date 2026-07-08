@@ -2204,7 +2204,8 @@
                         "type": "string",
                         "enum": [
                           "section",
-                          "key"
+                          "key",
+                          "banner"
                         ]
                       },
                       "path": {
@@ -2303,7 +2304,8 @@
                         "type": "string",
                         "enum": [
                           "section",
-                          "key"
+                          "key",
+                          "banner"
                         ]
                       },
                       "path": {

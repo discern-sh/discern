@@ -633,7 +633,14 @@ function gitignoreOperationToJson(op: GitignoreReconcileOperation): {
 }
 
 function operationLabel(op: ConfigReconcileOperation): string {
-  return op.kind === "section" ? `add [${op.path}]` : `add ${op.path}`;
+  switch (op.kind) {
+    case "section":
+      return `add [${op.path}]`;
+    case "banner":
+      return `refresh [${op.path}] banner`;
+    case "key":
+      return `add ${op.path}`;
+  }
 }
 
 function gitignoreOperationLabel(op: GitignoreReconcileOperation): string {
