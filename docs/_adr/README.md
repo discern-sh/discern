@@ -117,6 +117,10 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0103 — Setup grounds itself in the repo's real state — detected default branch, git-init-first without git, a welcome everywhere](0103-setup-holds-up-on-imperfect-repos.md)
 - [0104 — `discern uninstall` is the exit-honesty verb — registry-derived removal, CLI-only](0104-uninstall-is-the-exit-honesty-verb.md)
 - [0105 — Interruption reaches the gate's detached job groups](0105-interruption-reaches-detached-gate-jobs.md)
+- [0106 — `ratchets --pin` captures a measured gain and carries the gate-pass receipt across it](0106-ratchets-pin-carries-the-gate-receipt.md)
+- [0107 — `upgrade` reconciles the record-table doc banners](0107-config-banners-are-managed-regions.md)
+- [0108 — One global timeout bounds every gate job](0108-gate-job-timeout.md)
+- [0109 — `discern start` accepts an optional name, normalised to a branch-safe slug](0109-worktree-start-optional-name.md)
 - [0110 — The landing model — pull from any ref, land only on the trunk](0110-the-landing-model.md)
 - [0111 — The MCP surface refuses undeclared arguments, and `discern_start` takes a cross-project `path`](0111-cross-project-path-and-strict-tool-schemas.md)
 
