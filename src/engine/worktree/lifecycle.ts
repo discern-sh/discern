@@ -517,6 +517,24 @@ export async function worktreeSetup(
         throw new WorktreeGitError(`Setup step failed: ${step}`);
       }
     }
+    // One-shot scaffolding may have rewritten the env file wholesale (the
+    // canonical `cp .env.example .env`) — re-assert the env writers so the
+    // inherited values and the recorded port/resource handles land in the
+    // FINAL file, not the pre-step one the scaffold replaced. All three are
+    // idempotent upserts, and the pre-step pass stays so the steps themselves
+    // can read the values.
+    if (ctx.config.worktree.setup.steps.length > 0) {
+      await inheritMainEnvVars({
+        worktreeRoot: ctx.cwd,
+        vars: ctx.config.worktree.inherit_env,
+        files: ctx.config.worktree.env_files,
+        log: ctx.log,
+      });
+      if (commonGitDir !== undefined && gitKey !== undefined) {
+        await recordResourceEnv(ctx, identity, settings);
+      }
+      await recordPort(ctx, identity);
+    }
     await runEnsureSteps(ctx, { fatal: true });
   }
 

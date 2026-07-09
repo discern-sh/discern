@@ -138,6 +138,49 @@ Deno.test("the shipped settings template carries no deny rule", async () => {
   });
 });
 
+Deno.test("inherit_env: values survive a one-shot `cp .env.example .env` setup step", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    // The canonical bootstrap step rewrites the env file WHOLESALE after the
+    // env writers ran — the inherited secret and the recorded port must land in
+    // the FINAL file, not the pre-step one the scaffold replaced.
+    await writeConfig(
+      dir,
+      '[project]\nslug = "engine-test"\nmain_branch = "main"\n\n' +
+        '[worktree]\ninherit_env = ["APP_KEY"]\nport = true\n\n' +
+        '[worktree.setup]\nsteps = ["cp .env.example .env"]\n',
+    );
+    // The example ships in git (the worktree checkout needs it for the cp);
+    // main's real secret lives only in its untracked .env.
+    await Deno.writeTextFile(
+      join(dir, ".env.example"),
+      "APP_KEY=placeholder\n",
+    );
+    await gitInit(dir);
+    await Deno.writeTextFile(join(dir, ".env"), "APP_KEY=s3cret\n");
+
+    const wt = await addWorktree(dir, "env-clobber");
+    const setup = await runAgent(wt, ["worktree", "setup"]);
+    assertEquals(setup.code, 0, setup.output);
+
+    const env = await Deno.readTextFile(join(wt, ".env"));
+    assertStringIncludes(
+      env,
+      "APP_KEY=s3cret",
+      `the inherited value must survive the scaffold step\n${env}`,
+    );
+    assert(
+      !env.includes("APP_KEY=placeholder"),
+      `the placeholder must not win\n${env}`,
+    );
+    assertStringIncludes(
+      env,
+      "DISCERN_WORKTREE_PORT=",
+      `the recorded port must survive the scaffold step\n${env}`,
+    );
+  });
+});
+
 // ── the port re-roll (D7): a freshly-minted id avoids a live sibling's port ──────
 
 function stubGenerator(ids: string[]): (name?: string) => MintedWorktreeId {

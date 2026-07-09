@@ -129,9 +129,11 @@ through `[worktree].env_files` (default `[".env", ".env.local"]`, the dotenv
 override convention): `inherit_env` values are read from the main checkout's env
 files and written into the new Worktree's — creating its env file when absent,
 so a declared value always arrives — while the port and resource handles are
-recorded into an existing env file only; `status` fleet rows derive id/port from
-identity when nothing is recorded, so an env-file-less project still reads
-honestly.
+recorded into an existing env file only. The env writers re-assert after the
+one-shot `[worktree.setup].steps`, so a scaffold that rewrites the env file
+wholesale (`cp .env.example .env`) can't erase what setup just delivered.
+`status` fleet rows derive id/port from identity when nothing is recorded, so an
+env-file-less project still reads honestly.
 
 **Proving a copy works.** The same create → setup → removal cores back a further
 use: `setup done`'s **worktree-viability probe**
