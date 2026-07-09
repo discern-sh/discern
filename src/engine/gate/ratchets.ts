@@ -11,6 +11,12 @@
  * computed first, then the thin executor here applies it. `--dry-run` renders the
  * plan and touches nothing (no git, no measurement); `--json` SERIALIZES the
  * (plan, results) through the shared renderer.
+ *
+ * The check → pin flow measures ONCE: a green check over a clean tree records a
+ * measurement receipt (`receipt.ts`) naming every measured value against the exact
+ * HEAD, and a `--pin` on that same clean HEAD replays those values instead of
+ * re-running the measurements — re-checking only the never-loosen half live, since
+ * main's baseline can advance while HEAD stands still.
  */
 
 import {
@@ -46,7 +52,13 @@ import { runGit, runShell } from "../../shared/subprocess.ts";
 import { join } from "@std/path";
 import { CONFIG_REL, installedConfigRel } from "../../shared/env.ts";
 import { TomlEditor } from "../../lib/toml_edit.ts";
-import { carryReceiptForwardAcrossPin, inspectGateReceipt } from "./receipt.ts";
+import {
+  carryReceiptForwardAcrossPin,
+  clearRatchetMeasurements,
+  inspectGateReceipt,
+  inspectRatchetMeasurements,
+  recordRatchetMeasurements,
+} from "./receipt.ts";
 
 /** True when `s` is a non-negative decimal number. */
 function isNumber(s: string): boolean {
@@ -188,29 +200,42 @@ interface RatchetVerdict {
  * `ratchets --pin` would tighten the limit to. The ratchet is already schema-validated
  * (direction ∈ up|down, limit a number, run present), so its structural checks are
  * folded into the schema. */
+/** The never-loosen half of one ratchet's check: the branch's limit compared to
+ * main's baseline (a floor may only rise, a ceiling only fall). Returns the failure
+ * reason, or undefined when the limit is not loosened. Split out of
+ * {@link ratchetCheck} because this half is NOT cacheable — main can advance while
+ * HEAD stands still — so the measurement-receipt replay re-runs exactly this, live. */
+async function loosenedVsMainReason(
+  r: PlannedRatchet,
+  root: string,
+  mainBranch: string,
+): Promise<string | undefined> {
+  const main = await ratchetMainValue(root, mainBranch, r.limitKey);
+  if (main === undefined) {
+    return undefined;
+  }
+  if (r.direction === "up" && r.limit < main) {
+    return `ratchet '${r.name}': floor ${main} -> ${r.limit} vs ${mainBranch} — the floor only rises. Raise the metric, don't loosen the gate.`;
+  }
+  if (r.direction === "down" && r.limit > main) {
+    return `ratchet '${r.name}': ceiling ${main} -> ${r.limit} vs ${mainBranch} — the ceiling only falls. Lower the metric, don't loosen the gate.`;
+  }
+  return undefined;
+}
+
 async function ratchetCheck(
   r: PlannedRatchet,
   root: string,
   mainBranch: string,
   out: Out,
 ): Promise<RatchetVerdict> {
-  const { name, metric, direction, limit, command, limitKey, per, scale } = r;
+  const { name, metric, direction, limit, command, per, scale } = r;
 
   // never loosened vs main
-  const main = await ratchetMainValue(root, mainBranch, limitKey);
-  if (main !== undefined) {
-    if (direction === "up" && limit < main) {
-      const reason =
-        `ratchet '${name}': floor ${main} -> ${limit} vs ${mainBranch} — the floor only rises. Raise the metric, don't loosen the gate.`;
-      out.error(reason);
-      return { held: false, reason };
-    }
-    if (direction === "down" && limit > main) {
-      const reason =
-        `ratchet '${name}': ceiling ${main} -> ${limit} vs ${mainBranch} — the ceiling only falls. Lower the metric, don't loosen the gate.`;
-      out.error(reason);
-      return { held: false, reason };
-    }
+  const loosened = await loosenedVsMainReason(r, root, mainBranch);
+  if (loosened !== undefined) {
+    out.error(loosened);
+    return { held: false, reason: loosened };
   }
 
   // measure
@@ -437,7 +462,113 @@ async function executeRatchetPlan(
   return { ok, results, outcomes, diagnostics };
 }
 
+/** Route a plain check's outcome into the measurement receipt: green over a clean
+ * tree records every measured value against HEAD (for a `--pin` on that same clean
+ * HEAD to reuse), red clears any receipt (fail-closed). Returns whether a reusable
+ * receipt now exists. Best-effort — the receipt is an optimization, never part of
+ * the check's own verdict. */
+async function recordCheckMeasurements(
+  root: string,
+  execution: RatchetExecution,
+): Promise<boolean> {
+  if (!execution.ok) {
+    await clearRatchetMeasurements(root);
+    return false;
+  }
+  const values: Record<string, number> = {};
+  for (const o of execution.outcomes) {
+    if (o.value === undefined) {
+      return false;
+    }
+    values[o.ratchet.name] = o.value;
+  }
+  return await recordRatchetMeasurements(root, values);
+}
+
 // ── `--pin`: capture a measured improvement into the limit (ADR 0106) ──────────
+
+/** The measured values a pin may reuse instead of re-measuring: the measurement
+ * receipt must be honored (recorded by a green check against this exact HEAD, tree
+ * still clean) and name every planned ratchet. Anything short of that returns
+ * undefined — a cache miss the caller answers by measuring fresh, never an error. */
+async function reusableMeasurements(
+  root: string,
+  plan: RatchetPlan,
+): Promise<Record<string, number> | undefined> {
+  const receipt = await inspectRatchetMeasurements(root);
+  if (receipt.status !== "honored") {
+    return undefined;
+  }
+  const complete = plan.ratchets.every((r) =>
+    receipt.values[r.name] !== undefined
+  );
+  return complete ? receipt.values : undefined;
+}
+
+/**
+ * Rebuild a {@link RatchetExecution} from the measurement receipt's values instead
+ * of running the measurements. Only the never-loosen half is re-checked live — it
+ * reads main's baseline, which can advance while HEAD stands still — while the
+ * measured-vs-limit half needs no re-run at all: the same clean HEAD fixes both the
+ * values and the limits, and only an all-green check records a receipt.
+ */
+async function replayExecutionFromReceipt(
+  plan: RatchetPlan,
+  values: Record<string, number>,
+  root: string,
+  mainBranch: string,
+): Promise<RatchetExecution> {
+  const results: StepResult[] = [];
+  const outcomes: RatchetOutcome[] = [];
+  const diagnostics: Diagnostic[] = [];
+  let ok = true;
+  for (const r of plan.ratchets) {
+    const value = values[r.name];
+    if (value === undefined) {
+      // Unreachable — the caller replays only a receipt naming every planned
+      // ratchet — but fail closed as a plain failure rather than pinning blind.
+      ok = false;
+      const reason =
+        `ratchet '${r.name}': the measurement receipt carries no value for it. Re-run \`discern ratchets\` to measure.`;
+      results.push({
+        step: { kind: "ratchet", label: r.name, disposition: "run" },
+        outcome: "failed",
+      });
+      outcomes.push({ ratchet: r, held: false });
+      diagnostics.push({
+        tool: r.name,
+        severity: "error",
+        message: reason,
+        reproduce_cmd: "discern ratchets",
+      });
+      continue;
+    }
+    const loosened = await loosenedVsMainReason(r, root, mainBranch);
+    const held = loosened === undefined;
+    results.push({
+      step: {
+        kind: "ratchet",
+        label: r.name,
+        disposition: "run",
+        note: `${r.direction}, limit ${r.limit}${
+          perNote(r.per, r.scale)
+        }, measured ${fmtRate(value)} (reused from the green check)`,
+      },
+      outcome: held ? "ok" : "failed",
+    });
+    outcomes.push({ ratchet: r, held, value });
+    if (loosened !== undefined) {
+      ok = false;
+      diagnostics.push({
+        tool: r.name,
+        severity: "error",
+        message: loosened,
+        reproduce_cmd: "discern ratchets",
+      });
+    }
+  }
+  return { ok, results, outcomes, diagnostics };
+}
 
 /** One limit the pin pass will tighten: the ratchet, the value it measured, and the
  * new limit computed from it (measured ∓ margin, in the tightening direction). */
@@ -524,7 +655,10 @@ async function applyPinEdits(
  * — all of them, or the named subset — that improved past its limit by more than its
  * margin, tighten the limit toward the measured value, commit that change on its own,
  * and carry any gate-pass receipt forward across the (gate-neutral) commit so
- * `graduate` need not re-run the whole gate. A FAILING ratchet pins nothing — you can't
+ * `graduate` need not re-run the whole gate. When a green check already measured this
+ * exact clean HEAD, its measurement receipt stands in for the measurements — the
+ * check → pin flow measures once — with only the never-loosen half re-checked live
+ * (main can advance while HEAD stands still). A FAILING ratchet pins nothing — you can't
  * capture a good state from a red tree — and returns the ordinary failing result.
  * `dryRun` renders the pin plan and measures NOTHING (the universal dry-run contract,
  * ADR 0027) — it cannot say what a pin would change, because slack is only knowable by
@@ -586,7 +720,8 @@ async function pinRatchetsResult(
       hints: [
         "A pin dry-run measures nothing. `discern ratchets` (the plain check) " +
         "measures once and names any pinnable slack in its hints; " +
-        "`discern ratchets --pin` then captures it.",
+        "`discern ratchets --pin` on the same clean commit then reuses those " +
+        "measurements to capture it.",
       ],
     };
   }
@@ -607,13 +742,16 @@ async function pinRatchetsResult(
   const priorReceipt = await inspectGateReceipt(root);
 
   const mainBranch = Deno.env.get("MAIN_BRANCH") || cfg.project.main_branch;
+  // A green check on this exact clean HEAD already paid for every measurement and
+  // recorded a measurement receipt; replay its values rather than measuring again.
+  const reused = await reusableMeasurements(root, plan);
   const out = makeOut(colorEnabled(), { quiet: true });
-  const { ok, results, outcomes, diagnostics } = await executeRatchetPlan(
-    plan,
-    root,
-    mainBranch,
-    out,
-  );
+  const { ok, results, outcomes, diagnostics } = reused !== undefined
+    ? await replayExecutionFromReceipt(plan, reused, root, mainBranch)
+    : await executeRatchetPlan(plan, root, mainBranch, out);
+  const reuseHint = reused !== undefined
+    ? "Reused the green check's measurements for this commit — nothing was re-measured."
+    : undefined;
 
   // A red ratchet blocks the whole pin: don't capture a state the gate wouldn't hold.
   if (!ok) {
@@ -665,6 +803,7 @@ async function pinRatchetsResult(
     return {
       ...appliedResult("ratchets", steps),
       hints: [
+        ...(reuseHint !== undefined ? [reuseHint] : []),
         "Nothing to pin — every ratchet asked for already sits at its measured value (within its margin).",
       ],
     };
@@ -690,6 +829,7 @@ async function pinRatchetsResult(
   return {
     ...appliedResult("ratchets", steps),
     hints: [
+      ...(reuseHint !== undefined ? [reuseHint] : []),
       carried
         ? "Carried the gate-pass receipt forward — `discern graduate` will skip the redundant gate re-run."
         : "No current gate-pass receipt to carry forward — run `discern finish` before graduating, or graduate re-runs the gate.",
@@ -759,13 +899,12 @@ export async function ratchetsResult(
     } else {
       const mainBranch = Deno.env.get("MAIN_BRANCH") || cfg.project.main_branch;
       const out = makeOut(colorEnabled(), { quiet: true });
-      const { results, outcomes, diagnostics } = await executeRatchetPlan(
-        plan,
-        root,
-        mainBranch,
-        out,
-      );
+      const execution = await executeRatchetPlan(plan, root, mainBranch, out);
+      const { results, outcomes, diagnostics } = execution;
       result = appliedResult("ratchets", results, diagnostics);
+      // Green over a clean tree: record the measurement receipt a `--pin` on this
+      // same clean HEAD reuses; red: clear any receipt (fail-closed).
+      const receipted = await recordCheckMeasurements(root, execution);
       // A green check just paid for every measurement, so answer the natural next
       // question for free: which limits have pinnable slack. Decided by the SAME
       // pinnedLimit the pin pass applies, so this hint and a real pin can never
@@ -792,7 +931,11 @@ export async function ratchetsResult(
             ...(result.hints ?? []),
             `Pinnable slack: ${
               slack.join("; ")
-            }. Capture it with \`discern ratchets --pin\` — this check already measured, no pin dry-run needed.`,
+            }. Capture it with \`discern ratchets --pin\` — ${
+              receipted
+                ? "on this commit it reuses this check's measurements (measure once, pin once)"
+                : "this check already measured, no pin dry-run needed"
+            }.`,
           ];
         }
       }
@@ -887,8 +1030,9 @@ export async function runRatchets(
     }
   }
 
-  const { results } = await executeRatchetPlan(plan, root, mainBranch, out);
-  const result = appliedResult("ratchets", results);
+  const execution = await executeRatchetPlan(plan, root, mainBranch, out);
+  await recordCheckMeasurements(root, execution);
+  const result = appliedResult("ratchets", execution.results);
   renderStepResults(outSink(out), {
     title: "Ratchet results",
     steps: result.steps ?? [],
