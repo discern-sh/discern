@@ -63,10 +63,10 @@ _Nothing outstanding._
       are stateless and a pin must capture what is true of the tree it commits
       on. A measurement receipt — the check's per-ratchet values recorded
       against the exact commit, honored by a subsequent pin on that same clean
-      HEAD and invalidated by any new commit (the gate-pass receipt's model,
-      ADR 0067/0106) — would let the check → pin flow measure once. Slow
-      measurement suites pay double today; the check's hints already name any
-      pinnable slack, so this is efficiency, not correctness. Evidence:
+      HEAD and invalidated by any new commit (the gate-pass receipt's model, ADR
+      0067/0106) — would let the check → pin flow measure once. Slow measurement
+      suites pay double today; the check's hints already name any pinnable
+      slack, so this is efficiency, not correctness. Evidence:
       `src/engine/gate/ratchets.ts` (`pinRatchetsResult` re-runs
       `executeRatchetPlan`); `src/engine/gate/receipt.ts`.
 
