@@ -639,6 +639,109 @@ Deno.test("migration 16→17 drops [worktree].graduate_to and its doc comment", 
   });
 });
 
+Deno.test("migration 16→17 removes the dotted top-level form too", async () => {
+  await withTempDir(async (dir) => {
+    // `worktree.graduate_to = ...` is the same key in TOML's dotted spelling —
+    // detecting it semantically but removing only the table form claimed a
+    // "dropped" the file didn't contain, looping the user through `discern
+    // upgrade` forever.
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      'worktree.graduate_to = "branch"\nworktree.port = true\n',
+    );
+    const notes: string[] = [];
+    await applyMigrations({
+      destDir: dir,
+      from: 16,
+      to: 17,
+      onNote: (n) => notes.push(n),
+    });
+    const toml = await Deno.readTextFile(join(dir, "discern.toml"));
+    assert(!/graduate_to/.test(toml), `key must be dropped:\n${toml}`);
+    assertStringIncludes(toml, "worktree.port = true"); // siblings untouched
+    assert(
+      notes.some((n) => n.includes("dropped [worktree].graduate_to")),
+      notes.join("\n"),
+    );
+  });
+});
+
+Deno.test("migration 16→17 removes an inline-table entry without splitting array siblings", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      'worktree = { graduate_to = "branch", env_files = [".env", ".env.local"] }\n',
+    );
+    const notes: string[] = [];
+    await applyMigrations({
+      destDir: dir,
+      from: 16,
+      to: 17,
+      onNote: (n) => notes.push(n),
+    });
+    const toml = await Deno.readTextFile(join(dir, "discern.toml"));
+    assert(!/graduate_to/.test(toml), `key must be dropped:\n${toml}`);
+    assertStringIncludes(
+      toml,
+      'env_files = [".env", ".env.local"]',
+      `a comma-bearing sibling survives intact:\n${toml}`,
+    );
+    assert(
+      notes.some((n) => n.includes("dropped [worktree].graduate_to")),
+      notes.join("\n"),
+    );
+  });
+});
+
+Deno.test("migration 16→17 never claims a removal it couldn't perform", async () => {
+  await withTempDir(async (dir) => {
+    // A QUOTED dotted key is legal TOML the lexical rewrites don't recognise:
+    // the note must say 'remove it by hand', never 'dropped'. (Unchecked
+    // runner: this config deliberately cannot be made valid automatically.)
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      `'worktree'.'graduate_to' = "branch"\n`,
+    );
+    const notes: string[] = [];
+    await applyMigrationsUnchecked({
+      destDir: dir,
+      from: 16,
+      to: 17,
+      onNote: (n) => notes.push(n),
+    });
+    const toml = await Deno.readTextFile(join(dir, "discern.toml"));
+    assertStringIncludes(toml, "graduate_to"); // untouched — and admitted
+    assert(
+      notes.some((n) => n.includes("remove the key from discern.toml by hand")),
+      notes.join("\n"),
+    );
+    assert(
+      !notes.some((n) => n.includes("dropped [worktree].graduate_to")),
+      `no false success note:\n${notes.join("\n")}`,
+    );
+  });
+});
+
+Deno.test("migration 16→17 collapses blanks at the removal site only, not file-wide", async () => {
+  await withTempDir(async (dir) => {
+    // A deliberate three-blank-line run elsewhere in the file is the user's
+    // formatting, not ours to normalise.
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      "[project]\nslug = 'x'\n\n\n\n# spaced out on purpose\n\n[worktree]\n" +
+        'graduate_to = "trunk"\nport = true\n',
+    );
+    await applyMigrations({ destDir: dir, from: 16, to: 17, onNote: () => {} });
+    const toml = await Deno.readTextFile(join(dir, "discern.toml"));
+    assert(!/graduate_to/.test(toml), toml);
+    assertStringIncludes(
+      toml,
+      "\n\n\n\n# spaced out on purpose",
+      `the user's own blank run stays:\n${toml}`,
+    );
+  });
+});
+
 Deno.test("migration 16→17 never eats a user's unrelated comment above the key", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(

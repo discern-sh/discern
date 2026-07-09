@@ -759,26 +759,53 @@ export const MIGRATIONS: Migration[] = [
       }
       const dropped = worktree.graduate_to;
       await ctx.rewrite("discern.toml", removeGraduateToKey);
+      // The note claims only what actually happened: the lexical rewrite covers
+      // the table and dotted line forms, so PROVE the key is gone by re-parsing
+      // before saying "dropped" — an exotic spelling (an inline table) gets an
+      // honest "remove it by hand" instead of a success that loops the user
+      // through `discern upgrade` forever.
+      let stillThere = false;
+      try {
+        const after = await ctx.readConfig();
+        const reparsed = after === undefined ? {} : parseDiscernToml(after).raw;
+        const wt = isRecord(reparsed.worktree) ? reparsed.worktree : {};
+        stillThere = wt.graduate_to !== undefined;
+      } catch {
+        stillThere = true; // can't prove it's gone — don't claim it is
+      }
       ctx.note(
-        `dropped [worktree].graduate_to = "${String(dropped)}" — ` +
-          "`discern graduate` always lands on the trunk now; to compose work " +
-          "below the trunk, pull with `start --from` / `integrate --from` (ADR 0110)",
+        stillThere
+          ? `[worktree].graduate_to = "${String(dropped)}" is written in a ` +
+            "form this migration can't rewrite — remove the key from " +
+            "discern.toml by hand: `discern graduate` always lands on the " +
+            "trunk now (ADR 0110)"
+          : `dropped [worktree].graduate_to = "${String(dropped)}" — ` +
+            "`discern graduate` always lands on the trunk now; to compose work " +
+            "below the trunk, pull with `start --from` / `integrate --from` (ADR 0110)",
       );
     },
   },
 ];
 
 /**
- * Remove the `graduate_to` key line — the key itself plus the contiguous comment
- * paragraph directly above it, but only when that paragraph is actually about the
- * landing destination (it mentions "graduate"), so a user's own unrelated comment
- * is never eaten. Blank runs left behind are collapsed. A no-op without the key.
+ * Remove the `graduate_to` key line — the table form (`graduate_to =` under
+ * `[worktree]`) or the dotted top-level form (`worktree.graduate_to =`) — plus
+ * the contiguous comment paragraph directly above it, but only when that
+ * paragraph is actually about the landing destination (it mentions "graduate"),
+ * so a user's own unrelated comment is never eaten. The blank run the removal
+ * leaves is collapsed at the removal site only — never a whole-file reformat.
+ * A no-op without the key.
  */
 function removeGraduateToKey(text: string): string {
   const lines = text.split("\n");
-  const idx = lines.findIndex((l) => /^\s*graduate_to\s*=/.test(l));
+  let idx = lines.findIndex((l) =>
+    /^\s*worktree\s*\.\s*graduate_to\s*=/.test(l)
+  );
   if (idx === -1) {
-    return text;
+    idx = lines.findIndex((l) => /^\s*graduate_to\s*=/.test(l));
+  }
+  if (idx === -1) {
+    return removeGraduateToInlineEntry(text);
   }
   let start = idx;
   let bannerStart = idx;
@@ -795,7 +822,34 @@ function removeGraduateToKey(text: string): string {
     start = bannerStart;
   }
   lines.splice(start, idx - start + 1);
-  return lines.join("\n").replace(/\n{3,}/g, "\n\n");
+  while (
+    start > 0 && start < lines.length &&
+    (lines[start - 1] ?? "").trim() === "" &&
+    (lines[start] ?? "").trim() === ""
+  ) {
+    lines.splice(start, 1);
+  }
+  return lines.join("\n");
+}
+
+/**
+ * Remove a `graduate_to` entry from an INLINE `worktree = { … }` table — the
+ * third legal spelling of the same key. Only the entry (its value is a simple
+ * string) and one adjoining comma are touched, so sibling entries with commas
+ * of their own (an array value) are never split. Anything still stranger — a
+ * quoted dotted key, say — is left for the migration's verify step to admit
+ * honestly rather than guess at.
+ */
+function removeGraduateToInlineEntry(text: string): string {
+  return text.split("\n").map((line) => {
+    if (!/^\s*worktree\s*=\s*\{.*\}/.test(line)) {
+      return line;
+    }
+    return line
+      .replace(/graduate_to\s*=\s*("[^"]*"|'[^']*')\s*,\s*/, "")
+      .replace(/,\s*graduate_to\s*=\s*("[^"]*"|'[^']*')/, "")
+      .replace(/graduate_to\s*=\s*("[^"]*"|'[^']*')/, "");
+  }).join("\n");
 }
 
 /**
