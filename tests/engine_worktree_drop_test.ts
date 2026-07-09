@@ -7,7 +7,7 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { join } from "@std/path";
+import { basename, join } from "@std/path";
 import { exists } from "@std/fs";
 import { withTempDir } from "./helpers.ts";
 import {
@@ -80,6 +80,41 @@ Deno.test("worktree drop: a DISCERN_WORKTREE_ID in the environment cannot redire
       `the bystander must survive an env-override drop\n${r.output}`,
     );
     assert(await branchExists(dir, "agent/bar-bystander"), r.output);
+  });
+});
+
+Deno.test("worktree drop: a worktree holding the TRUNK loses its checkout, never the branch", async () => {
+  await withTempDir(async (dir) => {
+    // The legacy graduate-to-branch layouts leave exactly this: main parked on a
+    // review branch, a linked worktree holding `main`. Dropping that worktree
+    // must remove the checkout and KEEP the trunk — deleting it left the repo
+    // with no landing target at all (reproduced in review, exit 0).
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    await git(dir, "switch", "-q", "-c", "reviewing");
+    const wt = join(`${dir}.worktrees`, "trunk-holder");
+    await git(dir, "worktree", "add", wt, "main");
+
+    const r = await runAgent(dir, ["worktree", "drop", "trunk-holder"]);
+    assertEquals(r.code, 0, r.output);
+    assertEquals(await exists(wt), false, `checkout removed\n${r.output}`);
+    assert(
+      await branchExists(dir, "main"),
+      `the trunk must survive a drop\n${r.output}`,
+    );
+    assertStringIncludes(r.output, "the trunk is never deleted");
+  });
+});
+
+Deno.test("worktree drop: a relative path resolves like the error text promises", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "rel-target");
+    // The docs and the no-match error offer "a worktree id or its path" — a
+    // relative path is a path.
+    const rel = `../${basename(`${dir}.worktrees`)}/rel-target`;
+    const r = await runAgent(dir, ["worktree", "drop", rel]);
+    assertEquals(r.code, 0, r.output);
+    assertEquals(await exists(wt), false, r.output);
   });
 });
 

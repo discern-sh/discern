@@ -304,6 +304,10 @@ export interface DropPlan {
   id: string;
   /** The checked-out branch to delete after removal, or "" when detached. */
   branch: string;
+  /** Whether the branch is deleted after removal — false when detached (no
+   * branch) or when the worktree holds the TRUNK: drop discards a line of
+   * work, and the trunk is never a line of work to discard. */
+  deleteBranch: boolean;
   /** What a drop would discard — empty when the worktree is clean and merged.
    * Each entry is a human sentence ("3 uncommitted changes", …). */
   blockers: string[];
@@ -332,8 +336,12 @@ export function dropPlanToEngine(plan: DropPlan): EnginePlan {
   steps.push({
     kind: "git",
     label: "delete-branch",
-    disposition: plan.branch !== "" ? "run" : "skip",
-    note: plan.branch !== "" ? plan.branch : "detached — no branch to delete",
+    disposition: plan.deleteBranch ? "run" : "skip",
+    note: plan.deleteBranch
+      ? plan.branch
+      : plan.branch === ""
+      ? "detached — no branch to delete"
+      : `${plan.branch} is the trunk — kept`,
   });
   const details = [
     `Worktree: ${plan.id}`,

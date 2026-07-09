@@ -14,7 +14,7 @@
  * failure; [worktree.setup].ensure re-runs on every pass to converge the worktree.
  */
 
-import { basename, isAbsolute, join, relative } from "@std/path";
+import { basename, isAbsolute, join, relative, resolve } from "@std/path";
 import { type Logger, loggerSink } from "../../lib/log.ts";
 import { canPrompt, confirmProceed } from "../../lib/prompts.ts";
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
@@ -776,9 +776,11 @@ async function buildDropPlan(
   }
 
   // Match by canonical path, by directory basename, or by resolved worktree id.
+  // Anything with a path separator is a path — relative ones resolve against the
+  // caller's cwd (an id never contains a slash); a bare name stays id/basename.
   const wanted = target.trim().replace(/\/+$/, "");
-  const wantedAbs = isAbsolute(wanted)
-    ? await Deno.realPath(wanted).catch(() => wanted)
+  const wantedAbs = isAbsolute(wanted) || wanted.includes("/")
+    ? await Deno.realPath(resolve(wanted)).catch(() => resolve(wanted))
     : undefined;
   const settings = await loadIdentitySettings(ctx.root).catch(() => undefined);
   let match: (typeof fleet)[number] | undefined;
@@ -837,6 +839,11 @@ async function buildDropPlan(
     targetPath: match.path,
     id: basename(match.path),
     branch: match.branch,
+    // Drop discards a LINE OF WORK; the trunk is never one. A worktree holding
+    // the trunk (the legacy graduate-to-branch layouts leave these behind) has
+    // its checkout removed and its branch kept — deleting the trunk would leave
+    // the repository with no landing target at all.
+    deleteBranch: match.branch !== "" && match.branch !== trunk,
     blockers,
     entries,
   };
@@ -936,8 +943,9 @@ export async function worktreeDrop(
   });
 
   // 3. Delete its branch (force — the --force gate above is the consent for an
-  // unmerged branch; a merged one deletes the same way).
-  if (plan.branch !== "") {
+  // unmerged branch; a merged one deletes the same way). Never the trunk: a
+  // worktree holding it loses only its checkout (`plan.deleteBranch`).
+  if (plan.deleteBranch) {
     const del = await makeGitRunner(ctx)(
       ["branch", "-D", plan.branch],
       ctx.root,
@@ -956,6 +964,17 @@ export async function worktreeDrop(
         note: plan.branch,
       },
       outcome: "ok",
+    });
+  } else if (plan.branch !== "") {
+    ctx.log.ok(`Kept branch ${plan.branch} — the trunk is never deleted.`);
+    steps.push({
+      step: {
+        kind: "git",
+        label: "delete-branch",
+        disposition: "skip",
+        note: `${plan.branch} is the trunk — kept`,
+      },
+      outcome: "skipped",
     });
   }
 
