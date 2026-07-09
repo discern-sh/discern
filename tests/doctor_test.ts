@@ -253,7 +253,7 @@ Deno.test("doctor: human output reports advisories separately from failures", as
     // The environment header gives at-a-glance triage context.
     assertStringIncludes(stderr, "discern 1.0.0 ·");
     assertStringIncludes(stderr, "discern.toml: present and valid TOML");
-    assertStringIncludes(stderr, "schema 16 (current)");
+    assertStringIncludes(stderr, "schema 17 (current)");
     assertStringIncludes(stderr, "capabilities: none wired yet");
     assertStringIncludes(stderr, "git: ");
     assertStringIncludes(stderr, "All checks passed (see the advisory above).");
@@ -337,7 +337,7 @@ Deno.test("doctor: a stale schema is flagged with an upgrade fix", async () => {
     assertEquals(schema.status, "fail");
     assertEquals(schema.ok, false);
     assertStringIncludes(schema.detail, "v1");
-    assertStringIncludes(schema.detail, "v16");
+    assertStringIncludes(schema.detail, "v17");
     assertStringIncludes(schema.fix ?? "", "discern upgrade");
   });
 });
@@ -693,8 +693,7 @@ Deno.test("doctor --json: carries the execution model, each step marked project/
         "start",
         "worktree ensure",
         "integrate",
-        "graduate (--to branch)",
-        "graduate (--to trunk)",
+        "graduate",
         "worktree prune",
       ]
     ) {
@@ -725,7 +724,7 @@ Deno.test("doctor --json: a per-worktree resource shows its teardown step with t
     assertEquals(code, 0);
     // The user's destroy command is surfaced verbatim as a [project] teardown step — the
     // motivating "why did graduate tear down my database?" answered up front.
-    const grad = modelVerb(payload, "graduate (--to trunk)");
+    const grad = modelVerb(payload, "graduate");
     const destroy = grad.steps.find((s) => s.kind === "resource-destroy");
     assert(destroy !== undefined, "graduate should tear the resource down");
     assertEquals(destroy.actor, "project");
@@ -741,7 +740,7 @@ Deno.test("doctor: human output prints the execution-model section on stderr", a
     assertEquals(code, 0);
     assertStringIncludes(stderr, "Execution model");
     assertStringIncludes(stderr, "[discern] merge-check");
-    assertStringIncludes(stderr, "graduate (--to trunk)");
+    assertStringIncludes(stderr, "\ngraduate\n");
   });
 });
 
@@ -775,9 +774,9 @@ Deno.test("doctor --verbose: shows every step's hint, undeduplicated, and drops 
     const { code, stderr } = await runCli(["doctor", "--verbose"], dir);
     assertEquals(code, 0);
     // Hints are shown and never deduplicated: the git hint recurs on every git step
-    // within a single verb (graduate --to trunk runs several), so it appears more than
+    // within a single verb (graduate runs several), so it appears more than
     // once in that one section — the ambiguity a per-verb dedup would introduce.
-    const start = stderr.indexOf("graduate (--to trunk)");
+    const start = stderr.indexOf("\ngraduate\n");
     const section = stderr.slice(
       start,
       stderr.indexOf("worktree prune", start),

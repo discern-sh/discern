@@ -2224,6 +2224,7 @@ export type DiscernStartResult = {
     id: string;
     branch: string;
     path: string;
+    from: string;
     name_note?: string;
   } | {
     issues: Array<{

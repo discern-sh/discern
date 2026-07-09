@@ -162,7 +162,7 @@ Deno.test("worktree ensure sets up once, then is a no-op", async () => {
   });
 });
 
-Deno.test("graduate: moves the branch into main and removes the worktree", async () => {
+Deno.test("graduate: fast-forwards the trunk, removes the worktree, deletes the merged branch", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "gamma");
     await Deno.writeTextFile(join(wt, "feature.txt"), "work\n");
@@ -176,58 +176,7 @@ Deno.test("graduate: moves the branch into main and removes the worktree", async
       false,
       `worktree should be removed\n${r.output}`,
     );
-    // The branch is now checked out in main, so its commit's file is present there.
-    assert(
-      await exists(join(dir, "feature.txt")),
-      `branch not graduated into main\n${r.output}`,
-    );
-    assertStringIncludes(r.output, "Graduation complete");
-  });
-});
-
-Deno.test("graduate --to branch: refreshes the review checkout after landing", async () => {
-  await withTempDir(async (dir) => {
-    const wt = await mainWithWorktree(dir, "review-refresh");
-    const marker = "Review Branch Graduation Refresh";
-    await commitGuidanceMarker(wt, marker);
-
-    const r = await runAgent(wt, ["graduate", "--to", "branch", "--json"]);
-    assertEquals(r.code, 0, r.output);
-    const result = JSON.parse(r.stdout) as {
-      ok: boolean;
-      steps: Array<{ label: string; outcome: string }>;
-    };
-    assertEquals(result.ok, true);
-    assert(
-      result.steps.some((s) =>
-        s.label === "refresh agent files" && s.outcome === "ok"
-      ),
-      `graduate should report the post-landing refresh\n${r.stdout}`,
-    );
-    assertEquals(
-      await gitOut(dir, "branch", "--show-current"),
-      "agent/review-refresh",
-      `main checkout should be on the review branch\n${r.output}`,
-    );
-    await assertLandingGuidanceRefreshed(dir, marker);
-  });
-});
-
-Deno.test("graduate --to trunk: fast-forwards the trunk, lands on it, and deletes the merged branch", async () => {
-  await withTempDir(async (dir) => {
-    const wt = await mainWithWorktree(dir, "epsilon");
-    await Deno.writeTextFile(join(wt, "feature.txt"), "work\n");
-    await git(wt, "add", "-A");
-    await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
-
-    const r = await runAgent(wt, ["graduate", "--to", "trunk"]);
-    assertEquals(r.code, 0, r.output);
-    assertEquals(
-      await exists(wt),
-      false,
-      `worktree should be removed\n${r.output}`,
-    );
-    // The work landed on the trunk itself, which is now checked out in main…
+    // The work landed on the trunk itself, which stays checked out in main…
     assert(
       await exists(join(dir, "feature.txt")),
       `work not fast-forwarded onto the trunk\n${r.output}`,
@@ -239,7 +188,7 @@ Deno.test("graduate --to trunk: fast-forwards the trunk, lands on it, and delete
     );
     // …and the now-merged worktree branch is gone.
     assertEquals(
-      await gitOut(dir, "branch", "--list", "agent/epsilon"),
+      await gitOut(dir, "branch", "--list", "agent/gamma"),
       "",
       `the merged branch should be deleted\n${r.output}`,
     );
@@ -247,13 +196,13 @@ Deno.test("graduate --to trunk: fast-forwards the trunk, lands on it, and delete
   });
 });
 
-Deno.test("graduate --to trunk: refreshes the trunk checkout after landing", async () => {
+Deno.test("graduate: refreshes the trunk checkout after landing", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "trunk-refresh");
     const marker = "Trunk Graduation Refresh";
     await commitGuidanceMarker(wt, marker);
 
-    const r = await runAgent(wt, ["graduate", "--to", "trunk", "--json"]);
+    const r = await runAgent(wt, ["graduate", "--json"]);
     assertEquals(r.code, 0, r.output);
     const result = JSON.parse(r.stdout) as {
       ok: boolean;
@@ -304,21 +253,21 @@ Deno.test("graduate: a partial post-landing refresh is recorded but does not und
     );
     assertEquals(
       await gitOut(dir, "branch", "--show-current"),
-      "agent/grad-refresh-fail",
-      `branch landing should be kept\n${r.output}`,
+      "main",
+      `the trunk landing should be kept\n${r.output}`,
     );
 
     const result = JSON.parse(r.stdout) as {
       ok: boolean;
       steps: Array<{ kind: string; label: string; outcome: string }>;
     };
-    const checkoutStep = result.steps.find((s) =>
-      s.kind === "git" && s.label === "checkout"
+    const ffStep = result.steps.find((s) =>
+      s.kind === "git" && s.label === "fast-forward-trunk"
     );
     assertEquals(
-      checkoutStep?.outcome,
+      ffStep?.outcome,
       "ok",
-      `checkout should be recorded as landed\n${r.stdout}`,
+      `the fast-forward should be recorded as landed\n${r.stdout}`,
     );
     const refreshStep = result.steps.find((s) => s.kind === "refresh");
     assertEquals(
@@ -334,74 +283,71 @@ Deno.test("graduate: a partial post-landing refresh is recorded but does not und
   });
 });
 
-for (const to of ["branch", "trunk"] as const) {
-  Deno.test(`graduate --to ${to}: refuses a dirty worktree without moving anything`, async () => {
-    await withTempDir(async (dir) => {
-      const name = `dirty-${to}`;
-      const wt = await mainWithWorktree(dir, name);
-      await leaveTrackedAndUntrackedWip(wt);
-      const headBefore = await gitOut(wt, "rev-parse", "HEAD");
-
-      const r = await runAgent(wt, ["graduate", "--to", to]);
-      assertEquals(r.code, 1, r.output);
-      assertStringIncludes(r.output, "Worktree has uncommitted changes");
-      assertStringIncludes(r.output, "will not create WIP commits");
-      assertEquals(
-        await exists(wt),
-        true,
-        `dirty worktree must stay in place\n${r.output}`,
-      );
-      assertEquals(await gitOut(wt, "rev-parse", "HEAD"), headBefore);
-      assertEquals(
-        await Deno.readTextFile(join(wt, "tracked.txt")),
-        "tracked wip\n",
-      );
-      assertEquals(
-        await Deno.readTextFile(join(wt, "untracked.txt")),
-        "untracked wip\n",
-      );
-      assertEquals(
-        await gitOut(dir, "branch", "--show-current"),
-        "main",
-        `main checkout should not move\n${r.output}`,
-      );
-      assertStringIncludes(
-        await gitOut(dir, "branch", "--list", `agent/${name}`),
-        `agent/${name}`,
-        `the branch should not be deleted\n${r.output}`,
-      );
-    });
-  });
-}
-
-Deno.test("graduate honours [worktree].graduate_to = trunk as the default destination", async () => {
+Deno.test("graduate: refuses a dirty worktree without moving anything", async () => {
   await withTempDir(async (dir) => {
-    const wt = await mainWithWorktree(dir, "zeta");
-    // Flip the project default to land on the trunk; the call passes no --to. Edit
-    // the worktree's own checked-out config (graduate loads config from its root).
-    const toml = join(wt, "discern.toml");
-    await Deno.writeTextFile(
-      toml,
-      (await Deno.readTextFile(toml)).replace(
-        'graduate_to = "branch"',
-        'graduate_to = "trunk"',
-      ),
-    );
-    await Deno.writeTextFile(join(wt, "feature.txt"), "work\n");
-    await git(wt, "add", "-A");
-    await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
+    const name = "dirty-tree";
+    const wt = await mainWithWorktree(dir, name);
+    await leaveTrackedAndUntrackedWip(wt);
+    const headBefore = await gitOut(wt, "rev-parse", "HEAD");
 
     const r = await runAgent(wt, ["graduate"]);
-    assertEquals(r.code, 0, r.output);
+    assertEquals(r.code, 1, r.output);
+    assertStringIncludes(r.output, "Worktree has uncommitted changes");
+    assertStringIncludes(r.output, "will not create WIP commits");
+    assertEquals(
+      await exists(wt),
+      true,
+      `dirty worktree must stay in place\n${r.output}`,
+    );
+    assertEquals(await gitOut(wt, "rev-parse", "HEAD"), headBefore);
+    assertEquals(
+      await Deno.readTextFile(join(wt, "tracked.txt")),
+      "tracked wip\n",
+    );
+    assertEquals(
+      await Deno.readTextFile(join(wt, "untracked.txt")),
+      "untracked wip\n",
+    );
     assertEquals(
       await gitOut(dir, "branch", "--show-current"),
       "main",
-      `the configured default should land on the trunk\n${r.output}`,
+      `main checkout should not move\n${r.output}`,
+    );
+    assertStringIncludes(
+      await gitOut(dir, "branch", "--list", `agent/${name}`),
+      `agent/${name}`,
+      `the branch should not be deleted\n${r.output}`,
+    );
+  });
+});
+
+Deno.test("graduate: refuses when the main checkout is parked off the trunk, naming the way back", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "parked-main");
+    await Deno.writeTextFile(join(wt, "feature.txt"), "work\n");
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
+    // Park the main checkout on another branch: graduation must refuse, not
+    // silently switch it back.
+    await git(dir, "switch", "-q", "-c", "parked-elsewhere");
+
+    const r = await runAgent(wt, ["graduate"]);
+    assertEquals(r.code, 1, r.output);
+    assertStringIncludes(r.output, "'parked-elsewhere', not 'main'");
+    // The way back is named (path canonicalization may differ, so match the tail).
+    assertStringIncludes(
+      r.output,
+      "switch main` — then re-run `discern graduate`",
     );
     assertEquals(
-      await gitOut(dir, "branch", "--list", "agent/zeta"),
-      "",
-      `the configured default should delete the merged branch\n${r.output}`,
+      await exists(wt),
+      true,
+      `off-trunk refusal must leave the worktree intact\n${r.output}`,
+    );
+    assertEquals(
+      await gitOut(dir, "branch", "--show-current"),
+      "parked-elsewhere",
+      `the parked main checkout must not be moved\n${r.output}`,
     );
   });
 });
@@ -462,7 +408,7 @@ Deno.test("graduate: refuses a branch behind main before dirty-tree handling or 
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "advance main", "--no-gpg-sign");
 
-    const r = await runAgent(wt, ["graduate", "--to", "trunk"]);
+    const r = await runAgent(wt, ["graduate"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "Branch is behind main");
     assertStringIncludes(r.output, "discern integrate");
@@ -508,7 +454,7 @@ Deno.test("graduate: refuses when main moves during the gate before teardown or 
     await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
     const branchHead = await gitOut(wt, "rev-parse", "HEAD");
 
-    const r = await runAgent(wt, ["graduate", "--to", "trunk"]);
+    const r = await runAgent(wt, ["graduate"]);
 
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "Branch is behind main");
@@ -554,12 +500,7 @@ Deno.test("graduate reports ignored files changed since worktree setup at the to
       `ignored drift should collapse a changed directory to its top level\n${dry.output}`,
     );
 
-    const applied = await runAgent(wt, [
-      "graduate",
-      "--to",
-      "branch",
-      "--json",
-    ]);
+    const applied = await runAgent(wt, ["graduate", "--json"]);
     assertEquals(applied.code, 0, applied.output);
     const obj = JSON.parse(applied.stdout);
     assertEquals(obj.data.ignored_file_changes.changed_roots, ["local-cache/"]);

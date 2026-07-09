@@ -147,8 +147,7 @@ Deno.test("execution model: a resource teardown shows the user's command in ever
   // command is surfaced verbatim as a [project] step in both graduate forms and prune.
   for (
     const verb of [
-      "graduate (--to branch)",
-      "graduate (--to trunk)",
+      "graduate",
       "worktree prune",
     ]
   ) {
@@ -182,8 +181,7 @@ Deno.test("execution model: every configurable verb is always modeled (ADR 0101)
     "start",
     "worktree ensure",
     "integrate",
-    "graduate (--to branch)",
-    "graduate (--to trunk)",
+    "graduate",
     "worktree prune",
   ]);
 });

@@ -309,16 +309,14 @@ Deno.test("renderAgentFiles: base guidance is MCP-first with a CLI fallback (no 
 
 Deno.test("renderAgentFiles: every guidance variable is config-driven — no hardcoded value can creep in", async () => {
   // Class guard for "built-in guidance states a discern.toml-configurable value but
-  // hardcodes one literal instead of interpolating it" — the bug behind both the
-  // graduate_to default and the guidance.sources filename. Driven off the SSOT,
+  // hardcodes one literal instead of interpolating it" — the bug behind the
+  // guidance.sources filename. Driven off the SSOT,
   // guidanceContext's own variable set: every exposed {{var}} MUST have a case here
   // proving its value flows from config into the compiled guidance. A newly exposed
   // var fails until its case is added, and replacing any {{var}} with a hardcoded
   // literal makes that case's render stop tracking config.
   //
-  // `expect` is a sentinel that must reach the output. graduate_to carries none —
-  // both of its enum members already appear in the prose as options — so it is
-  // proven by the universal "changing the config changes the output" check instead.
+  // `expect` is a sentinel that must reach the output.
   // `contextOnly` marks a var no built-in section consumes yet (it exists for the
   // rendered-skill surface — ADR 0102): its case proves the CONTEXT value flows
   // from config, and starts failing the render checks the moment a section adopts
@@ -336,10 +334,6 @@ Deno.test("renderAgentFiles: every guidance variable is config-driven — no har
       toml:
         '[project]\nmain_branch = "zztrunk"\n[guidance]\nagents = ["codex"]\n',
       expect: "zztrunk",
-    },
-    graduate_to: {
-      toml:
-        '[guidance]\nagents = ["codex"]\n[worktree]\ngraduate_to = "trunk"\n',
     },
     docs_dir: {
       toml: '[docs]\ndir = "zz-docs/"\n[guidance]\nagents = ["codex"]\n',

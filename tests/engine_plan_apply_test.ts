@@ -306,13 +306,15 @@ Deno.test("graduate --json performs the graduation and serializes the steps", as
     const obj = parseJson(r.stdout); // stdout must be ONLY the JSON object
     assertEquals(obj.ok, true);
     assert(
-      obj.steps.some((s: { label: string }) => s.label === "checkout"),
+      obj.steps.some(
+        (s: { label: string }) => s.label === "fast-forward-trunk",
+      ),
       r.stdout,
     );
-    // The branch graduated into main.
+    // The work landed on the trunk in main.
     assert(
       await import("@std/fs").then((m) => m.exists(join(dir, "feature.txt"))),
-      "branch not graduated into main",
+      "work not landed on the trunk in main",
     );
   });
 });

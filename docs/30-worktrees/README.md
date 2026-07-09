@@ -75,13 +75,18 @@ deterministic inverse of graduate, and what the gate's merge check
 [`graduate`](../../src/engine/worktree/lifecycle.ts) validates the exact tree it
 is about to land — running the whole gate, or skipping the re-run when a
 gate-pass receipt proves the agent's own `finish` already passed this commit
-([ADR 0067](../_adr/0067-graduate-validates-the-landed-tree.md)) — then
-graduates the branch into the main repo and removes the Worktree, landing per
-`[worktree].graduate_to` (or `--to` per run): onto its own branch for review, or
-fast-forwarding the trunk to it and deleting the merged branch. After landing,
-it runs `discern refresh` in the checkout it leaves behind — the review branch
-for `--to branch`, or the trunk for `--to trunk` — so generated guidance,
-materialized skills, and provider integrations match the landed sources
+([ADR 0067](../_adr/0067-graduate-validates-the-landed-tree.md)) — then lands
+the branch on the **trunk** — the single push target of the landing model
+([ADR 0110](../_adr/0110-the-landing-model.md)): the trunk is fast-forwarded to
+the branch tip (always clean — the gate proved the branch contains it), the
+Worktree removed, and the merged branch deleted. Composition happens on the pull
+axis instead: `start --from` and `integrate --from` build on any ref, so
+multi-phase work assembles below the trunk and only the finished whole crosses
+to it. Graduation refuses — naming the way back — when the main checkout is
+parked on a branch other than the trunk, and never silently switches it. After
+landing, it runs `discern refresh` in the trunk checkout it leaves behind, so
+generated guidance, materialized skills, and provider integrations match the
+landed sources
 ([ADR 0098](../_adr/0098-graduate-refreshes-the-landing-checkout.md)). Its
 main-checkout precondition also cares about tracked changes, not untracked local
 scratch; the worktree precondition is stricter because graduation refuses any
@@ -164,3 +169,5 @@ inspectable before they act.
   integrate) to keep the worktree's environment current with the tree.
 - [ADR 0098](../_adr/0098-graduate-refreshes-the-landing-checkout.md) —
   graduation refreshes the checkout it leaves behind.
+- [ADR 0110](../_adr/0110-the-landing-model.md) — the landing model: pull from
+  any ref (`start --from` / `integrate --from`), land only on the trunk.

@@ -27,10 +27,7 @@
  * *consuming* agent to draw from this model — not a verdict discern hands down.
  */
 
-import type {
-  DiscernConfig,
-  GraduateTarget,
-} from "../../shared/config_schema.ts";
+import type { DiscernConfig } from "../../shared/config_schema.ts";
 import type { Stage } from "../../shared/capabilities.ts";
 import type { Actor, StepKind } from "../../shared/result.ts";
 import type { ExecutionStep, VerbPlan } from "../../shared/result_schemas.ts";
@@ -362,11 +359,11 @@ function integrateVerb(cfg: DiscernConfig): VerbPlan {
   };
 }
 
-/** `graduate` — hand the branch back to the main checkout (lifecycle.ts
- * `executeGraduatePlan`). Authored per landing target (`--to branch` / `--to trunk`),
- * with the resource teardown expanded per declared `destroy` (reverse order) so the
- * `destroy` command a user wired is shown, not hidden behind a generic step. */
-function graduateVerb(cfg: DiscernConfig, to: GraduateTarget): VerbPlan {
+/** `graduate` — land the branch on the trunk (lifecycle.ts
+ * `executeGraduatePlan`), with the resource teardown expanded per declared
+ * `destroy` (reverse order) so the `destroy` command a user wired is shown, not
+ * hidden behind a generic step. */
+function graduateVerb(cfg: DiscernConfig): VerbPlan {
   const steps: ExecutionStep[] = [];
   const destroyable = resourceEntries(cfg).filter(([, r]) => r.destroy !== "");
   for (const [name, r] of destroyable.reverse()) {
@@ -375,31 +372,19 @@ function graduateVerb(cfg: DiscernConfig, to: GraduateTarget): VerbPlan {
       condition: "if the resource was provisioned (reverse-creation order)",
     }));
   }
-  if (to === "trunk") {
-    steps.push(step("git", "fast-forward-trunk", {
-      note: "fast-forward the trunk to the branch tip",
-    }));
-    steps.push(step("git", "remove-worktree", {
-      note: "remove the worktree directory",
-    }));
-    steps.push(step("git", "delete-branch", {
-      note: "delete the now-merged branch",
-    }));
-  } else {
-    steps.push(step("git", "remove-worktree", {
-      note: "remove the worktree directory",
-    }));
-    steps.push(step("git", "checkout", {
-      note: "check the branch out in the main repo for review",
-    }));
-  }
-  const landing = to === "trunk"
-    ? "fast-forward the trunk to the branch and delete the now-merged branch"
-    : "hand the branch back to the main checkout for review (the branch is preserved)";
+  steps.push(step("git", "fast-forward-trunk", {
+    note: "fast-forward the trunk to the branch tip",
+  }));
+  steps.push(step("git", "remove-worktree", {
+    note: "remove the worktree directory",
+  }));
+  steps.push(step("git", "delete-branch", {
+    note: "delete the now-merged branch",
+  }));
   return {
-    verb: `graduate (--to ${to})`,
+    verb: "graduate",
     when:
-      `When the work is done and integrated — ${landing}. First validates the exact tree against the whole gate, skipped when a gate-pass receipt proves the current HEAD already passed (ADR 0067).`,
+      "When the work is done and integrated — fast-forward the trunk to the branch and delete the now-merged branch. First validates the exact tree against the whole gate, skipped when a gate-pass receipt proves the current HEAD already passed (ADR 0067).",
     steps,
   };
 }
@@ -455,8 +440,7 @@ export function buildExecutionModel(cfg: DiscernConfig): VerbPlan[] {
     startVerb(cfg),
     ensureVerb(cfg),
     integrateVerb(cfg),
-    graduateVerb(cfg, "branch"),
-    graduateVerb(cfg, "trunk"),
+    graduateVerb(cfg),
     pruneVerb(cfg),
   ];
 }

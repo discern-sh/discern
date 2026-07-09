@@ -15,9 +15,9 @@ shipping — plus two naming problems ("class" in `fix-a-bug-class` parses as an
 object-oriented class before it parses as a category; `delegate-task` had no
 answer for parallel fan-out beyond an appendix section).
 
-[ADR 0046](0046-graduate-destination-and-skill-removal.md) set the quality bar
-that constrains any expansion: a bundled skill must be a genuine multi-step
-judgement playbook, never a wrapper around a deterministic verb.
+[ADR 0046](_superseded/0046-graduate-destination-and-skill-removal.md) set the
+quality bar that constrains any expansion: a bundled skill must be a genuine
+multi-step judgement playbook, never a wrapper around a deterministic verb.
 
 ## Decision
 

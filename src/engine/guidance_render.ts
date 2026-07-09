@@ -101,7 +101,6 @@ export function guidanceContext(config: DiscernConfig): GuidanceContext {
       skills_dir: config.skills.dir,
       recipes_dir: config.recipes.dir,
       main_branch: config.project.main_branch,
-      graduate_to: config.worktree.graduate_to,
       guidance_sources: codeList(config.guidance.sources),
       generated_agent_files: codeList(agentFiles),
       materialized_skills_dirs: codeList(skillsDirsForAgents(agents)),

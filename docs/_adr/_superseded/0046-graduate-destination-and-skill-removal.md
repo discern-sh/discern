@@ -1,8 +1,15 @@
 # ADR 0046: A configurable graduation destination, and removing the handoff-worktree skill
 
-**Status**: accepted
+**Status**: superseded by [ADR 0110](../0110-the-landing-model.md)
 
-> **Consolidates [ADR 0048](_superseded/0048-graduate-trunk-role-name.md).** The
+> **Retired — superseded by [ADR 0110](../0110-the-landing-model.md) (the
+> landing model).** The configurable destination below is gone: `graduate`
+> always lands on the trunk, `[worktree].graduate_to` / `--to` were removed
+> (schema 16→17 drops the key), and the composition flexibility moved to the
+> pull axis (`start --from` / `integrate --from`). The skill removal decided
+> below stands. Kept for history.
+
+> **Consolidates [ADR 0048](0048-graduate-trunk-role-name.md).** The
 > trunk-landing value introduced below as `"main"` was renamed to `"trunk"`
 > (0048, folded in here). **Current values: `graduate_to = "branch" | "trunk"`**
 > — read every `"main"` destination in the text below as the role now spelled
@@ -11,8 +18,8 @@
 
 ## Context
 
-`discern graduate` ([ADR 0023](0023-rename-workflow-commands.md) promoted it to
-a top-level verb) moves a finished worktree branch into the main checkout. It
+`discern graduate` ([ADR 0023](../0023-rename-workflow-commands.md) promoted it
+to a top-level verb) moves a finished worktree branch into the main checkout. It
 had one fixed landing — check the branch out in the main repo for review — and
 was fronted by a bundled **`handoff-worktree` skill**: ~50 lines telling the
 agent to commit first, run `discern graduate`, relay the result, and not redo it
@@ -54,7 +61,7 @@ its worthwhile parts onto discern's own surfaces.**
 
 - **Remove the `handoff-worktree` skill; relocate its value.** Per discern's own
   model — the tool is the surface, the instructions say when to reach for it
-  ([ADR 0041](0041-self-describing-mcp-surface.md)) — its three useful parts
+  ([ADR 0041](../0041-self-describing-mcp-surface.md)) — its three useful parts
   move to where every agent reads them, not only on a skill trigger:
   - "commit a real message first", "this is the single deterministic
     implementation — don't reproduce its git steps", and the destination → the
@@ -63,9 +70,9 @@ its worthwhile parts onto discern's own surfaces.**
   - the natural-language handoff triggers ("graduate this", "I'll take it from
     here", "move this back to main") → the MCP server `instructions` block.
 
-  This follows the precedent of
-  [ADR 0024](_superseded/0024-setup-command-not-skill.md), which retired the
-  setup skill for a command: a single deterministic action is not a skill.
+  This follows the precedent of [ADR 0024](0024-setup-command-not-skill.md),
+  which retired the setup skill for a command: a single deterministic action is
+  not a skill.
 
 ## Consequences
 

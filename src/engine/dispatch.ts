@@ -9,12 +9,7 @@
 
 import { Command } from "@cliffy/command";
 import { join } from "@std/path";
-import {
-  type DiscernConfig,
-  GRADUATE_TARGETS,
-  type GraduateTarget,
-  loadConfig,
-} from "../shared/config_schema.ts";
+import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { RawConfig } from "../shared/config_read.ts";
 import { emitResult } from "../shared/emit.ts";
 import {
@@ -494,38 +489,21 @@ export function attachEngineCommands(root: Command): void {
   root
     .command("graduate")
     .description(
-      "Finish the work, then graduate this worktree's branch into the main checkout and refresh the landing checkout.",
+      "Land this worktree's finished branch on the trunk: fast-forward it, remove the worktree, delete the merged branch, refresh the trunk checkout.",
     )
     .option(
       "--json",
       "Emit a machine-readable (plan, results) object on stdout.",
     )
     .option("--dry-run", "Show the graduation plan; touch nothing.")
-    .option(
-      "--to <target:string>",
-      "Where the branch lands: 'branch' (review-first, branch preserved) or 'trunk' (fast-forward the trunk, then delete the merged branch). Default: [worktree].graduate_to.",
-    )
     .action(async (o) => {
       const json = o.json ?? false;
-      const to = o.to;
-      if (
-        to !== undefined &&
-        !(GRADUATE_TARGETS as readonly string[]).includes(to)
-      ) {
-        console.error(
-          `discern: invalid --to "${to}" (expected one of: ${
-            GRADUATE_TARGETS.join(", ")
-          }).`,
-        );
-        Deno.exit(1);
-      }
       Deno.exit(
         await runWorktreeOp(
           (ctx) =>
             graduate(ctx, {
               json,
               dryRun: o.dryRun ?? false,
-              to: to as GraduateTarget | undefined,
             }),
           { json, verb: "graduate" },
         ),

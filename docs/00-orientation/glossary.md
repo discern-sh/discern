@@ -128,11 +128,11 @@ from.
 A plain monotonic integer — the anchor the [Migration](#migration) chain steps
 from, stamped into `[meta].schema_version` in `discern.toml`. It bumps **only**
 when an installed project needs a migration to stay correct, so most releases
-leave it untouched. The current shape is schema **16** — the `14 → 15` step
-consolidates the authored surface under the [Namespace](#namespace)
-([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)),
-and `15 → 16` retires the `[features]` toggles so every subsystem is core
-([ADR 0101](../_adr/0101-retire-the-features-toggles.md)).
+leave it untouched. The current shape is schema **17** — the `15 → 16` step
+retires the `[features]` toggles so every subsystem is core
+([ADR 0101](../_adr/0101-retire-the-features-toggles.md)), and `16 → 17` drops
+`[worktree].graduate_to` so `discern graduate` always lands on the trunk
+([ADR 0110](../_adr/0110-the-landing-model.md)).
 
 ### Migration
 
@@ -397,13 +397,13 @@ check points a behind branch at ([ADR 0055](../_adr/0055-integrate-verb.md)).
 
 ### Graduate
 
-What `discern graduate` does: land the worktree's branch in the main repo and
-tear the worktree down (its resources destroyed, directory pruned). Requires the
-branch to already carry the trunk. The landing is configurable
-(`[worktree].graduate_to`, or `--to` per run): `branch` checks the branch out in
-the main repo for review (the default); `trunk` (a role →
-`[project].main_branch`, whether that is `main`, `master`, …) fast-forwards the
-trunk to the branch tip and deletes the now-merged branch.
+What `discern graduate` does: land the worktree's branch on the trunk (a role →
+`[project].main_branch`, whether that is `main`, `master`, …) and tear the
+worktree down (its resources destroyed, directory pruned, the now-merged branch
+deleted). Requires the branch to already carry the trunk, so the landing is
+always a clean fast-forward. The trunk is the one landing target
+([ADR 0110](../_adr/0110-the-landing-model.md)); composing on unlanded work
+happens on the pull side instead (`start --from`, `integrate --from`).
 
 ---
 

@@ -12,7 +12,6 @@
  */
 
 import type { EnginePlan, PlanStep } from "../../shared/result.ts";
-import type { GraduateTarget } from "../../shared/config_schema.ts";
 import type { IgnoredFileChangeSummary } from "./ignored.ts";
 import type { LedgerItem } from "./resources.ts";
 import type { GitWorktreePruneScan, OrphanWorktreeSweepScan } from "./git.ts";
@@ -43,17 +42,15 @@ export function teardownPlanToEngine(plan: TeardownPlan): EnginePlan {
 // ── graduate ──────────────────────────────────────────────────────────────────
 
 /** The read-only diagnosis a graduation acts on. The preconditions (behind main,
- * dirty worktree, dirty main) are checked while BUILDING this — a plan only exists for a
- * graduation that may proceed. */
+ * dirty worktree, dirty main, main checkout off the trunk) are checked while
+ * BUILDING this — a plan only exists for a graduation that may proceed. The
+ * landing is always the TRUNK: the single place work lands (the landing model —
+ * composition happens on the pull axis, `start --from` / `integrate --from`). */
 export interface GraduatePlan {
-  /** Where the branch lands: `"branch"` (review-first, branch preserved) or
-   * `"trunk"` (fast-forward the trunk and delete the now-merged branch). */
-  to: GraduateTarget;
   worktreeBranch: string;
   worktreePath: string;
   mainRepo: string;
-  mainBranch: string;
-  /** The trunk a `--to trunk` graduation fast-forwards (`[project].main_branch`). */
+  /** The trunk the graduation fast-forwards (`[project].main_branch`). */
   trunk: string;
   /** Whether any external resource is declared (→ a teardown step). */
   hasResources: boolean;
@@ -76,60 +73,40 @@ export function graduatePlanToEngine(plan: GraduatePlan): EnginePlan {
       ? "destroy this worktree's external resources"
       : "no resources declared",
   });
-  if (plan.to === "trunk") {
-    // Land on the trunk: fast-forward it to the branch tip (always clean — the
-    // gate guarantees the branch contains the trunk), then remove the worktree and
-    // delete the merged branch.
-    steps.push({
-      kind: "git",
-      label: "fast-forward-trunk",
-      disposition: "run",
-      note: `${plan.trunk} → ${plan.worktreeBranch} in ${plan.mainRepo}`,
-    });
-    steps.push({
-      kind: "git",
-      label: "remove-worktree",
-      disposition: "run",
-      note: plan.worktreePath,
-    });
-    steps.push({
-      kind: "git",
-      label: "delete-branch",
-      disposition: "run",
-      note: `${plan.worktreeBranch} (merged into ${plan.trunk})`,
-    });
-  } else {
-    steps.push({
-      kind: "git",
-      label: "remove-worktree",
-      disposition: "run",
-      note: plan.worktreePath,
-    });
-    steps.push({
-      kind: "git",
-      label: "checkout",
-      disposition: "run",
-      note: `${plan.worktreeBranch} in ${plan.mainRepo}`,
-    });
-  }
+  // Land on the trunk: fast-forward it to the branch tip (always clean — the
+  // gate guarantees the branch contains the trunk), then remove the worktree and
+  // delete the merged branch.
+  steps.push({
+    kind: "git",
+    label: "fast-forward-trunk",
+    disposition: "run",
+    note: `${plan.trunk} → ${plan.worktreeBranch} in ${plan.mainRepo}`,
+  });
+  steps.push({
+    kind: "git",
+    label: "remove-worktree",
+    disposition: "run",
+    note: plan.worktreePath,
+  });
+  steps.push({
+    kind: "git",
+    label: "delete-branch",
+    disposition: "run",
+    note: `${plan.worktreeBranch} (merged into ${plan.trunk})`,
+  });
   steps.push({
     kind: "refresh",
     label: "refresh agent files",
     disposition: "run",
-    note: plan.to === "trunk"
-      ? "re-materialize the trunk checkout's generated agent files + skills"
-      : "re-materialize the review checkout's generated agent files + skills",
+    note: "re-materialize the trunk checkout's generated agent files + skills",
   });
-  const landing = plan.to === "trunk"
-    ? `Into trunk:         ${plan.mainRepo} (fast-forward ${plan.trunk}, delete ${plan.worktreeBranch})`
-    : `Into main checkout: ${plan.mainRepo} (on ${plan.mainBranch})`;
   const ignoredDetails = ignoredFileDetails(plan.ignoredFileChanges);
   return {
     title: "Graduation plan",
     details: [
       `Branch:        ${plan.worktreeBranch}`,
       `From worktree: ${plan.worktreePath}`,
-      landing,
+      `Into trunk:         ${plan.mainRepo} (fast-forward ${plan.trunk}, delete ${plan.worktreeBranch})`,
       ...ignoredDetails,
     ],
     steps,

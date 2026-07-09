@@ -170,8 +170,9 @@ Deno.test("the production chain is contiguous up to the current schema", () => {
   // 9→10 (ignore .agents/skills/), 10→11 (drop [features].mcp), 11→12 (rename
   // [worktree].graduate_to "main" → "trunk"), 12→13 (add [worktree].root),
   // 13→14 (keep machine-local provider settings ignored), 14→15 (move the
-  // authored surface into the discern/ namespace), and 15→16 (retire the
-  // [features] toggles and [worktree].enabled).
+  // authored surface into the discern/ namespace), 15→16 (retire the
+  // [features] toggles and [worktree].enabled), and 16→17 (drop
+  // [worktree].graduate_to — graduate always lands on the trunk).
   assertEquals(MIGRATIONS.map((m) => m.from), [
     1,
     2,
@@ -188,6 +189,7 @@ Deno.test("the production chain is contiguous up to the current schema", () => {
     13,
     14,
     15,
+    16,
   ]);
   assert(isChainContiguous(MIGRATIONS, SCHEMA_VERSION));
 });
@@ -605,6 +607,49 @@ Deno.test('migration 11→12 leaves graduate_to = "branch" and an absent key unt
       !/graduate_to/.test(await Deno.readTextFile(join(dir, "discern.toml"))),
       "an absent graduate_to must stay absent",
     );
+  });
+});
+
+Deno.test("migration 16→17 drops [worktree].graduate_to and its doc comment", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      "[worktree]\nport = true\n\n" +
+        "# Where `discern graduate` lands by default (override per-run with `--to`):\n" +
+        '#   "branch"  leave the work on its own branch for review.\n' +
+        'graduate_to = "branch"\n\n' +
+        "# Track ignored files at worktree setup.\n" +
+        "ignored_file_drift = true\n",
+    );
+    await applyMigrations({ destDir: dir, from: 16, to: 17, onNote: () => {} });
+    const toml = await Deno.readTextFile(join(dir, "discern.toml"));
+    assert(!/graduate_to/.test(toml), `key must be dropped:\n${toml}`);
+    assert(
+      !/Where `discern graduate` lands/.test(toml),
+      `the key's own doc comment goes with it:\n${toml}`,
+    );
+    assertStringIncludes(toml, "port = true"); // siblings untouched
+    assertStringIncludes(toml, "ignored_file_drift = true");
+    assertStringIncludes(toml, "# Track ignored files"); // the NEXT key's comment stays
+
+    // Idempotent: re-running on the already-dropped config changes nothing.
+    const after = await Deno.readTextFile(join(dir, "discern.toml"));
+    await applyMigrations({ destDir: dir, from: 16, to: 17, onNote: () => {} });
+    assertEquals(await Deno.readTextFile(join(dir, "discern.toml")), after);
+  });
+});
+
+Deno.test("migration 16→17 never eats a user's unrelated comment above the key", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      "[worktree]\n# our team's deploy notes live in the wiki\n" +
+        'graduate_to = "trunk"\nport = true\n',
+    );
+    await applyMigrations({ destDir: dir, from: 16, to: 17, onNote: () => {} });
+    const toml = await Deno.readTextFile(join(dir, "discern.toml"));
+    assert(!/graduate_to/.test(toml), `key must be dropped:\n${toml}`);
+    assertStringIncludes(toml, "deploy notes live in the wiki"); // not ours to eat
   });
 });
 

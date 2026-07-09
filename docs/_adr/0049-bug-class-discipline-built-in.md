@@ -100,9 +100,10 @@ bundled skill — the same default-on footprint every discern project receives.*
   rest of `templates/`.
 - **Removing it later is a distribution-surface change, not a local edit.** Like
   the skill removal in
-  [ADR 0046](0046-graduate-destination-and-skill-removal.md), pulling the norm
-  or skill back out would change what every project receives on its next upgrade
-  — which is exactly why recording the decision to add it is worth an ADR.
+  [ADR 0046](_superseded/0046-graduate-destination-and-skill-removal.md),
+  pulling the norm or skill back out would change what every project receives on
+  its next upgrade — which is exactly why recording the decision to add it is
+  worth an ADR.
 
 ## Alternatives considered
 

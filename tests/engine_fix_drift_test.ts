@@ -163,7 +163,7 @@ Deno.test("graduate: refuses (non-destructively) when the fix stage would reform
     await git(wt, "add", "-A");
     await git(wt, "commit", "-q", "-m", "docs: add note", "--no-gpg-sign");
 
-    const r = await runAgent(wt, ["graduate", "--to", "trunk"]);
+    const r = await runAgent(wt, ["graduate"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "doc.md");
     assertStringIncludes(r.output, "fix stage");
@@ -196,7 +196,7 @@ Deno.test("graduate: a fix-stage-clean branch lands normally", async () => {
     await git(wt, "add", "-A");
     await git(wt, "commit", "-q", "-m", "docs: add note", "--no-gpg-sign");
 
-    const r = await runAgent(wt, ["graduate", "--to", "trunk"]);
+    const r = await runAgent(wt, ["graduate"]);
     assertEquals(r.code, 0, r.output);
     assertEquals(
       await exists(wt),

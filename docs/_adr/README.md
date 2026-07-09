@@ -62,7 +62,6 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0043 — The provider registry is the enforced single source for every agent surface](0043-registry-derived-agent-parity.md)
 - [0044 — Setup involves the user and proceeds; it does not gate every step](0044-setup-involve-not-gate.md)
 - [0045 — The MCP server is core infrastructure, not a feature toggle](0045-mcp-is-core-infrastructure.md)
-- [0046 — A configurable graduation destination, and removing the handoff-worktree skill](0046-graduate-destination-and-skill-removal.md)
 - [0047 — Finish blocks a fix stage that strands uncommitted changes](0047-fix-stage-strand-detection.md)
 - [0049 — Ship the fix-the-class discipline as built-in guidance and a bundled skill](0049-bug-class-discipline-built-in.md)
 - [0050 — Run the merge check first, as a fail-fast precondition](0050-merge-check-fail-fast.md)
@@ -118,6 +117,7 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0103 — Setup grounds itself in the repo's real state — detected default branch, git-init-first without git, a welcome everywhere](0103-setup-holds-up-on-imperfect-repos.md)
 - [0104 — `discern uninstall` is the exit-honesty verb — registry-derived removal, CLI-only](0104-uninstall-is-the-exit-honesty-verb.md)
 - [0105 — Interruption reaches the gate's detached job groups](0105-interruption-reaches-detached-gate-jobs.md)
+- [0110 — The landing model — pull from any ref, land only on the trunk](0110-the-landing-model.md)
 
 ## Superseded and consolidated ADRs
 
@@ -148,6 +148,8 @@ without cluttering the active index above.
   — consolidated into the currency-check ADR (0034)
 - [0042 — Per-agent skills materialization](_superseded/0042-per-agent-skills-materialization.md)
   — consolidated into registry-derived parity (0043)
+- [0046 — A configurable graduation destination, and removing the handoff-worktree skill](_superseded/0046-graduate-destination-and-skill-removal.md)
+  — superseded by the landing model (0110); the skill removal stands
 - [0048 — Rename the graduation landing-role `main` → `trunk`](_superseded/0048-graduate-trunk-role-name.md)
   — consolidated into 0046
 - [0056 — Run the currency checks as fail-fast preconditions too](_superseded/0056-currency-checks-fail-fast.md)

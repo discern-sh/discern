@@ -17,11 +17,7 @@
 import { isAbsolute, join, relative } from "@std/path";
 import { type Logger, loggerSink } from "../../lib/log.ts";
 import { canPrompt, confirmProceed } from "../../lib/prompts.ts";
-import {
-  type DiscernConfig,
-  type GraduateTarget,
-  loadConfig,
-} from "../../shared/config_schema.ts";
+import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import {
   deriveIdentity,
   generateWorktreeId,
@@ -163,8 +159,6 @@ export interface WorktreeOpOptions {
   json?: boolean;
   /** Render the human apply summary (internal protocol callers may reserve stdout). */
   humanApplySummary?: boolean;
-  /** Graduate only: where the branch lands. Overrides `[worktree].graduate_to`. */
-  to?: GraduateTarget | undefined;
 }
 
 /**
@@ -646,9 +640,9 @@ export async function createAndSetupWorktree(
 /**
  * Discard a worktree unconditionally and best-effort: destroy its resources (from
  * inside it, so `@dir@` destroys resolve), remove the worktree directory and its
- * git registration, then delete its branch. Every step swallows its own failure —
- * used to clean up a failed `start`/create (no debris left for `status` to list)
- * and to retire the viability probe's throwaway worktree; `worktree prune` is the
+ * git registration, then delete its branch. Every step swallows its own failure.
+ * This cleans up a failed `start`/create (no debris left for `status` to list)
+ * and retires the viability probe's throwaway worktree; `worktree prune` is the
  * backstop for anything it misses.
  */
 async function discardWorktreeBestEffort(
@@ -775,15 +769,16 @@ function makeGitRunner(ctx: LifecycleContext): GitRunner {
 /**
  * The read-only diagnosis a graduation acts on — the plan-build half. Asserts the
  * preconditions (in a worktree, not the main repo, branch contains main, main is
- * clean), throwing the same `WorktreeGitError`s as before so a plan only exists for
- * a graduation that may proceed. Resolves the branch name read-only for display;
- * the authoritative branch (created if the worktree is detached) is ensured by the
- * executor, so building a plan — and `--dry-run` — never mutates.
+ * clean AND sitting on the trunk — graduation fast-forwards the trunk there and
+ * never silently switches a parked checkout), throwing the same
+ * `WorktreeGitError`s as before so a plan only exists for a graduation that may
+ * proceed. Resolves the branch name read-only for display; the authoritative
+ * branch (created if the worktree is detached) is ensured by the executor, so
+ * building a plan — and `--dry-run` — never mutates.
  */
 async function buildGraduatePlan(
   ctx: LifecycleContext,
   run: GitRunner,
-  to: GraduateTarget,
 ): Promise<GraduatePlan> {
   // diagnose
   if (!(await run(["rev-parse", "--is-inside-work-tree"])).success) {
@@ -853,7 +848,7 @@ async function buildGraduatePlan(
     ctx.config.worktree.ignored_file_drift,
   );
   // Refuse to move the main checkout only for tracked changes. Untracked local
-  // provider/session scratch does not participate in checkout/fast-forward and is
+  // provider/session scratch does not participate in the fast-forward and is
   // left in place.
   const mainDirty = await hasUncommittedTrackedChanges(mainRepo) ?? false;
   const mainBranchRun = await run(["branch", "--show-current"], mainRepo);
@@ -870,16 +865,39 @@ async function buildGraduatePlan(
     );
   }
 
+  // gate: graduation fast-forwards the trunk IN the main checkout, so the main
+  // checkout must be sitting on the trunk — never silently switch it off whatever
+  // branch someone parked it on.
+  if (mainBranch !== trunkBranch) {
+    throw new WorktreeGitError(
+      offTrunkGraduateRefusal(mainRepo, mainBranch, trunkBranch),
+    );
+  }
+
   return {
-    to,
     worktreeBranch,
     worktreePath,
     mainRepo,
-    mainBranch,
     trunk: ctx.config.project.main_branch,
     hasResources: readResourceSpecs(ctx.config).length > 0,
     ignoredFileChanges,
   };
+}
+
+/** The graduate refusal when the main checkout is parked on a branch other than
+ * the trunk (detached included). Graduation lands by fast-forwarding the trunk in
+ * the main checkout, so switching it back is the user's one clear next step —
+ * never something graduate does silently to a checkout someone parked
+ * deliberately. */
+function offTrunkGraduateRefusal(
+  mainRepo: string,
+  mainBranch: string,
+  trunk: string,
+): string {
+  return `The main checkout at ${mainRepo} is on '${mainBranch}', not ` +
+    `'${trunk}' (the trunk). Graduation lands by fast-forwarding the trunk ` +
+    `there, so return it first — \`git -C ${mainRepo} switch ${trunk}\` — ` +
+    `then re-run \`discern graduate\`. Your branch keeps all its commits.`;
 }
 
 // How many of the gate's diagnostics ride inline in a graduate refusal before the agent
@@ -937,8 +955,9 @@ async function assertGraduateBranchStillCurrent(
  * Apply a graduation plan — the mutation dance. Ensures the named branch
  * (creating one if the worktree is detached), validates the exact tree against the whole
  * gate before landing (ADR 0067, fast-pathed by a gate-pass receipt), tears down the
- * resources, removes the worktree, lands the branch in main, and refreshes the
- * checkout it leaves behind. Narrates exactly as before; throws `WorktreeGitError` on any unrecoverable
+ * resources, fast-forwards the trunk to the branch tip, removes the worktree,
+ * deletes the merged branch, and refreshes the trunk checkout it leaves behind.
+ * Narrates exactly as before; throws `WorktreeGitError` on any unrecoverable
  * error (the branch keeps its commits). Returns the per-step results for `--json`.
  */
 async function executeGraduatePlan(
@@ -960,7 +979,7 @@ async function executeGraduatePlan(
       "Worktree is in detached HEAD state and ensure-worktree-branch could not create a named branch.",
     );
   }
-  const { to, worktreePath, mainRepo, mainBranch, trunk } = plan;
+  const { worktreePath, mainRepo, trunk } = plan;
 
   // Validation gate (ADR 0067) — the exact tree we are about to land must pass the WHOLE
   // gate, so a clean-merging but gate-breaking `integrate` (or any tree never run through
@@ -1014,9 +1033,7 @@ async function executeGraduatePlan(
   ctx.log.detail(`Branch:        ${worktreeBranch}`);
   ctx.log.detail(`From worktree: ${worktreePath}`);
   ctx.log.detail(
-    to === "trunk"
-      ? `Into trunk:         ${mainRepo} (fast-forward ${trunk}, delete ${worktreeBranch})`
-      : `Into main checkout: ${mainRepo} (on ${mainBranch})`,
+    `Into trunk:         ${mainRepo} (fast-forward ${trunk}, delete ${worktreeBranch})`,
   );
   const ignoredLine = ignoredFileChangeDetail(plan.ignoredFileChanges);
   if (ignoredLine !== undefined) {
@@ -1033,35 +1050,47 @@ async function executeGraduatePlan(
   await teardownResources(ctx);
   done("resource-destroy", "teardown resources");
 
-  // land the branch where the plan says
-  if (to === "trunk") {
-    // Fast-forward the trunk to the branch tip and land there. The graduation gate
-    // already proved the branch contains the trunk, so this is always a clean
-    // fast-forward — never a merge commit, never a conflict.
-    await assertGraduateBranchStillCurrent(ctx.cwd, trunk);
-    ctx.log.info(`Checking out ${trunk} in main repo…`);
-    const checkout = await run(["checkout", "--quiet", trunk], mainRepo);
-    if (!checkout.success) {
-      throw new WorktreeGitError(
-        `git checkout ${trunk} failed in the main repo. Git said:\n    ${checkout.stderr.trim()}`,
-      );
-    }
-    ctx.log.info(`Fast-forwarding ${trunk} to ${worktreeBranch}…`);
-    const ff = await run(
-      ["merge", "--ff-only", "--quiet", worktreeBranch],
-      mainRepo,
+  // Land on the trunk: fast-forward it to the branch tip. The graduation gate
+  // already proved the branch contains the trunk, so this is always a clean
+  // fast-forward — never a merge commit, never a conflict.
+  await assertGraduateBranchStillCurrent(ctx.cwd, trunk);
+  // Re-verify the main checkout is STILL on the trunk immediately before the
+  // fast-forward (the plan checked it, but the gate re-run above takes real time
+  // and `git merge` advances whatever branch is checked out) — never fast-forward
+  // a branch someone switched to mid-graduation.
+  const mainNow = (await run(["branch", "--show-current"], mainRepo)).stdout
+    .trim();
+  if (mainNow !== trunk) {
+    throw new WorktreeGitError(
+      offTrunkGraduateRefusal(
+        mainRepo,
+        mainNow === "" ? "(detached)" : mainNow,
+        trunk,
+      ),
     );
-    if (!ff.success) {
-      throw new WorktreeGitError(
-        `Fast-forwarding ${trunk} to ${worktreeBranch} failed before the worktree was removed. ` +
-          `Your commits are safe on ${worktreeBranch} at ${worktreePath}. ` +
-          `Run \`discern integrate\` from that worktree, then \`discern finish\` and ` +
-          `\`discern graduate --to trunk\` again. Git said:\n    ${ff.stderr.trim()}`,
-      );
-    }
-    ctx.log.ok(`${trunk} fast-forwarded to ${worktreeBranch} at ${mainRepo}.`);
-    done("git", "fast-forward-trunk");
   }
+  ctx.log.info(`Fast-forwarding ${trunk} to ${worktreeBranch}…`);
+  const ff = await run(
+    ["merge", "--ff-only", "--quiet", worktreeBranch],
+    mainRepo,
+  );
+  if (!ff.success) {
+    // The usual cause is a concurrent landing: another line of work fast-forwarded
+    // the trunk between this graduation's checks and its own fast-forward. Say what
+    // happened and what to do — the raw git stderr rides along as evidence, not as
+    // the explanation.
+    throw new WorktreeGitError(
+      `The trunk (${trunk}) moved while this graduation was running — most ` +
+        `likely another line of work landed first — so the fast-forward was ` +
+        `refused and nothing was changed. Your commits are safe on ` +
+        `${worktreeBranch} at ${worktreePath}. From that worktree, run ` +
+        `\`discern integrate\` to bring the new ${trunk} in beneath your work, ` +
+        `then \`discern finish\`, then \`discern graduate\` again. ` +
+        `Git said:\n    ${ff.stderr.trim()}`,
+    );
+  }
+  ctx.log.ok(`${trunk} fast-forwarded to ${worktreeBranch} at ${mainRepo}.`);
+  done("git", "fast-forward-trunk");
 
   // remove the worktree (from the main repo)
   ctx.log.info(`Removing worktree: ${worktreePath}`);
@@ -1075,34 +1104,17 @@ async function executeGraduatePlan(
   ctx.log.ok("Worktree directory removed.");
   done("git", "remove-worktree");
 
-  if (to === "trunk") {
-    // Delete the now-merged branch.
-    const del = await run(["branch", "-d", worktreeBranch], mainRepo);
-    if (!del.success) {
-      throw new WorktreeGitError(
-        `git branch -d ${worktreeBranch} failed after merging it into ${trunk}. Git said:\n    ${del.stderr.trim()}`,
-      );
-    }
-    ctx.log.ok(`Deleted merged branch ${worktreeBranch}.`);
-    done("git", "delete-branch");
-  } else {
-    // Check out the branch in main (review-first; the branch is preserved).
-    ctx.log.info(`Checking out ${worktreeBranch} in main repo…`);
-    const checkout = await run(
-      ["checkout", "--quiet", worktreeBranch],
-      mainRepo,
+  // Delete the now-merged branch.
+  const del = await run(["branch", "-d", worktreeBranch], mainRepo);
+  if (!del.success) {
+    throw new WorktreeGitError(
+      `git branch -d ${worktreeBranch} failed after merging it into ${trunk}. Git said:\n    ${del.stderr.trim()}`,
     );
-    if (!checkout.success) {
-      throw new WorktreeGitError(
-        `git checkout ${worktreeBranch} failed. The branch may still be claimed elsewhere. Git said:\n    ${checkout.stderr.trim()}`,
-      );
-    }
-    ctx.log.ok(`On ${worktreeBranch} at ${mainRepo}.`);
-    done("git", "checkout");
   }
+  ctx.log.ok(`Deleted merged branch ${worktreeBranch}.`);
+  done("git", "delete-branch");
 
-  const landedOn = to === "trunk" ? trunk : worktreeBranch;
-  // Re-materialize the checkout that graduate leaves behind. The branch has already
+  // Re-materialize the trunk checkout graduate leaves behind. The branch has already
   // landed, so a refresh hiccup is reported as a failed step rather than undoing the
   // git transition (parallel to integrate's post-merge refresh).
   ctx.log.info(
@@ -1122,33 +1134,34 @@ async function executeGraduatePlan(
     refreshOk = false;
     ctx.log.warn("Agent-file refresh reported an error — continuing.");
   }
-  const refreshNote = to === "trunk"
-    ? "re-materialized the trunk checkout's generated agent files + skills"
-    : "re-materialized the review checkout's generated agent files + skills";
-  doneRefresh(refreshOk ? "ok" : "failed", refreshNote);
+  doneRefresh(
+    refreshOk ? "ok" : "failed",
+    "re-materialized the trunk checkout's generated agent files + skills",
+  );
   if (!refreshOk) {
     refreshHints = [
       ...refreshHints,
-      `Graduation landed on ${landedOn}, but the post-landing refresh failed; ` +
+      `Graduation landed on ${trunk}, but the post-landing refresh failed; ` +
       `run \`discern refresh\` in ${mainRepo}.`,
     ];
   }
 
   ctx.log.heading("Graduation complete.");
-  ctx.log.line(`  You are on ${landedOn} in ${mainRepo}.`);
+  ctx.log.line(`  You are on ${trunk} in ${mainRepo}.`);
   return { steps: results, gateValidation, refreshHints };
 }
 
 /**
- * Graduate this worktree's branch into the main repo — the `discern graduate`
- * command. Requires the latest main is integrated, tears down the worktree's
- * external resources, removes the clean worktree directory, then lands the branch per the destination (`opts.to`, falling back
- * to `[worktree].graduate_to`): `"branch"` checks it out in main for review;
- * `"trunk"` fast-forwards the trunk to the branch tip and deletes the merged
- * branch. The checkout left behind is refreshed after landing. Refuses dirty
- * worktrees and dirty main checkouts. `--dry-run` shows the plan (after the
- * read-only preconditions pass) and touches nothing. Throws `WorktreeGitError` on
- * any unrecoverable error (the branch keeps its commits).
+ * Graduate this worktree's branch onto the trunk — the `discern graduate`
+ * command, the single PUSH target of the landing model (composition happens on
+ * the pull axis: `start --from` / `integrate --from`). Requires the latest main
+ * is integrated, tears down the worktree's external resources, fast-forwards the
+ * trunk to the branch tip, removes the clean worktree directory, and deletes the
+ * now-merged branch. The trunk checkout left behind is refreshed after landing.
+ * Refuses dirty worktrees, dirty main checkouts, and a main checkout parked on a
+ * branch other than the trunk. `--dry-run` shows the plan (after the read-only
+ * preconditions pass) and touches nothing. Throws `WorktreeGitError` on any
+ * unrecoverable error (the branch keeps its commits).
  */
 export async function graduate(
   ctx: LifecycleContext,
@@ -1156,7 +1169,6 @@ export async function graduate(
 ): Promise<void> {
   const result = await graduateResult(ctx, {
     dryRun: opts.dryRun ?? false,
-    to: opts.to,
   });
   emitOrRenderWorktreeResult(ctx, result, opts.json ?? false);
 }
@@ -1167,17 +1179,16 @@ export async function graduate(
  * `--json` ({@link graduate}) and the MCP server both render. NOT pure: on an apply
  * it runs the real git mutations + resource teardown (narrating through `ctx.log`,
  * which the MCP server silences with a quiet logger). The read-only preconditions
- * (in a worktree, main integrated, clean main checkout) still throw
- * `WorktreeGitError` when they refuse — the caller maps that to an error envelope
- * via {@link worktreeErrorResult}.
+ * (in a worktree, main integrated, clean main checkout sitting on the trunk) still
+ * throw `WorktreeGitError` when they refuse — the caller maps that to an error
+ * envelope via {@link worktreeErrorResult}.
  */
 export async function graduateResult(
   ctx: LifecycleContext,
-  opts: { dryRun?: boolean; to?: GraduateTarget | undefined } = {},
+  opts: { dryRun?: boolean } = {},
 ): Promise<DiscernResult<GraduateData>> {
   const run = makeGitRunner(ctx);
-  const to = opts.to ?? ctx.config.worktree.graduate_to;
-  const plan = await buildGraduatePlan(ctx, run, to);
+  const plan = await buildGraduatePlan(ctx, run);
   if (opts.dryRun ?? false) {
     return previewResult("graduate", graduatePlanToEngine(plan));
   }

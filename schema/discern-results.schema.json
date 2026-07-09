@@ -7633,6 +7633,9 @@
                 "path": {
                   "type": "string"
                 },
+                "from": {
+                  "type": "string"
+                },
                 "name_note": {
                   "type": "string"
                 }
@@ -7640,7 +7643,8 @@
               "required": [
                 "id",
                 "branch",
-                "path"
+                "path",
+                "from"
               ]
             },
             {

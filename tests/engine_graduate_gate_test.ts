@@ -3,7 +3,7 @@
  * gate — closing the stale-finish hole: an agent finishes green, main advances beneath it
  * while it waits for review, it `integrate`s (a clean merge), then graduates — landing a
  * MERGED tree its earlier `finish` never saw. The merge can break the gate semantically
- * (a clean textual merge that still fails a check), and a local `graduate --to trunk`
+ * (a clean textual merge that still fails a check), and a local `graduate`
  * fast-forwards it onto the trunk where CI never runs.
  *
  * Two layers: the gate-pass RECEIPT primitive (the per-worktree marker `finish` stamps and
@@ -205,7 +205,7 @@ Deno.test("graduate: refuses an integrate that merges cleanly but breaks the gat
     await commitCurrentWorktree(wt);
 
     // Graduating MUST refuse — the merged tree was never validated, and it fails the gate.
-    const grad = await runAgent(wt, ["graduate", "--to", "trunk"]);
+    const grad = await runAgent(wt, ["graduate"]);
     assertEquals(grad.code, 1, grad.output);
     assertStringIncludes(grad.output, "does not pass");
     // Non-destructive: the worktree survives and the branch's work never reached the trunk.
@@ -234,7 +234,7 @@ Deno.test("graduate: an integrate that still passes the gate lands normally", as
     assertEquals((await runAgent(wt, ["integrate"])).code, 0);
     await commitCurrentWorktree(wt);
 
-    const grad = await runAgent(wt, ["graduate", "--to", "trunk"]);
+    const grad = await runAgent(wt, ["graduate"]);
     assertEquals(grad.code, 0, grad.output);
     // The receipt was stale (merge commit), so graduate validated the merged tree itself…
     assertStringIncludes(
@@ -262,12 +262,7 @@ Deno.test("graduate: a fresh `finish` lets graduate skip the gate re-run (receip
     assertEquals((await runAgent(wt, ["finish", "--json"])).code, 0);
 
     // …so graduate trusts it and does NOT re-run the gate (the no-double-run guarantee).
-    const grad = await runAgent(wt, [
-      "graduate",
-      "--to",
-      "trunk",
-      "--json",
-    ]);
+    const grad = await runAgent(wt, ["graduate", "--json"]);
     assertEquals(grad.code, 0, grad.output);
     const obj = parseJson(grad.stdout);
     assertEquals(obj.data.gate_validation.mode, "receipt");
@@ -287,12 +282,7 @@ Deno.test("graduate: with no prior `finish`, graduate runs the gate itself befor
     const wt = await addWorktree(dir, "zeta");
     await commitBranchWork(wt); // committed, but the agent never ran `finish` → no receipt
 
-    const grad = await runAgent(wt, [
-      "graduate",
-      "--to",
-      "trunk",
-      "--json",
-    ]);
+    const grad = await runAgent(wt, ["graduate", "--json"]);
     assertEquals(grad.code, 0, grad.output);
     const obj = parseJson(grad.stdout);
     assertEquals(obj.data.gate_validation.mode, "rerun");
@@ -313,7 +303,7 @@ Deno.test("graduate: a commit made after `finish` invalidates the receipt (gate 
     await git(wt, "add", "-A");
     await git(wt, "commit", "-q", "-m", "more", "--no-gpg-sign");
 
-    const grad = await runAgent(wt, ["graduate", "--to", "trunk"]);
+    const grad = await runAgent(wt, ["graduate"]);
     assertEquals(grad.code, 0, grad.output);
     assertStringIncludes(
       grad.output,

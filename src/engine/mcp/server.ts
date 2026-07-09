@@ -53,8 +53,6 @@ import {
 import {
   configSchema,
   type DiscernConfig,
-  GRADUATE_TARGETS,
-  type GraduateTarget,
   loadConfig,
 } from "../../shared/config_schema.ts";
 import {
@@ -573,28 +571,21 @@ export const TOOLS: McpTool[] = orderTools([
     annotations: DESTRUCTIVE,
     description:
       "Use only when the user explicitly asks to hand off or land this branch. " +
-      "Graduate THIS worktree's branch into the main checkout: tear down the " +
-      "worktree's resources, remove the clean worktree, then " +
-      'land the branch per `to`. `to:"branch"` checks it out in the main repo for ' +
-      'review (branch preserved); `to:"trunk"` fast-forwards the trunk to the branch ' +
-      "tip and deletes the now-merged branch. It then refreshes the checkout it " +
-      "leaves behind, so generated guidance, skills, and provider integrations " +
-      "match the landed tree. Omit `to` to use the project default " +
-      "([worktree].graduate_to). This is the single deterministic implementation — " +
+      "Graduate THIS worktree's branch onto the trunk (`{{main_branch}}`) — the " +
+      "one place work lands: tear down the worktree's resources, fast-forward the " +
+      "trunk to the branch tip, remove the clean worktree, and delete the " +
+      "now-merged branch. It then refreshes the trunk checkout it leaves behind, " +
+      "so generated guidance, skills, and provider integrations match the landed " +
+      "tree. This is the single deterministic implementation — " +
       "run it rather than reproducing the steps with git; commit the work with a real " +
       "message first so it lands as a proper review commit, then relay the result. " +
       "Requires the latest `{{main_branch}}` is already integrated, this worktree " +
-      "is clean, and the main checkout is clean " +
-      '— refuses (error:"precondition_failed") otherwise, pointing at discern_integrate ' +
-      "to integrate first. Set dry_run to preview the plan without touching anything. " +
+      "is clean, and the main checkout is clean and sitting on `{{main_branch}}` " +
+      '— refuses (error:"precondition_failed") otherwise, naming the exact next ' +
+      "step (e.g. discern_integrate to integrate first). Set dry_run to preview " +
+      "the plan without touching anything. " +
       "Operates only on the worktree the server runs in; it cannot reach another.",
     inputSchema: {
-      to: z.enum(GRADUATE_TARGETS).optional().describe(
-        'Where the branch lands. "branch": check it out in the main repo for review, ' +
-          'branch preserved. "trunk" (a role → [project].main_branch): fast-forward ' +
-          "the trunk to the branch tip and delete the merged branch. Omit to use " +
-          "[worktree].graduate_to.",
-      ),
       dry_run: z.boolean().optional().describe(
         "Preview the graduation plan and touch nothing (default false).",
       ),
@@ -613,7 +604,6 @@ export const TOOLS: McpTool[] = orderTools([
     run: (root, args) =>
       graduateToolResult(root, {
         dryRun: args.dry_run === true,
-        to: args.to,
       }),
   }),
   defineTool({
@@ -741,7 +731,7 @@ export const TOOLS: McpTool[] = orderTools([
  */
 async function graduateToolResult(
   root: string,
-  opts: { dryRun?: boolean; to?: GraduateTarget | undefined },
+  opts: { dryRun?: boolean },
 ): Promise<DiscernResult> {
   const ctx = await lifecycleContext(
     root,

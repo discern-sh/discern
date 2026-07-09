@@ -737,7 +737,66 @@ export const MIGRATIONS: Migration[] = [
       await retireFeatureToggles(ctx);
     },
   },
+  {
+    from: 16,
+    describe:
+      "drop [worktree].graduate_to — `discern graduate` always lands on the trunk; composition happens on the pull axis instead (ADR 0110)",
+    apply: async (ctx) => {
+      const text = await ctx.readConfig();
+      if (text === undefined) {
+        return; // no config to evolve.
+      }
+      let raw: Record<string, unknown>;
+      try {
+        raw = parseDiscernToml(text).raw;
+      } catch {
+        return; // unparseable — upgrade validates the config first; belt-and-braces.
+      }
+      const worktree = isRecord(raw.worktree) ? raw.worktree : {};
+      // Idempotent: only a config still carrying the key is touched.
+      if (worktree.graduate_to === undefined) {
+        return;
+      }
+      const dropped = worktree.graduate_to;
+      await ctx.rewrite("discern.toml", removeGraduateToKey);
+      ctx.note(
+        `dropped [worktree].graduate_to = "${String(dropped)}" — ` +
+          "`discern graduate` always lands on the trunk now; to compose work " +
+          "below the trunk, pull with `start --from` / `integrate --from` (ADR 0110)",
+      );
+    },
+  },
 ];
+
+/**
+ * Remove the `graduate_to` key line — the key itself plus the contiguous comment
+ * paragraph directly above it, but only when that paragraph is actually about the
+ * landing destination (it mentions "graduate"), so a user's own unrelated comment
+ * is never eaten. Blank runs left behind are collapsed. A no-op without the key.
+ */
+function removeGraduateToKey(text: string): string {
+  const lines = text.split("\n");
+  const idx = lines.findIndex((l) => /^\s*graduate_to\s*=/.test(l));
+  if (idx === -1) {
+    return text;
+  }
+  let start = idx;
+  let bannerStart = idx;
+  while (
+    bannerStart - 1 >= 0 &&
+    (lines[bannerStart - 1] ?? "").trim().startsWith("#")
+  ) {
+    bannerStart--;
+  }
+  if (
+    bannerStart < idx &&
+    /graduate/i.test(lines.slice(bannerStart, idx).join("\n"))
+  ) {
+    start = bannerStart;
+  }
+  lines.splice(start, idx - start + 1);
+  return lines.join("\n").replace(/\n{3,}/g, "\n\n");
+}
 
 /**
  * The schema-15→16 transform (ADR 0101): drop the `[features]` section (banner

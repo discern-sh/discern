@@ -21,6 +21,9 @@ setup-era capture was not available:
   schema-15 engine — the config carries `[features]` and `[worktree].enabled`
   and the authored surface sits under `discern/`, so the 15→16 toggle
   retirement (ADR 0101) is exercised on real bytes
+- `schema-16`: derived from `schema-15` by applying the real 15→16 step — the
+  config still carries `[worktree].graduate_to` (with its doc comment), so the
+  16→17 drop of the graduate destination (ADR 0110) is exercised on real bytes
 
 The fixtures keep only `discern.toml`, `.gitignore`, and
 `.claude/settings.json` (plus, from `schema-14`, the movable authored surface):

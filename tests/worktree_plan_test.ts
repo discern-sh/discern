@@ -118,13 +118,11 @@ Deno.test("teardownPlanToEngine: one destroy step per ledger entry", () => {
   assert(plan.steps.every((s) => s.kind === "resource-destroy"));
 });
 
-Deno.test("graduatePlanToEngine: resources gate the teardown step for branch graduations", () => {
+Deno.test("graduatePlanToEngine: fast-forwards the trunk; resources gate the teardown step", () => {
   const base = {
-    to: "branch" as const,
     worktreeBranch: "agent/x",
     worktreePath: "/repo/.wt/x",
     mainRepo: "/repo",
-    mainBranch: "main",
     trunk: "main",
     ignoredFileChanges: {
       status: "unchanged" as const,
@@ -133,18 +131,20 @@ Deno.test("graduatePlanToEngine: resources gate the teardown step for branch gra
       truncated: false,
     },
   };
-  const dirty = graduatePlanToEngine({
+  const withResources = graduatePlanToEngine({
     ...base,
     hasResources: true,
   });
-  assertEquals(dirty.steps.map((s) => s.label), [
+  assertEquals(withResources.steps.map((s) => s.label), [
     "teardown resources",
+    "fast-forward-trunk",
     "remove-worktree",
-    "checkout",
+    "delete-branch",
     "refresh agent files",
   ]);
   assertEquals(
-    dirty.steps.find((s) => s.label === "teardown resources")?.disposition,
+    withResources.steps.find((s) => s.label === "teardown resources")
+      ?.disposition,
     "run",
   );
 
@@ -154,8 +154,9 @@ Deno.test("graduatePlanToEngine: resources gate the teardown step for branch gra
   });
   assertEquals(clean.steps.map((s) => s.label), [
     "teardown resources",
+    "fast-forward-trunk",
     "remove-worktree",
-    "checkout",
+    "delete-branch",
     "refresh agent files",
   ]);
   // No resources → the teardown step is shown but skipped.
@@ -163,50 +164,8 @@ Deno.test("graduatePlanToEngine: resources gate the teardown step for branch gra
     clean.steps.find((s) => s.label === "teardown resources")?.disposition,
     "skip",
   );
-  // `branch` mode lands the worktree branch in the main checkout for review.
-  assert(clean.details.some((d) => d.includes("Into main checkout:")));
-});
-
-Deno.test("graduatePlanToEngine: to=trunk fast-forwards the trunk and deletes the branch instead of a checkout", () => {
-  const base = {
-    to: "trunk" as const,
-    worktreeBranch: "agent/x",
-    worktreePath: "/repo/.wt/x",
-    mainRepo: "/repo",
-    mainBranch: "main",
-    trunk: "main",
-    ignoredFileChanges: {
-      status: "unchanged" as const,
-      changed_roots: [],
-      changed_total: 0,
-      truncated: false,
-    },
-  };
-  const dirty = graduatePlanToEngine({
-    ...base,
-    hasResources: true,
-  });
-  // The checkout step is replaced by fast-forward-trunk + delete-branch.
-  assertEquals(dirty.steps.map((s) => s.label), [
-    "teardown resources",
-    "fast-forward-trunk",
-    "remove-worktree",
-    "delete-branch",
-    "refresh agent files",
-  ]);
-
-  const clean = graduatePlanToEngine({
-    ...base,
-    hasResources: false,
-  });
-  assertEquals(clean.steps.map((s) => s.label), [
-    "teardown resources",
-    "fast-forward-trunk",
-    "remove-worktree",
-    "delete-branch",
-    "refresh agent files",
-  ]);
-  // The landing detail names the trunk fast-forward + branch deletion, not a checkout.
+  // The landing detail names the trunk fast-forward + branch deletion — the one
+  // landing there is (never a review checkout).
   assert(clean.details.some((d) => d.includes("Into trunk:")));
   assert(!clean.steps.some((s) => s.label === "checkout"));
 });

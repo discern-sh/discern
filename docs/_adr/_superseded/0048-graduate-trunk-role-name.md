@@ -1,7 +1,7 @@
 # ADR 0048: Rename the graduation landing-role `main` → `trunk`
 
 > **Consolidated into
-> [ADR 0046](../0046-graduate-destination-and-skill-removal.md).** The `main` →
+> [ADR 0046](0046-graduate-destination-and-skill-removal.md).** The `main` →
 > `trunk` rename is folded into the configurable-destination ADR. Kept for
 > history.
 
@@ -9,7 +9,7 @@
 
 ## Context
 
-[ADR 0046](../0046-graduate-destination-and-skill-removal.md) gave
+[ADR 0046](0046-graduate-destination-and-skill-removal.md) gave
 `discern graduate` a configurable destination through `[worktree].graduate_to`
 (and `--to` per run). It took two values: `"branch"` (leave the work on its own
 branch for review) and `"main"` (fast-forward the trunk to the branch tip, then
