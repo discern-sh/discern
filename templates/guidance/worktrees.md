@@ -22,6 +22,14 @@ doesn't collide.{{#if has_worktree_resources}} It provisions per-worktree extern
   removed, the merged branch deleted — and refreshes the trunk checkout it
   leaves behind.
 
+Asked to work in a **different discern-managed project** (a dependency's repo,
+a sibling component of a multi-repo app)? The same tools reach it: pass `path`
+— any absolute path inside that project — and the call operates there.
+`discern_start` with `path` creates your worktree *for that project* and the
+tools follow it exactly as for a same-project start. The tools always follow
+your latest start or graduate; `discern_status` shows where they're aimed, and
+`path` steers any call back.
+
 While iterating on uncommitted work, use `discern_prepare`, `discern_test`, or a
 targeted project command. When the final tree is ready, commit it first, then run
 `discern_finish` once on the clean HEAD — that recorded pass is the one graduation
