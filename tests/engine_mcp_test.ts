@@ -7,7 +7,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { exists } from "@std/fs";
-import { join } from "@std/path";
+import { basename, join } from "@std/path";
 import {
   CouplingOutputSchema,
   DatalessEnvelopeSchema,
@@ -1560,6 +1560,91 @@ Deno.test("discern mcp: an explicit `path` wins over the working root (ADR 0062 
     assertEquals(fromWtPath.result.structuredContent.data.location, "worktree");
 
     assertEquals(await mcp.close(), 0);
+  });
+});
+
+Deno.test("discern mcp: discern_start with `path` creates the worktree for ANOTHER project — the cross-project entry point (ADR 0111)", async () => {
+  // Two discern projects side by side; the server spawns in A. `path` into B on
+  // discern_start must mint B's worktree (the creation target follows `path`, the
+  // same resolution every other root-operating tool honours) and the re-aim must
+  // follow it: the next no-`path` call operates on B's new worktree, while A —
+  // the spawn project — is untouched. Before this was declared, the SDK silently
+  // STRIPPED the argument and start minted the worktree in A, the wrong project,
+  // while reporting success.
+  await withTempDir(async (dirA) => {
+    await withTempDir(async (dirB) => {
+      await scaffoldEngine(dirA);
+      await gitInit(dirA);
+      await scaffoldEngine(dirB);
+      await gitInit(dirB);
+
+      const mcp = await spawnMcp(dirA);
+      await mcp.send({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: initParams(),
+      });
+      await mcp.recv();
+
+      await mcp.send({
+        jsonrpc: "2.0",
+        id: 2,
+        method: "tools/call",
+        params: {
+          name: "discern_start",
+          arguments: { path: dirB, name: "cross project" },
+        },
+      });
+      const started = await mcp.recv();
+      assertEquals(
+        started.result.isError,
+        false,
+        JSON.stringify(started.result),
+      );
+      const data = started.result.structuredContent.data;
+      // The worktree landed in B's sibling worktrees dir, not A's. Compared by the
+      // unique temp basename (never the full prefix), so a /private-style realpath
+      // difference can't produce a false miss.
+      const wtPath = data.path as string;
+      assert(
+        wtPath.includes(`${basename(dirB)}.worktrees`),
+        `worktree must land under B's worktrees dir: ${wtPath}`,
+      );
+      assert(
+        !wtPath.includes(`${basename(dirA)}.worktrees`),
+        `worktree must NOT land under A's worktrees dir: ${wtPath}`,
+      );
+
+      // The re-aim followed the cross-project start: a no-`path` call now operates
+      // on B's new worktree (the same worktree id start just returned)…
+      await mcp.send({
+        jsonrpc: "2.0",
+        id: 3,
+        method: "tools/call",
+        params: { name: "discern_status", arguments: {} },
+      });
+      const followed = await mcp.recv();
+      assertEquals(followed.result.structuredContent.data.location, "worktree");
+      assertEquals(
+        followed.result.structuredContent.data.worktree.id,
+        data.id,
+        "the held working root must follow the cross-project worktree",
+      );
+
+      // …while A, the spawn project, still answers by explicit `path` and holds no
+      // worktree from this start.
+      await mcp.send({
+        jsonrpc: "2.0",
+        id: 4,
+        method: "tools/call",
+        params: { name: "discern_status", arguments: { path: dirA } },
+      });
+      const spawnProject = await mcp.recv();
+      assertEquals(spawnProject.result.structuredContent.data.location, "main");
+
+      assertEquals(await mcp.close(), 0);
+    });
   });
 });
 

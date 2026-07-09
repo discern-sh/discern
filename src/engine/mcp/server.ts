@@ -271,10 +271,15 @@ function orderTools(tools: McpTool[]): McpTool[] {
  * explicit project to act on instead of the server's current working root, resolved
  * through `findRoot(path)` in {@link runTool} (so any directory inside a worktree
  * resolves to its root, and a non-project path falls through to `not_initialized`).
- * `path` wins over the working root for that one call. Spread into each root-operating
- * tool's `inputSchema`; NOT on `discern_help` (discern's own bundled docs are
- * root-independent) or `discern_start` (its root is the creation source, a separate
- * concern). The describe text carries no `{{var}}`, so it is not interpolated. */
+ * `path` wins over the working root for that one call. The resolution is not fenced
+ * to the spawn project: the target may be ANY discern project on disk, which is what
+ * makes the surface work across a multi-repo setup (ADR 0111). Spread into each
+ * root-operating tool's `inputSchema`; NOT on `discern_help` (discern's own bundled
+ * docs are root-independent). `discern_start` declares its own `path` instead — same
+ * resolution, but there it names the project to CREATE the worktree for, and this
+ * generic text ("rarely needed — discern_start re-aims automatically") would read
+ * wrong on start itself. The describe text carries no `{{var}}`, so it is not
+ * interpolated. */
 const PATH_PARAM = {
   path: z.string().optional().describe(
     "operate on the discern project containing this absolute path instead of the " +
@@ -704,7 +709,11 @@ export const TOOLS: McpTool[] = orderTools([
       "you're about to start (e.g. `fix-upload-retry`, or a phrase like `fix the " +
       "upload retry path`) — and discern normalises it into the branch name so the " +
       "worktree is identifiable at a glance instead of an opaque codename; omit it " +
-      "and you get a random codename as before. Each call " +
+      "and you get a random codename as before. Starting work in a DIFFERENT " +
+      "discern project (a dependency's repo, another component of a multi-repo " +
+      "app)? Pass `path` — any absolute path inside that project — and the " +
+      "worktree is created for THAT project, the re-aim following it exactly as " +
+      "for a same-project start. Each call " +
       "mints a NEW worktree (not idempotent) — call it once per line of work. If you " +
       "are already inside a worktree, do NOT call this (you'd create a pointless " +
       'sibling): it refuses (error:"precondition_failed") if invoked anyway. Set ' +
@@ -725,6 +734,14 @@ export const TOOLS: McpTool[] = orderTools([
           "(`{{main_branch}}`), so there is nothing to look up or confirm. Pass a ref " +
           "only for the special case of building on unlanded or experimental work " +
           "(e.g. another worktree's agent/* branch).",
+      ),
+      path: z.string().optional().describe(
+        "Create the worktree FOR the discern project containing this absolute " +
+          "path — the cross-project entry point (e.g. a dependency's repo that runs " +
+          "its own discern). Any path inside that project resolves to its root; the " +
+          "new worktree forks from THAT project's trunk, and on success the re-aim " +
+          "follows it exactly as for a same-project start. Omit for the everyday " +
+          "case: this server's own project.",
       ),
       dry_run: z.boolean().optional().describe(
         "Preview the start plan and touch nothing (default false).",
