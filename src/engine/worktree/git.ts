@@ -784,11 +784,13 @@ export async function addWorktree(
   }
 }
 
-/** Whether the repo at `cwd` has any commit at all — false on an unborn HEAD (a
- * fresh `git init` with no first commit), where nothing can branch. */
+/** Whether the repo at `cwd` has any commit at all — on ANY ref, not just HEAD:
+ * a main checkout parked on an orphan branch still has history to branch from,
+ * and telling it "this repository has no commits yet" is a lie. False only on a
+ * truly commit-less repo (a fresh `git init`), where nothing can branch. */
 export async function hasAnyCommit(cwd: string): Promise<boolean> {
-  return (await git(["rev-parse", "--verify", "--quiet", "HEAD^{commit}"], cwd))
-    .success;
+  const run = await git(["rev-list", "--all", "--max-count=1"], cwd);
+  return run.success && run.stdout.trim() !== "";
 }
 
 /** Whether `branch` exists as a local branch in the repo at `cwd`. */

@@ -549,6 +549,22 @@ export function offTrunkStartHereHint(branch: string, trunk: string): string {
     `worktree — each belongs to another line of work).`;
 }
 
+/**
+ * The {@link offTrunkStartHereHint} sibling for when the configured trunk does
+ * not EXIST — where "run `git switch <trunk>`" would fail and "new worktrees
+ * still fork from the trunk" would be false. Names the misconfiguration and
+ * both ways out; unlike its siblings it IS rendered for humans (a missing trunk
+ * is a real misconfiguration, not agent guidance).
+ */
+export function missingTrunkHint(branch: string, trunk: string): string {
+  const label = branch === "" ? "(detached)" : `'${branch}'`;
+  return `The configured trunk ('${trunk}', [project].main_branch) doesn't ` +
+    `exist in this repository — the main checkout is on ${label}. Worktrees ` +
+    `can't fork from it and graduation can't land on it until they agree: set ` +
+    `[project].main_branch to the branch this project actually uses, or ` +
+    `create the trunk (\`git branch ${trunk}\`).`;
+}
+
 /** Everything the hint builder reads — assembled once so the hints can't drift from
  * the reported data. */
 interface HintContext {
@@ -667,9 +683,14 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
   // which gives the same advice without the false claim. With no git block to check
   // against (no repo), keep the original wording — unverifiable, not contradicted.
   if (ctx.location === "main" && ctx.setupPending === undefined) {
+    // `ahead_integration === null` is the "no local trunk" signal (the same
+    // honesty rule that replaced the fabricated "0 ahead") — the off-trunk
+    // wording would prescribe a `git switch` onto a branch that isn't there.
     hints.push(
       ctx.git !== null && ctx.git.branch !== main
-        ? offTrunkStartHereHint(ctx.git.branch, main)
+        ? ctx.git.ahead_integration === null
+          ? missingTrunkHint(ctx.git.branch, main)
+          : offTrunkStartHereHint(ctx.git.branch, main)
         : START_HERE_HINT,
     );
   }

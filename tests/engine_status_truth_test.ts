@@ -148,6 +148,32 @@ Deno.test("status reports ahead as null (not 0) when the trunk branch is missing
   });
 });
 
+Deno.test("status names a MISSING trunk instead of prescribing a switch onto it", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    // The project is configured for `main`, but the local repo calls it
+    // `master` — 'run `git switch main`' would fail with 'invalid reference',
+    // and 'new worktrees still fork from the trunk' would be false.
+    await git(dir, "branch", "-M", "master");
+    await addWorktree(dir, "somework");
+
+    const result = await statusJson(dir);
+    const hint = (result.hints ?? []).find((h) => h.includes("doesn't exist"));
+    assert(hint !== undefined, JSON.stringify(result.hints));
+    assertStringIncludes(hint, "[project].main_branch");
+    assert(
+      !(result.hints ?? []).some((h) => h.includes("git switch main")),
+      `never prescribe switching onto a branch that isn't there\n${
+        JSON.stringify(result.hints)
+      }`,
+    );
+    // A real misconfiguration, so the human rendering carries it too.
+    const human = await runAgent(dir, ["status"]);
+    assertStringIncludes(human.output, "doesn't exist");
+  });
+});
+
 Deno.test("status's off-trunk-main hint describes the state and the way back", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

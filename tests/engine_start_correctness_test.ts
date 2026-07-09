@@ -145,6 +145,39 @@ for (const state of BAD_STATES) {
   });
 }
 
+Deno.test("start works from a main checkout parked on an ORPHAN branch — the trunk is what matters", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    // Park main on an orphan branch: HEAD is unborn, but the trunk has full
+    // history. Start forks from the trunk ref, never HEAD — refusing this
+    // state with "this repository has no commits yet" was a lie.
+    await git(dir, "checkout", "-q", "--orphan", "scratch");
+
+    const r = await runAgent(dir, ["start", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    assert(
+      !r.output.includes("no commits"),
+      `an orphan HEAD beside a live trunk has commits\n${r.output}`,
+    );
+    const result = JSON.parse(r.stdout) as { data: { path: string } };
+    // The worktree carries the trunk's content (gitInit committed the scaffold).
+    assert(
+      await exists(join(result.data.path, "discern.toml")),
+      `the worktree must fork from the trunk\n${r.output}`,
+    );
+
+    // doctor agrees: this repository has commits, so its shape check passes.
+    const doc = await runAgent(dir, ["doctor", "--json"]);
+    const parsed = JSON.parse(doc.stdout) as {
+      data: { checks: { name: string; ok: boolean; detail: string }[] };
+    };
+    const shape = parsed.data.checks.find((c) => c.name === "repository shape");
+    assert(shape !== undefined, doc.stdout);
+    assertEquals(shape.ok, true, JSON.stringify(shape));
+  });
+});
+
 Deno.test("doctor's repository shape check passes on a healthy repo", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

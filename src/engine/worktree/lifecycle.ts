@@ -2149,26 +2149,29 @@ async function resolveStartPoint(
   ctx: LifecycleContext,
   from: string | undefined,
 ): Promise<string> {
+  if (from !== undefined && from.trim() !== "") {
+    const ref = from.trim();
+    await resolveCommitRef(ctx.root, ref); // refuses unknown/ambiguous
+    return ref;
+  }
+  // The trunk is all a default start needs — the main checkout's HEAD may be
+  // parked anywhere, detached, or even unborn (an orphan branch): the worktree
+  // forks from the trunk ref, never from HEAD.
+  const trunk = integrationBranch(ctx.config.project.main_branch);
+  if (await localBranchExists(ctx.root, trunk)) {
+    return trunk;
+  }
   if (!(await hasAnyCommit(ctx.root))) {
     throw new WorktreeGitError(
       "This repository has no commits yet, so there is nothing to branch a " +
         "worktree from — make your first commit first, then re-run `discern start`.",
     );
   }
-  if (from !== undefined && from.trim() !== "") {
-    const ref = from.trim();
-    await resolveCommitRef(ctx.root, ref); // refuses unknown/ambiguous
-    return ref;
-  }
-  const trunk = integrationBranch(ctx.config.project.main_branch);
-  if (!(await localBranchExists(ctx.root, trunk))) {
-    throw new WorktreeGitError(
-      `New worktrees branch from the trunk, but the local branch '${trunk}' ` +
-        `doesn't exist. Set [project].main_branch to the branch this project ` +
-        `uses, or pass \`--from <ref>\` to branch from a specific ref.`,
-    );
-  }
-  return trunk;
+  throw new WorktreeGitError(
+    `New worktrees branch from the trunk, but the local branch '${trunk}' ` +
+      `doesn't exist. Set [project].main_branch to the branch this project ` +
+      `uses, or pass \`--from <ref>\` to branch from a specific ref.`,
+  );
 }
 
 /**
