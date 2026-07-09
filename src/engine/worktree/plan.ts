@@ -286,6 +286,62 @@ export function setupPlanToEngine(plan: SetupPlan): EnginePlan {
   };
 }
 
+// ── drop ──────────────────────────────────────────────────────────────────────
+
+/** The read-only diagnosis a `worktree drop` acts on: the resolved target, what
+ * discarding it would lose (uncommitted changes, unmerged commits — the
+ * `--force` blockers), and the resources to tear down. Built from the main
+ * checkout; a plan exists even when blocked, so `--dry-run` can show what a
+ * `--force` WOULD discard. */
+export interface DropPlan {
+  /** The resolved worktree's canonical path. */
+  targetPath: string;
+  /** The worktree's id (its directory basename, or the resolved identity). */
+  id: string;
+  /** The checked-out branch to delete after removal, or "" when detached. */
+  branch: string;
+  /** What a drop would discard — empty when the worktree is clean and merged.
+   * Each entry is a human sentence ("3 uncommitted changes", …). */
+  blockers: string[];
+  /** Ledger entries for the worktree's resources, in destruction order. */
+  entries: LedgerItem[];
+}
+
+/** Project a drop onto the shared renderer: tear down resources, remove the
+ * worktree, delete its branch. */
+export function dropPlanToEngine(plan: DropPlan): EnginePlan {
+  const steps: PlanStep[] = [];
+  steps.push({
+    kind: "resource-destroy",
+    label: "teardown resources",
+    disposition: plan.entries.length > 0 ? "run" : "skip",
+    note: plan.entries.length > 0
+      ? "destroy this worktree's external resources"
+      : "no resources recorded",
+  });
+  steps.push({
+    kind: "git",
+    label: "remove-worktree",
+    disposition: "run",
+    note: plan.targetPath,
+  });
+  steps.push({
+    kind: "git",
+    label: "delete-branch",
+    disposition: plan.branch !== "" ? "run" : "skip",
+    note: plan.branch !== "" ? plan.branch : "detached — no branch to delete",
+  });
+  const details = [
+    `Worktree: ${plan.id}`,
+    `Path:     ${plan.targetPath}`,
+    `Branch:   ${plan.branch !== "" ? plan.branch : "(detached)"}`,
+  ];
+  if (plan.blockers.length > 0) {
+    details.push(`Discards: ${plan.blockers.join("; ")}`);
+  }
+  return { title: "Drop plan", details, steps };
+}
+
 // ── prune ─────────────────────────────────────────────────────────────────────
 
 /**

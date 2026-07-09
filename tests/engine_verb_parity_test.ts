@@ -185,6 +185,7 @@ Deno.test("ENGINE_RECIPE_NAMES is the engine verbs minus the command groups, plu
     "worktree-remove",
     "worktree-ensure",
     "worktree-teardown",
+    "worktree-drop",
     "worktree-prune",
   ];
 

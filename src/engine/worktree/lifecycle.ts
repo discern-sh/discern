@@ -14,7 +14,7 @@
  * failure; [worktree.setup].ensure re-runs on every pass to converge the worktree.
  */
 
-import { isAbsolute, join, relative } from "@std/path";
+import { basename, isAbsolute, join, relative } from "@std/path";
 import { type Logger, loggerSink } from "../../lib/log.ts";
 import { canPrompt, confirmProceed } from "../../lib/prompts.ts";
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
@@ -52,6 +52,8 @@ import {
   recordResourceEnv,
 } from "./resources.ts";
 import {
+  type DropPlan,
+  dropPlanToEngine,
   type GraduatePlan,
   graduatePlanToEngine,
   type IntegratePlan,
@@ -94,6 +96,7 @@ import {
   integrateMain,
   integrationBranch,
   integrationDelta,
+  listWorktreeFleet,
   liveWorktreeGitKeys,
   liveWorktreePaths,
   localBranchExists,
@@ -754,6 +757,229 @@ export async function worktreeTeardown(
   emitOrRenderWorktreeResult(
     ctx,
     appliedResult("worktree teardown", results),
+    opts.json ?? false,
+  );
+}
+
+/** Options for {@link worktreeDrop}. */
+export interface WorktreeDropOptions extends WorktreeOpOptions {
+  /** Discard even when the worktree holds uncommitted changes or unmerged commits. */
+  force?: boolean;
+}
+
+/**
+ * The read-only diagnosis a `worktree drop` acts on: resolve `target` (a worktree
+ * id or path) against git's own registry, snapshot what discarding it would lose,
+ * and read its resource ledger. Refuses an unknown target (listing the known ids)
+ * and the main checkout. A plan exists even when blocked — `--dry-run` shows what
+ * a `--force` WOULD discard; the executor enforces the `--force` gate.
+ */
+async function buildDropPlan(
+  ctx: LifecycleContext,
+  target: string,
+): Promise<DropPlan> {
+  await assertNotInWorktree("discern worktree drop", ctx.cwd);
+  if (target.trim() === "") {
+    throw new WorktreeGitError(
+      "discern worktree drop needs a target — a worktree id or path.",
+    );
+  }
+  const trunk = integrationBranch(ctx.config.project.main_branch);
+  const fleet = (await listWorktreeFleet(ctx.cwd, trunk)).filter((row) =>
+    !row.isMain
+  );
+  if (fleet.length === 0) {
+    throw new WorktreeGitError("No linked worktrees exist to drop.");
+  }
+
+  // Match by canonical path, by directory basename, or by resolved worktree id.
+  const wanted = target.trim().replace(/\/+$/, "");
+  const wantedAbs = isAbsolute(wanted)
+    ? await Deno.realPath(wanted).catch(() => wanted)
+    : undefined;
+  const settings = await loadIdentitySettings(ctx.root).catch(() => undefined);
+  let match: (typeof fleet)[number] | undefined;
+  for (const row of fleet) {
+    if (row.path === wantedAbs || basename(row.path) === wanted) {
+      match = row;
+      break;
+    }
+    if (settings !== undefined) {
+      const id = await resolveWorktreeId(settings, row.path).catch(() =>
+        undefined
+      );
+      if (id === wanted) {
+        match = row;
+        break;
+      }
+    }
+  }
+  if (match === undefined) {
+    const known = fleet.map((row) => basename(row.path)).join(", ");
+    throw new WorktreeGitError(
+      `No worktree matches '${target}'. Known worktrees: ${known}. ` +
+        `Pass a worktree id (the directory name) or its path.`,
+    );
+  }
+
+  // What a drop would lose — the `--force` blockers.
+  const blockers: string[] = [];
+  if (match.changedFiles > 0) {
+    blockers.push(
+      `${match.changedFiles} uncommitted change${
+        match.changedFiles === 1 ? "" : "s"
+      }`,
+    );
+  }
+  if (await localBranchExists(ctx.root, trunk)) {
+    if (match.ahead > 0) {
+      blockers.push(
+        `${match.ahead} commit${match.ahead === 1 ? "" : "s"} not on ${trunk}`,
+      );
+    }
+  } else {
+    blockers.push(
+      `cannot verify the work is merged (no local '${trunk}' branch)`,
+    );
+  }
+
+  // The resource ledger for the target (destruction order), read via ITS git key.
+  const commonGitDir = await resolveCommonGitDir(ctx.cwd);
+  const gitKey = await worktreeGitKey(match.path);
+  const entries = commonGitDir !== undefined && gitKey !== undefined
+    ? await entriesForWorktree(commonGitDir, gitKey)
+    : [];
+
+  return {
+    targetPath: match.path,
+    id: basename(match.path),
+    branch: match.branch,
+    blockers,
+    entries,
+  };
+}
+
+/**
+ * Discard a worktree from the main checkout — the `discern worktree drop`
+ * command, the sanctioned removal for abandoned work (`worktree prune` only ever
+ * reclaims fully-merged, clean worktrees; before this verb the fallback was raw
+ * `rm -rf`). Tears down the worktree's resources, removes the worktree directory
+ * and registration, and deletes its branch. When the worktree holds uncommitted
+ * changes or commits not on the trunk it refuses without `--force`, naming
+ * exactly what a forced drop would discard. `--dry-run` shows the plan and
+ * touches nothing. Deliberately CLI-only — no MCP tool: the MCP surface aims at
+ * the caller's OWN worktree, every other worktree is another line of work an
+ * agent must never remove (the fleet ownership rule), and discarding work is a
+ * human supervisory action; `status` hints carry the command to the human.
+ */
+export async function worktreeDrop(
+  ctx: LifecycleContext,
+  target: string,
+  opts: WorktreeDropOptions = {},
+): Promise<void> {
+  const plan = await buildDropPlan(ctx, target);
+  if (opts.dryRun ?? false) {
+    emitDryRun(
+      ctx,
+      "worktree drop",
+      dropPlanToEngine(plan),
+      opts.json ?? false,
+    );
+    return;
+  }
+
+  if (plan.blockers.length > 0 && !(opts.force ?? false)) {
+    throw new WorktreeGitError(
+      `Worktree '${plan.id}' has work a drop would discard: ${
+        plan.blockers.join("; ")
+      }. Resume a session there to finish or land it, or re-run with --force ` +
+        `to discard it permanently.`,
+    );
+  }
+
+  ctx.log.heading(`Dropping worktree '${plan.id}'…`);
+  const steps: StepResult[] = [];
+
+  // 1. Tear down its resources, best-effort — from inside the target so
+  // `@dir@`-bearing destroys resolve; a configless (broken) worktree falls back to
+  // the main checkout's context (resource commands are authored cwd-independent).
+  // A teardown hiccup never strands the drop; `worktree prune`'s GC is the backstop.
+  let destroyed: string[] = [];
+  let failed: string[] = [];
+  if (plan.entries.length > 0) {
+    const teardownCtx = await lifecycleContext(
+      plan.targetPath,
+      ctx.log,
+      plan.targetPath,
+    ).catch(() => ctx);
+    ({ destroyed, failed } = await destroyResources(
+      teardownCtx,
+      plan.entries,
+    ));
+  }
+  for (const item of plan.entries) {
+    steps.push({
+      step: {
+        kind: "resource-destroy",
+        label: item.entry.resource_name,
+        disposition: "run",
+        note: item.entry.resource_identity,
+      },
+      outcome: failed.includes(item.entry.resource_name)
+        ? "failed"
+        : destroyed.includes(item.entry.resource_name)
+        ? "ok"
+        : "skipped",
+    });
+  }
+
+  // 2. Remove the worktree directory + registration.
+  ctx.log.info(`Removing worktree: ${plan.targetPath}`);
+  try {
+    await removeWorktreeSafely(plan.targetPath, ctx.root);
+  } catch {
+    throw new WorktreeGitError(
+      `Worktree removal failed for ${plan.targetPath}. Run 'git worktree list' to investigate.`,
+    );
+  }
+  steps.push({
+    step: {
+      kind: "git",
+      label: "remove-worktree",
+      disposition: "run",
+      note: plan.targetPath,
+    },
+    outcome: "ok",
+  });
+
+  // 3. Delete its branch (force — the --force gate above is the consent for an
+  // unmerged branch; a merged one deletes the same way).
+  if (plan.branch !== "") {
+    const del = await makeGitRunner(ctx)(
+      ["branch", "-D", plan.branch],
+      ctx.root,
+    );
+    if (!del.success) {
+      throw new WorktreeGitError(
+        `The worktree was removed, but deleting its branch '${plan.branch}' failed. Git said:\n    ${del.stderr.trim()}`,
+      );
+    }
+    ctx.log.ok(`Deleted branch ${plan.branch}.`);
+    steps.push({
+      step: {
+        kind: "git",
+        label: "delete-branch",
+        disposition: "run",
+        note: plan.branch,
+      },
+      outcome: "ok",
+    });
+  }
+
+  ctx.log.ok(`Worktree '${plan.id}' dropped.`);
+  emitOrRenderWorktreeResult(
+    ctx,
+    appliedResult("worktree drop", steps),
     opts.json ?? false,
   );
 }

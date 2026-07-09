@@ -58,6 +58,7 @@ import {
   type LifecycleContext,
   lifecycleContext,
   start,
+  worktreeDrop,
   worktreeEnsure,
   worktreeErrorResult,
   WorktreeGitError,
@@ -99,7 +100,7 @@ export const KNOWN_ENGINE_VERBS: ReadonlySet<string> = new Set([
 /** Hyphenated engine recipe filenames plus their displayed command form, for the suggester.
  * Intentionally NOT equal to {@link KNOWN_ENGINE_VERBS}: it drops the command-group
  * verbs that have no recipe form (skills, mcp) and adds the worktree sub-recipes
- * (worktree-setup/create/remove/ensure/teardown/prune). That deliberate relationship is
+ * (worktree-setup/create/remove/ensure/teardown/drop/prune). That deliberate relationship is
  * tied to the verb SSOT by `tests/engine_verb_parity_test.ts`, so a new engine verb
  * forces a conscious choice here rather than silently drifting. */
 export const ENGINE_RECIPE_NAMES: readonly string[] = [
@@ -121,6 +122,7 @@ export const ENGINE_RECIPE_NAMES: readonly string[] = [
   "worktree-remove",
   "worktree-ensure",
   "worktree-teardown",
+  "worktree-drop",
   "worktree-prune",
 ];
 
@@ -668,6 +670,37 @@ export function attachEngineCommands(root: Command): void {
         )
         .action(async () => {
           Deno.exit(await worktreeRemoveHook());
+        }),
+    )
+    .command(
+      "drop",
+      new Command()
+        .description(
+          "Discard a worktree from the main checkout: tear down its resources, remove it, delete its branch. Refuses unmerged or uncommitted work without --force.",
+        )
+        .option(
+          "--force",
+          "Discard even when the worktree holds uncommitted changes or commits not on the trunk.",
+        )
+        .option("--dry-run", "Show the drop plan; touch nothing.")
+        .option(
+          "--json",
+          "Emit the result as a JSON DiscernResult object on stdout.",
+        )
+        .arguments("<target:string>")
+        .action(async (o, target) => {
+          const json = o.json ?? false;
+          Deno.exit(
+            await runWorktreeOp(
+              (ctx) =>
+                worktreeDrop(ctx, target, {
+                  json,
+                  dryRun: o.dryRun ?? false,
+                  force: o.force ?? false,
+                }),
+              { json, verb: "worktree drop" },
+            ),
+          );
         }),
     )
     .command(

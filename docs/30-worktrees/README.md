@@ -91,13 +91,23 @@ landed sources
 main-checkout precondition also cares about tracked changes, not untracked local
 scratch; the worktree precondition is stricter because graduation refuses any
 tracked, not staged, staged, or untracked worktree change before it removes the
-checkout; [`worktree prune`](../../src/engine/worktree/lifecycle.ts) sweeps
-stale Worktrees and **reclaims the resources of any Worktree that vanished
-without a clean teardown** (the garbage-collection safety net).
-[`status`](../../src/engine/status/status.ts) uses the same ordinary Git-clean
-boundary as prune for its local and fleet `clean` fields: tracked changes and
-untracked non-ignored files make a Worktree dirty, while ignored
-provider-local/generated files stay out of the signal.
+checkout; [`worktree drop <id|path>`](../../src/engine/worktree/lifecycle.ts) —
+run from the main checkout — is the sanctioned removal for **abandoned work**:
+it tears down the worktree's resources, removes the worktree, and deletes its
+branch, refusing without `--force` when the worktree holds uncommitted changes
+or commits not on the trunk (naming exactly what a forced drop would discard).
+It is deliberately CLI-only, with no MCP tool: the MCP surface aims at the
+caller's _own_ worktree, every other worktree is another line of work an agent
+must never remove (the fleet ownership rule), so discarding work is a human
+supervisory action — `status` hints carry the command to the human.
+[`worktree prune`](../../src/engine/worktree/lifecycle.ts) sweeps stale
+Worktrees and **reclaims the resources of any Worktree that vanished without a
+clean teardown** (the garbage-collection safety net); it only ever removes
+fully-merged, clean worktrees — discarding real work is `drop`'s job, behind its
+explicit `--force`. [`status`](../../src/engine/status/status.ts) uses the same
+ordinary Git-clean boundary as prune for its local and fleet `clean` fields:
+tracked changes and untracked non-ignored files make a Worktree dirty, while
+ignored provider-local/generated files stay out of the signal.
 [`identity`](../../src/engine/worktree/identity.ts) resolves a Worktree's stable
 identity (id / site / branch / port / db / worktree / resource).
 
