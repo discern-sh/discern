@@ -2288,11 +2288,17 @@ Deno.test("discern mcp: a failing discern_ratchets apply returns an ok:false env
     );
     // …and the envelope says WHY, not just that it failed. The reason travels in
     // diagnostics[]: an MCP caller cannot hear the live logger, so a bare failed
-    // step would force a fall-back to the CLI to learn what the CLI narrates.
+    // step would force a fall-back to the CLI to learn what the CLI narrates. The
+    // reproduce is the ratchet's own measurement command, and the applied step's
+    // note carries the measured value.
     const diag = (payload.diagnostics ?? [])[0];
     assertEquals(diag?.tool, "coverage", JSON.stringify(payload));
     assertStringIncludes(diag?.message ?? "", "below the floor 80");
-    assertStringIncludes(diag?.reproduce_cmd ?? "", "discern ratchets");
+    assertStringIncludes(diag?.reproduce_cmd ?? "", "DISCERN_METRIC coverage");
+    const failedStep = payload.steps.find(
+      (s: { outcome: string }) => s.outcome === "failed",
+    );
+    assertStringIncludes(failedStep?.note ?? "", "measured 10");
 
     assertEquals(await mcp.close(), 0);
   });

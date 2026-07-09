@@ -124,8 +124,12 @@ next commit would breach; pin also skips a gain smaller than the margin.
 ## When a ratchet fires
 
 Every failure reports its reason in the result envelope's `diagnostics[]` — the
-measured value against the limit, or which limit was loosened — so an MCP or
-`--json` caller reads why directly; the CLI narrates the same words live.
+measured value against the limit, or which limit was loosened — with the
+ratchet's own `run` as the `reproduce_cmd` when the measurement is what fell
+short. Each measured step's note carries its value
+(`up, limit 80, measured
+85`), held or not. An MCP or `--json` caller reads all
+of this directly; the CLI narrates the same words live.
 
 A ratchet fails for one of two reasons, and they call for opposite responses.
 

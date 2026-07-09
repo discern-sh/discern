@@ -176,6 +176,10 @@ interface RatchetVerdict {
   reason?: string;
   /** The measurement command's captured output, when it is the failure's evidence. */
   output?: string;
+  /** The command that reproduces the failure — the ratchet's own `run` when the
+   * measurement is what failed or fell short; absent for the structural failures
+   * (a loosened limit, a missing command), where re-running measures nothing. */
+  reproduce_cmd?: string;
 }
 
 /** Check one planned ratchet: the never-loosen read, the measurement, the comparison.
@@ -229,13 +233,13 @@ async function ratchetCheck(
     const reason =
       `ratchet '${name}': could not read metric '${metric}'. Emit a line: DISCERN_METRIC ${metric} <number>.`;
     out.error(reason);
-    return { held: false, reason, output };
+    return { held: false, reason, output, reproduce_cmd: command };
   }
   if (!isNumber(measuredStr)) {
     const reason =
       `ratchet '${name}': metric '${metric}' value is not a number: '${measuredStr}'.`;
     out.error(reason);
-    return { held: false, reason, output };
+    return { held: false, reason, output, reproduce_cmd: command };
   }
   const measured = Number(measuredStr);
 
@@ -252,7 +256,7 @@ async function ratchetCheck(
         const reason =
           `ratchet '${name}': could not read 'per' metric '${per.metric}'. Emit a line: DISCERN_METRIC ${per.metric} <number>.`;
         out.error(reason);
-        return { held: false, reason, output };
+        return { held: false, reason, output, reproduce_cmd: command };
       }
       denom = d;
     } else {
@@ -280,7 +284,7 @@ async function ratchetCheck(
       const reason =
         `ratchet '${name}': ${metric} ${shown} is below the floor ${limit}${breakdown}. Improve it; never lower the floor.`;
       out.error(reason);
-      return { held: false, value, reason };
+      return { held: false, value, reason, reproduce_cmd: command };
     }
     out.ok(
       `ratchet '${name}': ${metric} ${shown} meets the floor ${limit}${breakdown}.`,
@@ -295,7 +299,7 @@ async function ratchetCheck(
       const reason =
         `ratchet '${name}': ${metric} ${shown} exceeds the ceiling ${limit}${breakdown}. Bring it down; never raise the ceiling.${growHint}`;
       out.error(reason);
-      return { held: false, value, reason };
+      return { held: false, value, reason, reproduce_cmd: command };
     }
     out.ok(
       `ratchet '${name}': ${metric} ${shown} within the ceiling ${limit}${breakdown}.`,
@@ -396,7 +400,18 @@ async function executeRatchetPlan(
     }
     const verdict = await ratchetCheck(r, root, mainBranch, out);
     const outcome: StepOutcome = verdict.held ? "ok" : "failed";
-    results.push({ step, outcome });
+    // The applied step's note carries the measured value (the plan's note cannot —
+    // nothing has run yet), so an envelope-only caller sees the number on every
+    // measured step, held or not, without re-running a slow measurement.
+    const note = verdict.value !== undefined
+      ? `${step.note !== undefined ? `${step.note}, ` : ""}measured ${
+        fmtRate(verdict.value)
+      }`
+      : step.note;
+    results.push({
+      step: { ...step, ...(note !== undefined ? { note } : {}) },
+      outcome,
+    });
     outcomes.push({
       ratchet: r,
       held: verdict.held,
@@ -405,12 +420,14 @@ async function executeRatchetPlan(
     if (!verdict.held) {
       ok = false;
       // The same words the logger narrated, mirrored into the envelope — a failed
-      // ratchets step always travels with its reason (never logger-only).
+      // ratchets step always travels with its reason (never logger-only). The
+      // reproduce is the ratchet's own run command when the measurement is the
+      // failure; the structural failures fall back to the verb itself.
       diagnostics.push({
         tool: step.label,
         severity: "error",
         message: verdict.reason ?? `ratchet '${r.name}' failed.`,
-        reproduce_cmd: "discern ratchets",
+        reproduce_cmd: verdict.reproduce_cmd ?? "discern ratchets",
         ...(verdict.output !== undefined
           ? await diagnosticOutputFields(verdict.output)
           : {}),

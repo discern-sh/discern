@@ -182,6 +182,14 @@ Deno.test("ratchets: coverage fails when the emitted metric is below the floor",
     const diag = (obj.diagnostics ?? [])[0];
     assertEquals(diag?.tool, "coverage", json.stdout);
     assertStringIncludes(diag?.message ?? "", "below the floor 80");
+    // The reproduce is the ratchet's own measurement command, and the applied
+    // step's note carries the measured value — no re-measurement needed to see
+    // the number.
+    assertStringIncludes(
+      diag?.reproduce_cmd ?? "",
+      "DISCERN_METRIC coverage 70",
+    );
+    assertStringIncludes((obj.steps ?? [])[0]?.note ?? "", "measured 70");
   });
 });
 
@@ -245,6 +253,17 @@ Deno.test("ratchets: a limit may not be lowered vs main", async () => {
     // root discern.toml (with the legacy .discern/config.toml as a fallback).
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.stderr, "only rises");
+
+    // The envelope distinguishes THIS failure mode from a low measurement: the
+    // diagnostic names the loosened limit and both values, and the reproduce is
+    // the verb (a structural failure — re-running the measurement proves nothing).
+    const json = await runAgent(dir, ["ratchets", "--json"]);
+    const obj = parseRatchetsJson(json.stdout);
+    const diag = (obj.diagnostics ?? [])[0];
+    assertEquals(diag?.tool, "coverage", json.stdout);
+    assertStringIncludes(diag?.message ?? "", "floor 80 -> 70");
+    assertStringIncludes(diag?.message ?? "", "only rises");
+    assertEquals(diag?.reproduce_cmd, "discern ratchets");
   });
 });
 
