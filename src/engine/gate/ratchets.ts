@@ -1032,7 +1032,8 @@ export async function runRatchets(
 
   const execution = await executeRatchetPlan(plan, root, mainBranch, out);
   await recordCheckMeasurements(root, execution);
-  const result = appliedResult("ratchets", execution.results);
+  const { results } = execution;
+  const result = appliedResult("ratchets", results);
   renderStepResults(outSink(out), {
     title: "Ratchet results",
     steps: result.steps ?? [],

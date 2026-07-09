@@ -766,7 +766,11 @@ Deno.test("receipt: a malformed receipt file is ignored — the pin measures fre
 
     const pin = await runAgent(dir, ["ratchets", "--pin"]);
     assertEquals(pin.code, 0, pin.output);
-    assertEquals(await measureCount(dir), 1, "garbage must read as a cache miss");
+    assertEquals(
+      await measureCount(dir),
+      1,
+      "garbage must read as a cache miss",
+    );
     assertEquals(limitOf(await readConfig(dir), "coverage"), "95");
   });
 });
