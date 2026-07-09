@@ -2286,6 +2286,13 @@ Deno.test("discern mcp: a failing discern_ratchets apply returns an ok:false env
       payload.steps.some((s: { outcome: string }) => s.outcome === "failed"),
       JSON.stringify(payload),
     );
+    // …and the envelope says WHY, not just that it failed. The reason travels in
+    // diagnostics[]: an MCP caller cannot hear the live logger, so a bare failed
+    // step would force a fall-back to the CLI to learn what the CLI narrates.
+    const diag = (payload.diagnostics ?? [])[0];
+    assertEquals(diag?.tool, "coverage", JSON.stringify(payload));
+    assertStringIncludes(diag?.message ?? "", "below the floor 80");
+    assertStringIncludes(diag?.reproduce_cmd ?? "", "discern ratchets");
 
     assertEquals(await mcp.close(), 0);
   });

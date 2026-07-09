@@ -30,6 +30,7 @@ import {
 } from "./ratchet_plan.ts";
 import {
   appliedResult,
+  type Diagnostic,
   type DiscernResult,
   type PlanStep,
   previewResult,
@@ -38,6 +39,7 @@ import {
   type StepOutcome,
   type StepResult,
 } from "../../shared/result.ts";
+import { diagnosticOutputFields } from "./diagnostic_output.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { setupInProgressHint } from "../../shared/setup_state.ts";
 import { runGit, runShell } from "../../shared/subprocess.ts";
@@ -161,6 +163,21 @@ function fmtRate(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/\.?0+$/, "");
 }
 
+/** One ratchet check's verdict. When it failed, `reason` carries the same words the
+ * logger printed — the caller mirrors them into the result envelope's diagnostics, so
+ * a caller that can't hear the live logger (MCP, `--json`) still learns WHY. The
+ * metric-reading failures also carry the measurement `output`: the evidence needed to
+ * see why no metric emerged. */
+interface RatchetVerdict {
+  held: boolean;
+  /** The value compared to the limit (rate or count); absent when unmeasurable. */
+  value?: number;
+  /** The failure reason, exactly as narrated; absent when the ratchet held. */
+  reason?: string;
+  /** The measurement command's captured output, when it is the failure's evidence. */
+  output?: string;
+}
+
 /** Check one planned ratchet: the never-loosen read, the measurement, the comparison.
  * Prints its own pass/fail line and returns whether it `held` plus the measured `value`
  * (the rate or count compared to the limit) when a measurement was taken — the value
@@ -172,32 +189,32 @@ async function ratchetCheck(
   root: string,
   mainBranch: string,
   out: Out,
-): Promise<{ held: boolean; value?: number }> {
+): Promise<RatchetVerdict> {
   const { name, metric, direction, limit, command, limitKey, per, scale } = r;
 
   // never loosened vs main
   const main = await ratchetMainValue(root, mainBranch, limitKey);
   if (main !== undefined) {
     if (direction === "up" && limit < main) {
-      out.error(
-        `ratchet '${name}': floor ${main} -> ${limit} vs ${mainBranch} — the floor only rises. Raise the metric, don't loosen the gate.`,
-      );
-      return { held: false };
+      const reason =
+        `ratchet '${name}': floor ${main} -> ${limit} vs ${mainBranch} — the floor only rises. Raise the metric, don't loosen the gate.`;
+      out.error(reason);
+      return { held: false, reason };
     }
     if (direction === "down" && limit > main) {
-      out.error(
-        `ratchet '${name}': ceiling ${main} -> ${limit} vs ${mainBranch} — the ceiling only falls. Lower the metric, don't loosen the gate.`,
-      );
-      return { held: false };
+      const reason =
+        `ratchet '${name}': ceiling ${main} -> ${limit} vs ${mainBranch} — the ceiling only falls. Lower the metric, don't loosen the gate.`;
+      out.error(reason);
+      return { held: false, reason };
     }
   }
 
   // measure
   if (command === "") {
-    out.error(
-      `ratchet '${name}' has no run command (set run = "<command>" under [ratchets.${name}]).`,
-    );
-    return { held: false };
+    const reason =
+      `ratchet '${name}' has no run command (set run = "<command>" under [ratchets.${name}]).`;
+    out.error(reason);
+    return { held: false, reason };
   }
   out.heading(
     `Measuring ${metric} (${direction}, limit ${limit}${
@@ -209,16 +226,16 @@ async function ratchetCheck(
 
   const measuredStr = extractMetric(output, metric);
   if (measuredStr === undefined) {
-    out.error(
-      `ratchet '${name}': could not read metric '${metric}'. Emit a line: DISCERN_METRIC ${metric} <number>.`,
-    );
-    return { held: false };
+    const reason =
+      `ratchet '${name}': could not read metric '${metric}'. Emit a line: DISCERN_METRIC ${metric} <number>.`;
+    out.error(reason);
+    return { held: false, reason, output };
   }
   if (!isNumber(measuredStr)) {
-    out.error(
-      `ratchet '${name}': metric '${metric}' value is not a number: '${measuredStr}'.`,
-    );
-    return { held: false };
+    const reason =
+      `ratchet '${name}': metric '${metric}' value is not a number: '${measuredStr}'.`;
+    out.error(reason);
+    return { held: false, reason, output };
   }
   const measured = Number(measuredStr);
 
@@ -232,10 +249,10 @@ async function ratchetCheck(
     if (per.kind === "metric") {
       const d = readEmittedNumber(output, per.metric);
       if (d === undefined) {
-        out.error(
-          `ratchet '${name}': could not read 'per' metric '${per.metric}'. Emit a line: DISCERN_METRIC ${per.metric} <number>.`,
-        );
-        return { held: false };
+        const reason =
+          `ratchet '${name}': could not read 'per' metric '${per.metric}'. Emit a line: DISCERN_METRIC ${per.metric} <number>.`;
+        out.error(reason);
+        return { held: false, reason, output };
       }
       denom = d;
     } else {
@@ -245,10 +262,10 @@ async function ratchetCheck(
       const what = per.kind === "metric"
         ? `'per' metric '${per.metric}' is ${denom}`
         : `${per.measure} over ${per.globs.join(", ")} measured 0`;
-      out.error(
-        `ratchet '${name}': cannot ratchet a rate — ${what} (nothing to divide by). Check the 'per' pathspec/metric.`,
-      );
-      return { held: false };
+      const reason =
+        `ratchet '${name}': cannot ratchet a rate — ${what} (nothing to divide by). Check the 'per' pathspec/metric.`;
+      out.error(reason);
+      return { held: false, reason };
     }
     value = (measured / denom) * scale;
     breakdown = ` (${measuredStr} per ${denom}${
@@ -260,10 +277,10 @@ async function ratchetCheck(
   // compare the value (rate or count) vs limit (epsilon tolerance)
   if (direction === "up") {
     if (value + 1e-9 < limit) {
-      out.error(
-        `ratchet '${name}': ${metric} ${shown} is below the floor ${limit}${breakdown}. Improve it; never lower the floor.`,
-      );
-      return { held: false, value };
+      const reason =
+        `ratchet '${name}': ${metric} ${shown} is below the floor ${limit}${breakdown}. Improve it; never lower the floor.`;
+      out.error(reason);
+      return { held: false, value, reason };
     }
     out.ok(
       `ratchet '${name}': ${metric} ${shown} meets the floor ${limit}${breakdown}.`,
@@ -275,10 +292,10 @@ async function ratchetCheck(
       const growHint = per === undefined
         ? " If this counts items over a tree you grow, it rises with size — ratchet a rate instead (add `per`)."
         : "";
-      out.error(
-        `ratchet '${name}': ${metric} ${shown} exceeds the ceiling ${limit}${breakdown}. Bring it down; never raise the ceiling.${growHint}`,
-      );
-      return { held: false, value };
+      const reason =
+        `ratchet '${name}': ${metric} ${shown} exceeds the ceiling ${limit}${breakdown}. Bring it down; never raise the ceiling.${growHint}`;
+      out.error(reason);
+      return { held: false, value, reason };
     }
     out.ok(
       `ratchet '${name}': ${metric} ${shown} within the ceiling ${limit}${breakdown}.`,
@@ -296,12 +313,15 @@ interface RatchetOutcome {
   value?: number;
 }
 
-/** The outcome of applying a ratchet plan: whether all held, the per-step results, and
- * the per-ratchet measured outcomes (which the pin pass reads). */
+/** The outcome of applying a ratchet plan: whether all held, the per-step results, the
+ * per-ratchet measured outcomes (which the pin pass reads), and one diagnostic per
+ * failure carrying its reason — the envelope's channel for WHY, so a caller that
+ * can't hear the live logger (MCP, `--json`) is never left with a bare failed step. */
 interface RatchetExecution {
   ok: boolean;
   results: StepResult[];
   outcomes: RatchetOutcome[];
+  diagnostics: Diagnostic[];
 }
 
 function ratchetPlanIntegrityResult(
@@ -343,13 +363,25 @@ async function executeRatchetPlan(
   out: Out,
 ): Promise<RatchetExecution> {
   const steps = ratchetPlanToEngine(plan).steps;
+  const integrityDiagnostic = (failure: StepResult): Diagnostic => ({
+    tool: failure.step.label,
+    severity: "error",
+    message: failure.step.note ?? "Ratchet plan integrity check failed.",
+    reproduce_cmd: "discern ratchets",
+  });
   const mismatch = ratchetPlanIntegrityFailure(plan, steps);
   if (mismatch !== undefined) {
     out.error(mismatch.step.note ?? "Ratchet plan integrity check failed.");
-    return { ok: false, results: [mismatch], outcomes: [] };
+    return {
+      ok: false,
+      results: [mismatch],
+      outcomes: [],
+      diagnostics: [integrityDiagnostic(mismatch)],
+    };
   }
   const results: StepResult[] = [];
   const outcomes: RatchetOutcome[] = [];
+  const diagnostics: Diagnostic[] = [];
   let ok = true;
   for (let i = 0; i < plan.ratchets.length; i++) {
     const r = plan.ratchets[i];
@@ -358,22 +390,34 @@ async function executeRatchetPlan(
       const failure = ratchetPlanIntegrityResult(plan, steps);
       out.error(failure.step.note ?? "Ratchet plan integrity check failed.");
       results.push(failure);
+      diagnostics.push(integrityDiagnostic(failure));
       ok = false;
       break;
     }
-    const { held, value } = await ratchetCheck(r, root, mainBranch, out);
-    const outcome: StepOutcome = held ? "ok" : "failed";
+    const verdict = await ratchetCheck(r, root, mainBranch, out);
+    const outcome: StepOutcome = verdict.held ? "ok" : "failed";
     results.push({ step, outcome });
     outcomes.push({
       ratchet: r,
-      held,
-      ...(value !== undefined ? { value } : {}),
+      held: verdict.held,
+      ...(verdict.value !== undefined ? { value: verdict.value } : {}),
     });
-    if (!held) {
+    if (!verdict.held) {
       ok = false;
+      // The same words the logger narrated, mirrored into the envelope — a failed
+      // ratchets step always travels with its reason (never logger-only).
+      diagnostics.push({
+        tool: step.label,
+        severity: "error",
+        message: verdict.reason ?? `ratchet '${r.name}' failed.`,
+        reproduce_cmd: "discern ratchets",
+        ...(verdict.output !== undefined
+          ? await diagnosticOutputFields(verdict.output)
+          : {}),
+      });
     }
   }
-  return { ok, results, outcomes };
+  return { ok, results, outcomes, diagnostics };
 }
 
 // ── `--pin`: capture a measured improvement into the limit (ADR 0106) ──────────
@@ -513,7 +557,7 @@ async function pinRatchetsResult(
 
   const mainBranch = Deno.env.get("MAIN_BRANCH") || cfg.project.main_branch;
   const out = makeOut(colorEnabled(), { quiet: true });
-  const { ok, results, outcomes } = await executeRatchetPlan(
+  const { ok, results, outcomes, diagnostics } = await executeRatchetPlan(
     plan,
     root,
     mainBranch,
@@ -525,11 +569,11 @@ async function pinRatchetsResult(
     const failing = outcomes.filter((o) => !o.held).map((o) => o.ratchet.name);
     const named = failing.length > 0 ? failing.join(", ") : "a ratchet";
     return {
-      ...appliedResult("ratchets", results),
+      ...appliedResult("ratchets", results, diagnostics),
       hints: [
         `Not pinning: ${named} ${
           failing.length === 1 ? "is" : "are"
-        } failing. Run \`discern ratchets\` to see why, then re-run \`discern ratchets --pin\` once green.`,
+        } failing (diagnostics[] carries each reason). Fix them, then re-run \`discern ratchets --pin\` once green.`,
       ],
     };
   }
@@ -673,8 +717,13 @@ export async function ratchetsResult(
     } else {
       const mainBranch = Deno.env.get("MAIN_BRANCH") || cfg.project.main_branch;
       const out = makeOut(colorEnabled(), { quiet: true });
-      const { results } = await executeRatchetPlan(plan, root, mainBranch, out);
-      result = appliedResult("ratchets", results);
+      const { results, diagnostics } = await executeRatchetPlan(
+        plan,
+        root,
+        mainBranch,
+        out,
+      );
+      result = appliedResult("ratchets", results, diagnostics);
     }
   }
   // Pre-setup, lead with the "setup unfinished" advisory (ADR 0065): ratchets is

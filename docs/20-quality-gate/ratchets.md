@@ -123,6 +123,10 @@ next commit would breach; pin also skips a gain smaller than the margin.
 
 ## When a ratchet fires
 
+Every failure reports its reason in the result envelope's `diagnostics[]` — the
+measured value against the limit, or which limit was loosened — so an MCP or
+`--json` caller reads why directly; the CLI narrates the same words live.
+
 A ratchet fails for one of two reasons, and they call for opposite responses.
 
 - **The metric regressed** — coverage fell, the binary grew, the suppression

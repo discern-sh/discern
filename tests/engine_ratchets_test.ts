@@ -32,6 +32,13 @@ interface RatchetsJson {
     outcome: string;
     note?: string;
   }>;
+  diagnostics?: Array<{
+    tool: string;
+    severity: string;
+    message: string;
+    reproduce_cmd: string;
+    output?: string;
+  }>;
 }
 
 function parseRatchetsJson(stdout: string): RatchetsJson {
@@ -164,6 +171,17 @@ Deno.test("ratchets: coverage fails when the emitted metric is below the floor",
     const r = await runAgent(dir, ["ratchets"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.stderr, "below the floor");
+
+    // The envelope carries the reason too: a caller that can't hear the live
+    // narration (MCP, --json) must read the same words from diagnostics[], never
+    // be left with a bare failed step.
+    const json = await runAgent(dir, ["ratchets", "--json"]);
+    assertEquals(json.code, 1, json.output);
+    const obj = parseRatchetsJson(json.stdout);
+    assertEquals(obj.ok, false);
+    const diag = (obj.diagnostics ?? [])[0];
+    assertEquals(diag?.tool, "coverage", json.stdout);
+    assertStringIncludes(diag?.message ?? "", "below the floor 80");
   });
 });
 
@@ -185,6 +203,14 @@ Deno.test("ratchets: a trailing NN% is NOT read — only the DISCERN_METRIC mark
     const r = await runAgent(dir, ["ratchets"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.stderr, "could not read metric");
+
+    // A metric-reading failure's evidence is the measurement output itself — the
+    // diagnostic carries it so a remote caller can see what the command emitted.
+    const json = await runAgent(dir, ["ratchets", "--json"]);
+    const obj = parseRatchetsJson(json.stdout);
+    const diag = (obj.diagnostics ?? [])[0];
+    assertStringIncludes(diag?.message ?? "", "could not read metric");
+    assertStringIncludes(diag?.output ?? "", "Total coverage: 90%");
   });
 });
 
