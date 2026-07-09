@@ -103,7 +103,7 @@ prose at the same quality holds the line
 ## Capturing a gain: `discern ratchets --pin`
 
 When a change improves a ratcheted metric, capture the gain so it cannot slide
-back. `discern ratchets --pin` re-measures every ratchet and tightens each limit
+back. `discern ratchets --pin` measures every ratchet and tightens each limit
 that improved to the value just measured — a floor up, a ceiling down — then
 commits that one change with an audit message. Name ratchets to pin only those
 (`discern ratchets --pin coverage`); with none named it pins every ratchet that
@@ -112,9 +112,17 @@ limit to loosen, and pin refuses to run while any ratchet is red.
 
 A green `discern ratchets` check already measured everything, so its hints name
 any pinnable slack — decided by the same rule a real pin applies — making the
-whole flow check → pin. `--dry-run` renders the plan and measures nothing, with
-or without `--pin`: what a pin would change is knowable only by measuring, and
-the check's hints are where that answer already lives.
+whole flow check → pin. The green check also records its values as a
+**measurement receipt** against the exact commit (the gate-pass receipt's
+model), so a pin on that same clean commit reuses them instead of re-running
+every slow measurement: the flow measures once. Any new commit, uncommitted
+edit, or red check silently invalidates the receipt and the pin measures fresh;
+only the never-loosen comparison is always re-checked live, because `main` can
+advance while the branch stands still
+([ADR 0112](../_adr/0112-ratchet-measurement-receipt.md)). `--dry-run` renders
+the plan and measures nothing, with or without `--pin`: what a pin would change
+is knowable only by measuring, and the check's hints are where that answer
+already lives.
 
 Pin is the way to re-pin a baseline — never hand-edit the number. Because its
 commit changes only `[ratchets]` limits, which the gate never reads, pin carries

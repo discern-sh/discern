@@ -57,19 +57,6 @@ _Nothing outstanding._
       (`RESULT_SCHEMA_ID`); `schema/discern-results.schema.json`;
       `docs/20-quality-gate/the-result-envelope.md`.
 
-- [ ] **Collapse the check → pin double measurement with a measurement
-      receipt.** A pin re-measures every ratchet even when a green
-      `discern ratchets` check just measured the same clean HEAD, because verbs
-      are stateless and a pin must capture what is true of the tree it commits
-      on. A measurement receipt — the check's per-ratchet values recorded
-      against the exact commit, honored by a subsequent pin on that same clean
-      HEAD and invalidated by any new commit (the gate-pass receipt's model, ADR
-      0067/0106) — would let the check → pin flow measure once. Slow measurement
-      suites pay double today; the check's hints already name any pinnable
-      slack, so this is efficiency, not correctness. Evidence:
-      `src/engine/gate/ratchets.ts` (`pinRatchetsResult` re-runs
-      `executeRatchetPlan`); `src/engine/gate/receipt.ts`.
-
 - [ ] **Revisit when agents should run ratchets in the lifecycle.** The current
       guidance intentionally says to run ratchets "as needed" and keeps them
       slow/on-demand, with non-dry-run checks requiring a clean tree. Revisit
