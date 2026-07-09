@@ -127,6 +127,7 @@ passthrough
 pathspecs?
 perf
 PHPStorm
+pinnable
 prefixer
 prepended
 preprints?
