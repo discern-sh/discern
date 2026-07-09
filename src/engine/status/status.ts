@@ -75,9 +75,16 @@ import {
   unlandedPrefixBranches,
   worktreeGitKey,
 } from "../worktree/git.ts";
-import { IdentityError, resolveIdentity } from "../worktree/identity.ts";
+import {
+  deriveIdentity,
+  IdentityError,
+  type IdentitySettings,
+  loadIdentitySettings,
+  resolveIdentity,
+  resolveWorktreeId,
+} from "../worktree/identity.ts";
 import { readResourceSpecs, resourceEnvName } from "../worktree/resources.ts";
-import { readEnvFile } from "../worktree/env_file.ts";
+import { readEnvValueAcross } from "../worktree/env_file.ts";
 import { colorEnabled, makeOut, type Out } from "../output.ts";
 import { inspectGateReceipt } from "../gate/receipt.ts";
 
@@ -287,13 +294,18 @@ export async function statusResult(
     };
   }
 
-  // The fleet survey, each row augmented with its best-effort id/port from `.env`.
+  // The fleet survey, each row augmented with its id/port — read from its env
+  // files when recorded, else DERIVED from the worktree's own identity, so a
+  // project with no env file still gets real ids (never a truncated branch name).
   let fleet: StatusFleetEntry[] | undefined;
   if (includeFleet) {
     // Canonicalize the invocation root once so each row's is_current compares like
     // for like against row.path (also canonical).
     const here = await Deno.realPath(root).catch(() => root);
-    fleet = await Promise.all(fleetRows.map((row) => fleetEntryFor(row, here)));
+    const settings = await loadIdentitySettings(root).catch(() => undefined);
+    fleet = await Promise.all(
+      fleetRows.map((row) => fleetEntryFor(row, here, cfg, settings)),
+    );
     data.fleet = fleet;
   }
 
@@ -373,9 +385,9 @@ async function buildWorktreeBlock(
   };
 }
 
-/** The resource handles ACTUALLY recorded in this worktree's `.env` (what was
- * provisioned), not the derived set — a resource not yet created has no `.env`
- * entry and is honestly absent. Reads only; never creates a `.env` or a resource. */
+/** The resource handles ACTUALLY recorded in this worktree's env files (what was
+ * provisioned), not the derived set — a resource not yet created has no env
+ * entry and is honestly absent. Reads only; never creates a file or a resource. */
 async function readWorktreeResources(
   root: string,
   cfg: DiscernConfig,
@@ -385,12 +397,13 @@ async function readWorktreeResources(
   if (specs.length === 0) {
     return out;
   }
-  const envText = await readEnvFile(root);
-  if (envText === undefined) {
-    return out;
-  }
   for (const spec of specs) {
-    const value = readEnvVar(envText, resourceEnvName(spec.name));
+    const raw = await readEnvValueAcross(
+      root,
+      cfg.worktree.env_files,
+      resourceEnvName(spec.name),
+    );
+    const value = raw === undefined ? undefined : stripQuotes(raw.trim());
     if (value !== undefined && value !== "") {
       out[spec.name] = value;
     }
@@ -398,14 +411,18 @@ async function readWorktreeResources(
   return out;
 }
 
-/** Augment a cheap fleet row with the worktree's id/port from its `.env` (best
- * effort — omitted when absent) and its viability: a checkout with NO project
- * config at its root (the signature of a creation that crashed mid-checkout) is
- * flagged `broken`, not listed as a healthy member. A hand-made
- * `git worktree add` checkout carries the tracked config and stays healthy. */
+/** Augment a cheap fleet row with the worktree's id/port — the recorded values
+ * from its env files when present, else DERIVED from the worktree's own identity
+ * (an env-file-less project still gets real ids, never a truncated branch-name
+ * fallback) — and its viability: a checkout with NO project config at its root
+ * (the signature of a creation that crashed mid-checkout) is flagged `broken`,
+ * not listed as a healthy member. A hand-made `git worktree add` checkout
+ * carries the tracked config and stays healthy. */
 async function fleetEntryFor(
   row: FleetWorktree,
   here: string,
+  cfg: DiscernConfig,
+  settings: IdentitySettings | undefined,
 ): Promise<StatusFleetEntry> {
   const entry: StatusFleetEntry = {
     path: row.path,
@@ -425,15 +442,37 @@ async function fleetEntryFor(
   if (!row.isMain && (await installedConfigRel(row.path)) === undefined) {
     entry.broken = true;
   }
-  const envText = await readEnvFile(row.path);
-  if (envText !== undefined) {
-    const id = readEnvVar(envText, "DISCERN_WORKTREE_ID");
-    if (id !== undefined && id !== "") {
-      entry.id = id;
-    }
-    const port = readEnvVar(envText, "DISCERN_WORKTREE_PORT");
-    if (port !== undefined && /^\d+$/.test(port)) {
-      entry.port = Number(port);
+  const files = cfg.worktree.env_files;
+  const recordedId = await readEnvValueAcross(
+    row.path,
+    files,
+    "DISCERN_WORKTREE_ID",
+  );
+  if (recordedId !== undefined && recordedId.trim() !== "") {
+    entry.id = stripQuotes(recordedId.trim());
+  }
+  const recordedPort = await readEnvValueAcross(
+    row.path,
+    files,
+    "DISCERN_WORKTREE_PORT",
+  );
+  if (recordedPort !== undefined && /^\d+$/.test(recordedPort.trim())) {
+    entry.port = Number(recordedPort.trim());
+  }
+  // Derivation fallback: identity is structured state, not filesystem shape — a
+  // worktree with no env file still has an id (and, with [worktree].port on, a
+  // deterministic port).
+  if (!row.isMain && settings !== undefined) {
+    if (entry.id === undefined || entry.port === undefined) {
+      const id = await resolveWorktreeId(settings, row.path).catch(() =>
+        undefined
+      );
+      if (id !== undefined) {
+        entry.id ??= id;
+        if (entry.port === undefined && cfg.worktree.port) {
+          entry.port = deriveIdentity(id, settings).port;
+        }
+      }
     }
   }
   return entry;
@@ -795,17 +834,6 @@ async function isMainCheckoutDirty(
     return false;
   }
   return await hasUncommittedTrackedChanges(mainRepo) ?? false;
-}
-
-/** Read a `KEY=value` from `.env` text (first match), stripping one layer of quotes. */
-function readEnvVar(text: string, key: string): string | undefined {
-  const prefix = `${key}=`;
-  for (const line of text.split("\n")) {
-    if (line.startsWith(prefix)) {
-      return stripQuotes(line.slice(prefix.length).trim());
-    }
-  }
-  return undefined;
 }
 
 /** Strip one layer of matching surrounding quotes. */

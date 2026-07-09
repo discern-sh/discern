@@ -44,8 +44,8 @@ DBs?
 declaratively
 dedup(e|es|ed|ing)?
 deduplicat(e|ed|es|ing|ion)?
-denylist
 Deno
+denylist
 deps
 dev
 dev_server
@@ -56,6 +56,7 @@ discern
 discoverability
 dogfood(s|ing)?
 dotdir
+dotenv
 dotfile
 dotfolder
 effectful

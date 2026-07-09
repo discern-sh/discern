@@ -274,7 +274,7 @@ async function buildTeardownPlan(ctx: LifecycleContext): Promise<TeardownPlan> {
 // layer now — `readySentinelPath` / `worktreeSetupComplete` — shared with
 // status's broken-worktree flag, so "is this worktree configured?" has one read.
 
-/** Record the deterministic port in this worktree's `.env`, or report it. */
+/** Record the deterministic port in this worktree's env files, or report it. */
 async function recordPort(
   ctx: LifecycleContext,
   identity: WorktreeIdentity,
@@ -283,10 +283,15 @@ async function recordPort(
     return;
   }
   const port = String(identity.port);
-  const wrote = await writeEnvVar(ctx.cwd, "DISCERN_WORKTREE_PORT", port);
+  const wrote = await writeEnvVar(
+    ctx.cwd,
+    "DISCERN_WORKTREE_PORT",
+    port,
+    ctx.config.worktree.env_files,
+  );
   ctx.log.ok(
     wrote
-      ? `Worktree dev-server port: ${port} (recorded in .env).`
+      ? `Worktree dev-server port: ${port} (recorded in the worktree's env file).`
       : `Worktree dev-server port: ${port} (read it via: discern identity --port).`,
   );
 }
@@ -307,6 +312,13 @@ async function buildSetupPlan(ctx: LifecycleContext): Promise<SetupPlan> {
   const steps: SetupStepDesc[] = [
     { kind: "git", label: "ensure-branch", note: branch },
   ];
+  if (ctx.config.worktree.inherit_env.length > 0) {
+    steps.push({
+      kind: "env",
+      label: "inherit-env",
+      note: ctx.config.worktree.inherit_env.join(", "),
+    });
+  }
   for (const spec of readResourceSpecs(ctx.config)) {
     if (spec.create !== "" || spec.destroy !== "") {
       steps.push({
@@ -315,13 +327,6 @@ async function buildSetupPlan(ctx: LifecycleContext): Promise<SetupPlan> {
         note: resourceForId(settings.slug, id, spec.name),
       });
     }
-  }
-  if (ctx.config.worktree.inherit_env.length > 0) {
-    steps.push({
-      kind: "env",
-      label: "inherit-env",
-      note: ctx.config.worktree.inherit_env.join(", "),
-    });
   }
   if (ctx.config.worktree.port) {
     steps.push({
@@ -457,7 +462,18 @@ export async function worktreeSetup(
   // re-run. (`worktreeEnsure` gates the session-start path the same way.)
   const configured = await worktreeSetupComplete(ctx.cwd);
 
-  // 3. provision the per-worktree resources. On a FIRST setup, create them
+  // 3. inherit env vars from main — FIRST among the env writers, because it is
+  // the one allowed to CREATE the worktree's env file (a declared value must
+  // arrive in a fresh worktree); the resource and port recorders below only ever
+  // update files that exist.
+  await inheritMainEnvVars({
+    worktreeRoot: ctx.cwd,
+    vars: ctx.config.worktree.inherit_env,
+    files: ctx.config.worktree.env_files,
+    log: ctx.log,
+  });
+
+  // 4. provision the per-worktree resources. On a FIRST setup, create them
   // (ledger-logged for GC; a required create failure aborts setup). On a re-entry,
   // re-ready them via `ensure` instead — never re-create. Needs the git identity.
   let createdFailed: string[] = [];
@@ -477,13 +493,6 @@ export async function worktreeSetup(
       "Could not resolve this worktree's git identity for resource setup.",
     );
   }
-
-  // 4. inherit env vars from main
-  await inheritMainEnvVars({
-    worktreeRoot: ctx.cwd,
-    vars: ctx.config.worktree.inherit_env,
-    log: ctx.log,
-  });
 
   // 5. record the deterministic port
   await recordPort(ctx, identity);
@@ -1982,33 +1991,84 @@ async function pathPresent(p: string): Promise<boolean> {
 }
 
 /**
- * Mint a fresh worktree id whose `<branch_prefix><id>` branch AND `<root>/<id>`
- * directory are both free, so `discern start` always *creates* a new worktree and
- * never adopts an existing one. The random hex tail in {@link generateWorktreeId}
- * makes a collision astronomically unlikely; this still verifies and retries a
- * bounded number of times before giving up loudly rather than ever reusing a live
- * worktree's id.
+ * The deterministic dev-server ports currently claimed by LIVE worktrees — each
+ * derived from the worktree's own resolved id, so no registry or env file is
+ * needed. Used at mint time to re-roll an id whose port would collide with a
+ * live sibling's (two worktrees hashing to the same port would otherwise fight
+ * over it, unexplained). Empty when `[worktree].port` is off. Fails open per row.
  */
-async function mintFreeWorktree(
+export async function livePortsInUse(
+  ctx: LifecycleContext,
+  settings: IdentitySettings,
+): Promise<Set<number>> {
+  const ports = new Set<number>();
+  if (!ctx.config.worktree.port) {
+    return ports;
+  }
+  const fleet = await listWorktreeFleet(
+    ctx.cwd,
+    ctx.config.project.main_branch,
+  );
+  for (const row of fleet) {
+    if (row.isMain) {
+      continue;
+    }
+    const id = await resolveWorktreeId(settings, row.path).catch(() =>
+      undefined
+    );
+    if (id !== undefined) {
+      ports.add(deriveIdentity(id, settings).port);
+    }
+  }
+  return ports;
+}
+
+/**
+ * Mint a fresh worktree id whose `<branch_prefix><id>` branch AND `<root>/<id>`
+ * directory are both free — so `discern start` always *creates* a new worktree
+ * and never adopts an existing one — and whose derived PORT doesn't collide with
+ * a live worktree's (`opts.usedPorts`). The random hex tail in
+ * {@link generateWorktreeId} makes an id collision astronomically unlikely and a
+ * port collision merely unlikely (a 2000-wide band), so both are verified and
+ * re-rolled a bounded number of times. Port uniqueness is BEST-EFFORT: when the
+ * attempts exhaust (a band that crowded means dozens of live worktrees), a
+ * colliding port is accepted rather than failing the start. `opts.generate` is a
+ * test seam — the id generator, defaulting to the real {@link generateWorktreeId}.
+ * Exported for the port-collision class-guard test.
+ */
+export async function mintFreeWorktree(
   ctx: LifecycleContext,
   settings: IdentitySettings,
   worktreeRoot: string,
   name?: string,
+  opts: {
+    usedPorts?: Set<number>;
+    generate?: (name?: string) => ReturnType<typeof generateWorktreeId>;
+  } = {},
 ): Promise<{ id: string; branch: string; dir: string; note?: string }> {
   const run = makeGitRunner(ctx);
-  for (let attempt = 0; attempt < 50; attempt++) {
-    const minted = generateWorktreeId(name);
-    const { branch } = deriveIdentity(minted.id, settings);
-    const dir = join(worktreeRoot, minted.id);
-    const branchTaken =
-      (await run(["show-ref", "--verify", "--quiet", `refs/heads/${branch}`]))
-        .success;
-    if (!branchTaken && !(await pathPresent(dir))) {
-      // The note (if any) is deterministic from the name, so returning the winning
-      // attempt's carries the same transparency the caller surfaces upward.
-      return minted.note !== undefined
-        ? { id: minted.id, branch, dir, note: minted.note }
-        : { id: minted.id, branch, dir };
+  const usedPorts = opts.usedPorts ?? new Set<number>();
+  const generate = opts.generate ?? generateWorktreeId;
+  // Two passes: the first insists on a free port; the second (fallback) accepts a
+  // port collision so a crowded band can never make `start` fail outright.
+  for (const requireFreePort of [true, false]) {
+    for (let attempt = 0; attempt < 50; attempt++) {
+      const minted = generate(name);
+      const identity = deriveIdentity(minted.id, settings);
+      const dir = join(worktreeRoot, minted.id);
+      if (requireFreePort && usedPorts.has(identity.port)) {
+        continue;
+      }
+      const branchTaken = (await run(
+        ["show-ref", "--verify", "--quiet", `refs/heads/${identity.branch}`],
+      )).success;
+      if (!branchTaken && !(await pathPresent(dir))) {
+        // The note (if any) is deterministic from the name, so returning the winning
+        // attempt's carries the same transparency the caller surfaces upward.
+        return minted.note !== undefined
+          ? { id: minted.id, branch: identity.branch, dir, note: minted.note }
+          : { id: minted.id, branch: identity.branch, dir };
+      }
     }
   }
   throw new WorktreeGitError(
@@ -2115,6 +2175,7 @@ export async function startResult(
     settings,
     opts.worktreeRoot,
     opts.name,
+    { usedPorts: await livePortsInUse(ctx, settings) },
   );
 
   if (opts.dryRun ?? false) {

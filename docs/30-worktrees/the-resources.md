@@ -35,13 +35,13 @@ command is a clean no-op. A `required` create that fails aborts setup loudly
 
 ## The lifecycle
 
-| Phase                                             | What happens                                                                                                                                                               |
-| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `discern worktree setup`                          | **setup** — creates each resource (a ledger entry is written first, so a crash mid-create is GC-able), then records its handle into `.env`.                                |
-| `discern worktree setup` re-run / re-fired hook   | **re-ready, never re-create** — an already-configured worktree skips resource `create` and the setup steps, running each resource's `ensure` instead. Setup is idempotent. |
-| any later command                                 | **reuse** — the resource persists for the whole Worktree; nothing re-creates it. Pay an expensive readiness cost once, never per-invocation.                               |
-| `discern worktree teardown` / `drop` / `graduate` | **destroy** — runs each resource's destroy in reverse order (best-effort), then clears its ledger entry. A clean exit leaves no orphan.                                    |
-| `discern worktree prune`                          | **garbage-collect** — reclaims the resources of any Worktree that vanished WITHOUT a clean teardown (hard kill, `rm -rf`, crash).                                          |
+| Phase                                             | What happens                                                                                                                                                                |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `discern worktree setup`                          | **setup** — creates each resource (a ledger entry is written first, so a crash mid-create is GC-able), then records its handle into the env files (`[worktree].env_files`). |
+| `discern worktree setup` re-run / re-fired hook   | **re-ready, never re-create** — an already-configured worktree skips resource `create` and the setup steps, running each resource's `ensure` instead. Setup is idempotent.  |
+| any later command                                 | **reuse** — the resource persists for the whole Worktree; nothing re-creates it. Pay an expensive readiness cost once, never per-invocation.                                |
+| `discern worktree teardown` / `drop` / `graduate` | **destroy** — runs each resource's destroy in reverse order (best-effort), then clears its ledger entry. A clean exit leaves no orphan.                                     |
+| `discern worktree prune`                          | **garbage-collect** — reclaims the resources of any Worktree that vanished WITHOUT a clean teardown (hard kill, `rm -rf`, crash).                                           |
 
 Teardown is **best-effort and idempotent**: a failure is logged and never
 strands a Worktree (a later prune is the backstop), and a destroy that runs when
@@ -95,9 +95,10 @@ inside the Worktree — discover a resource's handle two ways, both equal to wha
 
 1. **Query:** `discern identity --resource <name>` (and `--resources` to list
    every declared resource as `name=handle` lines).
-2. **Env:** the Worktree's `.env` carries `DISCERN_RESOURCE_<NAME>` (uppercased,
-   non-alphanumerics → `_`) and `DISCERN_WORKTREE`, written at setup when a
-   `.env` exists.
+2. **Env:** the Worktree's env files (`[worktree].env_files`, default
+   `[".env", ".env.local"]`) carry `DISCERN_RESOURCE_<NAME>` (uppercased,
+   non-alphanumerics → `_`) and `DISCERN_WORKTREE`, written at setup when one of
+   those files exists.
 
 This is the crux of the feature: a project's tooling addresses its OWN isolated
 resource instead of guessing from a shared global pool.

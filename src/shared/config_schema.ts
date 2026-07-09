@@ -351,7 +351,10 @@ const worktreeSection = z.strictObject({
     "Track ignored files at worktree setup and report top-level ignored paths that changed before the worktree is removed. Disable for projects whose ignored outputs churn too much to be useful.",
   ),
   inherit_env: z.array(z.string()).default([]).describe(
-    "Environment values copied from the main checkout's .env into a new worktree's .env (secrets a fresh worktree needs but that aren't in version control).",
+    "Environment values copied from the main checkout's env files into a new worktree's (secrets a fresh worktree needs but that aren't in version control). The worktree's env file is created when absent, so a declared value always arrives.",
+  ),
+  env_files: z.array(z.string()).default([".env", ".env.local"]).describe(
+    "The env files the worktree lifecycle reads and writes, in precedence order: when reading, the last listed file that defines a value wins (the dotenv override convention); a newly written value lands in the first. `inherit_env` reads these in the main checkout and writes the worktree's copy; the deterministic port and resource handles are recorded into them too.",
   ),
   resources: z.record(z.string().regex(NAME_RE), resourceValue).default({})
     .describe(

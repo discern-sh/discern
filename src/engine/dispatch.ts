@@ -1063,7 +1063,7 @@ async function helperRemoveWorktree(args: string[]): Promise<number> {
   }
 }
 
-/** `inherit-main-env-vars` — copy [worktree].inherit_env vars from main's .env. */
+/** `inherit-main-env-vars` — copy [worktree].inherit_env vars from main's env files. */
 async function helperInheritEnv(): Promise<number> {
   const root = await findRoot();
   if (root === undefined) {
@@ -1076,6 +1076,7 @@ async function helperInheritEnv(): Promise<number> {
     await inheritMainEnvVars({
       worktreeRoot: root,
       vars: cfg.worktree.inherit_env,
+      files: cfg.worktree.env_files,
       log,
     });
     return 0;

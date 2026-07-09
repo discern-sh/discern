@@ -18,6 +18,7 @@
 import { basename, dirname, isAbsolute, join, resolve } from "@std/path";
 import type { Logger } from "../../lib/log.ts";
 import { type GitResult, runGit } from "../../shared/subprocess.ts";
+import { readEnvValueAcross, writeEnvVar } from "./env_file.ts";
 
 /** A fatal worktree-git condition. */
 export class WorktreeGitError extends Error {
@@ -2222,34 +2223,35 @@ async function readFileMaybe(path: string): Promise<string | undefined> {
 
 /** Options for {@link inheritMainEnvVars}. */
 export interface InheritEnvOptions {
-  /** The worktree root (the `.env` being patched lives here). */
+  /** The worktree root (the env files being patched live here). */
   worktreeRoot: string;
   /** The variable names to inherit (the `[worktree].inherit_env` array). */
   vars: string[];
+  /** The env files to read from main and write in the worktree, in precedence
+   * order (`[worktree].env_files`). */
+  files: readonly string[];
   /** The logger for per-var narration. */
   log: Logger;
 }
 
 /**
- * Copy selected env vars from the main checkout's `.env` into the current
- * worktree's `.env`, so the worktree's app can boot with the same secrets.
- * Per-var safe-copy policy: skip when main is
- * blank; replace when the worktree value is empty or equals `.env.example`'s
- * default; otherwise leave a customised value alone. Idempotent. An empty `vars`
- * list, or no worktree `.env`, is a clean no-op. Throws `WorktreeGitError` only
- * when the main checkout cannot be resolved.
+ * Copy selected env vars from the main checkout's env files into the current
+ * worktree's, so the worktree's app can boot with the same secrets. Reads every
+ * `[worktree].env_files` entry on the main side (the last file defining a value
+ * wins — the dotenv override convention) and writes through the shared
+ * {@link writeEnvVar} upsert, CREATING the worktree's first env file when none
+ * exists — a fresh worktree never has one, and a declared value must actually
+ * arrive. Per-var safe-copy policy: skip when main is blank; replace when the
+ * worktree value is empty or equals `.env.example`'s default; otherwise leave a
+ * customised value alone. Idempotent. An empty `vars` list, or a main checkout
+ * with no env file at all, is a clean no-op. Throws `WorktreeGitError` only when
+ * the main checkout cannot be resolved.
  */
 export async function inheritMainEnvVars(
   opts: InheritEnvOptions,
 ): Promise<void> {
-  const { log } = opts;
+  const { log, files } = opts;
   if (opts.vars.length === 0) {
-    return;
-  }
-  const wtEnvPath = join(opts.worktreeRoot, ".env");
-  const wtText = await readFileMaybe(wtEnvPath);
-  if (wtText === undefined) {
-    log.info("inherit-main-env-vars: no .env in this worktree — skipping.");
     return;
   }
 
@@ -2259,35 +2261,38 @@ export async function inheritMainEnvVars(
       "inherit-main-env-vars: could not resolve the main checkout.",
     );
   }
-  const mainEnvText = await readFileMaybe(join(mainRepo, ".env"));
-  if (mainEnvText === undefined) {
+  let mainHasAny = false;
+  for (const file of files) {
+    if (await readFileMaybe(join(mainRepo, file)) !== undefined) {
+      mainHasAny = true;
+      break;
+    }
+  }
+  if (!mainHasAny) {
     log.warn(
-      `inherit-main-env-vars: main checkout has no .env at ${
-        join(mainRepo, ".env")
-      } — skipping.`,
+      `inherit-main-env-vars: main checkout has no env file (${
+        files.join(", ")
+      }) — skipping.`,
     );
     return;
   }
   const exampleText = await readFileMaybe(join(mainRepo, ".env.example")) ?? "";
 
-  // Mutate the worktree .env text in memory, writing once at the end.
-  let lines = wtText.split("\n");
-  let appendedHeader = wtText.includes("\n# Inherited from main") ||
-    wtText.startsWith("# Inherited from main");
-  let dirty = false;
-
   for (const varName of opts.vars) {
     if (varName === "") {
       continue;
     }
-    const mainValue = stripQuotes(readEnvValue(mainEnvText, varName));
+    const mainRaw = await readEnvValueAcross(mainRepo, files, varName);
+    const mainValue = stripQuotes(mainRaw ?? "");
     if (mainValue === "") {
       log.warn(
-        `inherit-main-env-vars: ${varName} is missing or blank in main's .env — skipping.`,
+        `inherit-main-env-vars: ${varName} is missing or blank in main's env files — skipping.`,
       );
       continue;
     }
-    const worktreeValue = stripQuotes(readEnvValue(lines.join("\n"), varName));
+    const worktreeValue = stripQuotes(
+      await readEnvValueAcross(opts.worktreeRoot, files, varName) ?? "",
+    );
     const exampleValue = stripQuotes(readEnvValue(exampleText, varName));
 
     if (worktreeValue === mainValue) {
@@ -2300,27 +2305,13 @@ export async function inheritMainEnvVars(
       continue;
     }
 
-    const targetLine = `${varName}=${formatEnvValue(mainValue)}`;
-    let replaced = false;
-    lines = lines.map((line) => {
-      if (!replaced && line.startsWith(`${varName}=`)) {
-        replaced = true;
-        return targetLine;
-      }
-      return line;
-    });
-    if (!replaced) {
-      if (!appendedHeader) {
-        lines.push("", "# Inherited from main");
-        appendedHeader = true;
-      }
-      lines.push(targetLine);
-    }
-    dirty = true;
+    await writeEnvVar(
+      opts.worktreeRoot,
+      varName,
+      formatEnvValue(mainValue),
+      files,
+      { create: true },
+    );
     log.ok(`Inherited ${varName} from main.`);
-  }
-
-  if (dirty) {
-    await Deno.writeTextFile(wtEnvPath, lines.join("\n"));
   }
 }

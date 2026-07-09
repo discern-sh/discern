@@ -457,10 +457,11 @@ function resourceCommandEnv(
 }
 
 /**
- * Record the worktree's resource handles into its `.env` for runtime discovery —
- * `DISCERN_WORKTREE` plus `DISCERN_RESOURCE_<NAME>` per declared resource — each
- * equal to what `create` used. A no-op when nothing is declared or there is no
- * `.env` (the handles stay discoverable via `discern identity --resource`).
+ * Record the worktree's resource handles into its env files
+ * (`[worktree].env_files`) for runtime discovery — `DISCERN_WORKTREE` plus
+ * `DISCERN_RESOURCE_<NAME>` per declared resource — each equal to what `create`
+ * used. A no-op when nothing is declared or no env file exists (the handles stay
+ * discoverable via `discern identity --resource`).
  */
 export async function recordResourceEnv(
   ctx: ResourceContext,
@@ -473,16 +474,19 @@ export async function recordResourceEnv(
   if (specs.length === 0) {
     return;
   }
+  const files = ctx.config.worktree.env_files;
   await writeEnvVar(
     ctx.cwd,
     "DISCERN_WORKTREE",
     worktreeBase(settings.slug, identity.id),
+    files,
   );
   for (const spec of specs) {
     await writeEnvVar(
       ctx.cwd,
       resourceEnvName(spec.name),
       resourceForId(settings.slug, identity.id, spec.name),
+      files,
     );
   }
 }

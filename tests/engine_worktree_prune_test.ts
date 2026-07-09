@@ -548,7 +548,7 @@ Deno.test("inherit-main-env-vars copies a whitelisted var from main's .env into 
   });
 });
 
-Deno.test("inherit-main-env-vars is a no-op when the worktree has no .env yet", async () => {
+Deno.test("inherit-main-env-vars creates the worktree env file when absent", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "noenv");
     await Deno.writeTextFile(
@@ -556,14 +556,14 @@ Deno.test("inherit-main-env-vars is a no-op when the worktree has no .env yet", 
       baseConfig('\n[worktree]\ninherit_env = ["FOO"]'),
     );
     await Deno.writeTextFile(join(dir, ".env"), "FOO=bar\n");
-    // No worktree .env created → recipe must skip cleanly and create nothing.
+    // A fresh worktree has no env file — the declared value must still arrive.
 
     const r = await runAgent(wt, ["inherit-main-env-vars"]);
     assertEquals(r.code, 0, r.output);
-    assertEquals(
-      await exists(join(wt, ".env")),
-      false,
-      `the recipe must not fabricate a worktree .env\n${r.output}`,
+    assertStringIncludes(
+      await Deno.readTextFile(join(wt, ".env")),
+      "FOO=bar",
+      `the declared value must arrive in a created env file\n${r.output}`,
     );
   });
 });

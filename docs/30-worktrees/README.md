@@ -122,7 +122,16 @@ both raise an explicit **silent-divergence** warning naming the fix
 (`cd <worktree> && …` prefixes, and the `path` parameter on discern's MCP
 tools). [`identity`](../../src/engine/worktree/identity.ts) resolves a
 Worktree's stable identity (id / site / branch / port / db / worktree /
-resource).
+resource). The **deterministic port** hashes from the Worktree's id; `start`
+re-rolls a freshly-minted id whose port would collide with a live sibling's
+(best-effort — a crowded band never fails the start). **Env plumbing** flows
+through `[worktree].env_files` (default `[".env", ".env.local"]`, the dotenv
+override convention): `inherit_env` values are read from the main checkout's env
+files and written into the new Worktree's — creating its env file when absent,
+so a declared value always arrives — while the port and resource handles are
+recorded into an existing env file only; `status` fleet rows derive id/port from
+identity when nothing is recorded, so an env-file-less project still reads
+honestly.
 
 **Proving a copy works.** The same create → setup → removal cores back a further
 use: `setup done`'s **worktree-viability probe**
