@@ -155,7 +155,8 @@ like, rewrite it until you would.
 About once per page, reward the reader's attention with a small moment of
 personality: an example with character instead of `foo` and `bar`, a wry line in
 a FAQ, an empty state with a smile in it, a 404 page someone clearly thought
-about. When applied selectively, it makes the whole project feel handmade and cared for.
+about. When applied selectively, it makes the whole project feel handmade and
+cared for.
 
 Delight is the only layer with hard rules:
 
@@ -261,7 +262,8 @@ and every claim should be demonstrable, ideally right there on the page.
 ## LLM tells: banned moves
 
 These patterns are the fingerprints of machine-written copy. Readers have
-learned to recognize them, and each one costs human trust and attention. Treat them as hard failures in user-facing prose.
+learned to recognize them, and each one costs human trust and attention. Treat
+them as hard failures in user-facing prose.
 
 1. **Contrast-frames:** "not X, but Y," "isn't X, it's Y," "X was never the
    point. Y is."
@@ -274,7 +276,8 @@ learned to recognize them, and each one costs human trust and attention. Treat t
 2. **Attitude fragments:** fragments that strike a pose rather than state a
    spec.
    - Rejected: "Not vibes. A verdict."
-   - Allowed: spec fragments listing facts. "Any stack. Any coding agent. No API key."
+   - Allowed: spec fragments listing facts. "Any stack. Any coding agent. No API
+     key."
 3. **Echo-intensifiers:** repeating a word with an intensifier. Rejected: "Green
    means done. Actually done."
 4. **Trailing modifier fragments:** ", every time," ", by design," ", at scale."
