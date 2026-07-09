@@ -25,6 +25,7 @@ interface StatusJson {
     git: { ahead_integration: number | null } | null;
     fleet?: Array<{
       path: string;
+      id?: string;
       broken?: boolean;
       clean: boolean;
     }>;
@@ -63,6 +64,33 @@ Deno.test("status flags a configless worktree as broken, with the drop hint", as
     // The human table says "broken", not "clean"/"changed".
     const human = await runAgent(dir, ["status"]);
     assertStringIncludes(human.output, "broken");
+  });
+});
+
+Deno.test("status fleet ids are per-row truths — an env id override cannot repaint the fleet", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    await addWorktree(dir, "otter-one");
+    await addWorktree(dir, "heron-two");
+
+    // A caller with DISCERN_WORKTREE_ID exported (a resource command's child,
+    // a dotenv-loading shell) walks the fleet: every row must keep its OWN id —
+    // the override poisoning painted them all 'imposter', which then misfed the
+    // drop hints and the port-collision check.
+    const r = await runAgent(dir, ["status", "--json"], {
+      env: { DISCERN_WORKTREE_ID: "imposter" },
+    });
+    assertEquals(r.code, 0, r.output);
+    const result = JSON.parse(r.stdout) as StatusJson;
+    const ids = (result.data.fleet ?? [])
+      .map((row) => row.id)
+      .filter((id) => id !== undefined);
+    assert(ids.includes("otter-one") && ids.includes("heron-two"), r.stdout);
+    assert(
+      !ids.includes("imposter"),
+      `no row may take the caller's id\n${r.stdout}`,
+    );
   });
 });
 

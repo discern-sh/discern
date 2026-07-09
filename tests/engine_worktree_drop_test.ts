@@ -57,6 +57,32 @@ Deno.test("worktree drop <path>: resolves the target by path too", async () => {
   });
 });
 
+Deno.test("worktree drop: a DISCERN_WORKTREE_ID in the environment cannot redirect the match", async () => {
+  await withTempDir(async (dir) => {
+    // Two worktrees; the caller's environment carries an id override naming the
+    // SECOND. Matching resolves each row's OWN identity, so the override must
+    // not make every row answer to 'foo-target' — the poisoned matcher deleted
+    // whichever row it met first ('bar-bystander') with exit 0.
+    const bystander = await mainWithWorktree(dir, "bar-bystander");
+    const target = await addWorktree(dir, "foo-target");
+
+    const r = await runAgent(dir, ["worktree", "drop", "foo-target"], {
+      env: { DISCERN_WORKTREE_ID: "foo-target" },
+    });
+    assertEquals(r.code, 0, r.output);
+    assertEquals(
+      await exists(target),
+      false,
+      `the named worktree is dropped\n${r.output}`,
+    );
+    assert(
+      await exists(bystander),
+      `the bystander must survive an env-override drop\n${r.output}`,
+    );
+    assert(await branchExists(dir, "agent/bar-bystander"), r.output);
+  });
+});
+
 Deno.test("worktree drop: refuses uncommitted changes without --force, discards with it", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "dirty-drop");

@@ -4,8 +4,11 @@
  * filesystem shape, so it survives wherever an agent keeps the checkout.
  *
  * Identity sources, in order:
- *   1. `DISCERN_WORKTREE_ID` from the environment, when valid.
- *   2. `DISCERN_WORKTREE_ID` from the target worktree's `.env`, when valid.
+ *   1. `DISCERN_WORKTREE_ID` from the environment, when valid — and only when
+ *      the target is the process's own workroot: the override declares what
+ *      THIS process's worktree is, never what some other inspected path is.
+ *   2. `DISCERN_WORKTREE_ID` recorded in the target's `[worktree].env_files`
+ *      (last listed wins), when valid.
  *   3. Git's linked-worktree admin-directory basename (refusing the main
  *      checkout, where `--absolute-git-dir` == `--git-common-dir`).
  *
@@ -20,6 +23,7 @@ import { cksumString } from "../../shared/crc.ts";
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import type { EnvReader } from "../../shared/env.ts";
+import { DEFAULT_ENV_FILES, readEnvValueAcross } from "./env_file.ts";
 
 /** The dev-server port band: 13000–14999, clear of common local services. */
 const PORT_BASE = 13000;
@@ -75,6 +79,10 @@ export interface IdentitySettings {
   slug: string;
   /** The branch prefix prepended to the id (default `agent/`). */
   branchPrefix: string;
+  /** The `[worktree].env_files` a recorded id override is read across, in
+   * precedence order (last wins). Defaults to {@link DEFAULT_ENV_FILES} when a
+   * caller has no config in hand. */
+  envFiles?: readonly string[];
 }
 
 /** An error in identity resolution, carrying a process-style exit code. */
@@ -405,7 +413,8 @@ export async function loadIdentitySettings(
 ): Promise<IdentitySettings> {
   let rawSlug = env.get("DISCERN_PROJECT_SLUG") ?? "";
   let branchPrefix = env.get("DISCERN_WORKTREE_BRANCH_PREFIX");
-  if (rawSlug === "" || branchPrefix === undefined) {
+  let envFiles: readonly string[] | undefined;
+  {
     // Tolerant config read: a missing or invalid toml just leaves the defaults in
     // place (worktree naming must work even when the config is mid-edit).
     let config: DiscernConfig | undefined;
@@ -420,6 +429,7 @@ export async function loadIdentitySettings(
     if (branchPrefix === undefined) {
       branchPrefix = config?.project.branch_prefix ?? "agent/";
     }
+    envFiles = config?.worktree.env_files;
   }
   const slug = sanitizeSlug(rawSlug);
   if (slug === "") {
@@ -427,7 +437,11 @@ export async function loadIdentitySettings(
       "identity: project slug resolved to an empty value (set [project].slug or DISCERN_PROJECT_SLUG).",
     );
   }
-  return { slug, branchPrefix };
+  return {
+    slug,
+    branchPrefix,
+    ...(envFiles === undefined ? {} : { envFiles }),
+  };
 }
 
 /** Run a git subcommand for a target path, returning trimmed stdout or undefined. */
@@ -480,20 +494,16 @@ function stripOuterQuotes(value: string): string {
   return trimmed;
 }
 
-/** Read an `DISCERN_WORKTREE_ID` override from the target's `.env`, if present. */
-async function readDotenvId(target: string): Promise<string | undefined> {
-  let text: string;
-  try {
-    text = await Deno.readTextFile(join(target, ".env"));
-  } catch {
-    return undefined; // no .env
-  }
-  for (const line of text.split("\n")) {
-    if (line.startsWith("DISCERN_WORKTREE_ID=")) {
-      return stripOuterQuotes(line.slice("DISCERN_WORKTREE_ID=".length));
-    }
-  }
-  return undefined;
+/** Read a `DISCERN_WORKTREE_ID` override recorded in the target's env files —
+ * the same `[worktree].env_files` set (and last-listed-wins precedence) every
+ * other env read uses, so `discern identity` and `discern status` can never
+ * disagree about which file holds the override. */
+async function readDotenvId(
+  target: string,
+  files: readonly string[],
+): Promise<string | undefined> {
+  const value = await readEnvValueAcross(target, files, "DISCERN_WORKTREE_ID");
+  return value === undefined ? undefined : stripOuterQuotes(value);
 }
 
 /** Resolve a possibly-relative git-common-dir against a base, then canonicalize. */
@@ -575,10 +585,23 @@ export async function resolveWorktreeId(
 
   const envOverride = env.get("DISCERN_WORKTREE_ID");
   if (envOverride !== undefined && envOverride !== "") {
-    return validateOverrideId(envOverride);
+    // The env override declares what THIS process's worktree is ("I am X") —
+    // exported to child commands so nested discern calls agree with their
+    // parent. It must never rename a FOREIGN worktree inspected by path (a
+    // fleet row, a drop target, a sibling whose port is being checked):
+    // honoring it there collapses every row a caller walks onto one id — the
+    // defect that let `worktree drop <id>` delete whichever worktree it met
+    // first. Apply it only when the target IS the process's own workroot.
+    const own = await canonicalizeTarget(Deno.cwd());
+    if (canonical === own) {
+      return validateOverrideId(envOverride);
+    }
   }
 
-  const dotenvId = await readDotenvId(canonical);
+  const dotenvId = await readDotenvId(
+    canonical,
+    settings.envFiles ?? DEFAULT_ENV_FILES,
+  );
   if (dotenvId !== undefined && dotenvId !== "") {
     return validateOverrideId(dotenvId);
   }

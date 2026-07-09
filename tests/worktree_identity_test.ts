@@ -334,6 +334,30 @@ Deno.test("resolveWorktreeId honours the DISCERN_WORKTREE_ID env override (parit
   }
 });
 
+Deno.test("the env override never renames a FOREIGN worktree inspected by path", async () => {
+  const settings: IdentitySettings = {
+    slug: "discern",
+    branchPrefix: "agent/",
+  };
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "README.md"), "scaffold\n");
+    await gitInit(dir);
+    const worktree = await addWorktree(dir, "real-identity");
+    // The override says what THIS process's worktree is; a foreign path (a
+    // fleet row, a drop target, a sibling's port check) must keep its OWN
+    // identity — honoring the override per-row collapses the whole fleet onto
+    // one id, which is how `worktree drop` deleted the wrong worktree.
+    assertEquals(
+      await resolveWorktreeId(
+        settings,
+        worktree,
+        fakeEnv({ DISCERN_WORKTREE_ID: "imposter" }),
+      ),
+      "real-identity",
+    );
+  });
+});
+
 Deno.test("an invalid DISCERN_WORKTREE_ID override is rejected", async () => {
   const settings: IdentitySettings = {
     slug: "discern",
