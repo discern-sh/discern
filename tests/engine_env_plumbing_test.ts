@@ -30,6 +30,10 @@ import {
   portForId,
 } from "../src/engine/worktree/identity.ts";
 import type { MintedWorktreeId } from "../src/engine/worktree/identity.ts";
+import {
+  formatEnvValue,
+  stripQuotes,
+} from "../src/engine/worktree/env_file.ts";
 import { Logger } from "../src/lib/log.ts";
 
 const INHERIT_CONFIG =
@@ -179,6 +183,27 @@ Deno.test("inherit_env: values survive a one-shot `cp .env.example .env` setup s
       `the recorded port must survive the scaffold step\n${env}`,
     );
   });
+});
+
+Deno.test("env values round-trip through the quote writer and reader", () => {
+  // The writer escapes a double quote; the reader must unescape it — the
+  // asymmetry made a quote-bearing value compare unequal on every read, so
+  // inheritance rewrote it each setup and consumers saw the literal backslash.
+  const values = [
+    "plain",
+    "with space",
+    'quo"ted',
+    "hash#value",
+    "single'quote",
+    '"already quoted"',
+  ];
+  for (const value of values) {
+    assertEquals(
+      stripQuotes(formatEnvValue(value)),
+      value,
+      `round-trip must be identity for ${JSON.stringify(value)}`,
+    );
+  }
 });
 
 // ── the port re-roll (D7): a freshly-minted id avoids a live sibling's port ──────

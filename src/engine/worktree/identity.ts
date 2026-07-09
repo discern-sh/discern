@@ -23,7 +23,11 @@ import { cksumString } from "../../shared/crc.ts";
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import type { EnvReader } from "../../shared/env.ts";
-import { DEFAULT_ENV_FILES, readEnvValueAcross } from "./env_file.ts";
+import {
+  DEFAULT_ENV_FILES,
+  readEnvValueAcross,
+  stripQuotes,
+} from "./env_file.ts";
 
 /** The dev-server port band: 13000–14999, clear of common local services. */
 const PORT_BASE = 13000;
@@ -481,19 +485,6 @@ async function canonicalizeTarget(path: string): Promise<string> {
   return path;
 }
 
-/** Strip one layer of surrounding whitespace and matching quotes from a value. */
-function stripOuterQuotes(value: string): string {
-  const trimmed = value.trim();
-  if (
-    trimmed.length >= 2 &&
-    ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
-      (trimmed.startsWith("'") && trimmed.endsWith("'")))
-  ) {
-    return trimmed.slice(1, -1);
-  }
-  return trimmed;
-}
-
 /** Read a `DISCERN_WORKTREE_ID` override recorded in the target's env files —
  * the same `[worktree].env_files` set (and last-listed-wins precedence) every
  * other env read uses, so `discern identity` and `discern status` can never
@@ -503,7 +494,7 @@ async function readDotenvId(
   files: readonly string[],
 ): Promise<string | undefined> {
   const value = await readEnvValueAcross(target, files, "DISCERN_WORKTREE_ID");
-  return value === undefined ? undefined : stripOuterQuotes(value);
+  return value === undefined ? undefined : stripQuotes(value.trim());
 }
 
 /** Resolve a possibly-relative git-common-dir against a base, then canonicalize. */

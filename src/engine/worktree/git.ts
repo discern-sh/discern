@@ -18,7 +18,12 @@
 import { basename, dirname, isAbsolute, join, resolve } from "@std/path";
 import type { Logger } from "../../lib/log.ts";
 import { type GitResult, runGit } from "../../shared/subprocess.ts";
-import { readEnvValueAcross, writeEnvVar } from "./env_file.ts";
+import {
+  formatEnvValue,
+  readEnvValueAcross,
+  stripQuotes,
+  writeEnvVar,
+} from "./env_file.ts";
 
 /** A fatal worktree-git condition. */
 export class WorktreeGitError extends Error {
@@ -2253,26 +2258,6 @@ function readEnvValue(text: string, key: string): string {
     }
   }
   return "";
-}
-
-/** Strip one layer of matching surrounding quotes. */
-function stripQuotes(value: string): string {
-  if (
-    value.length >= 2 &&
-    ((value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'")))
-  ) {
-    return value.slice(1, -1);
-  }
-  return value;
-}
-
-/** Quote a value for `.env` only when it contains whitespace, `#`, or a quote. */
-function formatEnvValue(value: string): string {
-  if (/[\s#"']/.test(value)) {
-    return `"${value.replace(/"/g, '\\"')}"`;
-  }
-  return value;
 }
 
 /** Read a file's text, or undefined when it cannot be read. */

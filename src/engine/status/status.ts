@@ -84,7 +84,7 @@ import {
   resolveWorktreeId,
 } from "../worktree/identity.ts";
 import { readResourceSpecs, resourceEnvName } from "../worktree/resources.ts";
-import { readEnvValueAcross } from "../worktree/env_file.ts";
+import { readEnvValueAcross, stripQuotes } from "../worktree/env_file.ts";
 import { colorEnabled, makeOut, type Out } from "../output.ts";
 import { inspectGateReceipt } from "../gate/receipt.ts";
 
@@ -855,18 +855,6 @@ async function isMainCheckoutDirty(
     return false;
   }
   return await hasUncommittedTrackedChanges(mainRepo) ?? false;
-}
-
-/** Strip one layer of matching surrounding quotes. */
-function stripQuotes(value: string): string {
-  if (
-    value.length >= 2 &&
-    ((value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'")))
-  ) {
-    return value.slice(1, -1);
-  }
-  return value;
 }
 
 // ── the CLI runner ───────────────────────────────────────────────────────────

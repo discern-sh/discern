@@ -15,6 +15,7 @@ import { join } from "@std/path";
 import { exists } from "@std/fs";
 import { withTempDir } from "./helpers.ts";
 import {
+  addWorktree,
   engineEnv,
   git,
   gitInit,
@@ -22,8 +23,10 @@ import {
   runAgent,
   scaffoldEngine,
   worktreePath,
+  writeConfig,
 } from "./engine_helpers.ts";
 import { AGENT_NAMES } from "../src/shared/config_schema.ts";
+import { portForId } from "../src/engine/worktree/identity.ts";
 
 const DECODER = new TextDecoder();
 
@@ -111,6 +114,42 @@ Deno.test("hook WorktreeCreate: branches from the trunk even when the main check
       false,
       `the parked branch's commit must not reach the hook's worktree\n${r.stderr}`,
     );
+  });
+});
+
+Deno.test("hook WorktreeCreate: warns when the caller-named worktree's port collides with a live sibling's", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      '[project]\nslug = "engine-test"\nmain_branch = "main"\n\n[worktree]\nport = true\n',
+    );
+    await gitInit(dir);
+    // The hook takes the caller's name verbatim (no mint, so no re-roll) — find
+    // a name whose derived port collides with an existing sibling's, then prove
+    // the collision is at least EXPLAINED rather than left to fight unexplained.
+    const sibling = "port-twin-a";
+    await addWorktree(dir, sibling);
+    let clash: string | undefined;
+    for (let i = 0; clash === undefined && i < 100_000; i++) {
+      const candidate = `port-twin-b${i}`;
+      if (portForId(candidate) === portForId(sibling)) {
+        clash = candidate;
+      }
+    }
+    assert(clash !== undefined, "the 2000-wide band must yield a collision");
+
+    const r = await runHook(dir, await hookCommand(dir, "WorktreeCreate"), {
+      name: clash,
+      cwd: dir,
+    });
+    assertEquals(r.code, 0, r.stderr);
+    assertStringIncludes(
+      r.stderr,
+      "already claimed by a live sibling",
+      `the collision must be explained\n${r.stderr}`,
+    );
+    assertStringIncludes(r.stderr, "DISCERN_WORKTREE_ID");
   });
 });
 

@@ -70,11 +70,28 @@ export async function readEnvFileAt(
   }
 }
 
-/** Read a worktree's `.env`, or undefined when it has none. */
-export async function readEnvFile(
-  worktreeRoot: string,
-): Promise<string | undefined> {
-  return await readEnvFileAt(worktreeRoot, ".env");
+/**
+ * Strip one layer of matching surrounding quotes. A double-quoted value also
+ * unescapes the `\"` the writer ({@link formatEnvValue}) escaped, so a value
+ * containing a quote round-trips instead of comparing unequal on every read.
+ */
+export function stripQuotes(value: string): string {
+  if (value.length >= 2 && value.startsWith('"') && value.endsWith('"')) {
+    return value.slice(1, -1).replace(/\\"/g, '"');
+  }
+  if (value.length >= 2 && value.startsWith("'") && value.endsWith("'")) {
+    return value.slice(1, -1);
+  }
+  return value;
+}
+
+/** Quote a value for an env file only when it contains whitespace, `#`, or a
+ * quote — the write-side counterpart of {@link stripQuotes}. */
+export function formatEnvValue(value: string): string {
+  if (/[\s#"']/.test(value)) {
+    return `"${value.replace(/"/g, '\\"')}"`;
+  }
+  return value;
 }
 
 /** Whether `text` defines `key` (a `KEY=` line). Pure. */

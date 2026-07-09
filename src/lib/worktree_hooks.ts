@@ -30,9 +30,16 @@ import { loadConfig } from "../shared/config_schema.ts";
 import {
   createAndSetupWorktree,
   lifecycleContext,
+  livePortsInUse,
   worktreeTeardown,
 } from "../engine/worktree/lifecycle.ts";
 import { localBranchExists, WorktreeGitError } from "../engine/worktree/git.ts";
+import {
+  deriveIdentity,
+  type IdentitySettings,
+  loadIdentitySettings,
+  resolveWorktreeId,
+} from "../engine/worktree/identity.ts";
 
 /** A logger whose human output is on stderr, so stdout stays the hook's result. */
 function hookLogger(): Logger {
@@ -137,9 +144,44 @@ export async function worktreeCreateHook(): Promise<number> {
         );
       }
     }
+    // Port liveness for hook-created worktrees: the id is the CALLER's to name,
+    // so a colliding port can't be re-rolled the way `discern start` re-rolls a
+    // minted one — but it must not stay unexplained. Snapshot the live ports
+    // before creating (so the new worktree isn't counted against itself), then
+    // warn when the new identity's derived port is already claimed. Advisory
+    // only — never fails the hook.
+    let usedPorts: Set<number> | undefined;
+    let settings: IdentitySettings | undefined;
+    if (config.worktree.port) {
+      try {
+        settings = await loadIdentitySettings(cwd);
+        usedPorts = await livePortsInUse(
+          await lifecycleContext(cwd, log),
+          settings,
+        );
+      } catch {
+        // identity unavailable (e.g. empty slug) — the warning is best-effort
+      }
+    }
     // The shared create-then-setup core (also used by `discern start`); WHERE the
     // worktree lands is decided above by `resolveWorktreeRoot`, not in the engine.
     await createAndSetupWorktree(cwd, dir, branch, log, startPoint);
+    if (usedPorts !== undefined && settings !== undefined) {
+      try {
+        const id = await resolveWorktreeId(settings, dir);
+        const port = deriveIdentity(id, settings).port;
+        if (usedPorts.has(port)) {
+          log.warn(
+            `[discern] the new worktree's derived port ${port} is already ` +
+              `claimed by a live sibling — two dev servers would fight over ` +
+              `it. Record a different DISCERN_WORKTREE_ID in the new ` +
+              `worktree's env file to give it a fresh identity (and port).`,
+          );
+        }
+      } catch {
+        // advisory only
+      }
+    }
   } catch (e) {
     if (e instanceof WorktreeGitError) {
       log.error(e.message);
