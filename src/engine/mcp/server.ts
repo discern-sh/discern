@@ -151,8 +151,7 @@ const INTEGRATE: ToolAnnotations = {
 };
 
 /** A tool handler's `args`: the object the SDK validates each call against and hands
- * the handler, inferred from the tool's own Zod input shape. An argument-less tool
- * keeps the empty default shape, so its handler simply ignores the parameter. */
+ * the handler, inferred from the tool's own Zod input shape. */
 type ToolArgs<TShape extends z.ZodRawShape> = z.infer<z.ZodObject<TShape>>;
 
 /** What a {@link McpTool.reaimOnSuccess} hook decides the re-aim from. `heldRootMissing`
@@ -165,9 +164,9 @@ interface ReaimContext {
 
 /** A tool: its advertised schema + metadata plus the handler that runs the verb.
  * The SDK converts {@link inputSchema}/{@link outputSchema} (Zod raw shapes, the
- * latter the per-verb schema from result_schemas.ts) to the JSON Schemas it
- * advertises in `tools/list`, and validates a call's `structuredContent` against the
- * output schema. Generic over its input shape (`TShape`) so {@link defineTool} types
+ * former registered closed via {@link strictInput}, the latter the per-verb schema
+ * from result_schemas.ts) to the JSON Schemas it advertises in `tools/list`, and
+ * validates a call's `structuredContent` against the output schema. Generic over its input shape (`TShape`) so {@link defineTool} types
  * each handler's `args` from that tool's own `inputSchema` — the SDK has already
  * validated the call against it, so the handler reads typed fields instead of
  * re-checking an untyped `Record`. The heterogeneous {@link TOOLS} table holds the
@@ -177,8 +176,12 @@ interface McpTool<TShape extends z.ZodRawShape = z.ZodRawShape> {
   /** A short human label shown by clients alongside the tool. */
   title?: string;
   description: string;
-  /** The verb's arguments as a Zod raw shape; absent for an argument-less verb. */
-  inputSchema?: TShape;
+  /** The verb's arguments as a Zod raw shape. Required: a schema-less tool skips
+   * SDK argument validation entirely, so whatever a caller sends is silently
+   * ignored — the same hole {@link strictInput} closes for undeclared keys. A
+   * genuinely argument-less verb declares an empty shape and faces that trade-off
+   * explicitly. */
+  inputSchema: TShape;
   /** The result shape this tool advertises (a Zod raw shape — a per-verb output
    * schema's `.shape`). The SDK validates every call's `structuredContent` against
    * it, so it MUST match what the verb actually returns (ADR 0041). */
@@ -219,6 +222,20 @@ function defineTool<TShape extends z.ZodRawShape>(
   tool: McpTool<TShape>,
 ): McpTool<TShape> {
   return tool;
+}
+
+/**
+ * The schema a tool call is validated against: the tool's declared raw shape as a
+ * CLOSED object (`strictObject`), so an argument the tool does not declare fails
+ * the call with a loud "Unrecognized key" validation error. The SDK's default is
+ * an open object that silently STRIPS unknown keys — for a mutating verb that is
+ * the worst failure shape an agent-facing surface can have: the caller's intent
+ * (e.g. a `path` aimed at another project) is discarded and the verb runs with
+ * different semantics, reporting success. Exported so the unknown-argument guard
+ * (`tests/engine_mcp_test.ts`) exercises the exact schema production registers.
+ */
+export function strictInput(shape: z.ZodRawShape): z.ZodType {
+  return z.strictObject(shape);
 }
 
 const TOOL_PRIORITY = [
@@ -1405,25 +1422,15 @@ export async function runMcpServer(): Promise<number> {
         ? { annotations: tool.annotations }
         : {}),
     };
-    if (tool.inputSchema !== undefined) {
-      server.registerTool(
-        tool.name,
-        { ...config, inputSchema: tool.inputSchema },
-        (args: Record<string, unknown>, extra: { signal: AbortSignal }) =>
-          runTool(tool, working, args, callSignal(extra), installedVersion),
-      );
-    } else {
-      // An argument-less verb registers no input schema, so the SDK skips
-      // argument validation — the call is accepted whether or not the client
-      // sends an (empty) `arguments` object. Its callback receives only the
-      // request `extra`, so there are no arguments to forward.
-      server.registerTool(
-        tool.name,
-        config,
-        (extra: { signal: AbortSignal }) =>
-          runTool(tool, working, {}, callSignal(extra), installedVersion),
-      );
-    }
+    // The input schema registers CLOSED (strictInput), so a call carrying an
+    // argument the tool doesn't declare is refused with a validation error —
+    // never accepted with the stray key silently stripped.
+    server.registerTool(
+      tool.name,
+      { ...config, inputSchema: strictInput(tool.inputSchema) },
+      (args: Record<string, unknown>, extra: { signal: AbortSignal }) =>
+        runTool(tool, working, args, callSignal(extra), installedVersion),
+    );
   }
 
   // Resources — readable context paired with the tools (ADR 0041). Registered only

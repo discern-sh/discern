@@ -530,6 +530,51 @@ Deno.test("discern mcp: wrong-typed arguments return a field-naming Zod validati
   });
 });
 
+Deno.test("discern mcp: EVERY tool refuses an undeclared argument loudly — never silently stripped", async () => {
+  // Class guard: an open input schema silently STRIPS unknown keys, so an argument a
+  // tool doesn't declare (e.g. `path` on a tool without it) would vanish and the verb
+  // would run with different semantics, reporting success — for a mutating verb, the
+  // worst failure shape an agent-facing surface can have. Every tool registers a
+  // CLOSED schema (strictInput), so the same call must instead fail with a validation
+  // error naming the stray key. Driven live over one server and iterated over TOOLS,
+  // so a new tool auto-enrols; validation fires before the verb core runs, so even
+  // the mutating tools stay side-effect-free here.
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const mcp = await spawnMcp(dir);
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await mcp.recv();
+
+    let id = 2;
+    for (const tool of TOOLS) {
+      await mcp.send({
+        jsonrpc: "2.0",
+        id: id++,
+        method: "tools/call",
+        params: { name: tool.name, arguments: { not_an_argument: true } },
+      });
+      const rejected = await mcp.recv();
+      const text = JSON.stringify(rejected);
+      assert(
+        rejected.error !== undefined || rejected.result?.isError === true,
+        `${tool.name} accepted an argument it does not declare: ${text}`,
+      );
+      assertStringIncludes(
+        text,
+        "not_an_argument",
+        `${tool.name}'s refusal must name the stray key so the caller can fix the call`,
+      );
+    }
+    assertEquals(await mcp.close(), 0);
+  });
+});
+
 Deno.test("discern mcp: discern_docs returns the index, a single doc, and a not_found error", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
@@ -1290,7 +1335,7 @@ Deno.test("discern mcp: a worktree-spawned server re-aims to main on graduate ev
       method: "tools/call",
       params: {
         name: "discern_graduate",
-        arguments: { path: wtPath, to: "trunk" },
+        arguments: { path: wtPath },
       },
     });
     const graduated = await inWt.recv();
@@ -1376,7 +1421,7 @@ Deno.test("discern mcp: graduating a DIFFERENT worktree by `path` leaves the hel
       method: "tools/call",
       params: {
         name: "discern_graduate",
-        arguments: { path: other, to: "trunk" },
+        arguments: { path: other },
       },
     });
     const graduated = await inHeld.recv();
