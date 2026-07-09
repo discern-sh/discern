@@ -311,6 +311,16 @@ Deno.test("graduate --json performs the graduation and serializes the steps", as
       ),
       r.stdout,
     );
+    // The landing precedes resource teardown, so a graduation that loses a
+    // concurrent-landing race at the fast-forward leaves its worktree fully
+    // intact — resources included — for the integrate → finish → graduate
+    // recovery the refusal prescribes.
+    const labels = obj.steps.map((s: { label: string }) => s.label);
+    assert(
+      labels.indexOf("fast-forward-trunk") <
+        labels.indexOf("teardown resources"),
+      `the trunk must land before resources are torn down\n${r.stdout}`,
+    );
     // The work landed on the trunk in main.
     assert(
       await import("@std/fs").then((m) => m.exists(join(dir, "feature.txt"))),

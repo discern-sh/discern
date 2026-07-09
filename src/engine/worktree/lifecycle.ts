@@ -1253,15 +1253,12 @@ async function executeGraduatePlan(
     mainRepo,
   );
 
-  // tear down external resources (non-fatal, while still in the worktree so
-  // @dir@-bearing destroys resolve, and before removal so no orphan is left)
-  ctx.log.info("Tearing down the worktree's resources…");
-  await teardownResources(ctx);
-  done("resource-destroy", "teardown resources");
-
   // Land on the trunk: fast-forward it to the branch tip. The graduation gate
   // already proved the branch contains the trunk, so this is always a clean
-  // fast-forward — never a merge commit, never a conflict.
+  // fast-forward — never a merge commit, never a conflict. The landing runs
+  // BEFORE resource teardown so a graduation that loses a concurrent-landing
+  // race is refused with its worktree fully intact — resources included — and
+  // the prescribed integrate → finish → graduate recovery actually works.
   await assertGraduateBranchStillCurrent(ctx.cwd, trunk);
   // Re-verify the main checkout is STILL on the trunk immediately before the
   // fast-forward (the plan checked it, but the gate re-run above takes real time
@@ -1291,7 +1288,8 @@ async function executeGraduatePlan(
     throw new WorktreeGitError(
       `The trunk (${trunk}) moved while this graduation was running — most ` +
         `likely another line of work landed first — so the fast-forward was ` +
-        `refused and nothing was changed. Your commits are safe on ` +
+        `refused and nothing was changed. Your worktree is fully intact, ` +
+        `resources included, and your commits are safe on ` +
         `${worktreeBranch} at ${worktreePath}. From that worktree, run ` +
         `\`discern integrate\` to bring the new ${trunk} in beneath your work, ` +
         `then \`discern finish\`, then \`discern graduate\` again. ` +
@@ -1300,6 +1298,12 @@ async function executeGraduatePlan(
   }
   ctx.log.ok(`${trunk} fast-forwarded to ${worktreeBranch} at ${mainRepo}.`);
   done("git", "fast-forward-trunk");
+
+  // tear down external resources (non-fatal, while still in the worktree so
+  // @dir@-bearing destroys resolve, and before removal so no orphan is left)
+  ctx.log.info("Tearing down the worktree's resources…");
+  await teardownResources(ctx);
+  done("resource-destroy", "teardown resources");
 
   // remove the worktree (from the main repo)
   ctx.log.info(`Removing worktree: ${worktreePath}`);
@@ -1749,11 +1753,18 @@ async function buildIntegratePlan(
 function integrateConflictMessage(
   plan: IntegratePlan,
   files: string[],
+  aborted: boolean,
 ): string {
   const where = files.length > 0 ? ` in: ${files.join(", ")}` : "";
   const rerun = plan.fromOverride
     ? `discern integrate --from ${plan.source}`
     : "discern integrate";
+  if (!aborted) {
+    return `Integrating ${plan.source} conflicts${where} — and stepping aside ` +
+      `failed too, so the merge is still in progress in your tree. Either ` +
+      `resolve the conflicts and commit the merge, or run ` +
+      `\`git merge --abort\` to discard it; then re-run \`${rerun}\`.`;
+  }
   return `Integrating ${plan.source} conflicts${where}. The merge was aborted — ` +
     `your tree is untouched. Merge it yourself (\`git merge ${plan.source}\`), ` +
     `resolve the conflicts, commit the result, then re-run \`${rerun}\` — the ` +
@@ -1864,7 +1875,19 @@ async function executeIntegratePlan(
       );
     case "conflict":
       throw new WorktreeGitError(
-        integrateConflictMessage(plan, outcome.files),
+        integrateConflictMessage(plan, outcome.files, outcome.aborted),
+      );
+    case "merge_failed":
+      // Git refused before any merge began — unrelated histories, an untracked
+      // file in the way. The tree is untouched; the cause is git's to name.
+      throw new WorktreeGitError(
+        `Integrating ${plan.source} failed before any merge began — your ` +
+          `tree is untouched. Git refused:\n    ${outcome.reason}\n` +
+          `Fix the cause git names, then re-run \`${
+            plan.fromOverride
+              ? `discern integrate --from ${plan.source}`
+              : "discern integrate"
+          }\`.`,
       );
     case "integrated": {
       ctx.log.heading(`Integrating ${source}…`);

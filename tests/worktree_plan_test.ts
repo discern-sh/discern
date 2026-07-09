@@ -136,8 +136,8 @@ Deno.test("graduatePlanToEngine: fast-forwards the trunk; resources gate the tea
     hasResources: true,
   });
   assertEquals(withResources.steps.map((s) => s.label), [
-    "teardown resources",
     "fast-forward-trunk",
+    "teardown resources",
     "remove-worktree",
     "delete-branch",
     "refresh agent files",
@@ -153,8 +153,8 @@ Deno.test("graduatePlanToEngine: fast-forwards the trunk; resources gate the tea
     hasResources: false,
   });
   assertEquals(clean.steps.map((s) => s.label), [
-    "teardown resources",
     "fast-forward-trunk",
+    "teardown resources",
     "remove-worktree",
     "delete-branch",
     "refresh agent files",

@@ -65,6 +65,19 @@ export interface GraduatePlan {
  */
 export function graduatePlanToEngine(plan: GraduatePlan): EnginePlan {
   const steps: PlanStep[] = [];
+  // Land on the trunk FIRST: fast-forward it to the branch tip (always clean —
+  // the gate guarantees the branch contains the trunk). Only then tear down the
+  // worktree's external resources: a graduation that loses a concurrent-landing
+  // race is refused at the fast-forward with its worktree fully intact —
+  // resources included — so the prescribed integrate → finish → graduate
+  // recovery actually works. Teardown still precedes removal (destroys resolve
+  // `@dir@` inside the worktree; no orphan is left).
+  steps.push({
+    kind: "git",
+    label: "fast-forward-trunk",
+    disposition: "run",
+    note: `${plan.trunk} → ${plan.worktreeBranch} in ${plan.mainRepo}`,
+  });
   steps.push({
     kind: "resource-destroy",
     label: "teardown resources",
@@ -72,15 +85,6 @@ export function graduatePlanToEngine(plan: GraduatePlan): EnginePlan {
     note: plan.hasResources
       ? "destroy this worktree's external resources"
       : "no resources declared",
-  });
-  // Land on the trunk: fast-forward it to the branch tip (always clean — the
-  // gate guarantees the branch contains the trunk), then remove the worktree and
-  // delete the merged branch.
-  steps.push({
-    kind: "git",
-    label: "fast-forward-trunk",
-    disposition: "run",
-    note: `${plan.trunk} → ${plan.worktreeBranch} in ${plan.mainRepo}`,
   });
   steps.push({
     kind: "git",
@@ -106,7 +110,7 @@ export function graduatePlanToEngine(plan: GraduatePlan): EnginePlan {
     details: [
       `Branch:        ${plan.worktreeBranch}`,
       `From worktree: ${plan.worktreePath}`,
-      `Into trunk:         ${plan.mainRepo} (fast-forward ${plan.trunk}, delete ${plan.worktreeBranch})`,
+      `Into trunk:    ${plan.mainRepo} (fast-forward ${plan.trunk}, delete ${plan.worktreeBranch})`,
       ...ignoredDetails,
     ],
     steps,

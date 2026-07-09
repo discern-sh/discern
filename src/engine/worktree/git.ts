@@ -329,8 +329,14 @@ export type IntegrateOutcome =
     main: string;
     after: string;
   }
-  /** The merge conflicts in `files`; the merge is aborted, leaving a clean tree. */
-  | { kind: "conflict"; files: string[] };
+  /** The merge conflicts in `files`; the merge is aborted, leaving a clean tree —
+   * unless `aborted` is false, when the abort itself failed and the tree still
+   * holds the half-merge (the caller must say so, never claim a clean tree). */
+  | { kind: "conflict"; files: string[]; aborted: boolean }
+  /** The merge failed before it began — git refused outright (unrelated
+   * histories, an untracked file in the way), leaving the tree untouched.
+   * `reason` is git's own stderr, evidence for the caller's message. */
+  | { kind: "merge_failed"; reason: string };
 
 /** The three pre-merge SHA anchors of an integration (the fourth, `after`, is only
  * known post-merge): `base` (the fork point), `before` (the branch tip), `main`
@@ -441,14 +447,26 @@ export async function integrateMain(
     const after = (await git(["rev-parse", "HEAD"], cwd)).stdout.trim();
     return { kind: "integrated", behind, fastForward, ...anchors, after };
   }
-  // The merge stopped — collect the conflicted paths, then step aside cleanly so the
-  // worktree is left exactly as it was before the merge.
+  // The merge stopped. A REAL conflict leaves evidence — unmerged paths, or a
+  // MERGE_HEAD parked mid-merge; anything else is git refusing outright before
+  // touching the tree (unrelated histories, an untracked file in the way), and
+  // calling THAT a conflict would bury git's actual reason. Evidence, never
+  // stderr prose: git's messages are locale-dependent.
   const conflicted = await git(["diff", "--name-only", "--diff-filter=U"], cwd);
   const files = conflicted.success
     ? conflicted.stdout.split("\n").map((l) => l.trim()).filter((l) => l !== "")
     : [];
-  await git(["merge", "--abort"], cwd);
-  return { kind: "conflict", files };
+  const midMerge =
+    (await git(["rev-parse", "--verify", "--quiet", "MERGE_HEAD"], cwd))
+      .success;
+  if (files.length === 0 && !midMerge) {
+    return { kind: "merge_failed", reason: merge.stderr.trim() };
+  }
+  // Step aside so the worktree is left exactly as it was before the merge — and
+  // VERIFY the abort: reporting a clean tree while MERGE_HEAD persists would
+  // strand the caller inside a half-merge it was told doesn't exist.
+  const abort = await git(["merge", "--abort"], cwd);
+  return { kind: "conflict", files, aborted: abort.success };
 }
 
 /** One commit an integration brought in (short sha + subject line). */

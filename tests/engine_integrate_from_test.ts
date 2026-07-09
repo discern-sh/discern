@@ -125,6 +125,36 @@ Deno.test("integrate --from: a conflicting ref aborts to a clean tree and names 
   });
 });
 
+Deno.test("integrate --from: a non-conflict merge failure surfaces git's real reason, not a fake conflict", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "unrelated-pull");
+    // An orphan branch shares no history with main: `git merge` refuses outright
+    // ("refusing to merge unrelated histories") — no conflicted files, no
+    // MERGE_HEAD. Reporting that as a conflict buries the actual cause.
+    await git(dir, "checkout", "-q", "--orphan", "island");
+    await git(dir, "rm", "-rfq", ".");
+    await Deno.writeTextFile(join(dir, "island.txt"), "elsewhere\n");
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "island", "--no-gpg-sign");
+    await git(dir, "switch", "-q", "main");
+
+    const r = await runAgent(wt, ["integrate", "--json", "--from", "island"]);
+    assertEquals(r.code, 1, r.output);
+    const result = JSON.parse(r.stdout) as { error: string; message: string };
+    assertEquals(result.error, "precondition_failed");
+    // The message is the failure taxonomy's, carrying git's own reason — not the
+    // conflict refusal (whose "merge was aborted" would be false here).
+    assertStringIncludes(result.message, "failed before any merge began");
+    assertStringIncludes(result.message, "Git refused:");
+    assert(
+      !result.message.includes("The merge was aborted"),
+      `a non-conflict failure must not claim an aborted merge\n${result.message}`,
+    );
+    // The tree really is untouched.
+    assertEquals(await gitOut(wt, "status", "--porcelain"), "");
+  });
+});
+
 Deno.test("integrate --from refuses an unknown ref in plain language", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "unknown-pull");
