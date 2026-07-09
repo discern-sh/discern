@@ -108,7 +108,7 @@ wins over the working root for that one call.
 
 > **Refined ([ADR 0111](0111-cross-project-path-and-strict-tool-schemas.md)).**
 > Two of this section's edges moved. `discern_start`, originally the one
-> root-operating tool *without* `path`, now declares it with creation-target
+> root-operating tool _without_ `path`, now declares it with creation-target
 > semantics — the worktree is created for the project containing that path, and
 > the re-aim follows it, a second deliberate exception to the one-call-steer
 > rule. And `findRoot`'s unfenced resolution is now the documented contract:

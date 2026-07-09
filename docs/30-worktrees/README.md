@@ -46,21 +46,20 @@ branch the main checkout happens to be parked on, so a parked checkout can't
 poison a fresh Worktree with off-trunk commits (the `WorktreeCreate` hook
 applies the same rule); `--from <ref>` branches from any ref instead, for
 building on unlanded or experimental work. Over MCP, `discern_start` also takes
-`path` — an absolute path into **any discern project on disk** — and creates
-the Worktree *for that project*, forking its trunk under its config, the
-server's working root following the new Worktree exactly as for a same-project
-start: the cross-project entry point that makes a multi-repo application
-workable from one agent session
+`path` — an absolute path into **any discern project on disk** — and creates the
+Worktree _for that project_, forking its trunk under its config, the server's
+working root following the new Worktree exactly as for a same-project start: the
+cross-project entry point that makes a multi-repo application workable from one
+agent session
 ([ADR 0111](../_adr/0111-cross-project-path-and-strict-tool-schemas.md)).
-Uncommitted changes in the main
-checkout stay there (an advisory line says so). `start` refuses — in plain
-language, cleaning up anything partially created — a repo with no commits yet
-("make your first commit first"), a `discern.toml` that is not at the git
-repository's root (a Worktree is a whole-repository checkout), and an unknown or
-ambiguous `--from` ref; `discern doctor`'s **repository shape** check flags the
-first two layouts before a `start` ever trips on them. It only ever _creates_ a
-Worktree to inhabit; it never adopts or prunes an existing one. When `main`
-advances under a long-running Worktree,
+Uncommitted changes in the main checkout stay there (an advisory line says so).
+`start` refuses — in plain language, cleaning up anything partially created — a
+repo with no commits yet ("make your first commit first"), a `discern.toml` that
+is not at the git repository's root (a Worktree is a whole-repository checkout),
+and an unknown or ambiguous `--from` ref; `discern doctor`'s **repository
+shape** check flags the first two layouts before a `start` ever trips on them.
+It only ever _creates_ a Worktree to inhabit; it never adopts or prunes an
+existing one. When `main` advances under a long-running Worktree,
 [`integrate`](../../src/engine/worktree/lifecycle.ts) brings it into the branch,
 re-materializes the agent files + skills, and re-runs `[worktree.setup].ensure`
 so a merge that changed a lockfile leaves the worktree's dependencies current —
