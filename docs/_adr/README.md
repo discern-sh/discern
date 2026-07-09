@@ -118,6 +118,7 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0104 — `discern uninstall` is the exit-honesty verb — registry-derived removal, CLI-only](0104-uninstall-is-the-exit-honesty-verb.md)
 - [0105 — Interruption reaches the gate's detached job groups](0105-interruption-reaches-detached-gate-jobs.md)
 - [0110 — The landing model — pull from any ref, land only on the trunk](0110-the-landing-model.md)
+- [0111 — The MCP surface refuses undeclared arguments, and `discern_start` takes a cross-project `path`](0111-cross-project-path-and-strict-tool-schemas.md)
 
 ## Superseded and consolidated ADRs
 

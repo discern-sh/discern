@@ -106,6 +106,17 @@ wins over the working root for that one call.
 > live held root untouched, preserving the one-call rule for every
 > non-destructive case.
 
+> **Refined ([ADR 0111](0111-cross-project-path-and-strict-tool-schemas.md)).**
+> Two of this section's edges moved. `discern_start`, originally the one
+> root-operating tool *without* `path`, now declares it with creation-target
+> semantics — the worktree is created for the project containing that path, and
+> the re-aim follows it, a second deliberate exception to the one-call-steer
+> rule. And `findRoot`'s unfenced resolution is now the documented contract:
+> `path` may name **any** discern project on disk, which is what makes
+> multi-repo setups workable from one session. Undeclared arguments — including
+> `path` on a tool that doesn't take it — refuse loudly instead of being
+> silently stripped by the SDK's open-object validation.
+
 The held working root is not mere convenience over a bare `path` parameter — it
 is a **safety default**. Path-only and stateless has a sharp edge: an agent that
 forgets `path` on `discern_finish` silently gates the _spawn_ root, the
