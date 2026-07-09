@@ -20,6 +20,16 @@
  * forward onto the commit it makes: that commit changes only `[ratchets]` limits,
  * which the gate never reads, so the vouch stays truthful across it and `graduate`
  * need not re-run the whole gate for a re-pin (see {@link carryReceiptForwardAcrossPin}).
+ *
+ * The ratchet **measurement receipt** is its sibling on the same model: a green
+ * `ratchets` check over a clean tree records every ratchet's measured value against
+ * the validated HEAD, so a `ratchets --pin` on that same clean HEAD can reuse the
+ * values instead of re-running every (slow) measurement. Same admin-dir home, same
+ * identity rule (exact HEAD + clean tree, so any commit or edit silently invalidates
+ * it), same fail-closed posture (a red check clears it; a pin that cannot honor it
+ * simply measures fresh). Only the measurements are cacheable — the never-loosen
+ * comparison reads main, which can advance while HEAD stands still, so the pin
+ * re-checks that half live.
  */
 
 import { join } from "@std/path";
@@ -29,17 +39,22 @@ import type {
   GateReceiptCheckData,
 } from "../../shared/result_schemas.ts";
 
-/** The receipt's filename inside the per-worktree git admin dir. */
+/** The gate-pass receipt's filename inside the per-worktree git admin dir. */
 const RECEIPT_FILE = "discern-gate-pass";
+/** The measurement receipt's filename, in the same admin dir. */
+const MEASUREMENTS_FILE = "discern-ratchet-measurements";
 type GateReceiptRecordData = NonNullable<GateData["gate_receipt"]>;
 
 /**
- * Resolve this worktree's receipt path (`git rev-parse --git-path discern-gate-pass`),
+ * Resolve a per-worktree admin file's path (`git rev-parse --git-path <file>`),
  * normalizing a worktree-relative result to absolute against `cwd`. `undefined`
  * outside a git repo (so every caller treats "no git" as "no receipt").
  */
-async function receiptPath(cwd: string): Promise<string | undefined> {
-  const r = await runGit(["rev-parse", "--git-path", RECEIPT_FILE], { cwd });
+async function adminFilePath(
+  cwd: string,
+  file: string,
+): Promise<string | undefined> {
+  const r = await runGit(["rev-parse", "--git-path", file], { cwd });
   if (!r.success) {
     return undefined;
   }
@@ -49,6 +64,11 @@ async function receiptPath(cwd: string): Promise<string | undefined> {
   }
   // `--git-path` may print a path relative to the worktree's cwd.
   return raw.startsWith("/") ? raw : join(cwd, raw);
+}
+
+/** This worktree's gate-pass receipt path. */
+function receiptPath(cwd: string): Promise<string | undefined> {
+  return adminFilePath(cwd, RECEIPT_FILE);
 }
 
 /** Current HEAD sha at `cwd`, or `undefined` when it cannot be read. */
@@ -226,4 +246,128 @@ export async function carryReceiptForwardAcrossPin(
     return undefined;
   }
   return await recordGateOutcome(cwd, true);
+}
+
+// ── the ratchet measurement receipt ─────────────────────────────────────────────
+
+/** The measurement receipt's verdict: `honored` carries the per-ratchet values a pin
+ * may reuse; every other status means "measure fresh" (a cache miss, never an error). */
+export type RatchetMeasurementsCheck =
+  | { status: "honored"; values: Record<string, number> }
+  | { status: "missing" | "stale" | "dirty" | "malformed" | "unavailable" };
+
+/**
+ * Record a green `ratchets` check's per-ratchet measured values against the current
+ * HEAD, for a subsequent `--pin` on that same clean HEAD to reuse. Mirrors
+ * {@link recordGateOutcome}'s conditions: only a CLEAN tree with a readable HEAD earns
+ * a receipt (a dirty check — `--force` — records nothing, since the values describe a
+ * tree no pin will ever see). Best-effort: an I/O hiccup never fails the check that
+ * produced the measurements. Returns whether a receipt was written.
+ */
+export async function recordRatchetMeasurements(
+  cwd: string,
+  values: Record<string, number>,
+): Promise<boolean> {
+  const path = await adminFilePath(cwd, MEASUREMENTS_FILE);
+  if (path === undefined || !(await isClean(cwd))) {
+    return false;
+  }
+  const head = await headSha(cwd);
+  if (head === undefined) {
+    return false;
+  }
+  try {
+    await Deno.writeTextFile(path, `${JSON.stringify({ head, values })}\n`);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Clear the measurement receipt — a RED check's values must not stay reusable
+ * (fail-closed, the same posture as a failed finish clearing the gate-pass receipt).
+ * Best-effort; a missing file is already the desired state.
+ */
+export async function clearRatchetMeasurements(cwd: string): Promise<void> {
+  const path = await adminFilePath(cwd, MEASUREMENTS_FILE);
+  if (path === undefined) {
+    return;
+  }
+  try {
+    await Deno.remove(path);
+  } catch {
+    // NotFound or any other hiccup: the receipt is an optimization, never load-bearing.
+  }
+}
+
+/**
+ * Inspect whether the measurement receipt can be honored: it must parse, name exactly
+ * the current HEAD, and the tree must be clean — the same identity rule as the
+ * gate-pass receipt, so any commit, amend, or uncommitted edit silently invalidates
+ * it. Anything unreadable or mis-shaped reads as `malformed` (measure fresh), never an
+ * error. Never throws.
+ */
+export async function inspectRatchetMeasurements(
+  cwd: string,
+): Promise<RatchetMeasurementsCheck> {
+  const path = await adminFilePath(cwd, MEASUREMENTS_FILE);
+  if (path === undefined) {
+    return { status: "unavailable" };
+  }
+  let raw: string;
+  try {
+    raw = await Deno.readTextFile(path);
+  } catch (error) {
+    return error instanceof Deno.errors.NotFound
+      ? { status: "missing" }
+      : { status: "unavailable" };
+  }
+  const parsed = parseMeasurements(raw);
+  if (parsed === undefined) {
+    return { status: "malformed" };
+  }
+  const head = await headSha(cwd);
+  if (head === undefined) {
+    return { status: "unavailable" };
+  }
+  if (head !== parsed.head) {
+    return { status: "stale" };
+  }
+  if (!(await isClean(cwd))) {
+    return { status: "dirty" };
+  }
+  return { status: "honored", values: parsed.values };
+}
+
+/** Parse the receipt file's JSON defensively: a `head` sha string plus a `values`
+ * map of finite numbers, or `undefined` for anything else — the file sits on disk
+ * between runs, so its content is evidence to validate, not a trusted structure. */
+function parseMeasurements(
+  raw: string,
+): { head: string; values: Record<string, number> } | undefined {
+  let data: unknown;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    return undefined;
+  }
+  if (typeof data !== "object" || data === null) {
+    return undefined;
+  }
+  const { head, values } = data as { head?: unknown; values?: unknown };
+  if (typeof head !== "string" || head === "") {
+    return undefined;
+  }
+  if (typeof values !== "object" || values === null) {
+    return undefined;
+  }
+  const out: Record<string, number> = {};
+  for (const [name, value] of Object.entries(values)) {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      return undefined;
+    }
+    out[name] = value;
+  }
+  return { head, values: out };
 }
