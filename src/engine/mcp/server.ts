@@ -411,16 +411,19 @@ export const TOOLS: McpTool[] = orderTools([
       "and ON DEMAND — it runs the metric commands, so it is NOT part of " +
       "discern_finish; run it as needed. Non-dry-run calls require a clean worktree " +
       "unless force is set while authoring or debugging ratchets. Set dry_run to " +
-      "preview which ratchets would run without measuring anything. Set pin to " +
+      "preview which ratchets would run — it measures nothing, with or without " +
+      "pin. Set pin to " +
       "capture measured improvements INSTEAD of just checking: it tightens each " +
       "limit to the value just measured (the pin_names ratchets, or every one with " +
       "slack), commits that change on its own, and carries the gate-pass receipt " +
       "forward so graduate skips the redundant gate re-run — the ergonomic way to " +
       "re-pin a baseline, never hand-edit discern.toml. Pin needs a clean worktree " +
-      "and pins nothing while any ratchet is failing.",
+      "and pins nothing while any ratchet is failing. A green check's hints[] " +
+      "already name any pinnable slack with measured values, so the whole flow is " +
+      "check then pin — never spend a call just to see whether a pin is worthwhile.",
     inputSchema: {
       dry_run: z.boolean().optional().describe(
-        "Preview (with pin: report what pin would change); measure nothing without pin, and never write (default false).",
+        "Preview the plan and touch nothing — measures nothing, with or without pin (default false).",
       ),
       force: z.boolean().optional().describe(
         "Override the clean-worktree guard while authoring or debugging ratchets; ignored with pin (default false).",

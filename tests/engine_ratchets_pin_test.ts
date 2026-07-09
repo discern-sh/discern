@@ -384,7 +384,45 @@ Deno.test("pin: refuses a dirty worktree (it commits the change alone)", async (
   });
 });
 
-Deno.test("pin --dry-run: reports what it would pin and changes nothing", async () => {
+Deno.test("pin --dry-run: renders the pin plan and measures NOTHING", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    // The run command leaves a sentinel file — if the dry-run executes it, the
+    // sentinel appears. A dry-run that measures is the defect this pins against:
+    // same flag as the plain check's dry-run, so the same no-execution contract
+    // (ADR 0027); slack is knowable only from the plain check's measured hints.
+    await writeConfig(
+      dir,
+      pinConfig({
+        name: "coverage",
+        direction: "up",
+        limit: "80",
+        run: "touch measured.sentinel && echo 'DISCERN_METRIC coverage 95'",
+      }),
+    );
+    await gitInit(dir);
+    const before = await gitOut(dir, "rev-parse", "HEAD");
+    const r = await runAgent(dir, ["ratchets", "--pin", "--dry-run"]);
+    assertEquals(r.code, 0, r.output);
+    // The plan names the ratchet and the pin semantics, but no measured value —
+    // nothing ran, so there is none to show.
+    assertStringIncludes(r.stdout, "coverage");
+    assertStringIncludes(r.stdout, "would measure");
+    assert(
+      !r.stdout.includes("95"),
+      `a dry-run must not know the measured value:\n${r.stdout}`,
+    );
+    const sentinel = await Deno.stat(join(dir, "measured.sentinel")).catch(
+      () => undefined,
+    );
+    assertEquals(sentinel, undefined, "dry-run must not run the measurement");
+    // Nothing written, nothing committed.
+    assertEquals(limitOf(await readConfig(dir), "coverage"), "80");
+    assertEquals(await gitOut(dir, "rev-parse", "HEAD"), before);
+  });
+});
+
+Deno.test("a green check hints any pinnable slack, so check → pin needs no measuring preview", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -394,16 +432,34 @@ Deno.test("pin --dry-run: reports what it would pin and changes nothing", async 
         direction: "up",
         limit: "80",
         run: "echo 'DISCERN_METRIC coverage 95'",
+      }, {
+        name: "snug",
+        direction: "up",
+        limit: "70",
+        run: "echo 'DISCERN_METRIC snug 70'",
       }),
     );
     await gitInit(dir);
-    const before = await gitOut(dir, "rev-parse", "HEAD");
-    const r = await runAgent(dir, ["ratchets", "--pin", "--dry-run"]);
+    // The check already measured everything: its hints name the ratchet with
+    // slack — decided by the same pinnedLimit a real pin applies — and stay
+    // silent about the one already at its limit.
+    const r = await runAgent(dir, ["ratchets", "--json"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, "would pin floor 80 → 95");
-    // Nothing written, nothing committed.
-    assertEquals(limitOf(await readConfig(dir), "coverage"), "80");
-    assertEquals(await gitOut(dir, "rev-parse", "HEAD"), before);
+    const obj = JSON.parse(r.stdout.trim()) as {
+      ok: boolean;
+      hints?: string[];
+    };
+    assertEquals(obj.ok, true);
+    const slackHint = (obj.hints ?? []).find((h) =>
+      h.includes("Pinnable slack")
+    );
+    assertStringIncludes(slackHint ?? "", "coverage");
+    assertStringIncludes(slackHint ?? "", "measured 95");
+    assertStringIncludes(slackHint ?? "", "would pin to 95");
+    assert(
+      !(slackHint ?? "").includes("snug"),
+      `a ratchet with no slack must not be hinted: ${slackHint}`,
+    );
   });
 });
 

@@ -110,6 +110,12 @@ commits that one change with an audit message. Name ratchets to pin only those
 has slack. It only ever tightens: a regressed metric is a failing ratchet, not a
 limit to loosen, and pin refuses to run while any ratchet is red.
 
+A green `discern ratchets` check already measured everything, so its hints name
+any pinnable slack — decided by the same rule a real pin applies — making the
+whole flow check → pin. `--dry-run` renders the plan and measures nothing, with
+or without `--pin`: what a pin would change is knowable only by measuring, and
+the check's hints are where that answer already lives.
+
 Pin is the way to re-pin a baseline — never hand-edit the number. Because its
 commit changes only `[ratchets]` limits, which the gate never reads, pin carries
 a green `discern finish` receipt forward onto it, so a follow-up

@@ -526,7 +526,9 @@ async function applyPinEdits(
  * and carry any gate-pass receipt forward across the (gate-neutral) commit so
  * `graduate` need not re-run the whole gate. A FAILING ratchet pins nothing — you can't
  * capture a good state from a red tree — and returns the ordinary failing result.
- * `dryRun` measures and reports what it WOULD pin, changing nothing.
+ * `dryRun` renders the pin plan and measures NOTHING (the universal dry-run contract,
+ * ADR 0027) — it cannot say what a pin would change, because slack is only knowable by
+ * measuring; the plain check's green result already hints any pinnable slack.
  */
 async function pinRatchetsResult(
   root: string,
@@ -555,22 +557,54 @@ async function pinRatchetsResult(
     };
   }
 
-  // Pinning writes and commits, so it needs a clean tree; dry-run touches nothing.
-  if (!opts.dryRun) {
-    const dirty = await ratchetsPinCleanTreeMessage(root);
-    if (dirty !== undefined) {
-      return {
-        ok: false,
-        verb: "ratchets",
-        error: "dirty_worktree",
-        message: dirty,
-      };
-    }
+  // Which ratchets a pin considers: all of them, or the named subset.
+  const filter = opts.names.length > 0 ? new Set(opts.names) : undefined;
+
+  if (opts.dryRun) {
+    // A dry-run renders the pin plan and runs NOTHING — the same contract as every
+    // other discern dry-run (ADR 0027). It cannot report what a pin WOULD change:
+    // slack is only knowable by measuring, and the measurements are the slow thing
+    // a dry-run promises not to run. The plain check already measured — a green
+    // result's hints name any pinnable slack — so check → pin needs no preview
+    // measurement in between.
+    const steps: PlanStep[] = plan.ratchets
+      .filter((r) => filter === undefined || filter.has(r.name))
+      .map((r) => ({
+        kind: "ratchet",
+        label: r.name,
+        disposition: "run",
+        note: `would measure ${r.metric}, then tighten the ${
+          r.direction === "up" ? "floor" : "ceiling"
+        } past ${r.limit} by any slack beyond margin ${r.margin}`,
+      }));
+    return {
+      ...previewResult("ratchets", {
+        title: "Pin plan",
+        details: [],
+        steps,
+      }),
+      hints: [
+        "A pin dry-run measures nothing. `discern ratchets` (the plain check) " +
+        "measures once and names any pinnable slack in its hints; " +
+        "`discern ratchets --pin` then captures it.",
+      ],
+    };
+  }
+
+  // Pinning writes and commits, so it needs a clean tree.
+  const dirty = await ratchetsPinCleanTreeMessage(root);
+  if (dirty !== undefined) {
+    return {
+      ok: false,
+      verb: "ratchets",
+      error: "dirty_worktree",
+      message: dirty,
+    };
   }
 
   // Capture the pre-pin vouch BEFORE anything changes: only an honored receipt may be
   // carried across the commit we are about to make (ADR 0106 / 0067).
-  const priorReceipt = opts.dryRun ? undefined : await inspectGateReceipt(root);
+  const priorReceipt = await inspectGateReceipt(root);
 
   const mainBranch = Deno.env.get("MAIN_BRANCH") || cfg.project.main_branch;
   const out = makeOut(colorEnabled(), { quiet: true });
@@ -595,7 +629,6 @@ async function pinRatchetsResult(
     };
   }
 
-  const filter = opts.names.length > 0 ? new Set(opts.names) : undefined;
   const considered = filter === undefined
     ? outcomes
     : outcomes.filter((o) => filter.has(o.ratchet.name));
@@ -621,9 +654,9 @@ async function pinRatchetsResult(
     steps.push(
       pinStep(
         r.name,
-        `${
-          opts.dryRun ? "would pin" : "pinned"
-        } ${bound} ${r.limit} → ${newLimit} (measured ${fmtRate(o.value)})`,
+        `pinned ${bound} ${r.limit} → ${newLimit} (measured ${
+          fmtRate(o.value)
+        })`,
       ),
     );
   }
@@ -633,16 +666,6 @@ async function pinRatchetsResult(
       ...appliedResult("ratchets", steps),
       hints: [
         "Nothing to pin — every ratchet asked for already sits at its measured value (within its margin).",
-      ],
-    };
-  }
-
-  if (opts.dryRun) {
-    return {
-      ...appliedResult("ratchets", steps),
-      dry_run: true,
-      hints: [
-        `Dry run — would pin ${pins.length} limit(s) in one commit; nothing was changed.`,
       ],
     };
   }
@@ -687,7 +710,9 @@ async function pinRatchetsResult(
  * With `pin`, it instead runs the pin pass (ADR 0106): measure, tighten each
  * asked-for limit that improved past its margin, commit that change alone, and carry
  * a gate-pass receipt forward across it. `pinNames` restricts the pin to those
- * ratchets (empty = all with slack). `dryRun` reports what pin would do, unchanged.
+ * ratchets (empty = all with slack). `dryRun` previews without measuring in BOTH
+ * modes; a green check's hints name any pinnable slack, so check → pin is the whole
+ * flow.
  */
 export async function ratchetsResult(
   root: string,
@@ -734,13 +759,43 @@ export async function ratchetsResult(
     } else {
       const mainBranch = Deno.env.get("MAIN_BRANCH") || cfg.project.main_branch;
       const out = makeOut(colorEnabled(), { quiet: true });
-      const { results, diagnostics } = await executeRatchetPlan(
+      const { results, outcomes, diagnostics } = await executeRatchetPlan(
         plan,
         root,
         mainBranch,
         out,
       );
       result = appliedResult("ratchets", results, diagnostics);
+      // A green check just paid for every measurement, so answer the natural next
+      // question for free: which limits have pinnable slack. Decided by the SAME
+      // pinnedLimit the pin pass applies, so this hint and a real pin can never
+      // disagree — and a caller needs no (measuring) pin preview to find out.
+      if (result.ok) {
+        const slack = outcomes.flatMap((o) => {
+          if (!o.held || o.value === undefined) {
+            return [];
+          }
+          const r = o.ratchet;
+          const newLimit = pinnedLimit(r.direction, o.value, r.margin, r.limit);
+          if (newLimit === undefined) {
+            return [];
+          }
+          const bound = r.direction === "up" ? "floor" : "ceiling";
+          return [
+            `${r.name} (${bound} ${r.limit}, measured ${
+              fmtRate(o.value)
+            } — would pin to ${newLimit})`,
+          ];
+        });
+        if (slack.length > 0) {
+          result.hints = [
+            ...(result.hints ?? []),
+            `Pinnable slack: ${
+              slack.join("; ")
+            }. Capture it with \`discern ratchets --pin\` — this check already measured, no pin dry-run needed.`,
+          ];
+        }
+      }
     }
   }
   // Pre-setup, lead with the "setup unfinished" advisory (ADR 0065): ratchets is
@@ -757,6 +812,9 @@ export async function ratchetsResult(
  * plain check path streams. */
 function renderRatchetsResult(result: DiscernResult): void {
   const out = makeOut(colorEnabled(), { quiet: false });
+  if (result.plan !== undefined) {
+    renderPlan(outSink(out), result.plan);
+  }
   if ((result.steps ?? []).length > 0) {
     renderStepResults(outSink(out), {
       title: "Ratchet results",
