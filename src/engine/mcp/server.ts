@@ -664,6 +664,9 @@ export const TOOLS: McpTool[] = orderTools([
     description:
       "Create a fresh ISOLATED worktree from the main checkout — your own line of " +
       "work — on its own branch, set it up, and return where it landed (data.path). " +
+      "The new branch forks from the trunk (`{{main_branch}}`) regardless of what " +
+      "branch the main checkout is sitting on — you do NOT need to check or pass " +
+      "anything for the normal case. " +
       "Use this when you are on the trunk (the main checkout) and about to start work: " +
       "it is the first-class way to get your own workspace, so you NEVER adopt an " +
       "existing idle worktree (each belongs to another line of work; a clean working " +
@@ -693,6 +696,13 @@ export const TOOLS: McpTool[] = orderTools([
           "Omit for a random codename. data.name_note reports any normalisation or " +
           "fallback so you can retry with a cleaner name if you care.",
       ),
+      from: z.string().optional().describe(
+        "Branch the new worktree from this ref (a branch, tag, or commit) instead " +
+          "of the trunk. OMIT for everyday starts — the default is always the trunk " +
+          "(`{{main_branch}}`), so there is nothing to look up or confirm. Pass a ref " +
+          "only for the special case of building on unlanded or experimental work " +
+          "(e.g. another worktree's agent/* branch).",
+      ),
       dry_run: z.boolean().optional().describe(
         "Preview the start plan and touch nothing (default false).",
       ),
@@ -704,6 +714,7 @@ export const TOOLS: McpTool[] = orderTools([
       startToolResult(root, {
         dryRun: args.dry_run === true,
         name: args.name ?? "",
+        from: args.from,
       }),
   }),
 ]);
@@ -774,7 +785,7 @@ async function integrateToolResult(
  */
 async function startToolResult(
   root: string,
-  opts: { dryRun?: boolean; name?: string },
+  opts: { dryRun?: boolean; name?: string; from?: string | undefined },
 ): Promise<DiscernResult> {
   const ctx = await lifecycleContext(
     root,
@@ -785,19 +796,26 @@ async function startToolResult(
       dryRun: opts.dryRun ?? false,
       worktreeRoot: resolveWorktreeRoot(ctx.root, ctx.config),
       name: opts.name ?? "",
+      ...(opts.from !== undefined ? { from: opts.from } : {}),
     });
     // Over MCP, start ALSO re-aims the live server's working root at the new worktree
     // (runTool applies the re-aim once this returns) — the CLI can't, having no
     // persistent server, so the shared engine hint ("nothing relocated — cd there")
-    // is wrong here. Replace it with the MCP story: the discern tools follow
+    // is wrong here. Replace THAT hint with the MCP story: the discern tools follow
     // automatically, but the agent must still move its OWN file context in. Only on a
     // real apply (a dry-run created nothing and moves nothing). A naming note (if any)
-    // leads, so the agent still sees what the worktree was actually named.
+    // leads, so the agent still sees what the worktree was actually named; every other
+    // engine hint (e.g. the dirty-main-checkout advisory) is carried through.
     const data = result.data;
     if (result.ok && result.dry_run !== true && data !== undefined) {
-      result.hints = data.name_note !== undefined
-        ? [data.name_note, mcpStartHint(data.path)]
-        : [mcpStartHint(data.path)];
+      const carried = (result.hints ?? []).filter((h) =>
+        h !== data.name_note && !h.startsWith(`Created worktree '`)
+      );
+      result.hints = [
+        ...(data.name_note !== undefined ? [data.name_note] : []),
+        mcpStartHint(data.path),
+        ...carried,
+      ];
     }
     return result;
   } catch (e) {

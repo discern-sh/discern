@@ -34,7 +34,11 @@ import { checkProviderHooksCurrent } from "../lib/provider_hooks.ts";
 import { providerFor, providersWithHooks } from "../lib/providers.ts";
 import { capStage, isKnownCapability } from "../shared/capabilities.ts";
 import { commandExists } from "../shared/subprocess.ts";
-import { gitVersion } from "../engine/worktree/git.ts";
+import {
+  gitVersion,
+  hasAnyCommit,
+  repoToplevel,
+} from "../engine/worktree/git.ts";
 import { z } from "@zod/zod";
 import type { DiscernResult } from "../shared/result.ts";
 import type {
@@ -393,6 +397,51 @@ export async function runChecks(destDir: string): Promise<Check[]> {
             "install git — discern's worktrees, ratchets, graduation, and status all shell out to it",
         },
     );
+  }
+
+  // 7c. repository shape — the two layouts the worktree lifecycle cannot work
+  // from, caught here at health-check time rather than as a failed `start`:
+  // an unborn repo (no first commit — nothing to branch a worktree from), and a
+  // discern.toml living in a SUBDIRECTORY of its git repo (a worktree is a
+  // whole-repository checkout, so the new copy would nest inside the repo and
+  // carry its discern.toml somewhere setup doesn't look).
+  {
+    const toplevel = await repoToplevel(destDir);
+    if (toplevel === undefined) {
+      checks.push({
+        name: "repository shape",
+        ok: true,
+        status: "warn" as const,
+        detail: "not a git repository — the worktree workflow is unavailable",
+        fix: "run `git init` and make a first commit to enable worktrees",
+      });
+    } else if (!(await hasAnyCommit(destDir))) {
+      checks.push({
+        name: "repository shape",
+        ok: false,
+        detail:
+          "this repository has no commits yet — a worktree has nothing to branch from, so `discern start` will refuse",
+        fix: "make your first commit, then worktrees work normally",
+      });
+    } else {
+      const projectRoot = await Deno.realPath(destDir).catch(() => destDir);
+      if (projectRoot !== toplevel) {
+        checks.push({
+          name: "repository shape",
+          ok: false,
+          detail:
+            `discern.toml lives at ${projectRoot}, but the git repository's root is ${toplevel} — worktrees are whole-repository checkouts, so \`discern start\` will refuse`,
+          fix:
+            `move discern.toml (and its authored files) to ${toplevel}, or make ${projectRoot} its own repository`,
+        });
+      } else {
+        checks.push({
+          name: "repository shape",
+          ok: true,
+          detail: "project root is the repository root, with commit history",
+        });
+      }
+    }
   }
 
   // 8. guidance/skills config resolves — if [guidance].sources or [skills].dir is

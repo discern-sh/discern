@@ -694,27 +694,104 @@ export async function ensureWorktreeBranch(
 
 /**
  * Create a linked worktree at `dir` on a fresh branch `branch`, added from the
- * main checkout at `mainRepo`. Idempotent: if `dir` is already a worktree (its
- * `.git` exists) it is a no-op, so a hook that re-fires never errors. Throws
- * `WorktreeGitError` on a git failure. The caller chooses the directory and the
- * branch name — this helper bakes in NO location or naming convention (the git
- * layer stays agent-agnostic; the Claude-Code-specific `.claude/worktrees`
- * convention lives in the hook adapter that calls this).
+ * main checkout at `mainRepo`. `startPoint` names the ref the new branch forks
+ * from; omitted, git uses the main checkout's HEAD (the caller decides — `start`
+ * passes the trunk so a parked main checkout never poisons a new worktree, the
+ * viability probe deliberately passes nothing, ADR 0090). Idempotent: if `dir` is
+ * already a worktree (its `.git` exists) it is a no-op, so a hook that re-fires
+ * never errors. Throws `WorktreeGitError` on a git failure. The caller chooses
+ * the directory and the branch name — this helper bakes in NO location or naming
+ * convention (the git layer stays agent-agnostic; the Claude-Code-specific
+ * `.claude/worktrees` convention lives in the hook adapter that calls this).
  */
 export async function addWorktree(
   mainRepo: string,
   dir: string,
   branch: string,
+  startPoint?: string,
 ): Promise<void> {
   if (await pathExists(join(dir, ".git"))) {
     return;
   }
-  const run = await git(["worktree", "add", dir, "-b", branch], mainRepo);
+  const args = ["worktree", "add", dir, "-b", branch];
+  if (startPoint !== undefined && startPoint !== "") {
+    args.push(startPoint);
+  }
+  const run = await git(args, mainRepo);
   if (!run.success) {
     throw new WorktreeGitError(
       `git worktree add failed for '${dir}' on branch '${branch}': ${run.stderr.trim()}`,
     );
   }
+}
+
+/** Whether the repo at `cwd` has any commit at all — false on an unborn HEAD (a
+ * fresh `git init` with no first commit), where nothing can branch. */
+export async function hasAnyCommit(cwd: string): Promise<boolean> {
+  return (await git(["rev-parse", "--verify", "--quiet", "HEAD^{commit}"], cwd))
+    .success;
+}
+
+/** Whether `branch` exists as a local branch in the repo at `cwd`. */
+export async function localBranchExists(
+  cwd: string,
+  branch: string,
+): Promise<boolean> {
+  return (await git(
+    ["show-ref", "--verify", "--quiet", `refs/heads/${branch}`],
+    cwd,
+  )).success;
+}
+
+/** The repository's top-level working directory (`git rev-parse --show-toplevel`),
+ * canonicalized, or undefined outside a git repository. The counterpart `doctor`
+ * and `start` compare the project root against, to catch a `discern.toml` living
+ * in a subdirectory of its repo. */
+export async function repoToplevel(cwd: string): Promise<string | undefined> {
+  const run = await git(["rev-parse", "--show-toplevel"], cwd);
+  if (!run.success) {
+    return undefined;
+  }
+  const raw = run.stdout.trim();
+  return raw === "" ? undefined : await realPathOr(raw);
+}
+
+/**
+ * Resolve `ref` to a commit in the repo at `cwd`, refusing an unknown or
+ * ambiguous name in plain language. The ONE resolver behind every ref a user
+ * hands the worktree lifecycle (`start --from`, `integrate --from`), so the two
+ * verbs can never accept different vocabularies. Returns the resolved commit
+ * SHA; the caller usually keeps using the NAME (better reflogs), this is the
+ * existence/ambiguity check.
+ */
+export async function resolveCommitRef(
+  cwd: string,
+  ref: string,
+): Promise<string> {
+  if (ref.trim() === "") {
+    throw new WorktreeGitError(
+      "A ref name is required — pass a branch, tag, or commit.",
+    );
+  }
+  const run = await git(
+    ["rev-parse", "--verify", "--quiet", `${ref}^{commit}`],
+    cwd,
+  );
+  if (!run.success) {
+    throw new WorktreeGitError(
+      `Unknown ref '${ref}' — it doesn't name a branch, tag, or commit in this repository. ` +
+        `List local branches with \`git branch\`.`,
+    );
+  }
+  // `rev-parse` resolves an ambiguous short name by its own precedence rules and
+  // only warns — surface that as a refusal so the user names the ref exactly.
+  if (run.stderr.includes("ambiguous")) {
+    throw new WorktreeGitError(
+      `The ref '${ref}' is ambiguous (more than one branch or tag matches). ` +
+        `Use the full name, e.g. refs/heads/${ref} or refs/tags/${ref}.`,
+    );
+  }
+  return run.stdout.trim();
 }
 
 /** Canonicalize a target that may already be gone (parent + basename fallback). */

@@ -323,13 +323,16 @@ export type CouplingData = z.infer<typeof CouplingDataSchema>;
 /** `start` — the worktree it just created (or, in a dry-run, would create). `path`
  * is the load-bearing field: the new worktree's absolute location, which the caller
  * must re-root into (the MCP server cannot relocate the session for the agent).
- * `name_note` is present only when the caller supplied a `name` that was normalised
- * into the branch slug or could not be used (so a random codename was substituted) —
- * a transparency line the caller can surface, and act on if it cares. */
+ * `from` is the ref the new branch forked from — the trunk unless the caller
+ * overrode it (the landing model's pull axis). `name_note` is present only when the
+ * caller supplied a `name` that was normalised into the branch slug or could not be
+ * used (so a random codename was substituted) — a transparency line the caller can
+ * surface, and act on if it cares. */
 export const StartDataSchema = z.strictObject({
   id: z.string(),
   branch: z.string(),
   path: z.string(),
+  from: z.string(),
   name_note: z.string().optional(),
 });
 export type StartData = z.infer<typeof StartDataSchema>;

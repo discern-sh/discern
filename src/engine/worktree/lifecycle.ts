@@ -92,6 +92,7 @@ import {
   assertMainMerged,
   assertNotInWorktree,
   ensureWorktreeBranch,
+  hasAnyCommit,
   hasUncommittedTrackedChanges,
   inheritMainEnvVars,
   integrateMain,
@@ -99,12 +100,15 @@ import {
   integrationDelta,
   liveWorktreeGitKeys,
   liveWorktreePaths,
+  localBranchExists,
   mainRepoPath,
   missingIntegrationBranchWarning,
   overlapPaths,
   pruneGitWorktrees,
   pruneStaleWorktreeMetadata,
   removeWorktreeSafely,
+  repoToplevel,
+  resolveCommitRef,
   resolveCommonGitDir,
   resolveIntegrationAnchors,
   scanGitWorktreesForPrune,
@@ -583,21 +587,84 @@ export async function worktreeSetup(
  * setup sequence lives in exactly one place. It bakes in NO placement convention:
  * the caller resolves WHERE the worktree lands (`resolveWorktreeRoot`, the feature
  * layer) and passes the final `dir` — keeping this engine core agent-agnostic.
- * Idempotent end to end: `addWorktree` no-ops on an existing worktree and
- * `worktreeSetup` re-readies (never re-creates) an already-configured one. Setup
- * runs with the new worktree as both root and cwd — a linked worktree is its own
- * checkout, with its own discern.toml and gitignored materialized skills to build.
+ * `startPoint` names the ref the new branch forks from (omitted → the main
+ * checkout's HEAD — the caller decides). Idempotent end to end: `addWorktree`
+ * no-ops on an existing worktree and `worktreeSetup` re-readies (never re-creates)
+ * an already-configured one. Setup runs with the new worktree as both root and
+ * cwd — a linked worktree is its own checkout, with its own discern.toml and
+ * gitignored materialized skills to build.
+ *
+ * Fails CLOSED and CLEAN: an unborn repo (no first commit) is refused up front in
+ * plain language, and any failure after the worktree was created here discards the
+ * partial worktree (directory, registration, branch) before rethrowing — a failed
+ * create must never leave debris that `status` then lists as a healthy worktree.
  */
 export async function createAndSetupWorktree(
   mainRepo: string,
   dir: string,
   branch: string,
   log: Logger,
+  startPoint?: string,
 ): Promise<void> {
-  await addWorktree(mainRepo, dir, branch);
-  await worktreeSetup(await lifecycleContext(dir, log, dir), {
-    humanApplySummary: false,
-  });
+  if (!(await hasAnyCommit(mainRepo))) {
+    throw new WorktreeGitError(
+      "This repository has no commits yet, so there is nothing to branch a " +
+        "worktree from — make your first commit first, then re-run.",
+    );
+  }
+  // Idempotence marker: when `dir` is already a worktree this call created nothing,
+  // so a later failure must not discard someone else's live worktree.
+  const preExisting = await pathPresent(join(dir, ".git"));
+  try {
+    await addWorktree(mainRepo, dir, branch, startPoint);
+    let ctx: LifecycleContext;
+    try {
+      ctx = await lifecycleContext(dir, log, dir);
+    } catch (e) {
+      if (e instanceof Deno.errors.NotFound) {
+        // The checked-out tree has no discern.toml — the ref it branched from
+        // predates discern (or setup hasn't landed on it). Say so plainly instead
+        // of surfacing a raw readfile crash.
+        throw new WorktreeGitError(
+          `The new worktree at ${dir} has no discern config — the ref it ` +
+            `branched from doesn't carry discern.toml. Branch from a ref that ` +
+            `contains it (land your setup on the trunk first, or pass --from <ref>).`,
+        );
+      }
+      throw e;
+    }
+    await worktreeSetup(ctx, { humanApplySummary: false });
+  } catch (e) {
+    if (!preExisting) {
+      await discardWorktreeBestEffort(mainRepo, dir, branch, log);
+    }
+    throw e;
+  }
+}
+
+/**
+ * Discard a worktree unconditionally and best-effort: destroy its resources (from
+ * inside it, so `@dir@` destroys resolve), remove the worktree directory and its
+ * git registration, then delete its branch. Every step swallows its own failure —
+ * used to clean up a failed `start`/create (no debris left for `status` to list)
+ * and to retire the viability probe's throwaway worktree; `worktree prune` is the
+ * backstop for anything it misses.
+ */
+async function discardWorktreeBestEffort(
+  mainRepo: string,
+  dir: string,
+  branch: string,
+  log: Logger,
+): Promise<void> {
+  try {
+    await teardownResources(await lifecycleContext(dir, log, dir));
+  } catch { /* best-effort */ }
+  try {
+    await removeWorktreeSafely(dir, mainRepo);
+  } catch { /* best-effort */ }
+  try {
+    await runGit(["branch", "-D", branch], { cwd: mainRepo });
+  } catch { /* best-effort */ }
 }
 
 /** The outcome of the idempotent session-start ensure check. */
@@ -1697,6 +1764,69 @@ async function mintFreeWorktree(
 }
 
 /**
+ * Resolve the ref a `discern start` forks from — the pull-side entry point of the
+ * landing model. `from` (when given) may be any branch, tag, or commit, verified
+ * through the shared {@link resolveCommitRef}; absent, the TRUNK is used
+ * explicitly — never the main checkout's HEAD, so a main checkout parked on some
+ * other branch can't poison a new worktree with that branch's commits. Refuses an
+ * unborn repo ("make your first commit first") and a missing trunk in plain
+ * language.
+ */
+async function resolveStartPoint(
+  ctx: LifecycleContext,
+  from: string | undefined,
+): Promise<string> {
+  if (!(await hasAnyCommit(ctx.root))) {
+    throw new WorktreeGitError(
+      "This repository has no commits yet, so there is nothing to branch a " +
+        "worktree from — make your first commit first, then re-run `discern start`.",
+    );
+  }
+  if (from !== undefined && from.trim() !== "") {
+    const ref = from.trim();
+    await resolveCommitRef(ctx.root, ref); // refuses unknown/ambiguous
+    return ref;
+  }
+  const trunk = integrationBranch(ctx.config.project.main_branch);
+  if (!(await localBranchExists(ctx.root, trunk))) {
+    throw new WorktreeGitError(
+      `New worktrees branch from the trunk, but the local branch '${trunk}' ` +
+        `doesn't exist. Set [project].main_branch to the branch this project ` +
+        `uses, or pass \`--from <ref>\` to branch from a specific ref.`,
+    );
+  }
+  return trunk;
+}
+
+/**
+ * Refuse a `discern start` when the project root is not the git repository's
+ * top level — a `discern.toml` in a subdirectory would place the new worktree (a
+ * FULL-repo checkout) nested inside the repo, the exact anti-pattern the config
+ * template warns against, and its `discern.toml` would not be where the setup
+ * expects. Named paths, plain language; `doctor` carries the matching check.
+ */
+async function assertProjectRootIsRepoToplevel(
+  ctx: LifecycleContext,
+): Promise<void> {
+  const toplevel = await repoToplevel(ctx.root);
+  if (toplevel === undefined) {
+    throw new WorktreeGitError(
+      "discern start: this project is not inside a git repository — run `git init` " +
+        "and make a first commit, then re-run.",
+    );
+  }
+  const root = await Deno.realPath(ctx.root).catch(() => ctx.root);
+  if (root !== toplevel) {
+    throw new WorktreeGitError(
+      `discern.toml lives at ${root}, but the git repository's root is ` +
+        `${toplevel}. Worktrees are whole-repository checkouts, so discern must ` +
+        `be installed at the repository root — move discern.toml (and its ` +
+        `authored files) to ${toplevel}, or make ${root} its own repository.`,
+    );
+  }
+}
+
+/**
  * Perform `discern start` and return its {@link DiscernResult} — the plan (dry-run)
  * or the created worktree — without emitting or exiting. The single source the CLI's
  * `--json` ({@link start}) and the MCP server both render. Runs from the MAIN
@@ -1704,17 +1834,27 @@ async function mintFreeWorktree(
  * must not spin up a pointless sibling, so it refuses there (mapped to
  * `precondition_failed` by {@link worktreeErrorResult}). It MINTS a fresh, unique id
  * (collision-checked against existing branches/dirs), creates the linked worktree at
- * `<worktreeRoot>/<id>` on `<branch_prefix><id>`, and runs its first-time setup via
- * the shared {@link createAndSetupWorktree}. `worktreeRoot` is supplied by the caller
+ * `<worktreeRoot>/<id>` on `<branch_prefix><id>` — branched from the TRUNK (or
+ * `opts.from`, any ref: the landing model composes freely on the pull axis), never
+ * from whatever branch the main checkout happens to be parked on — and runs its
+ * first-time setup via the shared {@link createAndSetupWorktree} (which discards
+ * the partial worktree on any failure). `worktreeRoot` is supplied by the caller
  * (the dispatcher / MCP server resolve it via `resolveWorktreeRoot`), keeping this
  * engine core free of the placement convention. The result carries the new worktree's
  * `data.path` and a hint to re-root: nothing relocates the caller's session for it.
  */
 export async function startResult(
   ctx: LifecycleContext,
-  opts: { dryRun?: boolean; worktreeRoot: string; name?: string },
+  opts: {
+    dryRun?: boolean;
+    worktreeRoot: string;
+    name?: string;
+    from?: string;
+  },
 ): Promise<DiscernResult<StartData>> {
   await assertNotInWorktree("discern start", ctx.cwd);
+  await assertProjectRootIsRepoToplevel(ctx);
+  const startPoint = await resolveStartPoint(ctx, opts.from);
 
   const settings = await loadIdentitySettings(ctx.root);
   const { id, branch, dir, note } = await mintFreeWorktree(
@@ -1729,26 +1869,45 @@ export async function startResult(
       "start",
       startPlanToEngine(
         note !== undefined
-          ? { id, branch, worktreePath: dir, note }
-          : { id, branch, worktreePath: dir },
+          ? { id, branch, worktreePath: dir, from: startPoint, note }
+          : { id, branch, worktreePath: dir, from: startPoint },
       ),
     );
   }
 
-  ctx.log.heading(`Starting a new worktree (${id})…`);
-  await createAndSetupWorktree(ctx.root, dir, branch, ctx.log);
-  ctx.log.ok(`Worktree '${id}' is ready at ${dir}.`);
+  // Advisory, not a gate: uncommitted work in the main checkout never follows a
+  // new worktree (it branches from a committed ref), so say where it stays.
+  const mainChanges = (await makeGitRunner(ctx)(
+    ["status", "--porcelain", "--untracked-files=normal"],
+    ctx.root,
+  )).stdout.split("\n").filter((l) => l !== "").length;
+  const dirtyNote = mainChanges > 0
+    ? `${mainChanges} uncommitted change${
+      mainChanges === 1 ? "" : "s"
+    } stay in the main checkout — the new worktree branches from '${startPoint}'.`
+    : undefined;
+  if (dirtyNote !== undefined) {
+    ctx.log.info(dirtyNote);
+  }
 
-  const data: StartData = note !== undefined
-    ? { id, branch, path: dir, name_note: note }
-    : { id, branch, path: dir };
+  ctx.log.heading(`Starting a new worktree (${id})…`);
+  await createAndSetupWorktree(ctx.root, dir, branch, ctx.log, startPoint);
+  ctx.log.ok(`Worktree '${id}' is ready at ${dir} (from ${startPoint}).`);
+
+  const data: StartData = {
+    id,
+    branch,
+    path: dir,
+    from: startPoint,
+    ...(note !== undefined ? { name_note: note } : {}),
+  };
   const result: DiscernResult<StartData> = appliedResult("start", [
     {
       step: {
         kind: "git",
         label: "add-worktree",
         disposition: "run",
-        note: `${dir} on ${branch}`,
+        note: `${dir} on ${branch} (from ${startPoint})`,
       },
       outcome: "ok",
     },
@@ -1769,7 +1928,11 @@ export async function startResult(
     `not keep working in the main checkout.`;
   // A normalisation/fallback note leads the hints, so the caller — and the human
   // reading over its shoulder — see what the worktree was actually named.
-  result.hints = note !== undefined ? [note, reRoot] : [reRoot];
+  result.hints = [
+    ...(note !== undefined ? [note] : []),
+    reRoot,
+    ...(dirtyNote !== undefined ? [dirtyNote] : []),
+  ];
   return result;
 }
 
@@ -1777,11 +1940,12 @@ export async function startResult(
  * Create a fresh isolated worktree from the main checkout and re-root into it — the
  * `discern start` command, the first-class way an agent on the trunk gets its own
  * workspace instead of squatting in another line of work's worktree. Mints a unique
- * id, creates the worktree on its own `<branch_prefix><id>` branch at the configured
- * sibling location, sets it up, and prints the new path plus how to enter it.
- * `--dry-run` shows the plan (after the main-checkout precondition passes) and
- * touches nothing. Throws `WorktreeGitError` when run from inside a worktree (the
- * caller maps it to an error envelope).
+ * id, creates the worktree on its own `<branch_prefix><id>` branch — forked from the
+ * trunk, or `--from <ref>` — at the configured sibling location, sets it up, and
+ * prints the new path plus how to enter it. `--dry-run` shows the plan (after the
+ * preconditions pass) and touches nothing. Throws `WorktreeGitError` when run from
+ * inside a worktree, from an unborn repo, or from a project root that is not the
+ * repository root (the caller maps it to an error envelope).
  */
 export async function start(
   ctx: LifecycleContext,
@@ -1790,12 +1954,14 @@ export async function start(
     json?: boolean;
     worktreeRoot: string;
     name?: string;
+    from?: string;
   },
 ): Promise<void> {
   const result = await startResult(ctx, {
     dryRun: opts.dryRun ?? false,
     worktreeRoot: opts.worktreeRoot,
     name: opts.name ?? "",
+    ...(opts.from !== undefined ? { from: opts.from } : {}),
   });
   emitOrRenderWorktreeResult(ctx, result, opts.json ?? false, {
     afterApply: (r) => {
@@ -1885,30 +2051,10 @@ export async function probeWorktreeViability(
       ? { kind: "probed", ok: verdict.ok, detail: verdict.detail }
       : { kind: "probed", ok: verdict.ok };
   } finally {
-    await teardownProbeWorktree(ctx, dir, branch);
+    // A probe teardown must never fail the caller (`setup done`) — the discard is
+    // best-effort throughout and `worktree prune` is the backstop.
+    await discardWorktreeBestEffort(ctx.root, dir, branch, ctx.log);
   }
-}
-
-/**
- * Discard a probe worktree unconditionally and best-effort: destroy its resources
- * (from inside it, so `@dir@` destroys resolve), remove the worktree directory, then
- * delete its now-free branch. Every step swallows its own failure — a probe teardown
- * must never fail the caller (`setup done`); `worktree prune` is the backstop.
- */
-async function teardownProbeWorktree(
-  ctx: LifecycleContext,
-  dir: string,
-  branch: string,
-): Promise<void> {
-  try {
-    await teardownResources(await lifecycleContext(dir, ctx.log, dir));
-  } catch { /* best-effort */ }
-  try {
-    await removeWorktreeSafely(dir, ctx.root);
-  } catch { /* best-effort */ }
-  try {
-    await makeGitRunner(ctx)(["branch", "-D", branch]);
-  } catch { /* best-effort */ }
 }
 
 /**

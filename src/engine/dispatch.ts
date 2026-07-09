@@ -467,6 +467,10 @@ export function attachEngineCommands(root: Command): void {
       "--name <name:string>",
       "Name the worktree after this task (a slug or a few words — discern normalises it into a branch-safe name). Omit for a random codename.",
     )
+    .option(
+      "--from <ref:string>",
+      "Branch the new worktree from this ref (a branch, tag, or commit) instead of the trunk. For building on unlanded work — omit it for everyday starts.",
+    )
     .action(async (o) => {
       const json = o.json ?? false;
       Deno.exit(
@@ -476,6 +480,7 @@ export function attachEngineCommands(root: Command): void {
               json,
               dryRun: o.dryRun ?? false,
               name: o.name ?? "",
+              ...(o.from !== undefined ? { from: o.from } : {}),
               // WHERE the worktree lands is the feature-layer placement convention,
               // resolved here and passed in — the engine core bakes in none (ADR 0052),
               // exactly as the worktree prune wiring below does.

@@ -234,6 +234,9 @@ export interface StartPlan {
   branch: string;
   /** Where the new checkout lands (`<worktree_root>/<id>`). */
   worktreePath: string;
+  /** The ref the new branch forks from — the trunk by default, any ref via
+   * `--from` (the landing model's pull axis). */
+  from: string;
   /** A normalisation/fallback note when the caller named the worktree (see
    * `chooseWorktreeName`) — surfaced in the dry-run preview so the caller sees the
    * name it would actually get. Absent for an unnamed (codename) start. */
@@ -245,6 +248,7 @@ export function startPlanToEngine(plan: StartPlan): EnginePlan {
   const details = [
     `New worktree: ${plan.id}`,
     `Branch:       ${plan.branch}`,
+    `From:         ${plan.from}`,
     `Path:         ${plan.worktreePath}`,
   ];
   if (plan.note !== undefined) {

@@ -32,7 +32,7 @@ import {
   lifecycleContext,
   worktreeTeardown,
 } from "../engine/worktree/lifecycle.ts";
-import { WorktreeGitError } from "../engine/worktree/git.ts";
+import { localBranchExists, WorktreeGitError } from "../engine/worktree/git.ts";
 
 /** A logger whose human output is on stderr, so stdout stays the hook's result. */
 function hookLogger(): Logger {
@@ -117,9 +117,29 @@ export async function worktreeCreateHook(): Promise<number> {
   const dir = join(resolveWorktreeRoot(cwd, config), name);
   try {
     const branch = `${config.project.branch_prefix}${name}`;
+    // Branch from the TRUNK, not the main checkout's HEAD — a main checkout parked
+    // on some other branch must not poison the new worktree with that branch's
+    // commits (the same rule `discern start` applies). Two deliberate fallbacks to
+    // HEAD: while one-time setup is still in flight the trunk doesn't carry the
+    // just-authored discern config yet (the ADR 0090 probe reasoning), and a repo
+    // whose trunk branch is missing can still get a working worktree (warned, so a
+    // misconfigured [project].main_branch is visible rather than silently absorbed).
+    const trunk = config.project.main_branch;
+    let startPoint: string | undefined;
+    if (config.meta.bootstrapped) {
+      if (await localBranchExists(cwd, trunk)) {
+        startPoint = trunk;
+      } else {
+        log.warn(
+          `[discern] local trunk branch '${trunk}' not found — branching the new ` +
+            `worktree from HEAD instead. Set [project].main_branch to the branch ` +
+            `this project uses.`,
+        );
+      }
+    }
     // The shared create-then-setup core (also used by `discern start`); WHERE the
     // worktree lands is decided above by `resolveWorktreeRoot`, not in the engine.
-    await createAndSetupWorktree(cwd, dir, branch, log);
+    await createAndSetupWorktree(cwd, dir, branch, log, startPoint);
   } catch (e) {
     if (e instanceof WorktreeGitError) {
       log.error(e.message);

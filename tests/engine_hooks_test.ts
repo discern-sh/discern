@@ -16,6 +16,7 @@ import { exists } from "@std/fs";
 import { withTempDir } from "./helpers.ts";
 import {
   engineEnv,
+  git,
   gitInit,
   gitOut,
   runAgent,
@@ -85,6 +86,31 @@ Deno.test("hook SessionStart: dispatches worktree ensure (a no-op in the main ch
     await gitInit(dir);
     const r = await runHook(dir, await hookCommand(dir, "SessionStart"), {});
     assertEquals(r.code, 0, r.stderr);
+  });
+});
+
+Deno.test("hook WorktreeCreate: branches from the trunk even when the main checkout is parked elsewhere", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    // Park the main checkout on a side branch carrying a poison commit — the
+    // same class `discern start` guards (engine_start_correctness_test.ts).
+    await git(dir, "switch", "-q", "-c", "parked-branch");
+    await Deno.writeTextFile(join(dir, "poison.txt"), "off-trunk work\n");
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "poison", "--no-gpg-sign");
+
+    const r = await runHook(dir, await hookCommand(dir, "WorktreeCreate"), {
+      name: "parked-hooked",
+      cwd: dir,
+    });
+    assertEquals(r.code, 0, r.stderr);
+    const wt = r.stdout.trim();
+    assertEquals(
+      await exists(join(wt, "poison.txt")),
+      false,
+      `the parked branch's commit must not reach the hook's worktree\n${r.stderr}`,
+    );
   });
 });
 

@@ -40,9 +40,20 @@ branch at the sibling location, sets it up, and reports the path to move into
 counterpart to the `WorktreeCreate` hook, and the first-class alternative to
 squatting in another line of work's Worktree
 ([ADR 0058](../_adr/0058-start-verb-spawn-worktree-from-trunk.md),
-[ADR 0109](../_adr/0109-worktree-start-optional-name.md)). It only ever
-_creates_ a Worktree to inhabit; it never adopts or prunes an existing one. When
-`main` advances under a long-running Worktree,
+[ADR 0109](../_adr/0109-worktree-start-optional-name.md)). The new branch forks
+from the **trunk** (`[project].main_branch`) explicitly — never from whatever
+branch the main checkout happens to be parked on, so a parked checkout can't
+poison a fresh Worktree with off-trunk commits (the `WorktreeCreate` hook
+applies the same rule); `--from <ref>` branches from any ref instead, for
+building on unlanded or experimental work. Uncommitted changes in the main
+checkout stay there (an advisory line says so). `start` refuses — in plain
+language, cleaning up anything partially created — a repo with no commits yet
+("make your first commit first"), a `discern.toml` that is not at the git
+repository's root (a Worktree is a whole-repository checkout), and an unknown or
+ambiguous `--from` ref; `discern doctor`'s **repository shape** check flags the
+first two layouts before a `start` ever trips on them. It only ever _creates_ a
+Worktree to inhabit; it never adopts or prunes an existing one. When `main`
+advances under a long-running Worktree,
 [`integrate`](../../src/engine/worktree/lifecycle.ts) brings it into the branch,
 re-materializes the agent files + skills, and re-runs `[worktree.setup].ensure`
 so a merge that changed a lockfile leaves the worktree's dependencies current —
