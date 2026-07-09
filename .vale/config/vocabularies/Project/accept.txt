@@ -21,6 +21,7 @@ booleans?
 bootcamps?
 brandable
 browsable
+cacheable
 canonicalization
 chokepoint
 CI
