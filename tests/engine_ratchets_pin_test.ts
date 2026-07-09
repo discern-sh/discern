@@ -611,3 +611,248 @@ Deno.test("pin --json: reports pinned steps and ok", async () => {
     assertStringIncludes(obj.steps?.[0]?.note ?? "", "pinned floor 80 → 95");
   });
 });
+
+// ── the measurement receipt: check → pin measures once ─────────────────────────
+
+/** A run command that counts its own executions in `.git/measure-count` (inside the
+ * git admin dir, so the sentinel never dirties the tree) before emitting `value`. */
+function countingRun(metric: string, value: string): string {
+  return `echo x >> .git/measure-count && echo 'DISCERN_METRIC ${metric} ${value}'`;
+}
+
+/** How many times a {@link countingRun} measurement actually executed. */
+async function measureCount(dir: string): Promise<number> {
+  try {
+    const text = await Deno.readTextFile(join(dir, ".git", "measure-count"));
+    return text.split("\n").filter((l) => l !== "").length;
+  } catch {
+    return 0;
+  }
+}
+
+function measurementsFile(dir: string): string {
+  return join(dir, ".git", "discern-ratchet-measurements");
+}
+
+Deno.test("receipt: a pin after a green check reuses its measurements — one measurement total", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      pinConfig({
+        name: "coverage",
+        direction: "up",
+        limit: "80",
+        run: countingRun("coverage", "95"),
+      }),
+    );
+    await gitInit(dir);
+
+    const check = await runAgent(dir, ["ratchets", "--json"]);
+    assertEquals(check.code, 0, check.output);
+    assertEquals(await measureCount(dir), 1, "the check measures once");
+    // The green check's hint promises the reuse a pin on this commit performs.
+    const hints = (JSON.parse(check.stdout.trim()) as { hints?: string[] })
+      .hints ?? [];
+    const slackHint = hints.find((h) => h.includes("Pinnable slack")) ?? "";
+    assertStringIncludes(slackHint, "reuses this check's measurements");
+
+    const pin = await runAgent(dir, ["ratchets", "--pin"]);
+    assertEquals(pin.code, 0, pin.output);
+    assertStringIncludes(pin.stdout, "pinned floor 80 → 95");
+    assertStringIncludes(pin.stdout, "Reused the green check's measurements");
+    assertEquals(
+      await measureCount(dir),
+      1,
+      "the pin must NOT re-run the measurement",
+    );
+    assertEquals(limitOf(await readConfig(dir), "coverage"), "95");
+  });
+});
+
+Deno.test("receipt: a commit between check and pin invalidates it — the pin re-measures", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      pinConfig({
+        name: "coverage",
+        direction: "up",
+        limit: "80",
+        run: countingRun("coverage", "95"),
+      }),
+    );
+    await gitInit(dir);
+
+    const check = await runAgent(dir, ["ratchets", "--json"]);
+    assertEquals(check.code, 0, check.output);
+    await git(
+      dir,
+      "commit",
+      "--allow-empty",
+      "-q",
+      "-m",
+      "more work",
+      "--no-gpg-sign",
+    );
+
+    const pin = await runAgent(dir, ["ratchets", "--pin"]);
+    assertEquals(pin.code, 0, pin.output);
+    assertEquals(
+      await measureCount(dir),
+      2,
+      "a moved HEAD must force a fresh measurement",
+    );
+    assertEquals(limitOf(await readConfig(dir), "coverage"), "95");
+  });
+});
+
+Deno.test("receipt: a red check clears it, so a later pin measures fresh", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    // The metric is controlled by a flag file inside .git (never dirties the tree):
+    // present → 10 (under the floor, red), absent → 95 (green with slack).
+    await writeConfig(
+      dir,
+      pinConfig({
+        name: "coverage",
+        direction: "up",
+        limit: "80",
+        run: "echo x >> .git/measure-count && " +
+          "{ test -f .git/fail && echo 'DISCERN_METRIC coverage 10' " +
+          "|| echo 'DISCERN_METRIC coverage 95'; }",
+      }),
+    );
+    await gitInit(dir);
+
+    // Green check (human path) records the receipt.
+    const green = await runAgent(dir, ["ratchets"]);
+    assertEquals(green.code, 0, green.output);
+    assertEquals(await measureCount(dir), 1);
+
+    // Same HEAD turns red (environment drift): the check must clear the receipt.
+    await Deno.writeTextFile(join(dir, ".git", "fail"), "");
+    const red = await runAgent(dir, ["ratchets"]);
+    assertEquals(red.code, 1, red.output);
+    assertEquals(await measureCount(dir), 2);
+
+    // Back to green conditions: the pin must MEASURE, not reuse the cleared vouch.
+    await Deno.remove(join(dir, ".git", "fail"));
+    const pin = await runAgent(dir, ["ratchets", "--pin"]);
+    assertEquals(pin.code, 0, pin.output);
+    assertEquals(
+      await measureCount(dir),
+      3,
+      "a cleared receipt must not be reused",
+    );
+    assertEquals(limitOf(await readConfig(dir), "coverage"), "95");
+  });
+});
+
+Deno.test("receipt: a malformed receipt file is ignored — the pin measures fresh", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      pinConfig({
+        name: "coverage",
+        direction: "up",
+        limit: "80",
+        run: countingRun("coverage", "95"),
+      }),
+    );
+    await gitInit(dir);
+    await Deno.writeTextFile(measurementsFile(dir), "not json {{{\n");
+
+    const pin = await runAgent(dir, ["ratchets", "--pin"]);
+    assertEquals(pin.code, 0, pin.output);
+    assertEquals(await measureCount(dir), 1, "garbage must read as a cache miss");
+    assertEquals(limitOf(await readConfig(dir), "coverage"), "95");
+  });
+});
+
+Deno.test("receipt: a --force check over a dirty tree records nothing", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      pinConfig({
+        name: "coverage",
+        direction: "up",
+        limit: "80",
+        run: countingRun("coverage", "95"),
+      }),
+    );
+    await gitInit(dir);
+    await Deno.writeTextFile(join(dir, "dirty.txt"), "uncommitted\n");
+
+    const check = await runAgent(dir, ["ratchets", "--force"]);
+    assertEquals(check.code, 0, check.output);
+    const receipt = await Deno.stat(measurementsFile(dir)).catch(() =>
+      undefined
+    );
+    assertEquals(
+      receipt,
+      undefined,
+      "a dirty tree's values describe a state no pin will see",
+    );
+  });
+});
+
+Deno.test("receipt: a reusing pin still re-checks never-loosen against LIVE main", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      pinConfig({
+        name: "coverage",
+        direction: "up",
+        limit: "80",
+        run: countingRun("coverage", "95"),
+      }),
+    );
+    await gitInit(dir);
+    await git(dir, "checkout", "-q", "-b", "work");
+
+    // Green check on the branch records the receipt (main's floor is also 80).
+    const check = await runAgent(dir, ["ratchets", "--json"]);
+    assertEquals(check.code, 0, check.output);
+    assertEquals(await measureCount(dir), 1);
+
+    // Main advances underneath the unchanged branch HEAD: its floor rises to 90,
+    // so the branch's 80 is now a loosening the receipt knows nothing about.
+    await git(dir, "checkout", "-q", "main");
+    const cfg = await readConfig(dir);
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      cfg.replace("limit = 80", "limit = 90"),
+    );
+    await git(dir, "commit", "-aqm", "raise the floor", "--no-gpg-sign");
+    await git(dir, "checkout", "-q", "work");
+
+    const before = await gitOut(dir, "rev-parse", "HEAD");
+    const pin = await runAgent(dir, ["ratchets", "--pin", "--json"]);
+    assertEquals(pin.code, 1, pin.output);
+    const obj = JSON.parse(pin.stdout.trim()) as {
+      ok: boolean;
+      steps?: Array<{ note?: string }>;
+      diagnostics?: Array<{ message: string }>;
+      hints?: string[];
+    };
+    assertEquals(obj.ok, false);
+    // The verdict came from the receipt replay, and it carries the live reason.
+    assertStringIncludes(
+      obj.steps?.[0]?.note ?? "",
+      "reused from the green check",
+    );
+    assertStringIncludes(
+      obj.diagnostics?.[0]?.message ?? "",
+      "the floor only rises",
+    );
+    assertStringIncludes((obj.hints ?? []).join("\n"), "Not pinning");
+    // No re-measurement, no commit, no edit.
+    assertEquals(await measureCount(dir), 1, "replay must not re-measure");
+    assertEquals(await gitOut(dir, "rev-parse", "HEAD"), before, "no commit");
+    assertEquals(limitOf(await readConfig(dir), "coverage"), "80", "no edit");
+  });
+});
