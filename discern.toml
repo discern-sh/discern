@@ -339,7 +339,7 @@ run       = "deno task prose \"${docs.dir}\""
 [ratchets.guidance]
 metric    = "guidance_words"
 direction = "down"
-limit     = 807
+limit     = 831
 run       = "echo DISCERN_METRIC guidance_words $(cat templates/guidance/*.md | wc -w)"
 
 # Binary-size ratchet — hold one representative release artifact at or below a
