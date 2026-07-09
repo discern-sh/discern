@@ -79,7 +79,9 @@ Deno.test("mcp surface: every config value it names flows from config — no har
       patch: { project: { main_branch: "zzbranch" } },
       sentinel: "zzbranch",
       def: "main",
-      allow: ["main checkout", "main repo", '"main"'],
+      // `range.main` is the integrate payload's wire FIELD name (the incoming-tip
+      // anchor) — a fixed schema key, not a branch literal.
+      allow: ["main checkout", "main repo", '"main"', "range.main"],
     },
   };
 

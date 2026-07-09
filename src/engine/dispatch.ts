@@ -542,11 +542,20 @@ export function attachEngineCommands(root: Command): void {
       "Emit a machine-readable (plan, results) object on stdout.",
     )
     .option("--dry-run", "Show the integration plan; touch nothing.")
+    .option(
+      "--from <ref:string>",
+      "Pull this ref (a branch, tag, or commit) into the worktree instead of the trunk. For composing on unlanded work — omit it for the routine bring-the-trunk-in call.",
+    )
     .action(async (o) => {
       const json = o.json ?? false;
       Deno.exit(
         await runWorktreeOp(
-          (ctx) => integrate(ctx, { json, dryRun: o.dryRun ?? false }),
+          (ctx) =>
+            integrate(ctx, {
+              json,
+              dryRun: o.dryRun ?? false,
+              ...(o.from !== undefined ? { from: o.from } : {}),
+            }),
           { json, verb: "integrate" },
         ),
       );

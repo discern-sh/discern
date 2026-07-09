@@ -152,31 +152,38 @@ function ignoredFileDetails(summary: IgnoredFileChangeSummary): string[] {
 
 // ── integrate ───────────────────────────────────────────────────────────────
 
-/** The read-only diagnosis an integration acts on: which integration branch is
- * coming in, how far behind the worktree branch is, and whether it already
- * contains main (→ a no-op: merge + refresh both skip). The worktree precondition
- * is checked while BUILDING this — a plan only exists for an integration that may
- * proceed. */
+/** The read-only diagnosis an integration acts on: which source ref is coming in
+ * (the trunk by default, any ref via `--from`), how far behind the worktree
+ * branch is, and whether it already contains the source (→ nothing to merge; the
+ * refresh + ensure convergence still runs, so a re-run after a manual conflict
+ * resolution restores everything the aborted merge skipped). The worktree
+ * precondition is checked while BUILDING this — a plan only exists for an
+ * integration that may proceed. */
 export interface IntegratePlan {
-  /** The integration branch being merged in (`[project].main_branch` / `MAIN_BRANCH`). */
-  mainBranch: string;
+  /** The source being merged in: the integration branch (`[project].main_branch`
+   * / `MAIN_BRANCH`), or the `--from` ref. */
+  source: string;
+  /** Whether `source` came from an explicit `--from` (vs the trunk default). */
+  fromOverride: boolean;
   /** The worktree's current branch (display only). */
   worktreeBranch: string;
-  /** Commits the branch is behind main (0 when already up to date). */
+  /** Commits the branch is behind the source (0 when already up to date). */
   behind: number;
-  /** Whether the branch already contains main (→ a no-op: merge + refresh both skip). */
+  /** Whether the branch already contains the source (→ nothing to merge). */
   alreadyIntegrated: boolean;
-  /** The `[worktree.setup].ensure` commands run after a successful merge + refresh,
-   * to converge the worktree on the merged tree (empty when none are declared). */
+  /** The `[worktree.setup].ensure` commands run after the merge + refresh,
+   * to converge the worktree on the current tree (empty when none are declared). */
   ensureSteps: string[];
 }
 
 /**
- * Project an integration onto the shared renderer: merge the integration branch,
+ * Project an integration onto the shared renderer: merge the source ref,
  * re-materialize the agent files + skills, then re-run the convergent
  * `[worktree.setup].ensure` to converge the worktree on the merged tree. When the
- * branch already contains main every step is `skip`ped (nothing to merge, so nothing
- * to refresh and no convergence needed).
+ * branch already contains the source only the merge is `skip`ped — the refresh and
+ * the ensure convergence run on EVERY pass (like session start), which is what
+ * makes "re-run `discern integrate`" the recovery after a manually resolved
+ * conflict: the no-op re-run restores the convergence the aborted merge skipped.
  */
 export function integratePlanToEngine(plan: IntegratePlan): EnginePlan {
   const act = !plan.alreadyIntegrated;
@@ -186,33 +193,29 @@ export function integratePlanToEngine(plan: IntegratePlan): EnginePlan {
       label: "merge",
       disposition: act ? "run" : "skip",
       note: act
-        ? `merge ${plan.mainBranch} into ${plan.worktreeBranch}`
-        : `already up to date with ${plan.mainBranch}`,
+        ? `merge ${plan.source} into ${plan.worktreeBranch}`
+        : `already up to date with ${plan.source}`,
     },
     {
       kind: "refresh",
       label: "refresh agent files",
-      disposition: act ? "run" : "skip",
-      note: act
-        ? "re-materialize the generated agent files + skills"
-        : "nothing merged — no refresh needed",
+      disposition: "run",
+      note: "re-materialize the generated agent files + skills",
     },
   ];
   for (const step of plan.ensureSteps) {
     steps.push({
       kind: "setup-ensure",
       label: step,
-      disposition: act ? "run" : "skip",
-      note: act
-        ? "converge the worktree on the merged tree"
-        : "nothing merged — no convergence needed",
+      disposition: "run",
+      note: "converge the worktree on the current tree",
     });
   }
   return {
     title: "Integration plan",
     details: [
       `Branch:    ${plan.worktreeBranch}`,
-      `Integrate: ${plan.mainBranch}`,
+      `Integrate: ${plan.source}`,
       plan.alreadyIntegrated
         ? "Status:    already up to date"
         : `Behind by: ${plan.behind} commit(s)`,

@@ -278,6 +278,31 @@ export async function assertMainMerged(
   return { kind: "behind", behind: behind === "" ? "?" : behind, branch };
 }
 
+/**
+ * The read-only merged-state of an ARBITRARY source ref against HEAD — the
+ * `integrate --from` counterpart of {@link assertMainMerged} (which is
+ * trunk-specific: local-branch existence, the missing-branch warning). The
+ * caller has already resolved `ref` through {@link resolveCommitRef}, so this
+ * only reads: whether HEAD already contains it, and how many commits it is
+ * behind. Fails open to `{already: true, behind: 0}` on a git hiccup — the
+ * mutating merge performs its own checks.
+ */
+export async function refMergedState(
+  cwd: string,
+  ref: string,
+): Promise<{ already: boolean; behind: number }> {
+  const already =
+    (await git(["merge-base", "--is-ancestor", ref, "HEAD"], cwd)).success;
+  if (already) {
+    return { already: true, behind: 0 };
+  }
+  const behindRun = await git(["rev-list", "--count", `HEAD..${ref}`], cwd);
+  return {
+    already: false,
+    behind: behindRun.success ? Number(behindRun.stdout.trim()) || 0 : 0,
+  };
+}
+
 /** The outcome of integrating the integration branch into the current worktree. */
 export type IntegrateOutcome =
   /** Not applicable here (main checkout, no repo, or no local main): nothing to do. */
@@ -334,20 +359,25 @@ export async function resolveIntegrationAnchors(
 }
 
 /**
- * Merge the latest integration branch into the current worktree's branch — the
- * mutating counterpart to {@link assertMainMerged}'s read-only check. Refuses
- * (`dirty`) when the tree has uncommitted tracked changes; no-ops (`already`) when
- * the branch already contains main; and outside a linked worktree or with no local
- * main it is a `skipped` no-op. On a clean run it `git merge`s main, reporting
- * `fastForward` when HEAD was a strict ancestor (no merge commit) and how many
- * commits it was `behind`. A conflicting merge collects the conflicted paths and
- * aborts (`git merge --abort`), restoring the pre-merge tree so the caller can
- * refuse without leaving a half-merge behind. Pure git mechanics — re-materializing
- * the agent files after a successful merge is the lifecycle layer's job, not this.
+ * Merge an integration source into the current worktree's branch — the mutating
+ * counterpart to {@link assertMainMerged}'s read-only check. The source is the
+ * integration branch by default, or ANY ref via `opts.from` (the landing model's
+ * pull axis — `integrate --from`; the caller resolves the ref first, so an
+ * unknown name never reaches the merge). Refuses (`dirty`) when the tree has
+ * uncommitted tracked changes; no-ops (`already`) when the branch already
+ * contains the source; and outside a linked worktree — or, on the default pull,
+ * with no local main — it is a `skipped` no-op. On a clean run it `git merge`s
+ * the source, reporting `fastForward` when HEAD was a strict ancestor (no merge
+ * commit) and how many commits it was `behind`. A conflicting merge collects the
+ * conflicted paths and aborts (`git merge --abort`), restoring the pre-merge tree
+ * so the caller can refuse without leaving a half-merge behind. Pure git
+ * mechanics — re-materializing the agent files after a successful merge is the
+ * lifecycle layer's job, not this.
  */
 export async function integrateMain(
   cwd: string = Deno.cwd(),
   mainBranchFallback?: string,
+  opts: { from?: string } = {},
 ): Promise<IntegrateOutcome> {
   const { absoluteGitDir, commonGitDir } = await resolveGitDirs(cwd);
   // Outside a repo, or in the main checkout → nothing to integrate into.
@@ -357,45 +387,51 @@ export async function integrateMain(
   ) {
     return { kind: "skipped" };
   }
-  const mainBranch = integrationBranch(mainBranchFallback);
-  const hasMain = await git(
-    ["show-ref", "--verify", "--quiet", `refs/heads/${mainBranch}`],
-    cwd,
-  );
-  if (!hasMain.success) {
-    return { kind: "skipped" }; // no local main branch to integrate
+  let source: string;
+  if (opts.from !== undefined && opts.from !== "") {
+    source = opts.from;
+  } else {
+    source = integrationBranch(mainBranchFallback);
+    const hasMain = await git(
+      ["show-ref", "--verify", "--quiet", `refs/heads/${source}`],
+      cwd,
+    );
+    if (!hasMain.success) {
+      return { kind: "skipped" }; // no local main branch to integrate
+    }
   }
-  // Already contains main? Then there is nothing to merge, so never refresh.
+  // Already contains the source? Then there is nothing to merge.
   if (
-    (await git(["merge-base", "--is-ancestor", mainBranch, "HEAD"], cwd))
+    (await git(["merge-base", "--is-ancestor", source, "HEAD"], cwd))
       .success
   ) {
     return { kind: "already" };
   }
   // Merge into a tracked-clean tree only — tracked edits are the caller's to resolve
   // first. Untracked local/session scratch files do not participate in a merge and
-  // should not block integrating main.
+  // should not block integrating.
   if (await hasUncommittedTrackedChanges(cwd)) {
     return { kind: "dirty" };
   }
-  // How far behind, for the report; and whether HEAD is a strict ancestor of main
-  // (a pure fast-forward, no merge commit) — both read before the merge moves HEAD.
+  // How far behind, for the report; and whether HEAD is a strict ancestor of the
+  // source (a pure fast-forward, no merge commit) — both read before the merge
+  // moves HEAD.
   const behindRun = await git(
-    ["rev-list", "--count", `HEAD..${mainBranch}`],
+    ["rev-list", "--count", `HEAD..${source}`],
     cwd,
   );
   const behind = behindRun.success ? Number(behindRun.stdout.trim()) || 0 : 0;
   const fastForward =
-    (await git(["merge-base", "--is-ancestor", "HEAD", mainBranch], cwd))
+    (await git(["merge-base", "--is-ancestor", "HEAD", source], cwd))
       .success;
   // The integration's SHA anchors, read BEFORE the merge moves HEAD: `before` (the
   // branch tip / the agent's own work), `main` (the tip being merged), `base` (their
   // fork point). `after` is read post-merge below. They let the summary layer report
   // exactly what landed — and an agent diff the full set in one call when capped.
-  const anchors = await resolveIntegrationAnchors(cwd, mainBranch);
+  const anchors = await resolveIntegrationAnchors(cwd, source);
   // `--no-edit` accepts git's default merge-commit message without opening an
   // editor, so a divergent merge stays non-interactive.
-  const merge = await git(["merge", "--no-edit", mainBranch], cwd);
+  const merge = await git(["merge", "--no-edit", source], cwd);
   if (merge.success) {
     const after = (await git(["rev-parse", "HEAD"], cwd)).stdout.trim();
     return { kind: "integrated", behind, fastForward, ...anchors, after };

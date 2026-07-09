@@ -627,12 +627,14 @@ export const TOOLS: McpTool[] = orderTools([
       "generated agent files + skills, in one deterministic step — the inverse of " +
       "discern_graduate, and the action that resolves discern_finish's merge check " +
       "(which refuses a branch behind `{{main_branch}}`). Run it whenever the branch " +
-      "is behind. " +
+      "is behind. The source is always `{{main_branch}}` unless you pass `from` — " +
+      "nothing to look up or confirm for the routine call. " +
       "Just call it: you do NOT need to run git to check first — it performs every " +
       "precondition itself and returns exactly what to do next. It is idempotent and " +
-      "safe to call anytime: a no-op success when the branch already contains " +
-      "`{{main_branch}}` " +
-      "(reported, nothing merged, no refresh); it merges into a tracked-clean tree only, so " +
+      "safe to call anytime: when the branch already contains the source nothing is " +
+      "merged and the worktree is still re-converged (agent files re-materialized, " +
+      "[worktree.setup].ensure re-run) — which also makes a plain re-run the recovery " +
+      "after you resolve a merge conflict by hand; it merges into a tracked-clean tree only, so " +
       'it refuses (error:"precondition_failed") on uncommitted tracked changes; and on a merge ' +
       "conflict it aborts cleanly (leaving the tree untouched) and refuses, naming the " +
       "conflicted files and the manual path to resolve them. " +
@@ -640,7 +642,8 @@ export const TOOLS: McpTool[] = orderTools([
       "commits and files brought in (each capped, with a `*_total` and `*_truncated`), " +
       "which of your own files `overlap` them (RE-READ those — a clean merge can still " +
       "conflict semantically), the `scopes_incoming` touched, and a `range` of commit " +
-      "SHAs. When a list is capped, pull the full set in ONE git call from the range " +
+      "SHAs (`range.main` is the incoming tip — the source ref's, whichever it was). " +
+      "When a list is capped, pull the full set in ONE git call from the range " +
       "rather than guessing it — e.g. `git diff --stat <range.before>..<range.after>`, " +
       "or `git diff <range.before>..<range.after> -- <path>` for one file; the hints " +
       "carry the exact command. Set dry_run to preview the " +
@@ -648,13 +651,23 @@ export const TOOLS: McpTool[] = orderTools([
       "touching anything. Never touches the main checkout; operates only " +
       "on the worktree the server runs in.",
     inputSchema: {
+      from: z.string().optional().describe(
+        "Pull this ref (a branch, tag, or commit) into the worktree instead of the " +
+          "trunk. OMIT for the routine call — the default is always the trunk " +
+          "(`{{main_branch}}`), so there is nothing to check first. Pass a ref only " +
+          "to compose on unlanded work (e.g. pull another worktree's agent/* branch " +
+          "into this one).",
+      ),
       dry_run: z.boolean().optional().describe(
         "Preview the integration plan and touch nothing (default false).",
       ),
       ...PATH_PARAM,
     },
     run: (root, args) =>
-      integrateToolResult(root, { dryRun: args.dry_run === true }),
+      integrateToolResult(root, {
+        dryRun: args.dry_run === true,
+        from: args.from,
+      }),
   }),
   defineTool({
     name: "discern_start",
@@ -755,14 +768,17 @@ async function graduateToolResult(
  */
 async function integrateToolResult(
   root: string,
-  opts: { dryRun?: boolean },
+  opts: { dryRun?: boolean; from?: string | undefined },
 ): Promise<DiscernResult> {
   const ctx = await lifecycleContext(
     root,
     new Logger({ json: true, noColor: true }),
   );
   try {
-    return await integrateResult(ctx, opts);
+    return await integrateResult(ctx, {
+      dryRun: opts.dryRun ?? false,
+      ...(opts.from !== undefined ? { from: opts.from } : {}),
+    });
   } catch (e) {
     const mapped = worktreeErrorResult("integrate", e);
     if (mapped !== undefined) {

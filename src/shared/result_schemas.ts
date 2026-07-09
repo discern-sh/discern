@@ -380,9 +380,11 @@ const integrateFileSchema = z.strictObject({
 });
 
 /** The SHA anchors bounding an integration — an agent diffs/logs against these to
- * pull the FULL set in one call when a list is capped. `after` (the merged HEAD) is
- * absent in a `--dry-run` preview (no merge happened); the predicted ranges use
- * `before...main` (three-dot) instead of `before..after`. */
+ * pull the FULL set in one call when a list is capped. `main` is the INCOMING
+ * TIP: the integration branch's tip on a default pull, or the `--from` ref's tip
+ * (the field name stays `main` — the wire contract predates `--from`). `after`
+ * (the merged HEAD) is absent in a `--dry-run` preview (no merge happened); the
+ * predicted ranges use `before...main` (three-dot) instead of `before..after`. */
 const integrateRangeSchema = z.strictObject({
   base: z.string(),
   before: z.string(),

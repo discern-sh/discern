@@ -57,10 +57,18 @@ advances under a long-running Worktree,
 [`integrate`](../../src/engine/worktree/lifecycle.ts) brings it into the branch,
 re-materializes the agent files + skills, and re-runs `[worktree.setup].ensure`
 so a merge that changed a lockfile leaves the worktree's dependencies current —
-all in one step. It merges only into a tracked-clean tree: tracked edits that
-have not been committed must be committed or stashed first, while untracked
-local/session scratch files are left alone. It is the deterministic inverse of
-graduate, and what the gate's merge check
+all in one step. `integrate --from <ref>` pulls **any ref** into the worktree
+instead of the trunk — the pull axis of the landing model, how multi-phase work
+composes below the trunk — with every guarantee intact: the same clean-tree
+precondition, the conflict abort, the re-materialize step, and the change
+summary (computed against the resolved ref, whose tip is the summary's `main`
+anchor). It merges only into a tracked-clean tree: tracked edits that have not
+been committed must be committed or stashed first, while untracked local/session
+scratch files are left alone. When the branch already contains the source
+nothing merges, but the refresh + `ensure` convergence **still runs** — so after
+a conflict is resolved by hand (`git merge`, fix, commit), re-running
+`discern integrate` restores everything the aborted merge skipped. It is the
+deterministic inverse of graduate, and what the gate's merge check
 ([ADR 0050](../_adr/0050-merge-check-fail-fast.md)) points a behind branch at
 ([ADR 0055](../_adr/0055-integrate-verb.md),
 [ADR 0059](../_adr/0059-worktree-setup-ensure.md)). When a change is done,

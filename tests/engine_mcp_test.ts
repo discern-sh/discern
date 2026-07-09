@@ -787,9 +787,10 @@ Deno.test("discern mcp: discern_integrate is an idempotent no-op from an up-to-d
     await gitInit(dir);
 
     // From inside a WORKTREE whose branch already contains main: a real (non-dry-run)
-    // call is an idempotent no-op success — nothing merged, so nothing refreshed.
-    // (integrate is always listed now; it still requires a worktree to act on, per
-    // the listing test.)
+    // call is an idempotent success — nothing merged (the merge step is skipped),
+    // while the refresh + ensure convergence still runs (what makes a plain re-run
+    // the recovery after a manually resolved conflict). (integrate is always listed
+    // now; it still requires a worktree to act on, per the listing test.)
     const wt = await addWorktree(dir, "intg");
     const wtMcp = await spawnMcp(wt);
     await wtMcp.send({
@@ -808,10 +809,20 @@ Deno.test("discern mcp: discern_integrate is an idempotent no-op from an up-to-d
     const noop = await wtMcp.recv();
     assertEquals(noop.result.isError, false);
     assertEquals(noop.result.structuredContent.verb, "integrate");
-    assert(
-      (noop.result.structuredContent.steps as Array<{ outcome: string }>)
-        .every((s) => s.outcome === "skipped"),
-      `an up-to-date integrate reports only skipped steps: ${
+    const steps = noop.result.structuredContent.steps as Array<
+      { label: string; outcome: string }
+    >;
+    assertEquals(
+      steps.find((s) => s.label === "merge")?.outcome,
+      "skipped",
+      `an up-to-date integrate merges nothing: ${
+        JSON.stringify(noop.result.structuredContent)
+      }`,
+    );
+    assertEquals(
+      steps.find((s) => s.label === "refresh agent files")?.outcome,
+      "ok",
+      `the no-op still re-converges (refresh runs): ${
         JSON.stringify(noop.result.structuredContent)
       }`,
     );
