@@ -8,6 +8,11 @@ rested on. Reuses the merge precondition
 ([ADR 0050](0050-merge-check-fail-fast.md)) and the one result envelope
 ([ADR 0028](0028-result-envelope-and-diagnostics.md)).
 
+> **Note ([ADR 0110](0110-the-landing-model.md)):** `graduate --to trunk` below
+> is now plain `graduate` — the configurable destination was removed and the
+> trunk is the single landing target. The receipt-fast-pathed validation decided
+> here stands unchanged.
+
 ## Context
 
 `graduate` lands a branch onto the trunk — locally, via `graduate --to trunk`,

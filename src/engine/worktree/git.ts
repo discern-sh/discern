@@ -1040,8 +1040,11 @@ export async function readySentinelPath(
 }
 
 /** Whether the worktree at `cwd` completed its setup — the ready sentinel is the
- * proof. The one read of "is this worktree configured?", shared by the setup /
- * session-start paths (via the lifecycle) and status's broken-worktree flag. */
+ * proof. The one read of "is this worktree configured?" for the setup /
+ * session-start paths (via the lifecycle). Deliberately NOT status's
+ * broken-worktree signal: that flags on missing project CONFIG (a crashed
+ * start's signature), because a sentinel-less-but-configured worktree self-heals
+ * on its next session, and pre-sentinel worktrees would all false-flag. */
 export async function worktreeSetupComplete(cwd: string): Promise<boolean> {
   const marker = await readySentinelPath(cwd);
   if (marker === undefined) {

@@ -85,11 +85,17 @@ discern's built-in guidance plus this repo's own
 - Agent sessions run in linked git worktrees — by default a sibling of the repo,
   `<repo>.worktrees/<name>/` (configurable via `[worktree].root`), each with its
   own checkout.
-- To take over an agent's branch and continue in the main checkout, run
-  [`discern graduate`](../30-worktrees/README.md). It commits the work as
-  needed, tears the worktree down, and checks the branch out in the main repo —
-  or, with `--to trunk`, fast-forwards your trunk to it and deletes the merged
-  branch.
+- To land an agent's finished branch, run
+  [`discern graduate`](../30-worktrees/README.md) from its worktree. It re-runs
+  the gate, fast-forwards your trunk to the branch tip, tears the worktree down,
+  and deletes the merged branch — the trunk is the single landing target (ADR
+  0110). It refuses a dirty tree (commit first) and a main checkout parked off
+  the trunk. To review or build on work that isn't ready to land, leave it as a
+  branch and pull it into a worktree with `discern start --from <ref>` /
+  `discern integrate --from <ref>` instead.
+- To discard an abandoned worktree, run `discern worktree drop <id>` from the
+  main checkout — it refuses without `--force` when commits not on the trunk or
+  uncommitted changes would be lost.
 - Drive the gate yourself any time: `discern finish` (the full gate, also
   `deno task gate`), `discern prepare` (fast: fixers + checks), and
   `discern doctor` (health check). In this repo the dev wrapper runs them

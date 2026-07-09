@@ -2,6 +2,11 @@
 
 **Status**: accepted
 
+> **Note ([ADR 0110](0110-the-landing-model.md)):** the `--to branch` /
+> `--to trunk` modes referenced below were removed — `graduate` always lands on
+> the trunk now. The decision itself stands: graduation still refreshes the
+> trunk checkout it leaves behind.
+
 ## Context
 
 `discern refresh` materializes the local artifacts that agents actually read:

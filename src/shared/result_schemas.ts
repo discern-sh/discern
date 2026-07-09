@@ -479,9 +479,12 @@ const statusFleetEntrySchema = z.strictObject({
   last_activity: z.string().optional(),
   id: z.string().optional(),
   port: z.number().optional(),
-  /** Present (true) when the worktree never completed its setup — its ready
-   * sentinel is missing, so the checkout may be incomplete and is not a healthy
-   * fleet member. The hints carry the removal path (`discern worktree drop`). */
+  /** Present (true) when the worktree's creation never completed — its project
+   * config is missing from the checkout (a crashed `start`'s signature; config
+   * presence is the deliberate signal, not the ready sentinel, so a healthy
+   * pre-sentinel worktree is never falsely flagged and a sentinel-less one that
+   * self-heals next session isn't either). Not a healthy fleet member; the
+   * hints carry the removal path (`discern worktree drop`). */
   broken: z.boolean().optional(),
 });
 export type StatusFleetEntry = z.infer<typeof statusFleetEntrySchema>;
