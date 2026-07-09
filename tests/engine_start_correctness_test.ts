@@ -119,10 +119,7 @@ for (const state of BAD_STATES) {
         !r.output.includes("Uncaught"),
         `a refusal must never be a crash\n${r.output}`,
       );
-      await assertNoStartDebris(
-        project,
-        r.output,
-      ).catch(() => {/* unborn repos have no worktree list — checked below */});
+      await assertNoStartDebris(project, r.output);
       assertEquals(
         await exists(`${project}.worktrees`),
         false,

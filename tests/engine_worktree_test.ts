@@ -321,6 +321,32 @@ Deno.test("graduate: refuses a dirty worktree without moving anything", async ()
   });
 });
 
+Deno.test("graduate: refuses a detached-HEAD main checkout the same way", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "detached-main");
+    await Deno.writeTextFile(join(wt, "feature.txt"), "work\n");
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
+    // Detach the main checkout: no branch is checked out at all, so the
+    // fast-forward has nothing to land on — the refusal must say so plainly,
+    // not crash and not move HEAD.
+    await git(dir, "switch", "-q", "--detach", "main");
+
+    const r = await runAgent(wt, ["graduate"]);
+    assertEquals(r.code, 1, r.output);
+    assertStringIncludes(r.output, "'(detached)', not 'main'");
+    assertStringIncludes(
+      r.output,
+      "switch main` — then re-run `discern graduate`",
+    );
+    assertEquals(
+      await gitOut(dir, "branch", "--show-current"),
+      "",
+      `the detached main checkout must not be moved\n${r.output}`,
+    );
+  });
+});
+
 Deno.test("graduate: refuses when the main checkout is parked off the trunk, naming the way back", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "parked-main");
