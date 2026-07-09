@@ -105,6 +105,7 @@ import {
   overlapPaths,
   pruneGitWorktrees,
   pruneStaleWorktreeMetadata,
+  readySentinelPath,
   refMergedState,
   removeWorktreeSafely,
   repoToplevel,
@@ -116,6 +117,7 @@ import {
   sweepOrphanWorktrees,
   WorktreeGitError,
   worktreeGitKey,
+  worktreeSetupComplete,
 } from "./git.ts";
 
 // worktree setup recompiles the agent guidance as its final step — which also
@@ -268,37 +270,9 @@ async function buildTeardownPlan(ctx: LifecycleContext): Promise<TeardownPlan> {
   return { entries: await entriesForWorktree(commonGitDir, gitKey) };
 }
 
-/** The per-worktree setup sentinel path (`git rev-parse --git-path discern-worktree-ready`). */
-async function readySentinelPath(cwd: string): Promise<string | undefined> {
-  const r = await runGit(
-    ["rev-parse", "--git-path", "discern-worktree-ready"],
-    { cwd },
-  );
-  if (!r.success) {
-    return undefined;
-  }
-  const raw = r.stdout.trim();
-  if (raw === "") {
-    return undefined;
-  }
-  // `--git-path` may print a path relative to the worktree's cwd.
-  return raw.startsWith("/") ? raw : join(cwd, raw);
-}
-
-/** Whether this worktree's ready sentinel is present — the proof setup completed.
- * The one read of "is this worktree already configured?", shared by the setup and
- * the session-start ensure paths. */
-async function sentinelPresent(cwd: string): Promise<boolean> {
-  const marker = await readySentinelPath(cwd);
-  if (marker === undefined) {
-    return false;
-  }
-  try {
-    return (await Deno.stat(marker)).isFile;
-  } catch {
-    return false;
-  }
-}
+// The per-worktree ready sentinel (`discern-worktree-ready`) lives in the git
+// layer now — `readySentinelPath` / `worktreeSetupComplete` — shared with
+// status's broken-worktree flag, so "is this worktree configured?" has one read.
 
 /** Record the deterministic port in this worktree's `.env`, or report it. */
 async function recordPort(
@@ -481,7 +455,7 @@ export async function worktreeSetup(
   // `discern worktree setup` — reach here on an already-configured worktree, where the
   // non-idempotent phases (resource `create`, `[worktree.setup].steps`) must not
   // re-run. (`worktreeEnsure` gates the session-start path the same way.)
-  const configured = await sentinelPresent(ctx.cwd);
+  const configured = await worktreeSetupComplete(ctx.cwd);
 
   // 3. provision the per-worktree resources. On a FIRST setup, create them
   // (ledger-logged for GC; a required create failure aborts setup). On a re-entry,
@@ -689,7 +663,7 @@ export async function worktreeEnsure(
   } catch {
     return { kind: "skipped" };
   }
-  if (await sentinelPresent(ctx.cwd)) {
+  if (await worktreeSetupComplete(ctx.cwd)) {
     // Already set up — converge the worktree: reconcile any resource that declares an
     // `ensure` (re-ready one that died out-of-band, e.g. a host reboot) and re-run the
     // `[worktree.setup].ensure` commands (re-install deps, rebuild). Both are

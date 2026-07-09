@@ -36,6 +36,7 @@ import {
   TestOutputSchema,
   UninstallOutputSchema,
   UpgradeOutputSchema,
+  WorktreeDropOutputSchema,
   WorktreePruneOutputSchema,
   WorktreeSetupOutputSchema,
   WorktreeTeardownOutputSchema,
@@ -231,6 +232,12 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     commands: ["worktree teardown"],
     verb: "worktree teardown",
     schema: WorktreeTeardownOutputSchema,
+  },
+  {
+    id: "worktreeDrop",
+    commands: ["worktree drop"],
+    verb: "worktree drop",
+    schema: WorktreeDropOutputSchema,
   },
   {
     id: "worktreePrune",

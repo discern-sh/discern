@@ -107,9 +107,22 @@ fully-merged, clean worktrees — discarding real work is `drop`'s job, behind i
 explicit `--force`. [`status`](../../src/engine/status/status.ts) uses the same
 ordinary Git-clean boundary as prune for its local and fleet `clean` fields:
 tracked changes and untracked non-ignored files make a Worktree dirty, while
-ignored provider-local/generated files stay out of the signal.
-[`identity`](../../src/engine/worktree/identity.ts) resolves a Worktree's stable
-identity (id / site / branch / port / db / worktree / resource).
+ignored provider-local/generated files stay out of the signal. Status also tells
+the truth about **abandoned and broken work**: a fleet member whose checkout
+carries no project config (the signature of a creation that crashed
+mid-checkout) is flagged `broken` with the `worktree drop` removal hint; a
+member idle for a week that still holds uncommitted changes or unlanded commits
+gets a hint to resume it or drop it; unlanded `agent/*` branches with **no
+worktree** are listed (`data.unlanded_branches`) with the pull-axis recovery
+(`start --from` / `integrate --from`); a missing trunk reports `ahead` as an
+honest null, never a fabricated `0 ahead`. And when the worktree the tools aim
+at stays pristine while the main checkout accumulates changes — the signature of
+an agent editing the trunk while the gate runs elsewhere — `status` and `finish`
+both raise an explicit **silent-divergence** warning naming the fix
+(`cd <worktree> && …` prefixes, and the `path` parameter on discern's MCP
+tools). [`identity`](../../src/engine/worktree/identity.ts) resolves a
+Worktree's stable identity (id / site / branch / port / db / worktree /
+resource).
 
 **Proving a copy works.** The same create → setup → removal cores back a further
 use: `setup done`'s **worktree-viability probe**

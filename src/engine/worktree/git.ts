@@ -922,6 +922,133 @@ export async function worktreeGitKey(
 }
 
 /**
+ * Detect SILENT DIVERGENCE: the worktree at `cwd` stays pristine (clean, no
+ * commits ahead of the integration branch) while the main checkout accumulates
+ * uncommitted changes — the signature of an agent that could not re-root and is
+ * editing the trunk while discern's tools run here. Returns the explicit warning
+ * (one wording, shared by `status` and `finish`), or undefined when the shape
+ * doesn't match. Read-only; fails open to undefined.
+ */
+export async function detectSilentDivergence(
+  cwd: string,
+  mainBranchFallback?: string,
+): Promise<string | undefined> {
+  if (await worktreeGitKey(cwd) === undefined) {
+    return undefined; // not a linked worktree — nothing to diverge from
+  }
+  const here = await gitSnapshot(cwd, mainBranchFallback);
+  if (here === undefined || !here.clean || here.ahead > 0) {
+    return undefined; // the worktree has real work — no divergence signature
+  }
+  const mainRepo = await mainRepoPath(cwd);
+  if (mainRepo === undefined) {
+    return undefined;
+  }
+  const main = await gitSnapshot(mainRepo, mainBranchFallback);
+  if (main === undefined || main.changedFiles === 0) {
+    return undefined;
+  }
+  return `This worktree is untouched (no changes, no commits), but the main ` +
+    `checkout at ${mainRepo} has ${main.changedFiles} uncommitted change` +
+    `${
+      main.changedFiles === 1 ? "" : "s"
+    }. If those are your edits, they are ` +
+    `landing on the trunk while discern runs here — work INSIDE this worktree: ` +
+    `prefix every shell command with \`cd ${cwd} && …\` and pass ` +
+    `path="${cwd}" to discern's MCP tools.`;
+}
+
+/** The per-worktree setup sentinel path (`git rev-parse --git-path discern-worktree-ready`)
+ * for the checkout at `cwd`, or undefined when it can't be resolved. */
+export async function readySentinelPath(
+  cwd: string,
+): Promise<string | undefined> {
+  const r = await git(
+    ["rev-parse", "--git-path", "discern-worktree-ready"],
+    cwd,
+  );
+  if (!r.success) {
+    return undefined;
+  }
+  const raw = r.stdout.trim();
+  if (raw === "") {
+    return undefined;
+  }
+  // `--git-path` may print a path relative to the worktree's cwd.
+  return raw.startsWith("/") ? raw : join(cwd, raw);
+}
+
+/** Whether the worktree at `cwd` completed its setup — the ready sentinel is the
+ * proof. The one read of "is this worktree configured?", shared by the setup /
+ * session-start paths (via the lifecycle) and status's broken-worktree flag. */
+export async function worktreeSetupComplete(cwd: string): Promise<boolean> {
+  const marker = await readySentinelPath(cwd);
+  if (marker === undefined) {
+    return false;
+  }
+  try {
+    return (await Deno.stat(marker)).isFile;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Local `<prefix>*` branches holding UNLANDED work with no worktree — commits not
+ * on the trunk, and not checked out in any registered worktree. The abandoned-work
+ * signal `status` surfaces from the main checkout: a graduated branch is deleted,
+ * a live one has its worktree, and a fully-merged dangling one is prune's food —
+ * what remains is work that would otherwise be invisible. Empty when the trunk is
+ * missing (nothing to compare against) or outside a repo.
+ */
+export async function unlandedPrefixBranches(
+  cwd: string,
+  prefix: string,
+  trunk: string,
+): Promise<string[]> {
+  if (
+    prefix === "" ||
+    !(await git(
+      ["show-ref", "--verify", "--quiet", `refs/heads/${trunk}`],
+      cwd,
+    ))
+      .success
+  ) {
+    return [];
+  }
+  const refs = await git(
+    ["for-each-ref", "--format=%(refname:short)", `refs/heads/${prefix}`],
+    cwd,
+  );
+  if (!refs.success) {
+    return [];
+  }
+  const checkedOut = new Set<string>();
+  const list = await git(["worktree", "list", "--porcelain"], cwd);
+  if (list.success) {
+    for (const rec of parseWorktreeList(list.stdout)) {
+      if (rec.branch !== "") {
+        checkedOut.add(shortBranchName(rec.branch));
+      }
+    }
+  }
+  const out: string[] = [];
+  for (const branch of refs.stdout.split("\n").filter((b) => b !== "")) {
+    if (checkedOut.has(branch)) {
+      continue;
+    }
+    const merged = await git(
+      ["merge-base", "--is-ancestor", branch, trunk],
+      cwd,
+    );
+    if (!merged.success) {
+      out.push(branch);
+    }
+  }
+  return out;
+}
+
+/**
  * The set of LIVE linked-worktree keys — the basenames of `<common>/worktrees/<key>`
  * admin directories whose back-pointer (`gitdir`) still names an existing checkout.
  * This is git's own registry of live worktrees and the authoritative orphan-GC

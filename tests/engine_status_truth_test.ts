@@ -1,0 +1,228 @@
+/**
+ * `status` tells the truth about the fleet — the abandoned-work visibility class:
+ * a worktree whose creation crashed mid-checkout is flagged BROKEN (not listed as
+ * a healthy clean member), unlanded `agent/*` branches with no worktree are
+ * surfaced, a stale worktree gets a resume-or-drop hint, a missing trunk yields
+ * an honest null instead of a fabricated "0 ahead", the off-trunk-main hint
+ * describes the state and the way back, and a pristine worktree beside a dirty
+ * main checkout raises the silent-divergence warning (status AND finish).
+ */
+
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { basename, join } from "@std/path";
+import { withTempDir } from "./helpers.ts";
+import {
+  addWorktree,
+  git,
+  gitInit,
+  runAgent,
+  scaffoldEngine,
+  worktreePath,
+} from "./engine_helpers.ts";
+
+interface StatusJson {
+  data: {
+    git: { ahead_integration: number | null } | null;
+    fleet?: Array<{
+      path: string;
+      broken?: boolean;
+      clean: boolean;
+    }>;
+    unlanded_branches?: string[];
+  };
+  hints?: string[];
+}
+
+async function statusJson(dir: string): Promise<StatusJson> {
+  const r = await runAgent(dir, ["status", "--json"]);
+  assertEquals(r.code, 0, r.output);
+  return JSON.parse(r.stdout) as StatusJson;
+}
+
+Deno.test("status flags a configless worktree as broken, with the drop hint", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "crashed");
+    // Simulate creation debris: the checkout exists and is registered, but the
+    // project config never arrived (the pre-fix crash signature).
+    await Deno.remove(join(wt, "discern.toml"));
+
+    const result = await statusJson(dir);
+    const row = result.data.fleet?.find((e) => e.path.endsWith("crashed"));
+    assert(row !== undefined, JSON.stringify(result.data.fleet));
+    assertEquals(row.broken, true, "a configless checkout is broken");
+    assert(
+      (result.hints ?? []).some((h) =>
+        h.includes("never finished its setup") &&
+        h.includes("discern worktree drop crashed")
+      ),
+      `the broken hint names the removal path\n${JSON.stringify(result.hints)}`,
+    );
+
+    // The human table says "broken", not "clean"/"changed".
+    const human = await runAgent(dir, ["status"]);
+    assertStringIncludes(human.output, "broken");
+  });
+});
+
+Deno.test("status lists unlanded agent/* branches that have no worktree", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    // A live worktree, so the fleet view fires…
+    await addWorktree(dir, "alive");
+    // …and an unlanded branch whose worktree is long gone.
+    await git(dir, "branch", "agent/ghost-work");
+    await git(dir, "switch", "-q", "agent/ghost-work");
+    await Deno.writeTextFile(join(dir, "ghost.txt"), "unlanded\n");
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "ghost work", "--no-gpg-sign");
+    await git(dir, "switch", "-q", "main");
+
+    const result = await statusJson(dir);
+    assertEquals(result.data.unlanded_branches, ["agent/ghost-work"]);
+    assert(
+      (result.hints ?? []).some((h) =>
+        h.includes("agent/ghost-work") && h.includes("--from")
+      ),
+      `the hint offers the pull-axis recovery\n${JSON.stringify(result.hints)}`,
+    );
+
+    // A branch checked out in a live worktree is NOT "abandoned".
+    assert(
+      !(result.data.unlanded_branches ?? []).includes("agent/alive"),
+      "a branch with a worktree is not unlanded-abandoned",
+    );
+  });
+});
+
+Deno.test("status reports ahead as null (not 0) when the trunk branch is missing", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    // The project is configured for `main`, but the local repo calls it `master`.
+    await git(dir, "branch", "-M", "master");
+
+    const result = await statusJson(dir);
+    assert(result.data.git !== null);
+    assertEquals(
+      result.data.git.ahead_integration,
+      null,
+      "no trunk to count against — null, never a fabricated 0",
+    );
+    const human = await runAgent(dir, ["status"]);
+    assertStringIncludes(human.output, "no main branch to compare against");
+    assert(
+      !human.output.includes("0 ahead"),
+      `the fabricated count must be gone\n${human.output}`,
+    );
+  });
+});
+
+Deno.test("status's off-trunk-main hint describes the state and the way back", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    await addWorktree(dir, "somework");
+    await git(dir, "switch", "-q", "-c", "reviewing-something");
+
+    const result = await statusJson(dir);
+    const hint = (result.hints ?? []).find((h) =>
+      h.includes("parked on 'reviewing-something'")
+    );
+    assert(hint !== undefined, JSON.stringify(result.hints));
+    assertStringIncludes(hint, "git switch main");
+    assertStringIncludes(hint, "graduation can't land");
+  });
+});
+
+Deno.test("status hints that a stale worktree with work should be resumed or dropped", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    // Create the worktree with a back-dated reflog entry, then back-date the wip
+    // file's mtime too (last-activity is the max of the two).
+    const tenDaysAgo = new Date(Date.now() - 10 * 86_400_000);
+    const wt = worktreePath(dir, "dusty");
+    const add = await new Deno.Command("git", {
+      args: ["worktree", "add", wt, "-b", "agent/dusty"],
+      cwd: dir,
+      env: {
+        GIT_CONFIG_GLOBAL: "/dev/null",
+        GIT_CONFIG_SYSTEM: "/dev/null",
+        GIT_COMMITTER_DATE: tenDaysAgo.toISOString(),
+        GIT_COMMITTER_NAME: "Engine Test",
+        GIT_COMMITTER_EMAIL: "engine-test@example.com",
+      },
+      stdout: "null",
+      stderr: "piped",
+    }).output();
+    assert(add.success, new TextDecoder().decode(add.stderr));
+    await Deno.writeTextFile(join(wt, "wip.txt"), "abandoned\n");
+    await Deno.utime(join(wt, "wip.txt"), tenDaysAgo, tenDaysAgo);
+
+    const result = await statusJson(dir);
+    const hint = (result.hints ?? []).find((h) => h.includes("looks stale"));
+    assert(hint !== undefined, JSON.stringify(result.hints));
+    assertStringIncludes(hint, "idle 10d");
+    assertStringIncludes(hint, "uncommitted change");
+    assertStringIncludes(hint, "discern worktree drop dusty");
+  });
+});
+
+Deno.test("a pristine worktree beside a dirty main checkout raises the divergence warning", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "aimed-here");
+    // The worktree stays untouched; the "work" lands in the main checkout.
+    await Deno.writeTextFile(join(dir, "misplaced-edit.txt"), "oops\n");
+
+    // status (from the worktree) warns…
+    const r = await runAgent(wt, ["status", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    const status = JSON.parse(r.stdout) as { hints?: string[] };
+    const hint = (status.hints ?? []).find((h) =>
+      h.includes("main checkout") && h.includes("untouched")
+    );
+    assert(hint !== undefined, JSON.stringify(status.hints));
+    // Path canonicalization may add a /private prefix — match the tail.
+    assertStringIncludes(hint, `cd ${basename(wt)} &&`.replace("cd ", ""));
+    assertStringIncludes(hint, "prefix every shell command with");
+    assertStringIncludes(hint, "to discern's MCP tools");
+
+    // …and finish carries the same warning in its hints.
+    const fin = await runAgent(wt, ["finish", "--json"]);
+    const gate = JSON.parse(fin.stdout) as { hints?: string[] };
+    assert(
+      (gate.hints ?? []).some((h) => h.includes("untouched")),
+      `finish must warn too\n${JSON.stringify(gate.hints)}`,
+    );
+
+    // Real work in the worktree clears the signature.
+    await Deno.writeTextFile(join(wt, "real-work.txt"), "here\n");
+    const after = await runAgent(wt, ["status", "--json"]);
+    const cleared = JSON.parse(after.stdout) as { hints?: string[] };
+    assert(
+      !(cleared.hints ?? []).some((h) => h.includes("untouched")),
+      "a worktree with its own changes has no divergence signature",
+    );
+  });
+});
+
+Deno.test("basename fallback: a broken worktree with no .env still gets a usable drop target", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "no-env");
+    await Deno.remove(join(wt, "discern.toml"));
+    const result = await statusJson(dir);
+    const hint = (result.hints ?? []).find((h) =>
+      h.includes("discern worktree drop")
+    );
+    assert(hint !== undefined, JSON.stringify(result.hints));
+    // The drop target is the directory basename — exactly what drop resolves.
+    assertStringIncludes(hint, `drop ${basename(wt)}`);
+  });
+});

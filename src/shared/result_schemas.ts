@@ -444,7 +444,9 @@ const statusGitSchema = z.strictObject({
   /** Count of ordinary `git status --porcelain` entries. */
   changed_files: z.number(),
   behind_integration: z.number().nullable(),
-  ahead_integration: z.number(),
+  /** Null when the integration branch doesn't exist locally — there is nothing to
+   * count against, and an honest null beats a fabricated 0. */
+  ahead_integration: z.number().nullable(),
   /** When behind: the files THIS branch changed that the incoming integration branch
    * also changed — the hot zone to re-check on integrating (capped; present only in a
    * worktree that is behind and has overlap). The same intersection `integrate` reports. */
@@ -477,6 +479,10 @@ const statusFleetEntrySchema = z.strictObject({
   last_activity: z.string().optional(),
   id: z.string().optional(),
   port: z.number().optional(),
+  /** Present (true) when the worktree never completed its setup — its ready
+   * sentinel is missing, so the checkout may be incomplete and is not a healthy
+   * fleet member. The hints carry the removal path (`discern worktree drop`). */
+  broken: z.boolean().optional(),
 });
 export type StatusFleetEntry = z.infer<typeof statusFleetEntrySchema>;
 
@@ -502,6 +508,10 @@ export const StatusDataSchema = z.strictObject({
       z.strictObject({ name: z.string(), wired: z.boolean() }),
     ),
   }).optional(),
+  /** Local `<branch_prefix>*` branches holding unlanded work with NO worktree —
+   * otherwise-invisible abandoned work (main-checkout view only; present when
+   * non-empty). */
+  unlanded_branches: z.array(z.string()).optional(),
   fleet: z.array(statusFleetEntrySchema).optional(),
 });
 export type StatusData = z.infer<typeof StatusDataSchema>;
@@ -1161,6 +1171,11 @@ export const WorktreeSetupOutputSchema = datalessResultOutputSchema(
 /** `worktree teardown` output: envelope only (except top-level config parse errors). */
 export const WorktreeTeardownOutputSchema = datalessResultOutputSchema(
   "worktree teardown",
+);
+
+/** `worktree drop` output: envelope only (except top-level config parse errors). */
+export const WorktreeDropOutputSchema = datalessResultOutputSchema(
+  "worktree drop",
 );
 
 /** `worktree prune` output: envelope only (except top-level config parse errors). */

@@ -36,7 +36,7 @@ import type {
   StatusWorktree,
 } from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
-import { findRoot } from "../../shared/env.ts";
+import { findRoot, installedConfigRel } from "../../shared/env.ts";
 import {
   type Capability,
   KNOWN_CAPABILITIES,
@@ -63,13 +63,16 @@ import {
 } from "../../lib/agent_gitignore.ts";
 import {
   assertMainMerged,
+  detectSilentDivergence,
   type FleetWorktree,
   gitSnapshot,
   hasUncommittedTrackedChanges,
   incomingOverlap,
   listWorktreeFleet,
+  localBranchExists,
   mainRepoPath,
   missingIntegrationBranchWarning,
+  unlandedPrefixBranches,
   worktreeGitKey,
 } from "../worktree/git.ts";
 import { IdentityError, resolveIdentity } from "../worktree/identity.ts";
@@ -162,13 +165,16 @@ export async function statusResult(
         overlapInfo = o;
       }
     }
+    // With no local integration branch there is nothing to count "ahead" against —
+    // report an honest null, never a fabricated 0.
+    const trunkExists = await localBranchExists(root, mainBranch);
     git = {
       branch: snap.branch,
       integration_branch: mainBranch,
       clean: snap.clean,
       changed_files: snap.changedFiles,
       behind_integration: behind,
-      ahead_integration: snap.ahead,
+      ahead_integration: trunkExists ? snap.ahead : null,
       ...(overlapInfo !== undefined
         ? { incoming_overlap: overlapInfo.overlap }
         : {}),
@@ -291,6 +297,29 @@ export async function statusResult(
     data.fleet = fleet;
   }
 
+  // Unlanded `<branch_prefix>*` branches with NO worktree — abandoned work that
+  // would otherwise be invisible (its worktree is gone, prune keeps unmerged
+  // branches, and nothing else lists it). Main-checkout (supervisor) view only.
+  let unlandedBranches: string[] | undefined;
+  if (location === "main") {
+    const found = await unlandedPrefixBranches(
+      root,
+      cfg.project.branch_prefix,
+      mainBranch,
+    );
+    if (found.length > 0) {
+      unlandedBranches = found;
+      data.unlanded_branches = found;
+    }
+  }
+
+  // Silent divergence (worktree view): this worktree is pristine while the main
+  // checkout accumulates changes — the signature of edits landing on the trunk
+  // while the gate runs here. One wording, shared with `finish`.
+  const divergence = location === "worktree"
+    ? await detectSilentDivergence(root, mainBranch)
+    : undefined;
+
   const hints = await buildStatusHints({
     root,
     location,
@@ -299,6 +328,8 @@ export async function statusResult(
     changed,
     incomingOverlap: overlapInfo,
     mergeWarning,
+    divergence,
+    unlandedBranches,
     fleet,
     liveCount,
     guidanceDrift,
@@ -368,7 +399,10 @@ async function readWorktreeResources(
 }
 
 /** Augment a cheap fleet row with the worktree's id/port from its `.env` (best
- * effort — omitted when absent). */
+ * effort — omitted when absent) and its viability: a checkout with NO project
+ * config at its root (the signature of a creation that crashed mid-checkout) is
+ * flagged `broken`, not listed as a healthy member. A hand-made
+ * `git worktree add` checkout carries the tracked config and stays healthy. */
 async function fleetEntryFor(
   row: FleetWorktree,
   here: string,
@@ -387,6 +421,9 @@ async function fleetEntryFor(
   };
   if (row.lastActivity !== undefined) {
     entry.last_activity = new Date(row.lastActivity * 1000).toISOString();
+  }
+  if (!row.isMain && (await installedConfigRel(row.path)) === undefined) {
+    entry.broken = true;
   }
   const envText = await readEnvFile(row.path);
   if (envText !== undefined) {
@@ -454,16 +491,23 @@ export const START_HERE_HINT =
 
 /**
  * The {@link START_HERE_HINT} sibling for when the main checkout is — unusually —
- * NOT on its configured trunk branch. Same underlying advice (no isolated
- * workspace yet; get one with `discern start`), but never claims "you're on the
- * trunk" when `branch` says otherwise. A function, not a constant, because the
- * branch name is data the hint must report accurately rather than hard-code; the
- * human renderer reconstructs the exact same string (from `data.git`) to filter it
- * by equality, the same way it filters {@link START_HERE_HINT}.
+ * NOT on its configured trunk branch. An honest description of that state and the
+ * way back: worktrees and graduation are unaffected on the pull side (new
+ * worktrees fork from the trunk regardless), but graduation refuses to land while
+ * the checkout is parked here, so the hint names the return path. A function, not
+ * a constant, because the branch name is data the hint must report accurately
+ * rather than hard-code; the human renderer reconstructs the exact same string
+ * (from `data.git`) to filter it by equality, the same way it filters
+ * {@link START_HERE_HINT}.
  */
 export function offTrunkStartHereHint(branch: string, trunk: string): string {
   const label = branch === "" ? "(detached)" : `'${branch}'`;
-  return `You're in the main checkout, but on branch ${label} — not '${trunk}' (the trunk) — and still not an isolated worktree. Run \`discern start\` to create your own worktree and move into it, naming it after the task you're starting so the worktree is identifiable rather than an opaque codename; never adopt an existing idle worktree (each belongs to another line of work, and a clean tree doesn't mean it's free).`;
+  return `The main checkout is parked on ${label}, not '${trunk}' (the trunk). ` +
+    `That's fine while you work with ${label} deliberately — new worktrees ` +
+    `still fork from the trunk — but graduation can't land until the checkout ` +
+    `returns: run \`git switch ${trunk}\` here when you're done. To start new ` +
+    `work meanwhile, run \`discern start\` (never adopt an existing idle ` +
+    `worktree — each belongs to another line of work).`;
 }
 
 /** Everything the hint builder reads — assembled once so the hints can't drift from
@@ -479,6 +523,10 @@ interface HintContext {
   incomingOverlap: { overlap: string[]; total: number } | undefined;
   /** Warning when the configured integration branch is absent locally. */
   mergeWarning: string | undefined;
+  /** The silent-divergence warning (pristine worktree, dirty main checkout). */
+  divergence: string | undefined;
+  /** Unlanded `<branch_prefix>*` branches with no worktree (main view only). */
+  unlandedBranches: string[] | undefined;
   fleet: StatusFleetEntry[] | undefined;
   liveCount: number;
   /** Generated agent files that don't match what `discern refresh` would write. */
@@ -512,6 +560,11 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
   }
   if (ctx.mergeWarning !== undefined) {
     hints.push(ctx.mergeWarning);
+  }
+  // Silent divergence — the pristine-worktree / dirty-main signature. Loud and
+  // early: every later hint assumes the work is happening where the tools point.
+  if (ctx.divergence !== undefined) {
+    hints.push(ctx.divergence);
   }
 
   if (ctx.trackedIgnoredArtifacts.paths.length > 0) {
@@ -605,7 +658,10 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
         `Branch is ${g.behind_integration} behind ${main}; call \`discern integrate\` directly — it is idempotent and performs its own git preconditions — then run \`discern finish\` before handing off or any user-requested graduation.${overlapNote}`,
       );
     }
-    if (g.clean && g.behind_integration === 0 && g.ahead_integration > 0) {
+    if (
+      g.clean && g.behind_integration === 0 &&
+      g.ahead_integration !== null && g.ahead_integration > 0
+    ) {
       // graduate would refuse against tracked changes in the main checkout — say so
       // if we can see them.
       const mainDirty = await isMainCheckoutDirty(ctx.root);
@@ -659,10 +715,73 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
           );
         }
       }
+      // Broken members: setup never completed, so the checkout may be incomplete —
+      // not a healthy fleet entry, and not worth resuming. Name the removal path.
+      for (const e of others) {
+        if (e.broken === true) {
+          hints.push(
+            `Worktree ${e.id ?? basename(e.path)} never finished its setup — ` +
+              `its checkout may be incomplete. Discard it with ` +
+              `\`discern worktree drop ${e.id ?? basename(e.path)}\`.`,
+          );
+        }
+      }
+      // Stale members: idle for a while and still carrying work — surface the
+      // abandonment before it fossilises, with both ways out.
+      for (const e of others) {
+        const idleDays = idleDaysOf(e.last_activity);
+        if (
+          e.broken !== true && idleDays !== undefined &&
+          idleDays >= STALE_WORKTREE_DAYS &&
+          (!e.clean || e.ahead > 0)
+        ) {
+          const work = e.clean
+            ? `${e.ahead} unlanded commit${e.ahead === 1 ? "" : "s"}`
+            : `${e.changed_files} uncommitted change${
+              e.changed_files === 1 ? "" : "s"
+            }`;
+          hints.push(
+            `Worktree ${
+              e.id ?? basename(e.path)
+            } looks stale: idle ${idleDays}d, ${work} — resume a session ` +
+              `there, or discard it with \`discern worktree drop ${
+                e.id ?? basename(e.path)
+              }\`.`,
+          );
+        }
+      }
+    }
+    // Unlanded branches with no worktree — otherwise-invisible abandoned work.
+    if (ctx.unlandedBranches !== undefined && ctx.unlandedBranches.length > 0) {
+      const n = ctx.unlandedBranches.length;
+      hints.push(
+        `${n} branch${n === 1 ? "" : "es"} hold${
+          n === 1 ? "s" : ""
+        } unlanded work with no worktree: ${
+          ctx.unlandedBranches.join(", ")
+        }. Pull one into new work with \`discern start --from <branch>\` (or ` +
+          `\`discern integrate --from <branch>\` from an existing worktree), or ` +
+          `delete it with \`git branch -D <branch>\`.`,
+      );
     }
   }
 
   return hints;
+}
+
+/** How long a fleet member sits idle before status calls it stale. */
+const STALE_WORKTREE_DAYS = 7;
+
+/** Whole days since an ISO timestamp, or undefined when absent/unparseable. */
+function idleDaysOf(iso: string | undefined): number | undefined {
+  if (iso === undefined) {
+    return undefined;
+  }
+  const then = Date.parse(iso);
+  if (Number.isNaN(then)) {
+    return undefined;
+  }
+  return Math.floor((Date.now() - then) / 86_400_000);
 }
 
 /** Whether the main checkout has uncommitted tracked changes — the cheap read that
@@ -854,10 +973,15 @@ function renderStatusHuman(result: DiscernResult<StatusData>): void {
     const behind = g.behind_integration === null
       ? ""
       : `, ${g.behind_integration} behind`;
+    // With no local integration branch there is no count to print — say so
+    // honestly instead of a fabricated "0 ahead".
+    const versus = g.ahead_integration === null
+      ? `no ${g.integration_branch} branch to compare against`
+      : `${g.ahead_integration} ahead${behind} ${g.integration_branch}`;
     out.raw(
       `  ${label("branch")}${
         g.branch || "(detached)"
-      }${dot}${state}${dot}${g.ahead_integration} ahead${behind} ${g.integration_branch}\n`,
+      }${dot}${state}${dot}${versus}\n`,
     );
     // When behind, the hot zone: the files you changed that the incoming main also
     // changed — re-check these on integrating (a clean merge can still break them).
@@ -952,7 +1076,11 @@ function renderFleetTable(out: Out, fleet: StatusFleetEntry[]): void {
   );
   for (const e of fleet) {
     const name = e.is_main ? "(main)" : (e.id ?? e.branch ?? basename(e.path));
-    const state = e.clean ? "clean" : `${e.changed_files} changed`;
+    const state = e.broken === true
+      ? "broken"
+      : e.clean
+      ? "clean"
+      : `${e.changed_files} changed`;
     const counts = e.is_main ? "—" : `${e.ahead}/${e.behind}`;
     const you = e.is_current ? ` ${c.dim}← you${c.reset}` : "";
     out.raw(

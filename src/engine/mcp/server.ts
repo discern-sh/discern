@@ -294,9 +294,12 @@ export const TOOLS: McpTool[] = orderTools([
       "discern_refresh for any of them); data.setup_unfinished is present while the project's " +
       "one-time setup is still incomplete. From the " +
       "main checkout it leads with data.fleet (a cheap row per worktree: branch, " +
-      "Git-clean state, ahead/behind, a last_activity timestamp, and is_current marking the row " +
-      "this call is rooted in — every other row is a separate line of work, not a " +
-      "workspace to claim, and a clean tree never means one is free); set all=true " +
+      "Git-clean state, ahead/behind, a last_activity timestamp, is_current marking the row " +
+      "this call is rooted in, and broken flagging a checkout whose creation never " +
+      "completed — every other row is a separate line of work, not a " +
+      "workspace to claim, and a clean tree never means one is free); " +
+      "data.unlanded_branches lists branches holding unlanded work with no " +
+      "worktree. Set all=true " +
       "to include the fleet from a worktree, or local=true to suppress it. hints[] are " +
       "advisory next-steps (e.g. run discern_finish, ready for owner review, or — when on " +
       "the trunk — run discern_start to begin in your own isolated worktree) — never " +

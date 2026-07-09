@@ -42,6 +42,7 @@ import { couplingGateHints } from "../coupling/coupling.ts";
 import { colorEnabled, makeOut, type Out, outSink } from "../output.ts";
 import {
   assertMainMerged,
+  detectSilentDivergence,
   missingIntegrationBranchWarning,
 } from "../worktree/git.ts";
 import {
@@ -234,6 +235,16 @@ async function runGate(
     out.warn(mergeWarning);
   }
 
+  // 1a-bis. Silent divergence: the gate is running in a PRISTINE worktree while
+  //     the main checkout accumulates uncommitted changes — the signature of an
+  //     agent that could not re-root and is editing the trunk while validating
+  //     here. Advisory (a warning + hint, never a failure — the pre-existing-dirt
+  //     case is legitimate), sharing status's wording via one helper.
+  const divergenceWarning = await detectSilentDivergence(root, mainBranch);
+  if (divergenceWarning !== undefined) {
+    out.warn(divergenceWarning);
+  }
+
   // 1b. Discern-owned ignored artifacts must not be tracked. A forced `git add -f`
   //     can put generated agent files, materialized skills, or machine-local provider
   //     state into the index despite the canonical .gitignore block. Block before the
@@ -388,6 +399,7 @@ async function runGate(
   const hints = [
     ...(inProgress !== undefined ? [inProgress] : []),
     ...(mergeWarning !== undefined ? [mergeWarning] : []),
+    ...(divergenceWarning !== undefined ? [divergenceWarning] : []),
     ...(receiptHint !== undefined ? [receiptHint] : []),
     ...buildGateHints(
       cfg,

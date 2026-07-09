@@ -2093,7 +2093,7 @@ export type DiscernStatusResult = {
       clean: boolean;
       changed_files: number;
       behind_integration: number | null;
-      ahead_integration: number;
+      ahead_integration: number | null;
       incoming_overlap?: Array<string>;
     } | null;
     scopes?: Array<string>;
@@ -2127,6 +2127,7 @@ export type DiscernStatusResult = {
         wired: boolean;
       }>;
     };
+    unlanded_branches?: Array<string>;
     fleet?: Array<{
       path: string;
       is_main: boolean;
@@ -2139,6 +2140,7 @@ export type DiscernStatusResult = {
       last_activity?: string;
       id?: string;
       port?: number;
+      broken?: boolean;
     }>;
   } | {
     issues: Array<{
@@ -2609,6 +2611,86 @@ export type DiscernWorktreeTeardownResult = {
   };
 };
 
+export type DiscernWorktreeDropResult = {
+  ok: boolean;
+  dry_run?: boolean;
+  plan?: {
+    title: string;
+    details: Array<string>;
+    steps: Array<{
+      kind:
+        | "job"
+        | "scope-gate"
+        | "merge-check"
+        | "tracked-artifacts-check"
+        | "guidance-check"
+        | "skills-check"
+        | "resource-create"
+        | "resource-destroy"
+        | "git"
+        | "setup-step"
+        | "setup-ensure"
+        | "env"
+        | "refresh"
+        | "ratchet";
+      label: string;
+      disposition: "run" | "skip" | "gate";
+      note?: string;
+      group?: string;
+    }>;
+  };
+  steps?: Array<{
+    kind:
+      | "job"
+      | "scope-gate"
+      | "merge-check"
+      | "tracked-artifacts-check"
+      | "guidance-check"
+      | "skills-check"
+      | "resource-create"
+      | "resource-destroy"
+      | "git"
+      | "setup-step"
+      | "setup-ensure"
+      | "env"
+      | "refresh"
+      | "ratchet";
+    label: string;
+    disposition: "run" | "skip" | "gate";
+    note?: string;
+    group?: string;
+    outcome: "ok" | "failed" | "skipped";
+    duration_s?: number;
+    output_path?: string;
+    output_lines?: number;
+    error_like_lines?: number;
+  }>;
+  diagnostics?: Array<{
+    tool: string;
+    severity: "error" | "warning";
+    message: string;
+    reproduce_cmd: string;
+    output?: string;
+    truncated?: boolean;
+    output_path?: string;
+    file?: string;
+    line?: number;
+    col?: number;
+    rule?: string;
+    fix_available?: boolean;
+  }>;
+  hints?: Array<string>;
+  error?: string;
+  message?: string;
+  verb: "worktree drop";
+  data?: {
+    issues: Array<{
+      path: string;
+      message: string;
+    }>;
+  };
+};
+
 export type DiscernWorktreePruneResult = {
   ok: boolean;
   dry_run?: boolean;
@@ -2894,6 +2976,7 @@ export type DiscernCliJsonResult =
   | DiscernIntegrateResult
   | DiscernWorktreeSetupResult
   | DiscernWorktreeTeardownResult
+  | DiscernWorktreeDropResult
   | DiscernWorktreePruneResult
   | DiscernSkillsListResult
   | DiscernSkillsEjectResult;
@@ -2925,6 +3008,7 @@ export interface DiscernResultByVerb {
   integrate: DiscernIntegrateResult;
   "worktree setup": DiscernWorktreeSetupResult;
   "worktree teardown": DiscernWorktreeTeardownResult;
+  "worktree drop": DiscernWorktreeDropResult;
   "worktree prune": DiscernWorktreePruneResult;
   "skills list": DiscernSkillsListResult;
   "skills eject": DiscernSkillsEjectResult;
@@ -2962,6 +3046,7 @@ export interface DiscernResultByCommand {
   integrate: DiscernIntegrateResult;
   "worktree setup": DiscernWorktreeSetupResult;
   "worktree teardown": DiscernWorktreeTeardownResult;
+  "worktree drop": DiscernWorktreeDropResult;
   "worktree prune": DiscernWorktreePruneResult;
   "skills list": DiscernSkillsListResult;
   "skills eject": DiscernSkillsEjectResult;

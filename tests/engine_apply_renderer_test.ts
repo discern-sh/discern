@@ -24,12 +24,12 @@ Deno.test("architecture: worktree apply summaries use the shared StepResult rend
     "worktree apply paths must route through emitOrRenderWorktreeResult",
   );
 
-  // Apply call sites for setup, teardown, graduate, integrate, start, and prune.
-  // A future result-bearing worktree verb should use this helper too, so raising
-  // this count is an intentional architectural change.
+  // Apply call sites for setup, teardown, drop, graduate, integrate, start, and
+  // prune. A future result-bearing worktree verb should use this helper too, so
+  // raising this count is an intentional architectural change.
   assertEquals(
     countMatches(lifecycle, "emitOrRenderWorktreeResult("),
-    6,
+    7,
     "every result-bearing worktree apply wrapper should share the result renderer",
   );
 });
