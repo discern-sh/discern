@@ -353,7 +353,11 @@ export async function resolveIntegrationAnchors(
   mainBranch: string,
 ): Promise<IntegrationAnchors> {
   const before = (await git(["rev-parse", "HEAD"], cwd)).stdout.trim();
-  const main = (await git(["rev-parse", mainBranch], cwd)).stdout.trim();
+  // `^{commit}` peels an annotated-tag source to the commit it tags, so the
+  // anchor is always the tip merged — never a tag object no diff range accepts
+  // verbatim. A branch or lightweight tag resolves identically with or without.
+  const main = (await git(["rev-parse", `${mainBranch}^{commit}`], cwd)).stdout
+    .trim();
   const baseRun = await git(["merge-base", "HEAD", mainBranch], cwd);
   const base = baseRun.success ? baseRun.stdout.trim() : "";
   return { base, before, main };
@@ -794,12 +798,44 @@ export async function repoToplevel(cwd: string): Promise<string | undefined> {
 }
 
 /**
+ * The full ref names a short name matches, in git's own disambiguation order
+ * (gitrevisions(7)). `for-each-ref` patterns match whole path components, so a
+ * branch `v1/sub` also answers the pattern `refs/heads/v1` — the exact-match
+ * filter keeps only refs the short name itself denotes.
+ */
+async function matchingRefs(cwd: string, name: string): Promise<string[]> {
+  const patterns = [
+    `refs/${name}`,
+    `refs/tags/${name}`,
+    `refs/heads/${name}`,
+    `refs/remotes/${name}`,
+    `refs/remotes/${name}/HEAD`,
+  ];
+  const run = await git(
+    ["for-each-ref", "--format=%(refname)", ...patterns],
+    cwd,
+  );
+  if (!run.success) {
+    return [];
+  }
+  const refs = new Set(
+    run.stdout.split("\n").map((l) => l.trim()).filter((l) => l !== ""),
+  );
+  return patterns.filter((p) => refs.has(p));
+}
+
+/**
  * Resolve `ref` to a commit in the repo at `cwd`, refusing an unknown or
  * ambiguous name in plain language. The ONE resolver behind every ref a user
  * hands the worktree lifecycle (`start --from`, `integrate --from`), so the two
  * verbs can never accept different vocabularies. Returns the resolved commit
- * SHA; the caller usually keeps using the NAME (better reflogs), this is the
- * existence/ambiguity check.
+ * SHA (an annotated tag is peeled to the commit it tags); the caller usually
+ * keeps using the NAME (better reflogs), this is the existence/ambiguity check.
+ *
+ * Ambiguity is detected by enumerating the matching refs, never by reading
+ * git's stderr: `rev-parse` resolves an ambiguous short name by precedence with
+ * only a warning — which `--verify --quiet` suppresses entirely, and which is
+ * locale-dependent prose even when present.
  */
 export async function resolveCommitRef(
   cwd: string,
@@ -810,22 +846,26 @@ export async function resolveCommitRef(
       "A ref name is required — pass a branch, tag, or commit.",
     );
   }
-  const run = await git(
-    ["rev-parse", "--verify", "--quiet", `${ref}^{commit}`],
-    cwd,
-  );
-  if (!run.success) {
+  const candidates = await matchingRefs(cwd, ref);
+  if (candidates.length > 1) {
     throw new WorktreeGitError(
-      `Unknown ref '${ref}' — it doesn't name a branch, tag, or commit in this repository. ` +
-        `List local branches with \`git branch\`.`,
+      `The ref '${ref}' is ambiguous — it names ${
+        candidates.join(" and ")
+      }. Pass the full name (e.g. ${candidates[0]}) so the right one is used.`,
     );
   }
-  // `rev-parse` resolves an ambiguous short name by its own precedence rules and
-  // only warns — surface that as a refusal so the user names the ref exactly.
-  if (run.stderr.includes("ambiguous")) {
+  // Exactly one ref matches → resolve that full name (no precedence in play);
+  // none → let rev-parse try the input as a revision (a SHA, `HEAD~2`, …).
+  const target = candidates.length === 1 && candidates[0] !== undefined
+    ? candidates[0]
+    : ref;
+  const run = await git(["rev-parse", "--verify", `${target}^{commit}`], cwd);
+  if (!run.success) {
+    const evidence = run.stderr.trim();
     throw new WorktreeGitError(
-      `The ref '${ref}' is ambiguous (more than one branch or tag matches). ` +
-        `Use the full name, e.g. refs/heads/${ref} or refs/tags/${ref}.`,
+      `Unknown ref '${ref}' — it doesn't name a branch, tag, or commit in this repository. ` +
+        `List local branches with \`git branch\`.` +
+        (evidence === "" ? "" : `\n(git: ${evidence})`),
     );
   }
   return run.stdout.trim();
