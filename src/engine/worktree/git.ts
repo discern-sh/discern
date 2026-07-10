@@ -457,7 +457,10 @@ export async function integrateMain(
   // touching the tree (unrelated histories, an untracked file in the way), and
   // calling THAT a conflict would bury git's actual reason. Evidence, never
   // stderr prose: git's messages are locale-dependent.
-  const conflicted = await git(["diff", "--name-only", "--diff-filter=U"], cwd);
+  const conflicted = await git(
+    ["diff", "--name-only", "--no-renames", "--diff-filter=U"],
+    cwd,
+  );
   const files = conflicted.success
     ? conflicted.stdout.split("\n").map((l) => l.trim()).filter((l) => l !== "")
     : [];
