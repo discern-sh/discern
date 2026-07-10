@@ -35,6 +35,7 @@ import {
 } from "./engine_helpers.ts";
 import { couplingResult } from "../src/engine/coupling/coupling.ts";
 import type { CouplingData } from "../src/shared/result_schemas.ts";
+import { worktreeDirtyPaths } from "../src/engine/gate/fix_drift.ts";
 
 /**
  * Scaffold a real discern install at `<repo>/app` and git-init the REPOSITORY
@@ -210,6 +211,31 @@ Deno.test("nested root: the co-change advisory mines root-relative partners", as
     assert(
       !paths.includes("c.ts") && !paths.includes("other/c.ts"),
       `a sibling project's history must not leak in: ${paths}`,
+    );
+  });
+});
+
+// ── fix-drift: the strand snapshot must speak root-relative paths ──────────────
+// The stranded-file diagnostic names the paths and shows `git diff -- <paths>`
+// run at the root; toplevel-relative paths would misname the files and resolve
+// to nothing as cwd-relative pathspecs, leaving the evidence diff empty.
+
+Deno.test("nested root: the fix-stage dirty snapshot is root-relative", async () => {
+  await withTempDir(async (repo) => {
+    const app = await scaffoldNested(
+      repo,
+      ["[project]", 'slug = "engine-test"', 'main_branch = "main"', ""].join(
+        "\n",
+      ),
+    );
+    await commitFiles(repo, { "app/tracked.txt": "one\n" }, "add tracked");
+    await Deno.writeTextFile(join(app, "tracked.txt"), "two\n");
+
+    const dirty = await worktreeDirtyPaths(app);
+    assert(dirty !== null, "git must answer in a healthy repo");
+    assert(
+      dirty.has("tracked.txt"),
+      `the dirty path must be root-relative: ${[...dirty]}`,
     );
   });
 });
