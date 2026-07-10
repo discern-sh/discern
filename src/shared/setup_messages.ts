@@ -134,8 +134,8 @@ export function consentMessage(ctx: ConsentContext): string {
     ? "The plan: I'll study the repo, come back with one short batch of questions, author the project's docs and guidance, wire up the quality checks, and prove it green."
     : "The plan: I'll initialize git first (`git init` — the safety net below needs it), then study the project, come back with one short batch of questions, author the project's docs and guidance, wire up the quality checks, and prove it green.";
   const safety = gitRepo
-    ? "It's safe and reversible: I work on a dedicated `discern-setup` branch, so nothing touches your main branch until you merge, you can undo it all by deleting that branch, and there's no API key or outside service."
-    : "It's safe and reversible: once git is initialized I work on a dedicated `discern-setup` branch, you can undo it all by deleting that branch, and there's no API key or outside service.";
+    ? "It's safe and reversible: I work on a dedicated `discern-setup` branch, so nothing touches your main branch until you merge, you can undo it all by deleting that branch (or later with `discern uninstall`), and there's no API key or outside service."
+    : "It's safe and reversible: once git is initialized I work on a dedicated `discern-setup` branch, you can undo it all by deleting that branch (or later with `discern uninstall`), and there's no API key or outside service.";
 
   return [
     "Relay the message below to your human as your next chat message — adapt the wording to your own voice if you like, but keep every point, and relay anything in quotation marks word for word. Then wait for their answers.",
@@ -148,7 +148,7 @@ export function consentMessage(ctx: ConsentContext): string {
     "  • isolated working copies (git worktrees) — each task gets its own copy, so parallel work never collides;",
     "  • shared project instructions — one place that tells every future coding session how this project works.",
     "",
-    "  • On disk that lands in one root file (`discern.toml`) and one visible `discern/` folder — a map of your codebase (docs agents write and keep current for you to audit), a deferred-work ledger, and those shared instructions — plus the files your coding tools require and two small shims. Nothing else in your repo is touched.",
+    "  • On disk, what discern itself owns lands in one root file (`discern.toml`) and one visible `discern/` folder — a map of your codebase (docs your agents keep current for you to audit), a deferred-work ledger, and those shared instructions. It also updates the files your coding tools require — your own tools' integration files, committed openly for review.",
     "",
     plan,
     "",
@@ -267,7 +267,7 @@ export function completionMessage(ctx: CompletionContext): string {
     headline,
     "",
     `  • ${coverageLine(assurance)}`,
-    "  • Everything discern added is contained: `discern.toml` at the root and the `discern/` folder, plus the files your coding tools require — plain files you can read and audit any time.",
+    "  • Everything discern added is contained: `discern.toml` at the root and the `discern/` folder, plus the files your coding tools require — plain files you can read and audit any time. If you ever change your mind, `discern uninstall` takes the wiring back out and leaves your own content in place.",
     `  • ${landingLine(landing)}`,
     "",
     fence("end of message"),

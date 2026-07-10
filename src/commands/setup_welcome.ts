@@ -74,7 +74,7 @@ const FRESH_AGENT_GUIDANCE =
   "You are discern's configuration engine for this project — the capable agent already in the loop, here to set discern up for your human. This is a short workflow you DRIVE end to end (verify → begin → author → done), not a status to relay back and stop on; discern only guides you, and nothing is written until you run `discern setup begin`. Your next action now: run `discern setup verify` yourself to preview the plan and open the consent conversation — don't hand the welcome back as a report. It hands you the exact message to relay to your human (what discern is, what it will do and cost, and the points to confirm) — relay that, wait for their answers, then run `begin`.";
 
 const FRESH_HUMAN_FRAMING =
-  "discern adds a quality gate, isolated git worktrees, and shared agent instructions to this repo, tailored to your codebase by your own coding agent — isolated, reversible, and with no API key. Everything it adds lands in one root file (discern.toml) and one visible discern/ folder; nothing else in the repo is touched. Expect roughly 20–40 minutes and a meaningful number of tokens. Point your most capable model at it: setup is one-time and high-leverage.";
+  "discern adds a quality gate, isolated git worktrees, and shared agent instructions to this repo, tailored to your codebase by your own coding agent — isolated, reversible, and with no API key. Everything discern itself owns lands in one root file (discern.toml) and one visible discern/ folder, plus the config files your coding tools require — your own tools' integrations, wired for you; `discern uninstall` backs it all out if you change your mind. Expect roughly 20–40 minutes and a meaningful number of tokens. Point your most capable model at it: setup is one-time and high-leverage.";
 
 /** The leading note a non-git first contact carries on both surfaces: the very
  * first step is `git init` — the isolation and undo story every other welcome
@@ -316,12 +316,13 @@ const PLAIN_FRESH_WELCOME: readonly string[] = [
   "",
   '      "Run `discern setup` in this project."',
   "",
-  "  Setup is isolated and reversible. Everything it adds lands in one root file",
-  "  (`discern.toml`) and one visible `discern/` folder — nothing else in your",
-  "  repo is touched. Your agent works on a dedicated `discern-setup` branch in",
-  "  small step-by-step commits, so you can follow along — and undo everything",
-  "  with one command if you change your mind. There's no lock-in, no API",
-  "  key, and no surprises.",
+  "  Setup is isolated and reversible. Everything discern itself owns lands in",
+  "  one root file (`discern.toml`) and one visible `discern/` folder, plus the",
+  "  config files your coding tools require — your own tools' integrations,",
+  "  wired for you and committed in the open. Your agent works on a dedicated",
+  "  `discern-setup` branch in small step-by-step commits, so you can follow",
+  "  along — and if you change your mind, `discern uninstall` backs it all",
+  "  out. There's no lock-in, no API key, and no surprises.",
   "",
   "  Point your MOST CAPABLE model at it: setup is a one-time, high-leverage step,",
   "  and discern is only as good as the model that configured it.",
@@ -411,18 +412,23 @@ function styledFreshWelcome(ctx: WelcomeContext): string[] {
     ...actionBox(),
     boxLine(""),
     boxLine(
-      "Setup is isolated and reversible. Everything it adds lands in one",
+      "Setup is isolated and reversible. Everything discern itself owns lands",
     ),
-    boxLine("root file (`discern.toml`) and one visible `discern/` folder —"),
-    boxLine("nothing else in your repo is touched."),
+    boxLine(
+      "in one root file (`discern.toml`) and one visible `discern/` folder,",
+    ),
+    boxLine(
+      "plus the config files your coding tools require — your own tools'",
+    ),
+    boxLine("integrations, wired for you and committed in the open."),
     boxLine("Your agent works on a dedicated `discern-setup` branch in small"),
     boxLine(
-      "step-by-step commits, so you can follow along — and undo everything",
+      "step-by-step commits, so you can follow along — and if you change",
     ),
     boxLine(
-      "with one command if you change your mind. There's no lock-in, no API",
+      "your mind, `discern uninstall` backs it all out. There's no lock-in,",
     ),
-    boxLine("key, and no surprises."),
+    boxLine("no API key, and no surprises."),
     boxLine(""),
     boxLine("Point your MOST CAPABLE model at it: setup is a one-time,"),
     boxLine(
@@ -499,8 +505,8 @@ function abandonedSetupWelcome(): string[] {
     "Then continue the brief and run `discern setup done` to finish.",
     "",
     `Humans: your coding agent left setup half-done on the \`${SETUP_BRANCH}\``,
-    "branch. It can pick up right where it left off — or roll everything back by",
-    "deleting that branch.",
+    "branch. It can pick up right where it left off — or roll everything back:",
+    "delete that branch, then `discern uninstall` sweeps out the generated files.",
   ];
 }
 
@@ -518,7 +524,8 @@ function inProgressWelcome(progress: SetupProgress | undefined): string[] {
     "won't touch your work). Don't tell the user setup is done until `done` passes.",
     "",
     "Humans: your coding agent is mid-setup on the `discern-setup` branch. Follow",
-    "along — you can roll it all back by deleting that branch.",
+    "along — roll it all back by deleting that branch, then `discern uninstall`",
+    "to sweep out any generated files.",
   ];
 }
 

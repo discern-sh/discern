@@ -51,11 +51,18 @@ Deno.test("consentMessage carries the relay licence, the verbatim model question
   assertStringIncludes(msg, "isolated working copies (git worktrees)");
   assertStringIncludes(msg, "shared project instructions");
   // The footprint story in namespace terms (ADR 0099): one root file, one visible
-  // folder (the map glossed for a novice), and the containment promise.
+  // folder (the map glossed for a novice) — scoped to what discern itself OWNS, with
+  // the provider config files acknowledged as the user's own tools' integrations.
+  // The old blanket containment claim ("nothing else in your repo is touched") was
+  // an overclaim — `begin` also writes .mcp.json, agent settings, a gitignore block
+  // — and must never return.
   assertStringIncludes(msg, "one root file (`discern.toml`)");
   assertStringIncludes(msg, "one visible `discern/` folder");
   assertStringIncludes(msg, "map of your codebase");
-  assertStringIncludes(msg, "Nothing else in your repo is touched");
+  assertStringIncludes(msg, "the files your coding tools require");
+  assert(!msg.includes("Nothing else in your repo is touched"));
+  // The undo is NAMED, not alluded to: the branch mid-setup, `discern uninstall` after.
+  assertStringIncludes(msg, "discern uninstall");
   // The honest time+token expectation and the safety frame.
   assertStringIncludes(msg, "20–40 minutes");
   assertStringIncludes(msg, "discern-setup");
@@ -134,19 +141,20 @@ Deno.test("consentMessage conditions every isolation promise on git being presen
   );
 });
 
-Deno.test("consentMessage keeps the message body concise (≤ ~250 words of prose)", () => {
+Deno.test("consentMessage keeps the message body concise (≤ ~265 words of prose)", () => {
   // The message the human reads sits between the two fences; the framing line and the
   // command ride outside it. Keep it short enough to survive a single read — the base
-  // case at the ~250-word target (the three pillars plus the footprint story), the
-  // docs case adding only its one extra confirmation.
+  // case at the ~265-word target (the three pillars, the honest footprint story with
+  // the provider files acknowledged, and the named undo), the docs case adding only
+  // its one extra confirmation.
   const wordsOf = (docsExists: boolean): number => {
     const body = consentMessage({ worktreePath: WT, docsExists, gitRepo: true })
       .split("message to your human")[1]?.split("end of message")[0] ?? "";
     return body.trim().split(/\s+/).filter(Boolean).length;
   };
   const base = wordsOf(false);
-  assert(base > 0 && base <= 260, `base message body was ${base} words`);
-  assert(wordsOf(true) <= 320, `docs message body was ${wordsOf(true)} words`);
+  assert(base > 0 && base <= 270, `base message body was ${base} words`);
+  assert(wordsOf(true) <= 330, `docs message body was ${wordsOf(true)} words`);
 });
 
 // ── confirmedBeginCommand ────────────────────────────────────────────────────
@@ -200,9 +208,12 @@ Deno.test("completionMessage renders honest coverage for each verdict", () => {
     reactivation: READY_REACTIVATION,
   });
   assertStringIncludes(full, "all run on every change");
-  // The close restates the contained footprint the consent message promised.
+  // The close restates the contained footprint the consent message promised —
+  // and names `discern uninstall` as the undo, since the branch-delete story
+  // retires once the setup lands.
   assertStringIncludes(full, "Everything discern added is contained");
   assertStringIncludes(full, "`discern/` folder");
+  assertStringIncludes(full, "discern uninstall");
 
   const partial = completionMessage({
     assurance: assurance("partial"),

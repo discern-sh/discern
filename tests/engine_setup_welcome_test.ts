@@ -41,6 +41,8 @@ const FRESH_WELCOME_FACTS: readonly string[] = [
   '"Run `discern setup` in this project."',
   "Setup is isolated and reversible",
   "one visible `discern/` folder",
+  "config files your coding tools require",
+  "discern uninstall",
   "no API",
   "key, and no surprises",
   "MOST CAPABLE model",
