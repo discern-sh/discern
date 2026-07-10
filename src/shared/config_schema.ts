@@ -692,19 +692,20 @@ function liveSchemaJson(): Record<string, unknown> {
 }
 
 /**
- * Whether a dotted key is a writable path in the schema — so `discern config set`
- * can refuse a typo (`project.frobnicate`, `gate.bogus`) at WRITE time rather
- * than leave a config the next read rejects. A record section (`checks`, `scopes`,
- * `ratchets`, `worktree.resources`) accepts any `<name>` segment, then matches the
- * value shape's keys. This deliberately permits a valid-but-incomplete path (e.g.
- * `ratchets.coverage.limit` before its `run` is set) — incremental table
- * construction is legitimate; only an UNKNOWN key/section is rejected.
+ * Walk the live JSON Schema along a dotted key. `found` is whether every segment
+ * resolved (a record section — `checks`, `scopes`, `ratchets`,
+ * `worktree.resources` — accepts any `<name>` segment, descending into the value
+ * shape); `node` is the schema node the path lands on. The ONE walk behind both
+ * {@link isSettableConfigPath} and {@link settableConfigValueKind}, so "does this
+ * path exist" and "what does it hold" can never disagree.
  */
-export function isSettableConfigPath(dotted: string): boolean {
+function settableSchemaNode(
+  dotted: string,
+): { found: boolean; node: Record<string, unknown> | undefined } {
   let node: Record<string, unknown> | undefined = liveSchemaJson();
   for (const seg of dotted.split(".")) {
     if (node === undefined) {
-      return false;
+      return { found: false, node: undefined };
     }
     const props: Record<string, unknown> | undefined = isRecord(node.properties)
       ? node.properties
@@ -716,10 +717,156 @@ export function isSettableConfigPath(dotted: string): boolean {
       // A record table: `seg` is a `<name>`; descend into the value shape.
       node = node.additionalProperties;
     } else {
-      return false; // not a known key, and not a repeatable-name table
+      return { found: false, node: undefined }; // unknown key, not a record table
     }
   }
-  return true;
+  return { found: true, node };
+}
+
+/**
+ * Whether a dotted key is a writable path in the schema — so `discern config set`
+ * can refuse a typo (`project.frobnicate`, `gate.bogus`) at WRITE time rather
+ * than leave a config the next read rejects. This deliberately permits a
+ * valid-but-incomplete path (e.g. `ratchets.coverage.limit` before its `run` is
+ * set) — incremental table construction is legitimate; only an UNKNOWN
+ * key/section is rejected.
+ */
+export function isSettableConfigPath(dotted: string): boolean {
+  return settableSchemaNode(dotted).found;
+}
+
+/**
+ * The value shape the schema expects at a settable path — so `config set` renders
+ * the TOML type the next read requires instead of guessing it from the value's
+ * spelling (a guess wrote `agents = "claude_code"` where an array belongs, and
+ * `slug = 2048` where a string belongs, bricking every later read).
+ *
+ * - `string` — carries the closed `values` list when the schema is an enum.
+ * - `number` / `boolean` / `string-array` — the plain scalar and array shapes.
+ * - `table` — the path names a section, not a single key.
+ * - `mixed` — a union (a command-or-list, a ratchet `per`): no single required
+ *   type, so the caller falls back to inference and the write-time validation
+ *   backstop.
+ *
+ * Returns undefined for a path that is not settable at all.
+ */
+export type ConfigValueKind =
+  | { kind: "string"; values?: string[] }
+  | { kind: "number" }
+  | { kind: "boolean" }
+  | { kind: "string-array" }
+  | { kind: "table" }
+  | { kind: "mixed" };
+
+export function settableConfigValueKind(
+  dotted: string,
+): ConfigValueKind | undefined {
+  const { found, node } = settableSchemaNode(dotted);
+  if (!found) {
+    return undefined;
+  }
+  if (node === undefined) {
+    return { kind: "mixed" }; // unreachable for Zod-emitted schemas; stay lenient
+  }
+  if (Array.isArray(node.anyOf) || Array.isArray(node.oneOf)) {
+    return { kind: "mixed" };
+  }
+  if (node.type === "string") {
+    const values = Array.isArray(node.enum) &&
+        node.enum.every((v): v is string => typeof v === "string")
+      ? node.enum
+      : undefined;
+    return values === undefined
+      ? { kind: "string" }
+      : { kind: "string", values };
+  }
+  if (node.type === "number" || node.type === "integer") {
+    return { kind: "number" };
+  }
+  if (node.type === "boolean") {
+    return { kind: "boolean" };
+  }
+  if (node.type === "array") {
+    const items = isRecord(node.items) ? node.items : undefined;
+    return items?.type === "string"
+      ? { kind: "string-array" }
+      : { kind: "mixed" };
+  }
+  if (
+    node.type === "object" || isRecord(node.properties) ||
+    isRecord(node.additionalProperties)
+  ) {
+    return { kind: "table" };
+  }
+  return { kind: "mixed" };
+}
+
+/** The dotted record-family prefixes whose entries may be built incrementally,
+ * derived from {@link RECORD_ENTRY_SCHEMAS} so a new record section auto-enrols. */
+function recordFamilyPrefixes(): string[] {
+  return Object.keys(RECORD_ENTRY_SCHEMAS);
+}
+
+/** The raw parsed-TOML value at a Zod issue path, or undefined when absent. */
+function rawValueAt(raw: unknown, path: readonly PropertyKey[]): unknown {
+  let node: unknown = raw;
+  for (const seg of path) {
+    if (!isRecord(node)) {
+      return undefined;
+    }
+    node = node[String(seg)];
+  }
+  return node;
+}
+
+/**
+ * Whether a schema issue is a MISSING key inside a record-family entry
+ * (`[checks.<n>]`, `[scopes.<n>]`, `[ratchets.<n>]`, `[worktree.resources.<n>]`)
+ * — the one shape a programmatic write tolerates, because incremental table
+ * construction is legitimate (`config set ratchets.cov.limit 80` before its
+ * `run` exists), the same allowance {@link isSettableConfigPath} documents.
+ * A key that is PRESENT with the wrong shape is never excused.
+ */
+function isIncompleteRecordEntry(
+  raw: unknown,
+  path: readonly PropertyKey[],
+): boolean {
+  if (rawValueAt(raw, path) !== undefined) {
+    return false;
+  }
+  const dotted = path.map((p) => String(p)).join(".");
+  return recordFamilyPrefixes().some((family) => {
+    if (!dotted.startsWith(`${family}.`)) {
+      return false;
+    }
+    // At least `<name>.<key>` beyond the family prefix: the issue sits inside
+    // one entry, not on the family section itself.
+    return dotted.slice(family.length + 1).split(".").length >= 2;
+  });
+}
+
+/**
+ * The problems that must BLOCK a programmatic write of new `discern.toml` text —
+ * the write-time counterpart of {@link parseConfig}, used so a config editor can
+ * never report success and leave a file the next read rejects. A TOML syntax
+ * error or any schema violation blocks, with one allowance: a missing required
+ * key inside a record-family entry (see {@link isIncompleteRecordEntry}).
+ * Returns an empty list when the text is safe to write.
+ */
+export function configWriteIssues(text: string): ConfigIssue[] {
+  let parsed: unknown;
+  try {
+    parsed = parseToml(text);
+  } catch (err) {
+    return [{ path: "", message: tomlSyntaxHint(err) }];
+  }
+  const result = configSchema.safeParse(parsed);
+  if (result.success) {
+    return [];
+  }
+  return result.error.issues
+    .filter((issue) => !isIncompleteRecordEntry(parsed, issue.path))
+    .map(toConfigIssue);
 }
 
 /**

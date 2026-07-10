@@ -327,6 +327,101 @@ Deno.test("config set infers types (number / bool / string)", async () => {
   });
 });
 
+Deno.test("config set renders the schema's type, not the value's spelling", async () => {
+  // The type at a path comes from the config schema, never from how the value
+  // happens to look: a numeric-looking slug stays a string, a single agent name
+  // lands as a one-element array, and a JS-only float spelling is normalized.
+  // Pre-fix, `slug = 2048` and `agents = "claude_code"` were written verbatim
+  // with ok:true — and every later verb failed on the invalid config.
+  await withTempDir(async (dir) => {
+    await setup(dir);
+    const slug = await runCli(["config", "set", "project.slug", "2048"], dir);
+    assertEquals(slug.code, 0, slug.stderr);
+    const agents = await runCli(
+      ["config", "set", "guidance.agents", "claude_code"],
+      dir,
+    );
+    assertEquals(agents.code, 0, agents.stderr);
+    const timeout = await runCli(["config", "set", "gate.timeout", ".5"], dir);
+    assertEquals(timeout.code, 0, timeout.stderr);
+
+    const toml = await readToml(dir);
+    assertStringIncludes(toml, 'slug = "2048"'); // string key: quoted
+    assertStringIncludes(toml, 'agents = ["claude_code"]'); // array key: wrapped
+    assertStringIncludes(toml, "timeout = 0.5"); // number key: valid TOML
+
+    // A TOML-array-shaped value reaches an array key as the full array.
+    const list = await runCli(
+      ["config", "set", "guidance.agents", '["claude_code", "codex"]'],
+      dir,
+    );
+    assertEquals(list.code, 0, list.stderr);
+    assertStringIncludes(
+      await readToml(dir),
+      'agents = ["claude_code", "codex"]',
+    );
+
+    // The install still loads cleanly after every one of those writes.
+    const doctor = await runCli(["doctor", "--json"], dir);
+    assertEquals(JSON.parse(doctor.stdout).ok, true, doctor.stdout);
+  });
+});
+
+Deno.test("config set refuses a value the next read would reject, leaving the file untouched", async () => {
+  await withTempDir(async (dir) => {
+    await setup(dir);
+    const before = await readToml(dir);
+    const cases: {
+      args: string[];
+      includes: string;
+      error?: string;
+    }[] = [
+      // An enum-typed key names its closed vocabulary.
+      {
+        args: ["config", "set", "checks.x.stage", "bogus"],
+        includes: "must be one of: ",
+      },
+      // A non-number for a number key.
+      {
+        args: ["config", "set", "gate.timeout", "soon"],
+        includes: "holds a number",
+      },
+      // A section path is not a settable key.
+      {
+        args: ["config", "set", "worktree.setup", "x"],
+        includes: "is a section",
+      },
+      // A type flag that contradicts the schema.
+      {
+        args: ["config", "set", "project.slug", "5", "--number"],
+        includes: "holds a string",
+      },
+      // The write-boundary backstop: well-typed but schema-invalid (docs.dir
+      // must stay inside the repository) is caught before anything is written.
+      {
+        args: ["config", "set", "docs.dir", "../escape"],
+        includes: "refusing this edit",
+        error: "invalid_value",
+      },
+    ];
+    for (const c of cases) {
+      const r = await runCli([...c.args, "--json"], dir);
+      assertEquals(r.code, 1, `${c.args.join(" ")}: ${r.stdout}${r.stderr}`);
+      const result = JSON.parse(r.stdout);
+      assertEquals(result.ok, false);
+      assertStringIncludes(result.message, c.includes);
+      if (c.error !== undefined) {
+        assertEquals(result.error, c.error);
+      }
+      assertEquals(
+        await readToml(dir),
+        before,
+        `${c.args.join(" ")} modified the file despite failing`,
+      );
+    }
+  });
+});
+
 Deno.test("config set preserves the edited line's inline comment", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);
@@ -583,7 +678,7 @@ Deno.test("config set --bool forces a boolean and rejects a non-boolean", async 
     assertEquals(ok.code, 0, ok.stderr);
     assertStringIncludes(await readToml(dir), "stream = true");
 
-    // Invalid: --bool with a non-boolean throws, surfaced as a failure.
+    // Invalid: a non-boolean value for a boolean key is refused.
     const bad = await runCli(
       ["config", "set", "gate.stream", "yes", "--bool", "--json"],
       dir,
@@ -591,7 +686,7 @@ Deno.test("config set --bool forces a boolean and rejects a non-boolean", async 
     assertEquals(bad.code, 1);
     const result = JSON.parse(bad.stdout);
     assertEquals(result.ok, false);
-    assertStringIncludes(result.message, "--bool value must be");
+    assertStringIncludes(result.message, "holds a boolean");
   });
 });
 
