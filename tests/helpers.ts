@@ -29,6 +29,26 @@ const MAIN = join(
   "main.ts",
 );
 
+/**
+ * A gate-job command that leaves an ESCAPED descendant holding the job's
+ * stdout/stderr: `deno eval` spawns a detached (own-session) `sleep` that
+ * inherits the pipes, then the shell exits 0. The sleeper survives any
+ * process-group tree-kill — the standard self-daemonizing pattern, distilled —
+ * so it exercises the kill path's drain bound: without it, the runner would
+ * wait for pipe EOF (the daemon's whole lifetime) and the gate would hang past
+ * its budget. `markerFile` (cwd-relative), when given, is written once the
+ * daemon is up, so a test can synchronize before aborting.
+ */
+export function escapedDaemonCommand(
+  holdS: number,
+  markerFile?: string,
+): string {
+  const marker = markerFile === undefined
+    ? ""
+    : `; Deno.writeTextFileSync("${markerFile}", "up")`;
+  return `deno eval 'new Deno.Command("sleep", { args: ["${holdS}"], stdout: "inherit", stderr: "inherit", detached: true }).spawn().unref()${marker}' && sleep 0.2`;
+}
+
 /** The captured result of one CLI subprocess invocation. */
 export interface CliResult {
   code: number;

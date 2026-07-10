@@ -26,7 +26,7 @@ import {
   type Stage,
   STAGES,
 } from "../src/shared/capabilities.ts";
-import { withTempDir } from "./helpers.ts";
+import { escapedDaemonCommand, withTempDir } from "./helpers.ts";
 import {
   gitInit,
   runAgent,
@@ -89,6 +89,49 @@ Deno.test("gate timeout: a job that never exits is tree-killed and recorded as a
       (await Deno.readTextFile(join(dir, "inner.pid"))).trim(),
     );
     await waitForExit(innerPid);
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+Deno.test("gate timeout: an escaped descendant holding the pipes cannot wedge the watchdog — the job stays bounded and fails as a genuine timeout", async () => {
+  // The pipe-holder class: the watchdog tree-kills the job's process GROUP,
+  // but a descendant that re-parented into its own session (the standard
+  // self-daemonizing pattern) survives the kill while inheriting the job's
+  // stdout/stderr. Before the kill path bounded the drains, the runner then
+  // waited for pipe EOF — the daemon's whole lifetime (15s here; forever for a
+  // real daemon) — and, the direct shell having exited 0, reported the job OK
+  // with the recorded timeout silently swallowed.
+  const dir = await Deno.makeTempDir({ prefix: "discern-timeout-escape-" });
+  try {
+    const start = performance.now();
+    const r = await runParallel([
+      { label: "escape", command: escapedDaemonCommand(15) },
+    ], {
+      cwd: dir,
+      stream: false,
+      failFast: true,
+      color: false,
+      timeoutS: 2,
+      write: () => {},
+    });
+    const elapsed = performance.now() - start;
+
+    const escape = r.results.find((x) => x.label === "escape");
+    assertEquals(r.ok, false);
+    // The timeout is recorded AND is a failure — never `ok` with the budget
+    // swallowed just because the direct shell exited clean.
+    assertEquals(escape?.timedOutAfterS, 2, JSON.stringify(escape));
+    assert(
+      (escape?.code ?? 0) !== 0,
+      "a timed-out job must report non-zero even when its shell exited clean",
+    );
+    assertEquals(escape?.cancelled, undefined);
+    // Bounded: budget + the kill path's pipe grace, not the daemon's lifetime.
+    assert(
+      elapsed < 10_000,
+      `the kill path should release the held pipes within its grace, took ${elapsed}ms`,
+    );
   } finally {
     await Deno.remove(dir, { recursive: true });
   }
@@ -255,6 +298,21 @@ for (const stage of STAGES) {
     });
   });
 }
+
+// The escaped-descendant variant through the FULL finish: the command exits
+// clean but leaves a detached daemon holding its output pipes, so only the
+// kill path's drain bound (not the tree-kill) can end the job. The gate must
+// still fail within budget with the actionable timeout diagnostic — before the
+// bound it hung for the daemon's whole lifetime and reported the job ok.
+Deno.test("gate timeout: a daemonizing command is bounded and diagnosed", async () => {
+  await assertStageKindTimesOut({
+    wiring: [
+      "[capabilities]",
+      `test = ${JSON.stringify(escapedDaemonCommand(60))}`,
+    ],
+    jobLabel: "test",
+  });
+});
 
 // The other job kinds the gate runs, which are NOT capability stages: a custom
 // [checks.<name>] and a changed scope's own gate.

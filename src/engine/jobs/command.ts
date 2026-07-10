@@ -107,12 +107,50 @@ function concat(chunks: Uint8Array[]): Uint8Array {
 }
 
 /**
+ * How long after a kill (fail-fast, external abort, or the timeout watchdog)
+ * the drains may keep waiting for pipe EOF before the pending reads are
+ * cancelled. Longer than the SIGTERM→SIGKILL escalation (2s), so a child that
+ * catches SIGTERM and exits slowly still flushes its output and closes its
+ * pipes naturally; only a pipe held by a process the tree-kill cannot reach —
+ * a descendant that re-parented into its own session (a self-daemonizing
+ * tool) — is clipped. Without this bound, such an escapee keeps the write
+ * ends open and the drain-to-EOF would block for the daemon's whole lifetime,
+ * hanging the gate past its budget (forever, for a never-exiting daemon).
+ */
+const KILLED_PIPE_GRACE_MS = 2500;
+
+/**
+ * Iterate a child stream through an explicit reader registered in `readers`,
+ * so the kill path can cancel a pending read (a `for await` over the stream
+ * itself holds a private reader nothing else can reach).
+ */
+async function* readChunks(
+  stream: ReadableStream<Uint8Array>,
+  readers: Set<ReadableStreamDefaultReader<Uint8Array>>,
+): AsyncGenerator<Uint8Array> {
+  const reader = stream.getReader();
+  readers.add(reader);
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done || value === undefined) {
+        return;
+      }
+      yield value;
+    }
+  } finally {
+    readers.delete(reader);
+    reader.releaseLock();
+  }
+}
+
+/**
  * Stream a child stream live, prefixing each line `── <label> │ …`.
  * `onChunk` (optional) receives each raw chunk so the caller can retain a capped
  * copy for the failure diagnostic without giving up live streaming.
  */
 async function streamPrefixed(
-  stream: ReadableStream<Uint8Array>,
+  stream: AsyncIterable<Uint8Array>,
   label: string,
   write: (chunk: Uint8Array) => void,
   onChunk?: (chunk: Uint8Array) => void | Promise<void>,
@@ -159,11 +197,28 @@ export async function spawnJob(
   const pid = child.pid;
   const outputRecorder = await JobOutputRecorder.create();
 
+  // The readers draining the child's pipes, registered so the kill path can
+  // cancel a read blocked on a pipe the tree-kill could not close.
+  const readers = new Set<ReadableStreamDefaultReader<Uint8Array>>();
   let killTimer: ReturnType<typeof setTimeout> | undefined;
+  let pipeGraceTimer: ReturnType<typeof setTimeout> | undefined;
   const onAbort = (): void => {
     killTree(pid, "SIGTERM");
     // Escalate if it ignores SIGTERM; cleared once the process is reaped.
     killTimer = setTimeout(() => killTree(pid, "SIGKILL"), 2000);
+    // Bound the drains: a descendant that escaped the process group (its own
+    // session) survives the tree-kill holding the pipe write ends, so EOF may
+    // never come. Give the pipes a grace to flush, then cancel the pending
+    // reads so the job settles within its budget instead of waiting out the
+    // escapee. `??=` so a second kill (abort + watchdog racing) keeps the
+    // first deadline.
+    pipeGraceTimer ??= setTimeout(() => {
+      for (const reader of readers) {
+        reader.cancel().catch(() => {
+          // Already closed or errored — the drain has settled either way.
+        });
+      }
+    }, KILLED_PIPE_GRACE_MS);
   };
   const signal = opts.signal;
   if (signal) {
@@ -229,13 +284,14 @@ export async function spawnJob(
     }`;
   };
   const drain = async (s: ReadableStream<Uint8Array>): Promise<void> => {
+    const source = readChunks(s, readers);
     if (opts.stream) {
-      await streamPrefixed(s, job.label, opts.write, async (chunk) => {
+      await streamPrefixed(source, job.label, opts.write, async (chunk) => {
         retainCapped(chunk);
         await outputRecorder.write(chunk);
       });
     } else {
-      for await (const c of s) {
+      for await (const c of source) {
         chunks.push(c);
         await outputRecorder.write(c);
       }
@@ -243,17 +299,23 @@ export async function spawnJob(
   };
   await Promise.all([drain(child.stdout), drain(child.stderr)]);
   const status = await child.status;
-  const outputSummary = await outputRecorder.finish();
 
+  // Stop the watchdog the moment the job has settled (pipes drained AND the
+  // process reaped), before any further awaits, so a job that finished within
+  // budget isn't branded a timeout by a late-firing timer.
+  if (timeoutTimer !== undefined) {
+    clearTimeout(timeoutTimer);
+  }
   if (killTimer !== undefined) {
     clearTimeout(killTimer);
   }
-  if (timeoutTimer !== undefined) {
-    clearTimeout(timeoutTimer);
+  if (pipeGraceTimer !== undefined) {
+    clearTimeout(pipeGraceTimer);
   }
   if (signal) {
     signal.removeEventListener("abort", onAbort);
   }
+  const outputSummary = await outputRecorder.finish();
 
   // A job killed mid-run keeps its real exit code via finalCode. "Cancelled" means
   // fail-fast aborted the run AND this job did not exit clean — keyed on the abort
@@ -262,7 +324,14 @@ export async function spawnJob(
   // FIRST built its result before its own `.then` fired the abort, so its
   // `signal.aborted` is still false → it is correctly NOT cancelled and keeps its
   // diagnostic. A job that finished clean (code 0) before an abort stays ok.
-  const code = finalCode(status.code, status.signal);
+  const exitCode = finalCode(status.code, status.signal);
+  // A fired watchdog is a genuine FAILURE even when the direct child exited 0:
+  // a command that daemonized left work — and the job's output pipes — running
+  // past the budget, and its own exit code would report ok, silently swallowing
+  // the recorded timeout. Everything downstream (ok/failed, banners, fail-fast,
+  // diagnostics) keys off `code`, so enforce the invariant at the producer:
+  // timedOutAfterS present ⇒ code !== 0.
+  const code = timedOutAfterS !== undefined && exitCode === 0 ? 1 : exitCode;
   // A timed-out job is a genuine failure, never a cancelled sibling: exclude it here
   // so it keeps its diagnostic even if a fail-fast/external abort also raced in.
   const cancelled = timedOutAfterS === undefined &&
