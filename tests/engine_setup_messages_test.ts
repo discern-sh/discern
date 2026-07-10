@@ -257,6 +257,7 @@ Deno.test("completionMessage renders honest coverage for each verdict", () => {
     branch: "",
     target: "main",
     onTarget: false,
+    onSetupBranch: false,
   };
   const full = completionMessage({
     assurance: assurance("full"),
@@ -297,6 +298,7 @@ Deno.test("completionMessage adapts the landing recommendation to where the work
       branch: string;
       target: string;
       onTarget: boolean;
+      onSetupBranch: boolean;
     },
   ) =>
     completionMessage({
@@ -306,20 +308,59 @@ Deno.test("completionMessage adapts the landing recommendation to where the work
     });
 
   assertStringIncludes(
-    ctx({ inRepo: false, branch: "", target: "main", onTarget: false }),
+    ctx({
+      inRepo: false,
+      branch: "",
+      target: "main",
+      onTarget: false,
+      onSetupBranch: false,
+    }),
     "isn't a git repository",
   );
   assertStringIncludes(
-    ctx({ inRepo: true, branch: "main", target: "main", onTarget: true }),
+    ctx({
+      inRepo: true,
+      branch: "main",
+      target: "main",
+      onTarget: true,
+      onSetupBranch: false,
+    }),
     "already lives on `main`",
   );
   assertStringIncludes(
-    ctx({ inRepo: true, branch: "feature", target: "main", onTarget: false }),
+    ctx({
+      inRepo: true,
+      branch: "discern-setup",
+      target: "main",
+      onTarget: false,
+      onSetupBranch: true,
+    }),
     "discern setup land",
+  );
+  // The user's OWN branch (an --allow-dirty in-place setup): `setup land` would
+  // sweep that branch's own commits onto the trunk, so the recommendation is a
+  // manual merge, never the land command.
+  const ownBranch = ctx({
+    inRepo: true,
+    branch: "feature",
+    target: "main",
+    onTarget: false,
+    onSetupBranch: false,
+  });
+  assertStringIncludes(ownBranch, "usual way");
+  assert(
+    !ownBranch.includes("discern setup land"),
+    `a non-setup branch must never be steered to setup land:\n${ownBranch}`,
   );
   // Detached HEAD (no current branch) still names how to land it.
   assertStringIncludes(
-    ctx({ inRepo: true, branch: "", target: "main", onTarget: false }),
+    ctx({
+      inRepo: true,
+      branch: "",
+      target: "main",
+      onTarget: false,
+      onSetupBranch: false,
+    }),
     "Check that branch out",
   );
 });
@@ -330,6 +371,7 @@ Deno.test("completionMessage omits the reactivation step when nothing wired at s
     branch: "",
     target: "main",
     onTarget: false,
+    onSetupBranch: false,
   };
   const withAgents = completionMessage({
     assurance: assurance("full"),

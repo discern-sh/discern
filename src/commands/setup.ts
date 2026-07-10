@@ -997,7 +997,12 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   // user manages git), a re-run/--force, or outside a git repo.
   let setupBranch: string | undefined;
   if (freshInstall && !opts.dryRun && !opts.allowDirty) {
-    const { branch, stop } = await ensureSetupBranch(destDir, opts, log);
+    const { branch, stop } = await ensureSetupBranch(
+      destDir,
+      opts,
+      log,
+      detectedMainBranch,
+    );
     if (stop !== undefined) {
       return stop; // dirty tree — error already emitted, nothing written
     }
@@ -1240,11 +1245,21 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
  * (`undefined` when not in a repo, or the branch couldn't be created), or a `stop`
  * code when the tree is dirty (the error is already emitted). The caller gates this
  * on `freshInstall && !dryRun && !allowDirty`.
+ *
+ * A fresh setup branch forks from the CURRENT HEAD, and `setup land` later
+ * fast-forwards (or merges) the integration branch to it — so a setup begun on an
+ * unmerged feature branch would carry that branch's own commits onto the trunk.
+ * When `integrationBranchName` (the pre-checkout detection) names an EXISTING
+ * local branch that is not the one checked out, refuse with the exact recovery
+ * instead of forking; a brand-new repository (the target not yet born) and a
+ * resume of an existing `discern-setup` branch are unaffected. `--allow-dirty`
+ * skips this whole function — the declared "I manage git myself" path.
  */
 async function ensureSetupBranch(
   destDir: string,
   opts: SetupOptions,
   log: Logger,
+  integrationBranchName: string | undefined,
 ): Promise<{ branch?: string; stop?: number }> {
   const state = await worktreeState(destDir);
   if (state.kind === "not-a-repo") {
@@ -1286,6 +1301,40 @@ async function ensureSetupBranch(
     (await runGit(["rev-parse", "--verify", "--quiet", SETUP_BRANCH], {
       cwd: destDir,
     })).success;
+  // Fresh creation only (a resume checks out the existing branch as-is): refuse
+  // to fork the setup branch off anything but the integration branch, so the
+  // later `setup land` can never sweep a feature branch's own commits onto it.
+  if (!exists && integrationBranchName !== undefined) {
+    const targetExists = (await runGit(
+      [
+        "rev-parse",
+        "--verify",
+        "--quiet",
+        `refs/heads/${integrationBranchName}`,
+      ],
+      { cwd: destDir },
+    )).success;
+    if (targetExists && current !== integrationBranchName) {
+      const message =
+        `setup starts from your integration branch (\`${integrationBranchName}\`) so the finished ` +
+        `work can land back onto it cleanly — you are on \`${current}\`, and a setup branch forked ` +
+        `from it would carry this branch's own commits onto \`${integrationBranchName}\` when landed. ` +
+        `Check out \`${integrationBranchName}\` (\`git checkout ${integrationBranchName}\`), then re-run ` +
+        "`discern setup begin`. (Advanced: --allow-dirty sets up on the current branch as-is, with no " +
+        "isolated setup branch — you manage the branching and merging yourself.)";
+      if (opts.json) {
+        log.result({
+          ok: false,
+          verb: "setup",
+          error: "not_on_integration_branch",
+          message,
+        });
+      } else {
+        log.error(message);
+      }
+      return { stop: 1 };
+    }
+  }
   const checkout = exists
     ? await runGit(["checkout", SETUP_BRANCH], { cwd: destDir })
     : await runGit(["checkout", "-b", SETUP_BRANCH], { cwd: destDir });
@@ -1699,8 +1748,13 @@ function doneHints(
 ): string[] {
   const hints: string[] = [];
   if (landing.inRepo && !landing.onTarget && landing.branch !== "") {
+    // `setup land` lands ONLY the dedicated setup branch — an in-place setup on
+    // the user's own branch is steered to a manual merge, because the land
+    // command would sweep that branch's own commits onto the trunk.
     hints.push(
-      `Your setup is on branch \`${landing.branch}\`, not yet on \`${landing.target}\` — land it with \`${LAND_COMMAND}\` (or leave it for review).`,
+      landing.onSetupBranch
+        ? `Your setup is on branch \`${landing.branch}\`, not yet on \`${landing.target}\` — land it with \`${LAND_COMMAND}\` (or leave it for review).`
+        : `Your setup is on branch \`${landing.branch}\`, not yet on \`${landing.target}\` — \`${LAND_COMMAND}\` only lands the \`${SETUP_BRANCH}\` branch, so merge this branch your usual way when ready.`,
     );
   }
   hints.push(reactivation.summary);
@@ -1761,6 +1815,15 @@ function landStep(landing: LandingSummary, n: number): string[] {
   if (landing.branch === "") {
     return [
       `  ${n}. Land your setup onto \`${landing.target}\` — you're on a detached HEAD; check out your setup branch, then run \`${LAND_COMMAND}\`.`,
+    ];
+  }
+  if (!landing.onSetupBranch) {
+    // An in-place setup on the user's own branch: `setup land` only lands the
+    // dedicated setup branch, so steer to a manual merge instead.
+    return [
+      `  ${n}. Land your setup onto \`${landing.target}\`. Your work is on branch \`${landing.branch}\` —`,
+      `     merge it into \`${landing.target}\` your usual way when ready (\`${LAND_COMMAND}\` only`,
+      `     lands the \`${SETUP_BRANCH}\` branch, never a branch of your own).`,
     ];
   }
   return [
@@ -1970,6 +2033,7 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
         branch: landing.branch,
         target: landing.target,
         on_target: landing.onTarget,
+        on_setup_branch: landing.onSetupBranch,
         command: LAND_COMMAND,
       },
       reactivation,

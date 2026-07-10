@@ -1173,6 +1173,40 @@ Deno.test("discern setup isolates a fresh install on the discern-setup branch (A
   });
 });
 
+Deno.test("discern setup begin refuses to start from a feature branch when the integration branch exists", async () => {
+  // A setup branch forks from the CURRENT HEAD, and `setup land` later
+  // fast-forwards the integration branch to it — so a setup begun on a
+  // feature branch would sweep that branch's unmerged commits onto `main`.
+  // begin must refuse and name the exact recovery, leaving the tree untouched.
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+    await gitInit(dir); // commits on `main`
+    // A remote default branch so detection picks `main` even from feature-x.
+    const sha = await gitOut(dir, "rev-parse", "main");
+    await git(dir, "update-ref", "refs/remotes/origin/main", sha);
+    await git(
+      dir,
+      "symbolic-ref",
+      "refs/remotes/origin/HEAD",
+      "refs/remotes/origin/main",
+    );
+    await git(dir, "checkout", "-q", "-b", "feature-x");
+    await Deno.writeTextFile(join(dir, "wip.txt"), "unfinished feature\n");
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "feature WIP", "--no-gpg-sign");
+
+    const r = await runAgent(dir, ["setup", "begin", "--confirmed", "--json"]);
+    assertEquals(r.code, 1, r.output);
+    assertEquals(JSON.parse(r.stdout).error, "not_on_integration_branch");
+
+    // Nothing was scaffolded and no setup branch was created.
+    assert(!(await exists(join(dir, "discern.toml"))));
+    assertEquals(await gitOut(dir, "branch", "--show-current"), "feature-x");
+    const branches = await gitOut(dir, "branch", "--format=%(refname:short)");
+    assert(!branches.includes("discern-setup"));
+  });
+});
+
 Deno.test("discern setup begin commits the scaffolded machinery, leaving docs/guidance/TODO for the agent", async () => {
   // The cold-setup failure this fixes: a coding agent's safety classifier refuses to
   // commit discern's own permission-widening wiring (.mcp.json / .claude/settings.json
