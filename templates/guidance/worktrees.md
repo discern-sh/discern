@@ -16,16 +16,16 @@ doesn't collide.{{#if has_worktree_resources}} It provisions per-worktree extern
   `start` and `integrate` both take `from` (any ref) — work composes below the
   trunk; only `graduate` lands on it.
 - **`discern_graduate`** is only for an explicit user handoff/land request. After
-  a green finish, unless the user specifically asked you to graduate without
-  review, stop and wait for their confirmation.
+  a green finish on a completed task, relay the receipt to your owner and stop;
+  graduate only once they accept (unless they pre-authorized landing).
   It lands on the trunk (`{{main_branch}}`) — fast-forwarded, the worktree
   removed, the merged branch deleted — and refreshes the trunk checkout it
   leaves behind.
 
 While iterating on uncommitted work, use `discern_prepare`, `discern_test`, or a
 targeted project command. When the final tree is ready, commit it first, then run
-`discern_finish` once on the clean HEAD — that recorded pass is the one graduation
-honors; subsequent commits after an earlier finish invalidate a previous pass.
+`discern_finish` once on the clean HEAD — that recorded receipt is the one
+graduation honors; a later commit invalidates it.
 
 Graduation requires a clean worktree and lands committed branch history only.
 
