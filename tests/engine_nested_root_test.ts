@@ -33,6 +33,8 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
+import { couplingResult } from "../src/engine/coupling/coupling.ts";
+import type { CouplingData } from "../src/shared/result_schemas.ts";
 
 /**
  * Scaffold a real discern install at `<repo>/app` and git-init the REPOSITORY
@@ -145,5 +147,69 @@ Deno.test("nested root: a sibling project's changes are not this project's code"
     assertEquals(r.code, 0, r.output);
     const scopes = JSON.parse(r.stdout.trim()).data.scopes as string[];
     assertEquals(scopes, [], `sibling dirt must not classify: ${r.stdout}`);
+  });
+});
+
+// ── coupling: the miner must speak root-relative paths too ─────────────────────
+// `git log --name-only` emits toplevel-relative paths, so without normalization
+// a nested root's history baskets carry the subdir prefix, the (root-relative)
+// input file matches none of them, and the advisory reports no partners — a
+// silent no-op rather than a wrong answer, but the same class of defect.
+
+/** Commit a set of {repo-relative path: contents} files in one commit. */
+async function commitFiles(
+  repo: string,
+  files: Record<string, string>,
+  msg: string,
+): Promise<void> {
+  for (const [rel, content] of Object.entries(files)) {
+    const path = join(repo, rel);
+    await Deno.mkdir(join(path, ".."), { recursive: true });
+    await Deno.writeTextFile(path, content);
+  }
+  await git(repo, "add", "-A");
+  await git(repo, "commit", "-q", "-m", msg, "--no-gpg-sign");
+}
+
+Deno.test("nested root: the co-change advisory mines root-relative partners", async () => {
+  await withTempDir(async (repo) => {
+    const app = await scaffoldNested(
+      repo,
+      ["[project]", 'slug = "engine-test"', 'main_branch = "main"', ""].join(
+        "\n",
+      ),
+    );
+    // a.ts ↔ b.ts couple in 4 commits inside the project; noise commits keep
+    // the co-occurrence significant; sibling-project commits outside the
+    // subtree must neither surface nor collide (other/a.ts is NOT a.ts).
+    for (let i = 0; i < 4; i++) {
+      await commitFiles(
+        repo,
+        { "app/a.ts": `${i}`, "app/b.ts": `${i}` },
+        `ab${i}`,
+      );
+    }
+    for (let i = 0; i < 6; i++) {
+      await commitFiles(
+        repo,
+        { [`app/n${i}a.ts`]: "1", [`app/n${i}b.ts`]: "1" },
+        `n${i}`,
+      );
+    }
+    await commitFiles(repo, { "other/a.ts": "1", "other/c.ts": "1" }, "sib");
+
+    const data = (await couplingResult(app, { paths: ["a.ts"] }))
+      .data as CouplingData;
+    const paths = data.partners.map((p) => p.path);
+    assert(
+      paths.includes("b.ts"),
+      `the project's own coupling must surface root-relative: ${
+        JSON.stringify(data)
+      }`,
+    );
+    assert(
+      !paths.includes("c.ts") && !paths.includes("other/c.ts"),
+      `a sibling project's history must not leak in: ${paths}`,
+    );
   });
 });
