@@ -203,16 +203,18 @@ _Product positioning, messaging, and launch/content tasks._
       `templates/discern.toml.tmpl` (`[ratchets]`), `src/engine/mcp/server.ts`
       (`discern_ratchets`),
       `docs/_private/maintainer/discern-product-strategy.md` (vocabulary canon).
-- [ ] **Rename the gate artifact `receipt` → `pass` (decided).** Standardize on
-      "pass" for the artifact the gate issues: the finish envelope's
-      `gate_receipt` field vs the `discern-gate-pass` file it points at — both
-      words are already in the code; keep "pass". "Receipt" connotes spending
-      money and paper clutter; a pass is what a gate issues, and "proof" is the
-      marketing register ("Proof, not promises"). Pre-1.0 field rename is cheap.
-      Field name (decided): `gate_receipt` → `gate_pass`, exactly matching the
-      marker file; the wave-2B pass work lands it. Evidence: the `finish` result
-      envelope (`gate_receipt`), the `discern-gate-pass` marker file,
-      `docs/_private/maintainer/discern-product-strategy.md` (vocabulary canon).
+- [ ] **Standardize the gate artifact on `receipt` (decided — reverses the 3
+      July "pass" call).** "Pass" proved fatally overloaded at the exact relay
+      moment (the gate passes, checks pass/fail — then "here's the pass"?),
+      while "receipts" is the audience's own proof idiom ("show me the
+      receipts"), the artifact is itemized line-items issued after the run, and
+      receipt/accept is the natural commerce pairing with the `accept` landing
+      verb. The envelope field `gate_receipt` stays; rename the
+      `discern-gate-pass` marker file to `discern-gate-receipt` so field and
+      marker share one spelling (2B lands it; 3A reconciles prose). Evidence:
+      the `finish` result envelope (`gate_receipt`), the `discern-gate-pass`
+      marker file, `docs/_private/maintainer/discern-product-strategy.md`
+      (vocabulary canon).
 - [ ] **Rename `finish` → `done` (decided).** `discern done` makes the verb the
       positioning ("done isn't something you say — it's something you run"), the
       lifecycle reads `start → prepare → done → accept`, and
