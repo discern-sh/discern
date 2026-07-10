@@ -20,7 +20,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join } from "@std/path";
 import { guidanceSeedRel } from "../src/shared/paths_registry.ts";
 import { REAL_TEMPLATES, withTempDir } from "./helpers.ts";
-import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
+import { git, gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
 import { parseSetupBrief } from "../src/shared/setup_pages.ts";
 import { SETUP_COMPLETION_CHECKS } from "../src/shared/setup_checks.ts";
 import { SetupStepOutputSchema } from "../src/shared/result_schemas.ts";
@@ -253,6 +253,9 @@ Deno.test("setup done PASSES once every per-step check is satisfied", async () =
       dir,
       "# Design principles\n\n## 1. First\n\nx.\n\n## 2. Second\n\ny.\n\n## 3. Third\n\nz.\n",
     );
+    // Committed, so the clean-tree precondition passes too.
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "author the setup", "--no-gpg-sign");
 
     const done = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(done.code, 0, done.output);

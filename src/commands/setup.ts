@@ -1534,6 +1534,88 @@ function emitSetupIncomplete(
   );
 }
 
+/**
+ * The uncommitted changes that block `setup done` (the clean-tree precondition):
+ * every uncommitted change to a TRACKED file, plus untracked files inside the
+ * authored-setup footprint (the configured docs tree, the guidance source, the
+ * deferred-work ledger, the brief). The completion proof and `setup land` operate
+ * on committed history only — the worktree probe branches from HEAD, so anything
+ * uncommitted is invisible to it, and a completion recorded over it would claim a
+ * proof it never ran. Untracked files OUTSIDE the footprint never block: an env
+ * file with secrets or local scratch is deliberately uncommittable, and the probe
+ * is what checks the `[worktree]` wiring covers it. Empty outside a git repo.
+ */
+async function uncommittedSetupWork(root: string): Promise<string[]> {
+  const status = await runGit(["status", "--porcelain"], { cwd: root });
+  if (!status.success) {
+    return []; // not a git repo — nothing to commit, nothing to block on
+  }
+  // The authored-setup locations, from config when it loads (registry defaults
+  // otherwise — a broken config is the proof's problem, not this check's).
+  let docsDir = SOURCE_PATHS.docs.defaultPath;
+  let todoRel = SOURCE_PATHS.todo.defaultPath;
+  let guidanceRel = SOURCE_PATHS.guidance.defaultPath;
+  try {
+    const cfg = await loadConfig(root);
+    docsDir = normalizeDocsDir(cfg.docs.dir);
+    todoRel = cfg.project.todo;
+    guidanceRel = guidanceSeedRel(cfg.guidance.sources);
+  } catch {
+    // Keep the defaults.
+  }
+  const footprint = [
+    docsDir,
+    todoRel,
+    guidanceRel,
+    SOURCE_PATHS.brief.defaultPath,
+  ];
+  return status.stdout
+    .split("\n")
+    .filter((line) => line.trim() !== "")
+    .filter((line) => {
+      if (!line.startsWith("??")) {
+        return true; // any tracked change is authoring work left uncommitted
+      }
+      // `??` may name a directory that CONTAINS a footprint location, or a path
+      // INSIDE one — either direction means authored setup sits uncommitted.
+      const path = line.slice(2).trim();
+      return footprint.some(
+        (loc) => path.startsWith(loc) || loc.startsWith(path),
+      );
+    });
+}
+
+/**
+ * Emit the clean-tree refusal: the authored setup is not committed, so completion
+ * cannot be proven or recorded yet. Lists exactly what to commit; `--force` (which
+ * skips the whole proof) is the escape hatch.
+ */
+function emitSetupUncommitted(json: boolean, uncommitted: string[]): void {
+  const message =
+    `setup is not finished — ${uncommitted.length} change(s) are not committed yet. ` +
+    "Commit these as your authoring commits (small, one per stage), then re-run `discern setup done`.";
+  if (json) {
+    emitResult({
+      ok: false,
+      verb: "setup done",
+      error: "uncommitted_changes",
+      message,
+      data: { uncommitted },
+    });
+    return;
+  }
+  console.error(`discern: ${message}`);
+  for (const u of uncommitted) {
+    console.error(`         • ${u}`);
+  }
+  console.error(
+    "       The completion proof and `discern setup land` operate on commits — uncommitted work is invisible to them.",
+  );
+  console.error(
+    "       (Untracked scratch outside the setup files never blocks; --force skips this check entirely.)",
+  );
+}
+
 /** The view `printDoneSuccess` renders — the celebrate/assure/land/onboard pieces of a
  * completed `setup done`, computed once and shared with the `--json` envelope. */
 interface DoneSuccessView {
@@ -1757,6 +1839,20 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
   if (!opts.force && (leftover.length > 0 || unmet.length > 0)) {
     emitSetupIncomplete(opts.json, leftover, unmet);
     return 1;
+  }
+
+  // The clean-tree precondition: the completion proof runs on committed history
+  // (the worktree probe branches from HEAD), and the completion story — "the
+  // branch keeps every commit", `setup land` — is only true of commits. Refuse
+  // while authored setup sits uncommitted, naming exactly what to commit, AFTER
+  // the completeness checks (fill first, then commit, then prove). `--force`
+  // skips it along with the rest of the proof.
+  if (!opts.force) {
+    const uncommitted = await uncommittedSetupWork(root);
+    if (uncommitted.length > 0) {
+      emitSetupUncommitted(opts.json, uncommitted);
+      return 1;
+    }
   }
 
   // The structural completion proof (ADR 0065/0090): refresh → doctor → finish must
@@ -1983,7 +2079,7 @@ async function proveWorktreeViable(
           "worktree_probe",
           `the gate is not green inside a fresh worktree — ${
             outcome.detail ?? "the copy is not viable"
-          }. Something the app needs doesn't survive into a copy (an untracked env file, an uninstalled dependency dir); wire [worktree].steps / ensure / resources so a worktree is viable, then re-run`,
+          }. Something the app needs doesn't survive into a copy (an untracked env file, an uninstalled dependency dir, a file authored but never committed); wire [worktree].steps / ensure / resources — or commit the missing file — then re-run`,
         ),
       };
     case "setup_failed":

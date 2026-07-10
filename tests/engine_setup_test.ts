@@ -515,6 +515,8 @@ async function readyForDone(dir: string, cmd: string): Promise<void> {
 Deno.test("setup done runs the gate and records bootstrapped only when green (ADR 0065)", async () => {
   await withTempDir(async (dir) => {
     await readyForDone(dir, "true"); // a passing gate
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "author the setup", "--no-gpg-sign");
 
     const done = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(done.code, 0, done.output);
@@ -538,6 +540,10 @@ Deno.test("setup done blocks when the refresh proof only partially completes", a
     await readyForDone(dir, "true");
     const malformed = '{ "mcpServers": { "other": true, }, }\n';
     await Deno.writeTextFile(join(dir, ".mcp.json"), malformed);
+    // Committed sabotage: the clean-tree precondition passes, so the failure
+    // surfaces at the refresh stage of the proof, not as uncommitted work.
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "author the setup", "--no-gpg-sign");
 
     const done = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(done.code, 1, done.output);
@@ -555,12 +561,71 @@ Deno.test("setup done blocks when the refresh proof only partially completes", a
   });
 });
 
-// ── the worktree-viability probe (ADR 0090) ──────────────────────────────────────
+// ── the clean-tree precondition + the worktree-viability probe (ADR 0090) ────────
 // `setup done` proves the gate in the main checkout AND in a throwaway worktree — the
 // copy every future task runs in — so an env-anchored app can't pass setup and then
-// break on the first real task. The probe branches from the current (unlanded) HEAD, so
-// the agent's setup work must be committed for it to travel — the atomic-commit
-// discipline the brief already asks for.
+// break on the first real task. The probe branches from the current (unlanded) HEAD,
+// so the agent's setup work must be committed for it to travel — which the clean-tree
+// precondition enforces: `done` refuses while tracked changes (anywhere) or untracked
+// authored-setup files sit uncommitted, so the probe always proves the tree the agent
+// actually authored, never a thinner one.
+
+Deno.test("setup done refuses while the authored setup is uncommitted, naming what to commit", async () => {
+  await withTempDir(async (dir) => {
+    await readyForDone(dir, "true"); // authored — but nothing committed since scaffold
+
+    const done = await runAgent(dir, ["setup", "done", "--json"]);
+    assertEquals(done.code, 1, done.output);
+    const res = JSON.parse(done.stdout);
+    assertEquals(res.ok, false);
+    assertEquals(res.error, "uncommitted_changes");
+    const uncommitted: string[] = res.data.uncommitted;
+    assert(
+      uncommitted.some((l) => l.includes("discern.toml")),
+      `the wired config must be listed:\n${done.stdout}`,
+    );
+    assert(
+      uncommitted.some((l) => l.includes("discern/")),
+      `the authored docs/guidance must be listed:\n${done.stdout}`,
+    );
+    assertStringIncludes(res.message, "Commit these as your authoring commits");
+    // Nothing recorded — status keeps reporting setup unfinished.
+    assert(
+      !(await Deno.readTextFile(join(dir, "discern.toml"))).includes(
+        "bootstrapped = true",
+      ),
+      "an uncommitted setup must not record completion",
+    );
+
+    // Commit the authoring work; the same `done` now proceeds to the proof and passes.
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "author the setup", "--no-gpg-sign");
+    const again = await runAgent(dir, ["setup", "done", "--json"]);
+    assertEquals(again.code, 0, again.output);
+    assertEquals(JSON.parse(again.stdout).data.bootstrapped, true);
+  });
+});
+
+Deno.test("the worktree probe proves the CONFIGURED gate against the authored setup, not an empty tree", async () => {
+  await withTempDir(async (dir) => {
+    // A gate that can only pass when the AUTHORED content traveled into the probe:
+    // before the clean-tree precondition, the probe branched from a HEAD holding
+    // none of it and "proved" a vacuously green gate.
+    await readyForDone(dir, "grep -q Conventions discern/guidance.md");
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "author the setup", "--no-gpg-sign");
+
+    const done = await runAgent(dir, ["setup", "done", "--json"]);
+    assertEquals(done.code, 0, done.output);
+    const res = JSON.parse(done.stdout);
+    assertEquals(res.data.bootstrapped, true);
+    assertEquals(
+      res.data.worktree_proven,
+      true,
+      "the probe must run the configured gate against the authored tree",
+    );
+  });
+});
 
 Deno.test("setup done proves the project viable in a worktree and reports it, then tears the probe down (ADR 0090)", async () => {
   await withTempDir(async (dir) => {
@@ -694,9 +759,11 @@ Deno.test("setup done commits the completion marker when discern.toml is the onl
   });
 });
 
-Deno.test("setup done commits only the marker when unrelated tracked changes are present", async () => {
-  // Unrelated tracked edits must not block the marker commit either. The safety
-  // invariant is narrower: the marker commit must include only discern.toml.
+Deno.test("setup done refuses on an uncommitted tracked change; --force still commits only the marker", async () => {
+  // A tracked edit anywhere blocks `done` (the clean-tree precondition). Under
+  // `--force` — which skips the whole proof — the marker auto-commit's narrower
+  // safety invariant still holds: the marker commit includes only discern.toml,
+  // and the unrelated edit is left for the agent's own tidy commit.
   await withTempDir(async (dir) => {
     await readyForDone(dir, "true");
     await runAgent(dir, ["refresh"]);
@@ -709,9 +776,20 @@ Deno.test("setup done commits only the marker when unrelated tracked changes are
     );
 
     const done = await runAgent(dir, ["setup", "done", "--json"]);
-    assertEquals(done.code, 0, done.output);
-    const res = JSON.parse(done.stdout);
-    assertEquals(res.data.bootstrapped, true); // completion still recorded
+    assertEquals(done.code, 1, done.output);
+    const refused = JSON.parse(done.stdout);
+    assertEquals(refused.error, "uncommitted_changes");
+    assert(
+      refused.data.uncommitted.some((l: string) =>
+        l.includes("discern/docs/README.md")
+      ),
+      `the tracked edit must be listed:\n${done.stdout}`,
+    );
+
+    const forced = await runAgent(dir, ["setup", "done", "--force", "--json"]);
+    assertEquals(forced.code, 0, forced.output);
+    const res = JSON.parse(forced.stdout);
+    assertEquals(res.data.bootstrapped, true);
     assertEquals(res.data.marker_committed, true);
     assertStringIncludes(
       await gitOut(dir, "log", "-1", "--format=%s"),
@@ -731,9 +809,10 @@ Deno.test("setup done commits only the marker when unrelated tracked changes are
   });
 });
 
-Deno.test("setup done fails open when discern.toml carries an extra uncommitted edit beyond the marker", async () => {
+Deno.test("a forced done fails open when discern.toml carries an extra uncommitted edit beyond the marker", async () => {
   // discern.toml is the lone changed file, but it has more than the marker line dirty
   // (config the agent didn't commit). Only "that one dirty line" earns the auto-commit.
+  // Reached via --force — the clean-tree precondition refuses this state otherwise.
   await withTempDir(async (dir) => {
     await readyForDone(dir, "true");
     await runAgent(dir, ["refresh"]);
@@ -746,7 +825,7 @@ Deno.test("setup done fails open when discern.toml carries an extra uncommitted 
       `${toml}\n# stray edit\n`,
     );
 
-    const done = await runAgent(dir, ["setup", "done", "--json"]);
+    const done = await runAgent(dir, ["setup", "done", "--force", "--json"]);
     assertEquals(done.code, 0, done.output);
     const res = JSON.parse(done.stdout);
     assertEquals(res.data.bootstrapped, true);
@@ -761,6 +840,8 @@ Deno.test("setup done fails open when discern.toml carries an extra uncommitted 
 Deno.test("setup done refuses when the gate is red, recording nothing; --force overrides (ADR 0065)", async () => {
   await withTempDir(async (dir) => {
     await readyForDone(dir, "false"); // a failing gate
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "author the setup", "--no-gpg-sign");
 
     const done = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(done.code, 1, done.output);
