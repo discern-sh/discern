@@ -103,11 +103,14 @@ staged, or untracked worktree change before it removes the checkout;
 the main checkout — is the sanctioned removal for **abandoned work**: it tears
 down the worktree's resources, removes the worktree, and deletes its branch,
 refusing without `--force` when the worktree holds uncommitted changes or
-commits not on the trunk (naming exactly what a forced drop would discard). It
-is deliberately CLI-only, with no MCP tool: the MCP surface aims at the caller's
-_own_ worktree, every other worktree is another line of work an agent must never
-remove (the fleet ownership rule), so discarding work is a human supervisory
-action — `status` hints carry the command to the human.
+commits not on the trunk (naming exactly what a forced drop would discard). A
+worktree whose git state cannot be read — a missing or damaged checkout — fails
+**safe** the same way: unknown state is itself a blocker, never treated as
+clean, and unlanded commits are still named from the branch ref in the main
+repo. It is deliberately CLI-only, with no MCP tool: the MCP surface aims at the
+caller's _own_ worktree, every other worktree is another line of work an agent
+must never remove (the fleet ownership rule), so discarding work is a human
+supervisory action — `status` hints carry the command to the human.
 [`worktree prune`](../../src/engine/worktree/lifecycle.ts) sweeps stale
 Worktrees and **reclaims the resources of any Worktree that vanished without a
 clean teardown** (the garbage-collection safety net); it only ever removes
@@ -119,6 +122,8 @@ ignored provider-local/generated files stay out of the signal. Status also tells
 the truth about **abandoned and broken work**: a fleet member whose checkout
 carries no project config (the signature of a creation that crashed
 mid-checkout) is flagged `broken` with the `worktree drop` removal hint; a
+member git cannot run inside at all is flagged `git_unavailable` and rendered
+`unreadable` — its per-checkout fields are absent, never fabricated as clean; a
 member idle for a week that still holds uncommitted changes or unlanded commits
 gets a hint to resume it or drop it; unlanded `agent/*` branches with **no
 worktree** are listed (`data.unlanded_branches`) with the pull-axis recovery

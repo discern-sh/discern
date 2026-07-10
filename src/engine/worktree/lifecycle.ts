@@ -89,6 +89,7 @@ import {
   assertInWorktree,
   assertMainMerged,
   assertNotInWorktree,
+  branchIsMerged,
   ensureWorktreeBranch,
   hasAnyCommit,
   hasUncommittedTrackedChanges,
@@ -827,23 +828,48 @@ async function buildDropPlan(
 
   // What a drop would lose — the `--force` blockers.
   const blockers: string[] = [];
-  if (match.changedFiles > 0) {
-    blockers.push(
-      `${match.changedFiles} uncommitted change${
-        match.changedFiles === 1 ? "" : "s"
-      }`,
-    );
-  }
-  if (await localBranchExists(ctx.root, trunk)) {
-    if (match.ahead > 0) {
+  const trunkExists = await localBranchExists(ctx.root, trunk);
+  if (match.snapshot === undefined) {
+    // Git could not run inside the worktree (missing directory, corrupted
+    // gitlink, permission refusal) — its working-tree state is UNKNOWN, and an
+    // unknown state fails SAFE: it blocks the drop rather than reading as
+    // clean. The branch ref still lives in the main repo, so unlanded commits
+    // stay checkable (and nameable) even when the checkout is unreadable.
+    if (!trunkExists) {
       blockers.push(
-        `${match.ahead} commit${match.ahead === 1 ? "" : "s"} not on ${trunk}`,
+        `cannot verify the work is merged (no local '${trunk}' branch)`,
+      );
+    } else if (
+      match.branch !== "" && match.branch !== trunk &&
+      !(await branchIsMerged(ctx.root, match.branch, trunk))
+    ) {
+      blockers.push(`branch '${match.branch}' has commits not on ${trunk}`);
+    }
+    blockers.push(
+      "the worktree's git state could not be read (its checkout is missing " +
+        "or damaged), so uncommitted work cannot be ruled out",
+    );
+  } else {
+    if (match.snapshot.changedFiles > 0) {
+      blockers.push(
+        `${match.snapshot.changedFiles} uncommitted change${
+          match.snapshot.changedFiles === 1 ? "" : "s"
+        }`,
       );
     }
-  } else {
-    blockers.push(
-      `cannot verify the work is merged (no local '${trunk}' branch)`,
-    );
+    if (trunkExists) {
+      if (match.snapshot.ahead > 0) {
+        blockers.push(
+          `${match.snapshot.ahead} commit${
+            match.snapshot.ahead === 1 ? "" : "s"
+          } not on ${trunk}`,
+        );
+      }
+    } else {
+      blockers.push(
+        `cannot verify the work is merged (no local '${trunk}' branch)`,
+      );
+    }
   }
 
   // The resource ledger for the target (destruction order), read via ITS git key.

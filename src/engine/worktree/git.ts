@@ -1554,13 +1554,18 @@ export interface FleetWorktree {
   isMain: boolean;
   /** The current branch, or "" when detached. */
   branch: string;
-  clean: boolean;
-  changedFiles: number;
-  /** Commits ahead of / behind the integration branch. */
-  ahead: number;
-  behind: number;
-  /** Unix-seconds timestamp of the most recent activity (see {@link GitSnapshot}). */
-  lastActivity?: number;
+  /** `git worktree lock` is set on this registration — git refuses to remove it. */
+  locked: boolean;
+  /** Git reports the registration prunable (its checkout is gone or damaged). */
+  prunable: boolean;
+  /**
+   * The checkout's read-only {@link GitSnapshot}, or undefined when git could not
+   * run inside it (a missing directory, a corrupted gitlink, a dubious-ownership
+   * or permission refusal). Undefined means the state is UNKNOWN — never clean:
+   * every consumer must fail safe, treating the worktree as if it may hold
+   * uncommitted and unlanded work, not substitute optimistic defaults.
+   */
+  snapshot: GitSnapshot | undefined;
 }
 
 /**
@@ -1590,16 +1595,14 @@ export async function listWorktreeFleet(
     out.push({
       path: await realPathOr(rec.path),
       isMain: i === 0,
+      // The porcelain branch stays the fallback: an unreadable checkout's branch
+      // ref is still knowable from the registration.
       branch: snap?.branch !== undefined && snap.branch !== ""
         ? snap.branch
         : short,
-      clean: snap?.clean ?? true,
-      changedFiles: snap?.changedFiles ?? 0,
-      ahead: snap?.ahead ?? 0,
-      behind: snap?.behind ?? 0,
-      ...(snap?.lastActivity !== undefined
-        ? { lastActivity: snap.lastActivity }
-        : {}),
+      locked: rec.locked,
+      prunable: rec.prunable,
+      snapshot: snap,
     });
   }
   return out;
@@ -1666,7 +1669,10 @@ export interface StaleMetadataPruneResult {
   failed: boolean;
 }
 
-async function branchIsMerged(
+/** Whether `branch`'s tip is an ancestor of `mainBranch` — i.e. fully merged.
+ * Read from the main repo, so it answers even when the branch's worktree
+ * checkout is itself unreadable. */
+export async function branchIsMerged(
   repoRoot: string,
   branch: string,
   mainBranch: string,

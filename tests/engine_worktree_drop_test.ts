@@ -169,6 +169,78 @@ Deno.test("worktree drop: refuses unmerged commits without --force, discards wit
   });
 });
 
+Deno.test("worktree drop: an unreadable worktree is a blocker, never a silent clean", async () => {
+  await withTempDir(async (dir) => {
+    // The fail-open class: git cannot run inside the worktree (corrupted
+    // gitlink here; dubious ownership and permission refusals are the same
+    // shape), so its state is UNKNOWN — which must read as a blocker, not as
+    // "clean, 0 ahead" letting drop destroy unverifiable work without consent.
+    const wt = await mainWithWorktree(dir, "unreadable-drop");
+    await Deno.writeTextFile(join(wt, "real-work.txt"), "not landed\n");
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "unlanded work", "--no-gpg-sign");
+    await Deno.writeTextFile(join(wt, "wip.txt"), "unsaved\n");
+    await Deno.writeTextFile(join(wt, ".git"), "gitdir: /nonexistent/gone\n");
+
+    const refused = await runAgent(dir, [
+      "worktree",
+      "drop",
+      "unreadable-drop",
+    ]);
+    assertEquals(refused.code, 1, refused.output);
+    assertStringIncludes(refused.output, "could not be read");
+    assertStringIncludes(refused.output, "not on main");
+    assertEquals(await exists(wt), true, "a refusal must not remove anything");
+    assert(
+      await branchExists(dir, "agent/unreadable-drop"),
+      `the unmerged branch must survive an unreadable-state drop\n${refused.output}`,
+    );
+
+    // --force is the explicit consent to discard the unverifiable state.
+    const forced = await runAgent(dir, [
+      "worktree",
+      "drop",
+      "unreadable-drop",
+      "--force",
+    ]);
+    assertEquals(forced.code, 0, forced.output);
+    assertEquals(await exists(wt), false, forced.output);
+    assertEquals(await branchExists(dir, "agent/unreadable-drop"), false);
+  });
+});
+
+Deno.test("worktree drop: an out-of-band-deleted checkout never silently deletes an unmerged branch", async () => {
+  await withTempDir(async (dir) => {
+    // The user rm -rf'd the checkout to free disk; the branch keeps unlanded
+    // commits and the registration is prunable. Drop without --force must
+    // refuse — the fail-open snapshot default reported this as clean/0-ahead
+    // and deleted the branch.
+    const wt = await mainWithWorktree(dir, "vanished-drop");
+    await Deno.writeTextFile(join(wt, "real-work.txt"), "not landed\n");
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "unlanded work", "--no-gpg-sign");
+    await Deno.remove(wt, { recursive: true });
+
+    const refused = await runAgent(dir, ["worktree", "drop", "vanished-drop"]);
+    assertEquals(refused.code, 1, refused.output);
+    assertStringIncludes(refused.output, "not on main");
+    assert(
+      await branchExists(dir, "agent/vanished-drop"),
+      `the unmerged branch must survive\n${refused.output}`,
+    );
+
+    // Forced, the drop reclaims the stale registration and the branch.
+    const forced = await runAgent(dir, [
+      "worktree",
+      "drop",
+      "vanished-drop",
+      "--force",
+    ]);
+    assertEquals(forced.code, 0, forced.output);
+    assertEquals(await branchExists(dir, "agent/vanished-drop"), false);
+  });
+});
+
 Deno.test("worktree drop: tears down the worktree's recorded resources", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
