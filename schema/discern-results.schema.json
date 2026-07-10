@@ -9775,13 +9775,17 @@
                       },
                       "hasBundled": {
                         "type": "boolean"
+                      },
+                      "excluded": {
+                        "type": "boolean"
                       }
                     },
                     "required": [
                       "name",
                       "source",
                       "overridesBundled",
-                      "hasBundled"
+                      "hasBundled",
+                      "excluded"
                     ]
                   }
                 }

@@ -48,11 +48,14 @@ import {
   RatchetsOutputSchema,
   RefreshOutputSchema,
   ScopesOutputSchema,
+  SkillsListOutputSchema,
   StartOutputSchema,
   StatusOutputSchema,
   StepResultJsonSchema,
   TestOutputSchema,
 } from "../src/shared/result_schemas.ts";
+import { loadConfig } from "../src/shared/config_schema.ts";
+import { skillsListResult } from "../src/lib/skills.ts";
 import { finishResult } from "../src/engine/gate/finish.ts";
 import { prepareResult } from "../src/engine/gate/prepare.ts";
 import { testResult } from "../src/engine/gate/test.ts";
@@ -708,6 +711,49 @@ Deno.test("graduate result is faithful (dry-run plan and applied gate-validation
     assertEquals(applied.ok, true);
     assertEquals(applied.data?.gate_validation?.mode, "receipt");
     expectValid(GraduateOutputSchema, applied, "graduate applied receipt");
+  });
+});
+
+Deno.test("skills list result is faithful (bundled, authored override, and excluded rows)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const authored = async (name: string): Promise<void> => {
+      await Deno.mkdir(join(dir, "skills", name), { recursive: true });
+      await Deno.writeTextFile(
+        join(dir, "skills", name, "SKILL.md"),
+        `# ${name}\n`,
+      );
+    };
+    await authored("my-own-skill");
+    await authored("discern-write-adr"); // shadows the bundled built-in
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[skills]",
+        'dir = "skills"',
+        // One bundled and one authored exclusion, so the `excluded` flag is
+        // exercised on both row sources.
+        'exclude = ["discern-cure-a-bug", "my-own-skill"]',
+        "",
+      ].join("\n"),
+    );
+
+    const result = await skillsListResult(dir, await loadConfig(dir));
+    // Every row arm at once — bundled, authored-only, authored override, and
+    // excluded — must serialize to a shape the published contract accepts.
+    expectValid(SkillsListOutputSchema, result, "skills list");
+
+    const rows = new Map((result.data?.skills ?? []).map((r) => [r.name, r]));
+    assertEquals(rows.get("my-own-skill")?.hasBundled, false);
+    assertEquals(rows.get("my-own-skill")?.excluded, true);
+    assertEquals(rows.get("discern-write-adr")?.source, "authored");
+    assertEquals(rows.get("discern-write-adr")?.overridesBundled, true);
+    assertEquals(rows.get("discern-cure-a-bug")?.source, "bundled");
+    assertEquals(rows.get("discern-cure-a-bug")?.excluded, true);
   });
 });
 
