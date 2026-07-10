@@ -294,7 +294,7 @@ const checksSection = z.record(z.string().regex(NAME_RE), checkValue).default(
   {},
 )
   .describe(
-    "[checks.<name>] — custom, non-standard gate work that isn't a known capability. `stage` (required) is one of fix|build|check|test; `run` the command (or list); `provides` an optional label.",
+    "[checks.<name>] — custom, non-standard gate work that isn't a known capability. `stage` (required) is one of fix|build|check|test; `run` the command (or list); `provides` an optional label. A name also wired under [capabilities] is rejected: the gate keys each job's result by its label, so the two would collide.",
   );
 
 const scopesSection = z.record(z.string().regex(NAME_RE), scopeValue).default(
@@ -628,6 +628,37 @@ function toConfigIssue(issue: z.core.$ZodIssue): ConfigIssue {
 }
 
 /**
+ * The names declared under BOTH `[capabilities]` and `[checks.<name>]` — a
+ * cross-section rule the per-section schemas can't express. The gate keys every
+ * job result by its LABEL, and a capability job and a check job each carry their
+ * bare name, so a shared name makes one job's result silently overwrite the
+ * other's — destroying the failing job's captured output and diagnostics. The
+ * other label namespaces are disjoint by construction (scope gates are prefixed
+ * `scope:`, list-expansion labels carry `#`; neither character is in NAME_RE),
+ * leaving this pair as the only possible collision.
+ */
+export function capabilityCheckNameCollisions(cfg: {
+  capabilities: Record<string, unknown>;
+  checks: Record<string, unknown>;
+}): string[] {
+  const wired = new Set(
+    Object.entries(cfg.capabilities)
+      .filter(([, value]) => value !== undefined)
+      .map(([name]) => name),
+  );
+  return Object.keys(cfg.checks).filter((name) => wired.has(name));
+}
+
+/** The {@link ConfigIssue}s for every capability/check name collision. */
+function collisionIssues(config: DiscernConfig): ConfigIssue[] {
+  return capabilityCheckNameCollisions(config).map((name) => ({
+    path: `checks.${name}`,
+    message:
+      `shares its name with [capabilities].${name} — the gate keys each job's result by its label, so one job's outcome would silently overwrite the other's. Rename the check, or fold its command into the capability.`,
+  }));
+}
+
+/**
  * Parse `discern.toml` text and validate it against the schema, collecting EVERY
  * problem rather than failing on the first — so `doctor` can report all of them.
  * On success, `config` is the fully-typed, fully-defaulted object and `issues` is
@@ -645,6 +676,10 @@ export function parseConfig(
   }
   const result = configSchema.safeParse(parsed);
   if (result.success) {
+    const collisions = collisionIssues(result.data);
+    if (collisions.length > 0) {
+      return { config: undefined, issues: collisions };
+    }
     return { config: result.data, issues: [] };
   }
   return { config: undefined, issues: result.error.issues.map(toConfigIssue) };

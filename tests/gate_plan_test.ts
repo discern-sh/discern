@@ -9,7 +9,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
-import { KNOWN_CAPABILITIES } from "../src/shared/capabilities.ts";
+import { KNOWN_CAPABILITIES, STAGES } from "../src/shared/capabilities.ts";
 import {
   buildGatePlan,
   buildGateResult,
@@ -73,6 +73,36 @@ Deno.test("the FULL fixture wires EVERY known capability (so the gate-shape test
     Object.keys(KNOWN_CAPABILITIES).sort(),
     "the FULL fixture has drifted from KNOWN_CAPABILITIES — add the new capability to " +
       "the [capabilities] block above and assert its gate-stage shape",
+  );
+});
+
+Deno.test("gate job labels are unique across the whole plan (results are keyed by label)", () => {
+  // The executor records every job result into ONE label-keyed map, and the
+  // report looks each planned job up by label — so the plan's labels must be
+  // unique across every job source. Exercise them all, driven off the
+  // KNOWN_CAPABILITIES / STAGES registries so a new capability, stage, or label
+  // scheme auto-enrols: every capability as a LIST (bare + `#N` labels), a
+  // check in every stage, and several scope gates.
+  const toml = [
+    "[capabilities]",
+    ...Object.keys(KNOWN_CAPABILITIES).map((c) => `${c} = ["run-a", "run-b"]`),
+    ...STAGES.flatMap((
+      s,
+    ) => [`[checks.extra-${s}]`, `stage = "${s}"`, 'run = "x"']),
+    "[scopes.widget]",
+    'paths = ["widget/**"]',
+    'gate = "echo w"',
+    "[scopes.gadget]",
+    'paths = ["gadget/**"]',
+    'gate = "echo g"',
+  ].join("\n");
+  const plan = buildGatePlan(parseConfigOrThrow(toml), ["widget", "gadget"]);
+  const labels = plan.groups.flatMap((g) => g.jobs.map((j) => j.label));
+  assert(labels.length > 0);
+  assertEquals(
+    labels.length,
+    new Set(labels).size,
+    `duplicate gate job labels in: ${labels.join(", ")}`,
   );
 });
 

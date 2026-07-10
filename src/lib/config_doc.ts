@@ -16,6 +16,7 @@
 
 import { KNOWN_CAPABILITIES, STAGES } from "./config.ts";
 import {
+  capabilityCheckNameCollisions,
   CONFIG_DOC_VERSION,
   type DiscernConfigDoc,
 } from "../shared/config_schema.ts";
@@ -151,6 +152,19 @@ export function applyConfigDoc(
   // Checks: an explicit stage (∈ STAGES) + a run command + an optional label. The
   // document is loosely parsed (untrusted JSON), so each schema-required field is
   // validated here with an author-friendly message rather than trusted from the type.
+  // A check sharing a declared capability's name is refused up front — the gate
+  // keys job results by label, so the written config would fail its next load.
+  const collisions = capabilityCheckNameCollisions({
+    capabilities: doc.capabilities ?? {},
+    checks: doc.checks ?? {},
+  });
+  if (collisions.length > 0) {
+    throw new Error(
+      `check "${collisions[0]}" shares its name with the "${
+        collisions[0]
+      }" capability — the gate keys each job's result by its label; rename the check or fold its command into the capability`,
+    );
+  }
   for (const [name, spec] of Object.entries(doc.checks ?? {})) {
     assertName("check", name);
     const stage = spec.stage as string | undefined;

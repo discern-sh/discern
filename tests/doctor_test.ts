@@ -488,18 +488,24 @@ Deno.test("doctor: does NOT nudge a custom-named check, or one at a non-canonica
   });
 });
 
-Deno.test("doctor: does NOT nudge when the capability slot is already wired", async () => {
+Deno.test("doctor: a [checks.<name>] colliding with a wired capability fails the config schema check", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir);
-    // [capabilities].lint is taken, so [checks.lint] can't move there — no nudge.
-    await addCapability(dir, "lint", "eslint .");
-    await addCheck(dir, "lint", "check", "stylelint .");
+    // [capabilities].lint plus [checks.lint] is a job-label collision — the
+    // gate keys each job's result by its label, so the config is INVALID (not
+    // merely nudge-worthy) and doctor surfaces the parse issue.
+    await addCapability(dir, "lint", "resolve .");
+    await addCheck(dir, "lint", "check", "resolve .");
 
-    const { payload } = await runDoctorJson(dir);
-    assertEquals(
-      payload.data.checks.find((c) => c.name === "capability-shaped checks"),
-      undefined,
+    const { code, payload } = await runDoctorJson(dir);
+    assertEquals(code, 1);
+    assertEquals(payload.ok, false);
+    const schema = payload.data.checks.find((c) =>
+      c.name === "config schema" && c.status === "fail"
     );
+    assert(schema !== undefined, JSON.stringify(payload.data.checks));
+    assertStringIncludes(schema.detail, "checks.lint");
+    assertStringIncludes(schema.detail, "[capabilities].lint");
   });
 });
 

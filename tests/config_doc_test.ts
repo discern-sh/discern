@@ -299,6 +299,20 @@ Deno.test("applyConfigDoc rejects a check with no stage or an unknown stage", ()
   );
 });
 
+Deno.test("applyConfigDoc rejects a check sharing a declared capability's name", () => {
+  // The written config would collide the gate's job labels and fail its next
+  // load — refuse at apply time with the author-facing rationale instead.
+  assertThrows(
+    () =>
+      applyConfigDoc(editor(), {
+        capabilities: { lint: "lint-tool ." },
+        checks: { lint: { stage: "check", run: "other-lint ." } },
+      }),
+    Error,
+    'check "lint" shares its name with the "lint" capability',
+  );
+});
+
 Deno.test("applyConfigDoc rejects a non-array scope paths value", () => {
   assertThrows(
     () =>

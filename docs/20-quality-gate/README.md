@@ -21,7 +21,10 @@ that the required tree or index repair would invalidate. It then walks the
 artifact producers), then **check** and **test** in parallel — and each
 **Capability** and **Check** runs as its own labelled job, so a failure points
 at the exact one rather than a whole Stage. A known Capability's Stage is
-derived from its name; a Check states its own. After the Stages come the
+derived from its name; a Check states its own. Job labels key the run's results,
+so they must be unique: config validation rejects a `[checks.<name>]` that
+reuses a name wired under `[capabilities]` (the two jobs would otherwise
+silently overwrite each other's outcome). After the Stages come the
 **Scope** `gate`s for any Scope that changed.
 
 Interrupting the gate stops it cleanly: each job runs detached in its own
