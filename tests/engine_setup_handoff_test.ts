@@ -74,6 +74,63 @@ Deno.test("setup --json carries an explicit incomplete signal", async () => {
   });
 });
 
+Deno.test("doctor qualifies its all-clear while setup is unfinished, then goes silent once recorded", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { bootstrapped: false });
+
+    // Human view: the verdict is qualified — a healthy install is not a finished
+    // setup, and doctor must not contradict status's SETUP NOT FINISHED banner.
+    const human = await runAgent(dir, ["doctor"]);
+    assertStringIncludes(human.output, "Setup is NOT finished");
+    assertStringIncludes(human.output, "discern setup done");
+
+    // Machine view: the same qualifier rides the hints.
+    const j = JSON.parse((await runAgent(dir, ["doctor", "--json"])).stdout);
+    assert(
+      (j.hints ?? []).some((h: string) => h.includes("Setup is NOT finished")),
+      `expected the mid-setup hint: ${JSON.stringify(j.hints)}`,
+    );
+  });
+
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { bootstrapped: true });
+    const human = await runAgent(dir, ["doctor"]);
+    assert(
+      !human.output.includes("Setup is NOT finished"),
+      "a recorded setup must not re-raise the mid-setup banner",
+    );
+    const j = JSON.parse((await runAgent(dir, ["doctor", "--json"])).stdout);
+    assertEquals(
+      (j.hints ?? []).some((h: string) => h.includes("Setup is NOT finished")),
+      false,
+    );
+  });
+});
+
+Deno.test("the agent-addressed setup surfaces carry a human off-ramp", async () => {
+  // A human who runs `verify` or `begin` by hand hits text addressed to an agent;
+  // each carries one line telling them the handoff that makes it work.
+  const OFF_RAMP = "Reading this as a human?";
+
+  await withTempDir(async (dir) => {
+    // verify, on a fresh (never-scaffolded) repo.
+    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+    await gitInit(dir);
+    const verify = await runAgent(dir, ["setup", "verify"]);
+    assertEquals(verify.code, 0, verify.output);
+    assertStringIncludes(verify.stdout, OFF_RAMP);
+    assertStringIncludes(verify.stdout, "Run `discern setup`");
+  });
+
+  await withTempDir(async (dir) => {
+    // the begin banner.
+    await scaffoldEngine(dir, { bootstrapped: false });
+    const begin = await runAgent(dir, ["setup", "begin", "--confirmed"]);
+    assertEquals(begin.code, 0, begin.output);
+    assertStringIncludes(begin.stdout, OFF_RAMP);
+  });
+});
+
 Deno.test("status flags unfinished setup loudly, with evidence, then goes silent once recorded", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });

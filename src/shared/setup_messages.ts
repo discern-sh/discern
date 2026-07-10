@@ -36,17 +36,32 @@ import { runGit } from "./subprocess.ts";
  * relays a real path, never a placeholder to substitute (or copy verbatim). */
 export const EXISTING_DOCS_REL = "docs/";
 
+/** The agent set the consent conversation puts to the human: which coding tools
+ * `begin` will wire, each as its display label plus the registry name `--agents`
+ * accepts, and whether the set was detected on PATH or fell back to the defaults.
+ * Declared here — the bottom layer — and produced by the feature layer's PATH
+ * detection (`src/lib/detect_agents.ts`), mirroring how {@link CompletionLanding}
+ * keeps this module from importing upward. */
+export interface ConsentAgentSet {
+  /** The set `begin` will wire, in registry order. */
+  wired: ReadonlyArray<{ label: string; name: string }>;
+  /** True when detected on PATH; false when it fell back to the default set. */
+  detected: boolean;
+}
+
 /** The repo facts a consent message is grounded in — the exact sibling worktree
  * path that will be created (ADR 0052), whether the project has a `docs/` tree of
  * its own (so the message offers the ADR 0100 opt-in: point discern's map discipline
- * at those docs, or keep the map separate at its namespace default), and whether
+ * at those docs, or keep the map separate at its namespace default), whether
  * the directory is a git work tree at all (so no surface promises the isolated
  * `discern-setup` branch, the undo story, or worktrees where git can't deliver
- * them — the non-git plan is `git init` first). */
+ * them — the non-git plan is `git init` first), and the agent set `begin` will
+ * wire (a consent point of its own, with `--agents` as the mechanism). */
 export interface ConsentContext {
   worktreePath: string;
   docsExists: boolean;
   gitRepo: boolean;
+  agents: ConsentAgentSet;
 }
 
 /**
@@ -55,16 +70,19 @@ export interface ConsentContext {
  * re-serves it in the `awaiting_consent` refusal), so the two can never drift. The
  * worktree location is the default sibling discern computes on a fresh install:
  * `<repo>.worktrees` beside the checkout (no config exists yet to relocate it).
+ * The agent set arrives from the caller (the PATH scan lives in the feature layer,
+ * which this bottom module never imports).
  */
 export async function deriveConsentContext(
   destDir: string,
+  agents: ConsentAgentSet,
 ): Promise<ConsentContext> {
   const docsExists = await pathExists(join(destDir, EXISTING_DOCS_REL));
   const worktreePath = join(dirname(destDir), `${basename(destDir)}.worktrees`);
   const gitRepo =
     (await runGit(["rev-parse", "--is-inside-work-tree"], { cwd: destDir }))
       .success;
-  return { worktreePath, docsExists, gitRepo };
+  return { worktreePath, docsExists, gitRepo, agents };
 }
 
 /**
@@ -102,7 +120,7 @@ function fence(label: string): string {
  * `git init` and the next action is to initialize git and re-run the preflight.
  */
 export function consentMessage(ctx: ConsentContext): string {
-  const { worktreePath, docsExists, gitRepo } = ctx;
+  const { worktreePath, docsExists, gitRepo, agents } = ctx;
 
   const confirmations: string[] = [
     '1. Ask them this, word for word: "Am I your most capable model? Everything I configure here is inherited by every future session."',
@@ -120,6 +138,18 @@ export function consentMessage(ctx: ConsentContext): string {
     );
     n += 1;
   }
+  // The agent set is a consent point, not a silent default: the human hears which
+  // of their tools get wired and can trim or extend the set before anything is
+  // written (`--agents` is the mechanism, named for the agent below the fence).
+  const agentLabels = agents.wired.map((a) => a.label).join(", ");
+  confirmations.push(
+    agents.detected
+      ? `${n}. I found ${agentLabels} on this machine — I'll wire discern into ${
+        agents.wired.length > 1 ? "each of them" : "it"
+      }; say the word to skip or add one.`
+      : `${n}. I didn't spot a specific coding tool here, so I'll wire discern's default set: ${agentLabels} — say the word to change it.`,
+  );
+  n += 1;
   confirmations.push(
     `${n}. Isolated working copies will live beside this project at ${worktreePath} — keep that location?`,
   );
@@ -134,8 +164,8 @@ export function consentMessage(ctx: ConsentContext): string {
     ? "The plan: I'll study the repo, come back with one short batch of questions, author the project's docs and guidance, wire up the quality checks, and prove it green."
     : "The plan: I'll initialize git first (`git init` — the safety net below needs it), then study the project, come back with one short batch of questions, author the project's docs and guidance, wire up the quality checks, and prove it green.";
   const safety = gitRepo
-    ? "It's safe and reversible: I work on a dedicated `discern-setup` branch, so nothing touches your main branch until you merge, you can undo it all by deleting that branch, and there's no API key or outside service."
-    : "It's safe and reversible: once git is initialized I work on a dedicated `discern-setup` branch, you can undo it all by deleting that branch, and there's no API key or outside service.";
+    ? "It's safe and reversible: I work on a dedicated `discern-setup` branch, so nothing touches your main branch until you merge, you can undo it all by deleting that branch (or later with `discern uninstall`), and there's no API key or outside service."
+    : "It's safe and reversible: once git is initialized I work on a dedicated `discern-setup` branch, you can undo it all by deleting that branch (or later with `discern uninstall`), and there's no API key or outside service.";
 
   return [
     "Relay the message below to your human as your next chat message — adapt the wording to your own voice if you like, but keep every point, and relay anything in quotation marks word for word. Then wait for their answers.",
@@ -148,7 +178,7 @@ export function consentMessage(ctx: ConsentContext): string {
     "  • isolated working copies (git worktrees) — each task gets its own copy, so parallel work never collides;",
     "  • shared project instructions — one place that tells every future coding session how this project works.",
     "",
-    "  • On disk that lands in one root file (`discern.toml`) and one visible `discern/` folder — a map of your codebase (docs agents write and keep current for you to audit), a deferred-work ledger, and those shared instructions — plus the files your coding tools require and two small shims. Nothing else in your repo is touched.",
+    "  • On disk, what discern itself owns lands in one root file (`discern.toml`) and one visible `discern/` folder — a map of your codebase (docs your agents keep current for you to audit), a deferred-work ledger, and those shared instructions. It also updates the files your coding tools require — your own tools' integration files, committed openly for review.",
     "",
     plan,
     "",
@@ -175,6 +205,12 @@ export function consentMessage(ctx: ConsentContext): string {
         `If they chose to have discern maintain their existing docs, add \`--docs ${EXISTING_DOCS_REL}\` so the choice is recorded as [docs].dir.`,
       ]
       : []),
+    "",
+    // The REAL effective set, never a placeholder — copied verbatim it wires
+    // exactly what would have been wired anyway, so the example can't mislead.
+    `If they asked to skip or add a tool, pass the exact set to wire: \`--agents ${
+      agents.wired.map((a) => a.name).join(",")
+    }\` (edit that list).`,
   ].join("\n");
 }
 
@@ -267,7 +303,7 @@ export function completionMessage(ctx: CompletionContext): string {
     headline,
     "",
     `  • ${coverageLine(assurance)}`,
-    "  • Everything discern added is contained: `discern.toml` at the root and the `discern/` folder, plus the files your coding tools require — plain files you can read and audit any time.",
+    "  • Everything discern added is contained: `discern.toml` at the root and the `discern/` folder, plus the files your coding tools require — plain files you can read and audit any time. If you ever change your mind, `discern uninstall` takes the wiring back out and leaves your own content in place.",
     `  • ${landingLine(landing)}`,
     "",
     fence("end of message"),

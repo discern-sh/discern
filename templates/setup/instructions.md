@@ -92,6 +92,7 @@ files_to_read = [
 must_do = [
   "Read the repository first — it is your primary source for the principles, concepts, and conventions you will write.",
   "Ask a short, high-signal batch of questions together, then proceed.",
+  "Confirm the project's real name in that batch — the scaffold seeded it mechanically from the folder name.",
   "Mine the repo for what the system actually is — a thin answer is no licence for a shallow result.",
 ]
 what_not_to_do = [
@@ -103,7 +104,7 @@ next_action = "When you have your bearings, pull the next page: `discern setup s
 ```
 
 1. **Read the repository — it is your primary source.** The top-level layout, the README, the manifests/lockfiles, and the actual code (models, config, tests) are where the principles, concepts, and conventions you'll write are *evidenced*. Start forming the real mental model now; you inventory the stack properly in Step 7.
-2. **Ask the user a short, sharp batch of questions** — only what the code can't tell you: what the project is *for* and who it serves, its non-negotiable rules, anything in flight or deliberately unusual. Keep it to a handful of high-signal questions asked together, then proceed. (If a brief exists at `{{brief_path}}` — a user or CI may have supplied one via `--brief`/`--config` — read it first and let it narrow what you ask.)
+2. **Ask the user a short, sharp batch of questions** — only what the code can't tell you: what the project is *for* and who it serves, its non-negotiable rules, anything in flight or deliberately unusual. Include one cheap confirmation: **the project's real name** — the scaffold seeded `[project].slug` and the doc titles from the directory's basename, a mechanical guess that is sometimes a codename or a clone path, and a wrong name compiles into every doc and worktree branch. If it's wrong, fix it now: `discern config set project.slug <the-real-slug>`, plus a quick pass over the seeded doc titles. Keep it to a handful of high-signal questions asked together, then proceed. (If a brief exists at `{{brief_path}}` — a user or CI may have supplied one via `--brief`/`--config` — read it first and let it narrow what you ask.)
 
 **A thin answer is not a licence for a shallow result.** Whether the user gives you a single sentence or a deliberate "figure it out", the job is identical: mine the repository for what the system actually *is* and document *that* — don't paraphrase the answer and stop. The depth comes from the repo, not the length of the answer. Never invent a domain — derive it from what you find.
 
@@ -136,7 +137,7 @@ next_action = "With the lay of the land clear, pull the next page: `discern setu
 
 The command's output told you which of these happened. The scaffolded files already carry the project name; the remaining placeholders are the `<!-- setup fills this -->` markers and the EXAMPLE principle, which you replace as you go.
 
-**One ordering tip before you author (Steps 3–6).** If this project has a code formatter — or you intend to add one (a missing formatter is exactly the kind of well-established tool worth proposing; see Step 7) — wire that single capability now and commit its first whole-tree sweep on its own — `discern config set-capability format "<the formatter>"`, then `discern prepare` to run it, then commit just the reflow (Step 7 has the detail). Doing it first lands the mechanical reformat on the empty scaffold, so every docs and guidance commit you make afterwards stays a clean content diff instead of being tangled with formatting noise.
+**One ordering tip before you author (Steps 3–6).** If this project has a code formatter — or you intend to add one (a missing formatter is exactly the kind of well-established tool worth proposing, though installing a new dependency needs the user's go-ahead first; see Step 7) — wire that single capability now and commit its first whole-tree sweep on its own — `discern config set-capability format "<the formatter>"`, then `discern prepare` to run it, then commit just the reflow (Step 7 has the detail). Doing it first lands the mechanical reformat on the empty scaffold, so every docs and guidance commit you make afterwards stays a clean content diff instead of being tangled with formatting noise.
 
 ---
 
@@ -277,11 +278,12 @@ files_to_read = [
 must_do = [
   "Inventory the stack signals and wire format/lint/typecheck/test/build/smoke via `discern config set-capability`, committing each (the formatter first, its sweep on its own).",
   "Run `discern refresh`, then `discern finish` (or `discern prepare`), and watch the gate go green as you wire each capability.",
-  "Where the stack is missing a standard tool, propose adding it through the five beats.",
+  "Where the stack is missing a standard tool, propose adding it through the five beats — batching every new install into one clear go-ahead before anything is installed.",
 ]
 what_not_to_do = [
   "Do not wire a command you can't pin down — leave it as a comment beside the unset key.",
   "Do not leave a capability unset merely because the project hadn't adopted the obvious tool yet.",
+  "Do not install a new dependency without the user's go-ahead — an install is a genuine decision (network, third-party code, lockfile), not a narrate-and-proceed.",
 ]
 completion_check = "at least one capability is wired in discern.toml."
 next_action = "Once the gate is green with what you wired, pull the next page: `discern setup step 8`."
@@ -303,7 +305,7 @@ discern config set-ratchet coverage --direction up --limit 80 --run "<coverage t
 
 Prefer these over hand-editing TOML. The format/lint/typecheck/test/build a stack plainly already has are not a fork to deliberate — so **batch them into one concise recommendation**, not a five-beat pitch apiece: tell the user which tools you found, that wiring them lets `discern` check those parts of the project for them, and that each lands as its own revertible commit. Then activate the ones you're confident in and commit them (the formatter on its own — see below). Reserve a genuine, individual pause for a **real decision**: two legitimate commands where the choice matters, or a command that would do more than check — touch real data, hit a paid or networked service, or run long.
 
-**Setup is a chance to raise the project's floor, not just record it.** Where a stack is *missing* a standard tool — no formatter, no linter, no type-checker, or even no test suite — proposing a well-established one (the conventional, well-regarded choice for the ecosystem, like those in the table below) is a real improvement, not overreach. Walk the user through *adding* it in the five beats — recommend, say why, name `discern`, preserve their authority and the revert, then proceed — because installing a standard dev tool and committing it on its own is low-stakes and reversible, a narrate-and-proceed rather than a gate. Keep the genuine pause for the real decisions above (a paid, networked, or long-running command, or a true fork between legitimate alternatives).
+**Setup is a chance to raise the project's floor, not just record it.** Where a stack is *missing* a standard tool — no formatter, no linter, no type-checker, or even no test suite — proposing a well-established one (the conventional, well-regarded choice for the ecosystem, like those in the table below) is a real improvement, not overreach. Walk the user through *adding* it in the five beats — recommend, say why, name `discern`, preserve their authority and the revert. One boundary (ADR 0113): **installing a new dependency is a genuine decision, never a narrate-and-proceed** — an install reaches the network, pulls third-party code, may run install scripts, and edits the manifest and lockfile, which puts it squarely in the cost/security bucket above. Batch every proposed install into one clear go-ahead ("adding a formatter here means installing ‹the tool› — OK to install it?") — one question covering all of them, asked with the capability recommendation — then proceed on the answer. *Wiring a tool the project already has* stays narrate-and-proceed, and keep the other genuine pauses for the real decisions above (a paid, networked, or long-running command, or a true fork between legitimate alternatives).
 
 Before you run the gate here for the first time, **run `discern refresh`**: you edited `{{guidance_path}}` in Step 4, which leaves the generated agent files stale, and `discern finish`'s currency check fails on stale files until `refresh` recompiles them. Then **`discern finish`** (or the faster **`discern prepare`**) confirms each fill passes — both run during setup, and `discern setup done` proves the whole gate green before completion — so a confident fill is exactly the low-stakes, reversible change to proceed on. A capability you can't pin down waits as a comment beside the unset key: an omitted capability is "knowably absent", so a wrong guess never breaks the gate.
 
@@ -326,6 +328,7 @@ Notes that keep the proposal honest:
 - **Verify before suggesting.** Read the manifest's actual scripts/dependencies — propose the command the project really has, not the textbook one. If a stack declares a custom test script, suggest that.
 - **A known tool maps to a capability by name.** Formatter → `format`, linter → `lint`, type-checker → `typecheck`, the test suite → `test`, a build/bundle step → `build`, a fast does-it-boot check → `smoke`. Anything outside those six (a coverage threshold, a schema validator, a license check) is a `[checks.<name>]` with an explicit `stage` (`fix` | `build` | `check` | `test`).
 - **`smoke` proves the app boots, not that it passes.** It rides the `test` stage and should be FAST and side-effect-light — a framework's inspire/about, a CLI `--version`, a script that loads config and exits — not an e2e suite (that's a `[checks.<name>]`). Because `discern finish` runs it wherever the gate runs, it re-proves the app boots inside a worktree too — which Step 8 leans on.
+- **Every wired command must exit on its own.** Before you commit a capability, run the command once, non-interactively, and confirm it terminates without a keypress or a file-watcher: wire watch-mode runners in their single-run form (the run-once/CI variant, watch off), and never a dev server. The gate runs every command under a hard timeout, so a watcher doesn't hang the gate — it fails it, slowly, on every run.
 - **Monorepo / polyglot:** several stacks can coexist. Chain tools in one capability with `&&`, or add a `[scopes.<name>]` for a sub-app with its own `gate`.
 - **Wire the obvious scopes and worktree resources too** while you're here: point `[scopes]` globs at where this project's code actually lives, and if the project needs a per-worktree external resource (a database, an emulator, a container), note a `[worktree.resources.<name>]` table with `create`/`destroy` for the user to fill — an external resource carries cost and data implications, so it is a genuine decision to leave with them, not something to wire silently.
 - **Point the gate at its gotchas doc.** Step 2 created `{{docs_dir}}80-development/finish-gate-gotchas.md`; set `[project].gotchas_doc = "{{docs_dir}}80-development/finish-gate-gotchas.md"` so a non-obvious gate failure points agents at it.
@@ -344,7 +347,7 @@ files_to_read = [
 ]
 must_do = [
   "Create a probe worktree with `discern start`, enter it, and run `discern finish` there — it runs your `smoke` check too, so a green finish means the app boots in the copy.",
-  "Fix whatever the copy is missing by wiring [worktree]: copy env files and generate keys in `steps` (one-shot), install dependencies in `ensure` (every pass), declare a database/container as `[worktree.resources.<name>]`, list plain env vars in `inherit_env`.",
+  "Fix whatever the copy is missing by wiring [worktree]: copy env files and generate keys in `steps` (one-shot), install dependencies in `ensure` (every pass — check-then-install, so it's fast when current), declare a database/container as `[worktree.resources.<name>]`, list plain env vars in `inherit_env`.",
   "Iterate until the probe's `discern finish` is green, commit your [worktree] wiring, then remove the probe; record anything you cannot resolve now in {{todo_path}}.",
 ]
 what_not_to_do = [
@@ -361,18 +364,21 @@ Name your stack's version of the usual culprits, and wire it:
 
 | Stack | What a fresh worktree is missing → how to wire it | Prove it boots (`smoke`) |
 |---|---|---|
-| **Laravel / PHP** | untracked `.env` + `APP_KEY`, `vendor/`, the storage symlink → `steps`: copy the `.env`, `php artisan key:generate`, `php artisan storage:link`; `ensure`: `composer install` | `php artisan inspire` |
-| **Node / JS / TS** | `node_modules/` → `ensure`: `npm ci` (or `pnpm i --frozen-lockfile`) | `node -e "require('./')"` (or the package's `--version`) |
-| **Python** | the virtualenv + installed deps → `steps`: create the venv; `ensure`: `pip install -r requirements.txt` | `python -c "import <your_package>"` |
+| **Node / JS / TS** | `node_modules/` → `ensure`: a check-then-install (`npm ls --silent >/dev/null 2>&1 || npm ci`, or your package manager's frozen-lockfile install) | the package's own CLI `--version`, or a one-line script that imports your entry module and exits |
+| **Python** | the virtualenv + installed deps → `steps`: create the venv; `ensure`: check the requirements are current, install only when not | `python -c "import <your_package>"` |
+| **Laravel / PHP** | untracked `.env` + `APP_KEY`, `vendor/`, the storage symlink → `steps`: copy the `.env`, `php artisan key:generate`, `php artisan storage:link`; `ensure`: `composer install` (already fast when current) | `php artisan inspire` |
 | **Rust / Go** | usually nothing — the toolchain fetches and caches deps → often no wiring at all | `cargo run -- --version` / `go run . --version` |
-| **a local database / service** | a per-worktree database or emulator → `[worktree.resources.<name>]` with `create`/`destroy` | your app's boot/health command |
+| **env-file secrets (any stack)** | an untracked `.env` / `.env.local` the app reads → `[worktree].inherit_env` names the values to copy into the copy's env file; `[worktree].env_files` orders which files are read and written | your smoke command — it fails fast when a required value is missing |
+| **a file-based database (e.g. SQLite)** | the database file is untracked — and pointing the copy at the main checkout's file means parallel tasks collide → `steps`: create (or copy) a per-worktree database file inside the worktree, then migrate/seed it | your app's boot/health command |
+| **a local database server / service** | a per-worktree database or emulator → `[worktree.resources.<name>]` with `create`/`destroy` | your app's boot/health command |
+| **a hosted / shared database** | discern can't conjure isolated copies of a hosted service — point worktrees at a disposable local copy instead, or record honestly in `{{todo_path}}` that every worktree shares the hosted one (and what that risks: parallel tasks writing over each other's data) | your app's boot/health command |
 
 The wiring lives in `discern.toml`:
 
 - **`[worktree].steps`** — run ONCE at creation (copy the `.env`, generate a key, seed fixtures).
-- **`[worktree].ensure`** — run on EVERY pass (install dependencies, build) — author them idempotent.
+- **`[worktree].ensure`** — run on EVERY pass (install dependencies, build) — author them idempotent **and fast when current**: prefer a check-then-install shape (`<check deps are current> || <install>`) over an unconditional reinstall, because the per-pass cost lands on every session start and every integrate.
 - **`[worktree.resources.<name>]`** — an external resource with `create`/`destroy` (a database, a container, an emulator). Anything with cost or data implications is a genuine decision — leave it for the user in `{{todo_path}}` rather than wiring it silently.
-- **`[worktree].inherit_env`** — plain env-var names copied from the main checkout's `.env` into the copy's `.env`.
+- **`[worktree].inherit_env`** — plain env-var names copied from the main checkout's env files into the copy's (the worktree's env file is created when absent, so a declared value always arrives).
 
 **Prove it, don't guess.** You have been committing each stage, so a fresh probe will see your work. From the main checkout:
 

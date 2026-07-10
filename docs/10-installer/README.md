@@ -28,15 +28,19 @@ so a terse agent that only couriers discern's words still delivers a complete
 first experience (rewording into the agent's own voice is allowed; dropping a
 point is not). A fresh `setup begin` requires an explicit **`--confirmed`**
 attestation that the consent conversation happened; without it — and outside the
-declarative `--config` / `--allow-dirty` paths — `begin` refuses before writing
-anything and re-serves that same consent message
+declarative `--config` / `--allow-dirty` paths and the write-nothing `--dry-run`
+preview — `begin` refuses before writing anything and re-serves that same
+consent message
 ([ADR 0086](../_adr/0086-setup-serves-relay-messages-and-a-consent-attestation.md)).
-`setup done` then closes the handshake by proving the gate —
-`refresh → doctor →
-finish` in the main checkout, then a **throwaway worktree
-probe** that runs the gate in a copy, so a project that passes here but breaks
-in a worktree (an env-anchored app whose untracked `.env` or dependency dir
-never travels) cannot complete setup silently
+`setup done` then closes the handshake: it refuses while any tracked change or
+untracked authored-setup file sits uncommitted (the proof runs on committed
+history; untracked files outside the setup footprint — an env file with secrets
+— never block), then proves the gate — `refresh → doctor →
+finish` in the main
+checkout, then a **throwaway worktree probe** that branches from the
+now-complete HEAD and runs the gate in a copy, so a project that passes here but
+breaks in a worktree (an env-anchored app whose untracked `.env` or dependency
+dir never travels) cannot complete setup silently
 ([ADR 0090](../_adr/0090-setup-proves-worktree-viability.md)).
 
 The ideas worth understanding here: the **disposition**-driven scaffold, with

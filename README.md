@@ -51,9 +51,11 @@ until you say go. Budget 20–40 minutes for the one-time conversation, and poin
 your **most capable** model at it: every later session inherits what it sets up.
 
 > `discern` doesn't write your code, run a model, or need an API key. It works
-> with the agents you already use, in the language you already write — and its
-> committed footprint in your project is **one root file and one visible
-> folder**, a claim an architectural test keeps true.
+> with the agents you already use, in the language you already write. What it
+> owns in your project is **one root file and one visible folder** — plus the
+> small config files your coding tools require, wired for you — a boundary an
+> architectural test keeps true. Change your mind later? `discern uninstall`
+> takes the wiring back out and leaves what's yours.
 
 ---
 
@@ -114,10 +116,13 @@ either way.
 - **A docs & decision discipline.** A living, agent-maintained map of your
   codebase and Architecture Decision Records, kept current by the gate itself.
 
-Your committed footprint in the repo is **one root file, `discern.toml`, plus
-one visible `discern/` folder** — everything else is bundled in the binary or
-generated, and an architectural test fails the moment `discern` writes anywhere
-else. [Config reference →](docs/10-installer/config-reference.md)
+What `discern` itself owns in your repo is **one root file, `discern.toml`, plus
+one visible `discern/` folder**; beyond that it wires only the config files your
+coding tools require — your own tools' integration files, updated in the open.
+Everything else is bundled in the binary or generated, an architectural test
+fails the moment `discern` writes anywhere else, and `discern uninstall` removes
+the wiring whenever you want out.
+[Config reference →](docs/10-installer/config-reference.md)
 
 ---
 

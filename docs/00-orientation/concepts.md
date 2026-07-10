@@ -139,16 +139,17 @@ transparently throughout: recommending each change, saying why it helps and that
 can review or revert, and pausing only for genuine decisions rather than gating
 every step ([ADR 0044](../_adr/0044-setup-involve-not-gate.md)). The Engine
 stays generic; only `discern.toml` learns the stack. Setup finishes with
-`discern setup done`, which proves the gate green (refresh → doctor → finish)
-AND re-derives from repo state that each step's authoring actually landed — so a
-skipped step can't pass
-([ADR 0078](../_adr/0078-setup-pages-and-per-step-proof.md)) — before recording
-completion. Its completion output then does three things: it reports an **honest
-coverage summary** — each standard capability marked _enforced_, _deferred_, or
-_absent_, plus an overall verdict — so "the gate is proven" never reads as
-"every protection runs" when, say, no test suite is wired; it names **where the
-work lives** (on the `discern-setup` branch, not yet on `main`) and the one
-command to land it, `discern setup land`
+`discern setup done`, which re-derives from repo state that each step's
+authoring actually landed — so a skipped step can't pass
+([ADR 0078](../_adr/0078-setup-pages-and-per-step-proof.md)) — requires that
+authoring committed (the proof and the landing story operate on commits), and
+proves the gate green (refresh → doctor → finish, then a throwaway-worktree
+probe) before recording completion. Its completion output then does three
+things: it reports an **honest coverage summary** — each standard capability
+marked _enforced_, _deferred_, or _absent_, plus an overall verdict — so "the
+gate is proven" never reads as "every protection runs" when, say, no test suite
+is wired; it names **where the work lives** (on the `discern-setup` branch, not
+yet on `main`) and the one command to land it, `discern setup land`
 ([ADR 0081](../_adr/0081-setup-land-command.md)); and it reminds the agent to
 start a fresh session (the wired MCP tools and session hooks load only at
 session start) and to deepen the setup with `discern improve`.

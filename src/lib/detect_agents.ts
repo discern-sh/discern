@@ -21,6 +21,7 @@
 import { join } from "@std/path";
 import { AGENT_NAMES, DEFAULT_AGENTS } from "../shared/config_schema.ts";
 import type { EnvReader } from "../shared/env.ts";
+import type { ConsentAgentSet } from "../shared/setup_messages.ts";
 import type { AgentName } from "./config.ts";
 import { PROVIDERS } from "./providers.ts";
 
@@ -106,11 +107,34 @@ export async function detectAgentsOnPath(
  * result, or {@link DEFAULT_AGENTS} when none is detected. The single resolver
  * `discern setup` uses to seed `[guidance].agents` when the user named no agents
  * (no `--agents`, no `--config` agents). Persisted to config — never consulted at
- * runtime.
+ * runtime. Pass an already-scanned `detected` list to skip the rescan (the
+ * detected-else-defaults rule still lives only here).
  */
 export async function resolveDefaultAgents(
   env: EnvReader = Deno.env,
+  detected?: AgentName[],
 ): Promise<AgentName[]> {
+  const found = detected ?? await detectAgentsOnPath(env);
+  return found.length > 0 ? found : [...DEFAULT_AGENTS];
+}
+
+/**
+ * The agent-set consent summary the setup handshake serves ({@link ConsentAgentSet}):
+ * the set `begin` will wire — via {@link resolveDefaultAgents}, so the
+ * detected-else-defaults rule stays in one place — as display labels plus the
+ * registry names `--agents` accepts, alongside the raw detected list for the
+ * preflight's structured findings. One PATH scan covers both.
+ */
+export async function consentAgentSet(
+  env: EnvReader = Deno.env,
+): Promise<{ detected: AgentName[]; set: ConsentAgentSet }> {
   const detected = await detectAgentsOnPath(env);
-  return detected.length > 0 ? detected : [...DEFAULT_AGENTS];
+  const wired = await resolveDefaultAgents(env, detected);
+  return {
+    detected,
+    set: {
+      wired: wired.map((name) => ({ label: PROVIDERS[name].label, name })),
+      detected: detected.length > 0,
+    },
+  };
 }
