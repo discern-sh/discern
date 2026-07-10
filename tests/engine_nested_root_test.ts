@@ -23,7 +23,7 @@
  * (cosmetic).
  */
 
-import { assertEquals, assertStringIncludes } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import {
@@ -90,5 +90,60 @@ Deno.test("nested root: a held ratchet still measures and passes", async () => {
     const r = await runAgent(app, ["ratchets"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "meets the floor");
+  });
+});
+
+// ── scopes: classification must speak root-relative paths ──────────────────────
+// The classifier feeds the gate (which scope gates fire) and status. Git emits
+// toplevel-relative paths, so without normalization a nested root's changes
+// carry the subdir prefix, match no scope glob, and the scope gates silently
+// skip — the dangerous direction (fewer gates, not more).
+
+/** A config with one gated scope over `widget/**`. */
+function widgetConfig(): string {
+  return [
+    "[project]",
+    'slug = "engine-test"',
+    'main_branch = "main"',
+    "",
+    "[scopes.widget]",
+    'paths = ["widget/**"]',
+    'gate = "true"',
+    "",
+  ].join("\n");
+}
+
+Deno.test("nested root: committed and pending changes classify into their scope", async () => {
+  await withTempDir(async (repo) => {
+    const app = await scaffoldNested(repo, widgetConfig());
+    await Deno.mkdir(join(app, "widget"));
+
+    // One committed change on a branch (read via `git diff main...HEAD`)…
+    await git(repo, "checkout", "-q", "-b", "agent/x");
+    await Deno.writeTextFile(join(app, "widget", "a.txt"), "a");
+    await git(repo, "add", "-A");
+    await git(repo, "commit", "-q", "-m", "widget work", "--no-gpg-sign");
+    // …and one pending change (read via `git status --porcelain`).
+    await Deno.writeTextFile(join(app, "widget", "b.txt"), "b");
+
+    const r = await runAgent(app, ["scopes", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    const scopes = JSON.parse(r.stdout.trim()).data.scopes as string[];
+    assert(scopes.includes("widget"), `widget must classify: ${r.stdout}`);
+    assert(scopes.includes("code"), `code marker must fire: ${r.stdout}`);
+  });
+});
+
+Deno.test("nested root: a sibling project's changes are not this project's code", async () => {
+  await withTempDir(async (repo) => {
+    const app = await scaffoldNested(repo, widgetConfig());
+    // Dirt elsewhere in the monorepo — outside the project subtree entirely.
+    await Deno.mkdir(join(repo, "other"));
+    await Deno.writeTextFile(join(repo, "other", "x.txt"), "x");
+
+    const r = await runAgent(app, ["scopes", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    const scopes = JSON.parse(r.stdout.trim()).data.scopes as string[];
+    assertEquals(scopes, [], `sibling dirt must not classify: ${r.stdout}`);
   });
 });

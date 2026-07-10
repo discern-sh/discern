@@ -66,9 +66,44 @@ export function parsePorcelainPaths(stdout: string): string[] {
 }
 
 /**
+ * The project root's path inside its git repository (`git rev-parse
+ * --show-prefix`): "" when the root IS the repository toplevel, otherwise a
+ * trailing-slashed relative path like "app/". Undefined when git cannot answer.
+ * Needed because git emits diff/status/log paths relative to the repository
+ * TOPLEVEL regardless of cwd, while every discern consumer (scope globs,
+ * coupling inputs, drift snapshots) speaks root-relative paths — for a project
+ * rooted below its repo's toplevel the two disagree by exactly this prefix.
+ */
+export async function repoPathPrefix(
+  root: string,
+): Promise<string | undefined> {
+  const r = await runGit(["rev-parse", "--show-prefix"], { cwd: root });
+  return r.success ? r.stdout.trim() : undefined;
+}
+
+/**
+ * Normalize toplevel-relative git output to root-relative: strip `prefix` and
+ * drop paths outside the project subtree (a sibling project's changes in a
+ * shared repository are not this project's). Identity when the root is the
+ * toplevel (prefix ""). Shared by every reader of git-emitted path lists —
+ * the scope classifier, the co-change miner, the fix-stage strand snapshot.
+ */
+export function stripRepoPathPrefix(
+  paths: string[],
+  prefix: string,
+): string[] {
+  if (prefix === "") {
+    return paths;
+  }
+  return paths.flatMap((p) =>
+    p.startsWith(prefix) ? [p.slice(prefix.length)] : []
+  );
+}
+
+/**
  * Collect the branch's changed paths (committed since the merge-base with main,
- * plus the working tree). Returns null to signal fail-open (git unavailable or
- * no diff base). Exported so the co-change advisory ({@link
+ * plus the working tree), ROOT-relative. Returns null to signal fail-open (git
+ * unavailable or no diff base). Exported so the co-change advisory ({@link
  * import("../coupling/coupling.ts").couplingResult}) reads the SAME current change
  * set the scope classifier does, rather than a parallel git query.
  */
@@ -76,6 +111,10 @@ export async function collectPaths(
   root: string,
   mainBranch: string,
 ): Promise<string[] | null> {
+  const prefix = await repoPathPrefix(root);
+  if (prefix === undefined) {
+    return null;
+  }
   const committed = await runGit(
     ["diff", "--name-only", `${mainBranch}...HEAD`],
     { cwd: root },
@@ -101,7 +140,8 @@ export async function collectPaths(
   // Porcelain v1 lines are "XY <path>", renames "XY <old> -> <new>" — parsed by the
   // shared parsePorcelainPaths (also used by the gate's fix-stage strand check).
   paths.push(...parsePorcelainPaths(pending.stdout));
-  return paths;
+  // Git spoke toplevel-relative; consumers match root-relative scope globs.
+  return stripRepoPathPrefix(paths, prefix);
 }
 
 /** Does `path` match any glob in `paths`? */
