@@ -501,6 +501,36 @@ Deno.test("config set-ratchet rejects a non-numeric --limit", async () => {
   });
 });
 
+Deno.test("config set-ratchet with a JS-only numeric --limit still writes parseable TOML", async () => {
+  // `--limit .5` is JS-numeric but not TOML: emitted verbatim it corrupted the
+  // whole discern.toml (every later command, doctor included, died on a syntax
+  // error). The limit must land in a form the config parser reads back.
+  await withTempDir(async (dir) => {
+    await setup(dir);
+    const r = await runCli(
+      [
+        "config",
+        "set-ratchet",
+        "prose",
+        "--direction",
+        "down",
+        "--limit",
+        ".5",
+        "--run",
+        "measure-prose",
+        "--json",
+      ],
+      dir,
+    );
+    assertEquals(r.code, 0, r.stderr);
+    assertEquals(JSON.parse(r.stdout).ok, true);
+    assertStringIncludes(await readToml(dir), "limit = 0.5");
+    // The install still loads cleanly — the file cannot have been bricked.
+    const doctor = await runCli(["doctor", "--json"], dir);
+    assertEquals(JSON.parse(doctor.stdout).ok, true, doctor.stdout);
+  });
+});
+
 Deno.test("config set-ratchet defaults metric to the name and direction to up", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);
