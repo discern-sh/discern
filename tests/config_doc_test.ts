@@ -21,7 +21,7 @@ import {
   loadConfigDoc,
 } from "../src/lib/config_doc.ts";
 import { TomlEditor } from "../src/lib/toml_edit.ts";
-import { parseConfig } from "../src/shared/config_schema.ts";
+import { configDocSchema, parseConfig } from "../src/shared/config_schema.ts";
 import { recordConfigPaths } from "../src/shared/config_codegen.ts";
 import { withTempDir } from "./helpers.ts";
 
@@ -255,6 +255,108 @@ Deno.test("applyConfigDoc on an empty document leaves the config untouched", () 
   const before = ed.toString();
   applyConfigDoc(ed, {});
   assertEquals(ed.toString(), before);
+});
+
+// ---- applyConfigDoc: fill-if-absent (skipExisting) ---------------------------
+
+/** A document exercising EVERY fill section the config-doc schema declares —
+ * the fixture behind the class-level skip-existing guard below. */
+const FULL_FILL_DOC: DiscernConfigDoc = {
+  docs: { dir: "docs/x/" },
+  capabilities: { lint: "deno lint" },
+  checks: { c1: { stage: "check", run: "run-c1" } },
+  scopes: { s1: { paths: ["s1/**"] } },
+  ratchets: { r1: { limit: 1, run: "measure-r1" } },
+};
+
+/** The config-doc keys that are NOT discern.toml fills: install inputs and
+ * document metadata, consumed by `mergeDocIntoFlags` / the loaders instead of
+ * `applyConfigDoc`. A new schema key lands here or in FULL_FILL_DOC — the
+ * forcing function below refuses anything unaccounted for. */
+const NON_FILL_DOC_KEYS = new Set([
+  "$schema",
+  "version",
+  "name",
+  "slug",
+  "branch_prefix",
+  "source_globs",
+  "brief",
+  "agents",
+  "description",
+]);
+
+Deno.test("every fill section the config-doc schema declares is covered by the skip-existing guard", () => {
+  // Driven off the schema (the single source of truth for the document shape):
+  // a NEW fill section added to configDocSchema fails here until FULL_FILL_DOC
+  // exercises it, which auto-enrols it in the never-overwrite test below.
+  const fillKeys = Object.keys(configDocSchema.shape)
+    .filter((k) => !NON_FILL_DOC_KEYS.has(k));
+  for (const key of fillKeys) {
+    assert(
+      Object.hasOwn(FULL_FILL_DOC, key),
+      `config-doc section "${key}" is missing from FULL_FILL_DOC — add it so skip-existing coverage includes it`,
+    );
+  }
+  for (const key of Object.keys(FULL_FILL_DOC)) {
+    assert(
+      key in configDocSchema.shape,
+      `FULL_FILL_DOC names "${key}", which the config-doc schema no longer declares`,
+    );
+  }
+});
+
+Deno.test("applyConfigDoc skipExisting never rewrites a present value, in ANY fill section", () => {
+  // First pass fills a fresh config; a second pass over the same editor must
+  // write nothing and report every path as kept — the whole class at once.
+  const ed = editor();
+  const first = applyConfigDoc(ed, FULL_FILL_DOC, { skipExisting: true });
+  assertEquals(first.skipped, []);
+  assert(first.filled.length > 0, "the first pass should fill every section");
+  const after = ed.toString();
+
+  const second = applyConfigDoc(ed, FULL_FILL_DOC, { skipExisting: true });
+  assertEquals(ed.toString(), after, "a second pass must not rewrite anything");
+  assertEquals(second.filled, []);
+  assertEquals(second.skipped.toSorted(), first.filled.toSorted());
+});
+
+Deno.test("applyConfigDoc skipExisting keeps a user-authored value verbatim and reports it", () => {
+  const ed = new TomlEditor(
+    '[project]\nslug = "demo"\n\n[capabilities]\n# the full suite, on purpose\ntest = "cargo test --workspace"\n',
+  );
+  const report = applyConfigDoc(
+    ed,
+    { capabilities: { test: "cargo test" } },
+    { skipExisting: true },
+  );
+  assertEquals(report.filled, []);
+  assertEquals(report.skipped, ["capabilities.test"]);
+  const out = ed.toString();
+  assert(out.includes('test = "cargo test --workspace"'));
+  assert(out.includes("# the full suite, on purpose"));
+  assert(!out.includes('test = "cargo test"\n'));
+});
+
+Deno.test("applyConfigDoc skipExisting still fills past a commented-out template hint", () => {
+  // The scaffold ships capabilities commented out; a hint is not a value.
+  const ed = new TomlEditor(
+    '[project]\nslug = "demo"\n\n[capabilities]\n# test = "npm test"\n',
+  );
+  const report = applyConfigDoc(
+    ed,
+    { capabilities: { test: "pytest" } },
+    { skipExisting: true },
+  );
+  assertEquals(report.filled, ["capabilities.test"]);
+  assert(ed.toString().includes('test = "pytest"'));
+});
+
+Deno.test("applyConfigDoc default mode still replaces (setup fills a fresh template)", () => {
+  const ed = new TomlEditor('[docs]\ndir = "docs"\n');
+  const report = applyConfigDoc(ed, { docs: { dir: "notes" } });
+  assertEquals(report.filled, ["docs.dir"]);
+  assertEquals(report.skipped, []);
+  assert(ed.toString().includes('dir = "notes"'));
 });
 
 // ---- applyConfigDoc: validation branches -----------------------------------

@@ -961,6 +961,8 @@ export type DiscernPresetResult = {
       note?: string;
     }>;
     config_fills?: boolean;
+    config_fills_applied?: Array<string>;
+    config_fills_skipped?: Array<string>;
     written?: Array<string>;
   } | {
     issues: Array<{

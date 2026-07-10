@@ -217,6 +217,18 @@ Deno.test("hasSection reports presence of a section header", () => {
   assert(!e.hasSection("features"));
 });
 
+Deno.test("hasKey reports a real assignment only — not a commented hint, section, or bare name", () => {
+  const e = new TomlEditor(SAMPLE);
+  assert(e.hasKey("project.slug"));
+  assert(e.hasKey("slots.test.run"));
+  // A commented-out `# native = …` hint is not a value.
+  assert(!e.hasKey("scopes.side_gates.native"));
+  // Absent key, absent section, and a bare (non-dotted) name are all false.
+  assert(!e.hasKey("project.name"));
+  assert(!e.hasKey("features.flag"));
+  assert(!e.hasKey("slug"));
+});
+
 Deno.test("insertSectionBlockAfter places a documented block after an anchor section", () => {
   const block = "# docs for features\n[features]\nworktrees = true";
   const out = new TomlEditor(SAMPLE).insertSectionBlockAfter("project", block)

@@ -981,6 +981,11 @@ export const PresetDataSchema = z.strictObject({
     }),
   ).optional(),
   config_fills: z.boolean().optional(),
+  /** Dotted config paths the preset fills (or would fill, on a dry-run). */
+  config_fills_applied: z.array(z.string()).optional(),
+  /** Dotted config paths kept as the project's own — already set, so the
+   * preset's fill was skipped (fills never overwrite a present value). */
+  config_fills_skipped: z.array(z.string()).optional(),
   written: z.array(z.string()).optional(),
 });
 export type PresetData = z.infer<typeof PresetDataSchema>;
