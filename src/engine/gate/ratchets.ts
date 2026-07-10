@@ -95,14 +95,20 @@ export function extractMetric(
 
 /** Read a scalar key from main's config (the never-loosen baseline). Reads the
  * new root `discern.toml`, falling back to the legacy `.discern/config.toml` so a
- * branch whose main has not yet been migrated still ratchets correctly. */
+ * branch whose main has not yet been migrated still ratchets correctly. The
+ * `rev:./path` spelling is load-bearing: git resolves a bare `rev:path` against
+ * the repository TOPLEVEL, but the config lives at the PROJECT root (the cwd) —
+ * for a project rooted in a subdirectory of its repo, the bare form finds
+ * nothing and the never-loosen half would silently disable. */
 async function ratchetMainValue(
   root: string,
   mainBranch: string,
   key: string,
 ): Promise<number | undefined> {
   for (const rel of ["discern.toml", ".discern/config.toml"]) {
-    const out = await runGit(["show", `${mainBranch}:${rel}`], { cwd: root });
+    const out = await runGit(["show", `${mainBranch}:./${rel}`], {
+      cwd: root,
+    });
     if (!out.success) {
       continue;
     }
