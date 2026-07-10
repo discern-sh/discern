@@ -239,3 +239,76 @@ Deno.test("nested root: the fix-stage dirty snapshot is root-relative", async ()
     );
   });
 });
+
+// ── the gate end-to-end: scope routing must not silently skip ──────────────────
+
+Deno.test("nested root: finish fires the changed scope's gate", async () => {
+  await withTempDir(async (repo) => {
+    const app = await scaffoldNested(
+      repo,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        'main_branch = "main"',
+        "",
+        "[scopes.widget]",
+        'paths = ["widget/**"]',
+        'gate = "echo WIDGET-GATE-RAN"',
+        "",
+      ].join("\n"),
+    );
+    await Deno.mkdir(join(app, "widget"));
+    await Deno.writeTextFile(join(app, "widget", "x.txt"), "x");
+
+    const r = await runAgent(app, ["finish"]);
+    assertEquals(r.code, 0, r.output);
+    assertStringIncludes(r.stdout, "scope:widget");
+    assertStringIncludes(r.stdout, "WIDGET-GATE-RAN");
+  });
+});
+
+// ── the deliberate refusals: loud, actionable, never a half-working state ──────
+// A worktree is a whole-repository checkout, so the lifecycle cannot serve a
+// nested root — `start` refuses with the move-it message, and doctor's
+// "repository shape" check reports the same fact at health-check time. These
+// lock the refusal in as the shape's contract: if a future change makes `start`
+// half-work here instead, this is the test that catches it.
+
+Deno.test("nested root: start refuses with the actionable repository-shape message", async () => {
+  await withTempDir(async (repo) => {
+    const app = await scaffoldNested(
+      repo,
+      ["[project]", 'slug = "engine-test"', 'main_branch = "main"', ""].join(
+        "\n",
+      ),
+    );
+    const r = await runAgent(app, ["start", "--json"]);
+    assert(r.code !== 0, `start must refuse under a nested root: ${r.output}`);
+    assertStringIncludes(r.output, "repository");
+    assertStringIncludes(r.output, "move discern.toml");
+  });
+});
+
+Deno.test("nested root: doctor's repository-shape check names the layout and the fix", async () => {
+  await withTempDir(async (repo) => {
+    const app = await scaffoldNested(
+      repo,
+      ["[project]", 'slug = "engine-test"', 'main_branch = "main"', ""].join(
+        "\n",
+      ),
+    );
+    const r = await runAgent(app, ["doctor", "--json"]);
+    assertEquals(r.code, 1, r.output);
+    const payload = JSON.parse(r.stdout.trim()) as {
+      data: {
+        checks: Array<{ name: string; ok: boolean; detail: string }>;
+      };
+    };
+    const shape = payload.data.checks.find((c) =>
+      c.name === "repository shape"
+    );
+    assert(shape !== undefined, "doctor must carry a repository-shape check");
+    assertEquals(shape.ok, false);
+    assertStringIncludes(shape.detail, "git repository's root");
+  });
+});
