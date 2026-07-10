@@ -112,30 +112,33 @@ action — `status` hints carry the command to the human.
 Worktrees and **reclaims the resources of any Worktree that vanished without a
 clean teardown** (the garbage-collection safety net); it only ever removes
 fully-merged, clean worktrees — discarding real work is `drop`'s job, behind its
-explicit `--force`. [`status`](../../src/engine/status/status.ts) uses the same
-ordinary Git-clean boundary as prune for its local and fleet `clean` fields:
-tracked changes and untracked non-ignored files make a Worktree dirty, while
-ignored provider-local/generated files stay out of the signal. Status also tells
-the truth about **abandoned and broken work**: a fleet member whose checkout
-carries no project config (the signature of a creation that crashed
-mid-checkout) is flagged `broken` with the `worktree drop` removal hint; a
-member idle for a week that still holds uncommitted changes or unlanded commits
-gets a hint to resume it or drop it; unlanded `agent/*` branches with **no
-worktree** are listed (`data.unlanded_branches`) with the pull-axis recovery
-(`start --from` / `integrate --from`); a missing trunk reports `ahead` as an
-honest null, never a fabricated `0 ahead`. And when the worktree the tools aim
-at stays pristine while the main checkout accumulates changes — the signature of
-an agent editing the trunk while the gate runs elsewhere — `status` and `finish`
-both raise an explicit **silent-divergence** warning naming the fix
-(`cd <worktree> && …` prefixes, and the `path` parameter on discern's MCP
-tools). [`identity`](../../src/engine/worktree/identity.ts) resolves a
-Worktree's stable identity (id / site / branch / port / db / worktree /
-resource). The **deterministic port** hashes from the Worktree's id; `start`
-re-rolls a freshly-minted id whose port would collide with a live sibling's
-(best-effort — a crowded band never fails the start, and two `start`s racing in
-the same instant can still mint the same port: there is no cross-process lock,
-by design — re-roll one with a recorded `DISCERN_WORKTREE_ID` if it ever
-happens). **Env plumbing** flows through `[worktree].env_files` (default
+explicit `--force`. That eligibility is judged twice: by the read-only scan the
+confirmation prompt shows, and again per candidate just before each removal — so
+a worktree or orphan that gains work while the prompt waits is skipped, not
+swept. [`status`](../../src/engine/status/status.ts) uses the same ordinary
+Git-clean boundary as prune for its local and fleet `clean` fields: tracked
+changes and untracked non-ignored files make a Worktree dirty, while ignored
+provider-local/generated files stay out of the signal. Status also tells the
+truth about **abandoned and broken work**: a fleet member whose checkout carries
+no project config (the signature of a creation that crashed mid-checkout) is
+flagged `broken` with the `worktree drop` removal hint; a member idle for a week
+that still holds uncommitted changes or unlanded commits gets a hint to resume
+it or drop it; unlanded `agent/*` branches with **no worktree** are listed
+(`data.unlanded_branches`) with the pull-axis recovery (`start --from` /
+`integrate --from`); a missing trunk reports `ahead` as an honest null, never a
+fabricated `0 ahead`. And when the worktree the tools aim at stays pristine
+while the main checkout accumulates changes — the signature of an agent editing
+the trunk while the gate runs elsewhere — `status` and `finish` both raise an
+explicit **silent-divergence** warning naming the fix (`cd <worktree> && …`
+prefixes, and the `path` parameter on discern's MCP tools).
+[`identity`](../../src/engine/worktree/identity.ts) resolves a Worktree's stable
+identity (id / site / branch / port / db / worktree / resource). The
+**deterministic port** hashes from the Worktree's id; `start` re-rolls a
+freshly-minted id whose port would collide with a live sibling's (best-effort —
+a crowded band never fails the start, and two `start`s racing in the same
+instant can still mint the same port: there is no cross-process lock, by design
+— re-roll one with a recorded `DISCERN_WORKTREE_ID` if it ever happens). **Env
+plumbing** flows through `[worktree].env_files` (default
 `[".env", ".env.local"]`, the dotenv override convention): `inherit_env` values
 are read from the main checkout's env files and written into the new Worktree's
 — creating its env file when absent, so a declared value always arrives — while

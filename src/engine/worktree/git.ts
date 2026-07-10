@@ -1697,6 +1697,46 @@ function shortBranchName(ref: string): string {
   return ref.startsWith("refs/heads/") ? ref.slice("refs/heads/".length) : ref;
 }
 
+/**
+ * Why a linked worktree must be KEPT rather than removed — empty means it is
+ * removable (clean, with its branch or detached HEAD fully merged). The single
+ * eligibility predicate for worktree removal: the prune scan classifies with
+ * it, and {@link removalCandidateChanged} re-runs it per candidate at apply
+ * time, so the two can never drift apart.
+ */
+async function worktreeKeepReasons(
+  repoRoot: string,
+  rec: WorktreeRecord,
+  mainBranch: string,
+  includeDetached: boolean,
+): Promise<string[]> {
+  const shortBranch = shortBranchName(rec.branch);
+  const keepReasons: string[] = [];
+  if (rec.locked) {
+    keepReasons.push("locked");
+  }
+  if (shortBranch !== "") {
+    if (!(await branchIsMerged(repoRoot, shortBranch, mainBranch))) {
+      keepReasons.push(`branch ${shortBranch} has unmerged commits`);
+    }
+  } else if (!includeDetached) {
+    keepReasons.push("detached HEAD");
+  } else if (!(await commitIsMerged(repoRoot, rec.head, mainBranch))) {
+    keepReasons.push("detached HEAD has unmerged commits");
+  }
+
+  const statusRun = await git(
+    ["-C", rec.path, "status", "--porcelain", "--untracked-files=normal"],
+  );
+  if (!statusRun.success) {
+    keepReasons.push("status failed; skipped");
+  } else if (statusRun.stdout.trim() !== "") {
+    const count = statusRun.stdout.split("\n").filter((l) => l !== "").length;
+    keepReasons.push(`dirty ${count} status entries`);
+  }
+  return keepReasons;
+}
+
 function checkoutPathFromGitDir(gitDir: string): string {
   return basename(gitDir) === ".git" ? dirname(gitDir) : gitDir;
 }
@@ -1812,30 +1852,12 @@ export async function scanGitWorktreesForPrune(
       continue;
     }
 
-    const keepReasons: string[] = [];
-    if (rec.locked) {
-      keepReasons.push("locked");
-    }
-    if (shortBranch !== "") {
-      if (!(await branchIsMerged(repoRoot, shortBranch, mainBranch))) {
-        keepReasons.push(`branch ${shortBranch} has unmerged commits`);
-      }
-    } else if (!includeDetached) {
-      keepReasons.push("detached HEAD");
-    } else if (!(await commitIsMerged(repoRoot, rec.head, mainBranch))) {
-      keepReasons.push("detached HEAD has unmerged commits");
-    }
-
-    const statusRun = await git(
-      ["-C", rec.path, "status", "--porcelain", "--untracked-files=normal"],
+    const keepReasons = await worktreeKeepReasons(
+      repoRoot,
+      rec,
+      mainBranch,
+      includeDetached,
     );
-    if (!statusRun.success) {
-      keepReasons.push("status failed; skipped");
-    } else if (statusRun.stdout.trim() !== "") {
-      const count = statusRun.stdout.split("\n").filter((l) => l !== "").length;
-      keepReasons.push(`dirty ${count} status entries`);
-    }
-
     if (keepReasons.length > 0) {
       worktreeLines.push({
         action: "KEEP",
@@ -1947,8 +1969,59 @@ export function renderGitWorktreePruneScan(
 }
 
 /**
+ * Re-validate one planned worktree removal against LIVE state. The plan may
+ * have waited at a confirmation prompt while an agent re-entered the worktree,
+ * so apply re-runs the scan's own eligibility predicate
+ * ({@link worktreeKeepReasons}) just before removing — the same apply-time
+ * discipline as `deleteBranchSafe`'s merged-ness re-check and
+ * {@link staleMetadataStillMatches}. Returns `undefined` when the removal is
+ * still safe, otherwise why the candidate must now be kept.
+ */
+async function removalCandidateChanged(
+  scan: GitWorktreePruneScan,
+  candidate: WorktreeRemovalCandidate,
+): Promise<string | undefined> {
+  const listRun = await git(["worktree", "list", "--porcelain"], scan.repoRoot);
+  if (!listRun.success) {
+    return "could not list worktrees";
+  }
+  const canonical = await canonicalizeMaybeMissing(candidate.path);
+  let rec: WorktreeRecord | undefined;
+  for (const r of parseWorktreeList(listRun.stdout)) {
+    if ((await canonicalizeMaybeMissing(r.path)) === canonical) {
+      rec = r;
+      break;
+    }
+  }
+  if (rec === undefined) {
+    return "no longer a registered worktree";
+  }
+  if (rec.prunable) {
+    return "now stale metadata";
+  }
+  const currentBranch = shortBranchName(rec.branch);
+  if (currentBranch !== candidate.branch) {
+    return `now on ${
+      currentBranch === "" ? "a detached HEAD" : `branch ${currentBranch}`
+    }, planned as ${
+      candidate.branch === "" ? "detached" : `branch ${candidate.branch}`
+    }`;
+  }
+  // A planned detached candidate implies the scan ran with includeDetached.
+  const keep = await worktreeKeepReasons(
+    scan.repoRoot,
+    rec,
+    scan.mainBranch,
+    true,
+  );
+  return keep.length > 0 ? keep.join(", ") : undefined;
+}
+
+/**
  * Apply a git-worktree prune scan. This consumes the scan built earlier rather
- * than discovering a fresh candidate set.
+ * than discovering a fresh candidate set, but re-validates every destructive
+ * candidate against live state first: a worktree that gained work while the
+ * plan waited for confirmation is skipped, never force-removed.
  */
 export async function pruneGitWorktrees(
   scan: GitWorktreePruneScan,
@@ -1976,6 +2049,13 @@ export async function pruneGitWorktrees(
     log.line("Nothing to remove.");
   } else {
     for (const candidate of scan.worktreesToRemove) {
+      const changed = await removalCandidateChanged(scan, candidate);
+      if (changed !== undefined) {
+        log.warn(
+          `Skipped ${candidate.path}: candidate changed since the plan was built (${changed}).`,
+        );
+        continue;
+      }
       log.line(`Removing ${candidate.path}...`);
       try {
         await removeWorktreeSafely(candidate.path, scan.repoRoot, {
@@ -2065,6 +2145,9 @@ export interface OrphanWorktreeRemoval {
 /** The read-only orphan-worktree sweep scan. */
 export interface OrphanWorktreeSweepScan {
   mainRepo: string;
+  /** The integration branch the scan judged merged-ness against — carried so
+   * the apply path can re-run the same eligibility check per candidate. */
+  mainBranch: string;
   removable: OrphanWorktreeRemoval[];
   kept: { path: string; reason: string }[];
 }
@@ -2224,7 +2307,7 @@ export async function scanOrphanWorktreesForSweep(
       kept.push({ path: dir, reason: decision.reason });
     }
   }
-  return { mainRepo, removable, kept };
+  return { mainRepo, mainBranch, removable, kept };
 }
 
 /** Render the read-only orphan-worktree sweep scan without re-scanning. */
@@ -2247,7 +2330,41 @@ export function renderOrphanWorktreeSweepScan(
   }
 }
 
-/** Apply an orphan-worktree sweep scan exactly as planned. */
+/**
+ * Re-validate one planned orphan-directory removal against LIVE state: still
+ * unregistered (an orphan that was re-adopted is a live worktree again) and
+ * still clean + fully merged per {@link inspectOrphanWorktree}, the scan's own
+ * eligibility predicate. Returns `undefined` when the removal is still safe,
+ * otherwise why the directory must now be kept.
+ */
+async function orphanCandidateChanged(
+  scan: OrphanWorktreeSweepScan,
+  dir: string,
+): Promise<string | undefined> {
+  const listRun = await git(["worktree", "list", "--porcelain"], scan.mainRepo);
+  if (!listRun.success) {
+    return "could not list worktrees";
+  }
+  const canonical = await canonicalizeMaybeMissing(dir);
+  for (const rec of parseWorktreeList(listRun.stdout)) {
+    if ((await canonicalizeMaybeMissing(rec.path)) === canonical) {
+      return "registered as a live worktree again";
+    }
+  }
+  const decision = await inspectOrphanWorktree(
+    scan.mainRepo,
+    dir,
+    scan.mainBranch,
+  );
+  return decision.remove ? undefined : decision.reason;
+}
+
+/**
+ * Apply an orphan-worktree sweep scan. Consumes the planned candidate set, but
+ * re-validates each directory against live state first: an orphan that gained
+ * work (or was re-registered) while the plan waited for confirmation is
+ * skipped, never removed.
+ */
 export async function sweepOrphanWorktrees(
   scan: OrphanWorktreeSweepScan,
   log: Logger,
@@ -2257,6 +2374,16 @@ export async function sweepOrphanWorktrees(
   const removed: string[] = [];
   let failed = false;
   for (const item of scan.removable) {
+    if (!(await pathExists(item.path))) {
+      continue; // already gone — nothing left to remove
+    }
+    const changed = await orphanCandidateChanged(scan, item.path);
+    if (changed !== undefined) {
+      log.warn(
+        `Skipped orphan ${item.path}: candidate changed since the plan was built (${changed}).`,
+      );
+      continue;
+    }
     log.line(`Removing orphan ${item.path}...`);
     try {
       await removeWorktreeSafely(item.path, scan.mainRepo, {

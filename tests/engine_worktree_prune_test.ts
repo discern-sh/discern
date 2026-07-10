@@ -31,6 +31,13 @@ import {
   writeConfig,
 } from "./engine_helpers.ts";
 import { wireProviderWorktreeApp } from "../src/lib/providers.ts";
+import {
+  type GitWorktreePruneScan,
+  type OrphanWorktreeSweepScan,
+  pruneGitWorktrees,
+  sweepOrphanWorktrees,
+} from "../src/engine/worktree/git.ts";
+import { Logger } from "../src/lib/log.ts";
 
 /** A scaffolded, committed main repo with one linked worktree ready to drive. */
 async function mainWithWorktree(dir: string, name: string): Promise<string> {
@@ -397,6 +404,159 @@ Deno.test("worktree prune refuses to run from inside a linked worktree", async (
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "main checkout");
     assert(await exists(wt), `the worktree must be left intact\n${r.output}`);
+  });
+});
+
+// ── prune apply — stale-scan revalidation (the confirmation-window race) ────
+//
+// The prune plan is built BEFORE the interactive confirmation, so by the time
+// apply runs, a candidate that scanned clean and fully merged may have gained
+// uncommitted work, new commits, or a different branch — discern's own product
+// model is many agents working in parallel worktrees. The apply path's own
+// discipline (deleteBranchSafe re-checks merged-ness; the stale-metadata prune
+// re-reads the gitdir pointer) must hold for the worktree removal too: each
+// candidate is re-validated against LIVE state just before removal and skipped
+// when it changed since the plan was built. These tests drive the apply
+// function directly with the scan a waiting prompt would have held.
+
+/** A logger with all output suppressed (json mode) — these direct-call tests
+ * assert on returned results and disk state, not narration. */
+function quietLog(): Logger {
+  return new Logger({ json: true, noColor: true });
+}
+
+/**
+ * A clean, fully-merged linked worktree plus the prune scan that classified it
+ * REMOVE — the plan `worktree prune` holds while its confirmation prompt
+ * waits. The candidate carries the path exactly as the production scan records
+ * it: git's own worktree listing.
+ */
+async function staleRemovalScan(
+  dir: string,
+  name: string,
+): Promise<{ wt: string; scan: GitWorktreePruneScan }> {
+  const wt = await mainWithWorktree(dir, name);
+  await Deno.writeTextFile(join(wt, "m.txt"), "m\n");
+  await git(wt, "add", "-A");
+  await git(wt, "commit", "-q", "-m", "m", "--no-gpg-sign");
+  await git(dir, "merge", "--no-ff", "-m", `merge ${name}`, `agent/${name}`);
+  const listed = (await gitOut(dir, "worktree", "list", "--porcelain"))
+    .split("\n")
+    .filter((l) => l.startsWith("worktree "))
+    .map((l) => l.slice("worktree ".length))
+    .find((p) => p.endsWith(`/${name}`));
+  assert(listed !== undefined, "fixture worktree must be listed by git");
+  return {
+    wt,
+    scan: {
+      repoRoot: await gitOut(dir, "rev-parse", "--show-toplevel"),
+      mainBranch: "main",
+      worktreesToRemove: [{ path: listed, branch: `agent/${name}` }],
+      branchesToDelete: [],
+      staleMetadata: [],
+      worktreeLines: [],
+      branchLines: [],
+    },
+  };
+}
+
+/**
+ * Post-scan mutations — the work an agent could do in a worktree while the
+ * already-built plan waits at the confirmation prompt. Each must disqualify
+ * the candidate at apply time. The `undefined` control row pins the other
+ * direction: an unchanged candidate is still removed, so the re-check can
+ * never dead-end an honest prune.
+ */
+const PRUNE_APPLY_RACES: Record<
+  string,
+  ((wt: string) => Promise<void>) | undefined
+> = {
+  "an unchanged candidate is still removed": undefined,
+  "uncommitted work written after the scan survives": async (wt) => {
+    await Deno.writeTextFile(join(wt, "in-flight.txt"), "unsaved work\n");
+  },
+  "a commit made after the scan keeps the worktree": async (wt) => {
+    await Deno.writeTextFile(join(wt, "post-scan.txt"), "new\n");
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "post-scan", "--no-gpg-sign");
+  },
+  "a branch switched after the scan keeps the worktree": async (wt) => {
+    await git(wt, "checkout", "-q", "-b", "agent/elsewhere");
+  },
+};
+
+for (const [caseName, mutate] of Object.entries(PRUNE_APPLY_RACES)) {
+  Deno.test(`worktree prune apply re-validates its scan: ${caseName}`, async () => {
+    await withTempDir(async (dir) => {
+      const { wt, scan } = await staleRemovalScan(dir, "raced");
+      if (mutate !== undefined) {
+        await mutate(wt);
+      }
+
+      const result = await pruneGitWorktrees(scan, quietLog());
+
+      if (mutate === undefined) {
+        assertEquals(result.failed, false);
+        assertEquals(
+          await exists(wt),
+          false,
+          "an unchanged candidate must still be removed",
+        );
+        assertEquals((await branchList(dir)).includes("agent/raced"), false);
+      } else {
+        assertEquals(result.removed, [], "a changed candidate must be skipped");
+        assertEquals(result.branchesDeleted, []);
+        assertEquals(
+          result.failed,
+          false,
+          "a kept candidate is a skip, not a failure",
+        );
+        assert(
+          await exists(wt),
+          "work created during the confirmation window must survive",
+        );
+        assert(
+          (await branchList(dir)).includes("agent/raced"),
+          "the planned branch must survive with its worktree",
+        );
+      }
+    });
+  });
+}
+
+Deno.test("orphan sweep apply keeps a dir that gained work after the scan", async () => {
+  await withTempDir(async (dir) => {
+    // A clean, fully-merged worktree severed from git's registry by moving it —
+    // the orphan shape the sweep scan classifies as removable.
+    const wt = await mainWithWorktree(dir, "sweepraced");
+    await Deno.writeTextFile(join(wt, "m.txt"), "m\n");
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "m", "--no-gpg-sign");
+    await git(dir, "merge", "--no-ff", "-m", "merge", "agent/sweepraced");
+    const orphan = join(dirname(wt), "sweepraced-moved");
+    await Deno.rename(wt, orphan);
+
+    const scan: OrphanWorktreeSweepScan = {
+      mainRepo: await Deno.realPath(dir),
+      mainBranch: "main",
+      removable: [{
+        path: orphan,
+        reason: "clean branch agent/sweepraced, fully merged",
+      }],
+      kept: [],
+    };
+
+    // The race: unsaved work lands in the orphan while the plan awaits consent.
+    await Deno.writeTextFile(join(orphan, "in-flight.txt"), "unsaved work\n");
+
+    const result = await sweepOrphanWorktrees(scan, quietLog());
+    assertEquals(result.removed, [], "a changed candidate must be skipped");
+    assertEquals(result.failed, false, "a kept candidate is not a failure");
+    assertEquals(
+      await Deno.readTextFile(join(orphan, "in-flight.txt")),
+      "unsaved work\n",
+      "work created during the confirmation window must survive",
+    );
   });
 });
 
