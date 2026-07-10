@@ -58,10 +58,12 @@ You watch this happen. It's ordinary file edits on a branch you can read.
 ## 4. Setup proves itself, then hands back
 
 When the scaffold is ready, the agent runs `discern setup done`. This is not a
-rubber stamp: discern **proves the gate** — it refreshes the generated files,
-runs `discern doctor`, runs `discern finish`, and then runs the whole gate again
-in a **throwaway worktree copy**, so a project that passes on your machine but
-would break in an isolated worktree can't complete setup silently.
+rubber stamp: discern first refuses if any of the authored setup is still
+uncommitted (the proof runs on committed history, and "the branch keeps every
+commit" has to be true), then **proves the gate** — it refreshes the generated
+files, runs `discern doctor`, runs `discern finish`, and then runs the whole
+gate again in a **throwaway worktree copy**, so a project that passes on your
+machine but would break in an isolated worktree can't complete setup silently.
 
 If that all passes, discern records that setup is complete and serves a
 **reactivation** note: the MCP tools, session hooks, and project rules it wired
