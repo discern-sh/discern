@@ -803,6 +803,37 @@ Deno.test("receipt: a --force check over a dirty tree records nothing", async ()
   });
 });
 
+Deno.test("receipt: a commit made while the check measured is never recorded (the pin catches it)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    // The measurement itself commits — a deterministic stand-in for "someone
+    // commits in another terminal while the (slow) measurements run". The check
+    // stays green, but the values describe the PINNED tree, not the new HEAD.
+    await writeConfig(
+      dir,
+      pinConfig({
+        name: "coverage",
+        direction: "up",
+        limit: "80",
+        run: "git commit -q --allow-empty -m mid-measure --no-gpg-sign && " +
+          "echo 'DISCERN_METRIC coverage 95'",
+      }),
+    );
+    await gitInit(dir);
+
+    const check = await runAgent(dir, ["ratchets", "--json"]);
+    assertEquals(check.code, 0, check.output);
+    const receipt = await Deno.stat(measurementsFile(dir)).catch(() =>
+      undefined
+    );
+    assertEquals(
+      receipt,
+      undefined,
+      "values measured before a mid-run commit must not vouch for the new HEAD",
+    );
+  });
+});
+
 Deno.test("receipt: a reusing pin still re-checks never-loosen against LIVE main", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

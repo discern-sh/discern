@@ -1372,6 +1372,7 @@ export type DiscernFinishResult = {
       status:
         | "recorded"
         | "skipped_dirty"
+        | "skipped_head_moved"
         | "unavailable"
         | "record_failed"
         | "cleared"

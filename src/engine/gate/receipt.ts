@@ -8,9 +8,11 @@
  * (`.git/worktrees/<name>/discern-gate-receipt`). It is therefore worktree-local
  * (never shared across branches), never tracked or committed (it sits inside
  * `.git`), and self-cleaning (it vanishes with the worktree). Its first line is the
- * validated HEAD sha; the rest is the rendered **receipt** markdown that finish
- * emitted for that tree — the review-moment summary `status` and `graduate` surface
- * without re-running the gate.
+ * validated HEAD sha — PINNED before the gate run began and re-verified unmoved at
+ * stamp time ({@link ValidatedTreePin}), so it can only ever name a commit whose
+ * tree the gate actually read; the rest is the rendered **receipt** markdown that
+ * finish emitted for that tree — the review-moment summary `status` and `graduate`
+ * surface without re-running the gate.
  *
  * The receipt is honored ONLY while it still names the current HEAD AND the tree is
  * clean — so any new commit (the merge `integrate` creates), amend, or uncommitted
@@ -97,6 +99,38 @@ function failureReason(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/** Brand for {@link ValidatedTreePin} — declared, never emitted, not exported, so
+ * only this module can mint a pin. */
+declare const VALIDATED_TREE_PIN: unique symbol;
+
+/**
+ * The tree identity a validation run is about to read, captured BEFORE the run
+ * begins: the HEAD sha and full cleanliness at that moment. Every receipt stamp
+ * requires one and re-verifies it at stamp time — so a vouch can only ever name
+ * a commit whose tree the validated work actually read (a commit made mid-run
+ * moves HEAD past the pin, and the stamp is refused instead of vouching blind).
+ *
+ * Deliberately only constructible via {@link pinValidatedTree} (the brand makes
+ * the type nominal): a caller cannot hand-roll a pin from a sha it happens to
+ * hold — it must sample the tree, and must do so before the work it wants
+ * vouched, which is the whole invariant.
+ */
+export interface ValidatedTreePin {
+  /** HEAD at capture time, or `undefined` when it could not be read. */
+  readonly head: string | undefined;
+  /** Whether the tree was FULLY clean at capture time. */
+  readonly clean: boolean;
+  readonly [VALIDATED_TREE_PIN]: true;
+}
+
+/** Sample the tree at `cwd` NOW — call this before the validation work runs. */
+export async function pinValidatedTree(cwd: string): Promise<ValidatedTreePin> {
+  return {
+    head: await headSha(cwd),
+    clean: await isWorktreeFullyClean(cwd),
+  } as ValidatedTreePin;
+}
+
 function receiptRecord(
   status: GateReceiptRecordData["status"],
   fields: Omit<GateReceiptRecordData, "status"> = {},
@@ -105,17 +139,24 @@ function receiptRecord(
 }
 
 /**
- * Record the outcome of a `finish` run into the receipt marker:
+ * Record the outcome of a `finish` run into the receipt marker. `pin` is the tree
+ * identity captured BEFORE the run began ({@link pinValidatedTree}); a stamp names
+ * the PINNED sha, and only after re-verifying the tree still matches it — the
+ * receipt must vouch only for the exact tree the gate actually read:
  *
- * - GREEN over a CLEAN tree → stamp the validated HEAD (the vouch graduate honors),
- *   plus `receiptMarkdown` when the run rendered a receipt, so `status` and
- *   `graduate` can surface the review summary without re-running the gate.
+ * - GREEN over a CLEAN tree that matches the pin → stamp the validated HEAD (the
+ *   vouch graduate honors), plus `receiptMarkdown` when the run rendered a receipt,
+ *   so `status` and `graduate` can surface the review summary without re-running
+ *   the gate.
+ * - GREEN but HEAD moved since the pin (a commit landed mid-run) → stamp nothing:
+ *   the run validated the pinned tree, not the commit now at HEAD. Any prior vouch
+ *   is left untouched (still truthful at its own sha).
  * - FAILED gate → clear any receipt (fail-closed: a tree the gate just rejected must
  *   not stay vouched; clearing also closes the rare flake/environment-drift case where
  *   a clean HEAD's gate result turns failing with the tree unchanged).
- * - GREEN but DIRTY → leave the file untouched: it cannot vouch for clean HEAD, but a
- *   prior clean vouch (at its own sha) is still truthful, and graduate's HEAD-match +
- *   clean check keeps it honest.
+ * - GREEN but DIRTY (at pin time or now) → leave the file untouched: it cannot vouch
+ *   for clean HEAD, but a prior clean vouch (at its own sha) is still truthful, and
+ *   graduate's HEAD-match + clean check keeps it honest.
  *
  * Best-effort throughout: the receipt is an optimization, so a write/delete hiccup
  * must never fail the finish that produced it.
@@ -123,6 +164,7 @@ function receiptRecord(
 export async function recordGateOutcome(
   cwd: string,
   passed: boolean,
+  pin: ValidatedTreePin,
   receiptMarkdown?: string,
 ): Promise<GateReceiptRecordData> {
   const path = await receiptPath(cwd);
@@ -133,23 +175,42 @@ export async function recordGateOutcome(
   }
 
   if (passed) {
+    if (pin.head === undefined) {
+      return receiptRecord("unavailable", {
+        path,
+        reason: "could not read HEAD when the run began",
+      });
+    }
+    const headNow = await headSha(cwd);
+    if (headNow === undefined) {
+      return receiptRecord("unavailable", {
+        path,
+        reason: "could not read HEAD",
+      });
+    }
+    if (headNow !== pin.head) {
+      return receiptRecord("skipped_head_moved", {
+        path,
+        reason:
+          `HEAD moved while the run was underway (validated ${pin.head}, now ${headNow})`,
+      });
+    }
+    if (!pin.clean) {
+      return receiptRecord("skipped_dirty", {
+        path,
+        reason: "the worktree was not clean when the run began",
+      });
+    }
     if (!(await isWorktreeFullyClean(cwd))) {
       return receiptRecord("skipped_dirty", {
         path,
         reason: "the worktree is not clean",
       });
     }
-    const head = await headSha(cwd);
-    if (head === undefined) {
-      return receiptRecord("unavailable", {
-        path,
-        reason: "could not read HEAD",
-      });
-    }
     try {
       const body = receiptMarkdown === undefined || receiptMarkdown === ""
-        ? `${head}\n`
-        : `${head}\n\n${receiptMarkdown.trim()}\n`;
+        ? `${pin.head}\n`
+        : `${pin.head}\n\n${receiptMarkdown.trim()}\n`;
       await Deno.writeTextFile(path, body);
       return receiptRecord("recorded", { path });
     } catch (error) {
@@ -259,7 +320,10 @@ export async function gateReceiptHonored(cwd: string): Promise<boolean> {
  * (`priorHonored`), which only the caller — the author of the commit, so the one party
  * that knows it touched nothing but ratchet limits — may assert. With no prior vouch it
  * does nothing (returns `undefined`), leaving the now-stale receipt for `graduate` to
- * re-validate. Best-effort like all receipt I/O: a write hiccup never fails the pin.
+ * re-validate. The pin is captured here, at the stamp moment: the vouched "work" is the
+ * pin commit itself, which the caller just made synchronously, so the tree sampled now
+ * IS the tree the vouch is about. Best-effort like all receipt I/O: a write hiccup
+ * never fails the pin.
  */
 export async function carryReceiptForwardAcrossPin(
   cwd: string,
@@ -268,7 +332,7 @@ export async function carryReceiptForwardAcrossPin(
   if (!priorHonored) {
     return undefined;
   }
-  return await recordGateOutcome(cwd, true);
+  return await recordGateOutcome(cwd, true, await pinValidatedTree(cwd));
 }
 
 // ── the ratchet measurement receipt ─────────────────────────────────────────────
@@ -280,27 +344,34 @@ export type RatchetMeasurementsCheck =
   | { status: "missing" | "stale" | "dirty" | "malformed" | "unavailable" };
 
 /**
- * Record a green `ratchets` check's per-ratchet measured values against the current
- * HEAD, for a subsequent `--pin` on that same clean HEAD to reuse. Mirrors
- * {@link recordGateOutcome}'s conditions: only a CLEAN tree with a readable HEAD earns
- * a receipt (a dirty check — `--force` — records nothing, since the values describe a
- * tree no pin will ever see). Best-effort: an I/O hiccup never fails the check that
- * produced the measurements. Returns whether a receipt was written.
+ * Record a green `ratchets` check's per-ratchet measured values against the HEAD
+ * pinned BEFORE the measurements ran, for a subsequent `--pin` on that same clean
+ * HEAD to reuse. Mirrors {@link recordGateOutcome}'s conditions: only a CLEAN tree
+ * with a readable HEAD that still matches the pin earns a receipt (a dirty check —
+ * `--force` — records nothing, since the values describe a tree no pin will ever
+ * see; a mid-measurement commit records nothing, since the values describe the
+ * pinned tree, not the commit now at HEAD). Best-effort: an I/O hiccup never fails
+ * the check that produced the measurements. Returns whether a receipt was written.
  */
 export async function recordRatchetMeasurements(
   cwd: string,
   values: Record<string, number>,
+  pin: ValidatedTreePin,
 ): Promise<boolean> {
   const path = await adminFilePath(cwd, MEASUREMENTS_FILE);
-  if (path === undefined || !(await isWorktreeFullyClean(cwd))) {
+  if (path === undefined || pin.head === undefined || !pin.clean) {
     return false;
   }
-  const head = await headSha(cwd);
-  if (head === undefined) {
+  if (
+    (await headSha(cwd)) !== pin.head || !(await isWorktreeFullyClean(cwd))
+  ) {
     return false;
   }
   try {
-    await Deno.writeTextFile(path, `${JSON.stringify({ head, values })}\n`);
+    await Deno.writeTextFile(
+      path,
+      `${JSON.stringify({ head: pin.head, values })}\n`,
+    );
     return true;
   } catch {
     return false;

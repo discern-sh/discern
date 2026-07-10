@@ -28,7 +28,7 @@ import {
   scopeGatesGroup,
 } from "./plan.ts";
 import { gateRunContext, runGroup } from "./execute.ts";
-import { recordGateOutcome } from "./receipt.ts";
+import { pinValidatedTree, recordGateOutcome } from "./receipt.ts";
 import { buildGateReceipt } from "./receipt_render.ts";
 import { cmdsInStage } from "./stages.ts";
 import {
@@ -208,6 +208,11 @@ async function runGate(
     changed: string[];
   }
 > {
+  // Pin the tree identity FIRST — before any precondition or job reads it. A green
+  // outcome vouches for THIS (HEAD, clean) pair; recordGateOutcome re-verifies the
+  // pin at stamp time, so a commit made while the gate runs can never earn a receipt
+  // naming a tree the jobs never read.
+  const treePin = await pinValidatedTree(root);
   const cfg = await loadConfig(root);
   // Human: gate narration + job output → stdout. --json:
   // quiet — the result envelope is the entire output (ADR 0030), so the runner
@@ -383,18 +388,26 @@ async function runGate(
     ? await buildGateReceipt(root, mainBranch, result.steps ?? [])
     : undefined;
   // Record the gate-pass receipt (ADR 0067): a GREEN run over a CLEAN tree stamps the
-  // validated HEAD so `graduate` can prove THIS tree already passed without re-running
-  // the gate; a FAILED run clears any stale vouch. Best-effort — never fails the gate,
-  // but the outcome rides in `data` so suppressed logs still expose receipt trouble.
+  // HEAD pinned at gate start so `graduate` can prove THIS tree already passed without
+  // re-running the gate; a FAILED run clears any stale vouch. Best-effort — never fails
+  // the gate, but the outcome rides in `data` so suppressed logs still expose receipt
+  // trouble.
   const gateReceipt = await recordGateOutcome(
     root,
     failedStage === null,
+    treePin,
     receipt?.markdown,
   );
+  // A stamp refused because HEAD moved mid-run also suppresses the rendered review
+  // receipt: its git facts were gathered AFTER the move, so its markdown describes a
+  // tree the gate never read — the hint tells the agent to re-run on the final commit.
+  const emittedReceipt = gateReceipt.status === "skipped_head_moved"
+    ? undefined
+    : receipt;
   if (result.data !== undefined) {
     result.data.gate_receipt = gateReceipt;
-    if (receipt !== undefined) {
-      result.data.receipt = receipt;
+    if (emittedReceipt !== undefined) {
+      result.data.receipt = emittedReceipt;
     }
   }
   // Pre-setup, lead with the "setup unfinished" advisory (ADR 0065): finish runs
@@ -421,7 +434,7 @@ async function runGate(
       changed,
       failedStage,
       gateReceipt.status === "recorded",
-      receipt !== undefined,
+      emittedReceipt !== undefined,
     ),
     ...jobOutputHints,
     ...couplingHints,
@@ -443,6 +456,8 @@ function gateReceiptHint(
         return undefined;
       case "skipped_dirty":
         return "Gate passed, but no gate-pass receipt was recorded because the worktree is dirty. Use `discern prepare` or `discern test` while iterating, then commit the intended final tree and re-run `discern finish` on the clean HEAD before handoff or graduation.";
+      case "skipped_head_moved":
+        return `Gate passed, but no gate-pass receipt was recorded because HEAD moved while the gate was running${reason} — the receipt can only vouch for the exact tree the gate tested. Re-run \`discern finish\` on the final commit before handoff or graduation.`;
       case "record_failed":
         return `Gate passed, but discern could not record the gate-pass receipt${reason}; \`discern graduate\` will re-run the gate unless a later finish records one.`;
       case "unavailable":

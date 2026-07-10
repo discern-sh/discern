@@ -84,7 +84,9 @@ recorded receipt proves the agent's own `finish` already passed this commit
 ([ADR 0067](../_adr/0067-graduate-validates-the-landed-tree.md)) — then lands
 the branch on the **trunk** — the single push target of the landing model
 ([ADR 0110](../_adr/0110-the-landing-model.md)): the trunk is fast-forwarded to
-the branch tip (always clean — the gate proved the branch contains it), the
+the **validated commit** — never a branch name resolved at merge time, so a
+commit made while the validation ran is refused rather than landed untested —
+always cleanly (the gate proved the branch contains the trunk), then the
 Worktree removed, and the merged branch deleted. Composition happens on the pull
 axis instead: `start --from` and `integrate --from` build on any ref, so
 multi-phase work assembles below the trunk and only the finished whole crosses

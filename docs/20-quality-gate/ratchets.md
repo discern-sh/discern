@@ -114,8 +114,10 @@ A green `discern ratchets` check already measured everything, so its hints name
 any pinnable slack — decided by the same rule a real pin applies — making the
 whole flow check → pin. The green check also records its values as a
 **measurement receipt** against the exact commit (the gate receipt marker's
-model), so a pin on that same clean commit reuses them instead of re-running
-every slow measurement: the flow measures once. Any new commit, uncommitted
+model — the commit is pinned before the measurements run and re-verified at
+record time, so a mid-measurement commit records nothing), and a pin on that
+same clean commit reuses the values instead of re-running every slow
+measurement: the flow measures once. Any new commit, uncommitted
 edit, or red check silently invalidates the receipt and the pin measures fresh;
 only the never-loosen comparison is always re-checked live, because `main` can
 advance while the branch stands still

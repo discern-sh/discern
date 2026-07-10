@@ -57,7 +57,9 @@ import {
   clearRatchetMeasurements,
   inspectGateReceipt,
   inspectRatchetMeasurements,
+  pinValidatedTree,
   recordRatchetMeasurements,
+  type ValidatedTreePin,
 } from "./receipt.ts";
 
 /** True when `s` is a non-negative decimal number. */
@@ -463,13 +465,14 @@ async function executeRatchetPlan(
 }
 
 /** Route a plain check's outcome into the measurement receipt: green over a clean
- * tree records every measured value against HEAD (for a `--pin` on that same clean
- * HEAD to reuse), red clears any receipt (fail-closed). Returns whether a reusable
- * receipt now exists. Best-effort — the receipt is an optimization, never part of
- * the check's own verdict. */
+ * tree records every measured value against the HEAD pinned before the measurements
+ * ran (for a `--pin` on that same clean HEAD to reuse), red clears any receipt
+ * (fail-closed). Returns whether a reusable receipt now exists. Best-effort — the
+ * receipt is an optimization, never part of the check's own verdict. */
 async function recordCheckMeasurements(
   root: string,
   execution: RatchetExecution,
+  pin: ValidatedTreePin,
 ): Promise<boolean> {
   if (!execution.ok) {
     await clearRatchetMeasurements(root);
@@ -482,7 +485,7 @@ async function recordCheckMeasurements(
     }
     values[o.ratchet.name] = o.value;
   }
-  return await recordRatchetMeasurements(root, values);
+  return await recordRatchetMeasurements(root, values, pin);
 }
 
 // ── `--pin`: capture a measured improvement into the limit (ADR 0106) ──────────
@@ -899,12 +902,15 @@ export async function ratchetsResult(
     } else {
       const mainBranch = Deno.env.get("MAIN_BRANCH") || cfg.project.main_branch;
       const out = makeOut(colorEnabled(), { quiet: true });
+      // Pin the tree BEFORE the (slow) measurements run: the receipt may only vouch
+      // for the exact tree they read, so a mid-measurement commit voids the stamp.
+      const treePin = await pinValidatedTree(root);
       const execution = await executeRatchetPlan(plan, root, mainBranch, out);
       const { results, outcomes, diagnostics } = execution;
       result = appliedResult("ratchets", results, diagnostics);
       // Green over a clean tree: record the measurement receipt a `--pin` on this
       // same clean HEAD reuses; red: clear any receipt (fail-closed).
-      const receipted = await recordCheckMeasurements(root, execution);
+      const receipted = await recordCheckMeasurements(root, execution, treePin);
       // A green check just paid for every measurement, so answer the natural next
       // question for free: which limits have pinnable slack. Decided by the SAME
       // pinnedLimit the pin pass applies, so this hint and a real pin can never
@@ -1030,8 +1036,9 @@ export async function runRatchets(
     }
   }
 
+  const treePin = await pinValidatedTree(root);
   const execution = await executeRatchetPlan(plan, root, mainBranch, out);
-  await recordCheckMeasurements(root, execution);
+  await recordCheckMeasurements(root, execution, treePin);
   const { results } = execution;
   const result = appliedResult("ratchets", results);
   renderStepResults(outSink(out), {
