@@ -10,7 +10,12 @@ handler, execs an _unknown_ verb as a matching project Recipe (with the
 `DISCERN_*` environment exported), lets the Engine win on a name collision with
 a project recipe, and suggests a near-match on a typo. Every subsystem's verbs
 are always registered — there is no toggle layer in the dispatch
-([ADR 0101](../_adr/0101-retire-the-features-toggles.md)).
+([ADR 0101](../_adr/0101-retire-the-features-toggles.md)). The router in
+[`main.ts`](../../src/main.ts) resolves the verb as the first token that is not
+a global flag, so `discern --json <verb>` routes exactly like
+`discern <verb> --json` — the pre-setup redirect
+([ADR 0036](../_adr/0036-unify-setup.md)), the welcome/help split, and recipe
+dispatch included.
 
 The Engine is **TypeScript compiled into the binary**, under
 [`src/engine/`](../../src/engine/) and sharing
