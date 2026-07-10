@@ -1213,6 +1213,7 @@ async function executeGraduatePlan(
 ): Promise<{
   steps: StepResult[];
   gateValidation: NonNullable<GraduateData["gate_validation"]>;
+  receiptMarkdown: string | undefined;
   refreshHints: string[];
 }> {
   // ensure a named branch (the one mutating step the read-only diagnosis deferred)
@@ -1241,10 +1242,15 @@ async function executeGraduatePlan(
     receipt.status === "honored"
       ? { mode: "receipt", receipt }
       : { mode: "rerun", receipt };
+  // The receipt markdown for the tree that lands — the landing record graduate
+  // prints and carries: the honored marker stored it on the fast path; the fresh
+  // gate run rendered it on the slow path.
+  let receiptMarkdown: string | undefined;
   if (gateValidation.mode === "receipt") {
     ctx.log.ok(
       "Branch already passed the gate at this commit — skipping the re-run.",
     );
+    receiptMarkdown = receipt.receipt;
   } else {
     ctx.log.info("Validating the branch against the full gate before landing…");
     const gate = await finishResult(ctx.cwd);
@@ -1252,6 +1258,7 @@ async function executeGraduatePlan(
       throw new WorktreeGitError(graduateGateRefusal(worktreeBranch, gate));
     }
     ctx.log.ok("Gate passed against the tree to be landed.");
+    receiptMarkdown = gate.data?.receipt?.markdown;
   }
 
   await assertGraduateBranchStillCurrent(ctx.cwd, trunk);
@@ -1398,7 +1405,15 @@ async function executeGraduatePlan(
 
   ctx.log.heading("Graduation complete.");
   ctx.log.line(`  You are on ${trunk} in ${mainRepo}.`);
-  return { steps: results, gateValidation, refreshHints };
+  // The landing record: the receipt for the tree that just landed, pasteable
+  // into a PR body. Printed unindented so it relays as clean markdown.
+  if (receiptMarkdown !== undefined) {
+    ctx.log.line("");
+    for (const line of receiptMarkdown.split("\n")) {
+      ctx.log.line(line);
+    }
+  }
+  return { steps: results, gateValidation, receiptMarkdown, refreshHints };
 }
 
 /**
@@ -1453,11 +1468,19 @@ export async function graduateResult(
   result.data = {
     root: plan.mainRepo,
     gate_validation: executed.gateValidation,
+    ...(executed.receiptMarkdown !== undefined
+      ? { receipt: executed.receiptMarkdown }
+      : {}),
     ...(hasIgnoredFileChanges(plan.ignoredFileChanges)
       ? { ignored_file_changes: plan.ignoredFileChanges }
       : {}),
   };
-  result.hints = executed.refreshHints;
+  result.hints = executed.receiptMarkdown !== undefined
+    ? [
+      "The receipt (data.receipt) is the landing record — relay it to your owner; it pastes cleanly into a PR body.",
+      ...executed.refreshHints,
+    ]
+    : executed.refreshHints;
   return result;
 }
 

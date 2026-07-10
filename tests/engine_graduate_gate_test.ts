@@ -272,6 +272,13 @@ Deno.test("graduate: a fresh `finish` lets graduate skip the gate re-run (receip
       false,
       `the gate must NOT re-run when the receipt is valid\n${grad.output}`,
     );
+    // The landing record: the honored marker's receipt rides the envelope, with
+    // the relay hint beside it.
+    assertStringIncludes(obj.data.receipt, "### Receipt — `agent/epsilon`");
+    assert(
+      (obj.hints ?? []).some((h: string) => h.includes("landing record")),
+      `expected the landing-record hint: ${JSON.stringify(obj.hints)}`,
+    );
     assertEquals(await exists(wt), false, `should have landed\n${grad.output}`);
   });
 });
@@ -287,6 +294,9 @@ Deno.test("graduate: with no prior `finish`, graduate runs the gate itself befor
     const obj = parseJson(grad.stdout);
     assertEquals(obj.data.gate_validation.mode, "rerun");
     assertEquals(obj.data.gate_validation.receipt.status, "missing");
+    // The slow path's fresh gate run rendered the receipt — graduate still
+    // carries the landing record.
+    assertStringIncludes(obj.data.receipt, "### Receipt — `agent/zeta`");
     assertEquals(await exists(wt), false, `should have landed\n${grad.output}`);
   });
 });
