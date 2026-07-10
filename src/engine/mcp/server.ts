@@ -308,7 +308,9 @@ export const TOOLS: McpTool[] = orderTools([
       "clean merge can still break them); data.gate " +
       "lists what the gate WOULD fire (wired capabilities, checks, triggered scope " +
       "gates); data.gate_receipt explains whether the current clean HEAD already " +
-      "has a recorded discern_finish pass; data.worktree carries this worktree's id/port/db and provisioned " +
+      "has a recorded discern_finish pass (when honored, data.gate_receipt.receipt " +
+      "carries the receipt markdown to relay to your owner at the review moment); " +
+      "data.worktree carries this worktree's id/port/db and provisioned " +
       "resources; data.ratchets lists the configured ratchets. " +
       "data.stale_generated flags generated agent files, data.stale_materialized " +
       "the materialized skills, and data.stale_integrations provider integration " +
@@ -363,7 +365,11 @@ export const TOOLS: McpTool[] = orderTools([
       "Run the discern quality gate (formatters, checks, tests, scope gates) and " +
       "return the structured result: per-step outcomes plus normalized diagnostics " +
       "(tool, file/line when available, message, and the exact command to reproduce " +
-      "each failure). Set dry_run to preview the plan without running anything.",
+      "each failure). A green run over a clean committed tree ahead of the trunk " +
+      "also carries data.receipt — the compact review summary (data.receipt.markdown) " +
+      "to relay VERBATIM to your owner when the task is complete, waiting for their " +
+      "acceptance before any graduation. Set dry_run to preview the plan without " +
+      "running anything.",
     inputSchema: {
       dry_run: z.boolean().optional().describe(
         "Preview the gate plan and touch nothing (default false).",
@@ -606,7 +612,9 @@ export const TOOLS: McpTool[] = orderTools([
       "so generated guidance, skills, and provider integrations match the landed " +
       "tree. This is the single deterministic implementation — " +
       "run it rather than reproducing the steps with git; commit the work with a real " +
-      "message first so it lands as a proper review commit, then relay the result. " +
+      "message first so it lands as a proper review commit, then relay the result " +
+      "(a green landing carries data.receipt — the landing record, pasteable into a " +
+      "PR body). " +
       "Requires the latest `{{main_branch}}` is already integrated, this worktree " +
       "is clean, and the main checkout is clean and sitting on `{{main_branch}}` " +
       '— refuses (error:"precondition_failed") otherwise, naming the exact next ' +
