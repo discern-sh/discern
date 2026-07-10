@@ -43,23 +43,30 @@ export function isScopeMarker(name: string): name is ScopeMarker {
 /**
  * Parse `git status --porcelain=v1` stdout into the list of changed paths. Porcelain
  * lines are "XY <path>", renames "XY <old> -> <new>": strip the 3-char status prefix,
- * keep the post-arrow (new) path, and drop git's wrapping quotes. Shared by the scope
- * classifier and the gate's fix-stage strand check, so both read porcelain identically.
+ * keep BOTH sides of a rename (the vacated old path is a deletion the change set
+ * must not lose — a rename out of a gated scope has to keep firing that scope), and
+ * drop git's wrapping quotes. Shared by the scope classifier and the gate's
+ * fix-stage strand check, so both read porcelain identically.
  */
 export function parsePorcelainPaths(stdout: string): string[] {
   const paths: string[] = [];
+  const push = (raw: string): void => {
+    const p = raw.replace(/^"/, "").replace(/"$/, "");
+    if (p !== "") {
+      paths.push(p);
+    }
+  };
   for (const raw of stdout.split("\n")) {
     if (raw === "") {
       continue;
     }
-    let p = raw.slice(3);
+    const p = raw.slice(3);
     const arrow = p.indexOf(" -> ");
     if (arrow >= 0) {
-      p = p.slice(arrow + 4);
-    }
-    p = p.replace(/^"/, "").replace(/"$/, "");
-    if (p !== "") {
-      paths.push(p);
+      push(p.slice(0, arrow));
+      push(p.slice(arrow + 4));
+    } else {
+      push(p);
     }
   }
   return paths;
@@ -76,8 +83,12 @@ export async function collectPaths(
   root: string,
   mainBranch: string,
 ): Promise<string[] | null> {
+  // --no-renames: rename detection would collapse a rename to one R line naming
+  // only the NEW path, silently dropping the vacated old path from the change
+  // set (a rename out of a gated scope would then fire fewer gates than a plain
+  // deletion). Detection off, both sides list as a D + an A.
   const committed = await runGit(
-    ["diff", "--name-only", `${mainBranch}...HEAD`],
+    ["diff", "--name-only", "--no-renames", `${mainBranch}...HEAD`],
     { cwd: root },
   );
   if (!committed.success) {

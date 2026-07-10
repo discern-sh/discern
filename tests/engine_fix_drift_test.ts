@@ -80,17 +80,25 @@ Deno.test("fixDriftPaths: a no-op fix stage strands nothing", () => {
 
 // ── pure: the shared porcelain parser ───────────────────────────────────────────
 
-Deno.test("parsePorcelainPaths: strips the status prefix, follows renames, drops quotes", () => {
+Deno.test("parsePorcelainPaths: strips the status prefix, keeps BOTH rename sides, drops quotes", () => {
+  // A rename names two paths, and both are evidence: losing the vacated (old)
+  // side would make a rename register as LESS change than a plain deletion —
+  // the scope classifier would skip the vacated scope's gate, and a fixer-made
+  // rename would under-report its strand.
   const out = [
     " M src/a.ts",
     "?? new.txt",
     'R  old.ts -> "new name.ts"',
+    'R  "old name.ts" -> renamed.ts',
     "",
   ].join("\n");
   assertEquals(parsePorcelainPaths(out), [
     "src/a.ts",
     "new.txt",
+    "old.ts",
     "new name.ts",
+    "old name.ts",
+    "renamed.ts",
   ]);
 });
 
