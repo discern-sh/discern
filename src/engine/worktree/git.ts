@@ -19,6 +19,11 @@ import { basename, dirname, isAbsolute, join, resolve } from "@std/path";
 import type { Logger } from "../../lib/log.ts";
 import { type GitResult, runGit } from "../../shared/subprocess.ts";
 import {
+  parsePorcelainZ,
+  type PorcelainEntry,
+  splitNulRecords,
+} from "../../shared/git_paths.ts";
+import {
   formatEnvValue,
   readEnvValueAcross,
   stripQuotes,
@@ -457,10 +462,11 @@ export async function integrateMain(
   // touching the tree (unrelated histories, an untracked file in the way), and
   // calling THAT a conflict would bury git's actual reason. Evidence, never
   // stderr prose: git's messages are locale-dependent.
-  const conflicted = await git(["diff", "--name-only", "--diff-filter=U"], cwd);
-  const files = conflicted.success
-    ? conflicted.stdout.split("\n").map((l) => l.trim()).filter((l) => l !== "")
-    : [];
+  const conflicted = await git(
+    ["diff", "--name-only", "-z", "--diff-filter=U"],
+    cwd,
+  );
+  const files = conflicted.success ? splitNulRecords(conflicted.stdout) : [];
   const midMerge =
     (await git(["rev-parse", "--verify", "--quiet", "MERGE_HEAD"], cwd))
       .success;
@@ -539,12 +545,12 @@ export async function diffFiles(
     string,
     { added: number | null; removed: number | null }
   >();
-  const numstat = await git(["diff", "--numstat", "--no-renames", range], cwd);
+  const numstat = await git(
+    ["diff", "--numstat", "-z", "--no-renames", range],
+    cwd,
+  );
   if (numstat.success) {
-    for (const line of numstat.stdout.split("\n")) {
-      if (line === "") {
-        continue;
-      }
+    for (const line of splitNulRecords(numstat.stdout)) {
       const [a, r, ...rest] = line.split("\t");
       const path = rest.join("\t");
       if (path === "") {
@@ -562,25 +568,21 @@ export async function diffFiles(
     insertions += c.added ?? 0;
     deletions += c.removed ?? 0;
   }
-  // status letters: "<X>\t<path>" — the ordered, authoritative path list.
+  // status letters: with -z, alternating "<X>" and "<path>" NUL fields — the
+  // ordered, authoritative path list (`--no-renames` guarantees the pairing:
+  // no rename record ever carries a second path field).
   const files: IntegrationFile[] = [];
   const theirsPaths: string[] = [];
   const nameStatus = await git(
-    ["diff", "--name-status", "--no-renames", range],
+    ["diff", "--name-status", "-z", "--no-renames", range],
     cwd,
   );
   if (nameStatus.success) {
-    for (const line of nameStatus.stdout.split("\n")) {
-      if (line === "") {
-        continue;
-      }
-      const tab = line.indexOf("\t");
-      if (tab < 0) {
-        continue;
-      }
-      const status = line.slice(0, tab);
-      const path = line.slice(tab + 1);
-      if (path === "") {
+    const fields = nameStatus.stdout.split("\0");
+    for (let i = 0; i + 1 < fields.length; i += 2) {
+      const status = fields[i] ?? "";
+      const path = fields[i + 1] ?? "";
+      if (status === "" || path === "") {
         continue;
       }
       theirsPaths.push(path);
@@ -599,17 +601,16 @@ export async function diffFiles(
   };
 }
 
-/** `git diff --name-only --no-renames <a> <b>` → the changed paths, `[]` on error.
- * The one name-only diff both the integration delta and the overlap reads share. */
+/** `git diff --name-only -z --no-renames <a> <b>` → the changed paths, `[]` on
+ * error. The one name-only diff both the integration delta and the overlap reads
+ * share. */
 async function diffNames(
   cwd: string,
   a: string,
   b: string,
 ): Promise<string[]> {
-  const r = await git(["diff", "--name-only", "--no-renames", a, b], cwd);
-  return r.success
-    ? r.stdout.split("\n").map((l) => l.trim()).filter((l) => l !== "")
-    : [];
+  const r = await git(["diff", "--name-only", "-z", "--no-renames", a, b], cwd);
+  return r.success ? splitNulRecords(r.stdout) : [];
 }
 
 /**
@@ -1428,16 +1429,16 @@ export async function gitSnapshot(
   }
   const branchRun = await git(["branch", "--show-current"], cwd);
   const branch = branchRun.success ? branchRun.stdout.trim() : "";
-  const dirtyLines = await statusLines(cwd, "normal") ?? [];
+  const dirtyEntries = await statusEntries(cwd, "normal") ?? [];
   const { ahead, behind } = await aheadBehind(
     cwd,
     integrationBranch(mainBranchFallback),
   );
-  const lastActivity = await lastActivityAt(cwd, dirtyLines);
+  const lastActivity = await lastActivityAt(cwd, dirtyEntries);
   return {
     branch,
-    clean: dirtyLines.length === 0,
-    changedFiles: dirtyLines.length,
+    clean: dirtyEntries.length === 0,
+    changedFiles: dirtyEntries.length,
     ahead,
     behind,
     ...(lastActivity !== undefined ? { lastActivity } : {}),
@@ -1453,65 +1454,50 @@ export async function gitSnapshot(
 export async function hasUncommittedTrackedChanges(
   cwd: string,
 ): Promise<boolean | undefined> {
-  const lines = await statusLines(cwd, "no");
-  return lines === undefined ? undefined : lines.length > 0;
+  const entries = await statusEntries(cwd, "no");
+  return entries === undefined ? undefined : entries.length > 0;
 }
 
-/** Non-empty porcelain status lines for one checkout, or undefined on git failure. */
-async function statusLines(
+/** Parsed porcelain status entries for one checkout, or undefined on git failure. */
+async function statusEntries(
   cwd: string,
   untrackedFiles: "normal" | "no",
-): Promise<string[] | undefined> {
+): Promise<PorcelainEntry[] | undefined> {
   const statusRun = await git(
-    ["status", "--porcelain", `--untracked-files=${untrackedFiles}`],
+    ["status", "--porcelain", "-z", `--untracked-files=${untrackedFiles}`],
     cwd,
   );
   if (!statusRun.success) {
     return undefined;
   }
-  return statusRun.stdout.split("\n").filter((l) => l !== "");
+  return parsePorcelainZ(statusRun.stdout);
 }
 
 /**
  * The most recent activity timestamp (unix seconds) for the checkout at `cwd`: the
  * latest of the last HEAD movement (the reflog — which captures commits, checkouts,
  * AND the worktree's own creation) and the newest mtime among the uncommitted files
- * (`dirtyLines` from `git status --porcelain`). Pure reads.
+ * (`dirtyEntries` from `git status --porcelain -z`). Pure reads.
  * Undefined when nothing can be determined. Including the reflog's creation entry
  * is deliberate: it keeps a freshly-spawned worktree from reading as old as the
  * branch point it forked from.
  */
 async function lastActivityAt(
   cwd: string,
-  dirtyLines: string[],
+  dirtyEntries: PorcelainEntry[],
 ): Promise<number | undefined> {
   // Last HEAD movement: the reflog's newest entry time. Reflog is appended only on
   // HEAD *movement* (commit/checkout/reset/creation), never on reads, so this is
   // stable across repeated read-only `status` runs. Fall back to the HEAD commit
   // time when the reflog is unavailable (disabled, or an oddly-configured repo).
   let best = await lastHeadMoveTime(cwd) ?? await headCommitTime(cwd);
-  for (const line of dirtyLines) {
-    const path = porcelainPath(line);
-    if (path === "") {
-      continue;
-    }
-    const mtime = await fileMtime(join(cwd, path));
+  for (const entry of dirtyEntries) {
+    const mtime = await fileMtime(join(cwd, entry.path));
     if (mtime !== undefined && (best === undefined || mtime > best)) {
       best = mtime;
     }
   }
   return best;
-}
-
-/** The working-tree path a `git status --porcelain` line names ("XY path", or the
- * post-arrow path of a "XY old -> new" rename), with git's wrapping quotes stripped. */
-function porcelainPath(line: string): string {
-  let p = line.slice(3);
-  const arrow = p.indexOf(" -> ");
-  if (arrow >= 0) {
-    p = p.slice(arrow + 4);
-  }
-  return p.replace(/^"/, "").replace(/"$/, "");
 }
 
 /** A file's mtime in unix seconds, or undefined when it can't be stat'd (a deletion). */
@@ -1827,12 +1813,19 @@ export async function scanGitWorktreesForPrune(
     }
 
     const statusRun = await git(
-      ["-C", rec.path, "status", "--porcelain", "--untracked-files=normal"],
+      [
+        "-C",
+        rec.path,
+        "status",
+        "--porcelain",
+        "-z",
+        "--untracked-files=normal",
+      ],
     );
     if (!statusRun.success) {
       keepReasons.push("status failed; skipped");
     } else if (statusRun.stdout.trim() !== "") {
-      const count = statusRun.stdout.split("\n").filter((l) => l !== "").length;
+      const count = parsePorcelainZ(statusRun.stdout).length;
       keepReasons.push(`dirty ${count} status entries`);
     }
 
@@ -2105,13 +2098,13 @@ async function inspectOrphanWorktree(
   }
 
   const statusRun = await git(
-    ["-C", dir, "status", "--porcelain", "--untracked-files=normal"],
+    ["-C", dir, "status", "--porcelain", "-z", "--untracked-files=normal"],
     repoRoot,
   );
   if (!statusRun.success) {
     keepReasons.push("status failed; skipped");
   } else if (statusRun.stdout.trim() !== "") {
-    const count = statusRun.stdout.split("\n").filter((l) => l !== "").length;
+    const count = parsePorcelainZ(statusRun.stdout).length;
     keepReasons.push(`dirty ${count} status entries`);
   }
 

@@ -24,7 +24,7 @@
 
 import type { Diagnostic } from "../../shared/result.ts";
 import { diagnosticOutputFields } from "./diagnostic_output.ts";
-import { parsePorcelainPaths } from "../scopes/scopes.ts";
+import { parsePorcelainZ } from "../../shared/git_paths.ts";
 import { runGit } from "../../shared/subprocess.ts";
 
 /**
@@ -38,13 +38,13 @@ export async function worktreeDirtyPaths(
   root: string,
 ): Promise<Set<string> | null> {
   const r = await runGit(
-    ["status", "--porcelain=v1", "--untracked-files=no"],
+    ["status", "--porcelain=v1", "-z", "--untracked-files=no"],
     { cwd: root },
   );
   if (!r.success) {
     return null;
   }
-  return new Set(parsePorcelainPaths(r.stdout));
+  return new Set(parsePorcelainZ(r.stdout).map((entry) => entry.path));
 }
 
 /**

@@ -89,7 +89,7 @@ async function headSha(cwd: string): Promise<string | undefined> {
  * clean rule before building a receipt for the committed tree.
  */
 export async function isWorktreeFullyClean(cwd: string): Promise<boolean> {
-  const r = await runGit(["status", "--porcelain"], { cwd });
+  const r = await runGit(["status", "--porcelain", "-z"], { cwd });
   return r.success && r.stdout.trim() === "";
 }
 

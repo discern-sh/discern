@@ -84,6 +84,7 @@ import {
 } from "../shared/setup_checks.ts";
 import { worktreeState } from "../lib/git.ts";
 import { runGit } from "../shared/subprocess.ts";
+import { parsePorcelainZ } from "../shared/git_paths.ts";
 import { RawConfig } from "../shared/config_read.ts";
 import {
   assessSetupAssurance,
@@ -1576,7 +1577,7 @@ function emitSetupIncomplete(
  * is what checks the `[worktree]` wiring covers it. Empty outside a git repo.
  */
 async function uncommittedSetupWork(root: string): Promise<string[]> {
-  const status = await runGit(["status", "--porcelain"], { cwd: root });
+  const status = await runGit(["status", "--porcelain", "-z"], { cwd: root });
   if (!status.success) {
     return []; // not a git repo — nothing to commit, nothing to block on
   }
@@ -1599,20 +1600,18 @@ async function uncommittedSetupWork(root: string): Promise<string[]> {
     guidanceRel,
     SOURCE_PATHS.brief.defaultPath,
   ];
-  return status.stdout
-    .split("\n")
-    .filter((line) => line.trim() !== "")
-    .filter((line) => {
-      if (!line.startsWith("??")) {
+  return parsePorcelainZ(status.stdout)
+    .filter((entry) => {
+      if (!entry.status.startsWith("??")) {
         return true; // any tracked change is authoring work left uncommitted
       }
       // `??` may name a directory that CONTAINS a footprint location, or a path
       // INSIDE one — either direction means authored setup sits uncommitted.
-      const path = line.slice(2).trim();
       return footprint.some(
-        (loc) => path.startsWith(loc) || loc.startsWith(path),
+        (loc) => entry.path.startsWith(loc) || loc.startsWith(entry.path),
       );
-    });
+    })
+    .map((entry) => `${entry.status} ${entry.path}`);
 }
 
 /**

@@ -14,6 +14,7 @@ import type { DiscernResult } from "../../shared/result.ts";
 import type { ScopesData } from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { runGit } from "../../shared/subprocess.ts";
+import { parsePorcelainZ, splitNulRecords } from "../../shared/git_paths.ts";
 import { pathMatchesPattern } from "./glob.ts";
 import { expandDocsDirReference } from "../../shared/docs_path.ts";
 
@@ -41,34 +42,12 @@ export function isScopeMarker(name: string): name is ScopeMarker {
 }
 
 /**
- * Parse `git status --porcelain=v1` stdout into the list of changed paths. Porcelain
- * lines are "XY <path>", renames "XY <old> -> <new>": strip the 3-char status prefix,
- * keep the post-arrow (new) path, and drop git's wrapping quotes. Shared by the scope
- * classifier and the gate's fix-stage strand check, so both read porcelain identically.
- */
-export function parsePorcelainPaths(stdout: string): string[] {
-  const paths: string[] = [];
-  for (const raw of stdout.split("\n")) {
-    if (raw === "") {
-      continue;
-    }
-    let p = raw.slice(3);
-    const arrow = p.indexOf(" -> ");
-    if (arrow >= 0) {
-      p = p.slice(arrow + 4);
-    }
-    p = p.replace(/^"/, "").replace(/"$/, "");
-    if (p !== "") {
-      paths.push(p);
-    }
-  }
-  return paths;
-}
-
-/**
  * Collect the branch's changed paths (committed since the merge-base with main,
- * plus the working tree). Returns null to signal fail-open (git unavailable or
- * no diff base). Exported so the co-change advisory ({@link
+ * plus the working tree). Both listings are read NUL-separated (`-z`) and decoded
+ * by the shared parsers in `src/shared/git_paths.ts`, so a path git would C-quote
+ * in line output (non-ASCII, quotes, control characters) arrives verbatim and
+ * still matches its scope patterns. Returns null to signal fail-open (git
+ * unavailable or no diff base). Exported so the co-change advisory ({@link
  * import("../coupling/coupling.ts").couplingResult}) reads the SAME current change
  * set the scope classifier does, rather than a parallel git query.
  */
@@ -77,30 +56,22 @@ export async function collectPaths(
   mainBranch: string,
 ): Promise<string[] | null> {
   const committed = await runGit(
-    ["diff", "--name-only", `${mainBranch}...HEAD`],
+    ["diff", "--name-only", "-z", `${mainBranch}...HEAD`],
     { cwd: root },
   );
   if (!committed.success) {
     return null;
   }
   const pending = await runGit(
-    ["status", "--porcelain=v1", "--untracked-files=all"],
+    ["status", "--porcelain=v1", "-z", "--untracked-files=all"],
     { cwd: root },
   );
   if (!pending.success) {
     return null;
   }
 
-  const paths: string[] = [];
-  for (const line of committed.stdout.split("\n")) {
-    const p = line.trim();
-    if (p !== "") {
-      paths.push(p);
-    }
-  }
-  // Porcelain v1 lines are "XY <path>", renames "XY <old> -> <new>" — parsed by the
-  // shared parsePorcelainPaths (also used by the gate's fix-stage strand check).
-  paths.push(...parsePorcelainPaths(pending.stdout));
+  const paths = splitNulRecords(committed.stdout);
+  paths.push(...parsePorcelainZ(pending.stdout).map((entry) => entry.path));
   return paths;
 }
 

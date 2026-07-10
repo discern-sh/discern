@@ -38,6 +38,7 @@ import {
 } from "./ignored.ts";
 import { runShellRouted } from "./shell.ts";
 import { type GitResult, runGit } from "../../shared/subprocess.ts";
+import { parsePorcelainZ } from "../../shared/git_paths.ts";
 import {
   classifyOrphans,
   createResources,
@@ -1083,7 +1084,7 @@ async function buildGraduatePlan(
 
   // capture worktree state
   const worktreeDirty =
-    (await run(["status", "--porcelain"])).stdout.trim() !== "";
+    (await run(["status", "--porcelain", "-z"])).stdout.trim() !== "";
   if (worktreeDirty) {
     throw new WorktreeGitError(
       "Worktree has uncommitted changes. Commit or stash them yourself, then re-run — graduation only lands clean branches and will not create WIP commits.",
@@ -2277,10 +2278,12 @@ export async function startResult(
 
   // Advisory, not a gate: uncommitted work in the main checkout never follows a
   // new worktree (it branches from a committed ref), so say where it stays.
-  const mainChanges = (await makeGitRunner(ctx)(
-    ["status", "--porcelain", "--untracked-files=normal"],
-    ctx.root,
-  )).stdout.split("\n").filter((l) => l !== "").length;
+  const mainChanges = parsePorcelainZ(
+    (await makeGitRunner(ctx)(
+      ["status", "--porcelain", "-z", "--untracked-files=normal"],
+      ctx.root,
+    )).stdout,
+  ).length;
   const dirtyNote = mainChanges > 0
     ? `${mainChanges} uncommitted change${
       mainChanges === 1 ? "" : "s"

@@ -137,6 +137,102 @@ Deno.test("scopes fails open when git cannot diff against the main branch", asyn
   });
 });
 
+Deno.test("scopes: a committed non-ASCII filename still fires its scope", async () => {
+  // git C-quotes "unusual" paths in line-oriented output (default core.quotePath),
+  // e.g. `"widget/a\303\261adir.txt"` — a string no scope pattern can match. The
+  // engine must read the branch's changed paths NUL-separated (-z), so the scope
+  // fires on the real path.
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        'main_branch = "main"',
+        "",
+        "[scopes.widget]",
+        'paths = ["widget/**"]',
+        'gate = "true"',
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+    await git(dir, "checkout", "-q", "-b", "feat");
+    await writeExecutable(join(dir, "widget/añadir.txt"), "x");
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "non-ascii", "--no-gpg-sign");
+
+    const result = await classifyScopes(dir);
+    assert(
+      result.includes("widget"),
+      `a committed widget/añadir.txt must fire the widget scope: ${result}`,
+    );
+  });
+});
+
+Deno.test("scopes: an uncommitted path under a non-ASCII directory still fires its scope", async () => {
+  // The working-tree half reads `git status --porcelain`; C-quoted entries used
+  // to keep their octal escapes, so a pattern naming a non-ASCII directory never
+  // matched the pending change.
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        'main_branch = "main"',
+        "",
+        "[scopes.intl]",
+        'paths = ["café/**"]',
+        'gate = "true"',
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+    await writeExecutable(join(dir, "café/x.txt"), "x"); // untracked, uncommitted
+
+    const result = await classifyScopes(dir);
+    assert(
+      result.includes("intl"),
+      `an untracked café/x.txt must fire the intl scope: ${result}`,
+    );
+  });
+});
+
+Deno.test("scopes: a docs-only branch stays neutral when the doc's filename is non-ASCII", async () => {
+  // The complementary failure: a C-quoted docs path escapes the neutral filter,
+  // so a docs-only branch misclassifies as a `code` change.
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        'main_branch = "main"',
+        "",
+        "[scopes.docs]",
+        'paths = ["docs/**"]',
+        "neutral = true",
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+    await git(dir, "checkout", "-q", "-b", "feat");
+    await writeExecutable(join(dir, "docs/añadir.md"), "notes");
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "docs only", "--no-gpg-sign");
+
+    assertEquals(
+      await classifyScopes(dir),
+      [],
+      "a docs-only change must classify neutral regardless of the filename's bytes",
+    );
+  });
+});
+
 Deno.test("scopes: human mode lists scopes one per line; --has tests membership by exit code", async () => {
   await withTempDir(async (dir) => {
     await scaffoldWithWidget(dir);

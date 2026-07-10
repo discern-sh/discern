@@ -17,6 +17,7 @@
 
 /** Whether a working tree is clean enough that an upgrade stays revertible. */
 import { runGit } from "../shared/subprocess.ts";
+import { parsePorcelainZ } from "../shared/git_paths.ts";
 
 export type WorktreeState =
   | { kind: "clean" }
@@ -25,7 +26,7 @@ export type WorktreeState =
 
 /**
  * Inspect `cwd` for uncommitted changes to *tracked* files via
- * `git status --porcelain`. Untracked entries (`??`) are filtered out. A git
+ * `git status --porcelain -z`. Untracked entries (`??`) are filtered out. A git
  * binary that is missing or errors (e.g. not a repository) yields `not-a-repo`,
  * never a throw — the caller decides what to do with each outcome.
  */
@@ -35,15 +36,15 @@ export async function worktreeState(
 ): Promise<WorktreeState> {
   // A failed run covers both "git not installed" and "not a git repository":
   // either way the upgrade has no git safety net, which is `not-a-repo`.
-  const r = await runGit(["status", "--porcelain"], {
+  const r = await runGit(["status", "--porcelain", "-z"], {
     cwd,
     ...(opts.env !== undefined ? { env: opts.env } : {}),
   });
   if (!r.success) {
     return { kind: "not-a-repo" };
   }
-  const changes = r.stdout
-    .split("\n")
-    .filter((line) => line.trim() !== "" && !line.startsWith("??"));
+  const changes = parsePorcelainZ(r.stdout)
+    .filter((entry) => !entry.status.startsWith("??"))
+    .map((entry) => `${entry.status} ${entry.path}`);
   return changes.length === 0 ? { kind: "clean" } : { kind: "dirty", changes };
 }

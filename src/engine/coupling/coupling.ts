@@ -215,9 +215,11 @@ export function deriveMaxBasket(sizesAsc: number[]): number {
  * Mine the last {@link WINDOW} non-merge commits into {@link Commit}s — each commit's
  * identity (short sha, short date, subject) and the paths it changed. `-M` follows
  * renames to the new path (so a renamed file's history stays continuous); `--name-only`
- * lists one path per change; the `%x1e` record format prefixes each commit with a
- * Record-Separator byte so splitting the output delimits commits without colliding with a
- * path, and the `%h<TAB>%ad<TAB>%s` header carries the identity the evidence view shows
+ * lists one path per change, NUL-terminated under `-z` so a path git would C-quote in
+ * line output (non-ASCII, quotes, control characters) arrives verbatim; the `%x1e`
+ * record format prefixes each commit with a Record-Separator byte so splitting the
+ * output delimits commits without colliding with a path, and the `%h<TAB>%ad<TAB>%s`
+ * header carries the identity the evidence view shows
  * (the same `git log` pretty-format `integrate` mines — ADR 0064). A git failure yields an
  * empty mine — the advisory simply stays silent (it never fails open into noise).
  */
@@ -228,6 +230,7 @@ async function mineCommits(root: string): Promise<Commit[]> {
       "--no-merges",
       "-M",
       "--name-only",
+      "-z",
       `--format=${RECORD_SEP_DIRECTIVE}%h%x09%ad%x09%s`,
       "--date=short",
       `--max-count=${WINDOW}`,
@@ -242,12 +245,15 @@ async function mineCommits(root: string): Promise<Commit[]> {
     if (chunk === "") {
       continue;
     }
-    // First line is the `%h<TAB>%ad<TAB>%s` header; the rest are the changed paths (git
-    // sets a blank line between the two). A subject can in principle carry a tab, so keep
-    // everything past the first two fields as the subject.
-    const [header = "", ...rest] = chunk.split("\n");
+    // Under -z the `%h<TAB>%ad<TAB>%s` header is the first NUL field (git still
+    // separates it from the paths with a newline, which we strip); the rest are the
+    // changed paths, one NUL field each. A subject can in principle carry a tab, so
+    // keep everything past the first two fields as the subject.
+    const [header = "", ...rest] = chunk.split("\0");
     const meta = header.split("\t");
-    const files = rest.map((l) => l.trim()).filter((l) => l !== "");
+    const files = rest
+      .map((f) => f.startsWith("\n") ? f.slice(1) : f)
+      .filter((f) => f !== "");
     if (files.length === 0) {
       continue;
     }

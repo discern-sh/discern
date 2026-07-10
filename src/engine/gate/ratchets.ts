@@ -1049,7 +1049,7 @@ export async function runRatchets(
 async function ratchetsCleanTreeMessage(
   root: string,
 ): Promise<string | undefined> {
-  const status = await runGit(["status", "--porcelain"], { cwd: root });
+  const status = await runGit(["status", "--porcelain", "-z"], { cwd: root });
   if (!status.success) {
     return "Ratchets require a clean worktree, but discern could not read git status. Fix the git status check and re-run `discern ratchets`; use `--force` only while authoring or debugging ratchets.";
   }
@@ -1066,7 +1066,7 @@ async function ratchetsCleanTreeMessage(
 async function ratchetsPinCleanTreeMessage(
   root: string,
 ): Promise<string | undefined> {
-  const status = await runGit(["status", "--porcelain"], { cwd: root });
+  const status = await runGit(["status", "--porcelain", "-z"], { cwd: root });
   if (!status.success) {
     return "Pinning requires a clean worktree, but discern could not read git status. Fix the git status check and re-run `discern ratchets --pin`.";
   }

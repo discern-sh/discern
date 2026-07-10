@@ -23,7 +23,7 @@ import {
   writeExecutable,
 } from "./engine_helpers.ts";
 import { fixDriftPaths } from "../src/engine/gate/fix_drift.ts";
-import { parsePorcelainPaths } from "../src/engine/scopes/scopes.ts";
+import { parsePorcelainZ } from "../src/shared/git_paths.ts";
 
 // deno-lint-ignore no-explicit-any
 function parseJson(stdout: string): any {
@@ -80,14 +80,9 @@ Deno.test("fixDriftPaths: a no-op fix stage strands nothing", () => {
 
 // ── pure: the shared porcelain parser ───────────────────────────────────────────
 
-Deno.test("parsePorcelainPaths: strips the status prefix, follows renames, drops quotes", () => {
-  const out = [
-    " M src/a.ts",
-    "?? new.txt",
-    'R  old.ts -> "new name.ts"',
-    "",
-  ].join("\n");
-  assertEquals(parsePorcelainPaths(out), [
+Deno.test("the strand snapshot reads -z records: status stripped, rename target kept verbatim", () => {
+  const out = " M src/a.ts\0?? new.txt\0R  new name.ts\0old.ts\0";
+  assertEquals(parsePorcelainZ(out).map((entry) => entry.path), [
     "src/a.ts",
     "new.txt",
     "new name.ts",

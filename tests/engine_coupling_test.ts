@@ -159,6 +159,28 @@ Deno.test("a repeated significant coupling surfaces; a one-off co-change does no
   });
 });
 
+Deno.test("a coupled partner with a non-ASCII filename surfaces undamaged", async () => {
+  // The miner reads `git log --name-only`; without NUL separation git C-quotes
+  // non-ASCII paths, so the model would key the partner under a garbage string
+  // that never matches the real path.
+  await withTempDir(async (dir) => {
+    await setup(dir);
+    for (let i = 0; i < 4; i++) {
+      await commit(dir, { "café.ts": `${i}`, "b.ts": `${i}` }, `cb${i}`);
+    }
+    await noise(dir, 6);
+
+    const data = (await couplingResult(dir, { paths: ["b.ts"] }))
+      .data as CouplingData;
+    assert(
+      partnerPaths(data).includes("café.ts"),
+      `café.ts must surface as b.ts's partner, verbatim: ${
+        JSON.stringify(data.partners)
+      }`,
+    );
+  });
+});
+
 Deno.test("a frequent co-occurrence at the chance rate is not flagged (significance test)", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);
