@@ -1396,7 +1396,12 @@ Deno.test("a fresh begin without --confirmed refuses with awaiting_consent, re-s
 
     // --dry-run is exempt: consent gates writes, and a dry run writes nothing —
     // a preview refusing without --confirmed made the consent gate look arbitrary.
-    const preview = await runAgent(dir, ["setup", "begin", "--dry-run", "--json"]);
+    const preview = await runAgent(dir, [
+      "setup",
+      "begin",
+      "--dry-run",
+      "--json",
+    ]);
     assertEquals(preview.code, 0, preview.output);
     assertEquals(JSON.parse(preview.stdout).dry_run, true);
     assert(
@@ -1641,6 +1646,54 @@ Deno.test("the brief sequences a refresh before the first gate run and a format 
   // reflow lands on the empty scaffold and later content commits stay clean.
   assertStringIncludes(brief, "ordering tip");
   assertStringIncludes(brief, "set-capability format");
+});
+
+Deno.test("the brief keeps wired commands honest: exit-on-its-own, install consent, worktree convergence", async () => {
+  const brief = await Deno.readTextFile(
+    join(REAL_TEMPLATES, "setup", "instructions.md"),
+  );
+
+  // Step 7: every wired command must terminate non-interactively — watch-mode
+  // runners in their single-run form — so a watcher trips the gate's timeout in
+  // authoring, not on every later run.
+  assertStringIncludes(brief, "must exit on its own");
+  assertStringIncludes(brief, "single-run form");
+
+  // Step 7: installing a NEW dependency is a batched consent point (ADR 0113),
+  // while wiring an existing tool stays narrate-and-proceed.
+  assertStringIncludes(
+    brief,
+    "installing a new dependency is a genuine decision",
+  );
+  assertStringIncludes(brief, "ADR 0113");
+  assertStringIncludes(
+    brief,
+    "*Wiring a tool the project already has* stays narrate-and-proceed",
+  );
+
+  // Step 8: convergence is check-then-install (the template's own
+  // fast-when-current rule), env inheritance and the database rows are in the
+  // culprits table, and hosted databases get honesty rather than magic.
+  assertStringIncludes(brief, "fast when current");
+  assertStringIncludes(brief, "check-then-install");
+  assertStringIncludes(brief, "env-file secrets (any stack)");
+  assertStringIncludes(brief, "a file-based database");
+  assertStringIncludes(
+    brief,
+    "discern can't conjure isolated copies of a hosted service",
+  );
+
+  // The config template's smoke example is a placeholder that fails loudly if
+  // copied verbatim — the old `node -e 'require(\"./\")'` silently failed on
+  // ESM-first projects.
+  const tmpl = await Deno.readTextFile(
+    join(REAL_TEMPLATES, "discern.toml.tmpl"),
+  );
+  assertStringIncludes(tmpl, '# smoke     = "your-app --version"');
+  assert(
+    !tmpl.includes("node -e"),
+    "the copy-paste-wrong smoke example must not return",
+  );
 });
 
 Deno.test("the brief frames setup as a chance to add missing well-established tooling, not just wire existing tools", async () => {
