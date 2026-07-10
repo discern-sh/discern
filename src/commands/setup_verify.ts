@@ -25,10 +25,7 @@
 import { join } from "@std/path";
 import { Logger } from "../lib/log.ts";
 import { worktreeState } from "../lib/git.ts";
-import {
-  detectAgentsOnPath,
-  resolveDefaultAgents,
-} from "../lib/detect_agents.ts";
+import { consentAgentSet } from "../lib/detect_agents.ts";
 import { providerFor } from "../lib/providers.ts";
 import {
   AGENT_NAMES,
@@ -127,16 +124,16 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
   // --- Gather the grounded findings (all read-only) ---
   const git = await worktreeState(destDir);
   const identity = await gitIdentityPresent(destDir);
-  const detected = await detectAgentsOnPath();
-  const effectiveAgents = detected.length > 0
-    ? detected
-    : await resolveDefaultAgents();
+  const agents = await consentAgentSet();
+  const detected = agents.detected;
+  const effectiveAgents = agents.set.wired.map((a) => a.name);
   // The grounded facts the consent message is built from — the exact sibling
-  // worktree path, whether a docs/ tree already exists, and whether git is here at
-  // all — derived once in the shared module so `begin`'s `awaiting_consent`
-  // refusal re-serves the identical message.
+  // worktree path, whether a docs/ tree already exists, whether git is here at
+  // all, and the agent set `begin` will wire — derived once in the shared module
+  // so `begin`'s `awaiting_consent` refusal re-serves the identical message.
   const { worktreePath, docsExists, gitRepo } = await deriveConsentContext(
     destDir,
+    agents.set,
   );
   const existingInstructions = await findExistingInstructions(destDir);
 
@@ -146,7 +143,12 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
   // summarize and weaken (ADR 0078). discern ships the script, not stage directions
   // (ADR 0086). The human render leads with it; `--json` carries it verbatim under
   // `guidance`; a flag-less fresh `begin` re-serves the same string.
-  const guidance = consentMessage({ worktreePath, docsExists, gitRepo });
+  const guidance = consentMessage({
+    worktreePath,
+    docsExists,
+    gitRepo,
+    agents: agents.set,
+  });
   // Without git the funnel's next action is to CREATE the repository setup's
   // isolation needs (then re-run the preflight) — never straight to `begin`,
   // which could only proceed in place, with no branch and nothing to land.
@@ -294,6 +296,9 @@ function printPreflight(p: {
 
   const lines: string[] = [
     "discern setup — preflight (read-only; nothing is written until `begin`)",
+    "",
+    '(Reading this as a human? Paste "Run `discern setup`" into your coding agent —',
+    "it takes it from here. Everything below is addressed to that agent.)",
     "",
     "What's in this project right now:",
     `  • Git ........... ${gitSummary(p.git)}`,

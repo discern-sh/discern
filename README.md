@@ -116,12 +116,12 @@ either way.
 - **A docs & decision discipline.** A living, agent-maintained map of your
   codebase and Architecture Decision Records, kept current by the gate itself.
 
-What `discern` itself owns in your repo is **one root file, `discern.toml`,
-plus one visible `discern/` folder**; beyond that it wires only the config
-files your coding tools require — your own tools' integration files, updated
-in the open. Everything else is bundled in the binary or generated, an
-architectural test fails the moment `discern` writes anywhere else, and
-`discern uninstall` removes the wiring whenever you want out.
+What `discern` itself owns in your repo is **one root file, `discern.toml`, plus
+one visible `discern/` folder**; beyond that it wires only the config files your
+coding tools require — your own tools' integration files, updated in the open.
+Everything else is bundled in the binary or generated, an architectural test
+fails the moment `discern` writes anywhere else, and `discern uninstall` removes
+the wiring whenever you want out.
 [Config reference →](docs/10-installer/config-reference.md)
 
 ---

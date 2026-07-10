@@ -67,7 +67,7 @@ import {
   probeWorktreeViability,
 } from "../engine/worktree/lifecycle.ts";
 import { providerFor, reactivationHandoff } from "../lib/providers.ts";
-import { resolveDefaultAgents } from "../lib/detect_agents.ts";
+import { consentAgentSet, resolveDefaultAgents } from "../lib/detect_agents.ts";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { CONFIG_REL, findRoot } from "../shared/env.ts";
 import { emitResult } from "../shared/emit.ts";
@@ -1105,6 +1105,10 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
     "  What follows is a task for you, the agent, to perform now — not a",
   );
   console.log("  result to summarise back to the user as already done.");
+  console.log(
+    '  (Reading this as a human? Paste "Run `discern setup`" into your coding',
+  );
+  console.log("  agent — it takes it from here.)");
   console.log(heavyRule);
   console.log("");
   // The started moment — the third human touchpoint of the served-message handshake
@@ -2147,7 +2151,9 @@ async function emitAwaitingConsent(
   opts: SetupOptions,
   destDir: string,
 ): Promise<number> {
-  const guidance = consentMessage(await deriveConsentContext(destDir));
+  const guidance = consentMessage(
+    await deriveConsentContext(destDir, (await consentAgentSet()).set),
+  );
   const command = confirmedBeginCommand();
   const message =
     "Setup needs your human's consent before it writes anything. Relay the message below, wait for their answers, then re-run `begin` with --confirmed.";

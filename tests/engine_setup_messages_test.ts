@@ -18,6 +18,15 @@ import type { SetupAssurance } from "../src/shared/setup_assurance.ts";
 
 const WT = "/repo.worktrees";
 
+/** A detected two-agent set for the consent-context constructions. */
+const AGENTS = {
+  wired: [
+    { label: "Claude Code", name: "claude_code" },
+    { label: "Cursor", name: "cursor" },
+  ],
+  detected: true,
+};
+
 // ── consentMessage ───────────────────────────────────────────────────────────
 
 Deno.test("consentMessage carries the relay licence, the verbatim model question, the three pillars, the cost, and the worktree path", () => {
@@ -25,6 +34,7 @@ Deno.test("consentMessage carries the relay licence, the verbatim model question
     worktreePath: WT,
     docsExists: false,
     gitRepo: true,
+    agents: AGENTS,
   });
   // The adaptive relay licence — the whole point of the script-not-stage-directions
   // genre (ADR 0086): reword allowed, dropping a point not.
@@ -78,6 +88,7 @@ Deno.test("consentMessage offers the existing-docs opt-in exactly when a docs tr
     worktreePath: WT,
     docsExists: true,
     gitRepo: true,
+    agents: AGENTS,
   });
   // The promise, then the default, then the opt-in — a choice, not a workaround.
   assertStringIncludes(withDocs, "discern won't touch it");
@@ -97,9 +108,47 @@ Deno.test("consentMessage offers the existing-docs opt-in exactly when a docs tr
     worktreePath: WT,
     docsExists: false,
     gitRepo: true,
+    agents: AGENTS,
   });
   assert(!noDocs.includes("You already have a docs/ folder"));
   assert(!noDocs.includes("--docs"));
+});
+
+Deno.test("consentMessage makes the agent set a consent point, with --agents as the mechanism", () => {
+  const detected = consentMessage({
+    worktreePath: WT,
+    docsExists: false,
+    gitRepo: true,
+    agents: AGENTS,
+  });
+  // The set is named to the human as a confirmation, not wired silently.
+  assertStringIncludes(
+    detected,
+    "I found Claude Code, Cursor on this machine",
+  );
+  assertStringIncludes(detected, "say the word to skip or add one");
+  // The mechanics ride OUTSIDE the fence, agent-facing, with the REAL effective
+  // set as the example — copied verbatim it wires exactly what would have been
+  // wired anyway, so the example can't mislead.
+  assertStringIncludes(detected, "--agents claude_code,cursor");
+  const fenced = detected.split("end of message")[0] ?? "";
+  assert(
+    !fenced.includes("--agents"),
+    "the --agents mechanics are agent-facing — never inside the relayed message",
+  );
+
+  // Nothing detected → the defaults are still a consent point, phrased honestly.
+  const defaulted = consentMessage({
+    worktreePath: WT,
+    docsExists: false,
+    gitRepo: true,
+    agents: {
+      wired: [{ label: "Claude Code", name: "claude_code" }],
+      detected: false,
+    },
+  });
+  assertStringIncludes(defaulted, "discern's default set: Claude Code");
+  assertStringIncludes(defaulted, "say the word to change it");
 });
 
 Deno.test("consentMessage conditions every isolation promise on git being present", () => {
@@ -107,6 +156,7 @@ Deno.test("consentMessage conditions every isolation promise on git being presen
     worktreePath: WT,
     docsExists: false,
     gitRepo: false,
+    agents: AGENTS,
   });
   // The unconditional branch promise must not survive into a directory where
   // there is no git to deliver it — the plan leads with `git init` instead.
@@ -133,6 +183,7 @@ Deno.test("consentMessage conditions every isolation promise on git being presen
     worktreePath: WT,
     docsExists: false,
     gitRepo: true,
+    agents: AGENTS,
   });
   assert(!withGit.includes("git init"), "a git repo needs no git-init step");
   assertStringIncludes(
@@ -141,20 +192,25 @@ Deno.test("consentMessage conditions every isolation promise on git being presen
   );
 });
 
-Deno.test("consentMessage keeps the message body concise (≤ ~265 words of prose)", () => {
+Deno.test("consentMessage keeps the message body concise (≤ ~290 words of prose)", () => {
   // The message the human reads sits between the two fences; the framing line and the
   // command ride outside it. Keep it short enough to survive a single read — the base
-  // case at the ~265-word target (the three pillars, the honest footprint story with
-  // the provider files acknowledged, and the named undo), the docs case adding only
-  // its one extra confirmation.
+  // case at the ~290-word target (the three pillars, the honest footprint story with
+  // the provider files acknowledged, the named undo, and the agent-set consent
+  // point), the docs case adding only its one extra confirmation.
   const wordsOf = (docsExists: boolean): number => {
-    const body = consentMessage({ worktreePath: WT, docsExists, gitRepo: true })
+    const body = consentMessage({
+      worktreePath: WT,
+      docsExists,
+      gitRepo: true,
+      agents: AGENTS,
+    })
       .split("message to your human")[1]?.split("end of message")[0] ?? "";
     return body.trim().split(/\s+/).filter(Boolean).length;
   };
   const base = wordsOf(false);
-  assert(base > 0 && base <= 270, `base message body was ${base} words`);
-  assert(wordsOf(true) <= 330, `docs message body was ${wordsOf(true)} words`);
+  assert(base > 0 && base <= 295, `base message body was ${base} words`);
+  assert(wordsOf(true) <= 355, `docs message body was ${wordsOf(true)} words`);
 });
 
 // ── confirmedBeginCommand ────────────────────────────────────────────────────

@@ -742,6 +742,7 @@ export async function doctorResult(
   return {
     ok: checks.every((c) => c.status !== "fail"),
     verb: "doctor",
+    ...(midSetup(cfg) ? { hints: [MID_SETUP_BANNER] } : {}),
     data: {
       kit_version: KIT_VERSION,
       environment: await doctorEnvironment(),
@@ -752,6 +753,20 @@ export async function doctorResult(
     } satisfies DoctorData,
   };
 }
+
+/** True while the one-time setup is unfinished: a config exists but
+ * `[meta].bootstrapped` is still unset. A missing/unparseable config is not
+ * mid-setup — the failing checks are the actionable report there. */
+function midSetup(cfg: DiscernConfig | undefined): boolean {
+  return cfg !== undefined && !cfg.meta.bootstrapped;
+}
+
+/** The mid-setup qualifier both doctor surfaces carry: healthy install ≠ finished
+ * setup, and `status` is already shouting SETUP NOT FINISHED — doctor must not
+ * contradict it with an unqualified all-clear. */
+const MID_SETUP_BANNER =
+  "Setup is NOT finished — these checks prove the install is healthy, not that setup is complete. " +
+  "Continue the setup brief (`discern setup begin` reprints it), then run `discern setup done` to finish.";
 
 /** The width to wrap the execution model to: the terminal's, or a sane default when
  * output is piped/redirected (not a TTY). Capped so lines stay readable on a very wide
@@ -916,6 +931,12 @@ export async function runDoctor(options: DoctorOptions): Promise<number> {
     log.error(
       `${failed} check${failed === 1 ? "" : "s"} failed — see the fixes above.`,
     );
+  }
+  // Mid-setup, an unqualified all-clear reads as "setup worked" — the exact
+  // misreading `status` guards against. Qualify the verdict, naming the next step.
+  if (midSetup(cfg)) {
+    log.line();
+    log.warn(MID_SETUP_BANNER);
   }
   return healthy ? 0 : 1;
 }
