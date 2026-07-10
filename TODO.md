@@ -201,31 +201,40 @@ _Product positioning, messaging, and launch/content tasks._
       explanation as the universal gloss ("numbers that can never get worse").
       Worth a short vocabulary ADR (precedent: ADR 0018, ADR 0022). Evidence:
       `templates/discern.toml.tmpl` (`[ratchets]`), `src/engine/mcp/server.ts`
-      (`discern_ratchets`), `docs/_private/planning/discern-product-strategy.md`
-      (vocabulary canon).
+      (`discern_ratchets`),
+      `docs/_private/maintainer/discern-product-strategy.md` (vocabulary canon).
 - [ ] **Rename the gate artifact `receipt` → `pass` (decided).** Standardize on
       "pass" for the artifact the gate issues: the finish envelope's
       `gate_receipt` field vs the `discern-gate-pass` file it points at — both
       words are already in the code; keep "pass". "Receipt" connotes spending
       money and paper clutter; a pass is what a gate issues, and "proof" is the
       marketing register ("Proof, not promises"). Pre-1.0 field rename is cheap.
-      Evidence: the `finish` result envelope (`gate_receipt`), the
-      `discern-gate-pass` marker file,
-      `docs/_private/planning/discern-product-strategy.md` (vocabulary canon).
-- [ ] **Proposed: rename `finish` → `done` (awaiting maintainer sign-off).**
-      Recommendation is yes: `discern done` makes the verb the positioning
-      ("done isn't something you say — it's something you run"), the lifecycle
-      reads `start → prepare → done → graduate`, and `discern setup done`
-      already established done-as-completion-verb in the product. Keep `finish`
-      as a permanent alias. One honest caveat to weigh: `done` sounds read-only,
-      while the gate's fix stage mutates (formats) — document "done runs your
-      finishing steps, then verifies the rest". If confirmed, rename the verb,
-      `discern_finish` MCP tool, docs, guidance, and templates, with the same
-      alias + migration care as the baselines rename. Evidence:
-      `docs/_private/planning/discern-product-strategy.md` (vocabulary canon,
-      pending item).
-- [ ] Avoid the word 'harness' (used in lots of user-facing surface areas), will
-      fix this in bulk as launch approaches.
+      Field name (decided): `gate_receipt` → `gate_pass`, exactly matching the
+      marker file; the wave-2B pass work lands it. Evidence: the `finish` result
+      envelope (`gate_receipt`), the `discern-gate-pass` marker file,
+      `docs/_private/maintainer/discern-product-strategy.md` (vocabulary canon).
+- [ ] **Rename `finish` → `done` (decided).** `discern done` makes the verb the
+      positioning ("done isn't something you say — it's something you run"), the
+      lifecycle reads `start → prepare → done → graduate`, and
+      `discern setup done` already established done-as-completion-verb in the
+      product. Keep `finish` as a permanent alias. One honest caveat, handled in
+      the verb's help: `done` sounds read-only, while the gate's fix stage
+      mutates (formats) — document "done runs your finishing steps, then
+      verifies the rest". Rename the verb, `discern_finish` MCP tool, docs,
+      guidance, and templates, with the same alias + migration care as the
+      baselines rename. Trade-off accepted knowingly: the "'done' isn't done
+      without a proper finish" flourish was licensed by the verb name and
+      retires with it. Evidence:
+      `docs/_private/maintainer/discern-product-strategy.md` (vocabulary canon).
+- [ ] **Retire "harness" from user-facing surfaces (decided).** No single
+      replacement word — reword per context: "discern" for the product, "the
+      gate" for the mechanism, "the bar" where a category noun is needed.
+      "Quality harness" / "harness engineering" survive only in deliberate SEO
+      placements (GitHub topics, the README's single category line, awesome-list
+      blurbs) — category words explain, they don't sell. Internal code
+      identifiers that never render to a user keep their names. Swept in bulk by
+      the wave-3 vocabulary brief. Evidence:
+      `docs/_private/maintainer/discern-product-strategy.md` (vocabulary canon).
 
 ## 👨‍💻 Jack's Odds and Ends
 
