@@ -51,6 +51,40 @@ Deno.test("config set-capability fills a capability and preserves comments", asy
   });
 });
 
+Deno.test("config set-capability names an empty command as deferred, on both surfaces", async () => {
+  // `set-capability <name> ""` silently meant "deferred" — present but a no-op the
+  // gate skips. The success output must say so, or a silent success reads as "wired".
+  await withTempDir(async (dir) => {
+    await setup(dir);
+    const r = await runCli(
+      ["config", "set-capability", "test", "", "--json"],
+      dir,
+    );
+    assertEquals(r.code, 0, r.stderr);
+    const result = JSON.parse(r.stdout);
+    assertEquals(result.ok, true);
+    assert(
+      (result.hints ?? []).some((h: string) => h.includes("deferred")),
+      `expected a deferred hint: ${r.stdout}`,
+    );
+
+    const human = await runCli(["config", "set-capability", "test", ""], dir);
+    assertEquals(human.code, 0, human.stderr);
+    assertStringIncludes(human.stderr + human.stdout, "deferred");
+
+    // A real command carries no such hint.
+    const wired = await runCli(
+      ["config", "set-capability", "test", "vitest run", "--json"],
+      dir,
+    );
+    assertEquals(
+      (JSON.parse(wired.stdout).hints ?? []).length,
+      0,
+      "a real command must not be called deferred",
+    );
+  });
+});
+
 Deno.test("config set-capability round-trips the smoke capability (ADR 0090)", async () => {
   // `smoke` is a first-class known capability (stage: test), so set-capability accepts
   // it and the written line re-parses cleanly — the same path every capability takes.

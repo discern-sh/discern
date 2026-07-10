@@ -403,6 +403,29 @@ interface ScaffoldOutcome {
 }
 
 /**
+ * The scaffold outcome as per-category counts ("4 seed files, 2 compiled agent
+ * files, 2 MCP configs"), one part per non-empty {@link ScaffoldOutcome} array —
+ * so the summary matches what the scaffold actually wrote. A single flat count
+ * would undercount the provider wiring the scaffold commit contains, and read
+ * as a false containment claim.
+ */
+function scaffoldCategorySummary(scaffold: ScaffoldOutcome): string {
+  const parts: string[] = [];
+  const add = (n: number, singular: string): void => {
+    if (n > 0) {
+      parts.push(`${n} ${singular}${n === 1 ? "" : "s"}`);
+    }
+  };
+  add(scaffold.written.length, "seed file");
+  add(scaffold.compiled.length, "compiled agent file");
+  add(scaffold.mcpWired.length, "MCP config");
+  add(scaffold.hooksWired.length, "hooks file");
+  add(scaffold.worktreeAppWired.length, "worktree app config");
+  add(scaffold.projectRulesWired.length, "agent rules file");
+  return parts.join(", ");
+}
+
+/**
  * Phase 1 — scaffold the harness machinery into `destDir`. Resolves the config
  * non-interactively (flags + `--config` + defaults; never prompts), assembles and
  * applies the seed plan, then compiles guidance / materializes skills / wires MCP.
@@ -926,11 +949,13 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   // error path is the teaching path). The declarative paths (`--config`, `--allow-dirty`,
   // the CI/automation surfaces) are consent-exempt; a `--force` re-run over an existing
   // install is not `freshInstall`, so it is exempt too — but `--force` on a truly fresh
-  // tree still requires consent. Stateless: the attestation rides the invocation, so
+  // tree still requires consent. `--dry-run` is exempt as well: consent gates writes,
+  // and a dry run writes nothing — previewing the plan is part of the conversation,
+  // not something to refuse. Stateless: the attestation rides the invocation, so
   // ADR 0075's no-sidecar-marker invariant holds.
   if (
     freshInstall && opts.config === undefined && !opts.allowDirty &&
-    !opts.confirmed
+    !opts.dryRun && !opts.confirmed
   ) {
     return emitAwaitingConsent(log, opts, destDir);
   }
@@ -1126,9 +1151,10 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
     );
   }
   if (scaffold) {
-    console.log(
-      `Harness files written: ${scaffold.written.length} into ${destDir}.`,
-    );
+    const byCategory = scaffoldCategorySummary(scaffold);
+    if (byCategory !== "") {
+      console.log(`Files written into ${destDir}: ${byCategory}.`);
+    }
   }
   if (machineryCommitted) {
     console.log(

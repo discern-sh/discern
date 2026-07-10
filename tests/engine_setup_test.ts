@@ -1332,6 +1332,34 @@ Deno.test("discern setup begin fails open (no error) when the machinery commit i
   });
 });
 
+Deno.test("begin reports the scaffold by category, never the old flat count", async () => {
+  // "Harness files written: 6" undercounted what the scaffold commit contains
+  // (the provider wiring), reading as a false containment claim. The summary now
+  // counts per category, derived from the same ScaffoldOutcome arrays the
+  // machinery commit is built from.
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "app.ts"), "export const v = 1;\n");
+    await gitInit(dir);
+    // Pin the agent set so the wired categories are deterministic.
+    const r = await runAgent(dir, [
+      "setup",
+      "begin",
+      "--confirmed",
+      "--agents",
+      "claude_code",
+    ]);
+    assertEquals(r.code, 0, r.output);
+    assertStringIncludes(r.stdout, "Files written into");
+    assertStringIncludes(r.stdout, "seed file");
+    assertStringIncludes(r.stdout, "compiled agent file");
+    assertStringIncludes(r.stdout, "MCP config");
+    assert(
+      !r.stdout.includes("files written:"),
+      "the flat count must not survive",
+    );
+  });
+});
+
 Deno.test("a fresh begin without --confirmed refuses with awaiting_consent, re-serving verify's message (ADR 0086)", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "app.ts"), "export const v = 1;\n");
@@ -1365,6 +1393,16 @@ Deno.test("a fresh begin without --confirmed refuses with awaiting_consent, re-s
     assertEquals(human.code, 1, human.output);
     assertStringIncludes(human.stdout, res.data.guidance);
     assert(!(await exists(join(dir, "discern.toml"))));
+
+    // --dry-run is exempt: consent gates writes, and a dry run writes nothing —
+    // a preview refusing without --confirmed made the consent gate look arbitrary.
+    const preview = await runAgent(dir, ["setup", "begin", "--dry-run", "--json"]);
+    assertEquals(preview.code, 0, preview.output);
+    assertEquals(JSON.parse(preview.stdout).dry_run, true);
+    assert(
+      !(await exists(join(dir, "discern.toml"))),
+      "a dry run must still write nothing",
+    );
   });
 });
 

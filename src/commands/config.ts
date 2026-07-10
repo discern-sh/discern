@@ -9,7 +9,10 @@ import { join, relative } from "@std/path";
 import { Logger } from "../lib/log.ts";
 import { resolveConfigPath } from "../lib/paths.ts";
 import { CONFIG_REL } from "../shared/env.ts";
-import { isSettableConfigPath } from "../shared/config_schema.ts";
+import {
+  isSettableConfigPath,
+  toCommandList,
+} from "../shared/config_schema.ts";
 import { KNOWN_CAPABILITIES, STAGES } from "../lib/config.ts";
 import {
   tomlBool,
@@ -59,6 +62,7 @@ async function applyEdits(
   edits: Edit[],
   opts: ConfigOptions,
   summary: string,
+  hints: string[] = [],
 ): Promise<number> {
   const log = new Logger(opts);
   const path = (await resolveConfigPath(Deno.cwd())) ??
@@ -102,6 +106,7 @@ async function applyEdits(
         ok: true,
         verb: "config",
         dry_run: true,
+        ...(hints.length > 0 ? { hints } : {}),
         data: { file: fileRel, edits },
       });
     } else {
@@ -109,17 +114,28 @@ async function applyEdits(
       for (const edit of edits) {
         log.line(`  ${edit.key} = ${edit.literal}`);
       }
+      for (const hint of hints) {
+        log.info(hint);
+      }
     }
     return 0;
   }
 
   await Deno.writeTextFile(path, result);
   if (opts.json) {
-    log.result({ ok: true, verb: "config", data: { file: fileRel, edits } });
+    log.result({
+      ok: true,
+      verb: "config",
+      ...(hints.length > 0 ? { hints } : {}),
+      data: { file: fileRel, edits },
+    });
   } else {
     log.ok(summary);
     for (const edit of edits) {
       log.line(`  ${edit.key} = ${edit.literal}`);
+    }
+    for (const hint of hints) {
+      log.info(hint);
     }
   }
   return 0;
@@ -145,10 +161,19 @@ export async function runConfigSetCapability(
       }. For custom work use \`config set-check\` with a stage.`,
     );
   }
+  // A no-op value (the same test the gate and the assurance summary use) means
+  // DEFERRED, not enforced — say so, rather than let a silent success read as
+  // "wired".
+  const deferred = toCommandList(command).length === 0;
   return await applyEdits(
     [{ key: `capabilities.${name}`, literal: tomlString(command) }],
     opts,
     `Set capability "${name}".`,
+    deferred
+      ? [
+        `An empty command records "${name}" as deferred — present but a no-op, so the gate skips it. Add an inline # comment beside it saying why, or set a real command to enforce it.`,
+      ]
+      : [],
   );
 }
 

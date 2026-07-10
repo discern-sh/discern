@@ -92,6 +92,7 @@ files_to_read = [
 must_do = [
   "Read the repository first — it is your primary source for the principles, concepts, and conventions you will write.",
   "Ask a short, high-signal batch of questions together, then proceed.",
+  "Confirm the project's real name in that batch — the scaffold seeded it mechanically from the folder name.",
   "Mine the repo for what the system actually is — a thin answer is no licence for a shallow result.",
 ]
 what_not_to_do = [
@@ -103,7 +104,7 @@ next_action = "When you have your bearings, pull the next page: `discern setup s
 ```
 
 1. **Read the repository — it is your primary source.** The top-level layout, the README, the manifests/lockfiles, and the actual code (models, config, tests) are where the principles, concepts, and conventions you'll write are *evidenced*. Start forming the real mental model now; you inventory the stack properly in Step 7.
-2. **Ask the user a short, sharp batch of questions** — only what the code can't tell you: what the project is *for* and who it serves, its non-negotiable rules, anything in flight or deliberately unusual. Keep it to a handful of high-signal questions asked together, then proceed. (If a brief exists at `{{brief_path}}` — a user or CI may have supplied one via `--brief`/`--config` — read it first and let it narrow what you ask.)
+2. **Ask the user a short, sharp batch of questions** — only what the code can't tell you: what the project is *for* and who it serves, its non-negotiable rules, anything in flight or deliberately unusual. Include one cheap confirmation: **the project's real name** — the scaffold seeded `[project].slug` and the doc titles from the directory's basename, a mechanical guess that is sometimes a codename or a clone path, and a wrong name compiles into every doc and worktree branch. If it's wrong, fix it now: `discern config set project.slug <the-real-slug>`, plus a quick pass over the seeded doc titles. Keep it to a handful of high-signal questions asked together, then proceed. (If a brief exists at `{{brief_path}}` — a user or CI may have supplied one via `--brief`/`--config` — read it first and let it narrow what you ask.)
 
 **A thin answer is not a licence for a shallow result.** Whether the user gives you a single sentence or a deliberate "figure it out", the job is identical: mine the repository for what the system actually *is* and document *that* — don't paraphrase the answer and stop. The depth comes from the repo, not the length of the answer. Never invent a domain — derive it from what you find.
 
