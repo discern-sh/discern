@@ -79,8 +79,8 @@ deterministic inverse of graduate, and what the gate's merge check
 ([ADR 0055](../_adr/0055-integrate-verb.md),
 [ADR 0059](../_adr/0059-worktree-setup-ensure.md)). When a change is done,
 [`graduate`](../../src/engine/worktree/lifecycle.ts) validates the exact tree it
-is about to land — running the whole gate, or skipping the re-run when a
-gate-pass receipt proves the agent's own `finish` already passed this commit
+is about to land — running the whole gate, or skipping the re-run when the
+recorded receipt proves the agent's own `finish` already passed this commit
 ([ADR 0067](../_adr/0067-graduate-validates-the-landed-tree.md)) — then lands
 the branch on the **trunk** — the single push target of the landing model
 ([ADR 0110](../_adr/0110-the-landing-model.md)): the trunk is fast-forwarded to
@@ -93,7 +93,9 @@ parked on a branch other than the trunk, and never silently switches it. After
 landing, it runs `discern refresh` in the trunk checkout it leaves behind, so
 generated guidance, materialized skills, and provider integrations match the
 landed sources
-([ADR 0098](../_adr/0098-graduate-refreshes-the-landing-checkout.md)). Its
+([ADR 0098](../_adr/0098-graduate-refreshes-the-landing-checkout.md)), and it
+prints [the receipt](../20-quality-gate/the-receipt.md) for the landed tree —
+the landing record, pasteable into a PR body. Its
 main-checkout precondition also cares about tracked changes, not untracked local
 scratch; the worktree precondition is stricter because graduation refuses any
 tracked, not staged, staged, or untracked worktree change before it removes the

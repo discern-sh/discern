@@ -113,7 +113,7 @@ limit to loosen, and pin refuses to run while any ratchet is red.
 A green `discern ratchets` check already measured everything, so its hints name
 any pinnable slack — decided by the same rule a real pin applies — making the
 whole flow check → pin. The green check also records its values as a
-**measurement receipt** against the exact commit (the gate-pass receipt's
+**measurement receipt** against the exact commit (the gate receipt marker's
 model), so a pin on that same clean commit reuses them instead of re-running
 every slow measurement: the flow measures once. Any new commit, uncommitted
 edit, or red check silently invalidates the receipt and the pin measures fresh;

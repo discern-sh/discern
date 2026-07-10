@@ -1,7 +1,7 @@
 accessor
 ADRs?
 advisorily
-affordance
+affordances?
 agentic
 ajv
 allowlist(s|ed|ing)?
@@ -50,6 +50,7 @@ denylist
 deps
 dev
 dev_server
+diffstat
 diffable
 digitalapplied
 dirs
@@ -126,6 +127,7 @@ papercut
 params
 passthrough
 pathspecs?
+pasteable
 perf
 PHPStorm
 pinnable
