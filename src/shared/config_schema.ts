@@ -147,7 +147,9 @@ const checkValue = z.strictObject({
 
 /** A `[scopes.<name>]` table — a named region with optional attributes. */
 const scopeValue = z.strictObject({
-  paths: z.array(z.string()).describe("The globs that define the scope."),
+  paths: z.array(z.string()).describe(
+    "The globs that define the scope: a directory prefix (src/**), a standard glob (src/**/*.ext, src/*), a *.ext suffix at any depth, a /seg/ segment, or an exact path.",
+  ),
   neutral: z.boolean().default(false).describe(
     "true: changes here need no gate (docs, agent guidance).",
   ),

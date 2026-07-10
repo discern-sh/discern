@@ -87,7 +87,7 @@ The core commands the gate runs, one per known capability; each maps to a gate s
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `paths` | string[] | — | The globs that define the scope. |
+| `paths` | string[] | — | The globs that define the scope: a directory prefix (src/**), a standard glob (src/**/*.ext, src/*), a *.ext suffix at any depth, a /seg/ segment, or an exact path. |
 | `neutral` | boolean | `false` | true: changes here need no gate (docs, agent guidance). |
 | `previewable` | boolean | `false` | true: a person could see changes here — worth a preview link. |
 | `gate` | string \| string[] | — | A command discern finish runs when this scope changed (a sub-component with its own self-contained gate). |

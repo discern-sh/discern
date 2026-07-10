@@ -146,7 +146,9 @@ dir = "discern/skills"
 # [scopes.<name>] — named regions of the repo. `paths` globs define a scope; the
 # optional flags tune the gate for changes there. Classification fails OPEN: a
 # path matching no scope counts as a real code change, so an unknown path runs
-# MORE gates, never fewer. Globs use ** for "any depth".
+# MORE gates, never fewer. Globs use ** for "any depth" — a directory prefix
+# ("src/**"), a standard glob ("src/**/*.ext", "src/*"), a "*.ext" suffix at
+# any depth, a "/seg/" segment, or an exact path.
 #   neutral     = true   changes here need no gate (docs, agent guidance)
 #   previewable = true   a person could see changes here — worth a preview link
 #   gate        = "..."  a command `discern finish` runs when this scope changed

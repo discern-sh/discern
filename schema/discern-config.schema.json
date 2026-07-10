@@ -225,7 +225,7 @@
             "items": {
               "type": "string"
             },
-            "description": "The globs that define the scope."
+            "description": "The globs that define the scope: a directory prefix (src/**), a standard glob (src/**/*.ext, src/*), a *.ext suffix at any depth, a /seg/ segment, or an exact path."
           },
           "neutral": {
             "default": false,

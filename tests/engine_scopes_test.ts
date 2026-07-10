@@ -233,6 +233,36 @@ Deno.test("scopes: a docs-only branch stays neutral when the doc's filename is n
   });
 });
 
+Deno.test("scopes: a scope defined with standard glob syntax fires", async () => {
+  // The template invites "** for any depth", so `widget/**/*.txt` must select
+  // the scope — historically it fell through to exact match and the scope was
+  // permanently dead (its gate never ran, with no diagnostic anywhere).
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        'main_branch = "main"',
+        "",
+        "[scopes.widget]",
+        'paths = ["widget/**/*.txt"]',
+        'gate = "true"',
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+    await writeExecutable(join(dir, "widget/sub/note.txt"), "x");
+
+    const result = await classifyScopes(dir);
+    assert(
+      result.includes("widget"),
+      `widget/**/*.txt must match widget/sub/note.txt: ${result}`,
+    );
+  });
+});
+
 Deno.test("scopes: human mode lists scopes one per line; --has tests membership by exit code", async () => {
   await withTempDir(async (dir) => {
     await scaffoldWithWidget(dir);
