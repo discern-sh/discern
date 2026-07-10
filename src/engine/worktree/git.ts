@@ -515,16 +515,24 @@ export interface IntegrationDelta {
 /**
  * Read a diff range's changed files — status (`A`/`M`/`D`, renames decomposed via
  * `--no-renames`) merged with line counts — capped to `cap`, returned with the
- * pre-cap total and the full ordered path set. The status list is authoritative for
- * order and membership; numstat only supplies the `+`/`-` counts. Fails open to an
- * empty result.
+ * pre-cap total, whole-range `insertions`/`deletions` sums (binary files count 0),
+ * and the full ordered path set. The status list is authoritative for order and
+ * membership; numstat only supplies the `+`/`-` counts. Fails open to an empty
+ * result. Exported because the gate's receipt reads its diffstat vs the trunk
+ * through this same machinery — one definition of "what changed in a range".
  */
-async function diffFiles(
+export async function diffFiles(
   cwd: string,
   range: string,
   cap: number,
 ): Promise<
-  { files: IntegrationFile[]; filesTotal: number; theirsPaths: string[] }
+  {
+    files: IntegrationFile[];
+    filesTotal: number;
+    insertions: number;
+    deletions: number;
+    theirsPaths: string[];
+  }
 > {
   // line counts, keyed by path: "<added>\t<removed>\t<path>", "-" for a binary.
   const counts = new Map<
@@ -547,6 +555,12 @@ async function diffFiles(
         removed: r === "-" ? null : Number(r) || 0,
       });
     }
+  }
+  let insertions = 0;
+  let deletions = 0;
+  for (const c of counts.values()) {
+    insertions += c.added ?? 0;
+    deletions += c.removed ?? 0;
   }
   // status letters: "<X>\t<path>" — the ordered, authoritative path list.
   const files: IntegrationFile[] = [];
@@ -576,7 +590,13 @@ async function diffFiles(
       }
     }
   }
-  return { files, filesTotal: theirsPaths.length, theirsPaths };
+  return {
+    files,
+    filesTotal: theirsPaths.length,
+    insertions,
+    deletions,
+    theirsPaths,
+  };
 }
 
 /** `git diff --name-only --no-renames <a> <b>` → the changed paths, `[]` on error.

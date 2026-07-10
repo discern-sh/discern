@@ -118,7 +118,7 @@ Deno.test("receipt: a failed stamp is visible to the caller", async () => {
       dir,
       "rev-parse",
       "--git-path",
-      "discern-gate-pass",
+      "discern-gate-receipt",
     );
     const receiptPath = absoluteGitPath(dir, raw);
     await Deno.mkdir(receiptPath);

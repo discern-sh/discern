@@ -15,8 +15,10 @@ import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import { CAPTURE_CAP } from "../src/shared/result.ts";
 import {
+  addWorktree,
   git,
   gitInit,
+  gitOut,
   runAgent,
   scaffoldEngine,
   writeConfig,
@@ -905,6 +907,111 @@ Deno.test("finish --json: a hand-edited materialized skill blocks (skills); a fo
       obj.data.failed_stage,
       null,
       "a foreign drop-in must not block finish",
+    );
+  });
+});
+
+// ── the receipt (v1): the review-moment summary a green gate emits ──────────────
+
+const RECEIPT_CONFIG = [
+  "[project]",
+  'slug = "engine-test"',
+  'main_branch = "main"',
+  "",
+  "[capabilities]",
+  'test = "echo receipt-gate-ok"',
+  "",
+].join("\n");
+
+/** Strip the duration fragments (`· 3s`) — the one part of a receipt allowed to
+ * differ between runs of the same tree. */
+function stripDurations(md: string): string {
+  return md.replaceAll(/ · \d+s/g, "");
+}
+
+Deno.test("finish --json: a green worktree gate emits the receipt in data and stores it in the marker", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, RECEIPT_CONFIG);
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "alpha");
+    await writeExecutable(join(wt, "feature.txt"), "feature");
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "Add the feature", "--no-gpg-sign");
+
+    const r = await runAgent(wt, ["finish", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    const obj = parseJson(r.stdout);
+    assertEquals(obj.ok, true);
+
+    // The structured receipt: git facts + the rendered markdown, one derivation.
+    const receipt = obj.data.receipt;
+    assert(receipt !== undefined, `expected data.receipt: ${r.stdout}`);
+    assertEquals(receipt.branch, "agent/alpha");
+    assertEquals(receipt.trunk, "main");
+    assertEquals(receipt.commits_total, 1);
+    assertEquals(receipt.commits[0].subject, "Add the feature");
+    assertEquals(receipt.files_total, 1);
+    assertEquals(receipt.files[0].path, "feature.txt");
+    assertStringIncludes(receipt.markdown, "### Receipt — `agent/alpha`");
+    assertStringIncludes(receipt.markdown, "| test | `echo receipt-gate-ok` | ok");
+    assertStringIncludes(receipt.markdown, "- `feature.txt`");
+    assertStringIncludes(
+      receipt.markdown,
+      "Inspect: `git diff main...agent/alpha`",
+    );
+
+    // The relay affordance rides the envelope's hints.
+    assert(
+      (obj.hints ?? []).some((h: string) => h.includes("relay the receipt")),
+      `expected the relay hint: ${JSON.stringify(obj.hints)}`,
+    );
+
+    // The marker stores the markdown beside the sha it vouches for, so status and
+    // graduate can surface the receipt without re-running the gate.
+    assertEquals(obj.data.gate_receipt.status, "recorded");
+    const marker = await Deno.readTextFile(obj.data.gate_receipt.path);
+    const head = (await gitOut(wt, "rev-parse", "HEAD")).trim();
+    assert(
+      marker.startsWith(`${head}\n\n### Receipt`),
+      `marker must carry sha + markdown: ${marker.slice(0, 80)}`,
+    );
+
+    // Deterministic: the same tree and result render the same receipt (durations
+    // excepted).
+    const again = parseJson((await runAgent(wt, ["finish", "--json"])).stdout);
+    assertEquals(
+      stripDurations(again.data.receipt.markdown),
+      stripDurations(receipt.markdown),
+    );
+  });
+});
+
+Deno.test("finish --json: no receipt on the trunk itself, or over a dirty tree", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, RECEIPT_CONFIG);
+    await gitInit(dir);
+
+    // The trunk: nothing ahead of main to review — no receipt, gate still records.
+    const onMain = parseJson((await runAgent(dir, ["finish", "--json"])).stdout);
+    assertEquals(onMain.ok, true);
+    assertEquals(onMain.data.receipt, undefined);
+
+    // A dirty worktree: the diff vs the trunk would describe a different tree than
+    // the one the gate validated — no receipt, and no relay hint.
+    const wt = await addWorktree(dir, "beta");
+    await writeExecutable(join(wt, "feature.txt"), "feature");
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "Add the feature", "--no-gpg-sign");
+    await Deno.writeTextFile(join(wt, "wip.txt"), "wip\n");
+    const dirty = parseJson((await runAgent(wt, ["finish", "--json"])).stdout);
+    assertEquals(dirty.ok, true);
+    assertEquals(dirty.data.receipt, undefined);
+    assertEquals(dirty.data.gate_receipt.status, "skipped_dirty");
+    assert(
+      !(dirty.hints ?? []).some((h: string) => h.includes("relay the receipt")),
+      `no relay hint without a receipt: ${JSON.stringify(dirty.hints)}`,
     );
   });
 });

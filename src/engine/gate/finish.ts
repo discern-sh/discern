@@ -29,6 +29,7 @@ import {
 } from "./plan.ts";
 import { gateRunContext, runGroup } from "./execute.ts";
 import { recordGateOutcome } from "./receipt.ts";
+import { buildGateReceipt } from "./receipt_render.ts";
 import { cmdsInStage } from "./stages.ts";
 import {
   fixDriftDiagnostic,
@@ -374,13 +375,27 @@ async function runGate(
   if (fixDriftDiag !== undefined) {
     result.diagnostics = [...(result.diagnostics ?? []), fixDriftDiag];
   }
+  // The receipt (v1): a GREEN run over a CLEAN committed tree ahead of the trunk
+  // renders the compact review summary from this very envelope — the artifact the
+  // agent relays to its owner at the review moment. Built before the marker write so
+  // the marker can store the markdown beside the sha it vouches for.
+  const receipt = failedStage === null
+    ? await buildGateReceipt(root, mainBranch, result.steps ?? [])
+    : undefined;
   // Record the gate-pass receipt (ADR 0067): a GREEN run over a CLEAN tree stamps the
   // validated HEAD so `graduate` can prove THIS tree already passed without re-running
   // the gate; a FAILED run clears any stale vouch. Best-effort — never fails the gate,
   // but the outcome rides in `data` so suppressed logs still expose receipt trouble.
-  const gateReceipt = await recordGateOutcome(root, failedStage === null);
+  const gateReceipt = await recordGateOutcome(
+    root,
+    failedStage === null,
+    receipt?.markdown,
+  );
   if (result.data !== undefined) {
     result.data.gate_receipt = gateReceipt;
+    if (receipt !== undefined) {
+      result.data.receipt = receipt;
+    }
   }
   // Pre-setup, lead with the "setup unfinished" advisory (ADR 0065): finish runs
   // during setup, so a green gate here must not read as "done".
@@ -406,6 +421,7 @@ async function runGate(
       changed,
       failedStage,
       gateReceipt.status === "recorded",
+      receipt !== undefined,
     ),
     ...jobOutputHints,
     ...couplingHints,
@@ -454,6 +470,7 @@ function buildGateHints(
   changed: string[],
   failedStage: FailedStage | null,
   cleanFinishRecorded: boolean,
+  receiptEmitted: boolean,
 ): string[] {
   if (failedStage !== null) {
     const doc = cfg.project.gotchas_doc;
@@ -463,9 +480,14 @@ function buildGateHints(
       ]
       : [];
   }
-  const hints = [
+  const hints = receiptEmitted
+    ? [
+      "If this completes the task, relay the receipt to your owner and stop; run `discern graduate` only once they accept.",
+    ]
+    : [];
+  hints.push(
     "If you changed documented behaviour, update the docs to match before you finish.",
-  ];
+  );
   if (cleanFinishRecorded && Object.keys(cfg.ratchets).length > 0) {
     hints.push(
       "Run ratchets as needed with `discern ratchets` (slow and outside `discern finish`; non-dry-run ratchets require a clean worktree unless forced for ratchet authoring).",
@@ -483,8 +505,14 @@ function buildGateHints(
 }
 
 /** Print the informational success tail (non-`--json`): the pass line + gate-health
- * note, then the same `hints` the envelope carries (so human and machine agree). */
-function printSuccessTail(cfg: DiscernConfig, out: Out, hints: string[]): void {
+ * note, the receipt when one was emitted (the same markdown the envelope carries),
+ * then the same `hints` the envelope carries (so human and machine agree). */
+function printSuccessTail(
+  cfg: DiscernConfig,
+  out: Out,
+  hints: string[],
+  receiptMarkdown?: string,
+): void {
   let unfilled = 0;
   for (const stage of STAGES) {
     if (cmdsInStage(cfg, stage) === ":") {
@@ -505,6 +533,9 @@ function printSuccessTail(cfg: DiscernConfig, out: Out, hints: string[]): void {
         `${out.c.dim}note: ${unfilled} of ${STAGES.length} gate stages have no command yet.${out.c.reset}`,
       );
     }
+  }
+  if (receiptMarkdown !== undefined) {
+    out.raw(`\n${receiptMarkdown}\n\n`);
   }
   for (const hint of hints) {
     out.info(hint);
@@ -582,6 +613,6 @@ export async function runFinish(
     });
     return 1;
   }
-  printSuccessTail(cfg, out, result.hints ?? []);
+  printSuccessTail(cfg, out, result.hints ?? [], result.data?.receipt?.markdown);
   return 0;
 }

@@ -1349,6 +1349,25 @@ export type DiscernFinishResult = {
       | "merge"
       | null;
     scopes_changed: Array<string>;
+    receipt?: {
+      branch: string;
+      trunk: string;
+      commits: Array<{
+        sha: string;
+        subject: string;
+      }>;
+      commits_total: number;
+      files: Array<{
+        path: string;
+        status: string;
+        added: number | null;
+        removed: number | null;
+      }>;
+      files_total: number;
+      insertions: number;
+      deletions: number;
+      markdown: string;
+    };
     gate_receipt?: {
       status:
         | "recorded"
@@ -2115,6 +2134,7 @@ export type DiscernStatusResult = {
       recorded?: string;
       head?: string;
       reason?: string;
+      receipt?: string;
     };
     stale_generated?: Array<string>;
     stale_materialized?: Array<string>;
@@ -2324,8 +2344,10 @@ export type DiscernGraduateResult = {
         recorded?: string;
         head?: string;
         reason?: string;
+        receipt?: string;
       };
     };
+    receipt?: string;
     ignored_file_changes?: {
       status:
         | "disabled"

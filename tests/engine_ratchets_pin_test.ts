@@ -8,7 +8,7 @@
  * commit so `graduate` skips the redundant re-run. These tests drive the real engine
  * through `runAgent` and assert on the config, the commit, and the receipt file.
  *
- * The receipt lives at `.git/discern-gate-pass` in a plain repo (what
+ * The receipt lives at `.git/discern-gate-receipt` in a plain repo (what
  * `git rev-parse --git-path` resolves), so a test can seed a prior finish vouch by
  * writing HEAD there, then assert the pin carried it onto the new HEAD — which is
  * exactly the (receipt names HEAD, clean tree) condition `graduate` honors.
@@ -72,7 +72,7 @@ function limitOf(configText: string, name: string): string | undefined {
 }
 
 function receiptFile(dir: string): string {
-  return join(dir, ".git", "discern-gate-pass");
+  return join(dir, ".git", "discern-gate-receipt");
 }
 
 /** Seed a prior `finish` vouch: write `sha` (default current HEAD) to the receipt. */

@@ -4659,6 +4659,101 @@
                     "type": "string"
                   }
                 },
+                "receipt": {
+                  "type": "object",
+                  "properties": {
+                    "branch": {
+                      "type": "string"
+                    },
+                    "trunk": {
+                      "type": "string"
+                    },
+                    "commits": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "sha": {
+                            "type": "string"
+                          },
+                          "subject": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "sha",
+                          "subject"
+                        ]
+                      }
+                    },
+                    "commits_total": {
+                      "type": "number"
+                    },
+                    "files": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "added": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "removed": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "status",
+                          "added",
+                          "removed"
+                        ]
+                      }
+                    },
+                    "files_total": {
+                      "type": "number"
+                    },
+                    "insertions": {
+                      "type": "number"
+                    },
+                    "deletions": {
+                      "type": "number"
+                    },
+                    "markdown": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "branch",
+                    "trunk",
+                    "commits",
+                    "commits_total",
+                    "files",
+                    "files_total",
+                    "insertions",
+                    "deletions",
+                    "markdown"
+                  ]
+                },
                 "gate_receipt": {
                   "type": "object",
                   "properties": {
@@ -7251,6 +7346,9 @@
                     },
                     "reason": {
                       "type": "string"
+                    },
+                    "receipt": {
+                      "type": "string"
                     }
                   },
                   "required": [
@@ -7958,6 +8056,9 @@
                         },
                         "reason": {
                           "type": "string"
+                        },
+                        "receipt": {
+                          "type": "string"
                         }
                       },
                       "required": [
@@ -7969,6 +8070,9 @@
                     "mode",
                     "receipt"
                   ]
+                },
+                "receipt": {
+                  "type": "string"
                 },
                 "ignored_file_changes": {
                   "type": "object",

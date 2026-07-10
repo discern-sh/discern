@@ -197,12 +197,57 @@ function datalessResultOutputSchema(
 
 // ── per-verb `data` schemas (the source; the core's `data` type infers from it) ──
 
+/** One commit on a branch (short `sha` + `subject`) — the identity shape shared by
+ * the receipt's commit list and `integrate`'s landed-commit list (ADR 0064), so the
+ * two can never disagree on how a commit is reported. */
+const branchCommitSchema = z.strictObject({
+  sha: z.string(),
+  subject: z.string(),
+});
+
+/** One changed file with its line counts. `added`/`removed` are null for a binary
+ * file; `status` is git's single-letter code (`A`/`M`/`D`/`T`); renames are
+ * decomposed to a delete + add (via `--no-renames`) so every entry is one matchable
+ * path. Shared by the receipt's diffstat and `integrate`'s file delta. */
+const changedFileSchema = z.strictObject({
+  path: z.string(),
+  status: z.string(),
+  added: z.number().nullable(),
+  removed: z.number().nullable(),
+});
+
+/**
+ * The **receipt** — the compact, deterministic review summary a green gate emits
+ * over a clean committed tree: the branch, its commits and diffstat vs the trunk
+ * (each capped, with pre-cap totals; `insertions`/`deletions` count the whole
+ * diff), and `markdown` — the rendered summary the agent relays verbatim to its
+ * owner at the review moment. Derived ONCE from the result envelope: `markdown`
+ * is a rendering of these fields plus the envelope's `steps[]` (what ran, with
+ * command and duration), never a second computation.
+ */
+export const ReceiptSchema = z.strictObject({
+  branch: z.string(),
+  trunk: z.string(),
+  commits: z.array(branchCommitSchema),
+  commits_total: z.number(),
+  files: z.array(changedFileSchema),
+  files_total: z.number(),
+  insertions: z.number(),
+  deletions: z.number(),
+  markdown: z.string(),
+});
+export type Receipt = z.infer<typeof ReceiptSchema>;
+
 /** `finish` — the gate's own concerns ({@link import("../engine/gate/plan.ts").GateData}).
  * `failed_stage` is the closed {@link FAILED_STAGES} vocabulary (derived here, not
- * hand-listed), so the wire enum and the engine's `FailedStage` type can never drift. */
+ * hand-listed), so the wire enum and the engine's `FailedStage` type can never drift.
+ * `receipt` is present on a green run over a clean committed tree ahead of the
+ * trunk — the review-moment summary; `gate_receipt` reports how recording it in the
+ * marker file went. */
 export const GateDataSchema = z.strictObject({
   failed_stage: z.enum(FAILED_STAGES).nullable(),
   scopes_changed: z.array(z.string()),
+  receipt: ReceiptSchema.optional(),
   gate_receipt: z.strictObject({
     status: z.enum([
       "recorded",
@@ -218,6 +263,10 @@ export const GateDataSchema = z.strictObject({
 });
 export type GateData = z.infer<typeof GateDataSchema>;
 
+/** How the current worktree's recorded receipt stands against HEAD. `receipt` is
+ * the stored receipt markdown, present only when the record is honored (it names
+ * exactly the current clean HEAD) — the artifact an agent relays at the review
+ * moment without re-running the gate. */
 export const GateReceiptCheckSchema = z.strictObject({
   status: z.enum([
     "honored",
@@ -231,6 +280,7 @@ export const GateReceiptCheckSchema = z.strictObject({
   recorded: z.string().optional(),
   head: z.string().optional(),
   reason: z.string().optional(),
+  receipt: z.string().optional(),
 });
 export type GateReceiptCheckData = z.infer<typeof GateReceiptCheckSchema>;
 
@@ -347,6 +397,10 @@ export type StartData = z.infer<typeof StartDataSchema>;
 export const GraduateDataSchema = z.strictObject({
   root: z.string(),
   gate_validation: GateValidationSchema.optional(),
+  /** The receipt markdown for the tree that landed — the landing record, pasteable
+   * into a PR body (from the honored marker on the fast path, or the fresh gate run
+   * on the slow path; absent when neither carried one). */
+  receipt: z.string().optional(),
   ignored_file_changes: z.strictObject({
     status: z.enum([
       "disabled",
@@ -364,20 +418,13 @@ export type GraduateData = z.infer<typeof GraduateDataSchema>;
 
 // integrate ─────────────────────────────────────────────────────────────────────
 
-/** One commit an integration brought in (short sha + subject). */
-const integrateCommitSchema = z.strictObject({
-  sha: z.string(),
-  subject: z.string(),
-});
+/** One commit an integration brought in — {@link branchCommitSchema}, the shape
+ * shared with the receipt's commit list. */
+const integrateCommitSchema = branchCommitSchema;
 
-/** One file an integration changed beneath the branch. `added`/`removed` are null
- * for a binary file; `status` is git's single-letter code (`A`/`M`/`D`/`T`). */
-const integrateFileSchema = z.strictObject({
-  path: z.string(),
-  status: z.string(),
-  added: z.number().nullable(),
-  removed: z.number().nullable(),
-});
+/** One file an integration changed beneath the branch — {@link changedFileSchema},
+ * the shape shared with the receipt's diffstat. */
+const integrateFileSchema = changedFileSchema;
 
 /** The SHA anchors bounding an integration — an agent diffs/logs against these to
  * pull the FULL set in one call when a list is capped. `main` is the INCOMING

@@ -1,14 +1,16 @@
 /**
- * The gate-pass **receipt** — a tiny per-worktree marker recording the commit
- * `finish` last validated GREEN over a CLEAN tree, so `graduate` can prove the exact
- * tree it is about to land already passed the gate WITHOUT re-running it (ADR 0067).
+ * The **receipt marker** — a tiny per-worktree file recording the commit `finish`
+ * last validated GREEN over a CLEAN tree, so `graduate` can prove the exact tree it
+ * is about to land already passed the gate WITHOUT re-running it (ADR 0067).
  *
  * It lives where the worktree-ready sentinel does: a single file in the per-worktree
- * git admin dir, resolved via `git rev-parse --git-path discern-gate-pass`
- * (`.git/worktrees/<name>/discern-gate-pass`). It is therefore worktree-local (never
- * shared across branches), never tracked or committed (it sits inside `.git`), and
- * self-cleaning (it vanishes with the worktree). Its sole content is the validated
- * HEAD sha.
+ * git admin dir, resolved via `git rev-parse --git-path discern-gate-receipt`
+ * (`.git/worktrees/<name>/discern-gate-receipt`). It is therefore worktree-local
+ * (never shared across branches), never tracked or committed (it sits inside
+ * `.git`), and self-cleaning (it vanishes with the worktree). Its first line is the
+ * validated HEAD sha; the rest is the rendered **receipt** markdown that finish
+ * emitted for that tree — the review-moment summary `status` and `graduate` surface
+ * without re-running the gate.
  *
  * The receipt is honored ONLY while it still names the current HEAD AND the tree is
  * clean — so any new commit (the merge `integrate` creates), amend, or uncommitted
@@ -39,8 +41,8 @@ import type {
   GateReceiptCheckData,
 } from "../../shared/result_schemas.ts";
 
-/** The gate-pass receipt's filename inside the per-worktree git admin dir. */
-const RECEIPT_FILE = "discern-gate-pass";
+/** The receipt marker's filename inside the per-worktree git admin dir. */
+const RECEIPT_FILE = "discern-gate-receipt";
 /** The measurement receipt's filename, in the same admin dir. */
 const MEASUREMENTS_FILE = "discern-ratchet-measurements";
 type GateReceiptRecordData = NonNullable<GateData["gate_receipt"]>;
@@ -83,9 +85,10 @@ async function headSha(cwd: string): Promise<string | undefined> {
  * staged, unstaged, OR untracked changes). This is the strict notion graduate
  * requires before landing, so the receipt vouches for exactly what would land. A
  * failed status reads as NOT clean, so an unreadable tree never earns a receipt or a
- * fast-path skip (fail-closed).
+ * fast-path skip (fail-closed). Exported so the receipt renderer applies the SAME
+ * clean rule before building a receipt for the committed tree.
  */
-async function isClean(cwd: string): Promise<boolean> {
+export async function isWorktreeFullyClean(cwd: string): Promise<boolean> {
   const r = await runGit(["status", "--porcelain"], { cwd });
   return r.success && r.stdout.trim() === "";
 }
@@ -102,9 +105,11 @@ function receiptRecord(
 }
 
 /**
- * Record the outcome of a `finish` run into the receipt:
+ * Record the outcome of a `finish` run into the receipt marker:
  *
- * - GREEN over a CLEAN tree → stamp the validated HEAD (the vouch graduate honors).
+ * - GREEN over a CLEAN tree → stamp the validated HEAD (the vouch graduate honors),
+ *   plus `receiptMarkdown` when the run rendered a receipt, so `status` and
+ *   `graduate` can surface the review summary without re-running the gate.
  * - FAILED gate → clear any receipt (fail-closed: a tree the gate just rejected must
  *   not stay vouched; clearing also closes the rare flake/environment-drift case where
  *   a clean HEAD's gate result turns failing with the tree unchanged).
@@ -118,6 +123,7 @@ function receiptRecord(
 export async function recordGateOutcome(
   cwd: string,
   passed: boolean,
+  receiptMarkdown?: string,
 ): Promise<GateReceiptRecordData> {
   const path = await receiptPath(cwd);
   if (path === undefined) {
@@ -127,7 +133,7 @@ export async function recordGateOutcome(
   }
 
   if (passed) {
-    if (!(await isClean(cwd))) {
+    if (!(await isWorktreeFullyClean(cwd))) {
       return receiptRecord("skipped_dirty", {
         path,
         reason: "the worktree is not clean",
@@ -141,7 +147,10 @@ export async function recordGateOutcome(
       });
     }
     try {
-      await Deno.writeTextFile(path, `${head}\n`);
+      const body = receiptMarkdown === undefined || receiptMarkdown === ""
+        ? `${head}\n`
+        : `${head}\n\n${receiptMarkdown.trim()}\n`;
+      await Deno.writeTextFile(path, body);
       return receiptRecord("recorded", { path });
     } catch (error) {
       return receiptRecord("record_failed", {
@@ -169,7 +178,9 @@ export async function recordGateOutcome(
  * Inspect why the current worktree's gate-pass receipt can or cannot be honored.
  * This is the verbose sibling of {@link gateReceiptHonored}: graduate includes the
  * result in its JSON/MCP envelope so a skipped vs re-run validation decision is
- * visible even when the human logger is suppressed.
+ * visible even when the human logger is suppressed. An HONORED record also carries
+ * the stored receipt markdown (when the recording finish rendered one) — the
+ * summary an agent relays at the review moment without re-running the gate.
  */
 export async function inspectGateReceipt(
   cwd: string,
@@ -181,15 +192,21 @@ export async function inspectGateReceipt(
       reason: "could not resolve the gate-pass receipt path",
     };
   }
-  let recorded: string;
+  let content: string;
   try {
-    recorded = (await Deno.readTextFile(path)).trim();
+    content = await Deno.readTextFile(path);
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
       return { status: "missing", path };
     }
     return { status: "read_failed", path, reason: failureReason(error) };
   }
+  // First line: the validated HEAD sha. The rest (when present): the receipt
+  // markdown finish stored alongside it. A pre-markdown marker (sha only) still
+  // parses — its markdown is simply empty.
+  const newline = content.indexOf("\n");
+  const recorded = (newline < 0 ? content : content.slice(0, newline)).trim();
+  const markdown = newline < 0 ? "" : content.slice(newline).trim();
   if (recorded === "") {
     return { status: "missing", path, reason: "receipt file was empty" };
   }
@@ -205,10 +222,16 @@ export async function inspectGateReceipt(
   if (head !== recorded) {
     return { status: "stale", path, recorded, head };
   }
-  if (!(await isClean(cwd))) {
+  if (!(await isWorktreeFullyClean(cwd))) {
     return { status: "dirty", path, recorded, head };
   }
-  return { status: "honored", path, recorded, head };
+  return {
+    status: "honored",
+    path,
+    recorded,
+    head,
+    ...(markdown === "" ? {} : { receipt: markdown }),
+  };
 }
 
 /**
@@ -269,7 +292,7 @@ export async function recordRatchetMeasurements(
   values: Record<string, number>,
 ): Promise<boolean> {
   const path = await adminFilePath(cwd, MEASUREMENTS_FILE);
-  if (path === undefined || !(await isClean(cwd))) {
+  if (path === undefined || !(await isWorktreeFullyClean(cwd))) {
     return false;
   }
   const head = await headSha(cwd);
@@ -334,7 +357,7 @@ export async function inspectRatchetMeasurements(
   if (head !== parsed.head) {
     return { status: "stale" };
   }
-  if (!(await isClean(cwd))) {
+  if (!(await isWorktreeFullyClean(cwd))) {
     return { status: "dirty" };
   }
   return { status: "honored", values: parsed.values };
