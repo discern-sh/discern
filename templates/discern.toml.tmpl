@@ -65,7 +65,8 @@ dir = "{{docs_dir}}"
 # ─────────────────────────────────────────────────────────────────────────────
 
 [guidance]
-# Your guideline source file(s), relative to the project root. Globs are allowed.
+# Your guideline source file(s), relative to the project root. Globs are allowed
+# (the generated agent files themselves are never picked up as sources).
 # Read only if present; the built-in harness guidance is always prepended, so
 # these are additive. `discern setup` lays a starter source here (and migrates
 # any pre-existing CLAUDE.md/AGENTS.md into it) for your coding agent to fill.

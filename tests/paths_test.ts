@@ -5,6 +5,9 @@
  *     directory, else a clear throw) and a walk-up from the module's location.
  *   - {@link resolveWorktreeRoot} — the placement convention for new worktrees:
  *     the sibling default and the relative/absolute `[worktree].root` overrides.
+ *   - {@link resolveGuidanceSources} — `[guidance].sources` expansion, and the
+ *     guarantee that the compiler's own generated outputs are never admitted
+ *     as sources.
  *
  * Each override test injects a fake env reader, supplying `DISCERN_TEMPLATES_DIR`
  * to the resolver directly rather than mutating the process env — so the tests
@@ -18,7 +21,12 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { join } from "@std/path";
-import { resolveTemplatesDir, resolveWorktreeRoot } from "../src/lib/paths.ts";
+import {
+  resolveGuidanceSources,
+  resolveTemplatesDir,
+  resolveWorktreeRoot,
+} from "../src/lib/paths.ts";
+import { allGuidanceFilePaths } from "../src/lib/providers.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { fakeEnv, REAL_TEMPLATES, withTempDir } from "./helpers.ts";
 
@@ -101,4 +109,51 @@ Deno.test("resolveWorktreeRoot: an absolute root is used as-is", () => {
     resolveWorktreeRoot("/a/b/myrepo", configWithRoot("/srv/worktrees")),
     "/srv/worktrees",
   );
+});
+
+Deno.test("resolveGuidanceSources: never admits a generated agent file, for any provider — glob or explicit", async () => {
+  // The compiler's own OUTPUTS must never round-trip back in as sources: a
+  // pattern like "*.md" that also matches the AGENTS.md discern just wrote
+  // would make every refresh embed the previous compiled body (unbounded
+  // growth) and the currency check permanently stale — a gate whose own
+  // remediation (`discern refresh`) can never clear it. Enumerated from the
+  // provider registry (allGuidanceFilePaths), so a future provider's guidance
+  // file auto-enrols in this guard.
+  const outputs = allGuidanceFilePaths();
+  assert(outputs.length > 0, "the registry must emit guidance files");
+  await withTempDir(async (root) => {
+    for (const rel of outputs) {
+      await Deno.writeTextFile(join(root, rel), "generated body\n");
+    }
+    await Deno.writeTextFile(join(root, "notes.md"), "# mine\n");
+
+    // A glob matching everything at the root admits only the genuine source.
+    const globbed = await resolveGuidanceSources(
+      root,
+      parseConfigOrThrow('[guidance]\nsources = ["*.md"]\n'),
+    );
+    assertEquals(globbed, [join(root, "notes.md")]);
+
+    // Even listed EXPLICITLY, an output is refused — it cannot be a source.
+    for (const rel of outputs) {
+      const explicit = await resolveGuidanceSources(
+        root,
+        parseConfigOrThrow(`[guidance]\nsources = ["${rel}"]\n`),
+      );
+      assertEquals(explicit, [], `${rel} must never resolve as a source`);
+    }
+
+    // But a like-named file OUTSIDE the root-level output location is a
+    // legitimate source (the exclusion is by path, not by basename).
+    await Deno.mkdir(join(root, "notes"));
+    const nested = join("notes", outputs[0] ?? "AGENTS.md");
+    await Deno.writeTextFile(join(root, nested), "# nested notes\n");
+    assertEquals(
+      await resolveGuidanceSources(
+        root,
+        parseConfigOrThrow(`[guidance]\nsources = ["${nested}"]\n`),
+      ),
+      [join(root, nested)],
+    );
+  });
 });

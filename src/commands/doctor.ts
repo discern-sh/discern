@@ -31,7 +31,11 @@ import {
 import { buildExecutionModel } from "../engine/doctor/execution_model.ts";
 import { renderAgentFiles } from "../engine/guidance_render.ts";
 import { checkProviderHooksCurrent } from "../lib/provider_hooks.ts";
-import { providerFor, providersWithHooks } from "../lib/providers.ts";
+import {
+  allGuidanceFilePaths,
+  providerFor,
+  providersWithHooks,
+} from "../lib/providers.ts";
 import { capStage, isKnownCapability } from "../shared/capabilities.ts";
 import { commandExists } from "../shared/subprocess.ts";
 import {
@@ -450,13 +454,32 @@ export async function runChecks(destDir: string): Promise<Check[]> {
   // before the user wonders why their guidance/skills aren't picked up.
   {
     const sources = await resolveGuidanceSources(destDir, config);
-    checks.push({
-      name: "guidance sources",
-      ok: true,
-      detail: sources.length === 0
-        ? "no source files match [guidance].sources yet (built-in guidance still compiles)"
-        : `${sources.length} source file(s) resolve`,
-    });
+    // A configured source that IS a generated agent file would feed the compiler
+    // its own output; resolution refuses those (see resolveGuidanceSources), so
+    // an explicit listing deserves a named diagnostic, not a silent zero-match.
+    const outputs = allGuidanceFilePaths();
+    const listedOutputs = config.guidance.sources
+      .filter((p) => outputs.includes(p));
+    if (listedOutputs.length > 0) {
+      checks.push({
+        name: "guidance sources",
+        ok: false,
+        detail:
+          `[guidance].sources names generated agent file(s) discern itself writes: ${
+            listedOutputs.join(", ")
+          } — an output can never be a source, so these entries resolve to nothing`,
+        fix:
+          "point [guidance].sources at your authored guidance instead (the compiled agent files are gitignored build artifacts)",
+      });
+    } else {
+      checks.push({
+        name: "guidance sources",
+        ok: true,
+        detail: sources.length === 0
+          ? "no source files match [guidance].sources yet (built-in guidance still compiles)"
+          : `${sources.length} source file(s) resolve`,
+      });
+    }
   }
   {
     const { rel, abs } = resolveSkillsDir(destDir, config);
