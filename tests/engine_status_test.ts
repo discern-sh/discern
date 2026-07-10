@@ -603,7 +603,7 @@ Deno.test("status: a clean worktree ahead of main without a receipt asks for fin
       `expected a final-finish hint: ${JSON.stringify(hints)}`,
     );
     assert(
-      !hints.some((h: string) => h.includes("report that the branch is ready")),
+      !hints.some((h: string) => h.includes("ready for owner review")),
       `missing receipt must not get a ready-for-review hint: ${
         JSON.stringify(hints)
       }`,
@@ -630,19 +630,46 @@ Deno.test("status: a clean worktree ahead of main with a finish receipt is ready
     assertEquals(obj.data.git.ahead_integration, 1);
     assertEquals(obj.data.git.behind_integration, 0);
     assertEquals(obj.data.gate_receipt.status, "honored");
+    // The honored record carries the stored receipt markdown — the artifact the
+    // review-ready hint tells the agent to relay.
+    assertStringIncludes(obj.data.gate_receipt.receipt, "### Receipt");
     const hints = obj.hints ?? [];
     assert(
-      hints.some((h: string) => h.includes("ready for review")),
+      hints.some((h: string) => h.includes("ready for owner review")),
       `expected a ready-for-review hint: ${JSON.stringify(hints)}`,
     );
+    // The review moment's concrete affordances: relay the receipt, and the exact
+    // inspection command for a human who wants the raw diff.
     assert(
-      hints.some((h: string) => h.includes("explicitly asks")),
-      `expected explicit-user-ask boundary: ${JSON.stringify(hints)}`,
+      hints.some((h: string) =>
+        h.includes("relay the receipt") &&
+        h.includes("git diff main...agent/alpha")
+      ),
+      `expected the relay + inspect affordances: ${JSON.stringify(hints)}`,
+    );
+    assert(
+      hints.some((h: string) => h.includes("explicitly accepts")),
+      `expected explicit-user-acceptance boundary: ${JSON.stringify(hints)}`,
     );
     assert(
       !hints.some((h: string) => h.includes("when ready")),
       `status must not imply graduation follows from readiness: ${
         JSON.stringify(hints)
+      }`,
+    );
+
+    // From the main checkout, the fleet's review-ready hint names the same
+    // inspection command, so the owner can look at the work from where they sit.
+    const fleet = await runAgent(dir, ["status", "--json"]);
+    assertEquals(fleet.code, 0, fleet.output);
+    const fleetHints = parseStatus(fleet.stdout).hints ?? [];
+    assert(
+      fleetHints.some((h: string) =>
+        h.includes("ready for owner review") &&
+        h.includes("git diff main...agent/alpha")
+      ),
+      `expected the fleet review-ready hint with the inspect command: ${
+        JSON.stringify(fleetHints)
       }`,
     );
   });

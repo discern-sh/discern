@@ -731,7 +731,7 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
         );
       } else if (ctx.gateReceipt?.status === "honored") {
         hints.push(
-          `Committed, up to date with ${main}, and this clean HEAD has a recorded \`discern finish\` pass; report that the branch is ready for review. Only run \`discern graduate\` if the user explicitly asks.`,
+          `Committed, up to date with ${main}, and this clean HEAD has a recorded \`discern finish\` pass — ready for owner review: relay the receipt (data.gate_receipt.receipt) to your owner and wait; they can inspect the raw diff with \`git diff ${main}...${g.branch}\`. Run \`discern graduate\` only if the user explicitly accepts.`,
         );
       } else {
         hints.push(
@@ -771,7 +771,7 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
           hints.push(
             `Worktree ${
               e.id ?? e.branch
-            } has committed work ready for owner review.`,
+            } has committed work ready for owner review — inspect it with \`git diff ${main}...${e.branch}\`.`,
           );
         }
       }
