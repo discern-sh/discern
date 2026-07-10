@@ -215,7 +215,7 @@ _Product positioning, messaging, and launch/content tasks._
       `docs/_private/maintainer/discern-product-strategy.md` (vocabulary canon).
 - [ ] **Rename `finish` → `done` (decided).** `discern done` makes the verb the
       positioning ("done isn't something you say — it's something you run"), the
-      lifecycle reads `start → prepare → done → graduate`, and
+      lifecycle reads `start → prepare → done → accept`, and
       `discern setup done` already established done-as-completion-verb in the
       product. Keep `finish` as a permanent alias. One honest caveat, handled in
       the verb's help: `done` sounds read-only, while the gate's fix stage
@@ -225,6 +225,19 @@ _Product positioning, messaging, and launch/content tasks._
       baselines rename. Trade-off accepted knowingly: the "'done' isn't done
       without a proper finish" flourish was licensed by the verb name and
       retires with it. Evidence:
+      `docs/_private/maintainer/discern-product-strategy.md` (vocabulary canon).
+- [ ] **Rename `graduate` → `accept` (decided).** The landing verb names the
+      owner's act: the review moment's design makes landing the _consequence_ of
+      the owner's acceptance, not a mechanical move. "Accept" carries
+      moves-the-code muscle memory (editors' "accept incoming changes" / "accept
+      suggestion" apply code), where "approve" was ruined by PR reviews
+      (approval ≠ merge) and "graduate" needs a gloss a plain verb doesn't. Keep
+      `graduate` as a permanent alias (CLI verb + `discern_graduate` MCP tool →
+      `discern_accept`); keep "land"/"landed on the trunk" as the plain-prose
+      description of the effect; align the setup flow's landing step
+      (`setup land` → `setup accept`, old spelling aliased). The natural
+      follow-up "where's `reject`?" has a standing answer: rejection is feedback
+      to the agent in conversation, not a verb. Evidence:
       `docs/_private/maintainer/discern-product-strategy.md` (vocabulary canon).
 - [ ] **Retire "harness" from user-facing surfaces (decided).** No single
       replacement word — reword per context: "discern" for the product, "the
