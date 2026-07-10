@@ -59,14 +59,21 @@ import {
   guidanceRefreshErrors,
   guidanceRefreshSucceeded,
 } from "../engine/guidelines.ts";
-import { renderAgentFiles } from "../engine/guidance_render.ts";
+import {
+  agentFileContents,
+  composeGuidanceBody,
+} from "../engine/guidance_render.ts";
 import { doctorResult } from "./doctor.ts";
 import { finishResult } from "../engine/gate/finish.ts";
 import {
   lifecycleContext,
   probeWorktreeViability,
 } from "../engine/worktree/lifecycle.ts";
-import { providerFor, reactivationHandoff } from "../lib/providers.ts";
+import {
+  allGuidanceFilePaths,
+  allGuidanceFiles,
+  reactivationHandoff,
+} from "../lib/providers.ts";
 import { consentAgentSet, resolveDefaultAgents } from "../lib/detect_agents.ts";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { CONFIG_REL, findRoot } from "../shared/env.ts";
@@ -650,18 +657,29 @@ async function scaffoldHarness(
  * pre-existing, hand-authored agent file into it so the compile that follows
  * can't destroy the user's instructions (ADR 0065).
  *
+ * The migration walks EVERY provider's instruction-file path
+ * ({@link allGuidanceFilePaths}) — the same registry aggregator `setup verify`
+ * names the pre-existing files from — never just the configured agent set. The
+ * scaffolded `.gitignore` covers the full provider surface and `uninstall`
+ * deletes every provider guidance path, so a hand-authored file for an unwired
+ * agent that was not folded here would silently fall out of version control and
+ * later be deleted — the exact loss `verify`'s "nothing is lost" promise rules
+ * out.
+ *
  * On a FRESH install no discern-generated agent file SHOULD exist (discern writes
  * them only via a compile, which needs a config) — but one can survive an
  * abandoned earlier setup, because the compiled files are gitignored and outlive
  * a branch switch or a deleted `discern-setup` branch. So a candidate is treated
  * as the USER's — its body folded into the source under a labelled heading,
  * deduped by content so identical mirrors migrate once — only when it does NOT
- * match discern's own render for that path ({@link renderAgentFiles} is
- * deterministic from config + sources, so the comparison is exact and cheap);
- * a match is skipped and reported, never re-imported as if it were authoring.
- * The stub is laid only when the source is absent, so a re-run never clobbers the
- * agent's work; on a `--force` re-run the user's content is already in the source
- * from the first run, so migration is skipped.
+ * match a body discern's own render produces ({@link agentFileContents} over the
+ * full registry is deterministic from config + sources, so the comparison is
+ * exact and cheap, and recognizes a leftover pointer or full body whichever
+ * agents the abandoned run had wired); a match is skipped and reported, never
+ * re-imported as if it were authoring. The stub is laid only when the source is
+ * absent, so a re-run never clobbers the agent's work; on a `--force` re-run the
+ * user's content is already in the source from the first run, so migration is
+ * skipped.
  */
 async function seedGuidance(
   root: string,
@@ -679,22 +697,25 @@ async function seedGuidance(
   const migrated: { file: string; body: string }[] = [];
   const skippedOwnRender: string[] = [];
   if (freshInstall) {
-    // Discern's own compiled content for each agent-file path, rendered from the
-    // just-scaffolded config + the on-disk sources — the exact bytes a refresh
-    // would write. Unavailable (undefined) when the config can't load; the
+    // Every body discern's own compile could have produced for ANY provider's
+    // agent file — the full body and the pointer form — rendered from the
+    // just-scaffolded config + the on-disk sources across the whole registry,
+    // so a survivor of an abandoned setup is recognized whichever agents that
+    // run had wired. Unavailable (undefined) when the config can't load; the
     // migration then proceeds as before rather than blocking the scaffold.
-    let ownRender: Map<string, string> | undefined;
+    let ownRenderBodies: Set<string> | undefined;
     try {
-      ownRender = await renderAgentFiles(root);
+      const cfg = await loadConfig(root);
+      const composed = await composeGuidanceBody(root, cfg);
+      ownRenderBodies = new Set(
+        [...agentFileContents(allGuidanceFiles(), composed).values()]
+          .map((b) => b.trim()),
+      );
     } catch {
-      ownRender = undefined;
+      ownRenderBodies = undefined;
     }
     const seen = new Set<string>();
-    for (const agent of config.agents) {
-      const rel = providerFor(agent)?.guidanceFile.path;
-      if (rel === undefined) {
-        continue;
-      }
+    for (const rel of allGuidanceFilePaths()) {
       let body: string;
       try {
         body = (await Deno.readTextFile(join(root, rel))).trim();
@@ -704,7 +725,7 @@ async function seedGuidance(
       if (body.length === 0 || seen.has(body)) {
         continue; // empty, or an identical mirror already captured
       }
-      if (ownRender?.get(rel)?.trim() === body) {
+      if (ownRenderBodies?.has(body)) {
         // A survivor of an abandoned setup, not the user's authoring — importing
         // it would fold discern's own compiled guidance back into the source.
         skippedOwnRender.push(rel);

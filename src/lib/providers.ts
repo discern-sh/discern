@@ -1262,14 +1262,21 @@ export function skillsDirsForAgents(agents: readonly string[]): string[] {
 // from `PROVIDERS`, so adding an agent to `AGENT_NAMES` extends them for free — no
 // hand-maintained second list to fall out of sync (the ADR 0031/0042 contract).
 
+/** Every provider's guidance-file entry, in registry order (paths may repeat —
+ * the reuse-canonical providers share `AGENTS.md`). The registry-derived input
+ * to {@link allGuidanceFilePaths} and to any consumer that must reason about
+ * the FULL provider surface (e.g. `setup begin`'s instruction-file migration),
+ * so no caller hand-copies the `AGENT_NAMES → guidanceFile` walk. */
+export function allGuidanceFiles(): GuidanceFile[] {
+  return AGENT_NAMES.map((a) => PROVIDERS[a].guidanceFile);
+}
+
 /** Every compiled guidance-file path discern emits across all known agents
  * (CLAUDE.md, AGENTS.md, GEMINI.md, …), in registry order. Reuse-canonical
  * providers collapse into the canonical provider's path here, so the set never
  * carries `AGENTS.md` twice. */
 export function allGuidanceFilePaths(): string[] {
-  return emittedGuidancePaths(
-    AGENT_NAMES.map((a) => PROVIDERS[a].guidanceFile),
-  );
+  return emittedGuidancePaths(allGuidanceFiles());
 }
 
 /** Every distinct skills directory discern materializes into across all known

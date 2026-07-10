@@ -25,7 +25,7 @@ import {
   AGENT_NAMES,
   parseConfigOrThrow,
 } from "../src/shared/config_schema.ts";
-import { providerFor } from "../src/lib/providers.ts";
+import { allGuidanceFilePaths, providerFor } from "../src/lib/providers.ts";
 
 /** The H1 of the printed setup instructions (templates/setup/instructions.md). */
 const INSTRUCTIONS_H1 = "# Set up the harness";
@@ -895,6 +895,51 @@ Deno.test("discern setup migrates a pre-existing agent file into guidance.md, ne
       ),
     )).join("\n");
     assertStringIncludes(compiled, rule);
+  });
+});
+
+Deno.test("discern setup migrates EVERY provider's pre-existing instruction file — configured or not (the verify promise)", async () => {
+  // `setup verify` names the pre-existing instruction files of ALL known
+  // providers and promises "begin preserves them by folding their content into
+  // the guidance source — nothing is lost". The migration must therefore cover
+  // the full provider registry, not just the configured agent set: a
+  // hand-authored file for an unwired agent is otherwise never folded, becomes
+  // gitignored by the scaffold, and a later `discern uninstall` deletes it.
+  // Driven off allGuidanceFilePaths() (the registry aggregator `verify` reads),
+  // so a new provider's instruction path auto-enrols in this guard.
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+    await gitInit(dir);
+    // Written AFTER the init commit, so each file is UNTRACKED — the fresh-repo
+    // shape where a dropped migration is unrecoverable (no git history holds it).
+    const paths = allGuidanceFilePaths();
+    for (const rel of paths) {
+      await Deno.writeTextFile(
+        join(dir, rel),
+        `# ${rel}\n\nHOUSE RULE from ${rel}: never break userspace.\n`,
+      );
+    }
+    // Wire ONLY claude_code, so every other provider's file belongs to an
+    // unconfigured agent — the set the migration used to silently skip.
+    const r = await runAgent(dir, [
+      "setup",
+      "begin",
+      "--confirmed",
+      "--agents",
+      "claude_code",
+    ]);
+    assertEquals(r.code, 0, r.output);
+
+    const guidance = await Deno.readTextFile(join(dir, "discern/guidance.md"));
+    for (const rel of paths) {
+      assertStringIncludes(
+        guidance,
+        `HOUSE RULE from ${rel}`,
+        `the pre-existing ${rel} must be folded into guidance.md whether or not ` +
+          `its agent is configured — verify promised the user nothing is lost.`,
+      );
+      assertStringIncludes(guidance, `Imported from ${rel}`);
+    }
   });
 });
 
