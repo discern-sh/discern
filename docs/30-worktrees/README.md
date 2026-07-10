@@ -55,11 +55,13 @@ agent session
 Uncommitted changes in the main checkout stay there (an advisory line says so).
 `start` refuses — in plain language, cleaning up anything partially created — a
 repo with no commits yet ("make your first commit first"), a `discern.toml` that
-is not at the git repository's root (a Worktree is a whole-repository checkout),
-and an unknown or ambiguous `--from` ref; `discern doctor`'s **repository
-shape** check flags the first two layouts before a `start` ever trips on them.
-It only ever _creates_ a Worktree to inhabit; it never adopts or prunes an
-existing one. When `main` advances under a long-running Worktree,
+is not at the git repository's root (a Worktree is a whole-repository checkout;
+the gate and analysis verbs still work under that nested shape —
+[ADR 0115](../_adr/0115-nested-root-verbs-work-or-refuse.md)), and an unknown or
+ambiguous `--from` ref; `discern doctor`'s **repository shape** check flags the
+first two layouts before a `start` ever trips on them. It only ever _creates_ a
+Worktree to inhabit; it never adopts or prunes an existing one. When `main`
+advances under a long-running Worktree,
 [`integrate`](../../src/engine/worktree/lifecycle.ts) brings it into the branch,
 re-materializes the agent files + skills, and re-runs `[worktree.setup].ensure`
 so a merge that changed a lockfile leaves the worktree's dependencies current —

@@ -126,6 +126,7 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0112 — A measurement receipt lets check → pin measure once](0112-ratchet-measurement-receipt.md)
 - [0113 — Installing a new dependency is a consent point in setup](0113-installing-a-dependency-is-a-consent-point.md)
 - [0114 — A green gate emits the receipt](0114-the-gate-emits-the-receipt.md)
+- [0115 — Under a nested project root, every verb works correctly or refuses loudly](0115-nested-root-verbs-work-or-refuse.md)
 
 ## Superseded and consolidated ADRs
 
