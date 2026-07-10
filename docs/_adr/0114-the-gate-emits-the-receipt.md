@@ -1,4 +1,4 @@
-# ADR 0113: a green gate emits the receipt
+# ADR 0114: a green gate emits the receipt
 
 **Status**: accepted. Builds on
 [ADR 0028](0028-result-envelope-and-diagnostics.md) (the one-object result rule)

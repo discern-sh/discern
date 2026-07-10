@@ -15,7 +15,7 @@ from the result envelope**: "what ran" is read from the envelope's `steps[]`,
 the git facts are gathered once and carried structured in `data.receipt`
 (branch, trunk, commits, files, insertions, deletions), and the `markdown` is a
 rendering of those fields, never a second computation
-([ADR 0113](../_adr/0113-the-gate-emits-the-receipt.md); the one-object rule of
+([ADR 0114](../_adr/0114-the-gate-emits-the-receipt.md); the one-object rule of
 [ADR 0028](../_adr/0028-result-envelope-and-diagnostics.md)).
 
 A dirty tree earns no receipt: the diff vs the trunk would describe a different

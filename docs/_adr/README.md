@@ -124,7 +124,7 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0110 — The landing model — pull from any ref, land only on the trunk](0110-the-landing-model.md)
 - [0111 — The MCP surface refuses undeclared arguments, and `discern_start` takes a cross-project `path`](0111-cross-project-path-and-strict-tool-schemas.md)
 - [0112 — A measurement receipt lets check → pin measure once](0112-ratchet-measurement-receipt.md)
-- [0113 — A green gate emits the receipt](0113-the-gate-emits-the-receipt.md)
+- [0114 — A green gate emits the receipt](0114-the-gate-emits-the-receipt.md)
 
 ## Superseded and consolidated ADRs
 
