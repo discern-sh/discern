@@ -29,6 +29,7 @@ import {
 } from "./plan.ts";
 import { gateRunContext, runGroup } from "./execute.ts";
 import { pinValidatedTree, recordGateOutcome } from "./receipt.ts";
+import { sweepDueTempArtifacts } from "../../shared/temp_artifacts.ts";
 import { buildGateReceipt } from "./receipt_render.ts";
 import { cmdsInStage } from "./stages.ts";
 import {
@@ -213,6 +214,9 @@ async function runGate(
   // pin at stamp time, so a commit made while the gate runs can never earn a receipt
   // naming a tree the jobs never read.
   const treePin = await pinValidatedTree(root);
+  // Retention for the job output artifacts the run is about to create (ADR 0116)
+  // — before jobs spawn, so the sweep can never sit on a job's kill path.
+  await sweepDueTempArtifacts();
   const cfg = await loadConfig(root);
   // Human: gate narration + job output → stdout. --json:
   // quiet — the result envelope is the entire output (ADR 0030), so the runner

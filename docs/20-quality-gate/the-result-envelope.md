@@ -55,6 +55,13 @@ returning zero, and only the project can decide whether that is a mis-scoped
 command or harmless noise
 ([ADR 0096](../_adr/0096-passing-jobs-keep-output-artifacts.md)).
 
+The artifacts persist past the run so a result envelope stays inspectable, but
+not forever: every artifact family is registered in one module
+(`src/shared/temp_artifacts.ts`), and each gate run reaps registered files older
+than 24 hours from the OS temp dir before its jobs spawn — bounded per sweep, so
+even a huge backlog never stalls a run
+([ADR 0116](../_adr/0116-temp-output-artifacts-are-reaped-by-age.md)).
+
 ## `diagnostics[]` — the structured "why"
 
 A failed gate command yields a normalized {@link Diagnostic} so an agent loops

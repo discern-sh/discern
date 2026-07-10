@@ -1177,7 +1177,7 @@ function graduateGateRefusal(
     (shown.length > 0 ? `\n\nWhat failed:\n${shown.join("\n")}` : "");
 }
 
-/** The graduate refusal when the branch tip no longer names the commit the gate
+/** The graduate refusal when the branch tip has moved off the commit the gate
  * validated — a commit landed while graduation was validating (or between the
  * validation and the fast-forward), so the tree that would land is not the tree
  * the gate tested. Nothing has been changed when this fires. */

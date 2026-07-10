@@ -21,6 +21,7 @@ import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import { setupInProgressHint } from "../../shared/setup_state.ts";
 import { preparePlanGroups, serializeJobSteps } from "./plan.ts";
 import { gateRunContext, runJobGroups } from "./execute.ts";
+import { sweepDueTempArtifacts } from "../../shared/temp_artifacts.ts";
 import { renderFailureTail } from "./failure_tail.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { couplingGateHints } from "../coupling/coupling.ts";
@@ -48,6 +49,9 @@ async function runPrepareGate(
   const cfg = await loadConfig(root);
   const groups = preparePlanGroups(cfg);
   const { runOpts, out } = gateRunContext(root, cfg, json, signal);
+  // Retention for the job output artifacts the run is about to create (ADR 0116)
+  // — before jobs spawn, so the sweep can never sit on a job's kill path.
+  await sweepDueTempArtifacts();
   const { results, failedStage } = await runJobGroups(groups, runOpts, out);
   const { steps, diagnostics, hints: jobOutputHints } = await serializeJobSteps(
     groups,

@@ -146,6 +146,10 @@ const WRITE_SITE_HOMES = new Map<string, string>([
     "src/engine/gate/diagnostic_output.ts",
     "full diagnostic output offloaded to a temp file (outside the project tree)",
   ],
+  [
+    "src/shared/temp_artifacts.ts",
+    "the OS-temp artifact registry: creates gate output artifacts and reaps expired ones (outside the project tree; ADR 0116)",
+  ],
 ]);
 
 const SRC = join(dirname(fromFileUrl(import.meta.url)), "..", "src");
