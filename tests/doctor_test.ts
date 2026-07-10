@@ -136,6 +136,24 @@ async function addCapability(
   );
 }
 
+/** Add a key under `[capabilities]` with a pre-rendered TOML value literal
+ * (single-quoted, so the value itself may contain double quotes). */
+async function addCapabilityLiteral(
+  dir: string,
+  key: string,
+  literal: string,
+): Promise<void> {
+  const p = join(dir, "discern.toml");
+  const text = await Deno.readTextFile(p);
+  await Deno.writeTextFile(
+    p,
+    text.replace(
+      /\[capabilities\]\n/,
+      `[capabilities]\n${key} = '${literal}'\n`,
+    ),
+  );
+}
+
 /** Append a `[checks.<name>]` table to the scaffold's config. */
 async function addCheck(
   dir: string,
@@ -386,6 +404,73 @@ Deno.test("doctor: a fresh install reports its wired capabilities", async () => 
     assertEquals(caps.status, "ok");
     assertEquals(caps.ok, true);
     assertStringIncludes(caps.detail, "test");
+  });
+});
+
+Deno.test("doctor: an env-assignment prefix probes the real command, not the assignment", async () => {
+  await withTempDir(async (dir) => {
+    await setupInstall(dir);
+    // The gate runs this fine through `sh -c` (the prefix is the shell's), so
+    // doctor must not report the healthy install as broken.
+    await addCapability(dir, "test", "CI=1 echo ok");
+    const { code, payload } = await runDoctorJson(dir);
+    assertEquals(code, 0, JSON.stringify(payload.data.checks));
+    assertEquals(check(payload, "capability commands").ok, true);
+  });
+});
+
+Deno.test("doctor: an env-prefixed MISSING command is still detected, naming the real word", async () => {
+  await withTempDir(async (dir) => {
+    await setupInstall(dir);
+    await addCapability(dir, "test", "CI=1 definitely-not-a-tool-xyz --flag");
+    const { code, payload } = await runDoctorJson(dir);
+    assertEquals(code, 1);
+    const cmds = check(payload, "capability commands");
+    assertEquals(cmds.ok, false);
+    assertStringIncludes(cmds.detail, "test → definitely-not-a-tool-xyz");
+  });
+});
+
+Deno.test("doctor: a quoted leading word (a path with spaces) resolves as one command", async () => {
+  await withTempDir(async (dir) => {
+    await setupInstall(dir);
+    const script = join(dir, "my tool.sh");
+    await Deno.writeTextFile(script, "#!/bin/sh\necho ok\n");
+    await Deno.chmod(script, 0o755);
+    await addCapabilityLiteral(dir, "test", '"./my tool.sh" --all');
+    const { code, payload } = await runDoctorJson(dir);
+    assertEquals(code, 0, JSON.stringify(payload.data.checks));
+    assertEquals(check(payload, "capability commands").ok, true);
+  });
+});
+
+Deno.test("doctor: a dynamic leading word is skipped (advisory scope), never failed", async () => {
+  await withTempDir(async (dir) => {
+    await setupInstall(dir);
+    // `$TOOL run` can't be resolved without executing the shell — doctor skips
+    // the probe rather than failing a command it cannot judge.
+    await addCapabilityLiteral(dir, "test", "$TOOL run");
+    const { code, payload } = await runDoctorJson(dir);
+    assertEquals(code, 0, JSON.stringify(payload.data.checks));
+    assertEquals(check(payload, "capability commands").ok, true);
+  });
+});
+
+Deno.test("doctor: worktree-resource commands honor env-assignment prefixes too", async () => {
+  await withTempDir(async (dir) => {
+    await setupInstall(dir);
+    await appendConfig(
+      dir,
+      '[worktree.resources.db]\ncreate = "CI=1 echo up"\ndestroy = "CI=1 echo down"\n',
+    );
+    const { code, payload } = await runDoctorJson(dir);
+    assertEquals(code, 0);
+    // The prefix probes through to `echo`, which resolves — no advisory warn.
+    assertEquals(
+      payload.data.checks.find((c) => c.name === "worktree resource commands"),
+      undefined,
+      "an env-prefixed resolvable resource command must not warn",
+    );
   });
 });
 

@@ -33,7 +33,7 @@ import { renderAgentFiles } from "../engine/guidance_render.ts";
 import { checkProviderHooksCurrent } from "../lib/provider_hooks.ts";
 import { providerFor, providersWithHooks } from "../lib/providers.ts";
 import { capStage, isKnownCapability } from "../shared/capabilities.ts";
-import { commandExists } from "../shared/subprocess.ts";
+import { commandExists, leadingCommandWord } from "../shared/subprocess.ts";
 import {
   gitVersion,
   hasAnyCommit,
@@ -126,13 +126,6 @@ function normalizeChecks(checks: DraftCheck[]): Check[] {
  * The full string is preserved verbatim in the `--json` environment block. */
 function gitDisplayVersion(raw: string): string {
   return raw.replace(/^git version\s+/, "");
-}
-
-/** The first whitespace-delimited word of a command, or undefined for an empty
- * command or the `:` no-op. */
-function firstWord(command: string): string | undefined {
-  const word = command.trim().split(/\s+/)[0];
-  return word === undefined || word === "" || word === ":" ? undefined : word;
 }
 
 /** Whether a regular file exists at `path`. */
@@ -271,14 +264,15 @@ export async function runChecks(destDir: string): Promise<Check[]> {
       : {}),
   });
 
-  // 5. capability/check commands resolve — the first word of each declared
-  // command resolves from the project root, so the gate will not die with
-  // "command not found" (including a relative `./tool`).
+  // 5. capability/check commands resolve — the leading command word of each
+  // declared command (the word `sh -c` would execute, past any env-assignment
+  // prefix, quotes resolved) resolves from the project root, so the gate will
+  // not die with "command not found" (including a relative `./tool`).
   {
     const commands: { label: string; word: string }[] = [];
     for (const [cap, value] of Object.entries(config.capabilities)) {
       for (const c of toCommandList(value)) {
-        const word = firstWord(c);
+        const word = leadingCommandWord(c);
         if (word !== undefined) {
           commands.push({ label: cap, word });
         }
@@ -286,7 +280,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
     }
     for (const [chk, spec] of Object.entries(config.checks)) {
       for (const c of toCommandList(spec.run)) {
-        const word = firstWord(c);
+        const word = leadingCommandWord(c);
         if (word !== undefined) {
           commands.push({ label: chk, word });
         }
@@ -304,7 +298,9 @@ export async function runChecks(destDir: string): Promise<Check[]> {
           name: "capability commands",
           ok: true,
           // Honest about scope: only the LEADING command of each is probed, not
-          // every word of a piped/`&&`-chained command (doctor is an advisory).
+          // every word of a piped/`&&`-chained command, and a command whose
+          // leading word is dynamic (`$TOOL …`) is skipped rather than judged
+          // (doctor is an advisory).
           detail: commands.length === 0
             ? "none to check"
             : "each command's leading binary resolves on PATH",
@@ -682,14 +678,14 @@ export async function runChecks(destDir: string): Promise<Check[]> {
     }
   }
 
-  // 12. worktree-resource commands resolve (advisory). The first word of each
-  // declared create/destroy/ensure should resolve from the project root, so a
-  // worktree round won't die with "command not found".
+  // 12. worktree-resource commands resolve (advisory). The leading command word
+  // of each declared create/destroy/ensure should resolve from the project
+  // root, so a worktree round won't die with "command not found".
   {
     const missing: string[] = [];
     for (const [name, r] of Object.entries(config.worktree.resources)) {
       for (const cmd of [r.create, r.destroy, r.ensure]) {
-        const word = firstWord(cmd);
+        const word = leadingCommandWord(cmd);
         if (
           word !== undefined &&
           !(await commandExists(word, { cwd: destDir }))
