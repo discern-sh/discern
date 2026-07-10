@@ -505,6 +505,43 @@ Deno.test("doctor: a recipe sourcing the retired shell library is flagged with t
   });
 });
 
+Deno.test("doctor: a recipe running the project's OWN bootstrap.sh is healthy", async () => {
+  await withTempDir(async (dir) => {
+    await setupInstall(dir);
+    // bootstrap.sh is a generic script name; a project recipe invoking its own
+    // bootstrap script has nothing to do with discern's retired shell library
+    // and must not fail the health check.
+    await Deno.mkdir(join(dir, "discern/recipes"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, "discern/recipes/reset-env"),
+      "#!/usr/bin/env sh\n# desc: reset the dev environment\n./scripts/bootstrap.sh --seed\n",
+    );
+    const { code, payload } = await runDoctorJson(dir);
+    assertEquals(code, 0, JSON.stringify(payload.data.checks));
+    const recipe = check(payload, "recipe contract");
+    assertEquals(recipe.ok, true);
+  });
+});
+
+Deno.test("doctor: any DISCERN_LIB reference in a recipe is flagged, whatever file it loads", async () => {
+  await withTempDir(async (dir) => {
+    await setupInstall(dir);
+    // The retired contract's own identifier is the discriminator: a recipe
+    // reaching for `$DISCERN_LIB` breaks at runtime regardless of which helper
+    // it names.
+    await Deno.mkdir(join(dir, "discern/recipes"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, "discern/recipes/legacy"),
+      '#!/usr/bin/env sh\n# desc: legacy helper user\n. "$DISCERN_LIB/output.sh"\n',
+    );
+    const { code, payload } = await runDoctorJson(dir);
+    assertEquals(code, 1);
+    const recipe = check(payload, "recipe contract");
+    assertEquals(recipe.ok, false);
+    assertStringIncludes(recipe.detail, "legacy");
+  });
+});
+
 Deno.test("doctor: a fresh install confirms `sh` resolves on PATH", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir);

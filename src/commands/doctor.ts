@@ -319,7 +319,9 @@ export async function runChecks(destDir: string): Promise<Check[]> {
   // sourcing a helper library: `DISCERN_LIB` is not part of the recipe
   // environment, so a recipe that does `. "$DISCERN_LIB/bootstrap.sh"` for
   // config/output helpers breaks at runtime. Flag it and point at the contract.
-  // README.md is documentation, not a recipe, so it is skipped.
+  // The needle is the retired contract's OWN identifier (`DISCERN_LIB`), never a
+  // generic filename — a project recipe running its own `bootstrap.sh` is
+  // healthy. README.md is documentation, not a recipe, so it is skipped.
   {
     const { abs: recipesDir } = resolveRecipesDir(destDir, config);
     const offenders: string[] = [];
@@ -331,7 +333,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
         }
         scanned++;
         const body = await Deno.readTextFile(join(recipesDir, entry.name));
-        if (body.includes("DISCERN_LIB") || body.includes("bootstrap.sh")) {
+        if (body.includes("DISCERN_LIB")) {
           offenders.push(entry.name);
         }
       }
