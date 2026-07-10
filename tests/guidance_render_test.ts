@@ -201,7 +201,11 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
       "graduation requires an explicit user ask",
     );
     assert(
-      bareBody.includes("stop and wait for their confirmation"),
+      bareBody.includes("relay the receipt to your owner and stop"),
+      "a green finish routes through the review moment, not straight to landing",
+    );
+    assert(
+      bareBody.includes("graduate only once they accept"),
       "green finish is not treated as permission to graduate",
     );
   } finally {

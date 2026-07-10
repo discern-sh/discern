@@ -56,7 +56,9 @@ function stepRow(r: StepResult): string {
   const duration = ran && r.durationS !== undefined && r.durationS > 0
     ? ` · ${r.durationS}s`
     : "";
-  return `| ${cell(r.step.label)} | ${cell(command)} | ${r.outcome}${duration} |`;
+  return `| ${cell(r.step.label)} | ${
+    cell(command)
+  } | ${r.outcome}${duration} |`;
 }
 
 /**
@@ -107,7 +109,10 @@ export function renderReceiptMarkdown(
     }
   }
 
-  lines.push("", `Inspect: ${code(`git diff ${facts.trunk}...${facts.branch}`)}`);
+  lines.push(
+    "",
+    `Inspect: ${code(`git diff ${facts.trunk}...${facts.branch}`)}`,
+  );
   return lines.join("\n");
 }
 

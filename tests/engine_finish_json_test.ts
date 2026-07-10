@@ -954,7 +954,10 @@ Deno.test("finish --json: a green worktree gate emits the receipt in data and st
     assertEquals(receipt.files_total, 1);
     assertEquals(receipt.files[0].path, "feature.txt");
     assertStringIncludes(receipt.markdown, "### Receipt — `agent/alpha`");
-    assertStringIncludes(receipt.markdown, "| test | `echo receipt-gate-ok` | ok");
+    assertStringIncludes(
+      receipt.markdown,
+      "| test | `echo receipt-gate-ok` | ok",
+    );
     assertStringIncludes(receipt.markdown, "- `feature.txt`");
     assertStringIncludes(
       receipt.markdown,
@@ -994,7 +997,9 @@ Deno.test("finish --json: no receipt on the trunk itself, or over a dirty tree",
     await gitInit(dir);
 
     // The trunk: nothing ahead of main to review — no receipt, gate still records.
-    const onMain = parseJson((await runAgent(dir, ["finish", "--json"])).stdout);
+    const onMain = parseJson(
+      (await runAgent(dir, ["finish", "--json"])).stdout,
+    );
     assertEquals(onMain.ok, true);
     assertEquals(onMain.data.receipt, undefined);
 

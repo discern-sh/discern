@@ -1,7 +1,7 @@
 # The receipt
 
-_The compact review summary a green gate hands the human — discern's own
-account of what was proven and what would land._
+_The compact review summary a green gate hands the human — discern's own account
+of what was proven and what would land._
 
 ## What it is
 
@@ -24,12 +24,12 @@ the final `finish` on the clean HEAD.
 
 ## Where it appears
 
-- **`discern finish`** prints it at the tail of a green human run and carries
-  it in the `--json`/MCP envelope as `data.receipt`, with a hint beside it:
-  relay the receipt to your owner and stop; graduate only once they accept.
+- **`discern finish`** prints it at the tail of a green human run and carries it
+  in the `--json`/MCP envelope as `data.receipt`, with a hint beside it: relay
+  the receipt to your owner and stop; graduate only once they accept.
 - **The marker.** The green run stores the markdown beside the validated sha in
-  the per-worktree marker file (`discern-gate-receipt`, inside the git admin
-  dir — the vouch of
+  the per-worktree marker file (`discern-gate-receipt`, inside the git admin dir
+  — the vouch of
   [ADR 0067](../_adr/0067-graduate-validates-the-landed-tree.md)), so later
   verbs can surface the receipt without re-running the gate. Any new commit,
   amend, or uncommitted edit silently invalidates it.
@@ -44,9 +44,9 @@ the final `finish` on the clean HEAD.
 
 Nobody calls a review verb; the receipt and the hints are the affordance. A
 green finish emits the receipt, the compiled guidance tells the agent to relay
-it and wait, and the owner reads discern's own deterministic account of what
-was proven — instead of the agent narrating its own grade — digs into the raw
-diff if they want to, and approves with a word: accept.
+it and wait, and the owner reads discern's own deterministic account of what was
+proven — instead of the agent narrating its own grade — digs into the raw diff
+if they want to, and approves with a word: accept.
 
 ## See also
 

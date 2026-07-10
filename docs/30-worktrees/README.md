@@ -95,19 +95,19 @@ generated guidance, materialized skills, and provider integrations match the
 landed sources
 ([ADR 0098](../_adr/0098-graduate-refreshes-the-landing-checkout.md)), and it
 prints [the receipt](../20-quality-gate/the-receipt.md) for the landed tree —
-the landing record, pasteable into a PR body. Its
-main-checkout precondition also cares about tracked changes, not untracked local
-scratch; the worktree precondition is stricter because graduation refuses any
-tracked, not staged, staged, or untracked worktree change before it removes the
-checkout; [`worktree drop <id|path>`](../../src/engine/worktree/lifecycle.ts) —
-run from the main checkout — is the sanctioned removal for **abandoned work**:
-it tears down the worktree's resources, removes the worktree, and deletes its
-branch, refusing without `--force` when the worktree holds uncommitted changes
-or commits not on the trunk (naming exactly what a forced drop would discard).
-It is deliberately CLI-only, with no MCP tool: the MCP surface aims at the
-caller's _own_ worktree, every other worktree is another line of work an agent
-must never remove (the fleet ownership rule), so discarding work is a human
-supervisory action — `status` hints carry the command to the human.
+the landing record, pasteable into a PR body. Its main-checkout precondition
+also cares about tracked changes, not untracked local scratch; the worktree
+precondition is stricter because graduation refuses any tracked, not staged,
+staged, or untracked worktree change before it removes the checkout;
+[`worktree drop <id|path>`](../../src/engine/worktree/lifecycle.ts) — run from
+the main checkout — is the sanctioned removal for **abandoned work**: it tears
+down the worktree's resources, removes the worktree, and deletes its branch,
+refusing without `--force` when the worktree holds uncommitted changes or
+commits not on the trunk (naming exactly what a forced drop would discard). It
+is deliberately CLI-only, with no MCP tool: the MCP surface aims at the caller's
+_own_ worktree, every other worktree is another line of work an agent must never
+remove (the fleet ownership rule), so discarding work is a human supervisory
+action — `status` hints carry the command to the human.
 [`worktree prune`](../../src/engine/worktree/lifecycle.ts) sweeps stale
 Worktrees and **reclaims the resources of any Worktree that vanished without a
 clean teardown** (the garbage-collection safety net); it only ever removes

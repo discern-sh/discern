@@ -613,6 +613,11 @@ export async function runFinish(
     });
     return 1;
   }
-  printSuccessTail(cfg, out, result.hints ?? [], result.data?.receipt?.markdown);
+  printSuccessTail(
+    cfg,
+    out,
+    result.hints ?? [],
+    result.data?.receipt?.markdown,
+  );
   return 0;
 }

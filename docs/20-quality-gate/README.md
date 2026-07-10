@@ -73,10 +73,9 @@ an agent to capture
 without running anything
 ([ADR 0027](../_adr/0027-plan-apply-engine-execution.md)); it is honest that it
 cannot predict which jobs fail-fast would skip. A green run over a clean
-committed tree ahead of the trunk also emits **[the receipt](the-receipt.md)**
-— the compact review summary the agent relays to its owner at the review
-moment. The same envelope is served to agents natively over MCP by
-`discern mcp`.
+committed tree ahead of the trunk also emits **[the receipt](the-receipt.md)** —
+the compact review summary the agent relays to its owner at the review moment.
+The same envelope is served to agents natively over MCP by `discern mcp`.
 
 The supporting ideas: **Capabilities** are the six known commands (`format` /
 `build` / `lint` / `typecheck` / `test` / `smoke`) and a **Check** is custom
