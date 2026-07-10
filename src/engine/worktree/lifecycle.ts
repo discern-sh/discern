@@ -108,6 +108,7 @@ import {
   pruneStaleWorktreeMetadata,
   readySentinelPath,
   refMergedState,
+  registeredWorktreeRecord,
   removeWorktreeSafely,
   repoToplevel,
   resolveCommitRef,
@@ -826,6 +827,18 @@ async function buildDropPlan(
     );
   }
 
+  // A `git worktree lock`ed worktree cannot be removed at all (git refuses, and
+  // discern honors the lock — it protects checkouts and their ignored files on
+  // removable/network media). A hard refusal, NOT a --force blocker: --force
+  // consents to discarding work, not to defeating git's own protection.
+  if (match.locked) {
+    throw new WorktreeGitError(
+      `Worktree '${basename(match.path)}' is locked (git worktree lock), so ` +
+        `discern will not remove it — not even with --force. Unlock it first ` +
+        `(git worktree unlock ${match.path}), then re-run.`,
+    );
+  }
+
   // What a drop would lose — the `--force` blockers.
   const blockers: string[] = [];
   const trunkExists = await localBranchExists(ctx.root, trunk);
@@ -971,9 +984,11 @@ export async function worktreeDrop(
   ctx.log.info(`Removing worktree: ${plan.targetPath}`);
   try {
     await removeWorktreeSafely(plan.targetPath, ctx.root);
-  } catch {
+  } catch (e) {
     throw new WorktreeGitError(
-      `Worktree removal failed for ${plan.targetPath}. Run 'git worktree list' to investigate.`,
+      `Worktree removal failed for ${plan.targetPath}: ${
+        e instanceof Error ? e.message : String(e)
+      }\nRun 'git worktree list' to investigate.`,
     );
   }
   steps.push({
@@ -1084,6 +1099,20 @@ async function buildGraduatePlan(
   if (mainRepo === worktreePath) {
     throw new WorktreeGitError(
       "Current worktree appears to be the main worktree — refusing to proceed.",
+    );
+  }
+
+  // Graduation ends by REMOVING this worktree, and a `git worktree lock`ed one
+  // cannot be removed (git refuses; discern honors the lock). Refuse at plan
+  // time — before the gate runs and long before the trunk fast-forwards — so a
+  // locked worktree never strands a half-landed graduation.
+  if (
+    (await registeredWorktreeRecord(worktreePath, mainRepo))?.locked === true
+  ) {
+    throw new WorktreeGitError(
+      `This worktree is locked (git worktree lock), and graduation removes ` +
+        `the worktree after landing. Unlock it first ` +
+        `(git worktree unlock ${worktreePath}), then re-run discern graduate.`,
     );
   }
 

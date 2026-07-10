@@ -107,10 +107,14 @@ commits not on the trunk (naming exactly what a forced drop would discard). A
 worktree whose git state cannot be read — a missing or damaged checkout — fails
 **safe** the same way: unknown state is itself a blocker, never treated as
 clean, and unlanded commits are still named from the branch ref in the main
-repo. It is deliberately CLI-only, with no MCP tool: the MCP surface aims at the
-caller's _own_ worktree, every other worktree is another line of work an agent
-must never remove (the fleet ownership rule), so discarding work is a human
-supervisory action — `status` hints carry the command to the human.
+repo. A `git worktree lock`ed worktree is refused outright — not even `--force`
+removes one (the lock protects checkouts and their ignored files on
+removable/network media; `git worktree unlock` is the only way through), and
+`graduate` applies the same refusal at plan time, before anything lands. It is
+deliberately CLI-only, with no MCP tool: the MCP surface aims at the caller's
+_own_ worktree, every other worktree is another line of work an agent must never
+remove (the fleet ownership rule), so discarding work is a human supervisory
+action — `status` hints carry the command to the human.
 [`worktree prune`](../../src/engine/worktree/lifecycle.ts) sweeps stale
 Worktrees and **reclaims the resources of any Worktree that vanished without a
 clean teardown** (the garbage-collection safety net); it only ever removes

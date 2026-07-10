@@ -241,6 +241,54 @@ Deno.test("worktree drop: an out-of-band-deleted checkout never silently deletes
   });
 });
 
+Deno.test("worktree drop: honors git worktree lock — refused even with --force", async () => {
+  await withTempDir(async (dir) => {
+    // `git worktree lock` protects checkouts on removable/network media (and
+    // their ignored files). A locked worktree must never be bulldozed: git
+    // refuses the removal, and escalating that refusal to rm -rf destroyed the
+    // protected files AND stranded a permanent phantom registration (prune
+    // skips locked entries).
+    const wt = await mainWithWorktree(dir, "locked-drop");
+    await git(dir, "worktree", "lock", wt, "--reason", "portable drive");
+
+    for (
+      const args of [
+        ["worktree", "drop", "locked-drop"],
+        ["worktree", "drop", "locked-drop", "--force"],
+      ]
+    ) {
+      const r = await runAgent(dir, args);
+      assertEquals(r.code, 1, r.output);
+      assertStringIncludes(r.output, "locked");
+      assertStringIncludes(r.output, "git worktree unlock");
+      assertEquals(
+        await exists(wt),
+        true,
+        `a locked worktree must survive\n${r.output}`,
+      );
+    }
+    // The registration is intact too — no phantom entry pointing at a gone path.
+    assertStringIncludes(await gitOut(dir, "worktree", "list"), "locked-drop");
+    assert(await branchExists(dir, "agent/locked-drop"));
+  });
+});
+
+Deno.test("remove-worktree-safely: the shared removal core refuses a locked worktree", async () => {
+  await withTempDir(async (dir) => {
+    // Every removal path (drop, graduate, prune, discard) funnels through this
+    // helper — the refusal here is the class guard for all of them.
+    const wt = await mainWithWorktree(dir, "locked-core");
+    await git(dir, "worktree", "lock", wt);
+
+    const r = await runAgent(dir, ["remove-worktree-safely", wt]);
+    assertEquals(r.code, 1, r.output);
+    assertStringIncludes(r.output, "locked");
+    assertStringIncludes(r.output, "git worktree unlock");
+    assertEquals(await exists(wt), true, r.output);
+    assertStringIncludes(await gitOut(dir, "worktree", "list"), "locked-core");
+  });
+});
+
 Deno.test("worktree drop: tears down the worktree's recorded resources", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
