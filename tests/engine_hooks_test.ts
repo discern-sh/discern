@@ -117,6 +117,39 @@ Deno.test("hook WorktreeCreate: branches from the trunk even when the main check
   });
 });
 
+Deno.test("hook WorktreeCreate: a failed create never deletes a pre-existing branch", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    // A branch left behind by an earlier session of the same name, holding
+    // unlanded commits (the session's worktree is gone; the branch survives —
+    // exactly the abandoned-work state `status` surfaces as unlanded).
+    await git(dir, "branch", "agent/fix-login");
+    await git(dir, "switch", "-q", "agent/fix-login");
+    await Deno.writeTextFile(join(dir, "unlanded.txt"), "5 commits of work\n");
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "unlanded", "--no-gpg-sign");
+    await git(dir, "switch", "-q", "main");
+    const tip = await gitOut(dir, "rev-parse", "agent/fix-login");
+
+    // A new session re-uses the worktree name: the create must fail plainly —
+    // and the failure cleanup must NOT `git branch -D` a branch it never
+    // created (that silently destroyed the unlanded commits).
+    const r = await runHook(dir, await hookCommand(dir, "WorktreeCreate"), {
+      name: "fix-login",
+      cwd: dir,
+    });
+    assertEquals(r.code, 1, r.stderr);
+    assertStringIncludes(r.stderr, "agent/fix-login");
+    assertStringIncludes(r.stderr, "already exists");
+    assertEquals(
+      await gitOut(dir, "rev-parse", "agent/fix-login"),
+      tip,
+      `the pre-existing branch must keep its commits\n${r.stderr}`,
+    );
+  });
+});
+
 Deno.test("hook WorktreeCreate: warns when the caller-named worktree's port collides with a live sibling's", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

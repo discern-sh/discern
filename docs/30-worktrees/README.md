@@ -29,16 +29,18 @@ resources and runs `[worktree.setup]`: the one-shot `steps`, then the convergent
 `ensure`), `WorktreeRemove` →
 [`worktree remove`](../../src/lib/worktree_hooks.ts) (tears it down). Those two
 hook entries parse their payload in the binary itself — no `jq`
-([ADR 0040](../_adr/0040-worktree-hooks-in-the-binary.md)). An agent on the
-**main checkout** that needs its own Worktree runs
-[`start`](../../src/engine/worktree/lifecycle.ts): it mints a fresh id — from an
-optional caller-supplied **name**, normalised to a branch-safe slug (else a
-random `<adjective>-<noun>` codename), always tailed with random hex so two
-same-named Worktrees never collide — creates the Worktree on its own `agent/`
-branch at the sibling location, sets it up, and reports the path to move into
-(with a note when the name was normalised or fell back) — the agent-initiated
-counterpart to the `WorktreeCreate` hook, and the first-class alternative to
-squatting in another line of work's Worktree
+([ADR 0040](../_adr/0040-worktree-hooks-in-the-binary.md)). A create whose
+branch already exists (unlanded work from an earlier worktree of the same name)
+is refused up front, and a failed create discards only what it created — never a
+pre-existing branch or its commits. An agent on the **main checkout** that needs
+its own Worktree runs [`start`](../../src/engine/worktree/lifecycle.ts): it
+mints a fresh id — from an optional caller-supplied **name**, normalised to a
+branch-safe slug (else a random `<adjective>-<noun>` codename), always tailed
+with random hex so two same-named Worktrees never collide — creates the Worktree
+on its own `agent/` branch at the sibling location, sets it up, and reports the
+path to move into (with a note when the name was normalised or fell back) — the
+agent-initiated counterpart to the `WorktreeCreate` hook, and the first-class
+alternative to squatting in another line of work's Worktree
 ([ADR 0058](../_adr/0058-start-verb-spawn-worktree-from-trunk.md),
 [ADR 0109](../_adr/0109-worktree-start-optional-name.md)). The new branch forks
 from the **trunk** (`[project].main_branch`) explicitly — never from whatever

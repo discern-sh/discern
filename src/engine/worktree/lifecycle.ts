@@ -616,8 +616,24 @@ export async function createAndSetupWorktree(
   // Idempotence marker: when `dir` is already a worktree this call created nothing,
   // so a later failure must not discard someone else's live worktree.
   const preExisting = await pathPresent(join(dir, ".git"));
+  // A fresh create always mints a fresh `-b` branch. When the branch already
+  // exists — typically unlanded work left by an earlier worktree of the same
+  // name — refuse up front in plain language: `git worktree add` would fail
+  // anyway, and the branch (and its commits) was never this call's to touch.
+  if (!preExisting && (await localBranchExists(mainRepo, branch))) {
+    throw new WorktreeGitError(
+      `A branch named '${branch}' already exists in this repository — it may ` +
+        `hold unlanded work from an earlier worktree of the same name. Choose ` +
+        `a different worktree name, or review that branch first ` +
+        `(git log ${branch}) and land or delete it yourself, then re-run.`,
+    );
+  }
+  // True once `git worktree add -b` has succeeded — the moment the branch (and
+  // the checkout) became THIS call's creation, and so its to discard on failure.
+  let createdWorktree = false;
   try {
     await addWorktree(mainRepo, dir, branch, startPoint);
+    createdWorktree = true;
     let ctx: LifecycleContext;
     try {
       ctx = await lifecycleContext(dir, log, dir);
@@ -637,7 +653,12 @@ export async function createAndSetupWorktree(
     await worktreeSetup(ctx, { humanApplySummary: false });
   } catch (e) {
     if (!preExisting) {
-      await discardWorktreeBestEffort(mainRepo, dir, branch, log);
+      // Delete the branch only when the add above created it: a failed add
+      // (e.g. a branch-name collision racing past the pre-check) means the
+      // branch — possibly holding unlanded commits — was never ours to remove.
+      await discardWorktreeBestEffort(mainRepo, dir, branch, log, {
+        deleteBranch: createdWorktree,
+      });
     }
     throw e;
   }
@@ -646,16 +667,19 @@ export async function createAndSetupWorktree(
 /**
  * Discard a worktree unconditionally and best-effort: destroy its resources (from
  * inside it, so `@dir@` destroys resolve), remove the worktree directory and its
- * git registration, then delete its branch. Every step swallows its own failure.
- * This cleans up a failed `start`/create (no debris left for `status` to list)
- * and retires the viability probe's throwaway worktree; `worktree prune` is the
- * backstop for anything it misses.
+ * git registration, then delete its branch — but ONLY under `deleteBranch: true`,
+ * the caller's explicit claim that this very flow created the branch; cleanup
+ * must never destroy a branch (and its commits) that predates it. Every step
+ * swallows its own failure. This cleans up a failed `start`/create (no debris
+ * left for `status` to list) and retires the viability probe's throwaway
+ * worktree; `worktree prune` is the backstop for anything it misses.
  */
 async function discardWorktreeBestEffort(
   mainRepo: string,
   dir: string,
   branch: string,
   log: Logger,
+  opts: { deleteBranch: boolean },
 ): Promise<void> {
   try {
     await teardownResources(await lifecycleContext(dir, log, dir));
@@ -663,9 +687,11 @@ async function discardWorktreeBestEffort(
   try {
     await removeWorktreeSafely(dir, mainRepo);
   } catch { /* best-effort */ }
-  try {
-    await runGit(["branch", "-D", branch], { cwd: mainRepo });
-  } catch { /* best-effort */ }
+  if (opts.deleteBranch) {
+    try {
+      await runGit(["branch", "-D", branch], { cwd: mainRepo });
+    } catch { /* best-effort */ }
+  }
 }
 
 /** The outcome of the idempotent session-start ensure check. */
@@ -2507,8 +2533,12 @@ export async function probeWorktreeViability(
       : { kind: "probed", ok: verdict.ok };
   } finally {
     // A probe teardown must never fail the caller (`setup done`) — the discard is
-    // best-effort throughout and `worktree prune` is the backstop.
-    await discardWorktreeBestEffort(ctx.root, dir, branch, ctx.log);
+    // best-effort throughout and `worktree prune` is the backstop. The branch is
+    // the probe's own freshly-minted throwaway (mintFreeWorktree guarantees it
+    // was free), so deleting it discards nothing that predates the probe.
+    await discardWorktreeBestEffort(ctx.root, dir, branch, ctx.log, {
+      deleteBranch: true,
+    });
   }
 }
 
