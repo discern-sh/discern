@@ -78,11 +78,11 @@ scratch files are left alone. When the branch already contains the source
 nothing merges, but the refresh + `ensure` convergence **still runs** — so after
 a conflict is resolved by hand (`git merge`, fix, commit), re-running
 `discern integrate` restores everything the aborted merge skipped. It is the
-deterministic inverse of graduate, and what the gate's merge check
+deterministic inverse of accept, and what the gate's merge check
 ([ADR 0050](../_adr/0050-merge-check-fail-fast.md)) points a behind branch at
 ([ADR 0055](../_adr/0055-integrate-verb.md),
 [ADR 0059](../_adr/0059-worktree-setup-ensure.md)). When a change is done,
-[`graduate`](../../src/engine/worktree/lifecycle.ts) validates the exact tree it
+[`accept`](../../src/engine/worktree/lifecycle.ts) validates the exact tree it
 is about to land — running the whole gate, or skipping the re-run when the
 recorded receipt proves the agent's own `done` already passed this commit
 ([ADR 0067](../_adr/0067-graduate-validates-the-landed-tree.md)) — then lands
@@ -94,7 +94,7 @@ always cleanly (the gate proved the branch contains the trunk), then the
 Worktree removed, and the merged branch deleted. Composition happens on the pull
 axis instead: `start --from` and `integrate --from` build on any ref, so
 multi-phase work assembles below the trunk and only the finished whole crosses
-to it. Graduation refuses — naming the way back — when the main checkout is
+to it. Acceptance refuses — naming the way back — when the main checkout is
 parked on a branch other than the trunk, and never silently switches it. After
 landing, it runs `discern refresh` in the trunk checkout it leaves behind, so
 generated guidance, materialized skills, and provider integrations match the
@@ -103,7 +103,7 @@ landed sources
 prints [the receipt](../20-quality-gate/the-receipt.md) for the landed tree —
 the landing record, pasteable into a PR body. Its main-checkout precondition
 also cares about tracked changes, not untracked local scratch; the worktree
-precondition is stricter because graduation refuses any tracked, not staged,
+precondition is stricter because acceptance refuses any tracked, not staged,
 staged, or untracked worktree change before it removes the checkout;
 [`worktree drop <id|path>`](../../src/engine/worktree/lifecycle.ts) — run from
 the main checkout — is the sanctioned removal for **abandoned work**: it tears
@@ -116,7 +116,7 @@ clean, and unlanded commits are still named from the branch ref in the main
 repo. A `git worktree lock`ed worktree is refused outright — not even `--force`
 removes one (the lock protects checkouts and their ignored files on
 removable/network media; `git worktree unlock` is the only way through), and
-`graduate` applies the same refusal at plan time, before anything lands. It is
+`accept` applies the same refusal at plan time, before anything lands. It is
 deliberately CLI-only, with no MCP tool: the MCP surface aims at the caller's
 _own_ worktree, every other worktree is another line of work an agent must never
 remove (the fleet ownership rule), so discarding work is a human supervisory
@@ -192,11 +192,11 @@ so only the create hook and `worktree prune`'s orphan sweep know the convention
 ([ADR 0052](../_adr/0052-worktree-sibling-placement.md)).
 
 Each effectful lifecycle verb — `start`, `worktree` (setup), `integrate`,
-`worktree teardown`, `worktree prune`, and `graduate` — takes a `--dry-run` that
+`worktree teardown`, `worktree prune`, and `accept` — takes a `--dry-run` that
 prints the plan (what it _would_ create, destroy, reclaim, move, or merge) and
 touches nothing, plus a `--json` serialization of plan + results
 ([ADR 0027](../_adr/0027-plan-apply-engine-execution.md)). The destructive ones
-— prune's GC and graduation's remove / checkout or fast-forward dance — are
+— prune's GC and acceptance's remove / checkout or fast-forward dance — are
 inspectable before they act.
 
 ## Leaves
@@ -232,7 +232,7 @@ inspectable before they act.
   the convergent bucket that re-runs every pass (creation, session start,
   integrate) to keep the worktree's environment current with the tree.
 - [ADR 0098](../_adr/0098-graduate-refreshes-the-landing-checkout.md) —
-  graduation refreshes the checkout it leaves behind.
+  acceptance refreshes the checkout it leaves behind.
 - [ADR 0110](../_adr/0110-the-landing-model.md) — the landing model: pull from
   any ref (`start --from` / `integrate --from`), land only on the trunk.
 - [ADR 0119](../_adr/0119-bare-discern-opens-the-operators-desk.md) — bare

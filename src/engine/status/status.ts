@@ -539,8 +539,8 @@ export const START_HERE_HINT =
 /**
  * The {@link START_HERE_HINT} sibling for when the main checkout is — unusually —
  * NOT on its configured trunk branch. An honest description of that state and the
- * way back: worktrees and graduation are unaffected on the pull side (new
- * worktrees fork from the trunk regardless), but graduation refuses to land while
+ * way back: worktrees and acceptance are unaffected on the pull side (new
+ * worktrees fork from the trunk regardless), but acceptance refuses to land while
  * the checkout is parked here, so the hint names the return path. A function, not
  * a constant, because the branch name is data the hint must report accurately
  * rather than hard-code; the human renderer reconstructs the exact same string
@@ -551,7 +551,7 @@ export function offTrunkStartHereHint(branch: string, trunk: string): string {
   const label = branch === "" ? "(detached)" : `'${branch}'`;
   return `The main checkout is parked on ${label}, not '${trunk}' (the trunk). ` +
     `That's fine while you work with ${label} deliberately — new worktrees ` +
-    `still fork from the trunk — but graduation can't land until the checkout ` +
+    `still fork from the trunk — but \`discern accept\` can't land until the checkout ` +
     `returns: run \`git switch ${trunk}\` here when you're done. To start new ` +
     `work meanwhile, run \`discern start\` (never adopt an existing idle ` +
     `worktree — each belongs to another line of work).`;
@@ -568,7 +568,7 @@ export function missingTrunkHint(branch: string, trunk: string): string {
   const label = branch === "" ? "(detached)" : `'${branch}'`;
   return `The configured trunk ('${trunk}', [project].main_branch) doesn't ` +
     `exist in this repository — the main checkout is on ${label}. Worktrees ` +
-    `can't fork from it and graduation can't land on it until they agree: set ` +
+    `can't fork from it and \`discern accept\` can't land on it until they agree: set ` +
     `[project].main_branch to the branch this project actually uses, or ` +
     `create the trunk (\`git branch ${trunk}\`).`;
 }
@@ -723,27 +723,27 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
         }${ov.total > 3 ? ", …" : ""}) — re-check those after integrating.`
         : "";
       hints.push(
-        `Branch is ${g.behind_integration} behind ${main}; call \`discern integrate\` directly — it is idempotent and performs its own git preconditions — then run \`discern done\` before handing off or any user-requested graduation.${overlapNote}`,
+        `Branch is ${g.behind_integration} behind ${main}; call \`discern integrate\` directly — it is idempotent and performs its own git preconditions — then run \`discern done\` before handing off or a user-requested landing.${overlapNote}`,
       );
     }
     if (
       g.clean && g.behind_integration === 0 &&
       g.ahead_integration !== null && g.ahead_integration > 0
     ) {
-      // graduate would refuse against tracked changes in the main checkout — say so
+      // accept would refuse against tracked changes in the main checkout — say so
       // if we can see them.
       const mainDirty = await isMainCheckoutDirty(ctx.root);
       if (mainDirty) {
         hints.push(
-          `Committed and up to date with ${main}, but the main checkout has uncommitted tracked changes — commit or stash them there before any user-requested graduation can proceed.`,
+          `Committed and up to date with ${main}, but the main checkout has uncommitted tracked changes — commit or stash them there before a user-requested landing can proceed.`,
         );
       } else if (ctx.gateReceipt?.status === "honored") {
         hints.push(
-          `Committed, up to date with ${main}, and this clean HEAD has a recorded \`discern done\` pass — ready for owner review: relay the receipt (data.gate_receipt.receipt) to your owner and wait; they can inspect the raw diff with \`git diff ${main}...${g.branch}\`. Run \`discern graduate\` only if the user explicitly accepts.`,
+          `Committed, up to date with ${main}, and this clean HEAD has a recorded \`discern done\` pass — ready for owner review: relay the receipt (data.gate_receipt.receipt) to your owner and wait; they can inspect the raw diff with \`git diff ${main}...${g.branch}\`. Run \`discern accept\` only after the user explicitly asks you to land it.`,
         );
       } else {
         hints.push(
-          `Committed and up to date with ${main}, but this clean HEAD has no recorded \`discern done\` pass; run \`discern done\` before reporting the branch ready for review or any user-requested graduation.`,
+          `Committed and up to date with ${main}, but this clean HEAD has no recorded \`discern done\` pass; run \`discern done\` before reporting the branch ready for review or a user-requested landing.`,
         );
       }
     }
@@ -880,7 +880,7 @@ export function idleDaysOf(
 }
 
 /** Whether the main checkout has uncommitted tracked changes — the cheap read that
- * lets the graduate-readiness hint warn that graduation would refuse. False when it
+ * lets the accept-readiness hint warn that acceptance would refuse. False when it
  * can't be resolved (no main repo, or we're already in it). */
 async function isMainCheckoutDirty(
   root: string,

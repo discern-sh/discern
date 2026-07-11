@@ -82,7 +82,7 @@ export async function recordIgnoredFileBaseline(
     await Deno.mkdir(dirname(path), { recursive: true });
     await Deno.writeTextFile(path, `${JSON.stringify(baseline, null, 2)}\n`);
   } catch {
-    // Best effort: a missing baseline makes graduate skip the drift warning rather
+    // Best effort: a missing baseline makes accept skip the drift warning rather
     // than fail setup or invent a noisy full ignored-file listing.
   }
 }

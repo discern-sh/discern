@@ -971,7 +971,7 @@ Deno.test("done --json: a green worktree gate emits the receipt in data and stor
     );
 
     // The marker stores the markdown beside the sha it vouches for, so status and
-    // graduate can surface the receipt without re-running the gate.
+    // accept can surface the receipt without re-running the gate.
     assertEquals(obj.data.gate_receipt.status, "recorded");
     const marker = await Deno.readTextFile(obj.data.gate_receipt.path);
     const head = (await gitOut(wt, "rev-parse", "HEAD")).trim();

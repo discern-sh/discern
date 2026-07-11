@@ -86,7 +86,7 @@ discern's built-in guidance plus this repo's own
   `<repo>.worktrees/<name>/` (configurable via `[worktree].root`), each with its
   own checkout.
 - To land an agent's finished branch, run
-  [`discern graduate`](../30-worktrees/README.md) from its worktree. It re-runs
+  [`discern accept`](../30-worktrees/README.md) from its worktree. It re-runs
   the gate, fast-forwards your trunk to the branch tip, tears the worktree down,
   and deletes the merged branch — the trunk is the single landing target (ADR
   0110). It refuses a dirty tree (commit first) and a main checkout parked off

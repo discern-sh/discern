@@ -401,7 +401,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
   }
 
   // 7b. `git` resolves — discern shells out to git pervasively (the worktree
-  // workflow, ratchets' base comparison, graduation, scope diffing, status), so a
+  // workflow, ratchets' base comparison, acceptance, scope diffing, status), so a
   // missing git breaks the core of the tool. Required (not advisory): the version
   // string doubles as triage context in a bug report.
   {
@@ -414,7 +414,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
           ok: false,
           detail: "`git` is not on PATH (or is not runnable)",
           fix:
-            "install git — discern's worktrees, ratchets, graduation, and status all shell out to it",
+            "install git — discern's worktrees, ratchets, acceptance, and status all shell out to it",
         },
     );
   }

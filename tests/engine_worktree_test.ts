@@ -83,7 +83,7 @@ async function assertLandingGuidanceRefreshed(
   assertStringIncludes(
     await Deno.readTextFile(join(dir, "CLAUDE.md")),
     marker,
-    "graduation should refresh generated guidance in the checkout it leaves behind",
+    "acceptance should refresh generated guidance in the checkout it leaves behind",
   );
   const status = await runAgent(dir, ["status", "--json"]);
   assertEquals(status.code, 0, status.output);
@@ -93,7 +93,7 @@ async function assertLandingGuidanceRefreshed(
   assertEquals(
     result.data.stale_generated ?? [],
     [],
-    `generated guidance should be current after graduation\n${status.stdout}`,
+    `generated guidance should be current after acceptance\n${status.stdout}`,
   );
 }
 
@@ -162,14 +162,14 @@ Deno.test("worktree ensure sets up once, then is a no-op", async () => {
   });
 });
 
-Deno.test("graduate: fast-forwards the trunk, removes the worktree, deletes the merged branch", async () => {
+Deno.test("accept: fast-forwards the trunk, removes the worktree, deletes the merged branch", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "gamma");
     await Deno.writeTextFile(join(wt, "feature.txt"), "work\n");
     await git(wt, "add", "-A");
     await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
 
-    const r = await runAgent(wt, ["graduate"]);
+    const r = await runAgent(wt, ["accept"]);
     assertEquals(r.code, 0, r.output);
     assertEquals(
       await exists(wt),
@@ -192,17 +192,17 @@ Deno.test("graduate: fast-forwards the trunk, removes the worktree, deletes the 
       "",
       `the merged branch should be deleted\n${r.output}`,
     );
-    assertStringIncludes(r.output, "Graduation complete");
+    assertStringIncludes(r.output, "Acceptance complete");
   });
 });
 
-Deno.test("graduate: refreshes the trunk checkout after landing", async () => {
+Deno.test("accept: refreshes the trunk checkout after landing", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "trunk-refresh");
-    const marker = "Trunk Graduation Refresh";
+    const marker = "Trunk Acceptance Refresh";
     await commitGuidanceMarker(wt, marker);
 
-    const r = await runAgent(wt, ["graduate", "--json"]);
+    const r = await runAgent(wt, ["accept", "--json"]);
     assertEquals(r.code, 0, r.output);
     const result = JSON.parse(r.stdout) as {
       ok: boolean;
@@ -213,7 +213,7 @@ Deno.test("graduate: refreshes the trunk checkout after landing", async () => {
       result.steps.some((s) =>
         s.label === "refresh agent files" && s.outcome === "ok"
       ),
-      `graduate should report the post-landing refresh\n${r.stdout}`,
+      `accept should report the post-landing refresh\n${r.stdout}`,
     );
     assertEquals(
       await gitOut(dir, "branch", "--show-current"),
@@ -229,7 +229,7 @@ Deno.test("graduate: refreshes the trunk checkout after landing", async () => {
   });
 });
 
-Deno.test("graduate: a partial post-landing refresh is recorded but does not undo landing", async () => {
+Deno.test("accept: a partial post-landing refresh is recorded but does not undo landing", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "grad-refresh-fail");
     const malformed = '{ "mcpServers": { "other": true, }, }\n';
@@ -244,7 +244,7 @@ Deno.test("graduate: a partial post-landing refresh is recorded but does not und
       "--no-gpg-sign",
     );
 
-    const r = await runAgent(wt, ["graduate", "--json"]);
+    const r = await runAgent(wt, ["accept", "--json"]);
     assertEquals(r.code, 0, r.output);
     assertEquals(
       await exists(wt),
@@ -283,14 +283,14 @@ Deno.test("graduate: a partial post-landing refresh is recorded but does not und
   });
 });
 
-Deno.test("graduate: refuses a dirty worktree without moving anything", async () => {
+Deno.test("accept: refuses a dirty worktree without moving anything", async () => {
   await withTempDir(async (dir) => {
     const name = "dirty-tree";
     const wt = await mainWithWorktree(dir, name);
     await leaveTrackedAndUntrackedWip(wt);
     const headBefore = await gitOut(wt, "rev-parse", "HEAD");
 
-    const r = await runAgent(wt, ["graduate"]);
+    const r = await runAgent(wt, ["accept"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "Worktree has uncommitted changes");
     assertStringIncludes(r.output, "will not create WIP commits");
@@ -321,9 +321,9 @@ Deno.test("graduate: refuses a dirty worktree without moving anything", async ()
   });
 });
 
-Deno.test("graduate: refuses a locked worktree at plan time, before anything moves", async () => {
+Deno.test("accept: refuses a locked worktree at plan time, before anything moves", async () => {
   await withTempDir(async (dir) => {
-    // Graduation ends by removing the worktree, and a `git worktree lock`ed
+    // Acceptance ends by removing the worktree, and a `git worktree lock`ed
     // one cannot be removed. The refusal must come at plan time — before the
     // gate runs and before the trunk fast-forwards — never after landing has
     // half-happened (destroyed checkout, stranded registration, failed branch
@@ -335,7 +335,7 @@ Deno.test("graduate: refuses a locked worktree at plan time, before anything mov
     await git(dir, "worktree", "lock", wt, "--reason", "portable drive");
     const trunkBefore = await gitOut(dir, "rev-parse", "main");
 
-    const r = await runAgent(wt, ["graduate"]);
+    const r = await runAgent(wt, ["accept"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "locked");
     assertStringIncludes(r.output, "git worktree unlock");
@@ -353,7 +353,7 @@ Deno.test("graduate: refuses a locked worktree at plan time, before anything mov
   });
 });
 
-Deno.test("graduate: refuses a detached-HEAD main checkout the same way", async () => {
+Deno.test("accept: refuses a detached-HEAD main checkout the same way", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "detached-main");
     await Deno.writeTextFile(join(wt, "feature.txt"), "work\n");
@@ -364,12 +364,12 @@ Deno.test("graduate: refuses a detached-HEAD main checkout the same way", async 
     // not crash and not move HEAD.
     await git(dir, "switch", "-q", "--detach", "main");
 
-    const r = await runAgent(wt, ["graduate"]);
+    const r = await runAgent(wt, ["accept"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "'(detached)', not 'main'");
     assertStringIncludes(
       r.output,
-      "switch main` — then re-run `discern graduate`",
+      "switch main` — then re-run `discern accept`",
     );
     assertEquals(
       await gitOut(dir, "branch", "--show-current"),
@@ -379,23 +379,23 @@ Deno.test("graduate: refuses a detached-HEAD main checkout the same way", async 
   });
 });
 
-Deno.test("graduate: refuses when the main checkout is parked off the trunk, naming the way back", async () => {
+Deno.test("accept: refuses when the main checkout is parked off the trunk, naming the way back", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "parked-main");
     await Deno.writeTextFile(join(wt, "feature.txt"), "work\n");
     await git(wt, "add", "-A");
     await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
-    // Park the main checkout on another branch: graduation must refuse, not
+    // Park the main checkout on another branch: acceptance must refuse, not
     // silently switch it back.
     await git(dir, "switch", "-q", "-c", "parked-elsewhere");
 
-    const r = await runAgent(wt, ["graduate"]);
+    const r = await runAgent(wt, ["accept"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "'parked-elsewhere', not 'main'");
     // The way back is named (path canonicalization may differ, so match the tail).
     assertStringIncludes(
       r.output,
-      "switch main` — then re-run `discern graduate`",
+      "switch main` — then re-run `discern accept`",
     );
     assertEquals(
       await exists(wt),
@@ -410,7 +410,7 @@ Deno.test("graduate: refuses when the main checkout is parked off the trunk, nam
   });
 });
 
-Deno.test("graduate refuses (non-destructively) when the main checkout is dirty", async () => {
+Deno.test("accept refuses (non-destructively) when the main checkout is dirty", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "delta");
     // Dirty a tracked file in main: exit must refuse rather than clobber it.
@@ -420,7 +420,7 @@ Deno.test("graduate refuses (non-destructively) when the main checkout is dirty"
       `${await Deno.readTextFile(toml)}\n# dirty\n`,
     );
 
-    const r = await runAgent(wt, ["graduate"]);
+    const r = await runAgent(wt, ["accept"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "uncommitted tracked changes");
     assertEquals(
@@ -431,7 +431,7 @@ Deno.test("graduate refuses (non-destructively) when the main checkout is dirty"
   });
 });
 
-Deno.test("graduate ignores untracked local scratch in the main checkout clean precondition", async () => {
+Deno.test("accept ignores untracked local scratch in the main checkout clean precondition", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "delta-scratch");
     await Deno.writeTextFile(join(wt, "feature.txt"), "work\n");
@@ -443,11 +443,11 @@ Deno.test("graduate ignores untracked local scratch in the main checkout clean p
       "permission = 'local'\n",
     );
 
-    const r = await runAgent(wt, ["graduate"]);
+    const r = await runAgent(wt, ["accept"]);
     assertEquals(r.code, 0, r.output);
     assert(
       await exists(join(dir, "feature.txt")),
-      `branch not graduated into main\n${r.output}`,
+      `branch not landed into main\n${r.output}`,
     );
     assert(
       await exists(join(dir, ".codex/session.local.toml")),
@@ -456,7 +456,7 @@ Deno.test("graduate ignores untracked local scratch in the main checkout clean p
   });
 });
 
-Deno.test("graduate: refuses a branch behind main before dirty-tree handling or removal", async () => {
+Deno.test("accept: refuses a branch behind main before dirty-tree handling or removal", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "behind");
     await leaveTrackedAndUntrackedWip(wt);
@@ -466,7 +466,7 @@ Deno.test("graduate: refuses a branch behind main before dirty-tree handling or 
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "advance main", "--no-gpg-sign");
 
-    const r = await runAgent(wt, ["graduate"]);
+    const r = await runAgent(wt, ["accept"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "Branch is behind main");
     assertStringIncludes(r.output, "discern integrate");
@@ -490,7 +490,7 @@ Deno.test("graduate: refuses a branch behind main before dirty-tree handling or 
   });
 });
 
-Deno.test("graduate: refuses when main moves during the gate before teardown or removal", async () => {
+Deno.test("accept: refuses when main moves during the gate before teardown or removal", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -512,7 +512,7 @@ Deno.test("graduate: refuses when main moves during the gate before teardown or 
     await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
     const branchHead = await gitOut(wt, "rev-parse", "HEAD");
 
-    const r = await runAgent(wt, ["graduate"]);
+    const r = await runAgent(wt, ["accept"]);
 
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "Branch is behind main");
@@ -525,7 +525,7 @@ Deno.test("graduate: refuses when main moves during the gate before teardown or 
   });
 });
 
-Deno.test("graduate reports ignored files changed since worktree setup at the top level", async () => {
+Deno.test("accept reports ignored files changed since worktree setup at the top level", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await Deno.writeTextFile(
@@ -549,7 +549,7 @@ Deno.test("graduate reports ignored files changed since worktree setup at the to
     assertEquals(reentry.code, 0, reentry.output);
     await commitCurrentWorktree(wt);
 
-    const dry = await runAgent(wt, ["graduate", "--dry-run"]);
+    const dry = await runAgent(wt, ["accept", "--dry-run"]);
     assertEquals(dry.code, 0, dry.output);
     assertStringIncludes(dry.output, "Ignored files changed since setup");
     assertStringIncludes(dry.output, "local-cache/");
@@ -558,7 +558,7 @@ Deno.test("graduate reports ignored files changed since worktree setup at the to
       `ignored drift should collapse a changed directory to its top level\n${dry.output}`,
     );
 
-    const applied = await runAgent(wt, ["graduate", "--json"]);
+    const applied = await runAgent(wt, ["accept", "--json"]);
     assertEquals(applied.code, 0, applied.output);
     const obj = JSON.parse(applied.stdout);
     assertEquals(obj.data.ignored_file_changes.changed_roots, ["local-cache/"]);
@@ -566,7 +566,7 @@ Deno.test("graduate reports ignored files changed since worktree setup at the to
   });
 });
 
-Deno.test("graduate suppresses ignored-file drift detection when configured off", async () => {
+Deno.test("accept suppresses ignored-file drift detection when configured off", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -593,7 +593,7 @@ Deno.test("graduate suppresses ignored-file drift detection when configured off"
     await Deno.writeTextFile(join(wt, "local-cache", "changed.txt"), "x\n");
     await commitCurrentWorktree(wt);
 
-    const dry = await runAgent(wt, ["graduate", "--dry-run"]);
+    const dry = await runAgent(wt, ["accept", "--dry-run"]);
 
     assertEquals(dry.code, 0, dry.output);
     assert(
@@ -613,26 +613,26 @@ Deno.test("integrate: refuses from the main checkout", async () => {
   });
 });
 
-Deno.test("graduate: refuses from the main checkout (worktree-only, the CLI mirror of hiding)", async () => {
+Deno.test("accept: refuses from the main checkout (worktree-only, the CLI mirror of hiding)", async () => {
   await withTempDir(async (dir) => {
     await mainWithWorktree(dir, "iota2");
     // The CLI can't pre-hide per location (it runs at the user's cwd), so its
-    // equivalent of the MCP hiding graduate from a main-rooted server is a clean
-    // refusal: run from the main checkout, graduate has no current worktree to move.
-    const r = await runAgent(dir, ["graduate"]);
+    // equivalent of the MCP hiding accept from a main-rooted server is a clean
+    // refusal: run from the main checkout, accept has no current worktree to move.
+    const r = await runAgent(dir, ["accept"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "not a worktree");
   });
 });
 
 Deno.test("every worktree-lifecycle verb maps a wrong-side refusal to error:precondition_failed", async () => {
-  // graduate/integrate are worktree-only; start is main-only. A wrong-side run is a
+  // accept/integrate are worktree-only; start is main-only. A wrong-side run is a
   // refused precondition, and the --json envelope must carry the machine slug an
   // agent branches on — not just human text any message could satisfy. Pinned as one
   // set so a new lifecycle verb's refusal can't silently degrade to a bare exit-1
-  // (start already asserted the slug; the integrate/graduate CLI paths did not).
+  // (start already asserted the slug; the integrate/accept CLI paths did not).
   const REFUSALS = [
-    { verb: "graduate", side: "main" as const },
+    { verb: "accept", side: "main" as const },
     { verb: "integrate", side: "main" as const },
     { verb: "start", side: "worktree" as const },
   ];
@@ -1077,7 +1077,7 @@ Deno.test("start: refuses from inside a worktree (main-checkout-only)", async ()
     const result = JSON.parse(r.stdout);
     assertEquals(result.ok, false);
     assertEquals(result.verb, "start");
-    // Mapped to the same precondition slug graduate/integrate use from the main checkout.
+    // Mapped to the same precondition slug accept/integrate use from the main checkout.
     assertEquals(result.error, "precondition_failed");
     // It must NOT have created a nested worktree of its own.
     assertEquals(

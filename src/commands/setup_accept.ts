@@ -1,5 +1,5 @@
 /**
- * `discern setup land` — land the finished setup onto the integration branch.
+ * `discern setup accept` — land the finished setup onto the integration branch.
  *
  * A fresh `discern setup` isolates its several commits on a dedicated `discern-setup`
  * branch (ADR 0065), so after `setup done` the harness exists on that branch but NOT
@@ -11,7 +11,7 @@
  * merge takes whatever the current branch contains and an ordinary branch's own
  * commits would be swept onto the trunk with no review.
  *
- * It is the main-checkout counterpart to `discern graduate` (which lands a linked
+ * It is the main-checkout counterpart to `discern accept` (which lands a linked
  * WORKTREE's branch): same land-onto-trunk shape — clean-tree precondition, fast-
  * forward when the trunk is an ancestor, a real merge otherwise, refuse on conflict —
  * minus the worktree teardown, since setup runs on the main checkout, not a worktree.
@@ -27,8 +27,8 @@ import { SETUP_BRANCH } from "../shared/setup_state.ts";
 import { worktreeState } from "../lib/git.ts";
 import { integrationBranch } from "../engine/worktree/git.ts";
 
-/** Options for `discern setup land` (global flags + preview). */
-export interface SetupLandOptions {
+/** Options for `discern setup accept` (global flags + preview). */
+export interface SetupAcceptOptions {
   json: boolean;
   noColor: boolean;
   dryRun: boolean;
@@ -36,7 +36,7 @@ export interface SetupLandOptions {
 
 /** The exact command a user runs to land their setup — the one string `setup done`
  * and any guidance quote, so the verb name lives in one place. */
-export const LAND_COMMAND = "discern setup land";
+export const ACCEPT_COMMAND = "discern setup accept";
 
 /** A light, read-only account of where finished setup work lives and how to land it —
  * what `setup done` reports without running the merge. */
@@ -51,7 +51,7 @@ export interface LandingSummary {
   onTarget: boolean;
   /**
    * True when the current branch is the dedicated `discern-setup` branch — the ONLY
-   * branch `setup land` lands. Computed here, once, so every surface that recommends
+   * branch `setup accept` lands. Computed here, once, so every surface that recommends
    * landing (`setup done`'s hints, its "What's next" step, the relay message) keys
    * off the same predicate the land command itself enforces: an in-place
    * (`--allow-dirty`) setup on the user's own branch is steered to a manual merge,
@@ -91,7 +91,7 @@ export async function landingSummary(
 }
 
 /** What the executed (or previewed) landing did/would do, for the `--json` envelope. */
-interface LandData {
+interface AcceptData {
   landed: boolean;
   branch: string;
   target: string;
@@ -100,8 +100,8 @@ interface LandData {
 }
 
 /** Emit a landing refusal/no-op (human + `--json`) and return its exit code. */
-function emitLand(
-  opts: SetupLandOptions,
+function emitAccept(
+  opts: SetupAcceptOptions,
   result: {
     ok: boolean;
     error?: string;
@@ -113,7 +113,7 @@ function emitLand(
   if (opts.json) {
     emitResult({
       ok: result.ok,
-      verb: "setup land",
+      verb: "setup accept",
       ...(result.error !== undefined ? { error: result.error } : {}),
       message: result.message,
     });
@@ -128,16 +128,18 @@ function emitLand(
 }
 
 /**
- * `discern setup land` — fast-forward (or merge) the `discern-setup` branch onto the
+ * `discern setup accept` — fast-forward (or merge) the `discern-setup` branch onto the
  * integration branch, then delete the merged branch. Refuses on a dirty tree, a
  * merge conflict (the branch keeps all its commits), or any current branch that is
  * not the setup branch; a no-op when already on the integration branch or outside a
  * git repo. `--dry-run` previews and touches nothing.
  */
-export async function runSetupLand(opts: SetupLandOptions): Promise<number> {
+export async function runSetupAccept(
+  opts: SetupAcceptOptions,
+): Promise<number> {
   const root = await findRoot();
   if (root === undefined) {
-    return emitLand(opts, {
+    return emitAccept(opts, {
       ok: false,
       error: "no_project",
       message:
@@ -152,7 +154,7 @@ export async function runSetupLand(opts: SetupLandOptions): Promise<number> {
   // Outside a git repo there is no branch to land — setup is already in place as-is.
   const state = await worktreeState(root);
   if (state.kind === "not-a-repo") {
-    return emitLand(opts, {
+    return emitAccept(opts, {
       ok: true,
       message:
         "no git repository here, so there is nothing to land — your setup is already in place.",
@@ -162,7 +164,7 @@ export async function runSetupLand(opts: SetupLandOptions): Promise<number> {
 
   const branch = (await run(["branch", "--show-current"])).stdout.trim();
   if (branch === "") {
-    return emitLand(opts, {
+    return emitAccept(opts, {
       ok: false,
       error: "detached_head",
       message:
@@ -171,7 +173,7 @@ export async function runSetupLand(opts: SetupLandOptions): Promise<number> {
     });
   }
   if (branch === target) {
-    return emitLand(opts, {
+    return emitAccept(opts, {
       ok: true,
       message:
         `already on ${target} — your setup work is landed; nothing to do.`,
@@ -182,13 +184,13 @@ export async function runSetupLand(opts: SetupLandOptions): Promise<number> {
   // the CURRENT branch onto the integration branch — run from an ordinary branch
   // it would sweep that branch's own commits onto the trunk with no review.
   if (branch !== SETUP_BRANCH) {
-    return emitLand(opts, {
+    return emitAccept(opts, {
       ok: false,
       error: "not_setup_branch",
       message:
         `you are on \`${branch}\`, not the \`${SETUP_BRANCH}\` branch this command lands — ` +
         `landing here would sweep \`${branch}\`'s own commits onto \`${target}\`. ` +
-        `If your finished setup lives on \`${SETUP_BRANCH}\`, check it out and re-run \`${LAND_COMMAND}\`. ` +
+        `If your finished setup lives on \`${SETUP_BRANCH}\`, check it out and re-run \`${ACCEPT_COMMAND}\`. ` +
         `If you set up on \`${branch}\` deliberately (--allow-dirty), merge it your usual way ` +
         `(\`git checkout ${target} && git merge ${branch}\`) when you're ready.`,
       code: 1,
@@ -199,14 +201,14 @@ export async function runSetupLand(opts: SetupLandOptions): Promise<number> {
     // born on the setup branch, so the integration branch never came into being.
     // Serve the exact creation-then-land step in the message itself, so it rides
     // both surfaces identically, rather than dead-ending.
-    return emitLand(opts, {
+    return emitAccept(opts, {
       ok: false,
       error: "no_target",
       message:
         `the integration branch \`${target}\` doesn't exist in this repository yet — in a ` +
         `brand-new repository the first commits are born on \`${branch}\`, so there is no ` +
         `\`${target}\` to land onto. Create it at your setup's tip, then land: ` +
-        `\`git branch ${target} && ${LAND_COMMAND}\`. ` +
+        `\`git branch ${target} && ${ACCEPT_COMMAND}\`. ` +
         `(If this project integrates on a different branch, set [project].main_branch to it instead.)`,
       code: 1,
     });
@@ -216,11 +218,11 @@ export async function runSetupLand(opts: SetupLandOptions): Promise<number> {
   // work into the merge. Untracked scratch files are harmless and ignored (the same
   // notion of "dirty" `discern setup` uses to gate its own branch creation).
   if (state.kind === "dirty") {
-    return emitLand(opts, {
+    return emitAccept(opts, {
       ok: false,
       error: "dirty_worktree",
       message:
-        `your working tree has uncommitted changes. Commit or stash them, then re-run \`${LAND_COMMAND}\`.`,
+        `your working tree has uncommitted changes. Commit or stash them, then re-run \`${ACCEPT_COMMAND}\`.`,
       detail: state.changes.slice(0, 10),
       code: 1,
     });
@@ -237,7 +239,7 @@ export async function runSetupLand(opts: SetupLandOptions): Promise<number> {
     if (opts.json) {
       emitResult({
         ok: true,
-        verb: "setup land",
+        verb: "setup accept",
         dry_run: true,
         data: {
           landed: false,
@@ -248,7 +250,7 @@ export async function runSetupLand(opts: SetupLandOptions): Promise<number> {
         },
       });
     } else {
-      console.log(`Dry run — \`${LAND_COMMAND}\` would:`);
+      console.log(`Dry run — \`${ACCEPT_COMMAND}\` would:`);
       console.log(
         fastForward
           ? `  • fast-forward ${target} to ${branch}`
@@ -265,7 +267,7 @@ export async function runSetupLand(opts: SetupLandOptions): Promise<number> {
   // Check out the integration branch, then land the setup branch onto it.
   const checkout = await run(["checkout", "--quiet", target]);
   if (!checkout.success) {
-    return emitLand(opts, {
+    return emitAccept(opts, {
       ok: false,
       error: "checkout_failed",
       message:
@@ -281,7 +283,7 @@ export async function runSetupLand(opts: SetupLandOptions): Promise<number> {
     // Step the conflict aside so the tree is left clean, then refuse.
     await run(["merge", "--abort"]);
     await run(["checkout", "--quiet", branch]);
-    return emitLand(opts, {
+    return emitAccept(opts, {
       ok: false,
       error: "conflict",
       message:
@@ -297,7 +299,7 @@ export async function runSetupLand(opts: SetupLandOptions): Promise<number> {
   const del = await run(["branch", "-d", branch]);
   const branchDeleted = del.success;
 
-  const data: LandData = {
+  const data: AcceptData = {
     landed: true,
     branch,
     target,
@@ -307,7 +309,7 @@ export async function runSetupLand(opts: SetupLandOptions): Promise<number> {
   if (opts.json) {
     emitResult({
       ok: true,
-      verb: "setup land",
+      verb: "setup accept",
       data,
       hints: [`Setup landed onto ${target}.`],
     });

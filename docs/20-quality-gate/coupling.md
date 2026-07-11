@@ -28,8 +28,8 @@ mode (mirroring `scopes`):
   **branch's work** — everything committed since the fork from the integration
   branch, plus any uncommitted edits (the same set `scopes` and the gate use).
   So it is non-empty even on a clean working tree when the branch is ahead; it
-  is the unit that would graduate, not just the latest commit. It names the
-  files that co-change with that set but are **missing** from it. _"You changed
+  is the unit that would accept, not just the latest commit. It names the files
+  that co-change with that set but are **missing** from it. _"You changed
   `result.ts`, but not `result_schemas.ts` — which changed in 5 of the 14 recent
   commits that touched `result.ts` (36%). Worth a look, or intentional?"_
 - **query** (`discern coupling <path>`) — one file's top co-change partners, its

@@ -96,7 +96,7 @@ const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
   "resource-destroy": {
     actor: "project",
     hint:
-      "Your `destroy` command for a per-worktree external resource. Runs at graduate/teardown AND at orphan GC (`worktree prune`); author it idempotent and cwd-independent, and set `gc = false` for a data-loss-sensitive resource you only want torn down explicitly.",
+      "Your `destroy` command for a per-worktree external resource. Runs at accept/teardown AND at orphan GC (`worktree prune`); author it idempotent and cwd-independent, and set `gc = false` for a data-loss-sensitive resource you only want torn down explicitly.",
   },
   git: {
     actor: "discern",
@@ -359,11 +359,11 @@ function integrateVerb(cfg: DiscernConfig): VerbPlan {
   };
 }
 
-/** `graduate` — land the branch on the trunk (lifecycle.ts
- * `executeGraduatePlan`), with the resource teardown expanded per declared
+/** `accept` — land the branch on the trunk (lifecycle.ts
+ * `executeAcceptPlan`), with the resource teardown expanded per declared
  * `destroy` (reverse order) so the `destroy` command a user wired is shown, not
  * hidden behind a generic step. */
-function graduateVerb(cfg: DiscernConfig): VerbPlan {
+function acceptVerb(cfg: DiscernConfig): VerbPlan {
   const steps: ExecutionStep[] = [];
   const destroyable = resourceEntries(cfg).filter(([, r]) => r.destroy !== "");
   for (const [name, r] of destroyable.reverse()) {
@@ -382,7 +382,7 @@ function graduateVerb(cfg: DiscernConfig): VerbPlan {
     note: "delete the now-merged branch",
   }));
   return {
-    verb: "graduate",
+    verb: "accept",
     when:
       "When the work is done and integrated — fast-forward the trunk to the branch and delete the now-merged branch. First validates the exact tree against the whole gate, skipped when a gate-pass receipt proves the current HEAD already passed.",
     steps,
@@ -409,7 +409,7 @@ function pruneVerb(cfg: DiscernConfig): VerbPlan {
       steps.push(step("resource-destroy", name, {
         note: r.destroy,
         condition: r.gc === false
-          ? "never — gc = false (teardown-only; reclaimed only by an explicit graduate/teardown)"
+          ? "never — gc = false (teardown-only; reclaimed only by an explicit accept/teardown)"
           : "if orphaned (its worktree vanished without a clean teardown)",
       }));
     }
@@ -440,7 +440,7 @@ export function buildExecutionModel(cfg: DiscernConfig): VerbPlan[] {
     startVerb(cfg),
     ensureVerb(cfg),
     integrateVerb(cfg),
-    graduateVerb(cfg),
+    acceptVerb(cfg),
     pruneVerb(cfg),
   ];
 }

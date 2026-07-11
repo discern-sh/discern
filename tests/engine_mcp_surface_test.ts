@@ -135,7 +135,7 @@ Deno.test("mcp surface: every config value it names flows from config — no har
  * `z.strictObject`), so an argument the prose invents is not ignored — the call
  * is refused with an "Unrecognized key" validation error, and an agent following
  * the server's own instructions verbatim fails (or worse, retries stripped of the
- * argument and gets semantics the prose never promised). The graduate `to:"…"`
+ * argument and gets semantics the prose never promised). The accept `to:"…"`
  * text that outlived ADR 0110 was one member; this holds the whole surface.
  *
  * The detector extracts every ARGUMENT-SHAPED token — `key:"value"` (colon

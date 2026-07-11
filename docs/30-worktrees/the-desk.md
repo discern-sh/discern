@@ -31,15 +31,15 @@ no worktree — otherwise-invisible abandoned work.
 
 ## What it can do
 
-Per row: **graduate** (plan shown first, then confirm), **integrate**,
-**inspect** (commits, uncommitted changes, and diffstat versus the trunk),
-**jump in** (a `$SHELL` spawned inside the worktree; exit to return), and
-**drop**. Every action first echoes the CLI command it is about to run — the
-desk teaches the verb vocabulary rather than replacing it — and every mutation
-runs the same lifecycle core the CLI verb runs, so a core's refusal (and its
-next-step message) renders exactly as it would on the command line. Dropping a
-worktree that still holds work demands the branch name typed back before
-`--force` is applied.
+Per row: **accept** (plan shown first, then confirm), **integrate**, **inspect**
+(commits, uncommitted changes, and diffstat versus the trunk), **jump in** (a
+`$SHELL` spawned inside the worktree; exit to return), and **drop**. Every
+action first echoes the CLI command it is about to run — the desk teaches the
+verb vocabulary rather than replacing it — and every mutation runs the same
+lifecycle core the CLI verb runs, so a core's refusal (and its next-step
+message) renders exactly as it would on the command line. Dropping a worktree
+that still holds work demands the branch name typed back before `--force` is
+applied.
 
 ## When it does not open
 
@@ -50,9 +50,9 @@ with deliberately no agent/vendor environment sniffing:
   desk existed; `discern desk` refuses with a structured `interactive_only`
   envelope pointing at `status --json`.
 - **Pre-setup** — bare `discern` keeps showing the setup welcome; `desk` is
-  setup-gated like `graduate` and `docs`.
+  setup-gated like `accept` and `docs`.
 - **From inside a worktree** — the desk points at the main checkout instead: its
-  actions (drop, graduate) operate from there.
+  actions (drop, accept) operate from there.
 
 The non-interactive refusals are pinned by
 [`tests/engine_desk_test.ts`](../../tests/engine_desk_test.ts); the

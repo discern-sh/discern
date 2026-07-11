@@ -22,7 +22,7 @@ export type DeskBucket = (typeof DESK_BUCKETS)[number];
 
 /** Every action the desk can offer on a row, in menu order. */
 export const DESK_ACTIONS = [
-  "graduate",
+  "accept",
   "integrate",
   "jump",
   "inspect",
@@ -89,8 +89,8 @@ export function classifyBucket(
  * The actions legal for a row's state, in menu order. Advisory, not
  * authoritative: the desk offers only what can plausibly succeed, but every
  * action still runs the real verb core, whose own preconditions keep the final
- * word (a refusal renders; it is never bypassed). Graduate is offered without
- * requiring a receipt — graduation validates the tree at the landing boundary
+ * word (a refusal renders; it is never bypassed). Accept is offered without
+ * requiring a receipt — acceptance validates the tree at the landing boundary
  * itself, so a receiptless clean branch simply pays for a full gate run there.
  */
 export function legalActions(entry: StatusFleetEntry): readonly DeskAction[] {
@@ -102,7 +102,7 @@ export function legalActions(entry: StatusFleetEntry): readonly DeskAction[] {
   }
   const actions: DeskAction[] = [];
   if (entry.clean === true && (entry.ahead ?? 0) > 0) {
-    actions.push("graduate");
+    actions.push("accept");
   }
   if ((entry.behind ?? 0) > 0) {
     actions.push("integrate");

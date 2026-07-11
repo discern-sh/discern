@@ -40,7 +40,7 @@ import { ASSURANCE_VERDICTS, CAPABILITY_STATES } from "./setup_assurance.ts";
 // const tuples — not hand-listed — so the wire enum and the TS union are one source
 // and a new member enrolls in both from a single edit. The object shapes (which Zod
 // can't enumerate from an interface) stay proven faithful by the result-schema test
-// running real finish/graduate results through them.
+// running real finish/accept results through them.
 
 /** The disposition vocabulary, derived from {@link STEP_DISPOSITIONS}. */
 const dispositionEnum = z.enum(STEP_DISPOSITIONS);
@@ -143,8 +143,8 @@ export const EnvelopeSchema = z.strictObject({
  * WITHOUT a `data` field. They carry no `data` today, and this makes that a checked
  * invariant — a result that grows a `data` payload fails its faithfulness test (and the
  * SDK's output validation) until the payload is modelled, the SSOT guard the bare
- * {@link EnvelopeSchema} (`data: unknown`) can't give. (`graduate` graduated out of this
- * set — it carries a {@link GraduateDataSchema} landing root on an apply; its dry-run
+ * {@link EnvelopeSchema} (`data: unknown`) can't give. (`accept` moved out of this
+ * set — it carries a {@link AcceptDataSchema} landing root on an apply; its dry-run
  * preview is still data-less.)
  */
 export const DatalessEnvelopeSchema = z.strictObject(ENVELOPE_BASE_FIELDS);
@@ -388,14 +388,14 @@ export const StartDataSchema = z.strictObject({
 });
 export type StartData = z.infer<typeof StartDataSchema>;
 
-/** `graduate` — where the branch landed: `root` is the main checkout the worktree's
- * branch was graduated into. The load-bearing field for the MCP working-root re-aim
- * (ADR 0062): graduate removes the worktree the server operated on, and the server
+/** `accept` — where the branch landed: `root` is the main checkout the worktree's
+ * branch was landed into. The load-bearing field for the MCP working-root re-aim
+ * (ADR 0062): accept removes the worktree the server operated on, and the server
  * re-aims its working root to THIS path — so a server launched inside a worktree (e.g.
  * Codex's app-managed worktree) lands back on the live main checkout, not the grave of
- * the worktree it just graduated, instead of the spawn root (which is the trunk only
+ * the worktree it just landed, instead of the spawn root (which is the trunk only
  * when the server was launched from the trunk). */
-export const GraduateDataSchema = z.strictObject({
+export const AcceptDataSchema = z.strictObject({
   root: z.string(),
   gate_validation: GateValidationSchema.optional(),
   /** The receipt markdown for the tree that landed — the landing record, pasteable
@@ -415,7 +415,7 @@ export const GraduateDataSchema = z.strictObject({
     truncated: z.boolean(),
   }).optional(),
 });
-export type GraduateData = z.infer<typeof GraduateDataSchema>;
+export type AcceptData = z.infer<typeof AcceptDataSchema>;
 
 // integrate ─────────────────────────────────────────────────────────────────────
 
@@ -865,7 +865,7 @@ export const SetupDoneLandingSchema = z.strictObject({
   target: z.string(),
   on_target: z.boolean(),
   /** True only on the dedicated `discern-setup` branch — the one branch
-   * `setup land` lands; false steers the agent to a manual merge instead. */
+   * `setup accept` lands; false steers the agent to a manual merge instead. */
   on_setup_branch: z.boolean(),
   command: z.string(),
 });
@@ -914,7 +914,7 @@ const setupProgressSchema = z.strictObject({
 /** `setup` / `setup begin` / the fresh welcome redirect. One schema covers the
  * phased setup surface because the emitted `verb` is deliberately still `setup` for
  * the welcome and begin paths. Mode-specific fields are optional; command-specific
- * sub-verbs (`setup verify`, `setup step`, `setup done`, `setup land`) have their
+ * sub-verbs (`setup verify`, `setup step`, `setup done`, `setup accept`) have their
  * own narrowed schemas below. */
 export const SetupDataSchema = z.strictObject({
   phase: z.enum(["fresh", "in_progress", "done"]).optional(),
@@ -958,15 +958,15 @@ export const SetupDataSchema = z.strictObject({
 });
 export type SetupData = z.infer<typeof SetupDataSchema>;
 
-/** `setup land` — setup branch landing preview/result. Refusals carry no data. */
-export const SetupLandDataSchema = z.strictObject({
+/** `setup accept` — setup branch landing preview/result. Refusals carry no data. */
+export const SetupAcceptDataSchema = z.strictObject({
   landed: z.boolean(),
   branch: z.string(),
   target: z.string(),
   fast_forward: z.boolean(),
   branch_deleted: z.boolean(),
 });
-export type SetupLandData = z.infer<typeof SetupLandDataSchema>;
+export type SetupAcceptData = z.infer<typeof SetupAcceptDataSchema>;
 
 const configEditSchema = z.strictObject({
   key: z.string(),
@@ -1160,11 +1160,11 @@ export const CouplingOutputSchema = resultOutputSchema(
 /** `start` output: envelope + the new-worktree `data`. */
 export const StartOutputSchema = resultOutputSchema("start", StartDataSchema);
 
-/** `graduate` output: envelope + the landing-root `data` (present on an apply; a
+/** `accept` output: envelope + the landing-root `data` (present on an apply; a
  * dry-run preview carries none). */
-export const GraduateOutputSchema = resultOutputSchema(
-  "graduate",
-  GraduateDataSchema,
+export const AcceptOutputSchema = resultOutputSchema(
+  "accept",
+  AcceptDataSchema,
 );
 
 /** `integrate` output: envelope + the "what landed beneath the branch" `data`. */
@@ -1209,10 +1209,10 @@ export const SetupDoneOutputSchema = resultOutputSchema(
   SetupDoneDataSchema,
 );
 
-/** `setup land` output: envelope + the landing preview/result `data`. */
-export const SetupLandOutputSchema = resultOutputSchema(
-  "setup land",
-  SetupLandDataSchema,
+/** `setup accept` output: envelope + the landing preview/result `data`. */
+export const SetupAcceptOutputSchema = resultOutputSchema(
+  "setup accept",
+  SetupAcceptDataSchema,
 );
 
 /** `config` output: envelope + applied/planned TOML edits. */

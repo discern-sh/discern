@@ -26,7 +26,7 @@ import { NOT_SET_UP_MESSAGE, verbNeedsSetup } from "./shared/setup_state.ts";
 import {
   normalizeVerbVariant,
   retiredCommandMessage,
-  retiredVerbSuccessor,
+  retiredCommandSuccessor,
 } from "./shared/vocabulary.ts";
 import {
   beginOptsFrom,
@@ -39,7 +39,7 @@ import { runSetupWelcome } from "./commands/setup_welcome.ts";
 import { canPrompt } from "./lib/prompts.ts";
 import { runDesk } from "./engine/desk/desk.ts";
 import { runSetupVerify } from "./commands/setup_verify.ts";
-import { runSetupLand } from "./commands/setup_land.ts";
+import { runSetupAccept } from "./commands/setup_accept.ts";
 import { runUpgrade } from "./commands/upgrade.ts";
 import { runUninstall } from "./commands/uninstall.ts";
 import { runDoctor } from "./commands/doctor.ts";
@@ -274,7 +274,7 @@ export function buildCli(hideSetup: boolean): RootCommand {
       );
     });
 
-  const setupLand = new Command()
+  const setupAccept = new Command()
     .description(
       "Land the finished setup branch onto the integration branch (fast-forward or merge).",
     )
@@ -282,7 +282,11 @@ export function buildCli(hideSetup: boolean): RootCommand {
     .action(async (options) => {
       const { json, noColor } = globalFlags(options);
       Deno.exit(
-        await runSetupLand({ json, noColor, dryRun: options.dryRun ?? false }),
+        await runSetupAccept({
+          json,
+          noColor,
+          dryRun: options.dryRun ?? false,
+        }),
       );
     });
 
@@ -348,7 +352,7 @@ export function buildCli(hideSetup: boolean): RootCommand {
     .command("begin", setupBegin)
     .command("step", setupStep)
     .command("done", setupDone)
-    .command("land", setupLand);
+    .command("accept", setupAccept);
   // Hide on the REGISTERED command, not the pre-registration instance: the
   // instance form of `.command()` re-parents, so `setup.hidden()` wouldn't take.
   // `setup` stays reachable (and `--force`-able) when hidden.
@@ -695,7 +699,7 @@ export function buildCli(hideSetup: boolean): RootCommand {
 
   root.command("config", config);
 
-  // The project task-runner verbs (finish, prepare, graduate, worktree command group, …) are
+  // The project task-runner verbs (finish, prepare, accept, worktree command group, …) are
   // first-class `discern` subcommands. The cast drops
   // the threaded global-option generics (which the engine actions don't read) —
   // Cliffy's generic Command type is impractical to spell at this boundary.
@@ -855,10 +859,8 @@ export async function main(args: string[]): Promise<void> {
     // every routing decision below on it. Keying on argv[0] would let
     // `discern --json docs` slip past the setup redirect that catches
     // `discern docs --json`.
-    const invocation = resolveInvocation(
-      argv,
-      globalFlagTokens(cli as unknown as Command),
-    );
+    const globalTokens = globalFlagTokens(cli as unknown as Command);
+    const invocation = resolveInvocation(argv, globalTokens);
     verb = invocation.verb;
 
     // No verb (bare `discern`, or global flags alone): pre-setup, this prints
@@ -895,13 +897,18 @@ export async function main(args: string[]): Promise<void> {
     // A retired spelling is not an alias: it refuses before recipe fallthrough or
     // Cliffy dispatch and names the one canonical successor. JSON mode keeps the
     // same refusal in the uniform result envelope.
-    const successor = retiredVerbSuccessor(verb);
+    const commandTokens = argv.filter((token) => !globalTokens.has(token));
+    const nestedCommand = commandTokens.slice(0, 2).join(" ");
+    const retiredCommand = retiredCommandSuccessor(nestedCommand) !== undefined
+      ? nestedCommand
+      : verb;
+    const successor = retiredCommandSuccessor(retiredCommand);
     if (successor !== undefined) {
-      const message = retiredCommandMessage(verb, successor);
+      const message = retiredCommandMessage(retiredCommand, successor);
       if (argv.includes("--json")) {
         emitResult({
           ok: false,
-          verb,
+          verb: retiredCommand,
           error: "renamed_command",
           message,
         });

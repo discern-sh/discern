@@ -84,7 +84,7 @@ what to fix.
 [ADR 0019](../_adr/0019-single-binary-ts-engine.md)): the
 `.claude/settings.json` hooks provision an isolated worktree per session and
 tear it down afterward (here they call
-`deno task dev worktree ensure`/`create`/`remove`), and `discern graduate`
-graduates a finished branch back into the main checkout. Editing rules (yours vs
-the binary's) live in [code-conventions.md](code-conventions.md); IDE
-colour/exclude setup is in [for-humans.md](for-humans.md).
+`deno task dev worktree ensure`/`create`/`remove`), and `discern accept` accepts
+a finished branch back into the main checkout. Editing rules (yours vs the
+binary's) live in [code-conventions.md](code-conventions.md); IDE colour/exclude
+setup is in [for-humans.md](for-humans.md).

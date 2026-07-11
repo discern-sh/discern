@@ -175,12 +175,11 @@ splitting between it and the trunk.
 
 If a Codex session starts inside a worktree and that worktree is later removed,
 Codex can block the next user message with "Current working directory missing".
-This is a Codex runtime limitation, not a discern MCP failure:
-`discern_graduate` can successfully tear down the worktree and re-aim the
-long-lived MCP server at the main checkout, but the Codex chat process can still
-remember the deleted directory it originally opened. There is no in-chat
-recovery once Codex blocks the conversation; start a new Codex session from the
-main checkout instead.
+This is a Codex runtime limitation, not a discern MCP failure: `discern_accept`
+can successfully tear down the worktree and re-aim the long-lived MCP server at
+the main checkout, but the Codex chat process can still remember the deleted
+directory it originally opened. There is no in-chat recovery once Codex blocks
+the conversation; start a new Codex session from the main checkout instead.
 
 The default writable-root path includes the main checkout directory name. If a
 developer clones the same repository under a different folder name, run

@@ -76,7 +76,7 @@ blank map is worse than none
 ### Engine
 
 The stack-neutral logic behind the `discern` run-time verbs (`done`, `prepare`,
-`improve`, `status`, the `worktree` command group, `integrate`, `graduate`,
+`improve`, `status`, the `worktree` command group, `integrate`, `accept`,
 `ratchets`, `refresh`, `scopes`, `coupling`, …), written in **TypeScript and
 compiled into the binary** under [`src/engine/`](../../src/engine/) (sharing
 [`src/shared/`](../../src/shared/) with the Installer). The Engine knows nothing
@@ -130,7 +130,7 @@ when an installed project needs a migration to stay correct, so most releases
 leave it untouched. The current shape is schema **17** — the `15 → 16` step
 retires the `[features]` toggles so every subsystem is core
 ([ADR 0101](../_adr/0101-retire-the-features-toggles.md)), and `16 → 17` drops
-`[worktree].graduate_to` so `discern graduate` always lands on the trunk
+`[worktree].graduate_to` so `discern accept` always lands on the trunk
 ([ADR 0110](../_adr/0110-the-landing-model.md)).
 
 ### Migration
@@ -391,14 +391,14 @@ project-namespaced handle is read with `identity --resource <name>` or the
 What `discern integrate` does: bring the latest integration branch
 (`[project].main_branch`) into the current worktree's branch and re-materialize
 the generated agent files + [Skills](#skill), in one deterministic step — the
-inverse of [Graduate](#graduate). A no-op when the branch already contains main.
-It merges into a clean tree only, and on a conflict it aborts the merge and
-reports the conflicting files. The action the [Gate](#gate)'s fail-fast merge
-check points a behind branch at ([ADR 0055](../_adr/0055-integrate-verb.md)).
+inverse of [Accept](#accept). A no-op when the branch already contains main. It
+merges into a clean tree only, and on a conflict it aborts the merge and reports
+the conflicting files. The action the [Gate](#gate)'s fail-fast merge check
+points a behind branch at ([ADR 0055](../_adr/0055-integrate-verb.md)).
 
-### Graduate
+### Accept
 
-What `discern graduate` does: land the worktree's branch on the trunk (a role →
+What `discern accept` does: land the worktree's branch on the trunk (a role →
 `[project].main_branch`, whether that is `main`, `master`, …) and tear the
 worktree down (its resources destroyed, directory pruned, the now-merged branch
 deleted). Requires the branch to already carry the trunk, so the landing is

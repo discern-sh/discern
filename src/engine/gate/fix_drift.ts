@@ -4,7 +4,7 @@
  *
  * The fix stage is *meant* to mutate (a formatter, a codemod). The danger is narrow:
  * a fixer that reformats a file which was COMMITTED-clean at the start of the run
- * leaves an uncommitted change a green gate hides — and that `discern graduate` later
+ * leaves an uncommitted change a green gate hides — and that `discern accept` later
  * scoops up staged-but-uncommitted in the main checkout, surprising the agent.
  *
  * The signal is surgical: snapshot the TRACKED-dirty set immediately before the fix
@@ -91,7 +91,7 @@ export async function fixDriftDiagnostic(
       paths.map((p) => `  • ${p}`).join("\n") +
       `\n\nThis is the fix stage's own output — review it, commit it ` +
       `(e.g. \`git add -A && git commit\`), then re-run \`discern done\`. A clean ` +
-      `a clean \`discern done\` run must mean a clean tree: graduating now would strand these changes ` +
+      `a clean \`discern done\` run must mean a clean tree: accepting now would strand these changes ` +
       `staged-but-uncommitted in the main checkout.` +
       (diff.success && diff.stdout.trim() !== "" ? `\n\n${diff.stdout}` : ""),
   );

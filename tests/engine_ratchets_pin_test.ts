@@ -5,13 +5,13 @@
  * `--pin` measures every ratchet, tightens each asked-for limit that improved past
  * its margin toward the measured value, commits that change on its own (comment-
  * preservingly), and carries a gate-pass receipt forward across the gate-neutral
- * commit so `graduate` skips the redundant re-run. These tests drive the real engine
+ * commit so `accept` skips the redundant re-run. These tests drive the real engine
  * through `runAgent` and assert on the config, the commit, and the receipt file.
  *
  * The receipt lives at `.git/discern-gate-receipt` in a plain repo (what
  * `git rev-parse --git-path` resolves), so a test can seed a prior finish vouch by
  * writing HEAD there, then assert the pin carried it onto the new HEAD — which is
- * exactly the (receipt names HEAD, clean tree) condition `graduate` honors.
+ * exactly the (receipt names HEAD, clean tree) condition `accept` honors.
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
@@ -485,8 +485,8 @@ Deno.test("pin: carries an honored gate-pass receipt onto the new commit", async
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "Carried the gate-pass receipt forward");
 
-    // The receipt now names the NEW HEAD over a clean tree — graduate's honored
-    // condition — so graduate would skip the redundant gate re-run.
+    // The receipt now names the NEW HEAD over a clean tree — accept's honored
+    // condition — so accept would skip the redundant gate re-run.
     const head = await gitOut(dir, "rev-parse", "HEAD");
     assertEquals(await readReceipt(dir), head);
   });
@@ -509,7 +509,7 @@ Deno.test("pin: does NOT forge a receipt when none was honored beforehand", asyn
     const r = await runAgent(dir, ["ratchets", "--pin"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "No current gate-pass receipt to carry");
-    // Fail-closed: no receipt was written, so graduate will re-run the gate.
+    // Fail-closed: no receipt was written, so accept will re-run the gate.
     assertEquals(await readReceipt(dir), undefined);
   });
 });
@@ -534,7 +534,7 @@ Deno.test("pin: a STALE prior receipt is not carried (fail-closed)", async () =>
     const r = await runAgent(dir, ["ratchets", "--pin"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "No current gate-pass receipt to carry");
-    // The stale marker is left untouched (still ≠ HEAD) — graduate re-validates.
+    // The stale marker is left untouched (still ≠ HEAD) — accept re-validates.
     const head = await gitOut(dir, "rev-parse", "HEAD");
     assertEquals(await readReceipt(dir), stale);
     assert(stale !== head);
@@ -561,7 +561,7 @@ Deno.test("pin: a further commit after the pin strands the carried receipt (fail
     assertEquals(await readReceipt(dir), pinnedHead);
 
     // The agent keeps working: another commit lands after the pin. The carried
-    // receipt still names the pin commit, so it no longer matches HEAD — graduate
+    // receipt still names the pin commit, so it no longer matches HEAD — accept
     // correctly falls back to re-running the gate rather than trusting a stale vouch.
     await git(
       dir,

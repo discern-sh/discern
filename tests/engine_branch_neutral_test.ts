@@ -13,7 +13,7 @@
  * closed SETS (verbs, MCP tools, features), and `agent_agnostic_test.ts` scans for
  * a hard-coded agent PATH (`.claude`). None looks at how the integration BRANCH is
  * named in prose — so the hard-coded "main" in `integrate`'s description and the
- * graduate/merge messages sailed through. This is that missing guard, modelled on
+ * accept/merge messages sailed through. This is that missing guard, modelled on
  * `agent_agnostic_test.ts`: a comment-stripped scan of the integration-branch
  * MESSAGE surfaces.
  *

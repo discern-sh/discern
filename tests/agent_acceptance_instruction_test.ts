@@ -9,33 +9,33 @@ const AGENT_FACING_SURFACES = [
   "src/engine/mcp/server.ts",
 ] as const;
 
-const MISLEADING_GRADUATION_PATTERNS: Array<{
+const MISLEADING_ACCEPTANCE_PATTERNS: Array<{
   name: string;
   pattern: RegExp;
 }> = [
   {
-    name: "graduate when ready",
-    pattern: /`discern graduate`\s+when ready/i,
+    name: "accept when ready",
+    pattern: /`discern accept`\s+when ready/i,
   },
   {
-    name: "ready to graduate",
-    pattern: /ready to graduate/i,
+    name: "ready to accept",
+    pattern: /ready to accept/i,
   },
   {
-    name: "green then graduate",
-    pattern: /When green:[^\n]*graduate/i,
+    name: "green then accept",
+    pattern: /When green:[^\n]*accept/i,
   },
   {
-    name: "finish then graduate workflow",
-    pattern: /discern done\s*→\s*discern graduate/i,
+    name: "finish then accept workflow",
+    pattern: /discern done\s*→\s*discern accept/i,
   },
   {
-    name: "finished branch auto-graduates",
-    pattern: /branch is finished[\s\S]{0,240}discern_graduate/i,
+    name: "finished branch auto-accepts",
+    pattern: /branch is finished[\s\S]{0,240}discern_accept/i,
   },
   {
-    name: "work done auto-graduates",
-    pattern: /`discern_graduate`[\s\S]{0,120}work is\s+done/i,
+    name: "work done auto-accepts",
+    pattern: /`discern_accept`[\s\S]{0,120}work is\s+done/i,
   },
 ];
 
@@ -52,7 +52,7 @@ async function filesUnder(path: string): Promise<string[]> {
   return files;
 }
 
-Deno.test("agent-facing instructions do not present graduation as the next autonomous step", async () => {
+Deno.test("agent-facing instructions do not present acceptance as the next autonomous step", async () => {
   const files = (await Promise.all(AGENT_FACING_SURFACES.map(filesUnder)))
     .flat()
     .sort();
@@ -60,7 +60,7 @@ Deno.test("agent-facing instructions do not present graduation as the next auton
 
   for (const file of files) {
     const text = await Deno.readTextFile(file);
-    for (const { name, pattern } of MISLEADING_GRADUATION_PATTERNS) {
+    for (const { name, pattern } of MISLEADING_ACCEPTANCE_PATTERNS) {
       const match = pattern.exec(text);
       if (match === null) {
         continue;

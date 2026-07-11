@@ -696,7 +696,7 @@ async function applyPinEdits(
  * — all of them, or the named subset — that improved past its limit by more than its
  * margin, tighten the limit toward the measured value, commit that change on its own,
  * and carry any gate-pass receipt forward across the (gate-neutral) commit so
- * `graduate` need not re-run the whole gate. When a green check already measured this
+ * `accept` need not re-run the whole gate. When a green check already measured this
  * exact clean HEAD, its measurement receipt stands in for the measurements — the
  * check → pin flow measures once — with only the never-loosen half re-checked live
  * (main can advance while HEAD stands still). A FAILING ratchet pins nothing — you can't
@@ -861,7 +861,7 @@ async function pinRatchetsResult(
     };
   }
 
-  // The commit moved HEAD; carry an honored pre-pin vouch onto it so graduate skips the
+  // The commit moved HEAD; carry an honored pre-pin vouch onto it so accept skips the
   // redundant gate re-run (the commit changed only ratchet limits — gate-neutral).
   const receipt = await carryReceiptForwardAcrossPin(
     root,
@@ -873,8 +873,8 @@ async function pinRatchetsResult(
     hints: [
       ...(reuseHint !== undefined ? [reuseHint] : []),
       carried
-        ? "Carried the gate-pass receipt forward — `discern graduate` will skip the redundant gate re-run."
-        : "No current gate-pass receipt to carry forward — run `discern done` before graduating, or graduate re-runs the gate.",
+        ? "Carried the gate-pass receipt forward — `discern accept` will skip the redundant gate re-run."
+        : "No current gate-pass receipt to carry forward — run `discern done` before accepting, or accept re-runs the gate.",
     ],
   };
 }

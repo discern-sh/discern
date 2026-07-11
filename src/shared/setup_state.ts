@@ -62,7 +62,7 @@ export async function setupBranchExists(dir: string): Promise<boolean> {
  * until setup seeds and fills it (`help` is the pre-setup documentation surface).
  */
 export const SETUP_GATED_VERBS: ReadonlySet<string> = new Set<string>([
-  "graduate",
+  "accept",
   "integrate",
   "docs",
   // The desk supervises the worktree fleet, which doesn't exist until setup
@@ -79,7 +79,7 @@ export function verbNeedsSetup(verb: string): boolean {
  * The staged-setup sub-verbs (ADR 0075), in lifecycle order — the single source the
  * CLI router registers under `setup` and the welcome's `next_action` walks. `verify`
  * and `begin` are the handshake; `done` is the terminal proof; `step` is the
- * read-only re-serve of one brief step (off to the side, tracks nothing); `land`
+ * read-only re-serve of one brief step (off to the side, tracks nothing); `accept`
  * hands the finished setup branch onto the integration branch (off to the side of the
  * handshake, run after `done`). The `engine_setup_phase_parity` test ties the
  * registered command tree back to this set (ADR 0051), so a sub-verb can't be added to
@@ -90,7 +90,7 @@ export const SETUP_SUBVERBS = [
   "begin",
   "step",
   "done",
-  "land",
+  "accept",
 ] as const;
 /** One staged-setup sub-verb ({@link SETUP_SUBVERBS}). */
 export type SetupSubverb = (typeof SETUP_SUBVERBS)[number];

@@ -149,7 +149,7 @@ reports an **honest coverage summary** — each standard capability marked
 _enforced_, _deferred_, or _absent_, plus an overall verdict — so "the gate is
 proven" never reads as "every protection runs" when, say, no test suite is
 wired; it names **where the work lives** (on the `discern-setup` branch, not yet
-on `main`) and the one command to land it, `discern setup land`
+on `main`) and the one command to land it, `discern setup accept`
 ([ADR 0081](../_adr/0081-setup-land-command.md)); and it reminds the agent to
 start a fresh session (the wired MCP tools and session hooks load only at
 session start) and to deepen the setup with `discern improve`.
@@ -178,8 +178,8 @@ verbs:
 - `discern integrate` brings the latest **main** into the Worktree's branch and
   re-materializes the agent files + Skills in one step — what the Gate's
   fail-fast merge check points a behind branch at, and the deterministic inverse
-  of graduate.
-- `discern graduate` **graduates** the branch into the main repo and tears the
+  of accept.
+- `discern accept` **accepts** the branch into the main repo and tears the
   Worktree down.
 - Bare `discern` — no verb, in a terminal — opens **the desk**, the human's own
   surface: a decision-ordered picker over the fleet that lands, integrates,

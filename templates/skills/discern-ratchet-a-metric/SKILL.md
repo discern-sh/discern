@@ -53,7 +53,7 @@ Keep the `run` script in the repo like any other tool, and make it print *only* 
 
 Measure the metric on `main` and set `limit` to exactly that. A ratchet holds ground; it doesn't seize it. An aspirational limit fails every branch immediately, and the "fix" people reach for is deleting the ratchet. Where the number *should* be is a goal — record it in the project's TODO — and tighten the limit as real improvements land (tightening is always allowed; that's the direction the door opens).
 
-Capture a gain with **`discern ratchets --pin`** — never a hand-edit. It measures (reusing a green `discern ratchets` check's measurements when run on the same clean commit, so check → pin measures once), tightens each improved limit to the value just measured, commits that change on its own, and carries a green gate receipt forward so a follow-up graduation skips a needless re-run. For a metric that drifts on unrelated commits (bundle size, coverage), give the table a `margin` so pin leaves that much headroom instead of pinning to an exact number the next commit would breach; pin skips a gain smaller than the margin. Pass a name (`discern ratchets --pin coverage`) to pin just one.
+Capture a gain with **`discern ratchets --pin`** — never a hand-edit. It measures (reusing a green `discern ratchets` check's measurements when run on the same clean commit, so check → pin measures once), tightens each improved limit to the value just measured, commits that change on its own, and carries a green gate receipt forward so a follow-up `accept` call skips a needless re-run. For a metric that drifts on unrelated commits (bundle size, coverage), give the table a `margin` so pin leaves that much headroom instead of pinning to an exact number the next commit would breach; pin skips a gain smaller than the margin. Pass a name (`discern ratchets --pin coverage`) to pin just one.
 
 Then prove the wiring is live, detector-style: run `discern_ratchets` (or `discern ratchets --json`) and see it green — and check the failure path once, e.g. by temporarily tightening the limit past the current value and watching the run refuse, so you know a real regression will actually be caught. Finally, leave a line near the table (a comment, or the docs) saying *what this number stands for and why it's held* — the ratchet outlives the session that added it.
 
@@ -69,7 +69,7 @@ The one legitimate exception is a limit that was *set wrong* — mis-measured, o
 
 ## 6. Plan the end state
 
-A `down` ratchet that reaches **zero** has finished its job as a ratchet — don't leave it idling there. Graduate the rule into the always-on gate (a check or test that fails on the *first* new instance) and retire the ratchet table: the ratchet was the transition, the gate is the law. This journey — detector, falling ceiling, permanent ban — is the `discern-outlaw-a-pattern` skill, when what you're driving to zero is a pattern in the code. A floor (coverage) usually has no end state; it just holds, rising as the project improves.
+A `down` ratchet that reaches **zero** has finished its job as a ratchet — don't leave it idling there. Move the rule into the always-on gate (a check or test that fails on the *first* new instance) and retire the ratchet table: the ratchet was the transition, the gate is the law. This journey — detector, falling ceiling, permanent ban — is the `discern-outlaw-a-pattern` skill, when what you're driving to zero is a pattern in the code. A floor (coverage) usually has no end state; it just holds, rising as the project improves.
 
 ---
 
@@ -78,4 +78,4 @@ A `down` ratchet that reaches **zero** has finished its job as a ratchet — don
 - the metric is **defendable** — deterministic, cheap, meaningful, and the user agreed to be blocked on it;
 - the `[ratchets.<name>]` table is wired with the right **direction** (a rate, via `per`, where growth would otherwise breach it) and the **limit set at today's value** on `main`;
 - `discern ratchets` passes, the failure path has been seen to fire once, and what the number stands for is written down;
-- the never-loosen rule and the end state (tighten over time; at zero, graduate a ceiling into the gate) are understood — and nothing in the change loosens any *existing* ratchet.
+- the never-loosen rule and the end state (tighten over time; at zero, move a ceiling into the gate) are understood — and nothing in the change loosens any *existing* ratchet.

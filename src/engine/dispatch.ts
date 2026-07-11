@@ -51,7 +51,7 @@ import { runDesk } from "./desk/desk.ts";
 import { refreshResult } from "./guidelines.ts";
 import { guidanceAgents } from "./guidance_render.ts";
 import {
-  graduate,
+  accept,
   IdentityError,
   identityField,
   identityResourceHandle,
@@ -91,7 +91,7 @@ export const KNOWN_ENGINE_VERBS: ReadonlySet<string> = new Set([
   "coupling",
   "status",
   "desk",
-  "graduate",
+  "accept",
   "integrate",
   "start",
   "worktree",
@@ -145,7 +145,7 @@ export const ENGINE_RECIPE_NAMES: readonly string[] = [
   "scopes",
   "coupling",
   "status",
-  "graduate",
+  "accept",
   "integrate",
   "start",
   "identity",
@@ -536,25 +536,25 @@ export function attachEngineCommands(root: Command): void {
     });
 
   root
-    .command("graduate")
+    .command("accept")
     .description(
-      "Land this worktree's finished branch on the trunk: fast-forward it, remove the worktree, delete the merged branch, refresh the trunk checkout.",
+      "Accept and land this worktree's finished branch on the trunk: fast-forward it, remove the worktree, delete the merged branch, refresh the trunk checkout.",
     )
     .option(
       "--json",
       "Emit a machine-readable (plan, results) object on stdout.",
     )
-    .option("--dry-run", "Show the graduation plan; touch nothing.")
+    .option("--dry-run", "Show the acceptance plan; touch nothing.")
     .action(async (o) => {
       const json = o.json ?? false;
       Deno.exit(
         await runWorktreeOp(
           (ctx) =>
-            graduate(ctx, {
+            accept(ctx, {
               json,
               dryRun: o.dryRun ?? false,
             }),
-          { json, verb: "graduate" },
+          { json, verb: "accept" },
         ),
       );
     });
@@ -681,7 +681,7 @@ export function attachEngineCommands(root: Command): void {
       "teardown",
       new Command()
         .description(
-          "Discard this worktree's resources (destroy without graduating).",
+          "Discard this worktree's resources (destroy without accepting).",
         )
         .option(
           "--json",

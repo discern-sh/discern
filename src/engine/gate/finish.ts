@@ -96,7 +96,7 @@ const FAIL_MESSAGES: Record<FailedStage, string> = {
     "Run `discern integrate` to bring the trunk in and re-materialize, then re-run `discern done`.",
 };
 
-/** The human die message for a failed stage. Exported so `graduate` names the stage
+/** The human die message for a failed stage. Exported so `accept` names the stage
  * the same way when it refuses to land a branch the gate rejected (ADR 0067). */
 export function failMessage(stage: FailedStage): string {
   return FAIL_MESSAGES[stage];
@@ -260,7 +260,7 @@ async function runGate(
   //     can put generated agent files, materialized skills, or machine-local provider
   //     state into the index despite the canonical .gitignore block. Block before the
   //     currency checks: a tracked generated file can be byte-current, but it is still
-  //     the wrong review unit and would graduate a derivative into history.
+  //     the wrong review unit and would accept a derivative into history.
   let trackedArtifactsDiag: Diagnostic | undefined;
   if (failedStage === null) {
     const tracked = await trackedDiscernIgnoredArtifacts(root);
@@ -393,7 +393,7 @@ async function runGate(
     ? await buildGateReceipt(root, mainBranch, result.steps ?? [])
     : undefined;
   // Record the gate-pass receipt (ADR 0067): a GREEN run over a CLEAN tree stamps the
-  // HEAD pinned at gate start so `graduate` can prove THIS tree already passed without
+  // HEAD pinned at gate start so `accept` can prove THIS tree already passed without
   // re-running the gate; a FAILED run clears any stale vouch. Best-effort — never fails
   // the gate, but the outcome rides in `data` so suppressed logs still expose receipt
   // trouble.
@@ -460,13 +460,13 @@ function gateReceiptHint(
       case "recorded":
         return undefined;
       case "skipped_dirty":
-        return "Gate passed, but no gate-pass receipt was recorded because the worktree is dirty. Use `discern prepare` or `discern test` while iterating, then commit the intended final tree and re-run `discern done` on the clean HEAD before handoff or graduation.";
+        return "Gate passed, but no gate-pass receipt was recorded because the worktree is dirty. Use `discern prepare` or `discern test` while iterating, then commit the intended final tree and re-run `discern done` on the clean HEAD before handoff or acceptance.";
       case "skipped_head_moved":
-        return `Gate passed, but no gate-pass receipt was recorded because HEAD moved while the gate was running${reason} — the receipt can only vouch for the exact tree the gate tested. Re-run \`discern done\` on the final commit before handoff or graduation.`;
+        return `Gate passed, but no gate-pass receipt was recorded because HEAD moved while the gate was running${reason} — the receipt can only vouch for the exact tree the gate tested. Re-run \`discern done\` on the final commit before handoff or acceptance.`;
       case "record_failed":
-        return `Gate passed, but discern could not record the gate-pass receipt${reason}; \`discern graduate\` will re-run the gate unless a later \`discern done\` run records one.`;
+        return `Gate passed, but discern could not record the gate-pass receipt${reason}; \`discern accept\` will re-run the gate unless a later \`discern done\` run records one.`;
       case "unavailable":
-        return `Gate passed, but discern could not prepare the gate-pass receipt${reason}; \`discern graduate\` may need to re-run the gate.`;
+        return `Gate passed, but discern could not prepare the gate-pass receipt${reason}; \`discern accept\` may need to re-run the gate.`;
       case "cleared":
       case "clear_failed":
         return undefined;
@@ -502,7 +502,7 @@ function buildGateHints(
   }
   const hints = receiptEmitted
     ? [
-      "If this completes the task, relay the receipt to your owner and stop; run `discern graduate` only once they accept.",
+      "If this completes the task, relay the receipt to your owner and stop; run `discern accept` only once they accept.",
     ]
     : [];
   hints.push(

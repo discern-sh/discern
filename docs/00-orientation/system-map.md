@@ -72,7 +72,7 @@ The Worktree workflow brackets a change, keeping the main checkout untouched:
 ```
 main checkout ──discern start──► Worktree ⟲ discern integrate
       ▲                                  │     (pull main in + re-materialize)
-      └─────────────── discern graduate ─┘     graduate branch + tear down
+      └─────────────── discern accept ─┘     accept branch + tear down
 ```
 
 ---

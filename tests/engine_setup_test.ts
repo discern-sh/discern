@@ -1308,7 +1308,7 @@ Deno.test("discern setup isolates a fresh install on the discern-setup branch (A
 });
 
 Deno.test("discern setup begin refuses to start from a feature branch when the integration branch exists", async () => {
-  // A setup branch forks from the CURRENT HEAD, and `setup land` later
+  // A setup branch forks from the CURRENT HEAD, and `setup accept` later
   // fast-forwards the integration branch to it — so a setup begun on a
   // feature branch would sweep that branch's unmerged commits onto `main`.
   // begin must refuse and name the exact recovery, leaving the tree untouched.

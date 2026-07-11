@@ -164,7 +164,7 @@ result is rendered as `{ content, structuredContent, isError }`, the same
 `discern_refresh`, `discern_done`, `discern_prepare`, `discern_test`,
 `discern_ratchets`, `discern_doctor`, `discern_improve`, `discern_scopes`,
 `discern_coupling`, `discern_docs`, `discern_help`, `discern_start`,
-`discern_integrate`, `discern_graduate`. Each advertises:
+`discern_integrate`, `discern_accept`. Each advertises:
 
 - a **`title`** (a short human label) and a **description**;
 - an **`outputSchema`** — its per-verb schema from `result_schemas.ts`, which
@@ -172,7 +172,7 @@ result is rendered as `{ content, structuredContent, isError }`, the same
 - honest **`annotations`** — `readOnlyHint` for the pure-observation verbs
   (`status`, `doctor`, `scopes`, `improve`, `docs`, `help`); not-read-only for
   the ones that run commands or rewrite files (`done`, `prepare`, `test`,
-  `ratchets`); and `destructiveHint` for `graduate` (it tears down resources and
+  `ratchets`); and `destructiveHint` for `accept` (it tears down resources and
   moves the branch).
 
 A tool is **gated like its verb**: the setup-gated verbs (the gate verbs and
@@ -195,15 +195,14 @@ there is none.
 
 The worktree lifecycle verbs (`worktree`, `worktree command group`) are
 **deliberately not exposed** — they are hook-driven and an agent must never hop
-between or prune the worktree it is in. `discern_graduate` is the one lifecycle
-op on the surface.
+between or prune the worktree it is in. `discern_accept` is the one lifecycle op
+on the surface.
 
 **Instructions.** The server advertises an `instructions` block — the native
 "when to use which tool" guide capable clients load on connect: orient with
 `discern_status`, gate with `discern_done` (`discern_prepare`/`discern_test`
 while iterating), learn discern via `discern_help`, read the project's docs via
-`discern_docs`, improve with `discern_improve`, graduate with
-`discern_graduate`.
+`discern_docs`, improve with `discern_improve`, accept with `discern_accept`.
 
 **Resources.** Alongside the tools, five readable resources are computed fresh
 on every read and serve the verb's `data` payload (not the full envelope):

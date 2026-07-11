@@ -267,7 +267,7 @@ Deno.test("completionMessage renders honest coverage for each verdict", () => {
   assertStringIncludes(full, "all run on every change");
   // The close restates the contained footprint the consent message promised —
   // and names `discern uninstall` as the undo, since the branch-delete story
-  // retires once the setup lands.
+  // retires once the setup accepts.
   assertStringIncludes(full, "Everything discern added is contained");
   assertStringIncludes(full, "`discern/` folder");
   assertStringIncludes(full, "discern uninstall");
@@ -335,9 +335,9 @@ Deno.test("completionMessage adapts the landing recommendation to where the work
       onTarget: false,
       onSetupBranch: true,
     }),
-    "discern setup land",
+    "discern setup accept",
   );
-  // The user's OWN branch (an --allow-dirty in-place setup): `setup land` would
+  // The user's OWN branch (an --allow-dirty in-place setup): `setup accept` would
   // sweep that branch's own commits onto the trunk, so the recommendation is a
   // manual merge, never the land command.
   const ownBranch = ctx({
@@ -349,8 +349,8 @@ Deno.test("completionMessage adapts the landing recommendation to where the work
   });
   assertStringIncludes(ownBranch, "usual way");
   assert(
-    !ownBranch.includes("discern setup land"),
-    `a non-setup branch must never be steered to setup land:\n${ownBranch}`,
+    !ownBranch.includes("discern setup accept"),
+    `a non-setup branch must never be steered to setup accept:\n${ownBranch}`,
   );
   // Detached HEAD (no current branch) still names how to land it.
   assertStringIncludes(

@@ -129,9 +129,9 @@ already lives.
 
 Pin is the way to re-pin a baseline — never hand-edit the number. Because its
 commit changes only `[ratchets]` limits, which the gate never reads, pin carries
-a green `discern done` receipt forward onto it, so a follow-up
-`discern
-graduate` still skips the redundant gate re-run
+a green `discern done` receipt forward onto it, so a follow-up `discern
+accept`
+still skips the redundant gate re-run
 ([ADR 0106](../_adr/0106-ratchets-pin-carries-the-gate-receipt.md)).
 
 For a metric that drifts on every commit — a bundle size, a coverage percentage

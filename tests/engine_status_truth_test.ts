@@ -218,7 +218,7 @@ Deno.test("status's off-trunk-main hint describes the state and the way back", a
     );
     assert(hint !== undefined, JSON.stringify(result.hints));
     assertStringIncludes(hint, "git switch main");
-    assertStringIncludes(hint, "graduation can't land");
+    assertStringIncludes(hint, "`discern accept` can't land");
   });
 });
 

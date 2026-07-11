@@ -27,7 +27,7 @@ Project identity and integration settings.
 | --- | --- | --- | --- |
 | `slug` | string | `""` | Short, lowercase, dash-separated identity. Used for worktree/site/branch names. |
 | `branch_prefix` | string | `"agent/"` | Branch prefix for worktrees created by the harness, e.g. "agent/my-feature". |
-| `main_branch` | string | `"main"` | The integration branch the gate merges into and worktrees graduate onto. Override per-invocation with the DISCERN_MAIN_BRANCH env var. |
+| `main_branch` | string | `"main"` | The integration branch the gate merges into and completed work lands on. Override per-invocation with the DISCERN_MAIN_BRANCH env var. |
 | `gotchas_doc` | string | `""` | Where the gate points an agent when a stage fails in a non-obvious way. Empty disables the pointer. |
 | `todo` | string | `"discern/TODO.md"` | Where the deferred-work ledger (the running TODO list agents read and maintain) lives, relative to the project root. |
 | `agents` | string[] | — | Deprecated: providers now live under [guidance].agents. Read only as a pre-migration fallback. |

@@ -96,7 +96,7 @@ export interface PlanStep {
  * common projection every verb's typed plan reduces to for presentation.
  */
 export interface EnginePlan {
-  /** Imperative heading (e.g. "Graduation plan", "Gate plan"). */
+  /** Imperative heading (e.g. "Acceptance plan", "Gate plan"). */
   title: string;
   /** Context lines shown above the steps (e.g. branch / from / into). */
   details: string[];
@@ -226,7 +226,7 @@ export interface Diagnostic {
  * The uniform result every `discern` verb returns. An agent can rely on `ok`,
  * `verb`, `error`, and `diagnostics` being present on EVERY verb; the structural
  * `plan`/`steps` carry the verbs that have steps (finish, worktree, ratchets,
- * graduate), and `data` carries each verb's own payload (doctor's checks, schema migration data
+ * accept), and `data` carries each verb's own payload (doctor's checks, schema migration data
  * schema versions, init's written-files list).
  *
  * `serializeResult` renders it to `--json`; the human path renders the same fields
@@ -243,7 +243,7 @@ export interface Diagnostic {
 export interface DiscernResult<TData = unknown> {
   /** Did the verb succeed? The one field every consumer can rely on. */
   ok: boolean;
-  /** The verb that produced this result ("done", "graduate", "doctor", …). */
+  /** The verb that produced this result ("done", "accept", "doctor", …). */
   verb: string;
   /**
    * True when this is a preview (`--dry-run`): nothing was applied. The ONE
@@ -429,7 +429,7 @@ const DISPOSITION_LABEL: Record<StepDisposition, string> = {
 /**
  * Render a plan as a per-step listing under its heading — the `--dry-run` view.
  * Steps carrying a `group` are printed under a dim group line; ungrouped plans
- * (e.g. graduate) list flat.
+ * (e.g. accept) list flat.
  */
 export function renderPlan(sink: RenderSink, plan: EnginePlan): void {
   sink.heading(plan.title);

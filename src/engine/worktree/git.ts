@@ -1091,7 +1091,7 @@ export async function worktreeSetupComplete(cwd: string): Promise<boolean> {
 /**
  * Local `<prefix>*` branches holding UNLANDED work with no worktree — commits not
  * on the trunk, and not checked out in any registered worktree. The abandoned-work
- * signal `status` surfaces from the main checkout: a graduated branch is deleted,
+ * signal `status` surfaces from the main checkout: a landed branch is deleted,
  * a live one has its worktree, and a fully-merged dangling one is prune's food —
  * what remains is work that would otherwise be invisible. Empty when the trunk is
  * missing (nothing to compare against) or outside a repo.

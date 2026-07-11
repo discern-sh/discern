@@ -997,7 +997,7 @@ Deno.test("doctor --json: carries the execution model, each step marked project/
         "start",
         "worktree ensure",
         "integrate",
-        "graduate",
+        "accept",
         "worktree prune",
       ]
     ) {
@@ -1027,10 +1027,10 @@ Deno.test("doctor --json: a per-worktree resource shows its teardown step with t
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 0);
     // The user's destroy command is surfaced verbatim as a [project] teardown step — the
-    // motivating "why did graduate tear down my database?" answered up front.
-    const grad = modelVerb(payload, "graduate");
+    // motivating "why did accept tear down my database?" answered up front.
+    const grad = modelVerb(payload, "accept");
     const destroy = grad.steps.find((s) => s.kind === "resource-destroy");
-    assert(destroy !== undefined, "graduate should tear the resource down");
+    assert(destroy !== undefined, "accept should tear the resource down");
     assertEquals(destroy.actor, "project");
     assertEquals(destroy.note, "dropdb x");
   });
@@ -1044,7 +1044,7 @@ Deno.test("doctor: human output prints the execution-model section on stderr", a
     assertEquals(code, 0);
     assertStringIncludes(stderr, "Execution model");
     assertStringIncludes(stderr, "[discern] merge-check");
-    assertStringIncludes(stderr, "\ngraduate\n");
+    assertStringIncludes(stderr, "\naccept\n");
   });
 });
 
@@ -1078,9 +1078,9 @@ Deno.test("doctor --verbose: shows every step's hint, undeduplicated, and drops 
     const { code, stderr } = await runCli(["doctor", "--verbose"], dir);
     assertEquals(code, 0);
     // Hints are shown and never deduplicated: the git hint recurs on every git step
-    // within a single verb (graduate runs several), so it appears more than
+    // within a single verb (accept runs several), so it appears more than
     // once in that one section — the ambiguity a per-verb dedup would introduce.
-    const start = stderr.indexOf("\ngraduate\n");
+    const start = stderr.indexOf("\naccept\n");
     const section = stderr.slice(
       start,
       stderr.indexOf("worktree prune", start),

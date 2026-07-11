@@ -676,12 +676,12 @@ Deno.test("status: a clean worktree ahead of main with a finish receipt is ready
       `expected the relay + inspect affordances: ${JSON.stringify(hints)}`,
     );
     assert(
-      hints.some((h: string) => h.includes("explicitly accepts")),
+      hints.some((h: string) => h.includes("explicitly asks you to land")),
       `expected explicit-user-acceptance boundary: ${JSON.stringify(hints)}`,
     );
     assert(
       !hints.some((h: string) => h.includes("when ready")),
-      `status must not imply graduation follows from readiness: ${
+      `status must not imply acceptance follows from readiness: ${
         JSON.stringify(hints)
       }`,
     );
@@ -721,8 +721,8 @@ Deno.test("status: an ahead worktree with untracked work is not ready for owner 
     assertEquals(obj.data.git.ahead_integration, 1);
     assertEquals(obj.data.git.behind_integration, 0);
     assert(
-      !(obj.hints ?? []).some((h: string) => h.includes("graduate")),
-      `dirty worktree must not get a graduate hint: ${
+      !(obj.hints ?? []).some((h: string) => h.includes("accept")),
+      `dirty worktree must not get an accept hint: ${
         JSON.stringify(obj.hints)
       }`,
     );

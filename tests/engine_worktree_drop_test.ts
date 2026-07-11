@@ -85,7 +85,7 @@ Deno.test("worktree drop: a DISCERN_WORKTREE_ID in the environment cannot redire
 
 Deno.test("worktree drop: a worktree holding the TRUNK loses its checkout, never the branch", async () => {
   await withTempDir(async (dir) => {
-    // The legacy graduate-to-branch layouts leave exactly this: main parked on a
+    // The legacy accept-to-branch layouts leave exactly this: main parked on a
     // review branch, a linked worktree holding `main`. Dropping that worktree
     // must remove the checkout and KEEP the trunk — deleting it left the repo
     // with no landing target at all (reproduced in review, exit 0).
@@ -275,7 +275,7 @@ Deno.test("worktree drop: honors git worktree lock — refused even with --force
 
 Deno.test("remove-worktree-safely: the shared removal core refuses a locked worktree", async () => {
   await withTempDir(async (dir) => {
-    // Every removal path (drop, graduate, prune, discard) funnels through this
+    // Every removal path (drop, accept, prune, discard) funnels through this
     // helper — the refusal here is the class guard for all of them.
     const wt = await mainWithWorktree(dir, "locked-core");
     await git(dir, "worktree", "lock", wt);

@@ -33,7 +33,8 @@ final commit.
 
 - **`discern done`** prints it at the tail of a green human run and carries it
   in the `--json`/MCP envelope as `data.receipt`, with a hint beside it: relay
-  the receipt to your owner and stop; graduate only once they accept.
+  the receipt to your owner and stop; call `accept` only once they explicitly
+  ask you to land.
 - **The marker.** The green run stores the markdown beside the validated sha in
   the per-worktree marker file (`discern-gate-receipt`, inside the git admin dir
   — the vouch of
@@ -44,7 +45,7 @@ final commit.
   stored markdown in `data.gate_receipt.receipt`, and its review-ready hint
   names the moment's two affordances: relay the receipt, and inspect the raw
   diff with `git diff <trunk>...<branch>`.
-- **`discern graduate`** prints it on a green landing — the landing record,
+- **`discern accept`** prints it on a green landing — the landing record,
   pasteable into a PR body — and carries it as `data.receipt`.
 
 ## The review moment

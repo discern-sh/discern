@@ -752,7 +752,7 @@ export const MIGRATIONS: Migration[] = [
     from: 16,
     // ADR 0110
     describe:
-      "drop [worktree].graduate_to — `discern graduate` always lands on the trunk; composition happens on the pull axis instead",
+      "drop [worktree].graduate_to — `discern accept` always lands on the trunk; composition happens on the pull axis instead",
     apply: async (ctx) => {
       const text = await ctx.readConfig();
       if (text === undefined) {
@@ -770,7 +770,7 @@ export const MIGRATIONS: Migration[] = [
         return;
       }
       const dropped = worktree.graduate_to;
-      await ctx.rewrite("discern.toml", removeGraduateToKey);
+      await ctx.rewrite("discern.toml", removeAcceptToKey);
       // The note claims only what actually happened: the lexical rewrite covers
       // the table and dotted line forms, so PROVE the key is gone by re-parsing
       // before saying "dropped" — an exotic spelling (an inline table) gets an
@@ -789,10 +789,10 @@ export const MIGRATIONS: Migration[] = [
         stillThere
           ? `[worktree].graduate_to = "${String(dropped)}" is written in a ` +
             "form this migration can't rewrite — remove the key from " +
-            "discern.toml by hand: `discern graduate` always lands on the " +
+            "discern.toml by hand: `discern accept` always lands on the " +
             "trunk now"
           : `dropped [worktree].graduate_to = "${String(dropped)}" — ` +
-            "`discern graduate` always lands on the trunk now; to compose work " +
+            "`discern accept` always lands on the trunk now; to compose work " +
             "below the trunk, pull with `start --from` / `integrate --from`",
       );
     },
@@ -803,12 +803,12 @@ export const MIGRATIONS: Migration[] = [
  * Remove the `graduate_to` key line — the table form (`graduate_to =` under
  * `[worktree]`) or the dotted top-level form (`worktree.graduate_to =`) — plus
  * the contiguous comment paragraph directly above it, but only when that
- * paragraph is actually about the landing destination (it mentions "graduate"),
+ * paragraph is actually about the landing destination (it mentions "accept"),
  * so a user's own unrelated comment is never eaten. The blank run the removal
  * leaves is collapsed at the removal site only — never a whole-file reformat.
  * A no-op without the key.
  */
-function removeGraduateToKey(text: string): string {
+function removeAcceptToKey(text: string): string {
   const lines = text.split("\n");
   let idx = lines.findIndex((l) =>
     /^\s*worktree\s*\.\s*graduate_to\s*=/.test(l)
@@ -817,7 +817,7 @@ function removeGraduateToKey(text: string): string {
     idx = lines.findIndex((l) => /^\s*graduate_to\s*=/.test(l));
   }
   if (idx === -1) {
-    return removeGraduateToInlineEntry(text);
+    return removeAcceptToInlineEntry(text);
   }
   let start = idx;
   let bannerStart = idx;
@@ -829,7 +829,7 @@ function removeGraduateToKey(text: string): string {
   }
   if (
     bannerStart < idx &&
-    /graduate/i.test(lines.slice(bannerStart, idx).join("\n"))
+    /accept/i.test(lines.slice(bannerStart, idx).join("\n"))
   ) {
     start = bannerStart;
   }
@@ -852,7 +852,7 @@ function removeGraduateToKey(text: string): string {
  * quoted dotted key, say — is left for the migration's verify step to admit
  * honestly rather than guess at.
  */
-function removeGraduateToInlineEntry(text: string): string {
+function removeAcceptToInlineEntry(text: string): string {
   return text.split("\n").map((line) => {
     if (!/^\s*worktree\s*=\s*\{.*\}/.test(line)) {
       return line;

@@ -101,7 +101,7 @@ Each isolated worktree is a full checkout, so a fleet of them adds up. They are
 meant to be transient — one line of work each, landed and removed. Clean them up
 with the worktree lifecycle:
 
-- `discern graduate` lands a finished branch and removes its worktree.
+- `discern accept` lands a finished branch and removes its worktree.
 - `discern worktree prune` sweeps worktrees whose work is already merged, plus
   the stale git admin entries a manual deletion leaves behind.
 

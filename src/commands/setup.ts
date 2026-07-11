@@ -110,10 +110,10 @@ import {
 } from "../shared/setup_messages.ts";
 import type { SetupDoneData } from "../shared/result_schemas.ts";
 import {
-  LAND_COMMAND,
+  ACCEPT_COMMAND,
   type LandingSummary,
   landingSummary,
-} from "./setup_land.ts";
+} from "./setup_accept.ts";
 import { KNOWN_ENGINE_VERBS } from "../engine/dispatch.ts";
 import { normalizeDocsDir } from "../shared/docs_path.ts";
 import { guidanceSeedRel, SOURCE_PATHS } from "../shared/paths_registry.ts";
@@ -313,7 +313,7 @@ function stampSchemaIntoPlan(plan: Plan, version: number): void {
  * in place (comment-preserving). Without this, a repo whose default branch is not
  * `main` scaffolds a config pointing the gate's merge check at a branch that does
  * not exist locally — a check that then silently self-skips forever, and a
- * `setup land` that dead-ends.
+ * `setup accept` that dead-ends.
  */
 function stampMainBranchIntoPlan(plan: Plan, branch: string): void {
   const op = freshConfigOp(plan);
@@ -1071,7 +1071,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   // below (the last detection probe reads the currently checked-out branch), so the
   // scaffold stamps `[project].main_branch` with the truth rather than assuming
   // `main` — on a `master` repo that assumption silently disarms the gate's merge
-  // check and dead-ends `setup land`.
+  // check and dead-ends `setup accept`.
   const detectedMainBranch = freshInstall
     ? await detectIntegrationBranch(destDir)
     : undefined;
@@ -1355,7 +1355,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
  * code when the tree is dirty (the error is already emitted). The caller gates this
  * on `freshInstall && !dryRun && !allowDirty`.
  *
- * A fresh setup branch forks from the CURRENT HEAD, and `setup land` later
+ * A fresh setup branch forks from the CURRENT HEAD, and `setup accept` later
  * fast-forwards (or merges) the integration branch to it — so a setup begun on an
  * unmerged feature branch would carry that branch's own commits onto the trunk.
  * When `integrationBranchName` (the pre-checkout detection) names an EXISTING
@@ -1412,7 +1412,7 @@ async function ensureSetupBranch(
     })).success;
   // Fresh creation only (a resume checks out the existing branch as-is): refuse
   // to fork the setup branch off anything but the integration branch, so the
-  // later `setup land` can never sweep a feature branch's own commits onto it.
+  // later `setup accept` can never sweep a feature branch's own commits onto it.
   if (!exists && integrationBranchName !== undefined) {
     const targetExists = (await runGit(
       [
@@ -1832,7 +1832,7 @@ function emitSetupIncomplete(
  * The uncommitted changes that block `setup done` (the clean-tree precondition):
  * every uncommitted change to a TRACKED file, plus untracked files inside the
  * authored-setup footprint (the configured docs tree, the guidance source, the
- * deferred-work ledger, the brief). The completion proof and `setup land` operate
+ * deferred-work ledger, the brief). The completion proof and `setup accept` operate
  * on committed history only — the worktree probe branches from HEAD, so anything
  * uncommitted is invisible to it, and a completion recorded over it would claim a
  * proof it never ran. Untracked files OUTSIDE the footprint never block: an env
@@ -1901,7 +1901,7 @@ function emitSetupUncommitted(json: boolean, uncommitted: string[]): void {
     console.error(`         • ${u}`);
   }
   console.error(
-    "       The completion proof and `discern setup land` operate on commits — uncommitted work is invisible to them.",
+    "       The completion proof and `discern setup accept` operate on commits — uncommitted work is invisible to them.",
   );
   console.error(
     "       (Untracked scratch outside the setup files never blocks; --force skips this check entirely.)",
@@ -1940,13 +1940,13 @@ function doneHints(
 ): string[] {
   const hints: string[] = [];
   if (landing.inRepo && !landing.onTarget && landing.branch !== "") {
-    // `setup land` lands ONLY the dedicated setup branch — an in-place setup on
+    // `setup accept` lands ONLY the dedicated setup branch — an in-place setup on
     // the user's own branch is steered to a manual merge, because the land
     // command would sweep that branch's own commits onto the trunk.
     hints.push(
       landing.onSetupBranch
-        ? `Your setup is on branch \`${landing.branch}\`, not yet on \`${landing.target}\` — land it with \`${LAND_COMMAND}\` (or leave it for review).`
-        : `Your setup is on branch \`${landing.branch}\`, not yet on \`${landing.target}\` — \`${LAND_COMMAND}\` only lands the \`${SETUP_BRANCH}\` branch, so merge this branch your usual way when ready.`,
+        ? `Your setup is on branch \`${landing.branch}\`, not yet on \`${landing.target}\` — land it with \`${ACCEPT_COMMAND}\` (or leave it for review).`
+        : `Your setup is on branch \`${landing.branch}\`, not yet on \`${landing.target}\` — \`${ACCEPT_COMMAND}\` only lands the \`${SETUP_BRANCH}\` branch, so merge this branch your usual way when ready.`,
     );
   }
   hints.push(reactivation.summary);
@@ -2006,22 +2006,22 @@ function landStep(landing: LandingSummary, n: number): string[] {
   }
   if (landing.branch === "") {
     return [
-      `  ${n}. Land your setup onto \`${landing.target}\` — you're on a detached HEAD; check out your setup branch, then run \`${LAND_COMMAND}\`.`,
+      `  ${n}. Land your setup onto \`${landing.target}\` — you're on a detached HEAD; check out your setup branch, then run \`${ACCEPT_COMMAND}\`.`,
     ];
   }
   if (!landing.onSetupBranch) {
-    // An in-place setup on the user's own branch: `setup land` only lands the
+    // An in-place setup on the user's own branch: `setup accept` only lands the
     // dedicated setup branch, so steer to a manual merge instead.
     return [
       `  ${n}. Land your setup onto \`${landing.target}\`. Your work is on branch \`${landing.branch}\` —`,
-      `     merge it into \`${landing.target}\` your usual way when ready (\`${LAND_COMMAND}\` only`,
+      `     merge it into \`${landing.target}\` your usual way when ready (\`${ACCEPT_COMMAND}\` only`,
       `     lands the \`${SETUP_BRANCH}\` branch, never a branch of your own).`,
     ];
   }
   return [
     `  ${n}. Land your setup onto \`${landing.target}\`. Your work is on branch \`${landing.branch}\`,`,
     `     not yet on \`${landing.target}\` — switching to \`${landing.target}\` now would look like`,
-    `     discern vanished. Land it:  ${LAND_COMMAND}`,
+    `     discern vanished. Land it:  ${ACCEPT_COMMAND}`,
     `     Prefer to review first? Leave \`${landing.branch}\` as-is and land it when ready —`,
     "     doing nothing is safe; the branch keeps every commit.",
   ];
@@ -2149,7 +2149,7 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
 
   // The clean-tree precondition: the completion proof runs on committed history
   // (the worktree probe branches from HEAD), and the completion story — "the
-  // branch keeps every commit", `setup land` — is only true of commits. Refuse
+  // branch keeps every commit", `setup accept` — is only true of commits. Refuse
   // while authored setup sits uncommitted, naming exactly what to commit, AFTER
   // the completeness checks (fill first, then commit, then prove). `--force`
   // skips it along with the rest of the proof.
@@ -2244,7 +2244,7 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
         target: landing.target,
         on_target: landing.onTarget,
         on_setup_branch: landing.onSetupBranch,
-        command: LAND_COMMAND,
+        command: ACCEPT_COMMAND,
       },
       reactivation,
       coach: { verb: coachVerb, command: `discern ${coachVerb} --json` },

@@ -186,7 +186,7 @@ Deno.test("setup done --json carries the landing summary + coach pointer", async
     const res = JSON.parse(
       (await runAgent(dir, ["setup", "done", "--force", "--json"])).stdout,
     );
-    assertEquals(res.data.landing.command, "discern setup land");
+    assertEquals(res.data.landing.command, "discern setup accept");
     assertEquals(res.data.landing.in_repo, true);
     assertEquals(res.data.landing.branch, "discern-setup");
     assertEquals(res.data.landing.target, "main");
@@ -197,7 +197,7 @@ Deno.test("setup done --json carries the landing summary + coach pointer", async
     // The ordered next-action hints name landing and the coach.
     const hints: string[] = res.hints ?? [];
     assert(
-      hints.some((h) => h.includes("discern setup land")),
+      hints.some((h) => h.includes("discern setup accept")),
       `hints should point at landing: ${JSON.stringify(hints)}`,
     );
     assert(
@@ -223,7 +223,7 @@ Deno.test("setup done's human output names where the work lives, the land comman
     assertStringIncludes(done.stdout, "deferred");
     // Where the work lives + the EXACT land command (the largest clean-room UX gap).
     assertStringIncludes(done.stdout, "discern-setup");
-    assertStringIncludes(done.stdout, "discern setup land");
+    assertStringIncludes(done.stdout, "discern setup accept");
     assertStringIncludes(done.stdout, "main");
     // The ongoing-use steer.
     assertStringIncludes(done.stdout, "discern improve --json");

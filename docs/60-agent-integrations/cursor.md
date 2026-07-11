@@ -105,7 +105,7 @@ with that worktree as its workspace when the agent's shell needs to live there.
 
 Cursor has a `sessionStart` hook for the setup step, but no worktree
 create/remove hook contract. discern owns worktree creation, integration, and
-graduation through its CLI and MCP verbs.
+acceptance through its CLI and MCP verbs.
 
 Cursor's skill-loading surface has changed during the CLI beta. The product
 supports `.agents/skills/`, but when diagnosing a missing skill in the CLI,

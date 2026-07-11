@@ -74,7 +74,7 @@ and mutates in place. If you committed a file that was not yet in the
 formatter's canonical form — the everyday case for hand-written prose, where
 editing a paragraph leaves a wrap the formatter will not accept — the next
 `done` reformats it and leaves the result uncommitted. `done` blocks on this, so
-the change cannot ride along uncommitted into `graduate`, which would otherwise
+the change cannot ride along uncommitted into `accept`, which would otherwise
 strand it staged in the main checkout.
 
 **Fix.** The diff is the formatter's own output: review it (`git diff`), commit

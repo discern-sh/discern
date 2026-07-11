@@ -10,12 +10,12 @@
 
 import type { z } from "@zod/zod";
 import {
+  AcceptOutputSchema,
   ConfigOutputSchema,
   CouplingOutputSchema,
   DocsOutputSchema,
   DoctorOutputSchema,
   FinishOutputSchema,
-  GraduateOutputSchema,
   HelpOutputSchema,
   ImproveOutputSchema,
   IntegrateOutputSchema,
@@ -24,8 +24,8 @@ import {
   RatchetsOutputSchema,
   RefreshOutputSchema,
   ScopesOutputSchema,
+  SetupAcceptOutputSchema,
   SetupDoneOutputSchema,
-  SetupLandOutputSchema,
   SetupOutputSchema,
   SetupStepOutputSchema,
   SetupVerifyOutputSchema,
@@ -81,10 +81,10 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     schema: SetupDoneOutputSchema,
   },
   {
-    id: "setupLand",
-    commands: ["setup land"],
-    verb: "setup land",
-    schema: SetupLandOutputSchema,
+    id: "setupAccept",
+    commands: ["setup accept"],
+    verb: "setup accept",
+    schema: SetupAcceptOutputSchema,
   },
   {
     id: "upgrade",
@@ -208,11 +208,11 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     mcpTool: "discern_start",
   },
   {
-    id: "graduate",
-    commands: ["graduate"],
-    verb: "graduate",
-    schema: GraduateOutputSchema,
-    mcpTool: "discern_graduate",
+    id: "accept",
+    commands: ["accept"],
+    verb: "accept",
+    schema: AcceptOutputSchema,
+    mcpTool: "discern_accept",
   },
   {
     id: "integrate",

@@ -172,7 +172,7 @@ Deno.test("the production chain is contiguous up to the current schema", () => {
   // 13→14 (keep machine-local provider settings ignored), 14→15 (move the
   // authored surface into the discern/ namespace), 15→16 (retire the
   // [features] toggles and [worktree].enabled), and 16→17 (drop
-  // [worktree].graduate_to — graduate always lands on the trunk).
+  // [worktree].graduate_to — accept always lands on the trunk).
   assertEquals(MIGRATIONS.map((m) => m.from), [
     1,
     2,
@@ -615,7 +615,7 @@ Deno.test("migration 16→17 drops [worktree].graduate_to and its doc comment", 
     await Deno.writeTextFile(
       join(dir, "discern.toml"),
       "[worktree]\nport = true\n\n" +
-        "# Where `discern graduate` lands by default (override per-run with `--to`):\n" +
+        "# Where `discern accept` lands by default (override per-run with `--to`):\n" +
         '#   "branch"  leave the work on its own branch for review.\n' +
         'graduate_to = "branch"\n\n' +
         "# Track ignored files at worktree setup.\n" +
@@ -625,7 +625,7 @@ Deno.test("migration 16→17 drops [worktree].graduate_to and its doc comment", 
     const toml = await Deno.readTextFile(join(dir, "discern.toml"));
     assert(!/graduate_to/.test(toml), `key must be dropped:\n${toml}`);
     assert(
-      !/Where `discern graduate` lands/.test(toml),
+      !/Where `discern accept` lands/.test(toml),
       `the key's own doc comment goes with it:\n${toml}`,
     );
     assertStringIncludes(toml, "port = true"); // siblings untouched

@@ -253,7 +253,7 @@ const GATE: Category = {
       title: "The gate stays fast enough to run every time",
       ask:
         "Given the test command below, and that `discern done` runs it on every " +
-        "graduation and whenever a change is called done — does the gate stay fast " +
+        "acceptance and whenever a change is called done — does the gate stay fast " +
         "as the suite grows, and is the runner using the parallelism it offers? " +
         "Parallel execution depends on isolated tests: each owning its own temp dir, " +
         "environment, ports, and fixtures, mutating no process-global state another " +

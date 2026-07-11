@@ -1653,8 +1653,8 @@
         "verb"
       ]
     },
-    "DiscernSetupLandResult": {
-      "title": "DiscernSetupLandResult",
+    "DiscernSetupAcceptResult": {
+      "title": "DiscernSetupAcceptResult",
       "type": "object",
       "properties": {
         "ok": {
@@ -1869,7 +1869,7 @@
         },
         "verb": {
           "type": "string",
-          "const": "setup land"
+          "const": "setup accept"
         },
         "data": {
           "anyOf": [
@@ -7811,8 +7811,8 @@
         "verb"
       ]
     },
-    "DiscernGraduateResult": {
-      "title": "DiscernGraduateResult",
+    "DiscernAcceptResult": {
+      "title": "DiscernAcceptResult",
       "type": "object",
       "properties": {
         "ok": {
@@ -8027,7 +8027,7 @@
         },
         "verb": {
           "type": "string",
-          "const": "graduate"
+          "const": "accept"
         },
         "data": {
           "anyOf": [
@@ -10603,8 +10603,8 @@
         "isError"
       ]
     },
-    "DiscernGraduateMcpToolResult": {
-      "title": "DiscernGraduateMcpToolResult",
+    "DiscernAcceptMcpToolResult": {
+      "title": "DiscernAcceptMcpToolResult",
       "type": "object",
       "properties": {
         "content": {
@@ -10626,7 +10626,7 @@
           }
         },
         "structuredContent": {
-          "$ref": "#/$defs/DiscernGraduateResult"
+          "$ref": "#/$defs/DiscernAcceptResult"
         },
         "isError": {
           "type": "boolean"
@@ -10690,7 +10690,7 @@
           "$ref": "#/$defs/DiscernSetupDoneResult"
         },
         {
-          "$ref": "#/$defs/DiscernSetupLandResult"
+          "$ref": "#/$defs/DiscernSetupAcceptResult"
         },
         {
           "$ref": "#/$defs/DiscernUpgradeResult"
@@ -10744,7 +10744,7 @@
           "$ref": "#/$defs/DiscernStartResult"
         },
         {
-          "$ref": "#/$defs/DiscernGraduateResult"
+          "$ref": "#/$defs/DiscernAcceptResult"
         },
         {
           "$ref": "#/$defs/DiscernIntegrateResult"
@@ -10775,7 +10775,7 @@
           "setup verify": "#/$defs/DiscernSetupVerifyResult",
           "setup step": "#/$defs/DiscernSetupStepResult",
           "setup done": "#/$defs/DiscernSetupDoneResult",
-          "setup land": "#/$defs/DiscernSetupLandResult",
+          "setup accept": "#/$defs/DiscernSetupAcceptResult",
           "upgrade": "#/$defs/DiscernUpgradeResult",
           "uninstall": "#/$defs/DiscernUninstallResult",
           "doctor": "#/$defs/DiscernDoctorResult",
@@ -10793,7 +10793,7 @@
           "coupling": "#/$defs/DiscernCouplingResult",
           "status": "#/$defs/DiscernStatusResult",
           "start": "#/$defs/DiscernStartResult",
-          "graduate": "#/$defs/DiscernGraduateResult",
+          "accept": "#/$defs/DiscernAcceptResult",
           "integrate": "#/$defs/DiscernIntegrateResult",
           "worktree setup": "#/$defs/DiscernWorktreeSetupResult",
           "worktree teardown": "#/$defs/DiscernWorktreeTeardownResult",
@@ -10848,7 +10848,7 @@
           "$ref": "#/$defs/DiscernStartMcpToolResult"
         },
         {
-          "$ref": "#/$defs/DiscernGraduateMcpToolResult"
+          "$ref": "#/$defs/DiscernAcceptMcpToolResult"
         },
         {
           "$ref": "#/$defs/DiscernIntegrateMcpToolResult"
@@ -10891,12 +10891,12 @@
       "schema": "#/$defs/DiscernSetupDoneResult"
     },
     {
-      "id": "setupLand",
-      "verb": "setup land",
+      "id": "setupAccept",
+      "verb": "setup accept",
       "commands": [
-        "setup land"
+        "setup accept"
       ],
-      "schema": "#/$defs/DiscernSetupLandResult"
+      "schema": "#/$defs/DiscernSetupAcceptResult"
     },
     {
       "id": "upgrade",
@@ -11065,14 +11065,14 @@
       "mcpToolResultSchema": "#/$defs/DiscernStartMcpToolResult"
     },
     {
-      "id": "graduate",
-      "verb": "graduate",
+      "id": "accept",
+      "verb": "accept",
       "commands": [
-        "graduate"
+        "accept"
       ],
-      "mcpTool": "discern_graduate",
-      "schema": "#/$defs/DiscernGraduateResult",
-      "mcpToolResultSchema": "#/$defs/DiscernGraduateMcpToolResult"
+      "mcpTool": "discern_accept",
+      "schema": "#/$defs/DiscernAcceptResult",
+      "mcpToolResultSchema": "#/$defs/DiscernAcceptMcpToolResult"
     },
     {
       "id": "integrate",

@@ -1,7 +1,7 @@
 /**
- * The worktree lifecycle entry points — worktree setup, ensure, graduate,
+ * The worktree lifecycle entry points — worktree setup, ensure, accept,
  * teardown, and prune. These compose the identity, resource, and git layers into
- * the operations the dispatcher exposes as `discern worktree setup`, `discern graduate`,
+ * the operations the dispatcher exposes as `discern worktree setup`, `discern accept`,
  * and the `worktree` command group.
  *
  * Per-worktree external resources ([worktree.resources.<name>].create/destroy)
@@ -53,10 +53,10 @@ import {
   recordResourceEnv,
 } from "./resources.ts";
 import {
+  type AcceptPlan,
+  acceptPlanToEngine,
   type DropPlan,
   dropPlanToEngine,
-  type GraduatePlan,
-  graduatePlanToEngine,
   type IntegratePlan,
   integratePlanToEngine,
   type PrunePlan,
@@ -79,8 +79,8 @@ import {
   type StepResult,
 } from "../../shared/result.ts";
 import type {
+  AcceptData,
   GateData,
-  GraduateData,
   IntegrateData,
   StartData,
 } from "../../shared/result_schemas.ts";
@@ -128,7 +128,7 @@ import {
 // linked worktree does not inherit that gitignored directory from the main checkout).
 import { compileGuidelines, guidanceRefreshSucceeded } from "../guidelines.ts";
 import { resolveTemplatesDir } from "../../lib/paths.ts";
-// graduate validates the exact tree it lands by running the full gate at the landing
+// accept validates the exact tree it lands by running the full gate at the landing
 // boundary (ADR 0067) — fast-pathed by a gate-pass receipt when nothing changed since
 // the agent's own `done`, so a clean-merging but gate-breaking `integrate` (or any
 // tree never run through `done`) cannot fast-forward onto the trunk unvalidated.
@@ -193,8 +193,8 @@ function applyResultTitle(verb: string): string {
       return "Start results";
     case "integrate":
       return "Integration results";
-    case "graduate":
-      return "Graduation results";
+    case "accept":
+      return "Acceptance results";
     case "worktree setup":
       return "Worktree setup results";
     case "worktree teardown":
@@ -738,7 +738,7 @@ export async function worktreeEnsure(
 }
 
 /**
- * Tear down this worktree's resources without graduating its
+ * Tear down this worktree's resources without accepting its
  * branch — the `worktree teardown` recipe, used when DISCARDING a worktree.
  * Asserts the worktree precondition; destroys every resource the worktree created.
  */
@@ -924,7 +924,7 @@ async function buildDropPlan(
     id: basename(match.path),
     branch: match.branch,
     // Drop discards a LINE OF WORK; the trunk is never one. A worktree holding
-    // the trunk (the legacy graduate-to-branch layouts leave these behind) has
+    // the trunk (the legacy accept-to-branch layouts leave these behind) has
     // its checkout removed and its branch kept — deleting the trunk would leave
     // the repository with no landing target at all.
     deleteBranch: match.branch !== "" && match.branch !== trunk,
@@ -1072,28 +1072,28 @@ export async function worktreeDrop(
   );
 }
 
-/** A bound git runner for the graduation flow (defaults to the worktree cwd). */
+/** A bound git runner for the acceptance flow (defaults to the worktree cwd). */
 type GitRunner = (args: string[], cwd?: string) => Promise<GitResult>;
 
-/** The git runner graduation uses — the shared runner bound to the worktree cwd. */
+/** The git runner acceptance uses — the shared runner bound to the worktree cwd. */
 function makeGitRunner(ctx: LifecycleContext): GitRunner {
   return (args: string[], cwd: string = ctx.cwd) => runGit(args, { cwd });
 }
 
 /**
- * The read-only diagnosis a graduation acts on — the plan-build half. Asserts the
+ * The read-only diagnosis an acceptance acts on — the plan-build half. Asserts the
  * preconditions (in a worktree, not the main repo, branch contains main, main is
- * clean AND sitting on the trunk — graduation fast-forwards the trunk there and
+ * clean AND sitting on the trunk — acceptance fast-forwards the trunk there and
  * never silently switches a parked checkout), throwing the same
- * `WorktreeGitError`s as before so a plan only exists for a graduation that may
+ * `WorktreeGitError`s as before so a plan only exists for an acceptance that may
  * proceed. Resolves the branch name read-only for display; the authoritative
  * branch (created if the worktree is detached) is ensured by the executor, so
  * building a plan — and `--dry-run` — never mutates.
  */
-async function buildGraduatePlan(
+async function buildAcceptPlan(
   ctx: LifecycleContext,
   run: GitRunner,
-): Promise<GraduatePlan> {
+): Promise<AcceptPlan> {
   // diagnose
   if (!(await run(["rev-parse", "--is-inside-work-tree"])).success) {
     throw new WorktreeGitError("Not inside a git repository.");
@@ -1104,7 +1104,7 @@ async function buildGraduatePlan(
   const gitCommonDir = await realPathOrLifecycle(commonRaw, ctx.cwd);
   if (gitDir === gitCommonDir) {
     throw new WorktreeGitError(
-      "This is the main repo, not a worktree — nothing to graduate.",
+      "This is the main repo, not a worktree — nothing to accept.",
     );
   }
   const worktreePath = (await run(["rev-parse", "--show-toplevel"])).stdout
@@ -1129,17 +1129,17 @@ async function buildGraduatePlan(
     );
   }
 
-  // Graduation ends by REMOVING this worktree, and a `git worktree lock`ed one
+  // Acceptance ends by REMOVING this worktree, and a `git worktree lock`ed one
   // cannot be removed (git refuses; discern honors the lock). Refuse at plan
   // time — before the gate runs and long before the trunk fast-forwards — so a
-  // locked worktree never strands a half-landed graduation.
+  // locked worktree never strands a half-landed acceptance.
   if (
     (await registeredWorktreeRecord(worktreePath, mainRepo))?.locked === true
   ) {
     throw new WorktreeGitError(
-      `This worktree is locked (git worktree lock), and graduation removes ` +
+      `This worktree is locked (git worktree lock), and acceptance removes ` +
         `the worktree after landing. Unlock it first ` +
-        `(git worktree unlock ${worktreePath}), then re-run discern graduate.`,
+        `(git worktree unlock ${worktreePath}), then re-run discern accept.`,
     );
   }
 
@@ -1158,7 +1158,7 @@ async function buildGraduatePlan(
   if (merged.kind === "missing") {
     throw new WorktreeGitError(
       `${missingIntegrationBranchWarning(merged.branch)} ` +
-        "Graduation will not remove this worktree until the merge check can run.",
+        "Acceptance will not remove this worktree until the merge check can run.",
     );
   }
   ctx.log.ok(`Branch contains the latest ${trunkBranch}.`);
@@ -1168,7 +1168,7 @@ async function buildGraduatePlan(
     (await run(["status", "--porcelain", "-z"])).stdout.trim() !== "";
   if (worktreeDirty) {
     throw new WorktreeGitError(
-      "Worktree has uncommitted changes. Commit or stash them yourself, then re-run — graduation only lands clean branches and will not create WIP commits.",
+      "Worktree has uncommitted changes. Commit or stash them yourself, then re-run — acceptance only lands clean branches and will not create WIP commits.",
     );
   }
   const ignoredFileChanges = await inspectIgnoredFileChanges(
@@ -1188,17 +1188,17 @@ async function buildGraduatePlan(
   if (mainDirty) {
     throw new WorktreeGitError(
       `Main checkout at ${mainRepo} has uncommitted tracked changes on '${mainBranch}'. ` +
-        `Commit or stash them yourself, then re-run — graduation will not move your main-repo work for you. ` +
+        `Commit or stash them yourself, then re-run — acceptance will not move your main-repo work for you. ` +
         `Your worktree branch '${worktreeBranch}' is untouched and still holds all its commits.`,
     );
   }
 
-  // gate: graduation fast-forwards the trunk IN the main checkout, so the main
+  // gate: acceptance fast-forwards the trunk IN the main checkout, so the main
   // checkout must be sitting on the trunk — never silently switch it off whatever
   // branch someone parked it on.
   if (mainBranch !== trunkBranch) {
     throw new WorktreeGitError(
-      offTrunkGraduateRefusal(mainRepo, mainBranch, trunkBranch),
+      offTrunkAcceptRefusal(mainRepo, mainBranch, trunkBranch),
     );
   }
 
@@ -1212,35 +1212,35 @@ async function buildGraduatePlan(
   };
 }
 
-/** The graduate refusal when the main checkout is parked on a branch other than
- * the trunk (detached included). Graduation lands by fast-forwarding the trunk in
+/** The accept refusal when the main checkout is parked on a branch other than
+ * the trunk (detached included). Acceptance lands by fast-forwarding the trunk in
  * the main checkout, so switching it back is the user's one clear next step —
- * never something graduate does silently to a checkout someone parked
+ * never something accept does silently to a checkout someone parked
  * deliberately. */
-function offTrunkGraduateRefusal(
+function offTrunkAcceptRefusal(
   mainRepo: string,
   mainBranch: string,
   trunk: string,
 ): string {
   return `The main checkout at ${mainRepo} is on '${mainBranch}', not ` +
-    `'${trunk}' (the trunk). Graduation lands by fast-forwarding the trunk ` +
+    `'${trunk}' (the trunk). Acceptance lands by fast-forwarding the trunk ` +
     `there, so return it first — \`git -C ${mainRepo} switch ${trunk}\` — ` +
-    `then re-run \`discern graduate\`. Your branch keeps all its commits.`;
+    `then re-run \`discern accept\`. Your branch keeps all its commits.`;
 }
 
-// How many of the gate's diagnostics ride inline in a graduate refusal before the agent
+// How many of the gate's diagnostics ride inline in an accept refusal before the agent
 // is pointed at `discern done` for the rest — a cap so a gate that failed with many
-// findings can't flood graduate's refusal message.
-const GRADUATE_DIAG_CAP = 10;
+// findings can't flood accept's refusal message.
+const ACCEPT_DIAG_CAP = 10;
 
 /**
- * The graduate refusal when the branch does NOT pass `done` at the tree it would land
+ * The accept refusal when the branch does NOT pass `done` at the tree it would land
  * (ADR 0067). Leads with the gate's own failed-stage message (the same {@link failMessage}
  * SSOT `done` prints), then a capped list of the surfaced diagnostics, then the recovery:
  * run `discern done` to see the full output and fix it. The branch keeps all its commits
  * and the worktree is intact (this precedes every teardown/removal).
  */
-function graduateGateRefusal(
+function acceptGateRefusal(
   branch: string,
   gate: DiscernResult<GateData>,
 ): string {
@@ -1248,33 +1248,33 @@ function graduateGateRefusal(
   const headline = stage !== null ? failMessage(stage) : "The gate failed.";
   const diags = gate.diagnostics ?? [];
   const shown = diags
-    .slice(0, GRADUATE_DIAG_CAP)
+    .slice(0, ACCEPT_DIAG_CAP)
     .map((d) => `  • ${d.message} (reproduce: ${d.reproduce_cmd})`);
   if (diags.length > shown.length) {
     shown.push(`  … (+${diags.length - shown.length} more)`);
   }
   return `Branch '${branch}' does not pass \`discern done\`, so it cannot land. ` +
     `${headline} Run \`discern done\` to see the full output and fix it, then commit ` +
-    `and re-run \`discern graduate\` — your branch keeps all its commits.` +
+    `and re-run \`discern accept\` — your branch keeps all its commits.` +
     (shown.length > 0 ? `\n\nWhat failed:\n${shown.join("\n")}` : "");
 }
 
-/** The graduate refusal when the branch tip has moved off the commit the gate
- * validated — a commit landed while graduation was validating (or between the
+/** The accept refusal when the branch tip has moved off the commit the gate
+ * validated — a commit landed while acceptance was validating (or between the
  * validation and the fast-forward), so the tree that would land is not the tree
  * the gate tested. Nothing has been changed when this fires. */
-function movedDuringGraduationRefusal(
+function movedDuringAcceptanceRefusal(
   branch: string,
   worktreePath: string,
 ): string {
-  return `Branch '${branch}' moved while this graduation was validating it — ` +
+  return `Branch '${branch}' moved while this acceptance was validating it — ` +
     `a commit landed after the gate run began, so the tree that would land ` +
     `is not the tree the gate tested. Nothing was changed and the worktree ` +
     `is intact. Re-run \`discern done\` on the final commit from ` +
-    `${worktreePath}, then \`discern graduate\` again.`;
+    `${worktreePath}, then \`discern accept\` again.`;
 }
 
-async function assertGraduateBranchStillCurrent(
+async function assertAcceptBranchStillCurrent(
   cwd: string,
   trunkBranch: string,
 ): Promise<void> {
@@ -1283,19 +1283,19 @@ async function assertGraduateBranchStillCurrent(
     throw new WorktreeGitError(
       `Branch is behind ${trunkBranch} after the gate finished. ` +
         `Run \`discern integrate\` from this worktree, then \`discern done\` and ` +
-        `\`discern graduate\` again. The worktree has not been removed.`,
+        `\`discern accept\` again. The worktree has not been removed.`,
     );
   }
   if (merged.kind === "missing") {
     throw new WorktreeGitError(
       `${missingIntegrationBranchWarning(merged.branch)} ` +
-        "Graduation will not remove this worktree until the merge check can run.",
+        "Acceptance will not remove this worktree until the merge check can run.",
     );
   }
 }
 
 /**
- * Apply a graduation plan — the mutation dance. Ensures the named branch
+ * Apply an acceptance plan — the mutation dance. Ensures the named branch
  * (creating one if the worktree is detached), validates the exact tree against the whole
  * gate before landing (ADR 0067, fast-pathed by a gate-pass receipt), tears down the
  * resources, fast-forwards the trunk to the branch tip, removes the worktree,
@@ -1303,13 +1303,13 @@ async function assertGraduateBranchStillCurrent(
  * Narrates exactly as before; throws `WorktreeGitError` on any unrecoverable
  * error (the branch keeps its commits). Returns the per-step results for `--json`.
  */
-async function executeGraduatePlan(
+async function executeAcceptPlan(
   ctx: LifecycleContext,
   run: GitRunner,
-  plan: GraduatePlan,
+  plan: AcceptPlan,
 ): Promise<{
   steps: StepResult[];
-  gateValidation: NonNullable<GraduateData["gate_validation"]>;
+  gateValidation: NonNullable<AcceptData["gate_validation"]>;
   receiptMarkdown: string | undefined;
   refreshHints: string[];
 }> {
@@ -1335,11 +1335,11 @@ async function executeGraduatePlan(
   //   SLOW PATH: run the full gate now and refuse to land on any failure. A merge `integrate`
   //   created, a new commit, or a dirty tree invalidates the receipt, landing us here.
   const receipt = await inspectGateReceipt(ctx.cwd);
-  const gateValidation: NonNullable<GraduateData["gate_validation"]> =
+  const gateValidation: NonNullable<AcceptData["gate_validation"]> =
     receipt.status === "honored"
       ? { mode: "receipt", receipt }
       : { mode: "rerun", receipt };
-  // The receipt markdown for the tree that lands — the landing record graduate
+  // The receipt markdown for the tree that lands — the landing record accept
   // prints and carries: the honored marker stored it on the fast path; the fresh
   // gate run rendered it on the slow path. `validatedSha` is the ONE commit this
   // validation vouches for — the honored receipt's recorded sha, or the HEAD pinned
@@ -1358,7 +1358,7 @@ async function executeGraduatePlan(
     const pin = await pinValidatedTree(ctx.cwd);
     const gate = await finishResult(ctx.cwd);
     if (!gate.ok) {
-      throw new WorktreeGitError(graduateGateRefusal(worktreeBranch, gate));
+      throw new WorktreeGitError(acceptGateRefusal(worktreeBranch, gate));
     }
     const now = await pinValidatedTree(ctx.cwd);
     if (
@@ -1366,7 +1366,7 @@ async function executeGraduatePlan(
       !now.clean
     ) {
       throw new WorktreeGitError(
-        movedDuringGraduationRefusal(worktreeBranch, worktreePath),
+        movedDuringAcceptanceRefusal(worktreeBranch, worktreePath),
       );
     }
     ctx.log.ok("Gate passed against the tree to be landed.");
@@ -1377,11 +1377,11 @@ async function executeGraduatePlan(
     // Defensive: an honored receipt always carries its head; refuse rather than
     // fall back to landing whatever the branch name resolves to at merge time.
     throw new WorktreeGitError(
-      movedDuringGraduationRefusal(worktreeBranch, worktreePath),
+      movedDuringAcceptanceRefusal(worktreeBranch, worktreePath),
     );
   }
 
-  await assertGraduateBranchStillCurrent(ctx.cwd, trunk);
+  await assertAcceptBranchStillCurrent(ctx.cwd, trunk);
 
   const results: StepResult[] = [];
   const done = (kind: StepResult["step"]["kind"], label: string): void => {
@@ -1402,7 +1402,7 @@ async function executeGraduatePlan(
     });
   };
 
-  ctx.log.heading("Graduation plan");
+  ctx.log.heading("Acceptance plan");
   ctx.log.detail(`Branch:        ${worktreeBranch}`);
   ctx.log.detail(`From worktree: ${worktreePath}`);
   ctx.log.detail(
@@ -1417,22 +1417,22 @@ async function executeGraduatePlan(
     mainRepo,
   );
 
-  // Land on the trunk: fast-forward it to the branch tip. The graduation gate
+  // Land on the trunk: fast-forward it to the branch tip. The acceptance gate
   // already proved the branch contains the trunk, so this is always a clean
   // fast-forward — never a merge commit, never a conflict. The landing runs
-  // BEFORE resource teardown so a graduation that loses a concurrent-landing
+  // BEFORE resource teardown so an acceptance that loses a concurrent-landing
   // race is refused with its worktree fully intact — resources included — and
-  // the prescribed integrate → finish → graduate recovery actually works.
-  await assertGraduateBranchStillCurrent(ctx.cwd, trunk);
+  // the prescribed integrate → finish → accept recovery actually works.
+  await assertAcceptBranchStillCurrent(ctx.cwd, trunk);
   // Re-verify the main checkout is STILL on the trunk immediately before the
   // fast-forward (the plan checked it, but the gate re-run above takes real time
   // and `git merge` advances whatever branch is checked out) — never fast-forward
-  // a branch someone switched to mid-graduation.
+  // a branch someone switched to mid-acceptance.
   const mainNow = (await run(["branch", "--show-current"], mainRepo)).stdout
     .trim();
   if (mainNow !== trunk) {
     throw new WorktreeGitError(
-      offTrunkGraduateRefusal(
+      offTrunkAcceptRefusal(
         mainRepo,
         mainNow === "" ? "(detached)" : mainNow,
         trunk,
@@ -1447,7 +1447,7 @@ async function executeGraduatePlan(
     .stdout.trim();
   if (tipNow !== validatedSha) {
     throw new WorktreeGitError(
-      movedDuringGraduationRefusal(worktreeBranch, worktreePath),
+      movedDuringAcceptanceRefusal(worktreeBranch, worktreePath),
     );
   }
   ctx.log.info(`Fast-forwarding ${trunk} to ${worktreeBranch}…`);
@@ -1457,17 +1457,17 @@ async function executeGraduatePlan(
   );
   if (!ff.success) {
     // The usual cause is a concurrent landing: another line of work fast-forwarded
-    // the trunk between this graduation's checks and its own fast-forward. Say what
+    // the trunk between this acceptance's checks and its own fast-forward. Say what
     // happened and what to do — the raw git stderr rides along as evidence, not as
     // the explanation.
     throw new WorktreeGitError(
-      `The trunk (${trunk}) moved while this graduation was running — most ` +
+      `The trunk (${trunk}) moved while this acceptance was running — most ` +
         `likely another line of work landed first — so the fast-forward was ` +
         `refused and nothing was changed. Your worktree is fully intact, ` +
         `resources included, and your commits are safe on ` +
         `${worktreeBranch} at ${worktreePath}. From that worktree, run ` +
         `\`discern integrate\` to bring the new ${trunk} in beneath your work, ` +
-        `then \`discern done\`, then \`discern graduate\` again. ` +
+        `then \`discern done\`, then \`discern accept\` again. ` +
         `Git said:\n    ${ff.stderr.trim()}`,
     );
   }
@@ -1502,7 +1502,7 @@ async function executeGraduatePlan(
   ctx.log.ok(`Deleted merged branch ${worktreeBranch}.`);
   done("git", "delete-branch");
 
-  // Re-materialize the trunk checkout graduate leaves behind. The branch has already
+  // Re-materialize the trunk checkout accept leaves behind. The branch has already
   // landed, so a refresh hiccup is reported as a failed step rather than undoing the
   // git transition (parallel to integrate's post-merge refresh).
   ctx.log.info(
@@ -1529,12 +1529,12 @@ async function executeGraduatePlan(
   if (!refreshOk) {
     refreshHints = [
       ...refreshHints,
-      `Graduation landed on ${trunk}, but the post-landing refresh failed; ` +
+      `Acceptance landed on ${trunk}, but the post-landing refresh failed; ` +
       `run \`discern refresh\` in ${mainRepo}.`,
     ];
   }
 
-  ctx.log.heading("Graduation complete.");
+  ctx.log.heading("Acceptance complete.");
   ctx.log.line(`  You are on ${trunk} in ${mainRepo}.`);
   // The landing record: the receipt for the tree that just landed, pasteable
   // into a PR body. Printed unindented so it relays as clean markdown.
@@ -1548,7 +1548,7 @@ async function executeGraduatePlan(
 }
 
 /**
- * Graduate this worktree's branch onto the trunk — the `discern graduate`
+ * Accept this worktree's branch onto the trunk — the `discern accept`
  * command, the single PUSH target of the landing model (composition happens on
  * the pull axis: `start --from` / `integrate --from`). Requires the latest main
  * is integrated, tears down the worktree's external resources, fast-forwards the
@@ -1559,38 +1559,38 @@ async function executeGraduatePlan(
  * preconditions pass) and touches nothing. Throws `WorktreeGitError` on any
  * unrecoverable error (the branch keeps its commits).
  */
-export async function graduate(
+export async function accept(
   ctx: LifecycleContext,
   opts: WorktreeOpOptions = {},
 ): Promise<void> {
-  const result = await graduateResult(ctx, {
+  const result = await acceptResult(ctx, {
     dryRun: opts.dryRun ?? false,
   });
   emitOrRenderWorktreeResult(ctx, result, opts.json ?? false);
 }
 
 /**
- * Perform the graduation and return its {@link DiscernResult} — the plan (dry-run)
+ * Perform the acceptance and return its {@link DiscernResult} — the plan (dry-run)
  * or the executed steps — without emitting or exiting. The single source the CLI's
- * `--json` ({@link graduate}) and the MCP server both render. NOT pure: on an apply
+ * `--json` ({@link accept}) and the MCP server both render. NOT pure: on an apply
  * it runs the real git mutations + resource teardown (narrating through `ctx.log`,
  * which the MCP server silences with a quiet logger). The read-only preconditions
  * (in a worktree, main integrated, clean main checkout sitting on the trunk) still
  * throw `WorktreeGitError` when they refuse — the caller maps that to an error
  * envelope via {@link worktreeErrorResult}.
  */
-export async function graduateResult(
+export async function acceptResult(
   ctx: LifecycleContext,
   opts: { dryRun?: boolean } = {},
-): Promise<DiscernResult<GraduateData>> {
+): Promise<DiscernResult<AcceptData>> {
   const run = makeGitRunner(ctx);
-  const plan = await buildGraduatePlan(ctx, run);
+  const plan = await buildAcceptPlan(ctx, run);
   if (opts.dryRun ?? false) {
-    return previewResult("graduate", graduatePlanToEngine(plan));
+    return previewResult("accept", acceptPlanToEngine(plan));
   }
-  const executed = await executeGraduatePlan(ctx, run, plan);
-  const result: DiscernResult<GraduateData> = appliedResult(
-    "graduate",
+  const executed = await executeAcceptPlan(ctx, run, plan);
+  const result: DiscernResult<AcceptData> = appliedResult(
+    "accept",
     executed.steps,
   );
   // The branch landed in the main checkout; report it so the MCP server can re-aim its
@@ -1616,7 +1616,7 @@ export async function graduateResult(
 }
 
 function ignoredFileChangeDetail(
-  summary: GraduatePlan["ignoredFileChanges"],
+  summary: AcceptPlan["ignoredFileChanges"],
 ): string | undefined {
   if (!hasIgnoredFileChanges(summary)) {
     return undefined;
@@ -1630,9 +1630,9 @@ function ignoredFileChangeDetail(
 }
 
 /** If the source templates for a post-landing refresh live inside the worktree that
- * graduate is about to remove, point the refresh at the matching path in the main
+ * accept is about to remove, point the refresh at the matching path in the main
  * checkout after landing. This is a no-op for installed binaries and external
- * projects, whose templates are outside the graduating worktree. */
+ * projects, whose templates are outside the accepting worktree. */
 export function remapWorktreeLocalTemplatesDir(
   templatesDir: string,
   worktreePath: string,
@@ -1891,7 +1891,7 @@ function narrateIntegration(
 /**
  * The read-only diagnosis an integration acts on — the worktree precondition plus
  * how far behind the source the branch is. Asserts it is run from inside a linked
- * worktree (throwing the same `WorktreeGitError` graduate does, so a plan only
+ * worktree (throwing the same `WorktreeGitError` accept does, so a plan only
  * exists for an integration that may proceed) and resolves the branch name + gap
  * read-only, so building a plan — and `--dry-run` — never mutates. The source is
  * the trunk by default; `from` pulls any ref instead (resolved through the same
@@ -2127,7 +2127,7 @@ async function executeIntegratePlan(
 /**
  * Bring an integration source into this worktree's branch and re-materialize the
  * agent files + skills — the `discern integrate` command, the deterministic
- * inverse of `graduate` and the action that resolves `done`'s fail-fast merge
+ * inverse of `accept` and the action that resolves `done`'s fail-fast merge
  * check. The source is the trunk by default; `--from <ref>` pulls any ref instead
  * (the landing model's pull axis — how work composes below the trunk). Runs from
  * inside a linked worktree only; merges into a clean tree only. When the branch

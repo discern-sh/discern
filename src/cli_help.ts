@@ -71,7 +71,7 @@ export const COMMAND_GROUPS: readonly CommandGroup[] = [
   {
     name: "Worktree lifecycle",
     note: "isolated workspaces your agent drives",
-    commands: ["start", "integrate", "graduate", "worktree", "identity"],
+    commands: ["start", "integrate", "accept", "worktree", "identity"],
   },
   {
     name: "Setup & maintenance",

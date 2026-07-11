@@ -27,16 +27,17 @@ Deno.test("retired command spellings hard-error with their canonical successor",
     for (
       const [retired, successor] of Object.entries(
         RETIRED_COMMAND_REDIRECTS,
-      ).filter(([command]) => !command.includes(" "))
+      )
     ) {
-      const result = await runAgent(dir, [retired]);
+      const retiredTokens = retired.split(" ");
+      const result = await runAgent(dir, retiredTokens);
       assertEquals(result.code, 1, result.output);
       assertEquals(
         result.stderr,
         `discern: ${retiredCommandMessage(retired, successor)}\n`,
       );
 
-      const json = await runAgent(dir, [retired, "--json"]);
+      const json = await runAgent(dir, [...retiredTokens, "--json"]);
       assertEquals(json.code, 1, json.output);
       assertEquals(JSON.parse(json.stdout), {
         ok: false,

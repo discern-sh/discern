@@ -55,9 +55,9 @@ port, and its own [resources](the-resources.md).
 From the main checkout, `discern status` surveys the whole fleet — every
 worktree in flight, its branch, and how far ahead of or behind `main` it sits —
 so you see what your agents are doing without opening each folder. When a change
-is ready, `discern graduate` lands its branch and removes the worktree. A
-worktree is one line of work: you never adopt someone else's, and a clean one
-isn't a free one to claim.
+is ready, `discern accept` lands its branch and removes the worktree. A worktree
+is one line of work: you never adopt someone else's, and a clean one isn't a
+free one to claim.
 
 ## See also
 

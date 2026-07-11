@@ -231,15 +231,15 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
 
     assert(
       bareBody.includes("explicit user handoff/land request"),
-      "graduation requires an explicit user ask",
+      "acceptance requires an explicit user ask",
     );
     assert(
       bareBody.includes("relay the receipt to your owner and stop"),
       "a green finish routes through the review moment, not straight to landing",
     );
     assert(
-      bareBody.includes("graduate only once they accept"),
-      "green finish is not treated as permission to graduate",
+      bareBody.includes("call it only once they explicitly ask you to land"),
+      "green finish is not treated as permission to accept",
     );
   } finally {
     await Deno.remove(bare, { recursive: true });

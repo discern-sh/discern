@@ -32,6 +32,7 @@ import {
   STEP_OUTCOMES,
 } from "../src/shared/result.ts";
 import {
+  AcceptOutputSchema,
   type CouplingData,
   CouplingOutputSchema,
   DatalessEnvelopeSchema,
@@ -40,7 +41,6 @@ import {
   EnvelopeSchema,
   FinishOutputSchema,
   GateDataSchema,
-  GraduateOutputSchema,
   HelpOutputSchema,
   ImproveOutputSchema,
   IntegrateOutputSchema,
@@ -72,7 +72,7 @@ import { improveResult } from "../src/engine/improve/improve.ts";
 import { docsResult, helpResult } from "../src/commands/docs.ts";
 import { refreshResult } from "../src/engine/guidelines.ts";
 import {
-  graduateResult,
+  acceptResult,
   integrateResult,
   lifecycleContext,
   startResult,
@@ -173,7 +173,7 @@ const FAITHFULNESS_COVERED = new Set<string>([
   "docs",
   "doctor",
   "done",
-  "graduate",
+  "accept",
   "help",
   "improve",
   "integrate",
@@ -196,7 +196,7 @@ const FAITHFULNESS_DEBT = new Set<string>([
   "preset",
   "setup",
   "setupDone",
-  "setupLand",
+  "setupAccept",
   "setupStep",
   "setupVerify",
   "skillsEject",
@@ -496,7 +496,7 @@ Deno.test("doctor execution_model is faithful across a rich config (resources, r
       (result.data as { execution_model?: { verb: string }[] }).execution_model;
     assert(
       model !== undefined &&
-        model.some((v) => v.verb === "graduate"),
+        model.some((v) => v.verb === "accept"),
       "the rich model should cover the worktree verbs",
     );
   });
@@ -754,7 +754,7 @@ Deno.test("integrate result is faithful (dry-run prediction and applied data-bea
   });
 });
 
-Deno.test("graduate result is faithful (dry-run plan and applied gate-validation data)", async () => {
+Deno.test("accept result is faithful (dry-run plan and applied gate-validation data)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -763,9 +763,9 @@ Deno.test("graduate result is faithful (dry-run plan and applied gate-validation
       wt,
       new Logger({ json: true, noColor: true }),
     );
-    const preview = await graduateResult(ctx, { dryRun: true });
+    const preview = await acceptResult(ctx, { dryRun: true });
     assertEquals(preview.dry_run, true);
-    expectValid(GraduateOutputSchema, preview, "graduate dry-run");
+    expectValid(AcceptOutputSchema, preview, "accept dry-run");
   });
 
   await withTempDir(async (dir) => {
@@ -778,10 +778,10 @@ Deno.test("graduate result is faithful (dry-run plan and applied gate-validation
       new Logger({ json: true, noColor: true }),
     );
 
-    const applied = await graduateResult(ctx);
+    const applied = await acceptResult(ctx);
     assertEquals(applied.ok, true);
     assertEquals(applied.data?.gate_validation?.mode, "rerun");
-    expectValid(GraduateOutputSchema, applied, "graduate applied rerun");
+    expectValid(AcceptOutputSchema, applied, "accept applied rerun");
   });
 
   await withTempDir(async (dir) => {
@@ -796,10 +796,10 @@ Deno.test("graduate result is faithful (dry-run plan and applied gate-validation
       new Logger({ json: true, noColor: true }),
     );
 
-    const applied = await graduateResult(ctx);
+    const applied = await acceptResult(ctx);
     assertEquals(applied.ok, true);
     assertEquals(applied.data?.gate_validation?.mode, "receipt");
-    expectValid(GraduateOutputSchema, applied, "graduate applied receipt");
+    expectValid(AcceptOutputSchema, applied, "accept applied receipt");
   });
 });
 

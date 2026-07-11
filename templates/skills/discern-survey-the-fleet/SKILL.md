@@ -43,7 +43,7 @@ From the branch name, the commit subjects, and the diff shape, state in one sent
 Sort each worktree into the bucket its evidence supports:
 
 - **Active** — recent activity, coherent trajectory. Leave it alone.
-- **Ready to land** — clean tree, commits ahead, not behind the trunk. A graduation candidate; flag that its gate status is *unverified* (verifying would mean running it in their worktree — not yours to do).
+- **Ready to land** — clean tree, commits ahead, not behind the trunk. A branch the owner could accept; flag that its gate status is *unverified* (verifying would mean running it in their worktree — not yours to do).
 - **Needs integration** — behind the trunk; its next move is `discern_integrate` run from inside it.
 - **Stalled** — no recent activity, but real work sits in it (commits ahead, or a dirty tree). The ones most worth surfacing: they hold value that's quietly rotting.
 - **Apparently abandoned** — old, empty of unique work, or visibly superseded by something that already landed. Say *why* you think so.
@@ -56,7 +56,7 @@ Then the check only a fleet-wide view can make: **intersect the changed-file set
 
 Deliver one compact table — worktree, branch, ahead/behind, dirty?, last activity, intent, suggested next step — followed by the judgement in prose: what's ready to land (and a sensible landing order, collisions considered), what's stalled and worth rescuing, what looks abandoned, which pairs collide.
 
-Recommendations are the owner's calls, so frame them as options: *graduate* (ready work), *integrate* (behind work), *resume* (stalled work), *discard* (abandoned work). For any discard candidate, first check — and say — exactly what would be lost: commits not on the trunk, uncommitted files, anything unpushed. Removal happens only by the user's explicit choice, never as part of the survey.
+Recommendations are the owner's calls, so frame them as options: *accept* (ready work), *integrate* (behind work), *resume* (stalled work), *discard* (abandoned work). For any discard candidate, first check — and say — exactly what would be lost: commits not on the trunk, uncommitted files, anything unpushed. Removal happens only by the user's explicit choice, never as part of the survey.
 
 ---
 

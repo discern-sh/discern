@@ -455,7 +455,7 @@ export type DiscernSetupDoneResult = {
   };
 };
 
-export type DiscernSetupLandResult = {
+export type DiscernSetupAcceptResult = {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -526,7 +526,7 @@ export type DiscernSetupLandResult = {
   hints?: Array<string>;
   error?: string;
   message?: string;
-  verb: "setup land";
+  verb: "setup accept";
   data?: {
     landed: boolean;
     branch: string;
@@ -2261,7 +2261,7 @@ export type DiscernStartResult = {
   };
 };
 
-export type DiscernGraduateResult = {
+export type DiscernAcceptResult = {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -2332,7 +2332,7 @@ export type DiscernGraduateResult = {
   hints?: Array<string>;
   error?: string;
   message?: string;
-  verb: "graduate";
+  verb: "accept";
   data?: {
     root: string;
     gate_validation?: {
@@ -2982,7 +2982,7 @@ export type DiscernCliJsonResult =
   | DiscernSetupVerifyResult
   | DiscernSetupStepResult
   | DiscernSetupDoneResult
-  | DiscernSetupLandResult
+  | DiscernSetupAcceptResult
   | DiscernUpgradeResult
   | DiscernUninstallResult
   | DiscernDoctorResult
@@ -3000,7 +3000,7 @@ export type DiscernCliJsonResult =
   | DiscernCouplingResult
   | DiscernStatusResult
   | DiscernStartResult
-  | DiscernGraduateResult
+  | DiscernAcceptResult
   | DiscernIntegrateResult
   | DiscernWorktreeSetupResult
   | DiscernWorktreeTeardownResult
@@ -3014,7 +3014,7 @@ export interface DiscernResultByVerb {
   "setup verify": DiscernSetupVerifyResult;
   "setup step": DiscernSetupStepResult;
   "setup done": DiscernSetupDoneResult;
-  "setup land": DiscernSetupLandResult;
+  "setup accept": DiscernSetupAcceptResult;
   upgrade: DiscernUpgradeResult;
   uninstall: DiscernUninstallResult;
   doctor: DiscernDoctorResult;
@@ -3032,7 +3032,7 @@ export interface DiscernResultByVerb {
   coupling: DiscernCouplingResult;
   status: DiscernStatusResult;
   start: DiscernStartResult;
-  graduate: DiscernGraduateResult;
+  accept: DiscernAcceptResult;
   integrate: DiscernIntegrateResult;
   "worktree setup": DiscernWorktreeSetupResult;
   "worktree teardown": DiscernWorktreeTeardownResult;
@@ -3048,7 +3048,7 @@ export interface DiscernResultByCommand {
   "setup verify": DiscernSetupVerifyResult;
   "setup step": DiscernSetupStepResult;
   "setup done": DiscernSetupDoneResult;
-  "setup land": DiscernSetupLandResult;
+  "setup accept": DiscernSetupAcceptResult;
   upgrade: DiscernUpgradeResult;
   uninstall: DiscernUninstallResult;
   doctor: DiscernDoctorResult;
@@ -3070,7 +3070,7 @@ export interface DiscernResultByCommand {
   coupling: DiscernCouplingResult;
   status: DiscernStatusResult;
   start: DiscernStartResult;
-  graduate: DiscernGraduateResult;
+  accept: DiscernAcceptResult;
   integrate: DiscernIntegrateResult;
   "worktree setup": DiscernWorktreeSetupResult;
   "worktree teardown": DiscernWorktreeTeardownResult;
@@ -3105,7 +3105,7 @@ export interface DiscernMcpStructuredContentByTool {
   discern_coupling: DiscernCouplingResult;
   discern_status: DiscernStatusResult;
   discern_start: DiscernStartResult;
-  discern_graduate: DiscernGraduateResult;
+  discern_accept: DiscernAcceptResult;
   discern_integrate: DiscernIntegrateResult;
 }
 
@@ -3123,7 +3123,7 @@ export interface DiscernMcpToolResultByTool {
   discern_coupling: DiscernMcpToolResult<DiscernCouplingResult>;
   discern_status: DiscernMcpToolResult<DiscernStatusResult>;
   discern_start: DiscernMcpToolResult<DiscernStartResult>;
-  discern_graduate: DiscernMcpToolResult<DiscernGraduateResult>;
+  discern_accept: DiscernMcpToolResult<DiscernAcceptResult>;
   discern_integrate: DiscernMcpToolResult<DiscernIntegrateResult>;
 }
 
@@ -3141,7 +3141,7 @@ export type DiscernMcpStructuredContent =
   | DiscernCouplingResult
   | DiscernStatusResult
   | DiscernStartResult
-  | DiscernGraduateResult
+  | DiscernAcceptResult
   | DiscernIntegrateResult;
 
 export type DiscernMcpJsonResult =
@@ -3158,7 +3158,7 @@ export type DiscernMcpJsonResult =
   | DiscernCouplingMcpToolResult
   | DiscernStatusMcpToolResult
   | DiscernStartMcpToolResult
-  | DiscernGraduateMcpToolResult
+  | DiscernAcceptMcpToolResult
   | DiscernIntegrateMcpToolResult;
 
 export type DiscernDoctorMcpToolResult = DiscernMcpToolResult<
@@ -3205,8 +3205,8 @@ export type DiscernStartMcpToolResult = DiscernMcpToolResult<
   DiscernStartResult
 >;
 
-export type DiscernGraduateMcpToolResult = DiscernMcpToolResult<
-  DiscernGraduateResult
+export type DiscernAcceptMcpToolResult = DiscernMcpToolResult<
+  DiscernAcceptResult
 >;
 
 export type DiscernIntegrateMcpToolResult = DiscernMcpToolResult<

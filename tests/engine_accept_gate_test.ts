@@ -1,16 +1,16 @@
 /**
- * Receipt-gated graduate (ADR 0067). `graduate` lands only a tree that passes the WHOLE
+ * Receipt-gated accept (ADR 0067). `accept` lands only a tree that passes the WHOLE
  * gate — closing the stale-finish hole: an agent finishes green, main advances beneath it
- * while it waits for review, it `integrate`s (a clean merge), then graduates — landing a
+ * while it waits for review, it `integrate`s (a clean merge), then accepts — landing a
  * MERGED tree its earlier `done` never saw. The merge can break the gate semantically
- * (a clean textual merge that still fails a check), and a local `graduate`
+ * (a clean textual merge that still fails a check), and a local `accept`
  * fast-forwards it onto the trunk where CI never runs.
  *
  * Two layers: the gate-pass RECEIPT primitive (the per-worktree marker `done` stamps and
- * `graduate` honors), then the wired behaviour — the regression itself (a gate-breaking
- * integrate is refused), the receipt FAST PATH (a fresh `done` lets graduate skip the
+ * `accept` honors), then the wired behaviour — the regression itself (a gate-breaking
+ * integrate is refused), the receipt FAST PATH (a fresh `done` lets accept skip the
  * re-run — the perf property that makes running the gate at the boundary affordable), and
- * the airtight SLOW PATH (no/stale receipt → graduate runs the gate itself).
+ * the airtight SLOW PATH (no/stale receipt → accept runs the gate itself).
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
@@ -247,7 +247,7 @@ Deno.test("receipt: a tree that was dirty when the gate began is not stamped eve
 
 // ── the regression: a gate-breaking integrate cannot land ────────────────────────
 
-Deno.test("graduate: refuses an integrate that merges cleanly but breaks the gate (the stale-finish hole)", async () => {
+Deno.test("accept: refuses an integrate that merges cleanly but breaks the gate (the stale-finish hole)", async () => {
   await withTempDir(async (dir) => {
     await mainWithCheck(dir);
     const wt = await addWorktree(dir, "gamma");
@@ -266,8 +266,8 @@ Deno.test("graduate: refuses an integrate that merges cleanly but breaks the gat
     assertEquals(integ.code, 0, integ.output);
     await commitCurrentWorktree(wt);
 
-    // Graduating MUST refuse — the merged tree was never validated, and it fails the gate.
-    const grad = await runAgent(wt, ["graduate"]);
+    // Accepting MUST refuse — the merged tree was never validated, and it fails the gate.
+    const grad = await runAgent(wt, ["accept"]);
     assertEquals(grad.code, 1, grad.output);
     assertStringIncludes(grad.output, "does not pass");
     // Non-destructive: the worktree survives and the branch's work never reached the trunk.
@@ -284,7 +284,7 @@ Deno.test("graduate: refuses an integrate that merges cleanly but breaks the gat
   });
 });
 
-Deno.test("graduate: an integrate that still passes the gate lands normally", async () => {
+Deno.test("accept: an integrate that still passes the gate lands normally", async () => {
   await withTempDir(async (dir) => {
     await mainWithCheck(dir);
     const wt = await addWorktree(dir, "delta");
@@ -296,9 +296,9 @@ Deno.test("graduate: an integrate that still passes the gate lands normally", as
     assertEquals((await runAgent(wt, ["integrate"])).code, 0);
     await commitCurrentWorktree(wt);
 
-    const grad = await runAgent(wt, ["graduate"]);
+    const grad = await runAgent(wt, ["accept"]);
     assertEquals(grad.code, 0, grad.output);
-    // The receipt was stale (merge commit), so graduate validated the merged tree itself…
+    // The receipt was stale (merge commit), so accept validated the merged tree itself…
     assertStringIncludes(
       grad.output,
       "Validating the branch against the full gate",
@@ -312,9 +312,9 @@ Deno.test("graduate: an integrate that still passes the gate lands normally", as
   });
 });
 
-// ── the fast path: a fresh finish makes graduate cheap ───────────────────────────
+// ── the fast path: a fresh finish makes accept cheap ───────────────────────────
 
-Deno.test("graduate: a fresh `done` lets graduate skip the gate re-run (receipt fast path)", async () => {
+Deno.test("accept: a fresh `done` lets accept skip the gate re-run (receipt fast path)", async () => {
   await withTempDir(async (dir) => {
     await mainWithCheck(dir);
     const wt = await addWorktree(dir, "epsilon");
@@ -323,8 +323,8 @@ Deno.test("graduate: a fresh `done` lets graduate skip the gate re-run (receipt 
     // The agent finishes (records a receipt at this exact, clean HEAD)…
     assertEquals((await runAgent(wt, ["done", "--json"])).code, 0);
 
-    // …so graduate trusts it and does NOT re-run the gate (the no-double-run guarantee).
-    const grad = await runAgent(wt, ["graduate", "--json"]);
+    // …so accept trusts it and does NOT re-run the gate (the no-double-run guarantee).
+    const grad = await runAgent(wt, ["accept", "--json"]);
     assertEquals(grad.code, 0, grad.output);
     const obj = parseJson(grad.stdout);
     assertEquals(obj.data.gate_validation.mode, "receipt");
@@ -345,18 +345,18 @@ Deno.test("graduate: a fresh `done` lets graduate skip the gate re-run (receipt 
   });
 });
 
-Deno.test("graduate: with no prior `done`, graduate runs the gate itself before landing", async () => {
+Deno.test("accept: with no prior `done`, accept runs the gate itself before landing", async () => {
   await withTempDir(async (dir) => {
     await mainWithCheck(dir);
     const wt = await addWorktree(dir, "zeta");
     await commitBranchWork(wt); // committed, but the agent never ran `done` → no receipt
 
-    const grad = await runAgent(wt, ["graduate", "--json"]);
+    const grad = await runAgent(wt, ["accept", "--json"]);
     assertEquals(grad.code, 0, grad.output);
     const obj = parseJson(grad.stdout);
     assertEquals(obj.data.gate_validation.mode, "rerun");
     assertEquals(obj.data.gate_validation.receipt.status, "missing");
-    // The slow path's fresh gate run rendered the receipt — graduate still
+    // The slow path's fresh gate run rendered the receipt — accept still
     // carries the landing record.
     assertStringIncludes(obj.data.receipt, "### Receipt — `agent/zeta`");
     assertEquals(await exists(wt), false, `should have landed\n${grad.output}`);
@@ -365,7 +365,7 @@ Deno.test("graduate: with no prior `done`, graduate runs the gate itself before 
 
 // ── the pin: a commit made DURING validation can never land unvalidated ─────────
 
-Deno.test("graduate: refuses to land a commit that appeared while its validation gate ran", async () => {
+Deno.test("accept: refuses to land a commit that appeared while its validation gate ran", async () => {
   await withTempDir(async (dir) => {
     await mainWithCheck(dir);
     const wt = await addWorktree(dir, "theta");
@@ -388,12 +388,12 @@ Deno.test("graduate: refuses to land a commit that appeared while its validation
     );
     await commitCurrentWorktree(wt, "chore: wire the mid-gate committer");
 
-    // No receipt exists, so graduate re-runs the gate (slow path). The gate is
+    // No receipt exists, so accept re-runs the gate (slow path). The gate is
     // green, but HEAD moved beneath it — landing must refuse, because the tree
     // at the branch tip is not the tree the gate read.
-    const grad = await runAgent(wt, ["graduate"]);
+    const grad = await runAgent(wt, ["accept"]);
     assertEquals(grad.code, 1, grad.output);
-    assertStringIncludes(grad.output, "moved while this graduation");
+    assertStringIncludes(grad.output, "moved while this acceptance");
     // Non-destructive: the worktree survives and nothing reached the trunk.
     assertEquals(
       await exists(wt),
@@ -413,19 +413,19 @@ Deno.test("graduate: refuses to land a commit that appeared while its validation
   });
 });
 
-Deno.test("graduate: a commit made after `done` invalidates the receipt (gate re-runs)", async () => {
+Deno.test("accept: a commit made after `done` invalidates the receipt (gate re-runs)", async () => {
   await withTempDir(async (dir) => {
     await mainWithCheck(dir);
     const wt = await addWorktree(dir, "eta");
     await commitBranchWork(wt);
     assertEquals((await runAgent(wt, ["done", "--json"])).code, 0); // receipt at C
 
-    // A further commit moves HEAD past the receipt — graduate must re-validate, not trust it.
+    // A further commit moves HEAD past the receipt — accept must re-validate, not trust it.
     await Deno.writeTextFile(join(wt, "more.txt"), "more\n");
     await git(wt, "add", "-A");
     await git(wt, "commit", "-q", "-m", "more", "--no-gpg-sign");
 
-    const grad = await runAgent(wt, ["graduate"]);
+    const grad = await runAgent(wt, ["accept"]);
     assertEquals(grad.code, 0, grad.output);
     assertStringIncludes(
       grad.output,

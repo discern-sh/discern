@@ -1,6 +1,6 @@
 /**
  * The **receipt marker** — a tiny per-worktree file recording the commit `done`
- * last validated GREEN over a CLEAN tree, so `graduate` can prove the exact tree it
+ * last validated GREEN over a CLEAN tree, so `accept` can prove the exact tree it
  * is about to land already passed the gate WITHOUT re-running it (ADR 0067).
  *
  * It lives where the worktree-ready sentinel does: a single file in the per-worktree
@@ -11,18 +11,18 @@
  * validated HEAD sha — PINNED before the gate run began and re-verified unmoved at
  * stamp time ({@link ValidatedTreePin}), so it can only ever name a commit whose
  * tree the gate actually read; the rest is the rendered **receipt** markdown that
- * finish emitted for that tree — the review-moment summary `status` and `graduate`
+ * finish emitted for that tree — the review-moment summary `status` and `accept`
  * surface without re-running the gate.
  *
  * The receipt is honored ONLY while it still names the current HEAD AND the tree is
  * clean — so any new commit (the merge `integrate` creates), amend, or uncommitted
- * edit silently invalidates it and `graduate` falls back to running the gate. It is a
+ * edit silently invalidates it and `accept` falls back to running the gate. It is a
  * fast-path cache for "this tree already passed", never a substitute for the gate: a
- * failing run clears it, and graduate re-runs `done` whenever it is absent or stale.
+ * failing run clears it, and accept re-runs `done` whenever it is absent or stale.
  *
  * `done` is its usual author, but `ratchets --pin` also carries an honored vouch
  * forward onto the commit it makes: that commit changes only `[ratchets]` limits,
- * which the gate never reads, so the vouch stays truthful across it and `graduate`
+ * which the gate never reads, so the vouch stays truthful across it and `accept`
  * need not re-run the whole gate for a re-pin (see {@link carryReceiptForwardAcrossPin}).
  *
  * The ratchet **measurement receipt** is its sibling on the same model: a green
@@ -84,7 +84,7 @@ async function headSha(cwd: string): Promise<string | undefined> {
 
 /**
  * Whether the worktree at `cwd` is FULLY clean — `git status --porcelain` empty (no
- * staged, unstaged, OR untracked changes). This is the strict notion graduate
+ * staged, unstaged, OR untracked changes). This is the strict notion accept
  * requires before landing, so the receipt vouches for exactly what would land. A
  * failed status reads as NOT clean, so an unreadable tree never earns a receipt or a
  * fast-path skip (fail-closed). Exported so the receipt renderer applies the SAME
@@ -145,8 +145,8 @@ function receiptRecord(
  * receipt must vouch only for the exact tree the gate actually read:
  *
  * - GREEN over a CLEAN tree that matches the pin → stamp the validated HEAD (the
- *   vouch graduate honors), plus `receiptMarkdown` when the run rendered a receipt,
- *   so `status` and `graduate` can surface the review summary without re-running
+ *   vouch accept honors), plus `receiptMarkdown` when the run rendered a receipt,
+ *   so `status` and `accept` can surface the review summary without re-running
  *   the gate.
  * - GREEN but HEAD moved since the pin (a commit landed mid-run) → stamp nothing:
  *   the run validated the pinned tree, not the commit now at HEAD. Any prior vouch
@@ -156,7 +156,7 @@ function receiptRecord(
  *   a clean HEAD's gate result turns failing with the tree unchanged).
  * - GREEN but DIRTY (at pin time or now) → leave the file untouched: it cannot vouch
  *   for clean HEAD, but a prior clean vouch (at its own sha) is still truthful, and
- *   graduate's HEAD-match + clean check keeps it honest.
+ *   accept's HEAD-match + clean check keeps it honest.
  *
  * Best-effort throughout: the receipt is an optimization, so a write/delete hiccup
  * must never fail the finish that produced it.
@@ -237,7 +237,7 @@ export async function recordGateOutcome(
 
 /**
  * Inspect why the current worktree's gate-pass receipt can or cannot be honored.
- * This is the verbose sibling of {@link gateReceiptHonored}: graduate includes the
+ * This is the verbose sibling of {@link gateReceiptHonored}: accept includes the
  * result in its JSON/MCP envelope so a skipped vs re-run validation decision is
  * visible even when the human logger is suppressed. An HONORED record also carries
  * the stored receipt markdown (when the recording finish rendered one) — the
@@ -297,9 +297,9 @@ export async function inspectGateReceipt(
 
 /**
  * Whether a receipt proves the worktree's CURRENT (HEAD, clean) state already passed
- * `done` — graduate's fast path. True only when a receipt exists, names exactly the
+ * `done` — accept's fast path. True only when a receipt exists, names exactly the
  * current HEAD, and the tree is clean; any new commit, amend, or uncommitted edit
- * makes this false, so graduate falls back to running the gate. Never throws.
+ * makes this false, so accept falls back to running the gate. Never throws.
  */
 export async function gateReceiptHonored(cwd: string): Promise<boolean> {
   return (await inspectGateReceipt(cwd)).status === "honored";
@@ -313,13 +313,13 @@ export async function gateReceiptHonored(cwd: string): Promise<boolean> {
  * produces passes the gate iff the pre-pin tree did. When the pre-pin HEAD carried an
  * HONORED receipt (it named that HEAD over a clean tree), re-stamp the vouch onto the
  * new clean HEAD the commit created; otherwise the moved HEAD would strand a truthful
- * pass and force `graduate` to re-run the whole gate for a change that cannot alter its
+ * pass and force `accept` to re-run the whole gate for a change that cannot alter its
  * outcome.
  *
  * Fail-closed and narrow: it forwards ONLY a vouch that genuinely held a moment ago
  * (`priorHonored`), which only the caller — the author of the commit, so the one party
  * that knows it touched nothing but ratchet limits — may assert. With no prior vouch it
- * does nothing (returns `undefined`), leaving the now-stale receipt for `graduate` to
+ * does nothing (returns `undefined`), leaving the now-stale receipt for `accept` to
  * re-validate. The pin is captured here, at the stamp moment: the vouched "work" is the
  * pin commit itself, which the caller just made synchronously, so the tree sampled now
  * IS the tree the vouch is about. Best-effort like all receipt I/O: a write hiccup

@@ -215,7 +215,7 @@ export function consentMessage(ctx: ConsentContext): string {
 }
 
 /** The minimal landing shape {@link completionMessage} reads — structurally satisfied
- * by `setup_land.ts`'s `LandingSummary`, declared here so this bottom-layer module never
+ * by `setup_accept.ts`'s `LandingSummary`, declared here so this bottom-layer module never
  * imports up into `commands`. */
 export interface CompletionLanding {
   inRepo: boolean;
@@ -223,7 +223,7 @@ export interface CompletionLanding {
   target: string;
   onTarget: boolean;
   /** True only on the dedicated `discern-setup` branch — the ONE branch
-   * `discern setup land` lands; any other branch is steered to a manual merge. */
+   * `discern setup accept` lands; any other branch is steered to a manual merge. */
   onSetupBranch: boolean;
 }
 
@@ -263,7 +263,7 @@ function coverageLine(a: SetupAssurance): string {
 }
 
 /** Plain-word landing recommendation for the completion message, adapted to where the
- * finished work actually lives (mirrors the cases `setup_land.ts` distinguishes). */
+ * finished work actually lives (mirrors the cases `setup_accept.ts` distinguishes). */
 function landingLine(l: CompletionLanding): string {
   if (!l.inRepo) {
     return "This project isn't a git repository, so there's nothing to land — your setup is in place as it is.";
@@ -272,14 +272,14 @@ function landingLine(l: CompletionLanding): string {
     return `Your setup already lives on \`${l.target}\`, so there's nothing to land.`;
   }
   if (l.branch === "") {
-    return `Your setup is on the \`discern-setup\` branch. Check that branch out, then land it onto \`${l.target}\` with \`discern setup land\`.`;
+    return `Your setup is on the \`discern-setup\` branch. Check that branch out, then land it onto \`${l.target}\` with \`discern setup accept\`.`;
   }
   if (!l.onSetupBranch) {
-    // `setup land` lands only the dedicated setup branch — recommending it for
+    // `setup accept` lands only the dedicated setup branch — recommending it for
     // the user's own branch would sweep that branch's commits onto the trunk.
     return `Your setup is on the \`${l.branch}\` branch, not yet on \`${l.target}\`. Merge it in your usual way when you're ready — nothing is lost meanwhile.`;
   }
-  return `Your setup is on the \`${l.branch}\` branch, not yet on \`${l.target}\`. I'd recommend landing it now with \`discern setup land\` — or leave the branch as it is to review first; nothing is lost either way.`;
+  return `Your setup is on the \`${l.branch}\` branch, not yet on \`${l.target}\`. I'd recommend landing it now with \`discern setup accept\` — or leave the branch as it is to review first; nothing is lost either way.`;
 }
 
 /**

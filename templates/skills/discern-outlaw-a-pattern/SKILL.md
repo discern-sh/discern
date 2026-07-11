@@ -53,7 +53,7 @@ Convert to the replacement from step 1 — resist "improving" each site along th
 
 When the census hits zero, the ratchet has done its job — don't leave it holding an empty line:
 
-- **Graduate the detector into the always-on gate** — a check or test that fails on the *first* new instance, so the ban now holds without anyone running the ratchets. Then retire the `[ratchets.<name>]` table.
+- **Move the detector into the always-on gate** — a check or test that fails on the *first* new instance, so the ban now holds without anyone running the ratchets. Then retire the `[ratchets.<name>]` table.
 - **Finish the paperwork** — the docs describe only the new way (the old pattern moves to history, not "both are supported"); if the ban's rationale is surprising or was contested, record it with `discern-write-adr`; delete any compatibility shims the migration needed in transit.
 
 ---

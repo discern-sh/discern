@@ -88,8 +88,8 @@ of it as it works**, not you:
 discern status      # what's true right now, and what to do next
 discern start       # carve a fresh isolated worktree for a task
 discern prepare     # fast inner loop: format + checks
-discern done      # the full gate — the bar for "done"
-discern graduate    # land the reviewed branch back on main
+discern done        # the full gate — the bar for "done"
+discern accept      # land the reviewed branch back on main
 ```
 
 Agents can drive every one of these through **MCP tools** (`discern_status`,

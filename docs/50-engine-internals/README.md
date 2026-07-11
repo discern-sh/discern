@@ -61,9 +61,9 @@ Every **effectful** verb follows a **plan/apply** shape
 ([ADR 0027](../_adr/0027-plan-apply-engine-execution.md)): it computes a pure
 plan first (read-only — load config, classify changed scopes, read the resource
 ledger), then a thin executor applies it. That split is what gives `done`,
-`graduate`, `worktree` setup/teardown/prune, and `ratchets` a `--dry-run`
-(render the plan, touch nothing) and a `--json` that **serializes the
-`DiscernResult`** — the one envelope every verb returns
+`accept`, `worktree` setup/teardown/prune, and `ratchets` a `--dry-run` (render
+the plan, touch nothing) and a `--json` that **serializes the `DiscernResult`**
+— the one envelope every verb returns
 ([ADR 0028](../_adr/0028-result-envelope-and-diagnostics.md)) — rather than
 re-deriving it. The plan vocabulary, the diagnostic, the envelope, and the one
 shared plan→human/JSON renderer live in

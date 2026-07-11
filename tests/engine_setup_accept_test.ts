@@ -1,6 +1,6 @@
 /**
- * `discern setup land` coverage — the deterministic way to land a finished setup onto
- * the integration branch (A11), the main-checkout counterpart to `discern graduate`.
+ * `discern setup accept` coverage — the deterministic way to land a finished setup onto
+ * the integration branch (A11), the main-checkout counterpart to `discern accept`.
  *
  * A fresh `discern setup` isolates its commits on a `discern-setup` branch, so without
  * a landing path the work sits off `main` and a novice can appear to "lose" discern by
@@ -39,11 +39,11 @@ async function branchGone(dir: string, branch: string): Promise<boolean> {
   return !branches.includes(branch);
 }
 
-Deno.test("setup land fast-forwards the setup branch onto main and deletes it", async () => {
+Deno.test("setup accept fast-forwards the setup branch onto main and deletes it", async () => {
   await withTempDir(async (dir) => {
     await setupBranchRepo(dir);
 
-    const res = await runAgent(dir, ["setup", "land", "--json"]);
+    const res = await runAgent(dir, ["setup", "accept", "--json"]);
     assertEquals(res.code, 0, res.output);
     const data = JSON.parse(res.stdout).data;
     assertEquals(data.landed, true);
@@ -62,7 +62,7 @@ Deno.test("setup land fast-forwards the setup branch onto main and deletes it", 
   });
 });
 
-Deno.test("setup land merges when the integration branch has advanced", async () => {
+Deno.test("setup accept merges when the integration branch has advanced", async () => {
   await withTempDir(async (dir) => {
     await setupBranchRepo(dir);
     // main moves on after the branch point → no fast-forward is possible.
@@ -72,7 +72,7 @@ Deno.test("setup land merges when the integration branch has advanced", async ()
     await git(dir, "commit", "-q", "-m", "main advanced", "--no-gpg-sign");
     await git(dir, "checkout", "discern-setup");
 
-    const res = await runAgent(dir, ["setup", "land", "--json"]);
+    const res = await runAgent(dir, ["setup", "accept", "--json"]);
     assertEquals(res.code, 0, res.output);
     const data = JSON.parse(res.stdout).data;
     assertEquals(data.landed, true);
@@ -87,11 +87,11 @@ Deno.test("setup land merges when the integration branch has advanced", async ()
   });
 });
 
-Deno.test("setup land --dry-run previews the fast-forward and changes nothing", async () => {
+Deno.test("setup accept --dry-run previews the fast-forward and changes nothing", async () => {
   await withTempDir(async (dir) => {
     await setupBranchRepo(dir);
 
-    const res = await runAgent(dir, ["setup", "land", "--dry-run"]);
+    const res = await runAgent(dir, ["setup", "accept", "--dry-run"]);
     assertEquals(res.code, 0, res.output);
     assert(res.stdout.includes("fast-forward main to discern-setup"));
     // Still on the setup branch; nothing landed, nothing deleted.
@@ -103,12 +103,12 @@ Deno.test("setup land --dry-run previews the fast-forward and changes nothing", 
   });
 });
 
-Deno.test("setup land refuses a tree with uncommitted tracked changes", async () => {
+Deno.test("setup accept refuses a tree with uncommitted tracked changes", async () => {
   await withTempDir(async (dir) => {
     await setupBranchRepo(dir);
     await Deno.writeTextFile(join(dir, "setup-work.txt"), "edited\n"); // tracked, dirty
 
-    const res = await runAgent(dir, ["setup", "land", "--json"]);
+    const res = await runAgent(dir, ["setup", "accept", "--json"]);
     assertEquals(res.code, 1, res.output);
     assertEquals(JSON.parse(res.stdout).error, "dirty_worktree");
     // Untouched: still on the branch, nothing landed.
@@ -120,24 +120,24 @@ Deno.test("setup land refuses a tree with uncommitted tracked changes", async ()
   });
 });
 
-Deno.test("setup land ignores untracked scratch files (lands anyway)", async () => {
+Deno.test("setup accept ignores untracked scratch files (lands anyway)", async () => {
   await withTempDir(async (dir) => {
     await setupBranchRepo(dir);
     await Deno.writeTextFile(join(dir, "scratch.tmp"), "noise\n"); // untracked
 
-    const res = await runAgent(dir, ["setup", "land", "--json"]);
+    const res = await runAgent(dir, ["setup", "accept", "--json"]);
     assertEquals(res.code, 0, res.output);
     assertEquals(JSON.parse(res.stdout).data.landed, true);
     assertEquals(await gitOut(dir, "branch", "--show-current"), "main");
   });
 });
 
-Deno.test("setup land is a clean no-op when already on the integration branch", async () => {
+Deno.test("setup accept is a clean no-op when already on the integration branch", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir); // stays on `main`
 
-    const res = await runAgent(dir, ["setup", "land", "--json"]);
+    const res = await runAgent(dir, ["setup", "accept", "--json"]);
     assertEquals(res.code, 0, res.output);
     const obj = JSON.parse(res.stdout);
     assertEquals(obj.ok, true);
@@ -145,8 +145,8 @@ Deno.test("setup land is a clean no-op when already on the integration branch", 
   });
 });
 
-Deno.test("setup land refuses to land a branch that is not the setup branch", async () => {
-  // `setup land` fast-forwards (or merges) the CURRENT branch onto the
+Deno.test("setup accept refuses to land a branch that is not the setup branch", async () => {
+  // `setup accept` fast-forwards (or merges) the CURRENT branch onto the
   // integration branch — run from an ordinary feature branch it would sweep
   // that branch's own commits onto `main` with no review. It must only land
   // the `discern-setup` branch; any other branch is merged by hand.
@@ -159,7 +159,7 @@ Deno.test("setup land refuses to land a branch that is not the setup branch", as
     await git(dir, "commit", "-q", "-m", "feature WIP", "--no-gpg-sign");
     const mainBefore = await gitOut(dir, "rev-parse", "main");
 
-    const res = await runAgent(dir, ["setup", "land", "--json"]);
+    const res = await runAgent(dir, ["setup", "accept", "--json"]);
     assertEquals(res.code, 1, res.output);
     assertEquals(JSON.parse(res.stdout).error, "not_setup_branch");
 
@@ -169,9 +169,9 @@ Deno.test("setup land refuses to land a branch that is not the setup branch", as
   });
 });
 
-Deno.test("setup done steers a non-setup branch to a manual merge, never `setup land`", async () => {
+Deno.test("setup done steers a non-setup branch to a manual merge, never `setup accept`", async () => {
   // An --allow-dirty setup lives in place on the user's own branch. `setup
-  // done` must not recommend `discern setup land` there — the command lands
+  // done` must not recommend `discern setup accept` there — the command lands
   // whatever branch it is run from, and this one carries the user's own
   // commits. Every recommendation surface (the JSON hints, the relay
   // guidance, the landing data) derives from the one landingSummary field,
@@ -221,13 +221,13 @@ Deno.test("setup done steers a non-setup branch to a manual merge, never `setup 
       "the relay message steers to a manual merge for a non-setup branch",
     );
     assert(
-      !obj.data.guidance.includes("landing it now with `discern setup land`"),
-      `the relay message must not recommend setup land here:\n${obj.data.guidance}`,
+      !obj.data.guidance.includes("landing it now with `discern setup accept`"),
+      `the relay message must not recommend setup accept here:\n${obj.data.guidance}`,
     );
   });
 });
 
-Deno.test("setup land refuses when the integration branch does not exist", async () => {
+Deno.test("setup accept refuses when the integration branch does not exist", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     // Init on a non-default branch so `main` is absent.
@@ -239,13 +239,13 @@ Deno.test("setup land refuses when the integration branch does not exist", async
     await git(dir, "commit", "-q", "-m", "init", "--no-gpg-sign");
     await git(dir, "checkout", "-b", "discern-setup");
 
-    const res = await runAgent(dir, ["setup", "land", "--json"]);
+    const res = await runAgent(dir, ["setup", "accept", "--json"]);
     assertEquals(res.code, 1, res.output);
     assertEquals(JSON.parse(res.stdout).error, "no_target");
   });
 });
 
-Deno.test("setup land conflicting changes are refused and stepped aside, leaving the branch intact", async () => {
+Deno.test("setup accept conflicting changes are refused and stepped aside, leaving the branch intact", async () => {
   await withTempDir(async (dir) => {
     await setupBranchRepo(dir); // discern-setup edits setup-work.txt's successor below
     // Make BOTH branches change the same file divergently → a merge conflict.
@@ -273,7 +273,7 @@ Deno.test("setup land conflicting changes are refused and stepped aside, leaving
     );
     await git(dir, "checkout", "discern-setup");
 
-    const res = await runAgent(dir, ["setup", "land", "--json"]);
+    const res = await runAgent(dir, ["setup", "accept", "--json"]);
     assertEquals(res.code, 1, res.output);
     assertEquals(JSON.parse(res.stdout).error, "conflict");
     // The conflict was aborted: back on the setup branch, branch intact, tree clean.

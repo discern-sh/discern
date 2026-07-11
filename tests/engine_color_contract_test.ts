@@ -140,7 +140,7 @@ Deno.test("operatorHelp honours the resolved 'no colour' decision, stripping Cli
 const NOT_SWEPT: ReadonlySet<string> = new Set([
   "mcp", // starts a long-lived stdio server — would hang the test
   "desk", // interactive TUI (refuses --json; the human path needs a terminal)
-  "graduate", // worktree-lifecycle: needs a linked worktree to act on
+  "accept", // worktree-lifecycle: needs a linked worktree to act on
   "integrate", // worktree-lifecycle: needs a linked worktree to act on
   "start", // must run from the main checkout and creates a worktree
   "identity", // resolves a worktree's identity — needs a worktree context

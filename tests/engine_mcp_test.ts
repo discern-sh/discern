@@ -140,9 +140,9 @@ async function spawnMcp(dir: string): Promise<McpClient> {
   return new McpClient(child);
 }
 
-async function commitWorktreeForGraduation(
+async function commitWorktreeForAcceptance(
   dir: string,
-  message = "prepare graduation",
+  message = "prepare acceptance",
 ): Promise<void> {
   await git(dir, "add", "-A");
   await git(
@@ -403,10 +403,10 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     // feature on).
     assert(names.includes("discern_docs"), JSON.stringify(names));
     // The worktree lifecycle tools are always listed now (ADR 0062 retired the
-    // location-based hiding): start, graduate, and integrate all appear from a
+    // location-based hiding): start, accept, and integrate all appear from a
     // main-rooted server (covered in depth by the listing test below).
     assert(names.includes("discern_start"), JSON.stringify(names));
-    assert(names.includes("discern_graduate"), JSON.stringify(names));
+    assert(names.includes("discern_accept"), JSON.stringify(names));
     assert(names.includes("discern_integrate"), JSON.stringify(names));
 
     // tools/call discern_done {dry_run:true} → the preview DiscernResult.
@@ -951,13 +951,13 @@ Deno.test("discern mcp: pre-setup gates docs but not the gate proof verbs or hel
   });
 });
 
-Deno.test("discern mcp: discern_graduate previews a graduation from inside a worktree", async () => {
+Deno.test("discern mcp: discern_accept previews an acceptance from inside a worktree", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
 
     // From inside a WORKTREE (its branch already contains main): a dry-run returns
-    // the graduation plan and touches nothing. (graduate is always listed now; it
+    // the acceptance plan and touches nothing. (accept is always listed now; it
     // still requires a worktree to act on — the listing test covers visibility.)
     const wt = await addWorktree(dir, "grad");
     const wtMcp = await spawnMcp(wt);
@@ -972,15 +972,15 @@ Deno.test("discern mcp: discern_graduate previews a graduation from inside a wor
       jsonrpc: "2.0",
       id: 2,
       method: "tools/call",
-      params: { name: "discern_graduate", arguments: { dry_run: true } },
+      params: { name: "discern_accept", arguments: { dry_run: true } },
     });
     const preview = await wtMcp.recv();
     assertEquals(preview.result.isError, false);
-    assertEquals(preview.result.structuredContent.verb, "graduate");
+    assertEquals(preview.result.structuredContent.verb, "accept");
     assertEquals(preview.result.structuredContent.dry_run, true);
     assert(
       preview.result.structuredContent.plan,
-      "a graduate preview carries the plan",
+      "an accept preview carries the plan",
     );
     assertEquals(await wtMcp.close(), 0);
   });
@@ -1202,7 +1202,7 @@ Deno.test("discern mcp: discern_coupling covers diff, query, evidence, and inval
 });
 
 Deno.test("discern mcp: the lifecycle tools list + instructions from both roots (visibility is location-independent; refusals kept)", async () => {
-  const LIFECYCLE = ["discern_start", "discern_integrate", "discern_graduate"];
+  const LIFECYCLE = ["discern_start", "discern_integrate", "discern_accept"];
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -1233,14 +1233,14 @@ Deno.test("discern mcp: the lifecycle tools list + instructions from both roots 
       assert(names.includes(verb), JSON.stringify(names));
     }
 
-    // The defensive refusals are KEPT (ADR 0062): graduate is now callable from the
-    // trunk, but its core still refuses — there is no worktree to graduate. Visible,
+    // The defensive refusals are KEPT (ADR 0062): accept is now callable from the
+    // trunk, but its core still refuses — there is no worktree to accept. Visible,
     // not silent — a clean precondition_failed, the safety boundary the cores own.
     await main.send({
       jsonrpc: "2.0",
       id: 3,
       method: "tools/call",
-      params: { name: "discern_graduate", arguments: { dry_run: true } },
+      params: { name: "discern_accept", arguments: { dry_run: true } },
     });
     const gradFromMain = await main.recv();
     assertEquals(gradFromMain.result.isError, true);
@@ -1295,12 +1295,12 @@ Deno.test("discern mcp: the lifecycle tools list + instructions from both roots 
 
 Deno.test("WorkingRoot: seeds from the spawn root and re-points on set", () => {
   // The one mutable value the server holds (ADR 0062): seeded from the spawn root,
-  // moved by discern_start (→ the new worktree) and discern_graduate (→ back to spawn).
+  // moved by discern_start (→ the new worktree) and discern_accept (→ back to spawn).
   const w = new WorkingRoot("/repo");
   assertEquals(w.get(), "/repo");
   w.set("/repo.worktrees/alpha"); // start re-aims at the new worktree
   assertEquals(w.get(), "/repo.worktrees/alpha");
-  w.set("/repo"); // graduate resets to the spawn root
+  w.set("/repo"); // accept resets to the spawn root
   assertEquals(w.get(), "/repo");
 });
 
@@ -1378,16 +1378,16 @@ Deno.test("discern mcp: project commands execute in the path-resolved worktree, 
   });
 });
 
-Deno.test("discern mcp: start then graduate over ONE main-rooted session — the working root re-aims (ADR 0062)", async () => {
+Deno.test("discern mcp: start then accept over ONE main-rooted session — the working root re-aims (ADR 0062)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
 
     // The motivating flow this whole record exists to fix: an agent on the trunk opens
-    // ONE MCP connection, starts a worktree, and graduates it — without ever re-rooting
-    // the connection. Before ADR 0062 this was impossible (graduate was hidden from a
+    // ONE MCP connection, starts a worktree, and accepts it — without ever re-rooting
+    // the connection. Before ADR 0062 this was impossible (accept was hidden from a
     // main-rooted server, and even revealed it gated the trunk); now discern_start
-    // re-aims the server's working root at the new worktree, so graduate lands it.
+    // re-aims the server's working root at the new worktree, so accept lands it.
     const mcp = await spawnMcp(dir);
     await mcp.send({
       jsonrpc: "2.0",
@@ -1415,38 +1415,38 @@ Deno.test("discern mcp: start then graduate over ONE main-rooted session — the
       await exists(join(wtPath, "CLAUDE.md")),
       "the created worktree is set up",
     );
-    await commitWorktreeForGraduation(wtPath);
+    await commitWorktreeForAcceptance(wtPath);
 
-    // discern_graduate over the SAME connection now operates on the re-aimed working
+    // discern_accept over the SAME connection now operates on the re-aimed working
     // root (the new worktree), not the trunk — and SUCCEEDS. This is the headline
-    // guard: it fails against today's main, where graduate is hidden (→ "not found").
+    // guard: it fails against today's main, where accept is hidden (→ "not found").
     await mcp.send({
       jsonrpc: "2.0",
       id: 3,
       method: "tools/call",
-      params: { name: "discern_graduate", arguments: {} },
+      params: { name: "discern_accept", arguments: {} },
     });
-    const graduated = await mcp.recv();
+    const landed = await mcp.recv();
     assertEquals(
-      graduated.result.isError,
+      landed.result.isError,
       false,
-      JSON.stringify(graduated.result),
+      JSON.stringify(landed.result),
     );
-    assertEquals(graduated.result.structuredContent.verb, "graduate");
-    assertEquals(graduated.result.structuredContent.ok, true);
-    // graduate removed the worktree it landed — proof it acted on the worktree, not the
+    assertEquals(landed.result.structuredContent.verb, "accept");
+    assertEquals(landed.result.structuredContent.ok, true);
+    // accept removed the worktree it landed — proof it acted on the worktree, not the
     // (still-present) trunk.
     assertEquals(
       await exists(wtPath),
       false,
-      "graduate removed the worktree directory",
+      "accept removed the worktree directory",
     );
 
     assertEquals(await mcp.close(), 0);
   });
 });
 
-Deno.test("discern mcp: a worktree-spawned server re-aims to main on graduate even with an explicit `path`, since graduate removed its held root (ADR 0062)", async () => {
+Deno.test("discern mcp: a worktree-spawned server re-aims to main on accept even with an explicit `path`, since accept removed its held root (ADR 0062)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -1472,10 +1472,10 @@ Deno.test("discern mcp: a worktree-spawned server re-aims to main on graduate ev
     const started = await maker.recv();
     const wtPath = started.result.structuredContent.data.path as string;
     assert(await exists(join(wtPath, "CLAUDE.md")), "worktree is set up");
-    await commitWorktreeForGraduation(wtPath);
+    await commitWorktreeForAcceptance(wtPath);
     assertEquals(await maker.close(), 0);
 
-    // The graduating server is rooted IN the worktree (spawn root = the worktree).
+    // The accepting server is rooted IN the worktree (spawn root = the worktree).
     const inWt = await spawnMcp(wtPath);
     await inWt.send({
       jsonrpc: "2.0",
@@ -1485,35 +1485,35 @@ Deno.test("discern mcp: a worktree-spawned server re-aims to main on graduate ev
     });
     await inWt.recv();
 
-    // graduate with an EXPLICIT `path` (the worktree) — Codex's exact call — removes
+    // accept with an EXPLICIT `path` (the worktree) — Codex's exact call — removes
     // the spawn-root worktree. A `path` override normally leaves the held root alone
-    // (§2), but graduate just deleted the directory that root points at, so it must
+    // (§2), but accept just deleted the directory that root points at, so it must
     // re-root anyway. The result reports the main checkout it landed in.
     await inWt.send({
       jsonrpc: "2.0",
       id: 2,
       method: "tools/call",
       params: {
-        name: "discern_graduate",
+        name: "discern_accept",
         arguments: { path: wtPath },
       },
     });
-    const graduated = await inWt.recv();
+    const landed = await inWt.recv();
     assertEquals(
-      graduated.result.isError,
+      landed.result.isError,
       false,
-      JSON.stringify(graduated.result),
+      JSON.stringify(landed.result),
     );
-    const landedRoot = graduated.result.structuredContent.data.root as string;
+    const landedRoot = landed.result.structuredContent.data.root as string;
     assert(
       typeof landedRoot === "string" && landedRoot.length > 0,
-      JSON.stringify(graduated.result.structuredContent),
+      JSON.stringify(landed.result.structuredContent),
     );
-    assertEquals(await exists(wtPath), false, "graduate removed the worktree");
+    assertEquals(await exists(wtPath), false, "accept removed the worktree");
 
     // The headline: a subsequent call with NO `path` must follow the re-aimed working
     // root to the MAIN CHECKOUT — not the removed worktree. Without the held-root-missing
-    // re-aim, the explicit `path` on graduate would skip re-aiming, leaving this `status`
+    // re-aim, the explicit `path` on accept would skip re-aiming, leaving this `status`
     // to resolve the deleted worktree's discern.toml and error.
     await inWt.send({
       jsonrpc: "2.0",
@@ -1524,22 +1524,22 @@ Deno.test("discern mcp: a worktree-spawned server re-aims to main on graduate ev
     const status = await inWt.recv();
     assertEquals(status.result.isError, false, JSON.stringify(status.result));
     assertEquals(status.result.structuredContent.data.location, "main");
-    // The status root is exactly the root graduate re-aimed to (the main checkout).
+    // The status root is exactly the root accept re-aimed to (the main checkout).
     assertEquals(status.result.structuredContent.data.root, landedRoot);
 
     assertEquals(await inWt.close(), 0);
   });
 });
 
-Deno.test("discern mcp: graduating a DIFFERENT worktree by `path` leaves the held root alone (ADR 0062 §2 preserved)", async () => {
+Deno.test("discern mcp: accepting a DIFFERENT worktree by `path` leaves the held root alone (ADR 0062 §2 preserved)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
 
     // The other side of the held-root-removed rule: re-aiming on a `path` override must
-    // fire ONLY when graduate removed the root you're HOLDING — never when you graduate
+    // fire ONLY when accept removed the root you're HOLDING — never when you accept
     // some OTHER worktree by path while still working in your own. Make two worktrees,
-    // hold one, graduate the other. (Each `start` runs from a fresh main-rooted server,
+    // hold one, accept the other. (Each `start` runs from a fresh main-rooted server,
     // because a server re-aims into the worktree it just started and `start` then refuses
     // from inside one.)
     const startFromMain = async (): Promise<string> => {
@@ -1563,10 +1563,10 @@ Deno.test("discern mcp: graduating a DIFFERENT worktree by `path` leaves the hel
       return path;
     };
     const held = await startFromMain(); // the worktree we keep working in
-    const other = await startFromMain(); // the worktree we graduate by path
-    await commitWorktreeForGraduation(other);
+    const other = await startFromMain(); // the worktree we accept by path
+    await commitWorktreeForAcceptance(other);
 
-    // A server rooted in `held`, graduating `other` by explicit path.
+    // A server rooted in `held`, accepting `other` by explicit path.
     const inHeld = await spawnMcp(held);
     await inHeld.send({
       jsonrpc: "2.0",
@@ -1580,15 +1580,15 @@ Deno.test("discern mcp: graduating a DIFFERENT worktree by `path` leaves the hel
       id: 2,
       method: "tools/call",
       params: {
-        name: "discern_graduate",
+        name: "discern_accept",
         arguments: { path: other },
       },
     });
-    const graduated = await inHeld.recv();
+    const landed = await inHeld.recv();
     assertEquals(
-      graduated.result.isError,
+      landed.result.isError,
       false,
-      JSON.stringify(graduated.result),
+      JSON.stringify(landed.result),
     );
     assertEquals(await exists(other), false, "the OTHER worktree was removed");
     assert(await exists(held), "the held worktree is untouched");
@@ -1609,7 +1609,7 @@ Deno.test("discern mcp: graduating a DIFFERENT worktree by `path` leaves the hel
   });
 });
 
-Deno.test("discern mcp: discern_graduate with no prior discern_start refuses cleanly (working root = trunk)", async () => {
+Deno.test("discern mcp: discern_accept with no prior discern_start refuses cleanly (working root = trunk)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -1623,20 +1623,20 @@ Deno.test("discern mcp: discern_graduate with no prior discern_start refuses cle
     await mcp.recv();
 
     // No discern_start has moved the working root, so it is still the spawn root (the
-    // trunk). graduate is visible now (ADR 0062 retired the hiding) but its core
-    // refuses — there is no worktree to graduate. A clean precondition_failed, not a
+    // trunk). accept is visible now (ADR 0062 retired the hiding) but its core
+    // refuses — there is no worktree to accept. A clean precondition_failed, not a
     // silent false green gating the trunk (the very failure §2 of the ADR guards).
     await mcp.send({
       jsonrpc: "2.0",
       id: 2,
       method: "tools/call",
-      params: { name: "discern_graduate", arguments: {} },
+      params: { name: "discern_accept", arguments: {} },
     });
     const refused = await mcp.recv();
     assertEquals(refused.result.isError, true);
     assertEquals(
       refused.result.structuredContent.verb,
-      "graduate",
+      "accept",
     );
     assertEquals(
       refused.result.structuredContent.error,
@@ -2033,7 +2033,7 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
       "discern_start",
       "discern_integrate",
     ]);
-    const DESTRUCTIVE_TOOLS = new Set(["discern_graduate"]);
+    const DESTRUCTIVE_TOOLS = new Set(["discern_accept"]);
     const IDEMPOTENT_MUTATING_TOOLS = new Set([
       "discern_refresh",
       "discern_integrate",
@@ -2049,7 +2049,7 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
     );
 
     // Honest annotations: the pure-observation verbs are read-only; the gate/lifecycle
-    // verbs mutate; graduate is destructive; integrate is the only mutating idempotent
+    // verbs mutate; accept is destructive; integrate is the only mutating idempotent
     // operation (a no-op once already integrated).
     for (const tool of TOOLS) {
       const annotations = byName.get(tool.name)?.annotations;
@@ -2103,7 +2103,7 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
       undefined,
     );
     assertEquals(
-      byName.get("discern_graduate")?.annotations?.openWorldHint,
+      byName.get("discern_accept")?.annotations?.openWorldHint,
       undefined,
     );
 
@@ -2144,7 +2144,7 @@ Deno.test("discern mcp: tools/list advertises tools in workflow priority order",
         "discern_test",
         "discern_integrate",
         "discern_ratchets",
-        "discern_graduate",
+        "discern_accept",
         "discern_scopes",
         "discern_coupling",
         "discern_refresh",
@@ -2486,10 +2486,10 @@ Deno.test("discern mcp: the server advertises a non-empty, MCP-first instruction
     assert(instructions.includes("discern_status"), instructions);
     assert(instructions.includes("discern_done"), instructions);
     // Worktrees are on → the whole lifecycle is named linearly, from any root (ADR
-    // 0062 retired the location-branched instructions): start, integrate, graduate.
+    // 0062 retired the location-branched instructions): start, integrate, accept.
     assert(instructions.includes("discern_start"), instructions);
     assert(instructions.includes("discern_integrate"), instructions);
-    assert(instructions.includes("discern_graduate"), instructions);
+    assert(instructions.includes("discern_accept"), instructions);
     assert(
       instructions.includes("user explicitly asks"),
       instructions,

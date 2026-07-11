@@ -7,17 +7,18 @@
 /** Retired command paths and the canonical command path each names now. */
 export const RETIRED_COMMAND_REDIRECTS: Readonly<Record<string, string>> = {
   finish: "done",
+  graduate: "accept",
+  "setup land": "setup accept",
 };
 
 /** Irregular grammatical forms that are safe to normalize silently. */
 export const VERB_FORM_VARIANTS: Readonly<Record<string, string>> = {};
 
-/** The successor for a retired top-level verb, if `verb` is one. */
-export function retiredVerbSuccessor(verb: string): string | undefined {
-  if (verb.includes(" ")) {
-    return undefined;
-  }
-  return RETIRED_COMMAND_REDIRECTS[verb];
+/** The successor for a retired command path, if `command` is one. */
+export function retiredCommandSuccessor(
+  command: string,
+): string | undefined {
+  return RETIRED_COMMAND_REDIRECTS[command];
 }
 
 /** The one-line refusal for a retired command spelling. */

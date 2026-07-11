@@ -27,7 +27,7 @@ import { Logger } from "../../lib/log.ts";
 import { statusResult } from "../status/status.ts";
 import { gateReceiptHonored } from "../gate/receipt.ts";
 import {
-  graduate,
+  accept,
   IdentityError,
   integrate,
   lifecycleContext,
@@ -72,7 +72,7 @@ function clearBoard(out: Out): void {
   out.raw("\x1b[2J\x1b[H");
 }
 
-/** Hold the board until ↵, so output worth reading (a graduation's receipt, a
+/** Hold the board until ↵, so output worth reading (an acceptance's receipt, a
  * drop's summary) isn't wiped by the next survey pass's clear. */
 async function awaitEnter(out: Out): Promise<void> {
   out.raw(`\n${out.c.dim}press ↵ to return to the desk${out.c.reset} `);
@@ -114,8 +114,8 @@ async function printGitRead(
 /** The human label for a row action in the menu. */
 function actionLabel(action: DeskAction, trunk: string): string {
   switch (action) {
-    case "graduate":
-      return `Graduate — land this branch on ${trunk}`;
+    case "accept":
+      return `Accept — land this branch on ${trunk}`;
     case "integrate":
       return `Integrate — bring ${trunk} into this branch`;
     case "jump":
@@ -215,14 +215,14 @@ async function dispatchAction(
   const trunk = config.project.main_branch;
   const target = basename(row.entry.path);
   switch (action) {
-    case "graduate": {
-      echoCommand(out, `discern graduate  (in ${target})`);
+    case "accept": {
+      echoCommand(out, `discern accept  (in ${target})`);
       const ctx = await lifecycleContext(row.entry.path, deskLogger());
-      await graduate(ctx, { dryRun: true });
+      await accept(ctx, { dryRun: true });
       if (!(await confirmOrNo(`Land ${row.entry.branch} on ${trunk}?`, true))) {
         return false;
       }
-      await graduate(ctx, {});
+      await accept(ctx, {});
       await awaitEnter(out);
       return true;
     }
@@ -405,7 +405,7 @@ export async function runDesk(opts: DeskOptions = {}): Promise<number> {
     return 1;
   }
   if (first.data.location === "worktree") {
-    // The desk supervises the fleet, and the fleet's actions (drop, graduate)
+    // The desk supervises the fleet, and the fleet's actions (drop, accept)
     // operate from the main checkout — point home rather than half-work here.
     const mainRepo = await mainRepoPath(root);
     out.info(

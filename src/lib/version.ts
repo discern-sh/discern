@@ -60,7 +60,7 @@ export const KIT_VERSION: string = denoJson.version;
  * duplicate `[worktree].enabled` key — every subsystem is core, discarded
  * non-default preferences are named in the notes, and a `features.skills =
  * false` becomes an authored `[skills].exclude` covering the bundled set (ADR
- * 0101); schema-16→17 **drops `[worktree].graduate_to`** — `discern graduate`
+ * 0101); schema-16→17 **drops `[worktree].graduate_to`** — `discern accept`
  * always lands on the trunk (the landing model's single push target; composing
  * work below the trunk happens on the pull axis, `start --from` /
  * `integrate --from` — ADR 0110). See `MIGRATIONS`. A config with no

@@ -27,7 +27,7 @@ slug = "discern"
 # Branch prefix for worktrees created by the harness, e.g. "agent/my-feature".
 branch_prefix = "agent/"
 
-# The integration branch the gate merges into and worktrees graduate onto.
+# The integration branch the gate merges into and completed work lands on.
 # Override per-invocation with the DISCERN_MAIN_BRANCH env var.
 main_branch = "main"
 

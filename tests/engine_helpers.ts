@@ -371,7 +371,7 @@ export function worktreePath(mainDir: string, name: string): string {
  * ({@link worktreePath} — a SIBLING of `mainDir`, `<mainDir>.worktrees/<name>`)
  * on a new branch `agent/<name>`. Placing it outside the repo keeps the main
  * checkout clean (a nested checkout shows as untracked and would block
- * graduation) with no reliance on any agent-specific gitignored path. `mainDir`
+ * acceptance) with no reliance on any agent-specific gitignored path. `mainDir`
  * must already be a git repo (call `gitInit` first). Returns the worktree's
  * absolute path, ready to drive with `runAgent(path, …)`.
  */

@@ -143,11 +143,11 @@ Deno.test("execution model: actor matches the user-configured vs built-in split"
 
 Deno.test("execution model: a resource teardown shows the user's command in every verb that runs it", () => {
   const model = buildExecutionModel(parseConfigOrThrow(RICH_TOML));
-  // The motivating case ("why did graduate tear down my database?"): the user's destroy
-  // command is surfaced verbatim as a [project] step in both graduate forms and prune.
+  // The motivating case ("why did accept tear down my database?"): the user's destroy
+  // command is surfaced verbatim as a [project] step in both accept forms and prune.
   for (
     const verb of [
-      "graduate",
+      "accept",
       "worktree prune",
     ]
   ) {
@@ -181,7 +181,7 @@ Deno.test("execution model: every configurable verb is always modeled (ADR 0101)
     "start",
     "worktree ensure",
     "integrate",
-    "graduate",
+    "accept",
     "worktree prune",
   ]);
 });

@@ -109,7 +109,7 @@ For unattended runs, the provider registry names `--allow-all-tools` and
 Copilot can move a running session with `/cwd` and can create and enter a native
 worktree with `/worktree`. It still does not expose a worktree create/remove
 hook contract for discern to drive. discern owns its own worktree lifecycle
-through `discern start`, `discern integrate`, and `discern graduate`.
+through `discern start`, `discern integrate`, and `discern accept`.
 
 Copilot's `sessionStart` hook can fire per prompt in interactive mode.
 `discern worktree ensure` is intentionally idempotent so repeated hook fires are
