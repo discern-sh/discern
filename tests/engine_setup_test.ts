@@ -982,11 +982,14 @@ Deno.test("discern setup persists the PATH-detected agent set into [guidance].ag
       assertEquals(r.code, 0, r.output);
 
       // gemini ∉ DEFAULT_AGENTS, so it is in the WRITTEN config only via detection.
+      // `[guidance].agents` is optional (unset ≠ explicit []); detection writes an
+      // explicit list, so it must be present here — an absent key would itself be
+      // the regression this guards.
       const agents = parseConfigOrThrow(
         await Deno.readTextFile(join(dir, "discern.toml")),
       ).guidance.agents;
       assert(
-        agents.includes("gemini"),
+        agents !== undefined && agents.includes("gemini"),
         `the PATH-detected gemini must be persisted to [guidance].agents — a setup ` +
           `refactor dropping the auto-detect wiring fails here. Got: ${
             JSON.stringify(agents)
