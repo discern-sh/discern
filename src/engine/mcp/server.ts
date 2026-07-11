@@ -1182,8 +1182,10 @@ async function assertResourceSetUp(root: string): Promise<void> {
 /**
  * Register the doc-tree resources for one scheme (`docs` = the project's tree,
  * `help` = discern's own): a fixed index (`discern://<scheme>` → the JSON index)
- * and a `{target}` template (`discern://<scheme>/{target}` → that one doc's
- * Markdown). `index`/`single` are the verb cores (the caller pre-guards them); a
+ * and a `{+target}` template (`discern://<scheme>/{+target}` → that one doc's
+ * Markdown; the `+` is RFC 6570 reserved-expansion so the target may contain `/`
+ * and resolve a slug, `section/slug`, OR a path — see the template below).
+ * `index`/`single` are the verb cores (the caller pre-guards them); a
  * not-found or refused read throws, which the SDK renders as a resource-read error.
  */
 function registerDocTree(
@@ -1211,7 +1213,14 @@ function registerDocTree(
   );
   server.registerResource(
     `discern-${scheme}-doc`,
-    new ResourceTemplate(`discern://${scheme}/{target}`, { list: undefined }),
+    // `{+target}` is RFC 6570 reserved-expansion: the bare `{target}` the SDK
+    // compiles stops its capture at a `/` (and a `,`), so only a slug-shaped target
+    // ever matched — `section/slug` and a path (both containing `/`) fell through to
+    // a not-found. The `+` operator captures the reserved set, `/` included, so all
+    // three forms the description advertises (and the discern_docs/discern_help tools
+    // accept) resolve as resources too. The variable is still named `target`, so the
+    // read handler's `variables.target` is unchanged.
+    new ResourceTemplate(`discern://${scheme}/{+target}`, { list: undefined }),
     {
       description:
         `One document from ${label}, by slug, section/slug, or path.`,
@@ -1233,7 +1242,7 @@ function registerDocTree(
 /**
  * Register the readable resources, mirroring the tools' pre-setup gating:
  * `discern://status`, `discern://scopes`, `discern://config`, and
- * `discern://help` (+ a `{target}` template) are always available;
+ * `discern://help` (+ a `{+target}` template) are always available;
  * `discern://docs` (+ template)
  * refuses per read until the project is bootstrapped — exactly as the matching tools
  * do. Every read recomputes from the verb core against the server's CURRENT working

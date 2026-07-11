@@ -195,13 +195,20 @@ while iterating), learn discern via `discern_help`, read the project's docs via
 **Resources.** Alongside the tools, five readable resources are computed fresh
 on every read and serve the verb's `data` payload (not the full envelope):
 
-| URI                                          | Content                              | MIME                   |
-| -------------------------------------------- | ------------------------------------ | ---------------------- |
-| `discern://status`                           | a live `status` snapshot             | `application/json`     |
-| `discern://scopes`                           | the changed scopes                   | `application/json`     |
-| `discern://config`                           | the resolved `discern.toml`          | `application/json`     |
-| `discern://help` · `discern://help/{target}` | discern's own docs (index · one doc) | JSON · `text/markdown` |
-| `discern://docs` · `discern://docs/{target}` | the project's docs (index · one doc) | JSON · `text/markdown` |
+| URI                                           | Content                              | MIME                   |
+| --------------------------------------------- | ------------------------------------ | ---------------------- |
+| `discern://status`                            | a live `status` snapshot             | `application/json`     |
+| `discern://scopes`                            | the changed scopes                   | `application/json`     |
+| `discern://config`                            | the resolved `discern.toml`          | `application/json`     |
+| `discern://help` · `discern://help/{+target}` | discern's own docs (index · one doc) | JSON · `text/markdown` |
+| `discern://docs` · `discern://docs/{+target}` | the project's docs (index · one doc) | JSON · `text/markdown` |
+
+The doc templates use RFC 6570 **reserved expansion** (`{+target}`), so a
+`{+target}` accepts the same three forms the `discern_docs` / `discern_help`
+tools do — a bare **slug**, a **`section/slug`**, or a **path** — including the
+two that contain a `/`. (A plain `{target}` compiles to a capture that stops at
+`/`, so only the slug form would resolve; reserved expansion is what lets the
+resource surface mirror the tool contract.)
 
 Resources are gated like their tools (the `docs` resource on the `docs` feature
 and on setup completion; `help` always). They are application-driven and not

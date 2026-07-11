@@ -2442,7 +2442,9 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
       assert(uris.includes(u), `${u} missing from ${JSON.stringify(uris)}`);
     }
 
-    // resources/templates/list → the {target} doc templates.
+    // resources/templates/list → the {+target} doc templates. The `+` is RFC 6570
+    // reserved-expansion so a slash-bearing target (section/slug, a path) resolves;
+    // a bare {target} stops at `/` and only ever matched a slug (B37).
     await mcp.send({
       jsonrpc: "2.0",
       id: 3,
@@ -2452,8 +2454,8 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
     const tpl = (templates.result.resourceTemplates as {
       uriTemplate: string;
     }[]).map((t) => t.uriTemplate);
-    assert(tpl.includes("discern://docs/{target}"), JSON.stringify(tpl));
-    assert(tpl.includes("discern://help/{target}"), JSON.stringify(tpl));
+    assert(tpl.includes("discern://docs/{+target}"), JSON.stringify(tpl));
+    assert(tpl.includes("discern://help/{+target}"), JSON.stringify(tpl));
 
     // read discern://status → a fresh JSON snapshot (the data payload, not the
     // envelope).
@@ -2542,6 +2544,136 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
       doc.result.contents[0].text.includes("The core ideas of the project"),
       "the docs template serves the doc's Markdown content",
     );
+
+    assertEquals(await mcp.close(), 0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// B37 class guard: a doc resource template must resolve EVERY target form its
+// description (and the mirroring discern_docs/discern_help tools) advertise —
+// by slug, by `section/slug`, AND by path. The SDK compiles a bare `{target}`
+// to a capture that stops at `/`, so before the `{+target}` fix only the
+// slug form resolved and the two slash-bearing forms fell through to a
+// not-found — a resource template narrower than the tool contract it mirrors.
+//
+// Driven off the SCHEME set (`docs` + `help`, every registered doc-tree
+// scheme via registerDocTree), so a third doc-tree scheme auto-enrols; and
+// off the live index, so the exact slug/section/path come from the server
+// itself rather than a hand-copied fixture.
+// ---------------------------------------------------------------------------
+Deno.test("discern mcp: a doc resource resolves by slug, section/slug, AND path for every scheme (B37)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { bootstrapped: true });
+    await gitInit(dir);
+    // Seed a project doc UNDER A SECTION, so its `section/slug` and path forms are
+    // genuinely slash-bearing (the forms the bare template could never match).
+    const marker = "Sectioned doc body for the B37 addressing guard.";
+    await Deno.mkdir(join(dir, "discern/docs", "00-orientation"), {
+      recursive: true,
+    });
+    await Deno.writeTextFile(
+      join(dir, "discern/docs", "00-orientation", "concepts.md"),
+      `# Concepts\n\n${marker}\n`,
+    );
+    const mcp = await spawnMcp(dir);
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await mcp.recv();
+
+    let id = 100;
+    const readResource = async (uri: string): Promise<{
+      result?: { contents?: { mimeType: string; text: string }[] };
+      error?: { code: number; message: string };
+    }> => {
+      await mcp.send({
+        jsonrpc: "2.0",
+        id: id++,
+        method: "resources/read",
+        params: { uri },
+      });
+      return await mcp.recv();
+    };
+
+    // Every registered doc-tree scheme. Both are registered through the ONE
+    // registerDocTree call, so this list IS the class; a new scheme added there
+    // must be added here (or its slash-bearing forms would silently regress).
+    for (const scheme of ["docs", "help"] as const) {
+      // Read the index to discover a real doc with a non-empty section, so the
+      // three target forms are computed from live data, not guessed.
+      const index = await readResource(`discern://${scheme}`);
+      const docs = JSON.parse(index.result?.contents?.[0]?.text ?? "{}")
+        .docs as { path: string; section: string; slug: string }[];
+      assert(
+        Array.isArray(docs) && docs.length > 0,
+        `${scheme}: index carried no docs`,
+      );
+      // A doc under a section (so `section/slug` + path are genuinely slash-bearing)
+      // whose slug is UNIQUE in the tree (so the bare-slug form is unambiguous —
+      // discern's own help tree carries many `README` files, an ambiguity orthogonal
+      // to the template-matching this guard exercises).
+      const slugCounts = new Map<string, number>();
+      for (const d of docs) {
+        slugCounts.set(d.slug, (slugCounts.get(d.slug) ?? 0) + 1);
+      }
+      const entry = docs.find((d) =>
+        d.section !== "" && slugCounts.get(d.slug) === 1
+      );
+      assert(
+        entry !== undefined,
+        `${scheme}: no uniquely-slugged doc under a section to exercise the section/slug + path forms`,
+      );
+
+      // The three documented target forms — the slug, the section/slug, and the
+      // (project-relative) path. The latter two contain `/`, so a bare `{target}`
+      // template never matched them (B37).
+      const forms: Record<string, string> = {
+        slug: entry.slug,
+        "section/slug": `${entry.section}/${entry.slug}`,
+        path: entry.path,
+      };
+      for (const [label, target] of Object.entries(forms)) {
+        const res = await readResource(`discern://${scheme}/${target}`);
+        assertEquals(
+          res.error,
+          undefined,
+          `${scheme} by ${label} ("${target}"): resource read errored — ${
+            JSON.stringify(res.error)
+          }`,
+        );
+        const part = res.result?.contents?.[0];
+        assert(
+          part !== undefined,
+          `${scheme} by ${label} ("${target}"): no content returned`,
+        );
+        assertEquals(
+          part.mimeType,
+          "text/markdown",
+          `${scheme} by ${label} ("${target}"): expected Markdown`,
+        );
+        assert(
+          part.text.length > 0,
+          `${scheme} by ${label} ("${target}"): empty document body`,
+        );
+      }
+
+      // For the project docs scheme we also seeded a known body — assert every
+      // form resolves to the SAME doc, not merely to some doc.
+      if (scheme === "docs") {
+        for (const [label, target] of Object.entries(forms)) {
+          const res = await readResource(`discern://${scheme}/${target}`);
+          assertStringIncludes(
+            res.result?.contents?.[0]?.text ?? "",
+            marker,
+            `docs by ${label} ("${target}"): served a different doc's body`,
+          );
+        }
+      }
+    }
 
     assertEquals(await mcp.close(), 0);
   });
