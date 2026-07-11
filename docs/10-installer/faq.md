@@ -13,7 +13,10 @@ discern doctor
 It checks the install end to end — the config parses, the schema is current, the
 commands your gate calls resolve on `PATH`, and each configured agent's
 integration is wired — and prints each verb's execution model so you can see
-what would run. When you report a problem, include its machine-readable form:
+what would run. Run it from anywhere inside the project: like every other verb,
+it walks up to the root `discern.toml`, so a subdirectory reports the same
+install as the root, not a false "not initialized". When you report a problem,
+include its machine-readable form:
 
 ```
 discern doctor --json
@@ -118,6 +121,13 @@ Two separate axes, deliberately kept distinct:
 - **Getting a newer discern _itself_** — re-run your installer (for example
   `brew upgrade discern`). discern makes no network calls and never
   auto-updates, so a new version is always something you ask for.
+
+Which axis a schema mismatch needs depends on its direction, and
+`discern doctor` names the right one. An install OLDER than your binary migrates
+forward with `discern upgrade`. An install NEWER than your binary — a teammate
+upgraded the project with a newer discern than you have — is the other axis:
+`discern upgrade` refuses a newer-than-binary config, so update discern itself
+instead.
 
 Either axis can leave a **stale MCP server**: an agent that started
 `discern mcp` before the change keeps running the old binary's engine and

@@ -16,7 +16,8 @@ import { join } from "@std/path";
 import { runCli, withTempDir } from "./helpers.ts";
 import { renderAgentFiles } from "../src/engine/guidance_render.ts";
 import { providerFor, providersWithHooks } from "../src/lib/providers.ts";
-import { AGENT_NAMES } from "../src/shared/config_schema.ts";
+import { AGENT_NAMES, toCommandList } from "../src/shared/config_schema.ts";
+import { SCHEMA_VERSION } from "../src/lib/version.ts";
 
 /** One check in the `doctor --json` payload. */
 interface DoctorCheck {
@@ -150,6 +151,26 @@ async function addCapabilityLiteral(
     text.replace(
       /\[capabilities\]\n/,
       `[capabilities]\n${key} = '${literal}'\n`,
+    ),
+  );
+}
+
+/** Set a `[capabilities]` key to a RAW TOML value literal, verbatim — the caller
+ * writes the exact right-hand side (`""`, `[]`, `":"`, `["echo hi"]`), so a test can
+ * exercise the no-op forms `toCommandList` drops, which the quote-wrapping helpers
+ * above cannot express. */
+async function setCapabilityRaw(
+  dir: string,
+  key: string,
+  rawValue: string,
+): Promise<void> {
+  const p = join(dir, "discern.toml");
+  const text = await Deno.readTextFile(p);
+  await Deno.writeTextFile(
+    p,
+    text.replace(
+      /\[capabilities\]\n/,
+      `[capabilities]\n${key} = ${rawValue}\n`,
     ),
   );
 }
@@ -344,6 +365,50 @@ Deno.test("doctor: a missing config is flagged as not initialized", async () => 
   });
 });
 
+// The class guard for B30: `discern doctor` must resolve the project root by
+// walking up from the cwd (via `findRoot`), the same way status/finish and its own
+// `discern_doctor` MCP tool do — so it diagnoses the real install from ANY
+// subdirectory, never a phantom "broken" one at the cwd. Table-shaped over several
+// nesting depths so it guards the class, not one depth; it fails on the pre-fix
+// `destDir = Deno.cwd()`, which reports "discern.toml: not found in this directory"
+// from every subdir.
+const SUBDIR_DEPTHS: { label: string; segments: string[] }[] = [
+  { label: "one level down", segments: ["src"] },
+  { label: "two levels down", segments: ["src", "commands"] },
+  { label: "three levels down", segments: ["a", "b", "c"] },
+];
+
+for (const { label, segments } of SUBDIR_DEPTHS) {
+  Deno.test(`doctor: run from a subdirectory (${label}) diagnoses the install at the root`, async () => {
+    await withTempDir(async (dir) => {
+      await setupInstall(dir);
+      const sub = join(dir, ...segments);
+      await Deno.mkdir(sub, { recursive: true });
+
+      // Run doctor with the cwd set to the subdirectory. It must find the real
+      // discern.toml at the root, not report the install missing/broken.
+      const { code, stdout } = await runCli(["doctor", "--json"], sub);
+      const payload = JSON.parse(stdout) as DoctorPayload;
+      assertEquals(
+        code,
+        0,
+        `doctor from ${label} should be healthy: ${
+          JSON.stringify(payload.data.checks)
+        }`,
+      );
+      const toml = check(payload, "discern.toml");
+      assertEquals(
+        toml.ok,
+        true,
+        "the config must resolve from a subdirectory",
+      );
+      assertStringIncludes(toml.detail, "present and valid TOML");
+      // The schema check reads the root's recorded version, not a phantom default.
+      assertStringIncludes(check(payload, "schema version").detail, "current");
+    });
+  });
+}
+
 Deno.test("doctor: a stale schema is flagged with an upgrade fix", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir);
@@ -357,6 +422,49 @@ Deno.test("doctor: a stale schema is flagged with an upgrade fix", async () => {
     assertStringIncludes(schema.detail, "v1");
     assertStringIncludes(schema.detail, "v17");
     assertStringIncludes(schema.fix ?? "", "discern upgrade");
+  });
+});
+
+// The class guard for B51: doctor must give schema advice the recommended command
+// actually honors. `discern upgrade` migrates an OLDER install forward (the case the
+// "a stale schema is flagged with an upgrade fix" test above pins) but REFUSES one
+// newer than the binary — so advising it there sends the user at a command that
+// rejects their exact state. This guards the newer direction and additionally proves
+// the contradiction by running `discern upgrade` and confirming it refuses, so a
+// regression that re-advises the migrate command fails here.
+Deno.test("doctor: a NEWER-than-binary schema advises updating discern, never the `discern upgrade` it refuses", async () => {
+  await withTempDir(async (dir) => {
+    await setupInstall(dir);
+    // The project was upgraded by a newer binary than this one.
+    await setSchema(dir, SCHEMA_VERSION + 1);
+
+    const { code, payload } = await runDoctorJson(dir);
+    assertEquals(code, 1);
+    const schema = check(payload, "schema version");
+    assertEquals(schema.status, "fail");
+    assertStringIncludes(schema.detail, `v${SCHEMA_VERSION + 1}`);
+    assertStringIncludes(schema.detail, "newer");
+    // The remedy must point at updating discern itself, NOT at running the migrate
+    // command upgrade would refuse.
+    const fix = schema.fix ?? "";
+    assert(
+      /re-run the installer|update discern/i.test(fix),
+      `newer-schema fix must point at updating discern: ${fix}`,
+    );
+    assert(
+      !/run `discern upgrade`/i.test(fix),
+      `newer-schema fix must not recommend the \`discern upgrade\` that refuses this state: ${fix}`,
+    );
+
+    // Prove the contradiction the old advice created: `discern upgrade` genuinely
+    // refuses this exact install, so recommending it would send the user nowhere.
+    const up = await runCli(["upgrade", "--json"], dir);
+    assertEquals(up.code, 1);
+    assertEquals(
+      (JSON.parse(up.stdout) as { error?: string }).error,
+      "schema_version_too_new",
+      "upgrade must refuse a newer-than-binary schema — the state doctor's fix must route around",
+    );
   });
 });
 
@@ -406,6 +514,49 @@ Deno.test("doctor: a fresh install reports its wired capabilities", async () => 
     assertStringIncludes(caps.detail, "test");
   });
 });
+
+// The class guard for B29: doctor's "wired" verdict must mean the SAME thing the
+// gate/status/improve mean — a capability is wired iff `toCommandList` keeps a
+// command from it. Each no-op form below empties `toCommandList`, so doctor must
+// report it NOT wired (warn, "none wired yet"), never healthy. Driven off the SSOT
+// (`toCommandList`) and table-shaped so a new no-op form auto-enrols; it fails on the
+// pre-fix `v !== undefined` predicate, which counted `""`/`[]` as wired.
+const NOOP_CAPABILITY_VALUES: { label: string; raw: string }[] = [
+  { label: "empty string", raw: '""' },
+  { label: "empty list", raw: "[]" },
+  { label: "the : no-op", raw: '":"' },
+  { label: "a list of only no-ops", raw: '["", ":"]' },
+];
+
+for (const { label, raw } of NOOP_CAPABILITY_VALUES) {
+  Deno.test(`doctor: a capability set to ${label} is NOT counted as wired (agrees with toCommandList)`, async () => {
+    // The SSOT: this value contributes no runnable command to the gate.
+    assertEquals(
+      toCommandList(JSON.parse(raw) as string | string[]),
+      [],
+      `${label} should be a toCommandList no-op — fix the fixture if this trips`,
+    );
+    await withTempDir(async (dir) => {
+      await setupInstall(dir);
+      await setCapabilityRaw(dir, "test", raw);
+      const { code, payload } = await runDoctorJson(dir);
+      assertEquals(code, 0, JSON.stringify(payload.data.checks));
+      const caps = check(payload, "capabilities");
+      // The scaffold wires no other capability, so a no-op `test` leaves zero wired.
+      assertEquals(
+        caps.status,
+        "warn",
+        `a no-op capability must not read as wired: ${caps.detail}`,
+      );
+      assertEquals(caps.ok, true);
+      assertStringIncludes(caps.detail, "none wired yet");
+      assert(
+        !caps.detail.includes("test"),
+        `no-op capability must not appear as wired: ${caps.detail}`,
+      );
+    });
+  });
+}
 
 Deno.test("doctor: an env-assignment prefix probes the real command, not the assignment", async () => {
   await withTempDir(async (dir) => {

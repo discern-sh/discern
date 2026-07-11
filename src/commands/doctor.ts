@@ -14,11 +14,11 @@ import {
   resolveRecipesDir,
   resolveSkillsDir,
 } from "../lib/paths.ts";
-import { CONFIG_REL } from "../shared/env.ts";
+import { CONFIG_REL, findRoot } from "../shared/env.ts";
 import { Logger } from "../lib/log.ts";
 import { terminalWidth, wrapText } from "../lib/text.ts";
 import { parseDiscernToml } from "../lib/toml_render.ts";
-import { resolveRecordedSchema } from "../lib/schema.ts";
+import { isRecordedSchemaNewer, resolveRecordedSchema } from "../lib/schema.ts";
 import { KIT_VERSION, SCHEMA_VERSION } from "../lib/version.ts";
 import {
   AGENT_NAMES,
@@ -176,12 +176,26 @@ export async function runChecks(destDir: string): Promise<Check[]> {
   }
 
   // 2. schema currency — the recorded `[meta].schema_version` matches this build.
+  // The two mismatch directions need opposite remedies, and only one of them is
+  // `discern upgrade`: that verb migrates an OLDER install forward, but REFUSES a
+  // config newer than the binary (see `isRecordedSchemaNewer`/upgrade's own guard),
+  // so advising it there would send the user at a command that rejects their exact
+  // state. A newer install means the BINARY is behind — re-run the installer.
   const recorded = await resolveRecordedSchema(toml.raw, destDir);
   if (recorded === SCHEMA_VERSION) {
     checks.push({
       name: "schema version",
       ok: true,
       detail: `schema ${SCHEMA_VERSION} (current)`,
+    });
+  } else if (isRecordedSchemaNewer(recorded, SCHEMA_VERSION)) {
+    checks.push({
+      name: "schema version",
+      ok: false,
+      detail:
+        `install schema v${recorded} is newer than this build's v${SCHEMA_VERSION} — the project was upgraded by a newer discern`,
+      fix:
+        "update discern itself (re-run the installer, e.g. `brew upgrade discern`) — `discern upgrade` refuses a newer-than-binary config",
     });
   } else {
     checks.push({
@@ -251,8 +265,12 @@ export async function runChecks(destDir: string): Promise<Check[]> {
 
   // 4. capabilities — informational: which are wired (the unknown-key case is now
   // a schema issue above, so a valid config only ever lists known capabilities).
+  // "Wired" means the SAME thing the gate, status, and improve mean: the command
+  // survives `toCommandList` (a `""`, `[]`, or `:` no-op runs nothing, so it is not
+  // wired). Re-deriving that with a looser predicate would let doctor call a no-op
+  // capability healthy while `discern finish` runs nothing for it.
   const wiredCaps = Object.entries(config.capabilities)
-    .filter(([, v]) => v !== undefined).map(([k]) => k);
+    .filter(([, v]) => toCommandList(v).length > 0).map(([k]) => k);
   checks.push({
     name: "capabilities",
     ok: wiredCaps.length > 0,
@@ -917,7 +935,12 @@ function renderDoctorChecks(log: Logger, checks: Check[]): void {
 /** Run `discern doctor`. Returns a process exit code (0 = healthy). */
 export async function runDoctor(options: DoctorOptions): Promise<number> {
   const log = new Logger(options);
-  const destDir = Deno.cwd();
+  // Resolve the project root the way every other verb (and the `discern_doctor`
+  // MCP tool) does — walk up from the cwd via `findRoot` — so doctor run from any
+  // subdirectory diagnoses the same install the gate, status, and finish would,
+  // not a phantom "broken" one at the cwd. Falls back to the cwd when there is no
+  // project in the ancestry, so the "discern.toml not found" check still fires.
+  const destDir = (await findRoot()) ?? Deno.cwd();
 
   if (options.json) {
     const result = await doctorResult(destDir);
